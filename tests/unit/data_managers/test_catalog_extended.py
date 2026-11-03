@@ -34,66 +34,6 @@ def test_schema_version_table_records_data_cache_version():
     assert row == (1,)
 
 
-def test_legacy_data_cache_schema_is_adopted(tmp_path: Path):
-    """Old data caches already had V1 tables but no schema_migrations ledger."""
-
-    db_path = tmp_path / "cache.duckdb"
-    migration_sql = (
-        Path(__file__).resolve().parents[3]
-        / "hydromodpy"
-        / "data"
-        / "registry"
-        / "migrations"
-        / "0001_initial.sql"
-    ).read_text(encoding="utf-8")
-    connection = duckdb.connect(str(db_path))
-    try:
-        connection.execute(migration_sql)
-        connection.execute(
-            """
-            CREATE TABLE _schema_version (
-                component VARCHAR PRIMARY KEY,
-                version VARCHAR NOT NULL,
-                applied_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-            )
-            """
-        )
-        connection.execute(
-            "INSERT INTO _schema_version (component, version) VALUES ('data_catalog', '1')"
-        )
-    finally:
-        connection.close()
-
-    with DataCatalogDuckDB(db_path) as catalog:
-        assert current_version(catalog.connection) == 1
-        row = catalog.connection.execute(
-            "SELECT version FROM _schema_version WHERE component = 'data_cache'"
-        ).fetchone()
-        assert row == (1,)
-
-
-def test_legacy_data_cache_schema_without_legacy_version_is_adopted(tmp_path: Path):
-    """Some V1 caches have the tables but an empty migration ledger."""
-
-    db_path = tmp_path / "cache.duckdb"
-    migration_sql = (
-        Path(__file__).resolve().parents[3]
-        / "hydromodpy"
-        / "data"
-        / "registry"
-        / "migrations"
-        / "0001_initial.sql"
-    ).read_text(encoding="utf-8")
-    connection = duckdb.connect(str(db_path))
-    try:
-        connection.execute(migration_sql)
-    finally:
-        connection.close()
-
-    with DataCatalogDuckDB(db_path) as catalog:
-        assert current_version(catalog.connection) == 1
-
-
 def test_artifact_and_provenance_roundtrip():
     cat = DataCatalogDuckDB()
     aid = cat.write_artifact(

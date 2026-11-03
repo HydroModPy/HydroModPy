@@ -11,7 +11,8 @@ directories between them; it never reads the index.
   name that nothing holds or held.
 - :func:`import_publication` brings a run published by ``hmp publish`` into
   the project under a reserved name, after checking every digest.
-- :func:`run_identity_hash` says when two runs compute the same thing.
+- :func:`run_identity_hash` and :func:`config_identity_hash` say when two runs
+  compute the same thing.
 
 Grammar
 -------
@@ -53,33 +54,31 @@ from hydromodpy.results.trash import check_not_running, identity_of, list_trash,
 
 logger = get_logger(__name__)
 
-_RUN_OVERRIDES_KEY = "__run_overrides__"
 _RUN_INPUTS_KEY = "__run_inputs__"
-_RUN_VERSION_KEY = "__hydromodpy_version__"
+_RUN_CODE_KEY = "__code__"
 _RUN_MESH_ENGINE_KEY = "__mesh_engine__"
 _WORKSPACE_SECTION = "workspace"
 
 
-def run_identity_hash(
-    config: dict | None,
-    *,
-    overrides: dict | None = None,
-    inputs: dict[str, str] | None = None,
-) -> str | None:
+def run_identity_hash(config: dict | None, *, inputs: dict[str, str] | None = None) -> str | None:
     """Return the hash that says two runs compute the same thing.
 
     It is the ``config_hash`` of a run and of a planned case, and what
     ``hmp run`` and ``hmp.run`` compare to skip an identical completed run.
-    It covers the resolved configuration without its ``[workspace]`` section
-    and without ``simulation.name``, plus the parameter overrides a
-    ``Project.simulate`` call applied on top of the configuration, the
-    digests of the input files the configuration names (``inputs``, from
-    :func:`input_file_digests`), the HydroModPy version and the mesh engine
-    with its version (:func:`mesh_engine_identity`). A changed data file,
-    another release of the code or another build of the mesh engine is another
-    computation; another machine, workspace or project root is not. A path
-    under the project root enters the hash relative to it, so two copies of
-    one project hash alike.
+    It covers the configuration without its ``[workspace]`` section and without
+    ``simulation.name``, the digests of the input files the configuration names
+    (``inputs``, from :func:`input_file_digests`), the fingerprint of the code
+    that computes (:func:`~hydromodpy.core.code_fingerprint.code_fingerprint`) and
+    the mesh engine with its version (:func:`mesh_engine_identity`). A changed
+    data file, an edit of a solver or another build of the mesh engine is another
+    computation; another machine, workspace, project root or release that leaves
+    the code alone is not. A path under the project root enters the hash relative
+    to it, so two copies of one project hash alike.
+
+    An override of a run is a change of its configuration, so it needs no entry of
+    its own. :func:`config_identity_hash` gives the configuration without the
+    values that equal a default: a default that moves is seen by the fingerprint,
+    and writing a default out in a file is no other computation.
 
     A run the configuration reads (``[flow] restart_from``, the ``run`` of a
     ``[[mesh.refinement_zone]]``) enters by its ``sim_id``
@@ -88,12 +87,11 @@ def run_identity_hash(
     hash alike, and a later version of the source run is another computation.
 
     The run name is not part of the hash: it is the directory, which a rename
-    moves. Overrides that do not serialise to JSON get a random salt: such a
-    run never matches another one, which errs on the side of computing.
+    moves.
     """
     if not config:
         return None
-    from hydromodpy.core.version import __version__
+    from hydromodpy.core.code_fingerprint import RUN_LAYERS, code_fingerprint
     from hydromodpy.results.source_runs import resolve_source_runs
 
     payload = json.loads(json.dumps(config, default=str))
@@ -105,15 +103,26 @@ def run_identity_hash(
     simulation = payload.get("simulation")
     if isinstance(simulation, dict):
         simulation.pop("name", None)
-    if overrides:
-        try:
-            payload[_RUN_OVERRIDES_KEY] = json.loads(json.dumps(overrides, sort_keys=True))
-        except (TypeError, ValueError):
-            payload[_RUN_OVERRIDES_KEY] = uuid.uuid4().hex
+        if not simulation:
+            # A section left with nothing is a section left at its defaults.
+            del payload["simulation"]
     payload[_RUN_INPUTS_KEY] = dict(sorted((inputs or {}).items()))
-    payload[_RUN_VERSION_KEY] = __version__
+    payload[_RUN_CODE_KEY] = code_fingerprint(RUN_LAYERS)
     payload[_RUN_MESH_ENGINE_KEY] = mesh_engine_identity(payload)
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+
+
+def config_identity_hash(config: Any) -> str | None:
+    """Return the identity hash of a validated configuration and of the files it names.
+
+    The project root anchors the paths, so it stays even when ``[workspace]`` equals
+    the default the current directory would give it.
+    """
+    dump = config.model_dump(mode="json", exclude_defaults=True)
+    root = getattr(getattr(config, "workspace", None), "project_root", None)
+    if root is not None:
+        dump[_WORKSPACE_SECTION] = {"project_root": str(root)}
+    return run_identity_hash(dump, inputs=input_file_digests(config))
 
 
 def _relative_to_project(value: Any, project_root: Path) -> Any:

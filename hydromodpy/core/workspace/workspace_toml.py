@@ -8,7 +8,12 @@ user once at workspace creation time.
 
 A Pydantic v2 model validates the file at load time so a hand-edited
 ``workspace.toml`` that breaks the contract surfaces a clear error before
-producing crashes later in the pipeline.
+producing crashes later in the pipeline. The file is written by hand, so the
+model stays ``extra="forbid"``.
+
+``hydromodpy_version_min`` is the oldest HydroModPy the workspace accepts, and
+reading the file refuses an older one. A pre-release counts as its release:
+2.0.0a5 opens a workspace that asks for 2.0.0.
 
 Specification: ``reports_db/99_master.md §5.4``.
 """
@@ -19,13 +24,19 @@ import tomllib
 from datetime import UTC, datetime
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field
+from packaging.version import InvalidVersion, Version
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from hydromodpy.core.exceptions import SchemaVersionMismatchError
 from hydromodpy.core.state.paths import WORKSPACE_TOML_FILENAME
 from hydromodpy.core.units.types import LengthMeters
+from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
 
 NEAR_SITE_M_DEFAULT: float = 500.0
 """Default of ``[sites] near_site_m``, in metres."""
+
+WORKSPACE_VERSION_MIN: str = "2.0.0"
+"""What a new workspace asks of HydroModPy: the first release of the 2 line."""
 
 DEFAULT_WORKSPACE_TOML_TEMPLATE: str = """\
 [workspace]
@@ -36,7 +47,7 @@ creator_name = "{creator_name}"
 creator_institution = ""
 created_at = "{created_at}"
 # license = ""  # SPDX id you publish your own outputs under; nobody chose one yet
-hydromodpy_version_min = "2.0.0"
+hydromodpy_version_min = "{hydromodpy_version_min}"
 
 [workspace.geographic_scope]
 region = ""
@@ -99,11 +110,21 @@ class WorkspaceMetadata(BaseModel):
         ),
     )
     hydromodpy_version_min: str = Field(
-        "2.0.0", description="Minimum compatible HydroModPy version"
+        WORKSPACE_VERSION_MIN,
+        description="Oldest HydroModPy that opens this workspace; an older one refuses it",
     )
     geographic_scope: GeographicScopeMetadata = GeographicScopeMetadata()
     team: TeamMetadata = TeamMetadata()
     tags: TagsMetadata = TagsMetadata()
+
+    @field_validator("hydromodpy_version_min")
+    @classmethod
+    def _is_a_version(cls, value: str) -> str:
+        try:
+            Version(value)
+        except InvalidVersion as exc:
+            raise ValueError(f"{value!r} is not a version: write it as 2.0.0") from exc
+        return value
 
 
 class SitesMetadata(BaseModel):
@@ -161,6 +182,7 @@ def render_workspace_toml(
         created_at=timestamp,
         creator_name=escaped_name,
         creator_name_quoted=creator_name_quoted,
+        hydromodpy_version_min=WORKSPACE_VERSION_MIN,
     )
 
 
@@ -197,9 +219,11 @@ def load_workspace_toml(workspace: Path) -> WorkspaceToml:
     """Load and validate ``<workspace>/workspace.toml`` via Pydantic.
 
     Raises ``FileNotFoundError`` if the file is missing,
-    ``tomllib.TOMLDecodeError`` if the file is not valid TOML, and
+    ``tomllib.TOMLDecodeError`` if the file is not valid TOML,
     ``pydantic.ValidationError`` if any field is missing, mistyped, or
-    unknown (the model is ``extra="forbid"``).
+    unknown (the model is ``extra="forbid"``), and
+    :class:`~hydromodpy.core.exceptions.SchemaVersionMismatchError` if the
+    file asks for a newer HydroModPy than the one installed.
     """
     ws = Path(workspace).expanduser().resolve()
     toml_path = ws / WORKSPACE_TOML_FILENAME
@@ -209,7 +233,40 @@ def load_workspace_toml(workspace: Path) -> WorkspaceToml:
             "Run `hmp workspace init` to scaffold the workspace."
         )
     data = tomllib.loads(toml_path.read_text(encoding="utf-8"))
-    return WorkspaceToml.model_validate(data)
+    parsed = WorkspaceToml.model_validate(data)
+    _refuse_a_newer_minimum(parsed.workspace.hydromodpy_version_min, toml_path)
+    return parsed
+
+
+def refuse_a_newer_workspace(root: Path) -> None:
+    """Refuse when ``<root>/workspace.toml`` asks for more than the installed HydroModPy.
+
+    Every run and every command on a workspace passes here, before any work. It
+    reads that one key: a mistake elsewhere in the file is said by
+    :func:`load_workspace_toml`, where the file is needed.
+    """
+    toml_path = Path(root) / WORKSPACE_TOML_FILENAME
+    try:
+        document = tomllib.loads(toml_path.read_text(encoding="utf-8"))
+        minimum = document["workspace"]["hydromodpy_version_min"]
+        _refuse_a_newer_minimum(str(minimum), toml_path)
+    except (OSError, KeyError, TypeError, tomllib.TOMLDecodeError, InvalidVersion):
+        # No file, no key, or a file that does not parse: nothing asks for a version here.
+        return
+
+
+def _refuse_a_newer_minimum(minimum: str, toml_path: Path) -> None:
+    """Refuse a workspace that asks for more than the installed HydroModPy."""
+    asked, installed = Version(minimum), Version(HYDROMODPY_VERSION)
+    if Version(installed.base_version) >= Version(asked.base_version):
+        return
+    raise SchemaVersionMismatchError(
+        f"{toml_path} asks for hydromodpy_version_min = {minimum!r}, and HydroModPy "
+        f"{HYDROMODPY_VERSION} is installed. Upgrade HydroModPy to open this workspace.",
+        document=str(toml_path),
+        found=minimum,
+        expected=HYDROMODPY_VERSION,
+    )
 
 
 def near_site_m(workspace: Path) -> float:
@@ -222,6 +279,7 @@ def near_site_m(workspace: Path) -> float:
 __all__ = [
     "DEFAULT_WORKSPACE_TOML_TEMPLATE",
     "NEAR_SITE_M_DEFAULT",
+    "WORKSPACE_VERSION_MIN",
     "SitesMetadata",
     "ConventionsMetadata",
     "GeographicScopeMetadata",
@@ -231,6 +289,7 @@ __all__ = [
     "WorkspaceToml",
     "load_workspace_toml",
     "near_site_m",
+    "refuse_a_newer_workspace",
     "render_workspace_toml",
     "write_workspace_toml",
 ]

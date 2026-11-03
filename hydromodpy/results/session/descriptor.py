@@ -31,23 +31,35 @@ from __future__ import annotations
 from collections.abc import Mapping
 from datetime import date, datetime
 from pathlib import Path
-from typing import Any, Final, Literal
+from typing import Annotated, Any, Final
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.stored import Vocabulary, dump_stored, read_stored
 from hydromodpy.core.exceptions import ConfigMissingError
+from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.core.state.paths import parse_rel_dir, session_dir_rel, sessions_dir_for
 from hydromodpy.results.checks import StopState
 from hydromodpy.results.metric_rule import DateWindow
 from hydromodpy.results.rel_dir import checked_rel_dir
 from hydromodpy.results.storage.contract import SESSION_DESCRIPTOR_FILENAME
-from hydromodpy.results.storage.json_io import read_sealed_json, write_json_durable
+from hydromodpy.results.storage.json_io import (
+    read_sealed_json,
+    readable,
+    readable_documents,
+    write_json_durable,
+)
 
 SESSION_SCHEMA: Final[str] = "hydromodpy.session.v3"
 """Schema id of the descriptor."""
 
-SessionStatus = Literal["running", "completed", "partial", "aborted", "failed"]
+SESSION_VERSIONS: Final[VersionWindow] = VersionWindow(
+    oldest="hydromodpy.session.v3", current=SESSION_SCHEMA
+)
+"""Versions of the descriptor this code reads."""
+
+SessionStatus = Annotated[str, Vocabulary("running", "completed", "partial", "aborted", "failed")]
 """Where a session or a phase stands."""
 
 
@@ -160,7 +172,7 @@ class SessionDescriptor(HydroModelBase):
 
     @model_validator(mode="after")
     def _consistent(self) -> SessionDescriptor:
-        if self.schema_ != SESSION_SCHEMA:
+        if not SESSION_VERSIONS.holds(self.schema_):
             raise ValueError(f"schema is {self.schema_!r}, this module reads {SESSION_SCHEMA!r}")
         if self.status == "running" and self.ended_at is not None:
             raise ValueError("a running session has no ended_at")
@@ -174,15 +186,13 @@ def session_descriptor_path(session_dir: str | Path) -> Path:
 
 def write_session(session_dir: str | Path, descriptor: SessionDescriptor) -> Path:
     """Write the descriptor durably and return its path."""
-    return write_json_durable(
-        session_descriptor_path(session_dir), descriptor.model_dump(mode="json", by_alias=True)
-    )
+    return write_json_durable(session_descriptor_path(session_dir), dump_stored(descriptor))
 
 
 def read_session(session_dir: str | Path) -> SessionDescriptor:
     """Read the descriptor of a session directory."""
-    return SessionDescriptor.model_validate(
-        read_sealed_json(session_descriptor_path(session_dir), SESSION_SCHEMA)
+    return read_stored(
+        SessionDescriptor, read_sealed_json(session_descriptor_path(session_dir), SESSION_VERSIONS)
     )
 
 
@@ -201,26 +211,42 @@ def list_session_dirs(project_root: str | Path) -> list[Path]:
 def find_session_dir(project_root: str | Path, session_id: str) -> Path | None:
     """Return the directory of the session whose descriptor carries *session_id*."""
     wanted = str(session_id).replace("-", "").lower()
-    for directory in list_session_dirs(project_root):
-        if read_session(directory).session_id.replace("-", "").lower() == wanted:
+    for directory, descriptor in readable_documents(read_session, list_session_dirs(project_root)):
+        if descriptor.session_id.replace("-", "").lower() == wanted:
             return directory
     return None
+
+
+def _read_phases_and_trials(session_dir: Path) -> bool:
+    """Read what a session holds beside its descriptor; a document this code refuses raises."""
+    from hydromodpy.results.session.journal import read_trials
+    from hydromodpy.results.session.phase import list_phases
+
+    list_phases(session_dir)
+    read_trials(session_dir)
+    return True
 
 
 def resolve_session_dir(project_root: str | Path, reference: str | None) -> Path:
     """Return the session directory a reference names.
 
     ``reference`` is ``<case>[.vN]`` or ``sessions/<case>[.vN]``, the exact
-    name of one session. ``None`` selects the session that started last. A
-    reference that names no session is refused with the sessions the project
-    holds.
+    name of one session. ``None`` selects the session that started last among
+    those this code reads, whole: its descriptor, its phases and its journal.
+    A session one of them refuses costs one warning. A reference that names no
+    session is refused with the sessions the project holds.
     """
     root = Path(project_root).expanduser().resolve()
     sessions = list_session_dirs(root)
     if reference is None:
-        if not sessions:
-            raise ConfigMissingError(f"No calibration session under {sessions_dir_for(root)}.")
-        return max(sessions, key=lambda directory: read_session(directory).started_at)
+        started = {
+            directory: descriptor.started_at
+            for directory, descriptor in readable_documents(read_session, sessions)
+        }
+        for directory in sorted(started, key=started.__getitem__, reverse=True):
+            if readable(_read_phases_and_trials, directory):
+                return directory
+        raise ConfigMissingError(f"No readable calibration session under {sessions_dir_for(root)}.")
     rel = reference if "/" in reference else session_dir_rel(reference)
     parsed = parse_rel_dir(rel)
     if parsed.kind != "session":
@@ -238,6 +264,7 @@ def resolve_session_dir(project_root: str | Path, reference: str | None) -> Path
 
 __all__ = [
     "SESSION_SCHEMA",
+    "SESSION_VERSIONS",
     "BestTrial",
     "ScoredSamples",
     "SessionDescriptor",

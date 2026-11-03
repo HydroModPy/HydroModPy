@@ -8,6 +8,7 @@ from typing import Annotated
 from pydantic import Field, field_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.physics.flow.sinks_sources.etp import FlowEtpConfig
 from hydromodpy.physics.flow.sinks_sources.flow_barrier import FlowBarrierConfig
@@ -59,6 +60,7 @@ class FlowSinksSourcesConfig(HydroModelBase):
             "backend only; declaring one activates it). A lake's dam cutoff wall is "
             "declared on the lake instead."
         ),
+        json_schema_extra=field_metadata(stability="experimental"),
     )
     recharge: Annotated[FlowRechargeConfig | None, Profile.USER] = Field(
         default=None,

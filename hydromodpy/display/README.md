@@ -104,7 +104,7 @@ hydromodpy/display/
 │                          describe_options; figure.options_of gives the catalog type, default, unit
 ├── figure_registry.py     register, get, resolve, names, list_figures; imports figures/ on first lookup
 ├── figures/               one figure per file, flat, discovered automatically
-│   ├── _scalar_face_map.py    base of the "one value per mesh face" maps
+│   ├── scalar_face_map.py    base of the "one value per mesh face" maps
 │   ├── _stream_comparison.py, _routing_surface.py, _flow_persistence.py, _trial_diagnostics.py,
 │   │   _observed.py, _memo.py, _instant.py (how a title names the period it draws)
 │   │                          helpers shared between figures (private to figures/)
@@ -155,7 +155,7 @@ A figure is a class in `figures/<name>.py`. The file name does not start with `_
 ```python
 from hydromodpy.display.figure import FigureSpec
 from hydromodpy.display.figure_registry import register
-from hydromodpy.display.figures._scalar_face_map import ScalarFaceMap
+from hydromodpy.display.figures.scalar_face_map import ScalarFaceMap
 
 
 @register

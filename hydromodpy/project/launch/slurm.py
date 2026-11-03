@@ -105,6 +105,7 @@ from hydromodpy.results.session.descriptor import (
 )
 from hydromodpy.results.storage.attempt import finish_attempt, latest_version_dir
 from hydromodpy.results.storage.contract import RUN_LOGS_DIRNAME
+from hydromodpy.results.storage.json_io import readable
 
 logger = get_logger(__name__)
 
@@ -453,7 +454,7 @@ def _latest_session_dir(root: Path, case_id: str) -> Path | None:
 
 def _dead_outcome(directory: Path) -> Outcome | None:
     """Return the outcome when it says ``running`` for a process of this host that is gone."""
-    outcome = read_outcome(directory)
+    outcome = readable(read_outcome, directory)
     if outcome is None or outcome.status != "running":
         return None
     if outcome.host != socket.gethostname() or process_is_alive(outcome.pid):

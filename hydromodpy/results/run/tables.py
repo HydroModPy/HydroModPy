@@ -15,10 +15,10 @@ from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 import pyarrow as pa
-import pyarrow.parquet as pq
 
 from hydromodpy.results.manifest import PARAMETERS_TABLE_NAME
 from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX
+from hydromodpy.results.storage.parquet_io import read_checked_table
 from hydromodpy.results.storage.parquet_schemas import PARAMETERS_SCHEMA, VIEW_SCHEMAS
 
 if TYPE_CHECKING:
@@ -46,8 +46,7 @@ def read_run_table(
         schema = _SCHEMAS.get(name)
         names = list(columns) if columns is not None else ([] if schema is None else schema.names)
         return pd.DataFrame(columns=names)
-    table = pq.read_table(path, columns=None if columns is None else list(columns), filters=filters)
-    return table.to_pandas()
+    return read_checked_table(path, columns=columns, filters=filters).to_pandas()
 
 
 def has_rows(run: Run, name: str, **where: Any) -> bool:

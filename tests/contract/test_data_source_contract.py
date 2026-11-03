@@ -1,5 +1,11 @@
 """Conformance suite for the data-source port, run against every source.
 
+What a source declares and what it refuses before reaching its provider runs on every
+source the registry serves, an installed one too. Run this file from a clone with
+the plugin installed (``tests/contract/test_data_source_conformance_reaches_an_installed_source.py``
+proves it). What reaches the provider needs a :class:`SourceCase`, which says which
+function a source delegates to.
+
 The port is only worth its name if adapters that agree on nothing else answer
 the same questions the same way. The three sources this build ships are river
 networks and agree on too much, so three doubles defined here stand for the
@@ -291,6 +297,13 @@ DOUBLE_CASES: tuple[SourceCase, ...] = (
 CASES = BUILTIN_CASES + DOUBLE_CASES
 CASE_PARAMS = [pytest.param(case, id=case.name) for case in CASES]
 
+# Every source the registry serves, shipped or installed, and the doubles. A source
+# with a constructor that needs an argument has to give it a default for this suite.
+SOURCE_PARAMS = [
+    *(pytest.param(registry.get(name), id=name) for name in registry.list_source_ids()),
+    *(pytest.param(case.build, id=case.name) for case in DOUBLE_CASES),
+]
+
 
 @dataclass
 class ProviderCall:
@@ -365,17 +378,17 @@ def test_the_suite_spans_the_vocabularies() -> None:
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.parametrize("case", CASE_PARAMS)
-def test_a_source_has_every_member_the_port_asks_for(case: SourceCase) -> None:
-    source = case.build()
+@pytest.mark.parametrize("build", SOURCE_PARAMS)
+def test_a_source_has_every_member_the_port_asks_for(build: Callable[[], Any]) -> None:
+    source = build()
     assert missing_source_members(source) == ()
     assert isinstance(source, DataSource)
     assert set(SOURCE_MEMBERS) <= set(dir(source))
 
 
-@pytest.mark.parametrize("case", CASE_PARAMS)
-def test_the_declarations_use_the_closed_vocabularies(case: SourceCase) -> None:
-    source = case.build()
+@pytest.mark.parametrize("build", SOURCE_PARAMS)
+def test_the_declarations_use_the_closed_vocabularies(build: Callable[[], Any]) -> None:
+    source = build()
     assert source.payload_kind in ALL_PAYLOAD_KINDS
     assert source.period_need in ALL_PERIOD_NEEDS
     assert source.selectors, "a source that selects by nothing cannot be asked anything"
@@ -385,17 +398,17 @@ def test_the_declarations_use_the_closed_vocabularies(case: SourceCase) -> None:
     assert isinstance(source.writes_out_dir, bool)
 
 
-@pytest.mark.parametrize("case", CASE_PARAMS)
-def test_the_declared_extent_crs_resolves(case: SourceCase) -> None:
+@pytest.mark.parametrize("build", SOURCE_PARAMS)
+def test_the_declared_extent_crs_resolves(build: Callable[[], Any]) -> None:
     """A CRS nothing can resolve makes every conversion into this source fail."""
-    source = case.build()
+    source = build()
     assert pyproj.CRS.from_user_input(source.extent_crs) is not None
 
 
-@pytest.mark.parametrize("case", CASE_PARAMS)
-def test_the_declared_hosts_are_bare_names(case: SourceCase) -> None:
+@pytest.mark.parametrize("build", SOURCE_PARAMS)
+def test_the_declared_hosts_are_bare_names(build: Callable[[], Any]) -> None:
     """A host list is what a capability publishes; a URL there would not compare."""
-    source = case.build()
+    source = build()
     assert source.hosts, "every source of this suite reaches a provider over the network"
     for host in source.hosts:
         assert host == host.strip().lower()
@@ -427,11 +440,11 @@ def test_a_source_answers_every_selector_it_declares(
         assert len(calls) == 1, f"{source.source_id} did not serve selector {selector!r}"
 
 
-@pytest.mark.parametrize("case", CASE_PARAMS)
+@pytest.mark.parametrize("build", SOURCE_PARAMS)
 def test_a_source_refuses_a_selector_it_does_not_declare(
-    case: SourceCase, tmp_path: Path, no_network: None
+    build: Callable[[], Any], tmp_path: Path, no_network: None
 ) -> None:
-    source = case.build()
+    source = build()
     undeclared = [name for name in ALL_SELECTORS if name not in source.selectors]
     if not undeclared:
         pytest.skip(f"{source.source_id} declares every selector the port knows")
@@ -472,11 +485,11 @@ def test_no_source_answers_two_selectors_at_once(
     assert calls == [], "the provider was reached before the request was refused"
 
 
-@pytest.mark.parametrize("case", CASE_PARAMS)
+@pytest.mark.parametrize("build", SOURCE_PARAMS)
 def test_a_source_answers_the_period_exactly_as_it_declares(
-    case: SourceCase, tmp_path: Path, no_network: None
+    build: Callable[[], Any], tmp_path: Path, no_network: None
 ) -> None:
-    source = case.build()
+    source = build()
     if source.period_need == "refused":
         request = FetchRequest(out_dir=tmp_path, extent=CALLER_EXTENT, period=PERIOD)
         with pytest.raises(DataCapabilityError) as excinfo:

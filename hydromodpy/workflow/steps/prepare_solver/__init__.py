@@ -50,14 +50,13 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-def _resolve_plan_and_results(ctx, *, skip_display: bool, store=None) -> None:
+def _resolve_plan_and_results(ctx, *, store=None) -> None:
     """Populate the simulation plan and the per-cell budget the run keeps.
 
     The plan is a deterministic derivation of the config. The budget policy
     is decided once, at planning: a resumed run whose store already says what
-    its extraction kept (the ``budget/`` attributes) takes it from there, so
-    the display flag of the resuming invocation cannot change it. ``store`` is
-    the open store of a resume; a fresh run passes none.
+    its extraction kept (the ``budget/`` attributes) takes it from there.
+    ``store`` is the open store of a resume; a fresh run passes none.
     """
     from hydromodpy.simulation.planning.planner import SimulationPlanner
     from hydromodpy.workflow.steps.planning import step_configure_results
@@ -77,7 +76,7 @@ def _resolve_plan_and_results(ctx, *, skip_display: bool, store=None) -> None:
         ctx.cfg.simulation.results,
         ctx.execution.simulation_plan,
         ctx.cfg.display,
-        display_active=not skip_display,
+        display_active=not ctx.execution.lightweight,
         export_requests=ctx.cfg.export,
         calibration=ctx.cfg.calibration,
         observation=ctx.cfg.observation,
@@ -123,7 +122,6 @@ class PrepareSolverStep:
         "promotion",
         "run_dir",
         "run_overrides",
-        "skip_display",
     )
     writes: ClassVar[tuple[str, ...]] = ("ctx",)
     config_sections: ClassVar[tuple[str, ...]] = (
@@ -142,22 +140,19 @@ class PrepareSolverStep:
         if ctx is None:
             raise ConfigError("PrepareSolverStep requires 'ctx' in state.data")
 
-        _resolve_plan_and_results(ctx, skip_display=bool(state.get("skip_display")))
+        _resolve_plan_and_results(ctx)
 
         if run_is_persisted(ctx):
-            run_overrides = state.get("run_overrides")
             bind_run_directory(
                 ctx,
                 run_dir=state.get("run_dir"),
                 lineage=state.get("lineage"),
                 calibrated_by=state.get("calibrated_by"),
-                run_overrides=run_overrides,
+                run_overrides=state.get("run_overrides"),
             )
             workspace = ctx.setup.workspace
             persistence = ctx.cfg.simulation.results.persistence
-            facts = initial_facts(
-                ctx, run_overrides=run_overrides, config_hash=state.get("config_hash")
-            )
+            facts = initial_facts(ctx, config_hash=state.get("config_hash"))
             # A promoted run carries what its session says about it.
             promotion = state.get("promotion")
             if promotion is not None:
@@ -168,7 +163,7 @@ class PrepareSolverStep:
                 persistence=persistence,
                 workspace=None if workspace is None else workspace.project_root,
             ) as store:
-                step_open_run(ctx, store=store, run_overrides=run_overrides)
+                step_open_run(ctx, store=store)
                 step_write_provenance(ctx, store=store)
                 step_persist_forcings(ctx, store=store)
 
@@ -213,9 +208,8 @@ class PrepareSolverStep:
                 "PrepareSolverStep.rebuild_state requires a resolved workspace on the context"
             )
 
-        skip_display = bool(prior_state.get("skip_display"))
         if not run_is_persisted(ctx):
-            _resolve_plan_and_results(ctx, skip_display=skip_display)
+            _resolve_plan_and_results(ctx)
         else:
             run_dir = prior_state.get("run_dir") or getattr(ctx, "run_dir", None)
             if run_dir is None:
@@ -230,7 +224,7 @@ class PrepareSolverStep:
             ctx.sim_id = outcome.sim_id
             ctx.attempt = outcome.attempt
             with run_store(ctx) as store:
-                _resolve_plan_and_results(ctx, skip_display=skip_display, store=store)
+                _resolve_plan_and_results(ctx, store=store)
 
         return prior_state.advance(
             step_index=prior_state.step_index + 1,

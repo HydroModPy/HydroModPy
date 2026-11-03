@@ -13,8 +13,8 @@ from __future__ import annotations
 
 import argparse
 
-from hydromodpy.cli._conventions import add_action_subparsers
 from hydromodpy.cli.commands.site import add, import_sites, ls, show
+from hydromodpy.cli.conventions import add_action_subparsers
 
 NAME: str = "site"
 HELP: str = "Declare the sites of a workspace"

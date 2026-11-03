@@ -208,8 +208,8 @@ intermittent flow
 
 lockfile
   The file `hydromodpy.lock` at the root of a project. It pins the input data by checksum and
-  records the version of the code and of the solver binary. Each {term}`run` also seals the
-  inputs it read in its own `inputs.json`. See {doc}`can-i-check-what-was-run`.
+  records the version of the code. Each {term}`run` also seals the inputs it read in its own
+  `inputs.json`. See {doc}`can-i-check-what-was-run`.
 
 mapped network
   Streams drawn on a map (here, the permanent reaches of the {term}`BD TOPO`). It is a

@@ -32,7 +32,7 @@ from hydromodpy.core.time import nominal_step_days
 from hydromodpy.results.derive.network_criterion_settings import network_criterion_settings
 from hydromodpy.results.derive.stream_extent import network_extents_from_run, run_step_days
 from hydromodpy.workflow.steps.prepare_solver.dispatch import portable_config_document
-from tests.unit.config.test_a_renamed_key_is_refused_and_a_sealed_one_reads import (
+from tests.unit.config.test_a_renamed_key_warns_and_a_sealed_one_reads import (
     PROJECT,
     _project,
 )
@@ -288,7 +288,8 @@ def test_the_doctor_writes_a_daily_count_in_days_and_an_hourly_one_in_hours(tmp_
     assert dry_steps(_days("7 days"), nominal_step_days(7, "day")) == 1
 
 
-def test_the_doctor_leaves_a_count_whose_timestep_the_file_does_not_hold(tmp_path: Path) -> None:
+def test_the_doctor_leaves_a_count_whose_timestep_the_chain_does_not_hold(tmp_path: Path) -> None:
+    (tmp_path / "project.toml").write_text("[workflow]\nprofile = false\n", encoding="utf-8")
     path = tmp_path / "calibration.toml"
     path.write_text(
         'base_config = "project.toml"\n'

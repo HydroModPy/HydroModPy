@@ -34,7 +34,7 @@ from hydromodpy.core.version import __version__
 
 if TYPE_CHECKING:
     import os
-    from collections.abc import Iterator, Mapping
+    from collections.abc import Iterator, Mapping, Sequence
     from datetime import date
 
     import geopandas as gpd
@@ -43,6 +43,7 @@ if TYPE_CHECKING:
     import xarray as xr
     from matplotlib.figure import Figure
 
+    from hydromodpy.analysis.comparison.compare import Comparison
     from hydromodpy.calibration import CalibrationReport
     from hydromodpy.calibration.runners.staged_runner import StagedCalibrationReport
     from hydromodpy.config import HydroModPyConfig
@@ -313,10 +314,10 @@ def run(config: ConfigLike, **kwargs: Any) -> Run | dict | None:
         ``force``, ``resume``, ``from_step``, ``until_step``, ``dry_run``,
         ``frozen``, ``no_display``, ``parallel`` for a simulation. With a
         configuration object, any other keyword is a parameter override
-        (``K=1e-5``), as in :meth:`~hydromodpy.project.Project.simulate`. The
-        ``headless`` keyword is honored on both branches (path and config
-        object) and controls the underlying ``Project`` interactive side
-        effects.
+        (``K=1e-5``), as in :meth:`~hydromodpy.project.Project.simulate`. A
+        simulation takes ``headless`` on both branches (path and config object):
+        the run draws no figure, as with ``no_display``. Neither enters the
+        identity of the run or its sealed configuration.
 
     Returns
     -------
@@ -367,6 +368,7 @@ def run(config: ConfigLike, **kwargs: Any) -> Run | dict | None:
         workflow = resolve_workflow(config_path, cli_workflow=None)
         if workflow == "simulation":
             _refuse_overrides_on_a_path(config_path, kwargs)
+            kwargs["headless"] = headless
         summary = dispatch_workflow(workflow, config_path, **kwargs)
         # The simulation adapter returns a summary dict; expose it as the Run
         # so hmp.read / hmp.export accept the result on either branch.
@@ -400,7 +402,7 @@ def run(config: ConfigLike, **kwargs: Any) -> Run | dict | None:
         )
         with Project(config, headless=headless) as project:
             existing = completed_identical_run(project.config, name=name) if plain else None
-            result = None if existing is not None else project.simulate(**kwargs)
+            result = None if existing is not None else project.simulate(force=force, **kwargs)
         if existing is not None:
             run_obj = _open_run(root, runs_dir_for(Path(root)) / str(existing[0]))
             _report_identical_run({"name": existing[0], "sim_id": existing[1]})
@@ -705,7 +707,7 @@ def spinup(config: ConfigLike, **kwargs: Any) -> SpinupResult:
     import dataclasses
 
     from hydromodpy.project import Project
-    from hydromodpy.project.facade import _resolve_config
+    from hydromodpy.project.facade import resolve_config
     from hydromodpy.project.spinup import run_spinup
 
     headless = bool(kwargs.pop("headless", True))
@@ -721,7 +723,7 @@ def spinup(config: ConfigLike, **kwargs: Any) -> SpinupResult:
 
             prod_cfg = HydroModPyConfig.from_toml(source)
         else:
-            prod_cfg = copy.deepcopy(_resolve_config(source))
+            prod_cfg = copy.deepcopy(resolve_config(source))
 
     with Project(source, headless=headless, no_display=True) as project:
         result = run_spinup(project, **kwargs)
@@ -782,6 +784,64 @@ def compare_pair(sim_a: str, sim_b: str, *, workspace: PathLike | None = None) -
     from hydromodpy.analysis.comparison.pairwise import compare_pair as _compare_pair
 
     return _compare_pair(sim_a, sim_b, workspace=workspace)
+
+
+def compare(
+    refs: Sequence[str],
+    *,
+    variables: Sequence[str] | None = None,
+    out: PathLike | None = None,
+    workspace: PathLike | None = None,
+) -> Comparison:
+    """Compare sealed runs of one site, the first one as the reference.
+
+    Two series are compared on the dates they share and two maps at the last of
+    those dates. Runs with no date in common are refused.
+
+    Parameters
+    ----------
+    refs
+        Run directories, run names under ``runs/`` (``base.v2``) or recipes (the
+        latest run of each of their cases).
+    variables
+        Fields to map. Defaults to the head and the depth to the water table,
+        when every run has them.
+    out
+        Folder to write the tables, the figures and the README into. By default
+        nothing is written, and ``Comparison.write`` can do it later.
+    workspace
+        Project directory the references are read from. Defaults to the project
+        around the working directory.
+
+    Returns
+    -------
+    hydromodpy.analysis.comparison.compare.Comparison
+        ``tables`` holds the data frames ``runs``, ``parameters``, ``scores``,
+        ``budget``, ``network``, ``series`` and ``maps``.
+
+    Raises
+    ------
+    hydromodpy.analysis.comparison.compare.ComparisonReferenceError
+        If a reference names no sealed run.
+    hydromodpy.analysis.comparison.compare.ComparisonCaseError
+        If the runs model different sites or share no date.
+
+    Examples
+    --------
+    >>> import hydromodpy as hmp
+    >>> result = hmp.compare(["k_mid", "k_low"])  # doctest: +SKIP
+    >>> result.tables["series"]  # doctest: +SKIP
+    >>> result.write("../study")  # doctest: +SKIP
+    """
+    from hydromodpy.analysis.comparison.compare import compare_references
+    from hydromodpy.core.state.paths import resolve_project_root
+
+    start = Path(workspace or Path.cwd()).expanduser().resolve()
+    root = resolve_project_root(start)
+    comparison = compare_references(refs, project_root=root, variables=variables)
+    if out is not None:
+        comparison.write(Path(out))
+    return comparison
 
 
 def report(session: str | None = None, *, workspace: PathLike | None = None) -> Path:

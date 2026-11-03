@@ -21,6 +21,13 @@ completed; then it is the run the session promoted, ``runs/<case>/``. A
 session whose descriptor still says ``running`` reads as its outcome does:
 ``stale`` when its worker is dead or silent, ``failed`` or ``aborted`` when
 the outcome was closed and the descriptor was not.
+
+A session or a run this code cannot read, written by another version, costs
+one warning and is left out. A case left with nothing readable is ``planned``:
+it is not done, and running it takes a new version beside the one left out.
+A sealed run whose outcome this code cannot read stays ``completed``, with what
+its seal says of the attempt. A plan this code cannot read is refused, because
+without it no case is known.
 """
 
 from __future__ import annotations
@@ -39,14 +46,17 @@ from hydromodpy.core.state.paths import (
     sessions_dir_for,
 )
 from hydromodpy.results.catalog.registration import split_stem_version
+from hydromodpy.results.manifest import read_seal
 from hydromodpy.results.outcome import (
     DEFAULT_STALE_AFTER_S,
+    EffectiveStatus,
     effective_status,
-    outcome_path,
     read_outcome,
 )
 from hydromodpy.results.plan_store import StoredPlan, read_plan
 from hydromodpy.results.storage.attempt import latest_version_dir
+from hydromodpy.results.storage.contract import RUN_OUTCOME_FILENAME
+from hydromodpy.results.storage.json_io import beside_seal, readable
 
 CaseStatus = Literal[
     "planned",
@@ -129,7 +139,7 @@ def _latest_session_dir(project_root: Path, case_id: str) -> Path | None:
     return None if best is None else best[1]
 
 
-def _run_state(run_dir: Path, *, now: datetime, stale_after_s: float) -> CaseStatus:
+def _run_state(run_dir: Path, *, now: datetime, stale_after_s: float) -> EffectiveStatus:
     status = effective_status(run_dir, now=now, stale_after_s=stale_after_s)
     if status != "unknown":
         return status
@@ -139,10 +149,22 @@ def _run_state(run_dir: Path, *, now: datetime, stale_after_s: float) -> CaseSta
 
 
 def _outcome_document(directory: Path) -> dict[str, Any] | None:
-    if not outcome_path(directory).is_file():
+    """Return what the outcome says, else what a seal says of the attempt.
+
+    Called once the seal or the descriptor of *directory* was read, so an
+    outcome this code cannot read takes nothing from its status.
+    """
+    outcome = beside_seal(read_outcome, directory, RUN_OUTCOME_FILENAME)
+    if outcome is not None:
+        return outcome.model_dump(mode="json", by_alias=True)
+    seal = readable(read_seal, directory)
+    if seal is None:
         return None
-    outcome = read_outcome(directory)
-    return None if outcome is None else outcome.model_dump(mode="json", by_alias=True)
+    return {
+        "attempt": seal.run.attempt,
+        "started_at": seal.run.started_at,
+        "ended_at": seal.run.ended_at,
+    }
 
 
 def case_state(
@@ -159,14 +181,19 @@ def case_state(
     instant = now if now is not None else datetime.now(UTC)
     run_dir = latest_version_dir(root, case_id)
     session_dir = _latest_session_dir(root, case_id)
+    descriptor = None
     if session_dir is not None and session_descriptor_path(session_dir).is_file():
-        descriptor = read_session(session_dir)
+        descriptor = readable(read_session, session_dir)
+    if session_dir is not None and descriptor is not None:
         session_rel = session_dir_rel(session_dir.name)
         session_hash = descriptor.config_hash
         if descriptor.status == "running":
             live = _run_state(session_dir, now=instant, stale_after_s=stale_after_s)
-            status: CaseStatus = live if live in ("stale", "failed", "aborted") else "running"
-            return CaseState(status, session_rel, _outcome_document(session_dir), session_hash)
+            # A worker this code cannot read may still be alive: it is held like a silent one.
+            held: CaseStatus = "stale" if live == "unreadable" else "running"
+            if live in ("stale", "failed", "aborted"):
+                held = live
+            return CaseState(held, session_rel, _outcome_document(session_dir), session_hash)
         if descriptor.status != "completed":
             return CaseState(
                 descriptor.status, session_rel, _outcome_document(session_dir), session_hash
@@ -178,6 +205,8 @@ def case_state(
     if run_dir is None:
         return CaseState("planned")
     status = _run_state(run_dir, now=instant, stale_after_s=stale_after_s)
+    if status == "unreadable":
+        return CaseState("planned")
     return CaseState(status, run_dir_rel(run_dir.name), _outcome_document(run_dir))
 
 

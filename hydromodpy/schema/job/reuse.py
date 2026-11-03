@@ -31,9 +31,11 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.exceptions import JobUsageError
+from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.schema.job.directory import JobDirectory
-from hydromodpy.schema.job.documents import read_document, render_document
-from hydromodpy.schema.job.outcome import JobOutcome
+from hydromodpy.schema.job.documents import check_job_document, read_document, render_document
+from hydromodpy.schema.job.outcome import OUTCOME_VERSIONS, JobOutcome
+from hydromodpy.schema.job.seal import MANIFEST_VERSIONS
 
 REUSED_MEMBER = "reused"
 """The one member of the outcome document that a reuse changes."""
@@ -46,14 +48,14 @@ def reuse_sealed_outcome(job: JobDirectory, *, job_id: str) -> JobOutcome:
     request that cannot be resolved into an id must not reach a branch that
     writes.
     """
-    manifest = _document(job, job.manifest_path)
+    manifest = _document(job, job.manifest_path, MANIFEST_VERSIONS)
     sealed = manifest.get("job_id")
     if sealed != job_id:
         raise JobUsageError(
             f"job directory {job.root} is sealed under {sealed!r} and this request "
             f"addresses {job_id!r}; a job directory holds one job"
         )
-    document = _document(job, job.outcome_path)
+    document = _document(job, job.outcome_path, OUTCOME_VERSIONS)
     try:
         stored = JobOutcome.from_document(document)
     except (KeyError, TypeError, ValueError) as exc:
@@ -80,7 +82,7 @@ def reused_outcome_text(job: JobDirectory) -> str:
     with different lengths -- silently, since nothing downstream re-reads them
     together.
     """
-    document = _document(job, job.outcome_path)
+    document = _document(job, job.outcome_path, OUTCOME_VERSIONS)
     if REUSED_MEMBER not in document:
         raise JobUsageError(
             f"job directory {job.root} is sealed and its {job.outcome_path.name} carries "
@@ -89,12 +91,13 @@ def reused_outcome_text(job: JobDirectory) -> str:
     return render_document({**document, REUSED_MEMBER: True})
 
 
-def _document(job: JobDirectory, path: Path) -> Mapping[str, Any]:
+def _document(job: JobDirectory, path: Path, window: VersionWindow) -> Mapping[str, Any]:
     """Read one document of a sealed directory, or say why it cannot be read.
 
     Every failure here is a usage error and not a job failure: the directory
     was handed over already finished, so nothing this process could do would
-    make it readable, and the caller pointed at the wrong thing.
+    make it readable, and the caller pointed at the wrong thing. A version this
+    code does not read keeps its own refusal, which says what to do.
     """
     try:
         document = read_document(path)
@@ -106,7 +109,7 @@ def _document(job: JobDirectory, path: Path) -> Mapping[str, Any]:
         raise JobUsageError(
             f"job directory {job.root} is sealed and its {path.name} is not a JSON object"
         )
-    return document
+    return check_job_document(document, window, path=path)
 
 
 __all__ = ["REUSED_MEMBER", "reuse_sealed_outcome", "reused_outcome_text"]

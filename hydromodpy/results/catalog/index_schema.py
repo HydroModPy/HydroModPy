@@ -48,16 +48,6 @@ META_INDEXED_AT: Final[str] = "indexed_at"
 META_RULE_VERSION: Final[str] = "rule_version"
 META_KNOWN_ISSUES_DIGEST: Final[str] = "known_issues_digest"
 
-CASE_STATUSES: Final[tuple[str, ...]] = (
-    "running",
-    "completed",
-    "partial",
-    "failed",
-    "aborted",
-    "stale",
-)
-"""What ``cases.status`` may hold: the effective status of a directory at indexing time."""
-
 CASE_KINDS: Final[tuple[str, ...]] = ("run", "trial", "session")
 """What a ``cases`` row is: a run, a kept trial of a session, or the session itself."""
 
@@ -146,7 +136,7 @@ CREATE TABLE cases (
     sim_id           VARCHAR,
     attempt          INTEGER,
     attempt_id       VARCHAR,
-    status           VARCHAR NOT NULL CHECK (status IN ({", ".join(repr(s) for s in CASE_STATUSES)})),
+    status           VARCHAR NOT NULL,
     started_at       TIMESTAMPTZ,
     ended_at         TIMESTAMPTZ,
     host             VARCHAR,
@@ -526,7 +516,6 @@ def read_index_schema_version(connection: duckdb.DuckDBPyConnection) -> str | No
 
 __all__ = [
     "CASE_KINDS",
-    "CASE_STATUSES",
     "INDEX_DDL",
     "INDEX_META_TABLE",
     "INDEX_SCHEMA_VERSION",

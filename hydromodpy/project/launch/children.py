@@ -38,6 +38,7 @@ from hydromodpy.results.session.descriptor import (
     session_descriptor_path,
     write_session,
 )
+from hydromodpy.results.storage.json_io import readable
 from hydromodpy.workflow.dispatch import WorkflowName, workflow_of_sections
 
 logger = get_logger(__name__)
@@ -201,8 +202,8 @@ def close_dead_session(
 ) -> Outcome:
     """Write ``failed`` in the descriptor and the outcome of a session whose worker died."""
     now = datetime.now(UTC)
-    descriptor = read_session(directory)
-    if descriptor.status == "running":
+    descriptor = readable(read_session, directory)
+    if descriptor is not None and descriptor.status == "running":
         write_session(
             directory,
             descriptor.model_copy(
@@ -242,7 +243,7 @@ def close_dead_child(project_root: Path, child: Child, exit_code: int, signal: i
     tail = read_log_tail(directory) or log_tail(child.log_path)
     host = socket.gethostname()
     if session_descriptor_path(directory).is_file():
-        previous = read_outcome(directory)
+        previous = readable(read_outcome, directory)
         if (
             previous is not None
             and previous.status == "running"

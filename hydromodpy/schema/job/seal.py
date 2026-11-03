@@ -23,16 +23,20 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.exceptions import SchemaVersionMismatchError
+from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.schema.job.digest import sha256_file, sha256_value
 from hydromodpy.schema.job.directory import JobDirectory
-from hydromodpy.schema.job.documents import read_document, write_document
+from hydromodpy.schema.job.documents import check_job_document, read_document, write_document
 from hydromodpy.schema.job.extent import SpatialExtent
-from hydromodpy.schema.job.inputset import InputSet
+from hydromodpy.schema.job.inputset import INPUTSET_VERSIONS, InputSet
 from hydromodpy.schema.job.layout import INPUTSET_FILENAME, SEALED_DOCUMENTS
-from hydromodpy.schema.job.outcome import OutputRecord, now
+from hydromodpy.schema.job.outcome import OUTCOME_VERSIONS, OutputRecord, now
 from hydromodpy.schema.media_types import JSON_MEDIA_TYPE
 
 MANIFEST_SCHEMA = "hmp-manifest/v2"
+MANIFEST_VERSIONS = VersionWindow(oldest=MANIFEST_SCHEMA, current=MANIFEST_SCHEMA)
+"""Versions of the seal of a job this code reads."""
 JOB_PROFILE = "job"
 
 
@@ -154,7 +158,7 @@ def verify_job(job: JobDirectory) -> SealVerification:
     """
     if not job.is_sealed:
         return SealVerification(sealed=False, problems=("manifest.json is absent",))
-    manifest, fault = _read_object(job.manifest_path)
+    manifest, fault = _read_object(job.manifest_path, MANIFEST_VERSIONS)
     if manifest is None:
         return SealVerification(sealed=True, problems=(fault,))
     problems: list[str] = []
@@ -171,11 +175,12 @@ def verify_job(job: JobDirectory) -> SealVerification:
     return SealVerification(sealed=True, problems=tuple(problems))
 
 
-def _read_object(path: Path) -> tuple[Mapping[str, Any] | None, str]:
+def _read_object(path: Path, window: VersionWindow) -> tuple[Mapping[str, Any] | None, str]:
     """Read one job document, reporting what is wrong instead of raising.
 
     A verification verb is pointed at directories it did not write, including
-    ones a transfer truncated. It reports; it never crashes on them.
+    ones a transfer truncated or a later version sealed. It reports; it never
+    crashes on them.
     """
     try:
         document = read_document(path)
@@ -183,6 +188,10 @@ def _read_object(path: Path) -> tuple[Mapping[str, Any] | None, str]:
         return None, f"{path.name} cannot be read as JSON: {exc}"
     if not isinstance(document, Mapping):
         return None, f"{path.name} is not a JSON object"
+    try:
+        check_job_document(document, window, path=path)
+    except SchemaVersionMismatchError as exc:
+        return None, str(exc)
     return document, ""
 
 
@@ -190,7 +199,7 @@ def _inputset_problems(job: JobDirectory, manifest: Mapping[str, Any]) -> list[s
     """Check the input set against its own digest and against the seal."""
     if not job.inputset_path.is_file():
         return ["inputset.json is absent"]
-    inputset, fault = _read_object(job.inputset_path)
+    inputset, fault = _read_object(job.inputset_path, INPUTSET_VERSIONS)
     if inputset is None:
         return [fault]
     problems: list[str] = []
@@ -210,7 +219,7 @@ def _outcome_problems(job: JobDirectory, manifest: Mapping[str, Any]) -> list[st
     """Check that the outcome names the job the seal names."""
     if not job.outcome_path.is_file():
         return ["outcome.json is absent"]
-    outcome, fault = _read_object(job.outcome_path)
+    outcome, fault = _read_object(job.outcome_path, OUTCOME_VERSIONS)
     if outcome is None:
         return [fault]
     if outcome.get("job_id") != manifest.get("job_id"):
@@ -240,6 +249,7 @@ def _artifact_problems(job: JobDirectory, entry: Any) -> list[str]:
 __all__ = [
     "JOB_PROFILE",
     "MANIFEST_SCHEMA",
+    "MANIFEST_VERSIONS",
     "ArtifactRecord",
     "SealVerification",
     "artifact_record",

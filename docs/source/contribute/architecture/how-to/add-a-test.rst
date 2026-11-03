@@ -118,11 +118,11 @@ and checks what it holds:
 
 .. code-block:: python
 
-   from hydromodpy.physics.transport.transport import Transport
+   import hydromodpy as hmp
 
 
    def test_transport_mapping_config_populates_all_solver_parameter_blocks() -> None:
-       transport = Transport({"modpath": {"parameters": {"track_dir": "backward"}}})
+       transport = hmp.TransportProcess({"modpath": {"parameters": {"track_dir": "backward"}}})
        assert transport.modpath.parameters["track_dir"] == "backward"
 
 Integration pattern

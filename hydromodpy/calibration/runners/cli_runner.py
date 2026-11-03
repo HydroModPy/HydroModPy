@@ -158,15 +158,12 @@ def load_toml_calibration(path: Path) -> tuple[CalibrationConfig, dict]:
     """
     from pydantic import ValidationError
 
-    from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
     from hydromodpy.core.exceptions import ConfigError
     from hydromodpy.core.toml_io.error_locator import format_validation_error
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
-    raw = load_toml_with_base_config(path)
-    provider = get_root_config_provider()
     try:
-        provider.migrate_on_load(raw, source=path)
+        raw = load_toml_with_base_config(path)
     except ValueError as exc:
         raise ConfigError(f"{path}: {exc}") from None
     if "calibration" not in raw:

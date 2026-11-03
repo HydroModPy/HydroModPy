@@ -57,13 +57,13 @@ from hydromodpy.results.derive.virtual_fields import (
 )
 from hydromodpy.results.export.ledgers import record_derived_file
 from hydromodpy.results.export.run_identity import identity_of_run_dir, read_sealed_manifest
-from hydromodpy.results.exporters._fields import is_timed
 from hydromodpy.results.exporters._tables import (
     BUDGETS_TABLE,
     TIMESERIES_TABLE,
     read_table,
     table_path,
 )
+from hydromodpy.results.exporters.fields import is_timed
 from hydromodpy.results.exporters.vocabulary import (
     describe_export_names,
     describe_exportable,

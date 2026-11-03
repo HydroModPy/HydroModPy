@@ -91,8 +91,7 @@ class TestSimulationGroup:
             "hydromodpy.workflow.steps.planning.step_build_plan", lambda *a, **k: None
         )
         monkeypatch.setattr("hydromodpy.workflow.runner.Pipeline", _Pipeline)
-        monkeypatch.setattr("hydromodpy.project.runner.run_identity_hash", lambda *a, **k: "h")
-        monkeypatch.setattr("hydromodpy.project.runner.input_file_digests", lambda _cfg: {})
+        monkeypatch.setattr("hydromodpy.project.runner.config_identity_hash", lambda _cfg: "h")
 
         workspace = SimpleNamespace(
             root=tmp_path / "workspace",
@@ -111,6 +110,7 @@ class TestSimulationGroup:
                 geographic=object(),
                 domain=object(),
                 domain_config_source=declared_cfg.domain,
+                flow=None,
                 run_id=None,
                 flow_runtime_overrides=None,
             ),
@@ -195,6 +195,7 @@ class TestSimulationGroup:
                 geographic=object(),
                 domain=object(),
                 domain_config_source=declared_cfg.domain,
+                flow=None,
                 run_id=None,
                 flow_runtime_overrides=None,
             ),

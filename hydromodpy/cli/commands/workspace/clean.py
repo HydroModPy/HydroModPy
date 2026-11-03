@@ -14,7 +14,7 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-from hydromodpy.cli._conventions import workspace_parser
+from hydromodpy.cli.conventions import workspace_parser
 from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, exit_code_for, resolve_workspace
 
 NAME: str = "clean"

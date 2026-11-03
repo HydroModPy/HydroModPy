@@ -4,6 +4,10 @@
 # the runs of this build. The label of such a run is "exploratory" today, its seal
 # untouched. Format: validity_rules.py module docstring. Versions are PEP 440
 # specifier sets; a fix lands with its entry.
+#
+# Any fix that changes a number of a run has an entry here, and a line under
+# "Numbers" in CHANGELOG.md with the quantity and the size of the change. The rule
+# is in docs/source/contribute/architecture/how-to/cut-a-release.rst.
 
 [[issue]]
 id = "discharge_scores_before_period_alignment"

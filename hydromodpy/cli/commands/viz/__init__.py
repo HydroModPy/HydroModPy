@@ -12,8 +12,8 @@ from __future__ import annotations
 
 import argparse
 
-from hydromodpy.cli._conventions import add_action_subparsers
 from hydromodpy.cli.commands.viz import list_cmd, regen, show
+from hydromodpy.cli.conventions import add_action_subparsers
 
 NAME: str = "viz"
 HELP: str = "Visualization helpers (list, show, regen)"

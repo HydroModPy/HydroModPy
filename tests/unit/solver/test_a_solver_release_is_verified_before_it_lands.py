@@ -1,0 +1,197 @@
+"""A solver reaches ``bin_path`` only from a zip that hashes to the digest of its release."""
+
+from __future__ import annotations
+
+import argparse
+import io
+import os
+import re
+import zipfile
+from pathlib import Path
+
+import pytest
+
+from hydromodpy.cli.commands import install_binaries as install_command
+from hydromodpy.cli.helpers import exit_code_for
+from hydromodpy.core.exceptions import CacheCorruptionError, NetworkError, SolverBinaryError
+from hydromodpy.solver.modflow_common import binaries
+from tests.unit.core._fake_release import digest_of, serve_assets
+
+ASSET = binaries._release_asset()
+
+
+def _zip_of(*solvers: str) -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as bundle:
+        bundle.writestr("code.json", "{}")
+        for solver in solvers:
+            bundle.writestr(binaries.exe_filename(solver), f"the {solver} build")
+    return buffer.getvalue()
+
+
+@pytest.fixture
+def cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    folder = tmp_path / "cache"
+    monkeypatch.setattr(binaries, "cache_dir", lambda: folder)
+    return folder
+
+
+def _pin(monkeypatch: pytest.MonkeyPatch, payload: bytes) -> str:
+    digest = digest_of(payload)
+    monkeypatch.setitem(binaries.RELEASE_ASSETS["23.0"], ASSET, digest)
+    return digest
+
+
+def test_only_the_named_solvers_land_from_the_verified_zip(
+    cache: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    payload = _zip_of("mf6", "mfnwt", "libmf6")
+    digest = _pin(monkeypatch, payload)
+    asked = serve_assets(monkeypatch, {ASSET: payload})
+    target = tmp_path / "bin"
+
+    assert binaries.download_solver_binaries(target, subset=["mf6"]) == target
+
+    assert (target / binaries.exe_filename("mf6")).read_text() == "the mf6 build"
+    assert not (target / binaries.exe_filename("mfnwt")).exists()
+    assert not (target / "code.json").exists()
+    assert not list(target.glob(".*.part"))
+    if os.name == "posix":
+        assert os.access(target / "mf6", os.X_OK)
+    assert asked == [binaries.asset_url("23.0", ASSET)]
+    manifest = binaries.read_manifest(target)
+    assert manifest is not None
+    assert manifest["release"] == "23.0"
+    assert manifest["solvers"] == ["mf6"]
+    assert manifest["asset"] == ASSET
+    assert manifest["asset_sha256"] == digest
+
+
+def test_another_subset_costs_no_second_download_and_force_fetches_again(
+    cache: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    payload = _zip_of("mf6", "mfnwt")
+    _pin(monkeypatch, payload)
+    asked = serve_assets(monkeypatch, {ASSET: payload})
+    target = tmp_path / "bin"
+
+    binaries.download_solver_binaries(target, subset=["mf6"])
+    binaries.download_solver_binaries(target, subset=["mfnwt"])
+    assert len(asked) == 1
+    assert binaries.read_manifest(target)["solvers"] == ["mf6", "mfnwt"]
+
+    binaries.download_solver_binaries(target, subset=["mf6"], force=True)
+    assert len(asked) == 2
+    assert binaries.read_manifest(target)["solvers"] == ["mf6"]
+
+
+def test_other_bytes_are_refused_and_no_solver_lands(
+    cache: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pinned = _pin(monkeypatch, b"the zip of the release")
+    payload = _zip_of("mf6")
+    serve_assets(monkeypatch, {ASSET: payload})
+    target = tmp_path / "bin"
+
+    with pytest.raises(CacheCorruptionError) as refused:
+        binaries.download_solver_binaries(target, subset=["mf6"])
+
+    message = str(refused.value)
+    assert pinned in message
+    assert digest_of(payload) in message
+    assert "HMP_BIN" in message
+    assert not (target / binaries.exe_filename("mf6")).exists()
+    assert binaries.read_manifest(target) is None
+
+
+def test_the_lazy_path_refuses_the_same_way(
+    cache: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _pin(monkeypatch, b"the zip of the release")
+    serve_assets(monkeypatch, {ASSET: _zip_of("mf6")})
+    monkeypatch.setattr(binaries, "managed_bin_dir", lambda: tmp_path / "bin")
+
+    with pytest.raises(CacheCorruptionError):
+        binaries.ensure_solver_binary("mf6")
+
+
+@pytest.mark.parametrize("release", ["24.0", "latest"])
+def test_a_release_with_no_digest_is_refused_before_any_download(
+    cache: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, release: str
+) -> None:
+    asked = serve_assets(monkeypatch, {})
+
+    with pytest.raises(SolverBinaryError) as refused:
+        binaries.download_solver_binaries(tmp_path / "bin", subset=["mf6"], release=release)
+
+    message = str(refused.value)
+    assert release in message
+    assert binaries.DEFAULT_RELEASE in message
+    assert "get-modflow" in message
+    assert "HMP_BIN" in message
+    assert asked == []
+
+
+def test_a_zip_without_the_solver_is_refused_by_name(
+    cache: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    payload = _zip_of("mf6")
+    _pin(monkeypatch, payload)
+    serve_assets(monkeypatch, {ASSET: payload})
+
+    with pytest.raises(SolverBinaryError, match=binaries.exe_filename("mp7")):
+        binaries.download_solver_binaries(tmp_path / "bin", subset=["mp7"])
+
+
+def test_every_platform_zip_of_the_default_release_has_its_digest() -> None:
+    pinned = binaries.RELEASE_ASSETS[binaries.DEFAULT_RELEASE]
+
+    assert set(pinned) == {"linux.zip", "mac.zip", "macarm.zip", "win64.zip"}
+    assert all(re.fullmatch(r"[0-9a-f]{64}", digest) for digest in pinned.values())
+
+
+@pytest.mark.parametrize(
+    ("system", "machine", "asset"),
+    [
+        ("linux", "x86_64", "linux.zip"),
+        ("darwin", "x86_64", "mac.zip"),
+        ("darwin", "arm64", "macarm.zip"),
+        ("win32", "AMD64", "win64.zip"),
+    ],
+)
+def test_each_platform_reads_its_own_zip(
+    monkeypatch: pytest.MonkeyPatch, system: str, machine: str, asset: str
+) -> None:
+    monkeypatch.setattr(binaries.sys, "platform", system)
+    monkeypatch.setattr(binaries.platform, "machine", lambda: machine)
+
+    assert binaries._release_asset() == asset
+
+
+@pytest.mark.parametrize(
+    "raised",
+    [
+        CacheCorruptionError("hashes to a, pins b"),
+        SolverBinaryError("no digest for release 24.0"),
+        NetworkError("could not download"),
+    ],
+)
+def test_the_command_prints_a_refusal_and_exits_with_its_code(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    raised: Exception,
+) -> None:
+    def refuse(**_kwargs: object) -> None:
+        raise raised
+
+    monkeypatch.setattr(binaries, "download_solver_binaries", refuse)
+    args = argparse.Namespace(
+        subset="mf6", mf6_prt=False, bindir=str(tmp_path), upgrade=False, quiet=True, release=None
+    )
+
+    with pytest.raises(SystemExit) as stopped:
+        install_command.run(args)
+
+    assert stopped.value.code == exit_code_for(raised)
+    assert str(raised) in capsys.readouterr().err

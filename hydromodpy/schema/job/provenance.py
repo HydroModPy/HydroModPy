@@ -33,11 +33,14 @@ from importlib.metadata import distributions
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.core.version import __version__
 from hydromodpy.schema.job.directory import JobDirectory
 from hydromodpy.schema.job.documents import write_document
 
 PROVENANCE_SCHEMA = "hmp-provenance/v1"
+PROVENANCE_VERSIONS = VersionWindow(oldest=PROVENANCE_SCHEMA, current=PROVENANCE_SCHEMA)
+"""Versions of the provenance of a job this code reads."""
 
 _GIT_TIMEOUT_S = 2
 """A provenance document is not worth blocking a job on a slow git."""
@@ -143,6 +146,7 @@ def write_provenance(job: JobDirectory, document: dict[str, Any]) -> Path:
 
 __all__ = [
     "PROVENANCE_SCHEMA",
+    "PROVENANCE_VERSIONS",
     "build_provenance",
     "frozen_packages",
     "git_state",

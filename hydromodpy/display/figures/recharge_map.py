@@ -8,7 +8,7 @@ import numpy as np
 
 from hydromodpy.display.figure import FigureSpec
 from hydromodpy.display.figure_registry import register
-from hydromodpy.display.figures._scalar_face_map import ScalarFaceMap
+from hydromodpy.display.figures.scalar_face_map import ScalarFaceMap
 
 if TYPE_CHECKING:
     from hydromodpy.results.run import Run

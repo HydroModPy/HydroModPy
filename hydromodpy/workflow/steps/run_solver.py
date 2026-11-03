@@ -65,10 +65,11 @@ class RunSolverStep:
     ) -> PipelineState:
         """Rebuild the state without re-running the solver.
 
-        ``wall_seconds`` is read back from the runtime metrics the solve
-        recorded in the facts of the run. ``solver_result`` stays ``None``:
-        downstream steps (extract, derive, export) read directly from the
-        Zarr / solver workdir and do not need a live :class:`RunResult` object.
+        ``wall_seconds`` and the folder each run of the plan solved in are read
+        back from the facts of the run: the extract step that resumes reads the
+        solver outputs there. ``solver_result`` stays ``None``: downstream steps
+        (extract, derive, export) read directly from the Zarr / solver workdir and
+        do not need a live :class:`RunResult` object.
         """
         ctx = prior_state.get("ctx")
         if ctx is None:
@@ -80,6 +81,12 @@ class RunSolverStep:
                 for row in store.facts.metrics:
                     if row.variable == "runtime" and row.metric == "duration_s":
                         wall_seconds = row.value
+                ctx.execution.output_dirs_by_run_id.update(
+                    {
+                        run_id: Path(folder)
+                        for run_id, folder in store.facts.solver_output_dirs.items()
+                    }
+                )
         return prior_state.advance(
             step_index=prior_state.step_index + 1,
             step_name=self.name,
@@ -92,7 +99,10 @@ class RunSolverStep:
             ProcessCallbacks,
             SimulationRunner,
         )
-        from hydromodpy.simulation.extraction.post_run import record_run_execution_metrics
+        from hydromodpy.simulation.extraction.post_run import (
+            record_run_execution_metrics,
+            record_what_the_model_says,
+        )
         from hydromodpy.simulation.planning.plan import RunContext
         from hydromodpy.workflow.steps.prepare_solver.dispatch import refresh_run_environment
 
@@ -126,7 +136,15 @@ class RunSolverStep:
                         store=store,
                         result=result,
                     )
+                    if result.solver_output_dir is not None:
+                        store.facts.solver_output_dirs[str(run.id)] = str(result.solver_output_dir)
                 refresh_run_environment(ctx, store=store)
+                for run, _result in executed_results:
+                    record_what_the_model_says(
+                        ctx=RunContext.of(ctx, plan=plan, run=run, store=store),
+                        sim_id=ctx.sim_id,
+                        store=store,
+                    )
         else:
             launcher.execute(plan, ctx, callbacks=callbacks)
         wall_seconds = time.monotonic() - t0

@@ -10,7 +10,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from hydromodpy.cli._conventions import verbosity_parser
+from hydromodpy.cli.conventions import verbosity_parser
 from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, apply_verbosity
 
 NAME: str = "add"

@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Any
 from hydromodpy.calibration.config import CalibrationConfig, scoring_window_bounds
 from hydromodpy.core.state.paths import resolve_project_root
 from hydromodpy.results.catalog.registration import (
-    input_file_digests,
+    config_identity_hash,
     reserve_version_dirname,
     run_identity_hash,
     split_stem_version,
@@ -165,10 +165,7 @@ def session_config_hash(raw: Mapping[str, Any], trial_ctx: TrialContext | None) 
     runs no HydroModPy model) hashes the document it read.
     """
     if trial_ctx is not None and hasattr(trial_ctx.base_cfg, "model_dump"):
-        base_cfg = trial_ctx.base_cfg
-        digest = run_identity_hash(
-            base_cfg.model_dump(mode="json"), inputs=input_file_digests(base_cfg)
-        )
+        digest = config_identity_hash(trial_ctx.base_cfg)
         if digest is not None:
             return digest
     digest = run_identity_hash(dict(raw))

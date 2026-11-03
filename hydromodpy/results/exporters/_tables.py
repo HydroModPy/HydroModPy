@@ -16,6 +16,7 @@ import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
 from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX
+from hydromodpy.results.storage.parquet_io import read_checked_table
 
 TIMESERIES_TABLE = "timeseries"
 """The table the series of a run are stored in."""
@@ -45,7 +46,7 @@ def distinct_values(store: Any, sim_id: str, table: str, column: str) -> list[st
     path = table_path(store, sim_id, table)
     if not path.is_file():
         return []
-    values = pc.unique(pq.read_table(path, columns=[column]).column(column))
+    values = pc.unique(read_checked_table(path, columns=[column]).column(column))
     return sorted(str(value) for value in values.to_pylist() if value is not None)
 
 
@@ -67,5 +68,5 @@ def read_table(store: Any, sim_id: str, table: str) -> pd.DataFrame:
     path = table_path(store, sim_id, table)
     if not path.is_file():
         return pd.DataFrame()
-    frame = pd.read_parquet(path)
+    frame = read_checked_table(path).to_pandas()
     return frame.drop(columns="sim_id", errors="ignore").reset_index(drop=True)

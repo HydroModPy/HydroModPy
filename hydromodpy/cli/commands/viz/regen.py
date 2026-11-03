@@ -10,7 +10,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from hydromodpy.cli._conventions import add_sim_ref, verbosity_parser
+from hydromodpy.cli.conventions import add_sim_ref, verbosity_parser
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND, apply_verbosity, exit_code_for
 
 NAME: str = "regen"

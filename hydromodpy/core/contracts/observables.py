@@ -6,10 +6,8 @@ Parquet. A trial evaluates in lightweight mode, where the extraction step is
 short-circuited and only the native solver files exist, so the adapter is the
 only thing that can answer.
 
-Not to be confused with ``analysis/comparison/runtime/observables.py``, which
-reads a run that has already been written and serves the comparison report.
-The two never meet: this one is a request made of a live run, that one is a
-query over stored results.
+A run that has already been written is read through ``Run`` instead: this one
+is a request made of a live run, that one is a query over stored results.
 
 Why ``core``: ``solver``, ``calibration``, ``results`` and ``analysis`` share
 no layer but ``core`` and ``schema``, and all four have to agree on what an

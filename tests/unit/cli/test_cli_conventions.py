@@ -1,7 +1,7 @@
 """Structural guard for the hmp CLI grammar (interface refactor).
 
 Introspects the argparse tree built by :func:`hydromodpy.cli.main._build_parser`
-and the shared builders in :mod:`hydromodpy.cli._conventions`. These tests are
+and the shared builders in :mod:`hydromodpy.cli.conventions`. These tests are
 the anti-drift gate: a command that diverges from the canonical grammar breaks
 here instead of silently shipping.
 
@@ -16,8 +16,10 @@ import argparse
 
 import pytest
 
-from hydromodpy.cli import _conventions
+from hydromodpy.cli import conventions
+from hydromodpy.cli.commands.project import status
 from hydromodpy.cli.main import _build_parser
+from tools.docs.api_registry import walk_parser
 
 # Family groups whose bare invocation must be a usage error (exit 2).
 REQUIRED_GROUPS = (
@@ -117,21 +119,21 @@ def test_group_help_still_exits_0(group: str) -> None:
 
 
 def test_workspace_parser_exposes_short_and_long() -> None:
-    parser = argparse.ArgumentParser(add_help=False, parents=[_conventions.workspace_parser()])
+    parser = argparse.ArgumentParser(add_help=False, parents=[conventions.workspace_parser()])
     assert parser.parse_args(["-w", "/x"]).workspace == "/x"
     assert parser.parse_args(["--workspace", "/y"]).workspace == "/y"
     assert parser.parse_args([]).workspace is None
 
 
 def test_confirm_parser_exposes_yes() -> None:
-    parser = argparse.ArgumentParser(add_help=False, parents=[_conventions.confirm_parser()])
+    parser = argparse.ArgumentParser(add_help=False, parents=[conventions.confirm_parser()])
     assert parser.parse_args(["-y"]).yes is True
     assert parser.parse_args(["--yes"]).yes is True
     assert parser.parse_args([]).yes is False
 
 
 def test_format_parser_defaults_and_choices() -> None:
-    parser = argparse.ArgumentParser(add_help=False, parents=[_conventions.format_parser()])
+    parser = argparse.ArgumentParser(add_help=False, parents=[conventions.format_parser()])
     assert parser.parse_args([]).format == "table"
     assert parser.parse_args(["--format", "json"]).format == "json"
     with pytest.raises(SystemExit):
@@ -140,12 +142,12 @@ def test_format_parser_defaults_and_choices() -> None:
 
 def test_add_sim_ref_adds_positional() -> None:
     parser = argparse.ArgumentParser(add_help=False)
-    _conventions.add_sim_ref(parser)
+    conventions.add_sim_ref(parser)
     assert parser.parse_args(["ab12cd34"]).sim_ref == "ab12cd34"
 
 
 def test_profile_parser_grammar() -> None:
-    parser = argparse.ArgumentParser(add_help=False, parents=[_conventions.profile_parser()])
+    parser = argparse.ArgumentParser(add_help=False, parents=[conventions.profile_parser()])
     assert parser.parse_args([]).profile is None
     assert parser.parse_args(["--profile"]).profile == ""
     assert parser.parse_args(["--profile", "out.html"]).profile == "out.html"
@@ -186,3 +188,91 @@ def test_dev_doctor_removed() -> None:
     dev_sub = _subparsers_action(top.choices["dev"])
     assert "doctor" not in dev_sub.choices
     assert "doctor" in top.choices
+
+
+OLD_FORMS = (
+    (
+        "hmp project status --stale",
+        "hmp project status --stale-minutes",
+        ["project", "status", "--stale", "7"],
+        ("stale_minutes", 7.0),
+    ),
+    (
+        "hmp project status --json",
+        "hmp project status --format json",
+        ["project", "status", "--json"],
+        ("format", "json"),
+    ),
+    (
+        "hmp project status --silent",
+        "hmp project status --quiet",
+        ["project", "status", "--silent"],
+        ("verbosity", "quiet"),
+    ),
+    (
+        "hmp project state",
+        "hmp project status",
+        ["project", "state", "--format", "csv"],
+        ("format", "csv"),
+    ),
+    ("hmp status", "hmp project status", ["status", "--format", "csv"], ("format", "csv")),
+)
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "argv", "expected"), OLD_FORMS, ids=[row[0] for row in OLD_FORMS]
+)
+def test_an_old_form_warns_and_does_what_the_new_form_does(
+    old: str,
+    new: str,
+    argv: list[str],
+    expected: tuple[str, object],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    form = conventions.OldCliForm(old, new, "2.3.0")
+    monkeypatch.setattr(conventions, "OLD_CLI_FORMS", (form,))
+
+    with pytest.warns(FutureWarning, match=f"{old} is now {new}.*2.3.0"):
+        args = _parse(argv)
+
+    dest, value = expected
+    assert getattr(args, dest) == value
+    assert args._handler is status.run
+
+
+def test_an_old_form_leaves_the_new_form_and_the_help_alone(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    forms = tuple(conventions.OldCliForm(old, new, "2.3.0") for old, new, _, _ in OLD_FORMS)
+    monkeypatch.setattr(conventions, "OLD_CLI_FORMS", forms)
+
+    assert _parse(["project", "status"]).format == "table"
+    with pytest.raises(SystemExit):
+        _parse(["project", "status", "--help"])
+
+    assert "--silent" not in capsys.readouterr().out
+    commands = {" ".join(row["path"]): row for row in walk_parser(_build_parser(), ["hmp"])}
+    assert not {"hmp status", "hmp project state"} & set(commands)
+    flags = {flag for arg in commands["hmp project status"]["arguments"] for flag in arg["flags"]}
+    assert not {"--stale", "--json", "--silent"} & flags
+
+
+def test_a_required_flag_is_answered_by_either_form(monkeypatch: pytest.MonkeyPatch) -> None:
+    form = conventions.OldCliForm(
+        "hmp project array --sched", "hmp project array --scheduler", "2.3.0"
+    )
+    monkeypatch.setattr(conventions, "OLD_CLI_FORMS", (form,))
+
+    assert _parse(["project", "array", "--scheduler", "slurm"]).scheduler == "slurm"
+    with pytest.warns(FutureWarning, match="--sched is now"):
+        assert _parse(["project", "array", "--sched", "slurm"]).scheduler == "slurm"
+    with pytest.raises(SystemExit):
+        _parse(["project", "array"])
+
+
+def test_an_old_form_that_names_nothing_stops_the_build(monkeypatch: pytest.MonkeyPatch) -> None:
+    form = conventions.OldCliForm("hmp project status --old", "hmp project status --none", "2.3.0")
+    monkeypatch.setattr(conventions, "OLD_CLI_FORMS", (form,))
+
+    with pytest.raises(KeyError, match="--none"):
+        _build_parser()

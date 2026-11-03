@@ -128,9 +128,6 @@ METRIC_SENSE: dict[str, MetricSense] = {
     "reservoir": "max",
     "rmse": "min",
     "mae": "min",
-    "closure_max_abs_m3_s": "min",
-    "closure_max_abs_mm_d": "min",
-    "closure_relative_error_p95": "min",
     "distance_gap": "min",
     "distance_mean": "min",
     "bias": "zero",
@@ -140,9 +137,8 @@ METRIC_SENSE: dict[str, MetricSense] = {
 }
 """Direction of every metric the catalog knows how to rank.
 
-Each key has a producer: the run kernels (``metric_rule.METRIC_NAMES``), the
-calibration criteria or the budget closure of a comparison. A test holds the
-two lists together.
+Each key has a producer: the run kernels (``metric_rule.METRIC_NAMES``) or the
+calibration criteria. A test holds the two lists together.
 """
 
 

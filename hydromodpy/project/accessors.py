@@ -35,6 +35,7 @@ from hydromodpy.results.catalog.constants import metric_sense
 from hydromodpy.results.plan_store import current_plan_hash, read_plan
 from hydromodpy.results.session.descriptor import list_session_dirs
 from hydromodpy.results.session.view import Session
+from hydromodpy.results.storage.json_io import readable
 from hydromodpy.results.validity_rules import CALIBRATED_LABELS
 
 if TYPE_CHECKING:
@@ -199,10 +200,8 @@ def sites_frame(catalog: Catalog, project_root: Path) -> gpd.GeoDataFrame:
     """
     import geopandas as gpd
 
-    if current_plan_hash(project_root) is not None:
-        frame = read_plan(project_root).sites.to_pandas()
-    else:
-        frame = catalog.sites
+    stored = readable(read_plan, project_root) if current_plan_hash(project_root) else None
+    frame = catalog.sites if stored is None else stored.sites.to_pandas()
     if not {"x_outlet", "y_outlet"} <= set(frame.columns):
         return gpd.GeoDataFrame(frame)
     x = pd.to_numeric(frame["x_outlet"], errors="coerce")
@@ -269,17 +268,16 @@ def best_frame(
     if rows.empty:
         logger.warning("best(%r): no completed run in the index of this project.", metric)
     labels = (label,) if isinstance(label, str) else tuple(label or ())
-    groups = [(None, rows)] if by is None else list(rows.groupby(by, dropna=False, sort=True))
     out: list[dict[str, Any]] = []
     left_out: list[tuple[str, pd.DataFrame, bool]] = []
-    for key, completed in groups:
+    for key, completed in _groups_of(rows, by):
         group = completed if label is None else completed[completed["label"].isin(labels)]
         sim_ids = [str(sid) for sid in group["sim_id"]]
         ranked = RunSet(sim_ids, catalog).compare(metric, mixed_windows=mixed_windows)
         if ranked.empty:
             every = [str(sid) for sid in completed["sim_id"]]
             scored = not RunSet(every, catalog).compare(metric, mixed_windows=True).empty
-            name = "the project" if by is None else str(key)
+            name = "the project" if by is None else f"no {by}" if key is None else str(key)
             left_out.append((name, completed, scored))
             continue
         top = ranked.iloc[0]
@@ -303,6 +301,19 @@ def best_frame(
         out.append(row)
     _warn_left_out(metric, left_out, " or ".join(labels))
     return pd.DataFrame(out)
+
+
+def _groups_of(
+    rows: pd.DataFrame, by: Literal["site", "recipe"] | None
+) -> list[tuple[str | None, pd.DataFrame]]:
+    """Return the rows of each value of *by*, by name, then the rows with no value under ``None``."""
+    if by is None:
+        return [(None, rows)]
+    missing = rows[by].isna()
+    groups: list[tuple[str | None, pd.DataFrame]] = [
+        (str(key), group) for key, group in rows[~missing].groupby(by, sort=True)
+    ]
+    return [*groups, (None, rows[missing])] if missing.any() else groups
 
 
 def _warn_left_out(metric: str, left_out: list[tuple[str, pd.DataFrame, bool]], label: str) -> None:

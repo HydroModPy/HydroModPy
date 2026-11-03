@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import argparse
 
-from hydromodpy.cli._conventions import add_action_subparsers
 from hydromodpy.cli.commands.dev import (
     completion,
     examples,
@@ -28,6 +27,7 @@ from hydromodpy.cli.commands.dev import (
     run_script,
     schema,
 )
+from hydromodpy.cli.conventions import add_action_subparsers
 
 NAME: str = "dev"
 HELP: str = "Developer-only commands (completion, schema, lock, manage, ...)"

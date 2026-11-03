@@ -158,6 +158,30 @@ def run_data(
 # ---------------------------------------------------------------------------
 
 
+def rebind_flow_if_stale(run_state: WorkflowContext) -> bool:
+    """Rebuild ``setup.flow`` when another configuration built it, with its forcings.
+
+    A Project builds its model phase once and drives several runs through it, so
+    a sweep point, or a plain run after an overridden one, arrives with a ``flow``
+    section the live flow was not built from. The new flow goes through the binder
+    cascade of the data step, so it keeps every forcing (lake meteo and flux,
+    runoff to SFR, ETP, oceanic) the data step gave the former one. Before the data
+    are loaded there is nothing to bind: the data step does it.
+
+    Returns True when a rebuild happened.
+    """
+    setup_state = run_state.setup
+    flow = setup_state.flow
+    if flow is None or flow.config is run_state.cfg.flow:
+        return False
+    setup_state.flow = None
+    if run_state.loaded_data.loaded_plan_types is None:
+        ensure_flow(run_state)
+    else:
+        apply_structural_updates_from_data(run_state)
+    return True
+
+
 def apply_structural_updates_from_data(
     run_state: WorkflowContext,
 ) -> None:

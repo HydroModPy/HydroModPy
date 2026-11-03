@@ -29,7 +29,7 @@ from hydromodpy.display.figures._parameter_scale import (
     require_property,
     wrapped,
 )
-from hydromodpy.display.figures._scalar_face_map import top_active_values
+from hydromodpy.display.figures.scalar_face_map import top_active_values
 from hydromodpy.display.maps.axes import style_relative_km_axes
 from hydromodpy.display.maps.overlays import apply_overlays
 from hydromodpy.display.maps.ugrid import render_face_field

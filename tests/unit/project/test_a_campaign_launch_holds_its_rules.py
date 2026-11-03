@@ -23,6 +23,7 @@ from hydromodpy.project.launch.children import PlannedCase
 from hydromodpy.project.launch.local import select_cases
 from hydromodpy.results.plan_store import read_plan
 from hydromodpy.results.session.descriptor import SessionDescriptor, write_session
+from tests._helpers.sealed_runs import manifest_document
 from tests.unit.project._launch_fakes import seen, write_behaviour, write_project
 
 pytestmark = pytest.mark.allow_subprocess
@@ -96,7 +97,7 @@ def _promoted_run(project: Path, case_id: str, config_hash: str) -> None:
     run_dir = runs_dir_for(project) / case_id
     run_dir.mkdir(parents=True)
     (run_dir / "manifest.json").write_text(
-        json.dumps({"identity": {"config_hash": config_hash}}), encoding="utf-8"
+        json.dumps(manifest_document(name=case_id, config_hash=config_hash)), encoding="utf-8"
     )
 
 

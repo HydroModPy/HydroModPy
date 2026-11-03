@@ -1,0 +1,249 @@
+[workflow]
+mode = "calibration"
+[workspace]
+project_root = "."
+[geographic]
+source_mode = "standard"
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+reuse_existing_outputs = true
+[geographic.catchment]
+catch_def = "from_outlet_coord"
+dem_init_path = "DEM_nancon_25m.tif"
+x_outlet = 389285.91
+y_outlet = 6816518.749
+snap_dist = "150 m"
+buff_area = "10%"
+[geographic.enforce_streams]
+enabled = true
+stream_geometry_path = "nancon_stream_network.gpkg"
+mode = "constant"
+depth_m = 10.0
+[geographic.river_network]
+enabled = true
+threshold_mode = "area_km2"
+threshold_area_km2 = 1.0
+compute_stream_links = true
+compute_strahler_order = true
+[domain]
+[domain.depth_model]
+kind = "constant_thickness"
+thickness = 30.0
+[data]
+types = ["dem", "geology", "hydrography", "hydrometry", "recharge", "runoff"]
+[[data.dem.sources]]
+source = "custom"
+path = "DEM_nancon_25m.tif"
+[[data.geology.sources]]
+source = "brgm_1m"
+[[data.hydrography.sources]]
+source = "custom"
+path = "nancon_stream_network.gpkg"
+[data.hydrometry]
+date_start = "2000-01-01"
+date_end = "2009-12-31"
+[[data.hydrometry.sources]]
+source = "custom"
+path = "hydrometry"
+extent = "watershed"
+station_ids = ["NANCON"]
+[data.recharge]
+date_start = "2000-01-01"
+date_end = "2009-12-31"
+[[data.recharge.sources]]
+source = "custom"
+path = "recharge"
+station_ids = ["NANCON_REA"]
+[data.runoff]
+date_start = "2000-01-01"
+date_end = "2009-12-31"
+[[data.runoff.sources]]
+source = "custom"
+path = "runoff"
+station_ids = ["NANCON_REA"]
+[flow]
+param_list = ["K", "Sy", "Ss"]
+active_sinks_sources = ["recharge"]
+active_bc = ["drainage", "sfr"]
+flow_regime = "steady"
+[flow.ic]
+type = "top"
+description = "Nappe initialisee a la surface topographique."
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+unit = "m/s"
+value = 6.4e-5
+[flow.param.Sy.field]
+id = "Sy"
+kind = "homogeneous"
+unit = "-"
+value = 0.05
+[flow.param.Ss.field]
+id = "Ss"
+kind = "homogeneous"
+unit = "m-1"
+value = 1e-5
+[flow.bc.drainage]
+kind = "cauchy"
+application_domain = "top"
+description = "Drainage de Cauchy sur la face superieure de l'aquifere."
+value = 0.0
+[flow.sinks_sources.recharge]
+values = 0.0
+[flow.sinks_sources.sfr.nancon]
+stream_threshold_km2 = 1.0
+streambed_k = 2.61e-3
+streambed_k_unit = "m/s"
+streambed_thickness = "1 m"
+manning = 0.035
+min_slope = 1e-4
+connected_to_aquifer = true
+bed_incision = "0.5 m"
+max_bed_sag = "5 m"
+route_drainage = true
+rectify_on_mesh = false
+[flow.sinks_sources.sfr.nancon.width]
+kind = "constant"
+value = "2 m"
+[simulation]
+name = "nancon_auto_sfr"
+description = "Nancon - SFR + DRN, K par le reseau en drain pur puis Sy route."
+if_exists = "replace"
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2000-12-31"
+step_value = "1 year"
+coverage_policy = "warn"
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow6"]
+[simulation.results.derived]
+release_flux = true
+watertable_elevation = true
+watertable_depth = true
+seepage_areas = true
+accumulation_flux = true
+[modflow6.runtime]
+print_head = false
+save_specific_discharge = false
+save_saturation = false
+mf6_outer_maximum = 1500
+ims_print_option = "SUMMARY"
+mf6_outer_dvclose = 2e-2
+[calibration]
+seed = 42
+save_runs = "best_n"
+save_best_n = 1
+persist_iteration_detail = "full"
+use_cache = false
+rerun_best_with_outputs = true
+[calibration.parameters.K]
+bounds = [1e-7, 1e-3]
+[calibration.parameters.Sy]
+bounds = [5e-3, 0.0766]
+[calibration.outputs.seepage_network]
+support = "network"
+stream_geometry_path = "nancon_stream_network.gpkg"
+weighting = "area"
+tau_specific_ratio = 1.0e-4
+roptim_max = 2.0
+time = "last"
+observed_position_accuracy = "50 m"
+[[calibration.objective_blocks]]
+name = "abherve_gap"
+metric = "distance_gap"
+uses_outputs = ["seepage_network"]
+[[calibration.phases]]
+name = "steady_conductivity"
+description = "Zero de l'ecart signe D_so - D_os en drain pur, biefs eteints."
+method = "bisection"
+max_iter = 20
+parameters = ["K"]
+objective_blocks = ["abherve_gap"]
+freeze_on_success = true
+[calibration.phases.optimizer_kwargs]
+rel_tol = 0.01
+sweep_points = 7
+[calibration.phases.overrides]
+"flow.sinks_sources.sfr" = {}
+"flow.active_bc" = ["drainage"]
+"flow.flow_regime" = "steady"
+"simulation.time.start_datetime" = "2000-01-01"
+"simulation.time.end_datetime" = "2000-12-31"
+"simulation.time.step_unit" = "year"
+"simulation.time.step_value" = 1
+[[calibration.phases]]
+name = "transient_storage"
+description = "NSE des logarithmes du debit journalier 2001, reseau route."
+method = "scipy_nelder_mead"
+max_iter = 12
+batch_size = 1
+parallel = 1
+parameters = ["Sy"]
+variable = "discharge"
+objective = "nse_log"
+depends_on = "steady_conductivity"
+[calibration.phases.optimizer_kwargs]
+maxfev = 10
+xatol = 0.02
+fatol = 0.002
+[calibration.phases.scoring_window]
+start = "2001-01-01"
+end = "2001-12-31"
+[calibration.phases.overrides]
+"flow.active_bc" = ["drainage", "sfr"]
+"flow.flow_regime" = "transient"
+"simulation.time.start_datetime" = "2000-01-01"
+"simulation.time.end_datetime" = "2001-12-31"
+"simulation.time.step_unit" = "day"
+"simulation.time.step_value" = 1
+[display]
+enabled = true
+preset = "default"
+show = false
+save = true
+output_dir = "figures"
+on_error = "warn"
+figures = [
+    "watershed_id_card",
+    "mesh_map",
+    "boundary_package_map",
+    "depression_map",
+    "flow_direction_map",
+    "hydrograph_sim_obs",
+    "hydrograph_log_nse",
+    "hydrograph",
+    "duration_curve",
+    "recession",
+    "seasonal_boxplot",
+    "water_budget",
+    "flux_timeseries",
+    "sfr_reach_network",
+    "sfr_longitudinal_profile",
+    "sfr_reach_timeseries",
+    "piezometric_map",
+    "watertable_depth_map",
+    "seepage_map",
+    "recharge_map",
+    "cross_section",
+    "accumulation_map",
+    "simulated_active_network",
+    "simulated_active_network_reference_overlay",
+    "seepage_network_reference_overlay",
+    "seepage_network_confusion_map",
+    "downslope_distance_map",
+    "hydrographic_network_reference",
+    "hydrographic_network_generated",
+    "hydrographic_network_comparison",
+    "matching_hydrographic_network_card",
+    "bisection_bracket_trace",
+    "downslope_distance_crossing",
+    "parameter_cost_profile",
+    "calibration_convergence",
+    "calibration_trace",
+    "calibration_posterior",
+]
+[display.overrides.hydrograph_log_nse]
+scoring_window = ["2001-01-01", "2001-12-31"]

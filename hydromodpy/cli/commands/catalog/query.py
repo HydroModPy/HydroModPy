@@ -8,7 +8,7 @@ from pathlib import Path
 
 import duckdb
 
-from hydromodpy.cli._conventions import format_parser, verbosity_parser, workspace_parser
+from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
 from hydromodpy.cli.helpers import EXIT_GENERIC, EXIT_NOT_FOUND, apply_verbosity
 from hydromodpy.core.state.paths import resolve_project_root
 

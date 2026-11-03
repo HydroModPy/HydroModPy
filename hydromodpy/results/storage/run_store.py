@@ -44,12 +44,11 @@ from hydromodpy.results.identity import Identity
 from hydromodpy.results.manifest import (
     RUNTIME_VARIABLE,
     InputEntry,
-    Manifest,
     MetricRow,
     ParameterRow,
     TrackedInput,
     is_sealed,
-    read_manifest,
+    read_seal,
 )
 from hydromodpy.results.storage.array_fingerprint import fingerprint
 from hydromodpy.results.storage.arrow_tables import (
@@ -70,12 +69,11 @@ from hydromodpy.results.storage.geo_metadata import (
     run_parquet_footer,
 )
 from hydromodpy.results.storage.licence import LicenceMember, TrackedPath, run_licence
-from hydromodpy.results.storage.parquet_io import read_kv_metadata, write_table_atomic
+from hydromodpy.results.storage.parquet_io import read_checked_table, write_table_atomic
 from hydromodpy.results.storage.parquet_schemas import (
     BUDGETS_SCHEMA,
     MASS_BALANCE_SCHEMA,
     METRICS_SCHEMA,
-    PARQUET_SCHEMA_VERSION,
     PROVENANCE_SCHEMA,
     TIMESERIES_SCHEMA,
     primary_key_for,
@@ -153,7 +151,7 @@ class RunStore:
         stored = read_facts(directory)
         sealed = stored is None and facts is None and is_sealed(directory)
         if sealed:
-            stored = RunFacts.from_manifest(Manifest.model_validate(read_manifest(directory)))
+            stored = RunFacts.from_manifest(read_seal(directory))
         if facts is None and stored is None:
             raise FileNotFoundError(f"{directory} carries no facts.json and none were given")
         current = facts if facts is not None else stored
@@ -866,9 +864,10 @@ class RunStore:
         solver_engine: str | None = None,
         solver_execution_mode: str | None = None,
         solver_version_text: str | None = None,
+        solver_options: dict[str, Any] | None = None,
         rng_seed: int | None = None,
     ) -> None:
-        """Record the host environment and the solver engine of the run."""
+        """Record the host environment, the solver engine and what it decided at build."""
         from hydromodpy.results.run.environment import capture_environment
 
         self._check_sim(sim_id)
@@ -883,6 +882,8 @@ class RunStore:
         snapshot["solver_execution_mode"] = solver_execution_mode
         if solver_version_text:
             snapshot["solver_version_text"] = solver_version_text
+        if solver_options:
+            snapshot["solver_options"] = solver_options
         snapshot["rng_seed"] = None if rng_seed is None else int(rng_seed)
         self._facts.environment = snapshot
 
@@ -997,12 +998,10 @@ class RunStore:
 
     def read_table(self, view_name: str) -> pd.DataFrame:
         """Return one Parquet payload of the run as a frame; empty without the file."""
-        import pyarrow.parquet as pq
-
         path = self.table_path_for(self.sim_id, view_name)
         if not path.is_file():
             return pd.DataFrame()
-        return pq.read_table(path).to_pandas()
+        return read_checked_table(path).to_pandas()
 
     def query_timeseries(
         self,
@@ -1098,21 +1097,7 @@ class RunStore:
         self, *, target: Path, new_table: pa.Table, pk_cols: Sequence[str]
     ) -> None:
         """Persist a table atomically, merging with the file already there."""
-        if target.exists():
-            try:
-                old_version = read_kv_metadata(target).get("hmp.schema_version")
-            except Exception:
-                old_version = None
-            if old_version and old_version != PARQUET_SCHEMA_VERSION:
-                logger.warning(
-                    "Parquet file %s carries schema_version=%s; rewriting as %s",
-                    target,
-                    old_version,
-                    PARQUET_SCHEMA_VERSION,
-                )
-            merged = merge_with_existing(target, new_table, pk_cols)
-        else:
-            merged = new_table
+        merged = merge_with_existing(target, new_table, pk_cols) if target.exists() else new_table
         write_table_atomic(
             merged, target, kv_metadata=self.parquet_metadata(), pk_cols=tuple(pk_cols)
         )

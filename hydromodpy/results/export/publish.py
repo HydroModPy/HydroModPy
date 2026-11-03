@@ -11,7 +11,7 @@ there is no second packer.
 
 What a copy holds
 -----------------
-Always: ``README.md``, ``config.toml``, ``provenance.json`` (redacted),
+Always: ``README.md``, ``config.toml``, ``config.resolved.toml``, ``provenance.json`` (redacted),
 ``inputs.json``, ``manifest.json``, ``figures/``, ``exports/``, ``report/``,
 a generated ``ro-crate-metadata.json`` and ``PUBLICATION.json``
 (:mod:`hydromodpy.results.publication`). ``with_ = ("results",)`` adds
@@ -65,6 +65,7 @@ from typing import Any, Final
 
 import tomlkit
 
+from hydromodpy.core.config_kit.stored import read_stored
 from hydromodpy.core.exceptions import ConfigMissingError, ExportError
 from hydromodpy.core.payload import PayloadBundle, sidecar_name, stored_name, write_index
 from hydromodpy.core.payload.install import sha256_of as file_sha256
@@ -84,7 +85,7 @@ from hydromodpy.results.ledger import sha256_of
 from hydromodpy.results.manifest import is_sealed
 from hydromodpy.results.publication import (
     PROJECT_REL_DIR,
-    PUBLICATION_SCHEMA,
+    PUBLICATION_VERSIONS,
     REDACTED_PATH,
     Publication,
     PublicationExtra,
@@ -110,6 +111,7 @@ from hydromodpy.results.storage.contract import (
     RUN_PROVENANCE_FILENAME,
     RUN_PUBLISHED_FILENAME,
     RUN_REPORT_DIRNAME,
+    RUN_RESOLVED_CONFIG_FILENAME,
     TABLES_DIRNAME,
 )
 from hydromodpy.results.storage.json_io import check_sealed
@@ -125,6 +127,7 @@ InputsOf = Callable[[Path], PayloadBundle]
 RUN_COPY_ENTRIES: Final[tuple[str, ...]] = (
     README_FILENAME,
     RUN_CONFIG_FILENAME,
+    RUN_RESOLVED_CONFIG_FILENAME,
     RUN_PROVENANCE_FILENAME,
     RUN_INPUTS_FILENAME,
     RUN_MANIFEST_FILENAME,
@@ -799,9 +802,9 @@ def _tar_digests(archive_path: Path) -> tuple[dict[str, str], dict[str, str]]:
             _, _, name = member.name.partition("/")
             if name == PUBLICATION_FILENAME:
                 payload = check_sealed(
-                    json.loads(data), PUBLICATION_SCHEMA, path=archive_path / member.name
+                    json.loads(data), PUBLICATION_VERSIONS, path=archive_path / member.name
                 )
-                recorded = Publication.model_validate(payload).files
+                recorded = read_stored(Publication, payload).files
                 continue
             found[name] = hashlib.sha256(data).hexdigest()
     return found, recorded

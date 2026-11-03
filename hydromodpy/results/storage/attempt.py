@@ -96,6 +96,7 @@ from hydromodpy.results.storage.contract import (
     RUN_MANIFEST_FILENAME,
     RUN_OUTCOME_FILENAME,
 )
+from hydromodpy.results.storage.json_io import readable
 from hydromodpy.results.storage.run_facts import read_facts
 
 logger = get_logger(__name__)
@@ -240,7 +241,8 @@ def claim_run_directory(
             raise AttemptClaimedError(f"{CLAIMED_ELSEWHERE}: {name}") from exc
         return _first_attempt(target, name, case_id, project, site, when, host, pid)
     status = effective_status(latest, now=when, stale_after_s=stale_after_s)
-    if status == "completed":
+    # A directory this code cannot read is left as it is: the case takes a new version.
+    if status in ("completed", "unreadable"):
         if if_exists == "fail":
             check_name_free(root, stem)
         target = reserve_version_dirname(root, "run", stem)
@@ -536,7 +538,7 @@ def finish_dead_attempt(
     the worker that holds it. Returns the outcome written, or ``None`` when
     the worker had already written its own exit or is not the one named.
     """
-    previous = read_outcome(run_dir)
+    previous = readable(read_outcome, run_dir)
     if previous is None or previous.status != "running":
         return None
     if previous.host != host or previous.pid != pid:

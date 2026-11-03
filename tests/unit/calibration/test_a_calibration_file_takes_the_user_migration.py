@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 
 import pytest
 
 from hydromodpy.calibration.runners.cli_runner import load_toml_calibration
+from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning
 
 pytestmark = pytest.mark.unit
 
@@ -25,18 +25,12 @@ spatial_fields = true
 """
 
 
-def _migration_lines(path: Path, caplog) -> list[str]:
-    with caplog.at_level(logging.INFO):
-        cfg, raw = load_toml_calibration(path)
-    assert cfg.method == "grid"
-    assert "budget" not in raw["simulation"]["results"]
-    return [r.getMessage() for r in caplog.records if "migrated" in r.getMessage()]
-
-
-def test_a_user_file_keeps_the_user_migration(tmp_path: Path, caplog) -> None:
+def test_a_user_file_keeps_the_user_migration(tmp_path: Path) -> None:
     user = tmp_path / "calibration.toml"
     user.write_text(_TOML, encoding="utf-8")
 
-    lines = _migration_lines(user, caplog)
+    with pytest.warns(ConfigKeyRenamedWarning, match="hmp doctor --fix-config"):
+        cfg, raw = load_toml_calibration(user)
 
-    assert any("hmp doctor --fix-config" in line for line in lines)
+    assert cfg.method == "grid"
+    assert "budget" not in raw["simulation"]["results"]

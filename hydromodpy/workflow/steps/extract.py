@@ -89,10 +89,7 @@ class ExtractStep:
     """Extract solver outputs and ingest observations into the result store."""
 
     name = "extract"
-    reads: ClassVar[tuple[str, ...]] = (
-        "ctx",
-        "skip_display",
-    )
+    reads: ClassVar[tuple[str, ...]] = ("ctx",)
     writes: ClassVar[tuple[str, ...]] = (
         "ctx",
         "extraction_summary",
@@ -129,7 +126,7 @@ class ExtractStep:
                 results_cfg,
                 plan,
                 ctx.cfg.display,
-                display_active=not bool(state.get("skip_display")),
+                display_active=True,
                 export_requests=ctx.cfg.export,
                 calibration=ctx.cfg.calibration,
                 observation=ctx.cfg.observation,

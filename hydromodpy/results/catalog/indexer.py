@@ -68,7 +68,6 @@ from typing import Any, Literal
 from uuid import uuid4
 
 import duckdb
-import pyarrow.parquet as pq
 
 from hydromodpy.core.io.atomic_replace import rename_over_open_file
 from hydromodpy.core.io.db_retry import connect_with_retry
@@ -100,17 +99,19 @@ from hydromodpy.results.catalog.registration import split_stem_version
 from hydromodpy.results.catalog.views import ensure_views
 from hydromodpy.results.export.run_identity import label_of
 from hydromodpy.results.heartbeat import read_heartbeat
-from hydromodpy.results.manifest import Manifest, read_manifest
+from hydromodpy.results.manifest import Manifest, read_seal
 from hydromodpy.results.outcome import Outcome, effective_status, read_outcome
 from hydromodpy.results.record import read_provenance
 from hydromodpy.results.session.descriptor import SessionDescriptor, read_session
 from hydromodpy.results.session.journal import read_trials
 from hydromodpy.results.session.phase import list_phases
 from hydromodpy.results.storage.contract import (
+    HEARTBEAT_FILENAME,
     PARQUET_FILE_SUFFIX,
     RUN_ANNOTATIONS_FILENAME,
     RUN_ATTEMPTS_DIRNAME,
     RUN_CONFIG_FILENAME,
+    RUN_LOGS_DIRNAME,
     RUN_MANIFEST_FILENAME,
     RUN_OUTCOME_FILENAME,
     RUN_PROVENANCE_FILENAME,
@@ -120,7 +121,8 @@ from hydromodpy.results.storage.contract import (
     SIMULATION_TABLE_NAME,
     TABLES_DIRNAME,
 )
-from hydromodpy.results.storage.json_io import read_json
+from hydromodpy.results.storage.json_io import beside_seal, read_json, readable, reason_text
+from hydromodpy.results.storage.parquet_io import read_checked_table
 from hydromodpy.results.validity_rules import RULE_VERSION, load_known_issues
 
 logger = get_logger(__name__)
@@ -397,9 +399,10 @@ def _write_index(
                 try:
                     counts = writer.index_entry(entry)
                 except Exception as exc:  # noqa: BLE001 - one bad directory never aborts a pass
-                    logger.warning("index left out %s: %s", rel_dir, exc)
+                    reason = reason_text(exc)
+                    logger.warning("index left out %s: %s", rel_dir, reason)
                     writer.forget(rel_dir)
-                    skipped.append(SkippedEntry(rel_dir, str(exc)))
+                    skipped.append(SkippedEntry(rel_dir, reason))
                     continue
                 (sessions if entry.kind == "session" else written).append(rel_dir)
                 for table, count in counts.items():
@@ -515,19 +518,25 @@ class _IndexWriter:
 
     def _index_run(self, entry: DiskEntry) -> dict[str, int]:
         path = entry.path
-        outcome = read_outcome(path)
         sealed = (path / RUN_MANIFEST_FILENAME).is_file()
+        # The seal says the run is complete: what cannot be read beside it costs a warning.
+        manifest = read_seal(path) if sealed else None
+        outcome = (
+            beside_seal(read_outcome, path, RUN_OUTCOME_FILENAME) if sealed else read_outcome(path)
+        )
         if outcome is None and not sealed:
             raise ValueError(f"neither {RUN_OUTCOME_FILENAME} nor {RUN_MANIFEST_FILENAME}")
         status = effective_status(path, now=self._at)
         counts: dict[str, int] = {}
-        manifest: Manifest | None = None
-        if sealed:
-            manifest = Manifest.model_validate(read_manifest(path))
+        if manifest is not None:
             counts.update(self._index_seal(entry, manifest))
         run = manifest.run if manifest is not None else None
         site = manifest.site.name if manifest is not None and manifest.site else None
-        beat = read_heartbeat(path)
+        beat = (
+            beside_seal(read_heartbeat, path, f"{RUN_LOGS_DIRNAME}/{HEARTBEAT_FILENAME}")
+            if sealed
+            else read_heartbeat(path)
+        )
         case: dict[str, Any] = {
             "rel_dir": entry.rel_dir,
             "kind": entry.kind,
@@ -559,7 +568,8 @@ class _IndexWriter:
         if attempts_dir.is_dir():
             for earlier in sorted(attempts_dir.iterdir()):
                 if earlier.is_dir():
-                    previous = read_outcome(earlier)
+                    # An earlier attempt this code cannot read costs its row, not the run.
+                    previous = readable(read_outcome, earlier)
                     if previous is not None:
                         outcomes.append(previous)
         seen: set[str] = set()
@@ -590,7 +600,7 @@ class _IndexWriter:
                 f"no {snapshot.name} under {TABLES_DIRNAME}: the run carries a manifest "
                 "but not the index row it seals"
             )
-        rows = pq.read_table(snapshot).to_pylist()
+        rows = read_checked_table(snapshot).to_pylist()
         if len(rows) != 1:
             raise ValueError(f"{snapshot.name} holds {len(rows)} rows, one run has one")
         row = dict(rows[0])
@@ -718,7 +728,7 @@ class _IndexWriter:
         if not payload.is_file():
             return 0
         count = 0
-        for row in pq.read_table(payload).to_pylist():
+        for row in read_checked_table(payload).to_pylist():
             record = dict(row)
             record["sim_id"] = sim_id
             self.insert("provenance", record)
@@ -763,7 +773,9 @@ class _IndexWriter:
         return 1
 
     def _insert_annotations(self, sim_id: str, path: Path) -> dict[str, int]:
-        annotations = read_annotations(path)
+        annotations = beside_seal(read_annotations, path, RUN_ANNOTATIONS_FILENAME)
+        if annotations is None:
+            return {"tags": 0, "sim_notes": 0}
         for tag in annotations.tags:
             self.insert("tags", {"sim_id": sim_id, "tag": tag})
         for note in annotations.notes:
@@ -970,7 +982,12 @@ def _directory_identity(entry: DiskEntry, manifest: Manifest) -> dict[str, Any]:
 
 
 def _lookup_ids(connection: duckdb.DuckDBPyConnection, row: dict[str, Any]) -> dict[str, Any]:
-    """Resolve the dimension codes of a row into their ids."""
+    """Resolve the dimension codes of a row into their ids.
+
+    A regime or a topology the tables do not hold yet is added: a later version
+    may write one, and the index keeps what the run says. The solver codes stay
+    a strict vocabulary (:func:`validate_solver_code`).
+    """
 
     def _id(table: str, code: Any) -> int | None:
         if code is None:
@@ -978,14 +995,23 @@ def _lookup_ids(connection: duckdb.DuckDBPyConnection, row: dict[str, Any]) -> d
         found = connection.execute(f"SELECT id FROM {table} WHERE code = ?", [str(code)]).fetchone()
         return None if found is None else int(found[0])
 
+    def _id_or_new(table: str, code: Any) -> int | None:
+        found = _id(table, code)
+        if found is not None or code is None:
+            return found
+        last = connection.execute(f"SELECT COALESCE(MAX(id), 0) FROM {table}").fetchone()
+        new_id = int(last[0]) + 1
+        connection.execute(f"INSERT INTO {table} (id, code) VALUES (?, ?)", [new_id, str(code)])
+        return new_id
+
     solver_id = _id("solvers", row.get("solver"))
     if solver_id is None:
         raise ValueError(f"unknown solver code {row.get('solver')!r}")
     return {
         "solver_id": solver_id,
         "status_id": _id("statuses", "completed"),
-        "flow_regime_id": _id("flow_regimes", row.get("flow_regime")),
-        "mesh_topology_id": _id("mesh_topologies", row.get("mesh_topology")),
+        "flow_regime_id": _id_or_new("flow_regimes", row.get("flow_regime")),
+        "mesh_topology_id": _id_or_new("mesh_topologies", row.get("mesh_topology")),
     }
 
 

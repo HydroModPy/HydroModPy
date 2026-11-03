@@ -1,13 +1,11 @@
 """A solver binary that cannot be fetched raises a typed network error.
 
-urllib's URLError used to reach the user as is: exit 1 from ``hmp
-install-binaries`` and a bare ``URLError`` in the ``run_solver`` step of a run.
+A raw connection error used to reach the user as is: exit 1 from ``hmp
+install-binaries`` and a bare exception in the ``run_solver`` step of a run.
 """
 
 from __future__ import annotations
 
-import urllib.error
-import urllib.request
 from pathlib import Path
 
 import pytest
@@ -17,62 +15,31 @@ from hydromodpy.core.exceptions import NetworkError
 from hydromodpy.solver.modflow_common import binaries
 
 
-def _failing(exc: BaseException):
-    def get_modflow(*_args, **_kwargs):
-        raise exc
-
-    return get_modflow
-
-
 @pytest.mark.parametrize(
-    "raised",
+    ("raised", "cause"),
     [
-        urllib.error.URLError(ConnectionRefusedError(111, "Connection refused")),
-        RuntimeError("cannot retrieve data from https://api.github.com/x"),
-        ValueError("use GITHUB_TOKEN env to bypass rate limit (HTTP Error 403)"),
+        (
+            NetworkError("HTTP GET x failed after 4 retries", last_exception="Connection refused"),
+            "Connection refused",
+        ),
+        (NetworkError("HTTP GET x -> 503", status_code=503), "HTTP GET x -> 503"),
     ],
 )
 def test_a_network_failure_names_the_address_and_what_to_set(
-    monkeypatch, tmp_path: Path, raised: BaseException
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, raised: NetworkError, cause: str
 ) -> None:
-    if isinstance(raised, RuntimeError):
-        raised.__cause__ = urllib.error.HTTPError("https://api.github.com/x", 503, "down", {}, None)
-    monkeypatch.setattr("flopy.utils.get_modflow", _failing(raised))
+    def refuse(*_args: object, **_kwargs: object) -> None:
+        raise raised
+
+    monkeypatch.setattr(binaries, "cache_dir", lambda: tmp_path / "cache")
+    monkeypatch.setattr(binaries, "fetch_pinned", refuse)
 
     with pytest.raises(NetworkError) as caught:
         binaries.download_solver_binaries(tmp_path, subset=["mf6"], release="23.0")
 
     message = str(caught.value)
-    assert binaries.release_url("23.0") in message
+    assert binaries.asset_url("23.0", binaries._release_asset()) in message
+    assert cause in message
     assert "HTTPS_PROXY" in message
-    assert "GITHUB_TOKEN" in message
+    assert "HMP_BIN" in message
     assert exit_code_for(caught.value) == EXIT_VALIDATION == 16
-
-
-def test_another_failure_is_left_as_it_is(monkeypatch, tmp_path: Path) -> None:
-    monkeypatch.setattr("flopy.utils.get_modflow", _failing(ValueError("Release 99 not found")))
-
-    with pytest.raises(ValueError, match="Release 99 not found"):
-        binaries.download_solver_binaries(tmp_path, subset=["mf6"], release="99")
-
-
-def test_the_latest_release_has_its_own_address() -> None:
-    assert binaries.release_url("latest").endswith("/releases/latest")
-
-
-def test_the_release_query_carries_the_github_token(monkeypatch, tmp_path: Path) -> None:
-    # The NetworkError tells the user to set GITHUB_TOKEN: the download must send it.
-    sent: list[urllib.request.Request] = []
-
-    def urlopen(request, *_args, **_kwargs):
-        sent.append(request)
-        raise urllib.error.URLError("offline")
-
-    monkeypatch.setenv("GITHUB_TOKEN", "a-token")
-    monkeypatch.setattr(urllib.request, "urlopen", urlopen)
-
-    with pytest.raises(NetworkError):
-        binaries.download_solver_binaries(tmp_path, subset=["mf6"], release="23.0")
-
-    assert sent[0].full_url == binaries.release_url("23.0")
-    assert sent[0].get_header("Authorization") == "Bearer a-token"

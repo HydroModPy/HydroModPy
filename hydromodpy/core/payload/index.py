@@ -29,12 +29,17 @@ from typing import Any, Final, Literal
 
 import tomlkit
 
-from hydromodpy.core.io.document_version import check_document, sealed_remedy
+from hydromodpy.core.io.document_version import VersionWindow, check_version
 from hydromodpy.core.site import SITE_ROW_COLUMNS, SiteRow
 from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
 
 INSTALL_SCHEMA: Final[str] = "hydromodpy.install.v1"
 """Schema id of ``INSTALL.toml``."""
+
+INSTALL_VERSIONS: Final[VersionWindow] = VersionWindow(
+    oldest="hydromodpy.install.v1", current=INSTALL_SCHEMA
+)
+"""Versions of ``INSTALL.toml`` this code reads."""
 
 INSTALL_FILENAME: Final[str] = "INSTALL.toml"
 """Name of the install index at the root of a package."""
@@ -99,10 +104,10 @@ class PayloadFile:
 
     @classmethod
     def from_table(cls, table: Mapping[str, Any]) -> PayloadFile:
-        """Build a file from its ``[[file]]`` table; an unknown key is refused by name."""
-        unknown = sorted(set(table) - set(_FILE_KEYS))
-        if unknown:
-            raise ValueError(f"[[file]] {table.get('dest')!r}: unknown key(s) {', '.join(unknown)}")
+        """Build a file from its ``[[file]]`` table; a key a later version added is ignored.
+
+        A ``root`` this code does not know is refused: it could not say where the file goes.
+        """
         root = str(table.get("root", "workspace"))
         if root not in ("workspace", "project"):
             raise ValueError(f"[[file]] {table.get('dest')!r}: root is {root!r}")
@@ -284,16 +289,20 @@ def read_index(directory: str | Path) -> InstallIndex:
     path = Path(directory) / INSTALL_FILENAME
     with path.open("rb") as handle:
         document = tomllib.load(handle)
-    check_document(
-        document,
-        INSTALL_SCHEMA,
+    check_version(
+        document.get("schema"),
+        INSTALL_VERSIONS,
         document=path,
-        remedy=sealed_remedy(document.get("hydromodpy_version")),
+        key="schema",
+        writer=document.get("hydromodpy_version"),
     )
     return InstallIndex(
         files=tuple(PayloadFile.from_table(table) for table in document.get("file", ())),
         stations=tuple(PayloadStation.from_table(table) for table in document.get("station", ())),
-        sites=tuple(SiteRow.from_mapping(table) for table in document.get("site", ())),
+        sites=tuple(
+            SiteRow.from_mapping({key: table[key] for key in SITE_ROW_COLUMNS if key in table})
+            for table in document.get("site", ())
+        ),
         hydromodpy_version=str(document.get("hydromodpy_version") or ""),
     )
 

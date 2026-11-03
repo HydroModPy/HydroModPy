@@ -2,9 +2,9 @@
 
 The Nançon catchment (Ille-et-Vilaine), in steady state with MODFLOW 6, solved with three
 values of the hydraulic conductivity K. The three runs are three recipes of one project;
-`hmp report compare` reads them once they are sealed and writes one page: the differences to
-the reference run, the maps of the head and of the depth to the water table, the head at the
-outlet, the water-budget closure of each run.
+`hmp report compare` reads them once they are sealed and writes one folder: the parameters that
+differ, the differences to the reference run, the map of each difference, and the water budget
+of each run.
 
 ## The files
 
@@ -26,8 +26,7 @@ hmp report compare k_mid k_low k_high  # summary/report/compare/k_mid-vs-k_low-v
 
 The first reference of `hmp report compare` is the reference of the differences. A recipe
 names the latest run of each of its cases; a run name (`nancon-k_low`) or a run directory
-works too. The three runs share the site and the mesh, so they compare as one case; runs on
-two meshes need `--allow-different-mesh`, runs of several sites `--by site`.
+works too. Runs of several sites need `--by site`.
 
-The comparison opens `summary/report/compare/<refs>/web/index.html`. Nothing is written into
+The comparison opens with `summary/report/compare/<refs>/README.md`. Nothing is written into
 the runs.

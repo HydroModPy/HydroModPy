@@ -685,10 +685,10 @@ class SchemaVersionMismatchError(StorageError):
     """A stored document carries no version, or one this version does not read.
 
     Raised by every reader of a document HydroModPy writes on disk, the index
-    included. The message names the version read, the version this code
-    reads and what to do: rebuild the index, read a sealed document with the
-    version that wrote it, or delete a transient one. Stored data is never
-    migrated.
+    included. The message names the version read, the version that wrote it
+    when known, what this code reads and what to do: upgrade HydroModPy for a
+    newer document, run again what a pre-release wrote, rebuild the index, or
+    delete a transient document.
     """
 
     code = "HMPY.E824"

@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from hydromodpy.cli._conventions import workspace_parser
+from hydromodpy.cli.conventions import workspace_parser
 from hydromodpy.cli.helpers import EXIT_OK, exit_code_for
 from hydromodpy.core.exceptions import HydroModPyError
 from hydromodpy.examples.blobs import DEFAULT_BASE_URL, SOURCE_ENV, default_ref

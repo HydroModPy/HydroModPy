@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import argparse
 
-from hydromodpy.cli._conventions import add_action_subparsers
 from hydromodpy.cli.commands.project import (
     array,
     case,
@@ -39,6 +38,7 @@ from hydromodpy.cli.commands.project import (
     show,
     status,
 )
+from hydromodpy.cli.conventions import add_action_subparsers
 
 NAME: str = "project"
 HELP: str = "Manage the projects of a workspace and launch a [sites] project"

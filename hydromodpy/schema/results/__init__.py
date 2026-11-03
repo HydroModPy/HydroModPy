@@ -8,6 +8,10 @@ generated from the Pydantic models of ``hydromodpy.results`` with
 validate a document without importing anything. A test refuses a committed
 file the model no longer reproduces.
 
+A schema allows additional properties, at every depth, although the model
+refuses them when it writes: a later 2.x may add a key, and a reader ignores
+it. A field that can grow is a string with its words in ``x-hmp-vocabulary``.
+
 This module reads and writes files; it imports no model. The pairing of a
 file with its model is made by the caller, which passes the models in: the
 layer matrix gives ``schema`` no edge towards ``results``.
@@ -44,7 +48,20 @@ def schema_filename(schema_id: str) -> str:
 
 def render_schema(model: type[BaseModel]) -> str:
     """Return the JSON Schema of *model* as the exact text the file carries."""
-    return json.dumps(model.model_json_schema(), indent=2, sort_keys=True) + "\n"
+    document = _open_to_additions(model.model_json_schema())
+    return json.dumps(document, indent=2, sort_keys=True) + "\n"
+
+
+def _open_to_additions(node: Any) -> Any:
+    """Return *node* with every ``additionalProperties: false`` made ``true``."""
+    if isinstance(node, list):
+        return [_open_to_additions(item) for item in node]
+    if not isinstance(node, dict):
+        return node
+    opened = {key: _open_to_additions(value) for key, value in node.items()}
+    if opened.get("additionalProperties") is False:
+        opened["additionalProperties"] = True
+    return opened
 
 
 def write_schemas(target_dir: str | Path, models: Mapping[str, type[BaseModel]]) -> list[Path]:

@@ -26,10 +26,13 @@ from types import MappingProxyType
 from typing import Any, Literal, get_args
 
 from hydromodpy.core.exceptions import HydroModPyError
+from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.schema.job.directory import JobDirectory
 from hydromodpy.schema.job.documents import write_document
 
 OUTCOME_SCHEMA = "hmp-outcome/v1"
+OUTCOME_VERSIONS = VersionWindow(oldest=OUTCOME_SCHEMA, current=OUTCOME_SCHEMA)
+"""Versions of the outcome of a job this code reads."""
 
 JobStatus = Literal["successful", "failed", "dismissed"]
 
@@ -220,7 +223,9 @@ class JobOutcome:
         ``duration_s`` is not read: it is derived from the two instants every
         time the document is rendered, and giving a stored number a second life
         is the defect that made it derived in the first place. ``schema`` is not
-        read either -- it names the shape, and the shape is this class.
+        read either -- it names the shape, and the shape is this class. A reader of
+        the file checks it first, through
+        :func:`~hydromodpy.schema.job.documents.read_versioned`.
 
         The status is checked against the type rather than left to
         :meth:`_refuse_a_status_that_contradicts_itself`, which would read an

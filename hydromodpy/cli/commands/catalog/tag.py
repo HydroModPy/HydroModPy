@@ -6,7 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy.cli._conventions import add_sim_ref, verbosity_parser, workspace_parser
+from hydromodpy.cli.conventions import add_sim_ref, verbosity_parser, workspace_parser
 from hydromodpy.cli.helpers import EXIT_USAGE, apply_verbosity, exit_code_for
 from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
 

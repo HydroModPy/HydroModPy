@@ -72,8 +72,6 @@ ALLOWLIST: tuple[tuple[str, str], ...] = (
     # Content-Type a local dev server writes on its own HTTP responses.
     ("cli/commands/dev/manage/server.py", "text/html; charset=utf-8"),
     ("cli/commands/dev/manage/server.py", "application/json; charset=utf-8"),
-    # The Accept header the GitHub API requires.
-    ("physics/hydrology/pyhelp/core/paths.py", "application/vnd.github+json"),
     # The FORMAT name the Geoplateforme WMS-Raster GetMap request takes.
     ("data/variables/dem/apis/geoplateforme_wms.py", "image/geotiff"),
     # The column default the GeoPackage standard imposes in the gpkg_metadata DDL.

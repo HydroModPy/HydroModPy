@@ -45,9 +45,10 @@ class FlowRuntimeConfig(HydroModelBase):
             "Surface-interaction closure selector (Boussinesq). "
             "``regularized_partition`` uses the Marcais-style q_ex = G_r(theta) "
             "R(balance) law; ``complementarity`` uses the PETSc "
-            "q_ex-perp-(z_top-h) formulation; ``vi_obstacle`` uses the "
-            "experimental PETSc head-only VI obstacle formulation; ``auto`` "
-            "keeps the historical backend-dependent default."
+            "q_ex-perp-(z_top-h) formulation; ``vi_obstacle`` uses the PETSc "
+            "head-only VI obstacle formulation, and ``ts_vi_obstacle`` the same "
+            "one integrated by PETSc TS; ``auto`` keeps the historical "
+            "backend-dependent default."
         ),
     )
     partition_release_depth_m: Annotated[float, Profile.DEV] = Field(
@@ -75,7 +76,7 @@ class FlowRuntimeConfig(HydroModelBase):
         default=1,
         description=(
             "Fixed number of Backward-Euler substeps per time step for the "
-            "experimental PETSc VI obstacle runtime."
+            "PETSc VI obstacle runtime."
         ),
     )
     vi_substep_on_failure: Annotated[bool, Profile.DEV] = Field(
@@ -92,13 +93,12 @@ class FlowRuntimeConfig(HydroModelBase):
     ts_vi_steps_per_period: Annotated[int, Profile.DEV] = Field(
         default=4,
         description=(
-            "Fixed PETSc TS Backward-Euler steps per time step for the "
-            "experimental TS VI obstacle runtime."
+            "Fixed PETSc TS Backward-Euler steps per time step for the TS VI obstacle runtime."
         ),
     )
     ts_vi_adapt: Annotated[bool, Profile.DEV] = Field(
         default=False,
-        description="Enable experimental PETSc TS time-step adaptivity for TS VI obstacle.",
+        description="Enable PETSc TS time-step adaptivity for TS VI obstacle.",
     )
     ts_vi_dt_min_fraction: Annotated[float, Profile.DEV] = Field(
         default=1.0 / 64.0,
@@ -110,11 +110,11 @@ class FlowRuntimeConfig(HydroModelBase):
     )
     ts_vi_type: Annotated[str, Profile.DEV] = Field(
         default="beuler",
-        description="PETSc TS type used by the experimental TS VI obstacle runtime.",
+        description="PETSc TS type used by the TS VI obstacle runtime.",
     )
     ts_vi_snes_type: Annotated[str, Profile.DEV] = Field(
         default="vinewtonrsls",
-        description="PETSc SNES type used inside the experimental TS VI obstacle runtime.",
+        description="PETSc SNES type used inside the TS VI obstacle runtime.",
     )
 
 

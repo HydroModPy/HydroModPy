@@ -42,6 +42,8 @@ from PIL import Image
 from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.stored import read_stored
+from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.results.metric_rule import DateWindow
 from hydromodpy.results.storage.json_io import read_sealed_json, write_json_atomic
 from hydromodpy.results.validity_rules import Label
@@ -49,6 +51,11 @@ from hydromodpy.schema.media_types import JSON_MEDIA_TYPE
 
 IDENTITY_SCHEMA: Final[str] = "hydromodpy.identity.v1"
 """Schema id of the block and of its ``.meta.json`` sidecar."""
+
+IDENTITY_VERSIONS: Final[VersionWindow] = VersionWindow(
+    oldest="hydromodpy.identity.v1", current=IDENTITY_SCHEMA
+)
+"""Versions of the ``.meta.json`` sidecar this code reads."""
 
 ZARR_IDENTITY_ATTR: Final[str] = "hydromodpy_identity"
 """Root attribute of a Zarr store holding the block."""
@@ -112,7 +119,7 @@ class Identity(HydroModelBase):
     @classmethod
     def from_json(cls, text: str) -> Identity:
         """Read a block :meth:`as_json` wrote."""
-        return cls.model_validate(json.loads(text))
+        return read_stored(cls, json.loads(text))
 
     def as_zarr_attrs(self) -> dict[str, Any]:
         """Return the root attributes of a Zarr store."""
@@ -278,7 +285,7 @@ def read_identity_from(path: str | Path) -> Identity | None:
 def _read_sidecar(path: Path) -> Identity | None:
     if not path.is_file():
         return None
-    return MetaSidecar.model_validate(read_sealed_json(path, IDENTITY_SCHEMA)).identity
+    return read_stored(MetaSidecar, read_sealed_json(path, IDENTITY_VERSIONS)).identity
 
 
 def _read_zarr(path: Path) -> Identity | None:
@@ -286,7 +293,7 @@ def _read_zarr(path: Path) -> Identity | None:
         return None
     root = zarr.open_group(str(path), mode="r", use_consolidated=False)
     block = root.attrs.get(ZARR_IDENTITY_ATTR)
-    return None if block is None else Identity.model_validate(block)
+    return None if block is None else read_stored(Identity, block)
 
 
 def _read_parquet(path: Path) -> Identity | None:
@@ -320,6 +327,7 @@ def _read_png(path: Path) -> Identity | None:
 __all__ = [
     "GPKG_METADATA_URI",
     "IDENTITY_SCHEMA",
+    "IDENTITY_VERSIONS",
     "META_SIDECAR_SUFFIX",
     "PARQUET_IDENTITY_KEY",
     "PNG_IDENTITY_KEY",

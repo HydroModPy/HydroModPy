@@ -1,5 +1,5 @@
 {
-  "additionalProperties": false,
+  "additionalProperties": true,
   "description": "What a plan was made from, and what it holds.",
   "properties": {
     "budget": {

@@ -19,6 +19,7 @@ from typing import Any, Literal
 
 from hydromodpy.config.sites.expansion import SitesProjectError, expand_plan, find_sites_file
 from hydromodpy.config.sites.issues import group_issues
+from hydromodpy.core.config_kit.written import written_experimental_keys
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.state.paths import resolve_project_root
 from hydromodpy.core.toml_io.loader import merge_toml_chain, read_toml_chain
@@ -33,13 +34,14 @@ CheckKind = Literal["simulation", "calibration", "sites"]
 
 @dataclass(frozen=True, slots=True)
 class CheckReport:
-    """What the check found: the kind of file, its errors and its warnings."""
+    """What the check found: the kind of file, its errors, its warnings, its experimental keys."""
 
     path: Path
     kind: CheckKind
     errors: tuple[str, ...] = ()
     warnings: tuple[str, ...] = ()
     n_cases: int | None = None
+    experimental_keys: tuple[str, ...] = ()
 
     @property
     def ok(self) -> bool:
@@ -76,7 +78,8 @@ def check_project(path: str | Path) -> CheckReport:
 
 def _check(target: Path) -> CheckReport:
     try:
-        chain = read_toml_chain(target)
+        # As written: the load below says the old forms, and the report collects them.
+        chain = read_toml_chain(target, migrate=False)
     except tomllib.TOMLDecodeError as exc:
         return CheckReport(path=target, kind="simulation", errors=(f"Invalid TOML syntax: {exc}",))
     except (TypeError, ValueError, OSError) as exc:
@@ -89,7 +92,7 @@ def _check(target: Path) -> CheckReport:
         return CheckReport(path=target, kind="sites", errors=(str(exc),))
     if sites_file is not None:
         return _check_sites_project(target)
-    document = merge_toml_chain(chain)
+    document = merge_toml_chain(chain, migrate=False)
     try:
         declared = extract_workflow_field(document)
         if declared is not None:
@@ -112,16 +115,20 @@ def _check_sites_project(target: Path) -> CheckReport:
         errors=tuple(group_issues(draft.errors)),
         warnings=tuple(group_issues(draft.warnings)),
         n_cases=len(draft.cases),
+        experimental_keys=tuple(
+            dict.fromkeys(key for case in draft.cases for key in case.experimental_keys)
+        ),
     )
 
 
 def _load(target: Path) -> tuple[Any, list[str], list[str]]:
     """Load the configuration; return it with the errors and warnings of loading."""
     from hydromodpy.config import HydroModPyConfig
-    from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning
+    from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning, forget_old_forms_told
 
     errors: list[str] = []
     cfg = None
+    forget_old_forms_told()
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always", ConfigKeyRenamedWarning)
         warnings.simplefilter("always", UserWarning)
@@ -143,7 +150,13 @@ def _check_run(target: Path) -> CheckReport:
                 check(cfg)
             except (ConfigError, ValueError) as exc:
                 errors.append(str(exc))
-    return CheckReport(path=target, kind="simulation", errors=tuple(errors), warnings=tuple(noted))
+    return CheckReport(
+        path=target,
+        kind="simulation",
+        errors=tuple(errors),
+        warnings=tuple(noted),
+        experimental_keys=() if cfg is None else written_experimental_keys(cfg),
+    )
 
 
 def _check_calibration(target: Path) -> CheckReport:
@@ -157,7 +170,13 @@ def _check_calibration(target: Path) -> CheckReport:
                 errors.append(text)
             else:
                 noted.append(text)
-    return CheckReport(path=target, kind="calibration", errors=tuple(errors), warnings=tuple(noted))
+    return CheckReport(
+        path=target,
+        kind="calibration",
+        errors=tuple(errors),
+        warnings=tuple(noted),
+        experimental_keys=() if cfg is None else written_experimental_keys(cfg),
+    )
 
 
 def report_lines(report: CheckReport) -> Sequence[str]:

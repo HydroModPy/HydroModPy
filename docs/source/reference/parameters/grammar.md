@@ -89,9 +89,18 @@ a number and `my_run` is a string. In an environment variable name, two undersco
 for a dot and the case is the case of the key: `HMP_SET_flow__param__K__field__value=3e-5`
 sets `flow.param.K.field.value`.
 
+Each file, each overlay and each `--set` value is read under today's key names before the
+merge. So a key an overlay writes under an old name wins over the same key its base writes
+under the new name. A warning names the file that holds the old key, and
+`hmp doctor --fix-config <file>` rewrites that file and the files it inherits, then prints
+what changed in each one. It writes nothing when a rewrite of the files one by one would
+change what they read together, and it names those keys.
+
 ## Merging: tables, lists, `__append`, `__merge`, `__delete`
 
-The same merge applies to the files of the chain, to overlays and to `--set` values.
+The same merge applies to the files of the chain, to overlays and to `--set` values. A table
+merges key by key. Any other value replaces the parent's value, and this holds for lists too,
+whatever their lengths. Three suffixes on a key change this rule for that key.
 
 | The child writes | The result holds |
 |---|---|
@@ -102,15 +111,16 @@ The same merge applies to the files of the chain, to overlays and to `--set` val
 | `key__delete = true` | the parent's key or table removed, with all that is under it |
 | `[[x]]` blocks | the child's blocks, which **replace** the parent's, whatever their number |
 | `[[x__append]]` | the parent's blocks, then the child's |
-| `[[x__merge]]` blocks, as many as the parent's | the blocks merged one by one, in order; another number is refused |
+| `[[x__merge]]` | each block merged with the parent's block of the same identity, the other blocks as they are |
 
 Inside one table, the merge runs in three passes: the deletions, then the keys the file
-writes, then the appends. A key that is deleted and written again in the same table starts
-from nothing: this is why `sources__delete = true`, followed by a new list of sources,
-does not inherit the old keys. `key__delete` needs the literal `true`, `key__append`
-needs a list, and `key__merge` needs an inherited list of tables of the same length and
-is refused next to the plain `key`. To see the file a chain resolves to, before
-validation, run `hmp config resolve <file>`.
+writes, then the merges and the appends. A key that is deleted and written again in the same
+table starts from nothing: this is why `sources__delete = true`, followed by a new list of
+sources, does not inherit the old keys. `key__delete` needs the literal `true`, `key__append`
+needs a list, and `key__merge` needs an inherited list of tables and is refused next to the
+plain `key`. No key of the schema holds two underscores, so a suffix never collides with a
+key. A name you choose yourself must not end with one of the three suffixes. To see the file
+a chain resolves to, before validation, run `hmp config resolve <file>`.
 
 ```{hmp-toml}
 :caption: five rules in one file
@@ -131,6 +141,34 @@ sources__delete = true          # drop the inherited list
 [[data.hydrography.sources]]
 source = "bdtopage"
 ```
+
+`__merge` pairs blocks by their identity, which is the first of `id`, `name` and `source` that
+every block on both sides holds. So {toml}`simulation.process` and {toml}`observation.points`
+pair by `id`, {toml}`calibration.phases` and {toml}`calibration.objective_blocks` by `name`, and
+the `sources` of a data variable by `source`. A parent can insert a block at its head, and each
+child still reaches the block it names. The child writes only the blocks it changes, and the
+list keeps the order of the parent.
+
+```{hmp-toml}
+:caption: one block of an inherited list changes
+base_config = "step1_minimal.toml"
+
+[[simulation.process__merge]]
+id = "flow_main"
+solvers = ["modflow_nwt"]
+```
+
+Four cases are refused, and the message says what to write.
+
+- A block whose identity the parent does not hold. Correct it, or add the block with
+  `[[x__append]]`.
+- Two blocks of one side with the same identity. Give each one its own, or replace the list
+  with `[[x]]`.
+- Blocks with no identity, as in {toml}`export` and {toml}`mesh.refinement_zone`. Write the whole
+  list with `[[x]]`, or add blocks with `[[x__append]]`. Position does not pair them, because
+  two lists of the same length can still be two different lists. The one exception is a list of
+  one block on each side, since there is only one way to pair them.
+- `[[x__merge]]` next to a plain `[[x]]` in one file.
 
 Two traps come from inheritance, not from the merge itself.
 

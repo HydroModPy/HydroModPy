@@ -12,7 +12,7 @@ import sys
 
 from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_OK, exit_code_for
 from hydromodpy.core import progress
-from hydromodpy.core.exceptions import NetworkError
+from hydromodpy.core.exceptions import CacheCorruptionError, NetworkError, SolverBinaryError
 
 NAME: str = "install-binaries"
 HELP: str = "Download MODFLOW/MODPATH/MT3D-USGS binaries into the HydroModPy cache"
@@ -34,7 +34,11 @@ def register(subparsers) -> argparse.ArgumentParser:
         help="Install only the MODFLOW 6 executable used by MF6-PRT",
     )
     parser.add_argument("--bindir", default=None, help="Target directory")
-    parser.add_argument("--release", default=None, help="MODFLOW-ORG release tag")
+    parser.add_argument(
+        "--release",
+        default=None,
+        help="MODFLOW-ORG release tag. Only a release whose sha256 HydroModPy pins is installed",
+    )
     parser.add_argument(
         "--upgrade", "--force", dest="upgrade", action="store_true", help="Re-download"
     )
@@ -59,7 +63,7 @@ def run(args: argparse.Namespace) -> None:
                 quiet=args.quiet,
                 release=args.release,
             )
-    except NetworkError as exc:
+    except (NetworkError, CacheCorruptionError, SolverBinaryError) as exc:
         print(f"[install-binaries] {exc}", file=sys.stderr)
         sys.exit(exit_code_for(exc))
     except (RuntimeError, ValueError) as exc:

@@ -18,7 +18,7 @@ from hydromodpy.cli.commands import run as run_command
 from hydromodpy.core.exceptions import JobUsageError
 from hydromodpy.project.launch import slurm
 from hydromodpy.project.launch.slurm import task_flags, write_lock
-from hydromodpy.project.runner import _model_phase_index, _resolve_step_index
+from hydromodpy.project.runner import model_phase_index, resolve_step_index
 from hydromodpy.results.storage.attempt import claim_run_directory, finish_attempt
 from hydromodpy.workflow.orchestrator import standard_steps
 from tests.unit.project.test_slurm_array import planned_project
@@ -45,7 +45,7 @@ def test_the_prepare_phase_stops_after_load_data(tmp_path: Path) -> None:
     assert flags == ["--until", "load_data"]
     args = _parsed(plan / "J001-base.toml", flags)
     steps = standard_steps()
-    assert _resolve_step_index(args.until_step, steps) < _model_phase_index(steps)
+    assert resolve_step_index(args.until_step, steps) < model_phase_index(steps)
 
 
 def test_a_calibration_case_is_prepared_as_a_simulation(tmp_path: Path) -> None:

@@ -123,7 +123,7 @@ the recipe's own keys, then `--set` and `HMP_SET_*`. Precedence, lowest first:
 defaults < the base of the recipe < the rendered row < the site overlay < the
 recipe's own keys (its file, its inline `set`, its row of `recipes_table`) <
 `--set`. Each case is validated through `HydroModPyConfig.from_dict`, hashed
-by `run_identity_hash` without `[workspace]`, and refused when a site scoped
+by `config_identity_hash` without `[workspace]`, and refused when a site scoped
 key keeps a literal value (`config/sites/site_scoped.py`). An error names its
 cell: `sites.csv:37 column x_outlet -> geographic.catchment.x_outlet: ...`,
 grouped over the cases it touches. `plan.write_plan_draft` writes the plan once

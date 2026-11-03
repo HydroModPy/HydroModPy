@@ -142,16 +142,17 @@ def test_extract_step_decides_the_budget_when_planning_did_not(monkeypatch, tmp_
     assert ctx.budget_terms == BudgetKeep.of_terms(("recharge",))
 
 
-def test_extract_step_honours_no_display_when_it_decides(monkeypatch, tmp_path) -> None:
+def test_no_display_keeps_what_the_figures_read(monkeypatch, tmp_path) -> None:
+    """A display choice of the launch changes no data."""
+    from hydromodpy.core.budget_terms import budget_terms_for_fields
+    from hydromodpy.display import figure_registry
     from hydromodpy.display.config import DisplayConfig
 
     seen = _stub_extraction(monkeypatch)
-    ctx = _uncomputed_context(
-        tmp_path,
-        ResultsConfig(keep_per_cell_budget=False),
-        DisplayConfig(figures=["recharge_map"]),
-    )
-
+    results = ResultsConfig(keep_per_cell_budget=False)
+    ctx = _uncomputed_context(tmp_path, results, DisplayConfig(figures=["recharge_map"]))
     ExtractStep().run(PipelineState(run_id="rid", data={"ctx": ctx, "skip_display": True}))
-
-    assert seen == [BudgetKeep.of_terms(())]
+    spec = figure_registry.get("recharge_map").spec
+    assert seen[-1] == BudgetKeep.of_terms(
+        budget_terms_for_fields((*spec.required_fields, *spec.optional_fields))
+    )

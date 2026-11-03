@@ -19,6 +19,8 @@ import pyarrow.parquet as pq
 import pytest
 from shapely.geometry import Point, Polygon
 
+from hydromodpy.core.exceptions import SchemaVersionMismatchError
+from hydromodpy.core.io.document_version import NEWER_REMEDY, OLDER_REMEDY
 from hydromodpy.core.io.geoparquet import (
     GEOPARQUET_SCHEMA_VERSION,
     read_geoparquet,
@@ -48,7 +50,6 @@ from hydromodpy.results.storage.parquet_schemas import (
     PROVENANCE_SCHEMA,
     TIMESERIES_SCHEMA,
     VIEW_SCHEMAS,
-    ParquetSchemaVersionError,
     check_schema_version,
 )
 from hydromodpy.results.storage.run_store import RunStore
@@ -179,25 +180,51 @@ class TestSchemaVersion:
             sid = store.sim_id
             store.write_timeseries(sid, "P01", "head", _make_series(), unit="m")
             target = store.tables_dir_for(sid) / f"timeseries{PARQUET_FILE_SUFFIX}"
-        md = read_kv_metadata(target)
-        check_schema_version(md)
-        assert md["hmp.schema_version"] == PARQUET_SCHEMA_VERSION
+        check_schema_version(pq.read_schema(target).metadata, document=target)
+        assert read_kv_metadata(target)["hmp.schema_version"] == PARQUET_SCHEMA_VERSION
 
-    def test_parquet_schema_version_mismatch_raises(self, tmp_path: Path):
-        target = tmp_path / "out.parquet"
-        table = pa.table({"a": [1, 2]}).replace_schema_metadata({b"hmp.schema_version": b"v1.0"})
-        pq.write_table(table, target)
-        md = read_kv_metadata(target)
-        with pytest.raises(ParquetSchemaVersionError):
-            check_schema_version(md)
+    @pytest.mark.parametrize(
+        ("metadata", "said"),
+        [
+            ({b"hmp.schema_version": b"v9", b"hydromodpy_version": b"2.9.0"}, "HydroModPy 2.9.0"),
+            ({b"hmp.schema_version": b"v9"}, NEWER_REMEDY),
+            ({b"hmp.schema_version": b"v1"}, OLDER_REMEDY),
+            ({}, OLDER_REMEDY),
+        ],
+    )
+    def test_a_table_outside_the_window_is_refused_by_every_door(
+        self, tmp_path: Path, metadata: dict[bytes, bytes], said: str
+    ):
+        """A read and an append say the same thing about the same file."""
+        with _store(tmp_path) as store:
+            store.write_timeseries(store.sim_id, "P01", "head", _make_series(), unit="m")
+            target = store.table_path_for(store.sim_id, "timeseries")
+            table = pq.read_table(target).replace_schema_metadata(metadata)
+            pq.write_table(table, target)
+            for door in (
+                lambda: store.read_table("timeseries"),
+                lambda: store.write_timeseries(store.sim_id, "P02", "head", _make_series()),
+            ):
+                with pytest.raises(SchemaVersionMismatchError) as refused:
+                    door()
+                assert said in str(refused.value)
 
-    def test_parquet_schema_version_missing_raises(self, tmp_path: Path):
-        target = tmp_path / "out.parquet"
-        table = pa.table({"a": [1, 2]})
-        pq.write_table(table, target)
-        md = read_kv_metadata(target)
-        with pytest.raises(ParquetSchemaVersionError):
-            check_schema_version(md)
+    def test_an_append_keeps_a_column_a_later_version_added(self, tmp_path: Path):
+        """The older writer keeps what it does not know; its own rows read it as null."""
+        with _store(tmp_path) as store:
+            sid = store.sim_id
+            store.write_timeseries(sid, "P01", "head", _make_series(2), unit="m")
+            target = store.table_path_for(sid, "timeseries")
+            table = pq.read_table(target)
+            added = table.append_column("later", pa.array([1.5, 2.5], type=pa.float64()))
+            pq.write_table(added, target)
+
+            store.write_timeseries(sid, "P02", "head", _make_series(1), unit="m")
+
+            frame = store.read_table("timeseries").sort_values(["station_id", "timestep"])
+        assert frame["later"].iloc[:2].tolist() == [1.5, 2.5]
+        assert frame["later"].iloc[2:].isna().all()
+        assert frame["station_id"].tolist() == ["P01", "P01", "P02"]
 
 
 class TestGeoParquetOgc:

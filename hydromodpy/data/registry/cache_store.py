@@ -33,7 +33,7 @@ from hydromodpy.data.provenance.sidecars import (
 from hydromodpy.data.registry.constants import SENTINEL_CUSTOM, SENTINEL_EMPTY
 
 if TYPE_CHECKING:
-    from hydromodpy.data.provenance.lockfile import LockedArtifact
+    from hydromodpy.data.provenance.lockfile import LockedInput
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
 logger = get_logger(__name__)
@@ -121,12 +121,12 @@ def frozen_enabled() -> bool:
     return is_frozen_mode()
 
 
-def locked_artifacts() -> list[LockedArtifact]:
-    """Return the artefacts pinned by the lockfile of the frozen project."""
+def locked_inputs() -> list[LockedInput]:
+    """Return the inputs pinned by the lockfile of the frozen project."""
     from hydromodpy.data.provenance.lockfile import (
         frozen_project_root,
         project_lockfile_path,
-        read_lockfile,
+        read_lockfile_inputs,
     )
 
     project_root = frozen_project_root()
@@ -139,32 +139,31 @@ def locked_artifacts() -> list[LockedArtifact]:
     lockfile = project_lockfile_path(project_root)
     if not lockfile.is_file():
         raise FrozenDataError(f"Frozen data mode requires an existing lockfile at {lockfile}.")
-    return read_lockfile(lockfile)
+    return read_lockfile_inputs(lockfile)
 
 
-def match_locked_artifact(
+def match_locked_input(
     catalog: DataCatalogDuckDB,
     *,
     variable: str,
     source: str,
     station_id: str | None,
     file_path: Path | str,
-) -> LockedArtifact | None:
+) -> LockedInput | None:
     path = Path(file_path)
     resolved = resolve_entry_path(catalog, path, variable=variable)
-    artifacts = locked_artifacts()
-    for artifact in artifacts:
+    for item in locked_inputs():
         if (
-            artifact.variable == variable
-            and artifact.source == source
-            and artifact.station_id == station_id
+            item.variable == variable
+            and item.source == source
+            and item.station_id == station_id
             and (
-                Path(artifact.file_path) == path
-                or Path(artifact.file_path) == resolved
-                or resolve_entry_path(catalog, artifact.file_path, variable=variable) == resolved
+                Path(item.path) == path
+                or Path(item.path) == resolved
+                or resolve_entry_path(catalog, item.path, variable=variable) == resolved
             )
         ):
-            return artifact
+            return item
     return None
 
 
@@ -177,7 +176,7 @@ def reject_frozen_cache_miss(
 ) -> None:
     if not frozen_enabled():
         return
-    locked_artifacts()
+    locked_inputs()
     raise FrozenDataError(
         "Frozen data mode forbids cache misses: "
         f"{variable}/{source}/{station_id or '-'} is absent from the catalog at "
@@ -200,7 +199,7 @@ def reject_frozen_download(
     """
     if not frozen_enabled():
         return
-    locked_artifacts()
+    locked_inputs()
     raise FrozenDataError(
         f"Frozen data mode forbids a download: {variable}/{source}/{station_id or '-'} {detail}."
     )
@@ -209,14 +208,14 @@ def reject_frozen_download(
 def reject_frozen_entry_mismatch(catalog: DataCatalogDuckDB, entry) -> None:
     if not frozen_enabled():
         return
-    artifact = match_locked_artifact(
+    locked = match_locked_input(
         catalog,
         variable=entry.variable,
         source=entry.source,
         station_id=entry.station_id,
         file_path=entry.file_path,
     )
-    if artifact is None:
+    if locked is None:
         raise FrozenDataError(
             "Frozen data mode forbids catalog entries absent from hydromodpy.lock: "
             f"{entry.variable}/{entry.source}/{entry.station_id or '-'}."
@@ -224,7 +223,7 @@ def reject_frozen_entry_mismatch(catalog: DataCatalogDuckDB, entry) -> None:
     observed = entry.sha256 or sha256_or_none(
         resolve_entry_path(catalog, entry.file_path, variable=entry.variable)
     )
-    if observed != artifact.sha256:
+    if observed != locked.sha256:
         raise FrozenDataError(
             "Frozen data mode detected a SHA-256 mismatch for "
             f"{entry.variable}/{entry.source}/{entry.station_id or '-'}."
@@ -243,20 +242,20 @@ def reject_frozen_register(
 ) -> None:
     if not frozen_enabled():
         return
-    artifact = match_locked_artifact(
+    locked = match_locked_input(
         catalog,
         variable=variable,
         source=source,
         station_id=station_id,
         file_path=file_path,
     )
-    if artifact is None:
+    if locked is None:
         kind = "custom file" if is_custom else "downloaded artefact"
         raise FrozenDataError(
             f"Frozen data mode forbids registering a {kind} absent from hydromodpy.lock: "
             f"{variable}/{source}/{station_id or '-'}."
         )
-    if file_sha256 != artifact.sha256:
+    if file_sha256 != locked.sha256:
         raise FrozenDataError(
             "Frozen data mode forbids registering an artefact whose SHA-256 does not match "
             f"hydromodpy.lock: {variable}/{source}/{station_id or '-'}."

@@ -40,6 +40,7 @@ from hydromodpy.results.calibration_trials import (
 )
 from hydromodpy.results.catalog.constants import METRIC_SENSE
 from hydromodpy.results.session.descriptor import read_session
+from hydromodpy.results.storage.json_io import readable
 
 if TYPE_CHECKING:
     from hydromodpy.display.figures._trial_diagnostics import TrialTable
@@ -135,10 +136,9 @@ def journal_descriptor(sim: Run, session_id: Any) -> dict[str, Any]:
     directory = session_dir_of(sim, session_id=str(session_id))
     if directory is None:
         return {}
-    try:
-        descriptor = read_session(directory)
-    except (OSError, ValueError):
-        # A descriptor that no longer reads leaves the row to speak alone.
+    # A descriptor that no longer reads leaves the row to speak alone.
+    descriptor = readable(read_session, directory)
+    if descriptor is None:
         return {}
     payload = descriptor.model_dump(mode="json")
     best = descriptor.best

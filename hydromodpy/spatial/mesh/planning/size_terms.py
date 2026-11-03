@@ -23,6 +23,16 @@ from hydromodpy.spatial.mesh.resample import kink_pieces
 _logger = get_logger(__name__)
 
 
+def river_size_m(mesh_cfg: MeshConfig, *, pixel: float) -> float:
+    """Cell size along the rivers: ``river_cell_size``, else the pixel, never finer."""
+    return max(mesh_cfg.river_cell_size or pixel, pixel)
+
+
+def river_band_m(mesh_cfg: MeshConfig, *, h0: float) -> float:
+    """Distance over which the size grows back from a river: ``river_band``, else ``2 * h0``."""
+    return mesh_cfg.river_band if mesh_cfg.river_band is not None else 2.0 * h0
+
+
 def refinement_terms(
     mesh_cfg: MeshConfig,
     inputs: PlanningInputs,
@@ -43,21 +53,20 @@ def refinement_terms(
             SizeTerm(
                 name="rivers",
                 region=shapely.multilinestrings(rivers.lines),
-                size_m=max(mesh_cfg.river_cell_size or pixel, pixel),
-                ramp_m=mesh_cfg.river_band if mesh_cfg.river_band is not None else 2.0 * h0,
+                size_m=river_size_m(mesh_cfg, pixel=pixel),
+                ramp_m=river_band_m(mesh_cfg, h0=h0),
             )
         )
     lake_cfg = mesh_cfg.lake_refinement
     if lake_cfg is not None:
         if inputs.lakes:
             lakes = shapely.union_all(inputs.lakes)
-            band = lake_cfg.shoreline_band
             terms.append(
                 SizeTerm(
                     name="lake_shore",
                     region=lakes.boundary,
                     size_m=lake_cfg.cell_size,
-                    ramp_m=band if band is not None else 2.0 * lake_cfg.cell_size,
+                    ramp_m=lake_cfg.resolved_shoreline_band,
                 )
             )
             if lake_cfg.interior_size is not None:

@@ -10,7 +10,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from hydromodpy.cli._conventions import confirm_parser, verbosity_parser, workspace_parser
+from hydromodpy.cli.conventions import confirm_parser, verbosity_parser, workspace_parser
 from hydromodpy.cli.helpers import EXIT_SIGINT, EXIT_USAGE, apply_verbosity, resolve_project
 
 NAME: str = "prune"

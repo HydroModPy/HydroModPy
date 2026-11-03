@@ -37,6 +37,8 @@ from hydromodpy.results.storage.contract import (
     SESSION_CONFIG_FILENAME,
     TABLES_DIRNAME,
 )
+from hydromodpy.results.storage.json_io import readable
+from hydromodpy.results.storage.parquet_io import read_checked_table
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -60,6 +62,9 @@ class CalibrationReport:
     Returned by ``hmp.calibrate`` and ``Project.calibrate`` for a calibration
     without phases, and kept per phase by a staged one. ``to_dict`` gives the
     same summary as a JSON-friendly mapping.
+
+    The shape of this report and the ``[calibration]`` section are experimental
+    until the rework of the calibration is published.
     """
 
     session_id: str
@@ -290,16 +295,11 @@ def _calibration_variable(session_dir: Path) -> str:
 
 def _timeseries_table(run_dir: Path) -> pd.DataFrame | None:
     """Return the ``timeseries`` table of a run, or None when the run has none."""
-    import pandas as pd
-
     target = run_dir / TABLES_DIRNAME / f"timeseries{PARQUET_FILE_SUFFIX}"
     if not target.is_file():
         return None
-    try:
-        return pd.read_parquet(target)
-    except (OSError, ValueError) as exc:
-        logger.warning("best run series: %s cannot be read: %s", target, exc)
-        return None
+    table = readable(read_checked_table, target)
+    return None if table is None else table.to_pandas()
 
 
 def _series_of(table: pd.DataFrame, *, variable: str, station: str | None) -> pd.DataFrame | None:

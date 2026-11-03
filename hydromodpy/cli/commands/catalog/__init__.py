@@ -30,7 +30,6 @@ from __future__ import annotations
 
 import argparse
 
-from hydromodpy.cli._conventions import add_action_subparsers
 from hydromodpy.cli.commands.catalog import (
     delete,
     diff,
@@ -49,6 +48,7 @@ from hydromodpy.cli.commands.catalog import (
     trash,
     watch,
 )
+from hydromodpy.cli.conventions import add_action_subparsers
 
 NAME: str = "catalog"
 HELP: str = "Read the index of a project and maintain its runs"

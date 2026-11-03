@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from hydromodpy.display.figures._scalar_face_map import top_active_values
+from hydromodpy.display.figures.scalar_face_map import top_active_values
 
 VALUES = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
 

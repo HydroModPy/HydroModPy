@@ -9,12 +9,13 @@ and say only what it says.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-from hydromodpy.core.exceptions import ExportError
+from hydromodpy.core.exceptions import ExportError, SchemaVersionMismatchError
 from hydromodpy.results.export import (
     context_from_directory,
     write_prov_view,
@@ -40,6 +41,7 @@ from hydromodpy.schema.job.layout import ALLOWED_JOB_ENTRIES
 from hydromodpy.schema.job.outcome import JobOutcome, OutputRecord
 from hydromodpy.schema.job.seal import seal_job, verify_job
 from hydromodpy.schema.media_types import GEOPACKAGE_MEDIA_TYPE, GEOTIFF_MEDIA_TYPE
+from tests._helpers.sealed_runs import manifest_document
 
 pytestmark = pytest.mark.fast
 
@@ -78,43 +80,42 @@ def _run_directory(
         ),
         encoding="utf-8",
     )
-    manifest = {
-        "manifest_version": RUN_RECORD_MANIFEST_VERSION,
-        "sealed_at": SEALED_AT,
-        "run": {
-            "sim_id": SIM_ID,
-            "name": "transient_nwt",
+    manifest = manifest_document(
+        sim_id=SIM_ID,
+        name="transient_nwt",
+        sealed_at=SEALED_AT,
+        run={
             "project": "02_nancon_watershed",
             "solver": "modflow_nwt",
             "started_at": "2026-09-11T02:40:15+02:00",
             "ended_at": "2026-09-11T02:40:16+02:00",
             "description": "Nancon, transient, MODFLOW-NWT.",
-            "contact_email": None,
-            "doi": None,
         },
-        "geometry": {
+        geometry={
             "n_cells": 27004,
             "n_layers": 1,
             "crs_wkt": "EPSG:2154",
             "crs_epsg": crs_epsg,
             "bbox": NANCON_BBOX_L93 if bbox is None else bbox,
         },
-        "period": {
+        period={
             "start": "2000-01-01T00:00:00+01:00",
             "end": "2003-01-01T00:00:00+01:00",
             "n_timesteps": 36,
         },
-        "inputs": [
+        inputs=[
             {
                 "role": "dem",
                 "category": "data",
+                "declared_path": "DEM_armorican_massif.tif",
                 "path": str(root / "private" / "home" / "DEM_armorican_massif.tif"),
+                "portable": False,
                 "sha256": "e2" * 32,
                 "bytes": 94812848,
             }
         ],
-        "artifacts": list_artifacts(run_dir),
-    }
+        artifacts=list_artifacts(run_dir),
+    )
     (run_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
     return run_dir
 
@@ -303,6 +304,21 @@ class TestARunDirectory:
 
 
 class TestAJobDirectory:
+    @pytest.mark.parametrize(
+        "document", ["manifest.json", "inputset.json", "provenance.json", "outcome.json"]
+    )
+    def test_a_document_of_a_later_version_is_refused_by_name(
+        self, document: str, tmp_path: Path
+    ) -> None:
+        job = _job_directory(tmp_path)
+        target = job.root / document
+        payload = _read(target)
+        payload["schema"] = re.sub(r"\d+$", "9", payload["schema"])
+        target.write_text(json.dumps(payload), encoding="utf-8")
+
+        with pytest.raises(SchemaVersionMismatchError, match=document):
+            write_views(job.root)
+
     def test_the_views_land_inside_the_job_and_leave_the_seal_intact(self, tmp_path: Path) -> None:
         job = _job_directory(tmp_path)
         manifest_before = job.manifest_path.read_bytes()

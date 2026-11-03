@@ -32,6 +32,7 @@ from pathlib import Path
 from typing import Any, Final
 
 from hydromodpy.core.budget_terms import kept_budget
+from hydromodpy.core.code_fingerprint import RUN_LAYERS, code_fingerprint
 from hydromodpy.core.licensing import UNDETERMINED_LICENSE
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import (
@@ -59,8 +60,9 @@ from hydromodpy.results.manifest import (
 from hydromodpy.results.outcome import Outcome
 from hydromodpy.results.readme import manifest_sha256, render_run_readme, write_readme
 from hydromodpy.results.record import RunProvenance, RunRecord
-from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME, RUN_MANIFEST_FILENAME
+from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
 from hydromodpy.results.storage.geo_metadata import wgs84_bounds
+from hydromodpy.results.storage.json_io import readable
 from hydromodpy.results.storage.run_facts import RunFacts
 from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.results.zarr_store import SimulationZarr
@@ -268,7 +270,11 @@ def build_provenance(facts: RunFacts, *, ended_at: datetime) -> RunProvenance:
     return RunProvenance(
         provenance_version=RUN_RECORD_MANIFEST_VERSION,
         sim_id=facts.sim_id,
-        tool={"name": "hydromodpy", "version": env.get("hydromodpy_version") or HMP_VERSION},
+        tool={
+            "name": "hydromodpy",
+            "version": env.get("hydromodpy_version") or HMP_VERSION,
+            "code_fingerprint": code_fingerprint(RUN_LAYERS),
+        },
         git={
             "commit": env.get("git_commit"),
             "dirty": env.get("git_dirty"),
@@ -290,6 +296,7 @@ def build_provenance(facts: RunFacts, *, ended_at: datetime) -> RunProvenance:
             "version": env.get("solver_version_text"),
             "binary_path": env.get("solver_binary_path"),
             "binary_sha256": env.get("solver_binary_sha256"),
+            "options": env.get("solver_options"),
         },
         timing={
             "started_at": facts.started_at.isoformat(),
@@ -548,12 +555,7 @@ def sealed_config_hash(run_dir: Path) -> str | None:
     read: a run whose seal is unreadable matches nothing, which errs on the
     side of computing.
     """
-    try:
-        payload = read_manifest(run_dir)
-    except (OSError, ValueError) as exc:
-        if not isinstance(exc, FileNotFoundError):
-            logger.warning("Unreadable %s in %s: %s", RUN_MANIFEST_FILENAME, run_dir, exc)
-        return None
+    payload = readable(read_manifest, run_dir)
     identity = payload.get("identity") if isinstance(payload, dict) else None
     value = identity.get("config_hash") if isinstance(identity, dict) else None
     return None if value is None else str(value)

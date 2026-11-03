@@ -25,9 +25,10 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.state.paths import runs_dir_for
-from hydromodpy.results.manifest import is_sealed, read_manifest
+from hydromodpy.results.manifest import is_sealed, read_seal
 from hydromodpy.results.storage.attempt import run_dir_for_name
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
+from hydromodpy.results.storage.json_io import readable
 
 __all__ = ["resolve_source_runs", "source_run_id"]
 
@@ -90,11 +91,9 @@ def _run_dir_of(path: Path) -> Path:
 def _sealed_id(run_dir: Path) -> str | None:
     if not is_sealed(run_dir):
         return None
-    try:
-        return str(read_manifest(run_dir)["run"]["sim_id"])
-    except (OSError, ValueError, KeyError, TypeError):
-        # A seal that cannot be read names no run: the reference stays as written.
-        return None
+    # A seal that cannot be read names no run: the reference stays as written.
+    seal = readable(read_seal, run_dir)
+    return None if seal is None else seal.run.sim_id
 
 
 def _id_by_prefix(root: Path, prefix: str) -> str | None:

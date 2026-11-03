@@ -1,7 +1,7 @@
 {
   "$defs": {
     "CalibratedBy": {
-      "additionalProperties": false,
+      "additionalProperties": true,
       "description": "The session, phase and trial a promoted run comes from.",
       "properties": {
         "phase": {
@@ -29,27 +29,27 @@
         },
         "session_status": {
           "description": "How the session ended",
-          "enum": [
-            "completed",
-            "partial",
-            "aborted"
-          ],
           "examples": [
-            "completed"
+            "example"
           ],
           "title": "Session Status",
           "type": "string",
-          "x-hmp-profile": "user"
+          "x-hmp-profile": "user",
+          "x-hmp-vocabulary": [
+            "completed",
+            "partial",
+            "aborted"
+          ]
         },
         "stop_state": {
           "anyOf": [
             {
-              "enum": [
+              "type": "string",
+              "x-hmp-vocabulary": [
                 "rule_met",
                 "plan_exhausted",
                 "budget_spent"
-              ],
-              "type": "string"
+              ]
             },
             {
               "type": "null"
@@ -107,7 +107,7 @@
       "type": "object"
     },
     "DateWindow": {
-      "additionalProperties": false,
+      "additionalProperties": true,
       "description": "A closed range of days, ``start`` and ``end`` included.",
       "properties": {
         "end": {
@@ -174,7 +174,7 @@
       "type": "object"
     }
   },
-  "additionalProperties": false,
+  "additionalProperties": true,
   "description": "The measured facts of a run, sealed with it.",
   "properties": {
     "bounds_hit": {

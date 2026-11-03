@@ -51,6 +51,8 @@ import pyarrow as pa
 from pydantic import ConfigDict, Field, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.stored import read_stored
+from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.core.licensing import UNDETERMINED_LICENSE
 from hydromodpy.results.checks import Checks
 from hydromodpy.results.identity import Identity
@@ -71,7 +73,7 @@ from hydromodpy.results.manifest import (
     ParameterRow,
     TrackedInput,
     list_artifacts,
-    read_manifest,
+    read_seal,
 )
 from hydromodpy.results.metric_rule import DateWindow, MetricScore
 from hydromodpy.results.storage.contract import (
@@ -95,13 +97,25 @@ from hydromodpy.results.storage.parquet_schemas import PARAMETERS_SCHEMA, SIMULA
 INPUTS_SCHEMA: Final[str] = "hydromodpy.inputs.v1"
 """Schema id of ``inputs.json``."""
 
+INPUTS_VERSIONS: Final[VersionWindow] = VersionWindow(
+    oldest="hydromodpy.inputs.v1", current=INPUTS_SCHEMA
+)
+"""Versions of ``inputs.json`` this code reads."""
+
+PROVENANCE_VERSIONS: Final[VersionWindow] = VersionWindow(
+    oldest=2, current=RUN_RECORD_MANIFEST_VERSION
+)
+"""Versions of ``provenance.json`` this code reads."""
+
 
 class RunProvenance(HydroModelBase):
     """``provenance.json``: what produced the numbers, environment included."""
 
     provenance_version: int = Field(default=RUN_RECORD_MANIFEST_VERSION)
     sim_id: str
-    tool: dict[str, Any] = Field(default_factory=dict, description="name, version")
+    tool: dict[str, Any] = Field(
+        default_factory=dict, description="name, version, code_fingerprint by layer"
+    )
     git: dict[str, Any] = Field(default_factory=dict, description="commit, dirty, project_commit")
     python: dict[str, Any] = Field(default_factory=dict, description="version")
     platform: dict[str, Any] = Field(
@@ -109,7 +123,11 @@ class RunProvenance(HydroModelBase):
     )
     packages: dict[str, str] = Field(default_factory=dict, description="key package versions")
     solver: dict[str, Any] = Field(
-        default_factory=dict, description="name, engine, version, binary_path, binary_sha256"
+        default_factory=dict,
+        description=(
+            "name, engine, version, binary_path, binary_sha256, and options: what the adapter "
+            "decided once it built the model (IMS complexity, XT3D)"
+        ),
     )
     timing: dict[str, Any] = Field(
         default_factory=dict, description="started_at, ended_at, duration_s"
@@ -130,26 +148,25 @@ class InputsDocument(HydroModelBase):
 
     @model_validator(mode="after")
     def _schema(self) -> InputsDocument:
-        if self.schema_ != INPUTS_SCHEMA:
+        if not INPUTS_VERSIONS.holds(self.schema_):
             raise ValueError(f"schema is {self.schema_!r}, this module reads {INPUTS_SCHEMA!r}")
         return self
 
 
 def read_provenance(run_dir: str | Path) -> RunProvenance:
     """Read ``provenance.json`` of a sealed run."""
-    return RunProvenance.model_validate(
+    return read_stored(
+        RunProvenance,
         read_sealed_json(
-            Path(run_dir) / RUN_PROVENANCE_FILENAME,
-            RUN_RECORD_MANIFEST_VERSION,
-            key="provenance_version",
-        )
+            Path(run_dir) / RUN_PROVENANCE_FILENAME, PROVENANCE_VERSIONS, key="provenance_version"
+        ),
     )
 
 
 def read_inputs(run_dir: str | Path) -> InputsDocument:
     """Read ``inputs.json`` of a sealed run or of a published copy."""
-    return InputsDocument.model_validate(
-        read_sealed_json(Path(run_dir) / RUN_INPUTS_FILENAME, INPUTS_SCHEMA)
+    return read_stored(
+        InputsDocument, read_sealed_json(Path(run_dir) / RUN_INPUTS_FILENAME, INPUTS_VERSIONS)
     )
 
 
@@ -397,7 +414,7 @@ class RunRecord(HydroModelBase):
     def read(cls, run_dir: str | Path) -> RunRecord:
         """Read a record back from a sealed directory."""
         directory = Path(run_dir)
-        manifest = Manifest.model_validate(read_manifest(directory))
+        manifest = read_seal(directory)
         provenance = read_provenance(directory)
         inputs = read_inputs(directory)
         return cls(
@@ -429,7 +446,7 @@ def sealed_artifacts(run_dir: str | Path) -> list[ManifestArtifact]:
     names is left out: derived, mutable, diagnostic or history.
     """
     return [
-        ManifestArtifact.model_validate(entry)
+        ManifestArtifact(**entry)
         for entry in list_artifacts(Path(run_dir))
         if Path(entry["path"]).parts[0] not in UNSEALED_RUN_ENTRIES
     ]
@@ -437,6 +454,8 @@ def sealed_artifacts(run_dir: str | Path) -> list[ManifestArtifact]:
 
 __all__ = [
     "INPUTS_SCHEMA",
+    "INPUTS_VERSIONS",
+    "PROVENANCE_VERSIONS",
     "InputsDocument",
     "RunProvenance",
     "RunRecord",

@@ -165,10 +165,11 @@ def _register_root_config_contracts() -> None:
     ``RootConfigProvider`` Protocol declared in
     :mod:`hydromodpy.core.config_kit.root_config_protocol`.
     """
+    from collections.abc import Sequence
     from pathlib import Path
     from typing import Any
 
-    from hydromodpy.config.config_migration import migrate_config_doc_on_load
+    from hydromodpy.config.config_migration import migrate_layers, migrate_merged_doc
     from hydromodpy.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.core.config_kit import root_config_protocol
 
@@ -185,10 +186,13 @@ def _register_root_config_contracts() -> None:
         def from_dict(self, payload: dict[str, Any], *, sealed: bool = False) -> HydroModPyConfig:
             return HydroModPyConfig.from_dict(payload, sealed=sealed)
 
-        def migrate_on_load(
-            self, payload: dict[str, Any], *, source: str | Path | None = None
+        def migrate_layers(self, layers: Sequence[tuple[str | Path | None, Any]]) -> list[str]:
+            return migrate_layers(layers)
+
+        def migrate_merged(
+            self, document: dict[str, Any], layers: Sequence[tuple[str | Path | None, Any]]
         ) -> list[str]:
-            return migrate_config_doc_on_load(payload, source=source)
+            return migrate_merged_doc(document, layers)
 
     root_config_protocol.set_root_config_provider(_RootConfigProvider())
 

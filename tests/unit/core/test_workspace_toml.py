@@ -8,11 +8,16 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from hydromodpy.core.exceptions import SchemaVersionMismatchError
 from hydromodpy.core.state.paths import WORKSPACE_TOML_FILENAME
+from hydromodpy.core.workspace import workspace_toml
+from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.core.workspace.workspace_toml import (
     DEFAULT_WORKSPACE_TOML_TEMPLATE,
+    WORKSPACE_VERSION_MIN,
     WorkspaceToml,
     load_workspace_toml,
+    refuse_a_newer_workspace,
     render_workspace_toml,
     write_workspace_toml,
 )
@@ -83,6 +88,83 @@ def test_write_workspace_toml_force_overwrites(tmp_path: Path):
     content = second.read_text(encoding="utf-8")
     assert 'name = "b"' in content
     assert 'contact = "b@example.com"' in content
+
+
+@pytest.mark.parametrize(
+    ("minimum", "installed", "opens"),
+    [
+        (WORKSPACE_VERSION_MIN, "2.0.0", True),
+        (WORKSPACE_VERSION_MIN, "2.0.0a5", True),
+        (WORKSPACE_VERSION_MIN, "2.3.1", True),
+        ("2.1.0", "2.1.0rc1", True),
+        ("2.1.0", "2.0.9", False),
+        ("3.0.0", "2.9.0", False),
+    ],
+)
+def test_the_minimum_version_is_compared_with_the_installed_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, minimum: str, installed: str, opens: bool
+):
+    ws = _scaffold_workspace(tmp_path)
+    target = ws / WORKSPACE_TOML_FILENAME
+    target.write_text(
+        target.read_text(encoding="utf-8").replace(
+            f'hydromodpy_version_min = "{WORKSPACE_VERSION_MIN}"',
+            f'hydromodpy_version_min = "{minimum}"',
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(workspace_toml, "HYDROMODPY_VERSION", installed)
+
+    if opens:
+        assert load_workspace_toml(ws).workspace.hydromodpy_version_min == minimum
+        return
+    with pytest.raises(SchemaVersionMismatchError) as refused:
+        load_workspace_toml(ws)
+    assert minimum in str(refused.value) and installed in str(refused.value)
+
+
+@pytest.mark.parametrize(
+    "build",
+    [
+        lambda ws: WorkspaceConfig(project_root=ws / "projects" / "p"),
+        lambda ws: refuse_a_newer_workspace(ws),
+    ],
+    ids=["a config of a project", "a command on the workspace"],
+)
+def test_a_workspace_that_asks_for_more_is_refused_before_any_work(tmp_path: Path, build):
+    ws = _scaffold_workspace(tmp_path)
+    (ws / "projects" / "p").mkdir(parents=True)
+    (ws / "data").mkdir()
+    target = ws / WORKSPACE_TOML_FILENAME
+    target.write_text(
+        target.read_text(encoding="utf-8").replace(
+            f'hydromodpy_version_min = "{WORKSPACE_VERSION_MIN}"',
+            'hydromodpy_version_min = "99.0.0"',
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SchemaVersionMismatchError, match="99.0.0"):
+        build(ws)
+
+
+def test_a_new_workspace_asks_for_the_start_of_the_two_line(tmp_path: Path):
+    ws = _scaffold_workspace(tmp_path)
+    assert load_workspace_toml(ws).workspace.hydromodpy_version_min == "2.0.0"
+
+
+def test_a_minimum_that_is_no_version_is_refused(tmp_path: Path):
+    ws = _scaffold_workspace(tmp_path)
+    target = ws / WORKSPACE_TOML_FILENAME
+    target.write_text(
+        target.read_text(encoding="utf-8").replace(
+            f'hydromodpy_version_min = "{WORKSPACE_VERSION_MIN}"',
+            'hydromodpy_version_min = "soon"',
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValidationError, match="not a version"):
+        load_workspace_toml(ws)
 
 
 def test_template_constant_is_exported():

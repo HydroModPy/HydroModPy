@@ -18,10 +18,12 @@ from contextlib import contextmanager, nullcontext
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from hydromodpy.core.config_kit.written import log_experimental_keys
 from hydromodpy.core.exceptions import ConfigError, ResumeError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.project.attempt import AttemptHandle, SealedRun, run_attempt, sealed_run_of
-from hydromodpy.results.catalog.registration import input_file_digests, run_identity_hash
+from hydromodpy.project.run_overrides import override_changes
+from hydromodpy.results.catalog.registration import config_identity_hash
 from hydromodpy.results.storage.attempt import scratch_dir_for_attempt
 
 if TYPE_CHECKING:
@@ -52,7 +54,7 @@ def _pin_parent_sim_id(ctx: WorkflowContext, parent_sim_id: str | None) -> Itera
         ctx.parent_sim_id = previous
 
 
-def _resolve_step_index(step: str | int, steps: tuple) -> int:
+def resolve_step_index(step: str | int, steps: tuple) -> int:
     """Resolve a step name (or integer/digit string) to a tuple index.
 
     Accepts either the ``step.name`` attribute (snake_case, e.g.
@@ -90,7 +92,7 @@ def _bounded_step_index(
     """
     if step is None:
         return None
-    index = _resolve_step_index(step, steps)
+    index = resolve_step_index(step, steps)
     if not 0 <= index < len(steps):
         raise ConfigError(
             f"{label} {step!r} resolves to index {index}, outside the {len(steps)}-step "
@@ -99,7 +101,7 @@ def _bounded_step_index(
     return index
 
 
-def _model_phase_index(steps: tuple) -> int:
+def model_phase_index(steps: tuple) -> int:
     """Return the index of the first step that consumes the shared model phase.
 
     ``0`` when the pipeline declares no ``setup_process``: an ad-hoc step list
@@ -195,24 +197,6 @@ def _print_dry_run_plan(
     print("[dry-run] steps     :")
     for idx, step in enumerate(steps):
         print(f"  {idx:02d}  {type(step).__name__}")
-
-
-def _identity_overrides(
-    overrides: dict[str, Any],
-    *,
-    first_clim: str | None,
-    properties: Any,
-) -> dict[str, Any] | None:
-    """Return the overrides of one run as the identity hash reads them, or None.
-
-    ``thickness`` is not here: it is folded into the run configuration itself.
-    """
-    payload: dict[str, Any] = dict(overrides or {})
-    if first_clim is not None:
-        payload["first_clim"] = first_clim
-    if properties is not None:
-        payload["properties"] = properties
-    return payload or None
 
 
 def _unsealed_run_view(sealed: SealedRun) -> Run | None:
@@ -335,16 +319,17 @@ class ProjectRunner:
         and ``calibrated_by`` are the blocks a promotion seals its run with.
         """
         from hydromodpy.workflow.orchestrator import standard_steps
-        from hydromodpy.workflow.steps.planning import resolve_run_config, step_build_plan
+        from hydromodpy.workflow.steps.data import rebind_flow_if_stale
+        from hydromodpy.workflow.steps.planning import step_build_plan
         from hydromodpy.workflow.steps.setup import rebuild_domain_if_stale
 
         project = self._project
 
-        skip_display = bool(project._no_display) or bool(no_display)
+        # What the launch asks of the figures. It reaches the display step and
+        # nothing else: it is no part of the identity or of the sealed config.
+        skip_display = bool(project._no_display or project._headless or no_display)
 
-        thickness = overrides.pop("thickness", None)
-        first_clim = overrides.pop("first_clim", None)
-        properties = overrides.pop("properties", None)
+        changes = override_changes(project._cfg, overrides)
 
         if resume is not None:
             name = resume
@@ -371,24 +356,17 @@ class ProjectRunner:
 
         # A window that stops before ``setup_process`` reaches no step able to
         # open a run, so it is not a run and claims no directory.
-        model_phase_index = _model_phase_index(all_steps)
-        head_only = until_idx is not None and until_idx < model_phase_index
+        first_model_step = model_phase_index(all_steps)
+        head_only = until_idx is not None and until_idx < first_model_step
         if head_only and resume is not None:
             raise ConfigError(
                 f"until_step {until_step!r} stops before 'setup_process', so the run keeps no "
                 f"journal to resume from. Drop --resume, or widen the window."
             )
-        needs_model_phase = not head_only
         # The Pipeline owns the model phase: it executes ``build_geographic``,
         # ``load_data`` and ``build_mesh`` itself, so each of them gets a
         # journal row and a process death inside one of them leaves a trace.
-        # One run still needs the model built up front: ``step_build_plan``
-        # below patches an existing model when the caller overrides it.
-        plan_patches_model_phase = (
-            bool(overrides) or thickness is not None or first_clim is not None
-        )
-        if needs_model_phase and plan_patches_model_phase:
-            project._ensure_model_built()
+        needs_model_phase = not head_only
 
         workspace_path = self._resolve_workspace_path()
         persisted = bool(project._cfg.simulation.results.persistence.save_catalog)
@@ -398,34 +376,28 @@ class ProjectRunner:
         if dry_run:
             resume_from = from_idx if from_idx is not None else None
             if resume_from is None and model_phase_ready:
-                resume_from = model_phase_index
+                resume_from = first_model_step
             _print_dry_run_plan(run_id=name, steps=steps, resume_from=resume_from)
             return None
 
         # The configuration this run is defined by, overrides included. It is
-        # what the Pipeline signs, what the run archives, and what every
-        # builder reads. ``project._cfg`` stays the configuration the project
-        # declares; the context carries the one of the run in flight.
-        cfg_run = resolve_run_config(project._cfg, thickness=thickness)
+        # what the plan reads, what the Pipeline signs, what the run seals, and
+        # what every builder reads. ``project._cfg`` stays the configuration the
+        # project declares; the context carries the one of the run in flight.
+        cfg_run = project._cfg.with_changes(changes) if changes else project._cfg
         project._ctx.cfg = cfg_run
+        # Here and not in the validate step: the prefix of a calibration and its
+        # trials run that step too, and a session says it once, at its preflight.
+        log_experimental_keys(cfg_run)
         rebuild_domain_if_stale(project._ctx)
+        rebind_flow_if_stale(project._ctx)
 
-        step_build_plan(
-            project._ctx,
-            name=name,
-            overrides=overrides or {},
-            thickness=thickness,
-            first_clim=first_clim,
-            solver=project._solver,
-        )
-
-        if properties is not None:
-            project._ctx.setup.flow_runtime_overrides = {
-                "source": "project_run",
-                "properties": dict(properties),
-            }
-        else:
-            project._ctx.setup.flow_runtime_overrides = None
+        step_build_plan(project._ctx, name=name)
+        project._ctx.setup.flow_runtime_overrides = None
+        # The lineage belongs to one run: a later point of a sweep starts without it.
+        project._ctx.lineage = None
+        if lineage is not None and changes:
+            lineage = lineage.model_copy(update={"overrides": {**lineage.overrides, **changes}})
 
         project._ctx.setup.run_id = name
         if project._store is not None:
@@ -433,18 +405,9 @@ class ProjectRunner:
             project._store = None
 
         site = getattr(getattr(cfg_run, "site", None), "name", None)
-        run_overrides = _identity_overrides(overrides, first_clim=first_clim, properties=properties)
         # The identity of this run, computed once: the claim compares it to
         # the one of the previous attempt, the facts of the run record it.
-        config_hash = (
-            run_identity_hash(
-                cfg_run.model_dump(mode="json"),
-                overrides=run_overrides,
-                inputs=input_file_digests(cfg_run),
-            )
-            if claims
-            else None
-        )
+        config_hash = config_identity_hash(cfg_run) if claims else None
         bracket = (
             run_attempt(
                 workspace_path,
@@ -471,11 +434,11 @@ class ProjectRunner:
                 resume=resume,
                 from_idx=from_idx,
                 model_phase_ready=model_phase_ready,
-                model_phase_index=model_phase_index,
+                model_phase_index=first_model_step,
                 skip_display=skip_display,
                 frozen=frozen,
                 parallel=parallel,
-                run_overrides=run_overrides,
+                run_overrides=changes or None,
                 config_hash=config_hash,
                 lineage=lineage,
                 calibrated_by=calibrated_by,
@@ -567,9 +530,8 @@ class ProjectRunner:
                 # the config when nobody gives it one, which would rename a run
                 # the caller named differently.
                 "run_name": name,
-                # What this run changes on top of its configuration. It enters
-                # the identity hash the seal records, so a run with an
-                # override never passes for the run of the bare configuration.
+                # What this run changes on top of the configuration of the project,
+                # by dotted path: the lineage of the seal records it.
                 "run_overrides": run_overrides,
                 "config_hash": config_hash,
                 "run_dir": run_dir,

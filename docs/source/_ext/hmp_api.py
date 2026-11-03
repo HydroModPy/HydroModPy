@@ -361,7 +361,7 @@ class GapsDirective(SphinxDirective):
 
 
 class StabilityDirective(SphinxDirective):
-    """What the names of ``hydromodpy.__all__`` promise, from the version and the release policy."""
+    """What the names of ``hydromodpy.__all__`` promise, from the version and the versions page."""
 
     def run(self):
         b, doc = H.current_builder(), self.env.docname
@@ -377,6 +377,7 @@ class StabilityDirective(SphinxDirective):
             f" and {rest} other names" if rest > 0 else ""
         )
         policy = H.doc_uri(b, doc, "about/versions")
+        contracts = H.doc_uri(b, doc, "contribute/architecture/contracts")
         m = re.search(r"(a|b|rc)\d+$", version)
         stage = {
             "a": "This is an alpha release: the API, the configuration, the storage and the behavior "
@@ -385,15 +386,17 @@ class StabilityDirective(SphinxDirective):
             "rc": "This is a release candidate: only release-blocking fixes land.",
         }.get(
             m.group(1) if m else "",
-            "This is a final release: a rename or a removal waits for the next major version.",
+            "This is a final release: a rename keeps the old name working, with a warning, for "
+            "two minor versions.",
         )
         text = (
             f"<p>This page documents <code>hydromodpy {esc(version)}</code>. The public surface is the "
             f"{len(names)} names of <code>hydromodpy.__all__</code> ({counts}), the classes they return, "
-            "and the exceptions of this reference. A name outside this reference is internal, and so are "
+            "and the exceptions of this reference. A name outside this reference is internal, except the "
+            f'modules for extensions on the <a href="{esc(contracts)}">contracts page</a>. So are '
             "the <code>hydromodpy._api</code> module and the <code>hydromodpy.cli._workers</code> package.</p>"
-            f"<p>{esc(stage)} Versions follow semantic versioning with PEP 440 pre-release tags, "
-            f'and no compatibility shim is kept for a removed name: see the <a href="{esc(policy)}">release policy</a>.</p>'
+            f"<p>{esc(stage)} Versions follow semantic versioning with PEP 440 pre-release tags. "
+            f'What each kind of version may change is on the <a href="{esc(policy)}">versions page</a>.</p>'
         )
         return [H.raw(f'<div class="hmp-note hmp-stability">{text}</div>')]
 

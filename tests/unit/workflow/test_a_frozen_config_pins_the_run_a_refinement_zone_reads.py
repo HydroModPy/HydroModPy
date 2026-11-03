@@ -20,7 +20,7 @@ from shapely.geometry import box
 
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.results.catalog.registration import input_file_digests, run_identity_hash
+from hydromodpy.results.catalog.registration import config_identity_hash
 from hydromodpy.results.storage.attempt import _config_changed
 from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
 from hydromodpy.results.storage.sealing import seal_completed
@@ -110,7 +110,10 @@ def _freeze(project: Path, cfg: HydroModPyConfig, zone_runs: dict[str, str], nam
     store = open_run_store(project, name, n_cells=4)
     summary = {"zone_runs": zone_runs}
     ctx = SimpleNamespace(
-        cfg=cfg, run_dir=store.run_dir, setup=SimpleNamespace(domain=None, mesh_summary=summary)
+        cfg=cfg,
+        run_dir=store.run_dir,
+        loaded_data=None,
+        setup=SimpleNamespace(domain=None, flow=None, mesh_summary=summary),
     )
     _freeze_run_config(ctx, store=store)
     store.close()
@@ -268,7 +271,7 @@ def test_the_summary_of_the_mesh_step_carries_the_zone_runs(tmp_path: Path, monk
 
 def _identity(cfg: HydroModPyConfig) -> str | None:
     """The identity hash a run records and a retry compares."""
-    return run_identity_hash(cfg.model_dump(mode="json"), inputs=input_file_digests(cfg))
+    return config_identity_hash(cfg)
 
 
 def test_a_resume_of_the_frozen_config_keeps_the_identity_of_the_first_attempt(

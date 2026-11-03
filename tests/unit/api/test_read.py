@@ -5,11 +5,14 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
+import pyarrow as pa
 import pytest
 
 import hydromodpy as hmp
 from hydromodpy.results.errors import FieldNotFoundError
 from hydromodpy.results.run import Run
+from hydromodpy.results.storage.parquet_io import write_table_atomic
+from hydromodpy.results.storage.parquet_schemas import PARQUET_SCHEMA_VERSION
 
 pytestmark = pytest.mark.fast
 
@@ -32,8 +35,10 @@ class _FakeCatalog:
         self._features = geographic_features or []
         if has_timeseries:
             tables_dir.mkdir(parents=True, exist_ok=True)
-            pd.DataFrame({"variable": ["discharge"], "value": [1.0]}).to_parquet(
-                tables_dir / "timeseries.parquet"
+            write_table_atomic(
+                pa.Table.from_pandas(pd.DataFrame({"variable": ["discharge"], "value": [1.0]})),
+                tables_dir / "timeseries.parquet",
+                kv_metadata={"hmp.schema_version": PARQUET_SCHEMA_VERSION},
             )
 
     def tables_dir_for(self, sim_id: str) -> Path:

@@ -547,6 +547,7 @@ class FlowLakeConfig(HydroModelBase):
             "the top layers. The flow across its faces is published per layer as "
             "the cutoff_wall_flow series."
         ),
+        json_schema_extra=field_metadata(stability="experimental"),
     )
     rainfall: Annotated[FlowRateForcingConfig | None, Profile.USER] = Field(
         default=None,

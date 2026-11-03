@@ -16,8 +16,8 @@ from __future__ import annotations
 
 import argparse
 
-from hydromodpy.cli._conventions import add_action_subparsers
 from hydromodpy.cli.commands.workspace import clean, init_cmd, list_cmd
+from hydromodpy.cli.conventions import add_action_subparsers
 
 NAME: str = "workspace"
 HELP: str = "Scaffold, list and clean a workspace"

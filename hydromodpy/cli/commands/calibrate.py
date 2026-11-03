@@ -14,7 +14,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from hydromodpy.cli._conventions import profile_parser, verbosity_parser
+from hydromodpy.cli.conventions import profile_parser, verbosity_parser
 from hydromodpy.cli.effective_toml import (
     ConfigFileError,
     add_override_arguments,

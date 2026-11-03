@@ -12,7 +12,7 @@ rest of the code, and where to add what.
 |---|---|
 | `main.py` | how is the argparse tree built, and how does a parsed namespace reach its handler? It builds the tree from `ALL_COMMANDS`, runs the handler `args._handler`, and maps any exception through `exit_code_for`. It also turns SIGTERM into an exception for the whole process |
 | `commands/` | one module per leaf verb, one sub-package per verb family. `commands/__init__.py` holds `ALL_COMMANDS`, the registration order |
-| `_conventions.py` | the shared argparse grammar: `workspace_parser`, `confirm_parser`, `format_parser`, `verbosity_parser`, `profile_parser`, `add_sim_ref`, `add_action_subparsers` |
+| `conventions.py` | the shared argparse grammar: `workspace_parser`, `confirm_parser`, `format_parser`, `verbosity_parser`, `profile_parser`, `add_sim_ref`, `add_action_subparsers` |
 | `helpers.py` | the typed exit codes and `exit_code_for(exc)`, plus the helpers that several verbs share (verbosity, `find_workspace` / `resolve_workspace` / `resolve_project`, profiling, the scratch folder of the test tiers) |
 | `_workers/` | the application services of the verbs whose reusable Python surface is not part of `hydromodpy._api`: catalog listings, privacy purge, developer reports. A worker may assemble diagnostics; it must not become a hidden scientific workflow |
 | `banner.py` | the banner `hmp run` prints |
@@ -126,7 +126,7 @@ prints its message on stderr and exits with the matching code.
    `commands/__init__.py`.
 2. **An action of a family.** A module in the family sub-package with the same
    four symbols, listed in the `ACTIONS` tuple of its `__init__.py`.
-3. **A shared option.** A parser in `_conventions.py`, passed through `parents=`.
+3. **A shared option.** A parser in `conventions.py`, passed through `parents=`.
 4. **Work only the CLI needs.** A function in `_workers/`. Work that a Python
    user needs too goes in `hydromodpy._api` or its domain package first.
 5. **An exit code.** A constant and an entry in the mapping of `helpers.py`.

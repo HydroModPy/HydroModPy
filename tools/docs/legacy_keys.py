@@ -6,9 +6,10 @@ read there and not written by hand:
 
 - ``warns``: the model lists the old spelling in ``model_legacy_keys``. The key
   is renamed on load and ``ConfigKeyRenamedWarning`` names the new one.
-- ``migrates``: the old ``[export]`` tables, which ``config_migration`` rewrites
-  into ``[[export]]`` blocks in memory on load, the retired
-  ``[simulation.results]`` tables, which the loader drops on load, and the
+- ``migrates``: the rows of ``config_migration.RENAMED_KEYS``, which a load reads
+  under the new name with a warning, the old ``[export]`` tables, which
+  ``config_migration`` rewrites into ``[[export]]`` blocks in memory on load, the
+  retired ``[simulation.results]`` tables, which the loader drops on load, and the
   tables it moves whole to another path (``config_migration.MOVED_TABLES``,
   the solver layering that now is ``[domain.layers]``). The dotted override of
   a calibration phase that sets a key of a moved table moves with it.
@@ -75,6 +76,10 @@ def accepted_old_names(nodes: dict[str, dict[str, Any]]) -> dict[str, str]:
             elif path == "export" and old.startswith("export."):
                 if _leaf(old) in config_migration._EXPORT_TABLE_KEYS:
                     accepted[old] = MIGRATES
+    for rule in config_migration.RENAMED_KEYS:
+        if not rule.sealed_only:
+            path = config_migration.document_path(f"{rule.scope}.{rule.old}")
+            accepted.setdefault(path, MIGRATES)
     for table in config_migration.RETIRED_RESULTS_TABLES:
         accepted[table] = MIGRATES
     for old in moved_tables():

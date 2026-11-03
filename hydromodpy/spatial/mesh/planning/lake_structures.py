@@ -89,8 +89,7 @@ def lake_structures(
         return ()
     dam_cell_size = float(lake_cfg.dam_cell_size)
     dam_buffer = float(lake_cfg.dam_buffer)
-    hfb_buffer = lake_cfg.hfb_buffer
-    wall_width = float(hfb_buffer) if hfb_buffer is not None else 2.0 * dam_buffer
+    wall_width = float(lake_cfg.resolved_hfb_buffer)
     kept_walls = {lake_id: line for lake_id, line in walls.items() if not line.is_empty}
     structures: list[LakeStructure] = [
         LakeStructure("voile", f"{lake_id}", line, dam_cell_size, wall_width)

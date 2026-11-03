@@ -1,0 +1,58 @@
+base_config = "project.toml"
+export__delete = true
+[simulation]
+name = "nancon_soil_reservoir_daily"
+description = "Nancon, daily 2015-2020, recharge from a soil reservoir on the SIM2 rain and ETP."
+[simulation.time]
+start_datetime = "2015-01-01"
+end_datetime = "2020-12-31"
+step_value = "1 day"
+[data]
+types = ["dem", "hydrography", "hydrometry", "precipitation", "etp"]
+recharge__delete = true
+runoff__delete = true
+[[data.precipitation.sources]]
+source = "sim2"
+extent = "watershed"
+[[data.etp.sources]]
+source = "sim2"
+extent = "watershed"
+[flow]
+active_sinks_sources = ["recharge", "etp"]
+first_period_steady = false
+[flow.ic]
+type = "steady_state"
+[flow.sinks_sources.recharge.soil]
+ru = "150 mm"
+[display]
+on_error = "warn"
+time = "2019-09-15"
+figures = [
+    "watershed_id_card",
+    "flux_timeseries",
+    "hydrograph_log_nse",
+    "hydrograph_sim_obs",
+    "duration_curve",
+    "recession",
+    "watertable_depth_map",
+    "seepage_map",
+    "cross_section",
+    "flow_persistence_map",
+    "flow_intermittence_map",
+]
+[display.overrides.seepage_map]
+time = "2020-02-15"
+[display.overrides.hydrograph_log_nse]
+scoring_window = ["2016-01-01", "2020-12-31"]
+[display.overrides.flow_intermittence_map]
+cycle = "2019"
+[[export]]
+variables = ["watershed", "hydrographic_network_reference"]
+[[export]]
+variables = ["watertable_depth", "seepage_mask"]
+time = "2019-09-15"
+[[export]]
+variables = ["discharge", "discharge_obs"]
+period = ["2016-01-01", "2020-12-31"]
+[[export]]
+variables = "budget"

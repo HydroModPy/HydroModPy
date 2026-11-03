@@ -210,3 +210,29 @@ def test_doctor_fix_config_names_a_missing_file(monkeypatch, tmp_path, capsys) -
 
     assert code == EXIT_NOT_FOUND
     assert "absent.toml" in capsys.readouterr().err
+
+
+def test_doctor_fix_config_follows_the_chain_and_a_warning_names_the_holder(
+    monkeypatch, tmp_path, capsys
+) -> None:
+    """An old key in a parent is told under the parent, and the fix does not come back."""
+    from hydromodpy.config.sites.check import check_project
+
+    parent = tmp_path / "project.toml"
+    parent.write_text('[simulation]\non_collision = "version"\n', encoding="utf-8")
+    child = tmp_path / "run.toml"
+    child.write_text('base_config = "project.toml"\n', encoding="utf-8")
+
+    told = check_project(child).warnings
+    assert any(line.startswith(f"{parent}: simulation.on_collision") for line in told)
+    assert any(f"--fix-config {parent}" in line for line in told)
+
+    code = _run(monkeypatch, ["hmp", "doctor", "--fix-config", str(child)])
+
+    assert code == 0
+    out = capsys.readouterr().out
+    assert f"Migrated {parent}:" in out
+    assert "on_collision -> if_exists" in out
+    assert f"{child} is already up to date." in out
+    assert 'if_exists = "version"' in parent.read_text(encoding="utf-8")
+    assert not check_project(child).warnings

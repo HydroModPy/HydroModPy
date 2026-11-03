@@ -14,6 +14,7 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 
 import numpy as np
+from pydantic import ValidationError
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.field_routing import DRN_TO_MVR_KEYS, find_drain_budget_key
@@ -24,7 +25,7 @@ from hydromodpy.results.derive.virtual_fields import (
     outflow_drain_rows,
     watertable_depth_rows,
 )
-from hydromodpy.results.manifest import is_sealed, read_manifest
+from hydromodpy.results.manifest import is_sealed, read_seal
 from hydromodpy.results.storage.attempt import run_dir_for_name
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
@@ -164,9 +165,9 @@ def _sim_id(run_dir: Path, reference: str) -> str:
             "mesh depends on a finished run only."
         )
     try:
-        return str(read_manifest(run_dir)["run"]["sim_id"])
-    except (KeyError, TypeError) as exc:
+        return read_seal(run_dir).run.sim_id
+    except ValidationError as exc:
         raise ConfigError(
             f"[[mesh.refinement_zone]] run = {reference!r}: the manifest of {run_dir.name} "
-            "names no sim_id."
+            f"does not read: {exc.errors()[0]['msg']}."
         ) from exc

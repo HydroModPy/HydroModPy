@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.cli._conventions import (
+from hydromodpy.cli.conventions import (
     add_sim_ref,
     format_parser,
     verbosity_parser,

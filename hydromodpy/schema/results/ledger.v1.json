@@ -1,7 +1,7 @@
 {
   "$defs": {
     "DateWindow": {
-      "additionalProperties": false,
+      "additionalProperties": true,
       "description": "A closed range of days, ``start`` and ``end`` included.",
       "properties": {
         "end": {
@@ -27,7 +27,7 @@
       "type": "object"
     },
     "Identity": {
-      "additionalProperties": false,
+      "additionalProperties": true,
       "description": "Who a run is, posed into every file that leaves it.",
       "properties": {
         "attempt_id": {
@@ -88,13 +88,13 @@
         "label": {
           "anyOf": [
             {
-              "enum": [
+              "type": "string",
+              "x-hmp-vocabulary": [
                 "exploratory",
                 "calibrated",
                 "evaluated",
                 "failed"
-              ],
-              "type": "string"
+              ]
             },
             {
               "type": "null"
@@ -222,7 +222,7 @@
       "type": "object"
     },
     "LedgerEntry": {
-      "additionalProperties": false,
+      "additionalProperties": true,
       "description": "How one file of the directory was made.",
       "properties": {
         "at": {
@@ -301,7 +301,7 @@
       "type": "object"
     }
   },
-  "additionalProperties": false,
+  "additionalProperties": true,
   "description": "The entries of one directory.",
   "properties": {
     "entries": {

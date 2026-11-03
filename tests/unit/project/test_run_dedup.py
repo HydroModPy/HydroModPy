@@ -19,7 +19,7 @@ from pydantic import BaseModel
 from hydromodpy.core.state.paths import run_dir_rel
 from hydromodpy.core.tracking.input_file import InputFile
 from hydromodpy.project.dispatch.workflow import completed_identical_run
-from hydromodpy.results.catalog.registration import input_file_digests, run_identity_hash
+from hydromodpy.results.catalog.registration import config_identity_hash, run_identity_hash
 from hydromodpy.results.manifest import ManifestConfig, ManifestRun
 from tests._helpers.sealed_runs import write_attempt
 from tests.unit.results._run_record_factory import make_identity, make_record
@@ -27,7 +27,7 @@ from tests.unit.results._run_record_factory import make_identity, make_record
 
 def _stub_config(config: dict, root: Path) -> SimpleNamespace:
     return SimpleNamespace(
-        model_dump=lambda *, mode="json": config,
+        model_dump=lambda *, mode="json", exclude_defaults=False: config,
         workspace=SimpleNamespace(project_root=str(root)),
     )
 
@@ -150,7 +150,7 @@ def test_a_project_without_runs_matches_nothing(tmp_path: Path) -> None:
     assert completed_identical_run(config, name="demo") is None
 
 
-def test_identity_hash_reads_overrides_not_name() -> None:
+def test_identity_hash_does_not_read_the_name() -> None:
     config = _config()
     base = run_identity_hash(config)
     assert base == run_identity_hash(copy.deepcopy(config))
@@ -158,20 +158,38 @@ def test_identity_hash_reads_overrides_not_name() -> None:
     renamed = copy.deepcopy(config)
     renamed["simulation"]["name"] = "demo_k"
     assert base == run_identity_hash(renamed)
-    assert base != run_identity_hash(config, overrides={"K": 1e-5})
     # The caller's dict is not touched.
     assert config["workspace"]["solver_scratch_folder"].endswith("demo.p111")
     assert config["simulation"]["name"] == "demo"
-    # An override that does not serialise never matches anything.
-    odd = {"properties": object()}
-    assert run_identity_hash(config, overrides=odd) != run_identity_hash(config, overrides=odd)
 
 
-def test_another_release_is_another_run(monkeypatch) -> None:
+def test_the_code_that_computes_enters_the_identity_and_the_release_does_not(monkeypatch) -> None:
     config = _config()
     base = run_identity_hash(config)
     monkeypatch.setattr("hydromodpy.core.version.__version__", "0.0.0+other")
+    assert run_identity_hash(config) == base
+    monkeypatch.setattr(
+        "hydromodpy.core.code_fingerprint.code_fingerprint", lambda _layers: {"solver": "edited"}
+    )
     assert run_identity_hash(config) != base
+
+
+def test_a_default_written_out_is_the_same_computation(tmp_path: Path) -> None:
+    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.core.workspace.config import WorkspaceConfig
+    from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
+
+    def config(**solver: float) -> HydroModPyConfig:
+        return HydroModPyConfig(
+            workflow={"mode": "simulation"},
+            workspace=WorkspaceConfig(project_root=str(tmp_path), root=str(tmp_path)),
+            geographic=GeographicConfig(source_mode="synthetic"),
+            solver=solver,
+        )
+
+    silent = config_identity_hash(config())
+    assert config_identity_hash(config(drain_bed_thickness_m=1.0)) == silent
+    assert config_identity_hash(config(drain_bed_thickness_m=2.0)) != silent
 
 
 class _Workspace(BaseModel):
@@ -201,13 +219,12 @@ def _forced_project(tmp_path: Path) -> _ForcedConfig:
 def _seal_as_a_run(config: _ForcedConfig, *, name: str = "demo") -> str:
     """Seal ``config`` with the hash the pipeline records, inputs included."""
     root = Path(config.workspace.project_root)
-    dump = config.model_dump(mode="json")
-    sid = _seal(root, dump, name=name)
+    sid = _seal(root, config.model_dump(mode="json"), name=name)
     # The seal hashes the input files too: rewrite the hash the way the run does.
     from hydromodpy.results.record import RunRecord
 
     record = RunRecord.read(root / "runs" / name)
-    config_hash = run_identity_hash(dump, inputs=input_file_digests(config))
+    config_hash = config_identity_hash(config)
     record = record.model_copy(
         update={
             "config": record.config.model_copy(update={"hash": config_hash}),

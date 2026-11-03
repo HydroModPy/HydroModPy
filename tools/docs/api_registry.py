@@ -23,6 +23,7 @@ from typing import Any
 from pydantic import BaseModel
 
 import hydromodpy as hmp
+from hydromodpy.cli.conventions import OldVerb
 
 TREE = Path(hmp.__path__[0]).parent
 SECTION = re.compile(r"^([A-Z][A-Za-z ]+)\n-{3,}\s*$", re.M)
@@ -245,6 +246,8 @@ def walk_parser(
         if isinstance(action, argparse._SubParsersAction):
             helps = {a.dest: a.help for a in action._choices_actions}
             for name, sub in action.choices.items():
+                if isinstance(sub, OldVerb):
+                    continue
                 subs.append({"name": name, "help": helps.get(name) or ""})
                 out.extend(walk_parser(sub, path + [name], helps.get(name) or ""))
             continue

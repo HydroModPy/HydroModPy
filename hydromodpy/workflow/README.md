@@ -40,7 +40,7 @@ on, so the graph is a chain and every cohort holds one step.
 | `load_data` | `steps/data.py` | the data of `[data]`, bound to the runtime (`apply_*` of `physics` and `spatial`) |
 | `build_mesh` | `steps/mesh.py` | the cell mesh of the engine of `[mesh]` |
 | `setup_process` | `steps/setup.py` | the process objects, `Flow` and `Transport`; the solver scratch of the attempt |
-| `prepare_solver` | `steps/prepare_solver/` | the simulation plan, the run directory bound (`bind_run_directory`), the facts of the run, the inputs frozen into `config.toml` |
+| `prepare_solver` | `steps/prepare_solver/` | the simulation plan, the run directory bound (`bind_run_directory`), the facts of the run, the configuration frozen into `config.toml` and `config.resolved.toml` |
 | `run_solver` | `steps/run_solver.py` | the plan, executed by `SimulationRunner` |
 | `extract` | `steps/extract.py` | the solver files read into the store of the run, the observations ingested |
 | `derive` | `steps/derive.py` | the catchment aggregates, the observation points and the fit metrics |

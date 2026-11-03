@@ -20,8 +20,9 @@ py-modindex             reference/python/index
 usage_bibliography.rst  about/applications
 
 # About
-about/release_policy.rst  about/versions
-about/roadmap.rst         contribute/roadmap
+about/release_policy.rst                     about/versions
+about/roadmap.rst                            contribute/roadmap
+contribute/project/release-contract-v1.rst   about/versions
 
 # Python API and command line
 api/docstring-policy.rst      contribute/docstring-policy
@@ -261,7 +262,7 @@ architecture/packages/workflow.rst                                              
 architecture/pipeline_resume.rst                                                  contribute/architecture/pipeline_resume
 architecture/process/flow-boundary-conditions.rst                                 contribute/architecture/process/flow-boundary-conditions
 architecture/process/process-architecture.rst                                     contribute/architecture/process/process-architecture
-architecture/release-contract-v1.rst                                              contribute/project/release-contract-v1
+architecture/release-contract-v1.rst                                              about/versions
 architecture/simulation/comparison-workflow.rst                                   contribute/architecture/simulation/comparison-workflow
 architecture/simulation/index.rst                                                 contribute/architecture/simulation/toml-to-solver-walkthrough
 architecture/simulation/simulation-orchestration-class-diagram.rst                contribute/architecture/simulation/toml-to-solver-walkthrough

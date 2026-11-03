@@ -48,6 +48,9 @@ REGISTRY_READERS = {
     # Releases the models before the derived stacks allocate; a transient flopy
     # model carries its whole stress-period data.
     "workflow/steps/derive.py",
+    # A resume past the solver: puts back the folder the run solved in, read from
+    # its facts, so ``RunContext.of`` finds it as it does after a solve.
+    "workflow/steps/run_solver.py",
     # Pipeline scope, not adapter scope: asks which dispatch the built flow
     # model resolved to, across the plan rather than for one run.
     "workflow/steps/prepare_solver/dispatch.py",

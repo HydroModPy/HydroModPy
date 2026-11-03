@@ -5,12 +5,12 @@ layer:
 
 - two lockfiles built from the same catalog inputs are byte-identical once
   the wall-clock timestamps (``generated_at`` / ``fetched_at``) are
-  normalised, and the content-bearing sections (``inputs``, ``schema``,
-  ``binaries``, ``[[artefact]]``) round-trip without drift;
+  normalised, and the content-bearing parts (``schema``, ``binaries``,
+  ``[[input]]``) round-trip without drift;
 - a snapshot survives a write -> read round-trip with field-level equality
   against the source catalog state;
 - the dark verification branches (missing catalog key, deleted on-disk
-  artefact, empty ``[inputs]`` fallback, schema-sha fallback, gzip archive
+  artefact, a lockfile that names nothing, schema-sha fallback, gzip archive
   round-trip) all classify mismatches correctly on real inputs.
 
 Everything runs on ``tmp_path``; nothing touches the repo tree.
@@ -27,8 +27,8 @@ import tomlkit
 
 from hydromodpy.data.provenance.lockfile import (
     LOCKFILE_NAME,
-    LockedArtifact,
-    read_lockfile,
+    LOCKFILE_SCHEMA,
+    LockedInput,
     read_lockfile_inputs,
     read_lockfile_schema_sha256,
     sha256_of,
@@ -63,22 +63,6 @@ _VOLATILE = re.compile(
 def _normalise(text: str) -> str:
     """Blank out the wall-clock fields so two snapshots can be compared."""
     return _VOLATILE.sub("<ts>", text)
-
-
-def _normalise_section(section: Any) -> dict:
-    """Return a parsed section with its wall-clock members neutralised.
-
-    ``[inputs]`` carries one ``fetched_at`` per entry, so comparing the
-    parsed section verbatim would only pass while both writes happen to land
-    inside the same second.
-    """
-    out: dict = {}
-    for key, value in dict(section).items():
-        if isinstance(value, dict):
-            out[key] = {k: ("<ts>" if k == "fetched_at" else v) for k, v in value.items()}
-        else:
-            out[key] = "<ts>" if key in ("generated_at", "fetched_at") else value
-    return out
 
 
 def _key(workspace: Path, path: Path) -> str:
@@ -131,11 +115,13 @@ def test_two_writes_are_byte_identical_after_timestamp_normalisation(
     text_b = b.read_text()
     # The only freedom between two writes is the timestamp fields.
     assert _normalise(text_a) == _normalise(text_b)
-    # And the parsed content sections are equal once those are neutralised.
+    # And the parsed content is equal once those are neutralised.
     doc_a = tomlkit.parse(text_a)
     doc_b = tomlkit.parse(text_b)
-    for section in ("schema", "binaries", "inputs"):
-        assert _normalise_section(doc_a[section]) == _normalise_section(doc_b[section])
+    assert doc_a["schema"] == doc_b["schema"] == LOCKFILE_SCHEMA
+    assert doc_a["binaries"] == doc_b["binaries"]
+    for record_a, record_b in zip(doc_a["input"], doc_b["input"], strict=True):
+        assert {**record_a, "fetched_at": ""} == {**record_b, "fetched_at": ""}
 
 
 def test_one_write_stamps_every_entry_with_the_same_instant(tmp_path: Path) -> None:
@@ -146,7 +132,7 @@ def test_one_write_stamps_every_entry_with_the_same_instant(tmp_path: Path) -> N
     catalog.close()
 
     doc = tomlkit.parse(dest.read_text())
-    stamps = {str(entry["fetched_at"]) for entry in dict(doc["inputs"]).values()}
+    stamps = {str(entry["fetched_at"]) for entry in doc["input"]}
     stamps.add(str(doc["hydromodpy"]["generated_at"]))
     assert len(stamps) == 1
 
@@ -156,9 +142,9 @@ def test_input_ordering_is_stable_across_writes(tmp_path: Path) -> None:
     catalog, workspace, first, second = _seed_two_inputs(tmp_path)
     dest = workspace / LOCKFILE_NAME
     write_lockfile(catalog, dest, **_SCHEMA_VERSIONS)
-    keys_one = list(read_lockfile_inputs(dest))
+    keys_one = [item.path for item in read_lockfile_inputs(dest)]
     write_lockfile(catalog, dest, **_SCHEMA_VERSIONS)
-    keys_two = list(read_lockfile_inputs(dest))
+    keys_two = [item.path for item in read_lockfile_inputs(dest)]
     catalog.close()
 
     assert keys_one == keys_two == sorted([_key(workspace, first), _key(workspace, second)])
@@ -169,37 +155,36 @@ def test_artefact_sha256_independent_of_run(tmp_path: Path) -> None:
     catalog, workspace, first, second = _seed_two_inputs(tmp_path)
     dest = workspace / LOCKFILE_NAME
     write_lockfile(catalog, dest, **_SCHEMA_VERSIONS)
-    inputs = read_lockfile_inputs(dest)
+    inputs = {item.path: item for item in read_lockfile_inputs(dest)}
     catalog.close()
 
     key_a = _key(workspace, first)
     key_b = _key(workspace, second)
-    assert inputs[key_a]["sha256"] == sha256_of(first)
-    assert inputs[key_b]["sha256"] == sha256_of(second)
-    assert inputs[key_a]["sha256"] != inputs[key_b]["sha256"]
+    assert inputs[key_a].sha256 == sha256_of(first)
+    assert inputs[key_b].sha256 == sha256_of(second)
+    assert inputs[key_a].sha256 != inputs[key_b].sha256
 
 
 # ---------------------------------------------------------------- round-trip
 
 
 def test_snapshot_round_trips_to_source_state(tmp_path: Path) -> None:
-    """Parsed ``[[artefact]]`` rows equal the source catalog entries."""
+    """Parsed ``[[input]]`` records equal the source catalog entries."""
     catalog, workspace, first, second = _seed_two_inputs(tmp_path)
     dest = workspace / LOCKFILE_NAME
     write_lockfile(catalog, dest, **_SCHEMA_VERSIONS)
     catalog.close()
 
-    entries = read_lockfile(dest)
-    by_path = {entry.file_path: entry for entry in entries}
+    by_path = {entry.path: entry for entry in read_lockfile_inputs(dest)}
     assert set(by_path) == {_key(workspace, first), _key(workspace, second)}
 
     a = by_path[_key(workspace, first)]
-    assert isinstance(a, LockedArtifact)
+    assert isinstance(a, LockedInput)
     assert a.variable == "hydrometry"
     assert a.source == "hubeau"
     assert a.station_id == "A"
     assert a.sha256 == sha256_of(first)
-    assert a.size_bytes == first.stat().st_size
+    assert a.bytes == first.stat().st_size
     assert a.file_mtime == 1_600_000_000.5
     assert a.fetched_at.endswith("+00:00")
 
@@ -222,13 +207,13 @@ def test_schema_sha256_round_trips(tmp_path: Path) -> None:
 
 
 def test_schema_sha256_absent_returns_none(tmp_path: Path) -> None:
-    no_schema = tmp_path / "noschema.lock"
-    no_schema.write_text('[hydromodpy]\nversion = "2.0.0"\n')
-    assert read_lockfile_schema_sha256(no_schema) is None
+    no_header = tmp_path / "noheader.lock"
+    no_header.write_text(f'schema = "{LOCKFILE_SCHEMA}"\n')
+    assert read_lockfile_schema_sha256(no_header) is None
 
-    empty_schema = tmp_path / "empty.lock"
-    empty_schema.write_text('[hydromodpy]\nversion = "2.0.0"\n\n[schema]\ncatalog = 1\n')
-    assert read_lockfile_schema_sha256(empty_schema) is None
+    no_digest = tmp_path / "nodigest.lock"
+    no_digest.write_text(f'schema = "{LOCKFILE_SCHEMA}"\n\n[hydromodpy]\npython_version = "3"\n')
+    assert read_lockfile_schema_sha256(no_digest) is None
 
 
 # ---------------------------------------------------- verify dark branches
@@ -293,22 +278,24 @@ def test_verify_inputs_strict_flags_deleted_artefact(tmp_path: Path) -> None:
     assert missing[0].observed is None
 
 
-def test_verify_inputs_strict_falls_back_when_inputs_absent(tmp_path: Path) -> None:
-    """Without an ``[inputs]`` table, strict verify delegates to ``verify_frozen``."""
-    catalog, workspace, _first, _second = _seed_two_inputs(tmp_path)
+def test_verify_inputs_strict_answers_for_a_lockfile_that_names_nothing(tmp_path: Path) -> None:
+    """A lockfile with no record has no path to compare, so ``verify_frozen`` answers."""
+    workspace = tmp_path / "workspace"
+    data_dir = workspace / "data" / "hydrometry"
+    data_dir.mkdir(parents=True)
+    catalog = DataCatalogDuckDB(workspace / "data" / "cache.duckdb")
     dest = workspace / LOCKFILE_NAME
     write_lockfile(catalog, dest, **_SCHEMA_VERSIONS)
+    assert read_lockfile_inputs(dest) == []
+    assert verify_inputs_strict(catalog, dest) == []
 
-    # Strip the [inputs] section: legacy / artefact-only lockfile shape.
-    doc = tomlkit.parse(dest.read_text())
-    del doc["inputs"]
-    legacy = workspace / "legacy.lock"
-    legacy.write_text(tomlkit.dumps(doc))
-    assert read_lockfile_inputs(legacy) == {}
+    late = data_dir / "late.csv"
+    late.write_text("datetime,value\n2020-01-01,1.0\n")
+    catalog.register(variable="hydrometry", source="hubeau", station_id="A", file_path=late.name)
 
-    # All artefacts present on disk -> fallback path returns no mismatch.
-    assert verify_inputs_strict(catalog, legacy) == []
+    mismatches = verify_inputs_strict(catalog, dest)
     catalog.close()
+    assert [m.kind for m in mismatches] == ["missing"]
 
 
 # ----------------------------------------------------- gzip archive round-trip

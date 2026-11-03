@@ -200,6 +200,18 @@ def extract_run_outputs(
     _finalize_run_provenance(ctx=ctx, sim_id=sim_id, store=store)
 
 
+def record_what_the_model_says(*, ctx: RunContext, sim_id: str, store: Any) -> None:
+    """Write what only the built model knows: its mean recharge, its grid, its binary.
+
+    The solver step calls this as soon as the solve ends, because a run resumed
+    from its extract step has no model in memory. A run whose extractor creates the
+    field store gets the recharge from the extraction, as before.
+    """
+    if store.fields_path.exists():
+        _keep_the_criterion_recharge(ctx=ctx, sim_id=sim_id, store=store)
+    _finalize_run_provenance(ctx=ctx, sim_id=sim_id, store=store)
+
+
 def _keep_the_criterion_recharge(*, ctx: RunContext, sim_id: str, store: Any) -> None:
     """Keep on the run the mean recharge its trials read, for a later redraw to read back."""
     model = ctx.model

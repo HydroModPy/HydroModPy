@@ -8,6 +8,10 @@ verifies checksum integrity.
 
 The same runner serves multiple components by parametrizing
 ``component`` (``"data_cache"`` for the source-data cache).
+
+A ledger holding a migration the code does not know means a later version
+wrote the database. It is refused before anything runs: this code would write
+tables it does not understand. An earlier ledger is what the runner is for.
 """
 
 from __future__ import annotations
@@ -23,6 +27,7 @@ from typing import TYPE_CHECKING
 from filelock import FileLock
 from pydantic import BaseModel, ConfigDict
 
+from hydromodpy.core.exceptions import SchemaVersionMismatchError
 from hydromodpy.core.io.filesystem import native_io_path
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.migrations.errors import (
@@ -30,6 +35,7 @@ from hydromodpy.core.migrations.errors import (
     MigrationExecutionError,
     SchemaIntegrityError,
 )
+from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
 
 if TYPE_CHECKING:
     import duckdb
@@ -278,10 +284,14 @@ def ensure_schema(
     Creates the two system tables if missing, applies every pending
     migration in order, and verifies checksum integrity for migrations
     already recorded. Safe to call repeatedly.
+
+    Raises :class:`~hydromodpy.core.exceptions.SchemaVersionMismatchError`
+    when the ledger holds a migration this code does not know.
     """
     _create_system_tables(connection)
     migrations = discover_migrations(versions_dir)
     applied = _load_applied(connection, component=component)
+    _refuse_a_later_ledger(connection, migrations, applied, component=component)
 
     for migration in migrations:
         recorded = applied.get(migration.version)
@@ -294,6 +304,35 @@ def ensure_schema(
                 f"({component}): stored {recorded!r}, disk {migration.checksum!r}. "
                 f"To repair, {repair_hint_for(component)}."
             )
+
+
+def _refuse_a_later_ledger(
+    connection: duckdb.DuckDBPyConnection,
+    migrations: list[Migration],
+    applied: dict[int, str],
+    *,
+    component: str,
+) -> None:
+    """Refuse a database whose ledger holds a migration none of *migrations* is."""
+    known = {migration.version for migration in migrations}
+    unknown = sorted(set(applied) - known)
+    if not unknown:
+        return
+    newest = connection.execute(
+        "SELECT version, slug FROM schema_migrations WHERE component = ? "
+        "ORDER BY version DESC LIMIT 1",
+        [component],
+    ).fetchone()
+    assert newest is not None
+    held = f"{int(newest[0]):04d}_{newest[1]}"
+    latest = f"{migrations[-1].version:04d}_{migrations[-1].slug}" if migrations else "none"
+    raise SchemaVersionMismatchError(
+        f"The {component} database holds migration {held}, which HydroModPy "
+        f"{HYDROMODPY_VERSION} does not know: its latest is {latest}. A newer version wrote "
+        "this database, so upgrade HydroModPy to open it.",
+        found=held,
+        expected=latest,
+    )
 
 
 def apply_migrations(

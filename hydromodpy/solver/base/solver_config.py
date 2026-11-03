@@ -9,6 +9,7 @@ from typing import Annotated, Literal, TypeAlias
 from pydantic import Field, PrivateAttr, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 
 BUILTIN_BACKENDS: tuple[str, ...] = ("modflow6", "modflow_nwt", "boussinesq")
@@ -63,6 +64,7 @@ class CustomBackend(_SolverBackendBase):
     name: Annotated[str, Profile.USER] = Field(
         ...,
         description="Name under which a plugin registered its flow solver.",
+        json_schema_extra=field_metadata(stability="experimental"),
     )
 
     @field_validator("name", mode="before")
@@ -193,7 +195,9 @@ class SolverConfig(HydroModelBase):
             "this method the drain is a seepage face, so it must never limit: K "
             "and the recharge decide where water surfaces, not the boundary "
             "condition. Proportionality to K is preserved either way, so the K/R "
-            "invariance the network criterion rests on is untouched."
+            "invariance the network criterion rests on is untouched. The default "
+            "of 1 m is a convention with no measured source. Write your own value "
+            "when you have a measure."
         ),
         examples=[1.0, 0.5, 0.1],
     )

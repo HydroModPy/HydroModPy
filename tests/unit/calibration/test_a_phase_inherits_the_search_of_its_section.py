@@ -20,7 +20,7 @@ from hydromodpy.calibration.preflight import preflight_calibration
 from hydromodpy.calibration.runners.staged_runner import _phase_config, phase_summaries
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.workflow.steps.prepare_solver.dispatch import portable_config_document
-from tests.unit.config.test_a_renamed_key_is_refused_and_a_sealed_one_reads import (
+from tests.unit.config.test_a_renamed_key_warns_and_a_sealed_one_reads import (
     PROJECT,
     _project,
 )

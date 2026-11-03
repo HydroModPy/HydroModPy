@@ -27,8 +27,8 @@ the last step of the trash:
   :data:`TRASH_RETENTION_DAYS`. Removed, each leaving a tombstone, so its
   name is never given out again.
 
-A directory tagged :data:`~hydromodpy.results.trash.PROTECTED_TAG`, and one a
-live attempt writes into, is never selected.
+A directory tagged :data:`~hydromodpy.results.trash.PROTECTED_TAG`, one a live
+attempt writes into, and one this code cannot read, is never selected.
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ from pathlib import Path
 
 from hydromodpy.core.state.paths import run_dir_rel, runs_dir_for, session_dir_rel, sessions_dir_for
 from hydromodpy.results.catalog.registration import split_stem_version
-from hydromodpy.results.manifest import is_sealed, read_manifest
+from hydromodpy.results.manifest import is_sealed, read_seal
 from hydromodpy.results.outcome import (
     Outcome,
     OutcomeError,
@@ -50,7 +50,8 @@ from hydromodpy.results.outcome import (
     write_outcome,
 )
 from hydromodpy.results.session.descriptor import read_session, write_session
-from hydromodpy.results.storage.contract import SESSION_DESCRIPTOR_FILENAME
+from hydromodpy.results.storage.contract import RUN_OUTCOME_FILENAME, SESSION_DESCRIPTOR_FILENAME
+from hydromodpy.results.storage.json_io import beside_seal, readable
 from hydromodpy.results.trash import (
     TrashedEntry,
     expired_entries,
@@ -123,7 +124,7 @@ def plan_gc(project_root: Path, policy: RetentionPolicy, *, now: datetime) -> Gc
         state = effective_status(run_dir, now=now)
         if state == "stale":
             stale.append(rel_dir)
-        if state in _LIVE_STATES or is_protected(run_dir):
+        if state in _LIVE_STATES or state == "unreadable" or is_protected(run_dir):
             continue
         stem, version = split_stem_version(run_dir.name)
         eligible.append(_Version(rel_dir, stem, version or 1, _started_at(run_dir)))
@@ -184,9 +185,8 @@ def mark_aborted(run_dir: Path, *, now: datetime) -> Outcome:
     outcome = read_outcome(run_dir)
     if outcome is None:
         raise FileNotFoundError(f"{run_dir} holds no outcome.json to close")
-    closed = Outcome.model_validate(
-        {
-            **outcome.model_dump(by_alias=True),
+    closed = outcome.model_copy(
+        update={
             "status": "aborted",
             "ended_at": _as_utc(now),
             "written_by": "launcher",
@@ -208,8 +208,8 @@ def _close_session(session_dir: Path, *, now: datetime) -> None:
     closed = mark_aborted(session_dir, now=now)
     if not (session_dir / SESSION_DESCRIPTOR_FILENAME).is_file():
         return
-    descriptor = read_session(session_dir)
-    if descriptor.status != "running":
+    descriptor = readable(read_session, session_dir)
+    if descriptor is None or descriptor.status != "running":
         return
     assert closed.error is not None
     write_session(
@@ -246,15 +246,19 @@ def _superseded(versions: list[_Version], keep: int | None) -> list[str]:
 
 
 def _started_at(run_dir: Path) -> datetime | None:
-    """Return when the run started: its outcome, else its manifest; ``None`` when neither says."""
-    outcome = read_outcome(run_dir)
+    """Return when the run started: its outcome, else its seal; ``None`` when neither says.
+
+    A run reaches this function after :func:`effective_status` read its seal, or
+    its outcome when it has no seal.
+    """
+    if not is_sealed(run_dir):
+        outcome = read_outcome(run_dir)
+        return None if outcome is None else _as_utc(outcome.started_at)
+    outcome = beside_seal(read_outcome, run_dir, RUN_OUTCOME_FILENAME)
     if outcome is not None:
         return _as_utc(outcome.started_at)
-    if is_sealed(run_dir):
-        created = read_manifest(run_dir).get("run", {}).get("created_at")
-        if created:
-            return _as_utc(datetime.fromisoformat(str(created)))
-    return None
+    run = read_seal(run_dir).run
+    return _as_utc(run.started_at or run.created_at)
 
 
 def _as_utc(value: datetime) -> datetime:

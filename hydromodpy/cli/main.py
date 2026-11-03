@@ -47,6 +47,7 @@ def _version_string() -> str:
 
 def _build_parser() -> argparse.ArgumentParser:
     from hydromodpy.cli.commands import ALL_COMMANDS
+    from hydromodpy.cli.conventions import install_old_cli_forms
 
     prog = Path(sys.argv[0]).stem if sys.argv[0] else "hmp"
     parser = argparse.ArgumentParser(
@@ -65,6 +66,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     for mod in ALL_COMMANDS:
         mod.register(subparsers)
+    install_old_cli_forms(parser)
     return parser
 
 

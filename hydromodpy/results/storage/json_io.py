@@ -26,11 +26,23 @@ newline. A payload is JSON-native already: models dump with
 
 Versions
 --------
-Every document carries its version, and :func:`read_sealed_json` and
-:func:`read_transient_json` refuse one that carries another, or none, by
-the rule of :mod:`hydromodpy.core.io.document_version`. A sealed document
-names the HydroModPy version that wrote it, read from the document or from
-the seal beside it; a transient one says to delete it.
+Every document carries its version, and the rule is
+:mod:`hydromodpy.core.io.document_version`. :func:`read_sealed_json` reads a
+sealed document whose version lies in the window of its family, and names
+the HydroModPy version that wrote any other, read from the document or from
+the seal beside it. :func:`read_transient_json` reads one exact version and
+says to delete any other.
+
+Unreadable documents
+--------------------
+A read that builds a list or takes a decision goes through :func:`readable`.
+A document that cannot be read costs one warning naming it and is left out,
+so one run of another version never stops a listing. A read of the one
+document a gesture names keeps its refusal.
+
+A seal says that a run is complete. A document beside a seal that cannot be
+read (:func:`beside_seal`) takes nothing from that: the run stays in every list
+with what its seal gives, after one warning naming the document.
 """
 
 from __future__ import annotations
@@ -38,21 +50,36 @@ from __future__ import annotations
 import json
 import os
 import uuid
-from collections.abc import Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, Final, TypeVar
 
+from pydantic import ValidationError
+
+from hydromodpy.core.exceptions import StorageError
 from hydromodpy.core.io.atomic_replace import rename_over_open_file
 from hydromodpy.core.io.document_version import (
     TRANSIENT_REMEDY,
+    VersionWindow,
     check_document,
     check_version,
-    sealed_remedy,
 )
+from hydromodpy.core.logging import get_logger
 from hydromodpy.results.storage.contract import (
     RUN_MANIFEST_FILENAME,
     SESSION_DESCRIPTOR_FILENAME,
 )
+
+logger = get_logger(__name__)
+
+T = TypeVar("T")
+
+UNREADABLE_ERRORS: Final[tuple[type[Exception], ...]] = (StorageError, OSError, ValueError)
+"""What a document that cannot be read raises: a version refused, a file gone or
+unreachable, a text that is no JSON, a payload its model refuses."""
+
+_warned_unreadable: set[str] = set()
+"""The documents this process already warned about: a list is built many times."""
 
 _SEALS: tuple[str, ...] = (RUN_MANIFEST_FILENAME, SESSION_DESCRIPTOR_FILENAME)
 """Documents beside a sealed one that name the version that wrote the directory."""
@@ -68,30 +95,30 @@ def read_json(path: str | Path) -> Any:
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
-def read_sealed_json(path: str | Path, expected: object, *, key: str = "schema") -> Any:
-    """Read a sealed document; refuse it unless its *key* is *expected*."""
+def read_sealed_json(path: str | Path, window: VersionWindow, *, key: str = "schema") -> Any:
+    """Read a sealed document; refuse it unless its *key* lies inside *window*."""
     target = Path(path)
-    return check_sealed(read_json(target), expected, path=target, key=key)
+    return check_sealed(read_json(target), window, path=target, key=key)
 
 
 def check_sealed(
     payload: Any,
-    expected: object,
+    window: VersionWindow,
     *,
     path: str | Path,
     key: str = "schema",
     line: int | None = None,
 ) -> Any:
-    """Return a sealed *payload* read from *path*; refuse it unless its *key* is *expected*.
+    """Return a sealed *payload* read from *path*; refuse it unless its *key* lies in *window*.
 
     *line* names the line of a JSON Lines document in the message.
     """
     found = payload.get(key) if isinstance(payload, Mapping) else None
-    if found != expected:
+    if not window.holds(found):
         target = Path(path)
         document = str(target) if line is None else f"{target}:{line}"
-        remedy = sealed_remedy(writer_version(payload, target))
-        check_version(found, expected, document=document, key=key, remedy=remedy)
+        writer = writer_version(payload, target)
+        check_version(found, window, document=document, key=key, writer=writer)
     return payload
 
 
@@ -101,6 +128,62 @@ def read_transient_json(path: str | Path, expected: object, *, key: str = "schem
     return check_document(
         read_json(target), expected, document=target, key=key, remedy=TRANSIENT_REMEDY
     )
+
+
+def warn_unreadable(path: str | Path, reason: object, *, consequence: str = "is left out") -> None:
+    """Warn that *path* cannot be read, what follows and why, once per process."""
+    named = str(path)
+    if named not in _warned_unreadable:
+        _warned_unreadable.add(named)
+        logger.warning("%s %s: %s", named, consequence, reason_text(reason))
+
+
+def reason_text(reason: object) -> str:
+    """Say why a document does not read, in one line: a model lists each field on many."""
+    if not isinstance(reason, ValidationError):
+        return str(reason)
+    first = reason.errors()[0]
+    where = ".".join(str(step) for step in first["loc"])
+    return f"{reason.title} refuses {reason.error_count()} field(s), first {where}: {first['msg']}"
+
+
+def readable(read: Callable[..., T], path: str | Path, *args: Any, **kwargs: Any) -> T | None:
+    """Return ``read(path, ...)``, or ``None`` when the document cannot be read.
+
+    An unreadable document costs one warning naming it. A missing one says
+    nothing: there is no document to leave out.
+    """
+    try:
+        return read(path, *args, **kwargs)
+    except FileNotFoundError:
+        return None
+    except UNREADABLE_ERRORS as exc:
+        warn_unreadable(path, exc)
+        return None
+
+
+def beside_seal(read: Callable[[Path], T], directory: Path, document: str) -> T | None:
+    """Return ``read(directory)``, or ``None`` when a *document* beside a seal cannot be read.
+
+    Only for a directory whose seal reads: the caller takes what the seal gives.
+    """
+    try:
+        return read(directory)
+    except FileNotFoundError:
+        return None
+    except UNREADABLE_ERRORS as exc:
+        warn_unreadable(directory / document, exc, consequence="is not read, the seal stands")
+        return None
+
+
+def readable_documents(
+    read: Callable[[Path], T], paths: Iterable[Path]
+) -> Iterator[tuple[Path, T]]:
+    """Yield each path with what *read* returns, leaving out what cannot be read."""
+    for path in paths:
+        document = readable(read, path)
+        if document is not None:
+            yield path, document
 
 
 def writer_version(payload: Any, path: str | Path) -> str | None:
@@ -204,11 +287,17 @@ def _fsync_directory(directory: Path) -> None:
 
 
 __all__ = [
+    "UNREADABLE_ERRORS",
+    "beside_seal",
     "check_sealed",
     "read_json",
     "read_sealed_json",
     "read_transient_json",
+    "readable",
+    "readable_documents",
+    "reason_text",
     "render_json",
+    "warn_unreadable",
     "write_json_atomic",
     "write_json_durable",
     "writer_version",

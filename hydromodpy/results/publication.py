@@ -28,11 +28,13 @@ import re
 from collections.abc import Mapping
 from datetime import date, datetime
 from pathlib import Path, PurePosixPath, PureWindowsPath
-from typing import Any, Final, Literal
+from typing import Annotated, Any, Final
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.stored import Vocabulary, read_stored
+from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.core.state.paths import SUMMARY_DIRNAME
 from hydromodpy.results.rel_dir import checked_rel_dir
 from hydromodpy.results.storage.contract import PUBLICATION_FILENAME, RUN_PUBLISHED_FILENAME
@@ -42,8 +44,18 @@ from hydromodpy.results.validity_rules import Label
 PUBLICATION_SCHEMA: Final[str] = "hydromodpy.publication.v1"
 """Schema id of ``PUBLICATION.json``."""
 
+PUBLICATION_VERSIONS: Final[VersionWindow] = VersionWindow(
+    oldest="hydromodpy.publication.v1", current=PUBLICATION_SCHEMA
+)
+"""Versions of ``PUBLICATION.json`` this code reads."""
+
 PUBLISHED_SCHEMA: Final[str] = "hydromodpy.published.v1"
 """Schema id of one line of ``published.jsonl``."""
+
+PUBLISHED_VERSIONS: Final[VersionWindow] = VersionWindow(
+    oldest="hydromodpy.published.v1", current=PUBLISHED_SCHEMA
+)
+"""Versions of one line of ``published.jsonl`` this code reads."""
 
 REDACTED_PATH: Final[str] = "<absolute path>"
 """What an absolute path outside the project becomes."""
@@ -56,9 +68,9 @@ REDACTED_KEYS: Final[frozenset[str]] = frozenset(
 PROJECT_REL_DIR: Final[str] = "."
 """``rel_dir`` of the source of a project copy: the project root itself."""
 
-PublicationFormat = Literal["dir", "tar"]
-PublicationExtra = Literal["results", "inputs"]
-PublicationKind = Literal["run", "summary", "project"]
+PublicationFormat = Annotated[str, Vocabulary("dir", "tar")]
+PublicationExtra = Annotated[str, Vocabulary("results", "inputs")]
+PublicationKind = Annotated[str, Vocabulary("run", "summary", "project")]
 
 
 class PublicationSource(HydroModelBase):
@@ -145,7 +157,7 @@ class Publication(HydroModelBase):
 
     @model_validator(mode="after")
     def _schema(self) -> Publication:
-        if self.schema_ != PUBLICATION_SCHEMA:
+        if not PUBLICATION_VERSIONS.holds(self.schema_):
             raise ValueError(
                 f"schema is {self.schema_!r}, this module reads {PUBLICATION_SCHEMA!r}"
             )
@@ -197,8 +209,8 @@ def write_publication(directory: str | Path, publication: Publication) -> Path:
 
 def read_publication(directory: str | Path) -> Publication:
     """Read ``PUBLICATION.json`` of a copy."""
-    return Publication.model_validate(
-        read_sealed_json(publication_path(directory), PUBLICATION_SCHEMA)
+    return read_stored(
+        Publication, read_sealed_json(publication_path(directory), PUBLICATION_VERSIONS)
     )
 
 
@@ -227,8 +239,9 @@ def read_published(source_dir: str | Path) -> list[PublishedLine]:
         return []
     complete = target.read_text(encoding="utf-8").split("\n")[:-1]
     return [
-        PublishedLine.model_validate(
-            check_sealed(json.loads(text), PUBLISHED_SCHEMA, path=target, line=number)
+        read_stored(
+            PublishedLine,
+            check_sealed(json.loads(text), PUBLISHED_VERSIONS, path=target, line=number),
         )
         for number, text in enumerate(complete, start=1)
         if text.strip()
@@ -289,8 +302,10 @@ def _relative_or_redacted(path: PurePosixPath | PureWindowsPath, root: Path | No
 
 __all__ = [
     "PUBLICATION_SCHEMA",
+    "PUBLICATION_VERSIONS",
     "PROJECT_REL_DIR",
     "PUBLISHED_SCHEMA",
+    "PUBLISHED_VERSIONS",
     "REDACTED_KEYS",
     "REDACTED_PATH",
     "Publication",

@@ -25,7 +25,7 @@ from pydantic import BaseModel
 
 from hydromodpy.core.exceptions import ResumeError
 from hydromodpy.core.io.canonical_json import dumps as canonical_dumps
-from hydromodpy.core.io.document_version import TRANSIENT_REMEDY, check_document, check_version
+from hydromodpy.core.io.document_version import TRANSIENT_REMEDY, check_document, check_exact
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import (
     INTERNAL_DIRNAME,
@@ -140,7 +140,7 @@ class ResolvedRunManifest:
         configuration this manifest signs, so the refusal can say which
         sections moved instead of only that something did.
         """
-        check_version(
+        check_exact(
             self.schema_version,
             SCHEMA_VERSION,
             document=self.path_for(run_dir) if run_dir is not None else "resolved run manifest",

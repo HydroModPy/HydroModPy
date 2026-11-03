@@ -214,11 +214,8 @@ def _should_backup(connection: duckdb.DuckDBPyConnection, db_path: Path) -> bool
     if not os.path.isfile(native_io_path(db_path)):
         return False
     if _base_table_count(connection) == 0:
-        logger.warning(
-            "Refusing to write an empty pre-migration backup of %s: the database "
-            "holds no table yet, so the snapshot would restore nothing.",
-            db_path,
-        )
+        # Every new database comes here: there is nothing to say to anyone.
+        logger.debug("No pre-migration backup of %s: it holds no table yet.", db_path)
         return False
     return True
 

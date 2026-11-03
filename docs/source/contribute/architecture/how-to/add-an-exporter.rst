@@ -57,7 +57,7 @@ Skeleton of a writer for a field at one step:
    import numpy as np
 
    from hydromodpy.core.logging import get_logger
-   from hydromodpy.results.exporters._fields import one_layer, read_field_step
+   from hydromodpy.results.exporters.fields import one_layer, read_field_step
    from hydromodpy.results.zarr_store import SimulationZarr
 
    logger = get_logger(__name__)
@@ -114,7 +114,7 @@ Choose what to read
 - **Tabular**: the ``timeseries`` and ``budgets`` tables through DuckDB. CSV
   is the reference; write naive times of the run clock
   (``timezone('UTC', time)``), never the session zone.
-- **Field**: the Zarr store, through ``_fields.read_field_step``. NetCDF,
+- **Field**: the Zarr store, through ``fields.read_field_step``. NetCDF,
   GeoTIFF, GeoPackage, VTU follow this pattern.
 - **Layer**: ``Catalog.read_geographic_feature`` for a vector layer,
   ``SimulationZarr.read_geographic_raster`` for a raster one.

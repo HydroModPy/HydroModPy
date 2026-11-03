@@ -7,7 +7,7 @@ import json
 import sys
 from pathlib import Path
 
-from hydromodpy.cli._conventions import format_parser, verbosity_parser, workspace_parser
+from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
 from hydromodpy.cli.helpers import apply_verbosity, exit_code_for
 from hydromodpy.core.state.paths import resolve_project_root
 

@@ -18,10 +18,6 @@ permissions:
 
 env:
   MPLBACKEND: Agg
-  # flopy's get_modflow sends GITHUB_TOKEN to the GitHub API. Without it the
-  # binary download shares the anonymous rate limit of the runner's address,
-  # which macOS runners exhaust.
-  GITHUB_TOKEN: ${{ github.token }}
   COVERAGE_OMIT: hydromodpy/**/examples/*,hydromodpy/validity_frame/*,hydromodpy/validity_frame/**/*,hydromodpy/physics/hydrology/pyhelp/*,hydromodpy/physics/hydrology/pyhelp/**/*
 
 jobs:

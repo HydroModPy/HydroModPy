@@ -134,7 +134,7 @@ def resolve(concrete: str) -> str | None:
     current = ""
     for seg in concrete.split("."):
         seg = seg.strip('"')
-        for suffix in ("__append", "__delete"):
+        for suffix in ("__append", "__delete", "__merge"):
             if seg.endswith(suffix):
                 seg = seg[: -len(suffix)]
         cands = kids(current)

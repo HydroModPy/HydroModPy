@@ -6,7 +6,7 @@ import shutil
 from pathlib import Path
 
 from hydromodpy.config import HydroModPyConfig
-from hydromodpy.results.catalog.registration import input_file_digests, run_identity_hash
+from hydromodpy.results.catalog.registration import config_identity_hash, run_identity_hash
 
 PROJECT = """\
 [geographic]
@@ -30,7 +30,7 @@ def _project(root: Path) -> Path:
 
 def _config_hash(path: Path) -> str | None:
     cfg = HydroModPyConfig.from_toml(path)
-    return run_identity_hash(cfg.model_dump(mode="json"), inputs=input_file_digests(cfg))
+    return config_identity_hash(cfg)
 
 
 def test_two_copies_of_one_project_give_one_config_hash(tmp_path: Path) -> None:

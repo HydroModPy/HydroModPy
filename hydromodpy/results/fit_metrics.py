@@ -53,7 +53,6 @@ from pathlib import Path
 from typing import Any, Final
 
 import pandas as pd
-import pyarrow.parquet as pq
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.time.period_aggregation import period_edges, periods_in_window
@@ -67,6 +66,7 @@ from hydromodpy.results.derive.time_alignment import (
 from hydromodpy.results.manifest import MetricRow
 from hydromodpy.results.metric_rule import METRIC_NAMES, MetricRule, MetricScore, score_run
 from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX, TABLES_DIRNAME
+from hydromodpy.results.storage.parquet_io import read_checked_table
 
 logger = get_logger(__name__)
 
@@ -141,8 +141,7 @@ def fit_metrics(run_dir: str | Path, *, rule: MetricRule, period_start: Any = No
     path = Path(run_dir) / TABLES_DIRNAME / f"{TIMESERIES_TABLE}{PARQUET_FILE_SUFFIX}"
     if not path.is_file():
         return score_timeseries(pd.DataFrame(columns=list(_COLUMNS)), rule=rule)
-    table = pq.read_table(path)
-    frame = table.to_pandas()
+    frame = read_checked_table(path).to_pandas()
     if "component" in frame.columns:
         # A component is a part of a series; the series itself has none.
         frame = frame[frame["component"].isna()]

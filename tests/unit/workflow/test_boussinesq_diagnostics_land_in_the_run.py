@@ -1,8 +1,8 @@
 """The VI diagnostics of a Boussinesq run land in ``<run>/exports/solver_diagnostics/``.
 
 They used to be written beside the solver files, in the scratch the seal of a
-completed run removes. They now go to the run directory, where
-``hmp report compare`` reads them; a run without a store writes none.
+completed run removes. They now go to the run directory; a run without a store
+writes none.
 """
 
 from __future__ import annotations

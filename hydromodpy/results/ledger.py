@@ -28,12 +28,19 @@ from typing import Any, Final
 from pydantic import ConfigDict, Field, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.stored import dump_stored, read_stored
+from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.results.identity import Identity
 from hydromodpy.results.storage.contract import LEDGER_FILENAME
 from hydromodpy.results.storage.json_io import read_sealed_json, write_json_atomic
 
 LEDGER_SCHEMA: Final[str] = "hydromodpy.ledger.v1"
 """Schema id of the document."""
+
+LEDGER_VERSIONS: Final[VersionWindow] = VersionWindow(
+    oldest="hydromodpy.ledger.v1", current=LEDGER_SCHEMA
+)
+"""Versions of the document this code reads."""
 
 
 class LedgerEntry(HydroModelBase):
@@ -70,7 +77,7 @@ class Ledger(HydroModelBase):
 
     @model_validator(mode="after")
     def _one_entry_per_file(self) -> Ledger:
-        if self.schema_ != LEDGER_SCHEMA:
+        if not LEDGER_VERSIONS.holds(self.schema_):
             raise ValueError(f"schema is {self.schema_!r}, this module reads {LEDGER_SCHEMA!r}")
         files = [entry.file for entry in self.entries]
         if len(files) != len(set(files)):
@@ -81,24 +88,26 @@ class Ledger(HydroModelBase):
     def read(cls, directory: str | Path) -> Ledger:
         """Return the ledger of a directory, empty when it has none."""
         try:
-            payload = read_sealed_json(ledger_path(directory), LEDGER_SCHEMA)
+            payload = read_sealed_json(ledger_path(directory), LEDGER_VERSIONS)
         except FileNotFoundError:
             return cls()
-        return cls.model_validate(payload)
+        return read_stored(cls, payload)
 
     def entry_for(self, file: str) -> LedgerEntry | None:
         """Return the entry of *file*, or ``None``."""
         return next((entry for entry in self.entries if entry.file == file), None)
 
     def append(self, entry: LedgerEntry) -> None:
-        """Add *entry*, replacing the entry of the same file if any."""
-        self.entries = [kept for kept in self.entries if kept.file != entry.file] + [entry]
+        """Add *entry*, replacing the entry of the same file if any.
+
+        The list is changed in place: an assignment would validate the model
+        again and lose the unknown keys its reading kept.
+        """
+        self.entries[:] = [kept for kept in self.entries if kept.file != entry.file] + [entry]
 
     def write(self, directory: str | Path) -> Path:
         """Write the ledger atomically and return its path."""
-        return write_json_atomic(
-            ledger_path(directory), self.model_dump(mode="json", by_alias=True)
-        )
+        return write_json_atomic(ledger_path(directory), dump_stored(self))
 
 
 def ledger_path(directory: str | Path) -> Path:

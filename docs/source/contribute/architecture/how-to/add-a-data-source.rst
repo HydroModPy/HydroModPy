@@ -203,9 +203,13 @@ it can name, so the binder hands a plugin **the section field its constructor
 names, and nothing else**. A name the section does not carry keeps your
 default; a positional-only parameter without a default is refused.
 
-``tests/contract/test_data_source_contract.py`` holds every shipped source to
-the port: the payload kind it claims, the CRS the provider is really asked
-in, whether a period is really required, whether ``out_dir`` is left alone.
+``tests/contract/test_data_source_contract.py`` holds every source to the port.
+Its declarations and its refusals run on every source the registry serves,
+whether it ships or is installed: the members and the closed vocabularies, the
+CRS, the hosts, a selector or a period it does not take. The rest of the suite reads
+what reaches the provider (the CRS the provider is really asked in, whether
+``out_dir`` is left alone), so it needs to know which function a source calls. A
+``SourceCase`` says so, and the sources that ship have one.
 
 Tests to add
 ------------
@@ -213,8 +217,11 @@ Tests to add
 - the config: a value the section refuses, a field that belongs to another
   source;
 - the provider on a recorded answer, so the tier runs offline;
-- for a plugin, the contract suite parametrised on your class, in your own
-  distribution.
+- for a plugin, the contract suite run from a clone of this repository with your
+  distribution installed. ``pytest tests/contract/test_data_source_contract.py``
+  then finds your source through its entry point. To run the part that reads the
+  provider too, add a ``SourceCase`` for your class to ``BUILTIN_CASES`` in your
+  clone. The suite is not in the wheel.
 
 See also
 --------

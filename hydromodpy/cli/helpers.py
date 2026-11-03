@@ -16,7 +16,7 @@ from hydromodpy.core.logging import get_logger
 
 # ---------------------------------------------------------------------------
 # Standardised exit codes for the hmp CLI. The shared grammar that emits them
-# lives in ``hydromodpy/cli/_conventions.py``. Typed codes 10..23 map onto
+# lives in ``hydromodpy/cli/conventions.py``. Typed codes 10..23 map onto
 # specific exception classes; 0/1/2 keep their POSIX-conventional meaning;
 # 130 is the standard SIGINT termination code.
 # ---------------------------------------------------------------------------
@@ -220,8 +220,11 @@ def find_workspace(workspace_arg: str | None) -> Path | None:
 
 def resolve_workspace(workspace_arg: str | None) -> Path:
     """Return :func:`find_workspace`, or stop with :data:`EXIT_NOT_FOUND` naming ``-w``."""
+    from hydromodpy.core.workspace.workspace_toml import refuse_a_newer_workspace
+
     found = find_workspace(workspace_arg)
     if found is not None:
+        refuse_a_newer_workspace(found)
         return found
     named = workspace_arg or os.environ.get("HMP_WORKSPACE")
     start = Path(named).expanduser().resolve() if named else Path.cwd().resolve()

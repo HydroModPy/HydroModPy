@@ -9,6 +9,7 @@ the dependency points the allowed direction (project -> results).
 from __future__ import annotations
 
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
 
@@ -23,10 +24,13 @@ class RerunProvider(Protocol):
         overrides: Mapping[str, Any],
         name: str | None,
         source_sim_id: str | None = None,
+        source_dir: Path | None = None,
     ) -> str:
         """Run a fresh simulation and return its new ``sim_id``.
 
         ``source_sim_id`` is pinned as the child's ``parent_sim_id`` for lineage.
+        ``source_dir`` is the directory of the source run: what it sealed is
+        compared with the configuration of the new run.
         """
 
 

@@ -35,11 +35,13 @@ from __future__ import annotations
 import os
 from datetime import date, datetime
 from pathlib import Path
-from typing import Any, Final, Literal
+from typing import Annotated, Any, Final, Literal
 
 from pydantic import Field, field_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.stored import Vocabulary, read_stored
+from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.results.checks import Checks
 from hydromodpy.results.identity import Identity
 from hydromodpy.results.lineage import Lineage
@@ -53,6 +55,7 @@ from hydromodpy.results.storage.contract import (
     RUN_FIGURES_DIRNAME,
     RUN_MANIFEST_FILENAME,
     RUN_PROVENANCE_FILENAME,
+    RUN_RESOLVED_CONFIG_FILENAME,
     RUN_SCRATCH_ENTRIES,
     TABLES_DIRNAME,
 )
@@ -67,8 +70,36 @@ and ``objective_*`` entries, the origin of the parameters and the window of
 the metrics.
 """
 
+MANIFEST_VERSIONS: Final[VersionWindow] = VersionWindow(
+    oldest=2, current=RUN_RECORD_MANIFEST_VERSION
+)
+"""Versions of ``manifest.json`` this code reads."""
+
 RunStatus = Literal["completed"]
-"""The status of a sealed run: a manifest exists only for a completed run."""
+"""The status of a sealed run: a manifest exists only for a completed run.
+
+Closed on purpose: a seal certifies a completed run, so no other word is one."""
+
+FlowRegime = Annotated[str, Vocabulary("steady", "transient", "steady_then_transient")]
+"""The flow regime a run computed."""
+
+MeshTopology = Annotated[
+    str,
+    Vocabulary(
+        "structured_2d",
+        "structured_3d",
+        "unstructured_2d",
+        "unstructured_3d",
+        "lumped",
+        "network_1d",
+        "triangle",
+        "quadrilateral",
+        "polygon",
+        "wedge",
+        "hexahedron",
+    ),
+]
+"""The mesh of a run: its solver grid, or the cell type of its planar mesh (``CellType``)."""
 
 _UNSEALED_STATUS_MESSAGE = (
     "a manifest exists only for a completed run, not a {status!r} one: "
@@ -76,7 +107,9 @@ _UNSEALED_STATUS_MESSAGE = (
     "never manifest.json"
 )
 
-ParameterOrigin = Literal["declared", "site_table", "site_override", "recipe", "calibrated"]
+ParameterOrigin = Annotated[
+    str, Vocabulary("declared", "site_table", "site_override", "recipe", "calibrated")
+]
 """Where a parameter value came from."""
 
 
@@ -116,7 +149,7 @@ class ManifestRun(HydroModelBase):
     attempt_id: str
     solver: str
     solver_category: str | None = None
-    flow_regime: str | None = None
+    flow_regime: FlowRegime | None = None
     created_at: datetime
     started_at: datetime | None = None
     ended_at: datetime | None = None
@@ -147,7 +180,7 @@ class ManifestGeometry(HydroModelBase):
 
     n_cells: int | None = None
     n_layers: int | None = None
-    mesh_topology: str | None = None
+    mesh_topology: MeshTopology | None = None
     mesh_engine: str | None = None
     mesh_engine_version: str | None = None
     mesh_hash: str | None = None
@@ -326,29 +359,48 @@ KEY_PACKAGES: tuple[str, ...] = (
 _ARTEFACT_ROLES: dict[str, str] = {
     FIELDS_STORE_NAME: "fields",
     RUN_CONFIG_FILENAME: "config",
+    RUN_RESOLVED_CONFIG_FILENAME: "config_resolved",
     RUN_PROVENANCE_FILENAME: "provenance",
     RUN_MANIFEST_FILENAME: "manifest",
 }
 
 
-def read_manifest(run_dir: Path | str) -> dict[str, Any]:
-    """Return the manifest of a run directory.
+def read_seal(run_dir: Path | str) -> Manifest:
+    """Return the manifest of a run directory, typed.
 
     Raises
     ------
     FileNotFoundError
         When the directory carries no manifest, i.e. the run never completed.
     hydromodpy.core.exceptions.SchemaVersionMismatchError
-        When its ``manifest_version`` is missing or is not
-        :data:`RUN_RECORD_MANIFEST_VERSION`; the message names the version
-        that wrote it.
+        When its ``manifest_version`` is missing or lies outside
+        :data:`MANIFEST_VERSIONS`; the message names the version that wrote it.
+    pydantic.ValidationError
+        When the model refuses its body. A list that reads through
+        :func:`~hydromodpy.results.storage.json_io.readable` leaves it out.
     """
+    return read_stored(Manifest, _manifest_payload(run_dir))
+
+
+def read_manifest(run_dir: Path | str) -> dict[str, Any]:
+    """Return the manifest of a run directory as the file holds it, future keys included.
+
+    It reads and refuses what :func:`read_seal` reads and refuses, so one
+    manifest never reads two ways. A caller that wants the fields takes
+    :func:`read_seal`.
+    """
+    payload = _manifest_payload(run_dir)
+    read_stored(Manifest, payload)
+    return payload
+
+
+def _manifest_payload(run_dir: Path | str) -> dict[str, Any]:
     path = Path(run_dir) / RUN_MANIFEST_FILENAME
     if not path.is_file():
         raise FileNotFoundError(
             f"No {RUN_MANIFEST_FILENAME} in {run_dir}: this run directory is incomplete."
         )
-    return read_sealed_json(path, RUN_RECORD_MANIFEST_VERSION, key="manifest_version")
+    return read_sealed_json(path, MANIFEST_VERSIONS, key="manifest_version")
 
 
 def is_sealed(run_dir: Path | str) -> bool:
@@ -465,6 +517,7 @@ def _figure_artifacts(run_dir: Path, figures_dir: Path) -> list[dict[str, Any]]:
 
 __all__ = [
     "KEY_PACKAGES",
+    "MANIFEST_VERSIONS",
     "PARAMETERS_TABLE_NAME",
     "RUN_RECORD_MANIFEST_VERSION",
     "RUNTIME_VARIABLE",
@@ -478,6 +531,8 @@ __all__ = [
     "ManifestRun",
     "ManifestSite",
     "MetricRow",
+    "FlowRegime",
+    "MeshTopology",
     "ParameterOrigin",
     "ParameterRow",
     "RunStatus",
@@ -485,4 +540,5 @@ __all__ = [
     "is_sealed",
     "list_artifacts",
     "read_manifest",
+    "read_seal",
 ]
