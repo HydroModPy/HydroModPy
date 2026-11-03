@@ -1617,6 +1617,8 @@ Each release section includes the following standard categories:
 - The compact network comparison reads the reference river from `mesh_cell_families`.
 
 ### Removed
+- `OptionalText` and the module `hydromodpy.core.config_kit.validators`, the constants `NODATA_SENTINELS`, `RESULTS_NODATA`
+  and `EXTREME_NODATA` of `hydromodpy.core.nodata`, `history_has_initial_snapshot` and `log_missing_field`. Nothing called them.
 - The `legacy` mesh layout: `Mesh.layout`, `Mesh.layout_note` and their note. No readable store can hold it.
 - `hydromodpy.core.field_routing.positive_cell_flux_stack` and the constants `CATCHMENT_BUDGET_ZONE`, `DOMAIN_BUDGET_ZONE`,
   `GLOBAL_ZONE`, `CATCHMENT_OUTLET_STATION`. `drain_budget_to_positive_outflow` and `drain_budget_stack_to_positive_outflow` are

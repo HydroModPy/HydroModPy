@@ -71,26 +71,6 @@ def build_transient_time_axes(
     )
 
 
-def history_has_initial_snapshot(
-    *,
-    n_slices: int,
-    period_lengths_seconds: np.ndarray | Any | None,
-) -> bool:
-    """Return whether a history starts with an explicit initial snapshot.
-
-    A snapshot history has ``n_steps + 1`` rows: the first row is the initial
-    state, and the remaining rows are solved step-end states. A single-row
-    history is treated as a steady solved result, even if its elapsed time is
-    zero.
-    """
-    if int(n_slices) <= 1:
-        return False
-    if period_lengths_seconds is None:
-        return True
-    periods = np.asarray(period_lengths_seconds, dtype=float).reshape(-1)
-    return int(periods.size) == int(n_slices) - 1
-
-
 def step_history_from_history(
     values: np.ndarray | Any,
     *,
@@ -233,7 +213,6 @@ __all__ = [
     "TransientTimeAxes",
     "build_transient_time_axes",
     "elapsed_seconds_for_time_keys",
-    "history_has_initial_snapshot",
     "saturated_thickness_from_head_history",
     "snapshot_elapsed_seconds_from_payload",
     "step_end_elapsed_seconds_from_payload",

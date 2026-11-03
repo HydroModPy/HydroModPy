@@ -64,9 +64,6 @@ NormalizedLowerStr = Annotated[str, BeforeValidator(_strip_lower)]
 NonEmptyStr = Annotated[str, BeforeValidator(_strip_non_empty)]
 """Non-empty string after stripping whitespace."""
 
-OptionalText = Annotated[str | None, BeforeValidator(_clean_optional_text)]
-"""Optional free-form text. Empty / whitespace-only inputs collapse to ``None``."""
-
 NonEmptyPath = Annotated[Path, BeforeValidator(_strip_non_empty)]
 """File or folder path, refused when empty. Typed ``Path`` so tools know it is one."""
 
@@ -135,7 +132,6 @@ __all__ = [
     "NormalizedLowerStr",
     "NormalizedStr",
     "OptionalPath",
-    "OptionalText",
     "PositiveFloat",
     "PositiveInt",
     "Probability",

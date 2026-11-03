@@ -239,27 +239,3 @@ class TestWhatTheRunKeptDecidesTheMessage:
         run = _run(terms={"consumers": ()}, present=("head", "release_flux"))
 
         assert missing_field_options(["release_flux", "head", "lake_stage"], run) == []
-
-    def test_log_missing_field_warns_only_when_the_run_could_have_kept_the_field(self):
-        import logging
-
-        from hydromodpy.results.derive.config_flags import log_missing_field
-
-        records: list[tuple[int, str]] = []
-
-        class _Logger:
-            def warning(self, msg, *args):
-                records.append((logging.WARNING, msg % args))
-
-            def debug(self, msg, *args):
-                records.append((logging.DEBUG, msg % args))
-
-        consumers = _run(terms={"consumers": ("drain",)})
-        log_missing_field(_Logger(), consumers, "recharge", "metrics for run x")
-        log_missing_field(_Logger(), _run(terms={"all": ("drain",)}), "recharge", "metrics")
-        log_missing_field(_Logger(), consumers, "lake_stage", "metrics for run x")
-
-        assert records[0][0] == logging.WARNING
-        assert "kept only the per-cell budget terms its consumers read (drain)" in records[0][1]
-        assert records[1][0] == logging.DEBUG
-        assert records[2][0] == logging.DEBUG

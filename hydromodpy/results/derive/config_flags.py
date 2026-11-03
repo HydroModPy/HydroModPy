@@ -146,19 +146,6 @@ def missing_field_explanation(fields: Iterable[str], run: SupportsHasField) -> s
     )
 
 
-def log_missing_field(logger: Any, run: SupportsHasField, field: str, what: str) -> None:
-    """Log one skipped consumer, loudly when the run did not keep what the field reads.
-
-    ``what`` names the artefact that is being skipped, for example
-    ``"metrics for run x"``.
-    """
-    explanation = missing_field_explanation([field], run)
-    if explanation:
-        logger.warning("Skipping %s: field '%s' is not in the store. %s", what, field, explanation)
-        return
-    logger.debug("Skipping %s: field '%s' is not available for this run.", what, field)
-
-
 __all__ = [
     "KEEP_BUDGET_OPTION",
     "MissingBudget",
@@ -166,7 +153,6 @@ __all__ = [
     "config_option_for",
     "diagnose_missing",
     "enable_options_hint",
-    "log_missing_field",
     "missing_field_explanation",
     "missing_field_options",
     "option_hint",
