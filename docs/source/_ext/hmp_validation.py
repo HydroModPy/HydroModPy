@@ -615,7 +615,7 @@ def _axis(values: list, log: bool) -> tuple[float, float]:
     return lo, hi
 
 
-# One shape per solver, so the curves read without colour too. The colours
+# One shape per solver, so the curves read without color too. The colors
 # (Okabe-Ito) are the classes hmp-val-s0 to hmp-val-s5 of hmp-validation.css.
 MARKERS = ("circle", "square", "triangle", "diamond", "triangle-down", "hexagon")
 
@@ -664,7 +664,7 @@ def ref_gap(a: list, b: list) -> float:
 
 
 # Runs whose references differ by less than this share of their range go on one
-# figure: the discretisation of each solver moves a reference a little (the
+# figure: the discretization of each solver moves a reference a little (the
 # recession cases, about 2 %), a variant of the case moves it a lot (18 % and more).
 SAME_REFERENCE = 0.05
 
@@ -687,7 +687,7 @@ def member_label(record: dict) -> str:
 
 
 def style_index(solver: str, taken: set[int]) -> int:
-    """A solver keeps its colour and shape on every figure; other runs take what is left."""
+    """A solver keeps its color and shape on every figure; other runs take what is left."""
     if solver in SOLVER_ORDER and SOLVER_ORDER.index(solver) not in taken:
         return SOLVER_ORDER.index(solver)
     order = [*range(len(SOLVER_ORDER), len(MARKERS)), *range(len(SOLVER_ORDER))]
@@ -698,8 +698,8 @@ def svg_overlay(series: dict, members: list[tuple[str, int, dict]]) -> str:
     """One figure for one quantity of a case: the reference as a line, every run as markers.
 
     When the runs do not share one reference to the last digit, each run draws its
-    own as a thin dashed line of its colour. Under a linear scale a second panel
-    draws each run minus its reference, where runs that agree within millimetres
+    own as a thin dashed line of its color. Under a linear scale a second panel
+    draws each run minus its reference, where runs that agree within millimeters
     still part.
     """
     log = bool(series.get("log", False))

@@ -66,7 +66,7 @@ def style_relative_km_axes(
     ylabel: str = "Relative Y (km)",
     max_ticks: int = 4,
 ) -> None:
-    """Style map axes as relative kilometres from the current lower-left corner."""
+    """Style map axes as relative kilometers from the current lower-left corner."""
     from matplotlib.ticker import FuncFormatter, MaxNLocator
 
     xmin, xmax = ax.get_xlim()

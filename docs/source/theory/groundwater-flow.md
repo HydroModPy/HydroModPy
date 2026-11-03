@@ -18,7 +18,7 @@ one-layer reading stops being true is at the end of {ref}`gwf-limits`.
 :::
 
 ::::{dropdown} Notation of this page
-Lengths are in metres, time in seconds, and elevation is positive up. A key
+Lengths are in meters, time in seconds, and elevation is positive up. A key
 accepts a value with its unit ("30 m", "5 m/day"); the code converts it before it
 builds the solver input. Every symbol of the site is on {doc}`notation`.
 
@@ -33,7 +33,7 @@ Two surfaces bound the aquifer.
 
 **The top** $z_\mathrm{top}$ is the digital elevation model of the catchment,
 read from {toml}`data.dem`. By default the grid takes the value of the DEM at the
-centre of each cell, and nothing else moves the top.
+center of each cell, and nothing else moves the top.
 {toml}`modflow6.sgrid.top_sampling.mode` can ask for a statistic over the pixels
 of the cell instead, with a lower value for the cells that hold a channel
 ({ref}`mesh-top`).
@@ -45,8 +45,8 @@ of the cell instead, with a lower value for the cells that hold a channel
 |---|---|---|
 | `constant_thickness` | $z_\mathrm{bot} = z_\mathrm{top} - H_c$ | {toml}`domain.depth_model.thickness` |
 | `flat_substratum` | $z_\mathrm{bot} = z_s$ | {toml}`domain.depth_model.substratum_elevation` |
-| `raster_substratum` | $z_\mathrm{bot} = \min\bigl(Z_r + \zeta,\ z_\mathrm{top} - H_\mathrm{min}\bigr)$ | the raster of {toml}`data.substratum`, in metres, on the datum of the DEM |
-| `raster_thickness` | $z_\mathrm{bot} = \min\bigl(z_\mathrm{top} - \lambda Z_r + \zeta,\ z_\mathrm{top} - H_\mathrm{min}\bigr)$ | the raster of {toml}`data.substratum`, in metres below the top |
+| `raster_substratum` | $z_\mathrm{bot} = \min\bigl(Z_r + \zeta,\ z_\mathrm{top} - H_\mathrm{min}\bigr)$ | the raster of {toml}`data.substratum`, in meters, on the datum of the DEM |
+| `raster_thickness` | $z_\mathrm{bot} = \min\bigl(z_\mathrm{top} - \lambda Z_r + \zeta,\ z_\mathrm{top} - H_\mathrm{min}\bigr)$ | the raster of {toml}`data.substratum`, in meters below the top |
 
 A flat substratum is an elevation, not a depth: where the land surface drops under
 it, no aquifer is left. A raster kind:
@@ -93,7 +93,7 @@ calibrable, in log space. In the code: `Domain._build_surfaces`.
 (gwf-layers)=
 ## The solver grid and its layers
 
-The grid samples $z_\mathrm{top}$ and $z_\mathrm{bot}$ at the centre of each cell
+The grid samples $z_\mathrm{top}$ and $z_\mathrm{bot}$ at the center of each cell
 (the cell layout is on {doc}`mesh`). A cell with no finite value in either
 surface becomes inactive in every layer. The grid is refused when
 $z_\mathrm{bot} \ge z_\mathrm{top}$ on a valid cell. On a triangle or Voronoi mesh, a warning
@@ -174,7 +174,7 @@ Example 04 gives the three values, one for the whole catchment:
 **A depth factor.** A property can carry a `field_vertical_profile`. The value
 of layer $j$ in a column is the value of the field times $f(d_j)$, where $d_j$ is
 the depth of the middle of the layer below $z_\mathrm{top}$. For
-`mode = "exponential"`:
+`kind = "exponential"`:
 
 $$
 f(d) = e^{-d/d_c}, \qquad \text{or } \max\bigl(e^{-d/d_c},\ f_\mathrm{min}\bigr)
@@ -182,7 +182,7 @@ f(d) = e^{-d/d_c}, \qquad \text{or } \max\bigl(e^{-d/d_c},\ f_\mathrm{min}\bigr)
 $$ (eq-depth-factor)
 
 Without {toml}`min_factor|flow.param.K.field_vertical_profile.min_factor`, the
-factor has no floor and tends to zero with depth. For `mode = "tabulated"`, the
+factor has no floor and tends to zero with depth. For `kind = "tabulated"`, the
 factor is a linear or stepwise interpolation of the table you give, equal to the
 first and last factor outside the table. With one layer, $d_j$ is half the
 thickness: the profile then gives one factor per cell and no variation with
@@ -195,7 +195,7 @@ mid-column, three layers by $-2.8\,\%$ at the top, and five layers by $-1.0\,\%$
 .. plot:: theory/figures/gwf_depth_factor.py
    :alt: The exponential depth factor against depth, with and without a floor, and the value of each layer.
    :caption: The depth factor for :math:`d_c = 20` m, from ``FieldParam.vertical_factor``.
-      Each layer of a four-layer decay column takes the factor at its centre (dots), not
+      Each layer of a four-layer decay column takes the factor at its center (dots), not
       an average over its thickness. Look at the deepest layer: without a floor its
       factor would be 0.03, with :math:`f_\mathrm{min} = 0.05` it stays at 0.05.
 ```
@@ -252,7 +252,7 @@ value = 20.0
 ## What the solvers solve
 
 MODFLOW 6 and MODFLOW-NWT write Darcy's law and mass conservation for the head in
-each cell, by control volumes, with one head per cell at its centre
+each cell, by control volumes, with one head per cell at its center
 {cite:p}`harbaugh2005,langevin2017`; chapter 2 of {cite:t}`langevin2017` gives the
 control-volume form. The derivation is not repeated here. Three pieces of it are used by other pages of this site, so they
 are written once.
@@ -274,7 +274,7 @@ $$
 $$ (eq-cell-balance)
 
 The left side is the water that enters the cell during the step: the exchange with
-the neighbours and the stress packages. The right side is the change of the volume
+the neighbors and the stress packages. The right side is the change of the volume
 stored. $h^\mathrm{old}$ is the head at the start of the step. This is the one
 statement of the balance on the site; the solver pages refer to it. Between two
 cells of a layer, the conductance joins the two half cells in series:
@@ -286,7 +286,7 @@ $$
 $$ (eq-conductance)
 
 with $w_{nm}$ the width of the shared face and $c_{nm}$ the distance from the
-centre of $n$ to that face. Under the Newton formulation, the series is built with
+center of $n$ to that face. Under the Newton formulation, the series is built with
 the full cell thicknesses and multiplied by the saturated fraction of the upstream
 cell ({cite:p}`langevin2017`).
 
@@ -303,7 +303,7 @@ What HydroModPy sets:
   formulation of MODFLOW-2005 {cite:p}`niswonger2011`, on the same convertible
   layers and a structured grid. The options and the stopping tests are on
   {ref}`solvers-newton-ims`.
-- **Voronoi faces bisect the centres.** That is the case the two-point form of
+- **Voronoi faces bisect the centers.** That is the case the two-point form of
   {eq}`eq-conductance` needs. Elsewhere, the XT3D correction is on
   {doc}`solvers/xt3d-on-irregular-disv-meshes`.
 - **The Boussinesq solver** writes the same balance on triangles. Its edge flux
@@ -354,7 +354,7 @@ The head at the start of the run, $h_0$, is declared in the flat table `[flow.ic
 Its value is the same in every layer of a column. `bottom` is the bottom of the
 deepest layer.
 
-| `type` | $h_0$ |
+| `kind` | $h_0$ |
 |---|---|
 | `top` | $z_\mathrm{top}$ |
 | `top_offset` | $z_\mathrm{top} - v$, with $v$ the `value` |
@@ -364,7 +364,7 @@ deepest layer.
 | `spinup_cyclic` | the state a cyclic run settles at, see below |
 
 In every case, a cell on an imposed head (an ocean, a stream or a side boundary)
-starts at that head. `top` is a full aquifer; the card of {toml}`flow.ic.h.type`
+starts at that head. `top` is a full aquifer; the card of {toml}`flow.ic.h.kind`
 gives the default.
 
 **The equilibrium.** For `steady_state`, the code first solves an auxiliary
@@ -429,8 +429,9 @@ page.
 
 Recharge and injection are positive when water enters the aquifer, and a well with
 a negative rate pumps. Where no boundary is activated, the edge of the domain
-carries no flow. The two keys that activate them are {toml}`flow.active_bc` and
-{toml}`flow.active_sinks_sources`.
+carries no flow. A boundary or a sink is active when its table is declared, under
+{toml}`flow.bc.<name>` or `[flow.sinks_sources]`, and `enabled = false` keeps the table
+and switches it off.
 
 (gwf-limits)=
 ## Limits
@@ -511,13 +512,13 @@ domain.layers.pinch_out
 flow.param.K.field.value
 flow.param.Sy.field.value
 flow.param.Ss.field.value
-flow.param.K.field_vertical_profile.mode
+flow.param.K.field_vertical_profile.kind
 flow.param.K.field_vertical_profile.characteristic_depth
 flow.param.K.field_vertical_profile.min_factor
 modflow6.process_specific.vka
 flow.flow_regime
 flow.first_period_steady
-flow.ic.h.type
+flow.ic.h.kind
 flow.ic.h.value
 flow.ic.h.source
 flow.ic.h.boundary_condition_policy

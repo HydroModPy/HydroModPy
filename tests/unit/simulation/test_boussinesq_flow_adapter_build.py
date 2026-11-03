@@ -98,7 +98,7 @@ def test_boussinesq_flow_adapter_maps_runtime_mesh_from_flow_parameters(
                     "K": _homogeneous_param(1.0e-5),
                     "Sy": _homogeneous_param(0.2),
                 },
-                "ic": {"type": "bottom"},
+                "ic": {"kind": "bottom"},
             }
         )
     )
@@ -172,7 +172,7 @@ def test_boussinesq_flow_adapter_maps_runtime_mesh_from_heterogeneous_flow_param
                     ),
                     "Sy": _heterogeneous_param({"west": 0.22, "east": 0.08}, "field_geology"),
                 },
-                "ic": {"type": "bottom"},
+                "ic": {"kind": "bottom"},
             }
         )
     )
@@ -263,7 +263,7 @@ def test_boussinesq_flow_adapter_refuses_a_flow_k_next_to_the_k_of_a_bundle(
                         "field_hydrofacies",
                     ),
                 },
-                "ic": {"type": "top"},
+                "ic": {"kind": "top"},
             }
         )
     )
@@ -289,7 +289,7 @@ def test_boussinesq_flow_adapter_refuses_a_flow_k_next_to_a_bundle_default_k(
     )
     flow = Flow(
         FlowConfig.model_validate(
-            {"param_list": ["K"], "param": {"K": _homogeneous_param(1.0e-5)}, "ic": {"type": "top"}}
+            {"param_list": ["K"], "param": {"K": _homogeneous_param(1.0e-5)}, "ic": {"kind": "top"}}
         )
     )
 
@@ -301,7 +301,7 @@ def test_boussinesq_flow_adapter_never_maps_a_flow_k_on_a_bundle(tmp_path: Path)
     bundle_dir = _write_custom_bundle(tmp_path / "bundle_no_k", conductivity_values=("", ""))
     flow = Flow(
         FlowConfig.model_validate(
-            {"param_list": ["K"], "param": {"K": _homogeneous_param(1.0e-5)}, "ic": {"type": "top"}}
+            {"param_list": ["K"], "param": {"K": _homogeneous_param(1.0e-5)}, "ic": {"kind": "top"}}
         )
     )
 
@@ -317,7 +317,7 @@ def test_boussinesq_flow_adapter_completes_bundle_k_from_metadata_default(
         conductivity_values=("", "4.0e-5"),
         conductivity_default=3.0e-5,
     )
-    flow = Flow(FlowConfig.model_validate({"ic": {"type": "top"}}))
+    flow = Flow(FlowConfig.model_validate({"ic": {"kind": "top"}}))
 
     result = BoussinesqFlowAdapter().execute(
         _bundle_context(tmp_path, bundle_dir=bundle_dir, flow=flow)
@@ -332,7 +332,7 @@ def test_boussinesq_flow_adapter_loads_bundle_from_mesh_summary(tmp_path: Path) 
         setup=SimpleNamespace(
             mesh_bundle=None,
             mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
-            flow=Flow(FlowConfig.model_validate({"ic": {"type": "bottom"}})),
+            flow=Flow(FlowConfig.model_validate({"ic": {"kind": "bottom"}})),
             domain=None,
             time_grid=None,
             workspace=SimpleNamespace(simulations_folder=tmp_path, solver_scratch_folder=tmp_path),
@@ -369,7 +369,7 @@ def test_boussinesq_flow_adapter_completes_bundle_storage_from_metadata_default(
         setup=SimpleNamespace(
             mesh_bundle=None,
             mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
-            flow=Flow(FlowConfig.model_validate({"ic": {"type": "top"}})),
+            flow=Flow(FlowConfig.model_validate({"ic": {"kind": "top"}})),
             domain=None,
             time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
             workspace=SimpleNamespace(simulations_folder=tmp_path, solver_scratch_folder=tmp_path),
@@ -407,7 +407,7 @@ def test_boussinesq_flow_adapter_allows_missing_bundle_storage_in_steady_mode(
             mesh_bundle=None,
             mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
             flow=Flow(
-                FlowConfig.model_validate({"flow_regime": "steady", "ic": {"type": "bottom"}})
+                FlowConfig.model_validate({"flow_regime": "steady", "ic": {"kind": "bottom"}})
             ),
             domain=None,
             time_grid=None,

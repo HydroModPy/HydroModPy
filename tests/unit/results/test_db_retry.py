@@ -249,7 +249,7 @@ def _leak_a_connection_then_delete_the_file(tmp_path: Path) -> duckdb.DuckDBPyCo
 
 
 def test_the_registry_still_claims_a_deleted_database_file(tmp_path):
-    """Canary: without this DuckDB behaviour the regression below is vacuous."""
+    """Canary: without this DuckDB behavior the regression below is vacuous."""
     leaked = _leak_a_connection_then_delete_the_file(tmp_path)
     probe = duckdb.connect(":memory:")
     try:

@@ -1,26 +1,26 @@
 """Where every cell of the mesh sends its water, and where it sends none.
 
 A quiver of sixty thousand arrows is a black rectangle, so the direction is
-drawn as a flat colour per cell, one of eight octants on a cyclic palette. Read
+drawn as a flat color per cell, one of eight octants on a cyclic palette. Read
 that way a converging valley shows up as two facing bands meeting on an axis,
-and a flat or an artefact shows up as speckle, both at a glance and neither
+and a flat or an artifact shows up as speckle, both at a glance and neither
 readable from arrows at that size. The arrows are still there, on a coarse
 spatial subsample the caller controls, and they carry the sense of the flow on
-a greyscale print, where a cyclic colour cannot: any lightness ramp assigns the
-same grey to two of the eight bearings.
+a grayscale print, where a cyclic color cannot: any lightness ramp assigns the
+same gray to two of the eight bearings.
 
 The octant is derived from geometry, not from a pointer table. This figure
 reads the receivers of the descent D of the run (``run.descent``, see
-:mod:`hydromodpy.core.descent`) and takes the vector from a cell centre to its
-receiver's centre, so it says the same thing on a Voronoi dual as on a
+:mod:`hydromodpy.core.descent`) and takes the vector from a cell center to its
+receiver's center, so it says the same thing on a Voronoi dual as on a
 structured grid. D follows the channel tree where the run has one, so a
-receiver is not always a neighbour. In particular it is NOT a whitebox D8
+receiver is not always a neighbor. In particular it is NOT a whitebox D8
 pointer: this repository uses whitebox's convention rather than ESRI's
 (``D8_WBT_OFFSETS`` in ``hydromodpy/spatial/terrain/port.py``), and a reader who
 assumes a pointer code is being decoded here would look for the wrong bug.
 
 A cell with no receiver is drawn as such rather than as an arrow of zero
-length: on D that is a seed with no lower neighbour, the lowest rim cell or a
+length: on D that is a seed with no lower neighbor, the lowest rim cell or a
 constant-head cell in a hollow, never a pit, because D is filled so every
 other cell drains. A constant-head cell elsewhere keeps its steepest descent
 and is drawn with its bearing. The cells D raised on its copy of the model top
@@ -60,22 +60,22 @@ OCTANT_NAMES: tuple[str, ...] = ("E", "NE", "N", "NW", "W", "SW", "S", "SE")
 _CYCLIC_CMAP = "twilight"
 """The sanctioned cyclic palette: a bearing wraps around, and so does it.
 
-Sampled at the eight octants it stays perceptually even in colour. It cannot
-stay separable in greyscale, and no palette can: a bearing is cyclic and a
+Sampled at the eight octants it stays perceptually even in color. It cannot
+stay separable in grayscale, and no palette can: a bearing is cyclic and a
 lightness ramp is not, so any of them prints two opposite-ish octants as the
-same grey. That is what the arrow layer is for, and why it is on by default.
+same gray. That is what the arrow layer is for, and why it is on by default.
 """
 
 _PIT_FACE = "#FFFFFF"
 """White under a hatch: a texture, because no flat hue is free here.
 
 The eight octants run white to blue to black to red and back, so a dead end
-drawn as one more flat colour can always be approached by one of them: the
+drawn as one more flat color can always be approached by one of them: the
 sand of the high-contrast triplet lands within 0.04 relative luminance of
 octant SE, and in the same warm hue family. The house answer to a state that
 has to be told from a whole ramp at once is the one
 ``downslope_distance_map`` uses for its unreachable cells: white fill, hatch,
-dark edge. That is a texture, and no colour on the circle carries one.
+dark edge. That is a texture, and no color on the circle carries one.
 """
 
 _PIT_EDGE = "#111111"
@@ -86,7 +86,7 @@ _CONTOUR_HALO = "#FFFFFF"
 _CONTOUR_LINE = "#1A1A1A"
 """The two passes the catchment outline is drawn in, halo first.
 
-A cyclic palette spans the whole lightness range, so no single grey clears a
+A cyclic palette spans the whole lightness range, so no single gray clears a
 3:1 contrast against all eight octants at once: over octant W the outline
 would sit at 1.6:1. The white halo carries the line over the dark octants and
 the dark line carries it over the light ones, so one of the two always reads.
@@ -120,8 +120,8 @@ class FlowDirectionMap(BaseFigure):
     """Direction of the receiver of every cell of the mesh, on the descent D.
 
     Built from the run alone: the persisted descent (rebuilt from the stored
-    top for a run that predates it) and the centre-to-centre vector to each
-    cell's receiver. The neighbourhood is fixed by the mesh type: D8 on a quad
+    top for a run that predates it) and the center-to-center vector to each
+    cell's receiver. The neighborhood is fixed by the mesh type: D8 on a quad
     mesh, shared faces elsewhere.
     """
 
@@ -255,7 +255,7 @@ class FlowDirectionMap(BaseFigure):
 
 
 def octant_colors() -> tuple[str, ...]:
-    """Return one colour per octant, sampled around the cyclic palette."""
+    """Return one color per octant, sampled around the cyclic palette."""
     import matplotlib as mpl
     from matplotlib.colors import to_hex
 
@@ -268,12 +268,12 @@ def _receiver_vectors(
     receiver: np.ndarray,
     routed: np.ndarray,
 ) -> np.ndarray:
-    """Return the (n_cells, 2) vector from each cell centre to its receiver's."""
+    """Return the (n_cells, 2) vector from each cell center to its receiver's."""
     return centroids[np.where(routed, receiver, 0)] - centroids
 
 
 def _octant_of(delta: np.ndarray, routed: np.ndarray) -> np.ndarray:
-    """Return the octant of the centre-to-centre vector, ``-1`` without one."""
+    """Return the octant of the center-to-center vector, ``-1`` without one."""
     bearing = np.degrees(np.arctan2(delta[:, 1], delta[:, 0]))
     octant = np.mod(np.rint(bearing / (360.0 / len(OCTANT_NAMES))), len(OCTANT_NAMES))
     return np.where(routed & np.isfinite(bearing), octant, -1).astype("int64")
@@ -297,7 +297,7 @@ def _draw_arrows(
     """Draw one arrow per occupied bin; return how many were drawn.
 
     The arrow is the MEAN unit direction of the cells of its bin, drawn
-    unnormalised: a bin whose cells all agree gets a full-length arrow, and one
+    unnormalized: a bin whose cells all agree gets a full-length arrow, and one
     where they disagree gets a stub. A flat or a badly conditioned patch is
     exactly where they disagree, so the length is a reading and not decoration.
     """
@@ -345,10 +345,10 @@ def _draw_arrows(
 
 
 def _draw_compass(ax: Axes, colors: tuple[str, ...], counts: tuple[int, ...]) -> None:
-    """Draw the octant palette as a compass rose, each colour at its bearing.
+    """Draw the octant palette as a compass rose, each color at its bearing.
 
     A column of eight swatches would make a reader count entries to tell
-    north-east from south-west. Placing the colour where it points removes the
+    north-east from south-west. Placing the color where it points removes the
     counting: the legend has the shape of the answer.
 
     A bearing no cell takes is drawn hollow. On a shared-edge graph the four
@@ -449,7 +449,7 @@ def _bearing_note(counts: tuple[int, ...]) -> str:
     """Return the line saying how many cells took each bearing.
 
     How many of the eight the surface actually uses is the first reading of
-    the map, and it is not in the colours: four flat bands and four absences
+    the map, and it is not in the colors: four flat bands and four absences
     look the same as eight bands until the counts are written down.
     """
     taken = [f"{name} {count:,}" for name, count in zip(OCTANT_NAMES, counts, strict=True) if count]
@@ -464,7 +464,7 @@ def _draw_watershed_contour(ax: Axes, sim: Run) -> None:
     """Draw the catchment outline as a white halo under a dark line.
 
     One line cannot do it here. The octants are sampled around a cyclic
-    palette that runs from near white to near black, so a single grey clears
+    palette that runs from near white to near black, so a single gray clears
     3:1 against some of them and 1.6:1 against the others: over the darkest
     octant a dark outline disappears, over the lightest one a pale outline
     does. Two passes leave one of the two readable everywhere.
@@ -483,7 +483,7 @@ def _add_layer(
     edgecolor: str = "none",
     hatch: str | None = None,
 ) -> None:
-    """Draw one flat-coloured group of cells, or nothing when it is empty."""
+    """Draw one flat-colored group of cells, or nothing when it is empty."""
     from matplotlib.collections import PolyCollection
 
     selected = np.flatnonzero(mask)

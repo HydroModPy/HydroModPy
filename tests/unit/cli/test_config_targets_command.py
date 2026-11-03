@@ -2,7 +2,7 @@
 
 Writing a calibration parameter means writing a dotted path into the
 configuration, and the only way to find a valid one was to read the Pydantic
-tree. The catalogue is derived from the resolved configuration, so it lists what
+tree. The catalog is derived from the resolved configuration, so it lists what
 THIS project carries, with the value it holds today and the physical range the
 registry enforces where it knows one.
 """
@@ -51,7 +51,12 @@ def project(tmp_path: Path) -> Path:
 def _run(project: Path, capsys, *, as_json: bool = False) -> str:
     import argparse
 
-    args = argparse.Namespace(config_command="targets", file=str(project), json=as_json)
+    args = argparse.Namespace(
+        config_command="targets",
+        file=str(project),
+        format="json" if as_json else "table",
+        workspace=None,
+    )
     config_cmd.run(args)
     return capsys.readouterr().out
 
@@ -78,7 +83,7 @@ def test_it_shows_the_physical_range_where_the_registry_knows_one(project, capsy
 def test_json_output_is_machine_readable(project, capsys) -> None:
     import json
 
-    payload = json.loads(_run(project, capsys, as_json=True))
+    payload = json.loads(_run(project, capsys, as_json=True))["data"]
 
     paths = {entry["path"] for entry in payload}
     assert "flow.param.K.field.value" in paths
@@ -92,13 +97,15 @@ def test_a_file_that_does_not_load_exits_on_the_config_code(tmp_path, capsys) ->
     broken.write_text("[flow]\nnot_a_field = 1\n", encoding="utf-8")
 
     with pytest.raises(SystemExit) as caught:
-        config_cmd.run(argparse.Namespace(config_command="targets", file=str(broken), json=False))
+        config_cmd.run(
+            argparse.Namespace(config_command="targets", file=str(broken), workspace=None)
+        )
 
     assert caught.value.code != 0
 
 
 def test_an_unresolvable_parameter_name_still_prints_the_catalogue(tmp_path, capsys) -> None:
-    """Loading is lenient about a name the catalogue does not carry.
+    """Loading is lenient about a name the catalog does not carry.
 
     The refusal a bad name gets (elsewhere) points the reader at this very
     command, so it must not be the thing that refuses to run.
@@ -113,7 +120,7 @@ def test_an_unresolvable_parameter_name_still_prints_the_catalogue(tmp_path, cap
         encoding="utf-8",
     )
 
-    config_cmd.run(argparse.Namespace(config_command="targets", file=str(project), json=False))
+    config_cmd.run(argparse.Namespace(config_command="targets", file=str(project), workspace=None))
 
     out = capsys.readouterr().out
     assert "flow.param.K.field.value" in out
@@ -141,7 +148,7 @@ _LAKE_TOML = textwrap.dedent(
 
     [flow.sinks_sources.lakes.mylake]
     bedleak = 1e-6
-    stageinit = "10 m"
+    initial_stage = "10 m"
 
     [calibration]
     method = "optuna"
@@ -165,7 +172,7 @@ def test_a_name_that_resolves_only_by_suffix_is_named_with_its_canonical_spellin
     project = tmp_path / "project.toml"
     project.write_text(_LAKE_TOML.replace("PROJECT_ROOT", str(tmp_path)), encoding="utf-8")
 
-    config_cmd.run(argparse.Namespace(config_command="targets", file=str(project), json=False))
+    config_cmd.run(argparse.Namespace(config_command="targets", file=str(project), workspace=None))
 
     err = capsys.readouterr().err
     assert "calibration.parameters.bedleak" in err

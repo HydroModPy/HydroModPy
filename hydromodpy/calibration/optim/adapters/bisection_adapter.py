@@ -1,6 +1,6 @@
 """One-dimensional root search driven by the sign of a residual.
 
-Every other adapter here minimises a cost. This one brackets a sign change and
+Every other adapter here minimizes a cost. This one brackets a sign change and
 closes the bracket, because the criterion it serves has a root rather than a
 minimum: the balance between an excess of simulated stream and a missing one is
 where the signed gap crosses zero, and a cost that only knows ``abs`` of it
@@ -11,18 +11,18 @@ line of code here.
 
 The function is not continuous. The masks are discrete, so the two averages
 jump when a cell switches, and the residual steps over zero rather than
-reaching it: on a real catchment ``abs(J)`` never drops below three metres
+reaching it: on a real catchment ``abs(J)`` never drops below three meters
 while the root is bracketed to a factor 1.0015. **The stopping rule is
 therefore the width of the bracket, never the size of the residual.** A search
 that stops on ``abs(J) < eps`` may never stop at all.
 
 Monotonicity is not proven. The paper establishes the direction of variation on
-three points and generalises it; the coarse sweep run before the bisection
+three points and generalizes it; the coarse sweep run before the bisection
 checks it instead of assuming it, sees every crossing rather than one, and
 comes out of the same solves as the diagnostic curves the method publishes.
 
 A bracket that never changes sign is a result, not an accident to paper over.
-Returning the better of the two ends would be a minimised mean distance in
+Returning the better of the two ends would be a minimized mean distance in
 disguise, which is exactly the drift this whole criterion exists to correct, so
 the adapter raises and prints both residuals.
 

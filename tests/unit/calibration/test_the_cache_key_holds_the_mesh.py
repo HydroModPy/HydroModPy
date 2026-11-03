@@ -3,11 +3,11 @@
 The evaluation cache is keyed on the parameters plus a context describing the
 model. That context deliberately dropped ``mesh_catchment``, so two runs whose
 only difference was the mesh shared their cache entries: the second one served
-the first one's objectives without re-solving, on a different discretisation.
+the first one's objectives without re-solving, on a different discretization.
 
 Declaring the requested mesh settings would not be enough either. gmsh is not
 reproducible: the same request can produce a different triangulation, and the
-stream-network criterion is normalised by cell size, so a cost from another mesh
+stream-network criterion is normalized by cell size, so a cost from another mesh
 is not the same number. The fingerprint therefore describes the mesh that was
 BUILT, not the one that was asked for.
 """

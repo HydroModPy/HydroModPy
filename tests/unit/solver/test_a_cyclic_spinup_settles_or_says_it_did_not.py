@@ -28,7 +28,7 @@ from hydromodpy.solver.steady_initial_conditions import (
 
 
 def _flow(**ic):
-    payload = {"type": "spinup_cyclic", **ic}
+    payload = {"kind": "spinup_cyclic", **ic}
     return SimpleNamespace(initial_conditions=FlowInitialConditions.model_validate({"h": payload}))
 
 
@@ -38,7 +38,7 @@ class TestTheDeclaration:
 
     def test_another_initial_condition_is_not(self) -> None:
         other = SimpleNamespace(
-            initial_conditions=FlowInitialConditions.model_validate({"h": {"type": "top"}})
+            initial_conditions=FlowInitialConditions.model_validate({"h": {"kind": "top"}})
         )
         assert flow_uses_cyclic_spinup(other) is False
 
@@ -54,7 +54,7 @@ class TestTheDeclaration:
     def test_a_first_cycle_source_it_does_not_know_is_refused(self) -> None:
         with pytest.raises(ValueError):
             FlowInitialConditions.model_validate(
-                {"h": {"type": "spinup_cyclic", "first_cycle_from": "yesterday"}}
+                {"h": {"kind": "spinup_cyclic", "first_cycle_from": "yesterday"}}
             )
 
 
@@ -103,7 +103,7 @@ class TestTheCycleDoesNotSpawnItsOwn:
         # The caller overwrites it with the previous cycle's heads; what matters is
         # that the copy carries a type the hook does not fire on.
         cycle_flow = cyclic_flow_copy_for_initialization(_flow())
-        assert cycle_flow.initial_conditions.h.type == "top"
+        assert cycle_flow.initial_conditions.h.kind == "top"
 
     def test_the_original_flow_is_left_alone(self) -> None:
         flow = _flow(max_cycles=2)

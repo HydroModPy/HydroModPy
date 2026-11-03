@@ -2,10 +2,10 @@
 
 A grid cannot follow a line. A ``cell`` family is rasterized with the thin-line
 rule of WhiteboxTools (``line_crossing_cell_mask``) and ordered along the line.
-A ``face`` family becomes a staircase: the cells are labelled by the polygon of
-``domain boundary + family lines`` that holds their centre, and the faces between
+A ``face`` family becomes a staircase: the cells are labeled by the polygon of
+``domain boundary + family lines`` that holds their center, and the faces between
 two labels are the family faces. A barrier line splits no polygon where it ends
-inside the domain, so its staircase is the faces whose two cell centres lie
+inside the domain, so its staircase is the faces whose two cell centers lie
 across it. The QA publishes how far that staircase is from the source lines.
 """
 
@@ -98,7 +98,7 @@ def _chain_of_line(
     inside = shapely.intersection(boxes, line)
     coords, owner = shapely.get_coordinates(inside, return_index=True)
     # An intersection is empty when the cell was marked by the tie tolerance
-    # alone; its first abscissa is then the one of its centre.
+    # alone; its first abscissa is then the one of its center.
     centre_s = shapely.line_locate_point(line, shapely.points(centers[cells]))
     first_s = centre_s.copy()
     if coords.size:
@@ -176,7 +176,7 @@ def _noded_boundary(domain: Polygon, lines: tuple[LineString, ...]) -> BaseGeome
 
 
 def _cell_labels(centers: np.ndarray, domain: Polygon, lines: tuple[LineString, ...]) -> np.ndarray:
-    """Index of the polygon of ``domain boundary + lines`` holding each centre, ``-1`` if none."""
+    """Index of the polygon of ``domain boundary + lines`` holding each center, ``-1`` if none."""
     pieces = list(polygonize(unary_union([_noded_boundary(domain, lines), *lines])))
     labels = np.full(len(centers), -1, dtype=np.int64)
     if not pieces:
@@ -265,8 +265,8 @@ def _staircase_edges(
     """The polygon label of each cell and the sorted edge ids of the staircase of one family.
 
     The barrier family labels no cell: its staircase is the edges whose two cell
-    centres lie across one of its lines. Any other family labels each cell by the
-    polygon of ``domain boundary + lines`` holding its centre, and its staircase
+    centers lie across one of its lines. Any other family labels each cell by the
+    polygon of ``domain boundary + lines`` holding its center, and its staircase
     is the interior edges between two labels.
     """
     pair = geometry.edge_cells

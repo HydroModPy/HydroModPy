@@ -20,7 +20,9 @@ form of the value, not its magnitude, says what it means:
   catchment covers ``1 + 10/100`` times the catchment area. This is the rule
   Abherve et al. (2023, HESS 27, p. 3224) state, "increasing the modeled domain
   by 10 %". The distance is solved on the real polygon;
-- any other string (``"150.0 m"``) is an explicit distance in metres;
+- any other string (``"150.0 m"``) is an explicit distance in meters;
+- ``"10% of sqrt(area)"`` is the v1 rule written out, with the same distance as the
+  bare number below;
 - a bare number (``10.0``) is the historical v1 rule, ``sqrt(area in km2) *
   10 / 100`` km. It enlarges a real catchment by about 50 %, not 10 %. It is
   kept, with a warning, so a sealed run replays the domain it was built on.
@@ -42,6 +44,7 @@ compared to it.
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
@@ -62,7 +65,12 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-BufferRule = Literal["area_percent", "distance", "legacy_sqrt_percent"]
+BufferRule = Literal["area_percent", "distance", "sqrt_area", "legacy_sqrt_percent"]
+
+SQRT_AREA_FORM = re.compile(
+    r"^\s*([0-9]*\.?[0-9]+)\s*%\s*of\s*sqrt\(\s*area\s*\)\s*$", re.IGNORECASE
+)
+"""The explicit form of the v1 rule, ``"10% of sqrt(area)"``."""
 
 BUFFER_QUAD_SEGS = 16
 """Segments per quarter circle of every buffer this module builds.
@@ -73,9 +81,9 @@ the area the solver reached is the area of the polygon on disk.
 
 
 def _parse_length_meters(token: str, *, label: str) -> float:
-    """Convert a length string (e.g. '500 m', '2 km') to metres.
+    """Convert a length string (e.g. '500 m', '2 km') to meters.
 
-    A token with no unit is metres: the validator of an older release wrote a
+    A token with no unit is meters: the validator of an older release wrote a
     declared distance back as a bare number in a string, and a sealed config
     still carries that form.
     """
@@ -93,6 +101,8 @@ def _parse_length_meters(token: str, *, label: str) -> float:
 def buffer_rule_of(buff_area: float | str) -> BufferRule:
     """Return which rule a normalized ``buff_area`` value selects."""
     if isinstance(buff_area, str):
+        if SQRT_AREA_FORM.match(buff_area):
+            return "sqrt_area"
         return "area_percent" if buff_area.strip().endswith("%") else "distance"
     return "legacy_sqrt_percent"
 
@@ -201,7 +211,7 @@ def _compute_buffer_distance(
     buff_area: float | str,
     dem_resolution: float | None,
 ) -> float:
-    """Compute the buffer distance in metres for one normalized ``buff_area``.
+    """Compute the buffer distance in meters for one normalized ``buff_area``.
 
     A percentage is solved on ``catchment``, a bare number read with the v1 rule
     and an explicit distance taken as written. All three are snapped to the DEM
@@ -220,15 +230,17 @@ def _compute_buffer_distance(
         raw = buffer_distance_for_area_increase(catchment, pct / 100.0)
         return _snap_to_resolution(raw, dem_resolution)
 
+    written_out = SQRT_AREA_FORM.match(buff_area) if isinstance(buff_area, str) else None
+    percent = float(written_out.group(1)) if written_out else float(buff_area)
     area_km2 = float(catchment.area) / 1_000_000.0
-    buff_raw = np.sqrt(area_km2) * (float(buff_area) / 100.0) * 1000.0
+    buff_raw = np.sqrt(area_km2) * (percent / 100.0) * 1000.0
     if buff_raw <= 0.0:
         raise ValueError("buff_area percentage must produce a distance > 0")
     return _snap_to_resolution(float(int(round(buff_raw))), dem_resolution)
 
 
 def buffer_distance_m(catchment: BaseGeometry, buff_area: float | str) -> float:
-    """Return the buffer distance in metres that *buff_area* draws on *catchment*.
+    """Return the buffer distance in meters that *buff_area* draws on *catchment*.
 
     Same rule as :func:`derive_catchment_domain`, without the snap to the DEM
     grid (at most half a cell apart), for callers that need the size of the

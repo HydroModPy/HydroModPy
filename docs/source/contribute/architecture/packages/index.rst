@@ -28,7 +28,6 @@ describes the experimental observability project next to it.
    simulation
    calibration
    results
-   catalog
    display
    analysis
    reporting

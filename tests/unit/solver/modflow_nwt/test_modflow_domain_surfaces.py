@@ -177,7 +177,7 @@ def test_runtime_planar_mesh_samples_domain_surfaces_at_the_cell_centres():
         cell_mesh=cell_mesh,
     )
 
-    # Top and botm are sampled from the domain surfaces at the cell centres: every
+    # Top and botm are sampled from the domain surfaces at the cell centers: every
     # cell takes the DEM top (20) and substratum (0).
     top = ctx.solver_mesh.top.reshape(-1)
     botm = ctx.solver_mesh.botm.reshape(-1)

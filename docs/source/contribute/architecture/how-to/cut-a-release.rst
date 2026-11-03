@@ -18,11 +18,11 @@ Versions follow Semantic Versioning for meaning and PEP 440 for the string.
    MAJOR.MINOR.PATCHbN        2.0.0b1     beta
    MAJOR.MINOR.PATCHrcN       2.0.0rc1    release candidate
 
-The Git tag is the version with a leading ``v``: ``v2.0.0a5``, ``v2.0.0``. Do not
+The Git tag is the version with a leading ``v``: ``v2.0.0rc1``, ``v2.0.0``. Do not
 invent other forms such as ``release-v2`` or ``v2-beta``.
 
-Four places must agree
-----------------------
+Five places must agree
+-----------------------
 
 .. list-table::
    :header-rows: 1
@@ -33,6 +33,10 @@ Four places must agree
    * - ``pyproject.toml``
      - ``[project] version``. This is the source of the package version, and a
        source checkout reads its ``__version__`` from it.
+   * - ``CITATION.cff``
+     - ``version``. Keep it equal to ``pyproject.toml``. It has no ``doi`` of the
+       release: the DOI of a version exists only after Zenodo archives it, so add
+       it to ``identifiers`` then.
    * - ``hydromodpy/core/version.py``
      - ``_FALLBACK_VERSION``, used when neither the checkout nor the installed
        metadata answers. Keep it equal to ``pyproject.toml``.
@@ -47,7 +51,7 @@ The checklist
 -------------
 
 1. **Choose the version** from the change, with :doc:`/about/versions`.
-2. **Choose the branch.** Normal work comes from ``dev``. A stabilisation window
+2. **Choose the branch.** Normal work comes from ``dev``. A stabilization window
    uses ``release/X.Y``. A fix on an old line starts from the tag it fixes
    (``hotfix/X.Y.Z``). ``v1.0`` is frozen at ``v1.0.0``: do not release from it.
 3. **Set the version** in ``pyproject.toml`` and ``_FALLBACK_VERSION``.
@@ -74,7 +78,9 @@ The checklist
 7. **Regenerate the example catalog.** ``hmp example add`` fetches the files at the
    tag of the installed version and checks them against ``catalog.toml``. Run
    ``hmp dev examples manifest`` and commit the result, or every download of the
-   release fails on a checksum.
+   release fails on a checksum. Then run ``python tools/ci/check_example_catalog.py``
+   from the commit to tag. It hashes each file the catalog names, as CI and the
+   release gate do.
 8. **Check.** Run ``ruff check`` and ``ruff format --check``, the architecture gate
    and the tests of what changed, and build the docs
    (``make -C docs html-strict``). CI repeats them.
@@ -177,7 +183,8 @@ rewrites ``switcher.json``, the list the version menu of the site reads, from th
 folders it finds on the ``gh-pages`` branch, with ``main`` marked as preferred.
 
 Python installers ignore a pre-release unless asked, so users install one with
-``pip install --pre hydromodpy`` or by exact version.
+``pip install --pre hydromodpy`` or by exact version. Pages for users never show
+the flag or a version number. The number lives in ``pyproject.toml`` only.
 
 Hotfix
 ------

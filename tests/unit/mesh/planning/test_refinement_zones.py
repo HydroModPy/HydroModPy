@@ -9,7 +9,7 @@ or the field of an earlier run, and is left out where the engine sizes nothing.
 A field of an earlier run reaches the planner as its extremes over time, per
 cell. A threshold is passed when the field went below it, or above it, at some
 time step, and never on a cell where the field was undefined. The cells the
-threshold selects mark the pixels of the DEM grid whose centre they hold, and
+threshold selects mark the pixels of the DEM grid whose center they hold, and
 a cell smaller than a pixel still marks the pixel under it.
 """
 
@@ -47,7 +47,7 @@ _HALVES = np.array([[0, 1, 4, 5], [1, 2, 3, 4]])
 
 
 def _valley() -> np.ndarray:
-    """A V valley whose thalweg runs north-south at x = 505 m, 0.1 m of rise per metre."""
+    """A V valley whose thalweg runs north-south at x = 505 m, 0.1 m of rise per meter."""
     x = _GRID.xmin + _GRID.dx * (np.arange(_GRID.ncol) + 0.5)
     y = _GRID.ymax - _GRID.dy * (np.arange(_GRID.nrow) + 0.5)
     return 100.0 + 0.1 * np.abs(x[None, :] - _THALWEG_X) + 0.01 * y[:, None]

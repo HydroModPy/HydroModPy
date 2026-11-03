@@ -16,7 +16,7 @@ a steady run over 2000-2002 is stamped 2003-01-01. Period ``i`` is therefore the
 half-open interval ``[stamp_(i-1), stamp_i)``. A sample is stamped at the START
 of what it averages: a daily mean at its day, a monthly mean at its month start.
 
-Reading a stamp as the centre of its period, as this module used to, compared
+Reading a stamp as the center of its period, as this module used to, compared
 January with the mean of mid-December to mid-January. On the Nancon gauge
 J001401001 (2000-2002, station mean 0.97 m3/s) that put the monthly mean
 0.167 m3/s off on average, and a monthly chronicle a full month late.
@@ -271,15 +271,16 @@ def observation_step(stamps: Any) -> pd.DateOffset | pd.Timedelta | None:
     A regular chronicle answers with its calendar frequency, so a monthly mean
     stamped at its month start reaches the next month start. A chronicle with
     gaps answers with its median spacing, in whole months when every stamp
-    falls on the same day of the month. A single sample answers ``None``.
+    falls on the same day of the month. Under three samples the answer is
+    ``None``: one spacing cannot tell a step from a gap, so two samples a month
+    apart do not stand for the month between them.
     """
     ordered = _naive(stamps).sort_values().unique()
-    if len(ordered) < 2:
+    if len(ordered) < 3:
         return None
-    if len(ordered) >= 3:
-        freq = pd.infer_freq(ordered)
-        if freq is not None:
-            return pd.tseries.frequencies.to_offset(freq)
+    freq = pd.infer_freq(ordered)
+    if freq is not None:
+        return pd.tseries.frequencies.to_offset(freq)
     same_day = (ordered.day == ordered[0].day).all() and (ordered.time == ordered[0].time()).all()
     if same_day:
         # Truncate a fractional median on purpose: a shorter reach leaves a
@@ -369,9 +370,9 @@ def _median_spacing(index: pd.DatetimeIndex) -> pd.Timedelta | None:
 
 
 def _centred_window_means(series: pd.Series, stamps: pd.DatetimeIndex) -> np.ndarray:
-    """Return the mean of ``series`` on a window centred on each sorted stamp.
+    """Return the mean of ``series`` on a window centered on each sorted stamp.
 
-    A window reaches halfway to each neighbouring stamp, and the first and last
+    A window reaches halfway to each neighboring stamp, and the first and last
     windows reach half their own spacing outward. Bounds are ``[lo, hi)``. A
     window holding no sample is ``NaN``.
     """
@@ -432,8 +433,8 @@ def period_point_on_index(
     with a value half a period earlier, so a state is read around the stamp:
 
     - a chronicle finer than the run, on median spacings, takes the mean of the
-      samples in a window centred on the stamp, reaching halfway to each
-      neighbouring stamp. A window holding no sample is ``NaN``;
+      samples in a window centered on the stamp, reaching halfway to each
+      neighboring stamp. A window holding no sample is ``NaN``;
     - a chronicle as coarse as the run or coarser takes the sample nearest the
       stamp within ``tolerance``, by default the median spacing of the stamps,
       else of the chronicle. A tie goes to the earlier sample.

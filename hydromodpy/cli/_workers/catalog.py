@@ -100,7 +100,7 @@ def list_simulations(
         if sims.empty:
             continue
         if solver:
-            sims = sims[sims["solver"].fillna("").str.lower() == canonical_solver_code(solver)]
+            sims = sims[_runs_with_solver(sims["solver"], canonical_solver_code(solver))]
         if site:
             sims = sims[sims["site"].fillna("") == site]
         if status:
@@ -116,6 +116,15 @@ def list_simulations(
     if limit is not None:
         out = out.head(int(limit))
     return _stable_listing_projection(out)
+
+
+def _runs_with_solver(stored: Any, wanted: str) -> Any:
+    """Mask of the runs whose solver list holds ``wanted``, such as "modflow6,modpath"."""
+    from hydromodpy.results.catalog.constants import canonical_solver_code
+
+    return stored.fillna("").map(
+        lambda text: wanted in {canonical_solver_code(part) for part in str(text).split(",")}
+    )
 
 
 def _stable_listing_projection(df: Any) -> Any:
@@ -215,7 +224,7 @@ def point_simulations(
     """Read one variable in one precise cell, on one or several runs.
 
     ``x, y`` are coordinates in the simulation CRS and exclude ``cell``, a
-    zero-based cell index. ``layer`` and ``depth`` (metres below the local
+    zero-based cell index. ``layer`` and ``depth`` (meters below the local
     top) exclude each other. ``output`` is an optional ``.csv`` or
     ``.parquet`` path written with the table.
     """
@@ -242,7 +251,7 @@ def delete_simulation_artifacts(
     """Move one run of an open catalog to the project trash and return what moved.
 
     Used by ``hmp dev manage`` when iterating over the runs of a project. The
-    bytes stay in ``trash/`` until ``hmp catalog gc --apply`` frees them.
+    bytes stay in ``trash/`` until ``hmp catalog gc -y`` frees them.
     """
     from hydromodpy.results.trash import trash_run
 

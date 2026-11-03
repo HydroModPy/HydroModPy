@@ -22,10 +22,10 @@ above. ``modflow6_irregular_tri`` and ``modflow6_voronoi`` are DISV strips three
 cells wide of jittered triangles and Voronoi polygons
 (``tests/validation/helpers/disv_meshes.py``), the topology HydroModPy always
 gives GWT. There the end cells hold the exact linear head ``h(x) = i (L - x)`` at
-their centres (pore velocity ``v`` for any consistent flux), the inlet cells hold
-the concentration ``c0``, and the closed form starts at the mean centre of those
-cells. A probe averages the cells whose centre lies within half a cell of ``x``,
-and the closed form is averaged over the same centres. Dispersion keeps MODFLOW 6's
+their centers (pore velocity ``v`` for any consistent flux), the inlet cells hold
+the concentration ``c0``, and the closed form starts at the mean center of those
+cells. A probe averages the cells whose center lies within half a cell of ``x``,
+and the closed form is averaged over the same centers. Dispersion keeps MODFLOW 6's
 default XT3D, as HydroModPy's GWT does. The flow follows HydroModPy's XT3D rule
 (``DisvMesh.xt3d_reason``): the triangle strip has a p95 connection
 non-orthogonality of 34 deg, above the 30 deg trigger, so XT3D is on; the Voronoi
@@ -298,7 +298,7 @@ def _build_and_run_ogata_banks_model(
     times = np.asarray(conc_file.get_times())
 
     x_centers = np.arange(n_cells) * cell_size + 0.5 * cell_size
-    # The CNC fixes the concentration at the centre of cell 0, not at the
+    # The CNC fixes the concentration at the center of cell 0, not at the
     # column edge, so the inlet of the reference sits at x_centers[0].
     inlet_x = float(x_centers[0])
 
@@ -328,11 +328,11 @@ def _build_and_run_ogata_banks_model_disv(
 
     The strip is ``DISV_ROWS`` cells wide and ``n_cells`` cells long, jittered
     (``disv_meshes.strip_mesh``). The end cells hold the exact linear head
-    ``h(x) = i (L - x)`` at their centres, so the pore velocity is ``v`` for any
+    ``h(x) = i (L - x)`` at their centers, so the pore velocity is ``v`` for any
     consistent flux, and the inlet cells hold the concentration ``c0``. The inlet of
-    the closed form sits at the mean centre of those cells. A probe averages the
-    cells whose centre is within half a cell of ``x``, and the closed form is
-    averaged over the same centres. Dispersion keeps MODFLOW 6's default XT3D, as
+    the closed form sits at the mean center of those cells. A probe averages the
+    cells whose center is within half a cell of ``x``, and the closed form is
+    averaged over the same centers. Dispersion keeps MODFLOW 6's default XT3D, as
     HydroModPy's GWT does; the flow follows HydroModPy's XT3D rule.
     ``force_xt3d`` overrides that rule for the flow (control runs).
 

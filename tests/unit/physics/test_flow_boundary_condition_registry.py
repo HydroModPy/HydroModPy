@@ -63,7 +63,6 @@ def test_boundary_bundle_exposes_active_defined_and_missing_ids() -> None:
 
 def test_flow_builds_boundary_bundle_from_config() -> None:
     cfg = FlowConfig(
-        active_bc=["east_side", "west_side"],
         bc={
             "west_side": {"kind": "dirichlet", "value": "10 m"},
             "east_side": {"kind": "dirichlet", "value": "8 m"},

@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any
 from hydromodpy.core.state.data import LoadedDataContext
 
 if TYPE_CHECKING:
-    from hydromodpy.core.workspace.workspace import Workspace
+    from hydromodpy.core.workspace.workspace import WorkspaceLayout
 
 
 @dataclass
@@ -30,7 +30,7 @@ class DataOverviewState:
 
     cfg: Any
     config_path: Path | None = None
-    workspace: Workspace | None = None
+    workspace: WorkspaceLayout | None = None
     geographic: Any = None
     geographic_features: Any = None
     domain_geographic: Any = None

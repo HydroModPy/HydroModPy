@@ -52,7 +52,7 @@ def test_read_restart_lake_stages_roundtrip_raw_zarr(tmp_path: Path) -> None:
 
 
 def test_read_restart_lake_stages_absent_group_returns_empty(tmp_path: Path) -> None:
-    """A prior run with no lake (no group) yields {} so stageinit is kept."""
+    """A prior run with no lake (no group) yields {} so initial_stage is kept."""
     import zarr
 
     path = tmp_path / "prior.zarr"
@@ -99,10 +99,10 @@ def _write_prior_lake_stage(path: Path, stages: dict[str, float]) -> None:
 
 
 def test_build_lak_uses_restart_stage_over_stageinit(tmp_path: Path) -> None:
-    """build_lak_package_args seeds strt from restart_from, overriding stageinit.
+    """build_lak_package_args seeds strt from restart_from, overriding initial_stage.
 
     A lake present in the prior run's ``lake_state_final`` takes its last stage; a
-    lake absent from it (partial restart, added lake) keeps its ``stageinit``.
+    lake absent from it (partial restart, added lake) keeps its ``initial_stage``.
     """
     from types import SimpleNamespace
 
@@ -124,7 +124,7 @@ def test_build_lak_uses_restart_stage_over_stageinit(tmp_path: Path) -> None:
         model_output_name="restart_test",
         time_units="seconds",
         flow=SimpleNamespace(
-            active_bc=["reservoir"],
+            active_bc=["lake"],
             restart_from=str(prior),
             sinks_sources={
                 "lakes": {
@@ -132,14 +132,14 @@ def test_build_lak_uses_restart_stage_over_stageinit(tmp_path: Path) -> None:
                         "polygon": Polygon([(0.0, 0.0), (2.0, 0.0), (2.0, 2.0), (0.0, 2.0)]),
                         "bedleak": 0.2,
                         "abacus": [(50.0, 0.0, 4.0), (90.0, 160.0, 4.0)],
-                        "stageinit": 60.0,
+                        "initial_stage": 60.0,
                         "outlets": [],
                     },
                     "lac1": {
                         "polygon": Polygon([(2.0, 2.0), (4.0, 2.0), (4.0, 4.0), (2.0, 4.0)]),
                         "bedleak": 0.2,
                         "abacus": [(50.0, 0.0, 9.0), (90.0, 360.0, 9.0)],
-                        "stageinit": 70.0,
+                        "initial_stage": 70.0,
                         "outlets": [],
                     },
                 }
@@ -152,5 +152,5 @@ def test_build_lak_uses_restart_stage_over_stageinit(tmp_path: Path) -> None:
 
     assert args is not None
     strt_by_name = {row[3]: row[1] for row in args["packagedata"]}
-    assert strt_by_name["lac0"] == pytest.approx(88.5)  # restart wins over stageinit 60
-    assert strt_by_name["lac1"] == pytest.approx(70.0)  # absent from restart -> stageinit kept
+    assert strt_by_name["lac0"] == pytest.approx(88.5)  # restart wins over initial_stage 60
+    assert strt_by_name["lac1"] == pytest.approx(70.0)  # absent from restart -> initial_stage kept

@@ -143,7 +143,7 @@ def build_boussinesq_hillslope_interception_comparison(
         "recharge_mm_day": float(reference_cfg["recharge_mm_day"]),
         "hydraulic_conductivity_m_per_s": float(reference_cfg["hydraulic_conductivity_m_per_s"]),
     }
-    # The surface is flat past the centre of the end columns: no point is read beyond.
+    # The surface is flat past the center of the end columns: no point is read beyond.
     surface_span = (geometry.surface_west_x, geometry.surface_east_x)
     analytical_profile = geometry.profile(
         lambda points: expected_hillslope_seepage_profile_at_x(x_m=points, **profile_kwargs),

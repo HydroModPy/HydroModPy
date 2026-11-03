@@ -48,7 +48,7 @@ name = "toy"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflownwt"]
 
 [flow.param.K.field]
@@ -66,6 +66,7 @@ class _FakeProject:
 
     def __init__(self, cfg_path: Path, workspace: Path) -> None:
         self._config_path = cfg_path
+        self._cfg = None
 
         class _Workspace:
             def __init__(self, root: Path, project_root: Path) -> None:
@@ -430,6 +431,7 @@ class TestProjectCalibratePythonModeDispatch:
         proj = _FakeProject.__new__(_FakeProject)
         proj._config_path = None
         proj._ctx = None
+        proj._cfg = None
         from hydromodpy.project import Project
 
         sentinel = CalibrationReport(

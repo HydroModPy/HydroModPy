@@ -17,7 +17,7 @@ Its blocks: ``run`` (who), ``site`` (which basin, with its fingerprint),
 block every exported file carries, without a label), ``checks`` (the
 measured facts a label derives from), ``inputs`` (the files the configuration
 declared), ``artifacts`` (the sealed entries of the directory, ``inputs.json``
-and ``mesh/`` included), ``parameters`` (with their origin), ``metrics`` (with
+included), ``parameters`` (with their origin), ``metrics`` (with
 their window and rule version), ``score`` (the headline metric under its
 rule) and ``budget``. The session that promoted a run says what it cost in
 ``checks.calibrated_by``.
@@ -42,7 +42,8 @@ from pydantic import Field, field_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.stored import Vocabulary, read_stored
-from hydromodpy.core.io.document_version import VersionWindow
+from hydromodpy.core.io.document_version import VersionWindow, check_version
+from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.results.checks import Checks
 from hydromodpy.results.identity import Identity
@@ -61,7 +62,7 @@ from hydromodpy.results.storage.contract import (
     RUN_SCRATCH_ENTRIES,
     TABLES_DIRNAME,
 )
-from hydromodpy.results.storage.json_io import read_sealed_json
+from hydromodpy.results.storage.json_io import read_json, read_sealed_json
 from hydromodpy.schema.generated_views import GENERATED_VIEWS
 
 RUN_RECORD_MANIFEST_VERSION = 3
@@ -70,6 +71,9 @@ RUN_RECORD_MANIFEST_VERSION = 3
 Version 3 names each metric row by its period and moves the cost of a promoted
 run into ``checks.calibrated_by``.
 """
+
+MANIFEST_DOCUMENT_SCHEMA: Final[str] = f"hydromodpy.manifest.v{RUN_RECORD_MANIFEST_VERSION}"
+"""Id of the published JSON Schema of ``manifest.json`` (``schema/results/manifest.v3.json``)."""
 
 MANIFEST_VERSIONS: Final[VersionWindow] = VersionWindow(
     oldest=3, current=RUN_RECORD_MANIFEST_VERSION
@@ -302,6 +306,11 @@ class ManifestArtifact(HydroModelBase):
     role: str
     format: str
     bytes: int | None = None
+    sha256: str | None = Field(
+        default=None,
+        description="SHA-256 of the file; null for a directory store, the manifest itself "
+        "and a seal written before the digests",
+    )
 
 
 class ManifestBudget(HydroModelBase):
@@ -412,7 +421,57 @@ def _manifest_payload(run_dir: Path | str) -> dict[str, Any]:
         raise FileNotFoundError(
             f"No {RUN_MANIFEST_FILENAME} in {run_dir}: this run directory is incomplete."
         )
-    return read_sealed_json(path, MANIFEST_VERSIONS, key="manifest_version")
+    payload = read_sealed_json(path, MANIFEST_VERSIONS, key="manifest_version")
+    _check_fields_version(Path(run_dir) / FIELDS_STORE_NAME)
+    return payload
+
+
+def _check_fields_version(fields: Path) -> None:
+    """Refuse a run whose field store this code does not read.
+
+    The seal is what every reader of a run goes through first. A store of an
+    older format changes what the tables beside it mean too, so the whole run is
+    refused here, by one sentence, and not reader by reader. A run without a field
+    store has nothing to refuse.
+    """
+    root = fields / "zarr.json"
+    if not root.is_file():
+        return
+    # Imported here: zarr is heavy, and every command reads a manifest.
+    from hydromodpy.results.zarr_store.constants import ZARR_VERSIONS
+
+    attributes = read_json(root).get("attributes", {})
+    check_version(
+        attributes.get("zarr_schema_version"),
+        ZARR_VERSIONS,
+        document=fields,
+        key="zarr_schema_version",
+        writer=attributes.get("hydromodpy_version"),
+    )
+
+
+def seal_problems(run_dir: Path | str) -> list[str]:
+    """Return what no longer matches the seal of a run: a missing file or a changed digest.
+
+    Only the files that carry a ``sha256`` are re-hashed, so a seal written
+    before the digests, a directory store and the manifest itself are skipped.
+    Nothing is repaired. An unreadable manifest is reported, never raised.
+    """
+    root = Path(run_dir)
+    try:
+        seal = read_seal(root)
+    except (FileNotFoundError, ValueError, OSError) as exc:
+        return [f"{RUN_MANIFEST_FILENAME}: {exc}"]
+    problems: list[str] = []
+    for artifact in seal.artifacts:
+        if artifact.sha256 is None:
+            continue
+        path = root / artifact.path
+        if not path.is_file():
+            problems.append(f"{artifact.path}: listed in the seal and absent")
+        elif sha256_of(path) != artifact.sha256:
+            problems.append(f"{artifact.path}: changed since the seal (sha256 differs)")
+    return problems
 
 
 def is_sealed(run_dir: Path | str) -> bool:
@@ -551,6 +610,7 @@ __all__ = [
     "TrackedInput",
     "is_sealed",
     "list_artifacts",
+    "seal_problems",
     "read_manifest",
     "read_seal",
 ]

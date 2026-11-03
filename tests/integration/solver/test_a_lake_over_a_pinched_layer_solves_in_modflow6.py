@@ -108,7 +108,7 @@ def _stack(kind: str) -> SolverMesh:
 
 
 def _lake_model(abacus: list[tuple[float, float, float]], stage: float) -> SimpleNamespace:
-    lake = {"polygon": None, "bedleak": 1e-6, "abacus": abacus, "stageinit": stage}
+    lake = {"polygon": None, "bedleak": 1e-6, "abacus": abacus, "initial_stage": stage}
     return SimpleNamespace(
         model_output_name=STEM,
         time_units="seconds",

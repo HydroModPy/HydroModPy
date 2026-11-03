@@ -35,8 +35,8 @@ def _transient_run(**kwargs):
         "release_flux": [release] * len(RECHARGE_BY_STEP_M3_S),
     }
 
-    def field(variable, timestep=-1, **_):
-        return stacks[variable][timestep]
+    def field(variable, time=-1, **_):
+        return stacks[variable][time]
 
     run.n_timesteps = len(RECHARGE_BY_STEP_M3_S)
     run.field = field

@@ -73,7 +73,7 @@ def read_raster_input(
 
 
 def output_records(job: JobDirectory, decl: CapabilityDecl) -> tuple[OutputRecord, ...]:
-    """Hash every declared artefact that exists once the job has written it.
+    """Hash every declared artifact that exists once the job has written it.
 
     ``outcome.json`` is declared and absent here: it cannot carry its own
     digest. The seal hashes it from disk, which is the only place its bytes

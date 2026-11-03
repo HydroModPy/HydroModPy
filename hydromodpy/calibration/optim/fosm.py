@@ -127,7 +127,7 @@ def linearized_covariance(jacobian: np.ndarray, residuals: np.ndarray) -> np.nda
 
     The residual variance is the sum of squares over the degrees of freedom, which
     is what makes this a covariance of the fit and not of the observations. Fewer
-    observations than parameters is refused rather than regularised: there is no
+    observations than parameters is refused rather than regularized: there is no
     width to report from a fit with nothing left over.
     """
     J = np.asarray(jacobian, dtype=float)

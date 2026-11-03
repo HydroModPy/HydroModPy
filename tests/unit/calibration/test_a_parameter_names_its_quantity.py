@@ -1,8 +1,8 @@
-"""A calibration names a quantity, and the catalogue says where it lives.
+"""A calibration names a quantity, and the catalog says where it lives.
 
 ``path = "flow.param.K.field.value"`` is an address into the Pydantic tree, and
 it is the one line of a calibration that is about the schema rather than about
-the aquifer. The catalogue already knows what a search can move and what holds
+the aquifer. The catalog already knows what a search can move and what holds
 it, so a file names ``K`` and the path is resolved from there.
 
 What is gated here is that the naming is derived and not declared, that a
@@ -77,7 +77,7 @@ class _Flow(HydroModelBase):
 
 
 class _Config:
-    """The smallest thing the catalogue walks: something with a ``flow``."""
+    """The smallest thing the catalog walks: something with a ``flow``."""
 
     def __init__(self, flow: _Flow) -> None:
         self.flow = flow
@@ -278,7 +278,7 @@ class TestTheUnitTheNameBringsWithIt:
     A bound used to carry a unit only when a file typed one, and almost none did.
     A parameter now inherits the unit of the field it names, so every spelling the
     schema accepts reaches the physical registry. Two of them did not survive the
-    trip: the schema writes inverse metres ``m-1`` where the registry writes
+    trip: the schema writes inverse meters ``m-1`` where the registry writes
     ``1/m``, and a conductivity declared in ``m/day`` was compared against a range
     written in ``m/s``.
     """

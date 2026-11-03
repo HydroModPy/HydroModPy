@@ -54,7 +54,7 @@ def nearest_centroid_indices(centroids_xy: np.ndarray, points_xy: np.ndarray) ->
 
 
 def _structured_centres(metadata: dict) -> tuple[np.ndarray, np.ndarray]:
-    """Return the x and y centres of the validation grid, y from the south."""
+    """Return the x and y centers of the validation grid, y from the south."""
     reference_cfg = dict(metadata["reference"])
     ny, nx = (int(value) for value in metadata["output"]["expected_spatial_shape"])
     dx = (float(reference_cfg["xmax"]) - float(reference_cfg["xmin"])) / nx
@@ -101,9 +101,7 @@ def run_boussinesq_hantush_recharge_mound_case(
     flow_section = boussinesq_variant_flow_section(
         {
             "flow_regime": "transient",
-            "ic": {"type": "custom", "value": initial_head_m},
-            "active_sinks_sources": ["recharge"],
-            "active_bc": ["west_side", "east_side", "north_side", "south_side"],
+            "ic": {"kind": "custom", "value": initial_head_m},
             "sinks_sources": {
                 "recharge": {
                     "heterogeneous_source": recharge_source,

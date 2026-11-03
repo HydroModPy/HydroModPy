@@ -1,4 +1,4 @@
-"""Behavioural unit tests for the SciPy optimizer adapters.
+"""Behavioral unit tests for the SciPy optimizer adapters.
 
 Covers :mod:`hydromodpy.calibration.optim.adapters.scipy_adapter`
 (``scipy_de`` and ``scipy_nelder_mead``), which bridge SciPy's push-style
@@ -44,7 +44,7 @@ def _two_dim_space() -> ParameterSpace:
 
 
 def _quadratic_cost(values) -> float:
-    """Convex bowl centred on ``_TARGET`` with a unique minimum of 0."""
+    """Convex bowl centered on ``_TARGET`` with a unique minimum of 0."""
     return float((values["x"] - _TARGET["x"]) ** 2 + (values["y"] - _TARGET["y"]) ** 2)
 
 

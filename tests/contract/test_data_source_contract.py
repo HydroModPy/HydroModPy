@@ -81,7 +81,7 @@ from hydromodpy.data.source import (
 pyproj = pytest.importorskip("pyproj")
 
 # A basin-sized box over eastern Brittany, in the CRS no source of this suite
-# declares: every adapter has to convert it, one of them by 300 kilometres.
+# declares: every adapter has to convert it, one of them by 300 kilometers.
 CALLER_EXTENT = Extent(xmin=-2.0, ymin=48.0, xmax=-1.5, ymax=48.4, crs="EPSG:4326")
 CALLER_EXTENT_L93 = Extent(
     xmin=317000.0, ymin=6780000.0, xmax=354000.0, ymax=6826000.0, crs="EPSG:2154"
@@ -828,7 +828,7 @@ def test_an_extent_with_no_image_in_the_target_crs_is_refused() -> None:
     Measured rather than assumed: pyproj happily **extrapolates** a conic such
     as Lambert-93 well past its area of use -- a box off New Zealand comes back
     at x = 17 435 929 m with every bound finite -- so a guard tested on that
-    case would have been dead code. An orthographic projection centred on the
+    case would have been dead code. An orthographic projection centered on the
     basin is the one that really returns ``inf``, and it is what proves the
     branch is reachable at all.
     """
@@ -840,7 +840,7 @@ def test_an_extent_with_no_image_in_the_target_crs_is_refused() -> None:
 def test_a_conversion_that_wraps_the_antimeridian_is_refused_as_inverted() -> None:
     """A nonsense box does not come back as a plausible one.
 
-    Lambert-93 metres a thousand times past the planet convert to a longitude
+    Lambert-93 meters a thousand times past the planet convert to a longitude
     range that wraps: ``(163.6, -90.0, -145.5, -90.0)``. Nothing in those four
     numbers is non-finite, so the finiteness guard does not see it -- what
     refuses it is :class:`Extent` itself, on the invariant every extent holds.
@@ -856,7 +856,7 @@ def test_densifying_the_edges_is_not_the_same_as_transforming_the_corners() -> N
     Over the French mainland envelope the conic parallels of Lambert-93 bow
     south between the corners, so the image of the box is not the box of the
     images: a four-corner transform puts the southern edge 26 163 m too far
-    north. At basin scale the two agree to the metre, which is why the defect
+    north. At basin scale the two agree to the meter, which is why the defect
     would not have shown up in any example project of this tree.
     """
     france = Extent(xmin=-5.0, ymin=41.0, xmax=10.0, ymax=51.5, crs="EPSG:4326")
@@ -940,7 +940,7 @@ def test_a_record_the_source_does_not_declare_is_refused(
     """A result whose records carry a variable the instance does not serve is refused.
 
     ``variables`` is the instance's: a source configured for one product that
-    received a record labelled with another would otherwise return a result
+    received a record labeled with another would otherwise return a result
     whose own ``variables`` contradicts its records.
     """
     from dataclasses import dataclass as _dataclass

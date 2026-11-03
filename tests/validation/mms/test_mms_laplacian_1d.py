@@ -1,14 +1,14 @@
 """MMS benchmark: 1D Laplacian steady-state with manufactured ``sin(pi x)`` solution.
 
-Compared with: the manufactured solution `u(x) = sin(pi x)` and the expected convergence order 2 of the centred stencil.
+Compared with: the manufactured solution `u(x) = sin(pi x)` and the expected convergence order 2 of the centered stencil.
 
 Manufactured solution on ``[0, 1]`` with Dirichlet 0/0 boundaries::
 
     u_exact(x) = sin(pi x)
     -u''(x)    = pi^2 sin(pi x) = f(x)
 
-The vertex-centred finite-volume (equivalent to the standard second-order
-centred finite-difference) stencil is::
+The vertex-centered finite-volume (equivalent to the standard second-order
+centered finite-difference) stencil is::
 
     (u[i-1] - 2 u[i] + u[i+1]) / h^2 = -f[i]
 
@@ -20,9 +20,9 @@ Scope, read this before citing the result
 -----------------------------------------
 This file imports nothing from ``hydromodpy``. It verifies the *scheme* on a
 stencil assembled inside the test, which is what MMS is for: it establishes
-that the discretisation written here converges at its theoretical order. It
+that the discretization written here converges at its theoretical order. It
 does **not** exercise HydroModPy's own assembly, so a passing run here is not
-evidence that the production discretisation is second-order.
+evidence that the production discretization is second-order.
 
 What does cover the production path is the analytical tier
 (``tests/validation/analytical/``): Theis, Hantush and Ogata-Banks run a real
@@ -53,7 +53,7 @@ def _forcing(x: np.ndarray) -> np.ndarray:
 
 
 def _solve_laplacian_1d(n_cells: int) -> tuple[np.ndarray, np.ndarray, float]:
-    """Return ``(x, u_num, h)`` for the centred FD solution with Dirichlet 0/0.
+    """Return ``(x, u_num, h)`` for the centered FD solution with Dirichlet 0/0.
 
     The grid uses ``n_cells`` interior unknowns on ``[0, 1]`` with uniform
     spacing ``h = 1 / (n_cells + 1)``. The tridiagonal system is assembled
@@ -85,7 +85,7 @@ def _case(n_cells: int) -> tuple[float, float]:
 @pytest.mark.steady
 @pytest.mark.fast
 def test_mms_laplacian_1d_converges_at_order_two() -> None:
-    """Verify ``||u_h - u||_2 = O(h^2)`` for the centred-FD Laplacian."""
+    """Verify ``||u_h - u||_2 = O(h^2)`` for the centered-FD Laplacian."""
     result = run_mms_convergence(_case, refinements=(10, 20, 40, 80))
 
     # Errors must decrease monotonically under refinement.

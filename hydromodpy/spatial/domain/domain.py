@@ -6,7 +6,7 @@ This module keeps the high-level orchestration of the model domain:
 - derive the vertical lower surface from the configured depth model,
 - place the layer bases a layering by surfaces reads,
 - expose a compact georeferencing view,
-- build thematic zones (currently geology) from explicit external artefacts.
+- build thematic zones (currently geology) from explicit external artifacts.
 
 Low-level array manipulations intentionally remain delegated to `Surface`.
 """

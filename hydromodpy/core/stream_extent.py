@@ -126,7 +126,7 @@ def parse_visible_flow(value: str | VisibleFlow) -> VisibleFlow:
 
     A percentage is a share of the routed discharge at the outlet at the same
     timestep. A discharge needs its unit: a bare number would be read in
-    litres by one user and in cubic metres by the next. ``"0 L/s"`` is the
+    litres by one user and in cubic meters by the next. ``"0 L/s"`` is the
     geometric definition.
     """
     if isinstance(value, VisibleFlow):

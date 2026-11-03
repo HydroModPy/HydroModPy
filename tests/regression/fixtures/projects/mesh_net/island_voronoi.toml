@@ -60,7 +60,7 @@ source = "constant"
 value = 0.0
 
 # A planar recharge field breaks the symmetry of the island, so a mirrored or
-# rotated mesh moves the heads: 1 mm/day at the island centre, +0.6 mm/day per
+# rotated mesh moves the heads: 1 mm/day at the island center, +0.6 mm/day per
 # 305 m towards the north and +0.3 mm/day per 305 m towards the east (10 x 10
 # pixels of 61 m, EPSG:2154, GeoTIFF committed beside this file).
 [[data.recharge.sources]]

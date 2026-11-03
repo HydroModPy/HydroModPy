@@ -25,7 +25,7 @@ def check_water_flow_connectivity(
     Check layer-to-layer water flow connectivity across the MODFLOW grid.
 
     For each active cell, verifies that its elevation range overlaps with at
-    least one adjacent neighbour in the same layer. Cells where no overlap
+    least one adjacent neighbor in the same layer. Cells where no overlap
     exists cannot exchange water horizontally and are reported as problematic.
 
     Parameters

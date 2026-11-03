@@ -199,7 +199,7 @@ class FlowToModflowAdapter:
         return boundary_conditions_mapping_from_flow(self.flow)
 
     def _is_bc_active(self, bc_id: str) -> bool:
-        """Return True when ``bc_id`` is explicitly declared in ``flow.active_bc``."""
+        """Return True when the boundary ``bc_id`` is declared and not switched off."""
         return is_boundary_condition_active(self.flow, bc_id)
 
     def _build_initial_heads_and_sides(

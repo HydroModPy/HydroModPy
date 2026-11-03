@@ -2,7 +2,7 @@
 
 Two projects on the same catchment carry the same fingerprint, whatever they
 call the site and whatever DEM they delineate it on. The fingerprint reads the
-declaration only (CRS, kind of definition, outlet rounded to the metre, or the
+declaration only (CRS, kind of definition, outlet rounded to the meter, or the
 digest of the polygon file) and never a computed product: the same outlet on a
 25 m and on a 75 m DEM gives one fingerprint and two areas, so a comparison
 table carries the area and the DEM resolution beside it.
@@ -30,7 +30,7 @@ def site_fingerprint(
     """Return the fingerprint of a site declaration.
 
     ``kind`` is the catchment definition (``from_outlet_coord``,
-    ``from_polyg_shp``, ``dem``). ``outlet`` is rounded to the metre, so a
+    ``from_polyg_shp``, ``dem``). ``outlet`` is rounded to the meter, so a
     coordinate copied with more or fewer decimals names the same site.
     ``polygon_sha256`` is the digest of the polygon file. One of the two is
     required.

@@ -23,11 +23,11 @@ from tests._helpers.geotiffs import write_geotiff
 
 _CELL_M = 10.0
 _ROWS, _COLS = 6, 10
-_EAST = 2  # D8 code of the eastern neighbour
+_EAST = 2  # D8 code of the eastern neighbor
 
 
 def _write_pointer(path: Path, *, code: int = _EAST) -> Path:
-    """A 6 x 10 grid of 10 m cells, every cell draining to its eastern neighbour."""
+    """A 6 x 10 grid of 10 m cells, every cell draining to its eastern neighbor."""
     return write_geotiff(path, np.full((_ROWS, _COLS), code, dtype="int16"), cell=_CELL_M)
 
 
@@ -63,7 +63,7 @@ def test_each_lake_takes_the_ground_that_drains_to_it_first(
 def test_the_count_stays_inside_the_watershed_and_a_pond_smaller_than_a_cell_catches_it(tmp_path):
     pointer = str(_write_pointer(tmp_path / "d8.tif"))
     first_two_rows = box(0.0, (_ROWS - 2) * _CELL_M, _COLS * _CELL_M, _ROWS * _CELL_M)
-    pond = box(41.0, 21.0, 44.0, 24.0)  # 3 m x 3 m, centre inside no cell centre
+    pond = box(41.0, 21.0, 44.0, 24.0)  # 3 m x 3 m, center inside no cell center
     areas = lake_contributing_areas_m2(
         d8_pointer_tif=pointer,
         lake_polygons={"upper": _column(3, 3)},

@@ -6,7 +6,7 @@ Covers the Phase 1 additions to :mod:`hydromodpy.calibration.config`:
 - CalibOutputDecl and CalibObjectiveBlockDecl are new Pydantic models.
 - CalibrationConfig grows outputs, objective_blocks, persist_* and
   materialize_* fields.
-- An implicit objective block is synthesised when none is declared.
+- An implicit objective block is synthesized when none is declared.
 """
 
 from __future__ import annotations

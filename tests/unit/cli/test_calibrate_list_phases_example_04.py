@@ -65,7 +65,7 @@ def test_the_composite_file_shows_one_phase_with_two_shares(capsys) -> None:
 
     lines = out.splitlines()
     assert lines[0].startswith("0\tconductivity_and_storage\toptuna\t")
-    # A share table {hydrograph = 0.7, network = 0.3}, the network gap normalised.
+    # A share table {hydrograph = 0.7, network = 0.3}, the network gap normalized.
     assert lines[1] == (
         f"    network\tdistance_gap\tshare 30%\trelease_flux (network)\tvs {GEOMETRY}"
     )

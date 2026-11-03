@@ -19,10 +19,7 @@ from hydromodpy.physics.forcing.time_alignment import (
 )
 
 if TYPE_CHECKING:
-    from hydromodpy.physics.flow.sinks_sources.wells import (
-        FlowWellForcingPiecewiseConfig,
-        FlowWellForcingSeasonalConfig,
-    )
+    from hydromodpy.physics.base.forcing import PiecewiseForcing, SeasonalForcing
 
 _SEASON_BY_MONTH = {
     12: "DJF",
@@ -171,7 +168,7 @@ def resolve_period_values_from_forcing(
     if nper <= 0:
         return []
 
-    kind = _forcing_attr(forcing, "kind") or _forcing_attr(forcing, "mode")
+    kind = _forcing_attr(forcing, "kind")
     if kind == "constant":
         constant_value = _forcing_attr(forcing, "value")
         magnitude = getattr(constant_value, "magnitude", constant_value)
@@ -224,7 +221,7 @@ def resolve_period_values_from_forcing(
 
     if kind == "piecewise":
         return _resolve_piecewise(
-            forcing=cast("FlowWellForcingPiecewiseConfig", forcing),
+            forcing=cast("PiecewiseForcing", forcing),
             simulation_window=simulation_window,
             nper=nper,
             label=label,
@@ -233,7 +230,7 @@ def resolve_period_values_from_forcing(
 
     if kind == "seasonal":
         return _resolve_seasonal(
-            forcing=cast("FlowWellForcingSeasonalConfig", forcing),
+            forcing=cast("SeasonalForcing", forcing),
             simulation_window=simulation_window,
             label=label,
         )
@@ -243,7 +240,7 @@ def resolve_period_values_from_forcing(
 
 def _resolve_piecewise(
     *,
-    forcing: FlowWellForcingPiecewiseConfig,
+    forcing: PiecewiseForcing,
     simulation_window: ResolvedSimulationTimeWindow,
     nper: int,
     label: str,
@@ -288,7 +285,7 @@ def _resolve_piecewise(
 
 def _resolve_seasonal(
     *,
-    forcing: FlowWellForcingSeasonalConfig,
+    forcing: SeasonalForcing,
     simulation_window: ResolvedSimulationTimeWindow,
     label: str,
 ) -> list[float]:

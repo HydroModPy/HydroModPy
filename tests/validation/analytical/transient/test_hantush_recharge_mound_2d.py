@@ -1,6 +1,6 @@
 """Validate the growth of a groundwater mound under a rectangle of recharge against Hantush (1967).
 
-Compared with: the Hantush (1967) mound linearized with the mean saturated thickness, `h^2 - hi^2 = (w / 2K) nu t sum S*(...)` over the four corners, `nu = K b / Sy`, `b = (hi + hm(t)) / 2`, read at the centre of each solver cell: at the centre over time, on a transect through it, and over the plan at the final time.
+Compared with: the Hantush (1967) mound linearized with the mean saturated thickness, `h^2 - hi^2 = (w / 2K) nu t sum S*(...)` over the four corners, `nu = K b / Sy`, `b = (hi + hm(t)) / 2`, read at the center of each solver cell: at the center over time, on a transect through it, and over the plan at the final time.
 """
 
 from __future__ import annotations

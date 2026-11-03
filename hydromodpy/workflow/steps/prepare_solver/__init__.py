@@ -2,7 +2,7 @@
 
 - :mod:`prepare` - persistence helpers (params, mesh, geographic,
   provenance, forcings).
-- :mod:`validate` - pure validators and artefact discovery helpers
+- :mod:`validate` - pure validators and artifact discovery helpers
   (``_primary_solver_for_simulation``, ``collect_run_facts``,
   ``_store_sim_artifacts``).
 - :mod:`dispatch` - binding the pipeline to its run directory and recording

@@ -52,6 +52,6 @@ monitor_points_m = [
     [205.0, 805.0],
     [105.0, 905.0],
 ]
-# Plan-view map window, in metres from the stream face and the well row.
+# Plan-view map window, in meters from the stream face and the well row.
 map_window_x_m = [0.0, 400.0]
 map_window_y_m = [-400.0, 400.0]

@@ -47,10 +47,10 @@ class DynamicFlowExamples:
         out.append("# Flow boundary conditions. A boundary is keyed by WHAT IT IS,")
         out.append("# [flow.bc.<id>], with the canonical ids and their kind, domain")
         out.append("# and units held by the flow boundary-condition registry.")
-        out.append("# A boundary the registry describes entirely needs no block at")
-        out.append("# all: listing it in [flow].active_bc is enough. Write a block")
+        out.append("# Declaring a block is what activates the boundary. A boundary the")
+        out.append("# registry describes entirely takes an empty block. Write keys")
         out.append("# only to depart from that default, for instance to impose a")
-        out.append("# conductance, or kind = 'robin' instead of the drainage default.")
+        out.append("# conductance. enabled = false keeps the block and switches it off.")
         out.append("# " + "-" * 70)
         out.extend(
             section_renderer(
@@ -64,8 +64,8 @@ class DynamicFlowExamples:
 
         out.append("")
         out.append("# " + "-" * 70)
-        out.append("# Flow diffuse recharge - emitted when 'recharge' is listed in")
-        out.append("# [flow].active_sinks_sources. A series loaded from [data.recharge]")
+        out.append("# Flow diffuse recharge - declaring the table activates it. A series")
+        out.append("# loaded from [data.recharge]")
         out.append("# or computed by the soil section replaces values.")
         out.append("# " + "-" * 70)
         out.extend(

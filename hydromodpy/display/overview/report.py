@@ -385,7 +385,7 @@ def _records_to_timeseries_df(records):
 def _piezo_altitude_hlines(records) -> list[dict] | None:
     """Build horizontal-line specs for the piezometer surface altitudes.
 
-    Hub'Eau exposes ``altitude_station`` (ground level in metres NGF) in the
+    Hub'Eau exposes ``altitude_station`` (ground level in meters NGF) in the
     station metadata, attached to ``location.metadata['altitude']``. We turn
     that into one dashed reference line per station so the piezometric chart
     immediately shows the depth of the watertable below the surface.

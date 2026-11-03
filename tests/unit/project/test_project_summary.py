@@ -1,4 +1,4 @@
-"""``hmp project collect`` writes ``summary/`` of a project from its runs.
+"""``hmp campaign collect`` writes ``summary/`` of a project from its runs.
 
 Every run here is a sealed directory written by ``RunRecord.write``, every
 failure an ``outcome.json``, and the plan a real ``plan/<hash>/``. The collect

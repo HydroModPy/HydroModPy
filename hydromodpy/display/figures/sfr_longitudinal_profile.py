@@ -30,7 +30,7 @@ def distance_to_outlet(links: DataFrame) -> dict[tuple[str, int], float]:
     The path follows, at each fork, the downstream reach that takes the larger
     share of the flow (``ustrf``, the lower number on a tie). Reach numbers
     increase downstream, so one pass from the last reach to the first is enough.
-    The distance is in the unit of ``rlen`` (metres).
+    The distance is in the unit of ``rlen`` (meters).
     """
     distances: dict[tuple[str, int], float] = {}
     for network, rows in links.groupby("network_id", sort=False):

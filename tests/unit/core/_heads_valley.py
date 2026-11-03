@@ -20,7 +20,7 @@ CELL = 10.0
 
 
 def centre(row: int, col: int) -> tuple[float, float]:
-    """Return the centre of one cell."""
+    """Return the center of one cell."""
     return ((col + 0.5) * CELL, (row + 0.5) * CELL)
 
 

@@ -6,7 +6,7 @@
 #
 # Twin-synthetic pattern: the "observation" is the analytical Dupuit
 # head h(L/2) computed for the truth K = 1e-4 m/s. Optuna searches K
-# in [1e-6, 1e-3] m/s and minimises RMSE between the simulated head
+# in [1e-6, 1e-3] m/s and minimizes RMSE between the simulated head
 # at the midpoint cell and that single hard-coded target. No external
 # data, no piezometry source needed.
 #
@@ -31,7 +31,7 @@ description = "Calibration Optuna de K sur aquifère Dupuit synthétique."
 
 [[simulation.process]]
 id = "flow"
-type = "flow"
+kind = "flow"
 solvers = ["modflow_nwt"]
 
 # --- Domaine géographique (synthétique, hors-ligne) ------------------
@@ -62,10 +62,13 @@ thickness = "20.0 m"
 
 # --- Processus d'écoulement -----------------------------------------
 
+[domain.layers]
+nlay = 1
+
+# --- Affichage (headless par défaut) --------------------------------
+
 [flow]
 flow_regime = "steady"
-active_sinks_sources = ["recharge"]
-active_bc = ["west_side", "east_side"]
 param_list = ["K"]
 
 [flow.param.K.field]
@@ -74,7 +77,7 @@ kind = "homogeneous"
 value = "1e-4 m/s"
 
 [flow.ic]
-type = "custom"
+kind = "custom"
 value = "5.0 m"
 
 [flow.bc.west_side]
@@ -99,11 +102,6 @@ source = "synthetic"
 values = [3.0]
 
 # --- Solveur (MODFLOW-NWT) ------------------------------------------
-
-[modflownwt.sgrid.vertical]
-nlay = 1
-
-# --- Affichage (headless par défaut) --------------------------------
 
 [display]
 enabled = false
@@ -130,7 +128,7 @@ save_best_n = 3
 seed = 42
 # Single-point / single-time observation: NSE is undefined (zero
 # variance) so we use RMSE which is well defined for a 1-element
-# series and minimised at the truth.
+# series and minimized at the truth.
 objective = "rmse"
 variable = "head"
 
@@ -141,7 +139,7 @@ search_space = "log"
 path = "flow.param.K.field.value"
 units = "m/s"
 
-# Observable at the centre cell (x = L/2, y = W/2). The dict key 'head'
+# Observable at the center cell (x = L/2, y = W/2). The dict key 'head'
 # matches `variable` above, so the implicit objective block is built
 # automatically.
 [calibration.outputs.head]

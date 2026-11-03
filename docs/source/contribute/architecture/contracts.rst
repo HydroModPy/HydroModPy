@@ -10,11 +10,13 @@ them.
 The public facade
 -----------------
 
-A user imports ``import hydromodpy as hmp``. The package exports a flat set of
-verbs from ``hydromodpy/_api.py``, the objects they return and the config classes,
-all listed in ``hydromodpy.__all__``. The generated
-:doc:`/reference/python/index` documents every name, so this page does not repeat
-them. ``hmp.open(path)`` opens what a path stands for: a ``Project``, a ``Run``, a
+A user imports ``import hydromodpy as hmp``. The package exports a short flat set:
+the verbs of ``hydromodpy/_api.py``, ``Project``, ``Run``, ``RunSet``, ``Catalog``,
+``Session``, ``Workspace``, ``HydroModPyConfig`` and the exception hierarchy, all listed
+in ``hydromodpy.__all__``. The generated :doc:`/reference/python/index` documents every
+name, so this page does not repeat them. Everything else, the config section of a
+variable or a solver class, stays reachable through ``hydromodpy.<module>`` and is out of
+the contract unless the list below names its module. ``hmp.open(path)`` opens what a path stands for: a ``Project``, a ``Run``, a
 ``Session`` or a ``Workspace``. ``project.store`` is the read-only ``Catalog`` over
 ``.hmp/index.duckdb``, the index derived from the run directories.
 
@@ -35,6 +37,7 @@ guides imports a module that is neither listed nor in the facade.
 
 - ``hydromodpy.core.exceptions``: the exception hierarchy.
 - ``hydromodpy.core.logging``: ``get_logger``.
+- ``hydromodpy.core.pipeline_steps``: ``STEP_NAMES``, the frozen names of the steps.
 - ``hydromodpy.core.units``: the quantity types of a config field.
 - ``hydromodpy.core.config_kit.profile``: ``Profile``, the level of a config field.
 - ``hydromodpy.core.tracking.input_file``: ``InputFile``, a file a run depends on.
@@ -49,6 +52,7 @@ guides imports a module that is neither listed nor in the facade.
 - ``hydromodpy.data.managers.base_config``: the base of a data variable config.
 - ``hydromodpy.data.managers.base_manager_field``: the base of a gridded variable.
 - ``hydromodpy.data.managers.timeseries_config``: the base of a series variable.
+- ``hydromodpy.physics.transport.transport``: ``Transport``, the transport process.
 - ``hydromodpy.solver.base.adapter_protocol``: the solver port.
 - ``hydromodpy.simulation.planning.plan``: ``RunContext`` and ``RunExecutionResult``,
   what a solver adapter receives and returns.
@@ -70,6 +74,7 @@ guides imports a module that is neither listed nor in the facade.
 - ``hydromodpy.results.annotations``: tags and notes of a run directory.
 - ``hydromodpy.results.trash``: the trash of a run directory.
 - ``hydromodpy.cli.conventions``: the shared argparse grammar.
+- ``hydromodpy.cli.output``: what a command writes for a program.
 - ``hydromodpy.cli.helpers``: exit codes and workspace resolution of a command.
 
 .. public-modules-end
@@ -140,9 +145,12 @@ The old name keeps working for two minor versions and warns, and this page and
 ``hmp`` command or flag its entry in ``OLD_CLI_FORMS`` of
 ``hydromodpy/cli/conventions.py``, both with ``since``. Each warns with a
 ``FutureWarning``, then forwards to the new form. A test fails once a row or an entry
-outlives its delay. These two tables are empty at 2.0.0, because a name that left before
-the first stable version keeps no alias. A public method of the result objects is not in
-them: the gate below names its removal, and the changelog says it. A change to a stored
+outlives its delay. ``OLD_NAMES`` and ``OLD_CLI_FORMS`` hold, marked ``refused``, the names,
+the members of the public objects, the commands and the flags that left before the first
+stable version. They keep no alias: each is refused with a message that names its new
+form, and leaves the table at 2.2. The members live in ``hydromodpy/core/old_members.py``,
+which each object reads. After 2.0.0 a public method of the result objects is not in them:
+the gate below names its removal, and the changelog says it. A change to a stored
 schema needs a bump of the matching
 version constant and a reader for the old version. The constants and where they live
 are in :doc:`data-scopes`.
@@ -178,7 +186,7 @@ backend the contract promises. The catalog reaches it through a port, and the po
 takes SQL in the dialect of DuckDB.
 
 ``hydromodpy.lock`` freezes the data cache of a project before a run. The launcher of
-a ``[sites]`` project writes it, and ``hmp dev lock`` writes it by hand for a single
+a ``[sites]`` project writes it, and ``hmp lock`` writes it by hand for a single
 project. ``hmp run --frozen`` on a project TOML verifies it and refuses without one. No
 other run needs it, because the manifest of a run records the inputs of that run: on the
 ``config.toml`` of a run, ``--frozen`` reads that record. See

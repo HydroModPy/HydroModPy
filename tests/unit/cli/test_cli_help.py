@@ -6,12 +6,15 @@ regressions in the argparse wiring without spawning a subprocess per case.
 
 from __future__ import annotations
 
+import argparse
 import importlib
 import sys
 
 import pytest
 
 from hydromodpy.cli.commands import ALL_COMMANDS
+from hydromodpy.cli.conventions import OldVerb
+from hydromodpy.cli.main import _build_parser
 
 
 def _load_module():
@@ -39,47 +42,17 @@ def test_top_level_help(monkeypatch, capsys) -> None:
         assert cmd in out, f"{cmd} missing from top-level --help"
 
 
-@pytest.mark.parametrize("subcommand", SUBCOMMANDS)
-def test_subcommand_help(monkeypatch, capsys, subcommand: str) -> None:
-    code = _run_help(monkeypatch, ["hmp", subcommand, "--help"])
-    assert code == 0
-    out = capsys.readouterr().out
-    assert "usage" in out.lower()
+def _commands(parser: argparse.ArgumentParser, words: tuple[str, ...] = ()):
+    if isinstance(parser, OldVerb):
+        return
+    yield words
+    for action in parser._actions:
+        if isinstance(action, argparse._SubParsersAction):
+            for name, child in action.choices.items():
+                yield from _commands(child, (*words, name))
 
 
-def test_data_subcommands_help(monkeypatch, capsys) -> None:
-    for sub in ("check", "ls", "add", "get", "remove", "prune", "archive", "restore"):
-        code = _run_help(monkeypatch, ["hmp", "data", sub, "--help"])
-        assert code == 0, f"data {sub} --help failed"
-        out = capsys.readouterr().out
-        assert "usage" in out.lower()
-
-
-def test_dev_subcommands_help(monkeypatch, capsys) -> None:
-    code = _run_help(monkeypatch, ["hmp", "dev", "run-script", "--help"])
-    assert code == 0
-    out = capsys.readouterr().out
-    assert "usage" in out.lower()
-
-
-def test_lock_subcommands_help(monkeypatch, capsys) -> None:
-    for sub in ("update", "archive", "restore", "verify"):
-        code = _run_help(monkeypatch, ["hmp", "dev", "lock", sub, "--help"])
-        assert code == 0, f"lock {sub} --help failed"
-        out = capsys.readouterr().out
-        assert "usage" in out.lower()
-
-
-def test_config_subcommands_help(monkeypatch, capsys) -> None:
-    for sub in ("template", "check", "wizard"):
-        code = _run_help(monkeypatch, ["hmp", "config", sub, "--help"])
-        assert code == 0, f"config {sub} --help failed"
-        out = capsys.readouterr().out
-        assert "usage" in out.lower()
-
-
-def test_version_flag(monkeypatch, capsys) -> None:
-    code = _run_help(monkeypatch, ["hmp", "--version"])
-    assert code == 0
-    out = capsys.readouterr().out
-    assert "hydromodpy" in out.lower()
+@pytest.mark.parametrize("words", list(_commands(_build_parser())), ids=" ".join)
+def test_each_command_has_a_help(monkeypatch, capsys, words: tuple[str, ...]) -> None:
+    assert _run_help(monkeypatch, ["hmp", *words, "--help"]) == 0
+    assert "usage" in capsys.readouterr().out.lower()

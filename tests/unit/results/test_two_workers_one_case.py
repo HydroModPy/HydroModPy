@@ -1,6 +1,6 @@
 """Two workers on one case: one continues, the other stops with a sentence, no ``.v2``.
 
-The claim of an attempt is a ``mkdir`` the kernel serialises: ``runs/<case>``
+The claim of an attempt is a ``mkdir`` the kernel serializes: ``runs/<case>``
 for a fresh case, ``attempts/<k>`` for a retry. Two real processes race on
 the same directory; exactly one wins the claim and writes ``outcome.json`` as
 ``running``. The loser is refused one of two ways and never mints a version:

@@ -33,7 +33,7 @@ stream_geometry_path = "nancon_stream_network.gpkg"
 support = "point"
 variable = "discharge"
 
-# A block scores outputs with one metric. Eq. 1: the network gap in metres,
+# A block scores outputs with one metric. Eq. 1: the network gap in meters,
 # zero when the simulated network reaches as far as the mapped one.
 [[calibration.objective_blocks]]
 name = "network_extension"

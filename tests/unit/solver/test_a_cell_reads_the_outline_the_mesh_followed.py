@@ -66,7 +66,7 @@ SMOOTH = smooth_polygon(STAIR, PIXEL)
 def _mesh(*, followed: bool):
     """The cells of 2 m over the 200 m square, carrying the smooth outline or not.
 
-    The grid is shifted off the metre so that no cell centre lies on a diagonal of the smooth outline.
+    The grid is shifted off the meter so that no cell center lies on a diagonal of the smooth outline.
     """
     n = int(NPIX * PIXEL / CELL)
     mesh = solver_mesh_from_structured_arrays(

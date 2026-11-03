@@ -1,8 +1,8 @@
 """The top of a solver grid sampled from the DEM by zonal statistics.
 
 The zonal top of a cell reduces the DEM pixels it covers, and falls back to the
-centre sample where it covers none. In the centroid mode, a cell a river chain
-crosses off its centre still takes the zonal minimum of its pixels, and its
+center sample where it covers none. In the centroid mode, a cell a river chain
+crosses off its center still takes the zonal minimum of its pixels, and its
 bottom follows that lowered top. A structured grid coarser than its DEM takes
 the zonal top when each cell spans enough pixels.
 """
@@ -122,10 +122,10 @@ def zonal_top_flat(
 
 
 _MIN_COLUMN_SHARE = 0.1
-"""A lowered top keeps at least this share of the column its centre sample gave.
+"""A lowered top keeps at least this share of the column its center sample gave.
 
-The Flume meshes MODFLOW 6 solves under Newton keep 11.6 % of the centre column at the
-least (3.5 m of 30 m); columns of 0.2 to 1.6 m beside 30 m neighbours do not converge.
+The Flume meshes MODFLOW 6 solves under Newton keep 11.6 % of the center column at the
+least (3.5 m of 30 m); columns of 0.2 to 1.6 m beside 30 m neighbors do not converge.
 """
 
 
@@ -137,16 +137,16 @@ def bottom_under_lowered_top(
     min_thickness_m: float,
     nodata: float,
 ) -> np.ndarray:
-    """Bottom that follows a top lowered far under the centre sample.
+    """Bottom that follows a top lowered far under the center sample.
 
-    The bottom is sampled at the cell centre, the zonal top reduces every pixel
+    The bottom is sampled at the cell center, the zonal top reduces every pixel
     of the cell. A coarse cell on a pit or a steep valley side can hold a pixel
-    tens of metres under its centre sample. Leaving the bottom there keeps a column
-    of a few decimetres, whose transmissivity is nil next to the neighbours and
+    tens of meters under its center sample. Leaving the bottom there keeps a column
+    of a few decimeters, whose transmissivity is nil next to the neighbors and
     which MODFLOW 6 cannot solve under Newton. When the lowered top leaves less than
-    ``min_thickness_m``, or less than :data:`_MIN_COLUMN_SHARE` of the centre-sample
+    ``min_thickness_m``, or less than :data:`_MIN_COLUMN_SHARE` of the center-sample
     column, the bottom moves down with the top and the column keeps the thickness
-    of the centre sample. A cell whose top was not lowered, or whose column stays
+    of the center sample. A cell whose top was not lowered, or whose column stays
     thick enough, is untouched, byte for byte.
     """
     valid = (
@@ -175,10 +175,10 @@ def bottom_under_lowered_top(
 
 
 def _crossing_cells(cell_mesh: PlanarCellMesh) -> np.ndarray:
-    """Boolean mask of the cells a river chain crosses off their centre.
+    """Boolean mask of the cells a river chain crosses off their center.
 
     A crossing cell is a cell of a ``rivers`` chain with a lateral offset above
-    zero: the river runs through it, but its centre lies beside the line. That is
+    zero: the river runs through it, but its center lies beside the line. That is
     the pair of cells a contact line crosses a river with, a cell that two thalwegs
     closer than half a cell share, and the end cell of a river that starts near the
     domain boundary. A chain that publishes no offset holds the line in every cell.
@@ -201,7 +201,7 @@ def lower_crossing_cells(
 ) -> np.ndarray:
     """Top of the centroid mode with the crossing cells at their zonal minimum.
 
-    The sample at the centre of a crossing cell lands beside the river, on a bank.
+    The sample at the center of a crossing cell lands beside the river, on a bank.
     Those cells, and only those, take the lowest DEM pixel they hold, the channel
     statistic ``min``, so the river cell keeps its incised low. The other cells keep
     the centroid sample, byte for byte. The caller moves the bottom of a cell whose
@@ -237,7 +237,7 @@ def lower_crossing_cells(
 def cells_cover_pixels(native_top: Surface, grid_top: Surface, *, min_pixels: float = 2.0) -> bool:
     """True when a grid cell spans at least ``min_pixels`` DEM pixels, else log why not.
 
-    Below that, a pixel centre falls in one cell out of several and the block
+    Below that, a pixel center falls in one cell out of several and the block
     statistic is a checkerboard of raw pixels, so the resample stays.
     """
     pixel_area = native_top.support.cell_area

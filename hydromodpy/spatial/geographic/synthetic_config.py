@@ -9,12 +9,13 @@ from typing import Annotated, Literal, TypeAlias
 from pydantic import Field, computed_field, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import PositiveInt
 from hydromodpy.core.units import LengthMeters
 
 SYNTHETIC_CATCH_DEF = "synthetic"
-"""The ``catch_def`` of a synthetic geographic, whose box is its domain and no catchment."""
+"""The catchment kind of a synthetic geographic, whose box is its domain and no catchment."""
 
 
 class SyntheticGridConfig(HydroModelBase):
@@ -23,12 +24,12 @@ class SyntheticGridConfig(HydroModelBase):
     length_x: Annotated[LengthMeters, Profile.USER] = Field(
         default=100.0,
         gt=0.0,
-        description="Total domain length along x (metres). Accepts inline units, e.g. '0.1 km'.",
+        description="Total domain length along x (meters). Accepts inline units, e.g. '0.1 km'.",
     )
     length_y: Annotated[LengthMeters, Profile.USER] = Field(
         default=1.0,
         gt=0.0,
-        description="Total domain length along y (metres). Accepts inline units, e.g. '1 m'.",
+        description="Total domain length along y (meters). Accepts inline units, e.g. '1 m'.",
     )
     nx: Annotated[PositiveInt, Profile.USER] = Field(
         default=100,
@@ -54,7 +55,7 @@ class SyntheticGridConfig(HydroModelBase):
     )
     nodata: Annotated[float, Profile.DEV] = Field(
         default=-9999.0,
-        description="Nodata sentinel exported to raster artefacts.",
+        description="Nodata sentinel exported to raster artifacts.",
     )
 
     @model_validator(mode="after")
@@ -118,7 +119,7 @@ class FlatTopography(HydroModelBase):
     )
     base_elevation: Annotated[float, Profile.USER] = Field(
         default=20.0,
-        description="Elevation of the flat ground surface, in metres.",
+        description="Elevation of the flat ground surface, in meters.",
         json_schema_extra={"unit": "m"},
     )
 
@@ -172,6 +173,7 @@ class RadialIslandTopography(HydroModelBase):
             "Central island elevation (m). The land surface decays nonlinearly "
             "to sea level at the shoreline."
         ),
+        json_schema_extra=field_metadata(unit="m"),
     )
     center_x: Annotated[LengthMeters | None, Profile.DEV] = Field(
         default=None,

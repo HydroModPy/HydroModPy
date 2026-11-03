@@ -53,7 +53,7 @@ def test_every_rebuild_reads_the_same_default(function) -> None:
 
 
 def _diagonal_plane() -> np.ndarray:
-    """A surface dropping one metre east and one south, to the south-east corner."""
+    """A surface dropping one meter east and one south, to the south-east corner."""
     rows = np.arange(SIZE, dtype=float)[:, None]
     cols = np.arange(SIZE, dtype=float)[None, :]
     return (100.0 - rows - cols).reshape(-1)

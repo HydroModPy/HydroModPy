@@ -110,6 +110,40 @@ class TestImportCSVTimeseries:
         df = import_csv_timeseries(out, variable="recharge")
         assert (df["variable"] == "recharge").all()
 
+    @pytest.mark.parametrize(
+        ("asked", "kept"),
+        [
+            (
+                None,
+                [("discharge", "simulated"), ("discharge", "observed"), ("nitrate", "observed")],
+            ),
+            ("discharge", [("discharge", "simulated")]),
+            ("discharge_obs", [("discharge", "observed")]),
+            ("nitrate_obs", [("nitrate", "observed")]),
+        ],
+    )
+    def test_a_measurement_and_a_series_read_back_by_their_name(self, tmp_path, asked, kept):
+        out = tmp_path / "ts.csv"
+        out.write_text(
+            "site,case_id,datetime,station_id,variable,source,value,unit\n"
+            "n,n_run,2020-02-01,catchment,discharge,simulated,1.0,m3 s-1\n"
+            "n,n_run,2020-01-01,J001,discharge,observed,2.0,m3 s-1\n"
+            "n,n_run,2020-01-01,J001,nitrate,observed,3.0,mg L-1\n"
+        )
+
+        df = import_csv_timeseries(out, variable=asked)
+
+        assert list(zip(df["variable"], df["source"], strict=True)) == kept
+
+    def test_a_source_the_exporter_never_writes_is_refused(self, tmp_path):
+        out = tmp_path / "ts.csv"
+        out.write_text(
+            "site,case_id,datetime,station_id,variable,source,value,unit\n"
+            "n,n_run,2020-01-01,outlet,discharge,modelled,1.0,m3 s-1\n"
+        )
+        with pytest.raises(ValueError, match="neither 'simulated' nor 'observed'"):
+            import_csv_timeseries(out)
+
     def test_unknown_variable_raises(self, tmp_path):
         out = tmp_path / "ts.csv"
         out.write_text("site,case_id,datetime,station_id,variable,source,value,unit\n")

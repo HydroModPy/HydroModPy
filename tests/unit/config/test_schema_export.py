@@ -58,8 +58,8 @@ def test_flow_physical_properties_schema_has_rich_annotations():
     assert "k_aquifer" in props
     assert props["k_aquifer"].get("widget_type") == "input"
     assert props["k_aquifer"].get("unit") == "m/s"
-    assert "display_name_fr" in props["k_aquifer"]
-    assert "help_text_fr" in props["k_aquifer"]
+    assert "display_name_fr" not in props["k_aquifer"]
+    assert "help_text_fr" not in props["k_aquifer"]
 
     assert "specific_yield" in props
     assert props["specific_yield"].get("widget_type") == "slider"

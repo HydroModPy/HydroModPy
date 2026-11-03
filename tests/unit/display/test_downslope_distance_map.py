@@ -134,8 +134,8 @@ def test_each_cell_of_the_support_lands_in_its_own_class(mpl) -> None:
 
 
 def test_the_same_support_moves_class_with_the_size_of_a_cell(mpl) -> None:
-    # The same two branches on a hundred-metre mesh are one and two hundred
-    # metres from the map, so they share the near class instead of splitting.
+    # The same two branches on a hundred-meter mesh are one and two hundred
+    # meters from the map, so they share the near class instead of splitting.
     fig, ax = mpl.subplots()
 
     DownslopeDistanceMap().render(_two_branch_run(), ax)
@@ -153,14 +153,14 @@ def test_the_same_support_moves_class_with_the_size_of_a_cell(mpl) -> None:
         mpl.close(fig)
 
 
-def test_the_scale_is_discrete_with_one_flat_colour_per_class(mpl) -> None:
+def test_the_scale_is_discrete_with_one_flat_color_per_class(mpl) -> None:
     fig, ax = mpl.subplots()
 
     DownslopeDistanceMap().render(_two_branch_run(WIDE_CELL_M), ax)
 
     try:
         near = _layer(ax, "0-75 m")
-        # Three cells, one single colour: the class is the value.
+        # Three cells, one single color: the class is the value.
         assert len(near.get_paths()) == 3
         assert _face_color(near) == pytest.approx(_rgb(class_colors(4)[0]))
         assert _face_color(_layer(ax, "> 1000 m")) == pytest.approx(_rgb(class_colors(4)[3]))
@@ -169,7 +169,7 @@ def test_the_scale_is_discrete_with_one_flat_colour_per_class(mpl) -> None:
         mpl.close(fig)
 
 
-def test_the_four_default_colours_come_from_the_high_contrast_triplet() -> None:
+def test_the_four_default_colors_come_from_the_high_contrast_triplet() -> None:
     colors = class_colors(4)
 
     assert colors[1:] == (
@@ -192,8 +192,8 @@ def test_the_classes_stay_ordered_and_apart_in_greyscale() -> None:
 
 
 def test_an_off_support_cell_stays_apart_from_the_shortest_distance() -> None:
-    # The state that means "never measured" printed almost the same grey as
-    # the class that means "agrees within 75 m". On a greyscale print the two
+    # The state that means "never measured" printed almost the same gray as
+    # the class that means "agrees within 75 m". On a grayscale print the two
     # merged, which is the one confusion the third state exists to prevent.
     from hydromodpy.display.figures.downslope_distance_map import _OFF_SUPPORT_COLOR
 
@@ -252,7 +252,7 @@ def test_the_note_names_the_support_the_mean_is_taken_over(mpl) -> None:
 
 def test_a_cell_off_the_support_is_out_of_the_scale_and_never_a_zero(mpl) -> None:
     # Seepage halfway down the mapped column: the model produces no stream on
-    # its northern cell, which sits ON the map and so is zero metres from it.
+    # its northern cell, which sits ON the map and so is zero meters from it.
     # Drawn in the nearest class it would read as a perfect agreement where
     # nothing was measured at all.
     run = comparison_run(seepage_cells=[cell(AXIS_COLUMN, 1)])

@@ -1,7 +1,7 @@
 """Media type strings live in one table, and the table's values are pinned.
 
-An artefact carries its media type in three places (capability declaration,
-``outcome.json`` output record, ``manifest.json`` artefact record). Each
+An artifact carries its media type in three places (capability declaration,
+``outcome.json`` output record, ``manifest.json`` artifact record). Each
 place that spells the string as a literal instead of importing
 ``hydromodpy.schema.media_types`` is a chance to drift by one character
 (a missing space in ``image/tiff; application=geotiff`` is enough for an
@@ -49,18 +49,18 @@ HMP_ROOT = Path(__file__).resolve().parents[3] / "hydromodpy"
 # The table itself: every constant here is expected to hold a literal.
 MEDIA_TYPES_MODULE = HMP_ROOT / "schema" / "media_types.py"
 
-# The whole package. An artefact media type is stamped by the exporters under
+# The whole package. An artifact media type is stamped by the exporters under
 # results/, by the job and process models under schema/, and by the capability
 # and worker modules under spatial/ and data/fetch/ - and it is those last two
 # that hold every call site of the geotiff, geopackage and netcdf constants.
 SCAN_ROOTS: tuple[Path, ...] = (HMP_ROOT,)
 
-# Both quote styles. ``ruff format`` normalises this file tree to double
+# Both quote styles. ``ruff format`` normalizes this file tree to double
 # quotes, so a single-quoted literal should not survive the format gate, but a
 # scan that depends on another gate running first is a scan with a hole in it.
 LITERAL_PATTERN = re.compile(r"""(["'])(?:application|image|text|video|audio)/[^"']*\1""")
 
-# The literals in the package that are not artefact media types, and so
+# The literals in the package that are not artifact media types, and so
 # not the table's business. Each entry is (path suffix, the media type string
 # itself) -- never the surrounding line, so the entry survives a reformat of
 # code this slice does not own. A new literal in the same file still fails.
@@ -94,7 +94,7 @@ EXPECTED_MEDIA_TYPES: dict[str, str] = {
     "ZARR_MEDIA_TYPE": "application/x.zarr-store",
 }
 
-# Below this, the scanned tree is gutted rather than merely reorganised.
+# Below this, the scanned tree is gutted rather than merely reorganized.
 # Set near the real count (1584 modules as of this writing), not at a
 # fraction of it: the largest single sub-package holds 328, so a floor set
 # low enough to tolerate an anchor that collapsed onto one of them would

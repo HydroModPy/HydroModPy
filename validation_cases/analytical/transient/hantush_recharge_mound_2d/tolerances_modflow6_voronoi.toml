@@ -9,10 +9,10 @@ map_max_abs_error = 0.009
 
 [doc]
 reason = """
-Twice the error measured on the Voronoi dual, 3556 cells centred on nodes that
+Twice the error measured on the Voronoi dual, 3556 cells centered on nodes that
 face each other across the rectangle edges, so each cell takes all or none of
 the recharge: transect space-time RMSE 2.0e-3 m, max error 5.3e-3 m (the
-centre at day 3.75), final transect RMSE 2.0e-3 m, final map max 4.5e-3 m. The
+center at day 3.75), final transect RMSE 2.0e-3 m, final map max 4.5e-3 m. The
 dual is K-orthogonal: its map error stays at the level of the structured grid.
 B9 of the unified mesh, measured again on 2026-10-26. Tightened to twice the
 measure: final_time.rmse 0.0041 to 0.00404 (measure 0.00202); space_time.rmse

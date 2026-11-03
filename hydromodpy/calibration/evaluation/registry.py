@@ -220,7 +220,7 @@ def needs_prepared_model(evaluator_id: str | None = None) -> bool:
 
     No fallback, on purpose: :func:`register` refuses a class that does not carry
     the member, so every class :func:`get` can return has one. A default here
-    would be unreachable code claiming a behaviour nothing can produce.
+    would be unreachable code claiming a behavior nothing can produce.
     """
     return bool(get(evaluator_id).needs_prepared_model)
 

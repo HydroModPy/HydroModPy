@@ -100,7 +100,7 @@ gets. Skeleton:
 
        def render(self, sim: Run, ax: Axes, **opts) -> Axes:
            timestep = opts.get("timestep", -1)
-           head = sim.field("head", timestep=timestep)
+           head = sim.field("head", time=timestep)
            im = ax.imshow(head, origin="lower")
            ax.set_title(self.spec.title)
            ax.figure.colorbar(im, ax=ax, label="head [m]")
@@ -187,7 +187,7 @@ Once registered, the figure is reachable from:
 .. code-block:: bash
 
    hmp viz show <sim_ref> my_figure
-   hmp viz regen <sim_ref>
+   hmp export <sim_ref> --regen figures
 
 And from TOML:
 

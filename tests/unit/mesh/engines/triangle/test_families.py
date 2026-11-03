@@ -93,7 +93,7 @@ def _rows(cell_mesh: PlanarCellMesh, family: str) -> np.ndarray:
 
 
 def _read(request: MeshRequest, edge_labels: dict[str, np.ndarray], *, lines=()) -> MeshRequest:
-    """The triangles of *request* as a triangulation to read, with its labelled edge groups."""
+    """The triangles of *request* as a triangulation to read, with its labeled edge groups."""
     triangulated = triangulate_request(request)
     triangulation = InputTriangulation(
         triangulated.mesh.vertices, np.asarray(triangulated.mesh.flat_connectivity), edge_labels
@@ -468,7 +468,7 @@ def test_a_river_crosses_the_barrier_once_between_two_chain_cells(angle: float) 
 
 _FAN_VERTICES = np.array([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [0.5, 0.5]])
 _FAN_TRIANGLES = np.array([[0, 1, 4], [1, 2, 4], [2, 3, 4], [3, 0, 4]])
-"""A square cut into four triangles around its centre, vertex 4."""
+"""A square cut into four triangles around its center, vertex 4."""
 
 
 def test_the_fan_around_an_inner_vertex_gives_the_triangles_between_two_edges() -> None:

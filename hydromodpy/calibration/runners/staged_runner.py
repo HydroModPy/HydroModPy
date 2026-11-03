@@ -24,7 +24,7 @@ A phase that lists a parameter an earlier phase passed on moves it again. The
 passed value is not written into its baseline, so no trial overwrites what the
 search proposes. The search starts from that value when the engine declares
 ``accepts_a_start_point``; the other coordinates of that start are the sampling
-centre. An engine that takes no start point keeps its own start. When two
+center. An engine that takes no start point keeps its own start. When two
 phases pass on the same parameter, the latest wins, and the report names both:
 ``frozen`` lists each of them, and the later phase lists the value it re-opened.
 
@@ -77,6 +77,7 @@ from hydromodpy.calibration.persistence import (
 )
 from hydromodpy.calibration.protocols import (
     deviations_in_force,
+    get_protocol,
     protocol_options_away_from_the_recipe,
     protocol_record,
 )
@@ -97,6 +98,7 @@ from hydromodpy.calibration.runners.cli_runner import (
     load_toml_calibration,
     open_calibration_session,
     promote_and_close,
+    refuse_a_phase_another_cost_scored,
     refuse_an_objective_that_is_not_an_entry_point,
     run_calibration_core,
     run_one_search,
@@ -171,8 +173,8 @@ def _phase_config(cfg: CalibrationConfig, decl: CalibPhaseDecl) -> CalibrationCo
 
     ``objective_blocks`` as a list keeps each named block's declared weight. As a
     table ``{block: share}`` it replaces the selected blocks' weight with the
-    phase's own share; ``CompositeObjective`` normalises it the same way it
-    already normalises a declared weight, so the shares need not sum to one.
+    phase's own share; ``CompositeObjective`` normalizes it the same way it
+    already normalizes a declared weight, so the shares need not sum to one.
 
     A phase used to inherit every declared output whatever it scored. A
     two-stage file naming a network output for its steady stage and a discharge
@@ -407,7 +409,7 @@ def _passed_start(
 ) -> np.ndarray | None:
     """Return where a phase that moves passed values again starts its search.
 
-    The passed values, and the sampling centre for the other parameters. One
+    The passed values, and the sampling center for the other parameters. One
     coordinate per parameter of ``space``, in transformed space, as
     ``run_calibration_core(start_at=...)`` reads it. ``None`` when the phase
     re-opens nothing, or when its engine takes no start point: the engine then
@@ -1088,9 +1090,9 @@ def objective_comparison_table(
     """Return, for a phase or the whole section, what each block compares with what.
 
     One row per declared block, in declaration order: its criterion
-    (``metric``), its normalised share (:meth:`CalibrationConfig.objective_blocks_for`,
+    (``metric``), its normalized share (:meth:`CalibrationConfig.objective_blocks_for`,
     divided by the sum, as :class:`optim.objective.CompositeObjective`
-    normalises its own weights), the simulated quantity each of its outputs
+    normalizes its own weights), the simulated quantity each of its outputs
     reads, and what it is compared against. A phase that declares no block, or
     a phase-less calibration with none either, takes the single-metric route
     instead: one row for 'variable' scored by 'objective'.
@@ -1266,12 +1268,14 @@ def run_staged_calibration(
     reopen = resume or phase is not None
     persistence: CalibrationPersistence | None = None
     frozen: list[FrozenParameter] = []
+    reopening = False
     if reopen:
         existing = latest_session_dir(project_root, case)
         if existing is not None:
+            # Reopened at the first phase that writes, after the checks that may
+            # refuse it, so that a refusal leaves the session as it was.
             persistence = CalibrationPersistence(existing)
-            persistence.resume_session()
-            persistence.start_pulse()
+            reopening = True
             frozen.extend(_frozen_by_the_session(cfg, persistence, declared, plans))
     last_decl = plans[-1].decl
     runs: list[PhaseRun] = []
@@ -1281,7 +1285,10 @@ def run_staged_calibration(
     solved_reports: list[CalibrationReport] = []
     trial_ctx: TrialContext | None = None
     scope = SessionScope(
-        cfg=cfg, project_root=project_root, persistence=persistence, phase=last_decl.name
+        cfg=cfg,
+        project_root=project_root,
+        persistence=None if reopening else persistence,
+        phase=last_decl.name,
     )
     promotion_extra: dict[str, Any] = {}
     with closing_session(scope):
@@ -1338,6 +1345,24 @@ def run_staged_calibration(
                     objective=objective,
                     project_root=project_root,
                 )
+
+            if reopening:
+                if disk_result is None:
+                    refuse_a_phase_another_cost_scored(
+                        persistence,
+                        decl.name,
+                        build_cache_context(
+                            cfg=phase_cfg,
+                            trial_ctx=trial_ctx,
+                            space=space,
+                            override_paths=resolve_override_paths(phase_cfg),
+                            objective_entrypoint=objective,
+                        ),
+                    )
+                persistence.resume_session()
+                persistence.start_pulse()
+                scope.persistence = persistence
+                reopening = False
 
             if disk_result is not None:
                 report, froze = disk_result
@@ -1478,6 +1503,7 @@ def run_staged_calibration(
                 cfg,
                 runs,
                 frozen,
+                raw,
                 backend=_backend_name(raw),
                 steady_window=steady_window,
                 geographic=_geographic_choices(raw),
@@ -1549,7 +1575,7 @@ def _backend_name(document: Mapping[str, Any]) -> str:
     for process in processes if isinstance(processes, list | tuple) else ():
         if not isinstance(process, Mapping):
             continue
-        if str(process.get("type", "")).strip().lower() != "flow":
+        if str(process.get("kind", "")).strip().lower() != "flow":
             continue
         solvers = process.get("solvers")
         names = [str(name).strip() for name in solvers or () if str(name).strip()]
@@ -1649,6 +1675,7 @@ def _methods_paragraph_for(
     cfg: CalibrationConfig,
     runs: list[PhaseRun],
     frozen: list[FrozenParameter],
+    raw: Mapping[str, Any] | None = None,
     *,
     backend: str | None = None,
     steady_window: Mapping[str, Any] | None = None,
@@ -1668,11 +1695,24 @@ def _methods_paragraph_for(
     calibrated = {item.name: float(item.value) for item in frozen}
     # Every option a deviation is declared on, on the output the protocol scores.
     chosen: dict[str, object] = {}
-    for item in deviations_in_force(cfg):
+    metrics_window = (raw.get("metrics") or {}).get("window") if isinstance(raw, Mapping) else None
+    in_force = deviations_in_force(cfg, None, metrics_window)
+    protocol = get_protocol(cfg.protocol.name)
+    conditional_keys = {item.key for item in protocol.deviations if item.holds is not None}
+    conditional_in_force = [
+        item.key for item in in_force if item.key in conditional_keys and item.state == "departs"
+    ]
+    held = {
+        key: float(value)
+        for run in runs
+        if not _settled(run.report)
+        for key, value in (run.report.best_parameters or {}).items()
+    }
+    for item in in_force:
         value = item.value
         if value is None:
             continue
-        # A length is a pint quantity; the paragraph prints it in metres.
+        # A length is a pint quantity; the paragraph prints it in meters.
         if callable(getattr(value, "to", None)):
             value = f"{float(value.to('m').magnitude):g} m"
         chosen[item.key] = value
@@ -1699,13 +1739,16 @@ def _methods_paragraph_for(
         backend=backend,
         steady_window=steady_window,
         version=cfg.protocol.version,
+        held=held or None,
+        stages_declared=len(getattr(cfg, "phases", None) or ()) or None,
+        conditional_in_force=conditional_in_force,
     )
     scoring = _scoring_sentence(runs)
     return paragraph if scoring is None else f"{paragraph}\n\n{scoring}"
 
 
 def _scoring_sentence(runs: Sequence[PhaseRun]) -> str | None:
-    """Say what each stage minimised: its metric, and the pairs of its best cost.
+    """Say what each stage minimized: its metric, and the pairs of its best cost.
 
     Read off the report of each stage (``cost_metric``, ``cost_samples``,
     ``cost_window``), so the dates are the ones the cost rests on, not the rule

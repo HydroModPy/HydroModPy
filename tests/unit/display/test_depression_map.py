@@ -14,14 +14,14 @@ to raise the whole eastern valley over the ridge before a distance to it
 exists. Fifteen of the forty-five cells, a third of the mesh, none of them in a
 depression.
 
-Digging one interior cell of the western flank below its neighbours adds the
+Digging one interior cell of the western flank below its neighbors adds the
 only real depression on the page. Its spill level is written down here: the
-lowest neighbour of that cell, which is not the same cell under a
-four-neighbour graph as under an eight-neighbour one.
+lowest neighbor of that cell, which is not the same cell under a
+four-neighbor graph as under an eight-neighbor one.
 
 Two variants of that surface carry the rest of the answers. A second and deeper
 pit dug in the eastern valley puts one depression inside the catchment and one
-outside it, which is what a colour scale is read against. A catchment stopping
+outside it, which is what a color scale is read against. A catchment stopping
 one row short of the southern edge makes the dug cell its low point, so the
 outlet is interior and sits in a depression itself: on the Nancon it does, and
 a flood that seeded the outlet reported that depression away.
@@ -73,13 +73,13 @@ down is what makes the count below a construction rather than a recording.
 PIT_COLUMN = 1
 PIT_ROW = 2
 PIT_ELEVATION_M = 1.0
-"""Where the dug cell sits: below every neighbour, above the outlet at 0 m."""
+"""Where the dug cell sits: below every neighbor, above the outlet at 0 m."""
 
 EDGE_SPILL_M = 4.0
-"""Its lowest shared-edge neighbour: the valley floor one column to the east."""
+"""Its lowest shared-edge neighbor: the valley floor one column to the east."""
 
 NODE_SPILL_M = 2.0
-"""Its lowest shared-node neighbour: the diagonal one row down, and lower."""
+"""Its lowest shared-node neighbor: the diagonal one row down, and lower."""
 
 EAST_PIT_COLUMN = 6
 EAST_PIT_ROW = 2
@@ -87,10 +87,10 @@ EAST_PIT_ELEVATION_M = -5.0
 EAST_PIT_SPILL_M = 3.0
 """A second, deeper pit dug in the eastern valley, outside the catchment.
 
-Its lowest shared-edge neighbour is the valley floor one row south, at 3 m,
-so it needs eight metres of fill against the three the western pit needs.
+Its lowest shared-edge neighbor is the valley floor one row south, at 3 m,
+so it needs eight meters of fill against the three the western pit needs.
 Two pits of known and different depth, one in the catchment and one out of it,
-is what tells a colour scale stretched over the mesh from one stretched over
+is what tells a color scale stretched over the mesh from one stretched over
 the catchment.
 """
 
@@ -194,7 +194,7 @@ def basin_run(
 
 
 def grid_neighbours(index: int, *, diagonal: bool) -> list[int]:
-    """Return the neighbours of one grid cell, straight from the grid shape.
+    """Return the neighbors of one grid cell, straight from the grid shape.
 
     Written from the geometry of the mesh rather than read back from the
     adjacency the figure used: a check against the builder it checks proves
@@ -309,7 +309,7 @@ def test_an_inactive_column_moves_the_edge_of_the_domain(mpl) -> None:
 
 def test_the_edge_of_the_mesh_does_not_move_with_the_neighbourhood() -> None:
     # A diagonal link is a routing choice; the boundary of the domain is a
-    # geometric fact about the mesh, and reading it off the neighbour count
+    # geometric fact about the mesh, and reading it off the neighbor count
     # would make the two move together.
     edges = routing_surface_from_run(basin_run()).domain_edge
     nodes = routing_surface_from_run(basin_run(), diagonal_neighbors=True).domain_edge
@@ -401,8 +401,8 @@ def test_the_depressions_do_not_move_when_another_cell_is_sealed(
 @pytest.mark.parametrize("diagonal", [False, True])
 def test_every_cell_leaves_the_surface_over_the_graph_the_flood_walked(diagonal: bool) -> None:
     # The invariant the whole conditioning exists for: once a flood is done,
-    # every cell it was not seeded on has a strictly lower neighbour ON THE
-    # SAME adjacency. Flooded over one neighbourhood and descended over
+    # every cell it was not seeded on has a strictly lower neighbor ON THE
+    # SAME adjacency. Flooded over one neighborhood and descended over
     # another, the filled cells spill over links the descent cannot take.
     surface = routing_surface_from_run(
         basin_run(topography=pitted_topography()), diagonal_neighbors=diagonal
@@ -445,7 +445,7 @@ def test_the_default_map_paints_the_depression_and_not_the_other_basin(mpl) -> N
     # be painted as raised, on a map titled "depressions", and it holds none.
     fig, ax = mpl.subplots()
 
-    # The spill heights are written for the four-neighbour graph: under D8 the
+    # The spill heights are written for the four-neighbor graph: under D8 the
     # pit spills over a diagonal saddle, lower than its cardinal one.
     DepressionMap().render(basin_run(topography=pitted_topography()), ax, diagonal_neighbors=False)
 
@@ -667,15 +667,15 @@ def test_the_note_names_the_other_cell_when_another_one_is_sealed(mpl) -> None:
 
 
 # --------------------------------------------------------------------------- #
-# the colour scale
+# the color scale
 # --------------------------------------------------------------------------- #
 
 
 def test_the_unreachable_scale_is_set_by_the_fills_inside_the_catchment(mpl) -> None:
     """Outside it the mesh holds whole basins flooded over a ridge.
 
-    A percentile over the whole mesh is set by those, and the metre-scale pit
-    the note calls the real signal collapses onto the first colour of the ramp:
+    A percentile over the whole mesh is set by those, and the meter-scale pit
+    the note calls the real signal collapses onto the first color of the ramp:
     the map declares its own subject unreadable. Measured on the Nancon, that
     ceiling is 31.21 m against 3.97 m, with two thirds of the drawn cells above
     it.
@@ -755,9 +755,9 @@ def test_a_banned_colormap_is_refused_by_name(mpl) -> None:
 
 
 def test_a_raised_cell_stays_separable_from_a_cell_that_drains(mpl) -> None:
-    # The background is a flat grey and the depth runs light to dark, so the
+    # The background is a flat gray and the depth runs light to dark, so the
     # shallow end has to print lighter than the background and the deep end
-    # darker. Sat inside that range, a fill would vanish on a greyscale print.
+    # darker. Sat inside that range, a fill would vanish on a grayscale print.
     from matplotlib.colors import to_rgb
 
     from hydromodpy.display.figures.depression_map import _FILL_CMAP, _UNRAISED_FACE

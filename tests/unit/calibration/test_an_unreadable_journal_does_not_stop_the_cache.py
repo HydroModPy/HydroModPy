@@ -23,7 +23,9 @@ from hydromodpy.results.session.journal import trials_path
 pytestmark = pytest.mark.unit
 
 
-def _session(project_root: Path, name: str, params_hash: str) -> Path:
+def _session(
+    project_root: Path, name: str, params_hash: str, components: dict[str, float] | None = None
+) -> Path:
     session_dir = project_root / "sessions" / name
     session_dir.mkdir(parents=True)
     persistence = CalibrationPersistence(session_dir)
@@ -46,6 +48,7 @@ def _session(project_root: Path, name: str, params_hash: str) -> Path:
             sim_id=None,
             cost=0.5,
             status="completed",
+            components={"J": 0.5} if components is None else components,
             metadata={"params_hash": params_hash},
         ),
     )
@@ -68,3 +71,11 @@ def test_the_cache_skips_an_unreadable_journal_and_keeps_the_others(tmp_path, ca
     assert "v2:alpha" not in cache
     assert "alpha" in caplog.text
     assert "solved again" in caplog.text
+
+
+def test_a_trial_that_kept_no_components_is_solved_again(tmp_path) -> None:
+    _session(tmp_path, "bare", "v2:bare", components={})
+    cache = ParamsHashCache()
+
+    assert preload_hash_cache(tmp_path, cache) == 0
+    assert "v2:bare" not in cache

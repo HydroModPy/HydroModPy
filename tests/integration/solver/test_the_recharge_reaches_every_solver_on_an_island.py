@@ -201,6 +201,9 @@ def test_a_steady_first_period_receives_the_time_mean(tmp_path: Path, solver: st
 
     assert rates[0] / rates[1] == pytest.approx(TIME_MEAN_MM_DAY / RATES_MM_DAY[1], rel=1e-6)
     assert rates[2] / rates[1] == pytest.approx(RATES_MM_DAY[2] / RATES_MM_DAY[1], rel=1e-6)
+    # Every solver closes its domain budget on the signed terms, storage included.
+    net = (table["flux_in"] - table["flux_out"]).groupby(table["timestep"]).sum()
+    np.testing.assert_allclose(net.to_numpy(dtype=float) / rates, 0.0, atol=1e-4)
     if solver != "boussinesq":
         # The criterion reads the own rate of each period, so the same mean again.
         fields = zarr.open_group(str(root / "runs" / "steady" / "fields.zarr"), mode="r")
@@ -244,11 +247,11 @@ def test_modpath_runs_without_drains_on_a_grid_that_is_not_the_dem(tmp_path: Pat
             ('active_bc = ["ocean", "drainage"]', 'active_bc = ["ocean"]'),
             ('param_list = ["K"]', 'param_list = ["K", "Sy", "Ss"]'),
             (
-                '[[simulation.process]]\nid = "flow_main"\ntype = "flow"\n'
+                '[[simulation.process]]\nid = "flow_main"\nkind = "flow"\n'
                 'solvers = ["modflow_nwt"]\n',
-                '[[simulation.process]]\nid = "flow_main"\ntype = "flow"\n'
+                '[[simulation.process]]\nid = "flow_main"\nkind = "flow"\n'
                 'solvers = ["modflow_nwt"]\n\n[[simulation.process]]\n'
-                'id = "transport_main"\ntype = "transport"\nsolvers = ["modpath"]\n',
+                'id = "transport_main"\nkind = "transport"\nsolvers = ["modpath"]\n',
             ),
         ),
         mesh="\n[mesh]\ncell_size = 40.0\n",

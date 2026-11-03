@@ -16,7 +16,7 @@ the UI never copies it.
 The schema export
 -----------------
 
-``hmp dev schema export --output ./schema/`` writes three files:
+``hmp config schema --bundle --to ./schema/`` writes three files:
 
 .. list-table::
    :header-rows: 1
@@ -47,7 +47,7 @@ Each field in ``config.json`` keeps what the models declare in
 ``display_min``, ``display_max``, ``group``, ``stability``, ``value_docs``) and
 carries its visibility in ``x-hmp-profile`` (``user``, ``dev`` or ``expert``), so
 a form can hide the developer and expert fields. These annotations are the
-contract between the models and the UI. Honour them and you need no mapping
+contract between the models and the UI. Honor them and you need no mapping
 layer. They are added to a field as described in :doc:`add-a-config-field`.
 
 The contract of the schema is its property paths, their types and their
@@ -67,12 +67,12 @@ files that omit required keys. ``hmp config schema --editor`` and
 ``tests/unit/docs/test_docs_config_consistency.py`` keeps it equal to what the
 code exports. A frontend that needs the required keys and the strict unions
 reads the model schema instead: ``hmp config schema``, or the three files of
-``hmp dev schema export``.
+``hmp config schema --bundle --to DIR``.
 
 The partial validator
 ---------------------
 
-``hmp dev schema validate-field <path> <value>`` runs the validator your form
+``hmp config validate-field <path> <value>`` runs the validator your form
 should call on each change, in well under 50 ms and without I/O. From Python:
 
 .. code-block:: python
@@ -87,7 +87,7 @@ should call on each change, in well under 50 ms and without I/O. From Python:
 
 It resolves the dotted path on ``HydroModPyConfig``, picks the matching
 ``pydantic.TypeAdapter`` and returns a ``ValidationResult`` with ``valid``,
-``error``, ``warnings`` and ``dependent_fields_affected``. Lookups are memoised,
+``error``, ``warnings`` and ``dependent_fields_affected``. Lookups are memoized,
 so a repeated call on the same path is free. A frontend that is not written in
 Python reaches it through the CLI in a subprocess, or through any transport the
 integrator chooses.
@@ -101,7 +101,7 @@ Angular applications usually pair the schema with ``ngx-formly`` or
 
 .. code-block:: bash
 
-   hmp dev schema export --output ./src/app/api/schema/
+   hmp config schema --bundle --to ./src/app/api/schema/
 
 React, with ``@rjsf/core``:
 

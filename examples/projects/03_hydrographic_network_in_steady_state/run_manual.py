@@ -50,11 +50,11 @@ OUT = HERE / "summary" / "figures" / "hydraulic_conductivity_sweep"
 # Hydraulic conductivities to explore, m/s, log-spaced over five decades.
 K_VALUES = np.geomspace(1e-8, 1e-3, 10)
 
-# Colour per K, dark for the tight aquifers and light for the transmissive
+# Color per K, dark for the tight aquifers and light for the transmissive
 # ones, shared by the three figures.
 COLORS = plt.get_cmap("viridis")(np.linspace(0.0, 0.9, len(K_VALUES)))
 
-# One colour per quantity, the same in every figure.
+# One color per quantity, the same in every figure.
 ACTIVE_COLOR = "#a01111"
 SEEPAGE_COLOR = "#f4a259"
 REFERENCE_COLOR = "navy"
@@ -164,7 +164,7 @@ def draw_active_network(ax, run, reference):
     """
     extent = run.grid.extent
     ax.imshow(run.dem, extent=extent, origin="upper", cmap="Greys", alpha=0.5, zorder=1)
-    active = raster(run, "accumulation_flux") > 0.0
+    active = raster(run, "drain_accumulation_flux") > 0.0
     draw_mask(ax, active, extent, ACTIVE_COLOR, alpha=0.85, zorder=2)
     draw_mask(ax, raster(run, "seepage_mask") > 0.0, extent, SEEPAGE_COLOR, alpha=0.7, zorder=3)
     ax.contour(

@@ -43,19 +43,21 @@ def run_boussinesq_dupuit_fixed_head_case(
 
     flow_section = {
         "flow_regime": "transient" if use_ts_vi else "steady",
-        "runtime_backend": str(runtime_backend),
-        "ic": {"type": "custom", "value": 0.5 * (west_head_m + east_head_m)},
-        "active_sinks_sources": [],
-        "active_bc": ["west_side", "east_side"],
+        "runtime": {
+            "backend": str(runtime_backend),
+        },
+        "ic": {"kind": "custom", "value": 0.5 * (west_head_m + east_head_m)},
         "bc": {
             "west_side": {"value": west_head_m},
             "east_side": {"value": east_head_m},
         },
     }
     if surface_interaction_model is not None:
-        flow_section["surface_interaction_model"] = str(surface_interaction_model)
+        flow_section.setdefault("runtime", {})["surface_interaction_model"] = str(
+            surface_interaction_model
+        )
     if use_ts_vi:
-        flow_section.update(
+        flow_section.setdefault("runtime", {}).update(
             {
                 "ts_vi_steps_per_period": 4,
                 "ts_vi_adapt": False,

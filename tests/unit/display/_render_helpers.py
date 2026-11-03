@@ -1,6 +1,6 @@
 """Shared rendering assertions used across figure tests.
 
-Several figure tests need to know whether a drawn colour reads as light or
+Several figure tests need to know whether a drawn color reads as light or
 dark on paper, to check that text or markers placed on top stay legible.
 """
 
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 
 def relative_luminance(color: str) -> float:
-    """Perceived brightness of one colour, the quantity a greyscale print keeps."""
+    """Perceived brightness of one color, the quantity a grayscale print keeps."""
     from matplotlib.colors import to_rgb
 
     channels = [

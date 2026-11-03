@@ -2,7 +2,7 @@
 
 Example 09 is one catchment and three recipes, read by ``hmp report compare``.
 Example 19 is two Breton catchments and two recipes, a plain run and a short
-calibration, summed up by ``hmp project collect``. Neither runs here: the
+calibration, summed up by ``hmp campaign collect``. Neither runs here: the
 plan, the check and the dry run need no solver and no network.
 """
 

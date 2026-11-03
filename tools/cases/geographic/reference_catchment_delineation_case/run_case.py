@@ -25,7 +25,7 @@ if __package__ in (None, ""):
         sys.path.insert(0, str(_repo_root))
 
 from hydromodpy.config import HydroModPyConfig
-from hydromodpy.core.workspace import Workspace
+from hydromodpy.core.workspace import WorkspaceLayout
 from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
 from tools.cases.plotting_utils import (
     ensure_interactive_backend_for_show,
@@ -37,9 +37,9 @@ KNOWN_CASE_IDS = ("base", "canut", "nancon", "aber")
 
 
 def run_geographic_case_from_toml(config_toml: str | Path):
-    """Build Workspace + Geographic from one global TOML file."""
+    """Build WorkspaceLayout + Geographic from one global TOML file."""
     cfg = HydroModPyConfig.from_toml(config_toml)
-    workspace = Workspace(config=cfg.workspace)
+    workspace = WorkspaceLayout(config=cfg.workspace)
     geographic = CatchmentDelineation(config=cfg.geographic, initializing=workspace)
     return workspace, geographic
 
@@ -77,7 +77,7 @@ def build_case_specs(cfg: HydroModPyConfig) -> dict[str, dict[str, Any]]:
         "canut": {
             "label": "Canut polygon case (from_polyg_shp)",
             "catchment": {
-                "catch_def": "from_polyg_shp",
+                "kind": "from_polyg_shp",
                 "polyg_shp_path": canut_shp,
                 "dem_init_path": wide_brittany_dem,
                 "buff_area": default_buff,
@@ -86,7 +86,7 @@ def build_case_specs(cfg: HydroModPyConfig) -> dict[str, dict[str, Any]]:
         "nancon": {
             "label": "Nancon outlet case",
             "catchment": {
-                "catch_def": "from_outlet_coord",
+                "kind": "from_outlet_coord",
                 "dem_init_path": wide_brittany_dem,
                 "x_outlet": 389285.910,
                 "y_outlet": 6816518.749,
@@ -97,7 +97,7 @@ def build_case_specs(cfg: HydroModPyConfig) -> dict[str, dict[str, Any]]:
         "aber": {
             "label": "Aber outlet case",
             "catchment": {
-                "catch_def": "from_outlet_coord",
+                "kind": "from_outlet_coord",
                 "dem_init_path": wide_brittany_dem,
                 "x_outlet": 150727.164,
                 "y_outlet": 6858066.520,
@@ -240,7 +240,7 @@ def run_geographic_cases_from_toml(
                 }
             )
 
-        workspace = Workspace(config=init_cfg)
+        workspace = WorkspaceLayout(config=init_cfg)
         geographic = CatchmentDelineation(config=geo_cfg, initializing=workspace)
         metrics = compute_catchment_metrics(geographic)
         river_network_summary_path, river_network_summary = _load_river_network_summary(geographic)
@@ -324,7 +324,7 @@ def _plot_geographic_summary(
         )
 
     outlet_handle = None
-    if getattr(geographic, "catch_def", None) == "from_outlet_coord":
+    if getattr(geographic, "kind", None) == "from_outlet_coord":
         if hasattr(geographic, "x_outlet") and hasattr(geographic, "y_outlet"):
             (outlet_handle,) = ax.plot(
                 geographic.x_outlet,

@@ -1,7 +1,7 @@
 """Shared analytical references for 1D linearized unconfined transient flow.
 
 The side heads sit at ``west_x`` and ``east_x``, where the model holds them:
-on a structured grid, the centres of the boundary columns
+on a structured grid, the centers of the boundary columns
 (``validation_cases.shared.strip_geometry``).
 """
 

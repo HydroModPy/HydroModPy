@@ -63,3 +63,8 @@ def test_rank_by_must_be_a_metric_the_rule_writes() -> None:
 def test_rank_by_must_be_a_column_of_the_summary() -> None:
     with pytest.raises(ValidationError, match="rank_by.*metrics"):
         SitesConfig.model_validate({"summary": {"metrics": ["nse"], "rank_by": "rmse"}})
+
+
+def test_a_summary_metric_must_be_a_metric_the_rule_writes() -> None:
+    with pytest.raises(ValidationError, match="bogus.*nse, kge"):
+        SitesConfig.model_validate({"summary": {"metrics": ["nse", "bogus"]}})

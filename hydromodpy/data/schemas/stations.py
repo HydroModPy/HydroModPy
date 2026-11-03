@@ -32,7 +32,7 @@ StationCollectionSchema = pa.DataFrameSchema(
             float,
             nullable=True,
             required=False,
-            description="Altitude above sea level (metres).",
+            description="Altitude above sea level (meters).",
         ),
         "name": pa.Column(
             str,

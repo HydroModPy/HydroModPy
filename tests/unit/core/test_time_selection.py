@@ -24,6 +24,7 @@ from hydromodpy.core.time import (
     resolve_period,
     resolve_simulation_time_grid,
 )
+from hydromodpy.core.time.selection import in_series_window
 
 MONTHLY = pd.date_range("2000-01-01", "2003-01-01", freq="MS")
 DAILY = pd.date_range("2000-01-01", "2003-01-01", freq="D")
@@ -163,6 +164,19 @@ def test_resolve_instants_keeps_the_order_given() -> None:
     assert resolve_instants((), MONTHLY) == ()
 
 
+@pytest.mark.parametrize(
+    ("dates", "named"),
+    [
+        (["2000-01-01", "2000-02-01", "2000-03-01"], "'2000-01-01' and '2000-02-01'"),
+        (["2000-01-15", "2000-01-20"], "'2000-01-15' and '2000-01-20'"),
+        (["first", 0], "'first' and 0"),
+    ],
+)
+def test_a_list_where_two_dates_read_one_period_names_them(dates: list, named: str) -> None:
+    with pytest.raises(TimeSelectionError, match=named):
+        resolve_instants(dates, MONTHLY)
+
+
 def test_resolve_period_keeps_every_overlapping_period() -> None:
     assert resolve_period("2002-10-15", "2002-12-02", MONTHLY) == (33, 34, 35)
     assert resolve_period("2002-10-01", "2002-10-31", MONTHLY) == (33,)
@@ -188,6 +202,60 @@ def test_a_window_of_one_date_reads_the_period_that_date_reads() -> None:
 def test_resolve_period_clips_a_window_that_runs_past_the_record() -> None:
     assert resolve_period("1999-06-01", "2000-02-15", MONTHLY) == (0, 1)
     assert resolve_period("2002-11-15", "2010-01-01", MONTHLY) == (34, 35)
+
+
+@pytest.mark.parametrize(
+    "window",
+    [("2003-01-01", "2010-01-01"), ("2003-01-01", "last"), ("1999-01-01", "2000-01-01")],
+)
+def test_a_window_that_only_touches_the_record_holds_no_period(window: tuple) -> None:
+    with pytest.raises(TimeSelectionError, match="outside the record"):
+        resolve_period(*window, MONTHLY)
+
+
+def _kept(period: object, *, observed: bool, edges: object = None) -> list[str]:
+    times = pd.date_range("2003-01-01", "2003-04-01", freq="MS")
+    kept = times[in_series_window(times, observed=observed, period=period, edges=edges)]
+    return kept.strftime("%m-%d").tolist()
+
+
+@pytest.mark.parametrize(
+    ("window", "simulated", "measured"),
+    [
+        (("2003-02-01", "2003-03-01"), ["03-01"], ["02-01"]),
+        (("2003-02-15", "2003-02-20"), ["03-01"], ["02-01"]),
+        (("2003-01-01", "2003-02-01"), ["02-01"], ["01-01"]),
+        (("2003-01-01", "2003-01-01"), ["02-01"], ["01-01"]),
+        (("2003-02-01", "2003-02-01"), ["02-01"], ["01-01"]),
+        (("2003-04-01", "2003-04-01"), ["04-01"], ["03-01"]),
+        (("2002-01-01", "2010-01-01"), ["02-01", "03-01", "04-01"], ["01-01", "02-01", "03-01"]),
+        ("2003", ["02-01", "03-01", "04-01"], ["01-01", "02-01", "03-01"]),
+    ],
+)
+def test_a_window_over_a_series_keeps_the_periods_it_overlaps(window, simulated, measured) -> None:
+    edges = pd.date_range("2003-01-01", "2003-04-01", freq="MS")
+
+    assert _kept(window, observed=False, edges=edges) == simulated
+    assert _kept(window, observed=True, edges=edges) == measured
+
+
+def test_a_window_on_a_run_without_edges_reads_its_two_bounds() -> None:
+    assert _kept(("2003-02-01", "2003-03-01"), observed=False) == ["03-01"]
+    assert _kept(("2003-02-01", "2003-03-01"), observed=True) == ["02-01"]
+    with pytest.raises(TimeSelectionError, match="this run has no dates"):
+        _kept(("2003-02-01", "2003-02-01"), observed=False)
+    with pytest.raises(TimeSelectionError, match="ends before it starts"):
+        _kept(("2003-03-01", "2003-02-01"), observed=False)
+    with pytest.raises(TimeSelectionError, match="not a year"):
+        _kept("two thousand", observed=False)
+
+
+def test_a_window_over_a_series_reads_its_bounds_and_its_stamps_in_utc() -> None:
+    paris = dt.timezone(dt.timedelta(hours=1))
+    times = pd.DatetimeIndex(["2020-01-01", "2020-01-02"], tz="UTC")
+    window = (dt.datetime(2020, 1, 1, 1, tzinfo=paris), dt.datetime(2020, 1, 2, 1, tzinfo=paris))
+
+    assert in_series_window(times, observed=False, period=window).tolist() == [False, True]
 
 
 def test_resolve_period_refuses_an_empty_window() -> None:

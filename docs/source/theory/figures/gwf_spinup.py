@@ -12,7 +12,7 @@ from hydromodpy.solver.steady_initial_conditions import (
 )
 
 flow = SimpleNamespace(
-    initial_conditions=FlowInitialConditions.model_validate({"h": {"type": "spinup_cyclic"}})
+    initial_conditions=FlowInitialConditions.model_validate({"h": {"kind": "spinup_cyclic"}})
 )
 strategy = cyclic_spinup_strategy(flow)
 

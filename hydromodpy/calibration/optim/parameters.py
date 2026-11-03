@@ -99,8 +99,8 @@ def _assert_path_is_not_the_mesh(name: str, path: str | None) -> None:
     """Refuse a parameter that would search over the mesh itself.
 
     Two reasons, and either one is enough. The stream-network criterion is
-    normalised by cell size, so refining the mesh moves the yardstick and a
-    search that optimises it is circular. And the mesh step reads the mesh
+    normalized by cell size, so refining the mesh moves the yardstick and a
+    search that optimizes it is circular. And the mesh step reads the mesh
     sections resolved once from the raw file rather than the per-trial
     configuration, so the value would never reach the mesh: every trial would
     score the same model under a different number.
@@ -334,7 +334,7 @@ def apply_parameter_to_config(
     param: CalibParameter,
     value: float,
 ) -> None:
-    """Write ``value`` into ``cfg`` for ``param``, honouring ``param.mode``.
+    """Write ``value`` into ``cfg`` for ``param``, honoring ``param.mode``.
 
     ``mode="replace"`` writes the candidate value as-is at ``param.effective_path``.
     ``mode="scale"`` multiplies the existing value at that path by the candidate
@@ -360,7 +360,7 @@ def _assert_candidate_is_physical(param: CalibParameter, written: float) -> None
     writes 0.8, past the physical ceiling, and only the solver would notice.
 
     Keyed on the parameter's own name. A value reached through a resolved name
-    is already faced with the range its catalogue entry carries, at load time,
+    is already faced with the range its catalog entry carries, at load time,
     in :mod:`hydromodpy.calibration.parameter_resolution`; what is left here is
     the best a bare name can do.
     """

@@ -28,14 +28,14 @@ def _one_lake_model() -> SimpleNamespace:
         model_output_name="drn_to_lake",
         time_units="seconds",
         flow=SimpleNamespace(
-            active_bc=["reservoir"],
+            active_bc=["lake"],
             sinks_sources={
                 "lakes": {
                     "lac0": {
                         "polygon": polygon,
                         "bedleak": 0.2,
                         "abacus": [(50.0, 0.0, 4.0), (90.0, 160.0, 4.0)],
-                        "stageinit": 60.0,
+                        "initial_stage": 60.0,
                         "outlets": [],
                     }
                 }

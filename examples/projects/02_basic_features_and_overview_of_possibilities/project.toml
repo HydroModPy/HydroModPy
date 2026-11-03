@@ -18,12 +18,12 @@ description = "Conceptual DEM domain, steady MODFLOW 6, full standard figure set
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [[simulation.process]]
 id = "particles"
-type = "transport"
+kind = "transport"
 solvers = ["modflow6_prt"]
 
 
@@ -33,7 +33,7 @@ crs_project = "EPSG:2154"
 # Delineating from the lowest cell masks the DEM nodata border, which the
 # direct catch_def = "dem" mode does not.
 [geographic.catchment]
-catch_def = "from_outlet_coord"
+kind = "from_outlet_coord"
 dem_init_path = "conceptual_dem.tif"
 x_outlet = 142687.4
 y_outlet = 6849096.4
@@ -46,6 +46,12 @@ buff_area = "10%"
 [domain.depth_model]
 kind = "flat_substratum"
 substratum_elevation = "-78.0 m"
+
+
+[domain.layers]
+genmtd_lay = "decay"
+nlay = 10
+lay_decay = 1.2
 
 
 [data]
@@ -64,8 +70,6 @@ values = [1.5]
 [flow]
 flow_regime = "steady"
 param_list = ["K", "Sy"]
-active_sinks_sources = ["recharge"]
-active_bc = ["drainage"]
 
 [flow.param.K.field]
 kind = "homogeneous"
@@ -75,7 +79,7 @@ value = 1e-5
 # Two conductivity bands, not a decay: the weathered first 30 m conduct, the
 # bedrock under them is a hundred times tighter.
 [flow.param.K.field_vertical_profile]
-mode = "tabulated"
+kind = "tabulated"
 interpolation = "step"
 depths = [0.0, 30.0]
 factors = [1.0, 0.01]
@@ -86,28 +90,23 @@ unit = "-"
 value = 0.1
 
 [flow.bc.drainage]
-kind = "cauchy"
+kind = "drain"
 
 
+[flow.sinks_sources.recharge]
 [transport.modflow6prt.parameters]
 release_zone = "domain"
 porosity = 0.1
 max_particles = 250
-release_times_days = [0.0]
-track_time_step_days = 365.0
-stop_time_days = 3650000.0
+track_time_step = 365.0
+stop_time = 3650000.0
+release_times = [0.0]
 
 
 [modflow6.runtime]
 mf6_ims_complexity = "MODERATE"
 
 # Ten layers thickening with depth.
-[modflow6.sgrid.vertical]
-genmtd_lay = "decay"
-nlay = 10
-lay_decay = 1.2
-
-
 [display]
 on_error = "raise"
 figures = [

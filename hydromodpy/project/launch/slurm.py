@@ -2,10 +2,10 @@
 
 Why
 ---
-On a cluster the plan is enough. ``hmp project array . --scheduler slurm``
+On a cluster the plan is enough. ``hmp campaign array . --scheduler slurm``
 writes ``jobs/<stamp>-slurm/{prepare.sh, array.sh, cases.txt}`` once, and
 never rewrites them. Task N of either array reads line N of the
-``cases.txt`` of its own job through ``hmp project case <job> N``
+``cases.txt`` of its own job through ``hmp campaign case <job> N``
 (:mod:`hydromodpy.project.launch.journal` owns that list), so a plan
 written again while the job waits in the queue changes nothing it runs.
 
@@ -93,7 +93,11 @@ from hydromodpy.project.launch.journal import (
     read_case_list,
     write_case_list,
 )
-from hydromodpy.project.launch.local import sites_run_config, worker_flags
+from hydromodpy.project.launch.local import (
+    effective_prepare_parallel,
+    sites_run_config,
+    worker_flags,
+)
 from hydromodpy.project.launch.prepare import workspace_data_dir
 from hydromodpy.project.launch.status import plan_is_stale
 from hydromodpy.results.catalog.registration import split_stem_version
@@ -160,7 +164,7 @@ _TEMPLATES = "hydromodpy.project.launch.templates"
 
 @dataclass(frozen=True, slots=True)
 class SlurmJob:
-    """What ``hmp project array`` wrote under ``jobs/<stamp>-slurm/``."""
+    """What ``hmp campaign array`` wrote under ``jobs/<stamp>-slurm/``."""
 
     directory: Path
     prepare_sh: Path
@@ -219,7 +223,9 @@ def write_slurm_array(
         )
     run = sites_run_config(root)
     threads = _positive("threads_per_case", threads_per_case, run.threads_per_case)
-    prepare = _positive("prepare_parallel", prepare_parallel, run.prepare_parallel)
+    prepare = effective_prepare_parallel(
+        _positive("prepare_parallel", prepare_parallel, run.prepare_parallel), force=False
+    )
     directives = _directives(partition, walltime)
     max_solves = max(case.solves for case in planned_cases(stored))
 
@@ -603,7 +609,7 @@ def main(argv: list[str] | None = None) -> int:
     """Entry of ``python -m hydromodpy.project.launch.slurm``, called by the job scripts."""
     parser = argparse.ArgumentParser(
         prog="python -m hydromodpy.project.launch.slurm",
-        description="Steps the SLURM job scripts of `hmp project array` run on a node.",
+        description="Steps the SLURM job scripts of `hmp campaign array` run on a node.",
     )
     sub = parser.add_subparsers(dest="command", required=True)
     finish = sub.add_parser("finish-task", help="Close the run directory of one task")

@@ -26,7 +26,7 @@ def test_every_computable_metric_is_selectable() -> None:
 
 
 def test_every_metric_declares_its_direction() -> None:
-    """A metric the engine cannot orient would be minimised the wrong way."""
+    """A metric the engine cannot orient would be minimized the wrong way."""
     assert HIGHER_IS_BETTER <= set(METRICS)
 
 

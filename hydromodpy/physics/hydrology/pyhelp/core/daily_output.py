@@ -109,7 +109,7 @@ def calc_area_daily_avg(cellnames, workdir):
             continue
 
     if not all_dfs:
-        raise RuntimeError("Aucune donnée journalière n’a été chargée.")
+        raise RuntimeError("No daily data was loaded.")
 
     # Concat
     df_concat = pd.concat(all_dfs, axis=1)
@@ -130,13 +130,13 @@ def calc_area_daily_avg(cellnames, workdir):
     return df_mean
 
 
-def plot_daily(df_daily_mean, title="Bilan journalier moyen"):
+def plot_daily(df_daily_mean, title="Mean daily budget"):
 
     COMPONENTS = ["precip", "runoff", "evapo", "rechg"]
     LABELS = {
-        "precip": "Précipitations",
-        "runoff": "Ruissellement",
-        "evapo": "Évapotranspiration",
+        "precip": "Precipitation",
+        "runoff": "Runoff",
+        "evapo": "Evapotranspiration",
         "rechg": "Recharge",
     }
 

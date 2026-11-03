@@ -137,7 +137,7 @@ def main() -> None:
         print(f"[impact] {label}: {sdir}")
         results[label] = analyze(sdir, args.raw_dem)
 
-    # One symmetric colour scale across variants for honest comparison.
+    # One symmetric color scale across variants for honest comparison.
     vlim = max(float(np.percentile(np.abs(r["delta"][r["aquifer"]]), 99)) for r in results.values())
     vlim = max(vlim, 0.5)
 
@@ -178,7 +178,7 @@ def main() -> None:
         "table{border-collapse:collapse}td,th{border:1px solid #ccc;padding:3px 8px;"
         "font-size:13px}figure{margin:0 0 20px}</style>"
         "<h1>Mesh-top conditioning impact (DEM modification)</h1>"
-        f"<p>Common colour scale +/-{vlim:.2f} m. Blue = conditioning lowered the top, "
+        f"<p>Common color scale +/-{vlim:.2f} m. Blue = conditioning lowered the top, "
         "red = raised. Lakes greyed (carved bathymetric bed, reported separately).</p>"
         f"{imgs}<h2>Statistics</h2><table><tr><th>metric</th>{header}</tr>{rows}</table>"
     )

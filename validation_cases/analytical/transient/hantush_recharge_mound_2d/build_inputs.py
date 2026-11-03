@@ -4,7 +4,7 @@ Rebuild them with
 ``python -m validation_cases.analytical.transient.hantush_recharge_mound_2d.build_inputs``.
 
 The raster has the pixels of the 101 x 101 model grid, 20 m wide, so a model
-cell centre reads the pixel it sits in, and the rectangle edges fall on pixel
+cell center reads the pixel it sits in, and the rectangle edges fall on pixel
 edges. A mesh cell takes the pixel under its centroid, so a mesh gets the
 recharge over exactly the rectangle area only when no cell straddles an edge.
 Both bundles are Gmsh triangulations refined under the rectangle, 10 m there

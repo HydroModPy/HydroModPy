@@ -63,7 +63,7 @@ def test_a_run_shared_with_its_data_replays_elsewhere_with_the_same_heads(tmp_pa
             RUN_NAME,
             "--to",
             str(archive),
-            "--format",
+            "--container",
             "tar",
             "--with",
             "inputs",
@@ -106,7 +106,7 @@ def test_a_run_shared_with_its_data_replays_elsewhere_with_the_same_heads(tmp_pa
         env=second,
     )
     _ok(diff, "catalog diff")
-    compared = json.loads(diff.stdout.strip().splitlines()[-1])
+    compared = json.loads(diff.stdout)["data"]
     assert compared["params"] == []
     # Only the solve time differs, and a runtime number is no score.
     assert compared["metrics"] == [], compared["metrics"]

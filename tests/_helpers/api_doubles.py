@@ -25,10 +25,10 @@ def make_capturing_project(
     """
 
     class CapturingProject:
-        def __init__(self, cfg: Any, *, headless: bool = True) -> None:
+        def __init__(self, cfg: Any, *, headless: bool = True, **_: Any) -> None:
             captured["init_cfg"] = cfg
             captured["init_headless"] = headless
-            self.config = cfg
+            self.config = self._cfg = cfg
 
         def __enter__(self) -> CapturingProject:
             return self

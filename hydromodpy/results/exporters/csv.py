@@ -23,6 +23,7 @@ import pandas as pd
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.scope import OBSERVED, series_selector
+from hydromodpy.core.time.selection import in_series_window
 
 if TYPE_CHECKING:
     from hydromodpy.results.identity import Identity
@@ -56,21 +57,14 @@ SERIES_COLUMNS = (
 
 
 def _in_windows(frame: pd.DataFrame, windows: Sequence[Window]) -> pd.Series:
-    """Return the mask of the rows of a series inside ``windows``.
+    """Return the mask of the rows of a series inside ``windows``, the spans of its periods.
 
-    A simulated value is stamped at the end of its period, so a window keeps
-    ``(start, end]``. An observation is stamped when it was taken, so a window
-    keeps ``[start, end)``. Each keeps what falls in the periods of the window.
     No window keeps no row, as an empty ``variables`` list does.
     """
     keep = pd.Series(False, index=frame.index)
     observed = frame["source"] == OBSERVED
-    clock = frame["_clock"]
-    for start, end in windows:
-        lo, hi = pd.Timestamp(start), pd.Timestamp(end)
-        keep |= (observed & (clock >= lo) & (clock < hi)) | (
-            ~observed & (clock > lo) & (clock <= hi)
-        )
+    for window in windows:
+        keep |= in_series_window(frame["_clock"], observed=observed, period=window)
     return keep
 
 

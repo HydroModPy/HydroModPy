@@ -222,7 +222,7 @@ class Modpath:
         if not budget_holds(cbb, "RECHARGE"):
             raise ConfigError(
                 "MODPATH weighs its particles by the recharge, and this run has none: add "
-                '"recharge" to flow.active_sinks_sources.'
+                "[flow.sinks_sources.recharge]."
             )
         _ = head_file
 

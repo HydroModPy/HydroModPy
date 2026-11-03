@@ -33,7 +33,7 @@ class ConditioningImpactMap(BaseFigure):
     """Per-cell top difference between two runs on one mesh (``sim`` minus ``reference``).
 
     It maps what one configuration did to the model top against another: fill
-    against capped breach, bed regularisation off against on (blue = lowered,
+    against capped breach, bed regularization off against on (blue = lowered,
     red = raised). ``reference=<run>`` is required and both runs must share the
     mesh. Lake cells cancel out when their bed is carved identically, so the map
     shows the aquifer modification.
@@ -67,7 +67,7 @@ class ConditioningImpactMap(BaseFigure):
             float,
             Opt(
                 "Percentile of the absolute differences that sets the ends of the "
-                "colour scale, never under 0.5 m, so a few carved cells do not flatten "
+                "color scale, never under 0.5 m, so a few carved cells do not flatten "
                 "the rest.",
                 unit="%",
             ),

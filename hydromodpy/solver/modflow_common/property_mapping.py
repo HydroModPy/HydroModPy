@@ -1,7 +1,7 @@
 """Hydraulic properties of a MODFLOW solver mesh (NWT and MODFLOW 6).
 
 ``resolve_flow_property_arrays`` maps K, Kv, Sy and Ss onto the cells of the
-solver mesh at its layer-centre depths through the one mapping every solver
+solver mesh at its layer-center depths through the one mapping every solver
 shares (``solver.field_property_mapping.map_flow_properties``). The arrays are
 flat, ``(nlay, n_cells)`` and ``(n_cells,)``: a backend that writes a structured
 grid reshapes them.

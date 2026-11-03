@@ -1,4 +1,4 @@
-"""Shell templates of the SLURM array job written by ``hmp project array``.
+"""Shell templates of the SLURM array job written by ``hmp campaign array``.
 
 ``prepare.sh`` and ``array.sh`` are the two job scripts; ``worker.sh`` is the
 block both of them run for one case: resolve the case of the task, run the

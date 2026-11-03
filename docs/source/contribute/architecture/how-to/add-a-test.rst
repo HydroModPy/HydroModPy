@@ -37,10 +37,10 @@ Pick the tier
    * - ``characterization``
      - What one real run leaves on disk, read with the formats a stranger would
        use.
-     - Five strict ``xfail`` cases record claims the code does not honour yet.
+     - Five strict ``xfail`` cases record claims the code does not honor yet.
    * - ``contract``
      - Several implementations of one port behave the same.
-     - Parametrised over the implementations.
+     - Parametrized over the implementations.
 
 ``tests/conftest.py`` tags a test with its tier marker and a default timeout
 from its folder, so you do not write ``@pytest.mark.unit``.
@@ -65,14 +65,14 @@ most are ``regression``, ``validation``, ``analytical``, ``steady``,
    @pytest.mark.mf6
    def test_my_workflow(tmp_path): ...
 
-``hmp test`` selects subsets of three tiers:
+``hmp dev test`` selects subsets of three tiers:
 
 .. code-block:: bash
 
-   hmp test unit
-   hmp test regression --fast --mf6
-   hmp test regression --extensive
-   hmp test validation --analytical --steady
+   hmp dev test unit
+   hmp dev test regression --fast --mf6
+   hmp dev test regression --extensive
+   hmp dev test validation --analytical --steady
 
 The other tiers go through ``pytest`` (for example
 ``pytest tests/integration -q``, ``pytest -m solver_sanity -q``,
@@ -118,11 +118,11 @@ and checks what it holds:
 
 .. code-block:: python
 
-   import hydromodpy as hmp
+   from hydromodpy.physics.transport.transport import Transport
 
 
    def test_transport_mapping_config_populates_all_solver_parameter_blocks() -> None:
-       transport = hmp.TransportProcess({"modpath": {"parameters": {"track_dir": "backward"}}})
+       transport = Transport({"modpath": {"parameters": {"track_dir": "backward"}}})
        assert transport.modpath.parameters["track_dir"] == "backward"
 
 Integration pattern
@@ -243,7 +243,7 @@ Pitfalls
 - A validation test keeps its tolerances in the case ``tolerances.toml`` or in
   ``tests/TOLERANCES.md`` through ``tol('<slug>')``. It does not hard-code a
   threshold.
-- Raise coverage by asserting a real behaviour or an invariant, never by adding a
+- Raise coverage by asserting a real behavior or an invariant, never by adding a
   test to hit a line. Codecov gates the patch at 80 % and the project at ``auto``;
   ``fail_under`` in ``pyproject.toml`` is not a CI gate.
 

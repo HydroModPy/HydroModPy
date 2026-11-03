@@ -81,7 +81,7 @@ def test_prepare_runtime_builds_the_cell_mesh_after_the_data_are_loaded(
         ctx.setup.cell_mesh = mesh_sentinel
 
     _patch_launcher_deps(monkeypatch)
-    monkeypatch.setattr("hydromodpy.workflow.steps.setup.Workspace", _DummyRunWorkspace)
+    monkeypatch.setattr("hydromodpy.workflow.steps.setup.WorkspaceLayout", _DummyRunWorkspace)
     monkeypatch.setattr("hydromodpy.workflow.steps.setup.CatchmentDelineation", _DummyRunGeographic)
     monkeypatch.setattr("hydromodpy.spatial.domain.build.Domain", _DummyRunDomain)
     monkeypatch.setattr(

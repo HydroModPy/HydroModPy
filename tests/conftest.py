@@ -51,7 +51,7 @@ _WHITEBOX_XDIST_GROUP_TEST_FILES = frozenset(
     {
         # ``test_catchment_from_point.py`` left this list when it stopped
         # reaching the real backend: it drives the terrain engine with the
-        # double of ``tests/_helpers/whitebox_double.py``, and serialising a
+        # double of ``tests/_helpers/whitebox_double.py``, and serializing a
         # file that never calls Whitebox only makes the group slower.
         "test_capped_breach_on_whitebox.py",
         "test_crossing_notch_on_whitebox.py",

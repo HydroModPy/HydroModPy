@@ -70,16 +70,16 @@ def test_case_names_the_copy_before_anything_else(tmp_path: Path) -> None:
 def test_hmp_run_with_set_hands_the_calibration_a_file_that_names_the_case(
     tmp_path: Path, monkeypatch
 ) -> None:
-    import hydromodpy as hmp
-
     config = tmp_path / "cal.toml"
     config.write_text('[workflow]\nmode = "calibration"\n' + _CAL, encoding="utf-8")
     seen: list[str] = []
 
-    def fake_run(path, **_kwargs):
+    def fake_dispatch(_workflow, path, **_kwargs):
         seen.append(calibration_case_name(Path(path)))
+        return {}
 
-    monkeypatch.setattr(hmp, "run", fake_run)
+    monkeypatch.setattr("hydromodpy.project.dispatch.workflow.dispatch_workflow", fake_dispatch)
+    monkeypatch.setattr("hydromodpy.calibration.preflight.preflight_launch", lambda *a, **k: None)
     CliRunner().invoke(["run", str(config), "--set", "calibration.seed=5"])
 
     assert seen == ["cal"]

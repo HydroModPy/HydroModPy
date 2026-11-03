@@ -48,8 +48,12 @@ class DataCacheBackend(Protocol):
         bbox: tuple | None = None,
         date_start: datetime | None = None,
         date_end: datetime | None = None,
+        product_version: str | None = None,
     ) -> Any | None:
-        """Return the cached entry covering the requested extent, or None."""
+        """Return the cached entry covering the requested extent, or None.
+
+        With a *product_version*, only an entry fetched from that version answers.
+        """
 
     def list_entries(
         self,

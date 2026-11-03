@@ -347,9 +347,7 @@ def score_network_transient_candidate_from_runs(
 ) -> CandidateScore:
     """Score a candidate represented by two catalog ``Run`` objects."""
 
-    steady_drain = np.asarray(steady_run.field("outflow_drain", timestep=-1), dtype=float).reshape(
-        -1
-    )
+    steady_drain = np.asarray(steady_run.field("outflow_drain", time=-1), dtype=float).reshape(-1)
     q_total_release = _transient_q_total_release_from_run(transient_run)
     return score_network_transient_candidate(
         truth_dir,
@@ -368,9 +366,7 @@ def write_network_transient_truth_package_from_runs(
 ) -> TruthPackageSummary:
     """Build a truth package from two catalog ``Run`` objects."""
 
-    steady_drain = np.asarray(steady_run.field("outflow_drain", timestep=-1), dtype=float).reshape(
-        -1
-    )
+    steady_drain = np.asarray(steady_run.field("outflow_drain", time=-1), dtype=float).reshape(-1)
     q_total_release = _transient_q_total_release_from_run(transient_run)
 
     mesh = steady_run.mesh

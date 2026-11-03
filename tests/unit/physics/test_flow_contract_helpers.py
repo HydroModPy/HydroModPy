@@ -18,7 +18,6 @@ from hydromodpy.physics.flow.flow_runtime_validators import (
 from hydromodpy.physics.flow.history_contract import (
     build_transient_time_axes,
     elapsed_seconds_for_time_keys,
-    history_has_initial_snapshot,
     snapshot_elapsed_seconds_from_payload,
     step_end_elapsed_seconds_from_payload,
     step_history_from_history,
@@ -69,8 +68,6 @@ def test_history_contract_aligns_snapshots_and_step_histories() -> None:
 
     assert axes.n_steps == 3
     assert axes.snapshot_elapsed_seconds.tolist() == [0.0, 10.0, 30.0, 60.0]
-    assert history_has_initial_snapshot(n_slices=4, period_lengths_seconds=[10.0, 20.0, 30.0])
-    assert not history_has_initial_snapshot(n_slices=1, period_lengths_seconds=[10.0])
     assert step_history_from_history(
         np.asarray([1.0, 2.0, 3.0, 4.0]), n_steps=3, name="h"
     ).tolist() == [

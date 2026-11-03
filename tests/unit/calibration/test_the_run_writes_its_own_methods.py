@@ -26,6 +26,16 @@ class TestWhatItAlwaysSays:
         assert NAME in text
         assert "version 1.3" in text
 
+    def test_a_stage_the_file_left_out_did_not_fail(self) -> None:
+        text = methods_paragraph(
+            NAME,
+            stages_that_ran=["steady_conductivity"],
+            options=[{"key": "storage", "here": False, "recipe": "Sy"}],
+        )
+
+        assert "left the stage that fits the storage out" in text
+        assert "did not complete" not in text
+
     def test_a_pinned_file_says_its_pin(self) -> None:
         text = methods_paragraph(NAME, stages_that_ran=["steady_conductivity"], version="1.2")
 
@@ -35,8 +45,19 @@ class TestWhatItAlwaysSays:
         text = methods_paragraph(NAME, stages_that_ran=["steady_conductivity"])
 
         assert "departs from it in every run" in text
-        for key in ("steady_recharge_window", "d_os_support", "outlet_sealed_into_d_so_target"):
+        for key in ("d_os_support", "outlet_sealed_into_d_so_target"):
             assert key in text
+
+    def test_a_departure_that_depends_on_the_file_is_told_only_when_it_holds(self) -> None:
+        held = methods_paragraph(
+            NAME,
+            stages_that_ran=["steady_conductivity"],
+            conditional_in_force=["steady_recharge_window"],
+        )
+        silent = methods_paragraph(NAME, stages_that_ran=["steady_conductivity"])
+
+        assert "steady_recharge_window" in held
+        assert "steady_recharge_window" not in silent
 
     def test_it_cites_the_publication(self) -> None:
         text = methods_paragraph(NAME, stages_that_ran=["steady_conductivity"])
@@ -58,6 +79,21 @@ class TestItDescribesWhatRan:
         assert "1 of the 2 stages completed" in text
         assert "did not complete" in text
         assert "keeps the value it entered" in text
+
+    def test_an_unsettled_stage_says_the_value_the_run_holds(self) -> None:
+        text = methods_paragraph(
+            NAME, stages_that_ran=["steady_conductivity"], held={"Sy": 0.033827}
+        )
+
+        assert "did not settle" in text
+        assert "Sy = 0.03383" in text
+        assert "keeps the value it entered" not in text
+
+    def test_a_file_declaring_one_stage_does_not_miss_a_second(self) -> None:
+        text = methods_paragraph(NAME, stages_that_ran=["steady_conductivity"], stages_declared=1)
+
+        assert "1 of the 1 stages completed" in text
+        assert "did not complete" not in text
 
     def test_no_completed_stage_reports_no_value(self) -> None:
         text = methods_paragraph(NAME, stages_that_ran=[])

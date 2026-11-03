@@ -5,7 +5,7 @@ BRAIDED (clumps of adjacent cells) and GAPPED (the reach connectivity links cell
 that do not share a face) and can dead-end mid-catchment (its flow then leaves the
 model). Post-hoc adding/removing cells cannot cleanly fix that. Instead the channel is
 RE-DERIVED as a single-flow-direction (SFD) path network on the mesh, seeded by the
-delineated stream cells: from every seed cell the SFD is traced one neighbour at a
+delineated stream cells: from every seed cell the SFD is traced one neighbor at a
 time until it reaches a lake, the outlet of the descent, or an already-traced channel
 cell.
 
@@ -142,7 +142,7 @@ def _adjacent_lake(
     """The lowest lake cell that shares a face with ``cell``, else ``None``.
 
     A reach cell on the shoreline touches the lake through a shared face and discharges
-    into it. Picking the lowest-top neighbour makes the choice deterministic when the
+    into it. Picking the lowest-top neighbor makes the choice deterministic when the
     cell abuts two lakes (the sill between the reservoir and the forebay).
     """
     best, best_top = None, None

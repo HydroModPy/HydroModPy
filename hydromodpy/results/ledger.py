@@ -5,8 +5,7 @@ Why
 A figure or an export is derived: it can be rendered again from the sealed
 run. What cannot be recovered is how it was made: by which producer, with
 which options, under which version, and what the run was called that day.
-The ledger keeps one entry per file so ``hmp viz regen`` and
-``hmp export --regen`` replay it, and so a reader knows what a file is
+The ledger keeps one entry per file so ``hmp export --regen`` replays it, and so a reader knows what a file is
 without opening it.
 
 Format
@@ -20,7 +19,6 @@ file the ledger already names replaces it: one file, one entry.
 
 from __future__ import annotations
 
-import hashlib
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Final
@@ -30,6 +28,7 @@ from pydantic import ConfigDict, Field, model_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.stored import dump_stored, read_stored
 from hydromodpy.core.io.document_version import VersionWindow
+from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.results.identity import Identity
 from hydromodpy.results.storage.contract import LEDGER_FILENAME
 from hydromodpy.results.storage.json_io import read_sealed_json, write_json_atomic
@@ -113,15 +112,6 @@ class Ledger(HydroModelBase):
 def ledger_path(directory: str | Path) -> Path:
     """Return ``<directory>/index.json``."""
     return Path(directory) / LEDGER_FILENAME
-
-
-def sha256_of(path: str | Path) -> str:
-    """Return the hex digest of a file, read in chunks."""
-    digest = hashlib.sha256()
-    with Path(path).open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1 << 20), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 __all__ = ["LEDGER_SCHEMA", "Ledger", "LedgerEntry", "ledger_path", "sha256_of"]

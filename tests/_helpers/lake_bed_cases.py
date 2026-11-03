@@ -41,7 +41,7 @@ def ramp_surface(*, extent: float = EXTENT, n: int = 100, crs: str | None = None
 
 
 def bowl_bed(n: int = 100) -> np.ndarray:
-    """A bowl over [0, 100]^2, about 20 m at the centre and 60 m at the rim."""
+    """A bowl over [0, 100]^2, about 20 m at the center and 60 m at the rim."""
     centres = (np.arange(n) + 0.5) * EXTENT / n
     gx, gy = np.meshgrid(centres, centres[::-1])
     return 60.0 - 40.0 * np.exp(-((gx - 50.0) ** 2 + (gy - 50.0) ** 2) / (2.0 * 30.0**2))

@@ -1,6 +1,6 @@
 """A tributary ending below the junction shares one block with the main stem.
 
-The junction pixel stands above both of its upstream neighbours: the end of
+The junction pixel stands above both of its upstream neighbors: the end of
 the tributary and the main stem just upstream. The fit pools the three into
 one block that raises the tributary end and the main stem above, lowers the
 junction, and the block reports that it holds a confluence. The minimum drop

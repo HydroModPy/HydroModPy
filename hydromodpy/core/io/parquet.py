@@ -41,11 +41,11 @@ def merge_file_metadata(
 
     Some writers own the encoding and expose no way to add a key while writing:
     geopandas for GeoParquet, DuckDB for ``COPY ... TO``. The file is rewritten
-    once, atomically, with the merged footer, so no artefact of a run has to
+    once, atomically, with the merged footer, so no artifact of a run has to
     stay anonymous because of the tool that produced it.
 
     The whole file is read into memory to be rewritten, so this is for the small
-    artefacts those two writers produce: a vector layer of a few thousand
+    artifacts those two writers produce: a vector layer of a few thousand
     features, a one-row identity table. It is not a streaming rewrite and must
     not be pointed at a field array.
     """

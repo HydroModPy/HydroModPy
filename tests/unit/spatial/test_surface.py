@@ -84,7 +84,7 @@ def test_reprojected_onto_its_own_grid_copies_and_turns_the_sentinel_into_nan():
 
 def test_shifted_down_by_keeps_the_sentinel_in_place():
     """A shifted sentinel becomes an ordinary elevation that the sampler blends with terrain, so a
-    mesh cell straddling the mask edge would get a bottom kilometres deep. The right column is
+    mesh cell straddling the mask edge would get a bottom kilometers deep. The right column is
     outside the mask."""
     thickness = 35.0
     top = surface([[100.0, 100.0, NODATA]] * 3, cell=1.0, x0=0.0, y0=0.0)

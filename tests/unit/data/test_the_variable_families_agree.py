@@ -8,10 +8,8 @@ that is incomplete, so a forgotten entry fails here rather than at run time.
 from __future__ import annotations
 
 import dataclasses
-import re
 import typing
 
-from hydromodpy._lazy import LAZY_IMPORTS
 from hydromodpy.core.state.data import LoadedDataContext
 from hydromodpy.data import DataManagersConfig
 from hydromodpy.data.loading._dispatch import VARIABLE_SPECS, get_manager_class
@@ -24,10 +22,6 @@ from hydromodpy.schema.sources import source_entry
 _PLANNER_FIELDS = {"types", "inference_mode"}
 # The one field of LoadedDataContext that records the load, not a variable.
 _LOAD_STATE_FIELDS = {"loaded_plan_types"}
-
-
-def _variable_of_config_name(name: str) -> str:
-    return re.sub(r"(?<!^)(?=[A-Z])", "_", name.removesuffix("Config")).lower()
 
 
 def _families() -> dict[str, set[str]]:
@@ -43,13 +37,6 @@ def _families() -> dict[str, set[str]]:
         }
         - _LOAD_STATE_FIELDS,
         "VARIABLES (data/workspace/scaffold.py)": {spec.name for spec in VARIABLES},
-        "<V>Config names (hydromodpy/_lazy.py)": {
-            _variable_of_config_name(name)
-            for name, target in LAZY_IMPORTS.items()
-            if target.startswith("hydromodpy.data.variables.")
-            and name.endswith("Config")
-            and not name.endswith("SourceConfig")
-        },
     }
 
 

@@ -168,7 +168,7 @@ def attach_starting_locations(
     # The injection mask is indexed with MODFLOW row/column indices, so it must
     # sit on the solver grid. A mask on the raw DEM grid (planar resampling on)
     # would both sample the wrong cells and over-allocate the starting-locations
-    # array, leaving unlabelled rows MODPATH 6 rejects with an end-of-file read.
+    # array, leaving unlabeled rows MODPATH 6 rejects with an end-of-file read.
     if mask_dem.shape != (nrow, ncol):
         raise ConfigError(
             f"MODPATH injection raster {zone_partic} has shape {mask_dem.shape} but the "

@@ -1,6 +1,6 @@
 """Geometry derived once from a planar cell mesh: areas, edges, adjacency.
 
-Every quantity is computed with vectorised numpy on the ``-1`` padded
+Every quantity is computed with vectorized numpy on the ``-1`` padded
 connectivity, the format of the Zarr store and of ``core.descent``. Edges are
 keyed by their two vertex ids, never by coordinates, so the topology does not
 depend on rounding.
@@ -58,7 +58,7 @@ class DerivedGeometry:
     ``edge_nodes`` rows hold ``node_a < node_b`` and are sorted by that pair.
     ``edge_cells`` rows hold ``cell_a < cell_b`` on an interior edge and
     ``(cell, -1)`` on the domain boundary. The adjacency is the CSR graph of the
-    interior edges, neighbours sorted ascending.
+    interior edges, neighbors sorted ascending.
     """
 
     padded_connectivity: np.ndarray
@@ -133,7 +133,7 @@ class DerivedGeometry:
         return self.adjacency_indices[start:stop]
 
     def adjacency_sets(self) -> list[set[int]]:
-        """Return one neighbour set per cell, for legacy callers only."""
+        """Return one neighbor set per cell, for legacy callers only."""
         rows = np.split(self.adjacency_indices, self.adjacency_indptr[1:-1])
         return [set(row.tolist()) for row in rows]
 
@@ -195,7 +195,7 @@ def _corner_crosses(
     """Return the first corner, each corner and the next one relative to it, and their cross product.
 
     Coordinates are taken relative to each cell's first corner: in Lambert-93 the
-    raw cross products reach 1e12 m2 and would cancel to a few metres squared.
+    raw cross products reach 1e12 m2 and would cancel to a few meters squared.
     """
     valid = padded >= 0
     rows = np.arange(padded.shape[0])[:, None]
@@ -275,7 +275,7 @@ def _edge_table(
 
 
 def _csr_adjacency(edge_cells: np.ndarray, n_cells: int) -> tuple[np.ndarray, np.ndarray]:
-    """Return the CSR graph of the interior edges, neighbours sorted ascending."""
+    """Return the CSR graph of the interior edges, neighbors sorted ascending."""
     inner = edge_cells[edge_cells[:, 1] >= 0]
     src = np.concatenate([inner[:, 0], inner[:, 1]])
     dst = np.concatenate([inner[:, 1], inner[:, 0]])

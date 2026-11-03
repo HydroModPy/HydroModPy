@@ -63,7 +63,7 @@ is {toml}`tau_specific_ratio|calibration.outputs.<name>.tau_specific_ratio`.
 The water that leaves the aquifer in a seepage cell flows downhill over the ground. The
 *simulated network* is every cell this water goes through, from each source as far as
 the slope leads it. The slope is the one of the {term}`digital elevation model`, read on the
-model cells. Pits (cells lower than all their neighbours, where water would be trapped) are
+model cells. Pits (cells lower than all their neighbors, where water would be trapped) are
 filled first, so that every cell has a way down.
 
 ```{figure} /_static/concepts/streams_and_seepage/method_simulated_active_postprocess.svg
@@ -142,7 +142,7 @@ they answer other questions. They should not be confused with it.
 | You want | The model uses | What you give | What the model computes |
 |---|---|---|---|
 | The model to decide where water emerges | A drain at the ground (the default) | Nothing, or a drain conductance ({toml}`flow.bc.<name>.value`) | Where the water table reaches the ground, and how much water leaves |
-| To impose the water level of a river on known cells | A fixed-head stream boundary (`stream` in {toml}`flow.active_bc`) | The head, on the cells tagged as river | The exchange with the aquifer, in either direction |
+| To impose the water level of a river on known cells | A fixed-head stream boundary (a `[flow.bc.stream]` table) | The head, on the cells tagged as river | The exchange with the aquifer, in either direction |
 | The water that leaves to travel down a river | A routed stream network ({doc}`../reference/parameters/flow/sinks_sources/sfr`) | The reaches and their properties | The routing of the water along the reaches |
 | A lake whose level moves | A lake package ({doc}`../reference/parameters/flow/sinks_sources/lakes`) | A footprint and a stage-volume-area table | The stage and the exchange with the aquifer |
 

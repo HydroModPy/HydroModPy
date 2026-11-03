@@ -8,6 +8,7 @@ configuration nor build a model; the first model verb reads ``project.toml``.
 
 from __future__ import annotations
 
+import copy
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -22,6 +23,13 @@ from tests._helpers.sealed_runs import make_project, seal_run
 pytestmark = pytest.mark.fast
 
 
+class _StandInConfig(SimpleNamespace):
+    """A stand-in configuration that ``Project.config`` can copy."""
+
+    def model_copy(self, *, deep: bool = False) -> _StandInConfig:
+        return copy.deepcopy(self)
+
+
 @pytest.fixture
 def configure_calls(monkeypatch: pytest.MonkeyPatch) -> list[Path]:
     """Replace the configuration step by a recorder that sets a stand-in config."""
@@ -30,7 +38,7 @@ def configure_calls(monkeypatch: pytest.MonkeyPatch) -> list[Path]:
     def configure(project: Project, config: Any, **_kwargs: Any) -> None:
         calls.append(Path(config))
         project._config_path = Path(config)
-        project._cfg = SimpleNamespace(simulation=SimpleNamespace(name="baseline"))
+        project._cfg = _StandInConfig(simulation=SimpleNamespace(name="baseline"))
 
     monkeypatch.setattr("hydromodpy.project.phases.configure", configure)
     return calls

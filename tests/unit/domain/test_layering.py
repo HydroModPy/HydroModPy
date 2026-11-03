@@ -2,7 +2,7 @@
 
 A base comes from a thickness, a depth, an elevation or a raster, and the last layer ends on the
 aquifer base. A cell thinner than its minimum passes through (``idomain = -1``) and gives its
-thickness to its active neighbour, or keeps the minimum and pushes the layers below down.
+thickness to its active neighbor, or keeps the minimum and pushes the layers below down.
 """
 
 from __future__ import annotations

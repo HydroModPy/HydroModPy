@@ -2,11 +2,11 @@
 
 Exposed as :attr:`hydromodpy.results.run.Run.grid`. It describes the DEM
 raster, never the cells of the model: a mesh is not obliged to follow the
-pixels. The cells of a run, their centres and their areas are read from
+pixels. The cells of a run, their centers and their areas are read from
 :attr:`hydromodpy.results.run.Run.mesh`.
 
 Lumped simulations (e.g. GR4J, ``solver_category == "lumped"``) raise
-``RuntimeError`` because they have no spatial discretisation.
+``RuntimeError`` because they have no spatial discretization.
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ class Grid:
     Attributes
     ----------
     cell_size : float
-        DEM pixel size in metres.
+        DEM pixel size in meters.
     shape : tuple[int, int]
         DEM raster shape as ``(nrow, ncol)``.
     extent : tuple[float, float, float, float]

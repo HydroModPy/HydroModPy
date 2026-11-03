@@ -1,14 +1,14 @@
 # Versions and stability
 
-This site documents version {{ release }}. It is a pre-release of the 2.0 line. Versions
-2.0.0a1 to 2.0.0a5 are published on [PyPI](https://pypi.org/project/hydromodpy/). What each
-one changed is in the {doc}`changelog <changelog>`.
+This site documents version {{ release }}. Published versions are listed on
+[PyPI](https://pypi.org/project/hydromodpy/). What each one changed is in the
+{doc}`changelog <changelog>`.
 
 ## What a version number says
 
 HydroModPy follows [Semantic Versioning](https://semver.org/). A pre-release adds a suffix
 that [PEP 440](https://peps.python.org/pep-0440/) defines: `a` for alpha, `b` for beta and `rc`
-for release candidate, then a number, as in `2.0.0a5`.
+for release candidate, then a number, as in `2.0.0rc1`.
 
 The rules below hold from `2.0.0` on, and this page is their only statement. The goal is that
 the 2 line can grow for years without a version 3, so a change that a user can absorb never
@@ -35,6 +35,8 @@ that gives the old name and the new one, once per key and per file. `hmp doctor 
 <file>` rewrites your file and the files it inherits, and keeps your comments. An old name of Python, or an old `hmp` command
 or flag, prints a `FutureWarning` with both names and then does what the new one does. The
 changelog lists the rename under `Changed` with both names, and later its removal under `Removed`.
+A command or a flag that left before 2.0.0 has no alias: it is refused, with a message that names
+its new form, until 2.2.
 
 ### Numbers
 
@@ -80,6 +82,7 @@ Anything marked experimental may change in any minor version, without the delay 
   `geographic.domain_extent` and the `custom` backend. The
   {doc}`parameter reference </reference/parameters/index>` marks each key. A run lists the
   experimental keys its file writes in one line of its log, and `hmp config check` shows them.
+- On the command line: the result of `hmp calibrate --format json`, with the report it reads.
 - In Python: the shape of `CalibrationReport`, and the `solver`, `solver.extractor` and
   `calibration.evaluator` plugin ports, as {doc}`the contracts page
   </contribute/architecture/contracts>` details.
@@ -95,7 +98,8 @@ number that was wrong, under the rule above.
 
 The names are the ones the generated pages list: the {doc}`Python reference
 </reference/python/index>`, the {doc}`command line reference </reference/cli/index>` with its
-{doc}`exit codes </reference/cli/exit-codes>`, and the {doc}`parameter reference
+{doc}`exit codes </reference/cli/exit-codes>` and what {doc}`a program reads
+</reference/cli/machine-output>`, and the {doc}`parameter reference
 </reference/parameters/index>`. A module path outside `hydromodpy.__all__` is internal, except the
 short list on {doc}`the contracts page </contribute/architecture/contracts>`. So is any `HMP_*`
 variable that {doc}`its generated page </contribute/architecture/generated/environment>` does
@@ -107,19 +111,18 @@ A pre-release makes none of these promises.
 
 | Stage | Example | What to expect |
 |---|---|---|
-| Alpha | `2.0.0a5` | Public testing. Keys, API and storage can still change. |
+| Alpha | `2.0.0a1` | Public testing. Keys, API and storage can still change. |
 | Beta | `2.0.0b1` | Feature complete. The contract changes only to fix a blocker. |
 | Release candidate | `2.0.0rc1` | Only blocking fixes land. |
 | Final | `2.0.0` | The version to recommend to users. |
 
 ## Install a version
 
-`pip` skips pre-releases unless you ask for them. To follow the 2.0 line, or to pin an exact
-release so a project reads the same keys tomorrow, such as {{ release }} now:
+`pip` skips pre-releases unless you pass `--pre`. To pin an exact release so a project reads
+the same keys tomorrow, such as {{ release }} now:
 
 ```bash
-pip install --pre hydromodpy
-pip install hydromodpy==<version>
+pip install hydromodpy=={{ release }}
 ```
 
 A project written for version 1 stays on the tag `v1.0.0` of the repository. Version 1 is frozen

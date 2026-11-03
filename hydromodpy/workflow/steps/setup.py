@@ -11,7 +11,7 @@ from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.rng import RngManager
 from hydromodpy.core.state.paths import preprocessing_dir
-from hydromodpy.core.workspace import Workspace
+from hydromodpy.core.workspace import WorkspaceLayout
 from hydromodpy.results.storage.attempt import scratch_dir_for_attempt
 from hydromodpy.simulation import ensure_flow, ensure_transport
 from hydromodpy.spatial.domain.build import (
@@ -113,7 +113,7 @@ def resolve_dem_init_path(cfg: object, run_state: WorkflowContext) -> None:
         catchment = getattr(geographic_cfg, "catchment", None)
         if catchment is None:
             raise ConfigError(
-                "geographic.catchment.catch_def is required when [[data.dem.sources]] is "
+                "geographic.catchment.kind is required when [[data.dem.sources]] is "
                 "the DEM source. Add a [geographic.catchment] table with catch_def."
             )
         _require_dem_crs(resolved)
@@ -177,13 +177,13 @@ def resolve_crossings_path(cfg: object, run_state: WorkflowContext) -> None:
     """Populate ``[geographic.crossings] path`` from ``[[data.crossings.sources]]`` when absent.
 
     Twin of :func:`resolve_network_map_path`, for the same reason: the notch
-    and the bed regularisation run inside the geographic step, before any data
+    and the bed regularization run inside the geographic step, before any data
     manager, so the structures they read have to be a file on disk. The notch
-    reads the embankments; the bed regularisation reads the declared weirs and
+    reads the embankments; the bed regularization reads the declared weirs and
     dams, which cut its fit even with the notch off. An explicitly declared
     ``[geographic.crossings] path`` always wins. The notch enabled with neither
     a path nor a source is refused here, where both are known; the bed
-    regularisation alone then fits without cuts.
+    regularization alone then fits without cuts.
     """
     geographic_cfg = cfg.geographic
     uses_synthetic = getattr(geographic_cfg, "uses_synthetic_geographic", None)
@@ -441,7 +441,7 @@ def run_setup(
     build_geographic_fn: Callable[..., object] = build_geographic_runtime,
     run_id: str | None = None,
 ) -> None:
-    """Initialise the structural objects shared by all later process runs.
+    """Initialize the structural objects shared by all later process runs.
 
     This function builds the stable "session context" of the simulation:
 
@@ -460,7 +460,7 @@ def run_setup(
 
     setup_state = run_state.setup
 
-    setup_state.workspace = Workspace(config=cfg.workspace)
+    setup_state.workspace = WorkspaceLayout(config=cfg.workspace)
     if run_state.run_dir is not None:
         setup_state.workspace.solver_scratch_folder = scratch_dir_for_attempt(
             setup_state.workspace.project_root, run_state.run_dir, run_state.attempt

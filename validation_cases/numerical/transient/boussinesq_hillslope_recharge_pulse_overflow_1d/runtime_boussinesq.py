@@ -383,9 +383,7 @@ def run_boussinesq_hillslope_overflow_case(
         "flow_regime": "transient",
         # The pulse starts from the initial head, not from a steady state.
         "first_period_steady": False,
-        "ic": {"type": "custom", "value": float(geometry_cfg["initial_head_m"])},
-        "active_sinks_sources": ["recharge"],
-        "active_bc": ["east_side"],
+        "ic": {"kind": "custom", "value": float(geometry_cfg["initial_head_m"])},
         "sinks_sources": {
             "recharge": {
                 "values": [mm_day_to_m_s(float(value)) for value in recharge_mm_day],
@@ -396,11 +394,12 @@ def run_boussinesq_hillslope_overflow_case(
         "bc": {
             "east_side": {"value": float(geometry_cfg["east_head_m"])},
         },
-        "surface_interaction_model": str(variant.surface_interaction_model),
+        "runtime": {
+            "surface_interaction_model": str(variant.surface_interaction_model),
+        },
     }
     drainage_conductance_m2_s = geometry_cfg.get("drainage_conductance_m2_s", None)
     if drainage_conductance_m2_s is not None and float(drainage_conductance_m2_s) > 0.0:
-        flow_section["active_bc"] = ["east_side", "drainage"]
         flow_section["bc"]["cauchy"] = {
             "drainage": {
                 "application_domain": "top",
@@ -409,11 +408,15 @@ def run_boussinesq_hillslope_overflow_case(
             }
         }
     if variant.runtime_backend is not None:
-        flow_section["runtime_backend"] = str(variant.runtime_backend)
+        flow_section.setdefault("runtime", {})["backend"] = str(variant.runtime_backend)
     if resolved_runtime_max_iterations is not None:
-        flow_section["runtime_max_iterations"] = int(resolved_runtime_max_iterations)
+        flow_section.setdefault("runtime", {})["max_iterations"] = int(
+            resolved_runtime_max_iterations
+        )
     if resolved_runtime_tol_residual_inf is not None:
-        flow_section["runtime_tol_residual_inf"] = float(resolved_runtime_tol_residual_inf)
+        flow_section.setdefault("runtime", {})["tol_residual_inf"] = float(
+            resolved_runtime_tol_residual_inf
+        )
 
     flow = Flow(build_flow_config(flow_section, case_dir=CASE_DIR))
 

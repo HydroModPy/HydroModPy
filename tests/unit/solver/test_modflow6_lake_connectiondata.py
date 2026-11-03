@@ -6,7 +6,7 @@ mesh. The invariants under test:
 
 * exactly one VERTICAL connection per lake column, pointing at the first active
   cell below the occupied layers (``cellid = (lay, cell2d)``);
-* HORIZONTAL connections only across shared edges to active, non-lake neighbours,
+* HORIZONTAL connections only across shared edges to active, non-lake neighbors,
   never to another lake cell;
 * ``connwidth`` equals the shared-edge length and ``connlen`` is strictly
   positive for every HORIZONTAL row.
@@ -33,7 +33,7 @@ from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 # A 4x4, 2-layer unit grid with the central 2x2 block as the lake footprint.
-# Row-major flat ids: the centre cells are 5, 6, 9, 10.
+# Row-major flat ids: the center cells are 5, 6, 9, 10.
 _LAKE_CELLS = [5, 6, 9, 10]
 
 
@@ -85,7 +85,7 @@ def test_horizontal_connects_only_to_active_non_lake_neighbours() -> None:
         connlen = float(r[7])
         # connwidth = shared-edge length (unit grid -> exactly 1.0).
         assert connwidth == 1.0
-        # connlen = neighbour-centroid to edge half distance (0.5 on a unit grid).
+        # connlen = neighbor-centroid to edge half distance (0.5 on a unit grid).
         assert connlen > 0.0
         assert connlen == 0.5
 
@@ -110,7 +110,7 @@ def test_belev_telev_clip_to_neighbour_cell() -> None:
     horizontal = [r for r in rows if r[3] == "HORIZONTAL"]
     for r in horizontal:
         belev, telev = float(r[5]), float(r[6])
-        # Layer-0 neighbour spans 5..10 m; the lake top is 10 m, bottom 5 m.
+        # Layer-0 neighbor spans 5..10 m; the lake top is 10 m, bottom 5 m.
         assert belev == 5.0
         assert telev == 10.0
         assert telev > belev
@@ -152,7 +152,7 @@ def test_drop_interior_rings_removes_holes() -> None:
 
 def test_fill_enclosed_cells_reclaims_the_island_cell() -> None:
     mesh = _grid_4x4(nlay=2)
-    # The northern 3x3 block (0,1)-(3,4) with its centre cell punched out as an
+    # The northern 3x3 block (0,1)-(3,4) with its center cell punched out as an
     # island. Row 0 is the northern row, so the island is row 1, column 1.
     holed = Polygon(
         [(0.0, 1.0), (3.0, 1.0), (3.0, 4.0), (0.0, 4.0)],
@@ -162,7 +162,7 @@ def test_fill_enclosed_cells_reclaims_the_island_cell() -> None:
     filled = resolve_lake_cells(
         None, lake_id="lac0", polygon=_drop_interior_rings(holed), cell_mesh=mesh.cell_mesh
     )
-    # The (1,2)-(2,3) hole punches out the centre cell 5 of the 3x3 block.
+    # The (1,2)-(2,3) hole punches out the center cell 5 of the 3x3 block.
     assert 5 not in kept  # island cell stays aquifer by default
     assert 5 in filled  # fill_enclosed_cells reclaims it
     assert set(filled) - set(kept) == {5}
@@ -398,7 +398,7 @@ def test_marnage_bank_seepage_adds_horizontal_to_vertical() -> None:
 
 
 def _carved_grid(lake_top: float = 7.0, nlay: int = 3) -> SolverMesh:
-    # Neighbour tops at 10 m, lake columns carved down to ``lake_top``.
+    # Neighbor tops at 10 m, lake columns carved down to ``lake_top``.
     top = np.full((4, 4), 10.0)
     for cid in _LAKE_CELLS:
         top[cid // 4, cid % 4] = lake_top
@@ -407,7 +407,7 @@ def _carved_grid(lake_top: float = 7.0, nlay: int = 3) -> SolverMesh:
 
 
 def test_marnage_banks_sit_above_the_carved_bed() -> None:
-    # D8: a marnage bank spans [carved lake top, neighbour top], never below the bed.
+    # D8: a marnage bank spans [carved lake top, neighbor top], never below the bed.
     mesh = _carved_grid(lake_top=7.0)
     rows = build_lake_connectiondata(
         None,
@@ -422,12 +422,12 @@ def test_marnage_banks_sit_above_the_carved_bed() -> None:
     assert horizontal
     for r in horizontal:
         assert r[5] >= 7.0 - 1e-12  # belev at or above the carved bed
-        assert r[6] <= 10.0 + 1e-12  # telev at or below the neighbour top
+        assert r[6] <= 10.0 + 1e-12  # telev at or below the neighbor top
         assert r[6] > r[5]
 
 
 def test_marnage_bank_absent_when_neighbour_is_not_higher() -> None:
-    # A neighbour whose top is at the bed level offers no bank face.
+    # A neighbor whose top is at the bed level offers no bank face.
     mesh = _carved_grid(lake_top=10.0)
     rows = build_lake_connectiondata(
         None,

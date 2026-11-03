@@ -1,7 +1,7 @@
 """Families of the dual of a triangulation read from a file: river chains and contact staircases.
 
 The triangulation is drawn by hand: a river edge 10 m long with two vertices one
-metre off its middle, on both sides. The triangulation is not Delaunay there, so
+meter off its middle, on both sides. The triangulation is not Delaunay there, so
 the Voronoi cells of the two river vertices do not touch.
 """
 

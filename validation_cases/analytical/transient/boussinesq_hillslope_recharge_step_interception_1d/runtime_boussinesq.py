@@ -67,9 +67,7 @@ def run_boussinesq_hillslope_recharge_step_interception_case(
                     boussinesq_variant_flow_section(
                         {
                             "flow_regime": "transient",
-                            "ic": {"type": "custom", "value": EAST_HEAD_M},
-                            "active_sinks_sources": ["recharge"],
-                            "active_bc": ["east_side"],
+                            "ic": {"kind": "custom", "value": EAST_HEAD_M},
                             "sinks_sources": {
                                 "recharge": {
                                     "values": mm_day_to_m_s(RECHARGE_MM_DAY),

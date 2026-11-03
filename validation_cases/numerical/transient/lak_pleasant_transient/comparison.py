@@ -1,7 +1,7 @@
 """Scalar metrics for the transient multi-layer LAK regression.
 
 The case has no external reference run: it pins the HMP DISV LAK build's own
-behaviour. The comparison exposes a few robust scalars:
+behavior. The comparison exposes a few robust scalars:
 
 * STRUCTURAL: the home-grown CONNECTIONDATA carries HORIZONTAL bank seepage in
   BOTH occupied layers plus a VERTICAL leakage per lake column (deterministic, no

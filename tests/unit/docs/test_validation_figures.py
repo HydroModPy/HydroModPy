@@ -1,7 +1,7 @@
 """The Validation page draws the solvers of a case on one figure.
 
 The runs of one case that share the points and the reference go on the same
-figure, each with the colour and the shape of its solver, and a second panel
+figure, each with the color and the shape of its solver, and a second panel
 draws each run minus the reference.
 """
 
@@ -52,7 +52,7 @@ def test_the_solvers_of_a_case_share_one_figure(V) -> None:
     assert "minus the reference" in html
 
 
-def test_a_solver_keeps_its_colour_whatever_the_order(V) -> None:
+def test_a_solver_keeps_its_color_whatever_the_order(V) -> None:
     html = V.figures_html([_record("modflow6", [10, 9, 8]), _record("modflow_nwt", [10, 9, 8])])
     nwt = V.SOLVER_ORDER.index("modflow_nwt")
     mf6 = V.SOLVER_ORDER.index("modflow6")

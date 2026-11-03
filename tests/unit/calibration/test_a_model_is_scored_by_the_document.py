@@ -3,7 +3,7 @@
 The composed route has two frontiers and this file holds both. Upstream, the
 document: a declaration that cannot be placed without a mesh or a project is
 refused when the evaluator is built, never at the first trial and never by
-quietly dropping what it could not honour. Downstream, the model: an answer that
+quietly dropping what it could not honor. Downstream, the model: an answer that
 does not match the batch it answers is a failed trial with a reason, and a model
 that raises never reaches the ask/tell loop as an exception.
 

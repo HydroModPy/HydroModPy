@@ -1,7 +1,7 @@
 """Solver meshes for the unit tests, built from a hand-made planar mesh.
 
 ``solver_mesh_from`` wraps a ``HydroMesh`` into the ``PlanarCellMesh`` a
-``SolverMesh`` holds and adds the vertical part. The centres are the generators
+``SolverMesh`` holds and adds the vertical part. The centers are the generators
 a caller gives (a Voronoi mesh), the vertex means otherwise. Not public API.
 """
 
@@ -30,7 +30,7 @@ def solver_mesh_from(
 ) -> SolverMesh:
     """Return the solver mesh of ``planar`` with the given tops, bottoms and mask.
 
-    ``centers`` are the generators of a Voronoi mesh, its cell centres.
+    ``centers`` are the generators of a Voronoi mesh, its cell centers.
     """
     generated = centers is not None
     if centers is None:
@@ -78,7 +78,7 @@ _LOCAL_CRS_WKT = (
     'LOCAL_CS["array grid",LOCAL_DATUM["local origin",0],UNIT["metre",1],'
     'AXIS["X",EAST],AXIS["Y",NORTH]]'
 )
-"""CRS of a grid defined by arrays alone: a local frame in metres."""
+"""CRS of a grid defined by arrays alone: a local frame in meters."""
 
 
 def solver_mesh_from_structured_arrays(

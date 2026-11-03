@@ -30,6 +30,17 @@ class ReportBlockSpec:
     figures: tuple[BlockFigureSpec, ...] = field(default_factory=tuple)
 
 
+def optional_figure_ids(block_specs: tuple[ReportBlockSpec, ...]) -> frozenset[str]:
+    """Ids of the figures no block requires, which a project may legitimately lack."""
+    required = {f.figure_id for block in block_specs for f in block.figures if f.required}
+    return frozenset(
+        f.figure_id
+        for block in block_specs
+        for f in block.figures
+        if not f.required and f.figure_id not in required
+    )
+
+
 DEFAULT_BLOCK_SPECS: tuple[ReportBlockSpec, ...] = (
     ReportBlockSpec(
         block_id="site_context",

@@ -43,7 +43,7 @@ def _digest(raster) -> bytes:
 
 @pytest.fixture
 def rough_dem(tmp_path):
-    """A noisy slope quantized to 0.5 m, as BD ALTI stores decimetres.
+    """A noisy slope quantized to 0.5 m, as BD ALTI stores decimeters.
 
     The plateaus are where the parallel depression removal has ties to break; a
     continuous surface reproduces at any size.

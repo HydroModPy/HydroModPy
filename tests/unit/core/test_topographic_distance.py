@@ -23,13 +23,13 @@ D4_OVER_D8 = tol("length_ratio_on_a_pure_diagonal_descent")
 
 
 def _plane(nrow: int, ncol: int) -> np.ndarray:
-    """Surface dropping one metre per row, draining to the south."""
+    """Surface dropping one meter per row, draining to the south."""
     rows = np.arange(nrow, dtype="float64")[:, None]
     return np.broadcast_to(100.0 - rows, (nrow, ncol)).reshape(-1).copy()
 
 
 def _diagonal_plane(size: int) -> np.ndarray:
-    """Surface dropping one metre to the east and one to the south."""
+    """Surface dropping one meter to the east and one to the south."""
     rows = np.arange(size, dtype="float64")[:, None]
     cols = np.arange(size, dtype="float64")[None, :]
     return (100.0 - rows - cols).reshape(-1)
@@ -341,7 +341,7 @@ def _uneven_row() -> tuple[np.ndarray, np.ndarray]:
     """One row of three quads, the last one four times wider than the others.
 
     Vertex means: (5, 5), (15, 5), (40, 5). The middle cell therefore sits
-    10 m from its left neighbour and 25 m from its right one, so a drop that
+    10 m from its left neighbor and 25 m from its right one, so a drop that
     is larger to the right can still lose on slope.
     """
     xs = [0.0, 10.0, 20.0, 60.0]
@@ -366,8 +366,8 @@ def test_the_receiver_is_chosen_on_the_points_the_surface_was_sampled_at() -> No
     assert int(by_polygon.graph.downstream[1]) == 0
     assert by_polygon.edge_length[1] == pytest.approx(10.0)
 
-    # Same mesh, same surface, but the values were sampled at centres that put
-    # the right neighbour 3 m away: the slope to the right is now the steepest.
+    # Same mesh, same surface, but the values were sampled at centers that put
+    # the right neighbor 3 m away: the slope to the right is now the steepest.
     seeds = np.asarray([(5.0, 5.0), (15.0, 5.0), (18.0, 5.0)])
     by_seed = build_downslope_metric(surface, connectivity, vertices=vertices, centroids=seeds)
     assert int(by_seed.graph.downstream[1]) == 2

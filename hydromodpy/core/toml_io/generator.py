@@ -78,7 +78,7 @@ def generate_toml(
         Concrete values to write instead of model defaults.
         Fields present in overrides with a non-None value are written
         uncommented; fields set to None follow the default commented-out
-        behaviour for optional fields.
+        behavior for optional fields.
 
     Returns
     -------
@@ -579,7 +579,7 @@ def _placeholder(field_info: FieldInfo) -> str:
             if all(isinstance(a, (str, int, float)) for a in args):
                 return _fmt(args[0])
     elif origin is not None:
-        # Non-union parameterised type (list, dict, etc.) -- check for Literal
+        # Non-union parameterized type (list, dict, etc.) -- check for Literal
         args = get_args(annotation)
         if args and all(isinstance(a, (str, int, float)) for a in args):
             return _fmt(args[0])
@@ -589,7 +589,7 @@ def _placeholder(field_info: FieldInfo) -> str:
     if top_args and all(isinstance(a, (str, int, float)) for a in top_args):
         return _fmt(top_args[0])
 
-    # Container types (list, dict, including parameterised forms)
+    # Container types (list, dict, including parameterized forms)
     inner_origin = get_origin(inner)
     inner_name = getattr(inner, "__name__", "")
     if inner_origin is list or inner is list or inner_name == "list":
@@ -1060,7 +1060,7 @@ def _section(
     array_fields: list[tuple[str, FieldInfo, Profile, type[BaseModel]]] = []
 
     for name, field_info, level in iter_fields_by_profile(model_cls, threshold):
-        # Skip fields explicitly excluded from serialisation (e.g. Transport)
+        # Skip fields explicitly excluded from serialization (e.g. Transport)
         if _toml_excluded(field_info):
             continue
 

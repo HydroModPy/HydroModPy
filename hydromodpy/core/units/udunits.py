@@ -3,8 +3,10 @@
 A table takes its units from solvers, data providers and hand-written TOML, each
 with its own habit: ``m3/s``, ``mm/day``, ``D``, ``-``. A reader that compares two
 of them needs one spelling, so the store writes ``m3 s-1``, ``mm d-1``, ``d`` and
-``1``. This changes how a unit is written and never which unit it is. A text this
-grammar cannot read, such as a provider's ``mg(NO3)/L``, is kept as it was written.
+``1``. This changes how a unit is written and never which unit it is, so a text is
+spelled only when every word of it is a unit this module knows and every group after a
+``/`` holds one factor. Anything else, such as a provider's ``mg(NO3)/L``, ``mg/L NO3``,
+``n/a`` or ``m a s l``, is kept as it was written.
 """
 
 from __future__ import annotations
@@ -43,6 +45,18 @@ _NAMES: dict[str, str] = {
     "celsius": "degC",
 }
 
+_KNOWN: frozenset[str] = frozenset(
+    {
+        *("m", "km", "cm", "mm", "um", "µm", "μm", "L", "mL"),
+        *("g", "kg", "mg", "ug", "µg", "μg", "ng"),
+        *("s", "min", "h", "d", "month", "yr", "year"),
+        *("K", "degC", "Pa", "hPa", "kPa", "W", "J", "kJ", "MJ"),
+        *("S", "mS", "uS", "µS", "μS", "mol", "mmol", "umol", "µmol", "μmol", "eq", "meq", "Bq"),
+    }
+)
+"""The units a word is read as once ``_NAMES`` has spelled it. ``a`` is left out: it is
+a year to udunits, and the end of ``n/a`` or ``m a s l`` everywhere else."""
+
 _TOKEN = re.compile(r"^(?P<name>[^\W\d_]+|°C)(?:\^|\*\*)?(?P<power>[+-]?\d+)?$")
 _SEPARATOR = re.compile(r"[\s.·]+|(?<!\*)\*(?!\*)")
 
@@ -58,7 +72,10 @@ def udunits_spelling(unit: str | None) -> str:
         return "percent"
     terms: list[str] = []
     for position, group in enumerate(text.split("/")):
-        for token in _SEPARATOR.split(group.strip()):
+        tokens = _SEPARATOR.split(group.strip())
+        if position > 0 and len(tokens) > 1:
+            return text
+        for token in tokens:
             term = _term(token, sign=1 if position == 0 else -1)
             if term is None:
                 return text
@@ -75,6 +92,8 @@ def _term(token: str, *, sign: int) -> str | None:
     if match is None:
         return None
     name = _NAMES.get(match["name"], match["name"])
+    if name not in _KNOWN:
+        return None
     power = sign * int(match["power"] or 1)
     return name if power == 1 else f"{name}{power}"
 

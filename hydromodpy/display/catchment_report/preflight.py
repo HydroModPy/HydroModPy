@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from hydromodpy.core.exceptions import NothingThereError
 from hydromodpy.display.catchment_report.inputs import CatchmentReportInputs
 
 
@@ -15,7 +16,7 @@ class MissingCatchmentReportInput:
     kind: str
 
 
-class CatchmentReportPreflightError(FileNotFoundError):
+class CatchmentReportPreflightError(NothingThereError):
     """Raised when the selected catchment report steps cannot start safely."""
 
     def __init__(self, missing: tuple[MissingCatchmentReportInput, ...]) -> None:

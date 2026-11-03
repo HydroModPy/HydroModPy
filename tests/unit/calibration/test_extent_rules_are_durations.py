@@ -432,3 +432,25 @@ def test_the_note_of_the_figure_says_the_duration_and_the_timesteps_it_made() ->
 
     assert (extents.maximal_flowing_duration, extents.maximal_flowing_steps) == ("45 d", 2)
     assert (extents.minimal_dry_duration, extents.minimal_dry_steps) == ("1 month", 1)
+
+
+def test_the_preflight_refuses_a_duration_the_timestep_cannot_read(monkeypatch) -> None:
+    from hydromodpy.calibration import preflight
+
+    config = SimpleNamespace(
+        simulation=SimpleNamespace(time=SimpleNamespace(step_value=1, step_unit="day"))
+    )
+    extent = SimpleNamespace(maximal_flowing_duration="2 years", minimal_dry_duration=None)
+    monkeypatch.setattr(preflight, "_search_candidates", lambda _c: [(None, "w", [])])
+    monkeypatch.setattr(preflight, "_config_of", lambda _s, _p: config)
+    monkeypatch.setattr(
+        preflight,
+        "_outputs_scored_by_search",
+        lambda _c, _p: {"net": SimpleNamespace(extent=extent)},
+    )
+
+    findings = preflight._check_the_extent_durations_fit_the_timestep(object(), {})
+    assert len(findings) == 1 and "exceeds" in findings[0].detail
+
+    extent.maximal_flowing_duration = "30 d"
+    assert preflight._check_the_extent_durations_fit_the_timestep(object(), {}) == []

@@ -8,10 +8,10 @@ mesh made of triangles or Voronoi polygons instead, as the keyword arguments of
 The meshes go through HydroModPy's own ``SolverMesh``: the triangles are a
 ``HydroMesh`` triangle block, the polygons come from ``voronoi_planar_mesh``,
 and ``SolverMesh.to_disv_kwargs`` writes the vertices and ``cell2d``. A triangle
-cell centre is its vertex mean (what HydroModPy writes for a triangle grid), a
-Voronoi cell centre is its seed.
+cell center is its vertex mean (what HydroModPy writes for a triangle grid), a
+Voronoi cell center is its seed.
 
-Two-point flux and XT3D: on a triangle mesh the line between two cell centres
+Two-point flux and XT3D: on a triangle mesh the line between two cell centers
 is not perpendicular to the shared face, so the two-point flux is not consistent.
 ``DisvMesh.xt3d`` applies the rule HydroModPy uses in
 ``hydromodpy.solver.modflow6.build.xt3d_mode``: XT3D is always on for triangle
@@ -110,7 +110,7 @@ class DisvMesh:
         return out
 
     def nearest_cell(self, x: float, y: float) -> int:
-        """Index of the cell whose centre is the closest to ``(x, y)``."""
+        """Index of the cell whose center is the closest to ``(x, y)``."""
         return int(np.argmin(np.hypot(self.centers[:, 0] - x, self.centers[:, 1] - y)))
 
 
@@ -201,7 +201,7 @@ def strip_mesh(
     each direction. Points on a side move along that side only.
 
     Triangle: Delaunay triangulation of the lattice vertices (corners and sides
-    included). Voronoi: the seeds are the lattice cell centres, clipped to the
+    included). Voronoi: the seeds are the lattice cell centers, clipped to the
     rectangle.
     """
     _check_kind(kind)
@@ -290,7 +290,7 @@ def radial_mesh(
     jitter: float = 0.4,
     seed: int = DEFAULT_SEED,
 ) -> DisvMesh:
-    """A disc around the origin, fine at the centre and coarsening geometrically.
+    """A disc around the origin, fine at the center and coarsening geometrically.
 
     Triangle: Delaunay triangulation of the ring seeds; the well sits in the
     triangle that holds the origin. Voronoi: the origin seed is the well cell;

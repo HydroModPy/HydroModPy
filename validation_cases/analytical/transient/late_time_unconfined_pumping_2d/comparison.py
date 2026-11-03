@@ -46,10 +46,10 @@ class LateTimeUnconfinedPumpingComparison(TransientRadialDrawdownComparison):
 
     A run on a mesh bundle is projected onto the structured grid before the
     monitor points are read: a triangle grid by nearest centroid, a Voronoi
-    dual by the cell under each grid centre.
+    dual by the cell under each grid center.
 
-    The reference is read where the model computes: at the centre of the cell
-    each monitor point reads, and with the well at the centre of the cell that
+    The reference is read where the model computes: at the center of the cell
+    each monitor point reads, and with the well at the center of the cell that
     holds it. A solver puts a point well in the first cell whose outline holds
     the point, and on a triangle mesh that centroid lies off the well: 6.6 m on
     the squares of the Boussinesq runtime, 15.4 m on the refined triangle
@@ -63,10 +63,10 @@ class LateTimeUnconfinedPumpingComparison(TransientRadialDrawdownComparison):
     Plan-view map at the final output time, one entry per solver cell, for figures:
 
     - ``map_cell_polygons``: the cell outline, a list of ``(x, y)`` vertices in
-      metres from the well, rounded to 0.01 m. A structured grid gives one
+      meters from the well, rounded to 0.01 m. A structured grid gives one
       square per cell, row by row from the northern row.
     - ``map_simulated``: the simulated head.
-    - ``map_reference``: the head of the reference at the cell centre, NaN in
+    - ``map_reference``: the head of the reference at the cell center, NaN in
       the well cell, where the reference is singular.
     - ``map_overlay``: the well, at the origin of the map.
     """
@@ -116,11 +116,11 @@ def _held_well_xy(
     observable_name: str,
     well_xy: tuple[float, float],
 ) -> tuple[float, float]:
-    """Centre of the solver cell that holds the well.
+    """Center of the solver cell that holds the well.
 
     A triangle grid holds it in the first triangle whose outline holds the
-    point, centred on its centroid. A Voronoi dual holds it in the cell of the
-    nearest node. A structured grid of this case is centred on the well.
+    point, centered on its centroid. A Voronoi dual holds it in the cell of the
+    nearest node. A structured grid of this case is centered on the well.
     """
     solver_name = str(getattr(result, "solver_name", "")).strip().lower() or solver
     if solver_name in {"boussinesq", DEFAULT_ENGINE_SOLVER}:
@@ -151,10 +151,10 @@ def _sampled_cell_radii(
     """Distance from ``center_xy`` of the solver cell each monitor point reads.
 
     The projection gives a structured cell the value of the solver cell with the
-    nearest centre. That centre lies off the monitor point, by 1 to 18 m on the
+    nearest center. That center lies off the monitor point, by 1 to 18 m on the
     Voronoi dual of this case and up to 30 m on the triangles of the Boussinesq
     runtime, so the reference is read at its radius. Returns None on a
-    structured grid, where the point is the cell centre.
+    structured grid, where the point is the cell center.
     """
     solver_name = str(getattr(result, "solver_name", "")).strip().lower() or solver
     if solver_name in {"boussinesq", DEFAULT_ENGINE_SOLVER}:
@@ -186,7 +186,7 @@ def _final_head_map(
 ) -> tuple[list[list[tuple[float, float]]], np.ndarray, np.ndarray]:
     """Return the cell polygons, the simulated head and the reference head at the final time.
 
-    The reference is centred on ``well_xy``, the centre of the cell that holds the well.
+    The reference is centered on ``well_xy``, the center of the cell that holds the well.
     """
     reference_cfg = dict(metadata.get("reference", {}))
     solver_name = str(getattr(result, "solver_name", "")).strip().lower() or solver

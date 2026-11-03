@@ -81,7 +81,7 @@ def test_saying_it_twice_is_refused() -> None:
 
 
 def test_an_engine_that_stops_on_its_budget_refuses_a_precision() -> None:
-    # Silently dropping it would report a search that honoured a request it never
+    # Silently dropping it would report a search that honored a request it never
     # read. The message has to name what does bound that engine.
     with pytest.raises(ValueError, match="max_trials"):
         stopping_kwargs("grid", ParameterSpace([K]), precision=0.10)

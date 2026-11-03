@@ -175,7 +175,7 @@ def test_a_discriminator_value_is_explained_by_the_docstring_of_its_shape(regist
     assert kinds
     docs = kinds[0]["value_docs"]
     assert set(kinds[0]["literal"]) <= set(docs)
-    assert docs["constant"].startswith("One constant")
+    assert docs["constant"].startswith("One value")
 
 
 def test_a_value_quoted_in_the_description_counts_as_explained() -> None:

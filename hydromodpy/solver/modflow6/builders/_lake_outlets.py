@@ -83,11 +83,11 @@ _OUTLET_COUTTYPES = ("WEIR", "MANNING", "SPECIFIED")
 
 
 def _outlet_couttype(lake_id: str, outlet: object) -> str:
-    raw = _lake_attr(outlet, "couttype")
+    raw = _lake_attr(outlet, "kind")
     couttype = str(raw).strip().upper() if raw is not None else ""
     if couttype not in _OUTLET_COUTTYPES:
         raise ValueError(
-            f"flow.sinks_sources.lakes.{lake_id} outlet couttype must be one of "
+            f"flow.sinks_sources.lakes.{lake_id} outlet kind must be one of "
             f"{', '.join(_OUTLET_COUTTYPES)}; got {raw!r}."
         )
     return couttype
@@ -253,7 +253,7 @@ def _emit_outlet_rate_rows(
     outletno = 0
     for lake_id, definition in lakes.items():
         for outlet in definition.get("outlets") or []:
-            couttype = str(_lake_attr(outlet, "couttype") or "").strip().upper()
+            couttype = str(_lake_attr(outlet, "kind") or "").strip().upper()
             if couttype == "SPECIFIED":
                 forcing = _lake_attr(outlet, "forcing")
                 rate = _lake_attr(outlet, "rate")
@@ -290,9 +290,9 @@ def _emit_steady_stage_hold_rows(
 
     Opt-in through ``steady_stage_hold``: a managed reservoir's observed initial
     level is rarely the natural steady equilibrium, so the warm-up equilibrates
-    the aquifer AROUND ``stageinit`` (LAK status CONSTANT) instead of solving a
+    the aquifer AROUND ``initial_stage`` (LAK status CONSTANT) instead of solving a
     free stage that would override it. The lake re-activates on the first
-    transient period and starts the chronicle exactly at ``stageinit``.
+    transient period and starts the chronicle exactly at ``initial_stage``.
     """
     if not definition.get("steady_stage_hold"):
         return

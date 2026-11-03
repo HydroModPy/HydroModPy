@@ -18,8 +18,8 @@ def test_dumps_round_trips_nested_tables_and_arrays() -> None:
             "enabled": True,
         },
         "simulation process": [
-            {"type": "flow", "solvers": ["modflow6"]},
-            {"type": "transport", "solvers": ["mt3dms"]},
+            {"kind": "flow", "solvers": ["modflow6"]},
+            {"kind": "transport", "solvers": ["mt3dms"]},
         ],
     }
 
@@ -31,7 +31,7 @@ def test_dumps_round_trips_nested_tables_and_arrays() -> None:
     assert parsed["workspace"]["flags"] == ["calibration", "snapshot"]
     assert parsed["simulation"]["run_id"] == "case_a"
     assert parsed["simulation"]["enabled"] is True
-    assert parsed["simulation process"][0]["type"] == "flow"
+    assert parsed["simulation process"][0]["kind"] == "flow"
     assert parsed["simulation process"][1]["solvers"] == ["mt3dms"]
 
 

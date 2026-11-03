@@ -14,7 +14,7 @@ the 0.12 m of the dual of a triangulation (config_modflow6_voronoi.toml), where
 the rings pass through cells, drops to 0.06 m. What is left is the saturation
 error of the upstream cell under Newton. The spread is the error of a mesh
 without the symmetry of the node rings; the freeboard is lower than the
-structured grid's 0.91 m because a generated cell can sit a few decimetres
+structured grid's 0.91 m because a generated cell can sit a few decimeters
 above the coast. Measured 2026-10-14.
 B9 of the unified mesh, measured again on 2026-10-26. Already at twice the
 measure: radial_profile.azimuthal_spread 0.126 (measure 0.0626);

@@ -1,7 +1,7 @@
 """Schema concerns for :class:`SimulationZarr`.
 
 Owns the on-disk layout contract: ZARR_SCHEMA_VERSION enforcement,
-``_SUBGROUPS`` materialisation on init, and the strict root-open helper
+``_SUBGROUPS`` materialization on init, and the strict root-open helper
 that validates the schema version on every reopen.
 
 Pure functions; no instance state is held here.
@@ -163,7 +163,7 @@ def initialise_root(
 ) -> tuple[Path, Any, zarr.Group]:
     """Create the on-disk store with the v2 layout and return its handles.
 
-    Materialises the root group with the mandatory ``Conventions`` /
+    Materializes the root group with the mandatory ``Conventions`` /
     ``zarr_schema_version`` / ``created_at`` attributes, then creates the
     seven canonical subgroups (``meta``, ``mesh``, ``state``, ``derived``,
     ``budget``, ``particles``, ``forcing``).

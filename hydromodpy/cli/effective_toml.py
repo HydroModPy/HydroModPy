@@ -15,6 +15,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.toml_io.overrides import (
     ENV_PATH_SEPARATOR,
     ENV_SET_PREFIX,
@@ -109,7 +110,7 @@ def materialize_effective_toml(
     return temp_path, raw_toml, lineage_overrides
 
 
-class ConfigFileError(Exception):
+class ConfigFileError(ConfigError):
     """A configuration file, or a file of its base_config chain, cannot be read."""
 
 

@@ -93,7 +93,7 @@ the name with the suffix of the scenario. The solvers are `modflow_nwt`,
   built by `mesh_bundle.py` (bundle under `mesh_bundles/`, rebuilt with
   `python -m validation_cases.analytical.steady.dupuit_seepage_limit_1d.mesh_bundle`),
   or their 320 nodes. The cell tops come from the same 5 m raster, flat past the
-  centre of its end columns, so the toe nodes of the dual read `0.05 m` and none
+  center of its end columns, so the toe nodes of the dual read `0.05 m` and none
   is dry. The reference is read at each cell and averaged over the same 5 m
   columns as the model. Both need the ILUT fill of their configs. The cells that
   disagree with the seepage state of their column are counted; a structured

@@ -39,7 +39,7 @@ _HEADER = """\
 
 @dataclass(frozen=True, slots=True)
 class ExampleEntry:
-    """One catalogued example: what it is, and every file it needs."""
+    """One cataloged example: what it is, and every file it needs."""
 
     id: str
     """Short id of the example, the one ``hmp example add`` takes (``"04"``)."""
@@ -103,7 +103,7 @@ def find_entry(example_id: str, catalog: tuple[ExampleEntry, ...]) -> ExampleEnt
 
 
 def render_catalog(entries: tuple[ExampleEntry, ...]) -> str:
-    """Serialise entries to the exact bytes ``catalog.toml`` carries.
+    """Serialize entries to the exact bytes ``catalog.toml`` carries.
 
     Hand-written rather than delegated to a TOML writer: the file is compared
     byte for byte by a test, so the emitter has to be part of the contract

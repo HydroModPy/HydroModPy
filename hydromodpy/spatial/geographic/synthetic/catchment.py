@@ -30,7 +30,7 @@ from hydromodpy.spatial.surface import Surface
 
 @dataclass(frozen=True)
 class SyntheticGeographicPaths:
-    """Canonical artefact paths written for one synthetic geographic context."""
+    """Canonical artifact paths written for one synthetic geographic context."""
 
     root_dir: Path
     watershed_shp: Path
@@ -132,7 +132,7 @@ class SyntheticGeographic:
         self._build()
 
     def _build(self) -> None:
-        """Materialize the synthetic DEM support and its on-disk artefacts."""
+        """Materialize the synthetic DEM support and its on-disk artifacts."""
         grid = self.config.grid
         values = build_topography_values(
             topography=self.config.topography,

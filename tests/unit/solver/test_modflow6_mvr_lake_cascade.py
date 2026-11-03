@@ -51,7 +51,7 @@ def test_factor_mover_record_routes_outlet_to_receiver_lake() -> None:
         "lac0": {
             "outlets": [
                 {
-                    "couttype": "WEIR",
+                    "kind": "WEIR",
                     "invert": 87.0,
                     "width": 30.0,
                     "lakeout": 0,  # external on the LAK side; MVR takes it onward
@@ -75,7 +75,7 @@ def test_factor_mover_record_routes_outlet_to_receiver_lake() -> None:
 def test_direct_lakeout_outlet_emits_no_mover_record() -> None:
     # A direct LAK -> LAK weir (lakeout=1, no mover) must NOT create an MVR record.
     lakes = {
-        "lac0": {"outlets": [{"couttype": "WEIR", "invert": 87.0, "width": 30.0, "lakeout": 1}]},
+        "lac0": {"outlets": [{"kind": "WEIR", "invert": 87.0, "width": 30.0, "lakeout": 1}]},
         "lac1": {"outlets": []},
     }
     assert build_mvr_period_records(build_lake_mover_records(None, lakes=lakes)) == []
@@ -86,9 +86,9 @@ def test_outlet_numbering_is_shared_with_outlets_builder() -> None:
     lakes = {
         "lac0": {
             "outlets": [
-                {"couttype": "WEIR", "invert": 95.0, "width": 8.0, "lakeout": 0},
+                {"kind": "WEIR", "invert": 95.0, "width": 8.0, "lakeout": 0},
                 {
-                    "couttype": "WEIR",
+                    "kind": "WEIR",
                     "invert": 87.0,
                     "width": 30.0,
                     "lakeout": 0,
@@ -112,7 +112,7 @@ def test_mover_lake_out_of_range_is_rejected() -> None:
         "lac0": {
             "outlets": [
                 {
-                    "couttype": "WEIR",
+                    "kind": "WEIR",
                     "invert": 87.0,
                     "width": 30.0,
                     "lakeout": 0,
@@ -131,7 +131,7 @@ def test_unknown_mvrtype_is_rejected() -> None:
         "lac0": {
             "outlets": [
                 {
-                    "couttype": "WEIR",
+                    "kind": "WEIR",
                     "invert": 87.0,
                     "width": 30.0,
                     "lakeout": 0,
@@ -202,11 +202,11 @@ def _two_lake_mvr_sim(tmp_path, *, exe: str):
                         "polygon": None,
                         "bedleak": 0.01,
                         "abacus": abacus,
-                        "stageinit": 87.5,
+                        "initial_stage": 87.5,
                         "inflow": 0.5,
                         "outlets": [
                             {
-                                "couttype": "WEIR",
+                                "kind": "WEIR",
                                 "invert": 87.0,
                                 "width": 5.0,
                                 "lakeout": 0,
@@ -218,7 +218,7 @@ def _two_lake_mvr_sim(tmp_path, *, exe: str):
                         "polygon": None,
                         "bedleak": 0.01,
                         "abacus": abacus,
-                        "stageinit": 82.0,
+                        "initial_stage": 82.0,
                     },
                 }
             },
@@ -329,10 +329,10 @@ def _two_lake_model_with_mover() -> SimpleNamespace:
                         "polygon": poly0,
                         "bedleak": 0.3,
                         "abacus": abacus,
-                        "stageinit": 80.0,
+                        "initial_stage": 80.0,
                         "outlets": [
                             {
-                                "couttype": "WEIR",
+                                "kind": "WEIR",
                                 "invert": 87.0,
                                 "width": 30.0,
                                 "lakeout": 0,
@@ -344,7 +344,7 @@ def _two_lake_model_with_mover() -> SimpleNamespace:
                         "polygon": poly1,
                         "bedleak": 0.3,
                         "abacus": abacus,
-                        "stageinit": 80.0,
+                        "initial_stage": 80.0,
                     },
                 }
             },

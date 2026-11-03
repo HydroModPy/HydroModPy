@@ -295,14 +295,14 @@ def test_hydrograph_sim_obs_marks_single_sample_series(mpl) -> None:
         def observed(self, variable: str, station: str | None = None) -> pd.DataFrame:
             # A lone discharge stamp with no known start, as this run has no
             # catalog row, takes the mean of the whole record. That record has
-            # to reach the stamp, and one sample alone has no interval, so it
-            # holds two.
+            # to reach the stamp, and under three samples it has no interval, so it
+            # holds three.
             return pd.DataFrame(
                 {
-                    "datetime": pd.to_datetime(["2000-06-13", "2000-06-14"]),
-                    "station_id": ["NANCON", "NANCON"],
-                    "variable": [variable, variable],
-                    "value": [1.4, 1.5],
+                    "datetime": pd.to_datetime(["2000-06-12", "2000-06-13", "2000-06-14"]),
+                    "station_id": ["NANCON"] * 3,
+                    "variable": [variable] * 3,
+                    "value": [1.4, 1.5, 1.5],
                 }
             )
 
@@ -373,7 +373,7 @@ def test_cross_section_samples_topography_and_watertable_along_a_line(mpl) -> No
     fig, ax = mpl.subplots()
 
     # The stub mesh spans x in [0, 2], y in [0, 1]; the section runs west to
-    # east through the mesh centre and must sample both faces.
+    # east through the mesh center and must sample both faces.
     CrossSection().render(_Run(), ax, line=[0.0, 0.5, 2.0, 0.5])
 
     labels = [line.get_label() for line in ax.lines]
@@ -389,7 +389,7 @@ def test_cross_section_samples_topography_and_watertable_along_a_line(mpl) -> No
 
 
 def test_cross_section_marks_the_streambed_and_its_disconnection_threshold(mpl) -> None:
-    # MODFLOW disconnects a reach at rtp minus the streambed thickness, metres
+    # MODFLOW disconnects a reach at rtp minus the streambed thickness, meters
     # below the ground. A section that only draws the land surface cannot say
     # whether a reach is connected, so both elevations must reach the axes, and
     # the threshold must sit under the bed.

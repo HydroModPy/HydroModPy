@@ -61,7 +61,7 @@ def test_a_window_that_stops_before_the_seal_keeps_its_attempt_state_and_resumes
     run_dir = tmp_path / "runs" / CASE
 
     with Project(config_path, no_display=True) as project:
-        project.execute(name=CASE, until_step="run_solver")
+        project._execute(name=CASE, until_step="run_solver")
 
     outcome = read_outcome(run_dir)
     assert outcome is not None and outcome.status == "completed" and outcome.attempt == 1
@@ -71,7 +71,7 @@ def test_a_window_that_stops_before_the_seal_keeps_its_attempt_state_and_resumes
     assert not (run_dir / "manifest.json").exists()
 
     with Project(config_path, no_display=True) as project:
-        project.execute(resume=CASE, until_step="run_solver")
+        project._execute(resume=CASE, until_step="run_solver")
 
     resumed = read_outcome(run_dir)
     assert resumed is not None and resumed.attempt == 2

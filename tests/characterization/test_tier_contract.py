@@ -1,7 +1,7 @@
 """The shape of the tier itself.
 
 The characterization net was built around five strict xfails, one per claim the
-code makes and does not honour. The count is part of the contract: adding one
+code makes and does not honor. The count is part of the contract: adding one
 without saying so hides a new defect among the known ones, and losing one
 silently drops a claim nobody is watching any more. Phases F1, F7 and F8 each
 turned some of them green; when a further one does, the two declarations below
@@ -20,7 +20,7 @@ TIER_DIR = Path(__file__).resolve().parent
 
 EXPECTED_STRICT_XFAILS: dict[str, str] = {}
 
-# Claims the code now honours. They stay named here so that re-marking one
+# Claims the code now honors. They stay named here so that re-marking one
 # xfail is a failure rather than a quiet regression.
 REPAIRED_STRICT_XFAILS: dict[str, str] = {
     "test_the_runtime_state_survives_a_process_boundary": "F8b",
@@ -76,7 +76,7 @@ def test_the_tier_carries_exactly_the_declared_strict_xfails() -> None:
 
 
 def test_a_repaired_claim_is_never_marked_xfail_again() -> None:
-    """A claim the code honours stays a plain test, and stays present."""
+    """A claim the code honors stays a plain test, and stays present."""
     found = _collect_strict_xfails()
     bodies = "\n".join(
         path.read_text(encoding="utf-8") for path in sorted(TIER_DIR.glob("test_*.py"))

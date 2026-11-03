@@ -1,6 +1,6 @@
 """A cost and its score turn into each other by the one table of metric directions.
 
-The search minimises a cost; an efficiency is one minus it. That flip was
+The search minimizes a cost; an efficiency is one minus it. That flip was
 written by hand in the criteria, the single-metric route, the scalar
 objective, two cases and the figures, and the figures kept their own list of
 efficiencies. ``cost_of`` and ``score_of`` sit beside ``METRIC_SENSE`` and are

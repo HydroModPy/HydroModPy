@@ -39,7 +39,7 @@ def test_hydromodpy_config_loads_profiling_shortcuts(tmp_path: Path) -> None:
                 'name = "site_a"',
                 "",
                 "[geographic.catchment]",
-                'catch_def = "dem"',
+                'kind = "dem"',
                 'dem_init_path = "dem.tif"',
             ]
         ),
@@ -73,7 +73,7 @@ def test_hydromodpy_config_allows_dem_from_data_sources_without_placeholder(
                 'name = "site_a"',
                 "",
                 "[geographic.catchment]",
-                'catch_def = "dem"',
+                'kind = "dem"',
                 "[data.dem]",
                 "",
                 "[[data.dem.sources]]",
@@ -165,7 +165,7 @@ def test_hydromodpy_config_from_dict_resolves_nested_geographic_catchment(
             "site": {"name": "site_a"},
             "geographic": {
                 "catchment": {
-                    "catch_def": "dem",
+                    "kind": "dem",
                     "dem_init_path": "dem.tif",
                 }
             },
@@ -202,7 +202,7 @@ def test_hydromodpy_config_from_json_resolves_nested_geographic_catchment(
         "site": {"name": "site_a"},
         "geographic": {
             "catchment": {
-                "catch_def": "dem",
+                "kind": "dem",
                 "dem_init_path": "dem.tif",
             }
         },

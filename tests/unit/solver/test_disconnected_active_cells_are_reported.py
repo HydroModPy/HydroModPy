@@ -2,7 +2,7 @@
 
 Two active cells are joined by a shared face in one layer or by the vertical
 connection in one column, through the pass-through cells between them. A lake joins
-the cells it is connected to. A group cut off from the rest is a modelling mistake the
+the cells it is connected to. A group cut off from the rest is a modeling mistake the
 solver would not name. The count is made on the grid the solver reads, so after the
 lake footprint is made inactive.
 """

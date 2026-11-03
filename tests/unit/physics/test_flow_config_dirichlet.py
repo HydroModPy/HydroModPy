@@ -79,37 +79,25 @@ def test_a_boundary_keyed_by_its_family_is_refused() -> None:
 
 def test_the_flat_drainage_form_is_the_supported_one() -> None:
     """A boundary is keyed by what it is; the kind is an attribute of it."""
-    cfg = _build_flow_config(
-        {
-            "active_bc": ["drainage"],
-            "bc": {"drainage": {"value": 1e-6}},
-        }
-    )
+    cfg = _build_flow_config({"bc": {"drainage": {"value": 1e-6}}})
 
     drainage = cfg.bc["drainage"]
-    assert drainage.kind == "cauchy"
+    assert drainage.kind == "drain"
     assert drainage.application_domain == "top"
     assert drainage.value == 1e-6
 
 
 def test_a_drainage_needs_no_table_at_all() -> None:
-    """The registry describes it entirely, so active_bc is enough."""
-    cfg = _build_flow_config({"active_bc": ["drainage"]})
+    """The registry describes it entirely, so an empty table is enough."""
+    cfg = _build_flow_config({"bc": {"drainage": {}}})
 
-    assert cfg.bc["drainage"].kind == "cauchy"
+    assert cfg.bc["drainage"].kind == "drain"
     assert cfg.bc["drainage"].value == 0.0
-
-
-def test_a_drainage_may_be_robin_instead() -> None:
-    """cauchy and robin are two surface closures, swapped by a field."""
-    cfg = _build_flow_config({"active_bc": ["drainage"], "bc": {"drainage": {"kind": "robin"}}})
-
-    assert cfg.bc["drainage"].kind == "robin"
 
 
 def test_a_kind_from_another_family_is_refused() -> None:
     with pytest.raises(ValueError, match="not interchangeable"):
-        _build_flow_config({"active_bc": ["drainage"], "bc": {"drainage": {"kind": "dirichlet"}}})
+        _build_flow_config({"bc": {"drainage": {"kind": "dirichlet"}}})
 
 
 def test_param_values_alias_is_rejected() -> None:
@@ -122,7 +110,7 @@ def test_boundary_value_accepts_inline_unit() -> None:
         {
             "bc": {
                 "drainage": {
-                    "kind": "cauchy",
+                    "kind": "drain",
                     "value": "10 cm2/day",
                     "application_domain": "top",
                 }
@@ -131,24 +119,9 @@ def test_boundary_value_accepts_inline_unit() -> None:
     )
 
     drainage = cfg.bc["drainage"]
+    assert drainage.kind == "drain"
     assert drainage.value == pytest.approx(1.0e-3 / 86400.0)
     assert drainage.units == "m2/s"
-
-
-def test_cauchy_drainage_accepts_kind_key() -> None:
-    cfg = _build_flow_config(
-        {
-            "bc": {
-                "drainage": {
-                    "kind": "cauchy",
-                    "value": "10 cm2/day",
-                    "application_domain": "top",
-                }
-            }
-        }
-    )
-
-    assert cfg.bc["drainage"].kind == "cauchy"
 
 
 def test_boundary_value_rejects_conflicting_units() -> None:
@@ -173,7 +146,7 @@ def test_dirichlet_side_forcing_constant_is_accepted_without_value() -> None:
                 "west_side": {
                     "kind": "dirichlet",
                     "forcing": {
-                        "mode": "constant",
+                        "kind": "constant",
                         "value": 99.0,
                     },
                 }
@@ -185,7 +158,7 @@ def test_dirichlet_side_forcing_constant_is_accepted_without_value() -> None:
     assert west_side.value is None
     assert west_side.units == "m"
     assert west_side.forcing is not None
-    assert west_side.forcing.mode == "constant"
+    assert west_side.forcing.kind == "constant"
     assert west_side.forcing.value == pytest.approx(99.0)
     assert west_side.forcing.units == "m"
 
@@ -215,7 +188,7 @@ def test_dirichlet_side_forcing_preserves_normalized_source_unit() -> None:
                     "kind": "dirichlet",
                     "unit": "centimeter",
                     "forcing": {
-                        "mode": "constant",
+                        "kind": "constant",
                         "value": 120.0,
                     },
                 }
@@ -254,7 +227,7 @@ def test_dirichlet_side_forcing_csv_resolves_relative_path(tmp_path: Path) -> No
                 "east_side": {
                     "kind": "dirichlet",
                     "forcing": {
-                        "mode": "csv",
+                        "kind": "csv",
                         "path_file": "boundary.csv",
                     },
                 }
@@ -279,7 +252,7 @@ def test_dirichlet_side_forcing_rejects_value_plus_forcing() -> None:
                         "kind": "dirichlet",
                         "value": 100.0,
                         "forcing": {
-                            "mode": "constant",
+                            "kind": "constant",
                             "value": 99.0,
                         },
                     }
@@ -296,7 +269,7 @@ def test_ocean_forcing_is_accepted() -> None:
                 "ocean": {
                     "kind": "dirichlet",
                     "forcing": {
-                        "mode": "constant",
+                        "kind": "constant",
                         "value": 0.0,
                     },
                 }
@@ -313,9 +286,9 @@ def test_drainage_forcing_is_rejected() -> None:
             {
                 "bc": {
                     "drainage": {
-                        "kind": "cauchy",
+                        "kind": "drain",
                         "forcing": {
-                            "mode": "constant",
+                            "kind": "constant",
                             "value": 0.0,
                         },
                     }

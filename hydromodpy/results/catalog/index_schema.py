@@ -40,7 +40,7 @@ INDEX_SCHEMA_VERSION: Final[str] = "10"
 """Version of the index schema. A different value in a file means: rebuild it."""
 
 INDEX_META_TABLE: Final[str] = "index_meta"
-"""Key-value table carrying the schema version, the labelling build and the indexing stamp."""
+"""Key-value table carrying the schema version, the labeling build and the indexing stamp."""
 
 META_SCHEMA_VERSION: Final[str] = "schema_version"
 META_HYDROMODPY_VERSION: Final[str] = "hydromodpy_version"

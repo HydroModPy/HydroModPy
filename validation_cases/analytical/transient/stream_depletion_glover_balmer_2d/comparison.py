@@ -3,15 +3,15 @@
 Every quantity is read on the solver cells, and the closed form is evaluated
 where the model computes:
 
-- the stream line sits at the centres of the cells that hold the stream head,
+- the stream line sits at the centers of the cells that hold the stream head,
   the cells that own an edge on the west face: half a cell inside the face on
   the 10 m grid, about 3 m inside it on the triangles, on the face itself for
-  the Voronoi dual, whose boundary cells are centred on the face nodes. On the
-  triangles the centres differ along the stream, so the line is their mean
+  the Voronoi dual, whose boundary cells are centered on the face nodes. On the
+  triangles the centers differ along the stream, so the line is their mean
   weighted by the share of the depletion each one carries in the closed form;
-- the well sits at the centre of the cell that takes the pumping;
-- a monitor point reads the cell with the nearest centre, and the closed form is
-  evaluated at that centre.
+- the well sits at the center of the cell that takes the pumping;
+- a monitor point reads the cell with the nearest center, and the closed form is
+  evaluated at that center.
 
 The stream depletion is the net flux the stream cells give the aquifer, read
 from the per-cell constant-head budget of the run, over the pumping rate. A run
@@ -65,16 +65,16 @@ class StreamDepletionComparison:
     Times are the ends of the stress periods. The depletion fractions are means
     over the period that ends there. ``numerical_drawdown_mean`` and
     ``analytical_drawdown`` have one row per time and one column per monitor
-    point; ``monitor_radii_m`` is the distance from each read cell centre to the
-    well cell centre.
+    point; ``monitor_radii_m`` is the distance from each read cell center to the
+    well cell center.
 
     Plan-view map at the final time, one entry per solver cell inside the map
     window, for figures:
 
-    - ``map_cell_polygons``: the cell outline, in metres from the stream face
+    - ``map_cell_polygons``: the cell outline, in meters from the stream face
       (x) and from the well (y), rounded to 0.01 m;
     - ``map_simulated``: the simulated head;
-    - ``map_reference``: the closed-form head at the cell centre, the stream
+    - ``map_reference``: the closed-form head at the cell center, the stream
       head on the stream cells and NaN in the well cell, where it is singular;
     - ``map_overlay``: the well. The stream is the west edge of the map.
     """
@@ -148,10 +148,10 @@ def _bundle_triangles(bundle_dir: Path) -> list[np.ndarray]:
 def _cell_geometry(
     *, result, solver_name: str, metadata: dict, n_cells: int
 ) -> tuple[list[np.ndarray], np.ndarray]:
-    """Return the outline and the centre of every solver cell of one run.
+    """Return the outline and the center of every solver cell of one run.
 
-    A grid with no mesh bundle has square cells centred on their vertex mean.
-    A triangle cell is centred on its centroid, a Voronoi cell on its node.
+    A grid with no mesh bundle has square cells centered on their vertex mean.
+    A triangle cell is centered on its centroid, a Voronoi cell on its node.
     """
     bundle_solver = BUNDLE_SOLVER if solver_name in BOUSSINESQ_SOLVERS else solver_name
     bundle_dir = resolve_case_mesh_bundle_dir(CASE_DIR, metadata, bundle_solver)

@@ -96,7 +96,7 @@ class TestRandomSearchSeeding:
 
 class TestCmaEsAdapter:
     def test_ask_tell_converges_on_convex(self) -> None:
-        """Optimise a convex quadratic: best value must be close to origin."""
+        """Optimize a convex quadratic: best value must be close to origin."""
         pytest.importorskip("cma")
         space = _two_dim_space()
         opt = build_optimizer(

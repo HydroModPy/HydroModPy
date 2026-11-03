@@ -129,7 +129,7 @@ def test_the_runtime_object_carries_the_engine_the_document_named(tmp_path, monk
     """A solver reads the engine off the runtime object, which copies a list of attributes."""
     monkeypatch.setattr(CatchmentDelineation, "processing", lambda self: None)
     engine_id = registry.builtin_engine_ids()[0]
-    catchment = {"catch_def": "dem", "dem_init_path": __file__}
+    catchment = {"kind": "dem", "dem_init_path": __file__}
     config = GeographicConfig.model_validate({"catchment": catchment, "terrain_engine": engine_id})
     delineation = CatchmentDelineation(config, SimpleNamespace(project_root=str(tmp_path)))
     assert delineation.terrain_engine == engine_id

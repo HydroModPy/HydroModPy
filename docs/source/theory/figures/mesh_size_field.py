@@ -65,7 +65,7 @@ bar.set_label("cell size (m)")
 # Profile: the size against the distance to a straight river, for three bands.
 strip = grid(40.0, 400.0)
 line = LineString([(0.0, 397.5), (40.0, 397.5)])
-for band, colour, style in ((200.0, "C1", "-"), (100.0, "C2", "--"), (20.0, "C3", "-.")):
+for band, color, style in ((200.0, "C1", "-"), (100.0, "C2", "--"), (20.0, "C3", "-.")):
     values = build_size_field(
         strip,
         h0=H0,
@@ -78,7 +78,7 @@ for band, colour, style in ((200.0, "C1", "-"), (100.0, "C2", "--"), (20.0, "C3"
     wanted = (H0 - RIVER) / band
     note = f"slope {wanted:.1f}" if wanted <= SLOPE else f"slope {wanted:.0f}, held at {SLOPE}"
     profile.plot(
-        distance, values, color=colour, ls=style, lw=1.8, label=f"band {band:.0f} m: {note}"
+        distance, values, color=color, ls=style, lw=1.8, label=f"band {band:.0f} m: {note}"
     )
 profile.axhline(H0, color="C6", lw=0.8, ls=":")
 profile.axhline(PIXEL, color="C6", lw=0.8, ls=":")

@@ -129,3 +129,17 @@ def test_manage_backend_exposes_and_cleans_diagnostic_paths(tmp_path):
     }
     assert str(tmp_file) not in remaining
     assert str(orphan) not in remaining
+
+
+def test_a_file_changed_since_the_seal_is_reported(tmp_path):
+    project = tmp_path / "project"
+    _, run_dir = _seal(project, "tampered")
+    rebuild_index(project)
+    assert "results:seal_digest" not in _by_name(diagnose_result_storage(project))
+
+    table = next((run_dir / TABLES_DIRNAME).glob(f"*{PARQUET_FILE_SUFFIX}"))
+    table.write_bytes(table.read_bytes() + b"x")
+    diagnostics = _by_name(diagnose_result_storage(project))
+
+    assert diagnostics["results:seal_digest"].status == "WARN"
+    assert table.name in diagnostics["results:seal_digest"].hint

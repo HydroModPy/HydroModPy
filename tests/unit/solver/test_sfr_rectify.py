@@ -230,7 +230,7 @@ def test_empty_records_return_no_channel() -> None:
 
 
 def _faces(nrow: int, ncol: int) -> list[set[int]]:
-    """Shared-face neighbours of a structured grid (no diagonal)."""
+    """Shared-face neighbors of a structured grid (no diagonal)."""
     faces: list[set[int]] = [set() for _ in range(nrow * ncol)]
     for r in range(nrow):
         for c in range(ncol):
@@ -245,7 +245,7 @@ def _faces(nrow: int, ncol: int) -> list[set[int]]:
 
 
 def test_a_lone_staircase_channel_keeps_every_cell() -> None:
-    # One staircase channel of 11 cells, no braid. On D8 a head cell neighbours its
+    # One staircase channel of 11 cells, no braid. On D8 a head cell neighbors its
     # downstream's downstream, which would read as a bigger parallel channel and
     # demote the head; on shared faces the whole channel stays.
     n = 6

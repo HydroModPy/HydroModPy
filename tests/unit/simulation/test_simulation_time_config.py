@@ -179,7 +179,7 @@ def test_simulation_transient_helper_builds_flow_transport_processes() -> None:
     )
 
     assert [process.id for process in cfg.process] == ["flow_main", "transport_main"]
-    assert [process.type for process in cfg.process] == ["flow", "transport"]
+    assert [process.kind for process in cfg.process] == ["flow", "transport"]
     assert cfg.process[1].solvers == ["mt3dms"]
 
 
@@ -190,7 +190,7 @@ def test_simulation_mesh_process_uses_backend_not_solvers() -> None:
             "process": [
                 {
                     "id": "mesh_main",
-                    "type": "mesh",
+                    "kind": "mesh",
                     "backend": "catchment",
                 }
             ],
@@ -198,7 +198,7 @@ def test_simulation_mesh_process_uses_backend_not_solvers() -> None:
     )
 
     process = cfg.process[0]
-    assert process.type == "mesh"
+    assert process.kind == "mesh"
     assert process.backend == "catchment"
     assert process.solvers == []
 
@@ -218,7 +218,7 @@ def test_simulation_mesh_process_rejects_solvers() -> None:
                 "process": [
                     {
                         "id": "mesh_main",
-                        "type": "mesh",
+                        "kind": "mesh",
                         "solvers": ["mesh_catchment"],
                     }
                 ],

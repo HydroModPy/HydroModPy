@@ -122,7 +122,7 @@ class EngineTraits:
 
     ``None`` says the engine has no parameter-side stopping rule at all, and a
     declared precision is then refused rather than quietly dropped: a search that
-    stops on its budget cannot honour a precision, and saying so is the only
+    stops on its budget cannot honor a precision, and saying so is the only
     honest answer."""
 
     accepts_a_start_point: bool = False
@@ -202,7 +202,7 @@ def choose_method(search_spaces: Mapping[str, str], criteria: Iterable[str]) -> 
     ``needs_signed_residual``, a signed criterion on every block
     (``CriterionRequirements.signed``): only then is the cost the absolute value
     of the residual its bracket closes on, and the answer is the crossing, not a
-    minimum. One unsigned block makes the cost one to minimise.
+    minimum. One unsigned block makes the cost one to minimize.
 
     An unknown criterion counts as unsigned. It cannot come from a validated
     configuration, whose metrics are ``MetricKind`` literals.
@@ -237,7 +237,7 @@ def _unmet(traits: EngineTraits, search_spaces: Mapping[str, str], *, signed: bo
     """Return what a search lacks to meet an engine's traits, or None when it meets them.
 
     The phrase opens the reason the next engine gives. An unsigned criterion
-    needs none: "cost to minimise" already says it.
+    needs none: "cost to minimize" already says it.
     """
     if traits.needs_signed_residual and not signed:
         return ""

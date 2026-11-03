@@ -2,7 +2,7 @@
 
 The runner asks :class:`ResumePlanner` where it must restart after a crash
 or interruption. The planner reads the journal under ``<run>/.hmp/checkpoints/``,
-verifies each completed step's artefacts still exist with a matching
+verifies each completed step's artifacts still exist with a matching
 ``outputs_hash``, and returns a :class:`ResumePlan` that the runner consumes
 verbatim. Pipeline blueprint changes or config drift trigger a full restart
 and cascade-invalidate the journal rows so a stale completed prefix never
@@ -134,7 +134,7 @@ class ResumePlanner:
         *,
         shared: frozenset[str],
     ) -> tuple[bool, str | None]:
-        """Verify a completed step's artefacts and, when meaningful, its digest.
+        """Verify a completed step's artifacts and, when meaningful, its digest.
 
         ``shared`` holds the URIs several steps of the run write into (the run
         store: ``fields.zarr``, ``tables.parquet``). Those are mutable and
@@ -160,7 +160,7 @@ class ResumePlanner:
 
 
 def _shared_uris(rows: Sequence[WorkflowStepRow]) -> frozenset[str]:
-    """Return the artefact URIs declared by more than one step of the run."""
+    """Return the artifact URIs declared by more than one step of the run."""
     seen: set[str] = set()
     shared: set[str] = set()
     for row in rows:

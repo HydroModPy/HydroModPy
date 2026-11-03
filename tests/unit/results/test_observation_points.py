@@ -1,4 +1,4 @@
-"""Declared observation points are run artefacts, so a rebuilt index keeps them."""
+"""Declared observation points are run artifacts, so a rebuilt index keeps them."""
 
 from __future__ import annotations
 

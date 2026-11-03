@@ -1,0 +1,59 @@
+HydroModPy
+Copyright (c) the HydroModPy authors, see CITATION.cff.
+
+HydroModPy is released under the Eclipse Public License 2.0 (see LICENSE).
+This file lists the third-party code and data that the package carries, and
+the licence of each.
+
+Code
+----
+
+PyHELP (hydromodpy/physics/hydrology/pyhelp/core)
+  Copyright (c) PyHelp Project Contributors, https://github.com/cgq-qgc/pyhelp
+  MIT License. The files keep their own licence header. The MIT licence needs
+  this notice and the permission text to stay with the copies. It allows
+  distribution inside a package that is under the EPL-2.0.
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in
+  all copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+
+Data inside the wheel
+---------------------
+
+hydromodpy/spatial/administrative/departement.gpkg
+  Outlines of the French departments, from IGN ADMIN EXPRESS COG CARTO.
+  Licence Ouverte / Etalab 2.0. Attribution: IGN.
+
+hydromodpy/results/zarr_store/data/cf_standard_names_v85.txt
+  A curated subset of the CF Standard Name Table v85,
+  https://cfconventions.org/. It is used under the terms of the CF
+  Conventions, which allow free use with attribution.
+
+Data that HydroModPy downloads, and never ships
+-----------------------------------------------
+
+The package downloads these on request. Each file keeps the licence of its
+provider, and HydroModPy writes it in the sidecar of the file.
+
+  BD Topage, Hub'Eau, SIM2 (Meteo-France), BD TOPO and BD ALTI (IGN),
+  BRGM geology maps: Licence Ouverte / Etalab 2.0.
+  OpenStreetMap: Open Database Licence (c) OpenStreetMap contributors.
+  EU-Hydro: Copernicus data policy, free use with attribution.
+
+The solver binaries (MODFLOW 6, MODFLOW-NWT, MODPATH, MT3D-USGS) come from
+the USGS, are public domain, and are downloaded on first use.

@@ -27,7 +27,7 @@ from hydromodpy.solver.modflow6.builders.lake import (
 
 
 def test_inflow_volumetric_round_trip_matches_legacy_days_value() -> None:
-    # Legacy days+metres example: an inflow of 0.5 m3/s is
+    # Legacy days+meters example: an inflow of 0.5 m3/s is
     # 43200 m3/day. The conversion layer must map both spellings to the same
     # canonical SI value (0.5 m3/s) for HMP's seconds-based TDIS.
     from_seconds, _ = parse_to_m3_per_s(0.5, location="lake.inflow", default_unit="m3/s")

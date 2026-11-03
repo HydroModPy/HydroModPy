@@ -112,6 +112,8 @@ def preload_hash_cache(project_root: Path, cache: ParamsHashCache) -> int:
                     or not params_hash.startswith("v2:")
                     or case.status != "completed"
                     or case.cost is None
+                    # A trial that kept no components cannot answer a root search.
+                    or not case.components
                 ):
                     continue
                 cache.put(
@@ -142,7 +144,7 @@ def mesh_fingerprint(ctx: Any) -> dict[str, object] | None:
 
     Declaring the requested mesh settings would not be enough: gmsh is not
     reproducible, so the same request can produce a different triangulation, and
-    the stream-network criterion is normalised by cell size. A cost computed on
+    the stream-network criterion is normalized by cell size. A cost computed on
     another mesh is therefore not the same number, and a cache that cannot tell
     the two apart serves the first one's objectives for the second one's model.
 
@@ -238,6 +240,13 @@ def build_cache_context(
     # The project root is where the folder sits: another machine, the same cost.
     for section_name in ("calibration", "display", "overview", "mesh", "workspace"):
         model_payload.pop(section_name, None)
+    # A name, a description and what is exported after the run change no cost.
+    model_payload.pop("export", None)
+    simulation = model_payload.get("simulation")
+    if isinstance(simulation, dict):
+        model_payload["simulation"] = {
+            key: value for key, value in simulation.items() if key not in ("name", "description")
+        }
 
     section = cfg.model_dump(mode="json", exclude_unset=True)
     calibration_payload = {key: section[key] for key in _COST_KEYS if key in section}
@@ -262,7 +271,7 @@ def build_cache_context(
         "parameter_space": _parameter_space_context(space),
         "input_files": _input_file_fingerprints(base_cfg) if base_cfg is not None else {},
         # The mesh that was built, not the one that was requested: gmsh is not
-        # reproducible and the network criterion is normalised by cell size.
+        # reproducible and the network criterion is normalized by cell size.
         "mesh": mesh_fingerprint(trial_ctx.ctx) if trial_ctx is not None else None,
     }
 

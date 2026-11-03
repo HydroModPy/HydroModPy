@@ -42,7 +42,7 @@ def demo_capability() -> CapabilityDecl:
         id="demo-delineate",
         version="1.2.3",
         title="Delineate a catchment, for the tests of the boundary",
-        description="Declares two artefacts and refuses everything else.",
+        description="Declares two artifacts and refuses everything else.",
         keywords=("hydrology", "test"),
         request_model=DemoRequest,
         outputs=(

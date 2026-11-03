@@ -142,13 +142,13 @@ changed configuration, not for a second try.
 ## Read the results
 
 ```bash
-hmp project collect .
+hmp campaign collect .
 hmp catalog ls --by site --best nse
 hmp report compare J0014010-base J0014010-k2e_5
 hmp publish . --to /srv/deliverables/my_project
 ```
 
-`hmp project collect` writes `summary/`: `by_case` with one row per case, `by_site` with
+`hmp campaign collect` writes `summary/`: `by_case` with one row per case, `by_site` with
 the best case of each site, a map of the sites as a GeoPackage, the cohort figures, the
 exports of each `[[sites.export]]` block, a report and a dated `README.md`. It is
 regenerated from the runs each time. {toml}`sites.summary` chooses the metrics, the
@@ -163,5 +163,5 @@ them, the objective of each calibration sits in its own columns, under its own n
 `hmp publish .` copies the project out of the tree, one folder per site and the summary,
 each with its `README.md` and its `PUBLICATION.json`.
 
-Example 19 (`hmp example add 19`) is a small project of this shape on catchments of
+Example 19 (`examples/projects/19_many_catchments`) is a small project of this shape on catchments of
 Brittany, with a simulation recipe and a short calibration.

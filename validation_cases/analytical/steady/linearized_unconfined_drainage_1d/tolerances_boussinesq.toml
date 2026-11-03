@@ -12,7 +12,7 @@ conductance C = K * A / b = 5e-8 m2/s on every cell; a positive value is what
 lifts the upper obstacle, and a scalar per cell gives the leakance K / b only
 because the cells have equal areas. A column holds two triangles whose
 centroids sit at dx/3 and 2 dx/3; their mean exceeds the reference at the
-column centre by u'' (dx/6)^2 / 2 = 4.1e-6 m. Against the reference averaged
+column center by u'' (dx/6)^2 / 2 = 4.1e-6 m. Against the reference averaged
 over the two centroids the strip reads RMSE 8.8e-8 m. The heads sit at the
 centroid of the triangle that owns a side edge, dx/3 inside the face. The
 drain moves the profile by up to 9.0e-2 m and a 10 % change of the leakance by

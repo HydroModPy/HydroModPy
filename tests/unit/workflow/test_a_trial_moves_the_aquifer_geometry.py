@@ -30,7 +30,7 @@ name = "thickness_trial"
 
 [[simulation.process]]
 id = "flow"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [workspace]

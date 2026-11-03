@@ -58,7 +58,7 @@ class Calibrable:
     """The sibling field that names the unit the model reads this value in.
 
     ``bedleak`` is read in ``bedleak_unit``, which a file may set to ``1/day``.
-    Declared here, the catalogue reads that field and a sample drawn in it means
+    Declared here, the catalog reads that field and a sample drawn in it means
     what the model reads, instead of being taken in the SI unit of ``units``.
     """
 
@@ -76,7 +76,7 @@ class Calibrable:
     """
 
     def to_dict(self) -> dict[str, Any]:
-        """Return a JSON-friendly record for a schema export or a catalogue."""
+        """Return a JSON-friendly record for a schema export or a catalog."""
         return {
             "bounds": list(self.bounds) if self.bounds else None,
             "search_space": self.search_space,

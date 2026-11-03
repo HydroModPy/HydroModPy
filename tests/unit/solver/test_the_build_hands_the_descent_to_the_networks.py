@@ -209,14 +209,14 @@ def test_rectify_on_mesh_traces_d_and_keeps_a_lone_staircase_whole() -> None:
 
 
 def _two_valleys(nrow: int = 10, ncol: int = 10) -> SolverMesh:
-    """Two valleys running south, centred on columns 2 and 7."""
+    """Two valleys running south, centered on columns 2 and 7."""
     rows, cols = np.divmod(np.arange(nrow * ncol), ncol)
     centre = np.where(cols < 5, 2, 7)
     return _mesh(nrow, ncol, 100.0 + 0.5 * (nrow - 1 - rows) + np.abs(cols - centre))
 
 
 def _xy(row: int, col: int, nrow: int = 10) -> tuple[float, float]:
-    """Centre of a mesh cell: row 0 is the northern row, the grid's south edge is y = 0."""
+    """Center of a mesh cell: row 0 is the northern row, the grid's south edge is y = 0."""
     return (10.0 * col + 5.0, 10.0 * (nrow - 1 - row) + 5.0)
 
 

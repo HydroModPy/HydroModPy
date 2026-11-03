@@ -8,7 +8,7 @@ begins it answers three questions:
 - which manager loads each family;
 - which external providers or local inputs those managers depend on.
 
-This logic is centralised under ``hydromodpy.data``, so the project facade and the
+This logic is centralized under ``hydromodpy.data``, so the project facade and the
 simulation runner do not repeat the activation rules or the provider-specific code.
 ``hydromodpy/data/README.md`` is the map of the package: the variables, the
 subpackages, the import rules and where to add what.
@@ -36,7 +36,7 @@ Recommended reading path: ``hydromodpy/data/README.md``, ``loading/config_schema
 Responsibilities
 ----------------
 
-``config_schema.py`` validates ``[data]`` and normalises its typed sections.
+``config_schema.py`` validates ``[data]`` and normalizes its typed sections.
 ``planner.py`` merges the explicit types with the inference rules. ``plan.py`` stores
 the immutable ``DataLoadPlan``. ``loader.py`` sends each activated type to its manager
 and writes what it loaded into ``LoadedDataContext``. The facade stays focused on
@@ -85,7 +85,7 @@ Typical constraints:
 
 - SIM2-backed variables need a bounding box and a project time window;
 - SHOM loading needs a resolved date range and one gauge selector: named station
-  identifiers, or a mask whose centre the nearest gauge is found from;
+  identifiers, or a mask whose center the nearest gauge is found from;
 - geology and DEM loading often rely on spatial masks or raster support;
 - hydrography and watershed preprocessing depend on the Whitebox backend for some
   derived products;

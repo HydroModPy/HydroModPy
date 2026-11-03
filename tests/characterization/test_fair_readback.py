@@ -1,6 +1,6 @@
-"""The three declarations a produced run makes and does not honour.
+"""The three declarations a produced run makes and does not honor.
 
-Every test here is ``xfail(strict=True)``: it asserts the behaviour the run
+Every test here is ``xfail(strict=True)``: it asserts the behavior the run
 *claims*, which today it does not have. They are written now, before anything
 structural moves, so that the day the claim becomes true the suite says so
 instead of staying quietly green. A strict xfail that starts passing is a
@@ -143,7 +143,7 @@ def test_every_artefact_states_its_extent_in_degrees(produced_run: ProducedRun) 
     projected extent under them, so a Lambert-93 easting of 319987.5 was
     offered to a reader as a longitude (red-fair B2).
 
-    This is the one-way gate: no artefact may state a degree that is not one.
+    This is the one-way gate: no artifact may state a degree that is not one.
     The project this tier runs is synthetic and declares no extent at all, so
     the positive direction is proved in
     ``tests/unit/results/test_geospatial_extent.py``.
@@ -175,7 +175,7 @@ def test_every_artefact_states_its_extent_in_degrees(produced_run: ProducedRun) 
 
 
 def test_every_table_of_a_run_names_the_run_that_produced_it(produced_run: ProducedRun) -> None:
-    """Every Parquet artefact carries the same identity block, whoever wrote it.
+    """Every Parquet artifact carries the same identity block, whoever wrote it.
 
     Three writers produce the tables of a run and two of them wrote no footer at
     all: geopandas for the 330 vector layers, which are precisely the files a

@@ -1,6 +1,6 @@
 """The matrix of the Validation page shows the accuracy of each solver, not its threshold.
 
-``headline_of`` picks the metric that speaks for a test, the cell colours it by
+``headline_of`` picks the metric that speaks for a test, the cell colors it by
 class, and a ``previous`` block on the record marks an error that grew.
 """
 

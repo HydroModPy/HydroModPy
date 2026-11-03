@@ -41,7 +41,7 @@ STEP_STATUSES: Final[frozenset[str]] = frozenset({"running", "completed", "faile
 
 @dataclass(frozen=True, slots=True)
 class WorkflowStepRow:
-    """One row of the journal, materialised for the planner."""
+    """One row of the journal, materialized for the planner."""
 
     step_id: str
     run_id: str
@@ -117,7 +117,7 @@ class WorkflowJournal:
         artifact_uris: tuple[str, ...] = (),
         error_message: str | None = None,
     ) -> None:
-        """Finalise an existing row with its status, duration, digest and artefacts."""
+        """Finalise an existing row with its status, duration, digest and artifacts."""
         if status not in STEP_STATUSES or status == "running":
             raise JournalError(f"invalid workflow step status: {status!r}")
         rows = self._rows()
@@ -209,7 +209,7 @@ class WorkflowJournal:
         Files are hashed by content. Directories (a Zarr store) are hashed
         recursively over a sorted list of relative file names and their
         bytes. A missing path still contributes its URI so removing an
-        artefact changes the digest.
+        artifact changes the digest.
         """
         workspace = Path(workspace)
         h = hashlib.sha256()

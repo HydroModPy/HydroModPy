@@ -7,7 +7,7 @@ talwegs of the routing surface entirely. That failure is obvious to the eye
 and invisible in the cost, so the check is a picture and not a scalar.
 
 The relief is a hillshade computed from the per-cell topography the run
-persisted, in greys only, so the two networks keep the whole colour axis. Both
+persisted, in grays only, so the two networks keep the whole color axis. Both
 are cased in white before they are drawn: laid straight on the hillshade, the
 simulated network came out at a contrast ratio of 1.32 against the darkest
 shade of it, which is unreadable on screen and gone in print. The casing also
@@ -64,7 +64,7 @@ NETWORK_COLORS: dict[str, str] = {
     "observed": HIGH_CONTRAST_TRIPLET[0],
     "simulated": HIGH_CONTRAST_TRIPLET[2],
 }
-"""One colour per network, the darkest for the mapped reference."""
+"""One color per network, the darkest for the mapped reference."""
 
 NETWORK_HALO = "#FFFFFF"
 """The casing both networks are drawn on, and what lifts them off the relief.
@@ -234,7 +234,7 @@ class SeepageNetworkReferenceOverlay(BaseFigure):
 
 
 def _add_relief(ax: Axes, polygons: list[np.ndarray], shading: np.ndarray) -> None:
-    """Draw the hillshade under everything else, in greys only."""
+    """Draw the hillshade under everything else, in grays only."""
     from matplotlib.collections import PolyCollection
     from matplotlib.colors import LinearSegmentedColormap
 
@@ -252,7 +252,7 @@ def _add_relief(ax: Axes, polygons: list[np.ndarray], shading: np.ndarray) -> No
 
 
 def _relief_limits(shading: np.ndarray) -> tuple[float, float]:
-    """Return the grey scale of the hillshade, stretched over its own range.
+    """Return the gray scale of the hillshade, stretched over its own range.
 
     A gentle catchment lights within a narrow band of the theoretical
     ``[0, 1]``, and left on that range it prints as one flat plate with no
@@ -268,11 +268,11 @@ def _relief_limits(shading: np.ndarray) -> tuple[float, float]:
 
 
 def _inset(polygon: np.ndarray) -> np.ndarray:
-    """Return the cell polygon shrunk about its centre.
+    """Return the cell polygon shrunk about its center.
 
     The simulated network keeps the geometry of its cells while staying
     visibly narrower than the mapped one underneath, so the two are told
-    apart by shape and not only by colour.
+    apart by shape and not only by color.
     """
     centre = polygon.mean(axis=0)
     return centre + (polygon - centre) * _SIMULATED_INSET
@@ -349,7 +349,7 @@ def _surface_gradient(
     left: np.ndarray,
     right: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Return ``(dz/dx, dz/dy)`` per face, from a plane fit over its neighbours."""
+    """Return ``(dz/dx, dz/dy)`` per face, from a plane fit over its neighbors."""
     finite = np.isfinite(elevation)
     keep = finite[left] & finite[right]
     left, right = left[keep], right[keep]
@@ -371,7 +371,7 @@ def _surface_gradient(
         moments.append(total)
     sum_xx, sum_xy, sum_yy, sum_xz, sum_yz = moments
 
-    # A ridge term keeps the 2x2 system solvable where the neighbours of a
+    # A ridge term keeps the 2x2 system solvable where the neighbors of a
     # face line up on a single direction, which a one-cell-wide mesh does.
     ridge = 1e-3 * (sum_xx + sum_yy)
     sum_xx = sum_xx + ridge

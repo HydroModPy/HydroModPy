@@ -31,7 +31,7 @@ from hydromodpy.results.storage.contract import SESSION_METHODS_FILENAME
 def cost_metric_label(cfg: CalibrationConfig, phase: CalibPhaseDecl | None = None) -> str:
     """Name what the cost of a search is, the way a reader reads it.
 
-    A score that rises with agreement (NSE, KGE) is minimised as one minus
+    A score that rises with agreement (NSE, KGE) is minimized as one minus
     itself, so the label says ``1 - nse_log`` rather than ``nse_log``. A block
     that divides its cost by a reference scale, or transforms it, says so:
     ``log10(rmse / sd(observed))``. A cost of several blocks is their weighted

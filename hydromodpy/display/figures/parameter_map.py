@@ -22,7 +22,7 @@ from hydromodpy.display.figures._parameter_scale import (
     PARAMETER_CHOICES,
     PARAMETER_FIELDS,
     cmap_for,
-    colour_norm,
+    color_norm,
     mark_turn,
     parameter_label,
     parameter_name,
@@ -74,7 +74,7 @@ class ParameterMap(BaseFigure):
         log: Annotated[
             bool | None,
             Opt(
-                "Force a log colour scale on or off. Left out, a log scale when the "
+                "Force a log color scale on or off. Left out, a log scale when the "
                 "positive values span more than one decade. The tensor angles are "
                 "always linear."
             ),
@@ -104,7 +104,7 @@ class ParameterMap(BaseFigure):
             cmap=cmap_for(variable, cmap),
             cbar_label=parameter_label(variable),
         )
-        norm = colour_norm(variable, plane, log=log)
+        norm = color_norm(variable, plane, log=log)
         if norm is not None:
             collection.set_norm(norm)
         if variable in CYCLIC_FIELDS:

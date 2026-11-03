@@ -1,9 +1,9 @@
-"""The dark preset darkens the ground grey of every map, not only its page.
+"""The dark preset darkens the ground gray of every map, not only its page.
 
 Measured on the documentation images drawn with ``[display] preset = "dark"``:
 the cells a map measures nothing on (seepage, confusion, network, accumulation
 and boundary-package maps), the cell edges of the mesh map and the text box of
-the SFR network map kept the grey written for a white page, and were the
+the SFR network map kept the gray written for a white page, and were the
 brightest thing on a dark one.
 """
 
@@ -35,7 +35,7 @@ from .test_boundary_package_map import _flux_on
 from .test_boundary_package_map import _run as boundary_run
 
 LIGHT = 0.4
-"""Relative luminance over which a grey reads as light on the dark page."""
+"""Relative luminance over which a gray reads as light on the dark page."""
 
 
 @pytest.fixture
@@ -56,7 +56,7 @@ def _is_grey(color) -> bool:
 
 
 def _light_greys(fig) -> list[str]:
-    """Return what the figure draws in a light grey, as ``artist: colour``."""
+    """Return what the figure draws in a light gray, as ``artist: color``."""
     found: list[str] = []
 
     def check(where: str, colors) -> None:

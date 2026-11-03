@@ -121,19 +121,19 @@ def _model(mesh: SolverMesh) -> SimpleNamespace:
             "polygon": None,
             "bedleak": 1e-7,
             "abacus": abacus0,
-            "stageinit": 108.0,
+            "initial_stage": 108.0,
             "bed_reconstruction": bed,
-            "outlets": [{"couttype": "WEIR", "invert": _INVERT, "width": 20.0, "lakeout": 2}],
+            "outlets": [{"kind": "WEIR", "invert": _INVERT, "width": 20.0, "lakeout": 2}],
         },
         "lac1": {
             "polygon": None,
             "bedleak": 1e-7,
             "abacus": abacus1,
-            "stageinit": 99.5,
+            "initial_stage": 99.5,
             "bed_reconstruction": bed,
             "outlets": [
                 {
-                    "couttype": "WEIR",
+                    "kind": "WEIR",
                     "invert": _SPILL,
                     "width": 20.0,
                     "lakeout": 0,
@@ -152,9 +152,7 @@ def _model(mesh: SolverMesh) -> SimpleNamespace:
         }
     }
     return SimpleNamespace(
-        flow=SimpleNamespace(
-            active_bc=["reservoir", "sfr"], sinks_sources={"lakes": lakes, "sfr": sfr}
-        ),
+        flow=SimpleNamespace(active_bc=["lake", "sfr"], sinks_sources={"lakes": lakes, "sfr": sfr}),
         nper=4,
         perlen=np.full(4, 2 * 86400.0),
         steady=(False,) * 4,

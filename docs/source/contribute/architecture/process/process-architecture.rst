@@ -19,7 +19,7 @@ The current ``hydromodpy.physics`` stack is split into six concerns:
 - ``hydromodpy.physics.contracts``: explicit import path for generic
   process-layer contracts reused internally.
 - ``hydromodpy.physics.base``: process-agnostic building blocks
-  (``ProcessSpatial``, ``ProcessSpatialConfig``,
+  (``ProcessSpatial``,
   ``InitialCondition``, ``BoundaryCondition``, ``SinkSource``).
 - ``hydromodpy.physics.flow``: concrete flow process plus typed
   config and payload models.
@@ -91,17 +91,15 @@ Notes:
 Config class diagram
 --------------------
 
-Validated configuration classes (Pydantic models): shared
-``ProcessSpatialConfig`` base, ``FlowConfig`` and ``TransportConfig``
-specialisations, flow-specific initial conditions, boundary
+Validated configuration classes (Pydantic models): ``FlowConfig`` and
+``TransportConfig``, flow-specific initial conditions, boundary
 conditions, and sink/source configs.
 
 .. uml:: diagrams/process_config_class.wsd
 
 Notes:
 
-- ``FlowConfig`` and ``TransportConfig`` inherit from
-  ``ProcessSpatialConfig``.
+- ``FlowConfig`` and ``TransportConfig`` share no base beyond ``HydroModelBase``.
 - ``FlowInitialCondition`` inherits from prototype
   ``InitialCondition``.
 - ``FlowBoundaryConditionConfig`` and ``FlowSinksSourcesConfig`` are
@@ -162,7 +160,7 @@ Notes:
 - The sequence is logical and backend-agnostic at the high level.
 - Payload conversion is separated from the process runtime state.
 - Forcing is resolved to one value per stress period before the adapter runs.
-- Solver backends consume already-normalised process data.
+- Solver backends consume already-normalized process data.
 - For the DIS payload semantics, see :doc:`../solver/backends`.
 
 See also

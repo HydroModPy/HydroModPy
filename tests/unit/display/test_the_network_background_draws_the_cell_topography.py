@@ -1,4 +1,4 @@
-"""The network maps colour each cell by its topography, under every solver."""
+"""The network maps color each cell by its topography, under every solver."""
 
 from __future__ import annotations
 

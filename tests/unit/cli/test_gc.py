@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib
 import json
 import os
+import socket
 import sys
 import time
 from datetime import UTC, datetime, timedelta
@@ -41,7 +42,17 @@ def _make_run(project: Path, name: str) -> Path:
     return run_dir
 
 
-def _outcome(run_dir: Path, status: str, *, started_at: datetime) -> None:
+def _dead_pid() -> int:
+    """A pid that belonged to a process of this host and is gone."""
+    pid = os.fork()
+    if pid == 0:
+        os._exit(0)
+    os.waitpid(pid, 0)
+    return pid
+
+
+def _outcome(run_dir: Path, status: str, *, started_at: datetime, dead: bool = False) -> None:
+    """Write an outcome. A dead attempt ran on this host under a pid that is gone."""
     write_outcome(
         run_dir,
         Outcome(
@@ -52,8 +63,8 @@ def _outcome(run_dir: Path, status: str, *, started_at: datetime) -> None:
             written_by="worker",
             started_at=started_at,
             ended_at=None if status == "running" else started_at,
-            host="node-1",
-            pid=os.getpid(),
+            host=socket.gethostname() if dead else "node-1",
+            pid=_dead_pid() if dead else os.getpid(),
         ),
     )
 
@@ -69,7 +80,7 @@ def _gc(monkeypatch, capsys, target: Path, *extra: str) -> dict:
         monkeypatch, ["hmp", "catalog", "gc", "-w", str(target), "--format", "json", *extra]
     )
     assert code == 0
-    return json.loads(capsys.readouterr().out)
+    return json.loads(capsys.readouterr().out)["data"]
 
 
 def test_gc_help_displays(monkeypatch, capsys) -> None:
@@ -94,7 +105,7 @@ def test_gc_apply_moves_the_superseded_versions_to_the_trash(monkeypatch, capsys
     project = _project(tmp_path)
     _versions(project, "x", 7)
 
-    report = _gc(monkeypatch, capsys, project, "--apply")
+    report = _gc(monkeypatch, capsys, project, "-y")
 
     assert report["projects"][str(project.resolve())]["summary"]["superseded_runs"] == 2
     assert sorted(entry.rel_dir for entry in list_trash(project)) == ["runs/x", "runs/x.v2"]
@@ -115,7 +126,7 @@ def test_gc_spares_a_pinned_run(monkeypatch, capsys, tmp_path) -> None:
     _versions(project, "x", 3)
     assert _run(monkeypatch, ["hmp", "catalog", "tag", "x", "pinned", "-w", str(project)]) == 0
 
-    report = _gc(monkeypatch, capsys, project, "--keep-versions", "1", "--apply")
+    report = _gc(monkeypatch, capsys, project, "--keep-versions", "1", "-y")
 
     assert report["projects"][str(project.resolve())]["plan"]["superseded_runs"] == ["runs/x.v2"]
     assert (project / RUNS_DIRNAME / "x").is_dir()
@@ -129,7 +140,7 @@ def test_gc_trashes_the_runs_past_the_age_limit(monkeypatch, capsys, tmp_path) -
     _outcome(recent, "completed", started_at=datetime.now(UTC) - timedelta(days=2))
     _make_run(project, "unknown_age")
 
-    report = _gc(monkeypatch, capsys, project, "--max-age-days", "180", "--apply")
+    report = _gc(monkeypatch, capsys, project, "--max-age-days", "180", "-y")
 
     assert report["projects"][str(project.resolve())]["plan"]["expired_runs"] == ["runs/old"]
     assert not old.exists()
@@ -142,16 +153,14 @@ def test_gc_marks_a_stale_attempt_aborted_and_leaves_a_live_one(
 ) -> None:
     project = _project(tmp_path)
     stale = _make_run(project, "stale")
-    _outcome(stale, "running", started_at=datetime.now(UTC) - timedelta(days=1))
+    _outcome(stale, "running", started_at=datetime.now(UTC) - timedelta(days=1), dead=True)
     day_ago = time.time() - 86400
     os.utime(stale / "outcome.json", (day_ago, day_ago))
     (stale / ".hmp" / "scratch").mkdir(parents=True)
     live = _make_run(project, "live")
     _outcome(live, "running", started_at=datetime.now(UTC))
 
-    report = _gc(
-        monkeypatch, capsys, project, "--keep-versions", "1", "--max-age-days", "1", "--apply"
-    )
+    report = _gc(monkeypatch, capsys, project, "--keep-versions", "1", "--max-age-days", "1", "-y")
 
     plan = report["projects"][str(project.resolve())]["plan"]
     assert plan["stale_runs"] == ["runs/stale"]
@@ -177,11 +186,11 @@ def test_gc_closes_a_stale_session_so_it_can_be_trashed(monkeypatch, capsys, tmp
             "calib", site="demo", session_id="sess0001", method="tpe", started_at=started
         ),
     )
-    _outcome(session, "running", started_at=started)
+    _outcome(session, "running", started_at=started, dead=True)
     day_ago = time.time() - 86400
     os.utime(session / "outcome.json", (day_ago, day_ago))
 
-    report = _gc(monkeypatch, capsys, project, "--apply")
+    report = _gc(monkeypatch, capsys, project, "-y")
 
     assert report["projects"][str(project.resolve())]["plan"]["stale_sessions"] == [
         "sessions/calib"
@@ -205,7 +214,7 @@ def test_gc_removes_the_expired_trash_with_tombstones(monkeypatch, capsys, tmp_p
     _make_run(project, "fresh")
     trash_run(project, "runs/fresh", now=datetime.now(UTC))
 
-    report = _gc(monkeypatch, capsys, project, "--apply")
+    report = _gc(monkeypatch, capsys, project, "-y")
 
     assert report["projects"][str(project.resolve())]["summary"]["expired_trash"] == 1
     assert sorted(entry.rel_dir for entry in list_trash(project)) == ["runs/fresh", "runs/kept"]

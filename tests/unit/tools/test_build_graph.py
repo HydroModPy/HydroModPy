@@ -233,7 +233,7 @@ def test_a_target_inside_a_lambda_is_deferred(pkg_root: pathlib.Path) -> None:
 
 
 def test_two_edges_on_one_line_are_judged_separately(pkg_root: pathlib.Path) -> None:
-    """A line-keyed scope flag let one edge decide for its neighbour.
+    """A line-keyed scope flag let one edge decide for its neighbor.
 
     Both edges below sit on the same physical line, one eager and one deferred.
     """

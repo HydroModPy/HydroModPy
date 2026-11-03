@@ -1,6 +1,6 @@
 # XT3D on irregular meshes
 
-The two-point flux of {eq}`eq-cell-balance` is exact when the line between two cell centres is
+The two-point flux of {eq}`eq-cell-balance` is exact when the line between two cell centers is
 perpendicular to the shared face and the conductivity is the same in every horizontal
 direction. On irregular cells it is not. XT3D {cite:p}`provost2017` is the correction MODFLOW 6
 offers, and this page gives the rule that turns it on. The angle of a connection is defined on
@@ -37,7 +37,7 @@ layers and needs no XT3D.
 ## What XT3D computes
 
 XT3D writes the flux through each face with the full head gradient, estimated from the heads of
-both cells and of their neighbours. The tangential term is then in the balance. The price is a
+both cells and of their neighbors. The tangential term is then in the balance. The price is a
 wider stencil and a matrix that is not symmetric, so HydroModPy promotes a `SIMPLE` IMS preset
 to `COMPLEX` ({ref}`solvers-newton-ims`). On the validation case `dupuit_uniform_recharge_1d`
 run on irregular triangles, the head RMSE falls from 0.211 m to 0.0077 m, a factor of 27.

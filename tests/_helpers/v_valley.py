@@ -200,7 +200,7 @@ def interpolate_at(values: np.ndarray, threshold: float) -> float:
 
 
 def criterion_slope(d_so: np.ndarray, d_os: np.ndarray, root: float) -> float:
-    """Slope of the signed gap over a fixed log window centred on the root.
+    """Slope of the signed gap over a fixed log window centered on the root.
 
     The window has the same width whatever the support, which is what makes two
     supports comparable. A one-interval finite difference across the bracketing

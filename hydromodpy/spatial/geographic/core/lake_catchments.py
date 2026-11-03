@@ -37,7 +37,7 @@ def lake_contributing_areas_m2(
     """Return, per lake id, the area [m2] whose D8 path ends in that lake first.
 
     ``lake_polygons`` are in the CRS of the raster. ``watershed_polygons``
-    restrict the count to the modelled catchment when given. A lake no D8 path
+    restrict the count to the modeled catchment when given. A lake no D8 path
     reaches holds an area of zero.
     """
     import rasterio

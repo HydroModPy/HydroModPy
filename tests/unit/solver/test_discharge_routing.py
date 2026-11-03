@@ -88,7 +88,7 @@ def test_an_interior_cell_carries_only_what_is_upstream_of_it():
 
 
 def test_cells_outside_the_catchment_release_nothing_into_it():
-    """The mesh is a buffered box; the neighbouring basins must not be counted."""
+    """The mesh is a buffered box; the neighboring basins must not be counted."""
     model = _model(_south_sloping_top())
     graph = routing_graph_for_model(model)
     release = np.ones(_NROW * _NCOL)

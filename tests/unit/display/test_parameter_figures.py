@@ -1,7 +1,7 @@
 """The parameter figures draw what the run was given, and only that.
 
 A property left out of ``param_list`` still reaches the solver as zero. The
-section must not open a colour scale around it, because a flat panel with a
+section must not open a color scale around it, because a flat panel with a
 ramp beside it reads as a measured uniformity rather than as an absence.
 
 The K tensor fields (K22, K33 and the three angles) are drawn like the other
@@ -84,7 +84,7 @@ class _Run:
     def has_field(self, variable: str, **_) -> bool:
         return variable in self._fields
 
-    def field(self, variable: str, timestep: int = -1, **_) -> np.ndarray:
+    def field(self, variable: str, time: int = -1, **_) -> np.ndarray:
         return self._fields[variable]
 
 
@@ -166,7 +166,7 @@ def test_the_map_refuses_a_variable_that_is_not_an_aquifer_property() -> None:
 
 
 def _panel_norms(fig, count: int) -> list:
-    """The colour scale of the first ``count`` panels, before their colour bars."""
+    """The color scale of the first ``count`` panels, before their color bars."""
     return [ax.collections[0].norm for ax in fig.axes[:count]]
 
 

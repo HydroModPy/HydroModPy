@@ -1,7 +1,7 @@
 """A regular mesh is extruded on the surfaces only if both describe one grid.
 
 The planar grid is the mesh's, the vertical part is the surfaces'. A mesh shifted
-by a metre, a step off by a part in a million, or a mesh that forgets its shape
+by a meter, a step off by a part in a million, or a mesh that forgets its shape
 would move every cell against its elevation without a single array mismatch, so
 the builder refuses them.
 """

@@ -118,7 +118,7 @@ otherwise recompute:
    * - Attribute
      - Content
    * - ``centers``, ``center_kind``
-     - The one cell centre rule, shape ``(n_cells, 2)``. ``center_kind`` is ``generator``
+     - The one cell center rule, shape ``(n_cells, 2)``. ``center_kind`` is ``generator``
        (Voronoi), ``cell_center`` (regular grid) or ``vertex_mean`` (triangles).
    * - ``crs_wkt``
      - The CRS of the vertices, as WKT. It is required.
@@ -129,7 +129,7 @@ otherwise recompute:
    * - ``identity``
      - ``MeshIdentity``: engine id, engine version, request hash and seed.
    * - ``qa``
-     - ``MeshQA``: quantiles of area, size, centre offset, non-orthogonality and cell shape,
+     - ``MeshQA``: quantiles of area, size, center offset, non-orthogonality and cell shape,
        then the concave cells, the degenerate faces, the family coverage and the engine
        declarations (``graded``, ``exact_faces``, ``deterministic``, ``needs_cache``).
        ``quality_warnings`` turns the shape entries into build warnings and never refuses a mesh.
@@ -146,7 +146,7 @@ store), the areas and area centroids, the edge table (``edge_nodes``, ``edge_cel
 midpoint) and the CSR adjacency of the interior edges. An edge shared by more than two cells
 raises ``ValueError``. ``cell_mesh.connectivity_rows`` returns the cells as one array. It is the
 block itself for triangles and quadrilaterals, and the padded rows as 32-bit ids for polygons.
-The cell centres are ``cell_mesh.centers``, the generators of a Voronoi mesh: a ``HydroMesh``
+The cell centers are ``cell_mesh.centers``, the generators of a Voronoi mesh: a ``HydroMesh``
 carries none, and its ``cell_centroids()`` gives the mean of the cell vertices.
 ``mesh_cells`` in ``spatial/field/mesh_cells.py`` reads these rows without their ``-1``
 slots, for a support that samples a field on the cells.
@@ -160,12 +160,12 @@ format is versioned. ``metadata.json`` declares ``mesh_catchment_bundle_v1``, th
 Line families
 ~~~~~~~~~~~~~
 
-A family is a set of lines that the mesh honours, under one name. Its intent decides what the
+A family is a set of lines that the mesh honors, under one name. Its intent decides what the
 cell mesh keeps.
 
 - A cell family (``rivers``) runs through the cells. ``cell_chains`` holds one chain of cells per
   line, from upstream to downstream. ``CellChain.offset_m`` gives the distance from each cell
-  centre to the line. The ``voronoi`` engine fills it, and it is ``None`` where the cell holds the
+  center to the line. The ``voronoi`` engine fills it, and it is ``None`` where the cell holds the
   line.
 - A face family (``geology``, ``lakes``, ``barriers``, ``watershed_boundary``) lies on cell
   faces. ``face_families`` has one row per mesh edge on a line, with the two cells (``-1``
@@ -191,7 +191,7 @@ serves every engine for each question:
 
    * - Question
      - Where
-   * - Centres, areas, adjacency
+   * - Centers, areas, adjacency
      - ``SolverMesh.cell_centers()``, ``cell_areas()`` and ``face_adjacency()``, read from
        ``cell_mesh.geometry``.
    * - Cells of a side, of the river, of a label
@@ -268,7 +268,7 @@ A solver reads the ``SolverMesh`` of ``hydromodpy/solver/modflow_grid/solver_mes
 built from the cell mesh and the vertical layers of ``[domain.layers]``, which both MODFLOW
 backends read. ``layer_stack`` in ``spatial/domain/layering.py`` turns shares or surfaces into
 the layer bottoms and the integer ``idomain`` (1, 0 or -1). ``discretization_spatial.py``, next
-to ``solver_mesh.py``, samples the base rasters on the cell centres or resamples them to a
+to ``solver_mesh.py``, samples the base rasters on the cell centers or resamples them to a
 regular grid. ``SolverMesh`` checks the interfaces once it is built, and the run stores them with
 the ``idomain``, see :doc:`../storage-layout`. ``active_connectivity.py`` warns when some groups
 of active cells have no connection to the rest. The MODFLOW 6 build and the MODFLOW-NWT solver

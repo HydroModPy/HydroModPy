@@ -58,21 +58,21 @@ def _two_lake_model(*, lac0_outlets: list[dict], lac1_outlets: list[dict]) -> Si
         model_output_name="preretenue_test",
         time_units="seconds",
         flow=SimpleNamespace(
-            active_bc=["reservoir"],
+            active_bc=["lake"],
             sinks_sources={
                 "lakes": {
                     "lac0": {
                         "polygon": poly0,
                         "bedleak": 0.2,
                         "abacus": abacus0,
-                        "stageinit": 60.0,
+                        "initial_stage": 60.0,
                         "outlets": lac0_outlets,
                     },
                     "lac1": {
                         "polygon": poly1,
                         "bedleak": 0.2,
                         "abacus": abacus1,
-                        "stageinit": 70.0,
+                        "initial_stage": 70.0,
                         "outlets": lac1_outlets,
                     },
                 }
@@ -83,7 +83,7 @@ def _two_lake_model(*, lac0_outlets: list[dict], lac1_outlets: list[dict]) -> Si
 
 def test_two_lake_build_has_two_lakes_and_two_tables() -> None:
     model = _two_lake_model(
-        lac0_outlets=[{"couttype": "WEIR", "invert": _CREST, "width": 30.0, "lakeout": 2}],
+        lac0_outlets=[{"kind": "WEIR", "invert": _CREST, "width": 30.0, "lakeout": 2}],
         lac1_outlets=[],
     )
     cells = {"lac0": [0, 1], "lac1": [10, 11]}
@@ -103,7 +103,7 @@ def test_two_lake_build_has_two_lakes_and_two_tables() -> None:
     ifnos = {row[0] for row in args["connectiondata"]}
     assert ifnos == {0, 1}
 
-    # Each lake's strt comes from its own abacus floor / stageinit.
+    # Each lake's strt comes from its own abacus floor / initial_stage.
     strt_by_name = {row[3]: row[1] for row in args["packagedata"]}
     assert strt_by_name["lac0"] == pytest.approx(60.0)
     assert strt_by_name["lac1"] == pytest.approx(70.0)
@@ -111,16 +111,16 @@ def test_two_lake_build_has_two_lakes_and_two_tables() -> None:
 
 def test_concrete_weir_routes_preretenue_to_retenue_at_crest() -> None:
     model = _two_lake_model(
-        lac0_outlets=[{"couttype": "WEIR", "invert": _CREST, "width": 30.0, "lakeout": 2}],
+        lac0_outlets=[{"kind": "WEIR", "invert": _CREST, "width": 30.0, "lakeout": 2}],
         lac1_outlets=[],
     )
     rows = build_lake_outlets(model, lakes=model.flow.sinks_sources["lakes"])
     assert len(rows) == 1
-    outletno, lakein, lakeout, couttype, invert, width, rough, slope = rows[0]
+    outletno, lakein, lakeout, kind, invert, width, rough, slope = rows[0]
     assert lakein == 0  # spills from lac0 (preretenue)
     assert lakeout == 1  # routed straight to the downstream lake, NOT external (-1)
     assert lakeout != -1
-    assert couttype == "WEIR"
+    assert kind == "WEIR"
     assert invert == pytest.approx(_CREST)  # invert == concrete crest elevation
     assert width == pytest.approx(30.0)
 
@@ -131,8 +131,8 @@ def test_crossed_weirs_with_the_same_crest_are_refused() -> None:
     # way for a 0.04 m3/s net on the Cheze, 19 of 19 minimal cases fail to converge).
     # The builder refuses the pair and names both outlets (D9).
     model = _two_lake_model(
-        lac0_outlets=[{"couttype": "WEIR", "invert": _CREST, "width": 100.0, "lakeout": 2}],
-        lac1_outlets=[{"couttype": "WEIR", "invert": _CREST, "width": 100.0, "lakeout": 1}],
+        lac0_outlets=[{"kind": "WEIR", "invert": _CREST, "width": 100.0, "lakeout": 2}],
+        lac1_outlets=[{"kind": "WEIR", "invert": _CREST, "width": 100.0, "lakeout": 1}],
     )
     with pytest.raises(ValueError, match="Reciprocal WEIR") as err:
         build_lake_outlets(model, lakes=model.flow.sinks_sources["lakes"])
@@ -144,10 +144,10 @@ def test_crossed_weirs_emit_two_outlets_at_same_invert() -> None:
     # through MVR (lakeout = 0 + mover.lake = 1) when a FACTOR / UPTO / EXCESS /
     # THRESHOLD rule is wanted on the reverse leg instead of a plain spill.
     model = _two_lake_model(
-        lac0_outlets=[{"couttype": "WEIR", "invert": _CREST, "width": 100.0, "lakeout": 2}],
+        lac0_outlets=[{"kind": "WEIR", "invert": _CREST, "width": 100.0, "lakeout": 2}],
         lac1_outlets=[
             {
-                "couttype": "WEIR",
+                "kind": "WEIR",
                 "invert": _CREST,
                 "width": 100.0,
                 "lakeout": 0,
@@ -170,10 +170,10 @@ def test_crossed_weir_back_route_uses_mover_to_first_lake() -> None:
     # direct lakeout = 1 form is refused when the crests are equal; this is the
     # plain spill. Here we assert the MVR record the mover produces.
     model = _two_lake_model(
-        lac0_outlets=[{"couttype": "WEIR", "invert": _CREST, "width": 100.0, "lakeout": 2}],
+        lac0_outlets=[{"kind": "WEIR", "invert": _CREST, "width": 100.0, "lakeout": 2}],
         lac1_outlets=[
             {
-                "couttype": "WEIR",
+                "kind": "WEIR",
                 "invert": _CREST,
                 "width": 100.0,
                 "lakeout": 0,
@@ -215,7 +215,7 @@ def test_two_overlapping_lakes_are_resolved_cell_disjoint() -> None:
         model_output_name="overlap_test",
         time_units="seconds",
         flow=SimpleNamespace(
-            active_bc=["reservoir"],
+            active_bc=["lake"],
             sinks_sources={
                 "lakes": {
                     "lac0": {"polygon": poly_a, "bedleak": 0.2, "outlets": []},

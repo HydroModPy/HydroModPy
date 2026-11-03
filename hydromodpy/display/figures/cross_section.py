@@ -8,7 +8,7 @@ coordinates, so it is valid whatever the grid type.
 Where the line crosses a stream reach it also marks the streambed and the
 elevation at which MODFLOW disconnects the reach from the aquifer. Without
 them a reader compares the water table to the land surface, while the solver
-compares it to a threshold set metres lower, so a connected reach reads as a
+compares it to a threshold set meters lower, so a connected reach reads as a
 detached water table.
 """
 
@@ -77,7 +77,7 @@ class CrossSection(BaseFigure):
 
         distance = transect.distance
         topography = transect.sample(np.asarray(sim.field("topography")))
-        watertable = transect.sample(np.asarray(sim.field("watertable_elevation", timestep=step)))
+        watertable = transect.sample(np.asarray(sim.field("watertable_elevation", time=step)))
         # The water table cannot be drawn above ground; the derived field already
         # clips it, this only guards a solver that reports a perched head.
         watertable = np.minimum(watertable, topography)
@@ -210,7 +210,7 @@ class CrossSection(BaseFigure):
         """Highlight the outcropping segments of the section, if stored."""
         if not sim.has_field("seepage_mask"):
             return
-        mask = transect.sample(np.asarray(sim.field("seepage_mask", timestep=timestep))) > 0
+        mask = transect.sample(np.asarray(sim.field("seepage_mask", time=timestep))) > 0
         if not mask.any():
             return
         ax.scatter(

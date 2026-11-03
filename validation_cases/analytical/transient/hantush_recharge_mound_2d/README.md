@@ -9,7 +9,7 @@ Numerical setup:
   structured grids, single layer, aquifer base at 0 m and top at 60 m,
 - flow regime: transient unconfined flow, 40 stress periods of 6 h (10 days),
   one time step each,
-- recharge: 20 mm/day on the rectangle `300 m x 180 m` centred in the domain,
+- recharge: 20 mm/day on the rectangle `300 m x 180 m` centered in the domain,
   zero elsewhere, read from the raster `recharge_zone.tif` as a custom
   recharge source (`[[data.recharge.sources]] source = "custom"`), the route a
   run takes for any recharge map,
@@ -32,12 +32,12 @@ grids, MODFLOW-NWT and both Boussinesq engines, the stored volume
 
 Comparison:
 
-- the head rise at the centre over time,
-- the head on the transect through the centre along the long side of the
+- the head rise at the center over time,
+- the head on the transect through the center along the long side of the
   rectangle, 600 m each way, every 6 h,
 - the head of every cell at the final time, on the plan-view map,
-- each head against the reference read at the centre of the solver cell that
-  holds it: the cell centre, the triangle centroid, the Voronoi node.
+- each head against the reference read at the center of the solver cell that
+  holds it: the cell center, the triangle centroid, the Voronoi node.
 
 The mound reaches 0.75 m, 1.5 % of the saturated thickness, so the
 linearization holds: a finite-difference solution of the nonlinear Boussinesq
@@ -54,7 +54,7 @@ Reference used by the documentation:
 
 - reference: Hantush (1967) mound under a rectangle of uniform recharge,
   linearized with the mean saturated thickness `b = (hi + hm(t)) / 2` taken at
-  the centre `hm`, solved at each time; `S*` integrated with
+  the center `hm`, solved at each time; `S*` integrated with
   `scipy.integrate.quad_vec`. Carleton (2010, USGS SIR 2010-5102) gives the
   same form.
 

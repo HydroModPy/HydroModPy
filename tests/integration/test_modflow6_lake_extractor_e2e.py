@@ -70,7 +70,7 @@ class _RecordingStore:
 
     def open_zarr(self, sim_id):
         # Never reached: ``save_zarr`` is False, so the extractor must not ask
-        # for an array store. Raising proves the guard is honoured.
+        # for an array store. Raising proves the guard is honored.
         raise RuntimeError("zarr export disabled in this test")
 
 

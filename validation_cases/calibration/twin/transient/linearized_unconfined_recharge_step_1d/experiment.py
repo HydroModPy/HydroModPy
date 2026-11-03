@@ -366,7 +366,7 @@ TRANSIENT_RECHARGE_STEP_FLUX_ONLY_NOISY_TWIN_CASE = TwinCalibrationCaseDefinitio
 def _case_for(base: TwinCalibrationCaseDefinition, column: str) -> TwinCalibrationCaseDefinition:
     """Return the transient twin ``base`` on one solver column.
 
-    The time discretisation, the recharge step and the fixed heads come from
+    The time discretization, the recharge step and the fixed heads come from
     ``config_modflownwt.toml`` for every column. Only the solver file changes,
     and for the unstructured columns the triangle bundle of the case.
     """

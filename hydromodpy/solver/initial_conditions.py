@@ -9,7 +9,7 @@ import numpy as np
 
 
 def _head_initial_condition_types() -> tuple[str, ...]:
-    """Return the accepted ``flow.ic.type`` values, read off the union that defines them.
+    """Return the accepted ``flow.ic.kind`` values, read off the union that defines them.
 
     This was a hand-written tuple, and it is the THIRD copy of the same list the
     repository carried: the config loader held two more. Adding a variant to the
@@ -52,7 +52,7 @@ def resolve_head_initial_condition(model_or_flow: object):
 
 def head_initial_condition_type(initial_condition: object) -> str:
     """Return the normalized head IC type token."""
-    return str(initial_condition_field(initial_condition, "type", "")).strip().lower()
+    return str(initial_condition_field(initial_condition, "kind", "")).strip().lower()
 
 
 def head_initial_condition_value_m(
@@ -65,7 +65,7 @@ def head_initial_condition_value_m(
     head_value = initial_condition_field(initial_condition, "value")
     if head_value is None:
         raise ValueError(
-            f"{location_prefix}.value is required when {location_prefix}.type='{ic_type}'"
+            f"{location_prefix}.value is required when {location_prefix}.kind='{ic_type}'"
         )
     return float(getattr(head_value, "magnitude", head_value))
 
@@ -109,7 +109,7 @@ def build_head_initial_condition_array(
         return np.full(target_shape, head_m, dtype=float)
     else:
         raise ValueError(
-            f"{location_prefix}.type must be one of: {HEAD_INITIAL_CONDITION_TYPES_TEXT}"
+            f"{location_prefix}.kind must be one of: {HEAD_INITIAL_CONDITION_TYPES_TEXT}"
         )
 
     try:

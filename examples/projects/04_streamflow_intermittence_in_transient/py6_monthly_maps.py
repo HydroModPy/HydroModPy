@@ -58,14 +58,14 @@ for ax, i in zip(axes.flat, np.flatnonzero(months.year == 2002), strict=True):
     ax.set_ylim(ymin, ymax)
     ax.set_aspect("equal")
     ax.set_axis_off()
-fig.suptitle(f"{run.name}: water table at the surface (blue) and mapped network (grey)")
+fig.suptitle(f"{run.name}: water table at the surface (blue) and mapped network (gray)")
 fig.savefig(out / "seepage_2002_monthly.png", dpi=150)
 print(out / "seepage_2002_monthly.png")
 plt.close(fig)
 
 # %% The GIF
 
-# One collection for all the cells, whose colours change at each frame: much
+# One collection for all the cells, whose colors change at each frame: much
 # faster than drawing the map again.
 fig, ax = plt.subplots(figsize=(5, 6), constrained_layout=True)
 coll = PolyCollection(cells, cmap=ListedColormap(["white", "tab:blue"]), edgecolor="none")

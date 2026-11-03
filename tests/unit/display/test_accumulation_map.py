@@ -3,7 +3,7 @@
 The mesh is a single row of unit cells carrying accumulated fluxes four
 decades apart, plus one cell no release ever reached. The answer is therefore
 written down here and not read back from the figure: the ramp must cover the
-positive values, the empty cell must leave the ramp, and every colour the ramp
+positive values, the empty cell must leave the ramp, and every color the ramp
 uses must stay darker than the ground that cell is painted in.
 """
 
@@ -56,7 +56,7 @@ def _axes():
 
 
 def _lightness(rgb) -> float:
-    """Return the CIE L* of one RGB triple, which is what greyscale keeps."""
+    """Return the CIE L* of one RGB triple, which is what grayscale keeps."""
     channels = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in rgb[:3]]
     y = 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
     return 116.0 * y ** (1 / 3) - 16.0 if y > 0.008856 else 903.3 * y
@@ -161,7 +161,7 @@ def test_the_legend_counts_the_cells_outside_the_network() -> None:
 
 
 def test_a_field_that_accumulates_everywhere_carries_no_ground_entry() -> None:
-    """Nothing is painted in the ground colour, so nothing claims it is."""
+    """Nothing is painted in the ground color, so nothing claims it is."""
     pytest.importorskip("matplotlib")
     import matplotlib.pyplot as plt
 
@@ -198,8 +198,8 @@ def test_an_unknown_scale_is_refused_by_name() -> None:
 
 
 @pytest.mark.parametrize("cmap", ["Blues", "viridis", "cividis"])
-def test_every_drawn_colour_stays_darker_than_the_ground(cmap: str) -> None:
-    """The property the map is legible by, in colour and in greyscale alike.
+def test_every_drawn_color_stays_darker_than_the_ground(cmap: str) -> None:
+    """The property the map is legible by, in color and in grayscale alike.
 
     The ground carries the cells the ramp says nothing about. A ramp reaching
     its lightness would make the cells it does describe disappear into it.
@@ -230,7 +230,7 @@ def test_the_default_palette_darkens_as_the_flux_climbs() -> None:
 
 
 def test_the_light_end_is_the_one_that_is_cut_whichever_end_it_is() -> None:
-    """A palette light at the top keeps its dark colours, not its pale ones."""
+    """A palette light at the top keeps its dark colors, not its pale ones."""
     pytest.importorskip("matplotlib")
     from matplotlib.colors import to_hex
 
@@ -243,7 +243,7 @@ def test_the_light_end_is_the_one_that_is_cut_whichever_end_it_is() -> None:
     assert to_hex(palette(1.0)) == to_hex(base(1.0 - PALETTE_FLOOR)), "the light end is cut"
 
 
-def test_the_palette_paints_the_empty_cells_in_the_ground_colour() -> None:
+def test_the_palette_paints_the_empty_cells_in_the_ground_color() -> None:
     pytest.importorskip("matplotlib")
     from matplotlib.colors import to_hex, to_rgb
 

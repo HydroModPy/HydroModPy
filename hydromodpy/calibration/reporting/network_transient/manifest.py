@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -15,6 +14,7 @@ from hydromodpy.calibration.reporting.network_transient.geometry import _candida
 from hydromodpy.calibration.reporting.network_transient.io import (
     NetworkTransientHtmlArtifactReport,
 )
+from hydromodpy.core.io.file_digest import sha256_of
 
 _read_json = _nt_io.read_json
 _float = _nt_io.coerce_float
@@ -229,10 +229,4 @@ def _manifest_contract(
 
 
 def _sha256_file(path: Path | None) -> str | None:
-    if path is None or not path.is_file():
-        return None
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+    return sha256_of(path) if path is not None and path.is_file() else None

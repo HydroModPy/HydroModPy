@@ -3,13 +3,13 @@
 The steady head of a uniform flow is linear in ``x``. With a transmissivity
 ``K (h - z_b)`` the exact field is linear in ``(h - z_b)^2``; across this thick
 aquifer the two differ by 5e-6 m. A consistent flux reproduces it at every cell
-centre, whatever the shape of the cells. The heads are held at the centroids of
+center, whatever the shape of the cells. The heads are held at the centroids of
 the triangles that own a west or an east edge, so the reference is anchored
 there. A Voronoi dual has one cell per mesh node and holds the heads on the
 nodes of the faces, so the reference is anchored at the face abscissae. A
 generated Voronoi mesh has no bundle: it puts a seed on each side, and the
 reference is anchored at the first and the last abscissa of its stored cell
-centres.
+centers.
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ class PatchTestComparison:
     """Cell heads of one run against the uniform-flow head at the cell centroids.
 
     ``map_cell_polygons``, ``map_simulated`` and ``map_reference`` give the
-    plan-view map of the run, one entry per triangle, in metres from the
+    plan-view map of the run, one entry per triangle, in meters from the
     south-west corner.
     """
 

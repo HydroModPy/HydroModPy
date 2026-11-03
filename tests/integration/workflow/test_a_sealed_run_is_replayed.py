@@ -78,7 +78,7 @@ def _simulate(project: Path, **keywords) -> Path:
 
 
 def test_an_override_is_sealed_and_a_rerun_repeats_it(demo: Path) -> None:
-    source = _simulate(demo, name="probe", K=K)
+    source = _simulate(demo, name="probe", set={"K": K})
 
     assert _config(source)["flow"]["param"]["K"]["field"]["value"] == K
     assert _parameter(source, "K") == pytest.approx(K)
@@ -116,7 +116,7 @@ def test_a_rerun_takes_dotted_paths_and_the_lineage_says_them(demo: Path) -> Non
     source = _simulate(demo, name="probe")
 
     changed = hmp.Project.rerun(
-        hmp.open(source), name="changed", no_display=True, set={K_PATH: 2e-4}, Sy=0.2
+        hmp.open(source), name="changed", no_display=True, set={K_PATH: 2e-4, "Sy": 0.2}
     ).dir
 
     assert _parameter(changed, "K") == pytest.approx(2e-4)
@@ -129,8 +129,8 @@ def test_a_rerun_takes_dotted_paths_and_the_lineage_says_them(demo: Path) -> Non
 
 def test_each_run_of_a_sweep_gets_its_own_flow_and_lineage(demo: Path) -> None:
     with hmp.Project(demo / "run_demo.toml", no_display=True) as opened:
-        first = opened.simulate(name="first", K=K).dir
-        second = opened.simulate(name="second", K=2 * K).dir
+        first = opened.simulate(name="first", set={"K": K}).dir
+        second = opened.simulate(name="second", set={"K": 2 * K}).dir
         plain = opened.simulate(name="plain").dir
 
     assert _parameter(first, "K") == pytest.approx(K)
@@ -143,8 +143,12 @@ def test_each_run_of_a_sweep_gets_its_own_flow_and_lineage(demo: Path) -> None:
 @pytest.mark.parametrize(
     ("keywords", "section", "value"),
     [
-        ({"first_clim": "first"}, ("flow", "sinks_sources", "recharge", "first_clim"), "first"),
-        ({"thickness": 70.0}, ("domain", "depth_model", "thickness"), 70.0),
+        (
+            {"set": {"first_clim": "first"}},
+            ("flow", "sinks_sources", "recharge", "first_clim"),
+            "first",
+        ),
+        ({"set": {"thickness": 70.0}}, ("domain", "depth_model", "thickness"), 70.0),
     ],
 )
 def test_a_keyword_lands_at_its_path_in_the_sealed_config(
@@ -159,12 +163,12 @@ def test_a_keyword_lands_at_its_path_in_the_sealed_config(
 def test_an_unknown_keyword_is_refused_with_what_this_project_offers(demo: Path) -> None:
     with hmp.Project(demo / "run_demo.toml", no_display=True) as opened:
         with pytest.raises(ConfigError, match=r"Unknown parameter 'porosity'.*K, Sy"):
-            opened.simulate(name="probe", porosity=0.3)
+            opened.simulate(name="probe", set={"porosity": 0.3})
 
 
 def test_the_properties_keyword_is_gone(demo: Path) -> None:
     with hmp.Project(demo / "run_demo.toml", no_display=True) as opened:
-        with pytest.raises(ConfigError, match="Unknown parameter 'properties'"):
+        with pytest.raises(TypeError, match="properties"):
             opened.simulate(name="probe", properties={"K": 1e-5})
 
 
@@ -193,7 +197,7 @@ def _copy_entries(run_dir: Path, project: Path) -> set[str]:
 
 
 def test_a_frozen_replay_of_an_unchanged_run_has_nothing_to_do(demo: Path) -> None:
-    source = _simulate(demo, name="probe", K=K)
+    source = _simulate(demo, name="probe", set={"K": K})
 
     done = _hmp(demo, str(source / "config.toml"), "--frozen")
 
@@ -203,7 +207,7 @@ def test_a_frozen_replay_of_an_unchanged_run_has_nothing_to_do(demo: Path) -> No
 
 
 def test_a_forced_frozen_replay_gives_the_same_numbers(demo: Path) -> None:
-    source = _simulate(demo, name="probe", K=K)
+    source = _simulate(demo, name="probe", set={"K": K})
 
     done = _hmp(demo, str(source / "config.toml"), "--frozen", "--force", "--no-display")
 
@@ -238,7 +242,7 @@ def sealed_then_moved(demo: Path) -> Iterator[tuple[Path, Path]]:
 def test_a_copied_run_replays_into_a_project_and_never_into_itself(
     demo: Path, tmp_path: Path
 ) -> None:
-    source = _simulate(demo, name="probe", K=K)
+    source = _simulate(demo, name="probe", set={"K": K})
     copy = tmp_path / "elsewhere" / "base"
     shutil.copytree(source, copy)
     held = sorted(path.relative_to(copy) for path in copy.rglob("*"))
@@ -331,7 +335,7 @@ def test_a_default_engine_that_moved_is_named_too(
 
 
 def test_an_edited_frozen_file_is_refused_by_name(demo: Path) -> None:
-    source = _simulate(demo, name="probe", K=K)
+    source = _simulate(demo, name="probe", set={"K": K})
     frozen = source / "config.toml"
     frozen.write_text(frozen.read_text().replace(str(K), "0.0034"), encoding="utf-8")
 

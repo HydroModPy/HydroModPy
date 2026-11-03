@@ -22,7 +22,7 @@ pytest.importorskip("whitebox_workflows")
 RES = 25.0
 BOWL_FLOOR = 90.5
 SIDE_TOLERANCE_M = 0.01
-"""The realised lowering follows max_cost within a centimetre (measured, 25 m DEM)."""
+"""The realized lowering follows max_cost within a centimeter (measured, 25 m DEM)."""
 
 
 @pytest.fixture(autouse=True)

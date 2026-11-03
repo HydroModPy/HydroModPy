@@ -4,7 +4,7 @@
 golden went stale: that golden, published 2026-07-12, counts 1 497 cells
 carrying a sentinel in ``concentration_seepage`` and ``mass_seepage``, and
 since ``f62a14c62`` (2026-07-25) those cells reach Zarr as NaN, so the count
-is 0. Refreshing the golden without covering the behaviour would leave the
+is 0. Refreshing the golden without covering the behavior would leave the
 new 0 guarded by nothing but a six-minute nightly run nobody reads.
 
 The three write entry points each mask, because a field can arrive by any of

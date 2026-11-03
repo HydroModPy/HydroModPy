@@ -2,11 +2,13 @@
 # From a flat 2 m start above the surface it converges in 30 iterations; a start
 # at the surface does not converge in 80, so the start matters.
 [flow]
-runtime_backend = "petsc"
-surface_interaction_model = "vi_obstacle"
-runtime_max_iterations = 80
-runtime_tol_residual_inf = 1e-9
 
 [flow.ic]
-type = "custom"
+kind = "custom"
 value = 2.0
+
+[flow.runtime]
+backend = "petsc"
+surface_interaction_model = "vi_obstacle"
+max_iterations = 80
+tol_residual_inf = 1e-9

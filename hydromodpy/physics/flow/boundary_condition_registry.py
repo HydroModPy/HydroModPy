@@ -157,7 +157,7 @@ FLOW_BOUNDARY_DEFINITIONS: dict[str, FlowBoundaryDefinition] = {
     "drainage": FlowBoundaryDefinition(
         id="drainage",
         family="head_dependent_exchange",
-        default_type="cauchy",
+        default_type="drain",
         default_units="m2/s",
         application_domain="top",
         support_kind="top",
@@ -181,26 +181,10 @@ FLOW_BOUNDARY_DEFINITIONS: dict[str, FlowBoundaryDefinition] = {
         },
         supports_forcing=True,
     ),
-    # 'reservoir' is an accepted synonym of 'lake': both map to the MF6 LAK
-    # package and read the single flow.sinks_sources['lakes'] payload (there is no
-    # separate 'reservoirs' payload). Either id in active_bc activates the lake.
-    "reservoir": FlowBoundaryDefinition(
-        id="reservoir",
-        family="advanced_package",
-        default_type="reservoir",
-        default_units="m",
-        application_domain="top",
-        support_kind="advanced_package",
-        supported_backends=("modflow6",),
-        backend_packages={
-            "modflow6": "LAK",
-        },
-        supports_forcing=True,
-    ),
     # SFR (streamflow routing) is a MODFLOW 6 advanced package. It reads the
-    # flow.sinks_sources['sfr'] payload and is lake-independent: 'sfr' in
-    # active_bc routes streamflow on its own; its optional MVR coupling to a lake
-    # is data on the SFR payload, not a separate boundary id.
+    # flow.sinks_sources['sfr'] payload and is lake-independent: a declared network
+    # routes streamflow on its own; its optional MVR coupling to a lake is data on
+    # the SFR payload, not a separate boundary id.
     "sfr": FlowBoundaryDefinition(
         id="sfr",
         family="advanced_package",
@@ -218,7 +202,7 @@ FLOW_BOUNDARY_DEFINITIONS: dict[str, FlowBoundaryDefinition] = {
 """Canonical boundary-condition definitions supported by the flow process."""
 
 SUPPORTED_FLOW_BOUNDARY_IDS = frozenset(FLOW_BOUNDARY_DEFINITIONS)
-"""All canonical flow boundary ids accepted by ``flow.active_bc``."""
+"""All canonical flow boundary ids, the names ``FlowConfig.active_bc`` can hold."""
 
 
 def boundary_definition(bc_id: str) -> FlowBoundaryDefinition | None:

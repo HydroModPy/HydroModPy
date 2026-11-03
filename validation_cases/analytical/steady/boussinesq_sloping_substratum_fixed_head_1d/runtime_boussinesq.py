@@ -62,15 +62,15 @@ def run_boussinesq_sloping_substratum_fixed_head_case(
         storage_coefficient=0.1,
         flow_section={
             "flow_regime": "steady",
-            "runtime_backend": "petsc",
-            "surface_interaction_model": "vi_obstacle",
+            "runtime": {
+                "backend": "petsc",
+                "surface_interaction_model": "vi_obstacle",
+            },
             "ic": {
-                "type": "custom",
+                "kind": "custom",
                 "value": 0.5
                 * (float(reference_cfg["west_head"]) + float(reference_cfg["east_head"])),
             },
-            "active_sinks_sources": [],
-            "active_bc": ["west_side", "east_side"],
             "bc": {
                 "west_side": {"value": float(reference_cfg["west_head"])},
                 "east_side": {"value": float(reference_cfg["east_head"])},

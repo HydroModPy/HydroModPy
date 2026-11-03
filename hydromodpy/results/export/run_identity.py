@@ -4,7 +4,7 @@ Why
 ---
 A figure, an export or a published copy is written from a run directory. Each
 one carries the :class:`~hydromodpy.results.identity.Identity` block of that
-run. A sealed run gives the block of its manifest, labelled today by
+run. A sealed run gives the block of its manifest, labeled today by
 :mod:`hydromodpy.results.validity_rules`. A run still being computed has no
 seal yet: its block is built from the facts the run recorded so far
 (:func:`~hydromodpy.results.storage.run_facts.identity_of`), else from
@@ -68,7 +68,7 @@ def labelled_identity(manifest: Manifest, *, today: date | None = None) -> Ident
 def identity_of_run_dir(run_dir: str | Path, *, today: date | None = None) -> Identity | None:
     """Return the identity block a derived file of *run_dir* carries.
 
-    A sealed run gives its manifest block, labelled *today*. An unsealed run
+    A sealed run gives its manifest block, labeled *today*. An unsealed run
     gives the block of its facts (site, case, config hash, period), without a
     label; a directory whose run recorded no facts yet gives a block built
     from ``outcome.json``, without a period, which the caller adds when it

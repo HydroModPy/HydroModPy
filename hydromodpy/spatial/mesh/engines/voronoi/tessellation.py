@@ -10,7 +10,7 @@ comes from shared vertex ids, never from rounded coordinates.
 ``voronoi_planar_mesh`` gives the Voronoi (PEBI) dual of a set of seeds
 clipped to a domain as a ``HydroMesh`` of polygons, built in the local
 frame of the domain: Qhull and GEOS lose digits on Lambert-93 coordinates, and
-two seeds a few metres apart can give two identical cells.
+two seeds a few meters apart can give two identical cells.
 """
 
 from __future__ import annotations
@@ -182,9 +182,9 @@ def cell_topology(cells: np.ndarray, frame: LocalFrame) -> CellTopology:
 def voronoi_planar_mesh(seeds: np.ndarray, domain_polygon: Polygon | MultiPolygon) -> HydroMesh:
     """Build a planar ``HydroMesh`` of polygons, the Voronoi (PEBI) dual of ``seeds``.
 
-    Cell ``i`` is the cell of seed ``i``, so the seeds are the cell centres a
+    Cell ``i`` is the cell of seed ``i``, so the seeds are the cell centers a
     caller gives the solvers (the DISV export writes them as the exact
-    perpendicular-bisector centres). Cell corners closer than 1 mm are one vertex. A seed whose cell has no part inside
+    perpendicular-bisector centers). Cell corners closer than 1 mm are one vertex. A seed whose cell has no part inside
     the domain, or two coincident seeds, raise ``MeshGenerationError``.
     """
     seeds = np.asarray(seeds, dtype=float)

@@ -8,8 +8,8 @@ cell holds a descending path to a base level, and it never returns to the solver
 The channel bed, the drain elevations and the reach tops keep reading T.
 
 The fill runs on the very graph that is descended. A flood only guarantees a
-strictly lower neighbour among the cells it walked, so a fill on one
-neighbourhood and a descent on another leave filled cells spilling over a link
+strictly lower neighbor among the cells it walked, so a fill on one
+neighborhood and a descent on another leave filled cells spilling over a link
 the descent cannot take (see the comment in
 :func:`hydromodpy.core.stream_geometry.build_network_geometry`). D floods like
 the stream criterion's fill, with four differences: its seeds include the
@@ -86,7 +86,7 @@ class Descent:
     ``base_level`` holds the flood seeds: the rim of the routable domain and
     the declared constant-head cells, which ``constant_head`` flags apart.
     Every routable cell outside it has a receiver, and the receiver chains
-    never cycle. A seed keeps its steepest descent, -1 only where no neighbour
+    never cycle. A seed keeps its steepest descent, -1 only where no neighbor
     is lower, so the accumulation passes through a constant-head cell.
 
     ``raised`` flags the cells the flood raised on the copy, lakes and pins
@@ -98,7 +98,7 @@ class Descent:
     ``n_pinned_raised``, ``max_pinned_raise_m`` the pinned cells raised so A
     can be followed where T climbs along it.
 
-    ``adjacency`` holds the neighbour sets the flood walked. It is the heavy
+    ``adjacency`` holds the neighbor sets the flood walked. It is the heavy
     part of D, and :meth:`without_adjacency` drops it once the build is done.
     """
 
@@ -134,7 +134,7 @@ class Descent:
         return np.where(self.constant_head, -1, self.receiver)
 
     def without_adjacency(self) -> Descent:
-        """Return this D without its neighbour sets, for a model to keep.
+        """Return this D without its neighbor sets, for a model to keep.
 
         The consumers after the build read the receivers, the order, the
         surface, the masks, the edge lengths and the centroids. The adjacency
@@ -222,7 +222,7 @@ def descent_basin(
     cell within two rings of ``near``, else inside ``within``, else the largest
     basin of the domain. The basin follows :attr:`Descent.receiver`, never the
     stopping receiver: it continues through a constant-head cell that has a
-    lower neighbour. A constant-head cell with none is a sink, and the cells
+    lower neighbor. A constant-head cell with none is a sink, and the cells
     draining into it stay outside.
 
     Raises
@@ -440,7 +440,7 @@ def descent_from_stored_mesh(
     The mesh carries neither the channel tree, nor the constant-head cells, nor
     the lakes of the build, so this D has no pin, no constant-head seed and no
     lake: it is the plain flood of the model top, seeded on the domain rim, on
-    the D8 neighbourhood the mesh allows.
+    the D8 neighborhood the mesh allows.
     """
     surface = np.asarray(top, dtype=float).reshape(-1)
     return build_descent(

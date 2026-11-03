@@ -36,7 +36,7 @@ all_vertices = true
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow_nwt"]
 
 [modflownwt.runtime]
@@ -49,7 +49,7 @@ maxiterout = 5000
 thickfact = 1e-5
 options = "COMPLEX"
 
-[modflownwt.sgrid.vertical]
+[domain.layers]
 genmtd_lay = "decay"
 nlay = 5
 lay_decay = 1.5

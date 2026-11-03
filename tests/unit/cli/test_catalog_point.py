@@ -115,7 +115,7 @@ def test_a_cell_index_reads_the_same_values(monkeypatch, project, capsys) -> Non
         ],
     )
     assert code == 0
-    rows = json.loads(capsys.readouterr().out)
+    rows = json.loads(capsys.readouterr().out)["data"]
     assert [row["value"] for row in rows] == [2.0, 3.0]
 
 
@@ -141,7 +141,7 @@ def test_several_runs_stack_their_answers(monkeypatch, project, capsys) -> None:
         ],
     )
     assert code == 0
-    rows = json.loads(capsys.readouterr().out)
+    rows = json.loads(capsys.readouterr().out)["data"]
     assert {row["run"]: row["value"] for row in rows} == {"base": 2.0, "scenario": 12.0}
 
 
@@ -160,7 +160,7 @@ def test_the_table_is_written_to_csv(monkeypatch, project, tmp_path, capsys) -> 
             "head",
             "--cell",
             "1",
-            "-o",
+            "--to",
             str(dest),
             "--workspace",
             str(project),

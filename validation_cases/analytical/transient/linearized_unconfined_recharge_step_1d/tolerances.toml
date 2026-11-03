@@ -13,7 +13,7 @@ Twice the error measured on the 50-column grid, MODFLOW-NWT and MODFLOW 6
 alike: space-time RMSE 2.2e-3 m, max error 1.0e-2 m, final RMSE 7.5e-4 m.
 Backward Euler is first order in time: on the boundary step, 1, 2, 4 and 8
 sub-steps per period give a space-time RMSE of 1.4e-3, 7.1e-4, 3.4e-4 and
-1.6e-4 m. The heads are posed at the centres of the boundary cells. The final
+1.6e-4 m. The heads are posed at the centers of the boundary cells. The final
 profile keeps the error of the linearized reference, which holds the
 transmissivity at its initial value: about 7e-4 m under the 0.14 m recharge
 mound, whatever the step. The row spread bound is 0.1 times the MODFLOW 6 head

@@ -71,7 +71,7 @@ def attrs_for_field(name: str, dtype: np.dtype) -> dict[str, object]:
     A float field declares no ``_FillValue`` attribute. Its missing value is
     NaN, JSON has no token for NaN, and writing one anyway is what made every
     ``zarr.json`` of the corpus invalid under RFC 8259. The array's own Zarr
-    ``fill_value`` already carries NaN, serialised as the string ``"NaN"`` the
+    ``fill_value`` already carries NaN, serialized as the string ``"NaN"`` the
     Zarr v3 spec defines for it, so nothing is lost and readers still mask.
     An integer sentinel has a JSON number and stays in the CF block.
     """
@@ -96,7 +96,7 @@ def mask_sentinels(values: np.ndarray) -> np.ndarray:
     if not np.issubdtype(values.dtype, np.floating):
         return values
     # Two comparisons instead of np.abs(): the slab can reach hundreds of MiB
-    # and a materialised absolute copy would double the write-side peak.
+    # and a materialized absolute copy would double the write-side peak.
     sentinel = (values > SENTINEL_ABS_THRESHOLD) | (values < -SENTINEL_ABS_THRESHOLD)
     if not sentinel.any():
         return values
@@ -283,7 +283,7 @@ def write_mesh(
     ``z_interfaces`` is the ``(n_layers + 1, n_faces)`` column of every cell
     and ``layer_thickness`` the ``(n_layers, n_faces)`` thickness it implies.
 
-    ``layout`` adds the cell centres, the family bit fields, the zone codes, the
+    ``layout`` adds the cell centers, the family bit fields, the zone codes, the
     edge tables and the engine attributes. Without it the group holds the
     topology alone.
 
@@ -1349,7 +1349,7 @@ def write_geographic_raster(
     ``missing_value``, which xarray masks. A ``_FillValue`` attribute would
     have to be base64 text for xarray on a Zarr 3 float array, and CF types it
     as a number. A north-up raster gets its own axes
-    ``<name>_y`` and ``<name>_x``, holding the pixel centres of the transform,
+    ``<name>_y`` and ``<name>_x``, holding the pixel centers of the transform,
     because two rasters of the group need not share a grid. A raster with a
     CRS names its own grid-mapping variable ``<name>_crs``. The ``transform``,
     ``crs``, ``nodata`` and ``shape`` attributes stay, so the HydroModPy reader
@@ -1416,10 +1416,10 @@ def _write_pixel_centres(
     transform: tuple[float, ...],
     geographic: bool,
 ) -> None:
-    """Write the ``<name>_y`` and ``<name>_x`` axes at the pixel centres of a north-up raster.
+    """Write the ``<name>_y`` and ``<name>_x`` axes at the pixel centers of a north-up raster.
 
     A geographic CRS gives longitudes and latitudes in degrees, a projected
-    one coordinates in metres.
+    one coordinates in meters.
     """
     rows, columns = int(shape[0]), int(shape[1])
     pixel_x, origin_x, pixel_y, origin_y = (float(transform[i]) for i in (0, 2, 4, 5))
@@ -1515,7 +1515,7 @@ def write_lake_restart_state(store_obj: SimulationZarr, stages: dict[str, float]
 
     The companion of the heads field for ``[flow] restart_from``: a later run
     seeds each lake's initial stage from this last value. ``stages`` maps
-    ``lake_id -> stage`` in metres; an empty mapping writes nothing.
+    ``lake_id -> stage`` in meters; an empty mapping writes nothing.
     """
     if not stages:
         return
@@ -1571,7 +1571,7 @@ def _walk_arrays(group: zarr.Group, prefix: str = "") -> list[tuple[str, zarr.Ar
 
 
 def harmonize_axis_references(store_obj: SimulationZarr) -> None:
-    """Materialise the axis coordinates the fields name, and drop dangling ones.
+    """Materialize the axis coordinates the fields name, and drop dangling ones.
 
     Every field declares ``coordinates = "time layer face"`` and
     ``grid_mapping = "crs"``. Until this runs, ``layer`` and ``face`` are names

@@ -1,4 +1,4 @@
-"""Format-level behaviour of the exporters, reached through ``export_run``.
+"""Format-level behavior of the exporters, reached through ``export_run``.
 
 Each test writes one request to an exact ``file`` under the exports of the run:
 the format follows its extension. The run is written by its store, sealed and
@@ -310,7 +310,18 @@ class TestGeoTIFFExport:
             assert tags.get("HMP_SIM_ID") == str(sid)
             assert tags.get("HMP_VARIABLE") == "head"
             assert tags.get("HMP_UNITS") == "m"
-            assert "HMP_TIMESTAMP" in tags
+            assert "HMP_EXPORTED_AT" in tags
+            # The fixture has no period edges, so the model instant is unknown and left out.
+            assert "HMP_TIMESTAMP" not in tags
+
+    def test_a_nodata_value_is_written_in_the_file(self, catalog_with_data):
+        catalog, sid, exports = catalog_with_data
+        out = exports / "nodata.tif"
+        _export(catalog, sid, variables="head", file=out, time=0, layer=0, nodata=-1.0)
+        import rasterio
+
+        with rasterio.open(str(out)) as src:
+            assert src.nodata == -1.0
 
     def test_a_resolution_left_out_follows_the_mesh(self, catalog_with_data):
         catalog, sid, exports = catalog_with_data
@@ -535,12 +546,12 @@ class TestExportReprojection:
         lon_min, lat_min, lon_max, lat_max = _lonlat_envelope(bounds)
         with rasterio.open(str(out)) as src:
             assert src.crs.to_epsg() == 4326
-            # A relabelled file would still carry metre bounds near 385000.
+            # A relabelled file would still carry meter bounds near 385000.
             assert src.bounds.left == pytest.approx(lon_min, abs=1e-3)
             assert src.bounds.right == pytest.approx(lon_max, abs=1e-3)
             assert src.bounds.bottom == pytest.approx(lat_min, abs=1e-3)
             assert src.bounds.top == pytest.approx(lat_max, abs=1e-3)
-            assert src.res[0] < 1.0  # degrees, not metres
+            assert src.res[0] < 1.0  # degrees, not meters
             valid = src.read(1)[src.read(1) != -9999.0]
             # Bilinear interpolates, it does not extrapolate: the warped field
             # stays inside the range of the four cell values.

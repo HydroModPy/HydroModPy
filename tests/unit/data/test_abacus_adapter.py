@@ -1,6 +1,6 @@
 """convert_abacus_to_parquet: CSV/Parquet round-trip and lake_id inject.
 
-Guards that a user abacus (CSV or Parquet, no lake_id column) is normalised into
+Guards that a user abacus (CSV or Parquet, no lake_id column) is normalized into
 the validated Parquet pivot with the lake_id injected and the numeric
 stage/volume/area values preserved, and that a Parquet source is validated too.
 """

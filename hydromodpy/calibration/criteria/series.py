@@ -3,7 +3,7 @@
 The ten scoring kernels stay exactly what they were: this wraps each one and
 takes over the two conventions that used to live in the objective and had to be
 re-applied by every caller. The sign, because half the kernels return a score
-where higher is better and a cost must be minimised. And the clipping, because a
+where higher is better and a cost must be minimized. And the clipping, because a
 log metric cannot take a negative value while a discharge reconstructed below a
 dam legitimately holds a few.
 
@@ -243,7 +243,7 @@ class SeriesCriterion:
         sample_days: float | None = None,
         times_days: Sequence[float] | Any | None = None,
     ) -> CriterionResult:
-        """Return the cost, minimised, with what the clipping had to touch.
+        """Return the cost, minimized, with what the clipping had to touch.
 
         ``sample_days`` is the sampling step of the series, in days. The kernels
         of :data:`SAMPLED_BY_DATE` count their cycle and window in it; the

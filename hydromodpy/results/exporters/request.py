@@ -610,6 +610,8 @@ class _Writer:
         name = item.variables[0]
         timed = is_timed(field_descriptor(name))
         if item.instant is not None:
+            # Read the dates as one list first: two that read one period are refused.
+            _ = self.steps
             pairs = [(self.run.periods.step_at(item.instant), dest)]
         elif not timed:
             pairs = [(0, dest.with_name(dest.name.replace(f"_{STEP_DATE_TOKEN}", "")))]
@@ -650,6 +652,11 @@ class _Writer:
             if resolution is None:
                 resolution = self._once("resolution", self.target.default_resolution)
             period = period_label(step, self.edges) if timed and self.edges is not None else None
+            import pandas as pd
+
+            model_time = None
+            if timed and self.edges is not None:
+                model_time = pd.Timestamp(self.edges[step + 1]).isoformat()
             return export_geotiff(
                 self.zarr_path,
                 self.sim_id,
@@ -662,6 +669,7 @@ class _Writer:
                 nodata=request.nodata,
                 values=values,
                 period=period or None,
+                model_time=model_time,
             )
         if fmt is ExportFormat.geopackage:
             if name == SIMULATED_ACTIVE_NETWORK:

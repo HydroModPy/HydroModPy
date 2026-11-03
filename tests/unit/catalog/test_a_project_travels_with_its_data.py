@@ -1,4 +1,4 @@
-"""``hmp project export`` and ``hmp project import``: a whole project on the brick of a run.
+"""``hmp publish --package`` and ``hmp project import``: a whole project on the brick of a run.
 
 The package carries the files the author wrote and the data the TOML files
 reference, on the install index of a run; on demand the sealed runs, the
@@ -15,13 +15,14 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.catalog.install import import_project
-from hydromodpy.catalog.share import inputs_of
 from hydromodpy.core.exceptions import ImportConflictError
 from hydromodpy.core.payload import PayloadConflictError, read_index
+from hydromodpy.project.install import import_project
+from hydromodpy.project.share import inputs_of
 from hydromodpy.results.export.project_package import consumed_mesh_entries, export_project
 from hydromodpy.results.export.publish import verify
 from hydromodpy.results.publication import read_publication
+from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
 from tests._helpers.cli_runner import CliRunner
 from tests.unit.catalog._shared_run import (
     CUSTOM_FILE,
@@ -37,7 +38,7 @@ PROJECT_TOML = """\
 name = "nancon"
 
 [geographic.catchment]
-catch_def = "from_outlet_coord"
+kind = "from_outlet_coord"
 dem_init_path = "dem.tif"
 
 [data]
@@ -129,7 +130,7 @@ def test_a_name_already_taken_is_refused_and_as_gives_another_one(tmp_path) -> N
     workspace = tmp_path / "colleague"
     make_workspace(workspace, project="nancon")
 
-    with pytest.raises(ImportConflictError, match="--as"):
+    with pytest.raises(ImportConflictError, match="--name"):
         import_project(package, workspace)
     imported = import_project(package, workspace, name="nancon_from_lab")
 
@@ -178,6 +179,7 @@ def test_with_mesh_the_package_takes_the_cache_entries_the_runs_read(tmp_path) -
     project = _project(tmp_path)
     run = project / "runs" / RUN_NAME
     root = zarr.open_group(str(run / "fields.zarr"), mode="w")
+    root.attrs["zarr_schema_version"] = ZARR_SCHEMA_VERSION
     mesh = root.create_group("mesh")
     mesh.attrs.update(engine="gmsh", engine_version="1.0", mesh_request_hash="r1")
     cache = project / ".hmp" / "mesh_cache"
@@ -207,10 +209,10 @@ def test_the_commands_export_and_import_a_project(tmp_path) -> None:
     package = tmp_path / "nancon.tar"
 
     exported = CliRunner().invoke(
-        ["project", "export", str(project), "--to", str(package), "--with", "runs"]
+        ["publish", str(project), "--package", "--to", str(package), "--with", "runs"]
     )
     imported = CliRunner().invoke(
-        ["project", "import", str(package), "-w", str(workspace), "--as", "lab"]
+        ["project", "import", str(package), "-w", str(workspace), "--name", "lab"]
     )
 
     assert exported.exit_code == 0, exported.stderr

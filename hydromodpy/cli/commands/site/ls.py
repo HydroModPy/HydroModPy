@@ -3,12 +3,9 @@
 from __future__ import annotations
 
 import argparse
-import csv
-import json
-import sys
 
 from hydromodpy.cli.conventions import format_parser, workspace_parser
-from hydromodpy.cli.helpers import exit_code_for
+from hydromodpy.cli.output import emit
 
 NAME: str = "ls"
 HELP: str = "List the sites declared in data/sites/catalog.csv"
@@ -29,39 +26,31 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 def run(args: argparse.Namespace) -> None:
     from hydromodpy.cli.helpers import resolve_workspace
-    from hydromodpy.core.site import SITE_ROW_COLUMNS
     from hydromodpy.data.sites.catalog import read_catalog
 
     root = resolve_workspace(args.workspace)
-    try:
-        rows = read_catalog(root)
-    except Exception as exc:  # noqa: BLE001 - map errors to typed exit codes
-        print(str(exc), file=sys.stderr)
-        sys.exit(exit_code_for(exc))
+    rows = read_catalog(root)
     if args.tag is not None:
         rows = [row for row in rows if args.tag in row.tags]
     records = [row.to_mapping() for row in rows]
-    if args.format == "json":
-        print(json.dumps(records, indent=2))
-        return
-    if args.format == "csv":
-        writer = csv.DictWriter(sys.stdout, fieldnames=list(SITE_ROW_COLUMNS))
-        writer.writeheader()
-        for record in records:
-            writer.writerow({key: "" if value is None else value for key, value in record.items()})
-        return
-    if not records:
-        print("no site declared")
-        return
-    columns = ("site", "label", "gauge", "uri", "x_outlet", "y_outlet", "crs", "tags")
-    table = [[_cell(record[column]) for column in columns] for record in records]
-    widths = [
-        max(len(column), *(len(line[i]) for line in table)) for i, column in enumerate(columns)
-    ]
-    for line in [list(columns), *table]:
-        print(
-            "  ".join(cell.ljust(width) for cell, width in zip(line, widths, strict=True)).rstrip()
-        )
+
+    def table() -> None:
+        if not records:
+            print("no site declared")
+            return
+        columns = ("site", "label", "gauge", "uri", "x_outlet", "y_outlet", "crs", "tags")
+        rows = [[_cell(record[column]) for column in columns] for record in records]
+        widths = [
+            max(len(column), *(len(line[i]) for line in rows)) for i, column in enumerate(columns)
+        ]
+        for line in [list(columns), *rows]:
+            print(
+                "  ".join(
+                    cell.ljust(width) for cell, width in zip(line, widths, strict=True)
+                ).rstrip()
+            )
+
+    emit(args, "site ls", records, table=table)
 
 
 def _cell(value: object) -> str:

@@ -3,13 +3,13 @@
 Projecting a DEM onto irregular Voronoi/triangle cells by a single bilinear
 sample at the cell generator aliases incised channels: the generator often lands
 on a bank rather than the thalweg, so channel cells are raised and the drainage
-graph gains false pits. This reduces EVERY DEM pixel whose centre falls inside a
+graph gains false pits. This reduces EVERY DEM pixel whose center falls inside a
 cell with a per-class statistic, a thalweg-preserving stat (min/p10) on channel
 pixels and an area stat (mean/median) on hillslope pixels, independent of cell
 shape (triangle, quad, Voronoi n-gon). It never assumes a cell is a square.
 
 Pixels are assigned to cells by burning each cell polygon id into the DEM grid
-(pixel-centre convention), then grouping pixel values by that id. A valid
+(pixel-center convention), then grouping pixel values by that id. A valid
 (non-overlapping) mesh gives each pixel at most one cell.
 """
 
@@ -55,7 +55,7 @@ def rasterize_cell_ids(
 ) -> np.ndarray:
     """Burn each cell polygon id into a raster grid (``fill = -1``).
 
-    A pixel belongs to the cell whose polygon contains its centre. Triangles,
+    A pixel belongs to the cell whose polygon contains its center. Triangles,
     quads and Voronoi n-gons are all read from ``flat_connectivity``.
     """
     from rasterio.features import rasterize
@@ -84,7 +84,7 @@ def regular_grid_cell_ids(
     """Cell id of every DEM pixel on a regular grid (``-1`` outside it).
 
     The structured twin of :func:`rasterize_cell_ids`: a pixel belongs to the
-    cell whose box contains its centre, and the cell id is ``row * ncols + col``
+    cell whose box contains its center, and the cell id is ``row * ncols + col``
     (row 0 north), the flat order of the structured grid. Computed by arithmetic,
     so it stays cheap and exact on any grid, an integer multiple of the pixel
     size or not.

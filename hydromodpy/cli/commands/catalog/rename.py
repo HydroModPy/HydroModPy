@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 import argparse
-import sys
-from pathlib import Path
 
-from hydromodpy.cli.conventions import add_sim_ref, verbosity_parser, workspace_parser
-from hydromodpy.cli.helpers import apply_verbosity, exit_code_for
-from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
+from hydromodpy.cli.conventions import (
+    add_sim_ref,
+    dry_run_parser,
+    format_parser,
+    verbosity_parser,
+    workspace_parser,
+)
+from hydromodpy.cli.helpers import apply_verbosity, project_root_of
+from hydromodpy.cli.output import emit
+from hydromodpy.core.state.paths import catalog_path_for
 
 NAME: str = "rename"
 HELP: str = "Rename a run: runs/<old>/ and sessions/<old>/ move to the new name"
@@ -18,7 +23,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        parents=[workspace_parser(), verbosity_parser()],
+        parents=[workspace_parser(), dry_run_parser(), format_parser(), verbosity_parser()],
         epilog=(
             "The directory is the name, so a rename moves runs/<old>/ and, for a\n"
             "calibration, sessions/<old>/ to the new name. Links between them are ids\n"
@@ -46,17 +51,24 @@ def run(args: argparse.Namespace) -> None:
     from hydromodpy.results.catalog.discovery import resolve_rel_dir
     from hydromodpy.results.catalog.registration import rename_case
 
-    root = resolve_project_root(
-        Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
-    )
-    try:
-        rel_dir = resolve_rel_dir(root, args.sim_ref, site=args.site)
-        renamed = rename_case(root, rel_dir, args.new_name)
-    except Exception as exc:  # noqa: BLE001 - map resolver, collision and in-use errors
-        print(str(exc), file=sys.stderr)
-        sys.exit(exit_code_for(exc))
+    root = project_root_of(args)
+    rel_dir = resolve_rel_dir(root, args.sim_ref, site=args.site)
+    renamed = rename_case(root, rel_dir, args.new_name, dry_run=args.dry_run)
+    if args.dry_run:
+        emit(
+            args,
+            "catalog rename",
+            {"applied": False, "rel_dir": rel_dir, "renamed": list(renamed)},
+            table=lambda: print(f"would rename {rel_dir} -> {', '.join(renamed)}"),
+        )
+        return
     if catalog_path_for(root).is_file():
         from hydromodpy.results.catalog.indexer import index_new_runs
 
         index_new_runs(root)
-    print(f"renamed {rel_dir} -> {', '.join(renamed)}")
+    emit(
+        args,
+        "catalog rename",
+        {"applied": True, "rel_dir": rel_dir, "renamed": list(renamed)},
+        table=lambda: print(f"renamed {rel_dir} -> {', '.join(renamed)}"),
+    )

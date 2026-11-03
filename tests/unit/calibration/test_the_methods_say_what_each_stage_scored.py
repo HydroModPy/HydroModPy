@@ -5,7 +5,7 @@ The paragraph described the scoring in the generic words of the protocol,
 a scoring window", which no longer even holds once ``[metrics] window`` is
 set. A reader citing the paragraph could not tell which dates the cost rests
 on, which metric it is, or on how many pairs. The paragraph now ends on what
-each stage minimised, read off its report.
+each stage minimized, read off its report.
 """
 
 from __future__ import annotations

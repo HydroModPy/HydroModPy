@@ -15,7 +15,7 @@ from. Right while the two files are the same one, wrong the moment a caller
 points ``mask_path`` somewhere else --
 :func:`test_a_mask_in_its_own_crs_is_reprojected_from_that_crs` is that case,
 and the old pair put the request at ``-1.36 E, -5.98 S``, in the Gulf of
-Guinea, reading degrees as Lambert-93 metres.
+Guinea, reading degrees as Lambert-93 meters.
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ from hydromodpy.data.variables.dem.manager import DemManager
 from hydromodpy.data.variables.geology.manager import GeologyManager
 from hydromodpy.data.variables.oceanic.manager import OceanicManager
 
-# A one-kilometre square near Rennes, written twice: in Lambert-93 metres and
+# A one-kilometer square near Rennes, written twice: in Lambert-93 meters and
 # in the WGS84 degrees the same ground occupies.
 RENNES_2154 = (350000.0, 6790000.0, 351000.0, 6791000.0)
 RENNES_4326 = (-1.7068965, 48.1164744, -1.6926817, 48.1259921)
@@ -253,7 +253,7 @@ def test_a_mask_in_its_own_crs_is_reprojected_from_that_crs(tmp_path, monkeypatc
     A WGS84 mask used to be read as four bare floats and then reprojected out
     of whatever CRS ``geographic.watershed_shp`` happened to declare. Here the
     mask is the only thing that says where it is, and what leaves for IGN is
-    Lambert-93 metres over Rennes.
+    Lambert-93 meters over Rennes.
     """
     captured: dict[str, object] = {}
 
@@ -280,7 +280,7 @@ def test_a_mask_in_its_own_crs_is_reprojected_from_that_crs(tmp_path, monkeypatc
 
 @pytest.mark.fast
 def test_a_box_in_another_crs_is_measured_on_the_shape_not_on_the_box(tmp_path):
-    """``mask_extent_in`` is tighter than converting the box, and by kilometres.
+    """``mask_extent_in`` is tighter than converting the box, and by kilometers.
 
     The bounds of a reprojected polygon are the image of its own vertices; the
     bounds of a reprojected box are the image of a rectangle that contains it.

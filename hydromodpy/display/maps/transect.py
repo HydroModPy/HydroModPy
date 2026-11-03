@@ -25,7 +25,7 @@ TransectOrientation = Literal["we", "sn"]
 class Transect:
     """One sampled line across the mesh.
 
-    ``distance`` is the curvilinear abscissa in metres from the first point.
+    ``distance`` is the curvilinear abscissa in meters from the first point.
     ``faces`` holds the mesh face index under each sample, ``-1`` where the
     line leaves the mesh.
     """
@@ -72,7 +72,7 @@ def default_line(
     catchment outlet when the run has one, else through the median cell
     centroid. The centroid fallback guarantees the line crosses at least one
     cell even on an irregular domain (a raw DEM extent, an L-shaped mask),
-    where the bounding-box centre could fall on a hole.
+    where the bounding-box center could fall on a hole.
     """
     xmin, ymin, xmax, ymax = mesh_bounds(sim)
     if through is None:
@@ -81,8 +81,8 @@ def default_line(
         except Exception:
             from hydromodpy.display.maps.mesh_geometry import face_centroids
 
-            # The centroid nearest the bounding-box centre. Using a real cell
-            # centroid (not the box centre or the median, which on an even grid
+            # The centroid nearest the bounding-box center. Using a real cell
+            # centroid (not the box center or the median, which on an even grid
             # lands exactly on a cell edge and the strict point-in-cell test
             # would reject every sample) keeps the line inside the domain.
             centroids = face_centroids(sim)

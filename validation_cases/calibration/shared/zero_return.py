@@ -3,7 +3,7 @@
 The truth observations are read from the catalog Run, the trial costs from the
 solver files of a lightweight trial. A twin without noise is only closed when
 both routes read the same value for the same input: same cell, same
-precision, same budget term. The check removes the noise, centres the bounds
+precision, same budget term. The check removes the noise, centers the bounds
 on the truth so that the first point of a Nelder-Mead search is the truth, and
 runs three evaluations. The best cost and the distance to the truth must then
 sit at machine precision on every mesh.
@@ -28,7 +28,7 @@ EVALUATIONS = 3
 
 
 def centred_twin_case(definition: TwinCalibrationCaseDefinition) -> TwinCalibrationCaseDefinition:
-    """Return ``definition`` with no noise, bounds centred on the truth, one search."""
+    """Return ``definition`` with no noise, bounds centered on the truth, one search."""
     if definition.build_truth_simulation_config is not None:
         raise ValueError(
             f"{definition.case_id!r} runs its truth on another mesh, so it cannot return to zero."
@@ -39,7 +39,7 @@ def centred_twin_case(definition: TwinCalibrationCaseDefinition) -> TwinCalibrat
     }
     # A case id of its own: the benchmark folder is named after it, and the
     # recovery test of the same twin may run beside this check.
-    # Nelder-Mead starts at the centre of the sampling. A conductivity or a yield is
+    # Nelder-Mead starts at the center of the sampling. A conductivity or a yield is
     # log-uniform unless the target says otherwise, which puts the start at the
     # geometric mean of the bounds. A uniform sampling in the identity search space
     # puts it at their plain mean, the truth.

@@ -7,7 +7,7 @@ stays far under ``FLAT_TOL_M``. The minimum
 drop only raises, by ``min_slope`` times the distance to the exit of a flat
 block, so the bias is non-negative and bounded by ``min_slope`` times the
 longest pooled run. With 25 m pixels and runs of a few dozen pixels that is a
-few millimetres, against a 0.3 m noise: the tolerance is that bound, not a
+few millimeters, against a 0.3 m noise: the tolerance is that bound, not a
 guess.
 """
 

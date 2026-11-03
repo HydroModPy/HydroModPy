@@ -18,7 +18,7 @@ def test_simulation_regression_example_config_inheritance_keeps_only_relevant_da
 
     payload = load_toml_with_base_config(example_config)
 
-    assert payload["flow"]["active_bc"] == ["ocean", "drainage"]
+    assert list(payload["flow"]["bc"]) == ["ocean", "drainage"]
     assert payload["data"]["types"] == ["recharge"]
     assert "hydrography" not in payload["data"]
     assert payload["data"]["oceanic"]["sources"][0]["source"] == "custom"
@@ -61,7 +61,7 @@ def test_simulation_regression_mf6_generated_mesh_config_asks_for_voronoi_cells(
     assert payload["simulation"]["process"][1]["solvers"] == ["modflow6"]
     assert payload["simulation"]["time"]["step_value"] == "10 day"
     assert payload["flow"]["first_period_steady"] is False
-    assert payload["flow"]["ic"]["type"] == "top"
+    assert payload["flow"]["ic"]["kind"] == "top"
     assert payload["flow"]["param"]["K"]["field"]["value"] == "1e-5 m/s"
     assert payload["flow"]["param"]["Sy"]["field"]["value"] == "0.12 -"
     assert payload["data"]["recharge"]["sources"][0]["freq"] == "10D"

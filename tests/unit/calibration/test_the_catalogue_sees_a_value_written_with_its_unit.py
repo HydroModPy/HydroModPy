@@ -1,8 +1,8 @@
-"""A field value can be written two ways in TOML, and the catalogue sees only one.
+"""A field value can be written two ways in TOML, and the catalog sees only one.
 
 ``[flow.param.K.field] value = 1e-4`` with a sibling ``unit = "m/s"`` and
 ``value = "1e-4 m/s"`` in one string are the same declaration. A hydrogeologist
-reads both the same way; the catalogue does not.
+reads both the same way; the catalog does not.
 
 ``_is_a_physical_number`` in ``hydromodpy/calibration/targets.py`` requires
 ``isinstance(value, Real)``, so a string value is filtered out of the walk
@@ -48,8 +48,8 @@ float with the unit moved to the sibling ``unit``):
   through ``FieldHomogeneousSection`` / ``field_param_sections.py``. That
   path is used by the mesh/geology demo cases
   (``tools/cases/``, ``hydromodpy/spatial/mesh/*/examples/*``), not by the
-  project ``[flow.param.*]`` pipeline the calibration catalogue walks, so it
-  does not affect the catalogue either way. But fixing only
+  project ``[flow.param.*]`` pipeline the calibration catalog walks, so it
+  does not affect the catalog either way. But fixing only
   ``field_param_sections.py`` would leave this duplicate validator
   accepting an un-coerced string, i.e. the asymmetry would move one level
   down instead of closing. Coercing survives this reader (it never sees a
@@ -117,7 +117,7 @@ def _config_with_k_written_as(tmp_path, *, value: object, unit: str | None = Non
 
 
 class TestTheNumericFormIsSeen:
-    """The control case: number plus sibling unit, the form the catalogue supports."""
+    """The control case: number plus sibling unit, the form the catalog supports."""
 
     def test_a_number_with_a_sibling_unit_reaches_the_catalogue(self, tmp_path) -> None:
         cfg = _config_with_k_written_as(tmp_path, value=1e-4, unit="m/s")

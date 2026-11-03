@@ -50,8 +50,8 @@ print(budget.to_string())
 
 # %% ---- TIMESERIES
 
-discharge = hmp.read(run, "discharge", sel={"station": "_catchment"})
-pumping = hmp.read(run, "well_pumping", sel={"station": "_catchment"})
+discharge = hmp.read(run, "discharge", sel={"station": "catchment"})
+pumping = hmp.read(run, "well_pumping", sel={"station": "catchment"})
 print("\nCatchment discharge (m3/s), first and last period:")
 print(discharge.iloc[[0, -1]].to_string())
 print("\nTotal well pumping (m3/s), first and last period:")

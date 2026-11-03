@@ -13,7 +13,7 @@ BlockStatus = Literal["available", "partial", "empty", "not_applicable"]
 
 @dataclass(frozen=True)
 class ReportMetric:
-    """One labelled value displayed in a report block."""
+    """One labeled value displayed in a report block."""
 
     label: str
     value: Any

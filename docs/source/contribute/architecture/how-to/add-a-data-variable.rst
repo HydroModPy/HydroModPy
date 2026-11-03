@@ -107,11 +107,9 @@ The lists a variable joins
 3. ``hydromodpy/core/state/data.py``: a field of ``LoadedDataContext``.
 4. ``hydromodpy/data/workspace/scaffold.py``: a ``VariableSpec`` in
    ``VARIABLES``, the drop zone ``hmp workspace init`` creates.
-5. ``hydromodpy/_lazy.py``: ``EvaporationConfig`` and
-   ``EvaporationSourceConfig``.
-6. ``hydromodpy/schema/sources.py``: an entry (licence, network hosts) for
+5. ``hydromodpy/schema/sources.py``: an entry (licence, network hosts) for
    each new provider slug.
-7. The planner, only when the variable should be activated by another section
+6. The planner, only when the variable should be activated by another section
    (``hydromodpy/data/loading/planner.py``); otherwise the user lists it in
    ``[data].types``.
 
@@ -145,7 +143,7 @@ Check it
     "extent": {"bbox": [320000, 6780000, 330000, 6790000], "crs": "EPSG:2154"},
     "period": {"start": "2020-01-01", "end": "2020-01-31"}}
    JSON
-   $ hmp data get ask.json --out evap/
+   $ hmp data get ask.json --to evap/
 
 ``hmp data get`` reads your file back through the new manager, cut to the box
 and the period, into ``evap/evaporation_custom.nc`` beside ``evap/request.json``.

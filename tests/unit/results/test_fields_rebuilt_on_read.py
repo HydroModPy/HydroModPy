@@ -147,7 +147,7 @@ def test_a_release_step_is_the_union_of_every_path_out(project) -> None:
         )
 
         run = Run(sid, catalog)
-        rows = np.stack([run.field("release_flux", timestep=t) for t in range(N_STEPS)])
+        rows = np.stack([run.field("release_flux", time=t) for t in range(N_STEPS)])
 
     np.testing.assert_allclose(rows, expected, rtol=1e-12, atol=0.0)
 
@@ -164,7 +164,7 @@ def test_every_reader_rebuilds_the_same_values_as_the_derivation_computes(projec
         finally:
             sz.close()
         run = Run(sid, catalog)
-        per_step = np.stack([run.field("release_flux", timestep=t) for t in range(N_STEPS)])
+        per_step = np.stack([run.field("release_flux", time=t) for t in range(N_STEPS)])
         stacked = _stack_field(run, "release_flux")
 
     np.testing.assert_array_equal(whole, reference)
@@ -179,7 +179,7 @@ def test_a_run_whose_budget_has_no_path_out_serves_no_release_flux(project) -> N
 
         assert not run.has_field("release_flux")
         with pytest.raises(FieldNotFoundError):
-            run.field("release_flux", timestep=0)
+            run.field("release_flux", time=0)
 
 
 def test_the_unit_budget_flux_is_the_drain_over_the_cell_area(project) -> None:
@@ -191,7 +191,7 @@ def test_the_unit_budget_flux_is_the_drain_over_the_cell_area(project) -> None:
         assert run.has_field("budget_flux_per_area")
         for step in range(N_STEPS):
             np.testing.assert_allclose(
-                run.field("budget_flux_per_area", timestep=step), drain[step] / AREAS, rtol=1e-12
+                run.field("budget_flux_per_area", time=step), drain[step] / AREAS, rtol=1e-12
             )
         sz = catalog.open_zarr(sid)
         try:
@@ -228,10 +228,10 @@ def test_a_store_written_before_reads_its_stored_arrays(project) -> None:
         run = Run(sid, catalog)
         for step in range(N_STEPS):
             np.testing.assert_array_equal(
-                run.field("release_flux", timestep=step), stored_release[step]
+                run.field("release_flux", time=step), stored_release[step]
             )
             np.testing.assert_array_equal(
-                run.field("budget_flux_per_area", timestep=step), stored_unit[step]
+                run.field("budget_flux_per_area", time=step), stored_unit[step]
             )
         np.testing.assert_array_equal(_stack_field(run, "release_flux"), stored_release)
         np.testing.assert_array_equal(

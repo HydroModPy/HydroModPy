@@ -368,10 +368,10 @@ def test_trash_lists_and_empty_leaves_tombstones_and_spares_pinned(tmp_path, mon
     capsys.readouterr()
 
     assert _hmp(monkeypatch, "catalog", "trash", "--format", "json", "-w", str(project)) == 0
-    listed = _json.loads(capsys.readouterr().out)
+    listed = _json.loads(capsys.readouterr().out)["data"]
     assert [row["rel_dir"] for row in listed] == ["runs/a", "runs/b"]
 
-    assert _hmp(monkeypatch, "catalog", "trash", "--empty", "-w", str(project)) == 0
+    assert _hmp(monkeypatch, "catalog", "trash", "--empty", "-y", "-w", str(project)) == 0
     assert [entry.rel_dir for entry in list_trash(project)] == ["runs/b"]
     assert [tombstone.rel_dir for tombstone in read_tombstones(project)] == ["runs/a"]
 

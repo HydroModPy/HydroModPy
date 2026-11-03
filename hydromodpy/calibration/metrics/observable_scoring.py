@@ -150,7 +150,7 @@ def refuse_window_without_dates(
     the window holds it or not, which needs the run's time grid, so it is
     checked when ``boundaries`` are given
     (:func:`refuse_a_network_state_outside_the_window`). One scored
-    positionally has no date to compare a bound against: honouring the window
+    positionally has no date to compare a bound against: honoring the window
     is impossible, and dropping it would report a cost over the whole run under
     the name of a windowed one.
     """
@@ -268,7 +268,7 @@ def network_distance_scales(
     whose validity length it publishes unsuffixed. A two-bound output produces
     the minimal pair then the maximal one, each with its own length. The
     lengths are the scale ``normalize_cost`` divides a distance by. An output
-    whose lengths were not published is left out, and a block that normalises
+    whose lengths were not published is left out, and a block that normalizes
     it refuses the trial by name.
     """
     scales: dict[str, list[float]] = {}
@@ -352,7 +352,7 @@ class ObservableScorer:
         # A discharge is averaged over each period, a head or a lake stage is
         # read at the stamp: fixed by the declared variable, once.
         self._time_methods: dict[str, str] = output_time_methods(outputs)
-        # A normalised network distance is divided by the validity length the
+        # A normalized network distance is divided by the validity length the
         # trial itself publishes, so its objective is built per trial.
         self._scales_distances: bool = any(
             block.normalize_cost

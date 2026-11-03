@@ -4,7 +4,7 @@ The hash moves with every member and with the earlier runs the size field
 read. A request that reads no run keeps the hash the code gave it before the
 runs were hashed, so the meshes cached for every existing project stay valid.
 A request refuses what no engine can mesh, with a message that names the
-member; the type of a member is its annotation's, not the request's. A size field is sampled bilinearly between its pixel centres.
+member; the type of a member is its annotation's, not the request's. A size field is sampled bilinearly between its pixel centers.
 """
 
 from __future__ import annotations

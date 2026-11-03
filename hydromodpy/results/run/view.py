@@ -80,6 +80,7 @@ from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.old_members import refuse_old_member
 from hydromodpy.core.state.paths import catalog_path_for, parse_rel_dir
 from hydromodpy.results.annotations import add_note, add_tag, read_annotations, remove_tag
 from hydromodpy.results.errors import RunNotFoundError, RunNotSealedError
@@ -273,7 +274,7 @@ class Run(
     >>> proj = hmp.open("~/hmp_workspace/projects/nancon")  # doctest: +SKIP
     >>> run = proj["baseline"]  # doctest: +SKIP
     >>> run.label()  # doctest: +SKIP
-    >>> run.field("head", timestep=-1)  # doctest: +SKIP
+    >>> run.field("head", time=-1)  # doctest: +SKIP
 
     See Also
     --------
@@ -282,6 +283,11 @@ class Run(
     hydromodpy.results.run.group.RunSet
         Collection view for many runs.
     """
+
+    def __getattr__(self, name: str) -> Any:
+        """Refuse an old member with its new name; anything else is not there."""
+        refuse_old_member("Run", name)
+        raise AttributeError(f"{type(self).__name__!r} object has no attribute {name!r}")
 
     def __init__(self, sim_id: str, catalog: Catalog) -> None:
         self._sim_id = sim_id

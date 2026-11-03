@@ -2,7 +2,7 @@
 
 ``register()`` certifies a candidate on the members it **declares**, and that is
 all a registry can do. The real contract of the forward-model port is
-behavioural -- what an answer contains, and what comes out as an exception
+behavioral -- what an answer contains, and what comes out as an exception
 instead of being invented -- so a class can pass the registry without a word
 and still be something no calibration can trust. Only
 ``tests/contract/test_forward_model_contract.py`` can see that.

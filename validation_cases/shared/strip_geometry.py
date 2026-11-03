@@ -1,8 +1,8 @@
 """Model positions of a 1D strip profile and of its boundary conditions.
 
-A cell-centred model holds a side Dirichlet head at the centroid of each cell
+A cell-centered model holds a side Dirichlet head at the centroid of each cell
 that owns a boundary edge, not on the domain face. On a structured MODFLOW grid
-that is the centre of the boundary column, half a cell inside the face. A
+that is the center of the boundary column, half a cell inside the face. A
 no-flow side stays on the face itself. An analytical reference compared with
 such a model must pose its heads where the model holds them, and must be read
 where the model reports its profile. Posing them on the faces instead stretches
@@ -20,8 +20,8 @@ are the faces. The loaders bin the cells by node abscissa, weighted by polygon
 area, and the reference is evaluated at the nodes and binned the same way.
 
 A synthetic ``linear`` topography is defined on the raster columns: it takes
-its west value at the centre of the first column and its east value at the
-centre of the last one. A launcher run samples its cell tops from that raster.
+its west value at the center of the first column and its east value at the
+center of the last one. A launcher run samples its cell tops from that raster.
 """
 
 from __future__ import annotations
@@ -94,7 +94,7 @@ class StripGeometry:
 
 
 def column_centres(*, xmin: float, xmax: float, ncol: int) -> np.ndarray:
-    """Return the centres of ``ncol`` equal columns between ``xmin`` and ``xmax``."""
+    """Return the centers of ``ncol`` equal columns between ``xmin`` and ``xmax``."""
     dx = (float(xmax) - float(xmin)) / int(ncol)
     return float(xmin) + (np.arange(int(ncol), dtype=float) + 0.5) * dx
 
@@ -233,8 +233,8 @@ def strip_geometry_from_mesh(
         "surface_east_x": surface_east_x,
         "mean_cell_area": float(np.mean(area)),
     }
-    # On a column grid every centroid sits on its column centre, so the
-    # reference is read on the centres directly.
+    # On a column grid every centroid sits on its column center, so the
+    # reference is read on the centers directly.
     if np.allclose(centroid_x, centres[column], rtol=0.0, atol=atol):
         return StripGeometry(**common)
     return StripGeometry(
@@ -299,7 +299,7 @@ def split_triangle_strip_geometry(*, xmin: float, xmax: float, ncol: int) -> Str
     triangles and prescribes a side head on the triangle that owns the side
     edge, whose centroid lies one third of a column inside the face. It samples
     its surfaces on the faces and writes column means, so the profile sits on
-    the column centres.
+    the column centers.
     """
     dx = (float(xmax) - float(xmin)) / int(ncol)
     return StripGeometry(

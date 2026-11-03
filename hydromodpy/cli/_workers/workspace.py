@@ -31,7 +31,7 @@ def init_workspace(
     target = Path(path).expanduser().resolve() if path else DEFAULT_ROOT
     if target.exists() and any(target.iterdir()) and not force:
         raise FileExistsError(
-            f"Workspace already initialized at {target}. Re-run with force=True to reuse it."
+            f"Workspace already initialized at {target}. Pass --force to reuse it."
         )
     result = scaffold(target)
     workspace_toml = write_workspace_toml(

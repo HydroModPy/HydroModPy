@@ -1,6 +1,6 @@
 """With a cutoff wall, the foot of the spillway lies downstream of the wall.
 
-The foot was the lowest non-lake neighbour of the shore cell nearest the
+The foot was the lowest non-lake neighbor of the shore cell nearest the
 discharge point, with no look at the wall: it could fall on a bank beside the
 wall or behind it, and the release then entered the aquifer on the lake side.
 The wall has the lake on its left, so the foot is taken among the cells on its
@@ -68,7 +68,7 @@ def test_the_dam_is_the_shore_cell_that_faces_the_wall(monkeypatch) -> None:
 
 
 def test_a_wall_with_no_cell_downstream_on_the_shore_is_refused(monkeypatch) -> None:
-    # The only non-lake neighbour is on the lake side: there is no foot below the wall.
+    # The only non-lake neighbor is on the lake side: there is no foot below the wall.
     centroids = [[0, 0], [10, 0], [10, 10]]
     adjacency = [{1}, {0, 2}, {1}]
     with pytest.raises(ValueError, match="downstream of the cutoff wall"):

@@ -2,7 +2,7 @@
 
 ``bedleak`` is read in ``bedleak_unit``, ``streambed_k`` in ``streambed_k_unit``,
 a barrier's ``hydchr`` and ``k`` in ``hydchr_unit`` and ``k_unit``, a well's
-``flux`` in ``units``. The catalogue used to give each of them the SI unit
+``flux`` in ``units``. The catalog used to give each of them the SI unit
 its annotation declares, so with ``bedleak_unit = "1/day"`` a sample thought
 in 1/s was read in 1/day, a factor 86 400. Each target now carries the unit
 its field names and a physical range in that unit.
@@ -42,7 +42,7 @@ class _Project:
 
 
 def _lake_project(unit: str = "1/day") -> _Project:
-    return _Project(lakes={"cheze": {"bedleak": 0.01, "bedleak_unit": unit, "stageinit": 45.0}})
+    return _Project(lakes={"cheze": {"bedleak": 0.01, "bedleak_unit": unit, "initial_stage": 45.0}})
 
 
 def _barrier(**values: object) -> dict[str, object]:

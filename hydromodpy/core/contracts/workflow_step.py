@@ -1,16 +1,16 @@
 """Canonical Step Protocol shared by every workflow concern.
 
 The runtime-checkable :class:`WorkflowStep` Protocol enforces the minimum
-contract every pipeline step must honour: a stable ``name`` and a ``run``
+contract every pipeline step must honor: a stable ``name`` and a ``run``
 method that maps an input state to an output state. Two extra hooks are
-honoured opportunistically:
+honored opportunistically:
 
 ``depends_on() -> tuple[str, ...]``
     Names of upstream steps whose output state must exist. The Kahn DAG
     sort consumes this method to compute parallel cohorts.
 
 ``rebuild_state(prior_state, workspace, run_id)``
-    Reconstruct an output state from durable artefacts only. Used at
+    Reconstruct an output state from durable artifacts only. Used at
     resume time so heavy work (solver runs, extraction) is not redone.
 
 ``artifacts(state_out) -> tuple[str, ...]``
@@ -53,7 +53,7 @@ class WorkflowStep(Protocol):
 
 @runtime_checkable
 class ResumableWorkflowStep(WorkflowStep, Protocol):
-    """Workflow step that persists durable artefacts and supports resume."""
+    """Workflow step that persists durable artifacts and supports resume."""
 
     def artifacts(self, state_out: Any) -> tuple[str, ...]:
         """Return workspace-relative paths of durable outputs."""
@@ -66,7 +66,7 @@ class ResumableWorkflowStep(WorkflowStep, Protocol):
         workspace: Path,
         run_id: str,
     ) -> Any:
-        """Rebuild the output state by reading durable artefacts only."""
+        """Rebuild the output state by reading durable artifacts only."""
         ...
 
 

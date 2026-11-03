@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.checks import CalibratedBy
 from hydromodpy.results.errors import SeveralCasesError
 from hydromodpy.results.session.descriptor import BestCase, BestTrial, write_session
 from hydromodpy.results.session.journal import append_trial
@@ -72,6 +73,23 @@ def test_no_best_while_no_run_holds_the_best_trial(tmp_path: Path) -> None:
 
     assert Session(project / "sessions" / "searching").best is None
     assert Session(project / "sessions" / "calage").best is None
+
+
+def test_a_paired_run_without_a_pointer_must_come_from_the_best_trial(tmp_path: Path) -> None:
+    project = make_project(tmp_path / "p")
+    session_id = write_session_dir(project, "calage", best_trial=2, best_sim_id=None)
+    older = CalibratedBy(session_id=session_id, trial=1, session_status="completed")
+    seal_run(project, "calage", calibrated_by=older)
+
+    assert Session(project / "sessions" / "calage").best is None
+
+    other = make_project(tmp_path / "q")
+    session_id = write_session_dir(other, "calage", best_trial=2, best_sim_id=None)
+    newer = CalibratedBy(session_id=session_id, trial=2, session_status="completed")
+    sim_id = seal_run(other, "calage", calibrated_by=newer)
+
+    best = Session(other / "sessions" / "calage").best
+    assert best is not None and best.sim_id == sim_id
 
 
 def test_a_directory_without_a_descriptor_is_not_a_session(tmp_path: Path) -> None:

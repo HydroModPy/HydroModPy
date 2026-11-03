@@ -28,7 +28,7 @@ Dans aquifr_modules, un dictionnaire ```var_dim``` permet de préciser quelles v
 - ```qnr``` et ```qdeb``` sont aussi utilisées de manières différentes selon les modèles (Marthe != EauDyssée par exemple)
 
 ---
-Il y a le driver général et un driver pour chaque modèle qui va déterminer quelle version on utilise :
+Il y a le driver général et un driver pour chaque modèle qui va déterminer quelle version on utilize :
 - version standalone pour lancer le modèle hors AquiFR
 - version AquiFR : ce qu'on va devoir mettre en place pour communiquer entre notre modèle et AquiFR et qui va permettre de recevoir les forçages, récupérer les mailles qui nous intéressent parmi toute la France et envoyer les résultats à chaque pas de temps. Il faudra aussi mettre ces résultats sous forme de vecteur.
 Dans EauDyssée par exemple, ça se fait dans le code qui se trouve dans *src/mysrc*.

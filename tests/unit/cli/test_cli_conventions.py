@@ -23,9 +23,11 @@ from tools.docs.api_registry import walk_parser
 
 # Family groups whose bare invocation must be a usage error (exit 2).
 REQUIRED_GROUPS = (
+    "campaign",
     "catalog",
     "data",
     "dev",
+    "lock",
     "project",
     "site",
     "viz",
@@ -48,15 +50,6 @@ DESTRUCTIVE_COMMANDS = (
     ("catalog", "delete"),
     ("project", "delete"),
     ("privacy", "purge"),
-)
-
-# Read leaf commands that must offer --format.
-READ_FORMAT_COMMANDS = (
-    ("catalog", "ls"),
-    ("catalog", "show"),
-    ("catalog", "query"),
-    ("site", "ls"),
-    ("site", "show"),
 )
 
 # Workflow execution verbs that must offer --profile (pyinstrument).
@@ -118,24 +111,29 @@ def test_group_help_still_exits_0(group: str) -> None:
 # --- Shared builders -------------------------------------------------------
 
 
-def test_workspace_parser_exposes_short_and_long() -> None:
-    parser = argparse.ArgumentParser(add_help=False, parents=[conventions.workspace_parser()])
-    assert parser.parse_args(["-w", "/x"]).workspace == "/x"
-    assert parser.parse_args(["--workspace", "/y"]).workspace == "/y"
-    assert parser.parse_args([]).workspace is None
+@pytest.mark.parametrize(
+    ("builder", "argv", "dest", "expected"),
+    [
+        (conventions.workspace_parser, ["-w", "/x"], "workspace", "/x"),
+        (conventions.workspace_parser, ["--workspace", "/y"], "workspace", "/y"),
+        (conventions.workspace_parser, [], "workspace", None),
+        (conventions.confirm_parser, ["-y"], "yes", True),
+        (conventions.confirm_parser, [], "yes", False),
+        (conventions.dry_run_parser, ["--dry-run"], "dry_run", True),
+        (conventions.format_parser, [], "format", "table"),
+        (conventions.format_parser, ["--format", "json"], "format", "json"),
+        (conventions.profile_parser, [], "profile", None),
+        (conventions.profile_parser, ["--profile"], "profile", ""),
+        (conventions.profile_parser, ["--profile", "out.html"], "profile", "out.html"),
+    ],
+)
+def test_a_shared_parser_reads_its_flag(builder, argv, dest, expected) -> None:
+    parser = argparse.ArgumentParser(add_help=False, parents=[builder()])
+    assert getattr(parser.parse_args(argv), dest) == expected
 
 
-def test_confirm_parser_exposes_yes() -> None:
-    parser = argparse.ArgumentParser(add_help=False, parents=[conventions.confirm_parser()])
-    assert parser.parse_args(["-y"]).yes is True
-    assert parser.parse_args(["--yes"]).yes is True
-    assert parser.parse_args([]).yes is False
-
-
-def test_format_parser_defaults_and_choices() -> None:
+def test_format_refuses_what_is_not_an_output() -> None:
     parser = argparse.ArgumentParser(add_help=False, parents=[conventions.format_parser()])
-    assert parser.parse_args([]).format == "table"
-    assert parser.parse_args(["--format", "json"]).format == "json"
     with pytest.raises(SystemExit):
         parser.parse_args(["--format", "yaml"])
 
@@ -144,13 +142,6 @@ def test_add_sim_ref_adds_positional() -> None:
     parser = argparse.ArgumentParser(add_help=False)
     conventions.add_sim_ref(parser)
     assert parser.parse_args(["ab12cd34"]).sim_ref == "ab12cd34"
-
-
-def test_profile_parser_grammar() -> None:
-    parser = argparse.ArgumentParser(add_help=False, parents=[conventions.profile_parser()])
-    assert parser.parse_args([]).profile is None
-    assert parser.parse_args(["--profile"]).profile == ""
-    assert parser.parse_args(["--profile", "out.html"]).profile == "out.html"
 
 
 # --- Per-command grammar (Phase 3 sweep) -----------------------------------
@@ -168,12 +159,6 @@ def test_simulation_reference_is_named_sim_ref(group: str, action: str) -> None:
 def test_destructive_commands_offer_yes(group: str, action: str) -> None:
     opts = _option_strings(_leaf_parser(group, action))
     assert "-y" in opts and "--yes" in opts, f"{group} {action} must offer -y/--yes"
-
-
-@pytest.mark.parametrize(("group", "action"), READ_FORMAT_COMMANDS)
-def test_read_commands_offer_format(group: str, action: str) -> None:
-    opts = _option_strings(_leaf_parser(group, action))
-    assert "--format" in opts, f"{group} {action} must offer --format"
 
 
 @pytest.mark.parametrize("verb", PROFILE_COMMANDS)
@@ -259,15 +244,15 @@ def test_an_old_form_leaves_the_new_form_and_the_help_alone(
 
 def test_a_required_flag_is_answered_by_either_form(monkeypatch: pytest.MonkeyPatch) -> None:
     form = conventions.OldCliForm(
-        "hmp project array --sched", "hmp project array --scheduler", "2.3.0"
+        "hmp campaign array --sched", "hmp campaign array --scheduler", "2.3.0"
     )
     monkeypatch.setattr(conventions, "OLD_CLI_FORMS", (form,))
 
-    assert _parse(["project", "array", "--scheduler", "slurm"]).scheduler == "slurm"
+    assert _parse(["campaign", "array", "--scheduler", "slurm"]).scheduler == "slurm"
     with pytest.warns(FutureWarning, match="--sched is now"):
-        assert _parse(["project", "array", "--sched", "slurm"]).scheduler == "slurm"
+        assert _parse(["campaign", "array", "--sched", "slurm"]).scheduler == "slurm"
     with pytest.raises(SystemExit):
-        _parse(["project", "array"])
+        _parse(["campaign", "array"])
 
 
 def test_an_old_form_that_names_nothing_stops_the_build(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -276,3 +261,52 @@ def test_an_old_form_that_names_nothing_stops_the_build(monkeypatch: pytest.Monk
 
     with pytest.raises(KeyError, match="--none"):
         _build_parser()
+
+
+REFUSED = [form for form in conventions.OLD_CLI_FORMS if form.refused]
+
+
+@pytest.mark.parametrize("form", REFUSED, ids=lambda form: form.old)
+def test_a_form_that_left_before_the_tag_is_refused_and_names_the_new_one(
+    form: conventions.OldCliForm, capsys: pytest.CaptureFixture[str]
+) -> None:
+    with pytest.raises(SystemExit) as refused:
+        _parse([*form.old.split()[1:], "x"])
+    assert refused.value.code == 2
+    assert f"Write: {form.new}" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("form", REFUSED, ids=lambda form: form.old)
+def test_the_new_form_of_a_refused_one_exists(form: conventions.OldCliForm) -> None:
+    parser: argparse.ArgumentParser = _build_parser()
+    for word in form.new.split()[1:]:
+        if word.startswith("-"):
+            assert word in _option_strings(parser), form.new
+            continue
+        commands = _subparsers_action(parser)
+        if commands is not None and word in commands.choices:
+            parser = commands.choices[word]
+            assert not isinstance(parser, conventions.OldVerb), form.new
+
+
+def test_a_bare_old_group_names_each_of_its_new_forms(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit):
+        _parse(["dev", "lock"])
+    err = capsys.readouterr().err
+    assert "hmp lock update" in err and "hmp data archive --to FILE" in err
+
+
+@pytest.mark.parametrize(
+    ("argv", "says"),
+    [
+        (["export", "r", "head", "--format", "netcdf"], "--as"),
+        (["publish", "r", "--to", "d", "--format", "tar"], "--container"),
+    ],
+)
+def test_format_says_where_its_old_meaning_went(
+    argv: list[str], says: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    with pytest.raises(SystemExit) as refused:
+        _parse(argv)
+    assert refused.value.code == 2
+    assert says in capsys.readouterr().err

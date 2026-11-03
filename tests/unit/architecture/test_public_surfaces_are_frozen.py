@@ -18,6 +18,7 @@ from typing import Any
 
 import pytest
 
+from hydromodpy import _lazy
 from hydromodpy._lazy import OLD_NAMES, OldName
 from hydromodpy.cli import conventions
 from hydromodpy.config import config_migration as migration
@@ -27,6 +28,13 @@ from tools import surface_snapshot as surface
 pytestmark = pytest.mark.fast
 
 ROW_ONE = "a.b\tint\t1\tstable"
+
+
+def test_the_frozen_step_names_are_the_steps_of_the_pipeline() -> None:
+    from hydromodpy.core.pipeline_steps import STEP_NAMES
+    from hydromodpy.workflow.orchestrator import standard_steps
+
+    assert tuple(step.name for step in standard_steps()) == STEP_NAMES
 
 
 @pytest.mark.parametrize("name", sorted(surface.SURFACES))
@@ -74,7 +82,7 @@ def test_a_removed_name_keeps_its_entry_until_its_delay_ends(
 
 
 def test_an_entry_that_outlives_its_delay_is_named(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setitem(OLD_NAMES, "gone", OldName("run", "2.0.0"))
+    monkeypatch.setattr(_lazy, "OLD_NAMES", {"gone": OldName("run", "2.0.0")})
     form = conventions.OldCliForm("hmp old", "hmp new", "2.0.0")
     monkeypatch.setattr(conventions, "OLD_CLI_FORMS", (form,))
 

@@ -1,4 +1,4 @@
-"""Export a whole project with its data: ``hmp project export``.
+"""Export a whole project with its data: ``hmp publish --package``.
 
 Why
 ---
@@ -78,7 +78,7 @@ from hydromodpy.results.publication import (
 )
 
 ProjectExtra = Literal["runs", "sessions", "mesh", "fetched"]
-"""What ``hmp project export --with`` adds to the files of the author and their data."""
+"""What ``hmp publish --package --with`` adds to the files of the author and their data."""
 
 PACKAGE_RUNS_DIRNAME: Final[str] = "runs"
 PACKAGE_SESSIONS_DIRNAME: Final[str] = "sessions"
@@ -100,12 +100,14 @@ def export_project(
     format: PublicationFormat = "tar",
     with_: Sequence[ProjectExtra] = (),
     bundle_of: InputsOf | None = None,
+    dry_run: bool = False,
 ) -> Path:
     """Write the package of a whole project to *to* and return it.
 
     *bundle_of* builds the install index of one run
-    (:func:`hydromodpy.catalog.share.run_bundle`); it is required with
-    ``runs`` or ``fetched``.
+    (:func:`hydromodpy.project.share.run_bundle`); it is required with
+    ``runs`` or ``fetched``. With *dry_run* the checks run, the path the package would
+    take is returned and nothing is written.
 
     Raises
     ------
@@ -121,6 +123,8 @@ def export_project(
     target = _target_path(Path(to).expanduser().resolve(), format, root.name)
     runs = sorted(path for path in runs_dir_for(root).glob("*") if is_sealed(path))
     bundle = _project_bundle(root, runs, extras, bundle_of)
+    if dry_run:
+        return target
     staging = target.parent / f".{target.name}.staging-{uuid.uuid4().hex[:8]}"
     staging.mkdir(parents=True)
     lines: list[tuple[Path, PublishedLine]] = []

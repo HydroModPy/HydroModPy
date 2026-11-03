@@ -34,7 +34,7 @@ step_value = "1 day"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["{solver}"]
 
 [data]
@@ -54,7 +54,7 @@ active_bc = ["drainage"]
 first_period_steady = false
 
 [flow.ic]
-type = "steady_state"
+kind = "steady_state"
 
 [flow.sinks_sources.recharge.soil]
 ru = "150 mm"

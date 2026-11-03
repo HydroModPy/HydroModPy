@@ -25,7 +25,7 @@ y_outlet = 6845659.878
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow_nwt"]
 
 [modflownwt.runtime]
@@ -76,7 +76,7 @@ output_format = "unformatted"
 [mesh.regular]
 shape = [70, 70]
 
-[modflownwt.sgrid.vertical]
+[domain.layers]
 genmtd_lay = "decay"
 nlay = 2
 lay_decay = 1.2

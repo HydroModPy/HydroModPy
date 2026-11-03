@@ -59,6 +59,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
+from hydromodpy.core.exceptions import WriteConflictError
 from hydromodpy.core.interrupts import TerminationRequested
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import (
@@ -105,15 +106,15 @@ CLAIMED_ELSEWHERE = "another worker claimed this case"
 """The sentence a worker that lost a claim ends with."""
 
 
-class AttemptClaimedError(RuntimeError):
+class AttemptClaimedError(WriteConflictError, RuntimeError):
     """Another worker claimed the same attempt of this case first."""
 
 
-class CaseAliveError(RuntimeError):
+class CaseAliveError(WriteConflictError, RuntimeError):
     """The case is running elsewhere and its death is not proven."""
 
 
-class DirectoryWithoutOutcomeError(RuntimeError):
+class DirectoryWithoutOutcomeError(WriteConflictError, RuntimeError):
     """The latest directory of the case carries no outcome and no seal."""
 
 
@@ -574,7 +575,7 @@ def scratch_dir_for_attempt(project_root: Path, run_dir: Path, attempt: int) -> 
 def is_run_product(path: str | Path | None, project_root: Path | str | None) -> bool:
     """Whether ``path`` is a file a run wrote for itself, never an input of the run.
 
-    The preprocessing writes its products (the rasterised stream network, a
+    The preprocessing writes its products (the rasterized stream network, a
     clipped DEM) under the scratch of the run, which the seal removes, and the
     solver works under a ``.hmp/`` folder, which is disposable. A path under
     the scratch root of the project, under a ``.hmp/`` folder or under a

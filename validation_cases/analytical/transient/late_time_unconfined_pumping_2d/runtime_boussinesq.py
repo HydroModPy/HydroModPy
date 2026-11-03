@@ -348,9 +348,7 @@ def run_boussinesq_late_time_unconfined_pumping_case(
                     boussinesq_variant_flow_section(
                         {
                             "flow_regime": "transient",
-                            "ic": {"type": "custom", "value": base_head_m},
-                            "active_sinks_sources": ["wells"],
-                            "active_bc": ["west_side", "east_side", "north_side", "south_side"],
+                            "ic": {"kind": "custom", "value": base_head_m},
                             "sinks_sources": {
                                 "wells": {
                                     "P1": {

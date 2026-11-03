@@ -27,7 +27,7 @@ Numerical setup:
 The MODFLOW variants (`config_modflownwt.toml` and its overrides) put a DRN on
 the land surface, as HydroModPy does for a drained hillslope. Its conductance is
 `K * area / b` with `b = 1 m`, so the leakance is the same on every cell. The
-surface is sampled at the cell centres (linear raster, 5.0625 m at the centre of
+surface is sampled at the cell centers (linear raster, 5.0625 m at the center of
 the last column), and the east head is the surface there. The two unstructured
 variants read the triangle bundle built by `mesh_bundle.py` (586 triangles of
 about 6 m, stored under `mesh_bundles/`; rebuild it with

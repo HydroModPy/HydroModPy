@@ -182,7 +182,7 @@ class ParameterWidth(HydroModelBase):
 
     interval: CostInterval | None = Field(default=None, description="Interval on the cost")
     sigma: float | None = Field(
-        default=None, description="Linearised standard deviation, in the unit of the parameter"
+        default=None, description="Linearized standard deviation, in the unit of the parameter"
     )
     restarts: RestartRange | None = Field(default=None, description="Spread of the restarts")
     correlated: dict[str, float] = Field(
@@ -244,7 +244,7 @@ class SessionDescriptor(HydroModelBase):
     bounds: dict[str, ParameterBound] = Field(
         default_factory=dict, description="The dimensions the search walks, by parameter"
     )
-    cost_name: str = Field(description="Name of the cost the search minimised")
+    cost_name: str = Field(description="Name of the cost the search minimized")
     cost_label: str | None = Field(
         default=None,
         description=(

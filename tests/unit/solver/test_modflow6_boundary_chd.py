@@ -71,7 +71,7 @@ def test_modflow6_resolves_boundary_forcing_without_runtime_binding() -> None:
                 kind="dirichlet",
                 units="cm",
                 application_domain="east side",
-                forcing={"mode": "constant", "value": 20.0},
+                forcing={"kind": "constant", "value": 20.0},
             )
         },
         active_bc=["east_side"],

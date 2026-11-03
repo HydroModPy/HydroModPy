@@ -19,7 +19,7 @@ SEASONS = {"DJF": 0.01, "MAM": 0.03, "JJA": 0.05, "SON": 0.02}
 
 
 def _lake(**forcings: object) -> FlowLakeConfig:
-    return FlowLakeConfig.model_validate({"stageinit": 100.0, "bedleak": 1e-6, **forcings})
+    return FlowLakeConfig.model_validate({"initial_stage": 100.0, "bedleak": 1e-6, **forcings})
 
 
 @pytest.mark.parametrize("keyword", ["rainfall", "evaporation", "runoff", "inflow", "withdrawal"])

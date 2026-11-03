@@ -2,7 +2,7 @@
 
 The floor next to the spill is flooded to ``spill + epsilon``; the next cell
 lies ``2e-10`` m above that, below the drop the receiver graph tells from a
-flat. Left as it stands it would have no lower neighbour; the flood raises it
+flat. Left as it stands it would have no lower neighbor; the flood raises it
 like a cell below the level.
 """
 

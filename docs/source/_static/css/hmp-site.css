@@ -114,7 +114,7 @@ html { scroll-padding-top: calc(var(--pst-header-height) + 1rem); }
   .bd-header .navbar-brand img.logo__image { height: 1.5rem; }
 }
 
-/* Text on the grey of a table bar or a code caption reaches 4.5:1 (WCAG AA).
+/* Text on the gray of a table bar or a code caption reaches 4.5:1 (WCAG AA).
    The theme's teal reaches 4.38:1 there, so the light primary is a little darker. */
 html:root[data-theme="light"] { --pst-color-primary: #097083; }
 
@@ -223,7 +223,7 @@ form.bd-search i.fa-solid.fa-magnifying-glass { position: static; }
   .bd-article .hmp-task dd { margin-bottom: .4rem; }
 }
 
-/* Line numbers of a TOML block, the gap marks of the validation page: text colours
+/* Line numbers of a TOML block, the gap marks of the validation page: text colors
    that reach 4.5:1 on their own background, in both themes. */
 .bd-article pre.hmp-toml .ln { opacity: 1; color: #6b7280; }
 .bd-article .hmp-vs-gap { color: #a33d00; }

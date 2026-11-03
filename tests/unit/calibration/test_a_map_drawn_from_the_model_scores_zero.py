@@ -1,7 +1,7 @@
 """A mapped network that is exactly the simulated one scores J = 0.
 
 The criterion's zero is the equality of D_so and D_os. If the map is the
-polyline through the centres of a simulated chain, that equality must hold, or
+polyline through the centers of a simulated chain, that equality must hold, or
 the search moves K on a perfect match. The crossing rule gives the chain back
 cell for cell, in D8 along a diagonal talweg. The touch rule adds, at every
 diagonal step, the two cells that share the corner: D_so stays at zero, D_os

@@ -84,7 +84,7 @@ TRIAL_DIRNAME_WIDTH = 4
 """Zero-padded width of a trial directory name: trial 4 is ``0004``."""
 
 SUMMARY_DIRNAME = "summary"
-"""Derived tables, figures and report of a project of N cases (``hmp project collect``)."""
+"""Derived tables, figures and report of a project of N cases (``hmp campaign collect``)."""
 
 PLAN_DIRNAME = "plan"
 """Immutable plans of a ``[sites]`` project, one ``plan/<hash>/`` per content."""

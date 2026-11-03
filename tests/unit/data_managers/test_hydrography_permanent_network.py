@@ -295,7 +295,7 @@ def test_a_cached_answer_without_its_permanent_copy_gets_one(
 def test_a_permanent_copy_whose_full_answer_is_gone_is_removed(
     backend_factory, fetch, tmp_path: Path
 ) -> None:
-    """The catalogue unlinks a subsumed answer; its permanent copy goes with it."""
+    """The catalog unlinks a subsumed answer; its permanent copy goes with it."""
     backend_factory.return_value = WhiteboxStubBackend()
     fetch.return_value = _reaches(["permanent"])
     orphan = tmp_path / "cache" / "hydrography_bdtopage_permanent_0badf00d.gpkg"

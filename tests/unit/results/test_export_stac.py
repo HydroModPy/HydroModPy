@@ -1,7 +1,7 @@
 """Unit tests for the pure STAC helpers and the ``build_stac_item`` builder.
 
 These cover the deterministic branches the integration conformance test does
-not exercise: bbox->polygon ring closure, UTC ISO normalisation, period
+not exercise: bbox->polygon ring closure, UTC ISO normalization, period
 midpoint, multi-item bbox union, ``validate_item`` valid/invalid paths and the
 top-level shape of ``build_stac_item`` on a synthetic context.
 """

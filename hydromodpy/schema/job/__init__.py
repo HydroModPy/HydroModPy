@@ -2,7 +2,7 @@
 
 One directory is the whole interface. The caller writes ``request.json`` into
 it and hands over the path; the process reads that document, resolves every
-input path against it, writes its artefacts inside it, and seals it with
+input path against it, writes its artifacts inside it, and seals it with
 ``manifest.json`` written last and atomically. Nothing here knows it is a job
 in a queue, and nothing here opens a database, a socket or a workspace.
 

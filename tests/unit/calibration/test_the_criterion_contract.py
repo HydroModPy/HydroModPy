@@ -4,11 +4,11 @@ An objective was a function ``f(sim, obs) -> float``. That fits a series and
 nothing else, so a criterion comparing two geometries disguised itself as one:
 a two-element vector standing in for a series, a vector of zeros standing in for
 observations it does not have, and a free-text component name standing in for
-"this one publishes a signed residual". Five artefacts held one shape open.
+"this one publishes a signed residual". Five artifacts held one shape open.
 
 The gate that matters is the last class here: every cost must come out of the
 contract bit for bit identical to the cost the inline path produced, or the
-refactor changed what is optimised.
+refactor changed what is optimized.
 """
 
 from __future__ import annotations

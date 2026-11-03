@@ -4,7 +4,7 @@ This driver folds five sibling 1D linearized-unconfined transient benchmarks int
 parametrized suite. Each scenario keeps its own forcing (via its own launcher comparison
 function) and its own tolerances (read from the per-case tolerance TOML through the
 comparison payload). The references pose the side heads where the model holds them, at
-the centres of the boundary cells.
+the centers of the boundary cells.
 """
 
 from __future__ import annotations

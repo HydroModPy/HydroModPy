@@ -1,7 +1,7 @@
-"""A soil reservoir whose recharge is not activated would never reach MODFLOW.
+"""A soil reservoir whose recharge is switched off would never reach MODFLOW.
 
-``flow.active_sinks_sources`` is what turns a computed flux into an assembled
-package; a soil section computes ``recharge`` whether or not the run lists it.
+A recharge table builds the package unless it says ``enabled = false``; a soil
+section computes a recharge whether or not the table is on.
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ step_value = "1 day"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [data]
@@ -48,44 +48,42 @@ source = "sim2"
 extent = "watershed"
 
 [flow]
-active_sinks_sources = {active_sinks_sources}
-active_bc = ["drainage"]
 first_period_steady = false
 
 [flow.ic]
-type = "steady_state"
+kind = "steady_state"
 
+[flow.bc.drainage]
+
+[flow.sinks_sources.etp]
+
+{recharge}
 [flow.sinks_sources.recharge.soil]
 ru = "150 mm"
 """
 
 
-def _write(tmp_path: Path, active_sinks_sources: list[str]) -> Path:
+def _write(tmp_path: Path, recharge: str = "") -> Path:
     config_path = tmp_path / "project.toml"
-    config_path.write_text(
-        SOIL_PROJECT_TOML.format(
-            root=tmp_path.as_posix(), active_sinks_sources=active_sinks_sources
-        ),
-        encoding="utf-8",
-    )
+    config_path.write_text(SOIL_PROJECT_TOML.format(recharge=recharge), encoding="utf-8")
     return config_path
 
 
-def test_recharge_missing_from_active_sinks_sources_is_refused(tmp_path: Path) -> None:
-    config_path = _write(tmp_path, ["etp"])
+def test_a_switched_off_recharge_is_refused(tmp_path: Path) -> None:
+    config_path = _write(tmp_path, "[flow.sinks_sources.recharge]\nenabled = false\n")
 
     with pytest.raises(ConfigValidationError) as excinfo:
         HydroModPyConfig.from_toml(config_path)
 
     assert (
-        "[flow.sinks_sources.recharge.soil] computes a recharge that "
-        "flow.active_sinks_sources does not list, so MODFLOW would receive "
-        'none: add "recharge" to flow.active_sinks_sources.'
+        "[flow.sinks_sources.recharge.soil] computes a recharge and its table "
+        "says enabled = false, so MODFLOW would receive none: remove "
+        "enabled = false, or remove the soil section."
     ) in str(excinfo.value)
 
 
-def test_recharge_listed_loads(tmp_path: Path) -> None:
-    config_path = _write(tmp_path, ["recharge", "etp"])
+def test_a_declared_soil_activates_the_recharge(tmp_path: Path) -> None:
+    config_path = _write(tmp_path)
 
     cfg = HydroModPyConfig.from_toml(config_path)
 

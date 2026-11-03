@@ -3,7 +3,7 @@
 The runoff forcing is added to a baseflow twice in this repository: once when
 the calibration metric builds the simulated discharge it scores
 (``calibration.metrics.series.add_runoff_to_discharge``) and once when the
-catalog materialises the catchment discharge a run is read back from
+catalog materializes the catchment discharge a run is read back from
 (``simulation.extraction.derivation.catchment_aggregation``). If the two align
 the daily forcing on the stress periods by different rules, a run scores against
 one discharge and reports another.
@@ -29,8 +29,8 @@ _CATCH_AREA_KM2 = 86.4
 # write it. The first period reaches back one spacing, 10 days, so the periods
 # are [01-01, 01-11), [01-11, 01-21) and [01-21, 02-20). The forcing below is
 # constant on each of them, so the period means are 2, 5 and 9 mm/day by
-# construction. These spans used to reach halfway to each neighbour; they moved
-# when the stamps were read as period ends instead of period centres.
+# construction. These spans used to reach halfway to each neighbor; they moved
+# when the stamps were read as period ends instead of period centers.
 _SIM_INDEX = pd.DatetimeIndex(["2000-01-11", "2000-01-21", "2000-02-20"])
 _EXPECTED_M3_PER_S = [2.0, 5.0, 9.0]
 

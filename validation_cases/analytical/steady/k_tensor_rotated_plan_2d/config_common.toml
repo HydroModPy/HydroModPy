@@ -13,7 +13,7 @@ description = "Steady confined flow along a strip with a rotated horizontal K te
 
 [[simulation.process]]
 id = "flow_validation"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [geographic]
@@ -38,10 +38,11 @@ base_elevation = 0.0
 kind = "constant_thickness"
 thickness = "10.0 m"
 
+[domain.layers]
+nlay = 1
+
 [flow]
 flow_regime = "steady"
-active_sinks_sources = []
-active_bc = ["west_side", "east_side"]
 param_list = ["K", "K22", "angle1"]
 
 [flow.param.K.field]
@@ -54,7 +55,7 @@ kind = "homogeneous"
 value = "1e-5 m/s"
 
 [flow.ic]
-type = "custom"
+kind = "custom"
 value = "105.0 m"
 
 [flow.bc.west_side]
@@ -81,9 +82,6 @@ mf6_outer_dvclose = 1e-9
 mf6_inner_dvclose = 1e-10
 mf6_inner_rclose = 1e-10
 mf_verbose = false
-
-[modflow6.sgrid.vertical]
-nlay = 1
 
 [display]
 enabled = false

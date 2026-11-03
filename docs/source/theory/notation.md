@@ -4,7 +4,7 @@ Every symbol of the theory pages, with its unit and the key that sets it. The
 tables are generated from one registry, `docs/source/theory/symbols.yaml`, and
 each theory page renders its own table from the same file.
 
-The units are the ones the code stores: lengths in metres, hydraulic
+The units are the ones the code stores: lengths in meters, hydraulic
 conductivity in m/s, rates in m/s. The soil reservoir is the exception, because
 it works in mm and days. A name that exists in the code or in an output file is
 given in `code font` in the meaning column, so a symbol can be matched with a
@@ -12,7 +12,7 @@ column of a result file.
 
 ## Conventions
 
-- Lengths are in metres, and elevation is positive up.
+- Lengths are in meters, and elevation is positive up.
 - A flux into the aquifer is positive. The residual of the Boussinesq solver is
   the one exception: it counts a loss as positive, and its page says so.
 - Cells are $n$ and $m$ on the pages of the two MODFLOW solvers and of the mesh,
@@ -108,7 +108,7 @@ Stores are in mm of water per unit of unsealed area, fluxes in mm/day.
 ## The descent and the distance between networks
 
 The descent $D$ is where water goes on the model top: from each cell, the path to a
-lower neighbour, down to the outlet or to a cell where water leaves the model. It is
+lower neighbor, down to the outlet or to a cell where water leaves the model. It is
 a computation on a copy of the top and is never given back to the solver. The
 distances below are not measured on $D$, but on their own copy
 ({doc}`downslope-distance`).

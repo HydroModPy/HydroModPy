@@ -27,7 +27,7 @@ class CustomCrossingsSource(HydroModelBase):
 
     The file needs a ``kind`` column holding one of ``road``, ``railway``,
     ``bridge``, ``weir``, ``dam`` or ``other``. ``name`` and ``drop_m`` (the
-    drop of a weir or a dam, in metres) are read when present.
+    drop of a weir or a dam, in meters) are read when present.
     """
 
     source: Annotated[Literal["custom"], Profile.USER] = Field(

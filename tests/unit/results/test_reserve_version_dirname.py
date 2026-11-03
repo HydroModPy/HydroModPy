@@ -127,7 +127,7 @@ def test_a_name_that_is_not_a_directory_name_is_refused(tmp_path):
 
 
 def test_a_lost_mkdir_race_computes_the_version_again(tmp_path, monkeypatch):
-    """A neighbour creates the directory between the computation and the mkdir."""
+    """A neighbor creates the directory between the computation and the mkdir."""
     real_mkdir = os.mkdir
     stolen: list[str] = []
 

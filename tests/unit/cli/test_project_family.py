@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.cli.commands.project import promote, prune
+from hydromodpy.cli.commands.campaign import promote, prune
 from hydromodpy.cli.helpers import exit_code_for
 from hydromodpy.results.session.descriptor import read_session
 from hydromodpy.results.session.journal import read_trials
@@ -140,7 +140,7 @@ def test_project_show_counts_what_the_directories_hold(monkeypatch, capsys, tmp_
     code = _run(monkeypatch, ["hmp", "project", "show", "-w", str(project), "--format", "json"])
 
     assert code == 0
-    payload = json.loads(capsys.readouterr().out)
+    payload = json.loads(capsys.readouterr().out)["data"]
     assert payload["name"] == "demo"
     assert payload["runs"] == {"completed": 1, "failed": 1}
     assert payload["sessions"] == {"completed": 1}
@@ -235,7 +235,7 @@ def test_promote_moves_a_kept_trial_to_runs(capsys, tmp_path) -> None:
 
     code = _run_action(
         promote,
-        ["promote", "calibration", "--trial", "1", "--as", "k_low", "-w", str(project)],
+        ["promote", "calibration", "--trial", "1", "--name", "k_low", "-w", str(project)],
     )
 
     assert code == 0

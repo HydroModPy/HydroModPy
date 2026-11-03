@@ -5,20 +5,20 @@ a series and nothing else, so a criterion comparing a simulated stream network t
 a mapped one had to disguise itself as one: a two-element vector standing in for a
 series, an observed vector of zeros standing in for observations it does not have,
 and a free-text component name standing in for "this criterion publishes a signed
-residual". Five artefacts existed to hold one shape open.
+residual". Five artifacts existed to hold one shape open.
 
 A criterion declares what it needs and returns what it found. Two consequences,
 and they are the point:
 
 Declaring the needs makes them checkable BEFORE a solver runs. Whether a cost
-has a unit decides if normalising it means anything; whether it carries a signed
+has a unit decides if normalizing it means anything; whether it carries a signed
 residual decides if a root search may be pointed at it. Both were discovered at
 the first trial, hours in.
 
 Returning a structure means the meaning of a number travels with it. A cost is
-always to be minimised. A signed residual is present or it is ``None``, not a
+always to be minimized. A signed residual is present or it is ``None``, not a
 component name a caller hopes is right. Validity qualifies a result without
-penalising it, which is the rule the whole calibration surface rests on: a
+penalizing it, which is the rule the whole calibration surface rests on: a
 calibration is asked for a number, and a coarse agreement is said, not scored.
 """
 
@@ -65,7 +65,7 @@ class CriterionRequirements:
 
     cost_is_dimensionless: bool
     """Whether the cost is already a pure number. An efficiency score is; a
-    residual in metres is not. Dividing a dimensionless cost by the standard
+    residual in meters is not. Dividing a dimensionless cost by the standard
     deviation of its own observations does not put two blocks on a common
     footing, it reweights one of them in silence."""
 
@@ -93,7 +93,7 @@ class CriterionRequirements:
 class CriterionResult:
     """What a criterion found.
 
-    ``cost`` is always to be minimised, whatever the sign convention of the
+    ``cost`` is always to be minimized, whatever the sign convention of the
     underlying score.
     """
 

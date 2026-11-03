@@ -1,8 +1,9 @@
 [[simulation.process]]
 solvers = ["modflow_nwt"]
 
-[modflownwt.sgrid.vertical]
-nlay = 1
-
 [flow.param.K.field]
 value = "5.0e-4 m/s"
+
+[domain.layers]
+nlay = 1
+

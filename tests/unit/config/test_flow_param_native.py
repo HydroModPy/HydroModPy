@@ -18,7 +18,7 @@ def test_flow_param_native_round_trip_all_sections() -> None:
                         "field_spatial_id": "geology",
                     },
                     "field_vertical_profile": {
-                        "mode": "exponential",
+                        "kind": "exponential",
                         "characteristic_depth": 20.0,
                     },
                 },

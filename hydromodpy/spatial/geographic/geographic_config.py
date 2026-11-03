@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Annotated, Any, ClassVar, Literal
 
-from pydantic import Field, ValidationInfo, field_validator, model_validator
+from pydantic import Field, PrivateAttr, ValidationInfo, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
@@ -33,7 +33,15 @@ class GeographicConfig(HydroModelBase):
     delineation.
     """
 
+    # A [data.dem] source was in view when this section was accepted. Assigning the
+    # section on the root validates it again, with no such view.
+    _dem_from_data: bool = PrivateAttr(default=False)
+
     model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "enforce_streams": (
+            "the base model puts drains on the top of every cell and never snaps "
+            "the network to the observed streams; delete the key"
+        ),
         "dam_carve": (
             "the dam carve of the ground is removed, it flattened a corridor "
             "below the thalweg and the cell drainage D already makes the water "
@@ -64,7 +72,7 @@ class GeographicConfig(HydroModelBase):
     ] = Field(
         description=(
             "How the model domain is defined. Required when source_mode='standard', "
-            "left out when it is 'synthetic'. The shape is chosen by 'catch_def' on the "
+            "left out when it is 'synthetic'. The shape is chosen by 'kind' on the "
             "nested table: 'dem' | 'txt' | 'from_outlet_coord' | 'from_polyg_shp'."
         ),
     )
@@ -198,7 +206,7 @@ class GeographicConfig(HydroModelBase):
     @property
     def catch_def(self) -> str | None:
         """Discriminator value of the active catchment variant, or None for synthetic."""
-        return None if self.catchment is None else self.catchment.catch_def
+        return None if self.catchment is None else self.catchment.kind
 
     @property
     def dem_init_path(self) -> Path | None:
@@ -212,7 +220,7 @@ class GeographicConfig(HydroModelBase):
 
     @property
     def dem_resolution(self) -> float | None:
-        """Cell size the DEM is aggregated to, in metres, or None to keep its pixel."""
+        """Cell size the DEM is aggregated to, in meters, or None to keep its pixel."""
         return None if self.catchment is None else self.catchment.dem_resolution
 
     @property
@@ -264,7 +272,7 @@ class GeographicConfig(HydroModelBase):
         return cls(
             source_mode="standard",
             catchment={
-                "catch_def": "from_outlet_coord",
+                "kind": "from_outlet_coord",
                 "dem_init_path": Path(dem) if dem is not None else None,
                 "x_outlet": float(x),
                 "y_outlet": float(y),
@@ -287,7 +295,7 @@ class GeographicConfig(HydroModelBase):
         """Model domain driven entirely by a DEM raster."""
         return cls(
             source_mode="standard",
-            catchment={"catch_def": "dem", "dem_init_path": Path(dem)},
+            catchment={"kind": "dem", "dem_init_path": Path(dem)},
             crs_project=crs_project,
             **overrides,
         )
@@ -306,7 +314,7 @@ class GeographicConfig(HydroModelBase):
         return cls(
             source_mode="standard",
             catchment={
-                "catch_def": "from_polyg_shp",
+                "kind": "from_polyg_shp",
                 "dem_init_path": Path(dem),
                 "polyg_shp_path": Path(polygon),
                 "buff_area": buff_area,
@@ -350,10 +358,10 @@ class GeographicConfig(HydroModelBase):
 
     @model_validator(mode="after")
     def _check_catchment_is_implemented(self) -> GeographicConfig:
-        """Refuse ``catch_def = "txt"``: no code rasterises an XYZ text grid."""
+        """Refuse ``kind = "txt"``: no code rasterizes an XYZ text grid."""
         if isinstance(self.catchment, TxtCatchDef):
             raise ValueError(
-                "geographic.catchment.catch_def = 'txt' is not implemented: nothing "
+                "geographic.catchment.kind = 'txt' is not implemented: nothing "
                 "rasterises an XYZ text grid. Use 'dem' with a raster, or "
                 "'from_outlet_coord' / 'from_polyg_shp' with a regional DEM."
             )
@@ -384,7 +392,7 @@ class GeographicConfig(HydroModelBase):
 
     @model_validator(mode="after")
     def _check_sections_on_the_channel_tree(self) -> GeographicConfig:
-        """Refuse a notch or a bed regularisation with no channel tree or no catchment.
+        """Refuse a notch or a bed regularization with no channel tree or no catchment.
 
         The texts stay literal: the docs registry links the sections a refusal names.
         """
@@ -397,7 +405,7 @@ class GeographicConfig(HydroModelBase):
         if self.crossings.enabled and (support := self._undelineated_support()):
             raise ValueError(
                 "[geographic.crossings] cuts a delineated catchment: it needs "
-                f"catch_def = 'from_outlet_coord' or 'from_polyg_shp', not {support}."
+                f"kind = 'from_outlet_coord' or 'from_polyg_shp', not {support}."
             )
         if self.bed_regularization.enabled and not self.river_network.enabled:
             raise ValueError(
@@ -408,7 +416,7 @@ class GeographicConfig(HydroModelBase):
         if self.bed_regularization.enabled and (support := self._undelineated_support()):
             raise ValueError(
                 "[geographic.bed_regularization] fits the bed of a delineated catchment: "
-                f"it needs catch_def = 'from_outlet_coord' or 'from_polyg_shp', not {support}."
+                f"it needs kind = 'from_outlet_coord' or 'from_polyg_shp', not {support}."
             )
         return self
 
@@ -417,7 +425,7 @@ class GeographicConfig(HydroModelBase):
         if self.uses_synthetic_geographic():
             return "a synthetic support"
         if self.catch_def == "dem":
-            return "catch_def = dem"
+            return "kind = dem"
         return None
 
     @model_validator(mode="after")
@@ -464,10 +472,11 @@ class GeographicConfig(HydroModelBase):
         if self.catchment is None:
             raise ValueError(MISSING_CATCHMENT)
         context = info.context or {}
-        allow_dem_bootstrap = bool(context.get("allow_dem_bootstrap"))
-        if self.catchment.dem_init_path is None and not allow_dem_bootstrap:
+        if context.get("allow_dem_bootstrap"):
+            self._dem_from_data = True
+        if self.catchment.dem_init_path is None and not self._dem_from_data:
             raise ValueError(
-                f"catch_def='{self.catchment.catch_def}' requires 'dem_init_path' "
+                f"kind='{self.catchment.kind}' requires 'dem_init_path' "
                 "(path to the DEM raster or XYZ text file)."
             )
         return self

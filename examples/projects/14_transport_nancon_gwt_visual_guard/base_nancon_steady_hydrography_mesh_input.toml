@@ -20,7 +20,7 @@ coverage_policy = "warn"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [geographic]
@@ -30,7 +30,7 @@ dem_correc_type = "breach"
 reuse_existing_outputs = false
 
 [geographic.catchment]
-catch_def = "from_outlet_coord"
+kind = "from_outlet_coord"
 dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
 x_outlet = 389285.91
 y_outlet = 6816518.749
@@ -57,12 +57,7 @@ thickness = "30.0 m"
 
 [flow]
 flow_regime = "steady"
-active_sinks_sources = ["recharge"]
-active_bc = ["drainage"]
 param_list = ["K", "Ss", "Sy"]
-runtime_max_iterations = 120
-runtime_tol_residual_inf = 1.0e-8
-runtime_tol_state_update_inf = 1.0e-8
 
 [flow.param.K.field]
 id = "K"
@@ -83,10 +78,10 @@ unit = "-"
 value = "0.05 -"
 
 [flow.ic]
-type = "top"
+kind = "top"
 
 [flow.bc.drainage]
-kind = "cauchy"
+kind = "drain"
 application_domain = "top"
 description = "Cauchy drainage on the aquifer top face."
 value = "1e-5 m2/s"
@@ -95,6 +90,10 @@ value = "1e-5 m2/s"
 first_clim = "mean"
 negative_to_evt = true
 
+[flow.runtime]
+max_iterations = 120
+tol_residual_inf = 1.0e-8
+tol_state_update_inf = 1.0e-8
 [data]
 types = ["dem", "hydrography", "recharge"]
 inference_mode = "warn"

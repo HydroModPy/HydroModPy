@@ -1,9 +1,9 @@
 """The local frame of the Voronoi generator and the size field sampled in it.
 
 Qhull and GEOS lose digits on Lambert-93 coordinates (1e5 to 1e6 m): two seeds
-a few metres apart can give two identical cells. Every step of the generator
-therefore works in a frame centred on a fixed origin, a multiple of 1 km near
-the centre of the domain bounding box. The origin does not depend on the order
+a few meters apart can give two identical cells. Every step of the generator
+therefore works in a frame centered on a fixed origin, a multiple of 1 km near
+the center of the domain bounding box. The origin does not depend on the order
 of the domain vertices, and a coordinate moved there and back is the same
 float (the subtraction of a nearby multiple of 1 km is exact).
 """
@@ -74,7 +74,7 @@ class LocalFrame:
 
 
 def local_frame(domain: BaseGeometry) -> LocalFrame:
-    """The frame centred on the multiple of 1 km nearest the centre of the domain bounding box."""
+    """The frame centered on the multiple of 1 km nearest the center of the domain bounding box."""
     if domain.is_empty:
         raise MeshRequestError("a local frame needs a non-empty domain")
     xmin, ymin, xmax, ymax = domain.bounds
@@ -111,7 +111,7 @@ class SizeSampler:
         return self.field.sample(self.frame.to_world(np.reshape(xy, (-1, 2))))
 
     def pixel_centres(self) -> tuple[np.ndarray, float]:
-        """Local centres ``(nrow * ncol, 2)`` of the field pixels, row 0 north, and one pixel area."""
+        """Local centers ``(nrow * ncol, 2)`` of the field pixels, row 0 north, and one pixel area."""
         grid = self.field.grid
         x = grid.xmin + (np.arange(grid.ncol) + 0.5) * grid.dx
         y = grid.ymax - (np.arange(grid.nrow) + 0.5) * grid.dy

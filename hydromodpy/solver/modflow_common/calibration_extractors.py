@@ -58,7 +58,7 @@ def extract_discharge_from_cbc(
 
     ``catchment_mask`` is required, not optional. A gauge closes a catchment,
     and a model domain is not one: on a buffered grid the same sum takes in the
-    neighbouring basins. Measured on the Nancon at 25 m, the domain carries
+    neighboring basins. Measured on the Nancon at 25 m, the domain carries
     2.119 m3/s of drain outflow against 0.888 m3/s inside the basin, so an
     unmasked series would be 2.4 times the water the gauge sees and every
     discharge metric computed on it would be meaningless while looking healthy.
@@ -543,7 +543,7 @@ def extract_saturated_thickness_by_cell_from_hds(
     layer: np.ndarray,
     time_index: pd.DatetimeIndex | None = None,
 ) -> pd.DataFrame:
-    """Return saturated thickness by stress period and cell, in metres.
+    """Return saturated thickness by stress period and cell, in meters.
 
     One row per stress period: the thickness at its last saved step.
 

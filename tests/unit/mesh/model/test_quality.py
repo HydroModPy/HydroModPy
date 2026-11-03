@@ -285,10 +285,10 @@ def _mixed_cells(line: LineString) -> float:
 @pytest.mark.parametrize(
     ("line", "expected"),
     [
-        # On the grid line, and within a millimetre of it: the faces follow the line.
+        # On the grid line, and within a millimeter of it: the faces follow the line.
         (LineString([(X0 + 2 * DX, Y0), (X0 + 2 * DX, Y0 - NROW * DY)]), 0.0),
         (LineString([(X0 + 2 * DX + 5e-4, Y0), (X0 + 2 * DX + 5e-4, Y0 - NROW * DY)]), 0.0),
-        # Three metres inside the column of cells right of the grid line: four cells crossed.
+        # Three meters inside the column of cells right of the grid line: four cells crossed.
         (LineString([(X0 + 2 * DX + 3.0, Y0), (X0 + 2 * DX + 3.0, Y0 - NROW * DY)]), 4.0),
         # The diagonal of two cells.
         (LineString([(X0, Y0), (X0 + 2 * DX, Y0 - 2 * DY)]), 2.0),
@@ -389,11 +389,11 @@ def test_the_bisection_offset_runs_from_the_face_middle_to_its_end() -> None:
     face = _edge(geometry, 0, 1)
 
     centred = edge_bisection_offset(centers, vertices, geometry, interior)
-    # Both centres moved up to the top edge of the row: the line runs through a face end.
+    # Both centers moved up to the top edge of the row: the line runs through a face end.
     raised = centers.copy()
     raised[[0, 1], 1] += 0.5 * DY
     at_the_end = edge_bisection_offset(raised, vertices, geometry, interior)
-    # Both centres on the line of the face: no crossing to measure.
+    # Both centers on the line of the face: no crossing to measure.
     on_the_face = centers.copy()
     on_the_face[[0, 1]] = [[X0 + DX, Y0 - 5.0], [X0 + DX, Y0 - 20.0]]
     parallel = edge_bisection_offset(on_the_face, vertices, geometry, interior)
@@ -414,7 +414,7 @@ def test_the_bisection_offset_of_a_slanted_line_is_its_crossing_over_the_face() 
     offset = edge_bisection_offset(shifted, np.asarray(mesh.vertices), geometry, interior)
 
     # From (15.5, -8.5) to (37.5, -12.5) relative to the origin, the line meets
-    # x = 25 at y = -8.5 - 4 * 9.5 / 22, a face of 25 m centred on y = -12.5.
+    # x = 25 at y = -8.5 - 4 * 9.5 / 22, a face of 25 m centered on y = -12.5.
     crossing = -8.5 - 4.0 * 9.5 / 22.0
     assert offset[_edge(geometry, 0, 1)] == pytest.approx(abs(crossing + 12.5) / DX)
 
@@ -516,7 +516,7 @@ def test_the_angle_range_and_the_edge_maximum_are_nan_where_nothing_is_measured(
 
 
 def test_an_orthogonal_mesh_is_not_warned_for_its_bisection_offset() -> None:
-    # Every centre moved by the same vector keeps each connection normal to its
+    # Every center moved by the same vector keeps each connection normal to its
     # face, while the vertical faces are crossed 0.3 of their length off middle.
     mesh, centers = _grid()
     centers[:, 1] += 0.3 * DY

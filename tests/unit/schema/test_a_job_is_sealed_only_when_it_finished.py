@@ -26,7 +26,7 @@ JOB_ID = "sha256:" + "2" * 64
 
 
 def _job_with_outputs(tmp_path: Path) -> tuple[JobDirectory, InputSet, tuple[OutputRecord, ...]]:
-    """A job that ran: one input read, one artefact written."""
+    """A job that ran: one input read, one artifact written."""
     job = JobDirectory.create(tmp_path / "job_4711")
     job.ensure_workspace()
     job.request_path.write_text("{}", encoding="utf-8")

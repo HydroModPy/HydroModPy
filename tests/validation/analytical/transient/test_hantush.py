@@ -37,8 +37,8 @@ Four grids run the same sandwich, well, time steps and probes:
      cells growing by 1.2 per ring out to 1 km (ten leakage factors, where the
      drawdown is 3e-6 m). Layer 0 holds the head in every cell, layer 2 in the
      cells with a boundary edge, and the well pumps from the layer 2 cell that
-     holds the origin. The probe is the cell whose centre is the closest to the
-     target point; the closed form uses the discrete distance between centres.
+     holds the origin. The probe is the cell whose center is the closest to the
+     target point; the closed form uses the discrete distance between centers.
 
 XT3D on the triangles follows HydroModPy's rule (``DisvMesh.xt3d_reason``): the
 triangle disc has a p95 connection non-orthogonality of 37 deg, above the 30 deg
@@ -416,7 +416,7 @@ def _build_and_run_hantush_model_disv(
     1 km, ten leakage factors): layer 0 holds the head in every cell, layer 2
     holds it in the cells with a boundary edge, and the well pumps from the layer 2
     cell that holds the origin. Probes use the DISCRETE distance between cell
-    centres. ``force_xt3d`` overrides HydroModPy's XT3D rule (control runs).
+    centers. ``force_xt3d`` overrides HydroModPy's XT3D rule (control runs).
     """
     import flopy
 

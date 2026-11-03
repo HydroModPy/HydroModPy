@@ -10,7 +10,7 @@ crs_project = "EPSG:2154"
 dem_correc_type = "breach"
 
 [geographic.catchment]
-catch_def = "from_outlet_coord"
+kind = "from_outlet_coord"
 dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
 # Default outlet coordinates point to the Selune gauging station.
 # Run overlays override these with the watershed-specific outlet.
@@ -52,8 +52,6 @@ periods = 1
 
 [flow]
 flow_regime = "steady"
-active_sinks_sources = ["recharge"]
-active_bc = ["drainage"]
 param_list = ["K", "Ss", "Sy"]
 
 [flow.param.K.field]
@@ -79,11 +77,11 @@ unit = "-"
 value = "0.02 -"
 
 [flow.ic]
-type = "top"
+kind = "top"
 
 [flow.bc.drainage]
 application_domain = "top"
-kind = "cauchy"
+kind = "drain"
 value = "0.0 m2/s"
 
 [flow.sinks_sources.recharge]

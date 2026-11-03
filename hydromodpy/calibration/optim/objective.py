@@ -70,11 +70,11 @@ class Objective(Protocol):
 
 
 # ---------------------------------------------------------------------------
-# Supports and return-type normalisation
+# Supports and return-type normalization
 # ---------------------------------------------------------------------------
 
 # Output supports whose values carry no time axis. A ``network`` output produces the
-# pair (D_so, D_os), two distances in metres, so nothing in it can be read as "the
+# pair (D_so, D_os), two distances in meters, so nothing in it can be read as "the
 # first periods of the run". Compared as strings because this layer must not import
 # the config layer.
 TIMELESS_SUPPORTS: frozenset[str] = frozenset({"network"})
@@ -143,7 +143,7 @@ class CompositeObjective:
     per-block ``cost_transform`` to the block total cost, then returns a single
     :class:`ObjectiveValue` whose ``.total`` is the weighted sum of the
     transformed block totals and ``.components`` merges every block's
-    components. Weights are normalised so they sum to 1.0.
+    components. Weights are normalized so they sum to 1.0.
 
     Parameters
     ----------
@@ -211,7 +211,7 @@ class CompositeObjective:
 
     @property
     def raw_weights(self) -> tuple[float, ...]:
-        """Return weights as supplied (before normalisation)."""
+        """Return weights as supplied (before normalization)."""
         return tuple(raw_w for _obj, raw_w, _norm in self._blocks)
 
     @property
@@ -250,8 +250,8 @@ def cost_block_fractions(
 ) -> dict[str, float] | None:
     """Return each block's fraction of the cost one trial's components actually summed.
 
-    ``blocks`` lists ``(name, weight)`` as declared; the weights are normalised
-    the same way :class:`CompositeObjective` normalises them. The fraction of
+    ``blocks`` lists ``(name, weight)`` as declared; the weights are normalized
+    the same way :class:`CompositeObjective` normalizes them. The fraction of
     block ``i`` is ``w_i * c_i / sum_j(w_j * c_j)``, where ``c_i`` is read from
     ``components["<name>.total"]``: the per-block cost :class:`CompositeObjective`
     itself weighted and summed, after the block's own cost transform and before its
@@ -364,7 +364,7 @@ def refuse_a_normalisation_that_means_nothing(block: str, metric: str) -> None:
     supports it reads. Reading those answers rather than lists held here is
     what stops the lists from drifting away from the kernels they describe.
 
-    A network distance is normalised by its output's validity length, so a gap
+    A network distance is normalized by its output's validity length, so a gap
     counted in validity lengths adds to an efficiency as a pure number. Any
     other criterion with no observations has no scale to divide by.
     """
@@ -394,13 +394,13 @@ class ConfigBlockObjective:
     Concatenates the observed vectors of the referenced outputs, receives
     the simulated vectors at evaluation time via ``sim.values``
     (``Mapping[output_name, Sequence[float]]``), computes the block metric
-    and applies the configured normalisation and cost transform.
+    and applies the configured normalization and cost transform.
 
     ``timeless_outputs`` names the outputs whose values carry no time axis, on
     which a burn-in in samples is refused rather than applied.
 
     ``distance_scales`` gives, per network output, the validity length of each
-    distance it produces. A block that normalises a network distance divides
+    distance it produces. A block that normalizes a network distance divides
     each distance by its own length before the criterion reads them, so the
     cost is counted in validity lengths.
     """
@@ -454,10 +454,10 @@ class ConfigBlockObjective:
         self._observed_parts = observed_parts
         self._warmup = max(0, int(warmup))
         # A burn-in counts samples along a time axis. A network output carries none:
-        # it produces the pair (D_so, D_os), two distances in metres. Truncating it
+        # it produces the pair (D_so, D_os), two distances in meters. Truncating it
         # empties the pair and the block returns inf, which a staged run only ever
         # shows as a phase that did not converge. Refusing here, at build time and by
-        # name, is the one behaviour that cannot return a wrong number: skipping the
+        # name, is the one behavior that cannot return a wrong number: skipping the
         # truncation in silence would score a block the user believes is burnt in.
         timeless = sorted(set(outputs) & {str(item) for item in timeless_outputs})
         if self._warmup > 0 and timeless:
@@ -701,9 +701,9 @@ def build_objective_from_config(
     """Assemble an :class:`Objective` from a :class:`CalibrationConfig`.
 
     Each ``objective_block`` becomes one :class:`ConfigBlockObjective`
-    (metric + normalise + cost transform applied per block). When a single block
+    (metric + normalize + cost transform applied per block). When a single block
     is declared, the block is returned directly; otherwise the blocks are
-    wrapped in a :class:`CompositeObjective` with normalised weights.
+    wrapped in a :class:`CompositeObjective` with normalized weights.
 
     A block that inherits a burn-in while consuming an output with no time
     axis is refused here, by name, rather than scored on a truncated vector.

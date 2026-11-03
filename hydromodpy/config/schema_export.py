@@ -6,7 +6,7 @@ provide autocompletion, validation, and documentation for HydroModPy TOML
 configurations.
 
 The exporter preserves the rich ``json_schema_extra`` annotations attached
-to fields (``widget_type``, ``unit``, ``display_name_fr``, ``help_text_fr``,
+to fields (``widget_type``, ``unit``,
 ``display_min``, ``display_max``) which a front-end (React, ...)
 can consume to render tailored widgets.
 
@@ -74,7 +74,7 @@ CLI::
     hmp config schema                     # full root schema to stdout
     hmp config schema --section flow      # one section
     hmp config schema --profile user      # filtered to user-level fields
-    hmp config schema --out schema.json   # write to file
+    hmp config schema --to schema.json    # write to file
 """
 
 from __future__ import annotations
@@ -482,7 +482,7 @@ def _relax_for_loader(node: dict[str, Any]) -> None:
 def _admit_flat_flow_ic(schema: dict[str, Any]) -> None:
     """Accept the flat ``[flow.ic]`` form next to the ``{h = ...}`` container.
 
-    ``FlowConfig`` normalises ``[flow.ic] type = "top"`` into the container
+    ``FlowConfig`` normalizes ``[flow.ic] kind = "top"`` into the container
     before validation, so the model schema only describes the container.
     """
     defs = schema.get("$defs", {})
@@ -544,6 +544,33 @@ def schema_sha256(model_cls: type | None = None) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
+_LOADER_FILLED: dict[str, tuple[str, ...]] = {
+    "HydroModPyConfig": ("workspace",),
+    "WorkspaceConfig": ("project_root",),
+    "GeographicConfig": ("catchment",),
+}
+"""Keys the model requires, and the loader or a before-validator fills when a file omits them.
+
+The project root is never a key of a file, and a synthetic support has no catchment.
+A schema that lists them as required would reject every real TOML file.
+"""
+
+
+def _drop_loader_filled_requirements(schema: dict[str, Any]) -> None:
+    """Remove the keys of :data:`_LOADER_FILLED` from the ``required`` lists (in place)."""
+    nodes = [schema, *schema.get("$defs", {}).values()]
+    for node in nodes:
+        title = node.get("title")
+        dropped = _LOADER_FILLED.get(title, ()) if isinstance(title, str) else ()
+        required = node.get("required")
+        if dropped and isinstance(required, list):
+            kept = [name for name in required if name not in dropped]
+            if kept:
+                node["required"] = kept
+            else:
+                node.pop("required")
+
+
 def export_schema(
     model_cls: type | None = None,
     *,
@@ -591,6 +618,7 @@ def export_schema(
 
     threshold = _resolve_profile(profile)
     schema = json.loads(json.dumps(cached_full_schema(model_cls)))
+    _drop_loader_filled_requirements(schema)
     if threshold is not None:
         _walk_and_filter(schema, threshold)
         _prune_orphan_defs(schema)

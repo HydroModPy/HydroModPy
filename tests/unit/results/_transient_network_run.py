@@ -93,9 +93,9 @@ def transient_run(
             stack[step, OUTLET] = float(summer_release)
     recharge = np.full(NX * NY, CELL_RECHARGE_M3_S)
 
-    def field(variable: str, timestep: int = -1, **_) -> np.ndarray:
+    def field(variable: str, time: int = -1, **_) -> np.ndarray:
         if variable == "release_flux":
-            return stack[int(timestep)]
+            return stack[int(time)]
         if variable == "recharge":
             return recharge
         if variable == "topography":

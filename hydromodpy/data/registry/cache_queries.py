@@ -7,6 +7,7 @@ cache miss is delegated to :mod:`cache_store`.
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -25,6 +26,9 @@ if TYPE_CHECKING:
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
 logger = get_logger(__name__)
+
+PRODUCT_VERSION_KEY = "product_version"
+"""``fetch_metadata`` key of the version of the provider's product a file was fetched from."""
 
 
 class CatalogEntry:
@@ -68,8 +72,16 @@ def find_cached(
     bbox: tuple | None = None,
     date_start: datetime | None = None,
     date_end: datetime | None = None,
+    product_version: str | None = None,
 ) -> CatalogEntry | None:
-    """Find a cached entry covering the requested extent/period (superset)."""
+    """Find a cached entry covering the requested extent/period (superset).
+
+    With a *product_version*, only an entry fetched from that version of the
+    provider's product answers. An entry that records another version, or none,
+    is a miss, so a provider's new product is fetched again and an old file is
+    never read for it. The old entry and its file stay as they are, and the
+    new fetch registers beside or over it like any other.
+    """
     if bbox is not None and not (bbox[0] <= bbox[2] and bbox[1] <= bbox[3]):
         logger.warning("find_cached() called with inverted bbox: %s", bbox)
         return None
@@ -90,9 +102,12 @@ def find_cached(
         query += " AND date_end >= ?"
         params.append(dt_to_str(date_end))
 
-    query += " ORDER BY id DESC LIMIT 1"
+    query += " ORDER BY id DESC"
     backend = catalog.backend
-    row = backend.fetch_one(query, params)
+    if product_version is None:
+        row = backend.fetch_one(query + " LIMIT 1", params)
+    else:
+        row = _first_of_product(backend, query, params, product_version)
     if row is None:
         reject_frozen_cache_miss(
             catalog,
@@ -107,6 +122,30 @@ def find_cached(
     entry = CatalogEntry(**dict(zip(cols, row, strict=False)))
     reject_frozen_entry_mismatch(catalog, entry)
     return entry
+
+
+def _first_of_product(backend, query: str, params: list, product_version: str):
+    """Return the newest row whose ``fetch_metadata`` names *product_version*, or None."""
+    rows = backend.fetch_all(query, params)
+    columns = [d[0] for d in backend.description() or []]
+    for row in rows:
+        recorded = dict(zip(columns, row, strict=False)).get("fetch_metadata")
+        if _product_version_of(recorded) == product_version:
+            return row
+    return None
+
+
+def _product_version_of(recorded) -> str | None:
+    """Return the product version a ``fetch_metadata`` value records, or None."""
+    if isinstance(recorded, str):
+        try:
+            recorded = json.loads(recorded)
+        except ValueError:
+            return None
+    if isinstance(recorded, dict):
+        value = recorded.get(PRODUCT_VERSION_KEY)
+        return None if value is None else str(value)
+    return None
 
 
 def entry_for_file(catalog: DataCatalogDuckDB, file_path: Path | str) -> CatalogEntry | None:

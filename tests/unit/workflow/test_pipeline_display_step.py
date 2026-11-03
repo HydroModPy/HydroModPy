@@ -3,8 +3,8 @@
 Heavy I/O (catalog open, figure rendering) is kept out of this unit test
 via monkey-patching. We verify the *policy* layer:
 
-* honour ``ctx.cfg.display.enabled`` and non-empty ``figures``
-* honour ``state.data['skip_display']`` (the ``hmp run --no-display`` hook)
+* honor ``ctx.cfg.display.enabled`` and non-empty ``figures``
+* honor ``state.data['skip_display']`` (the ``hmp run --no-display`` hook)
 * emit no call when ``sim_id`` or ``ctx`` is missing
 * forward the run to the renderer with the right output directory
 * always summarize the batch, naming every requested figure not produced
@@ -103,7 +103,7 @@ def test_display_step_skips_when_disabled(monkeypatch, tmp_path):
 
 
 def test_display_step_skips_when_empty_figure_list(monkeypatch, tmp_path):
-    # The run is catalogued on purpose: otherwise the step returns on the
+    # The run is cataloged on purpose: otherwise the step returns on the
     # "no config, no sim_id or no index" branch and this test would pass
     # without ever reaching the empty-list decision it is named after.
     ctx = _make_ctx(enabled=True, figures=[], project_root=tmp_path, catalogued=True)

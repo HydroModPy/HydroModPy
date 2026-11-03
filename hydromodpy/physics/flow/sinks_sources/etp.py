@@ -29,6 +29,13 @@ class FlowEtpConfig(HydroModelBase):
     entry point for the EVT package.
     """
 
+    enabled: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description=(
+            "Whether the model takes this evapotranspiration. Declaring it is what activates it. false keeps the table "
+            "and builds nothing from it."
+        ),
+    )
     values: Annotated[Any, Profile.USER] = Field(
         default=0.0,
         description=(
@@ -70,22 +77,28 @@ class FlowEtpConfig(HydroModelBase):
         default=2.0,
         ge=0.0,
         description=(
-            "Distance (m) the EVT surface sits below its reference. Under "
-            "MODFLOW-NWT the reference is the topographic surface and the "
-            "default is 2 m. In soil mode under MODFLOW 6 the reference is the "
-            "drain elevation of the cell (the top, or the top minus half of "
-            "solver.drain_band_depth_m) and the default is 0 m, since the soil "
-            "reservoir has already taken the ETP it could."
+            "Distance (m) the EVT surface sits below its reference. The rule has two "
+            "cases. In soil mode under MODFLOW 6 the reference is the drain elevation of "
+            "the cell (the top, or the top minus half of solver.drain_band_depth_m), and "
+            "with the key unset the distance is 0 m, since the soil reservoir has already "
+            "taken the ETP it could. In every other case the reference is the topographic "
+            "surface, as MODFLOW-NWT reads it, and with the key unset the distance is "
+            "2 m, also when this table is absent and the ETP comes from [data.etp] alone. "
+            "A value written here wins in both cases. The run writes the value it used "
+            "in config.resolved.toml, table resolved_at_build."
         ),
+        json_schema_extra=field_metadata(unit="m"),
     )
     extinction_depth: Annotated[LengthMeters, Profile.USER] = Field(
-        default=1.0,
+        default=2.0,
         gt=0.0,
         description=(
             "Depth (m) below the EVT surface where the water table stops "
             "evaporating; the rate falls linearly between the surface and this "
-            "depth. 1 m by default. Read by MODFLOW-NWT, and by MODFLOW 6 in "
-            "soil mode for the ETP the soil left unmet. Calibrate it with "
+            "depth. 2 m by default, a choice: this depth often reaches the deepest "
+            "roots, and 150 mm of soil capacity means about 1 to 2 m of them. Read by "
+            "MODFLOW-NWT, and by MODFLOW 6 in soil mode for the ETP the soil left "
+            "unmet. Calibrate it with "
             "[calibration.parameters.extinction_depth]; the range belongs to the "
             "site, so a file has to state it."
         ),

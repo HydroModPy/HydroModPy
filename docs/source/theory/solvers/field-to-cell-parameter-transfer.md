@@ -79,7 +79,7 @@ faces with it, removes the mixed cell.
 .. plot:: theory/figures/f2c_zones.py
    :alt: Nine square cells cut by a vertical zone boundary with their sample points, and the cell conductivity against the share of zone A.
    :caption: The example above, three rows of it, run through the code. Left: the sample
-      points of each cell (:math:`n_s = 8` per axis, the default) take the colour of
+      points of each cell (:math:`n_s = 8` per axis, the default) take the color of
       their zone, and :math:`F_{c,A}` counts them. Right: the value
       ``FieldParam.to_mesh_field`` gives each cell (dots) lies on the arithmetic mean;
       the harmonic mean (dashed) is the value for a flow across the boundary. Look at the
@@ -108,7 +108,7 @@ faces with it, removes the mixed cell.
 
 ```{hmp-params}
 flow.param.K.field.value
-flow.param.K.field_vertical_profile.mode
+flow.param.K.field_vertical_profile.kind
 data.geology.cell_samples_per_axis
 domain.supports.<name>.default_cell_samples_per_axis
 ```

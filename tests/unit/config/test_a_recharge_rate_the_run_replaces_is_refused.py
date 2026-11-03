@@ -48,7 +48,7 @@ step_value = "1 month"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [data]

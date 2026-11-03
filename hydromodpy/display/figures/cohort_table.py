@@ -35,7 +35,7 @@ def cohort_refusal(table: Any) -> str | None:
     if not isinstance(table, pd.DataFrame):
         return (
             "draws a cohort table (summary/by_site of a project, one row per site), "
-            "and a run is one run; run hmp project collect"
+            "and a run is one run; run hmp campaign collect"
         )
     if COHORT_SITE_COLUMN not in table.columns:
         return f"the cohort table has no {COHORT_SITE_COLUMN!r} column"

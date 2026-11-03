@@ -357,7 +357,7 @@ def test_booleans_are_rejected_whatever_the_unit(family: Family, data: st.DataOb
     """``True`` is an ``int`` in Python, so it must be trapped explicitly.
 
     TOML and JSON payloads carry booleans, and without the guard ``True`` would
-    convert to one metre instead of raising.
+    convert to one meter instead of raising.
     """
     unit = data.draw(st.sampled_from(family.units))
     with pytest.raises(TypeError):
@@ -456,7 +456,7 @@ def test_derived_factors_are_coherent_with_length_and_time(data: st.DataObject) 
 def test_volumetric_flow_factors_are_coherent_with_length_and_time(
     data: st.DataObject,
 ) -> None:
-    """``m3/T`` is a cubic metre per T, and a litre is exactly a thousandth of it.
+    """``m3/T`` is a cubic meter per T, and a litre is exactly a thousandth of it.
 
     Split out from the other derived families because the litre branch is not a
     length cubed: it is the one place where the volume unit is not spelled as a

@@ -1,7 +1,7 @@
 """Seepage area map: the cells where the water table reaches the land surface.
 
 The field is a yes or no per cell, so the map draws two classes and counts
-them in its key, as ``flow_intermittence_map`` does. A continuous colour ramp
+them in its key, as ``flow_intermittence_map`` does. A continuous color ramp
 would invite reading a fraction of seepage that the field does not hold.
 
 It is the raw state of each cell at one instant. The flow maps apply the
@@ -53,7 +53,7 @@ class SeepageMap(ScalarFaceMap):
     A cell seeps where the simulated head reaches or exceeds the land
     surface. ``extent`` picks the frame: ``catchment`` (the default) crops to
     the delineated watershed and counts the cells inside it, ``mesh`` keeps
-    the whole modelled domain and counts every cell.
+    the whole modeled domain and counts every cell.
     """
 
     spec = FigureSpec(

@@ -5,7 +5,7 @@ One GeoDataFrame, whatever the provider: ``geometry`` plus four columns.
 - ``kind``: one of :data:`~hydromodpy.data.variables.crossings.config.KINDS`.
 - ``source``: the provider slug (``bdtopo``, ``roe``, ``custom``).
 - ``name``: what the provider calls it, ``""`` when it says nothing.
-- ``drop_m``: the drop of a weir or a dam in metres, NaN when unknown.
+- ``drop_m``: the drop of a weir or a dam in meters, NaN when unknown.
 """
 
 from __future__ import annotations

@@ -1,5 +1,5 @@
 [[simulation.process]]
 solvers = ["modflow_nwt"]
 
-[modflownwt.sgrid.vertical]
+[domain.layers]
 nlay = 1

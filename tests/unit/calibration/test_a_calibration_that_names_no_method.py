@@ -3,7 +3,7 @@
 A phase, or a calibration run in one stage, that does not write ``method`` runs
 ``bisection`` when it moves one parameter in log space and every one of its
 blocks is signed: the answer is then a zero to find. Every other search runs
-``scipy_nelder_mead``, a cost to minimise. A written method is kept as written.
+``scipy_nelder_mead``, a cost to minimize. A written method is kept as written.
 
 No solver runs. The choice is read off the configuration, the listing off the
 CLI, and the one run goes through the closed-form ``analytic_bowl`` evaluator.
@@ -283,7 +283,7 @@ def test_python_mode_resolves_a_bare_name_and_chooses_as_the_toml_does(tmp_path)
     (tmp_path / "streams.gpkg").write_bytes(b"")
 
     class _Project:
-        config = HydroModPyConfig.from_toml(project_toml)
+        _cfg = HydroModPyConfig.from_toml(project_toml)
         _config_path = project_toml
         _ctx = None
 

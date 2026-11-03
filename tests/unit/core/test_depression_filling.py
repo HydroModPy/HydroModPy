@@ -19,7 +19,7 @@ from hydromodpy.core.depression_filling import (
 
 
 def _chain(n: int) -> list[set[int]]:
-    """Neighbours of a one-dimensional chain of cells."""
+    """Neighbors of a one-dimensional chain of cells."""
     return [{i - 1, i + 1} & set(range(n)) for i in range(n)]
 
 

@@ -69,6 +69,6 @@ def test_the_command_answers_without_an_index(monkeypatch, tmp_path: Path, capsy
     )
 
     assert code == 0
-    rows = json.loads(capsys.readouterr().out)
+    rows = json.loads(capsys.readouterr().out)["data"]
     assert [row["rel_dir"] for row in rows] == ["runs/live_run"]
     assert not (root / ".hmp").exists()

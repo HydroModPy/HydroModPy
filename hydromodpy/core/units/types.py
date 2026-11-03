@@ -109,7 +109,7 @@ Length = Annotated[
     BeforeValidator(_coerce_bare_number("m")),
     PlainSerializer(_to_canonical_magnitude("m"), return_type=float, when_used="unless-none"),
 ]
-"""Length in metres. Accepts ``1.0``, ``"1.0 m"``, ``"100 cm"``, ..."""
+"""Length in meters. Accepts ``1.0``, ``"1.0 m"``, ``"100 cm"``, ..."""
 
 
 Area = Annotated[
@@ -118,7 +118,7 @@ Area = Annotated[
     BeforeValidator(_coerce_bare_number("m**2")),
     PlainSerializer(_to_canonical_magnitude("m**2"), return_type=float, when_used="unless-none"),
 ]
-"""Area in square metres."""
+"""Area in square meters."""
 
 
 Volume = Annotated[
@@ -127,7 +127,7 @@ Volume = Annotated[
     BeforeValidator(_coerce_bare_number("m**3")),
     PlainSerializer(_to_canonical_magnitude("m**3"), return_type=float, when_used="unless-none"),
 ]
-"""Volume in cubic metres."""
+"""Volume in cubic meters."""
 
 
 # ---------------------------------------------------------------------------
@@ -275,14 +275,14 @@ LengthMeters = Annotated[
     float,
     BeforeValidator(_coerce_to_canonical_float("m")),
 ]
-"""Length in metres expressed as ``float``. Accepts ``"100 m"``, ``"1 km"``, ``50.0``."""
+"""Length in meters expressed as ``float``. Accepts ``"100 m"``, ``"1 km"``, ``50.0``."""
 
 
 LengthMillimeters = Annotated[
     float,
     BeforeValidator(_coerce_to_canonical_float("mm")),
 ]
-"""Length in millimetres expressed as ``float``. Accepts ``"120 mm"``, ``"12 cm"``, ``120``."""
+"""Length in millimeters expressed as ``float``. Accepts ``"120 mm"``, ``"12 cm"``, ``120``."""
 
 
 AreaSquareMeters = Annotated[

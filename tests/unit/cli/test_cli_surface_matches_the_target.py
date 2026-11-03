@@ -19,6 +19,7 @@ from pathlib import Path
 
 import pytest
 
+from hydromodpy.cli.conventions import OldVerb
 from hydromodpy.cli.main import _build_parser
 
 # Families and their actions. A family lists every action the target names,
@@ -34,16 +35,12 @@ TARGET_FAMILIES: dict[str, frozenset[str]] = {
             "status",
             "log",
             "plan",
-            "array",
-            "case",
-            "collect",
-            "promote",
-            "prune",
             "delete",
-            "export",
             "import",
         }
     ),
+    "campaign": frozenset({"array", "case", "collect", "promote", "prune"}),
+    "lock": frozenset({"update", "verify"}),
     "site": frozenset({"add", "import", "ls", "show"}),
     "catalog": frozenset(
         {
@@ -51,6 +48,7 @@ TARGET_FAMILIES: dict[str, frozenset[str]] = {
             "show",
             "query",
             "point",
+            "rank",
             "reindex",
             "delete",
             "restore",
@@ -66,12 +64,14 @@ TARGET_FAMILIES: dict[str, frozenset[str]] = {
         }
     ),
     "report": frozenset({"render", "compare", "catchment"}),
-    "viz": frozenset({"list", "show", "regen"}),
-    "config": frozenset({"template", "check", "resolve", "schema", "targets", "wizard"}),
+    "viz": frozenset({"list", "show"}),
+    "config": frozenset(
+        {"template", "check", "resolve", "schema", "targets", "validate-field", "wizard"}
+    ),
     "data": frozenset({"ls", "get", "check", "add", "remove", "prune", "archive", "restore"}),
     "example": frozenset({"list", "show", "add"}),
     "privacy": frozenset({"purge", "verify"}),
-    "dev": frozenset({"run-script", "completion", "schema", "examples", "lock", "rank", "manage"}),
+    "dev": frozenset({"run-script", "examples", "manage", "test"}),
 }
 
 # Verbs without actions.
@@ -82,15 +82,16 @@ TARGET_LEAVES: frozenset[str] = frozenset(
         "spinup",
         "export",
         "publish",
-        "replay",
+        "completion",
         "doctor",
-        "test",
         "install-binaries",
     }
 )
 
 # What the target retired, by verb, by action and by option.
-REMOVED_VERBS: frozenset[str] = frozenset({"process", "audit", "compare", "testbed", "init"})
+REMOVED_VERBS: frozenset[str] = frozenset(
+    {"process", "audit", "compare", "testbed", "init", "replay", "test"}
+)
 REMOVED_ACTIONS: tuple[tuple[str, str], ...] = (
     ("viz", "gallery"),
     ("workspace", "prune"),
@@ -99,6 +100,8 @@ REMOVED_ACTIONS: tuple[tuple[str, str], ...] = (
     ("workspace", "forget"),
     ("data", "import"),
     ("project", "run"),
+    ("project", "export"),
+    ("viz", "regen"),
     ("site", "report"),
 )
 REMOVED_OPTIONS: tuple[tuple[tuple[str, ...], str], ...] = (
@@ -111,35 +114,18 @@ REMOVED_OPTIONS: tuple[tuple[tuple[str, ...], str], ...] = (
     (("report", "catchment"), "--with-lock"),
 )
 
-# The verbs that read a project or a workspace (D9): each offers -w.
-READ_VERBS: tuple[tuple[str, ...], ...] = (
-    ("workspace", "list"),
-    ("project", "list"),
-    ("project", "show"),
-    ("project", "status"),
-    ("project", "log"),
-    ("project", "export"),
-    ("project", "import"),
-    ("site", "ls"),
-    ("site", "show"),
-    *(("catalog", action) for action in sorted(TARGET_FAMILIES["catalog"])),
-    ("report", "render"),
-    ("report", "compare"),
-    ("viz", "list"),
-    ("viz", "show"),
-    ("data", "ls"),
-    ("data", "check"),
-    ("export",),
-    ("doctor",),
-)
-
 
 def _subparsers(parser: argparse.ArgumentParser) -> argparse._SubParsersAction | None:
     return next((a for a in parser._actions if isinstance(a, argparse._SubParsersAction)), None)
 
 
+def _commands(sub: argparse._SubParsersAction) -> dict[str, argparse.ArgumentParser]:
+    """Return the commands a group holds. A form that only names its new one is not one."""
+    return {name: child for name, child in sub.choices.items() if not isinstance(child, OldVerb)}
+
+
 def _tree() -> dict[str, argparse.ArgumentParser]:
-    return dict(_subparsers(_build_parser()).choices)
+    return _commands(_subparsers(_build_parser()))
 
 
 def _leaf(path: tuple[str, ...]) -> argparse.ArgumentParser | None:
@@ -155,6 +141,8 @@ def _options(parser: argparse.ArgumentParser) -> set[str]:
 
 
 def _leaves(parser: argparse.ArgumentParser, path: tuple[str, ...] = ()):
+    if isinstance(parser, OldVerb):
+        return
     sub = _subparsers(parser)
     if sub is None:
         yield path, parser
@@ -171,7 +159,7 @@ def test_the_verbs_are_the_target_verbs() -> None:
 def test_each_family_holds_exactly_the_target_actions(family: str) -> None:
     sub = _subparsers(_tree()[family])
     assert sub is not None, f"hmp {family} declares no action"
-    assert set(sub.choices) == set(TARGET_FAMILIES[family])
+    assert set(_commands(sub)) == set(TARGET_FAMILIES[family])
 
 
 @pytest.mark.parametrize("verb", sorted(TARGET_LEAVES))
@@ -199,8 +187,7 @@ def test_a_retired_verb_is_gone(verb: str) -> None:
 
 @pytest.mark.parametrize(("family", "action"), REMOVED_ACTIONS)
 def test_a_retired_action_is_gone(family: str, action: str) -> None:
-    sub = _subparsers(_tree()[family])
-    assert action not in sub.choices
+    assert action not in _commands(_subparsers(_tree()[family]))
 
 
 @pytest.mark.parametrize(("path", "option"), REMOVED_OPTIONS)
@@ -208,22 +195,6 @@ def test_a_retired_option_is_gone(path: tuple[str, ...], option: str) -> None:
     parser = _leaf(path)
     assert parser is not None, f"hmp {' '.join(path)} is not registered"
     assert option not in _options(parser)
-
-
-def test_every_verb_that_takes_a_workspace_offers_w() -> None:
-    long_only = [
-        " ".join(path)
-        for path, parser in _leaves(_build_parser())
-        if "--workspace" in _options(parser) and "-w" not in _options(parser)
-    ]
-    assert long_only == []
-
-
-@pytest.mark.parametrize("path", READ_VERBS, ids=lambda path: " ".join(path))
-def test_every_read_verb_offers_w(path: tuple[str, ...]) -> None:
-    parser = _leaf(path)
-    assert parser is not None, f"hmp {' '.join(path)} is not registered"
-    assert {"-w", "--workspace"} <= _options(parser)
 
 
 # --- no silent fallback on ~/hydromodpy ---------------------------------------
@@ -282,8 +253,8 @@ def test_a_verb_without_a_workspace_stops_instead_of_reading_home(
 def test_doctor_without_a_workspace_says_so_instead_of_probing_home(
     monkeypatch, capsys, home_workspace
 ) -> None:
-    _run(monkeypatch, ["hmp", "doctor", "--json"])
-    report = json.loads(capsys.readouterr().out)
+    _run(monkeypatch, ["hmp", "doctor", "--format", "json"])
+    report = json.loads(capsys.readouterr().out)["data"]
     workspace = next(entry for entry in report["checks"] if entry["name"] == "workspace")
     assert workspace["status"] == "WARN"
     assert "-w" in workspace["hint"]

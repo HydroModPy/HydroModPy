@@ -1,4 +1,4 @@
-"""xarray and file-based fields on cell centres, and their spatial mean."""
+"""xarray and file-based fields on cell centers, and their spatial mean."""
 
 from __future__ import annotations
 
@@ -143,7 +143,7 @@ def discretize_from_xarray(
     mesh: HydroMesh | None = None,
     source: str = _DATASET,
 ) -> dict[int, np.ndarray]:
-    """Reproject an xarray Dataset onto the cell centres, one value per cell.
+    """Reproject an xarray Dataset onto the cell centers, one value per cell.
 
     A nodata pixel is NaN, or equal to the ``nodata``, ``_FillValue`` or
     ``missing_value`` attribute of the variable. It is refused where a cell
@@ -324,7 +324,7 @@ def discretize_geotiff(
     mesh: HydroMesh | None = None,
     variable: str = _FORCING,
 ) -> dict[int, np.ndarray]:
-    """Read a GeoTIFF (single- or multi-band) and discretize onto the cell centres.
+    """Read a GeoTIFF (single- or multi-band) and discretize onto the cell centers.
 
     Multi-band GeoTIFFs are treated as temporal: one band per time step. With
     a simulation window, each period takes the mean of the same number of
@@ -439,7 +439,7 @@ def _refuse_rotation(src: Any, path: Path) -> None:
 
 
 def _pixel_centres(src: Any) -> tuple[np.ndarray, np.ndarray]:
-    """Return the x and y of the pixel centres of an open GeoTIFF, one axis each."""
+    """Return the x and y of the pixel centers of an open GeoTIFF, one axis each."""
     transform = src.transform
     x = np.array([transform[2] + (c + 0.5) * transform[0] for c in range(src.width)])
     y = np.array([transform[5] + (r + 0.5) * transform[4] for r in range(src.height)])
@@ -506,7 +506,7 @@ def _valid_means(
 
     A pixel is valid when it is finite. A slice with no valid pixel has no mean
     and is refused, naming the source, the slice and the footprint of the pixel
-    centres *x* and *y*.
+    centers *x* and *y*.
     """
     flat = stack.reshape(stack.shape[0], -1)
     valid = np.isfinite(flat)

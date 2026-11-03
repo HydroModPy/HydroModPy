@@ -77,7 +77,7 @@ step_value = "1 month"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [geographic]
@@ -85,7 +85,7 @@ crs_project = "EPSG:2154"
 
 # The outlet comes from the row of each site; the DEM is shared.
 [geographic.catchment]
-catch_def = "from_outlet_coord"
+kind = "from_outlet_coord"
 dem_init_path = "DEM_armorican_massif.tif"
 snap_dist = "150 m"
 buff_area = "10%"
@@ -121,8 +121,6 @@ extent = "watershed"
 
 [flow]
 param_list = ["K", "Sy", "Ss"]
-active_sinks_sources = ["recharge"]
-active_bc = ["drainage"]
 
 [flow.param.K.field]
 kind = "homogeneous"
@@ -140,6 +138,10 @@ unit = "m-1"
 value = 1e-5
 
 # A figure that fails is logged and the case goes on.
+
+[flow.bc.drainage]
+
+[flow.sinks_sources.recharge]
 [display]
 on_error = "warn"
 time = "2015-09-15"

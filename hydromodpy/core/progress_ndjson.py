@@ -17,7 +17,7 @@ noticing. Writing is gated on two things:
   at the cost of one ``os.environ.get`` per event.
 - the caller passing ``suppressed=True``: a repeated inner run (a
   calibration trial, a sweep child) is muted on the console by
-  ``core.progress.suppressed()``, and the sink honours the same flag so a
+  ``core.progress.suppressed()``, and the sink honors the same flag so a
   calibration of thousands of trials does not write three lines per trial
   forever. The outer run (the calibration itself) is acquired outside the
   suppressed block and keeps emitting.

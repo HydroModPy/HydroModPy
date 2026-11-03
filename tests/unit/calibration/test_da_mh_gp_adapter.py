@@ -1,7 +1,7 @@
 """Unit tests for :class:`hydromodpy.calibration.optim.adapters.da_mh_gp_adapter.DaMhGpOptimizer`.
 
 The DA-MH-GP sampler exposes the ask/tell Protocol. These tests exercise the
-high-level behaviour - smoke run, posterior-mode recovery, chain length - on
+high-level behavior - smoke run, posterior-mode recovery, chain length - on
 a cheap 2D quadratic RMSE surface. Heavier scientific checks live in
 ``tests/regression/fast/calibration/test_brutsaert_methods.py``.
 """
@@ -25,7 +25,7 @@ from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpa
 
 
 def _quadratic_space() -> ParameterSpace:
-    """A 2D parameter space with symmetric bounds centred on the origin."""
+    """A 2D parameter space with symmetric bounds centered on the origin."""
     return ParameterSpace(
         [
             CalibParameter(name="x", lower=-4.0, upper=4.0),

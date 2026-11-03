@@ -1,7 +1,7 @@
 """The per-cell discharge is routed on the descent D of the build, nothing else.
 
 The graph was once the steepest descent of the unfilled top, rebuilt per
-extraction with a per-output neighbourhood. It is now D's receivers: a pit of
+extraction with a per-output neighborhood. It is now D's receivers: a pit of
 the top no longer holds the water above it, a diagonal talweg is followed on a
 quad mesh, and a river CHD passes the water on, so the outlet keeps the
 domain sum.

@@ -2,7 +2,7 @@
 
 A figure of the stream network redraws the partition a trial scored. The trial
 cut it by the settings of its ``[calibration.outputs.<n>]`` network output: the
-seepage threshold, the neighbour graph, the rasterisation of the map and,
+seepage threshold, the neighbor graph, the rasterization of the map and,
 under the heads rule, where a head may land, the state it read and, in the two-bound mode, the extent rules and
 the years its ``scoring_window`` holds. A figure drawn with the defaults
 instead shows another partition than the one the numbers describe, so this
@@ -100,7 +100,7 @@ class NetworkCriterionSettings:
     observed_rasterization: ObservedRasterization = STREAM_CRITERION_DEFAULTS.observed_rasterization
     observed_position_accuracy_m: float | None = None
     heads_snap_radius_m: float = STREAM_CRITERION_DEFAULTS.heads_snap_radius_m
-    """Under the heads rule, how far a head may land from its point, in metres."""
+    """Under the heads rule, how far a head may land from its point, in meters."""
 
     heads_min_drained_area_km2: float = STREAM_CRITERION_DEFAULTS.heads_min_drained_area_km2
     """Under the heads rule, the drained area a landing cell needs, in km2."""
@@ -401,9 +401,9 @@ def _stored_steps(sim: Run) -> int:
 
 
 def _accuracy_m(value: Any, *, where: str) -> float | None:
-    """Return a sealed positional accuracy in metres, or None when unset.
+    """Return a sealed positional accuracy in meters, or None when unset.
 
-    A snapshot dumps a length as its magnitude in metres; a hand-written
+    A snapshot dumps a length as its magnitude in meters; a hand-written
     mapping may still carry its unit.
     """
     if value is None:

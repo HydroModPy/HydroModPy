@@ -9,6 +9,7 @@ from typing import Annotated, Literal
 from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import PositiveFloat, PositiveInt
 from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig
@@ -104,10 +105,12 @@ class Modflow6RuntimeConfig(HydroModelBase):
     mf6_outer_maximum: Annotated[PositiveInt, Profile.EXPERT] = Field(
         default=500,
         description="Maximum number of IMS outer iterations.",
+        json_schema_extra=field_metadata(unit="-"),
     )
     mf6_inner_maximum: Annotated[PositiveInt, Profile.EXPERT] = Field(
         default=500,
         description="Maximum number of IMS inner iterations.",
+        json_schema_extra=field_metadata(unit="-"),
     )
     mf6_inner_rclose: Annotated[PositiveFloat | None, Profile.EXPERT] = Field(
         default=None,
@@ -127,6 +130,7 @@ class Modflow6RuntimeConfig(HydroModelBase):
             "package feeds flow back to another (DRN to MVR to SFR); setting 0 "
             "then often converges faster."
         ),
+        json_schema_extra=field_metadata(unit="-"),
     )
     mf6_linear_acceleration: Annotated[Literal["CG", "BICGSTAB"] | None, Profile.EXPERT] = Field(
         default=None,
@@ -142,6 +146,7 @@ class Modflow6RuntimeConfig(HydroModelBase):
             "as wide as the matrix band, with a zero drop tolerance, gives a "
             "complete factorization. None keeps the preset default (5 for COMPLEX)."
         ),
+        json_schema_extra=field_metadata(unit="-"),
     )
     mf6_preconditioner_drop_tolerance: Annotated[float | None, Profile.EXPERT] = Field(
         default=None,
@@ -234,14 +239,17 @@ class Modflow6RuntimeConfig(HydroModelBase):
     mf6_rewet_wetfct: Annotated[PositiveFloat, Profile.EXPERT] = Field(
         default=0.1,
         description="MF6 NPF rewet WETFCT factor.",
+        json_schema_extra=field_metadata(unit="-"),
     )
     mf6_rewet_iwetit: Annotated[PositiveInt, Profile.EXPERT] = Field(
         default=1,
         description="MF6 NPF rewet IWETIT interval.",
+        json_schema_extra=field_metadata(unit="-"),
     )
     mf6_rewet_ihdwet: Annotated[int, Profile.EXPERT] = Field(
         default=0,
         description="MF6 NPF rewet IHDWET flag.",
+        json_schema_extra=field_metadata(unit="-"),
     )
     mf6_rewet_wetdry: Annotated[PositiveFloat, Profile.EXPERT] = Field(
         default=0.1,
@@ -263,6 +271,7 @@ class Modflow6ProcessSpecificConfig(HydroModelBase):
             "parameters 'K22', 'angle1', 'angle2' and 'angle3'; a tilt, or a K22 off the "
             "grid axes, turns XT3D on."
         ),
+        json_schema_extra=field_metadata(unit="-"),
     )
     evt_extinction_depth: Annotated[PositiveFloat, Profile.EXPERT] = Field(
         default=1.0,
@@ -272,6 +281,7 @@ class Modflow6ProcessSpecificConfig(HydroModelBase):
             "to this depth and stops below it, so a sustained climatic deficit can "
             "saturate near this value."
         ),
+        json_schema_extra=field_metadata(unit="m"),
     )
     lak_forcing_mode: Annotated[Literal["auto", "inline", "ts6"], Profile.EXPERT] = Field(
         default="auto",
@@ -289,6 +299,7 @@ class Modflow6ProcessSpecificConfig(HydroModelBase):
             "Period count above which 'auto' mode offloads a non-constant LAK "
             "forcing to a TS6 file."
         ),
+        json_schema_extra=field_metadata(unit="-"),
     )
 
 

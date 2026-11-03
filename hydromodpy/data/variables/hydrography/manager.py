@@ -1,10 +1,10 @@
-"""Hydrography variable manager: fetch, clip, rasterise.
+"""Hydrography variable manager: fetch, clip, rasterize.
 
 What this manager needs, and where each piece comes from
 --------------------------------------------------------
 It used to read a ``geographic`` object for **three** distinct things, only one
 of which was an extent: the project CRS, the polygon it clips to, and the
-reference grid it rasterises onto. The object is gone and the three are named:
+reference grid it rasterizes onto. The object is gone and the three are named:
 
 - the clip shape and the request box are one file, ``config.mask_path``, read
   through :func:`~hydromodpy.data.common.source_extent.mask_geometry`;
@@ -22,7 +22,7 @@ manager used to compute a WGS84 box, because the three fetch functions it
 dispatched to happened to want degrees. It now resolves the source the section
 names through :mod:`~hydromodpy.data.source.registry` and reads the CRS off it,
 so the literal is gone and a source answering in another frame is asked in that
-frame. What stayed is the catalogue: the superset lookup and the registration
+frame. What stayed is the catalog: the superset lookup and the registration
 are the manager's, because a source knows nothing of DuckDB and must not.
 """
 
@@ -74,7 +74,7 @@ logger = get_logger(__name__)
 
 
 class HydrographyManager(SourceTable):
-    """Load, clip, and rasterise hydrography vector data."""
+    """Load, clip, and rasterize hydrography vector data."""
 
     VARIABLE_NAME = "hydrography"
     """Name of the data type, as ``[data.hydrography]`` writes it."""
@@ -109,7 +109,7 @@ class HydrographyManager(SourceTable):
         self._data_dir = data_dir
 
     def load(self) -> LoadResult:
-        """Execute the full pipeline: fetch -> reproject -> clip -> rasterise."""
+        """Execute the full pipeline: fetch -> reproject -> clip -> rasterize."""
         # 1. Fetch from each source
         vector_gdfs: list[gpd.GeoDataFrame] = []
         tif_path: Path | None = None
@@ -152,7 +152,7 @@ class HydrographyManager(SourceTable):
         _write_shapefile(clipped, streams_path)
         permanent_path = self._write_permanent_network(clipped)
 
-        # 4. Rasterise
+        # 4. Rasterize
         rasterize_field = self.config.sources[0].rasterize_field
         tif_out = self._rasterize(streams_path, rasterize_field)
 
@@ -197,7 +197,7 @@ class HydrographyManager(SourceTable):
     # ------------------------------------------------------------------
 
     def _load_from_tif(self, tif_path: Path, *, inputs: list[dict[str, str]]) -> LoadResult:
-        """Clip a pre-rasterised TIF to the mask and return the result."""
+        """Clip a pre-rasterized TIF to the mask and return the result."""
         from rasterio.mask import mask as rio_mask
 
         mask_shape, mask_crs = mask_geometry(self._require_mask_path())
@@ -342,11 +342,11 @@ class HydrographyManager(SourceTable):
         NetworkCache(self._catalog, self._data_dir).store(gdf, source, bbox, question)
 
     # ------------------------------------------------------------------
-    # Rasterise / read helpers
+    # Rasterize / read helpers
     # ------------------------------------------------------------------
 
     def _rasterize(self, streams_path: Path, field: str) -> Path:
-        """Rasterise the clipped vector layer using the WhiteBox backend."""
+        """Rasterize the clipped vector layer using the WhiteBox backend."""
         shp_base = gpd.read_file(streams_path)
         shp_type = shp_base.geometry.type.iloc[0] if not shp_base.empty else "LineString"
 
@@ -454,7 +454,7 @@ class NetworkCache:
     ) -> gpd.GeoDataFrame | None:
         """Return cached GeoDataFrame if the catalog has a superset entry.
 
-        *bbox* is the box in the CRS the source declares, and the catalogue
+        *bbox* is the box in the CRS the source declares, and the catalog
         column carries no CRS of its own. The lookup is keyed on the source as
         well, so one source's entries are all in one frame; two sources in two
         frames never compare their boxes to each other.
@@ -500,7 +500,7 @@ class NetworkCache:
         ``dem_ign_geoplateforme_bdalti_25m_<hash>``), and kept in the CRS the
         source answered in. When the answer says which reaches are permanent,
         they go beside it as ``hydrography_<source>_permanent_<bbox hash>.gpkg``.
-        That copy is not registered: the catalogue serves the full answer, and a
+        That copy is not registered: the catalog serves the full answer, and a
         permanent copy whose full answer was subsumed is removed with it.
         """
         if self._catalog is None or self._data_dir is None:
@@ -588,7 +588,7 @@ def _in_crs(frame: gpd.GeoDataFrame, crs: object) -> gpd.GeoDataFrame:
 
 
 def _fetch_question(source: object) -> dict[str, object]:
-    """What *source* reports it was asked, in the shape the catalogue stores it."""
+    """What *source* reports it was asked, in the shape the catalog stores it."""
     metadata = getattr(source, "metadata", None)
     reported = metadata() if callable(metadata) else {}
     return json.loads(json.dumps(reported or {}, sort_keys=True, default=str))
@@ -639,7 +639,7 @@ def _write_permanent_copy(frame: gpd.GeoDataFrame, cache_path: Path, *, overwrit
 
 
 def _remove_orphan_permanent_copies(data_dir: Path) -> None:
-    """Delete the permanent copies whose full answer the catalogue removed."""
+    """Delete the permanent copies whose full answer the catalog removed."""
     for path in data_dir.glob(f"{_CACHE_PREFIX}_*_{_PERMANENT_PRODUCT}_*.gpkg"):
         full = path.with_name(path.name.replace(f"_{_PERMANENT_PRODUCT}_", "_", 1))
         if not full.exists():

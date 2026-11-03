@@ -37,7 +37,7 @@ mean residence time: **2.2 years**.
 | `mesh_map` | solver grid |
 | `piezometric_map` | water-table elevation |
 | `cross_section` | water table / substratum section |
-| `particle_tracks` | pathlines coloured by travel time |
+| `particle_tracks` | pathlines colored by travel time |
 | `residence_time_distribution` | travel-time density against the exponential law |
 | `water_budget` | budget per component |
 

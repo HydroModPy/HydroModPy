@@ -14,9 +14,9 @@ from hydromodpy.data.contracts.location import StationLocation
 def require_declared_crs(crs: object, *, path: Path | str, variable: str) -> str:
     """Return the CRS a user file declares, or refuse the file.
 
-    A file without a CRS used to be labelled EPSG:2154 or EPSG:4326 without a
+    A file without a CRS used to be labeled EPSG:2154 or EPSG:4326 without a
     word. Read in the wrong frame, it is cut by a box in another frame, or
-    placed kilometres away. No guess is made: the file names its CRS.
+    placed kilometers away. No guess is made: the file names its CRS.
     """
     text = "" if crs is None else str(crs).strip()
     if text:
@@ -27,6 +27,20 @@ def require_declared_crs(crs: object, *, path: Path | str, variable: str) -> str
         "'gdal_edit.py -a_srs EPSG:<code> <file>'; for a vector, "
         "'ogr2ogr -a_srs EPSG:<code> <new file> <file>', or a .prj file beside a shapefile."
     )
+
+
+def crs_of_a_user_file(crs: object, source_cfg: object, *, path: Path | str, variable: str) -> str:
+    """Return the CRS of a user file, or the ``default_crs`` the user wrote, or refuse.
+
+    The ``default_crs`` default (EPSG:2154) is never applied: only a value written in
+    the source table stands in for a file that declares none.
+    """
+    fields_set = getattr(source_cfg, "model_fields_set", ())
+    if "default_crs" in fields_set and not (crs is not None and str(crs).strip()):
+        written = str(getattr(source_cfg, "default_crs", "")).strip()
+        if written:
+            return written
+    return require_declared_crs(crs, path=path, variable=variable)
 
 
 def bbox_hash(bbox: tuple) -> str:

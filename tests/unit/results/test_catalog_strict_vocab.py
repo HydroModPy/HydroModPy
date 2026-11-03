@@ -1,9 +1,9 @@
-"""Strict vocabulary of solver codes.
+"""Vocabulary of solver codes.
 
-The index seeds ``solvers.code`` from ``index_schema.py`` and accepts those
-codes only. Legacy aliases like ``modflow6gwt`` and ``modflownwt`` are
-refused by :func:`validate_solver_code`, and a seal naming one is left out
-of the index with the reason in the report.
+The index seeds ``solvers.code`` from ``index_schema.py``. A name typed by a
+user is checked by :func:`validate_solver_code`, which refuses legacy aliases
+like ``modflow6gwt`` and ``modflownwt``. A seal naming a code the table does not
+hold is indexed all the same, and the code is added: a later 2.x may write one.
 """
 
 from __future__ import annotations
@@ -46,14 +46,13 @@ def test_validate_solver_code_lists_known_codes() -> None:
         assert known in msg
 
 
-def test_a_seal_naming_a_solver_outside_the_vocabulary_is_left_out_of_the_index(tmp_path):
+def test_a_seal_naming_a_solver_outside_the_vocabulary_is_still_indexed(tmp_path):
     root = make_project(tmp_path / "demo")
     seal_run(root, "canonical", solver="modflow_nwt")
-    seal_run(root, "legacy", solver="modflownwt")
+    seal_run(root, "later", solver="a_later_solver")
 
     report = rebuild_index(root)
 
-    assert [item.rel_dir for item in report.skipped] == ["runs/legacy"]
-    assert "unknown solver code" in report.skipped[0].reason
+    assert not report.skipped
     with Catalog(root) as catalog:
-        assert list(catalog.list_simulations()["name"]) == ["canonical"]
+        assert sorted(catalog.list_simulations()["name"]) == ["canonical", "later"]

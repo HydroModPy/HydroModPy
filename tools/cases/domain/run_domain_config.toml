@@ -25,7 +25,7 @@ dem_correc_type = "breach"
 # (dem_init_path, x_outlet, y_outlet, snap_dist, buff_area required).
 # 'from_polyg_shp' = watershed from a polygon shapefile
 # (dem_init_path, polyg_shp_path, buff_area required).
-catch_def = "from_outlet_coord"
+kind = "from_outlet_coord"
 
 # Path to the DEM raster used as input.
 # For 'dem' and 'txt' modes: defines the model domain directly.
@@ -72,7 +72,7 @@ substratum_elevation = 0.0
 [data]
 # Ordered list of data-manager types explicitly requested in [data].
 # The launcher may append inferred types deduced from other sections
-# (for example domain.zone_ids, flow.active_bc).
+# (for example domain.zone_ids, flow.bc.<name>).
 # Allowed values: 'geology', 'hydrography', 'hydrometry',
 # 'intermittency', 'oceanic', 'piezometry'.
 types = ["geology"]

@@ -65,7 +65,7 @@ def test_stage_one_keeps_the_scripts_mean_offset_and_nelder_mead(calibration) ->
 
 
 # The steady trace of a Nancon session run with these options on 2026-09-08:
-# log10 K against the mean offset, in metres. Nine solves, one of them a repeat.
+# log10 K against the mean offset, in meters. Nine solves, one of them a repeat.
 _NANCON_STEADY_TRACE = {
     -5.0: 287.3839080695424,
     -4.4: 186.641131046373,

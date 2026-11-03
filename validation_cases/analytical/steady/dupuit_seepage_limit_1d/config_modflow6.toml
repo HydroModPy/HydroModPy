@@ -7,7 +7,7 @@ description = "Synthetic steady hillslope draining at the surface, closed on bot
 
 [[simulation.process]]
 id = "flow_validation"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [geographic]
@@ -33,10 +33,11 @@ right_to_left_amplitude = 7.9
 kind = "flat_substratum"
 substratum_elevation = 0.0
 
+[domain.layers]
+nlay = 1
+
 [flow]
 flow_regime = "steady"
-active_sinks_sources = ["recharge"]
-active_bc = ["drainage"]
 param_list = ["K"]
 
 [flow.param.K.field]
@@ -45,11 +46,11 @@ kind = "homogeneous"
 value = "2.5e-4 m/s"
 
 [flow.ic]
-type = "top"
+kind = "top"
 
 [flow.bc.drainage]
 application_domain = "top"
-kind = "cauchy"
+kind = "drain"
 value = "0.0 m2/s"
 
 [flow.sinks_sources.recharge]
@@ -77,9 +78,6 @@ mf6_inner_rclose = 1e-11
 # that the limit was the iteration count and not the tolerance.
 mf6_outer_maximum = 1500
 mf6_inner_maximum = 500
-
-[modflow6.sgrid.vertical]
-nlay = 1
 
 [display]
 enabled = false

@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import argparse
-import sys
 from datetime import UTC, datetime
-from pathlib import Path
 
-from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
-from hydromodpy.cli.helpers import apply_verbosity, exit_code_for
-from hydromodpy.core.state.paths import resolve_project_root
+from hydromodpy.cli.conventions import (
+    confirm_parser,
+    dry_run_parser,
+    format_parser,
+    verbosity_parser,
+    workspace_parser,
+)
+from hydromodpy.cli.helpers import apply_verbosity, confirm, project_root_of
+from hydromodpy.cli.output import emit
 
 NAME: str = "trash"
 HELP: str = "List the trash of a project, or remove its entries for good with --empty"
@@ -19,14 +23,21 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        parents=[workspace_parser(), format_parser(), verbosity_parser()],
+        parents=[
+            workspace_parser(),
+            confirm_parser(),
+            dry_run_parser(),
+            format_parser(),
+            verbosity_parser(),
+        ],
         epilog=(
             "Each removed entry leaves a line in trash/tombstones.txt, so its name\n"
             "is never given to a new run.\n"
             "\n"
             "Examples:\n"
             "  hmp catalog trash\n"
-            "  hmp catalog trash --empty --force"
+            "  hmp catalog trash --empty --dry-run\n"
+            "  hmp catalog trash --empty --force -y"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -38,7 +49,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Include the pinned directories when emptying",
+        help="Go past the pin: remove the pinned directories too when emptying",
     )
     parser.set_defaults(_handler=run)
     return parser
@@ -48,38 +59,51 @@ def run(args: argparse.Namespace) -> None:
     apply_verbosity(args, {})
     from hydromodpy.results.trash import is_protected, list_trash, purge_trashed
 
-    root = resolve_project_root(
-        Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
-    )
+    root = project_root_of(args)
     entries = list_trash(root)
-
     if args.empty:
         doomed = [entry for entry in entries if args.force or not is_protected(entry.path)]
-        try:
-            purged = purge_trashed(root, doomed, now=datetime.now(UTC))
-        except Exception as exc:  # noqa: BLE001 - map IO errors to typed exit codes
-            print(str(exc), file=sys.stderr)
-            sys.exit(exit_code_for(exc))
+        if not args.dry_run:
+            confirm(
+                args,
+                f"Remove {len(doomed)} trashed director{'y' if len(doomed) == 1 else 'ies'} for good?",
+                doing="empty the trash",
+            )
+            purge_trashed(root, doomed, now=datetime.now(UTC))
         kept = len(entries) - len(doomed)
-        suffix = f" ({kept} pinned kept; --force removes them)" if kept else ""
-        print(
-            f"removed {len(purged)} trashed director{'y' if len(purged) == 1 else 'ies'}{suffix}."
+
+        def said() -> None:
+            verb = "would remove" if args.dry_run else "removed"
+            suffix = f" ({kept} pinned kept; --force removes them)" if kept else ""
+            noun = "directory" if len(doomed) == 1 else "directories"
+            print(f"{verb} {len(doomed)} trashed {noun}{suffix}.")
+
+        emit(
+            args,
+            "catalog trash empty",
+            {
+                "applied": not args.dry_run,
+                "removed": [entry.rel_dir for entry in doomed],
+                "kept_pinned": kept,
+            },
+            table=said,
         )
         return
 
-    if args.format == "json":
-        import json
+    def table() -> None:
+        if not entries:
+            print("trash is empty.")
+            return
+        print(f"# trash ({len(entries)} entr{'y' if len(entries) == 1 else 'ies'})")
+        for entry in entries:
+            print(f"  {entry.rel_dir}  {entry.trashed_at:%Y-%m-%d %H:%M}  {entry.name}")
 
-        rows = [
-            {"name": e.name, "rel_dir": e.rel_dir, "trashed_at": e.trashed_at.isoformat()}
-            for e in entries
-        ]
-        print(json.dumps(rows))
-        return
-
-    if not entries:
-        print("trash is empty.")
-        return
-    print(f"# trash ({len(entries)} entr{'y' if len(entries) == 1 else 'ies'})")
-    for entry in entries:
-        print(f"  {entry.rel_dir}  {entry.trashed_at:%Y-%m-%d %H:%M}  {entry.name}")
+    emit(
+        args,
+        "catalog trash",
+        [
+            {"name": entry.name, "rel_dir": entry.rel_dir, "trashed_at": entry.trashed_at}
+            for entry in entries
+        ],
+        table=table,
+    )

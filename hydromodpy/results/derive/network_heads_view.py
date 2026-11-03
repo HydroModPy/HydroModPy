@@ -42,7 +42,7 @@ class MapHeads:
     ``traced`` is a ``(n_cells,)`` bool mask on the criterion graph.
     ``head_xy`` and ``landing_xy`` pair row for row, kept heads only;
     ``lost_xy`` are the free ends no landing cell was found for. ``forced_xy``
-    are the centres of the forced heads, the foot of each dam of the run: they
+    are the centers of the forced heads, the foot of each dam of the run: they
     are not free ends of the map and have no landing. ``indices`` is
     :attr:`hydromodpy.core.stream_heads.HeadTrace.indices`.
     """
@@ -83,9 +83,9 @@ def network_heads_view_from_run(
 ) -> NetworkHeadsView:
     """Return the heads trace of a run, drawn under the heads rule.
 
-    The seepage threshold, the neighbour graph and the positional accuracy are
+    The seepage threshold, the neighbor graph and the positional accuracy are
     the run's sealed network output (:func:`network_criterion_settings`), or
-    the criterion's defaults when it sealed none. The rasterisation is always
+    the criterion's defaults when it sealed none. The rasterization is always
     ``"heads"``; its radius and area are the run's sealed ones when the output
     was scored with ``"heads"``, the criterion's defaults otherwise: the
     figure exists to show that rule, not whichever one scored the run.

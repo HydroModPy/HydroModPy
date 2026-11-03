@@ -88,7 +88,7 @@ def _streambed_face_arrays(
 
     A cross-section drawn against the land surface alone cannot say whether a
     reach is connected: MODFLOW switches on ``rtp - streambed_thickness``, which
-    sits metres lower. These two arrays put that threshold in the store.
+    sits meters lower. These two arrays put that threshold in the store.
     """
     spec = read_sfr_meta(solver_output_dir / f"{model_name}.sfr.meta.json")
     if spec is None or not spec.reaches:
@@ -1014,7 +1014,7 @@ class Modflow6OutputAdapter:
 
         A build that left no basin (no sidecar, a sidecar written before the
         basin was stored, an unreadable one) keeps the old support
-        ``polygon_centroid`` and says so: the cells whose centre the delineated
+        ``polygon_centroid`` and says so: the cells whose center the delineated
         watershed covers, read from the GRB rather than from the persisted mesh.
         The extractor checks the two against each other afterwards, so the mask
         agrees with the stored cells. A run without a watershed or a CRS keeps

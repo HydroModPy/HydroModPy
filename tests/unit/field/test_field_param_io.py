@@ -19,9 +19,9 @@ CSV_FIELD = (
     '[field]\nid = "K"\nkind = "heterogeneous"\nvalues_source = "csv"\nvalues_csv_file = "{csv}"\n'
     'csv_key_column = "zone_key"\ncsv_value_column = "property_value"\nfield_spatial_id = "field_geology"'
 )
-PROFILE = '\n[field_vertical_profile]\nmode = "exponential"\ncharacteristic_depth = '
+PROFILE = '\n[field_vertical_profile]\nkind = "exponential"\ncharacteristic_depth = '
 ZONES = 'kind = "heterogeneous"\nvalues = { granite = 1e-5, micaschists = 2e-6 }\nfield_spatial_id = "g"\n'
-DEPTH = 'mode = "exponential"\ncharacteristic_depth = 30.0\n'
+DEPTH = 'kind = "exponential"\ncharacteristic_depth = 30.0\n'
 
 
 @pytest.mark.parametrize(

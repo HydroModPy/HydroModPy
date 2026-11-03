@@ -121,11 +121,10 @@ def test_project_rerun_builds_from_snapshot_and_delegates_parent(
         captured["changes"] = changes
         return cfg
 
-    def _fake_simulate(self, *, name=None, lineage=None, **overrides):
+    def _fake_simulate(self, *, name=None, lineage=None):
         captured["name"] = name
         captured["parent_sim_id"] = self._ctx.parent_sim_id
         captured["lineage"] = lineage
-        captured["run_overrides"] = overrides
         return SimpleNamespace(sim_id="child")
 
     monkeypatch.setattr(HydroModPyConfig, "from_snapshot", classmethod(_fake_from_snapshot))
@@ -137,7 +136,7 @@ def test_project_rerun_builds_from_snapshot_and_delegates_parent(
         config_snapshot={"workflow": {"mode": "simulation"}},
     )
 
-    child = Project.rerun(parent, name="derived", set={"display.save": False}, K=2.0)
+    child = Project.rerun(parent, name="derived", set={"display.save": False})
 
     assert child.sim_id == "child"
     assert stub_project_phases["config"] is cfg
@@ -147,4 +146,3 @@ def test_project_rerun_builds_from_snapshot_and_delegates_parent(
     assert captured["parent_sim_id"] == "parent"
     assert captured["lineage"].kind == "rerun"
     assert captured["lineage"].overrides == {"display.save": False}
-    assert captured["run_overrides"]["K"] == 2.0

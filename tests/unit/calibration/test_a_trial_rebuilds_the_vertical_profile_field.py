@@ -27,7 +27,7 @@ def _base_flow_param() -> FlowParam:
     return FlowParam.model_validate(
         {
             "field": {"id": "K", "kind": "homogeneous", "unit": "m/s", "value": 1e-4},
-            "field_vertical_profile": {"mode": "exponential", "characteristic_depth": 10.0},
+            "field_vertical_profile": {"kind": "exponential", "characteristic_depth": 10.0},
         }
     )
 

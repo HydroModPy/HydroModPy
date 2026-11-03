@@ -1,4 +1,4 @@
-"""Public ``hmp.viz`` dispatcher exposed at the top level.
+"""The ``show`` dispatcher: one call that picks a plot for what ``hmp.read`` returns.
 
 Single-entry function ``show(data, downsample="auto", crs=None)`` that
 auto-dispatches based on the input type:
@@ -60,10 +60,10 @@ def show(
     Examples
     --------
     >>> import hydromodpy as hmp
-    >>> da = hmp.read(run, "head", time=-1, lazy=True)  # doctest: +SKIP
-    >>> fig = hmp.viz.show(da)  # doctest: +SKIP
+    >>> da = hmp.read(run, "head", time=-1)  # doctest: +SKIP
+    >>> fig = show(da)  # doctest: +SKIP
     >>> ts = hmp.read(run, "discharge", sel={"station": "outlet"})  # doctest: +SKIP
-    >>> hmp.viz.show(ts, downsample="lttb", n_out=2_000)  # doctest: +SKIP
+    >>> show(ts, downsample="lttb", n_out=2_000)  # doctest: +SKIP
     """
     import matplotlib.pyplot as plt
 
@@ -88,7 +88,7 @@ def show(
         return fig
 
     raise TypeError(
-        "hmp.viz.show expects an xarray.DataArray, pandas.Series, or "
+        "show expects an xarray.DataArray, pandas.Series, or "
         f"geopandas.GeoDataFrame; got {type(data).__name__}"
     )
 

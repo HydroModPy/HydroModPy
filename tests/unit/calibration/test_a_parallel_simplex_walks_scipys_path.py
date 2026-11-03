@@ -87,7 +87,7 @@ def _adapter_simplex(x0: np.ndarray, lower: np.ndarray, upper: np.ndarray) -> np
     return simplex
 
 
-# name: (function, (lower, upper), x0 or None for the centre, options)
+# name: (function, (lower, upper), x0 or None for the center, options)
 CASES: dict[str, tuple[Callable, tuple, tuple | None, dict]] = {
     "bowl_1d": (_bowl((0.3,)), _box((0.0,), (1.0,)), None, {"maxiter": 100, "maxfev": 100}),
     "bowl_2d": (

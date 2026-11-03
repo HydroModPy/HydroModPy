@@ -1,4 +1,4 @@
-"""Authentication and authorisation backends for HydroModPy.
+"""Authentication and authorization backends for HydroModPy.
 
 Defines :class:`AuthBackend`, a structural :class:`typing.Protocol` that
 every concrete backend implements (e.g. :class:`LocalAuthBackend`).

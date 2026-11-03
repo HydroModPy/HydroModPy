@@ -16,7 +16,7 @@ def test_recharge_target_reads_the_unit_of_the_recharge_block(units: str) -> Non
             "workflow": {"mode": "simulation"},
             "workspace": {"project_root": "."},
             "site": {"name": "site_a"},
-            "geographic": {"catchment": {"catch_def": "dem", "dem_init_path": "dem.tif"}},
+            "geographic": {"catchment": {"kind": "dem", "dem_init_path": "dem.tif"}},
         }
     )
     cfg.flow.sinks_sources.recharge = FlowRechargeConfig(units=units, values=1.0)

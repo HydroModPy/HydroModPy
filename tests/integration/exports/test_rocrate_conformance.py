@@ -111,7 +111,7 @@ def test_rocrate_json_schema_fallback(fair_context):
 
 
 def test_rocrate_parsed_by_reference_library(fair_context, tmp_path: Path):
-    """The serialised crate loads cleanly via the ResearchObject ``rocrate`` lib."""
+    """The serialized crate loads cleanly via the ResearchObject ``rocrate`` lib."""
     pytest.importorskip("rocrate")
     from rocrate.rocrate import ROCrate
 

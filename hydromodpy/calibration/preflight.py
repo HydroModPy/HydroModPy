@@ -88,6 +88,7 @@ def preflight_calibration(config: Any, *, source: str | Path) -> list[PreflightF
     findings.extend(_check_the_network_search_can_trust_its_release_packages(calibration, searched))
     findings.extend(_check_the_minimal_maps_are_there(calibration, where_from))
     findings.extend(_check_an_extent_is_scored_on_a_transient_run(calibration, searched))
+    findings.extend(_check_the_extent_durations_fit_the_timestep(calibration, searched))
     findings.extend(_check_a_network_estimator_names_its_network_output(calibration))
     findings.extend(
         _check_the_scoring_windows_hold_what_they_score(calibration, searched, where_from)
@@ -362,9 +363,18 @@ def protocol_lines(cfg: Any) -> tuple[list[str], list[str]]:
     # Where this run departs from the publication it cites. A reader comparing a
     # result to the literature needs this before the run, not after.
     always: list[str] = []
-    for item in deviations_in_force(cfg.calibration, getattr(cfg, "geographic", None)):
+    for item in deviations_in_force(
+        cfg.calibration,
+        getattr(cfg, "geographic", None),
+        getattr(getattr(cfg, "metrics", None), "window", None),
+    ):
         told = f"{item.here} (paper: {item.paper})"
-        suffix = f" - this file sets {_rendered(item.value)}" if item.written else ""
+        if item.written:
+            suffix = f" - this file sets {_rendered(item.value)}"
+        elif item.value is not None:
+            suffix = f" - value in force: {_rendered(item.value)}"
+        else:
+            suffix = ""
         if item.state == "always":
             always.append(item.key)
             verbose.append(f"  always differs from the paper on {item.key}: {told}")
@@ -677,7 +687,7 @@ def _check_outputs(calibration: Any, source: Path, project_config: Any) -> list[
     The geometry is looked for exactly where the run looks for it, so a file
     preflight calls missing is one the run would call missing too. A declared
     ``observed_network`` or ``minimal_observed_network`` is faced with the
-    project the same way a parameter's name is faced with the catalogue:
+    project the same way a parameter's name is faced with the catalog:
     refused here beside whatever else is wrong, rather than at the first trial.
     """
     from hydromodpy.calibration.observations.network_source import (
@@ -1214,7 +1224,7 @@ def _budgets(calibration: Any) -> list[tuple[str, str, list[str], Any, float | N
 def _check_the_interval_widths(calibration: Any) -> list[PreflightFinding]:
     """Refuse a share of the best cost on a search scored only by network distances.
 
-    A share is a fraction of the best cost. A network distance is in metres and
+    A share is a fraction of the best cost. A network distance is in meters and
     solved at zero, so a fraction of it says nothing about how far a stream may
     move. The width is read after the last solve, so this is where it is named,
     before any of it is paid for.
@@ -1424,7 +1434,7 @@ def _search_candidates(calibration: Any) -> list[tuple[Any | None, str, list[str
 def _outputs_scored_by_search(calibration: Any, phase: Any | None) -> dict[str, Any]:
     """Return the outputs one search scores, keyed by name.
 
-    Generalises the selection :func:`_linearized_scored_outputs` builds for a
+    Generalizes the selection :func:`_linearized_scored_outputs` builds for a
     linearized width to every search: naming no block reads every declared
     output, naming no output reads what the blocks read. A single-metric
     phase (its own ``variable``/``objective`` instead of blocks) never turns
@@ -1505,7 +1515,7 @@ def _check_the_network_search_can_trust_its_release_packages(
 ) -> list[PreflightFinding]:
     """Refuse a K-moving network search next to an SFR or LAK with a fixed conductance.
 
-    Checked against the ``flow.active_bc`` of the model each search runs: a
+    Checked against the boundaries the model of each search declares: a
     phase that turns a package off through its own ``overrides``, as
     ``auto_sfr_drn.toml`` does, is checked without it.
     """
@@ -1609,6 +1619,65 @@ def _check_an_extent_is_scored_on_a_transient_run(
                     "state, without the extent table, or run the search transient.",
                 )
             )
+    return findings
+
+
+def _check_the_extent_durations_fit_the_timestep(
+    calibration: Any, searched: Mapping[str | None, Any]
+) -> list[PreflightFinding]:
+    """Refuse extent durations the timestep of a search cannot read.
+
+    The scoring counts the rules in timesteps of a complete year and refuses
+    them at the first trial (``extent_step_problems``). The same test runs here
+    on the nominal year of the step the search runs, before any budget is spent.
+    A phase that overrides the step is left to that first trial.
+    """
+    from hydromodpy.core.stream_extent import (
+        dry_steps,
+        extent_step_problems,
+        flowing_steps,
+        parse_extent_duration,
+    )
+    from hydromodpy.core.time.window import nominal_step_days
+
+    findings: list[PreflightFinding] = []
+    for phase, _where, _ in _search_candidates(calibration):
+        config = _config_of(searched, phase)
+        overrides = getattr(phase, "overrides", None) or {}
+        if config is None or any(str(key).startswith("simulation.time") for key in overrides):
+            continue
+        time = getattr(getattr(config, "simulation", None), "time", None)
+        value = getattr(time, "step_value", None)
+        unit = getattr(time, "step_unit", None)
+        if value is None or unit is None:
+            continue
+        step_days = nominal_step_days(value, unit)
+        for name, output in sorted(_outputs_scored_by_search(calibration, phase).items()):
+            extent = getattr(output, "extent", None)
+            if extent is None:
+                continue
+            try:
+                maximal = flowing_steps(
+                    parse_extent_duration(extent.maximal_flowing_duration), step_days
+                )
+                dry = dry_steps(parse_extent_duration(extent.minimal_dry_duration), step_days)
+            except ValueError:
+                continue
+            problems = extent_step_problems(
+                [max(1, round(365.0 / step_days))],
+                maximal_flowing_steps=maximal,
+                minimal_dry_steps=dry,
+            )
+            if problems:
+                findings.append(
+                    PreflightFinding(
+                        "error",
+                        f"[calibration.outputs.{name}.extent]",
+                        f"maximal_flowing_duration = {extent.maximal_flowing_duration!r} and "
+                        f"minimal_dry_duration = {extent.minimal_dry_duration!r} cannot be "
+                        f"read on a timestep of {step_days:g} days: " + "; ".join(problems) + ".",
+                    )
+                )
     return findings
 
 

@@ -1,7 +1,7 @@
 """Planar cell meshes for the solver and workflow unit tests.
 
 ``cell_mesh_of`` wraps a hand-built planar ``HydroMesh`` into the
-``PlanarCellMesh`` the solvers read. Centres are the vertex means. Not public
+``PlanarCellMesh`` the solvers read. Centers are the vertex means. Not public
 API.
 """
 
@@ -21,7 +21,7 @@ TEST_CRS_WKT = 'PROJCS["test",GEOGCS["test"]]'
 
 
 def cell_mesh_of(mesh: HydroMesh) -> PlanarCellMesh:
-    """Wrap a planar mesh with its vertex-mean centres and no family."""
+    """Wrap a planar mesh with its vertex-mean centers and no family."""
     x_centers, y_centers = mesh.cell_centroids()
     return build_planar_cell_mesh(
         mesh,

@@ -3,7 +3,7 @@
 Two routes reach an optimizer, the protocol writing stages and a file writing
 them by hand, and both funnel through one build site. What is gated here is the
 journey: a precision declared on a protocol stage has to arrive on the phase, and
-one that no engine can honour has to be refused before the first solve rather
+one that no engine can honor has to be refused before the first solve rather
 than when that phase finally starts.
 """
 

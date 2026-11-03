@@ -156,7 +156,7 @@ def test_has_field_implies_field_reads_back(surface_run):
 
     for variable in sorted(HEAD_DERIVED_VIRTUAL_FIELDS):
         assert run.has_field(variable), variable
-        values = run.field(variable, timestep=-1)
+        values = run.field(variable, time=-1)
         assert np.asarray(values).shape == (2,), variable
 
 

@@ -53,22 +53,22 @@ DOMAIN = box(X0, Y0, X0 + 400.0, Y0 + 300.0)
 
 
 def at(x: float, y: float) -> tuple[float, float]:
-    """A point given in metres from the south-west corner of ``DOMAIN``."""
+    """A point given in meters from the south-west corner of ``DOMAIN``."""
     return (X0 + x, Y0 + y)
 
 
 def line(*points: tuple[float, float]) -> LineString:
-    """A line given in metres from the domain corner."""
+    """A line given in meters from the domain corner."""
     return LineString([at(*point) for point in points])
 
 
 def ring(*points: tuple[float, float]) -> LineString:
-    """A closed line through *points*, given in metres from the domain corner."""
+    """A closed line through *points*, given in meters from the domain corner."""
     return line(*points, points[0])
 
 
 def polar(origin: tuple[float, float], length: float, angle_deg: float) -> tuple[float, float]:
-    """The point *length* metres from *origin* at *angle_deg* counter-clockwise from east."""
+    """The point *length* meters from *origin* at *angle_deg* counter-clockwise from east."""
     a = math.radians(angle_deg)
     return (origin[0] + length * math.cos(a), origin[1] + length * math.sin(a))
 
@@ -102,7 +102,7 @@ def with_holes(*holes: Polygon) -> Polygon:
 
 
 def banded_field(west: float, east: float, fine: float, coarse: float) -> SizeField:
-    """A field of *coarse* metres with a north-south band of *fine* metres between *west* and *east*."""
+    """A field of *coarse* meters with a north-south band of *fine* meters between *west* and *east*."""
     grid = grid_over(DOMAIN, PIXEL)
     x = grid.xmin + (np.arange(grid.ncol) + 0.5) * grid.dx - X0
     row = np.where((x >= west) & (x < east), fine, coarse)
@@ -191,7 +191,7 @@ def assert_the_shore_stretch_is_fed_once(plan: ConstraintPlan) -> None:
 
 
 def slot_domain(width: float) -> Polygon:
-    """``DOMAIN`` cut by a slot *width* metres wide from its north side down to 80 m."""
+    """``DOMAIN`` cut by a slot *width* meters wide from its north side down to 80 m."""
     west, east = 200.0 - 0.5 * width, 200.0 + 0.5 * width
     return Polygon(
         [at(0, 0), at(400, 0), at(400, 300), at(east, 300), at(east, 80), at(west, 80)]
@@ -427,7 +427,7 @@ def test_the_constraint_seeds_lie_in_the_domain(name: str) -> None:
 POINTS = st.tuples(
     st.integers(40, 760).map(lambda x: x / 2.0), st.integers(40, 560).map(lambda y: y / 2.0)
 )
-"""A point of the catchment on a half-metre grid, 20 m at least from its edge."""
+"""A point of the catchment on a half-meter grid, 20 m at least from its edge."""
 
 POLYLINES = st.lists(POINTS, min_size=2, max_size=4, unique=True)
 
@@ -1220,7 +1220,7 @@ SHORE_RIVER = LineString(
 
 @functools.cache
 def shore_beside_a_river() -> PlanarCellMesh:
-    """A lake shore with a river running ten metres from it, meshed at 40 m (fix of 2026-10-20)."""
+    """A lake shore with a river running ten meters from it, meshed at 40 m (fix of 2026-10-20)."""
     return voronoi_lake_mesh(
         shapely.normalize(SHORE_LAKE),
         domain=box(X0, Y0, X0 + 1200.0, Y0 + 900.0),

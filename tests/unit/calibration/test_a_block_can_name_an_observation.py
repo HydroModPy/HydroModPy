@@ -3,7 +3,7 @@
 Two routes to a cost coexisted and excluded each other. ``variable`` +
 ``objective`` aligns genuine chronicles on their dates, but averages the
 stations it scores and cannot weight them. ``outputs`` +
-``objective_blocks`` weights, normalises and persists the per-block
+``objective_blocks`` weights, normalizes and persists the per-block
 diagnostics, but read only ``observed_values``: a vector typed into the TOML
 by hand, positional, with no dates. So "the outlet carries 65 % of the cost,
 the piezometer 25 %, the lake 10 %" was expressible only against numbers
@@ -317,7 +317,7 @@ class TestTheExtractor:
         assert components["piezo.n_paired"] == 2.0
 
     def test_the_weights_decide_how_much_each_target_carries(self, monkeypatch) -> None:
-        """One metre of error on the piezometer, one m3/s on the outlet."""
+        """One meter of error on the piezometer, one m3/s on the outlet."""
         from hydromodpy.calibration.metrics.composite import build_metric_extractor
 
         self._extracted(monkeypatch, sim_outlet=[2.0, 3.0], sim_piezo=[41.0, 42.0])

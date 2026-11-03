@@ -4,8 +4,8 @@ Each refinement target is a term: a size on a region, then a ramp outward
 whose slope never exceeds ``max_slope``. The field is the minimum of the
 background and of every term, clipped between the DEM pixel and the outside
 size. Distances come from an exact Euclidean distance transform between
-pixel centres, so each term is Lipschitz with its own slope, and so is the
-minimum: the size of two neighbouring cells never differs by more than
+pixel centers, so each term is Lipschitz with its own slope, and so is the
+minimum: the size of two neighboring cells never differs by more than
 ``max_slope`` times their distance. A region is a geometry, burnt with every
 pixel it touches, or a :class:`PixelRegion`, the pixels of the grid a
 criterion selected. The sizes, ramps and slopes come from ``[mesh]``, which
@@ -72,7 +72,7 @@ class SizeTerm:
 
     A geometry ``region`` is burnt with every pixel it touches, a
     :class:`PixelRegion` is taken as it is. Outside, the size grows by
-    ``(h0 - size_m) / ramp_m`` per metre, never faster than ``max_slope``. A
+    ``(h0 - size_m) / ramp_m`` per meter, never faster than ``max_slope``. A
     pixel region that selects no pixel refines nothing.
     """
 
@@ -140,7 +140,7 @@ def build_size_field(
 
 
 def _distance_to(region: BaseGeometry | PixelRegion, grid: RasterGridSpec) -> np.ndarray | None:
-    """Distance in metres from each pixel centre to the pixels *region* touches, or None."""
+    """Distance in meters from each pixel center to the pixels *region* touches, or None."""
     if isinstance(region, PixelRegion):
         if region.grid != grid:
             raise MeshRequestError("a pixel region lies on another grid than the size field")
@@ -171,7 +171,7 @@ def _reduced(field: SizeField) -> SizeField:
     nrow = math.ceil(grid.nrow / block)
     ncol = math.ceil(grid.ncol / block)
     # Edge padding keeps the block minimum Lipschitz: a padded pixel copies its
-    # nearest pixel, which is never farther from a neighbouring block.
+    # nearest pixel, which is never farther from a neighboring block.
     padded = np.pad(
         field.values,
         ((0, nrow * block - grid.nrow), (0, ncol * block - grid.ncol)),

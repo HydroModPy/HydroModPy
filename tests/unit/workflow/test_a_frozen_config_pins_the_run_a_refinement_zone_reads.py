@@ -75,7 +75,7 @@ def _config(project: Path, *zones: dict) -> HydroModPyConfig:
             "workspace": {"project_root": str(project)},
             "site": {"name": "site_a"},
             "geographic": {
-                "catchment": {"catch_def": "dem", "dem_init_path": "dem.tif"},
+                "catchment": {"kind": "dem", "dem_init_path": "dem.tif"},
                 "river_network": {"threshold_area_km2": 0.5},
             },
             "mesh": {

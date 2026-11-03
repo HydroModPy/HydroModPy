@@ -110,7 +110,7 @@ def _lake_definition(geometry: PleasantTransientGeometry, *, period: int) -> dic
         "polygon": None,
         "bedleak": geometry.bedleak_per_s,
         "abacus": _abacus(geometry),
-        "stageinit": geometry.stage_init_m,
+        "initial_stage": geometry.stage_init_m,
         "rainfall": {"value": geometry.rainfall_m_per_s[period], "units": "m/s"},
         "evaporation": {"value": geometry.evaporation_m_per_s[period], "units": "m/s"},
         "runoff": {"value": geometry.runoff_m3_per_s[period], "units": "m3/s"},
@@ -337,7 +337,7 @@ def _last_value_per_period(values: list[float], n_periods: int) -> tuple[float, 
 def run_hmp(
     workspace: Path, *, geometry: PleasantTransientGeometry | None = None
 ) -> TransientLakeRunResult:
-    """Build, run, and summarise the transient multi-layer HMP LAK build."""
+    """Build, run, and summarize the transient multi-layer HMP LAK build."""
     geom = geometry if geometry is not None else load_geometry()
     sim, gwf, connectiondata = build_hmp_simulation(workspace, geometry=geom)
     sim.write_simulation(silent=True)

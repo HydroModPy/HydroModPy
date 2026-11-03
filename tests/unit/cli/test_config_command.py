@@ -70,7 +70,7 @@ def test_config_schema_forwards_section_profile_and_output(monkeypatch, tmp_path
             "flow",
             "--profile",
             "expert",
-            "--out",
+            "--to",
             str(out),
         ]
     )
@@ -90,7 +90,7 @@ def test_config_schema_editor_writes_the_published_editor_schema(monkeypatch, tm
         lambda: {"$comment": "editor", "properties": {"base_config": {}}},
     )
 
-    result = CliRunner().invoke(["config", "schema", "--editor", "--out", str(out)])
+    result = CliRunner().invoke(["config", "schema", "--editor", "--to", str(out)])
 
     assert result.exit_code == 0
     assert f"Written to: {out}" in result.stderr
@@ -130,7 +130,7 @@ def test_config_template_list_modules_prints_modules_without_generating(
 
 def test_config_resolve_prints_the_merged_chain(tmp_path) -> None:
     (tmp_path / "base.toml").write_text(
-        '[[export]]\nvariables = "head"\ntime = "last"\n\n[flow]\nactive_bc = ["drainage"]\n',
+        '[[export]]\nvariables = "head"\ntime = "last"\n\n[flow]\nflow_regime = "steady"\n',
         encoding="utf-8",
     )
     child = tmp_path / "child.toml"
@@ -144,7 +144,7 @@ def test_config_resolve_prints_the_merged_chain(tmp_path) -> None:
     assert result.exit_code == 0
     assert tomllib.loads(result.stdout) == {
         "export": [{"variables": "budget"}],
-        "flow": {"active_bc": ["drainage"]},
+        "flow": {"flow_regime": "steady"},
     }
 
 
@@ -181,7 +181,7 @@ def test_config_check_names_a_recipe_that_cannot_be_read(tmp_path) -> None:
 def test_config_template_without_modules_holds_no_sites_section(tmp_path) -> None:
     template = tmp_path / "tpl.toml"
 
-    result = CliRunner().invoke(["config", "template", str(template)])
+    result = CliRunner().invoke(["config", "template", "--to", str(template)])
 
     assert result.exit_code == 0, result.stderr
     assert "[sites" not in template.read_text(encoding="utf-8")
@@ -193,7 +193,7 @@ def test_config_template_without_modules_holds_no_sites_section(tmp_path) -> Non
 def test_config_template_writes_sites_only_when_asked(tmp_path) -> None:
     template = tmp_path / "sites.toml"
 
-    result = CliRunner().invoke(["config", "template", str(template), "--modules", "sites"])
+    result = CliRunner().invoke(["config", "template", "--to", str(template), "--modules", "sites"])
 
     assert result.exit_code == 0, result.stderr
     assert "[sites" in template.read_text(encoding="utf-8")
@@ -201,12 +201,12 @@ def test_config_template_writes_sites_only_when_asked(tmp_path) -> None:
 
 def test_the_full_template_fails_its_check_only_on_the_catchment_to_choose(tmp_path) -> None:
     template = tmp_path / "full.toml"
-    assert CliRunner().invoke(["config", "template", str(template)]).exit_code == 0
+    assert CliRunner().invoke(["config", "template", "--to", str(template)]).exit_code == 0
 
     checked = CliRunner().invoke(["config", "check", str(template)])
 
     output = checked.stderr + checked.stdout
     assert checked.exit_code != 0
     assert "1 validation error(s)" in output, output
-    assert "geographic.catchment.catch_def is required" in output
+    assert "geographic.catchment.kind is required" in output
     assert "crossings" not in output

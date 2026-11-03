@@ -23,7 +23,6 @@ from hydromodpy.core.logging import get_logger
 if TYPE_CHECKING:
     from hydromodpy.config import HydroModPyConfig
     from hydromodpy.project.facade import Project
-    from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
 logger = get_logger(__name__)
 
@@ -38,6 +37,7 @@ def configure(
 ) -> None:
     """Resolve the config, time grid and data plan, then build an empty ctx."""
     from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.core.config_kit.base import thawed_copy
     from hydromodpy.core.state.paths import refuse_a_sealed_run_as_project
     from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.core.time import (
@@ -49,6 +49,7 @@ def configure(
     from hydromodpy.spatial.domain.spatial_support import (
         build_default_spatial_support_provider_registry,
     )
+    from hydromodpy.spatial.geographic.river_network_config import river_network_for_the_mesh
     from hydromodpy.workflow.steps.data import log_data_plan
     from hydromodpy.workflow.steps.setup import (
         collect_requested_support_ids,
@@ -58,7 +59,8 @@ def configure(
 
     if isinstance(config, HydroModPyConfig):
         project._config_path = None
-        project._cfg = config
+        # A frozen copy opens a project of its own: the phases below write in this object.
+        project._cfg = thawed_copy(config)
         raw_toml: dict = {}
     else:
         project._config_path = Path(config).resolve()
@@ -281,7 +283,7 @@ def _refuse_another_solver(cfg: HydroModPyConfig, solver: str | None) -> None:
     declared = [
         name
         for process in cfg.simulation.process or ()
-        if process.type == "flow"
+        if process.kind == "flow"
         for name in process.solvers
     ]
     if solver and declared and solver not in declared:
@@ -296,9 +298,9 @@ def detect_solver(project: Project) -> str:
     sim = project._cfg.simulation
     if sim.process:
         for proc in sim.process:
-            if proc.type == "flow" and proc.solvers:
+            if proc.kind == "flow" and proc.solvers:
                 return proc.solvers[0]
-        if all(proc.type == "mesh" for proc in sim.process):
+        if all(proc.kind == "mesh" for proc in sim.process):
             return "mesh"
     solver_cfg = getattr(project._cfg, "solver", None)
     engine = getattr(solver_cfg, "backend_name", None) if solver_cfg else None
@@ -307,27 +309,6 @@ def detect_solver(project: Project) -> str:
     raise ConfigMissingError(
         "No flow solver declared. Add a [[simulation.process]] entry with "
         "type='flow' or set [solver.backend]."
-    )
-
-
-def river_network_for_the_mesh(cfg: HydroModPyConfig) -> GeographicConfig:
-    """Return ``cfg.geographic`` with ``[geographic.river_network]`` on when the mesh needs it.
-
-    The rule is :meth:`MeshConfig.requires_river_trace`. The config refused a
-    mesh that needs the network without its threshold when it loaded, so the
-    network can be switched on as it is.
-    """
-    geographic = cfg.geographic
-    network = geographic.river_network
-    if network.enabled or cfg.mesh is None:
-        return geographic
-    active_bc = {str(bc).strip().lower() for bc in cfg.flow.active_bc}
-    if not cfg.mesh.requires_river_trace(
-        active_bc=active_bc, synthetic=geographic.uses_synthetic_geographic()
-    ):
-        return geographic
-    return geographic.model_copy(
-        update={"river_network": network.model_copy(update={"enabled": True})}, deep=True
     )
 
 

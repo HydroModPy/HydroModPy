@@ -63,10 +63,8 @@ OBJECTS: tuple[tuple[str, str], ...] = (
     ("Catalog", "hydromodpy.results.catalog.facade:Catalog"),
     ("Session", "hydromodpy.results.session.view:Session"),
     ("Workspace", "hydromodpy.project.accessors:Workspace"),
-    ("hmp.Workspace", "hydromodpy.core.workspace.workspace:Workspace"),
 )
-"""The objects a user holds. ``hmp.open`` returns the first ``Workspace``, ``hmp.Workspace``
-is the second, until the two names part."""
+"""The objects a user holds."""
 
 _ADDRESS = re.compile(r" at 0x[0-9a-fA-F]+")
 
@@ -313,6 +311,13 @@ def _description_rows(document: dict[str, Any], label: str) -> Iterator[str]:
             yield f"{label} {key}\t{_digest(value)}"
 
 
+def pipeline_steps() -> list[str]:
+    """The names of the steps of a simulation, with their order."""
+    from hydromodpy.core.pipeline_steps import STEP_NAMES
+
+    return [f"{name}\t{index:02d}" for index, name in enumerate(STEP_NAMES)]
+
+
 def processes() -> list[str]:
     """The process descriptions a build ships, one row per input and output."""
     from importlib.resources import files
@@ -332,6 +337,7 @@ SURFACES: dict[str, Callable[[], list[str]]] = {
     "exit_codes.tsv": exit_codes,
     TOML_SURFACE: toml_fields,
     "processes.tsv": processes,
+    "pipeline_steps.tsv": pipeline_steps,
 }
 
 

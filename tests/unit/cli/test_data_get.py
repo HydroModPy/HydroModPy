@@ -60,7 +60,7 @@ def test_help_names_both_forms(monkeypatch, capsys) -> None:
     assert code == 0
     out = " ".join(capsys.readouterr().out.split())
     assert "REQUEST_OR_VARIABLE" in out
-    assert "--bbox" in out and "--out" in out
+    assert "--bbox" in out and "--to" in out
     assert "bbox=-" in out
 
 
@@ -79,7 +79,7 @@ def test_a_variable_is_served_from_the_options(monkeypatch, tmp_path, capsys, hu
             "2020-01-01",
             "--end",
             "2020-01-31",
-            "--out",
+            "--to",
             str(out),
         ],
     )
@@ -104,7 +104,7 @@ def test_a_request_document_is_served(monkeypatch, tmp_path, hubeau_stub) -> Non
         encoding="utf-8",
     )
     out = tmp_path / "out"
-    code = _run(monkeypatch, ["hmp", "data", "get", str(document), "--out", str(out)])
+    code = _run(monkeypatch, ["hmp", "data", "get", str(document), "--to", str(out)])
     assert code == 0
     report = json.loads((out / "request.json").read_text(encoding="utf-8"))
     assert report["files"][0]["path"] is not None
@@ -125,7 +125,7 @@ def test_a_negative_bbox_parses_with_the_equals_form(monkeypatch, tmp_path, hube
             "2020-01-01",
             "--end",
             "2020-01-31",
-            "--out",
+            "--to",
             str(tmp_path / "out"),
         ],
     )
@@ -151,7 +151,7 @@ def test_a_failed_variable_exits_with_the_validation_code(monkeypatch, tmp_path,
             "2020-01-01",
             "--end",
             "2020-01-31",
-            "--out",
+            "--to",
             str(tmp_path / "out"),
         ],
     )
@@ -163,7 +163,7 @@ def test_a_failed_variable_exits_with_the_validation_code(monkeypatch, tmp_path,
 def test_an_unknown_variable_is_a_config_error(monkeypatch, tmp_path, capsys) -> None:
     code = _run(
         monkeypatch,
-        ["hmp", "data", "get", "not_a_var", "--stations", "X", "--out", str(tmp_path)],
+        ["hmp", "data", "get", "not_a_var", "--stations", "X", "--to", str(tmp_path)],
     )
     assert code == 14
     assert "Unknown variable" in capsys.readouterr().err
@@ -176,7 +176,7 @@ def test_an_unknown_variable_is_a_config_error(monkeypatch, tmp_path, capsys) ->
 )
 def test_an_incomplete_extent_is_a_config_error(monkeypatch, tmp_path, capsys, selector) -> None:
     out = tmp_path / "out"
-    code = _run(monkeypatch, ["hmp", "data", "get", "dem", *selector, "--out", str(out)])
+    code = _run(monkeypatch, ["hmp", "data", "get", "dem", *selector, "--to", str(out)])
     assert code == 14
     assert not out.exists(), "a refused request writes nothing"
 
@@ -185,7 +185,7 @@ def test_a_mask_that_is_not_there_is_not_found(monkeypatch, tmp_path) -> None:
     out = tmp_path / "out"
     code = _run(
         monkeypatch,
-        ["hmp", "data", "get", "dem", "--mask", str(tmp_path / "absent.gpkg"), "--out", str(out)],
+        ["hmp", "data", "get", "dem", "--mask", str(tmp_path / "absent.gpkg"), "--to", str(out)],
     )
     assert code == 10
     assert not out.exists()
@@ -195,7 +195,7 @@ def test_a_mask_that_is_not_there_is_not_found(monkeypatch, tmp_path) -> None:
 def test_a_malformed_bbox_is_a_usage_error(monkeypatch, tmp_path, bbox) -> None:
     code = _run(
         monkeypatch,
-        ["hmp", "data", "get", "dem", "--bbox", bbox, "--out", str(tmp_path)],
+        ["hmp", "data", "get", "dem", "--bbox", bbox, "--to", str(tmp_path)],
     )
     assert code == 2
 

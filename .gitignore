@@ -358,3 +358,6 @@ examples/data/hydrography/bdtopage_-1.2451_48.3618_-1.1072_48.4651.gpkg
 
 # Local pyright config: machine-specific interpreter path
 pyrightconfig.json
+
+# The frozen runs are data the compatibility test reads, whatever they look like.
+!tests/regression/frozen_runs/v*/**

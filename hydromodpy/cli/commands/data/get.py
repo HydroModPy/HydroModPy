@@ -2,8 +2,8 @@
 
 Two forms, one engine (:func:`hydromodpy.data.run_request`):
 
-- ``hmp data get request.json --out DIR``: the request document;
-- ``hmp data get <variable> --bbox ... --crs ... --out DIR``: one variable,
+- ``hmp data get request.json --to DIR``: the request document;
+- ``hmp data get <variable> --bbox ... --crs ... --to DIR``: one variable,
   built from the options.
 
 ``DIR`` receives one file per variable and source, cut to the extent and the
@@ -16,8 +16,20 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy.cli.conventions import verbosity_parser
-from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_VALIDATION, apply_verbosity, exit_code_for
+from hydromodpy.cli.conventions import (
+    add_destination,
+    format_parser,
+    verbosity_parser,
+    workspace_parser,
+)
+from hydromodpy.cli.helpers import (
+    EXIT_CONFIG,
+    EXIT_VALIDATION,
+    apply_verbosity,
+    exit_code_for,
+    refuse,
+)
+from hydromodpy.cli.output import emit
 from hydromodpy.core import progress
 
 NAME: str = "get"
@@ -41,8 +53,8 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        parents=[verbosity_parser()],
-        epilog="Examples:\n  hmp data get dem --out data/dem --bbox 340000,6780000,350000,6790000 --crs EPSG:2154\n  hmp data get precipitation --out data/precipitation --mask catchment.gpkg --start 2015-01-01 --end 2020-12-31 --source sim2",
+        parents=[workspace_parser(), format_parser(), verbosity_parser()],
+        epilog="Examples:\n  hmp data get dem --to data/dem --bbox 340000,6780000,350000,6790000 --crs EPSG:2154\n  hmp data get precipitation --to data/precipitation --mask catchment.gpkg --start 2015-01-01 --end 2020-12-31 --source sim2",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
@@ -50,7 +62,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         metavar="REQUEST_OR_VARIABLE",
         help="a request document (.json) or a variable name (e.g. dem, hydrometry)",
     )
-    parser.add_argument("--out", required=True, help="folder that receives the files")
+    add_destination(parser, help="folder that receives the files", required=True, metavar="DIR")
     selector = parser.add_mutually_exclusive_group()
     selector.add_argument(
         "--bbox",
@@ -74,12 +86,6 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument(
         "--source", default=None, help="source to ask, when the variable has several"
     )
-    parser.add_argument(
-        "-w",
-        "--workspace",
-        default=None,
-        help="workspace whose data cache is read and filled (default: an in-memory cache)",
-    )
     parser.set_defaults(_handler=run)
     return parser
 
@@ -93,7 +99,7 @@ def run(args: argparse.Namespace) -> None:
         with progress.status(f"Serving {args.target}"):
             report = request_data(
                 args.target,
-                out=args.out,
+                out=args.to,
                 bbox=args.bbox,
                 crs=args.crs,
                 mask=args.mask,
@@ -104,20 +110,28 @@ def run(args: argparse.Namespace) -> None:
                 workspace=args.workspace,
             )
     except ValueError as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_CONFIG)
+        refuse(str(exc), EXIT_CONFIG, cause=exc)
     except Exception as exc:  # noqa: BLE001 - mapped to its typed exit code
-        print(f"{type(exc).__name__}: {exc}", file=sys.stderr)
-        sys.exit(exit_code_for(exc))
+        refuse(f"{type(exc).__name__}: {exc}", exit_code_for(exc), cause=exc)
 
-    for item in report["files"]:
-        where = "empty" if item["empty"] else item["path"]
-        print(f"  {item['variable']:<16} {item['source']:<24} {where}")
+    written = Path(args.to) / "request.json"
+
+    def table() -> None:
+        for item in report["files"]:
+            where = "empty" if item["empty"] else item["path"]
+            print(f"  {item['variable']:<16} {item['source']:<24} {where}")
+        print(f"  Report -> {written}")
+
     for failure in report["failures"]:
         print(
             f"  {failure['variable']:<16} {failure['source'] or '':<24} FAILED: {failure['error']}",
             file=sys.stderr,
         )
-    print(f"  Report -> {Path(args.out) / 'request.json'}")
+    emit(
+        args,
+        "data get",
+        {"files": report["files"], "failures": report["failures"], "report": written},
+        table=table,
+    )
     if report["failures"]:
         sys.exit(EXIT_VALIDATION)

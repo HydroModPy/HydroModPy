@@ -358,7 +358,7 @@ def _vector_network(
     network_shp: Path,
     network_crs: str | None,
 ) -> tuple[gpd.GeoDataFrame, str | None, RiverMeshTrace | None]:
-    """Vectorise the active streams, clip them, write the shapefile and build the mesh trace.
+    """Vectorize the active streams, clip them, write the shapefile and build the mesh trace.
 
     An empty network writes no shapefile and removes a stale one. The Whitebox
     vector often carries no projection, so the shapefile gets the ``.prj`` of

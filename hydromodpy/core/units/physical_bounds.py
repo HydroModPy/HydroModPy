@@ -91,7 +91,7 @@ PHYSICAL_BOUNDS: dict[str, PhysicalBound] = {
     # ---- Exchange with lakes, streams and barriers -------------------------
     # Zero is a sealed bed or wall, which the fields accept. A leakance is
     # K_bed / thickness_bed, so the ceiling is the conductivity ceiling over a
-    # centimetre of bed.
+    # centimeter of bed.
     "streambed_k": PhysicalBound("m/s", 0.0, 1e2, "streambed hydraulic conductivity"),
     "bedleak": PhysicalBound("1/s", 0.0, 1e4, "lake-bed leakance"),
     "hydchr": PhysicalBound("1/s", 0.0, 1e4, "barrier hydraulic characteristic"),

@@ -6,7 +6,6 @@ This package exposes generic, process-agnostic components used by concrete
 process modules (for example `flow`, `transport`):
 
 - base runtime abstraction (`ProcessSpatial`),
-- base configuration schema (`ProcessSpatialConfig`),
 - shared payload models (`InitialCondition`, `BoundaryCondition`, `SinkSource`),
 - shared normalization helpers.
 
@@ -24,12 +23,15 @@ __all__ = [
     "SinkSource",
     "ConstantForcing",
     "CsvForcing",
-    "Forcing",
-    "SyntheticForcing",
+    "HeadForcing",
+    "PiecewiseForcing",
+    "SeasonalForcing",
+    "SurfaceRateForcing",
+    "TimeSeriesForcing",
+    "VolumeRateForcing",
     "normalize_initial_condition_payload",
     "normalize_boundary_condition_payload",
     "normalize_sink_source_payload",
-    "ProcessSpatialConfig",
     "TInitialConditions",
     "ProcessSpatial",
 ]
@@ -41,15 +43,18 @@ _LAZY_IMPORTS = {
     ),
     "ConstantForcing": "hydromodpy.physics.base.forcing:ConstantForcing",
     "CsvForcing": "hydromodpy.physics.base.forcing:CsvForcing",
-    "Forcing": "hydromodpy.physics.base.forcing:Forcing",
-    "SyntheticForcing": "hydromodpy.physics.base.forcing:SyntheticForcing",
+    "HeadForcing": "hydromodpy.physics.base.forcing:HeadForcing",
+    "PiecewiseForcing": "hydromodpy.physics.base.forcing:PiecewiseForcing",
+    "SeasonalForcing": "hydromodpy.physics.base.forcing:SeasonalForcing",
+    "SurfaceRateForcing": "hydromodpy.physics.base.forcing:SurfaceRateForcing",
+    "TimeSeriesForcing": "hydromodpy.physics.base.forcing:TimeSeriesForcing",
+    "VolumeRateForcing": "hydromodpy.physics.base.forcing:VolumeRateForcing",
     "InitialCondition": "hydromodpy.physics.base.initial_conditions:InitialCondition",
     "normalize_initial_condition_payload": (
         "hydromodpy.physics.base.initial_conditions_config:normalize_initial_condition_payload"
     ),
     "ProcessSpatial": "hydromodpy.physics.base.process_spatial:ProcessSpatial",
     "TInitialConditions": "hydromodpy.physics.base.process_spatial:TInitialConditions",
-    "ProcessSpatialConfig": "hydromodpy.physics.base.process_spatial_config:ProcessSpatialConfig",
     "SinkSource": "hydromodpy.physics.base.sinks_sources:SinkSource",
     "normalize_sink_source_payload": (
         "hydromodpy.physics.base.sinks_sources_config:normalize_sink_source_payload"

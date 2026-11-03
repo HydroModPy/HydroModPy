@@ -74,7 +74,7 @@ class TestAccepted:
         assert cfg.phases[0].outputs == ["q"]
 
     def test_a_parameter_that_names_its_quantity_instead_of_a_path(self) -> None:
-        """The name is resolved against the project catalogue once it is loaded.
+        """The name is resolved against the project catalog once it is loaded.
 
         This section is validated on its own, without the project it belongs to,
         so a missing path is not something it can judge. What would be injected
@@ -204,7 +204,7 @@ class TestNetworkCriterionPairing:
         cfg = self._network_config(
             [
                 {"name": "network", "metric": "distance_gap", "uses_outputs": ["net"]},
-                # nse rather than rmse: a cost in metres and one in m3/s do not
+                # nse rather than rmse: a cost in meters and one in m3/s do not
                 # add up, and that refusal is a different rule from this one.
                 {"name": "discharge", "metric": "nse", "uses_outputs": ["q"]},
             ]

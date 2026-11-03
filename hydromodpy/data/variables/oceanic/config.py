@@ -52,7 +52,7 @@ class OceanicSourceConfig(
     # --- Constant source fields ---
     value: Annotated[float | None, Profile.USER] = Field(
         default=None,
-        description="Constant mean sea-level value in metres.",
+        description="Constant mean sea-level value in meters.",
         json_schema_extra={"unit": "m"},
     )
 
@@ -79,8 +79,7 @@ class OceanicConfig(BaseVariableConfig):
     """Top-level oceanic configuration.
 
     The section groups sea-level sources and an optional date window. It is
-    commonly inferred when ``flow.active_bc`` contains an ocean boundary
-    condition.
+    commonly inferred when ``[flow.bc.ocean]`` is declared.
     """
 
     _TOML_SECTION = "oceanic"

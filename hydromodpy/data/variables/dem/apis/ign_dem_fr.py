@@ -47,7 +47,7 @@ DATASET_RESOURCE_NAMES: dict[str, str] = {
 RGE_ALTI_WMS_LAYER = "ELEVATION.ELEVATIONGRIDCOVERAGE.HIGHRES"
 # Resolutions come from config.RGE_ALTI_RESOLUTIONS_M. The 1 m grid is the native
 # one. Inland, a 5 m request returns, bit for bit, the 1 m value of the pixel that
-# holds the 5 m pixel centre (measured 2026-10-05 on a 200 m window, 40 x 40 pixels,
+# holds the 5 m pixel center (measured 2026-10-05 on a 200 m window, 40 x 40 pixels,
 # maximum difference 0.0). Next to water and nodata the server blends, so a few
 # pixels differ there (see ``mask_rge_alti``). Any other size is resampled by the
 # server with a kernel that is neither that pick nor the block mean (2 m to 25 m
@@ -216,7 +216,7 @@ def fetch_ign_dem(
 
     ``bd-alti`` (25 m, ASC) downloads, extracts and merges the department
     archives. ``rge-alti`` (1 m or 5 m, 5 m by default; inland, 5 m is the 1 m
-    centre pixel unchanged) is assembled from WMS-Raster tiles, see ``fetch_rge_alti``; ``departments``, ``file_format``
+    center pixel unchanged) is assembled from WMS-Raster tiles, see ``fetch_rge_alti``; ``departments``, ``file_format``
     and ``crs`` do not apply to it.
     """
 
@@ -551,7 +551,7 @@ def mask_rge_alti(data):
     - the nodata itself;
     - the flat water plateau, ``abs(v + 5) < 0.005``;
     - the values below -5.01 m within ``RGE_ALTI_BLEND_REACH_PX`` pixels of
-      either: the server blends its -99999 into the neighbouring land there;
+      either: the server blends its -99999 into the neighboring land there;
     - the land pixels 8-adjacent to that blend band, whose weight of nodata is
       too small to push them below -5.01 m but still biases them low.
 

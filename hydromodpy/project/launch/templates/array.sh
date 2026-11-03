@@ -11,7 +11,7 @@
 # `hmp run <case>.toml`, --frozen when hydromodpy.lock exists, --resume on a
 # simulation an earlier attempt left unfinished. {{CPUS_PER_TASK}} cpus per task:
 # threads_per_case {{THREADS_PER_CASE}} x {{MAX_SOLVES}} solve(s) side by side in the largest case.
-# Written by `hmp project array` on {{STAMP}}; frozen, never rewritten.
+# Written by `hmp campaign array` on {{STAMP}}; frozen, never rewritten.
 # Submit after the prepare phase:
 #   sbatch --dependency=afterok:$prep {{JOB_DIR}}/array.sh
 # Not verified on a cluster yet.

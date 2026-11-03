@@ -26,6 +26,7 @@ from pydantic import Field
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import StationName
 from hydromodpy.data.managers.base_config import BaseVariableConfig
 
 
@@ -69,7 +70,7 @@ class TimeseriesColumnsMixin(HydroModelBase):
 class TimeseriesSelectionMixin(HydroModelBase):
     """Shared station selection, mask, and cache grammar for timeseries variables."""
 
-    station_ids: Annotated[list[str] | None, Profile.USER] = Field(
+    station_ids: Annotated[list[StationName] | None, Profile.USER] = Field(
         default=None,
         description=(
             "Station identifiers to select, whether stations are read from a custom "
@@ -110,7 +111,7 @@ class TimeseriesSelectionMixin(HydroModelBase):
 
 
 class SparseStationFallbackMixin(HydroModelBase):
-    """Shared fallback search behaviour for sparse-station timeseries variables."""
+    """Shared fallback search behavior for sparse-station timeseries variables."""
 
     fallback_search_radius_km: Annotated[float | None, Profile.DEV] = Field(
         default=None,

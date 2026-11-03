@@ -2,8 +2,8 @@
 
 Finding A1 said the six steps that build the model - ``validate``, ``resolve``,
 ``build_geographic``, ``load_data``, ``build_mesh``, ``setup_process`` - declare
-no durable artefact, while four later steps do, so the contract existed and was
-simply not honoured by the head of the pipeline. After a real run the journal
+no durable artifact, while four later steps do, so the contract existed and was
+simply not honored by the head of the pipeline. After a real run the journal
 held no row at all for those six, and a resume had nothing to rebuild from.
 
 Phase F7 closed that, and measuring it changed the claim. Three of the six have
@@ -54,7 +54,7 @@ SILENT_HEAD_STEPS = {
 SOLVE_STEPS = ("prepare_solver", "run_solver", "extract", "derive", "display", "export")
 
 # sha256 of the empty byte string: what the journal writes when a step declares
-# no artefact at all.
+# no artifact at all.
 EMPTY_DIGEST_PREFIX = "e3b0c44298fc1c14"
 
 
@@ -115,7 +115,7 @@ def test_the_three_head_steps_that_leave_nothing_are_the_measured_three(
 def test_the_solving_steps_already_declare_their_artefacts(
     run_before_its_seal: ProducedRun,
 ) -> None:
-    """The half of the pipeline that honours the contract keeps honouring it."""
+    """The half of the pipeline that honors the contract keeps honoring it."""
     rows = _journal_rows(run_before_its_seal)
     for name in ("prepare_solver", "run_solver", "extract"):
         assert name in rows, f"{name} absent from the journal"

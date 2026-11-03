@@ -56,7 +56,7 @@ def test_reindex_indexes_an_attempt_without_a_seal_as_a_case(monkeypatch, projec
     )
 
     assert code == 0
-    report = json.loads(capsys.readouterr().out)
+    report = json.loads(capsys.readouterr().out)["data"]
     assert report["full"] is True
     assert sorted(report["indexed"]) == ["runs/alpha", "runs/beta", "runs/gamma"]
     with Catalog(project) as catalog:
@@ -74,7 +74,7 @@ def test_reindex_is_idempotent_on_the_command_line(monkeypatch, project, capsys)
     )
 
     assert code == 0
-    report = json.loads(capsys.readouterr().out)
+    report = json.loads(capsys.readouterr().out)["data"]
     assert sorted(report["indexed"]) == ["runs/alpha", "runs/beta"]
     assert report["rows"]["simulations"] == 2
 
@@ -99,7 +99,7 @@ def test_reindex_incremental_writes_only_what_moved(monkeypatch, project, capsys
     )
 
     assert code == 0
-    report = json.loads(capsys.readouterr().out)
+    report = json.loads(capsys.readouterr().out)["data"]
     assert report["full"] is False
     assert report["indexed"] == ["runs/gamma"]
 

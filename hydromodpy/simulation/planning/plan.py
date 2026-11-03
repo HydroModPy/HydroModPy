@@ -184,7 +184,7 @@ class RunExecutionResult:
 
     ``primary_model`` is the model produced by the run, recorded by the runner
     so it can resolve it for a run that declares this one in ``depends_on``. It
-    is ``None`` for a run that produces no model: a mesh run materialises a
+    is ``None`` for a run that produces no model: a mesh run materializes a
     mesh, not a model, and the summary of what it built travels in ``metrics``.
 
     ``solver_output_dir`` is the directory where the solver wrote its raw

@@ -322,7 +322,7 @@ def _holed(outer: Polygon, *holes: Polygon) -> Polygon:
 
 
 def test_a_lake_with_holes_of_one_square_metre_meshes_in_voronoi() -> None:
-    """The Cheze case: nine 1 m2 holes of a polygonised bathymetry in two lakes."""
+    """The Cheze case: nine 1 m2 holes of a polygonized bathymetry in two lakes."""
 
     def square(x: float, y: float) -> Polygon:
         return box(x - 0.5, y - 0.5, x + 0.5, y + 0.5)
@@ -350,7 +350,7 @@ def test_a_lake_with_holes_of_one_square_metre_meshes_in_voronoi() -> None:
 
 
 _TINY = 0.5
-"""Radius [m] of a hole of 0.8 m2, as the pixels of a polygonised bathymetry leave."""
+"""Radius [m] of a hole of 0.8 m2, as the pixels of a polygonized bathymetry leave."""
 _WIDE = 25.0
 """Radius [m] of a hole of 1960 m2, larger than one 40 m cell squared."""
 

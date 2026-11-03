@@ -1,6 +1,6 @@
 """Locate the cell that holds each point of a planar cell mesh.
 
-One vectorised answer for every consumer: wells, observation points and gauges.
+One vectorized answer for every consumer: wells, observation points and gauges.
 A regular grid is read by floor arithmetic on its bounds, any other mesh by
 point-in-polygon on the cell polygons. :func:`locate_cells_near` also takes a
 point just outside the mesh, within one cell size of the nearest cell.
@@ -31,7 +31,7 @@ def locate_cells(cell_mesh: PlanarCellMesh, xy: np.ndarray, *, allow_nearest: bo
     unstructured mesh; on a regular grid it belongs to the cell east or south of
     it, and a point on the east or south border of the grid to the last column
     or row. A point outside every cell gets ``-1``, or, when ``allow_nearest``
-    is true, the cell whose centre is the nearest.
+    is true, the cell whose center is the nearest.
     """
     points = np.atleast_2d(np.asarray(xy, dtype=float))
     if points.ndim != 2 or points.shape[1] != 2:
@@ -49,10 +49,10 @@ def locate_cells(cell_mesh: PlanarCellMesh, xy: np.ndarray, *, allow_nearest: bo
 
 
 def locate_cells_near(cell_mesh: PlanarCellMesh, xy: np.ndarray) -> np.ndarray:
-    """Return the cell of each point, or of the nearest centre within one cell size.
+    """Return the cell of each point, or of the nearest center within one cell size.
 
     A point inside the mesh gets the cell that holds it, as :func:`locate_cells`
-    gives it. A point outside takes the cell whose centre is the nearest, but only
+    gives it. A point outside takes the cell whose center is the nearest, but only
     when its distance to that cell is at most the cell size, the square root of
     the cell area. Farther out it gets ``-1`` and a warning names the point: a
     gauge or a piezometer that far from the mesh is a coordinate error, and the

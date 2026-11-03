@@ -73,11 +73,11 @@ def smooth_positive_thickness(
     Parameters
     ----------
     raw:
-        Head minus bottom elevation ``h - z_bottom`` (metres, per-cell array).
+        Head minus bottom elevation ``h - z_bottom`` (meters, per-cell array).
     bmax:
-        Maximum aquifer thickness ``z_top - z_bottom`` (metres, per-cell array).
+        Maximum aquifer thickness ``z_top - z_bottom`` (meters, per-cell array).
     eps:
-        Smoothing radius in metres.
+        Smoothing radius in meters.
     """
     raw = np.asarray(raw, dtype=float)
     bmax = np.asarray(bmax, dtype=float)
@@ -97,11 +97,11 @@ def dsmooth_positive_thickness_dh(
     Parameters
     ----------
     raw:
-        Head minus bottom elevation (metres, per-cell array).
+        Head minus bottom elevation (meters, per-cell array).
     bmax:
-        Maximum aquifer thickness (metres, per-cell array).
+        Maximum aquifer thickness (meters, per-cell array).
     eps:
-        Smoothing radius in metres.
+        Smoothing radius in meters.
     """
     raw = np.asarray(raw, dtype=float)
     bmax = np.asarray(bmax, dtype=float)

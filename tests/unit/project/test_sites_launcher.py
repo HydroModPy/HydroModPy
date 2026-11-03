@@ -276,3 +276,11 @@ def test_a_task_of_a_job_names_its_case_file(tmp_path: Path) -> None:
     assert case_for_task(project, job.name, 2) == project.resolve() / "plan/abc/beta-base.toml"
     with pytest.raises(IndexError, match="1..2"):
         case_for_task(project, job.name, 3)
+
+
+def test_a_folder_without_the_marker_is_no_project_for_the_run_section(tmp_path: Path) -> None:
+    from hydromodpy.core.exceptions import ConfigError
+    from hydromodpy.project.launch.local import sites_run_config
+
+    with pytest.raises(ConfigError, match="not a project"):
+        sites_run_config(tmp_path)

@@ -3,7 +3,7 @@
 Converts :class:`LoadResult` field records (xarray, NetCDF, GeoTIFF) and
 located point records into one value per cell, in m/s, for every stress
 period. This is the only path a solver takes to put a spatial forcing on its
-cells, whatever the mesh engine: it reads the cell centres, and the cell
+cells, whatever the mesh engine: it reads the cell centers, and the cell
 polygons of the planar mesh for the ``"area"`` method, so a regular grid, a
 triangulation and a Voronoi dual are served alike.
 
@@ -11,9 +11,9 @@ Every public function is **variable-agnostic** and works with any LoadResult
 (recharge, precipitation, ETP, temperature, etc.).
 
 The stress-period bounds live here too. Implementation details are split across:
-- ``sources`` - units, dataset variables, interpolation on cell centres,
+- ``sources`` - units, dataset variables, interpolation on cell centers,
 - ``area_weights`` - area-weighted mean of a grid over the cell polygons,
-- ``interpolation`` - nearest, linear and IDW interpolation onto target centres,
+- ``interpolation`` - nearest, linear and IDW interpolation onto target centers,
 - ``rasters`` - xarray + NetCDF + GeoTIFF discretization, and the spatial mean
   of the homogeneous fallback series,
 - ``stations`` - located point time-series.
@@ -100,18 +100,18 @@ def discretize_fields_on_cells(
         LoadResult containing FieldRecords with gridded data. Data units are
         read from each record.
     centers:
-        Cell centres ``(n_cells, 2)``, in the CRS of the records.
+        Cell centers ``(n_cells, 2)``, in the CRS of the records.
     nper:
         Number of stress periods in the simulation.
     simulation_window:
         Optional time window for temporal alignment of field data.
     method:
         Spatial interpolation method: ``"nearest"``, ``"linear"`` or ``"idw"``
-        read the source at the cell centre; ``"area"`` weighs each pixel by the
+        read the source at the cell center; ``"area"`` weighs each pixel by the
         area it shares with the cell, so a rate times the cell area is the
         integral of the grid over the cell.
     mesh:
-        Planar mesh whose cells the centres belong to. ``"area"`` reads its
+        Planar mesh whose cells the centers belong to. ``"area"`` reads its
         cell polygons and refuses to run without it.
     mesh_crs:
         CRS of the cells, as the mesh declares it, required so that no caller
@@ -178,10 +178,10 @@ def discretize_points_on_cells(
     mesh_crs: str | None,
     idw_power: float = 2.0,
 ) -> dict[int, np.ndarray]:
-    """Interpolate located PointRecords onto the cell centres of a mesh.
+    """Interpolate located PointRecords onto the cell centers of a mesh.
 
     Requires each PointRecord to carry a ``location`` with (x, y) coordinates.
-    Station values are interpolated onto cell centres per stress period.
+    Station values are interpolated onto cell centers per stress period.
     ``"area"`` is refused: a station has no pixel to weigh.
 
     Parameters

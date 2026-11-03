@@ -1,0 +1,34 @@
+# ===========================================================================
+# HydroModPy - Run configuration
+# ===========================================================================
+# Run : demo
+# Inherits from : project.toml
+# ===========================================================================
+
+base_config = "project.toml"
+
+export__delete = true
+
+[workflow]
+mode = "simulation"
+
+[simulation]
+name = "demo"
+description = "Scaffolded synthetic steady-flow run under a uniform recharge."
+
+[simulation.time]
+start_datetime = "2000-01-01T00:00:00"
+end_datetime = "2000-12-31T00:00:00"
+step_value = "1 year"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow_nwt"]
+
+[[export]]
+variables = "discharge"
+
+[display]
+figures = ["water_budget"]
+dpi = 40

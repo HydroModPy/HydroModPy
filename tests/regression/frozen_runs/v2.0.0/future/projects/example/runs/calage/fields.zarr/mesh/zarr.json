@@ -1,0 +1,120 @@
+{
+  "attributes": {
+    "engine": "regular",
+    "engine_version": "1.1.1",
+    "crs": "PROJCRS[\"RGF93 v1 / Lambert-93\",BASEGEOGCRS[\"RGF93 v1\",DATUM[\"Reseau Geodesique Francais 1993 v1\",ELLIPSOID[\"GRS 1980\",6378137,298.257222101,LENGTHUNIT[\"metre\",1]]],PRIMEM[\"Greenwich\",0,ANGLEUNIT[\"degree\",0.0174532925199433]],ID[\"EPSG\",4171]],CONVERSION[\"Lambert-93\",METHOD[\"Lambert Conic Conformal (2SP)\",ID[\"EPSG\",9802]],PARAMETER[\"Latitude of false origin\",46.5,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8821]],PARAMETER[\"Longitude of false origin\",3,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8822]],PARAMETER[\"Latitude of 1st standard parallel\",49,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8823]],PARAMETER[\"Latitude of 2nd standard parallel\",44,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8824]],PARAMETER[\"Easting at false origin\",700000,LENGTHUNIT[\"metre\",1],ID[\"EPSG\",8826]],PARAMETER[\"Northing at false origin\",6600000,LENGTHUNIT[\"metre\",1],ID[\"EPSG\",8827]]],CS[Cartesian,2],AXIS[\"easting (X)\",east,ORDER[1],LENGTHUNIT[\"metre\",1]],AXIS[\"northing (Y)\",north,ORDER[2],LENGTHUNIT[\"metre\",1]],USAGE[SCOPE[\"Engineering survey, topographic mapping.\"],AREA[\"France - onshore and offshore, mainland and Corsica (France m\u00e9tropolitaine including Corsica).\"],BBOX[41.15,-9.86,51.56,10.38]],ID[\"EPSG\",2154]]",
+    "mesh_request_hash": "d506691f40872e4a22a1ee2106f9bd6205fded5fbde9365edb9ca74741230c7b",
+    "qa": {
+      "n_cells": 400,
+      "area_sum_m2": 1000000.0,
+      "domain_area_m2": 1000000.0,
+      "area_sum_rel_error": 0.0,
+      "area_quantiles_m2": {
+        "p5": 2500.0,
+        "p50": 2500.0,
+        "p95": 2500.0,
+        "min": 2500.0,
+        "max": 2500.0
+      },
+      "size_quantiles_m": {
+        "p5": 50.0,
+        "p50": 50.0,
+        "p95": 50.0
+      },
+      "neighbour_ratio": {
+        "p50": 1.0,
+        "p95": 1.0,
+        "p99": 1.0,
+        "max": 1.0,
+        "share_gt_1_5": 0.0
+      },
+      "center_offset": {
+        "p50": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      },
+      "nonorthogonality_deg": {
+        "p50": 0.0,
+        "p95": 0.0,
+        "p99": 0.0,
+        "max": 0.0,
+        "share_gt_30": 0.0
+      },
+      "bisection_offset": {
+        "p50": 0.0,
+        "p95": 0.0,
+        "p99": 0.0,
+        "max": 0.0,
+        "n_cells_gt_0_25": 0.0
+      },
+      "min_angle_deg": {
+        "min": 90.0,
+        "p1": 90.0,
+        "p5": 90.0,
+        "p50": 90.0,
+        "n_triangles_lt_20": 0.0
+      },
+      "max_angle_deg": {
+        "p50": 90.0,
+        "p95": 90.0,
+        "p99": 90.0,
+        "max": 90.0
+      },
+      "n_concave_cells": 0,
+      "min_face_length_m": 0.05,
+      "n_degenerate_faces": 0,
+      "n_duplicate_vertices_in_cells": 0,
+      "families": {
+        "boundary:west": {
+          "faces": 20.0,
+          "length_m": 1000.0
+        },
+        "boundary:east": {
+          "faces": 20.0,
+          "length_m": 1000.0
+        },
+        "boundary:south": {
+          "faces": 20.0,
+          "length_m": 1000.0
+        },
+        "boundary:north": {
+          "faces": 20.0,
+          "length_m": 1000.0
+        }
+      },
+      "declarations": {
+        "graded": false,
+        "exact_faces": false,
+        "deterministic": true,
+        "needs_cache": false
+      },
+      "notes": [
+        "a side head applies to the cells that have a face on the side: their centre is half a cell inside the domain"
+      ],
+      "extras": {
+        "dx_m": 50.0,
+        "dy_m": 50.0,
+        "side_center_offset_m_p50": 25.0
+      },
+      "size_fidelity": {}
+    },
+    "library_versions": {
+      "gmsh": "4.15.2",
+      "scipy": "1.18.1",
+      "shapely": "2.1.2",
+      "geos": "3.13.1"
+    },
+    "structured_shape": [
+      20,
+      20
+    ],
+    "start_index": 0,
+    "n_nodes": 441,
+    "n_cells": 400,
+    "n_layers": 1,
+    "grid_type": "dis",
+    "vertical_layout": "column_fractions"
+  },
+  "zarr_format": 3,
+  "node_type": "group"
+}

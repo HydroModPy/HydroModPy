@@ -81,7 +81,7 @@ def test_a_point_that_observes_a_station_needs_no_coordinates() -> None:
 )
 def test_a_gauge_declares_no_neighbourhood_of_its_own(model, selector) -> None:
     # The discharge at a gauge is routed on the descent D of the build, whose
-    # neighbourhood the mesh fixes. A per-output knob would route one gauge on
+    # neighborhood the mesh fixes. A per-output knob would route one gauge on
     # another graph than the area it is snapped by, so the key is refused.
     with pytest.raises(ValueError, match="diagonal_neighbors"):
         model.model_validate({"variable": "discharge", "diagonal_neighbors": True, **selector})

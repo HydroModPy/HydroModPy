@@ -76,6 +76,6 @@ Trois écarts connus avec la méthode publiée, à traiter ensuite :
 - `r_optim` vaut 3,93 à 12,01 pour une borne de 2 dans le papier, et la config
   pose `on_roptim_violation = "warn"` : l'étage 1 rend un nombre hors de son
   domaine de validité ;
-- le modèle tourne à **une couche**, le papier en utilise six ;
+- le modèle tourne à **une couche**, le papier en utilize six ;
 - la cible de densité de drainage est 2,1 fois plus lâche que celle du papier
   (0,705 contre 1,5 km⁻¹), parce que le linéaire est filtré au permanent.

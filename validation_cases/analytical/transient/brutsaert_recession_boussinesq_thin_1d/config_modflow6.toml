@@ -8,5 +8,5 @@ mf6_ims_complexity = "COMPLEX"
 [modflow6.process_specific]
 vka = 1.0
 
-[modflow6.sgrid.vertical]
+[domain.layers]
 nlay = 1

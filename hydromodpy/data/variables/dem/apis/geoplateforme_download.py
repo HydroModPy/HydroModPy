@@ -19,6 +19,7 @@ import requests
 from filelock import FileLock
 
 from hydromodpy.core import progress
+from hydromodpy.core.exceptions import DataSourceError
 from hydromodpy.core.io.atomic_replace import rename_over_open_file
 
 CAPABILITIES_URL = "https://data.geopf.fr/telechargement/capabilities"
@@ -28,7 +29,7 @@ DEFAULT_USER_AGENT = "hydromodpy/1.0"
 TRANSIENT_STATUS_CODES = {429, 500, 502, 503, 504}
 
 
-class GeoPlateformeDownloadError(RuntimeError):
+class GeoPlateformeDownloadError(DataSourceError, RuntimeError):
     """Raised when Geoplateforme discovery or download fails."""
 
 

@@ -10,12 +10,17 @@ groups (``--data-cache``, ``--runtime``, ``--scratch``) remove caches.
 from __future__ import annotations
 
 import argparse
-import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-from hydromodpy.cli.conventions import workspace_parser
-from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, exit_code_for, resolve_workspace
+from hydromodpy.cli.conventions import (
+    confirm_parser,
+    dry_run_parser,
+    format_parser,
+    workspace_parser,
+)
+from hydromodpy.cli.helpers import EXIT_CONFIG, refuse, resolve_workspace
+from hydromodpy.cli.output import emit
 
 NAME: str = "clean"
 HELP: str = "Trash the results of a workspace and remove its rebuildable caches"
@@ -27,7 +32,14 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        parents=[workspace_parser()],
+        parents=[
+            workspace_parser(),
+            confirm_parser(
+                help="Carry the plan out. Without it the verb prints the plan and changes nothing"
+            ),
+            dry_run_parser(),
+            format_parser(),
+        ],
         epilog="Examples:\n  hmp workspace clean --results --dry-run\n  hmp workspace clean --all -y",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -47,15 +59,8 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument(
         "--force",
         action="store_true",
-        help="With --results: trash pinned runs and attempts that stopped beating too",
+        help="With --results: go past the pin and the stale attempt, and trash those runs too",
     )
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        dest="dry_run",
-        help="List what would be removed and remove nothing (the default unless -y is given)",
-    )
-    parser.add_argument("-y", "--yes", action="store_true", help="Delete without dry-run")
     parser.set_defaults(_handler=run)
     return parser
 
@@ -68,42 +73,54 @@ def run(args: argparse.Namespace) -> None:
         if getattr(args, name, False):
             selected.add(name)
     if not selected:
-        print("Select at least one cleanup group, or pass --all.", file=sys.stderr)
-        sys.exit(EXIT_CONFIG)
-    dry_run = bool(args.dry_run) or not args.yes
+        refuse("Select at least one cleanup group, or pass --all.", EXIT_CONFIG)
+    applied = bool(args.yes) and not args.dry_run
     workspace = resolve_workspace(args.workspace)
 
+    plan: list[Path] = []
+    indexes: list[Path] = []
     if RESULTS_GROUP in selected:
-        try:
-            _trash_results(workspace, dry_run=dry_run, force=args.force)
-        except Exception as exc:  # noqa: BLE001 - map in-use, protected and IO errors
-            print(str(exc), file=sys.stderr)
-            sys.exit(exit_code_for(exc))
+        plan, indexes = _trash_results(workspace, applied=applied, force=args.force)
 
     others = selected - {RESULTS_GROUP}
+    candidates: list[str] = []
     if others:
         try:
-            result = clean_workspace(workspace, groups=others, dry_run=dry_run)
-        except FileNotFoundError as exc:
-            print(str(exc), file=sys.stderr)
-            sys.exit(EXIT_NOT_FOUND)
+            candidates = clean_workspace(workspace, groups=others, dry_run=not applied)[
+                "candidates"
+            ]
         except ValueError as exc:
-            print(str(exc), file=sys.stderr)
-            sys.exit(EXIT_CONFIG)
-        candidates = result["candidates"]
-        if not candidates:
-            print(f"No rebuildable artifact found in {result['workspace']}.")
-        else:
-            label = "Dry-run, would delete" if dry_run else "Deleting"
-            print(f"{label} {len(candidates)} path(s) in {result['workspace']}:")
+            refuse(str(exc), EXIT_CONFIG, cause=exc)
+
+    def table() -> None:
+        if RESULTS_GROUP in selected:
+            _print_results(workspace, plan, indexes, applied=applied)
+        if others and not candidates:
+            print(f"No rebuildable artifact found in {workspace}.")
+        elif others:
+            label = "Deleting" if applied else "Dry-run, would delete"
+            print(f"{label} {len(candidates)} path(s) in {workspace}:")
             for target in candidates:
                 print(f"  {target}")
-    if dry_run:
-        print("Re-run with --yes to apply.")
+        if not applied:
+            print("Re-run with --yes to apply.")
+
+    emit(
+        args,
+        "workspace clean",
+        {
+            "workspace": workspace,
+            "applied": applied,
+            "results": plan,
+            "indexes": indexes,
+            "caches": candidates,
+        },
+        table=table,
+    )
 
 
-def _trash_results(workspace: Path, *, dry_run: bool, force: bool) -> None:
-    """Move every run and session under ``workspace`` to its project trash."""
+def _trash_results(workspace: Path, *, applied: bool, force: bool) -> tuple[list[Path], list[Path]]:
+    """Move every run and session under ``workspace`` to its project trash; return what moves."""
     from hydromodpy.core.state.paths import CATALOG_FILENAME, catalog_path_for, project_roots_under
     from hydromodpy.results.catalog.indexer import scan_tree
     from hydromodpy.results.trash import (
@@ -131,23 +148,27 @@ def _trash_results(workspace: Path, *, dry_run: bool, force: bool) -> None:
         indexes.extend(
             path for path in (index, index.with_name(f"{CATALOG_FILENAME}.wal")) if path.is_file()
         )
+    if applied:
+        now = datetime.now(UTC)
+        for project_root, rel_dir in plan:
+            trash_run(project_root, rel_dir, now=now, force=force)
+        for path in indexes:
+            path.unlink()
+    return [project_root / rel_dir for project_root, rel_dir in plan], indexes
 
+
+def _print_results(
+    workspace: Path, plan: list[Path], indexes: list[Path], *, applied: bool
+) -> None:
     if not plan and not indexes:
         print(f"No run or session to trash in {workspace}.")
         return
-    label = "Dry-run, would move" if dry_run else "Moving"
+    label = "Moving" if applied else "Dry-run, would move"
     print(f"{label} {len(plan)} run(s) and session(s) to the trash of their project:")
-    for project_root, rel_dir in plan:
-        print(f"  {project_root / rel_dir}")
+    for path in plan:
+        print(f"  {path}")
     if indexes:
-        verb = "would remove" if dry_run else "removing"
+        verb = "removing" if applied else "would remove"
         print(f"and {verb} {len(indexes)} index file(s), rebuilt by 'hmp catalog reindex':")
         for path in indexes:
             print(f"  {path}")
-    if dry_run:
-        return
-    now = datetime.now(UTC)
-    for project_root, rel_dir in plan:
-        trash_run(project_root, rel_dir, now=now, force=force)
-    for path in indexes:
-        path.unlink()

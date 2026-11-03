@@ -47,7 +47,7 @@ from pathlib import Path
 
 args = sys.argv[1:]
 root = Path.cwd()
-if args[:2] == ["project", "case"]:
+if args[:2] == ["campaign", "case"]:
     lines = (root / "jobs" / args[2] / "cases.txt").read_text().splitlines()
     print(root / lines[int(args[3]) - 1])
     sys.exit(0)

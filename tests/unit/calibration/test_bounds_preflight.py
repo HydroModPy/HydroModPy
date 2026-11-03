@@ -101,17 +101,19 @@ class TestDrainConductanceIsProportional:
     ``C = K * cell_area / drain_bed_thickness_m`` is what makes K/R the
     calibrated quantity. Both MODFLOW backends and Boussinesq apply it only
     when the configured conductance is not strictly positive, so a fixed
-    value in ``[flow.bc.drainage] kind = "robin"`` silently costs the
+    value in ``[flow.bc.drainage] kind = "drain"`` silently costs the
     criterion its invariance.
     """
 
     @staticmethod
-    def _flow(value: float | None, *, kind: str = "cauchy", active: bool = True):
+    def _flow(value: float | None, *, kind: str = "drain", active: bool = True):
         from hydromodpy.physics.flow.flow_config import FlowConfig
 
-        payload: dict[str, object] = {"active_bc": ["drainage"] if active else []}
+        payload: dict[str, object] = {}
         if value is not None:
-            payload["bc"] = {"drainage": {"kind": kind, "value": value}}
+            payload["bc"] = {"drainage": {"kind": kind, "value": value, "enabled": active}}
+        elif active:
+            payload["bc"] = {"drainage": {}}
         return FlowConfig.model_validate(payload)
 
     @staticmethod
@@ -176,11 +178,11 @@ class TestDrainConductanceIsProportional:
     def test_the_proportional_fallback_passes(self) -> None:
         self._check(self._flow(0.0), self._cfg())
 
-    def test_a_robin_drainage_is_named_by_its_own_family(self) -> None:
+    def test_a_drain_is_named_by_its_own_family(self) -> None:
         from hydromodpy.core.exceptions import ObjectiveError
 
         with pytest.raises(ObjectiveError, match=r"flow\.bc\.drainage\.value"):
-            self._check(self._flow(2.0, kind="robin"), self._cfg())
+            self._check(self._flow(2.0, kind="drain"), self._cfg())
 
     def test_an_active_boundary_without_a_section_passes(self) -> None:
         # Nothing declares a conductance, so nothing overrides the fallback.
@@ -232,7 +234,17 @@ class TestReleasePackagesFollowK:
     def _flow(active_bc: list[str]):
         from hydromodpy.physics.flow.flow_config import FlowConfig
 
-        return FlowConfig.model_validate({"active_bc": active_bc})
+        tables = {
+            "sfr": {"sinks_sources": {"sfr": {"main": {}}}},
+            "lake": {"sinks_sources": {"lakes": {"l1": {"bedleak": 1.0, "initial_stage": 1.0}}}},
+            "drainage": {"bc": {"drainage": {}}},
+            "west_side": {"bc": {"west_side": {"kind": "dirichlet"}}},
+        }
+        payload: dict[str, dict] = {}
+        for name in active_bc:
+            for section, content in tables[name].items():
+                payload.setdefault(section, {}).update(content)
+        return FlowConfig.model_validate(payload)
 
     @staticmethod
     def _cfg():

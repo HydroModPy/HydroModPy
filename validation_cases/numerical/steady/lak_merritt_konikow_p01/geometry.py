@@ -18,7 +18,7 @@ from validation_cases.shared import load_case_metadata
 CASE_DIR = Path(__file__).resolve().parent
 CASE_ID = "lak_merritt_konikow_p01"
 
-# Small depression depth that smooths the dry/wet LAK behaviour for Newton; the
+# Small depression depth that smooths the dry/wet LAK behavior for Newton; the
 # upstream example uses a comparable value. Kept tiny relative to lake stages.
 _SURFDEP_FT = 0.1
 

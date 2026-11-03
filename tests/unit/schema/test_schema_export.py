@@ -86,7 +86,7 @@ def test_export_full_schema_idempotent(tmp_path: Path) -> None:
 def test_schema_cli_export_produces_files(tmp_path: Path) -> None:
     """Sanity-check that the schema worker writes the three files.
 
-    Invokes the worker directly (same callable that ``hmp dev schema
+    Invokes the worker directly (same callable that ``hmp config schema --bundle
     export`` dispatches to) to keep the test independent from argparse.
     """
     from hydromodpy.cli._workers.dev import export_schema

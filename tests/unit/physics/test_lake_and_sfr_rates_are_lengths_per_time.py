@@ -12,17 +12,14 @@ from types import SimpleNamespace
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
-from hydromodpy.physics.flow.sinks_sources.rate_forcing import FlowRateForcingConfig
-from hydromodpy.physics.flow.sinks_sources.wells import (
-    FlowWellConfig,
-    FlowWellForcingConfig,
-)
+from hydromodpy.physics.base.forcing import SurfaceRateForcing, VolumeRateForcing
+from hydromodpy.physics.flow.sinks_sources.wells import FlowWellConfig
 from hydromodpy.solver.modflow6.builders._lake_outlets import _forcing_si_per_period
 from hydromodpy.solver.modflow6.builders._sfr_period import _emit_network_forcing
 
 TWO_MM_PER_DAY = 2.0e-3 / 86400.0
-RATE = TypeAdapter(FlowRateForcingConfig)
-VOLUME = TypeAdapter(FlowWellForcingConfig)
+RATE = TypeAdapter(SurfaceRateForcing)
+VOLUME = TypeAdapter(VolumeRateForcing)
 
 
 def _lake_si(forcing: object, nper: int = 2) -> tuple[float, ...]:
@@ -117,7 +114,7 @@ def test_a_well_value_with_its_unit_is_not_scaled_by_the_well_units_again() -> N
         forcing={"kind": "constant", "value": "86.4 m**3/day"},
     )
     assert well.forcing.units == "m3/s"
-    assert float(well.forcing.value.to("m**3/s").magnitude) == pytest.approx(1.0e-3)
+    assert well.forcing.value == pytest.approx(1.0e-3)
 
 
 def test_lake_runoff_inflow_and_withdrawal_stay_volumes_per_time() -> None:

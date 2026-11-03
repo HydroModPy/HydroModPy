@@ -29,7 +29,7 @@ name = "site_a"
 
 [geographic]
 [geographic.catchment]
-catch_def = "from_outlet_coord"
+kind = "from_outlet_coord"
 dem_init_path = "dem.tif"
 x_outlet = 1.0
 y_outlet = 2.0

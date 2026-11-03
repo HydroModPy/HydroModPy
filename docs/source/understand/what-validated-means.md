@@ -30,7 +30,7 @@ not independent evidence. The label {bdg-info}`Calibrated` says so.
 ### Validation
 
 A validation compares the model with measurements that the calibration did not use, such as a
-period held out, or a neighbouring catchment. This is the test that counts for a prediction.
+period held out, or a neighboring catchment. This is the test that counts for a prediction.
 Example 04 contains none: the same years are used to calibrate and to look at the results, and
 the figures say so. A study that relies on HydroModPy for a decision should include one.
 
@@ -48,9 +48,9 @@ run right, and a run is no more reliable for being made with a reviewed method.
 
 ## What this means for a decision
 
-- A result labelled **Numerical check** is safe to read as a statement about the solver.
-- A result labelled **Calibrated** shows that the calibration worked.
-- A result labelled **Indicative** is a model output that no measurement has confirmed.
+- A result labeled **Numerical check** is safe to read as a statement about the solver.
+- A result labeled **Calibrated** shows that the calibration worked.
+- A result labeled **Indicative** is a model output that no measurement has confirmed.
 - None of the three labels is a validation. If a decision depends on a result, ask for a
   validation on data that the calibration did not see, and read {doc}`how-sure`.
 

@@ -8,7 +8,7 @@ residual-ETP grid; ``resolve_deferred_heterogeneous_recharge`` and
 ``build.py`` does, and a real MF6 run reads them back through RCHA and EVTA.
 
 Two identities, checked without going through the production discretization
-a second time (nearest-neighbour mapping computed here, by hand):
+a second time (nearest-neighbor mapping computed here, by hand):
 
 - per period, the RCHA budget sums to the area-weighted recharge of the
   nearest SAFRAN cell (row 84 of ``tests/TOLERANCES.md``);
@@ -137,7 +137,7 @@ def _mesh() -> SolverMesh:
 
 
 def _nearest_safran_index(model_centers: np.ndarray, safran_centers: np.ndarray) -> np.ndarray:
-    """Index of the closest SAFRAN cell centre, one per model row or column."""
+    """Index of the closest SAFRAN cell center, one per model row or column."""
     return np.array([int(np.argmin(np.abs(c - safran_centers))) for c in model_centers])
 
 

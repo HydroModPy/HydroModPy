@@ -28,7 +28,7 @@ _LENGTH_ADAPTER: TypeAdapter[float] = TypeAdapter(LengthMeters)
 
 @dataclass(frozen=True)
 class SteadyStateInitialConditionStrategy:
-    """Validated strategy payload for ``flow.ic.type='steady_state'``."""
+    """Validated strategy payload for ``flow.ic.kind='steady_state'``."""
 
     source: str = "mean_recharge"
     recharge_statistic: str | None = "time_mean"
@@ -39,7 +39,7 @@ class SteadyStateInitialConditionStrategy:
 
 @dataclass(frozen=True)
 class CyclicSpinupStrategy:
-    """Validated payload for ``flow.ic.type='spinup_cyclic'``."""
+    """Validated payload for ``flow.ic.kind='spinup_cyclic'``."""
 
     max_cycles: int = 4
     tol_head_m: float = 0.01
@@ -224,12 +224,16 @@ def apply_steady_state_initial_condition_strategy(
     )
 
 
+_RUNTIME_KEY_OF = {"runtime_backend": "backend"}
+
+
 def _flow_config_value(flow: object, name: str) -> object:
+    """Return a setting of the flow, read from its ``[flow.runtime]`` when it has none."""
     value = getattr(flow, name, None)
     if value not in (None, ""):
         return value
-    flow_config = getattr(flow, "config", None)
-    return getattr(flow_config, name, "")
+    runtime = getattr(getattr(flow, "config", None), "runtime", None)
+    return getattr(runtime, _RUNTIME_KEY_OF.get(name, name), "")
 
 
 def steady_state_initialization_surface_interaction_model(flow: object) -> str | None:
@@ -268,7 +272,10 @@ def steady_flow_copy_for_initialization(flow: object) -> object:
     config_update = {"flow_regime": "steady", "ic": steady_ic}
     steady_surface_model = steady_state_initialization_surface_interaction_model(steady_flow)
     if steady_surface_model is not None:
-        config_update["surface_interaction_model"] = steady_surface_model
+        if flow_config is not None and hasattr(flow_config, "runtime"):
+            config_update["runtime"] = flow_config.runtime.model_copy(
+                update={"surface_interaction_model": steady_surface_model}
+            )
         steady_flow.surface_interaction_model = steady_surface_model
 
     if flow_config is not None and hasattr(flow_config, "model_copy"):

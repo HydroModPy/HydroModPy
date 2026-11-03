@@ -19,6 +19,8 @@ from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.solver.base.observable_support import ObservableSupport
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
+LAKES = {"lakes": {"cheze": {"bedleak": 1e-6, "initial_stage": "10 m"}}}
+
 
 def _config(tmp_path, backend: str, **flow: object):
     from hydromodpy.config import HydroModPyConfig
@@ -31,7 +33,7 @@ def _config(tmp_path, backend: str, **flow: object):
         workflow={"mode": "simulation"},
         workspace=WorkspaceConfig(project_root=str(tmp_path), root=str(tmp_path)),
         geographic=GeographicConfig(source_mode="synthetic"),
-        solver=SolverConfig(backend={"backend": backend}),
+        solver=SolverConfig(backend={"kind": backend}),
         flow=FlowConfig(**flow),
         mesh=mesh,
     )
@@ -69,10 +71,10 @@ class TestTheThirdState:
         declared = _declared("modflow6", _config(tmp_path, "modflow6"))
 
         assert declared["stage"].state == "servable_under_condition"
-        assert "active_bc" in declared["stage"].reason
+        assert "flow.sinks_sources.lakes" in declared["stage"].reason
 
     def test_declaring_the_lake_makes_it_servable(self, tmp_path) -> None:
-        declared = _declared("modflow6", _config(tmp_path, "modflow6", active_bc=["lake"]))
+        declared = _declared("modflow6", _config(tmp_path, "modflow6", sinks_sources=LAKES))
 
         assert declared["stage"].is_servable_now
 
@@ -85,7 +87,7 @@ class TestTheThirdState:
     def test_declaring_a_lake_does_not_make_nwt_serve_it(self, tmp_path) -> None:
         """No configuration changes what a backend does not build."""
         with pytest.raises(Exception):
-            _config(tmp_path, "modflow_nwt", active_bc=["lake"])
+            _config(tmp_path, "modflow_nwt", sinks_sources=LAKES)
 
 
 class TestTheNetworkCriterionsInput:
@@ -156,7 +158,7 @@ class TestPreflightActsOnIt:
     ) -> None:
         messages = " | ".join(self._check(tmp_path, "modflow6", "lake"))
 
-        assert "active_bc" in messages
+        assert "flow.sinks_sources.lakes" in messages
 
     def test_a_network_output_passes_on_every_backend_that_serves_it(self, tmp_path) -> None:
         for backend in ("modflow6", "modflow_nwt"):

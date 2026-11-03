@@ -15,17 +15,13 @@ from hydromodpy.core.config_kit.introspect import extract_profile
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
 from hydromodpy.core.toml_io.generator import generate_toml
+from hydromodpy.physics.base.forcing import ConstantForcing, CsvForcing
 from hydromodpy.physics.flow.sinks_sources.lake import (
     BathymetryReconstructionConfig,
     FlowLakeConfig,
 )
 from hydromodpy.physics.flow.sinks_sources.sfr import FlowReachNetworkConfig
-from hydromodpy.physics.flow.sinks_sources.wells import (
-    FlowWellConfig,
-    FlowWellForcingConstantConfig,
-    FlowWellForcingCsvConfig,
-    FlowWellLocationAbsoluteXY,
-)
+from hydromodpy.physics.flow.sinks_sources.wells import FlowWellConfig, FlowWellLocationAbsoluteXY
 from hydromodpy.physics.transport.transport_config import (
     ConcentrationTransportParametersConfig,
     Modflow6PrtParametersConfig,
@@ -39,8 +35,8 @@ from hydromodpy.spatial.mesh.mesh_config import MeshConfig
 
 TAUGHT = [
     (FlowWellConfig, ("units", "forcing")),
-    (FlowWellForcingConstantConfig, ("units",)),
-    (FlowWellForcingCsvConfig, ("path_file", "date_column", "value_column", "units")),
+    (ConstantForcing, ("units",)),
+    (CsvForcing, ("path_file", "date_column", "value_column", "units")),
     (FlowWellLocationAbsoluteXY, ("layer",)),
     (FlowLakeConfig, ("rainfall", "evaporation", "runoff", "inflow", "withdrawal")),
     (FlowReachNetworkConfig, ("headwater_inflow", "runoff", "rainfall", "evaporation")),
@@ -50,10 +46,10 @@ TAUGHT = [
             "release_zone",
             "porosity",
             "max_particles",
-            "stop_time_days",
+            "stop_time",
             "track_dir",
-            "release_times_days",
-            "track_time_step_days",
+            "release_times",
+            "track_time_step",
             "particle_cell_ids",
         ),
     ),

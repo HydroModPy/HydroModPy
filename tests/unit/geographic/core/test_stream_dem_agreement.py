@@ -164,9 +164,9 @@ def _pointer_of(backend, tmp_path, surface: np.ndarray) -> np.ndarray:
 def test_the_table_matches_the_code_whitebox_writes(direction, backend, tmp_path) -> None:
     offset, expected_code = CARDINALS[direction]
     rows, cols = np.mgrid[0:40, 0:40]
-    # Fall by one metre per cell in the wanted direction.
+    # Fall by one meter per cell in the wanted direction.
     codes = _pointer_of(backend, tmp_path, 100.0 - (offset[0] * rows + offset[1] * cols))
-    # Drop the frame: an edge cell has no downslope neighbour to point at.
+    # Drop the frame: an edge cell has no downslope neighbor to point at.
     inner = codes[5:-5, 5:-5]
     values, counts = np.unique(inner[inner > 0], return_counts=True)
     dominant = int(values[np.argmax(counts)])

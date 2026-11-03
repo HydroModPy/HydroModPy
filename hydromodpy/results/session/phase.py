@@ -12,7 +12,7 @@ Format
 ------
 See :class:`PhaseDescriptor`, schema id :data:`PHASE_SCHEMA`. ``frozen`` maps a
 parameter to a :class:`FrozenValue`, its value and the phase it came from.
-``cost_name``, ``windows`` and ``scored`` say what this phase minimised and on
+``cost_name``, ``windows`` and ``scored`` say what this phase minimized and on
 which pairs. ``stop_state`` and ``stopping_rule`` say why the search of the phase
 stopped, and ``stop_note`` says when the phase froze the best of a budget-only
 search.

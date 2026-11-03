@@ -2,7 +2,9 @@
 #
 # Trigger: a git tag matching v*.*.* is pushed.
 # Steps:
-#   1. Build wheel + sdist with `python -m build`.
+#   0. Gate: the tagged commit is on main or dev, its CI / Main Gate run passed, and
+#      the example catalog matches the tree.
+#   1. Build wheel + sdist with `python -m build`, then test the wheel on 3.11 to 3.13.
 #   2. Generate a CycloneDX SBOM (`cyclonedx-bom`) from a fresh wheel install.
 #   3. Upload to PyPI via Trusted Publishers (OIDC, no API token).
 #   4. Create a GitHub release with the matching CHANGELOG section as body,
@@ -37,8 +39,52 @@ permissions:
   contents: read
 
 jobs:
+  gate:
+    name: Release / CI gate on the tagged commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - name: Check the tagged commit is on main or dev
+        run: |
+          git fetch origin main dev
+          if git merge-base --is-ancestor HEAD origin/main || git merge-base --is-ancestor HEAD origin/dev; then
+            echo "Commit $(git rev-parse HEAD) is on main or dev"
+          else
+            echo "Commit $(git rev-parse HEAD) is on neither main nor dev" >&2
+            exit 1
+          fi
+
+      - name: Check CI / Main Gate passed on the tagged commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha=$(git rev-parse HEAD)
+          conclusion=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow main-ci.yml \
+            --commit "$sha" --status completed --json conclusion \
+            --jq '[.[] | select(.conclusion == "success")] | length')
+          if [ "$conclusion" -lt 1 ]; then
+            echo "No successful CI / Main Gate run for $sha" >&2
+            exit 1
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check the example catalog against the tree of the tag
+        run: python tools/ci/check_example_catalog.py
+
   build:
     name: Release / build sdist and wheel
+    needs: gate
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -73,6 +119,37 @@ jobs:
           name: dist
           path: dist/
           if-no-files-found: error
+
+  wheel-test:
+    name: Release / wheel test py${{ matrix.python-version }}
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: true
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Install the wheel into a fresh venv
+        run: |
+          python -m venv "$RUNNER_TEMP/hmp-wheel"
+          "$RUNNER_TEMP/hmp-wheel/bin/pip" install --upgrade pip
+          "$RUNNER_TEMP/hmp-wheel/bin/pip" install dist/*.whl
+
+      - name: Import and run hmp doctor
+        run: |
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/hmp-wheel/bin/python" -c "import hydromodpy; print(hydromodpy.__version__)"
+          "$RUNNER_TEMP/hmp-wheel/bin/hmp" doctor --format json
 
   sbom:
     name: Release / generate CycloneDX SBOM
@@ -121,7 +198,7 @@ jobs:
 
   publish:
     name: Release / upload to PyPI
-    needs: build
+    needs: [build, wheel-test]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment:

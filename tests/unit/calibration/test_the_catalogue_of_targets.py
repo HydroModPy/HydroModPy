@@ -5,7 +5,7 @@ finding a valid one meant knowing the Pydantic tree by heart. The question a
 hydrogeologist actually asks is the other way round: what does THIS model expose
 that I could search over, what is it worth now, and in what unit.
 
-The catalogue answers from the resolved configuration, so it lists the
+The catalog answers from the resolved configuration, so it lists the
 boundaries this project declares and the parameters it actually carries, not a
 hand-written inventory that drifts.
 """
@@ -101,7 +101,7 @@ class TestWhatItLeavesOut:
         assert not any(path.startswith("mesh") for path in paths)
 
     def test_every_listed_path_is_one_a_parameter_may_declare(self, cfg) -> None:
-        """The catalogue would be a trap if it named a path the space refuses."""
+        """The catalog would be a trap if it named a path the space refuses."""
         from hydromodpy.calibration.optim.parameters import ParameterSpace
 
         for target in calibration_targets(cfg):

@@ -113,6 +113,7 @@
             "completed",
             "failed",
             "crashed",
+            "infeasible",
             "aborted"
           ]
         }
@@ -377,6 +378,7 @@
         "completed",
         "failed",
         "crashed",
+        "infeasible",
         "aborted"
       ]
     },

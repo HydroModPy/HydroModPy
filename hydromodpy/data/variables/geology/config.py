@@ -158,6 +158,7 @@ class GeologyConfig(HydroModelBase):
             "source gets the exact polygon areas in the solver and ignores it. "
             "Higher = more precise geology interface, slower runtime."
         ),
+        json_schema_extra=field_metadata(unit="-"),
     )
 
     @classmethod

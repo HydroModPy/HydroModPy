@@ -31,7 +31,7 @@ VARIANTS = (
 
 
 def test_the_config_loader_accepts_exactly_the_union_s_discriminators() -> None:
-    assert known_ic_types() == {str(variant.model_fields["type"].default) for variant in VARIANTS}
+    assert known_ic_types() == {str(variant.model_fields["kind"].default) for variant in VARIANTS}
 
 
 def test_the_solver_accepts_exactly_the_same_ones() -> None:
@@ -47,7 +47,7 @@ def test_every_variant_is_reachable_from_a_toml_payload() -> None:
 
     required = {"custom": {"value": 42.0}, "top_offset": {"value": 0.5}}
     for name in sorted(known_ic_types()):
-        payload = {"type": name, **required.get(name, {})}
+        payload = {"kind": name, **required.get(name, {})}
         resolved = normalize_flow_initial_conditions(payload, location_prefix="flow.ic")
         assert resolved is not None
-        assert resolved.h.type == name
+        assert resolved.h.kind == name

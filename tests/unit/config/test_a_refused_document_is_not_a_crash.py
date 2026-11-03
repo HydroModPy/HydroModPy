@@ -290,7 +290,7 @@ def test_a_protocol_option_is_pointed_at_and_typed(tmp_path: Path) -> None:
 
 
 def test_an_unregistered_protocol_keeps_its_own_refusal(tmp_path: Path) -> None:
-    """The neighbour of the case above, and it must not be typed the same way:
+    """The neighbor of the case above, and it must not be typed the same way:
     an unknown name is refused by the registry itself, not by a model."""
     error = _refusal(_write(tmp_path, "[calibration]\nprotocol = 'nope'\n", head=LOADABLE))
     (entry,) = error.details

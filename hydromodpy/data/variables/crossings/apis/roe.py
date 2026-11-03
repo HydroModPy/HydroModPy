@@ -15,7 +15,7 @@ answer measured on 2026-10-05 over the upper Ille (Flume).
   from the first two levels.
 - ``LbEtOuvrage`` is the state: ``Existant``, ``Detruit partiellement``,
   ``Detruit entierement``. Only ``Existant`` is kept.
-- ``HautChutEtObstEcoul`` is the drop in metres, as a string, empty for most
+- ``HautChutEtObstEcoul`` is the drop in meters, as a string, empty for most
   obstacles. ``CdHautChutClObstEcoul`` is a class of drop that is filled more
   often, and is not read: a class is not a height.
 - ``NomPrincipalObstEcoul`` is the name.

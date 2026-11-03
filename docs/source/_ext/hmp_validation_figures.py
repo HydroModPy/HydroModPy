@@ -161,7 +161,7 @@ def _cells(m: dict) -> tuple[list[np.ndarray], np.ndarray]:
 
 
 def _robust_limit(errors: list[np.ndarray]) -> tuple[float, bool]:
-    """A symmetric colour limit that a few hot cells do not set.
+    """A symmetric color limit that a few hot cells do not set.
 
     The limit is the 99th percentile of the absolute error over all panels, so
     a handful of cells cannot wash out the rest. Returns the limit and whether
@@ -310,7 +310,7 @@ def _method_colors(n: int, theme: dict) -> list[str]:
 
 
 def _by_method(entries: list[dict]) -> list[dict]:
-    """One entry per method name: the runs of a method share a colour and a marker."""
+    """One entry per method name: the runs of a method share a color and a marker."""
     merged: dict[str, dict] = {}
     for e in entries:
         if e["name"] not in merged:
@@ -529,7 +529,7 @@ def samples_figures(records, label, order, docname) -> list[str]:
         names = ", ".join(e["name"] for e in entries)
         what = {
             1: "objective against the parameter",
-            2: "the two parameters, coloured by objective",
+            2: "the two parameters, colored by objective",
         }
         caption = (
             f"Points evaluated by {names}: "

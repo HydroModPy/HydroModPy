@@ -1,7 +1,7 @@
 """Contract for DEM rasters (DEMs are not DataFrames, hence a custom check).
 
 The contract is intentionally light: it asserts that the payload is a
-2D grid with a declared CRS and a resolution no finer than 1 metre. The
+2D grid with a declared CRS and a resolution no finer than 1 meter. The
 underlying storage format (xarray, rasterio, numpy) is not prescribed -
 we accept any object exposing the attributes we need.
 """

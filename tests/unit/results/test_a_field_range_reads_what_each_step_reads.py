@@ -94,7 +94,7 @@ def _sealed(
 
 
 def _step_by_step(run: Run, variable: str, steps, layer: int | None = None) -> np.ndarray:
-    return np.stack([run.field(variable, timestep=int(t), layer=layer) for t in steps])
+    return np.stack([run.field(variable, time=int(t), layer=layer) for t in steps])
 
 
 class _CountingCatalog:
@@ -247,7 +247,7 @@ class TestTheErrors:
         run = Run(sid, catalog)
 
         with pytest.raises(FieldNotFoundError) as by_step:
-            run.field(variable, timestep=0)
+            run.field(variable, time=0)
         with pytest.raises(FieldNotFoundError) as by_range:
             field_range(run, variable, 0, 2)
         with pytest.raises(KeyError) as by_catalog_step:
@@ -352,7 +352,7 @@ def test_negative_steps_are_read_as_their_step_read(catalog, sid, steps) -> None
 
 def test_a_stand_in_without_a_range_reader_is_read_step_by_step() -> None:
     stack = np.arange(12.0).reshape(4, 3)
-    stand_in = SimpleNamespace(field=lambda variable, timestep=-1, **_: stack[int(timestep)])
+    stand_in = SimpleNamespace(field=lambda variable, time=-1, **_: stack[int(time)])
 
     np.testing.assert_array_equal(
         field_steps(stand_in, "release_flux", [2, 0, 1]), stack[[2, 0, 1]]

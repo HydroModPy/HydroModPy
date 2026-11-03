@@ -1,6 +1,6 @@
 """Read ``hydromodpy.lock`` and hold the process-wide frozen mode.
 
-A lockfile freezes the build environment plus every input artefact that fed
+A lockfile freezes the build environment plus every input artifact that fed
 a HydroModPy run. It records:
 
 - ``schema``: the id of the format, ``hydromodpy.lock.v1``.
@@ -35,7 +35,6 @@ command that writes it again: a lockfile is never migrated.
 
 from __future__ import annotations
 
-import hashlib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -44,11 +43,12 @@ import tomlkit
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.io.document_version import VersionWindow, check_version
+from hydromodpy.core.io.file_digest import sha256_of
 
 LOCKFILE_NAME = "hydromodpy.lock"
 LOCKFILE_SCHEMA = "hydromodpy.lock.v1"
 LOCKFILE_VERSIONS = VersionWindow(oldest="hydromodpy.lock.v1", current=LOCKFILE_SCHEMA)
-LOCKFILE_REMEDY = "Write it again from the data cache with `hmp dev lock update`."
+LOCKFILE_REMEDY = "Write it again from the data cache with `hmp lock update`."
 
 # Process-wide frozen-mode state. Consulted by data loaders to refuse fresh
 # downloads when a lockfile is authoritative, and to know which project's
@@ -152,15 +152,6 @@ class LockMismatch:
 
 
 # ---------------------------------------------------------------------- helpers
-
-
-def sha256_of(path: Path, *, chunk: int = 64 * 1024) -> str:
-    """Compute the SHA-256 digest of a file on disk."""
-    hasher = hashlib.sha256()
-    with open(path, "rb") as fh:
-        for buf in iter(lambda: fh.read(chunk), b""):
-            hasher.update(buf)
-    return hasher.hexdigest()
 
 
 def _parse(path: Path | str) -> tomlkit.TOMLDocument:

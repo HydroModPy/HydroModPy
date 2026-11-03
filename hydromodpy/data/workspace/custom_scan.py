@@ -3,7 +3,7 @@
 Called at the start of every ``hmp run`` and from ``hmp data check`` /
 ``hmp data ls``. Detects new or modified ``<variable>_custom_*`` files
 (mtime > last indexed timestamp), validates them via the adapters,
-normalises to the internal pivot format, and registers the result in
+normalizes to the internal pivot format, and registers the result in
 ``data/cache.duckdb`` with ``provider="custom"``. API files
 (``<variable>_<api>_*``) in the same folder are left to the managers.
 

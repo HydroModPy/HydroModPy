@@ -29,12 +29,12 @@ substeps_per_period = 5
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [[simulation.process]]
 id = "transport_main"
-type = "transport"
+kind = "transport"
 solvers = ["modflow6"]
 
 
@@ -42,7 +42,7 @@ solvers = ["modflow6"]
 crs_project = "EPSG:2154"
 
 [geographic.catchment]
-catch_def = "from_outlet_coord"
+kind = "from_outlet_coord"
 dem_init_path = "DEM_naizin_25m.tif"
 x_outlet = 265545.208
 y_outlet = 6783317.640
@@ -57,6 +57,12 @@ threshold_area_km2 = 0.2
 [domain.depth_model]
 kind = "flat_substratum"
 substratum_elevation = "0.0 m"
+
+
+[domain.layers]
+genmtd_lay = "decay"
+nlay = 5
+lay_decay = 1.2
 
 
 [data]
@@ -83,8 +89,6 @@ freq = "MS"
 [flow]
 flow_regime = "transient"
 param_list = ["K", "Sy", "Ss"]
-active_sinks_sources = ["recharge"]
-active_bc = ["drainage"]
 first_period_steady = true
 
 [flow.param.K.field]
@@ -93,7 +97,7 @@ unit = "m/s"
 value = 5e-5
 
 [flow.param.K.field_vertical_profile]
-mode = "exponential"
+kind = "exponential"
 characteristic_depth = "15.0 m"
 min_factor = 2e-4
 
@@ -103,7 +107,7 @@ unit = "-"
 value = 0.02
 
 [flow.param.Sy.field_vertical_profile]
-mode = "exponential"
+kind = "exponential"
 characteristic_depth = "30.0 m"
 min_factor = 0.05
 
@@ -114,7 +118,7 @@ unit = "m-1"
 value = 1e-9
 
 [flow.bc.drainage]
-kind = "cauchy"
+kind = "drain"
 
 
 # Concentrations in kg/m3: 0.1 is 100 mg/L in the aquifer at the start, 0.05 is
@@ -122,6 +126,8 @@ kind = "cauchy"
 # first-order decay rate is a per-second one: 1.585e-8 /s is a two-year
 # mean life. disp_transh and disp_transv are ratios of disp_long, so the
 # transverse dispersivities are 0.5 m and 0.05 m.
+
+[flow.sinks_sources.recharge]
 [transport.modflow6gwt.parameters]
 spc_name = "NO3"
 sconc_init = 0.1
@@ -141,12 +147,6 @@ mf6_ims_complexity = "COMPLEX"
 # Five layers thickening with depth: the transport model solves on the flow
 # mesh, and ten layers over a monthly year of nitrate is an example nobody
 # waits for.
-[modflow6.sgrid.vertical]
-genmtd_lay = "decay"
-nlay = 5
-lay_decay = 1.2
-
-
 [display]
 on_error = "raise"
 figures = [
@@ -167,7 +167,7 @@ figures = [
 
 # The end of the drought, when the concentration pattern is most contrasted.
 [display.overrides.concentration_map]
-timestep = 9
+time = 9
 
 # mg/L rather than kg/m3, and the 50 mg/L the recharge brings in as reference.
 [display.overrides.concentration_boxplot]

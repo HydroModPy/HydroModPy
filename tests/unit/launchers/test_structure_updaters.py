@@ -316,10 +316,9 @@ def test_apply_simulation_time_to_flow_boundary_conditions_binds_constant_forcin
             "west_side": {
                 "kind": "dirichlet",
                 "units": "cm",
-                "forcing": {"mode": "constant", "value": 12.0},
+                "forcing": {"kind": "constant", "value": 12.0},
             }
         },
-        active_bc=["west_side"],
     )
     flow = Flow(cfg)
     window = ResolvedSimulationTimeWindow(
@@ -361,14 +360,13 @@ def test_apply_simulation_time_to_flow_boundary_conditions_binds_csv_forcing(
             "east_side": {
                 "kind": "dirichlet",
                 "forcing": {
-                    "mode": "csv",
+                    "kind": "csv",
                     "path_file": csv_path,
                     "date_column": "date",
                     "value_column": "head",
                 },
             }
         },
-        active_bc=["east_side"],
     )
     flow = Flow(cfg)
     window = ResolvedSimulationTimeWindow(

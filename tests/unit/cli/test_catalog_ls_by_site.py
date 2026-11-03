@@ -51,7 +51,7 @@ def project(tmp_path: Path) -> Path:
 
 
 def _rows(capsys) -> list[dict]:
-    return json.loads(capsys.readouterr().out)
+    return json.loads(capsys.readouterr().out)["data"]
 
 
 def test_a_version_shows_the_overrides_it_was_run_with(monkeypatch, project, capsys) -> None:
@@ -157,7 +157,7 @@ def test_best_names_a_site_without_a_scored_run_and_why(monkeypatch, tmp_path, c
 
     assert _run(monkeypatch, [*argv, "--format", "json"]) == 0
     captured = capsys.readouterr()
-    assert [row["site"] for row in json.loads(captured.out)] == ["b"]
+    assert [row["site"] for row in json.loads(captured.out)["data"]] == ["b"]
     assert "no sealed run of a is scored: declare [metrics] window" in captured.err
 
 
@@ -190,4 +190,4 @@ def test_best_on_unscored_runs_keeps_stdout_machine_readable(
     assert "has a nse)" not in captured.out
     assert "scored" not in captured.out
     if fmt == "json":
-        assert json.loads(captured.out) == []
+        assert json.loads(captured.out)["data"] == []

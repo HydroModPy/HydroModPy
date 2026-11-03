@@ -5,8 +5,8 @@ calibration parameter takes any dotted path, so nothing stopped a file from
 searching over a mesh resolution. Two reasons it must not:
 
 The criterion moves with the mesh. The validity bound of the stream-network
-method is normalised by cell size precisely because the distances it measures
-shrink as the mesh refines. Optimising the mesh against that criterion is
+method is normalized by cell size precisely because the distances it measures
+shrink as the mesh refines. Optimizing the mesh against that criterion is
 circular: the search improves the number by changing the yardstick.
 
 And a mesh that cannot be rebuilt bit for bit is cached by its request, so each

@@ -179,7 +179,7 @@ class BoussinesqMesh:
 
         A point on an edge belongs to the cell of smallest index. If the point
         lies outside the mesh and ``allow_nearest`` is true, it takes the nearest
-        cell centre, which is convenient for wells and observation points defined
+        cell center, which is convenient for wells and observation points defined
         in approximate coordinates.
         """
         cell = int(

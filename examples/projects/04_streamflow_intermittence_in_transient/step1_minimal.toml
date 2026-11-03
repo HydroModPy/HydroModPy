@@ -16,7 +16,7 @@ name = "nancon_step1_minimal"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [geographic]
@@ -26,7 +26,7 @@ crs_project = "EPSG:2154"
 # The catchment is cut out of a regional DEM, upslope of the outlet point.
 # buff_area widens the model domain by 10 % of the catchment area.
 [geographic.catchment]
-catch_def = "from_outlet_coord"
+kind = "from_outlet_coord"
 dem_init_path = "DEM_armorican_massif.tif"
 x_outlet = 389285.910
 y_outlet = 6816518.749
@@ -42,9 +42,9 @@ thickness = "30.0 m"
 # The default is transient; step 4 brings the time window and the forcing.
 flow_regime = "steady"
 param_list = ["K", "Sy"]
-active_sinks_sources = ["recharge"]
+
 # Any cell drains at the ground surface: the excess leaves as seepage.
-active_bc = ["drainage"]
+[flow.bc.drainage]
 
 [flow.param.K.field]
 kind = "homogeneous"

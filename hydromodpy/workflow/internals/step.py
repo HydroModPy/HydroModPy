@@ -32,7 +32,7 @@ field.
 Resume hooks
 ------------
 
-A persistent step (one that writes durable artefacts) implements two extra
+A persistent step (one that writes durable artifacts) implements two extra
 methods checked by the runner via ``hasattr``:
 
 ``artifacts(state_out)``
@@ -43,7 +43,7 @@ methods checked by the runner via ``hasattr``:
     re-executed at resume.
 
 ``rebuild_state(prior_state, workspace, run_id)``
-    Rebuild the output ``PipelineState`` from disk artefacts only. Called
+    Rebuild the output ``PipelineState`` from disk artifacts only. Called
     by the runner at resume when the step is journal-completed; must not
     execute the heavy operation again (solver run, large extraction).
 
@@ -72,7 +72,7 @@ class Step(Protocol):
 
 
 class ResumableStep(Step, Protocol):
-    """Optional contract for steps that persist durable artefacts."""
+    """Optional contract for steps that persist durable artifacts."""
 
     def artifacts(self, state_out: PipelineState) -> tuple[str, ...]:
         """Return workspace-relative paths of durable outputs."""
@@ -85,7 +85,7 @@ class ResumableStep(Step, Protocol):
         workspace: Path,
         run_id: str,
     ) -> PipelineState:
-        """Rebuild the output state by reading durable artefacts only."""
+        """Rebuild the output state by reading durable artifacts only."""
         ...
 
 

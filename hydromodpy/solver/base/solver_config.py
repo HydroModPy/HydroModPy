@@ -24,7 +24,7 @@ class _SolverBackendBase(HydroModelBase):
 class Modflow6Backend(_SolverBackendBase):
     """Select the MODFLOW 6 flow backend."""
 
-    backend: Annotated[Literal["modflow6"], Profile.USER] = Field(
+    kind: Annotated[Literal["modflow6"], Profile.USER] = Field(
         default="modflow6",
         description="Flow solver of the run: MODFLOW 6, MODFLOW-NWT, Boussinesq or a plugin.",
     )
@@ -33,7 +33,7 @@ class Modflow6Backend(_SolverBackendBase):
 class ModflowNwtBackend(_SolverBackendBase):
     """Select the MODFLOW-NWT flow backend."""
 
-    backend: Annotated[Literal["modflow_nwt"], Profile.USER] = Field(
+    kind: Annotated[Literal["modflow_nwt"], Profile.USER] = Field(
         default="modflow_nwt",
         description="Flow solver of the run: MODFLOW 6, MODFLOW-NWT, Boussinesq or a plugin.",
     )
@@ -42,7 +42,7 @@ class ModflowNwtBackend(_SolverBackendBase):
 class BoussinesqBackend(_SolverBackendBase):
     """Select the Boussinesq flow backend."""
 
-    backend: Annotated[Literal["boussinesq"], Profile.USER] = Field(
+    kind: Annotated[Literal["boussinesq"], Profile.USER] = Field(
         default="boussinesq",
         description="Flow solver of the run: MODFLOW 6, MODFLOW-NWT, Boussinesq or a plugin.",
     )
@@ -57,7 +57,7 @@ class CustomBackend(_SolverBackendBase):
     launcher time.
     """
 
-    backend: Annotated[Literal["custom"], Profile.USER] = Field(
+    kind: Annotated[Literal["custom"], Profile.USER] = Field(
         default="custom",
         description="Flow solver of the run: MODFLOW 6, MODFLOW-NWT, Boussinesq or a plugin.",
     )
@@ -79,8 +79,8 @@ class CustomBackend(_SolverBackendBase):
 SolverBackendConfig: TypeAlias = Annotated[
     Modflow6Backend | ModflowNwtBackend | BoussinesqBackend | CustomBackend,
     Field(
-        discriminator="backend",
-        description=("Discriminated union of flow solver backends tagged by the 'backend' key."),
+        discriminator="kind",
+        description=("Discriminated union of flow solver backends tagged by the 'kind' key."),
     ),
 ]
 
@@ -125,9 +125,9 @@ def solver_name_of_backend(backend: object) -> str | None:
     if isinstance(backend, CustomBackend):
         return backend.name
     if isinstance(backend, _SolverBackendBase):
-        return str(getattr(backend, "backend", "")) or None
+        return str(getattr(backend, "kind", "")) or None
     if isinstance(backend, Mapping):
-        tag = str(backend.get("backend", "")).strip().lower()
+        tag = str(backend.get("kind", "")).strip().lower()
         if tag == "custom":
             name = str(backend.get("name", "")).strip().lower()
             return name or None
@@ -138,9 +138,9 @@ def solver_name_of_backend(backend: object) -> str | None:
 class SolverConfig(HydroModelBase):
     """Configuration block defining the active groundwater solver engine.
 
-    The V1 TOML form is ``backend = { backend = "modflow6" }`` for a
-    built-in backend, or ``backend = { backend = "custom", name = "x" }``
-    for a plugin-registered backend.
+    The TOML form is ``backend = { kind = "modflow6" }`` for a built-in
+    backend, or ``backend = { kind = "custom", name = "x" }`` for a
+    plugin-registered backend.
 
     It also carries the backend-agnostic preprocessing switches both MODFLOW
     backends read, so one TOML key drives both. ``sink_fill`` and
@@ -195,9 +195,10 @@ class SolverConfig(HydroModelBase):
             "this method the drain is a seepage face, so it must never limit: K "
             "and the recharge decide where water surfaces, not the boundary "
             "condition. Proportionality to K is preserved either way, so the K/R "
-            "invariance the network criterion rests on is untouched. The default "
-            "of 1 m is a convention with no measured source. Write your own value "
-            "when you have a measure."
+            "invariance the network criterion rests on is untouched. The value 1.0 is a "
+            "convention with no measured source: no measurement and no document gives it, and "
+            "it is kept as it is so that no earlier result moves. It stays in [solver], whatever the layer of the "
+            "other drain keys. Write your own value when you have a measure."
         ),
         examples=[1.0, 0.5, 0.1],
     )
@@ -301,7 +302,7 @@ class SolverConfig(HydroModelBase):
         """Canonical backend name compatible with the solver registry."""
         if isinstance(self.backend, CustomBackend):
             return self.backend.name
-        return self.backend.backend
+        return self.backend.kind
 
     def validate_registry(self) -> None:
         """Verify the selected engine is registered. Call explicitly from launcher."""

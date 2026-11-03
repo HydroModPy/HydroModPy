@@ -1,0 +1,9 @@
+{
+  "schema": "hydromodpy.inputs.v1",
+  "sim_id": "5e78a478-2c73-4398-a089-721c0648c59a",
+  "inputs": [],
+  "from_a_later_version": {
+    "kept": true,
+    "note": "written by a later 2.x"
+  }
+}

@@ -158,10 +158,10 @@ def build_boussinesq_hillslope_recharge_step_interception_comparison(
     x = geometry.x
     numerical_profiles = np.asarray(np.mean(heads, axis=1), dtype=float)
     # The Boussinesq runtime holds the outlet head at the east face of the
-    # reference. A cell-centred launcher run holds it where the geometry says,
+    # reference. A cell-centered launcher run holds it where the geometry says,
     # and its surface is the toe elevation at that point.
     outlet_x = float(reference_cfg["xmax"]) if is_boussinesq else geometry.east_x
-    # The surface is flat past the centre of the end columns: no point is read beyond.
+    # The surface is flat past the center of the end columns: no point is read beyond.
     surface_span = (geometry.surface_west_x, geometry.surface_east_x)
     topography_profile = geometry.profile(
         lambda points: build_hillslope_topography_values(

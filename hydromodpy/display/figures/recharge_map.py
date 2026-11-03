@@ -36,7 +36,7 @@ class RechargeMap(ScalarFaceMap):
     def title(self, sim: Run, *, timestep: int) -> str:
         """Annotate the mean value when the field is spatially uniform.
 
-        A uniform recharge otherwise renders as a flat colour with a
+        A uniform recharge otherwise renders as a flat color with a
         cosmetic colorbar spanning floating-point noise.
         """
         base = super().title(sim, timestep=timestep)

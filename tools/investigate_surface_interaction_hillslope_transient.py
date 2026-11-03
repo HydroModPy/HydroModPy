@@ -333,9 +333,7 @@ def _apply_transient_payload(
     flow["param"] = param
     flow["param_list"] = ["K", "Ss", "Sy"]
     flow["flow_regime"] = "transient"
-    flow["active_sinks_sources"] = ["recharge"]
-    flow["active_bc"] = ["east_side", "drainage"]
-    flow["ic"] = {"type": "custom", "value": f"{INITIAL_HEAD_M:.6f} m"}
+    flow["ic"] = {"kind": "custom", "value": f"{INITIAL_HEAD_M:.6f} m"}
     flow["sinks_sources"] = {"recharge": {"first_clim": "first"}}
 
     bc = dict(flow.get("bc", {}))
@@ -349,7 +347,7 @@ def _apply_transient_payload(
     cauchy["drainage"] = {
         **dict(cauchy.get("drainage", {})),
         "application_domain": "top",
-        "kind": "cauchy",
+        "kind": "drain",
         "value": f"{DRAINAGE_CONDUCTANCE_M2_S:.12g} m2/s",
     }
     bc["dirichlet"] = dirichlet
@@ -728,9 +726,7 @@ def _run_boussinesq(
             "flow_regime": "transient",
             "runtime_max_iterations": runtime_max_iterations,
             "runtime_tol_residual_inf": runtime_tol_residual_inf,
-            "ic": {"type": "custom", "value": INITIAL_HEAD_M},
-            "active_sinks_sources": ["recharge"],
-            "active_bc": ["east_side", "drainage"],
+            "ic": {"kind": "custom", "value": INITIAL_HEAD_M},
             "sinks_sources": {
                 "recharge": {
                     "values": recharge_series_m_s,
@@ -744,7 +740,7 @@ def _run_boussinesq(
                 },
                 "drainage": {
                     "application_domain": "top",
-                    "kind": "cauchy",
+                    "kind": "drain",
                     "value": DRAINAGE_CONDUCTANCE_M2_S,
                 },
             },

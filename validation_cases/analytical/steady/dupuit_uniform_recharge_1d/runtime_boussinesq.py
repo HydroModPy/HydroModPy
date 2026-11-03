@@ -46,9 +46,7 @@ def run_boussinesq_dupuit_uniform_recharge_case(
         storage_coefficient=0.1,
         flow_section={
             "flow_regime": "steady",
-            "ic": {"type": "custom", "value": constant_head_m},
-            "active_sinks_sources": ["recharge"],
-            "active_bc": ["west_side", "east_side"],
+            "ic": {"kind": "custom", "value": constant_head_m},
             "sinks_sources": {
                 "recharge": {
                     "values": mm_day_to_m_s(float(reference_cfg["recharge_mm_day"])),

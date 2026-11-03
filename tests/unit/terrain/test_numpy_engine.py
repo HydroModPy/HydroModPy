@@ -15,7 +15,7 @@ from tests._helpers.geotiffs import write_geotiff
 
 RES = 10.0
 EAST = 2
-"""The ``d8_wbt`` code of the eastern neighbour."""
+"""The ``d8_wbt`` code of the eastern neighbor."""
 
 
 def _plane_east(rows: int = 5, cols: int = 6) -> np.ndarray:

@@ -108,8 +108,7 @@ def run_boussinesq_fixed_head_piecewise_k_case(
                     boussinesq_variant_flow_section(
                         {
                             "flow_regime": "steady",
-                            "ic": {"type": "custom", "value": 7.5},
-                            "active_bc": ["west_side", "east_side"],
+                            "ic": {"kind": "custom", "value": 7.5},
                             "bc": {
                                 "west_side": {"value": WEST_HEAD_M},
                                 "east_side": {"value": EAST_HEAD_M},

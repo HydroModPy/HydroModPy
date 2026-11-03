@@ -16,7 +16,7 @@ def plot_hantush_recharge_mound_comparison(
     show_plot: bool = True,
     dpi: int = 160,
 ) -> Path:
-    """Save one figure: centre rise over time, transect profiles and final error map."""
+    """Save one figure: center rise over time, transect profiles and final error map."""
     reference_cfg = dict(comparison.metadata.get("reference", {}))
     initial_head = float(reference_cfg["initial_head_m"])
     fig, axes = plt.subplots(1, 3, figsize=(16.0, 4.8))
@@ -25,7 +25,7 @@ def plot_hantush_recharge_mound_comparison(
     axes[0].plot(days, comparison.analytical_centre_rise, "k-", label="Hantush (1967)")
     axes[0].plot(days, comparison.numerical_centre_rise, "o", ms=3, label="simulated")
     axes[0].set_xlabel("time (d)")
-    axes[0].set_ylabel("head rise at the centre (m)")
+    axes[0].set_ylabel("head rise at the center (m)")
     axes[0].legend()
 
     for index in np.unique(np.linspace(0, days.size - 1, 4).round().astype(int)):
@@ -40,7 +40,7 @@ def plot_hantush_recharge_mound_comparison(
             color=line.get_color(),
             label=f"t = {days[index]:.1f} d",
         )
-    axes[1].set_xlabel("x from the centre (m)")
+    axes[1].set_xlabel("x from the center (m)")
     axes[1].set_ylabel("head rise on the transect (m)")
     axes[1].legend()
 

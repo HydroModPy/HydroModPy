@@ -31,19 +31,17 @@ def _payload(
     reach: dict[str, Any] | None = None,
     solver: str = "modflow6",
 ) -> dict[str, Any]:
-    flow: dict[str, Any] = {}
+    sinks: dict[str, Any] = {}
     if well is not None:
-        flow["active_sinks_sources"] = ["wells"]
-        flow["sinks_sources"] = {"wells": {"W1": {"location": well, "flux": -1.0}}}
+        sinks["wells"] = {"W1": {"location": well, "flux": -1.0}}
     if reach is not None:
-        flow["active_bc"] = ["sfr"]
-        flow["sinks_sources"] = {"sfr": {"net": {"reaches": [reach]}}}
+        sinks["sfr"] = {"net": {"reaches": [reach]}}
     payload: dict[str, Any] = {
         "workflow": {"mode": "simulation"},
         "workspace": {"project_root": "."},
         "geographic": {"source_mode": "synthetic"},
-        "solver": {"backend": {"backend": solver}},
-        "flow": flow,
+        "solver": {"backend": {"kind": solver}},
+        "flow": {"sinks_sources": sinks},
     }
     if mesh is not None:
         payload["mesh"] = mesh
@@ -80,9 +78,7 @@ def test_a_well_located_by_coordinates_loads_on_every_engine(engine: str) -> Non
 
 
 def test_every_address_of_the_file_is_named_at_once() -> None:
-    payload = _payload({"engine": "triangle"}, well=CELL)
-    payload["flow"]["active_bc"] = ["sfr"]
-    payload["flow"]["sinks_sources"]["sfr"] = {"net": {"reaches": [REACH]}}
+    payload = _payload({"engine": "triangle"}, well=CELL, reach=REACH)
 
     with pytest.raises(ValueError) as excinfo:
         HydroModPyConfig.model_validate(payload)

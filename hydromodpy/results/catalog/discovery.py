@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import UUID
 
+from hydromodpy.core.exceptions import CatalogError, NothingThereError
 from hydromodpy.core.state.paths import (
     catalog_path_for,
     parse_rel_dir,
@@ -92,7 +93,7 @@ def short_id(sim_id: str | UUID) -> str:
     return str(sim_id)[:8]
 
 
-class ReferenceResolutionError(Exception):
+class ReferenceResolutionError(CatalogError):
     """Base class for catalog reference resolution failures.
 
     Deliberately not a :class:`KeyError`: that subclassing doubled the quotes
@@ -102,6 +103,8 @@ class ReferenceResolutionError(Exception):
 
 class SimulationNotFoundError(ReferenceResolutionError):
     """Raised when a reference does not match any run or session."""
+
+    code = NothingThereError.code
 
 
 class AmbiguousReferenceError(ReferenceResolutionError):

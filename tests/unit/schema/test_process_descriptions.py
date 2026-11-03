@@ -1,6 +1,6 @@
 """The committed process descriptions, and the drift that must never happen.
 
-A generated artefact without a gate drifts. So the first assertion here is the
+A generated artifact without a gate drifts. So the first assertion here is the
 byte comparison, and everything after it is about what the document may not
 claim. The capabilities are the three declarations the descriptions are
 generated from; no CLI verb runs a capability by its id.

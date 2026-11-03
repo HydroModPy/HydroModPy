@@ -109,5 +109,5 @@ first to walk:
   is written under `obs:<point>` and the measured one under the station of its
   data family, with a different variable name. The figure now bridges the two;
 - a buffer declared as a distance (`buff_area = "10 m"`) raised before it could
-  be used, because the validator normalizes it to a unitless metre count that
+  be used, because the validator normalizes it to a unitless meter count that
   the parser then refused.

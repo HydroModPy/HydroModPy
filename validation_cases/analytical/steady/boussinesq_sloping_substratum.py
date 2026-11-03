@@ -3,7 +3,7 @@
 A linear surface (substratum, topography) is given by its west and east values
 and by the abscissas where it takes them, ``surface_west_x`` and
 ``surface_east_x``. The side heads are posed at ``west_x`` and ``east_x``. On a
-launcher model the surface anchors are the centres of the first and last
+launcher model the surface anchors are the centers of the first and last
 raster columns and the heads sit on the boundary-cell centroids
 (``validation_cases.shared.strip_geometry``).
 """

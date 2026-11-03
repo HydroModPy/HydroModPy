@@ -21,6 +21,7 @@ NOT_ENVIRONMENT: dict[str, str] = {
     "HMP_PERIOD": "GeoTIFF tag written by results/exporters/geotiff.py",
     "HMP_SIM_ID": "GeoTIFF tag written by results/exporters/geotiff.py",
     "HMP_TIMESTAMP": "GeoTIFF tag written by results/exporters/geotiff.py",
+    "HMP_EXPORTED_AT": "GeoTIFF tag written by results/exporters/geotiff.py",
     "HMP_UNITS": "GeoTIFF tag written by results/exporters/geotiff.py",
     "HMP_VARIABLE": "GeoTIFF tag written by results/exporters/geotiff.py",
 }

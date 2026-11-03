@@ -30,7 +30,7 @@ and the selector is declared:
 - ``station_ids`` names the gauges outright, and nothing spatial is needed;
 - otherwise the extent -- ``mask_path``, which a project run fills in from the
   delineated watershed like every other timeseries source -- gives the point
-  whose nearest gauge is read, taken as the centre of that extent in WGS84.
+  whose nearest gauge is read, taken as the center of that extent in WGS84.
 
 **Precedence, and not D116's refusal, and the difference is who put the second
 selector there.** D116 refuses two selectors on a *request*, where both come

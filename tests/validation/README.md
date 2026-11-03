@@ -172,7 +172,7 @@ change is a finding. Each threshold and its rationale go in
 `tests/TOLERANCES.md`.
 
 References pose their boundary heads where the model holds them, at the
-centres of the boundary cells
+centers of the boundary cells
 (`validation_cases/shared/strip_geometry.py`). A head posed on the face adds a
 first-order error in the cell size.
 

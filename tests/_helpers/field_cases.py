@@ -30,7 +30,7 @@ def planar_mesh(
     cell_zone: np.ndarray | None = None,
     zone_names: tuple[str, ...] = (),
 ) -> PlanarCellMesh:
-    """Return the cell mesh of *cells* on *vertices*, centred on their vertex means by default."""
+    """Return the cell mesh of *cells* on *vertices*, centered on their vertex means by default."""
     vertices = np.asarray(vertices, dtype=float)
     connectivity = (
         tuple(np.asarray(cell) for cell in cells)

@@ -13,12 +13,12 @@ refusal, never a listing of the wrong folder.
 from __future__ import annotations
 
 import argparse
-import json
 from collections import Counter
 from pathlib import Path
 
 from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
 from hydromodpy.cli.helpers import apply_verbosity, resolve_project_ref
+from hydromodpy.cli.output import emit
 from hydromodpy.core.state.paths import (
     CATALOG_FILENAME,
     INTERNAL_DIRNAME,
@@ -62,15 +62,11 @@ def run(args: argparse.Namespace) -> None:
     project_dir = resolve_project_ref(args.workspace, args.project)
     payload = _summary(project_dir)
 
-    if args.format == "json":
-        print(json.dumps(payload, indent=2, default=str))
-        return
-    if args.format == "csv":
-        print("key,value")
-        for key, value in payload.items():
-            print(f"{key},{_flat(value)}")
-        return
+    emit(args, "project show", payload, table=lambda: _print_summary(payload))
 
+
+def _print_summary(payload: dict) -> None:
+    """Print what a project holds, for people."""
     print(f"# project: {payload['name']}")
     print(f"# path   : {payload['path']}")
     state = "present" if payload["has_project_toml"] else "missing"
@@ -126,11 +122,3 @@ def _by_status(counts: dict[str, int]) -> str:
     if not counts:
         return ""
     return " (" + ", ".join(f"{status} {n}" for status, n in counts.items()) + ")"
-
-
-def _flat(value: object) -> str:
-    if isinstance(value, dict):
-        return ";".join(f"{key}={item}" for key, item in value.items())
-    if isinstance(value, list):
-        return ";".join(str(item) for item in value)
-    return "" if value is None else str(value)

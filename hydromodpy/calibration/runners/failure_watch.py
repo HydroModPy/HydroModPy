@@ -18,7 +18,7 @@ optimizer gets the failed cost, and the streak leaves it out: the refusal says
 something about that point, not about the configuration, so it neither counts
 nor clears the streak. A search that has scored no point at all after
 ``infeasible_limit`` infeasible trials is refused all the same, because then no
-point of its bounds can be modelled and the budget would be spent at the failed
+point of its bounds can be modeled and the budget would be spent at the failed
 cost. Once one point is scored, an infeasible region is a region the search can
 walk out of, and a grid or a sample may cross many of them in a row.
 """

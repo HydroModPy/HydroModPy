@@ -10,7 +10,7 @@ form ``(layer, row, col, *attrs)`` (DIS) or ``((layer, cell_id), *attrs)``
 - ``CHD`` : ``head``
 - ``WEL`` : ``flux``
 
-This module centralises the attribute names and the helper that turns a
+This module centralizes the attribute names and the helper that turns a
 dataclass payload into a tuple row, so that both backends share a single
 source of truth.
 """

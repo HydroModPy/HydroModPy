@@ -49,9 +49,7 @@ def run_boussinesq_linearized_unconfined_drainage_case(
 
     flow_section = {
         "flow_regime": "steady",
-        "ic": {"type": "custom", "value": 0.5 * (west_head_m + east_head_m)},
-        "active_sinks_sources": [],
-        "active_bc": ["west_side", "east_side", "drainage"],
+        "ic": {"kind": "custom", "value": 0.5 * (west_head_m + east_head_m)},
         "bc": {
             "west_side": {"value": west_head_m},
             "east_side": {"value": east_head_m},

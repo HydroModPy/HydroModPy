@@ -247,7 +247,7 @@ def _contact_short_of_the_boundary(name: str, share_of_the_tolerance: float) -> 
     """A straight contact across the domain whose two ends stop short of the boundary.
 
     The gap is a share of the snap tolerance, ``_END_SNAP_REL`` of the larger span
-    and never less than ``_END_SNAP_REL`` of a metre: the rounding of a line clipped
+    and never less than ``_END_SNAP_REL`` of a meter: the rounding of a line clipped
     to the domain.
     """
     grid, direction = SNAP_DOMAINS[name]
@@ -387,7 +387,7 @@ def test_a_barrier_takes_the_faces_whose_two_centres_lie_across_it() -> None:
 
 
 def test_the_regular_staircase_is_the_faces_the_barrier_crosses() -> None:
-    """A barrier the planner passes on takes the faces whose two centres it separates."""
+    """A barrier the planner passes on takes the faces whose two centers it separates."""
     barrier = LineString([(dam.X0 + 210.0, dam.Y0 + 110.0), (dam.X0 + 830.0, dam.Y0 + 590.0)])
     inputs = planning_inputs(
         grid_over(dam.DOMAIN, 10.0, crs_wkt=LAMBERT93_WKT),

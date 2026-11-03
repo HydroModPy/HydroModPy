@@ -19,7 +19,7 @@ from hydromodpy.results.zarr_store.cf_validation import cf_v85_names, is_cf_stan
     ],
 )
 def test_is_cf_standard_name_recognises_curated_entries(name: str) -> None:
-    """Every name in the curated CF v85 list is recognised."""
+    """Every name in the curated CF v85 list is recognized."""
     assert is_cf_standard_name(name) is True
 
 

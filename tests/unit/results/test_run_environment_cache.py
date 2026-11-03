@@ -1,4 +1,4 @@
-"""The host-environment probes are memoised per process (calibration re-runs them).
+"""The host-environment probes are memoized per process (calibration re-runs them).
 
 ``capture_environment`` runs once per simulation, and calibration fires one per
 trial, so the subprocess-backed probes (conda hash, pip list, cpuinfo, git,
@@ -36,7 +36,7 @@ def test_mutating_a_snapshot_does_not_corrupt_the_cache() -> None:
     snapshot["cpu_info"]["injected"] = True
     snapshot["env_packages"].append("injected-package==9.9.9")
 
-    # The memoised probe values are copied into each snapshot, so a caller
+    # The memoized probe values are copied into each snapshot, so a caller
     # mutating one snapshot cannot leak into the shared cache or a later capture.
     assert "injected" not in env._cpu_info()
     assert "injected-package==9.9.9" not in env._env_packages()

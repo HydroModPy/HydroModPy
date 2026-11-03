@@ -194,7 +194,9 @@ class Session:
         best = self.descriptor.best
         if best is None:
             return {}
-        return {case_id: self._run_of(case_id, case) for case_id, case in best.cases.items()}
+        return {
+            case_id: self._run_of(case_id, case, best.trial) for case_id, case in best.cases.items()
+        }
 
     @property
     def best(self) -> Run | None:
@@ -218,8 +220,12 @@ class Session:
             )
         return self.best_by_case.get(case_id)
 
-    def _run_of(self, case_id: str, case: BestCase) -> Run | None:
-        """Return the run the best trial became in one case, or ``None``."""
+    def _run_of(self, case_id: str, case: BestCase, trial: int) -> Run | None:
+        """Return the run the best trial became in one case, or ``None``.
+
+        Without a ``sim_id`` the paired run is taken only when its seal names this
+        session and this trial: it may hold an older best of the same session.
+        """
         from hydromodpy.results.run.view import open_run_dir
 
         project_root = self._dir.parent.parent
@@ -231,7 +237,12 @@ class Session:
             if not is_sealed(directory):
                 continue
             run = open_run_dir(directory)
-            if case.sim_id is None or run.sim_id == case.sim_id:
+            if case.sim_id is not None:
+                if run.sim_id == case.sim_id:
+                    return run
+                continue
+            by = run.checks.calibrated_by
+            if by is not None and by.session_id == self.descriptor.session_id and by.trial == trial:
                 return run
         return None
 

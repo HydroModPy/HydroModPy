@@ -381,12 +381,12 @@ def _plan_all(
     res_y: float,
     report: NotchReport,
 ) -> list[tuple[_Site, _Plan]]:
-    """Plan every crossing, moving each bed end past the embankments of its neighbours.
+    """Plan every crossing, moving each bed end past the embankments of its neighbors.
 
     A first pass reads the ends at *bed_reach_m*. A second reads them again past
     the spans the first found on the other crossings, which moves the spans, and
     so on until they hold still. A crossing whose span does not settle, or whose
-    ends cannot get out of its neighbours, is skipped: it would be cut against
+    ends cannot get out of its neighbors, is skipped: it would be cut against
     a wall taken for the bed.
     """
     open_sites: list[_Site] = []
@@ -615,7 +615,7 @@ def _walk_down(
     """Follow the D8 pointer from *start* until *reach_m* is covered or the pointer ends.
 
     The walk goes on while it stands on a pixel of *blocked*: the end of the
-    chain is read beyond the embankments of the neighbouring crossings.
+    chain is read beyond the embankments of the neighboring crossings.
     """
     row, col = start
     walked = 0.0

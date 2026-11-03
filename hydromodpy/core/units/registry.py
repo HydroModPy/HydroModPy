@@ -1,7 +1,7 @@
 """Pint unit registry for HydroModPy.
 
 Central pint ``UnitRegistry`` instance configured with the units commonly used
-in hydrogeological modelling (lengths, hydraulic conductivities, flow rates,
+in hydrogeological modeling (lengths, hydraulic conductivities, flow rates,
 dimensionless storativities, temperatures, viscosities, ...).
 
 The registry is created lazily and shared across the package so that
@@ -10,11 +10,11 @@ equality and arithmetic).
 
 Canonical SI conventions used in HydroModPy
 -------------------------------------------
-- length:                  metre         (``m``)
-- area:                    square metre  (``m**2``)
-- volume:                  cubic metre   (``m**3``)
+- length:                  meter         (``m``)
+- area:                    square meter  (``m**2``)
+- volume:                  cubic meter   (``m**3``)
 - time:                    second        (``s``)
-- velocity / conductivity: metre/second  (``m/s``)
+- velocity / conductivity: meter/second  (``m/s``)
 - flow rate:               m**3/s
 - mass flux:               kg/s
 - temperature:             degC

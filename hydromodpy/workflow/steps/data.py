@@ -46,6 +46,7 @@ from hydromodpy.spatial.geographic.core.derived_features import (
     attach_reference_hydrographic_network,
 )
 from hydromodpy.spatial.geographic.core.lake_catchments import lake_contributing_areas_m2
+from hydromodpy.spatial.geographic.delineated_catchment import catchment_outline
 from hydromodpy.spatial.geographic.structure_binders import apply_geology_to_domain
 from hydromodpy.workflow.internals.data_description import (
     changed_sources,
@@ -217,6 +218,7 @@ def apply_structural_updates_from_data(
             window=window,
             model_crs=str(setup_state.geographic.crs_proj),
             soil_capacity=getattr(data_state, "soil_capacity", None),
+            catchment=catchment_outline(setup_state.geographic),
         )
     setup_state.soil_forcings = soil
 
@@ -354,7 +356,7 @@ def _read_watershed_polygons(geographic: object) -> list[object]:
     """Read the delineated watershed polygon(s) used to scope the stream links.
 
     The full-grid link raster covers the whole regional DEM; only the links
-    inside the modelled catchment can map onto the solver mesh.
+    inside the modeled catchment can map onto the solver mesh.
     """
     watershed_shp = getattr(geographic, "watershed_shp", None)
     if not watershed_shp or not Path(str(watershed_shp)).exists():

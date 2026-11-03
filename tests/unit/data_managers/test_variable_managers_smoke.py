@@ -7,7 +7,7 @@ soil_moisture, temperature, wind.
 The nine forcing/flux variables share an identical config + custom-loader
 contract, so they are driven from one parametrized table (``VARIABLE_CASES``).
 DEM has a different source shape and keeps its own class. Variable-specific
-behaviour (ETP date window, precipitation/radiation components, recharge
+behavior (ETP date window, precipitation/radiation components, recharge
 synthetic source, ...) lives in the per-variable ``*Specific`` classes.
 """
 
@@ -293,7 +293,7 @@ class TestDemConfig:
 
 
 # =====================================================================
-# Variable-specific behaviour
+# Variable-specific behavior
 # =====================================================================
 
 

@@ -25,7 +25,8 @@ _DRAIN = pd.Series([0.25, 0.25, 0.25], index=_INDEX)
 
 def _model(*, route_drainage: bool | None) -> SimpleNamespace:
     payload = {} if route_drainage is None else {"route_drainage": route_drainage}
-    return SimpleNamespace(flow=SimpleNamespace(sinks_sources={"sfr": {"net": payload}}))
+    flow = SimpleNamespace(active_bc=["sfr"], sinks_sources={"sfr": {"net": payload}})
+    return SimpleNamespace(flow=flow)
 
 
 def _serve(model: SimpleNamespace, monkeypatch: pytest.MonkeyPatch) -> tuple[object, list[str]]:
@@ -71,6 +72,22 @@ def test_a_network_that_does_not_say_routes_the_drainage(monkeypatch) -> None:
 
 def test_a_network_that_keeps_the_drainage_out_adds_the_drain_budget(monkeypatch) -> None:
     result, calls = _serve(_model(route_drainage=False), monkeypatch)
+
+    assert calls == ["routed", "drain"]
+    assert result.includes_runoff is True
+    np.testing.assert_allclose(result.values, (_ROUTED + _DRAIN).to_numpy())
+
+
+@pytest.mark.parametrize(
+    "flow",
+    [
+        SimpleNamespace(active_bc=["lake"], sinks_sources={"lake": {}}),
+        SimpleNamespace(active_bc=["lake"], sinks_sources={"sfr": {"net": {}}}),
+    ],
+    ids=["no_network", "a_network_not_active"],
+)
+def test_a_lake_without_a_network_adds_the_drain_budget(monkeypatch, flow) -> None:
+    result, calls = _serve(SimpleNamespace(flow=flow), monkeypatch)
 
     assert calls == ["routed", "drain"]
     assert result.includes_runoff is True

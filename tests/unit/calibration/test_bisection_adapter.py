@@ -230,7 +230,7 @@ class TestTransform:
         assert adapter.ask(n=2)
 
     def test_an_identity_space_does_not_report_convergence_after_the_sweep(self) -> None:
-        # The regression, stated as behaviour: no adapter reaches a converged
+        # The regression, stated as behavior: no adapter reaches a converged
         # state on an untransformed parameter.
         space = ParameterSpace([CalibParameter(name="K", lower=1.0e-9, upper=1.0e-3)])
         with pytest.raises(OptimizerError):

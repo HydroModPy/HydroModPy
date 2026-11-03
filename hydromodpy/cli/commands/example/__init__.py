@@ -2,11 +2,11 @@
 
 Sub-actions:
 
-- ``hmp example list``: the catalogue, offline, with what this machine misses.
+- ``hmp example list``: the catalog, offline, with what this machine misses.
 - ``hmp example show <id>``: one example file by file, cached or missing.
 - ``hmp example add <id>``: fetch what is missing and write it into a workspace.
 
-The catalogue is read from ``hydromodpy/examples/catalog.toml`` inside the
+The catalog is read from ``hydromodpy/examples/catalog.toml`` inside the
 wheel, so ``list`` needs no network and cannot promise what the installed
 version does not know about.
 """

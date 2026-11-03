@@ -9,22 +9,28 @@ without depending on a full Boussinesq solve.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
+import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pytest
+from shapely.geometry import box
 
 from hydromodpy.core.contracts.observables import ObservableRequest
 from hydromodpy.core.exceptions import ObservableNotAvailableError, SolverError
 from hydromodpy.core.state.run_state import RunState
+from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
+    _build_catchment_mask,
+)
 from hydromodpy.simulation.planning.plan import (
     ProcessRun,
     RunContext,
     SimulationPlan,
 )
-from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
+from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter, _published_support
 
 
 def _write_state_history(
@@ -198,3 +204,62 @@ def test_extract_raises_when_no_output_dir_recorded(tmp_path: Path) -> None:
 
     with pytest.raises(SolverError, match="No solver output recorded"):
         BoussinesqFlowAdapter().extract_observables(ctx, None, [_discharge_request()])
+
+
+def _half_of_a_square(tmp_path: Path) -> tuple[np.ndarray, np.ndarray, Path]:
+    """Return a row of four cells and a watershed file that covers the first two."""
+    vertices = np.array([[float(i), float(j)] for j in (0, 1) for i in range(5)])
+    faces = np.array([[i, i + 1, i + 6, i + 5] for i in range(4)])
+    watershed = tmp_path / "watershed.gpkg"
+    gpd.GeoDataFrame(geometry=[box(-1.0, -1.0, 2.0, 2.0)], crs="EPSG:2154").to_file(watershed)
+    return vertices, faces, watershed
+
+
+def _ctx_on_a_watershed(
+    output_dir: Path, vertices: np.ndarray, faces: np.ndarray, watershed: Path, *, crs: str | None
+) -> RunContext:
+    cell_mesh = SimpleNamespace(
+        mesh=SimpleNamespace(vertices=vertices),
+        geometry=SimpleNamespace(padded_connectivity=faces),
+    )
+    return replace(
+        _build_ctx("flow_main::boussinesq", output_dir),
+        model=SimpleNamespace(mesh=SimpleNamespace(cell_mesh=cell_mesh)),
+        state=RunState(
+            setup=SimpleNamespace(geographic=SimpleNamespace(watershed_shp=str(watershed))),
+            cfg=SimpleNamespace(geographic=SimpleNamespace(crs_project=crs)),
+        ),
+    )
+
+
+def test_a_trial_serves_the_discharge_of_the_cells_the_run_publishes(tmp_path: Path) -> None:
+    vertices, faces, watershed = _half_of_a_square(tmp_path)
+    drainage = np.array([[1.0, 2.0, 4.0, 8.0]])
+    _write_state_history(tmp_path, head_history=np.full((1, 4), 5.0), drainage_history=drainage)
+    ctx = _ctx_on_a_watershed(tmp_path, vertices, faces, watershed, crs="EPSG:2154")
+
+    served = BoussinesqFlowAdapter().extract_observables(ctx, None, [_discharge_request()])
+
+    np.testing.assert_array_equal(served["q"].values, [3.0])
+
+
+def test_a_trial_and_its_run_read_one_mask(tmp_path: Path) -> None:
+    vertices, faces, watershed = _half_of_a_square(tmp_path)
+    ctx = _ctx_on_a_watershed(tmp_path, vertices, faces, watershed, crs="EPSG:2154")
+    store = SimpleNamespace(
+        read_geographic_feature=lambda sim_id, name: gpd.read_file(watershed),
+    )
+    group = {
+        "mesh": {"vertices": vertices, "face_node_connectivity": faces},
+        "crs": SimpleNamespace(attrs={"crs_wkt": "EPSG:2154"}),
+    }
+    published = _build_catchment_mask(store, "sim", group, np.ones(4, dtype=bool))
+
+    np.testing.assert_array_equal(_published_support(ctx), published)
+
+
+def test_a_run_without_a_declared_crs_stays_on_the_whole_domain(tmp_path: Path) -> None:
+    vertices, faces, watershed = _half_of_a_square(tmp_path)
+    ctx = _ctx_on_a_watershed(tmp_path, vertices, faces, watershed, crs=None)
+
+    assert _published_support(ctx) is None

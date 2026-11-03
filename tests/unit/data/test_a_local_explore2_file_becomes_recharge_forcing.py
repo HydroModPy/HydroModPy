@@ -70,7 +70,7 @@ def _write_drias_file(
 def _bbox_around_native_cell(
     ix: int, iy: int, half_width: float = 4000.0
 ) -> tuple[float, float, float, float]:
-    """A run bbox (EPSG:2154) centred on one cell of the synthetic native grid."""
+    """A run bbox (EPSG:2154) centered on one cell of the synthetic native grid."""
     x = _NATIVE_X0 + ix * _CELL
     y = _NATIVE_Y0 + iy * _CELL
     transformer = Transformer.from_crs(
@@ -163,8 +163,8 @@ def test_hectometre_coordinates_are_read_as_metres(tmp_path: Path) -> None:
 
     records = explore2.read_explore2(path, variable="precipitation", bbox=bbox, project_period=None)
 
-    # Native coordinates in hectometres are 100x smaller than the bbox (in
-    # metres): finding the requested cells at all proves the scale was applied.
+    # Native coordinates in hectometers are 100x smaller than the bbox (in
+    # meters): finding the requested cells at all proves the scale was applied.
     assert records[0].data["precipitation"].values.size > 0
 
 

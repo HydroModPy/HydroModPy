@@ -94,7 +94,7 @@ def test_binder_to_resolver_chain_for_lake_and_general() -> None:
     lake = FlowLakeConfig.model_validate(
         {
             "bedleak": 1e-6,
-            "stageinit": "8 m",
+            "initial_stage": "8 m",
             "cutoff_wall": {"line": _CUT_COORDS, "depths": [4.0], "hydchr": 1e-9},
         }
     )

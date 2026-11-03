@@ -8,6 +8,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from hydromodpy.core.exceptions import DataContractViolation
+from hydromodpy.core.scope import station_name_refusal
 from hydromodpy.data.contracts.completeness import compute_completeness
 from hydromodpy.data.contracts.location import StationLocation
 
@@ -36,6 +38,9 @@ class PointRecord:
     quality: dict | None = None
 
     def __post_init__(self):
+        refusal = station_name_refusal(self.station_id)
+        if refusal is not None:
+            raise DataContractViolation(f"{self.variable} from {self.source}: {refusal}")
         missing = [c for c in REQUIRED_COLUMNS if c not in self.data.columns]
         if missing:
             raise ValueError(

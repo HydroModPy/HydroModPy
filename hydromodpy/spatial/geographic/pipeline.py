@@ -96,7 +96,7 @@ class GeographicRuntimeContext:
     y_outlet_snapped: float | None = None
     outlet_snap_distance_m: float | None = None
     buffer_distance_m: float | None = None
-    """Margin drawn around the catchment, in metres, after rounding to the DEM."""
+    """Margin drawn around the catchment, in meters, after rounding to the DEM."""
 
     buffer_area_increase: float | None = None
     """Relative area the margin added to the catchment; None when not recorded."""
@@ -105,9 +105,9 @@ class GeographicRuntimeContext:
     """Clips the model top is sampled from, by attribute, where they are not the clips of G.
 
     Filled by ``[geographic.bed_regularization]`` with the clips of the
-    regularised ground, cut by the routine and the polygons that cut the clips
+    regularized ground, cut by the routine and the polygons that cut the clips
     of G. They replace the clips of G under the same attribute names, and
-    ``top_dem_path`` is the regularised ground itself, so the model top and
+    ``top_dem_path`` is the regularized ground itself, so the model top and
     the SFR bed read one bed. The routing DEM, the channel tree, the catchment
     and the mesh are built before and do not read them.
     """
@@ -316,7 +316,7 @@ def _build_geographic_products(
             crs_project=setup.crs_project,
             backend=tool,
         )
-    # The channel bed of the ground, regularised on the channel tree A once A
+    # The channel bed of the ground, regularized on the channel tree A once A
     # and the catchment are final. Nothing above reads it.
     if bed_regularization_enabled(config):
         with progress.status("Regularising the channel bed of the ground"):

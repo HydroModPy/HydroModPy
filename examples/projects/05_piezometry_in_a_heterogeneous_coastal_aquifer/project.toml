@@ -28,7 +28,7 @@ step_value = "1 day"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 
@@ -37,7 +37,7 @@ crs_project = "EPSG:2154"
 
 # The domain is a polygon, the coastal model area, not an outlet catchment.
 [geographic.catchment]
-catch_def = "from_polyg_shp"
+kind = "from_polyg_shp"
 dem_init_path = "DEM_gouville_25m.tif"
 polyg_shp_path = "gouville_model_area.shp"
 buff_area = "10 m"
@@ -86,8 +86,6 @@ station_ids = ["GOUVILLE"]
 [flow]
 flow_regime = "transient"
 param_list = ["K", "Sy", "Ss"]
-active_sinks_sources = ["recharge"]
-active_bc = ["ocean", "drainage"]
 first_period_steady = true
 
 # zone_1 is the western strip, along the shore; zone_2 the eastern one inland.
@@ -114,18 +112,20 @@ value = 1e-5
 kind = "dirichlet"
 
 [flow.bc.ocean.forcing]
-mode = "csv"
+kind = "csv"
 path_file = "../../data/oceanic/oceanic_custom_GOUVILLE_20160101_20161231_D.csv"
 date_column = "datetime"
 value_column = "value"
 units = "m"
 
 [flow.bc.drainage]
-kind = "cauchy"
+kind = "drain"
 
 
 # The cell the piezometer stands in, sampled at every timestep so the simulated
 # head can be read back as a series and compared to the measured one.
+
+[flow.sinks_sources.recharge]
 [observation]
 variables = ["head"]
 

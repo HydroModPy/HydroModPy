@@ -1,4 +1,4 @@
-"""The cost a calibration minimises is the score its promoted run is ranked on.
+"""The cost a calibration minimizes is the score its promoted run is ranked on.
 
 The same series, the same declared window: the calibration scores it while it
 searches, and the run promoted from it is scored again by

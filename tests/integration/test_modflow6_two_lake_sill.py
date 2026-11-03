@@ -6,7 +6,7 @@ carries a spillway WEIR to the external boundary. The LAK package is assembled
 by the production ``build_lak_package_args`` (so the integration covers the real
 builder output), then wired into a tiny 5x11 / 2-layer DISV model exported from
 a ``SolverMesh`` and run in MF6. The lakebed is sealed (``bedleak = 0``) so the
-only inter-lake path is the weir, which isolates the sill behaviour:
+only inter-lake path is the weir, which isolates the sill behavior:
 
 * BELOW the sill (both stages < invert) the weir is inert and the two lakes
   stay independent -- no exchange, stages held;
@@ -50,25 +50,25 @@ def _two_lake_model(*, strt0: float, strt1: float) -> SimpleNamespace:
         model_output_name="twolake",
         time_units="seconds",
         flow=SimpleNamespace(
-            active_bc=["reservoir"],
+            active_bc=["lake"],
             sinks_sources={
                 "lakes": {
                     "lac0": {
                         "polygon": None,
                         "bedleak": 0.0,  # sealed bed: isolate the weir coupling
                         "abacus": abacus,
-                        "stageinit": strt0,
+                        "initial_stage": strt0,
                         "outlets": [
-                            {"couttype": "WEIR", "invert": _CREST, "width": 24.0, "lakeout": 2}
+                            {"kind": "WEIR", "invert": _CREST, "width": 24.0, "lakeout": 2}
                         ],
                     },
                     "lac1": {
                         "polygon": None,
                         "bedleak": 0.0,
                         "abacus": abacus,
-                        "stageinit": strt1,
+                        "initial_stage": strt1,
                         "outlets": [
-                            {"couttype": "WEIR", "invert": _SPILL, "width": 35.0, "lakeout": 0},
+                            {"kind": "WEIR", "invert": _SPILL, "width": 35.0, "lakeout": 0},
                         ],
                     },
                 }

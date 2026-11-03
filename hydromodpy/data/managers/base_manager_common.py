@@ -133,7 +133,7 @@ class BaseManagerCommon(SourceTable, ABC):
     ) -> list[PointRecord]:
         """Filter records by spatial mask (WGS84).
 
-        Dropping a station outside the mask is the intended behaviour, never a
+        Dropping a station outside the mask is the intended behavior, never a
         silent one: the warning names each station dropped. When every station
         lies outside and the user listed them (in ``station_ids``, or in the
         files of a ``custom`` source), the variable the user asked for cannot be

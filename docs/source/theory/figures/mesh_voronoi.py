@@ -26,8 +26,8 @@ fig, (pair, lattice) = plt.subplots(1, 2, figsize=(6.4, 3.4))
 corners = np.array([[0.0, 0.0], [2.0, 0.0], [2.0, 1.0], [0.0, 1.0]])
 two = triangles(corners, [[0, 1, 3], [1, 2, 3]])
 phi = connection_nonorthogonality_deg(two)[0]
-for cell, colour in (([0, 1, 3], "C5"), ([1, 2, 3], "C0")):
-    pair.fill(*corners[cell].T, fc=(colour, 0.25), ec="C6", lw=1.0)
+for cell, color in (([0, 1, 3], "C5"), ([1, 2, 3], "C0")):
+    pair.fill(*corners[cell].T, fc=(color, 0.25), ec="C6", lw=1.0)
 pair.plot(*corners[[1, 3]].T, color="C1", lw=2.5)
 c1, c2 = corners[[0, 1, 3]].mean(axis=0), corners[[1, 2, 3]].mean(axis=0)
 pair.annotate("", c2, c1, arrowprops={"arrowstyle": "-|>", "color": "C0", "lw": 1.6})

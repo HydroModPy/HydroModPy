@@ -1,0 +1,32 @@
+{
+  "schema": "hydromodpy.ledger.v1",
+  "entries": [
+    {
+      "file": "water_budget.png",
+      "producer": "display:water_budget",
+      "options": {},
+      "hydromodpy_version": "2.0.0rc1",
+      "at": "2026-11-03T10:07:27.482331Z",
+      "sha256": "c7e1cfa7952fc673edf644c72b9a67542262613d441b5adea52daf5574690eb8",
+      "identity": {
+        "site": null,
+        "site_fingerprint": null,
+        "case_id": "demo",
+        "sim_id": "5e78a478-2c73-4398-a089-721c0648c59a",
+        "attempt_id": "8829cb02633d4fbe8390fe7beba2e5bd",
+        "config_hash": "1101419a5a5b899a432f6c24e02b957aeed2923271299d886342272fc7bac403",
+        "mesh_hash": "48ebc775bacafd4e10f0f6a134360eba6a97bd4eb8961401c1a19da71d0e4083",
+        "period": {
+          "start": "2000-01-01",
+          "end": "2001-01-01"
+        },
+        "score_window": null,
+        "label": null,
+        "label_date": null,
+        "rule_version": null,
+        "hydromodpy_version": "2.0.0rc1",
+        "code_reproducible": null
+      }
+    }
+  ]
+}

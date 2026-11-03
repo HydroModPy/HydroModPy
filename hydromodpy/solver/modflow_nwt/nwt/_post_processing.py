@@ -43,7 +43,7 @@ logger = get_logger(__name__)
 
 
 def setup_postprocess_folders(solver: ModflowNwt) -> None:
-    """Create the output folder hierarchy for post-processing artefacts."""
+    """Create the output folder hierarchy for post-processing artifacts."""
     solver.save_file = os.path.join(solver.full_path, "_postprocess")
     create_folder(solver.save_file)
 

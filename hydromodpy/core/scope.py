@@ -10,6 +10,12 @@ not the same surface when the mesh takes in a buffer around the catchment.
 ``timeseries`` table: a series and the measurement it answers to carry the same
 variable name. A reader that asks by one name, ``hmp.read`` and ``[[export]]``,
 asks for the measurement as ``<variable>_obs``, which no table stores.
+
+A station or a zone a user names cannot be called ``catchment``, because a reader
+would take it for the whole catchment: a gauge would be scored against the outlet, a
+zone would read as a uniform parameter. ``domain`` stays free. Only a budget row reads
+it, a budget zone is never a name a user gives, and it is a label of the
+``catchment_zones`` support.
 """
 
 from __future__ import annotations
@@ -43,4 +49,35 @@ def series_selector(name: str) -> tuple[str, str]:
     return name, SIMULATED
 
 
-__all__ = ["CATCHMENT", "DOMAIN", "OBSERVED", "SIMULATED", "series_name", "series_selector"]
+def station_name_refusal(name: object) -> str | None:
+    """Return why ``name`` cannot name a station, ``None`` when it can."""
+    if str(name).strip() != CATCHMENT:
+        return None
+    return (
+        f"{CATCHMENT!r} cannot name a station: it stands for the whole catchment, so a gauge "
+        "with this name would be scored against the simulated outlet. Write the gauge code, "
+        'such as "J0014010".'
+    )
+
+
+def zone_name_refusal(name: object) -> str | None:
+    """Return why ``name`` cannot name a zone of a parameter, ``None`` when it can."""
+    if str(name).strip() != CATCHMENT:
+        return None
+    return (
+        f"{CATCHMENT!r} cannot name a zone: a run stores a uniform parameter under this word, "
+        "so the zone would read as the value of the whole model. Name the zone after what it "
+        'holds, such as "core" or "hillslope".'
+    )
+
+
+__all__ = [
+    "CATCHMENT",
+    "DOMAIN",
+    "OBSERVED",
+    "SIMULATED",
+    "series_name",
+    "series_selector",
+    "station_name_refusal",
+    "zone_name_refusal",
+]

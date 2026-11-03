@@ -243,7 +243,7 @@ def _simulated_network_available(run: Run) -> bool:
 def _stored_rasters(store: Any, sim_id: str) -> list[str]:
     """Return the geographic rasters a run's field store holds.
 
-    A raster carries its ``transform``. Its pixel-centre axes and its
+    A raster carries its ``transform``. Its pixel-center axes and its
     grid-mapping variable sit beside it in the group and are not rasters.
     """
     sz = store.open_zarr(sim_id)

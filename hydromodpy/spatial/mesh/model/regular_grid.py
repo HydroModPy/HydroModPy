@@ -5,7 +5,7 @@ raster transform (uniform cell size, ``(nrow, ncol)`` shape). It is a purely
 data-carrying wrapper around :class:`HydroMesh`.
 
 :func:`cell_mesh_from_regular_grid` keeps the cells and the vertex order of the
-grid as they are, states the centre rule the solvers use and measures the QA.
+grid as they are, states the center rule the solvers use and measures the QA.
 The triangles of a mesh bundle are read by ``io.bundle.cell_mesh_from_bundle``.
 """
 

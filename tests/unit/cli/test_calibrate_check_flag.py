@@ -220,7 +220,10 @@ def test_only_the_departures_print_at_the_normal_verbosity(tmp_path) -> None:
     """The default fill is the paper's; tau, heads, the cut and the veto are not."""
     printed = _check(_protocol_file(tmp_path, end="2002-12-31")).stderr
     departures = [line for line in printed.splitlines() if "  differs from the paper" in line]
-    assert len(departures) == 4
+    # The four above, the two heads keys with the value in force, and the two
+    # departures that hold while the file writes no steady_window and no scoring window.
+    assert len(departures) == 8
+    assert any("on heads_snap_radius" in line and "value in force" in line for line in departures)
     tau_line = next(line for line in departures if "on tau_specific_ratio" in line)
     assert "this file sets" not in tau_line
     assert any("on observed_rasterization" in line for line in departures)
@@ -238,7 +241,7 @@ def test_a_departure_no_key_brings_back_is_named_and_said_in_verbose(tmp_path) -
     verbose = _check(path, verbosity="verbose").stderr
 
     assert "d_os_support" in named
-    assert "steady_recharge_window" in named
+    assert "steady_recharge_window" not in named, "a steady_window brings it back"
     assert "always differs from the paper on d_os_support:" in verbose
     assert "reads the paper on d_os_support" not in verbose
 
@@ -274,7 +277,11 @@ def test_a_value_written_equal_to_the_paper_is_not_a_departure(tmp_path) -> None
     printed = _check(path).stderr
     verbose = _check(path, verbosity="verbose").stderr
 
-    assert "  differs from the paper" not in printed
+    differing = [line for line in printed.splitlines() if "  differs from the paper" in line]
+    assert {line.split(" on ")[1].split(":")[0] for line in differing} == {
+        "steady_recharge_window",
+        "spin_up_year",
+    }
     assert "as the paper on diagonal_neighbors" in verbose
     assert "this file sets 0.0" in verbose
 

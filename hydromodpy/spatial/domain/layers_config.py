@@ -73,12 +73,12 @@ class SurfaceLayerConfig(HydroModelBase):
     depth: Annotated[LengthMeters | None, Profile.USER] = Field(
         default=None,
         gt=0.0,
-        description="Base this far below the terrain (canonical metres).",
+        description="Base this far below the terrain (canonical meters).",
         examples=[15.0],
     )
     elevation: Annotated[LengthMeters | None, Profile.USER] = Field(
         default=None,
-        description="Base at this elevation, in the datum of the DEM (canonical metres).",
+        description="Base at this elevation, in the datum of the DEM (canonical meters).",
         examples=[50.0],
     )
     surface: Annotated[IdentifierStr | None, Profile.USER] = Field(
@@ -126,7 +126,7 @@ class VerticalGridConfig(HydroModelBase):
     (``genmtd_lay``), the layer count, proportions or layer tables, the pinch-out
     rule and the nodata sentinel.
 
-    All geometric quantities are interpreted in SI metres.
+    All geometric quantities are interpreted in SI meters.
     """
 
     genmtd_lay: Annotated[Literal["constant", "decay", "list", "surfaces"], Profile.USER] = Field(

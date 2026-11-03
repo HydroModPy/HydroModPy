@@ -68,7 +68,7 @@ class WhiteboxRasterBackend:
 
         with open(os.devnull, "w", encoding="utf-8", errors="ignore") as devnull:
             if not self._redirect_native_stdio:
-                # Whitebox Workflows honours ``env.verbose = False`` for its
+                # Whitebox Workflows honors ``env.verbose = False`` for its
                 # native progress logging. Avoid fd-level redirection by
                 # default: repeated dup2 cycles can make the native binding
                 # terminate abruptly after several DEM workflows in one

@@ -1,7 +1,7 @@
 """Resolve the data a project's TOML files reference, the way a run resolves them.
 
 One resolver for the example catalog (``hmp dev examples manifest``) and for
-``hmp project export``: it reads every authored configuration through the
+``hmp publish --package``: it reads every authored configuration through the
 loader of a run, so a step file that only overrides ``station_ids``
 inherits the source of its parent, and returns the files of ``data/`` each
 one names, the station rows their registries hold, and the files of the

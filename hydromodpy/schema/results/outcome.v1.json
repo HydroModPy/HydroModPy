@@ -239,9 +239,25 @@
         }
       ],
       "default": null,
-      "description": "Pipeline step reached",
+      "description": "Pipeline step reached. An open vocabulary: x-hmp-vocabulary holds the steps of a simulation today, a later version may add one, and a reader keeps a name it does not know.",
       "title": "Step",
-      "x-hmp-profile": "user"
+      "x-hmp-profile": "user",
+      "x-hmp-vocabulary": [
+        "validate",
+        "resolve",
+        "build_geographic",
+        "load_data",
+        "build_mesh",
+        "setup_process",
+        "prepare_solver",
+        "run_solver",
+        "extract",
+        "derive",
+        "display",
+        "export",
+        "seal"
+      ],
+      "x-hmp-vocabulary-open": true
     },
     "written_by": {
       "description": "Who wrote this document",

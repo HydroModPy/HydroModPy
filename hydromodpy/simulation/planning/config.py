@@ -133,6 +133,7 @@ class SimulationTimeConfig(HydroModelBase):
             "end of the period and each flux as the mean of its steps, weighted "
             "by their length."
         ),
+        json_schema_extra=field_metadata(unit="-"),
     )
     coverage_policy: Annotated[CoveragePolicy, Profile.USER] = Field(
         default="error",
@@ -198,9 +199,9 @@ class SimulationTimeConfig(HydroModelBase):
 class _ProcessBase(HydroModelBase):
     """Shared fields for simulation process entries.
 
-    Concrete variants below specialize ``type`` to a single literal so the
+    Concrete variants below specialize ``kind`` to a single literal so the
     enclosing union (``SimulationProcessConfig``) can dispatch via Pydantic's
-    standard ``discriminator="type"`` engine.
+    standard ``discriminator="kind"`` engine.
     """
 
     id: Annotated[IdentifierStr, Profile.USER] = Field(
@@ -216,7 +217,7 @@ class _ProcessBase(HydroModelBase):
 class FlowProcessConfig(_ProcessBase):
     """``[[simulation.process]]`` entry for a flow process."""
 
-    type: Annotated[Literal["flow"], Profile.USER] = Field(
+    kind: Annotated[Literal["flow"], Profile.USER] = Field(
         default="flow",
         description="Discriminator selecting the 'flow' process family.",
     )
@@ -235,7 +236,7 @@ class FlowProcessConfig(_ProcessBase):
         cleaned = [solver.strip() for solver in value if solver and solver.strip()]
         if not cleaned:
             raise ValueError(
-                "simulation.process entries with type='flow' require at least one solver."
+                "simulation.process entries with kind='flow' require at least one solver."
             )
         return cleaned
 
@@ -252,7 +253,7 @@ class FlowProcessConfig(_ProcessBase):
 class TransportProcessConfig(_ProcessBase):
     """``[[simulation.process]]`` entry for a transport process."""
 
-    type: Annotated[Literal["transport"], Profile.USER] = Field(
+    kind: Annotated[Literal["transport"], Profile.USER] = Field(
         default="transport",
         description="Discriminator selecting the 'transport' process family.",
     )
@@ -272,7 +273,7 @@ class TransportProcessConfig(_ProcessBase):
         cleaned = [solver.strip() for solver in value if solver and solver.strip()]
         if not cleaned:
             raise ValueError(
-                "simulation.process entries with type='transport' require at least one solver."
+                "simulation.process entries with kind='transport' require at least one solver."
             )
         return cleaned
 
@@ -289,7 +290,7 @@ class TransportProcessConfig(_ProcessBase):
 class MeshProcessConfig(_ProcessBase):
     """``[[simulation.process]]`` entry for a mesh orchestration process."""
 
-    type: Annotated[Literal["mesh"], Profile.USER] = Field(
+    kind: Annotated[Literal["mesh"], Profile.USER] = Field(
         default="mesh",
         description="Discriminator selecting the 'mesh' orchestration family.",
     )
@@ -317,9 +318,9 @@ class MeshProcessConfig(_ProcessBase):
 SimulationProcessConfig: TypeAlias = Annotated[
     FlowProcessConfig | TransportProcessConfig | MeshProcessConfig,
     Field(
-        discriminator="type",
+        discriminator="kind",
         description=(
-            "Discriminated union of simulation processes tagged by the 'type' family "
+            "Discriminated union of simulation processes tagged by the 'kind' family "
             "(flow, transport, mesh)."
         ),
     ),
@@ -327,12 +328,12 @@ SimulationProcessConfig: TypeAlias = Annotated[
 
 
 def _coerce_process_entry(value: Any) -> Any:
-    """Normalize dict entries before discriminator dispatch (lowercase type)."""
+    """Normalize dict entries before discriminator dispatch (lowercase kind)."""
     if isinstance(value, dict):
         payload = dict(value)
-        raw_type = payload.get("type")
-        if isinstance(raw_type, str):
-            payload["type"] = raw_type.strip().lower()
+        raw_kind = payload.get("kind")
+        if isinstance(raw_kind, str):
+            payload["kind"] = raw_kind.strip().lower()
         return payload
     return value
 
@@ -456,7 +457,7 @@ class SimulationConfig(HydroModelBase):
         default_factory=list,
         description=(
             "Ordered list of requested processes loaded from "
-            "[[simulation.process]]. At most one process per type is supported."
+            "[[simulation.process]]. At most one process per kind is supported."
         ),
     )
     results: Annotated[ResultsConfig, Profile.USER] = Field(
@@ -519,12 +520,12 @@ class SimulationConfig(HydroModelBase):
     def _validate_unique_process_types(cls, value: list[Any]) -> list[Any]:
         seen_types: set[str] = set()
         for process_cfg in value:
-            if process_cfg.type in seen_types:
+            if process_cfg.kind in seen_types:
                 raise ValueError(
-                    "At most one process of each type is supported. "
-                    f"Duplicate '{process_cfg.type}' process found."
+                    "At most one process of each kind is supported. "
+                    f"Duplicate '{process_cfg.kind}' process found."
                 )
-            seen_types.add(process_cfg.type)
+            seen_types.add(process_cfg.kind)
         return value
 
     def has_processes(self) -> bool:

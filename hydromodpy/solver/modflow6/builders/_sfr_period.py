@@ -215,7 +215,7 @@ def build_sfr_obs_spec(
 
     ``obs_continuous`` is the flopy ``continuous`` mapping ``{csv_file: [(name,
     type, id), ...]}`` with 0-based integer reach ids. ``sfr_obs_meta`` is the
-    JSON-serialisable sidecar mapping each observation name to its network /
+    JSON-serializable sidecar mapping each observation name to its network /
     reach / quantity so the extractor can re-key the obs CSV by
     ``(reach_ifno, totim)``.
     """

@@ -14,10 +14,15 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from hydromodpy.config.sites.expansion import PlanDraft
+    from hydromodpy.results.run import Run
+    from hydromodpy.workflow.pipelines.overview import OverviewResult
 
 
-def run_overview(config_path: str | Path) -> dict[str, Any]:
+def run_overview(config_path: str | Path) -> OverviewResult:
     """Generate a watershed identity card from a TOML file, as a run of the project.
 
     The overview claims ``runs/<name>/`` through the attempt protocol like any
@@ -179,32 +184,32 @@ def identical_run_message(name: str | None, sim_id: str) -> str:
 
 
 def run_simulation(
-    config_path: str | Path,
+    config: Any,
     *,
+    changes: Mapping[str, Any] | None = None,
     name: str | None = None,
     resume: str | None = None,
-    from_step: str | int | None = None,
-    until_step: str | int | None = None,
+    from_step: str | None = None,
+    until_step: str | None = None,
     no_display: bool = False,
     frozen: bool = False,
-    dry_run: bool = False,
-    parallel: bool = True,
     force: bool = False,
     fresh: bool = False,
     overrides: Mapping[str, Any] | None = None,
     headless: bool = False,
     replay_of: Path | None = None,
 ) -> dict[str, Any]:
-    """Execute one attempt of a case from a TOML file, the worker verb.
+    """Execute one attempt of a case, the worker verb.
 
-    The run is named ``name``, else ``[simulation] name`` (which a TOML file
-    defaults to its own stem). A plain run identical to an already completed
-    run (:func:`completed_identical_run`) is skipped and returns a
-    ``{"skipped": True, "name", "sim_id", "project_root"}`` summary, unless
-    ``force`` is set. Resume, partial and dry runs always proceed. The index
-    is never opened here: the summary comes from the run directory, and the
-    caller indexes it afterwards. ``overrides`` are the dotted paths a
-    ``--set`` or an overlay changed, sealed in ``lineage.overrides``.
+    *config* is the TOML file of the case, or a validated configuration. The run is
+    named ``name``, else ``[simulation] name`` (which a TOML file defaults to its own
+    stem). A plain run identical to an already completed run
+    (:func:`completed_identical_run`) is skipped and returns a ``{"skipped": True,
+    "name", "sim_id", "project_root"}`` summary, unless ``force`` is set. Resume and
+    partial runs always proceed. The index is never opened here: the summary comes from
+    the run directory, and the caller indexes it afterwards. ``changes`` is the ``set=``
+    of ``hmp.run``, applied to the configuration of the run. ``overrides`` are the dotted
+    paths a ``--set`` or an overlay wrote in the file, sealed in ``lineage.overrides``.
     The frozen configuration of a run with ``frozen`` replays from the record of
     that run and not from a lockfile (:mod:`hydromodpy.project.replay_checks`): other
     bytes or another configuration are refused before anything runs, and what the
@@ -212,19 +217,22 @@ def run_simulation(
     which replays the same way, its inputs checked already.
     """
     from hydromodpy.project import Project
+    from hydromodpy.project.run_overrides import override_changes
     from hydromodpy.results.lineage import Lineage
 
-    with Project(config_path, no_display=no_display, headless=headless) as project:
-        run_name = name or project.config.simulation.name or Path(config_path).stem
-        project_root = str(Path(project.config.workspace.project_root))
+    config_path = Path(config) if isinstance(config, (str, Path)) else None
+    with Project(config, no_display=no_display, headless=headless) as project:
+        cfg = project._cfg
+        run_name = name or cfg.simulation.name or (config_path.stem if config_path else None)
+        project_root = str(Path(cfg.workspace.project_root))
         source_run = replay_of
         if frozen or replay_of is not None:
             from hydromodpy.project.replay_checks import check_replay, sealed_run_of
 
-            source_run = replay_of or sealed_run_of(Path(config_path))
+            source_run = replay_of or (sealed_run_of(config_path) if config_path else None)
             if source_run is not None:
                 check_replay(
-                    project.config,
+                    cfg,
                     source_run,
                     project_root=Path(project_root),
                     inputs_checked=replay_of is not None,
@@ -232,13 +240,15 @@ def run_simulation(
                 frozen = False
         plain_run = (
             not force
+            and bool(run_name)
             and resume is None
             and from_step is None
             and until_step is None
-            and not dry_run
         )
         if plain_run:
-            existing = completed_identical_run(project.config, name=run_name)
+            asked = override_changes(cfg, changes or {})
+            effective = cfg.with_changes(asked) if asked else cfg
+            existing = completed_identical_run(effective, name=str(run_name))
             if existing is not None:
                 exist_name, exist_sid = existing
                 return {
@@ -248,15 +258,14 @@ def run_simulation(
                     "project_root": project_root,
                 }
         lineage = Lineage(overrides=dict(overrides)) if overrides else None
-        result = project.execute(
+        result = project._execute(
+            set=changes,
             name=run_name,
             resume=resume,
             from_step=from_step,
             until_step=until_step,
-            dry_run=dry_run,
             frozen=frozen,
             no_display=no_display,
-            parallel=parallel,
             fresh=fresh,
             force=force,
             lineage=lineage,
@@ -287,14 +296,83 @@ def run_simulation(
         return summary
 
 
-DISPATCH: dict[str, Callable[..., dict[str, Any]]] = {
+def completed_run_view(summary: Mapping[str, Any]) -> Run | None:
+    """Return the run a summary of :func:`run_simulation` names, with the index up to date.
+
+    The worker never opens the index, so it is refreshed here, for the readers that list
+    runs. The run itself is read from its directory: an index handle opened earlier in
+    this process keeps the snapshot it opened on, so a run indexed since is not found
+    through it.
+    """
+    from hydromodpy.core.state.paths import runs_dir_for
+    from hydromodpy.project.runner import run_view_of
+    from hydromodpy.results.catalog.indexer import index_new_runs
+
+    root = Path(summary["project_root"])
+    run_dir = Path(summary.get("run_dir") or runs_dir_for(root) / str(summary["name"]))
+    index_new_runs(root)
+    return run_view_of(run_dir, project_root=root, sim_id=str(summary["sim_id"]))
+
+
+def draft_of_a_file_or_config(
+    source: Any,
+    *,
+    workflow: str,
+    set_changes: Mapping[str, Any] | None = None,
+    name: str | None = None,
+    resume: str | None = None,
+    from_step: str | None = None,
+    until_step: str | None = None,
+) -> PlanDraft:
+    """Return the plan of a TOML file or a configuration, with nothing run or written.
+
+    A ``[sites]`` file gives every case of its plan. Any other gives one case: the
+    steps of a simulation, none for an overview, which is one piece.
+    """
+    from hydromodpy.config.sites.expansion import (
+        expand_plan,
+        is_sites_project,
+        single_case_draft,
+    )
+    from hydromodpy.core.state.paths import resolve_project_root
+    from hydromodpy.core.toml_io.paths import assign, parse
+    from hydromodpy.project import Project
+    from hydromodpy.workflow.dispatch import load_raw_toml
+
+    path = Path(source) if isinstance(source, (str, Path)) else None
+    if path is not None and is_sites_project(load_raw_toml(path)):
+        payload: dict[str, Any] = {}
+        for dotted, value in (set_changes or {}).items():
+            assign(payload, parse(dotted), value)
+        return expand_plan(resolve_project_root(path.parent), path, set_overrides=payload)
+    if workflow == "overview":
+        from hydromodpy.config import HydroModPyConfig
+        from hydromodpy.display.overview import overview_name
+
+        cfg = HydroModPyConfig.from_toml(path) if path is not None else source
+        site = cfg.site.name if getattr(cfg, "site", None) is not None else None
+        overview = getattr(cfg, "overview", None)
+        label = overview_name(site, getattr(overview, "name", None))
+        return single_case_draft(cfg, name=label, config_path=path, steps=(), kind="overview")
+    with Project(source) as project:
+        return project.simulate(
+            dry_run=True,
+            set=set_changes,
+            name=name,
+            resume=resume,
+            from_step=from_step,
+            until_step=until_step,
+        )
+
+
+DISPATCH: dict[str, Callable[..., Any]] = {
     "simulation": run_simulation,
     "overview": run_overview,
     "calibration": run_calibration,
 }
 
 
-def dispatch_workflow(workflow: str, config_path: Path, **kwargs: Any) -> dict[str, Any]:
+def dispatch_workflow(workflow: str, config_path: Path, **kwargs: Any) -> Any:
     """Dispatch to the adapter for a resolved workflow name."""
     runner = DISPATCH[workflow]
     return runner(config_path, **kwargs)
@@ -304,8 +382,10 @@ __all__ = [
     "DISPATCH",
     "calibration_phases_or_raise",
     "completed_identical_run",
+    "completed_run_view",
     "declared_calibration_phases",
     "dispatch_workflow",
+    "draft_of_a_file_or_config",
     "identical_run_message",
     "no_such_phase",
     "run_calibration",

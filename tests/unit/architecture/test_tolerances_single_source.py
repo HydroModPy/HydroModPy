@@ -1,7 +1,7 @@
 """Guard the single-source tolerance policy.
 
 ``tests/TOLERANCES.md`` is the one source of truth for numerical tolerances.
-``tests/_helpers/tolerances.py::tol`` loads the 81 single-scalar rows from that
+``tests/_helpers/tolerances.py::tol`` loads the 82 single-scalar rows from that
 table. This test prevents two kinds of drift:
 
 1. A ``tol("...")`` call that points at a typo / dangling key (it would resolve
@@ -9,7 +9,7 @@ table. This test prevents two kinds of drift:
 2. An INLINE row whose value is hard-coded at its assertion site again, so the
    row could diverge from the table without anyone noticing.
 
-The 81 loadable rows split into three enforcement classes (W5 classification):
+The 82 loadable rows split into three enforcement classes (W5 classification):
 
 * INLINE  - the value is asserted at a validation/regression call site; the
             literal was replaced by ``tol(<slug>)``. Every INLINE row MUST be
@@ -47,7 +47,7 @@ _SCAN_EXCLUDE: frozenset[str] = frozenset(
 )
 
 # --------------------------------------------------------------------------- #
-# W5 classification of the 81 loadable TOLERANCES.md rows.
+# W5 classification of the 82 loadable TOLERANCES.md rows.
 # --------------------------------------------------------------------------- #
 
 # INLINE: literal replaced by tol(); must be referenced by >= 1 tol() call.
@@ -84,7 +84,7 @@ INLINE_ROWS: frozenset[str] = frozenset(
         # tests/unit/core/test_v_valley_support_bench.py and
         # tests/unit/core/test_topographic_distance.py.
         "v_valley_support_bench_case_a__root_relative_gap_between_raw_and_closed_observed_network",
-        "v_valley_support_bench_case_b__root_drift_under_a_rasterisation_hole",
+        "v_valley_support_bench_case_b__root_drift_under_a_rasterization_hole",
         # Terrain port conformance suite, tests/contract/test_terrain_engine_contract.py.
         "terrain_engine_conformance__cross_engine_catchment_area",
         "terrain_engine_conformance__ln_transform_identity",
@@ -105,6 +105,10 @@ INLINE_ROWS: frozenset[str] = frozenset(
         "twin_stream_network_calibration_mf6_planar_hillslope_400_cells_of_2_m__"
         "k_k_true_k_true_at_the_returned_trial_and_the_same_on_k_over_r_against_k_true_r",
         "twin_stream_network_calibration_mf6__d_sat_m_at_the_returned_trial_against_the_truth_run",
+        "twin_stream_network_calibration_under_heads_mf6_comb_basin_5600_cells_of_20_m_six_heads__"
+        "k_k_true_k_true_at_the_returned_trial",
+        "twin_stream_network_calibration_under_heads_mf6__d_optim_at_the_returned_trial",
+        "twin_stream_network_calibration_under_heads_mf6__d_sat_m_of_the_returned_trial_over_the_truth_run",
         "twin_stream_network_calibration_mf6__k_optim_m_s_k_over_r_t_over_r_m_t_optim_m2_s_"
         "against_k_r_mean_m_s_and_d_sat_m_of_the_returned_trial",
         # Soil reservoir kernel, asserted in tests/unit/physics/.
@@ -132,10 +136,10 @@ INLINE_ROWS: frozenset[str] = frozenset(
         "mesh_characterization_net__geometry_quantiles_relative_band",
         "mesh_characterization_net__cell_areas_and_their_sum_relative",
         "mesh_characterization_net__heads_share_of_the_golden_head_range",
-        "mesh_characterization_net__centre_offset_over_side_absolute_floor",
+        "mesh_characterization_net__center_offset_over_side_absolute_floor",
         "mesh_characterization_net__non_orthogonality_absolute_floor",
-        "mesh_characterization_net__neighbour_size_ratio_absolute_floor",
-        "mesh_characterization_net__probe_cell_centre_offset_absolute_floor",
+        "mesh_characterization_net__neighbor_size_ratio_absolute_floor",
+        "mesh_characterization_net__probe_cell_center_offset_absolute_floor",
         # Mesh engine conformance suite, tests/contract/test_mesh_engine_contract.py.
         # Session cost against the score of its run (decision m01), asserted in
         # tests/unit/calibration/test_the_session_cost_is_the_score_of_its_run.py.
@@ -144,6 +148,7 @@ INLINE_ROWS: frozenset[str] = frozenset(
         "mesh_engine_conformance__exact_faces_to_their_source_lines_hausdorff_distance_as_a_share_of_the_extent",
         "mesh_engine_conformance__wall_clock_time_of_one_build_on_a_closed_case",
         "mesh_engine_conformance__cell_count_at_a_uniform_cell_size_against_the_area_over_the_size_squared_relative",
+        "scaffolded_demo__mound_against_the_dupuit_integral",
         # One cell mesh acceptance, tests/integration/test_one_cell_mesh_gives_every_solver_the_same_recharge_and_k.py.
         "one_cell_mesh_acceptance__recharge_against_the_hand_reference_relative",
         "one_cell_mesh_acceptance__zone_means_against_the_exact_areas_relative",
@@ -254,7 +259,7 @@ def test_classification_partitions_all_loadable_rows() -> None:
     """INLINE, CASE_TOML and UNUSED partition exactly the loadable rows."""
     classified = INLINE_ROWS | CASE_TOML_ROWS | UNUSED_ROWS
     loadable = set(TOLERANCES)
-    assert len(loadable) == 81, sorted(loadable)
+    assert len(loadable) == 85, sorted(loadable)
     missing = loadable - classified
     extra = classified - loadable
     assert not missing, f"loadable rows with no classification: {sorted(missing)}"
@@ -297,7 +302,7 @@ def test_dupuit_fixed_head_doc_agrees_with_case_toml() -> None:
     """The Dupuit fixed-head head-RMSE doc rows match their enforced case-TOML.
 
     MF6 and NWT share ``tolerances.toml``, 0.011 m, rows 11 and 12: since the
-    reference poses its heads at the centres of the boundary columns, the two
+    reference poses its heads at the centers of the boundary columns, the two
     solvers measure the same error. A silent edit to either side surfaces here.
     """
     doc_mf6 = tol("dupuit_fixed_head_1d_mf6__head_rmse")
@@ -308,7 +313,7 @@ def test_dupuit_fixed_head_doc_agrees_with_case_toml() -> None:
     case_root = (
         _TESTS_ROOT.parent / "validation_cases" / "analytical" / "steady" / "dupuit_fixed_head_1d"
     )
-    # NWT and MF6 share one file since the heads are posed at the boundary-cell centres.
+    # NWT and MF6 share one file since the heads are posed at the boundary-cell centers.
     assert not (case_root / "tolerances_modflow6.toml").exists()
     shared_toml = (case_root / "tolerances.toml").read_text(encoding="utf-8")
     assert "rmse = 0.011" in shared_toml, "dupuit case-TOML rmse changed; revisit rows 11 and 12"

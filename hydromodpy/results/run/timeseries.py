@@ -17,12 +17,13 @@ import pandas as pd
 
 from hydromodpy.core.scope import CATCHMENT, OBSERVED, SIMULATED
 from hydromodpy.core.time.period_aggregation import period_end_stamps
+from hydromodpy.core.time.selection import in_series_window
 from hydromodpy.results.derive.downsample import (
     DEFAULT_TARGET_POINTS,
     lttb_downsample,
     should_downsample,
 )
-from hydromodpy.results.derive.time_alignment import normalize_period_bounds, solver_time_index
+from hydromodpy.results.derive.time_alignment import solver_time_index
 from hydromodpy.results.manifest import RUNTIME_VARIABLE, is_sealed
 from hydromodpy.results.run.sealed import metrics_frame
 from hydromodpy.results.run.tables import has_rows, read_run_table
@@ -39,7 +40,7 @@ class RunTimeseriesMixin:
         ``(param_name, zone_id)`` MultiIndex when a parameter is zonal)
         with columns ``value``, ``unit``, ``parameterization``. Homogeneous
         scalars are trivially looked up via
-        ``sim.parameters.loc["thickness", "value"]``.
+        ``run.parameters.loc["thickness", "value"]``.
         """
         df = read_run_table(
             self,
@@ -124,8 +125,10 @@ class RunTimeseriesMixin:
             Station id stored in the timeseries table. When the variable has
             a single station, this can be left ``None``.
         period
-            Optional ``(start, end)`` datetime bounds, or a single ``"YYYY"``
-            year string applied as ``("YYYY-01-01", "YYYY-12-31")``.
+            Optional window, ``(start, end)`` or a year as text (``"2002"``). It
+            keeps the stress periods it overlaps, as a field or a CSV export
+            reads it: a simulated value by its stamp, ``(lo, hi]``, an observation
+            by its date, ``[lo, hi)``. One date reads the period that date reads.
         downsample
             Optional decimation strategy. ``"lttb"`` runs Largest Triangle
             Three Buckets on the series; ``"auto"`` enables LTTB only when
@@ -168,9 +171,8 @@ class RunTimeseriesMixin:
         # tz-naive, so strip the tz here to keep both aligned.
         idx = _naive_utc(result["time"])
         if period is not None:
-            lo, hi, hi_inclusive = normalize_period_bounds(period)
-            keep = (idx >= _naive(lo)) & (
-                (idx <= _naive(hi)) if hi_inclusive else (idx < _naive(hi))
+            keep = in_series_window(
+                idx, observed=source == OBSERVED, period=period, edges=self.periods.edges
             )
             result, idx = result[keep], idx[keep]
         if result.empty:
@@ -189,6 +191,7 @@ class RunTimeseriesMixin:
     def observed(
         self,
         variable: str,
+        *,
         station: str | None = None,
         period: tuple | None = None,
     ) -> pd.DataFrame:
@@ -206,7 +209,8 @@ class RunTimeseriesMixin:
             Station id to filter on. When ``None``, every observed station
             for ``variable`` is returned.
         period : tuple, optional
-            ``(start, end)`` datetime bounds, inclusive on both ends.
+            Window ``(start, end)``, read as :meth:`timeseries` reads it for an
+            observation: what falls in the periods of the window, ``[lo, hi)``.
 
         Returns
         -------
@@ -228,7 +232,7 @@ class RunTimeseriesMixin:
         df = df.sort_values(["station_id", "timestep"], kind="stable", ignore_index=True)
         idx = _naive_utc(df["time"])
         if period is not None:
-            keep = (idx >= _naive(period[0])) & (idx <= _naive(period[1]))
+            keep = in_series_window(idx, observed=True, period=period, edges=self.periods.edges)
             df, idx = df[keep].reset_index(drop=True), idx[keep]
         if df.empty:
             station_msg = f", station={station}" if station is not None else ""
@@ -242,8 +246,10 @@ class RunTimeseriesMixin:
     def budget(
         self,
         component: str | None = None,
+        *,
         zone_id: str | None = None,
-        period: tuple[int, int] | None = None,
+        period: tuple | str | None = None,
+        steps: tuple[int, int] | None = None,
     ) -> pd.DataFrame:
         """Return water budget rows for this simulation.
 
@@ -254,7 +260,10 @@ class RunTimeseriesMixin:
         zone_id
             Optional zone filter.
         period
-            Optional inclusive timestep range ``(start, end)``.
+            Optional window of dates, ``(start, end)`` or a year as text. It keeps the
+            stress periods it overlaps, as :meth:`timeseries` does.
+        steps
+            Optional inclusive range of period indexes, ``(first, last)``.
 
         Returns
         -------
@@ -268,7 +277,10 @@ class RunTimeseriesMixin:
             where["zone_id"] = zone_id
         df = read_run_table(self, "budgets", where=where)
         if period is not None:
-            df = df[(df["timestep"] >= period[0]) & (df["timestep"] <= period[1])]
+            window = (f"{period}-01-01", f"{period}-12-31") if isinstance(period, str) else period
+            df = df[df["timestep"].isin(self.periods.steps_for(period=window))]
+        if steps is not None:
+            df = df[(df["timestep"] >= steps[0]) & (df["timestep"] <= steps[1])]
         return df.reset_index(drop=True)
 
     @property
@@ -307,21 +319,6 @@ class RunTimeseriesMixin:
                 "- cannot build a time index."
             )
         return period_end_stamps(_naive(start), _naive(end), int(n), step_unit=row.get("time_unit"))
-
-    @cached_property
-    def params(self) -> dict[str, float]:
-        """Mapping of global (non-zonal) parameter values to scalar floats.
-
-        Shortcut for the common case; for zonal parameters use the full
-        ``run.parameters`` DataFrame (MultiIndex on ``param_name`` and
-        ``zone_id``).
-        """
-        df = read_run_table(self, "parameters", columns=("param_name", "zone_id", "value"))
-        glob = df[df["zone_id"].isna() | (df["zone_id"] == CATCHMENT)]
-        return {
-            str(name): float(val)
-            for name, val in zip(glob["param_name"], glob["value"], strict=True)
-        }
 
     def recharge_forcing(self) -> pd.Series:
         """Lazy input recharge forcing per stress period."""

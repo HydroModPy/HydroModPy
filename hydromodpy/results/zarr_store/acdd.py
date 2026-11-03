@@ -53,7 +53,7 @@ def compose_acdd_root_attrs(
 ) -> dict[str, Any]:
     """Return the ACDD/CF root attributes for one simulation.
 
-    ``sim_row``: the row of the run as a dict. Recognised keys are
+    ``sim_row``: the row of the run as a dict. Recognized keys are
     ``sim_id``, ``name``, ``description``, ``project``, ``solver``,
     ``period_start``, ``period_end``, ``time_unit``,
     ``crs_wkt``, ``crs_epsg``, ``bbox_xmin``, ``bbox_ymin``, ``bbox_xmax``,
@@ -62,7 +62,7 @@ def compose_acdd_root_attrs(
     ``keywords``, ``license``, ``time_coverage_duration``,
     ``time_coverage_resolution``.
 
-    ``runs_env``: the host snapshot of the run. Recognised: ``user_name``,
+    ``runs_env``: the host snapshot of the run. Recognized: ``user_name``,
     ``hostname``, ``hydromodpy_version``, ``git_commit``, ``rng_seed``,
     ``solver_binary_sha256``, ``solver_version_text``.
 
@@ -71,7 +71,7 @@ def compose_acdd_root_attrs(
     sim_row lacks a value.
 
     ``geographic_bounds``: optional ``{lat_min, lat_max, lon_min, lon_max,
-    vertical_min, vertical_max}`` reprojected in WGS84 / metres.
+    vertical_min, vertical_max}`` reprojected in WGS84 / meters.
 
     ``history_lines``: optional list of ISO-prefixed history entries; the
     composer adds the current ``finalize`` timestamp at the end.

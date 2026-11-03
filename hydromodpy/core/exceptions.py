@@ -78,6 +78,34 @@ class HydroModPyError(Exception):
         return payload
 
 
+# -- Command line --------------------------------------------------------------
+
+
+class CommandUsageError(HydroModPyError):
+    """The command line asks for something the command cannot do as written.
+
+    A flag that does not go with another, a word the verb does not know. It maps
+    to exit 2, as an error of the parser does.
+    """
+
+    code = "HMPY.E001"
+
+
+class NothingThereError(HydroModPyError, FileNotFoundError):
+    """What the command names is not there: a file, a run, a project, an index."""
+
+    code = "HMPY.E002"
+
+
+class OldNameError(HydroModPyError, AttributeError):
+    """A public name left before the first stable version, and it has no alias.
+
+    The message names where it went. An ``AttributeError``, so ``hasattr`` stays false.
+    """
+
+    code = "HMPY.E003"
+
+
 # -- Configuration -------------------------------------------------------------
 
 
@@ -144,6 +172,15 @@ class UnitAliasConflict(ConfigError):
     """Duplicate / conflicting unit alias registration."""
 
     code = "HMPY.E105"
+
+
+class FrozenConfigError(ConfigError):
+    """A frozen copy of a configuration was asked to change.
+
+    ``Project.config`` gives such a copy. The message says which path takes a change.
+    """
+
+    code = "HMPY.E106"
 
 
 # -- Data ----------------------------------------------------------------------
@@ -469,7 +506,7 @@ class ExtractError(PipelineError):
 
 
 class ExportError(PipelineError):
-    """Exporter (NetCDF / CSV / VTU / GeoTIFF) failed to serialise results."""
+    """Exporter (NetCDF / CSV / VTU / GeoTIFF) failed to serialize results."""
 
     code = "HMPY.E506"
 
@@ -487,7 +524,7 @@ class JournalError(PipelineError):
 
 
 class ResumeIntegrityError(ResumeError):
-    """A completed-step artefact failed integrity verification on resume."""
+    """A completed-step artifact failed integrity verification on resume."""
 
     code = "HMPY.E509"
 
@@ -546,7 +583,7 @@ class UncertaintyNotAvailableError(CalibrationError):
 
     Typed apart from the rest of the family because it is the one calibration
     failure that must not lose the answer: the search has already been paid
-    for, and the declaration it cannot honour is a property of the document,
+    for, and the declaration it cannot honor is a property of the document,
     not of the run. Its catcher reports the width as absent and returns the
     report.
     """
@@ -730,6 +767,10 @@ class UnknownFieldError(ResultsError):
 
 __all__ = [
     "HydroModPyError",
+    # Command line
+    "CommandUsageError",
+    "NothingThereError",
+    "OldNameError",
     # Config
     "ConfigError",
     "ConfigValidationError",
@@ -737,6 +778,7 @@ __all__ = [
     "ImplicitInferenceError",
     "SchemaVersionTooNewError",
     "UnitAliasConflict",
+    "FrozenConfigError",
     # Data
     "DataError",
     "DataContractViolation",

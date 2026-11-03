@@ -14,7 +14,7 @@ reason = """
 MODFLOW 6 on 594 irregular triangles of about 6 m (DISV), the land surface a DRN
 of conductance K * area / b with b = 1 m, so the leakance K / b is the same on
 every triangle whatever its area. The 5 m raster the tops are sampled from is
-flat past the centre of its end columns: the reference is read at the same
+flat past the center of its end columns: the reference is read at the same
 positions, at each centroid, and averaged over the same 5 m columns as the
 model. Measured, the seepage limit sits at 200 m (error 0) in the three
 scenarios of x_e = 200 m and at 135 m against 133.3 m for the doubled K (1.67 m):

@@ -214,7 +214,7 @@ def test_no_hydromodpy_model_is_prepared_for_a_document_that_names_a_forward_mod
     """The geographic, mesh and data prefix is never paid for on this route.
 
     ``needs_prepared_model`` is what the runner reads before building anything,
-    and this is the assertion that it is honoured end to end: ``prepare_trials``
+    and this is the assertion that it is honored end to end: ``prepare_trials``
     raises if it is called at all, and the search completes.
     """
     import hydromodpy.calibration.runners.cli_runner as cli_runner

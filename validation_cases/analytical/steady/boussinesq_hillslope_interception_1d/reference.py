@@ -103,7 +103,7 @@ def hillslope_contact_x(
     """Return the first ``x`` where the exact head comes within the tolerance of the surface.
 
     The dry profile meets the surface tangentially, so a contact read with a
-    tolerance of a few centimetres starts tens of metres upslope of ``x_e``.
+    tolerance of a few centimeters starts tens of meters upslope of ``x_e``.
     The model is read with the same tolerance.
     """
     if int(search_samples) < 3:

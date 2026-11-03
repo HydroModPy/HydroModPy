@@ -3,7 +3,7 @@
 A bind line maps a quoted dotted path (:mod:`hydromodpy.core.toml_io.paths`)
 to one column, or to a list of columns for a list key. The path is checked
 against the schema of the configuration when the plan is built, so an
-unknown key is refused with its nearest neighbours before any table is read.
+unknown key is refused with its nearest neighbors before any table is read.
 A cell is read by the type of the target field and never converted beyond
 that: ``"389285.910"`` becomes a float for a float key and stays text for a
 text key. An empty cell leaves the key unbound.

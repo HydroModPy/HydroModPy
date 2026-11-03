@@ -3,7 +3,7 @@
 ``structured`` is a regular grid of quadrilaterals, row 0 south
 (``cell_mesh_from_edges``). The two triangular kinds are the Delaunay
 triangulations of a regular node grid and of a random node cloud, with their
-vertex means as cell centres.
+vertex means as cell centers.
 """
 
 from __future__ import annotations
@@ -114,7 +114,7 @@ def _resolve_unstructured_rng(
 def _triangle_cell_mesh(
     triangulation: mtri.Triangulation, *, mesh_kind: str, seed: int | None
 ) -> PlanarCellMesh:
-    """Wrap a matplotlib triangulation, its vertex means as cell centres."""
+    """Wrap a matplotlib triangulation, its vertex means as cell centers."""
     vertices = np.column_stack((triangulation.x, triangulation.y))
     triangles = np.asarray(triangulation.triangles, dtype=int)
     return build_planar_cell_mesh(

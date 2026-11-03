@@ -5,7 +5,7 @@ networks live in the same place, and does the simulated one follow the talwegs
 of the routing surface. Both come from the run itself, so the tests drive it
 the way a ``[display].figures`` entry does and assert on the two networks the
 run's release flux implies, on the relief behind them, on the pair staying
-apart without colour, and on what the figure says when one of them is empty.
+apart without color, and on what the figure says when one of them is empty.
 """
 
 from __future__ import annotations
@@ -59,7 +59,7 @@ def _flank_run(**kwargs):
 
 
 def _contrast_ratio(one: str, other: str) -> float:
-    """The WCAG contrast of two colours, which is what a print keeps or loses."""
+    """The WCAG contrast of two colors, which is what a print keeps or loses."""
     first, second = relative_luminance(one), relative_luminance(other)
     light, dark = max(first, second), min(first, second)
     return (light + 0.05) / (dark + 0.05)
@@ -178,7 +178,7 @@ def test_a_threshold_above_every_release_leaves_no_simulated_network(mpl) -> Non
 
 
 # --------------------------------------------------------------------------- #
-# the two networks stay apart without colour
+# the two networks stay apart without color
 # --------------------------------------------------------------------------- #
 
 
@@ -267,7 +267,7 @@ def test_the_simulated_network_is_inset_so_shape_carries_the_distinction(mpl) ->
         inset_path, inset_drawn = _drawn_width_px(ax, "_simulated")
         assert inset_path == pytest.approx(_SIMULATED_INSET * mapped_path, rel=1e-3), (
             "the simulated patch is drawn inset, so the two networks are told "
-            "apart by shape and not only by colour"
+            "apart by shape and not only by color"
         )
         assert inset_drawn == pytest.approx(inset_path), (
             "a stroke on the inset patch is the inset given back: the casing "

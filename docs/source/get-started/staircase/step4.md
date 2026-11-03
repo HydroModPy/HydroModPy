@@ -22,14 +22,14 @@ cells flow, and for how long. The baseflow warning of steps 1 and 2 is gone: the
 loaded and added to the discharge.
 
 ```{image} /_static/figures/staircase/step4/flow_intermittence_map.webp
-:alt: Map of the catchment over the year 2002. Perennial cells are blue, intermittent cells are orange, dry cells are grey.
+:alt: Map of the catchment over the year 2002. Perennial cells are blue, intermittent cells are orange, dry cells are gray.
 :class: only-light
 :width: 60%
 :align: center
 ```
 
 ```{image} /_static/figures/staircase/step4/flow_intermittence_map-dark.webp
-:alt: Map of the catchment over the year 2002. Perennial cells are blue, intermittent cells are orange, dry cells are grey.
+:alt: Map of the catchment over the year 2002. Perennial cells are blue, intermittent cells are orange, dry cells are gray.
 :class: only-dark
 :width: 60%
 :align: center

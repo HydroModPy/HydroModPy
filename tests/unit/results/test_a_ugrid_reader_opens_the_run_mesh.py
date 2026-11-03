@@ -2,7 +2,7 @@
 
 xugrid stands for the outside tools (UXarray, QGIS through MDAL, ParaView): it
 reads ``mesh/`` of the store and the NetCDF export without HydroModPy, with
-the CRS of the run, on a regular grid and on a Voronoi mesh whose centres are
+the CRS of the run, on a regular grid and on a Voronoi mesh whose centers are
 not the mean of the vertices.
 """
 
@@ -190,7 +190,7 @@ def test_the_netcdf_export_carries_the_model_centres_and_the_crs(tmp_path, build
 
 
 def test_the_voronoi_centres_are_not_the_vertex_mean():
-    """Guard of the test above: on this mesh the vertex mean is metres off the generator."""
+    """Guard of the test above: on this mesh the vertex mean is meters off the generator."""
     cell_mesh = _voronoi()
     rows = cell_mesh.connectivity_rows
     xs = np.where(rows >= 0, cell_mesh.mesh.vertices[np.maximum(rows, 0), 0], np.nan)

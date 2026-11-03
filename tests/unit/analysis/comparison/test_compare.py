@@ -104,12 +104,18 @@ def make_run(
         ),
         stations=stations,
         timeseries=timeseries,
-        field=lambda v, timestep: np.asarray(head) + offsets[v] + 10.0 * timestep,
+        field=lambda v, time: np.asarray(head) + offsets[v] + 10.0 * time,
         budget=lambda: budget,
         has_field=lambda v: v in fields or (flows and v == "drain_accumulation_flux"),
         has_hydrographic_network=lambda role: role in networks,
         observed=lambda v: pd.DataFrame({"datetime": stamps, "value": 1.0}),
     )
+
+
+@pytest.fixture(autouse=True)
+def _stand_in_parameters(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The stand-in runs hold their global parameters in ``params``, not in a table."""
+    monkeypatch.setattr(c, "global_parameters", lambda run: run.params)
 
 
 @pytest.mark.parametrize(
@@ -413,7 +419,7 @@ def test_the_command_writes_in_the_project_or_where_it_is_told(project: Path, mo
     )
     monkeypatch.chdir(project)
     hmp_main(["report", "compare", "runs/a", "b c", "--variables", "head, ,x"])
-    hmp_main(["report", "compare", "a", "b", "--by", "site", "--out", "elsewhere"])
+    hmp_main(["report", "compare", "a", "b", "--by", "site", "--to", "elsewhere"])
     assert written == [project / "summary/report/compare/a-vs-b_c", Path("elsewhere")]
 
 

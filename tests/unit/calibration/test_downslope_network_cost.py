@@ -512,9 +512,9 @@ class TestSaturationCapSupport:
 class TestWaterBodiesInTheTarget:
     """Open water is surface water, so it belongs to the target of ``D_so``.
 
-    A seepage cell fifty metres from a bank stops at the reservoir. Leaving the
+    A seepage cell fifty meters from a bank stops at the reservoir. Leaving the
     water body out of the target makes its descent cross the reservoir and carry
-    on to the next mapped reach, which is kilometres on a real one, and inflates
+    on to the next mapped reach, which is kilometers on a real one, and inflates
     ``D_so`` with the size of the lake rather than with the hydrogeology.
     """
 

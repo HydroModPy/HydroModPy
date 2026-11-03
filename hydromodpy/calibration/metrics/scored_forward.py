@@ -216,7 +216,7 @@ def requests_for_outputs(
 
     A declaration that cannot be placed without a mesh or a project is refused
     by name: this route builds neither, and a request that quietly dropped the
-    placement would be scored as though the model had honoured it.
+    placement would be scored as though the model had honored it.
     """
     observing = observing_outputs(outputs)
     if observing:

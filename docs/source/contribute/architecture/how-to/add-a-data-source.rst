@@ -71,7 +71,7 @@ nearest point.
 
 The manager owns the cache: ``BaseFieldManager`` keeps grids as NetCDF,
 ``BaseVariableManager`` keeps chronicles per station and asks the provider
-only for the missing periods. A provider never opens the catalogue.
+only for the missing periods. A provider never opens the catalog.
 
 A grid provider is cached only when it can say which variables it returns:
 give the function a ``variables(cfg)`` attribute, as ``sim2_source`` does.
@@ -151,7 +151,7 @@ may serve fewer variables than the class can. Everything else is a
 ``ClassVar``, so the registry refuses a non-conforming class when it is
 registered, not mid-fetch.
 
-A source must **not** know the DuckDB catalogue, the project workspace, a
+A source must **not** know the DuckDB catalog, the project workspace, a
 lock or a cache. It receives an ``Extent`` carrying its own CRS, an optional
 ``Period`` and an ``out_dir`` scratch it owns alone.
 

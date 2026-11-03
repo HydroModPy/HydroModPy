@@ -51,11 +51,11 @@ its length from the line: the faces along a lake shore follow the resampled ring
 a chord of the shore the line was laid on."""
 
 ON_CENTRE_SHARE = 1.0e-9
-"""A cell centre lies on a barrier line when it is closer than this share of the
-median centre-to-centre link."""
+"""A cell center lies on a barrier line when it is closer than this share of the
+median center-to-center link."""
 
 SIDE_SHIFT_SHARE = 1.0e-6
-"""How far left a line through cell centres is tested, as a share of the median link."""
+"""How far left a line through cell centers is tested, as a share of the median link."""
 
 
 @dataclass(frozen=True)
@@ -186,13 +186,13 @@ def _uncovered(
 
 
 def crossed_edges(geometry: DerivedGeometry, centers: np.ndarray, line: LineString) -> np.ndarray:
-    """Interior edge rows whose centre-to-centre segment *line* crosses, in edge order.
+    """Interior edge rows whose center-to-center segment *line* crosses, in edge order.
 
     On a grid, these faces are the staircase that separates the cells on
-    either side of the line. A line through cell centres lies along their
+    either side of the line. A line through cell centers lies along their
     segments or touches them at an end, and crosses none there: it would bar
     nothing. It is then tested :data:`SIDE_SHIFT_SHARE` of a link to its left,
-    which bars the faces on that side of the centres.
+    which bars the faces on that side of the centers.
     """
     interior = np.flatnonzero(geometry.edge_cells[:, 1] >= 0)
     if not interior.size:

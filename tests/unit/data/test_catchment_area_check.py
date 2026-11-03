@@ -1,7 +1,7 @@
 """Check a delineated catchment against the area its gauge publishes.
 
 Distance to the station cannot see an outlet placed on the wrong branch of a
-confluence. Area can: two points forty metres apart on two different streams
+confluence. Area can: two points forty meters apart on two different streams
 close catchments that differ by an order of magnitude.
 """
 

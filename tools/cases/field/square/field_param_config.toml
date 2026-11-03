@@ -28,7 +28,7 @@ field_spatial_id = "field_square"
 
 [field_vertical_profile]
 # Depth dependency mode shared over the full domain.
-mode = "none"
+kind = "none"
 # Characteristic depth for exponential mode (factor = exp(-depth/characteristic_depth)).
 # characteristic_depth = 30.0
 # Optional minimum factor floor for exponential mode:

@@ -1,7 +1,7 @@
-"""Least-change regularisation of a channel bed on its drainage tree.
+"""Least-change regularization of a channel bed on its drainage tree.
 
 A raw DEM read along its own channel network rises downstream at many pixels:
-a deck, a hedge, a resampling artefact. A drain or a stream cell sitting on
+a deck, a hedge, a resampling artifact. A drain or a stream cell sitting on
 such a rise cannot drain into the next one. Carving lowers every rise and
 filling raises it, so both move the bed one way only. The least-squares
 isotonic regression on the tree moves the bed as little as possible, up and
@@ -15,7 +15,7 @@ it raised 677 pixels and lowered 680, median change 0.11 m, mean bias
 +0.001 m; without the frontier re-exposure 97 edges still rose.
 
 A minimum drop of ``min_slope * distance`` is then given to every flat run
-of the fit, centred on the run's mean so the run keeps its level. A last pass
+of the fit, centered on the run's mean so the run keeps its level. A last pass
 raises the nodes the minimum drop leaves short of it; the result says how
 many and by how much, apart from the regression's own figures.
 
@@ -43,8 +43,8 @@ __all__ = (
 )
 
 #: Weight of a gap node in the least-squares fit. Small enough that a block
-#: holding one measured node follows that node to within a micrometre per
-#: metre of gap misfit, and non-zero so a block made of gaps alone keeps the
+#: holding one measured node follows that node to within a micrometer per
+#: meter of gap misfit, and non-zero so a block made of gaps alone keeps the
 #: interpolated value instead of an undefined mean.
 GAP_WEIGHT = 1.0e-6
 
@@ -125,7 +125,7 @@ def regularize_bed_on_tree(
     cut: np.ndarray | None = None,
     min_slope: float = 1.0e-4,
 ) -> BedRegularization:
-    """Fit a bed that never rises downstream and drops ``min_slope`` per metre.
+    """Fit a bed that never rises downstream and drops ``min_slope`` per meter.
 
     Parameters
     ----------
@@ -141,7 +141,7 @@ def regularize_bed_on_tree(
         ``(n,)`` bool, the edge from the node to its receiver is not
         constrained. Ignored at a root.
     min_slope
-        Minimum drop per metre on every constrained edge.
+        Minimum drop per meter on every constrained edge.
 
     Raises
     ------
@@ -286,7 +286,7 @@ def _fill_gaps(
     givers: list[list[int]],
     order: np.ndarray,
 ) -> np.ndarray:
-    """Replace each gap value by the chain interpolation of its measured neighbours.
+    """Replace each gap value by the chain interpolation of its measured neighbors.
 
     Downstream is the receiver chain; upstream follows, at each confluence,
     the branch holding the most nodes (lowest index on a tie), the pixel
@@ -433,7 +433,7 @@ def _flat_fix(
     weight: np.ndarray,
     min_slope: float,
 ) -> np.ndarray:
-    """Give every flat run the minimum drop, centred on the run's mean.
+    """Give every flat run the minimum drop, centered on the run's mean.
 
     A flat run is the set of nodes that reach the same exit (the nearest
     point where the pooled value actually drops) without a drop. Each node
@@ -460,7 +460,7 @@ def _close_min_drop(
 ) -> np.ndarray:
     """Raise a node just enough to keep the minimum drop to its fitted receiver.
 
-    The centred minimum drop lifts the head of a flat run by half its length
+    The centered minimum drop lifts the head of a flat run by half its length
     times ``min_slope`` and lowers its exit as much, so the node just above a
     run, or the exit of a run just above a smaller drop, can be left short.
     """

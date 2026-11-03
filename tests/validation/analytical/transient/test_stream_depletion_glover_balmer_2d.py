@@ -1,6 +1,6 @@
 """Validate the stream depletion of a well pumping beside a stream held at a fixed head.
 
-Compared with: the Glover and Balmer (1954) stream depletion `Qs / Q = erfc(sqrt(S a^2 / (4 T t)))` and the image-well drawdown of Theis (1941), `s = Q / (4 pi T) [E1(r1^2 S / (4 T t)) - E1(r2^2 S / (4 T t))]`, with the stream, the well and each monitor point at the centre of the cell the model computes.
+Compared with: the Glover and Balmer (1954) stream depletion `Qs / Q = erfc(sqrt(S a^2 / (4 T t)))` and the image-well drawdown of Theis (1941), `s = Q / (4 pi T) [E1(r1^2 S / (4 T t)) - E1(r2^2 S / (4 T t))]`, with the stream, the well and each monitor point at the center of the cell the model computes.
 """
 
 from __future__ import annotations

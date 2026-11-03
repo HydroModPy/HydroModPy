@@ -7,7 +7,7 @@ parametrized over what
 over a list this file keeps. A model installed beside this build is therefore
 run by this suite without a line of ``tests/`` naming it, which is how a third
 party finds out whether its model is usable: ``register()`` certifies a class on
-the members it **declares**, and the real contract is behavioural -- what comes
+the members it **declares**, and the real contract is behavioral -- what comes
 back from a call, and what comes out of it as an exception instead.
 
 Two layers, and they do not answer the same question.

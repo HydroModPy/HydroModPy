@@ -1,7 +1,7 @@
 """Clipped Voronoi cells, boundary seeds for orphans and holes, vertices shared by id.
 
 ``voronoi_planar_mesh`` makes the Voronoi (PEBI) mesh of a set of seeds clipped to a
-domain, made of ragged polygon cells centred on their seeds.
+domain, made of ragged polygon cells centered on their seeds.
 """
 
 from __future__ import annotations
@@ -220,7 +220,7 @@ def test_voronoi_cells_tile_the_domain_without_gaps_or_overlap() -> None:
 
 
 def test_a_domain_far_from_the_origin_keeps_one_cell_per_seed() -> None:
-    # Qhull on Lambert-93 coordinates gave two identical cells for seeds a few metres apart.
+    # Qhull on Lambert-93 coordinates gave two identical cells for seeds a few meters apart.
     origin = np.array([350_000.0, 6_800_000.0])
     axis = np.arange(2.5, 100.0, 5.0)
     xx, yy = np.meshgrid(axis, axis)

@@ -45,7 +45,7 @@ def test_a_cohort_figure_refuses_a_run(name: str) -> None:
     assert figure.unavailable_reason(_table()) is None
 
 
-def test_the_map_colours_each_outlet_and_leaves_a_missing_value_hollow(mpl) -> None:
+def test_the_map_colors_each_outlet_and_leaves_a_missing_value_hollow(mpl) -> None:
     fig = figure_registry.get("map").plot(_table(), variable="K")
     ax = fig.axes[0]
 

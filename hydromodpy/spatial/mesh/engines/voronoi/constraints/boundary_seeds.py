@@ -100,7 +100,7 @@ def _line_end_seeds(
 ) -> list[tuple[float, float]]:
     """Seeds where the circle of a face line end on the ring cuts it; returns the gaps.
 
-    The end itself gets no seed: its two ring neighbours on the circle and the
+    The end itself gets no seed: its two ring neighbors on the circle and the
     pair of its last segment are its sphere. An end meeting the ring under 30
     degrees, or too close to a corner or another end, yields its segment.
     """
@@ -237,7 +237,7 @@ def _ring_seeds(
 
 
 def _ring_piece(line: LineString, start: float, span: float, total: float) -> LineString:
-    """The part of a closed ring from *start* over *span* metres, across its seam if needed."""
+    """The part of a closed ring from *start* over *span* meters, across its seam if needed."""
     stop = start + span
     if stop <= total:
         return substring(line, start, stop)

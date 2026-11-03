@@ -204,7 +204,7 @@ def test_viz_show_names_the_file_it_wrote(monkeypatch, tmp_path) -> None:
     _one_run_workspace(monkeypatch, tmp_path, _Figure())
 
     result = CliRunner().invoke(
-        ["viz", "show", "abc123", "head_map", "--output", str(tmp_path / "head")]
+        ["viz", "show", "abc123", "head_map", "--to", str(tmp_path / "head")]
     )
 
     assert result.exit_code == 0
@@ -298,7 +298,7 @@ class TestFigureOptionsFromTheCommandLine:
         ("item", "message"),
         [
             ("show_run_name=maybe", "valid boolean"),
-            ("colour=red", "has no option 'colour'; it takes:"),
+            ("color=red", "has no option 'color'; it takes:"),
             ("title", "write NAME=VALUE"),
             ("reference=other_run", "takes a Python object"),
         ],

@@ -58,7 +58,7 @@ step_value = "1 day"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 {process}
 
@@ -67,7 +67,7 @@ first_period_steady = false
 {flow}
 
 [flow.ic]
-type = "steady_state"
+kind = "steady_state"
 {tables}
 """
 
@@ -83,15 +83,20 @@ extent = "watershed"
 source = "sim2"
 extent = "watershed"
 
+[flow.bc.drainage]
+
+[flow.sinks_sources.etp]
+
 [flow.sinks_sources.recharge.soil]
 ru = "150 mm"
 """
-SOIL_FLOW = 'active_sinks_sources = ["recharge", "etp"]\nactive_bc = ["drainage"]'
+
+ADAPT = "[flow.runtime]\nts_vi_adapt = true\n"
 
 TRANSPORT_PROCESS = """
 [[simulation.process]]
 id = "transport_main"
-type = "transport"
+kind = "transport"
 solvers = ["modflow6_prt"]
 """
 
@@ -148,11 +153,13 @@ def test_only_the_marked_key_the_file_wrote_is_named(tmp_path: Path) -> None:
     # written and not marked, `vi_substeps_per_period` is marked and left at its
     # default. The sections nobody wrote give nothing either: `calibration` is set
     # to None by its loader, and `transport.modpath` is built from its defaults.
-    cfg = HydroModPyConfig.from_toml(_write(tmp_path, flow="partition_release_depth_m = 0.02"))
+    cfg = HydroModPyConfig.from_toml(
+        _write(tmp_path, tables="[flow.runtime]\npartition_release_depth_m = 0.02")
+    )
 
     assert cfg.flow.first_period_steady is False
-    assert cfg.flow.vi_substeps_per_period == 1
-    assert written_experimental_keys(cfg) == ("flow.partition_release_depth_m",)
+    assert cfg.flow.runtime.vi_substeps_per_period == 1
+    assert written_experimental_keys(cfg) == ("flow.runtime.partition_release_depth_m",)
 
 
 def test_a_file_that_writes_no_marked_key_gets_no_line(tmp_path: Path, caplog) -> None:
@@ -169,23 +176,23 @@ def test_a_file_that_writes_no_marked_key_gets_no_line(tmp_path: Path, caplog) -
     ("sections", "expected"),
     [
         pytest.param(
-            {"flow": "partition_release_depth_m = 0.05"},
-            ("flow.partition_release_depth_m",),
+            {"tables": "[flow.runtime]\npartition_release_depth_m = 0.05"},
+            ("flow.runtime.partition_release_depth_m",),
             id="written-at-the-value-of-its-default",
         ),
         pytest.param(
-            {"flow": 'surface_interaction_model = "vi_obstacle"'},
-            ('flow.surface_interaction_model = "vi_obstacle"',),
+            {"tables": '[flow.runtime]\nsurface_interaction_model = "vi_obstacle"'},
+            ('flow.runtime.surface_interaction_model = "vi_obstacle"',),
             id="marked-value-of-a-selector",
         ),
         pytest.param(
-            {"flow": 'surface_interaction_model = "regularized_partition"'},
+            {"tables": '[flow.runtime]\nsurface_interaction_model = "regularized_partition"'},
             (),
             id="stable-value-of-the-same-selector",
         ),
         pytest.param(
-            {"flow": "ts_vi_adapt = true\nruntime_max_iterations = 40"},
-            ("flow.runtime_max_iterations", "flow.ts_vi_adapt"),
+            {"tables": "[flow.runtime]\nts_vi_adapt = true\nmax_iterations = 40"},
+            ("flow.runtime.max_iterations", "flow.runtime.ts_vi_adapt"),
             id="runtime-knobs",
         ),
         pytest.param(
@@ -218,9 +225,9 @@ def test_a_file_that_writes_no_marked_key_gets_no_line(tmp_path: Path, caplog) -
             ("flow.sinks_sources.flow_barriers",),
             id="flow-barrier",
         ),
-        pytest.param({"flow": SOIL_FLOW, "tables": SOIL}, (), id="soil-with-its-mass-balance-only"),
+        pytest.param({"tables": SOIL}, (), id="soil-with-its-mass-balance-only"),
         pytest.param(
-            {"flow": SOIL_FLOW, "tables": SOIL + 'alpha = 0.5\nspinup = "none"'},
+            {"tables": SOIL + 'alpha = 0.5\nspinup = "none"'},
             (
                 "flow.sinks_sources.recharge.soil.alpha",
                 "flow.sinks_sources.recharge.soil.spinup",
@@ -241,7 +248,7 @@ def test_what_a_file_wrote_is_named(
 def test_a_mapping_below_a_section_is_walked() -> None:
     wall = {"line": [[0.0, 0.0], [1.0, 0.0]], "depths": [1.0], "hydchr": 1e-9}
     sinks = FlowSinksSourcesConfig.model_validate(
-        {"lakes": {"dam": {"bedleak": 1e-6, "stageinit": "81.82 m", "cutoff_wall": wall}}}
+        {"lakes": {"dam": {"bedleak": 1e-6, "initial_stage": "81.82 m", "cutoff_wall": wall}}}
     )
 
     assert written_experimental_keys(sinks) == ("lakes.dam.cutoff_wall",)
@@ -258,8 +265,7 @@ def test_the_copy_a_run_freezes_names_the_same_keys(tmp_path: Path) -> None:
     cfg = HydroModPyConfig.from_toml(
         _write(
             tmp_path,
-            flow=f"partition_release_depth_m = 0.02\n{SOIL_FLOW}",
-            tables=SOIL + "kc = 0.9",
+            tables="[flow.runtime]\npartition_release_depth_m = 0.02\n" + SOIL + "kc = 0.9",
         )
     )
     frozen = tmp_path / "frozen.toml"
@@ -272,7 +278,7 @@ def test_the_copy_a_run_freezes_names_the_same_keys(tmp_path: Path) -> None:
 
 
 def test_the_line_is_a_milestone_and_not_a_warning(tmp_path: Path, caplog) -> None:
-    cfg = HydroModPyConfig.from_toml(_write(tmp_path, flow="ts_vi_adapt = true"))
+    cfg = HydroModPyConfig.from_toml(_write(tmp_path, tables=ADAPT))
 
     with warnings.catch_warnings():
         warnings.simplefilter("error")
@@ -282,18 +288,18 @@ def test_the_line_is_a_milestone_and_not_a_warning(tmp_path: Path, caplog) -> No
     [record] = caplog.records
     assert record.levelno == logging.INFO
     assert getattr(record, MILESTONE_KEY) is True
-    assert record.getMessage() == experimental_keys_line(("flow.ts_vi_adapt",))
+    assert record.getMessage() == experimental_keys_line(("flow.runtime.ts_vi_adapt",))
 
 
 def test_a_run_says_it_once_and_loading_says_nothing(tmp_path: Path, caplog) -> None:
-    path = _write(tmp_path, flow="ts_vi_adapt = true")
+    path = _write(tmp_path, tables=ADAPT)
 
     with caplog.at_level(logging.INFO, logger=WRITTEN_LOGGER):
         project = Project(path)
         assert not _said(caplog)
-        project.execute(until_step="validate", no_display=True)
+        project._execute(until_step="validate", no_display=True)
 
-    assert _said(caplog) == [experimental_keys_line(("flow.ts_vi_adapt",))]
+    assert _said(caplog) == [experimental_keys_line(("flow.runtime.ts_vi_adapt",))]
 
 
 def test_an_overview_says_it_once(tmp_path: Path, caplog, monkeypatch) -> None:
@@ -321,7 +327,7 @@ def test_an_overview_says_it_once(tmp_path: Path, caplog, monkeypatch) -> None:
 def test_a_calibration_says_it_at_its_gate_and_its_trials_say_nothing(
     tmp_path: Path, caplog
 ) -> None:
-    path = _write(tmp_path, flow="ts_vi_adapt = true", tables=K_FIELD + CALIBRATION)
+    path = _write(tmp_path, tables=ADAPT + K_FIELD + CALIBRATION)
 
     class _Flow:
         """The first step a trial runs: everything before it is the prepared prefix."""
@@ -339,22 +345,22 @@ def test_a_calibration_says_it_at_its_gate_and_its_trials_say_nothing(
             steps=(ValidateStep(), ResolveStep(), _Flow()),
         )
 
-    assert said_at_the_gate == [experimental_keys_line(("flow.ts_vi_adapt", "calibration"))]
+    assert said_at_the_gate == [experimental_keys_line(("flow.runtime.ts_vi_adapt", "calibration"))]
     assert not _said(caplog)
 
 
 def test_config_check_prints_the_same_line(tmp_path: Path) -> None:
-    path = _write(tmp_path, flow="ts_vi_adapt = true")
+    path = _write(tmp_path, tables=ADAPT)
 
     result = CliRunner().invoke(["config", "check", str(path)])
 
     assert result.exit_code == 0, result.stderr
-    assert experimental_keys_line(("flow.ts_vi_adapt",)) in result.stderr
+    assert experimental_keys_line(("flow.runtime.ts_vi_adapt",)) in result.stderr
     assert "warning:" not in result.stderr
 
 
 def test_quiet_keeps_config_check_silent_on_a_sound_file(tmp_path: Path) -> None:
-    path = _write(tmp_path, flow="ts_vi_adapt = true")
+    path = _write(tmp_path, tables=ADAPT)
 
     result = CliRunner().invoke(["config", "check", str(path), "--quiet"])
 

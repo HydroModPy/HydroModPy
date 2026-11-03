@@ -79,7 +79,7 @@ def test_resolve_api_success_maps_none_return_to_listing_verdict(tmp_path: Path)
     # None + converged listing -> success.
     (tmp_path / "mfsim.lst").write_text("Normal termination of simulation.\n", encoding="utf-8")
     assert _resolve_api_success(None, tmp_path) is True
-    # A future modflowapi that reports a real flag is honoured directly.
+    # A future modflowapi that reports a real flag is honored directly.
     assert _resolve_api_success(False, tmp_path) is False
     assert _resolve_api_success(True, tmp_path) is True
 

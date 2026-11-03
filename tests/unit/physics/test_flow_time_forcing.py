@@ -10,10 +10,7 @@ import pytest
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.time import ResolvedSimulationTimeWindow
-from hydromodpy.physics.flow.sinks_sources.wells import (
-    FlowWellForcingPiecewiseConfig,
-    FlowWellForcingSeasonalConfig,
-)
+from hydromodpy.physics.base.forcing import PiecewiseForcing, SeasonalForcing
 from hydromodpy.physics.flow.time_forcing import (
     aggregate_forcing_series,
     resolve_period_values_from_forcing,
@@ -125,7 +122,7 @@ def test_piecewise_forcing_resolves_csv_then_constant(tmp_path) -> None:
         "date,value\n2000-01-01,10.0\n2000-02-01,20.0\n",
         encoding="utf-8",
     )
-    forcing = FlowWellForcingPiecewiseConfig(
+    forcing = PiecewiseForcing(
         segments=[
             {
                 "start": "2000-01-01",
@@ -153,7 +150,7 @@ def test_piecewise_forcing_resolves_csv_then_constant(tmp_path) -> None:
 
 
 def test_piecewise_forcing_rejects_uncovered_period() -> None:
-    forcing = FlowWellForcingPiecewiseConfig(
+    forcing = PiecewiseForcing(
         segments=[{"start": "2000-03-01", "forcing": {"kind": "constant", "value": 1.0}}],
     )
 
@@ -195,7 +192,7 @@ def test_piecewise_csv_segment_is_checked_only_on_its_own_periods(tmp_path, aggr
     early.write_text("date,value\n2000-01-01,10.0\n2000-02-01,20.0\n", encoding="utf-8")
     late = tmp_path / "late.csv"
     late.write_text("date,value\n2000-03-01,30.0\n2000-04-01,40.0\n", encoding="utf-8")
-    forcing = FlowWellForcingPiecewiseConfig(
+    forcing = PiecewiseForcing(
         segments=[
             _csv_segment(early, "2000-01-01", "2000-03-01", aggregate),
             _csv_segment(late, "2000-03-01", None, aggregate),
@@ -218,7 +215,7 @@ def test_piecewise_csv_segment_still_refuses_a_gap_inside_its_own_periods(tmp_pa
     short.write_text(
         "date,value\n2000-01-01,10.0\n2000-01-02,10.0\n2000-01-03,10.0\n", encoding="utf-8"
     )
-    forcing = FlowWellForcingPiecewiseConfig(
+    forcing = PiecewiseForcing(
         segments=[
             _csv_segment(short, "2000-01-01", "2000-04-01"),
             {"start": "2000-04-01", "forcing": {"kind": "constant", "value": 1.0}},
@@ -235,7 +232,7 @@ def test_piecewise_csv_segment_still_refuses_a_gap_inside_its_own_periods(tmp_pa
 
 
 def test_seasonal_forcing_by_month_maps_winter_and_summer() -> None:
-    forcing = FlowWellForcingSeasonalConfig(
+    forcing = SeasonalForcing(
         by_month={
             1: 5.0,
             2: 5.0,
@@ -264,7 +261,7 @@ def test_seasonal_forcing_by_month_maps_winter_and_summer() -> None:
 
 
 def test_seasonal_forcing_by_season_maps_each_period_start() -> None:
-    forcing = FlowWellForcingSeasonalConfig(
+    forcing = SeasonalForcing(
         by_season={"DJF": 1.0, "MAM": 2.0, "JJA": 3.0, "SON": 4.0},
     )
 

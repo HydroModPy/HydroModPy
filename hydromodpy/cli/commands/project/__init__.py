@@ -1,4 +1,4 @@
-"""``hmp project`` family: the projects of a workspace, and the launch of a ``[sites]`` project.
+"""``hmp project`` family: the projects of a workspace, and the plan of a ``[sites]`` project.
 
 Sub-actions:
 
@@ -6,16 +6,10 @@ Sub-actions:
 - ``hmp project plan .``: write ``plan/<hash>/``, every site crossed with every recipe.
 - ``hmp project status .``: where each case of the current plan stands.
 - ``hmp project log . [--failed]``: the journal of the latest launch.
-- ``hmp project case <job> N``: the case file task N of a scheduler job runs.
-- ``hmp project array . --scheduler slurm``: the array job of the current plan.
-- ``hmp project collect .``: write ``summary/``, tables by case and by site, figures, exports.
-- ``hmp project promote <case> --trial N``: promote one trial of a session to runs/.
-- ``hmp project prune <case> --keep best``: move the kept trials but the best to the trash.
 - ``hmp project delete <name>``: delete a project directory.
 - ``hmp project show [<name>]``: what a project holds, read from its directories.
 - ``hmp project list``: list projects in the workspace.
-- ``hmp project export <name> --to X.tar``: the project with its data in one package.
-- ``hmp project import X.tar -w <workspace>``: install such a package as a project.
+- ``hmp project import X.tar -w <workspace>``: install a package ``hmp publish --package`` wrote.
 """
 
 from __future__ import annotations
@@ -23,42 +17,21 @@ from __future__ import annotations
 import argparse
 
 from hydromodpy.cli.commands.project import (
-    array,
-    case,
-    collect,
     delete,
-    export,
     import_package,
     list_cmd,
     log,
     new,
     plan,
-    promote,
-    prune,
     show,
     status,
 )
 from hydromodpy.cli.conventions import add_action_subparsers
 
 NAME: str = "project"
-HELP: str = "Manage the projects of a workspace and launch a [sites] project"
+HELP: str = "Manage the projects of a workspace and plan a [sites] project"
 
-ACTIONS = (
-    new,
-    plan,
-    status,
-    log,
-    case,
-    array,
-    collect,
-    promote,
-    prune,
-    delete,
-    show,
-    list_cmd,
-    export,
-    import_package,
-)
+ACTIONS = (new, plan, status, log, delete, show, list_cmd, import_package)
 
 
 def register(subparsers) -> argparse.ArgumentParser:

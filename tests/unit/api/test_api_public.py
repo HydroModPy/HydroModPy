@@ -1,12 +1,12 @@
 """Smoke tests for the public ``hydromodpy`` API surface.
 
-These checks pin down the top-level symbols that the P10 spec promises to
-users - ``hmp.open``, ``hmp.Project``, ``hmp.Run``, ``hmp.Catalog``,
-etc. Regressions here usually mean a refactor broke the import contract.
+These checks pin down the names the top level promises: the verbs, the objects they
+return and the exception hierarchy. Everything else stays reachable through its module.
 """
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -15,33 +15,66 @@ import hydromodpy as hmp
 from hydromodpy.results.catalog.indexer import rebuild_index
 from tests._helpers.sealed_runs import make_project
 
-EXPECTED_TOP_LEVEL = [
-    # Entry points
-    "open",
-    "index",
-    "run",
+VERBS = {
     "calibrate",
+    "calibration_phases",
+    "compare",
     "compare_pair",
     "doctor",
-    # Project / run / catalog API
-    "Project",
-    "Run",
-    "SimulationPlan",
-    "Catalog",
-    "RunSet",
-    # Core
-    "Workspace",
-    "CatchmentDelineation",
-    # Solvers
-    "ModflowNwt",
-    "Boussinesq",
-    "Modflow6",
-]
+    "example_add",
+    "example_list",
+    "example_show",
+    "export",
+    "figure",
+    "index",
+    "open",
+    "read",
+    "report",
+    "run",
+    "spinup",
+}
+RAISED_BY_PATH = re.compile(r"^\s*hydromodpy\.[\w.]*\.(\w+Error)$", re.M)
+OBJECTS = {"Catalog", "HydroModPyConfig", "Project", "Run", "RunSet", "Session", "Workspace"}
 
 
-@pytest.mark.parametrize("symbol", EXPECTED_TOP_LEVEL)
-def test_public_symbol_available(symbol: str) -> None:
-    assert hasattr(hmp, symbol), f"hmp.{symbol} missing from public API"
+def test_the_top_level_is_the_verbs_the_objects_and_the_exceptions() -> None:
+    errors = {name for name in hmp.__all__ if _is_a_failure(getattr(hmp, name))}
+    assert set(hmp.__all__) - errors == VERBS | OBJECTS | {"__version__"}
+    assert all(issubclass(getattr(hmp, name), hmp.HydroModPyError) for name in errors)
+
+
+def _is_a_failure(value: object) -> bool:
+    return isinstance(value, type) and issubclass(value, BaseException)
+
+
+def test_the_categories_of_the_hierarchy_are_at_the_top_level_and_the_leaves_are_not() -> None:
+    import inspect
+
+    from hydromodpy.cli import helpers
+    from hydromodpy.core import exceptions
+
+    top = set(hmp.__all__)
+    assert {"HydroModPyError", "ConfigError", "DataError", "SolverError", "PipelineError"} <= top
+    # Every class that sets an exit code of ``hmp`` is a category.
+    source = inspect.getsource(helpers.exit_code_for)
+    mapped = {name for name in exceptions.__all__ if re.search(rf"\({name}, EXIT_", source)}
+    assert mapped and mapped <= top
+    # A leaf stays importable from its module, and is refused at the top level with its path.
+    assert "SolverDivergedError" in exceptions.__all__ and "SolverDivergedError" not in top
+    with pytest.raises(hmp.OldNameError, match=r"core\.exceptions\.SolverDivergedError"):
+        hmp.__getattr__("SolverDivergedError")
+    # What a verb says it raises can be caught from the top level.
+    documented = (getattr(hmp, name).__doc__ or "" for name in VERBS)
+    named = {found for doc in documented for found in RAISED_BY_PATH.findall(doc)}
+    assert named and named <= set(hmp.__all__)
+
+
+def test_the_two_workspaces_have_two_names() -> None:
+    from hydromodpy.core.workspace import WorkspaceLayout
+    from hydromodpy.project.accessors import Workspace
+
+    assert hmp.Workspace is Workspace
+    assert hmp.Workspace is not WorkspaceLayout
 
 
 def test_old_simulation_catalog_name_is_not_exposed() -> None:

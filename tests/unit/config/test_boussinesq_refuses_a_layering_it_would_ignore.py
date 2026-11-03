@@ -35,7 +35,7 @@ crs_project = "EPSG:2154"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["{solver}"]
 
 [mesh]

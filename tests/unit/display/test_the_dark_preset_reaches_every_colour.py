@@ -1,4 +1,4 @@
-"""The dark preset darkens the light greys a figure draws, not only its background.
+"""The dark preset darkens the light grays a figure draws, not only its background.
 
 Measured on the documentation images of example 04: with ``[display] preset =
 "dark"`` the dry cells of the intermittence map, the table of the identity card
@@ -21,7 +21,7 @@ from ._render_helpers import relative_luminance
 from .test_watershed_id_card import _run as card_run
 
 DARK_ENOUGH = 0.1
-"""Relative luminance under which a colour reads as part of a dark page."""
+"""Relative luminance under which a color reads as part of a dark page."""
 
 
 @pytest.fixture
@@ -46,7 +46,7 @@ def test_a_light_grey_is_kept_on_a_light_page() -> None:
 def test_a_light_grey_lands_near_the_background_on_a_dark_page(dark) -> None:
     assert is_dark()
     assert relative_luminance(neutral("#EDEDED")) < DARK_ENOUGH
-    # A colour that carries a hue is the figure's meaning: it is left alone.
+    # A color that carries a hue is the figure's meaning: it is left alone.
     assert neutral("#d2762a") == "#d2762a"
 
 

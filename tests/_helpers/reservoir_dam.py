@@ -1,7 +1,7 @@
 """A reservoir closed by a dam, for the cutoff-wall tests. Not public API.
 
 The reservoir is an ellipse along x cut flat at its dam end, ``DAM_X``. A
-cutoff-wall trace is a north-south line 300 m long, ``offset`` metres
+cutoff-wall trace is a north-south line 300 m long, ``offset`` meters
 downstream of that flat shore (negative inside the lake).
 """
 
@@ -23,5 +23,5 @@ def reservoir() -> Polygon:
 
 
 def trace(offset: float) -> LineString:
-    """A north-south trace ``offset`` metres downstream of the dam shore, 300 m long."""
+    """A north-south trace ``offset`` meters downstream of the dam shore, 300 m long."""
     return LineString([(DAM_X + offset, Y0 + 250.0), (DAM_X + offset, Y0 + 550.0)])

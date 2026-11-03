@@ -1,6 +1,6 @@
 """Build the descent D of a ``SolverMesh``, the routing copy of its top.
 
-D gives every cell one receiver, the neighbour its water goes to, on a copy of
+D gives every cell one receiver, the neighbor its water goes to, on a copy of
 the model top filled until each cell drains (:mod:`hydromodpy.core.descent`).
 D never goes back to the solver, and the top it is built from is the one the
 solver sees, after the lake carve. Both MODFLOW backends build D once per build,

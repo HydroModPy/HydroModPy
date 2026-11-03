@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 import argparse
-import csv
-import json
-import sys
 
 from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
-from hydromodpy.cli.helpers import apply_verbosity, exit_code_for
+from hydromodpy.cli.helpers import apply_verbosity
+from hydromodpy.cli.output import emit
 
 NAME: str = "status"
 HELP: str = "Show where each case of the current plan stands (outcome.json, heartbeat)"
@@ -63,38 +61,39 @@ def run(args: argparse.Namespace) -> None:
     stale_after_s = (
         DEFAULT_STALE_AFTER_S if args.stale_minutes is None else 60.0 * args.stale_minutes
     )
-    try:
-        report = project_status(
-            sites_project_root(args.project or args.workspace or "."), stale_after_s=stale_after_s
-        )
-    except Exception as exc:  # noqa: BLE001 - map errors to typed exit codes
-        print(str(exc), file=sys.stderr)
-        sys.exit(exit_code_for(exc))
+    report = project_status(
+        sites_project_root(args.project or args.workspace or "."), stale_after_s=stale_after_s
+    )
     records = [{column: _cell(getattr(row, column)) for column in COLUMNS} for row in report.rows]
-    if args.format == "json":
-        payload = {
+
+    def table() -> None:
+        counts = ", ".join(f"{n} {status}" for status, n in report.counts().items()) or "no case"
+        stale = " (the project files changed since: plan again)" if report.plan_stale else ""
+        print(f"plan {report.plan_hash}{stale}: {counts}")
+        shown = ("case_id", "status", "rel_dir", "step", "host", "pid", "error")
+        rows = [[record[column] for column in shown] for record in records]
+        widths = [
+            max(len(column), *(len(line[i]) for line in rows)) for i, column in enumerate(shown)
+        ]
+        for line in [list(shown), *rows]:
+            print(
+                "  ".join(
+                    cell.ljust(width) for cell, width in zip(line, widths, strict=True)
+                ).rstrip()
+            )
+
+    emit(
+        args,
+        "project status",
+        {
             "plan_hash": report.plan_hash,
             "plan_stale": report.plan_stale,
             "counts": report.counts(),
             "cases": records,
-        }
-        print(json.dumps(payload, indent=2))
-        return
-    if args.format == "csv":
-        writer = csv.DictWriter(sys.stdout, fieldnames=list(COLUMNS))
-        writer.writeheader()
-        writer.writerows(records)
-        return
-    counts = ", ".join(f"{n} {status}" for status, n in report.counts().items()) or "no case"
-    stale = " (the project files changed since: plan again)" if report.plan_stale else ""
-    print(f"plan {report.plan_hash}{stale}: {counts}")
-    shown = ("case_id", "status", "rel_dir", "step", "host", "pid", "error")
-    table = [[record[column] for column in shown] for record in records]
-    widths = [max(len(column), *(len(line[i]) for line in table)) for i, column in enumerate(shown)]
-    for line in [list(shown), *table]:
-        print(
-            "  ".join(cell.ljust(width) for cell, width in zip(line, widths, strict=True)).rstrip()
-        )
+        },
+        table=table,
+        csv=(COLUMNS, records),
+    )
 
 
 def _cell(value: object) -> str:

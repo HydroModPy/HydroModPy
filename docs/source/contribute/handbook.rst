@@ -229,7 +229,7 @@ Branches, commits and pull requests
 1. Branch from ``dev`` for normal work, with a short name such as
    ``feat/bdtopage-loader`` or ``docs/release-recipe``. ``main`` is the
    current v2 line, and ``v1.0`` is the frozen v1 line: do not target it.
-   Use ``release/X.Y`` only for a stabilisation window and ``maint/1.x`` only
+   Use ``release/X.Y`` only for a stabilization window and ``maint/1.x`` only
    if v1 maintenance resumes. The tag and branch rules of a release are in
    :doc:`architecture/how-to/cut-a-release`.
 2. Group related changes in one focused commit. The subject is a Conventional
@@ -256,7 +256,7 @@ Branches, commits and pull requests
 5. Stage files by name. Do not use ``git add -A`` or ``git add .``.
 6. Open the pull request against ``dev``. Reference the issue
    (``Closes #123``) when there is one, and mention a reviewer if the change
-   alters modelling outputs, the public API or a user-visible workflow.
+   alters modeling outputs, the public API or a user-visible workflow.
 
 By contributing you agree that your contribution is released under the
 Eclipse Public License 2.0.

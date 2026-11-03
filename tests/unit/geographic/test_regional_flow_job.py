@@ -42,7 +42,7 @@ from tests._helpers.geographic_cases import LAMBERT
 from tests._helpers.geotiffs import write_geotiff
 
 ROUTING_STEPS = ("condition_dem", "drainage_directions", "flow_accumulation")
-OUTLET = {"catch_def": "from_outlet_coord"}
+OUTLET = {"kind": "from_outlet_coord"}
 PINNED = {
     "fill": "sha256:ae0b66f1d8395b84fbad6e88bc6d1e34eb30e748590617874873bbde1a870d54",
     "breach": "sha256:ceb76da4c50af4dc16cec6e6e54653d730135226fe57d1bcfb85c0b2f239ab7d",

@@ -4,7 +4,7 @@ Abherve et al. (2023) fix the thickness at 30 m and call it an input, and a
 study of how the stream network depends on it has to vary it. A
 ``constant_thickness`` model holds the geometry in one thickness, and a
 ``flat_substratum`` model in one elevation: each is searchable, and the
-catalogue names it the way a hydrogeologist would.
+catalog names it the way a hydrogeologist would.
 
 A raster depth model is a map of the site. A scalar written into it would shift
 or scale the whole map, which is not what the raster answers, so it is refused
@@ -42,7 +42,7 @@ from hydromodpy.spatial.domain.domain_config import DomainConfig
 
 
 class _Config:
-    """The smallest thing the catalogue walks: a domain and no flow."""
+    """The smallest thing the catalog walks: a domain and no flow."""
 
     def __init__(self, depth_model: object) -> None:
         self.domain = DomainConfig(depth_model=depth_model)

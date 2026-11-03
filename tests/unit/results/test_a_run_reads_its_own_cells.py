@@ -1,7 +1,7 @@
 """A run places its field values on its own mesh, not on the DEM pixels.
 
-``Run.field(bbox=)`` and the xarray reader select the cells whose centre lies in
-the box, the centres being the ones of ``run.mesh``. The default GeoTIFF
+``Run.field(bbox=)`` and the xarray reader select the cells whose center lies in
+the box, the centers being the ones of ``run.mesh``. The default GeoTIFF
 resolution is the side of the smallest cell of that mesh. Neither reads the DEM
 grid of the catalog, which a mesh is not obliged to follow.
 """
@@ -157,7 +157,7 @@ def test_bbox_selects_the_cells_of_an_irregular_mesh(project) -> None:
         )
         assert 0 < inside.sum() < len(values)
 
-        masked = run.field("head", 0, bbox=box)
+        masked = run.field("head", time=0, bbox=box)
         np.testing.assert_array_equal(np.isfinite(masked[0]), inside)
         np.testing.assert_array_equal(masked[0][inside], values[inside])
 
@@ -173,14 +173,14 @@ def test_bbox_on_a_grid_of_pixels_keeps_the_pixel_rule(project) -> None:
     with _sealed(project, vertices, faces, values, structured_shape=(nrow, ncol)) as (catalog, sid):
         run = Run(sid, catalog)
 
-        # The rule of the DEM lattice: pixel (i, j) is centred at (xmin + (j + .5) cs, ymax - (i + .5) cs).
+        # The rule of the DEM lattice: pixel (i, j) is centered at (xmin + (j + .5) cs, ymax - (i + .5) cs).
         cols, rows = np.meshgrid(np.arange(ncol), np.arange(nrow))
         xs = LAMBERT_X0 + (cols.ravel() + 0.5) * CELL
         ys = LAMBERT_Y0 + nrow * CELL - (rows.ravel() + 0.5) * CELL
         box = (LAMBERT_X0 + CELL, LAMBERT_Y0 + CELL, LAMBERT_X0 + 3.6 * CELL, LAMBERT_Y0 + 3 * CELL)
         expected = (xs >= box[0]) & (xs <= box[2]) & (ys >= box[1]) & (ys <= box[3])
 
-        masked = run.field("head", 0, bbox=box)
+        masked = run.field("head", time=0, bbox=box)
         np.testing.assert_array_equal(np.isfinite(masked[0]), expected)
         assert run.mesh.structured_shape == (nrow, ncol)
 
@@ -189,7 +189,7 @@ def test_a_bbox_that_is_not_a_box_is_refused(project) -> None:
     vertices, faces = _irregular_mesh()
     with _sealed(project, vertices, faces, np.arange(6.0)) as (catalog, sid):
         with pytest.raises(ValueError, match="xmin<xmax"):
-            Run(sid, catalog).field("head", 0, bbox=(10.0, 0.0, 0.0, 10.0))
+            Run(sid, catalog).field("head", time=0, bbox=(10.0, 0.0, 0.0, 10.0))
 
 
 def test_stored_face_centres_win_over_the_corner_mean() -> None:

@@ -30,7 +30,7 @@ from hydromodpy.core.exceptions import SolverInputError
 
 THICKNESS_TOLERANCE_M = 1.0e-3
 """A thickness deficit below this is zero. The input rasters hold elevations to
-the millimetre, so a smaller gap is rounding, not geometry."""
+the millimeter, so a smaller gap is rounding, not geometry."""
 
 GROUND_SIDECAR_SUFFIX = ".ground.npz"
 """Name of the file the build leaves beside the model for the extractor."""
@@ -96,7 +96,7 @@ def model_computational_top(model: Any) -> np.ndarray:
 
 
 #: Decimals of every float flopy writes. The flopy default (8) keeps about
-#: 1 cm on Lambert-93 vertices, which skews the faces of a few centimetres
+#: 1 cm on Lambert-93 vertices, which skews the faces of a few centimeters
 #: the Voronoi generator produces. 15 decimals keep them below 1e-6 m.
 FLOAT_PRECISION = 15
 FLOAT_CHARACTERS = 24

@@ -38,7 +38,7 @@ within the snap radius does not exceed that of the other end of their reach,
 lands each on a nearby cell draining enough, and follows
 the criterion graph down from there: the map is drawn by the model's own
 descent, connected to the outlet. ``"crossing"`` keeps the cell holding each
-point where a line crosses the segment joining two edge-sharing cell centres:
+point where a line crosses the segment joining two edge-sharing cell centers:
 WhiteboxTools ``VectorLinesToRaster`` on a structured grid, and the rule for a
 map that is not a tree (canals, braids, polders, karst). ``"touch"`` keeps
 every cell the line intersects, corners included, the rule of the sessions

@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 import argparse
-import sys
-from pathlib import Path
 
-from hydromodpy.cli.conventions import add_sim_ref, verbosity_parser, workspace_parser
-from hydromodpy.cli.helpers import apply_verbosity, exit_code_for
-from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
+from hydromodpy.cli.conventions import (
+    add_sim_ref,
+    dry_run_parser,
+    format_parser,
+    verbosity_parser,
+    workspace_parser,
+)
+from hydromodpy.cli.helpers import apply_verbosity, project_root_of
+from hydromodpy.cli.output import emit
+from hydromodpy.core.state.paths import catalog_path_for
 
 NAME: str = "restore"
 HELP: str = "Move a trashed run or session back to the directory it came from"
@@ -18,7 +23,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        parents=[workspace_parser(), verbosity_parser()],
+        parents=[workspace_parser(), dry_run_parser(), format_parser(), verbosity_parser()],
         epilog=(
             "Examples:\n"
             "  hmp catalog restore baseline_daily\n"
@@ -42,17 +47,24 @@ def run(args: argparse.Namespace) -> None:
     from hydromodpy.results.catalog.discovery import resolve_trashed
     from hydromodpy.results.trash import restore
 
-    root = resolve_project_root(
-        Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
-    )
-    try:
-        entry = resolve_trashed(root, args.sim_ref)
-        restore(root, entry.name)
-    except Exception as exc:  # noqa: BLE001 - map resolver and collision errors
-        print(str(exc), file=sys.stderr)
-        sys.exit(exit_code_for(exc))
+    root = project_root_of(args)
+    entry = resolve_trashed(root, args.sim_ref)
+    if args.dry_run:
+        emit(
+            args,
+            "catalog restore",
+            {"applied": False, "rel_dir": entry.rel_dir},
+            table=lambda: print(f"would restore {entry.rel_dir}"),
+        )
+        return
+    restore(root, entry.name)
     if catalog_path_for(root).is_file():
         from hydromodpy.results.catalog.indexer import index_new_runs
 
         index_new_runs(root)
-    print(f"restored {entry.rel_dir}")
+    emit(
+        args,
+        "catalog restore",
+        {"applied": True, "rel_dir": entry.rel_dir},
+        table=lambda: print(f"restored {entry.rel_dir}"),
+    )

@@ -1,4 +1,4 @@
-"""Water-table depth map (metres below the land surface)."""
+"""Water-table depth map (meters below the land surface)."""
 
 from __future__ import annotations
 

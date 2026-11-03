@@ -2,7 +2,7 @@
 
 Each scenario exercises a small synthetic pipeline whose run directory is the
 temporary folder, then asserts the journal rows and the absence of pickle
-artefacts.
+artifacts.
 """
 
 from __future__ import annotations
@@ -118,7 +118,7 @@ def test_no_pickle_files_produced(tmp_path: Path) -> None:
 def test_model_phase_ready_rerun_survives_config_change(tmp_path: Path) -> None:
     """A plain re-run with an edited config must not abort as a stale resume.
 
-    Regression: the model-phase-ready optimisation sets ``resume_from > 0`` (it
+    Regression: the model-phase-ready optimization sets ``resume_from > 0`` (it
     only skips the in-process model phase). That used to trip
     ``manifest.verify_state`` against the prior same-name run's checkpoint and
     raise ``ResumeError`` whenever the config changed (e.g. edit Sy, re-run

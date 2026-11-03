@@ -30,7 +30,7 @@ from tests._helpers.run_stores import open_run_store
 def _write_field(store: RunStore) -> None:
     """Write a minimal MF6 run with a 1x2 ``head`` field."""
     sid = store.sim_id
-    # Two unit squares side by side: cell centres at x = 0.5 and x = 1.5.
+    # Two unit squares side by side: cell centers at x = 0.5 and x = 1.5.
     store.write_mesh(
         sid,
         np.array([[0, 0, 0], [1, 0, 0], [2, 0, 0], [0, 1, 0], [1, 1, 0], [2, 1, 0]], float),
@@ -114,11 +114,17 @@ def test_read_zarr_field_returns_xarray_dataarray(run):
     assert da.shape == (2, 1, 2)
 
 
-def test_read_zarr_field_eager_with_time_int_returns_ndarray(run):
-    """When ``time`` is an int, dispatch returns the eager numpy slice."""
-    arr = hmp.read(run, "head", time=0, layer=0)
-    assert isinstance(arr, np.ndarray)
-    np.testing.assert_array_equal(arr.ravel(), [1.0, 2.0])
+def test_one_period_is_a_data_array_without_the_time_dimension(run):
+    """``time`` selects in a field and never changes the type."""
+    import xarray as xr
+
+    for time in (0, -2, np.int64(0)):
+        da = hmp.read(run, "head", time=time, layer=0)
+        assert isinstance(da, xr.DataArray)
+        assert da.dims == ("cell",)
+        np.testing.assert_array_equal(da.values, run.field("head", time=0, layer=0).ravel())
+    with pytest.raises(IndexError, match="no such period"):
+        hmp.read(run, "head", time=5)
 
 
 def test_read_zarr_field_with_layer_selects_layer(run):
@@ -178,7 +184,7 @@ def test_read_requires_run_argument():
 
 def test_read_bbox_restricts_cells(run):
     """``bbox=`` restricts the returned DataArray to faces within the box."""
-    # The cells of the stored mesh are centred at x=0.5 and x=1.5: only cell 0 is in the box.
+    # The cells of the stored mesh are centered at x=0.5 and x=1.5: only cell 0 is in the box.
     da = hmp.read(run, "head", bbox=(0.0, -1.0, 1.0, 1.0))
     assert da.sizes["cell"] == 1
 
@@ -190,11 +196,8 @@ def test_read_attribute_exposed_on_module_top_level():
 
 
 def test_facade_read_dispatch_rule(run):
-    """One rule: ``time`` int -> ndarray, otherwise lazy DataArray."""
+    """One type per nature of variable, with ``time`` or without."""
     import xarray as xr
 
-    arr = hmp.read(run, "head", time=0, layer=0)
-    assert isinstance(arr, np.ndarray)
-
-    da = hmp.read(run, "head")
-    assert isinstance(da, xr.DataArray)
+    for kwargs in ({}, {"time": 0}, {"time": slice(0, 1)}, {"time": 0, "layer": 0}):
+        assert isinstance(hmp.read(run, "head", **kwargs), xr.DataArray)

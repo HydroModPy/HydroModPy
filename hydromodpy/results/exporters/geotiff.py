@@ -4,7 +4,7 @@ A field lives on the unstructured mesh and is rasterized; a geographic raster
 (the DEM the catchment was cut from, the filled one) is a raster already and
 is written as it is, or warped when a CRS or a resolution is asked.
 
-Output rasters honour the OGC Cloud Optimized GeoTIFF (COG) 1.0 spec:
+Output rasters honor the OGC Cloud Optimized GeoTIFF (COG) 1.0 spec:
 internal tiling at 512x512 and zstd compression. The COG driver builds
 overviews at 2/4/8/16/32x only when the image is larger than one tile, so a
 small catchment carries none. Each raster carries provenance tags so
@@ -48,6 +48,7 @@ def export_geotiff(
     nodata: float = -9999.0,
     values: np.ndarray | None = None,
     period: str | None = None,
+    model_time: str | None = None,
 ) -> Path:
     """Rasterize a field from the unstructured mesh into a GeoTIFF.
 
@@ -82,6 +83,9 @@ def export_geotiff(
     period : str, optional
         The period the values describe (``2002-10``), written in the
         ``HMP_PERIOD`` tag.
+    model_time : str, optional
+        The model instant the values describe (the end of their period), written in
+        the ``HMP_TIMESTAMP`` tag. The wall clock of the export is ``HMP_EXPORTED_AT``.
 
     Returns
     -------
@@ -126,6 +130,7 @@ def export_geotiff(
         sz.close()
     data = one_layer(data, variable, layer, "GeoTIFF")
 
+    dtype = "float32" if np.asarray(data).dtype == np.float32 else "float64"
     shapes = []
     for i, face in enumerate(connectivity):
         node_ids = face[face >= 0]
@@ -155,7 +160,7 @@ def export_geotiff(
         out_shape=(height, width),
         transform=transform,
         fill=nodata,
-        dtype="float64",
+        dtype=dtype,
     )
 
     if source_crs is None:
@@ -180,8 +185,10 @@ def export_geotiff(
         "HMP_SIM_ID": str(sim_id),
         "HMP_VARIABLE": str(variable),
         "HMP_UNITS": descriptor.units,
-        "HMP_TIMESTAMP": datetime.now(UTC).isoformat(),
+        "HMP_EXPORTED_AT": datetime.now(UTC).isoformat(),
     }
+    if model_time:
+        tags["HMP_TIMESTAMP"] = str(model_time)
     if period:
         tags["HMP_PERIOD"] = period
     _write_cog(output_path, raster, transform=transform, crs=crs, nodata=nodata, tags=tags)
@@ -218,7 +225,9 @@ def export_geographic_raster(
         data, meta = sz.read_geographic_raster(name)
     finally:
         sz.close()
-    raster = np.asarray(data, dtype="float64")
+    raster = np.asarray(data)
+    if raster.dtype != np.float32:
+        raster = raster.astype("float64")
     if raster.ndim == 3:
         raster = raster[0]
     transform = Affine(*tuple(meta["transform"])[:6])
@@ -242,7 +251,7 @@ def export_geographic_raster(
     tags = {
         "HMP_SIM_ID": str(sim_id),
         "HMP_VARIABLE": str(name),
-        "HMP_TIMESTAMP": datetime.now(UTC).isoformat(),
+        "HMP_EXPORTED_AT": datetime.now(UTC).isoformat(),
     }
     _write_cog(output_path, raster, transform=transform, crs=target_crs, nodata=nodata, tags=tags)
     logger.info("Exported COG GeoTIFF: %s (%dx%d)", output_path, raster.shape[1], raster.shape[0])
@@ -280,7 +289,7 @@ def _warp(
         top=north,
         resolution=resolution,
     )
-    destination = np.full((dst_height, dst_width), nodata, dtype="float64")
+    destination = np.full((dst_height, dst_width), nodata, dtype=raster.dtype)
     reproject(
         source=raster,
         destination=destination,
@@ -322,7 +331,7 @@ def _write_cog(
             height=height,
             width=width,
             count=1,
-            dtype="float64",
+            dtype=raster.dtype.name,
             crs=crs,
             transform=transform,
             nodata=nodata,

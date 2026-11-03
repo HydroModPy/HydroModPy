@@ -149,7 +149,7 @@ def chains_of(family: FamilyEdges, lookup: EdgeLookup) -> tuple[CellChain, ...]:
     """One chain per line: the triangles on its left bank, in order, stepping by faces.
 
     Between the triangles left of two consecutive edges, the triangles around
-    their shared vertex on the same bank are inserted, so two neighbours of a
+    their shared vertex on the same bank are inserted, so two neighbors of a
     chain share a face.
     """
     chains = []

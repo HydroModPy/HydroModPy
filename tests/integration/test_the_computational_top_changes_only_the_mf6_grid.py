@@ -55,7 +55,7 @@ keep_solver_files = true
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [display]
@@ -75,7 +75,7 @@ coverage_policy = "ignore"
 crs_project = "EPSG:2154"
 
 [geographic.catchment]
-catch_def = "from_outlet_coord"
+kind = "from_outlet_coord"
 dem_init_path = "{_CHEZE / "dem_valley.tif"}"
 x_outlet = 300037.5
 y_outlet = 6701262.5
@@ -113,7 +113,7 @@ kind = "homogeneous"
 value = "1e-6 m-1"
 
 [flow.ic]
-type = "top"
+kind = "top"
 
 [flow.bc.drainage]
 application_domain = "top"
@@ -150,10 +150,10 @@ hydchr = 1e-9
 [flow.sinks_sources.lakes.res0]
 bedleak = 1e-10
 bedleak_unit = "1/s"
-stageinit = "93.0 m"
+initial_stage = "93.0 m"
 
 [[flow.sinks_sources.lakes.res0.outlets]]
-couttype = "WEIR"
+kind = "WEIR"
 invert = "94.0 m"
 width = "5.0 m"
 lakeout = 0

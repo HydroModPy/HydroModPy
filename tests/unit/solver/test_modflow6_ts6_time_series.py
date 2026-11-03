@@ -22,7 +22,7 @@ import pytest
 
 from hydromodpy.core.exceptions import SolverInputError
 from hydromodpy.core.time import ResolvedSimulationTimeWindow, build_simulation_time_boundaries
-from hydromodpy.physics.flow.sinks_sources.wells import FlowWellForcingCsvConfig
+from hydromodpy.physics.base.forcing import CsvForcing
 from hydromodpy.solver.modflow6.builders.lake import build_lake_period_data
 from hydromodpy.solver.modflow6.builders.period_forcing import resolve_use_ts6
 from hydromodpy.solver.modflow6.support.time_series import (
@@ -161,7 +161,7 @@ def test_long_lak_forcing_emits_ts6_series_name_not_a_float(tmp_path: Path) -> N
     # perioddata row that references the series NAME (a string), not a float.
     window, csv, nper, perlen, values = _daily_window_and_csv(tmp_path, n_days=130)
     model = _FakeModel(window=window, nper=nper, perlen=perlen, mode="ts6", min_periods=120)
-    forcing = FlowWellForcingCsvConfig(
+    forcing = CsvForcing(
         path_file=Path(csv), value_column="value", date_column="date", units="m3/s"
     )
     lakes = {"lac0": {"inflow": forcing}}
@@ -197,7 +197,7 @@ def test_auto_mode_below_threshold_expands_inline_per_period(tmp_path: Path) -> 
     # vanished from the LAK PERIOD block.
     window, csv, nper, perlen, values = _daily_window_and_csv(tmp_path, n_days=5)
     model = _FakeModel(window=window, nper=nper, perlen=perlen, mode="auto", min_periods=120)
-    forcing = FlowWellForcingCsvConfig(
+    forcing = CsvForcing(
         path_file=Path(csv), value_column="value", date_column="date", units="m3/s"
     )
     lakes = {"lac0": {"inflow": forcing}}
@@ -219,7 +219,7 @@ def test_inline_mode_collapses_a_constant_tail_to_one_row(tmp_path: Path) -> Non
         csv, index=False
     )
     model = _FakeModel(window=window, nper=nper, perlen=perlen, mode="inline", min_periods=120)
-    forcing = FlowWellForcingCsvConfig(
+    forcing = CsvForcing(
         path_file=Path(csv), value_column="value", date_column="date", units="m3/s"
     )
     rows, ts_specs = build_lake_period_data(model, lakes={"lac0": {"inflow": forcing}})
@@ -236,7 +236,7 @@ def test_managed_lake_forcing_is_zeroed_on_steady_warmup(tmp_path: Path) -> None
     window, csv, nper, perlen, values = _daily_window_and_csv(tmp_path, n_days=5)
     model = _FakeModel(window=window, nper=nper, perlen=perlen, mode="inline", min_periods=120)
     model.steady = (True,) + (False,) * (nper - 1)
-    forcing = FlowWellForcingCsvConfig(
+    forcing = CsvForcing(
         path_file=Path(csv), value_column="value", date_column="date", units="m3/s"
     )
     rows, _ = build_lake_period_data(model, lakes={"lac0": {"withdrawal": forcing}})
@@ -252,7 +252,7 @@ def test_natural_lake_forcing_is_kept_on_steady_warmup(tmp_path: Path) -> None:
     window, csv, nper, perlen, values = _daily_window_and_csv(tmp_path, n_days=5)
     model = _FakeModel(window=window, nper=nper, perlen=perlen, mode="inline", min_periods=120)
     model.steady = (True,) + (False,) * (nper - 1)
-    forcing = FlowWellForcingCsvConfig(
+    forcing = CsvForcing(
         path_file=Path(csv), value_column="value", date_column="date", units="m3/s"
     )
     rows, _ = build_lake_period_data(model, lakes={"lac0": {"runoff": forcing}})
@@ -260,23 +260,23 @@ def test_natural_lake_forcing_is_kept_on_steady_warmup(tmp_path: Path) -> None:
 
 
 def test_steady_stage_hold_emits_constant_then_active_status(tmp_path: Path) -> None:
-    # A managed reservoir opt-in: the steady warm-up holds the stage at stageinit
+    # A managed reservoir opt-in: the steady warm-up holds the stage at initial_stage
     # (status CONSTANT) so the aquifer equilibrates around the observed level; the
     # lake re-activates on the first transient period.
     window, csv, nper, perlen, _values = _daily_window_and_csv(tmp_path, n_days=4)
     model = _FakeModel(window=window, nper=nper, perlen=perlen, mode="inline", min_periods=120)
     model.steady = (True,) + (False,) * (nper - 1)
     rows, _ = build_lake_period_data(
-        model, lakes={"lac0": {"steady_stage_hold": True, "stageinit": 81.82}}
+        model, lakes={"lac0": {"steady_stage_hold": True, "initial_stage": 81.82}}
     )
     assert [0, "status", "CONSTANT"] in rows[0]
     assert [0, "status", "ACTIVE"] in rows[1]
 
     # Without the opt-in (or without a steady warm-up) no status row is emitted.
-    rows_off, _ = build_lake_period_data(model, lakes={"lac0": {"stageinit": 81.82}})
+    rows_off, _ = build_lake_period_data(model, lakes={"lac0": {"initial_stage": 81.82}})
     assert all("status" not in [r[1] for r in period] for period in rows_off.values())
     model.steady = (False,) * nper
     rows_transient, _ = build_lake_period_data(
-        model, lakes={"lac0": {"steady_stage_hold": True, "stageinit": 81.82}}
+        model, lakes={"lac0": {"steady_stage_hold": True, "initial_stage": 81.82}}
     )
     assert all("status" not in [r[1] for r in period] for period in rows_transient.values())

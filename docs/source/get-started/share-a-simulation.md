@@ -10,7 +10,7 @@ is overwritten.
 On your machine, publish the run with its inputs:
 
 ```bash
-hmp publish nancon_step5_export --to sim.tar --format tar --with inputs --with results
+hmp publish nancon_step5_export --to sim.tar --container tar --with inputs --with results
 ```
 
 On the other machine, import it into a project, rerun it, and compare the rerun with the copy:
@@ -87,7 +87,7 @@ leaves with the archive.
 ## A whole project
 
 ```bash
-hmp project export nancon --to nancon.tar --with runs --with mesh --with fetched
+hmp publish nancon --package --to nancon.tar --with runs --with mesh --with fetched
 hmp project import nancon.tar -w ~/hydromodpy
 ```
 
@@ -103,7 +103,7 @@ the same `INSTALL.toml`. On demand:
 | `--with fetched` | the files the providers delivered to the runs, with their data cache rows |
 
 The project lands as `projects/<name>` of the workspace, with the same rules for its data. A
-name the workspace already holds is refused; `--as` gives another one. The runs keep their
+name the workspace already holds is refused; `--name` gives another one. The runs keep their
 names.
 
 ## Without importing

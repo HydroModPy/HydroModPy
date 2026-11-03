@@ -105,7 +105,7 @@ class NetworkExtentBoundsMap(BaseFigure):
     ``reference`` and the permanent one as ``reference_permanent``. A steady
     run, or a run with one map only, gets a sentence instead of a figure.
 
-    The rasterisation of the maps and the positional accuracy always come
+    The rasterization of the maps and the positional accuracy always come
     from the run's sealed network output, and the years counted from
     ``[calibration] scoring_window``.
     """
@@ -249,7 +249,7 @@ def extents_from_run(
     tau_specific_ratio: float | None = None,
     diagonal_neighbors: bool | None = None,
 ) -> NetworkExtents:
-    """Return the extents of a run, memoised on the run and the rules.
+    """Return the extents of a run, memoized on the run and the rules.
 
     A rule left None is the one ``settings`` carries: the run's sealed extent
     table, or its defaults. The years counted are those of the run's sealed

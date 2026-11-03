@@ -92,7 +92,7 @@ Persistence
 
 The disk is the truth and the DuckDB index is derived from it
 (:doc:`../storage-layout`). ``PrepareSolverStep`` registers the run and creates the
-paths of its artefacts. ``ExtractStep`` writes the solver outputs into them,
+paths of its artifacts. ``ExtractStep`` writes the solver outputs into them,
 ``DeriveStep`` writes the catchment aggregates, the observation samples and the fit
 metrics (the derived fields are rebuilt on read, not written), and ``ExportStep``
 finalizes the run,
@@ -109,7 +109,7 @@ Where to change what
      - Where
    * - Workflow registration or CLI dispatch
      - ``hydromodpy/project/dispatch/workflow.py``
-   * - Project orchestration, workspace behaviour
+   * - Project orchestration, workspace behavior
      - ``hydromodpy/project/facade.py``
    * - Planning rules, dependency binding
      - ``hydromodpy/simulation/planning/``

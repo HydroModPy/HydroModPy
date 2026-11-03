@@ -34,8 +34,8 @@ Generated mode
 
 The engine first resamples the request lines at the local size. Then it runs six steps.
 
-1. ``local_coords.py`` moves every coordinate to a frame centred on a multiple of 1 km, before any
-   GEOS or scipy call. On Lambert-93 coordinates, two seeds a few metres apart can give
+1. ``local_coords.py`` moves every coordinate to a frame centered on a multiple of 1 km, before any
+   GEOS or scipy call. On Lambert-93 coordinates, two seeds a few meters apart can give
    identical cells.
 2. The ``constraints/`` package places the constraint seeds, one step per module, run in order
    by ``constraints/plan.py``. A river line gets one seed per vertex (``rivers.py``). A face line
@@ -76,7 +76,7 @@ faults, in Lambert-93 coordinates, and the total of each gate.
      - Each conformal segment is the face shared by the cells of its pair, with its two nodes
        within 1 mm of the segment ends.
    * - G3
-     - Two distinct consecutive cells of a river chain are neighbours.
+     - Two distinct consecutive cells of a river chain are neighbors.
    * - G4
      - The cell areas add up to the domain area at ``1e-9``.
    * - G5
@@ -124,7 +124,7 @@ Limits
 ------
 
 - On a graded size field of slope ``s``, a mesh whose cell has the size of its seed cannot keep
-  the size ratio between two neighbours under ``(1 + s / 2) / (1 - s / 2)``. It cannot keep the
+  the size ratio between two neighbors under ``(1 + s / 2) / (1 - s / 2)``. It cannot keep the
   seed offset under ``s / 4`` along the gradient either. The QA reports both, and a unit test
   holds the median offset under ``s / 4``.
 - On a graded field, the Lloyd relaxation reaches its cap before its tolerance, and the quality

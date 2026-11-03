@@ -1,11 +1,11 @@
 """``build_network_geometry`` must not rebuild the adjacency it already paid for.
 
-The function builds the neighbour graph once to flood the model top from the
+The function builds the neighbor graph once to flood the model top from the
 domain border (:func:`fill_depressions_on_graph`) before descending it. Handing that
 same graph to the downslope metric instead of letting it rebuild its own is
 what makes ``diagonal_neighbors=True`` affordable on a real mesh: two probes
 meant to compare a D4 and a D8 descent both exhausted memory rebuilding the
-eight-neighbour graph a second time, on two different DEMs.
+eight-neighbor graph a second time, on two different DEMs.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ CELL_SIZE = 10.0
 
 
 def _ramp() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """A surface with no depression at all: every cell already has a strictly lower neighbour."""
+    """A surface with no depression at all: every cell already has a strictly lower neighbor."""
     vertices, connectivity = quad_mesh(N_ROWS, N_COLS, cell_size=CELL_SIZE)
     rows = np.repeat(np.arange(N_ROWS, dtype=float), N_COLS)
     elevation = 100.0 - rows

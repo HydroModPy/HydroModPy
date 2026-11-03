@@ -50,9 +50,7 @@ def run_boussinesq_linearized_unconfined_boundary_piecewise_case(
         storage_coefficient=float(reference_cfg["specific_yield"]),
         flow_section={
             "flow_regime": "transient",
-            "ic": {"type": "custom", "value": base_head_m},
-            "active_sinks_sources": [],
-            "active_bc": ["west_side", "east_side"],
+            "ic": {"kind": "custom", "value": base_head_m},
             "bc": {
                 "west_side": {"value": list(reference_cfg["west_head_levels_m"])},
                 "east_side": {"value": base_head_m},

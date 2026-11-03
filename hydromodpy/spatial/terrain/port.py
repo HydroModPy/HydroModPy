@@ -33,7 +33,7 @@ guesses the transform back from the values a raster holds.
 What is deliberately absent
 ---------------------------
 No ``weights`` argument on ``flow_accumulation``: no engine on this tree can
-serve one, and a declared parameter no implementation honours is the kind of
+serve one, and a declared parameter no implementation honors is the kind of
 false declaration. No engine selection either: that is the job of
 :mod:`hydromodpy.spatial.terrain.registry`.
 
@@ -64,7 +64,7 @@ outlet.
 
 Its ``layout`` is declared by the caller. The
 geographic pipeline publishes ``watershed.tif`` and ``watershed.shp`` in one
-directory that twenty other artefacts share, and every golden in the tree reads
+directory that twenty other artifacts share, and every golden in the tree reads
 them there. An engine that could only write ``mask.tif`` under a directory named
 after the outlet would have made the port unadoptable, so the shape is declared
 by the caller and refused when it cannot hold what is asked of it.
@@ -98,7 +98,7 @@ measured on the wrong cells.
 
 @dataclass(frozen=True)
 class CappedBreach:
-    """Least-cost breaching bounded in metres, then a fill of what it left.
+    """Least-cost breaching bounded in meters, then a fill of what it left.
 
     The Lindsay (2016) hybrid: a depression is dug only where the breach stays
     within ``max_distance_m`` of path length and ``max_depth_m`` of cumulative
@@ -109,7 +109,7 @@ class CappedBreach:
     of a given thickness spans more cells on a finer grid, so the same value
     fills on a fine DEM, instead of digging, an embankment it digs on a coarse
     one: it does not give the same landscape at every resolution. Measured on the Flume at 25 m with
-    8-cell paths, the realised maximum lowering of a cell follows it within
+    8-cell paths, the realized maximum lowering of a cell follows it within
     0.01 m. ``max_distance_m`` is counted in cells along the path, a diagonal
     step counting one cell, so a diagonal breach can be 1.41 times longer. The
     engine measures what it actually dug and says so in
@@ -155,7 +155,7 @@ D8_WBT_OFFSETS: dict[int, tuple[int, int]] = {
 """What each ``d8_wbt`` code means, as a ``(drow, dcol)`` step to the receiving cell.
 
 WhiteboxTools with ``esri_pntr=False`` stores, per cell, the power-of-two code
-pointing at its single downslope neighbour, laid out clockwise from the
+pointing at its single downslope neighbor, laid out clockwise from the
 north-east::
 
      64  128    1
@@ -243,7 +243,7 @@ class CappedBreachReport:
     A cell counts as lowered or raised when it moved by more than
     ``move_threshold_m``; the two maxima are exact, so a user sees the deepest cut
     whatever the threshold. ``max_dist_cells`` and ``max_cost_m`` are the values
-    handed to the engine after translation from metres.
+    handed to the engine after translation from meters.
     """
 
     cells_lowered: int
@@ -405,7 +405,7 @@ then sees which outlet it holds and where.
 
 @dataclass(frozen=True)
 class CatchmentLayout:
-    """Where the artefacts of one outlet land under the delineation directory.
+    """Where the artifacts of one outlet land under the delineation directory.
 
     Declared rather than fixed, because the two shapes are not interchangeable
     and nothing in a mask says which one wrote it. A batch needs one directory
@@ -448,7 +448,7 @@ class CatchmentLayout:
 
     @classmethod
     def flat(cls, *, mask_name: str, boundary_name: str) -> CatchmentLayout:
-        """Both artefacts straight in the delineation directory, at named files."""
+        """Both artifacts straight in the delineation directory, at named files."""
         return cls(
             per_outlet_directory=False,
             mask_name=mask_name,
@@ -456,7 +456,7 @@ class CatchmentLayout:
         )
 
     def site_dir(self, out_dir: Path, outlet: Outlet) -> Path:
-        """Return the directory this outlet's artefacts belong in."""
+        """Return the directory this outlet's artifacts belong in."""
         return Path(out_dir) / outlet.outlet_id if self.per_outlet_directory else Path(out_dir)
 
 
@@ -526,7 +526,7 @@ class TerrainEngine(Protocol):
         Absent cells are not a drainage target. A depression whose only low way
         out crosses a nodata hole -- a lake or a sea mask inside the domain --
         therefore stays a depression, and the cell keeps no downstream
-        neighbour. Measured identical on both engines shipped here, so the port
+        neighbor. Measured identical on both engines shipped here, so the port
         states it rather than either one hiding it.
 
         A :class:`CappedBreach` method is served by an engine that can search a
@@ -598,7 +598,7 @@ class TerrainEngine(Protocol):
         underneath them: see :data:`RANK_PRESERVING_TRANSFORMS` and
         :data:`LN_FLOAT32_COLLISION_COUNT`. A Jenson snap compares no
         accumulation, so it asks neither. ``layout`` says where the two
-        artefacts of each outlet land.
+        artifacts of each outlet land.
         """
         ...
 
@@ -618,7 +618,7 @@ RANK_PRESERVING_TRANSFORMS: frozenset[str] = frozenset({"none", "ln"})
 
 Both are strictly increasing on the positive counts an accumulation carries, so
 the cell that wins a snap window wins it under either -- until float32 storage
-stops resolving neighbouring counts. That bound is measured, not argued, and
+stops resolving neighboring counts. That bound is measured, not argued, and
 :data:`LN_FLOAT32_COLLISION_COUNT` carries it.
 """
 
@@ -641,7 +641,7 @@ _MAX_TRANSFORMED_UNITS = "cells"
 """The only units :data:`LN_FLOAT32_COLLISION_COUNT` was measured for.
 
 Multiplying a count by a cell area raises the magnitude of its logarithm without
-changing the spacing between neighbours, so float32 gives up earlier: measured,
+changing the spacing between neighbors, so float32 gives up earlier: measured,
 a 625 m2 cell collides at 525 125 counts and a 2 500 m2 cell at 524 705, against
 1 049 558 for a bare count. One bound cannot cover them, and no caller in this
 tree asks for a transformed area, so a transformed accumulation has to be in

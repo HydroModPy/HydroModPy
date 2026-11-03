@@ -5,8 +5,9 @@ from __future__ import annotations
 import argparse
 import sys
 
-from hydromodpy.cli.conventions import verbosity_parser
+from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
 from hydromodpy.cli.helpers import EXIT_VALIDATION, apply_verbosity
+from hydromodpy.cli.output import emit
 
 NAME: str = "check"
 HELP: str = "Validate the custom files in data/<variable>/ without ingesting"
@@ -16,11 +17,10 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        parents=[verbosity_parser()],
+        parents=[workspace_parser(), format_parser(), verbosity_parser()],
         epilog="Examples:\n  hmp data check\n  hmp data check --variable dem --fix",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("-w", "--workspace", default=None, help="Workspace root")
     parser.add_argument(
         "--variable", default=None, help="Restrict to one variable (e.g. piezometry)"
     )
@@ -34,16 +34,31 @@ def run(args: argparse.Namespace) -> None:
     from hydromodpy.cli._workers.data import check_data_cache
 
     result = check_data_cache(args.workspace, variable=args.variable, fix=args.fix)
-    if result["fix_summary"] is not None:
-        s = result["fix_summary"]
-        print(
-            f"  catalog: dropped {s['dropped']} stale entries, refreshed {s['refreshed']} mtimes."
-        )
     issues = result["issues"]
-    if not issues:
-        print(f"  OK: no schema issues in {result['workspace']}")
-        return
-    print(f"  {len(issues)} issue(s) found:")
-    for path, msg in issues:
-        print(f"    {path}: {msg}")
-    sys.exit(EXIT_VALIDATION)
+
+    def table() -> None:
+        if result["fix_summary"] is not None:
+            fixed = result["fix_summary"]
+            print(
+                f"  catalog: dropped {fixed['dropped']} stale entries, "
+                f"refreshed {fixed['refreshed']} mtimes."
+            )
+        if not issues:
+            print(f"  OK: no schema issues in {result['workspace']}")
+            return
+        print(f"  {len(issues)} issue(s) found:")
+        for path, message in issues:
+            print(f"    {path}: {message}")
+
+    emit(
+        args,
+        "data check",
+        {
+            "workspace": result["workspace"],
+            "fix_summary": result["fix_summary"],
+            "issues": [{"path": path, "message": message} for path, message in issues],
+        },
+        table=table,
+    )
+    if issues:
+        sys.exit(EXIT_VALIDATION)

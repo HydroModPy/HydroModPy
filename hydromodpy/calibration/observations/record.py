@@ -6,7 +6,7 @@ completeness and the count of gaps. ``ObservedSeries``, the shape every cost rea
 kept three of those: an id, a variable name, and a pandas series. The rest was
 dropped one layer after it had been computed.
 
-That loss has consequences a cost cannot recover from. A profile in metres below
+That loss has consequences a cost cannot recover from. A profile in meters below
 ground scored against a head in absolute elevation is a defensible model compared
 to the wrong reference, and nothing could notice because the unit was gone. And
 the error model is what makes a weighted sum defensible at all: a residual

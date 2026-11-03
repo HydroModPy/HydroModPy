@@ -10,7 +10,7 @@ package's own k array.
 Evaluation depth: the layer-center depth below the model top, exactly what
 ``SolverMesh.layer_center_depths()`` defines: ``top - 0.5 * (layer_top +
 layer_bottom)``. On a 30 m column in two layers (layer 1 = the top 10 m,
-layer 2 = the next 20 m), the layer centres sit 5 m and 20 m below the top,
+layer 2 = the next 20 m), the layer centers sit 5 m and 20 m below the top,
 so the exponential profile predicts ``k2 / k1 = exp(-(20 - 5) / characteristic_depth)``.
 """
 
@@ -54,7 +54,7 @@ def _hk(characteristic_depth: float) -> np.ndarray:
         identifier="K",
         kind="homogeneous",
         value=1e-4,
-        vertical_profile={"mode": "exponential", "characteristic_depth": characteristic_depth},
+        vertical_profile={"kind": "exponential", "characteristic_depth": characteristic_depth},
     )
     flow = SimpleNamespace(parameters={"K": field_param})
     domain = SimpleNamespace(zones={})

@@ -178,7 +178,7 @@ def _coupled_mesh_and_lake() -> tuple[SolverMesh, list[int]]:
     # Tilt the top down towards the north-east lake corner so the hillslope drainage
     # has a descending path to the reaches / lake (the DRN router follows the
     # descent D; a flat top would leave every cell a local minimum). D steps to
-    # diagonal neighbours on quads, so the east tilt stays small enough that the
+    # diagonal neighbors on quads, so the east tilt stays small enough that the
     # northward step (0.05) beats the diagonal one (0.6 / 14.1 = 0.042): paths run
     # up the columns and cross the channel instead of running beside it.
     rr, cc = np.meshgrid(np.arange(nrow), np.arange(ncol), indexing="ij")

@@ -50,7 +50,7 @@ def test_a_transient_soil_run_on_a_steady_first_period_is_refused() -> None:
         "(1 day) as a steady state under that period's recharge alone, zero after "
         "a dry day: the run would start from a drained aquifer. Write "
         "first_period_steady = false under [flow] and add [flow.ic] "
-        'type = "steady_state", which starts the run from the steady state under '
+        'kind = "steady_state", which starts the run from the steady state under '
         "the mean recharge of the whole run."
     )
 

@@ -72,7 +72,7 @@ def test_the_run_lists_and_reads_the_storage_term(storage_run) -> None:
     run = catalog[sid]
     assert "storage_sy" in run.array.list_fields()
     assert list_exportable(run)["storage_sy"] is ExportKind.field
-    np.testing.assert_allclose(run.field("storage_sy", 1, 0), STORAGE_SY[1, 0])
+    np.testing.assert_allclose(run.field("storage_sy", time=1, layer=0), STORAGE_SY[1, 0])
 
 
 def test_the_storage_term_exports_to_netcdf(storage_run) -> None:

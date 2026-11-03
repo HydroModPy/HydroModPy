@@ -1,6 +1,6 @@
 """Native Pydantic payload tests for flow boundary conditions."""
 
-from hydromodpy.physics.flow.boundary_conditions import CauchyBC, DirichletBC, RobinBC
+from hydromodpy.physics.flow.boundary_conditions import DirichletBC, DrainBC
 from hydromodpy.physics.flow.flow_config import FlowConfig
 
 
@@ -15,7 +15,7 @@ def test_flow_bc_native_round_trip_dirichlet_and_cauchy() -> None:
                 "east_side": {"kind": "dirichlet", "value": 4.0},
                 "west_side": {"kind": "dirichlet", "value": 5.0},
                 "drainage": {
-                    "kind": "cauchy",
+                    "kind": "drain",
                     "value": "10 cm2/day",
                     "application_domain": "top",
                 },
@@ -24,7 +24,7 @@ def test_flow_bc_native_round_trip_dirichlet_and_cauchy() -> None:
     )
 
     assert all(isinstance(cfg.bc[bc_id], DirichletBC) for bc_id in cfg.bc if bc_id != "drainage")
-    assert isinstance(cfg.bc["drainage"], CauchyBC)
+    assert isinstance(cfg.bc["drainage"], DrainBC)
 
     reloaded = FlowConfig.model_validate_json(cfg.model_dump_json())
 
@@ -36,7 +36,7 @@ def test_flow_bc_native_round_trip_robin() -> None:
         {
             "bc": {
                 "drainage": {
-                    "kind": "robin",
+                    "kind": "drain",
                     "value": 2.0e-6,
                     "application_domain": "top",
                 }
@@ -44,7 +44,7 @@ def test_flow_bc_native_round_trip_robin() -> None:
         }
     )
 
-    assert isinstance(cfg.bc["drainage"], RobinBC)
+    assert isinstance(cfg.bc["drainage"], DrainBC)
 
     reloaded = FlowConfig.model_validate_json(cfg.model_dump_json())
 

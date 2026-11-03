@@ -113,7 +113,7 @@ def compute_seepage_areas(
 
 
 # ---------------------------------------------------------------------------
-# Drain outflow (vectorised - replaces double for-loop)
+# Drain outflow (vectorized - replaces double for-loop)
 # ---------------------------------------------------------------------------
 
 
@@ -125,7 +125,7 @@ def compute_outflow_drain(
     dem_mask: np.ndarray,
 ) -> np.ndarray:
     """
-    Map drain-package outflow onto the 2-D model grid (vectorised).
+    Map drain-package outflow onto the 2-D model grid (vectorized).
 
     The FloPy ``CellBudgetFile`` returns drain records ordered the same way
     as the active drain cells in ``drain_array``.  This function uses

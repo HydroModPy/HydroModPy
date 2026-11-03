@@ -100,9 +100,9 @@ def apply_recharge_load_result_to_flow(
 
     if "recharge" not in (getattr(flow, "active_sinks_sources", None) or []):
         logger.warning(
-            "[data.recharge] is loaded and flow.active_sinks_sources does not list "
-            '"recharge", so the model receives no recharge: add "recharge" to '
-            "flow.active_sinks_sources, or remove it from data.types."
+            "[data.recharge] is loaded and [flow.sinks_sources.recharge] is absent or says "
+            "enabled = false, so the model receives no recharge: declare the table, or "
+            "remove it from data.types."
         )
 
     sinks_sources = getattr(flow, "sinks_sources", {})
@@ -167,9 +167,9 @@ def apply_etp_load_result_to_flow(
     The runtime keeps any user-defined ETP policy (``surface_offset``,
     ``extinction_depth``, ``first_clim``, ``spatial_mode``, etc.) when
     a base ``flow.sinks_sources['etp']`` already exists; otherwise the
-    typed config is created from scratch with sensible defaults that
-    reproduce the legacy behaviour (``DEM - 2 m`` ET surface, 1 m
-    extinction depth). ``from_soil_reservoir=True`` is what the soil
+    typed config is created from scratch with the defaults of the table
+    (``DEM - 2 m`` ET surface, 2 m extinction depth).
+    ``from_soil_reservoir=True`` is what the soil
     binder passes: the EVT surface defaults to 0 m below the drain
     elevation instead of 2 m below the topographic surface, unless the
     file wrote ``surface_offset`` itself, and the returned config is
@@ -190,7 +190,7 @@ def apply_etp_load_result_to_flow(
     spatial_mode = "auto"
     interpolation_method = "nearest"
     surface_offset = 0.0 if from_soil_reservoir else 2.0
-    extinction_depth = 1.0
+    extinction_depth = 2.0
     if etp_cfg is not None:
         first_clim = getattr(etp_cfg, "first_clim", first_clim)
         spatial_mode = getattr(etp_cfg, "spatial_mode", spatial_mode)
@@ -391,7 +391,7 @@ def auto_dam_axis(
 
     The dam is where the reservoir drains toward the catchment outlet: the
     footprint boundary point nearest the outlet (the spill point). The axis is
-    CENTRED ON that boundary point (so the wall sits at the lake edge and leaves
+    CENTERED ON that boundary point (so the wall sits at the lake edge and leaves
     essentially no lake cells behind it), oriented PERPENDICULAR to the outlet
     flow (spill -> outlet), with the local reservoir width taken from a chord a
     short ``width_probe`` inside the neck (the tip itself is degenerate), and
@@ -943,7 +943,7 @@ def apply_lake_meteo_forcings_to_flow(
                 attached = True
         # The watershed runoff RATE is only consumed by the exposed-band (marnage)
         # coupling, so surface it only for lakes that opt in (leaving the binder's
-        # behaviour unchanged for every other lake).
+        # behavior unchanged for every other lake).
         if (
             runoff_rate is not None
             and payload.get("runoff_rate") is None

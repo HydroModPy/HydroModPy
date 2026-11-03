@@ -300,7 +300,7 @@ def _effective_inputs(
 
 
 def _produce(job: JobDirectory, resolved: ResolvedDomainRequest) -> None:
-    """Build the geometry and leave the four declared artefacts in ``outputs/``."""
+    """Build the geometry and leave the four declared artifacts in ``outputs/``."""
     surface_topo = build_surface_topo_from_dem(resolved.dem_path)
     top = surface_topo.as_array()
     with rasterio.open(str(resolved.dem_path)) as source:

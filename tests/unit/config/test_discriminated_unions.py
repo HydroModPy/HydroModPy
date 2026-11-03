@@ -126,21 +126,21 @@ class TestSolverConfigUnion:
     # expected_backend_name of None means the original test only checked the
     # dispatched type, not SolverConfig.backend_name.
     BACKEND_CASES = [
-        pytest.param({"backend": "modflow6"}, Modflow6Backend, "modflow6", id="modflow6_backend"),
+        pytest.param({"kind": "modflow6"}, Modflow6Backend, "modflow6", id="modflow6_backend"),
         pytest.param(
-            {"backend": "modflow_nwt"}, ModflowNwtBackend, "modflow_nwt", id="modflow_nwt_backend"
+            {"kind": "modflow_nwt"}, ModflowNwtBackend, "modflow_nwt", id="modflow_nwt_backend"
         ),
         pytest.param(
-            {"backend": "boussinesq"}, BoussinesqBackend, "boussinesq", id="boussinesq_backend"
+            {"kind": "boussinesq"}, BoussinesqBackend, "boussinesq", id="boussinesq_backend"
         ),
         pytest.param(
-            {"backend": "custom", "name": "pluginsolver"},
+            {"kind": "custom", "name": "pluginsolver"},
             CustomBackend,
             "pluginsolver",
             id="plugin_backend_via_custom",
         ),
         pytest.param(
-            {"backend": "modflow_nwt"},
+            {"kind": "modflow_nwt"},
             ModflowNwtBackend,
             None,
             id="discriminated_payload_form",
@@ -169,19 +169,19 @@ class TestSolverConfigUnion:
 class TestSimulationProcessUnion:
     DISPATCH_CASES = [
         pytest.param(
-            {"id": "flow_main", "type": "flow", "solvers": ["modflow6"]},
+            {"id": "flow_main", "kind": "flow", "solvers": ["modflow6"]},
             FlowProcessConfig,
             {"solvers": ["modflow6"]},
             id="flow_variant",
         ),
         pytest.param(
-            {"id": "tr1", "type": "transport", "solvers": ["mt3dms"]},
+            {"id": "tr1", "kind": "transport", "solvers": ["mt3dms"]},
             TransportProcessConfig,
             {},
             id="transport_variant",
         ),
         pytest.param(
-            {"id": "mesh_main", "type": "mesh"},
+            {"id": "mesh_main", "kind": "mesh"},
             MeshProcessConfig,
             {"backend": "catchment", "solvers": []},
             id="mesh_variant_default_backend",
@@ -198,8 +198,8 @@ class TestSimulationProcessUnion:
 
     REJECT_CASES = [
         pytest.param({"id": "x", "type": "unknown"}, id="unknown_type_rejected"),
-        pytest.param({"id": "x", "type": "mesh", "solvers": ["a"]}, id="mesh_rejects_solvers"),
-        pytest.param({"id": "x", "type": "flow", "solvers": []}, id="flow_requires_solvers"),
+        pytest.param({"id": "x", "kind": "mesh", "solvers": ["a"]}, id="mesh_rejects_solvers"),
+        pytest.param({"id": "x", "kind": "flow", "solvers": []}, id="flow_requires_solvers"),
     ]
 
     @pytest.mark.parametrize("payload", REJECT_CASES)

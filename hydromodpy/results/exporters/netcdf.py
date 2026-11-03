@@ -11,7 +11,7 @@ then has no ``layer`` dimension and carries the layer as a scalar coordinate. Th
 CRS is stated twice for the same reason: once the CF way, once the way MDAL reads
 it.
 
-The face centres are the ones the model used (``mesh/face_x`` and
+The face centers are the ones the model used (``mesh/face_x`` and
 ``mesh/face_y`` of the store). A store without them gives the mean of the
 vertices of each face, which is off the generator of a Voronoi cell.
 """

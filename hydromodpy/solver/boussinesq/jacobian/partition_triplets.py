@@ -34,7 +34,7 @@ def build_sparse_semianalytic_partition_saturation_triplets(
 
     ``surface_input_rate_m_s`` is the recharge plus the wells per unit area,
     signed, as ``partition_vertical_supply_rate_m_s`` returns it.
-    ``regularization_radius`` is a depth in metres.
+    ``regularization_radius`` is a depth in meters.
     """
     head = np.asarray(head_m, dtype=float).reshape(-1)
     n_cells = int(mesh.n_cells)

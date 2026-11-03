@@ -317,7 +317,7 @@ def test_confusion_map_draws_the_partition_the_run_carries(mpl) -> None:
         mpl.close(fig)
 
 
-def test_confusion_map_gives_every_class_its_own_colour(mpl) -> None:
+def test_confusion_map_gives_every_class_its_own_color(mpl) -> None:
     from matplotlib.colors import to_rgb
 
     fig, ax = mpl.subplots()

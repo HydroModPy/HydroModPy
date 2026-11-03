@@ -1,10 +1,10 @@
 """Running several capabilities in a row, each one feeding the next by file.
 
 A capability is a function from a validated document to a directory of sealed
-artefacts, and two of them compose through the disk: the GeoPackage
+artifacts, and two of them compose through the disk: the GeoPackage
 one capability seals is an input another reads. Nothing in this
 repository performed that composition -- the caller had to create both
-directories, write both ``request.json`` by hand, and know which artefact of
+directories, write both ``request.json`` by hand, and know which artifact of
 the first fills which member of the second.
 
 This module is that missing component, and it knows no capability. It reads a
@@ -17,7 +17,7 @@ nothing below it can see both.
 Five rules it keeps, each one a defect it exists to make impossible.
 
 **A link is resolved before the first step runs.** A chain whose second step
-names an artefact its capability does not declare is refused while the root is
+names an artifact its capability does not declare is refused while the root is
 still empty, not after ten minutes of flow routing. That is why resolution is
 a pass of its own and takes the declarations rather than the bodies.
 
@@ -104,7 +104,7 @@ _NO_SOURCE_TEXT = ""
 
 
 class StepLink(BaseModel):
-    """One member of a step's inputs, filled from an earlier step's artefact."""
+    """One member of a step's inputs, filled from an earlier step's artifact."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -122,7 +122,7 @@ class StepLink(BaseModel):
     )
     output: str = Field(
         min_length=1,
-        description="artefact of that step, as its capability declares it",
+        description="artifact of that step, as its capability declares it",
     )
 
 
@@ -147,7 +147,7 @@ class ChainStep(BaseModel):
     )
     links: list[StepLink] = Field(
         default_factory=list,
-        description="file inputs taken from an artefact of an earlier step",
+        description="file inputs taken from an artifact of an earlier step",
     )
 
 
@@ -232,13 +232,13 @@ def _write_member(inputs: dict[str, Any], member: str, value: Any) -> None:
 
 @dataclass(frozen=True, slots=True)
 class ResolvedLink:
-    """One link, with the artefact it names located under the chain root."""
+    """One link, with the artifact it names located under the chain root."""
 
     member: str
     step_id: str
     output_id: str
     path: str
-    """Where the artefact lands, relative to the chain root, forward slashes."""
+    """Where the artifact lands, relative to the chain root, forward slashes."""
 
     media_type: str
 
@@ -598,7 +598,7 @@ def _report_a_document_that_contradicts_its_code(
 def _status_of(exit_code: int) -> ChainStepStatus:
     """What a step that published no document did, read off its exit code.
 
-    A cancelled job whose directory was already sealed prints nothing at all --
+    A canceled job whose directory was already sealed prints nothing at all --
     the runtime refuses to hand back a finished job's outcome beside exit 130 --
     so the code is the only statement left, and 130 says dismissed and not
     failed.
@@ -628,7 +628,7 @@ def _chain_status(records: Sequence[Mapping[str, Any]]) -> str:
 def _refuse_a_link_that_was_never_produced(root: Path, entry: ResolvedStep) -> None:
     """Refuse a link whose file the producing step did not write.
 
-    An artefact declared ``required=False`` is one a run may legitimately not
+    An artifact declared ``required=False`` is one a run may legitimately not
     write, so a link can name a declared output that this particular run did
     not produce. The step that would read it is refused before it starts,
     pointed at the link, rather than started and failed on a missing file whose

@@ -37,7 +37,7 @@ def cell_centers(
     face_x: np.ndarray | None = None,
     face_y: np.ndarray | None = None,
 ) -> np.ndarray:
-    """Return the ``(n_faces, 2)`` centres the field arrays of a run are indexed by.
+    """Return the ``(n_faces, 2)`` centers the field arrays of a run are indexed by.
 
     The stored ``face_x`` / ``face_y`` when the mesh group has them, else the
     mean of the corners of each face. ``faces`` is the padded UGRID
@@ -100,15 +100,15 @@ class Mesh:
     first; ``None`` for any other mesh."""
     face_x: np.ndarray | None = None
     face_y: np.ndarray | None = None
-    """Per-face centres, when the mesh group stores them."""
+    """Per-face centers, when the mesh group stores them."""
     identity: MeshStoreIdentity | None = None
-    """Engine, version, request hash and centre rule of the stored mesh."""
+    """Engine, version, request hash and center rule of the stored mesh."""
     crs_source: Literal["mesh", "catalog"] | None = None
     """Where ``crs`` was read: the ``mesh/`` group, else the catalog, ``None`` when
     neither says."""
 
     def cell_centers(self) -> np.ndarray:
-        """Return the ``(n_faces, 2)`` centres the field arrays are indexed by.
+        """Return the ``(n_faces, 2)`` centers the field arrays are indexed by.
 
         The stored ``face_x`` / ``face_y`` when the mesh group has them, else
         the mean of each face's corners. Every reader that needs to place a
@@ -117,11 +117,11 @@ class Mesh:
         return cell_centers(self.vertices, self.face_node_connectivity, self.face_x, self.face_y)
 
     def cell_areas(self) -> np.ndarray:
-        """Return the ``(n_faces,)`` plan area of each face in square metres."""
+        """Return the ``(n_faces,)`` plan area of each face in square meters."""
         return polygon_areas(self.vertices, self.face_node_connectivity)
 
     def cells_in_bbox(self, bbox: tuple[float, float, float, float]) -> np.ndarray:
-        """Return the boolean mask of faces whose centre lies in ``bbox``.
+        """Return the boolean mask of faces whose center lies in ``bbox``.
 
         ``bbox`` is ``(xmin, ymin, xmax, ymax)`` in the CRS of the vertices,
         edges included.
@@ -165,7 +165,7 @@ class MeshDescent:
     adjacency: str
     """``"shared_nodes"`` (D8 on quads) or ``"shared_faces"``."""
     epsilon: float | None
-    """Rise per fill step in metres, ``None`` when the store did not say."""
+    """Rise per fill step in meters, ``None`` when the store did not say."""
     report: dict[str, float]
     """Raise counts and maxima D logged at build time."""
     rebuilt: bool

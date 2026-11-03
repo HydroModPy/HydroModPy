@@ -8,10 +8,10 @@ what ``--project`` names, so the check works from outside a project too.
 from __future__ import annotations
 
 import argparse
-import sys
 
-from hydromodpy.cli.conventions import verbosity_parser
-from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, apply_verbosity
+from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
+from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, apply_verbosity, refuse
+from hydromodpy.cli.output import emit
 
 NAME: str = "add"
 HELP: str = "Power-user command to ingest a single file with explicit metadata"
@@ -21,7 +21,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        parents=[verbosity_parser()],
+        parents=[workspace_parser(), format_parser(), verbosity_parser()],
         epilog="Example:\n  hmp data add dem.tif --type dem --crs EPSG:2154 --unit m",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -36,7 +36,6 @@ def register(subparsers) -> argparse.ArgumentParser:
         dest="station_id",
         help="Station the file belongs to (default: the file name without its extension)",
     )
-    parser.add_argument("-w", "--workspace", default=None, help="Workspace holding the data cache")
     parser.add_argument(
         "--project",
         default=None,
@@ -54,8 +53,7 @@ def run(args: argparse.Namespace) -> None:
     from hydromodpy.cli._workers.data import add_data_entry
 
     if not args.variable:
-        print("--type is required (e.g. --type piezometry)", file=sys.stderr)
-        sys.exit(EXIT_CONFIG)
+        refuse("--type is required (e.g. --type piezometry)", EXIT_CONFIG)
 
     try:
         result = add_data_entry(
@@ -70,11 +68,16 @@ def run(args: argparse.Namespace) -> None:
             frozen=args.frozen,
         )
     except FileNotFoundError as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
+        refuse(str(exc), EXIT_NOT_FOUND, cause=exc)
     except ValueError as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_CONFIG)
+        refuse(str(exc), EXIT_CONFIG, cause=exc)
 
     label = result["station_id"] or "(no station)"
-    print(f"  Added: {result['variable']}/{result['provider']}/{label} -> {result['dest']}")
+    emit(
+        args,
+        "data add",
+        result,
+        table=lambda: print(
+            f"  Added: {result['variable']}/{result['provider']}/{label} -> {result['dest']}"
+        ),
+    )

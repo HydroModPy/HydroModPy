@@ -52,7 +52,7 @@ bed may also not sink more than
 {toml}`max_bed_sag|flow.sinks_sources.sfr.<name>.max_bed_sag` below the upper
 bound. An empty box stops the build and names the reach. Inside the boxes the bed
 descends downstream by at least $S_\mathrm{min}$ times the mean length of two
-neighbouring reaches. Where a traced channel climbs and the box and the order
+neighboring reaches. Where a traced channel climbs and the box and the order
 cannot both hold, the box wins and the build logs the worst step, so a defect of
 the trace cannot drag a bed far below the ground of its cell.
 

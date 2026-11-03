@@ -75,7 +75,7 @@ def _cell_faces(cell_mesh: PlanarCellMesh, cell: int) -> list[tuple[int, int, in
 
     Each face is ``(neighbour, node_a, node_b, length)`` with ``node_a < node_b``;
     a corner repeated in the cell gives no face, and a boundary side has no
-    neighbour and is left out.
+    neighbor and is left out.
     """
     geometry = cell_mesh.geometry
     row = geometry.padded_connectivity[cell]
@@ -99,7 +99,7 @@ def _cell_faces(cell_mesh: PlanarCellMesh, cell: int) -> list[tuple[int, int, in
 def _point_to_segment_distance(point: np.ndarray, seg_a: np.ndarray, seg_b: np.ndarray) -> float:
     """Return the perpendicular distance from a point to a segment's line.
 
-    For a Voronoi mesh the neighbour centroid projects onto the shared edge, so
+    For a Voronoi mesh the neighbor centroid projects onto the shared edge, so
     this is the exact half cell-to-cell distance (CVFD ``connlen``). For other
     meshes it is the best local estimate.
     """
@@ -180,8 +180,8 @@ def _fill_lake_enclosed_cells(
     A cell entirely surrounded by lake cells is a pinhole in the intersected footprint
     (the polygon just missed it) and would otherwise stay a lone active column inside the
     reservoir. Only interior cells qualify: a cell on the mesh boundary has an open edge
-    (fewer face-neighbours than polygon edges), so its water can still leave and it is not
-    lake-enclosed. Assign each hole to the lake owning most of its neighbours, with the full
+    (fewer face-neighbors than polygon edges), so its water can still leave and it is not
+    lake-enclosed. Assign each hole to the lake owning most of its neighbors, with the full
     cell area. Iterated so a hole freed by a previous fill can itself be closed.
     """
     from collections import Counter
@@ -204,7 +204,7 @@ def _fill_lake_enclosed_cells(
             if cell in lake_of or not active0[cell]:
                 continue
             neighbours = adjacency[cell]
-            # Interior only: an open (unshared) polygon edge means fewer neighbours than
+            # Interior only: an open (unshared) polygon edge means fewer neighbors than
             # edges, so a boundary cell is never treated as lake-enclosed.
             if n_edges[cell] < 3 or len(neighbours) != n_edges[cell]:
                 continue
@@ -232,7 +232,7 @@ def _drop_cutoff_wall_downstream_cells(
     """Drop lake cells on the downstream side of the cutoff wall laid on the shore.
 
     The wall runs with the lake on its left (``cutoff_wall_line``), so a cell
-    whose centre lies on its right is behind the dam. The side is read at the
+    whose center lies on its right is behind the dam. The side is read at the
     nearest point of the wall, so a curved wall is followed. On an engine whose
     faces follow the shore the cut footprint leaves no such cell; on the regular
     grid the overlap cells straddling the dam shore go. Dropping them makes the
@@ -280,7 +280,7 @@ def _resolve_shared_lake_cells(
     the gap. Rather than reject the model, the cell goes to the lake it overlaps
     most (by intersected area) and is dropped from the others, so the footprints
     stay cell-disjoint. Logged, never silent. A lake left with zero cells is a real
-    geometry error (fully swallowed by a neighbour) and still raises.
+    geometry error (fully swallowed by a neighbor) and still raises.
     """
     owners: dict[int, list[str]] = {}
     for lake_id, cells in cells_by_lake.items():
@@ -329,7 +329,7 @@ def polygon_overlap(
     A cell that only touches the polygon along an edge or at a point has no
     positive overlap and is left out. A sliver smaller than
     ``_MIN_OVERLAP_SHARE`` of the cell area is left out too: it is a rounding
-    artefact of the outline, not a reach.
+    artifact of the outline, not a reach.
     """
     polygons = cell_polygons(cell_mesh.mesh.vertices, cell_mesh.geometry.padded_connectivity)
     candidates = np.sort(STRtree(polygons).query(polygon, predicate="intersects"))

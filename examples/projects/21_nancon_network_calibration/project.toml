@@ -34,7 +34,7 @@ dem_correc_type = "breach"
 reuse_existing_outputs = true
 
 [geographic.catchment]
-catch_def = "from_outlet_coord"
+kind = "from_outlet_coord"
 dem_init_path = "DEM_nancon_25m.tif"
 
 # Station hydrometrique du Nancon a Fougeres (J001401001), en EPSG:2154.
@@ -126,12 +126,10 @@ station_ids = ["NANCON_REA"]
 
 [flow]
 param_list = ["K", "Sy", "Ss"]
-active_sinks_sources = ["recharge"]
-active_bc = ["drainage"]
 flow_regime = "steady"
 
 [flow.ic]
-type = "top"
+kind = "top"
 description = "Nappe initialisee a la surface topographique."
 
 [flow.param.K.field]
@@ -158,7 +156,7 @@ value = 1e-5
 # l'invariance des le facteur 1,05. Le runner refuse une calibration de
 # reseau si cette valeur n'est pas nulle.
 [flow.bc.drainage]
-kind = "cauchy"
+kind = "drain"
 application_domain = "top"
 description = "Drainage de Cauchy sur la face superieure de l'aquifere."
 value = 0.0
@@ -193,7 +191,7 @@ coverage_policy = "warn"
 # et la rectification SFR sur le maillage.
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 

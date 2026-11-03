@@ -10,13 +10,13 @@ from hydromodpy.spatial.field.field_param import FieldParam
     ("profile", "depths", "factors"),
     [
         (None, [0.0, 50.0], [1.0, 1.0]),
-        ({"mode": "none"}, [0.0, 50.0], [1.0, 1.0]),
-        ({"mode": "exponential", "characteristic_depth": 20.0}, [0.0, 20.0], [1.0, np.exp(-1.0)]),
-        ({"mode": "exponential", "characteristic_depth": "0.02 km"}, [10.0], [np.exp(-0.5)]),
-        ({"mode": "exponential", "characteristic_depth": 5.0, "min_factor": 0.2}, [0.0, 1000.0], [1.0, 0.2]),
-        ({"mode": "tabulated", "depths": [0.0, 20.0, 40.0], "factors": [1.0, 0.5, 0.25]},
+        ({"kind": "none"}, [0.0, 50.0], [1.0, 1.0]),
+        ({"kind": "exponential", "characteristic_depth": 20.0}, [0.0, 20.0], [1.0, np.exp(-1.0)]),
+        ({"kind": "exponential", "characteristic_depth": "0.02 km"}, [10.0], [np.exp(-0.5)]),
+        ({"kind": "exponential", "characteristic_depth": 5.0, "min_factor": 0.2}, [0.0, 1000.0], [1.0, 0.2]),
+        ({"kind": "tabulated", "depths": [0.0, 20.0, 40.0], "factors": [1.0, 0.5, 0.25]},
          [10.0, 30.0, 80.0], [0.75, 0.375, 0.25]),
-        ({"mode": "tabulated", "depths": [0, 10], "factors": [1, 0.5], "interpolation": "step"},
+        ({"kind": "tabulated", "depths": [0, 10], "factors": [1, 0.5], "interpolation": "step"},
          [0.0, 5.0, 10.0, 20.0], [1.0, 1.0, 0.5, 0.5]),
     ],
     ids=["no-profile", "none", "exponential", "depth-in-km", "floor", "tabulated", "step"],
@@ -24,7 +24,7 @@ from hydromodpy.spatial.field.field_param import FieldParam
 def test_a_vertical_profile_scales_the_surface_value_with_depth(profile, depths, factors):
     param = FieldParam(identifier="K", kind="homogeneous", value=10.0, vertical_profile=profile)
 
-    assert param.has_vertical_variation is (profile is not None and profile["mode"] != "none")
+    assert param.has_vertical_variation is (profile is not None and profile["kind"] != "none")
     np.testing.assert_allclose(param.vertical_factor(np.array(depths)), factors)
     np.testing.assert_allclose(
         param.to_array(shape=(len(depths),), depth=np.array(depths)), 10.0 * np.array(factors)
@@ -33,24 +33,24 @@ def test_a_vertical_profile_scales_the_surface_value_with_depth(profile, depths,
 
 
 def _tabulated(**override) -> dict:
-    return {"mode": "tabulated", "depths": [0.0, 10.0], "factors": [1.0, 0.5]} | override
+    return {"kind": "tabulated", "depths": [0.0, 10.0], "factors": [1.0, 0.5]} | override
 
 
 @pytest.mark.parametrize(
     ("profile", "error", "match"),
     [
         (["exponential"], TypeError, "must be a mapping"),
-        ({"mode": "linear"}, ValueError, "Unsupported vertical profile mode 'linear'"),
-        ({"mode": "exponential"}, KeyError, "requires 'characteristic_depth'"),
-        ({"mode": "exponential", "characteristic_depth": None}, ValueError, "cannot be None"),
-        ({"mode": "exponential", "characteristic_depth": True}, TypeError, "rejects boolean"),
-        ({"mode": "exponential", "characteristic_depth": " "}, ValueError, "empty length string"),
-        ({"mode": "exponential", "characteristic_depth": [1]}, TypeError, "unsupported length"),
-        ({"mode": "exponential", "characteristic_depth": 0.0}, ValueError, "must be > 0"),
-        ({"mode": "exponential", "characteristic_depth": 9, "min_factor": "nan"}, ValueError, "finite"),
-        ({"mode": "exponential", "characteristic_depth": 9, "min_factor": 1.2}, ValueError, r"\[0, 1\]"),
-        ({"mode": "tabulated", "factors": [1.0]}, KeyError, "requires 'depths'"),
-        ({"mode": "tabulated", "depths": [0.0]}, KeyError, "requires 'factors'"),
+        ({"kind": "linear"}, ValueError, "Unsupported vertical profile mode 'linear'"),
+        ({"kind": "exponential"}, KeyError, "requires 'characteristic_depth'"),
+        ({"kind": "exponential", "characteristic_depth": None}, ValueError, "cannot be None"),
+        ({"kind": "exponential", "characteristic_depth": True}, TypeError, "rejects boolean"),
+        ({"kind": "exponential", "characteristic_depth": " "}, ValueError, "empty length string"),
+        ({"kind": "exponential", "characteristic_depth": [1]}, TypeError, "unsupported length"),
+        ({"kind": "exponential", "characteristic_depth": 0.0}, ValueError, "must be > 0"),
+        ({"kind": "exponential", "characteristic_depth": 9, "min_factor": "nan"}, ValueError, "finite"),
+        ({"kind": "exponential", "characteristic_depth": 9, "min_factor": 1.2}, ValueError, r"\[0, 1\]"),
+        ({"kind": "tabulated", "factors": [1.0]}, KeyError, "requires 'depths'"),
+        ({"kind": "tabulated", "depths": [0.0]}, KeyError, "requires 'factors'"),
         (_tabulated(depths=[], factors=[]), ValueError, "cannot be empty"),
         (_tabulated(depths=[0.0]), ValueError, "same length"),
         (_tabulated(factors=[1.0, np.inf]), ValueError, "must be finite"),

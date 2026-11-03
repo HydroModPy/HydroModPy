@@ -9,7 +9,7 @@ So the profile is drawn, the trial the calibration returned is marked, and the
 asymmetry is measured rather than left to the eye. The shaded interval is the
 one the calibration summary and ``calibration_progress`` report: the sampled
 values whose cost stays within the calibration's own width of the best cost,
-one mesh cell on network distances in metres, five per cent of the best cost
+one mesh cell on network distances in meters, five per cent of the best cost
 otherwise, or the width ``[calibration.uncertainty]`` wrote. Its two
 half-widths are written out side by side: on a log axis they are factors, on
 a linear one differences, because that is the width the search actually

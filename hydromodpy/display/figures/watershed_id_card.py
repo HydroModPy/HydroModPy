@@ -4,7 +4,7 @@ Combines a topography map, outlet marker and a metadata table into a single
 compact summary figure.
 
 The card opens a gallery, so every row of its table is a fact a first-time
-reader can use: what was modelled, where, over which period and on which
+reader can use: what was modeled, where, over which period and on which
 grid. The card is drawn before the run is sealed, so it prints nothing that
 changes after it is drawn, such as the run status, and nothing a reader
 cannot decode, such as the run id.
@@ -249,7 +249,7 @@ class WatershedIdCardFigure(BaseFigure):
             cell.set_height(base * (1.0 + 0.75 * (lines - 1)))
             # Lightly tint the label column so the two-column table reads as
             # key/value rather than a raw grid.
-            # The colours follow the theme, so the card stays readable on a dark page.
+            # The colors follow the theme, so the card stays readable on a dark page.
             cell.set_facecolor(neutral("#f2f2f2" if col_idx == 0 else "#ffffff"))
             if col_idx == 0:
                 cell.set_text_props(fontweight="bold")

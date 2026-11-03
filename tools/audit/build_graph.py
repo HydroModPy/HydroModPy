@@ -179,7 +179,7 @@ def _importlib_names(tree: ast.Module) -> _ImportlibNames:
 
     Module scope only, and only names the file actually binds. Seeding the set
     with the bare name would mint an edge from any unrelated function called
-    ``import_module``, and honouring a binding made inside one function would
+    ``import_module``, and honoring a binding made inside one function would
     let a parameter of the same name in another function mint one too.
     """
     functions: set[str] = set()

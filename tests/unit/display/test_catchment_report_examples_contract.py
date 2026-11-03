@@ -253,7 +253,7 @@ def test_report_catchment_cli_builds_every_page(tmp_path) -> None:
 def test_report_catchment_cli_regeneration_is_byte_identical(tmp_path) -> None:
     """Regenerating from unchanged inputs must not perturb a single byte.
 
-    A timestamp, a dict iteration order or an unseeded colour ramp leaking into
+    A timestamp, a dict iteration order or an unseeded color ramp leaking into
     the HTML would show up here as a diff. This used to be checked against a
     developer's local Nancon outputs, so it never ran anywhere.
     """

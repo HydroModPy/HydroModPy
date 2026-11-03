@@ -25,8 +25,6 @@ _PREPARSED_KEYS = frozenset(
         "ic",
         "bc",
         "sinks_sources",
-        "active_sinks_sources",
-        "active_bc",
     }
 )
 
@@ -70,8 +68,6 @@ def from_toml_section(
     raw_bc = _mapping_section(flow_section, "bc")
     raw_ic = _mapping_section(flow_section, "ic")
     raw_sinks_sources = _mapping_section(flow_section, "sinks_sources")
-    raw_active_sinks_sources = _list_section(flow_section, "active_sinks_sources")
-    raw_active_bc = _list_section(flow_section, "active_bc")
 
     declared_param = list(raw_param_list)
     if len(declared_param) == 0 and len(raw_param) > 0:
@@ -92,8 +88,6 @@ def from_toml_section(
             "ic": raw_ic,
             "bc": raw_bc,
             "sinks_sources": parsed_sinks_sources,
-            "active_sinks_sources": list(raw_active_sinks_sources),
-            "active_bc": list(raw_active_bc),
         }
     )
     return flow_config_cls.model_validate(
@@ -102,7 +96,8 @@ def from_toml_section(
     )
 
 
-_BC_KINDS = frozenset({"dirichlet", "cauchy", "robin"})
+_BC_KINDS = frozenset({"dirichlet", "drain"})
+_FAMILY_KEYS = frozenset({"dirichlet", "cauchy", "robin"})
 
 
 def normalize_bc_payloads(
@@ -132,12 +127,11 @@ def normalize_bc_payloads(
         key = str(raw_key).strip()
         if key == "":
             raise ValueError("flow.bc cannot contain empty keys")
-        if key in {"dirichlet", "cauchy", "robin"}:
+        if key in _FAMILY_KEYS:
             raise ValueError(
                 f"[flow.bc.{key}.<id>] is no longer supported: a boundary is keyed by what it "
-                f"IS, not by the family it belongs to, which the registry already owns. Write "
-                f"[flow.bc.<id>] and, only to depart from the registry default, kind = "
-                f"'{key}'. Run 'hmp doctor --fix-config <file>' to rewrite it."
+                "IS, not by the family it belongs to, which the registry already owns. Write "
+                "[flow.bc.<id>]. Run 'hmp doctor --fix-config <file>' to rewrite it."
             )
         if raw_payload is None:
             continue
@@ -173,38 +167,12 @@ def resolve_bc_forcing_paths(
     workspace_data_dir: Path | None = None,
 ) -> dict[str, object]:
     """Resolve relative CSV paths declared under flow.bc.*.forcing."""
-    payload = dict(raw_bc)
-
-    def resolve_forcing_mapping(item: object) -> object:
-        if not isinstance(item, Mapping):
-            return item
-        item_payload = dict(item)
-        forcing = item_payload.get("forcing")
-        if isinstance(forcing, Mapping):
-            forcing_payload = _resolve_forcing_path(
-                forcing,
-                base_dir=base_dir,
-                role="flow_bc",
-                workspace_data_dir=workspace_data_dir,
-            )
-            item_payload["forcing"] = forcing_payload
-        return item_payload
-
-    for section_key in ("dirichlet", "cauchy", "robin"):
-        section = payload.get(section_key)
-        if not isinstance(section, Mapping):
-            continue
-        resolved_section: dict[str, object] = {}
-        for bc_id, raw_item in section.items():
-            resolved_section[str(bc_id)] = resolve_forcing_mapping(raw_item)
-        payload[section_key] = resolved_section
-
-    for key, raw_item in list(payload.items()):
-        if key in {"dirichlet", "cauchy", "robin"}:
-            continue
-        payload[key] = resolve_forcing_mapping(raw_item)
-
-    return payload
+    return {
+        key: _resolve_csv_paths_in(
+            item, base_dir=base_dir, role="flow_bc", workspace_data_dir=workspace_data_dir
+        )
+        for key, item in raw_bc.items()
+    }
 
 
 def resolve_well_forcing_paths(
@@ -274,17 +242,6 @@ def _mapping_section(flow_section: Mapping[str, object], name: str) -> Mapping[s
     return value
 
 
-def _list_section(
-    flow_section: Mapping[str, object], name: str
-) -> list[object] | tuple[object, ...]:
-    value = flow_section.get(name, [])
-    if value is None:
-        value = []
-    if not isinstance(value, (list, tuple)):
-        raise ValueError(f"TOML section 'flow.{name}' must be a list when provided")
-    return value
-
-
 def _default_kind_for(bc_id: str) -> str:
     """Return the kind the registry declares for a boundary, or dirichlet."""
     definition = boundary_definition(bc_id)
@@ -304,8 +261,7 @@ def _prepare_bc_entry_payload(
     """Normalize one bc payload, with the registry supplying the kind it omits.
 
     A boundary is keyed by what it IS. Its kind is an attribute the registry
-    already declares, so writing it is only needed to depart from that default,
-    which is how a drainage becomes a Robin one. Crossing families is refused:
+    already declares, so writing it is never needed. Crossing families is refused:
     a head-dependent exchange is not a prescribed head, and a run that swapped
     them would solve another problem entirely.
     """
@@ -317,7 +273,7 @@ def _prepare_bc_entry_payload(
         raise ValueError(
             f"{location_prefix}.kind is {raw_kind!r} but {bc_id!r} is a {default_kind!r} "
             "boundary in the registry. A prescribed head and a head-dependent exchange are "
-            "not interchangeable; only cauchy and robin may be swapped."
+            "not interchangeable."
         )
     payload["id"] = bc_id
     payload["kind"] = raw_kind

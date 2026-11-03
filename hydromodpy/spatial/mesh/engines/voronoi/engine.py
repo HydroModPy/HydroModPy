@@ -1,4 +1,4 @@
-"""The ``voronoi`` engine: polygons around generators, orthogonal to their neighbours.
+"""The ``voronoi`` engine: polygons around generators, orthogonal to their neighbors.
 
 ``seeds = "generated"`` places the generators itself (``from_seeds.py``): river
 seeds, Berge mirror pairs on the face lines, boundary seeds, then free seeds
@@ -55,7 +55,7 @@ def _prepared(request: MeshRequest) -> MeshRequest:
     A request without a size field gets its nominal size as a constant one. The
     generator needs the crossings of the lines as vertices of both lines and one
     vertex per local cell along them; the planner has done both, and a second pass
-    moves a vertex by a few millimetres at most. A request built by hand gets here
+    moves a vertex by a few millimeters at most. A request built by hand gets here
     what the planner would have given it.
     """
     size_field = request.size_field

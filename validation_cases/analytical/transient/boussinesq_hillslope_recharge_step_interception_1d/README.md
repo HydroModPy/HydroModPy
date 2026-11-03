@@ -28,7 +28,7 @@ Numerical setup:
 
 The MODFLOW variants (`config_modflownwt.toml` and its overrides) put a DRN on
 the land surface (conductance `K * area / b`, `b = 1 m`). Their surface is the
-toe elevation, 5 m, at the cell that holds the outlet head (the centre of the
+toe elevation, 5 m, at the cell that holds the outlet head (the center of the
 last column, `x = 395 m`, on the structured grids), so the toe is in contact from
 the start and the front moves inland from there. The two unstructured variants
 read the triangle bundle of the steady interception case

@@ -261,7 +261,7 @@ def test_the_routed_outlet_carries_the_whole_catchment_release(tmp_path: Path) -
         # Stop before 'derive': that step clears the model registry to free
         # memory, and the model is what carries the mesh this test routes on.
         project.simulate(until_step="extract")
-        execution = project.workflow_context.execution
+        execution = project._ctx.execution
         run_ids = list(execution.models_by_run_id)
         assert run_ids, "the pipeline kept no model for the run"
         run_id = run_ids[0]

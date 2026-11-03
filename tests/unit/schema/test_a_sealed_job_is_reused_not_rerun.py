@@ -25,7 +25,7 @@ OTHER_JOB_ID = "sha256:" + "8" * 64
 
 
 def _outcome(**overrides: object) -> JobOutcome:
-    """A successful outcome carrying one artefact and one warning."""
+    """A successful outcome carrying one artifact and one warning."""
     started = now()
     payload: dict[str, object] = {
         "job_id": JOB_ID,

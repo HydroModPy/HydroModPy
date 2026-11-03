@@ -2,7 +2,7 @@
 
 The regularized partition releases at the land surface a share of the water a
 cell receives. The share depends on the depth of the water table below the
-land surface, in metres, so that a water table far below the ground keeps all
+land surface, in meters, so that a water table far below the ground keeps all
 its water whatever the thickness of the aquifer.
 """
 
@@ -22,9 +22,9 @@ def partition_release_share(
 ) -> tuple[np.ndarray, np.ndarray]:
     """Return the released share ``exp(-d / r)`` and its derivative with head.
 
-    ``d`` is the depth of the water table below the land surface, in metres,
+    ``d`` is the depth of the water table below the land surface, in meters,
     capped by the cell thickness: zero at or above the top, the whole thickness
-    in a dry cell. ``r`` is ``regularization_radius``, a depth in metres. The
+    in a dry cell. ``r`` is ``regularization_radius``, a depth in meters. The
     derivative is zero at and above the top and below the bottom.
     """
     radius_m = float(regularization_radius)
@@ -71,7 +71,7 @@ def regularized_partition_surface_rate_from_balance(
     The release is ``exp(-d / r) max(n, 0)``: ``n`` is the lateral inflow per
     unit area plus ``surface_input_rate_m_s`` (recharge and wells, signed), ``d``
     the depth of the water table below the land surface and ``r`` a depth in
-    metres. A cell with a prescribed head releases nothing: its constant-head
+    meters. A cell with a prescribed head releases nothing: its constant-head
     flux carries the water it receives.
     """
     share, _ = partition_release_share(

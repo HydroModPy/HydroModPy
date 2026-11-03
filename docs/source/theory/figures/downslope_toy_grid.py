@@ -43,7 +43,7 @@ d_to_mapped = downslope_distance_to_mask(metric, mapped)
 d_to_simulated = downslope_distance_to_mask(metric, simulated)
 
 fig, axes = plt.subplots(1, 2, figsize=(6.4, 3.4))
-for ax, support, distance, colour, title in (
+for ax, support, distance, color, title in (
     (
         axes[0],
         simulated,
@@ -84,7 +84,7 @@ for ax, support, distance, colour, title in (
             centres[c, 1] + 2.4,
             f"{distance[c]:.0f}",
             fontsize=7,
-            color=colour,
+            color=color,
             ha="left",
             va="bottom",
         )

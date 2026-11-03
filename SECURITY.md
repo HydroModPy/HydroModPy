@@ -56,7 +56,7 @@ Threats explicitly **out of scope**:
   inside the user's workspace (e.g., a poisoned
   `.hmp/checkpoints/*.pkl`, a hostile `id_particles_random` MODPATH
   pickle, a crafted Parquet/Zarr store). The workspace is trusted by
-  assumption; deserialising files under it is treated like loading a
+  assumption; deserializing files under it is treated like loading a
   local Python module.
 - Attacks on multi-tenant deployments (shared HPC scratch directories,
   shared workspaces between mutually distrusting users, public web

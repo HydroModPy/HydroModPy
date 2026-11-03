@@ -1,4 +1,4 @@
-"""A case figure opens maximised on whatever window toolkit matplotlib runs on."""
+"""A case figure opens maximized on whatever window toolkit matplotlib runs on."""
 
 from types import SimpleNamespace
 

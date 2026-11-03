@@ -109,4 +109,4 @@ Celui-ci devra notamment :
 - Convertir les données produites par HydroModPy dans le format attendu par AquiFR : un vecteur pour le débit et un vecteur pour la hauteur d'eau.
 
 ### 2.2 - Modification du driver AquiFR
-Le fichier *Driver/aquifr_driver.py* est le driver principal d'AquiFR. Il monitore la communication MPI et la synchronisation des modèles. Il faudra donc ajouter HydroModPy aux modèles traités dans ce code. 
+Le fichier *Driver/aquifr_driver.py* est le driver principal d'AquiFR. Il monitore la communication MPI et la synchronization des modèles. Il faudra donc ajouter HydroModPy aux modèles traités dans ce code. 

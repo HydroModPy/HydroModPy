@@ -22,6 +22,7 @@ from pydantic import Field, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import StationName
 
 
 class MetricsWindow(HydroModelBase):
@@ -48,7 +49,7 @@ class MetricsWindow(HydroModelBase):
 class MetricsConfig(HydroModelBase):
     """The station and the window the scores of a run are computed on."""
 
-    station: Annotated[str | None, Profile.USER] = Field(
+    station: Annotated[StationName | None, Profile.USER] = Field(
         default=None,
         description=(
             "Station the run is scored at. Unset, it is [site] gauge; without a gauge, "

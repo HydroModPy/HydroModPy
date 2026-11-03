@@ -90,3 +90,25 @@ def test_a_bad_digest_or_unknown_key_is_refused_by_name():
         _entry("heads.png", sha256="not-a-digest")
     with pytest.raises(ValidationError, match="label"):
         LedgerEntry.model_validate({**_entry("heads.png").model_dump(), "label": "x"})
+
+
+def test_concurrent_records_of_derived_files_all_survive(tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+
+    from hydromodpy.results.export.ledgers import record_derived_file
+
+    files = []
+    for index in range(8):
+        path = tmp_path / f"f{index}.csv"
+        path.write_text(str(index))
+        files.append(path)
+
+    def record(path):
+        record_derived_file(
+            tmp_path, path, producer="export.csv", options={}, identity=make_identity()
+        )
+
+    with ThreadPoolExecutor(8) as pool:
+        list(pool.map(record, files))
+
+    assert len(Ledger.read(tmp_path).entries) == 8

@@ -1,11 +1,11 @@
 """The one mapping of the hydraulic properties of a flow onto a cell mesh.
 
 Every solver reads K, Kv, Sy and Ss from ``map_flow_properties``: one value per
-cell, evaluated at each layer-centre depth. MODFLOW 6 also reads the rest of the
+cell, evaluated at each layer-center depth. MODFLOW 6 also reads the rest of the
 K tensor, K22 and the three angles, the same way. A homogeneous parameter is its value
 times its vertical profile. A heterogeneous one is the zone-weighted mean of its
 zone values on the fractions ``zone_fractions`` gives for its spatial support.
-MODFLOW passes the layer-centre depths of its solver mesh, Boussinesq one layer
+MODFLOW passes the layer-center depths of its solver mesh, Boussinesq one layer
 at depth zero.
 """
 
@@ -17,23 +17,17 @@ import numpy as np
 
 from hydromodpy.core.exceptions import DataContractViolation
 from hydromodpy.core.logging import get_logger
+from hydromodpy.physics.flow.property_ids import FLOW_PROPERTY_IDS
 from hydromodpy.spatial.field.field_spatial import WeightedAverageFieldDiscretization
 from hydromodpy.spatial.field.zone_fractions import ZoneFractions, zone_fractions
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
 logger = get_logger(__name__)
 
-FLOW_PROPERTY_SPECS: tuple[tuple[str, tuple[str, ...], str, str], ...] = (
-    ("K", ("K", "k"), "hk", "Hydraulic conductivity"),
-    ("Kv", ("Kv", "kv", "K33", "k33"), "kv", "Vertical hydraulic conductivity"),
-    ("Sy", ("Sy", "SY", "sy", "S", "s"), "sy", "Specific yield"),
-    ("Ss", ("Ss", "SS", "ss"), "ss", "Specific storage"),
-    ("K22", ("K22", "k22"), "k22", "Hydraulic conductivity along the second tensor axis"),
-    ("angle1", ("angle1",), "angle1", "Turn of the first K axis from east towards north (degrees)"),
-    ("angle2", ("angle2",), "angle2", "Rise of the first K axis above the horizontal (degrees)"),
-    ("angle3", ("angle3",), "angle3", "Rotation of the K tensor about its first axis (degrees)"),
+FLOW_PROPERTY_SPECS: tuple[tuple[str, tuple[str, ...], str, str], ...] = tuple(
+    (prop.id, (prop.id,), prop.output, prop.label) for prop in FLOW_PROPERTY_IDS
 )
-"""Canonical name, flow parameter aliases, output name and label of each property."""
+"""Canonical name, flow parameter ids, output name and label of each property."""
 
 K_TENSOR_PROPERTIES: tuple[str, ...] = ("K22", "angle1", "angle2", "angle3")
 """The part of the K tensor past K and Kv, which only MODFLOW 6 reads."""
@@ -266,7 +260,7 @@ def map_flow_properties(
     """Map the flow properties named in ``properties`` onto the cells of ``cell_mesh``.
 
     ``layer_depths`` is ``(nlay, n_cells)``, the depth below the top of each
-    layer centre. Each mapped property ``p`` gives ``p`` ``(nlay, n_cells)`` and
+    layer center. Each mapped property ``p`` gives ``p`` ``(nlay, n_cells)`` and
     ``p_value`` ``(n_cells,)``, the values at depth zero (``hk``, ``hk_value``,
     ...). A property with no flow parameter is mapped from
     ``optional_fill_values`` when it is not required, and left out when no fill

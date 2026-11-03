@@ -17,7 +17,7 @@ resolver no longer imports the manager to reach a download.
 
 Why the manager still owns the cache
 ------------------------------------
-A source knows nothing of the DuckDB catalogue, which is the whole point of the
+A source knows nothing of the DuckDB catalog, which is the whole point of the
 port, so the superset lookup and the registration stay in the manager around
 this call. What moved is only the question "which class, built how".
 """

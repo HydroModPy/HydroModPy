@@ -83,7 +83,6 @@ def _model(arrays: dict[str, np.ndarray]) -> SimpleNamespace:
     [
         ("K22", "k22", 2e-5),
         ("Kv", "kv", 1e-6),
-        ("K33", "kv", 1e-6),
         ("angle1", "angle1", 60.0),
         ("angle2", "angle2", -15.0),
         ("angle3", "angle3", 5.0),
@@ -96,6 +95,13 @@ def test_each_tensor_property_is_carried_to_every_cell(key: str, name: str, valu
     assert overrides[name].shape == (2, N_CELLS)
     assert np.all(overrides[name] == value)
     assert np.all(overrides[f"{name}_value"] == value)
+
+
+def test_an_override_names_a_property_by_its_one_id() -> None:
+    with pytest.raises(ValueError, match="K33 name no flow property"):
+        resolve_flow_property_runtime_overrides(
+            {"properties": {"K33": 1e-6}}, nlay=2, n_cells=N_CELLS, required_properties={"K"}
+        )
 
 
 def test_an_override_wins_over_the_flow_angle() -> None:

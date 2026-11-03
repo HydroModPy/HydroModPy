@@ -1,4 +1,4 @@
-"""Filesystem path resolution for run artefacts.
+"""Filesystem path resolution for run artifacts.
 
 A run owns one directory, ``runs/<name>`` or a kept trial
 ``sessions/<name>/trials/<nnnn>``, named after the run itself (``my_run``,
@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import UUID
 
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.state.paths import parse_rel_dir
 from hydromodpy.results.storage.contract import (
     FIELDS_STORE_NAME,
@@ -61,7 +62,7 @@ def sanitize_segment(value: str | None, *, max_len: int = MAX_SEGMENT_LEN) -> st
     return slug[:max_len].rstrip("_-") or UNNAMED
 
 
-class RunNameTooLongError(ValueError):
+class RunNameTooLongError(ConfigError, ValueError):
     """A run name maps to a directory name longer than the filesystem budget."""
 
     def __init__(self, name: str, length: int) -> None:
@@ -76,7 +77,7 @@ class RunNameTooLongError(ValueError):
 def run_dirname(name: str | None) -> str:
     """Return the directory name of a run from its human name.
 
-    Case is preserved (the directory is meant to be recognised at a glance)
+    Case is preserved (the directory is meant to be recognized at a glance)
     and the ``.vN`` version suffix survives; only characters a filesystem
     cannot carry are folded to ASCII and replaced by an underscore.
 

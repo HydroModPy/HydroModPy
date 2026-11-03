@@ -57,9 +57,7 @@ def run_boussinesq_linearized_unconfined_recharge_step_deep_case(
         storage_coefficient=float(reference_cfg["specific_yield"]),
         flow_section={
             "flow_regime": "transient",
-            "ic": {"type": "custom", "value": base_head_m},
-            "active_sinks_sources": ["recharge"],
-            "active_bc": ["west_side", "east_side"],
+            "ic": {"kind": "custom", "value": base_head_m},
             "sinks_sources": {
                 "recharge": {
                     "values": recharge_rate_m_s,

@@ -78,7 +78,7 @@ _MODEL_NAME = "lakd"
 
 
 class _ShimModel:
-    """Minimal model double honouring the run_processing contract.
+    """Minimal model double honoring the run_processing contract.
 
     Carries the attributes ``run_processing`` reads: a loaded flopy ``sim`` for
     the subprocess leg, ``nper`` for the solve progress bar, ``full_path`` for

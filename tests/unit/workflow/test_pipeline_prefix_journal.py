@@ -79,7 +79,7 @@ def test_a_prebuilt_prefix_is_journalled(tmp_path: Path) -> None:
 
 
 def test_a_rebuilt_prefix_row_carries_what_the_step_declares(tmp_path: Path) -> None:
-    """The row of a re-executed prefix step names its artefacts and digests them."""
+    """The row of a re-executed prefix step names its artifacts and digests them."""
     writer = _Writer("_preprocessing/head.txt")
     pipeline = Pipeline([writer, _Terminal()], workspace=tmp_path, run_dir=tmp_path)
     pipeline.run(PipelineState(run_id="declared", data={"workspace": str(tmp_path)}), resume_from=1)

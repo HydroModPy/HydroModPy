@@ -40,5 +40,5 @@ initial_head_m = 50.0
 aquifer_base_m = 0.0
 hydraulic_conductivity_m_per_s = 4e-5
 specific_yield = 0.15
-# Half length of the x transect through the centre, in metres.
+# Half length of the x transect through the center, in meters.
 transect_half_length_m = 600.0

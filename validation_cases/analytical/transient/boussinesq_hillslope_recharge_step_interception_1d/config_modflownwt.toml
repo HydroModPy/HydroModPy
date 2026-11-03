@@ -13,7 +13,7 @@ coverage_policy = "ignore"
 
 [[simulation.process]]
 id = "flow_validation"
-type = "flow"
+kind = "flow"
 solvers = ["modflow_nwt"]
 
 [geographic]
@@ -30,9 +30,9 @@ ny = 3
 
 [geographic.synthetic.topography]
 kind = "linear"
-# The surface is 5.0 m, the outlet head, at the centre of the last column
+# The surface is 5.0 m, the outlet head, at the center of the last column
 # (x = 395 m, where the model holds the head): 5 + 0.0125 * (395 - x) is 9.875 m
-# at the centre of the first column.
+# at the center of the first column.
 base_elevation = 5.0
 right_to_left_amplitude = 4.875
 
@@ -42,11 +42,12 @@ right_to_left_amplitude = 4.875
 kind = "flat_substratum"
 substratum_elevation = 0.0
 
+[domain.layers]
+nlay = 1
+
 [flow]
 first_period_steady = false
 flow_regime = "transient"
-active_sinks_sources = ["recharge"]
-active_bc = ["east_side", "drainage"]
 param_list = ["K", "Ss", "Sy"]
 
 [flow.param.K.field]
@@ -65,7 +66,7 @@ kind = "homogeneous"
 value = "0.10 -"
 
 [flow.ic]
-type = "custom"
+kind = "custom"
 value = "5.0 m"
 
 [flow.bc.east_side]
@@ -74,7 +75,7 @@ value = "5.0 m"
 
 [flow.bc.drainage]
 application_domain = "top"
-kind = "cauchy"
+kind = "drain"
 # No conductance: each drain takes C = K * cell_area / b with b = 1 m.
 value = "0.0 m2/s"
 
@@ -88,9 +89,6 @@ inference_mode = "warn"
 [[data.recharge.sources]]
 source = "synthetic"
 values = [2.0]
-
-[modflownwt.sgrid.vertical]
-nlay = 1
 
 [display]
 enabled = false

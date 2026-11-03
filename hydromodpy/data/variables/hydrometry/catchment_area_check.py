@@ -4,8 +4,8 @@ A gauge closes a catchment, and Hub'Eau publishes the area that catchment has:
 ``surface_bv`` on ``/referentiel/sites``, in km2. Comparing it to the area the
 run delineated is the only cheap check that catches an outlet placed on the
 wrong branch of a confluence, which is the failure a distance criterion cannot
-see. Two points forty metres apart can sit on two different streams, and their
-catchments then differ by an order of magnitude, not by forty metres.
+see. Two points forty meters apart can sit on two different streams, and their
+catchments then differ by an order of magnitude, not by forty meters.
 
 The endpoint the rest of the hydrometry code calls is ``referentiel/stations``,
 which carries no area at all. The area lives one level up, on the SITE a station
@@ -29,7 +29,7 @@ API_BASE = "https://hubeau.eaufrance.fr/api/v2/hydrometrie"
 DEFAULT_WARN_RELATIVE_GAP = 0.20
 """Relative gap beyond which the area disagreement is a WARNING.
 
-Measured: a fill on a DEM cut without margin annexed a neighbouring valley and
+Measured: a fill on a DEM cut without margin annexed a neighboring valley and
 gave 96.5 km2 for a 64.5 km2 catchment, +50 per cent. A D8 delineation on a coarse
 DEM stays within a few per cent of the published area.
 """

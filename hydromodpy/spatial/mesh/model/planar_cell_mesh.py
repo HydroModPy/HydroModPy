@@ -2,7 +2,7 @@
 
 ``PlanarCellMesh`` wraps a planar ``HydroMesh`` (geometry and connectivity,
 unchanged) and adds what the solvers and the consumers share: the single cell
-centre rule, the CRS, the line families, the zones, the engine identity and the
+center rule, the CRS, the line families, the zones, the engine identity and the
 quality report. Derived geometry is computed once, on first access.
 """
 
@@ -66,9 +66,9 @@ class CellChain:
     """One ordered chain of cells of a cell family, upstream to downstream.
 
     A cell may repeat only at a confluence. ``offset_m`` gives, per entry of
-    ``cell_ids``, the distance [m] from the cell centre to the source line; it is
+    ``cell_ids``, the distance [m] from the cell center to the source line; it is
     ``None`` when the engine publishes no lateral offset (the cell holds the line).
-    A crossing cell, taken by a chain although its centre lies off the line, has
+    A crossing cell, taken by a chain although its center lies off the line, has
     an offset above zero.
     """
 
@@ -78,7 +78,7 @@ class CellChain:
     offset_m: np.ndarray | None = None
 
     def __post_init__(self) -> None:
-        """Normalise the cell ids to a 1-D int64 array and the offsets to float64."""
+        """Normalize the cell ids to a 1-D int64 array and the offsets to float64."""
         cell_ids = np.asarray(self.cell_ids, dtype=np.int64).reshape(-1)
         if not self.family.strip():
             raise ValueError("a cell chain needs a family name")
@@ -180,10 +180,10 @@ class FaceFamilyTable:
 
 @dataclass(frozen=True, eq=False)
 class PlanarCellMesh:
-    """A planar mesh of cells with its centres, CRS, families, identity and QA.
+    """A planar mesh of cells with its centers, CRS, families, identity and QA.
 
-    ``centers`` is the only cell centre rule for every consumer: the Voronoi
-    generator, the regular cell centre or the triangle vertex mean, as
+    ``centers`` is the only cell center rule for every consumer: the Voronoi
+    generator, the regular cell center or the triangle vertex mean, as
     ``center_kind`` says. Boundary sides are face families named
     ``boundary:<label>`` with ``cell_b = -1``. ``smoothed_catchment`` is the
     outline of the catchment the planner smoothed before meshing, in the CRS of
@@ -341,7 +341,7 @@ def build_planar_cell_mesh(
 
     The derived geometry the QA was measured on becomes the mesh geometry, so it
     is computed once; a caller that already derived it passes it as ``geometry``.
-    ``target_size`` is the size [m] asked for at each cell centre, for the QA
+    ``target_size`` is the size [m] asked for at each cell center, for the QA
     ``size_fidelity``.
     """
     if geometry is None:

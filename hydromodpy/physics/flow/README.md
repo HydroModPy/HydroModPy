@@ -50,7 +50,7 @@ csv_value_column = "K_value"
 field_spatial_id = "field_geology"
 
 [flow.ic]
-type = "custom"                     # top | bottom | custom
+kind = "custom"                     # top | bottom | custom
 value = "12.5 m"                    # "<value> <unit>" in one field
 
 [flow.bc.dirichlet.ocean]
@@ -60,7 +60,7 @@ data_value = true
 
 [flow.bc.cauchy.drainage]
 application_domain = "top"
-kind = "cauchy"
+kind = "drain"
 value = "0.0 m2/s"
 
 [flow.sinks_sources.wells.W1]
@@ -264,7 +264,7 @@ flow_regime = "transient"
 param_list = ["K", "Sy", "Ss"]
 
 [flow.ic]
-type = "custom"
+kind = "custom"
 value = "12.5 m"
 description = "Initial hydraulic head"
 
@@ -279,7 +279,7 @@ kind = "dirichlet"
 
 [flow.bc.cauchy.drainage]
 application_domain = "top"
-kind = "cauchy"
+kind = "drain"
 value = "1e-6 m2/s"
 
 [flow.sinks_sources.wells.P1]
@@ -303,7 +303,7 @@ value = -500.0
 - `flow.ic accepts only direct keys [type, value, unit, units, description, source, recharge_statistic, boundary_condition_policy]`
   - unsupported keys were provided in `[flow.ic]`.
 
-- `flow.ic.type is required when flow.ic is not empty`
+- `flow.ic.kind is required when flow.ic is not empty`
   - add `type = "custom"` for an explicit scalar head, or choose another supported initial-condition type.
 
 - `flow.ic.value is required when type='custom'`

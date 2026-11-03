@@ -203,12 +203,12 @@ def test_the_water_table_is_the_head_of_the_top_active_cell(stack_run, run) -> N
     assert layer[list(INACTIVE_TOP)].tolist() == [1, 1]
     assert layer[PASS_THROUGH] == 0
     # The store keeps fields in float32 with a rounded mantissa.
-    np.testing.assert_allclose(run.field("watertable_elevation", timestep=0), expected, atol=1e-3)
+    np.testing.assert_allclose(run.field("watertable_elevation", time=0), expected, atol=1e-3)
 
 
 def test_the_seepage_follows_the_water_table_and_the_ground(stack_run, run) -> None:
-    water_table = np.asarray(run.field("watertable_elevation", timestep=0))
-    seepage = np.asarray(run.field("seepage_mask", timestep=0))
+    water_table = np.asarray(run.field("watertable_elevation", time=0))
+    seepage = np.asarray(run.field("seepage_mask", time=0))
     assert seepage.shape == (N_CELLS,)
     np.testing.assert_array_equal(seepage > 0, water_table >= stack_run.mesh.top)
 

@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import argparse
-import sys
 
-from hydromodpy.cli.conventions import workspace_parser
-from hydromodpy.cli.helpers import EXIT_OK, exit_code_for
+from hydromodpy.cli.conventions import format_parser, workspace_parser
+from hydromodpy.cli.helpers import exit_code_for, refuse
+from hydromodpy.cli.output import emit
 from hydromodpy.core.exceptions import HydroModPyError
 from hydromodpy.examples.blobs import DEFAULT_BASE_URL, SOURCE_ENV, default_ref
 
@@ -37,7 +37,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         help=HELP,
         epilog=_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        parents=[workspace_parser()],
+        parents=[workspace_parser(), format_parser()],
     )
     parser.add_argument("example_id", help="Example id, as listed by 'hmp example list'")
     parser.add_argument(
@@ -48,7 +48,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Overwrite destination files whose content differs from the manifest",
+        help="Go past the refusal: overwrite files whose content differs from the manifest",
     )
     parser.set_defaults(_handler=run)
     return parser
@@ -67,27 +67,46 @@ def run(args: argparse.Namespace) -> None:
             force=args.force,
         )
     except (HydroModPyError, FileNotFoundError, OSError) as exc:
-        print(f"[example add] {exc}", file=sys.stderr)
-        sys.exit(exit_code_for(exc))
+        refuse(f"[example add] {exc}", exit_code_for(exc), cause=exc)
 
-    if report.everything_was_cached:
-        print(f"[example add] Everything already cached, nothing downloaded from {report.source}.")
-    else:
+    def table() -> None:
+        if report.everything_was_cached:
+            print(
+                f"[example add] Everything already cached, nothing downloaded from {report.source}."
+            )
+        else:
+            print(
+                f"[example add] Downloaded {len(report.downloaded)} file(s), "
+                f"{human_size(report.downloaded_bytes)}, from {report.source}."
+            )
+        print(f"[example add] Workspace: {report.workspace}")
+        print(f"[example add] Project:   {report.project_dir}")
         print(
-            f"[example add] Downloaded {len(report.downloaded)} file(s), "
-            f"{human_size(report.downloaded_bytes)}, from {report.source}."
+            f"[example add] {len(report.written)} file(s) written, "
+            f"{len(report.unchanged)} already up to date."
         )
-    print(f"[example add] Workspace: {report.workspace}")
-    print(f"[example add] Project:   {report.project_dir}")
-    print(
-        f"[example add] {len(report.written)} file(s) written, "
-        f"{len(report.unchanged)} already up to date."
+        for label in report.stations_written:
+            print(f"[example add] station registry updated: {label}")
+        for dest in report.kept:
+            print(f"[example add] kept, differs from the manifest: {dest} (--force overwrites)")
+        print()
+        print(f"Read {report.project_dir}/README.md, then run the config it starts from:")
+        print(f"  hmp run {report.project_dir}/{report.entry_config}")
+
+    emit(
+        args,
+        "example add",
+        {
+            "workspace": report.workspace,
+            "project_dir": report.project_dir,
+            "entry_config": report.entry_config,
+            "source": report.source,
+            "downloaded": list(report.downloaded),
+            "downloaded_bytes": report.downloaded_bytes,
+            "written": list(report.written),
+            "unchanged": list(report.unchanged),
+            "kept": list(report.kept),
+            "stations_written": list(report.stations_written),
+        },
+        table=table,
     )
-    for label in report.stations_written:
-        print(f"[example add] station registry updated: {label}")
-    for dest in report.kept:
-        print(f"[example add] kept, differs from the manifest: {dest} (--force overwrites)")
-    print()
-    print(f"Read {report.project_dir}/README.md, then run the config it starts from:")
-    print(f"  hmp run {report.project_dir}/{report.entry_config}")
-    sys.exit(EXIT_OK)

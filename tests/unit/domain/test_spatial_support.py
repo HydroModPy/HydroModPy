@@ -1,6 +1,6 @@
 """The supports a heterogeneous parameter reads its zones from, and their providers.
 
-The domain grid is 4 x 4 cells of 5 m from (10, 100) to (30, 120): centre (20, 110), inradius 10 m.
+The domain grid is 4 x 4 cells of 5 m from (10, 100) to (30, 120): center (20, 110), inradius 10 m.
 """
 
 from __future__ import annotations

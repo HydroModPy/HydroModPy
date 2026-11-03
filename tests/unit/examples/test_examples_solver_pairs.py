@@ -46,13 +46,13 @@ def _tracked_toml_files() -> list[Path]:
 
 
 def _declared_pairs(toml_file: Path) -> list[tuple[str, str]]:
-    """Return the ``(type, solver)`` pairs the merged ``[[simulation.process]]`` declare."""
+    """Return the ``(kind, solver)`` pairs the merged ``[[simulation.process]]`` declare."""
     payload = load_toml_with_base_config(toml_file)
     simulation = payload.get("simulation") or {}
     pairs: list[tuple[str, str]] = []
     for process in simulation.get("process") or []:
         for solver in process.get("solvers") or []:
-            pairs.append((str(process.get("type")), str(solver)))
+            pairs.append((str(process.get("kind")), str(solver)))
     return pairs
 
 

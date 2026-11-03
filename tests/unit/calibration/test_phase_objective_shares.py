@@ -4,7 +4,7 @@
 selected block's declared weight, or a table ``{block: share}``, which
 replaces the selected blocks' weight with the phase's own share. Both forms
 select the same blocks; the table changes only what the composite objective
-sees, and shares are normalised to sum to one exactly like declared weights
+sees, and shares are normalized to sum to one exactly like declared weights
 already are.
 """
 

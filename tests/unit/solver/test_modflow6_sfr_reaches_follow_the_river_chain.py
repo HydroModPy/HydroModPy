@@ -4,7 +4,7 @@ Each engine meshes the same river network as a ``rivers`` cell family: the thin
 crossing chain of a regular grid, the left-bank triangles of a triangulation,
 the generator cells of the Voronoi dual. The SFR builder shares each delineated
 reach among the chain cells nearest to it, cut halfway between the projections
-of consecutive centres, so the length of every reach is conserved and every
+of consecutive centers, so the length of every reach is conserved and every
 sub-reach sits on a chain cell, in order along the reach.
 """
 

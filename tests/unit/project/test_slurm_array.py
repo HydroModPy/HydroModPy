@@ -138,7 +138,7 @@ def test_the_array_script_carries_the_warning_the_cpus_the_scratch_and_the_trap(
     assert 'export HMP_SCRATCH_ROOT="$SLURM_TMPDIR"' in text
     assert "trap forward_term TERM" in text
     assert (
-        'CASE_TOML="$("$HMP_PYTHON" -m hydromodpy project case "$JOB" "$SLURM_ARRAY_TASK_ID")"'
+        'CASE_TOML="$("$HMP_PYTHON" -m hydromodpy campaign case "$JOB" "$SLURM_ARRAY_TASK_ID")"'
         in text
     )
     assert "task-flags \\\n    --phase solve" in text
@@ -166,7 +166,7 @@ def test_the_prepare_script_throttles_and_writes_the_lock_once(tmp_path: Path) -
     assert "-m hydromodpy.project.launch.slurm write-lock" in text
     assert not re.search(r"(^|\$\()\s*hmp ", text, re.M)
     assert '"$HMP_PYTHON" -m hydromodpy run "$CASE_TOML"' in text
-    assert "hmp dev lock" not in text
+    assert "hmp lock" not in text
     assert "export HMP_THREADS_PER_CASE=2" in text
     assert "HMP_SCRATCH_ROOT" not in text
     assert (job.directory / "prepared").is_dir() and (job.directory / "logs").is_dir()
@@ -258,6 +258,7 @@ def test_a_plan_older_than_its_project_file_is_refused(tmp_path: Path) -> None:
         ({"walltime": "10"}, "stopped at its start"),
         ({"threads_per_case": 0}, "threads_per_case"),
         ({"prepare_parallel": 0}, "prepare_parallel"),
+        ({"prepare_parallel": 99}, "above 8"),
     ],
 )
 def test_invalid_options_are_refused(tmp_path: Path, kwargs: dict, message: str) -> None:
@@ -309,3 +310,14 @@ def test_hmp_project_case_reads_the_line_of_its_task(tmp_path: Path) -> None:
     for task in (0, 4):
         with pytest.raises(IndexError, match="1..3"):
             case_for_task(root, job.directory.name, task)
+
+
+@pytest.mark.allow_subprocess
+def test_a_task_script_strips_the_overrides_of_the_submitting_shell() -> None:
+    from hydromodpy.project.launch.slurm import _worker_block
+
+    env = {"PATH": "/usr/bin:/bin", "HMP_SET_a__b": "1", "HMP_RUN_SCRATCH": "/x"}
+    script = _worker_block("solve").split('cd "$PROJECT_ROOT"')[0]
+    probe = script + '\nenv | grep -c "^HMP_" || true\n'
+    out = subprocess.run(["bash", "-c", probe], env=env, capture_output=True, text=True)
+    assert out.stdout.strip() == "0"

@@ -1,7 +1,7 @@
 """A MODFLOW-NWT run writes the budget of its catchment, as a MODFLOW 6 run does.
 
 MODFLOW-NWT meshes the buffered box, so its domain row also sums the drains of
-the neighbouring basins. On the Nancon the catchment is under half of the box.
+the neighboring basins. On the Nancon the catchment is under half of the box.
 A run that kept no per-cell drain (``keep_per_cell_budget = false``, or a trial
 a calibration saves beside its best) had only that domain row to build its
 ``catchment`` discharge from. The series then carried about twice the water

@@ -4,7 +4,7 @@ Emits a JSON-LD ``ro-crate-metadata.json`` describing one simulation,
 including its inputs, outputs, lockfile, solver binary fingerprint and
 license. The embedded PROV-O ``CreateAction`` is produced by
 :mod:`hydromodpy.results.export.prov`, so the same payload can be re-used
-when serialised on its own.
+when serialized on its own.
 
 The generated graph stays self-contained: every ``hasPart`` / ``object`` /
 ``result`` reference resolves to a sibling entity in the same ``@graph``.
@@ -254,7 +254,7 @@ def write_ro_crate_view(
 
 
 def loads(payload: str) -> dict[str, Any]:
-    """Parse a serialised RO-Crate string back to a dict (test helper)."""
+    """Parse a serialized RO-Crate string back to a dict (test helper)."""
     return json.loads(payload)
 
 

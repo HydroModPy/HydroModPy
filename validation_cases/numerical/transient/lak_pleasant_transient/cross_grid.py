@@ -64,7 +64,7 @@ def _voronoi_solver_mesh(geometry: PleasantTransientGeometry) -> SolverMesh:
     x0, y0, x1, y1 = poly.bounds
     rng = np.random.default_rng(_MESH_SEED)
 
-    # Background seeds at the quad cell centres. The two columns that carry the
+    # Background seeds at the quad cell centers. The two columns that carry the
     # constant heads keep their x so that their centroids stay inside the margin.
     centres = np.arange(cell / 2.0, domain, cell)
     bx, by = np.meshgrid(centres, centres)
@@ -148,7 +148,7 @@ def _mirror_across_lake_lines(
 
 
 def _run_voronoi(workspace: Path, geometry: PleasantTransientGeometry) -> GridRunResult:
-    """Build, run and summarise the Voronoi-grid LAK simulation."""
+    """Build, run and summarize the Voronoi-grid LAK simulation."""
     mesh = _voronoi_solver_mesh(geometry)
     lake_cells = resolve_lake_cells(
         None, lake_id=_LAKE_ID, polygon=_lake_polygon(geometry), cell_mesh=mesh.cell_mesh

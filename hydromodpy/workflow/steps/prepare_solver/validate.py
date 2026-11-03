@@ -1,7 +1,7 @@
-"""Concern 2 of PrepareSolverStep: validation and artefact discovery.
+"""Concern 2 of PrepareSolverStep: validation and artifact discovery.
 
 Hosts the helpers that resolve the identity of the run (primary solver, the
-facts the seal needs) and that introspect on-disk artefacts (Zarr root,
+facts the seal needs) and that introspect on-disk artifacts (Zarr root,
 Parquet directory). These helpers are pure: they read the configuration and
 the store layout but never write.
 """

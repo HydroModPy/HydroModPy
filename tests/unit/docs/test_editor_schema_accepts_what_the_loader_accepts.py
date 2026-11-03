@@ -91,12 +91,12 @@ ACCEPTED = {
     "delete a key the variant lacks": (
         '[domain.depth_model]\nkind = "raster_thickness"\nthickness__delete = true\n'
     ),
-    "quantity as text": '[geographic.catchment]\ncatch_def = "from_outlet_coord"\nsnap_dist = "150 m"\n',
+    "quantity as text": '[geographic.catchment]\nkind = "from_outlet_coord"\nsnap_dist = "150 m"\n',
     "quantity with a converted unit": '[domain.depth_model]\nkind = "constant_thickness"\nthickness = "0.03 km"\n',
     "quantity as a number": '[domain.depth_model]\nkind = "constant_thickness"\nthickness = 30\n',
     "date as a TOML date": "[simulation.time]\nstart_datetime = 2019-01-01\n",
     "no required key": '[flow]\nflow_regime = "transient"\n',
-    "flat initial condition": '[flow.ic]\ntype = "steady_state"\n',
+    "flat initial condition": '[flow.ic]\nkind = "steady_state"\n',
     "item without its tag": '[data.recharge]\nsources = [{ station_ids = ["A"] }]\n',
 }
 
@@ -134,7 +134,7 @@ def test_the_editor_schema_is_valid_json_schema_2020_12() -> None:
 
 def test_the_model_schema_keeps_its_required_keys() -> None:
     """Frontends and the lockfile read the model schema, not the editor one."""
-    assert "workspace" in export_schema().get("required", [])
+    assert "geographic" in export_schema().get("required", [])
     assert "required" not in editor_schema()
     assert "base_config" not in export_schema()["properties"]
 

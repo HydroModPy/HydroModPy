@@ -16,6 +16,8 @@ from uuid import UUID
 import numpy as np
 import pandas as pd
 
+from hydromodpy.core.scope import OBSERVED
+from hydromodpy.core.time.selection import in_series_window
 from hydromodpy.results.catalog.constants import MESH_ENGINE_SQL
 
 if TYPE_CHECKING:
@@ -198,8 +200,9 @@ class ReadsMixin:
         variable
             Series name, for example ``"discharge"``.
         period
-            ``(start, end)`` dates, both included, or a year as text
-            (``"2002"``). ``None`` reads the whole series.
+            Window ``(start, end)``, or a year as text (``"2002"``). It keeps the
+            stress periods it overlaps, as ``Run.timeseries`` reads it. ``None``
+            reads the whole series.
         source
             ``"simulated"``, the default, or ``"observed"`` for the measurement
             of the same variable.
@@ -220,19 +223,20 @@ class ReadsMixin:
         ...     run.sim_id, "outlet", "discharge", period="2002"
         ... )  # doctest: +SKIP
         """
-        from hydromodpy.results.derive.time_alignment import normalize_period_bounds
-
         query = (
             "SELECT time, timestep, value FROM timeseries "
-            "WHERE sim_id = ? AND station_id = ? AND variable = ? AND source = ?"
+            "WHERE sim_id = ? AND station_id = ? AND variable = ? AND source = ? "
+            "ORDER BY timestep"
         )
-        params: list = [str(sim_id), station_id, variable, source]
-        if period is not None:
-            lo, hi, hi_inclusive = normalize_period_bounds(period)
-            query += " AND time >= ? AND time " + ("<= ?" if hi_inclusive else "< ?")
-            params.extend([lo, hi])
-        query += " ORDER BY timestep"
-        result = self._backend.query(query, params)
+        result = self._backend.query(query, [str(sim_id), station_id, variable, source])
+        if period is not None and not result.empty:
+            keep = in_series_window(
+                pd.DatetimeIndex(result["time"]),
+                observed=source == OBSERVED,
+                period=period,
+                edges=self[sim_id].periods.edges,
+            )
+            result = result[keep]
         if result.empty:
             raise KeyError(f"No timeseries for sim={sim_id}, station={station_id}, var={variable}")
         # Strip tz back to naive so the returned series aligns with
@@ -250,7 +254,7 @@ class ReadsMixin:
         self,
         sim_id: str | UUID,
         zone_id: str | None = None,
-        period: tuple[int, int] | None = None,
+        steps: tuple[int, int] | None = None,
     ) -> pd.DataFrame:
         """Return the water budget rows of a run.
 
@@ -260,8 +264,8 @@ class ReadsMixin:
             Id of the run.
         zone_id
             Keep only this budget zone. ``None`` keeps every zone.
-        period
-            ``(first, last)`` timestep indexes, both included.
+        steps
+            ``(first, last)`` period indexes, both included.
 
         Returns
         -------
@@ -274,9 +278,9 @@ class ReadsMixin:
         if zone_id is not None:
             query += " AND zone_id = ?"
             params.append(zone_id)
-        if period is not None:
+        if steps is not None:
             query += " AND timestep >= ? AND timestep <= ?"
-            params.extend(period)
+            params.extend(steps)
         return self._backend.query(query, params)
 
     def query_mass_balance(self, sim_id: str | UUID) -> pd.DataFrame:

@@ -55,7 +55,7 @@ step_value = "1 day"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 # What a project needs around the soil section: daily rain and ETP to read,
@@ -78,7 +78,7 @@ active_bc = ["drainage"]
 first_period_steady = false
 
 [flow.ic]
-type = "steady_state"
+kind = "steady_state"
 """
     config_path = tmp_path / "project.toml"
     config_path.write_text(boilerplate + "\n" + _block(), encoding="utf-8")

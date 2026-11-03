@@ -12,7 +12,7 @@ the configuration classes it feeds.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, Literal, Protocol, runtime_checkable
 
@@ -85,6 +85,22 @@ class Deviation:
 
     The departure holds in every run, so it is declared and printed as such, and
     ``paper_value`` has nothing to be compared with.
+    """
+
+    holds: Callable[[Any, Any], bool] | None = None
+    """For a departure that depends on what the file writes with no value of its own.
+
+    Called with the validated ``[calibration]`` section and ``[metrics] window``
+    (a mapping, its model or ``None``). True when this run leaves the publication
+    on this point, false when the file's declarations bring it back. Not combined
+    with ``always``.
+    """
+
+    only_when: tuple[str, Any] | None = None
+    """For an option read only under another one: ``(key, value)`` on the same table.
+
+    Where that key holds another value, the option is not read and is reported as
+    unset, so a default nobody uses is not told as a departure.
     """
 
 

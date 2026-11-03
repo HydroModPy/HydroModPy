@@ -27,7 +27,7 @@ substeps_per_period = 30
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 
@@ -53,6 +53,10 @@ kind = "flat_substratum"
 substratum_elevation = "0.0 m"
 
 
+[domain.layers]
+nlay = 1
+
+
 [data]
 types = ["recharge"]
 
@@ -73,15 +77,13 @@ values = [
 [flow]
 flow_regime = "transient"
 param_list = ["K", "Sy", "Ss"]
-active_sinks_sources = ["recharge"]
 # The west edge is the stream. No drain on top: the aquifer never reaches the
 # surface here, and the whole outflow has to cross that one boundary for the
 # recession to be the aquifer's own.
-active_bc = ["west_side"]
 first_period_steady = false
 
 [flow.ic]
-type = "custom"
+kind = "custom"
 value = "1.0 m"
 
 # 0.33 m/day, the K/R = 10 ratio of the legacy example.
@@ -108,10 +110,8 @@ value = "0.0 m"
 # One depth-integrated layer, the aquifer the Boussinesq solution describes.
 # MODFLOW 6 also refuses a fixed head below a cell bottom, so a stream head at
 # the substratum has nowhere else to sit.
-[modflow6.sgrid.vertical]
-nlay = 1
 
-
+[flow.sinks_sources.recharge]
 [display]
 on_error = "raise"
 figures = [

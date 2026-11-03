@@ -1,0 +1,23 @@
+[workspace]
+name = "workspace"
+description = ""
+contact = ""
+creator_name = ""
+creator_institution = ""
+created_at = "2000-01-01T00:00:00+00:00"
+# license = ""  # SPDX id you publish your own outputs under; nobody chose one yet
+hydromodpy_version_min = "2.0.0"
+
+[workspace.geographic_scope]
+region = ""
+bbox_wgs84 = [-180.0, -90.0, 180.0, 90.0]
+
+[workspace.team]
+members = []
+
+[workspace.tags]
+themes = []
+
+[conventions]
+cf = "CF-1.11"
+acdd = "ACDD-1.3"

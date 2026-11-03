@@ -13,9 +13,9 @@ The per-cell trace split shares the length of a line among the cells of the
 mesh, in order along it, with one rule per kind of mesh:
 
 * the mesh carries the cell chains of the line family (``rivers``): every chain
-  cell goes to the line nearest its centre, when that line passes within one
+  cell goes to the line nearest its center, when that line passes within one
   cell size of it, and each line shares its length among its cells in 1D. The
-  cells are ordered by the projection of their centres on the line and the
+  cells are ordered by the projection of their centers on the line and the
   cuts sit halfway between two consecutive projections, so the shares add up
   to the line length and no length is counted twice;
 * the mesh carries no chain: the line is cut where it crosses the cell
@@ -69,8 +69,8 @@ def _length_m(value: object) -> float:
 def _active_sfr_definitions(model) -> dict[str, dict[str, Any]]:
     """Return the active SFR network definitions keyed by network id.
 
-    A network is active when ``sfr`` is listed in ``flow.active_bc``. The
-    payloads come from ``flow.sinks_sources['sfr']`` (config objects or runtime
+    A network is active when its table is declared and not switched off, which
+    ``flow.active_bc`` says as ``sfr``. The payloads come from ``flow.sinks_sources['sfr']`` (config objects or runtime
     mappings carrying the binder-attached ``reach_trace``).
     """
     flow = getattr(model, "flow", None)
@@ -275,7 +275,7 @@ def _resolve_trace_network(
             )
         if len(nodes) == base:
             # No sub-reach survived: the reach starts inside a lake. Record which lake
-            # so its upstream neighbours become the shoreline terminal.
+            # so its upstream neighbors become the shoreline terminal.
             first_sub[ifno] = None
             last_sub[ifno] = None
             if cut_lake is not None:

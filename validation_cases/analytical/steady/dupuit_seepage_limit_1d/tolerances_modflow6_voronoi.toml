@@ -15,7 +15,7 @@ MODFLOW 6 on the 320-node Voronoi dual of the same triangles, one cell per node,
 the land surface a DRN of conductance K * area / b with b = 1 m. Each head sits
 at its node, so a column is the area-weighted mean of the cells whose node falls
 in it, for the model and the reference alike. The surface is sampled at the
-nodes from the 5 m raster, flat past the centre of its end columns: the toe nodes
+nodes from the 5 m raster, flat past the center of its end columns: the toe nodes
 at x = 400 m read 0.05 m, not the 0 m of the plane, so no cell is dry, and the
 reference is read at the same positions. Measured, the seepage limit sits at 200
 m (error 0) in the three scenarios of x_e = 200 m and at 135 m against 133.3 m

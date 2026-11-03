@@ -149,6 +149,10 @@ def check(workspace: Path, only_demo: bool) -> list[str]:
         if command[0] in ("pip", "python") and "install" in command:
             continue
         shown = " ".join(command)
+        if command[0] == "cd":
+            # The shell of the page changes folder, so the next commands run there.
+            cwd = Path(expand(command, workspace)[1])
+            continue
         # The commands run inside the scratch home, so no workspace above the
         # folder of the caller is found.
         completed = subprocess.run(

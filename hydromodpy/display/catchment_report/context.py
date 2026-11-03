@@ -202,7 +202,7 @@ def _configuration_summary(
         "Sy": _nested(flow, ("param", "Sy", "field", "value")),
         "Ss": _nested(flow, ("param", "Ss", "field", "value")),
         "thickness": depth.get("thickness"),
-        "drainage": _nested(flow, ("bc", "cauchy", "drainage", "value")),
+        "drainage": _nested(flow, ("bc", "drainage", "value")),
         "configured_recharge_station_ids": _configured_station_ids(data, "recharge"),
         "configured_runoff_station_ids": _configured_station_ids(data, "runoff"),
         "configured_hydrometry_station_ids": _configured_station_ids(data, "hydrometry"),

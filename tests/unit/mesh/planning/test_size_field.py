@@ -39,7 +39,7 @@ def _grid(nrow: int = 120, ncol: int = 160, step: float = 10.0) -> RasterGridSpe
 
 
 def _max_slope_of(field: SizeField) -> float:
-    """Largest |dh| / distance between pixel centres, over row, column and diagonal pairs."""
+    """Largest |dh| / distance between pixel centers, over row, column and diagonal pairs."""
     values = field.values
     dx, dy = field.grid.dx, field.grid.dy
     ratios = [
@@ -97,7 +97,7 @@ def test_the_field_is_clipped_between_the_floor_and_the_outside_size() -> None:
 
 def test_a_river_term_ramps_at_its_own_slope() -> None:
     grid = _grid(nrow=20, ncol=200)
-    # A vertical river through the centre of column 10.
+    # A vertical river through the center of column 10.
     river = LineString([(1105.0, 5000.0), (1105.0, 5200.0)])
     field = build_size_field(
         grid,

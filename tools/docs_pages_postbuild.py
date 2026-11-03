@@ -58,7 +58,7 @@ a {{ color: #0a6d80; }}
 <body>
 <h1>Page not found</h1>
 <p>This address may come from an older version of the HydroModPy documentation,
-which was reorganised in 2026, or from a pre-release that is no longer published.</p>
+which was reorganized in 2026, or from a pre-release that is no longer published.</p>
 <p id="same" hidden>Try <a id="same-link" href="{base}/main/">the same page in the current
 documentation</a>.</p>
 <ul>

@@ -48,7 +48,7 @@ class DomainGeographicContext:
         Outlet coordinates when catchment is outlet-derived, else ``None``.
     watershed_box_buff_dem
         DEM clipped to buffered rectangular support, the one ``surface_topo``
-        reads: the clip of the ground with its channel bed regularised when
+        reads: the clip of the ground with its channel bed regularized when
         ``[geographic.bed_regularization]`` is on.
     watershed_box_shp
         Bounding-box support polygon before external buffer.

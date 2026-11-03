@@ -12,6 +12,7 @@ from typing import Annotated, Any, Literal
 from pydantic import Field, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import PositiveInt
 
@@ -101,6 +102,7 @@ class TopSamplingConfig(HydroModelBase):
             "Dilate the channel pixel mask by this many pixels before reducing, to "
             "capture a channel that grazes a cell without a pixel centre on it."
         ),
+        json_schema_extra=field_metadata(unit="pixel"),
     )
     spike_guard_tol_m: Annotated[float, Profile.DEV] = Field(
         default=2.0,
@@ -118,6 +120,7 @@ class TopSamplingConfig(HydroModelBase):
             "below this the cell falls back to the centroid sample. A channel cell "
             "uses its channel stat from a single thalweg pixel."
         ),
+        json_schema_extra=field_metadata(unit="-"),
     )
     min_thickness_m: Annotated[float, Profile.DEV] = Field(
         default=0.1,

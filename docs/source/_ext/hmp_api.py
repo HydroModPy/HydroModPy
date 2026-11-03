@@ -371,9 +371,9 @@ class StabilityDirective(SphinxDirective):
         helpers = len(A.get("helpers", []))
         n_classes = len(classes("result", "engine", "config"))
         n_classes -= sum(1 for c in classes("result", "engine", "config") if c.get("outside_all"))
-        mods = len(A.get("modules", []))
-        rest = len(names) - verbs - helpers - n_classes - mods
-        counts = f"{verbs + helpers} functions, {n_classes} classes, {mods} modules" + (
+        errors = sum(1 for e in A.get("exceptions", []) if e["name"] in names)
+        rest = len(names) - verbs - helpers - n_classes - errors
+        counts = f"{verbs + helpers} functions, {n_classes} classes, {errors} exceptions" + (
             f" and {rest} other names" if rest > 0 else ""
         )
         policy = H.doc_uri(b, doc, "about/versions")
@@ -447,8 +447,15 @@ class ReadRulesDirective(SphinxDirective):
         rules = A.get("read_rules", [])
         if not rules:
             return []
-        items = "".join(f"<li>{H.inline_md(r, b, doc)}</li>" for r in rules)
-        return [H.raw(f"<ul>{items}</ul>")]
+        cells = []
+        for rule in rules:
+            nature, _, rest = rule.partition(" -> ")
+            returned, _, note = rest.partition(": ")
+            row = (nature, returned, note)
+            cells.append("".join(f"<td>{H.inline_md(text, b, doc)}</td>" for text in row))
+        head = "<tr><th>Nature</th><th>Type</th><th>Reading it</th></tr>"
+        body = "".join(f"<tr>{row}</tr>" for row in cells)
+        return [H.raw(f"<table><thead>{head}</thead><tbody>{body}</tbody></table>")]
 
 
 class TwinDirective(SphinxDirective):
@@ -994,7 +1001,7 @@ def class_page(c: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
-def python_index(verbs: list[str], results: list[dict], engines: list[dict]) -> str:
+def python_index(verbs: list[str], results: list[dict]) -> str:
     fig = A.get("session_figure") or "flux_timeseries"
     lines = [
         HEADER,
@@ -1011,7 +1018,7 @@ def python_index(verbs: list[str], results: list[dict], engines: list[dict]) -> 
         "import hydromodpy as hmp",
         "",
         'run = hmp.run("path/to/config.toml")   # simulate: returns a Run',
-        'head = hmp.read(run, "head")           # a lazy xarray.DataArray',
+        'head = hmp.read(run, "head")           # an xarray.DataArray',
         f'hmp.figure(run, "{fig}")   # draw one registered figure',
         "",
         'proj = hmp.open("path/to/project")     # reopen the project later, read only',
@@ -1037,23 +1044,12 @@ def python_index(verbs: list[str], results: list[dict], engines: list[dict]) -> 
         ":kind: result",
         "```",
         "",
-        "## Configuration objects",
+        "## The configuration",
         "",
-        "Each TOML section is a Pydantic model. In Python you build or edit the same keys, so their reference "
-        "is the TOML one. Several classes can share a section: the Selected by column gives the value that picks each one.",
+        "`hmp.HydroModPyConfig` is the whole document of a TOML file as a Pydantic model. In Python you "
+        "build or change the same keys, so their reference is the TOML one.",
         "",
         "```{hmp-api-configs}",
-        "```",
-        "",
-        "## Engine classes",
-        "",
-        "```{hmp-api-objects}",
-        ":kind: engine",
-        "```",
-        "",
-        "## Modules",
-        "",
-        "```{hmp-api-modules}",
         "```",
         "",
         "```{toctree}",
@@ -1072,8 +1068,6 @@ def python_index(verbs: list[str], results: list[dict], engines: list[dict]) -> 
     lines += [f"hmp-{v}" for v in verbs]
     lines += ["```", "", "```{toctree}", ":hidden:", ":caption: Objects you get back", ""]
     lines += [c["name"] for c in results]
-    lines += ["```", "", "```{toctree}", ":hidden:", ":caption: Engine classes", ""]
-    lines += [c["name"] for c in engines]
     lines += ["```", ""]
     return "\n".join(lines) + "\n"
 
@@ -1096,7 +1090,7 @@ reads the folder it names, and the seal in it says what the run is; the index on
 ## What `hmp.read` returns
 
 `hmp.read(run, name)` looks for `name` among the fields of the run, then among its time series, then
-among its geographic features. The type that comes back follows the kind of variable:
+among its geographic features. Each nature of variable gives one type, and `time=` never changes it:
 
 ```{hmp-api-read}
 ```
@@ -1112,6 +1106,24 @@ run = proj["baseline"]              # Run
 runs = proj.runs(site="nancon")     # RunSet: the completed runs of one site
 best = runs.best("nse")             # Run, by a metric
 ```
+
+## The words of the API
+
+Each word has one meaning, in every function and every object.
+
+| Word | Means | Where |
+|---|---|---|
+| `run` | A `Run`: one sealed directory under `runs/`. | `hmp.read(run, ...)`, `hmp.figure(run, ...)`, `hmp.export(run, ...)` |
+| `ref` | Text that names a run: an id, a unique prefix, a name or a selector such as `@latest`. | `hmp.compare_pair(ref_a, ref_b)`, `proj[ref]`, `proj.store.read(ref, ...)` |
+| `variable` | The name of a field, a series or a feature. | `hmp.read(run, variable)`, `run.field(variable)`, `run.timeseries(variable)` |
+| `time` | The stress period or periods to read: an index, a date, `"first"`, `"last"`, or for `hmp.read` a slice of indexes. | `hmp.read`, `run.field`, `hmp.figure`, `hmp.export` |
+| `period` | A window of dates: `(start, end)`, or a year as text. | `run.timeseries`, `run.observed`, `run.budget`, `hmp.export`, `sel={"period": ...}` |
+| `steps` | An inclusive range of period indexes, `(first, last)`. | `run.budget`, `proj.store.query_budget` |
+| `layer` | A layer index, 0 for the top layer. | `hmp.read`, `run.field`, `hmp.export` |
+| `set` | Changes of a configuration: a dotted path, the grammar of `--set`, or a name of `hmp config targets`. | `hmp.run`, `proj.simulate`, `proj.plan`, `hmp.Project.rerun` |
+| `from_step`, `until_step` | Names of pipeline steps. The names are frozen: `hydromodpy.core.pipeline_steps.STEP_NAMES`. | `hmp.run`, `proj.simulate` |
+| `best` | One `Run`, the best by a metric. `proj.best_runs` gives the table of the best run of each site. | `runset.best`, `session.best`, `proj.runs().best`, `proj.store.best` |
+| `parameters` | The table of the parameters of a run, or of a set of runs. | `run.parameters`, `runset.parameters` |
 """
 
 EXCEPTIONS_PAGE = """\
@@ -1122,15 +1134,13 @@ EXCEPTIONS_PAGE = """\
 The classes of `hydromodpy.core.exceptions` all derive from `HydroModPyError`. Each one carries a
 `code` of the form `HMPY.Exxx`, a one-line `title()`, and `to_dict()`, which renders the failure as
 a typed problem object. A few errors are defined beside the code that raises them (last section), and
-some calls raise built-in exceptions such as `FileNotFoundError`. Import the classes from the module
-that defines them:
+some calls raise built-in exceptions such as `FileNotFoundError`. The hierarchy is at the top level of
+the package:
 
 ```python
-from hydromodpy.core.exceptions import ConfigError
-
 try:
     hmp.run("path/to/config.toml")
-except ConfigError as err:
+except hmp.ConfigError as err:
     print(err.code, err)   # HMPY.E100, or the code of a subclass
 ```
 
@@ -1177,8 +1187,7 @@ def gen_pages(srcdir: Path) -> None:
 
     verbs = sorted(v["name"] for v in A["verbs"])
     results = classes("result")
-    engines = classes("engine")
-    write(py / "index.md", python_index(verbs, results, engines))
+    write(py / "index.md", python_index(verbs, results))
     write(py / "objects.md", OBJECTS_PAGE.replace("@@HEADER@@", HEADER))
     write(
         py / "exceptions.md",
@@ -1207,7 +1216,7 @@ def gen_pages(srcdir: Path) -> None:
                 "",
             ]
         write(py / f"hmp-{v['name']}.md", "\n".join(lines) + "\n")
-    for c in results + engines:
+    for c in results:
         write(py / f"{c['name']}.md", class_page(c))
 
     tops = [c["path"][1] for c in A["commands"] if len(c["path"]) == 2]
@@ -1220,7 +1229,8 @@ def gen_pages(srcdir: Path) -> None:
             "```{hmp-command} hmp",
             "```",
             "",
-            "Every command ends with a typed exit code: {doc}`exit-codes`.",
+            "Every command ends with a typed exit code: {doc}`exit-codes`. What a script or a "
+            "platform reads from a command is on {doc}`machine-output`.",
             "",
             "(shared-options)=",
             "## Shared options",
@@ -1236,7 +1246,7 @@ def gen_pages(srcdir: Path) -> None:
             "",
         ]
         + tops
-        + ["exit-codes", "```", ""]
+        + ["exit-codes", "machine-output", "```", ""]
     )
     write(cli / "index.md", "\n".join(index) + "\n")
     write(
@@ -1250,15 +1260,31 @@ def gen_pages(srcdir: Path) -> None:
                 "A command ends with the code of its outcome. Codes 0, 1 and 2 keep their usual meaning, "
                 "130 is the POSIX code of an interrupted process, and the codes from 10 name the category "
                 "of the failure. An exception that a command does not catch ends with the code of its "
-                "class: {doc}`../python/exceptions` lists the classes and their `HMPY.Exxx` codes.",
+                "class.",
                 "",
                 "```{hmp-exit-codes}",
                 "```",
                 "",
+                "## The code of a failure",
+                "",
+                "A failure prints one line on stderr that starts with its `HMPY.Exxx` code: "
+                "`HMPY.E002: File not found: run.toml`. {doc}`../python/exceptions` lists the classes "
+                "and their codes. A refusal the command writes itself takes the code of the class of its "
+                "exit code. `HMPY.E000` is a failure with no category of its own, most often a bug of "
+                "ours. {doc}`machine-output` says what a failure prints under `--format json`.",
+                "",
+                "## What is promised",
+                "",
+                "Inside a major version an exit code keeps its number and its meaning, and an "
+                "`HMPY.Exxx` code keeps its meaning. A new category comes with a new number, so a "
+                "program reads a number it does not know as a failure. The words of a message can "
+                "change in any version, so a program reads the codes and never the words.",
+                "",
                 "## Codes each command sets itself",
                 "",
-                "Read from the code of each command: every `sys.exit` it reaches. A command that is not "
-                "listed ends with 0, with 1 for an error, or with the code of an uncaught exception.",
+                "Read from the code of each command: every refusal and every `sys.exit` it reaches. A "
+                "command that is not listed ends with 0, with 1 for an error, or with the code of an "
+                "uncaught exception.",
                 "",
                 "```{hmp-command-exit-matrix}",
                 "```",
@@ -1266,6 +1292,12 @@ def gen_pages(srcdir: Path) -> None:
             ]
         )
         + "\n",
+    )
+    write(
+        cli / "machine-output.md",
+        MACHINE_OUTPUT_PAGE.replace("@@HEADER@@", HEADER).replace(
+            "@@ROWS@@", "\n".join(_machine_output_row(item) for item in A.get("cli_outputs", []))
+        ),
     )
     global_first = {k[0][0] for k in SHARED}
     for top in tops:
@@ -1312,6 +1344,93 @@ def gen_pages(srcdir: Path) -> None:
                     ]
         write(cli / f"{top}.md", "\n".join(lines) + "\n")
     prune_generated(written, py, cli)
+
+
+MACHINE_OUTPUT_PAGE = """@@HEADER@@
+
+# What a program reads
+
+This page is the interface of `hmp` for a script or a platform. `--format json` and
+`--format csv` print the result of a command in a shape that does not move inside a major
+version. `--format table`, the default, is for people and promises nothing.
+
+## The envelope
+
+`--format json` prints one JSON object on stdout, and nothing else. It has two keys:
+
+```json
+{"schema": "hmp.catalog.ls.v1", "data": []}
+```
+
+`schema` names the command and the version of what `data` holds. `data` is an array of rows for
+a command that lists, and an object for any other. A listing with nothing to list is an empty
+array, never a sentence. Everything else a command says, a solver and a library included, goes
+to stderr, so stdout always parses. The result is written once the command is over. A value that
+is not a number in JSON, NaN or an infinity, is `null`, and a path or a date is a string.
+
+`--format csv` prints the same rows with a header, and an empty listing is the header alone. An
+object is `key,value` lines, or its own table when it holds one: the cases of `hmp project status`,
+the files of `hmp example show`, the states of `hmp catalog reindex`. A list in a cell is joined
+with `;` and a mapping is written `key=value`, so a cell is always one line.
+
+## What is promised
+
+Inside a major version a field keeps its name and its meaning. A new field can come in a minor
+version, so a reader ignores what it does not know. When a field has to change or leave, the
+number in `schema` goes up and the rules of {doc}`/about/versions` apply. A command marked
+experimental below follows the experimental rule of that page. A row marked open can hold more
+columns than the ones listed: the columns of a query, a metric the command was asked to rank by.
+
+## When a command fails
+
+A command that fails ends with the code of {doc}`exit-codes` and prints its `HMPY.Exxx` first on
+a line of stderr. Under `--format json`, stdout also holds an envelope of its own, unless the
+command had a result to write:
+
+```json
+{"schema": "hmp.error.v1", "data": {"code": "HMPY.E002", "title": "...", "detail": "...", "exit_code": 10}}
+```
+
+A mistake on the command line itself, such as a flag that does not exist, is found before
+`--format` is read, so it only has its line on stderr and exit code 2.
+
+A command that reports a result and a failure writes both: `hmp doctor` lists its checks and
+exits 1 when one is `KO`, `hmp publish --verify` lists its differences and exits 1.
+
+## What each command writes
+
+The commands that are not listed print a document that is the result itself, and an envelope
+would break it: `hmp config template`, `hmp config resolve`, `hmp config schema`,
+`hmp config wizard` and `hmp completion`. `hmp dev` is out of the contract.
+
+The JSON Schema of the result of `hmp calibrate` ships as
+`hydromodpy/schema/results/calibrate.v1.json`.
+
+| Command | `schema` | `data` | Fields |
+|---|---|---|---|
+@@ROWS@@
+"""
+
+
+def _machine_output_row(output: dict) -> str:
+    """Return the row of one command: its schema, its shape and its fields."""
+    verb = output["verb"]
+    words = {
+        "calibrate phases": "hmp calibrate --list-phases, --expand",
+        "calibrate plan": "hmp calibrate --dry-run",
+        "catalog trash empty": "hmp catalog trash --empty",
+        "export list": "hmp export --list",
+        "publish verify": "hmp publish --verify",
+        "viz list run": "hmp viz list --run",
+        "error": "a failure",
+    }.get(verb, f"hmp {verb}")
+    shape = "rows" if output["rows"] else "object"
+    if output["open_fields"]:
+        shape += ", open"
+    if output["experimental"]:
+        shape += ", experimental"
+    fields = ", ".join(f"`{name}`" for name in output["fields"]) or "the columns of the result"
+    return f"| `{words}` | `{output['schema']}` | {shape} | {fields} |"
 
 
 def prune_generated(written: set[Path], *folders: Path) -> None:

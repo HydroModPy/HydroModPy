@@ -30,7 +30,7 @@ never landed); ``failed`` and ``aborted`` stand; ``running`` is ``running``
 while the pulse is fresh and ``stale`` once it is older than the threshold
 the caller passes, or at once when its death is proven (this host, process
 gone: an OOM kill writes nothing). No outcome at all is ``unknown``.
-``stale`` is a word for a display, never an authorisation.
+``stale`` is a word for a display, never an authorization.
 
 This precedence is for a run directory only. A session directory has no
 manifest: its status is ``read_session(dir).status``, read from its
@@ -49,6 +49,7 @@ from pydantic import ConfigDict, Field, model_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.stored import Vocabulary, dump_stored, read_stored
 from hydromodpy.core.io.document_version import VersionWindow
+from hydromodpy.core.pipeline_steps import STEP_NAMES
 from hydromodpy.core.state.paths import process_is_alive
 from hydromodpy.results.heartbeat import heartbeat_age_s
 from hydromodpy.results.manifest import read_seal
@@ -112,7 +113,15 @@ class Outcome(HydroModelBase):
     host: str = Field(description="Host of the attempt")
     pid: int = Field(description="Process of the attempt")
     scheduler_job_id: str | None = Field(default=None, description="Scheduler job, on a cluster")
-    step: str | None = Field(default=None, description="Pipeline step reached")
+    step: str | None = Field(
+        default=None,
+        description=(
+            "Pipeline step reached. An open vocabulary: x-hmp-vocabulary holds the steps of a "
+            "simulation today, a later version may add one, and a reader keeps a name it does "
+            "not know."
+        ),
+        json_schema_extra={"x-hmp-vocabulary": list(STEP_NAMES), "x-hmp-vocabulary-open": True},
+    )
     error: OutcomeError | None = Field(default=None, description="What ended a failed attempt")
     log_tail: list[str] = Field(default_factory=list, description="Last lines of the run log")
 

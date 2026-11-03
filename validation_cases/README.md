@@ -68,7 +68,7 @@ directory, workspace discovery), loaders, metrics, the `run_case.py` CLI
 (`cli.py`), mesh helpers and the strip geometry.
 
 `strip_geometry.py` says where a strip model reports its profile and holds its
-side heads. A cell-centred model holds a Dirichlet head at the centre of the
+side heads. A cell-centered model holds a Dirichlet head at the center of the
 boundary cell, not on the face. A reference must pose its heads there.
 
 ## Running

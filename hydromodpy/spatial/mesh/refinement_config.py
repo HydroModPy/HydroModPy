@@ -227,7 +227,7 @@ class LakeRefinementConfig(HydroModelBase):
     buffer: Annotated[float, Profile.USER] = Field(
         default=200.0,
         ge=0.0,
-        description="Transition distance, in metres, over which the lake sizes ramp back to global.",
+        description="Transition distance, in meters, over which the lake sizes ramp back to global.",
         json_schema_extra={"unit": "m"},
     )
     interior_size: Annotated[float | None, Profile.USER] = Field(
@@ -279,12 +279,12 @@ class LakeRefinementConfig(HydroModelBase):
 
     @property
     def resolved_shoreline_band(self) -> float:
-        """Half-width of the shoreline band, in metres: the key, else ``2 * cell_size``."""
+        """Half-width of the shoreline band, in meters: the key, else ``2 * cell_size``."""
         return self.shoreline_band if self.shoreline_band is not None else 2.0 * self.cell_size
 
     @property
     def resolved_hfb_buffer(self) -> float:
-        """Half-width of the cutoff-wall zone, in metres: the key, else ``2 * dam_buffer``."""
+        """Half-width of the cutoff-wall zone, in meters: the key, else ``2 * dam_buffer``."""
         return self.hfb_buffer if self.hfb_buffer is not None else 2.0 * self.dam_buffer
 
     @model_validator(mode="before")

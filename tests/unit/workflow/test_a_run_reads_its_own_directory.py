@@ -17,7 +17,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from hydromodpy.results.catalog import Catalog
+import hydromodpy as hmp
+from hydromodpy.results.catalog import Catalog, rebuild_index
 from hydromodpy.results.manifest import read_manifest
 from hydromodpy.results.run import Run
 from hydromodpy.results.storage.attempt import close_sealed_attempt
@@ -83,6 +84,41 @@ def test_a_running_run_reads_its_rows_from_its_directory(tmp_path: Path, no_inde
             pd.to_datetime(["2000-01-01", "2000-02-01", "2000-03-01", "2000-04-01"])
         )
         assert run.periods.step_at("2000-02-15") == 1
+
+
+WINDOWS = [
+    (("2000-02-01", "2000-03-01"), [2.0], [1.5]),
+    (("2000-02-15", "2000-02-20"), [2.0], [1.5]),
+    (("2000-01-01", "2000-02-01"), [1.0], []),
+    (("2000-01-01", "2000-01-01"), [1.0], []),
+    (("2000-03-01", "2000-03-01"), [2.0], [1.5]),
+    ("2000", [1.0, 2.0, 3.0], [1.5, 2.5]),
+]
+
+
+@pytest.mark.parametrize(("window", "simulated", "observed"), WINDOWS)
+def test_a_window_over_a_series_reads_the_same_in_every_reader(
+    tmp_path: Path, window: object, simulated: list[float], observed: list[float]
+) -> None:
+    store = _monthly_store(tmp_path / "p")
+    kept = store.query_timeseries(store.sim_id, "J0014010", "discharge", window)
+    assert kept.tolist() == simulated
+    run_dir = store.run_dir
+    seal_completed(store)
+    run = hmp.open(run_dir)
+    rebuild_index(tmp_path / "p")
+
+    assert hmp.read(run, "discharge", sel={"period": window}).tolist() == simulated
+    assert run.timeseries("discharge", period=window).tolist() == simulated
+    with Catalog(tmp_path / "p") as catalog:
+        read = catalog.query_timeseries(run.sim_id, "J0014010", "discharge", period=window)
+        assert read.tolist() == simulated
+    if observed:
+        assert run.timeseries("discharge", period=window, source="observed").tolist() == observed
+        assert run.observed("discharge", period=window)["value"].tolist() == observed
+    else:
+        with pytest.raises(ValueError, match="No observations"):
+            run.observed("discharge", period=window)
 
 
 def test_a_table_written_after_the_seal_keeps_the_licence_of_the_seal(tmp_path: Path) -> None:

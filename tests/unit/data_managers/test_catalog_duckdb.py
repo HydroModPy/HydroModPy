@@ -432,3 +432,13 @@ def test_catalog_fresh_db_has_timestamptz_time_columns(tmp_path):
 
     assert types["date_start"] == "TIMESTAMP WITH TIME ZONE"
     assert types["date_end"] == "TIMESTAMP WITH TIME ZONE"
+
+
+def test_a_product_version_reads_only_the_file_fetched_from_it(catalog, dummy_file):
+    ask = {"variable": "dem", "source": "s"}
+    catalog.register(file_path=dummy_file, fetch_metadata={}, **ask)
+    assert catalog.find_cached(**ask) is not None
+    assert catalog.find_cached(**ask, product_version="2") is None
+    catalog.register(file_path=dummy_file, fetch_metadata={"product_version": "2"}, **ask)
+    assert catalog.find_cached(**ask, product_version="2") is not None
+    assert catalog.find_cached(**ask, product_version="3") is None

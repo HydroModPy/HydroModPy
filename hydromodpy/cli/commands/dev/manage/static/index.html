@@ -292,7 +292,7 @@
 
       <section>
         <div class="section-head">
-          <h2>Orphan artefacts</h2>
+          <h2>Orphan artifacts</h2>
           <div class="controls">
             <button class="secondary" id="orph-select-all">Select all</button>
             <button class="warn" id="orph-delete">Delete selected</button>
@@ -427,8 +427,8 @@
         `${state.summary.workspace_label} - ${state.summary.workspace}`;
       const entries = [
         ["Simulations", String(state.summary.simulation_count || 0)],
-        ["Simulation artefacts", formatBytes(state.summary.simulation_bytes || 0)],
-        ["Orphan artefacts", formatBytes(state.summary.orphan_bytes || 0)],
+        ["Simulation artifacts", formatBytes(state.summary.simulation_bytes || 0)],
+        ["Orphan artifacts", formatBytes(state.summary.orphan_bytes || 0)],
         ["Diagnostic warnings", String(state.summary.diagnostic_warning_count || 0)],
         ["Catalog", formatBytes(state.summary.catalog_bytes || 0)],
         ["Input cache", formatBytes(state.summary.cache_bytes || 0)],
@@ -642,7 +642,7 @@
     async function deleteSelectedOrphans() {
       const paths = checkedValues(".orph-check");
       if (!paths.length) {
-        setStatus("orph-status", "Select at least one orphan artefact first.", true);
+        setStatus("orph-status", "Select at least one orphan artifact first.", true);
         return;
       }
       const ok = window.confirm(

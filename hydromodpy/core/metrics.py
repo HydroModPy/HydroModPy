@@ -215,7 +215,7 @@ def correlation(sim, obs) -> float:
 
 
 GAP_SAMPLES: float = 1.5
-"""Spacing, in samples, beyond which two neighbours lie on either side of a gap."""
+"""Spacing, in samples, beyond which two neighbors lie on either side of a gap."""
 
 
 def _align_on_time(sim, obs, times) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -243,7 +243,7 @@ def _increments(
 
     ``step`` is a TOLERANCE, not a smoothing: a day-to-day increment (``step = 1``)
     is destroyed by a two or three day phase shift even when the model reproduces
-    the filling and emptying correctly, which over-penalises a reservoir whose
+    the filling and emptying correctly, which over-penalizes a reservoir whose
     timing is right to within a few days. Differencing over a longer window keeps
     the flux signal while making a small shift a minor perturbation instead of a
     sign flip.
@@ -277,7 +277,7 @@ def nse_delta(sim: np.ndarray, obs: np.ndarray, *, step: int = 1, times=None) ->
     produced the level instead of the level it happened to reach.
 
     Use it ALONGSIDE a level metric, never alone: an increment score is blind to
-    the absolute stage, so a model offset by ten metres can still score perfectly.
+    the absolute stage, so a model offset by ten meters can still score perfectly.
 
     ``times`` places each sample on the time axis, in samples of the series
     (see :func:`_increments`).

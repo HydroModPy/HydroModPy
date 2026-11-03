@@ -37,7 +37,7 @@ Reference used by the documentation:
 
 - reference: linearized 1D unconfined response to a step of the west boundary head
 - boundary positions: each side head is posed where the model holds it, at the
-  centre of the boundary column, or at the mean centroid of the boundary
+  center of the boundary column, or at the mean centroid of the boundary
   triangles on the triangle strip; a no-flow side stays on the domain face
   (`validation_cases/shared/strip_geometry.py`)
 

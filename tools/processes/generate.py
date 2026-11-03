@@ -54,7 +54,7 @@ JOB_CONTROL_OPTIONS = ("sync-execute",)
 """The process runs to completion in the caller's foreground, and nothing else."""
 
 OUTPUT_TRANSMISSION = ("reference",)
-"""Artefacts stay on disk under the job directory; nothing is inlined."""
+"""Artifacts stay on disk under the job directory; nothing is inlined."""
 
 
 def capability_decls() -> tuple[CapabilityDecl, ...]:
@@ -226,7 +226,7 @@ def build_index(decls: tuple[CapabilityDecl, ...]) -> dict[str, Any]:
 
 
 def render_all() -> dict[str, str]:
-    """Return every file this generator owns, as ``name -> serialised bytes``."""
+    """Return every file this generator owns, as ``name -> serialized bytes``."""
     decls = tuple(sorted(capability_decls(), key=lambda decl: (decl.id, decl.major)))
     rendered = {
         description_filename(decl.id, decl.major): _serialise(build_description(decl))

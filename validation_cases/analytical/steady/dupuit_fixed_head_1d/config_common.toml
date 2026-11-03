@@ -8,7 +8,7 @@ description = "Synthetic steady-state flow with fixed heads on west/east boundar
 
 [[simulation.process]]
 id = "flow_validation"
-type = "flow"
+kind = "flow"
 solvers = ["modflow_nwt"]
 
 [geographic]
@@ -35,8 +35,6 @@ thickness = "20.0 m"
 
 [flow]
 flow_regime = "steady"
-active_sinks_sources = []
-active_bc = ["west_side", "east_side"]
 param_list = ["K"]
 
 [flow.param.K.field]
@@ -45,7 +43,7 @@ kind = "homogeneous"
 value = "1e-4 m/s"
 
 [flow.ic]
-type = "custom"
+kind = "custom"
 value = "7.5 m"
 
 [flow.bc.west_side]

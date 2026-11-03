@@ -42,7 +42,7 @@ def test_the_fallback_no_longer_guards_a_zero_thickness() -> None:
     """The bed thickness is a DECLARED, validated quantity, never mesh geometry.
 
     It used to be the layer thickness read off the mesh, which could be zero on
-    a degenerate cell, hence a silent fallback to one metre. `gt=0.0` on
+    a degenerate cell, hence a silent fallback to one meter. `gt=0.0` on
     `solver.drain_bed_thickness_m` now refuses zero at load, so the guard has no
     caller left and a zero here is a programming error, not a mesh accident.
     """

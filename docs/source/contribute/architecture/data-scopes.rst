@@ -29,7 +29,7 @@ the view ``v_entries_summary``.
 Exposed through:
 
 - :class:`hydromodpy.data.registry.DataCatalogDuckDB` (low level)
-- :class:`hydromodpy.catalog.InputsNamespace`, opened on a workspace
+- :class:`hydromodpy.data.registry.input_cache.InputCache`, opened on a workspace
   root, and the ``hmp data`` CLI
 - the ``project.data`` accessor, which scopes the same cache to one
   project
@@ -40,7 +40,7 @@ stays portable between machines.
 A project pins the state of this cache in ``hydromodpy.lock``, at its root. The file
 holds one ``[[input]]`` record per entry, with its ``variable``, ``source``,
 ``station_id``, ``path``, ``sha256``, ``bytes``, ``file_mtime`` and ``fetched_at``.
-``hmp run --frozen``, ``hmp dev lock verify``, a restored archive and the frozen
+``hmp run --frozen``, ``hmp lock verify``, a restored archive and the frozen
 matching of the cache all read that one record. :doc:`storage-layout` gives the whole
 document.
 
@@ -114,7 +114,7 @@ a doubtful identity.
 What survives a rebuild
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-The rule is stated once, in :doc:`storage-layout`, and summarised here. The
+The rule is stated once, in :doc:`storage-layout`, and summarized here. The
 authoritative description is the module docstring of
 ``hydromodpy/results/catalog/indexer.py``, which is the code that performs the
 rebuild.
@@ -125,7 +125,7 @@ rebuild.
 
    * - Class
      - Content
-     - Rebuild behaviour
+     - Rebuild behavior
    * - Reconstructible
      - Run identity and geometry, catchment metadata, parameters, metrics,
        input provenance, run environment, geographic features, declared
@@ -181,7 +181,7 @@ One set of patterns governs the two databases.
 
 - **Migrations only where the file is not derived**:
   :mod:`hydromodpy.core.migrations.runner` exposes
-  ``apply_migrations(db_path, migrations_dir)``, serialised by a
+  ``apply_migrations(db_path, migrations_dir)``, serialized by a
   ``<db_path>.lock`` filelock, and the workspace cache uses it with a flat
   ``migrations/`` directory of numbered SQL files starting at
   ``0001_initial.sql``. The project index has none: it is derived, so a schema
@@ -195,7 +195,7 @@ One set of patterns governs the two databases.
   ``project.toml``, a ``Run`` for a run directory received alone and a
   ``Workspace`` for a workspace root; the project reads its
   ``.hmp/index.duckdb`` through ``Catalog``.
-  :class:`hydromodpy.catalog.InputsNamespace`, opened on a workspace root,
+  :class:`hydromodpy.data.registry.input_cache.InputCache`, opened on a workspace root,
   reaches the input cache.
 - **Backend Protocol**:
   :class:`hydromodpy.results.catalog.ports.CatalogBackend` is a
@@ -225,7 +225,7 @@ are never rewritten. Each family reads a window of versions, and every later 2.x
 reads every 2.0.0 document, by the rule in
 :doc:`storage-layout` and in :mod:`hydromodpy.core.io.document_version`.
 ``hydromodpy.lock`` follows the same rule with its ``schema`` id, and a lock outside
-the window is written again with ``hmp dev lock update``.
+the window is written again with ``hmp lock update``.
 
 User TOML files are out of scope: Pydantic with ``extra="forbid"`` handles them,
 and ``hmp doctor --fix-config`` rewrites their grammar. ``workspace.toml`` also

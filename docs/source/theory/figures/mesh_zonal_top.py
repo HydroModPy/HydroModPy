@@ -15,14 +15,14 @@ dem = 50.0 + 0.12 * np.abs(across) + 0.02 * Y
 channel = np.abs(across) < 4.0
 dem[channel] -= 2.0
 
-# One hexagonal cell whose centre sits on the bank, 18 m from the thalweg.
+# One hexagonal cell whose center sits on the bank, 18 m from the thalweg.
 centre = np.array([50.0 + 0.35 * 60.0 + 18.0, 60.0])
 angles = np.deg2rad(np.arange(0, 360, 60) + 30)
 hexagon = centre + 32.0 * np.column_stack((np.cos(angles), np.sin(angles)))
 inside = Path(hexagon).contains_points(np.column_stack((X.ravel(), Y.ravel()))).reshape(N, N)
 labels = np.where(inside, 0, -1)
 
-# Bilinear sample at the cell centre: the centroid rule.
+# Bilinear sample at the cell center: the centroid rule.
 fx, fy = centre / PIXEL - 0.5
 i, j = int(fy), int(fx)
 wy, wx = fy - i, fx - j
@@ -66,12 +66,12 @@ values.plot(
     jitter[~is_channel], in_cell[~is_channel], ".", color="C6", ms=3, label="hillslope pixel"
 )
 values.plot(jitter[is_channel], in_cell[is_channel], ".", color="C0", ms=5, label="channel pixel")
-for level, text, colour, style in [
+for level, text, color, style in [
     (centroid, "centroid sample", "C1", "-"),
     (without_channel, "zonal median, no stream raster", "C2", "--"),
     (with_channel, "zonal min of the channel pixels", "C0", "-"),
 ]:
-    values.axhline(level, color=colour, ls=style, lw=1.8, label=f"{text}: {level:.1f} m")
+    values.axhline(level, color=color, ls=style, lw=1.8, label=f"{text}: {level:.1f} m")
 values.set_xticks([])
 values.set_xlim(-0.6, 0.6)
 values.set_ylabel(r"elevation (m)")

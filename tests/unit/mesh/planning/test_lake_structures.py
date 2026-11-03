@@ -110,7 +110,7 @@ def test_an_empty_wall_line_adds_no_zone() -> None:
 
 
 def _two_lakes(gap: float) -> dict[str, Polygon]:
-    """Two square lakes *gap* metres apart, overlapping for a negative gap."""
+    """Two square lakes *gap* meters apart, overlapping for a negative gap."""
     return {"a": box(0.0, 0.0, 400.0, 400.0), "b": box(400.0 + gap, 0.0, 800.0 + gap, 400.0)}
 
 
@@ -181,7 +181,7 @@ def test_no_structure_without_the_lake_table() -> None:
 
 
 def _wiggly_lake(cx: float, n: int = 17000) -> Polygon:
-    """A lake outline with *n* vertices and metre-scale noise, like a DEM-traced reservoir."""
+    """A lake outline with *n* vertices and meter-scale noise, like a DEM-traced reservoir."""
     rng = np.random.default_rng(0)
     t = np.linspace(0.0, 2.0 * np.pi, n, endpoint=False)
     r = 400.0 + 30.0 * np.sin(7.0 * t) + rng.uniform(-0.5, 0.5, n)

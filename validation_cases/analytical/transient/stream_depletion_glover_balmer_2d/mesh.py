@@ -1,9 +1,9 @@
 """Triangle mesh of the stream depletion case, refined around the well.
 
 Gmsh meshes the 800 x 1610 m rectangle with its Frontal-Delaunay algorithm, so
-the triangles are near equilateral: a two-point flux between cell centres stays
+the triangles are near equilateral: a two-point flux between cell centers stays
 consistent on them. The well is a node of the mesh, so the Voronoi dual has a
-cell centred on it. The edge length grows linearly with the distance to the
+cell centered on it. The edge length grows linearly with the distance to the
 well, from 4 m within 8 m of it to 60 m beyond 700 m, and with the distance to
 the stream face, from 10 m on it to 60 m beyond 600 m; the smaller size wins.
 Every stream cell is then about 10 m long, so the stream cells hold the stream

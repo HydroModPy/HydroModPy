@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pytest
+
 from hydromodpy.calibration.config import (
     CalibOutputNetwork,
     CalibOutputPoint,
@@ -28,6 +30,11 @@ NAME = "matching_hydrographic_network"
 
 def _declared(**options: object) -> CalibrationProtocolDecl:
     return CalibrationProtocolDecl.model_validate({"name": NAME, **options})
+
+
+def test_a_transient_metric_the_registry_does_not_know_is_refused() -> None:
+    with pytest.raises(ValueError, match="transient_metric"):
+        _declared(transient_metric="bogus")
 
 
 def test_naming_the_protocol_alone_moves_nothing() -> None:
@@ -112,7 +119,8 @@ def test_the_rasterisation_deviation_names_heads_as_the_new_default() -> None:
     record = protocol_record(NAME)
     deviations = {item["key"]: item for item in record["deviations"]}
     entry = deviations["observed_rasterization"]
-    assert "'heads' by default and departs from the paper" in entry["here"]
+    assert "'heads' from version 1.3" in entry["here"]
+    assert "it departs from the paper" in entry["here"]
     assert "'crossing' is offered and matches the paper" in entry["here"]
     assert "'touch'" in entry["here"]
     assert entry["paper_value"] == "crossing"

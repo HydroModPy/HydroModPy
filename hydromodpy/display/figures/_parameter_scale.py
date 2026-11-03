@@ -1,7 +1,7 @@
 """The aquifer properties the parameter figures draw, on what scale, under what name.
 
 K22 and K33 take the conductivity scale of K, so a set of panels shows an
-anisotropic aquifer as a shift of colour between K and K33 and not as three
+anisotropic aquifer as a shift of color between K and K33 and not as three
 ramps that each fill their own range. The three tensor angles are degrees on a
 linear scale. Angle1 is a turn, 0 and 360 are the same direction, so it takes a
 cyclic palette over one full turn.
@@ -42,13 +42,13 @@ CYCLIC_FIELDS = ("conductivity_tensor_angle1",)
 """Angles that come back to where they started after a full turn."""
 
 PARAMETER_FIELDS = (*CONDUCTIVITY_FIELDS, *STORAGE_FIELDS, *ANGLE_FIELDS)
-"""Aquifer properties the parameter figures can colour, in the order panels are drawn."""
+"""Aquifer properties the parameter figures can color, in the order panels are drawn."""
 
 PARAMETER_CHOICES = ", ".join(f'"{name}"' for name in PARAMETER_FIELDS)
 """``PARAMETER_FIELDS`` written for an option description."""
 
 LOG_SCALE_DECADES = 1.0
-"""Span, in decades, above which a parameter is coloured on a log scale."""
+"""Span, in decades, above which a parameter is colored on a log scale."""
 
 FULL_TURN = 360.0
 
@@ -59,7 +59,7 @@ _SHORT_NAMES = {
     "conductivity_tensor_angle2": "angle2, first K axis raised above the horizontal",
     "conductivity_tensor_angle3": "angle3, K tensor rotated about its first axis",
 }
-"""What the registry says in a sentence, cut to fit a title and a colour bar."""
+"""What the registry says in a sentence, cut to fit a title and a color bar."""
 
 
 def refuse_other_variable(variable: str, *, figure: str) -> None:
@@ -89,7 +89,7 @@ def parameter_name(variable: str) -> str:
 
 
 def parameter_label(variable: str) -> str:
-    """Return the colour bar label ``"<name> (<units>)"`` of a property."""
+    """Return the color bar label ``"<name> (<units>)"`` of a property."""
     return f"{parameter_name(variable)} ({field_registry.get(variable).units})"
 
 
@@ -115,8 +115,8 @@ def uses_log_scale(values: np.ndarray) -> bool:
     return float(np.log10(positive.max() / positive.min())) > LOG_SCALE_DECADES
 
 
-def colour_norm(variable: str, limits: np.ndarray, *, log: bool | None) -> Normalize | None:
-    """Return the colour scale of ``variable`` over ``limits``, None for matplotlib's own.
+def color_norm(variable: str, limits: np.ndarray, *, log: bool | None) -> Normalize | None:
+    """Return the color scale of ``variable`` over ``limits``, None for matplotlib's own.
 
     ``limits`` is what sets the ends of the scale, which is more than the panel
     itself when several conductivities share one. A full turn is the scale of a
@@ -143,7 +143,7 @@ def colour_norm(variable: str, limits: np.ndarray, *, log: bool | None) -> Norma
 
 
 def mark_turn(colorbar) -> None:
-    """Put the quarter turns on the colour bar of a cyclic angle."""
+    """Put the quarter turns on the color bar of a cyclic angle."""
     colorbar.set_ticks(np.arange(0.0, FULL_TURN + 1.0, FULL_TURN / 4.0))
 
 
@@ -156,7 +156,7 @@ __all__ = [
     "PARAMETER_FIELDS",
     "STORAGE_FIELDS",
     "cmap_for",
-    "colour_norm",
+    "color_norm",
     "mark_turn",
     "parameter_label",
     "parameter_name",

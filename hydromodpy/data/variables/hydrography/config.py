@@ -84,6 +84,7 @@ class HydrographySourceConfig(HydroModelBase):
     page_size: Annotated[int, Profile.DEV] = Field(
         default=50_000,
         description="WFS pagination page size (BD Topage), in features.",
+        json_schema_extra=field_metadata(unit="-"),
     )
 
     # --- EU-Hydro (EEA REST) ---
@@ -94,6 +95,7 @@ class HydrographySourceConfig(HydroModelBase):
     euhydro_page_size: Annotated[int, Profile.DEV] = Field(
         default=1000,
         description="Pagination page size for EU-Hydro REST queries.",
+        json_schema_extra=field_metadata(unit="-"),
     )
 
     # --- Cache ---
@@ -149,8 +151,7 @@ class HydrographyConfig(HydroModelBase):
     """Top-level hydrography configuration.
 
     The section lists stream-network sources used by data loading and boundary
-    preparation. It is commonly inferred when ``flow.active_bc`` contains a
-    stream boundary condition.
+    preparation. It is commonly inferred when ``[flow.bc.stream]`` is declared.
 
     ``mask_path`` sits here and not on a source because the manager concatenates
     every source before clipping **once**: two sources disagreeing on the extent

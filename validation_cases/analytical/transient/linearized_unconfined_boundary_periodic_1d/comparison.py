@@ -89,7 +89,7 @@ def _voronoi_strip_outputs(
 ) -> tuple[TransientProfileOutputs, StripGeometry]:
     """Load a Voronoi-dual strip run as area-weighted column profiles.
 
-    A Voronoi dual has one cell per bundle node, centred on the node, and a
+    A Voronoi dual has one cell per bundle node, centered on the node, and a
     side head sits on the nodes of the face. The cells are binned by node
     abscissa into the columns of the structured grid, weighted by area.
     """

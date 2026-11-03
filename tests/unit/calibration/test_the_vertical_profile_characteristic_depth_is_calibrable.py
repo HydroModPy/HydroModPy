@@ -5,7 +5,7 @@ parameter id ("K", "Sy", ...), so ``_registry_id_for`` sees that id as the
 walk's ``instance``. A param id of "K" or "Sy" is also a ``PHYSICAL_BOUNDS``
 key for the conductivity or the specific yield themselves: without a leaf-first
 rule for a leaf that is not its instance's headline quantity, a depth bound
-declared in metres would be faced with a conductivity range in m/s and refused
+declared in meters would be faced with a conductivity range in m/s and refused
 on a unit mismatch that has nothing to do with the value.
 """
 
@@ -44,7 +44,7 @@ def _project(**vertical_profile: object) -> _Project:
 
 def test_characteristic_depth_reads_its_own_range_not_k() -> None:
     by_name = targets_by_name(
-        calibration_targets(_project(mode="exponential", characteristic_depth=30.0))
+        calibration_targets(_project(kind="exponential", characteristic_depth=30.0))
     )
 
     target = by_name["K.characteristic_depth"]
@@ -57,7 +57,7 @@ def test_characteristic_depth_reads_its_own_range_not_k() -> None:
 
 def test_min_factor_reads_its_own_range_not_k() -> None:
     by_name = targets_by_name(
-        calibration_targets(_project(mode="exponential", characteristic_depth=30.0, min_factor=0.2))
+        calibration_targets(_project(kind="exponential", characteristic_depth=30.0, min_factor=0.2))
     )
 
     target = by_name["K.min_factor"]
@@ -72,7 +72,7 @@ def test_the_short_name_resolves_uniquely_and_reaches_the_field() -> None:
         {"parameters": {"K.characteristic_depth": {"bounds": [5.0, 200.0]}}}
     )
 
-    resolve_parameter_targets(calibration, _project(mode="exponential", characteristic_depth=30.0))
+    resolve_parameter_targets(calibration, _project(kind="exponential", characteristic_depth=30.0))
 
     decl = calibration.parameters["K.characteristic_depth"]
     assert decl.path == "flow.param.K.field_vertical_profile.characteristic_depth"
@@ -86,5 +86,5 @@ def test_a_bound_past_the_ceiling_is_refused_not_faced_with_k() -> None:
 
     with pytest.raises(ConfigError, match="characteristic depth"):
         resolve_parameter_targets(
-            calibration, _project(mode="exponential", characteristic_depth=30.0)
+            calibration, _project(kind="exponential", characteristic_depth=30.0)
         )

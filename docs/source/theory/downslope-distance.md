@@ -21,8 +21,8 @@ where it shapes the criterion.
 :::
 
 ::::{dropdown} Notation of this page
-Every cell $n$ has a centre $x_n$ and an area $a_n$. A distance is a length in
-metres along cell-to-cell links, centre to centre. Sets of cells are written with
+Every cell $n$ has a center $x_n$ and an area $a_n$. A distance is a length in
+meters along cell-to-cell links, center to center. Sets of cells are written with
 capital letters.
 
 ```{hmp-notation}
@@ -37,7 +37,7 @@ depressions are resolved. The code floods the model top on the mesh with the
 priority flood of {doc}`exits/routing-on-the-mesh`, {eq}`eq-flood`, seeded on
 the border of the active domain, and reads the receivers $r(n)$ of
 {eq}`eq-receiver` on the flooded copy. The edge length $\ell(n)$ is the distance
-from the centre of $n$ to the centre of $r(n)$.
+from the center of $n$ to the center of $r(n)$.
 
 The flood is seeded on the whole border, where water leaves the model, not on
 the outlet alone: sealing one outlet would fill a valley of the buffer up to a
@@ -62,7 +62,7 @@ $$ (eq-downslope-distance)
 
 With one receiver per cell, exactly one descending path leaves a cell, so there
 is no shortest path to search for. The distance is not a Euclidean nearest
-distance: a source fifty metres from a stream but across a divide is far away
+distance: a source fifty meters from a stream but across a divide is far away
 downslope. And it is not symmetric: $d_{\mathcal{O}}$ on the simulated cells and
 $d_{\mathcal{S}}$ on the mapped cells differ, which is what lets one cost weigh an
 excess of simulated stream against a missing one. An empty target gives
@@ -88,7 +88,7 @@ In the code: `downslope_distance_to_mask`.
 
 The outlet $o$ closes the catchment, usually at the gauging station. With
 $A_d(n) = a_n + \sum_{m : r(m) = n} A_d(m)$ the area drained through $n$, the
-outlet is the most drained cell within two neighbour rings of the cell nearest
+outlet is the most drained cell within two neighbor rings of the cell nearest
 to the pour point the catchment was delineated from (two cells is the
 `SnapPourPoints` distance of the paper, read on the mesh). Without a pour point,
 the most drained cell of the delineated polygon closes the catchment, and without
@@ -167,7 +167,7 @@ The traced map is connected to the outlet by construction.
 ```
 
 *Crossing* keeps a cell when a mapped line crosses the segment joining the
-centres of two cells that share an edge: on a structured grid, the cell medians,
+centers of two cells that share an edge: on a structured grid, the cell medians,
 which is what the WhiteboxTools tool `VectorLinesToRaster` of the paper tests.
 The map is one cell wide, like the simulated network. A reach that crosses no
 segment marks the cell holding its midpoint instead, and the count is published
@@ -267,7 +267,7 @@ end of its interval where nothing seeps.
 **The cost is $J$, and its zero is a crossing.** The two curves $D_{so}$ and
 $D_{os}$, drawn against the calibrated parameter, cross, and the crossing is the
 answer. $D_{optim}$ is large at both ends of a sweep, so it has an interior
-minimum, and minimising it is a tempting substitute. It is a different estimator:
+minimum, and minimizing it is a tempting substitute. It is a different estimator:
 nothing places its minimum at the crossing.
 
 ```{eval-rst}
@@ -299,7 +299,7 @@ In the code: `seepage_distance_cost`.
 (downslope-validity)=
 ## 7. When a result is valid
 
-**The length scale.** $h_{obs}$ is the median distance between the centres of
+**The length scale.** $h_{obs}$ is the median distance between the centers of
 cells that share an edge, over the mapped cells of $\Omega_o$: the cell size on a
 regular grid, the size of the fine cells on a mesh refined along the streams. It
 is static, since the map does not move with $K$.
@@ -381,7 +381,7 @@ options are on {doc}`../reference/calibration-methods`.
 
 - Water leaves a cell by one receiver (single flow direction).
 - The model top, flooded on the mesh graph, is the surface water follows.
-- Distances are lengths along links between cell centres, not straight lines.
+- Distances are lengths along links between cell centers, not straight lines.
 - The mapped network is independent of the DEM. It is never burned into the
   surface.
 - The release flux is the whole of what leaves the aquifer for the surface.
@@ -442,6 +442,57 @@ What the code does not represent:
 - **Domain of validity.** The method was built for unconfined aquifers in a
   temperate humid climate, with gentle gradients and a strong groundwater-stream
   connection. Outside that, the criterion still computes, and it means less.
+
+## Measured
+
+**A twin with six heads.** A comb basin of 5600 cells of 20 m makes a network one
+cell wide at $K/\bar N = 600$, and that network, written as a map of six lines, is
+the truth. The protocol finds $K$ again to 0.45 per cent on MODFLOW-NWT, MODFLOW 6
+and a Voronoi mesh, with $J = 0$, inside a band of 3 per cent that the width of the
+zero plateau and the stop of the search set. A map drawn at another $K$ gives that
+$K$. A wrong map moves the answer, and the last two rows below are what a balanced
+$J$ does not show:
+
+| The map | $K$ off by | $D_{optim}$ | $r_{optim}$ valid |
+|---|---|---|---|
+| The truth | 0.45 % | 0 m | yes |
+| One head missing | 6.5 % | 2.2 m | yes |
+| All valley heads three cells low | 8.6 % | 0.3 m | yes |
+| All valley heads five cells south, three valleys shorter and two longer | 2.4 % | 6.0 m | yes |
+| 200 m off, five of six heads lost | a factor of 9.6 | 0 m | yes |
+
+The bound of two cells passes every row, so it does not check a map. Read
+$D_{optim}$ against zero on a twin, and `n_heads_lost` on any run: a lost head logs a
+warning, because the reach under it leaves the map and $K$ reads higher. A map that
+wanders a cell off its talwegs below its heads gives the same $K$ to the last bit
+under the heads rule, and $K$ 11.6 per cent low under the crossing rule.
+
+**On the Nançon.** The default grid of 21 406 cells, protocol 1.3, recharge over
+2000 to 2002, with the 29 heads the cut map holds, none lost, is below. One root over
+four decades of $K$ in each case.
+
+| Case | $K$ (m/s) | `Sy` | NSE | $J$ (m) | $D_{optim}$ (m) | Mapped cells | $K$ where $\lvert J \rvert$ is under one cell |
+|---|---|---|---|---|---|---|---|
+| Heads, D8 | 7.96e-5 | 0.0441 | 0.9392 | -0.81 | 104.1 | 473 | 6.92e-5 to 8.63e-5 |
+| Crossing, D8 | 8.11e-5 | 0.0432 | 0.9393 | -1.99 | 114.0 | 496 | 6.98e-5 to 9.90e-5 |
+| Heads, D4 | 6.94e-5 | 0.0441 | 0.9395 | -1.80 | 100.8 | 662 | 6.31e-5 to 8.47e-5 |
+
+The two rules agree on $K$. The 1.8 per cent between them is the size of the tie under
+heads, where five trials from 7.92e-5 to 8.06e-5 m/s read the same $J$. Heads
+misses 97 cells and adds 169 where crossing misses 194 and adds 238, and its root is
+sharper: $\lvert J \rvert$ stays under a tenth of a cell over 1.8 per cent of $K$,
+against 6.2 per cent.
+
+D4 moves $K$ by 12.9 per cent, far more than the tie. Its root sits on a step of the
+curve, where $J$ falls by 62 m over 0.5 per cent of $K$, and $D_{optim}$ is not
+comparable, because the walk differs. It draws 40 per cent more cells, and its catchment
+leaves the outline by 1.2 per cent against 0.4. On a twin whose valleys run along the
+grid diagonal it leaves the outline by 17 per cent, which the bound refuses, and with
+the bound lifted it lands 4.5 per cent off against 2.4 per cent for D8. On valleys
+along the grid axes the two are equal.
+
+The hydrograph does not decide. NSE moves by 3e-4 over these three values of $K$,
+and `Sy` stays within the 5 per cent the search stops on.
 
 ## Parameters of this page
 

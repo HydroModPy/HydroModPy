@@ -7,7 +7,7 @@ shape every cost read, kept three of those: an id, a variable name, and a pandas
 series. Everything else was dropped on the floor, one layer after it had been
 computed.
 
-That loss is not cosmetic. A profile in metres below ground compared to a head in
+That loss is not cosmetic. A profile in meters below ground compared to a head in
 absolute elevation is a defensible model scored against the wrong reference, and
 nothing in the chain could notice because the unit had already been thrown away.
 And the error model is what makes a weighted sum defensible at all: a residual

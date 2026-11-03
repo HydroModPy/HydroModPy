@@ -1,130 +1,58 @@
-BdtopoCrossingsSource	class	
-Boussinesq	class	(*, mesh_bundle: CatchmentMeshBundle | None, mesh: BoussinesqMesh | None = None, flow: object, domain: DomainLike, time_grid: object, model_folder: str | Path, model_name: str) -> None
-BrgmGeology1mSource	class	
-BrgmGeology50kSource	class	
+AmbiguousReferenceError	class	(ref: str, candidates: list[tuple[str, str | None]]) -> None
+BackupFailedError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
+CalibrationError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
+CapabilityVersionMismatchError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
 Catalog	class	(project_root: Path | str) -> None
-CatchmentDelineation	class	(config: GeographicConfig, initializing: object, *, reuse_existing_outputs: bool | None = None, network_map_path: str | Path | None = None)
-CauchyBC	class	
-CrossingsConfig	class	
-CustomCrossingsSource	class	
-CustomDemSource	class	
-CustomGeologySource	class	
-CustomLakeAbacusSource	class	
-CustomLakeBathymetrySource	class	
-CustomLakeGeometrySource	class	
-CustomLayerBaseSource	class	
-CustomSoilCapacitySource	class	
-CustomSubstratumSource	class	
-DataManagersConfig	class	
-DemConfig	class	
-DirichletBC	class	
-DisplayConfig	class	
-DomainConfig	class	
-EtpConfig	class	
-EtpSourceConfig	class	
-FlowConfig	class	
-FlowProcess	class	(config: table)
-FlowProcessConfig	class	
-GeographicConfig	class	
-GeologyConfig	class	
-HumidityConfig	class	
-HumiditySourceConfig	class	
-HydroMesh	class	(vertices: np.ndarray, cell_blocks: tuple[CellBlock, ...], cell_data: dict[str, np.ndarray] = <factory>, point_data: dict[str, np.ndarray] = <factory>, structured_shape: tuple[int, ...] | None = None) -> None
+CatalogError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
+CatalogUnreadableError	class	(db_path: str, *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
+CommandUsageError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
+ComparisonCaseError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
+ComparisonReferenceError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
+ConfigError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
+ConfigMissingError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
+CrossProjectsError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
+DataError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
+DisplayError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
+FailedCasesError	class	(message: str = '', *, summary: Mapping[str, Any] | None = None, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
+FieldNotFoundError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
 HydroModPyConfig	class	
-HydrographyConfig	class	
-HydrographyManager	class	(*, config: HydrographyConfig, out_path: str | Path, base_raster: str | Path | None = None, catalog: DataCatalogDuckDB | None = None, data_dir: Path | None = None, stable_folder: str | Path | None = None) -> None
-HydrographySourceConfig	class	
-HydrometryConfig	class	
-HydrometrySourceConfig	class	
-IgnGeoplateformeDemSource	class	
-IntermittencyConfig	class	
-IntermittencyManager	class	(*, config: Any, catalog: Any, project_extent: tuple | None = None, project_period: tuple[datetime, datetime] | None = None, data_dir: Path | None = None)
-IntermittencySourceConfig	class	
-LakeAbacusConfig	class	
-LakeBathymetryConfig	class	
-LakeGeometryConfig	class	
-LakeInflowConfig	class	
-LakeInflowSourceConfig	class	
-LakeLevelsConfig	class	
-LakeLevelsSourceConfig	class	
-LakeOutflowConfig	class	
-LakeOutflowSourceConfig	class	
-LakeWithdrawalConfig	class	
-LakeWithdrawalSourceConfig	class	
-LayerBaseConfig	class	
-MeshProcessConfig	class	
-Modflow6	class	(geographic: object, modflow_config: Modflow6Config | Mapping[str, object] | None = None, model_folder: str = 'HydroModPy_outputs', model_name: str = 'Default', bin_path: str | None = None, preprocess_options: ModflowPreprocessOptions | None = None)
-ModflowNwt	class	(geographic: object, modflow_config: ModflowConfig | Mapping[str, object] | None = None, model_folder: str = 'HydroModPy_outputs', model_name: str = 'Default', bin_path: str | None = None, preprocess_options: ModflowPreprocessOptions | None = None)
-Modpath	class	(domain: DomainLike, transport: TransportLike, model_modflow: FlowModelLike | None = None, model_folder: str = 'HydroModPy_outputs', model_name: str = 'Default_modpath', bin_path: str | None = None, zone_partic: str | None = None, track_dir: str | None = None, bore_depth: list | None = None, cell_div: int | None = None, zloc_div: bool | None = None, sel_random: int | None = None, sel_slice: int | None = None) -> None
-Mt3dms	class	(domain: DomainLike, transport: TransportLike, model_modflow: FlowModelLike | None = None, model_folder: str = 'HydroModPy_outputs', model_name: str = 'Default_modpath', suffix_name: str = '_mt', bin_path: str | None = None, spc_name: str | None = None, sconc_init: float | None = None, sconc_input = None, disp_long: float | None = None, disp_transh: float | None = None, disp_transv: float | None = None, diffu_coeff: float | None = None, react_order: int | None = None, rate_decay: float | None = None, plot_conc: bool | None = None)
-OceanicConfig	class	
-OceanicManager	class	(*, config: Any, catalog: Any, project_extent: tuple | None = None, project_period: tuple[datetime, datetime] | None = None, data_dir: Path | None = None)
-OceanicSourceConfig	class	
-PiezometryConfig	class	
-PiezometrySourceConfig	class	
-PrecipitationConfig	class	
-PrecipitationSourceConfig	class	
+HydroModPyError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
+ImportConflictError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
+JobUsageError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
+MeshError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
+MigrationFailedError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
+NothingThereError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
+OldNameError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
+PipelineError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
 Project	class	(config: str | Path | object | dict, *, solver: str | None = None, headless: bool = False, no_display: bool = False) -> None
-RadiationConfig	class	
-RadiationSourceConfig	class	
-RechargeConfig	class	
-RechargeSourceConfig	class	
-RobinBC	class	
-RoeCrossingsSource	class	
+ReadOnlyError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
+ResultsError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
 Run	class	(sim_id: str, catalog: Catalog) -> None
+RunNotSealedError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
 RunSet	class	(sim_ids: list[str], catalog: Catalog) -> None
-RunoffConfig	class	
-RunoffSourceConfig	class	
-SimulationConfig	class	
-SimulationPlan	class	(name: str, description: str, runs: tuple[ProcessRun, ...] = <factory>) -> None
-SimulationProcessConfig	function	(*args, **kwargs)
-SimulationTimeConfig	class	
-SoilCapacityConfig	class	
-SoilMoistureConfig	class	
-SoilMoistureSourceConfig	class	
-Subbasin	class	(geographic: object, hydrometry: object, intermittency: object, sub_snap_dist: int, add_path: str = None, out_path: str | Path | None = None)
-SubstratumConfig	class	
-TemperatureConfig	class	
-TemperatureSourceConfig	class	
-TransportConfig	class	
-TransportProcess	class	(config: TransportConfig | Mapping[str, object] | None = None)
-TransportProcessConfig	class	
-WaterQualityConfig	class	
-WaterQualitySourceConfig	class	
-WindConfig	class	
-WindSourceConfig	class	
-WorkflowConfig	class	
-Workspace	class	(config: table)
-WorkspaceConfig	class	
+SchemaVersionMismatchError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
+Session	class	(session_dir: str | Path) -> None
+SimulationNotFoundError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
+SolverError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
+StepError	class	(step_name: str, cause: BaseException, *, run_id: str | None = None, sim_id: str | None = None, **context: Any) -> None
+StorageError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
+TerrainError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
+Workspace	class	(root: str | Path) -> None
+WriteConflictError	class	(message: str = '', *, sim_id: str | None = None, run_id: str | None = None, **context: Any) -> None
 __version__	str	
-analysis	module	
-bootstrap_proj	function	() -> None
 calibrate	function	(config: ConfigLike, *, phase: str | None = None, **kwargs: Any) -> CalibrationReport
-calibration	module	
 calibration_phases	function	(config: ConfigLike, *, workspace: str | Path | None = None, check: bool = False) -> dict[str, Any]
-catalog	module	
 compare	function	(refs: Sequence[str], *, variables: Sequence[str] | None = None, out: PathLike | None = None, workspace: PathLike | None = None) -> Comparison
-compare_pair	function	(sim_a: str, sim_b: str, *, workspace: PathLike | None = None) -> pd.DataFrame
-config	module	
-core	module	
-data	module	
+compare_pair	function	(ref_a: str, ref_b: str, *, workspace: PathLike | None = None) -> pd.DataFrame
 doctor	function	() -> dict
 example_add	function	(example_id: str, *, workspace: PathLike | None = None, ref: str | None = None, force: bool = False) -> InstallReport
 example_list	function	() -> tuple[ExampleEntry, ...]
 example_show	function	(example_id: str) -> ExampleEntry
-export	function	(sim: Run, variables: str | list[str], *, time: str | int | list[str | int] | None = None, period: tuple[str, str] | None = None, format: str | None = None, folder: PathLike | None = None, file: PathLike | None = None, crs: str | None = None, resolution: float | None = None, layer: int | None = None, nodata: float = -9999.0) -> list[Path]
-figure	function	(sim: Run, name: str, *, save: PathLike | None = None, dpi: int = 150, time: str | date | None = None, **opts: Any) -> Figure
+export	function	(run: Run, variables: str | list[str], *, time: str | int | list[str | int] | None = None, period: tuple[str, str] | None = None, format: str | None = None, folder: PathLike | None = None, file: PathLike | None = None, crs: str | None = None, resolution: float | None = None, layer: int | None = None, nodata: float = -9999.0) -> list[Path]
+figure	function	(run: Run, name: str, *, save: PathLike | None = None, dpi: int = 150, time: str | date | None = None, **opts: Any) -> Figure
 index	function	(workspace: PathLike | None = None) -> Workspace
-log_manager	LogManager	
 open	function	(path: PathLike) -> Project | Run | Session | Workspace
-physics	module	
-read	function	(sim: Run, var: str, *, time: int | str | date | np.datetime64 | np.integer | slice | None = None, layer: int | None = None, sel: dict | None = None, bbox: tuple[float, float, float, float] | None = None) -> Readable
+read	function	(run: Run, variable: str, *, time: int | str | date | np.datetime64 | np.integer | slice | None = None, layer: int | None = None, sel: dict | None = None, bbox: tuple[float, float, float, float] | None = None) -> Readable
 report	function	(session: str | None = None, *, workspace: PathLike | None = None) -> Path
-results	module	
-run	function	(config: ConfigLike, **kwargs: Any) -> Run | dict | None
-simulation	module	
-solver	module	
-spatial	module	
-spinup	function	(config: ConfigLike, **kwargs: Any) -> SpinupResult
-viz	module	
-workflow	module	
+run	function	(config: ConfigLike, *, set: Mapping[str, Any] | None = None, name: str | None = None, force: bool = False, fresh: bool = False, resume: str | None = None, from_step: str | None = None, until_step: str | None = None, dry_run: bool = False, frozen: bool = False, no_display: bool = False, headless: bool = False) -> Run | OverviewResult | PlanDraft | None
+spinup	function	(config: ConfigLike, *, spinup: SpinupConfig | None = None, name_prefix: str = 'spinup', then_run: bool = False, headless: bool = True) -> SpinupResult

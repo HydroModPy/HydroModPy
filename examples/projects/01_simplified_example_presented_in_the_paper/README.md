@@ -49,7 +49,7 @@ impermeable sound bedrock at depth). Expressed with
 | `particle_tracks` | tracks colored by travel time |
 | `residence_time_distribution` | travel-time histogram against the exponential law |
 | `cross_section` | topography / watertable / 5 thickening layers cross section |
-| `parameter_section` | the same section coloured by K and Sy, layer by layer |
+| `parameter_section` | the same section colored by K and Sy, layer by layer |
 | `simulated_active_network` | active draining cells |
 | `water_budget` | budget per component |
 
@@ -67,7 +67,7 @@ distribution (median ~1 year, p90 ~7 years for this parameter set).
 ## The paper's parameter section
 
 The figure the paper carries beside the water-table section is the aquifer
-itself: the same line, coloured by conductivity and by specific yield rather
+itself: the same line, colored by conductivity and by specific yield rather
 than by elevation. `parameter_section` draws it, one panel per property, and
 leaves out a property the run never set, which is what `specific_storage` is
 in a steady run. The two properties are now written with the results, so any

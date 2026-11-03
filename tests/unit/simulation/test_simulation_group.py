@@ -9,6 +9,7 @@ from hydromodpy.core.state.paths import catalog_path_for, runs_dir_for
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.run import Run
 from hydromodpy.results.run.group import RunSet
+from hydromodpy.results.run.tables import global_parameters
 from hydromodpy.results.storage.run_facts import RunFacts
 from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.results.storage.sealing import seal_completed
@@ -146,8 +147,8 @@ class TestSimulationGroup:
         # Each handle reads its own run directory, never an index handle of the project.
         assert second._catalog.run_dir == project_root / "runs" / "second"
         assert first._catalog.run_dir == project_root / "runs" / "first"
-        assert first.params["thickness"] == pytest.approx(1.0)
-        assert second.params["thickness"] == pytest.approx(2.0)
+        assert global_parameters(first)["thickness"] == pytest.approx(1.0)
+        assert global_parameters(second)["thickness"] == pytest.approx(2.0)
         assert first.dir.name == "first"
         assert second.dir.name == "second"
 

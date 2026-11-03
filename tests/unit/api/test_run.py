@@ -1,4 +1,4 @@
-"""Unit tests for ``hmp.run``."""
+"""``hmp.run``: one type per workflow, the controls by name, the changes in ``set=``."""
 
 from __future__ import annotations
 
@@ -8,186 +8,152 @@ from types import SimpleNamespace
 import pytest
 
 import hydromodpy as hmp
-from tests._helpers.api_doubles import make_capturing_project
+from hydromodpy.workflow.pipelines.overview import OverviewResult
 
 pytestmark = pytest.mark.fast
 
+WORKFLOW = "hydromodpy.project.dispatch.workflow"
+RESULT = OverviewResult(
+    name="ov", run_dir=None, catchment_area_km2=1.0, report_paths=(), web_report=None
+)
 
-def _write_toml(path: Path, content: str) -> Path:
-    path.write_text(content, encoding="utf-8")
+
+def _toml(tmp_path: Path, mode: str, extra: str = "") -> Path:
+    path = tmp_path / f"{mode}.toml"
+    path.write_text(f'[workflow]\nmode = "{mode}"\n{extra}', encoding="utf-8")
     return path
 
 
-def test_run_with_overview_toml_dispatches(monkeypatch, tmp_path: Path) -> None:
-    """A non-simulation TOML is routed through ``dispatch_workflow``."""
-    config = _write_toml(
-        tmp_path / "ov.toml",
-        '[workflow]\nmode = "overview"\n',
-    )
-    captured: dict = {}
-
-    def fake_resolve(config_path, *, cli_workflow=None):
-        captured["resolve_path"] = Path(config_path)
-        return "overview"
-
-    def fake_dispatch(workflow, config_path, **kwargs):
-        captured["workflow"] = workflow
-        captured["dispatch_path"] = Path(config_path)
-        captured["kwargs"] = kwargs
-        return {"summary": "ok"}
-
-    monkeypatch.setattr("hydromodpy.workflow.dispatch.resolve_workflow", fake_resolve)
-    monkeypatch.setattr("hydromodpy.project.dispatch.workflow.dispatch_workflow", fake_dispatch)
-
-    result = hmp.run(config)
-    assert result == {"summary": "ok"}
-    assert captured["workflow"] == "overview"
-    assert captured["dispatch_path"] == config.resolve()
-    assert captured["kwargs"] == {}
+def _config(mode: str) -> SimpleNamespace:
+    return SimpleNamespace(workflow=SimpleNamespace(mode=mode))
 
 
-def test_run_with_string_path_resolves(monkeypatch, tmp_path: Path) -> None:
-    """A string path is expanded and resolved before routing."""
-    config = _write_toml(
-        tmp_path / "ov.toml",
-        '[workflow]\nmode = "overview"\n',
-    )
-    captured: dict = {}
-
-    monkeypatch.setattr(
-        "hydromodpy.workflow.dispatch.resolve_workflow",
-        lambda p, *, cli_workflow=None: "overview",
-    )
-
-    def fake_dispatch(workflow, config_path, **kwargs):
-        captured["dispatch_path"] = Path(config_path)
-        return {}
-
-    monkeypatch.setattr("hydromodpy.project.dispatch.workflow.dispatch_workflow", fake_dispatch)
-
-    hmp.run(str(config))
-    assert captured["dispatch_path"] == config.resolve()
-
-
-def _fake_cfg(root: Path, name: str = "") -> SimpleNamespace:
-    return SimpleNamespace(
-        workflow=SimpleNamespace(mode="simulation"),
-        workspace=SimpleNamespace(project_root=root),
-        simulation=SimpleNamespace(name=name),
-    )
-
-
-def test_run_with_config_object_uses_project(monkeypatch, tmp_path: Path) -> None:
-    """A non-path config object opens a ``Project`` and returns what ``simulate`` read."""
-    captured: dict = {}
-    verb_result = SimpleNamespace(name="from_object", sim_id="sim-001")
-    monkeypatch.setattr(
-        "hydromodpy.project.Project",
-        make_capturing_project(captured, result=verb_result, verb="simulate"),
-    )
-
-    def never_opened(root, run_dir):
-        raise AssertionError("the runner already read the run from its directory")
-
-    monkeypatch.setattr("hydromodpy._api._open_run", never_opened)
-
-    fake_cfg = _fake_cfg(tmp_path)
-    result = hmp.run(fake_cfg, name="alpha", headless=True)
-    assert result is verb_result
-    assert captured["init_cfg"] is fake_cfg
-    assert captured["init_headless"] is True
-    assert captured["verb_kwargs"] == {"name": "alpha", "force": False}
-    assert captured["closed"] is True
-
-
-def test_force_is_not_a_parameter_override(monkeypatch, tmp_path: Path) -> None:
-    captured: dict = {}
-    monkeypatch.setattr(
-        "hydromodpy.project.Project",
-        make_capturing_project(
-            captured, result=SimpleNamespace(name="x", sim_id="s"), verb="simulate"
-        ),
-    )
-    monkeypatch.setattr("hydromodpy._api._open_run", lambda root, sid: sid)
-    hmp.run(_fake_cfg(tmp_path, name="x"), force=True)
-    # It reaches the claim of the run: a stale case can be taken over.
-    assert captured["verb_kwargs"] == {"force": True}
-
-
-def test_an_identical_completed_run_is_returned_not_recomputed(monkeypatch, tmp_path: Path) -> None:
-    """``hmp.run(cfg)`` skips like ``hmp run``; ``force=True`` computes anyway."""
-    captured: dict = {}
-    monkeypatch.setattr(
-        "hydromodpy.project.Project",
-        make_capturing_project(
-            captured, result=SimpleNamespace(name="x.v2", sim_id="new"), verb="simulate"
-        ),
-    )
+@pytest.fixture
+def worker(monkeypatch: pytest.MonkeyPatch) -> dict:
+    """Stand in for the worker: record what it is asked, name one completed run."""
     asked: dict = {}
 
-    def fake_identical(config, *, name):
-        asked["name"] = name
-        return ("x", "old-sim")
+    def fake(config, **kwargs):
+        asked.update(config=config, kwargs=kwargs)
+        return asked.get("summary", {"name": "x", "sim_id": "sid", "project_root": "/p"})
 
-    monkeypatch.setattr(
-        "hydromodpy.project.dispatch.workflow.completed_identical_run", fake_identical
-    )
-    monkeypatch.setattr(
-        "hydromodpy._api._open_run", lambda root, run_dir: ("opened", Path(run_dir).name)
-    )
+    monkeypatch.setattr(f"{WORKFLOW}.run_simulation", fake)
+    monkeypatch.setattr(f"{WORKFLOW}.completed_run_view", lambda summary: ("run", summary["name"]))
+    return asked
 
-    # The completed run is read from runs/x, nothing is computed.
-    assert hmp.run(_fake_cfg(tmp_path, name="x")) == ("opened", "x")
+
+def test_an_overview_gives_its_result(monkeypatch, tmp_path: Path) -> None:
+    config = _toml(tmp_path, "overview")
+    monkeypatch.setattr(f"{WORKFLOW}.run_overview", lambda path: RESULT)
+
+    assert hmp.run(config) is RESULT
+    assert hmp.run(str(config)) is RESULT
+
+
+@pytest.mark.parametrize("option", [{"name": "x"}, {"set": {"K": 1.0}}, {"until_step": "seal"}])
+def test_an_overview_refuses_what_steers_a_simulation(tmp_path: Path, option: dict) -> None:
+    with pytest.raises(hmp.ConfigError, match=next(iter(option))):
+        hmp.run(_toml(tmp_path, "overview"), **option)
+
+
+@pytest.mark.parametrize("from_a_file", [True, False])
+def test_a_calibration_is_refused_and_points_to_its_verb(tmp_path: Path, from_a_file: bool) -> None:
+    config = _toml(tmp_path, "calibration") if from_a_file else _config("calibration")
+    with pytest.raises(hmp.ConfigError, match=r"hmp\.calibrate"):
+        hmp.run(config)
+
+
+def test_a_sites_project_is_refused_and_points_to_its_verb(tmp_path: Path) -> None:
+    config = _toml(tmp_path, "simulation", '[sites]\ntable = "sites.csv"\n')
+    with pytest.raises(hmp.ConfigError, match=r"\.launch\(\)"):
+        hmp.run(config)
+
+
+def test_a_simulation_gives_its_run_and_the_controls_reach_the_worker(
+    worker: dict, tmp_path: Path
+) -> None:
+    config = _toml(tmp_path, "simulation")
+
+    assert hmp.run(config, name="x", force=True, set={"K": 1e-5}) == ("run", "x")
+    assert worker["config"] == config.resolve()
+    assert worker["kwargs"]["changes"] == {"K": 1e-5}
+    assert (worker["kwargs"]["name"], worker["kwargs"]["force"]) == ("x", True)
+
+    cfg = _config("simulation")
+    assert hmp.run(cfg, until_step="seal", headless=True) == ("run", "x")
+    assert worker["config"] is cfg
+    assert (worker["kwargs"]["until_step"], worker["kwargs"]["headless"]) == ("seal", True)
+
+
+def test_a_window_that_keeps_nothing_gives_nothing(worker: dict, tmp_path: Path) -> None:
+    worker["summary"] = {}
+    assert hmp.run(_toml(tmp_path, "simulation"), until_step="load_data") is None
+
+
+def test_a_change_is_never_a_loose_keyword(tmp_path: Path) -> None:
+    with pytest.raises(TypeError, match="K"):
+        hmp.run(_toml(tmp_path, "simulation"), K=1e-5)
+
+
+def test_a_skipped_run_is_returned_and_said(
+    worker: dict, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    said: list[tuple] = []
+    monkeypatch.setattr("hydromodpy._api._report_identical_run", lambda *a: said.append(a))
+    worker["summary"] = {"skipped": True, "name": "x", "sim_id": "sid", "project_root": "/p"}
+
+    assert hmp.run(_toml(tmp_path, "simulation")) == ("run", "x")
+    assert said == [("x", "sid")]
+
+
+@pytest.mark.parametrize("workflow", ["simulation", "overview"])
+def test_a_dry_run_gives_a_plan_and_runs_nothing(
+    workflow: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    asked: dict = {}
+
+    def fake(source, **kwargs):
+        asked.update(source=source, **kwargs)
+        return "draft"
+
+    monkeypatch.setattr(f"{WORKFLOW}.draft_of_a_file_or_config", fake)
+    config = _toml(tmp_path, workflow)
+
+    assert hmp.run(config, dry_run=True, name="x") == "draft"
+    assert asked["workflow"] == workflow
     assert asked["name"] == "x"
-    assert "verb_kwargs" not in captured
-
-    assert hmp.run(_fake_cfg(tmp_path, name="x"), force=True).sim_id == "new"
-    # A parameter override is another run: never skipped.
-    captured.clear()
-    assert hmp.run(_fake_cfg(tmp_path, name="x"), K=1e-5).sim_id == "new"
-    assert captured["verb_kwargs"] == {"K": 1e-5, "force": False}
 
 
-def test_a_path_takes_a_name_and_refuses_an_override(monkeypatch, tmp_path: Path) -> None:
-    config = _write_toml(tmp_path / "sim.toml", '[workflow]\nmode = "simulation"\n')
-    monkeypatch.setattr(
-        "hydromodpy.workflow.dispatch.resolve_workflow",
-        lambda p, *, cli_workflow=None: "simulation",
+def test_a_dry_run_says_the_steps_of_its_window(tmp_path: Path) -> None:
+    """One case, no table, the steps of the window and the identity of the run."""
+    from hydromodpy.config.sites.expansion import PlanDraft
+
+    root = tmp_path / "p"
+    root.mkdir()
+    config = root / "project.toml"
+    config.write_text(
+        "[geographic]\n"
+        'source_mode = "synthetic"\n'
+        "[domain.depth_model]\n"
+        'kind = "constant_thickness"\n'
+        "thickness = 50.0\n"
+        "[simulation.time]\n"
+        'start_datetime = "2000-01-01"\n'
+        'end_datetime = "2000-03-31"\n'
+        'step_value = "1 month"\n'
+        "[[simulation.process]]\n"
+        'id = "flow_main"\n'
+        'kind = "flow"\n'
+        'solvers = ["modflow6"]\n',
+        encoding="utf-8",
     )
-    captured: dict = {}
 
-    def fake_dispatch(workflow, config_path, **kwargs):
-        captured["kwargs"] = kwargs
-        return {"name": "x", "sim_id": "sid", "project_root": str(tmp_path)}
+    draft = hmp.run(config, dry_run=True, name="x", until_step="load_data")
 
-    monkeypatch.setattr("hydromodpy.project.dispatch.workflow.dispatch_workflow", fake_dispatch)
-    monkeypatch.setattr("hydromodpy._api._open_run", lambda root, run_dir: (root, run_dir))
-
-    # The run is read from its directory, runs/<name> under the project root.
-    assert hmp.run(config, name="x") == (tmp_path, tmp_path / "runs" / "x")
-    assert captured["kwargs"] == {"name": "x", "headless": False}
-    hmp.run(config, headless=True)
-    assert captured["kwargs"] == {"headless": True}
-
-    with pytest.raises(TypeError, match="takes no parameter override"):
-        hmp.run(config, K=1e-5)
-
-
-@pytest.mark.parametrize("window", [{"until_step": 0}, {"from_step": 0}, {"resume": ""}])
-def test_a_step_zero_window_is_never_skipped(monkeypatch, tmp_path: Path, window) -> None:
-    """Index 0 is a valid step: the window runs even when a full run matches."""
-    captured: dict = {}
-    monkeypatch.setattr(
-        "hydromodpy.project.Project",
-        make_capturing_project(
-            captured, result=SimpleNamespace(name="x", sim_id="new"), verb="simulate"
-        ),
-    )
-    monkeypatch.setattr(
-        "hydromodpy.project.dispatch.workflow.completed_identical_run",
-        lambda config, *, name: ("x", "old-sim"),
-    )
-    monkeypatch.setattr("hydromodpy._api._open_run", lambda root, run_dir: ("opened", run_dir))
-
-    assert hmp.run(_fake_cfg(tmp_path, name="x"), **window).sim_id == "new"
-    assert captured["verb_kwargs"] == {"force": False, **window}
+    assert isinstance(draft, PlanDraft)
+    assert draft.steps == ("validate", "resolve", "build_geographic", "load_data")
+    assert [(case.case_id, case.kind, case.done) for case in draft.cases] == [
+        ("x", "simulation", False)
+    ]
+    assert draft.cases[0].config_hash
+    assert draft.sites_config is None

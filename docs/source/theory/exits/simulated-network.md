@@ -11,7 +11,7 @@ confused:
 4. the cells a stream criterion counts as flowing: the simulated network.
 
 The last section lists the diagnostics that compare a network with a mapped one.
-The criterion a calibration minimises is on {doc}`../downslope-distance`.
+The criterion a calibration minimizes is on {doc}`../downslope-distance`.
 
 ::::{dropdown} Notation of this page
 ```{hmp-notation}
@@ -107,7 +107,7 @@ threshold. A time rule reduces the periods to one mask:
 
 A steady run uses `last` by default, since it has one state. A transient run uses
 `persistent`, with a share of one half unless another is given. An always-active
-mask is active at every period of the window analysed, which is not a steady
+mask is active at every period of the window analyzed, which is not a steady
 network.
 
 The derived fields are not stored: they are rebuilt on read from the per-cell
@@ -203,9 +203,9 @@ of $M$ in $A$), `active_precision_ratio` (the share of $A$ in $M$),
 `cell_f1_ratio` (their harmonic mean) and `cell_jaccard_ratio` (the intersection
 over the union), by `cell_field_network_overlap_metrics`.
 
-**Planar distance.** The straight-line distance from each active cell centre to
+**Planar distance.** The straight-line distance from each active cell center to
 the nearest line of the network is $\delta_{A\to M}$, and from each network cell
-centre to the nearest active cell $\delta_{M\to A}$. Each direction gives its
+center to the nearest active cell $\delta_{M\to A}$. Each direction gives its
 mean, median, 95th percentile and maximum, then
 
 $$

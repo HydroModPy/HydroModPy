@@ -2,7 +2,7 @@
 
 The one place that speaks HTTP to the Sandre. Every rule below was measured
 against the live service on 2026-09-27 (MapServer, WFS 2.0.0); the notes of
-that survey list fourteen behaviours, four of which return a wrong answer
+that survey list fourteen behaviors, four of which return a wrong answer
 with no error. This module makes those four unreachable:
 
 - A box is always sent in EPSG:2154 **with** ``SRSNAME`` in the same CRS. A
@@ -19,7 +19,7 @@ with no error. This module makes those four unreachable:
 - The ``GPKG`` output is a zip whose single member is literally named
   ``%TYPENAME%.gpkg``. It is read in memory, whatever its name.
 - A refusal arrives as an ``ows:ExceptionReport``, as a MapServer HTML page,
-  or as a valid empty answer. The first two are recognised by their body,
+  or as a valid empty answer. The first two are recognized by their body,
   whatever the HTTP status; the third is what the ``hits`` total guards.
 
 The service holds the metropolitan layers only in Lambert-93 terms here: an
@@ -81,7 +81,7 @@ def require_metropolitan(typename: str) -> None:
 def bbox_params(typename: str, bbox: tuple[float, float, float, float]) -> dict[str, str]:
     """The only way this module builds a box query: ``BBOX`` and ``SRSNAME`` together.
 
-    *bbox* is ``(xmin, ymin, xmax, ymax)`` in EPSG:2154, metres.
+    *bbox* is ``(xmin, ymin, xmax, ymax)`` in EPSG:2154, meters.
     """
     require_metropolitan(typename)
     xmin, ymin, xmax, ymax = (float(value) for value in bbox)

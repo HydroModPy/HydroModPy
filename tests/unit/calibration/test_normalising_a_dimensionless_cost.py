@@ -1,9 +1,9 @@
-"""Normalising a cost that has no unit distorts the weighting it was meant to fix.
+"""Normalizing a cost that has no unit distorts the weighting it was meant to fix.
 
 ``normalize_cost`` divides a block's cost by a reference scale read off the
 observed vector. It exists so that a composite sum does not let the unit decide
-the weighting: an RMSE on heads is in metres, one on discharge in m3/s, and
-adding them raw gives the metres a say the weights never granted.
+the weighting: an RMSE on heads is in meters, one on discharge in m3/s, and
+adding them raw gives the meters a say the weights never granted.
 
 An efficiency score has no unit to remove. NSE, KGE, nse_log, nse_delta,
 nse_seasonal and the reservoir score are already dimensionless numbers, so
@@ -12,7 +12,7 @@ costs on a common footing: it multiplies one block's weight by a number that
 belongs to its data, silently. Two blocks written with equal weights come out
 unequal, and nothing in the report says by how much.
 
-The network distances have a unit, metres, and no observed vector to take a
+The network distances have a unit, meters, and no observed vector to take a
 scale from. Their scale is the validity length of the output, which
 ``test_a_network_distance_is_counted_in_validity_lengths.py`` covers.
 """

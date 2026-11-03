@@ -29,7 +29,7 @@ def test_transit_time_reads_a_string_in_days() -> None:
 def test_the_defaults_describe_a_passive_soil() -> None:
     config = SoilReservoirConfig(ru=100.0)
 
-    assert config.alpha == pytest.approx(0.6)
+    assert config.alpha == pytest.approx(0.45)
     assert config.kc == pytest.approx(1.0)
     assert config.impervious_fraction == pytest.approx(0.0)
     assert config.bypass_fraction == pytest.approx(0.0)

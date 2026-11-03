@@ -49,7 +49,7 @@ _POINTS_SHOWN = 5
 
 
 def read_input_triangulation(path: str | Path) -> InputTriangulation:
-    """Return the triangles of the ``.msh`` file at *path* and its labelled line edges."""
+    """Return the triangles of the ``.msh`` file at *path* and its labeled line edges."""
     source = Path(path)
     _check_format(source)
     try:

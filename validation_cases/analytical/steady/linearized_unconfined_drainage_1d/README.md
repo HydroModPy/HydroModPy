@@ -23,7 +23,7 @@ Comparison:
 - compared quantity: domain-averaged head profile along `x`
 - reference: steady linearized unconfined profile with distributed top drainage
 - boundary positions: each side head is posed where the model holds it, at the
-  centre of the boundary column, or at the mean centroid of the boundary
+  center of the boundary column, or at the mean centroid of the boundary
   triangles on the triangle strip; a no-flow side stays on the domain face
   (`validation_cases/shared/strip_geometry.py`)
 

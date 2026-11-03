@@ -226,16 +226,14 @@ def _apply_scenario_to_launcher_payload(
     cauchy["drainage"] = {
         **dict(cauchy.get("drainage", {})),
         "application_domain": "top",
-        "kind": "cauchy",
+        "kind": "drain",
         "value": f"{scenario.drainage_conductance_m2_per_s:.12g} m2/s",
     }
     bc["dirichlet"] = dirichlet
     bc["cauchy"] = cauchy
     flow["bc"] = bc
-    flow["active_sinks_sources"] = ["recharge"]
-    flow["active_bc"] = ["east_side", "drainage"]
     flow["ic"] = {
-        "type": "custom",
+        "kind": "custom",
         "value": f"{INITIAL_HEAD_M:.6f} m",
     }
     flow["sinks_sources"] = {"recharge": {"first_clim": "mean"}}
@@ -386,9 +384,7 @@ def _run_boussinesq_scenario(
             {
                 "runtime_backend": "local",
                 "flow_regime": "steady",
-                "ic": {"type": "custom", "value": initial_head_m},
-                "active_sinks_sources": ["recharge"],
-                "active_bc": ["east_side", "drainage"],
+                "ic": {"kind": "custom", "value": initial_head_m},
                 "sinks_sources": {
                     "recharge": {
                         "values": mm_day_to_m_s(float(scenario.recharge_mm_day)),
@@ -402,7 +398,7 @@ def _run_boussinesq_scenario(
                     },
                     "drainage": {
                         "application_domain": "top",
-                        "kind": "cauchy",
+                        "kind": "drain",
                         "value": scenario.drainage_conductance_m2_per_s,
                     },
                 },

@@ -5,7 +5,7 @@ mapped one, ``D_os`` the reverse. They move in opposite directions with the
 parameter, and the calibrated point is where they meet: the zero of
 ``J_signed = D_so - D_os``, an intersection of two curves and not the minimum
 of a distance. This figure is the only one that shows it, and reading it is
-how a reader tells the criterion apart from a minimised mean distance.
+how a reader tells the criterion apart from a minimized mean distance.
 
 The distances are plotted raw, each inside a band of one reference length,
 which is the resolution below which two descents are the same measurement. The
@@ -232,7 +232,7 @@ def _band_half_width(
     *,
     output: str | None,
 ) -> float | None:
-    """Return the half-width of the uncertainty band, in metres."""
+    """Return the half-width of the uncertainty band, in meters."""
     if band_m is not None:
         return float(band_m)
     if not table.has_diagnostic("h_obs", output=output):

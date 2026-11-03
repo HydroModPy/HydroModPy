@@ -353,7 +353,7 @@ class TestLazyLoaders:
         _seal_and_index(tmp_path, store)
         with Catalog(tmp_path) as cat:
             ds = scan_field(cat)
-            # The dataset materialises a path index for downstream consumers.
+            # The dataset materializes a path index for downstream consumers.
             df = ds.to_table().to_pandas()
         assert "path" in df.columns
 

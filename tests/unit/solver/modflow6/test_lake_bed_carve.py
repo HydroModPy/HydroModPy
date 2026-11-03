@@ -55,7 +55,7 @@ def test_carve_reconciles_to_abacus_keeps_valid_columns_and_builds_a_valid_disv(
     recon = model._lake_bed_reconstruction["lac0"]
     bed, area = recon["bed_by_cell"], recon["area_by_cell"]
     assert recon["diagnostics"]["area_scale"] == 1.0  # footprint == abacus top area
-    assert bed[55] < bed[0]  # a basin: the centre cell sits deeper than the rim cell 0
+    assert bed[55] < bed[0]  # a basin: the center cell sits deeper than the rim cell 0
     # Each column pins its bed at botm[occ_c - 1]; a deeper cell cuts at least as many layers.
     occ_by_cell = model._lake_occupied_layers_by_cell["lac0"]
     for cid in (0, 55):
@@ -105,7 +105,7 @@ def test_record_holds_the_carved_bed_when_the_clamp_bites(tmp_path, caplog) -> N
         model, carved = carve(tmp_path, bowl_bed(), min_thickness=25.0, reconcile_to_abacus=False)
     recon = model._lake_bed_reconstruction["lac0"]
     occ_by_cell = model._lake_occupied_layers_by_cell["lac0"]
-    # The deep centre cannot hold a 25 m cap plus a 25 m aquifer.
+    # The deep center cannot hold a 25 m cap plus a 25 m aquifer.
     assert recon["diagnostics"]["bed_clamp_shift_max"] > 1.0
     assert "min_thickness clamp moved the carved bed" in caplog.text
     for cid in CELLS:

@@ -80,7 +80,7 @@ class ModflowNwtFlowAdapter:
         one backend that reads ``mf.modelgrid``. Reading it here rather than in
         the layer that asks is the whole point: a caller that serves every solver
         must not know which one owns what. A point farther than one cell size,
-        the square root of the cell area, from the cell of the nearest centre
+        the square root of the cell area, from the cell of the nearest center
         gets ``None`` and a warning that names it, like on the other backends.
         """
         import numpy as np

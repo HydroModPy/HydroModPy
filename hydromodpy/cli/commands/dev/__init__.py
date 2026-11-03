@@ -3,36 +3,25 @@
 Sub-actions:
 
 - ``hmp dev run-script <path>``: run a Python prototype outside ``hmp run``.
-- ``hmp dev completion [bash|zsh|fish]``: emit a shell completion script.
-- ``hmp dev schema``: export the JSON Schema (autosummary entry points).
 - ``hmp dev examples manifest``: regenerate the shipped example catalog.
-- ``hmp dev lock {update|archive|restore|verify}``: lockfile management.
-- ``hmp dev rank``: rank simulations by a metric.
 - ``hmp dev manage``: local browser UI (god-module, kept as-is).
+- ``hmp dev test``: run the pytest suites of this checkout.
 
-Configuration tooling lives at the top level: ``hmp config
-{template|check|schema|wizard}`` (not under ``dev``).
+These are out of the contract. What a user needs lives at the top level:
+``hmp completion``, ``hmp lock``, ``hmp catalog rank``, ``hmp config schema``.
 """
 
 from __future__ import annotations
 
 import argparse
 
-from hydromodpy.cli.commands.dev import (
-    completion,
-    examples,
-    lock,
-    manage,
-    rank,
-    run_script,
-    schema,
-)
+from hydromodpy.cli.commands.dev import examples, manage, run_script, test
 from hydromodpy.cli.conventions import add_action_subparsers
 
 NAME: str = "dev"
-HELP: str = "Developer-only commands (completion, schema, lock, manage, ...)"
+HELP: str = "Developer-only commands (run-script, examples, manage, test)"
 
-ACTIONS = (run_script, completion, schema, examples, lock, rank, manage)
+ACTIONS = (run_script, examples, manage, test)
 
 
 def register(subparsers) -> argparse.ArgumentParser:

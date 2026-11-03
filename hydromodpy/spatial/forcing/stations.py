@@ -1,4 +1,4 @@
-"""Point-record discretization on cell centres."""
+"""Point-record discretization on cell centers."""
 
 from __future__ import annotations
 

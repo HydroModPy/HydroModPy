@@ -56,7 +56,7 @@ def _quad_mesh(nrow: int, ncol: int) -> SolverMesh:
 
 
 def test_fully_lake_enclosed_cell_is_absorbed() -> None:
-    # 3x3 grid: the centre cell 4 has edge-neighbours {1, 3, 5, 7}, all lake -> absorbed.
+    # 3x3 grid: the center cell 4 has edge-neighbors {1, 3, 5, 7}, all lake -> absorbed.
     mesh = _quad_mesh(3, 3)
     cells = {"a": [1, 3, 5, 7]}
     areas = {"a": {c: 100.0 for c in (1, 3, 5, 7)}}
@@ -66,7 +66,7 @@ def test_fully_lake_enclosed_cell_is_absorbed() -> None:
 
 
 def test_cell_with_an_open_face_is_left_active() -> None:
-    # Neighbour 7 is not lake, so the centre keeps an active face and is not absorbed.
+    # Neighbor 7 is not lake, so the center keeps an active face and is not absorbed.
     mesh = _quad_mesh(3, 3)
     cells = {"a": [1, 3, 5]}
     areas = {"a": {c: 100.0 for c in (1, 3, 5)}}
@@ -75,7 +75,7 @@ def test_cell_with_an_open_face_is_left_active() -> None:
 
 
 def test_spillway_seed_is_the_lowest_dam_toe_cell(monkeypatch) -> None:
-    # Lake {0, 1}; cell 1 is the shoreline (its non-lake active neighbours are 2 and 3).
+    # Lake {0, 1}; cell 1 is the shoreline (its non-lake active neighbors are 2 and 3).
     # The dam toe is the lowest of them: cell 3 (top 80 < 90).
     monkeypatch.setattr(
         lake_builder,

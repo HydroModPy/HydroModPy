@@ -237,7 +237,7 @@ def test_under_nelder_mead_the_first_trial_is_the_passed_value(tmp_path, toy) ->
     # sy_second holds K at the value k_first passed on.
     held = [k for index, k, _ in toy.trials if index == 1]
     assert held == pytest.approx([K_BEST] * 5)
-    # Before the rule, both_again started at the prior centre (K = 1e-6,
+    # Before the rule, both_again started at the prior center (K = 1e-6,
     # Sy = 0.1505), with the passed values written under every trial.
     assert toy.first_trial_of(2) == (pytest.approx(k_passed), pytest.approx(sy_passed))
     assert [(item.name, item.phase) for item in both.reopened] == [

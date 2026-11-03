@@ -8,15 +8,15 @@ frame are all written under this map rather than left in the caller's TOML.
 
 The active cells are one cell wide and the mesh is not, so they are drawn with
 the weight of the stream maps beside them and over the same ground tone: on a
-default page a cell of a fifty-metre mesh is four pixels, and a network drawn
-at its true width breaks up under its own rasterisation.
+default page a cell of a fifty-meter mesh is four pixels, and a network drawn
+at its true width breaks up under its own rasterization.
 
 The persistence mode counts the timesteps a cell flows, and "flows" is then
 the definition the network criterion scores
 (:func:`hydromodpy.core.stream_extent.flowing_cells`): the downstream closure
 of the cells releasing above ``tau * R * A`` on the criterion graph, above the
 visible flow, with the settings the run's sealed network output scored with.
-A persistence drawn on ``drain_accumulation_flux > 0`` would colour another network
+A persistence drawn on ``drain_accumulation_flux > 0`` would color another network
 than the one the trial and the persistence maps beside it read. A caller who
 names a ``variable`` or a ``threshold`` asks for that field cut instead, and
 a run the criterion graph cannot be rebuilt on falls back to it and says why.
@@ -78,7 +78,7 @@ if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
 ACTIVE_COLOR = HIGH_CONTRAST_TRIPLET[0]
-"""The colour a simulated stream carries across every map of this gallery."""
+"""The color a simulated stream carries across every map of this gallery."""
 
 _ACTIVE_LABEL = "active network"
 _MODELLED_LABEL = "modelled, not active"
@@ -145,7 +145,7 @@ class SimulatedActiveNetworkMap(BaseFigure):
     as the network criterion says, with the run's sealed criterion settings
     (``output`` names the calibration output when the run sealed several).
     ``extent`` picks the frame: ``catchment`` crops to the delineated
-    watershed, ``mesh`` keeps the whole modelled domain.
+    watershed, ``mesh`` keeps the whole modeled domain.
     """
 
     spec = FigureSpec(
@@ -286,8 +286,8 @@ def flowing_persistence(
     """Return the criterion persistence of a run, or None and why it cannot be drawn.
 
     The settings are the run's sealed network output: its seepage threshold,
-    graph, map rasterisation and, when it scored two bounds, its visible flow;
-    the defaults otherwise, the visible flow included. Memoised on the run.
+    graph, map rasterization and, when it scored two bounds, its visible flow;
+    the defaults otherwise, the visible flow included. Memoized on the run.
     """
     try:
         settings = network_criterion_settings(sim, output=output)
@@ -445,12 +445,12 @@ class SimulatedActiveNetworkReferenceOverlay(BaseFigure):
             str, Opt('Matplotlib colormap of the "persistence" ramp, by name.')
         ] = "Blues",
         active_color: Annotated[
-            str, Opt("Colour of the active cells outside the persistence mode.")
+            str, Opt("Color of the active cells outside the persistence mode.")
         ] = "#9ecae1",
         active_alpha: Annotated[
             float, Opt("Opacity of the active cells, from 0 to 1.", unit="-")
         ] = 0.55,
-        reference_color: Annotated[str, Opt("Colour of the reference network lines.")] = "#9b1c1c",
+        reference_color: Annotated[str, Opt("Color of the reference network lines.")] = "#9b1c1c",
         **_,
     ) -> Axes:
         import matplotlib.pyplot as plt

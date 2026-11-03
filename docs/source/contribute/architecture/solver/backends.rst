@@ -2,7 +2,7 @@ MODFLOW and Boussinesq backends
 ===============================
 
 How the three flow backends are put together, what they share, and the contracts the
-MODFLOW family honours. The code is in ``hydromodpy/solver/``, and the README of that
+MODFLOW family honors. The code is in ``hydromodpy/solver/``, and the README of that
 package (:doc:`../packages/solver`) is the map. The mathematics of each solver is in
 :doc:`/theory/solvers`. The in-house Boussinesq backend has its own diagrams in
 :doc:`boussinesq-uml-diagrams`.
@@ -48,7 +48,7 @@ What the MODFLOW family shares
 
 Backend adapters stay thin. The shared lifecycle (preprocessing, processing,
 postprocessing) is in ``solver/modflow_common/flow_adapter_helpers.py``. The rest of
-``solver/modflow_common/`` centralises temporal discretization units, routing helpers,
+``solver/modflow_common/`` centralizes temporal discretization units, routing helpers,
 runtime arrays, binaries and raster export for both backends, and
 ``solver/modflow_grid/`` describes the grid they read. The two backends do not import
 each other. No gate checks that independence: the import scanner of
@@ -65,7 +65,7 @@ MF6 arrays in ``solver/modflow6/support/property_mapping.py``.
 MODFLOW contracts
 -----------------
 
-What HydroModPy honours before it builds the MODFLOW packages. The discretization and
+What HydroModPy honors before it builds the MODFLOW packages. The discretization and
 the routing descent are shared by both backends; the BAS arrays belong to MODFLOW-NWT.
 
 Discretization contract
@@ -216,7 +216,7 @@ BAS contract: ``ibound`` and ``strt``
 These two arrays are the most sensitive at MODFLOW startup. An
 inconsistency can silently destabilize the simulation.
 
-MODFLOW semantics honoured
+MODFLOW semantics honored
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 HydroModPy follows the standard sign-based BAS contract:
@@ -306,7 +306,7 @@ the river network A onto the mesh, ``catchment_basin.py`` takes the basin of D
 at the outlet, and ``descent_store.py`` writes and reads the sidecar.
 
 Every MODFLOW 6 and MODFLOW-NWT run builds one descent D per model build and
-keeps it on the model (``model.descent``), without the neighbour sets the
+keeps it on the model (``model.descent``), without the neighbor sets the
 flood walked: after the build the consumers read the receivers, the surface,
 the masks and the edge lengths only. An auxiliary model (steady
 initialization, spin-up cycle) is never extracted: MODFLOW 6 builds D for it
@@ -333,7 +333,7 @@ reach tops keep reading the model top.
   ``geographic.correcflow_path``), channel
   cells drain to the next cell of the channel tree. This holds
   whether or not SFR is active. Without a channel tree D has no pin.
-- **Neighbourhood.** Fixed by the mesh type: D8 (shared nodes) on a quad mesh,
+- **Neighborhood.** Fixed by the mesh type: D8 (shared nodes) on a quad mesh,
   shared faces elsewhere. It is not a per-output option.
 - **Stored with the run.** The build leaves ``<model>.descent.npz`` in the
   solver folder; the extractor writes it under ``fields.zarr/mesh/`` right after

@@ -21,13 +21,13 @@ Four grids run the same aquifer, well, time steps and probes:
    * ``modflow6``: the MF6 telescoping rectilinear DIS grid above.
    * ``modflow_nwt``: the same telescoping grid in MODFLOW-NWT (UPW, confined
      layer, ``ibound = -1`` on the outer ring, ``headtol = 1e-8`` m: the NWT
-     default of 1e-2 m would hide a 1 % bound on drawdowns of a few decimetres).
+     default of 1e-2 m would hide a 1 % bound on drawdowns of a few decimeters).
    * ``modflow6_irregular_tri`` and ``modflow6_voronoi``: DISV discs of
      jittered concentric rings (``tests/validation/helpers/disv_meshes.py``),
      cells growing by 1.2 per ring out to 9 km, the well in the cell that holds
      the origin, the head held in the cells with a boundary edge. The probe is
-     the cell whose centre is the closest to the target point and the closed
-     form uses the discrete distance between the two centres.
+     the cell whose center is the closest to the target point and the closed
+     form uses the discrete distance between the two centers.
 
 XT3D on the triangles follows HydroModPy's rule (``DisvMesh.xt3d_reason``): the
 triangle disc has a p95 connection non-orthogonality of 37 deg, above the 30 deg
@@ -143,7 +143,7 @@ def _build_telescoping_axis() -> np.ndarray:
 
 
 def _cell_centers(delta: np.ndarray) -> np.ndarray:
-    """Return cell-centre coordinates for an axis with cell widths ``delta``."""
+    """Return cell-center coordinates for an axis with cell widths ``delta``."""
     edges = np.concatenate(([0.0], np.cumsum(delta)))
     return 0.5 * (edges[:-1] + edges[1:])
 
@@ -280,7 +280,7 @@ def _build_and_run_theis_model_nwt(workspace: Path) -> tuple[list[float], list[f
     the outer ring with ``ibound = -1`` and keeps the layer confined (``laytyp = 0``),
     so its storage term is ``Ss * thickness``. The closure is tightened far below
     the NWT default (``headtol = 1e-2`` m would hide the 1 % bound on drawdowns of
-    a few centimetres).
+    a few centimeters).
     """
     import flopy
 
@@ -369,8 +369,8 @@ def _build_and_run_theis_model_disv(
     Rings of cells grow geometrically from the well (``disv_meshes.radial_mesh``),
     and every cell with a boundary edge holds the initial head. The well pumps
     from the cell that holds the origin; the probe at radius ``r`` is the cell
-    whose centre is the closest to ``(x_well + r, y_well)``, and the closed form
-    uses the DISCRETE distance between the two cell centres, as the rectilinear
+    whose center is the closest to ``(x_well + r, y_well)``, and the closed form
+    uses the DISCRETE distance between the two cell centers, as the rectilinear
     test does. ``force_xt3d`` overrides HydroModPy's XT3D rule (control runs).
     """
     import flopy

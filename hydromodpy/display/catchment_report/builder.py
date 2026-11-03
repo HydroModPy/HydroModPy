@@ -16,7 +16,10 @@ from hydromodpy.display.catchment_report.artifacts import (
     geology_legend_rows,
     write_manifest,
 )
-from hydromodpy.display.catchment_report.block_specs import ReportBlockSpec
+from hydromodpy.display.catchment_report.block_specs import (
+    ReportBlockSpec,
+    optional_figure_ids,
+)
 from hydromodpy.display.catchment_report.blocks import (
     PAGE_MODES,
     REPORT_LEVELS,
@@ -138,7 +141,11 @@ def build_catchment_report(config: CatchmentReportConfig) -> Path:
         output_dir,
         copied,
         site_label=config.site_label,
-        expected_figure_ids=(spec.figure_id for spec in artifact_specs),
+        expected_figure_ids=(
+            spec.figure_id
+            for spec in artifact_specs
+            if spec.figure_id not in optional_figure_ids(block_specs)
+        ),
         context_summary=config.context_summary,
         context_assets=config.context_assets,
         overview_figures=config.overview_figures,

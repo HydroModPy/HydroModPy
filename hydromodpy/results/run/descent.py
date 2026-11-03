@@ -52,7 +52,7 @@ _VIEW_ATTRIBUTES = frozenset(item.name for item in fields(MeshDescent)) | {"diag
 
 
 class RunDescent:
-    """Lazy, memoised holder of one run's :class:`MeshDescent`.
+    """Lazy, memoized holder of one run's :class:`MeshDescent`.
 
     The first attribute read loads D; the next ones reuse it, so a gallery of
     figures pays one read, and one INFO line for an old run, per run.

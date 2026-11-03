@@ -7,6 +7,8 @@ from typing import Annotated, Literal, TypeAlias
 
 from pydantic import AfterValidator, BeforeValidator, Field
 
+from hydromodpy.core.scope import station_name_refusal
+
 # ---------------------------------------------------------------------------
 # String types
 # ---------------------------------------------------------------------------
@@ -64,8 +66,16 @@ NormalizedLowerStr = Annotated[str, BeforeValidator(_strip_lower)]
 NonEmptyStr = Annotated[str, BeforeValidator(_strip_non_empty)]
 """Non-empty string after stripping whitespace."""
 
-OptionalText = Annotated[str | None, BeforeValidator(_clean_optional_text)]
-"""Optional free-form text. Empty / whitespace-only inputs collapse to ``None``."""
+
+def _station_name(value: str) -> str:
+    refusal = station_name_refusal(value)
+    if refusal is not None:
+        raise ValueError(refusal)
+    return value
+
+
+StationName = Annotated[str, AfterValidator(_station_name)]
+"""Identifier of a station, refused when it is the word of the whole catchment."""
 
 NonEmptyPath = Annotated[Path, BeforeValidator(_strip_non_empty)]
 """File or folder path, refused when empty. Typed ``Path`` so tools know it is one."""
@@ -99,9 +109,9 @@ Probability = Annotated[
 
 CellSamplingDensity = Annotated[
     int,
-    Field(ge=2, description="Sub-sampling density per cell axis used when rasterising masks."),
+    Field(ge=2, description="Sub-sampling density per cell axis used when rasterizing masks."),
 ]
-"""Sub-sampling density per cell axis used when rasterising masks."""
+"""Sub-sampling density per cell axis used when rasterizing masks."""
 
 
 # ---------------------------------------------------------------------------
@@ -135,10 +145,10 @@ __all__ = [
     "NormalizedLowerStr",
     "NormalizedStr",
     "OptionalPath",
-    "OptionalText",
     "PositiveFloat",
     "PositiveInt",
     "Probability",
+    "StationName",
     "StripLower",
     "TimePeriodUnit",
 ]

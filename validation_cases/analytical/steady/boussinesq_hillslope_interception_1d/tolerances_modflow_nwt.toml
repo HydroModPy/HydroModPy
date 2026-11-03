@@ -15,8 +15,8 @@ max_positive_clearance_m = 7.8e-4
 reason = """
 MODFLOW-NWT, 40 x 3 cells of 10 m, the land surface a DRN of conductance
 K * area / b with b = 1 m, against the exact seepage-face solution. The
-surface is sampled at the cell centres and the east head is the surface at the
-centre of the last column (5.0625 m, x = 395 m). Head profile: RMSE 6.6e-3 m,
+surface is sampled at the cell centers and the east head is the surface at the
+center of the last column (5.0625 m, x = 395 m). Head profile: RMSE 6.6e-3 m,
 max 8.6e-3 m; bounds twice the measurement. The dry heads sit 8.5e-3 m low at
 the divide, and the offset fades to zero at the tangent point: the free boundary
 is placed to the cell, and the error halves with the cell (4.2e-3 m at 5 m,

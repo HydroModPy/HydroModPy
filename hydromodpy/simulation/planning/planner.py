@@ -72,7 +72,7 @@ class SimulationPlanner:
                 )
             seen_process_ids.add(process_id)
 
-            if process_cfg.type == "mesh":
+            if process_cfg.kind == "mesh":
                 backend = process_cfg.backend or "catchment"
                 run_id = ProcessRun.build_id(process_id, backend)
                 if run_id in seen_run_ids:
@@ -84,7 +84,7 @@ class SimulationPlanner:
                     ProcessRun(
                         id=run_id,
                         process_id=process_id,
-                        process_type=process_cfg.type,
+                        process_type=process_cfg.kind,
                         solver=backend,
                         backend=backend,
                     )
@@ -98,13 +98,13 @@ class SimulationPlanner:
                 # ``transport_main::mt3dms`` appears before any compatible
                 # ``flow::*`` provider, planning fails instead of reordering.
                 for required_type, required_solver in provider.required_bindings(
-                    process_cfg.type, solver_name
+                    process_cfg.kind, solver_name
                 ):
                     providers = runs_by_capability.get((required_type, required_solver), [])
                     if not providers:
                         raise ValueError(
                             "Simulation process "
-                            f"'{process_id}' ({process_cfg.type}/{solver_name}) "
+                            f"'{process_id}' ({process_cfg.kind}/{solver_name}) "
                             "requires an earlier process using "
                             f"{required_type}/{required_solver}."
                         )
@@ -120,14 +120,14 @@ class SimulationPlanner:
                 run = ProcessRun(
                     id=run_id,
                     process_id=process_id,
-                    process_type=process_cfg.type,
+                    process_type=process_cfg.kind,
                     solver=solver_name,
                     depends_on=tuple(dependencies),
                 )
                 runs.append(run)
                 # Register the produced capability after the run is created so
                 # later entries can depend on this exact run id.
-                runs_by_capability.setdefault((process_cfg.type, solver_name), []).append(run)
+                runs_by_capability.setdefault((process_cfg.kind, solver_name), []).append(run)
 
         return SimulationPlan(
             name=config.name,

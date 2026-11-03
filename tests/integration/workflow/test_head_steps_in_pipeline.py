@@ -35,7 +35,7 @@ name = "naizin_head_steps"
 
 [[simulation.process]]
 id = "flow"
-type = "flow"
+kind = "flow"
 solvers = ["modflow_nwt"]
 
 [workspace]
@@ -45,7 +45,7 @@ crs_project = "EPSG:2154"
 dem_correc_type = "breach"
 
 [geographic.catchment]
-catch_def = "from_outlet_coord"
+kind = "from_outlet_coord"
 dem_init_path = "{dem}"
 x_outlet = 265611.933
 y_outlet = 6784182.776
@@ -78,7 +78,7 @@ kind = "homogeneous"
 value = "1e-5 m/s"
 
 [flow.ic]
-type = "custom"
+kind = "custom"
 value = "5.0 m"
 
 [domain.layers]

@@ -5,7 +5,7 @@ sampled parameter nested under ``parameters`` and the cost written at the top
 level under ``cost``, which is where the session journal puts it.
 
 The interval it shades is the one the calibration summary reports, read by the
-same rule: one mesh cell on network distances in metres, five per cent of the
+same rule: one mesh cell on network distances in meters, five per cent of the
 best cost otherwise. The trial it marks is the one the calibration returned.
 """
 
@@ -659,7 +659,7 @@ def test_profile_refuses_a_session_with_no_trial(mpl) -> None:
 
 
 # --------------------------------------------------------------------------- #
-# colours, registration, availability
+# colors, registration, availability
 # --------------------------------------------------------------------------- #
 
 

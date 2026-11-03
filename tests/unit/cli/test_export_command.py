@@ -14,7 +14,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from hydromodpy.cli.commands.export import FORMAT_CHOICES
+from hydromodpy.cli.commands.export import FILE_FORMATS, _destination
 from hydromodpy.core.config_kit.export_spec import ExportFormat
 from hydromodpy.results.identity import read_identity_from
 from hydromodpy.results.ledger import Ledger
@@ -68,7 +68,7 @@ def test_a_field_at_a_date_is_written_and_named(workspace: Path) -> None:
 
 def test_several_times_and_a_format_write_one_file_per_date(workspace: Path) -> None:
     result = _invoke(
-        "demo", "head", "--time", "first", "last", "--format", "geopackage", "-w", str(workspace)
+        "demo", "head", "--time", "first", "last", "--as", "geopackage", "-w", str(workspace)
     )
 
     assert result.exit_code == 0, result.stderr
@@ -85,7 +85,7 @@ def test_a_period_and_a_folder_are_honoured(workspace: Path) -> None:
         "--period",
         "2000-02-01",
         "2000-03-31",
-        "--folder",
+        "--to",
         "livrables",
         "-w",
         str(workspace),
@@ -102,7 +102,7 @@ def test_a_file_with_a_crs_is_reprojected(workspace: Path) -> None:
     import rasterio
 
     result = _invoke(
-        "demo", "head", "--time", "last", "--file", "head_wgs84.tif", "--crs", "EPSG:4326",
+        "demo", "head", "--time", "last", "--to", "head_wgs84.tif", "--crs", "EPSG:4326",
         "-w", str(workspace),
     )  # fmt: skip
 
@@ -113,7 +113,7 @@ def test_a_file_with_a_crs_is_reprojected(workspace: Path) -> None:
 
 def test_an_absolute_file_is_refused_with_hmp_publish(workspace: Path, tmp_path: Path) -> None:
     result = _invoke(
-        "demo", "head", "--time", "last", "--file", str(tmp_path / "h.tif"), "-w", str(workspace),
+        "demo", "head", "--time", "last", "--to", str(tmp_path / "h.tif"), "-w", str(workspace),
     )  # fmt: skip
 
     assert result.exit_code != 0
@@ -132,6 +132,25 @@ def test_regen_writes_again_what_the_ledger_records(workspace: Path) -> None:
     assert result.exit_code == 0, result.stderr
     assert result.stdout.splitlines() == [str(written)]
     assert written.is_file()
+
+
+def test_regen_names_the_ledger_and_says_when_it_records_nothing(workspace: Path) -> None:
+    assert _invoke("demo", "--regen", "-w", str(workspace)).exit_code != 0
+    assert "no export and no figure" in _invoke("demo", "--regen", "-w", str(workspace)).stderr
+    assert "records no figure" in _invoke("demo", "--regen", "figures", "-w", str(workspace)).stderr
+
+
+@pytest.mark.parametrize(
+    ("to", "expected"),
+    [
+        (None, (None, None)),
+        ("maps", ("maps", None)),
+        ("maps/", ("maps/", None)),
+        ("maps/watertable.tif", (None, "maps/watertable.tif")),
+    ],
+)
+def test_to_is_a_file_when_it_has_an_extension(to, expected) -> None:
+    assert _destination(to) == expected
 
 
 def test_nothing_named_is_a_usage_error(workspace: Path) -> None:
@@ -178,7 +197,7 @@ def test_a_request_the_model_refuses_is_refused_before_writing(workspace: Path) 
 
 
 def test_the_format_choices_are_the_export_formats() -> None:
-    assert set(FORMAT_CHOICES) == {fmt.value for fmt in ExportFormat}
+    assert set(FILE_FORMATS) == {fmt.value for fmt in ExportFormat}
 
 
 @pytest.mark.parametrize(

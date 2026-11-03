@@ -16,7 +16,7 @@ For the role of each database scope, see :doc:`data-scopes`.
 The placement rule
 ------------------
 
-**An artefact is written in the directory of what produced it, under a fixed name per class.
+**An artifact is written in the directory of what produced it, under a fixed name per class.
 There is no other destination inside a project.** A figure of a run is in that run, a report
 of a session is in that session, a table over N cases is in ``summary/``. Publishing is a copy
 out of the tree (``hmp publish``); nothing in the project points at the copy except the
@@ -73,7 +73,7 @@ with a recipe, named ``<site>-<recipe>``:
    ├── sessions/
    │   ├── J0014010-calage/
    │   └── ...
-   ├── summary/                hmp project collect: by_case.*, by_site.*, catalog.csv, ...
+   ├── summary/                hmp campaign collect: by_case.*, by_site.*, catalog.csv, ...
    ├── jobs/
    │   ├── 20261020-091500-local/   journal.jsonl of the local launcher
    │   └── 20261020-143000-slurm/   prepare.sh, array.sh, cases.txt, journal.jsonl
@@ -102,8 +102,8 @@ Two state roots
 
 **The project** ``.hmp/`` **is strictly rebuildable.** It holds the index (``index.duckdb``), the
 debug logs (``logs/``), the launcher lease (``launcher.lease``) and the mesh cache
-(``mesh_cache/``). The mesh cache is a true cache: every run copies the mesh entry it consumes into
-its own ``mesh/``. ``rm -rf .hmp`` followed by ``hmp catalog reindex`` gives back the same project.
+(``mesh_cache/``). The mesh cache is a true cache: the mesh of a run is stored in the ``mesh/`` group of its
+``fields.zarr``. ``rm -rf .hmp`` followed by ``hmp catalog reindex`` gives back the same project.
 
 **What cannot be rebuilt is visible and named.** ``trash/`` is the trash, ``jobs/`` keeps the
 journal and the frozen scripts of each launch, ``runs/<case>/attempts/`` keeps the earlier
@@ -119,7 +119,7 @@ until a new attempt or a ``gc`` decides so, because the next attempt resumes fro
 hash) moves the scratch to a machine root such as ``$SLURM_TMPDIR``, under
 ``<project>/<case>.a<attempt>/``.
 
-Classes of artefacts
+Classes of artifacts
 --------------------
 
 .. list-table::
@@ -134,7 +134,7 @@ Classes of artefacts
      - Regenerable
    * - raw result
      - ``fields.zarr/``, ``tables.parquet/``, ``config.toml``, ``config.resolved.toml``,
-       ``inputs.json``, ``provenance.json``, ``manifest.json``, ``mesh/``
+       ``inputs.json``, ``provenance.json``, ``manifest.json``
      - ``config.toml``, ``session.json``, ``trials.jsonl``, ``phases/``
      - ``plan/<hash>/``
      - yes
@@ -176,7 +176,7 @@ Classes of artefacts
      - no
      - no
    * - diagnostic
-     - ``logs/``: ``run.log``, solver listing, ``heartbeat.json``, ``job-<id>.out``
+     - ``logs/``: ``run.log``, ``heartbeat.json``, ``job-<id>.out``
      - ``logs/``
      - ``.hmp/logs/``
      - no
@@ -204,11 +204,10 @@ A run folder
    ├── annotations.json    tags and notes, written after the seal
    ├── fields.zarr/        the array store
    ├── tables.parquet/     the tabular payloads
-   ├── mesh/               the mesh entry the run consumed, when it cannot be rebuilt bit for bit
    ├── figures/            index.json + the figures of this run
    ├── exports/            index.json + the files of each [[export]]
    ├── report/             index.html
-   ├── logs/               run.log, solver listing, heartbeat.json
+   ├── logs/               run.log, heartbeat.json
    ├── published.jsonl     one line per publication of this run; absent until published
    ├── attempts/<n>/       outcome.json and logs/ of an earlier attempt; absent at the first
    ├── solver/             the solver folder, kept only with keep_solver_files = true
@@ -216,12 +215,12 @@ A run folder
    └── .hmp/               state of the attempt in progress; removed by the seal of a completed run
 
 Those names are the whole vocabulary: ``ALLOWED_RUN_ENTRIES`` in
-``hydromodpy/results/storage/contract.py`` lists them, and no other name is a run artefact.
+``hydromodpy/results/storage/contract.py`` lists them, and no other name is a run artifact.
 
 ``manifest.json`` is written last, through a temporary file, ``fsync`` of the file and of the
 directory, and a rename. Its blocks are ``run``, ``geometry``, ``period``, ``config``, ``site``,
 ``lineage`` (by identifiers), ``identity``, ``checks`` and ``artifacts`` (which lists
-``inputs.json`` and ``mesh/``), plus the run's ``parameters`` and ``metrics`` summaries.
+``inputs.json``), plus the run's ``parameters`` and ``metrics`` summaries.
 ``geometry.catchment`` carries the catchment area and the outlet: a discharge derived from runoff
 is scaled by that area. ``geometry.mesh_engine`` and ``geometry.mesh_engine_version`` name the
 engine that built the mesh. A run received alone says its catchment and its facts.
@@ -288,7 +287,7 @@ periods, and a joint calibration or a validation period adds keys, not meanings.
 - ``best`` holds one trial, one ``cost`` and one set of ``parameters``, those a phase froze included,
   and ``cases`` holds the run and the cost of that trial in each case. ``cost`` is null when a search
   keeps no single cost, and ``best`` is null when it keeps no single best.
-- A line of ``trials.jsonl`` holds the ``params`` the search proposed, the ``cost`` it minimised, and
+- A line of ``trials.jsonl`` holds the ``params`` the search proposed, the ``cost`` it minimized, and
   ``cases``: for each case its cost, the ``components`` that make it, its ``params_hash``, its run,
   its ``error`` and a free ``detail``. A cached trial reads ``components`` and the cost, and never the
   run of another session.
@@ -330,12 +329,12 @@ Above the run
      - no, and the index does not need it
    * - ``jobs/<stamp>-slurm/cases.txt``, ``prepare.sh``, ``array.sh``
      - frozen when generated
-     - ``hmp project array``
+     - ``hmp campaign array``
      - no
    * - ``summary/by_case.*``, ``by_site.*``, ``catalog.csv``, ``exports/``, ``report/``,
        ``README.md``
      - flat views of the index and of the best case of each site
-     - ``hmp project collect``
+     - ``hmp campaign collect``
      - yes
 
 A plan is never rewritten while one of its cases is ``running``: ``hmp project plan`` refuses
@@ -441,12 +440,16 @@ version. A change it cannot ignore raises the current version, keeps the oldest 
 the reader of the old version with it. Nothing upgrades a stored document to another version:
 a sealed file stays as it was written.
 
+``tests/regression/frozen_runs/`` holds this promise. It keeps a run and a calibration session as
+2.0.0 stored them, and the same with a key, a column and an array that a later 2.x could add. Each
+commit reads both by the public path and compares the values.
+
 A reader refuses a document outside the window, and the message names the version read, the
 version that wrote it when known, what this code reads and what to do:
 
 - newer than the window: upgrade HydroModPy to read it;
 - older than the window, or with no version: a pre-release wrote it, so it must be run again;
-- the lockfile: ``hmp dev lock update`` writes it again.
+- the lockfile: ``hmp lock update`` writes it again.
 
 Two kinds of document keep one exact version, because what they hold can be made again:
 
@@ -638,7 +641,7 @@ whichever precision the store holds.
 extractor produces, under the canonical CBC name: the exchange terms
 (``recharge``, ``drain``, ``river``, ``constant_head``, ``lake``, ``stream``,
 ``evapotranspiration``, ...) and the storage terms (``storage`` under
-MODFLOW-NWT, ``storage_ss`` and ``storage_sy`` under MODFLOW 6). Each term has
+MODFLOW-NWT and Boussinesq, ``storage_ss`` and ``storage_sy`` under MODFLOW 6). Each term has
 a descriptor in :mod:`hydromodpy.results.field_registry`, so it can be listed,
 exported and read with ``run.field``. The group carries two attributes that
 say what the run kept (:mod:`hydromodpy.core.budget_terms`):
@@ -699,7 +702,7 @@ The vertical geometry follows the table.
    * - ``face_x``, ``face_y``
      - float64
      - ``face``
-     - Cell centre, by the one centre rule of the mesh; the attribute ``center_kind`` says
+     - Cell center, by the one center rule of the mesh; the attribute ``center_kind`` says
        ``generator``, ``cell_center`` or ``vertex_mean``
    * - ``face_family``
      - int32
@@ -790,7 +793,7 @@ and ``descent_pinned``, the list ``descent_dam_foot`` and the mask ``descent_bas
 at the catchment outlet, whose attributes name the outlet cell (``descent_outlet``), the rule that
 found it (``basin_rule``), the area (``basin_area_m2``), whether D was seeded at the outlet
 (``basin_seeded_at_outlet``) and the rule version (``basin_version``). The attributes of
-``descent_receiver`` name the neighbourhood and carry the build report. The solver build leaves D
+``descent_receiver`` name the neighborhood and carry the build report. The solver build leaves D
 and its basin in the solver folder as ``<model>.descent.npz`` and the extractor copies them into
 the store right after the mesh. ``run.descent`` reads them back, and the flow direction map and ``drain_accumulation_flux`` route on it
 (the contract of D is in :doc:`solver/backends`). A Boussinesq run stores the mesh of its
@@ -911,11 +914,11 @@ is meant to be committed and to travel, so it holds no path of the machine that 
 - ``[hydromodpy]`` holds the ``hydromodpy`` version, the git commits, the Python version, the
   catalog, Zarr and Parquet schema versions and the sha256 of the config schema.
 - ``[binaries]`` holds the SHA-256 and the version text of the solver binaries a writer names. The
-  launcher and ``hmp dev lock update`` name none, and each run records the binary it used.
+  launcher and ``hmp lock update`` name none, and each run records the binary it used.
 - ``[[input]]`` is one record per entry of the cache: ``variable``, ``source``, ``station_id``, the
   workspace-relative ``path``, ``sha256``, ``bytes``, ``file_mtime`` and ``fetched_at``, the instant
   of the snapshot. Everything that reads the lock reads this record: the check of ``--frozen``,
-  ``hmp dev lock verify``, a restored archive and the frozen matching of the data cache.
+  ``hmp lock verify``, a restored archive and the frozen matching of the data cache.
 
 The ``prepare`` phase writes it once per plan, never each run.
 ``hmp run --frozen`` refuses any source whose fingerprint changed since, and checks the lockfile
@@ -968,12 +971,12 @@ of every file the run read, addressed by content under ``inputs/``, sidecars inc
 receives one line in ``published.jsonl``. ``.hmp/``, ``logs/``, host, user and absolute paths
 never leave: one function redacts every copy.
 
-The portable package **is** ``hmp publish --with results --with inputs --format tar``. Importing
+The portable package **is** ``hmp publish --with results --with inputs --container tar``. Importing
 it (``hmp catalog import``) installs every file of ``INSTALL.toml`` into ``data/`` of the
 workspace (identical bytes cost nothing, other bytes at one path are refused by name), merges the
 station rows, registers the delivered files in ``data/cache.duckdb`` and the site in
 ``data/sites/catalog.csv``, then extracts the run under ``runs/`` and runs an incremental
-reindex. ``hmp project export`` writes a whole project on the same index, and
+reindex. ``hmp publish --package`` writes a whole project on the same index, and
 ``hmp project import`` installs it as ``projects/<name>``.
 
 Reading one cell
@@ -985,7 +988,7 @@ A finished run answers for one precise cell, after the fact.
 (``results/derive/virtual_fields``) to a run, and exposes the gesture as
 ``run.probe.series`` and ``group.probe.series``. The cell is named by
 project-CRS coordinates, by its zero-based index, or by a depth in
-metres below the local model top that picks the layer. A virtual field
+meters below the local model top that picks the layer. A virtual field
 (``watertable_depth`` ...) answers exactly like a persisted one, so a
 map read and a point read can never disagree.
 
@@ -1032,7 +1035,7 @@ extraction, while it still holds its fields
 ``sample_declared_observation_points``). A declaration mistake is logged
 and skipped: it must not lose a run whose results are already in.
 
-Both halves of a declared point are run artefacts. The series lands in
+Both halves of a declared point are run artifacts. The series lands in
 ``tables.parquet/timeseries.parquet`` under the station id
 ``obs:<point id>``, so a declared probe never collides with a solver
 station (gauge, SFR reach, lake). The declaration itself lands in
@@ -1075,7 +1078,7 @@ Known limit
 timestep sits in one chunk as long as it fits that budget
 (``hydromodpy/results/zarr_store/chunks.py``). Reading one cell across time is a single Zarr
 call, but it decompresses every chunk the time axis crosses, so a point series pays for the
-neighbouring cells it never uses. A cell-major layout, or a second copy laid out that way, would
+neighboring cells it never uses. A cell-major layout, or a second copy laid out that way, would
 make it cheap, and neither exists.
 
 **A network file system is not supported.** ``os.mkdir``, ``rename`` and the file locks depend on

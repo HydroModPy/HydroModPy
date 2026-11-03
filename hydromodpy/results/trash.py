@@ -207,7 +207,7 @@ def check_not_running(directory: Path, rel_dir: str, *, force: bool = False) -> 
     if state == "stale" and not force:
         raise DirectoryInUseError(
             f"{rel_dir} is stale: its attempt stopped beating without an outcome. "
-            "`hmp catalog gc --apply` marks it aborted; --force acts on it as it is."
+            "`hmp catalog gc -y` marks it aborted; --force acts on it as it is."
         )
 
 

@@ -60,7 +60,7 @@ def _coalesce(row: dict[str, Any], key: str) -> Any:
 
 @dataclass(frozen=True)
 class AssetEntry:
-    """One referenced artefact (Zarr, Parquet, COG, lockfile)."""
+    """One referenced artifact (Zarr, Parquet, COG, lockfile)."""
 
     key: str
     relative_path: str

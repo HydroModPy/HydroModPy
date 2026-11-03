@@ -6,9 +6,10 @@
 solvers = ["boussinesq"]
 
 [flow]
-runtime_backend = "petsc"
-surface_interaction_model = "vi_obstacle"
 
+[flow.runtime]
+backend = "petsc"
+surface_interaction_model = "vi_obstacle"
 [mesh]
 engine = "triangle"
 

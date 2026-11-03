@@ -12,7 +12,7 @@ Three grids run the same strip. ``modflow6`` is a rectilinear DIS column.
 ``modflow6_irregular_tri`` and ``modflow6_voronoi`` are DISV strips of
 jittered triangles and Voronoi polygons (``tests/validation/helpers/disv_meshes.py``),
 the topology HydroModPy always gives PRT. The end cells hold the exact linear
-head at their centres, so the flow is uniform for any mesh whose flux is
+head at their centers, so the flow is uniform for any mesh whose flux is
 consistent. The triangle strip has a p95 connection non-orthogonality of 40 deg,
 above the 30 deg trigger, so HydroModPy's rule switches XT3D on and the test runs
 with it; the Voronoi strip is orthogonal and runs with the two-point flux.
@@ -85,7 +85,7 @@ def _run_prt_strip(
 ) -> tuple[float, float, str]:
     """Run flow + PRT on the strip and return ``(x error, y drift, grid note)``.
 
-    Both errors are relative to the distance ``v t`` travelled at the last
+    Both errors are relative to the distance ``v t`` traveled at the last
     track time. ``modflow6`` is the rectilinear DIS column; the other solvers
     are DISV strips. ``force_xt3d`` overrides HydroModPy's XT3D rule (control runs).
     """
@@ -93,7 +93,7 @@ def _run_prt_strip(
 
     exe = str(ensure_solver_binary("mf6"))
     porosity = 0.25
-    x0 = 2.5  # centre of the third unit-wide cell
+    x0 = 2.5  # center of the third unit-wide cell
     y0 = 0.5 if solver == "modflow6" else 0.5 * STRIP_WIDTH_M
     track_times = [20.0, 40.0]
     head_left, head_right = 2.0, 1.0

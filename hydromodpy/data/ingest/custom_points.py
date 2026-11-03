@@ -78,6 +78,9 @@ def load_custom_points(
         Frequency if not parseable from filename.
     expand_constants : bool
         Expand single-row CSVs to daily series over project_period.
+    source_unit_override : str or None
+        Unit of the values for a station whose LOC row has none. A LOC unit
+        that differs from it is refused, not chosen between.
     """
     if not data_dir.is_dir():
         raise FileNotFoundError(f"Custom data directory not found: {data_dir}")
@@ -128,7 +131,16 @@ def load_custom_points(
 
         # Unit conversion
         if clamp_values is None:
-            source_unit = _resolve_station_unit(loc, default_unit=default_unit)
+            source_unit = _resolve_station_unit(
+                loc, default_unit=source_unit_override or default_unit
+            )
+            declared = str(loc.metadata.get("unit") or "").strip()
+            if source_unit_override and declared and declared != source_unit_override:
+                raise ValueError(
+                    f"Station {loc.id!r} has unit {declared!r} in its LOC file and "
+                    f"source_unit = {source_unit_override!r} in the config. Drop one of "
+                    "them, or make them agree."
+                )
             df["value"] = convert_array(df["value"], source_unit, internal_unit)
         else:
             source_unit = source_unit_override or internal_unit

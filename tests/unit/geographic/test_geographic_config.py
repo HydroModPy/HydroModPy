@@ -33,7 +33,7 @@ def _project_toml(tmp_path, geographic: str) -> HydroModPyConfig:
 
 
 def _standard(**overrides: object) -> dict:
-    return {"catchment": {"catch_def": "dem", "dem_init_path": __file__}, **overrides}
+    return {"catchment": {"kind": "dem", "dem_init_path": __file__}, **overrides}
 
 
 def test_a_synthetic_support_needs_no_catchment_even_from_a_project_file(tmp_path) -> None:
@@ -45,7 +45,7 @@ def test_a_synthetic_support_needs_no_catchment_even_from_a_project_file(tmp_pat
     assert project.geographic.uses_synthetic_geographic() is True
 
 
-_TXT = {"catch_def": "txt", "dem_init_path": "dem.xyz"}
+_TXT = {"kind": "txt", "dem_init_path": "dem.xyz"}
 
 
 @pytest.mark.parametrize(
@@ -53,12 +53,12 @@ _TXT = {"catch_def": "txt", "dem_init_path": "dem.xyz"}
     [
         pytest.param(
             {"source_mode": "standard"},
-            "geographic.catchment.catch_def is required when",
+            "geographic.catchment.kind is required when",
             id="standard-without-catch-def",
         ),
         pytest.param(
             {
-                "catch_def": "from_outlet_coord",
+                "kind": "from_outlet_coord",
                 "dem_init_path": "d.tif",
                 "x_outlet": 1.0,
                 "y_outlet": 2.0,
@@ -176,10 +176,10 @@ def test_an_outlet_document_with_a_correction_it_cannot_carry_is_refused(section
 @pytest.mark.parametrize(
     ("build", "match"),
     [
-        pytest.param(lambda: GeographicConfig.from_dem("dem.tif", **_ON), "catch_def", id="notch"),
+        pytest.param(lambda: GeographicConfig.from_dem("dem.tif", **_ON), "kind", id="notch"),
         pytest.param(
             lambda: GeographicConfig.from_dem("dem.tif", river_network=BENCH_RIVER, **_BED),
-            "catch_def = dem",
+            "kind = dem",
             id="bed",
         ),
         pytest.param(lambda: GeographicConfig.synthetic_case(**_ON), "synthetic", id="synthetic"),

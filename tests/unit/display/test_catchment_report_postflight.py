@@ -92,3 +92,37 @@ def test_postflight_reports_dangling_copied_paths(tmp_path) -> None:
     assert payload["missing_figures"] == []
     assert payload["dangling_figures"] == ["alpha", "beta"]
     assert payload["dangling_count"] == 2
+
+
+def test_an_optional_figure_is_not_expected_when_the_manifest_names_none(tmp_path) -> None:
+    from hydromodpy.display.catchment_report.block_specs import (
+        BlockFigureSpec,
+        ReportBlockSpec,
+    )
+
+    preset = CatchmentReportPreset(
+        name="test",
+        artifact_specs=(
+            artifact_spec("alpha", artifact_candidate("context_assets", "alpha.png")),
+            artifact_spec("beta", artifact_candidate("context_assets", "beta.png")),
+        ),
+        block_specs=(
+            ReportBlockSpec(
+                block_id="b",
+                title="B",
+                lead="",
+                content_key="b",
+                figures=(
+                    BlockFigureSpec("compact", "alpha", "Alpha"),
+                    BlockFigureSpec("compact", "beta", "Beta", required=False),
+                ),
+            ),
+        ),
+    )
+    output_dir = tmp_path / "report"
+    output_dir.mkdir()
+    (output_dir / "block_report_manifest.json").write_text("{}", encoding="utf-8")
+
+    path = write_figure_postflight_report(_Config(output_dir, preset), strict=False)
+
+    assert json.loads(path.read_text(encoding="utf-8"))["expected_figures"] == ["alpha"]

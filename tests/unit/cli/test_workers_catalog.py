@@ -52,6 +52,14 @@ def test_list_simulations_filters(tmp_path: Path) -> None:
     assert list_simulations(workspace, limit=1).shape[0] == 1
 
 
+def test_the_solver_filter_matches_a_run_that_stored_a_solver_list(tmp_path: Path) -> None:
+    workspace, project, _sim_id = _seed_workspace(tmp_path)
+    seal_run(project, "chain", solver="modflow6,modpath", nse=0.7)
+    rebuild_index(project)
+
+    assert set(list_simulations(workspace, solver="modflow6")["name"]) == {"variant", "chain"}
+
+
 def test_list_simulations_without_an_index_is_empty(tmp_path: Path) -> None:
     workspace = tmp_path / "ws"
     workspace.mkdir()

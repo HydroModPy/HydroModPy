@@ -102,7 +102,7 @@ def build_drainage_mover_records(
     cells, the walk ends on the one lower on the solver top ``mesh_top``.
 
     ``basin_cell_mask`` (bool, indexed by cell2d) restricts routing to the basin
-    of D. A DRN cell outside it drains to a neighbouring basin and keeps a plain
+    of D. A DRN cell outside it drains to a neighboring basin and keeps a plain
     DRN, so the aquifer heads are unchanged and only the destination differs.
 
     The MVR provider id of a list-based package is the boundary's position in

@@ -1,7 +1,7 @@
-"""A vector layer projected onto mesh cells, by touch, by centre or by area share.
+"""A vector layer projected onto mesh cells, by touch, by center or by area share.
 
 A linework reaches every cell its geometry touches, an areal layer the cells
-whose centre it holds (``vector_cell_mask``). A cell weighs by the share of its
+whose center it holds (``vector_cell_mask``). A cell weighs by the share of its
 area inside an areal layer (``cell_area_fraction``, D08, the GSFLOW overlay):
 the centroid rule counts a boundary cell whole or not at all, the share gives
 it the part of its area inside the polygon, so a cell field summed with these
@@ -137,7 +137,7 @@ def test_geometries_are_reprojected_into_the_mesh_frame():
 
 
 def test_mislabelled_geometry_crs_finds_nothing():
-    # Control for the test above: degrees read as metres land nowhere near the mesh.
+    # Control for the test above: degrees read as meters land nowhere near the mesh.
     from pyproj import Transformer
     from shapely.ops import transform
 
@@ -169,7 +169,7 @@ def test_an_areal_layer_by_touch_keeps_a_full_exterior_ring():
     touched = _mask(vertices, connectivity, [middle])
     centred = _mask(vertices, connectivity, [middle], rule="centroid")
 
-    # Touch takes the whole 3 x 3 block, the eight neighbours sharing an edge
+    # Touch takes the whole 3 x 3 block, the eight neighbors sharing an edge
     # or a corner with the polygon boundary. The centroid rule takes the one
     # cell the polygon really covers.
     assert touched.sum() == 9
@@ -178,13 +178,13 @@ def test_an_areal_layer_by_touch_keeps_a_full_exterior_ring():
 
 def test_the_centroid_rule_keeps_a_cell_straddling_the_boundary_by_its_centre():
     vertices, connectivity = _quad_grid()
-    # The polygon covers the left 60 m of the middle column, so the centre of
+    # The polygon covers the left 60 m of the middle column, so the center of
     # the middle cell (150, 150) is inside while most of its area is not.
     polygon = Polygon([(100.0, 100.0), (160.0, 100.0), (160.0, 200.0), (100.0, 200.0)])
     centred = _mask(vertices, connectivity, [polygon], rule="centroid")
     assert np.flatnonzero(centred).tolist() == [4]
 
-    # Shifted so the centre falls outside, the same overlap is dropped.
+    # Shifted so the center falls outside, the same overlap is dropped.
     outside = Polygon([(100.0, 100.0), (140.0, 100.0), (140.0, 200.0), (100.0, 200.0)])
     assert not _mask(vertices, connectivity, [outside], rule="centroid").any()
 
@@ -193,7 +193,7 @@ def test_a_linework_would_lose_half_its_cells_under_the_centroid_rule():
     vertices, connectivity = _quad_grid()
     line = LineString([(10.0, 150.0), (290.0, 150.0)])
     assert _mask(vertices, connectivity, [line]).sum() == 3
-    # The line runs through the cell centres of the middle row here, but a line
+    # The line runs through the cell centers of the middle row here, but a line
     # that does not is dropped entirely, which is why touch is the linework rule.
     off_centre = LineString([(10.0, 190.0), (290.0, 190.0)])
     assert _mask(vertices, connectivity, [off_centre]).sum() == 3
@@ -301,7 +301,7 @@ KM_POLYGONS = cell_polygons(KM.vertices, KM.flat_connectivity)
 
 @st.composite
 def _star_polygons(draw) -> Polygon:
-    """A polygon star-shaped about a centre on the grid, with 3 to 12 corners."""
+    """A polygon star-shaped about a center on the grid, with 3 to 12 corners."""
     cx = draw(st.floats(0.0, 1000.0))
     cy = draw(st.floats(0.0, 1000.0))
     radii = draw(st.lists(st.floats(5.0, 600.0), min_size=3, max_size=12))

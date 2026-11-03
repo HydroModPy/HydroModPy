@@ -36,13 +36,13 @@ climbs faster away from the channel than along it and its steepest descent heads
 into the channel.
 
 The tolerance $\eta$ is twice the drop under which the receiver graph sees no
-descent. With $\Delta z$ the range of the top over the routable cells, in metres,
+descent. With $\Delta z$ the range of the top over the routable cells, in meters,
 
 $$
 \eta = 2 \max\bigl(10^{-9},\ 10^{-9} \max(\Delta z,\ 1)\bigr)\ \mathrm{m},
 $$ (eq-flood-tolerance)
 
-that is $2 \times 10^{-9}$ m when the relief is under a metre, and
+that is $2 \times 10^{-9}$ m when the relief is under a meter, and
 $2 \times 10^{-9}$ times the relief above. A cell within $\eta$ of the flood
 level is raised too, so that no link of the receiver graph drops by less than the
 tolerance of that graph.
@@ -58,7 +58,7 @@ In the code: `build_descent`.
 ## The receivers
 
 On the filled copy, the receiver $r(n)$ of a cell is its steepest-descent
-neighbour {cite:p}`ocallaghan1984`. Only the neighbours lower by more than the
+neighbor {cite:p}`ocallaghan1984`. Only the neighbors lower by more than the
 tolerance $\eta_r = 10^{-9} \max(\Delta\tilde z,\ 1)$ m count, where
 $\Delta\tilde z$ is the range of the filled copy:
 
@@ -70,10 +70,10 @@ $$ (eq-receiver)
 
 The filled range is a little wider than the range of the top, and the factor 2 of
 {eq}`eq-flood-tolerance` covers that difference. The distance is between cell
-centres, so a diagonal step on a square grid is $\sqrt 2$ cells long and wins only
+centers, so a diagonal step on a square grid is $\sqrt 2$ cells long and wins only
 when it is steeper.
 
-The neighbours $\mathcal{N}_D(n)$ are the cells that share a node with $n$ on a
+The neighbors $\mathcal{N}_D(n)$ are the cells that share a node with $n$ on a
 quad mesh (diagonals included, as in the D8 descent) and the cells that share a
 face on any other mesh. A seed keeps its steepest descent too, so that an
 accumulation passes through a fixed-head cell. The walks that must end where water
@@ -87,18 +87,18 @@ cell reaches a seed. The build refuses a $D$ where a cell has no way down.
 
 A 3 by 3 grid of squares of 10 m, with a pit in the middle and a lower cell on
 the south side. The seeds are the eight rim cells, and a seed keeps its top. The
-flood starts at the lowest, the south cell at 4 m, and reaches the centre. The
-centre is below the flood level, so it takes $4 + 0.001$ m.
+flood starts at the lowest, the south cell at 4 m, and reaches the center. The
+center is below the flood level, so it takes $4 + 0.001$ m.
 
 ```{eval-rst}
 .. plot:: theory/figures/exits_pit.py
-   :alt: Two 3 by 3 grids. On the left, the tops: 5 m everywhere except 3 m in the centre and 4 m on the south side. On the right, the filled copy, where the centre holds 4.001 m, and arrows from each cell to its receiver.
+   :alt: Two 3 by 3 grids. On the left, the tops: 5 m everywhere except 3 m in the center and 4 m on the south side. On the right, the filled copy, where the center holds 4.001 m, and arrows from each cell to its receiver.
 
    The model top, and the filled copy with the receiver of each cell, from one
-   call of ``build_descent``. The five northern cells drain to the centre, now
-   the lowest neighbour. The two southern corners drain to the south cell: it
-   drops 1 m over 10 m, the centre 0.999 m over 14.1 m. The centre drains south.
-   The south cell has no lower neighbour, and water leaves the model there. The
+   call of ``build_descent``. The five northern cells drain to the center, now
+   the lowest neighbor. The two southern corners drain to the south cell: it
+   drops 1 m over 10 m, the center 0.999 m over 14.1 m. The center drains south.
+   The south cell has no lower neighbor, and water leaves the model there. The
    pit is raised on :math:`D` only: its top in the solver stays 3 m.
 ```
 
@@ -142,10 +142,10 @@ these ways.
 | Lakes | crossed, flooded to their spill level | part of the graph, removed from the supports of the means |
 | Channel | pinned to the generated network | free |
 | Raised cells | below the flood level, or within $\eta$ above it | below the flood level |
-| Neighbours | D8 on a quad mesh | D8 on a quad mesh unless {toml}`diagonal_neighbors\|calibration.outputs.<name>.diagonal_neighbors` is false |
+| Neighbors | D8 on a quad mesh | D8 on a quad mesh unless {toml}`diagonal_neighbors\|calibration.outputs.<name>.diagonal_neighbors` is false |
 
 Both use the step $\epsilon$ of 1 mm off a channel. The flood and the receivers
-always read the same neighbour graph: a flood that walked eight neighbours while
+always read the same neighbor graph: a flood that walked eight neighbors while
 the receivers read four would leave filled cells that spill over a diagonal the
 receivers cannot take.
 
@@ -158,7 +158,7 @@ receivers cannot take.
 ## Limits
 
 - **Meshes without diagonals.** On a mesh whose faces are not all quadrilaterals,
-  the neighbours are the cells sharing a face, whatever the key asks.
+  the neighbors are the cells sharing a face, whatever the key asks.
 - **A run stored before $D$ was kept** routes on a $D$ rebuilt without pins,
   fixed-head seeds or lakes.
 

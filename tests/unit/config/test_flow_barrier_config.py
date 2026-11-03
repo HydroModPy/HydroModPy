@@ -82,7 +82,7 @@ def test_nests_as_lake_cutoff_wall_and_survives_the_binder_normalizer() -> None:
     lake = FlowLakeConfig.model_validate(
         {
             "bedleak": 1e-6,
-            "stageinit": "81.82 m",
+            "initial_stage": "81.82 m",
             "cutoff_wall": {
                 "line": [[331142.0, 6780439.3], [331119.4, 6780718.7]],
                 "depths": [10.0],

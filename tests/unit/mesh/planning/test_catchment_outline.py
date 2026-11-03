@@ -279,7 +279,7 @@ def _pulled_off_corner(stair: Polygon, index: int) -> tuple[float, float]:
 
 
 def _inward(point: tuple[float, float], length: float) -> np.ndarray:
-    """The point *length* metres from *point* toward the middle of the catchment."""
+    """The point *length* meters from *point* toward the middle of the catchment."""
     toward = _CENTRE - np.array(point)
     return np.array(point) + length * toward / np.hypot(*toward)
 

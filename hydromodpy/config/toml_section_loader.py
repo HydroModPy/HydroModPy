@@ -157,14 +157,14 @@ def _resolve_catchment_paths(
     """Resolve relative paths inside the ``catchment`` block (in-place).
 
     Mirrors ``_resolve_section_paths`` but operates on the discriminated
-    catchment variant identified by ``catch_def``.
+    catchment variant identified by ``kind``.
     """
     from hydromodpy.spatial.geographic import catchment_config as _geo_cfg
 
     catchment = payload.get("catchment")
     if not isinstance(catchment, Mapping):
         return
-    catch_def = str(catchment.get("catch_def", "")).strip()
+    catch_def = str(catchment.get("kind", "")).strip()
     variant_name = _CATCHMENT_VARIANT_BY_KEY.get(catch_def)
     if variant_name is None:
         return

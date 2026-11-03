@@ -4,7 +4,7 @@ Everything this tier asserts is read from a run a stranger could have produced:
 one ``hmp run`` on a committed example project, through the real CLI. The
 project is the synthetic Dupuit aquifer of ``examples/projects/00_getting_started``
 because it is the cheapest complete pipeline in the repository (four seconds,
-no network, no DEM) and it still writes every artefact the contract names.
+no network, no DEM) and it still writes every artifact the contract names.
 """
 
 from __future__ import annotations

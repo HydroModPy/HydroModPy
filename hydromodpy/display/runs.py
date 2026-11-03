@@ -419,7 +419,7 @@ def render_figure(
     else:
         target = Path(save)
         # Treat suffix-less paths as a directory; anything with an extension
-        # is a complete file path the caller wants honoured verbatim.
+        # is a complete file path the caller wants honored verbatim.
         save_path = target / f"{figure_name}.png" if target.suffix == "" else target
     if dpi is not None:
         opts["dpi"] = dpi
@@ -559,7 +559,7 @@ def regen_figures(sim: Run, run_dir: Path, *, dpi: int = 150) -> FigureRenderRep
     if not entries:
         raise ValueError(
             f"{figures_dir} records no figure to draw again. Draw one with "
-            "'hmp viz show <run> <figure> --save' or list figures in [display]."
+            "'hmp viz show <run> <figure> --to FILE' or list figures in [display]."
         )
     rendered: list[str] = []
     written: list[Path] = []

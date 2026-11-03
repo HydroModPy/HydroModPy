@@ -31,23 +31,19 @@ def test_transport_mapping_config_populates_all_solver_parameter_blocks() -> Non
     assert transport.parameters["modflow6prt"] is transport.modflow6prt.parameters
 
 
-def test_transport_config_dump_excludes_inherited_process_fields() -> None:
-    cfg = TransportConfig(
-        param_list=["legacy"],
-        param={"legacy": True},
-        ic={"legacy": 1},
-        bc={"legacy": 2},
-        sinks_sources={"legacy": 3},
-        mt3dms={"parameters": {"sconc_init": 7.5, "disp_long": 12.0}},
-    )
+@pytest.mark.parametrize("name", ["param_list", "param", "ic", "bc", "sinks_sources"])
+def test_transport_config_has_no_field_of_a_flow_process(name: str) -> None:
+    assert name not in TransportConfig.model_fields
+    assert not any(field.startswith("active_") for field in TransportConfig.model_fields)
+    with pytest.raises(ValidationError):
+        TransportConfig(**{name: {}})
+
+
+def test_transport_config_dump_holds_the_solver_parameters() -> None:
+    cfg = TransportConfig(mt3dms={"parameters": {"sconc_init": 7.5, "disp_long": 12.0}})
 
     dumped = cfg.model_dump()
 
-    assert "param_list" not in dumped
-    assert "param" not in dumped
-    assert "ic" not in dumped
-    assert "bc" not in dumped
-    assert "sinks_sources" not in dumped
     assert dumped["mt3dms"]["parameters"]["sconc_init"] == 7.5
     assert dumped["mt3dms"]["parameters"]["disp_long"] == 12.0
 
@@ -78,12 +74,12 @@ def test_transport_update_helpers_keep_public_parameter_mapping_in_sync() -> Non
     transport.update_modpath_parameters(sel_slice=2)
     transport.update_mt3dms_parameters(sconc_init=3.0)
     transport.update_modflow6gwt_parameters(diffu_coeff=1.0e-6)
-    transport.update_modflow6prt_parameters(stop_time_days=20.0)
+    transport.update_modflow6prt_parameters(stop_time=20.0)
 
     assert transport.parameters["modpath"]["sel_slice"] == 2
     assert transport.parameters["mt3dms"]["sconc_init"] == 3.0
     assert transport.parameters["modflow6gwt"]["diffu_coeff"] == 1.0e-6
-    assert transport.parameters["modflow6prt"]["stop_time_days"] == 20.0
+    assert transport.parameters["modflow6prt"]["stop_time"] == 20.0
 
 
 def test_transport_initial_conditions_are_structural_and_validated() -> None:
@@ -120,7 +116,7 @@ def test_transport_rejects_non_mapping_config_and_parameters() -> None:
         {"upstream_top_quantile": 1.01},
         {"local_z": -0.01},
         {"porosity": 0.0},
-        {"track_time_step_days": 0.0},
+        {"track_time_step": 0.0},
         {"track_dir": "backward"},
     ],
 )

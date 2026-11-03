@@ -691,3 +691,23 @@ def test_a_calibration_that_sampled_nothing_is_refused_by_every_grid_figure() ->
         CalibrationPairplotFigure().plot(costs_only)
     with pytest.raises(ValueError, match="spans exactly two parameters"):
         CalibrationObjectiveSurfaceFigure().plot(costs_only)
+
+
+def test_a_run_promoted_from_a_session_feeds_the_calibration_figures(monkeypatch, tmp_path) -> None:
+    """The trials are the journal of the session, not a table of the run."""
+    run = SimpleNamespace(
+        sim_id="sim-d",
+        solver="modflow6",
+        has_field=lambda *_a, **_k: True,
+        has_table=lambda _name: False,
+    )
+    figure = CalibrationConvergenceFigure()
+    monkeypatch.setattr(
+        "hydromodpy.results.calibration_trials.session_dir_of", lambda _source, **_: None
+    )
+    assert "calibration_iterations" in (figure.unavailable_reason(run) or "")
+
+    monkeypatch.setattr(
+        "hydromodpy.results.calibration_trials.session_dir_of", lambda _source, **_: tmp_path
+    )
+    assert figure.unavailable_reason(run) is None

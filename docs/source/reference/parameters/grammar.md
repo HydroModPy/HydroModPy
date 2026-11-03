@@ -19,7 +19,7 @@ stages of a calibration and its objective blocks.
 ```{hmp-toml}
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [flow.param.K.field]
@@ -43,8 +43,8 @@ Three rules hold for the whole file.
   `Unknown TOML key(s) in [flow]: flow_regme`.
 - Two things are required in every file: a `[site]` with {toml}`site.name` when the file
   models a real catchment, and `[geographic]`. In its standard mode, `[geographic]` needs
-  `[geographic.catchment]` with {toml}`geographic.catchment.catch_def`, and
-  `catch_def = "dem"` needs {toml}`geographic.catchment.dem_init_path`. With these keys,
+  `[geographic.catchment]` with {toml}`geographic.catchment.kind`, and
+  `kind = "dem"` needs {toml}`geographic.catchment.dem_init_path`. With these keys,
   `hmp config check` accepts the file. `[workflow]` can be left out: the sections of the file
   say what it does. A file never writes the project root: it is the folder that holds
   `project.toml`.
@@ -195,8 +195,8 @@ bare number is in the unit shown, and a string needs a unit: `"150"` is refused.
 
 | Kind of field | A bare number is in | Strings read | Examples |
 |---|---|---|---|
-| a length | metres | `"150 m"`, `"0.15 km"`, `"15000 cm"`, converted to metres | {toml}`geographic.catchment.snap_dist`, {toml}`domain.depth_model.thickness` |
-| a length in millimetres | mm | `"150 mm"`, `"15 cm"`, `"0.15 m"` | {toml}`flow.sinks_sources.recharge.soil.ru` |
+| a length | meters | `"150 m"`, `"0.15 km"`, `"15000 cm"`, converted to meters | {toml}`geographic.catchment.snap_dist`, {toml}`domain.depth_model.thickness` |
+| a length in millimeters | mm | `"150 mm"`, `"15 cm"`, `"0.15 m"` | {toml}`flow.sinks_sources.recharge.soil.ru` |
 | a duration in days | days | `"5 days"`, `"1 week"`, `"12 h"` | {toml}`flow.sinks_sources.recharge.soil.transit_time` |
 | a volumetric flow | m3/s | `"36 L/s"`, `"10 m^3/h"` | {toml}`flow.sinks_sources.wells.<name>.forcing.value` |
 | a flux density | m/s | `"2 mm/day"`, `"500 mm/yr"` | {toml}`flow.ic.h.rate` |
@@ -230,10 +230,40 @@ value = "4.3 m/day"
 
 Three more cases. {toml}`geographic.catchment.buff_area` is the only field that reads a
 percentage: `"10%"` enlarges the catchment area by 10 %, `"500 m"` or `"2 km"`
-is a distance, and a bare number keeps an older rule that the field warns about. Some
+is a distance, and `"10% of sqrt(area)"` is the rule of version 1 written out. A bare number
+still reads as that rule and warns, and `hmp doctor --fix-config` rewrites it in the explicit
+form with the same distance. Some
 keys carry the unit in a sibling key, as in {toml}`flow.sinks_sources.lakes.<name>.bedleak_unit`.
 And a field that takes a list of values takes one value too: `variables = "budget"` and
 `variables = ["head", "budget"]` are both read by {toml}`export.variables`.
+
+### A bare number keeps the unit it always had
+
+A bare number has no unit of its own. It is read in the unit its table has always read, and
+no release changes that meaning. To write another unit, write a string with the unit, or the
+sibling `unit` key where the table has one. The table gives the unit by section.
+
+| Section | A bare number is in |
+|---|---|
+| `[geographic.catchment]` lengths (`snap_dist`, `dem_resolution`) | meters |
+| `[domain.depth_model]` thicknesses and depths | meters |
+| `[data.recharge]` and `[flow.sinks_sources.recharge]` values | mm/day |
+| `[flow.sinks_sources.etp]` values | mm/day, as its `units` key says |
+| `[flow.sinks_sources.recharge.soil]` depths | millimeters |
+| `[flow.sinks_sources.wells]` rates and forcings | m3/s |
+| `[flow.sinks_sources.lakes]` and `[flow.sinks_sources.sfr]` rates | m3/s |
+| a head boundary `value` in `[flow.bc]` | meters |
+| a flux boundary forcing in `[flow.bc]` | m/s |
+| `[flow.param.<id>.field]` value | the unit of the name (`K` in m/s, `Ss` in 1/m, `Sy` without unit), or its `unit` key |
+| `[solver]` depths and thicknesses (`drain_band_depth_m`, `drain_bed_thickness_m`) | meters |
+| `[transport.modflow6prt.parameters]` times | days |
+| `[transport.modflow6gwt]` and `[transport.mt3dms]` rates and diffusion | seconds, the clock of the two solvers |
+| `[simulation.time]` `step_value` | the `step_unit` beside it |
+| `[calibration.parameters]` bounds | the unit the target declares |
+
+The `unit` of each field in the generated reference repeats this when the code states it. A
+field whose unit depends on the model, such as the closure criteria of the solvers, has no
+`unit` in the reference, and its description says what it reads.
 
 ## Dates and durations
 
@@ -317,7 +347,7 @@ match a name written elsewhere.
 | Table | The key is | It must match |
 |---|---|---|
 | {toml}`flow.param.<id>` | a parameter name: `K`, `Sy`, `Ss` | an entry of {toml}`flow.param_list`; `field.id`, if written, is the same name |
-| {toml}`flow.bc.<name>` | one of `drainage`, `ocean`, `stream`, `north_side`, `south_side`, `east_side`, `west_side` | the same id in {toml}`flow.active_bc`; a table is optional when the registry describes the boundary |
+| {toml}`flow.bc.<name>` | one of `drainage`, `ocean`, `stream`, `north_side`, `south_side`, `east_side`, `west_side` | nothing: the table turns the boundary on, even empty, and `enabled = false` in it turns it off |
 | {toml}`flow.sinks_sources.wells.<name>`, `lakes`, `sfr`, `flow_barriers` | a name you choose | for a lake, the `lake_id` of a calibration output with `support = "lake"` |
 | {toml}`domain.supports.<name>` | a name you choose | `field_spatial_id` of the parameters that use it, and `data.geology.id` for a geology support |
 | {toml}`calibration.parameters.<name>` | `K`, `Sy`, `Ss`, `thickness` or `drainage` resolve to their target; any other name needs `path` | `parameters` of a calibration phase |
@@ -355,6 +385,25 @@ The links of this site accept both spellings: `flow.param.K.field.value` and
 `flow.param.<id>.field.value` lead to the same card. {doc}`explorer` shows every key of
 the file as a tree.
 
+## One rule switches a boundary on
+
+A boundary, a sink or a source is active when its table is declared, and `enabled = false`
+keeps the table and switches it off. There is no list of what is active. An empty table is
+enough when nothing is left to say:
+
+```toml
+[flow.bc.drainage]               # drains at the top, conductance from K
+
+[flow.sinks_sources.recharge]    # the rate comes from [data.recharge]
+
+[flow.bc.ocean]
+value = 0.0
+enabled = false                  # kept for later, builds nothing
+```
+
+The tables are {toml}`flow.bc.<name>`, `[flow.sinks_sources.recharge]`, `[flow.sinks_sources.etp]`,
+and one table per entry of `wells`, `lakes`, `sfr` and `flow_barriers`.
+
 ## Profiles
 
 Every key has a profile: `user`, `dev` or `expert`. Of the 1760 keys of the registry, 1058 are
@@ -368,8 +417,8 @@ hmp config template --profile user
 hmp config schema --section flow --profile dev
 ```
 
-One case needs care. A choice can require keys of a higher profile: `mode = "tabulated"`
-of {toml}`flow.param.<id>.field_vertical_profile.mode` needs `depths` and `factors`, and
+One case needs care. A choice can require keys of a higher profile: `kind = "tabulated"`
+of {toml}`flow.param.<id>.field_vertical_profile.kind` needs `depths` and `factors`, and
 both are tagged `dev`. The `profile` key of `[workflow]` is unrelated: it times a run.
 
 ## Check a file

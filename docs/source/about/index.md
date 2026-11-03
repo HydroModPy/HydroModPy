@@ -15,6 +15,7 @@ Who builds HydroModPy, how to cite it, where it is used and which version to ins
 Cite <cite>
 Applications and papers <applications>
 Changelog <changelog>
+Changes during the alphas <changes-during-the-alphas>
 Versions and stability <versions>
 Work with us <work-with-us>
 ```

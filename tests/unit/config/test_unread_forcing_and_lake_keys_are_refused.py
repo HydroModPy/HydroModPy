@@ -8,21 +8,13 @@ from pydantic import ValidationError
 from hydromodpy.data.variables.lake_bathymetry.config import LakeBathymetryConfig
 from hydromodpy.data.variables.lake_geometry.config import LakeGeometryConfig
 from hydromodpy.physics.base.forcing import CsvForcing
-from hydromodpy.physics.flow.boundary_conditions import FlowBoundaryForcingCsvConfig
-from hydromodpy.physics.flow.sinks_sources.wells import FlowWellForcingCsvConfig
 
 
-@pytest.mark.parametrize(
-    "model, payload",
-    [
-        (CsvForcing, {"kind": "csv", "path": "a.csv", "fill_method": "none"}),
-        (FlowWellForcingCsvConfig, {"kind": "csv", "path": "a.csv", "fill_method": "ffill"}),
-        (FlowBoundaryForcingCsvConfig, {"mode": "csv", "path": "a.csv", "fill_method": "bfill"}),
-    ],
-)
-def test_a_fill_method_is_refused_with_what_decides_instead(model, payload) -> None:
+@pytest.mark.parametrize("fill_method", ["none", "ffill", "bfill"])
+def test_a_fill_method_is_refused_with_what_decides_instead(fill_method) -> None:
+    payload = {"kind": "csv", "path_file": "a.csv", "fill_method": fill_method}
     with pytest.raises(ValidationError, match="coverage_policy"):
-        model.model_validate(payload)
+        CsvForcing.model_validate(payload)
 
 
 @pytest.mark.parametrize("model", [LakeBathymetryConfig, LakeGeometryConfig])

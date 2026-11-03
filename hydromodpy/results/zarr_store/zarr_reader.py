@@ -116,7 +116,7 @@ def _is_time_resolved(variable: str) -> bool:
     Static geometry (``topography``, ``layer_thickness``) has no time
     dimension, so indexing it by timestep would silently return one layer or
     raise. Unregistered variables are assumed time-resolved, which is the
-    historical behaviour for solver-specific arrays.
+    historical behavior for solver-specific arrays.
     """
     from hydromodpy.results import field_registry
 

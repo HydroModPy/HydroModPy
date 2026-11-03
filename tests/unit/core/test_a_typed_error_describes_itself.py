@@ -61,7 +61,7 @@ def test_the_problem_object_carries_the_run_context_only_when_it_has_one() -> No
 
 
 def test_every_exported_class_renders_a_problem_object_from_one_argument() -> None:
-    """A reader serialises whatever it caught. A class whose ``__init__`` needs
+    """A reader serializes whatever it caught. A class whose ``__init__`` needs
     more than a message would raise inside the failure handler."""
     for cls in EXPORTED:
         try:

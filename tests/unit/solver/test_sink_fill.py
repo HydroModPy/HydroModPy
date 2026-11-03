@@ -36,10 +36,10 @@ DRAIN_COND_M2_S = 0.05
 
 
 def _tilted_top(*, dug: bool) -> np.ndarray:
-    """A plane dropping one metre per column, optionally dug at one cell.
+    """A plane dropping one meter per column, optionally dug at one cell.
 
     Every cell drains east to the mesh edge, so the plane alone has no closed
-    depression. Digging one interior cell ten metres down leaves exactly one.
+    depression. Digging one interior cell ten meters down leaves exactly one.
     """
     top = np.repeat(BASE_M - np.arange(NCOL, dtype=float)[None, :], NROW, axis=0)
     if dug:

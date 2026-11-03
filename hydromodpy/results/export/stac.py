@@ -10,7 +10,7 @@ Each simulation maps to one ``Item`` with:
 - ``properties.proj:epsg`` and ``properties.proj:wkt2`` from the catalog
   ``crs_epsg`` / ``crs_wkt`` columns.
 
-The payload is a plain ``dict`` so callers can serialise it without
+The payload is a plain ``dict`` so callers can serialize it without
 ``pystac``; the optional :func:`validate_item` helper relies on
 ``pystac.Item.from_dict`` when the library is installed.
 """

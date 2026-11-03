@@ -26,7 +26,7 @@ class SfrReachNetwork(GeoFigureMixin, BaseFigure):
     """The delineated stream network that the SFR reaches discretize.
 
     Draws the persisted ``generated`` hydrographic network (the exact linework
-    the SFR delineation consumed; per-segment Strahler colouring applies when
+    the SFR delineation consumed; per-segment Strahler coloring applies when
     the persisted layer carries a ``strahler`` column) and annotates the routed
     state read from the store: reach count and the terminal reach's last
     ``downstream_flow``.

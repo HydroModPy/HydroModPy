@@ -92,7 +92,7 @@ def _run_diff(project, capsys, fmt: str) -> str:
 
 
 def test_the_cli_prints_each_variable_with_its_window(project, capsys) -> None:
-    text = _run_diff(project, capsys, "text")
+    text = _run_diff(project, capsys, "table")
     assert f"nse@{STATION}/discharge: 0.6 [2016-01-01/2020-12-31, n=1827]" in text
     assert "0.7 [2018-01-01/2020-12-31, n=1096]" in text
     assert f"nse@{STATION}/level" in text
@@ -101,7 +101,7 @@ def test_the_cli_prints_each_variable_with_its_window(project, capsys) -> None:
 def test_the_cli_json_rows_carry_station_variable_and_windows(project, capsys) -> None:
     import json
 
-    rows = json.loads(_run_diff(project, capsys, "json").splitlines()[-1])["metrics"]
+    rows = json.loads(_run_diff(project, capsys, "json"))["data"]["metrics"]
     discharge = next(row for row in rows if row["variable"] == "discharge")
     assert discharge["station"] == STATION
     assert discharge["a"]["n"] == 1827

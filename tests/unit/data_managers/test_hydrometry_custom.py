@@ -173,3 +173,32 @@ class TestHydrometrySourceConfigDeclaredDefaults:
         cfg = HydrometrySourceConfig()
         assert cfg.source == "hubeau"
         assert cfg.product == "QmnJ"
+
+
+def _station_folder(tmp_path, *, loc_unit=None):
+    folder = tmp_path / "hydro_cfg_unit"
+    folder.mkdir()
+    loc = {"id": ["ST01"], "x": [-1.5], "y": [48.1], "crs": ["EPSG:4326"]}
+    if loc_unit is not None:
+        loc["unit"] = [loc_unit]
+    pd.DataFrame(loc).to_csv(folder / "hydrometry_custom_LOC.csv", index=False)
+    dates = pd.date_range("2020-01-01", "2020-03-31", freq="D")
+    pd.DataFrame({"datetime": dates, "value": 2500.0}).to_csv(
+        folder / "hydrometry_custom_ST01_20200101_20200331_D.csv", index=False
+    )
+    return folder
+
+
+def test_the_source_unit_of_the_config_converts_a_folder_without_loc_units(tmp_path):
+    cfg = HydrometrySourceConfig(source="custom", path=_station_folder(tmp_path), source_unit="L/s")
+    records = _load_custom(cfg)
+    assert records[0].data["value"].iloc[0] == pytest.approx(2.5)
+    assert records[0].source_unit == "L/s"
+
+
+def test_a_source_unit_that_contradicts_the_loc_unit_is_refused(tmp_path):
+    cfg = HydrometrySourceConfig(
+        source="custom", path=_station_folder(tmp_path, loc_unit="m3/s"), source_unit="L/s"
+    )
+    with pytest.raises(ValueError, match="source_unit"):
+        _load_custom(cfg)

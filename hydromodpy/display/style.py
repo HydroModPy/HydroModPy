@@ -194,13 +194,13 @@ def is_dark(background: Any = None) -> bool:
 
 
 def neutral(color: Any, *, background: Any = None, foreground: Any = None) -> str:
-    """Return a grey that keeps its distance from the background in the current theme.
+    """Return a gray that keeps its distance from the background in the current theme.
 
-    The light greys of the figures (a cell with nothing to show, a table
+    The light grays of the figures (a cell with nothing to show, a table
     column, a frame) are written for a white page. On a dark page the same
-    grey would be the brightest thing drawn. Here a grey is read as a
+    gray would be the brightest thing drawn. Here a gray is read as a
     distance from white and laid at that distance from the dark background,
-    toward the foreground. A colour that is not a grey, and any colour on a
+    toward the foreground. A color that is not a gray, and any color on a
     light background, comes back unchanged.
     """
     import matplotlib as mpl
@@ -241,9 +241,9 @@ PREFERRED_CMAPS: dict[str, str] = {
 HIGH_CONTRAST_TRIPLET: tuple[str, str, str] = ("#004488", "#DDAA33", "#BB5566")
 """Blue, sand and red, for at most three classes drawn side by side.
 
-The three hues stay separable under every common colour-vision deficiency,
+The three hues stay separable under every common color-vision deficiency,
 and their lightnesses are far enough apart (roughly 33, 73 and 50 in L*) that
-the classes survive a greyscale print. A red-versus-green pair has neither
+the classes survive a grayscale print. A red-versus-green pair has neither
 property, which is why no figure encodes a class with one.
 """
 

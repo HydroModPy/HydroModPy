@@ -1,6 +1,6 @@
 """Custom lake-abacus data loader.
 
-Normalises a user-provided abacus table (CSV/Parquet) into the internal
+Normalizes a user-provided abacus table (CSV/Parquet) into the internal
 Parquet pivot and returns a :class:`TableRecord` pointing at it.
 """
 
@@ -21,7 +21,7 @@ def load_custom_abacus(
 ) -> list[TableRecord]:
     """Load a custom lake-abacus table as a :class:`TableRecord`.
 
-    Both ``.csv`` and ``.parquet`` sources are normalised through the validated
+    Both ``.csv`` and ``.parquet`` sources are normalized through the validated
     Parquet pivot when a ``derived_dir`` is available, so the abacus contract is
     enforced regardless of input format. A ``.parquet`` source without a
     ``derived_dir`` is referenced as-is (it cannot be re-written). The ``lake_id``

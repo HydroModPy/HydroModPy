@@ -11,7 +11,7 @@ from hydromodpy.core.units import UREG
 
 
 def _length_to_meters(value: object, *, default_unit: str) -> float:
-    """Parse a length input (number or pint string) to metres."""
+    """Parse a length input (number or pint string) to meters."""
     if isinstance(value, (int, float)):
         quantity = UREG.Quantity(float(value), default_unit)
     elif isinstance(value, str):

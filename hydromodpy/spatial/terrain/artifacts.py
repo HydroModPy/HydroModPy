@@ -52,7 +52,7 @@ def mask_cell_count(path: str | Path) -> int:
 
 
 def boundary_area_m2(path: str | Path) -> float:
-    """Sum the area of every polygon of a boundary layer, in square metres."""
+    """Sum the area of every polygon of a boundary layer, in square meters."""
     frame = gpd.read_file(str(path))
     if frame.empty:
         return 0.0

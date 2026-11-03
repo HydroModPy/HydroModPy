@@ -91,7 +91,7 @@ class MeshEngine(Protocol):
 
     Engines conform structurally: no base class. ``engine_version`` changes
     whenever the mesh the engine returns for one request changes, since the
-    mesh cache keys on it. An engine that cannot honour a request raises
+    mesh cache keys on it. An engine that cannot honor a request raises
     :class:`~hydromodpy.core.exceptions.MeshRequestError` naming what it refuses.
     """
 

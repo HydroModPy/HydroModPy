@@ -1,0 +1,359 @@
+{
+  "additionalProperties": true,
+  "description": "What ``hmp calibrate --format json`` writes: :meth:`CalibrationReport.to_dict`, as a contract.\n\nExperimental with the report it reads: its shape may change until the rework\nof the calibration is published. A key that does not apply is null.",
+  "properties": {
+    "best_cases": {
+      "additionalProperties": true,
+      "description": "The run and the cost of the best trial, by case.",
+      "title": "Best Cases",
+      "type": "object"
+    },
+    "best_cost": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Lowest cost reached. Null if no trial completed.",
+      "title": "Best Cost"
+    },
+    "best_parameters": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Physical values of the best candidate, by parameter name.",
+      "title": "Best Parameters"
+    },
+    "best_rel_dir": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Its folder under the project.",
+      "title": "Best Rel Dir"
+    },
+    "best_sim_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Run of the one case.",
+      "title": "Best Sim Id"
+    },
+    "best_trial": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Number of the best trial.",
+      "title": "Best Trial"
+    },
+    "cost_block_fractions": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Fraction of the cost each block took, 0 to 1.",
+      "title": "Cost Block Fractions"
+    },
+    "cost_label": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "What it reads as: 1 - nse_log.",
+      "title": "Cost Label"
+    },
+    "cost_name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Name of the cost minimised.",
+      "title": "Cost Name"
+    },
+    "duration_s": {
+      "description": "Wall-clock duration of the search, in seconds.",
+      "title": "Duration S",
+      "type": "number"
+    },
+    "extra": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Free-form metadata.",
+      "title": "Extra"
+    },
+    "frozen": {
+      "anyOf": [
+        {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Every value a settled phase declared frozen.",
+      "title": "Frozen"
+    },
+    "method": {
+      "description": "Optimizer method name.",
+      "title": "Method",
+      "type": "string"
+    },
+    "methods_paragraph": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The prose this run writes about itself.",
+      "title": "Methods Paragraph"
+    },
+    "methods_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The file that paragraph is in.",
+      "title": "Methods Path"
+    },
+    "n_trials": {
+      "description": "Number of trials actually run.",
+      "title": "N Trials",
+      "type": "integer"
+    },
+    "parameter_uncertainty": {
+      "anyOf": [
+        {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Width beside each calibrated value, when the file asked for one.",
+      "title": "Parameter Uncertainty"
+    },
+    "phases": {
+      "anyOf": [
+        {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The phases in the order they ran, each with its own report.",
+      "title": "Phases"
+    },
+    "promoted": {
+      "description": "Count of trials promoted to runs after the search.",
+      "title": "Promoted",
+      "type": "integer"
+    },
+    "protocol": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The published method that wrote these stages.",
+      "title": "Protocol"
+    },
+    "restart_spreads": {
+      "anyOf": [
+        {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Where the restarts of each phase landed.",
+      "title": "Restart Spreads"
+    },
+    "reused_from_disk": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The phases read back from the session instead of solved.",
+      "title": "Reused From Disk"
+    },
+    "save_runs": {
+      "description": "The save_runs mode used: none, best_n or all.",
+      "title": "Save Runs",
+      "type": "string"
+    },
+    "session_dir": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Folder of the session.",
+      "title": "Session Dir"
+    },
+    "session_id": {
+      "description": "Id of the session the search belongs to.",
+      "title": "Session Id",
+      "type": "string"
+    },
+    "status": {
+      "description": "How the session closed: completed, partial, aborted, failed.",
+      "title": "Status",
+      "type": "string"
+    },
+    "steady_window": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The span a steady phase averaged its recharge over.",
+      "title": "Steady Window"
+    },
+    "windows": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The periods the best trial was scored on, by name.",
+      "title": "Windows"
+    },
+    "workspace": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Project root of the session.",
+      "title": "Workspace"
+    }
+  },
+  "required": [
+    "session_id",
+    "method",
+    "status",
+    "n_trials",
+    "best_cost",
+    "duration_s",
+    "save_runs",
+    "promoted",
+    "best_cases"
+  ],
+  "title": "CalibrationResult",
+  "type": "object"
+}

@@ -12,9 +12,9 @@ for every capability rather than for the one that exists today:
 * sealed under the **same** id -- nothing is written, the stored outcome comes
   back with ``reused`` set, and the process exits 0;
 * sealed under a **different** id -- refused, because running would overwrite a
-  seal, a job id and a set of artefacts somebody else may already have read.
+  seal, a job id and a set of artifacts somebody else may already have read.
 
-What a reuse does **not** do is re-hash the artefacts. The seal is trusted, and
+What a reuse does **not** do is re-hash the artifacts. The seal is trusted, and
 the verification that does not trust the seal (``verify_job``) re-reads every
 output and reports. Folding that into the reuse path would give an unbounded cost
 to the one path whose whole purpose is to be instant, and would leave the

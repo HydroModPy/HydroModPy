@@ -32,7 +32,7 @@ from tests._helpers.mesh_cases import (
 needs_gmsh = pytest.mark.skipif(find_spec("gmsh") is None, reason="gmsh is not installed")
 
 X0, Y0 = L93_ORIGIN
-"""A Lambert-93 origin, so the driver's shift to a kilometre origin is exercised."""
+"""A Lambert-93 origin, so the driver's shift to a kilometer origin is exercised."""
 SQUARE = square_domain(1000.0, x0=X0, y0=Y0)
 RIVER = LineString([(X0 + 100, Y0 + 150), (X0 + 450, Y0 + 420), (X0 + 900, Y0 + 880)])
 CONTACT = LineString([(X0 + 400, Y0), (X0 + 600, Y0 + 1000)])

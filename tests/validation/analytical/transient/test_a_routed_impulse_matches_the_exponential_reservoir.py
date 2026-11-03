@@ -15,7 +15,7 @@ that full soil and then routed through a linear reservoir of time constant
 ``k``: ``Q(0) = 50(1 - k a)``, ``Q(t>=1) = 50 k a^2 exp(-(t-1)/k)`` with
 ``a = 1 - exp(-1/k)``. ``t95``, the day the cumulative recharge first reaches
 95 % of the 50 mm pulse, follows the continuous crossing ``-k ln(0.05)``
-within the one day the discretisation can miss it by.
+within the one day the discretization can miss it by.
 """
 
 from __future__ import annotations

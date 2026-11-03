@@ -7,7 +7,7 @@ meshes exercise that:
 * an irregular *triangular* mesh (jittered Delaunay) driven through the
   production ``build_lake_connectiondata``. Every HORIZONTAL row is
   checked against the true shared-edge length (``connwidth``) and the exact
-  perpendicular distance from the neighbour centroid to that edge (``connlen``);
+  perpendicular distance from the neighbor centroid to that edge (``connlen``);
 * a genuinely mixed-polygon *Voronoi* DISV (coarse background plus a refined
   cluster around the lake) built with ``flopy.utils.cvfdutil``. The production
   ``resolve_lake_cells`` intersects the lake polygon with the Voronoi cells,
@@ -20,7 +20,7 @@ invariants under test mirror the unit-grid case:
 
 * ``connwidth`` equals the true shared-edge length and ``connlen > 0`` (the
   centroid-to-edge perpendicular half-distance);
-* HORIZONTAL connections only target active, non-lake neighbours;
+* HORIZONTAL connections only target active, non-lake neighbors;
 * exactly one VERTICAL per lake column to the first active cell below;
 * lake cells become ``idomain = 0``.
 """
@@ -133,10 +133,10 @@ def _true_horizontal_pairs(
     lake_cells: list[int],
     idomain: np.ndarray,
 ) -> set[tuple[int, float, float]]:
-    """Recompute the expected (neighbour, connwidth, connlen) HORIZONTAL pairs.
+    """Recompute the expected (neighbor, connwidth, connlen) HORIZONTAL pairs.
 
     Mirrors the production loop: per lake cell, per edge, per shared-edge
-    neighbour that is active and non-lake at layer 0.
+    neighbor that is active and non-lake at layer 0.
     """
     lake_set = set(lake_cells)
     edges_by_cell = {cid: _cell_edges(triangles[cid]) for cid in range(triangles.shape[0])}
@@ -181,7 +181,7 @@ def test_lake_cells_resolve_on_irregular_triangular_mesh() -> None:
     centroids = mesh.cell_centers()
     # Every resolved cell clusters around the lake footprint (40..60), not
     # scattered across the domain. A triangle straddling the polygon edge may
-    # have its centroid a few metres outside, so allow a small halo.
+    # have its centroid a few meters outside, so allow a small halo.
     for cell in lake_cells:
         x, y = centroids[cell]
         assert 30.0 <= x <= 70.0
@@ -287,7 +287,7 @@ def _voronoi_disv_gridprops() -> dict:
 
 
 def _voronoi_cell_mesh(gridprops: dict) -> PlanarCellMesh:
-    """The Voronoi DISV as a cell mesh, centred on the cvfd cell centres."""
+    """The Voronoi DISV as a cell mesh, centered on the cvfd cell centers."""
     vertices = np.asarray([row[1:3] for row in gridprops["vertices"]], dtype=float)
     cells = tuple(np.asarray(row[4:], dtype=np.int64) for row in gridprops["cell2d"])
     centres = np.asarray([row[1:3] for row in gridprops["cell2d"]], dtype=float)

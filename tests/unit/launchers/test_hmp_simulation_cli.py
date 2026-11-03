@@ -165,7 +165,7 @@ def test_hmp_run_forwards_step_controls_to_simulation_workflow(monkeypatch, tmp_
     monkeypatch.setitem(project_workflow.DISPATCH, "simulation", fake_run)
     monkeypatch.setattr(
         "sys.argv",
-        ["hmp", "run", str(config), "--from", "setup", "--until", "solve", "--no-parallel"],
+        ["hmp", "run", str(config), "--from", "setup", "--until", "solve"],
     )
 
     main()
@@ -173,7 +173,7 @@ def test_hmp_run_forwards_step_controls_to_simulation_workflow(monkeypatch, tmp_
     assert captured["config_path"] == config.resolve()
     assert captured["kwargs"]["from_step"] == "setup"
     assert captured["kwargs"]["until_step"] == "solve"
-    assert captured["kwargs"]["parallel"] is False
+    assert "parallel" not in captured["kwargs"]
 
 
 def test_hmp_run_rejects_step_controls_for_non_simulation_workflow(monkeypatch, tmp_path) -> None:
@@ -211,7 +211,7 @@ def test_hmp_run_dispatches_overview_workflow(monkeypatch, tmp_path) -> None:
     def fake_run(config_path):
         captured["config_path"] = Path(config_path)
         captured["run_called"] = True
-        return {"mode": "data_overview"}
+        return SimpleNamespace(to_dict=lambda: {"mode": "data_overview"})
 
     monkeypatch.setitem(project_workflow.DISPATCH, "overview", fake_run)
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])

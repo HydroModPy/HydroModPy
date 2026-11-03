@@ -38,12 +38,12 @@ each lake column:
 
 - one vertical connection to the first active cell under the occupied layers:
   the leakage towards the aquifer, through the vertical conductivity;
-- one horizontal connection across every edge shared with a neighbour column that
+- one horizontal connection across every edge shared with a neighbor column that
   is not a lake column, for each active cell of that column that faces the lake
   water, whatever its layer: the bank seepage, through the horizontal
   conductivity. Its width is the length of the shared edge, its length the
-  distance from the neighbour centre to the edge, and its elevations those of the
-  neighbour cell clipped to the water of the lake column, between its bed and its
+  distance from the neighbor center to the edge, and its elevations those of the
+  neighbor cell clipped to the water of the lake column, between its bed and its
   top. A band thinner than 1 mm is dropped.
 
 The number of occupied layers counts the pass-through cells of a pinched stack
@@ -54,7 +54,7 @@ columns. A column with no active cell under the lake is refused. The message nam
 the lake and three ways out: fewer occupied layers, a smaller `min_thickness` of
 the layers under the lake, or `pinch_out = "keep_min_thickness"`.
 
-So a neighbour whose layer is pinched, or a sloping stack, gets bank connections on
+So a neighbor whose layer is pinched, or a sloping stack, gets bank connections on
 every cell that faces the water. On a lake of 20 columns with layers that follow the
 terrain, the bank rows go from 14 to 27 and the exchange with the aquifer rises by
 1.6 %. On a flat stack the rule gives one row per occupied layer and per shared edge.

@@ -48,9 +48,9 @@ class DupuitCircularIslandOceanComparison:
 
     ``heads`` is the head on the structured comparison grid. A run on a mesh
     bundle is projected onto it: a triangle grid by nearest centroid, a Voronoi
-    dual by the cell under each grid centre. The radial profile, the azimuthal
+    dual by the cell under each grid center. The radial profile, the azimuthal
     spread and the land freeboard of a Voronoi run are read on its own cells
-    instead: each cell centre is a bundle node, so every node ring is compared
+    instead: each cell center is a bundle node, so every node ring is compared
     at its exact radius.
     A Boussinesq run is read on its own triangles too, with the reference at
     each centroid; its azimuthal spread is the spread of the head error in a
@@ -63,11 +63,11 @@ class DupuitCircularIslandOceanComparison:
     Plan-view map of the run, one entry per solver cell, for figures:
 
     - ``map_cell_polygons``: the cell outline, a list of ``(x, y)`` vertices in
-      metres from the island centre, rounded to 0.01 m. A structured grid gives
+      meters from the island center, rounded to 0.01 m. A structured grid gives
       one square per cell, row by row from the northern row.
     - ``map_simulated``: the simulated head at the compared (final) time, NaN
       off the island.
-    - ``map_reference``: the analytical head at the cell centre, NaN off the island.
+    - ``map_reference``: the analytical head at the cell center, NaN off the island.
     """
 
     result: ValidationRunResult
@@ -97,7 +97,7 @@ class DupuitCircularIslandOceanComparison:
 
     @property
     def map_overlay(self) -> dict:
-        """The coastline, a circle around the island centre, for the map figure."""
+        """The coastline, a circle around the island center, for the map figure."""
         radius = float(self.metadata["reference"]["island_radius_m"])
         return {"coast_circle": [0.0, 0.0, radius]}
 

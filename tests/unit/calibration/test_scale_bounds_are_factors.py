@@ -61,7 +61,7 @@ name = "p"
 crs_project = "EPSG:2154"
 
 [geographic.catchment]
-catch_def = "from_outlet_coord"
+kind = "from_outlet_coord"
 dem_init_path = "DEM.tif"
 x_outlet = 389285.9
 y_outlet = 6816518.7

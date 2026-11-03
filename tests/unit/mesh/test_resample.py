@@ -31,7 +31,7 @@ def _uniform(size: float) -> SizeField:
 
 
 def _ramp_in_x(a: float, b: float) -> SizeField:
-    """``h = a + b x`` at the pixel centres: bilinear sampling is exact between them."""
+    """``h = a + b x`` at the pixel centers: bilinear sampling is exact between them."""
     x = 2.5 + 5.0 * np.arange(200)
     return SizeField(values=np.tile(a + b * x, (200, 1)), grid=_GRID)
 

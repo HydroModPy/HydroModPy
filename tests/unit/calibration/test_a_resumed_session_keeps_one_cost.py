@@ -125,3 +125,50 @@ class TestAWriterStillAlive:
         descriptor = CalibrationPersistence(persistence.directory).resume_session()
 
         assert descriptor.status == "running"
+
+
+class TestARefusalWritesNothing:
+    def test_a_refused_resume_leaves_the_session_files_as_they_were(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        from types import SimpleNamespace
+
+        from hydromodpy.calibration.persistence import DEFAULT_PHASE
+        from hydromodpy.calibration.runners import cli_runner
+
+        persistence = _session(tmp_path)
+        main = PhaseContext(name=DEFAULT_PHASE)
+        values = {"K": 1e-5}
+        persistence.append_iteration(
+            ParamSuggestion(trial_id=1, values=values),
+            EvaluationResult(
+                trial_id=1,
+                sim_id=None,
+                cost=0.1,
+                status="completed",
+                metadata={
+                    "parameters": {"K": {"value": 1e-5}},
+                    "params_hash": params_hash(values, context=SCORED_BEFORE),
+                },
+            ),
+            phase=main,
+        )
+        persistence.finalize_session(status="completed", best=None)
+        files = [persistence.directory / "session.json", persistence.directory / "outcome.json"]
+        before = [path.read_bytes() for path in files]
+        monkeypatch.setattr(cli_runner, "build_cache_context", lambda **_: SCORED_NOW)
+        monkeypatch.setattr(cli_runner, "resolve_override_paths", lambda _cfg: {})
+
+        with pytest.raises(CalibrationError, match="does not score the same way"):
+            cli_runner.open_calibration_session(
+                tmp_path,
+                "calage",
+                resume=True,
+                raw={},
+                cfg=SimpleNamespace(),
+                space=None,
+                trial_ctx=None,
+                project=None,
+            )
+
+        assert [path.read_bytes() for path in files] == before

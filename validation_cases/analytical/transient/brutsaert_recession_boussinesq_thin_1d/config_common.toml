@@ -18,7 +18,7 @@ substeps_per_period = 4
 
 [[simulation.process]]
 id = "flow_validation"
-type = "flow"
+kind = "flow"
 
 [geographic]
 source_mode = "synthetic"
@@ -54,8 +54,6 @@ mf6_inner_rclose = 1e-9
 [flow]
 flow_regime = "transient"
 first_period_steady = true
-active_sinks_sources = ["recharge"]
-active_bc = ["east_side"]
 param_list = ["K", "Ss", "Sy"]
 
 [flow.param.K.field]
@@ -74,7 +72,7 @@ kind = "homogeneous"
 value = "0.10 -"
 
 [flow.ic]
-type = "custom"
+kind = "custom"
 value = "0.5 m"
 
 # The outlet head sits on the substratum (bottom at 0 m). This is the
@@ -84,7 +82,7 @@ value = "0.5 m"
 kind = "dirichlet"
 
 [flow.bc.east_side.forcing]
-mode = "constant"
+kind = "constant"
 value = 0.0
 units = "m"
 

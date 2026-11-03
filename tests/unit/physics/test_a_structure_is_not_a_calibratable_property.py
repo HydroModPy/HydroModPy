@@ -7,7 +7,7 @@
 the MVR ``outflow_value`` is a coupling rule, not a hydraulic property. Letting
 a search move any of them buys fit through equifinality or through masking a
 structural error, rather than resolving a real physical unknown. This states
-the boundary the catalogue draws rather than reciting the three names, so a
+the boundary the catalog draws rather than reciting the three names, so a
 sibling field that IS a property is asserted calibratable too.
 """
 

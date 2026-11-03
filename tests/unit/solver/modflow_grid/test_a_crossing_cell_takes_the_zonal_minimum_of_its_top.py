@@ -1,7 +1,7 @@
-"""A cell a river crosses off its centre takes the lowest DEM pixel it holds, in centroid mode.
+"""A cell a river crosses off its center takes the lowest DEM pixel it holds, in centroid mode.
 
 Two side-by-side cells on a DEM ramp with a notch (the river bed) in cell 0, off the
-cell centre. The centroid sample of cell 0 lands on the ramp, on a bank. A river chain
+cell center. The centroid sample of cell 0 lands on the ramp, on a bank. A river chain
 that publishes a lateral offset above zero marks the cell as a crossing cell, and only
 that cell is lowered to the notch. A chain without offsets, or with a zero offset, leaves
 the top byte for byte on the centroid sample.
@@ -138,7 +138,7 @@ def test_the_centroid_mode_config_gives_the_same_result_as_no_config():
 
 
 def test_a_lowered_top_that_meets_the_bottom_drags_the_bottom_down_with_it():
-    """The notch is far under the centre sample: the column keeps its centre-sample thickness."""
+    """The notch is far under the center sample: the column keeps its center-sample thickness."""
     config = TopSamplingConfig(mode="centroid", min_thickness_m=0.5)
     baseline = _build((), top_sampling=config, bottom=_THALWEG_M - 0.1)
     crossing = _build((_chain([0], [8.0]),), top_sampling=config, bottom=_THALWEG_M - 0.1)
@@ -167,7 +167,7 @@ def test_a_cell_that_was_not_lowered_keeps_a_thin_column_as_it_is():
 
 
 def test_a_pit_far_under_the_centre_sample_keeps_the_column_of_a_zonal_cell():
-    """A channel pixel 60 m under the centre sample must not leave a column of 0.1 m."""
+    """A channel pixel 60 m under the center sample must not leave a column of 0.1 m."""
     dem = np.tile((np.arange(_N) + 0.5) * (_EXTENT / _N), (_N, 1))
     dem[4:8, 2:6] = -60.0
     channel = dem < -50.0
@@ -188,7 +188,7 @@ def test_a_pit_far_under_the_centre_sample_keeps_the_column_of_a_zonal_cell():
 def test_a_column_that_keeps_less_than_a_tenth_of_its_centre_thickness_is_restored(
     lowering_share, follows
 ):
-    """The notch removes 95 % of the 25 m centre column (0.5 m < 10 % of it) but not 80 %."""
+    """The notch removes 95 % of the 25 m center column (0.5 m < 10 % of it) but not 80 %."""
     config = TopSamplingConfig(mode="centroid", min_thickness_m=0.1)
     baseline = _build((), top_sampling=config, bottom=0.0)
     centre_column = baseline.top[0]

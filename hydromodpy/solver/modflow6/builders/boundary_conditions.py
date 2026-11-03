@@ -438,7 +438,7 @@ def refuse_constant_heads_below_bottom(
         "A constant head is below the bottom of its cell, and MODFLOW 6 stops on it. "
         + " ".join(lines)
         + " Raise the head above the bottom of the aquifer there, give the boundary "
-        "a deeper aquifer (domain.depth_model), or remove it from flow.active_bc."
+        "a deeper aquifer (domain.depth_model), or write enabled = false in its table."
     )
 
 
@@ -484,8 +484,8 @@ def build_drain_stress_period_data(
 
     When no conductance is configured, the fallback conductance is
     ``C = hk * cell_area / drain_bed_thickness_m`` (m2/s), shared with NWT.
-    ``drain_bed_thickness_m`` is the clogging-layer thickness (decimetres to a
-    metre), not the model layer thickness: see
+    ``drain_bed_thickness_m`` is the clogging-layer thickness (decimeters to a
+    meter), not the model layer thickness: see
     :func:`hydromodpy.solver.modflow_common.drain_conductance.hk_fallback_drain_conductance`.
 
     With ``sink_fill=True``, a cell in a closed depression keeps its row and

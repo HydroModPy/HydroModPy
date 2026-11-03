@@ -59,7 +59,7 @@ def mesh_arrays_from_cell_mesh(
     The cells, edges, areas and lengths are those of ``cell_mesh.geometry``, the
     edges in the order of its edge table; the river edges are the faces of the
     ``rivers`` family. The top and the bottom are sampled at ``cell_mesh.centers``;
-    a cell whose centre falls on no data takes the mean of its finite corners.
+    a cell whose center falls on no data takes the mean of its finite corners.
     The cell centroid of the metric terms is the mean of the cell vertices.
     """
     if domain is None:
@@ -150,7 +150,7 @@ def _one_value_per_cell(values, n_cells: int) -> np.ndarray:
 def _sampled_at_centers(
     sampler: PreparedSurfaceSampler, cell_mesh: PlanarCellMesh, triangles: np.ndarray
 ) -> np.ndarray:
-    """One surface value per cell: at its centre, else the mean of its finite corners."""
+    """One surface value per cell: at its center, else the mean of its finite corners."""
     centers = cell_mesh.centers
     values = np.asarray(sampler.sample(centers[:, 0], centers[:, 1]), dtype=float).reshape(-1)
     missing = np.flatnonzero(~np.isfinite(values))

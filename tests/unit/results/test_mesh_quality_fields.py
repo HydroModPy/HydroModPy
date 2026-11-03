@@ -46,7 +46,7 @@ DECLARATIONS = {"graded": False, "exact_faces": False, "deterministic": True, "n
 
 
 def _grid(shift_first_centre: tuple[float, float] = (0.0, 0.0)) -> PlanarCellMesh:
-    """The 2 x 3 grid, origin (0, 0), centres at the middle of each cell but the first."""
+    """The 2 x 3 grid, origin (0, 0), centers at the middle of each cell but the first."""
     grid = StructuredGrid(delc=np.full(2, HEIGHT), delr=np.array(WIDTHS), xoff=0.0, yoff=0.0)
     edges = np.concatenate([[0.0], np.cumsum(WIDTHS)])
     xs = 0.5 * (edges[:-1] + edges[1:])
@@ -97,7 +97,7 @@ def test_a_centre_off_its_centroid_shows_in_the_offset_and_the_angles(tmp_path):
     offset = mesh_quality_values(store.root, "mesh_center_offset")
     angle = mesh_quality_values(store.root, "mesh_nonorthogonality")
 
-    # The first centre moved by (3, 4) m in a cell of side 10 m.
+    # The first center moved by (3, 4) m in a cell of side 10 m.
     np.testing.assert_allclose(offset, [0.5, 0, 0, 0, 0, 0], atol=1e-12)
     # Cell 0 sits at (8, 19): the joint to cell 1 is (12, -4) across a vertical face,
     # the joint to cell 3 is (-3, -14) across a horizontal one.
@@ -115,8 +115,8 @@ def test_a_centre_off_its_centroid_moves_the_crossing_off_the_face_middle(tmp_pa
     offset = mesh_quality_values(store.root, "mesh_bisection_offset")
 
     # From (8, 19) to (20, 15) the line meets x = 10 at y = 19 - 4/6, on a face
-    # centred on y = 15: (4 - 4/6) / 10 = 1/3. From (8, 19) to (5, 5) it meets
-    # y = 10 at x = 8 - 3 * 9/14, on a face centred on x = 5: 3/28.
+    # centered on y = 15: (4 - 4/6) / 10 = 1/3. From (8, 19) to (5, 5) it meets
+    # y = 10 at x = 8 - 3 * 9/14, on a face centered on x = 5: 3/28.
     np.testing.assert_allclose(offset, [1 / 3, 1 / 3, 0.0, 3 / 28, 0.0, 0.0], atol=1e-12)
     store.close()
 

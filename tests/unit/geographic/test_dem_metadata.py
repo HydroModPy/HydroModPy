@@ -11,7 +11,7 @@ from tests._helpers.geographic_cases import LAMBERT
 from tests._helpers.geotiffs import write_geotiff
 
 WEST_OF_GREENWICH = (264_525.0, 6_784_450.0)
-"""The north-west corner of a 2 km square in Brittany, centred near 2.83 W, 48.01 N."""
+"""The north-west corner of a 2 km square in Brittany, centered near 2.83 W, 48.01 N."""
 
 
 @pytest.fixture

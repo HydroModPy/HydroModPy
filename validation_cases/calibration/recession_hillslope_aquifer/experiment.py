@@ -508,9 +508,9 @@ def _run_scipy_minimize(
     method_name: str,
     max_trials: int,
 ) -> tuple[np.ndarray, float, int]:
-    """Local optimisation via Nelder-Mead with penalised bounds.
+    """Local optimization via Nelder-Mead with penalized bounds.
 
-    Uses a penalised cost wrapper so the optimiser stays within bounds
+    Uses a penalized cost wrapper so the optimiser stays within bounds
     without relying on a SciPy bounded implementation that could diverge
     across versions.
     """
@@ -570,10 +570,10 @@ def _run_cma_es(
     """CMA-ES through Optuna's ``CmaEsSampler``.
 
     Optuna's sampler is used; tolerances on the ``8e-3`` level account for
-    convergence behaviour differing from the older ``cma`` package.
+    convergence behavior differing from the older ``cma`` package.
     """
     # Optuna's CmaEsSampler handles bound scaling internally, so we pass
-    # bounds directly without a pre-normalisation step.
+    # bounds directly without a pre-normalization step.
     _ = normalize  # reserved for explicit per-axis scaling overrides
     lower = np.array([bounds[name][0] for name in MODEL_PARAMETER_ORDER], dtype=float)
     upper = np.array([bounds[name][1] for name in MODEL_PARAMETER_ORDER], dtype=float)

@@ -89,7 +89,7 @@ def test_lak_pleasant_transient_signature_matches_committed_reference(
             "horizontal_layer_1": structural.horizontal_by_layer.get(1, 0),
             "connectiondata_sha256": _connectiondata_hash(),
             "period_stages_m": [round(s, 4) for s in scenario.period_stages_m],
-            # ``+ 0.0`` normalises a rounded ``-0.0`` to ``0.0`` so the golden has no
+            # ``+ 0.0`` normalizes a rounded ``-0.0`` to ``0.0`` so the golden has no
             # platform-dependent sign noise on near-zero budget closures.
             "period_budget_percent": [
                 round(p, 5) + 0.0 for p in scenario.hmp.period_budget_percent

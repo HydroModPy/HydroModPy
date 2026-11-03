@@ -1,7 +1,7 @@
 """Geoplateforme WMS-Raster client for elevation grids.
 
 The service draws any bounding box at any pixel size, in EPSG:2154, and answers a
-float32 GeoTIFF whose values are metres. The server refuses an image wider or
+float32 GeoTIFF whose values are meters. The server refuses an image wider or
 taller than ``MAX_IMAGE_PX`` pixels, so a large box is cut into tiles that line up
 on the output grid and are fetched one by one. Product-specific choices (which
 layer, which resolutions, the cache) belong in ``ign_dem_fr.py``.
@@ -105,7 +105,7 @@ def fetch_tile(
     """Return the elevation of one tile as float32, nodata as NaN.
 
     The server writes nodata as -99999 and, where it resamples next to it, blends
-    it into the neighbouring values; anything at or below -9990 is nodata here.
+    it into the neighboring values; anything at or below -9990 is nodata here.
 
     The answer is checked against the request: a server that answers 200 with an
     XML exception, or with a grid that is not the one asked for, is an error here,

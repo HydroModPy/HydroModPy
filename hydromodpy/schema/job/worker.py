@@ -83,7 +83,7 @@ def run_job(
     except KeyboardInterrupt as exc:
         # TerminationRequested subclasses KeyboardInterrupt, so SIGTERM and
         # Ctrl+C unwind through the same branch. Nothing is sealed: a
-        # cancelled directory is readable and explicitly unfinished.
+        # canceled directory is readable and explicitly unfinished.
         outcome = dismissed(
             job_id=job_id,
             process_id=decl.id,
@@ -140,7 +140,7 @@ def seal_successful(
 ) -> JobOutcome:
     """Write the input set, the provenance and the outcome of a success, then seal.
 
-    *outputs* hashes the artefacts once the input set and the provenance are on
+    *outputs* hashes the artifacts once the input set and the provenance are on
     disk, since both are declared outputs.
     """
     write_document(job.inputset_path, inputset.to_document())

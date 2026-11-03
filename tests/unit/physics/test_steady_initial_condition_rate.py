@@ -35,7 +35,7 @@ def _flow(ic_payload: dict[str, object], **sinks_sources: object) -> SimpleNames
     """Return the smallest object the strategy helpers read."""
     return SimpleNamespace(
         initial_conditions=FlowInitialConditions(
-            h=FlowICSteadyState.model_validate({"type": "steady_state", **ic_payload})
+            h=FlowICSteadyState.model_validate({"kind": "steady_state", **ic_payload})
         ),
         sinks_sources=dict(sinks_sources),
     )
@@ -62,14 +62,14 @@ def test_the_mean_of_the_record_stays_the_default() -> None:
 
 def test_a_prescribed_source_without_a_rate_is_refused() -> None:
     with pytest.raises(ValueError, match="rate"):
-        FlowICSteadyState.model_validate({"type": "steady_state", "source": "prescribed"})
+        FlowICSteadyState.model_validate({"kind": "steady_state", "source": "prescribed"})
 
 
 def test_a_rate_without_a_prescribed_source_is_refused() -> None:
     """A rate that nothing reads would be a silent no-op."""
     with pytest.raises(ValueError, match="prescribed"):
         FlowICSteadyState.model_validate(
-            {"type": "steady_state", "source": "mean_recharge", "rate": "500 mm/yr"}
+            {"kind": "steady_state", "source": "mean_recharge", "rate": "500 mm/yr"}
         )
 
 
@@ -77,7 +77,7 @@ def test_a_chronicle_statistic_alongside_a_prescribed_rate_is_refused() -> None:
     with pytest.raises(ValueError, match="recharge_statistic"):
         FlowICSteadyState.model_validate(
             {
-                "type": "steady_state",
+                "kind": "steady_state",
                 "source": "prescribed",
                 "rate": "500 mm/yr",
                 "recharge_statistic": "time_mean",

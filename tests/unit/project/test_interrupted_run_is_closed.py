@@ -60,7 +60,7 @@ def test_an_interrupted_run_closes_its_outcome(
     project = Project(config_path, no_display=True)
 
     with pytest.raises(signal_error):
-        project.execute(name="asked_name")
+        project._execute(name="asked_name")
 
     run_dir = tmp_path / "runs" / "asked_name"
     outcome = read_outcome(run_dir)

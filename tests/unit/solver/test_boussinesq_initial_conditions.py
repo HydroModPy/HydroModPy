@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 import numpy as np
 
+from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.physics.flow.initial_conditions import (
     FlowICCustom,
     FlowICSteadyState,
@@ -10,13 +11,6 @@ from hydromodpy.physics.flow.initial_conditions import (
 from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
 from hydromodpy.solver.boussinesq.forcing_resolution import BoussinesqForcingResolver
 from hydromodpy.solver.steady_initial_conditions import steady_flow_copy_for_initialization
-
-
-class _Config(SimpleNamespace):
-    def model_copy(self, *, update):
-        data = dict(self.__dict__)
-        data.update(update)
-        return _Config(**data)
 
 
 def test_boussinesq_steady_state_initial_condition_uses_top_as_initial_guess() -> None:
@@ -76,17 +70,16 @@ def test_petsc_ts_vi_initialization_uses_regularized_steady_solve() -> None:
     assert steady_flow.flow_regime == "steady"
     assert steady_flow.runtime_backend == "petsc"
     assert steady_flow.surface_interaction_model == "regularized_partition"
-    assert steady_flow.initial_conditions.h.type == "top"
+    assert steady_flow.initial_conditions.h.kind == "top"
 
 
 def test_petsc_ts_vi_initialization_reads_surface_model_from_config() -> None:
     flow = SimpleNamespace(
         flow_regime="transient",
         runtime_backend="petsc",
-        config=_Config(
+        config=FlowConfig(
             flow_regime="transient",
-            runtime_backend="petsc",
-            surface_interaction_model="ts_vi_obstacle",
+            runtime={"backend": "petsc", "surface_interaction_model": "ts_vi_obstacle"},
         ),
         initial_conditions=FlowInitialConditions(h=FlowICSteadyState(id="h")),
         sinks_sources={},
@@ -95,5 +88,5 @@ def test_petsc_ts_vi_initialization_reads_surface_model_from_config() -> None:
     steady_flow = steady_flow_copy_for_initialization(flow)
 
     assert steady_flow.surface_interaction_model == "regularized_partition"
-    assert steady_flow.config.surface_interaction_model == "regularized_partition"
-    assert steady_flow.config.ic.h.type == "top"
+    assert steady_flow.config.runtime.surface_interaction_model == "regularized_partition"
+    assert steady_flow.config.ic.h.kind == "top"

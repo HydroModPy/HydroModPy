@@ -286,7 +286,7 @@ def _hydrographic_network_block(figures: dict[str, Path]) -> ReportBlock:
                 "outflow_drain_maps",
                 "Target and best candidate on the topography",
                 figures.get("outflow_drain_maps"),
-                "Active drainage in colour, inactive cells in transparent grey.",
+                "Active drainage in color, inactive cells in transparent grey.",
                 required=False,
             ),
         ),

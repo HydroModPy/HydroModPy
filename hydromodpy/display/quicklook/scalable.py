@@ -4,7 +4,7 @@ Wraps datashader so dense meshes (> 100k cells) and dense gridded arrays
 can be rendered as raster images at a target pixel resolution. Auto-trigger
 threshold defaults to 100_000 cells.
 
-Used by the public ``hmp.viz.show`` dispatcher only. No registered figure
+Used by the ``viz.show`` dispatcher only. No registered figure
 calls it.
 """
 

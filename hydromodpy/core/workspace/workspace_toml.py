@@ -33,7 +33,7 @@ from hydromodpy.core.units.types import LengthMeters
 from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
 
 NEAR_SITE_M_DEFAULT: float = 500.0
-"""Default of ``[sites] near_site_m``, in metres."""
+"""Default of ``[sites] near_site_m``, in meters."""
 
 WORKSPACE_VERSION_MIN: str = "2.0.0"
 """What a new workspace asks of HydroModPy: the first release of the 2 line."""

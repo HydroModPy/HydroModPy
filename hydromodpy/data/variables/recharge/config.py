@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, ClassVar, Literal
 
 from pydantic import Field, model_validator
 
@@ -25,6 +26,13 @@ class RechargeSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
     constant, time-varying, or sinusoidal depending on the declared values and
     optional amplitude settings.
     """
+
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "runoff_ratio": (
+            "no step ever read it, the recharge of a source is the water that "
+            "reaches the saturated zone; give that net recharge in `values`"
+        ),
+    }
 
     source: Annotated[Literal["custom", "sim2", "synthetic"], Profile.USER] = Field(
         ...,
@@ -57,6 +65,7 @@ class RechargeSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
     values: Annotated[list[float] | None, Profile.USER] = Field(
         default=None,
         description="Recharge values in mm/day. Single value for constant, list for time-varying.",
+        json_schema_extra=field_metadata(unit="mm/day"),
     )
     start_date: Annotated[str | None, Profile.USER] = Field(
         default=None,
@@ -69,10 +78,12 @@ class RechargeSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
     periods: Annotated[int | None, Profile.DEV] = Field(
         default=None,
         description="Number of periods for synthetic series.",
+        json_schema_extra=field_metadata(unit="-"),
     )
     amplitude: Annotated[float | None, Profile.EXPERT] = Field(
         default=None,
         description="Sinusoidal amplitude in mm/day (superimposed on values).",
+        json_schema_extra=field_metadata(unit="mm/day"),
     )
     period_days: Annotated[int | None, Profile.EXPERT] = Field(
         default=None,
@@ -81,6 +92,7 @@ class RechargeSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
     offset: Annotated[float | None, Profile.EXPERT] = Field(
         default=None,
         description="Added to the sinusoid, in mm/day. Requires amplitude and period_days.",
+        json_schema_extra=field_metadata(unit="mm/day"),
     )
 
     @model_validator(mode="after")

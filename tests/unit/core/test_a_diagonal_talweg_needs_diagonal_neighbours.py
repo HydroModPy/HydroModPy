@@ -1,7 +1,7 @@
 """A descent over shared edges cannot follow a talweg that runs diagonally.
 
 This pins a measurement, because the consequence is silent and large. The
-per-cell discharge once rode a downhill graph whose neighbour rule defaulted to
+per-cell discharge once rode a downhill graph whose neighbor rule defaulted to
 shared edges; it now rides the descent D, D8 on quads. On a square grid a
 diagonal valley has no axis-aligned downhill step, so a shared-edge accumulation
 fragments instead of reaching the outlet.

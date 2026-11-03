@@ -1,4 +1,4 @@
-"""The calibration progress slide draws any search, labelled with its metric.
+"""The calibration progress slide draws any search, labeled with its metric.
 
 Three synthetic sessions stand in for the three searches example 04 runs: a
 bisection on K scored on the stream network, a Nelder-Mead simplex on Sy

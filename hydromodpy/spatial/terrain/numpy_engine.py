@@ -19,7 +19,7 @@ Where it can differ from Whitebox, by construction and not by accident:
   plateau in the filled DEM and resolves it later. Both end with water leaving
   the domain, by different paths inside a plateau.
 - **ties**. The steepest-descent search walks the pointer codes in ascending
-  order and keeps a neighbour only on a strict improvement, so an exact tie
+  order and keeps a neighbor only on a strict improvement, so an exact tie
   goes to the lowest code. Whitebox breaks ties its own way.
 """
 
@@ -85,7 +85,7 @@ from hydromodpy.spatial.terrain.port import (
 
 _POINTER_NODATA = MASK_NODATA
 _NO_DOWNSTREAM = 0
-"""What a data cell with no strictly lower neighbour is coded, as Whitebox does."""
+"""What a data cell with no strictly lower neighbor is coded, as Whitebox does."""
 
 ACCUMULATION_NODATA = -32768.0
 """Absent accumulation, the value Whitebox writes too.
@@ -331,7 +331,7 @@ def _priority_flood_fill(grid: _Grid) -> np.ndarray:
     out. Ordering the heap by ``(elevation, row, col)`` makes it deterministic.
 
     The "plus one bit" is Barnes' epsilon variant, and it is not cosmetic: a
-    plain fill leaves plateaus, a plateau cell has no strictly lower neighbour,
+    plain fill leaves plateaus, a plateau cell has no strictly lower neighbor,
     and a steepest-descent pointer therefore codes it as draining nowhere.
     Measured with a plain fill, on the 5 400 cells of
     ``examples/data/dem/DEM_gouville_25m.tif``: 637 cells with no outlet against
@@ -339,7 +339,7 @@ def _priority_flood_fill(grid: _Grid) -> np.ndarray:
     upstream area of a coastal aquifer under-reported eightfold, in silence.
 
     Each cell is raised to at least the next float32 above its flood
-    predecessor, so every cell has a strictly lower neighbour by construction.
+    predecessor, so every cell has a strictly lower neighbor by construction.
     ``nextafter`` rather than a fixed epsilon: the smallest increment that
     survives float32 storage depends on the elevation, and a constant chosen for
     100 m vanishes at 1 000 m. On a surface with no plateau the increment never
@@ -397,7 +397,7 @@ def _steepest_descent_codes(grid: _Grid) -> np.ndarray:
 
 
 def _shift(data: np.ndarray, drow: int, dcol: int, *, fill: float) -> np.ndarray:
-    """Return ``data`` seen from each cell's ``(drow, dcol)`` neighbour."""
+    """Return ``data`` seen from each cell's ``(drow, dcol)`` neighbor."""
     out = np.full(data.shape, fill, dtype=data.dtype if data.dtype != bool else "uint8")
     rows, cols = data.shape
     src_rows = slice(max(drow, 0), rows + min(drow, 0))
@@ -553,7 +553,7 @@ def _snap_to_stream(
     """Move an outlet to the nearest stream cell of its snap window.
 
     The window is the one :func:`_snap` searches, and the distance is the one
-    between cell centres, which is what ``jenson_snap_pour_points`` is measured
+    between cell centers, which is what ``jenson_snap_pour_points`` is measured
     to do. Ties go to the lowest ``(row, col)``, as Whitebox does, so the two
     engines land on the same cell.
     """

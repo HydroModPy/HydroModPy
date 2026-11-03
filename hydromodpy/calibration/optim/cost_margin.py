@@ -19,8 +19,8 @@ The margin a file leaves unwritten follows what the search scores
 (:func:`choose_interval_width`): one mesh cell on network distances, five per
 cent of the best cost otherwise.
 
-"One mesh cell" is ``h_obs``: the median distance between neighbouring cell
-centres over the mapped cells of the catchment, the length ``r_optim`` is also
+"One mesh cell" is ``h_obs``: the median distance between neighboring cell
+centers over the mapped cells of the catchment, the length ``r_optim`` is also
 divided by. On a mesh refined along the streams it is the fine cell the
 distances start from, not the median cell of the catchment; on a regular grid
 it is the cell size. The criterion measures it and publishes it per trial as
@@ -54,12 +54,12 @@ class IntervalWidth:
     """The margin a search reads its interval with, and where it comes from.
 
     ``margin`` is a fraction of the best cost when ``kind`` is ``"relative"``
-    and metres when it is ``"absolute"``. It is ``None`` for one mesh cell
+    and meters when it is ``"absolute"``. It is ``None`` for one mesh cell
     until a trial measured the mesh: the network criterion measures the cell,
     ``h_obs``, on the geometry it builds, and the run reads it back through
     :meth:`measured`. ``source`` says where the margin was written, and
     ``rule`` names the default when nothing wrote it. ``on_distances`` is true
-    when every block of the search is a network distance left in metres.
+    when every block of the search is a network distance left in meters.
     """
 
     margin: float | None
@@ -69,7 +69,7 @@ class IntervalWidth:
     rule: str | None = None
 
     def measured(self, cell_m: float) -> IntervalWidth:
-        """Return this width with the one mesh cell set to ``cell_m`` metres."""
+        """Return this width with the one mesh cell set to ``cell_m`` meters."""
         return replace(self, margin=float(cell_m))
 
     def to_dict(self) -> dict[str, Any]:
@@ -91,10 +91,10 @@ def choose_interval_width(
     """Return the width a search reads its interval with.
 
     ``on_distances`` says the search is scored only by network distances
-    (``distance_gap``, ``distance_mean``) left in metres. ``margin`` is what the
+    (``distance_gap``, ``distance_mean``) left in meters. ``margin`` is what the
     file wrote, with where it was written, or ``None``. A written margin wins.
     Left unwritten, it follows what the search scores. A search on network
-    distances takes one mesh cell, ``h_obs``, in metres: a stream cannot move
+    distances takes one mesh cell, ``h_obs``, in meters: a stream cannot move
     by less than a cell, so two gaps closer than that are not told apart. Any
     other search takes five per cent of the best cost.
     """

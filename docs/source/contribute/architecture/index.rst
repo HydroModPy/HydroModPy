@@ -3,7 +3,7 @@ Architecture
 
 .. rst-class:: lead
 
-How the code is organised: the layers and their allowed imports, the packages, the storage
+How the code is organized: the layers and their allowed imports, the packages, the storage
 layout and the subsystems. For a task, start from the :doc:`recipes <how-to/index>`.
 
 The foundations
@@ -63,7 +63,7 @@ The foundations
       :link: pipeline_resume
       :link-type: doc
 
-      How an interrupted run restarts from the artefacts on disk.
+      How an interrupted run restarts from the artifacts on disk.
 
 Subsystems
 ----------

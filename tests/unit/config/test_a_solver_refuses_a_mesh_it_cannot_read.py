@@ -20,7 +20,7 @@ def _payload(solver: str, mesh: dict[str, Any] | None) -> dict[str, Any]:
         "workflow": {"mode": "simulation"},
         "workspace": {"project_root": "."},
         "geographic": {"source_mode": "synthetic"},
-        "solver": {"backend": {"backend": solver}},
+        "solver": {"backend": {"kind": solver}},
     }
     if mesh is not None:
         payload["mesh"] = mesh

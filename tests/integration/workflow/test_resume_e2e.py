@@ -159,7 +159,7 @@ def test_simulated_hard_crash_leaves_stale_heartbeat(tmp_path: Path) -> None:
 
 @pytest.mark.integration
 def test_artifact_deletion_triggers_partial_redo(tmp_path: Path) -> None:
-    """Deleting a downstream artefact reruns the affected steps only."""
+    """Deleting a downstream artifact reruns the affected steps only."""
     workspace = tmp_path
     run_dir = _run_dir(workspace, "run-C")
 

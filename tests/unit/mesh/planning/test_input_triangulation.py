@@ -47,7 +47,7 @@ _NAMES = """$PhysicalNames
 $EndPhysicalNames
 """
 
-# A 100 m square with a centre node; node tags are not contiguous on purpose.
+# A 100 m square with a center node; node tags are not contiguous on purpose.
 _BODY = """$Nodes
 5
 10 0 0 0
@@ -175,7 +175,7 @@ _T_TRIANGLES = np.array([[0, 1, 2], [0, 2, 3], [3, 4, 5], [4, 6, 5], [4, 2, 6]])
 
 
 def _square(*, duplicate: bool = False) -> tuple[np.ndarray, np.ndarray]:
-    """Four triangles around a centre node; ``duplicate`` gives the last two their own centre."""
+    """Four triangles around a center node; ``duplicate`` gives the last two their own center."""
     vertices = [[0.0, 0.0], [100.0, 0.0], [100.0, 100.0], [0.0, 100.0], [50.0, 50.0]]
     triangles = [[0, 1, 4], [1, 2, 4], [2, 3, 4], [3, 0, 4]]
     if duplicate:

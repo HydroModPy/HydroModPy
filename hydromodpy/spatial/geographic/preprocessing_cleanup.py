@@ -35,7 +35,7 @@ def cleanup_stable_folder(geographic: Any, *, keep: bool = False) -> int:
     a rebuildable cache rather than a result. It is shared by every consumer
     that skips the setup steps - a calibration session reuses it across its
     whole trial loop - so only the code that owns the END of a session may drop
-    it. ``keep`` honours ``[geographic] write_intermediates``.
+    it. ``keep`` honors ``[geographic] write_intermediates``.
     """
     import shutil
 

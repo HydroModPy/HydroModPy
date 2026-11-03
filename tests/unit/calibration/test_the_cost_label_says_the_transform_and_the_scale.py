@@ -1,8 +1,8 @@
 """The label of a cost says what the number is: metric, cost transform and scale.
 
 ``cost_metric_label`` named the metric alone. A block with ``cost_transform = "log"``
-minimises ``log10(rmse)`` and one with ``normalize_cost`` minimises the RMSE over
-the spread of the record, yet both were labelled ``rmse``. The HTML report of a
+minimizes ``log10(rmse)`` and one with ``normalize_cost`` minimizes the RMSE over
+the spread of the record, yet both were labeled ``rmse``. The HTML report of a
 session listed ``best_cost`` with no label at all, beside an
 ``cost_name`` that reads as a score. The session now records the label and
 the report prints it beside the cost.

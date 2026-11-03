@@ -12,9 +12,6 @@ mf6_ims_complexity = "COMPLEX"
 [modflow6.process_specific]
 vka = 1.0
 
-[modflow6.sgrid.vertical]
-nlay = 1
-
 [mesh]
 engine = "voronoi"
 
@@ -23,3 +20,7 @@ path = "../../../shared/mesh_bundles/linearized_unconfined_drainage_irregular_tr
 
 [mesh.voronoi]
 seeds = "triangulation"
+
+[domain.layers]
+nlay = 1
+

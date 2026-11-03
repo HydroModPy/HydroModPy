@@ -1,6 +1,8 @@
 # Include important documentation files
 include README.md
 include LICENSE
+include NOTICE
+include CITATION.cff
 include pyproject.toml
 
 # Exclude compiled Python files

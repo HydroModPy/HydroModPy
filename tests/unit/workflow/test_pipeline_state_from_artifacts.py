@@ -39,7 +39,7 @@ class _Memory:
 
 
 class _Persistent:
-    """Persistent step: declares artefacts and supports rebuild_state."""
+    """Persistent step: declares artifacts and supports rebuild_state."""
 
     config_sections: ClassVar[tuple[str, ...]] = ()
 

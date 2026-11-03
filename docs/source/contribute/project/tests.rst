@@ -25,7 +25,7 @@ Quality ladder
    * - ``unit``
      - Does one local function, class, or schema behave correctly?
      - Isolated Python logic, local contracts, small fixtures.
-     - ``hmp test unit``
+     - ``hmp dev test unit``
    * - ``integration``
      - Do several subsystems still cooperate?
      - Cross-module workflows without golden files.
@@ -37,15 +37,15 @@ Quality ladder
    * - ``regression`` (fast)
      - Did a known workflow output drift?
      - Full workflows compared to committed golden signatures.
-     - ``hmp test regression --fast``
+     - ``hmp dev test regression --fast``
    * - ``regression`` (extensive)
      - Same, with heavier fixtures.
      - Wider workflow coverage; pre-merge / pre-release.
-     - ``hmp test regression --extensive``
+     - ``hmp dev test regression --extensive``
    * - ``validation`` (analytical)
      - Does the numerical result match a trusted reference?
      - Closed-form, semi-analytical, or stress benchmarks.
-     - ``hmp test validation --fast`` / ``--steady`` / ``--transient``
+     - ``hmp dev test validation --fast`` / ``--steady`` / ``--transient``
    * - ``validation`` (MMS)
      - Does the discrete scheme converge as theory predicts?
      - Manufactured solutions, refinement studies.
@@ -63,10 +63,10 @@ Quality ladder
      - Does one real run leave on disk what a stranger can read back?
      - One ``hmp run`` of a committed example, read only through the file
        formats a reader would use. Five strict ``xfail`` cases record claims
-       the code makes and does not yet honour.
+       the code makes and does not yet honor.
      - ``pytest tests/characterization -q``
    * - ``contract``
-     - Do the implementations of a port honour the same behaviour?
+     - Do the implementations of a port honor the same behavior?
      - Compatibility contracts across implementations, such as the catalog
        backends and the cache backend.
      - ``pytest tests/contract -q``
@@ -88,7 +88,7 @@ workflow stability, numerical consistency, and scientific validity.
 
 Practical notes:
 
-- ``hmp test`` wraps the unit, regression, and validation suites.
+- ``hmp dev test`` wraps the unit, regression, and validation suites.
 - ``pytest`` is the direct entry point for the integration, e2e, MMS,
   characterization, contract and marker-based subsets.
 - Run in parallel with the rules of :ref:`run-the-tests`.
@@ -150,7 +150,7 @@ The family that failed tells you where to look:
   recovers controlled truth.
 - ``characterization``: a run no longer leaves on disk what a reader expects,
   or a strict ``xfail`` started to pass, which means a claim of the code is now
-  honoured and the marker must go.
+  honored and the marker must go.
 - ``contract``: an implementation of a port no longer behaves like the others.
 - ``solver_sanity``: the external solver or its bundled binary
   drifted, not the orchestration.

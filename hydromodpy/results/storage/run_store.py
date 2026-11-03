@@ -36,9 +36,18 @@ import pandas as pd
 import pyarrow as pa
 
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
+from hydromodpy.core.exceptions import DataContractViolation
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.scope import CATCHMENT, DOMAIN, SIMULATED
+from hydromodpy.core.scope import (
+    CATCHMENT,
+    DOMAIN,
+    OBSERVED,
+    SIMULATED,
+    station_name_refusal,
+    zone_name_refusal,
+)
 from hydromodpy.core.state.paths import encode_workspace_path
+from hydromodpy.core.time.selection import in_series_window
 from hydromodpy.core.units.udunits import udunits_spelling
 from hydromodpy.results.catalog.storage_paths import sanitize_segment
 from hydromodpy.results.identity import Identity
@@ -466,7 +475,14 @@ class RunStore:
         unit: str = "",
         source: str = SIMULATED,
     ) -> None:
-        """Append one station and variable series to ``timeseries.parquet``."""
+        """Append one station and variable series to ``timeseries.parquet``.
+
+        A measurement cannot carry the word of the whole catchment: it would be
+        scored against the simulated outlet.
+        """
+        refusal = station_name_refusal(station_id) if source == OBSERVED else None
+        if refusal is not None:
+            raise DataContractViolation(f"Observed {variable}: {refusal}")
         if not self._persistence.save_parquet or ts is None or len(ts) == 0:
             return
         sid = self._check_sim(sim_id)
@@ -823,6 +839,11 @@ class RunStore:
             calibrated = bool(param.get("calibrated", parameterization == "calibrated"))
             origin = param.get("origin") or ("calibrated" if calibrated else "declared")
             zone = param.get("zone_id")
+            refusal = None if zone is None else zone_name_refusal(zone)
+            if refusal is not None:
+                raise DataContractViolation(
+                    f"Parameter {param['param_name']}: {refusal} Write no zone for a uniform value."
+                )
             value = param.get("value")
             self._facts.put_parameter(
                 ParameterRow(
@@ -999,9 +1020,10 @@ class RunStore:
         *,
         source: str = SIMULATED,
     ) -> pd.Series:
-        """Read one series of the run at one station, indexed by naive UTC time."""
-        from hydromodpy.results.derive.time_alignment import normalize_period_bounds
+        """Read one series of the run at one station, indexed by naive UTC time.
 
+        ``period`` is read as :meth:`hydromodpy.results.run.Run.timeseries` reads it.
+        """
         self._check_sim(sim_id)
         frame = self.read_table("timeseries")
         if frame.empty:
@@ -1012,10 +1034,14 @@ class RunStore:
             & (frame["source"] == source)
         ]
         if period is not None:
-            lo, hi, hi_inclusive = normalize_period_bounds(period)
-            times = pd.DatetimeIndex(rows["time"])
-            keep = (times >= lo) & ((times <= hi) if hi_inclusive else (times < hi))
-            rows = rows[np.asarray(keep)]
+            from hydromodpy.results.run import Run
+
+            edges = Run(self.sim_id, self).periods.edges  # type: ignore[arg-type]
+            rows = rows[
+                in_series_window(
+                    rows["time"], observed=source == OBSERVED, period=period, edges=edges
+                )
+            ]
         if rows.empty:
             raise KeyError(f"No timeseries for sim={sim_id}, station={station_id}, var={variable}")
         rows = rows.sort_values("timestep")

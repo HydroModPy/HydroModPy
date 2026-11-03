@@ -25,7 +25,7 @@ Comparison:
   K break, one ring of ocean triangles at the sea level), and the profile is
   read on the triangles, the reference at each centroid
 - for `solver=modflow6_voronoi`, the profile is read on the solver cells, which
-  are centred on the nodes of the mesh bundle, in 5 m bins that each hold one
+  are centered on the nodes of the mesh bundle, in 5 m bins that each hold one
   node ring; a node ring lies on the coast, where the model must hold the sea
   level, so this run reads a 1 m DEM whose shoreline sits 1 m inside that ring
   and every coast cell takes the ocean head (a node on the shoreline itself is
@@ -33,8 +33,8 @@ Comparison:
 - for `solver=modflow6_voronoi_generated`, the engine generates a Voronoi mesh of
   about 10 m cells over the 610 m square, with a face on each K contact (the
   rings at 70 m and 140 m), so no cell holds two K; the profile is read on the
-  solver cells (their centres come from the stored mesh), in 10 m bins, and a
-  cell holds the ocean head where the DEM at its centre is at or below sea level
+  solver cells (their centers come from the stored mesh), in 10 m bins, and a
+  cell holds the ocean head where the DEM at its center is at or below sea level
 
 Direct execution:
 

@@ -5,9 +5,9 @@ Voronoi dual give the cells that own a face of the family. The helpers are check
 7 x 5 grid, on the island triangulation and its dual, and on the other committed bundles.
 
 The QA says where the side heads sit relative to the side: half a cell inside on a
-regular grid, inside the triangle on triangles, on the side on a mesh centred on its
-generators. The number is the median distance from the centre of each side cell to its
-side, measured here from the side cells and the centres.
+regular grid, inside the triangle on triangles, on the side on a mesh centered on its
+generators. The number is the median distance from the center of each side cell to its
+side, measured here from the side cells and the centers.
 """
 
 from __future__ import annotations
@@ -197,7 +197,7 @@ def _grid(*, nrow: int, ncol: int, size: float):
 
 
 def _offsets_by_hand(cell_mesh) -> np.ndarray:
-    """Distance of the centres of the side cells to the side of the vertex box."""
+    """Distance of the centers of the side cells to the side of the vertex box."""
     vertices = np.asarray(cell_mesh.mesh.vertices, dtype=float)
     edges = {
         "west_side": (0, vertices[:, 0].min()),

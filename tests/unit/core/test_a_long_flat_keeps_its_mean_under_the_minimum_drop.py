@@ -2,7 +2,7 @@
 
 400 pixels at 300 m, 25 m apart, one pixel above at 300.5 m. The minimum drop
 of 1e-4 m/m over 10 km is 1 m: given from the exit up, it would lift the head
-of the flat by 1 m and the whole flat by 0.5 m on average. Centred on the
+of the flat by 1 m and the whole flat by 0.5 m on average. Centered on the
 flat's mean it lifts the head by half that, lowers the exit as much, and the
 flat keeps its level. The largest lift is reported.
 """

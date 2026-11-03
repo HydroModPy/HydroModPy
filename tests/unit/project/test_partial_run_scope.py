@@ -22,7 +22,9 @@ from types import SimpleNamespace
 
 import pytest
 
+from hydromodpy.config.sites.expansion import PlanDraft
 from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.core.pipeline_steps import STEP_NAMES
 from hydromodpy.project.runner import ProjectRunner
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -72,8 +74,8 @@ class _StubProject:
         self._ctx.setup.domain = "domain"
 
 
-def _dry_run(project: _StubProject, **kwargs) -> None:
-    ProjectRunner(project).run(dry_run=True, **kwargs)  # type: ignore[arg-type]
+def _dry_run(project: _StubProject, **kwargs) -> PlanDraft:
+    return ProjectRunner(project).draft(**kwargs)  # type: ignore[arg-type]
 
 
 def _isolate_workspace(monkeypatch: pytest.MonkeyPatch, root: Path) -> None:
@@ -94,24 +96,21 @@ def _isolate_workspace(monkeypatch: pytest.MonkeyPatch, root: Path) -> None:
 )
 def test_a_window_below_the_process_phase_builds_no_model_phase(
     tmp_path: Path,
-    capsys: pytest.CaptureFixture[str],
     until_step: str,
     expected_steps: int,
 ) -> None:
     """Every head step can be asked for on its own, without the model phase."""
     project = _StubProject(tmp_path)
 
-    _dry_run(project, until_step=until_step)
+    draft = _dry_run(project, until_step=until_step)
 
     assert project.built == 0
-    plan = capsys.readouterr().out
-    assert "resume_from" not in plan
-    assert len([line for line in plan.splitlines() if line.startswith("  ")]) == expected_steps
+    assert draft.steps == STEP_NAMES[:expected_steps]
 
 
-@pytest.mark.parametrize("until_step", [None, "setup_process", "run_solver", "export", 12])
+@pytest.mark.parametrize("until_step", [None, "setup_process", "run_solver", "export"])
 def test_a_window_reaching_the_process_phase_leaves_it_to_the_pipeline(
-    tmp_path: Path, until_step: str | int | None
+    tmp_path: Path, until_step: str | None
 ) -> None:
     """No window builds the model phase up front; the Pipeline executes it."""
     project = _StubProject(tmp_path)
@@ -121,9 +120,7 @@ def test_a_window_reaching_the_process_phase_leaves_it_to_the_pipeline(
     assert project.built == 0
 
 
-def test_an_already_built_project_reruns_the_head_steps_it_is_asked_for(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_an_already_built_project_reruns_the_head_steps_it_is_asked_for(tmp_path: Path) -> None:
     """A model phase left over from an earlier run does not swallow the window.
 
     ``_is_model_phase_ready`` skips the Pipeline forward to ``setup_process``.
@@ -132,34 +129,38 @@ def test_an_already_built_project_reruns_the_head_steps_it_is_asked_for(
     """
     project = _StubProject(tmp_path, model_phase_ready=True)
 
-    _dry_run(project, until_step="build_geographic")
+    draft = _dry_run(project, until_step="build_geographic")
 
     assert project.built == 0
-    assert "resume_from" not in capsys.readouterr().out
+    assert draft.steps == STEP_NAMES[:3]
 
 
-def test_a_model_phase_ready_project_still_skips_forward_on_a_full_run(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_a_model_phase_ready_project_still_skips_forward_on_a_full_run(tmp_path: Path) -> None:
     """The reuse shortcut itself is intact: it is the window that gates it."""
     project = _StubProject(tmp_path, model_phase_ready=True)
 
-    _dry_run(project, until_step=None)
-
-    assert "resume_from: 5" in capsys.readouterr().out
+    assert _dry_run(project, until_step=None).steps == STEP_NAMES[5:]
 
 
 @pytest.mark.parametrize("bound", ["until_step", "from_step"])
-def test_a_step_outside_the_pipeline_is_refused(tmp_path: Path, bound: str) -> None:
-    """An index past either end names no step, and no longer runs an empty plan."""
-    for out_of_range in (-1, 13, 99):
-        with pytest.raises(ConfigError, match="outside the"):
-            _dry_run(_StubProject(tmp_path), **{bound: out_of_range})
+@pytest.mark.parametrize(
+    ("word", "says"),
+    [
+        (0, "named, not numbered"),
+        ("3", "Unknown"),
+        ("SetupProcessStep", "Unknown"),
+        ("no", "Unknown"),
+    ],
+)
+def test_a_step_is_only_named(tmp_path: Path, bound: str, word: object, says: str) -> None:
+    """An index shifts when a step is inserted, and a class name is no contract."""
+    with pytest.raises(ConfigError, match=says):
+        _dry_run(_StubProject(tmp_path), **{bound: word})
 
 
 def test_a_window_that_starts_after_it_ends_is_refused(tmp_path: Path) -> None:
     """``--from build_mesh --until resolve`` executes nothing; say so."""
-    with pytest.raises(ConfigError, match="the window is empty"):
+    with pytest.raises(ConfigError, match="is past until_step"):
         _dry_run(_StubProject(tmp_path), from_step="build_mesh", until_step="resolve")
 
 
@@ -215,7 +216,7 @@ def test_delineating_alone_loads_no_data_and_builds_no_mesh(
 
 
 def test_the_partial_run_hands_its_work_to_the_next_call(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """What the window built stays built: the Project adopts it instead of redoing it.
 
@@ -236,11 +237,10 @@ def test_the_partial_run_hands_its_work_to_the_next_call(
         assert delineated is not None
 
         # A full run plans from the shared model phase instead of rebuilding it.
-        capsys.readouterr()
-        project.simulate(dry_run=True)
+        draft = project.simulate(dry_run=True)
 
         assert project._ctx.setup.geographic is delineated, "the delineation was thrown away"
-        assert "resume_from: 5" in capsys.readouterr().out
+        assert draft.steps == STEP_NAMES[5:]
     finally:
         project.close()
 

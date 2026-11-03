@@ -1,6 +1,6 @@
 """What a run store keeps of its cell mesh, beyond vertices and connectivity.
 
-``MeshLayout`` is the additive part of the ``mesh/`` group: cell centres, the
+``MeshLayout`` is the additive part of the ``mesh/`` group: cell centers, the
 family bit fields, the zone codes, the edge tables and the attributes that say
 which engine built the mesh. ``mesh_layout_from_cell_mesh`` derives it from a
 ``PlanarCellMesh``. The two family tables of the run (``mesh_cell_families`` and
@@ -156,7 +156,7 @@ def cell_family_rows(cell_mesh: PlanarCellMesh) -> list[dict[str, Any]]:
     """Return the rows of ``mesh_cell_families``: one per cell of every chain.
 
     ``position`` counts from upstream. ``offset_m`` is the distance from the cell
-    centre to the family line, null for a chain that publishes no offset.
+    center to the family line, null for a chain that publishes no offset.
     """
     rows: list[dict[str, Any]] = []
     for chain in cell_mesh.cell_chains:

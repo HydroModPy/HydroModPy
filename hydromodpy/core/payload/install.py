@@ -12,7 +12,6 @@ a row of the same id with other values is a conflict.
 from __future__ import annotations
 
 import csv
-import hashlib
 import io
 import os
 import shutil
@@ -22,6 +21,7 @@ from pathlib import Path
 from typing import Literal
 
 from hydromodpy.core.exceptions import DataRequestError, ImportConflictError
+from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.core.payload.index import SIDECAR_SUFFIX, PayloadFile, PayloadStation
 
 Status = Literal["unchanged", "absent", "differs"]
@@ -217,15 +217,6 @@ def _write_registry(path: Path, header: list[str], rows: list[dict[str, str]]) -
     partial = path.with_name(f".{path.name}.{os.getpid()}.partial")
     partial.write_text(buffer.getvalue(), encoding="utf-8")
     os.replace(partial, path)
-
-
-def sha256_of(path: Path) -> str:
-    """Return the sha256 of a file, read in chunks."""
-    digest = hashlib.sha256()
-    with Path(path).open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 BlobOf = Callable[[PayloadFile], Path]

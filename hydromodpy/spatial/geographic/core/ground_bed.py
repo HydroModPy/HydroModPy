@@ -1,10 +1,10 @@
-"""The channel bed of the ground G, regularised on the pixels of the channel tree A.
+"""The channel bed of the ground G, regularized on the pixels of the channel tree A.
 
 The ground G is read along A, the generated channel network of the run, and
 fitted by :func:`~hydromodpy.core.bed_regularization.regularize_bed_on_tree`:
 the bed closest to G that never rises downstream. The fit runs on the whole
 DEM grid, every A pixel with its receiver on the D8 pointer of the routing
-DEM R, and writes the regularised copy of G next to it
+DEM R, and writes the regularized copy of G next to it
 (:data:`GROUND_BED_FILENAME`). The model-top clips and the SFR bed both read
 that copy, so DRN and SFR see one bed. The routing DEM, A, the catchment and
 the mesh are built before and never read it.
@@ -44,13 +44,13 @@ from hydromodpy.spatial.geographic.core.ground_inputs import lakes_from_config
 logger = get_logger(__name__)
 
 GROUND_BED_FILENAME = "dem_ground_bed.tif"
-"""The ground with its channel bed regularised, next to the ground."""
+"""The ground with its channel bed regularized, next to the ground."""
 
 GROUND_BED_REPORT_FILENAME = "dem_ground_bed.json"
-"""What the fit found and did, next to the regularised ground."""
+"""What the fit found and did, next to the regularized ground."""
 
 BED_SUFFIX = "_bed"
-"""A clip of the regularised ground is the clip of G's file name with this before the extension."""
+"""A clip of the regularized ground is the clip of G's file name with this before the extension."""
 
 _BARRIER_KINDS = ("weir", "dam")
 
@@ -67,13 +67,13 @@ def bed_regularization_enabled(config: object) -> bool:
 
 
 def bed_dem_path(clip_path: str | Path) -> Path:
-    """Where the clip of the regularised ground matching the clip *clip_path* of G is written."""
+    """Where the clip of the regularized ground matching the clip *clip_path* of G is written."""
     path = Path(clip_path)
     return path.with_name(f"{path.stem}{BED_SUFFIX}{path.suffix}")
 
 
 def ground_bed_path(setup: object) -> Path:
-    """Where the regularised ground is written."""
+    """Where the regularized ground is written."""
     return Path(setup.paths.correcflow_path) / GROUND_BED_FILENAME
 
 
@@ -85,7 +85,7 @@ def ground_bed_report_path(setup: object) -> Path:
 def top_dem_path_from_config(config: object, setup: object) -> str:
     """The full-extent DEM the model top and the SFR bed read, without building anything.
 
-    The regularised ground when the option is on, else the ground G.
+    The regularized ground when the option is on, else the ground G.
     """
     if bed_regularization_enabled(config):
         return str(ground_bed_path(setup))
@@ -93,9 +93,9 @@ def top_dem_path_from_config(config: object, setup: object) -> str:
 
 
 WINDOW_MARGIN_M = 2_000.0
-"""Margin around the domain extent inside which the bed is fitted, in metres.
+"""Margin around the domain extent inside which the bed is fitted, in meters.
 
-The regional grid reaches tens of kilometres beyond the model. A channel there
+The regional grid reaches tens of kilometers beyond the model. A channel there
 never enters the model, so fitting it only costs time. The margin keeps the
 reaches that cross the domain edge whole near it.
 """
@@ -164,9 +164,9 @@ def regularized_ground_from_config(
     d8_tif: str | Path,
     river_products: object,
 ) -> Path:
-    """Fit the bed on the whole ground G, write the regularised ground and its report.
+    """Fit the bed on the whole ground G, write the regularized ground and its report.
 
-    Returns the path of the regularised ground, :func:`ground_bed_path`. It is
+    Returns the path of the regularized ground, :func:`ground_bed_path`. It is
     G byte for byte off the channel tree, on G's grid and in G's data type.
     """
     section = config.bed_regularization

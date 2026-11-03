@@ -22,8 +22,10 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from hydromodpy.core.exceptions import CalibrationError
 
-class GaugeSnapError(ValueError):
+
+class GaugeSnapError(CalibrationError, ValueError):
     """The snap radius reaches no cell but the one the gauge already sits in."""
 
 
@@ -34,7 +36,7 @@ class GaugeSnap:
     index_before: int
     index_after: int
     distance_m: float
-    """Distance from the gauge coordinate to the centre of the chosen cell."""
+    """Distance from the gauge coordinate to the center of the chosen cell."""
 
     area_before_m2: float
     area_after_m2: float
@@ -53,7 +55,7 @@ def snap_to_most_accumulated(
     radius_m: float,
     start_index: int,
 ) -> GaugeSnap:
-    """Return the most accumulated cell whose centre lies within ``radius_m``.
+    """Return the most accumulated cell whose center lies within ``radius_m``.
 
     ``centroids`` is ``(n_cells, 2+)`` and ``accumulation`` ``(n_cells,)``, in
     the flat order of the mesh. ``start_index`` is the cell the gauge resolved

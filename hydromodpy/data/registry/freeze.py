@@ -9,11 +9,11 @@ mid-write leaves the previous lockfile untouched.
 
 Verification has two modes:
 
-- ``verify_frozen`` (used by ``hmp dev lock verify`` and the frozen-mode catalog)
+- ``verify_frozen`` (used by ``hmp lock verify`` and the frozen-mode catalog)
   walks every entry and reports :class:`LockMismatch` records (one per kind:
   ``"missing"``, ``"sha256"``).
 - ``verify_inputs_strict`` returns the same kind of report for the files the
-  lockfile names, and is consumed by ``hmp dev lock verify --strict`` and
+  lockfile names, and is consumed by ``hmp lock verify --strict`` and
   ``hmp run --frozen`` to map a mismatch to a non-zero exit.
 """
 
@@ -347,10 +347,10 @@ def verify_inputs_strict(
 ) -> list[LockMismatch]:
     """Return what changed among the files the lockfile names, by path.
 
-    Used by ``hmp dev lock verify --strict`` and ``hmp run --frozen`` to stop on a
+    Used by ``hmp lock verify --strict`` and ``hmp run --frozen`` to stop on a
     tracked input that changed. An entry the lockfile does not name is left to
     ``verify_frozen``, which also answers for a lockfile that names nothing.
-    Missing artefacts are reported with ``kind="missing"``.
+    Missing artifacts are reported with ``kind="missing"``.
     """
     expected = {item.path: item for item in read_lockfile_inputs(lockfile)}
     if not expected:
@@ -434,7 +434,7 @@ def archive_lockfile(
     parquet_schema_version: str,
     lockfile_dest: Path | str | None = None,
 ) -> Path:
-    """Produce an archive containing the lockfile and every artefact."""
+    """Produce an archive containing the lockfile and every artifact."""
     dest = Path(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
     lockfile_dest = Path(lockfile_dest) if lockfile_dest else (dest.parent / LOCKFILE_NAME)
@@ -464,10 +464,10 @@ def archive_lockfile(
 
 
 def restore_archive(archive: Path | str, dest_dir: Path | str) -> Path:
-    """Extract *archive* into *dest_dir*, once every artefact its lockfile names is checked.
+    """Extract *archive* into *dest_dir*, once every artifact its lockfile names is checked.
 
     The archive is read in a staging folder beside *dest_dir*, so a refused archive
-    leaves nothing behind. An artefact that is absent or holds other bytes is refused,
+    leaves nothing behind. An artifact that is absent or holds other bytes is refused,
     each one named.
     """
     archive = Path(archive)
@@ -498,12 +498,12 @@ def restore_archive(archive: Path | str, dest_dir: Path | str) -> Path:
 
 
 def _refuse_a_bad_archive(archive: Path, extracted: Path) -> None:
-    """Refuse what was extracted when an artefact its lockfile names is absent or differs."""
+    """Refuse what was extracted when an artifact its lockfile names is absent or differs."""
     lockfile_path = extracted / LOCKFILE_NAME
     if not lockfile_path.is_file():
         raise CacheCorruptionError(
             f"{archive} holds no {LOCKFILE_NAME}, so nothing in it can be checked. "
-            "Nothing was restored. Write it again with `hmp dev lock archive`."
+            "Nothing was restored. Write it again with `hmp data archive --to FILE`."
         )
     faults: list[str] = []
     for item in read_lockfile_inputs(lockfile_path):
@@ -517,7 +517,7 @@ def _refuse_a_bad_archive(archive: Path, extracted: Path) -> None:
     if faults:
         raise CacheCorruptionError(
             f"{archive} does not hold what its {LOCKFILE_NAME} names, so nothing was restored. "
-            "Write it again with `hmp dev lock archive`:\n  " + "\n  ".join(faults)
+            "Write it again with `hmp data archive --to FILE`:\n  " + "\n  ".join(faults)
         )
 
 

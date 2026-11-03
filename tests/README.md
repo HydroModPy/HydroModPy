@@ -116,11 +116,11 @@ pytest tests/regression/fast/ -q -n auto
 The `hmp` CLI wraps the most common invocations:
 
 ```bash
-hmp test unit                # → pytest tests/unit/
-hmp test regression --fast   # → pytest tests/regression/fast/
-hmp test regression --fast --intercomparison
-hmp test regression --extensive
-hmp test regression --update-goldens
+hmp dev test unit                # → pytest tests/unit/
+hmp dev test regression --fast   # → pytest tests/regression/fast/
+hmp dev test regression --fast --intercomparison
+hmp dev test regression --extensive
+hmp dev test regression --update-goldens
 ```
 
 ## Environment
@@ -189,7 +189,7 @@ parses the shared table for tests that need a named tolerance.
 
 ## Writing new tests
 
-- **unit/** - one importable module under test, one behaviour per test,
+- **unit/** - one importable module under test, one behavior per test,
   2 s target. The hard limit enforced by `tests/conftest.py` is a 60 s
   per-test timeout; anything that needs more must carry `@pytest.mark.slow`,
   which takes it out of the push gate. No external binaries. Use `tmp_path`

@@ -1,4 +1,4 @@
-"""A project like ``examples/projects/20_atelier_nancon`` gains no EVT package.
+"""A project like the atelier Nancon one gains no EVT package.
 
 Its ``project.toml`` loads ``[data.etp]`` and lists ``"etp"`` in
 ``flow.active_sinks_sources``, exactly what MODFLOW-NWT reads for EVT; under

@@ -64,7 +64,7 @@ MESH_BUNDLES = Path(__file__).resolve().parents[2] / "validation_cases" / "share
 
 
 def square_domain(side: float, *, x0: float = 0.0, y0: float = 0.0) -> Polygon:
-    """Return the square of *side* metres whose south-west corner is ``(x0, y0)``."""
+    """Return the square of *side* meters whose south-west corner is ``(x0, y0)``."""
     return box(x0, y0, x0 + side, y0 + side)
 
 
@@ -99,7 +99,7 @@ def grid_over(
 ) -> RasterGridSpec:
     """Return the grid on the exact bounds of *area*, a geometry or a bounds tuple.
 
-    The pixels are squares of *pixel* metres, which must divide both sides. With
+    The pixels are squares of *pixel* meters, which must divide both sides. With
     no *pixel* the grid is one cell, for an engine that reads no raster.
     """
     xmin, ymin, xmax, ymax = area.bounds if isinstance(area, BaseGeometry) else area
@@ -122,7 +122,7 @@ def grid_over(
 
 
 def uniform_size_field(grid: RasterGridSpec, size: float) -> SizeField:
-    """Return the size field of *size* metres on every pixel of *grid*."""
+    """Return the size field of *size* meters on every pixel of *grid*."""
     return SizeField(np.full((grid.nrow, grid.ncol), size), grid)
 
 
@@ -179,7 +179,7 @@ def regular_mesh(
 ) -> PlanarCellMesh:
     """Return the regular cell mesh of ``nrow x ncol`` cells, row 0 north, with no family.
 
-    The cells are ``dx`` by ``dy`` metres (``dy`` defaults to ``dx``) and the
+    The cells are ``dx`` by ``dy`` meters (``dy`` defaults to ``dx``) and the
     south-west corner is ``(xmin, ymin)``. The mesh comes from ``RegularGrid``,
     not from the ``regular`` engine, so it carries no ``boundary:*`` family; its
     ``.mesh`` is the quad ``HydroMesh`` of the grid.
@@ -202,7 +202,7 @@ def voronoi_lake_mesh(
 ) -> PlanarCellMesh:
     """Return the generated Voronoi mesh of *domain* whose faces follow the shore of *lake*.
 
-    The grid lies on the bounds of *domain* with pixels of *pixel* metres, and
+    The grid lies on the bounds of *domain* with pixels of *pixel* meters, and
     the size field is *cell_size* everywhere. The shore is the exterior ring of
     *lake* as given, in a ``lakes`` face family; pass ``shapely.normalize(lake)``
     for a ring that does not depend on how the polygon was drawn. *rivers*, if
@@ -228,5 +228,5 @@ def bundle_msh(case: str) -> Path:
 
 
 def bundle_triangulation(case: str) -> InputTriangulation:
-    """Return the triangles and labelled edges of the bundle *case*, as an engine reads them."""
+    """Return the triangles and labeled edges of the bundle *case*, as an engine reads them."""
     return read_input_triangulation(bundle_msh(case))

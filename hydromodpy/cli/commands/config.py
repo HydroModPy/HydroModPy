@@ -1,12 +1,14 @@
 """``hmp config`` - configuration TOML template + schema + validator.
 
 Subparsers:
-  - ``hmp config template [OUTPUT]``  : generate a TOML template
-  - ``hmp config check FILE.toml``    : validate a run, a calibration or a [sites] project
-  - ``hmp config resolve FILE.toml``  : print the file its base_config chain resolves to
-  - ``hmp config schema ...``         : export the JSON Schema, or with ``--editor``
-                                        the editor schema of one TOML file
-  - ``hmp config wizard``             : stdin-driven wizard
+  - ``hmp config template [--to FILE]``  : generate a TOML template
+  - ``hmp config check FILE.toml``       : validate a run, a calibration or a [sites] project
+  - ``hmp config resolve FILE.toml``     : print the file its base_config chain resolves to
+  - ``hmp config schema ...``            : export the JSON Schema, with ``--editor`` the editor
+                                           schema of one TOML file, with ``--bundle`` the files
+                                           a frontend reads
+  - ``hmp config validate-field P V``    : validate one field value
+  - ``hmp config wizard``                : stdin-driven wizard
 """
 
 from __future__ import annotations
@@ -17,8 +19,21 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from hydromodpy.cli.conventions import verbosity_parser
-from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, EXIT_USAGE, apply_verbosity
+from hydromodpy.cli.conventions import (
+    add_destination,
+    format_parser,
+    verbosity_parser,
+    workspace_parser,
+)
+from hydromodpy.cli.helpers import (
+    EXIT_CONFIG,
+    EXIT_NOT_FOUND,
+    EXIT_USAGE,
+    apply_verbosity,
+    project_named_by_w,
+    refuse,
+)
+from hydromodpy.cli.output import emit
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.targets import CalibrationTarget
@@ -38,13 +53,12 @@ def register(subparsers) -> argparse.ArgumentParser:
     tpl = sub.add_parser(
         "template",
         help="Generate a TOML configuration template",
-        epilog="Examples:\n  hmp config template --list-modules\n  hmp config template run.toml --profile user --modules flow solver",
+        parents=[workspace_parser(reads_none=True)],
+        epilog="Examples:\n  hmp config template --list-modules\n  hmp config template --to run.toml --profile user --modules flow solver",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    tpl.add_argument(
-        "output",
-        nargs="?",
-        help="Output file (or directory); prints to stdout if omitted",
+    add_destination(
+        tpl, help="Output file (or directory); prints to stdout if omitted", metavar="FILE"
     )
     tpl.add_argument(
         "--profile",
@@ -66,7 +80,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     chk = sub.add_parser(
         "check",
         help="Validate a run, a calibration or a whole [sites] project",
-        parents=[verbosity_parser()],
+        parents=[workspace_parser(), format_parser(), verbosity_parser()],
         epilog=(
             "Examples:\n"
             "  hmp config check run.toml\n"
@@ -74,7 +88,8 @@ def register(subparsers) -> argparse.ArgumentParser:
             "  hmp config check project.toml\n"
             "A calibration is read by its preflight and says which published method it\n"
             "runs and where it departs from it (-v adds the stages and the references).\n"
-            "The last one expands a [sites] project and checks every case."
+            "The last one expands a [sites] project and checks every case.\n"
+            "-v also says which workspace the file resolves to, with its folders."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -83,6 +98,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     res = sub.add_parser(
         "resolve",
         help="Print the TOML a base_config chain resolves to, before validation",
+        parents=[workspace_parser()],
         epilog="Example:\n  hmp config resolve run.toml",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -91,11 +107,13 @@ def register(subparsers) -> argparse.ArgumentParser:
     sch = sub.add_parser(
         "schema",
         help="Export the JSON Schema",
+        parents=[workspace_parser(reads_none=True)],
         epilog=(
             "Examples:\n"
             "  hmp config schema --list-sections\n"
-            "  hmp config schema --section flow --out flow.schema.json\n"
-            "  hmp config schema --editor --out hydromodpy-schema.json"
+            "  hmp config schema --section flow --to flow.schema.json\n"
+            "  hmp config schema --editor --to hydromodpy-schema.json\n"
+            "  hmp config schema --bundle --to schema_dir"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -111,7 +129,16 @@ def register(subparsers) -> argparse.ArgumentParser:
     sch.add_argument(
         "--section", default=None, help="Export a single root TOML section (e.g. 'flow')"
     )
-    sch.add_argument("--out", default=None, help="Write the JSON Schema to this file")
+    sch.add_argument(
+        "--bundle",
+        action="store_true",
+        help=(
+            "Write three files into the folder --to names: config.json (the JSON Schema of "
+            "HydroModPyConfig), config_meta.json (the root sections in order, their titles and "
+            "UI groups) and field_validators.json (the validator type of each field path)"
+        ),
+    )
+    add_destination(sch, help="Write the JSON Schema to this file", metavar="FILE")
     sch.add_argument(
         "--profile",
         choices=profile_names,
@@ -123,29 +150,37 @@ def register(subparsers) -> argparse.ArgumentParser:
     tgt = sub.add_parser(
         "targets",
         help="List what this project exposes to a calibration",
-        epilog="Example:\n  hmp config targets calibration.toml --json",
+        parents=[workspace_parser(), format_parser()],
+        epilog="Example:\n  hmp config targets calibration.toml --format json",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     tgt.add_argument("file", help="Path to the TOML configuration")
-    tgt.add_argument(
-        "--json",
-        action="store_true",
-        help="Emit the catalogue as JSON instead of a table",
-    )
 
     wiz = sub.add_parser(
         "wizard",
         help="Interactive stdin-based TOML wizard",
-        epilog="Example:\n  hmp config wizard run.toml --profile user",
+        parents=[workspace_parser(reads_none=True)],
+        epilog="Example:\n  hmp config wizard --to run.toml --profile user",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    wiz.add_argument("output", nargs="?", help="Output TOML file (default: <project label>.toml)")
+    add_destination(wiz, help="Output TOML file (default: <project label>.toml)", metavar="FILE")
     wiz.add_argument(
         "--profile",
         choices=profile_names,
         default="user",
         help="Parameter visibility level (default: user)",
     )
+
+    val = sub.add_parser(
+        "validate-field",
+        help="Validate one field value without loading a whole config",
+        parents=[workspace_parser(reads_none=True), format_parser()],
+        epilog="Example:\n  hmp config validate-field solver.backend.kind modflow6",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    val.add_argument("path", help="Dotted field path")
+    val.add_argument("value", help="Candidate value")
+    val.add_argument("--context", default=None, help="TOML providing form state")
 
     parser.set_defaults(_handler=run)
     return parser
@@ -173,11 +208,7 @@ def run(args: argparse.Namespace) -> None:
         _cmd_config_wizard(args)
         return
 
-    print(
-        "usage: hmp config {template,check,resolve,schema,targets,wizard} ...",
-        file=sys.stderr,
-    )
-    sys.exit(EXIT_CONFIG)
+    refuse("usage: hmp config {template,check,resolve,schema,targets,wizard} ...", EXIT_CONFIG)
 
 
 def _cmd_config_targets(args: argparse.Namespace) -> None:
@@ -188,8 +219,6 @@ def _cmd_config_targets(args: argparse.Namespace) -> None:
     holds today and the range the physical registry enforces where it knows one.
     Those three columns are what a bound is written from.
     """
-    import json
-
     from hydromodpy.calibration.parameter_resolution import (
         RECHARGE_VALUES_PATH,
         replaced_recharge_rate,
@@ -199,47 +228,46 @@ def _cmd_config_targets(args: argparse.Namespace) -> None:
 
     path = Path(args.file).expanduser().resolve()
     if not path.is_file():
-        print(f"File not found: {path}", file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
+        refuse(f"File not found: {path}", EXIT_NOT_FOUND)
 
     try:
-        cfg = HydroModPyConfig.from_toml(path)
-    except Exception as exc:
-        print(f"Config invalid: {exc}", file=sys.stderr)
-        sys.exit(EXIT_CONFIG)
+        with project_named_by_w(getattr(args, "workspace", None)):
+            cfg = HydroModPyConfig.from_toml(path)
+    except Exception as exc:  # noqa: BLE001 - any load failure says the file is invalid
+        refuse(f"Config invalid: {exc}", EXIT_CONFIG, cause=exc)
 
     targets = calibration_targets(cfg)
     if replaced_recharge_rate(cfg) is not None:
         targets = [target for target in targets if target.path != RECHARGE_VALUES_PATH]
     _warn_about_suffix_only_parameters(path, targets)
 
-    if getattr(args, "json", False):
-        print(json.dumps([target.to_dict() for target in targets], indent=2))
-        return
-
-    if not targets:
-        print(f"{path.name} declares nothing a calibration could move.", file=sys.stderr)
-        return
-
-    name_width = max(len(target.name) for target in targets)
-    print(f"{'name'.ljust(name_width)}  {'current':>12}  {'unit':>9}  {'physical range':<24}  path")
-    for target in targets:
-        bounds = (
-            f"{target.physical_bounds[0]:g} .. {target.physical_bounds[1]:g}"
-            if target.physical_bounds
-            else "-"
-        )
-        current = "-" if target.current is None else f"{target.current:g}"
+    def table() -> None:
+        if not targets:
+            print(f"{path.name} declares nothing a calibration could move.", file=sys.stderr)
+            return
+        name_width = max(len(target.name) for target in targets)
         print(
-            f"{target.name.ljust(name_width)}  {current:>12}  "
-            f"{(target.units or '-'):>9}  {bounds:<24}  {target.path}"
+            f"{'name'.ljust(name_width)}  {'current':>12}  {'unit':>9}  {'physical range':<24}  path"
         )
-    print(
-        f"\nWrite one as [calibration.parameters.{targets[0].name}] with a bounds pair. "
-        "The path is resolved from the name; write it yourself only to reach "
-        "something this catalogue does not list.",
-        file=sys.stderr,
-    )
+        for target in targets:
+            bounds = (
+                f"{target.physical_bounds[0]:g} .. {target.physical_bounds[1]:g}"
+                if target.physical_bounds
+                else "-"
+            )
+            current = "-" if target.current is None else f"{target.current:g}"
+            print(
+                f"{target.name.ljust(name_width)}  {current:>12}  "
+                f"{(target.units or '-'):>9}  {bounds:<24}  {target.path}"
+            )
+        print(
+            f"\nWrite one as [calibration.parameters.{targets[0].name}] with a bounds pair. "
+            "The path is resolved from the name; write it yourself only to reach "
+            "something this catalogue does not list.",
+            file=sys.stderr,
+        )
+
+    emit(args, "config targets", [target.to_dict() for target in targets], table=table)
 
 
 def _warn_about_suffix_only_parameters(path: Path, targets: list[CalibrationTarget]) -> None:
@@ -296,7 +324,7 @@ def _cmd_config_template(args: argparse.Namespace) -> None:
             print(name)
         return
 
-    output = getattr(args, "output", None)
+    output = args.to
     if output and Path(output).is_dir():
         output = str(Path(output) / "config.toml")
 
@@ -326,16 +354,14 @@ def _cmd_config_resolve(args: argparse.Namespace) -> None:
 
     path = Path(args.file).expanduser().resolve()
     if not path.is_file():
-        print(f"File not found: {path}", file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
+        refuse(f"File not found: {path}", EXIT_NOT_FOUND)
     try:
-        payload = load_toml_with_base_config(path)
+        with project_named_by_w(args.workspace):
+            payload = load_toml_with_base_config(path)
     except tomllib.TOMLDecodeError as exc:
-        print(f"Invalid TOML syntax: {exc}", file=sys.stderr)
-        sys.exit(EXIT_CONFIG)
+        refuse(f"Invalid TOML syntax: {exc}", EXIT_CONFIG, cause=exc)
     except (TypeError, ValueError) as exc:
-        print(f"Invalid base_config chain: {exc}", file=sys.stderr)
-        sys.exit(EXIT_CONFIG)
+        refuse(f"Invalid base_config chain: {exc}", EXIT_CONFIG, cause=exc)
     sys.stdout.write(dumps(payload))
 
 
@@ -348,31 +374,50 @@ def _cmd_config_check(args: argparse.Namespace) -> None:
     case by case, and the errors come back grouped, each at the cell or the
     file it comes from.
     """
+    from hydromodpy.cli.commands.doctor import probe_toml_workspace
     from hydromodpy.config.sites.check import check_project, report_lines
     from hydromodpy.core.config_kit.written import experimental_keys_line
 
     path = Path(args.file).expanduser().resolve()
     if not path.is_file():
-        print(f"File not found: {path}", file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
+        refuse(f"File not found: {path}", EXIT_NOT_FOUND)
 
     verbosity = apply_verbosity(args, {})
-    report = check_project(path)
-    if report.kind == "calibration" and verbosity != "quiet":
-        for line in _calibration_notes(path, verbose=verbosity in ("verbose", "debug")):
-            print(line, file=sys.stderr)
+    verbose = verbosity in ("verbose", "debug")
+    with project_named_by_w(args.workspace):
+        report = check_project(path)
+        if report.kind == "calibration" and verbosity != "quiet":
+            for line in _calibration_notes(path, verbose=verbose):
+                print(line, file=sys.stderr)
+        where = probe_toml_workspace(path) if verbose or args.format != "table" else []
     if report.experimental_keys and verbosity != "quiet":
         print(experimental_keys_line(report.experimental_keys), file=sys.stderr)
     summary, *findings = report_lines(report)
-    if report.ok:
-        print(summary)
+
+    def table() -> None:
+        print(summary, file=sys.stdout if report.ok else sys.stderr)
         for line in findings:
             print(line, file=sys.stderr)
-        return
-    print(summary, file=sys.stderr)
-    for line in findings:
-        print(line, file=sys.stderr)
-    sys.exit(EXIT_CONFIG)
+        for check in where:
+            print(f"{check['status']:<4} {check['name']}: {check['detail']}", file=sys.stderr)
+
+    emit(
+        args,
+        "config check",
+        {
+            "ok": report.ok,
+            "kind": report.kind,
+            "n_cases": report.n_cases,
+            "summary": summary,
+            "errors": list(report.errors),
+            "warnings": list(report.warnings),
+            "experimental_keys": list(report.experimental_keys),
+            "workspace": where,
+        },
+        table=table,
+    )
+    if not report.ok:
+        sys.exit(EXIT_CONFIG)
 
 
 def _calibration_notes(path: Path, *, verbose: bool) -> list[str]:
@@ -409,9 +454,12 @@ def _cmd_config_schema(args: argparse.Namespace) -> None:
         return
 
     section = getattr(args, "section", None)
-    out_path = getattr(args, "out", None)
+    out_path = args.to
     profile = getattr(args, "profile", None)
 
+    if args.bundle:
+        _write_schema_bundle(args)
+        return
     if getattr(args, "editor", False):
         _write_editor_schema(out_path, section=section, profile=profile)
         return
@@ -425,16 +473,60 @@ def _cmd_config_schema(args: argparse.Namespace) -> None:
     print(json.dumps(schema, indent=2, ensure_ascii=False))
 
 
+def _write_schema_bundle(args: argparse.Namespace) -> None:
+    """Write the JSON Schema and the files a frontend reads with it into the folder ``--to``."""
+    from hydromodpy.cli._workers.dev import export_schema
+
+    if args.to is None or args.editor or args.section or args.profile:
+        refuse(
+            "--bundle writes three files about the whole config into a folder: it needs --to "
+            "and takes no --editor, --section or --profile.",
+            EXIT_USAGE,
+        )
+    for key, path in export_schema(args.to).items():
+        print(f"{key}: {path}", file=sys.stderr)
+
+
+def _cmd_config_validate_field(args: argparse.Namespace) -> None:
+    """Validate one field value, for a frontend that checks a form as it is filled."""
+    from hydromodpy.cli._workers.dev import validate_field
+
+    payload = validate_field(args.path, args.value, context=_load_context(args.context))
+
+    def table() -> None:
+        print(f"{args.path}: {'valid' if payload['valid'] else 'invalid'}")
+        if payload["error"]:
+            print(f"  {payload['error']}", file=sys.stderr)
+        for line in payload["warnings"]:
+            print(f"  warning: {line}", file=sys.stderr)
+
+    emit(args, "config validate-field", payload, table=table)
+    if not payload["valid"]:
+        sys.exit(EXIT_CONFIG)
+
+
+def _load_context(ctx_path: str | None) -> dict | None:
+    """Return the TOML that gives the state of the form, when ``--context`` names one."""
+    import tomllib
+
+    if not ctx_path:
+        return None
+    ctx_file = Path(ctx_path).expanduser().resolve()
+    if not ctx_file.is_file():
+        refuse(f"context TOML not found: {ctx_file}", EXIT_NOT_FOUND)
+    with ctx_file.open("rb") as fh:
+        return tomllib.load(fh)
+
+
 def _write_editor_schema(out_path: str | None, *, section: str | None, profile: str | None) -> None:
     """Print or write the editor schema of a whole TOML file."""
     from hydromodpy.config.schema_export import editor_schema
 
     if section or profile:
-        print(
+        refuse(
             "--editor describes a whole TOML file: it takes no --section and no --profile.",
-            file=sys.stderr,
+            EXIT_USAGE,
         )
-        sys.exit(EXIT_USAGE)
     # Same serialization as the copy published with the documentation.
     text = json.dumps(editor_schema(), indent=2) + "\n"
     if not out_path:
@@ -471,7 +563,7 @@ def _cmd_config_wizard(args: argparse.Namespace) -> None:
         )
         or "user"
     )
-    output = getattr(args, "output", None) or _ask(
+    output = args.to or _ask(
         "Output TOML path",
         f"{project}.toml",
     )

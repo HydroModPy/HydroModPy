@@ -27,6 +27,7 @@ from hydromodpy.results.export.stac import validate_item
 from hydromodpy.results.manifest import list_artifacts
 from hydromodpy.results.record import PROVENANCE_VERSION
 from hydromodpy.results.storage.contract import ALLOWED_RUN_ENTRIES
+from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
 from hydromodpy.schema.generated_views import (
     GENERATED_VIEWS,
     PROV_VIEW_FILENAME,
@@ -59,7 +60,9 @@ def _run_directory(
     """A sealed run directory, written the way the run seal writes one."""
     run_dir = root / "runs" / "transient_nwt"
     (run_dir / "fields.zarr").mkdir(parents=True)
-    (run_dir / "fields.zarr" / "zarr.json").write_text("{}", encoding="utf-8")
+    (run_dir / "fields.zarr" / "zarr.json").write_text(
+        json.dumps({"attributes": {"zarr_schema_version": ZARR_SCHEMA_VERSION}}), encoding="utf-8"
+    )
     (run_dir / "tables.parquet").mkdir()
     (run_dir / "tables.parquet" / "mass_balance.parquet").write_bytes(b"PAR1" * 8)
     (run_dir / "config.toml").write_text("[simulation]\n", encoding="utf-8")
@@ -231,7 +234,7 @@ class TestARunDirectory:
             {"rel": "self", "href": STAC_ITEM_VIEW_FILENAME, "type": "application/geo+json"}
         ]
         xmin, ymin, xmax, ymax = item["bbox"]
-        # Lambert-93 metres reprojected onto the Rennes basin, in degrees.
+        # Lambert-93 meters reprojected onto the Rennes basin, in degrees.
         assert -1.4 < xmin < xmax < -1.0
         assert 48.2 < ymin < ymax < 48.6
         assert item["properties"]["proj:epsg"] == 2154

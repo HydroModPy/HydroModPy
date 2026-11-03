@@ -76,7 +76,7 @@ class ConcentrationBoxplot(BaseFigure):
         samples: list[np.ndarray] = []
         kept: list[int] = []
         for index in steps:
-            values = np.asarray(sim.field("concentration", timestep=index, layer=layer))
+            values = np.asarray(sim.field("concentration", time=index, layer=layer))
             finite = values[np.isfinite(values)] * scale
             if finite.size:
                 samples.append(finite)

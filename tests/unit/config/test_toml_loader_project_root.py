@@ -73,7 +73,7 @@ def test_a_file_in_a_sub_folder_of_a_project_reads_its_paths_from_the_root(tmp_p
     sub.write_text(
         '[workspace]\ndata_dir = "data"\n\n[geographic]\nsource_mode = "synthetic"\n\n'
         '[simulation]\nname = "x"\n\n[[simulation.process]]\nid = "flow_main"\n'
-        'type = "flow"\nsolvers = ["modflow6"]\n\n[flow]\nflow_regime = "steady"\n',
+        'kind = "flow"\nsolvers = ["modflow6"]\n\n[flow]\nflow_regime = "steady"\n',
         encoding="utf-8",
     )
 

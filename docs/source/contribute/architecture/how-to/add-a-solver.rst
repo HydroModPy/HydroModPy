@@ -180,11 +180,25 @@ and no extractor.
 Nothing is loaded at import time. ``registry.get(process_type,
 solver_name)`` serves explicit registrations first, then lazy-imports
 the ``_BUILTIN_PATHS`` entry, and only calls ``load_plugins()`` once if
-the pair is still unknown. Launchers may also call
-``SolverConfig.validate_registry()`` to force that scan up front and
-fail early on an unknown backend name. The runner instantiates the
-adapter through ``registry.get_solver_adapter(process_type,
-solver_name)``.
+the pair is still unknown. An unknown pair raises an error that lists the
+known ones. The runner instantiates the adapter through
+``registry.get_solver_adapter(process_type, solver_name)``.
+
+Mesh engines
+------------
+
+A flow adapter names the mesh engines whose cells it can read, in the class
+attribute ``accepted_meshes`` (``MeshReadingAdapter`` in
+``adapter_protocol.py``). An adapter that declares none reads the ``regular``
+engine only. A configuration that pairs the solver with another engine is
+refused before any meshing. A built-in also lists its engines in
+``_BUILTIN_ACCEPTED_MESHES``, so the registry answers without importing the
+adapter, and a test keeps the two equal.
+
+.. code-block:: python
+
+   class MysolverFlowAdapter:
+       accepted_meshes: ClassVar[frozenset[str]] = frozenset({"regular", "triangle"})
 
 Capabilities (optional but recommended)
 ---------------------------------------

@@ -36,7 +36,7 @@ all_vertices = true
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow_nwt"]
 
 [modflownwt.runtime]
@@ -85,7 +85,7 @@ output_format = "unformatted"
 [mesh.regular]
 shape = [60, 60]
 
-[modflownwt.sgrid.vertical]
+[domain.layers]
 genmtd_lay = "decay"
 nlay = 2
 lay_decay = 1.2

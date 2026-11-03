@@ -328,14 +328,14 @@ def record_map(
 ) -> None:
     """Keep the plan-view error of one run: simulated minus reference, per cell.
 
-    ``polygons`` is one (n, 2) array per cell in local metres, or a regular grid
+    ``polygons`` is one (n, 2) array per cell in local meters, or a regular grid
     as ``{"x_edges", "y_edges"}``. The values have one entry per cell, NaN for
     sea or inactive cells. A regular grid is kept as its edges and a row-major
     error array (key ``grid``). Any other mesh keeps shared vertices and one
     vertex index list per cell. The error keeps 2 significant digits: the page
     draws a map, not the raw output. Only the cells around those whose error
     shows on the map are kept (``_visible_window``). ``overlay`` may carry
-    ``coast_circle`` ``[cx, cy, radius]`` or ``well`` ``[x, y]``, in metres.
+    ``coast_circle`` ``[cx, cy, radius]`` or ``well`` ``[x, y]``, in meters.
     """
     if _CURRENT is None:
         return

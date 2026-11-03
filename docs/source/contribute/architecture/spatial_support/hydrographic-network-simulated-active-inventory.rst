@@ -26,7 +26,7 @@ The run stores the per-cell budget terms (``budget/``), and two cell fields are 
 on read (:mod:`hydromodpy.results.derive.virtual_fields`):
 
 - ``outflow_drain`` is the positive drain outflow of each cell, summed over layers and
-  normalised from the raw MODFLOW budget signs;
+  normalized from the raw MODFLOW budget signs;
 - ``drain_accumulation_flux`` is the downstream accumulation of that outflow. It is routed on the
   stored descent D of the mesh (:doc:`../solver/backends`). Boussinesq stores D once per run
   for a raster run, built from the Whitebox D8 pointer of its filled top, because its store
@@ -62,7 +62,7 @@ changing the catalog:
 
 ``run.cell_field_network_overlap_metrics(network_role="reference")``
    The overlap between the active cells and a stored vector network, which is
-   rasterised onto the mesh cells by intersection (coverage, precision, F1, Jaccard).
+   rasterized onto the mesh cells by intersection (coverage, precision, F1, Jaccard).
 
 ``run.cell_field_network_distance_metrics(network_role="reference")``
    The planar distances between the centroids of the active cells and that network, in
@@ -81,7 +81,7 @@ face inside the polygon, and ``catchment_total`` sums a term per cell with the s
 inside it (``catchment_weights``, :doc:`/theory/mesh`).
 
 The figures ``simulated_active_network`` and ``simulated_active_network_reference_overlay``
-draw the mask and its overlay with the reference. Both are cell maps, not a vectorised
+draw the mask and its overlay with the reference. Both are cell maps, not a vectorized
 river network. They need ``drain_accumulation_flux`` and a plottable mesh.
 
 A comparison writes the overlap and the distance of each run in ``network.csv``

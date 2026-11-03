@@ -153,7 +153,7 @@ def test_unmet_etp_names_the_missing_activation_when_not_sent() -> None:
     unmet_line = next(line for line in lines if line.startswith("unmet ETP"))
     assert unmet_line == (
         'unmet ETP 0.0 mm/year, not sent to MODFLOW: add "etp" to '
-        "flow.active_sinks_sources to let a shallow water table evaporate it"
+        "[flow.sinks_sources.etp] to let a shallow water table evaporate it"
     )
 
 

@@ -64,7 +64,7 @@ For user and scientific objects, use these sections:
 Layer rules
 -----------
 
-A user docstring describes behaviour in workflow terms and avoids pipeline internals unless the
+A user docstring describes behavior in workflow terms and avoids pipeline internals unless the
 user must know them. A scientific docstring gives units, array shape, coordinate convention,
 solver assumptions and numerical limits when they affect results. A developer docstring names
 the contract and the expected caller. It may mention internal state, and stays short.

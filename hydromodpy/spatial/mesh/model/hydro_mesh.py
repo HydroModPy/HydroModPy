@@ -206,7 +206,7 @@ class HydroMesh:
     def cell_centroids(self) -> tuple[np.ndarray, np.ndarray]:
         """Per-cell ``(x, y)`` mean of the cell vertices.
 
-        The cell centres the solvers read are ``PlanarCellMesh.centers``, the
+        The cell centers the solvers read are ``PlanarCellMesh.centers``, the
         Voronoi generators for a Voronoi mesh.
         """
         conn = self.flat_connectivity

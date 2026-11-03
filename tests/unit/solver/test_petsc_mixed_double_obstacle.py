@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import numpy as np
 
 from hydromodpy.solver.boussinesq.assembly import BoussinesqAssembly
@@ -109,3 +111,19 @@ def test_initial_guess_clips_only_free_heads_to_obstacles() -> None:
     )
 
     np.testing.assert_allclose(clipped, np.asarray([0.0, 2.0, -2.0]))
+
+
+def test_pumping_alone_is_no_surface_loading() -> None:
+    from hydromodpy.solver.boussinesq.runtimes.petsc_mixed_common import (
+        _initial_transient_q_ex_guess,
+    )
+
+    mesh = SimpleNamespace(n_cells=3)
+    kwargs = {
+        "head_initial_guess_m": np.zeros(3),
+        "head_prev_m": np.zeros(3),
+        "dt_seconds": 1.0,
+        "recharge_rate_m_s": None,
+    }
+    pumping = _initial_transient_q_ex_guess(mesh, well_flux_m3_s=-np.ones(3), **kwargs)
+    np.testing.assert_array_equal(pumping, np.zeros(3))

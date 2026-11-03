@@ -136,7 +136,7 @@ for example `GeographicConfig` from `geographic_config.py` and `build_synthetic_
 | the buffer around the catchment | `core/catchment_domain.py` |
 | the generated stream network | `core/river_network.py`, then `core/river_network_vector.py` |
 | the cut of an embankment | `core/crossing_notch.py`, then `core/ground_corrections.py` |
-| the regularised channel bed | `core/channel_bed_fit.py`, then `core/ground_bed.py` |
+| the regularized channel bed | `core/channel_bed_fit.py`, then `core/ground_bed.py` |
 | when a tree is reused | `geographic_cache.py` |
 | the name or place of an output file | `geographic_paths.py` |
 | the SFR reaches | `core/sfr_network.py` |

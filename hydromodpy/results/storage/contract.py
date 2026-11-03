@@ -1,7 +1,7 @@
 """Result-storage layout contract: what one run and one session directory hold.
 
 A project keeps one index database, one directory per run and one directory
-per calibration session. Every artefact is written in the directory of what
+per calibration session. Every artifact is written in the directory of what
 produced it, under a name fixed by its class::
 
     <project>/.hmp/index.duckdb          index, rebuildable from the disk
@@ -14,14 +14,13 @@ produced it, under a name fixed by its class::
         manifest.json                    seal, written last
         fields.zarr/                     array store (always a directory)
         tables.parquet/<view>.parquet    tabular payloads; simulation.parquet is the index row
-        mesh/                            copy of the mesh the run consumed, when not reproducible
         annotations.json                 tags and notes, mutable after the seal
         ro-crate-metadata.json ...       generated views, on request, after the seal
         README.md                        generated from the seal, sha256 of the manifest in its footer
         figures/  + index.json           figures of this run and their ledger
         exports/  + index.json           deliverables of this run and their ledger
         report/index.html                rendered report
-        logs/                            run log, solver listing, heartbeat.json
+        logs/                            run log, heartbeat.json
         published.jsonl                  where this run was published, one line per copy
         attempts/<n>/                    outcome.json and logs/ of an earlier attempt
         .hmp/                            scratch, locks, checkpoints of the running attempt
@@ -34,7 +33,7 @@ produced it, under a name fixed by its class::
         phases/<phase>/session.json      descriptor of one phase: status, frozen, best
         trials/<n>/                      kept trials, each in the form of a run
         trial_series/trial-NNNNNN.parquet  opt-in: simulated/observed series of one trial
-        candidates/                      TOML overlays of materialised candidates
+        candidates/                      TOML overlays of materialized candidates
         README.md  figures/  report/  logs/
 
 The run directory name is the human run name (with its ``.vN`` version
@@ -119,13 +118,10 @@ RUN_REPORT_DIRNAME = "report"
 """Rendered report of one run or session."""
 
 RUN_LOGS_DIRNAME = "logs"
-"""Run log, solver listing and heartbeat of one run or session."""
+"""Run log and heartbeat of one run or session."""
 
 RUN_LOG_FILENAME = "run.log"
 """Log of the current attempt, under :data:`RUN_LOGS_DIRNAME`; its tail goes to the outcome."""
-
-RUN_MESH_DIRNAME = "mesh"
-"""Copy of the mesh-cache entry the run consumed, when the mesh is not reproducible."""
 
 RUN_ATTEMPTS_DIRNAME = "attempts"
 """Outcome and logs of the earlier attempts of one run, one directory per attempt."""
@@ -184,12 +180,11 @@ ALLOWED_RUN_ENTRIES: frozenset[str] = (
             RUN_PROVENANCE_FILENAME,
             RUN_MANIFEST_FILENAME,
             RUN_INPUTS_FILENAME,
-            RUN_MESH_DIRNAME,
         }
     )
     | UNSEALED_RUN_ENTRIES
 )
-"""Every name a run directory may carry as an artefact.
+"""Every name a run directory may carry as an artifact.
 
 Anything else found in a run directory is either the runtime scratch named by
 :data:`RUN_SCRATCH_ENTRIES` or something the run did not declare.
@@ -200,7 +195,7 @@ RUN_SCRATCH_ENTRIES: frozenset[str] = frozenset({INTERNAL_DIRNAME})
 
 A run takes its locks under ``<run>/.hmp/locks/``. It is machine state with the
 lifetime of the process, like the pipeline log, so the seal does not inventory
-it: a manifest that lists a lock directory as an artefact of the run describes
+it: a manifest that lists a lock directory as an artifact of the run describes
 the machine that ran it, not the run.
 """
 
@@ -223,7 +218,7 @@ SESSION_PHASES_DIRNAME = "phases"
 """One descriptor directory per phase of a staged calibration."""
 
 SESSION_CANDIDATES_DIRNAME = "candidates"
-"""TOML overlays of the candidates a session materialised."""
+"""TOML overlays of the candidates a session materialized."""
 
 SESSION_METHODS_FILENAME = "methods.md"
 """The calibration method, in words, for the reader of the session."""
@@ -332,7 +327,6 @@ __all__ = [
     "RUN_LOGS_DIRNAME",
     "RUN_LOG_FILENAME",
     "RUN_MANIFEST_FILENAME",
-    "RUN_MESH_DIRNAME",
     "RUN_OUTCOME_FILENAME",
     "RUN_PROVENANCE_FILENAME",
     "RUN_PUBLISHED_FILENAME",

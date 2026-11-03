@@ -30,19 +30,19 @@ def _as_float_list(values: Sequence[float] | None) -> list[float] | None:
 
 def _regular_track_times_days(
     *,
-    stop_time_days: object | None,
-    track_time_step_days: object | None,
+    stop_time: object | None,
+    track_time_step: object | None,
 ) -> list[float] | None:
-    if track_time_step_days is None:
+    if track_time_step is None:
         return None
-    if stop_time_days is None:
-        raise ValueError("track_time_step_days requires stop_time_days.")
-    step = float(track_time_step_days)
-    stop = float(stop_time_days)
+    if stop_time is None:
+        raise ValueError("track_time_step requires stop_time.")
+    step = float(track_time_step)
+    stop = float(stop_time)
     if step <= 0.0:
-        raise ValueError("track_time_step_days must be positive.")
+        raise ValueError("track_time_step must be positive.")
     if stop <= 0.0:
-        raise ValueError("stop_time_days must be positive when track_time_step_days is used.")
+        raise ValueError("stop_time must be positive when track_time_step is used.")
 
     values = np.arange(0.0, stop + 0.5 * step, step, dtype=float)
     values = values[values <= stop + _TRACK_TIME_TOLERANCE_DAYS]
@@ -52,7 +52,7 @@ def _regular_track_times_days(
 
 
 # Numerical tolerance (days) used to clip the last regular track time to
-# stop_time_days without losing it to floating-point rounding.
+# stop_time without losing it to floating-point rounding.
 _TRACK_TIME_TOLERANCE_DAYS = 1.0e-9
 
 # Last-resort porosity when no transport porosity is set and specific yield is
@@ -107,11 +107,11 @@ class Modflow6Prt:
         self.particle_cell_ids = prt_params.get("particle_cell_ids")
         self.max_particles = prt_params.get("max_particles")
         self.sel_slice = prt_params.get("sel_slice")
-        self.release_times_days = _as_float_list(prt_params.get("release_times_days"))
-        self.track_times_days = _as_float_list(prt_params.get("track_times_days"))
-        self.track_time_step_days = prt_params.get("track_time_step_days")
-        self.stop_time_days = prt_params.get("stop_time_days")
-        self.stop_travel_time_days = prt_params.get("stop_travel_time_days")
+        self.release_times = _as_float_list(prt_params.get("release_times"))
+        self.track_times = _as_float_list(prt_params.get("track_times"))
+        self.track_time_step = prt_params.get("track_time_step")
+        self.stop_time = prt_params.get("stop_time")
+        self.stop_travel_time = prt_params.get("stop_travel_time")
         self.extend_tracking = bool(prt_params.get("extend_tracking", True))
         self.dry_tracking_method = str(prt_params.get("dry_tracking_method", "drop"))
         self.exit_solve_tolerance = float(prt_params.get("exit_solve_tolerance", 1.0e-5))
@@ -146,11 +146,11 @@ class Modflow6Prt:
         return float(value) * SECONDS_PER_DAY / self._model_time_unit_seconds()
 
     def _build_track_times_days(self) -> list[float] | None:
-        if self.track_times_days is not None:
-            return self.track_times_days
+        if self.track_times is not None:
+            return self.track_times
         return _regular_track_times_days(
-            stop_time_days=self.stop_time_days,
-            track_time_step_days=self.track_time_step_days,
+            stop_time=self.stop_time,
+            track_time_step=self.track_time_step,
         )
 
     def _build_porosity(self) -> np.ndarray:
@@ -352,8 +352,8 @@ class Modflow6Prt:
 
         packagedata = self._build_packagedata()
         releasetimes = (
-            [(float(self._days_to_model_time(time)),) for time in self.release_times_days]
-            if self.release_times_days is not None
+            [(float(self._days_to_model_time(time)),) for time in self.release_times]
+            if self.release_times is not None
             else None
         )
         perioddata = None if releasetimes is not None else {0: [("FIRST",)]}
@@ -366,11 +366,11 @@ class Modflow6Prt:
             boundnames=True,
             local_z=True,
             extend_tracking=self.extend_tracking,
-            stoptime=self._days_to_model_time(float(self.stop_time_days))
-            if self.stop_time_days is not None
+            stoptime=self._days_to_model_time(float(self.stop_time))
+            if self.stop_time is not None
             else None,
-            stoptraveltime=self._days_to_model_time(float(self.stop_travel_time_days))
-            if self.stop_travel_time_days is not None
+            stoptraveltime=self._days_to_model_time(float(self.stop_travel_time))
+            if self.stop_travel_time is not None
             else None,
             dry_tracking_method=self.dry_tracking_method,
             exit_solve_tolerance=self.exit_solve_tolerance,
@@ -387,10 +387,10 @@ class Modflow6Prt:
             pname="PRP",
         )
 
-        track_times_days = self._build_track_times_days()
+        track_times = self._build_track_times_days()
         tracktimes = (
-            [(float(self._days_to_model_time(time)),) for time in track_times_days]
-            if track_times_days is not None
+            [(float(self._days_to_model_time(time)),) for time in track_times]
+            if track_times is not None
             else None
         )
         self.oc = flopy.mf6.ModflowPrtoc(

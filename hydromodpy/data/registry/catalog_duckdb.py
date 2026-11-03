@@ -262,8 +262,12 @@ class DataCatalogDuckDB:
         bbox: tuple | None = None,
         date_start: datetime | None = None,
         date_end: datetime | None = None,
+        product_version: str | None = None,
     ) -> _CatalogEntry | None:
         """Find a cached entry covering the requested extent/period (superset).
+
+        With a *product_version*, an entry fetched from another version of the
+        provider's product, or from one that recorded none, does not answer.
 
         A layered catalog asks the shared cache first, then its private one.
         """
@@ -274,6 +278,7 @@ class DataCatalogDuckDB:
             "bbox": bbox,
             "date_start": date_start,
             "date_end": date_end,
+            "product_version": product_version,
         }
         with self._shared() as shared:
             if shared is not None:
@@ -342,14 +347,16 @@ class DataCatalogDuckDB:
         source: str | None = None,
         station_id: str | None = None,
         delete_files: bool = False,
+        dry_run: bool = False,
     ) -> int:
-        """Remove matching entries. Returns count deleted."""
+        """Remove matching entries. Returns count deleted, or the count found under *dry_run*."""
         return cache_lifecycle.invalidate(
             self,
             variable=variable,
             source=source,
             station_id=station_id,
             delete_files=delete_files,
+            dry_run=dry_run,
         )
 
     def subsume_entries(
@@ -378,12 +385,14 @@ class DataCatalogDuckDB:
         *,
         days: int,
         delete_files: bool = False,
+        dry_run: bool = False,
     ) -> int:
-        """Delete cache entries older than *days* days. Returns count removed."""
+        """Delete cache entries older than *days* days. Returns count removed, or found under *dry_run*."""
         return cache_lifecycle.prune_older_than(
             self,
             days=days,
             delete_files=delete_files,
+            dry_run=dry_run,
         )
 
     def check_and_fix(self) -> dict[str, int]:

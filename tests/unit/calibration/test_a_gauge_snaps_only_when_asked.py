@@ -50,7 +50,7 @@ N = 5
 CELL_M2 = 1.0e4
 TIMES = pd.date_range("2015-01-31", periods=3, freq="ME")
 GAUGE_XY = (140.0, 250.0)
-"""Nearest centre is (row 2, col 1), draining 2 cells; the talweg is 110 m east."""
+"""Nearest center is (row 2, col 1), draining 2 cells; the talweg is 110 m east."""
 
 
 def _valley_model() -> SimpleNamespace:
@@ -64,7 +64,7 @@ def _valley_model() -> SimpleNamespace:
 
 
 class _Adapter:
-    """Serves the solver's own drained areas and cell centres, and a flat baseflow."""
+    """Serves the solver's own drained areas and cell centers, and a flat baseflow."""
 
     def __init__(self, model: SimpleNamespace) -> None:
         self.model = model
@@ -287,7 +287,7 @@ def test_the_default_is_off() -> None:
     )
 
 
-# --- the solver serves the centres, the calibration never reads the mesh ----
+# --- the solver serves the centers, the calibration never reads the mesh ----
 
 
 def test_the_solver_serves_the_cell_centres_a_snap_searches() -> None:

@@ -229,6 +229,9 @@ class Boussinesq:
                 state_payload["z_top_m"] = np.asarray(self.mesh.z_top_m, dtype=float)
                 state_payload["z_bottom_m"] = np.asarray(self.mesh.z_bottom_m, dtype=float)
                 state_payload["cell_area_m2"] = np.asarray(self.mesh.cell_area_m2, dtype=float)
+                state_payload["storage_coefficient"] = np.asarray(
+                    self.mesh.storage_coefficient, dtype=float
+                )
             np.savez(
                 state_history_path,
                 **state_payload,
@@ -302,14 +305,14 @@ class Boussinesq:
             raise IncompatibleCapabilitiesError(
                 "The boussinesq backend does not support advanced-package "
                 "boundaries (LAK lake/reservoir); they require the modflow6 "
-                "backend. Offending active_bc: " + ",".join(advanced_bc) + "."
+                "backend. Offending boundaries: " + ",".join(advanced_bc) + "."
             )
 
         unsupported: list[str] = []
         if unsupported_bc:
-            unsupported.append("active_bc=" + ",".join(unsupported_bc))
+            unsupported.append("boundaries " + ",".join(unsupported_bc))
         if unsupported_sinks_sources:
-            unsupported.append("active_sinks_sources=" + ",".join(unsupported_sinks_sources))
+            unsupported.append("sinks and sources " + ",".join(unsupported_sinks_sources))
 
         if unsupported:
             raise NotImplementedError(
@@ -377,7 +380,7 @@ class Boussinesq:
             )
             return
         logger.info(
-            "Boussinesq engine '%s', set by flow.runtime_backend, for %s cells.",
+            "Boussinesq engine '%s', set by flow.runtime.backend, for %s cells.",
             engine,
             n_cells,
         )
@@ -427,10 +430,14 @@ class Boussinesq:
                 strategy=strategy,
             )
         if steady_surface_model is not None:
-            flow.surface_interaction_model = steady_surface_model
+            flow.runtime.surface_interaction_model = steady_surface_model
             if original_config is not None and hasattr(original_config, "model_copy"):
                 flow.config = original_config.model_copy(
-                    update={"surface_interaction_model": steady_surface_model}
+                    update={
+                        "runtime": original_config.runtime.model_copy(
+                            update={"surface_interaction_model": steady_surface_model}
+                        )
+                    }
                 )
         flow.flow_regime = "steady"
         self.time_grid = single_period_mean_forcing_time_grid(original_time_grid)
@@ -446,7 +453,7 @@ class Boussinesq:
                     except AttributeError:
                         pass
                 else:
-                    flow.surface_interaction_model = original_surface_model
+                    flow.runtime.surface_interaction_model = original_surface_model
                 if original_config is not None:
                     flow.config = original_config
             if isinstance(sinks_sources, dict) and had_recharge:
@@ -487,7 +494,7 @@ class Boussinesq:
             return
         if self.mesh.n_cells > DENSE_ENGINE_MAX_CELLS:
             raise IncompatibleCapabilitiesError(
-                f"flow.runtime_backend = '{runtime_backend.name}' builds a dense "
+                f"flow.runtime.backend = '{runtime_backend.name}' builds a dense "
                 f"Jacobian by design and runs on at most {DENSE_ENGINE_MAX_CELLS} "
                 f"cells; this mesh has {self.mesh.n_cells}. Remove the key, or set "
                 "it to 'auto', to run 'scipy_sparse' on this mesh, or set "

@@ -123,7 +123,7 @@ def canonical_unit_short_form(
     except (pint.UndefinedUnitError, pint.DimensionalityError, AttributeError) as exc:
         raise ValueError(f"Unsupported {label} unit '{unit}'.") from exc
     # ``~P`` (pretty, short) is the registry's default format (see
-    # :func:`registry.get_registry`). ``{!s}`` honours that format.
+    # :func:`registry.get_registry`). ``{!s}`` honors that format.
     return f"{pint_unit}"
 
 

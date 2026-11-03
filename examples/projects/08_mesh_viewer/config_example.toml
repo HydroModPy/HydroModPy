@@ -17,7 +17,7 @@ summary_output_path = "../../../outputs/mesh_viewer/resume_apercu_maillage.json"
 show_window = false
 
 [mesh_distribution.plot]
-# Champ utilise pour colorer les cellules du panneau structurel.
+# Champ utilize pour colorer les cellules du panneau structurel.
 # Valeurs admises :
 #   "area_m2"
 #   "geology_code"
@@ -46,7 +46,7 @@ title = "Structure du maillage et geologie"
 # Active ou non le panneau topographique situe a droite de la figure.
 show_topography_panel = true
 
-# Champ cellule utilise pour le repli du panneau topographique quand
+# Champ cellule utilize pour le repli du panneau topographique quand
 # les altitudes nodales ne suffisent pas.
 # Valeurs admises :
 #   "z_top_centroid"

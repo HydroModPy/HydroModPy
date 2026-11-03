@@ -1,8 +1,8 @@
 """Every registered solver adapter must structurally conform to ``SolverAdapter``.
 
-The test is parametrised on :func:`registry.list_pairs` so it covers
+The test is parametrized on :func:`registry.list_pairs` so it covers
 both eagerly-registered adapters and lazily-loaded built-ins. A new
-adapter that lands in ``_BUILTIN_PATHS`` without honouring the
+adapter that lands in ``_BUILTIN_PATHS`` without honoring the
 ``validate / execute / cleanup / extract_observables`` quartet
 would surface here immediately.
 """

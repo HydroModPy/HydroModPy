@@ -91,7 +91,7 @@ NODATA_ABS_LIMIT_BY_VARIABLE = {
 def _rmtree_onerror(func, path, exc_info) -> None:
     """Retry one failed ``rmtree`` step after clearing a read-only bit.
 
-    Windows test runs sometimes inherit read-only flags on generated artefacts.
+    Windows test runs sometimes inherit read-only flags on generated artifacts.
     ``shutil.rmtree`` can recover from that case by marking the current path
     writable and replaying the failed removal callback once.
     """
@@ -121,7 +121,7 @@ def remove_tree_with_retry(
 ) -> None:
     """Remove one directory tree with a few retries for transient Windows locks.
 
-    HydroModPy regression outputs contain GIS artefacts (`.shp`, `.dbf`, `.tif`)
+    HydroModPy regression outputs contain GIS artifacts (`.shp`, `.dbf`, `.tif`)
     that can remain briefly locked on Windows after a previous run, even though
     the producing process has already exited. Retrying the cleanup avoids
     spurious test failures when the lock clears a fraction of a second later.

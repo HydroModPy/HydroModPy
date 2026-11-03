@@ -46,9 +46,7 @@ def run_boussinesq_dupuit_divide_river_case(
         storage_coefficient=0.1,
         flow_section={
             "flow_regime": "steady",
-            "ic": {"type": "custom", "value": river_head_m + 4.0},
-            "active_sinks_sources": ["recharge"],
-            "active_bc": ["east_side"],
+            "ic": {"kind": "custom", "value": river_head_m + 4.0},
             "sinks_sources": {
                 "recharge": {
                     "values": mm_day_to_m_s(float(reference_cfg["recharge_mm_day"])),

@@ -8,6 +8,7 @@ from pathlib import Path
 
 from hydromodpy.results.ledger import sha256_of
 from hydromodpy.results.manifest import InputEntry, TrackedInput
+from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
 from tests.unit.results._run_record_factory import make_record
 
 RUN_NAME = "J0014010-base.v2"
@@ -93,7 +94,15 @@ def make_sealed_run(project: Path, *, license: str | None = "etalab-2.0") -> Pat
     (run_dir / ".hmp" / "scratch" / "mfsim.nam").write_text("scratch")
     (run_dir / "outcome.json").write_text('{"status": "completed"}')
     (run_dir / "fields.zarr").mkdir()
-    (run_dir / "fields.zarr" / "zarr.json").write_text('{"zarr_format": 3, "node_type": "group"}')
+    (run_dir / "fields.zarr" / "zarr.json").write_text(
+        json.dumps(
+            {
+                "zarr_format": 3,
+                "node_type": "group",
+                "attributes": {"zarr_schema_version": ZARR_SCHEMA_VERSION},
+            }
+        )
+    )
     return run_dir
 
 

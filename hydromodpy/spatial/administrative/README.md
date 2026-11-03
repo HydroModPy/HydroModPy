@@ -17,7 +17,7 @@ function takes a point.
    EPSG:2154.
 3. For a rectangle, it keeps the departments whose outline touches it. For a region, it keeps the
    departments of that region. For departments, it keeps the ones asked for.
-4. It returns sorted codes, a bounding box (with an optional margin in metres) or the union of
+4. It returns sorted codes, a bounding box (with an optional margin in meters) or the union of
    the outlines. The bounding box is always in EPSG:2154, the union in the CRS asked for (EPSG:2154 by default).
 
 A department code is always written with three characters: `35` becomes `035`, `2A` becomes
@@ -26,7 +26,7 @@ or by its code. The names and codes come from `hydromodpy/core/administrative_fr
 the config layers share. An unknown region is refused with a clear message. A list of departments is refused only when none of its codes is known, and an unknown code beside known ones is skipped.
 
 The file holds 101 departments, metropolitan and overseas. The outlines come from IGN
-ADMIN EXPRESS and are simplified, with a tolerance of 500 m, so a border is only accurate to a few hundred metres. The
+ADMIN EXPRESS and are simplified, with a tolerance of 500 m, so a border is only accurate to a few hundred meters. The
 package is for choosing which departments to download, not for measuring.
 
 ## The folder map

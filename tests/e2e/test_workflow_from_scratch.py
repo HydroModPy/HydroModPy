@@ -148,7 +148,7 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
         "get",
         "dem",
         "--bbox=-1.17,48.4,-1.0,48.5",
-        "--out",
+        "--to",
         str(refused_out),
     )
     assert refused.returncode == 14, f"stderr:\n{refused.stderr}"
@@ -182,7 +182,7 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     served_out = tmp_path / "served"
-    served = _run_hmp("data", "get", str(request), "--out", str(served_out))
+    served = _run_hmp("data", "get", str(request), "--to", str(served_out))
     assert served.returncode == 0, f"`hmp data get` failed.\nstderr:\n{served.stderr}"
     report = json.loads((served_out / "request.json").read_text(encoding="utf-8"))
     (entry,) = report["files"]
@@ -198,13 +198,13 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
     # We do not invoke the solver here. A real ``hmp run`` on
     # ``tests/regression/fixtures/projects/simulation_regression/`` is covered
     # by the regression tier; this step only checks that the catalog,
-    # Zarr field and Parquet artefacts that ``hmp run`` is supposed to
+    # Zarr field and Parquet artifacts that ``hmp run`` is supposed to
     # produce can be queried back via the user-facing API.
     import hydromodpy as hmp
 
     sim_id, project_dir, zarr_path, parquet_dir = _seed_minimal_simulation(workspace, project="foo")
 
-    # ----- Step 6: index + artefacts on disk are visible --------------------
+    # ----- Step 6: index + artifacts on disk are visible --------------------
     catalog_db = catalog_path_for(project_dir)
     assert catalog_db.is_file(), f"{CATALOG_FILENAME} must be built in the project"
     assert zarr_path.exists(), f"Zarr store missing at {zarr_path}"

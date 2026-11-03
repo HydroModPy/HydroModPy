@@ -101,7 +101,7 @@ def test_stac_catalog_lists_collections(tmp_path: Path):
 
 
 def test_stac_write_collection_and_catalog(tmp_path: Path, fair_context):
-    """Both writers materialise valid JSON on disk."""
+    """Both writers materialize valid JSON on disk."""
     from hydromodpy.results.export.stac import (
         write_stac_catalog,
         write_stac_collection,

@@ -13,18 +13,20 @@ rules, how a run goes through it, and where to add what.
 
 | part | answers |
 |---|---|
-| `facade.py` | the public verbs of `Project`: `prepare`, `execute`, `simulate`, `calibrate`, `spinup`, `rerun`, the model-phase verbs, the launch verbs of a `[sites]` project (`plan`, `run`, `status`, `collect`, `publish`), the read-only views, `close`; `open_project`, what `hmp.open` calls on a project folder |
+| `facade.py` | the public verbs of `Project`: `prepare`, `simulate`, `calibrate`, `spinup`, `rerun`, the model-phase verbs, the launch verbs of a `[sites]` project (`plan`, `launch`, `status`, `collect`, `publish`), the read-only views, `close`; `_execute`, the worker verb of `hmp run`; `open_project`, what `hmp.open` calls on a project folder |
 | `state.py` | where the runtime state of a `Project` lives (`ProjectState`), and which attribute names `Project` forwards to it (`PROJECT_ATTR_TO_STATE_FIELD`) |
 | `phases.py` | the model-phase verbs as free functions: `configure`, `setup_workspace`, `build_geographic`, `load_data`, `reload_data`, `rebuild_geographic`, `build_mesh`, `open_catalog` (the index, read only, and only when it exists) |
 | `attempt.py` | `run_attempt`: the attempt protocol around one run (claim of the directory under `runs/`, heartbeat, outcome closed as `completed`, `partial`, `failed` or `aborted` on exit); `SealedRun`, what a worker returns |
-| `runner.py` | `ProjectRunner`: one run through the workflow `Pipeline` (step window, resume, dry run, overrides, run naming); `execute` is the worker verb, `run` adds the index and the `Run` view |
-| `run_overrides.py` | the keywords of `simulate` as dotted changes of the configuration of the run, the names of `hmp config targets` |
+| `runner.py` | `ProjectRunner`: one run through the workflow `Pipeline` (step window, resume, overrides, run naming); `execute` is the worker verb, `run` adds the index and the `Run` view, `draft` says what a run would do |
+| `run_overrides.py` | the `set=` of `simulate` as dotted changes of the configuration of the run, the names of `hmp config targets` |
 | `replay_checks.py` | what a replay checks against the run it repeats: the digests of its record, `config.resolved.toml`, the solver binary |
 | `catalog.py` | `ProjectCatalog`: the index binding of a project (`store`, `data`, `runs`) and its `close` |
-| `accessors.py` | the read-only views `project.data` (`ProjectDataAccessor`) and `project.runs` (`ProjectRunsAccessor`), the campaign reads behind `project.cases`, `.sites`, `.best` and `.sessions` (`ProjectSessions`), and `Workspace`, what `hmp.open` returns on a workspace root; the index itself is `project.store`, a `Catalog`, and `project[ref]` is one `Run` |
+| `accessors.py` | the read-only views `project.data` (`ProjectDataAccessor`) and `project.runs` (`ProjectRunsAccessor`), the campaign reads behind `project.cases`, `.sites`, `.best_runs` and `.sessions` (`ProjectSessions`), and `Workspace`, what `hmp.open` returns on a workspace root; the index itself is `project.store`, a `Catalog`, and `project[ref]` is one `Run` |
+| `share.py` | `run_bundle(run_dir, project_root=)`: the install index of a sealed run (`hydromodpy.core.payload`), every file it read with its destination, provider, request, licence, sidecar, station row and data cache row, and the `[site]` of the run; `inputs_of(project_root)` is what `hmp publish --with inputs` passes to `publish`. It sees both a run and the data of its workspace, so it sits above `data` and `results` |
+| `install.py` | `install_index(index, blobs=, workspace=, project=)`: every file under `data/` (or the project), station rows merged, delivered files registered in `data/cache.duckdb`, sites merged into `data/sites/catalog.csv`, every conflict named before anything is written; `import_run(project_root, source, name=)` is `hmp catalog import`; `import_project(source, workspace, name=)` is `hmp project import` |
 | `spinup.py` | `run_spinup`: repeat a forcing window, each cycle restarting from the last, until heads and lake stages stop moving |
 | `lockfile.py` | `write_project_lockfile`: the `hydromodpy.lock` of the project |
-| `launch/` | the launcher of a `[sites]` project: `local.py` (`plan_project`, `run_plan`: plan, prepare, one process per case, count, index), `prepare.py` (the data of every case before any solve, the private caches merged, `hydromodpy.lock` written once), `lease.py` (`.hmp/launcher.lease`, one launcher per project), `journal.py` (`jobs/<stamp>-<scheduler>/` and its `journal.jsonl`), `children.py` (the worker processes and their outcome when they die silent), `env.py` (the environment and the thread budget of a case), `status.py` (`project_status`, read from the plan and the outcomes, never the index), `slurm.py` and `templates/` (the frozen scripts of `hmp project array`) |
+| `launch/` | the launcher of a `[sites]` project: `local.py` (`plan_project`, `run_plan`: plan, prepare, one process per case, count, index), `prepare.py` (the data of every case before any solve, the private caches merged, `hydromodpy.lock` written once), `lease.py` (`.hmp/launcher.lease`, one launcher per project), `journal.py` (`jobs/<stamp>-<scheduler>/` and its `journal.jsonl`), `children.py` (the worker processes and their outcome when they die silent), `env.py` (the environment and the thread budget of a case), `status.py` (`project_status`, read from the plan and the outcomes, never the index), `slurm.py` and `templates/` (the frozen scripts of `hmp campaign array`) |
 | `summary.py` | `collect_project`: `summary/` of a project of N cases (tables by case and by site, map, cohort figures, exports, report, `README.md`), regenerated from the run directories |
 | `dispatch/` | the adapters that need `Project` and that lower layers must not import: `workflow.py` (`DISPATCH`, `dispatch_workflow`, one `run_*` per workflow, `completed_identical_run` read from the manifests), `rerun.py` (`rerun_config`, `ProjectRerunProvider`) |
 
@@ -69,16 +71,16 @@ hydromodpy/project/
 2. **Build the model once.** The first `simulate`, `prepare` or runtime
    accessor calls `_ensure_model_built`: `build_geographic`, `load_data`,
    `build_mesh`. The per-phase verbs do the same one phase at a time.
-3. **Execute.** `execute(name=..., **overrides)` is the worker verb. It claims
+3. **Execute.** `_execute(name=..., set=...)` is the worker verb. It claims
    `runs/<name>/` through `run_attempt` (a completed name gets `.vN`, a failed
    or aborted one continues as the next attempt, a running one with a fresh
    pulse is refused, `fresh` moves everything aside, `force` takes a stale
    claim), builds the workflow `Pipeline` over `standard_steps()` and returns
    a `SealedRun`. It never opens the index. `from_step`, `until_step`,
-   `resume`, `dry_run` and `frozen` act on the step window of that pipeline.
+   `resume` and `frozen` act on the step window of that pipeline.
    A run stopped before `setup_process` builds no model; a window ended by
    `until_step` leaves the outcome `partial`.
-4. **Simulate.** `simulate(...)` is `execute` followed by `index_new_runs`
+4. **Simulate.** `simulate(...)` is `_execute` followed by `index_new_runs`
    and the `Run` view of the new directory through `Catalog(project_root)`,
    opened read only.
 5. **Calibrate.** `calibrate` routes to the calibration runners: the phased

@@ -10,7 +10,7 @@ the declaration itself into ``tables.parquet/observation_points.parquet``.
 Why the Parquet payload matters
 -------------------------------
 The index is rebuilt from the run directories, so state with no home on disk
-would come back empty. Both halves of a declared point are run artefacts:
+would come back empty. Both halves of a declared point are run artifacts:
 the series in ``timeseries.parquet`` and the declaration in
 ``observation_points.parquet``. The points are sampled by the run itself,
 through its store, before the index knows it.

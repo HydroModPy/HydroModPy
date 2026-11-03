@@ -34,7 +34,7 @@
 #      Nancon s'arretent au 31/12/2020. 9497 jours. Le debit observe couvre
 #      1982-2022 et ne limite rien.
 #
-#   2. La reference regle ses tolerances dans un espace normalise [0 ; 1],
+#   2. La reference regle ses tolerances dans un espace normalize [0 ; 1],
 #      l'adaptateur travaille en log10 ; elles sont converties plus bas. Le
 #      pas du simplexe initial vaut 10 % de l'intervalle et n'est pas
 #      reglable : 0,60 decade sur K contre 0,15, 0,370 sur Sy contre 0,98.
@@ -98,7 +98,7 @@ dem_correc_type = "breach"
 reuse_existing_outputs = true
 
 [geographic.catchment]
-catch_def = "from_outlet_coord"
+kind = "from_outlet_coord"
 # `DEM_armorican_massif.tif` EST le `regional dem.tif` de la reference : meme
 # emprise, meme taille, meme pas de 75 m. La resolution fait partie des
 # parametres a reproduire, et elle divise le maillage par neuf.
@@ -167,13 +167,11 @@ station_ids = ["NANCON_REA"]
 
 [flow]
 param_list = ["K", "Sy", "Ss"]
-active_sinks_sources = ["recharge"]
-active_bc = ["drainage"]
 flow_regime = "steady"
 
 [flow.ic]
-type = "top"
-description = "Water table initialised at the topographic surface."
+kind = "top"
+description = "Water table initialized at the topographic surface."
 
 # Valeurs de depart de la reference. La calibration les remplace des le
 # premier essai ; elles ne servent qu'a faire tourner le fichier en `hmp run`.
@@ -200,6 +198,9 @@ value = 1e-5
 
 # ---------------------------------------------------------------------- simulation
 
+[flow.bc.drainage]
+
+[flow.sinks_sources.recharge]
 [simulation]
 name = "nancon_ref_ex04"
 description = "Nancon - replique MF6 de example_04_calibration.py, K puis Sy par Nelder-Mead."
@@ -213,7 +214,7 @@ coverage_policy = "warn"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 
@@ -237,7 +238,7 @@ persist_iteration_detail = "full"
 use_cache = true
 
 # Bornes de la reference : `log10(1e-8*86400)` a `log10(1e-2*86400)`, six
-# decades, dont le centre en log est le `hk` initial du script.
+# decades, dont le center en log est le `hk` initial du script.
 [calibration.parameters.K]
 bounds = [1e-8, 1e-2]
 
@@ -270,7 +271,7 @@ diagonal_neighbors = false
 # Version epinglee : un point de comparaison qui glisse avec les versions
 # n'en est plus un. Passee a 1.1 (D8 par defaut, Eq. 4 lue au point rendu
 # seulement), puis a 1.2 (MNT rempli par defaut, annee d'amorce ecartee de la
-# phase transitoire, Eq. 4 en metres) : un pin sur une version anterieure est
+# phase transitoire, Eq. 4 en meters) : un pin sur une version anterieure est
 # refuse. `diagonal_neighbors = false`, `dem_correc_type = "breach"` et la
 # `scoring_window` ci-dessous tiennent les differences de comportement qui
 # comptaient pour ce montage.
@@ -288,16 +289,16 @@ steady_max_trials = 60
 # La reference borne le simplexe par `maxiter: 30`. Un nombre d'iterations n'est
 # pas un budget : la recherche s'arrete au nombre d'evaluations de la phase,
 # `steady_max_trials`, ecrit ici a 60 comme le `maxfev` du calage de reference.
-# `xatol: 0.05` normalise sur six decades -> 0,05 x 6,0 = 0,30 decade de K.
-# `fatol: 0.05` : le cout est une distance en metres, non normalisee.
-[calibration.protocol.steady_engine_options]
+# `xatol: 0.05` normalize sur six decades -> 0,05 x 6,0 = 0,30 decade de K.
+# `fatol: 0.05` : le cout est une distance en meters, non normalisee.
+[calibration.protocol.steady_method_options]
 xatol = 0.30
 fatol = 0.05
 
-# `xatol: 1e-5` normalise sur les 3,699 decades de [1e-4 ; 0,5] -> 3,7e-5
+# `xatol: 1e-5` normalize sur les 3,699 decades de [1e-4 ; 0,5] -> 3,7e-5
 # decade de Sy, inatteignable : c'est le budget `transient_max_trials` (120 par
 # defaut) qui arrete la recherche. `fatol: 1e-5`, cout 1 - NSE_log sans dimension.
-[calibration.protocol.transient_engine_options]
+[calibration.protocol.transient_method_options]
 xatol = 3.7e-5
 fatol = 1e-5
 

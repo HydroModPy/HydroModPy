@@ -73,14 +73,15 @@ class TestSealAndIndex:
         sid = runs.open(solver="boussinesq").sim_id
         assert _one(runs.catalog(), _SIM_SELECT, sid)[3] == "integrated"
 
-    def test_a_run_of_an_unknown_solver_is_skipped_by_name(self, runs):
+    def test_a_run_of_an_unknown_solver_is_indexed_with_the_unknown_category(self, runs):
+        """A solver name is checked when it is typed, not when a seal is read."""
         store = runs.open(solver="exotic_solver")
         runs.seal(store)
 
         report = rebuild_index(runs.project_root)
 
-        assert [entry.rel_dir for entry in report.skipped] == [f"runs/{store.run_dir.name}"]
-        assert "exotic_solver" in report.skipped[0].reason
+        assert report.skipped == ()
+        assert _one(runs.catalog(), _SIM_SELECT, store.sim_id)[3] == "unknown"
 
     def test_the_duration_is_the_measured_interval(self, runs):
         """The sealed row states how long the run really took.

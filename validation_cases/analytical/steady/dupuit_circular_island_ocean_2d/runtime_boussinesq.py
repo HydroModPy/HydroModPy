@@ -89,9 +89,7 @@ def run_boussinesq_dupuit_circular_island_ocean_case(
                     boussinesq_variant_flow_section(
                         {
                             "flow_regime": "steady",
-                            "ic": {"type": "custom", "value": 1.0},
-                            "active_sinks_sources": ["recharge", "wells"],
-                            "active_bc": ["ocean"],
+                            "ic": {"kind": "custom", "value": 1.0},
                             "sinks_sources": {
                                 "recharge": {
                                     "values": recharge_rate_m_s,

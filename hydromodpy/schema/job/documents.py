@@ -4,7 +4,7 @@ Every document of a job directory is written through here, so a reader never
 catches one half-written and the seal never hashes bytes that were still
 being appended to. The rendering keeps the order the writing code chose,
 because these files are read by people before they are read by programs; what
-is canonicalised is what gets **hashed**, not what gets written.
+is canonicalized is what gets **hashed**, not what gets written.
 
 A stored document of a job carries its version in ``schema``, such as
 ``hmp-outcome/v1``. Its reader follows the rule of every stored document
