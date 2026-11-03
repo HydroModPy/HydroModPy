@@ -30,13 +30,13 @@ _CASES = [
         "alpha",
         0.0,
         "alpha = 0: alpha is the share of ru above which the soil evaporates at the "
-        "full rate kc x ETP, above 0 and at most 1. Write a value such as 0.6.",
+        "full rate kc x ETP, above 0 and at most 1. Write a value such as 0.45.",
     ),
     (
         "alpha",
         1.5,
         "alpha = 1.5: alpha is the share of ru above which the soil evaporates at "
-        "the full rate kc x ETP, above 0 and at most 1. Write a value such as 0.6.",
+        "the full rate kc x ETP, above 0 and at most 1. Write a value such as 0.45.",
     ),
     (
         "kc",

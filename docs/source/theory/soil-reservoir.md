@@ -375,9 +375,9 @@ not a systematic review.
 - **No groundwater memory.** The transit time is limited to 30 days, so that
   the slow response comes from MODFLOW 6 and not from this reservoir. The default
   is no delay. On example 04, 2016 to 2020, with K = 3.16e-5 m/s and Sy = 0.04, a
-  delay of 5 days raises the NSE of the daily discharge from 0.54 to 0.79 and moves
-  the July to September bias from +0.026 to +0.035 m3/s. A delay of 30 days, run at
-  the monthly step, brings that bias from +0.022 to +0.082 m3/s, so the summer floor
+  delay of 5 days raises the NSE of the daily discharge from 0.57 to 0.79 and moves
+  the July to September bias from +0.006 to +0.015 m3/s. A delay of 30 days, run at
+  the monthly step, brings that bias from 0.000 to +0.058 m3/s, so the summer floor
   comes back.
 - **All the overflow goes down.** Every millimetre above the capacity enters the
   water table, and the drains of MODFLOW 6 split it between quick and slow flow.
@@ -427,10 +427,10 @@ cells of the rain grid.
 - The **residual ETP** goes to the MODFLOW 6 evapotranspiration package, which
   draws it from the water table. The rate falls linearly to zero at
   {toml}`flow.sinks_sources.etp.extinction_depth` below the drain elevation of the cell.
-  This needs a [flow.sinks_sources.etp] table. The depth matters for the low flows:
-  on example 04, from 1 m to 2 m, the July to September bias of the discharge goes
-  from +0.022 to +0.003 m3/s and the lowest monthly flow of 2019 from 0.183 to 0.160
-  m3/s, for 0.153 gauged.
+  This needs a [flow.sinks_sources.etp] table. The default of 2 m is a choice made
+  here, and the depth matters for the low flows: on example 04, from 1 m to 2 m, the
+  July to September bias of the discharge goes from +0.017 to 0.000 m3/s and the lowest
+  monthly flow of 2019 from 0.174 to 0.151 m3/s, for 0.153 gauged.
 - The **runoff** goes where a loaded runoff would go: the stream networks, the
   lakes, and the discharge that a calibration compares with the gauge. A file
   that also loads a runoff, through {toml}`data.types`, is refused, because
