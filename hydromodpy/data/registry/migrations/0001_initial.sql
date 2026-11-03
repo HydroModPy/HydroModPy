@@ -3,7 +3,7 @@
 --
 -- Per-workspace DuckDB cache shared by every project under the same
 -- workspace root. Holds relational metadata about ingested inputs
--- (rasters, time series, station catalogs) and the artifacts produced
+-- (rasters, time series, station catalogues) and the artefacts produced
 -- by the data adapters.
 --
 -- Source of truth: reports_db/99_target_architecture.md sections 2.2 and
@@ -32,7 +32,7 @@ CREATE SEQUENCE IF NOT EXISTS failures_seq START 1;
 CREATE SEQUENCE IF NOT EXISTS validation_reports_seq START 1;
 
 -- =====================================================================
--- entries (cached input artifacts indexed by variable + source)
+-- entries (cached input artefacts indexed by variable + source)
 -- =====================================================================
 
 CREATE TABLE entries (

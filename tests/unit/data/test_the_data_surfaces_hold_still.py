@@ -20,8 +20,18 @@ import pytest
 from hydromodpy._lazy import LAZY_IMPORTS
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+CACHE_MIGRATION_SHA256 = "d49fa9377e3baf9f1df94c553992132c39e97185f6f833304b192075e133a25d"
 
 DATA_SCHEMA_SHA256 = "5833d1602ee99807e247d2abe0d084409cd54c7d54cf9f48d98863e67b449edb"
+
+
+def test_the_shipped_cache_migration_keeps_its_checksum() -> None:
+    """A cache records the checksum of the migration it applied and refuses any other."""
+    migration = REPO_ROOT / "hydromodpy/data/registry/migrations/0001_initial.sql"
+    assert hashlib.sha256(migration.read_bytes()).hexdigest() == CACHE_MIGRATION_SHA256, (
+        "A shipped migration never changes, not even a comment, or every existing cache is "
+        "refused. Write the change as a new migration."
+    )
 
 
 def test_the_data_config_schema_keeps_its_fingerprint() -> None:
