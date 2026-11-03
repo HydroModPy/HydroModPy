@@ -1,34 +1,34 @@
 {
   "schema": "hydromodpy.session.v4",
-  "session_id": "1c17c2c39cc54263a6aa64a447d7233e",
+  "session_id": "15ed6e9bfc5e44558cf3537f3faa6f33",
   "case_id": "calage",
-  "config_hash": "38efa4990ac8acc8b15d9de21cc80ced442f29b4c5eb2b7802da89af895d6886",
+  "config_hash": "e4e3158b175c919fc29fa7c5d857943fd219a81f13f85ed7c8d56614e3897e21",
   "sites": [],
   "cases": {
     "calage": {
       "site": null,
-      "config_hash": "38efa4990ac8acc8b15d9de21cc80ced442f29b4c5eb2b7802da89af895d6886",
+      "config_hash": "e4e3158b175c919fc29fa7c5d857943fd219a81f13f85ed7c8d56614e3897e21",
       "config_file": "config.toml",
       "cost_name": "rmse",
       "cost_label": "rmse",
       "context": {
         "k_grid": {
           "calibration": "33c3091b0040878c",
-          "code.calibration": "fa8933363c56585b",
-          "code.config": "8dd1449c89c533eb",
-          "code.core": "abedb9d61ce5c4ff",
-          "code.data": "ac0bd9da4e26ee5c",
-          "code.physics": "97011dde40f25c11",
-          "code.results": "2497084b80fb0569",
-          "code.simulation": "7719f8cf180d590f",
-          "code.solver": "55f4fcb28ea3c205",
-          "code.spatial": "5bbd8059d783fcc5",
-          "code.workflow": "6e72aca5409f8f1c",
+          "code.calibration": "8390c7253e420e7b",
+          "code.config": "54b1b396f944b2fe",
+          "code.core": "bcf9e79d261f8b2b",
+          "code.data": "55040e6d93ea254a",
+          "code.physics": "9029b39649a391c3",
+          "code.results": "0edb8d4a323f03b3",
+          "code.simulation": "243a2b6f14dfd6a4",
+          "code.solver": "2ff332171ce1bf5d",
+          "code.spatial": "e0a777565c553669",
+          "code.workflow": "39d969688ffcca94",
           "effective_domain": "18b26c23863b716c",
           "input_files": "4f53cda18c2baa0c",
           "mesh": "475d8ecc71593e1f",
           "metric_rule_version": "2",
-          "model": "7c1eb43cfada7ddf",
+          "model": "1b33edd516923d50",
           "override_paths": "efaa8c9f4d53125c",
           "parameter_space": "b256dd72e9ff7346",
           "schema": "hydromodpy.calibration.params_hash.v4"
@@ -36,7 +36,7 @@
       }
     }
   },
-  "hydromodpy_version": "2.0.0a5",
+  "hydromodpy_version": "2.0.0rc1",
   "method": "grid",
   "bounds": {
     "K": {
@@ -61,7 +61,7 @@
     },
     "cases": {
       "calage": {
-        "sim_id": "83dee61c-53b9-4f5e-b68d-51e0b2181c75",
+        "sim_id": "5e9559c0-d954-4ba2-84a4-3bcc0a2629a2",
         "rel_dir": "runs/calage",
         "cost": 0.002899322509765767
       }
@@ -70,8 +70,8 @@
   "widths": {},
   "protocol": null,
   "status": "completed",
-  "started_at": "2026-11-03T05:21:51.395463Z",
-  "ended_at": "2026-11-03T05:21:52.835213Z",
+  "started_at": "2026-11-03T10:07:37.408668Z",
+  "ended_at": "2026-11-03T10:07:40.083271Z",
   "error_message": null,
   "root_search": null,
   "stop_state": "plan_exhausted",

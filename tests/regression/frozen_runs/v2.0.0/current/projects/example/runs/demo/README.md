@@ -1,6 +1,6 @@
 # demo
 
-Run `demo` of project `example`, sim_id `d552124b-0920-4a8c-9d86-644b68b5cb30`, attempt 1, status **completed**.
+Run `demo` of project `example`, sim_id `5e78a478-2c73-4398-a089-721c0648c59a`, attempt 1, status **completed**.
 
 ## Site
 
@@ -12,9 +12,9 @@ No site declared.
 
 ## Version
 
-- HydroModPy 2.0.0a5, solver `modflow_nwt`, mesh engine `regular`
-- code reproducible: no
-- configuration hash: `54f23cb10eeaf3f5009887e1915cf2f82c2fb07224f93d2af5b4362091a7d19b`
+- HydroModPy 2.0.0rc1, solver `modflow_nwt`, mesh engine `regular`
+- code reproducible: unknown
+- configuration hash: `1101419a5a5b899a432f6c24e02b957aeed2923271299d886342272fc7bac403`
 
 ## Checks
 
@@ -38,4 +38,4 @@ No window declared: no score.
 - `figures/`, `exports/`, `report/`: derived, each with its ledger; `logs/`: diagnostics
 
 ---
-sha256(manifest.json) = 758a39ae3f4523719c4f8bb209efa523fcba800be9d581bb2992f5e8882b5d0f
+sha256(manifest.json) = 7edc84395509363caabdcf74c22d8b76137b796236901798820726ce00420ec6

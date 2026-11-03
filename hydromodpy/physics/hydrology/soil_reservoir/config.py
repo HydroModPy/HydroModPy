@@ -103,10 +103,9 @@ class SoilReservoirConfig(HydroModelBase):
         le=2.0,
         description=(
             "Crop coefficient applied to the loaded ETP: the soil evaporates at most "
-            "kc x ETP a day. 1.0 takes the ETP as loaded, and it is neutral only if "
-            "the surface of that ETP looks like the site: check what the product "
-            "refers to. Between 0 and 2. Kept fixed by default: kc and ru move the same "
-            "annual volume."
+            "kc x ETP a day. 1.0 takes the ETP as loaded, which assumes the surface of "
+            "that ETP looks like the site: check what the product refers to. Between 0 "
+            "and 2. Kept fixed by default: kc and ru move the same annual volume."
         ),
         json_schema_extra=field_metadata(
             calibrable=Calibrable(bounds=(0.7, 1.3), units="-"), stability="experimental"

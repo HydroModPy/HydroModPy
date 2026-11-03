@@ -1,6 +1,6 @@
 # calage
 
-Run `calage` of project `example`, sim_id `83dee61c-53b9-4f5e-b68d-51e0b2181c75`, attempt 1, status **completed**.
+Run `calage` of project `example`, sim_id `5e9559c0-d954-4ba2-84a4-3bcc0a2629a2`, attempt 1, status **completed**.
 
 ## Site
 
@@ -12,21 +12,21 @@ No site declared.
 
 ## Version
 
-- HydroModPy 2.0.0a5, solver `modflow_nwt`, mesh engine `regular`
-- code reproducible: no
-- configuration hash: `a0312e207d72d5a8bf773ff48a28a306d0556e2a23e8c9385f501491a568d56d`
+- HydroModPy 2.0.0rc1, solver `modflow_nwt`, mesh engine `regular`
+- code reproducible: unknown
+- configuration hash: `638c10dec44fbb06e6f77376e2772d3332b06bcbea02f2c29a45e8a3782e6087`
 
 ## Checks
 
 - water budget 0.06 % (no threshold declared)
 - converged: yes
-- promoted by session `1c17c2c39cc54263a6aa64a447d7233e` (phase k_grid, trial 2, session completed)
+- promoted by session `15ed6e9bfc5e44558cf3537f3faa6f33` (phase k_grid, trial 2, session completed)
 - its search exhausted its plan (every grid point solved), converged
 
 ## Label
 
 **calibrated** under rules 2.
-- promoted by session 1c17c2c39cc54263a6aa64a447d7233e, completed
+- promoted by session 15ed6e9bfc5e44558cf3537f3faa6f33, completed
 
 ## Score
 
@@ -35,7 +35,7 @@ No window declared: no score.
 ## Lineage
 
 - promoted of `sessions/calage`
-- session `1c17c2c39cc54263a6aa64a447d7233e`, phase k_grid, trial 2
+- session `15ed6e9bfc5e44558cf3537f3faa6f33`, phase k_grid, trial 2
 
 ## Where is what
 
@@ -45,4 +45,4 @@ No window declared: no score.
 - `figures/`, `exports/`, `report/`: derived, each with its ledger; `logs/`: diagnostics
 
 ---
-sha256(manifest.json) = 04338142b39fef7d7bc2937c5190f0ddf32f5ea62be693d9f98bd844869ecd53
+sha256(manifest.json) = 13cb1b26b836688c67bffb268faad524c121dfd4ae9a0849e1511c0616caf789

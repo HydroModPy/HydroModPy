@@ -3,7 +3,7 @@ message: "If you use HydroModPy in your work, please cite it using the following
 title: "HydroModPy: a Python toolbox for deploying catchment-scale shallow groundwater models"
 abstract: "HydroModPy is an open-source Python toolbox that automates the deployment of shallow groundwater models at catchment scale. It integrates geospatial processing, MODFLOW 6, MODFLOW-NWT and Boussinesq solvers, calibration, validation, and result visualization on Pydantic v2 configurations."
 type: software
-version: "2.0.0a5"
+version: "2.0.0rc1"
 license: EPL-2.0
 repository-code: "https://github.com/HydroModPy/HydroModPy"
 url: "https://docs.hydromodpy.fr/"

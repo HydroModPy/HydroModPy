@@ -29,17 +29,11 @@ thickness = 50.0
 types = []
 
 [flow]
+flow_regime = "steady"
 param_list = [
     "K",
     "Sy",
 ]
-active_sinks_sources = [
-    "recharge",
-]
-active_bc = [
-    "drainage",
-]
-flow_regime = "steady"
 
 [flow.param.K.field]
 id = "K"
@@ -53,16 +47,16 @@ kind = "homogeneous"
 unit = "-"
 value = 0.12
 
-[flow.ic]
-
 [flow.bc.drainage]
 id = "drainage"
 value = 0.0
-description = "Cauchy drainage boundary condition on top"
+description = "Drain boundary condition on top"
 units = "m2/s"
-kind = "cauchy"
+kind = "drain"
 data_value = false
 application_domain = "top"
+
+[flow.ic]
 
 [flow.sinks_sources.recharge]
 values = 0.8
@@ -82,13 +76,13 @@ step_unit = "day"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = [
     "modflow_nwt",
 ]
 
 [solver.backend]
-backend = "modflow_nwt"
+kind = "modflow_nwt"
 
 [modflownwt]
 

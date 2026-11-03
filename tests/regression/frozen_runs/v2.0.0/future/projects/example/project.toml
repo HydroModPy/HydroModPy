@@ -48,8 +48,8 @@ param_list = ["K", "Sy"]
 # Water enters as recharge and leaves through drains at the land surface, where
 # the water table reaches it. The mound between the two is about R L^2 / (2 K b):
 # 0.9 m here, and it follows K.
-active_sinks_sources = ["recharge"]
-active_bc = ["drainage"]
+
+[flow.bc.drainage]
 
 [flow.param.K.field]
 kind = "homogeneous"

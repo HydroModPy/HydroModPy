@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "derive_rule_version": "1",
-  "sealed_at": "2026-11-03T05:21:44.098627Z",
+  "sealed_at": "2026-11-03T10:07:27.883891Z",
   "run": {
-    "sim_id": "d552124b-0920-4a8c-9d86-644b68b5cb30",
+    "sim_id": "5e78a478-2c73-4398-a089-721c0648c59a",
     "name": "demo",
     "name_stem": "demo",
     "version": 1,
@@ -13,14 +13,14 @@
     "recipe": null,
     "rel_dir": "runs/demo",
     "attempt": 1,
-    "attempt_id": "0c34b345d2544b4eaf19736f50dd68c2",
+    "attempt_id": "8829cb02633d4fbe8390fe7beba2e5bd",
     "solver": "modflow_nwt",
     "solver_category": "distributed",
     "flow_regime": "steady",
-    "created_at": "2026-11-03T05:21:42.736058Z",
-    "started_at": "2026-11-03T05:21:42.736058Z",
-    "ended_at": "2026-11-03T05:21:44.011598Z",
-    "duration_s": 1.27554,
+    "created_at": "2026-11-03T10:07:25.134339Z",
+    "started_at": "2026-11-03T10:07:25.134339Z",
+    "ended_at": "2026-11-03T10:07:27.723041Z",
+    "duration_s": 2.588702,
     "description": "Scaffolded synthetic steady-flow run under a uniform recharge.",
     "scientific_objective": null,
     "contact_email": null,
@@ -72,7 +72,7 @@
   },
   "config": {
     "file": "config.toml",
-    "hash": "54f23cb10eeaf3f5009887e1915cf2f82c2fb07224f93d2af5b4362091a7d19b",
+    "hash": "1101419a5a5b899a432f6c24e02b957aeed2923271299d886342272fc7bac403",
     "source": "run_demo.toml",
     "from_a_later_version": {
       "kept": true,
@@ -97,9 +97,9 @@
     "site": null,
     "site_fingerprint": null,
     "case_id": "demo",
-    "sim_id": "d552124b-0920-4a8c-9d86-644b68b5cb30",
-    "attempt_id": "0c34b345d2544b4eaf19736f50dd68c2",
-    "config_hash": "54f23cb10eeaf3f5009887e1915cf2f82c2fb07224f93d2af5b4362091a7d19b",
+    "sim_id": "5e78a478-2c73-4398-a089-721c0648c59a",
+    "attempt_id": "8829cb02633d4fbe8390fe7beba2e5bd",
+    "config_hash": "1101419a5a5b899a432f6c24e02b957aeed2923271299d886342272fc7bac403",
     "mesh_hash": "48ebc775bacafd4e10f0f6a134360eba6a97bd4eb8961401c1a19da71d0e4083",
     "period": {
       "start": "2000-01-01",
@@ -113,8 +113,8 @@
     "label": null,
     "label_date": null,
     "rule_version": null,
-    "hydromodpy_version": "2.0.0a5",
-    "code_reproducible": false,
+    "hydromodpy_version": "2.0.0rc1",
+    "code_reproducible": null,
     "from_a_later_version": {
       "kept": true,
       "note": "written by a later 2.x"
@@ -131,7 +131,7 @@
     "calibrated_by": null,
     "validities": [],
     "bounds_hit": [],
-    "code_reproducible": false,
+    "code_reproducible": null,
     "from_a_later_version": {
       "kept": true,
       "note": "written by a later 2.x"
@@ -144,6 +144,7 @@
       "role": "manifest",
       "format": "json",
       "bytes": null,
+      "sha256": null,
       "from_a_later_version": {
         "kept": true,
         "note": "written by a later 2.x"
@@ -153,7 +154,8 @@
       "path": "config.resolved.toml",
       "role": "config_resolved",
       "format": "toml",
-      "bytes": 6347,
+      "bytes": 6164,
+      "sha256": "44bb9f2668d6b4e04f3dd68ce8e9698ed286ec4fd36262fcfeaa98a603d3a11a",
       "from_a_later_version": {
         "kept": true,
         "note": "written by a later 2.x"
@@ -163,7 +165,8 @@
       "path": "config.toml",
       "role": "config",
       "format": "toml",
-      "bytes": 1511,
+      "bytes": 1422,
+      "sha256": "c06228df723619eef8ea05a8aae33355f590f15796608fb475e126b241162e1b",
       "from_a_later_version": {
         "kept": true,
         "note": "written by a later 2.x"
@@ -173,7 +176,8 @@
       "path": "fields.zarr",
       "role": "fields",
       "format": "zarr",
-      "bytes": 120270,
+      "bytes": 120156,
+      "sha256": null,
       "from_a_later_version": {
         "kept": true,
         "note": "written by a later 2.x"
@@ -184,6 +188,7 @@
       "role": "other",
       "format": "json",
       "bytes": 195,
+      "sha256": "96a48403e6919a59d8bc12fe6474c079b4a85242972b2c3bd38ca3c838e3e231",
       "from_a_later_version": {
         "kept": true,
         "note": "written by a later 2.x"
@@ -193,7 +198,8 @@
       "path": "provenance.json",
       "role": "provenance",
       "format": "json",
-      "bytes": 12189,
+      "bytes": 12153,
+      "sha256": "fd1daa93d93244aaffed62e5da9c3c6313976342409329031beff96d79870d27",
       "from_a_later_version": {
         "kept": true,
         "note": "written by a later 2.x"
@@ -203,7 +209,8 @@
       "path": "tables.parquet/budgets.parquet",
       "role": "table:budgets",
       "format": "parquet",
-      "bytes": 6488,
+      "bytes": 6501,
+      "sha256": "fb704370c1755090f52aaa0a7c5d611af4622c3daf3f0667b62dd992eaa0a4f0",
       "from_a_later_version": {
         "kept": true,
         "note": "written by a later 2.x"
@@ -213,7 +220,8 @@
       "path": "tables.parquet/geographic_watershed.parquet",
       "role": "table:geographic_watershed",
       "format": "parquet",
-      "bytes": 15942,
+      "bytes": 15955,
+      "sha256": "d458d66c0ced10c53f2d9801082b666e18a83bc907d21623f506653df1a60757",
       "from_a_later_version": {
         "kept": true,
         "note": "written by a later 2.x"
@@ -223,7 +231,8 @@
       "path": "tables.parquet/geographic_watershed_box_buff.parquet",
       "role": "table:geographic_watershed_box_buff",
       "format": "parquet",
-      "bytes": 15963,
+      "bytes": 15976,
+      "sha256": "0b4372e34ec7e89fa00acc27ead7a84c1d7edb8575a780f1d49b846922d7f30a",
       "from_a_later_version": {
         "kept": true,
         "note": "written by a later 2.x"
@@ -233,7 +242,8 @@
       "path": "tables.parquet/geographic_watershed_contour.parquet",
       "role": "table:geographic_watershed_contour",
       "format": "parquet",
-      "bytes": 15959,
+      "bytes": 15960,
+      "sha256": "3dc9567b3f1e6d076ee1d80b9f3fd2f080171fceccdc8c82f686f36e71133465",
       "from_a_later_version": {
         "kept": true,
         "note": "written by a later 2.x"
@@ -243,7 +253,8 @@
       "path": "tables.parquet/mass_balance.parquet",
       "role": "table:mass_balance",
       "format": "parquet",
-      "bytes": 7105,
+      "bytes": 7106,
+      "sha256": "5ca211190e5cc5e49513778ad08a84dfe3d8ef7171e8dd0646398092ba162f00",
       "from_a_later_version": {
         "kept": true,
         "note": "written by a later 2.x"
@@ -253,7 +264,8 @@
       "path": "tables.parquet/mesh_face_families.parquet",
       "role": "table:mesh_face_families",
       "format": "parquet",
-      "bytes": 8641,
+      "bytes": 8650,
+      "sha256": "04d4f5776bc8d300d31c91f9883be3ab9deb27f519f4790565fe73a2f5134d32",
       "from_a_later_version": {
         "kept": true,
         "note": "written by a later 2.x"
@@ -263,7 +275,8 @@
       "path": "tables.parquet/metrics.parquet",
       "role": "table:metrics",
       "format": "parquet",
-      "bytes": 8571,
+      "bytes": 8572,
+      "sha256": "326a59f825478c95574486c2e084bdf2b3e62ca6bed5264b08521901327e085b",
       "from_a_later_version": {
         "kept": true,
         "note": "written by a later 2.x"
@@ -273,7 +286,8 @@
       "path": "tables.parquet/parameters.parquet",
       "role": "table:parameters",
       "format": "parquet",
-      "bytes": 8222,
+      "bytes": 8235,
+      "sha256": "6b4b2de8592f0d0f3dc90a7723ec9f09c673895d901a1d371eae145ced288254",
       "from_a_later_version": {
         "kept": true,
         "note": "written by a later 2.x"
@@ -283,7 +297,8 @@
       "path": "tables.parquet/simulation.parquet",
       "role": "table:simulation",
       "format": "parquet",
-      "bytes": 33912,
+      "bytes": 33902,
+      "sha256": "65acee75d1412f776abdda037d21cc9cbac27581a3954d6f790d953e81675172",
       "from_a_later_version": {
         "kept": true,
         "note": "written by a later 2.x"
@@ -293,7 +308,8 @@
       "path": "tables.parquet/timeseries.parquet",
       "role": "table:timeseries",
       "format": "parquet",
-      "bytes": 7060,
+      "bytes": 7073,
+      "sha256": "8d2df499e7d83a463ff6cba8d686817c489bf351ab2014b9b4dd731b8e57f94a",
       "from_a_later_version": {
         "kept": true,
         "note": "written by a later 2.x"
@@ -346,7 +362,7 @@
       "station": "flow_main::modflow_nwt",
       "variable": "runtime",
       "metric": "flow_solve_time_seconds",
-      "value": 0.008147765882313251,
+      "value": 0.026686207856982946,
       "window_name": null,
       "window_role": null,
       "window_start": null,

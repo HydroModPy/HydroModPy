@@ -10,6 +10,9 @@ fixes.
 The `[Unreleased]` section is the work merged since the last release. It ships with the next
 version.
 
+The long development notes of the alphas and of the 0.x releases are in
+{doc}`Changes during the alphas <changes-during-the-alphas>`.
+
 The keys added, removed or changed in the TOML file between two versions are listed, from the
 models, in {doc}`What changed in the TOML </reference/changes>`. For what a version number
 promises, see {doc}`Versions and stability <versions>`.

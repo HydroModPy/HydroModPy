@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "derive_rule_version": "1",
-  "sealed_at": "2026-11-03T05:21:52.796533Z",
+  "sealed_at": "2026-11-03T10:07:40.048302Z",
   "run": {
-    "sim_id": "83dee61c-53b9-4f5e-b68d-51e0b2181c75",
+    "sim_id": "5e9559c0-d954-4ba2-84a4-3bcc0a2629a2",
     "name": "calage",
     "name_stem": "calage",
     "version": 1,
@@ -13,14 +13,14 @@
     "recipe": null,
     "rel_dir": "runs/calage",
     "attempt": 1,
-    "attempt_id": "2f4fd62c0fbb4997ba864ec6653d2252",
+    "attempt_id": "5c7e405b08034ccaa5b2e160a2a17fa1",
     "solver": "modflow_nwt",
     "solver_category": "distributed",
     "flow_regime": "steady",
-    "created_at": "2026-11-03T05:21:51.527317Z",
-    "started_at": "2026-11-03T05:21:51.527317Z",
-    "ended_at": "2026-11-03T05:21:52.694045Z",
-    "duration_s": 1.166728,
+    "created_at": "2026-11-03T10:07:38.080919Z",
+    "started_at": "2026-11-03T10:07:38.080919Z",
+    "ended_at": "2026-11-03T10:07:39.834956Z",
+    "duration_s": 1.754037,
     "description": "K on three values, scored on one head of the demo.",
     "scientific_objective": null,
     "contact_email": null,
@@ -72,7 +72,7 @@
   },
   "config": {
     "file": "config.toml",
-    "hash": "a0312e207d72d5a8bf773ff48a28a306d0556e2a23e8c9385f501491a568d56d",
+    "hash": "638c10dec44fbb06e6f77376e2772d3332b06bcbea02f2c29a45e8a3782e6087",
     "source": "calage.toml",
     "from_a_later_version": {
       "kept": true,
@@ -81,7 +81,7 @@
   },
   "lineage": {
     "parent_sim_id": null,
-    "session_id": "1c17c2c39cc54263a6aa64a447d7233e",
+    "session_id": "15ed6e9bfc5e44558cf3537f3faa6f33",
     "phase": "k_grid",
     "trial": 2,
     "kind": "promoted",
@@ -97,9 +97,9 @@
     "site": null,
     "site_fingerprint": null,
     "case_id": "calage",
-    "sim_id": "83dee61c-53b9-4f5e-b68d-51e0b2181c75",
-    "attempt_id": "2f4fd62c0fbb4997ba864ec6653d2252",
-    "config_hash": "a0312e207d72d5a8bf773ff48a28a306d0556e2a23e8c9385f501491a568d56d",
+    "sim_id": "5e9559c0-d954-4ba2-84a4-3bcc0a2629a2",
+    "attempt_id": "5c7e405b08034ccaa5b2e160a2a17fa1",
+    "config_hash": "638c10dec44fbb06e6f77376e2772d3332b06bcbea02f2c29a45e8a3782e6087",
     "mesh_hash": "48ebc775bacafd4e10f0f6a134360eba6a97bd4eb8961401c1a19da71d0e4083",
     "period": {
       "start": "2000-01-01",
@@ -113,8 +113,8 @@
     "label": null,
     "label_date": null,
     "rule_version": null,
-    "hydromodpy_version": "2.0.0a5",
-    "code_reproducible": false,
+    "hydromodpy_version": "2.0.0rc1",
+    "code_reproducible": null,
     "from_a_later_version": {
       "kept": true,
       "note": "written by a later 2.x"
@@ -129,7 +129,7 @@
     "score_window": null,
     "n_samples": 0,
     "calibrated_by": {
-      "session_id": "1c17c2c39cc54263a6aa64a447d7233e",
+      "session_id": "15ed6e9bfc5e44558cf3537f3faa6f33",
       "phase": "k_grid",
       "trial": 2,
       "session_status": "completed",
@@ -141,7 +141,7 @@
     },
     "validities": [],
     "bounds_hit": [],
-    "code_reproducible": false,
+    "code_reproducible": null,
     "from_a_later_version": {
       "kept": true,
       "note": "written by a later 2.x"
@@ -154,6 +154,7 @@
       "role": "manifest",
       "format": "json",
       "bytes": null,
+      "sha256": null,
       "from_a_later_version": {
         "kept": true,
         "note": "written by a later 2.x"
@@ -163,7 +164,8 @@
       "path": "config.resolved.toml",
       "role": "config_resolved",
       "format": "toml",
-      "bytes": 6958,
+      "bytes": 6775,
+      "sha256": "4c367a9011caedb97c6210f407761beba6afef40ae1b272ace188e7bcd03cf08",
       "from_a_later_version": {
         "kept": true,
         "note": "written by a later 2.x"
@@ -173,7 +175,8 @@
       "path": "config.toml",
       "role": "config",
       "format": "toml",
-      "bytes": 1484,
+      "bytes": 1395,
+      "sha256": "eee84977318fc5d5608c3335686a5de83492b53326f240d46d526e7d29213b77",
       "from_a_later_version": {
         "kept": true,
         "note": "written by a later 2.x"
@@ -183,7 +186,8 @@
       "path": "fields.zarr",
       "role": "fields",
       "format": "zarr",
-      "bytes": 120206,
+      "bytes": 120092,
+      "sha256": null,
       "from_a_later_version": {
         "kept": true,
         "note": "written by a later 2.x"
@@ -194,6 +198,7 @@
       "role": "other",
       "format": "json",
       "bytes": 195,
+      "sha256": "af210093953e9c6b04595aa238a181d741c8db849cc84f8913da0df7aaf4dc9a",
       "from_a_later_version": {
         "kept": true,
         "note": "written by a later 2.x"
@@ -203,7 +208,8 @@
       "path": "provenance.json",
       "role": "provenance",
       "format": "json",
-      "bytes": 12190,
+      "bytes": 12153,
+      "sha256": "2bf747f9afb15cbb4f0c8dc5648fd9572a4422bb0ffa18e220aee88e8ae6ee02",
       "from_a_later_version": {
         "kept": true,
         "note": "written by a later 2.x"
@@ -213,7 +219,8 @@
       "path": "tables.parquet/budgets.parquet",
       "role": "table:budgets",
       "format": "parquet",
-      "bytes": 6504,
+      "bytes": 6505,
+      "sha256": "300a13296fc7c42cdf6508baade9dec3d5e7a3d8008cae2d42aab052722b8f81",
       "from_a_later_version": {
         "kept": true,
         "note": "written by a later 2.x"
@@ -223,7 +230,8 @@
       "path": "tables.parquet/geographic_watershed.parquet",
       "role": "table:geographic_watershed",
       "format": "parquet",
-      "bytes": 15958,
+      "bytes": 15959,
+      "sha256": "d1343fecc344e6638e4213362ddf01d215dd466c8ce1562f288f5589797a0197",
       "from_a_later_version": {
         "kept": true,
         "note": "written by a later 2.x"
@@ -233,7 +241,8 @@
       "path": "tables.parquet/geographic_watershed_box_buff.parquet",
       "role": "table:geographic_watershed_box_buff",
       "format": "parquet",
-      "bytes": 15979,
+      "bytes": 15980,
+      "sha256": "15a1f0f5824be1700f335602eca1b8374b091a886e5fde9203986f0e94fea75f",
       "from_a_later_version": {
         "kept": true,
         "note": "written by a later 2.x"
@@ -243,7 +252,8 @@
       "path": "tables.parquet/geographic_watershed_contour.parquet",
       "role": "table:geographic_watershed_contour",
       "format": "parquet",
-      "bytes": 15963,
+      "bytes": 15972,
+      "sha256": "c6c4a02981ea94fd7799078c543dadf36793a40fb5146e3397a9a2c3365fca08",
       "from_a_later_version": {
         "kept": true,
         "note": "written by a later 2.x"
@@ -253,7 +263,8 @@
       "path": "tables.parquet/mass_balance.parquet",
       "role": "table:mass_balance",
       "format": "parquet",
-      "bytes": 7109,
+      "bytes": 7122,
+      "sha256": "418d65601996d56785a62bdd5cb20181adad832449e80ef90c2da5867697a5de",
       "from_a_later_version": {
         "kept": true,
         "note": "written by a later 2.x"
@@ -263,7 +274,8 @@
       "path": "tables.parquet/mesh_face_families.parquet",
       "role": "table:mesh_face_families",
       "format": "parquet",
-      "bytes": 8653,
+      "bytes": 8654,
+      "sha256": "3187e59552266759d1613edba5e37760fba859419452df9f4b28d86d2524af9a",
       "from_a_later_version": {
         "kept": true,
         "note": "written by a later 2.x"
@@ -273,7 +285,8 @@
       "path": "tables.parquet/metrics.parquet",
       "role": "table:metrics",
       "format": "parquet",
-      "bytes": 8575,
+      "bytes": 8588,
+      "sha256": "89a02fd71ae970c62b5380588e6bfdfd17cd35c256a4aec0aba163599f01301c",
       "from_a_later_version": {
         "kept": true,
         "note": "written by a later 2.x"
@@ -283,7 +296,8 @@
       "path": "tables.parquet/parameters.parquet",
       "role": "table:parameters",
       "format": "parquet",
-      "bytes": 8256,
+      "bytes": 8257,
+      "sha256": "7165471bd2ec16e278cde5dafaf7723336d8992ac8ebd897ecb8d7e936dbfdc1",
       "from_a_later_version": {
         "kept": true,
         "note": "written by a later 2.x"
@@ -293,7 +307,8 @@
       "path": "tables.parquet/simulation.parquet",
       "role": "table:simulation",
       "format": "parquet",
-      "bytes": 34573,
+      "bytes": 34569,
+      "sha256": "71ac4557915951e5c6ae38b1d3509e9896e7d1da0c1fd52c6a99039dad59b230",
       "from_a_later_version": {
         "kept": true,
         "note": "written by a later 2.x"
@@ -303,7 +318,8 @@
       "path": "tables.parquet/timeseries.parquet",
       "role": "table:timeseries",
       "format": "parquet",
-      "bytes": 7076,
+      "bytes": 7077,
+      "sha256": "37650e3590e16a3ade8ec1055bf5eb8930eebc534d4db34688c6f66f532ba3cf",
       "from_a_later_version": {
         "kept": true,
         "note": "written by a later 2.x"
@@ -356,7 +372,7 @@
       "station": "flow_main::modflow_nwt",
       "variable": "runtime",
       "metric": "flow_solve_time_seconds",
-      "value": 0.006980532081797719,
+      "value": 0.02672968409024179,
       "window_name": null,
       "window_role": null,
       "window_start": null,

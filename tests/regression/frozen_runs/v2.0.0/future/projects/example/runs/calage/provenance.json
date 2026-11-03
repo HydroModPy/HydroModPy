@@ -1,19 +1,19 @@
 {
   "provenance_version": 2,
-  "sim_id": "83dee61c-53b9-4f5e-b68d-51e0b2181c75",
+  "sim_id": "5e9559c0-d954-4ba2-84a4-3bcc0a2629a2",
   "tool": {
     "name": "hydromodpy",
-    "version": "2.0.0a5",
+    "version": "2.0.0rc1",
     "code_fingerprint": {
-      "core": "5ea570cdb2c856a338e3610349a3a19efde80422d20b2a0361c55cf5a963344c",
-      "config": "3c3ef9e9c2855c7e0f6e280a72b923c33ef735361ddc9438ec3db588009201fc",
-      "physics": "dd51ecf8011d8878ed6ed36c9b9dfdf9be756e461c19668b2824fd9ff94ae472",
-      "data": "cac0cfff9b9dcdf076b16d8b84d0997f786be2ee430b959b251f13068a84b721",
-      "spatial": "e3dda40b438b4c2d0ddfe6d14ef786b5b5a69dffdc777202f263fcc550b1d0b6",
-      "simulation": "59c05f8a2b0ebcdb9fd1f17d8fb2f350728c18183a7d0a2732df897ed6903266",
-      "solver": "56d2b7e88b4ca75498d8d275529bd5ea4a34d5348f111b5b1287b625214db84f",
-      "results": "506857c54b5e58617b45d9811ea101653bcf8b68a31669f008735101d6dcaaee",
-      "workflow": "77cfb841fbf800b7e5eef7b6b583977950b8fc9156e5f1e5d639fcf1b362e274"
+      "core": "c2b16d2ab5b89b86c40011541a5199275c7902a79691e92d06c2f39d763de117",
+      "config": "b8ef6e17e440026c7c8400dac6e8e12f46f09e87f03cc06fe82fa94a4e3dd81f",
+      "physics": "0ff5c99edf0b356033d64aad09d7d78a1d6fd7ed4694cb4b9d471496ee4d5c10",
+      "data": "cfb0c287a390ec58fdc2da10402a17131c43c8beb4f613d0b137f8840cc63c4f",
+      "spatial": "f1cacd2f527c3506ffa2d535d10da0afc7760d32611e872a00239641846fb90f",
+      "simulation": "e6b939c07c5aa610eb6ad801e96ab93623f800fb6635d3b23da05edbf783c5a9",
+      "solver": "83b76e2aa0280d9a8dbd5e192c1f9f576b087eb9a1257468f4d6a16569844dc9",
+      "results": "f69210f74ec3bf4878031356af90aea35e55c72046ff8691b42477727ab5bb26",
+      "workflow": "2eb8095e3910989de3c9d37d08a967674e74aa90fa9fdda39356aaec5680647f"
     },
     "from_a_later_version": {
       "kept": true,
@@ -21,8 +21,8 @@
     }
   },
   "git": {
-    "commit": "eb5d7de306b63285c95681f44df14a91b71151ed",
-    "dirty": true,
+    "commit": null,
+    "dirty": null,
     "project_commit": null
   },
   "python": {
@@ -43,7 +43,7 @@
       "arch": "X86_64",
       "bits": 64,
       "count": 22,
-      "hz_advertised_friendly": "3.5057 GHz"
+      "hz_advertised_friendly": "2.1002 GHz"
     },
     "memory_gb": 66.81,
     "from_a_later_version": {
@@ -82,9 +82,9 @@
     }
   },
   "timing": {
-    "started_at": "2026-11-03T05:21:51.527317+00:00",
-    "ended_at": "2026-11-03T05:21:52.694045+00:00",
-    "duration_s": 1.166728,
+    "started_at": "2026-11-03T10:07:38.080919+00:00",
+    "ended_at": "2026-11-03T10:07:39.834956+00:00",
+    "duration_s": 1.754037,
     "from_a_later_version": {
       "kept": true,
       "note": "written by a later 2.x"

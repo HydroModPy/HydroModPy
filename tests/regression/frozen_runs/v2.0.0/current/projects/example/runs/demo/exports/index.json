@@ -8,16 +8,16 @@
         "variables": "discharge",
         "nodata": -9999.0
       },
-      "hydromodpy_version": "2.0.0a5",
-      "at": "2026-11-03T05:21:44.007410Z",
+      "hydromodpy_version": "2.0.0rc1",
+      "at": "2026-11-03T10:07:27.712435Z",
       "sha256": "20642fc1c788f96ef06d2c56877dc7d1db2080d5a58d062e4dd70eec39121081",
       "identity": {
         "site": null,
         "site_fingerprint": null,
         "case_id": "demo",
-        "sim_id": "d552124b-0920-4a8c-9d86-644b68b5cb30",
-        "attempt_id": "0c34b345d2544b4eaf19736f50dd68c2",
-        "config_hash": "54f23cb10eeaf3f5009887e1915cf2f82c2fb07224f93d2af5b4362091a7d19b",
+        "sim_id": "5e78a478-2c73-4398-a089-721c0648c59a",
+        "attempt_id": "8829cb02633d4fbe8390fe7beba2e5bd",
+        "config_hash": "1101419a5a5b899a432f6c24e02b957aeed2923271299d886342272fc7bac403",
         "mesh_hash": "48ebc775bacafd4e10f0f6a134360eba6a97bd4eb8961401c1a19da71d0e4083",
         "period": {
           "start": "2000-01-01",
@@ -27,8 +27,8 @@
         "label": null,
         "label_date": null,
         "rule_version": null,
-        "hydromodpy_version": "2.0.0a5",
-        "code_reproducible": false
+        "hydromodpy_version": "2.0.0rc1",
+        "code_reproducible": null
       }
     }
   ]

@@ -1,6 +1,6 @@
 {
   "demo": {
-    "sim_id": "d552124b-0920-4a8c-9d86-644b68b5cb30",
+    "sim_id": "5e78a478-2c73-4398-a089-721c0648c59a",
     "name": "demo",
     "project": "example",
     "solver": "modflow_nwt",
@@ -151,7 +151,7 @@
         "station_id": "flow_main::modflow_nwt",
         "variable": "runtime",
         "metric": "flow_solve_time_seconds",
-        "value": 0.008147765882313251
+        "value": 0.026686207856982946
       },
       {
         "station_id": "flow_main::modflow_nwt",
@@ -202,7 +202,7 @@
     ]
   },
   "calibrated_run": {
-    "sim_id": "83dee61c-53b9-4f5e-b68d-51e0b2181c75",
+    "sim_id": "5e9559c0-d954-4ba2-84a4-3bcc0a2629a2",
     "name": "calage",
     "project": "example",
     "solver": "modflow_nwt",
@@ -225,7 +225,7 @@
     },
     "lineage": {
       "parent_sim_id": null,
-      "session_id": "1c17c2c39cc54263a6aa64a447d7233e",
+      "session_id": "15ed6e9bfc5e44558cf3537f3faa6f33",
       "phase": "k_grid",
       "trial": 2,
       "kind": "promoted",
@@ -353,7 +353,7 @@
         "station_id": "flow_main::modflow_nwt",
         "variable": "runtime",
         "metric": "flow_solve_time_seconds",
-        "value": 0.006980532081797719
+        "value": 0.02672968409024179
       },
       {
         "station_id": "flow_main::modflow_nwt",
@@ -396,7 +396,7 @@
     "figures": []
   },
   "session": {
-    "session_id": "1c17c2c39cc54263a6aa64a447d7233e",
+    "session_id": "15ed6e9bfc5e44558cf3537f3faa6f33",
     "case_id": "calage",
     "status": "completed",
     "method": "grid",
@@ -409,7 +409,7 @@
       },
       "cases": {
         "calage": {
-          "sim_id": "83dee61c-53b9-4f5e-b68d-51e0b2181c75",
+          "sim_id": "5e9559c0-d954-4ba2-84a4-3bcc0a2629a2",
           "rel_dir": "runs/calage",
           "cost": 0.002899322509765767
         }
@@ -446,7 +446,7 @@
         "cost": 0.002899322509765767,
         "status": "completed",
         "phase": "k_grid",
-        "sim_id": "83dee61c-53b9-4f5e-b68d-51e0b2181c75"
+        "sim_id": "5e9559c0-d954-4ba2-84a4-3bcc0a2629a2"
       },
       {
         "trial": 3,
@@ -459,7 +459,7 @@
     ]
   },
   "digests": {
-    "current": "24cd2d66dc52fb44175aabf3332622273640106012256630cc0f943e44d06363",
-    "future": "aab7d5b212fe2ef48003aeb85d08ec645d95f34f8c95c71d2f76070028dd069b"
+    "current": "eebb18539331e0f3ed09a5058d845d782479bfb0de85bc67ceadfb7a26e6a8af",
+    "future": "4ccc250ad269ea13db55020e49f07b1c6343689f8ad46733a81d2bd811359e23"
   }
 }

@@ -7642,10 +7642,10 @@
             "unit_field": null,
             "units": "m"
           },
-          "default": 1.0,
-          "description": "Depth (m) below the EVT surface where the water table stops evaporating; the rate falls linearly between the surface and this depth. 1 m by default. Read by MODFLOW-NWT, and by MODFLOW 6 in soil mode for the ETP the soil left unmet. Calibrate it with [calibration.parameters.extinction_depth]; the range belongs to the site, so a file has to state it.",
+          "default": 2.0,
+          "description": "Depth (m) below the EVT surface where the water table stops evaporating; the rate falls linearly between the surface and this depth. 2 m by default, a choice: this depth often reaches the deepest roots, and 150 mm of soil capacity means about 1 to 2 m of them. Read by MODFLOW-NWT, and by MODFLOW 6 in soil mode for the ETP the soil left unmet. Calibrate it with [calibration.parameters.extinction_depth]; the range belongs to the site, so a file has to state it.",
           "examples": [
-            1.0
+            2.0
           ],
           "title": "Extinction Depth",
           "x-hmp-profile": "user"
@@ -22372,10 +22372,10 @@
             "unit_field": null,
             "units": "-"
           },
-          "default": 0.6,
-          "description": "Share of ru above which the soil evaporates at the full rate kc x ETP. Below alpha x ru, ETR falls linearly with the stored water. It is 1 - p of FAO-56 and LP of HBV. The default 0.6 is a choice: it means p = 0.40, under FAO-56 table 22 for pasture (0.60), cereals and maize (0.55). Above 0, at most 1. Kept fixed by default: on the discharge alone it trades off with ru, since both move the annual volume.",
+          "default": 0.45,
+          "description": "Share of ru above which the soil evaporates at the full rate kc x ETP. Below alpha x ru, ETR falls linearly with the stored water. It is 1 - p of FAO-56 and LP of HBV. The default 0.45 is a choice: it means p = 0.55, the value of FAO-56 table 22 for cereals and maize (pasture 0.60). Above 0, at most 1. Kept fixed by default: on the discharge alone it trades off with ru, since both move the annual volume.",
           "examples": [
-            0.6
+            0.45
           ],
           "exclusiveMinimum": 0.0,
           "maximum": 1.0,
@@ -22398,7 +22398,7 @@
             "units": "-"
           },
           "default": 1.0,
-          "description": "Crop coefficient applied to the loaded ETP: the soil evaporates at most kc x ETP a day. 1.0 takes the ETP as loaded, and it is neutral only if the surface of that ETP looks like the site: check what the product refers to. Between 0 and 2. Kept fixed by default: kc and ru move the same annual volume.",
+          "description": "Crop coefficient applied to the loaded ETP: the soil evaporates at most kc x ETP a day. 1.0 takes the ETP as loaded, which assumes the surface of that ETP looks like the site: check what the product refers to. Between 0 and 2. Kept fixed by default: kc and ru move the same annual volume.",
           "examples": [
             1.0
           ],
