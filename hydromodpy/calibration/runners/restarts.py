@@ -145,7 +145,7 @@ def spread_of(reports: list, *, best: object, names: list[str]) -> tuple[Restart
 
 
 def _objective_of(report: object) -> float | None:
-    value = getattr(report, "best_objective", None)
+    value = getattr(report, "best_cost", None)
     if value is None:
         return None
     number = float(value)

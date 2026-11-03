@@ -340,10 +340,11 @@ class DataManagersConfig(HydroModelBase):
 
         This helper is used by the launcher after inference so downstream code
         can continue reading ``cfg.data`` only, without carrying a separate
-        unresolved/partial variant.
+        unresolved/partial variant. The defaults stay defaults: a run seals what its
+        configuration was given, and spelling them out would make a key of each.
         """
         normalized_types = self._normalize_types(self._validate_types_list(list(resolved_types)))
-        payload = self.model_dump(mode="python")
+        payload = self.model_dump(mode="python", exclude_unset=True)
         payload["types"] = normalized_types
         # Keep geology behavior symmetrical with declarative path: if geology is
         # activated by inference, ensure a default typed section exists.

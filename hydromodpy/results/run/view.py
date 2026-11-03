@@ -135,17 +135,16 @@ def live_catalog(catalog: Any) -> Any:
 def _reanchor_workspace(payload: dict, project_root: Path) -> dict:
     """Point the ``[workspace]`` output paths of a snapshot at ``project_root``.
 
-    The snapshot froze absolute paths resolved on the machine that produced the
-    run. Replaying it verbatim on a project that was copied or moved would
-    write into the original directory. The project that holds the run is the
-    only honest anchor, so ``project_root`` is rewritten and every output path
-    that derives from it is dropped: re-validating the payload rebuilds them.
-    Input paths (``root``, ``data_dir``) are left untouched, shared data does
-    not travel with the project.
+    A sealed configuration names no machine, so it holds no project root. The
+    project that holds the run is the only honest anchor, whatever the current
+    directory, so ``project_root`` is written and every output path that derives
+    from it is dropped: re-validating the payload rebuilds them. Input paths
+    (``root``, ``data_dir``) are left untouched, shared data does not travel with
+    the project.
     """
     workspace = payload.get("workspace")
     if not isinstance(workspace, dict):
-        return payload
+        workspace = {}
     rebound = {k: v for k, v in workspace.items() if k not in _WORKSPACE_OUTPUT_KEYS}
     rebound["project_root"] = str(project_root)
     payload["workspace"] = rebound

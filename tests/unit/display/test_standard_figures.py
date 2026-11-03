@@ -65,12 +65,12 @@ class _Run:
         """The simulations row of the run, as the seal records it."""
         return {"crs_epsg": 2154}
 
-    def timeseries(self, variable: str, *, station: str = "_catchment") -> pd.Series:
-        if variable != "discharge" or station != "_catchment":
+    def timeseries(self, variable: str, *, station: str = "catchment") -> pd.Series:
+        if variable != "discharge" or station != "catchment":
             raise KeyError(variable)
         return self._series.copy()
 
-    def observed(self, variable: str, *, station: str = "_catchment") -> pd.DataFrame:
+    def observed(self, variable: str, *, station: str = "catchment") -> pd.DataFrame:
         del station
         dates = pd.to_datetime(["2020-01-01", "2020-01-02", "2020-01-04"])
         return pd.DataFrame(
@@ -237,7 +237,7 @@ def test_sim_obs_figures_align_only_overlapping_samples(mpl, tmp_path) -> None:
 
 def test_sim_obs_figures_reject_missing_overlap(mpl) -> None:
     class _NoOverlapRun(_Run):
-        def observed(self, variable: str, *, station: str = "_catchment") -> pd.DataFrame:
+        def observed(self, variable: str, *, station: str = "catchment") -> pd.DataFrame:
             del variable, station
             return pd.DataFrame(
                 {
@@ -259,7 +259,7 @@ def test_sim_obs_figures_reject_missing_overlap(mpl) -> None:
 
 
 def test_hydrograph_sim_obs_fetches_gauge_obs_not_sim_station(mpl) -> None:
-    """Sim discharge is keyed by the ``_catchment`` pseudo-station while obs
+    """Sim discharge is keyed by the ``catchment`` pseudo-station while obs
     come from a real gauge with its own id. The overlay must fetch obs across
     stations, not filter them by the sim station (which would return nothing).
     """
@@ -289,7 +289,7 @@ def test_hydrograph_sim_obs_marks_single_sample_series(mpl) -> None:
     the lone sim and obs samples must be drawn with a marker."""
 
     class _SteadyRun(_Run):
-        def timeseries(self, variable: str, *, station: str = "_catchment") -> pd.Series:
+        def timeseries(self, variable: str, *, station: str = "catchment") -> pd.Series:
             return pd.Series([1.8], index=pd.to_datetime(["2000-06-15"]), name="discharge")
 
         def observed(self, variable: str, station: str | None = None) -> pd.DataFrame:

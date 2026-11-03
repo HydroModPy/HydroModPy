@@ -67,8 +67,8 @@ class CalibrationPairplotFigure(BaseFigure):
                 f"sampled {', '.join(names) or '<none>'}"
             )
         sampled = dict(table.parameter_values(name) for name in names)
-        objective_name, obj = (
-            table.objective_values(objective)
+        cost_name, obj = (
+            table.cost_values(objective)
             if objective is not None or table.has_objective()
             else (None, None)
         )
@@ -95,7 +95,7 @@ class CalibrationPairplotFigure(BaseFigure):
                         s=8,
                     )
                     if i == n - 1 and j == n - 1 and obj is not None:
-                        fig.colorbar(sc, ax=axes[:, -1], label=objective_name)
+                        fig.colorbar(sc, ax=axes[:, -1], label=cost_name)
                 if i == n - 1:
                     ax.set_xlabel(pj)
                 if j == 0:

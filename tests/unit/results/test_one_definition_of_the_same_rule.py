@@ -1,7 +1,7 @@
 """Two scores are comparable under one rule, defined once, refused with one exception.
 
 The rule was written twice: ``project/summary.py`` over the columns of the
-index (``nse_station``, ``nse_variable``) and ``results/run/sealed.py`` over
+index (``score_station``, ``score_variable``) and ``results/run/sealed.py`` over
 those of a headline row, with two exceptions (``MixedWindowsError`` and a bare
 ``ValueError``). The summary left the station out of the rule when no ``by``
 was given, so ``hmp catalog ls --best`` ranked runs scored at different
@@ -27,10 +27,10 @@ def _rows(*scored: tuple[str, str, str, float]) -> pd.DataFrame:
             {
                 "name": f"run{index}",
                 "site": site,
-                "nse_station": station,
-                "nse_variable": variable,
-                "nse_window_start": "2016-01-01",
-                "nse_window_end": "2020-12-31",
+                "score_station": station,
+                "score_variable": variable,
+                "window_start": "2016-01-01",
+                "window_end": "2020-12-31",
                 "metric_rule_version": "1",
                 "nse": nse,
             }

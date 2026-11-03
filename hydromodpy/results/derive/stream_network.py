@@ -187,6 +187,7 @@ def network_comparison_from_run(
     clipping_warning_gap: float = STREAM_CRITERION_DEFAULTS.clipping_warning_gap,
     heads_snap_radius_m: float = STREAM_CRITERION_DEFAULTS.heads_snap_radius_m,
     heads_min_drained_area_km2: float = STREAM_CRITERION_DEFAULTS.heads_min_drained_area_km2,
+    clip_map_to_catchment: bool = STREAM_CRITERION_DEFAULTS.clip_map_to_catchment,
 ) -> NetworkComparison:
     """Rebuild the stream comparison of one run.
 
@@ -215,14 +216,15 @@ def network_comparison_from_run(
     ``heads_min_drained_area_km2``. A map drawn by another rule than the trial
     would show a mapped network the criterion never scored.
 
-    One number does NOT reproduce the trial: ``alpha_obs_closure``. The
-    criterion reads the mapped network from the file the calibration output
-    declares, whole; a run persists its ``reference`` network CLIPPED to the
-    catchment. Measured on the Nancon, 945 features and 181.7 km against 226
-    features and 45.6 km. Inside the catchment the two agree cell for cell, so
-    every scored quantity matches, but alpha is a whole-mesh ratio and reads
-    0.306 on the raw linework against 0.766 on the clipped one. Read the alpha
-    of a figure as the catchment one, and the alpha of a trial as the raw one.
+    ``clip_map_to_catchment`` is the same key of the calibration output. A run
+    persists its ``reference`` network cut to the catchment, and a trial cuts a
+    file the same way, so the two draw one map, and under ``"heads"`` an end the
+    cut made is no head. A run scored with the key off read its file whole and
+    took every free end for a candidate: the redraw then takes every free end of
+    the cut map, and ``alpha_obs_closure``, a whole-mesh ratio, reads the cut map
+    where the trial read the whole file. ``[data.hydrography] mask_path`` writes
+    another mask than the watershed the run stores, and the redraw knows only the
+    watershed.
 
     The centres used here are the polygon centroids of the faces, because a
     persisted mesh stores no other. On a Voronoi dual the solver sampled its top
@@ -262,7 +264,10 @@ def network_comparison_from_run(
         heads = (
             replace(
                 network_head_candidates(
-                    list(network.geometry), mesh_crs=mesh.crs, geometry_crs=network.crs
+                    list(network.geometry),
+                    mesh_crs=mesh.crs,
+                    geometry_crs=network.crs,
+                    **(_cut_of_the_map(sim) if clip_map_to_catchment else {}),
                 ),
                 forced_cells=np.asarray(sim.descent.dam_foot, dtype=np.int64),
             ),
@@ -353,6 +358,17 @@ def network_comparison_from_run(
         tau_specific_ratio=float(tau_specific_ratio),
         n_cells=n_cells,
     )
+
+
+def _cut_of_the_map(sim: Run) -> dict[str, object]:
+    """Return the outline the stored map was cut along, empty when the run stores none."""
+    try:
+        watershed = sim.geographic("watershed")
+    except (KeyError, ValueError, FileNotFoundError):
+        return {}
+    if watershed is None or watershed.empty:
+        return {}
+    return {"cut_outline": watershed.union_all(), "cut_crs": watershed.crs}
 
 
 def _delineated_catchment(sim: Run, polygons: np.ndarray, mesh_crs: str) -> np.ndarray | None:

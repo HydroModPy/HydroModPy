@@ -306,7 +306,7 @@ def _read_search(sim: Run, *, session_id: str | None, output: str | None) -> _Se
     descriptor = session_descriptor(sim, chosen)
     config = session_config(descriptor)
 
-    cost = table.objective_values()[1]
+    cost = table.cost_values()[1]
     if "status" in table.frame.columns:
         completed = table.frame["status"].astype(str).str.lower().to_numpy() == "completed"
         cost = np.where(completed, cost, np.nan)

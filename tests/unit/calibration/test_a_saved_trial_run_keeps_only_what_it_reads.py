@@ -153,16 +153,14 @@ def _persistence(project: Path, rows: int, costs: dict[int, float]) -> Calibrati
         config_hash="c" * 64,
         hydromodpy_version="2.0.0a5",
         method="grid",
-        objective_name="nse",
-        search_space={},
-        objective_window=None,
+        cost_name="nse",
+        bounds={},
+        windows={},
     )
     for index in range(1, rows + 1):
         persistence.append_iteration(
             ParamSuggestion(trial_id=index, values={"K": float(index)}),
-            EvaluationResult(
-                trial_id=index, sim_id=None, objective_value=costs[index], status="completed"
-            ),
+            EvaluationResult(trial_id=index, sim_id=None, cost=costs[index], status="completed"),
         )
     return persistence
 

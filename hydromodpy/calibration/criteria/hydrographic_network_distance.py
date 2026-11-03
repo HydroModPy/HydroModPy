@@ -81,9 +81,9 @@ def distance_mean(simulated: Sequence[float] | Any) -> float:
     It is legitimate as a cost in the outer loop that picks between structures
     already balanced at ``J = 0``; using it inside, in place of Eq. 1, is a
     different estimator, and nothing puts its interior minimum at the crossing.
-    With two bounds, the weighted sum of each bound's ``Doptim``.
+    With two bounds, the weighted sum of each bound's ``D_optim``.
 
-    NaN when a bound's simulated network is empty: its ``Doptim`` is undefined.
+    NaN when a bound's simulated network is empty: its ``D_optim`` is undefined.
     That bound's ``D_so`` is rebuilt from the residual, ``D_os - L_cap``
     (:func:`~hydromodpy.calibration.metrics.downslope_network.weighted_pair`),
     and is negative, which no measured distance is. Summed, it would rank the

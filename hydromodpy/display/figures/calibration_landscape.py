@@ -74,8 +74,8 @@ class CalibrationLandscapeFigure(BaseFigure):
                 f"sampled {', '.join(names) or '<none>'}"
             )
         sampled = dict(table.parameter_values(name) for name in names)
-        objective_name, obj = (
-            table.objective_values(objective)
+        cost_name, obj = (
+            table.cost_values(objective)
             if objective is not None or table.has_objective()
             else (None, None)
         )
@@ -100,7 +100,7 @@ class CalibrationLandscapeFigure(BaseFigure):
             ax.set_ylabel(names[1])
             ax.grid(True, ls=":", lw=0.4)
             if obj is not None:
-                fig.colorbar(sc, ax=ax, label=objective_name)
+                fig.colorbar(sc, ax=ax, label=cost_name)
             fig.suptitle(f"Objective landscape{run_suffix(sim)}")
             if save_path is not None:
                 from pathlib import Path
@@ -137,7 +137,7 @@ class CalibrationLandscapeFigure(BaseFigure):
                     ax.set_ylabel(pi)
                 ax.grid(True, ls=":", lw=0.3)
         if sc is not None and obj is not None:
-            fig.colorbar(sc, ax=axes[:, -1], label=objective_name)
+            fig.colorbar(sc, ax=axes[:, -1], label=cost_name)
         fig.suptitle(f"Objective landscape{run_suffix(sim)}")
         if save_path is not None:
             from pathlib import Path

@@ -25,8 +25,9 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
-from hydromodpy.results.catalog.constants import GLOBAL_ZONE, MESH_ENGINE_SQL
-from hydromodpy.results.metric_rule import METRIC_NAMES
+from hydromodpy.core.scope import CATCHMENT
+from hydromodpy.results.catalog.constants import MESH_ENGINE_SQL
+from hydromodpy.results.metric_rule import HEADLINE_WINDOW, METRIC_NAMES
 
 if TYPE_CHECKING:
     import duckdb
@@ -80,16 +81,16 @@ SELECT
     s.label_date,
     s.rule_version,
     s.nse,
-    s.nse_window_start,
-    s.nse_window_end,
-    s.nse_n,
-    s.nse_station,
-    s.nse_variable,
+    s.score_station,
+    s.score_variable,
+    s.score_window_start,
+    s.score_window_end,
+    s.n_samples,
     s.metric_rule_version,
-    s.objective_name,
-    s.objective_value,
-    s.objective_window_start,
-    s.objective_window_end,
+    s.calibrated_by_metric,
+    s.calibrated_by_cost,
+    s.calibrated_by_window_start,
+    s.calibrated_by_window_end,
     s.budget_pct,
     s.converged,
     s.calibrated_by_session_id
@@ -132,16 +133,16 @@ _SEAL_COLUMNS: tuple[str, ...] = (
     "label_date",
     "rule_version",
     "nse",
-    "nse_window_start",
-    "nse_window_end",
-    "nse_n",
-    "nse_station",
-    "nse_variable",
+    "score_station",
+    "score_variable",
+    "score_window_start",
+    "score_window_end",
+    "n_samples",
     "metric_rule_version",
-    "objective_name",
-    "objective_value",
-    "objective_window_start",
-    "objective_window_end",
+    "calibrated_by_metric",
+    "calibrated_by_cost",
+    "calibrated_by_window_start",
+    "calibrated_by_window_end",
     "budget_pct",
     "converged",
     "calibrated_by_session_id",
@@ -161,7 +162,7 @@ def global_parameter_columns(conn: duckdb.DuckDBPyConnection) -> list[str]:
     """Return the global parameter names the index can pivot into ``v_cases``."""
     rows = conn.execute(
         "SELECT DISTINCT param_name FROM parameters WHERE zone_id = ? ORDER BY param_name",
-        [GLOBAL_ZONE],
+        [CATCHMENT],
     ).fetchall()
     taken = {name.lower() for name in V_CASES_FIXED_COLUMNS}
     return [
@@ -186,7 +187,7 @@ def _v_cases_ddl(parameter_names: list[str]) -> str:
             "    SELECT\n"
             "        sim_id,\n"
             f"{pivot}\n"
-            f"    FROM parameters WHERE zone_id = '{GLOBAL_ZONE}' GROUP BY sim_id\n"
+            f"    FROM parameters WHERE zone_id = '{CATCHMENT}' GROUP BY sim_id\n"
             ") p ON p.sim_id = v.sim_id"
         )
     return (
@@ -201,17 +202,17 @@ _V_BEST_PER_PROJECT_DDL = """
 CREATE OR REPLACE VIEW v_best_per_project AS
 SELECT
     project, sim_id, nse,
-    nse_station, nse_variable, nse_window_start, nse_window_end, metric_rule_version,
+    score_station, score_variable, score_window_start, score_window_end, metric_rule_version,
     label, status, created_at
 FROM (
     SELECT
         project, sim_id, nse,
-        nse_station, nse_variable, nse_window_start, nse_window_end, metric_rule_version,
+        score_station, score_variable, score_window_start, score_window_end, metric_rule_version,
         label, status, created_at,
         ROW_NUMBER() OVER (
             PARTITION BY
-                project, nse_station, nse_variable,
-                nse_window_start, nse_window_end, metric_rule_version
+                project, score_station, score_variable,
+                score_window_start, score_window_end, metric_rule_version
             ORDER BY nse DESC
         ) AS rnk
     FROM v_simulation_summary
@@ -228,6 +229,7 @@ SELECT
     variable,
 {_wide_metric_columns()}
 FROM metrics
+WHERE window_name = '{HEADLINE_WINDOW}'
 GROUP BY sim_id, station_id, variable
 """
 
@@ -238,7 +240,7 @@ SELECT
     param_name,
     zone_id,
     CASE
-        WHEN zone_id = '{GLOBAL_ZONE}' THEN param_name
+        WHEN zone_id = '{CATCHMENT}' THEN param_name
         ELSE param_name || '::' || zone_id
     END AS param_key,
     value,

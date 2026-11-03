@@ -20,7 +20,9 @@ Verification has two modes:
 from __future__ import annotations
 
 import os
+import shutil
 import tarfile
+import tempfile
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -28,6 +30,7 @@ from typing import Any
 
 import tomlkit
 
+from hydromodpy.core.exceptions import CacheCorruptionError
 from hydromodpy.core.version import __version__ as _HMP_VERSION
 from hydromodpy.data.provenance.lockfile import (
     LOCKFILE_NAME,
@@ -279,7 +282,11 @@ def verify_frozen(
         key = (variable, source, station_id, file_path)
         seen.add(key)
         item = locked.get(key)
+        p = catalog.resolve_path(file_path, variable=variable)
         if item is None:
+            if not p.is_file():
+                # A lock names files. An entry without one has nothing to verify.
+                continue
             mismatches.append(
                 LockMismatch(
                     kind="missing",
@@ -292,7 +299,6 @@ def verify_frozen(
                 )
             )
             continue
-        p = catalog.resolve_path(file_path, variable=variable)
         if not p.is_file():
             mismatches.append(
                 LockMismatch(
@@ -458,33 +464,61 @@ def archive_lockfile(
 
 
 def restore_archive(archive: Path | str, dest_dir: Path | str) -> Path:
-    """Extract *archive* into *dest_dir* and verify SHA-256."""
+    """Extract *archive* into *dest_dir*, once every artefact its lockfile names is checked.
+
+    The archive is read in a staging folder beside *dest_dir*, so a refused archive
+    leaves nothing behind. An artefact that is absent or holds other bytes is refused,
+    each one named.
+    """
     archive = Path(archive)
     dest_dir = Path(dest_dir)
-    dest_dir.mkdir(parents=True, exist_ok=True)
-
-    stream, raw, mode = _open_reader(archive)
+    dest_dir.parent.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix=f".{dest_dir.name}.restore.", dir=dest_dir.parent))
     try:
-        with tarfile.open(fileobj=stream, mode=mode) as tar:
-            tar.extractall(dest_dir, filter="data")
+        stream, raw, mode = _open_reader(archive)
+        try:
+            with tarfile.open(fileobj=stream, mode=mode) as tar:
+                tar.extractall(staging, filter="data")
+        finally:
+            if hasattr(stream, "close"):
+                stream.close()
+            if raw is not None:
+                raw.close()
+        _refuse_a_bad_archive(archive, staging)
+        for path in sorted(staging.rglob("*")):
+            target = dest_dir / path.relative_to(staging)
+            if path.is_dir():
+                target.mkdir(parents=True, exist_ok=True)
+            else:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                os.replace(path, target)
     finally:
-        if hasattr(stream, "close"):
-            stream.close()
-        if raw is not None:
-            raw.close()
-
-    lockfile_path = dest_dir / LOCKFILE_NAME
-    if lockfile_path.is_file():
-        for item in read_lockfile_inputs(lockfile_path):
-            candidate = dest_dir / "artefacts" / item.sha256 / Path(item.path).name
-            if candidate.is_file():
-                actual = sha256_of(candidate)
-                if actual != item.sha256:
-                    raise RuntimeError(
-                        f"SHA-256 mismatch after restore: {candidate} "
-                        f"expected {item.sha256}, got {actual}"
-                    )
+        shutil.rmtree(staging, ignore_errors=True)
     return dest_dir
+
+
+def _refuse_a_bad_archive(archive: Path, extracted: Path) -> None:
+    """Refuse what was extracted when an artefact its lockfile names is absent or differs."""
+    lockfile_path = extracted / LOCKFILE_NAME
+    if not lockfile_path.is_file():
+        raise CacheCorruptionError(
+            f"{archive} holds no {LOCKFILE_NAME}, so nothing in it can be checked. "
+            "Nothing was restored. Write it again with `hmp dev lock archive`."
+        )
+    faults: list[str] = []
+    for item in read_lockfile_inputs(lockfile_path):
+        candidate = extracted / "artefacts" / item.sha256 / Path(item.path).name
+        if not candidate.is_file():
+            faults.append(f"{item.path}: absent from the archive")
+            continue
+        actual = sha256_of(candidate)
+        if actual != item.sha256:
+            faults.append(f"{item.path}: expected sha256 {item.sha256}, got {actual}")
+    if faults:
+        raise CacheCorruptionError(
+            f"{archive} does not hold what its {LOCKFILE_NAME} names, so nothing was restored. "
+            "Write it again with `hmp dev lock archive`:\n  " + "\n  ".join(faults)
+        )
 
 
 __all__ = [

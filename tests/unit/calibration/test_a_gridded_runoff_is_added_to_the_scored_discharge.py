@@ -113,7 +113,7 @@ def _stored_run(runoff: LoadResult):
             "timestamps": _Array(pd.DatetimeIndex(persisted.index).values),
         }
     )
-    grp = _Node({"forcing": _Node({"runoff": _StationGroup({"_watershed": station})})})
+    grp = _Node({"forcing": _Node({"runoff": _StationGroup({"catchment": station})})})
     store = SimpleNamespace(
         read_geographic_metadata=lambda _sim_id: {"catch_area": _CATCH_AREA_KM2}
     )

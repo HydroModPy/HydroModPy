@@ -86,14 +86,14 @@ def test_the_report_carries_the_pairs_of_the_best_trial(tmp_path: Path, scored_s
     path = tmp_path / "calibration.toml"
     path.write_text(PROBE_TOML, encoding="utf-8")
 
-    report = run_calibration_cli(path, workspace=tmp_path, return_report=True)
+    report = run_calibration_cli(path, workspace=tmp_path)
 
-    trials = report.iterations
-    best = trials.loc[trials["objective"].idxmin()]
+    trials = report.trials
+    best = trials.loc[trials["cost"].idxmin()]
     assert int(best["trial"]) != 1  # the best is not the first trial
     assert report.extra["cost_samples"] == {
         "q": {
-            "n_paired": int(best["metrics"]["q.n_paired"]),
+            "n_paired": int(best["components"]["q.n_paired"]),
             "start": "2016-01-01",
             "end": "2021-01-01",
         }
@@ -105,9 +105,8 @@ def _report(extra: dict) -> CalibrationReport:
     return CalibrationReport(
         session_id="abc123",
         method="grid",
-        n_iterations=4,
-        best_objective=0.334115,
-        best_sim_id=None,
+        n_trials=4,
+        best_cost=0.334115,
         duration_s=1.0,
         save_runs="none",
         promoted=0,
@@ -144,8 +143,8 @@ def test_hmp_calibrate_prints_the_declared_window_when_no_pair_was_counted() -> 
 def test_the_hmp_run_recap_prints_the_pairs_beside_the_cost(tmp_path, capsys) -> None:
     summary = {
         "method": "grid",
-        "n_iterations": 4,
-        "best_objective": 0.334115,
+        "n_trials": 4,
+        "best_cost": 0.334115,
         "best_parameters": {"Sy": 0.045},
         "extra": SCORED,
     }

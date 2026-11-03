@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, Literal
-from weakref import WeakSet
 
 import numpy as np
 import pandas as pd
@@ -37,9 +36,6 @@ if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
 logger = get_logger(__name__)
-
-_NOTED_LEGACY_MESH: WeakSet[Any] = WeakSet()
-"""Runs whose legacy mesh layout was already logged, so each is told once."""
 
 
 def crs_proj_from_metadata(metadata: Mapping[str, object]) -> str | None:
@@ -311,10 +307,6 @@ class RunGeographicMixin:
     def mesh(self) -> Mesh:
         """Unstructured simulation mesh used by field arrays.
 
-        A run sealed before the cell-mesh layout reads as ``layout == "legacy"``:
-        its centres are the vertex means, it stores no engine, family or edge, and
-        its CRS comes from the catalog. Reading it logs that once, at ``INFO``.
-
         Raises
         ------
         RuntimeError
@@ -345,20 +337,16 @@ class RunGeographicMixin:
                 face_y=None if face_y is None else face_y[:],
                 identity=identity,
                 crs_source=crs_source,
-                layout="legacy" if identity is None else "cell_mesh",
             )
         finally:
             sz.close()
-        if mesh.layout == "legacy" and self not in _NOTED_LEGACY_MESH:
-            _NOTED_LEGACY_MESH.add(self)
-            logger.info("Run %s: %s.", self._sim_id[:8], mesh.layout_note)
         return mesh
 
     def _mesh_crs(self, stored: object) -> tuple[str | None, Literal["mesh", "catalog"] | None]:
         """Return the projected CRS of the mesh and where it was read.
 
-        The ``mesh/`` group says it when the run wrote the cell-mesh layout; an
-        older run has the catalog's ``crs_proj`` only.
+        The ``mesh/`` group says it; a store that does not has the catalog's
+        ``crs_proj`` only.
         """
         if stored not in (None, ""):
             return str(stored), "mesh"

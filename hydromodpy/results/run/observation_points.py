@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING, Any
 import pandas as pd
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.scope import SIMULATED
 from hydromodpy.results.run.point import PointRequest, read_point
 
 if TYPE_CHECKING:
@@ -110,7 +111,7 @@ def _write_series(store: RunStore, sim_id: str, point_id: str, frame: pd.DataFra
                 "time": pd.DatetimeIndex(chunk["time"]),
                 "value": chunk["value"].to_numpy(dtype="float64"),
                 "unit": str(chunk["unit"].iloc[0] or ""),
-                "qflag": "simulated",
+                "source": SIMULATED,
             },
         )
         written += 1

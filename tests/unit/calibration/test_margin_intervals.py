@@ -24,7 +24,7 @@ from hydromodpy.calibration.optim.cost_margin import (
 
 def _trace(pairs: list[tuple[float, float]]) -> list[dict[str, object]]:
     return [
-        {"iter": i, "parameters": {"K": value}, "objective_value": cost}
+        {"iter": i, "parameters": {"K": value}, "cost": cost}
         for i, (value, cost) in enumerate(pairs)
     ]
 
@@ -112,9 +112,9 @@ def test_the_interval_carries_how_many_trials_it_rests_on() -> None:
 
 def test_each_calibrated_parameter_gets_its_own_interval() -> None:
     trace = [
-        {"iter": 0, "parameters": {"K": 1.0, "Sy": 0.1}, "objective_value": 5.0},
-        {"iter": 1, "parameters": {"K": 2.0, "Sy": 0.2}, "objective_value": 1.0},
-        {"iter": 2, "parameters": {"K": 3.0, "Sy": 0.3}, "objective_value": 1.01},
+        {"iter": 0, "parameters": {"K": 1.0, "Sy": 0.1}, "cost": 5.0},
+        {"iter": 1, "parameters": {"K": 2.0, "Sy": 0.2}, "cost": 1.0},
+        {"iter": 2, "parameters": {"K": 3.0, "Sy": 0.3}, "cost": 1.01},
     ]
 
     intervals = {item.name: item for item in margin_intervals(trace)}

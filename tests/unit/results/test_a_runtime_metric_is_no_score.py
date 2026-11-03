@@ -9,7 +9,6 @@ leave them out.
 
 from __future__ import annotations
 
-from datetime import date
 from types import SimpleNamespace
 
 import pytest
@@ -17,10 +16,9 @@ import pytest
 from hydromodpy.analysis.comparison.pairwise import compare_pair
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
-from hydromodpy.results.manifest import MetricRow
-from hydromodpy.results.metric_rule import METRIC_RULE_VERSION, MetricScore
 from hydromodpy.results.storage.sealing import seal_completed
 from hydromodpy.simulation.extraction.post_run import record_run_execution_metrics
+from tests._helpers.metric_rows import headline_row, headline_score
 from tests._helpers.run_stores import open_run_store
 
 STATION = "J0014010"
@@ -32,18 +30,7 @@ def project(tmp_path):
     root = tmp_path / "p"
     for name, nse in (("a", 0.6), ("b", 0.7)):
         store = open_run_store(root, name, create_zarr=False)
-        store.facts.put_metric(
-            MetricRow(
-                station=STATION,
-                variable="discharge",
-                metric="nse",
-                value=nse,
-                nse_window_start=date(2016, 1, 1),
-                nse_window_end=date(2020, 12, 31),
-                nse_n=10,
-                metric_rule_version=METRIC_RULE_VERSION,
-            )
-        )
+        store.facts.put_metric(headline_row("nse", nse, station=STATION))
         ctx = SimpleNamespace(run=SimpleNamespace(is_solver_backed=True, id="flow_main"))
         record_run_execution_metrics(
             ctx=ctx, sim_id=store.sim_id, store=store, result=SimpleNamespace(metrics=RUNTIME)
@@ -51,16 +38,7 @@ def project(tmp_path):
         assert {row.metric for row in store.facts.metrics if row.variable == "runtime"} == set(
             RUNTIME
         )
-        store.facts.score = MetricScore(
-            metric="nse",
-            value=nse,
-            station=STATION,
-            variable="discharge",
-            nse_window_start=date(2016, 1, 1),
-            nse_window_end=date(2020, 12, 31),
-            nse_n=10,
-            metric_rule_version=METRIC_RULE_VERSION,
-        )
+        store.facts.score = headline_score(nse, station=STATION)
         seal_completed(store)
     rebuild_index(root)
     return root

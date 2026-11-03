@@ -232,7 +232,7 @@ class TestRunCalibrationProgrammatic:
         assert isinstance(report, CalibrationReport)
         assert report.session_id
         assert report.method == "grid"
-        assert report.n_iterations >= 1
+        assert report.n_trials >= 1
         assert report.save_runs == "none"
 
     def test_to_dict_round_trip(self, fake_project, fake_pipeline, quadratic_metric):
@@ -315,7 +315,7 @@ class TestRunCalibrationProgrammatic:
             metric_fn=quadratic_metric,
         )
 
-        assert report.promoted == report.n_iterations == 3
+        assert report.promoted == report.n_trials == 3
         assert len(fake_pipeline) == 3
         assert report.best_sim_id in {row["sim_id"] for row in fake_pipeline}
 
@@ -390,9 +390,8 @@ class TestProjectCalibratePythonModeDispatch:
         sentinel = CalibrationReport(
             session_id="abc",
             method="grid",
-            n_iterations=2,
-            best_objective=0.0,
-            best_sim_id=None,
+            n_trials=2,
+            best_cost=0.0,
             duration_s=0.0,
             save_runs="none",
             promoted=0,
@@ -417,7 +416,7 @@ class TestProjectCalibratePythonModeDispatch:
             assert mocked.call_count == 1
             kwargs = mocked.call_args.kwargs
             assert kwargs["project"] is proj
-            assert kwargs["return_report"] is True
+            assert "return_report" not in kwargs
 
     def test_python_mode_requires_parameters(self, project_toml, tmp_path):
         proj = _FakeProject(project_toml, tmp_path / "ws")
@@ -436,9 +435,8 @@ class TestProjectCalibratePythonModeDispatch:
         sentinel = CalibrationReport(
             session_id="abc",
             method="grid",
-            n_iterations=2,
-            best_objective=0.0,
-            best_sim_id=None,
+            n_trials=2,
+            best_cost=0.0,
             duration_s=0.0,
             save_runs="none",
             promoted=0,

@@ -23,7 +23,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 from hydromodpy.core.toml_io.loader import merge_toml_payloads
 from hydromodpy.physics.flow.history_contract import write_time_series_npy
 from hydromodpy.results.derive.derived import (
-    drain_budget_to_positive_outflow,
+    budget_outflow,
     find_drain_budget_key,
 )
 from tools.surface_interaction_reporting import (
@@ -444,7 +444,7 @@ def _catalog_drain_outflow_history(store: Any, sim_id: str) -> np.ndarray:
     n_cells = int(head.shape[-1])
     return np.stack(
         [
-            drain_budget_to_positive_outflow(drain_budget[t], n_cells=n_cells)
+            budget_outflow(drain_budget[t], n_cells=n_cells)
             for t in range(int(drain_budget.shape[0]))
         ],
         axis=0,

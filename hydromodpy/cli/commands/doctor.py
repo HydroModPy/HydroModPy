@@ -123,6 +123,7 @@ def _fix_config(toml_path: str) -> None:
     """Rewrite a TOML and the files it inherits under the current grammar."""
     from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND
     from hydromodpy.config.config_migration import fix_config_chain
+    from hydromodpy.core.config_kit.base import CANNOT_REWRITE
 
     path = Path(toml_path).expanduser()
     try:
@@ -138,7 +139,8 @@ def _fix_config(toml_path: str) -> None:
         if not changes:
             print(f"{file} is already up to date.")
             continue
-        print(f"Migrated {file}:")
+        untouched = all(CANNOT_REWRITE in change for change in changes)
+        print(f"{'Left as it is' if untouched else 'Migrated'} {file}:")
         for change in changes:
             print(f"  - {change}")
 

@@ -8,13 +8,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.results.catalog import Catalog
-from hydromodpy.results.catalog.constants import GLOBAL_ZONE
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.lineage import Lineage
 from hydromodpy.results.storage.contract import RUN_MANIFEST_FILENAME
 
-from ._test_simulation_api_builders import runs
+from ._test_simulation_api_builders import runs, write_plain_metric
 
 __all__ = ["runs"]
 
@@ -180,7 +180,7 @@ class TestWriteMethods:
             "SELECT zone_id FROM parameters WHERE CAST(sim_id AS VARCHAR) = ? AND param_name = 'K'",
             store.sim_id,
         )
-        assert row[0] == GLOBAL_ZONE
+        assert row[0] == CATCHMENT
 
     def test_write_timeseries(self, runs):
         store = runs.open()
@@ -248,7 +248,7 @@ class TestWriteMethods:
             .fetchall()
         )
         # Both budgets coexist on the same (sim_id, timestep); no collision.
-        assert rows == [("solute", "kg/s", 2.0), ("water", "m3/s", 1.0)]
+        assert rows == [("solute", "kg s-1", 2.0), ("water", "m3 s-1", 1.0)]
 
     def test_update_simulation_grid_metadata_backfills_nulls(self, runs):
         store = runs.open()
@@ -273,8 +273,8 @@ class TestWriteMethods:
 
     def test_write_metric_upsert(self, runs):
         store = runs.open()
-        store.write_metric(store.sim_id, "P01", "nse", 0.7)
-        store.write_metric(store.sim_id, "P01", "nse", 0.85)
+        write_plain_metric(store, "P01", "nse", 0.7)
+        write_plain_metric(store, "P01", "nse", 0.85)
         rows = (
             runs.catalog()
             .connection.execute(

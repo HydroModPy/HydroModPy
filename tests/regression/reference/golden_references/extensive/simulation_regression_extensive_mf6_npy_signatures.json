@@ -40,7 +40,7 @@
       "available_timesteps": 12,
       "sum": 0.06306640164757482
     },
-    "accumulation_flux": {
+    "drain_accumulation_flux": {
       "count": 4148,
       "nodata_count": 0,
       "mean": 0.0003542532659662554,

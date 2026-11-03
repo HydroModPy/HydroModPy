@@ -39,6 +39,15 @@ class RunResult:
     diagnostics: dict[str, Any] = field(default_factory=dict)
 
 
+STOP_BEFORE_THE_SOLVE = "stop_before_the_solve"
+"""Key of ``setup.flow_runtime_overrides``: build the model of this run and do not solve it.
+
+``execute`` then returns the model alone, which is what a check that needs the model
+before the first solve reads. An adapter that does not know the key solves, which
+costs one solve and changes nothing else.
+"""
+
+
 @runtime_checkable
 class SolverAdapter(Protocol):
     """One adapter binds one ``(process_type, solver_name)`` pair.

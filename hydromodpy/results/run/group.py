@@ -40,6 +40,7 @@ from typing import TYPE_CHECKING, Any, Final
 import pandas as pd
 
 from hydromodpy.core import progress
+from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.results.catalog.constants import metric_sense
 from hydromodpy.results.manifest import is_sealed
 from hydromodpy.results.metric_rule import METRIC_NAMES
@@ -188,7 +189,7 @@ class RunSet:
         if df.empty:
             return df
         df["key"] = df["param_name"].where(
-            df["zone_id"] == "__global__",
+            df["zone_id"] == CATCHMENT,
             df["param_name"] + "_" + df["zone_id"],
         )
         return df.pivot_table(
@@ -203,8 +204,8 @@ class RunSet:
         """One row per run: its metrics at the gauge, in the window of its rule.
 
         Columns: ``sim_id``, ``station`` and ``variable`` of the headline NSE,
-        the window it was computed on (``nse_window_start``, ``nse_window_end``,
-        ``nse_n``, ``metric_rule_version``), then one column per metric, named
+        the window it was computed on (``window_start``, ``window_end``,
+        ``n_samples``, ``metric_rule_version``), then one column per metric, named
         by the metric alone (``nse``, ``kge``, ``rmse`` ...). The scores come
         from each run's ``manifest.json``. A run without a seal, without a
         window or without a station has empty cells.

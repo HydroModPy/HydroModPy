@@ -97,7 +97,7 @@ def _one(residual: Residual):
         return EvaluationResult(
             trial_id=sugg.trial_id,
             sim_id=None,
-            objective_value=abs(value),
+            cost=abs(value),
             status="completed",
             components={"net.J_signed": value},
         )
@@ -112,7 +112,7 @@ def _two(minimal: Residual, maximal: Residual):
         return EvaluationResult(
             trial_id=sugg.trial_id,
             sim_id=None,
-            objective_value=0.5 * abs(j_min) + 0.5 * abs(j_max),
+            cost=0.5 * abs(j_min) + 0.5 * abs(j_max),
             status="completed",
             components={
                 "net.n_bounds_scored": 2.0,

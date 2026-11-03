@@ -13,6 +13,7 @@ from types import SimpleNamespace
 
 import matplotlib as mpl
 import numpy as np
+import pandas as pd
 import pytest
 from matplotlib.colors import to_rgb
 from matplotlib.legend import Legend
@@ -124,7 +125,7 @@ def _sfr_run():
     return SimpleNamespace(
         sim_id="sim-sfr",
         name="nancon",
-        stations=lambda variable: ["sfr:main:0", "sfr:main:1"],
+        stations=lambda variable: ["main:1", "main:2"],
         timeseries=lambda variable, station=None: __import__("pandas").Series(
             [0.5, 1.5], index=[0, 1]
         ),
@@ -187,7 +188,13 @@ def test_the_mesh_edges_follow_the_theme(dark) -> None:
     assert relative_luminance(tuple(edge)) > relative_luminance("#404040")
 
 
-def test_the_sfr_network_text_box_follows_the_theme(dark) -> None:
+def test_the_sfr_network_text_box_follows_the_theme(dark, monkeypatch) -> None:
+    monkeypatch.setattr(
+        "hydromodpy.display.figures.sfr_reach_timeseries.sfr_reach_links",
+        lambda _run: pd.DataFrame(
+            {"reach_id": ["main:1", "main:2"], "network_id": ["main"] * 2, "reach": [1, 2]}
+        ),
+    )
     fig, ax = dark.subplots()
 
     SfrReachNetwork().render(_sfr_run(), ax)

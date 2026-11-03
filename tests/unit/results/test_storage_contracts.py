@@ -173,7 +173,7 @@ def _write_seeping_boussinesq(store: RunStore) -> None:
         sid,
         "surface_excess",
         0,
-        np.array([0.0, 1.0e-5]),
+        np.array([0.0, -1.0e-5]),
         n_timesteps=1,
         subgroup="budget",
     )

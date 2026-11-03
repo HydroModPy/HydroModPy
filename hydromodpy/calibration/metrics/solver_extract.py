@@ -484,7 +484,7 @@ def network_state_row(
     """Return the one state a network output reads, as a single row.
 
     ``time`` names it: ``"last"``, ``"first"`` or a date, whose period
-    ``[s, e)`` holds it (:func:`network_state_period`). A backend serves one
+    ``(s, e]`` holds it (:func:`network_state_period`). A backend serves one
     row for ``"first"`` and ``"last"`` and the whole stack for a date, so the
     row is picked here, and ``build_simulated_network`` is served that row
     alone. The index returned is the row picked in the stack served, ``None``
@@ -603,31 +603,8 @@ def catchment_saturation(
     return out
 
 
-SHARED_GEOMETRY_KEYS = ("R_mean_m_s", "catchment_mismatch")
+SHARED_GEOMETRY_KEYS = ("R_mean_m_s", "catchment_mismatch", "basin_mismatch")
 """Geometry diagnostics that depend on the topography alone, the same for both maps."""
-
-
-def _refuse_an_unreachable_support(
-    name: str, output: CalibOutputNetwork, scored: SeepageDistanceResult, *, bound: str = ""
-) -> None:
-    """Raise when ``D_so`` of a bound in the cost rests on a truncated support."""
-    if scored.status != "failed":
-        return
-    which = f" ({bound} bound)" if bound else ""
-    raise ObjectiveError(
-        f"Output {name!r}{which}: frac_unreachable_so = "
-        f"{scored.components.get('frac_unreachable_so', float('nan')):.1%} of the simulated "
-        "network never reaches the mapped one, over the "
-        f"{output.max_unreachable_fraction:.0%} bound. That target is fixed for the whole "
-        "search, so the trial cannot have shrunk it: the routing surface still holds "
-        "depressions, and averaging D_so over a support truncated by them is a fiction, "
-        "the cells dropped being never a random sample. Condition the surface, or raise "
-        "max_unreachable_fraction knowing what it buys. The reciprocal diagnostic, "
-        "frac_unreachable_os = "
-        f"{scored.components.get('frac_unreachable_os', float('nan')):.1%}, is reported and "
-        "not bounded: it descends onto the simulated network, which the search itself "
-        "retracts at the high end of its bracket."
-    )
 
 
 def _map_components(
@@ -655,7 +632,7 @@ def _map_components(
 
 
 def _score_one_state(
-    name: str, output: CalibOutputNetwork, result: ObservableResult, maps: NetworkMaps
+    output: CalibOutputNetwork, result: ObservableResult, maps: NetworkMaps
 ) -> tuple[list[float], dict[str, float]]:
     """Score the one state a steady run holds, as the papers do.
 
@@ -673,21 +650,12 @@ def _score_one_state(
     options = _scoring_options(output)
     if maps.minimal is None:
         scored = score_on_geometry(simulated, geometry, **options)
-        _refuse_an_unreachable_support(name, output, scored)
         bound = _map_components(scored, geometry, maps.maximal_source, maps.maximal_projection)
         return weighted_pair(scored), {**bound, **with_suffix(bound, MAXIMAL_SUFFIX)}
 
     scored = score_on_geometry(simulated, maps.minimal, **options)
-    _refuse_an_unreachable_support(name, output, scored, bound="minimal")
     bound = _map_components(scored, maps.minimal, maps.minimal_source, maps.minimal_projection)
     validation = score_on_geometry(simulated, geometry, **options)
-    if validation.status == "failed":
-        logger.warning(
-            "Output %s: the maximal map, scored as a validation beside the cost, leaves "
-            "%.1f%% of the simulated network unreachable. It never enters the cost.",
-            name,
-            100.0 * validation.components.get("frac_unreachable_so", float("nan")),
-        )
     checked = _map_components(validation, geometry, maps.maximal_source, maps.maximal_projection)
     return weighted_pair(scored), {
         **bound,
@@ -705,7 +673,6 @@ def _scoring_options(output: CalibOutputNetwork) -> dict[str, Any]:
     declared = output.validity_length
     return {
         "weighting": output.weighting,
-        "max_unreachable_fraction": float(output.max_unreachable_fraction),
         "validity_length_m": None if declared == "auto" else _coerce_length_to_m(declared),
     }
 
@@ -888,7 +855,6 @@ def _score_two_bounds(
         scored = score_on_geometry(
             masks.network(bound, threshold_m3_s=threshold), bound_geometry, **options
         )
-        _refuse_an_unreachable_support(name, output, scored, bound=bound)
         described = _map_components(scored, bound_geometry, source, projection)
         if len(bounds) == 1:
             pair.extend(weighted_pair(scored))
@@ -965,7 +931,7 @@ def score_network_output(
     single run. The keys a search reads:
 
     - ``n_bounds_scored``: 1 or 2, the bounds in the cost.
-    - one bound: ``J_signed``, ``D_so``, ``D_os``, ``Doptim``, ``roptim`` and
+    - one bound: ``J_signed``, ``D_so``, ``D_os``, ``D_optim``, ``r_optim`` and
       the rest, unsuffixed, plus the same set suffixed ``_minimal`` or
       ``_maximal`` for the bound it is.
     - two bounds: only the suffixed sets (``J_signed_minimal``,
@@ -977,7 +943,7 @@ def score_network_output(
       touches, ``n_years_scored`` and the rules it applied, as timesteps
       (``maximal_flowing_steps``, ``minimal_dry_steps``) of ``step_days`` days.
     - both maps: ``frac_minimal_outside_maximal``.
-    - every bound: ``roptim_valid`` (``Doptim <= validity_length_m``),
+    - every bound: ``r_optim_valid`` (``D_optim <= validity_length_m``),
       ``validity_length_m`` and ``validity_length_provenance``, the code of
       :data:`hydromodpy.core.stream_geometry.VALIDITY_PROVENANCE_CODE`.
 
@@ -994,11 +960,11 @@ def score_network_output(
     ``step_days`` is the run's nominal timestep in days, which the two-bound
     mode turns its duration rules into timesteps with.
 
-    The static geometry is rebuilt here at every trial, once per map. It is
-    one graph build and three ``O(n_cells)`` passes, measured under a second on
-    a seven thousand cell mesh, which is nothing beside one solve; hoisting it
-    would mean caching mesh identity across forked trial contexts for no
-    measurable gain.
+    The static geometry is rebuilt here at every trial, once per map. Under the
+    heads rule it takes 0.3 to 0.8 s on the 21 406 cells of example 04, against 3.7 s
+    for one steady trial and about a minute for one 36-month trial. Hoisting it would
+    mean caching mesh identity across forked trial contexts to save a few seconds
+    per search.
     """
     require_release_flux_unit(result.units, name=name)
     maps = network_maps_from_run(run_ctx, output)
@@ -1007,7 +973,7 @@ def score_network_output(
         n_times = int(served.shape[0]) if served.ndim == 2 else 1
         result, index = network_state_row(name, output, result, time_bounds)
         saturated_thickness = _thickness_at(name, saturated_thickness, index, n_times)
-        pair, scored = _score_one_state(name, output, result, maps)
+        pair, scored = _score_one_state(output, result, maps)
         n_bounds = 1
     else:
         pair, scored = _score_two_bounds(
@@ -1018,7 +984,7 @@ def score_network_output(
     # Eq. 4 is not read here. The paper reads it at the optimum, and a search
     # crosses trials far from it on the way: testing every trial warned on
     # most of them and, in strict mode, refused a whole bracket before it
-    # closed. The runner reads roptim once, on the trial it returns.
+    # closed. The runner reads r_optim once, on the trial it returns.
 
     logger.info("Output %s scored with distance method %s.", name, DISTANCE_METHOD)
     geometry = maps.maximal
@@ -1042,6 +1008,11 @@ def score_network_output(
         }.items()
     }
     return pair, diagnostics
+
+
+def scored_catchment_mismatch(run_ctx: RunContext, output: CalibOutputNetwork) -> float:
+    """Return ``catchment_mismatch`` of one network output, from the geometry a trial builds."""
+    return float(network_maps_from_run(run_ctx, output).maximal.catchment_mismatch)
 
 
 @dataclass(frozen=True)
@@ -1500,6 +1471,7 @@ __all__ = [
     "catchment_area_the_discharge_sums",
     "extract_outputs",
     "score_network_output",
+    "scored_catchment_mismatch",
     "find_cell_at_point",
     "observable_request_for_output",
     "report_the_area_a_gauge_drains",

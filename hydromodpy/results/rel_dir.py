@@ -18,7 +18,7 @@ def checked_rel_dir(value: str) -> str:
     """Return *value* when it is a result directory; raise ``ValueError`` otherwise.
 
     Accepted forms are those of :func:`~hydromodpy.core.state.paths.parse_rel_dir`:
-    ``runs/<name>``, ``sessions/<name>`` and ``sessions/<name>/trials/<nnnn>``.
+    ``runs/<name>``, ``sessions/<name>`` and ``sessions/<name>/trials/<nnnn>[/<case_id>]``.
     """
     return parse_rel_dir(value).as_posix()
 

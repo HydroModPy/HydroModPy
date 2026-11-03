@@ -3,14 +3,10 @@
 Observation-type data managers (hydrometry, piezometry, intermittency,
 water_quality) load station timeseries at project init time. This
 extractor copies those series into the ``timeseries`` table of the run,
-with ``qflag = observed``, so they can be queried via
-``Run.timeseries(variable, station=...)`` alongside the simulated ones.
-
-To keep observed and simulated series distinguishable, observed
-variables are written with an ``_obs`` suffix (e.g. ``discharge`` from
-hydrometry becomes ``discharge_obs``). The forcing-reproducibility copy
-in Zarr ``forcing/`` (written by :func:`step_persist_forcings`) is
-separate and keeps the raw variable name.
+with ``source = observed``, beside the simulated ones of the same variable, so
+they can be read with ``Run.observed(variable, station=...)``. The
+forcing-reproducibility copy in Zarr ``forcing/`` (written by
+:func:`step_persist_forcings`) is separate.
 """
 
 from __future__ import annotations
@@ -20,6 +16,7 @@ from typing import Any
 import pandas as pd
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.scope import OBSERVED
 
 logger = get_logger(__name__)
 
@@ -44,8 +41,8 @@ def ingest_observations(
     """Write observation timeseries from ``loaded_data`` into the run.
 
     Iterates over observation-type fields on the ``LoadedDataContext``
-    and writes each :class:`PointRecord` to the ``timeseries`` table.
-    Observed variable names get an ``_obs`` suffix.
+    and writes each :class:`PointRecord` to the ``timeseries`` table, with
+    ``source = observed``.
 
     Parameters
     ----------
@@ -76,10 +73,10 @@ def ingest_observations(
                 store.write_timeseries(
                     sim_id,
                     station_id=str(rec.station_id),
-                    variable=f"{rec.variable}_obs",
+                    variable=str(rec.variable),
                     ts=ts,
                     unit=getattr(rec, "unit", "") or "",
-                    qflag="observed",
+                    source=OBSERVED,
                 )
                 written += 1
             except Exception as exc:
@@ -107,5 +104,5 @@ def _point_to_series(rec: Any) -> pd.Series | None:
     return pd.Series(
         df["value"].astype("float64").values,
         index=pd.DatetimeIndex(idx),
-        name=f"{rec.variable}_obs",
+        name=str(rec.variable),
     )

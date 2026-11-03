@@ -135,13 +135,13 @@ _FIELD_TERMS: dict[str, tuple[str, ...]] = {
     "release_flux": (*RELEASE_BUDGET_KEYS, "recharge"),
     "release_accumulation_flux": (*RELEASE_BUDGET_KEYS, "recharge"),
     "simulated_active_network": (*RELEASE_BUDGET_KEYS, "recharge"),
-    "accumulation_flux": (*DRAIN_BUDGET_KEYS, *DRN_TO_MVR_KEYS),
+    "drain_accumulation_flux": (*DRAIN_BUDGET_KEYS, *DRN_TO_MVR_KEYS),
     "outflow_drain": (*DRAIN_BUDGET_KEYS, *DRN_TO_MVR_KEYS),
-    "fluxes_from_budget": ("drain", "recharge"),
+    "budget_flux_per_area": ("drain", "recharge"),
     "seepage_mask": _SEEPAGE_MASK_TERMS,
     "concentration_seepage": _SEEPAGE_MASK_TERMS,
     "mass_seepage": (*DRAIN_BUDGET_KEYS, *_SEEPAGE_MASK_TERMS),
-    "mass_accumulated": (*DRAIN_BUDGET_KEYS, *_SEEPAGE_MASK_TERMS),
+    "mass_seepage_running_sum": (*DRAIN_BUDGET_KEYS, *_SEEPAGE_MASK_TERMS),
 }
 
 

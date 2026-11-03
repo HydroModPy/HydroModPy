@@ -14,7 +14,9 @@ from hydromodpy.calibration.protocols.matching_hydrographic_network import (
 )
 from hydromodpy.calibration.protocols.registry import (
     WRITTEN_SECTIONS,
+    DeviationInForce,
     available_protocols,
+    deviations_in_force,
     expand_calibration_protocol,
     get_protocol,
     protocol_options_away_from_the_recipe,
@@ -24,9 +26,11 @@ from hydromodpy.calibration.protocols.registry import (
 __all__ = [
     "WRITTEN_SECTIONS",
     "CalibrationProtocol",
+    "DeviationInForce",
     "MatchingHydrographicNetwork",
     "Reference",
     "available_protocols",
+    "deviations_in_force",
     "expand_calibration_protocol",
     "get_protocol",
     "options_the_recipe_already_runs",

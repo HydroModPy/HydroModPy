@@ -65,7 +65,7 @@ def _warning_of_a_search_that_ran_out(caplog) -> str:
         return EvaluationResult(
             trial_id=sugg.trial_id,
             sim_id=None,
-            objective_value=float(rng.uniform(1.0, 2.0)),
+            cost=float(rng.uniform(1.0, 2.0)),
             status="completed",
         )
 

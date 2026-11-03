@@ -3,8 +3,8 @@
 ``cost_metric_label`` named the metric alone. A block with ``cost_transform = "log"``
 minimises ``log10(rmse)`` and one with ``normalize_cost`` minimises the RMSE over
 the spread of the record, yet both were labelled ``rmse``. The HTML report of a
-session listed ``best_objective`` with no label at all, beside an
-``objective_name`` that reads as a score. The session now records the label and
+session listed ``best_cost`` with no label at all, beside an
+``cost_name`` that reads as a score. The session now records the label and
 the report prints it beside the cost.
 """
 
@@ -17,6 +17,7 @@ from hydromodpy.calibration.runners.cli_runner import open_calibration_session
 from hydromodpy.calibration.runners.recap import cost_metric_label
 from hydromodpy.calibration.runners.state import space_from_config
 from hydromodpy.reporting.calibration_report import _render_html
+from tests._helpers.session_documents import best_trial
 
 
 def _config(blocks: list[dict[str, object]], **extra: object) -> CalibrationConfig:
@@ -100,24 +101,23 @@ def test_the_session_records_the_label_of_its_cost(tmp_path: Path) -> None:
         project="p",
     )
 
-    assert persistence.descriptor.objective_label == "log10(rmse)"
+    assert persistence.descriptor.cost_label == "log10(rmse)"
 
 
 def test_the_html_report_prints_the_label_beside_the_cost() -> None:
     session = {
         "session_id": "abc",
-        "objective_name": "nse_log",
-        "objective_label": "1 - nse_log",
-        "best_objective": 0.083984,
+        "cost_name": "nse_log",
+        "cost_label": "1 - nse_log",
+        "best_cost": 0.083984,
     }
 
     page = _render_html(session, [], [])
 
-    assert "<th>best_objective</th><td>0.083984 (1 - nse_log)</td>" in page
+    assert "<th>best_cost</th><td>0.083984 (1 - nse_log)</td>" in page
 
 
 def test_the_report_of_a_closed_session_shows_its_best_cost_and_label(tmp_path: Path) -> None:
-    from hydromodpy.calibration.persistence import BestTrial
     from hydromodpy.calibration.report import load_session_report_data
 
     cfg = _config([_block("flows", "nse_log")])
@@ -131,8 +131,8 @@ def test_the_report_of_a_closed_session_shows_its_best_cost_and_label(tmp_path: 
         trial_ctx=None,
         project="p",
     )
-    persistence.finalize_session(status="completed", best=BestTrial(trial=3, objective=0.083984))
+    persistence.finalize_session(status="completed", best=best_trial(3, cost=0.083984))
 
     page = _render_html(load_session_report_data(persistence.directory).session, [], [])
 
-    assert "<th>best_objective</th><td>0.083984 (1 - nse_log)</td>" in page
+    assert "<th>best_cost</th><td>0.083984 (1 - nse_log)</td>" in page

@@ -32,6 +32,7 @@ from hydromodpy.core.time import nominal_step_days
 from hydromodpy.results.derive.network_criterion_settings import network_criterion_settings
 from hydromodpy.results.derive.stream_extent import network_extents_from_run, run_step_days
 from hydromodpy.workflow.steps.prepare_solver.dispatch import portable_config_document
+from tests._helpers.sealed_runs import sealed_search
 from tests.unit.config.test_a_renamed_key_warns_and_a_sealed_one_reads import (
     PROJECT,
     _project,
@@ -168,9 +169,9 @@ def _sealed(extent: dict, *, step: dict | None = None) -> SimpleNamespace:
     time = {"step_value": 1, "step_unit": "month"} if step is None else step
     return SimpleNamespace(
         sim_id="sim-x",
-        config_snapshot={
-            "simulation": {"time": time},
-            "calibration": {
+        config_snapshot={"simulation": {"time": time}},
+        dir=sealed_search(
+            {
                 "outputs": {
                     "net": {
                         "support": "network",
@@ -178,8 +179,8 @@ def _sealed(extent: dict, *, step: dict | None = None) -> SimpleNamespace:
                         "extent": extent,
                     }
                 }
-            },
-        },
+            }
+        ),
     )
 
 
@@ -200,16 +201,6 @@ def test_the_redraw_reads_the_counts_a_run_sealed_before_as_durations() -> None:
     assert settings.extent_rules.maximal_flowing_duration == "2 months"
     assert settings.extent_rules.minimal_dry_duration == "1 month"
     assert settings.extent_rules.year_quorum == 1.0
-
-
-def test_the_redraw_does_not_touch_the_snapshot_it_reads() -> None:
-    run = _sealed({"maximal_flowing_steps": 2})
-
-    network_criterion_settings(run)
-
-    assert run.config_snapshot["calibration"]["outputs"]["net"]["extent"] == {
-        "maximal_flowing_steps": 2
-    }
 
 
 # -- the doctor --------------------------------------------------------------

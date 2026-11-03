@@ -254,7 +254,7 @@ def best_frame(
     The frame carries the group column, ``case_id``, ``rel_dir``,
     ``sim_id``, ``label``, the global parameters of the run, the metric
     under its own name, and the window it was scored on
-    (``nse_window_start``, ``nse_window_end``, ``station``).
+    (``window_start``, ``window_end``, ``station``).
 
     A group of completed runs that yields no row is named once in a
     warning of the logger, with the reason: no run scored (no ``[metrics]
@@ -294,8 +294,8 @@ def best_frame(
             {
                 metric: top["value"],
                 "station": top["station"],
-                "nse_window_start": top["nse_window_start"],
-                "nse_window_end": top["nse_window_end"],
+                "window_start": top["window_start"],
+                "window_end": top["window_end"],
             }
         )
         out.append(row)

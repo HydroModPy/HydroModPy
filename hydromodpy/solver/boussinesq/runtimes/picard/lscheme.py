@@ -336,7 +336,7 @@ def picard_summary(
             None if final_vi_result is None else float(final_vi_result.residual_norm_inf)
         ),
         "final_vi_error": final_vi_error,
-        "n_iterations": int(result.iterations),
+        "n_trials": int(result.iterations),
         "Lstab": float(Lstab_final),
         "omega_initial": float(options.picard_relaxation_omega),
         "omega_final": float(omega_final),

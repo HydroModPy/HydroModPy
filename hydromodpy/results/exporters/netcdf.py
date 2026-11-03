@@ -3,14 +3,17 @@
 The exported file can be opened in QGIS (MDAL driver), THREDDS, or any
 tool that understands the UGRID-1.0 convention.
 
-QGIS reads a mesh through MDAL, which supports a face dataset and nothing
-else, so a field is written one variable per layer and the vertical
-dimension never reaches the file. The CRS is stated twice for the same
-reason: once the CF way, once the way MDAL reads it.
+A field that has layers is one variable with a ``layer`` dimension, whatever
+the number of layers, so a script reads the same name on every model. QGIS reads
+a mesh through MDAL, which binds a dataset to the face dimension and leaves out an
+array carrying a third one, so a file for QGIS asks for one layer: the variable
+then has no ``layer`` dimension and carries the layer as a scalar coordinate. The
+CRS is stated twice for the same reason: once the CF way, once the way MDAL reads
+it.
 
 The face centres are the ones the model used (``mesh/face_x`` and
-``mesh/face_y`` of the store). A store written before them gives the mean of
-the vertices of each face, which is off the generator of a Voronoi cell.
+``mesh/face_y`` of the store). A store without them gives the mean of the
+vertices of each face, which is off the generator of a Voronoi cell.
 """
 
 from __future__ import annotations
@@ -43,6 +46,7 @@ def export_netcdf(
     timesteps: list[int] | None = None,
     values: Mapping[str, np.ndarray] | None = None,
     global_attrs: Mapping[str, Any] | None = None,
+    layer: int | None = None,
 ) -> Path:
     """Export selected fields to a NetCDF-4 file with UGRID topology.
 
@@ -54,9 +58,9 @@ def export_netcdf(
         Simulation UUID.
     variables : list[str]
         Field names to export (e.g. ``["head", "watertable_depth"]``). A field
-        stored per layer is written as one variable per layer, named ``<var>``
-        on a single-layer model and ``<var>_layer<N>`` otherwise, ``N``
-        counted from 0 at the top like every layer index of HydroModPy.
+        stored per layer is written as one variable with a ``layer`` dimension
+        at any number of layers, the layers counted from 0 at the top like
+        every layer index of HydroModPy.
     output_path : str or Path
         Destination ``.nc`` file.
     timesteps : list[int], optional
@@ -68,6 +72,9 @@ def export_netcdf(
     global_attrs : mapping, optional
         Global attributes laid over the ones the store holds: the ACDD block
         of the run when it is exported before the seal writes it.
+    layer : int, optional
+        Keep this layer of every field that has layers, as a variable without
+        a ``layer`` dimension, which is the form QGIS reads.
 
     Returns
     -------
@@ -126,7 +133,7 @@ def export_netcdf(
     # override Conventions to advertise UGRID-1.0 alongside CF/ACDD and pin
     # the simulation_id explicitly. The Zarr root advertises
     # ``CF-1.11, ACDD-1.3, UGRID-1.0`` already, so this is mostly defensive
-    # in case the store was migrated from an older layout.
+    # for a store that says nothing.
     for key, value in {**root_attrs, **dict(global_attrs or {})}.items():
         if value is None:
             continue
@@ -217,7 +224,7 @@ def export_netcdf(
                     data = np.asarray(arr[:])
                     if timed and ts_idx is not None:
                         data = data[ts_idx]
-            _add_field(ds, var_name, data, timed=timed, attrs=_field_attrs(var_name))
+            _add_field(ds, var_name, data, timed=timed, attrs=_field_attrs(var_name), layer=layer)
     finally:
         sz.close()
 
@@ -326,27 +333,49 @@ def _field_attrs(name: str) -> dict[str, object]:
 
 
 def _add_field(
-    ds: xr.Dataset, var_name: str, data: np.ndarray, *, timed: bool, attrs: dict[str, object]
+    ds: xr.Dataset,
+    var_name: str,
+    data: np.ndarray,
+    *,
+    timed: bool,
+    attrs: dict[str, object],
+    layer: int | None,
 ) -> None:
-    """Add one field to the dataset, one variable per layer.
+    """Add one field to the dataset, as one variable.
 
-    A UGRID reader binds a dataset to the face dimension and ignores any array
-    carrying a third one, so a (time, layer, face) field is simply invisible
-    in QGIS. A single-layer model keeps the bare name.
+    A field with layers has a ``layer`` dimension at any number of layers. A
+    field with fewer layers than the model, a recharge applied to the top one,
+    names its own dimension, since a NetCDF dimension has one size. With ``layer``
+    the variable holds that layer alone, under a scalar ``layer`` coordinate.
     """
-    dims = ("time", "n_face") if timed else ("n_face",)
-    layered = data.ndim == (3 if timed else 2)
-    if not layered:
+    dims: tuple[str, ...] = ("time", "n_face") if timed else ("n_face",)
+    if data.ndim != (3 if timed else 2):
         ds[var_name] = xr.DataArray(data, dims=dims, attrs=attrs)
         return
-    n_layers = data.shape[1] if timed else data.shape[0]
-    for index in range(n_layers):
-        name = var_name if n_layers == 1 else f"{var_name}_layer{index}"
-        layer_attrs = dict(attrs)
-        if n_layers > 1 and layer_attrs.get("long_name"):
-            layer_attrs["long_name"] = f"{layer_attrs['long_name']} (layer {index})"
-        layer_data = data[:, index, :] if timed else data[index]
-        ds[name] = xr.DataArray(layer_data, dims=dims, attrs=layer_attrs)
+    axis = 1 if timed else 0
+    n_layers = int(data.shape[axis])
+    if layer is not None:
+        if not 0 <= int(layer) < n_layers:
+            raise ValueError(
+                f"layer = {layer} is out of range: {var_name!r} holds {n_layers} layer"
+                f"{'s' if n_layers > 1 else ''} (0 to {n_layers - 1})."
+            )
+        ds[var_name] = xr.DataArray(
+            np.take(data, int(layer), axis=axis),
+            dims=dims,
+            attrs={**attrs, "coordinates": "layer"},
+            coords={"layer": int(layer)},
+        )
+        return
+    name = "layer" if n_layers == int(ds.attrs["n_layers"]) else f"{var_name}_layer"
+    dims = (*dims[:axis], name, *dims[axis:])
+    ds[var_name] = xr.DataArray(data, dims=dims, attrs=attrs)
+    if name not in ds.coords:
+        ds[name] = xr.DataArray(
+            np.arange(n_layers, dtype=np.int32),
+            dims=(name,),
+            attrs={"long_name": "Model layer, counted from 0 at the top", "units": "1"},
+        )
 
 
 def _mdal_crs_attrs(crs_attrs: dict[str, object]) -> dict[str, object]:

@@ -20,6 +20,7 @@ from hydromodpy.core.state.paths import (
     is_project_root,
     is_workspace_root,
     project_roots_under,
+    refuse_a_sealed_run_as_project,
     resolve_project_root,
     resolve_workspace,
     state_dir,
@@ -139,6 +140,34 @@ def test_resolve_project_root_is_not_anchored_by_a_catalog(tmp_path: Path) -> No
 def test_resolve_project_root_defaults_to_the_start_directory(tmp_path: Path) -> None:
     """A flat directory without a marker is its own root."""
     assert resolve_project_root(tmp_path) == tmp_path
+
+
+@pytest.mark.parametrize(
+    ("relative", "held", "answer"),
+    [
+        pytest.param("runs/first", "outcome.json", ".", id="a-run-of-a-flat-project"),
+        pytest.param("runs/first.v2", "manifest.json", ".", id="a-sealed-run"),
+        pytest.param("sessions/case", "outcome.json", ".", id="a-session"),
+        pytest.param("sessions/case/trials/0003", "outcome.json", ".", id="a-kept-trial"),
+        pytest.param("runs/first", "notes.txt", "runs/first", id="a-folder-of-the-user"),
+        pytest.param("elsewhere/base", "manifest.json", "elsewhere/base", id="a-copy-of-a-run"),
+    ],
+)
+def test_a_result_directory_answers_for_its_flat_project(
+    tmp_path: Path, relative: str, held: str, answer: str
+) -> None:
+    folder = tmp_path / relative
+    folder.mkdir(parents=True)
+    (folder / held).write_text("{}", encoding="utf-8")
+    assert resolve_project_root(folder) == (tmp_path / answer).resolve()
+
+
+def test_a_sealed_run_is_refused_as_a_project(tmp_path: Path) -> None:
+    refuse_a_sealed_run_as_project(tmp_path)
+    for name in ("manifest.json", "config.toml"):
+        (tmp_path / name).write_text("", encoding="utf-8")
+    with pytest.raises(ConfigError, match="-w <project>"):
+        refuse_a_sealed_run_as_project(tmp_path)
 
 
 def test_resolve_project_root_rejects_an_unanchored_configs_dir(tmp_path: Path) -> None:

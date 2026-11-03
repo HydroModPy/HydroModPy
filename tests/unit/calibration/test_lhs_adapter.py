@@ -144,14 +144,14 @@ class TestTellAndBest:
             EvaluationResult(
                 trial_id=s.trial_id,
                 sim_id=f"sim-{s.trial_id}",
-                objective_value=(s.values["x"] - 0.5) ** 2,
+                cost=(s.values["x"] - 0.5) ** 2,
                 status="completed",
             )
             for s in suggestions
         ]
         opt.tell(results)
         best = opt.best()
-        expected = min(results, key=lambda r: r.objective_value)
+        expected = min(results, key=lambda r: r.cost)
         assert best is not None
         assert best.trial_id == expected.trial_id
 

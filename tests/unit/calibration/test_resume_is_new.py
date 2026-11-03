@@ -19,7 +19,7 @@ from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.optim.cache import ParamsHashCache, params_hash
 from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
 from hydromodpy.calibration.optim.parameters import set_by_path
-from hydromodpy.calibration.persistence import CalibrationPersistence, PhaseContext, best_pointer
+from hydromodpy.calibration.persistence import CalibrationPersistence, PhaseContext
 from hydromodpy.calibration.report import CalibrationReport
 from hydromodpy.calibration.runners import promotion as promotion_module
 from hydromodpy.calibration.runners import staged_runner
@@ -33,6 +33,7 @@ from hydromodpy.results.session.descriptor import read_session
 from hydromodpy.results.session.journal import read_trials
 from hydromodpy.results.session.phase import read_phase
 from tests._helpers.persisting_simulation import persisting_simulation
+from tests._helpers.session_documents import session_opening
 
 pytestmark = pytest.mark.unit
 
@@ -157,7 +158,7 @@ class FakeRunner:
             EvaluationResult(
                 trial_id=1,
                 sim_id=None,
-                objective_value=self.objective,
+                cost=self.objective,
                 status="completed",
                 metadata={"params_hash": params_hash(best, context={"marker": self.marker})},
             ),
@@ -168,9 +169,8 @@ class FakeRunner:
         return CalibrationReport(
             session_id=persistence.descriptor.session_id,
             method=cfg.method,
-            n_iterations=cfg.max_trials,
-            best_objective=self.objective,
-            best_sim_id=None,
+            n_trials=cfg.max_trials,
+            best_cost=self.objective,
             best_trial=line.trial,
             duration_s=1.0,
             save_runs="none",
@@ -198,16 +198,9 @@ def _completed_steady_session(project: Path, *, recorded_marker: str) -> Calibra
     session_dir, _ = open_session_dir(project, "calage", resume=False)
     persistence = CalibrationPersistence(session_dir)
     persistence.start_session(
-        session_id="s" * 32,
-        case_id="calage",
-        site="nancon",
-        project="p",
-        config_hash="c" * 64,
-        hydromodpy_version="2.0.0a5",
-        method="bisection",
-        objective_name="rmse",
-        search_space={},
-        objective_window=None,
+        **session_opening(
+            "calage", site="nancon", project="p", method="bisection", cost_name="rmse", bounds={}
+        )
     )
     steady = PhaseContext("steady_k", 0, 0)
     persistence.start_phase(steady, frozen={})
@@ -216,7 +209,7 @@ def _completed_steady_session(project: Path, *, recorded_marker: str) -> Calibra
         EvaluationResult(
             trial_id=1,
             sim_id=None,
-            objective_value=0.01,
+            cost=0.01,
             status="completed",
             metadata={
                 "params_hash": params_hash({"K": K_FROM_DISK}, context={"marker": recorded_marker})
@@ -225,7 +218,9 @@ def _completed_steady_session(project: Path, *, recorded_marker: str) -> Calibra
         phase=steady,
     )
     persistence.finish_phase(
-        "steady_k", status="completed", best=best_pointer(persistence.best_trial("steady_k"))
+        "steady_k",
+        status="completed",
+        best=persistence.best_pointer(persistence.best_trial("steady_k")),
     )
     persistence.finalize_session(status="partial", best=None, error="cut at transient_sy")
     return persistence
@@ -408,7 +403,7 @@ class TestASessionThatAlreadyPromotedIsReopened:
         assert len(recorder.calls) == 1
         descriptor = read_session(tmp_path / "sessions" / "calage")
         assert descriptor.status == "completed"
-        assert descriptor.best.rel_dir == "runs/calage"
+        assert descriptor.only_run.rel_dir == "runs/calage"
 
     def test_a_phase_run_again_with_a_better_trial_leaves_the_paired_run_alone(
         self, tmp_path, monkeypatch
@@ -437,8 +432,8 @@ class TestASessionThatAlreadyPromotedIsReopened:
         assert descriptor.status == "partial", "the search is sound; only the run is missing"
         assert "hmp project promote calage --trial 3" in (descriptor.error_message or "")
         by_trial = {line.trial: line for line in read_trials(tmp_path / "sessions" / "calage")}
-        assert by_trial[2].sim_id == first.best_sim_id
-        assert by_trial[3].rel_dir is None
+        assert by_trial[2].only_case.sim_id == first.best_sim_id
+        assert by_trial[3].only_case.rel_dir is None
 
 
 class TestAnInterruptedStagedSearch:
@@ -484,3 +479,31 @@ class TestTheOldKeyIsRefused:
             CalibrationConfig.model_validate({"reuse_completed_phases": True})
 
         assert "--resume" in str(caught.value)
+
+
+def test_a_reused_phase_passes_on_what_its_search_answered_not_the_first_of_a_tie(
+    tmp_path: Path,
+) -> None:
+    """A root search answers inside its bracket, and two trials can tie on the cost."""
+    from hydromodpy.calibration.runners.resume import best_parameters_of, reusable_stage
+    from tests._helpers.session_documents import session_opening
+
+    persistence = CalibrationPersistence(tmp_path)
+    persistence.start_session(**session_opening())
+    steady = PhaseContext("steady_k", 0, 0)
+    persistence.start_phase(steady, frozen={})
+    for trial_id, value in enumerate((1.4e-4, 1.5e-4), start=1):
+        persistence.append_iteration(
+            ParamSuggestion(trial_id=trial_id, values={"K": value}),
+            EvaluationResult(trial_id=trial_id, sim_id=None, cost=11.0, status="completed"),
+            phase=steady,
+        )
+    answered = persistence.trial_line(2)
+    persistence.finish_phase(
+        "steady_k", status="completed", best=persistence.best_pointer(answered)
+    )
+
+    assert persistence.best_trial("steady_k").trial == 1
+    assert persistence.held_trial("steady_k").trial == 2
+    assert best_parameters_of(persistence, "steady_k") == {"K": 1.5e-4}
+    assert reusable_stage(persistence, "steady_k").parameters == {"K": 1.5e-4}

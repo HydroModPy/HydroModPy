@@ -41,7 +41,7 @@ def import_csv_timeseries(
     -------
     pandas.DataFrame
         Columns: ``site``, ``case_id``, ``datetime`` (timezone-aware UTC),
-        ``station_id``, ``variable``, ``value`` (float64), ``unit``. Empty
+        ``station_id``, ``variable``, ``source``, ``value`` (float64), ``unit``. Empty
         when the input file contains only the header.
     """
     if variable is not None:
@@ -67,6 +67,7 @@ def import_csv_timeseries(
                 "case_id": "object",
                 "station_id": "object",
                 "variable": "object",
+                "source": "object",
                 "value": "float64",
                 "unit": "object",
             }

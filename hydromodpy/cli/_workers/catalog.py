@@ -378,7 +378,8 @@ def orphan_calibration_session_count(project_root: Path) -> int:
     count = 0
     for _path, descriptor in _session_descriptors(root):
         best = descriptor.best
-        if best is not None and best.rel_dir is not None and not (root / best.rel_dir).is_dir():
+        cases = () if best is None else best.cases.values()
+        if any(case.rel_dir is not None and not (root / case.rel_dir).is_dir() for case in cases):
             count += 1
     return count
 

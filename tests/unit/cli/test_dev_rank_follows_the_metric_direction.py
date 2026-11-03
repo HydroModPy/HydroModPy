@@ -15,6 +15,7 @@ from hydromodpy.results.catalog.constants import METRIC_SENSE
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.storage.sealing import seal_completed
 from tests._helpers.cli_runner import CliRunner
+from tests._helpers.metric_rows import headline_row
 from tests._helpers.run_stores import open_run_store
 from tests._helpers.sealed_runs import SITE
 
@@ -30,9 +31,10 @@ def workspace(tmp_path):
     root = tmp_path / "p"
     for name, metrics in scores.items():
         store = open_run_store(root, name, create_zarr=False)
-        for metric, value in metrics.items():
-            store.write_metric(store.sim_id, SITE, metric, value)
-        store.write_metric(store.sim_id, SITE, "unknown_score", 1.0)
+        for metric, value in {**metrics, "unknown_score": 1.0}.items():
+            store.write_metric(
+                store.sim_id, headline_row(metric, value, station=SITE, variable="head")
+            )
         seal_completed(store)
     rebuild_index(root)
     return root

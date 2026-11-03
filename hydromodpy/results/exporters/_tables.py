@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
 from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX
@@ -41,13 +40,13 @@ def table_rows(store: Any, sim_id: str, table: str) -> int:
     return int(pq.ParquetFile(path).metadata.num_rows)
 
 
-def distinct_values(store: Any, sim_id: str, table: str, column: str) -> list[str]:
-    """Return the distinct values of one column of a table of a run, in sorted order."""
+def distinct_rows(store: Any, sim_id: str, table: str, *columns: str) -> list[tuple[str, ...]]:
+    """Return the distinct value pairs of some columns of a table of a run, in sorted order."""
     path = table_path(store, sim_id, table)
     if not path.is_file():
         return []
-    values = pc.unique(read_checked_table(path, columns=[column]).column(column))
-    return sorted(str(value) for value in values.to_pylist() if value is not None)
+    frame = read_checked_table(path, columns=list(columns)).to_pandas().drop_duplicates()
+    return sorted(tuple(str(value) for value in row) for row in frame.itertuples(index=False))
 
 
 def geographic_features(store: Any, sim_id: str) -> list[str]:

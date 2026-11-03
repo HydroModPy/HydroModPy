@@ -38,7 +38,7 @@ MODFLOW_OUTPUT_NAMES = [
     "watertable_depth",
     "seepage_areas",
     "outflow_drain",
-    "accumulation_flux",
+    "drain_accumulation_flux",
 ]
 
 MODPATH_SNAPSHOT_FILES = [

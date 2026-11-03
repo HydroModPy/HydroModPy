@@ -17,7 +17,7 @@ import pytest
 
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.preflight import comparison_lines
-from hydromodpy.calibration.runners.cli_runner import describe_dry_run
+from hydromodpy.calibration.runners.cli_runner import describe_dry_run, load_toml_calibration
 from hydromodpy.calibration.runners.staged_runner import phase_summaries
 from hydromodpy.cli.commands import calibrate as calibrate_cmd
 from hydromodpy.config.metrics_config import MetricsConfig
@@ -94,7 +94,8 @@ def test_list_phases_prints_the_window_under_each_phase(capsys) -> None:
 
 
 def test_the_dry_run_names_the_window_of_each_phase(tmp_path: Path, capsys) -> None:
-    plan = describe_dry_run(EXAMPLE_04 / "run_calibration.toml", project_root=tmp_path)
+    config = EXAMPLE_04 / "run_calibration.toml"
+    plan = describe_dry_run(load_toml_calibration(config)[0], config, workspace=tmp_path)
 
     calibrate_cmd._print_dry_run(plan)
 

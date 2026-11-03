@@ -50,6 +50,7 @@ def rank_simulations(
     from hydromodpy.core.state.paths import resolve_project_root
     from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.catalog.constants import metric_rank_sql
+    from hydromodpy.results.metric_rule import HEADLINE_WINDOW
     from hydromodpy.results.run.sealed import METRICS_RULE, check_one_rule
 
     order = metric_rank_sql(metric, best=best)
@@ -60,13 +61,14 @@ def rank_simulations(
     with Catalog(workspace_root) as catalog:
         sql = (
             "SELECT s.sim_id, s.name, s.rel_dir, sv.code AS solver, m.station_id AS station, "
-            "m.variable, m.metric_name, m.value, m.nse_window_start, m.nse_window_end, "
+            "m.variable, m.metric_name, m.value, m.window_start, m.window_end, "
             "m.metric_rule_version "
             "FROM simulations s "
             "JOIN solvers sv ON s.solver_id = sv.id "
             "JOIN statuses st ON s.status_id = st.id "
             "JOIN metrics m ON s.sim_id = m.sim_id "
             "WHERE s.project = ? AND st.code = 'completed' "
+            f"AND m.window_name = '{HEADLINE_WINDOW}' "
             f"AND m.metric_name = ? {station_clause}"
             "AND m.value IS NOT NULL AND isfinite(m.value) "
             f"ORDER BY {order}"

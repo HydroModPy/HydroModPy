@@ -154,6 +154,19 @@ def test_catchment_series_start_at_the_first_period_end(extracted) -> None:
         np.testing.assert_allclose(series["value"], expected)
 
 
+def test_a_trial_is_scored_on_the_discharge_the_run_reports(tmp_path: Path) -> None:
+    payload = _transient_payload()
+    payload["saturation_excess_history_m_s"] = np.asarray(
+        [[0.0, 0.0], [0.01, 0.0], [0.02, 0.0], [0.03, 0.0]]
+    )
+    np.savez(tmp_path / "_boussinesq_state_history.npz", **payload)
+
+    discharge = extract_discharge_history(tmp_path, time_index=PERIOD_ENDS)
+
+    # Drains plus the excess over the area of its cell, 100 m2.
+    np.testing.assert_allclose(discharge.to_numpy(), [2.0, 4.0, 6.0])
+
+
 def test_calibration_readers_return_dated_period_series(extracted) -> None:
     output_dir = extracted.output_dir
     discharge = extract_discharge_history(output_dir, time_index=PERIOD_ENDS)

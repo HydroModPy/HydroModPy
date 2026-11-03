@@ -17,7 +17,7 @@ from tests._helpers.sealed_runs import make_project, seal_run
 def _summary(root, name: str) -> tuple:
     with Catalog(root) as cat:
         return cat.backend.fetch_one(
-            "SELECT nse, nse_window_start, nse_window_end, nse_n, metric_rule_version "
+            "SELECT nse, score_window_start, score_window_end, n_samples, metric_rule_version "
             "FROM v_simulation_summary WHERE name = ?",
             [name],
         )

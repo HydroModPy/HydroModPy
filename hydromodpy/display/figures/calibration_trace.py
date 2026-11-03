@@ -72,7 +72,7 @@ class CalibrationTraceFigure(BaseFigure):
 
         x = table.iterations()
         cost_name, cost = (
-            table.objective_values(objective)
+            table.cost_values(objective)
             if objective is not None or table.has_objective()
             else (None, None)
         )

@@ -11,6 +11,9 @@ import json
 import shutil
 import subprocess
 import tokenize
+import tomllib
+from collections.abc import Iterator
+from fnmatch import fnmatch
 from pathlib import Path
 
 import pytest
@@ -29,6 +32,7 @@ from hydromodpy.core.code_fingerprint import (
     fingerprint_tree,
     normalised_source,
 )
+from hydromodpy.core.exceptions import HydroModPyError
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -53,12 +57,13 @@ def _private_disk_cache(tmp_path_factory, monkeypatch) -> None:
 
 def _tree(root: Path) -> Path:
     for relative, text in {
+        **{f"{layer}/__init__.py": "" for layer in COMPUTE_LAYERS},
         "solver/rate.py": SOLVER,
         "display/figure.py": "def draw():\n    return 1\n",
         "cli/main.py": "def main():\n    return 1\n",
         "results/storage/store.py": "VALUE = 1\n",
         "results/export/publish.py": "VALUE = 1\n",
-        "core/time/rech_chronicles.csv": "a,b\n",
+        **{relative: "a,b\n" for relative in COMPUTE_DATA_FILES},
     }.items():
         path = root / relative
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -136,7 +141,7 @@ def test_the_table_has_one_digest_per_layer_and_an_edit_moves_its_own(tmp_path: 
 
 @pytest.mark.parametrize(
     "outside",
-    ["display/figure.py", "cli/main.py", "results/export/publish.py", "docs/index.py"],
+    ["display/figure.py", "cli/main.py", "results/export/publish.py", "analysis/index.py"],
 )
 def test_an_edit_outside_the_scope_keeps_the_identity(tmp_path: Path, outside: str) -> None:
     root = _tree(tmp_path / "hydromodpy")
@@ -174,8 +179,60 @@ def test_a_new_module_in_the_scope_moves_its_layer(tmp_path: Path, edited: str, 
 def test_package_data_a_computation_reads_enters(tmp_path: Path) -> None:
     root = _tree(tmp_path / "hydromodpy")
     base = _table(root)
-    (root / "core" / "time" / "rech_chronicles.csv").write_text("a,b\n1,2\n", encoding="utf-8")
-    assert _table(root)["core"] != base["core"]
+    relative = COMPUTE_DATA_FILES[0]
+    (root / relative).write_text("a,b\n1,2\n", encoding="utf-8")
+    assert _table(root)[relative.split("/")[0]] != base[relative.split("/")[0]]
+
+
+@pytest.mark.parametrize(
+    ("removed", "named"),
+    [
+        pytest.param("config/__init__.py", "any Python source in config/", id="no-source"),
+        pytest.param(COMPUTE_DATA_FILES[0], COMPUTE_DATA_FILES[0], id="no-listed-data"),
+    ],
+)
+def test_a_broken_install_has_no_identity(tmp_path: Path, removed: str, named: str) -> None:
+    """A layer without source would hash as the digest of nothing, like any other broken one."""
+    root = _tree(tmp_path / "hydromodpy")
+    (root / removed).unlink()
+    with pytest.raises(HydroModPyError, match=named):
+        _table(root)
+
+
+def _packages_of(folder: Path) -> Iterator[Path]:
+    """Yield the folders ``packages.find`` gives: a package, then what is a package below it."""
+    if (folder / "__init__.py").is_file():
+        yield folder
+        for child in folder.iterdir():
+            if child.is_dir():
+                yield from _packages_of(child)
+
+
+def _shipped_data() -> dict[str, list[str]]:
+    pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    return pyproject["tool"]["setuptools"]["package-data"]
+
+
+@pytest.mark.parametrize("relative", COMPUTE_DATA_FILES)
+def test_a_listed_data_file_ships_in_the_wheel(relative: str) -> None:
+    folder, name = f"hydromodpy/{relative}".rsplit("/", 1)
+    patterns = _shipped_data().get(folder.replace("/", "."), ())
+    assert any(fnmatch(name, pattern) for pattern in patterns), relative
+
+
+def test_a_wheel_and_a_checkout_of_one_tree_hash_alike(tmp_path: Path) -> None:
+    """A wheel holds the modules of its packages and the declared data, and nothing else."""
+    package = REPO_ROOT / "hydromodpy"
+    wheel = tmp_path / "hydromodpy"
+    shipped = _shipped_data()
+    for folder in _packages_of(package):
+        target = wheel / folder.relative_to(package)
+        target.mkdir(parents=True, exist_ok=True)
+        relative = folder.relative_to(REPO_ROOT).as_posix()
+        for pattern in ("*.py", *shipped.get(relative.replace("/", "."), ())):
+            for path in folder.glob(pattern):
+                shutil.copy2(path, target / path.name)
+    assert fingerprint_tree(wheel, COMPUTE_LAYERS) == fingerprint_tree(package, COMPUTE_LAYERS)
 
 
 def test_a_bare_table_is_cached_per_process_and_on_disk(tmp_path: Path, monkeypatch) -> None:

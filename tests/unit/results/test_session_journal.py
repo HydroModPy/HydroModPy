@@ -14,15 +14,17 @@ import pandas as pd
 import pytest
 
 from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
-from hydromodpy.calibration.persistence import CalibrationPersistence, PhaseContext, best_pointer
+from hydromodpy.calibration.persistence import CalibrationPersistence, PhaseContext
 from hydromodpy.calibration.runners.cli_runner import write_session_readme
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.session.descriptor import (
+    ParameterBound,
     find_session_dir,
     list_session_dirs,
     read_session,
 )
-from hydromodpy.results.session.journal import read_trials
+from hydromodpy.results.session.journal import TrialParam, read_trials
+from hydromodpy.results.session.phase import FrozenValue
 from hydromodpy.results.session.trial_series import read_trial_series, write_trial_series
 from hydromodpy.results.storage.contract import (
     README_FILENAME,
@@ -48,9 +50,9 @@ def _session(project: Path, name: str = "calage", session_id: str = SESSION_ID):
         config_hash="c" * 64,
         hydromodpy_version="2.0.0a5",
         method="optuna",
-        objective_name="rmse",
-        search_space={"K_aquifer": {"bounds": [1e-6, 1e-3], "search_space": "log"}},
-        objective_window=None,
+        cost_name="rmse",
+        bounds={"K_aquifer": ParameterBound(lower=1e-6, upper=1e-3, search_space="log")},
+        windows={},
     )
     return persistence
 
@@ -61,7 +63,7 @@ def _trial(number: int, objective: float) -> tuple[ParamSuggestion, EvaluationRe
         EvaluationResult(
             trial_id=number,
             sim_id=None,
-            objective_value=objective,
+            cost=objective,
             status="completed",
             duration_s=0.5 + number,
             components={"rmse": objective},
@@ -80,7 +82,7 @@ def project(tmp_path) -> Path:
         persistence.append_iteration(*_trial(number, objective))
     persistence.finalize_session(
         status="completed",
-        best=best_pointer(persistence.best_trial()),
+        best=persistence.best_pointer(persistence.best_trial()),
         root_search={"roots": {"parameter": "K", "delta_log10": 1.8}},
     )
     write_session_readme(persistence)
@@ -100,19 +102,25 @@ def test_the_session_directory_holds_the_four_documents(project) -> None:
         assert (directory / name).is_file(), name
 
 
-def test_the_descriptor_carries_identity_search_space_objective_and_best_trial(project) -> None:
+def test_the_descriptor_carries_identity_bounds_cost_and_best_trial(project) -> None:
     descriptor = read_session(project / "sessions" / "calage")
 
     assert descriptor.session_id == SESSION_ID
     assert descriptor.case_id == "calage"
-    assert descriptor.site == "nancon"
+    assert (descriptor.sites, descriptor.only_case, descriptor.only_site) == (
+        ["nancon"],
+        "calage",
+        "nancon",
+    )
     assert descriptor.method == "optuna"
-    assert descriptor.objective_name == "rmse"
-    assert descriptor.search_space["K_aquifer"]["bounds"] == [1e-6, 1e-3]
+    assert descriptor.cost_name == "rmse"
+    bound = descriptor.bounds["K_aquifer"]
+    assert (bound.lower, bound.upper, bound.search_space) == (1e-6, 1e-3, "log")
     assert descriptor.ended_at is not None and descriptor.started_at <= descriptor.ended_at
     assert descriptor.status == "completed"
     assert descriptor.best is not None
-    assert (descriptor.best.trial, descriptor.best.objective) == (2, 0.19)
+    assert (descriptor.best.trial, descriptor.best.cost) == (2, 0.19)
+    assert descriptor.best.cases["calage"].cost == 0.19
     assert descriptor.root_search == {"roots": {"parameter": "K", "delta_log10": 1.8}}
 
 
@@ -120,12 +128,13 @@ def test_one_line_per_trial_carries_the_whole_trial(project) -> None:
     trials = read_trials(project / "sessions" / "calage")
 
     assert [t.trial for t in trials] == [1, 2, 3]
-    assert [t.objective for t in trials] == [0.42, 0.19, 0.31]
+    assert [t.cost for t in trials] == [0.42, 0.19, 0.31]
     assert {t.status for t in trials} == {"completed"}
-    assert {t.from_cache for t in trials} == {False}
-    assert trials[1].params == {"K_aquifer": {"value": 2e-4}}
-    assert trials[1].metrics == {"rmse": 0.19}
-    assert trials[1].params_hash == f"v2:{1:064x}"
+    assert {t.only_case.from_cache for t in trials} == {False}
+    assert trials[1].params == {"K_aquifer": TrialParam(value=2e-4)}
+    case = trials[1].only_case
+    assert (case.cost, case.components, case.status) == (0.19, {"rmse": 0.19}, "completed")
+    assert case.params_hash == f"v2:{1:064x}"
     assert (trials[1].ended_at - trials[1].started_at).total_seconds() == pytest.approx(1.5)
 
 
@@ -141,7 +150,7 @@ def test_the_readme_names_the_case_the_best_trial_and_the_files(project) -> None
     text = (project / "sessions" / "calage" / README_FILENAME).read_text(encoding="utf-8")
 
     assert text.startswith("# Calibration calage")
-    assert "trial 2, objective 0.19" in text
+    assert "trial 2, cost 0.19" in text
     assert SESSION_TRIALS_FILENAME in text
 
 
@@ -182,10 +191,13 @@ def test_the_phases_of_a_staged_session_sit_under_phases(tmp_path) -> None:
     persistence.start_phase(steady, frozen={})
     persistence.append_iteration(*_trial(0, 0.42), phase=steady)
     persistence.finish_phase(
-        "steady_k", status="completed", best=best_pointer(persistence.best_trial("steady_k"))
+        "steady_k",
+        status="completed",
+        best=persistence.best_pointer(persistence.best_trial("steady_k")),
     )
     transient = PhaseContext("transient_sy", 1, 0)
-    persistence.start_phase(transient, frozen={"K": {"value": 1e-4, "from": "steady_k"}})
+    frozen = FrozenValue(value=1e-4, mode="replace", from_phase="steady_k")
+    persistence.start_phase(transient, frozen={"K": frozen})
     persistence.append_iteration(*_trial(0, 0.1), phase=transient)
 
     phases = persistence.phases()
@@ -193,7 +205,7 @@ def test_the_phases_of_a_staged_session_sit_under_phases(tmp_path) -> None:
         ("steady_k", 0, "completed"),
         ("transient_sy", 1, "running"),
     ]
-    assert phases[1].frozen == {"K": {"value": 1e-4, "from": "steady_k"}}
+    assert phases[1].frozen == {"K": frozen}
     payload = json.loads(
         (persistence.directory / SESSION_PHASES_DIRNAME / "steady_k" / "session.json").read_text()
     )

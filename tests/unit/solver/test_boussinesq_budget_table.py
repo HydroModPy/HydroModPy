@@ -21,10 +21,10 @@ class _RecordingStore:
 def _components() -> dict[str, np.ndarray]:
     return {
         "recharge": np.array([[1.0, 2.0]]),
-        "drain": np.array([[0.5, 0.0]]),
+        "drain": np.array([[-0.5, 0.0]]),
         "well": np.array([[-0.25, 0.75]]),
-        "surface_excess": np.array([[0.0, 0.125]]),
-        "constant_head": np.array([[-3.0, 4.0]]),
+        "surface_excess": np.array([[0.0, -0.125]]),
+        "constant_head": np.array([[3.0, -4.0]]),
     }
 
 
@@ -47,11 +47,11 @@ def test_budget_components_convert_rates_to_fluxes() -> None:
 
     assert set(components) == {"recharge", "drain", "surface_excess"}
     assert components["recharge"] == pytest.approx(np.array([[1e-7, 4e-7]]))
-    assert components["surface_excess"] == pytest.approx(np.array([[0.0, 6e-7]]))
-    assert components["drain"] == pytest.approx(np.array([[0.5, 0.0]]))
+    assert components["surface_excess"] == pytest.approx(np.array([[0.0, -6e-7]]))
+    assert components["drain"] == pytest.approx(np.array([[-0.5, 0.0]]))
 
 
-def test_outflow_positive_components_land_in_flux_out() -> None:
+def test_what_leaves_the_aquifer_lands_in_flux_out() -> None:
     store = _RecordingStore()
 
     BoussinesqOutputAdapter._write_budget_table("sim", store, _components(), n_timesteps=1)
@@ -61,7 +61,7 @@ def test_outflow_positive_components_land_in_flux_out() -> None:
     assert rows["drain"]["flux_in"] == pytest.approx(0.0)
     assert rows["drain"]["flux_out"] == pytest.approx(0.5)
     assert rows["surface_excess"]["flux_out"] == pytest.approx(0.125)
-    # A prescribed-head cell that feeds the aquifer carries a negative flux.
+    # A prescribed-head cell that feeds the aquifer carries a positive flux.
     assert rows["constant_head"]["flux_in"] == pytest.approx(3.0)
     assert rows["constant_head"]["flux_out"] == pytest.approx(4.0)
 
@@ -77,12 +77,12 @@ def test_source_components_keep_the_modflow_orientation() -> None:
     # Well flux is signed: injection enters, pumping leaves.
     assert rows["well"]["flux_in"] == pytest.approx(0.75)
     assert rows["well"]["flux_out"] == pytest.approx(0.25)
-    assert all(record["unit"] == "m3/s" for record in store.budgets)
+    assert all(record["unit"] == "m3 s-1" for record in store.budgets)
 
 
 def test_every_timestep_gets_one_row_per_component() -> None:
     store = _RecordingStore()
-    components = {"drain": np.array([[1.0], [2.0], [3.0]])}
+    components = {"drain": np.array([[-1.0], [-2.0], [-3.0]])}
 
     BoussinesqOutputAdapter._write_budget_table("sim", store, components, n_timesteps=3)
 

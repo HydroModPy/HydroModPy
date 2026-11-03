@@ -15,12 +15,13 @@ from hydromodpy.results.manifest import (
     ManifestPeriod,
     ManifestRun,
     ManifestSite,
-    MetricRow,
     ParameterRow,
     TrackedInput,
 )
-from hydromodpy.results.metric_rule import DateWindow, MetricScore
+from hydromodpy.results.metric_rule import DateWindow
 from hydromodpy.results.record import RunProvenance, RunRecord
+from tests._helpers.metric_rows import headline_row, headline_score
+from tests._helpers.session_documents import calibration_window
 
 SIM_ID = "9a4f0000-0000-4000-8000-000000000001"
 ATTEMPT_ID = "7c1e0000000000000000000000000001"
@@ -53,6 +54,16 @@ def make_identity(**overrides: Any) -> Identity:
     return Identity(**payload)
 
 
+def make_calibrated_by(
+    window: DateWindow | None = None, *, status: str = "completed", **fields: Any
+) -> CalibratedBy:
+    """The session that promoted a run, with *window* as its one calibration period."""
+    windows = {} if window is None else calibration_window(window.start, window.end)
+    return CalibratedBy(
+        **{"session_id": "s", "trial": 3, "session_status": status, "windows": windows, **fields}
+    )
+
+
 def make_checks(**overrides: Any) -> Checks:
     """Checks of a promoted run whose budget closes."""
     payload: dict[str, Any] = {
@@ -63,7 +74,12 @@ def make_checks(**overrides: Any) -> Checks:
         "score_window": WINDOW,
         "n_samples": 1827,
         "calibrated_by": CalibratedBy(
-            session_id="sess0001", phase="transient_sy", trial=7, session_status="completed"
+            session_id="sess0001",
+            phase="transient_sy",
+            trial=7,
+            session_status="completed",
+            metric="nse",
+            cost=0.84,
         ),
         "validities": [Validity("water_budget", True, 0.8, "the water balance closes", True)],
         "bounds_hit": [],
@@ -173,25 +189,9 @@ def make_record(**overrides: Any) -> RunRecord:
             ),
             ParameterRow(name="Sy", value=0.05, origin="declared", calibrated=False),
         ],
-        "metrics": [
-            MetricRow(
-                station="J0014010",
-                variable="discharge",
-                metric="nse",
-                value=0.81,
-                nse_window_start=WINDOW.start,
-                nse_window_end=WINDOW.end,
-                nse_n=1827,
-                metric_rule_version="1",
-            )
-        ],
-        "score": MetricScore(
-            metric="nse",
-            value=0.81,
-            nse_window_start=WINDOW.start,
-            nse_window_end=WINDOW.end,
-            nse_n=1827,
-            metric_rule_version="1",
+        "metrics": [headline_row("nse", 0.81, n_samples=1827, metric_rule_version="1")],
+        "score": headline_score(
+            0.81, station=None, variable=None, n_samples=1827, metric_rule_version="1"
         ),
         "provenance": RunProvenance(
             sim_id=SIM_ID,

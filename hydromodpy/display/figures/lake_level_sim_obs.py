@@ -30,9 +30,8 @@ if TYPE_CHECKING:
 
     from hydromodpy.results.run import Run
 
-# Canonical variable names the gauged lake level may carry. ``Run.observed``
-# strips the ``_obs`` suffix the ingestion adds, so query WITHOUT it; the data
-# family is ``lake_levels`` but a record may name its variable in the singular.
+# Canonical variable names the gauged lake level may carry. The data family is
+# ``lake_levels`` but a record may name its variable in the singular.
 _OBS_VARIABLES: tuple[str, ...] = ("lake_level", "lake_levels", "stage")
 
 _STATION_PREFIX = "lake:"

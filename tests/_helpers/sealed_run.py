@@ -63,7 +63,7 @@ def seal_demo_run(project: Path, name: str = RUN_NAME) -> tuple[Path, str]:
             n_timesteps=3 if step == 0 else None,
         )
     store.write_timeseries(
-        sim_id, "_catchment", "discharge", pd.Series([1.0, 2.0, 3.0], index=STAMPS), unit="m3/s"
+        sim_id, "catchment", "discharge", pd.Series([1.0, 2.0, 3.0], index=STAMPS), unit="m3/s"
     )
     store.write_geographic_feature(
         sim_id,

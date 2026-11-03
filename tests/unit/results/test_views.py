@@ -14,9 +14,10 @@ import pytest
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.checks import Validity
 from hydromodpy.results.errors import RunNotSealedError
-from hydromodpy.results.metric_rule import MetricScore
+from hydromodpy.results.metric_rule import EVALUATION_ROLE, HEADLINE_WINDOW
 from hydromodpy.results.run import Run
 from hydromodpy.results.run.sealed import lineage_of
+from tests._helpers.metric_rows import headline_score
 from tests.unit.results._run_record_factory import (
     CASE_ID,
     SIM_ID,
@@ -162,16 +163,19 @@ def test_the_metrics_of_a_run_carry_their_window(tmp_path) -> None:
         "variable",
         "metric",
         "value",
-        "nse_window_start",
-        "nse_window_end",
-        "nse_n",
+        "window_name",
+        "window_role",
+        "window_start",
+        "window_end",
+        "n_samples",
         "metric_rule_version",
         "n_clipped",
         "n_sim_nan",
     ]
     row = frame.iloc[0]
     assert (row["station"], row["metric"], row["value"]) == ("J0014010", "nse", 0.81)
-    assert (row["nse_window_start"], row["nse_window_end"]) == (WINDOW.start, WINDOW.end)
+    assert (row["window_name"], row["window_role"]) == (HEADLINE_WINDOW, EVALUATION_ROLE)
+    assert (row["window_start"], row["window_end"]) == (WINDOW.start, WINDOW.end)
 
 
 def test_a_run_that_never_completed_has_no_seal(tmp_path) -> None:
@@ -187,17 +191,7 @@ def test_a_run_that_never_completed_has_no_seal(tmp_path) -> None:
 
 
 def test_the_headline_score_names_where_it_was_read(tmp_path) -> None:
-    score = MetricScore(
-        metric="nse",
-        value=0.81,
-        station="J0014010",
-        variable="discharge",
-        nse_window_start=WINDOW.start,
-        nse_window_end=WINDOW.end,
-        nse_n=1827,
-        metric_rule_version="1",
-    )
-    run = _sealed(tmp_path, score=score)
+    run = _sealed(tmp_path, score=headline_score(0.81, n_samples=1827))
 
     sealed = run._record().score  # noqa: SLF001 - the read-back of the seal
     assert (sealed.station, sealed.variable) == ("J0014010", "discharge")

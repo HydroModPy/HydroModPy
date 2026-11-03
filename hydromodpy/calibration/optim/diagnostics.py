@@ -25,9 +25,18 @@ _META_COLUMNS: frozenset[str] = frozenset(
         "status",
         "from_cache",
         "duration_s",
-        "metrics",
+        "components",
         "parameters",
-        "objective_value",
+        "cost",
+        "case_cost",
+        "case_id",
+        "case_status",
+        "site",
+        "rel_dir",
+        "phase",
+        "restart",
+        "trial",
+        "speculative_unused",
         "objective",
     }
 )
@@ -53,7 +62,7 @@ def iterations_to_dataframe(iterations: Iterable[Mapping[str, Any]] | pd.DataFra
 def convergence_rate(
     iterations: Iterable[Mapping[str, Any]] | pd.DataFrame,
     *,
-    objective: str = "objective_value",
+    objective: str = "cost",
 ) -> dict[str, float]:
     """Least-squares slope of best-so-far improvement vs. iteration.
 

@@ -21,6 +21,8 @@ from hydromodpy.results.outcome import OUTCOME_SCHEMA, Outcome
 from hydromodpy.results.plan_store import PLAN_SCHEMA, Plan
 from hydromodpy.results.publication import PUBLICATION_SCHEMA, Publication
 from hydromodpy.results.session.descriptor import SESSION_SCHEMA, SessionDescriptor
+from hydromodpy.results.session.journal import TRIAL_SCHEMA, TrialLine
+from hydromodpy.results.session.phase import PHASE_SCHEMA, PhaseDescriptor
 from hydromodpy.schema import results as shipped
 from hydromodpy.schema.results import (
     SCHEMA_FILENAMES,
@@ -34,6 +36,8 @@ from hydromodpy.schema.results import (
 MODELS: dict[str, type[BaseModel]] = {
     OUTCOME_SCHEMA: Outcome,
     SESSION_SCHEMA: SessionDescriptor,
+    PHASE_SCHEMA: PhaseDescriptor,
+    TRIAL_SCHEMA: TrialLine,
     PLAN_SCHEMA: Plan,
     PUBLICATION_SCHEMA: Publication,
     LEDGER_SCHEMA: Ledger,
@@ -49,7 +53,7 @@ def refresh() -> list[Path]:
     return write_schemas(SCHEMAS_DIR, MODELS)
 
 
-def test_the_six_shipped_files_are_the_six_models():
+def test_the_shipped_files_are_the_models_in_order():
     assert tuple(schema_filename(schema_id) for schema_id in MODELS) == SCHEMA_FILENAMES
 
 
@@ -82,7 +86,9 @@ def test_a_committed_schema_allows_what_a_later_version_adds(schema_id: str) -> 
 @pytest.mark.parametrize(
     ("filename", "field", "word"),
     [
-        ("session.v3.json", "status", "partial"),
+        ("session.v4.json", "status", "partial"),
+        ("phase.v2.json", "status", "aborted"),
+        ("trial.v2.json", "status", "crashed"),
         ("outcome.v1.json", "written_by", "trap"),
         ("publication.v1.json", "kind", "project"),
     ],
@@ -106,7 +112,7 @@ def test_a_schema_id_maps_to_one_file_name():
 def test_write_schemas_writes_one_file_per_model(tmp_path):
     written = write_schemas(tmp_path, MODELS)
     assert sorted(p.name for p in written) == sorted(SCHEMA_FILENAMES)
-    assert (tmp_path / "checks.v1.json").read_text(encoding="utf-8") == render_schema(Checks)
+    assert (tmp_path / "checks.v2.json").read_text(encoding="utf-8") == render_schema(Checks)
 
 
 if __name__ == "__main__":

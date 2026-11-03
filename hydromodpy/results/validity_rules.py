@@ -19,7 +19,7 @@ Labels, in order of precedence
    touches a quantity of the run. The run is declassed, whatever else it is.
 4. ``evaluated``: the run is calibrated (rule 5 holds) and was scored, with
    at least ``ValidityRules.min_scored_samples`` samples, on a window that
-   shares no day with the window the session scored (``calibrated_by.window``,
+   shares no day with the windows the session scored (``calibrated_by.windows``,
    bounds included). It is a split-sample: the calibrated parameters judged on
    days the search never saw. A window that overlaps the calibration window
    without being equal to it keeps the run ``calibrated``, with a reason that
@@ -58,9 +58,12 @@ The register ships in the wheel next to this module and is read with
 
 A run exposes its quantities as tokens: ``metrics`` when it carries a
 score, ``heads@<solver>`` and ``fluxes@<solver>`` for its solver,
-``mesh@<engine>`` for its mesh engine. An issue hits a run when its versions
+``mesh@<engine>`` for its mesh engine, ``derived@<version>`` for the rules its
+seal stamps as ``derive_rule_version``. An issue hits a run when its versions
 contain the run's ``hydromodpy_version`` and one of its quantities is one of
-the run's. The register is a feature: a fix lands with its entry.
+the run's. The register is a feature: a fix lands with its entry. The derived
+fields are rebuilt on read, so a fix of one changes what an old run reads: the fix
+bumps ``DERIVE_RULE_VERSION`` and its entry names ``derived@<old version>``.
 """
 
 from __future__ import annotations
@@ -78,7 +81,7 @@ from pydantic import Field
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.stored import Vocabulary
 from hydromodpy.results.checks import CalibrationSessionStatus, Checks
-from hydromodpy.results.metric_rule import DateWindow
+from hydromodpy.results.metric_rule import CALIBRATION_ROLE, DateWindow
 
 RULE_VERSION: Final[str] = "2"
 """Version of the labelling rules. Bump it when a label changes meaning."""
@@ -157,7 +160,11 @@ def known_issues_hitting(
 
 
 def run_quantities(
-    *, solver: str, mesh_engine: str | None = None, has_metrics: bool = False
+    *,
+    solver: str,
+    mesh_engine: str | None = None,
+    has_metrics: bool = False,
+    derive_rule_version: str | None = None,
 ) -> tuple[str, ...]:
     """Return the quantity tokens a run exposes, the vocabulary of the register."""
     tokens = [f"heads@{solver}", f"fluxes@{solver}"]
@@ -165,6 +172,8 @@ def run_quantities(
         tokens.append(f"mesh@{mesh_engine}")
     if has_metrics:
         tokens.append("metrics")
+    if derive_rule_version:
+        tokens.append(f"derived@{derive_rule_version}")
     return tuple(tokens)
 
 
@@ -215,11 +224,17 @@ def label_for(
     scored = window is not None and (checks.n_samples or 0) >= active.min_scored_samples
     if by is not None and by.session_status in active.calibrated_session_statuses:
         promoted = f"promoted by session {by.session_id}, {by.session_status}"
-        if scored and by.window is not None and window != by.window:
+        searched = [
+            DateWindow(start=period.start, end=period.end)
+            for period in by.windows.values()
+            if period.role == CALIBRATION_ROLE
+        ]
+        if scored and searched and window not in searched:
             assert window is not None
             scoring = f"scored on {window.start} to {window.end} with {checks.n_samples} samples"
-            calibration = f"the calibration window {by.window.start} to {by.window.end}"
-            if _share_a_day(window, by.window):
+            start, end = min(p.start for p in searched), max(p.end for p in searched)
+            calibration = f"the calibration window {start} to {end}"
+            if any(_share_a_day(window, period) for period in searched):
                 reason = (
                     f"scored on a window that overlaps {calibration} "
                     f"(run window {window.start} to {window.end}, {checks.n_samples} samples)"

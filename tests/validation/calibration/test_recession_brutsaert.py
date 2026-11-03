@@ -23,7 +23,7 @@ NOT_APPLICABLE = {
 def _best_values(session) -> dict[str, float]:
     completed = [r for r in session.history if r.status == "completed"]
     assert completed, "calibration produced no completed trials"
-    best = min(completed, key=lambda r: r.objective_value)
+    best = min(completed, key=lambda r: r.cost)
     values = best.metadata.get("values") if best.metadata else None
     assert values, "evaluator did not stash values in metadata"
     return dict(values)
@@ -41,7 +41,7 @@ def test_recession_brutsaert_nelder_mead_recovers_truth() -> None:
 
     best = _best_values(session)
     truth = BRUTSAERT_RECESSION_CASE.truth
-    assert math.isfinite(session.best.objective_value)
+    assert math.isfinite(session.best.cost)
     # a is log-transformed, b is linear
     assert_metric_below(
         "Distance of log10 a to the truth", abs(math.log10(best["a"]) - math.log10(truth["a"])), 0.2

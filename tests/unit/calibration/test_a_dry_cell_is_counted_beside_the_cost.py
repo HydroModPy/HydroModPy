@@ -4,7 +4,7 @@ A dry cell leaves its simulated head NaN, and the pairing drops that period
 from both series. The scored sample then depends on the parameters of the
 trial, and nothing said so. The count of such pairs inside the window now
 travels with the cost: in the components of the trial, so in its journal
-line, and in ``objective_samples`` of ``session.json``. A warning says it the
+line, and in ``scored`` of ``session.json``. A warning says it the
 first time an output loses pairs that way. A period the record leaves empty is
 not counted: it does not move with the parameters.
 """
@@ -25,6 +25,7 @@ from hydromodpy.calibration.persistence import CalibrationPersistence
 from hydromodpy.calibration.runners.recap import scored_samples
 from hydromodpy.core.contracts.observables import ObservableResult
 from hydromodpy.results.session.descriptor import read_session, scored_samples_text
+from tests._helpers.session_documents import session_opening
 
 _RECORD_DAYS = pd.date_range("1999-12-01", "2000-02-29", freq="D")
 _RECORD = pd.Series(np.linspace(10.0, 12.0, len(_RECORD_DAYS)), index=_RECORD_DAYS).drop(
@@ -99,28 +100,19 @@ def test_a_wet_trial_writes_zero() -> None:
 def test_the_journal_and_the_session_keep_the_count(tmp_path: Path) -> None:
     _, components = _scorer().score({"H": _answer()}, boundaries=_BOUNDS)
     persistence = CalibrationPersistence(tmp_path / "sessions" / "dry")
-    persistence.start_session(
-        session_id="dry",
-        case_id="dry",
-        site=None,
-        project=None,
-        config_hash="0" * 16,
-        hydromodpy_version="test",
-        method="grid",
-        objective_name="rmse",
-        search_space={},
-        objective_window=None,
-    )
+    persistence.start_session(**session_opening("dry", cost_name="rmse", bounds={}))
     line = persistence.append_iteration(
         ParamSuggestion(trial_id=1, values={"K": 1.0}),
-        EvaluationResult(trial_id=1, sim_id=None, objective_value=1.0, components=components),
+        EvaluationResult(trial_id=1, sim_id=None, cost=1.0, components=components),
     )
-    assert persistence.trials()[0].metrics["H.n_sim_nan"] == 3.0
+    assert persistence.trials()[0].only_case.components["H.n_sim_nan"] == 3.0
 
     persistence.finalize_session(
-        status="completed", best=None, objective_samples=scored_samples(line.metrics)
+        status="completed",
+        best=None,
+        scored=scored_samples(line.only_case.components, case_id="dry"),
     )
 
-    samples = read_session(persistence.directory).objective_samples
-    assert samples["H"].n_sim_nan == 3
+    samples = read_session(persistence.directory).scored
+    assert samples[0].n_sim_nan == 3
     assert "3 lost to a NaN simulated value" in scored_samples_text(samples)

@@ -76,7 +76,7 @@ _SIMULATION_ORDER_COLUMNS: frozenset[str] = _SIMULATION_FILTER_COLUMNS | frozens
         "started_at",
         "ended_at",
         "nse",
-        "objective_value",
+        "calibrated_by_cost",
         "bbox_xmin",
         "bbox_ymin",
         "bbox_xmax",
@@ -184,6 +184,8 @@ class ReadsMixin:
         station_id: str,
         variable: str,
         period: tuple | None = None,
+        *,
+        source: str = "simulated",
     ) -> pd.Series:
         """Read one series of a run at one station.
 
@@ -198,6 +200,9 @@ class ReadsMixin:
         period
             ``(start, end)`` dates, both included, or a year as text
             (``"2002"``). ``None`` reads the whole series.
+        source
+            ``"simulated"``, the default, or ``"observed"`` for the measurement
+            of the same variable.
 
         Returns
         -------
@@ -219,9 +224,9 @@ class ReadsMixin:
 
         query = (
             "SELECT time, timestep, value FROM timeseries "
-            "WHERE sim_id = ? AND station_id = ? AND variable = ?"
+            "WHERE sim_id = ? AND station_id = ? AND variable = ? AND source = ?"
         )
-        params: list = [str(sim_id), station_id, variable]
+        params: list = [str(sim_id), station_id, variable, source]
         if period is not None:
             lo, hi, hi_inclusive = normalize_period_bounds(period)
             query += " AND time >= ? AND time " + ("<= ?" if hi_inclusive else "< ?")
@@ -462,14 +467,17 @@ class ReadsMixin:
         )
 
     def calibration_iterations(self, session_id: str | UUID) -> pd.DataFrame:
-        """Return the trials of one session, by trial number."""
+        """Return the trials of one session, one row per trial and case, by trial number."""
         return self._backend.query(
             """
-            SELECT trial, phase, restart, sim_id, rel_dir, params_hash, params,
-                   objective, metrics, status, started_at, ended_at
-              FROM calibration_iterations
-             WHERE session_id = ?
-             ORDER BY trial
+            SELECT i.trial, i.phase, i.restart, c.case_id, c.sim_id, c.rel_dir, c.params_hash,
+                   i.params, i.cost, c.cost AS case_cost, c.components, i.status,
+                   c.status AS case_status, i.started_at, i.ended_at
+              FROM calibration_iterations i
+              LEFT JOIN calibration_trial_cases c
+                ON c.session_id = i.session_id AND c.trial = i.trial
+             WHERE i.session_id = ?
+             ORDER BY i.trial, c.case_id
             """,
             [str(session_id)],
         )

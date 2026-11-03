@@ -500,20 +500,18 @@ def test_a_running_case_refuses_a_new_plan_without_force(tmp_path: Path) -> None
 def _session(project: Path, case_id: str, status: str, *, host: str, pid: int) -> Path:
     """Write a calibration session of *case_id* with a running outcome."""
     from hydromodpy.results.outcome import Outcome, write_outcome
-    from hydromodpy.results.session.descriptor import SessionDescriptor, write_session
+    from hydromodpy.results.session.descriptor import write_session
+    from tests._helpers.session_documents import session_descriptor
 
     session_dir = project / "sessions" / case_id
     session_dir.mkdir(parents=True)
     now = datetime.now(UTC)
     write_session(
         session_dir,
-        SessionDescriptor(
+        session_descriptor(
+            case_id,
             session_id="s1",
-            case_id=case_id,
             config_hash="h1",
-            hydromodpy_version="0",
-            method="grid",
-            objective_name="nse",
             status=status,
             started_at=now,
             ended_at=None if status == "running" else now,
@@ -687,7 +685,8 @@ def test_a_plan_moves_with_the_code_that_computes_and_with_nothing_else(
 
 
 def test_a_sealed_run_or_a_completed_session_marks_the_case_done(tmp_path: Path) -> None:
-    from hydromodpy.results.session.descriptor import SessionDescriptor, write_session
+    from hydromodpy.results.session.descriptor import write_session
+    from tests._helpers.session_documents import session_descriptor
 
     project = write_sites_project(tmp_path)
     _add_recipe(
@@ -707,13 +706,11 @@ def test_a_sealed_run_or_a_completed_session_marks_the_case_done(tmp_path: Path)
         session_dir.mkdir(parents=True)
         write_session(
             session_dir,
-            SessionDescriptor(
+            session_descriptor(
+                case_id,
                 session_id=f"s-{site}",
-                case_id=case_id,
                 config_hash=_case(draft, case_id).config_hash,
-                hydromodpy_version="0",
                 method="tpe",
-                objective_name="nse",
                 status=status,
                 started_at=now,
                 ended_at=now,

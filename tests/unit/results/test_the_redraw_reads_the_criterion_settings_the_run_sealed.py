@@ -22,17 +22,19 @@ from hydromodpy.results.derive.network_criterion_settings import (
     network_criterion_settings,
     network_outputs_of_run,
 )
+from tests._helpers.sealed_runs import sealed_search
 
 
 def _network(**fields) -> dict:
     return {"support": "network", "observed_network": "data.hydrography", **fields}
 
 
-def _run(outputs: dict | None = None, **sections) -> SimpleNamespace:
-    snapshot = dict(sections)
+def _run(outputs: dict | None = None, *, scoring_window: dict | None = None, **sections):
+    run = SimpleNamespace(sim_id="sim-x", config_snapshot=dict(sections))
     if outputs is not None:
-        snapshot["calibration"] = {"outputs": outputs}
-    return SimpleNamespace(sim_id="sim-x", config_snapshot=snapshot)
+        window = {} if scoring_window is None else {"scoring_window": scoring_window}
+        run.dir = sealed_search({"outputs": outputs, **window})
+    return run
 
 
 def test_a_run_without_a_snapshot_reads_the_defaults() -> None:
@@ -144,11 +146,7 @@ def test_a_sealed_value_no_trial_could_read_is_refused() -> None:
 
 
 def test_the_scoring_window_the_run_sealed_is_read_and_named() -> None:
-    run = _run({"streams": _network()})
-    run.config_snapshot["calibration"]["scoring_window"] = {
-        "start": "2002-01-01T00:00:00+01:00",
-        "end": None,
-    }
+    run = _run({"streams": _network()}, scoring_window={"start": "2002-01-01T00:00:00+01:00"})
 
     settings = network_criterion_settings(run)
 
@@ -157,16 +155,14 @@ def test_the_scoring_window_the_run_sealed_is_read_and_named() -> None:
 
 
 def test_a_window_with_both_bounds_open_is_no_window() -> None:
-    run = _run({"streams": _network()})
-    run.config_snapshot["calibration"]["scoring_window"] = {"start": None, "end": None}
+    run = _run({"streams": _network()}, scoring_window={})
 
     assert network_criterion_settings(run).scoring_window is None
     assert network_criterion_settings(_run({"streams": _network()})).scoring_window is None
 
 
 def test_a_window_bound_that_is_not_a_date_is_refused() -> None:
-    run = _run({"streams": _network()})
-    run.config_snapshot["calibration"]["scoring_window"] = {"start": "spring", "end": None}
+    run = _run({"streams": _network()}, scoring_window={"start": "spring"})
 
     with pytest.raises(ValueError, match="scoring_window.start 'spring' is not a date"):
         network_criterion_settings(run)

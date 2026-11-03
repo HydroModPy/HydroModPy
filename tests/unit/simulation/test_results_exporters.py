@@ -144,14 +144,24 @@ class TestNetCDFExport:
         assert "mesh2d" in ds
         assert "node_x" in ds
         assert "face_nodes" in ds
+        assert ds["head"].dims == ("time", "layer", "n_face")
+        assert ds["head"].shape == (3, 2, 6)
+        np.testing.assert_array_equal(ds["layer"].values, [0, 1])
+        ds.close()
+
+    def test_a_file_for_qgis_names_one_layer(self, catalog_with_data):
         # MDAL, what QGIS reads a mesh with, binds a dataset to the face
-        # dimension and ignores an array carrying a third one, so a layered
-        # field is written one variable per layer.
-        assert "head" not in ds
-        assert ds["head_layer0"].dims == ("time", "n_face")
-        assert ds["head_layer0"].shape == (3, 6)
-        assert ds["head_layer1"].shape == (3, 6)
-        assert "layer" not in ds.dims
+        # dimension and ignores an array carrying a third one.
+        catalog, sid, exports = catalog_with_data
+        out = exports / "one.nc"
+        _export(catalog, sid, variables="head", file=out, layer=1)
+        ds = xr.open_dataset(out, decode_times=False)
+        assert ds["head"].dims == ("time", "n_face")
+        assert int(ds["layer"]) == 1
+        whole = exports / "whole.nc"
+        _export(catalog, sid, variables="head", file=whole)
+        with xr.open_dataset(whole, decode_times=False) as every:
+            np.testing.assert_array_equal(ds["head"].values, every["head"].sel(layer=1).values)
         ds.close()
 
     def test_multi_variable(self, catalog_with_data):
@@ -171,7 +181,7 @@ class TestNetCDFExport:
         out = exports / "multi.nc"
         _export(catalog, sid, variables=["head", "watertable_depth"], file=out)
         ds = xr.open_dataset(out, decode_times=False)
-        assert "head_layer0" in ds
+        assert "head" in ds
         assert "watertable_depth" in ds
         assert ds["watertable_depth"].dims == ("time", "n_face")
         ds.close()
@@ -181,7 +191,7 @@ class TestNetCDFExport:
         out = exports / "subset.nc"
         _export(catalog, sid, variables="head", file=out, time=[0, 2])
         ds = xr.open_dataset(out, decode_times=False)
-        assert ds["head_layer0"].shape[0] == 2
+        assert ds["head"].shape[0] == 2
         np.testing.assert_array_equal(ds["time"].values, np.array([0, 172800]))
         ds.close()
 
@@ -200,6 +210,7 @@ class TestCSVExport:
             "datetime",
             "station_id",
             "variable",
+            "source",
             "value",
             "unit",
         ]
@@ -250,7 +261,8 @@ class TestVTUExport:
         out = exports / "layers.vtu"
         _export(catalog, sid, variables="head", file=out, time=0)
         mesh = meshio.read(str(out))
-        assert {"head_layer0", "head_layer1"} <= set(mesh.cell_data)
+        assert not any("layer" in name for name in mesh.cell_data)
+        assert mesh.cell_data["head"][0].shape == (6, 2)
 
     def test_the_file_names_the_run_and_the_version_that_made_it(self, catalog_with_data):
         meshio = pytest.importorskip("meshio")
@@ -437,9 +449,9 @@ class TestNetCDFForQgis:
 
         ds = xr.open_dataset(out, decode_times=False)
         try:
-            # Most catchment models run on one layer: naming it 'recharge_layer1'
-            # would suffix every variable of every file for nothing.
-            assert ds["recharge"].dims == ("time", "n_face")
+            # The name stays at any depth. This model has two layers, so a field of
+            # one layer names its own dimension.
+            assert ds["recharge"].dims == ("time", "recharge_layer", "n_face")
             assert "recharge_layer1" not in ds
         finally:
             ds.close()

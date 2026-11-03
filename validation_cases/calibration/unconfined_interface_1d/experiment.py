@@ -663,7 +663,7 @@ def _make_tracking_evaluator(
             return EvaluationResult(
                 trial_id=sugg.trial_id,
                 sim_id=None,
-                objective_value=float("inf"),
+                cost=float("inf"),
                 status="crashed",
                 metadata={"error": repr(exc)},
             )
@@ -672,13 +672,13 @@ def _make_tracking_evaluator(
             return EvaluationResult(
                 trial_id=sugg.trial_id,
                 sim_id=None,
-                objective_value=float("inf"),
+                cost=float("inf"),
                 status="failed",
             )
         return EvaluationResult(
             trial_id=sugg.trial_id,
             sim_id=None,
-            objective_value=cost,
+            cost=cost,
             status="completed",
         )
 
@@ -754,7 +754,7 @@ def calibrate_groundwater(
         params_best = dict(suggestion_log.get(best.trial_id, {}))
 
     params_true = dict(chronicle["true_params"])
-    rmse_best = float(best.objective_value) if best is not None else float("nan")
+    rmse_best = float(best.cost) if best is not None else float("nan")
     return {
         "session": session,
         "best": best,

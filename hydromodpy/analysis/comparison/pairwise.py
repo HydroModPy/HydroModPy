@@ -8,6 +8,7 @@ import pandas as pd
 
 from hydromodpy.core.state.paths import catalog_path_for
 from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.metric_rule import HEADLINE_WINDOW
 
 
 def _discover_catalog_root(start: Path) -> Path:
@@ -44,10 +45,10 @@ def compare_pair(
         sid_b = catalog.resolve(sim_b)
         df = catalog.sql(
             "SELECT sim_id, station_id, variable, metric_name, value, "
-            "nse_window_start, nse_window_end, nse_n "
-            "FROM metrics WHERE sim_id IN (?, ?) "
+            "window_start, window_end, n_samples "
+            "FROM metrics WHERE sim_id IN (?, ?) AND window_name = ? "
             "ORDER BY metric_name, station_id, variable",
-            [sid_a, sid_b],
+            [sid_a, sid_b, HEADLINE_WINDOW],
         )
 
     if df.empty:
@@ -58,14 +59,14 @@ def compare_pair(
         None
         if pd.isna(start)
         else f"{pd.Timestamp(start).date().isoformat()}/{pd.Timestamp(end).date().isoformat()}"
-        for start, end in zip(df["nse_window_start"], df["nse_window_end"], strict=True)
+        for start, end in zip(df["window_start"], df["window_end"], strict=True)
     ]
     sides = []
     for label, sid in (("A", sid_a), ("B", sid_b)):
         side = df[df["sim_id"].astype(str) == str(sid)].drop_duplicates(keys).set_index(keys)
         sides.append(
-            side[["value", "window", "nse_n"]].rename(
-                columns={"value": label, "window": f"{label}_window", "nse_n": f"{label}_n"}
+            side[["value", "window", "n_samples"]].rename(
+                columns={"value": label, "window": f"{label}_window", "n_samples": f"{label}_n"}
             )
         )
     return sides[0].join(sides[1], how="outer").sort_index()

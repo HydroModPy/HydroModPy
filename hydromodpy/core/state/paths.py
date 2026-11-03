@@ -246,12 +246,14 @@ class RelDir:
 
     ``name`` is the run or session directory name with its ``.vN`` suffix;
     this module does not read the version grammar. ``trial`` is set only for
-    a kept trial.
+    a kept trial, and ``case`` only for a kept trial of a session of several
+    cases, which keeps one directory per case.
     """
 
     kind: RelDirKind
     name: str
     trial: int | None = None
+    case: str | None = None
 
     def as_posix(self) -> str:
         """Return the relative path in POSIX spelling."""
@@ -261,7 +263,8 @@ class RelDir:
             return session_dir_rel(self.name)
         if self.trial is None:
             raise ValueError("a trial directory needs a trial number")
-        return trial_dir_rel(self.name, self.trial)
+        kept = trial_dir_rel(self.name, self.trial)
+        return kept if self.case is None else f"{kept}/{self.case}"
 
 
 def run_dir_rel(name: str) -> str:
@@ -282,9 +285,10 @@ def trial_dir_rel(name: str, trial: int) -> str:
 def parse_rel_dir(rel_dir: str) -> RelDir:
     """Read a relative result directory back into its parts.
 
-    Accepts exactly ``runs/<name>``, ``sessions/<name>`` and
-    ``sessions/<name>/trials/<nnnn>`` with the trial zero-padded to
-    :data:`TRIAL_DIRNAME_WIDTH` digits. Any other form raises ``ValueError``.
+    Accepts exactly ``runs/<name>``, ``sessions/<name>``,
+    ``sessions/<name>/trials/<nnnn>`` and ``sessions/<name>/trials/<nnnn>/<case_id>``,
+    with the trial zero-padded to :data:`TRIAL_DIRNAME_WIDTH` digits. Any other
+    form raises ``ValueError``.
     """
     text = str(rel_dir)
     parts = text.split("/")
@@ -293,17 +297,18 @@ def parse_rel_dir(rel_dir: str) -> RelDir:
             return RelDir("run", _check_dir_name(parts[1]))
         if len(parts) == 2 and parts[0] == SESSIONS_DIRNAME:
             return RelDir("session", _check_dir_name(parts[1]))
-        if len(parts) == 4 and parts[0] == SESSIONS_DIRNAME and parts[2] == TRIALS_DIRNAME:
+        if len(parts) in (4, 5) and parts[0] == SESSIONS_DIRNAME and parts[2] == TRIALS_DIRNAME:
             digits = parts[3]
             if digits.isdigit() and digits.isascii():
                 trial = int(digits)
                 if _trial_dirname(trial) == digits:
-                    return RelDir("trial", _check_dir_name(parts[1]), trial)
+                    case = _check_dir_name(parts[4]) if len(parts) == 5 else None
+                    return RelDir("trial", _check_dir_name(parts[1]), trial, case)
     except ValueError:
         pass
     raise ValueError(
         f"{text!r} is not a result directory: write runs/<name>, sessions/<name> or "
-        f"sessions/<name>/{TRIALS_DIRNAME}/<{'n' * TRIAL_DIRNAME_WIDTH}>"
+        f"sessions/<name>/{TRIALS_DIRNAME}/<{'n' * TRIAL_DIRNAME_WIDTH}>[/<case_id>]"
     )
 
 
@@ -311,12 +316,12 @@ def is_sealed_run_config(path: str | Path) -> bool:
     """Return whether *path* is a configuration a run froze in its run directory.
 
     A run directory is ``runs/<name>`` or a kept trial
-    ``sessions/<name>/trials/<nnnn>`` (:func:`parse_rel_dir`). The frozen file
+    ``sessions/<name>/trials/<nnnn>[/<case_id>]`` (:func:`parse_rel_dir`). The frozen file
     is its ``config.toml``, and ``hmp run --set`` writes its effective copy
     next to it.
     """
     parts = Path(path).expanduser().resolve().parent.parts
-    for depth in (2, 4):
+    for depth in (2, 4, 5):
         if len(parts) < depth:
             continue
         try:
@@ -326,6 +331,46 @@ def is_sealed_run_config(path: str | Path) -> bool:
         if kind in {"run", "trial"}:
             return True
     return False
+
+
+def project_of_result_dir(folder: str | Path) -> Path | None:
+    """Return the project that holds the run, trial or session directory *folder*, or None.
+
+    A project needs no ``project.toml``, so the path alone does not say it: a folder
+    of the user can be called ``runs/first``. The directory has to read as a result
+    directory and hold what one holds from its first write on, or from its seal.
+    """
+    resolved = Path(folder).expanduser().resolve()
+    if not any((resolved / name).is_file() for name in ("outcome.json", "manifest.json")):
+        return None
+    for depth in (2, 4, 5):
+        try:
+            parse_rel_dir("/".join(resolved.parts[-depth:]))
+        except ValueError:
+            continue
+        return resolved.parents[depth - 1]
+    return None
+
+
+def is_sealed_run_dir(folder: str | Path) -> bool:
+    """Return whether *folder* holds a sealed run: its configuration and its manifest."""
+    resolved = Path(folder)
+    return (resolved / "manifest.json").is_file() and (resolved / "config.toml").is_file()
+
+
+def refuse_a_sealed_run_as_project(project_root: str | Path) -> None:
+    """Refuse to work in *project_root* when it is a sealed run, which nothing writes into.
+
+    A run copied out of its project has no project above it, so the folder of its
+    ``config.toml`` would take the role of the project.
+    """
+    root = Path(project_root)
+    if is_sealed_run_dir(root):
+        raise ConfigError(
+            f"{root} is a sealed run outside any project, and nothing writes into a sealed "
+            f"run. Name the project it replays into: hmp run {root / 'config.toml'} --frozen "
+            "-w <project>, which reads its inputs from that project."
+        )
 
 
 #: Environment variable naming the scratch folder of the run this process is inside.
@@ -666,14 +711,19 @@ def resolve_project_root(start: Path) -> Path:
 
     The anchor is the project config file, never a database file: the catalog
     is a rebuildable index and may be absent. Without a marker the starting
-    directory is the root, so a flat project directory still resolves. A
-    ``configs/`` directory is the exception: anchoring there would scatter the
-    project outputs under the sub-directory, so it raises instead.
+    directory is the root, so a flat project directory still resolves, and a
+    result directory of a flat project answers for that project
+    (:func:`project_of_result_dir`). A ``configs/`` directory is the exception:
+    anchoring there would scatter the project outputs under the sub-directory, so
+    it raises instead.
     """
     base = Path(start)
     for parent in [base, *base.parents]:
         if (parent / PROJECT_MARKER_FILENAME).is_file():
             return parent
+    holder = project_of_result_dir(base)
+    if holder is not None:
+        return holder
     if base.name == CONFIGS_DIRNAME:
         raise ConfigError(
             f"No {PROJECT_MARKER_FILENAME} found above {base}. A config stored in "
@@ -849,6 +899,9 @@ __all__: Iterable[str] = (
     "from_workspace_relative",
     "internal_dir",
     "is_sealed_run_config",
+    "is_sealed_run_dir",
+    "project_of_result_dir",
+    "refuse_a_sealed_run_as_project",
     "jobs_dir_for",
     "kept_preprocessing_dir",
     "is_project_root",

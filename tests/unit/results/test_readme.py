@@ -17,10 +17,10 @@ from hydromodpy.results.readme import (
     render_unsealed_run_readme,
     write_readme,
 )
-from hydromodpy.results.session.descriptor import BestTrial, SessionDescriptor
-from hydromodpy.results.session.journal import TrialLine
-from hydromodpy.results.session.phase import PhaseDescriptor
+from hydromodpy.results.session.descriptor import ParameterBound
+from hydromodpy.results.session.phase import FrozenValue, PhaseDescriptor
 from hydromodpy.results.validity_rules import LabelResult, label_for, run_quantities
+from tests._helpers.session_documents import best_trial, session_descriptor, trial_line
 from tests.unit.results._run_record_factory import NOW, WINDOW, make_record
 
 LABEL = LabelResult("calibrated", "2", ("promoted by session sess0001, completed",), ())
@@ -100,34 +100,32 @@ def test_write_readme_lands_atomically(tmp_path):
 
 
 def test_the_session_readme_names_the_method_phases_best_trial_and_promoted_run():
-    descriptor = SessionDescriptor(
+    descriptor = session_descriptor(
+        "J0014010-calage",
         site="J0014010",
         session_id="sess0001",
-        case_id="J0014010-calage",
-        config_hash="c0ffee",
-        hydromodpy_version="2.0.0a5",
         method="tpe",
-        search_space={"K": {"bounds": [1e-7, 1e-4]}},
-        objective_name="nse_log",
-        best=BestTrial(trial=7, sim_id="9a4f" * 8, rel_dir="runs/J0014010-calage", objective=-0.84),
+        cost_name="nse_log",
+        bounds={"K": ParameterBound(lower=1e-7, upper=1e-4, search_space="log", units="m/s")},
+        best=best_trial(
+            7, cost=-0.84, case="J0014010-calage", sim_id="9a4f" * 8, rel_dir="runs/J0014010-calage"
+        ),
         status="completed",
-        started_at=NOW,
         ended_at=NOW,
     )
-    trials = [
-        TrialLine(trial=n, phase="transient_sy", status="completed", started_at=NOW, ended_at=NOW)
-        for n in range(1, 8)
-    ]
+    trials = [trial_line(n, phase="transient_sy") for n in range(1, 8)]
     phases = [
         PhaseDescriptor(
-            phase_id="p1", name="steady_k", index=0, status="completed", best=BestTrial(trial=3)
+            phase_id="p1", name="steady_k", index=0, status="completed", best=best_trial(3)
         ),
         PhaseDescriptor(
             phase_id="p2",
             name="transient_sy",
             index=1,
             status="completed",
-            frozen={"K": 6.1e-6, "from": "steady_k"},
+            frozen={
+                "K": FrozenValue(value=6.1e-6, mode="replace", from_phase="steady_k"),
+            },
         ),
     ]
 
@@ -136,12 +134,13 @@ def test_the_session_readme_names_the_method_phases_best_trial_and_promoted_run(
     )
 
     assert text.startswith("# Calibration J0014010-calage\n")
-    assert "method `tpe`, objective `nse_log`, status **completed**" in text
+    assert "site `J0014010`, method `tpe`, cost `nse_log`, status **completed**" in text
+    assert "- `K`: 1e-07 to 0.0001 m/s, log" in text
     assert "7 trials in `trials.jsonl`" in text
-    assert "| steady_k | completed | 0 | {} | 3 | not recorded |" in text
-    assert "transient_sy" in text and "'from': 'steady_k'" in text
-    assert "trial 7, objective -0.84" in text
-    assert "calibrated run: `runs/J0014010-calage` (sim_id `" in text
+    assert "| steady_k | completed | 0 | none | 3 | not recorded |" in text
+    assert "K = 6.1e-06 (steady_k)" in text
+    assert "trial 7, cost -0.84" in text
+    assert "calibrated run of `J0014010-calage`: `runs/J0014010-calage` (sim_id `" in text
     assert text.rstrip().endswith(f"sha256(manifest.json) = {'ab' * 32}")
 
 

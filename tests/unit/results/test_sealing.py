@@ -21,8 +21,16 @@ import zarr
 
 from hydromodpy.core.budget_terms import BudgetKeep
 from hydromodpy.core.state.paths import INTERNAL_DIRNAME
+from hydromodpy.results.export.run_identity import label_of
 from hydromodpy.results.identity import ZARR_IDENTITY_ATTR, read_identity_from
-from hydromodpy.results.manifest import InputEntry, Manifest, list_artifacts, read_manifest
+from hydromodpy.results.manifest import (
+    DERIVE_RULE_VERSION,
+    InputEntry,
+    Manifest,
+    MetricRow,
+    list_artifacts,
+    read_manifest,
+)
 from hydromodpy.results.outcome import effective_status, read_outcome
 from hydromodpy.results.record import RunRecord
 from hydromodpy.results.storage import sealing
@@ -41,6 +49,7 @@ from hydromodpy.results.storage.contract import (
 )
 from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.results.storage.sealing import seal_completed, sealed_config_hash
+from hydromodpy.results.validity_rules import RULE_VERSION
 from tests._helpers.run_stores import open_run_store
 
 CATCHMENT = {
@@ -94,7 +103,7 @@ def filled(tmp_path: Path) -> RunStore:
     finally:
         sz.close()
     store.write_mass_balance(sid, 0, 10.0, 9.5, 5.0)
-    store.write_metric(sid, "P01", "nse", 0.8)
+    store.write_metric(sid, MetricRow(station="P01", metric="nse", value=0.8))
     store.write_provenance(sid, "dem", "ign_geoplateforme_dem", np.ones(4))
     store.record_input(sid, DEM_INPUT)
     store.write_geographic_metadata(sid, CATCHMENT)
@@ -141,6 +150,13 @@ def test_an_unsealed_attempt_is_never_closed_as_completed(filled: RunStore) -> N
         close_sealed_attempt(filled.run_dir)
     assert read_outcome(filled.run_dir).status == "running"
     assert (filled.run_dir / INTERNAL_DIRNAME).is_dir()
+
+
+def test_the_seal_stamps_the_rules_of_the_derived_fields(filled: RunStore) -> None:
+    manifest = seal_completed(filled)
+
+    assert manifest.derive_rule_version == DERIVE_RULE_VERSION
+    assert label_of(manifest).rule_version == RULE_VERSION
 
 
 def test_the_manifest_carries_the_facts_of_the_run(filled: RunStore) -> None:

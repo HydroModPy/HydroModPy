@@ -193,9 +193,9 @@ def test_two_trials_on_persist_trial_series_write_two_files(
         config_hash="c" * 64,
         hydromodpy_version="2.0.0a5",
         method="grid",
-        objective_name="rmse",
-        search_space={},
-        objective_window=None,
+        cost_name="rmse",
+        bounds={},
+        windows={},
     )
 
     report = run_calibration_core(
@@ -207,7 +207,7 @@ def test_two_trials_on_persist_trial_series_write_two_files(
         cfg_path=project,
     ).to_dict()
 
-    assert report["n_iterations"] == 2
+    assert report["n_trials"] == 2
     series_dir = session_dir / SESSION_TRIAL_SERIES_DIRNAME
     assert sorted(p.name for p in series_dir.iterdir()) == [
         "trial-000001.parquet",

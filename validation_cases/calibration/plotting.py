@@ -389,9 +389,9 @@ def write_suite_figures(
             label,
             float(prepare_value or 0.0),
             float(simulation_value or 0.0),
-            float(objective_value or 0.0),
+            float(cost or 0.0),
         )
-        for label, prepare_value, simulation_value, objective_value in zip(
+        for label, prepare_value, simulation_value, cost in zip(
             row_labels,
             mean_candidate_prepare,
             mean_candidate_simulation,
@@ -400,7 +400,7 @@ def write_suite_figures(
         )
         if any(
             value is not None and float(value) > 0.0
-            for value in (prepare_value, simulation_value, objective_value)
+            for value in (prepare_value, simulation_value, cost)
         )
     ]
     if detailed_timing_breakdown_rows:
@@ -558,7 +558,7 @@ def _reference_objective_points(
         points: list[ObjectiveMappingPoint] = []
         for row_index, y_value in enumerate(y_values):
             for col_index, x_value in enumerate(x_values):
-                objective_value = grid[row_index, col_index]
+                cost = grid[row_index, col_index]
                 points.append(
                     ObjectiveMappingPoint(
                         iteration_id=f"reference_grid_{row_index:03d}_{col_index:03d}",
@@ -567,11 +567,7 @@ def _reference_objective_points(
                             str(payload["parameter_names"][0]): float(x_value),
                             str(payload["parameter_names"][1]): float(y_value),
                         },
-                        objective_total=(
-                            None
-                            if not math.isfinite(float(objective_value))
-                            else float(objective_value)
-                        ),
+                        objective_total=(None if not math.isfinite(float(cost)) else float(cost)),
                         status="objective_evaluated",
                         failure_reason=None,
                     )

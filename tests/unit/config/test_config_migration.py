@@ -23,6 +23,7 @@ from hydromodpy.config.config_migration import (
     outlived_forms,
 )
 from hydromodpy.core.config_kit.base import (
+    CANNOT_REWRITE,
     ConfigKeyRenamedWarning,
     HydroModelBase,
     forget_old_forms_told,
@@ -771,6 +772,73 @@ def test_the_doctor_reads_the_method_a_parent_holds(tmp_path: Path) -> None:
     assert tomllib.loads(child.read_text())["calibration"] == {"max_trials": 50}
 
 
+@pytest.mark.parametrize(
+    ("parent", "child", "said"),
+    [
+        pytest.param(
+            "[calibration.protocol]\ntransient_method_options = { max_iter = 50 }\n",
+            '[calibration.protocol]\ntransient_method = "gp_mapping"\n',
+            "max_iter -> transient_max_trials = 50",
+            id="the-method-of-a-search-option",
+        ),
+        pytest.param(
+            "[calibration.uncertainty]\ntolerance = 25\n",
+            '[calibration]\nobjective = "distance_gap"\n',
+            "tolerance -> cost_margin = '25 m'",
+            id="what-a-width-is-scored-on",
+        ),
+        pytest.param(
+            "[calibration.outputs.net.extent]\nmaximal_flowing_steps = 2\n",
+            '[simulation.time]\nstep_value = 1\nstep_unit = "month"\n',
+            "maximal_flowing_steps -> maximal_flowing_duration",
+            id="the-step-of-a-count",
+        ),
+        pytest.param(
+            "[modflow6.sgrid.vertical]\nnlay = 2\n\n[modflownwt.sgrid.vertical]\nnlay = 3\n",
+            '[[simulation.process]]\nid = "flow"\ntype = "flow"\nsolvers = ["modflow_nwt"]\n',
+            "modflownwt.sgrid.vertical -> [domain.layers]",
+            id="the-flow-solver-of-a-layering",
+        ),
+    ],
+)
+def test_the_doctor_leaves_a_parent_whose_rewrite_hangs_on_its_child(
+    tmp_path: Path, parent: str, child: str, said: str
+) -> None:
+    """A sibling can read the same parent key otherwise, so the child's reading stays out of it."""
+    holder, leaf = _chain(tmp_path, parent, child)
+
+    changes = fix_config_chain(leaf)
+
+    assert holder.read_text() == parent
+    assert changes[leaf] == []
+    assert len(changes[holder]) >= 1
+    line = next(change for change in changes[holder] if said in change)
+    assert CANNOT_REWRITE in line
+    assert "child.toml" in line
+    assert "remove the old key from parent.toml" in line
+
+
+def test_a_sibling_keeps_its_reading_of_a_parent_the_doctor_left(tmp_path: Path) -> None:
+    holder, child = _chain(
+        tmp_path,
+        "[calibration.protocol]\ntransient_method_options = { max_iter = 50 }\n",
+        '[calibration.protocol]\ntransient_method = "gp_mapping"\n',
+    )
+    sibling = tmp_path / "sibling.toml"
+    sibling.write_text(
+        'base_config = "parent.toml"\n[calibration.protocol]\ntransient_method = "da_mh_gp"\n',
+        encoding="utf-8",
+    )
+
+    fix_config_chain(child)
+
+    assert "max_iter" in holder.read_text()
+    with pytest.warns(ConfigKeyRenamedWarning):
+        read = load_toml_with_base_config(sibling)["calibration"]["protocol"]
+    assert read["transient_method_options"] == {"chain_length": 50}
+    assert "transient_max_trials" not in read
+
+
 def test_the_doctor_writes_nothing_when_a_rewrite_would_change_what_the_chain_reads(
     tmp_path: Path,
 ) -> None:
@@ -804,3 +872,21 @@ def test_the_doctor_follows_a_directive_of_a_renamed_key_and_a_list_a_child_adds
         "max_trials__delete": True,
         "phases__append": [{"name": "late", "max_trials": 3}],
     }
+
+
+def test_a_renamed_field_is_rewritten_where_a_table_names_it(tmp_path: Path) -> None:
+    config = tmp_path / "run.toml"
+    config.write_text(
+        '[[export]]\nvariables = ["head", "accumulation_flux"]\nformat = "netcdf"\n\n'
+        '[[export]]\nvariables = "fluxes_from_budget"\nformat = "netcdf"\n\n'
+        '[display.overrides.simulated_active_network_map]\nvariable = "accumulation_flux"\n',
+        encoding="utf-8",
+    )
+
+    changes = fix_config_file(config)
+
+    text = config.read_text(encoding="utf-8")
+    assert "drain_accumulation_flux" in text
+    assert "budget_flux_per_area" in text
+    assert '"accumulation_flux"' not in text
+    assert len(changes) == 3

@@ -22,10 +22,11 @@ the mesh and the input files were byte-identical; nothing less.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from hydromodpy.calibration.persistence import CalibrationPersistence
+from hydromodpy.results.session.journal import physical_parameters
 from hydromodpy.results.session.phase import PhaseDescriptor
 
 
@@ -39,32 +40,10 @@ def completed_phases(persistence: CalibrationPersistence) -> dict[str, PhaseDesc
     return {phase.name: phase for phase in persistence.phases() if phase.status == "completed"}
 
 
-def _physical_value(name: str, entry: Any) -> float:
-    """Return the physical value one parameter entry recorded.
-
-    A trial writes each parameter as ``{"value": ..., "target": ..., "units": ...}``
-    (see ``describe_values`` in ``optim/parameters.py``); a bare number is also
-    accepted. Anything else is a shape this reader does not know, and is refused
-    by name rather than left to raise a bare ``TypeError`` deeper in the call.
-    """
-    if isinstance(entry, Mapping):
-        if "value" not in entry:
-            raise ValueError(f"parameter {name!r} has no 'value' key: {entry!r}")
-        entry = entry["value"]
-    if isinstance(entry, bool) or not isinstance(entry, (int, float)):
-        raise ValueError(f"parameter {name!r} has an unreadable value: {entry!r}")
-    return float(entry)
-
-
-def physical_values(params: Mapping[str, Any]) -> dict[str, float]:
-    """Return the physical value of every parameter a trial line recorded."""
-    return {str(name): _physical_value(str(name), value) for name, value in params.items()}
-
-
 def best_parameters_of(persistence: CalibrationPersistence, phase: str) -> dict[str, float]:
     """Return the parameters of the best trial one phase recorded, empty when none."""
-    best = persistence.best_trial(phase)
-    return {} if best is None else physical_values(best.params)
+    best = persistence.held_trial(phase)
+    return {} if best is None else physical_parameters(best)
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,10 +52,11 @@ class ReusableStage:
 
     phase: str
     trial: int
-    n_iterations: int
-    best_objective: float | None
+    n_trials: int
+    best_cost: float | None
     parameters: dict[str, float]
     params_hash: str | None
+    components: dict[str, float] = field(default_factory=dict)
 
 
 def reusable_stage(persistence: CalibrationPersistence, phase_name: str) -> ReusableStage | None:
@@ -88,16 +68,18 @@ def reusable_stage(persistence: CalibrationPersistence, phase_name: str) -> Reus
     """
     if phase_name not in completed_phases(persistence):
         return None
-    best = persistence.best_trial(phase_name)
+    best = persistence.held_trial(phase_name)
     if best is None:
         return None
+    case = best.only_case
     return ReusableStage(
         phase=phase_name,
         trial=best.trial,
-        n_iterations=len(persistence.trials(phase_name)),
-        best_objective=best.objective,
-        parameters=physical_values(best.params),
-        params_hash=best.params_hash,
+        n_trials=len(persistence.trials(phase_name)),
+        best_cost=best.cost,
+        parameters=physical_parameters(best),
+        params_hash=None if case is None else case.params_hash,
+        components={} if case is None else dict(case.components),
     )
 
 
@@ -135,9 +117,11 @@ def trials_another_cost_scored(
     for line in persistence.trials(phase_name):
         if line.status != "completed":
             continue
-        if line.params_hash is None:
+        case = line.only_case
+        recorded = None if case is None else case.params_hash
+        if recorded is None:
             unchecked.append(line.trial)
-        elif params_hash(physical_values(line.params), context=cache_context) != line.params_hash:
+        elif params_hash(physical_parameters(line), context=cache_context) != recorded:
             differ.append(line.trial)
     return differ, unchecked
 
@@ -147,7 +131,6 @@ __all__ = [
     "best_parameters_of",
     "completed_phases",
     "fingerprint_matches",
-    "physical_values",
     "reusable_stage",
     "trials_another_cost_scored",
 ]

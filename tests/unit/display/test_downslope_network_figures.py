@@ -2,7 +2,7 @@
 
 The two curves are driven exactly as a session drives them: one row per trial,
 the sampled parameter nested under ``parameters`` and the criterion diagnostics
-nested under ``metrics``, prefixed with the name of the output that emitted
+nested under ``components``, prefixed with the name of the output that emitted
 them.
 
 The confusion map is driven by a run alone, as a ``[display].figures`` entry
@@ -52,7 +52,7 @@ from ._network_comparison_run import (
 )
 from ._render_helpers import relative_luminance
 
-L_REF = 250.0
+H_OBS = 250.0
 
 
 @pytest.fixture
@@ -76,17 +76,17 @@ def _session_run(
 ) -> SimpleNamespace:
     """A Run carrying one calibration session, in the shape a journal writes."""
     rows = []
-    for index, (value, metrics) in enumerate(zip(parameter_values, diagnostics, strict=True)):
+    for index, (value, diagnostic) in enumerate(zip(parameter_values, diagnostics, strict=True)):
         payload = {
-            f"{output}.{key}": number for key, number in metrics.items() if number is not None
+            f"{output}.{key}": number for key, number in diagnostic.items() if number is not None
         }
-        payload[f"{output}.L_ref"] = L_REF
+        payload[f"{output}.h_obs"] = H_OBS
         rows.append(
             {
-                "iteration": index,
+                "trial": index,
                 "parameters": {"K_over_R": {"value": value}},
-                "metrics": payload,
-                "status": "completed" if metrics.get("D_os") is not None else "failed",
+                "components": payload,
+                "status": "completed" if diagnostic.get("D_os") is not None else "failed",
             }
         )
     return SimpleNamespace(
@@ -181,11 +181,11 @@ def test_crossing_bands_are_one_reference_length_either_side(mpl) -> None:
     try:
         assert len(ax.collections) == 2, "one band per curve"
         labels = [text.get_text() for text in ax.get_legend().get_texts()]
-        assert f"one reference length either side ({L_REF:.0f} m)" in labels
+        assert f"one reference length either side ({H_OBS:.0f} m)" in labels
         extents = [collection.get_datalim(ax.transData) for collection in ax.collections]
         # The D_so band spans 100 - 250 clipped at zero, up to 300 + 250.
         assert min(extent.y0 for extent in extents) == pytest.approx(0.0)
-        assert max(extent.y1 for extent in extents) == pytest.approx(300.0 + L_REF)
+        assert max(extent.y1 for extent in extents) == pytest.approx(300.0 + H_OBS)
     finally:
         mpl.close(fig)
 
@@ -226,8 +226,8 @@ def test_crossing_refuses_a_non_positive_parameter(mpl) -> None:
 def test_crossing_names_the_output_when_two_publish_the_same_diagnostic(mpl) -> None:
     run = _crossing_run()
     frame = run.calibration_iterations
-    frame["metrics"] = [
-        {**payload, "other.D_so": 1.0, "other.D_os": 2.0} for payload in frame["metrics"]
+    frame["components"] = [
+        {**payload, "other.D_so": 1.0, "other.D_os": 2.0} for payload in frame["components"]
     ]
     fig, ax = mpl.subplots()
 
@@ -246,7 +246,7 @@ def test_crossing_reads_the_json_blocks_the_index_hands_back(mpl) -> None:
     run = _crossing_run()
     frame = run.calibration_iterations
     frame["parameters"] = [json.dumps(block) for block in frame["parameters"]]
-    frame["metrics"] = [json.dumps(block) for block in frame["metrics"]]
+    frame["components"] = [json.dumps(block) for block in frame["components"]]
     fig, ax = mpl.subplots()
 
     DownslopeDistanceCrossingFigure().render(run, ax)
@@ -775,7 +775,7 @@ def test_bracket_trace_keeps_every_marker_clear_of_its_note(mpl) -> None:
 
 def _two_root_run(tmp_path):
     from ._calibration_journal import (
-        K_SPACE,
+        K_BOUNDS,
         TWO_ROOT_CONFIG,
         TWO_ROOTS,
         journal_run,
@@ -788,7 +788,7 @@ def _two_root_run(tmp_path):
         method="bisection",
         phase="transient_conductivity",
         config=TWO_ROOT_CONFIG,
-        search_space=K_SPACE,
+        bounds=K_BOUNDS,
         best_trial=24,
         root_search=TWO_ROOTS,
     )
@@ -1006,9 +1006,9 @@ def _storage_stage_run() -> SimpleNamespace:
     """
     rows = [
         {
-            "iteration": index,
+            "trial": index,
             "parameters": {"Sy": {"value": value}},
-            "objective_value": 0.2 + 0.01 * index,
+            "cost": 0.2 + 0.01 * index,
             "status": "completed",
         }
         for index, value in enumerate((0.05, 0.08))

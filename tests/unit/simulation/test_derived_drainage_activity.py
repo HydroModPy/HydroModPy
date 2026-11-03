@@ -12,8 +12,8 @@ import pytest
 from hydromodpy.core.field_routing import (
     accumulate_on_downhill_graph,
     active_surface_mask,
+    budget_outflow,
     build_downhill_graph,
-    drain_budget_to_positive_outflow,
 )
 
 from ._test_simulation_api_builders import RunBuilder, runs
@@ -45,7 +45,7 @@ def _open_run(
 def test_drain_budget_to_positive_outflow_sums_negative_layer_fluxes() -> None:
     drn = np.array([[-2.0, 1.0, -0.5], [-3.0, -4.0, 2.0]], dtype="float64")
 
-    outflow = drain_budget_to_positive_outflow(drn, n_cells=3)
+    outflow = budget_outflow(drn, n_cells=3)
 
     np.testing.assert_allclose(outflow, np.array([5.0, 4.0, 0.5]))
 
@@ -106,7 +106,7 @@ def test_the_outflow_drain_is_read_as_the_positive_outflow_of_the_cell(
     # No mesh topology and no stored descent: nothing to route on, so the field
     # is unavailable rather than served as the local flux.
     with pytest.raises(KeyError):
-        runs.reader().query_field(sim_id, "accumulation_flux", 0)
+        runs.reader().query_field(sim_id, "drain_accumulation_flux", 0)
 
 
 def test_the_seepage_mask_is_read_from_the_surface_excess(
@@ -130,7 +130,7 @@ def test_the_seepage_mask_is_read_from_the_surface_excess(
         sim_id,
         "surface_excess",
         0,
-        np.array([0.0, 2.0, -1.0]),
+        np.array([0.0, -2.0, 1.0]),
         n_timesteps=1,
         subgroup="budget",
     )
@@ -157,7 +157,7 @@ def test_the_release_flux_is_read_from_the_drain_and_the_surface_excess(
         sim_id,
         "surface_excess",
         0,
-        np.array([1.0, -3.0, 4.0], dtype="float64"),
+        np.array([-1.0, 3.0, -4.0], dtype="float64"),
         n_timesteps=1,
         subgroup="budget",
     )
@@ -210,7 +210,7 @@ def test_the_release_accumulation_is_routed_on_an_unstructured_mesh_on_read(
         sim_id,
         "surface_excess",
         0,
-        np.array([2.5, 0.0], dtype="float64"),
+        np.array([-2.5, 0.0], dtype="float64"),
         n_timesteps=1,
         subgroup="budget",
     )
@@ -273,6 +273,6 @@ def test_the_accumulation_is_routed_on_an_unstructured_mesh_on_read(
     )
 
     np.testing.assert_allclose(
-        runs.reader().query_field(sim_id, "accumulation_flux", 0),
+        runs.reader().query_field(sim_id, "drain_accumulation_flux", 0),
         np.array([2.5, 2.5]),
     )

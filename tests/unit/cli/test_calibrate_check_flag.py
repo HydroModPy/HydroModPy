@@ -217,16 +217,45 @@ def test_an_unwritten_dem_conditioning_is_not_claimed_by_the_file(tmp_path) -> N
 
 
 def test_only_the_departures_print_at_the_normal_verbosity(tmp_path) -> None:
-    """The default fill is the paper's; tau and the heads default are not."""
+    """The default fill is the paper's; tau, heads, the cut and the veto are not."""
     printed = _check(_protocol_file(tmp_path, end="2002-12-31")).stderr
-    departures = [line for line in printed.splitlines() if "differs from the paper" in line]
-    assert len(departures) == 2
-    assert any("on tau_specific_ratio" in line for line in departures)
+    departures = [line for line in printed.splitlines() if "  differs from the paper" in line]
+    assert len(departures) == 4
     tau_line = next(line for line in departures if "on tau_specific_ratio" in line)
     assert "this file sets" not in tau_line
     assert any("on observed_rasterization" in line for line in departures)
+    assert any("on clip_map_to_catchment" in line for line in departures)
+    assert any("on max_catchment_mismatch" in line for line in departures)
     assert "dem_correc_type" not in printed
-    assert "d_os_support" not in printed
+
+
+def test_a_departure_no_key_brings_back_is_named_and_said_in_verbose(tmp_path) -> None:
+    path = _protocol_file(tmp_path, end="2002-12-31")
+
+    named = next(
+        line for line in _check(path).stderr.splitlines() if "always differs from the paper" in line
+    )
+    verbose = _check(path, verbosity="verbose").stderr
+
+    assert "d_os_support" in named
+    assert "steady_recharge_window" in named
+    assert "always differs from the paper on d_os_support:" in verbose
+    assert "reads the paper on d_os_support" not in verbose
+
+
+def test_a_launch_says_where_it_departs_before_anything_is_solved(tmp_path, caplog) -> None:
+    from hydromodpy.calibration.preflight import refuse_what_the_preflight_refuses
+    from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
+
+    path = _protocol_file(tmp_path, end="2002-12-31")
+    config = get_root_config_provider().from_toml(path)
+
+    with caplog.at_level("INFO"):
+        refuse_what_the_preflight_refuses(config, source=path)
+
+    assert "protocol: matching_hydrographic_network@1.3" in caplog.text
+    assert "differs from the paper on observed_rasterization" in caplog.text
+    assert "always differs from the paper on:" in caplog.text
 
 
 def test_a_value_written_equal_to_the_paper_is_not_a_departure(tmp_path) -> None:
@@ -235,16 +264,19 @@ def test_a_value_written_equal_to_the_paper_is_not_a_departure(tmp_path) -> None
         'stream_geometry_path = "streams.gpkg"',
         'stream_geometry_path = "streams.gpkg"\ntau_specific_ratio = 0.0\n'
         'observed_rasterization = "crossing"\n'
-        "diagonal_neighbors = true",
+        "diagonal_neighbors = true\n"
+        "clip_map_to_catchment = false\n"
+        "[calibration.outputs.seepage_network.verdict]\n"
+        "max_catchment_mismatch = false",
     )
     path.write_text(text, encoding="utf-8")
 
     printed = _check(path).stderr
     verbose = _check(path, verbosity="verbose").stderr
 
-    assert "differs from the paper" not in printed
+    assert "  differs from the paper" not in printed
     assert "as the paper on diagonal_neighbors" in verbose
-    assert "this file sets True" in verbose
+    assert "this file sets 0.0" in verbose
 
 
 def test_options_written_as_the_recipe_runs_them_are_not_away_from_it(tmp_path) -> None:

@@ -31,6 +31,7 @@ def methods_paragraph(
     conditional_widths: Mapping[str, str] | None = None,
     absent_widths: Mapping[str, str] | None = None,
     steady_window: Mapping[str, object] | None = None,
+    version: str | None = None,
 ) -> str:
     """Return the Methods prose for one calibration that ran.
 
@@ -42,6 +43,8 @@ def methods_paragraph(
     publication's own default is not read as having left it. ``options`` is the
     protocol options moved off the recipe, and ``backend`` the solver, whose
     support status is stated when it is not one this repository tests.
+
+    ``version`` is the version the file pinned, the installed one when None.
 
     ``steady_window`` carries the span stage one actually averaged its recharge
     over -- ``start``, ``end``, ``days``, and ``mean_recharge_m_s`` when it is
@@ -70,7 +73,7 @@ def methods_paragraph(
     )
     parts.append(
         f"Hydraulic properties were calibrated with the {protocol.title!r} protocol "
-        f"({protocol.name} version {protocol.version}), after {citation}."
+        f"({protocol.name} version {version or protocol.version}), after {citation}."
     )
 
     ran = [str(stage) for stage in stages_that_ran]
@@ -121,6 +124,14 @@ def methods_paragraph(
             if chosen is not None
         )
         parts.append(f"This run departs from the published method as follows: {listed}.")
+
+    always = "; ".join(
+        f"{deviation.key}: {deviation.here}"
+        for deviation in protocol.deviations
+        if deviation.always
+    )
+    if always:
+        parts.append(f"This implementation departs from it in every run: {always}.")
 
     if options:
         listed = ", ".join(

@@ -10,6 +10,7 @@ import numpy as np
 
 from hydromodpy.core.budget_terms import BudgetKeep
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.scope import DOMAIN
 from hydromodpy.core.units.time import CF_EPOCH, CF_TIME_UNITS, cf_time_axis_seconds
 from hydromodpy.core.vertical_column import VERTICAL_LAYOUT_COLUMN_FRACTIONS
 from hydromodpy.solver.boussinesq.export_payload import first_period_snapshot
@@ -151,13 +152,14 @@ class BoussinesqOutputAdapter:
         cell_area_m2: np.ndarray | None,
         first_snapshot: int = 0,
     ) -> dict[str, np.ndarray]:
-        """Return the per-cell budget stacks in canonical solver orientation.
+        """Return the per-cell budget stacks with the sign every solver stores.
 
         Each entry is ``(n_timesteps, n_cells)`` in m3/s, one row per stress
-        period from ``first_snapshot`` on, and keeps the sign the Boussinesq
-        residual uses: ``recharge`` and ``well`` are positive when water enters
-        the aquifer, ``drain``, ``surface_excess`` and ``constant_head`` are
-        positive when water leaves it.
+        period from ``first_snapshot`` on, positive when water enters the aquifer
+        and negative when it leaves, as MODFLOW signs a budget. The Boussinesq
+        residual counts ``drain``, ``surface_excess`` and ``constant_head``
+        positive when water leaves, so those three are negated here, once, and
+        the state group keeps the solver histories as the solver wrote them.
         """
         area = None if cell_area_m2 is None else np.asarray(cell_area_m2, dtype=float).reshape(-1)
         if area is not None and area.size != int(n_cells):
@@ -192,19 +194,19 @@ class BoussinesqOutputAdapter:
                 raise KeyError(f"Boussinesq {label} history requires cell_area_m2")
             return rate * area.reshape(1, -1)
 
+        def _leaving(stack: np.ndarray | None) -> np.ndarray | None:
+            return None if stack is None else -stack
+
         candidates = {
             "recharge": _rate_to_flux("recharge_rate_history_m_s", "recharge"),
-            "drain": _history("drainage_flux_history_m3_s"),
+            "drain": _leaving(_history("drainage_flux_history_m3_s")),
             "well": _history("well_flux_history_m3_s"),
-            "surface_excess": _rate_to_flux("saturation_excess_history_m_s", "saturation excess"),
-            "constant_head": _history("prescribed_head_flux_history_m3_s"),
+            "surface_excess": _leaving(
+                _rate_to_flux("saturation_excess_history_m_s", "saturation excess")
+            ),
+            "constant_head": _leaving(_history("prescribed_head_flux_history_m3_s")),
         }
         return {name: stack for name, stack in candidates.items() if stack is not None}
-
-    # Components whose positive values leave the aquifer. The lumped budget
-    # follows the MODFLOW convention (flux_in = what enters the model), so
-    # these are flipped before the in/out split.
-    _OUTFLOW_POSITIVE_COMPONENTS = frozenset({"drain", "surface_excess", "constant_head"})
 
     @staticmethod
     def _write_budget_table(
@@ -217,19 +219,16 @@ class BoussinesqOutputAdapter:
         """Write the lumped per-component budget rows (m3/s) for every timestep."""
         records: list[dict[str, Any]] = []
         for name, stack in components.items():
-            signed = (
-                -stack if name in BoussinesqOutputAdapter._OUTFLOW_POSITIVE_COMPONENTS else stack
-            )
             for t in range(int(n_timesteps)):
-                step = signed[t]
+                step = stack[t]
                 records.append(
                     {
                         "timestep": t,
-                        "zone_id": "0",
+                        "zone_id": DOMAIN,
                         "component": name,
                         "flux_in": float(np.maximum(step, 0.0).sum()),
                         "flux_out": abs(float(np.minimum(step, 0.0).sum())),
-                        "unit": "m3/s",
+                        "unit": "m3 s-1",
                     }
                 )
         if records:
@@ -254,10 +253,7 @@ class BoussinesqOutputAdapter:
         for name, stack in components.items():
             if not budget_terms.keeps(name):
                 continue
-            # The registry signs a constant-head flux positive into the aquifer,
-            # as MODFLOW writes it; the solver signs it positive out.
-            signed = -stack if name == "constant_head" else stack
-            values = signed.reshape(signed.shape[0], 1, -1) if name == "well" else signed
+            values = stack.reshape(stack.shape[0], 1, -1) if name == "well" else stack
             store.write_field_stack(sim_id, name, values, subgroup="budget")
             written.append(name)
 

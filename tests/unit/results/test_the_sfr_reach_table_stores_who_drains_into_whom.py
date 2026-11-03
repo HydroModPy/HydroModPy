@@ -17,6 +17,7 @@ from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.run import Run
 from hydromodpy.results.run.sfr import sfr_reach_links
 from hydromodpy.results.storage.sealing import seal_completed
+from hydromodpy.solver.modflow6.extractors.flow import _reach_row
 from hydromodpy.solver.modflow6.extractors.sfr import SfrObsSpec, SfrReachGeometry
 from tests._helpers.run_stores import open_run_store
 
@@ -65,23 +66,47 @@ def test_a_sidecar_without_the_links_is_refused_not_read_as_outlets() -> None:
         )
 
 
-def test_the_links_come_back_from_the_stored_table(tmp_path: Path) -> None:
-    rows = [
-        {"network_id": "main", **REACH, "ifno": 0, "downstream": [1]},
-        {"network_id": "main", **REACH, "ifno": 1, "downstream": []},
-    ]
-    links = _links_of_sealed(tmp_path / "project", rows)
+def _row(reach: int, downstream: list[int]) -> dict:
+    fields = {name: value for name, value in REACH.items() if name != "ifno"}
+    return {
+        "reach_id": f"main:{reach}",
+        "network_id": "main",
+        "reach": reach,
+        **fields,
+        "downstream": downstream,
+    }
 
-    assert list(links["ifno"]) == [0, 1]
-    assert [list(down) for down in links["downstream"]] == [[1], []]
+
+def test_the_links_come_back_from_the_stored_table(tmp_path: Path) -> None:
+    links = _links_of_sealed(tmp_path / "project", [_row(1, [2]), _row(2, [])])
+
+    assert list(links["reach"]) == [1, 2]
+    assert list(links["reach_id"]) == ["main:1", "main:2"]
+    assert [list(down) for down in links["downstream"]] == [[2], []]
     assert list(links["rlen"]) == [100.0, 100.0]
+
+
+def test_a_row_numbers_the_reach_as_the_toml_does() -> None:
+    reach = SfrReachGeometry.from_mapping({**REACH, "ifno": 2, "downstream": [3, 4]})
+
+    row = _reach_row("main", reach)
+
+    assert (row["reach_id"], row["reach"], row["downstream"]) == ("main:3", 3, [4, 5])
+    assert "ifno" not in row
 
 
 def test_a_run_without_a_stream_network_has_no_links(tmp_path: Path) -> None:
     links = _links_of_sealed(tmp_path / "project", None)
 
     assert links.empty
-    assert list(links.columns) == ["network_id", "ifno", "rlen", "ustrf", "downstream"]
+    assert list(links.columns) == [
+        "reach_id",
+        "network_id",
+        "reach",
+        "rlen",
+        "ustrf",
+        "downstream",
+    ]
 
 
 def test_the_builder_writes_the_links_of_every_reach_into_the_sidecar() -> None:

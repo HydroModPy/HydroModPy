@@ -106,6 +106,7 @@ from hydromodpy.results.catalog.index_schema import (
     INDEX_SCHEMA_VERSION,
     META_SCHEMA_VERSION,
 )
+from hydromodpy.results.checks import CHECKS_SCHEMA
 from hydromodpy.results.heartbeat import (
     HEARTBEAT_SCHEMA,
     Heartbeat,
@@ -143,6 +144,7 @@ from hydromodpy.results.publication import (
 )
 from hydromodpy.results.record import (
     INPUTS_SCHEMA,
+    PROVENANCE_VERSION,
     InputsDocument,
     RunProvenance,
     RunRecord,
@@ -406,7 +408,7 @@ DOCUMENTS: tuple[Document, ...] = (
         "provenance.json",
         lambda t: t.run / RUN_PROVENANCE_FILENAME,
         "provenance_version",
-        RUN_RECORD_MANIFEST_VERSION,
+        PROVENANCE_VERSION,
         lambda t: read_provenance(t.run),
     ),
     Document(
@@ -691,6 +693,7 @@ OTHER_WINDOWS: tuple[tuple[str, str, object], ...] = (
     ("hydromodpy.results.zarr_store.constants", "ZARR_VERSIONS", ZARR_SCHEMA_VERSION),
     ("hydromodpy.results.storage.parquet_schemas", "PARQUET_VERSIONS", PARQUET_SCHEMA_VERSION),
     ("hydromodpy.data.provenance.lockfile", "LOCKFILE_VERSIONS", LOCKFILE_SCHEMA),
+    ("hydromodpy.results.checks", "CHECKS_VERSIONS", CHECKS_SCHEMA),
 )
 
 
@@ -799,7 +802,7 @@ def test_every_family_declares_both_bounds_and_they_are_equal_at_2_0_0(
         (2, (2, 0, 0)),
         ("3", (3, 0, 0)),
         ("v2", (2, 0, 0)),
-        ("hydromodpy.session.v3", (3, 0, 0)),
+        ("hydromodpy.session.v4", (4, 0, 0)),
         ("2.0.0", (2, 0, 0)),
         ("2.1", (2, 1, 0)),
     ],
@@ -845,7 +848,17 @@ FUTURE_KEYS: tuple[tuple[str, tuple[tuple[Any, ...], ...]], ...] = (
     ("annotations.json", ((),)),
     ("figures/index.json", ((), ("entries", 0), ("entries", 0, "identity"))),
     ("<file>.meta.json", ((), ("identity",))),
-    ("session.json", ((), ("best",))),
+    (
+        "session.json",
+        (
+            (),
+            ("best",),
+            ("best", "cases", SESSION),
+            ("cases", SESSION),
+            ("bounds", "K"),
+            ("windows", "calibration"),
+        ),
+    ),
     ("phases/<p>/session.json", ((),)),
     ("plan/<hash>/plan.json", ((),)),
     ("PUBLICATION.json", ((), ("source",))),
@@ -873,12 +886,24 @@ def test_a_future_key_at_the_current_version_reads(
     document.read(tree)
 
 
-@pytest.mark.parametrize("name", ["trials.jsonl", "published.jsonl"])
-def test_a_future_key_on_a_line_of_a_journal_reads(name: str, tree: Tree) -> None:
+@pytest.mark.parametrize(
+    ("name", "path"),
+    [
+        ("trials.jsonl", ()),
+        ("trials.jsonl", ("params", "K")),
+        ("trials.jsonl", ("cases", SESSION)),
+        ("published.jsonl", ()),
+    ],
+)
+def test_a_future_key_on_a_line_of_a_journal_reads(
+    name: str, path: tuple[Any, ...], tree: Tree
+) -> None:
     document = next(item for item in DOCUMENTS if item.name == name)
     target = document.path(tree)
     lines = target.read_text(encoding="utf-8").splitlines()
-    lines[0] = json.dumps({**json.loads(lines[0]), "added_by_a_later_version": 1})
+    line = json.loads(lines[0])
+    _nested(line, path)["added_by_a_later_version"] = 1
+    lines[0] = json.dumps(line)
     target.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     document.read(tree)
@@ -1472,7 +1497,7 @@ def test_a_future_key_of_a_trial_survives_its_link_to_a_run(tree: Tree) -> None:
     CalibrationPersistence(tree.session).link_trial(number, sim_id=RUN_ID, rel_dir=RUN_REL)
 
     last = json.loads(target.read_text(encoding="utf-8").splitlines()[-1])
-    assert (last["sim_id"], last[FUTURE_KEY]) == (RUN_ID, 1)
+    assert (last["cases"][SESSION]["sim_id"], last[FUTURE_KEY]) == (RUN_ID, 1)
 
 
 def test_a_model_still_refuses_an_unknown_key_when_it_writes() -> None:

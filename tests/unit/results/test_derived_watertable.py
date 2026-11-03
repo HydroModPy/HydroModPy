@@ -8,7 +8,7 @@ import xarray as xr
 
 from hydromodpy.core.field_routing import seepage_mask
 from hydromodpy.results.derive.derived import (
-    fluxes_from_budget,
+    budget_flux_per_area,
     watertable_depth,
     watertable_elevation,
 )
@@ -53,7 +53,7 @@ def test_seepage_mask_marks_overflowing_cells():
 def test_seepage_mask_prefers_surface_excess_over_geometry():
     top = np.array([10.0, 10.0, 10.0])
     head = np.array([9.9, 10.0, 10.5])
-    excess = np.array([1e-6, 0.0, 0.0])
+    excess = np.array([-1e-6, 0.0, 0.0])
     out = seepage_mask(watertable=head, topography=top, surface_excess=excess)
     np.testing.assert_array_equal(out, [1, 0, 0])
 
@@ -66,7 +66,7 @@ def test_seepage_mask_requires_an_input():
 def test_fluxes_from_budget_per_unit_area():
     flux = np.array([100.0, 0.0, -50.0])
     area = np.array([10.0, 10.0, 10.0])
-    out = fluxes_from_budget(flux, area)
+    out = budget_flux_per_area(flux, area)
     assert out[2] < 0
     np.testing.assert_array_almost_equal(out, [10.0, 0.0, -5.0])
 
@@ -74,7 +74,7 @@ def test_fluxes_from_budget_per_unit_area():
 def test_fluxes_from_budget_zero_area_returns_nan():
     flux = np.array([100.0, 0.0])
     area = np.array([10.0, 0.0])
-    out = fluxes_from_budget(flux, area)
+    out = budget_flux_per_area(flux, area)
     assert out[0] == pytest.approx(10.0)
     assert np.isnan(out[1])
 

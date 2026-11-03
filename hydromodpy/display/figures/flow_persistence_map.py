@@ -6,10 +6,12 @@ collapses the whole record onto one map: dark where the channel ran all year,
 pale where it only ran at the wettest steps, and out of the ramp entirely
 where nothing ever reached the cell.
 
-"Flowing" is the definition the network criterion scores: the downstream
-closure of the seepage cells on the criterion graph, above the visible flow.
-The persistency index of Abherve et al. (2025) is the same share, over the
-whole record rather than over one cycle.
+"Flowing" is the definition the two-bound mode of the network criterion scores:
+the downstream closure of the seepage cells on the criterion graph, above the
+visible flow. The visible flow exists in a transient run only: a search in one
+steady state scores the closure alone, so this map and that score do not read the
+same network. The persistency index of Abherve et al. (2025) is the same share,
+over the whole record rather than over one cycle.
 """
 
 from __future__ import annotations

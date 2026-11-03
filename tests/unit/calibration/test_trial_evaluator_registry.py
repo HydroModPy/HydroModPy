@@ -53,9 +53,9 @@ def _session(project_root: Path):
         config_hash="c" * 64,
         hydromodpy_version="2.0.0a5",
         method="grid",
-        objective_name="rmse",
-        search_space={},
-        objective_window=None,
+        cost_name="rmse",
+        bounds={},
+        windows={},
     )
     return persistence
 
@@ -311,11 +311,11 @@ class TestASearchRunsOnANamedEvaluator:
             project_root=tmp_path,
         ).to_dict()
 
-        assert report["n_iterations"] == 5
+        assert report["n_trials"] == 5
         # Five grid points over [1e-6, 1e-2]; the third sits within 1e-6 of the
         # target the evaluator was built with.
         assert report["best_parameters"]["k"] == pytest.approx(5e-3, abs=1e-5)
-        assert report["best_objective"] < 1e-11
+        assert report["best_cost"] < 1e-11
 
     def test_the_setup_of_the_model_it_replaces_is_never_paid_for(
         self, registered_quadratic, monkeypatch, tmp_path
@@ -340,9 +340,9 @@ class TestASearchRunsOnANamedEvaluator:
             "bounds = [1e-6, 1e-2]\n"
         )
 
-        report = cli_runner.run_calibration_cli(document, project="test", return_report=True)
+        report = cli_runner.run_calibration_cli(document, project="test")
 
-        assert report.to_dict()["n_iterations"] == 3
+        assert report.to_dict()["n_trials"] == 3
 
     def test_the_project_root_the_document_declares_is_still_honoured(
         self, registered_quadratic, tmp_path
@@ -370,7 +370,7 @@ class TestASearchRunsOnANamedEvaluator:
             "bounds = [1e-6, 1e-2]\n"
         )
 
-        report = run_calibration_cli(document, project="test", return_report=True)
+        report = run_calibration_cli(document, project="test")
 
         assert Path(report.to_dict()["workspace"]) == root
         assert not list(tmp_path.glob("*.duckdb"))

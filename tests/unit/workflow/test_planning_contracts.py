@@ -160,12 +160,12 @@ def test_the_active_network_figure_keeps_the_network_criterion_terms() -> None:
     from hydromodpy.display import figure_registry
 
     spec = figure_registry.get("simulated_active_network").spec
-    assert spec.required_fields == ("accumulation_flux",)
+    assert spec.required_fields == ("drain_accumulation_flux",)
     assert "release_flux" in spec.optional_fields
 
     keep = _keep(display=DisplayConfig(figures=["simulated_active_network"]))
 
-    assert keep.terms >= frozenset(budget_terms_for("accumulation_flux"))
+    assert keep.terms >= frozenset(budget_terms_for("drain_accumulation_flux"))
     assert keep.terms >= frozenset(budget_terms_for("release_flux"))
 
 

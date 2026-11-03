@@ -60,8 +60,9 @@ def sample_declared_points(ctx: WorkflowContext, *, store: RunStore) -> int:
 def score_run_under_its_rule(ctx: WorkflowContext, *, store: RunStore) -> None:
     """Score the series of the run against its observations and record the result.
 
-    The rows go to the metrics of the facts, the NSE at the rule station to
-    their headline score, both sealed by the record. An observed gauge that
+    The rows go through the one writer of a metric, into the facts and the
+    ``metrics`` table, the NSE at the rule station to the headline score, all
+    sealed by the record. An observed gauge that
     meets no simulated series fails the non-fatal check
     :data:`~hydromodpy.results.fit_metrics.UNSCORED_OBSERVATIONS_CHECK`, which
     the README of the run prints. A score that cannot be
@@ -79,7 +80,7 @@ def score_run_under_its_rule(ctx: WorkflowContext, *, store: RunStore) -> None:
         logger.warning("Could not score the run against its observations", exc_info=True)
         return
     for row in scores.rows:
-        store.facts.put_metric(row)
+        store.write_metric(store.sim_id, row)
     store.facts.score = scores.score
     message = scores.unscored_message()
     if message is not None:

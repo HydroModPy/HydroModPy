@@ -225,7 +225,7 @@ Field registry
 --------------
 
 Source: ``hydromodpy/results/field_registry.py``. ``FIELD_REGISTRY`` maps a logical
-field name (``head``, ``watertable_depth``, ``accumulation_flux``, ...) to a
+field name (``head``, ``watertable_depth``, ``drain_accumulation_flux``, ...) to a
 ``FieldDescriptor``: its shape, the Zarr path inside the run store, and its CF
 metadata (standard name, units, coordinates). ``get``, ``has``, ``all_names``,
 ``all_zarr_paths`` and ``cf_attrs`` read it. ``hmp.read``, the Zarr writers, the

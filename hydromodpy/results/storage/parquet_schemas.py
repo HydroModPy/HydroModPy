@@ -10,7 +10,7 @@ incoming records to the matching schema before handing them to
 
 Schema-level metadata embeds ``hmp.schema``, ``hmp.schema_version``, ``hmp.pk``
 and CF ``Conventions``. Per-field metadata documents the physical unit and a
-short description. ``PARQUET_SCHEMA_VERSION`` is ``v2``. A table is read back with
+short description. ``PARQUET_SCHEMA_VERSION`` is ``v3``. A table is read back with
 :func:`~hydromodpy.results.storage.parquet_io.read_checked_table`, which refuses a
 version outside :data:`PARQUET_VERSIONS`, for a read and for an append alike. A
 column this code does not declare is additive: it reads, and an append keeps it.
@@ -25,10 +25,10 @@ import pyarrow as pa
 
 from hydromodpy.core.io.document_version import VersionWindow, check_version
 
-PARQUET_SCHEMA_VERSION: Final[str] = "v2"
+PARQUET_SCHEMA_VERSION: Final[str] = "v3"
 """Current Parquet schema generation. Stored in KV metadata of every file."""
 
-PARQUET_VERSIONS: Final[VersionWindow] = VersionWindow(oldest="v2", current=PARQUET_SCHEMA_VERSION)
+PARQUET_VERSIONS: Final[VersionWindow] = VersionWindow(oldest="v3", current=PARQUET_SCHEMA_VERSION)
 """Versions of a table of a run this code reads."""
 
 CF_CONVENTIONS: Final[str] = "CF-1.11"
@@ -64,14 +64,28 @@ TIMESERIES_SCHEMA: Final[pa.Schema] = pa.schema(
         pa.field(
             "station_id",
             pa.string(),
-            nullable=True,
-            metadata=_field_meta(description="Observation station id, null for global series"),
+            nullable=False,
+            metadata=_field_meta(
+                description=(
+                    "Gauge id, reach_id of sfr_reaches for a stream reach, or catchment "
+                    "for the whole catchment"
+                )
+            ),
         ),
         pa.field(
             "variable",
             pa.string(),
             nullable=False,
-            metadata=_field_meta(description="Physical variable name"),
+            metadata=_field_meta(description="Physical variable name, the same for both sources"),
+        ),
+        pa.field(
+            "source",
+            pa.string(),
+            nullable=False,
+            metadata=_field_meta(
+                allowed="simulated|observed",
+                description="Where the value comes from: the run or a measurement",
+            ),
         ),
         pa.field(
             "component",
@@ -101,21 +115,12 @@ TIMESERIES_SCHEMA: Final[pa.Schema] = pa.schema(
             "unit",
             pa.string(),
             nullable=True,
-            metadata=_field_meta(description="SI unit string"),
-        ),
-        pa.field(
-            "qflag",
-            pa.string(),
-            nullable=True,
-            metadata=_field_meta(
-                allowed="simulated|observed|interpolated|filled",
-                description="Quality flag for the data point",
-            ),
+            metadata=_field_meta(description="Unit of the value, in udunits spelling"),
         ),
     ],
     metadata=_schema_metadata(
         "timeseries",
-        pk=("sim_id", "station_id", "variable", "timestep"),
+        pk=("sim_id", "station_id", "variable", "source", "timestep"),
     ),
 )
 """Per-simulation timeseries observations and outputs."""
@@ -134,7 +139,12 @@ BUDGETS_SCHEMA: Final[pa.Schema] = pa.schema(
             "zone_id",
             pa.string(),
             nullable=False,
-            metadata=_field_meta(description="Sub-domain identifier or __global__"),
+            metadata=_field_meta(
+                description=(
+                    "Area the row sums: catchment, domain, or sfr:<network> for the "
+                    "exchange of one stream network"
+                )
+            ),
         ),
         pa.field(
             "component",
@@ -146,13 +156,13 @@ BUDGETS_SCHEMA: Final[pa.Schema] = pa.schema(
             "flux_in",
             pa.float64(),
             nullable=True,
-            metadata=_field_meta(unit="m3/s", description="Inflow flux"),
+            metadata=_field_meta(unit="m3 s-1", description="Inflow flux"),
         ),
         pa.field(
             "flux_out",
             pa.float64(),
             nullable=True,
-            metadata=_field_meta(unit="m3/s", description="Outflow flux"),
+            metadata=_field_meta(unit="m3 s-1", description="Outflow flux"),
         ),
         pa.field(
             "unit",
@@ -271,8 +281,40 @@ METRICS_SCHEMA: Final[pa.Schema] = pa.schema(
         pa.field(
             "value",
             pa.float64(),
-            nullable=False,
-            metadata=_field_meta(description="Numerical metric value"),
+            nullable=True,
+            metadata=_field_meta(
+                description="Numerical metric value, null when it cannot be computed"
+            ),
+        ),
+        pa.field(
+            "window_name",
+            pa.string(),
+            nullable=True,
+            metadata=_field_meta(
+                description="Name of the period, 'metrics' for [metrics] window; "
+                "null on a number of the run itself"
+            ),
+        ),
+        pa.field(
+            "window_role",
+            pa.string(),
+            nullable=True,
+            metadata=_field_meta(
+                allowed="calibration|validation|evaluation",
+                description="What the period is for; another word reads as it is",
+            ),
+        ),
+        pa.field(
+            "window_start",
+            pa.date32(),
+            nullable=True,
+            metadata=_field_meta(description="First day of the period"),
+        ),
+        pa.field(
+            "window_end",
+            pa.date32(),
+            nullable=True,
+            metadata=_field_meta(description="Last day of the period, included"),
         ),
         pa.field(
             "n_samples",
@@ -299,27 +341,21 @@ METRICS_SCHEMA: Final[pa.Schema] = pa.schema(
             ),
         ),
         pa.field(
+            "metric_rule_version",
+            pa.string(),
+            nullable=True,
+            metadata=_field_meta(description="Version of the rule of the score"),
+        ),
+        pa.field(
             "valid_from",
             pa.timestamp("ms", tz="UTC"),
             nullable=False,
             metadata=_field_meta(description="Validity start, UTC"),
         ),
-        pa.field(
-            "period_start",
-            pa.timestamp("ms", tz="UTC"),
-            nullable=True,
-            metadata=_field_meta(description="Window start of the evaluation"),
-        ),
-        pa.field(
-            "period_end",
-            pa.timestamp("ms", tz="UTC"),
-            nullable=True,
-            metadata=_field_meta(description="Window end of the evaluation"),
-        ),
     ],
     metadata=_schema_metadata(
         "metrics",
-        pk=("sim_id", "station_id", "variable", "metric"),
+        pk=("sim_id", "station_id", "variable", "metric", "window_name"),
     ),
 )
 """Per-simulation calibration and validation metrics."""
@@ -338,7 +374,9 @@ PARAMETERS_SCHEMA: Final[pa.Schema] = pa.schema(
             "zone_id",
             pa.string(),
             nullable=False,
-            metadata=_field_meta(description="Zone the value applies to, or __global__"),
+            metadata=_field_meta(
+                description="Zone the value applies to, or catchment for a uniform parameter"
+            ),
         ),
         pa.field(
             "value",
@@ -481,6 +519,18 @@ def _checks_fields() -> list[pa.Field]:
             metadata=_field_meta(description="Last day of the window that session scored"),
         ),
         pa.field(
+            "calibrated_by_metric",
+            pa.string(),
+            nullable=True,
+            metadata=_field_meta(description="Name of the cost of the case of this run"),
+        ),
+        pa.field(
+            "calibrated_by_cost",
+            pa.float64(),
+            nullable=True,
+            metadata=_field_meta(description="Cost of the case of this run at its trial"),
+        ),
+        pa.field(
             "validities_failed",
             pa.string(),
             nullable=True,
@@ -599,53 +649,26 @@ SIMULATION_SCHEMA: Final[pa.Schema] = pa.schema(
             ),
         ),
         pa.field(
-            "nse_station",
+            "score_station",
             pa.string(),
             nullable=True,
-            metadata=_field_meta(description="Station the NSE was read at"),
+            metadata=_field_meta(description="Station the headline score was read at"),
         ),
         pa.field(
-            "nse_variable",
+            "score_variable",
             pa.string(),
             nullable=True,
-            metadata=_field_meta(description="Variable the NSE was read on"),
+            metadata=_field_meta(description="Variable the headline score was read on"),
         ),
-        pa.field("nse_window_start", pa.date32(), nullable=True),
-        pa.field("nse_window_end", pa.date32(), nullable=True),
-        pa.field("nse_n", pa.int64(), nullable=True),
         pa.field("metric_rule_version", pa.string(), nullable=True),
-        pa.field(
-            "objective_name",
-            pa.string(),
-            nullable=True,
-            metadata=_field_meta(description="Objective of the session that promoted the run"),
-        ),
-        pa.field(
-            "objective_value",
-            pa.float64(),
-            nullable=True,
-            metadata=_field_meta(description="Value of that objective for this run"),
-        ),
-        pa.field(
-            "objective_window_start",
-            pa.date32(),
-            nullable=True,
-            metadata=_field_meta(description="First day the session scored the objective on"),
-        ),
-        pa.field(
-            "objective_window_end",
-            pa.date32(),
-            nullable=True,
-            metadata=_field_meta(description="Last day the session scored the objective on"),
-        ),
     ],
     metadata=_schema_metadata("simulation", pk=("sim_id",)),
 )
 """The one-row index payload of a run, written at seal time from its ``RunRecord``.
 
 What the ``simulations`` index table holds about a run and means outside SQL,
-plus the site, the case, the attempt, the flattened ``checks``, the headline
-metric under its rule and the objective of the promoting session. Written
+plus the site, the case, the attempt, the flattened ``checks`` and the headline
+metric under its rule. Written
 for a completed run only: ``status`` is always ``completed``. The site
 fingerprint is ``site_fingerprint``, the only one. No label: the label is a function of reading. Not a
 Parquet *view* either: one file per run, read back whole by the indexer.
@@ -803,16 +826,31 @@ SFR_REACHES_SCHEMA: Final[pa.Schema] = pa.schema(
     [
         pa.field("sim_id", pa.string(), nullable=False),
         pa.field(
+            "reach_id",
+            pa.string(),
+            nullable=False,
+            metadata=_field_meta(
+                description=(
+                    "Id of the reach, <network_id>:<reach>; its station_id in the timeseries table"
+                )
+            ),
+        ),
+        pa.field(
             "network_id",
             pa.string(),
             nullable=False,
             metadata=_field_meta(description="Id of the SFR network the reach belongs to"),
         ),
         pa.field(
-            "ifno",
+            "reach",
             pa.int32(),
             nullable=False,
-            metadata=_field_meta(description="Zero-based reach number, increasing downstream"),
+            metadata=_field_meta(
+                description=(
+                    "Reach number, from 1 and increasing downstream, as the TOML "
+                    "upstream and downstream lists write it"
+                )
+            ),
         ),
         pa.field(
             "cell2d",
@@ -887,13 +925,13 @@ SFR_REACHES_SCHEMA: Final[pa.Schema] = pa.schema(
             pa.list_(pa.int32()),
             nullable=False,
             metadata=_field_meta(
-                description="Reach numbers this reach drains into; empty at an outlet"
+                description="Numbers of the reaches this reach drains into; empty at an outlet"
             ),
         ),
     ],
     metadata=_schema_metadata(
         "sfr_reaches",
-        pk=("sim_id", "network_id", "ifno"),
+        pk=("sim_id", "reach_id"),
     ),
 )
 """Resolved geometry of every SFR reach, as written into the MODFLOW package.
@@ -913,8 +951,7 @@ SOIL_BUDGET_SCHEMA: Final[pa.Schema] = pa.schema(
             nullable=False,
             metadata=_field_meta(
                 description=(
-                    'Soil column as "<cell_index>.<class_index>", or "_watershed" '
-                    "for the basin mean"
+                    'Soil column as "<cell_index>.<class_index>", or "catchment" for the basin mean'
                 )
             ),
         ),
@@ -951,11 +988,12 @@ SOIL_BUDGET_SCHEMA: Final[pa.Schema] = pa.schema(
             ),
         ),
         pa.field(
-            "ru_mm",
+            "available_water_capacity",
             pa.float64(),
             nullable=False,
             metadata=_field_meta(
-                description="Soil available water capacity, mm; weighted mean on the basin row"
+                unit="mm",
+                description="Soil available water capacity; weighted mean on the basin row",
             ),
         ),
         pa.field(
@@ -978,88 +1016,99 @@ SOIL_BUDGET_SCHEMA: Final[pa.Schema] = pa.schema(
             ),
         ),
         pa.field(
-            "precipitation_mm",
+            "precipitation",
             pa.float64(),
             nullable=False,
-            metadata=_field_meta(description="Precipitation, mm over the days of the row"),
+            metadata=_field_meta(unit="mm", description="Precipitation over the days of the row"),
         ),
         pa.field(
-            "etp_mm",
+            "etp",
             pa.float64(),
             nullable=False,
-            metadata=_field_meta(description="ETP as loaded, before kc, mm"),
+            metadata=_field_meta(unit="mm", description="ETP as loaded, before kc"),
         ),
         pa.field(
-            "etr_mm",
+            "etr",
             pa.float64(),
             nullable=False,
-            metadata=_field_meta(description="Actual evapotranspiration of the soil, mm"),
+            metadata=_field_meta(unit="mm", description="Actual evapotranspiration of the soil"),
         ),
         pa.field(
-            "residual_etp_mm",
+            "residual_etp",
             pa.float64(),
             nullable=False,
-            metadata=_field_meta(description="ETP the soil left unmet, mm"),
+            metadata=_field_meta(unit="mm", description="ETP the soil left unmet"),
         ),
         pa.field(
-            "recharge_mm",
+            "recharge",
             pa.float64(),
             nullable=False,
-            metadata=_field_meta(description="Recharge sent to the water table, mm"),
+            metadata=_field_meta(unit="mm", description="Recharge sent to the water table"),
         ),
         pa.field(
-            "runoff_mm",
+            "runoff",
             pa.float64(),
             nullable=False,
             metadata=_field_meta(
-                description="Runoff of the sealed share plus the routed curve-number share, mm"
+                unit="mm",
+                description="Runoff of the sealed share plus the routed curve-number share",
             ),
         ),
         pa.field(
-            "runoff_cn_mm",
+            "runoff_cn",
             pa.float64(),
             nullable=False,
             metadata=_field_meta(
-                description="Curve-number share of runoff alone, mm; 0 when curve_number is off"
+                unit="mm",
+                description="Curve-number share of runoff alone; 0 when curve_number is off",
             ),
         ),
         pa.field(
-            "soil_storage_change_mm",
+            "soil_storage_change",
             pa.float64(),
             nullable=False,
-            metadata=_field_meta(description="Change of the soil storage over the row, mm"),
+            metadata=_field_meta(unit="mm", description="Change of the soil storage over the row"),
         ),
         pa.field(
-            "transit_storage_change_mm",
+            "transit_storage_change",
             pa.float64(),
             nullable=False,
-            metadata=_field_meta(description="Change of the transit store over the row, mm"),
+            metadata=_field_meta(unit="mm", description="Change of the transit store over the row"),
         ),
         pa.field(
-            "cn_storage_change_mm",
+            "cn_storage_change",
             pa.float64(),
             nullable=False,
             metadata=_field_meta(
-                description="Change of the curve-number routing store over the row, mm; "
-                "0 when curve_number is off"
+                unit="mm",
+                description="Change of the curve-number routing store over the row; "
+                "0 when curve_number is off",
             ),
         ),
         pa.field(
-            "lag_storage_change_mm",
+            "lag_storage_change",
             pa.float64(),
             nullable=False,
             metadata=_field_meta(
-                description="Change of the runoff_lag delay line over the row, mm; "
-                "0 when runoff_lag is 0"
+                unit="mm",
+                description="Change of the runoff_lag delay line over the row; "
+                "0 when runoff_lag is 0",
             ),
         ),
         pa.field(
-            "balance_residual_mm",
+            "balance_residual",
             pa.float64(),
             nullable=False,
             metadata=_field_meta(
-                description="P - ETR - recharge - runoff - storage changes, mm; zero to machine precision"
+                unit="mm",
+                description="P - ETR - recharge - runoff - storage changes; zero to machine precision",
             ),
+        ),
+        pa.field(
+            "unit",
+            pa.string(),
+            nullable=False,
+            metadata=_field_meta(description="Unit of the water depths of the row, mm"),
         ),
     ],
     metadata=_schema_metadata(
@@ -1069,7 +1118,7 @@ SOIL_BUDGET_SCHEMA: Final[pa.Schema] = pa.schema(
 )
 """Annual soil-reservoir budget, one row per column and calendar year.
 
-A ``_watershed`` row per year sums the columns weighted by ``basin_weight``,
+A ``catchment`` row per year sums the columns weighted by ``basin_weight``,
 the same aggregation the printed water-budget block uses. Absent outside soil
 mode.
 """

@@ -107,6 +107,7 @@ def network_heads_view_from_run(
             if under_heads
             else STREAM_CRITERION_DEFAULTS.heads_min_drained_area_km2
         ),
+        "clip_map_to_catchment": settings.clip_map_to_catchment,
     }
     comparison = network_comparison_from_run(sim, role=role, **knobs)
     permanent = None

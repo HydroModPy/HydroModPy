@@ -85,7 +85,7 @@ _RUN_CTX = SimpleNamespace(run=SimpleNamespace(solver="fake_solver"), model=None
 
 def test_a_station_with_a_cell_gets_its_own_routed_series():
     served = {
-        "_catchment": _result([9.0, 9.0, 9.0]),
+        "catchment": _result([9.0, 9.0, 9.0]),
         _cell_id("UP"): _result([2.0, 2.0, 2.0]),
         _area_id("UP"): _result(1.0e6),
     }
@@ -102,7 +102,7 @@ def test_a_station_with_a_cell_gets_its_own_routed_series():
 def test_the_corrected_series_keeps_the_dates_it_was_read_on():
     """A dropped time axis turns every observation into a 1970 timestamp."""
     served = {
-        "_catchment": _result([9.0, 9.0, 9.0]),
+        "catchment": _result([9.0, 9.0, 9.0]),
         _cell_id("UP"): _result([2.0, 2.0, 2.0]),
         _area_id("UP"): _result(1.0e6),
     }
@@ -120,7 +120,7 @@ def test_the_corrected_series_keeps_the_dates_it_was_read_on():
 def test_an_undated_series_is_carried_back_undated():
     """The solver returned no time grid; nothing here invents one."""
     served = {
-        "_catchment": _result([9.0, 9.0, 9.0], dated=False),
+        "catchment": _result([9.0, 9.0, 9.0], dated=False),
         _cell_id("UP"): _result([2.0, 2.0, 2.0], dated=False),
         _area_id("UP"): _result(1.0e6),
     }
@@ -135,7 +135,7 @@ def test_an_undated_series_is_carried_back_undated():
 
 def test_two_stations_get_two_different_series():
     served = {
-        "_catchment": _result([9.0, 9.0, 9.0]),
+        "catchment": _result([9.0, 9.0, 9.0]),
         _cell_id("UP"): _result([2.0, 2.0, 2.0]),
         _area_id("UP"): _result(1.0e6),
         _cell_id("DOWN"): _result([8.0, 8.0, 8.0]),
@@ -158,7 +158,7 @@ def test_two_stations_get_two_different_series():
 def test_an_upstream_area_is_requested_for_every_placed_station():
     """The runoff a gauge sees must be the runoff of the area it drains."""
     served = {
-        "_catchment": _result([9.0, 9.0, 9.0]),
+        "catchment": _result([9.0, 9.0, 9.0]),
         _cell_id("UP"): _result([2.0, 2.0, 2.0]),
         _area_id("UP"): _result(1.0e6),
     }
@@ -172,7 +172,7 @@ def test_an_upstream_area_is_requested_for_every_placed_station():
 
 
 def test_a_station_without_a_cell_falls_back_to_the_catchment_series():
-    served = {"_catchment": _result([9.0, 9.0, 9.0])}
+    served = {"catchment": _result([9.0, 9.0, 9.0])}
     adapter = _Adapter(served)
 
     out = _discharge_by_station(
@@ -180,11 +180,11 @@ def test_a_station_without_a_cell_falls_back_to_the_catchment_series():
     )
 
     assert out["NOWHERE"].values == pytest.approx([9.0, 9.0, 9.0])
-    assert adapter.requested[0] == ["_catchment"]
+    assert adapter.requested[0] == ["catchment"]
 
 
 def test_a_backend_without_per_cell_discharge_falls_back_and_warns(caplog):
-    served = {"_catchment": _result([9.0, 9.0, 9.0])}
+    served = {"catchment": _result([9.0, 9.0, 9.0])}
     adapter = _Adapter(served, fail_on_cell=True)
 
     with caplog.at_level("WARNING"):
@@ -197,7 +197,7 @@ def test_a_backend_without_per_cell_discharge_falls_back_and_warns(caplog):
 
 
 def test_an_empty_catchment_series_is_refused():
-    adapter = _Adapter({"_catchment": _result([])})
+    adapter = _Adapter({"catchment": _result([])})
 
     with pytest.raises(NotImplementedError, match="no discharge calibration series"):
         _discharge_by_station(adapter, _RUN_CTX, _ctx({}), _observed("NOWHERE"), time_index=_INDEX)
@@ -214,7 +214,7 @@ def test_a_routed_reach_series_is_not_given_the_runoff_twice(monkeypatch):
 
     monkeypatch.setattr("hydromodpy.calibration.metrics.composite.add_runoff_to_discharge", _spy)
     served = {
-        "_catchment": _result([9.0, 9.0, 9.0], includes_runoff=True),
+        "catchment": _result([9.0, 9.0, 9.0], includes_runoff=True),
         _cell_id("UP"): _result([2.0, 2.0, 2.0], includes_runoff=True),
         _area_id("UP"): _result(1.0e6),
     }

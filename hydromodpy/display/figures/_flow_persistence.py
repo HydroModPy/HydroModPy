@@ -177,7 +177,10 @@ def frame_note(flow: CycleFlow, counted: np.ndarray | None) -> str:
     key counts every cell of the mesh.
     """
     where = "in the catchment" if counted is not None else "over the whole mesh"
-    return f"{definition_note(flow)}\ncells counted {where}"
+    return (
+        f"{definition_note(flow)}\ncells counted {where}\n"
+        "a visible flow holds in a transient run: one steady state scores the closure alone"
+    )
 
 
 def cycles(sim: Run, n_steps: int) -> dict[str, np.ndarray]:

@@ -21,6 +21,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.config_kit.export_spec import MESH_LAYERS, ExportKind
+from hydromodpy.core.scope import OBSERVED, series_name
 from hydromodpy.results import field_registry
 from hydromodpy.results.derive.mesh_quality import MESH_QUALITY_DESCRIPTORS
 from hydromodpy.results.derive.virtual_fields import (
@@ -30,7 +31,7 @@ from hydromodpy.results.derive.virtual_fields import (
 from hydromodpy.results.exporters._tables import (
     BUDGETS_TABLE,
     TIMESERIES_TABLE,
-    distinct_values,
+    distinct_rows,
     geographic_features,
     table_rows,
 )
@@ -74,8 +75,8 @@ SIMULATED_SERIES: tuple[str, ...] = (
 """Series a solve writes, named by variable."""
 
 # The record variables of the observation families
-# (data/variables/*/manager.py RECORD_VARIABLE and their API readers),
-# stored as <variable>_obs by simulation/extraction/derivation/observation_ingest.py.
+# (data/variables/*/manager.py RECORD_VARIABLE and their API readers), stored
+# with source = observed by simulation/extraction/derivation/observation_ingest.py.
 OBSERVED_VARIABLES: tuple[str, ...] = (
     "discharge",
     "water_level",
@@ -86,8 +87,8 @@ OBSERVED_VARIABLES: tuple[str, ...] = (
 )
 """The variables an observation family records."""
 
-OBSERVED_SERIES: tuple[str, ...] = tuple(f"{name}_obs" for name in OBSERVED_VARIABLES)
-"""Observed series, stored beside the simulated ones."""
+OBSERVED_SERIES: tuple[str, ...] = tuple(series_name(name, OBSERVED) for name in OBSERVED_VARIABLES)
+"""The names an export asks for an observed series by, stored beside the simulated ones."""
 
 # spatial/geographic/store_ingestion.py (watershed layers), workflow/steps/
 # prepare_solver/prepare.py (reference networks), results/exporters/mesh_layers.py
@@ -177,8 +178,8 @@ def list_exportable(run: Run) -> dict[str, ExportKind]:
     read from its directory, never from the index. The fields are the
     registered ones the field store holds or rebuilds on read, plus the
     simulated stream network when the run carries what it is cut from, and
-    the mesh quality fields its stored mesh can serve. The series are the
-    variables of its ``timeseries`` table, the layers the files of its
+    the mesh quality fields its stored mesh can serve. The series are those of
+    its ``timeseries`` table, a measurement named ``<variable>_obs``, the layers the files of its
     tables directory hold plus the mesh layers of a run that states its
     mesh CRS, and ``budget`` when its ``budgets`` table has rows. A name two
     groups hold takes the kind of the first, the order ``hmp.read``
@@ -193,8 +194,8 @@ def list_exportable(run: Run) -> dict[str, ExportKind]:
         names.setdefault(name, ExportKind.field)
     if _simulated_network_available(run):
         names.setdefault(SIMULATED_ACTIVE_NETWORK, ExportKind.field)
-    for variable in distinct_values(store, sim_id, TIMESERIES_TABLE, "variable"):
-        names.setdefault(variable, ExportKind.series)
+    for variable, source in distinct_rows(store, sim_id, TIMESERIES_TABLE, "variable", "source"):
+        names.setdefault(series_name(variable, source), ExportKind.series)
     for feature in geographic_features(store, sim_id):
         names.setdefault(feature, ExportKind.vector)
     for layer in available_mesh_layers(store, sim_id):

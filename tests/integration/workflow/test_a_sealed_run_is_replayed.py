@@ -8,17 +8,20 @@ replayed and rerun for real. The default that moves is a real Pydantic default o
 from __future__ import annotations
 
 import json
+import shutil
 import tomllib
 from collections.abc import Iterator
 from pathlib import Path
 
+import numpy as np
 import pytest
+import zarr
 
 import hydromodpy as hmp
 from hydromodpy.core.code_fingerprint import RUN_LAYERS
 from hydromodpy.core.exceptions import ConfigError, StepError
 from hydromodpy.data.workspace.scaffold import scaffold
-from hydromodpy.results.storage.contract import RUN_RESOLVED_CONFIG_FILENAME
+from hydromodpy.results.storage.contract import RUN_RESOLVED_CONFIG_FILENAME, RUN_SEARCH_TABLE
 from hydromodpy.spatial.terrain import registry as terrain_registry
 from hydromodpy.workflow.steps.extract import ExtractStep
 from tests._helpers.cli_runner import CliRunner
@@ -89,6 +92,24 @@ def test_an_override_is_sealed_and_a_rerun_repeats_it(demo: Path) -> None:
     done = CliRunner().invoke(["catalog", "rerun", "probe", "--name", "by_cli", "-w", str(demo)])
     assert done.exit_code == 0, done.stderr
     assert _parameter(demo / "runs" / "by_cli", "K") == pytest.approx(K)
+
+
+def test_a_rerun_writes_in_the_project_of_its_source_whatever_the_cwd(
+    demo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The sealed file holds no ``[workspace]``, so the current directory was the project."""
+    source = _simulate(demo, name="probe")
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+
+    by_project = hmp.Project.rerun(hmp.open(source), name="by_project", no_display=True).dir
+    done = CliRunner().invoke(["catalog", "rerun", "probe", "--name", "by_cli", "-w", str(demo)])
+
+    assert done.exit_code == 0, done.stderr
+    assert by_project == demo / "runs" / "by_project"
+    assert (demo / "runs" / "by_cli").is_dir()
+    assert list(elsewhere.iterdir()) == []
 
 
 def test_a_rerun_takes_dotted_paths_and_the_lineage_says_them(demo: Path) -> None:
@@ -214,6 +235,63 @@ def sealed_then_moved(demo: Path) -> Iterator[tuple[Path, Path]]:
         rebuild(declared)
 
 
+def test_a_copied_run_replays_into_a_project_and_never_into_itself(
+    demo: Path, tmp_path: Path
+) -> None:
+    source = _simulate(demo, name="probe", K=K)
+    copy = tmp_path / "elsewhere" / "base"
+    shutil.copytree(source, copy)
+    held = sorted(path.relative_to(copy) for path in copy.rglob("*"))
+
+    refused = CliRunner().invoke(["run", str(copy / "config.toml"), "--frozen", "-q"])
+
+    assert refused.exit_code != 0
+    assert "-w <project>" in refused.stderr
+    done = _hmp(demo, str(copy / "config.toml"), "--frozen", "--force", "--no-display")
+    assert done.exit_code == 0, done.stderr
+    assert _drift(source, demo / "runs" / "probe.v2") == []
+    assert sorted(path.relative_to(copy) for path in copy.rglob("*")) == held
+
+
+def test_a_run_promoted_by_a_calibration_replays_as_one_solve(tmp_path: Path) -> None:
+    """The file of the run names its solve, and the heads of a replay are those of the trial."""
+    example = Path(__file__).parents[3] / "examples" / "projects" / "01_calibration"
+    project = tmp_path / "calibration"
+    project.mkdir()
+    (project / "project.toml").write_text(
+        (example / "project.toml")
+        .read_text(encoding="utf-8")
+        .replace("max_trials = 20", "max_trials = 3"),
+        encoding="utf-8",
+    )
+    searched = _hmp(project, str(project / "project.toml"), "--no-display")
+    assert searched.exit_code == 0, searched.stderr
+    promoted = project / "runs" / "calibration_dupuit"
+
+    sealed = _config(promoted)
+    assert "calibration" not in sealed
+    assert sealed["workflow"]["mode"] == "simulation"
+    lineage = _manifest(promoted)["lineage"]
+    assert (lineage["kind"], lineage["parent_hint"]) == ("promoted", "sessions/calibration_dupuit")
+    assert _manifest(promoted)["checks"]["calibrated_by"]["session_id"] == lineage["session_id"]
+    assert "K_aquifer" in _resolved(promoted)[RUN_SEARCH_TABLE]["parameters"]
+
+    again = _hmp(project, str(promoted / "config.toml"), "--frozen")
+    assert again.exit_code == 0, again.stderr
+    assert "identical" in again.stderr
+    replayed = _hmp(project, str(promoted / "config.toml"), "--frozen", "--force", "--no-display")
+    assert replayed.exit_code == 0, replayed.stderr
+
+    replay = project / "runs" / "calibration_dupuit.v2"
+    assert [path.name for path in (project / "sessions").iterdir()] == ["calibration_dupuit"]
+    assert _manifest(replay)["lineage"]["session_id"] is None
+    assert _parameter(replay, "K") == _parameter(promoted, "K")
+    heads = [
+        zarr.open_group(path / "fields.zarr", mode="r")["head"][:] for path in (promoted, replay)
+    ]
+    assert np.array_equal(*heads, equal_nan=True)
+
+
 def test_a_default_that_moved_refuses_the_replay_naming_the_key(
     sealed_then_moved: tuple[Path, Path],
 ) -> None:
@@ -293,6 +371,18 @@ def test_a_run_resumed_right_after_its_solver_reads_the_folder_it_solved_in(
     assert _drift(clean, resumed) == [("run directory", "only in A [], only in B ['attempts']")]
 
 
+def test_a_named_case_resumes_from_its_frozen_file(demo: Path) -> None:
+    """The file writes the name of the run, the first launch read another one."""
+    first = _hmp(demo, str(demo / "run_demo.toml"), "--case", "killed", "--until", "run_solver")
+    assert first.exit_code == 0, first.stderr
+
+    resumed = _hmp(demo, "--resume", "killed", "--no-display")
+
+    assert resumed.exit_code == 0, resumed.stderr
+    assert _manifest(demo / "runs" / "killed")["run"]["status"] == "completed"
+    assert not (demo / "runs" / "killed.v2").exists()
+
+
 def test_the_manifest_and_the_run_name_the_file_the_user_named(demo: Path) -> None:
     done = _hmp(demo, str(demo / "run_demo.toml"), "--set", f"{K_PATH}=2e-4", "--case", "with_set")
     assert done.exit_code == 0, done.stderr
@@ -354,8 +444,6 @@ def test_no_display_keeps_the_terms_the_figures_read(demo: Path) -> None:
         one = drawn.simulate(name="drawn").dir
     with hmp.Project(consumers, no_display=True) as quiet:
         other = quiet.simulate(name="quiet").dir
-
-    import zarr
 
     terms = [kept_budget(zarr.open_group(path / "fields.zarr", mode="r")) for path in (one, other)]
     assert terms[0] == terms[1]

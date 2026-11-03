@@ -27,7 +27,7 @@ on read (:mod:`hydromodpy.results.derive.virtual_fields`):
 
 - ``outflow_drain`` is the positive drain outflow of each cell, summed over layers and
   normalised from the raw MODFLOW budget signs;
-- ``accumulation_flux`` is the downstream accumulation of that outflow. It is routed on the
+- ``drain_accumulation_flux`` is the downstream accumulation of that outflow. It is routed on the
   stored descent D of the mesh (:doc:`../solver/backends`). Boussinesq stores D once per run
   for a raster run, built from the Whitebox D8 pointer of its filled top, because its store
   holds a top and no mesh connectivity.
@@ -44,10 +44,10 @@ Lazy views of the run
 changing the catalog:
 
 ``run.drainage_density()``
-   The fraction of active cells of the catchment with a positive ``accumulation_flux``. The
+   The fraction of active cells of the catchment with a positive ``drain_accumulation_flux``. The
    catchment is the basin of D, in whole cells.
 
-``run.persistence(variable="accumulation_flux")``
+``run.persistence(variable="drain_accumulation_flux")``
    The fraction of timesteps above a threshold, per cell.
 
 ``run.cell_field_active_mask()``
@@ -82,7 +82,7 @@ inside it (``catchment_weights``, :doc:`/theory/mesh`).
 
 The figures ``simulated_active_network`` and ``simulated_active_network_reference_overlay``
 draw the mask and its overlay with the reference. Both are cell maps, not a vectorised
-river network. They need ``accumulation_flux`` and a plottable mesh.
+river network. They need ``drain_accumulation_flux`` and a plottable mesh.
 
 A comparison writes the overlap and the distance of each run in ``network.csv``
 (:doc:`../simulation/comparison-workflow`).
@@ -112,6 +112,6 @@ What is not stored
 ------------------
 
 There is no persisted ``hydrographic_network_simulated_active`` feature, no vector file
-built from ``accumulation_flux``, and no rule that picks one timestep or one aggregation
+built from ``drain_accumulation_flux``, and no rule that picks one timestep or one aggregation
 window for such a network. The raw fields keep the time axis, and the views above answer
 the questions that do not need one stored network.

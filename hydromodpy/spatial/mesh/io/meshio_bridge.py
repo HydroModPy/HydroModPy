@@ -32,6 +32,12 @@ from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 _FROM_MESHIO: dict[str, CellType] = {ct.meshio_name: ct for ct in CellType}
 
 
+def _cell_values(array: Any) -> np.ndarray:
+    """Return a per-cell array flat, or a row per cell when it has several components."""
+    values = np.asarray(array)
+    return values if values.ndim == 2 and values.shape[1] > 1 else values.reshape(-1)
+
+
 def from_meshio(mesh: Any) -> HydroMesh:
     """Convert a ``meshio.Mesh`` into a ``HydroMesh``.
 
@@ -103,9 +109,7 @@ def from_meshio(mesh: Any) -> HydroMesh:
             if raw_type in _FROM_MESHIO:
                 retained_indices.append(idx)
         arrays = [
-            np.asarray(per_block_list[i]).reshape(-1)
-            for i in retained_indices
-            if i < len(per_block_list)
+            _cell_values(per_block_list[i]) for i in retained_indices if i < len(per_block_list)
         ]
         if arrays:
             cell_data[key] = np.concatenate(arrays)
@@ -151,18 +155,17 @@ def to_meshio(hydro_mesh: HydroMesh) -> Any:
         else:
             cells.append((block.cell_type.meshio_name, np.asarray(block.connectivity, dtype=index)))
 
-    # Rebuild per-block cell_data lists. Skip a per-cell channel of more than
-    # one value per cell, which the flat split would mangle.
+    # Rebuild per-block cell_data lists, a row per cell for an array of several components.
     cell_data: dict[str, list[np.ndarray]] = {}
     if hydro_mesh.cell_data:
         total_cells = int(hydro_mesh.n_cells)
         block_sizes = [len(data) for _, data in cells]
         splits = np.cumsum(block_sizes[:-1])
-        for key, flat_arr in hydro_mesh.cell_data.items():
-            flat = np.asarray(flat_arr).reshape(-1)
-            if flat.size != total_cells:
+        for key, array in hydro_mesh.cell_data.items():
+            values = _cell_values(array)
+            if values.shape[0] != total_cells:
                 continue
-            cell_data[key] = list(np.split(flat, splits))
+            cell_data[key] = list(np.split(values, splits))
 
     point_data: dict[str, np.ndarray] = {}
     for key, arr in hydro_mesh.point_data.items():

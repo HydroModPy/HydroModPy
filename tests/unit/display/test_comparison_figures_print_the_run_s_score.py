@@ -54,9 +54,9 @@ class _Run:
                 variable="discharge",
                 metric=metric,
                 value=value,
-                nse_window_start=datetime.date(2001, 1, 1),
-                nse_window_end=datetime.date(2002, 12, 31),
-                nse_n=24,
+                window_start=datetime.date(2001, 1, 1),
+                window_end=datetime.date(2002, 12, 31),
+                n_samples=24,
                 metric_rule_version="1",
             ).model_dump()
             for metric, value in (("nse", 0.913), ("nse_log", 0.876), ("rmse", 0.12))
@@ -71,7 +71,7 @@ class _Run:
         return False
 
     def stations(self, variable: str) -> list[str]:
-        return ["_catchment"] if variable == "discharge" else []
+        return ["catchment"] if variable == "discharge" else []
 
     def timeseries(self, variable: str, *, station: str | None = None, **_) -> pd.Series:
         if variable != "discharge":

@@ -11,6 +11,7 @@ starts, names the second phase as the one that comes next.
 
 from __future__ import annotations
 
+import shutil
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -24,10 +25,14 @@ from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.checks import CalibratedBy
 from hydromodpy.results.run import Run
-from hydromodpy.results.session.journal import TrialLine, append_trial
+from hydromodpy.results.session.journal import append_trial
 from hydromodpy.results.session.phase import PhaseDescriptor, write_phase
-from hydromodpy.results.storage.contract import SESSION_CONFIG_FILENAME
-from tests._helpers.sealed_runs import make_project, seal_run, write_session_dir
+from hydromodpy.results.storage.contract import (
+    RUN_RESOLVED_CONFIG_FILENAME,
+    SESSION_CONFIG_FILENAME,
+)
+from tests._helpers.sealed_runs import make_project, seal_run, sealed_search, write_session_dir
+from tests._helpers.session_documents import trial_line
 
 from .test_matching_hydrographic_network_card import (
     _panel,
@@ -57,10 +62,7 @@ objective_blocks = [{ name = "steady_conductivity", metric = "distance_gap" }]
 name = "transient_storage"
 objective_blocks = [{ name = "transient_storage", metric = "nse_log" }]
 """
-PHASES_TOML = (
-    '[[calibration.phases]]\nname = "steady_conductivity"\n\n'
-    '[[calibration.phases]]\nname = "transient_storage"\n'
-)
+SEARCH = {"phases": [{"name": STEADY}, {"name": STORAGE}]}
 
 
 @pytest.fixture
@@ -96,13 +98,14 @@ def _trials(project: Path, phase: str, rows: list[dict], *, first: int) -> list[
         number = first + offset
         append_trial(
             project / "sessions" / CASE,
-            TrialLine(
-                trial=number,
+            trial_line(
+                number,
+                cost=row["cost"],
+                case=CASE,
                 phase=phase,
+                status="completed" if row["status"] == "completed" else "crashed",
                 params={name: entry["value"] for name, entry in row["parameters"].items()},
-                objective=row["objective_value"],
-                metrics=row["metrics"],
-                status=row["status"] if row["status"] == "completed" else "crashed",
+                components=row["components"],
                 started_at=STARTED,
                 ended_at=STARTED,
             ),
@@ -112,16 +115,20 @@ def _trials(project: Path, phase: str, rows: list[dict], *, first: int) -> list[
 
 
 def _promoted_run(project: Path, name: str, *, phase: str, trial: int) -> str:
-    """Seal the run promoted from *trial* of *phase*, with the phases it was replayed with."""
-    return seal_run(
+    """Seal the run promoted from *trial* of *phase*, with the search it came out of."""
+    sim_id = seal_run(
         project,
         name,
         project="p",
-        config_text=PHASES_TOML,
         calibrated_by=CalibratedBy(
             session_id=SESSION, phase=phase, trial=trial, session_status="completed"
         ),
     )
+    shutil.copy(
+        sealed_search(SEARCH) / RUN_RESOLVED_CONFIG_FILENAME,
+        project / "runs" / name / RUN_RESOLVED_CONFIG_FILENAME,
+    )
+    return sim_id
 
 
 def _open(project: Path, sim_id: str) -> tuple[Catalog, Run]:

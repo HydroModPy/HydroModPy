@@ -35,6 +35,14 @@ One note per map and per curve of example 04: what to look at, what it does not 
 the pitfalls, and what makes it reliable or only indicative.
 :::
 
+:::{grid-item-card} Conventions of a run
+:link: conventions
+:link-type: doc
+
+Which date reads which period, which sign a flux has, what a station is called, how layers and
+reaches are counted.
+:::
+
 :::{grid-item-card} How the model makes streams
 :link: stream-network
 :link-type: doc
@@ -140,6 +148,7 @@ a study of the catchment.
 in-five-minutes
 what-it-computes
 reading-results
+conventions
 stream-network
 network-metrics
 how-sure

@@ -12,9 +12,9 @@ and the rule version. Without a window nothing is scored.
 
 What is paired
 --------------
-An observed variable is stored with the ``_obs`` suffix (``discharge_obs`` at
-gauge ``J0014010``). It meets the simulated variable of the same name at the
-same station. When the simulated variable sits at one station only (the
+An observed series is stored with ``source = observed`` (``discharge`` at gauge
+``J0014010``). It meets the simulated series of the same variable at the same
+station. When the simulated variable sits at one station only (the
 catchment discharge), it also meets the observations of the rule station, and
 of that station alone: an upstream gauge is never scored against the outlet.
 An observed gauge that meets no simulated series is listed in
@@ -55,6 +55,7 @@ from typing import Any, Final
 import pandas as pd
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.scope import OBSERVED, SIMULATED
 from hydromodpy.core.time.period_aggregation import period_edges, periods_in_window
 from hydromodpy.core.time.time_method import TimeMethod
 from hydromodpy.results.derive.time_alignment import (
@@ -69,9 +70,6 @@ from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX, TABLES_DIRN
 from hydromodpy.results.storage.parquet_io import read_checked_table
 
 logger = get_logger(__name__)
-
-OBSERVED_SUFFIX: Final[str] = "_obs"
-"""Suffix the ingestion appends to an observed variable (``discharge_obs``)."""
 
 TIMESERIES_TABLE: Final[str] = "timeseries"
 """Stem of the run table that holds the simulated and observed series."""
@@ -88,7 +86,7 @@ MIN_PAIRED_PERIODS: Final[int] = 2
 UNSCORED_OBSERVATIONS_CHECK: Final[str] = "observations_scored"
 """Name of the check a run fails, non-fatally, when an observed gauge meets no simulated series."""
 
-_COLUMNS: Final[tuple[str, ...]] = ("station_id", "variable", "time", "value")
+_COLUMNS: Final[tuple[str, ...]] = ("station_id", "variable", "source", "time", "value")
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,8 +151,8 @@ def score_timeseries(
 ) -> RunScores:
     """Score every simulated series of *timeseries* against its observed twin.
 
-    *timeseries* has the columns ``station_id``, ``variable``, ``time`` and
-    ``value``, simulated and observed rows together.
+    *timeseries* has the columns ``station_id``, ``variable``, ``source``,
+    ``time`` and ``value``, simulated and observed rows together.
     """
     pairs, unscored = _pairs(timeseries, rule.station)
     rows: list[MetricRow] = []
@@ -162,7 +160,7 @@ def score_timeseries(
     for station, variable, simulated, observed in pairs:
         scores = _score_pair(simulated, observed, rule, station, variable, period_start)
         nse = next(item for item in scores if item.metric == HEADLINE_METRIC)
-        if rule.window is not None and nse.nse_n > 0:
+        if rule.window is not None and nse.n_samples > 0:
             lost = _simulated_nan_in_window(simulated, observed, rule, variable, period_start)
             if lost:
                 logger.warning(
@@ -192,16 +190,13 @@ def _pairs(
         station_id=timeseries["station_id"].astype(str),
         variable=timeseries["variable"].astype(str),
     )
-    observed_names = sorted(
-        name for name in frame["variable"].unique() if name.endswith(OBSERVED_SUFFIX)
-    )
+    measured = frame[frame["source"] == OBSERVED]
     pairs: list[tuple[str, str, pd.Series, pd.Series]] = []
     unscored: list[UnscoredObservation] = []
-    for observed_name in observed_names:
-        variable = observed_name[: -len(OBSERVED_SUFFIX)]
-        simulated_rows = frame[frame["variable"] == variable]
+    for variable in sorted(measured["variable"].unique()):
+        simulated_rows = frame[(frame["variable"] == variable) & (frame["source"] == SIMULATED)]
         sim_stations = sorted(simulated_rows["station_id"].unique())
-        observed_rows = frame[frame["variable"] == observed_name]
+        observed_rows = measured[measured["variable"] == variable]
         for station in sorted(observed_rows["station_id"].unique()):
             if station in sim_stations:
                 sim_station = station
@@ -248,7 +243,7 @@ def _score_pair(
     scores = score_run(
         dated["sim"], dated["obs"], rule, METRIC_NAMES, station=station, variable=variable
     )
-    if min(item.nse_n for item in scores) >= MIN_PAIRED_PERIODS:
+    if min(item.n_samples for item in scores) >= MIN_PAIRED_PERIODS:
         return scores
     nothing = dated.iloc[0:0]
     return score_run(
@@ -341,9 +336,11 @@ def _row(item: MetricScore, *, n_sim_nan: int) -> MetricRow:
         variable=item.variable,
         metric=item.metric,
         value=item.value,
-        nse_window_start=item.nse_window_start,
-        nse_window_end=item.nse_window_end,
-        nse_n=item.nse_n,
+        window_name=item.window_name,
+        window_role=item.window_role,
+        window_start=item.window_start,
+        window_end=item.window_end,
+        n_samples=item.n_samples,
         n_clipped=item.n_clipped,
         n_sim_nan=n_sim_nan,
         metric_rule_version=item.metric_rule_version,
@@ -368,9 +365,11 @@ def _headline(at_station: dict[str, MetricScore], rule: MetricRule) -> MetricSco
         metric="nse",
         value=None,
         station=rule.station,
-        nse_window_start=None if window is None else window.start,
-        nse_window_end=None if window is None else window.end,
-        nse_n=0,
+        window_name=rule.window_name,
+        window_role=rule.window_role,
+        window_start=None if window is None else window.start,
+        window_end=None if window is None else window.end,
+        n_samples=0,
         metric_rule_version=rule.version,
     )
 
@@ -379,7 +378,6 @@ __all__ = [
     "HEADLINE_METRIC",
     "HEADLINE_VARIABLE",
     "MIN_PAIRED_PERIODS",
-    "OBSERVED_SUFFIX",
     "TIMESERIES_TABLE",
     "UNSCORED_OBSERVATIONS_CHECK",
     "RunScores",

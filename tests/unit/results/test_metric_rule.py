@@ -11,12 +11,17 @@ from pydantic import ValidationError
 
 from hydromodpy.core import metrics as kernels
 from hydromodpy.results.metric_rule import (
+    CALIBRATION_ROLE,
+    EVALUATION_ROLE,
     HEADLINE_METRICS,
+    HEADLINE_WINDOW,
     METRIC_NAMES,
     METRIC_RULE_VERSION,
     DateWindow,
     MetricRule,
     MetricScore,
+    PeriodWindow,
+    calibration_extent,
     score,
     score_run,
 )
@@ -43,9 +48,10 @@ def test_nse_is_computed_on_the_declared_window_only():
     expected = kernels.nse(simulated[inside].to_numpy(), observed[inside].to_numpy())
     assert result.value == pytest.approx(expected)
     assert result.value > 0.5
-    assert (result.nse_window_start, result.nse_window_end) == (WINDOW.start, WINDOW.end)
-    assert result.nse_n == 366
+    assert (result.window_start, result.window_end) == (WINDOW.start, WINDOW.end)
+    assert result.n_samples == 366
     assert result.metric_rule_version == METRIC_RULE_VERSION == "2"
+    assert (result.window_name, result.window_role) == (HEADLINE_WINDOW, EVALUATION_ROLE)
 
 
 def test_without_a_window_there_is_no_score():
@@ -53,9 +59,11 @@ def test_without_a_window_there_is_no_score():
     assert result == MetricScore(
         metric="nse",
         value=None,
-        nse_window_start=None,
-        nse_window_end=None,
-        nse_n=0,
+        window_name=HEADLINE_WINDOW,
+        window_role=EVALUATION_ROLE,
+        window_start=None,
+        window_end=None,
+        n_samples=0,
         metric_rule_version="2",
     )
 
@@ -68,7 +76,7 @@ def test_nse_n_counts_the_instants_both_series_carry_a_finite_value_at():
 
     result = score(simulated, observed, RULE, "nse")
 
-    assert result.nse_n == 366 - 10 - 5
+    assert result.n_samples == 366 - 10 - 5
     assert result.value == pytest.approx(1.0)
 
 
@@ -77,27 +85,27 @@ def test_the_last_day_of_the_window_is_included():
     series = pd.Series(np.arange(len(index), dtype=float), index=index)
     rule = MetricRule(window=DateWindow(start=date(2016, 12, 31), end=date(2016, 12, 31)))
 
-    assert score(series, series, rule, "rmse").nse_n == 4
+    assert score(series, series, rule, "rmse").n_samples == 4
 
 
 def test_a_window_outside_the_data_gives_no_value_and_zero_samples():
     rule = MetricRule(window=DateWindow(start=date(2030, 1, 1), end=date(2030, 12, 31)))
     result = score(_series(1), _series(2), rule, "nse")
-    assert result.value is None and result.nse_n == 0
-    assert result.nse_window_start == date(2030, 1, 1)
+    assert result.value is None and result.n_samples == 0
+    assert result.window_start == date(2030, 1, 1)
 
 
 def test_constant_observations_give_no_value_rather_than_nan():
     observed = pd.Series(1.0, index=INDEX)
     result = score(_series(1), observed, RULE, "nse")
-    assert result.value is None and result.nse_n == 366
+    assert result.value is None and result.n_samples == 366
 
 
 def test_a_timezone_aware_index_is_scored_on_its_own_days():
     index = pd.date_range("2016-01-01", "2016-01-10", freq="D", tz="UTC")
     series = pd.Series(np.arange(10, dtype=float), index=index)
     rule = MetricRule(window=DateWindow(start=date(2016, 1, 3), end=date(2016, 1, 5)))
-    assert score(series, series, rule, "rmse").nse_n == 3
+    assert score(series, series, rule, "rmse").n_samples == 3
 
 
 @pytest.mark.parametrize("metric", METRIC_NAMES)
@@ -106,7 +114,7 @@ def test_every_known_metric_scores_under_the_rule(metric):
     result = score(observed * 1.05, observed, RULE, metric)
     assert result.metric == metric
     assert result.value is not None
-    assert result.nse_n == 366
+    assert result.n_samples == 366
 
 
 def test_an_unknown_metric_is_refused_with_the_known_ones():
@@ -130,16 +138,38 @@ def test_the_window_is_ordered_and_the_rule_refuses_unknown_keys():
 def test_the_score_columns_are_the_ones_of_the_simulation_table():
     from hydromodpy.results.storage.parquet_schemas import SIMULATION_SCHEMA
 
-    # n_clipped belongs to the row of each metric, not to the headline NSE of the table.
-    columns = set(MetricScore.model_fields) - {"metric", "value", "station", "variable"}
+    # The table of a run keeps the one headline period: its name and role are constants.
+    columns = set(MetricScore.model_fields) - {"metric", "value", "window_name", "window_role"}
     assert columns == {
-        "nse_window_start",
-        "nse_window_end",
-        "nse_n",
+        "station",
+        "variable",
+        "window_start",
+        "window_end",
+        "n_samples",
         "n_clipped",
         "metric_rule_version",
     }
-    assert columns - {"n_clipped"} <= set(SIMULATION_SCHEMA.names)
+    carried = {"score_station", "score_variable", "score_window_start", "score_window_end"}
+    assert carried | {"n_samples", "metric_rule_version"} <= set(SIMULATION_SCHEMA.names)
+    assert not {"window_name", "n_clipped"} & set(SIMULATION_SCHEMA.names)
+
+
+def test_a_period_gives_each_case_its_own_days_and_the_search_the_span_of_its_calibration():
+    own = DateWindow(start=date(2010, 1, 1), end=date(2012, 12, 31))
+    period = PeriodWindow(
+        role=CALIBRATION_ROLE, start=date(2010, 1, 1), end=date(2014, 12, 31), by_case={"a": own}
+    )
+    other = PeriodWindow(role="validation", start=date(2000, 1, 1), end=date(2001, 12, 31))
+
+    assert period.of("a") == own
+    assert period.of("b") == DateWindow(start=period.start, end=period.end)
+    assert calibration_extent({"calibration": period, "check": other}) == DateWindow(
+        start=period.start, end=period.end
+    )
+    assert calibration_extent({"check": other}) is None
+    assert calibration_extent({}) is None
+    with pytest.raises(ValidationError, match="before it starts"):
+        PeriodWindow(role=CALIBRATION_ROLE, start=date(2014, 1, 1), end=date(2010, 1, 1))
 
 
 def _config(**sections):
@@ -189,7 +219,7 @@ def test_score_run_keeps_the_order_and_names_where_it_read():
 
     assert [item.metric for item in scores] == ["rmse", "nse"]
     assert {(item.station, item.variable) for item in scores} == {("J0014010", "discharge")}
-    assert {item.nse_n for item in scores} == {366}
+    assert {item.n_samples for item in scores} == {366}
 
 
 def test_score_run_defaults_to_the_four_headline_metrics():
@@ -202,4 +232,4 @@ def test_the_log_nse_of_a_negative_series_is_clipped_and_counted():
     simulated = observed - 10.0
     result = score(simulated, observed, RULE, "nse_log")
     assert result.value is not None
-    assert result.n_clipped == result.nse_n == 366
+    assert result.n_clipped == result.n_samples == 366

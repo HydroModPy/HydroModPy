@@ -12,6 +12,7 @@ import warnings
 from hydromodpy import catalog  # noqa: F401  --  expose ``hmp.catalog`` namespace
 from hydromodpy._api import (
     calibrate,
+    calibration_phases,
     compare,
     compare_pair,
     doctor,
@@ -63,6 +64,7 @@ _DIRECT_EXPORTS = [
     "figure",
     "run",
     "calibrate",
+    "calibration_phases",
     "spinup",
     "compare",
     "compare_pair",

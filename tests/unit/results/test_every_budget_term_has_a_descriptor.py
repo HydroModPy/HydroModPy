@@ -33,12 +33,12 @@ VIRTUAL_FIELD_NAMES = (
     "seepage_mask",
     "outflow_drain",
     "release_flux",
-    "fluxes_from_budget",
-    "accumulation_flux",
+    "budget_flux_per_area",
+    "drain_accumulation_flux",
     "release_accumulation_flux",
     "concentration_seepage",
     "mass_seepage",
-    "mass_accumulated",
+    "mass_seepage_running_sum",
     "simulated_active_network",
 )
 """Every name ``available_virtual_fields`` or the network reader can list."""

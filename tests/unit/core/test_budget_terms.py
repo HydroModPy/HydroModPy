@@ -28,13 +28,13 @@ def test_a_release_field_reads_the_release_terms_and_recharge(field: str) -> Non
     assert budget_terms_for(field) == tuple(sorted({*RELEASE_BUDGET_KEYS, "recharge"}))
 
 
-@pytest.mark.parametrize("field", ["accumulation_flux", "outflow_drain"])
+@pytest.mark.parametrize("field", ["drain_accumulation_flux", "outflow_drain"])
 def test_a_drain_field_reads_the_drain_and_its_mover(field: str) -> None:
     assert budget_terms_for(field) == ("drain", "drain_to_mover")
 
 
 def test_fluxes_from_budget_reads_drain_and_recharge() -> None:
-    assert budget_terms_for("fluxes_from_budget") == ("drain", "recharge")
+    assert budget_terms_for("budget_flux_per_area") == ("drain", "recharge")
 
 
 @pytest.mark.parametrize("field", ["seepage_mask", "concentration_seepage"])
@@ -42,7 +42,7 @@ def test_a_seepage_field_reads_the_surface_excess(field: str) -> None:
     assert budget_terms_for(field) == ("surface_excess",)
 
 
-@pytest.mark.parametrize("field", ["mass_seepage", "mass_accumulated"])
+@pytest.mark.parametrize("field", ["mass_seepage", "mass_seepage_running_sum"])
 def test_a_mass_field_reads_the_drain_and_the_surface_excess(field: str) -> None:
     assert budget_terms_for(field) == ("drain", "surface_excess")
 
@@ -58,7 +58,7 @@ def test_a_field_without_budget_reads_no_term(field: str) -> None:
 
 
 def test_the_terms_of_several_fields_are_their_sorted_union() -> None:
-    assert budget_terms_for_fields(["fluxes_from_budget", "seepage_mask", "head"]) == (
+    assert budget_terms_for_fields(["budget_flux_per_area", "seepage_mask", "head"]) == (
         "drain",
         "recharge",
         "surface_excess",

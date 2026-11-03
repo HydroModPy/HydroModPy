@@ -21,8 +21,11 @@ from hydromodpy.results.calibration_trials import (
     session_dir_of,
 )
 from hydromodpy.results.lineage import Lineage
+from hydromodpy.results.session.descriptor import ParameterBound
+from hydromodpy.results.session.phase import FrozenValue
 
 SESSION_ID = "22222222222222222222222222222222"
+FROZEN = FrozenValue(value=2e-5, mode="replace", from_phase="steady_k")
 
 
 @pytest.fixture
@@ -42,9 +45,9 @@ def project(tmp_path: Path) -> Path:
         config_hash="c" * 64,
         hydromodpy_version="2.0.0a5",
         method="grid",
-        objective_name="nse",
-        search_space={},
-        objective_window=None,
+        cost_name="nse",
+        bounds={"K": ParameterBound(lower=1e-6, upper=1e-3, search_space="log")},
+        windows={},
     )
     steady = PhaseContext("steady_k", 0, 0)
     transient = PhaseContext("transient_sy", 1, 0)
@@ -52,16 +55,14 @@ def project(tmp_path: Path) -> Path:
     for trial_id, cost in ((1, 0.5), (2, 0.2)):
         persistence.append_iteration(
             ParamSuggestion(trial_id=trial_id, values={"K": 1e-5 * trial_id}),
-            EvaluationResult(
-                trial_id=trial_id, sim_id=None, objective_value=cost, status="completed"
-            ),
+            EvaluationResult(trial_id=trial_id, sim_id=None, cost=cost, status="completed"),
             phase=steady,
         )
     persistence.finish_phase("steady_k", status="completed", best=None)
-    persistence.start_phase(transient, frozen={"K": {"value": 2e-5, "from": "steady_k"}})
+    persistence.start_phase(transient, frozen={"K": FROZEN})
     persistence.append_iteration(
         ParamSuggestion(trial_id=1, values={"Sy": 0.05}),
-        EvaluationResult(trial_id=1, sim_id=None, objective_value=0.1, status="completed"),
+        EvaluationResult(trial_id=1, sim_id=None, cost=0.1, status="completed"),
         phase=transient,
     )
     persistence.link_trial(3, sim_id="9a4f" * 8, rel_dir="runs/calage")
@@ -77,11 +78,12 @@ def _run(directory: Path, session_id: str | None = SESSION_ID) -> SimpleNamespac
 def test_a_promoted_run_reads_the_whole_session_it_came_from(project) -> None:
     frame = calibration_trials(_run(project / "runs" / "calage"))
 
-    assert list(frame["iteration"]) == [1, 2, 3]
+    assert list(frame["trial"]) == [1, 2, 3]
+    assert set(frame["case_id"]) == {"calage"}
     assert list(frame["phase"]) == ["steady_k", "steady_k", "transient_sy"]
     assert set(frame["session_id"]) == {SESSION_ID}
     assert frame["parameters"][0] == {"K": {"value": 1e-5}}
-    assert frame["objective_value"][2] == 0.1
+    assert frame["cost"][2] == 0.1
     assert frame["rel_dir"][2] == "runs/calage"
 
 
@@ -101,7 +103,7 @@ def test_a_kept_trial_is_in_its_own_session(project) -> None:
 def test_a_phase_filter_keeps_only_that_phase(project) -> None:
     frame = calibration_trials(_run(project / "runs" / "calage"), phase="steady_k")
 
-    assert list(frame["iteration"]) == [1, 2]
+    assert list(frame["trial"]) == [1, 2]
     with pytest.raises(ValueError, match="no trial recorded"):
         calibration_trials(_run(project / "runs" / "calage"), phase="nowhere")
 
@@ -110,10 +112,10 @@ def test_a_run_shaped_adapter_is_read_from_its_own_rows() -> None:
     # The calibration report builds one of these from a session journal, with
     # no project behind it; both carriers resolve to the same frame.
     class _Adapter:
-        calibration_iterations = [{"iteration": 0, "objective_value": 1.0}]
+        calibration_iterations = [{"trial": 1, "cost": 1.0}]
 
     frame = calibration_trials(_Adapter())
-    assert list(frame["iteration"]) == [0]
+    assert list(frame["trial"]) == [1]
 
 
 def test_anything_else_is_refused_by_name() -> None:
@@ -128,8 +130,11 @@ def test_the_sessions_frame_has_one_row_per_phase(project) -> None:
     assert list(frame["phase_index"]) == [0, 1]
     assert set(frame["session_id"]) == {SESSION_ID}
     assert frame["config"][0] == {"variable": "discharge", "method": "grid"}
-    assert frame["frozen"][1] == {"K": {"value": 2e-5, "from": "steady_k"}}
+    assert frame["frozen"][1] == {"K": FROZEN.model_dump(mode="json")}
     assert list(frame["status"]) == ["completed", "running"]
+    assert frame["sites"][0] == ["nancon"]
+    assert set(frame["cost_name"]) == {"nse"}
+    assert frame["bounds"][0]["K"]["search_space"] == "log"
 
 
 def test_a_run_without_a_session_has_no_session_rows(project) -> None:

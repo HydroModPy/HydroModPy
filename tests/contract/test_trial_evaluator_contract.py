@@ -445,12 +445,12 @@ class TestAWholeSearchRunsOnIt:
             project_root=tmp_path,
         ).to_dict()
 
-        assert report["n_iterations"] == 9
+        assert report["n_trials"] == 9
         best_values = {name: float(value) for name, value in report["best_parameters"].items()}
         replayed = model_free_evaluator.evaluate(TrialRequest(trial_id=99, values=best_values))
 
         assert replayed.status == "completed"
-        assert replayed.cost == pytest.approx(float(report["best_objective"]), rel=1e-12, abs=1e-15)
+        assert replayed.cost == pytest.approx(float(report["best_cost"]), rel=1e-12, abs=1e-15)
 
     def test_no_trial_of_that_search_broke_the_shape_of_an_outcome(
         self, model_free_evaluator

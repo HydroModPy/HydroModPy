@@ -1,6 +1,6 @@
 """Accumulation fluxes rebuilt on read, by range, on the descent D of the run.
 
-``accumulation_flux`` routes the local drain outflow down D, and
+``drain_accumulation_flux`` routes the local drain outflow down D, and
 ``release_accumulation_flux`` routes the release flux (every path groundwater
 leaves the aquifer by). Both come from the per-cell budget terms and the
 stored descent, so neither is written. Every row depends on its own step only,
@@ -25,7 +25,7 @@ from hydromodpy.core.field_routing import (
     DRN_TO_MVR_KEYS,
     DownhillGraph,
     accumulate_on_downhill_graph,
-    drain_budget_stack_to_positive_outflow,
+    budget_outflow_stack,
     drain_stack_with_mover,
     find_drain_budget_key,
     has_release_budget,
@@ -43,7 +43,7 @@ _graphs: OrderedDict[tuple, DownhillGraph] = OrderedDict()
 _graphs_lock = threading.Lock()
 
 
-def accumulation_flux_available(root: Any) -> bool:
+def drain_accumulation_flux_available(root: Any) -> bool:
     """Say whether the drain outflow of ``root`` can be routed on a descent."""
     budget = _budget(root)
     if budget is None or "head" not in root:
@@ -62,7 +62,7 @@ def release_accumulation_flux_available(root: Any) -> bool:
     return has_release_budget(budget) and _has_route(root)
 
 
-def accumulation_flux_rows(root: Any, start: int, stop: int) -> np.ndarray:
+def drain_accumulation_flux_rows(root: Any, start: int, stop: int) -> np.ndarray:
     """Return the accumulated drain outflow for steps ``[start, stop)``.
 
     Raises
@@ -70,8 +70,10 @@ def accumulation_flux_rows(root: Any, start: int, stop: int) -> np.ndarray:
     KeyError
         The run holds no drain budget, or no descent and no mesh topology.
     """
-    if not accumulation_flux_available(root):
-        raise KeyError("accumulation_flux needs a drain budget and a descent or a mesh topology")
+    if not drain_accumulation_flux_available(root):
+        raise KeyError(
+            "drain_accumulation_flux needs a drain budget and a descent or a mesh topology"
+        )
     n_cells = _n_cells(root)
     if int(stop) <= int(start):
         return np.empty((0, n_cells), dtype="float64")
@@ -80,7 +82,7 @@ def accumulation_flux_rows(root: Any, start: int, stop: int) -> np.ndarray:
 
     def local(first: int, last: int) -> np.ndarray:
         drain = drain_stack_with_mover(budget, drain_key, first, last)
-        return drain_budget_stack_to_positive_outflow(drain, n_cells=n_cells)
+        return budget_outflow_stack(drain, n_cells=n_cells)
 
     return _route(root, local, int(start), int(stop), n_cells)
 
@@ -214,8 +216,8 @@ def _digest(*arrays: np.ndarray) -> str:
 
 
 __all__ = [
-    "accumulation_flux_available",
-    "accumulation_flux_rows",
+    "drain_accumulation_flux_available",
+    "drain_accumulation_flux_rows",
     "release_accumulation_flux_available",
     "release_accumulation_flux_rows",
 ]

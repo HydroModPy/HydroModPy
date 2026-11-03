@@ -11,7 +11,7 @@ from hydromodpy.results.run.tables import read_run_table
 if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
-_COLUMNS = ["network_id", "ifno", "rlen", "ustrf", "downstream"]
+_COLUMNS = ["reach_id", "network_id", "reach", "rlen", "ustrf", "downstream"]
 
 __all__ = ["sfr_reach_links"]
 
@@ -19,24 +19,18 @@ __all__ = ["sfr_reach_links"]
 def sfr_reach_links(run: Run) -> pd.DataFrame:
     """Return the reach connectivity of ``run``, one row per reach.
 
-    Columns: ``network_id``, ``ifno``, ``rlen`` (m), ``ustrf`` and ``downstream``
-    (the ``ifno`` of every reach this one drains into, empty at an outlet).
-    The frame is empty when the run built no stream network.
+    Columns: ``reach_id`` (the ``station_id`` of the reach in ``timeseries``),
+    ``network_id``, ``reach``, ``rlen`` (m), ``ustrf`` and ``downstream`` (the
+    ``reach`` of every reach this one drains into, empty at an outlet). A reach
+    number starts at 1, as the TOML writes it. The frame is empty when the run
+    built no stream network.
 
     A module function rather than a ``Run`` attribute: ``Run`` is capped at 50
     public attributes (``tests/unit/results/test_run_surface.py``).
-
-    Raises
-    ------
-    KeyError
-        When the run was sealed before the table stored the connectivity.
     """
     frame = read_run_table(run, "sfr_reaches")
     if frame.empty:
         return pd.DataFrame(columns=_COLUMNS)
-    if "downstream" not in frame:
-        raise KeyError(
-            "the sfr_reaches table of this run holds no connectivity: it was sealed "
-            "before the reaches stored the reaches they drain into. Run it again."
-        )
-    return frame.sort_values(["network_id", "ifno"], kind="stable")[_COLUMNS].reset_index(drop=True)
+    return frame.sort_values(["network_id", "reach"], kind="stable")[_COLUMNS].reset_index(
+        drop=True
+    )

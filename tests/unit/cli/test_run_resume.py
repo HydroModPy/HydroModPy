@@ -8,13 +8,15 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from hydromodpy.cli.commands import run as run_cmd
 from hydromodpy.cli.helpers import EXIT_CONFIG
+from hydromodpy.results.checks import CalibratedBy
 from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
-from tests._helpers.sealed_runs import make_project, write_attempt
+from tests._helpers.sealed_runs import make_project, seal_run, write_attempt
 
 FROZEN_TOML = '[workflow]\nmode = "simulation"\n'
 
@@ -137,15 +139,39 @@ def test_a_calibration_takes_a_bare_resume_and_reopens_its_session(tmp_path, mon
     monkeypatch.chdir(workspace)
     calls: list[tuple[Path, dict]] = []
     monkeypatch.setattr(
-        hydromodpy, "calibrate", lambda path, **kw: calls.append((Path(path), kw)) or {}
+        hydromodpy,
+        "calibrate",
+        lambda path, **kw: calls.append((Path(path), kw)) or SimpleNamespace(to_dict=dict),
     )
     monkeypatch.setattr(hydromodpy, "run", lambda path, **kw: pytest.fail("hmp.run was called"))
 
     run_cmd._run_toml(config, args=_args(resume="", dry_run=False, verbosity="quiet"))
 
-    assert len(calls) == 1 and calls[0][1] == {"resume": True, "return_report": False}
+    assert len(calls) == 1 and calls[0][1] == {"resume": True}
 
     with pytest.raises(SystemExit) as exit_info:
         run_cmd._run_toml(config, args=_args(resume="other", dry_run=False))
     assert exit_info.value.code == EXIT_CONFIG
     assert "pass a bare --resume" in capsys.readouterr().err
+
+
+def test_a_run_out_of_a_calibration_says_how_to_reopen_its_session(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """Its frozen file holds one solve, so it can no longer reopen the search."""
+    workspace = make_project(tmp_path / "ws")
+    seal_run(
+        workspace,
+        "case",
+        calibrated_by=CalibratedBy(
+            session_id="s" * 32, phase="main", trial=1, session_status="completed"
+        ),
+    )
+    monkeypatch.setattr(run_cmd, "_run_toml", lambda *_a, **_k: pytest.fail("no replay"))
+    monkeypatch.chdir(workspace)
+
+    with pytest.raises(SystemExit) as stopped:
+        run_cmd._resume_from_ref("case", args=_args(resume="case"))
+
+    assert stopped.value.code == EXIT_CONFIG
+    assert "hmp run <file>.toml --resume" in capsys.readouterr().err

@@ -177,13 +177,12 @@ def _run_strip(
 
 
 def _assert_budget_closes(mesh: _MiniMesh, state, components) -> None:
-    """What enters is stored or leaves by a well, a drain or the fixed head."""
+    """The signed fluxes add up to what the free cells store, every term from the aquifer."""
     free = np.arange(mesh.n_cells) > 0
     storage = np.diff(state.head_history_m, axis=0) * mesh.storage_coefficient * mesh.cell_area_m2
     stored_m3_s = storage[:, free].sum(axis=1) / DAY_S
-    inflow = components["recharge"].sum(axis=1) + components["well"].sum(axis=1)
-    outflow = components["drain"].sum(axis=1) + components["constant_head"].sum(axis=1)
-    np.testing.assert_allclose(inflow, stored_m3_s + outflow, rtol=1e-9, atol=1e-15)
+    signed = sum(components[name].sum(axis=1) for name in components)
+    np.testing.assert_allclose(signed, stored_m3_s, rtol=1e-9, atol=1e-15)
 
 
 def test_exported_recharge_is_the_forcing_on_the_free_cells_and_the_budget_closes() -> None:

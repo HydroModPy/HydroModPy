@@ -66,7 +66,7 @@ def _make_result(sugg, cost: float, status: str = "completed") -> EvaluationResu
     return EvaluationResult(
         trial_id=sugg.trial_id,
         sim_id=None,
-        objective_value=cost,
+        cost=cost,
         status=status,
     )
 
@@ -170,7 +170,7 @@ class TestTellUpdatesState:
         assert len(opt._history) == 4
         best = opt.best()
         assert best is not None
-        assert best.objective_value == pytest.approx(1.0)
+        assert best.cost == pytest.approx(1.0)
         # The best trial corresponds to the lowest cost we told.
         assert best.trial_id == batch[1].trial_id
 
@@ -218,7 +218,7 @@ class TestTellUpdatesState:
         stray = EvaluationResult(
             trial_id=999_999,
             sim_id=None,
-            objective_value=0.0,
+            cost=0.0,
             status="completed",
         )
         opt.tell([stray])
@@ -255,7 +255,7 @@ class TestConvergence:
         # ``best()`` agrees with the tracked running best.
         best = opt.best()
         assert best is not None
-        assert best.objective_value == pytest.approx(gen_best[-1])
+        assert best.cost == pytest.approx(gen_best[-1])
 
     def test_one_dimensional_problem_converges(self) -> None:
         """1-D bounded problems exercise the cma stop-criteria workarounds."""

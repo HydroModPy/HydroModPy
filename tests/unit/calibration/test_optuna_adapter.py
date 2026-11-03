@@ -45,7 +45,7 @@ class TestOptunaAdapter:
             EvaluationResult(
                 trial_id=s.trial_id,
                 sim_id=None,
-                objective_value=float(i),
+                cost=float(i),
                 status="completed",
             )
             for i, s in enumerate(suggs)
@@ -62,7 +62,7 @@ class TestOptunaAdapter:
             EvaluationResult(
                 trial_id=s.trial_id,
                 sim_id=None,
-                objective_value=float(5 - i),  # descending
+                cost=float(5 - i),  # descending
                 status="completed",
             )
             for i, s in enumerate(suggs)
@@ -70,7 +70,7 @@ class TestOptunaAdapter:
         opt.tell(results)
         best = opt.best()
         assert best is not None
-        assert best.objective_value == 1.0
+        assert best.cost == 1.0
 
     def test_converges_toward_minimum(self):
         """TPE finds a lower cost than random guessing after a handful of trials."""
@@ -93,14 +93,14 @@ class TestOptunaAdapter:
                     EvaluationResult(
                         trial_id=s.trial_id,
                         sim_id=None,
-                        objective_value=cost,
+                        cost=cost,
                         status="completed",
                     )
                 ]
             )
 
         assert opt.best() is not None
-        assert opt.best().objective_value < 0.01
+        assert opt.best().cost < 0.01
 
     def test_fail_status_reported_to_optuna(self):
         opt = build_optimizer("optuna", _space_2d(), sampler="random", seed=0)
@@ -108,7 +108,7 @@ class TestOptunaAdapter:
         r = EvaluationResult(
             trial_id=s.trial_id,
             sim_id=None,
-            objective_value=float("inf"),
+            cost=float("inf"),
             status="crashed",
         )
         opt.tell([r])  # should not raise

@@ -8,21 +8,18 @@ one session directory, and reads them back for the promotion and the report.
 from __future__ import annotations
 
 import json
+from datetime import date
 from pathlib import Path
 
 import pytest
 
 from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
-from hydromodpy.calibration.persistence import (
-    CalibrationPersistence,
-    PhaseContext,
-    best_pointer,
-)
-from hydromodpy.results.metric_rule import DateWindow
+from hydromodpy.calibration.persistence import CalibrationPersistence, PhaseContext
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.session.descriptor import read_session
 from hydromodpy.results.session.journal import read_trials, trials_path
-from hydromodpy.results.session.phase import read_phase
+from hydromodpy.results.session.phase import FrozenValue, read_phase
+from tests._helpers.session_documents import calibration_window, session_opening
 
 pytestmark = pytest.mark.unit
 
@@ -32,22 +29,17 @@ def _open(tmp_path: Path, name: str = "calage") -> CalibrationPersistence:
     session_dir.mkdir(parents=True)
     persistence = CalibrationPersistence(session_dir)
     persistence.start_session(
-        session_id="a" * 32,
-        case_id=name,
-        site="nancon",
-        project="demo",
-        config_hash="c" * 64,
-        hydromodpy_version="2.0.0a5",
-        method="grid",
-        objective_name="nse",
-        search_space={"K": {"bounds": [1e-6, 1e-3]}},
-        objective_window=DateWindow(start="2001-01-01", end="2002-12-31"),
+        **session_opening(
+            name,
+            site="nancon",
+            windows=calibration_window(date(2001, 1, 1), date(2002, 12, 31)),
+        )
     )
     return persistence
 
 
 def _result(trial_id: int, cost: float, **kwargs) -> EvaluationResult:
-    payload = {"trial_id": trial_id, "sim_id": None, "objective_value": cost, "status": "completed"}
+    payload = {"trial_id": trial_id, "sim_id": None, "cost": cost, "status": "completed"}
     payload.update(kwargs)
     return EvaluationResult(**payload)
 
@@ -63,8 +55,8 @@ class TestTheSessionOpensAndCloses:
         descriptor = read_session(persistence.directory)
         assert descriptor.status == "running"
         assert descriptor.case_id == "calage"
-        assert descriptor.site == "nancon"
-        assert descriptor.objective_window == DateWindow(start="2001-01-01", end="2002-12-31")
+        assert descriptor.only_site == "nancon"
+        assert descriptor.windows == calibration_window(date(2001, 1, 1), date(2002, 12, 31))
         outcome = read_outcome(persistence.directory)
         assert outcome is not None
         assert (outcome.status, outcome.case_id, outcome.project) == ("running", "calage", "demo")
@@ -77,7 +69,7 @@ class TestTheSessionOpensAndCloses:
 
         persistence.finalize_session(
             status="completed",
-            best=best_pointer(persistence.best_trial()),
+            best=persistence.best_pointer(persistence.best_trial()),
             root_search={"bracket": {"low": 1.0}},
         )
 
@@ -85,7 +77,7 @@ class TestTheSessionOpensAndCloses:
         assert descriptor.status == "completed"
         assert descriptor.ended_at is not None
         assert descriptor.best is not None
-        assert (descriptor.best.trial, descriptor.best.objective) == (2, 0.1)
+        assert (descriptor.best.trial, descriptor.best.cost) == (2, 0.1)
         assert descriptor.root_search == {"bracket": {"low": 1.0}}
         outcome = read_outcome(persistence.directory)
         assert outcome is not None and outcome.status == "completed"
@@ -170,9 +162,8 @@ class TestTheRootSearchOutlivesTheRun:
         report = CalibrationReport(
             session_id="a" * 32,
             method="bisection",
-            n_iterations=1,
-            best_objective=0.4,
-            best_sim_id=None,
+            n_trials=1,
+            best_cost=0.4,
             duration_s=1.0,
             save_runs="none",
             promoted=0,
@@ -243,7 +234,7 @@ class TestTheTrialNumbering:
         second = persistence.append_iteration(_suggestion(3, 1e-4), _result(3, 0.2))
 
         assert first.trial == second.trial == 1
-        assert [line.objective for line in read_trials(persistence.directory)] == [0.2]
+        assert [line.cost for line in read_trials(persistence.directory)] == [0.2]
 
     def test_a_cached_result_is_a_completed_trial_from_the_cache(self, tmp_path) -> None:
         persistence = _open(tmp_path)
@@ -251,9 +242,9 @@ class TestTheTrialNumbering:
             _suggestion(1, 1e-4), _result(1, 0.4, status="cached", from_cache=True)
         )
 
-        assert (line.status, line.from_cache) == ("completed", True)
+        assert (line.status, line.only_case.from_cache) == ("completed", True)
 
-    def test_a_failed_trial_keeps_no_objective_and_names_its_error(self, tmp_path) -> None:
+    def test_a_failed_trial_keeps_no_cost_and_names_its_error(self, tmp_path) -> None:
         persistence = _open(tmp_path)
         line = persistence.append_iteration(
             _suggestion(1, 1e-4),
@@ -261,13 +252,13 @@ class TestTheTrialNumbering:
         )
 
         assert line.status == "crashed"
-        assert line.objective is None
-        assert line.metrics["error"] == "mf6 stopped"
+        assert line.cost is None
+        assert line.only_case.error == "mf6 stopped"
         assert persistence.best_trial() is None
 
 
 class TestWhatIsReadBack:
-    def test_top_n_and_the_best_trial_rank_by_objective(self, tmp_path) -> None:
+    def test_top_n_and_the_best_trial_rank_by_cost(self, tmp_path) -> None:
         persistence = _open(tmp_path)
         for trial_id, cost in ((1, 0.9), (2, 0.1), (3, 0.5), (4, float("nan"))):
             status = "completed" if cost == cost else "crashed"
@@ -275,13 +266,32 @@ class TestWhatIsReadBack:
                 _suggestion(trial_id, 1e-4), _result(trial_id, cost, status=status)
             )
 
-        assert [row["iteration"] for row in persistence.top_n(2)] == [2, 3]
+        assert [row["trial"] for row in persistence.top_n(2)] == [2, 3]
         best = persistence.best_trial()
         assert best is not None and best.trial == 2
         rows = persistence.load_iterations()
-        assert [row["iteration"] for row in rows] == [1, 2, 3, 4]
+        assert [row["trial"] for row in rows] == [1, 2, 3, 4]
         assert rows[0]["parameters"] == {"K": {"value": 1e-4}}
-        assert rows[3]["objective_value"] is None
+        assert rows[3]["cost"] is None
+        assert set(rows[0]) == {
+            "phase",
+            "restart",
+            "trial",
+            "case_id",
+            "cost",
+            "case_cost",
+            "components",
+            "parameters",
+            "status",
+            "case_status",
+            "from_cache",
+            "params_hash",
+            "sim_id",
+            "rel_dir",
+            "speculative_unused",
+            "duration_s",
+        }
+        assert (rows[0]["case_id"], rows[0]["case_cost"]) == ("calage", 0.9)
 
     def test_a_linked_trial_rewrites_its_line_with_the_run(self, tmp_path) -> None:
         persistence = _open(tmp_path)
@@ -289,11 +299,12 @@ class TestWhatIsReadBack:
 
         linked = persistence.link_trial(1, sim_id="9a4f" * 8, rel_dir="runs/calage")
 
-        assert (linked.sim_id, linked.rel_dir) == ("9a4f" * 8, "runs/calage")
+        run = linked.only_case
+        assert (run.sim_id, run.rel_dir) == ("9a4f" * 8, "runs/calage")
         lines = trials_path(persistence.directory).read_text(encoding="utf-8").splitlines()
         assert len(lines) == 2, "the last line of a trial wins"
-        assert json.loads(lines[-1])["rel_dir"] == "runs/calage"
-        assert read_trials(persistence.directory)[0].rel_dir == "runs/calage"
+        assert json.loads(lines[-1])["cases"]["calage"]["rel_dir"] == "runs/calage"
+        assert read_trials(persistence.directory)[0].only_case.rel_dir == "runs/calage"
 
     def test_the_detail_decides_what_a_line_carries(self, tmp_path) -> None:
         persistence = _open(tmp_path)
@@ -303,9 +314,10 @@ class TestWhatIsReadBack:
         full = persistence.append_iteration(_suggestion(2, 1e-4), result, detail="full")
         summary = persistence.append_iteration(_suggestion(3, 1e-4), result, detail="summary")
 
-        assert none.metrics == {}
-        assert full.metrics == {"rmse": 0.4, "block_costs": {"head": 0.5}}
-        assert summary.metrics == {"rmse": 0.4}
+        assert (none.only_case.components, none.only_case.detail) == ({}, {})
+        assert full.only_case.components == {"rmse": 0.4}
+        assert full.only_case.detail == {"block_costs": {"head": 0.5}}
+        assert (summary.only_case.components, summary.only_case.detail) == ({"rmse": 0.4}, {})
 
 
 class TestThePhases:
@@ -318,7 +330,9 @@ class TestThePhases:
 
         assert read_phase(persistence.directory, "steady_k").status == "running"
         persistence.finish_phase(
-            "steady_k", status="completed", best=best_pointer(persistence.best_trial("steady_k"))
+            "steady_k",
+            status="completed",
+            best=persistence.best_pointer(persistence.best_trial("steady_k")),
         )
 
         phase = read_phase(persistence.directory, "steady_k")
@@ -328,17 +342,18 @@ class TestThePhases:
 
     def test_a_restarted_phase_keeps_its_id_and_counts_the_restarts(self, tmp_path) -> None:
         persistence = _open(tmp_path)
-        first = persistence.start_phase(PhaseContext("sy", 1, 0), frozen={"K": {"value": 6e-6}})
+        frozen = {"K": FrozenValue(value=6e-6, mode="replace", from_phase="steady_k")}
+        first = persistence.start_phase(PhaseContext("sy", 1, 0), frozen=frozen)
         persistence.append_iteration(
             _suggestion(1, 0.1), _result(1, 0.4), phase=PhaseContext("sy", 1, 0)
         )
         persistence.append_iteration(
             _suggestion(1, 0.2), _result(1, 0.3), phase=PhaseContext("sy", 1, 1)
         )
-        again = persistence.start_phase(PhaseContext("sy", 1, 1), frozen={"K": {"value": 6e-6}})
+        again = persistence.start_phase(PhaseContext("sy", 1, 1), frozen=frozen)
 
         assert again.phase_id == first.phase_id
-        assert again.frozen == {"K": {"value": 6e-6}}
+        assert again.frozen == frozen
         closed = persistence.finish_phase("sy", status="completed", best=None)
         assert closed.restarts == 1
 
@@ -353,3 +368,33 @@ class TestThePhases:
         assert best_steady is not None and best_steady.trial == 1
         best_all = persistence.best_trial()
         assert best_all is not None and best_all.trial == 2
+
+    def test_the_best_pointer_adds_the_frozen_values_to_the_run_of_each_case(
+        self, tmp_path
+    ) -> None:
+        persistence = _open(tmp_path)
+        context = PhaseContext("sy", 1, 0)
+        frozen = {"K": FrozenValue(value=6e-6, mode="replace", from_phase="steady_k")}
+        persistence.start_phase(context, frozen=frozen)
+        persistence.append_iteration(
+            ParamSuggestion(trial_id=1, values={"Sy": 0.1}), _result(1, 0.4), phase=context
+        )
+        persistence.link_trial(1, sim_id="9a4f" * 8, rel_dir="runs/calage")
+
+        pointer = persistence.best_pointer(persistence.best_trial("sy"))
+
+        assert pointer is not None
+        assert pointer.parameters == {"K": 6e-6, "Sy": 0.1}
+        assert (pointer.trial, pointer.cost) == (1, 0.4)
+        assert pointer.cases["calage"].sim_id == "9a4f" * 8
+        assert persistence.best_pointer(None) is None
+
+    def test_the_cache_context_of_a_phase_is_kept_with_the_case(self, tmp_path) -> None:
+        persistence = _open(tmp_path)
+
+        persistence.record_context("sy", {"model": "a" * 16})
+        persistence.record_context("k", {"model": "b" * 16})
+
+        assert persistence.recorded_context("sy") == {"model": "a" * 16}
+        assert persistence.recorded_context("other") == {}
+        assert set(read_session(persistence.directory).cases["calage"].context) == {"sy", "k"}

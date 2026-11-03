@@ -1,7 +1,7 @@
 """A run-shaped carrier whose session lives in a real session directory on disk.
 
 The rows of ``calibration_sessions`` carry one phase each; ``session.json``
-keeps the best trial, the root search record and the search space of the
+keeps the best trial, the root search record and the bounds of the
 session. A figure drawn from a promoted run reads them from the session
 directory the run was promoted from, found from the directory of the run.
 The carrier here is built the same way: the session is written by
@@ -22,7 +22,7 @@ import pandas as pd
 
 from hydromodpy.calibration.persistence import CalibrationPersistence
 from hydromodpy.core.state.paths import run_dir_rel, session_dir_rel
-from hydromodpy.results.session.descriptor import BestTrial
+from hydromodpy.results.session.descriptor import BestTrial, ParameterBound
 
 STARTED = datetime(2026, 9, 28, 12, 28, 25, tzinfo=UTC)
 
@@ -34,7 +34,7 @@ def journal_run(
     method: str,
     phase: str,
     config: dict[str, Any],
-    search_space: dict[str, Any],
+    bounds: dict[str, ParameterBound],
     best_trial: int | None,
     root_search: dict[str, Any] | None = None,
     name: str = "calibration",
@@ -51,9 +51,9 @@ def journal_run(
         config_hash="c0ffee",
         hydromodpy_version="2.0.0a5",
         method=method,
-        objective_name="nse",
-        search_space=search_space,
-        objective_window=None,
+        cost_name="nse",
+        bounds=bounds,
+        windows={},
     )
     persistence.finalize_session(
         status="completed",
@@ -102,8 +102,8 @@ NETWORK_CONFIG: dict[str, Any] = {
     "uncertainty": {"method": "cost_profile", "cost_margin": None},
 }
 
-K_SPACE: dict[str, Any] = {
-    "K": {"bounds": [1e-7, 1e-3], "search_space": "log", "units": "m/s"},
+K_BOUNDS: dict[str, ParameterBound] = {
+    "K": ParameterBound(lower=1e-7, upper=1e-3, search_space="log", units="m/s"),
 }
 
 STEADY_K: list[float] = [
@@ -151,16 +151,16 @@ def steady_bisection_rows() -> list[dict[str, Any]]:
         {
             "trial": trial,
             "status": "completed",
-            "objective_value": abs(residual),
+            "cost": abs(residual),
             "parameters": {
                 "K": {"value": value, "bounds": [1e-7, 1e-3], "search_space": "log", "units": "m/s"}
             },
-            "metrics": {
+            "components": {
                 "seepage_network.J_signed": residual,
                 "seepage_network.D_so": 100.0 + max(residual, 0.0),
                 "seepage_network.D_os": 100.0 + max(-residual, 0.0),
                 "seepage_network.cell_spacing_m": 75.0,
-                "seepage_network.L_ref": 75.0,
+                "seepage_network.h_obs": 75.0,
                 "network_extension.raw_cost": abs(residual),
             },
         }
@@ -318,19 +318,19 @@ def two_root_rows() -> list[dict[str, Any]]:
     """One journal row per trial of the two-bound search: one residual per bound."""
     rows = []
     for index, value in enumerate(TWO_ROOT_K):
-        metrics = {
+        components = {
             "seepage_network.n_bounds_scored": 2.0,
             "seepage_network.cell_spacing_m": 75.0,
             "network_extent.raw_cost": TWO_ROOT_COST[index],
         }
         for bound in ("minimal", "maximal"):
-            metrics[f"seepage_network.J_signed_{bound}"] = TWO_ROOT_J[bound][index]
-            metrics[f"seepage_network.weight_{bound}"] = 0.5
+            components[f"seepage_network.J_signed_{bound}"] = TWO_ROOT_J[bound][index]
+            components[f"seepage_network.weight_{bound}"] = 0.5
         rows.append(
             {
                 "trial": index + 1,
                 "status": "completed",
-                "objective_value": TWO_ROOT_COST[index],
+                "cost": TWO_ROOT_COST[index],
                 "parameters": {
                     "K": {
                         "value": value,
@@ -339,7 +339,7 @@ def two_root_rows() -> list[dict[str, Any]]:
                         "units": "m/s",
                     }
                 },
-                "metrics": metrics,
+                "components": components,
             }
         )
     return rows

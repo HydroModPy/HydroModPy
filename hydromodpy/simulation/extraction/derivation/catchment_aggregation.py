@@ -9,13 +9,11 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.core.exceptions import ExtractError
-from hydromodpy.core.field_routing import CATCHMENT_BUDGET_ZONE
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.scope import CATCHMENT, SIMULATED
 from hydromodpy.core.time.period_aggregation import period_end_stamps, period_mean_on_index
 
 logger = get_logger(__name__)
-
-_CATCHMENT_STATION = "_catchment"
 
 _SLAB_TARGET_BYTES = 64 * 1024 * 1024
 
@@ -51,12 +49,13 @@ def _stored_basin(mesh: Any) -> _StoredBasin | None:
 
 
 VARIABLE_UNITS: dict[str, str] = {
-    "discharge": "m3/s",
-    "well_pumping": "m3/s",
+    "discharge": "m3 s-1",
+    "well_pumping": "m3 s-1",
 }
 
-# (source_variable, output_variable, reducer)
-# source_variable is looked up in derived/ then budget/ then root.
+# (source_variables, output_variable, reducer)
+# Each source variable is looked up in derived/ then budget/ then root, and the
+# output sums them.
 #
 # The run only materialises timeseries that downstream figures and
 # calibration pipelines consume as-is. Catchment-scale reductions of
@@ -64,14 +63,16 @@ VARIABLE_UNITS: dict[str, str] = {
 # means, recharge means) are computed lazily on demand through
 # ``hydromodpy.core.metrics`` / ``Run`` methods, so the
 # timeseries table stays focused on observation-comparable point series.
-_AGGREGATION_SPEC: list[tuple[str, str, str]] = [
-    # Direct drain outflow (m3/s) - sum of |drain flux| over the catchment.
+_AGGREGATION_SPEC: list[tuple[tuple[str, ...], str, str]] = [
+    # Water leaving the aquifer at the surface (m3/s), summed over the catchment:
+    # the drains of every solver and the Boussinesq saturation excess, which is
+    # where a Boussinesq run sends its water when it declares no drain.
     # The MVR-routed share lives in the separate DRN-TO-MVR budget record and
     # is therefore excluded: it re-enters the model through SFR and surfaces
     # in the routed ext_outflow series instead.
-    ("drain", "discharge", "abs_sum"),
+    (("drain", "surface_excess"), "discharge", "outflow_sum"),
     # Well pumping total (m3/s).
-    ("well", "well_pumping", "sum"),
+    (("well",), "well_pumping", "sum"),
 ]
 
 
@@ -90,8 +91,9 @@ def aggregate_catchment_timeseries(
     carries the in-watershed drainage (routed through DRN-TO-MVR) and the runoff
     injected into the network; the residual plain-DRN record is buffer drainage
     from neighbouring basins and is excluded. Without a stream network the series
-    falls back to the lumped accounting: sum of |DRN| plus the watershed runoff
-    forcing read from Zarr ``forcing/``.
+    falls back to the lumped accounting: the water the aquifer loses through its
+    drains and its surface excess, plus the watershed runoff forcing read from
+    Zarr ``forcing/``.
 
     Parameters
     ----------
@@ -118,36 +120,17 @@ def aggregate_catchment_timeseries(
         active_mask = _build_catchment_mask(store, sim_id, grp, domain_mask)
 
         pending: list[tuple[str, list[float]]] = []
-        for store_var, output_var, reducer in _AGGREGATION_SPEC:
-            # The lumped row of the catchment zone is the float64 budget of the
-            # solver; the per-cell field is stored rounded to 16 mantissa bits.
-            # MODFLOW 6 writes the row, so it wins where it exists.
-            values = _aggregate_from_lumped_budget(
-                store,
-                sim_id,
-                store_var,
-                reducer,
-                n_timesteps,
-                catchment_only=True,
-            )
-            if values is None:
-                values = _aggregate_variable(
-                    store, sim_id, grp, store_var, n_timesteps, active_mask, reducer
+        fraction = _catchment_fraction(active_mask, domain_mask)
+        for store_vars, output_var, reducer in _AGGREGATION_SPEC:
+            terms = [
+                _catchment_term(
+                    store, sim_id, grp, name, n_timesteps, active_mask, reducer, fraction
                 )
-            if values is None:
-                # The run kept no per-cell field for this term: the lumped
-                # per-component budget still carries it.
-                values = _aggregate_from_lumped_budget(
-                    store,
-                    sim_id,
-                    store_var,
-                    reducer,
-                    n_timesteps,
-                    catchment_fraction=_catchment_fraction(active_mask, domain_mask),
-                )
-            if values is None:
-                continue
-            pending.append((output_var, values))
+                for name in store_vars
+            ]
+            found = [term for term in terms if term is not None]
+            if found:
+                pending.append((output_var, np.sum(found, axis=0).tolist()))
 
         routed = _routed_outflow_by_timestep(store, sim_id, n_timesteps)
         if not pending and routed is None:
@@ -202,14 +185,14 @@ def aggregate_catchment_timeseries(
                 records.append(
                     {
                         "sim_id": str(sim_id),
-                        "station_id": _CATCHMENT_STATION,
+                        "station_id": CATCHMENT,
                         "variable": output_var,
                         "component": None,
                         "timestep": step,
                         "time": when,
                         "value": float(value),
                         "unit": unit,
-                        "qflag": "simulated",
+                        "source": SIMULATED,
                     }
                 )
         if records:
@@ -220,6 +203,34 @@ def aggregate_catchment_timeseries(
 
     if written:
         logger.debug("Wrote %d catchment-aggregated timeseries for sim %s", written, sim_id)
+
+
+def _catchment_term(
+    store: Any,
+    sim_id: str,
+    grp: Any,
+    name: str,
+    n_timesteps: int,
+    active_mask: np.ndarray | None,
+    reducer: str,
+    catchment_fraction: float | None,
+) -> list[float] | None:
+    """Return one budget term summed over the catchment, None when the run holds none of it."""
+    # The lumped row of the catchment zone is the float64 budget of the
+    # solver; the per-cell field is stored rounded to 16 mantissa bits.
+    # MODFLOW 6 writes the row, so it wins where it exists.
+    values = _aggregate_from_lumped_budget(
+        store, sim_id, name, reducer, n_timesteps, catchment_only=True
+    )
+    if values is None:
+        values = _aggregate_variable(store, sim_id, grp, name, n_timesteps, active_mask, reducer)
+    if values is None:
+        # The run kept no per-cell field for this term: the lumped
+        # per-component budget still carries it.
+        values = _aggregate_from_lumped_budget(
+            store, sim_id, name, reducer, n_timesteps, catchment_fraction=catchment_fraction
+        )
+    return values
 
 
 _ROUTED_RUNOFF_WARNING_EMITTED: set[str] = set()
@@ -242,13 +253,16 @@ def _naive_utc(value: Any) -> pd.Timestamp:
     return ts.tz_convert("UTC").tz_localize(None) if ts.tz is not None else ts
 
 
-def _station_rows(frame: pd.DataFrame, variable: str) -> pd.DataFrame:
-    """Rows of one variable at the SFR reaches and the lake outlets."""
+def _network_rows(frame: pd.DataFrame, variable: str) -> pd.DataFrame:
+    """Rows of one simulated variable of the routed network.
+
+    The SFR and LAK extractors are the only writers of the variables asked for
+    here, at their reaches and their lake outlets, so the name of the variable
+    tells them apart from a catchment series or a gauge.
+    """
     if frame.empty:
         return frame
-    stations = frame["station_id"].astype(str)
-    network = stations.str.startswith("sfr:") | stations.str.startswith("lake:")
-    return frame[(frame["variable"] == variable) & network]
+    return frame[(frame["variable"] == variable) & (frame["source"] == SIMULATED)]
 
 
 def _read_period_start(store: Any, sim_id: str, index: pd.DatetimeIndex) -> pd.Timestamp | None:
@@ -275,7 +289,7 @@ def _warn_routed_without_runoff(store: Any, sim_id: str, grp: Any) -> None:
     forcing = grp.get("forcing")
     if forcing is None or "runoff" not in forcing:
         return
-    if _station_rows(store.read_table("timeseries"), "runoff").empty:
+    if _network_rows(store.read_table("timeseries"), "runoff").empty:
         logger.warning(
             "catchment discharge: runoff forcing is present for sim %s but no runoff was "
             "routed into SFR/LAK; the routed discharge excludes the runoff component.",
@@ -292,15 +306,15 @@ def _routed_outflow_by_timestep(
     """Sum of ext_outflow over SFR reaches and lake outlets, per timestep.
 
     ``ext_outflow`` is the surface water leaving the model at a terminal reach or
-    a lake outlet (stations ``sfr:*`` / ``lake:*``, extracted from the MF6 obs
-    CSVs in m3/s). Both extractors store it with the same positive-outflow
-    convention. Returns None when no such series exists (no SFR / LAK run).
+    a lake outlet (extracted from the MF6 obs CSVs in m3/s). Both extractors store
+    it with the same positive-outflow convention. Returns None when no such series
+    exists (no SFR / LAK run).
 
     Same definition as ``routed_outflow_series`` in the MODFLOW 6 SFR extractor
     (reach ext-outflow plus lake-outlet ext-outflow): one routed discharge, two
     readers (the run files for the calibration, the store here).
     """
-    outflow = _station_rows(store.read_table("timeseries"), "ext_outflow")
+    outflow = _network_rows(store.read_table("timeseries"), "ext_outflow")
     if outflow.empty:
         return None
     totals = outflow.groupby("timestep")["value"].sum(min_count=1)
@@ -432,28 +446,17 @@ def _aggregate_variable(
 ) -> list[float] | None:
     """Try to read *store_var* for all timesteps, aggregate, and return scalar list."""
     # Locate the variable in derived/, budget/, or root.
-    # store_var may contain "|" alternatives (e.g., "drains|drn|drain").
-    candidates = [s.strip() for s in store_var.split("|")]
     derived_grp = grp.get("derived")
     budget_grp = grp.get("budget")
-
-    target_grp = None
-    resolved_key = None
-    for key in candidates:
-        if derived_grp is not None and key in derived_grp:
-            target_grp, resolved_key = derived_grp, key
-            break
-        if budget_grp is not None and key in budget_grp:
-            target_grp, resolved_key = budget_grp, key
-            break
-        if key in grp:
-            target_grp, resolved_key = grp, key
-            break
-
-    if target_grp is None or resolved_key is None:
+    if derived_grp is not None and store_var in derived_grp:
+        arr = derived_grp[store_var]
+    elif budget_grp is not None and store_var in budget_grp:
+        arr = budget_grp[store_var]
+    elif store_var in grp:
+        arr = grp[store_var]
+    else:
         return None
 
-    arr = target_grp[resolved_key]
     if arr.shape[0] < n_timesteps:
         return None
 
@@ -512,7 +515,7 @@ def _warn_lumped_budget_is_domain_wide(
     component: str,
     catchment_fraction: float | None,
 ) -> None:
-    """Say once that a '_catchment' series is carrying a domain-wide budget.
+    """Say once that a catchment series is carrying a domain-wide budget.
 
     Silent when the catchment covers the whole active domain: a MODFLOW-NWT run
     meshes the delineated basin, so its domain row already has the catchment for
@@ -536,8 +539,8 @@ def _warn_lumped_budget_is_domain_wide(
         "support back.",
         sim_id,
         component,
-        CATCHMENT_BUDGET_ZONE,
-        _CATCHMENT_STATION,
+        CATCHMENT,
+        CATCHMENT,
         100.0 * catchment_fraction,
     )
 
@@ -557,10 +560,10 @@ def _aggregate_from_lumped_budget(
     Used when the run kept no per-cell field for the term, or, with
     ``catchment_only``, to prefer the float64 catchment row over the rounded
     per-cell field. The lumped in/out fluxes (m3/s) land in the ``budgets``
-    table whatever the per-cell budget kept. For a single-sign outflow term the spatial ``abs_sum`` (drain)
-    equals ``flux_out``; a signed term's spatial ``sum`` (well) equals
-    ``flux_in - flux_out``. Returns None for other reducers or when no component
-    row matches.
+    table whatever the per-cell budget kept. The spatial ``outflow_sum`` (drain,
+    surface excess) equals ``flux_out``; a signed term's spatial ``sum`` (well)
+    equals ``flux_in - flux_out``. Returns None for other reducers or when no
+    component row matches.
 
     A ``zone_id = 'catchment'`` row is the only lumped row whose support is the
     catchment, so it wins. Any other zone spans the model domain, which on a
@@ -569,7 +572,7 @@ def _aggregate_from_lumped_budget(
     about once and never rescaled. ``catchment_only`` skips every other zone and
     returns None when no catchment row exists.
     """
-    if reducer not in ("abs_sum", "sum"):
+    if reducer not in ("outflow_sum", "sum"):
         return None
     try:
         budgets = store.read_table("budgets")
@@ -581,29 +584,27 @@ def _aggregate_from_lumped_budget(
             f"Cannot read the lumped budget of sim {sim_id}: the catchment "
             f"'{store_var}' series cannot be built ({exc})."
         ) from exc
-    for candidate in (s.strip() for s in store_var.split("|")):
-        rows = _lumped_budget_rows(budgets, candidate, CATCHMENT_BUDGET_ZONE)
-        on_catchment = bool(rows)
-        if not rows and catchment_only:
+    rows = _lumped_budget_rows(budgets, store_var, CATCHMENT)
+    on_catchment = bool(rows)
+    if not rows and catchment_only:
+        return None
+    if not rows:
+        rows = _lumped_budget_rows(budgets, store_var, None)
+    if not rows:
+        return None
+    if not on_catchment:
+        _warn_lumped_budget_is_domain_wide(sim_id, store_var, catchment_fraction)
+    # NaN, not zero, for timesteps with no budget row: a gap must stay
+    # missing instead of biasing the metrics toward a null flux.
+    values = [float("nan")] * n_timesteps
+    for timestep, flux_in, flux_out in rows:
+        t = int(timestep)
+        if not (0 <= t < n_timesteps):
             continue
-        if not rows:
-            rows = _lumped_budget_rows(budgets, candidate, None)
-        if not rows:
-            continue
-        if not on_catchment:
-            _warn_lumped_budget_is_domain_wide(sim_id, candidate, catchment_fraction)
-        # NaN, not zero, for timesteps with no budget row: a gap must stay
-        # missing instead of biasing the metrics toward a null flux.
-        values = [float("nan")] * n_timesteps
-        for timestep, flux_in, flux_out in rows:
-            t = int(timestep)
-            if not (0 <= t < n_timesteps):
-                continue
-            fout = float(flux_out or 0.0)
-            fin = float(flux_in or 0.0)
-            values[t] = fout if reducer == "abs_sum" else fin - fout
-        return values
-    return None
+        fout = float(flux_out or 0.0)
+        fin = float(flux_in or 0.0)
+        values[t] = fout if reducer == "outflow_sum" else fin - fout
+    return values
 
 
 def _resolve_time_index(store: Any, sim_id: str, n_timesteps: int) -> pd.DatetimeIndex:
@@ -669,7 +670,7 @@ def _build_active_mask(grp) -> np.ndarray | None:
 def _build_catchment_mask(store: Any, sim_id: str, grp, active: np.ndarray | None):
     """Cells of the catchment: the basin of D the run stored, else the delineated polygon.
 
-    These series are written under the ``_catchment`` station, so the support
+    These series are written under the ``catchment`` station, so the support
     has to be the catchment. It is not the same surface as the model domain:
     MODFLOW-NWT meshes the delineated basin, so the two coincide, while
     MODFLOW 6 meshes the buffered box. Measured on the Nancon at 25 m, 152.2
@@ -693,7 +694,7 @@ def _build_catchment_mask(store: Any, sim_id: str, grp, active: np.ndarray | Non
         if not mask.any():
             raise ExtractError(
                 f"the basin of D stored by run {sim_id} holds no active cell, so the "
-                "'_catchment' series have no support."
+                "catchment series have no support."
             )
         logger.info(
             "Catchment timeseries for sim %s: the basin of D, %d of %d active cells (%.3f km2).",
@@ -708,7 +709,7 @@ def _build_catchment_mask(store: Any, sim_id: str, grp, active: np.ndarray | Non
     if basin is None:
         logger.info(
             "Catchment timeseries for sim %s: the run stores no basin of D, so the "
-            "'_catchment' series keep the old support 'polygon_centroid'.",
+            "catchment series keep the old support 'polygon_centroid'.",
             sim_id,
         )
     try:
@@ -718,7 +719,7 @@ def _build_catchment_mask(store: Any, sim_id: str, grp, active: np.ndarray | Non
     if watershed is None or watershed.empty:
         logger.warning(
             "Catchment timeseries for sim %s: no delineated watershed in the store, so "
-            "the '_catchment' series are summed over the whole active domain. On a "
+            "the catchment series are summed over the whole active domain. On a "
             "buffered grid that takes in the neighbouring basins.",
             sim_id,
         )
@@ -737,7 +738,7 @@ def _build_catchment_mask(store: Any, sim_id: str, grp, active: np.ndarray | Non
         # somewhere else entirely and the series would look plausible.
         logger.warning(
             "Catchment timeseries for sim %s: the store declares no CRS, so the "
-            "delineated watershed cannot be placed on the mesh and the '_catchment' "
+            "delineated watershed cannot be placed on the mesh and the catchment "
             "series stay on the whole active domain.",
             sim_id,
         )
@@ -757,7 +758,7 @@ def _build_catchment_mask(store: Any, sim_id: str, grp, active: np.ndarray | Non
     if not mask.any():
         logger.warning(
             "Catchment timeseries for sim %s: the delineated watershed covers no cell "
-            "centre, so the '_catchment' series fall back to the active domain. Check "
+            "centre, so the catchment series fall back to the active domain. Check "
             "that the watershed and the mesh share a CRS.",
             sim_id,
         )
@@ -797,7 +798,7 @@ def _reduce(field: np.ndarray, mask: np.ndarray | None, reducer: str) -> float:
     """Reduce a spatial field to a single scalar."""
     # Flatten multi-layer fields to single layer
     if field.ndim == 2:
-        field = field.sum(axis=0) if reducer in ("abs_sum", "sum") else field[0]
+        field = field.sum(axis=0) if reducer in ("outflow_sum", "sum") else field[0]
     field = field.ravel().astype("float64")
 
     if mask is not None and mask.size == field.size:
@@ -814,8 +815,8 @@ def _reduce(field: np.ndarray, mask: np.ndarray | None, reducer: str) -> float:
     elif reducer == "percent_positive":
         n_positive = np.count_nonzero(valid > 0)
         return float(n_positive / valid.size * 100)
-    elif reducer == "abs_sum":
-        return float(np.nansum(np.abs(valid)))
+    elif reducer == "outflow_sum":
+        return float(np.nansum(np.maximum(-valid, 0.0)))
     elif reducer == "max":
         return float(np.nanmax(valid))
     elif reducer == "sum":

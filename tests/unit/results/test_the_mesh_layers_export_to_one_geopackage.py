@@ -313,12 +313,12 @@ def test_a_ragged_mesh_keeps_every_cell_as_a_valid_polygon(project):
     assert "family_boundary_west" in families
 
 
-def test_a_run_sealed_before_the_layout_holds_no_mesh_layer_and_says_why(catalog, old_run):
+def test_a_mesh_without_a_crs_holds_no_mesh_layer_and_says_why(catalog, old_run):
     held = list_exportable(catalog[old_run])
 
     assert not set(MESH_LAYERS) & set(held)
     assert available_mesh_layers(catalog, old_run) == []
-    with pytest.raises(ExportError, match=r"mesh_cells: the run was sealed before the cell-mesh"):
+    with pytest.raises(ExportError, match=r"mesh_cells: the mesh of the run states no CRS"):
         export_run(catalog, old_run, ExportRequest(variables="mesh_cells"))
     with pytest.raises(ExportError, match="states no CRS"):
         export_mesh_layers(catalog, old_run, ["mesh_cells"], Path("unused.gpkg"))

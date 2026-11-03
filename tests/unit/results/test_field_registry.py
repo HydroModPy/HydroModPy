@@ -15,6 +15,7 @@ from hydromodpy.results.field_registry import (
     get,
     has,
 )
+from hydromodpy.results.zarr_store.cf_validation import is_cf_standard_name
 
 
 class TestRegistryContents:
@@ -34,7 +35,7 @@ class TestRegistryContents:
             "drain",
             "outflow_drain",
             "release_flux",
-            "accumulation_flux",
+            "drain_accumulation_flux",
             "release_accumulation_flux",
             "river",
             "well",
@@ -71,6 +72,25 @@ class TestRegistryContents:
 
 
 class TestFieldDescriptor:
+    def test_every_budget_flux_states_the_one_sign(self):
+        for desc in field_registry.FIELD_REGISTRY.values():
+            if desc.zarr_path.startswith("budget/") and desc.public_name not in (
+                field_registry.NOT_AQUIFER_TERMS
+            ):
+                assert "aquifer" in desc.long_name, desc.public_name
+                assert "positive leaves" not in desc.long_name, desc.public_name
+                attrs = field_registry.cf_attrs(desc.public_name)
+                assert attrs["sign_convention"] == field_registry.BUDGET_SIGN_RULE
+
+    def test_the_cf_names_of_the_registry_are_in_the_bundled_table(self):
+        named = {
+            desc.standard_name
+            for desc in field_registry.FIELD_REGISTRY.values()
+            if desc.standard_name
+        }
+        assert named == {"altitude", "cell_thickness", "surface_altitude", "water_table_depth"}
+        assert all(is_cf_standard_name(name) for name in named)
+
     def test_is_frozen(self):
         desc = get("head")
         with pytest.raises((AttributeError, Exception)):

@@ -176,7 +176,7 @@ Extent = Annotated[
 Station = Annotated[
     str,
     Opt(
-        'Station whose series is drawn: a gauge id, or "_catchment" for the '
+        'Station whose series is drawn: a gauge id, or "catchment" for the '
         "series at the catchment outlet."
     ),
 ]
@@ -230,9 +230,7 @@ ParameterUnits = Annotated[
 ]
 ObjectiveName = Annotated[
     str | None,
-    Opt(
-        'Column of the trial table read as the cost. Left out, "objective_value", else "objective".'
-    ),
+    Opt('Column of the trial table read as the cost. Left out, "cost", else "objective".'),
 ]
 ParameterNames = Annotated[
     list[str] | None,

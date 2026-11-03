@@ -20,7 +20,7 @@ from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from hydromodpy.calibration.config import CalibrationConfig, scoring_window_bounds
+from hydromodpy.calibration.config import CalibPhaseDecl, CalibrationConfig, scoring_window_bounds
 from hydromodpy.core.state.paths import resolve_project_root
 from hydromodpy.results.catalog.registration import (
     config_identity_hash,
@@ -28,8 +28,8 @@ from hydromodpy.results.catalog.registration import (
     run_identity_hash,
     split_stem_version,
 )
-from hydromodpy.results.metric_rule import DateWindow
-from hydromodpy.results.session.descriptor import list_session_dirs
+from hydromodpy.results.metric_rule import CALIBRATION_ROLE, PeriodWindow
+from hydromodpy.results.session.descriptor import ParameterBound, list_session_dirs
 from hydromodpy.results.storage.contract import SESSION_CONFIG_FILENAME
 
 if TYPE_CHECKING:
@@ -174,30 +174,36 @@ def session_config_hash(raw: Mapping[str, Any], trial_ctx: TrialContext | None) 
     return hashlib.sha256(json.dumps(dict(raw), sort_keys=True, default=str).encode()).hexdigest()
 
 
-def objective_window_of(
-    cfg: CalibrationConfig, document: Mapping[str, Any] | None = None
-) -> DateWindow | None:
-    """Return the window the session scores its objective on.
+def search_windows(
+    cfg: CalibrationConfig,
+    document: Mapping[str, Any] | None = None,
+    *,
+    phase: CalibPhaseDecl | None = None,
+) -> dict[str, PeriodWindow]:
+    """Return the periods a search scores on, by name; empty when no date closes one.
 
-    A staged calibration promotes the best trial of its last phase, so its
-    window is the one of that phase, or the section's when the phase writes
-    none. A bound left open is the start or the end of the period that
-    ``[simulation.time]`` of *document* declares. ``None`` when a bound stays
-    unknown: a search that skips ``warmup_periods`` samples, or no period to
-    close the window with.
+    A staged calibration promotes the best trial of its last phase, so without
+    ``phase`` the period is the one of that phase, or the section's when the phase
+    writes none. A bound left open is the start or the end of the period that
+    ``[simulation.time]`` of *document* declares. Empty when a bound stays unknown:
+    a search that skips ``warmup_periods`` samples, no period to close the window
+    with, or a steady phase that writes no window of its own.
     """
+    last = phase if phase is not None else (cfg.phases[-1] if cfg.phases else None)
     window = cfg.scoring_window
-    if cfg.phases and cfg.phases[-1].scoring_window is not None:
-        window = cfg.phases[-1].scoring_window
+    if last is not None and last.scoring_window is not None:
+        window = last.scoring_window
+    elif last is not None and last.regime == "steady":
+        return {}
     if window is None and cfg.warmup_periods:
-        return None
+        return {}
     bounds = scoring_window_bounds(window) or (None, None)
     period_start, period_end = _declared_period(document)
     start = bounds[0].date() if bounds[0] is not None else period_start
     end = bounds[1].date() if bounds[1] is not None else period_end
     if start is None or end is None:
-        return None
-    return DateWindow(start=start, end=end)
+        return {}
+    return {CALIBRATION_ROLE: PeriodWindow(role=CALIBRATION_ROLE, start=start, end=end)}
 
 
 def _declared_period(document: Mapping[str, Any] | None) -> tuple[date | None, date | None]:
@@ -218,15 +224,16 @@ def _day(value: Any) -> date | None:
     return pd.Timestamp(value).date()
 
 
-def search_space_payload(space: ParameterSpace) -> dict[str, Any]:
-    """Return the searched bounds, one entry per parameter, as plain data."""
+def session_bounds(space: ParameterSpace, case_id: str) -> dict[str, ParameterBound]:
+    """Return the dimensions a search walks, each target under the case it touches."""
     return {
-        param.name: {
-            "bounds": [param.lower, param.upper],
-            "search_space": param.search_space,
-            "target": param.effective_path,
-            "units": param.units,
-        }
+        param.name: ParameterBound(
+            lower=param.lower,
+            upper=param.upper,
+            search_space=param.search_space,
+            units=param.units,
+            targets={case_id: param.effective_path} if param.effective_path else {},
+        )
         for param in space
     }
 
@@ -235,9 +242,9 @@ __all__ = [
     "calibration_case_name",
     "freeze_session_config",
     "latest_session_dir",
-    "objective_window_of",
     "open_session_dir",
     "project_root_for",
-    "search_space_payload",
+    "search_windows",
+    "session_bounds",
     "session_config_hash",
 ]

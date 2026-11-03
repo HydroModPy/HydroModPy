@@ -140,11 +140,11 @@ class ParameterCostProfileFigure(BaseFigure):
         objective: Annotated[
             str,
             Opt(
-                'Trial column drawn as the cost. "objective_value" is the cost the '
+                'Trial column drawn as the cost. "cost" is the cost the '
                 "calibration minimised; another diagnostic is drawn without the "
                 "tolerance interval."
             ),
-        ] = "objective_value",
+        ] = "cost",
         objective_units: Annotated[
             str | None,
             Opt(
@@ -168,7 +168,7 @@ class ParameterCostProfileFigure(BaseFigure):
         name, values = table.parameter_values(parameter)
         cost = _completed_cost(table.diagnostic(objective), table.frame)
         blocks = cost_blocks(table, session_config(descriptor))
-        if objective == "objective_value":
+        if objective == "cost":
             tolerance = read_tolerance(cost, blocks, table, descriptor)
         else:
             # The margin is read on the total cost only: a block cost drawn
@@ -216,7 +216,7 @@ class ParameterCostProfileFigure(BaseFigure):
         if log:
             ax.set_xscale("log")
         ax.set_xlabel(f"{name} ({profile.units})")
-        if objective == "objective_value":
+        if objective == "cost":
             label = cost_label(blocks)
             if objective_units is not None:
                 label = f"{label.rsplit(' (', 1)[0]} ({objective_units})"

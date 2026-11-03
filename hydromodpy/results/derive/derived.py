@@ -23,7 +23,7 @@ else:
     ArrayLike = Any
 
 __all__ = [
-    "fluxes_from_budget",
+    "budget_flux_per_area",
     "watertable_depth",
     "watertable_elevation",
 ]
@@ -65,7 +65,7 @@ def watertable_depth(head: ArrayLike, top: ArrayLike) -> ArrayLike:
     return np.maximum(top_arr - wt, 0.0)
 
 
-def fluxes_from_budget(
+def budget_flux_per_area(
     component_field: ArrayLike,
     cell_area: ArrayLike,
 ) -> ArrayLike:

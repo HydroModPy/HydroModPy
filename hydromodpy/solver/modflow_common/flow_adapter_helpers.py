@@ -30,6 +30,7 @@ from hydromodpy.simulation.planning.plan import (
     RunExecutionResult,
     SimulationPlan,
 )
+from hydromodpy.solver.base.adapter_protocol import STOP_BEFORE_THE_SOLVE
 from hydromodpy.solver.modflow_common.options import (
     ModflowPreprocessOptions,
     ModflowRunOptions,
@@ -351,6 +352,10 @@ def run_flow_model(
         flow_runtime_overrides=flow_runtime_overrides,
         cell_mesh=require_cell_mesh(state.setup),
     )
+    if isinstance(flow_runtime_overrides, Mapping) and flow_runtime_overrides.get(
+        STOP_BEFORE_THE_SOLVE
+    ):
+        return RunExecutionResult(primary_model=model_modflow)
 
     # The numerical run is shared across flow backends: write files, execute
     # the solver, and link MT3DMS-compatible outputs only when a downstream

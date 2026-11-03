@@ -395,7 +395,7 @@ class TestMaterializeHookFromCli:
             return EvaluationResult(
                 trial_id=sugg.trial_id,
                 sim_id=None,
-                objective_value=0.5,
+                cost=0.5,
                 status="completed",
                 metadata=meta,
             )

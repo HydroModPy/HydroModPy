@@ -111,9 +111,9 @@ def bisection_session() -> _SessionRun:
                 "session_id": session["session_id"],
                 "trial": trial,
                 "status": "completed",
-                "objective_value": cost,
+                "cost": cost,
                 "parameters": {"K": _parameter(k, bounds=[1e-7, 1e-3], units="m/s")},
-                "metrics": metrics,
+                "components": metrics,
             }
         )
     return _SessionRun(rows, session, name="synthetic_bisection")
@@ -150,9 +150,9 @@ def nelder_mead_session() -> _SessionRun:
                 "session_id": session["session_id"],
                 "trial": trial,
                 "status": "failed" if failed else "completed",
-                "objective_value": cost,
+                "cost": cost,
                 "parameters": {"Sy": _parameter(sy, bounds=[0.005, 0.35], units="-")},
-                "metrics": {} if failed else {"hydrograph.raw_cost": cost},
+                "components": {} if failed else {"hydrograph.raw_cost": cost},
             }
         )
     return _SessionRun(rows, session, name="synthetic_nelder_mead")
@@ -198,7 +198,7 @@ def optuna_session(n_runs: int = 40, seed: int = 7) -> _SessionRun:
         else:
             # Then draws around the best so far, tighter as the runs go.
             spread = max(0.08, 1.0 - trial / n_runs)
-            centre = min(rows, key=lambda row: row["objective_value"])["parameters"]
+            centre = min(rows, key=lambda row: row["cost"])["parameters"]
             log_k = np.clip(
                 np.log10(centre["K"]["value"]) + rng.normal(0.0, 0.8 * spread), -7.0, -3.0
             )
@@ -222,12 +222,12 @@ def optuna_session(n_runs: int = 40, seed: int = 7) -> _SessionRun:
                 "session_id": session["session_id"],
                 "trial": trial,
                 "status": "completed",
-                "objective_value": 0.3 * network + 0.7 * hydrograph,
+                "cost": 0.3 * network + 0.7 * hydrograph,
                 "parameters": {
                     "K": _parameter(k, bounds=[1e-7, 1e-3], units="m/s"),
                     "Sy": _parameter(sy, bounds=[0.005, 0.35], units="-"),
                 },
-                "metrics": metrics,
+                "components": metrics,
             }
         )
     return _SessionRun(rows, session, name="synthetic_optuna")
@@ -283,7 +283,7 @@ def test_a_bisection_on_the_network_draws_with_the_distance_metric(mpl) -> None:
 
     assert "|D_so - D_os| (m)" in _ylabels(fig)
     assert "Stream cells (-)" in _ylabels(fig)
-    assert not any("objective_value" in label for label in _ylabels(fig))
+    assert not any("cost" in label for label in _ylabels(fig))
     cost_ax = _cost_axis(fig)
     assert cost_ax.get_yscale() == "log"
     text = _texts(fig)
@@ -307,7 +307,8 @@ def test_a_broken_bar_keeps_its_rank_and_the_cost_keeps_the_panel(mpl) -> None:
     tops = np.asarray(marks.get_offsets())[:, 1]
     totals = np.array(
         [
-            row["metrics"]["seepage_network.n_valid"] + row["metrics"]["seepage_network.n_excess"]
+            row["components"]["seepage_network.n_valid"]
+            + row["components"]["seepage_network.n_excess"]
             for row in run.calibration_iterations
         ]
     )
@@ -316,7 +317,7 @@ def test_a_broken_bar_keeps_its_rank_and_the_cost_keeps_the_panel(mpl) -> None:
     # A bar ten times taller than another stands visibly taller, not at one cap.
     assert np.all(np.diff(np.sort(tops)) > 0.05 * MAPPED)
     cost_ax = _cost_axis(fig)
-    costs = np.array([row["objective_value"] for row in run.calibration_iterations])
+    costs = np.array([row["cost"] for row in run.calibration_iterations])
     assert cost_ax.get_ylim()[1] <= 10.0 * costs.max()
 
 
@@ -382,7 +383,7 @@ def test_the_slide_saves_a_png(mpl, tmp_path: Path) -> None:
 def test_a_value_combined_from_two_roots_is_marked_and_gets_no_interval(mpl, tmp_path) -> None:
     """The slide agrees with the summary: the returned run, and no interval of runs."""
     from ._calibration_journal import (
-        K_SPACE,
+        K_BOUNDS,
         TWO_ROOT_CONFIG,
         TWO_ROOTS,
         journal_run,
@@ -395,7 +396,7 @@ def test_a_value_combined_from_two_roots_is_marked_and_gets_no_interval(mpl, tmp
         method="bisection",
         phase="transient_conductivity",
         config=TWO_ROOT_CONFIG,
-        search_space=K_SPACE,
+        bounds=K_BOUNDS,
         best_trial=24,
         root_search=TWO_ROOTS,
     )

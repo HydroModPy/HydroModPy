@@ -187,7 +187,8 @@ def _promoted_runs(project: Path) -> list[Path]:
     from hydromodpy.results.session.journal import read_trials
 
     lines = read_trials(project / "sessions" / "kept_solve")
-    rel_dirs = sorted(line.rel_dir for line in lines if line.rel_dir is not None)
+    cases = [line.only_case for line in lines]
+    rel_dirs = sorted(case.rel_dir for case in cases if case is not None and case.rel_dir)
     return [project / rel_dir for rel_dir in rel_dirs]
 
 

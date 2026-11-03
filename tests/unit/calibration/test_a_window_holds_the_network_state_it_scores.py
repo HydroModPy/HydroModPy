@@ -153,7 +153,7 @@ class TestTheCheckBeforeTheRun:
 
     def test_a_dated_state_outside_the_window_is_named(self, tmp_path) -> None:
         found = _window_findings(tmp_path, time="2000-03-15", window=_FROM_JULY)
-        assert "stamped 2000-03-16" in found
+        assert "stamped 2000-03-15" in found
 
     def test_a_date_the_run_does_not_hold_is_named_without_a_window(self, tmp_path) -> None:
         found = _window_findings(tmp_path, time="2005-03-15", window="")

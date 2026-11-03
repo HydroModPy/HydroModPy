@@ -100,7 +100,7 @@ class GridAdapter:
         valid = [r for r in self._history if r.status == "completed"]
         if not valid:
             return None
-        return min(valid, key=lambda r: r.objective_value)
+        return min(valid, key=lambda r: r.cost)
 
     def converged(self) -> bool:
         """Whether every point of the grid was handed out."""

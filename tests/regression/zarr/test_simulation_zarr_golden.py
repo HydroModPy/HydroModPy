@@ -23,6 +23,9 @@ when fields became compact by default: the head array is float32 rounded to
 gains the ``quantization_info`` container. The head values of this store are
 exact in float32, so the decoded field is unchanged.
 
+Both digests were re-captured for ``zarr_schema_version`` 4: the root says 4 and a
+budget term gains ``sign_convention``. The chunk bytes of the arrays did not move.
+
 The store built without a mesh layout (``_build_legacy_store``) kept the digest of
 that fourth capture: ``layout=None`` writes the same bytes as before the layout
 existed. A fifth digest, ``EXPECTED_LAYOUT_DIGEST``, was captured for the store
@@ -80,8 +83,8 @@ _VOLATILE_KEYS = frozenset({"history", "created_at", "date_modified"})
 
 # The root attributes carry no ``project`` nor ``processing_level``: the
 # identity of the run poses them at the seal, not the ACDD composer.
-EXPECTED_DIGEST = "0507a6484988f14c3ab039288bcc705dc39aed7ab5163d5b8788f8d6f6f7a331"
-EXPECTED_LAYOUT_DIGEST = "9902066e758af116657d90272983cfcd6ac82ec8a7e5985321b3d8b02593fc6d"
+EXPECTED_DIGEST = "d4bda9948f277ced81bb7a6af9cb2809cfece3a63b07921af5f548fb24a81e4d"
+EXPECTED_LAYOUT_DIGEST = "200c6a04ca50bf5eb20e076ead4dde7e4b1a0d36886e2ab564036a16f45cc9b5"
 
 STORE_MEMBERS: tuple[str, ...] = (
     "forcing/zarr.json",

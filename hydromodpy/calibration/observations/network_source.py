@@ -12,12 +12,16 @@ declaration into geometry, or refuses by naming why it cannot.
 The two in-memory routes never re-clip and never re-derive: the geographic
 pipeline already built the network once, at
 ``run_ctx.state.setup.geographic_features.hydrographic_networks``, and this
-module only reads the handle it left there.
+module only reads the handle it left there. A file arrives whole.
+:func:`cut_to_the_catchment` cuts it with the shape the hydrography data family
+clips to, so the two routes draw the same map from the same file, and names that
+shape, so the heads rule can tell an end the cut made from a head.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.exceptions import ConfigError
@@ -31,6 +35,7 @@ logger = get_logger(__name__)
 __all__ = [
     "ObservedNetwork",
     "UnresolvedObservedNetwork",
+    "cut_to_the_catchment",
     "resolve_network_file",
     "resolve_network_role",
     "resolve_observed_network",
@@ -74,6 +79,16 @@ class ObservedNetwork:
 
     path: str | None
     """The file the geometry was read from, when there was one."""
+
+    cut_outline: Any = None
+    """The polygon an end of the map on it was made by, in ``cut_crs``.
+
+    None when every free end of the map is a candidate head: the output keeps
+    the map as it arrives, or the run has no catchment to cut it to.
+    """
+
+    cut_crs: Any = None
+    """The CRS of ``cut_outline``."""
 
 
 _DEM_DERIVED_WARNED = False
@@ -254,6 +269,62 @@ def resolve_observed_network(run_ctx: RunContext, output: Any) -> ObservedNetwor
     if choice == "geographic.river_network":
         return _from_dem(run_ctx)
     return _from_path(output)
+
+
+def _map_mask_file(run_ctx: RunContext) -> Path | None:
+    """Return the file a map of this run is cut to, the one the hydrography data family reads.
+
+    ``[data.hydrography] mask_path`` when the file names one, else the watershed the
+    geographic step delineated. None when the run wrote neither.
+    """
+    data = getattr(getattr(run_ctx.state, "cfg", None), "data", None)
+    named = getattr(getattr(data, "hydrography", None), "mask_path", None)
+    geographic = getattr(run_ctx.state.setup, "geographic", None)
+    mask = named or getattr(geographic, "watershed_shp", None)
+    if not mask or not Path(str(mask)).exists():
+        return None
+    return Path(str(mask))
+
+
+def cut_to_the_catchment(
+    run_ctx: RunContext, observed: ObservedNetwork, output: Any
+) -> ObservedNetwork:
+    """Return the map as the output draws it: cut to the catchment, unless it says otherwise.
+
+    A file is cut by the rule of the hydrography data family, in the CRS of the
+    mask. A map the data layer already cut keeps its geometry. Both then name the
+    outline, which is what tells an end of the cut from a head
+    (:func:`hydromodpy.spatial.geographic.core.network_heads.network_head_candidates`).
+
+    ``clip_map_to_catchment = false`` returns the map as it arrived, and a run with
+    no mask has nothing to cut it to. A map with no CRS is left as it is too: the
+    projection that follows refuses it by name.
+    """
+    if not getattr(output, "clip_map_to_catchment", False):
+        return observed
+    mask = _map_mask_file(run_ctx)
+    if mask is None or observed.geometry.crs is None:
+        return observed
+    from hydromodpy.data.variables.hydrography.manager import cut_network, network_mask
+
+    shape, crs = network_mask(mask)
+    if observed.clipped:
+        return replace(observed, cut_outline=shape, cut_crs=crs)
+    frame = cut_network(observed.geometry, shape, crs)
+    frame = frame[~frame.geometry.is_empty & ~frame.geometry.isna()]
+    if frame.empty:
+        raise UnresolvedObservedNetwork(
+            f"the map {observed.path!r} holds no line inside the catchment outlined by "
+            f"{mask}. Check its CRS, or write clip_map_to_catchment = false to read it whole."
+        )
+    return replace(
+        observed,
+        geometry=frame,
+        crs=str(crs),
+        clipped=True,
+        cut_outline=shape,
+        cut_crs=crs,
+    )
 
 
 def _refused_declared_source(choice: str, project_config: Any, *, field: str) -> str | None:

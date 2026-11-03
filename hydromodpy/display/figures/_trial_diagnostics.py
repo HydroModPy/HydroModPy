@@ -28,24 +28,32 @@ from hydromodpy.results.calibration_trials import calibration_trials
 if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
-_ORDER_COLUMNS: tuple[str, ...] = ("iteration", "iter", "trial", "i")
+_ORDER_COLUMNS: tuple[str, ...] = ("trial", "iteration", "iter", "i")
 
-_OBJECTIVE_COLUMNS: tuple[str, ...] = ("objective_value", "objective")
+_OBJECTIVE_COLUMNS: tuple[str, ...] = ("cost", "objective")
 """The cost of a trial, as a session writes it and as a hand-built table names it."""
 
 _META_COLUMNS: frozenset[str] = frozenset(
     {
+        "case_cost",
+        "case_id",
+        "case_status",
+        "components",
         "duration_s",
         "from_cache",
         "i",
         "iter",
         "iteration",
-        "metrics",
         "objective",
-        "objective_value",
+        "cost",
         "parameters",
         "params_hash",
+        "phase",
+        "rel_dir",
+        "restart",
         "session_id",
+        "site",
+        "speculative_unused",
         "sim_id",
         "status",
         "trial",
@@ -104,7 +112,7 @@ class TrialTable:
         matches = np.flatnonzero(_numeric_column(self.frame, column) == float(trial))
         return int(matches[0]) if matches.size else None
 
-    def objective_values(self, name: str | None = None) -> tuple[str, np.ndarray]:
+    def cost_values(self, name: str | None = None) -> tuple[str, np.ndarray]:
         """Return the name and the per-trial values of the objective."""
         column = self.objective_column(name)
         return column, _numeric_column(self.frame, column)
@@ -184,7 +192,7 @@ def trial_table(sim: Run, *, session_id: str | None = None, phase: str | None = 
     frame = calibration_trials(sim, session_id=session_id, phase=phase)
 
     frame, parameters = _expand_parameters(frame)
-    frame = _expand_metrics(frame)
+    frame = _expand_components(frame)
     order = next((column for column in _ORDER_COLUMNS if column in frame.columns), None)
     if order is not None:
         frame = frame.sort_values(order, kind="stable")
@@ -215,11 +223,11 @@ def _expand_parameters(frame: pd.DataFrame) -> tuple[pd.DataFrame, tuple[str, ..
     return frame, flat
 
 
-def _expand_metrics(frame: pd.DataFrame) -> pd.DataFrame:
+def _expand_components(frame: pd.DataFrame) -> pd.DataFrame:
     """Flatten the metric dict, keeping the keys a figure can draw."""
-    if "metrics" not in frame.columns:
+    if "components" not in frame.columns:
         return frame
-    rows = [_mapping(value) for value in frame["metrics"]]
+    rows = [_mapping(value) for value in frame["components"]]
     columns: dict[str, list[float]] = {}
     for key in sorted({str(name) for row in rows for name in row}):
         if key in frame.columns:

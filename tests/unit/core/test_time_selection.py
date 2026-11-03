@@ -50,13 +50,26 @@ def _grid(step_unit: str, *, step_value: int = 1):
 
 def test_a_date_inside_a_period_resolves_to_that_period() -> None:
     assert resolve_instant("2002-10-15", MONTHLY) == 33
-    assert resolve_instant("2002-10-15", DAILY) == 1018
+    assert resolve_instant("2002-10-15T06:00", DAILY) == 1018
     assert resolve_instant("2000-01-31T23:00", MONTHLY) == 0
 
 
-def test_a_date_on_an_edge_opens_the_period_it_starts() -> None:
-    assert resolve_instant("2002-10-01", MONTHLY) == 33
+def test_a_date_on_a_stamp_reads_the_period_it_closes() -> None:
+    assert resolve_instant("2002-10-01", MONTHLY) == 32
+    assert resolve_instant("2002-10-01T00:01", MONTHLY) == 33
     assert resolve_instant("2002-09-30", MONTHLY) == 32
+    assert resolve_instant("2002-10-15", DAILY) == 1017
+
+
+def test_the_first_edge_reads_the_first_period() -> None:
+    assert resolve_instant("2000-01-01", MONTHLY) == 0
+    assert resolve_instant("2000-01-01", DAILY) == 0
+
+
+@pytest.mark.parametrize("grid", [MONTHLY, DAILY], ids=["monthly", "daily"])
+def test_a_date_copied_from_the_time_axis_finds_its_own_period(grid) -> None:
+    for period, stamp in enumerate(grid[1:]):
+        assert resolve_instant(stamp, grid) == period
 
 
 def test_the_last_edge_resolves_to_the_last_period() -> None:
@@ -123,8 +136,9 @@ def test_a_daily_and_a_monthly_grid_name_the_same_month() -> None:
     monthly = grid_edges(_grid("month"))
     daily = grid_edges(_grid("day"))
     for date in ("2000-02-29", "2001-07-04", "2002-10-15", "2002-12-31"):
-        month = resolve_instant(date, monthly)
-        day = resolve_instant(date, daily)
+        noon = f"{date}T12:00"
+        month = resolve_instant(noon, monthly)
+        day = resolve_instant(noon, daily)
         assert monthly[month] <= daily[day] < daily[day + 1] <= monthly[month + 1]
         assert period_label(day, daily) == date
         assert period_label(month, monthly) == date[:7]
@@ -150,12 +164,25 @@ def test_resolve_instants_keeps_the_order_given() -> None:
 
 
 def test_resolve_period_keeps_every_overlapping_period() -> None:
-    assert resolve_period("2002-10-15", "2002-12-01", MONTHLY) == (33, 34, 35)
+    assert resolve_period("2002-10-15", "2002-12-02", MONTHLY) == (33, 34, 35)
     assert resolve_period("2002-10-01", "2002-10-31", MONTHLY) == (33,)
-    assert resolve_period("first", "2000-03-01", MONTHLY) == (0, 1, 2)
+    assert resolve_period("first", "2000-03-02", MONTHLY) == (0, 1, 2)
     assert resolve_period("2002-11-15", "last", MONTHLY) == (34, 35)
     assert resolve_period(0, -1, STEADY) == (0,)
     assert resolve_period("2001-01-01", "2001-12-31", STEADY) == (0,)
+
+
+def test_two_stamps_keep_the_periods_between_them() -> None:
+    assert resolve_period("2000-01-01", "2000-03-01", MONTHLY) == (0, 1)
+    year = resolve_period("2001-01-01", "2002-01-01", MONTHLY)
+    assert (year[0], len(year)) == (12, 12)
+
+
+def test_a_window_of_one_date_reads_the_period_that_date_reads() -> None:
+    assert resolve_period("2002-10-01", "2002-10-01", MONTHLY) == (32,)
+    assert resolve_period("2002-10-15", "2002-10-15", MONTHLY) == (33,)
+    assert resolve_period("2000-01-01", "2000-01-01", MONTHLY) == (0,)
+    assert resolve_period("2003-01-01", "2003-01-01", MONTHLY) == (35,)
 
 
 def test_resolve_period_clips_a_window_that_runs_past_the_record() -> None:

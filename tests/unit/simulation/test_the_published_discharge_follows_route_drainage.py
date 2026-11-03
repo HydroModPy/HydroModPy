@@ -7,8 +7,8 @@ from types import SimpleNamespace
 import numpy as np
 import pandas as pd
 
+from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
-    _CATCHMENT_STATION,
     aggregate_catchment_timeseries,
 )
 from hydromodpy.simulation.extraction.post_run import _drainage_outside_routed
@@ -38,7 +38,7 @@ def _setup(runs) -> str:
         )
     idx = pd.date_range("2020-01-01", periods=n_ts, freq="D")
     store.write_timeseries(
-        sid, "sfr:net:7", "ext_outflow", pd.Series([1.0, 2.0, 3.0], index=idx), unit="m3/s"
+        sid, "net:7", "ext_outflow", pd.Series([1.0, 2.0, 3.0], index=idx), unit="m3/s"
     )
     return sid
 
@@ -48,7 +48,7 @@ def test_a_network_that_routes_the_drainage_publishes_the_routed_series(runs) ->
 
     aggregate_catchment_timeseries(sid, runs.store(sid), drainage_outside_routed=False)
 
-    ts = runs.store(sid).query_timeseries(sid, _CATCHMENT_STATION, "discharge")
+    ts = runs.store(sid).query_timeseries(sid, CATCHMENT, "discharge")
     np.testing.assert_allclose(ts.values, [1.0, 2.0, 3.0])
 
 
@@ -57,7 +57,7 @@ def test_a_network_that_keeps_the_drainage_out_publishes_routed_plus_drain(runs)
 
     aggregate_catchment_timeseries(sid, runs.store(sid), drainage_outside_routed=True)
 
-    ts = runs.store(sid).query_timeseries(sid, _CATCHMENT_STATION, "discharge")
+    ts = runs.store(sid).query_timeseries(sid, CATCHMENT, "discharge")
     np.testing.assert_allclose(ts.values, [3.0, 4.0, 5.0])
 
 

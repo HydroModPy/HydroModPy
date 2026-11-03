@@ -19,6 +19,7 @@ import pytest
 from hydromodpy.calibration.metrics.observable_scoring import network_state_period
 from hydromodpy.display.figures._stream_comparison import compared_timestep, dated_title
 from hydromodpy.results.derive.network_criterion_settings import network_criterion_settings
+from tests._helpers.sealed_runs import sealed_search
 
 # 36 monthly periods, 2000-01 to 2002-12. October 2002 is period 33.
 MONTHS = pd.date_range("2000-01-01", "2003-01-01", freq="MS")
@@ -27,18 +28,16 @@ OCTOBER_2002 = 33
 
 def _run(time, *, edges=MONTHS, stamps=None, n_timesteps=None) -> SimpleNamespace:
     """A run-shaped object with one network output sealed at ``time``."""
-    snapshot = {
-        "calibration": {
-            "outputs": {
-                "seepage_network": {
-                    "support": "network",
-                    "observed_network": "data.hydrography",
-                    "time": time,
-                }
+    search = {
+        "outputs": {
+            "seepage_network": {
+                "support": "network",
+                "observed_network": "data.hydrography",
+                "time": time,
             }
         }
     }
-    run = SimpleNamespace(sim_id="sim-x", config_snapshot=snapshot)
+    run = SimpleNamespace(sim_id="sim-x", dir=sealed_search(search))
     if edges is not None:
         run.periods = SimpleNamespace(edges=pd.DatetimeIndex(edges))
     if stamps is not None:
@@ -48,11 +47,15 @@ def _run(time, *, edges=MONTHS, stamps=None, n_timesteps=None) -> SimpleNamespac
     return run
 
 
-@pytest.mark.parametrize("time", ["2002-10-15", "2002-10-01", datetime.date(2002, 10, 31)])
+@pytest.mark.parametrize("time", ["2002-10-15", "2002-11-01", datetime.date(2002, 10, 31)])
 def test_a_date_reads_the_period_that_holds_it(time) -> None:
     settings = network_criterion_settings(_run(time))
 
     assert settings.timestep == OCTOBER_2002
+
+
+def test_the_stamp_of_a_period_reads_the_state_it_closes() -> None:
+    assert network_criterion_settings(_run("2002-10-01")).timestep == OCTOBER_2002 - 1
 
 
 def test_the_redraw_reads_the_state_the_trials_scored() -> None:

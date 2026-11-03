@@ -76,8 +76,8 @@ class CalibrationPosteriorFigure(BaseFigure):
             )
         sampled = [table.parameter_values(name) for name in names]
 
-        objective_name, obj = (
-            table.objective_values(objective)
+        cost_name, obj = (
+            table.cost_values(objective)
             if objective is not None or table.has_objective()
             else (None, None)
         )
@@ -116,7 +116,7 @@ class CalibrationPosteriorFigure(BaseFigure):
             fig.colorbar(
                 cm.ScalarMappable(norm=norm, cmap=colormap),
                 ax=axes.tolist(),
-                label=f"mean {objective_name}",
+                label=f"mean {cost_name}",
                 shrink=0.7,
             )
         fig.suptitle(f"Parameter posteriors{run_suffix(sim)}")

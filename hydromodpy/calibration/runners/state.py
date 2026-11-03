@@ -18,6 +18,7 @@ import numpy as np
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.optim.cache import ParamsHashCache
 from hydromodpy.calibration.optim.parameters import ParameterSpace
+from hydromodpy.core.code_fingerprint import code_fingerprint
 from hydromodpy.core.exceptions import StorageError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results.metric_rule import METRIC_RULE_VERSION
@@ -89,8 +90,9 @@ def preload_hash_cache(project_root: Path, cache: ParamsHashCache) -> int:
 
     A completed trial with a scoped params hash (``v2:`` prefix) is a point
     already solved: a search of the same project that proposes it again reads
-    its cost from the cache. The hash embeds the code version and the model
-    fingerprint, so a trial of another build or another model never matches.
+    its cost from the cache, and only the numbers of that cost: the run it may
+    have become belongs to its own session. The hash embeds the fingerprint of the
+    code and of the model, so a trial of other code or another model never matches.
     """
     n_before = len(cache)
     unreadable: list[str] = []
@@ -103,21 +105,21 @@ def preload_hash_cache(project_root: Path, cache: ParamsHashCache) -> int:
             unreadable.append(f"{session_dir.name} ({type(exc).__name__})")
             continue
         for line in lines:
-            params_hash = line.params_hash
-            if (
-                not params_hash
-                or not params_hash.startswith("v2:")
-                or line.status != "completed"
-                or line.objective is None
-            ):
-                continue
-            cache.put(
-                str(params_hash),
-                line.sim_id,
-                objective_value=float(line.objective),
-                status="completed",
-                components=dict(line.metrics) if line.metrics else None,
-            )
+            for case in line.cases.values():
+                params_hash = case.params_hash
+                if (
+                    not params_hash
+                    or not params_hash.startswith("v2:")
+                    or case.status != "completed"
+                    or case.cost is None
+                ):
+                    continue
+                cache.put(
+                    str(params_hash),
+                    cost=float(case.cost),
+                    status="completed",
+                    components=dict(case.components) or None,
+                )
     if unreadable:
         logger.warning(
             "The trial cache skips %d session journal(s) this version cannot read, so "
@@ -217,20 +219,27 @@ def build_cache_context(
     (:func:`_observed_map_digests`), since a map rewritten at the same path
     changes every network cost. Only a document that names one carries that
     member, so the hash of every other calibration stays what it was.
+
+    The code enters by its fingerprint, one ``code.<layer>`` member per layer of
+    :func:`~hydromodpy.core.code_fingerprint.code_fingerprint`, and never by the
+    release number: a patch that touches no computing code keeps every hash. The
+    configuration enters as it was written (``exclude_unset``): a key equal to its
+    default and an absent key do not always compute the same, since a validator
+    may read ``model_fields_set``. A field a later release adds moves nothing until
+    a file writes it, and a default that changes moves ``code.config``.
     """
     # Direct attribute access and not getattr with a default: a TrialContext
     # always carries base_cfg, so a default here would hide its absence
     # instead of failing on it.
     base_cfg = trial_ctx.base_cfg if trial_ctx is not None else None
     model_payload: dict[str, object] = (
-        base_cfg.model_dump(mode="json") if base_cfg is not None else {}
+        base_cfg.model_dump(mode="json", exclude_unset=True) if base_cfg is not None else {}
     )
-    model_payload.pop("calibration", None)
-    model_payload.pop("display", None)
-    model_payload.pop("overview", None)
-    model_payload.pop("mesh", None)
+    # The project root is where the folder sits: another machine, the same cost.
+    for section_name in ("calibration", "display", "overview", "mesh", "workspace"):
+        model_payload.pop(section_name, None)
 
-    section = cfg.model_dump(mode="json")
+    section = cfg.model_dump(mode="json", exclude_unset=True)
     calibration_payload = {key: section[key] for key in _COST_KEYS if key in section}
 
     from hydromodpy.calibration.evaluation import registry as evaluation_registry
@@ -239,13 +248,11 @@ def build_cache_context(
     if resolved_evaluator != evaluation_registry.DEFAULT_EVALUATOR_ID:
         calibration_payload["evaluator"] = resolved_evaluator
 
-    from hydromodpy.core.version import __version__ as _hmp_version
-
     context: dict[str, object] = {
-        "schema": "hydromodpy.calibration.params_hash.v3",
+        "schema": "hydromodpy.calibration.params_hash.v4",
         # Code identity: a model-build or solver fix must invalidate the cache so a
-        # re-run does not return pre-fix objectives with zero re-solves.
-        "code_version": str(_hmp_version),
+        # re-run does not return pre-fix costs with zero re-solves.
+        **{f"code.{layer}": digest for layer, digest in code_fingerprint().items()},
         # The session scores its window under the rule of the run: a cost from
         # another rule kept other periods and is another number.
         "metric_rule_version": METRIC_RULE_VERSION,
@@ -270,7 +277,7 @@ def build_cache_context(
         domain = getattr(getattr(trial_ctx.ctx, "setup", None), "domain", None)
         domain_config = getattr(domain, "config", None)
         if domain_config is not None and hasattr(domain_config, "model_dump"):
-            context["effective_domain"] = domain_config.model_dump(mode="json")
+            context["effective_domain"] = domain_config.model_dump(mode="json", exclude_unset=True)
 
     return context
 

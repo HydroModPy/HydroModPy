@@ -55,9 +55,9 @@ def index(tmp_path):
             variable="discharge",
             metric="nse",
             value=0.5,
-            nse_window_start=date(2016, 1, 1),
-            nse_window_end=date(2020, 12, 31),
-            nse_n=10,
+            window_start=date(2016, 1, 1),
+            window_end=date(2020, 12, 31),
+            n_samples=10,
             metric_rule_version=METRIC_RULE_VERSION,
         )
     )

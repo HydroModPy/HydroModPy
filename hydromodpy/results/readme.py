@@ -36,7 +36,7 @@ from hydromodpy.results.manifest import ManifestSite
 from hydromodpy.results.metric_rule import DateWindow
 from hydromodpy.results.outcome import Outcome
 from hydromodpy.results.record import RunRecord
-from hydromodpy.results.session.descriptor import SessionDescriptor
+from hydromodpy.results.session.descriptor import ParameterBound, SessionDescriptor
 from hydromodpy.results.session.journal import TrialLine
 from hydromodpy.results.session.phase import PhaseDescriptor
 from hydromodpy.results.storage.contract import (
@@ -183,8 +183,8 @@ def render_session_readme(
     lines = [
         f"# Calibration {descriptor.case_id}",
         "",
-        f"Session `{descriptor.session_id}` of site `{descriptor.site or 'unnamed'}`, "
-        f"method `{descriptor.method}`, objective `{descriptor.objective_name}`, "
+        f"Session `{descriptor.session_id}` of site `{', '.join(descriptor.sites) or 'unnamed'}`, "
+        f"method `{descriptor.method}`, cost `{descriptor.cost_name}`, "
         f"status **{descriptor.status}**.",
         "",
         f"- started {descriptor.started_at.isoformat()}"
@@ -199,9 +199,9 @@ def render_session_readme(
     lines.append("")
     if descriptor.error_message:
         lines += [f"Error: {descriptor.error_message}", ""]
-    if descriptor.search_space:
-        lines += ["## Search space", ""]
-        lines += [f"- `{name}`: {spec}" for name, spec in descriptor.search_space.items()]
+    if descriptor.bounds:
+        lines += ["## Bounds", ""]
+        lines += [f"- `{name}`: {_bound_text(bound)}" for name, bound in descriptor.bounds.items()]
         lines.append("")
     if phases:
         lines += [
@@ -216,7 +216,7 @@ def render_session_readme(
             if phase.stop_note:
                 stopped += f"; {phase.stop_note}"
             lines.append(
-                f"| {phase.name} | {phase.status} | {phase.restarts} | {phase.frozen or '{}'} "
+                f"| {phase.name} | {phase.status} | {phase.restarts} | {_frozen_text(phase)} "
                 f"| {best} | {stopped} |"
             )
         lines.append("")
@@ -225,11 +225,13 @@ def render_session_readme(
     if best is None:
         lines.append("No trial retained.")
     else:
-        lines.append(f"- trial {best.trial}, objective {_number(best.objective)}")
-        if best.rel_dir or best.sim_id:
-            lines.append(
-                f"- calibrated run: `{best.rel_dir or 'not promoted'}` (sim_id `{best.sim_id or 'none'}`)"
-            )
+        lines.append(f"- trial {best.trial}, cost {_number(best.cost)}")
+        for case_id, case in best.cases.items():
+            if case.rel_dir or case.sim_id:
+                lines.append(
+                    f"- calibrated run of `{case_id}`: `{case.rel_dir or 'not promoted'}` "
+                    f"(sim_id `{case.sim_id or 'none'}`)"
+                )
     lines.append("")
     if label is not None:
         lines += _label_section(label)
@@ -289,6 +291,20 @@ def _best_words(best: str) -> str:
     if best == "calibrated":
         return "the best calibrated case"
     return 'the best case whatever its label (best = "any")'
+
+
+def _bound_text(bound: ParameterBound) -> str:
+    """Return one searched dimension in words."""
+    units = f" {bound.units}" if bound.units else ""
+    return f"{_number(bound.lower)} to {_number(bound.upper)}{units}, {bound.search_space}"
+
+
+def _frozen_text(phase: PhaseDescriptor) -> str:
+    """Return the values a phase holds, each with the phase that found it."""
+    held = [
+        f"{name} = {_number(item.value)} ({item.from_phase})" for name, item in phase.frozen.items()
+    ]
+    return ", ".join(held) or "none"
 
 
 def _site_section(site: ManifestSite | None) -> list[str]:
@@ -376,12 +392,12 @@ def _label_section(label: LabelResult) -> list[str]:
 def _score_section(record: RunRecord) -> list[str]:
     score = record.score
     lines = ["## Score", ""]
-    if score is None or score.nse_window_start is None:
+    if score is None or score.window_start is None:
         lines.append("No window declared: no score.")
     else:
         lines.append(
-            f"NSE {_number(score.value)} on {score.nse_window_start} to {score.nse_window_end}, "
-            f"{score.nse_n} samples, rule {score.metric_rule_version}."
+            f"NSE {_number(score.value)} on {score.window_start} to {score.window_end}, "
+            f"{score.n_samples} samples, rule {score.metric_rule_version}."
         )
     lines.append("")
     return lines

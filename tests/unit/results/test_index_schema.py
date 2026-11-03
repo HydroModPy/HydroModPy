@@ -36,8 +36,10 @@ EXPECTED_TABLES = frozenset(
         "tags",
         "sim_notes",
         "calibration_sessions",
+        "calibration_session_cases",
         "calibration_phases",
         "calibration_iterations",
+        "calibration_trial_cases",
     }
 )
 
@@ -58,7 +60,94 @@ RETIRED_TABLES = frozenset(
 
 RETIRED_COLUMNS = frozenset(
     {"storage_basename", "study_area_name", "outlet_x", "outlet_y", "zarr_path", "trashed_at"}
+    | {"nse_station", "nse_variable", "nse_window_start", "nse_window_end", "nse_n"}
+    | {"objective_name", "objective_value", "objective_window_start", "objective_window_end"}
+    | {"cost_name", "cost"}
 )
+
+SESSION_TABLE_COLUMNS = {
+    "calibration_sessions": {
+        "session_id",
+        "rel_dir",
+        "case_id",
+        "project",
+        "config_hash",
+        "hydromodpy_version",
+        "method",
+        "sites",
+        "bounds",
+        "cost_name",
+        "windows",
+        "n_trials",
+        "best_trial",
+        "best_cost",
+        "status",
+        "started_at",
+        "ended_at",
+        "error_message",
+        "root_search",
+        "widths",
+    },
+    "calibration_session_cases": {
+        "session_id",
+        "case_id",
+        "site",
+        "config_hash",
+        "best_sim_id",
+        "best_rel_dir",
+        "best_cost",
+    },
+    "calibration_phases": {
+        "session_id",
+        "phase_id",
+        "name",
+        "phase_index",
+        "status",
+        "frozen",
+        "windows",
+        "best_trial",
+        "best_cost",
+        "restarts",
+    },
+    "calibration_iterations": {
+        "session_id",
+        "trial",
+        "phase",
+        "restart",
+        "params",
+        "cost",
+        "status",
+        "started_at",
+        "ended_at",
+    },
+    "calibration_trial_cases": {
+        "session_id",
+        "trial",
+        "case_id",
+        "cost",
+        "status",
+        "params_hash",
+        "from_cache",
+        "components",
+        "sim_id",
+        "rel_dir",
+    },
+    "metrics": {
+        "sim_id",
+        "station_id",
+        "variable",
+        "metric_name",
+        "value",
+        "window_name",
+        "window_role",
+        "window_start",
+        "window_end",
+        "n_samples",
+        "n_clipped",
+        "n_sim_nan",
+        "metric_rule_version",
+    },
+}
 
 
 @pytest.fixture
@@ -106,22 +195,29 @@ def test_simulations_carries_the_site_case_attempt_label_and_rule_columns(connec
         "label_date",
         "rule_version",
         "nse",
-        "nse_window_start",
-        "nse_window_end",
-        "nse_n",
+        "score_station",
+        "score_variable",
+        "score_window_start",
+        "score_window_end",
+        "n_samples",
         "metric_rule_version",
-        "objective_name",
-        "objective_value",
-        "objective_window_start",
-        "objective_window_end",
         "calibrated_by_session_id",
+        "calibrated_by_window_start",
+        "calibrated_by_window_end",
+        "calibrated_by_metric",
+        "calibrated_by_cost",
         "config_snapshot",
     } <= columns
     assert not (RETIRED_COLUMNS & columns)
 
 
+@pytest.mark.parametrize("table", sorted(SESSION_TABLE_COLUMNS))
+def test_the_session_and_metric_tables_hold_one_row_per_case_and_period(connection, table):
+    assert _columns(connection, table) == SESSION_TABLE_COLUMNS[table]
+
+
 def test_the_schema_version_is_stamped_and_read_back(connection):
-    assert read_index_schema_version(connection) == INDEX_SCHEMA_VERSION
+    assert read_index_schema_version(connection) == INDEX_SCHEMA_VERSION == "10"
 
 
 def test_a_file_without_the_stamp_has_no_version():

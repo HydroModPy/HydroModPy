@@ -48,7 +48,7 @@ class RandomSearchAdapter:
         valid = [r for r in self._history if r.status == "completed"]
         if not valid:
             return None
-        return min(valid, key=lambda r: r.objective_value)
+        return min(valid, key=lambda r: r.cost)
 
     def converged(self) -> bool:
         return False

@@ -6,6 +6,8 @@ from hydromodpy.calibration.optim.cache import (
     CachedEvaluation,
     ParamsHashCache,
     canonical_json,
+    context_fingerprints,
+    differing_members,
     params_hash,
 )
 
@@ -45,8 +47,8 @@ class TestParamsHash:
         assert h1 != h2
 
     def test_context_changes_hash(self):
-        h1 = params_hash({"a": 1.0}, context={"objective": "kge"})
-        h2 = params_hash({"a": 1.0}, context={"objective": "nse"})
+        h1 = params_hash({"a": 1.0}, context={"calibration": "kge"})
+        h2 = params_hash({"a": 1.0}, context={"calibration": "nse"})
         assert h1 != h2
         assert h1.startswith("v2:")
 
@@ -65,32 +67,47 @@ class TestParamsHashCache:
 
     def test_put_and_get(self):
         cache = ParamsHashCache()
-        cache.put("abc", "sim-1", objective_value=0.12)
+        cache.put("abc", cost=0.12)
         hit = cache.get("abc")
-        assert hit == CachedEvaluation(sim_id="sim-1", objective_value=0.12)
+        assert hit == CachedEvaluation(cost=0.12)
         assert "abc" in cache
         assert len(cache) == 1
 
     def test_put_overwrites(self):
         cache = ParamsHashCache()
-        cache.put("abc", "sim-1", objective_value=0.12)
-        cache.put("abc", "sim-2", objective_value=0.03)
+        cache.put("abc", cost=0.12)
+        cache.put("abc", cost=0.03)
         hit = cache.get("abc")
         assert hit is not None
-        assert hit.sim_id == "sim-2"
-        assert hit.objective_value == 0.03
+        assert hit.cost == 0.03
 
     def test_cache_hit_returns_evaluation(self):
-        """Two evaluations with identical params yield the same cached objective."""
+        """Two evaluations with identical params yield the same cached cost."""
         cache = ParamsHashCache()
         values = {"K": 1.5e-4, "Sy": 0.1}
         h = params_hash(values)
-        cache.put(h, "sim-42", objective_value=1.5, components={"rmse": 1.5})
+        cache.put(h, cost=1.5, components={"rmse": 1.5})
 
         # Second call with equivalent dict must hit the cache.
         h2 = params_hash({"Sy": 0.1, "K": 1.5e-4})
         hit = cache.get(h2)
         assert hit is not None
-        assert hit.sim_id == "sim-42"
-        assert hit.objective_value == 1.5
+        assert hit.cost == 1.5
         assert hit.components == {"rmse": 1.5}
+        assert not hasattr(hit, "sim_id"), "a hit never names the run of another trial"
+
+
+class TestContextFingerprints:
+    def test_a_member_moves_its_own_fingerprint_only(self):
+        before = context_fingerprints(
+            {"schema": "v4", "model": {"K": 1.0}, "calibration": {"seed": 1}}
+        )
+        after = context_fingerprints(
+            {"schema": "v4", "model": {"K": 2.0}, "calibration": {"seed": 1}}
+        )
+
+        assert differing_members(before, after) == ["model"]
+        assert before["schema"] == "v4", "the schema is kept in clear"
+
+    def test_a_member_one_side_lacks_differs(self):
+        assert differing_members({"model": "a"}, {"model": "a", "mesh": "b"}) == ["mesh"]

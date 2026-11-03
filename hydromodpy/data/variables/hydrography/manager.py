@@ -31,7 +31,7 @@ from __future__ import annotations
 import json
 import warnings
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import geopandas as gpd
 import numpy as np
@@ -145,7 +145,7 @@ class HydrographyManager(SourceTable):
         if PERMANENCE_COLUMN in combined.columns:
             # A source that did not say is unknown, never permanent by default.
             combined[PERMANENCE_COLUMN] = combined[PERMANENCE_COLUMN].fillna(UNKNOWN)
-        clipped = gpd.clip(combined, mask_shape)
+        clipped = cut_network(combined, mask_shape, mask_crs)
 
         # 3. Save clipped vector, and its permanent part when the network says which
         streams_path = self._data_folder / HYDROGRAPHIC_NETWORK_REFERENCE_VECTOR_FILENAME
@@ -561,6 +561,21 @@ def fetch_network_through_cache(
 
 
 _SHAPEFILE_SIDECARS = (".shp", ".shx", ".dbf", ".prj", ".cpg")
+
+
+def network_mask(path: str | Path) -> tuple[Any, Any]:
+    """Return the shape a network is cut to, and its CRS, from the file of a mask."""
+    return mask_geometry(path)
+
+
+def cut_network(network: gpd.GeoDataFrame, shape: Any, crs: object) -> gpd.GeoDataFrame:
+    """Return a network cut to a mask shape, in the CRS of the mask.
+
+    The one cut of the hydrography family. The network criterion cuts a file it reads
+    with it, so a file and this manager draw the same map. A line that only touches the
+    outline leaves no line: its point is dropped rather than kept in a network of lines.
+    """
+    return gpd.clip(_in_crs(network, crs), shape, keep_geom_type=True)
 
 
 def _in_crs(frame: gpd.GeoDataFrame, crs: object) -> gpd.GeoDataFrame:

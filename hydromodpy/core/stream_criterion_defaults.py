@@ -7,11 +7,18 @@ import ``core``, so this is the only place a default can live without being
 written twice, and a threshold written twice is a map that drifts from its own
 caption.
 
-Five defaults change what is computed: ``tau_specific_ratio`` selects the
+Six defaults change what is computed: ``tau_specific_ratio`` selects the
 seepage threshold, ``diagonal_neighbors`` the graph the descent walks,
-``observed_rasterization`` the cells the mapped network is drawn on, and the
-two ``heads_`` values where the heads rule lets a head land. The other three
-decide only what gets logged.
+``observed_rasterization`` the cells the mapped network is drawn on,
+``clip_map_to_catchment`` the part of the map it draws them from, and the two
+``heads_`` values where the heads rule lets a head land. ``max_catchment_mismatch``
+refuses a search and computes nothing. The other three decide only what gets
+logged.
+
+A named protocol does not read these defaults for a version it has frozen: its
+own table says what each version runs
+(:data:`hydromodpy.calibration.protocols.matching_hydrographic_network.DEFAULTS_BY_VERSION`),
+and a test holds the last line of that table equal to this object.
 """
 
 from __future__ import annotations
@@ -75,6 +82,24 @@ class StreamCriterionDefaults(HydroModelBase):
             "corners included, and replays a session made before 2026-09. 'heads' "
             "keeps the free ends of the map and draws the rest down the model's own "
             "descent, connected to the outlet."
+        ),
+    )
+    clip_map_to_catchment: Annotated[bool, Profile.EXPERT] = Field(
+        default=True,
+        description=(
+            "Cut the mapped network to the delineated catchment before drawing it, the "
+            "way the hydrography data family cuts what it loads, so a file and "
+            "data.hydrography draw the same map. An end the cut made is no stream "
+            "head under the 'heads' rule. False reads the map as it arrives, whole "
+            "from a file, and takes every free end as a candidate head."
+        ),
+    )
+    max_catchment_mismatch: Annotated[float, Profile.EXPERT] = Field(
+        default=0.05,
+        ge=0.0,
+        description=(
+            "Largest share of the delineated catchment's area the scored catchment "
+            "may differ from it by, before the first solve."
         ),
     )
     heads_snap_radius_m: Annotated[float, Profile.EXPERT] = Field(

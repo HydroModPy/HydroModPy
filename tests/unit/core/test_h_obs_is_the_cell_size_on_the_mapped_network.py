@@ -1,4 +1,4 @@
-"""``h_obs``: the length ``roptim``, the Eq. 4 length and the interval width read.
+"""``h_obs``: the length ``r_optim``, the Eq. 4 length and the interval width read.
 
 It is the median distance between the centres of neighbouring cells over the
 mapped cells of the catchment. On a regular grid it is the cell size, so the

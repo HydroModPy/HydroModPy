@@ -10,7 +10,7 @@ recharge the ratio was measured.
 Four panels carry exactly that. The first shows the value the root search
 closed on and the bracket it closed it in, because the stopping rule of the
 search is the width of that bracket and never the size of the residual. The
-second shows the storage value and its metric. The third puts ``Doptim``
+second shows the storage value and its metric. The third puts ``D_optim``
 against the validity length the trial itself bounded it by (Eq. 4, in
 metres): it qualifies the result and never withholds it, so the value and the
 breach are drawn together. The fourth splits the cells into
@@ -73,6 +73,7 @@ from hydromodpy.display.figures.network_extent_bounds_map import (
 )
 from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET, place_legend
 from hydromodpy.results.calibration_trials import calibration_sessions, calibration_trials
+from hydromodpy.results.run.sealed import search_of
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -110,7 +111,7 @@ reason as :data:`RECHARGE_KEY`, and held to the criterion by the tests.
 VALIDATION_SUFFIX: str = "_maximal_validation"
 """The suffix of the maximal map a one-state output scores outside its cost."""
 
-H_OBS_KEY: str = "L_ref"
+H_OBS_KEY: str = "h_obs"
 """The key the criterion publishes ``h_obs`` under, the cell size on the map.
 
 The run's Eq. 4 verdict reads it under this name and reports it as
@@ -167,7 +168,7 @@ class _StorageFit:
     parameter: str
     values: np.ndarray
     objectives: np.ndarray
-    objective_name: str
+    cost_name: str
     value: float
     objective: float
     row: int | None
@@ -572,7 +573,7 @@ class MatchingHydrographicNetworkCard(BaseFigure):
         fit = _storage_fit(stage, parameter=parameter)
         ax.set_title(title)
         ax.set_xlabel(f"{fit.parameter} ({_declared_units(stage, fit.parameter)})")
-        ax.set_ylabel(f"cost, {fit.objective_name} (-)")
+        ax.set_ylabel(f"cost, {fit.cost_name} (-)")
         ax.margins(x=0.10)
         ax.grid(True, ls=":", lw=0.4)
 
@@ -600,7 +601,7 @@ class MatchingHydrographicNetworkCard(BaseFigure):
                 label=f"{fit.parameter} = {fit.value:.4g}",
             )
             lines.append(f"{fit.parameter} = {fit.value:.4g}")
-            lines.append(f"cost ({fit.objective_name}) = {fit.objective:.4g}")
+            lines.append(f"cost ({fit.cost_name}) = {fit.objective:.4g}")
         if fit.n_failed:
             lines.append(f"{fit.n_failed} of {fit.values.size} trials failed")
         _clear_bottom(ax)
@@ -615,17 +616,17 @@ class MatchingHydrographicNetworkCard(BaseFigure):
         *,
         output: str | None,
     ) -> None:
-        """Panel three: ``Doptim`` against the trial's validity length, in metres.
+        """Panel three: ``D_optim`` against the trial's validity length, in metres.
 
         The bound is the ``validity_length_m`` the trial published, never a
         ratio the card assumes: a declared positional accuracy widens it past
-        ``2 h_obs``, and the verdict the run reports reads it. ``roptim`` is
+        ``2 h_obs``, and the verdict the run reports reads it. ``r_optim`` is
         written beside it for the paper's Table 1. An output scored on two
         maps gets one row per map, each against its own length.
         """
         title = "Validity of the agreement"
         ax.set_yticks([])
-        ax.set_xlabel("Doptim = (D_so + D_os) / 2 (m)")
+        ax.set_xlabel("D_optim = (D_so + D_os) / 2 (m)")
         ax.set_title(title)
         ax.grid(True, axis="x", ls=":", lw=0.4)
 
@@ -638,10 +639,10 @@ class MatchingHydrographicNetworkCard(BaseFigure):
             self._draw_validity_rows(ax, table, reading, output=output)
             return
         row = reading.row
-        value = _diagnostic_at(table, row, "Doptim", output=output)
+        value = _diagnostic_at(table, row, "D_optim", output=output)
         bound = _diagnostic_at(table, row, "validity_length_m", output=output)
         if value is None:
-            _blank(ax, title, "Doptim not published: the agreement is not qualified")
+            _blank(ax, title, "D_optim not published: the agreement is not qualified")
             return
         if bound is None:
             _blank(
@@ -659,7 +660,7 @@ class MatchingHydrographicNetworkCard(BaseFigure):
             color=_VALID_COLOR if within else _BREACH_COLOR,
             zorder=3,
         )
-        bars[0].set_label(f"Doptim = {value:.4g} m")
+        bars[0].set_label(f"D_optim = {value:.4g} m")
         provenance = _validity_provenance(table, row, output=output)
         ax.axvline(
             bound,
@@ -667,19 +668,19 @@ class MatchingHydrographicNetworkCard(BaseFigure):
             lw=1.3,
             ls="--",
             zorder=4,
-            label=f"bound: Doptim <= {bound:.4g} m",
+            label=f"bound: D_optim <= {bound:.4g} m",
         )
         state = (
             "within the validity bound" if within else "bound breached, the calibrated value stands"
         )
-        lines = [f"Doptim = {value:.4g} m {'<=' if within else '>'} {bound:.4g} m: {state}"]
+        lines = [f"D_optim = {value:.4g} m {'<=' if within else '>'} {bound:.4g} m: {state}"]
         if provenance is not None:
             lines.append(f"validity length: {provenance}")
-        ratio = _diagnostic_at(table, row, "roptim", output=output)
+        ratio = _diagnostic_at(table, row, "r_optim", output=output)
         h_obs = _diagnostic_at(table, row, H_OBS_KEY, output=output)
         if ratio is not None:
             scale = f", h_obs = {h_obs:.4g} m" if h_obs is not None else ""
-            lines.append(f"roptim = Doptim / h_obs = {ratio:.4g}{scale}")
+            lines.append(f"r_optim = D_optim / h_obs = {ratio:.4g}{scale}")
         _say(ax, "\n".join(lines), xy=(0.5, 0.92), va="top")
         ax.set_xlim(0.0, max(value, bound) * 1.3)
         ax.set_ylim(-0.55, 1.25)
@@ -709,11 +710,11 @@ class MatchingHydrographicNetworkCard(BaseFigure):
         extent = 0.0
         for index, view in enumerate(views):
             lines.extend(_validity_lines(table, row, view, output=output))
-            value = _diagnostic_at(table, row, f"Doptim{view.suffix}", output=output)
+            value = _diagnostic_at(table, row, f"D_optim{view.suffix}", output=output)
             bound = _diagnostic_at(table, row, f"validity_length_m{view.suffix}", output=output)
             if value is None:
                 ax.annotate(
-                    f"Doptim {view.label} not published: absent, not zero",
+                    f"D_optim {view.label} not published: absent, not zero",
                     xy=(0.0, index),
                     xytext=(6, 0),
                     textcoords="offset points",
@@ -736,7 +737,7 @@ class MatchingHydrographicNetworkCard(BaseFigure):
                 edgecolor="white",
                 zorder=3,
             )
-            bars[0].set_label(f"Doptim {view.label} = {value:.4g} m")
+            bars[0].set_label(f"D_optim {view.label} = {value:.4g} m")
             extent = max(extent, value)
             if bound is not None:
                 ax.plot(
@@ -746,7 +747,7 @@ class MatchingHydrographicNetworkCard(BaseFigure):
                     lw=1.3,
                     ls="--",
                     zorder=4,
-                    label=f"bound {view.label}: Doptim <= {bound:.4g} m",
+                    label=f"bound {view.label}: D_optim <= {bound:.4g} m",
                 )
                 extent = max(extent, bound)
         _say(ax, "\n".join(lines), xy=(0.5, 0.97), va="top", fontsize=8)
@@ -933,13 +934,11 @@ def _phase_index(descriptor: Mapping[str, Any], fallback: int) -> int:
 def _next_declared_phase(sim: Run, stages: list[_Stage]) -> str | None:
     """Return the name of the phase declared after the drawn ones, if any.
 
-    Read from the configuration the run was replayed with: a staged
-    calibration writes its phases into ``[[calibration.phases]]``, and the
-    run promoted from the first phase is drawn before the second one exists.
+    Read from the search the run came out of: a staged calibration writes its
+    phases into ``[[calibration.phases]]``, and the run promoted from the first
+    phase is drawn before the second one exists.
     """
-    snapshot = getattr(sim, "config_snapshot", None)
-    calibration = snapshot.get("calibration") if isinstance(snapshot, Mapping) else None
-    phases = calibration.get("phases") if isinstance(calibration, Mapping) else None
+    phases = search_of(sim).get("phases")
     if not isinstance(phases, list) or len(phases) <= len(stages):
         return None
     following = phases[len(stages)]
@@ -947,7 +946,7 @@ def _next_declared_phase(sim: Run, stages: list[_Stage]) -> str | None:
     return _text_or_none(name) or _STAGE_LABELS[1]
 
 
-def _objective_label(descriptor: Mapping[str, Any]) -> str:
+def _cost_label(descriptor: Mapping[str, Any]) -> str:
     """Return the metric a phase scored on, as its objective blocks name it.
 
     The blocks of a phase are those of its ``[[calibration.phases]]`` entry
@@ -970,7 +969,7 @@ def _objective_label(descriptor: Mapping[str, Any]) -> str:
     ]
     if metrics:
         return " + ".join(dict.fromkeys(metrics))
-    return _text_or_none(descriptor.get("objective_name")) or "objective"
+    return _text_or_none(descriptor.get("cost_name")) or "objective"
 
 
 def _declared_units(stage: _Stage, parameter: str) -> str:
@@ -1064,7 +1063,7 @@ def _one_state_views(table: TrialTable, *, output: str | None) -> tuple[_MapView
     With both maps the unsuffixed keys carry the minimal map, the one in the
     cost, and the maximal map sits under ``_maximal_validation`` beside it.
     """
-    if not table.has_diagnostic(f"Doptim{VALIDATION_SUFFIX}", output=output):
+    if not table.has_diagnostic(f"D_optim{VALIDATION_SUFFIX}", output=output):
         return (_MapView(label="", suffix="", bound="maximal"),)
     return (
         _MapView(label="minimal", suffix="", bound="minimal", note="in the cost"),
@@ -1151,33 +1150,33 @@ def _validity_lines(
 ) -> list[str]:
     """Return the note of one map: its residual, its Eq. 4 verdict, its scale.
 
-    The verdict is the run's: ``Doptim`` within the map's own length. A map
+    The verdict is the run's: ``D_optim`` within the map's own length. A map
     outside the verdict gets the same reading under another word, so it is
     never taken for a verdict.
     """
     suffix = view.suffix
     heading = view.label + (f" ({view.note})" if view.note else "")
     residual = _diagnostic_at(table, row, f"J_signed{suffix}", output=output)
-    value = _diagnostic_at(table, row, f"Doptim{suffix}", output=output)
+    value = _diagnostic_at(table, row, f"D_optim{suffix}", output=output)
     bound = _diagnostic_at(table, row, f"validity_length_m{suffix}", output=output)
     if value is None:
-        reading = "Doptim not published, not qualified"
+        reading = "D_optim not published, not qualified"
     elif bound is None:
-        reading = f"Doptim = {value:.4g} m, validity length not published"
+        reading = f"D_optim = {value:.4g} m, validity length not published"
     else:
         within = value <= bound
         if view.in_verdict:
             verdict = "Eq. 4 holds" if within else "Eq. 4 fails"
         else:
             verdict = ("within" if within else "beyond") + " the bound, no verdict"
-        reading = f"Doptim = {value:.4g} m {'<=' if within else '>'} {bound:.4g} m, {verdict}"
+        reading = f"D_optim = {value:.4g} m {'<=' if within else '>'} {bound:.4g} m, {verdict}"
     lines = [f"{heading}: {reading}"]
     scale = [f"J_signed = {residual:.4g} m"] if residual is not None else []
-    ratio = _diagnostic_at(table, row, f"roptim{suffix}", output=output)
+    ratio = _diagnostic_at(table, row, f"r_optim{suffix}", output=output)
     h_obs = _diagnostic_at(table, row, f"{H_OBS_KEY}{suffix}", output=output)
     provenance = _validity_provenance(table, row, output=output, suffix=suffix)
     if ratio is not None:
-        scale.append(f"roptim = {ratio:.4g}")
+        scale.append(f"r_optim = {ratio:.4g}")
     if h_obs is not None:
         scale.append(f"h_obs = {h_obs:.4g} m")
     if provenance is not None:
@@ -1213,8 +1212,8 @@ def _storage_fit(stage: _Stage, *, parameter: str | None) -> _StorageFit:
     name, values = stage.table.parameter_values(parameter)
     frame = stage.table.frame
     objectives = (
-        pd.to_numeric(frame["objective_value"], errors="coerce").to_numpy(dtype="float64")
-        if "objective_value" in frame.columns
+        pd.to_numeric(frame["cost"], errors="coerce").to_numpy(dtype="float64")
+        if "cost" in frame.columns
         else np.full(values.size, np.nan)
     )
     row = _best_row(frame, objectives, stage.descriptor)
@@ -1222,7 +1221,7 @@ def _storage_fit(stage: _Stage, *, parameter: str | None) -> _StorageFit:
         parameter=name,
         values=values,
         objectives=objectives,
-        objective_name=_objective_label(stage.descriptor),
+        cost_name=_cost_label(stage.descriptor),
         value=float(values[row]) if row is not None else float("nan"),
         objective=float(objectives[row]) if row is not None else float("nan"),
         row=row,
@@ -1236,8 +1235,8 @@ def _best_row(
 ) -> int | None:
     """Return the trial a session settled on, the one it declared when it did."""
     declared = _int_or_none(descriptor.get("best_trial"))
-    if declared is not None and "iteration" in frame.columns:
-        numbers = pd.to_numeric(frame["iteration"], errors="coerce").to_numpy(dtype="float64")
+    if declared is not None and "trial" in frame.columns:
+        numbers = pd.to_numeric(frame["trial"], errors="coerce").to_numpy(dtype="float64")
         matches = np.flatnonzero(numbers == float(declared))
         if matches.size and np.isfinite(objectives[matches[0]]):
             return int(matches[0])

@@ -8,10 +8,11 @@ aligned with the simulation time grid: one value per stress period, stamped
 at its end. The initial state a transient history starts with closes no
 period and is left out.
 
-Discharge is reconstructed from ``drainage_flux_history_m3_s`` summed over
-all cells per timestep (positive sign convention, matching the MODFLOW
-``extract_discharge_from_cbc`` helper). Heads are read at flattened cell
-indices: the Boussinesq mesh is one-layer-unstructured so the ``(k, i, j)``
+Discharge is the water leaving the aquifer at the surface, the drains and the
+saturation excess summed over all cells per timestep, as a positive number
+(matching the MODFLOW ``extract_discharge_from_cbc`` helper). The run reports the
+same sum (``simulation.extraction.derivation.catchment_aggregation``). Heads are
+read at flattened cell indices: the Boussinesq mesh is one-layer-unstructured so the ``(k, i, j)``
 station tuple is interpreted as ``cell_id = j`` with ``k == 0`` and
 ``i == 0`` (other layouts raise).
 """
@@ -54,11 +55,14 @@ def extract_discharge_history(
     *,
     time_index: pd.DatetimeIndex | None = None,
 ) -> pd.Series:
-    """Sum drainage outflow per timestep and return a m3/s series.
+    """Sum the outflow at the surface per timestep and return a m3/s series.
 
-    Mirrors :func:`extract_discharge_from_cbc` but reads the Boussinesq
-    ``drainage_flux_history_m3_s`` array. The sign convention is the same:
-    drain outflow is reported as a positive number.
+    Mirrors :func:`extract_discharge_from_cbc` but reads the Boussinesq state
+    history: the ``drainage_flux_history_m3_s`` array and the saturation excess
+    over the cell areas. A Boussinesq run without declared drains sends all of
+    its surface water through the saturation excess, so the drain alone reads
+    about zero. The histories are in the solver orientation, positive when water
+    leaves, and the discharge is reported as a positive number.
     """
     with _load_state_history(output_dir) as payload:
         history = _coerce_history(payload.get("drainage_flux_history_m3_s"))
@@ -66,8 +70,18 @@ def extract_discharge_history(
             raise KeyError(
                 f"Boussinesq state history at {output_dir} has no drainage_flux_history_m3_s."
             )
-        history = history[first_period_snapshot(payload, n_snapshots=history.shape[0]) :]
-        per_step = np.maximum(history, 0.0).sum(axis=1).astype(float)
+        first = first_period_snapshot(payload, n_snapshots=history.shape[0])
+        per_step = np.maximum(history[first:], 0.0).sum(axis=1).astype(float)
+        excess = _coerce_history(payload.get("saturation_excess_history_m_s"))
+        if excess is not None:
+            area = payload.get("cell_area_m2")
+            if area is None:
+                raise KeyError(
+                    f"Boussinesq state history at {output_dir} has a saturation excess and "
+                    "no cell_area_m2 to turn it into a flux."
+                )
+            flux = excess[first:] * np.asarray(area, dtype=float).reshape(1, -1)
+            per_step = per_step + np.maximum(flux, 0.0).sum(axis=1)
 
     if time_index is not None and len(time_index) == per_step.size:
         return pd.Series(per_step, index=time_index, name="discharge")

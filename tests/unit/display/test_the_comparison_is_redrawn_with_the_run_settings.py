@@ -14,21 +14,20 @@ import pytest
 from hydromodpy.core.stream_criterion_defaults import STREAM_CRITERION_DEFAULTS
 from hydromodpy.display.figures import _stream_comparison
 from hydromodpy.display.figures._stream_comparison import comparison_from_run
+from tests._helpers.sealed_runs import sealed_search
 from tests.unit.display._network_comparison_run import AXIS_COLUMN, cell, comparison_run
 
 SEALED = {
-    "calibration": {
-        "outputs": {
-            "streams": {
-                "support": "network",
-                "observed_network": "data.hydrography",
-                "tau_specific_ratio": 0.0,
-                "diagonal_neighbors": False,
-                "observed_rasterization": "touch",
-                "weighting": "area",
-                "observed_position_accuracy": 40.0,
-                "time": "first",
-            }
+    "outputs": {
+        "streams": {
+            "support": "network",
+            "observed_network": "data.hydrography",
+            "tau_specific_ratio": 0.0,
+            "diagonal_neighbors": False,
+            "observed_rasterization": "touch",
+            "weighting": "area",
+            "observed_position_accuracy": 40.0,
+            "time": "first",
         }
     }
 }
@@ -59,13 +58,14 @@ def test_a_run_that_sealed_no_output_is_redrawn_with_the_defaults(captured) -> N
             "observed_position_accuracy_m": None,
             "heads_snap_radius_m": STREAM_CRITERION_DEFAULTS.heads_snap_radius_m,
             "heads_min_drained_area_km2": STREAM_CRITERION_DEFAULTS.heads_min_drained_area_km2,
+            "clip_map_to_catchment": STREAM_CRITERION_DEFAULTS.clip_map_to_catchment,
         }
     ]
 
 
 def test_a_run_that_sealed_an_output_is_redrawn_with_its_settings(captured) -> None:
     run = comparison_run()
-    run.config_snapshot = SEALED
+    run.dir = sealed_search(SEALED)
     comparison_from_run(run)
 
     assert captured == [
@@ -77,13 +77,14 @@ def test_a_run_that_sealed_an_output_is_redrawn_with_its_settings(captured) -> N
             "observed_position_accuracy_m": 40.0,
             "heads_snap_radius_m": STREAM_CRITERION_DEFAULTS.heads_snap_radius_m,
             "heads_min_drained_area_km2": STREAM_CRITERION_DEFAULTS.heads_min_drained_area_km2,
+            "clip_map_to_catchment": STREAM_CRITERION_DEFAULTS.clip_map_to_catchment,
         }
     ]
 
 
 def test_a_knob_the_caller_names_wins_over_the_run(captured) -> None:
     run = comparison_run()
-    run.config_snapshot = SEALED
+    run.dir = sealed_search(SEALED)
     comparison_from_run(run, tau_specific_ratio=1.0e-3, diagonal_neighbors=True, timestep=-1)
 
     knobs = captured[0]
@@ -104,7 +105,7 @@ def test_the_redraw_is_built_once_per_run_and_settings(captured) -> None:
     run = _WeakRun(**vars(comparison_run()))
     comparison_from_run(run)
     comparison_from_run(run)
-    run.config_snapshot = SEALED
+    run.dir = sealed_search(SEALED)
     comparison_from_run(run)
 
     assert len(captured) == 2
@@ -122,7 +123,7 @@ def test_the_sealed_threshold_reaches_the_partition() -> None:
         comparison_from_run(_without_recharge())
 
     run = _without_recharge()
-    run.config_snapshot = SEALED
+    run.dir = sealed_search(SEALED)
     comparison = comparison_from_run(run)
 
     assert comparison.tau_specific_ratio == 0.0

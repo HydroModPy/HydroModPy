@@ -38,6 +38,7 @@ def configure(
 ) -> None:
     """Resolve the config, time grid and data plan, then build an empty ctx."""
     from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.core.state.paths import refuse_a_sealed_run_as_project
     from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.core.time import (
         require_flow_simulation_time_grid,
@@ -64,6 +65,7 @@ def configure(
         project._cfg = HydroModPyConfig.from_toml(project._config_path)
         raw_toml = load_toml_with_base_config(project._config_path)
 
+    refuse_a_sealed_run_as_project(project._cfg.workspace.project_root)
     _refuse_another_solver(project._cfg, solver)
     project._solver = solver or detect_solver(project)
     ensure_simulation_block(project)

@@ -19,7 +19,9 @@ The periods are the intervals $[b_k, b_{k+1})$ of {eq}`eq-period-edges`. Every
 solver stamps a period at its end: the time axis of a run is the start of the run
 plus the elapsed solver time. January 2000 of a monthly run is stamped
 2000-02-01. A steady run over 2000 to 2002 has one period, stamped 2003-01-01.
-The stamp of period $k$ is therefore $b_{k+1}$.
+The stamp of period $k$ is therefore $b_{k+1}$. A date a user writes reads the period
+$(b_k, b_{k+1}]$ that holds it, the first bound in the first period, so a date equal to a stamp
+reads the period that stamp closes ({doc}`/understand/conventions`).
 
 What a stamp stands for depends on the quantity. The rule is read from the CF
 [`cell_methods`](https://cfconventions.org/) (`mean` or `point`) of the field in

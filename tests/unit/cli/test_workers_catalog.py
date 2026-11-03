@@ -109,4 +109,4 @@ def test_diff_simulations_compares_parameters(tmp_path: Path) -> None:
 
     delta = diff_simulations("baseline", "variant", workspace=project)
 
-    assert ("K", "__global__") in delta["params"]
+    assert ("K", "catchment") in delta["params"]

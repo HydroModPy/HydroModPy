@@ -232,7 +232,7 @@ def run_boussinesq_seepage_limit_case(
         # which the partition closure releases nearly everywhere: read the heads.
         "seepage_mask": {0: (head_grid >= top_grid - SEEPAGE_BAND_M).astype(float)},
         # The water that leaves through the surface, where a MODFLOW run has its drains.
-        "drain": {0: _bin(excess_m3_s, col, row, total=True)},
+        "drain": {0: -_bin(excess_m3_s, col, row, total=True)},
     }
 
     model_ws = Path(model.full_path)

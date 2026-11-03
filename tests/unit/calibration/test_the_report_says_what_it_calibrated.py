@@ -41,8 +41,8 @@ def _interval(*, reaches_lower: bool = False, reaches_upper: bool = False) -> Pa
     )
 
 
-def _result(objective_value: float = 0.123) -> EvaluationResult:
-    return EvaluationResult(trial_id=0, sim_id=None, objective_value=objective_value)
+def _result(cost: float = 0.123) -> EvaluationResult:
+    return EvaluationResult(trial_id=0, sim_id=None, cost=cost)
 
 
 def _space(*, path: str = "flow.param.K.field.value", mode: str = "replace", units=None):
@@ -59,6 +59,23 @@ def _ratios(components, *, best=None, space=None, outputs=("network",), trial_ct
         space=_space() if space is None else space,
         trial_ctx=trial_ctx,
     )
+
+
+class TestTheRechargeBesideK:
+    def test_the_line_of_k_gives_the_window_of_its_recharge(self) -> None:
+        time = SimpleNamespace(start_datetime="2000-01-01", end_datetime="2002-12-31T00:00:00")
+        trial_ctx = SimpleNamespace(base_cfg=SimpleNamespace(simulation=SimpleNamespace(time=time)))
+
+        extra = _ratios({"network.R_mean_m_s": 2.0e-8}, trial_ctx=trial_ctx)
+
+        assert "m/s over 2000-01-01 to 2002-12-31 on output" in extra["k_over_r_note"]
+        assert extra["r_mean_window"] == {"start": "2000-01-01", "end": "2002-12-31"}
+
+    def test_a_run_with_no_dates_says_none(self) -> None:
+        extra = _ratios({"network.R_mean_m_s": 2.0e-8})
+
+        assert " over " not in extra["k_over_r_note"]
+        assert "r_mean_window" not in extra
 
 
 class TestPaperRatios:

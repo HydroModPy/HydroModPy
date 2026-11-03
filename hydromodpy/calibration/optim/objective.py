@@ -244,7 +244,7 @@ class CompositeObjective:
         return ObjectiveValue(total=float(total), components=merged_components)
 
 
-def objective_block_fractions(
+def cost_block_fractions(
     components: Mapping[str, float] | None,
     blocks: Sequence[tuple[str, float]],
 ) -> dict[str, float] | None:
@@ -289,13 +289,13 @@ def objective_block_fractions(
     }
 
 
-def mean_objective_block_fractions(
+def mean_cost_block_fractions(
     blocks: Sequence[tuple[str, float]],
     trial_components: Iterable[Mapping[str, float] | None],
 ) -> tuple[dict[str, float], int] | None:
     """Average each block's fraction of the cost over several trials.
 
-    Skips a trial whose fraction :func:`objective_block_fractions` cannot compute.
+    Skips a trial whose fraction :func:`cost_block_fractions` cannot compute.
     Returns ``None`` when ``blocks`` is empty or none of the trials could;
     otherwise the averaged fractions and the count of trials that entered the
     average, so a caller can say how many trials the mean actually covers.
@@ -305,7 +305,7 @@ def mean_objective_block_fractions(
     sums: dict[str, float] = {name: 0.0 for name, _weight in blocks}
     n = 0
     for components in trial_components:
-        fraction = objective_block_fractions(components, blocks)
+        fraction = cost_block_fractions(components, blocks)
         if fraction is None:
             continue
         for name in sums:
@@ -785,6 +785,6 @@ __all__ = [
     "refuse_a_normalisation_that_means_nothing",
     "non_finite_diagnosis",
     "evaluate_objective",
-    "objective_block_fractions",
-    "mean_objective_block_fractions",
+    "cost_block_fractions",
+    "mean_cost_block_fractions",
 ]

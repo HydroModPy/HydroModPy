@@ -22,7 +22,7 @@ NAME = "matching_hydrographic_network"
 def _run(name: str, extra: dict) -> SimpleNamespace:
     return SimpleNamespace(
         name=name,
-        report=SimpleNamespace(best_parameters={"K": 1.0e-5}, best_objective=0.3, extra=extra),
+        report=SimpleNamespace(best_parameters={"K": 1.0e-5}, best_cost=0.3, extra=extra),
     )
 
 

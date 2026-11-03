@@ -31,7 +31,6 @@ from typing import Literal
 
 __all__ = (
     "DEFAULT_TIME_METHOD",
-    "bare_observable_name",
     "OBSERVABLE_TIME_METHODS",
     "TIME_METHODS",
     "TimeMethod",
@@ -76,7 +75,6 @@ OBSERVABLE_TIME_METHODS: Mapping[str, TimeMethod] = {
 }
 """Time method of the observable names the field registry does not describe."""
 
-_OBSERVED_SUFFIX = "_obs"
 _TIME_ENTRY = re.compile(r"(?:^|\s)time:\s*([A-Za-z_]+)")
 
 
@@ -106,17 +104,7 @@ def time_method_from_cell_methods(cell_methods: str) -> TimeMethod:
 def observable_time_method(name: str | None) -> TimeMethod:
     """Return the method of ``name`` from the table, ``"mean"`` when unknown.
 
-    The ``_obs`` suffix the ingestion appends is ignored. Callers that may
-    read the field registry use
+    Callers that may read the field registry use
     :func:`hydromodpy.results.derive.time_alignment.time_method_for` instead.
     """
-    key = bare_observable_name(name)
-    return OBSERVABLE_TIME_METHODS.get(key, DEFAULT_TIME_METHOD)
-
-
-def bare_observable_name(name: str | None) -> str:
-    """Return ``name`` stripped, without the ingestion ``_obs`` suffix."""
-    key = str(name or "").strip()
-    if key.endswith(_OBSERVED_SUFFIX):
-        key = key[: -len(_OBSERVED_SUFFIX)]
-    return key
+    return OBSERVABLE_TIME_METHODS.get(str(name or "").strip(), DEFAULT_TIME_METHOD)

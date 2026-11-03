@@ -22,9 +22,7 @@ from hydromodpy.calibration.runners.cli_runner import _first_trial_pairing, run_
 
 
 def _result(trial_id: int, components: dict[str, float]) -> EvaluationResult:
-    return EvaluationResult(
-        trial_id=trial_id, sim_id=None, objective_value=0.1, components=components
-    )
+    return EvaluationResult(trial_id=trial_id, sim_id=None, cost=0.1, components=components)
 
 
 def test_reads_the_first_trial_not_a_later_one() -> None:
@@ -161,7 +159,7 @@ def test_the_full_run_reports_the_first_trial_not_a_later_one(
 ) -> None:
     path = _write(tmp_path, PROBE_TOML)
 
-    report = run_calibration_cli(path, workspace=tmp_path, return_report=True)
+    report = run_calibration_cli(path, workspace=tmp_path)
 
     assert first_trial_probe.calls >= 2  # more than one trial ran
     pairing = report.extra["first_trial_pairing"]

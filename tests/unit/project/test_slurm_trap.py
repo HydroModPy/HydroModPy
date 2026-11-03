@@ -27,8 +27,9 @@ import pytest
 
 from hydromodpy.project.launch.slurm import finish_task, write_slurm_array
 from hydromodpy.results.outcome import Outcome, read_outcome, write_outcome
-from hydromodpy.results.session.descriptor import SessionDescriptor, read_session, write_session
+from hydromodpy.results.session.descriptor import read_session, write_session
 from hydromodpy.results.storage.attempt import claim_run_directory
+from tests._helpers.session_documents import session_descriptor
 from tests.unit.project.test_slurm_array import STAMP, planned_project
 
 pytestmark = [
@@ -283,13 +284,12 @@ def test_a_calibration_session_left_running_is_closed_too(tmp_path: Path) -> Non
     started = datetime(2026, 10, 20, 15, 0, tzinfo=UTC)
     write_session(
         session,
-        SessionDescriptor(
+        session_descriptor(
+            "J003-calage",
             session_id="s1",
-            case_id="J003-calage",
             config_hash="h",
             hydromodpy_version="test",
             method="cmaes",
-            objective_name="nse",
             started_at=started,
         ),
     )

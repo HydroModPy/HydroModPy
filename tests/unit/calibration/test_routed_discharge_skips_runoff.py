@@ -18,7 +18,7 @@ def test_the_flag_defaults_to_false_so_drain_discharge_still_gets_its_runoff():
 
 def test_series_observable_carries_the_flag_through():
     index = pd.date_range("2000-01-01", periods=3, freq="D")
-    request = ObservableRequest(id="_catchment", name="discharge", support="domain")
+    request = ObservableRequest(id="catchment", name="discharge", support="domain")
     series = pd.Series([1.0, 2.0, 3.0], index=index)
     assert series_observable(request, series, units="m3/s").includes_runoff is False
     routed = series_observable(request, series, units="m3/s", includes_runoff=True)

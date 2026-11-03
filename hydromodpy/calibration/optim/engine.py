@@ -378,8 +378,8 @@ class CalibrationEngine:
         if hit is not None:
             return EvaluationResult(
                 trial_id=sugg.trial_id,
-                sim_id=hit.sim_id,
-                objective_value=hit.objective_value,
+                sim_id=None,
+                cost=hit.cost,
                 status="completed",
                 from_cache=True,
                 components=hit.components,
@@ -390,11 +390,10 @@ class CalibrationEngine:
                 },
             )
         result = self.evaluator(sugg)
-        if result.status == "completed" and math.isfinite(result.objective_value):
+        if result.status == "completed" and math.isfinite(result.cost):
             self.cache.put(
                 key,
-                result.sim_id,
-                objective_value=result.objective_value,
+                cost=result.cost,
                 components=result.components,
             )
         # Enrich metadata with hash for persistence.
@@ -404,7 +403,7 @@ class CalibrationEngine:
         return EvaluationResult(
             trial_id=result.trial_id,
             sim_id=result.sim_id,
-            objective_value=result.objective_value,
+            cost=result.cost,
             status=result.status,
             duration_s=result.duration_s,
             components=result.components,
@@ -426,7 +425,7 @@ class CalibrationEngine:
         return EvaluationResult(
             trial_id=result.trial_id,
             sim_id=result.sim_id,
-            objective_value=result.objective_value,
+            cost=result.cost,
             status=result.status,
             duration_s=result.duration_s,
             components=result.components,

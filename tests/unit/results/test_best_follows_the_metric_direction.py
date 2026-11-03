@@ -8,19 +8,14 @@ by ``test_group.py``.
 
 from __future__ import annotations
 
-from datetime import date
-
 import pytest
 
 from hydromodpy.results.catalog import Catalog, SimulationNotFoundError
 from hydromodpy.results.catalog.constants import UnrankedMetricError
 from hydromodpy.results.catalog.indexer import rebuild_index
-from hydromodpy.results.manifest import MetricRow
-from hydromodpy.results.metric_rule import METRIC_RULE_VERSION, MetricScore
 from hydromodpy.results.storage.sealing import seal_completed
+from tests._helpers.metric_rows import headline_row, headline_score
 from tests._helpers.run_stores import open_run_store
-
-STATION = "J0014010"
 
 
 @pytest.fixture
@@ -41,28 +36,8 @@ def scored(tmp_path):
         store = open_run_store(project, name, create_zarr=False)
         sid = store.sim_id
         for metric, value in {**metrics, "unknown_score": 1.0}.items():
-            store.facts.put_metric(
-                MetricRow(
-                    station=STATION,
-                    variable="discharge",
-                    metric=metric,
-                    value=value,
-                    nse_window_start=date(2016, 1, 1),
-                    nse_window_end=date(2020, 12, 31),
-                    nse_n=1827,
-                    metric_rule_version=METRIC_RULE_VERSION,
-                )
-            )
-        store.facts.score = MetricScore(
-            metric="nse",
-            value=metrics["nse"],
-            station=STATION,
-            variable="discharge",
-            nse_window_start=date(2016, 1, 1),
-            nse_window_end=date(2020, 12, 31),
-            nse_n=1827,
-            metric_rule_version=METRIC_RULE_VERSION,
-        )
+            store.facts.put_metric(headline_row(metric, value, n_samples=1827))
+        store.facts.score = headline_score(metrics["nse"], n_samples=1827)
         seal_completed(store)
         ids[name] = sid
     rebuild_index(project)

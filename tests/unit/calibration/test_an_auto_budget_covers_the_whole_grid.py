@@ -24,7 +24,7 @@ def _evaluate(suggestion):
     return EvaluationResult(
         trial_id=suggestion.trial_id,
         sim_id=None,
-        objective_value=float(sum(suggestion.values.values())),
+        cost=float(sum(suggestion.values.values())),
         status="completed",
         metadata={"values": dict(suggestion.values)},
     )

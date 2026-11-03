@@ -453,7 +453,7 @@ def _run_grid_search(
     history = [r for r in session.history if r.status == "completed"]
     best_values = _lookup_values(session, best.trial_id)
     x_best = np.array([best_values[name] for name in MODEL_PARAMETER_ORDER], dtype=float)
-    return x_best, float(best.objective_value), len(history)
+    return x_best, float(best.cost), len(history)
 
 
 def _run_random_search(
@@ -603,7 +603,7 @@ def _run_cma_es(
     history = [r for r in session.history if r.status == "completed"]
     best_values = _lookup_values(session, best.trial_id)
     x_best = np.array([best_values[name] for name in MODEL_PARAMETER_ORDER], dtype=float)
-    return x_best, float(best.objective_value), len(history)
+    return x_best, float(best.cost), len(history)
 
 
 def _run_gp_mapping(
@@ -656,7 +656,7 @@ def _run_gp_mapping(
     history = [r for r in session.history if r.status == "completed"]
     best_values = _lookup_values(session, best.trial_id)
     x_best = np.array([best_values[name] for name in MODEL_PARAMETER_ORDER], dtype=float)
-    return x_best, float(best.objective_value), len(history)
+    return x_best, float(best.cost), len(history)
 
 
 def _run_da_mh_gp(
@@ -783,7 +783,7 @@ def _make_engine_evaluator(
         return EvaluationResult(
             trial_id=sugg.trial_id,
             sim_id=None,
-            objective_value=cost,
+            cost=cost,
             status=status,
             metadata={"values": dict(sugg.values)},
         )

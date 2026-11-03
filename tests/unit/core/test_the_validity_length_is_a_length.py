@@ -1,6 +1,6 @@
-"""The Eq. 4 bound is a length: ``Doptim <= validity_length``.
+"""The Eq. 4 bound is a length: ``D_optim <= validity_length``.
 
-"auto" is two cells, the paper's ``roptim <= 2``. A declared accuracy raises
+"auto" is two cells, the paper's ``r_optim <= 2``. A declared accuracy raises
 the cell size, and a declared length wins. The numbers are the ones the
 decision cards tabulate for the Nancon and the V-valley bench.
 """

@@ -6,7 +6,8 @@ from typing import TYPE_CHECKING, Annotated
 
 import numpy as np
 
-from hydromodpy.core.units.labels import CATCHMENT_OUTLET_STATION, axis_label, station_label
+from hydromodpy.core.scope import CATCHMENT
+from hydromodpy.core.units.labels import axis_label, station_label
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Opt, Station, Variable
 from hydromodpy.display.figure_registry import register
@@ -34,7 +35,7 @@ class RecessionCurveFigure(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        station: Station = CATCHMENT_OUTLET_STATION,
+        station: Station = CATCHMENT,
         variable: Variable = "discharge",
         min_length: Annotated[
             int, Opt("Fewest consecutive non-rising values a recession limb holds to be drawn.")

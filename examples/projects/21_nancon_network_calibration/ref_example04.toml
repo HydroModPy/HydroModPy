@@ -261,7 +261,7 @@ diagonal_neighbors = false
 # Le protocole ecrit les deux etages, leur bloc d'objectif et les regimes
 # qu'ils imposent : permanent sur une periode unique de 9497 jours a recharge
 # moyenne, puis transitoire journalier a K gele. Tout ce qui n'est pas ecrit
-# ici est la valeur publiee.
+# ici est la valeur que la version epinglee ecrit, publiee ou ecart declare.
 #
 # `steady_metric` est l'ecart de methode que ce fichier sert a mesurer :
 # `matching = (abs(sim_distance) + abs(obs_distance)) / 2` du script, dont

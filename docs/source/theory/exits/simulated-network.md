@@ -89,7 +89,7 @@ single-flow-direction graph {cite:p}`ocallaghan1984`. High values mark the
 confluences and the persistent branches. $F_n$ is a routed diagnostic: the same
 water is counted again in every cell downstream, so the sum of $F$ over the cells
 is not a water budget. Use the budget for a mass balance. $F$ is the field
-`accumulation_flux`, and the same routing applied to the release flux gives
+`drain_accumulation_flux`, and the same routing applied to the release flux gives
 `release_accumulation_flux`. The Boussinesq solver, whose store holds a top and no
 mesh connectivity, stores a $D$ built from the D8 pointer of WhiteboxTools on its
 filled top, for a raster run, and routes on it.
@@ -157,7 +157,8 @@ is a discharge with its unit, or a share of the discharge at the outlet in the
 same period; zero is the geometric definition. The routed discharge never falls
 downstream, so the network stays closed downstream whatever the threshold. It is
 a routed seepage discharge, not a river discharge: no runoff and no bed loss
-enter it.
+enter it. It exists in a transient run only, in the two-bound mode and in the
+persistence figures: a search in one steady state scores the closure alone.
 
 The flowing cells are the field `simulated_active_network`, 1 where a stream
 flows and 0 elsewhere. It is rebuilt on read from the release flux (itself

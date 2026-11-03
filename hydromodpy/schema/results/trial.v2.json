@@ -1,0 +1,402 @@
+{
+  "$defs": {
+    "TrialCase": {
+      "additionalProperties": true,
+      "description": "What one trial gave in one case.",
+      "properties": {
+        "components": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "description": "The numbers that make this cost, the only ones a cached trial reads back",
+          "title": "Components",
+          "type": "object",
+          "x-hmp-profile": "user"
+        },
+        "cost": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Cost of this case",
+          "title": "Cost",
+          "x-hmp-profile": "user"
+        },
+        "detail": {
+          "additionalProperties": true,
+          "description": "Free diagnostics, such as materialized_overlay and block_costs",
+          "title": "Detail",
+          "type": "object",
+          "x-hmp-profile": "user"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Why this case did not complete",
+          "title": "Error",
+          "x-hmp-profile": "user"
+        },
+        "from_cache": {
+          "default": false,
+          "description": "True when the cost came from an earlier trial with the same hash",
+          "examples": [
+            false
+          ],
+          "title": "From Cache",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "params_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Cache key of this case",
+          "title": "Params Hash",
+          "x-hmp-profile": "user"
+        },
+        "rel_dir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Directory of that run, a hint",
+          "title": "Rel Dir",
+          "x-hmp-profile": "user"
+        },
+        "sim_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run of this trial in this case, never another session's",
+          "title": "Sim Id",
+          "x-hmp-profile": "user"
+        },
+        "status": {
+          "description": "Issue of this case",
+          "examples": [
+            "example"
+          ],
+          "title": "Status",
+          "type": "string",
+          "x-hmp-profile": "user",
+          "x-hmp-vocabulary": [
+            "running",
+            "completed",
+            "failed",
+            "crashed",
+            "aborted"
+          ]
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "TrialCase",
+      "type": "object"
+    },
+    "TrialParam": {
+      "additionalProperties": true,
+      "description": "One value a search proposed. Only ``value`` is always there.",
+      "properties": {
+        "bounds": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Physical bounds",
+          "title": "Bounds",
+          "x-hmp-profile": "user"
+        },
+        "mode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "replace or scale",
+          "title": "Mode",
+          "x-hmp-profile": "user"
+        },
+        "sampling": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How the search samples it",
+          "title": "Sampling",
+          "x-hmp-profile": "user"
+        },
+        "search_space": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "identity, log or logit",
+          "title": "Search Space",
+          "x-hmp-profile": "user"
+        },
+        "targets": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Address of the value in each case, by case id",
+          "title": "Targets",
+          "type": "object",
+          "x-hmp-profile": "user"
+        },
+        "transformed_bounds": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Bounds in the search space",
+          "title": "Transformed Bounds",
+          "x-hmp-profile": "user"
+        },
+        "transformed_value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Value in the search space",
+          "title": "Transformed Value",
+          "x-hmp-profile": "user"
+        },
+        "units": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Unit of the physical value",
+          "title": "Units",
+          "x-hmp-profile": "user"
+        },
+        "value": {
+          "description": "Physical value tried",
+          "examples": [
+            1.0
+          ],
+          "title": "Value",
+          "type": "number",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "TrialParam",
+      "type": "object"
+    }
+  },
+  "additionalProperties": true,
+  "description": "One evaluated trial, one line of the journal.",
+  "properties": {
+    "cases": {
+      "additionalProperties": {
+        "$ref": "#/$defs/TrialCase"
+      },
+      "description": "What the trial gave in each case, by case id",
+      "title": "Cases",
+      "type": "object",
+      "x-hmp-profile": "user"
+    },
+    "cost": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The number the search minimised, null for a failed trial or when the search keeps no single cost",
+      "title": "Cost",
+      "x-hmp-profile": "user"
+    },
+    "ended_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "End of the trial, UTC",
+      "title": "Ended At",
+      "x-hmp-profile": "user"
+    },
+    "params": {
+      "additionalProperties": {
+        "$ref": "#/$defs/TrialParam"
+      },
+      "description": "Values the search proposed, by parameter",
+      "title": "Params",
+      "type": "object",
+      "x-hmp-profile": "user"
+    },
+    "phase": {
+      "description": "Phase the trial belongs to",
+      "examples": [
+        "example"
+      ],
+      "title": "Phase",
+      "type": "string",
+      "x-hmp-profile": "user"
+    },
+    "restart": {
+      "default": 0,
+      "description": "Restart of that phase",
+      "examples": [
+        0
+      ],
+      "minimum": 0,
+      "title": "Restart",
+      "type": "integer",
+      "x-hmp-profile": "user"
+    },
+    "schema": {
+      "default": "hydromodpy.trial.v2",
+      "description": "Schema id",
+      "title": "Schema",
+      "type": "string"
+    },
+    "speculative_unused": {
+      "default": false,
+      "description": "True for a trial a speculative engine solved and did not read: it is kept and it leaves the ranking",
+      "examples": [
+        false
+      ],
+      "title": "Speculative Unused",
+      "type": "boolean",
+      "x-hmp-profile": "user"
+    },
+    "started_at": {
+      "description": "Start of the trial, UTC",
+      "format": "date-time",
+      "title": "Started At",
+      "type": "string",
+      "x-hmp-profile": "user"
+    },
+    "status": {
+      "description": "Where the trial stands",
+      "examples": [
+        "example"
+      ],
+      "title": "Status",
+      "type": "string",
+      "x-hmp-profile": "user",
+      "x-hmp-vocabulary": [
+        "running",
+        "completed",
+        "failed",
+        "crashed",
+        "aborted"
+      ]
+    },
+    "trial": {
+      "description": "Trial number, unique in the session",
+      "examples": [
+        1
+      ],
+      "minimum": 1,
+      "title": "Trial",
+      "type": "integer",
+      "x-hmp-profile": "user"
+    }
+  },
+  "required": [
+    "trial",
+    "phase",
+    "status",
+    "started_at"
+  ],
+  "title": "TrialLine",
+  "type": "object"
+}

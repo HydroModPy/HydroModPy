@@ -18,6 +18,7 @@ from hydromodpy.calibration.protocols.matching_hydrographic_network import (
     TRANSIENT_STAGE,
 )
 from hydromodpy.results.derive.network_criterion_settings import network_criterion_settings
+from tests._helpers.sealed_runs import sealed_search
 
 NETWORK = {"support": "network", "observed_network": "data.hydrography"}
 
@@ -32,7 +33,7 @@ def _run(calibration: dict, *, phase: str | None, dashed: bool = False) -> Simpl
     ]
     return SimpleNamespace(
         sim_id="sim-x",
-        config_snapshot={"calibration": calibration},
+        dir=sealed_search(calibration),
         calibration_iterations=[{"session_id": trial_id, "iteration": 0}],
         calibration_sessions=pd.DataFrame(sessions),
     )
@@ -48,7 +49,7 @@ def _phases(window: dict | None) -> list[dict]:
 def test_the_window_of_the_run_s_phase_wins_over_the_calibration_s() -> None:
     calibration = {
         "outputs": {"streams": NETWORK},
-        "scoring_window": {"start": "2001-01-01", "end": None},
+        "scoring_window": {"start": "2001-01-01"},
         "phases": _phases({"start": "2003-01-01", "end": "2005-12-31"}),
     }
 
@@ -70,7 +71,7 @@ def test_a_session_id_spelled_with_dashes_finds_its_phase() -> None:
 def test_a_phase_without_a_window_reads_the_calibration_s() -> None:
     calibration = {
         "outputs": {"streams": NETWORK},
-        "scoring_window": {"start": "2001-01-01", "end": None},
+        "scoring_window": {"start": "2001-01-01"},
         "phases": _phases({"start": "2003-01-01"}),
     }
 
@@ -84,10 +85,10 @@ def test_a_phase_without_a_window_reads_the_calibration_s() -> None:
 def test_a_run_tied_to_no_phase_reads_the_calibration_s() -> None:
     calibration = {
         "outputs": {"streams": NETWORK},
-        "scoring_window": {"start": "2001-01-01", "end": None},
+        "scoring_window": {"start": "2001-01-01"},
         "phases": _phases({"start": "2003-01-01"}),
     }
-    run = SimpleNamespace(sim_id="sim-x", config_snapshot={"calibration": calibration})
+    run = SimpleNamespace(sim_id="sim-x", dir=sealed_search(calibration))
 
     assert network_criterion_settings(run).scoring_window == (pd.Timestamp("2001-01-01"), None)
     assert network_criterion_settings(_run(calibration, phase=None)).scoring_window_phase is None
@@ -96,8 +97,8 @@ def test_a_run_tied_to_no_phase_reads_the_calibration_s() -> None:
 def test_a_phase_window_open_on_both_ends_is_no_window() -> None:
     calibration = {
         "outputs": {"streams": NETWORK},
-        "scoring_window": {"start": "2001-01-01", "end": None},
-        "phases": _phases({"start": None, "end": None}),
+        "scoring_window": {"start": "2001-01-01"},
+        "phases": _phases({}),
     }
 
     settings = network_criterion_settings(_run(calibration, phase="transient"))

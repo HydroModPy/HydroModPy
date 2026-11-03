@@ -188,14 +188,14 @@ def test_the_unit_budget_flux_is_the_drain_over_the_cell_area(project) -> None:
 
         run = Run(sid, catalog)
 
-        assert run.has_field("fluxes_from_budget")
+        assert run.has_field("budget_flux_per_area")
         for step in range(N_STEPS):
             np.testing.assert_allclose(
-                run.field("fluxes_from_budget", timestep=step), drain[step] / AREAS, rtol=1e-12
+                run.field("budget_flux_per_area", timestep=step), drain[step] / AREAS, rtol=1e-12
             )
         sz = catalog.open_zarr(sid)
         try:
-            stack = derive_field_stack(sz, sid, "fluxes_from_budget", range(N_STEPS))
+            stack = derive_field_stack(sz, sid, "budget_flux_per_area", range(N_STEPS))
         finally:
             sz.close()
     np.testing.assert_allclose(stack, drain / AREAS, rtol=1e-12)
@@ -205,7 +205,7 @@ def test_the_unit_budget_flux_needs_the_mesh_geometry(project) -> None:
     with _seeded(project, {"drain": _budget()["drain"]}, mesh=False) as (catalog, sid):
         run = Run(sid, catalog)
 
-        assert not run.has_field("fluxes_from_budget")
+        assert not run.has_field("budget_flux_per_area")
         assert run.has_field("release_flux")
 
 
@@ -215,7 +215,7 @@ def test_a_store_written_before_reads_its_stored_arrays(project) -> None:
     # Deliberately not what the budget rebuilds, so a recomputation is caught.
     stored_release = np.arange(N_STEPS * N_CELLS, dtype="float64").reshape(N_STEPS, N_CELLS)
     stored_unit = stored_release / 7.0 + 0.1
-    derived = {"release_flux": stored_release, "fluxes_from_budget": stored_unit}
+    derived = {"release_flux": stored_release, "budget_flux_per_area": stored_unit}
     with _seeded(project, budget, derived=derived, precision="exact") as (catalog, sid):
         sz = catalog.open_zarr(sid)
         try:
@@ -231,7 +231,7 @@ def test_a_store_written_before_reads_its_stored_arrays(project) -> None:
                 run.field("release_flux", timestep=step), stored_release[step]
             )
             np.testing.assert_array_equal(
-                run.field("fluxes_from_budget", timestep=step), stored_unit[step]
+                run.field("budget_flux_per_area", timestep=step), stored_unit[step]
             )
         np.testing.assert_array_equal(_stack_field(run, "release_flux"), stored_release)
         np.testing.assert_array_equal(
@@ -241,7 +241,7 @@ def test_a_store_written_before_reads_its_stored_arrays(project) -> None:
 
 # -- Every field, against what the code before the rebuild derived ------------
 
-NO_ROUTE_FIELDS = ("accumulation_flux", "release_accumulation_flux")
+NO_ROUTE_FIELDS = ("drain_accumulation_flux", "release_accumulation_flux")
 
 
 @pytest.fixture
@@ -276,6 +276,19 @@ def _fresh_descent_cache():
     accumulation._graphs.clear()
 
 
+RENAMED_IN_THE_FIXTURES = {
+    "accumulation_flux": "drain_accumulation_flux",
+    "mass_accumulated": "mass_seepage_running_sum",
+}
+"""The fixtures keep the names the fields had when the base derived them."""
+
+
+def _field_of(key: str) -> str:
+    """Return the field a fixture array holds."""
+    field = key.split("__", 1)[1]
+    return RENAMED_IN_THE_FIXTURES.get(field, field)
+
+
 def _reference_cases() -> list[tuple[str, str]]:
     """Return (store, array name) for each stack the base code derived and a reader rebuilds.
 
@@ -289,22 +302,38 @@ def _reference_cases() -> list[tuple[str, str]]:
             for key in archive.files:
                 if key.startswith("route__") or key == "virtual__outflow_drain":
                     continue
-                if kind == "no_route" and key.removeprefix("base__") in NO_ROUTE_FIELDS:
+                if kind == "no_route" and _field_of(key) in NO_ROUTE_FIELDS:
                     continue
                 cases.append((kind, key))
     return cases
 
 
 def _reference(kind: str, key: str) -> np.ndarray:
+    """Return what the base derived, without the step its sign guess read as an outflow.
+
+    Step 4 of the drain is all positive. The base took that for an outflow when it read
+    the drain alone, which only the solute chain does on these stores. A positive flux
+    enters the aquifer, so no solute leaves at that step.
+    """
     with np.load(reference.fixture_path(kind)) as archive:
+        if key == "base__mass_seepage":
+            return _without_guess(archive[key])
+        if key == "base__mass_accumulated":
+            return np.cumsum(_without_guess(archive["base__mass_seepage"]), axis=0)
         return archive[key]
+
+
+def _without_guess(mass_seepage: np.ndarray) -> np.ndarray:
+    stack = np.array(mass_seepage)
+    stack[4] = stack[4] * 0.0
+    return stack
 
 
 @pytest.mark.parametrize(("kind", "key"), _reference_cases())
 def test_a_range_equals_what_the_base_derived_bit_for_bit(built, kind, key) -> None:
     store = built(kind)
     sid = store.sim_id
-    field = key.split("__", 1)[1]
+    field = _field_of(key)
 
     rebuilt = read_field_range_or_virtual(store, sid, field, 0, reference.N_STEPS)
 
@@ -315,7 +344,7 @@ def test_a_range_equals_what_the_base_derived_bit_for_bit(built, kind, key) -> N
 def test_a_step_read_alone_equals_the_row_of_the_range(built, kind, key) -> None:
     store = built(kind)
     sid = store.sim_id
-    field = key.split("__", 1)[1]
+    field = _field_of(key)
     expected = _reference(kind, key)
 
     for step in range(reference.N_STEPS):
@@ -329,7 +358,7 @@ def test_a_step_read_alone_equals_the_row_of_the_range(built, kind, key) -> None
 def test_a_sub_range_is_the_rows_of_the_whole_range(built, kind, key) -> None:
     store = built(kind)
     sid = store.sim_id
-    field = key.split("__", 1)[1]
+    field = _field_of(key)
 
     part = read_field_range_or_virtual(store, sid, field, 2, 5)
 
@@ -340,10 +369,10 @@ def test_a_sub_range_is_the_rows_of_the_whole_range(built, kind, key) -> None:
 def test_passes_of_one_step_join_into_the_whole_range(
     built, monkeypatch: pytest.MonkeyPatch, kind, key
 ) -> None:
-    """The running sum of mass_accumulated carries over from one pass to the next."""
+    """The running sum of mass_seepage_running_sum carries over from one pass to the next."""
     store = built(kind)
     sid = store.sim_id
-    field = key.split("__", 1)[1]
+    field = _field_of(key)
     monkeypatch.setattr(virtual_fields, "ROWS_PER_PASS_ELEMENTS", reference.N_CELLS)
 
     rebuilt = read_field_range_or_virtual(store, sid, field, 0, reference.N_STEPS)
@@ -359,12 +388,12 @@ def test_every_field_has_a_range_path_and_a_step_that_is_a_row_of_it() -> None:
         "seepage_mask",
         "outflow_drain",
         "release_flux",
-        "fluxes_from_budget",
-        "accumulation_flux",
+        "budget_flux_per_area",
+        "drain_accumulation_flux",
         "release_accumulation_flux",
         "concentration_seepage",
         "mass_seepage",
-        "mass_accumulated",
+        "mass_seepage_running_sum",
     }
 
 
@@ -376,8 +405,8 @@ def test_the_outflow_drain_adds_the_mover_the_base_step_read_left_out(built) -> 
 
     np.testing.assert_array_equal(rebuilt, _reference("mf6", "base__outflow_drain"))
     drain_alone = _reference("mf6", "virtual__outflow_drain")
-    # Step 4 holds only positive drain values: with the mover added the sign
-    # fallback no longer applies there, so that step is left out.
+    # Step 4 holds only positive drain values, which the base read alone as an
+    # outflow through its sign guess, so that step is left out.
     steps = [0, 1, 2, 3, 5]
     assert np.all(rebuilt[steps] >= drain_alone[steps])
     assert np.any(rebuilt[steps] > drain_alone[steps])
@@ -401,7 +430,9 @@ def test_the_solute_chain_keeps_nan_outside_the_seepage_and_where_the_concentrat
 
     conc = read_field_range_or_virtual(store, sid, "concentration_seepage", 0, reference.N_STEPS)
     mass = read_field_range_or_virtual(store, sid, "mass_seepage", 0, reference.N_STEPS)
-    total = read_field_range_or_virtual(store, sid, "mass_accumulated", 0, reference.N_STEPS)
+    total = read_field_range_or_virtual(
+        store, sid, "mass_seepage_running_sum", 0, reference.N_STEPS
+    )
 
     assert np.all(np.isnan(conc[seepage == 0]))
     assert np.all(np.isnan(mass[seepage == 0]))
@@ -446,20 +477,25 @@ def test_the_stores_list_the_fields_they_can_serve(built) -> None:
         finally:
             sz.close()
 
-    chain = {"concentration_seepage", "mass_seepage", "mass_accumulated"}
+    chain = {"concentration_seepage", "mass_seepage", "mass_seepage_running_sum"}
     assert chain <= listed["transport"]
     for kind in set(reference.STORE_KINDS) - {"transport"}:
         assert not chain & listed[kind]
     for kind in ("mf6", "mf6_no_descent", "boussinesq", "boussinesq_no_excess", "transport"):
         assert set(NO_ROUTE_FIELDS) <= listed[kind]
-    assert "fluxes_from_budget" not in listed["boussinesq"]
+    assert "budget_flux_per_area" not in listed["boussinesq"]
 
 
 def test_a_step_outside_the_time_axis_is_refused(built) -> None:
     store = built("mf6")
     sid = store.sim_id
 
-    for field in ("watertable_elevation", "seepage_mask", "accumulation_flux", "outflow_drain"):
+    for field in (
+        "watertable_elevation",
+        "seepage_mask",
+        "drain_accumulation_flux",
+        "outflow_drain",
+    ):
         with pytest.raises(IndexError):
             read_field_or_virtual(store, sid, field, reference.N_STEPS)
         with pytest.raises(IndexError):
@@ -520,7 +556,7 @@ def test_the_solute_chain_warns_once_when_it_falls_back_to_the_geometric_mask(
     monkeypatch.setattr(virtual_fields, "ROWS_PER_PASS_ELEMENTS", reference.N_CELLS)
 
     with caplog.at_level(logging.WARNING, logger="hydromodpy.core.field_routing"):
-        read_field_range_or_virtual(store, sid, "mass_accumulated", 0, reference.N_STEPS)
+        read_field_range_or_virtual(store, sid, "mass_seepage_running_sum", 0, reference.N_STEPS)
 
     assert len(_fallback_warnings(caplog)) == 1
 
@@ -595,9 +631,9 @@ def test_an_old_stored_concentration_and_mass_feed_the_next_field(built) -> None
     stored_concentration = np.arange(np.prod(shape), dtype="float64").reshape(shape) / 7.0
     _write_derived(store, sid, "concentration_seepage", stored_concentration)
     drain = _budget_of(store, sid, "drain")
-    from hydromodpy.core.field_routing import drain_budget_stack_to_positive_outflow
+    from hydromodpy.core.field_routing import budget_outflow_stack
 
-    flux = drain_budget_stack_to_positive_outflow(drain, n_cells=reference.N_CELLS)
+    flux = budget_outflow_stack(drain, n_cells=reference.N_CELLS)
 
     mass = read_field_range_or_virtual(store, sid, "mass_seepage", 0, reference.N_STEPS)
 
@@ -606,11 +642,13 @@ def test_an_old_stored_concentration_and_mass_feed_the_next_field(built) -> None
     stored_mass = np.arange(np.prod(shape), dtype="float64").reshape(shape) * 0.1
     _write_derived(store, sid, "mass_seepage", stored_mass)
 
-    total = read_field_range_or_virtual(store, sid, "mass_accumulated", 0, reference.N_STEPS)
+    total = read_field_range_or_virtual(
+        store, sid, "mass_seepage_running_sum", 0, reference.N_STEPS
+    )
 
     np.testing.assert_array_equal(total, np.cumsum(stored_mass, axis=0))
     np.testing.assert_array_equal(
-        read_field_or_virtual(store, sid, "mass_accumulated", 4), total[4]
+        read_field_or_virtual(store, sid, "mass_seepage_running_sum", 4), total[4]
     )
 
 
@@ -648,7 +686,7 @@ def test_the_mass_chain_needs_a_budget_group(exact_store: RunStore) -> None:
 
     assert "concentration_seepage" in listed
     assert "mass_seepage" not in listed
-    assert "mass_accumulated" not in listed
+    assert "mass_seepage_running_sum" not in listed
     with pytest.raises(KeyError):
         read_field_range_or_virtual(store, sid, "mass_seepage", 0, N_STEPS)
 
@@ -661,7 +699,7 @@ def test_the_golden_signature_reads_the_time_axis_not_a_probe(built) -> None:
     sid = store.sim_id
 
     stored = store_field_signature(store, sid, "head")
-    rebuilt = store_field_signature(store, sid, "mass_accumulated")
+    rebuilt = store_field_signature(store, sid, "mass_seepage_running_sum")
 
     assert stored["available_timesteps"] == reference.N_STEPS
     assert stored["timestep"] == reference.N_STEPS - 1

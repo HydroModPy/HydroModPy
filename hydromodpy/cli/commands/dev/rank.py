@@ -85,7 +85,7 @@ def run(args: argparse.Namespace) -> None:
         print(
             f"{label}#{idx}: {display}  sim_id={row.sim_id}  solver={row.solver}  "
             f"station={row.station}  {args.metric}={row.value:.4f}  "
-            f"window={_day(row.nse_window_start)}..{_day(row.nse_window_end)}"
+            f"window={_day(row.window_start)}..{_day(row.window_end)}"
         )
 
 

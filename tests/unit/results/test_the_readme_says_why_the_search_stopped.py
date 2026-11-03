@@ -20,17 +20,16 @@ from hydromodpy.results.readme import _checks_section, render_session_readme
 from hydromodpy.results.session.descriptor import SessionDescriptor
 from hydromodpy.results.session.phase import PhaseDescriptor
 from hydromodpy.results.validity_rules import RULE_VERSION, label_for
+from tests._helpers.session_documents import session_descriptor
 from tests.unit.results._run_record_factory import make_checks
 
 
 def _descriptor(**extra) -> SessionDescriptor:
-    return SessionDescriptor(
+    return session_descriptor(
+        "J0014010-calage",
         session_id="sess0001",
-        case_id="J0014010-calage",
-        config_hash="h",
-        hydromodpy_version="2.0.0a5",
         method="random_search + grid",
-        objective_name="nse_log",
+        cost_name="nse_log",
         status="completed",
         started_at=datetime(2026, 10, 25, tzinfo=UTC),
         **extra,
@@ -68,11 +67,11 @@ def test_the_session_readme_says_why_each_search_stopped() -> None:
     assert "- search stopped: exhausted its plan (every grid point solved), converged" in text
     assert f"- phase coarse {FROZE_BUDGET_ONLY}" in text
     assert (
-        "| coarse | completed | 0 | {} | none | spent its budget, a budget-only search with "
+        "| coarse | completed | 0 | none | none | spent its budget, a budget-only search with "
         f"no rule of its own; {FROZE_BUDGET_ONLY} |"
     ) in text
     assert (
-        "| storage | completed | 0 | {} | none | exhausted its plan (every grid point solved) |"
+        "| storage | completed | 0 | none | none | exhausted its plan (every grid point solved) |"
         in (text)
     )
 

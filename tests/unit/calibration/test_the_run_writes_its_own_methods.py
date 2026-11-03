@@ -24,7 +24,19 @@ class TestWhatItAlwaysSays:
         text = methods_paragraph(NAME, stages_that_ran=["steady_conductivity"])
 
         assert NAME in text
+        assert "version 1.3" in text
+
+    def test_a_pinned_file_says_its_pin(self) -> None:
+        text = methods_paragraph(NAME, stages_that_ran=["steady_conductivity"], version="1.2")
+
         assert "version 1.2" in text
+
+    def test_it_says_where_it_departs_in_every_run(self) -> None:
+        text = methods_paragraph(NAME, stages_that_ran=["steady_conductivity"])
+
+        assert "departs from it in every run" in text
+        for key in ("steady_recharge_window", "d_os_support", "outlet_sealed_into_d_so_target"):
+            assert key in text
 
     def test_it_cites_the_publication(self) -> None:
         text = methods_paragraph(NAME, stages_that_ran=["steady_conductivity"])
@@ -149,7 +161,7 @@ class TestItReportsTheDepartures:
 
         steady = SimpleNamespace(
             name="steady_conductivity",
-            report=SimpleNamespace(best_parameters={"K": 1.0e-5}, best_objective=0.5, extra={}),
+            report=SimpleNamespace(best_parameters={"K": 1.0e-5}, best_cost=0.5, extra={}),
         )
 
         text = _methods_paragraph_for(cfg, [steady], [])
@@ -176,7 +188,7 @@ class TestItReportsTheDepartures:
             )
             steady = SimpleNamespace(
                 name="steady_conductivity",
-                report=SimpleNamespace(best_parameters={"K": 1.0e-5}, best_objective=0.5, extra={}),
+                report=SimpleNamespace(best_parameters={"K": 1.0e-5}, best_cost=0.5, extra={}),
             )
             text = _methods_paragraph_for(cfg, [steady], [])
             assert text is not None
@@ -185,7 +197,7 @@ class TestItReportsTheDepartures:
         declared = paragraph(validity_length="300 m")
 
         assert "validity_length was set to '300 m'" in declared
-        assert "roptim = Doptim / DEMres <= 2" in declared
+        assert "r_optim = D_optim / DEMres <= 2" in declared
         assert "validity_length" not in paragraph()
 
 
@@ -300,41 +312,36 @@ class TestItReportsParameterUncertaintyWidths:
         assert ".." not in text
 
 
-class TestTheStagedReportCarriesIt:
-    def test_the_report_holds_the_paragraph(self) -> None:
-        from hydromodpy.calibration.runners.staged_runner import StagedCalibrationReport
+def _report(**fields):
+    from hydromodpy.calibration.report import CalibrationReport
 
-        report = StagedCalibrationReport(
-            phases=(),
-            frozen=(),
-            session_id="abc",
-            methods_paragraph="anything",
-        )
+    return CalibrationReport(
+        session_id="abc",
+        method="grid",
+        n_trials=0,
+        best_cost=None,
+        duration_s=0.0,
+        save_runs="none",
+        promoted=0,
+        **fields,
+    )
 
-        assert report.to_dict()["methods_paragraph"] == "anything"
 
-    def test_a_report_without_a_protocol_carries_none(self) -> None:
-        from hydromodpy.calibration.runners.staged_runner import StagedCalibrationReport
+class TestTheReportCarriesIt:
+    @pytest.mark.parametrize(
+        ("key", "value"),
+        [
+            ("methods_paragraph", "anything"),
+            ("steady_window", {"start": "1995-01-01", "end": "2020-12-31", "days": 9497}),
+        ],
+    )
+    def test_the_report_holds_what_is_known(self, key, value) -> None:
+        assert _report(**{key: value}).to_dict()[key] == value
 
-        summary = StagedCalibrationReport(phases=(), frozen=(), session_id="abc").to_dict()
+    def test_a_report_without_a_paragraph_or_a_steady_phase_carries_none(self) -> None:
+        summary = _report().to_dict()
 
         assert "methods_paragraph" not in summary
-
-    def test_the_steady_window_is_carried_when_known(self) -> None:
-        from hydromodpy.calibration.runners.staged_runner import StagedCalibrationReport
-
-        window = {"start": "1995-01-01", "end": "2020-12-31", "days": 9497}
-        summary = StagedCalibrationReport(
-            phases=(), frozen=(), session_id="abc", steady_window=window
-        ).to_dict()
-
-        assert summary["steady_window"] == window
-
-    def test_a_report_without_a_steady_phase_carries_none(self) -> None:
-        from hydromodpy.calibration.runners.staged_runner import StagedCalibrationReport
-
-        summary = StagedCalibrationReport(phases=(), frozen=(), session_id="abc").to_dict()
-
         assert "steady_window" not in summary
 
     def test_it_is_built_from_the_stages_that_settled(self) -> None:

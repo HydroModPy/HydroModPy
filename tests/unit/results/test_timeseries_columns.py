@@ -25,7 +25,7 @@ class TestTableFromColumns:
                 "time": pd.Timestamp(times[i]).tz_localize("UTC"),
                 "value": float(i),
                 "unit": "m",
-                "qflag": "simulated",
+                "source": "simulated",
             }
             for i in range(3)
         ]
@@ -38,7 +38,7 @@ class TestTableFromColumns:
                 "time": times,
                 "value": np.arange(3, dtype="float64"),
                 "unit": "m",
-                "qflag": "simulated",
+                "source": "simulated",
             },
             TIMESERIES_SCHEMA,
             defaults={"sim_id": "s"},
@@ -50,12 +50,12 @@ class TestTableFromColumns:
         table = table_from_columns(
             {"variable": "q", "timestep": np.arange(2), "value": np.ones(2)},
             TIMESERIES_SCHEMA,
-            defaults={"sim_id": "s", "unit": "", "qflag": "simulated"},
+            defaults={"sim_id": "s", "unit": "", "source": "simulated"},
         )
         assert table.column("station_id").null_count == 2
         assert table.column("time").null_count == 2
         assert table.column("unit").to_pylist() == ["", ""]
-        assert table.column("qflag").to_pylist() == ["simulated", "simulated"]
+        assert table.column("source").to_pylist() == ["simulated", "simulated"]
 
     def test_unknown_column_raises(self) -> None:
         with pytest.raises(ValueError, match="not in schema"):
@@ -113,7 +113,7 @@ class TestWriteTimeseriesColumns:
             df_cols.sort_values("timestep").reset_index(drop=True),
             df_batch.sort_values("timestep").reset_index(drop=True),
         )
-        assert df_cols["qflag"].tolist() == ["simulated"] * n
+        assert df_cols["source"].tolist() == ["simulated"] * n
         assert sorted(df_cols["value"].tolist()) == pytest.approx([1.0, 2.0, 3.0, 4.0])
 
     def test_last_write_wins_merge(self, tmp_path: Path) -> None:

@@ -76,7 +76,7 @@ def _root_at(root: float, calls: list[int] | None = None):
         return EvaluationResult(
             trial_id=sugg.trial_id,
             sim_id=None,
-            objective_value=abs(residual),
+            cost=abs(residual),
             status="completed",
             components={"net.J_signed": residual},
         )
@@ -601,9 +601,8 @@ def _report(*, converged: bool | None) -> CalibrationReport:
     return CalibrationReport(
         session_id="s1",
         method="scipy_nelder_mead",
-        n_iterations=120,
-        best_objective=2.9,
-        best_sim_id=None,
+        n_trials=120,
+        best_cost=2.9,
         duration_s=1.0,
         save_runs="none",
         promoted=0,
@@ -695,7 +694,7 @@ def _rosenbrock(sugg: ParamSuggestion) -> EvaluationResult:
     return EvaluationResult(
         trial_id=sugg.trial_id,
         sim_id=None,
-        objective_value=(1.0 - x) ** 2 + 100.0 * (y - x * x) ** 2,
+        cost=(1.0 - x) ** 2 + 100.0 * (y - x * x) ** 2,
         status="completed",
     )
 
@@ -706,7 +705,7 @@ def _bowl(sugg: ParamSuggestion) -> EvaluationResult:
     return EvaluationResult(
         trial_id=sugg.trial_id,
         sim_id=None,
-        objective_value=x * x + y * y,
+        cost=x * x + y * y,
         status="completed",
     )
 

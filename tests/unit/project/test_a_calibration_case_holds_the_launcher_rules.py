@@ -25,7 +25,8 @@ from hydromodpy.project.launch.children import PlannedCase, calibration_width
 from hydromodpy.project.launch.local import effective_parallel, select_cases, worker_flags
 from hydromodpy.project.launch.status import CaseState, case_state
 from hydromodpy.results.outcome import Outcome, read_outcome, write_outcome
-from hydromodpy.results.session.descriptor import SessionDescriptor, read_session, write_session
+from hydromodpy.results.session.descriptor import read_session, write_session
+from tests._helpers.session_documents import session_descriptor
 from tests.unit.project._launch_fakes import seen, write_behaviour, write_project
 
 pytestmark = pytest.mark.allow_subprocess
@@ -166,15 +167,7 @@ def test_a_session_a_live_worker_may_hold_is_never_started_again(tmp_path: Path)
     now = datetime.now(UTC)
     write_session(
         session,
-        SessionDescriptor(
-            session_id="s1",
-            case_id="a-cal",
-            config_hash="h1",
-            hydromodpy_version="0",
-            method="grid",
-            objective_name="nse",
-            started_at=now,
-        ),
+        session_descriptor("a-cal", session_id="s1", config_hash="h1", started_at=now),
     )
     write_outcome(
         session,

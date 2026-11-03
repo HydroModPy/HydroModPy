@@ -33,8 +33,8 @@ def scoring_window_start(run: Run) -> date | None:
     no score.
     """
     frame = metrics_of(run)
-    if "nse_window_start" in frame:
-        starts = frame["nse_window_start"].dropna()
+    if "window_start" in frame:
+        starts = frame["window_start"].dropna()
         if not starts.empty:
             return pd.Timestamp(starts.iloc[0]).date()
     return _configured_window_start(run)

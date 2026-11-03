@@ -38,7 +38,7 @@ def _simple_evaluator(sugg: ParamSuggestion) -> EvaluationResult:
     return EvaluationResult(
         trial_id=sugg.trial_id,
         sim_id=f"sim-{sugg.trial_id}",
-        objective_value=float(sugg.values["x"]),
+        cost=float(sugg.values["x"]),
         status="completed",
     )
 
@@ -83,7 +83,7 @@ class _StubOptimizer:
         valid = [r for r in self._history if r.status == "completed"]
         if not valid:
             return None
-        return min(valid, key=lambda r: r.objective_value)
+        return min(valid, key=lambda r: r.cost)
 
     def converged(self) -> bool:
         return self._exhausted
@@ -135,7 +135,7 @@ class TestEngineRun:
         session = engine.run()
         assert session.best is not None
         # Grid spans [0.0, 1.0] with 5 points - min is 0.0.
-        assert session.best.objective_value == pytest.approx(0.0)
+        assert session.best.cost == pytest.approx(0.0)
 
     def test_grid_2d_explores_full_product_and_finds_convex_minimum(self):
         """A 2D grid runs the full ask/tell loop and lands on the convex min."""
@@ -153,7 +153,7 @@ class TestEngineRun:
             return EvaluationResult(
                 trial_id=sugg.trial_id,
                 sim_id=None,
-                objective_value=x**2 + y**2,
+                cost=x**2 + y**2,
                 status="completed",
             )
 
@@ -162,8 +162,8 @@ class TestEngineRun:
 
         assert len(session.history) == 9  # full 3x3 cartesian product
         assert session.best is not None
-        assert session.best.objective_value <= session.history[-1].objective_value + 1e-9
-        assert abs(session.best.objective_value) < 1e-12  # grid includes (0, 0)
+        assert session.best.cost <= session.history[-1].cost + 1e-9
+        assert abs(session.best.cost) < 1e-12  # grid includes (0, 0)
 
     def test_session_exposes_duration(self):
         """Duration tracking does not break when the loop runs to completion."""
@@ -333,7 +333,7 @@ class TestEngineCacheIntegration:
             return EvaluationResult(
                 trial_id=sugg.trial_id,
                 sim_id="sim-shared",
-                objective_value=0.5,
+                cost=0.5,
                 status="completed",
             )
 
@@ -352,12 +352,12 @@ class TestEngineCacheIntegration:
         assert session.history[1].from_cache is True
         assert session.history[2].from_cache is True
         assert session.history[1].status == "completed"
-        assert session.history[1].objective_value == 0.5
+        assert session.history[1].cost == 0.5
         # Cache is keyed by hash of the suggested values.
         assert params_hash({"x": 0.5}) in cache
 
-    def test_cache_populates_with_sim_id_on_first_hit(self):
-        """After the first completed evaluation, the cache holds its sim_id."""
+    def test_cache_populates_on_first_hit(self):
+        """After the first completed evaluation, the cache holds its cost and no run."""
         space = _unit_space()
         opt = _StubOptimizer([{"x": 0.42}])
         cache = ParamsHashCache()
@@ -366,7 +366,7 @@ class TestEngineCacheIntegration:
             return EvaluationResult(
                 trial_id=sugg.trial_id,
                 sim_id="sim-abc",
-                objective_value=0.1,
+                cost=0.1,
                 status="completed",
             )
 
@@ -381,8 +381,7 @@ class TestEngineCacheIntegration:
         key = params_hash({"x": 0.42})
         hit = cache.get(key)
         assert hit is not None
-        assert hit.sim_id == "sim-abc"
-        assert hit.objective_value == 0.1
+        assert hit.cost == 0.1
 
     def test_no_cache_means_every_trial_runs(self):
         """When ``cache=None`` the engine never inspects or stores results."""

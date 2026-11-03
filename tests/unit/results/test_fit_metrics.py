@@ -25,17 +25,23 @@ GAUGE = "J0014010"
 YEAR_2001 = DateWindow(start=date(2001, 1, 1), end=date(2001, 12, 31))
 
 
-def _rows(station: str, variable: str, times, values) -> list[dict]:
+def _rows(station: str, variable: str, times, values, source: str = "simulated") -> list[dict]:
     return [
-        {"station_id": station, "variable": variable, "time": t, "value": float(v)}
+        {
+            "station_id": station,
+            "variable": variable,
+            "source": source,
+            "time": t,
+            "value": float(v),
+        }
         for t, v in zip(times, values, strict=True)
     ]
 
 
 def _frame(sim_times, sim_values, obs_times, obs_values, *, gauge: str = GAUGE) -> pd.DataFrame:
     return pd.DataFrame(
-        _rows("_catchment", "discharge", sim_times, sim_values)
-        + _rows(gauge, "discharge_obs", obs_times, obs_values)
+        _rows("catchment", "discharge", sim_times, sim_values)
+        + _rows(gauge, "discharge", obs_times, obs_values, source="observed")
     )
 
 
@@ -62,7 +68,7 @@ def test_a_perfect_run_scores_one_on_the_whole_panel() -> None:
     assert by_metric["rmse"] == pytest.approx(0.0, abs=1e-12)
     assert scores.score.value == pytest.approx(1.0)
     assert (scores.score.station, scores.score.variable) == (GAUGE, "discharge")
-    assert scores.score.nse_n == 365
+    assert scores.score.n_samples == 365
 
 
 def test_the_spin_up_does_not_count() -> None:
@@ -75,8 +81,8 @@ def test_the_spin_up_does_not_count() -> None:
     scores = score_timeseries(_frame(_closing(days), simulated, days, observed), rule=rule)
 
     assert scores.score.value == pytest.approx(1.0)
-    assert scores.score.nse_n == 365
-    assert (scores.score.nse_window_start, scores.score.nse_window_end) == (
+    assert scores.score.n_samples == 365
+    assert (scores.score.window_start, scores.score.window_end) == (
         YEAR_2001.start,
         YEAR_2001.end,
     )
@@ -92,8 +98,8 @@ def test_without_a_window_nothing_is_scored() -> None:
 
     assert scores.rows == ()
     assert scores.score.value is None
-    assert scores.score.nse_window_start is None
-    assert scores.score.nse_n == 0
+    assert scores.score.window_start is None
+    assert scores.score.n_samples == 0
     assert scores.score.metric_rule_version == "2"
 
 
@@ -102,14 +108,14 @@ def test_without_a_station_the_rows_exist_but_the_headline_is_empty() -> None:
     values = np.linspace(1.0, 4.0, len(days))
     frame = pd.DataFrame(
         _rows(GAUGE, "discharge", _closing(days), values)
-        + _rows(GAUGE, "discharge_obs", days, values)
+        + _rows(GAUGE, "discharge", days, values, source="observed")
     )
 
     scores = score_timeseries(frame, rule=MetricRule(window=YEAR_2001))
 
     assert {row.station for row in scores.rows} == {GAUGE}
     assert scores.score.value is None
-    assert scores.score.nse_window_start == YEAR_2001.start
+    assert scores.score.window_start == YEAR_2001.start
 
 
 def test_the_headline_is_read_at_the_rule_station_only() -> None:
@@ -117,9 +123,9 @@ def test_the_headline_is_read_at_the_rule_station_only() -> None:
     values = np.linspace(1.0, 4.0, len(days))
     frame = pd.DataFrame(
         _rows("OTHER", "discharge", _closing(days), values)
-        + _rows("OTHER", "discharge_obs", days, values)
+        + _rows("OTHER", "discharge", days, values, source="observed")
         + _rows(GAUGE, "discharge", _closing(days), values)
-        + _rows(GAUGE, "discharge_obs", days, values * 2.0)
+        + _rows(GAUGE, "discharge", days, values * 2.0, source="observed")
     )
 
     scores = score_timeseries(frame, rule=MetricRule(station=GAUGE, window=YEAR_2001))
@@ -148,7 +154,7 @@ def test_a_monthly_period_counts_only_when_it_lies_in_the_window() -> None:
     )
 
     # February to November: ten months, January and December left out.
-    assert scores.score.nse_n == 10
+    assert scores.score.n_samples == 10
     assert scores.score.value == pytest.approx(1.0)
 
 
@@ -156,7 +162,8 @@ def test_a_lake_level_is_read_at_its_stamp() -> None:
     days = pd.date_range("2001-01-01", "2001-01-30", freq="D", tz="UTC")
     stages = np.linspace(80.0, 90.0, len(days))
     frame = pd.DataFrame(
-        _rows("lac0", "lake_level", days, stages) + _rows("lac0", "lake_level_obs", days, stages)
+        _rows("lac0", "lake_level", days, stages)
+        + _rows("lac0", "lake_level", days, stages, source="observed")
     )
     window = DateWindow(start=date(2001, 1, 1), end=date(2001, 1, 10))
 
@@ -164,8 +171,8 @@ def test_a_lake_level_is_read_at_its_stamp() -> None:
 
     rmse = [row for row in scores.rows if row.metric == "rmse"]
     assert [row.value for row in rmse] == [pytest.approx(0.0)]
-    assert rmse[0].nse_n == 10
-    assert (scores.score.variable, scores.score.nse_n) == ("lake_level", 10)
+    assert rmse[0].n_samples == 10
+    assert (scores.score.variable, scores.score.n_samples) == ("lake_level", 10)
 
 
 def test_an_observed_station_meets_the_simulated_series_of_the_same_station() -> None:
@@ -174,8 +181,8 @@ def test_an_observed_station_meets_the_simulated_series_of_the_same_station() ->
     frame = pd.DataFrame(
         _rows("P1", "head", days, heads)
         + _rows("P2", "head", days, heads + 5.0)
-        + _rows("P1", "head_obs", days, heads)
-        + _rows("P3", "head_obs", days, heads)
+        + _rows("P1", "head", days, heads, source="observed")
+        + _rows("P3", "head", days, heads, source="observed")
     )
 
     scores = score_timeseries(frame, rule=MetricRule(window=YEAR_2001))
@@ -195,7 +202,7 @@ def test_series_that_never_meet_the_window_leave_no_row() -> None:
     )
 
     assert scores.rows == ()
-    assert scores.score.value is None and scores.score.nse_n == 0
+    assert scores.score.value is None and scores.score.n_samples == 0
 
 
 def test_a_steady_value_is_not_scored() -> None:
@@ -211,7 +218,7 @@ def test_a_steady_value_is_not_scored() -> None:
 
     assert scores.rows == ()
     assert scores.score.value is None
-    assert scores.score.nse_n == 0
+    assert scores.score.n_samples == 0
 
 
 def test_a_daily_gap_before_the_window_keeps_the_next_period_in_it() -> None:
@@ -228,7 +235,7 @@ def test_a_daily_gap_before_the_window_keeps_the_next_period_in_it() -> None:
     )
 
     # 5 March to 31 December: every day the gauge measured inside the window.
-    assert scores.score.nse_n == 302
+    assert scores.score.n_samples == 302
     assert scores.score.value == pytest.approx(1.0)
 
 
@@ -246,7 +253,7 @@ def test_a_monthly_gap_before_the_window_keeps_the_next_month_in_it() -> None:
     )
 
     # March to November: nine months, February unmeasured, January before the window.
-    assert scores.score.nse_n == 9
+    assert scores.score.n_samples == 9
     assert scores.score.value == pytest.approx(1.0)
 
 
@@ -288,7 +295,7 @@ def test_the_run_directory_is_read_without_the_index(tmp_path, monkeypatch) -> N
 
     expected = kernels.nse(simulated, observed)
     assert scores.score.value == pytest.approx(expected)
-    assert scores.score.nse_n == 365
+    assert scores.score.n_samples == 365
 
 
 def test_a_run_without_series_has_an_empty_score(tmp_path) -> None:

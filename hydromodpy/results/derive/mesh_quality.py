@@ -10,7 +10,7 @@ derived from the stored vertices and connectivity.
 The area, the neighbour ratio, the two angles and the concavity need geometry
 only, so every run serves them. The offset, the non-orthogonality and the bisection
 offset need the cell centres of the mesh, which a run stores since the cell-mesh
-layout (``mesh/face_x``, ``mesh/face_y``). A run sealed before has the vertex mean
+layout (``mesh/face_x``, ``mesh/face_y``). A store without them has the vertex mean
 at best, not the centre the solver used: those three fields are refused with the
 reason rather than computed on a guess.
 """
@@ -122,10 +122,7 @@ def mesh_quality_unavailable_reason(root: Any, name: str) -> str | None:
     if mesh is None or "vertices" not in mesh or "face_node_connectivity" not in mesh:
         return "the run stored no mesh geometry"
     if name in _NEEDS_CENTRES and not ("face_x" in mesh and "face_y" in mesh):
-        return (
-            "the run was sealed before the cell-mesh layout and stored no cell centres, "
-            "only the vertices: the solver centres are not recoverable"
-        )
+        return "the run stored no cell centres, only the vertices"
     return None
 
 

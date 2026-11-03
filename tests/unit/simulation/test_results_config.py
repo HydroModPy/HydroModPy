@@ -143,7 +143,13 @@ class TestWhatTheRunKeptDecidesTheMessage:
 
         assert KEEP_BUDGET_OPTION == "keep_per_cell_budget"
         assert KEEP_BUDGET_OPTION in ResultsConfig.model_fields
-        for field in ("release_flux", "accumulation_flux", "seepage_mask", "recharge", "drain"):
+        for field in (
+            "release_flux",
+            "drain_accumulation_flux",
+            "seepage_mask",
+            "recharge",
+            "drain",
+        ):
             assert config_option_for(field) == KEEP_BUDGET_OPTION
         # A head or a static parameter reads no budget term: no option keeps it.
         assert config_option_for("head") is None
@@ -210,8 +216,8 @@ class TestWhatTheRunKeptDecidesTheMessage:
 
         run = _run(terms=None)
 
-        assert missing_field_options(["accumulation_flux"], run) == ["keep_per_cell_budget"]
-        text = missing_field_explanation(["accumulation_flux"], run)
+        assert missing_field_options(["drain_accumulation_flux"], run) == ["keep_per_cell_budget"]
+        text = missing_field_explanation(["drain_accumulation_flux"], run)
         assert "written before the per-cell budget was kept by default" in text
         assert "run the simulation again" in text
 

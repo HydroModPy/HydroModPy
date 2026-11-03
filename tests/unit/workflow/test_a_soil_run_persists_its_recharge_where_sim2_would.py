@@ -114,8 +114,8 @@ def test_the_gridded_recharge_lands_where_sim2_would(tmp_path):
         try:
             forcing = sz.root["forcing"]
             assert "recharge_recharge" in forcing
-            assert "_watershed" in forcing["recharge"]
-            assert "_watershed" in forcing["runoff"]
+            assert "catchment" in forcing["recharge"]
+            assert "catchment" in forcing["runoff"]
             assert "soil" in forcing
         finally:
             sz.close()
@@ -138,7 +138,7 @@ def test_the_soil_budget_view_has_a_row_per_column_and_year_plus_the_basin(tmp_p
         assert len(paths) == 1
         table = pq.read_table(paths[0])
         assert table.num_rows == 3  # 2 columns + 1 basin row, one calendar year
-        assert set(table.column("column_id").to_pylist()) == {"0.0", "1.0", "_watershed"}
+        assert set(table.column("column_id").to_pylist()) == {"0.0", "1.0", "catchment"}
 
 
 def test_nothing_is_written_without_a_sim_id():

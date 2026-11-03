@@ -3,7 +3,7 @@
 Audit decision m27: the acceptable set of a calibration is the trials whose
 total cost stays within one margin of the best total cost. There is no threshold
 per objective block. Two blocks that disagree on their best trial must still
-give one interval, the one read on ``objective_value``, and a block cost drawn
+give one interval, the one read on ``cost``, and a block cost drawn
 on its own gets none.
 """
 
@@ -14,6 +14,7 @@ import pytest
 from hydromodpy.calibration.optim.cost_margin import margin_intervals
 from hydromodpy.display.figures.calibration_progress import _read_search
 from hydromodpy.display.figures.parameter_cost_profile import ParameterCostProfileFigure
+from hydromodpy.results.session.descriptor import ParameterBound
 
 from ._calibration_journal import journal_run
 
@@ -52,9 +53,9 @@ def _run(tmp_path):
         {
             "trial": trial,
             "status": "completed",
-            "objective_value": total,
+            "cost": total,
             "parameters": {"K": {"value": value, "units": "m/s"}},
-            "metrics": {"hydrograph.raw_cost": hydrograph, "heads.raw_cost": heads},
+            "components": {"hydrograph.raw_cost": hydrograph, "heads.raw_cost": heads},
         }
         for trial, (value, total, hydrograph, heads) in enumerate(
             zip(VALUES, TOTAL, HYDROGRAPH, HEADS, strict=True), start=1
@@ -66,7 +67,7 @@ def _run(tmp_path):
         method="scipy_nelder_mead",
         phase="transient_conductivity",
         config=CONFIG,
-        search_space={"K": {"bounds": [1e-7, 10.0], "units": "m/s"}},
+        bounds={"K": ParameterBound(lower=1e-7, upper=10.0, search_space="identity", units="m/s")},
         best_trial=4,
     )
 
@@ -81,7 +82,7 @@ def _band(ax) -> tuple[float, float] | None:
 def test_the_figure_shades_the_margin_on_the_total_cost(mpl, tmp_path) -> None:
     run = _run(tmp_path)
     total = margin_intervals(
-        [{"K": v, "objective_value": c} for v, c in zip(VALUES, TOTAL, strict=True)],
+        [{"K": v, "cost": c} for v, c in zip(VALUES, TOTAL, strict=True)],
         ["K"],
         margin=0.05,
     )[0]
@@ -102,7 +103,7 @@ def test_the_blocks_do_not_each_make_their_own_interval(mpl, tmp_path) -> None:
     """Neither block interval, alone or joined, is the interval drawn."""
     per_block = [
         margin_intervals(
-            [{"K": v, "objective_value": c} for v, c in zip(VALUES, costs, strict=True)],
+            [{"K": v, "cost": c} for v, c in zip(VALUES, costs, strict=True)],
             ["K"],
             margin=0.05,
         )[0]

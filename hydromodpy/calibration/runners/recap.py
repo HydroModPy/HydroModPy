@@ -23,6 +23,7 @@ from hydromodpy.calibration.config import (
 from hydromodpy.calibration.criteria.registry import NETWORK_ESTIMATORS
 from hydromodpy.calibration.criteria.series import HIGHER_IS_BETTER
 from hydromodpy.calibration.report import scored_entry
+from hydromodpy.results.metric_rule import CALIBRATION_ROLE
 from hydromodpy.results.session.descriptor import ScoredSamples
 from hydromodpy.results.storage.contract import SESSION_METHODS_FILENAME
 
@@ -94,9 +95,14 @@ def cost_samples(components: Mapping[str, Any] | None) -> dict[str, dict[str, An
     return samples
 
 
-def scored_samples(components: Mapping[str, Any] | None) -> dict[str, ScoredSamples]:
+def scored_samples(
+    components: Mapping[str, Any] | None, *, case_id: str, window: str = CALIBRATION_ROLE
+) -> list[ScoredSamples]:
     """Return :func:`cost_samples` as the descriptor of a session records it."""
-    return {name: scored_entry(info) for name, info in cost_samples(components).items()}
+    return [
+        scored_entry(name, info, case_id=case_id, window=window)
+        for name, info in cost_samples(components).items()
+    ]
 
 
 def parameter_units(cfg: CalibrationConfig) -> dict[str, str]:

@@ -94,11 +94,12 @@ class TestTheNetworkCriterionsInput:
 
         assert declared["release_flux"].is_servable_now
 
-    def test_boussinesq_serves_it_too(self, tmp_path) -> None:
-        """It computes a saturation excess per cell, so the criterion is reachable."""
+    def test_boussinesq_declares_it_unavailable(self, tmp_path) -> None:
+        """It computes a saturation excess per cell, and its extraction does not serve it."""
         declared = _declared("boussinesq", _config(tmp_path, "boussinesq"))
 
-        assert declared["release_flux"].state != "unavailable"
+        assert declared["release_flux"].state == "unavailable"
+        assert "extraction" in declared["release_flux"].reason
 
 
 class TestEveryAnswerCarriesASentence:
@@ -158,6 +159,12 @@ class TestPreflightActsOnIt:
         assert "active_bc" in messages
 
     def test_a_network_output_passes_on_every_backend_that_serves_it(self, tmp_path) -> None:
-        for backend in ("modflow6", "modflow_nwt", "boussinesq"):
+        for backend in ("modflow6", "modflow_nwt"):
             messages = " | ".join(self._check(tmp_path, backend, "network"))
             assert "release_flux" not in messages, backend
+
+    def test_a_network_output_on_boussinesq_says_what_to_use(self, tmp_path) -> None:
+        messages = " | ".join(self._check(tmp_path, "boussinesq", "network"))
+
+        assert "release_flux" in messages
+        assert "MODFLOW" in messages

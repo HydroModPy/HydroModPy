@@ -31,6 +31,7 @@ from tests._helpers.sealed_runs import (
     write_attempt,
     write_session_dir,
 )
+from tests._helpers.session_documents import calibration_window
 
 pytestmark = pytest.mark.fast
 
@@ -108,7 +109,7 @@ def _calibrated(session_id: str) -> CalibratedBy:
         phase="steady_k",
         trial=2,
         session_status="completed",
-        window=WINDOW,
+        windows=calibration_window(WINDOW.start, WINDOW.end),
     )
 
 
@@ -202,8 +203,8 @@ def test_best_by_site_ranks_the_calibrated_runs_under_their_rule(tmp_path: Path)
     assert row["sim_id"] == sim_ids["k2e_5"]
     assert row["K"] == pytest.approx(2e-5)
     assert row["nse"] == pytest.approx(0.81)
-    assert row["nse_window_start"] == WINDOW.start
-    assert row["nse_window_end"] == WINDOW.end
+    assert row["window_start"] == WINDOW.start
+    assert row["window_end"] == WINDOW.end
     assert list(every["case_id"]) == ["nancon-k2e_5"]
 
 
@@ -267,7 +268,7 @@ def test_runs_of_a_site_carry_their_metrics_without_suffix(tmp_path: Path) -> No
 
     assert set(runs.sim_ids) == set(sim_ids.values())
     assert metrics.loc[sim_ids["k2e_5"], "nse"] == pytest.approx(0.81)
-    assert metrics.loc[sim_ids["k2e_5"], "nse_window_start"] == WINDOW.start
+    assert metrics.loc[sim_ids["k2e_5"], "window_start"] == WINDOW.start
     assert named.sim_id == sim_ids["base"]
     assert named.site == "nancon"
     assert named.checks.budget_pct == pytest.approx(0.8)
@@ -282,7 +283,7 @@ def test_a_session_reads_its_trials_phases_config_and_best(tmp_path: Path) -> No
         session = proj.sessions["nancon-k2e_5"]
 
     assert session.status == "completed"
-    assert list(session.trials["iteration"]) == [1, 2, 3]
+    assert list(session.trials["trial"]) == [1, 2, 3]
     assert [phase.name for phase in session.phases] == ["steady_k"]
     assert session.config == {}
     assert session.best is not None

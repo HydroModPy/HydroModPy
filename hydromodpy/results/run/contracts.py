@@ -20,7 +20,6 @@ if TYPE_CHECKING:
     from hydromodpy.core.field_routing import DownhillGraph
 
 __all__ = [
-    "LEGACY_MESH_NOTE",
     "Mesh",
     "MeshDescent",
     "MeshStoreIdentity",
@@ -30,13 +29,6 @@ __all__ = [
     "cell_centers",
     "polygon_areas",
 ]
-
-
-LEGACY_MESH_NOTE = (
-    "mesh stored before the cell-mesh layout: centres are vertex means; "
-    "families, edges and the mesh CRS are not stored"
-)
-"""What a run sealed before the cell-mesh layout lacks, as one sentence."""
 
 
 def cell_centers(
@@ -110,19 +102,10 @@ class Mesh:
     face_y: np.ndarray | None = None
     """Per-face centres, when the mesh group stores them."""
     identity: MeshStoreIdentity | None = None
-    """Engine, version, request hash and centre rule, ``None`` for a run sealed
-    before the cell-mesh layout."""
+    """Engine, version, request hash and centre rule of the stored mesh."""
     crs_source: Literal["mesh", "catalog"] | None = None
     """Where ``crs`` was read: the ``mesh/`` group, else the catalog, ``None`` when
     neither says."""
-    layout: Literal["cell_mesh", "legacy"] = "legacy"
-    """``"cell_mesh"`` when the store carries the cell-mesh layout (centres,
-    families, edges, engine), ``"legacy"`` for a run sealed before it."""
-
-    @property
-    def layout_note(self) -> str:
-        """Say what the stored mesh lacks, empty when it carries the cell-mesh layout."""
-        return LEGACY_MESH_NOTE if self.layout == "legacy" else ""
 
     def cell_centers(self) -> np.ndarray:
         """Return the ``(n_faces, 2)`` centres the field arrays are indexed by.

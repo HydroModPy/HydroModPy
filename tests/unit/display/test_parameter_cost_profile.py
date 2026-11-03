@@ -2,7 +2,7 @@
 
 The figure is driven exactly as a session drives it: one row per trial, the
 sampled parameter nested under ``parameters`` and the cost written at the top
-level under ``objective_value``, which is where the session journal puts it.
+level under ``cost``, which is where the session journal puts it.
 
 The interval it shades is the one the calibration summary reports, read by the
 same rule: one mesh cell on network distances in metres, five per cent of the
@@ -21,9 +21,10 @@ import pytest
 from hydromodpy.display.figures.calibration_progress import _read_search
 from hydromodpy.display.figures.parameter_cost_profile import ParameterCostProfileFigure
 from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET
+from hydromodpy.results.session.descriptor import ParameterBound
 
 from ._calibration_journal import (
-    K_SPACE,
+    K_BOUNDS,
     NETWORK_CONFIG,
     TWO_ROOT_CONFIG,
     TWO_ROOTS,
@@ -70,7 +71,7 @@ def _session_run(
             {
                 "iteration": index,
                 "parameters": {parameter: {"value": value}},
-                "objective_value": cost,
+                "cost": cost,
                 "status": (
                     statuses[index]
                     if statuses is not None
@@ -414,7 +415,7 @@ def _steady_run(tmp_path):
         method="bisection",
         phase="steady_conductivity",
         config=NETWORK_CONFIG,
-        search_space=K_SPACE,
+        bounds=K_BOUNDS,
         best_trial=15,
         root_search={"bracket": {"parameter": "K", "low": 8.0584e-05, "high": 8.1069e-05}},
     )
@@ -478,9 +479,9 @@ def test_an_efficiency_cost_is_dimensionless(mpl, tmp_path) -> None:
         {
             "trial": trial,
             "status": "completed",
-            "objective_value": cost,
+            "cost": cost,
             "parameters": {"Sy": {"value": value, "units": "-"}},
-            "metrics": {"hydrograph.raw_cost": cost},
+            "components": {"hydrograph.raw_cost": cost},
         }
         for trial, (value, cost) in enumerate(zip(values, costs, strict=True), start=1)
     ]
@@ -490,7 +491,7 @@ def test_an_efficiency_cost_is_dimensionless(mpl, tmp_path) -> None:
         method="scipy_nelder_mead",
         phase="transient_storage",
         config=config,
-        search_space={"Sy": {"bounds": [0.005, 0.35], "units": "-"}},
+        bounds={"Sy": ParameterBound(lower=0.005, upper=0.35, search_space="identity", units="-")},
         best_trial=4,
     )
     fig, ax = mpl.subplots()
@@ -516,7 +517,7 @@ def _two_root_run(tmp_path):
         method="bisection",
         phase="transient_conductivity",
         config=TWO_ROOT_CONFIG,
-        search_space=K_SPACE,
+        bounds=K_BOUNDS,
         best_trial=24,
         root_search=TWO_ROOTS,
     )

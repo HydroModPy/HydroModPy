@@ -386,7 +386,7 @@ class DaMhGpOptimizer:
                 continue
             self._trial_points[r.trial_id] = self._pending.pop(r.trial_id)
             self._results.append(r)
-            value = r.objective_value
+            value = r.cost
             if r.status != "completed" or not np.isfinite(value):
                 value = FAILED_EVAL_COST
             self._bridge.feed(float(value))
@@ -402,7 +402,7 @@ class DaMhGpOptimizer:
         if not valid:
             return None
         if not self._chain_logpost:
-            return min(valid, key=lambda r: r.objective_value)
+            return min(valid, key=lambda r: r.cost)
 
         logposts = np.asarray(self._chain_logpost, dtype=float)
         idx_mode = int(np.argmax(logposts))
@@ -424,7 +424,7 @@ class DaMhGpOptimizer:
         return EvaluationResult(
             trial_id=picked.trial_id,
             sim_id=picked.sim_id,
-            objective_value=picked.objective_value,
+            cost=picked.cost,
             status=picked.status,
             duration_s=picked.duration_s,
             components=picked.components,

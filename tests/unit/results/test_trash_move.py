@@ -18,7 +18,7 @@ from hydromodpy.core.state.paths import (
     TOMBSTONES_FILENAME,
     TRASH_DIRNAME,
 )
-from hydromodpy.results.session.descriptor import SessionDescriptor, write_session
+from hydromodpy.results.session.descriptor import write_session
 from hydromodpy.results.storage.contract import (
     RUN_MANIFEST_FILENAME,
     RUN_PUBLISHED_FILENAME,
@@ -34,6 +34,7 @@ from hydromodpy.results.trash import (
     trashed_dirname,
 )
 from tests._helpers.sealed_runs import manifest_document
+from tests._helpers.session_documents import session_descriptor
 
 AT = datetime(2026, 10, 14, 9, 30, tzinfo=UTC)
 SIM_ID = "9a4f0c1e-0000-4000-8000-000000000001"
@@ -212,15 +213,7 @@ def test_a_collected_session_tombstone_carries_its_session_id(tmp_path):
     session.mkdir(parents=True)
     write_session(
         session,
-        SessionDescriptor(
-            session_id="5b0c9d2e",
-            case_id="calibration",
-            config_hash="abc123",
-            hydromodpy_version="2.0.0a5",
-            method="cmaes",
-            objective_name="nse",
-            started_at=AT,
-        ),
+        session_descriptor("calibration", session_id="5b0c9d2e", method="cmaes", started_at=AT),
     )
     trash_run(tmp_path, "sessions/calibration", now=AT)
 

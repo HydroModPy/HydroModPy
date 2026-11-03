@@ -15,6 +15,7 @@ that variable, each named by its metric alone and carrying the window.
 from __future__ import annotations
 
 import math
+import tomllib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -26,8 +27,14 @@ import pandas as pd
 from hydromodpy.core.exceptions import DataError
 from hydromodpy.results.errors import RunNotSealedError
 from hydromodpy.results.manifest import is_sealed
+from hydromodpy.results.metric_rule import HEADLINE_WINDOW
 from hydromodpy.results.record import RunRecord
-from hydromodpy.results.storage.contract import RUN_MANIFEST_FILENAME, RUN_OUTCOME_FILENAME
+from hydromodpy.results.storage.contract import (
+    RUN_MANIFEST_FILENAME,
+    RUN_OUTCOME_FILENAME,
+    RUN_RESOLVED_CONFIG_FILENAME,
+    RUN_SEARCH_TABLE,
+)
 from hydromodpy.results.storage.run_store import RunStore
 
 if TYPE_CHECKING:
@@ -36,9 +43,9 @@ if TYPE_CHECKING:
     from hydromodpy.results.run.view import Run
 
 WINDOW_COLUMNS: Final[tuple[str, ...]] = (
-    "nse_window_start",
-    "nse_window_end",
-    "nse_n",
+    "window_start",
+    "window_end",
+    "n_samples",
     "metric_rule_version",
 )
 """Columns that say how the metrics of a run were computed."""
@@ -76,8 +83,26 @@ def lineage_of(run: Run) -> Lineage | None:
         return None
 
 
+def search_of(run: Run) -> Mapping[str, Any]:
+    """Return the ``[calibration]`` section of the session *run* came out of, empty without one.
+
+    ``config.toml`` holds the solve alone. What a redraw of the network criterion
+    reads stays in ``config.resolved.toml``, so a copy of the run needs no session.
+    A module function for the same reason as :func:`lineage_of`.
+    """
+    folder = getattr(run, "dir", None)
+    if not isinstance(folder, (str, Path)):
+        return {}
+    path = Path(folder) / RUN_RESOLVED_CONFIG_FILENAME
+    if not path.is_file():
+        return {}
+    return tomllib.loads(path.read_text(encoding="utf-8")).get(RUN_SEARCH_TABLE, {})
+
+
 def headline_metrics(record: RunRecord) -> dict[str, Any]:
-    """Return the metrics of a run at the station of its headline NSE, one key per metric.
+    """Return the metrics of a run in its headline period, at the station of its NSE.
+
+    One key per metric. A row of another period stays out: it is read by ``Run.metrics``.
 
     Without a headline score, or without a station, the run has no metric a
     reader can rank and only the rule columns are given, empty.
@@ -89,13 +114,17 @@ def headline_metrics(record: RunRecord) -> dict[str, Any]:
     row.update(
         station=headline.station,
         variable=headline.variable,
-        nse_window_start=headline.nse_window_start,
-        nse_window_end=headline.nse_window_end,
-        nse_n=headline.nse_n,
+        window_start=headline.window_start,
+        window_end=headline.window_end,
+        n_samples=headline.n_samples,
         metric_rule_version=headline.metric_rule_version,
     )
     for metric in record.metrics:
-        if metric.station == headline.station and metric.variable == headline.variable:
+        if (
+            metric.window_name == HEADLINE_WINDOW
+            and metric.station == headline.station
+            and metric.variable == headline.variable
+        ):
             row[metric.metric] = metric.value
     return row
 
@@ -129,6 +158,8 @@ def _metrics_table(metrics: Sequence[MetricRow]) -> pd.DataFrame:
         "variable",
         "metric",
         "value",
+        "window_name",
+        "window_role",
         *WINDOW_COLUMNS,
         "n_clipped",
         "n_sim_nan",
@@ -148,17 +179,13 @@ class RuleColumns:
 
     station: str = "station"
     variable: str = "variable"
+    start: str = "window_start"
+    end: str = "window_end"
 
     @property
     def names(self) -> tuple[str, ...]:
         """The five columns of the rule, station first."""
-        return (
-            self.station,
-            self.variable,
-            "nse_window_start",
-            "nse_window_end",
-            "metric_rule_version",
-        )
+        return (self.station, self.variable, self.start, self.end, "metric_rule_version")
 
 
 HEADLINE_RULE: Final[RuleColumns] = RuleColumns()
@@ -167,7 +194,9 @@ HEADLINE_RULE: Final[RuleColumns] = RuleColumns()
 RULE_COLUMNS: Final[tuple[str, ...]] = ("station", "variable", *WINDOW_COLUMNS)
 """Columns of :func:`headline_metrics` before the metric columns."""
 
-INDEX_RULE: Final[RuleColumns] = RuleColumns("nse_station", "nse_variable")
+INDEX_RULE: Final[RuleColumns] = RuleColumns(
+    "score_station", "score_variable", "score_window_start", "score_window_end"
+)
 """The rule columns of the index and of the project summary."""
 
 METRICS_RULE: Final[RuleColumns] = RuleColumns("station_id", "variable")

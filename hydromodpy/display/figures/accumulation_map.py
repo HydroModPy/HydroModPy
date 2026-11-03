@@ -1,6 +1,6 @@
 """Where the drainage accumulates, on the scale the field actually spans.
 
-``accumulation_flux`` is the drain outflow summed along the downslope paths,
+``drain_accumulation_flux`` is the drain outflow summed along the downslope paths,
 so over one catchment it spans four to five decades. A linear ramp paints the
 trunk bright and leaves every headwater at the bottom colour, which is why the
 only figure reading the field so far thresholded it instead of showing it.
@@ -63,7 +63,7 @@ class AccumulationMap(ScalarFaceMap):
         name="accumulation_map",
         title="Accumulated drainage flux",
         kind="spatial",
-        required_fields=("accumulation_flux",),
+        required_fields=("drain_accumulation_flux",),
         default_figsize=(7.0, 5.5),
     )
     default_cmap: ClassVar[str] = "Blues"

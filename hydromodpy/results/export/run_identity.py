@@ -50,6 +50,7 @@ def label_of(seal: Manifest | RunRecord) -> LabelResult:
             solver=seal.run.solver,
             mesh_engine=seal.geometry.mesh_engine,
             has_metrics=score is not None and score.value is not None,
+            derive_rule_version=seal.derive_rule_version,
         ),
     )
 

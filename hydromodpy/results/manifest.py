@@ -19,7 +19,8 @@ measured facts a label derives from), ``inputs`` (the files the configuration
 declared), ``artifacts`` (the sealed entries of the directory, ``inputs.json``
 and ``mesh/`` included), ``parameters`` (with their origin), ``metrics`` (with
 their window and rule version), ``score`` (the headline metric under its
-rule), the calibration ``objective_*`` and ``budget``.
+rule) and ``budget``. The session that promoted a run says what it cost in
+``checks.calibrated_by``.
 
 A manifest exists only for a completed run: its presence is what
 ``completed`` means. A failed or aborted attempt writes ``outcome.json``,
@@ -42,10 +43,11 @@ from pydantic import Field, field_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.stored import Vocabulary, read_stored
 from hydromodpy.core.io.document_version import VersionWindow
+from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.results.checks import Checks
 from hydromodpy.results.identity import Identity
 from hydromodpy.results.lineage import Lineage
-from hydromodpy.results.metric_rule import DateWindow, MetricScore
+from hydromodpy.results.metric_rule import MetricScore, WindowRole
 from hydromodpy.results.rel_dir import checked_rel_dir
 from hydromodpy.results.storage.contract import (
     FIELDS_STORE_NAME,
@@ -62,16 +64,15 @@ from hydromodpy.results.storage.contract import (
 from hydromodpy.results.storage.json_io import read_sealed_json
 from hydromodpy.schema.generated_views import GENERATED_VIEWS
 
-RUN_RECORD_MANIFEST_VERSION = 2
-"""Generation of the seal files, written by :class:`~hydromodpy.results.record.RunRecord`.
+RUN_RECORD_MANIFEST_VERSION = 3
+"""Version of ``manifest.json``, written by :class:`~hydromodpy.results.record.RunRecord`.
 
-Version 2 adds the ``site``, ``lineage``, ``identity``, ``checks``, ``score``
-and ``objective_*`` entries, the origin of the parameters and the window of
-the metrics.
+Version 3 names each metric row by its period and moves the cost of a promoted
+run into ``checks.calibrated_by``.
 """
 
 MANIFEST_VERSIONS: Final[VersionWindow] = VersionWindow(
-    oldest=2, current=RUN_RECORD_MANIFEST_VERSION
+    oldest=3, current=RUN_RECORD_MANIFEST_VERSION
 )
 """Versions of ``manifest.json`` this code reads."""
 
@@ -245,7 +246,7 @@ class ParameterRow(HydroModelBase):
     """One parameter value of a run, in one zone."""
 
     name: str = Field(description="Parameter name as the solver builder knows it")
-    zone: str = Field(default="__global__", description="Zone the value applies to")
+    zone: str = Field(default=CATCHMENT, description="Zone the value applies to")
     value: float | None = None
     unit: str | None = None
     parameterization: str | None = Field(default=None, description="uniform, zonal, field...")
@@ -258,20 +259,22 @@ RUNTIME_VARIABLE: Final[str] = "runtime"
 
 
 class MetricRow(HydroModelBase):
-    """One metric of a run, with the window and rule it was computed under.
+    """One metric of a run, with the period and rule it was computed under.
 
-    The window columns keep the ``nse_`` prefix whatever the metric, as in
-    :class:`~hydromodpy.results.metric_rule.MetricScore` and
-    ``simulation.parquet``.
+    A number of the run itself (:data:`RUNTIME_VARIABLE`) has no period.
     """
 
     station: str | None = None
     variable: str | None = None
     metric: str
     value: float | None = None
-    nse_window_start: date | None = Field(default=None, description="First day scored")
-    nse_window_end: date | None = Field(default=None, description="Last day scored, included")
-    nse_n: int | None = Field(default=None, ge=0, description="Samples the score used")
+    window_name: str | None = Field(
+        default=None, description="Name of the period, 'metrics' for [metrics] window"
+    )
+    window_role: WindowRole | None = Field(default=None, description="What that period is for")
+    window_start: date | None = Field(default=None, description="First day scored")
+    window_end: date | None = Field(default=None, description="Last day scored, included")
+    n_samples: int | None = Field(default=None, ge=0, description="Samples the score used")
     n_clipped: int | None = Field(
         default=None,
         ge=0,
@@ -308,10 +311,24 @@ class ManifestBudget(HydroModelBase):
     kept_terms: list[str]
 
 
+DERIVE_RULE_VERSION: Final[str] = "1"
+"""Version of the rules that rebuild the derived fields of a run on read.
+
+A seal stamps it. A fix that changes what a stored run reads through a derived
+field bumps it and adds an entry to ``known_issues.toml`` on the token
+``derived@<old version>``, which :func:`hydromodpy.results.validity_rules.run_quantities`
+gives a run sealed under that version.
+"""
+
+
 class Manifest(HydroModelBase):
-    """The seal of a completed run directory, version 2."""
+    """The seal of a completed run directory, version 3."""
 
     manifest_version: int = Field(default=RUN_RECORD_MANIFEST_VERSION)
+    derive_rule_version: str = Field(
+        default=DERIVE_RULE_VERSION,
+        description="Version of the rules the derived fields of this run are rebuilt by",
+    )
     sealed_at: datetime
     run: ManifestRun
     site: ManifestSite | None = None
@@ -326,11 +343,6 @@ class Manifest(HydroModelBase):
     parameters: list[ParameterRow] = Field(default_factory=list)
     metrics: list[MetricRow] = Field(default_factory=list)
     score: MetricScore | None = None
-    objective_name: str | None = Field(default=None, description="Objective of the session")
-    objective_value: float | None = Field(default=None, description="Its value for this run")
-    objective_window: DateWindow | None = Field(
-        default=None, description="Window the session scored the objective on"
-    )
     budget: ManifestBudget | None = None
 
 

@@ -22,11 +22,13 @@ BLOSC_ZSTD = zarr.codecs.BloscCodec(
 CF_CONVENTIONS = "CF-1.11, ACDD-1.3, UGRID-1.0"
 
 # Schema version of the Zarr layout. Stored in the ``meta`` group attributes and
-# validated on open. Version 3 stores the vertical geometry of every cell:
+# validated on open. Version 3 stored the vertical geometry of every cell:
 # ``mesh/z_interfaces`` (layer_interface, face), ``mesh/idomain`` (layer, face)
-# and the ``vertical_layout`` attribute of ``mesh/``.
-ZARR_SCHEMA_VERSION = "3"
-ZARR_VERSIONS = VersionWindow(oldest="3", current=ZARR_SCHEMA_VERSION)
+# and the ``vertical_layout`` attribute of ``mesh/``. Version 4 signs every budget
+# flux of every solver as MODFLOW does, negative when water leaves the aquifer. A
+# run of an earlier version is refused: it has to be run again.
+ZARR_SCHEMA_VERSION = "4"
+ZARR_VERSIONS = VersionWindow(oldest="4", current=ZARR_SCHEMA_VERSION)
 
 # Subgroups created at store init. ``budget`` is created by the extraction,
 # which writes the per-cell terms and the attributes that say what it kept.

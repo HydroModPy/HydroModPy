@@ -34,9 +34,9 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.core.metrics import log_floor
+from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.core.units.labels import (
     AXIS_LABELS,
-    CATCHMENT_OUTLET_STATION,
     axis_label,
     station_label,
 )
@@ -109,7 +109,7 @@ class HydrographLogNseFigure(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        station: Station = CATCHMENT_OUTLET_STATION,
+        station: Station = CATCHMENT,
         variable: Variable = _DEFAULT_VARIABLE,
         drainage: Annotated[
             pd.Series | np.ndarray | None,

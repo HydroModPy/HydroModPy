@@ -21,6 +21,7 @@ calibration.observed_station_id	str | None	None	experimental
 calibration.outputs	dict[str, table]	{}	experimental
 calibration.outputs.alpha_warning_threshold	float	0.9	experimental
 calibration.outputs.boundary_id	str	<required>	experimental
+calibration.outputs.clip_map_to_catchment	bool	True	experimental
 calibration.outputs.clipping_warning_gap	float	0.05	experimental
 calibration.outputs.clipping_warning_share	float	0.1	experimental
 calibration.outputs.col	int	<required>	experimental
@@ -38,7 +39,6 @@ calibration.outputs.heads_min_drained_area_km2	float	0.02	experimental
 calibration.outputs.heads_snap_radius	Any	100.0	experimental
 calibration.outputs.lake_id	str	<required>	experimental
 calibration.outputs.layer	int | None	None	experimental
-calibration.outputs.max_unreachable_fraction	float	0.05	experimental
 calibration.outputs.minimal_observed_network	Literal['data.hydrography'] | None	None	experimental
 calibration.outputs.minimal_stream_geometry_path	Path | None	None	experimental
 calibration.outputs.observed_network	Literal['data.hydrography', 'geographic.river_network'] | None	None	experimental
@@ -63,6 +63,8 @@ calibration.outputs.validity_length	Literal['auto'] | Any	'auto'	experimental
 calibration.outputs.variable	Literal['stage', 'volume', 'surface_area']	'stage'	experimental
 calibration.outputs.variable	str	'release_flux'	experimental
 calibration.outputs.variable	str	<required>	experimental
+calibration.outputs.verdict	table	<table>	experimental
+calibration.outputs.verdict.max_catchment_mismatch	float | Literal[False]	0.05	experimental
 calibration.outputs.weighting	Literal['cell', 'area']	'cell'	experimental
 calibration.outputs.x	Any | None	None	experimental
 calibration.outputs.y	Any | None	None	experimental
@@ -121,7 +123,7 @@ calibration.protocol.steady_method_options	dict[str, Any]	{}	experimental
 calibration.protocol.steady_metric	Literal['distance_gap', 'distance_mean']	'distance_gap'	experimental
 calibration.protocol.steady_precision	float | None	None	experimental
 calibration.protocol.steady_window	dict[Literal['start', 'end'], str] | None	None	experimental
-calibration.protocol.storage	str | None	'Sy'	experimental
+calibration.protocol.storage	str | Literal[False]	'Sy'	experimental
 calibration.protocol.transient_max_trials	int	120	experimental
 calibration.protocol.transient_method	str	'scipy_nelder_mead'	experimental
 calibration.protocol.transient_method_options	dict[str, Any]	{}	experimental

@@ -206,7 +206,7 @@ class _SessionRunStub:
         # here would be a second convention beside the one the figures already
         # apply, and the two named the cost differently: the report labelled a
         # panel "objective" where the same figure on a promoted run labelled it
-        # "objective_value".
+        # "cost".
         self._iterations = list(iterations)
         self.name = f"calibration_{session_id[:8]}"
         self.sim_id = session_id
@@ -218,7 +218,7 @@ class _SessionRunStub:
     def timeseries(self, variable: str, station: str | None = None):  # noqa: ARG002
         import pandas as pd
 
-        values = [_float_or_nan(row.get("objective_value")) for row in self._iterations]
+        values = [_float_or_nan(row.get("cost")) for row in self._iterations]
         idx = pd.RangeIndex(len(values), name="iteration")
         return pd.DataFrame({variable: values}, index=idx)
 
@@ -502,12 +502,12 @@ def _render_html(
     for key in (
         "project",
         "method",
-        "objective_name",
+        "cost_name",
         "status",
         "stop_state",
         "stop_note",
-        "n_iterations",
-        "best_objective",
+        "n_trials",
+        "best_cost",
         "best_sim_id",
         "started_at",
         "ended_at",
@@ -524,11 +524,11 @@ def _render_html(
             continue
         if key == "best_sim_id":
             value = _hex(value)
-        if key == "best_objective" and session.get("objective_label"):
+        if key == "best_cost" and session.get("cost_label"):
             # A cost of 0.08 on an NSE reads as a poor score; the label says it is 1 - NSE.
-            value = f"{value} ({session['objective_label']})"
+            value = f"{value} ({session['cost_label']})"
         rows_html.append(f"<tr><th>{html.escape(key)}</th><td>{html.escape(str(value))}</td></tr>")
-        if key == "best_objective":
+        if key == "best_cost":
             scored = _scored_on(session)
             if scored:
                 rows_html.append(f"<tr><th>scored on</th><td>{html.escape(scored)}</td></tr>")
@@ -557,12 +557,10 @@ def _render_html(
 
 def _scored_on(session: Mapping[str, Any]) -> str | None:
     """Return the pairs the best cost was scored on, and the window the session declares."""
-    window = session.get("objective_window")
+    windows = session.get("windows") or {}
+    window = next(iter(windows.values()), None)
     declared = f"window {window['start']} to {window['end']}" if window else None
-    samples = {
-        name: read_stored(ScoredSamples, payload)
-        for name, payload in (session.get("objective_samples") or {}).items()
-    }
+    samples = [read_stored(ScoredSamples, payload) for payload in session.get("scored") or ()]
     if samples:
         text = f"{scored_samples_text(samples)}, best trial"
         return text + (f" ({declared})" if declared else "")
@@ -583,11 +581,11 @@ def _format_iterations_preview(iterations: list[dict], limit: int = 20) -> str:
     lines = []
     for row in iterations[:limit]:
         params = row.get("parameters", {})
-        obj = row.get("objective_value")
+        obj = row.get("cost")
         obj_str = "nan" if obj is None else f"{obj:.6g}"
         params_str = json.dumps(params, default=str, sort_keys=True)
         lines.append(
-            f"iter {row.get('iteration'):>4}  "
+            f"iter {row.get('trial'):>4}  "
             f"obj={obj_str:>12}  "
             f"status={row.get('status'):<10}  "
             f"{params_str}"

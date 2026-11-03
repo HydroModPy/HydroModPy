@@ -10,8 +10,8 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.core.field_routing import CATCHMENT_BUDGET_ZONE
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config, merge_toml_payloads
 
 logger = get_logger(__name__)
@@ -966,7 +966,7 @@ def load_time_series_fields(
 
     # Try DuckDB timeseries (scalar per timestep, e.g. outlet discharge).
     try:
-        ts = store.query_timeseries(sim_id, "_catchment", observable_name)
+        ts = store.query_timeseries(sim_id, CATCHMENT, observable_name)
         values = np.asarray(ts.values, dtype=float)
         indices = np.arange(values.shape[0], dtype=int)
         return indices, values
@@ -990,7 +990,7 @@ def load_time_series_fields(
             # The catchment zone is a second support of the same records, the
             # basin of D inside the domain, and not a second boundary. A flux
             # across a boundary of the model is read on the domain row.
-            chd = chd[chd["zone_id"].astype(str) != CATCHMENT_BUDGET_ZONE]
+            chd = chd[chd["zone_id"].astype(str) != CATCHMENT]
             if chd.empty:
                 raise RuntimeError(
                     f"'{observable_name}' asks for the flux across a constant-head "

@@ -7,15 +7,12 @@ the known names, the retired spelling with the name to write.
 
 from __future__ import annotations
 
-from datetime import date
-
 import pytest
 
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
-from hydromodpy.results.manifest import MetricRow
-from hydromodpy.results.metric_rule import METRIC_RULE_VERSION, MetricScore
 from hydromodpy.results.storage.sealing import seal_completed
+from tests._helpers.metric_rows import headline_row, headline_score
 from tests._helpers.run_stores import open_run_store
 
 
@@ -24,28 +21,8 @@ def cat(tmp_path):
     project = tmp_path / "p"
     store = open_run_store(project, "a", create_zarr=False)
     for metric, value in {"nse": 0.8, "nse_log": 0.7}.items():
-        store.facts.put_metric(
-            MetricRow(
-                station="J0014010",
-                variable="discharge",
-                metric=metric,
-                value=value,
-                nse_window_start=date(2016, 1, 1),
-                nse_window_end=date(2020, 12, 31),
-                nse_n=10,
-                metric_rule_version=METRIC_RULE_VERSION,
-            )
-        )
-    store.facts.score = MetricScore(
-        metric="nse",
-        value=0.8,
-        station="J0014010",
-        variable="discharge",
-        nse_window_start=date(2016, 1, 1),
-        nse_window_end=date(2020, 12, 31),
-        nse_n=10,
-        metric_rule_version=METRIC_RULE_VERSION,
-    )
+        store.facts.put_metric(headline_row(metric, value))
+    store.facts.score = headline_score(0.8)
     seal_completed(store)
     rebuild_index(project)
     with Catalog(project) as catalog:

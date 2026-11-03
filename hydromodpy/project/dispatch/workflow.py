@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 
 def run_overview(config_path: str | Path) -> dict[str, Any]:
@@ -27,6 +27,7 @@ def run_overview(config_path: str | Path) -> dict[str, Any]:
     of the same name already sealed takes the next version.
     """
     from hydromodpy.core.config_kit.written import log_experimental_keys
+    from hydromodpy.core.state.paths import refuse_a_sealed_run_as_project
     from hydromodpy.display.overview import overview_name
     from hydromodpy.project.attempt import run_attempt
     from hydromodpy.results.catalog.registration import config_identity_hash
@@ -38,6 +39,7 @@ def run_overview(config_path: str | Path) -> dict[str, Any]:
     overview = getattr(cfg, "overview", None)
     name = overview_name(site, getattr(overview, "name", None) if overview is not None else None)
     project_root = Path(cfg.workspace.project_root)
+    refuse_a_sealed_run_as_project(project_root)
     config_hash = config_identity_hash(cfg)
     simulation = getattr(cfg, "simulation", None)
     log_experimental_keys(cfg)
@@ -100,9 +102,8 @@ def run_calibration(config_path: str | Path, *, phase: str | None = None) -> dic
 
     Routes to the staged runner when the file declares
     ``[[calibration.phases]]``, so a phased configuration is never flattened
-    into a single calibration over the union of its parameters. The staged
-    report is summarized as a mapping, because every caller of this dispatcher
-    expects one.
+    into a single calibration over the union of its parameters. The report is
+    summarized as a mapping, because every caller of this dispatcher expects one.
     """
     from hydromodpy.core.exceptions import CalibrationError
 
@@ -119,18 +120,14 @@ def run_calibration(config_path: str | Path, *, phase: str | None = None) -> dic
 
     preflight_launch(target)
     if declared:
-        from hydromodpy.calibration.runners.staged_runner import (
-            StagedCalibrationReport,
-            run_staged_calibration,
-        )
+        from hydromodpy.calibration.runners.staged_runner import run_staged_calibration
 
-        staged = run_staged_calibration(target, phase=phase)
-        return cast(StagedCalibrationReport, staged).to_dict()
+        return run_staged_calibration(target, phase=phase).to_dict()
     if phase is not None:
         raise CalibrationError(no_such_phase(target.name, phase))
     from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
 
-    return cast(dict[str, Any], run_calibration_cli(target))
+    return run_calibration_cli(target).to_dict()
 
 
 def completed_identical_run(config: Any, *, name: str) -> tuple[str | None, str] | None:
@@ -149,7 +146,7 @@ def completed_identical_run(config: Any, *, name: str) -> tuple[str | None, str]
     seal cannot be read, never matches.
     """
     from hydromodpy.core.state.paths import runs_dir_for
-    from hydromodpy.results.catalog.registration import config_identity_hash, split_stem_version
+    from hydromodpy.results.catalog.registration import solve_identity_hash, split_stem_version
     from hydromodpy.results.manifest import read_manifest
     from hydromodpy.results.storage.sealing import sealed_config_hash
 
@@ -157,7 +154,7 @@ def completed_identical_run(config: Any, *, name: str) -> tuple[str | None, str]
     runs = runs_dir_for(root)
     if not runs.is_dir():
         return None
-    config_hash = config_identity_hash(config)
+    config_hash = solve_identity_hash(config)
     if config_hash is None:
         return None
     versions: list[tuple[int, Path]] = []

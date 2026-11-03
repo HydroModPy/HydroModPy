@@ -57,7 +57,10 @@ The key does not exist yet, because no default has moved.
 Two runs are the same computation when their configurations, the bytes of their input files,
 the mesh engine and the code that computes agree. A release that only touches figures, commands
 or this documentation keeps that identity, so an identical run is not computed again, and an edit
-of a solver changes it.
+of a solver changes it. A configuration counts by what it writes: a key written at its default value
+is another identity than no key, because a validator can tell the two apart, and it costs one more
+computation at worst. A calibration is not part of the identity of the run it promotes, whose file
+holds its own solve.
 
 ### What a sealed run keeps
 

@@ -104,7 +104,8 @@ def _budget(
     drain[:, :, ::5] = 0.0
     drain[1, :, 4] = 1e-4
     drain[3, 0, 9] = np.nan
-    # One step whose every drain value is positive: the fallback of the sign convention.
+    # One step whose every drain value is positive: water that enters through a drain,
+    # which no reader takes for an outflow.
     drain[4] = np.abs(drain[4]) + 1e-5
     budget = {"drain": drain, "recharge": _uniform(rng, 0.0, 1e-4, shape)}
     if solver_terms:
@@ -189,10 +190,13 @@ def build_store(kind: str, project: Path) -> RunStore:
             _write_descent(store, top)
             head = head[:, 0, :]
             budget = {name: values[:, 0, :] for name, values in budget.items()}
+            # The fixtures read this step as an outflow, through the sign guess of the
+            # base: the water that left is written as MODFLOW signs it.
+            budget["drain"][4] = -budget["drain"][4]
             budget["surface_excess"] = np.where(
-                _uniform(rng, 0.0, 1.0, (N_STEPS, N_CELLS)) < 0.3, 1e-4, 0.0
+                _uniform(rng, 0.0, 1.0, (N_STEPS, N_CELLS)) < 0.3, -1e-4, 0.0
             )
-            budget["surface_excess"][1, 5] = -2e-5
+            budget["surface_excess"][1, 5] = 2e-5
             store.root.create_group("boussinesq_state")
             if kind == "boussinesq_no_excess":
                 del budget["surface_excess"]

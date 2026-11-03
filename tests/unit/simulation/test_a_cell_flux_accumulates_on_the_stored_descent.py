@@ -1,4 +1,4 @@
-"""``accumulation_flux`` routes on the descent D the build stored, not on the raw top.
+"""``drain_accumulation_flux`` routes on the descent D the build stored, not on the raw top.
 
 The top of this bowl holds a pit the steepest descent dies in, so a flux routed
 on it never reaches the rim. D fills the pit and drains it: the whole flux of the
@@ -17,7 +17,7 @@ import numpy as np
 
 from hydromodpy.core.field_routing import accumulate_on_downhill_graph
 from hydromodpy.results.derive import accumulation
-from hydromodpy.results.derive.accumulation import accumulation_flux_rows
+from hydromodpy.results.derive.accumulation import drain_accumulation_flux_rows
 from hydromodpy.results.zarr_store import SimulationZarr
 from tests._helpers.descent_cases import grid_descent
 from tests._helpers.ugrid_meshes import quad_mesh
@@ -74,7 +74,7 @@ def test_the_whole_flux_leaves_through_the_seeds_of_the_stored_descent(tmp_path:
     store = _store_with_the_pit_as_a_seed(tmp_path)
     descent = grid_descent(TOP, base_level=_constant_head_in_the_pit())
 
-    accumulated = accumulation_flux_rows(store.root, 0, N_STEPS)
+    accumulated = drain_accumulation_flux_rows(store.root, 0, N_STEPS)
 
     outlets = descent.receiver < 0
     np.testing.assert_allclose(accumulated[:, outlets].sum(axis=1), _flux().sum(axis=1))

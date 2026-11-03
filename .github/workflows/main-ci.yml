@@ -355,6 +355,64 @@ jobs:
           coverage report --include='hydromodpy/spatial/terrain/*' --precision=2 --fail-under=94.6
           coverage report --include='hydromodpy/spatial/*.py' --precision=2 --fail-under=99.2
 
+  calibration-coverage:
+    name: Coverage / calibration gate py3.13
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install Linux system libraries
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      - name: Install package, test, calibration and mesh extras
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test,calibration,mesh]"
+
+      - name: Install external validity_frame package
+        run: pip install -e validity_frame
+
+      - name: Install the solver binary the calibration tests need
+        run: python -m hydromodpy install-binaries --subset mf6 --quiet
+
+      # Branch coverage of calibration/ over its own unit, integration and regression
+      # tests. They are what the rework of the calibration will lean on.
+      - name: Run the tests of the calibration package
+        run: |
+          python -m pytest tests/unit/calibration tests/integration/calibration \
+            tests/regression/fast/calibration \
+            -m "not slow" \
+            -n 2 --dist loadgroup \
+            --max-worker-restart=0 \
+            --timeout=300 \
+            --cov=hydromodpy/calibration \
+            --cov-branch \
+            --cov-report= \
+            --cov-fail-under=0 \
+            -q
+
+      # One floor per sub-package, the first measure rounded down to a half point.
+      # The floors only go up, by the rule of the spatial gate above. The last line
+      # gates the modules at the top of calibration/.
+      - name: Gate the calibration coverage
+        run: |
+          coverage combine || true
+          coverage report --include='hydromodpy/calibration/criteria/*' --precision=2 --fail-under=92.5
+          coverage report --include='hydromodpy/calibration/evaluation/*' --precision=2 --fail-under=85.5
+          coverage report --include='hydromodpy/calibration/metrics/*' --precision=2 --fail-under=90.0
+          coverage report --include='hydromodpy/calibration/observations/*' --precision=2 --fail-under=80.5
+          coverage report --include='hydromodpy/calibration/optim/*' --precision=2 --fail-under=91.0
+          coverage report --include='hydromodpy/calibration/protocols/*' --precision=2 --fail-under=93.5
+          coverage report --include='hydromodpy/calibration/reporting/*' --precision=2 --fail-under=73.5
+          coverage report --include='hydromodpy/calibration/runners/*' --precision=2 --fail-under=92.5
+          coverage report --include='hydromodpy/calibration/*.py' --omit='hydromodpy/calibration/*/*' --precision=2 --fail-under=90.0
+
   integration:
     name: Tests / integration py3.13
     runs-on: ubuntu-latest

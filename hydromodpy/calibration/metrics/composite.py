@@ -52,15 +52,13 @@ from hydromodpy.calibration.metrics.solver_extract import (
 from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
 from hydromodpy.core.exceptions import UncertaintyNotAvailableError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.scope import CATCHMENT
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.config import CalibObjectiveBlockDecl, CalibOutputDecl
     from hydromodpy.calibration.metrics.trial_series_capture import TrialSeriesSink
 
 logger = get_logger(__name__)
-
-# Station id the discharge target uses when a run has a single catchment outlet.
-_CATCHMENT = "_catchment"
 
 
 def _cell_id(station_id: str) -> str:
@@ -116,7 +114,7 @@ def _discharge_by_station(
     the others.
     """
     station_cells = resolve_station_cells(trial_ctx, observed, variable="discharge")
-    requests = [ObservableRequest(id=_CATCHMENT, name="discharge", support="domain")]
+    requests = [ObservableRequest(id=CATCHMENT, name="discharge", support="domain")]
     for obs_rec in observed:
         cell = station_cells.get(obs_rec.station_id)
         if cell is None:
@@ -146,7 +144,7 @@ def _discharge_by_station(
         results = adapter.extract_observables(run_ctx, None, requests[:1], time_index=time_index)
         station_cells = {}
 
-    whole = _result_for(results, _CATCHMENT, name="discharge")
+    whole = _result_for(results, CATCHMENT, name="discharge")
     catchment = observable_series(whole, name="discharge")
     if catchment.empty:
         raise NotImplementedError(

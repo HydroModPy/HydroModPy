@@ -71,10 +71,10 @@ from validation_cases.shared.loaders import bundle_cell_centers
 
 NOT_APPLICABLE = {
     "boussinesq": (
-        "The Boussinesq adapter declares release_flux servable but extract_observables serves only head and discharge, so the stream-network criterion cannot score a Boussinesq trial. The PETSc engine also needs 3000 iterations to solve this hillslope."
+        "The Boussinesq adapter declares release_flux unavailable: extract_observables serves only head and discharge, so the stream-network criterion cannot score a Boussinesq trial. The PETSc engine also needs 3000 iterations to solve this hillslope."
     ),
     "boussinesq_local": (
-        "The Boussinesq adapter declares release_flux servable but extract_observables serves only head and discharge, so the stream-network criterion cannot score a Boussinesq trial. The sparse Newton method of the default engine also fails on this 800-cell hillslope."
+        "The Boussinesq adapter declares release_flux unavailable: extract_observables serves only head and discharge, so the stream-network criterion cannot score a Boussinesq trial. The sparse Newton method of the default engine also fails on this 800-cell hillslope."
     ),
 }
 
@@ -648,17 +648,17 @@ def report(solver: str, truth: Truth) -> Any:
             ),
             encoding="utf-8",
         )
-        _RUNS[solver] = (truth, hmp.calibrate(config, return_report=True))
+        _RUNS[solver] = (truth, hmp.calibrate(config))
     return _RUNS[solver][1]
 
 
 def _metrics_of(report: Any, k_value: float) -> dict[str, float]:
     """Return the published components of the trial evaluated at ``k_value``."""
-    rows = report.iterations
+    rows = report.trials
     for _, row in rows.iterrows():
-        if math.isclose(float(row["params"]["K"]["value"]), k_value, rel_tol=1e-12):
-            return dict(row["metrics"])
-    raise AssertionError(f"no trial at K = {k_value!r} among {len(rows)} iterations.")
+        if math.isclose(float(row["parameters"]["K"]["value"]), k_value, rel_tol=1e-12):
+            return dict(row["components"])
+    raise AssertionError(f"no trial at K = {k_value!r} among {len(rows)} trials.")
 
 
 def _metric(metrics: dict[str, float], key: str) -> float:
@@ -727,14 +727,14 @@ def test_a_network_only_bisection_recovers_the_conductivity_that_made_the_networ
         unit="m",
         inclusive=True,
     )
-    assert report.best_objective <= cell_spacing
+    assert report.best_cost <= cell_spacing
 
     # The sweep sees the sign structure the root search rests on: an excess of
     # simulated stream at the lower bound, a deficit at the upper one.
     assert _metric(_metrics_of(report, K_BOUNDS_M_S[0]), "J_signed") > 0.0
     assert _metric(_metrics_of(report, K_BOUNDS_M_S[1]), "J_signed") < 0.0
 
-    verdict = report.extra["roptim_verdict"][OUTPUT]
+    verdict = report.extra["r_optim_verdict"][OUTPUT]
     assert verdict["valid"] is True, verdict
 
     extra = report.extra

@@ -41,7 +41,7 @@ def _serve(model: SimpleNamespace, monkeypatch: pytest.MonkeyPatch) -> tuple[obj
 
     monkeypatch.setattr(extraction, "extract_discharge_from_cbc", drain_sum)
     monkeypatch.setattr(extraction, "catchment_cell_mask", lambda model: np.ones(4, dtype=bool))
-    request = ObservableRequest(id="_catchment", name="discharge", support="domain")
+    request = ObservableRequest(id="catchment", name="discharge", support="domain")
     served, unserved = extraction.extract_common_modflow_observables(
         Path("."),
         "m",
@@ -51,7 +51,7 @@ def _serve(model: SimpleNamespace, monkeypatch: pytest.MonkeyPatch) -> tuple[obj
         routed_discharge_reader=routed_reader,
     )
     assert unserved == []
-    return served["_catchment"], calls
+    return served["catchment"], calls
 
 
 def test_a_network_that_routes_the_drainage_serves_the_routed_series(monkeypatch) -> None:
@@ -83,7 +83,7 @@ def test_a_drain_budget_that_cannot_be_read_leaves_the_routed_series(monkeypatch
 
     monkeypatch.setattr(extraction, "extract_discharge_from_cbc", refuse)
     monkeypatch.setattr(extraction, "catchment_cell_mask", lambda model: np.ones(4, dtype=bool))
-    request = ObservableRequest(id="_catchment", name="discharge", support="domain")
+    request = ObservableRequest(id="catchment", name="discharge", support="domain")
     served, _ = extraction.extract_common_modflow_observables(
         Path("."),
         "m",
@@ -93,4 +93,4 @@ def test_a_drain_budget_that_cannot_be_read_leaves_the_routed_series(monkeypatch
         routed_discharge_reader=lambda *args: _ROUTED,
     )
 
-    np.testing.assert_allclose(served["_catchment"].values, _ROUTED.to_numpy())
+    np.testing.assert_allclose(served["catchment"].values, _ROUTED.to_numpy())

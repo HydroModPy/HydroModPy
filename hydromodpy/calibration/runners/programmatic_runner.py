@@ -45,7 +45,6 @@ from hydromodpy.core.workspace.path_registry import in_run_scratch
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.report import CalibrationReport
-    from hydromodpy.calibration.runners.staged_runner import StagedCalibrationReport
 
 
 def _write_python_mode_document(
@@ -85,9 +84,11 @@ def _write_python_mode_document(
 
     resolve_stream_geometry_paths(cfg, anchor_path)
 
-    payload: dict[str, Any] = dict(project.config.model_dump(mode="json", exclude_none=True))
+    payload: dict[str, Any] = dict(
+        project.config.model_dump(mode="json", exclude_none=True, exclude_unset=True)
+    )
     payload["workflow"] = {"mode": "calibration"}
-    payload["calibration"] = cfg.model_dump(mode="json", exclude_none=True)
+    payload["calibration"] = cfg.model_dump(mode="json", exclude_none=True, exclude_unset=True)
 
     stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     doc_path = sessions_dir_for(sessions_root) / f"python-{stamp}-{uuid4().hex[:8]}.toml"
@@ -122,7 +123,7 @@ def _document_of(project: Any, cfg_path: Path) -> dict[str, Any]:
     """Return the resolved document the session freezes: the project config, else the file."""
     config = getattr(project, "config", None)
     if config is not None and hasattr(config, "model_dump"):
-        return dict(config.model_dump(mode="json", exclude_none=True))
+        return dict(config.model_dump(mode="json", exclude_none=True, exclude_unset=True))
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
     return dict(load_toml_with_base_config(cfg_path))
@@ -138,7 +139,7 @@ def with_project_defaults(cfg: CalibrationConfig, project: Any) -> CalibrationCo
     if gauge is None and window is None:
         return cfg
     section = apply_project_defaults(
-        cfg.model_dump(mode="json", exclude_none=True),
+        cfg.model_dump(mode="json", exclude_none=True, exclude_unset=True),
         site_gauge=gauge,
         metrics_window=window.model_dump(mode="json") if window is not None else None,
     )
@@ -158,10 +159,9 @@ def run_calibration_programmatic(
     project_label: str | None = None,
     metric_fn: TrialMetricFn | None = None,
     objective: str | None = None,
-    return_report: bool = True,
     phase: str | None = None,
     resume: bool = False,
-) -> CalibrationReport | StagedCalibrationReport | dict:
+) -> CalibrationReport:
     """Run calibration without a stand-alone calibration TOML.
 
     The :class:`hydromodpy.Project` instance carries the simulation config;
@@ -199,7 +199,6 @@ def run_calibration_programmatic(
             workspace=workspace,
             project=project_label,
             metric_fn=metric_fn,
-            return_report=return_report,
             resume=resume,
         )
 
@@ -210,7 +209,7 @@ def run_calibration_programmatic(
         from hydromodpy.calibration.runners.materialize import write_overlay_toml
 
         cfg_path = ws_root / ".hydromodpy" / "calibration_base.toml"
-        payload = project.config.model_dump(mode="json", exclude_none=True)
+        payload = project.config.model_dump(mode="json", exclude_none=True, exclude_unset=True)
         write_overlay_toml(cfg_path, payload)
     else:
         cfg_path = Path(src_path).expanduser().resolve()
@@ -226,7 +225,7 @@ def run_calibration_programmatic(
     case = _case_name(project, cfg_path)
     promotion_name_check(case)
     raw = _document_of(project, cfg_path)
-    raw["calibration"] = cfg.model_dump(mode="json", exclude_none=True)
+    raw["calibration"] = cfg.model_dump(mode="json", exclude_none=True, exclude_unset=True)
     persistence, _reopened = open_calibration_session(
         ws_root,
         case,
@@ -265,9 +264,7 @@ def run_calibration_programmatic(
                 key: report.extra[key] for key in ("bracket", "roots") if key in report.extra
             },
         )
-    if return_report:
-        return report
-    return report.to_dict()
+    return report
 
 
 __all__ = ["run_calibration_programmatic", "with_project_defaults"]

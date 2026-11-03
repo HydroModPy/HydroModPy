@@ -69,7 +69,7 @@ def test_expand_prints_the_header_and_the_written_sections(tmp_path, capsys) -> 
     _run(path, expand=True)
 
     printed = capsys.readouterr().out
-    assert "# Expanded from protocol matching_hydrographic_network, version 1.2" in printed
+    assert "# Expanded from protocol matching_hydrographic_network, version 1.3" in printed
     assert "Abherve et al. 2023, 10.5194/hess-27-3221-2023" in printed
     assert "[calibration.parameters.K]" in printed
     assert "[calibration.outputs.streams]" in printed

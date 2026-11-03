@@ -11,6 +11,7 @@ from __future__ import annotations
 import pytest
 
 from hydromodpy.display.figures.observed_network_heads_map import ObservedNetworkHeadsMap
+from tests._helpers.sealed_runs import sealed_search
 from tests.unit.display._network_comparison_run import comparison_run, legend_labels, legend_note
 
 
@@ -35,7 +36,7 @@ def _sealed_run(**heads):
         "observed_rasterization": "heads",
         **heads,
     }
-    run.config_snapshot = {"calibration": {"outputs": {"streams": output}}}
+    run.dir = sealed_search({"outputs": {"streams": output}})
     return run
 
 

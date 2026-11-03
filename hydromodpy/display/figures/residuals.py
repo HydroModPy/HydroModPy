@@ -7,7 +7,8 @@ from typing import TYPE_CHECKING, Annotated
 
 import numpy as np
 
-from hydromodpy.core.units.labels import CATCHMENT_OUTLET_STATION, axis_label, station_label
+from hydromodpy.core.scope import CATCHMENT
+from hydromodpy.core.units.labels import axis_label, station_label
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import ObservedStation, Opt, Station, Variable
 from hydromodpy.display.figure_registry import register
@@ -56,7 +57,7 @@ class Residuals(BaseFigure):
         self,
         sim: Run,
         *,
-        station: Station = CATCHMENT_OUTLET_STATION,
+        station: Station = CATCHMENT,
         variable: Variable = "discharge",
         observed_station: ObservedStation = None,
         bins: Annotated[int, Opt("Number of bins of the residual histogram.")] = 30,

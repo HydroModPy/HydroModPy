@@ -529,7 +529,7 @@ class Project:
         pandas.DataFrame
             ``site`` (or ``recipe``), ``case_id``, ``rel_dir``, ``sim_id``,
             ``label``, the global parameters (``K`` ...), the metric under
-            its own name, ``station``, ``nse_window_start``, ``nse_window_end``.
+            its own name, ``station``, ``window_start``, ``window_end``.
 
         Examples
         --------
@@ -853,11 +853,8 @@ class Project:
 
         Returns
         -------
-        CalibrationReport or StagedCalibrationReport or dict
-            A :class:`CalibrationReport` for a calibration without phases, a
-            :class:`StagedCalibrationReport` for one that declares phases, in
-            every mode. ``return_report=False`` returns the ``to_dict()``
-            payload of that report instead.
+        CalibrationReport
+            What the calibration found, with or without phases, in every mode.
 
         Raises
         ------
@@ -901,9 +898,6 @@ class Project:
                 from hydromodpy.calibration.runners.staged_runner import run_staged_calibration
 
                 return run_staged_calibration(target, phase=phase, **kwargs)
-            # The plain runner returns its dict unless asked; every other
-            # branch returns the report object by default.
-            kwargs.setdefault("return_report", True)
             return run_calibration_cli(target, **kwargs)
 
         from hydromodpy.calibration.config import CalibrationConfig
@@ -938,7 +932,6 @@ class Project:
                     project_label=kwargs.get("project_label", kwargs.get("project")),
                     metric_fn=kwargs.get("metric_fn"),
                     objective=kwargs.get("objective"),
-                    return_report=kwargs.get("return_report", True),
                     phase=phase,
                 )
             raise ConfigMissingError(
@@ -977,7 +970,6 @@ class Project:
                     "project_label",
                     "metric_fn",
                     "objective",
-                    "return_report",
                 }
             }
         )
@@ -999,7 +991,6 @@ class Project:
             project_label=kwargs.get("project_label", kwargs.get("project")),
             metric_fn=kwargs.get("metric_fn"),
             objective=kwargs.get("objective"),
-            return_report=kwargs.get("return_report", True),
             phase=phase,
         )
 

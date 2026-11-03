@@ -69,7 +69,7 @@ def _write_active_accumulation_flux_case(runs, sid, *, write_plot_mesh=False):
         ]
         for timestep, values in enumerate(frames):
             sz.write_field(
-                "accumulation_flux",
+                "drain_accumulation_flux",
                 timestep,
                 values,
                 n_timesteps=3 if timestep == 0 else None,
@@ -112,7 +112,7 @@ class TestSimulationCellFieldViews:
             persistence_threshold=0.5,
         )
 
-        assert metrics["source_variable"] == "accumulation_flux"
+        assert metrics["source_variable"] == "drain_accumulation_flux"
         assert metrics["n_timesteps"] == 3
         assert metrics["catchment_cell_count"] == 3
         assert metrics["active_cell_count_mean"] == pytest.approx(5.0 / 3.0)

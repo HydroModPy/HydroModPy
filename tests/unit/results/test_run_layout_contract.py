@@ -38,7 +38,7 @@ from hydromodpy.core.state.paths import (
 )
 from hydromodpy.data.provenance.lockfile import LOCKFILE_NAME
 from hydromodpy.results.catalog.constants import PARQUET_VIEW_NAMES
-from hydromodpy.results.manifest import read_manifest
+from hydromodpy.results.manifest import MetricRow, read_manifest
 from hydromodpy.results.record import sealed_artifacts
 from hydromodpy.results.storage.attempt import close_sealed_attempt
 from hydromodpy.results.storage.contract import (
@@ -175,7 +175,7 @@ def solved_run(tmp_path):
     finally:
         sz.close()
     store.write_mass_balance(sim_id, 0, 10.0, 9.5, 5.0)
-    store.write_metric(sim_id, "P01", "nse", 0.8)
+    store.write_metric(sim_id, MetricRow(station="P01", metric="nse", value=0.8))
     store.write_provenance(sim_id, "dem", "dem.tif", np.ones(4))
     seal_completed(store)
     close_sealed_attempt(store.run_dir)
@@ -375,19 +375,20 @@ def test_the_soil_budget_is_a_plain_parquet_file_of_the_run(solved_run):
                     "class_index": 0,
                     "x": 0.0,
                     "y": 0.0,
-                    "ru_mm": 120.0,
+                    "available_water_capacity": 120.0,
                     "basin_weight": 1.0,
                     "year": 2020,
                     "days": 3,
-                    "precipitation_mm": 10.0,
-                    "etp_mm": 6.0,
-                    "etr_mm": 5.0,
-                    "residual_etp_mm": 1.0,
-                    "recharge_mm": 4.0,
-                    "runoff_mm": 0.0,
-                    "soil_storage_change_mm": 1.0,
-                    "transit_storage_change_mm": 0.0,
-                    "balance_residual_mm": 0.0,
+                    "precipitation": 10.0,
+                    "etp": 6.0,
+                    "etr": 5.0,
+                    "residual_etp": 1.0,
+                    "recharge": 4.0,
+                    "runoff": 0.0,
+                    "soil_storage_change": 1.0,
+                    "transit_storage_change": 0.0,
+                    "balance_residual": 0.0,
+                    "unit": "mm",
                 }
             ],
         )

@@ -1,6 +1,6 @@
 """A figure title says what a first-time reader needs, in words.
 
-Measured on the example 04 gallery: titles ended with ``@ _catchment``, the id
+Measured on the example 04 gallery: titles ended with ``@ catchment``, the id
 a run stores its outlet series under; a map of October 2002 was titled with
 the stamp that closes it, 2002-11-01; the confusion map carried no date at
 all; the section named itself by four projected coordinates; the flux axis
@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.core.units.labels import CATCHMENT_OUTLET_STATION, station_label
+from hydromodpy.core.units.labels import CATCHMENT, station_label
 from hydromodpy.display.figures._instant import instant_label
 from hydromodpy.display.figures.cross_section import heading_words, section_words
 from hydromodpy.display.figures.duration_curve import DurationCurveFigure
@@ -52,7 +52,7 @@ def mpl():
 
 
 def test_the_outlet_series_is_named_the_catchment_outlet() -> None:
-    assert station_label(CATCHMENT_OUTLET_STATION) == "catchment outlet"
+    assert station_label(CATCHMENT) == "catchment outlet"
 
 
 def test_a_gauge_keeps_its_own_id() -> None:
@@ -77,7 +77,6 @@ def test_no_title_prints_the_internal_station_id(mpl, figure) -> None:
     figure.render(_SeriesRun(), ax)
 
     assert "@ catchment outlet" in ax.get_title()
-    assert "_catchment" not in ax.get_title()
 
 
 # --------------------------------------------------------------------------- #
@@ -222,7 +221,7 @@ class _ZonedBudgetRun:
         return pd.DataFrame(
             {
                 "component": ["recharge", "recharge"],
-                "zone_id": ["0", "catchment"],
+                "zone_id": ["domain", "catchment"],
                 "timestep": [0, 0],
                 "flux_in": [1.093, 0.586],
                 "flux_out": [0.0, 0.0],
@@ -231,7 +230,7 @@ class _ZonedBudgetRun:
 
 
 def test_flux_timeseries_reads_the_catchment_zone_not_the_domain_sum(mpl) -> None:
-    # ``budgets`` holds one row for the whole domain (zone_id "0") and one for
+    # ``budgets`` holds one row for the whole domain (zone_id "domain") and one for
     # the delineated catchment, for the same component and timestep. Summing
     # both, as a plain groupby("component", "timestep") does, drew
     # 1.093 + 0.586 m3/s of January recharge; only the catchment row is a

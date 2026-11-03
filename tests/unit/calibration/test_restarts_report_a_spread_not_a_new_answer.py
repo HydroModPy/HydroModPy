@@ -33,7 +33,7 @@ SPACE = ParameterSpace([K, SY])
 
 
 def _report(objective, **values):
-    return SimpleNamespace(best_objective=objective, best_parameters=values or None)
+    return SimpleNamespace(best_cost=objective, best_parameters=values or None)
 
 
 class TestTheRefusals:
@@ -95,7 +95,7 @@ class TestTheLoop:
         best, spread = run_restarts(
             run_one, method="scipy_nelder_mead", space=SPACE, restarts=3, seed=1
         )
-        assert best.best_objective == pytest.approx(0.3)
+        assert best.best_cost == pytest.approx(0.3)
         assert best.best_parameters["K"] == pytest.approx(4e-6)
         k_spread = next(item for item in spread if item.parameter == "K")
         assert k_spread.best == pytest.approx(4e-6)

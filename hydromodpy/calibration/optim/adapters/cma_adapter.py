@@ -244,7 +244,7 @@ class CmaEsAdapter:
             if r.trial_id not in self._batch_trial_ids:
                 continue
             idx = self._batch_trial_ids.index(r.trial_id)
-            value = r.objective_value
+            value = r.cost
             cost = (
                 float(value)
                 if (r.status == "completed" and math.isfinite(value))
@@ -278,7 +278,7 @@ class CmaEsAdapter:
         valid = [r for r in self._history if r.status == "completed"]
         if not valid:
             return None
-        return min(valid, key=lambda r: r.objective_value)
+        return min(valid, key=lambda r: r.cost)
 
     def converged(self) -> bool:
         return self._done

@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
+from hydromodpy.core.scope import SIMULATED
 from hydromodpy.core.state.paths import runs_dir_for
 from hydromodpy.results.catalog.registration import split_stem_version
 from hydromodpy.results.manifest import is_sealed
@@ -77,7 +78,11 @@ def read_simulated_discharge(store: RunStore) -> pd.DataFrame:
         The run stored no discharge, or stored it at several stations.
     """
     frame = store.read_table("timeseries")
-    rows = frame[frame["variable"] == DISCHARGE_VARIABLE] if not frame.empty else frame
+    rows = (
+        frame[(frame["variable"] == DISCHARGE_VARIABLE) & (frame["source"] == SIMULATED)]
+        if not frame.empty
+        else frame
+    )
     stations = sorted({str(station) for station in rows.get("station_id", [])})
     if not stations:
         raise KeyError(f"run {store.run_dir.name} stored no {DISCHARGE_VARIABLE} series")

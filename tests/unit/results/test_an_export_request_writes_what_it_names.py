@@ -68,10 +68,10 @@ def dated_run(tmp_path):
             n_timesteps=3 if t == 0 else None,
         )
     store.write_timeseries(
-        sid, "_catchment", "discharge", pd.Series([1.0, 2.0, 3.0], index=STAMPS), unit="m3/s"
+        sid, "catchment", "discharge", pd.Series([1.0, 2.0, 3.0], index=STAMPS), unit="m3/s"
     )
     gauged = pd.Series(np.arange(200.0), index=pd.date_range("1999-10-01", periods=200, freq="D"))
-    store.write_timeseries(sid, "NANCON", "discharge_obs", gauged, unit="m3/s")
+    store.write_timeseries(sid, "NANCON", "discharge", gauged, unit="m3/s", source="observed")
     extent = box(X0, Y0, X0 + 2 * STEP, Y0 + 2 * STEP)
     store.write_geographic_feature(
         sid, "watershed", gpd.GeoDataFrame(geometry=[extent], crs="EPSG:2154")
@@ -305,16 +305,16 @@ def test_series_are_written_on_the_run_clock_and_clipped_to_the_simulation(dated
     (written,) = export_run(catalog, sid, ExportRequest(variables=["discharge", "discharge_obs"]))
     assert written == exports / "demo_series.csv"
     frame = pd.read_csv(written)
-    simulated = frame[frame["variable"] == "discharge"]
+    simulated = frame[frame["source"] == "simulated"]
     # Naive times of the run clock: no session-zone offset, midnight stays midnight.
     assert simulated["datetime"].tolist() == [
         "2000-02-01 00:00:00",
         "2000-03-01 00:00:00",
         "2000-04-01 00:00:00",
     ]
-    # The internal station sentinel is renamed.
     assert set(simulated["station_id"]) == {"catchment"}
-    gauged = frame[frame["variable"] == "discharge_obs"]
+    assert set(frame["variable"]) == {"discharge"}
+    gauged = frame[frame["source"] == "observed"]
     # The record starts in October 1999; the file keeps the simulated window only.
     assert gauged["datetime"].min() == "2000-01-01 00:00:00"
     assert gauged["datetime"].max() == "2000-03-31 00:00:00"
@@ -331,9 +331,9 @@ def test_a_period_clips_each_series_to_the_periods_it_overlaps(dated_run) -> Non
     )
     assert written == exports / "demo_series_2000-02-01_2000-02-20.csv"
     frame = pd.read_csv(written)
-    simulated = frame[frame["variable"] == "discharge"]
+    simulated = frame[frame["source"] == "simulated"]
     assert simulated["datetime"].tolist() == ["2000-03-01 00:00:00"]
-    gauged = frame[frame["variable"] == "discharge_obs"]
+    gauged = frame[frame["source"] == "observed"]
     assert gauged["datetime"].min() == "2000-02-01 00:00:00"
     assert gauged["datetime"].max() == "2000-02-29 00:00:00"
 

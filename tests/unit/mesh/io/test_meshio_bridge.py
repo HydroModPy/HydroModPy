@@ -197,15 +197,21 @@ def test_a_volume_mesh_at_zero_z_keeps_its_z() -> None:
     assert from_meshio(mesh).ndim == 3
 
 
-def test_a_cell_field_that_is_not_one_value_per_cell_stays_behind() -> None:
+def test_a_cell_field_keeps_a_row_per_cell_and_another_shape_stays_behind() -> None:
     mesh = _triangles().with_cell_data(k=np.array([1.0, 2.0]))
     mesh = HydroMesh(
         vertices=mesh.vertices,
         cell_blocks=mesh.cell_blocks,
-        cell_data={**mesh.cell_data, "centre_xy": np.array([[0.5, 0.3], [1.0, 0.7]])},
+        cell_data={
+            **mesh.cell_data,
+            "head": np.array([[0.5, 0.3], [1.0, 0.7]]),
+            "strays": np.array([1.0, 2.0, 3.0]),
+        },
     )
 
-    assert set(to_meshio(mesh).cell_data) == {"k"}
+    data = to_meshio(mesh).cell_data
+    assert set(data) == {"k", "head"}
+    assert data["head"][0].shape == (2, 2)
 
 
 def test_line_and_vertex_blocks_are_left_out_with_their_fields() -> None:

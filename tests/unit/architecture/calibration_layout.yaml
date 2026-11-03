@@ -18,7 +18,7 @@ allowed:
   parameter_resolution: [targets]
   optim: [criteria]
   persistence: [optim]
-  report: [persistence]
+  report: [persistence, optim]
   # optim only inside "if TYPE_CHECKING:", never at runtime
   # (test_evaluation_reads_optim_only_for_types).
   evaluation: [optim]

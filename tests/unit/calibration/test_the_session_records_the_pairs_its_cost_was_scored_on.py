@@ -1,11 +1,11 @@
 """``session.json`` records the pairs the kept cost was scored on.
 
-``objective_window`` is the declared window completed by the dates of the
+``windows`` holds the declared window completed by the dates of the
 TOML: 2016-01-01 to 2020-12-31, 1827 days. A daily cost scored on it holds
 the 1827 periods lying in it, whose end stamps run from 2016-01-02 to
 2021-01-01 (the session read the end stamp before decision m01, and scored
 1828 pairs from 2016-01-01). The window stays as
-it is, since ``calibrated_by.window`` is read from it to label a run
+it is, since ``calibrated_by.windows`` is read from it to label a run
 ``evaluated`` (decision m08). Beside it the descriptor now carries, per dated
 output, the count and the first and last stamp of the best trial, and the HTML
 report prints both.
@@ -23,8 +23,8 @@ from hydromodpy.calibration.evaluation.port import TrialOutcome, TrialRequest
 from hydromodpy.calibration.report import load_session_report_data
 from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
 from hydromodpy.reporting.calibration_report import _render_html
-from hydromodpy.results.metric_rule import DateWindow
 from hydromodpy.results.session.descriptor import ScoredSamples, read_session
+from tests._helpers.session_documents import calibration_window
 
 
 class _DailyProbe:
@@ -91,22 +91,29 @@ uses_outputs = ["net"]
 def closed_session(tmp_path: Path, daily_probe) -> Path:
     path = tmp_path / "calibration.toml"
     path.write_text(PROBE_TOML, encoding="utf-8")
-    report = run_calibration_cli(path, workspace=tmp_path, return_report=True)
+    report = run_calibration_cli(path, workspace=tmp_path)
     return Path(report.session_dir)
 
 
 def test_the_window_stays_the_declared_one(closed_session: Path) -> None:
     descriptor = read_session(closed_session)
 
-    assert descriptor.objective_window == DateWindow(start=date(2016, 1, 1), end=date(2020, 12, 31))
+    assert descriptor.windows == calibration_window(date(2016, 1, 1), date(2020, 12, 31))
 
 
 def test_the_pairs_of_the_best_trial_sit_beside_it(closed_session: Path) -> None:
     descriptor = read_session(closed_session)
 
-    assert descriptor.objective_samples == {
-        "hydrograph": ScoredSamples(n=1827, first=date(2016, 1, 2), last=date(2021, 1, 1))
-    }
+    assert descriptor.scored == [
+        ScoredSamples(
+            window="calibration",
+            case_id="calibration",
+            output="hydrograph",
+            n=1827,
+            first=date(2016, 1, 2),
+            last=date(2021, 1, 1),
+        )
+    ]
 
 
 def test_the_html_report_prints_the_window_and_the_pairs(closed_session: Path) -> None:

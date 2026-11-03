@@ -10,17 +10,18 @@ own: its trials are the lines of the session journal carrying its name.
 
 Format
 ------
-See :class:`PhaseDescriptor`, schema id :data:`PHASE_SCHEMA`. ``frozen`` maps a parameter to its value and
-names the phase it came from, as in ``{"K": 6.1e-6, "from": "steady_k"}``.
-``stop_state`` and ``stopping_rule`` say why the search of the phase stopped,
-and ``stop_note`` says when the phase froze the best of a budget-only search;
-a phase written before they existed reads without them.
+See :class:`PhaseDescriptor`, schema id :data:`PHASE_SCHEMA`. ``frozen`` maps a
+parameter to a :class:`FrozenValue`, its value and the phase it came from.
+``cost_name``, ``windows`` and ``scored`` say what this phase minimised and on
+which pairs. ``stop_state`` and ``stopping_rule`` say why the search of the phase
+stopped, and ``stop_note`` says when the phase froze the best of a budget-only
+search.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Final
+from typing import Final
 
 from pydantic import ConfigDict, Field
 
@@ -28,17 +29,34 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.stored import dump_stored, read_stored
 from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.results.checks import StopState
-from hydromodpy.results.session.descriptor import BestTrial, SessionStatus
+from hydromodpy.results.metric_rule import PeriodWindow
+from hydromodpy.results.session.descriptor import (
+    BestTrial,
+    ParameterWidth,
+    ScoredSamples,
+    SessionStatus,
+)
 from hydromodpy.results.storage.contract import SESSION_DESCRIPTOR_FILENAME, SESSION_PHASES_DIRNAME
 from hydromodpy.results.storage.json_io import read_sealed_json, write_json_durable
 
-PHASE_SCHEMA: Final[str] = "hydromodpy.phase.v1"
+PHASE_SCHEMA: Final[str] = "hydromodpy.phase.v2"
 """Schema id of ``phases/<phase>/session.json``."""
 
 PHASE_VERSIONS: Final[VersionWindow] = VersionWindow(
-    oldest="hydromodpy.phase.v1", current=PHASE_SCHEMA
+    oldest="hydromodpy.phase.v2", current=PHASE_SCHEMA
 )
 """Versions of the document this code reads."""
+
+
+class FrozenValue(HydroModelBase):
+    """One value a phase holds fixed, found by an earlier phase."""
+
+    value: float = Field(description="The value held")
+    targets: dict[str, str] = Field(
+        default_factory=dict, description="Address of the value in each case, by case id"
+    )
+    mode: str = Field(description="replace or scale")
+    from_phase: str = Field(description="Phase that found it")
 
 
 class PhaseDescriptor(HydroModelBase):
@@ -51,11 +69,23 @@ class PhaseDescriptor(HydroModelBase):
     name: str = Field(pattern=r"^[A-Za-z0-9_]+$", description="Name of the phase, its directory")
     index: int = Field(ge=0, description="Rank of the phase in the chain")
     status: SessionStatus = Field(default="running")
-    frozen: dict[str, Any] = Field(
-        default_factory=dict, description="Values frozen from earlier phases"
+    frozen: dict[str, FrozenValue] = Field(
+        default_factory=dict, description="Values frozen from earlier phases, by parameter"
     )
     best: BestTrial | None = Field(default=None, description="Best trial of the phase")
     restarts: int = Field(default=0, ge=0, description="Times the phase restarted")
+    cost_name: str | None = Field(default=None, description="Name of the cost of this phase")
+    cost_label: str | None = Field(default=None, description="What that cost reads as")
+    windows: dict[str, PeriodWindow] = Field(
+        default_factory=dict,
+        description="Periods of this phase, by name; empty for a steady phase without dates",
+    )
+    scored: list[ScoredSamples] = Field(
+        default_factory=list, description="The pairs the best cost of the phase was scored on"
+    )
+    widths: dict[str, ParameterWidth] = Field(
+        default_factory=dict, description="Width of each value of the phase; empty when none"
+    )
     stop_state: StopState | None = Field(
         default=None,
         description="Why the search of the phase stopped: rule_met, plan_exhausted or "
@@ -114,6 +144,7 @@ def list_phases(session_dir: str | Path) -> list[PhaseDescriptor]:
 __all__ = [
     "PHASE_SCHEMA",
     "PHASE_VERSIONS",
+    "FrozenValue",
     "PhaseDescriptor",
     "list_phases",
     "phase_dir",

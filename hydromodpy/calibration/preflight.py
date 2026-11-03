@@ -27,6 +27,7 @@ from typing import Any, Literal
 
 from hydromodpy.core.config_kit.written import log_experimental_keys
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.progress import MILESTONE
 
 logger = get_logger(__name__)
 
@@ -160,6 +161,10 @@ def refuse_what_the_preflight_refuses(config: Any, *, source: str | Path) -> lis
             seen.add(text)
             logger.warning("%s", text)
     log_experimental_keys(config)
+    # Where the run leaves the publication it cites, said before the first solve:
+    # at the launch as ``hmp config check`` says it, and the session writes it down.
+    for line in protocol_lines(config)[0]:
+        logger.info("%s", line, extra=MILESTONE)
     return findings
 
 
@@ -329,12 +334,14 @@ def protocol_lines(cfg: Any) -> tuple[list[str], list[str]]:
     Returns the lines a reader acts on, then the ones only ``-v`` prints: the
     stages, the references, and every reading of the paper this implementation
     makes. A value equal to the paper's, or written the way the recipe runs it
-    anyway, is not a departure.
+    anyway, is not a departure. A departure no key brings back is named on one
+    line of the first list, and said in full in the second.
     """
     declared = getattr(getattr(cfg, "calibration", None), "protocol", None)
     if declared is None:
         return [], []
     from hydromodpy.calibration.protocols import (
+        deviations_in_force,
         options_the_recipe_already_runs,
         protocol_record,
         why_the_spin_up_year_is_scored,
@@ -354,19 +361,24 @@ def protocol_lines(cfg: Any) -> tuple[list[str], list[str]]:
     verbose.extend(f"  cite: {reference}" for reference in record["references"])
     # Where this run departs from the publication it cites. A reader comparing a
     # result to the literature needs this before the run, not after.
-    keys = [item["key"] for item in record["deviations"]]
-    in_force = _values_in_force(cfg, keys)
-    written = _values_this_file_set(cfg, keys)
-    for deviation in record["deviations"]:
-        key = deviation["key"]
-        told = f"{deviation['here']} (paper: {deviation['paper']})"
-        suffix = f" - this file sets {_rendered(written[key])}" if key in written else ""
-        if key not in in_force or (deviation["paper_value"] is None and key not in written):
-            verbose.append(f"  reads the paper on {key}: {told}")
-        elif _departs(deviation, in_force[key], key in written):
-            normal.append(f"  differs from the paper on {key}: {told}{suffix}")
+    always: list[str] = []
+    for item in deviations_in_force(cfg.calibration, getattr(cfg, "geographic", None)):
+        told = f"{item.here} (paper: {item.paper})"
+        suffix = f" - this file sets {_rendered(item.value)}" if item.written else ""
+        if item.state == "always":
+            always.append(item.key)
+            verbose.append(f"  always differs from the paper on {item.key}: {told}")
+        elif item.state == "departs":
+            normal.append(f"  differs from the paper on {item.key}: {told}{suffix}")
+        elif item.state == "reads_paper":
+            verbose.append(f"  reads the paper on {item.key}: {told}")
         else:
-            verbose.append(f"  as the paper on {key}: {told}{suffix}")
+            verbose.append(f"  as the paper on {item.key}: {told}{suffix}")
+    if always:
+        normal.append(
+            f"  always differs from the paper on: {', '.join(always)} (-v says how; no key "
+            "brings these back)"
+        )
     # An option moved off the recipe keeps the method but changes what the number
     # rests on, and only the file knows it moved.
     same = options_the_recipe_already_runs(
@@ -394,23 +406,6 @@ def protocol_lines(cfg: Any) -> tuple[list[str], list[str]]:
     return normal, verbose
 
 
-def _departs(deviation: Mapping[str, Any], value: object, written: bool) -> bool:
-    """Say whether the value in force leaves the publication on this deviation.
-
-    A deviation whose paper value is known departs when the value in force is
-    another. One whose paper has no value for the key, the paper being silent
-    on it, departs only when the file sets it.
-    """
-    paper = deviation.get("paper_value")
-    if paper is None:
-        return written and value is not None
-    try:
-        return bool(value != paper)
-    except (TypeError, ValueError):
-        # A length compared with the word 'auto': two different things.
-        return True
-
-
 def _rendered(value: object) -> str:
     """Return a value as a reader of a terminal would want to see it.
 
@@ -422,50 +417,6 @@ def _rendered(value: object) -> str:
     if hasattr(value, "magnitude") and hasattr(value, "units"):
         return f"'{value:~P}'"
     return repr(value)
-
-
-def _places_the_deviations_are_set(cfg: Any) -> list[Any]:
-    """Return where a file sets the keys a protocol departs on.
-
-    The network outputs, then ``[geographic]`` for ``dem_correc_type``. A gauge
-    is not the criterion the deviations describe, so it is not read.
-    """
-    calibration = getattr(cfg, "calibration", None)
-    outputs = getattr(calibration, "outputs", None) or {}
-    places = [
-        output for output in outputs.values() if getattr(output, "support", None) == "network"
-    ]
-    geographic = getattr(cfg, "geographic", None)
-    if geographic is not None:
-        places.append(geographic)
-    return places
-
-
-def _declares(place: Any, key: str) -> bool:
-    """Say whether a model has a field ``key``, the way its class declares it."""
-    return key in getattr(type(place), "model_fields", {})
-
-
-def _values_in_force(cfg: Any, keys: list[str]) -> dict[str, object]:
-    """Return, for the keys a protocol departs on, the value the run will use."""
-    found: dict[str, object] = {}
-    for key in keys:
-        for place in _places_the_deviations_are_set(cfg):
-            if _declares(place, key):
-                found[key] = getattr(place, key)
-                break
-    return found
-
-
-def _values_this_file_set(cfg: Any, keys: list[str]) -> dict[str, object]:
-    """Return, for the keys a protocol departs on, what this file actually wrote."""
-    found: dict[str, object] = {}
-    for key in keys:
-        for place in _places_the_deviations_are_set(cfg):
-            if key in getattr(place, "model_fields_set", set()):
-                found[key] = getattr(place, key)
-                break
-    return found
 
 
 def comparison_lines(cfg: Any, source: Path) -> list[str]:

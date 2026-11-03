@@ -12,8 +12,9 @@ import numpy as np
 from hydromodpy.core import progress
 from hydromodpy.core.budget_terms import BudgetKeep
 from hydromodpy.core.exceptions import MeshError, SolverInputError
-from hydromodpy.core.field_routing import CATCHMENT_BUDGET_ZONE, STREAM_CONSTANT_HEAD_BUDGET
+from hydromodpy.core.field_routing import STREAM_CONSTANT_HEAD_BUDGET
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.scope import CATCHMENT, DOMAIN
 from hydromodpy.core.units.time import (
     CF_EPOCH,
     CF_TIME_UNITS,
@@ -31,8 +32,11 @@ from hydromodpy.solver.modflow6.extractors.grid_check import (
 )
 from hydromodpy.solver.modflow6.extractors.sfr import (
     SfrObsSpec,
+    SfrReachGeometry,
     build_sfr_columns,
+    reach_number,
     read_sfr_meta,
+    sfr_station_id,
 )
 from hydromodpy.solver.modflow6.support.computational_top import read_ground_sidecar
 from hydromodpy.solver.modflow_common.boundary_roles import read_constant_head_roles
@@ -104,6 +108,19 @@ def _streambed_face_arrays(
     return top, threshold
 
 
+def _reach_row(network_id: str, reach: SfrReachGeometry) -> dict[str, Any]:
+    """One row of ``sfr_reaches``: the reach under the number the TOML writes for it."""
+    row = asdict(reach)
+    number = reach_number(row.pop("ifno"))
+    return {
+        "reach_id": sfr_station_id(network_id, reach.ifno),
+        "network_id": network_id,
+        "reach": number,
+        **row,
+        "downstream": [reach_number(ifno) for ifno in reach.downstream],
+    }
+
+
 def _write_sfr_reach_geometry(sim_id: str, store: Any, spec: SfrObsSpec) -> None:
     """Persist the resolved reach geometry the MODFLOW scratch files take away.
 
@@ -113,7 +130,7 @@ def _write_sfr_reach_geometry(sim_id: str, store: Any, spec: SfrObsSpec) -> None
     """
     if not spec.reaches:
         return
-    rows = [{"network_id": spec.network_id, **asdict(reach)} for reach in spec.reaches]
+    rows = [_reach_row(spec.network_id, reach) for reach in spec.reaches]
     try:
         store.write_view(sim_id, "sfr_reaches", rows)
     except Exception:
@@ -600,11 +617,11 @@ class Modflow6OutputAdapter:
                                 rank,
                                 {
                                     "timestep": t,
-                                    "zone_id": "0",
+                                    "zone_id": DOMAIN,
                                     "component": canonical,
                                     "flux_in": mean.flux_in,
                                     "flux_out": abs(mean.flux_out),
-                                    "unit": "m3/s",
+                                    "unit": "m3 s-1",
                                 },
                             )
                         )
@@ -621,11 +638,11 @@ class Modflow6OutputAdapter:
                                     rank,
                                     {
                                         "timestep": t,
-                                        "zone_id": CATCHMENT_BUDGET_ZONE,
+                                        "zone_id": CATCHMENT,
                                         "component": canonical,
                                         "flux_in": mean.basin_in,
                                         "flux_out": abs(mean.basin_out),
-                                        "unit": "m3/s",
+                                        "unit": "m3 s-1",
                                     },
                                 )
                             )
@@ -1009,7 +1026,7 @@ class Modflow6OutputAdapter:
                 return None
             logger.info(
                 "Budget zone '%s' for sim %s: the basin of D, %d of %d cells (%.3f km2).",
-                CATCHMENT_BUDGET_ZONE,
+                CATCHMENT,
                 sim_id,
                 int(record.basin.sum()),
                 n_cells,
@@ -1019,7 +1036,7 @@ class Modflow6OutputAdapter:
         logger.warning(
             "Budget zone '%s' for sim %s: the build left no basin of D (%s), so the zone "
             "keeps the old support 'polygon_centroid'.",
-            CATCHMENT_BUDGET_ZONE,
+            CATCHMENT,
             sim_id,
             reason,
         )
@@ -1063,7 +1080,7 @@ class Modflow6OutputAdapter:
             return None
         logger.info(
             "Budget zone '%s' for sim %s: %d of %d cells.",
-            CATCHMENT_BUDGET_ZONE,
+            CATCHMENT,
             sim_id,
             int(mask.sum()),
             n_cells,

@@ -67,7 +67,7 @@ class TestGPMappingAdapter:
                     EvaluationResult(
                         trial_id=sugg[0].trial_id,
                         sim_id=f"sim-{sugg[0].trial_id}",
-                        objective_value=target,
+                        cost=target,
                         status="completed",
                     )
                 ]
@@ -75,7 +75,7 @@ class TestGPMappingAdapter:
 
         best = opt.best()
         assert best is not None
-        assert best.objective_value == pytest.approx(min(scripted))
+        assert best.cost == pytest.approx(min(scripted))
 
     def test_converges_near_minimum_on_2d_quadratic(self):
         """GP-EI must approach the origin within 30 evaluations."""
@@ -96,7 +96,7 @@ class TestGPMappingAdapter:
             result = EvaluationResult(
                 trial_id=sugg.trial_id,
                 sim_id=f"sim-{sugg.trial_id}",
-                objective_value=_quadratic(sugg.values),
+                cost=_quadratic(sugg.values),
                 status="completed",
             )
             opt.tell([result])
@@ -108,7 +108,7 @@ class TestGPMappingAdapter:
         # Recover the best-ever parameter vector via ``ask`` history.
         # Since the evaluator deterministically mirrors x, y, the minimum
         # cost is bounded by the distance-to-origin squared.
-        assert best.objective_value < 0.1
+        assert best.cost < 0.1
 
 
 class TestGPMappingAdvancedKwargs:
@@ -169,7 +169,7 @@ class TestGPMappingAdvancedKwargs:
                     EvaluationResult(
                         trial_id=sugg.trial_id,
                         sim_id=None,
-                        objective_value=_quadratic(sugg.values),
+                        cost=_quadratic(sugg.values),
                         status="completed",
                     )
                 ]
@@ -177,5 +177,5 @@ class TestGPMappingAdvancedKwargs:
         best = opt.best()
         assert best is not None
         assert best.status == "completed"
-        assert isinstance(best.objective_value, float)
+        assert isinstance(best.cost, float)
         assert best.trial_id >= 0

@@ -53,7 +53,7 @@ class DownslopeDistanceCrossingFigure(BaseFigure):
     ``parameter_units`` defaults to the unit the session declared for the
     parameter (``m/s`` for a conductivity), and to the dimensionless mark
     when it declared none, as for the ratio ``K/R``. ``band_m`` defaults to
-    the ``L_ref`` the criterion published with each trial.
+    the ``h_obs`` the criterion published with each trial.
     """
 
     spec = FigureSpec(
@@ -99,7 +99,7 @@ class DownslopeDistanceCrossingFigure(BaseFigure):
             float | None,
             Opt(
                 "Half-width of the band drawn around each curve. Left out, the median "
-                "reference length L_ref the trials published, else no band.",
+                "reference length h_obs the trials published, else no band.",
                 unit="m",
             ),
         ] = None,
@@ -235,9 +235,9 @@ def _band_half_width(
     """Return the half-width of the uncertainty band, in metres."""
     if band_m is not None:
         return float(band_m)
-    if not table.has_diagnostic("L_ref", output=output):
+    if not table.has_diagnostic("h_obs", output=output):
         return None
-    values = table.diagnostic("L_ref", output=output)
+    values = table.diagnostic("h_obs", output=output)
     finite = values[np.isfinite(values)]
     return float(np.median(finite)) if finite.size else None
 

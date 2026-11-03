@@ -31,7 +31,7 @@ print(proj.cases.to_string(index=False))
 # when you compare them: the daily runs have neither the same window nor the same
 # step as the monthly runs.
 scores = proj.runs(site="nancon").metrics
-columns = ["sim_id", "station", "nse_window_start", "nse_window_end", "nse", "nse_log", "kge"]
+columns = ["sim_id", "station", "window_start", "window_end", "nse", "nse_log", "kge"]
 print(scores.filter(items=columns).sort_values("nse", ascending=False).round(3))
 
 # %% One run

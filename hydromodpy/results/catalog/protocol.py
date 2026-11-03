@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     import numpy as np
     import pandas as pd
 
+    from hydromodpy.results.manifest import MetricRow
     from hydromodpy.results.run import Run
     from hydromodpy.results.zarr_store import SimulationZarr
     from hydromodpy.results.zarr_store.mesh_layout import MeshLayout
@@ -56,7 +57,7 @@ class SimulationStore(Protocol):
         variable: str,
         ts: pd.Series,
         unit: str = "",
-        qflag: str = "simulated",
+        source: str = "simulated",
     ) -> None:
         """Persist a per-station timeseries for ``sim_id``."""
 
@@ -68,7 +69,7 @@ class SimulationStore(Protocol):
         component: str,
         flux_in: float,
         flux_out: float,
-        unit: str = "m3/s",
+        unit: str = "m3 s-1",
     ) -> None:
         """Persist one budget row for ``sim_id``."""
 
@@ -177,21 +178,8 @@ class SimulationStore(Protocol):
     ) -> None:
         """Persist one named vector feature of ``sim_id``."""
 
-    def write_metric(
-        self,
-        sim_id: str | UUID,
-        station_id: str,
-        metric_name: str,
-        value: float,
-        *,
-        variable: str = "head",
-        n_samples: int | None = None,
-        n_clipped: int | None = None,
-        n_sim_nan: int | None = None,
-        period_start: Any | None = None,
-        period_end: Any | None = None,
-    ) -> None:
-        """Persist a scalar metric for ``sim_id`` at ``station_id``."""
+    def write_metric(self, sim_id: str | UUID, row: MetricRow) -> None:
+        """Persist one metric row of ``sim_id``."""
 
     def write_provenance(
         self,
@@ -266,8 +254,10 @@ class SimulationStore(Protocol):
         station_id: str,
         variable: str,
         period: tuple | None = None,
+        *,
+        source: str = "simulated",
     ) -> pd.Series:
-        """Read a per-station simulated timeseries for ``sim_id``."""
+        """Read a per-station timeseries for ``sim_id``, simulated unless ``source`` says."""
 
     def list_simulations(self, **filters: Any) -> pd.DataFrame:
         """Return one DataFrame row per sealed run matching ``filters``."""

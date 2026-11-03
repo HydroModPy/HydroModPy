@@ -18,6 +18,7 @@ import pytest
 from hydromodpy.display.figures._flow_persistence import cycle_flow, cycles, flow_geometry
 from hydromodpy.display.figures.flow_intermittence_map import FlowIntermittenceMap
 from hydromodpy.display.figures.flow_persistence_map import FlowPersistenceMap
+from tests._helpers.sealed_runs import sealed_search
 from tests.unit.results._transient_network_run import (
     HEAD,
     HILLSLOPE,
@@ -85,7 +86,7 @@ def _sealed_heads_run(**heads):
         "observed_rasterization": "heads",
         **heads,
     }
-    run.config_snapshot = {"calibration": {"outputs": {"streams": output}}}
+    run.dir = sealed_search({"outputs": {"streams": output}})
     return run
 
 

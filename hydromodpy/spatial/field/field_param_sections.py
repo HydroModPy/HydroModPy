@@ -11,7 +11,7 @@ from pydantic import (
     model_validator,
 )
 
-from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.base import HydroModelBase, write_resolved
 from hydromodpy.core.config_kit.calibrable import Calibrable
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
@@ -94,8 +94,8 @@ def coerce_value_with_declared_unit(section: Any) -> Any:
         scalar, resolved_unit = coerce_scalar_value_with_unit(
             section.value, section.unit, location=f"{section.id or 'field'}.value"
         )
-        object.__setattr__(section, "value", scalar)
-        object.__setattr__(section, "unit", resolved_unit)
+        write_resolved(section, "value", scalar)
+        write_resolved(section, "unit", resolved_unit)
     return section
 
 

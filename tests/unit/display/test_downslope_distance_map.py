@@ -19,6 +19,7 @@ from hydromodpy.display.figures.downslope_distance_map import (
     class_labels,
 )
 from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET
+from tests._helpers.sealed_runs import sealed_search
 
 from ._network_comparison_run import (
     AXIS_COLUMN,
@@ -87,16 +88,9 @@ def _two_branch_run(cell_m: float = CELL_M):
     heads rule could trace without being lost.
     """
     run = comparison_run(seepage_cells=[cell(4, 2), cell(0, 1)], cell_m=cell_m)
-    run.config_snapshot = {
-        "calibration": {
-            "outputs": {
-                "streams": {
-                    "support": "network",
-                    "observed_rasterization": "crossing",
-                }
-            }
-        }
-    }
+    run.dir = sealed_search(
+        {"outputs": {"streams": {"support": "network", "observed_rasterization": "crossing"}}}
+    )
     return run
 
 

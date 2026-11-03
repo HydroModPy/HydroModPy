@@ -225,7 +225,7 @@ class GPMappingOptimizer:
             if x_t is None:
                 continue
             self._results.append(r)
-            value = r.objective_value
+            value = r.cost
             if r.status != "completed" or not np.isfinite(value):
                 value = 1e12
             self._x_history.append(np.asarray(x_t, dtype=float))
@@ -235,7 +235,7 @@ class GPMappingOptimizer:
         valid = [r for r in self._results if r.status == "completed"]
         if not valid:
             return None
-        return min(valid, key=lambda r: r.objective_value)
+        return min(valid, key=lambda r: r.cost)
 
     def converged(self) -> bool:
         if self._exhausted:

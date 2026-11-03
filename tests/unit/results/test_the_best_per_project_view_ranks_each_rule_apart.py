@@ -33,8 +33,8 @@ def windows(tmp_path):
 def test_each_rule_has_its_own_best_run(windows) -> None:
     cat, ids = windows
     rows = cat.backend.fetch_all(
-        "SELECT CAST(sim_id AS VARCHAR), nse, nse_window_start FROM v_best_per_project "
-        "ORDER BY nse_window_start"
+        "SELECT CAST(sim_id AS VARCHAR), nse, score_window_start FROM v_best_per_project "
+        "ORDER BY score_window_start"
     )
     assert rows == [
         (ids["long"], 0.60, FIVE_YEARS.start),

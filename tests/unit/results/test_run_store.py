@@ -12,14 +12,17 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pyarrow.parquet as pq
 import pytest
 
 from hydromodpy.core.tracking.input_file import TrackedFileEntry
 from hydromodpy.results.identity import read_identity_from
+from hydromodpy.results.manifest import RUNTIME_VARIABLE, MetricRow
 from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX, TABLES_DIRNAME
 from hydromodpy.results.storage.parquet_io import read_kv_metadata
 from hydromodpy.results.storage.run_facts import RunFacts, facts_path, read_facts
 from hydromodpy.results.storage.run_store import RunStore
+from tests._helpers.metric_rows import headline_row
 
 SIM_ID = "9a4f0000-0000-4000-8000-000000000001"
 NOW = datetime(2026, 10, 15, 8, 2, 11, tzinfo=UTC)
@@ -74,7 +77,9 @@ def test_every_table_carries_the_identity_and_the_run_footer(run_dir: Path) -> N
             SIM_ID, [{"timestep": 0, "component": "recharge", "flux_in": 1.0, "flux_out": 0.0}]
         )
         store.write_mass_balance(SIM_ID, 0, 10.0, 9.5, 5.0)
-        store.write_metric(SIM_ID, "P01", "nse", 0.8, variable="head", n_samples=3)
+        store.write_metric(
+            SIM_ID, MetricRow(station="P01", variable="head", metric="nse", value=0.8)
+        )
         store.write_provenance(SIM_ID, "dem", "ign_geoplateforme_dem", np.ones(4))
 
     tables = run_dir / TABLES_DIRNAME
@@ -144,12 +149,27 @@ def test_the_grid_and_the_tracked_inputs_land_in_the_facts(run_dir: Path, tmp_pa
     assert facts.geographic_metadata == {"catch_area": 65.2, "x_outlet": 350000.0}
 
 
-def test_a_metric_written_twice_keeps_the_last_value(run_dir: Path) -> None:
+def test_a_metric_written_twice_keeps_the_last_value_of_each_period(run_dir: Path) -> None:
     with RunStore.open(run_dir, facts=_facts()) as store:
-        store.write_metric(SIM_ID, "P01", "nse", 0.5, variable="discharge")
-        store.write_metric(SIM_ID, "P01", "nse", 0.8, variable="discharge")
+        for window, value in (("metrics", 0.5), ("metrics", 0.8), ("validation", 0.2)):
+            store.write_metric(
+                SIM_ID, headline_row("nse", value, window_name=window, window_role="validation")
+            )
+        store.write_runtime_metric(SIM_ID, "flow_main", "solve_time_s", 12.5)
     rows = read_facts(run_dir).metrics
-    assert [(row.station, row.metric, row.value) for row in rows] == [("P01", "nse", 0.8)]
+    assert [(row.window_name, row.value) for row in rows if not row.is_runtime] == [
+        ("metrics", 0.8),
+        ("validation", 0.2),
+    ]
+    table = pq.read_table(run_dir / TABLES_DIRNAME / f"metrics{PARQUET_FILE_SUFFIX}").to_pandas()
+    kept = table.set_index(["window_name", "metric"])["value"]
+    assert (kept[("metrics", "nse")], kept[("validation", "nse")]) == (0.8, 0.2)
+    runtime = table[table["variable"] == RUNTIME_VARIABLE].iloc[0]
+    assert (runtime["metric"], runtime["value"], runtime["window_name"]) == (
+        "solve_time_s",
+        12.5,
+        None,
+    )
 
 
 def test_a_store_that_keeps_no_parquet_writes_no_table(run_dir: Path) -> None:

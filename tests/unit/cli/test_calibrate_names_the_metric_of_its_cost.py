@@ -16,9 +16,8 @@ def _report(extra: dict) -> CalibrationReport:
     return CalibrationReport(
         session_id="abc123",
         method="grid",
-        n_iterations=4,
-        best_objective=0.1234,
-        best_sim_id=None,
+        n_trials=4,
+        best_cost=0.1234,
         duration_s=1.0,
         save_runs="none",
         promoted=0,

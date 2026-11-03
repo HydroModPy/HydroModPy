@@ -8,6 +8,8 @@ figure).
 
 from __future__ import annotations
 
+from hydromodpy.core.scope import CATCHMENT
+
 AXIS_LABELS: dict[str, tuple[str, str]] = {
     # field_name: (human label, canonical unit)
     "head": ("Hydraulic head", "m"),
@@ -49,20 +51,17 @@ def axis_label(field_name: str, unit: str | None = None) -> str:
     return label
 
 
-CATCHMENT_OUTLET_STATION = "_catchment"
-"""The station id a run stores its catchment-outlet series under."""
-
-_STATION_NAMES: dict[str, str] = {CATCHMENT_OUTLET_STATION: "catchment outlet"}
+_STATION_NAMES: dict[str, str] = {CATCHMENT: "catchment outlet"}
 
 
 def station_label(station: str) -> str:
     """Return how a title names ``station``.
 
-    The catchment-outlet series is stored under an internal id. A reader
-    sees ``"catchment outlet"`` instead. A gauge keeps its own id.
+    The catchment-outlet series is stored under the ``catchment`` station. A
+    reader sees ``"catchment outlet"`` instead. A gauge keeps its own id.
     """
     text = str(station)
     return _STATION_NAMES.get(text, text)
 
 
-__all__ = ["AXIS_LABELS", "CATCHMENT_OUTLET_STATION", "axis_label", "station_label"]
+__all__ = ["AXIS_LABELS", "axis_label", "station_label"]

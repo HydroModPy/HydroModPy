@@ -23,7 +23,7 @@ NOT_APPLICABLE = {
 def _best_values(session) -> dict[str, float]:
     completed = [r for r in session.history if r.status == "completed"]
     assert completed, "calibration produced no completed trials"
-    best = min(completed, key=lambda r: r.objective_value)
+    best = min(completed, key=lambda r: r.cost)
     values = best.metadata.get("values") if best.metadata else None
     assert values, "evaluator did not stash values in metadata"
     return dict(values)
@@ -42,7 +42,7 @@ def test_groundwater_1d_nelder_mead_recovers_truth() -> None:
 
     best = _best_values(session)
     truth = GROUNDWATER_1D_CASE.truth
-    assert math.isfinite(session.best.objective_value)
+    assert math.isfinite(session.best.cost)
     assert_metric_below(
         "Distance of log10 T to the truth", abs(math.log10(best["T"]) - math.log10(truth["T"])), 0.3
     )

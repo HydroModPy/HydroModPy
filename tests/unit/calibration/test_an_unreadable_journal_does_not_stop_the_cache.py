@@ -35,16 +35,16 @@ def _session(project_root: Path, name: str, params_hash: str) -> Path:
         config_hash="c" * 64,
         hydromodpy_version="2.0.0a5",
         method="grid",
-        objective_name="rmse",
-        search_space={},
-        objective_window=None,
+        cost_name="rmse",
+        bounds={},
+        windows={},
     )
     persistence.append_iteration(
         ParamSuggestion(trial_id=1, values={"K": 1.0}),
         EvaluationResult(
             trial_id=1,
             sim_id=None,
-            objective_value=0.5,
+            cost=0.5,
             status="completed",
             metadata={"params_hash": params_hash},
         ),

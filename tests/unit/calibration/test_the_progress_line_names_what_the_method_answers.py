@@ -70,7 +70,7 @@ def _two_bounds(sugg: ParamSuggestion) -> EvaluationResult:
     return EvaluationResult(
         trial_id=sugg.trial_id,
         sim_id=None,
-        objective_value=0.5 * abs(j_min) + 0.5 * abs(j_max),
+        cost=0.5 * abs(j_min) + 0.5 * abs(j_max),
         status="completed",
         components={
             "net.n_bounds_scored": 2.0,
@@ -87,7 +87,7 @@ def _one_bound(sugg: ParamSuggestion) -> EvaluationResult:
     return EvaluationResult(
         trial_id=sugg.trial_id,
         sim_id=None,
-        objective_value=abs(residual),
+        cost=abs(residual),
         status="completed",
         components={"net.J_signed": residual},
     )
@@ -142,12 +142,8 @@ def test_a_one_root_search_shows_the_bracket_around_the_root(handles) -> None:
 
 def test_a_method_without_a_label_keeps_the_lowest_cost(handles) -> None:
     reporter = ConsoleProgressReporter("grid", 2)
-    reporter.update(
-        1, EvaluationResult(trial_id=1, sim_id=None, objective_value=0.5, status="completed")
-    )
-    reporter.update(
-        2, EvaluationResult(trial_id=2, sim_id=None, objective_value=0.25, status="completed")
-    )
+    reporter.update(1, EvaluationResult(trial_id=1, sim_id=None, cost=0.5, status="completed"))
+    reporter.update(2, EvaluationResult(trial_id=2, sim_id=None, cost=0.25, status="completed"))
     reporter.close()
 
     assert handles[0].descriptions[-1] == "Calibrating (grid) - best 0.25"

@@ -417,7 +417,9 @@ def _transient_q_total_release_from_run(transient_run: Any) -> np.ndarray:
         if "No module named 'dask'" not in str(exc):
             raise
 
-    return np.asarray(transient_run.timeseries("discharge", "_catchment"), dtype=float).reshape(-1)
+    return np.asarray(
+        transient_run.timeseries("discharge", station="catchment"), dtype=float
+    ).reshape(-1)
 
 
 def _write_json(path: Path, payload: Mapping[str, Any]) -> None:

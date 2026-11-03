@@ -12,12 +12,23 @@ from __future__ import annotations
 
 import tomllib
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigValidationError
-from hydromodpy.workflow.steps.prepare_solver.dispatch import portable_config_document
+from hydromodpy.results.catalog.registration import config_identity_hash, solve_identity_hash
+from hydromodpy.results.storage.contract import RUN_SEARCH_TABLE
+from hydromodpy.workflow.steps.prepare_solver.dispatch import (
+    _search_of,
+    frozen_config_of,
+    portable_config_document,
+)
+from hydromodpy.workflow.steps.prepare_solver.resolved import (
+    config_drift,
+    resolved_config_document,
+)
 
 PROJECT = """\
 [site]
@@ -159,3 +170,31 @@ def test_a_stage_that_names_another_station_is_still_refused(tmp_path: Path) -> 
 
     with pytest.raises(ConfigValidationError, match="phases"):
         HydroModPyConfig.from_snapshot({**document, "workspace": {"project_root": str(project)}})
+
+
+def test_a_run_of_a_calibration_seals_its_own_solve(tmp_path: Path) -> None:
+    """A replay solves once. The search stays beside the run, for what redraws its criterion."""
+    project = _project(tmp_path, start="2000-01-01", end="2002-12-31")
+    cfg = HydroModPyConfig.from_toml(project / "project.toml")
+    run_dir = project / "runs" / "nancon"
+    run_dir.mkdir(parents=True)
+    ctx = SimpleNamespace(cfg=cfg, run_dir=run_dir, setup=SimpleNamespace(domain=None))
+
+    frozen = frozen_config_of(ctx)
+    path = run_dir / "config.toml"
+    path.write_text(portable_config_document(frozen, run_dir, project), encoding="utf-8")
+    (run_dir / "config.resolved.toml").write_text(
+        resolved_config_document(frozen, project, search=_search_of(cfg, run_dir, project)),
+        encoding="utf-8",
+    )
+
+    document = tomllib.loads(path.read_text(encoding="utf-8"))
+    assert "calibration" not in document
+    assert document["workflow"]["mode"] == "simulation"
+    replay = HydroModPyConfig.from_toml(path)
+    assert replay.calibration is None
+    assert solve_identity_hash(replay) == solve_identity_hash(cfg)
+    assert config_identity_hash(cfg) != solve_identity_hash(cfg), "a session compares its search"
+    assert config_drift(replay, run_dir, project_root=project) == ()
+    resolved = tomllib.loads((run_dir / "config.resolved.toml").read_text(encoding="utf-8"))
+    assert resolved[RUN_SEARCH_TABLE]["outputs"]["seepage_network"]["support"] == "network"

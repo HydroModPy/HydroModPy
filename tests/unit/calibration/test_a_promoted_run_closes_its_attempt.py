@@ -193,7 +193,7 @@ def test_the_facts_of_the_session_travel_in_the_state_of_the_run(tmp_path) -> No
             _Step("export", _seal),
         ],
     )
-    promotion = PromotionFacts(objective_name="nse", objective_value=0.4, converged=True)
+    promotion = PromotionFacts(converged=True)
 
     promote_prepared_trial(
         trial_ctx,

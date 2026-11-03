@@ -24,12 +24,12 @@ def _space() -> ParameterSpace:
 def _bowl(sugg: ParamSuggestion) -> EvaluationResult:
     x = float(sugg.values["x"])
     return EvaluationResult(
-        trial_id=sugg.trial_id, sim_id=None, objective_value=(x - 0.7) ** 2, status="completed"
+        trial_id=sugg.trial_id, sim_id=None, cost=(x - 0.7) ** 2, status="completed"
     )
 
 
 def test_unused_candidates_are_marked_in_the_journal_and_not_counted() -> None:
-    journal: list[dict] = []
+    journal: list[bool] = []
     counted: list[int] = []
 
     class _Reporter:
@@ -40,7 +40,9 @@ def test_unused_candidates_are_marked_in_the_journal_and_not_counted() -> None:
             pass
 
     def on_iteration(sugg: ParamSuggestion, result: EvaluationResult) -> None:
-        journal.append(_build_trial(1, PhaseContext(), sugg, result, "summary").metrics or {})
+        journal.append(
+            _build_trial(1, PhaseContext(), sugg, result, "summary", "case").speculative_unused
+        )
 
     engine = CalibrationEngine(
         space=_space(),
@@ -53,7 +55,7 @@ def test_unused_candidates_are_marked_in_the_journal_and_not_counted() -> None:
     )
     session = engine.run()
 
-    unused = [row for row in journal if row.get("speculative_unused") == 1.0]
+    unused = [flag for flag in journal if flag]
     assert unused, "a width of 4 speculates, so some candidates go unread"
     assert len(counted) == len(journal) - len(unused)
     assert len(session.history) == len(journal)

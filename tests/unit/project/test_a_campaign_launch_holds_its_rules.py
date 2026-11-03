@@ -22,8 +22,9 @@ from hydromodpy.project.launch import plan_project, project_status, run_plan
 from hydromodpy.project.launch.children import PlannedCase
 from hydromodpy.project.launch.local import select_cases
 from hydromodpy.results.plan_store import read_plan
-from hydromodpy.results.session.descriptor import SessionDescriptor, write_session
+from hydromodpy.results.session.descriptor import write_session
 from tests._helpers.sealed_runs import manifest_document
+from tests._helpers.session_documents import session_descriptor
 from tests.unit.project._launch_fakes import seen, write_behaviour, write_project
 
 pytestmark = pytest.mark.allow_subprocess
@@ -79,13 +80,10 @@ def _write_session(project: Path, case_id: str, config_hash: str) -> None:
     now = datetime.now(UTC)
     write_session(
         sessions_dir_for(project) / case_id,
-        SessionDescriptor(
+        session_descriptor(
+            case_id,
             session_id="s1",
-            case_id=case_id,
             config_hash=config_hash,
-            hydromodpy_version="0",
-            method="grid",
-            objective_name="nse",
             status="completed",
             started_at=now,
             ended_at=now,

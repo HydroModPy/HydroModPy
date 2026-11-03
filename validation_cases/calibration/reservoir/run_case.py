@@ -39,11 +39,11 @@ def main(argv: list[str] | None = None) -> None:
     )
     session = engine.run()
     completed = [r for r in session.history if r.status == "completed"]
-    best = min(completed, key=lambda r: r.objective_value)
+    best = min(completed, key=lambda r: r.cost)
     print(f"variant          : {args.variant}")
     print(f"optimizer        : {args.optimizer}")
     print(f"iterations       : {len(completed)}")
-    print(f"best objective   : {best.objective_value:.6e}")
+    print(f"best objective   : {best.cost:.6e}")
     print(f"best values      : {best.metadata.get('values')}")
     print(f"truth values     : {dict(case.truth)}")
     print(f"duration_s       : {session.duration_s:.2f}")

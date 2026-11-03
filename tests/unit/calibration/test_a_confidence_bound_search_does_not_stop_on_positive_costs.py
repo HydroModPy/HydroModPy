@@ -32,7 +32,7 @@ def _tell(opt, sugg) -> None:
             EvaluationResult(
                 trial_id=sugg.trial_id,
                 sim_id=None,
-                objective_value=_cost(sugg.values),
+                cost=_cost(sugg.values),
                 status="completed",
             )
         ]

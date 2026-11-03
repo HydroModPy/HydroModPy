@@ -116,18 +116,16 @@ def test_a_component_that_is_not_a_release_path_is_ignored(stack) -> None:
     assert out.sum() == pytest.approx(2.0), "storage and recharge are not paths out"
 
 
-def test_each_declared_path_carries_the_sign_of_its_convention() -> None:
-    # MODFLOW signs from the aquifer's point of view; the Boussinesq surface
-    # excess is already an outflow. One clamp for both silently dropped a half.
-    assert SURFACE_RELEASE_BUDGETS == {
-        "stream": -1.0,
-        "lake": -1.0,
-        "constant_head_stream": -1.0,
-        "surface_excess": 1.0,
+def test_every_path_out_is_declared() -> None:
+    assert set(SURFACE_RELEASE_BUDGETS) == {
+        "stream",
+        "lake",
+        "constant_head_stream",
+        "surface_excess",
     }
 
 
-def test_the_boussinesq_excess_keeps_its_own_convention(stack) -> None:
-    out = stack({"surface_excess": [3.0, 0.0, 0.0, 0.0, 0.0, 0.0]})
+def test_the_boussinesq_excess_follows_the_one_sign(stack) -> None:
+    out = stack({"surface_excess": [-3.0, 2.0, 0.0, 0.0, 0.0, 0.0]})
 
-    assert out.sum() == pytest.approx(3.0), "a positive surface excess is an outflow"
+    assert out.sum() == pytest.approx(3.0), "a negative surface excess is an outflow"

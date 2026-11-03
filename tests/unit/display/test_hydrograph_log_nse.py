@@ -22,7 +22,7 @@ from hydromodpy.display.figures.hydrograph_log_nse import (
 
 from ._render_helpers import relative_luminance
 
-STATION = "_catchment"
+STATION = "catchment"
 
 
 @pytest.fixture
@@ -101,9 +101,9 @@ def _scored(run: _Run, *, nse_log: float = 0.8123) -> _Run:
                 "variable": "discharge",
                 "metric": "nse_log",
                 "value": nse_log,
-                "nse_window_start": datetime.date(2011, 1, 2),
-                "nse_window_end": datetime.date(2011, 1, 3),
-                "nse_n": 2,
+                "window_start": datetime.date(2011, 1, 2),
+                "window_end": datetime.date(2011, 1, 3),
+                "n_samples": 2,
                 "metric_rule_version": "1",
             }
         ]
@@ -448,7 +448,6 @@ def test_the_catchment_outlet_is_named_in_the_title(mpl) -> None:
 
     try:
         assert ax.get_title().endswith("@ catchment outlet")
-        assert "_catchment" not in ax.get_title()
     finally:
         mpl.close(fig)
 

@@ -87,7 +87,7 @@ def test_two_solvers_on_one_mesh_compare_and_close_their_budgets(runs, tmp_path:
     assert head["date"] == "steady"
     assert head["n"] == 918
     assert 0.0 < head["rmse"] < 0.2
-    budget = tables["budget"].query("term == 'residual' and zone == 0")
+    budget = tables["budget"].query("term == 'residual' and zone == 'domain'")
     assert budget["m3_s"].abs().max() < 1e-6
     recharge = tables["budget"].query("term == 'recharge'")["m3_s"]
     assert recharge.iloc[0] == pytest.approx(recharge.iloc[1])

@@ -35,7 +35,12 @@ class RunNotSealedError(CatalogError, FileNotFoundError):
     code = "HMPY.E825"
 
 
+class SeveralCasesError(CatalogError):
+    """A session of several cases was asked for the one run or the one case it does not have."""
+
+
 __all__ = [
+    "SeveralCasesError",
     "CatalogError",
     "FieldNotFoundError",
     "RunNotFoundError",

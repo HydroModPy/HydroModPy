@@ -242,7 +242,7 @@ def test_promote_moves_a_kept_trial_to_runs(capsys, tmp_path) -> None:
     assert (project / "runs" / "k_low" / "manifest.json").is_file()
     assert not (project / "sessions" / "calibration" / "trials" / "0001").exists()
     line = {item.trial: item for item in read_trials(project / "sessions" / "calibration")}[1]
-    assert line.rel_dir == "runs/k_low"
+    assert line.only_case.rel_dir == "runs/k_low"
     assert "runs/k_low" in capsys.readouterr().out
 
 

@@ -49,7 +49,7 @@ class ConsoleProgressReporter:
                 self._cached += 1
             if result.status != "completed":
                 self._crashed += 1
-            obj = result.objective_value
+            obj = result.cost
             if result.status == "completed" and math.isfinite(obj) and obj < self._best:
                 self._best = obj
             description = self._description()
@@ -58,7 +58,7 @@ class ConsoleProgressReporter:
         logger.debug(
             "trial %d: objective=%.6g status=%s duration=%.2fs from_cache=%s",
             trial_id,
-            result.objective_value,
+            result.cost,
             result.status,
             result.duration_s,
             result.from_cache,

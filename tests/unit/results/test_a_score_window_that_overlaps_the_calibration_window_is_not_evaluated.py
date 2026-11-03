@@ -6,17 +6,20 @@ from datetime import date
 
 import pytest
 
-from hydromodpy.results.checks import CalibratedBy, Checks
-from hydromodpy.results.metric_rule import DateWindow
+from hydromodpy.results.checks import Checks
+from hydromodpy.results.metric_rule import DateWindow, PeriodWindow
 from hydromodpy.results.validity_rules import label_for
-from tests.unit.results._run_record_factory import WINDOW, make_checks
+from tests.unit.results._run_record_factory import (
+    WINDOW,
+    make_calibrated_by,
+    make_checks,
+)
 
 # The run is scored on 2016-01-01 to 2020-12-31 (WINDOW), 1827 samples.
 
 
 def _label(calibration: DateWindow, **overrides):
-    by = CalibratedBy(session_id="s", trial=3, session_status="completed", window=calibration)
-    checks: Checks = make_checks(calibrated_by=by, **overrides)
+    checks: Checks = make_checks(calibrated_by=make_calibrated_by(calibration), **overrides)
     return label_for(checks, hydromodpy_version="2.0.0a5", issues=())
 
 
@@ -66,3 +69,22 @@ def test_equal_windows_stay_calibrated_without_an_overlap_reason():
 
     assert result.label == "calibrated"
     assert len(result.reasons) == 1
+
+
+def test_only_the_periods_of_role_calibration_count_and_any_of_them_is_the_calibration_window():
+    by = make_calibrated_by(
+        status="completed",
+        windows={
+            "first": PeriodWindow(
+                role="calibration", start=date(2010, 1, 1), end=date(2012, 12, 31)
+            ),
+            "second": PeriodWindow(
+                role="calibration", start=date(2013, 1, 1), end=date(2015, 12, 31)
+            ),
+            "check": PeriodWindow(role="validation", start=WINDOW.start, end=WINDOW.end),
+        },
+    )
+    result = label_for(make_checks(calibrated_by=by), hydromodpy_version="2.0.0a5", issues=())
+
+    assert result.label == "evaluated"
+    assert "the calibration window 2010-01-01 to 2015-12-31" in result.reasons[1]
