@@ -12,12 +12,12 @@ description = "Nancon steady MODFLOW 6 flow followed by MODFLOW 6 PRT pathline t
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [[simulation.process]]
 id = "prt_main"
-type = "transport"
+kind = "transport"
 solvers = ["modflow6_prt"]
 
 [simulation.results]
@@ -35,9 +35,6 @@ mf_verbose = false
 [modflow6.process_specific]
 vka = 1.0
 
-[modflow6.sgrid.vertical]
-nlay = 1
-
 [transport.modflow6prt.parameters]
 release_zone = "domain_nonriver"
 upstream_top_quantile = 0.88
@@ -45,12 +42,16 @@ track_dir = "forward"
 porosity = 0.01
 local_z = 0.5
 max_particles = 300
-release_times_days = [0.0]
-track_time_step_days = 2.0
-stop_time_days = 3650.0
-stop_travel_time_days = 3650.0
+track_time_step = 2.0
+stop_time = 3650.0
+stop_travel_time = 3650.0
 extend_tracking = true
 dry_tracking_method = "drop"
 exit_solve_tolerance = 1.0e-10
 write_track_csv = true
 write_track_binary = true
+release_times = [0.0]
+
+[domain.layers]
+nlay = 1
+

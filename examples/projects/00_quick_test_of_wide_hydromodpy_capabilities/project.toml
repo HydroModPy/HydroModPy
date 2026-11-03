@@ -24,12 +24,12 @@ substeps_per_period = 30
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [[simulation.process]]
 id = "particles"
-type = "transport"
+kind = "transport"
 solvers = ["modflow6_prt"]
 
 
@@ -37,7 +37,7 @@ solvers = ["modflow6_prt"]
 crs_project = "EPSG:2154"
 
 [geographic.catchment]
-catch_def = "from_outlet_coord"
+kind = "from_outlet_coord"
 dem_init_path = "regional_dem_aber.tif"
 x_outlet = 150727.164
 y_outlet = 6858066.520
@@ -71,8 +71,6 @@ station_ids = ["00"]
 [flow]
 flow_regime = "transient"
 param_list = ["K", "Sy", "Ss"]
-active_sinks_sources = ["recharge", "wells"]
-active_bc = ["drainage"]
 # Warm the heads up on the mean recharge before the transient year starts.
 first_period_steady = true
 
@@ -92,7 +90,7 @@ unit = "m-1"
 value = 1e-5
 
 [flow.bc.drainage]
-kind = "cauchy"
+kind = "drain"
 
 # Two wells addressed by cell index [layer, row, column], monthly rates in
 # m3/day. Both sit on column 28, the column the cross-section follows.
@@ -123,16 +121,18 @@ value_column = "W2_m3_day"
 
 # Particles released over the domain, off the river cells, so the tracks show
 # which recharge feeds the seepage areas.
+
+[flow.sinks_sources.recharge]
 [transport.modflow6prt.parameters]
 release_zone = "domain_nonriver"
 porosity = 0.01
 max_particles = 300
-release_times_days = [0.0]
-track_time_step_days = 30.0
+track_time_step = 30.0
 # Long enough for the slowest particle to reach a seepage cell: stopping the
 # clock earlier piles the survivors on the last bin and tilts the
 # residence-time distribution.
-stop_time_days = 36500.0
+stop_time = 36500.0
+release_times = [0.0]
 
 
 [modflow6.runtime]
@@ -161,12 +161,12 @@ figures = [
 
 # The first period, January, is the one the two wells pump hardest in.
 [display.overrides.watertable_depth_map]
-timestep = 0
+time = 0
 overlays = ["watershed", "seepage", "particles", "wells", "outlet"]
 
 # South-to-north section through the two pumping wells, same period.
 [display.overrides.cross_section]
-timestep = 0
+time = 0
 orientation = "sn"
 through = [152687.5, 6857800.0]
 

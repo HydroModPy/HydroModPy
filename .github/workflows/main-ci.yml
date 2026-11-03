@@ -483,16 +483,34 @@ jobs:
       - name: Run Whitebox-backed fast regression (serial)
         run: python -m pytest tests/regression/fast/geographic --timeout=600 -q
 
-  package-smoke:
-    name: Package / wheel smoke py3.12
+  example-catalog:
+    name: Package / example catalog matches the tree
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      - name: Check sha256 of every file the catalog names
+        run: python tools/ci/check_example_catalog.py
+
+  package-smoke:
+    name: Package / wheel smoke py${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
           cache: pip
 
       - name: Install Linux system libraries
@@ -506,12 +524,13 @@ jobs:
 
       - name: Install wheel into fresh venv
         run: |
-          python -m venv /tmp/hmp-smoke
-          /tmp/hmp-smoke/bin/pip install --upgrade pip
-          /tmp/hmp-smoke/bin/pip install dist/*.whl
+          python -m venv "$RUNNER_TEMP/hmp-smoke"
+          "$RUNNER_TEMP/hmp-smoke/bin/pip" install --upgrade pip
+          "$RUNNER_TEMP/hmp-smoke/bin/pip" install dist/*.whl
 
       - name: Run hmp doctor from wheel install
-        run: /tmp/hmp-smoke/bin/hmp doctor --json
+        run: |
+          "$RUNNER_TEMP/hmp-smoke/bin/hmp" doctor --format json
 
   typing:
     name: Typing / mypy baseline py3.12 (advisory)

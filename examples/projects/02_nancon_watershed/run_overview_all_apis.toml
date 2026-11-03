@@ -63,7 +63,7 @@ reuse_existing_outputs = false
 # ----------------------------------------------------------------------
 
 [geographic.catchment]
-catch_def = "from_outlet_coord"
+kind = "from_outlet_coord"
 # Regional DEM used only for flow accumulation / outlet snapping. There
 # is no API alternative for this step in the current pipeline; the
 # watershed cannot be delineated without a local DEM here.

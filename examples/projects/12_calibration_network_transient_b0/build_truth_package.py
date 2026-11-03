@@ -146,7 +146,7 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 centroids, cell_area = _mesh_geometry_from_bundle(args.mesh_bundle)
             if args.transient_q_csv is None:
-                q_total_release = transient_run.timeseries("discharge", "_catchment").to_numpy(
+                q_total_release = transient_run.timeseries("discharge", "catchment").to_numpy(
                     dtype=float
                 )
                 time_index = transient_run.time_index
@@ -208,7 +208,7 @@ def _read_q_total_release_csv(path: Path) -> tuple[np.ndarray, pd.DatetimeIndex 
     if "q_total_release" in frame.columns:
         q = frame["q_total_release"].to_numpy(dtype=float)
     elif {"station_id", "variable", "value"}.issubset(frame.columns):
-        mask = (frame["station_id"].astype(str) == "_catchment") & (
+        mask = (frame["station_id"].astype(str) == "catchment") & (
             frame["variable"].astype(str) == "discharge"
         )
         frame = frame.loc[mask].copy()

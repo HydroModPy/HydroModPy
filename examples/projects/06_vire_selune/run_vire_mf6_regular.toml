@@ -25,7 +25,7 @@ y_outlet = 6923974.693
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [modflow6.runtime]
@@ -39,7 +39,7 @@ mf6_enable_rewet = false
 [mesh.regular]
 shape = [80, 80]
 
-[modflow6.sgrid.vertical]
+[domain.layers]
 genmtd_lay = "decay"
 nlay = 2
 lay_decay = 1.2

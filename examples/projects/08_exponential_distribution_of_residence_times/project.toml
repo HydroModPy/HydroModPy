@@ -19,12 +19,12 @@ description = "Synthetic 1D aquifer, steady MODFLOW 6 with PRT tracking, residen
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [[simulation.process]]
 id = "particles"
-type = "transport"
+kind = "transport"
 solvers = ["modflow6_prt"]
 
 
@@ -50,6 +50,10 @@ kind = "flat_substratum"
 substratum_elevation = "0.0 m"
 
 
+[domain.layers]
+nlay = 2
+
+
 [data]
 types = ["recharge"]
 
@@ -61,8 +65,6 @@ values = [1.0]
 [flow]
 flow_regime = "steady"
 param_list = ["K", "Sy"]
-active_sinks_sources = ["recharge"]
-active_bc = ["west_side"]
 
 # 15 m/day, the K/R = 15000 ratio of the legacy example.
 [flow.param.K.field]
@@ -83,23 +85,21 @@ value = "5.0 m"
 # One particle per active cell, released at the start and tracked to the
 # stream. The spread of their arrival times is the distribution the example
 # exists for, so the tracking has to outlive the slowest of them.
+
+[flow.sinks_sources.recharge]
 [transport.modflow6prt.parameters]
 release_zone = "domain"
 porosity = 0.1
 max_particles = 3000
-release_times_days = [0.0]
-track_time_step_days = 100.0
-stop_time_days = 200000.0
+track_time_step = 100.0
+stop_time = 200000.0
 
 
 # Two layers, not the ten of the legacy MODFLOW-NWT run: MODFLOW 6 refuses a
 # fixed head below a cell bottom, so the stream head at mid-thickness caps the
 # layer count at two. The spread of travel times comes from the distance to the
 # stream, which is what the exponential law is derived from.
-[modflow6.sgrid.vertical]
-nlay = 2
-
-
+release_times = [0.0]
 [display]
 on_error = "raise"
 figures = [

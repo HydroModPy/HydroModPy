@@ -64,7 +64,8 @@ cell_km2 = reference.grid.cell_size**2 / 1e6
 fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 6), sharex=True, constrained_layout=True)
 ax1.plot(months, q_obs, color="k", lw=1, label="gauged")
 for run, color in [(reference, "tab:blue"), (variant, "tab:red")]:
-    label = f"{run.name} (K = {run.params['K']:.0e} m/s, Sy = {run.params['Sy']})"
+    values = run.parameters["value"]
+    label = f"{run.name} (K = {values['K']:.0e} m/s, Sy = {values['Sy']})"
     ax1.plot(months, hmp.read(run, "discharge").to_numpy(), color=color, label=label)
     seepage = hmp.read(run, "seepage_mask").to_numpy() > 0
     ax2.plot(months, (seepage & in_catchment).sum(axis=1) * cell_km2, color=color)

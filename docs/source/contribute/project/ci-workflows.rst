@@ -25,7 +25,10 @@ order they matter:
 - ``Regression / fast solvers`` runs the fast regression cases with solver
   binaries installed.
 - ``Package / wheel smoke`` builds the wheel and the sdist, installs the wheel in
-  a clean environment and runs ``hmp doctor --json``.
+  a clean environment on Python 3.11, 3.12 and 3.13, and runs
+  ``hmp doctor --format json``.
+- ``Package / example catalog`` runs ``tools/ci/check_example_catalog.py``, which
+  hashes every file ``hydromodpy/examples/catalog.toml`` names.
 - ``Typing / mypy baseline`` is advisory: it does not block a merge.
 
 Other workflows
@@ -50,9 +53,14 @@ These run when their inputs change, on a schedule, or on demand.
   PETSc and the integration coverage on ``main`` and ``dev``.
 - ``Weekly / Cross Platform`` runs the supported Python versions on Linux, macOS
   and Windows, the end-to-end tier and the full regression.
-- ``Weekly install & examples (v1.0)`` tests the install and the examples of the
-  frozen v1.0 branch.
-- ``Release / PyPI`` (``publish.yml``) runs on a ``v*.*.*`` tag. See
+- ``Weekly / dependencies`` installs the direct dependencies at their lower bounds
+  and with no upper cap, and runs the tiers that read stored files.
+- ``Weekly / Install`` installs the wheel and the source tree on each Python and
+  on each OS, and runs ``hmp doctor``. Only Linux blocks.
+- ``Release / PyPI`` (``publish.yml``) runs on a ``v*.*.*`` tag. It starts with
+  a gate: the tagged commit is on ``main`` or ``dev``, its ``CI / Main Gate`` run
+  passed and the example catalog matches the tree. It tests the wheel on Python
+  3.11, 3.12 and 3.13 before it uploads. See
   :doc:`../architecture/how-to/cut-a-release`.
 
 Reproduce a failure

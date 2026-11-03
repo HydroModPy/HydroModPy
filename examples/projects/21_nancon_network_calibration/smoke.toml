@@ -36,7 +36,7 @@ dem_correc_type = "breach"
 reuse_existing_outputs = true
 
 [geographic.catchment]
-catch_def = "from_outlet_coord"
+kind = "from_outlet_coord"
 dem_init_path = "DEM_nancon_25m.tif"
 x_outlet = 389285.91
 y_outlet = 6816518.749
@@ -123,12 +123,10 @@ station_ids = ["NANCON_REA"]
 
 [flow]
 param_list = ["K", "Sy", "Ss"]
-active_sinks_sources = ["recharge"]
-active_bc = ["drainage", "sfr"]
 flow_regime = "steady"
 
 [flow.ic]
-type = "top"
+kind = "top"
 description = "Nappe initialisee a la surface topographique."
 
 [flow.param.K.field]
@@ -152,7 +150,7 @@ value = 1e-5
 # `value = 0.0` selectionne le repli proportionnel C = K * A / e. C'est
 # ce qui rend l'etage 1 valide quand les biefs sont eteints.
 [flow.bc.drainage]
-kind = "cauchy"
+kind = "drain"
 application_domain = "top"
 description = "Drainage de Cauchy sur la face superieure de l'aquifere."
 value = 0.0
@@ -218,7 +216,7 @@ coverage_policy = "warn"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 
@@ -266,7 +264,7 @@ on_error = "warn"
 
 # Sept figures du registre sont volontairement ABSENTES de cette liste,
 # parce qu'aucune valeur de TOML ne peut les rendre possibles, mesure faite :
-#   residuals, scatter_one_to_one  le simule vit sous la station `_catchment`
+#   residuals, scatter_one_to_one  le simule vit sous la station `catchment`
 #                                  et l'observe sous `NANCON` ; elles exigent
 #                                  les deux sous LE MEME nom de station.
 #   ensemble_band                  attend un RunSet, donc plusieurs runs.

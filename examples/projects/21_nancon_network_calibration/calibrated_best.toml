@@ -37,9 +37,7 @@ profile = false
 
 [workspace]
 root = "/home/bb/Documents/01_Git_Repository/03-HydroModPy-lakeres/examples" # Explicit shared data workspace root. When set, derives data_dir unless it is overridden. Result catalogs stay project-local by default.
-catalog_path = "/home/bb/Documents/01_Git_Repository/03-HydroModPy-lakeres/examples/projects/21_nancon_network_calibration/.hmp/index.duckdb" # Explicit path to the project index database. Defaults to <project_root>/.hmp/index.duckdb.
 data_dir = "/home/bb/Documents/01_Git_Repository/03-HydroModPy-lakeres/examples/data" # Explicit path to the workspace data directory. Defaults to <root>/data.
-runs_dir = "/home/bb/Documents/01_Git_Repository/03-HydroModPy-lakeres/examples/projects/21_nancon_network_calibration/runs" # Explicit path to the directory holding one sub-directory per run. Defaults to <project_root>/runs.
 
 [geographic]
 source_mode = "standard" # Geographic runtime mode. 'standard' keeps the historical DEM/outlet/polygon workflow. 'synthetic' builds one analytical support from [geographic.synthetic].
@@ -51,11 +49,11 @@ write_intermediates = false
 
 [geographic.catchment] # Catchment definition payload used when source_mode='standard'. Discriminated by 'catch_def' on the nested table: 'dem' | 'txt' | 'from_outlet_coord' | 'from_polyg_shp'.
 dem_init_path = "/home/bb/Documents/01_Git_Repository/03-HydroModPy-lakeres/examples/data/dem/DEM_nancon_25m.tif" # Path to the DEM raster used as input. For 'dem' and 'txt' modes: defines the model domain directly. For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis. May be left absent when [data.dem.sources] declares the DEM.
-catch_def = "from_outlet_coord" # Watershed delineated from outlet coordinates on a regional DEM.
+kind = "from_outlet_coord" # Watershed delineated from outlet coordinates on a regional DEM.
 x_outlet = 389285.91 # X coordinate of the watershed outlet in the projected CRS.
 y_outlet = 6816518.749 # Y coordinate of the watershed outlet in the projected CRS.
 snap_dist = 150.0 # Maximum snapping distance (metres) to move the outlet to the nearest stream cell. Accepts inline units (e.g. 50, '50 m', '0.05 km').
-buff_area = 10.0 # Buffer around the watershed polygon. Numeric values are interpreted as a percentage of sqrt(area [km^2]). String values are interpreted as explicit distances (for example '500 m', '2 km').
+buff_area = "10% of sqrt(area)" # Buffer around the watershed polygon. Numeric values are interpreted as a percentage of sqrt(area [km^2]). String values are interpreted as explicit distances (for example '500 m', '2 km').
 
 [geographic.synthetic] # Synthetic geographic support used when source_mode='synthetic'. This analytical mode bypasses watershed delineation from external DEM files.
 case_id = "flat20" # Identifier used by local case runners and outputs.
@@ -88,6 +86,11 @@ all_vertices = false
 [domain.depth_model] # Vertical domain model configuration. Use 'constant_thickness' or 'flat_substratum'.
 kind = "constant_thickness" # Depth-model kind discriminator. Use 'constant_thickness' to define bottom as top-thickness.
 thickness = 30.0 # Constant aquifer thickness applied below topography (canonical metres). Accepts inline units, e.g. '0.2 km'.
+
+[domain.layers]
+genmtd_lay = "constant" # Vertical-layering strategy.
+nlay = 1 # Number of layers (required for constant/decay, ignored for list).
+nodata = -9999.0 # No-data sentinel value.
 
 [data]
 types = ["dem", "geology", "hydrography", "hydrometry", "recharge", "runoff"] # Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_moisture', 'temperature', 'water_quality', 'wind'.
@@ -170,19 +173,7 @@ source = "custom" # Data provider: 'custom' for user CSV files, 'sim2' for SIM2 
 path = "/home/bb/Documents/01_Git_Repository/03-HydroModPy-lakeres/examples/data/runoff" # Directory containing location file and chronicle CSVs, or a single .nc/.tif file.
 
 [flow]
-runtime_backend = "local" # Optional nonlinear runtime backend hint used by the Boussinesq solver implementation. Other flow solvers may ignore this field.
-surface_interaction_model = "auto" # Optional Boussinesq surface-interaction closure selector. 'regularized_partition' uses the Marcais-style q_ex = G_r(theta) R(balance) law; 'complementarity' uses the mixed PETSc q_ex-perp-(z_top-h) formulation; 'vi_obstacle' uses the experimental PETSc head-only VI obstacle formulation; 'auto' keeps the historical backend-dependent default.
-vi_substeps_per_period = 1 # Fixed number of Backward-Euler substeps per stress period for the experimental PETSc VI obstacle runtime. Rate-based forcing values are kept unchanged on each substep.
-vi_substep_on_failure = false
-ts_vi_steps_per_period = 4 # Fixed PETSc TS Backward-Euler steps per stress period for the experimental TS VI obstacle runtime.
-ts_vi_adapt = false
-ts_vi_dt_min_fraction = 0.015625 # Minimum TS VI time-step as a fraction of the stress-period length.
-ts_vi_dt_max_fraction = 0.25 # Maximum TS VI time-step as a fraction of the stress-period length.
-ts_vi_type = "beuler" # PETSc TS type for the experimental TS VI obstacle runtime.
-ts_vi_snes_type = "vinewtonrsls" # PETSc SNES type for the experimental TS VI obstacle runtime.
 param_list = ["K", "Sy", "Ss"] # Ordered list of flow-parameter identifiers used to build runtime parameters (for example ['K', 'Ss', 'Sy']).
-active_sinks_sources = ["recharge"] # Explicitly activated sink/source names for this flow run. Allowed values: 'recharge', 'wells', 'etp'. Boussinesq currently rejects 'etp' at solver-contract validation. An empty list means no sink/source package is assembled by the solver.
-active_bc = ["drainage", "sfr"] # Explicitly activated boundary-condition ids for this flow run. Allowed values are the canonical ids declared in the flow boundary-condition registry: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage', 'lake', 'reservoir'. 'lake'/'reservoir' build a MODFLOW 6 LAK advanced package and are only supported by the modflow6 backend. An empty list means no boundary-condition package is assembled by the solver.
 flow_regime = "transient" # Global flow simulation regime used by solvers consuming [flow] (steady or transient).
 first_period_steady = true
 
@@ -206,14 +197,14 @@ value = 1e-05 # Scalar surface value used when kind='homogeneous'.
 
 [flow.ic.h] # Hydraulic-head initial condition payload.
 description = "Nappe initialisee a la surface topographique." # Description of the initial condition
-type = "top" # Initialize head at the top surface (full aquifer).
+kind = "top" # Initialize head at the top surface (full aquifer).
 
 [flow.bc.drainage]
 id = "drainage" # Boundary-condition identifier.
 value = 0.0 # Boundary-condition value, scalar or one value per stress period.
 description = "Drainage de Cauchy sur la face superieure de l'aquifere." # Boundary-condition description.
 units = "m2/s" # Boundary-condition units.
-kind = "cauchy" # Boundary-condition kind discriminator.
+kind = "drain" # Boundary-condition kind discriminator.
 data_value = false
 application_domain = "top" # Boundary-application domain. Supported values are: top, north side, south side, east side, west side.
 
@@ -256,16 +247,18 @@ negative_to_evt = true
 spatial_mode = "auto" # How to interpret spatial data: 'auto' (points->homogeneous, fields->heterogeneous), 'homogeneous' (force spatial averaging), 'heterogeneous' (force per-cell discretization, including point-to-grid interpolation when stations have coordinates).
 interpolation_method = "nearest" # Spatial interpolation method for gridded/point data onto the MODFLOW grid. Options: 'nearest', 'linear', 'idw'.
 
+[flow.runtime]
+backend = "local" # Optional nonlinear runtime backend hint used by the Boussinesq solver implementation. Other flow solvers may ignore this field.
+surface_interaction_model = "auto" # Optional Boussinesq surface-interaction closure selector. 'regularized_partition' uses the Marcais-style q_ex = G_r(theta) R(balance) law; 'complementarity' uses the mixed PETSc q_ex-perp-(z_top-h) formulation; 'vi_obstacle' uses the experimental PETSc head-only VI obstacle formulation; 'auto' keeps the historical backend-dependent default.
+vi_substeps_per_period = 1 # Fixed number of Backward-Euler substeps per stress period for the experimental PETSc VI obstacle runtime. Rate-based forcing values are kept unchanged on each substep.
+vi_substep_on_failure = false
+ts_vi_steps_per_period = 4 # Fixed PETSc TS Backward-Euler steps per stress period for the experimental TS VI obstacle runtime.
+ts_vi_adapt = false
+ts_vi_dt_min_fraction = 0.015625 # Minimum TS VI time-step as a fraction of the stress-period length.
+ts_vi_dt_max_fraction = 0.25 # Maximum TS VI time-step as a fraction of the stress-period length.
+ts_vi_type = "beuler" # PETSc TS type for the experimental TS VI obstacle runtime.
+ts_vi_snes_type = "vinewtonrsls" # PETSc SNES type for the experimental TS VI obstacle runtime.
 [transport]
-param_list = [] # Inherited generic parameter list (excluded from transport serialization).
-active_sinks_sources = [] # Ordered list of sink/source identifiers that are explicitly activated for this process. An empty list means no sink/source is active. Concrete process configs (e.g. FlowConfig) validate the allowed values.
-active_bc = [] # Ordered list of boundary-condition identifiers that are explicitly activated for this process. An empty list means no boundary-condition package is assembled. Concrete process configs (e.g. FlowConfig) validate the allowed values.
-
-[transport.param] # Inherited generic parameter map (excluded from transport serialization).
-
-[transport.bc] # Inherited boundary-condition map (excluded from transport serialization).
-
-[transport.sinks_sources] # Inherited sinks/sources map (excluded from transport serialization).
 
 [transport.modpath.parameters] # Solver parameter block used by Modpath.
 zone_partic = "domain" # Particle injection zone selector: 'domain', 'seepage_clip', or a raster path.
@@ -324,7 +317,7 @@ coverage_policy = "warn" # Behavior when recharge does not fully cover the decla
 
 [[simulation.process]]
 id = "flow_main" # User-facing identifier for the process. This id is required and must be unique within the simulation.
-type = "flow" # Discriminator selecting the 'flow' process family.
+kind = "flow" # Discriminator selecting the 'flow' process family.
 solvers = ["modflow6"] # Ordered list of active flow solver names. At least one solver is required for flow processes.
 
 [simulation.results] # Results storage and export configuration loaded from [simulation.results]. Controls Catalog, derived variables, and automated exports.
@@ -344,7 +337,7 @@ drain_conductance_floor_m2_s = 1e-12 # m2/s. Floor applied to every DRN conducta
 drain_band_depth_m = 0.0 # Metres. Depth D of the sub-cell discharge band every drain cell gets instead of a single elevation: the drain sits at top - D/2 and its conductance is multiplied by top_layer_thickness / D. The multiplier is the thickness and not the cell area because the conductance it scales is already Kv*A/b, so scaling by b/D gives Kv*A/D, which is CDRN exactly; scaling by A/D would give an m3/s where a conductance is m2/s, too high by A/b. The cell therefore starts discharging before the head reaches its mean elevation, and discharges harder the higher the head climbs into the band. This answers the one question the USGS documents about a model top, that the land inside a cell is not flat: UZF1 exposes the same depth as SURFDEP, 'the average undulation depth within a finite-difference cell', and MODFLOW 6 carries it into DRN as DDRN, with HDRN = land surface - DDRN/2 and CDRN = Kv*A/DDRN. MODFLOW 6 solves its DDRN band with a smooth (linear then cubic) curve; the option here is the piecewise equivalent of the same idea, applied identically by both MODFLOW backends, so a later switch to the native smooth form is a documented refinement and not a surprise. It does NOT move the topography: no elevation is raised, no DEM is rewritten, and every other package sees the surface it would have seen. The seepage criterion is the one reader that cannot: a banded cell discharges at top - D/2 and never climbs back to top, so the mask follows the band and the run persists D in its store for every figure drawn afterwards. It classifies no cell: every drain cell gets the same band, so nothing has to be sorted into artefact and real. Pick D the way Feinstein et al. 2020 (Groundwater 58:524-534, doi:10.1111/gwat.12931) do, from the standard deviation of the fine land-surface elevations inside a cell; they obtain 0.61 m. Mutually exclusive with solver.sink_fill, which answers the same question by removing drains instead. Default 0.0: one elevation per drain, unchanged from every earlier run.
 
 [solver.backend] # Active flow backend selector (discriminated union).
-backend = "modflow6" # Discriminator tag selecting the MODFLOW 6 flow backend.
+kind = "modflow6" # Discriminator tag selecting the MODFLOW 6 flow backend.
 
 [modflownwt.runtime.nwt] # NWT solver and executable settings.
 version = "mfnwt" # MODFLOW executable/version identifier passed to FloPy.
@@ -393,11 +386,6 @@ output_format = "unformatted" # LMT file format (typically 'formatted' or 'unfor
 vka = 1.0 # Vertical hydraulic conductivity control passed to the UPW package (VKA).
 exdp = 1.0 # Extinction depth (metres) used by the EVT package (EXDP). Accepts inline units, e.g. '1 m', '50 cm'.
 
-[modflownwt.sgrid.vertical] # Vertical layering of the solver grid.
-genmtd_lay = "constant" # Vertical-layering strategy.
-nlay = 1 # Number of layers (required for constant/decay, ignored for list).
-nodata = -9999.0 # No-data sentinel value.
-
 [modflownwt.sgrid.top_sampling] # How the runtime-mesh top is sampled from the DEM before conditioning.
 mode = "centroid" # Top-sampling strategy. 'centroid' samples the DEM at each cell generator (fast, the current behaviour, byte-identical default). 'zonal' reduces every DEM pixel inside a cell with per-class stats.
 hillslope_stat = "median" # Zonal statistic over non-channel (hillslope) pixels inside a cell.
@@ -436,11 +424,6 @@ evt_extinction_depth = 1.0 # Meters; extinction depth for the EVT sink used when
 lak_forcing_mode = "auto" # How time-varying LAK forcings are written. 'inline' expands values into the LAK PERIOD block, emitting one row per stress period whenever the value changes. 'ts6' always routes non-constant forcings to external MF6 TS6 files. 'auto' keeps constant/short forcings inline and routes only genuinely long series (nper > ts6_min_periods) to TS6.
 ts6_min_periods = 120 # Period count above which 'auto' mode offloads a non-constant LAK forcing to a TS6 file.
 
-[modflow6.sgrid.vertical] # Vertical layering of the solver grid.
-genmtd_lay = "constant" # Vertical-layering strategy.
-nlay = 1 # Number of layers (required for constant/decay, ignored for list).
-nodata = -9999.0 # No-data sentinel value.
-
 [modflow6.sgrid.top_sampling] # How the runtime-mesh top is sampled from the DEM before conditioning.
 mode = "centroid" # Top-sampling strategy. 'centroid' samples the DEM at each cell generator (fast, the current behaviour, byte-identical default). 'zonal' reduces every DEM pixel inside a cell with per-class stats.
 hillslope_stat = "median" # Zonal statistic over non-channel (hillslope) pixels inside a cell.
@@ -460,17 +443,6 @@ save = true
 dpi = 150 # DPI used when saving raster figures.
 figures = ["watershed_id_card", "mesh_map", "boundary_package_map", "depression_map", "flow_direction_map", "hydrograph_sim_obs", "hydrograph_log_nse", "hydrograph", "duration_curve", "recession", "seasonal_boxplot", "water_budget", "flux_timeseries", "sfr_reach_network", "sfr_longitudinal_profile", "sfr_reach_timeseries", "piezometric_map", "watertable_depth_map", "seepage_map", "recharge_map", "cross_section", "accumulation_map", "simulated_active_network", "simulated_active_network_reference_overlay", "seepage_network_reference_overlay", "seepage_network_confusion_map", "downslope_distance_map", "hydrographic_network_reference", "hydrographic_network_generated", "hydrographic_network_comparison", "matching_hydrographic_network_card", "bisection_bracket_trace", "downslope_distance_crossing", "parameter_cost_profile", "calibration_convergence", "calibration_trace", "calibration_posterior"] # Names of registered figures to auto-render at the end of `hmp run` (and consumed by `hmp viz gallery`). Every name must exist in the figure registry; list them with `hmp viz list`. A figure whose requirements the run does not meet is skipped with an explicit reason. Empty list disables auto-rendering. Disable per-run via `hmp run --no-display` or for an entire Python Project via `Project(..., no_display=True)`.
 on_error = "warn" # Behaviour when a figure that IS applicable fails while rendering. 'warn' logs and continues (default, keeps a long run alive); 'raise' propagates, which is what example and CI configs want so a broken figure cannot pass unnoticed.
-
-[export]
-netcdf = false
-csv_timeseries = false
-vtu = false
-geotiff = false
-shapefile = false
-package = false
-variables = ["head", "watertable_elevation", "watertable_depth", "seepage_mask"] # Field names to export. Ignored by csv_timeseries.
-time = "last" # Timestep selector for field/raster exports: 'first', 'last', 'all', a timestep index, or a list of indices. Time-series CSV always covers all steps.
-artifacts = [] # Explicit export artifacts: full control over variable, format, timestep and destination, beyond the format toggles above.
 
 [observation]
 points = [] # Observation points sampled once the run has produced its fields.

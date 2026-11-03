@@ -11,7 +11,7 @@ crs_project = "EPSG:2154"
 dem_correc_type = "breach"
 
 [geographic.catchment]
-catch_def = "from_outlet_coord"
+kind = "from_outlet_coord"
 dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
 # Default outlet coordinates point to the Selune gauging station.
 # Overlays override these with the watershed-specific outlet.

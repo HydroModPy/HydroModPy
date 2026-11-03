@@ -58,7 +58,7 @@ reuse_existing_outputs = false
 [geographic.catchment]
 # Catchment built from an outlet point. The DEM is used for flow
 # accumulation; the outlet is snapped to the nearest stream cell.
-catch_def = "from_outlet_coord"
+kind = "from_outlet_coord"
 
 # Regional DEM used for flow analysis. The bare filename is
 # auto-resolved against `<workspace>/data/dem/` (convention over
@@ -190,11 +190,9 @@ param_list = ["K", "Sy", "Ss"]
 
 # Diffuse recharge applied at the top of the aquifer. Add "etp" here
 # (plus a [data.etp] source) to also drive a MODFLOW-NWT EVT package.
-active_sinks_sources = ["recharge"]
 
 # `drainage` lets water leave the aquifer when the watertable reaches
 # the surface (Cauchy boundary on the top face).
-active_bc = ["drainage"]
 
 # Time-marching regime. `transient` is required for the monthly window.
 flow_regime = "transient"
@@ -203,7 +201,7 @@ flow_regime = "transient"
 [flow.ic]
 # Initial watertable: full aquifer (top of the substratum).
 # `top` is the safe transient warm-up start.
-type = "top"
+kind = "top"
 description = "Watertable initialised at the topographic surface."
 
 
@@ -228,7 +226,7 @@ unit = "m-1"
 value = 1e-5
 
 [flow.bc.drainage]
-kind = "cauchy"
+kind = "drain"
 application_domain = "top"
 description = "Cauchy drainage on the aquifer top face."
 value = 0.0
@@ -266,7 +264,7 @@ step_value = "1 month"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow_nwt"]
 
 

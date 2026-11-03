@@ -23,7 +23,7 @@ description = "Aquifère Dupuit synthétique minimal, régime permanent, MODFLOW
 
 [[simulation.process]]
 id = "flow"
-type = "flow"
+kind = "flow"
 solvers = ["modflow_nwt"]
 
 # --- Domaine géographique (synthétique, hors-ligne) ------------------
@@ -53,10 +53,13 @@ thickness = "20.0 m"
 
 # --- Processus d'écoulement -----------------------------------------
 
+[domain.layers]
+nlay = 1
+
+# --- Affichage (headless par défaut) --------------------------------
+
 [flow]
 flow_regime = "steady"
-active_sinks_sources = ["recharge"]
-active_bc = ["west_side", "east_side"]
 param_list = ["K"]
 
 [flow.param.K.field]
@@ -65,7 +68,7 @@ kind = "homogeneous"
 value = "1e-4 m/s"
 
 [flow.ic]
-type = "custom"
+kind = "custom"
 value = "5.0 m"
 
 [flow.bc.west_side]
@@ -90,11 +93,6 @@ source = "synthetic"
 values = [3.0]
 
 # --- Solveur (MODFLOW-NWT) ------------------------------------------
-
-[modflownwt.sgrid.vertical]
-nlay = 1
-
-# --- Affichage (headless par défaut) --------------------------------
 
 [display]
 enabled = true

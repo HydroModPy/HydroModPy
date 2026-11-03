@@ -74,7 +74,9 @@ The checklist
 7. **Regenerate the example catalog.** ``hmp example add`` fetches the files at the
    tag of the installed version and checks them against ``catalog.toml``. Run
    ``hmp dev examples manifest`` and commit the result, or every download of the
-   release fails on a checksum.
+   release fails on a checksum. Then run ``python tools/ci/check_example_catalog.py``
+   from the commit to tag. It hashes each file the catalog names, as CI and the
+   release gate do.
 8. **Check.** Run ``ruff check`` and ``ruff format --check``, the architecture gate
    and the tests of what changed, and build the docs
    (``make -C docs html-strict``). CI repeats them.

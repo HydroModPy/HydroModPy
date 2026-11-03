@@ -39,7 +39,7 @@ print(scores.filter(items=columns).sort_values("nse", ascending=False).round(3))
 # The run of project.toml. An edited project.toml writes nancon_intermittence_mf6.v2,
 # .v3...: name the version to read it.
 run = proj["nancon_intermittence_mf6"]
-print(run.name, run.params)
+print(run.name, run.parameters["value"].to_dict())
 
 # The figures of the catalog can also be drawn from Python, with the same
 # options as [display.overrides]. names() lists them all.

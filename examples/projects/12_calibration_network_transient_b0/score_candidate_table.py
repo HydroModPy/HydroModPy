@@ -171,7 +171,7 @@ def _score_from_runs_with_b0_fallback(
     steady_drain = np.asarray(steady_run.field("outflow_drain", timestep=-1), dtype=float).reshape(
         -1
     )
-    q_total_release = transient_run.timeseries("discharge", "_catchment").to_numpy(dtype=float)
+    q_total_release = transient_run.timeseries("discharge", "catchment").to_numpy(dtype=float)
     return score_network_transient_candidate(
         truth_dir,
         candidate_steady_drain_by_cell=steady_drain,

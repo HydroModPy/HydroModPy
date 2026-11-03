@@ -14,7 +14,7 @@ mode = "overview"
 crs_project = "EPSG:2154"
 
 [geographic.catchment]
-catch_def = "from_outlet_coord"
+kind = "from_outlet_coord"
 x_outlet = 389285.910
 y_outlet = 6816518.749
 snap_dist = "150 m"

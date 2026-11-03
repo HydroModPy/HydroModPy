@@ -153,7 +153,9 @@ def test_every_extra_of_pyproject_has_a_row() -> None:
     declared = data["project"]["optional-dependencies"]
     rows = C.extras()
     assert [r["extra"] for r in rows] == list(declared)
-    assert "duckdb" in next(r for r in rows if r["extra"] == "duckdb")["already_required"]
+    assert not [r["extra"] for r in rows if r["already_required"]], (
+        "an extra repeats a base dependency"
+    )
 
 
 # -- extension -----------------------------------------------------------------

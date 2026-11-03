@@ -47,7 +47,7 @@ watershed_boundary = "face"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [modflow6.runtime]
@@ -58,7 +58,7 @@ mf6_outer_maximum = 1000
 mf6_inner_maximum = 1000
 mf6_enable_rewet = false
 
-[modflow6.sgrid.vertical]
+[domain.layers]
 genmtd_lay = "decay"
 nlay = 1
 lay_decay = 1.2

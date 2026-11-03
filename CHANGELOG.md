@@ -34,6 +34,9 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Added
+- The release workflow starts with a gate: the tagged commit must be on `main` or `dev`, its main CI run must have passed, and the example catalog must match the tree. The wheel is tested on Python 3.11, 3.12 and 3.13 before the upload.
+- `tools/ci/check_example_catalog.py` hashes every file `catalog.toml` names. CI and the release procedure run it.
+- A weekly job installs the dependencies at their lower bounds and with no upper cap, then runs the stored-format tests.
 - A second stream-network twin runs what protocol 1.3 freezes: the heads rule, the map cut to the catchment and the catchment bound, on a basin with six heads, on MODFLOW-NWT, MODFLOW 6 and a Voronoi mesh. It also checks that a wrong map fails.
 - The theory page of the downslope distance has a "Measured" section: the twin, heads against crossing and D4 against D8 on the Nançon.
 - `tests/regression/frozen_runs/` keeps a run and a calibration session as 2.0.0 stored them, and the same files with a key, a column and an array that a later 2.x could add. Each commit reads both through `hmp.open`, `Run`, `Session`, `hmp.read`, `hmp.index` and `hmp catalog reindex`, and compares the values. `python -m tools.regenerate_frozen_runs` writes them.
@@ -758,6 +761,15 @@ Each release section includes the following standard categories:
   (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
+- The wheel smoke test runs on Python 3.11, 3.12 and 3.13.
+- The weekly install test checks the default branch with pip on Linux, macOS and Windows. Only Linux blocks.
+- Dependency caps follow the majors the tests passed on: `pyarrow<27`, `duckdb<3`, `optuna<6`, `plotly<8`, `Pillow<14`, `filelock<5`. `pandas` stays below 3.
+- The package declares Linux x86_64 as the supported platform. macOS and Windows are best effort.
+- The `all` extra holds every functional extra.
+- The `cma` import error names the `calibration` extra.
+- Example TOML files migrated with `hmp doctor --fix-config` (`kind`, `catchment.kind`, folded activation lists, PRT keys, `[domain.layers]`, `method_options`).
+- Example scripts use the `catchment` station and `drain_accumulation_flux`.
+- `examples/README.md` lists every project in `projects/` and who reads it.
 - A mapped head that lands on no cell now logs a warning, once per process, with what to check. Five of six heads lost put a twin a factor of 9.6 off with a balanced `J` and a valid `r_optim`, and it said nothing before.
 - The Methods paragraph of a protocol run with `storage = false` says the file left the storage stage out. It used to say that stage did not complete.
 - The scaffolded demo (`hmp workspace init`, `hmp project new`) now takes a steady recharge of 0.8 mm/day and drains it at the land surface. Before, it had no source and no sink, so its head was flat whatever K was. Your own projects are not touched: the template only writes a project that does not exist yet.
@@ -1757,6 +1769,8 @@ The old forms keep loading for two minor versions and `hmp doctor --fix-config <
 | `workspace.catalog_path`, `workspace.runs_dir` | none, the doctor deletes them |
 
 ### Removed
+- The `duckdb` extra, which repeated a base dependency, and `pynvml` from the `metrics` extra, which nothing imported.
+- Examples `03_canut_watershed`, `05_nancon_data_overview`, `07_mesh_gallery` and `20_atelier_nancon` moved out of the repository.
 - `results.derive.time_alignment.normalize_period_bounds`, replaced by `core.time.selection.in_series_window`.
 - `Project.run` (now `Project.launch`), `Project.execute` (private), `Project.best` (now `Project.best_runs`, or `Project.runs().best` for one `Run`), `Project.workflow_context` (private), `Run.params` (now `Run.parameters`).
 - The module `hydromodpy.catalog` (the entry cache is `hydromodpy.data.registry.input_cache.InputCache`).

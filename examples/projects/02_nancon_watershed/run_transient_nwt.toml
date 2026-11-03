@@ -38,7 +38,7 @@ step_value = "1 month"
 # One groundwater-flow process, solved by MODFLOW-NWT.
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow_nwt"]
 
 [geographic.river_network]

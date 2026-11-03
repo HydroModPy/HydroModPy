@@ -208,3 +208,65 @@ jobs:
             tests/regression/fast/geographic \
             tests/regression/extensive/test_run_geographic_case_regression.py \
             -q
+
+  # The two ends of the declared dependency ranges. Low bounds installs each
+  # direct dependency at its lower bound, uncapped drops every upper bound and
+  # takes the newest release. Both run the tiers that read stored files, which is
+  # where a dependency major showed up first (pandas 3 on the session read-back).
+  dependency-bounds:
+    name: Weekly / dependencies ${{ matrix.bounds }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        bounds: [low, uncapped]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.bounds == 'low' && '3.11' || '3.13' }}
+          cache: pip
+
+      - name: Install Linux system libraries
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      # Rewrites the direct dependencies of pyproject.toml into a requirements
+      # file. whitebox-workflows stays pinned in both, as in the project.
+      - name: Write the requirements of the ${{ matrix.bounds }} end
+        run: |
+          python - "${{ matrix.bounds }}" <<'PY'
+          import re
+          import sys
+          import tomllib
+
+          mode = sys.argv[1]
+          project = tomllib.load(open("pyproject.toml", "rb"))["project"]
+          extras = project["optional-dependencies"]
+          requirements = [*project["dependencies"], *extras["calibration"], *extras["test"]]
+          lines = []
+          for requirement in requirements:
+              if "==" in requirement:
+                  lines.append(requirement)
+              elif mode == "low":
+                  lines.append(re.sub(r">=\s*([^,\s]+).*", r"==\1", requirement))
+              else:
+                  lines.append(re.sub(r"\s*,?\s*<[^,]*", "", requirement))
+          open("requirements-bounds.txt", "w").write("\n".join(lines) + "\n")
+          PY
+          cat requirements-bounds.txt
+
+      - name: Install the dependencies, then the package without them
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements-bounds.txt
+          pip install --no-deps -e .
+
+      - name: Install solver binaries
+        run: python -m hydromodpy install-binaries --subset mf6 --quiet
+
+      - name: Run the stored-format tiers
+        run: |
+          python -m pytest tests/unit/core tests/unit/results tests/unit/config \
+            tests/regression/frozen_runs -n auto --dist loadgroup -q

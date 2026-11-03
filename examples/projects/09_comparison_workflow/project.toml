@@ -33,14 +33,14 @@ mode = "simulation"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [geographic]
 crs_project = "EPSG:2154"
 
 [geographic.catchment]
-catch_def = "from_outlet_coord"
+kind = "from_outlet_coord"
 dem_init_path = "DEM_armorican_massif.tif"
 snap_dist = "150 m"
 buff_area = "10%"
@@ -52,8 +52,6 @@ thickness = "30.0 m"
 [flow]
 flow_regime = "steady"
 param_list = ["K", "Sy"]
-active_sinks_sources = ["recharge"]
-active_bc = ["drainage"]
 
 [flow.param.K.field]
 kind = "homogeneous"
@@ -69,5 +67,6 @@ value = 0.05
 [flow.sinks_sources.recharge]
 values = 0.78
 
+[flow.bc.drainage]
 [display]
 figures = ["watertable_depth_map", "seepage_map", "water_budget"]

@@ -164,7 +164,7 @@ def draw_active_network(ax, run, reference):
     """
     extent = run.grid.extent
     ax.imshow(run.dem, extent=extent, origin="upper", cmap="Greys", alpha=0.5, zorder=1)
-    active = raster(run, "accumulation_flux") > 0.0
+    active = raster(run, "drain_accumulation_flux") > 0.0
     draw_mask(ax, active, extent, ACTIVE_COLOR, alpha=0.85, zorder=2)
     draw_mask(ax, raster(run, "seepage_mask") > 0.0, extent, SEEPAGE_COLOR, alpha=0.7, zorder=3)
     ax.contour(

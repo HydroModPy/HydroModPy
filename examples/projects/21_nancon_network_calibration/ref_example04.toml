@@ -98,7 +98,7 @@ dem_correc_type = "breach"
 reuse_existing_outputs = true
 
 [geographic.catchment]
-catch_def = "from_outlet_coord"
+kind = "from_outlet_coord"
 # `DEM_armorican_massif.tif` EST le `regional dem.tif` de la reference : meme
 # emprise, meme taille, meme pas de 75 m. La resolution fait partie des
 # parametres a reproduire, et elle divise le maillage par neuf.
@@ -167,12 +167,10 @@ station_ids = ["NANCON_REA"]
 
 [flow]
 param_list = ["K", "Sy", "Ss"]
-active_sinks_sources = ["recharge"]
-active_bc = ["drainage"]
 flow_regime = "steady"
 
 [flow.ic]
-type = "top"
+kind = "top"
 description = "Water table initialised at the topographic surface."
 
 # Valeurs de depart de la reference. La calibration les remplace des le
@@ -200,6 +198,9 @@ value = 1e-5
 
 # ---------------------------------------------------------------------- simulation
 
+[flow.bc.drainage]
+
+[flow.sinks_sources.recharge]
 [simulation]
 name = "nancon_ref_ex04"
 description = "Nancon - replique MF6 de example_04_calibration.py, K puis Sy par Nelder-Mead."
@@ -213,7 +214,7 @@ coverage_policy = "warn"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 
@@ -290,14 +291,14 @@ steady_max_trials = 60
 # `steady_max_trials`, ecrit ici a 60 comme le `maxfev` du calage de reference.
 # `xatol: 0.05` normalise sur six decades -> 0,05 x 6,0 = 0,30 decade de K.
 # `fatol: 0.05` : le cout est une distance en metres, non normalisee.
-[calibration.protocol.steady_engine_options]
+[calibration.protocol.steady_method_options]
 xatol = 0.30
 fatol = 0.05
 
 # `xatol: 1e-5` normalise sur les 3,699 decades de [1e-4 ; 0,5] -> 3,7e-5
 # decade de Sy, inatteignable : c'est le budget `transient_max_trials` (120 par
 # defaut) qui arrete la recherche. `fatol: 1e-5`, cout 1 - NSE_log sans dimension.
-[calibration.protocol.transient_engine_options]
+[calibration.protocol.transient_method_options]
 xatol = 3.7e-5
 fatol = 1e-5
 

@@ -29,7 +29,9 @@ K_VALUES = [1e-5, 2e-5, 5e-5, 1e-4, 2e-4]
 # the figure of the sweep is enough.
 cfg = HydroModPyConfig.from_toml(HERE / "project.toml")
 cfg.export = []
-runs = [hmp.run(cfg, name=f"nancon_k{i}", K=k, no_display=True) for i, k in enumerate(K_VALUES)]
+runs = [
+    hmp.run(cfg, name=f"nancon_k{i}", set={"K": k}, no_display=True) for i, k in enumerate(K_VALUES)
+]
 
 # %% What each run gives
 
@@ -42,12 +44,12 @@ rows = []
 for run in runs:
     seepage = hmp.read(run, "seepage_mask").to_numpy() > 0
     area = (seepage & in_catchment).sum(axis=1) * cell_km2
-    areas[run.params["K"]] = area
+    areas[run.parameters.loc["K", "value"]] = area
     # Scored at the gauge of [site], in the window of [metrics].
     scores = run.metrics.set_index("metric")["value"]
     rows.append(
         {
-            "K": run.params["K"],
+            "K": run.parameters.loc["K", "value"],
             "mean area (km²)": area.mean(),
             "min area (km²)": area.min(),
             "NSE": scores["nse"],

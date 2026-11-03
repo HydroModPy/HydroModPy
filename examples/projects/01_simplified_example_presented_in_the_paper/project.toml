@@ -18,12 +18,12 @@ description = "Canut catchment, steady MODFLOW 6, depth-decaying five-layer aqui
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [[simulation.process]]
 id = "particles"
-type = "transport"
+kind = "transport"
 solvers = ["modflow6_prt"]
 
 
@@ -31,7 +31,7 @@ solvers = ["modflow6_prt"]
 crs_project = "EPSG:2154"
 
 [geographic.catchment]
-catch_def = "from_outlet_coord"
+kind = "from_outlet_coord"
 dem_init_path = "DEM_armorican_massif.tif"
 x_outlet = 327816.965
 y_outlet = 6777886.670
@@ -46,6 +46,12 @@ threshold_area_km2 = 0.5
 [domain.depth_model]
 kind = "constant_thickness"
 thickness = "50.0 m"
+
+
+[domain.layers]
+genmtd_lay = "decay"
+nlay = 5
+lay_decay = 1.5
 
 
 [data]
@@ -64,8 +70,6 @@ values = [0.96]
 [flow]
 flow_regime = "steady"
 param_list = ["K", "Sy"]
-active_sinks_sources = ["recharge"]
-active_bc = ["drainage"]
 
 [flow.param.K.field]
 kind = "homogeneous"
@@ -75,7 +79,7 @@ value = 2e-5
 # Fractured aquifer: the weathered zone conducts, the deep bedrock does not.
 # exp(-depth / 20 m) is about half the surface value at 14 m depth.
 [flow.param.K.field_vertical_profile]
-mode = "exponential"
+kind = "exponential"
 characteristic_depth = "20.0 m"
 min_factor = 1e-3
 
@@ -85,33 +89,28 @@ unit = "-"
 value = 0.01
 
 [flow.param.Sy.field_vertical_profile]
-mode = "exponential"
+kind = "exponential"
 characteristic_depth = "20.0 m"
 min_factor = 1e-2
 
 [flow.bc.drainage]
-kind = "cauchy"
+kind = "drain"
 
 
+[flow.sinks_sources.recharge]
 [transport.modflow6prt.parameters]
 release_zone = "domain_nonriver"
 porosity = 0.01
 max_particles = 300
-release_times_days = [0.0]
-track_time_step_days = 30.0
-stop_time_days = 36500.0
+track_time_step = 30.0
+stop_time = 36500.0
+release_times = [0.0]
 
 
 [modflow6.runtime]
 mf6_ims_complexity = "MODERATE"
 
 # Five layers thickening with depth.
-[modflow6.sgrid.vertical]
-genmtd_lay = "decay"
-nlay = 5
-lay_decay = 1.5
-
-
 [display]
 on_error = "raise"
 figures = [

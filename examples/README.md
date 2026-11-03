@@ -16,7 +16,7 @@ hmp doctor               # environment diagnosis
 ## The suite
 
 Twelve examples ported from the v1 example scripts of tag `v1.0.0`, plus one
-built on public services only, all solved with **MODFLOW 6**. Each folder is
+built on public services only (13 in all), all solved with **MODFLOW 6**. Each folder is
 self-contained: a `README.md`, a `project.toml`, and the scripts the case
 needs.
 
@@ -63,7 +63,7 @@ case, `hmp run --dry-run` prints the plan, `hmp run` runs it.
 | # | Folder | Theme |
 |---|---|---|
 | 09 | [`09_comparison_workflow`](projects/09_comparison_workflow/) | one catchment, three values of K as three recipes, then `hmp report compare` on the three runs |
-| 19 | [`19_many_catchments`](projects/19_many_catchments/) | two Breton catchments on public data, a plain run and a short calibration each, then `hmp project collect` |
+| 19 | [`19_many_catchments`](projects/19_many_catchments/) | two Breton catchments on public data, a plain run and a short calibration each, then `hmp campaign collect` |
 
 ## Where a run puts its results
 
@@ -79,7 +79,7 @@ projects/<name>/
 │   ├── manifest.json         # the seal, written last, only for a completed run
 │   └── exports/              # exports asked for under [export]
 ├── sessions/<case>/          # the trials of a calibration
-├── summary/                  # the tables and figures of `hmp project collect`
+├── summary/                  # the tables and figures of `hmp campaign collect`
 └── .hmp/index.duckdb         # catalog index, rebuildable by `hmp catalog reindex`
 ```
 
@@ -114,5 +114,20 @@ and why.
 
 ## Other projects
 
-`projects/` also carries development and gallery projects that are not part of
-this suite. They follow their own conventions and are not covered here.
+`projects/` holds 27 folders in all. The 13 of the suite and the two `[sites]` projects above are the
+maintained examples. The other 12 are test fixtures and development projects that tests of the
+repository read, so they stay, but they are not part of the suite and follow their own conventions:
+
+| Folder | Read by |
+|---|---|
+| `00_getting_started`, `01_calibration` | the characterization, partial-run and replay tests |
+| `02_nancon_watershed`, `06_vire_selune`, `16_nancon_natural_calibration` | the catchment-report tests |
+| `03_groundwater_1d` | nothing, a small 1D case |
+| `04_data_overview` | the TOML loader test |
+| `08_mesh_viewer` | the mesh bundle viewer tool and its tests |
+| `12_calibration_network_transient_b0` | the B0 calibration smoke tests and its validation case |
+| `13_transport_mf6_gwt_disv_visual_guard`, `14_transport_nancon_gwt_visual_guard` | the transport signature and solver-pair tests |
+| `21_nancon_network_calibration` | the calibration replication and preflight tests |
+
+Other projects were moved out of the repository (`03_canut_watershed`, `05_nancon_data_overview`,
+`07_mesh_gallery`, `20_atelier_nancon`). They are no longer part of a checkout.

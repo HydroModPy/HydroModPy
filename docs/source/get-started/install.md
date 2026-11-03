@@ -5,6 +5,11 @@ HydroModPy needs Python 3.11, 3.12 or 3.13. The current pre-release is `2.0.0a5`
 about two minutes, and a clean environment weighs 1.3 GB: most of it is the geospatial and
 scientific wheels.
 
+Linux on x86_64 is the supported platform. macOS and Windows are best effort until their
+CI is green: the weekly jobs below run there, but a failure on them does not block a release.
+The terrain tools depend on `whitebox-workflows`, which publishes wheels for glibc 2.35 or
+newer on Linux x86_64, macOS arm64 and Windows x64 only, so an older cluster cannot install it.
+
 ## Install the package
 
 ::::{tab-set}
@@ -165,9 +170,8 @@ Add an extra between brackets: `pip install --pre "hydromodpy[ide,mesh]"`.
 - `mf6api`: `modflowapi` and `xmipy`.
 - `viz`: `datashader` and `lttb`.
 - `fair`: `pystac`, `stac-validator` and `rocrate`.
-- `metrics`: `psutil` and `pynvml`.
-- `duckdb`: DuckDB, which the base install already holds.
-- `all`: `duckdb` and `metrics`. It is not every extra.
+- `metrics`: `psutil`.
+- `all`: `calibration`, `mesh`, `mf6api`, `viz`, `fair` and `metrics`. The extras for people who work on HydroModPy itself are not in it.
 
 The extras `test`, `performance`, `profiling`, `docs` and `dev` are for people who work on
 HydroModPy itself; see {doc}`../contribute/index`. The generated list, with the packages
@@ -175,15 +179,15 @@ and the version bounds, is on {doc}`../contribute/architecture/generated/extras`
 
 ## Shell completion
 
-Optional. `hmp dev completion bash` prints a completion script for the shell, and `zsh` and
+Optional. `hmp completion bash` prints a completion script for the shell, and `zsh` and
 `fish` print one for theirs. To load it in the current bash:
 
 ```bash
-eval "$(hmp dev completion bash)"
+eval "$(hmp completion bash)"
 ```
 
 {doc}`The command reference <../reference/cli/dev>` gives where to install the script for
-bash, zsh and fish, as `hmp dev completion --help` does.
+bash, zsh and fish, as `hmp completion --help` does.
 
 ## Next
 

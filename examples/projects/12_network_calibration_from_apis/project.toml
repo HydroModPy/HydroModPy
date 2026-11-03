@@ -20,7 +20,7 @@ end_datetime = "2019-12-31"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [geographic]
@@ -28,7 +28,7 @@ crs_project = "EPSG:2154"
 
 # The gauge J001401001, Le Nancon a Lecousse. BD ALTI 25 m aggregated to 75 m.
 [geographic.catchment]
-catch_def = "from_outlet_coord"
+kind = "from_outlet_coord"
 x_outlet = 389285.910
 y_outlet = 6816518.749
 snap_dist = "150 m"
@@ -65,9 +65,7 @@ extent = "watershed"
 [flow]
 flow_regime = "steady"
 param_list = ["K", "Sy"]
-active_sinks_sources = ["recharge"]
 # Drains at the top, conductance derived from K: the criterion identifies K/R.
-active_bc = ["drainage"]
 
 [flow.param.K.field]
 kind = "homogeneous"
@@ -79,6 +77,9 @@ kind = "homogeneous"
 unit = "-"
 value = 0.05
 
+[flow.bc.drainage]
+
+[flow.sinks_sources.recharge]
 [calibration]
 seed = 42
 save_runs = "best_n"
