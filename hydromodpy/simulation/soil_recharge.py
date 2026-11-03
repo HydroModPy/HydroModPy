@@ -19,6 +19,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from pyproj import CRS, Transformer
+from shapely.geometry import box
 
 from hydromodpy.core.exceptions import ConfigError, DataContractViolation, MissingForcingError
 from hydromodpy.data.contracts import FieldRecord, LoadResult
@@ -34,9 +35,13 @@ from hydromodpy.physics.hydrology.soil_reservoir.kernel import (
 )
 
 if TYPE_CHECKING:
+    import geopandas as gpd
+
     from hydromodpy.core.time.window import ResolvedSimulationTimeWindow
 
 RU_LADDER_MM: tuple[float, ...] = (50.0, 100.0, 150.0, 200.0, 250.0)
+# On a SoilGrids capacity raster of the Nancon, 1985-2020, ten classes stay within
+# 1 mm/year of fifty on the mean recharge.
 RU_CLASSES_PER_CELL: int = 10
 
 
@@ -400,6 +405,37 @@ def _grid_steps(
     return dx, dy
 
 
+def catchment_cell_weights(
+    x: np.ndarray,
+    y: np.ndarray,
+    *,
+    bbox: tuple[float, float, float, float],
+    catchment: gpd.GeoDataFrame | None,
+    crs: str,
+) -> np.ndarray:
+    """Weight of each SAFRAN cell in the basin mean, row by row, summing to 1.
+
+    The printed budget is read against the gauge, so a cell counts by the share of
+    the catchment it holds. Without a polygon, or on a grid that misses it, the
+    cells count the same, since nothing then says which one the catchment reads.
+    """
+    equal = np.full(y.size * x.size, 1.0 / (y.size * x.size))
+    if catchment is None:
+        return equal
+    dx, dy = _grid_steps(x, y, bbox)
+    frame = catchment if catchment.crs is None else catchment.to_crs(crs)
+    outline = frame.geometry.union_all()
+    areas = np.array(
+        [
+            box(cx - dx / 2, cy - dy / 2, cx + dx / 2, cy + dy / 2).intersection(outline).area
+            for cy in y
+            for cx in x
+        ]
+    )
+    total = float(areas.sum())
+    return areas / total if total > 0.0 else equal
+
+
 def capacity_classes(
     soil_capacity: LoadResultProto,
     *,
@@ -408,6 +444,7 @@ def capacity_classes(
     crs: str,
     bbox: tuple[float, float, float, float],
     n_classes: int = RU_CLASSES_PER_CELL,
+    cell_weights: np.ndarray | None = None,
 ) -> SoilColumns:
     """Spread each SAFRAN cell into capacity classes from a soil capacity raster."""
     record = soil_capacity.fields[0]
@@ -463,7 +500,8 @@ def capacity_classes(
     cell_index_arr = np.asarray(cell_index, dtype=np.int64)
     cell_fraction_arr = np.asarray(cell_fraction, dtype=np.float64)
     class_mean_arr = np.asarray(class_mean, dtype=np.float64)
-    basin_weight_arr = cell_fraction_arr / n_cells
+    weights = np.full(n_cells, 1.0 / n_cells) if cell_weights is None else cell_weights
+    basin_weight_arr = cell_fraction_arr * weights[cell_index_arr]
     raster_mean = float(np.sum(basin_weight_arr * class_mean_arr))
     if raster_mean == 0.0:
         raise DataContractViolation(
@@ -539,6 +577,7 @@ def compute_soil_forcings(
     window: ResolvedSimulationTimeWindow,
     model_crs: str,
     soil_capacity: LoadResultProto | None = None,
+    catchment: gpd.GeoDataFrame | None = None,
 ) -> SoilForcings:
     """Run the soil reservoir over ``[simulation.time]`` and grid its outputs back."""
     days = _window_days(window)
@@ -562,6 +601,9 @@ def compute_soil_forcings(
 
     ny, nx = y_p.size, x_p.size
     n_cells = ny * nx
+    cell_weights = catchment_cell_weights(
+        x_p, y_p, bbox=precip_record.bbox, catchment=catchment, crs=model_crs
+    )
     if soil_capacity is None:
         columns = SoilColumns(
             cell_index=np.arange(n_cells),
@@ -570,11 +612,16 @@ def compute_soil_forcings(
             y=np.repeat(y_p, nx),
             ru_shape=np.ones(n_cells),
             cell_fraction=np.ones(n_cells),
-            basin_weight=np.full(n_cells, 1.0 / n_cells),
+            basin_weight=cell_weights,
         )
     else:
         columns = capacity_classes(
-            soil_capacity, x=x_p, y=y_p, crs=model_crs, bbox=precip_record.bbox
+            soil_capacity,
+            x=x_p,
+            y=y_p,
+            crs=model_crs,
+            bbox=precip_record.bbox,
+            cell_weights=cell_weights,
         )
 
     precip_columns = precip_grid[:, columns.cell_index]
@@ -887,7 +934,7 @@ def soil_budget_lines(
     else:
         lines.append(
             f'unmet ETP {unmet:.1f} mm/year, not sent to MODFLOW: add "etp" to '
-            "flow.active_sinks_sources to let a shallow water table evaporate it"
+            "[flow.sinks_sources.etp] to let a shallow water table evaporate it"
         )
 
     summer_line = _summer_line(forcings)

@@ -770,6 +770,10 @@ Each release section includes the following standard categories:
   (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
+- The soil reservoir gives each SAFRAN cell its share of the catchment in the basin mean it
+  prints, and in the mean of the capacity classes. A run without a catchment polygon, or on a
+  grid that misses it, still gives the cells the same weight. The grids handed to MODFLOW 6 do
+  not change.
 - The classifier is `Development Status :: 4 - Beta`. Install instructions no longer use `--pre` or a fixed version number.
 - The quick start enters the workspace with `cd ~/hydromodpy` before `hmp example add`.
 - `hmp config schema` no longer requires `workspace`, `workspace.project_root` or `geographic.catchment`, which the loader fills.
@@ -2009,6 +2013,16 @@ The old forms keep loading for two minor versions and `hmp doctor --fix-config <
   A run sealed before the family tables draws no reference line.
 
 ### Fixed
+- The citations of the soil reservoir are checked against the sources. The AMC I and III
+  formulas now cite NEH-630, whose table they fit, the limits of `curve_number` point to the same
+  handbook, and the default `alpha` of 0.6 says it is a choice made here.
+- The description of `curve_number` no longer says that the smoothing of SAFRAN explains a
+  calibrated number above the table, which no source supports.
+- The theory page of the soil reservoir now says that the retention of the curve number is not a
+  store, where each piece comes from, how much the capacity moves the recharge, and what the
+  bypass, the transit, the overflow and the extinction depth do to the low flows.
+- A soil run on a steady first period now names `[flow.ic] kind`, and step 6 of example 04 uses
+  the `kind` key and the `[flow.sinks_sources.etp]` table.
 - The `next:` line of the quick start matches what `hmp run` prints.
 - The "Add a solver" page no longer describes a registry check that does not exist, and documents `accepted_meshes`.
 - `--frozen` replay keeps the bytes of each input when two inputs share a role.
@@ -2182,6 +2196,9 @@ The old forms keep loading for two minor versions and `hmp doctor --fix-config <
   below MODFLOW 6.
 
 ### Numbers
+- Recharge the soil alone prints on example 04, 2015 to 2020, for a capacity of 50, 100, 150, 200
+  and 250 mm. It was 443, 392, 356, 325 and 295 mm/year and is now 450, 399, 364, 333 and 304
+  mm/year, since the cell that holds 83 % of the catchment now counts for 83 %.
 No default and no stored number moves. Nothing measured here changes a result of 1.3. Measures on example 04, default mesh, protocol 1.3, for the record:
 - `observed_rasterization = "crossing"` against the default `heads`: K +1.8 %, Sy -2.0 %, NSE +1e-4, D_optim 114.0 m against 104.1 m.
 - `diagonal_neighbors = false` against the default D8: K -12.9 %, Sy unchanged, NSE +3e-4, D_optim 100.8 m against 104.1 m, 662 mapped cells against 473.

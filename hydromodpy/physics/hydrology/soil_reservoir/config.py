@@ -71,10 +71,10 @@ class SoilReservoirConfig(HydroModelBase):
             "Available water capacity of the soil, in mm of water: "
             "what the roots can draw between field capacity and wilting point. A bare "
             'number is in mm; "120 mm" and "12 cm" also read. Between 0 and 1000 mm. '
-            "Required, since it belongs to the site. In doubt, start from 150 mm and "
+            "Required, since it belongs to the site. Start from a soil map, then "
             "compare the recharge the soil alone prints for 50 to 250 mm with the "
             "gauged discharge (hmp run <file> --until load_data). With "
-            "[data.soil_capacity], it is the mean capacity of the SAFRAN cells, and "
+            "[data.soil_capacity], it is the mean capacity over the catchment, and "
             "the raster spreads it over classes inside each cell. Calibrate it with "
             "[calibration.parameters.ru]."
         ),
@@ -88,8 +88,10 @@ class SoilReservoirConfig(HydroModelBase):
         description=(
             "Share of ru above which the soil evaporates at the full rate kc x ETP. "
             "Below alpha x ru, ETR falls linearly with the stored water. It is 1 - p "
-            "of FAO-56 and LP of HBV. Above 0, at most 1. Kept fixed by default: the "
-            "discharge alone hardly constrains it."
+            "of FAO-56 and LP of HBV. The default 0.6 is a choice: it means p = 0.40, "
+            "under FAO-56 table 22 for pasture (0.60), cereals and maize (0.55). Above "
+            "0, at most 1. Kept fixed by default: on the discharge alone it trades off "
+            "with ru, since both move the annual volume."
         ),
         json_schema_extra=field_metadata(
             calibrable=Calibrable(bounds=(0.3, 1.0), units="-"), stability="experimental"
@@ -101,8 +103,10 @@ class SoilReservoirConfig(HydroModelBase):
         le=2.0,
         description=(
             "Crop coefficient applied to the loaded ETP: the soil evaporates at most "
-            "kc x ETP a day. 1.0 takes the ETP as loaded, a reference grass. Between "
-            "0 and 2. Kept fixed by default: kc and ru move the same annual volume."
+            "kc x ETP a day. 1.0 takes the ETP as loaded, and it is neutral only if "
+            "the surface of that ETP looks like the site: check what the product "
+            "refers to. Between 0 and 2. Kept fixed by default: kc and ru move the same "
+            "annual volume."
         ),
         json_schema_extra=field_metadata(
             calibrable=Calibrable(bounds=(0.7, 1.3), units="-"), stability="experimental"
@@ -163,10 +167,11 @@ class SoilReservoirConfig(HydroModelBase):
             "SCS curve number (AMC II), dimensionless, of a HELP-style surface runoff "
             "(Schroeder et al. 1994): the unsealed share of the rain above a daily "
             "retention loses some to a fast runoff, more as the soil is wetter. None "
-            "turns the term off, bit for bit as before. Between 30 and 98; the "
-            "calibrated value tends to exceed the tabulated one, since SAFRAN rain is "
-            "smoothed over 8 km cells. Calibrate it with "
-            "[calibration.parameters.curve_number]."
+            "turns the term off, bit for bit as before. Between 30 and 98. It reads the "
+            "soil and never the water table, so it renders saturation runoff badly: "
+            "leave it off where the drains already give that runoff. To calibrate it, "
+            "state a range under [calibration.parameters.curve_number]: it belongs to "
+            "the soil group and the land use of the site."
         ),
         json_schema_extra=field_metadata(
             calibrable=Calibrable(units="-"), stability="experimental"
@@ -325,7 +330,7 @@ class SoilReservoirConfig(HydroModelBase):
         if not 30 <= value <= 98:
             raise ValueError(
                 f"curve_number = {value:g}: a SCS curve number (AMC II) is between "
-                "30 and 98 (HELP fig. 8, TR-55 table 2-2). Write a value in that "
+                "30 and 98 (NEH-630 ch. 9, pp. 9-1 and 9-3). Write a value in that "
                 "range, or remove the field to keep the term off."
             )
         return value
@@ -441,7 +446,7 @@ def steady_start_refusal(flow_config: object, window: ResolvedSimulationTimeWind
         f"({window.step_value} {window.step_unit}) as a steady state under that "
         "period's recharge alone, zero after a dry day: the run would start from a "
         "drained aquifer. Write first_period_steady = false under [flow] and add "
-        '[flow.ic] type = "steady_state", which starts the run from the steady '
+        '[flow.ic] kind = "steady_state", which starts the run from the steady '
         "state under the mean recharge of the whole run."
     )
 

@@ -2,7 +2,9 @@
 
 Each day the rain reaches the soil before it evaporates. ETR falls linearly
 below alpha x RU: alpha is 1 - p of FAO-56 (Allen et al. 1998) and LP of HBV
-(Seibert and Vis 2012). The water above RU leaves the soil; a linear reservoir
+(Seibert and Vis 2012). The default alpha = 0.6 is our choice: it means p = 0.40,
+under FAO-56 table 22 for pasture (0.60), cereals and maize (0.55). The water
+above RU leaves the soil; a linear reservoir
 of time constant ``transit_time_days``, integrated exactly over the day, can
 delay it. The sealed share of a column runs off, and so does an optional
 SCS-CN share of the unsealed rain (HELP, Schroeder et al. 1994), routed
@@ -126,10 +128,13 @@ def retention_mm(cn: float, w: np.ndarray) -> np.ndarray:
     """SCS retention ``S``, mm, at each column's soil wetness ``w`` (0 to 1).
 
     ``w = 0`` reads the dry-soil retention (AMC I), ``w = 1`` the wet-soil one
-    (AMC III), linear between the two. HELP eq. 26 ties the retention to the soil
-    water and SWAT eq. 2:1.1.6 holds the same two bounds, each on another curve:
-    the line is our choice. AMC I/III from AMC II: Chow, Maidment and Mays 1988,
-    eq. 5.5.6-5.5.7.
+    (AMC III), linear between the two. These two bounds on a line are our choice.
+    HELP eq. 26 is a line too, from its maximum halfway between wilting point and
+    field capacity down to zero at saturation. SWAT eq. 2:1.1.6-8 is a curve through
+    AMC I at wilting point, AMC III at field capacity and 2.54 mm at saturation.
+    The AMC I and III formulas fit the table of NEH-630 ch. 10 to about one curve
+    number. They fix ``S1 = 2.381 S2`` and ``S3 = 0.4348 S2``, so ``w = 0.71`` reads
+    the AMC II retention. ``S`` is no store: the balance never counts it.
     """
     cn1 = 4.2 * cn / (10.0 - 0.058 * cn)
     cn3 = 23.0 * cn / (10.0 + 0.13 * cn)

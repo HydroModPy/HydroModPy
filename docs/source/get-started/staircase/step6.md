@@ -18,7 +18,7 @@ Step 6 computes the recharge instead of reading it. A daily soil reservoir turns
 and the evapotranspiration (ETP) of the SIM2 reanalysis into a recharge that falls to
 zero in a dry summer, and MODFLOW builds the slow response of the aquifer itself. The file
 explains why: the SIM2 drainage keeps about 0.3 mm/day all summer from 31 July 2015 on, a slow
-groundwater memory that the aquifer model would then count twice. The run is daily over
+flow that the aquifer model also computes, so it may be counted twice. The run is daily over
 2015-2020. 2015 settles the soil and the aquifer, and the figures score 2016-2020.
 
 ```{image} /_static/figures/staircase/step6/flux_timeseries.webp
@@ -96,14 +96,14 @@ The check ends with this table:
 
 ```text
 mm/year                   mean   2016 least rain   2019 most rain
-precipitation            903.9             790.4           1024.8
-ETP                      698.3             640.7            729.8
-ETR                      547.4             512.0            526.0
-recharge to MODFLOW      356.4             291.1            497.8
+precipitation            911.4             797.3           1032.8
+ETP                      692.5             634.9            724.1
+ETR                      547.8             510.6            526.3
+recharge to MODFLOW      363.6             296.9            505.6
 ...
-unmet ETP 150.8 mm/year, offered to EVT: the water table gives it only where it is shallow
-recharge July-September: 0.004 mm/day
-recharge for other ru, mm/year: 50 mm 442.8 | 100 mm 392.4 | 150 mm 356.4 | 200 mm 324.8 | 250 mm 295.2
+unmet ETP 144.7 mm/year, offered to EVT: the water table gives it only where it is shallow
+recharge July-September: 0.006 mm/day
+recharge for other ru, mm/year: 50 mm 449.9 | 100 mm 399.3 | 150 mm 363.6 | 200 mm 332.5 | 250 mm 304.0
 gauged discharge NANCON: 326.5 mm/year on 2192 of 2192 days, catchment 64.62 km2
 ```
 
@@ -143,8 +143,10 @@ simulation.time.step_value
 ```
 
 `ru` is what the roots can draw, a property of the site: no value is typical. The file sets
-150 mm and notes that the recharge of 2015-2020 then matches the SIM2 drainage plus
-runoff. Its other soil parameters keep their defaults. The ETP that the soil could not
+150 mm, inside the 100 to 200 mm that the soil map of Brittany gives on schist and granite.
+The value first came from matching the SIM2 drainage plus runoff over 2015-2020, but that
+window holds the step of the SIM2 drainage, so the match proves nothing. Its other soil
+parameters keep their defaults. The ETP that the soil could not
 meet is offered to the water table, which evaporates it where it is shallow: the rate is
 full at the drain elevation and falls to zero {toml}`1 m below it|flow.sinks_sources.etp.extinction_depth`.
 

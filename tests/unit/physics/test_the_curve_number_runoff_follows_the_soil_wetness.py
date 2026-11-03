@@ -2,8 +2,8 @@
 
 ``w = soil_mm / ru_mm`` interpolates the retention between ``S(CN1)`` (dry
 soil, AMC I) and ``S(CN3)`` (full soil, AMC III). At each extreme the runoff
-is the plain SCS-CN formula with that single retention (HELP eq. 21-24,
-Chow, Maidment and Mays 1988, eq. 5.5.6-5.5.7).
+is the plain SCS-CN formula with that single retention (HELP eq. 21,
+NEH-630 eq. 10-1).
 """
 
 from __future__ import annotations
