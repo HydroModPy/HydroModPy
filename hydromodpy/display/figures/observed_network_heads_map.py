@@ -70,13 +70,13 @@ FORCED_HEAD_COLOR = "#7B1FA2"
 """Marker of a forced head: the cell below a dam, where the stream under it starts."""
 
 LANDING_COLOR = "#000000"
-"""Marker of the cell centre a kept head lands on."""
+"""Marker of the cell center a kept head lands on."""
 
 LOST_COLOR = "#CC0000"
 """Marker of a free end no landing cell was found for."""
 
 SEGMENT_COLOR = "#808080"
-"""The thin segment joining a kept head to its landing cell centre."""
+"""The thin segment joining a kept head to its landing cell center."""
 
 _MAPPED_WIDTH_PT = 0.8
 _SEGMENT_WIDTH_PT = 0.8
@@ -96,10 +96,10 @@ class ObservedNetworkHeadsMap(BaseFigure):
     figure exists to show the heads rule and not whichever one scored the run.
 
     ``output`` names the calibration output to read the other settings of
-    (the seepage threshold, the neighbour graph, the positional accuracy) when
+    (the seepage threshold, the neighbor graph, the positional accuracy) when
     the run sealed several network outputs; the first one otherwise.
     ``extent`` picks the frame: ``catchment`` crops to the delineated
-    watershed, ``mesh`` keeps the whole modelled domain.
+    watershed, ``mesh`` keeps the whole modeled domain.
     """
 
     spec = FigureSpec(

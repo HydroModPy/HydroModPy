@@ -8,7 +8,7 @@ networks agree only at a scale coarser than the one the model claims to
 resolve.
 
 A run does not judge the ratio. It bounds ``D_optim`` by its validity length
-in metres, two cells by default, which a declared positional accuracy widens
+in meters, two cells by default, which a declared positional accuracy widens
 and an output may set. This chart draws one bound on the ratio for every site,
 two by default, so a site whose run widened its validity length can sit past
 the line and still be valid in its run.
@@ -64,7 +64,7 @@ class SiteAgreement:
     """What one catchment contributes to the chart.
 
     ``transmissivity`` is the calibrated value in m2/s, ``d_optim`` the
-    downslope distance at the calibrated point in metres, and ``r_optim`` that
+    downslope distance at the calibrated point in meters, and ``r_optim`` that
     distance in units of the reference length. A site whose calibration never
     converged carries NaN rather than a zero, which would read as a perfect
     agreement.

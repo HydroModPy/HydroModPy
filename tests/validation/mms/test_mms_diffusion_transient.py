@@ -8,8 +8,8 @@ Governing PDE on ``[0, 1]`` with Dirichlet 0/0 and initial condition
     h_t - D h_xx = 0
 
 The manufactured solution ``h(x, t) = exp(-pi^2 D t) sin(pi x)`` is an
-exact eigenfunction of the Laplacian with no forcing. The discretisation
-combines the standard second-order centred-space stencil with either
+exact eigenfunction of the Laplacian with no forcing. The discretization
+combines the standard second-order centered-space stencil with either
 backward Euler (first-order in time) or Crank-Nicolson (second-order in
 time) for the temporal update. Two refinement studies are run:
 
@@ -23,9 +23,9 @@ Scope, read this before citing the result
 -----------------------------------------
 This file imports nothing from ``hydromodpy``. It verifies the *scheme* on a
 stencil assembled inside the test, which is what MMS is for: it establishes
-that the discretisation written here converges at its theoretical order. It
+that the discretization written here converges at its theoretical order. It
 does **not** exercise HydroModPy's own assembly, so a passing run here is not
-evidence that the production discretisation is second-order.
+evidence that the production discretization is second-order.
 
 What does cover the production path is the analytical tier
 (``tests/validation/analytical/``): Theis, Hantush and Ogata-Banks run a real
@@ -70,7 +70,7 @@ def _solve_diffusion_1d(
     Returns ``(x, u_final, dx, dt)`` where ``x`` contains boundary nodes and
     ``u_final`` the solution at ``t = n_steps * dt`` on the same grid.
     Backward Euler (``"be"``) is first-order in time, Crank-Nicolson
-    (``"cn"``) is second-order. The spatial stencil is centred second order
+    (``"cn"``) is second-order. The spatial stencil is centered second order
     in both cases.
     """
     if n_cells < 3:

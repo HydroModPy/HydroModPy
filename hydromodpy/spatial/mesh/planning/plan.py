@@ -69,7 +69,7 @@ def resolved_sizes(mesh_cfg: MeshConfig, request: MeshRequest) -> dict[str, floa
 
 
 def _pixel_size(grid: RasterGridSpec) -> float:
-    """The DEM pixel size in metres: the larger step, so no cell is finer than a pixel."""
+    """The DEM pixel size in meters: the larger step, so no cell is finer than a pixel."""
     return max(grid.dx, grid.dy)
 
 
@@ -96,7 +96,7 @@ def plan_mesh_request(mesh_cfg: MeshConfig, inputs: PlanningInputs) -> MeshReque
     where the mesh follows it (``catchment_outline.py``). Then the geometry is
     cleaned, for every engine (``geometry_cleanup.py``). The holes of the domain, the
     lakes and the catchment smaller than one local cell squared go: no cell
-    fits in such a hole, and its ring only seeds cells a few metres apart.
+    fits in such a hole, and its ring only seeds cells a few meters apart.
     Then close vertices merge and loose line ends are cut back and snapped, at
     a tenth of the DEM pixel. The sizes are read again on the cleaned
     geometry. A triangulation read is meshed as it is.

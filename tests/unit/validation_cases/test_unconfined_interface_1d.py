@@ -84,7 +84,7 @@ class TestCalibrate:
         assert space.dim == len(MODEL_PARAMETER_ORDER)
 
     def test_optuna_converges_near_truth(self):
-        """Optuna/TPE should locate a neighbourhood of the true parameters."""
+        """Optuna/TPE should locate a neighborhood of the true parameters."""
         pytest.importorskip("optuna")
         chronicle = build_noisy_groundwater_chronicle(_FAST_CONFIG)
         result = calibrate_groundwater(

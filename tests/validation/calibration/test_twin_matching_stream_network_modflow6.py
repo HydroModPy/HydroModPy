@@ -38,8 +38,8 @@ structured grid use the 400 square cells. The triangle column splits each of
 those squares into two triangles of the same strip (800 cells), and the Voronoi
 column puts a cell on each node of that triangulation (802 cells, two rows of
 nodes on the strip borders). On an unstructured mesh the mapped network is the
-polyline through the cell centres of the reach, in order downslope, which the
-crossing rule gives back cell for cell. The centres are the polygon centroids
+polyline through the cell centers of the reach, in order downslope, which the
+crossing rule gives back cell for cell. The centers are the polygon centroids
 of the triangles and the generator nodes of the Voronoi cells, the points the
 criterion samples the top at. The 30 m aquifer, the slope and the recharge are
 the same, so the seepage face starts near the same 357 m from the divide. The
@@ -143,7 +143,7 @@ N_CELLS = 400
 CELL_M = 2.0
 
 K_BOUNDS_M_S = (7.0e-7, 3.0e-5)
-"""0.93 decade below the truth and 0.70 above it: 1.63 decades, not centred.
+"""0.93 decade below the truth and 0.70 above it: 1.63 decades, not centered.
 At the lower bound the network covers 95 per cent of the hillslope, at the upper
 one the last three cells of the toe: an excess at one end, a deficit at the
 other, as a root search needs."""
@@ -174,7 +174,7 @@ length_y = "{cell_m} m"
 nx = {n_cells}
 ny = 1
 
-# 16 m of drop between the first and last cell centres: slope 0.02.
+# 16 m of drop between the first and last cell centers: slope 0.02.
 [geographic.synthetic.topography]
 kind = "linear"
 base_elevation = 50.0
@@ -340,7 +340,7 @@ class Truth:
 
 
 def _generator_nodes(polygons: np.ndarray, bundle_dir: Path | None) -> np.ndarray:
-    """Return the generator nodes of the bundle, the centres of its Voronoi cells.
+    """Return the generator nodes of the bundle, the centers of its Voronoi cells.
 
     Their polygon centroids are not the points the criterion samples the top at.
     """
@@ -352,19 +352,19 @@ def _generator_nodes(polygons: np.ndarray, bundle_dir: Path | None) -> np.ndarra
 
 
 def _mapped_lines(network: np.ndarray, centres: np.ndarray, *, grid: bool) -> list[Any]:
-    """The lines that draw the network, through the centres of its cells.
+    """The lines that draw the network, through the centers of its cells.
 
     On a grid, one line per contiguous run of network cells along a row. Each
-    line joins the first and last cell centres of its run. It runs along the
-    centre segments inside the run and crosses the half medians of the row
-    border only at those centres, so the crossing rule marks exactly the cells
+    line joins the first and last cell centers of its run. It runs along the
+    center segments inside the run and crosses the half medians of the row
+    border only at those centers, so the crossing rule marks exactly the cells
     of the run. A run of one cell gets a segment a quarter of a cell on each
-    side of its centre, which crosses its half medians at the centre.
+    side of its center, which crosses its half medians at the center.
 
     On a triangulation or a Voronoi mesh the cells of the reach, taken in order
     downslope, form one path in which each cell shares an edge with the next
     one, or meets it at a corner of four network cells. One line joins all the
-    centres. It crosses the face graph at those centres and along the segments
+    centers. It crosses the face graph at those centers and along the segments
     that join them, where it keeps the cells it joins.
     """
     from shapely.geometry import LineString
@@ -401,7 +401,7 @@ def _project_as_the_criterion_does(
     The output is the validated config model, the file is read by the
     resolver, and the mask comes from ``observed_network_mask`` under its
     default rule, the crossing one. The run context only lends the declared
-    CRS; the centres are the ones the cell mask samples the top at.
+    CRS; the centers are the ones the cell mask samples the top at.
     """
     from types import SimpleNamespace
 
@@ -540,7 +540,7 @@ def report(solver: str, truth: Truth) -> Any:
 def test_the_mapped_network_projects_back_onto_the_cells_it_was_written_from(
     solver: str, truth: Truth
 ) -> None:
-    """The observation must be the truth network, not a rasterised neighbour of it."""
+    """The observation must be the truth network, not a rasterized neighbor of it."""
     n_cells = truth.network.size
     n_network = int(truth.network.sum())
     # A face that starts inside the hillslope and runs to its toe: neither empty

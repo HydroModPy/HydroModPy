@@ -43,7 +43,7 @@ The names in the first row are the values read by {toml}`simulation.process.solv
 capabilities of each solver, generated from the code, are on {doc}`../reference/solvers`.
 
 ::::{dropdown} Notation of this page
-Lengths are in metres and time is in seconds: the run is written in seconds whatever the
+Lengths are in meters and time is in seconds: the run is written in seconds whatever the
 calendar of the file.
 
 ```{hmp-notation}
@@ -181,7 +181,7 @@ numerical device of HydroModPy, not a USGS practice. Every package elevation (dr
 streambeds, lake banks, barriers, the ocean), the initial heads and the run store keep the
 ground. Water above the ground stays in the aquifer up to $z'_\mathrm{top}$, with its
 specific yield, where a cell topped at the ground would turn confined; the drains at the
-ground keep that rise to a few centimetres. Two limits. A lake column keeps its ground, since a raised top would
+ground keep that rise to a few centimeters. Two limits. A lake column keeps its ground, since a raised top would
 reach into the lake, so the thickness still changes at the banks. Only the top of the top
 layer moves: a lower layer whose saturated part changes from cell to cell keeps the bias.
 Anyone who opens the native MODFLOW 6 files (flopy, ModelMuse) sees a top above the ground
@@ -193,7 +193,7 @@ store. In the code: `disv_grid_kwargs`.
 NPF receives $K$, $K_z = K/\beta$ and the convertible flag, and `K22` and the three angles when
 the flow sets them ({ref}`gwf-tensor`). With the two-point conductance
 {eq}`eq-conductance`, the flux between two cells is exact only when the line between the
-centres is perpendicular to the shared face and the conductivity is isotropic. XT3D adds
+centers is perpendicular to the shared face and the conductivity is isotropic. XT3D adds
 the missing terms {cite:p}`provost2017`. HydroModPy decides about it once per run; the
 rule and its trigger are on {doc}`solvers/xt3d-on-irregular-disv-meshes`. XT3D makes the
 matrix non-symmetric, so the IMS preset is promoted when needed
@@ -384,7 +384,7 @@ in both. Two points differ.
 sides ({toml}`modflownwt.runtime.nwt.headtol` against the two `dvclose` keys): the residual
 tests do not measure the same thing. {doc}`validation` lists the cases that run both solvers
 against the same closed-form solution, and runs both on the catchment of example 04, where
-their heads differ by less than a millimetre. Where the cell thickness changes from one
+their heads differ by less than a millimeter. Where the cell thickness changes from one
 cell to the next, the two conductances differ, and the
 {ref}`computational top <solvers-computational-top>` brings MODFLOW 6 back to
 MODFLOW-NWT: on the circular-island cases, whose top follows the ground over a flat
@@ -400,7 +400,7 @@ engine up to 400 cells and the sparse `scipy_sparse` above; a dense engine asked
 stops on a larger mesh. {toml}`flow.runtime.surface_interaction_model` picks the closure for the
 water that reaches the surface. It builds recharge, wells, the side, stream and ocean
 imposed heads, and top drainage, and refuses the rest. Its flux between two cells uses the
-two cell centres only: on triangles far from equilateral it is not consistent, and the
+two cell centers only: on triangles far from equilateral it is not consistent, and the
 patch test of {doc}`validation` shows the error that refinement does not remove. Its
 equations and closures are on {doc}`boussinesq`.
 
@@ -458,7 +458,7 @@ an MT3DMS process is planned after it. The file name is
 ## Assumptions
 
 - Flow is saturated, in one phase, and the head is the only unknown. Water above the water
-  table is not modelled: the code writes no UZF package, and the soil reservoir of
+  table is not modeled: the code writes no UZF package, and the soil reservoir of
   {doc}`soil-reservoir` is a separate daily model that hands a recharge to the solver.
 - Every layer is convertible: it can be confined or unconfined from one step to the next.
 - The horizontal conductivity is isotropic, unless the flow sets `K22` or the angles under

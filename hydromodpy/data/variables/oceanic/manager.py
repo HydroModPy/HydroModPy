@@ -14,7 +14,7 @@ class OceanicManager(BaseFieldManager):
     """Name of the data type, as ``[data.oceanic]`` writes it."""
 
     INTERNAL_UNIT = "m"
-    """Unit of the stored sea level: metres."""
+    """Unit of the stored sea level: meters."""
 
     SOURCES = {"shom": shom.fetch_for_config, "constant": constant.fetch}
     """Sources other than ``custom``: ``shom`` reads the nearest SHOM tide gauge,

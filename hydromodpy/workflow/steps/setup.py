@@ -177,13 +177,13 @@ def resolve_crossings_path(cfg: object, run_state: WorkflowContext) -> None:
     """Populate ``[geographic.crossings] path`` from ``[[data.crossings.sources]]`` when absent.
 
     Twin of :func:`resolve_network_map_path`, for the same reason: the notch
-    and the bed regularisation run inside the geographic step, before any data
+    and the bed regularization run inside the geographic step, before any data
     manager, so the structures they read have to be a file on disk. The notch
-    reads the embankments; the bed regularisation reads the declared weirs and
+    reads the embankments; the bed regularization reads the declared weirs and
     dams, which cut its fit even with the notch off. An explicitly declared
     ``[geographic.crossings] path`` always wins. The notch enabled with neither
     a path nor a source is refused here, where both are known; the bed
-    regularisation alone then fits without cuts.
+    regularization alone then fits without cuts.
     """
     geographic_cfg = cfg.geographic
     uses_synthetic = getattr(geographic_cfg, "uses_synthetic_geographic", None)
@@ -441,7 +441,7 @@ def run_setup(
     build_geographic_fn: Callable[..., object] = build_geographic_runtime,
     run_id: str | None = None,
 ) -> None:
-    """Initialise the structural objects shared by all later process runs.
+    """Initialize the structural objects shared by all later process runs.
 
     This function builds the stable "session context" of the simulation:
 

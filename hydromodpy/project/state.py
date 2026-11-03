@@ -2,7 +2,7 @@
 
 Encapsulates the runtime fields that previously lived directly on the
 ``Project`` instance and are assigned from :mod:`hydromodpy.project.phases`
-and :mod:`hydromodpy.project.runner`. Centralising them gives mypy/pyright a
+and :mod:`hydromodpy.project.runner`. Centralizing them gives mypy/pyright a
 typed view of the state and removes the dunder-attribute sprawl on
 ``Project`` itself.
 

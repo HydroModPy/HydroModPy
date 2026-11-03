@@ -1,7 +1,7 @@
 """Readers of a gridded or located source, shared by the forcing discretizers.
 
 The source is whatever the data managers return: an xarray dataset, a NetCDF or
-GeoTIFF file, station series. The target is always a flat list of cell centres,
+GeoTIFF file, station series. The target is always a flat list of cell centers,
 whatever the mesh engine. The ``"area"`` method also reads the cell polygons of
 the planar mesh, so each pixel weighs by the area it shares with a cell.
 """
@@ -143,7 +143,7 @@ def find_xy_dims(da: object, *, source: str = "dataset") -> tuple[str, str]:
 
 
 def _as_column(centers: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Return the x and y of ``(n, 2)`` centres as two ``(n, 1)`` columns."""
+    """Return the x and y of ``(n, 2)`` centers as two ``(n, 1)`` columns."""
     xy = np.asarray(centers, dtype=float)
     return xy[:, 0].reshape(-1, 1), xy[:, 1].reshape(-1, 1)
 
@@ -220,7 +220,7 @@ def interpolate_points_on_cells(
     *,
     idw_power: float = 2.0,
 ) -> np.ndarray:
-    """Interpolate scattered station values onto the cell centres, one value per cell.
+    """Interpolate scattered station values onto the cell centers, one value per cell.
 
     ``idw_power`` is the exponent of the IDW weights, read by ``"idw"`` only.
     """
@@ -256,11 +256,11 @@ def refuse_nodata_under_cells(
 ) -> None:
     """Refuse a grid the cells cannot read, a slice with no valid pixel, and a cell on nodata.
 
-    ``"linear"`` triangulates the pixel centres, so it refuses a grid of one
-    row or one column, where every centre sits on one line. A nodata pixel is a non-finite value. The interpolators drop such pixels,
-    so a cell that sits on one would silently take a neighbour, and a slice
+    ``"linear"`` triangulates the pixel centers, so it refuses a grid of one
+    row or one column, where every center sits on one line. A nodata pixel is a non-finite value. The interpolators drop such pixels,
+    so a cell that sits on one would silently take a neighbor, and a slice
     with no valid pixel would give zero. A cell reads the nearest pixel
-    (``"nearest"``), the vertices of the pixel triangle around its centre
+    (``"nearest"``), the vertices of the pixel triangle around its center
     (``"linear"``), its nearest pixels (``"idw"``) or the pixels it overlaps
     (``"area"``). A cell outside the reach of these rules reads its nearest
     pixel, as the interpolators do.
@@ -306,7 +306,7 @@ def _pixels_read(
 ) -> sparse.csr_array:
     """Pixels each cell reads, ``(n_cells, n_pixels)``, pixels laid out ``(y, x)``.
 
-    ``source_x`` and ``source_y`` are the 1-D pixel centres of the grid, as a
+    ``source_x`` and ``source_y`` are the 1-D pixel centers of the grid, as a
     GeoTIFF or the dimension coordinates of a dataset give them.
     """
     from scipy.spatial import cKDTree

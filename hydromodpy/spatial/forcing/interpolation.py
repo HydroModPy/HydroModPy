@@ -3,7 +3,7 @@
 Provides nearest-neighbor, linear, and inverse-distance-weighting (IDW)
 interpolation from scattered or gridded source data onto 2-D target
 cell-center arrays. The ``"area"`` method needs cell polygons, which a
-target of centres does not carry: it lives in
+target of centers does not carry: it lives in
 :mod:`hydromodpy.spatial.forcing` and is refused here.
 """
 
@@ -199,7 +199,7 @@ def _shared_nearest_plan(
 
 
 def _refuse_area(method: InterpolationMethod) -> None:
-    """Refuse ``"area"``, which needs cell polygons a centre grid does not carry."""
+    """Refuse ``"area"``, which needs cell polygons a center grid does not carry."""
     if method == "area":
         raise ValueError(
             "interpolation_method 'area' needs the cell polygons; pass the planar mesh of "

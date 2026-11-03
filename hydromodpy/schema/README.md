@@ -32,7 +32,7 @@ rules, how a job directory is written, and where to add what.
 | `provenance.py`, `outcome.py` | how the job ran, with no instant and no host name; the typed status, which refuses to contradict its exit code |
 | `seal.py`, `reuse.py` | `seal_job` and `verify_job`; what a sealed directory is answered with when the same job comes again |
 | `worker.py` | the loop every capability worker runs around its own work: reuse or refuse a sealed directory, resolve, execute, write a failed or dismissed outcome; `seal_successful` writes and seals a success |
-| `chain.py` | running several capabilities in a row, each filling its inputs from the artefacts of an earlier one; it knows no capability |
+| `chain.py` | running several capabilities in a row, each filling its inputs from the artifacts of an earlier one; it knows no capability |
 | `documents.py`, `digest.py` | atomic document writes, the two digests |
 
 ## Import rules
@@ -92,7 +92,7 @@ logic; no `hmp` verb starts one.
 The caller creates the directory and writes `request.json`. The process then
 writes, in this order: `outputs/`, `inputset.json`, `provenance.json`,
 `outcome.json` and `manifest.json`. `logs/` and `progress.ndjson` are not
-artefacts and are not in the seal. The invariant that the order buys:
+artifacts and are not in the seal. The invariant that the order buys:
 `manifest.json` exists if and only if the job succeeded and every declared
 output is present and hashed. A caller outside the process never has to guess.
 

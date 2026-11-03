@@ -6,7 +6,7 @@ nothing of its own on disk, so its journal row carried the digest of the empty
 string, and what a run consumed was legible only from the provenance rows
 ``prepare_solver`` writes five steps later, into SQL.
 
-Declaring those input files as the step's artefacts would be a lie - they are
+Declaring those input files as the step's artifacts would be a lie - they are
 what it read, not what it produced. What it *produces* is the binding: which
 variable came from which source, over which period, from a file with which
 digest. That is a document, this module writes it, and the step declares it.

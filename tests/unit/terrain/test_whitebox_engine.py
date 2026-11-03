@@ -1,4 +1,4 @@
-"""The capped breach translates metres to the tool's units, and only for itself."""
+"""The capped breach translates meters to the tool's units, and only for itself."""
 
 from __future__ import annotations
 

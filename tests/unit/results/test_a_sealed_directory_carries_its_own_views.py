@@ -234,7 +234,7 @@ class TestARunDirectory:
             {"rel": "self", "href": STAC_ITEM_VIEW_FILENAME, "type": "application/geo+json"}
         ]
         xmin, ymin, xmax, ymax = item["bbox"]
-        # Lambert-93 metres reprojected onto the Rennes basin, in degrees.
+        # Lambert-93 meters reprojected onto the Rennes basin, in degrees.
         assert -1.4 < xmin < xmax < -1.0
         assert 48.2 < ymin < ymax < 48.6
         assert item["properties"]["proj:epsg"] == 2154

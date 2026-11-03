@@ -30,7 +30,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def _delta_to_list(delta: dict) -> list[dict]:
-    """Flatten a ``{(name, scope): (a, b)}`` delta into JSON-serialisable rows."""
+    """Flatten a ``{(name, scope): (a, b)}`` delta into JSON-serializable rows."""
     return [
         {"name": name, "scope": scope, "a": a, "b": b} for (name, scope), (a, b) in delta.items()
     ]
@@ -53,7 +53,7 @@ def _window_text(entry: dict) -> str | None:
 
 
 def _metrics_to_list(delta: dict) -> list[dict]:
-    """Flatten a ``{(metric, station, variable): (a, b)}`` delta into JSON-serialisable rows."""
+    """Flatten a ``{(metric, station, variable): (a, b)}`` delta into JSON-serializable rows."""
     return [
         {
             "name": name,

@@ -286,7 +286,7 @@ def _patch_runners(monkeypatch, calls: dict) -> None:
 def test_project_calibrate_toml_mode_routes_phases_to_staged_runner(
     monkeypatch, tmp_path: Path
 ) -> None:
-    """``Project.calibrate(config_path=...)`` honours the declared phases."""
+    """``Project.calibrate(config_path=...)`` honors the declared phases."""
     from hydromodpy.project import Project
 
     config = _write_toml(tmp_path / "staged.toml", STAGED_TOML)

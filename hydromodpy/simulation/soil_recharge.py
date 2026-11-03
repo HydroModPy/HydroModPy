@@ -66,7 +66,7 @@ class SoilColumns:
 
     cell_index: np.ndarray  # (N,) int, flat (y, x) index of its SAFRAN cell
     class_index: np.ndarray  # (N,) int, capacity class inside the cell, 0 without raster
-    x: np.ndarray  # (N,) cell centre, CRS of the run
+    x: np.ndarray  # (N,) cell center, CRS of the run
     y: np.ndarray  # (N,)
     ru_shape: np.ndarray  # (N,) class capacity / mean capacity, 1.0 without raster
     cell_fraction: np.ndarray  # (N,) share of its cell the column covers, sums to 1 per cell
@@ -372,7 +372,7 @@ def _grid_field_record(
 def _read_raster_pixels(
     record: FieldRecord, *, model_crs: str
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Valid pixel centres, reprojected to ``model_crs``, and their values."""
+    """Valid pixel centers, reprojected to ``model_crs``, and their values."""
     import rasterio
     from rasterio.transform import xy as pixel_xy
 

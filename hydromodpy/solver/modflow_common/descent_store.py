@@ -139,11 +139,11 @@ class DescentRecord:
     """D as the run stores it: per-cell arrays and the build report.
 
     ``receiver`` is -1 at an outlet (off the graph, or a seed with no lower
-    neighbour); ``surface`` is the filled copy, NaN off the graph.
+    neighbor); ``surface`` is the filled copy, NaN off the graph.
     ``constant_head`` flags the declared CHD seeds, ``raised`` the cells the
     flood raised. ``dam_foot`` holds the cell ids below the dams, possibly
     none. ``adjacency`` is ``"shared_nodes"`` or ``"shared_faces"``;
-    ``epsilon`` is the flood step in metres.
+    ``epsilon`` is the flood step in meters.
 
     ``basin`` is the basin of D at the catchment outlet (outlet included),
     with the fields of :class:`hydromodpy.core.descent.DescentBasin`. It is
@@ -178,7 +178,7 @@ class DescentRecord:
     catchment_fraction: np.ndarray | None = None
 
     def report(self) -> dict[str, int | float]:
-        """The build report as plain scalars, counts then maxima in metres."""
+        """The build report as plain scalars, counts then maxima in meters."""
         counts: dict[str, int | float] = {name: int(getattr(self, name)) for name in _REPORT_COUNTS}
         counts.update({name: float(getattr(self, name)) for name in _REPORT_MAXIMA_M})
         return counts

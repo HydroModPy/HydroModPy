@@ -32,7 +32,7 @@ Comparison:
   reference keeps 5 % of the tide, gives the decay length and the lag length
   of the Ferris method. Both are `sqrt(t0 T / (pi S)) = 11.73 m`,
 - boundary position: the sea head is posed where the model holds it, at the
-  centre of the boundary column, at the mean centroid of the boundary
+  center of the boundary column, at the mean centroid of the boundary
   triangles on the triangle strip, on the face nodes of the Voronoi dual
   (`validation_cases/shared/strip_geometry.py`).
 

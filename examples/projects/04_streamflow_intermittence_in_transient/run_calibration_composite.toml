@@ -53,7 +53,7 @@ name = "conductivity_and_storage"
 description = "K and Sy together, monthly transient, on the gauge and the October 2002 network."
 parameters = ["K", "Sy"]
 regime = "transient"
-# Shares of the cost, normalised to sum to one.
+# Shares of the cost, normalized to sum to one.
 objective_blocks = { hydrograph = 0.7, network = 0.3 }
 # Two parameters and a cost with plateaus: a global sampler, reproducible
 # with the seed above. It stops on budget only.

@@ -38,6 +38,6 @@ seeds = "triangulation"
 nlay = 1
 
 # A 2.5 m raster (160 x 12) under the 10 m columns of the structured grids: a
-# linear surface is flat past the centre of the end raster columns, 1.25 m from
+# linear surface is flat past the center of the end raster columns, 1.25 m from
 # the faces. The surface is 5.0 m, the outlet head, at the held cells: on the nodes of the east
 # face, x = 400 m.

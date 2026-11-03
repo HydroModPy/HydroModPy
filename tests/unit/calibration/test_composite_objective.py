@@ -3,7 +3,7 @@
 The new architecture ships a weighted multi-block composite objective as a
 building block users compose when writing their own ``metric_fn``. Each
 block pairs a :class:`ConfigBlockObjective` with a positive weight; weights are
-normalised to sum to 1.0. An optional ``cost_transform`` (``"identity"``,
+normalized to sum to 1.0. An optional ``cost_transform`` (``"identity"``,
 ``"log"`` or ``"inverse"``) is applied to each block total before the
 weighted sum is computed.
 """
@@ -149,7 +149,7 @@ def _make_sim(values_by_station: dict[str, np.ndarray]) -> SimulationOutput:
 
 
 # ---------------------------------------------------------------------------
-# Core behaviour
+# Core behavior
 # ---------------------------------------------------------------------------
 
 
@@ -200,7 +200,7 @@ def test_weighted_composite_reflects_weights() -> None:
     composite = CompositeObjective([(block_a, 0.8), (block_b, 0.2)])
     out = composite.evaluate(sim)
 
-    # Weights already sum to 1.0, so no re-normalisation effect.
+    # Weights already sum to 1.0, so no re-normalization effect.
     expected = 0.8 * cost_a + 0.2 * cost_b
     assert out.total == pytest.approx(expected)
 
@@ -211,7 +211,7 @@ def test_weighted_composite_reflects_weights() -> None:
 
 
 def test_unequal_weights_are_normalized_to_sum_one() -> None:
-    """Weights (3, 1) normalise to (0.75, 0.25). Result identical to (0.75, 0.25)."""
+    """Weights (3, 1) normalize to (0.75, 0.25). Result identical to (0.75, 0.25)."""
     obs_a = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
     obs_b = np.array([10.0, 11.0, 12.0, 13.0, 14.0])
 
@@ -227,7 +227,7 @@ def test_unequal_weights_are_normalized_to_sum_one() -> None:
 
     assert raw_composite.evaluate(sim).total == pytest.approx(eq_composite.evaluate(sim).total)
 
-    # Normalised weights exposed as tuple summing to 1.0.
+    # Normalized weights exposed as tuple summing to 1.0.
     norm_weights = [w for _, w in raw_composite.blocks]
     assert sum(norm_weights) == pytest.approx(1.0)
     assert norm_weights[0] == pytest.approx(0.75)

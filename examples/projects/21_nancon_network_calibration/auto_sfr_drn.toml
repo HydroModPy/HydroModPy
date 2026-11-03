@@ -190,7 +190,7 @@ streambed_k_unit = "m/s"
 
 # 1 m et non 0,1 m. MODFLOW 6 bascule un bief entre connecte et
 # deconnecte a `rtp - rbth`, pas a `rtp` : avec rbth = 0,1 m la bascule
-# se jouait sur dix centimetres et le permanent oscillait en cycle
+# se jouait sur dix centimeters et le permanent oscillait en cycle
 # binaire. A 1 m le seuil descend a 1,5 m sous le sol avec l'incision.
 streambed_thickness = "1 m"
 
@@ -301,7 +301,7 @@ bounds = [1e-7, 1e-3]
 # 0,0766 (cout 0,226). Le minimum est donc dans ]0,005 ; 0,0766[.
 #
 # Ces deux voisins deviennent les bornes. Comme ils encadrent l'optimum
-# symetriquement en log, le centre de l'espace transforme tombe exactement
+# symetriquement en log, le center de l'espace transforme tombe exactement
 # sur 0,01957, et c'est de la que `scipy_nelder_mead` demarre : le simplexe
 # initial couvre 0,119 decade au lieu de balayer deux ordres de grandeur.
 #
@@ -374,7 +374,7 @@ description = "NSE des logarithmes du debit journalier 2001, reseau route."
 # Nelder-Mead est SEQUENTIEL, contrairement a la grille qui tournait a
 # quatre en parallele. C'est pourquoi les bornes ci-dessous ont ete
 # resserrees sur ce que la grille a appris (voir [calibration.parameters.Sy]) :
-# l'adapter demarre au centre de l'espace transforme, qui tombe alors sur
+# l'adapter demarre au center de l'espace transforme, qui tombe alors sur
 # l'optimum de la grille, et le simplexe initial ne couvre plus que la
 # region utile.
 method = "scipy_nelder_mead"

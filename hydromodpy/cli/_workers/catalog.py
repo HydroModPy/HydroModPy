@@ -224,7 +224,7 @@ def point_simulations(
     """Read one variable in one precise cell, on one or several runs.
 
     ``x, y`` are coordinates in the simulation CRS and exclude ``cell``, a
-    zero-based cell index. ``layer`` and ``depth`` (metres below the local
+    zero-based cell index. ``layer`` and ``depth`` (meters below the local
     top) exclude each other. ``output`` is an optional ``.csv`` or
     ``.parquet`` path written with the table.
     """

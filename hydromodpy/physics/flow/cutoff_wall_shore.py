@@ -2,7 +2,7 @@
 
 A dam cutoff wall must lie on the lake shore, so no cell sits between the
 reservoir and the wall. The trace a user digitizes rarely does: it runs a few
-metres downstream of the footprint, or across it. :func:`snap_wall_to_shore`
+meters downstream of the footprint, or across it. :func:`snap_wall_to_shore`
 moves the part of the trace facing the lake onto the shore section it faces
 and keeps the wings beyond the banks. Pure shapely, so it binds before the mesh
 exists and the mesh refines around the snapped wall.

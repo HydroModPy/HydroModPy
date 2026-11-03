@@ -16,7 +16,7 @@ four incompatible answers to the same four questions, measured on this tree:
   ``geographic: object`` as ``centroid_long_lat``.
 - **Is a period part of the request?** Hub'Eau requires ``date_start`` and
   ``date_end`` with no default, SIM2 *looks* optional and is not, and the three
-  hydrography sources take no time argument at all. Two behaviours behind three
+  hydrography sources take no time argument at all. Two behaviors behind three
   signatures, which is why :data:`PeriodNeed` has two values.
 - **What comes back?** ``GeoDataFrame``, ``Path``, ``list[Path]``,
   ``list[PointRecord]``, ``list[FieldRecord]``.
@@ -41,7 +41,7 @@ chain.
 The conversion densifies the edges rather than transforming four corners,
 because a projected bounding box is not the image of its own corners. Measured
 here on EPSG:4326 to EPSG:2154: over a basin-sized 1 degree square the two
-agree to the metre, but over the French mainland envelope
+agree to the meter, but over the French mainland envelope
 ``(-5, 41, 10, 51.5)`` a four-corner transform puts the southern edge
 **26 163 m** too far north -- the conic parallels curve between the corners --
 and a request built that way comes back short of what was asked for.
@@ -120,7 +120,7 @@ Two values and not three, and the third is the one worth explaining. The SIM2
 family *looks* like it takes an optional window -- ``fetch_sim2(variable, *,
 bbox=None, project_period=None)`` serves all nine variables -- but its own
 guard raises ``SIM2 source requires project_period`` the moment it is left
-out. The default is a signature, not a behaviour, and no source of this
+out. The default is a signature, not a behavior, and no source of this
 tree treats a period as genuinely optional. A value nothing can declare is
 decoration, so ``optional`` is not offered until a provider serves it.
 """
@@ -322,7 +322,7 @@ class FetchResult:
 
     ``extent`` is the extent that was really queried, in the CRS it was really
     queried in -- not the one the caller passed. It is what lets a caller see
-    that its WGS84 box reached IGN as Lambert-93 metres.
+    that its WGS84 box reached IGN as Lambert-93 meters.
     """
 
     source_id: str
@@ -417,7 +417,7 @@ class DataSource(Protocol):
     what settled it. A Hub'Eau piezometry class can serve two products; an
     instance built with ``product="level"`` serves one. Declared on the class,
     the set would have been the union, and
-    :func:`require_declared_variables` would have accepted a depth-labelled
+    :func:`require_declared_variables` would have accepted a depth-labeled
     record from a level source while the result it returned still said
     ``("groundwater_level",)``. Declared on the instance, the check is exactly
     as tight as the claim.

@@ -79,7 +79,7 @@ def aquifer_extent(
 def mesh_cell_m(run_ctx: RunContext, geometry: NetworkGeometry) -> float:
     """Return the size of one cell of the mesh a trial's network criterion scored.
 
-    It is ``h_obs``, the median distance between neighbouring cell centres over
+    It is ``h_obs``, the median distance between neighboring cell centers over
     the mapped cells of the catchment, the same length ``r_optim`` is divided
     by. The width of an interval and the validity ratio then read one scale,
     measured where the distances start. On a regular grid it is the cell size.
@@ -195,7 +195,7 @@ def network_maps_from_run(run_ctx: RunContext, output: CalibOutputNetwork) -> Ne
         )
     planar_mesh = solver_mesh.planar_mesh
     connectivity = dense_face_connectivity(planar_mesh)
-    # The centres MODFLOW 6 itself sees: on a Voronoi grid these are the
+    # The centers MODFLOW 6 itself sees: on a Voronoi grid these are the
     # generator seeds written to the DISV file, which is where the mesh
     # sampled the top the criterion routes on. The crossing rule joins them.
     centres = np.asarray(solver_mesh.cell_centers(), dtype=float)
@@ -316,7 +316,7 @@ def network_maps_from_run(run_ctx: RunContext, output: CalibOutputNetwork) -> Ne
 
 
 def heads_settings(output: CalibOutputNetwork) -> HeadsSettings:
-    """Return where a head of this output may land, in metres and square metres."""
+    """Return where a head of this output may land, in meters and square meters."""
     return HeadsSettings(
         snap_radius_m=float(_length_in_m(output.heads_snap_radius)),
         min_drained_area_m2=float(output.heads_min_drained_area_km2) * 1.0e6,
@@ -392,7 +392,7 @@ def dam_foot_cells_of_model(model: Any) -> np.ndarray:
 
 
 def _length_in_m(value: Any) -> float:
-    """Return a length field in metres, a pint quantity or a bare number."""
+    """Return a length field in meters, a pint quantity or a bare number."""
     magnitude = getattr(value, "to", None)
     if callable(magnitude):
         return float(value.to("m").magnitude)
@@ -400,7 +400,7 @@ def _length_in_m(value: Any) -> float:
 
 
 def _accuracy_in_m(output: CalibOutputNetwork) -> float | None:
-    """Return the declared positional accuracy in metres, or None."""
+    """Return the declared positional accuracy in meters, or None."""
     accuracy = getattr(output, "observed_position_accuracy", None)
     return None if accuracy is None else _length_in_m(accuracy)
 

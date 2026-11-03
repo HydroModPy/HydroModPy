@@ -114,7 +114,7 @@ a doubtful identity.
 What survives a rebuild
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-The rule is stated once, in :doc:`storage-layout`, and summarised here. The
+The rule is stated once, in :doc:`storage-layout`, and summarized here. The
 authoritative description is the module docstring of
 ``hydromodpy/results/catalog/indexer.py``, which is the code that performs the
 rebuild.
@@ -125,7 +125,7 @@ rebuild.
 
    * - Class
      - Content
-     - Rebuild behaviour
+     - Rebuild behavior
    * - Reconstructible
      - Run identity and geometry, catchment metadata, parameters, metrics,
        input provenance, run environment, geographic features, declared
@@ -181,7 +181,7 @@ One set of patterns governs the two databases.
 
 - **Migrations only where the file is not derived**:
   :mod:`hydromodpy.core.migrations.runner` exposes
-  ``apply_migrations(db_path, migrations_dir)``, serialised by a
+  ``apply_migrations(db_path, migrations_dir)``, serialized by a
   ``<db_path>.lock`` filelock, and the workspace cache uses it with a flat
   ``migrations/`` directory of numbered SQL files starting at
   ``0001_initial.sql``. The project index has none: it is derived, so a schema

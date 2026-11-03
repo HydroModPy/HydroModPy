@@ -56,7 +56,7 @@ x = 100.0
 y = 0.0
 observes = "H_STATION"
 
-# One cost in m3/s and one in metres: both are normalised, because a sum of
+# One cost in m3/s and one in meters: both are normalized, because a sum of
 # two units would let their magnitudes set the weighting.
 [[calibration.objective_blocks]]
 name = "q_block"

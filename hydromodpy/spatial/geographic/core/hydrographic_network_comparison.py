@@ -83,7 +83,7 @@ def compare_hydrographic_networks(
     *,
     tolerance_m: float = 50.0,
 ) -> HydrographicNetworkComparison:
-    """Compare two line networks using one tolerance buffer in metres."""
+    """Compare two line networks using one tolerance buffer in meters."""
     import numpy as np
     from shapely.ops import unary_union
 

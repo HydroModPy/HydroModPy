@@ -27,7 +27,7 @@ transport).
 
 | File | Family | Role |
 |---|---|---|
-| `dem/DEM_naizin_25m.tif` | dem | 25 m DEM, a 12 km window centred on the outlet |
+| `dem/DEM_naizin_25m.tif` | dem | 25 m DEM, a 12 km window centered on the outlet |
 | `hydrography/naizin_stream_network.gpkg` | hydrography | BD Topage 2024, with its perennial / intermittent attribute |
 | synthetic recharge | recharge | drought year: 2 mm/d from November to February, 0 otherwise |
 

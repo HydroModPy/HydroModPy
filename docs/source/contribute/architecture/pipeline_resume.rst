@@ -1,9 +1,9 @@
-Pipeline resume from artefacts
+Pipeline resume from artifacts
 ==============================
 
 The simulation pipeline rebuilds its in-memory state exclusively from
-durable artefacts and the TOML config. There is no pickle layer, no
-``CheckpointStore``, and no signed-blob deserialisation. Resume relies on
+durable artifacts and the TOML config. There is no pickle layer, no
+``CheckpointStore``, and no signed-blob deserialization. Resume relies on
 three sources of truth:
 
 #. ``<run>/.hmp/checkpoints/resolved_manifest.json``: tracks the step
@@ -19,13 +19,13 @@ Invariant
 ---------
 
   *Pipeline state at step N is a pure function of the persisted
-  artefacts produced by steps 0 to N-1, plus the resolved config.*
+  artifacts produced by steps 0 to N-1, plus the resolved config.*
 
 Any step that produces durable output declares both ``artifacts(state)``
 (workspace-relative URIs) and ``rebuild_state(prior_state, workspace,
 run_id)``. The first method drives ``outputs_hash`` in the journal; the
 second one reconstructs the next ``PipelineState`` by reading those same
-artefacts (Zarr handles, Parquet tables, exports) without
+artifacts (Zarr handles, Parquet tables, exports) without
 re-running the heavy operation.
 
 Two-phase execution
@@ -35,7 +35,7 @@ Two-phase execution
 
 * **Rebuild phase** ``[0, restart_index)``: every step either gets
   re-executed (cheap, idempotent: validate, resolve, geographic, data,
-  mesh, setup) or its output state is rebuilt from artefacts
+  mesh, setup) or its output state is rebuilt from artifacts
   (``prepare_solver``, ``run_solver``, ``extract``, ``export``). The
   journal is not written during this phase.
 * **Execute phase** ``[restart_index, end)``: each step runs fully; the
@@ -52,7 +52,7 @@ drifted:
   config SHA-256 with what was written at the previous attempt. A
   mismatch raises :class:`hydromodpy.core.exceptions.ResumeError`.
 * ``ResumePlanner.compute`` checks every completed row in
-  ``steps.json``: artefacts must still exist and ``outputs_hash``
+  ``steps.json``: artifacts must still exist and ``outputs_hash``
   must match a recomputed digest. Any divergence cascade-invalidates the
   rows from the offending step onwards and the runner restarts there.
 
@@ -105,7 +105,7 @@ Surviving a process death
 -------------------------
 
 A resume exists for the deaths that run no handler: a lost machine, the
-OOM killer, a cancelled job. Nothing is flushed on the way out, so what
+OOM killer, a canceled job. Nothing is flushed on the way out, so what
 the next process can do is decided entirely by what the disk already
 holds.
 

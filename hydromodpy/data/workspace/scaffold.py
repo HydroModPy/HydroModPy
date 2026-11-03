@@ -300,7 +300,7 @@ _README_RASTER_BODY = """\
 | GeoTIFF (`.tif`/`.tiff`) | `{prefix}_custom_<name>.tif`      |
 | Esri ASCII (`.asc`)      | `{prefix}_custom_<name>.asc`      |
 
-One band, in metres. Each file should carry its CRS: GeoTIFF tags, or a `.prj`
+One band, in meters. Each file should carry its CRS: GeoTIFF tags, or a `.prj`
 sidecar for `.asc`. A file without one is read in `default_crs` of its source
 (EPSG:2154 unless set), with a warning.
 
@@ -563,7 +563,7 @@ Then run it:
 """
 
 PROJECT_GITIGNORE = """\
-# HydroModPy generated artefacts - do not edit or commit.
+# HydroModPy generated artifacts - do not edit or commit.
 # Internal runtime (index, trash, scratch, logs) lives under .hmp/.
 .hmp/
 runs/
@@ -588,7 +588,7 @@ def scaffold(root_dir: str | Path | None = None, *, with_examples: bool = True) 
         |   |   |-- geology_custom_EXAMPLE.gpkg / .shp / .geojson / .tif / .csv
         |   |-- dem/ ...
         |-- projects/
-        |   |-- README.md                 (how projects are organised)
+        |   |-- README.md                 (how projects are organized)
         |   |-- example/                  (ready-to-run synthetic demo project)
         |   |   |-- project.toml
         |   |   |-- run_demo.toml

@@ -1,5 +1,5 @@
 # MODFLOW 6 on the Voronoi dual of the same skewed triangles: one cell per mesh
-# node, centred on the node, with the two-point flux. The dual is orthogonal
+# node, centered on the node, with the two-point flux. The dual is orthogonal
 # (the face between two cells is the bisector of their nodes), so the flux of a
 # uniform gradient is exact without XT3D. The side heads sit on the face nodes.
 

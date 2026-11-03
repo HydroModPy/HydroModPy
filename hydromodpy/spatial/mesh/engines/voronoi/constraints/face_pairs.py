@@ -6,9 +6,9 @@ segment: the mirror pair. The Voronoi face between the two seeds of a pair is
 the perpendicular bisector of the pair, so it lies on the segment, and it runs
 from vertex to vertex when no other seed lies inside the circle of either
 vertex (Berge's definition 2). Every function here works on arrays in the local
-frame of the mesh, in metres.
+frame of the mesh, in meters.
 
-The face graph holds one vertex per millimetre key and the oriented segments of
+The face graph holds one vertex per millimeter key and the oriented segments of
 every face line. A segment gets the pair of its two circles, a free line end a
 tip seed, and the seeds of each sector are kept, shared or merged.
 """
@@ -48,7 +48,7 @@ __all__ = [
 
 
 def build_face_graph(state: ConstraintState, face_lines: list[CanonicalLine]) -> None:
-    """Vertices (one per millimetre key) and oriented segments of every face line."""
+    """Vertices (one per millimeter key) and oriented segments of every face line."""
     if not face_lines:
         state.segment_seeds = np.empty((0, 2), dtype=np.int64)
         return
@@ -410,7 +410,7 @@ def enforce_eq1(
     Returns the radii and a mask of the vertices whose radius was lowered. The
     lower bound ``d_ij <= R_i + R_j`` holds from the start (each radius is at
     least ``RADIUS_SHARE`` of every incident segment) and stays true: a radius
-    only drops to its neighbour's radius plus the segment length.
+    only drops to its neighbor's radius plus the segment length.
     """
     current = np.array(radius, dtype=float)
     a, b = segment_nodes[:, 0], segment_nodes[:, 1]

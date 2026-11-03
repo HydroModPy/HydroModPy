@@ -24,8 +24,8 @@ ny = 3
 
 [geographic.synthetic.topography]
 kind = "linear"
-# The surface takes its east value at the centre of the last column (x = 395 m):
-# 5 + 0.0125 * (400 - x) is 5.0625 m there and 9.9375 m at the centre of the first.
+# The surface takes its east value at the center of the last column (x = 395 m):
+# 5 + 0.0125 * (400 - x) is 5.0625 m there and 9.9375 m at the center of the first.
 base_elevation = 5.0625
 right_to_left_amplitude = 4.875
 
@@ -53,7 +53,7 @@ value = "5.0625 m"
 
 [flow.bc.east_side]
 kind = "dirichlet"
-# The surface at the centre of the last column, where the model holds the head.
+# The surface at the center of the last column, where the model holds the head.
 value = "5.0625 m"
 
 [flow.bc.drainage]

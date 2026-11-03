@@ -16,7 +16,7 @@ one the calibration report builds, keeps what it carries.
 The interval is the calibration's own rule, restated here because ``display``
 may not import ``calibration`` (``optim.cost_margin``): the ``cost_margin`` written in
 ``[calibration.uncertainty]``, else one mesh cell on a search scored only on
-network distances in metres, else five per cent of the best cost. It is the
+network distances in meters, else five per cent of the best cost. It is the
 range of the sampled values whose cost stays within that width of the lowest
 cost. A value combined from two roots has none: its width is the spread of
 the roots, ``Delta``, and the calibration reports no interval of trials.
@@ -47,7 +47,7 @@ if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
 NETWORK_METRICS: frozenset[str] = frozenset({"distance_gap", "distance_mean"})
-"""Metrics scored on a network, in metres unless normalised."""
+"""Metrics scored on a network, in meters unless normalized."""
 
 METRIC_LABELS: dict[str, str] = {
     "nse": "NSE",
@@ -264,7 +264,7 @@ def cost_blocks(table: TrialTable, config: Mapping[str, Any]) -> list[CostBlock]
 
 
 def rises_with_fit(metric: str | None) -> bool:
-    """Whether ``metric`` rises with the fit, so the search minimises one minus it."""
+    """Whether ``metric`` rises with the fit, so the search minimizes one minus it."""
     return METRIC_SENSE.get(str(metric or "")) == "max"
 
 
@@ -307,7 +307,7 @@ def cost_label(blocks: Sequence[CostBlock]) -> str:
         block = blocks[0]
         label = f"{metric_cost(block)} ({metric_unit(block)})"
         if block.normalized:
-            label = f"Normalised cost: {label}"
+            label = f"Normalized cost: {label}"
         return label
     if not blocks:
         return "Cost (-)"
@@ -315,7 +315,7 @@ def cost_label(blocks: Sequence[CostBlock]) -> str:
 
 
 def scored_on_distances(blocks: Sequence[CostBlock]) -> bool:
-    """Whether every block is a network distance left in metres."""
+    """Whether every block is a network distance left in meters."""
     return bool(blocks) and all(
         block.metric in NETWORK_METRICS and not block.normalized and not block.transformed
         for block in blocks

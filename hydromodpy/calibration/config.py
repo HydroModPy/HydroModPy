@@ -450,9 +450,9 @@ class CalibParameterDecl(HydroModelBase):
     """User declaration for one calibrated parameter.
 
     The declaration is read from ``[calibration.parameters.<name>]``, and the
-    section name is the quantity: it is resolved against the catalogue the
+    section name is the quantity: it is resolved against the catalog the
     project exposes, so a file states the range and nothing else. Writing
-    ``path`` is the way out for whatever the catalogue does not reach, and it
+    ``path`` is the way out for whatever the catalog does not reach, and it
     wins without a lookup.
 
     Use ``mode="replace"`` for direct parameter values and ``mode="scale"``
@@ -628,17 +628,17 @@ class CalibOutputPoint(ScoresAnObservedRecord, HydroModelBase):
     )
     geometry: Annotated[dict[str, Any] | None, Profile.USER] = Field(
         default=None,
-        description="GeoJSON point geometry. Coordinates are in metres.",
+        description="GeoJSON point geometry. Coordinates are in meters.",
     )
     x: Annotated[Length | None, Profile.USER] = Field(
         default=None,
-        description="X coordinate. Accepts a bare number (metres) or a pint string like "
+        description="X coordinate. Accepts a bare number (meters) or a pint string like "
         "'100 m'. Beside 'observes' it is not read, and loading warns so, unless "
         "snap_radius is set and the station's record carries no coordinate.",
     )
     y: Annotated[Length | None, Profile.USER] = Field(
         default=None,
-        description="Y coordinate. Accepts a bare number (metres) or a pint string like "
+        description="Y coordinate. Accepts a bare number (meters) or a pint string like "
         "'100 m'. Beside 'observes' it is not read, as for 'x'.",
     )
     time: Annotated[OutputTime, Profile.USER] = Field(
@@ -876,7 +876,7 @@ class CalibNetworkBoundWeights(HydroModelBase):
 
     A root search closes one root per bound and returns the weighted geometric
     mean, ``log K = minimal * log K*_minimal + maximal * log K*_maximal``. A
-    minimiser has no root to combine and minimises
+    minimiser has no root to combine and minimizes
     ``minimal * |J_minimal| + maximal * |J_maximal|`` instead, which tends to
     land on one of the two roots rather than between them.
     """
@@ -1201,7 +1201,7 @@ class CalibOutputNetwork(HydroModelBase):
     )
     diagonal_neighbors: Annotated[bool, Profile.USER] = Field(
         default=STREAM_CRITERION_DEFAULTS.diagonal_neighbors,
-        description="Descend over shared nodes, the eight D8 neighbours of a quad mesh. "
+        description="Descend over shared nodes, the eight D8 neighbors of a quad mesh. "
         "True is the paper: its distances are traced by WhiteboxTools on a D8 pointer, "
         "and the delineation that produced the catchment uses one too. False descends "
         "over shared edges only, four neighbours (D4), and departs from the paper. It is "
@@ -2672,16 +2672,16 @@ class CalibrationConfig(HydroModelBase):
 
         ``normalize_cost`` exists for exactly this: it divides a block's cost by a
         reference scale so two blocks become comparable. Nothing enforced it, so a
-        file could weight a head RMSE in metres at 0.5 and a discharge RMSE in
-        m3/s at 0.5, believe it had split the cost evenly, and hand the metres
+        file could weight a head RMSE in meters at 0.5 and a discharge RMSE in
+        m3/s at 0.5, believe it had split the cost evenly, and hand the meters
         whatever share their own magnitude happened to buy.
 
         The criterion declares whether its cost carries a unit; the outputs a
         block reads say which unit that is. A network distance is its own
         family, a length between two networks, whatever variable the release
         field is read from. A member is addable when it is dimensionless or
-        normalised, and a sum of two that are neither, in different families,
-        is refused. A network distance normalises by the output's validity
+        normalized, and a sum of two that are neither, in different families,
+        is refused. A network distance normalizes by the output's validity
         length, a residual by the spread of its observations.
         """
         from hydromodpy.calibration.criteria import criterion_for
@@ -2911,7 +2911,7 @@ class CalibrationConfig(HydroModelBase):
         ``None`` reads the section alone. A phase that names another method than
         the section does not inherit the section's ``restarts`` or
         ``perturbation``, which belong to the section's method. Nor does a phase
-        scored by anything but network distances inherit a margin in metres.
+        scored by anything but network distances inherit a margin in meters.
         """
         own = None if phase is None else phase.uncertainty
         merged = self.uncertainty.model_dump()
@@ -2969,7 +2969,7 @@ class CalibrationConfig(HydroModelBase):
 
         Selection is :meth:`_blocks_scored_by`, the same a search itself reads.
         The weight is the phase's own share when it names a table ``{block:
-        share}``, else the block's declared weight -- unnormalised, the same
+        share}``, else the block's declared weight -- unnormalized, the same
         way :class:`optim.objective.CompositeObjective` takes its own weights
         before dividing by their sum. Empty for a single-metric route
         (:attr:`CalibPhaseDecl.is_single_metric`, or the section route when it
@@ -3006,12 +3006,12 @@ class CalibrationConfig(HydroModelBase):
         return [str(block.metric) for block in blocks] or [str(self.objective)]
 
     def _scored_on_network_distances(self, phase: CalibPhaseDecl | None) -> bool:
-        """Whether a search is scored only by network distances left in metres.
+        """Whether a search is scored only by network distances left in meters.
 
         Read as :meth:`_criteria_scored_by` reads the criteria: a single-metric
         phase scores its own ``objective`` or the section's, and a search with
         no block scores the section's ``objective``. A block with a cost transform is
-        no longer in metres, and neither is one with ``normalize_cost``, whose
+        no longer in meters, and neither is one with ``normalize_cost``, whose
         distance is counted in validity lengths. The single-metric route has
         neither.
         """
@@ -3056,7 +3056,7 @@ class CalibrationConfig(HydroModelBase):
                 )
             for parameter in phase.parameters:
                 # A parameter may name its quantity instead of writing a path, and
-                # the name is resolved against the project catalogue once the whole
+                # the name is resolved against the project catalog once the whole
                 # configuration is loaded. Until then the parameter's own name is
                 # what a phase freezes. Two phases may freeze the same path: the
                 # later one moves it again from the earlier value, and its value
@@ -3135,7 +3135,7 @@ class CalibrationConfig(HydroModelBase):
 
     @model_validator(mode="after")
     def _check_a_margin_in_metres_has_a_distance_to_bound(self) -> CalibrationConfig:
-        """Refuse a ``cost_margin`` in metres on a search that scores no network distance.
+        """Refuse a ``cost_margin`` in meters on a search that scores no network distance.
 
         A length bounds a cost that is itself a length. A phase that writes one
         and scores something else is refused; one that only inherits it from the
@@ -3202,7 +3202,7 @@ class CalibrationConfig(HydroModelBase):
         """A window in dates and a count of samples must not both be declared.
 
         They say the same thing in two units, and the count means a different
-        span at every output frequency, so honouring both would make the scored
+        span at every output frequency, so honoring both would make the scored
         span depend on which one the reader noticed.
         """
         if self.scoring_window is not None and self.warmup_periods:

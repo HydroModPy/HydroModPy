@@ -1,4 +1,4 @@
-"""The forcing sources of the forcing tests: cell centres, gridded records, stations, windows.
+"""The forcing sources of the forcing tests: cell centers, gridded records, stations, windows.
 
 A grid record is laid out like the cells of ``regular_mesh``, one pixel per cell, row 0 at the
 north. The area tests read meshes of a 1 km square at Lambert-93 magnitudes. Not public API.
@@ -28,36 +28,36 @@ from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from tests._helpers import geotiffs
 from tests._helpers.mesh_cases import L93_ORIGIN, regular_mesh, square_domain
 
-MM_DAY_TO_M_S = 1.0e-3 / 86400.0  # one millimetre a day in metres a second
-PIXEL = 10.0  # side of a cell and of a pixel of the small grids, in metres
+MM_DAY_TO_M_S = 1.0e-3 / 86400.0  # one millimeter a day in meters a second
+PIXEL = 10.0  # side of a cell and of a pixel of the small grids, in meters
 ORIGIN = np.array(L93_ORIGIN)  # south-west corner of the square of the area tests
-SIDE = 1000.0  # side of that square, in metres
+SIDE = 1000.0  # side of that square, in meters
 L93_PROJ4_WITHOUT_DATUM = (  # Lambert-93 as an old GeoTIFF writes it, which pyproj identifies as EPSG:2154
     "+proj=lcc +lat_0=46.5 +lon_0=3 +lat_1=49 +lat_2=44 +x_0=700000 +y_0=6600000 +ellps=GRS80 +units=m +no_defs"
 )  # fmt: skip
 
 
 def centres(nrow: int, ncol: int, pixel: float = PIXEL) -> np.ndarray:
-    """Return the ``(nrow * ncol, 2)`` cell centres of the regular mesh, row 0 at the north."""
+    """Return the ``(nrow * ncol, 2)`` cell centers of the regular mesh, row 0 at the north."""
     return regular_mesh(nrow, ncol, dx=pixel).centers
 
 
 def fields_on_cells(records, nrow: int = 2, ncol: int = 2, nper: int = 1, mesh_crs=None, **kwargs) -> dict:  # fmt: skip
-    """Return the per-period rates of the grid *records* on the cells of ``centres``."""
+    """Return the per-period rates of the grid *records* on the cells of ``centers``."""
     return discretize_fields_on_cells(
         load_result=LoadResult(fields=list(records)), centers=centres(nrow, ncol), nper=nper, mesh_crs=mesh_crs, **kwargs
     )  # fmt: skip
 
 
 def points_on_cells(records, nrow: int = 2, ncol: int = 2, nper: int = 1, mesh_crs=None, **kwargs) -> dict:  # fmt: skip
-    """Return the per-period rates of the station *records* on the cells of ``centres``."""
+    """Return the per-period rates of the station *records* on the cells of ``centers``."""
     return discretize_points_on_cells(
         load_result=LoadResult(points=list(records)), centers=centres(nrow, ncol), nper=nper, mesh_crs=mesh_crs, **kwargs
     )  # fmt: skip
 
 
 def pixel_axes(nrow: int, ncol: int, pixel: float = PIXEL) -> tuple[np.ndarray, np.ndarray]:
-    """Return the pixel centres of a raster on the cells of ``centres``, y descending."""
+    """Return the pixel centers of a raster on the cells of ``centers``, y descending."""
     x = (np.arange(ncol) + 0.5) * pixel
     y = (nrow - np.arange(nrow) - 0.5) * pixel
     return x, y
@@ -95,7 +95,7 @@ def grid_source(values: np.ndarray, x: np.ndarray, y: np.ndarray) -> LoadResult:
 def static_field(
     nrow: int, ncol: int, value: float, unit: str = "mm/day", pixel: float = PIXEL
 ) -> FieldRecord:
-    """Return a static grid of one *value* on the cells of ``centres``."""
+    """Return a static grid of one *value* on the cells of ``centers``."""
     x, y = pixel_axes(nrow, ncol, pixel)
     data = grid_dataset(np.full((nrow, ncol), value, dtype=float), x, y)
     return field_record(data, unit=unit, bbox=(0.0, 0.0, ncol * pixel, nrow * pixel))
@@ -104,7 +104,7 @@ def static_field(
 def daily_field(
     nrow: int, ncol: int, values_per_day: Sequence[float], unit: str = "mm/day", pixel: float = PIXEL,
 ) -> FieldRecord:  # fmt: skip
-    """Return a daily grid from 2020-01-01, one uniform value a day, on the cells of ``centres``."""
+    """Return a daily grid from 2020-01-01, one uniform value a day, on the cells of ``centers``."""
     days = len(values_per_day)
     x, y = pixel_axes(nrow, ncol, pixel)
     cube = np.asarray(values_per_day, dtype=float)[:, None, None] * np.ones((days, nrow, ncol))
@@ -144,7 +144,7 @@ def window(
 def write_geotiff(
     path: Path, bands: np.ndarray, x: np.ndarray, y: np.ndarray, dtype: str = "float64"
 ) -> Path:
-    """Write the ``(bands, y, x)`` stack on pixels centred on *x* and *y* (y descending)."""
+    """Write the ``(bands, y, x)`` stack on pixels centered on *x* and *y* (y descending)."""
     cell = (float(x[1] - x[0]), float(y[0] - y[1]))
     corner = (float(x[0]) - cell[0] / 2.0, float(y[0]) + cell[1] / 2.0)
     return geotiffs.write_geotiff(path, bands, origin=corner, cell=cell, dtype=dtype)
@@ -193,7 +193,7 @@ def mesh_areas(mesh: HydroMesh) -> np.ndarray:
 
 
 def square_pixels(pixel: float, margin: float, *, offset: float = 0.0) -> tuple[np.ndarray, np.ndarray]:  # fmt: skip
-    """Return the pixel centres covering the square with *margin*, y descending as in a raster."""
+    """Return the pixel centers covering the square with *margin*, y descending as in a raster."""
     n = int(round((SIDE + 2.0 * margin) / pixel))
     x = ORIGIN[0] - margin + offset + (np.arange(n) + 0.5) * pixel
     y = (ORIGIN[1] - margin + offset + (np.arange(n) + 0.5) * pixel)[::-1]
@@ -203,7 +203,7 @@ def square_pixels(pixel: float, margin: float, *, offset: float = 0.0) -> tuple[
 def rough_values(x: np.ndarray, y: np.ndarray, seed: int = 11) -> np.ndarray:
     """Return a gradient, pixel noise and 10 m stripes every 100 m, ``(ny, nx)``, in mm/day.
 
-    The stripes are what a centre sample misses: a cell takes them whole or not at all.
+    The stripes are what a center sample misses: a cell takes them whole or not at all.
     """
     rng = np.random.default_rng(seed)
     u = (x[None, :] - ORIGIN[0]) / SIDE

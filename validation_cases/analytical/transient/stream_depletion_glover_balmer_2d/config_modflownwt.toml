@@ -79,7 +79,7 @@ value = "30.0 m"
 units = "m3/day"
 description = "Pumping well 100 m from the stream"
 
-# Column 10 and row 80 of the 10 m grid: the cell centred on (105, 805) m.
+# Column 10 and row 80 of the 10 m grid: the cell centered on (105, 805) m.
 [flow.sinks_sources.wells.P1.location]
 kind = "cell"
 cell = [0, 80, 10]

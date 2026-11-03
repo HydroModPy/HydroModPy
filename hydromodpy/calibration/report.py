@@ -69,7 +69,7 @@ class FrozenParameter:
     """One parameter a phase calibrated and held fixed for the phases after it.
 
     The declaration is the one the parent configuration carries, so the dotted
-    path and the mode (``replace`` / ``scale``) are honoured exactly as during
+    path and the mode (``replace`` / ``scale``) are honored exactly as during
     the phase that calibrated the value.
     """
 
@@ -169,7 +169,7 @@ class CalibrationReport:
     """How the session closed: completed, partial, aborted or failed."""
 
     cost_name: str | None = None
-    """Name of the cost the search minimised."""
+    """Name of the cost the search minimized."""
 
     cost_label: str | None = None
     """What the cost reads as, such as ``1 - nse_log``."""
@@ -399,7 +399,7 @@ class CalibrationResult(BaseModel):
     )
     best_sim_id: str | None = Field(default=None, description="Run of the one case.")
     best_rel_dir: str | None = Field(default=None, description="Its folder under the project.")
-    cost_name: str | None = Field(default=None, description="Name of the cost minimised.")
+    cost_name: str | None = Field(default=None, description="Name of the cost minimized.")
     cost_label: str | None = Field(default=None, description="What it reads as: 1 - nse_log.")
     best_trial: int | None = Field(default=None, description="Number of the best trial.")
     best_parameters: dict[str, float] | None = Field(

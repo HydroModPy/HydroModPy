@@ -3,7 +3,7 @@
 The heads rule of the network criterion keeps only where the map says a
 stream starts (:mod:`hydromodpy.core.stream_heads`). A head is found
 geometrically, for every source alike: no provider reads node codes, and the
-direction a line was digitised in is never trusted. This module only finds the
+direction a line was digitized in is never trusted. This module only finds the
 free ends and the other end of each merged reach; which end is upstream is
 decided on the criterion graph, by the drained area.
 
@@ -36,7 +36,7 @@ _END_DECIMALS = 2
 """Endpoints are matched on coordinates rounded to 0.01 m.
 
 The noding computes junction points in floating point; two lines meeting at
-one junction can carry it a few ulps apart. A centimetre is far below what a
+one junction can carry it a few ulps apart. A centimeter is far below what a
 map resolves and far above that noise.
 """
 
@@ -44,12 +44,12 @@ _CUT_END_TOLERANCE_M = 0.01
 """A free end this close to the outline the map was cut along is an end of the cut.
 
 The cut computes it on the outline in floating point, a few ulps off. The same
-centimetre as :data:`_END_DECIMALS`, for the same reason. It is a length in metres, turned into
+centimeter as :data:`_END_DECIMALS`, for the same reason. It is a length in meters, turned into
 the units of the CRS of the cut before it is compared there.
 """
 
 _METRE_IN_DEGREES = 1.0 / 111_320.0
-"""A metre of a geographic CRS, in degrees: about, for a test on the order of a centimetre."""
+"""A meter of a geographic CRS, in degrees: about, for a test on the order of a centimeter."""
 
 _OUTLET_RADIUS_M = 100.0
 """A cut end this close to the outlet is where the catchment drains out, and is expected."""

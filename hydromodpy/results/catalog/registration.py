@@ -251,7 +251,7 @@ def portable_config_source(project_root: Path, config_source: str | Path | None)
 
     A configuration that lives inside the project is recorded relative to the
     project root (``project.toml``, ``configs/winter.toml``), so a project that
-    is copied or moved still recognises its own runs. A configuration kept
+    is copied or moved still recognizes its own runs. A configuration kept
     outside the project has no project-relative form and is recorded as the
     absolute path it is; the leading separator tells the two apart.
     """

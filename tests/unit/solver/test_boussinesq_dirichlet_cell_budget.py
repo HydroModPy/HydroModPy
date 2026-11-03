@@ -92,7 +92,7 @@ def test_transient_residual_gives_no_recharge_to_a_cell_with_an_imposed_head() -
     )
 
     np.testing.assert_allclose(assembly.recharge_rate_m_s, [0.0, *[RECHARGE_M_S] * 3])
-    # The constant-head flux is the flow the free neighbour sends in, positive out.
+    # The constant-head flux is the flow the free neighbor sends in, positive out.
     inflow_from_free_cell = -assembly.internal_edge_flux_m3_s[0]
     assert inflow_from_free_cell > 0.0
     assert assembly.prescribed_head_flux_m3_s[0] == pytest.approx(inflow_from_free_cell)

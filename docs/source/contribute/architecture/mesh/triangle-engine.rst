@@ -48,12 +48,12 @@ Families
 Each family line becomes one row per mesh edge. The triangle on the left of the oriented line
 is ``cell_a``, the one on the right is ``cell_b``, and ``-1`` marks the boundary of the domain.
 The zone on each side of a contact comes from the request. The river is a ``cell`` family. Its
-chain is the triangles on one bank of the line, in order, so their centres sit beside the
+chain is the triangles on one bank of the line, in order, so their centers sit beside the
 line, and the report gives the offset. The engine keeps the face rows of the river line too.
 The four sides of the domain are the face families ``boundary:<side>``.
 
-The centre of a triangle is the mean of its vertices (``center_kind = "vertex_mean"``). The
-line between two centres is not perpendicular to their common edge, so MODFLOW 6 turns XT3D on
+The center of a triangle is the mean of its vertices (``center_kind = "vertex_mean"``). The
+line between two centers is not perpendicular to their common edge, so MODFLOW 6 turns XT3D on
 by default for triangle cells. An explicit ``mf6_enable_xt3d`` wins
 (:doc:`/theory/solvers/xt3d-on-irregular-disv-meshes`).
 

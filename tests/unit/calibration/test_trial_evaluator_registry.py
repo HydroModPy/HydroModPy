@@ -13,7 +13,7 @@ Five gates, and they answer different questions.
 1. The registry itself: what it resolves, what it refuses, and what it binds.
 2. At the document: a file naming an evaluator this installation cannot serve is
    refused while the TOML is read, with the list of what it does serve.
-3. Behavioural, end to end: a registered evaluator that runs no HydroModPy model
+3. Behavioral, end to end: a registered evaluator that runs no HydroModPy model
    drives a whole search through ``run_calibration_core``, and the preparation of
    a trial context is never paid for.
 4. What is refused rather than silently wrong: promotion, a linearized width and

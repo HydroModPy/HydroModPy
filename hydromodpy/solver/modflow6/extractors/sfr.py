@@ -427,7 +427,7 @@ def routed_outflow_series(
     This is the observable a routed network exposes. The plain DRAIN record
     cannot stand in for it: with ``route_drainage`` the in-catchment drainage
     has been moved into DRN-TO-MVR, so what is left in DRAIN is the buffer
-    drainage of the neighbouring basins.
+    drainage of the neighboring basins.
 
     A lake without a network routes what reaches it and leaves through its outlets,
     so its outlet outflow is the routed series, zero included: the drains are added

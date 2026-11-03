@@ -3,7 +3,7 @@
 ``geospatial_lat/lon_*`` is WGS84 degrees by ACDD definition, and both writers
 of a run used to put the native projected extent there. The positive cases live
 here rather than in the characterization tier: the project that tier runs is a
-synthetic aquifer numbered from the origin in metres, which declares no extent
+synthetic aquifer numbered from the origin in meters, which declares no extent
 at all, so it could never prove that a real one comes out right.
 """
 

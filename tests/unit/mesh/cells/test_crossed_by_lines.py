@@ -3,7 +3,7 @@
 Abherve et al. (2023) rasterize the mapped network of the stream criterion with
 ``VectorLinesToRaster``. Its source marks a cell when the line crosses one of the two
 medians of that cell: a thin line, neither Bresenham nor all-touched. The medians of a
-grid are the segments joining the centres of edge-sharing cells, which is how
+grid are the segments joining the centers of edge-sharing cells, which is how
 ``line_crossing_cell_mask`` states the rule on any mesh. The oracle below is the two
 loops of the Rust source, ported line for line.
 """
@@ -58,7 +58,7 @@ def _cells(mask: np.ndarray) -> set[tuple[int, int]]:
 
 
 def _whitebox_oracle(line: LineString) -> np.ndarray:
-    """VectorLinesToRaster on a y-up grid: rows cut at centre ordinates, columns at abscissas."""
+    """VectorLinesToRaster on a y-up grid: rows cut at center ordinates, columns at abscissas."""
     mask = np.zeros(N * N, dtype=bool)
 
     def between(value: float, a: float, b: float) -> bool:
@@ -119,7 +119,7 @@ def test_a_line_lying_on_a_median_marks_the_row_it_runs_along() -> None:
 
 def test_the_half_median_of_a_border_cell_counts() -> None:
     # WBT draws the median up to the raster border; the rule joins a border
-    # centre to the midpoint of its outer edge for the same reason.
+    # center to the midpoint of its outer edge for the same reason.
     result = _crossing([LineString([(2.0, 3.0), (2.0, 7.0)])])
 
     assert _cells(result.mask) == {(0, 0)}
@@ -236,7 +236,7 @@ def test_a_polygon_layer_is_refused() -> None:
 
 
 def _voronoi_mesh(seed: int = 7):
-    """A bounded Voronoi mesh: generator seeds as centres, ragged connectivity."""
+    """A bounded Voronoi mesh: generator seeds as centers, ragged connectivity."""
     from shapely import voronoi_polygons
     from shapely.geometry import MultiPoint
 
@@ -278,7 +278,7 @@ def test_on_a_voronoi_mesh_the_line_is_a_thinner_subset_of_touch() -> None:
     """Every reach marks cells of its own, none outside the cells it touches.
 
     Face connectivity is NOT promised for an arbitrary line: where a line only
-    clips the corner of a small cell, its two neighbours along the line can
+    clips the corner of a small cell, its two neighbors along the line can
     share neither an edge nor a node. The grid shows the same thing as its
     diagonal steps. What the criterion needs is the next test.
     """

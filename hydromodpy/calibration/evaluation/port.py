@@ -76,7 +76,7 @@ class TrialRequest:
 class TrialOutcome:
     """What an evaluator found for one sample.
 
-    ``cost`` is always to be minimised, the convention the criterion contract
+    ``cost`` is always to be minimized, the convention the criterion contract
     already states. A non-``completed`` outcome carries ``nan`` and says why in
     ``error``; returning a large finite number instead would let a failed trial
     win a search whose other trials were worse.

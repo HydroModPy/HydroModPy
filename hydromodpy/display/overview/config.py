@@ -39,7 +39,7 @@ class OverviewPanelsConfig(HydroModelBase):
     )
     timeseries_piezometry: Annotated[bool, Profile.USER] = Field(
         True,
-        description="Draw the observed groundwater-level series of the piezometers, in metres.",
+        description="Draw the observed groundwater-level series of the piezometers, in meters.",
     )
     climatic_summary: Annotated[bool, Profile.USER] = Field(
         True,

@@ -26,7 +26,7 @@ every launch and by `hmp config check`, with the list of the names that are.
 ## Metrics
 
 An objective block names one metric with {toml}`calibration.objective_blocks.metric`. The
-search always minimises a cost: the Cost minimised column gives how the score of each metric
+search always minimizes a cost: the Cost minimized column gives how the score of each metric
 enters it. In the formulas of a metric that reads a series, $s_t$ is the simulated value and
 $o_t$ the observed one at the same date, over the $n$ dated pairs the scoring window keeps. A
 metric that reads a network defines its own terms under its formula.

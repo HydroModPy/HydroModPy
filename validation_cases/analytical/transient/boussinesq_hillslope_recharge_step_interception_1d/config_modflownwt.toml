@@ -30,9 +30,9 @@ ny = 3
 
 [geographic.synthetic.topography]
 kind = "linear"
-# The surface is 5.0 m, the outlet head, at the centre of the last column
+# The surface is 5.0 m, the outlet head, at the center of the last column
 # (x = 395 m, where the model holds the head): 5 + 0.0125 * (395 - x) is 9.875 m
-# at the centre of the first column.
+# at the center of the first column.
 base_elevation = 5.0
 right_to_left_amplitude = 4.875
 

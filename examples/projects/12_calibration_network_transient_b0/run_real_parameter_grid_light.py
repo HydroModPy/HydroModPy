@@ -186,7 +186,7 @@ def main(argv: list[str] | None = None) -> int:
         "--steady-ic-offset-m",
         type=float,
         default=STEADY_IC_OFFSET_M,
-        help="Offset below top surface, in metres, when --steady-ic=top_offset.",
+        help="Offset below top surface, in meters, when --steady-ic=top_offset.",
     )
     parser.add_argument(
         "--also-write-main-score",

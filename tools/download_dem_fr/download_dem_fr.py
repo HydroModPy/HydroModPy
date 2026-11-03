@@ -60,7 +60,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--resolution",
         type=float,
         default=None,
-        help="Requested raster resolution in metres, e.g. 25 for BD ALTI.",
+        help="Requested raster resolution in meters, e.g. 25 for BD ALTI.",
     )
     parser.add_argument(
         "--format",

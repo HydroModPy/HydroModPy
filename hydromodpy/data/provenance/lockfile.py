@@ -1,6 +1,6 @@
 """Read ``hydromodpy.lock`` and hold the process-wide frozen mode.
 
-A lockfile freezes the build environment plus every input artefact that fed
+A lockfile freezes the build environment plus every input artifact that fed
 a HydroModPy run. It records:
 
 - ``schema``: the id of the format, ``hydromodpy.lock.v1``.

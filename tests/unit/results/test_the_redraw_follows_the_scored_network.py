@@ -90,7 +90,7 @@ def test_unavailable_reason_follows_the_requested_role() -> None:
 
 
 def _run_with_a_diagonal_reference():
-    """A run whose 'reference' network runs through three centres on a diagonal."""
+    """A run whose 'reference' network runs through three centers on a diagonal."""
     run = comparison_run(seepage_cells=[cell(AXIS_COLUMN, row) for row in range(NY)])
     centres = [((k + 0.5) * CELL_M, (k + 0.5) * CELL_M) for k in range(NY)]
     diagonal = gpd.GeoDataFrame(geometry=[LineString(centres)], crs=run.mesh.crs)

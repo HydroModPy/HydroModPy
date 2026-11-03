@@ -74,7 +74,7 @@ class CBOVisitor(ast.NodeVisitor):
         self.current_class = node.name
         self.current_dependencies = set()
 
-        # Analyse uniquement le contenu de la classe
+        # Analyze uniquement le contenu de la classe
         for item in node.body:
             self.visit(item)
 

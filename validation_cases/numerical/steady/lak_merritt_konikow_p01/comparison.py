@@ -64,7 +64,7 @@ class LakeP01Scenario:
     hmp: LakeRunResult
     structural: StructuralComparison
 
-    # Numerical metrics, all on a common metres / m3-per-s basis.
+    # Numerical metrics, all on a common meters / m3-per-s basis.
 
     @property
     def reference_stage_m(self) -> float:

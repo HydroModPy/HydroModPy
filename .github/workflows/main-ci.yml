@@ -107,7 +107,7 @@ jobs:
         run: python -m hydromodpy install-binaries --subset mfnwt --quiet
 
       # The tier runs one real pipeline and reads only what it left on disk.
-      # Its five strict xfails are the claims the code does not honour yet; a
+      # Its five strict xfails are the claims the code does not honor yet; a
       # strict xfail that starts passing fails this job, which is how a repaired
       # claim gets noticed instead of quietly staying green.
       - name: Run characterization tier

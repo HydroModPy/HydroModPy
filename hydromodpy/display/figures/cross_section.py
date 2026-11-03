@@ -8,7 +8,7 @@ coordinates, so it is valid whatever the grid type.
 Where the line crosses a stream reach it also marks the streambed and the
 elevation at which MODFLOW disconnects the reach from the aquifer. Without
 them a reader compares the water table to the land surface, while the solver
-compares it to a threshold set metres lower, so a connected reach reads as a
+compares it to a threshold set meters lower, so a connected reach reads as a
 detached water table.
 """
 

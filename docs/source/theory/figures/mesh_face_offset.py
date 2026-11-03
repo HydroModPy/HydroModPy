@@ -1,7 +1,7 @@
 """The two assumptions of the two-point flux on one face: angle and bisection offset.
 
 Left: two Voronoi cells whose generators sit off the middle of their face. The
-line of the centres is normal to the face but crosses it off its middle.
+line of the centers is normal to the face but crosses it off its middle.
 Right: the two triangles of the angle example. The line crosses the face in its
 middle but is not normal to it. Both measures come from model/quality.py.
 """
@@ -29,12 +29,12 @@ def measures(mesh, centres):
 
 
 def draw(ax, mesh, title, centres=None):
-    """Draw the two cells, the face and the centres: the vertex means unless given."""
+    """Draw the two cells, the face and the centers: the vertex means unless given."""
     if centres is None:
         centres = np.column_stack(mesh.cell_centroids())
     vertices, centres, face, phi, beta = measures(mesh, centres)
-    for cell, colour in zip(mesh.flat_connectivity, ("C5", "C0"), strict=True):
-        ax.fill(*vertices[cell[cell >= 0]].T, fc=(colour, 0.2), ec="C6", lw=0.8)
+    for cell, color in zip(mesh.flat_connectivity, ("C5", "C0"), strict=True):
+        ax.fill(*vertices[cell[cell >= 0]].T, fc=(color, 0.2), ec="C6", lw=0.8)
     ax.plot(*face.T, color="C1", lw=2.5)
     ax.annotate(
         "", centres[1], centres[0], arrowprops={"arrowstyle": "-|>", "color": "C0", "lw": 1.6}

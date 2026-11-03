@@ -119,7 +119,7 @@ class CellLocator(Protocol):
         The selector is the same triple the observable extractors take. A MODFLOW 6
         run answers ``(layer, 0, cell_id)`` on every mesh, the flat selector of a DISV
         head array at the top active layer of the column; a point outside every
-        cell takes the nearest centre. ``None``
+        cell takes the nearest center. ``None``
         means the run holds no grid to look on yet, which a caller reports rather
         than replacing with a guess.
         """

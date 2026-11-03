@@ -37,7 +37,7 @@ SIDES = ("west", "east", "south", "north")
 
 
 def line(*points: tuple[float, float]) -> LineString:
-    """A line given in metres from the domain corner."""
+    """A line given in meters from the domain corner."""
     return LineString([(X0 + x, Y0 + y) for x, y in points])
 
 

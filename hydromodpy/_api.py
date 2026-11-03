@@ -1045,7 +1045,7 @@ def read(
         timeseries, ``{"period": ...}`` for a window of dates.
     bbox
         Optional ``(xmin, ymin, xmax, ymax)`` in the simulation CRS;
-        restricts a field to the cells whose centre lies in the box.
+        restricts a field to the cells whose center lies in the box.
 
     Returns
     -------
@@ -1276,7 +1276,7 @@ def example_list() -> tuple[ExampleEntry, ...]:
     Returns
     -------
     tuple of ExampleEntry
-        One entry per catalogued example, in catalog order.
+        One entry per cataloged example, in catalog order.
 
     Examples
     --------
@@ -1290,7 +1290,7 @@ def example_list() -> tuple[ExampleEntry, ...]:
 
 
 def example_show(example_id: str) -> ExampleEntry:
-    """Return one catalogued example, file by file.
+    """Return one cataloged example, file by file.
 
     Parameters
     ----------

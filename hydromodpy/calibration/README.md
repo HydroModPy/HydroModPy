@@ -265,7 +265,7 @@ A calibration runs as one or more **phases**. A phase says which parameters it
 moves, in which flow regime, and against which objective blocks with which
 share for each. The search method follows from what is scored: a signed
 criterion (`distance_gap`) on one parameter in log space is a zero to find,
-searched by bisection; anything else is a cost to minimise, by Nelder-Mead.
+searched by bisection; anything else is a cost to minimize, by Nelder-Mead.
 That choice applies to a phase and, the same way, to a calibration with no
 phases at all (`optim.optimizer.choose_method`, read through
 `CalibrationConfig.method_for`). `method` is written only to choose otherwise
@@ -285,11 +285,11 @@ One rule links the phases, in declaration order:
 > search method accepts a start point.
 
 Blocks are declared once under `[[calibration.objective_blocks]]`. A phase
-lists the ones it scores, or gives each a share. Shares are normalised to sum
+lists the ones it scores, or gives each a share. Shares are normalized to sum
 to one, so `{ hydrograph = 70, network = 30 }` reads as 70 % and 30 % of the
 cost. The share of a cost counts the same as an influence only when the costs
 are comparable. An efficiency (`nse_log`) is a pure number and a network
-distance is in metres, so write `normalize_cost = true` on the network block:
+distance is in meters, so write `normalize_cost = true` on the network block:
 each distance is then divided by the output's `validity_length` (Eq. 4,
 `"auto"` = 2 h_obs), and a gap of one validity length costs 1, as much as an
 NSE of 0. `normalize_cost` stays refused on the efficiency, already a pure
@@ -367,7 +367,7 @@ start = "2001-01-01"           # the network state read, December 2002, lies ins
 ```
 
 **Both at once.** One phase, both parameters, one regime. Two parameters and
-a cost to minimise, so Nelder-Mead; write `method = "cma_es"` for a global
+a cost to minimize, so Nelder-Mead; write `method = "cma_es"` for a global
 search.
 
 ```toml
@@ -488,7 +488,7 @@ the options of the section reach a phase that runs the section's method, and
 Each phase also says how wide its answer is (`uncertainty`, same keys as
 `[calibration.uncertainty]`, which stays the default for every phase). Left
 unwritten, the width follows what the phase scores: a phase scored only by
-network distances takes one mesh cell, in metres (a stream cannot move by
+network distances takes one mesh cell, in meters (a stream cannot move by
 less); any other phase takes 5 % of its best cost. `cost_margin` writes it
 with its unit, `"5%"` of the best cost or `"75 m"` of network distance (a
 bare number is refused, and a length only on a search scored by network
@@ -563,7 +563,7 @@ declared share when the blocks have different units.
 - `metrics.composite.build_metric_extractor`: how the outputs of a trial are
   extracted.
 
-## Layer neighbours
+## Layer neighbors
 
 `calibration` imports `core`, `schema`, `physics`, `data`, `spatial`, `solver`,
 `simulation` and `results` (`tests/unit/architecture/layer_matrix.yaml`), and
@@ -615,7 +615,7 @@ satisfies `Optimizer` (`optim/optimizer.py`: `name`, `ask`, `tell`,
 - **phase**: one search of a calibration: its parameters, regime, objective
   blocks with their shares, and method.
 - **protocol**: a named recipe tied to a publication, which writes phases.
-- **share**: the weight of an objective block within one phase, normalised to
+- **share**: the weight of an objective block within one phase, normalized to
   sum to one over the blocks of that phase.
 - **re-opened parameter**: one a phase moves again after an earlier phase
   calibrated it; the search starts from the earlier value when it can.

@@ -84,7 +84,7 @@ from hydromodpy.results.checks import CalibrationSessionStatus, Checks
 from hydromodpy.results.metric_rule import CALIBRATION_ROLE, DateWindow
 
 RULE_VERSION: Final[str] = "2"
-"""Version of the labelling rules. Bump it when a label changes meaning."""
+"""Version of the labeling rules. Bump it when a label changes meaning."""
 
 KNOWN_ISSUES_FILENAME: Final[str] = "known_issues.toml"
 """The register of known issues, package data of this module."""

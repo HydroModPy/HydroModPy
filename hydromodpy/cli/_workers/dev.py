@@ -244,7 +244,7 @@ def lock_update(workspace: Any = None, *, project: Any = None, output: Any = Non
 
 
 def lock_archive(output: Any, *, workspace: Any = None) -> Path:
-    """Create a portable archive of the lockfile + cache artefacts."""
+    """Create a portable archive of the lockfile + cache artifacts."""
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
     from hydromodpy.data.registry.freeze import archive_lockfile
     from hydromodpy.results.storage.parquet_schemas import PARQUET_SCHEMA_VERSION

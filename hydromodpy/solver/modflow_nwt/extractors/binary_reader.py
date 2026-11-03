@@ -6,7 +6,7 @@ outputs but their constructor signatures differ slightly between the two
 families. These helpers provide a single entry point that:
 
 - accepts a precision hint (``single`` / ``double`` / ``auto``),
-- normalises the endianness detection by trying both flavours when
+- normalizes the endianness detection by trying both flavours when
   ``auto`` is requested,
 - returns FloPy's reader instance unchanged so downstream code keeps
   calling ``get_data`` / ``get_ts``.

@@ -216,7 +216,7 @@ def _with_project_defaults(raw: Mapping[str, Any], path: Path) -> dict[str, Any]
 def _resolve_parameter_names(cfg: CalibrationConfig, config_path: Path) -> None:
     """Complete every parameter from the target it points at.
 
-    The catalogue is read off the resolved project configuration, which this
+    The catalog is read off the resolved project configuration, which this
     section is one part of, so the project is built here. Anchored on the same
     file, and idempotent like :func:`resolve_stream_geometry_paths`, because a
     declaration is only ever completed where the file said nothing.
@@ -1127,7 +1127,7 @@ def refuse_an_objective_that_is_not_an_entry_point(objective: str | None) -> Non
 
     Called at the entry of each public route rather than where the value is
     consumed. Two reasons, both measured. A staged run that reuses its phases
-    from disk never reaches the consumer, so the value travelled into the reuse
+    from disk never reaches the consumer, so the value traveled into the reuse
     fingerprint without ever being checked. And the consumer sits after
     ``prepare_trials``, so a refused call used to pay the whole geographic,
     mesh and data prefix first, and leave a fresh catalog, a lock and a WAL
@@ -1183,7 +1183,7 @@ def run_calibration_core(
     named evaluator declares it needs one, and passing ``None`` when it does
     not, and for the :class:`ParameterSpace`. ``cfg_path`` is what a declared
     ``stream_geometry_path`` is anchored on, and where candidates are
-    materialised from.
+    materialized from.
     """
     from hydromodpy.calibration.report import CalibrationReport
 

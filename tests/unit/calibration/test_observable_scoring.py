@@ -205,7 +205,7 @@ def test_time_selection_matches_a_solver_that_honors_requests(
         objective_blocks=blocks,
     )
     foreign = ObservableScorer(outputs, blocks, observed_records=observed)
-    # A solver that honours the request hands back the one selected stamp, so
+    # A solver that honors the request hands back the one selected stamp, so
     # the start of its period can only come from the run's time grid.
     trial_ctx = SimpleNamespace(
         setup=SimpleNamespace(

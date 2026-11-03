@@ -50,7 +50,7 @@ recharge_mm_day = 1.0
 modflow6_voronoi = 199.0
 
 [reference.radial_bin_width_m_by_solver]
-# Voronoi cells are centred on the node rings of the mesh bundle (0, 20, 40, 60,
+# Voronoi cells are centered on the node rings of the mesh bundle (0, 20, 40, 60,
 # 70, 90, 120, 140, 160, 180 and 190 m). A 5 m bin holds one ring, so the profile
 # reads each ring at its own radius and the spread is azimuthal only.
 modflow6_voronoi = 5.0

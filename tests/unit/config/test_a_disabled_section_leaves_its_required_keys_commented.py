@@ -1,7 +1,7 @@
 """A template never writes a value the reload refuses in a section that is off.
 
 ``[geographic.crossings]`` is off by default, and its ``kinds`` reached the
-template as ``kinds = []``: a key the model fills by itself, labelled
+template as ``kinds = []``: a key the model fills by itself, labeled
 REQUIRED and given an empty placeholder that ``min_length=1`` refuses. A key
 filled by a ``default_factory`` is written with that value; a key that is
 really required, in a section whose ``enabled`` is false, is written

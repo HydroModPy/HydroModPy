@@ -24,7 +24,7 @@ Every finished run has its own folder. In it you find:
   without a manifest is an incomplete run by construction; its `outcome.json` says how it
   ended.
 - **A `README.md`**, generated from the manifest: the same facts in words, the {term}`run label`
-  of the day, and the checksum of the manifest it summarises.
+  of the day, and the checksum of the manifest it summarizes.
 
 A checksum is a short code computed from the content of a file. If one byte changes, the code
 changes. A checksum that matches is a strong sign that the file is the one that was used.

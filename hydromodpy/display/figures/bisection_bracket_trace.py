@@ -7,10 +7,10 @@ between the residuals of its two ends. A converging search shows that band
 squeezing onto the line.
 
 It also shows the failure that matters, and that no convergence plot of a
-minimisation can show: a bracket that never changes sign. Every marker then
+minimization can show: a bracket that never changes sign. Every marker then
 sits on the same side of zero and no band is ever drawn, which says there is
 no root on the sampled interval rather than pointing at the least bad point.
-Reading the lowest residual as an answer there would be a minimised mean
+Reading the lowest residual as an answer there would be a minimized mean
 distance in disguise.
 
 A search on two bounds (a transient extent scored on a minimal and a maximal

@@ -4,7 +4,7 @@ The port's docstring promises a third-party source that it needs no import of
 HydroModPy beyond the port module and ``data.contracts``. The reconnaissance of
 F5 measured what that promise is worth: the fetch functions under
 ``data/variables/*/apis/`` are already clean, and everything a capability is
-forbidden to touch -- the DuckDB catalogue, the project workspace, the lock
+forbidden to touch -- the DuckDB catalog, the project workspace, the lock
 file, the ``geographic`` object -- lives in the manager constructors and in
 the station cache of ``BaseVariableManager``, which wrap them. An adapter that
 reached for a manager to get at its provider would drag all four back in, one

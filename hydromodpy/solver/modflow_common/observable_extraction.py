@@ -278,7 +278,7 @@ def extract_common_modflow_observables(
     if discharge_requests:
         # A routed series owns the discharge observable. With route_drainage the
         # in-catchment drainage has been moved into DRN-TO-MVR, so the plain DRAIN
-        # record left in the budget is the buffer drainage of the neighbouring
+        # record left in the budget is the buffer drainage of the neighboring
         # basins and summing it would score the wrong water. Without it, or with a
         # lake and no network, the hillslope drainage stays in DRAIN, outside the
         # routed series, so the catchment DRAIN budget is added to it. The baseflow
@@ -358,7 +358,7 @@ def extract_common_modflow_observables(
             )
 
     if xy_requests:
-        # The planar cell centres, in the model CRS. A gauge snap searches them,
+        # The planar cell centers, in the model CRS. A gauge snap searches them,
         # and reads them here so the calibration layer never touches the mesh.
         centroids = np.asarray(model.solver_mesh.cell_centers(), dtype=float)[:, :2]
         for request in xy_requests:

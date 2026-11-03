@@ -113,7 +113,7 @@ class ConcentrationTransportParametersConfig(HydroModelBase):
     )
     disp_long: Annotated[float, Profile.DEV] = Field(
         default=0.0,
-        description="Longitudinal dispersivity, in metres.",
+        description="Longitudinal dispersivity, in meters.",
         json_schema_extra=field_metadata(unit="m"),
     )
     disp_transh: Annotated[float, Profile.DEV] = Field(

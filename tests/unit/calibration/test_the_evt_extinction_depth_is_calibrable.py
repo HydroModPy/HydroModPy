@@ -2,8 +2,8 @@
 
 ``flow.sinks_sources.etp.extinction_depth`` carries its own unit (``m``), which
 must not be swallowed by the ``mm/day`` ``FlowEtpConfig`` declares as a sibling
-for its ``values`` payload: a bound stated in metres has to reach the
-physical-bounds registry in metres, not in millimetres per day.
+for its ``values`` payload: a bound stated in meters has to reach the
+physical-bounds registry in meters, not in millimeters per day.
 """
 
 from __future__ import annotations

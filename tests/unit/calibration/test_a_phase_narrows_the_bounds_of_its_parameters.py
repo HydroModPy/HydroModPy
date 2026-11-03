@@ -89,7 +89,7 @@ def test_a_phase_without_bounds_runs_the_section_bounds() -> None:
 
 
 def test_bounds_written_below_the_resolved_bounds_are_refused_before_the_first_solve() -> None:
-    """The section writes none; the catalogue's range, filled in after load, is the frame."""
+    """The section writes none; the catalog's range, filled in after load, is the frame."""
     cfg = _cfg(
         _phase(bounds={"K": [1e-8, 1e-4]}),
         parameters={"K": {"search_space": "log"}},

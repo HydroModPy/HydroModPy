@@ -1,6 +1,6 @@
 """CRS helpers built on :mod:`pyproj` and :mod:`rasterio`.
 
-Centralises coordinate transforms, UTM detection, polygon-based filtering
+Centralizes coordinate transforms, UTM detection, polygon-based filtering
 and the CRS stamp a producer writes onto its own output, so downstream
 modules never have to reach into ``pyproj`` directly. ``ensure_crs`` lives
 here rather than beside one producer because every layer that writes a

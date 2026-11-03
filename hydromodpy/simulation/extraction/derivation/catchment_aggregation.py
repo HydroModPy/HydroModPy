@@ -57,7 +57,7 @@ VARIABLE_UNITS: dict[str, str] = {
 # Each source variable is looked up in derived/ then budget/ then root, and the
 # output sums them.
 #
-# The run only materialises timeseries that downstream figures and
+# The run only materializes timeseries that downstream figures and
 # calibration pipelines consume as-is. Catchment-scale reductions of
 # spatial fields (drainage density, saturated fraction, water-table
 # means, recharge means) are computed lazily on demand through
@@ -90,7 +90,7 @@ def aggregate_catchment_timeseries(
     outflow (``ext_outflow`` at terminal reaches and lake outlets), with the runoff
     injected into the network. A network that routes the drainage has moved the
     in-watershed drainage there through DRN-TO-MVR, so the residual plain-DRN record
-    is buffer drainage from neighbouring basins and is excluded. Without such a
+    is buffer drainage from neighboring basins and is excluded. Without such a
     network, a lake alone included, the catchment drains are added to the routed
     outflow. A run with no routed series at all falls back to the lumped accounting:
     the water the aquifer loses through its drains and its surface excess, plus the
@@ -154,7 +154,7 @@ def aggregate_catchment_timeseries(
             # With route_drainage the routed SFR/LAK ext_outflow already carries the
             # in-watershed drainage (moved into the DRN-TO-MVR record, whose plain-DRN
             # residual is ~0). The remaining plain-DRN outflow is the buffer
-            # (neighbouring-basin) drainage, which must NOT feed this catchment, so
+            # (neighboring-basin) drainage, which must NOT feed this catchment, so
             # it is dropped instead of added.
             routed_series = pd.Series(routed, index=ts_index, name="discharge", dtype="float64")
             if drainage_outside_routed and "discharge" in series_by_var:
@@ -576,7 +576,7 @@ def _aggregate_from_lumped_budget(
 
     A ``zone_id = 'catchment'`` row is the only lumped row whose support is the
     catchment, so it wins. Any other zone spans the model domain, which on a
-    buffered grid takes in the neighbouring basins; such a row is still used,
+    buffered grid takes in the neighboring basins; such a row is still used,
     because a run carrying nothing else must report something, but it is warned
     about once and never rescaled. ``catchment_only`` skips every other zone and
     returns None when no catchment row exists.
@@ -689,7 +689,7 @@ def _build_catchment_mask(store: Any, sim_id: str, grp, active: np.ndarray | Non
     The support is ``mesh/descent_basin`` restricted to the active cells. A
     run that stored none (sealed before the basin was kept, or a solver that
     builds no D) keeps the old support ``polygon_centroid``: the cells whose
-    centre the delineated watershed covers. A run that carries no watershed
+    center the delineated watershed covers. A run that carries no watershed
     either keeps the active domain and says so with both areas, because a
     synthetic domain legitimately has no catchment and refusing would abort it.
     """

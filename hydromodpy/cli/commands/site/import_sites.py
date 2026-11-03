@@ -66,7 +66,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         "--snap-max-m",
         type=float,
         default=200.0,
-        help="Farthest snap in metres; a station farther away is skipped (default: 200)",
+        help="Farthest snap in meters; a station farther away is skipped (default: 200)",
     )
     layer = parser.add_argument_group("--layer")
     layer.add_argument("--name-field", default=None, help="Field holding the site name")

@@ -37,10 +37,10 @@ Pick the tier
    * - ``characterization``
      - What one real run leaves on disk, read with the formats a stranger would
        use.
-     - Five strict ``xfail`` cases record claims the code does not honour yet.
+     - Five strict ``xfail`` cases record claims the code does not honor yet.
    * - ``contract``
      - Several implementations of one port behave the same.
-     - Parametrised over the implementations.
+     - Parametrized over the implementations.
 
 ``tests/conftest.py`` tags a test with its tier marker and a default timeout
 from its folder, so you do not write ``@pytest.mark.unit``.
@@ -243,7 +243,7 @@ Pitfalls
 - A validation test keeps its tolerances in the case ``tolerances.toml`` or in
   ``tests/TOLERANCES.md`` through ``tol('<slug>')``. It does not hard-code a
   threshold.
-- Raise coverage by asserting a real behaviour or an invariant, never by adding a
+- Raise coverage by asserting a real behavior or an invariant, never by adding a
   test to hit a line. Codecov gates the patch at 80 % and the project at ``auto``;
   ``fail_under`` in ``pyproject.toml`` is not a CI gate.
 

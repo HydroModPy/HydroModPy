@@ -173,7 +173,7 @@ streambed_k_unit = "m/s"
 
 # 1 m et non 0,1 m. MODFLOW 6 bascule un bief entre connecte et
 # deconnecte a `rtp - rbth`, pas a `rtp` : avec rbth = 0,1 m la bascule
-# se jouait sur dix centimetres et le permanent oscillait en cycle
+# se jouait sur dix centimeters et le permanent oscillait en cycle
 # binaire. A 1 m le seuil descend a 1,5 m sous le sol avec l'incision.
 streambed_thickness = "1 m"
 

@@ -86,7 +86,7 @@ def _surface(x: np.ndarray, y: np.ndarray) -> np.ndarray:
 
 
 def _synthetic_server(bbox: tuple, width: int, height: int) -> bytes:
-    """A plane, sampled at the pixel centres of the requested grid."""
+    """A plane, sampled at the pixel centers of the requested grid."""
     xs = bbox[0] + (np.arange(width) + 0.5) * (bbox[2] - bbox[0]) / width
     ys = bbox[3] - (np.arange(height) + 0.5) * (bbox[3] - bbox[1]) / height
     grid_x, grid_y = np.meshgrid(xs, ys)

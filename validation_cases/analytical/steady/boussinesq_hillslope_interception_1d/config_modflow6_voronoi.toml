@@ -46,7 +46,7 @@ seeds = "triangulation"
 nlay = 1
 
 # A 2.5 m raster (160 x 12) under the 10 m columns of the structured grids: a
-# linear surface is flat past the centre of the end raster columns (1.25 m from
+# linear surface is flat past the center of the end raster columns (1.25 m from
 # the faces), and the flow to the held head crosses that flat strip only by a
 # head above the surface, so the strip is kept short. The nodes of the east face
 # sit at x = 400 m, in the flat strip, where the surface is 5.015625 m.

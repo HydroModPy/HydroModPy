@@ -1,6 +1,6 @@
 """A constant-head cell keeps its steepest descent; the walks that stop there read -1.
 
-The cell sits on a slope, so the steepest descent hands it a lower neighbour.
+The cell sits on a slope, so the steepest descent hands it a lower neighbor.
 D sends its upslope cells into it and keeps that receiver, so an accumulation
 crosses a river CHD and the outlet still sums the domain. The drainage mover
 and the reach rectification stop where water leaves the model: they read the

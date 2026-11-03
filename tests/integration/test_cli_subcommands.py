@@ -1,6 +1,6 @@
 """Integration smoke tests for the ``hmp`` CLI subcommand dispatch.
 
-Each new or reorganised CLI subcommand must at minimum surface in
+Each new or reorganized CLI subcommand must at minimum surface in
 ``hmp --help`` and expose a ``--help`` string without importing the heavy
 domain modules. The tests invoke ``hmp`` in-process to avoid spinning a
 subprocess per assertion.

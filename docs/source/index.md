@@ -4,7 +4,7 @@ html_theme.sidebar_secondary.remove: true
 
 # HydroModPy
 
-A Python toolbox for automated, reproducible, catchment-scale modelling of shallow
+A Python toolbox for automated, reproducible, catchment-scale modeling of shallow
 groundwater. One TOML file takes a catchment from its digital elevation model to a
 calibrated model: where the water table sits, where it reaches the ground, which streams
 it keeps flowing, and how all of it changes with the seasons.
@@ -93,7 +93,7 @@ It automates the steps that take the most time:
 1. **Catchment extraction** from a digital elevation model.
 2. **Forcing and observations**: recharge, climate series, groundwater heads, gauged
    discharge, mapped stream networks and intermittency.
-3. **Mesh and vertical discretisation** suited to shallow basement aquifers, with
+3. **Mesh and vertical discretization** suited to shallow basement aquifers, with
    parameters given per zone or per cell, in steady state or in transient.
 4. **Calibration** that combines heads, discharge and the extent of the stream network
    to constrain the hydraulic properties.

@@ -2,7 +2,7 @@
 
 The adapter runs the CMA-ES search in the transformed parameter space exposed by
 :class:`~hydromodpy.calibration.optim.parameters.ParameterSpace` and optionally
-normalises the search domain into the unit cube.
+normalizes the search domain into the unit cube.
 
 The ask/tell contract:
 
@@ -57,7 +57,7 @@ class CmaEsAdapter:
         RNG seed forwarded to ``cma``.
     restarts
         Number of CMA-ES restarts. ``0`` (default) keeps the single-strategy
-        behaviour. When ``> 0``, each time the underlying CMA strategy stops
+        behavior. When ``> 0``, each time the underlying CMA strategy stops
         before the evaluation budget is exhausted the adapter re-instantiates
         a fresh ``CMAEvolutionStrategy`` from a perturbed ``x0`` (uniform
         offset within +/- ``0.1`` in transformed space, clipped to bounds)
@@ -151,10 +151,10 @@ class CmaEsAdapter:
             "tolfun": 1e-20,
             "tolfacupx": 1e20,
             "tolflatfitness": self._max_trials,
-            # Disable the implicit maxstd-from-bounds behaviour that fires
+            # Disable the implicit maxstd-from-bounds behavior that fires
             # the ``_stds_into_limits`` path on 1-D bounded problems and
             # raises ``set_i`` "dimension needed" before sigma_vec has
-            # been lazily initialised. Setting maxstd_boundrange to a
+            # been lazily initialized. Setting maxstd_boundrange to a
             # very large value keeps the inferred maxstd well above the
             # actual sigma range so the limiter never engages.
             "maxstd_boundrange": 1e20,

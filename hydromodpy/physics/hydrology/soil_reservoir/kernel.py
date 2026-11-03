@@ -1,4 +1,4 @@
-"""Daily soil reservoir, vectorised over columns, looped over days.
+"""Daily soil reservoir, vectorized over columns, looped over days.
 
 Each day the rain reaches the soil before it evaporates. ETR falls linearly
 below alpha x RU: alpha is 1 - p of FAO-56 (Allen et al. 1998) and LP of HBV

@@ -3,7 +3,7 @@
 # rings of K (70 m and 140 m) are the ones of the structured MODFLOW 6 run. The
 # engine puts a face on each ring contact (mirror pairs), so no cell straddles
 # two zones of K: the cells hold one K whole. The coast is not a face line: a
-# cell holds the ocean head where the DEM at its centre is at or below sea
+# cell holds the ocean head where the DEM at its center is at or below sea
 # level, as on the structured grid.
 
 [[simulation.process]]

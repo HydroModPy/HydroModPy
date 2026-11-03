@@ -1,6 +1,6 @@
 """The comparator holds the members the cell-mesh layout added, and only those.
 
-A run written before the layout does not hold the cell centres, the family bits, the edge
+A run written before the layout does not hold the cell centers, the family bits, the edge
 tables or the two family tables. Comparing it to a run written after must not read
 as drift, but a member missing from the newer run, or an unlisted new one, still
 does.

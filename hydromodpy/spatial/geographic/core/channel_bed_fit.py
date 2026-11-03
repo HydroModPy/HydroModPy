@@ -46,7 +46,7 @@ def pixel_tree(channel: np.ndarray, d8: np.ndarray, *, res_x: float, res_y: floa
     """The tree of the *channel* pixels along the *d8* pointer (WhiteboxTools codes).
 
     A pixel whose pointer leaves the channel, the grid, or carries no code is a
-    root. The edge length is the pointer step in metres. Receivers are found
+    root. The edge length is the pointer step in meters. Receivers are found
     by a search on the sorted flat indices of the channel pixels, so a DEM
     grid of any size costs memory on its channel pixels only.
     """
@@ -155,7 +155,7 @@ def regularize_channel_bed(
     min_slope: float = 1.0e-4,
     report: BedReport | None = None,
 ) -> tuple[np.ndarray, BedReport]:
-    """Return *top* with its channel pixels regularised, and the report.
+    """Return *top* with its channel pixels regularized, and the report.
 
     The raster half of the fit, free of any file. *channel*, *d8* and *gap* sit
     on the grid of *top*; only pixels both *channel* and *valid*, and outside

@@ -24,12 +24,12 @@ class SyntheticGridConfig(HydroModelBase):
     length_x: Annotated[LengthMeters, Profile.USER] = Field(
         default=100.0,
         gt=0.0,
-        description="Total domain length along x (metres). Accepts inline units, e.g. '0.1 km'.",
+        description="Total domain length along x (meters). Accepts inline units, e.g. '0.1 km'.",
     )
     length_y: Annotated[LengthMeters, Profile.USER] = Field(
         default=1.0,
         gt=0.0,
-        description="Total domain length along y (metres). Accepts inline units, e.g. '1 m'.",
+        description="Total domain length along y (meters). Accepts inline units, e.g. '1 m'.",
     )
     nx: Annotated[PositiveInt, Profile.USER] = Field(
         default=100,
@@ -55,7 +55,7 @@ class SyntheticGridConfig(HydroModelBase):
     )
     nodata: Annotated[float, Profile.DEV] = Field(
         default=-9999.0,
-        description="Nodata sentinel exported to raster artefacts.",
+        description="Nodata sentinel exported to raster artifacts.",
     )
 
     @model_validator(mode="after")
@@ -119,7 +119,7 @@ class FlatTopography(HydroModelBase):
     )
     base_elevation: Annotated[float, Profile.USER] = Field(
         default=20.0,
-        description="Elevation of the flat ground surface, in metres.",
+        description="Elevation of the flat ground surface, in meters.",
         json_schema_extra={"unit": "m"},
     )
 

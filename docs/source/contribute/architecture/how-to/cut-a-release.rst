@@ -51,7 +51,7 @@ The checklist
 -------------
 
 1. **Choose the version** from the change, with :doc:`/about/versions`.
-2. **Choose the branch.** Normal work comes from ``dev``. A stabilisation window
+2. **Choose the branch.** Normal work comes from ``dev``. A stabilization window
    uses ``release/X.Y``. A fix on an old line starts from the tag it fixes
    (``hotfix/X.Y.Z``). ``v1.0`` is frozen at ``v1.0.0``: do not release from it.
 3. **Set the version** in ``pyproject.toml`` and ``_FALLBACK_VERSION``.

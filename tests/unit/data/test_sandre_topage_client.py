@@ -1,6 +1,6 @@
 """The Sandre WFS client answers what the server holds, or raises.
 
-Each test replays one behaviour measured on the live service on 2026-09-27:
+Each test replays one behavior measured on the live service on 2026-09-27:
 short pages, an empty page mid-way, a refusal sent with HTTP 200, a zip whose
 member is named ``%TYPENAME%.gpkg``, missing text sent as ``''``. Only the
 transport is canned; the pages are real GeoPackages.

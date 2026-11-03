@@ -6,13 +6,13 @@ calibration that talks about the Pydantic tree instead of about the aquifer:
 renaming a field there expires every file that names it, and nothing in it says
 that a conductivity is searched in log space.
 
-The catalogue already walks the resolved configuration and knows, for every
+The catalog already walks the resolved configuration and knows, for every
 value a search could move, the entries it belongs to and what its field
 declares about being searched. So a file names the quantity and the resolution
 happens here: ``[calibration.parameters.K]`` finds the one target named ``K``
 and writes its path into the declaration.
 
-Three rules, and neither of them authorises anything. The catalogue decides
+Three rules, and neither of them authorizes anything. The catalog decides
 what exists, as it already did. The annotation only fills in what the file left
 unsaid, and says which leaf is the value of its entry so that ``K`` does not
 have to be written ``K.value``. And ``path``, when a file writes one, decides
@@ -89,7 +89,7 @@ def unresolved_parameter_names(calibration: Any, project_config: Any) -> dict[st
 def resolve_parameter_targets(
     calibration: Any, project_config: Any, *, strict: bool = True
 ) -> None:
-    """Fill in, from the catalogue, what each parameter did not say.
+    """Fill in, from the catalog, what each parameter did not say.
 
     Every parameter is completed from the target it points at, whether it got
     there by name or by writing its own path. Two spellings of the same
@@ -129,7 +129,7 @@ def resolve_parameter_targets(
             target = by_path.get(path)
             if target is None:
                 _refuse_a_depth_model_path_the_catalogue_does_not_carry(name, path, project_config)
-                # A path the catalogue does not carry is the documented way out,
+                # A path the catalog does not carry is the documented way out,
                 # and the space and the preflight judge it on their own terms.
                 continue
         _refuse_a_replaced_recharge_rate(name, target, project_config)
@@ -148,7 +148,7 @@ def _refuse_a_name_that_contradicts_its_path(
     Since the name is an address of its own, a file that writes both says the
     same thing twice and may say it differently. Nothing downstream would
     notice: the path wins, the search moves one quantity and the report labels
-    it with the name of another. A name the catalogue does not carry is not a
+    it with the name of another. A name the catalog does not carry is not a
     contradiction, only a label, and that is what a file states when it wants
     its own vocabulary.
     """
@@ -247,7 +247,7 @@ def _depth_model_kinds() -> dict[str, tuple[str, ...]]:
     """Return, per depth-model kind, its fields and which of them are searchable.
 
     Read off the schema rather than typed here: the fields a kind declares
-    calibrable are the ones the catalogue lists, and a message that named
+    calibrable are the ones the catalog lists, and a message that named
     another list would drift from it.
     """
     from hydromodpy.spatial.domain.depth_model_config import (
@@ -333,7 +333,7 @@ def _refuse_a_depth_model_path_the_catalogue_does_not_carry(
 ) -> None:
     """Refuse a path into the depth model that the active kind does not expose.
 
-    Anything else a path reaches outside the catalogue is the documented way
+    Anything else a path reaches outside the catalog is the documented way
     out. The depth model is not: its tag decides which field exists, and a
     path to the thickness of a flat substratum, or to the offset of a raster,
     either fails at the first trial or moves a map the search cannot describe.
@@ -401,12 +401,12 @@ def _convert_bounds_into_the_unit_of_the_target(
 
 
 def _refuse_bounds_the_registry_rules_out(name: str, decl: Any, target: CalibrationTarget) -> None:
-    """Face the declared bounds with the range the catalogue read for this target.
+    """Face the declared bounds with the range the catalog read for this target.
 
     The guard in :mod:`hydromodpy.calibration.optim.parameters` asks the physical
     registry under the name the file gave the parameter, which is all a bare name
     can do. Here the target is known, so the question is asked under the key the
-    catalogue itself used, and a zone of a heterogeneous field is faced with the
+    catalog itself used, and a zone of a heterogeneous field is faced with the
     ceiling of the property it is a zone of: ``Sy.zone_1`` is a specific yield and
     0.9 is not one, whatever the section is called.
 

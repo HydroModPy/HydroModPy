@@ -98,7 +98,7 @@ class MeshPair:
 class RechargeCase:
     """One recharge source with the raw numbers a hand reference needs.
 
-    ``xy`` holds the pixel centres or the stations, ``series_mm_day`` their value
+    ``xy`` holds the pixel centers or the stations, ``series_mm_day`` their value
     in each of the ``NPER`` periods, ``(NPER, len(xy))``.
     """
 
@@ -570,7 +570,7 @@ def cell_polygons(cell_mesh: PlanarCellMesh, *, origin: tuple[float, float]) -> 
 
 
 def reference_centers(cell_mesh: PlanarCellMesh) -> np.ndarray:
-    """The mean of the vertices of each cell: the centre of a regular or a triangle mesh."""
+    """The mean of the vertices of each cell: the center of a regular or a triangle mesh."""
     vertices = np.asarray(cell_mesh.mesh.vertices, dtype=float)[:, :2]
     return np.array(
         [vertices[ids[ids >= 0]].mean(axis=0) for ids in cell_mesh.mesh.flat_connectivity]
@@ -602,7 +602,7 @@ def reference_zone_values(pair: MeshPair, by_zone: dict[str, float]) -> np.ndarr
 
 
 def reference_layer_depths(solver_mesh: SolverMesh) -> np.ndarray:
-    """Depth of each layer centre below the top, ``(nlay, n_cells)``."""
+    """Depth of each layer center below the top, ``(nlay, n_cells)``."""
     layer_top = np.vstack([solver_mesh.top[None, :], solver_mesh.botm[:-1]])
     return solver_mesh.top[None, :] - 0.5 * (layer_top + solver_mesh.botm)
 
@@ -616,7 +616,7 @@ def reference_k(pair: MeshPair, *, profile: bool) -> np.ndarray:
 
 
 def reference_recharge(pair: MeshPair, case: RechargeCase) -> dict[int, np.ndarray]:
-    """Recharge of every period at every cell centre in m/s: nearest source or inverse distance."""
+    """Recharge of every period at every cell center in m/s: nearest source or inverse distance."""
     centers = reference_centers(pair.cell_mesh)
     squared = ((centers[:, None, :] - case.xy[None, :, :]) ** 2).sum(axis=-1)
     if case.method == "nearest":

@@ -32,7 +32,7 @@ logger = get_logger(__name__)
 class DownslopeMetric:
     """Static receiver graph plus the length of every receiver link.
 
-    ``diagonal_neighbors`` is the neighbourhood the graph was actually built
+    ``diagonal_neighbors`` is the neighborhood the graph was actually built
     on, which :func:`resolve_diagonal_neighbors` may have narrowed from the
     one asked for.
     """
@@ -121,10 +121,10 @@ def resolve_diagonal_neighbors(
     n_cells: int,
     requested: bool,
 ) -> bool:
-    """Return the neighbourhood a descent can use on this mesh.
+    """Return the neighborhood a descent can use on this mesh.
 
     ``True`` asks for the D8 descent of the paper: on a quad mesh the cells
-    sharing a node are the eight neighbours, the four across an edge and the
+    sharing a node are the eight neighbors, the four across an edge and the
     four across a corner. It holds on every mesh whose faces all have four
     nodes, the structured DIS grid and an unstructured quad mesh alike.
 
@@ -132,7 +132,7 @@ def resolve_diagonal_neighbors(
     edges. On a Voronoi dual a vertex is generically shared by three cells,
     which already pair across edges, so the two graphs are the same one. On a
     triangle mesh a node is shared by about six triangles, and pairing them
-    by node gives about twelve neighbours with no grid direction to call
+    by node gives about twelve neighbors with no grid direction to call
     diagonal: that is not the paper's D8 either. The fallback is logged, not
     refused, because ``True`` is the default and a Voronoi run must not fail
     on a knob it never set.
@@ -165,7 +165,7 @@ def build_downslope_metric(
     distance, which is the D8 convention of the paper on an isotropic grid and
     is exact by construction on an unstructured mesh. A diagonal step on a
     square grid is therefore ``sqrt(2)`` cells long, and the receiver is the
-    steepest drop per metre, so a diagonal does not win on its length alone.
+    steepest drop per meter, so a diagonal does not win on its length alone.
 
     ``diagonal_neighbors`` defaults to the D8 descent of the paper and is
     resolved against the mesh by :func:`resolve_diagonal_neighbors`. A caller
@@ -173,7 +173,7 @@ def build_downslope_metric(
     recorded as given.
 
     ``centroids`` names the points ``reference_values`` were sampled at. Pass
-    them whenever the mesh carries explicit cell centres: on a Voronoi dual the
+    them whenever the mesh carries explicit cell centers: on a Voronoi dual the
     elevation is sampled at the generator seed while the polygon centroid the
     vertices give back sits elsewhere, and measuring the drop between seeds
     over the distance between vertex means is a slope of two different

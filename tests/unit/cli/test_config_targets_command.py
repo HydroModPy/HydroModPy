@@ -2,7 +2,7 @@
 
 Writing a calibration parameter means writing a dotted path into the
 configuration, and the only way to find a valid one was to read the Pydantic
-tree. The catalogue is derived from the resolved configuration, so it lists what
+tree. The catalog is derived from the resolved configuration, so it lists what
 THIS project carries, with the value it holds today and the physical range the
 registry enforces where it knows one.
 """
@@ -105,7 +105,7 @@ def test_a_file_that_does_not_load_exits_on_the_config_code(tmp_path, capsys) ->
 
 
 def test_an_unresolvable_parameter_name_still_prints_the_catalogue(tmp_path, capsys) -> None:
-    """Loading is lenient about a name the catalogue does not carry.
+    """Loading is lenient about a name the catalog does not carry.
 
     The refusal a bad name gets (elsewhere) points the reader at this very
     command, so it must not be the thing that refuses to run.

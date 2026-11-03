@@ -312,7 +312,7 @@ def test_stage_one_says_so_when_no_sign_change_was_sampled(mpl) -> None:
 
 
 def test_a_point_with_no_root_reports_no_calibrated_diagnostics(mpl) -> None:
-    # Reading the least-bad point as the answer would be a minimised mean
+    # Reading the least-bad point as the answer would be a minimized mean
     # distance in disguise, so its r_optim and its counts are not the card's.
     run = _staged_run(residuals=[300.0, 120.0, 80.0, 40.0])
 

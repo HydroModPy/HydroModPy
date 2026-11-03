@@ -16,7 +16,7 @@ For the role of each database scope, see :doc:`data-scopes`.
 The placement rule
 ------------------
 
-**An artefact is written in the directory of what produced it, under a fixed name per class.
+**An artifact is written in the directory of what produced it, under a fixed name per class.
 There is no other destination inside a project.** A figure of a run is in that run, a report
 of a session is in that session, a table over N cases is in ``summary/``. Publishing is a copy
 out of the tree (``hmp publish``); nothing in the project points at the copy except the
@@ -119,7 +119,7 @@ until a new attempt or a ``gc`` decides so, because the next attempt resumes fro
 hash) moves the scratch to a machine root such as ``$SLURM_TMPDIR``, under
 ``<project>/<case>.a<attempt>/``.
 
-Classes of artefacts
+Classes of artifacts
 --------------------
 
 .. list-table::
@@ -215,7 +215,7 @@ A run folder
    └── .hmp/               state of the attempt in progress; removed by the seal of a completed run
 
 Those names are the whole vocabulary: ``ALLOWED_RUN_ENTRIES`` in
-``hydromodpy/results/storage/contract.py`` lists them, and no other name is a run artefact.
+``hydromodpy/results/storage/contract.py`` lists them, and no other name is a run artifact.
 
 ``manifest.json`` is written last, through a temporary file, ``fsync`` of the file and of the
 directory, and a rename. Its blocks are ``run``, ``geometry``, ``period``, ``config``, ``site``,
@@ -287,7 +287,7 @@ periods, and a joint calibration or a validation period adds keys, not meanings.
 - ``best`` holds one trial, one ``cost`` and one set of ``parameters``, those a phase froze included,
   and ``cases`` holds the run and the cost of that trial in each case. ``cost`` is null when a search
   keeps no single cost, and ``best`` is null when it keeps no single best.
-- A line of ``trials.jsonl`` holds the ``params`` the search proposed, the ``cost`` it minimised, and
+- A line of ``trials.jsonl`` holds the ``params`` the search proposed, the ``cost`` it minimized, and
   ``cases``: for each case its cost, the ``components`` that make it, its ``params_hash``, its run,
   its ``error`` and a free ``detail``. A cached trial reads ``components`` and the cost, and never the
   run of another session.
@@ -702,7 +702,7 @@ The vertical geometry follows the table.
    * - ``face_x``, ``face_y``
      - float64
      - ``face``
-     - Cell centre, by the one centre rule of the mesh; the attribute ``center_kind`` says
+     - Cell center, by the one center rule of the mesh; the attribute ``center_kind`` says
        ``generator``, ``cell_center`` or ``vertex_mean``
    * - ``face_family``
      - int32
@@ -793,7 +793,7 @@ and ``descent_pinned``, the list ``descent_dam_foot`` and the mask ``descent_bas
 at the catchment outlet, whose attributes name the outlet cell (``descent_outlet``), the rule that
 found it (``basin_rule``), the area (``basin_area_m2``), whether D was seeded at the outlet
 (``basin_seeded_at_outlet``) and the rule version (``basin_version``). The attributes of
-``descent_receiver`` name the neighbourhood and carry the build report. The solver build leaves D
+``descent_receiver`` name the neighborhood and carry the build report. The solver build leaves D
 and its basin in the solver folder as ``<model>.descent.npz`` and the extractor copies them into
 the store right after the mesh. ``run.descent`` reads them back, and the flow direction map and ``drain_accumulation_flux`` route on it
 (the contract of D is in :doc:`solver/backends`). A Boussinesq run stores the mesh of its
@@ -988,7 +988,7 @@ A finished run answers for one precise cell, after the fact.
 (``results/derive/virtual_fields``) to a run, and exposes the gesture as
 ``run.probe.series`` and ``group.probe.series``. The cell is named by
 project-CRS coordinates, by its zero-based index, or by a depth in
-metres below the local model top that picks the layer. A virtual field
+meters below the local model top that picks the layer. A virtual field
 (``watertable_depth`` ...) answers exactly like a persisted one, so a
 map read and a point read can never disagree.
 
@@ -1035,7 +1035,7 @@ extraction, while it still holds its fields
 ``sample_declared_observation_points``). A declaration mistake is logged
 and skipped: it must not lose a run whose results are already in.
 
-Both halves of a declared point are run artefacts. The series lands in
+Both halves of a declared point are run artifacts. The series lands in
 ``tables.parquet/timeseries.parquet`` under the station id
 ``obs:<point id>``, so a declared probe never collides with a solver
 station (gauge, SFR reach, lake). The declaration itself lands in
@@ -1078,7 +1078,7 @@ Known limit
 timestep sits in one chunk as long as it fits that budget
 (``hydromodpy/results/zarr_store/chunks.py``). Reading one cell across time is a single Zarr
 call, but it decompresses every chunk the time axis crosses, so a point series pays for the
-neighbouring cells it never uses. A cell-major layout, or a second copy laid out that way, would
+neighboring cells it never uses. A cell-major layout, or a second copy laid out that way, would
 make it cheap, and neither exists.
 
 **A network file system is not supported.** ``os.mkdir``, ``rename`` and the file locks depend on

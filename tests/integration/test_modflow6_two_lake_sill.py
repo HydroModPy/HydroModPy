@@ -6,7 +6,7 @@ carries a spillway WEIR to the external boundary. The LAK package is assembled
 by the production ``build_lak_package_args`` (so the integration covers the real
 builder output), then wired into a tiny 5x11 / 2-layer DISV model exported from
 a ``SolverMesh`` and run in MF6. The lakebed is sealed (``bedleak = 0``) so the
-only inter-lake path is the weir, which isolates the sill behaviour:
+only inter-lake path is the weir, which isolates the sill behavior:
 
 * BELOW the sill (both stages < invert) the weir is inert and the two lakes
   stay independent -- no exchange, stages held;

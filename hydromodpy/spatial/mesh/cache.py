@@ -15,7 +15,7 @@ complete entry or none, also when two runs of a project build the same mesh.
 
 An entry stored before the shape entries of the QA (bisection offset, corner
 angles, concave cells) is read as it is: those entries are measured on the
-stored mesh and centres, so the frozen mesh of a project survives without a new
+stored mesh and centers, so the frozen mesh of a project survives without a new
 schema.
 """
 

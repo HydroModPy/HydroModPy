@@ -2,7 +2,7 @@
 
 The lake table hands the cutoff walls, the lake footprints and the declared
 outlet to the size rules of the lake structures. The barrier lines are each
-lake wall, then each flow barrier. The bed regularisation writes the surface the
+lake wall, then each flow barrier. The bed regularization writes the surface the
 model top is sampled from after the mesh inputs are built, so toggling it
 keeps the cached mesh.
 """

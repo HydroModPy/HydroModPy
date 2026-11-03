@@ -91,6 +91,6 @@ def test_a_covered_column_is_closed_to_the_sink_flood() -> None:
     top = np.full(9, 10.0)
     top[4] = 5.0
     base = solver_mesh_from_structured_arrays(nrow=3, ncol=3, top=top, botm=top - 20.0)
-    # The centre is a pit ringed by higher cells; covered by a lake, it is no pit.
+    # The center is a pit ringed by higher cells; covered by a lake, it is no pit.
     assert np.flatnonzero(closed_depression_mask(base)).tolist() == [4]
     assert not closed_depression_mask(base, covered_cells=[4]).any()

@@ -209,7 +209,7 @@ and its SHA-256 automatically.
 Cross-field validators
 ----------------------
 
-Use ``@field_validator(mode="before")`` for normalisation
+Use ``@field_validator(mode="before")`` for normalization
 (parse-then-validate) and ``@model_validator(mode="after")`` for
 cross-field invariants. Keep them small and explicit.
 

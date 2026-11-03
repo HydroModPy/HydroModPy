@@ -298,7 +298,7 @@ def _input_files(item: LoadedRecord, source_path: Path | None) -> list[tuple[Pat
 
     A record built from files it does not point at lists them in its
     metadata (:data:`~hydromodpy.data.contracts.spatial_field.INPUT_FILES_KEY`):
-    the mapped network is rasterised in the scratch, its inputs are the files
+    the mapped network is rasterized in the scratch, its inputs are the files
     of its sources. Any other record was read from its own source path.
     """
     metadata = getattr(item.record, "metadata", None)

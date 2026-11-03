@@ -4,7 +4,7 @@ Also the payload the process prints on stdout, byte for byte, so a caller that
 captured the pipe and a caller that reads the directory learn the same thing.
 
 ``status`` uses the four OGC API Processes values as a **vocabulary and not a
-protocol**, plus ``dismissed`` for a cancelled job. A capability process only
+protocol**, plus ``dismissed`` for a canceled job. A capability process only
 ever writes ``successful``, ``failed`` or ``dismissed``: ``accepted`` and
 ``running`` describe a job before the process starts, which is the business of
 whoever tracks it and not of the process itself. That is why this module's
@@ -37,12 +37,12 @@ OUTCOME_VERSIONS = VersionWindow(oldest=OUTCOME_SCHEMA, current=OUTCOME_SCHEMA)
 JobStatus = Literal["successful", "failed", "dismissed"]
 
 DISMISSED_STATUS: JobStatus = "dismissed"
-"""What a cancelled job writes, and the only status a signal may publish.
+"""What a canceled job writes, and the only status a signal may publish.
 
 A process that exits on a signal exits 130, and the document it puts on stdout
 has to agree with that. Spelled once here because two places need it: the
 constructor of a dismissed outcome and the runtime that decides what a
-cancelled invocation prints.
+canceled invocation prints.
 """
 
 UNTYPED_ERROR_CODE = "HMPY.E000"
@@ -90,7 +90,7 @@ _RECORD_MEMBERS = frozenset({"id", "path", "mediaType", "bytes", "sha256"})
 
 @dataclass(frozen=True, slots=True)
 class OutputRecord:
-    """One artefact that was produced, hashed from the bytes on disk."""
+    """One artifact that was produced, hashed from the bytes on disk."""
 
     id: str
     path: str
@@ -274,7 +274,7 @@ def dismissed(
     exc: BaseException,
     warnings: Sequence[str] = (),
 ) -> JobOutcome:
-    """The outcome of a job a scheduler cancelled.
+    """The outcome of a job a scheduler canceled.
 
     No output is claimed, because a cancellation unwinds the stack wherever it
     was, and the seal is never written: a dismissed job directory is readable

@@ -1,6 +1,6 @@
 """D descends by shared nodes on a quad grid and by shared faces elsewhere.
 
-On quads a diagonal neighbour is taken when its drop per metre is the steepest,
+On quads a diagonal neighbor is taken when its drop per meter is the steepest,
 the D8 rule the stream criterion uses. A triangle shares nodes with about a
 dozen others and no direction there is a diagonal, so the graph falls back to
 shared faces, and the fill and the receivers both use that one graph.

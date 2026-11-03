@@ -212,7 +212,7 @@ class TestCatchmentBudgetZone:
     """The second budget row whose support is the basin, not the buffered box.
 
     MODFLOW 6 meshes a box wider than the catchment, so the ``zone_id = "domain"``
-    row takes in the neighbouring basins. The per-cell array is in memory while
+    row takes in the neighboring basins. The per-cell array is in memory while
     the budget is read and dropped right after unless the run keeps the term,
     so this is the one place the basin can be summed for free.
     """

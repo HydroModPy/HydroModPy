@@ -373,7 +373,7 @@ def test_cross_section_samples_topography_and_watertable_along_a_line(mpl) -> No
     fig, ax = mpl.subplots()
 
     # The stub mesh spans x in [0, 2], y in [0, 1]; the section runs west to
-    # east through the mesh centre and must sample both faces.
+    # east through the mesh center and must sample both faces.
     CrossSection().render(_Run(), ax, line=[0.0, 0.5, 2.0, 0.5])
 
     labels = [line.get_label() for line in ax.lines]
@@ -389,7 +389,7 @@ def test_cross_section_samples_topography_and_watertable_along_a_line(mpl) -> No
 
 
 def test_cross_section_marks_the_streambed_and_its_disconnection_threshold(mpl) -> None:
-    # MODFLOW disconnects a reach at rtp minus the streambed thickness, metres
+    # MODFLOW disconnects a reach at rtp minus the streambed thickness, meters
     # below the ground. A section that only draws the land surface cannot say
     # whether a reach is connected, so both elevations must reach the axes, and
     # the threshold must sit under the bed.

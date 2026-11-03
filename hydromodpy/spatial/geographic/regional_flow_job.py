@@ -45,7 +45,7 @@ DESCRIPTION_PATH = "outputs/regional_flow.json"
 
 
 class CappedBreachRequest(BaseModel):
-    """Limits of a capped breach, in metres, as a request carries them."""
+    """Limits of a capped breach, in meters, as a request carries them."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 

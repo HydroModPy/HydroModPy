@@ -11,7 +11,7 @@ provenance counts, network segment counts).
 
 It holds three things of unequal weight:
 
-1. the figure catalogue of a run: the contract `figure.py`, the registry
+1. the figure catalog of a run: the contract `figure.py`, the registry
    `figure_registry.py` and the figures of `figures/` (`hmp viz list` prints
    them);
 2. two reports: `overview/` (data before any simulation) and `catchment_report/`
@@ -194,8 +194,8 @@ the base first and returns a sentence (model: `figures/lake_abacus_comparison.py
 | `png_metadata.py` | where does this PNG come from? |
 | `maps/axes.py`, `maps/mesh_geometry.py`, `maps/ugrid.py`, `maps/transect.py` | how to draw a field on the mesh, a map, a section? |
 | `maps/overlays.py` | which named layer to draw on this map? |
-| `maps/geo/` | how to dress a vector map and project it to metres? |
-| `style.py` | which theme, which colour, where does the legend go? |
+| `maps/geo/` | how to dress a vector map and project it to meters? |
+| `style.py` | which theme, which color, where does the legend go? |
 | `report_blocks/` | how to assemble blocks, figures and tables into one HTML page? |
 | `overview/` | what does the catchment look like before any simulation? |
 | `catchment_report/` | which catchment report to build from a report TOML? |
@@ -378,7 +378,7 @@ generated from the registry into the figures page of the documentation, and
   ReportTable, ReportLink, write_report_page,
   write_report_page_with_block_variants}`
 
-## Layer neighbours
+## Layer neighbors
 
 `display` imports `core`, `schema` and `results`
 (`tests/unit/architecture/layer_matrix.yaml`), never `data`, `simulation`,

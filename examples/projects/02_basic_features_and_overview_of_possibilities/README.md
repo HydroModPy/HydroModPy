@@ -44,7 +44,7 @@ raises the watertable, so more cells outcrop as seepage.
 | `particle_tracks` | tracks colored by travel time |
 | `residence_time_distribution` | travel-time histogram against the exponential law |
 | `cross_section` | topography / watertable / aquifer base cross section |
-| `parameter_section` | the same section coloured by K, which steps down at 30 m |
+| `parameter_section` | the same section colored by K, which steps down at 30 m |
 | `water_budget` | budget per component (recharge = drainage at steady state) |
 | `mass_balance_error` | solver closure error per timestep |
 

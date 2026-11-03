@@ -187,7 +187,7 @@ def test_every_conformance_assertion_passes_against_the_installed_engine(
 def test_an_engine_the_registry_accepts_and_the_chain_cannot_use_is_caught(
     installed_broken_probe, tmp_path
 ) -> None:
-    """The negative control: ``register()`` accepts it, and the suite fails it on the artefacts."""
+    """The negative control: ``register()`` accepts it, and the suite fails it on the artifacts."""
     registered = _pytest(
         tmp_path / "collect", "--collect-only", "-q", site_packages=installed_broken_probe
     )

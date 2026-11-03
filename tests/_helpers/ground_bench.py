@@ -1,7 +1,7 @@
 """A valley with a road across it: the bench of the crossing notch.
 
 A 21 x 21 grid of 10 m cells. The channel runs south down column 10, the bed
-drops one metre per row, and the sides rise half a metre per column away from
+drops one meter per row, and the sides rise half a meter per column away from
 the axis. A road embankment is a band of rows raised across the whole width.
 Everything is deterministic numpy, with no DEM file and no Whitebox: the
 channel mask, the D8 pointer and the accumulation are written in closed form.
@@ -32,12 +32,12 @@ WEST = 32
 
 
 def x_of(col: int) -> float:
-    """Easting of the centre of a column."""
+    """Easting of the center of a column."""
     return (col + 0.5) * RES
 
 
 def y_of(row: int) -> float:
-    """Northing of the centre of a row."""
+    """Northing of the center of a row."""
     return N * RES - (row + 0.5) * RES
 
 
@@ -65,7 +65,7 @@ class Bench:
 
 
 def build(*, embankment_rows: tuple[int, ...] = (), height: float = 0.0) -> Bench:
-    """The valley with the rows of *embankment_rows* raised by *height* metres."""
+    """The valley with the rows of *embankment_rows* raised by *height* meters."""
     dem = valley()
     for row in embankment_rows:
         dem[row, :] += height
@@ -94,12 +94,12 @@ def structures(*rows: tuple[str, object]) -> gpd.GeoDataFrame:
 
 
 def road_along(row: int) -> LineString:
-    """A road across the whole width, on the centre line of *row*."""
+    """A road across the whole width, on the center line of *row*."""
     return LineString([(0.0, y_of(row)), (N * RES, y_of(row))])
 
 
 def bridge_at(col: int, row: int) -> Point:
-    """A point bridge at the centre of a pixel."""
+    """A point bridge at the center of a pixel."""
     return Point(x_of(col), y_of(row))
 
 

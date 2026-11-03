@@ -101,10 +101,10 @@ class HydrographicNetworkGeneratedFigure(_HydrographicNetworkRoleFigure):
 
 
 PERMANENT_COLOR = "#123f6d"
-"""Line colour of the permanent reaches, the minimal map."""
+"""Line color of the permanent reaches, the minimal map."""
 
 NOT_PERMANENT_COLOR = "#e66100"
-"""Line colour of the reaches the maximal map adds to the minimal one."""
+"""Line color of the reaches the maximal map adds to the minimal one."""
 
 _PERMANENCE_COLUMN = "permanence"
 """The canonical column of ``hydromodpy.data.source.permanence``, read by name."""

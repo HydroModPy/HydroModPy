@@ -2,7 +2,7 @@
 
 The drag-and-drop flow accepts heterogeneous user formats (CSV, SHP,
 GeoJSON, GPKG, ASC, GeoTIFF, NetCDF). ``raster``, ``vector`` and ``tables``
-normalise them into the internal pivot formats (Parquet, GeoParquet, COG
+normalize them into the internal pivot formats (Parquet, GeoParquet, COG
 GeoTIFF) without the user ever having to see or name them;
 ``custom_points`` and ``custom_grids`` read a folder of them into records.
 """

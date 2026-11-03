@@ -75,7 +75,7 @@ def rankable_accumulation(
     """Return an accumulation whose values can order the snap window of ``points``.
 
     The regional accumulation is a natural logarithm in float32, which cannot tell
-    neighbouring counts apart above ``LN_FLOAT32_COLLISION_COUNT`` cells. When a
+    neighboring counts apart above ``LN_FLOAT32_COLLISION_COUNT`` cells. When a
     snap window reaches that range, the counts are accumulated again without the
     transform, into ``out``, and that raster ranks the snap. Otherwise the input
     is returned untouched and nothing is computed.

@@ -109,10 +109,10 @@ def support_contacts(
     """The contacts of the zones of an analytical support, or None for any other support.
 
     A ``generated_bands`` support cuts *bounds* along an axis at its breaks, a
-    ``generated_rings`` support cuts it into concentric zones around its centre.
+    ``generated_rings`` support cuts it into concentric zones around its center.
     Coordinates are read as the support providers read them: a relative break is
     a share of the extent along the axis, a relative radius a share of the
-    largest circle around the centre that stays inside *bounds*. The zone keys
+    largest circle around the center that stays inside *bounds*. The zone keys
     are the labels of the support, so a mesh that follows the contacts names the
     zones the flow parameters read.
     """

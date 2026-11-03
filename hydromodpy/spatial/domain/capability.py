@@ -1,10 +1,10 @@
 """``domain-build``: a terrain and a depth model in, a sealed vertical extent out.
 
 The extent is the geometry a mesh is cut out of, handed to the meshing as a
-sealed artefact instead of a live object.
+sealed artifact instead of a live object.
 
 The request takes the depth model of ``[domain]``, not the whole section:
-``supports`` and ``zone_ids`` read artefacts this process never receives. The
+``supports`` and ``zone_ids`` read artifacts this process never receives. The
 working CRS is the one of the DEM, and a DEM without one is refused.
 
 The top surface is not written again. ``domain.json`` carries the digest of the

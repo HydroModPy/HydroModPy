@@ -31,12 +31,12 @@ OUT_NC = DATA / "recharge" / "recharge_pyhelp_urse.nc"
 # PyHELP runs one column per grid cell inside the catchment polygon and leaves
 # the rest empty. The groundwater domain is the catchment plus a 20% buffer
 # ring, so those empty cells fall inside it, and a forcing with holes is
-# refused on discretization. The ring gets the value of the nearest modelled
+# refused on discretization. The ring gets the value of the nearest modeled
 # cell: not a measurement, the least-wrong extension of one.
 
 
 def fill_outside_catchment(path: Path) -> None:
-    """Fill the cells PyHELP did not model with their nearest modelled value."""
+    """Fill the cells PyHELP did not model with their nearest modeled value."""
     import numpy as np
     import xarray as xr
     from scipy.ndimage import distance_transform_edt

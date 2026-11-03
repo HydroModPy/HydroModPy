@@ -1,10 +1,10 @@
-"""Vertical section coloured by the aquifer properties the run was given.
+"""Vertical section colored by the aquifer properties the run was given.
 
 ``cross_section`` draws the geometry and the water table, which is what the
 solver answered. This draws what it was asked: the conductivity and storage
 fields, layer by layer, along the same line. A depth-decaying aquifer and a
 uniform one give sections that look alike until the parameters are the
-colour, which is the whole point of the paper figure this reproduces. The
+color, which is the whole point of the paper figure this reproduces. The
 conductivity along the three axes of the K tensor and its three angles are
 drawn the same way, the conductivities on one shared scale.
 """
@@ -37,7 +37,7 @@ from hydromodpy.display.figures._parameter_scale import (
     PARAMETER_CHOICES,
     PARAMETER_FIELDS,
     cmap_for,
-    colour_norm,
+    color_norm,
     mark_turn,
     parameter_label,
     parameter_name,
@@ -55,7 +55,7 @@ if TYPE_CHECKING:
 
 
 _LOG_OPTION = (
-    "Force a log colour scale on or off. Left out, each panel takes a log "
+    "Force a log color scale on or off. Left out, each panel takes a log "
     "scale when its positive values span more than one decade. The conductivities "
     "of one figure share their scale, and the tensor angles are always linear."
 )
@@ -200,7 +200,7 @@ class ParameterSection(BaseFigure):
         log: bool | None,
         cmap: str | None,
     ) -> None:
-        """Draw ``sampled`` on ``ax``, its colour scale set over ``limits``."""
+        """Draw ``sampled`` on ``ax``, its color scale set over ``limits``."""
         sampled_interfaces = np.vstack([transect.sample(row) for row in interfaces])
         x_edges, y_edges = _quad_edges(transect.distance, sampled_interfaces)
 
@@ -209,7 +209,7 @@ class ParameterSection(BaseFigure):
             y_edges,
             np.ma.masked_invalid(sampled),
             cmap=cmap_for(variable, cmap),
-            norm=colour_norm(variable, limits, log=log),
+            norm=color_norm(variable, limits, log=log),
             shading="flat",
         )
         descriptor = self.field_descriptor_for(variable)
@@ -244,7 +244,7 @@ def _resolve_variables(sim: Run, variables: tuple[str, ...] | list[str] | None) 
     """Return the properties to draw, refusing a run that persisted none.
 
     A property left out of ``param_list`` is still handed to the solver, as
-    zero. Drawing it produces a flat panel on a colour scale invented around
+    zero. Drawing it produces a flat panel on a color scale invented around
     nothing, which reads as a result rather than as an absence, so a property
     that is zero everywhere is dropped unless it was asked for by name. A
     property asked for by name that the run does not hold is refused by name,
@@ -329,7 +329,7 @@ def _quad_edges(distance: np.ndarray, interfaces: np.ndarray) -> tuple[np.ndarra
     boundaries between samples, so each interface is interpolated onto the
     edge abscissa rather than shifted by half a cell. Samples that fell
     outside the mesh carry no elevation, and a corner with no coordinate
-    would drop its two neighbouring quads, so they are extended from the
+    would drop its two neighboring quads, so they are extended from the
     nearest interface the line did cross.
     """
     edges = np.empty(distance.size + 1, dtype="float64")

@@ -1,7 +1,7 @@
 """Quality report of a planar cell mesh, computed by one routine for every engine.
 
 The non-orthogonality of a connection is the angle between the line of the two
-cell centres and the normal of the face they share. The conductance two-point
+cell centers and the normal of the face they share. The conductance two-point
 flux of MODFLOW is exact at 0 degrees on an isotropic medium, and XT3D corrects
 the error that grows with the angle. :func:`connection_nonorthogonality_deg`
 measures it on any planar ``HydroMesh``, so the MF6 options can decide whether
@@ -98,7 +98,7 @@ SHAPE_KEYS = ("bisection_offset", "min_angle_deg", "max_angle_deg", "n_concave_c
 class MeshQA:
     """Geometric quality and engine statements of one planar cell mesh.
 
-    Lengths in metres, areas in square metres, angles in degrees. Quantile
+    Lengths in meters, areas in square meters, angles in degrees. Quantile
     dictionaries are keyed ``p5``, ``p50`` ... ``min``, ``max``.
     ``bisection_offset`` holds the quantiles over the measured faces and
     ``n_cells_gt_0_25``, the cells with a face above
@@ -107,7 +107,7 @@ class MeshQA:
     ``min_angle_deg["n_triangles_lt_20"]`` counts the triangles with a corner
     under :data:`MIN_ANGLE_WARNING_DEG`. ``n_concave_cells`` counts the cells
     with a corner beyond 180 degrees plus :data:`STRAIGHT_CORNER_DEG`.
-    ``size_fidelity`` is the cell side over the size asked for at its centre
+    ``size_fidelity`` is the cell side over the size asked for at its center
     (``p5``, ``p50``, ``p95``); it is empty when no target size was given.
     """
 
@@ -190,10 +190,10 @@ def edge_size_ratio(geometry: DerivedGeometry) -> np.ndarray:
 def edge_nonorthogonality(
     centers: np.ndarray, vertices: np.ndarray, geometry: DerivedGeometry, keep: np.ndarray
 ) -> np.ndarray:
-    """Return, per mesh edge, the angle [deg] between the centre-to-centre vector and the normal.
+    """Return, per mesh edge, the angle [deg] between the center-to-center vector and the normal.
 
     ``keep`` selects the edges measured, interior edges with two cells. The value
-    is ``NaN`` on every other edge and where the two centres coincide.
+    is ``NaN`` on every other edge and where the two centers coincide.
     """
     cells = geometry.edge_cells[keep]
     nodes = geometry.edge_nodes[keep]
@@ -214,9 +214,9 @@ def connection_nonorthogonality_deg(
 ) -> np.ndarray:
     """Return the non-orthogonality angle [deg] of every interior connection of a planar mesh.
 
-    ``centers`` are the ``(n_cells, 2)`` cell centres, the generator seeds of a
+    ``centers`` are the ``(n_cells, 2)`` cell centers, the generator seeds of a
     Voronoi mesh; the mean of the cell vertices when ``None``. A face of zero length and
-    two cells on one centre are not measured. The angles follow the edge table
+    two cells on one center are not measured. The angles follow the edge table
     of the derived geometry. Raises ``ValueError`` when an edge is shared by
     more than two cells.
     """
@@ -257,13 +257,13 @@ def nonorthogonality_summary(
 def edge_bisection_offset(
     centers: np.ndarray, vertices: np.ndarray, geometry: DerivedGeometry, keep: np.ndarray
 ) -> np.ndarray:
-    """Return, per mesh edge, how far from the face middle the centre-to-centre line crosses it.
+    """Return, per mesh edge, how far from the face middle the center-to-center line crosses it.
 
     The distance runs along the face, from its middle to the point where the line
-    through the two cell centres meets the line of the face, over the face length.
+    through the two cell centers meets the line of the face, over the face length.
     It is 0 when the line bisects the face and 0.5 when it passes through a face
     end. ``keep`` selects the edges measured, interior edges with two cells. The
-    value is ``NaN`` on every other edge and where the line of the centres is
+    value is ``NaN`` on every other edge and where the line of the centers is
     parallel to the face.
     """
     cells = geometry.edge_cells[keep]
@@ -404,7 +404,7 @@ def quality_warnings(qa: MeshQA) -> tuple[str, ...]:
             f"{MIN_ANGLE_WARNING_DEG:g} degrees (smallest {qa.min_angle_deg['min']:.1f})."
         )
     # On an orthogonal mesh the two-point flux stays consistent wherever the line of
-    # the centres crosses the face, so the offset alone is no reason to warn. On the
+    # the centers crosses the face, so the offset alone is no reason to warn. On the
     # generated Voronoi it crosses half the cells or more.
     skewed = int(qa.bisection_offset["n_cells_gt_0_25"])
     orthogonal = qa.nonorthogonality_deg.get("p95", float("inf")) < ORTHOGONAL_P95_DEG
@@ -543,7 +543,7 @@ def compute_mesh_qa(
     largest distance of its cells to them. Non-orthogonality counts the interior
     faces longer than ``min_face_length_m`` (default: ``1e-3`` of the median face
     length), and so does the bisection offset (:func:`cell_shape_qa`). A face family with lines also gets ``mixed_cells``, the cells its
-    lines cross. ``target_size`` is the size [m] asked for at each cell centre; it
+    lines cross. ``target_size`` is the size [m] asked for at each cell center; it
     gives ``size_fidelity``.
     """
     lines = dict(lines or {})

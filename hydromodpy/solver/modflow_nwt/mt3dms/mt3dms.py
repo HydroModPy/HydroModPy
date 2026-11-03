@@ -86,7 +86,7 @@ class Mt3dms:
             Process Transport object holding concentration parameters.
         """
 
-        # %% Initialisation
+        # %% Initialization
 
         if model_modflow is None:
             raise ValueError("model_modflow must be provided to initialize Mt3dms")

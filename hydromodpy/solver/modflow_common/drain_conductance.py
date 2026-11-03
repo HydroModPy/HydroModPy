@@ -19,7 +19,7 @@ def hk_fallback_drain_conductance(
         C = K * cell_area / bed_thickness   (m/s * m2 / m = m2/s)
 
     ``bed_thickness`` is ``solver.drain_bed_thickness_m``, the clogging layer of
-    a watercourse: decimetres to a metre. It used to be the LAYER thickness,
+    a watercourse: decimeters to a meter. It used to be the LAYER thickness,
     which is a different quantity and, at 30 m on the Nancon, thirty times too
     large. It matters because the head the drain itself imposes to pass the
     recharge is ``dh = R * bed_thickness / K``, independent of the cell size: at
@@ -56,7 +56,7 @@ def drain_discharge_band(
     ``CDRN = Kv*A/DDRN``. The conductance grows with D because "the area through
     which flow occurs increases as the head at the drain increases".
 
-    So, with ``D = band_depth`` metres and ``C`` the conductance the run would
+    So, with ``D = band_depth`` meters and ``C`` the conductance the run would
     otherwise use::
 
         elevation = top - D / 2

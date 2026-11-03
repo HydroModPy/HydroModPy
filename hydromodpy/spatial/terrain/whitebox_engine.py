@@ -444,10 +444,10 @@ def _cell_size_m(dem: Path) -> float:
 
 
 def _breach_length_cells(max_distance_m: float, cell_size_m: float) -> int:
-    """Translate a breach length in metres to the whole cells the tool counts.
+    """Translate a breach length in meters to the whole cells the tool counts.
 
     Rounded up, never below one cell. The ratio is rounded first so that 200 m on
-    a 25 m grid is 8 cells and not 9 through a float artefact.
+    a 25 m grid is 8 cells and not 9 through a float artifact.
     """
     return max(1, math.ceil(round(max_distance_m / cell_size_m, 9)))
 

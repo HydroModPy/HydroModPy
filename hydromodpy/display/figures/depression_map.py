@@ -11,7 +11,7 @@ on the Nancon the outlet is interior and needs 4.07 m of fill before it spills
 out of the mesh, so it is itself in one.
 
 A cell CANNOT REACH THE CATCHMENT OUTLET when it does get out, somewhere else.
-On a buffered box most of the mesh belongs to neighbouring basins; they drain
+On a buffered box most of the mesh belongs to neighboring basins; they drain
 perfectly well, and the stream criterion floods them to their spill level
 anyway, because it seeds one cell and a distance to that cell is undefined
 until every path ends there. That set is the criterion's own support, and worth
@@ -58,9 +58,9 @@ if TYPE_CHECKING:
 _FILL_CMAP = "magma_r"
 """Light to black as the fill deepens.
 
-Perceptually uniform, so the depth ordering survives a greyscale print, and
+Perceptually uniform, so the depth ordering survives a grayscale print, and
 reversed so that a deep fill is the dark thing on the page. Its light end sits
-well above the grey of a cell that was not raised, and its dark end well below:
+well above the gray of a cell that was not raised, and its dark end well below:
 a raised cell is separable from the background whatever its depth.
 """
 
@@ -72,12 +72,12 @@ _LEGEND_SWATCH = 0.62
 """Where the legend patch samples the ramp: dark enough to read, not the end."""
 
 _RAISED_WIDTH_PT = 0.5
-"""Half a point of outline, in each cell's own colour.
+"""Half a point of outline, in each cell's own color.
 
 The subject of this map is a scatter of one-cell footprints over sixty
 thousand cells of background. At page size a single cell is a few pixels, and
-a lone pit disappears into the antialiasing of the grey behind it. Stroking
-each raised cell in its own colour widens it by half a point and adds nothing
+a lone pit disappears into the antialiasing of the gray behind it. Stroking
+each raised cell in its own color widens it by half a point and adds nothing
 else: no depth is redrawn, no boundary is invented.
 """
 
@@ -87,7 +87,7 @@ DEPRESSIONS = "depressions"
 UNREACHABLE = "unreachable"
 
 DEFAULT_CLIP_PERCENTILE = 99.0
-"""Percentile the colour scale stops at, so one deep sink does not flatten it."""
+"""Percentile the color scale stops at, so one deep sink does not flatten it."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -143,7 +143,7 @@ class Flood:
     """(n_cells,) elevations after the flood, NaN off the active mesh."""
 
     fill_m: np.ndarray
-    """(n_cells,) filled minus persisted, in metres, NaN off the active mesh."""
+    """(n_cells,) filled minus persisted, in meters, NaN off the active mesh."""
 
     raised: np.ndarray
     """(n_cells,) bool: cells the flood had to lift onto a spill level."""
@@ -172,7 +172,7 @@ class DepressionFill:
     Zero is the only healthy answer: after a flood seeded on one cell, every
     path of the support ends there by construction. Anything else means the
     surface the flood conditioned is not the one the descent walks, which is
-    what a mismatched neighbourhood produces.
+    what a mismatched neighborhood produces.
     """
 
     @property
@@ -202,9 +202,9 @@ def depression_fill(surface: RoutingSurface) -> DepressionFill:
     else, and once from the outlet alone, which is what the stream criterion
     does before it measures a distance to that single cell.
 
-    Both floods and the descent that checks the second walk the SAME neighbour
-    graph. Fed the eight-neighbour graph while the descent reads the
-    four-neighbour one, a flood leaves every filled cell spilling over a
+    Both floods and the descent that checks the second walk the SAME neighbor
+    graph. Fed the eight-neighbor graph while the descent reads the
+    four-neighbor one, a flood leaves every filled cell spilling over a
     diagonal the descent cannot take, and almost the whole catchment stops
     reaching the outlet. The metric below re-derives its adjacency from
     ``diagonal_neighbors`` through the two builders the surface already used,
@@ -251,13 +251,13 @@ class DepressionMap(BaseFigure):
     """Cells of the mesh top that cannot get out, and the fill each one needs.
 
     A depression here is a cell no descent leaves the domain from, over the
-    same neighbour graph the stream criterion measures its distances on. It shows
+    same neighbor graph the stream criterion measures its distances on. It shows
     what is left once the DEM has been resampled onto the mesh, because a raster
-    conditioned on its own grid grows new pits under a different neighbourhood.
+    conditioned on its own grid grows new pits under a different neighborhood.
 
     ``shows="unreachable"`` swaps the subject for the cells the criterion's own
     flood raises, which is a larger set and a different statement: those cells
-    mostly drain, to a neighbouring basin rather than to this outlet.
+    mostly drain, to a neighboring basin rather than to this outlet.
     """
 
     spec = FigureSpec(
@@ -301,7 +301,7 @@ class DepressionMap(BaseFigure):
         clip_percentile: Annotated[
             float,
             Opt(
-                "Percentile of the fills at which the colour scale stops, so one deep "
+                "Percentile of the fills at which the color scale stops, so one deep "
                 "sink does not flatten it. In (0, 100].",
                 unit="%",
             ),
@@ -372,9 +372,9 @@ class DepressionMap(BaseFigure):
 
 
 def _scaled_fills(surface: RoutingSurface, flood: Flood, reading: Reading) -> np.ndarray:
-    """Return the fills the colour scale is stretched over.
+    """Return the fills the color scale is stretched over.
 
-    The whole mesh for the depressions. That flood raises no neighbouring
+    The whole mesh for the depressions. That flood raises no neighboring
     basin, only pits, and a pit outside the catchment is the same object as one
     inside it: on the Nancon the deepest is 11.29 m against 4.87 m inside, and
     three per cent of the drawn cells sit above the ceiling the catchment alone
@@ -384,8 +384,8 @@ def _scaled_fills(surface: RoutingSurface, flood: Flood, reading: Reading) -> np
     box holding whole basins the flood has to lift over a ridge. There a
     percentile taken over the whole mesh is set by lobes that are not the
     subject: 31.21 m against 3.97 m inside, with two thirds of the drawn cells
-    above the ceiling, and every metre-scale pit of the catchment collapses
-    onto the first colour of the ramp.
+    above the ceiling, and every meter-scale pit of the catchment collapses
+    onto the first color of the ramp.
     """
     if reading.name == DEPRESSIONS or surface.catchment is None:
         return flood.fill_m[flood.raised]
@@ -394,7 +394,7 @@ def _scaled_fills(surface: RoutingSurface, flood: Flood, reading: Reading) -> np
 
 
 def _color_ceiling(values: np.ndarray, clip_percentile: float) -> float:
-    """Return the top of the colour scale, floored so a scale always exists."""
+    """Return the top of the color scale, floored so a scale always exists."""
     percentile = float(clip_percentile)
     if not 0.0 < percentile <= 100.0:
         raise ValueError(f"clip_percentile must lie in (0, 100], got {percentile}.")
@@ -519,7 +519,7 @@ def _add_flat(
     color: str,
     label: str,
 ) -> None:
-    """Draw one flat-coloured group of cells, or nothing when it is empty."""
+    """Draw one flat-colored group of cells, or nothing when it is empty."""
     from matplotlib.collections import PolyCollection
 
     selected = np.flatnonzero(mask)

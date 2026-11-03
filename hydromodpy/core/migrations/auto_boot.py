@@ -276,10 +276,10 @@ def ensure_schema_safe(
 ) -> None:
     """Bring ``component`` up to the latest version with backup + lock.
 
-    Behaviour:
+    Behavior:
 
     - acquires a :class:`filelock.FileLock` on ``<db_path>.lock`` so concurrent
-      processes serialise their migrations against the same file.
+      processes serialize their migrations against the same file.
     - when migrations are pending, writes a backup
       ``.hmp/backups/<db name>.bak-<ISO8601Z>`` first, then calls
       :func:`ensure_schema`. A database that holds no table yet is skipped:

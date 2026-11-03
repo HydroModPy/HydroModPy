@@ -2,7 +2,7 @@
 
 ``register()`` certifies a candidate on the members it **declares**, and that is
 all a registry can do. The invariants a solver relies on (the cell holds its
-centre, the areas add up, a chain is continuous) live on the mesh, so a class
+center, the areas add up, a chain is continuous) live on the mesh, so a class
 can pass the registry and still be unusable. Only
 ``tests/contract/test_mesh_engine_contract.py`` can see that, and it must see it
 for an engine it never imported.
@@ -12,7 +12,7 @@ running the suite against it in a subprocess. What is asserted is the plumbing:
 the probe delegates the meshing to ``RegularMeshEngine``, so what passes here is
 "an out-of-tree distribution is discovered, built and held to the port", not
 "an independent mesher is correct". The negative control is an engine that
-passes the registry and puts its cell centres outside their cells.
+passes the registry and puts its cell centers outside their cells.
 
 Deliberately a subprocess. ``importlib.metadata`` reads the entry-point group off
 ``sys.path`` once and the registry caches what it found, so a plugin installed
@@ -87,8 +87,8 @@ class OffCenterMeshEngine(ProbeMeshEngine):
     """Passes the registry and cannot be used by a solver. The negative control.
 
     It declares every member of the port, so ``register()`` accepts it without a
-    word, and its cells are the right ones. It just reports cell centres a
-    kilometre away from their cells, which every consumer of ``centers`` would
+    word, and its cells are the right ones. It just reports cell centers a
+    kilometer away from their cells, which every consumer of ``centers`` would
     read as the head location.
     """
 
@@ -243,10 +243,10 @@ def test_an_engine_the_registry_accepts_and_a_solver_cannot_use_is_caught(
     """The negative control, and the whole argument of the file in one run.
 
     An engine that declares the members of the port, returns the right cells and
-    reports their centres a kilometre away is accepted by ``register()`` without
+    reports their centers a kilometer away is accepted by ``register()`` without
     a word: a registry can only certify what a class declares. The suite is the
     only thing that can see it, and here it does: the run fails, and it fails on
-    the centres rather than somewhere incidental.
+    the centers rather than somewhere incidental.
 
     Without this test the gate above proves only that a *passing* engine passes,
     which is compatible with a suite that asserts nothing about an outside one.

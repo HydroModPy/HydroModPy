@@ -43,7 +43,7 @@ def test_calibrate_wrong_extension_returns_config(monkeypatch, tmp_path) -> None
 
 
 def _report(**fields: object) -> CalibrationReport:
-    """A real report: the command prints and serialises what the class holds."""
+    """A real report: the command prints and serializes what the class holds."""
     base = dict(
         session_id="s",
         method="optuna",

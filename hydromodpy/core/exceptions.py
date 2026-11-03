@@ -506,7 +506,7 @@ class ExtractError(PipelineError):
 
 
 class ExportError(PipelineError):
-    """Exporter (NetCDF / CSV / VTU / GeoTIFF) failed to serialise results."""
+    """Exporter (NetCDF / CSV / VTU / GeoTIFF) failed to serialize results."""
 
     code = "HMPY.E506"
 
@@ -524,7 +524,7 @@ class JournalError(PipelineError):
 
 
 class ResumeIntegrityError(ResumeError):
-    """A completed-step artefact failed integrity verification on resume."""
+    """A completed-step artifact failed integrity verification on resume."""
 
     code = "HMPY.E509"
 
@@ -583,7 +583,7 @@ class UncertaintyNotAvailableError(CalibrationError):
 
     Typed apart from the rest of the family because it is the one calibration
     failure that must not lose the answer: the search has already been paid
-    for, and the declaration it cannot honour is a property of the document,
+    for, and the declaration it cannot honor is a property of the document,
     not of the run. Its catcher reports the width as absent and returns the
     report.
     """

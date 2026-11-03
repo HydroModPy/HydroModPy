@@ -424,7 +424,7 @@ def release_flux_rows(root: Any, start: int, stop: int) -> np.ndarray:
 
 
 FLUX_BUDGET_COMPONENTS = ("drain", "recharge")
-"""Budget terms ``budget_flux_per_area`` normalises, the first one present wins."""
+"""Budget terms ``budget_flux_per_area`` normalizes, the first one present wins."""
 
 
 def cell_area_from_mesh(root: Any, n_cells: int) -> np.ndarray | None:
@@ -704,7 +704,7 @@ def available_virtual_fields(root: Any) -> list[str]:
     or rebuilt from the mesh topology. The solute chain needs the stored
     concentration: ``concentration_seepage`` also a seepage mask,
     ``mass_seepage`` also a budget group, ``mass_seepage_running_sum`` nothing more.
-    The mesh quality fields need the stored geometry, and the cell centres for
+    The mesh quality fields need the stored geometry, and the cell centers for
     the offset, the non-orthogonality and the bisection offset
     (:mod:`hydromodpy.results.derive.mesh_quality`).
     A field an older run stored under ``derived/`` stands in for its rebuild

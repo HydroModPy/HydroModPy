@@ -36,7 +36,7 @@ class ExampleSpec:
 #
 # examples/projects/ holds some thirty directories, most of them development
 # or gallery projects. Only 04_streamflow_intermittence_in_transient is
-# maintained and verified end to end. Announcing a catalogue of thirty of which
+# maintained and verified end to end. Announcing a catalog of thirty of which
 # one works is worse than announcing one, so `hmp example list` announces one. A project earns a
 # line here once it runs from a freshly scaffolded workspace, not before.
 WHITELIST: tuple[ExampleSpec, ...] = (

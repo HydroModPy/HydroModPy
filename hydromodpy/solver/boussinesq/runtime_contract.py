@@ -56,7 +56,7 @@ class NonlinearRuntimeOptions:
     convergence criterion across backends. A backend may use an extra stopping
     rule on the state update, but it should still satisfy the residual
     tolerance before advertising success. ``regularization_radius`` is the
-    depth scale of the regularized partition, in metres below the land surface.
+    depth scale of the regularized partition, in meters below the land surface.
     """
 
     regularization_radius: float

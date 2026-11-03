@@ -50,11 +50,11 @@ OUT = HERE / "summary" / "figures" / "hydraulic_conductivity_sweep"
 # Hydraulic conductivities to explore, m/s, log-spaced over five decades.
 K_VALUES = np.geomspace(1e-8, 1e-3, 10)
 
-# Colour per K, dark for the tight aquifers and light for the transmissive
+# Color per K, dark for the tight aquifers and light for the transmissive
 # ones, shared by the three figures.
 COLORS = plt.get_cmap("viridis")(np.linspace(0.0, 0.9, len(K_VALUES)))
 
-# One colour per quantity, the same in every figure.
+# One color per quantity, the same in every figure.
 ACTIVE_COLOR = "#a01111"
 SEEPAGE_COLOR = "#f4a259"
 REFERENCE_COLOR = "navy"

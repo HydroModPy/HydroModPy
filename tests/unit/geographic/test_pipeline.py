@@ -403,7 +403,7 @@ def test_every_extent_of_the_top_the_sfr_bed_and_a_triangle_mesh_read_one_regula
     assert (beds["watershed_dem"][:, :blank] == -9999.0).all()
     assert (beds["watershed_dem"][:, blank:] == beds["watershed_box_buff_dem"][:, blank:]).all()
     assert (beds["watershed_dem"] != watershed).any()
-    # The SFR bed and the model top read the same regularised ground.
+    # The SFR bed and the model top read the same regularized ground.
     ground_bed = correcflow_dir(tmp_path) / GROUND_BED_FILENAME
     for context in (terrain.context, cached):
         assert Path(context.runtime_attributes()["_top_dem_path"]) == ground_bed
@@ -412,7 +412,7 @@ def test_every_extent_of_the_top_the_sfr_bed_and_a_triangle_mesh_read_one_regula
     assert (full_bed != ground).any()
     assert not ((full_bed != ground) & ~bench.build().streams).any()
     assert (top == read_band(ground_bed)[1:-1, 1:-1]).all()
-    # A triangle mesh takes its MODFLOW 6 top from the regularised clip.
+    # A triangle mesh takes its MODFLOW 6 top from the regularized clip.
     ground_top = read_band(_clip_path(tmp_path))
     geographic = object.__new__(CatchmentDelineation)
     geographic._config = config
@@ -423,7 +423,7 @@ def test_every_extent_of_the_top_the_sfr_bed_and_a_triangle_mesh_read_one_regula
     domain.substratum = Surface(
         name="substratum", values=np.asarray(surface.as_array()) - 50.0, support=surface.support
     )
-    # One triangle on the moved channel pixel, one on the hillslope, each centred on it.
+    # One triangle on the moved channel pixel, one on the hillslope, each centered on it.
     row, col = BUMP_ROW - 1, bench.AXIS - 1  # on the clip grid
     west, north = BENCH_CLIP_ORIGIN
     vertices: list[list[float]] = []

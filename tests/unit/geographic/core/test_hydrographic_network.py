@@ -1,4 +1,4 @@
-"""One contract for the reference, generated and permanent networks, and their metres.
+"""One contract for the reference, generated and permanent networks, and their meters.
 
 The permanent part of the mapped network travels under its own role,
 ``reference_permanent`` beside ``reference``, so a consumer picks the role

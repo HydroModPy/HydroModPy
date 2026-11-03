@@ -1,4 +1,4 @@
-"""Structural protocol every authentication backend honours."""
+"""Structural protocol every authentication backend honors."""
 
 from __future__ import annotations
 

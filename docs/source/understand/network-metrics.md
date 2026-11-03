@@ -65,11 +65,11 @@ therefore not comparable.
 
 Same cells, but now the question is *how far*. For each simulated cell, the code measures the
 straight distance to the nearest mapped line. For each mapped cell, it measures the distance to
-the nearest simulated cell. That gives two numbers, one per direction, each summarised by its
+the nearest simulated cell. That gives two numbers, one per direction, each summarized by its
 mean, its median, its high values and its maximum.
 
 A distance gives more than a count. Two simulated cells that miss the map, one by a cell and one
-by a kilometre, count the same in the overlap and weigh very differently here. But the distance
+by a kilometer, count the same in the overlap and weigh very differently here. But the distance
 is straight, so it ignores the relief. It crosses a ridge as if it were not there.
 
 ### Downslope distance
@@ -98,7 +98,7 @@ unless you ask for an error with
 
 ## Diagnostic or criterion
 
-The same number can be read, or it can be minimised. The two uses have different needs.
+The same number can be read, or it can be minimized. The two uses have different needs.
 
 A **diagnostic** describes. You read it, put it in a report, compare two runs with it. It has no
 need to be symmetric or monotonic. The four ways above all work as diagnostics, and the overlap
@@ -121,7 +121,7 @@ Why not use a straight-line distance as the criterion?
 - A count of cells moves in steps, and its best value depends on how the map is drawn on the
   grid.
 
-Why not minimise the average walk, then? It is large at both ends of a parameter sweep, so it
+Why not minimize the average walk, then? It is large at both ends of a parameter sweep, so it
 does have a minimum in the middle. But nothing puts that minimum at the point where excess and
 deficit balance. They are two different estimators. Use the average walk to compare two
 structures that are both balanced, and the gap to find the parameter inside one structure.
@@ -136,7 +136,7 @@ Before you compare two scores, check that they were computed the same way.
 - **The way the map is drawn on the grid.** The rule for the mapped network
   ({toml}`calibration.outputs.<name>.observed_rasterization`) moves the number of mapped cells
   and where they sit. A one-cell gap can come from this rule and not from the model.
-- **The cell size.** Distances are in metres, but they are measured from cell to cell. A coarse
+- **The cell size.** Distances are in meters, but they are measured from cell to cell. A coarse
   grid cannot place a stream closer than about a cell.
 - **The state that is read.** A steady run gives one network. A run that changes with time gives
   one network per time step. A calibration can score one state, or two bounds: the complete

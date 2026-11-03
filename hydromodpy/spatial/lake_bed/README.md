@@ -9,8 +9,8 @@ The package holds only the numbers. It reads no config and builds no MODFLOW obj
 
 ## How the work flows
 
-1. `regrid.py` gives each lake cell the mean of the bathymetry pixels whose centre falls in the cell. A cell with no
-   pixel centre gets a bilinear sample at its centroid.
+1. `regrid.py` gives each lake cell the mean of the bathymetry pixels whose center falls in the cell. A cell with no
+   pixel center gets a bilinear sample at its centroid.
 2. `abacus.py` reconciles that bed to the abacus. The deepest cells get the lowest stages, with the plan area of each
    cell as the weight, so the area below each elevation matches the abacus. The pattern of deep and shallow cells stays.
 3. The solver re-grades one column of layers around the carved bed, keeping a minimum thickness on every layer and

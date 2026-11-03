@@ -197,7 +197,7 @@ _GEOGRAPHIC_CACHE_SCHEMA_VERSION = "hydromodpy_geographic_cache_v2"
 # The clips of the ground the model top is sampled from, one per domain_extent.
 _TOP_CLIP_ATTRIBUTES = ("watershed_box_buff_dem", "watershed_buff_dem", "watershed_dem")
 
-# The other rasters build_domain_rasters writes. Clipping the regularised ground
+# The other rasters build_domain_rasters writes. Clipping the regularized ground
 # writes them to a scratch folder: they are the clips of the flow products,
 # already written next to the clips of G.
 _FLOW_CLIP_ATTRIBUTES = (
@@ -268,11 +268,11 @@ def geographic_cache_fingerprint(config: GeographicConfig) -> str:
         catchment_payload.pop("snap_method", None)
     # Same rule for the notch: off, it changes nothing, so it leaves a cached
     # tree valid. Its vector is signed below when it is on.
-    # The bed regularisation reads the weirs and dams of the crossings file, so
+    # The bed regularization reads the weirs and dams of the crossings file, so
     # the section stays signed while either reads it.
     if not config.crossings.enabled and not config.bed_regularization.enabled:
         config_payload.pop("crossings", None)
-    # Same rule for the bed regularisation: off, it changes nothing.
+    # Same rule for the bed regularization: off, it changes nothing.
     if not config.bed_regularization.enabled:
         config_payload.pop("bed_regularization", None)
     payload = {
@@ -436,7 +436,7 @@ def required_geographic_cache_artifacts(
 
 
 def resolve_top_surface_paths(config: GeographicConfig, paths: GeographicPaths) -> dict[str, str]:
-    """The regularised copies of the model-top clips, empty when the bed is not regularised."""
+    """The regularized copies of the model-top clips, empty when the bed is not regularized."""
     if not bed_regularization_enabled(config):
         return {}
     return {name: str(bed_dem_path(getattr(paths, name))) for name in _TOP_CLIP_ATTRIBUTES}

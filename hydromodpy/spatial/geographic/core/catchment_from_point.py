@@ -23,7 +23,7 @@ All four steps belong to :meth:`TerrainEngine.delineate
 <hydromodpy.spatial.terrain.TerrainEngine.delineate>`. What stays here is the
 one thing the engine has no business knowing: this pipeline publishes its
 catchment as ``watershed.tif`` and ``watershed.shp``, flat in a directory that
-twenty other artefacts share, and every golden in the tree reads them there.
+twenty other artifacts share, and every golden in the tree reads them there.
 That shape is passed to the engine as a
 :class:`~hydromodpy.spatial.terrain.CatchmentLayout`.
 

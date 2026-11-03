@@ -1049,7 +1049,7 @@ def _rewrite_cost_margin(doc: Any, *, sealed: bool, context: Any = None) -> list
     The unit is the one the old mode implied: a relative width, or one left
     unwritten on a search that is no network distance, was a share of the best
     cost (``"5%"``); an absolute one, or one left unwritten on a search scored
-    only by network distances, was in metres. A phase read its keys over the
+    only by network distances, was in meters. A phase read its keys over the
     section's, so the pair a phase read is rewritten into the phase. What the
     doctor cannot decide it leaves, with the reason. A sealed config drops what
     it cannot write: the width only qualifies a calibrated value, it never
@@ -1184,7 +1184,7 @@ def _scored_on_distances(
     Read off the blocks of the document as the loader reads them: a phase scores
     the blocks it names, or its own ``objective``, or every block; a search with
     no block scores the section's ``objective``. A block with a cost transform or a
-    normalised cost is no longer in metres. ``None`` when a protocol still has
+    normalized cost is no longer in meters. ``None`` when a protocol still has
     to write the phases and the blocks.
     """
     blocks = [

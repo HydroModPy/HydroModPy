@@ -85,7 +85,7 @@ def resolve_declared_path(
 
     1. Absolute paths (including ``~``) are returned as-is.
     2. Paths that contain a separator or a ``..`` segment are resolved
-       against ``base_dir`` (legacy behaviour).
+       against ``base_dir`` (legacy behavior).
     3. Bare filenames (e.g. ``"etp_sim2.nc"``) are looked up against
        ``base_dir`` first, then each ``fallback_dirs`` entry. The first
        existing match wins. If nothing exists yet (the file may be
@@ -309,7 +309,7 @@ def assign(payload: MutableMapping[str, Any], path: DottedPath | str, value: Any
 
 
 def lookup(payload: Mapping[str, Any], path: DottedPath | str) -> Any:
-    """Return the value at *path*; a missing key raises ``KeyError`` naming the neighbours."""
+    """Return the value at *path*; a missing key raises ``KeyError`` naming the neighbors."""
     parsed = _as_path(path)
     cursor: Any = payload
     for depth, part in enumerate(parsed.parts):

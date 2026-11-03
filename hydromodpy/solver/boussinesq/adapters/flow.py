@@ -63,7 +63,7 @@ def _published_support(ctx: RunContext) -> np.ndarray | None:
     """Return the cells the run publishes its discharge on, ``None`` for the whole domain.
 
     A Boussinesq mesh takes in the buffer of the domain and builds no D, so the run
-    sums its catchment series over the cells whose centre the delineated polygon
+    sums its catchment series over the cells whose center the delineated polygon
     covers. A trial scores the same cells. Like the run, a domain with no polygon,
     no declared CRS or no cell inside the polygon stays the whole domain.
     """

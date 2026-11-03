@@ -9,7 +9,7 @@ network averages to ``D_os``. The criterion is
     J        = abs(J_signed)      the cost, Eq. 1 of the paper
     D_optim   = (D_so + D_os) / 2  Eq. 2, a diagnostic and never the cost
     r_optim   = D_optim / h_obs     Eq. 3, the validity indicator
-    D_optim  <= validity_length    Eq. 4, the validity bound, in metres
+    D_optim  <= validity_length    Eq. 4, the validity bound, in meters
 
 ``r_optim`` is the paper's ratio, published for comparison with its Table 1.
 The bound is a length (:func:`hydromodpy.core.stream_geometry.
@@ -20,7 +20,7 @@ output.
 ``D_so`` large means a network spilling far outside the mapped one; ``D_os``
 large means one that never grew. Zero is the balance between excess and
 missing, that is the intersection of two curves, not the minimum of a
-distance. Minimising ``D_optim`` instead is a different estimator: it does have
+distance. Minimizing ``D_optim`` instead is a different estimator: it does have
 an interior minimum, but nothing puts that minimum at the crossing.
 
 The two supports are treated differently on purpose. The simulated network is
@@ -161,7 +161,7 @@ def secondary_diagnostics(
     raw network, as ``D_os`` reads it; the published code counted the mapped
     network after tracing it downslope. A length is the sum of the cell sizes,
     ``sqrt(area)``, over the network, where the published code summed the
-    polylines WhiteboxTools vectorised through pixel centres and dropped the
+    polylines WhiteboxTools vectorized through pixel centers and dropped the
     stubs of at most two cells and 110 m: a diagonal reach therefore reads
     ``sqrt(2)`` shorter here, on both networks alike, and the stubs stay in.
     """
@@ -232,7 +232,7 @@ def seepage_distance_cost(
 
     Water-body cells go in ``excluded``: they stay in the graph so an upslope
     cell can still descend through the reservoir, and they stay in the target
-    so a seepage cell fifty metres from the bank stops there, but they leave
+    so a seepage cell fifty meters from the bank stops there, but they leave
     both supports. Keeping them in the support of ``D_so`` would inject one
     zero per lake cell and move the root with the size of the reservoir rather
     than with the hydrogeology.
@@ -394,7 +394,7 @@ def score_on_geometry(
     """Score one simulated network against the map a geometry was built on.
 
     ``validity_length_m`` is the output's declared ``validity_length`` in
-    metres, None for ``"auto"``, which the geometry resolves from its own
+    meters, None for ``"auto"``, which the geometry resolves from its own
     ``h_obs`` and declared accuracy
     (:meth:`~hydromodpy.core.stream_geometry.NetworkGeometry.validity_length`).
     Each map resolves its own, so the two bounds of an output may differ.

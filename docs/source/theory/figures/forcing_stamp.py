@@ -32,7 +32,7 @@ axes[1].plot(
     "s",
     color=ORANGE,
     ms=5,
-    label="'point': the state at the stamp, a window centred on it",
+    label="'point': the state at the stamp, a window centered on it",
 )
 axes[1].set_ylabel("head (m)")
 for ax in axes:

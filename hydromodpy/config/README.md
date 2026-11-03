@@ -71,7 +71,7 @@ documentation; it is built from these models.
 
 ## Invariants of a section model
 
-Each model honours the rules of the project:
+Each model honors the rules of the project:
 
 - it derives from `HydroModelBase` (`core/config_kit/base.py`), which sets
   `extra="forbid"` and `validate_assignment=True`, so a typo in a key is refused;

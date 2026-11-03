@@ -260,7 +260,7 @@ class LoadResult:
   add_sites, declare_sites, SITE_CATALOG_RELPATH}`, `hydromodpy.data.sites.importers`
   and `hydromodpy.data.sites.gauge.{apply_site_gauge, gauge_of_run}`.
 
-## Layer neighbours
+## Layer neighbors
 
 `data` imports `core`, `schema` and `spatial`
 (`tests/unit/architecture/layer_matrix.yaml`). `config`, `simulation`, `calibration`, `analysis`,

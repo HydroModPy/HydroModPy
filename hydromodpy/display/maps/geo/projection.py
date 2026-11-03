@@ -6,7 +6,7 @@ __all__ = ["project_gdf_for_metric_operations"]
 
 
 def project_gdf_for_metric_operations(gdf, *, fallback_crs: str | object | None = None):
-    """Return ``gdf`` in a projected CRS, so lengths and areas come out in metres.
+    """Return ``gdf`` in a projected CRS, so lengths and areas come out in meters.
 
     A frame without a CRS takes ``fallback_crs``. A projected frame is returned
     as is. A geographic one goes to its UTM zone, else to ``fallback_crs`` when

@@ -366,7 +366,7 @@ SurfaceRateForcing = Annotated[TimeSeriesForcing, AfterValidator(_SURFACE_RATE.o
 """A forcing read as a length per time, m/s when it names no unit."""
 
 HeadForcing = Annotated[TimeSeriesForcing, AfterValidator(_HEAD.of)]
-"""A forcing read as a length, metres when it names no unit."""
+"""A forcing read as a length, meters when it names no unit."""
 
 
 __all__ = [

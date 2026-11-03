@@ -125,7 +125,7 @@ def _period_index(run: Any, time: Any) -> int | slice | None:
 
 
 def _refuse_time(var: str, time: Any, kind: str, instead: str) -> None:
-    """Refuse a ``time`` selector the variable cannot honour."""
+    """Refuse a ``time`` selector the variable cannot honor."""
     if time is not None:
         raise ValueError(
             f"'{var}' is {kind}, and time= selects a period of a field. Use {instead}."

@@ -1,9 +1,9 @@
-"""The catalogue reads a declaration, it does not guess from a name and a type.
+"""The catalog reads a declaration, it does not guess from a name and a type.
 
 A leaf used to be offered when it was a real number, showed to Profile.USER, and
 its name was absent from a hand-written blocklist. That blocklist could go stale
 without anything failing, and it was: ``min_slope`` and ``min_thickness`` are scheme and geometry knobs that still surfaced as
-calibratable. The gate here is that a leaf enters the catalogue only when its
+calibratable. The gate here is that a leaf enters the catalog only when its
 field carries a :class:`~hydromodpy.core.config_kit.calibrable.Calibrable`
 annotation, whatever its name.
 """
@@ -40,7 +40,7 @@ class _Flow(HydroModelBase):
 
 
 class _Config:
-    """The smallest thing the catalogue walks: something with a ``flow``."""
+    """The smallest thing the catalog walks: something with a ``flow``."""
 
     def __init__(self, flow: _Flow) -> None:
         self.flow = flow

@@ -189,7 +189,7 @@ def _cells_by_color(ax) -> dict[str, list[int]]:
 
 
 def _marked_cells(ax) -> dict[str, list[int]]:
-    """Return the cells each class carries a page-space mark on, by colour."""
+    """Return the cells each class carries a page-space mark on, by color."""
     from matplotlib.collections import PolyCollection
     from matplotlib.colors import to_hex
 
@@ -209,7 +209,7 @@ def _painted_box(fig, ax, color: str, tolerance: float = 0.12) -> tuple[int, flo
     what a reader gets. A class that covers no pixel is a class that is not on
     the page, whatever the arrays behind it say. Only the map is read, never
     the margins, since the legend swatch of a class is painted in the very
-    colour the class is being looked for in.
+    color the class is being looked for in.
     """
     from matplotlib.colors import to_rgb
 
@@ -238,7 +238,7 @@ def _notes(ax) -> str:
 
 
 def _lightness(rgb) -> float:
-    """Return the CIE L* of one RGB triple, which is what greyscale keeps."""
+    """Return the CIE L* of one RGB triple, which is what grayscale keeps."""
     channels = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in rgb[:3]]
     y = 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
     return 116.0 * y ** (1 / 3) - 16.0 if y > 0.008856 else 903.3 * y
@@ -460,7 +460,7 @@ def test_render_refuses_with_the_sentence_it_reports() -> None:
 
 
 def test_every_class_is_separable_in_greyscale() -> None:
-    """The colours are what the map is read by, so they must survive a print."""
+    """The colors are what the map is read by, so they must survive a print."""
     pytest.importorskip("matplotlib")
     from matplotlib.colors import to_rgb
 
@@ -656,7 +656,7 @@ def test_the_crop_survives_a_draw_on_a_page_it_is_not_the_shape_of() -> None:
 def test_a_delineation_that_lands_off_the_mesh_is_not_the_frame() -> None:
     """The bounds are taken as stored, so they can be in the wrong CRS.
 
-    A watershed that came back in degrees against a mesh in metres crops the
+    A watershed that came back in degrees against a mesh in meters crops the
     map onto ground that holds no cell: an empty page, with nothing on it
     saying why. The mesh is a worse frame than the catchment and a readable
     one, so a box that misses the mesh is dropped.

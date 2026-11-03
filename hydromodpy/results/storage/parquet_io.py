@@ -1,7 +1,7 @@
 """Atomic pyarrow Parquet writer with canonical V1 options forced.
 
 Every Parquet file written by HydroModPy V1 goes through
-:func:`write_table_atomic`. It centralises:
+:func:`write_table_atomic`. It centralizes:
 
 - ZSTD compression at level 5 (uniform across catalog and blob payloads),
 - ``row_group_size=50_000`` so predicate pushdown on row-group stats kicks in,

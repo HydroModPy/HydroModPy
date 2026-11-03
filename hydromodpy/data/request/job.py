@@ -153,7 +153,7 @@ DATA_REQUEST = CapabilityDecl(
     ),
     env=("HMP_NO_PROGRESS", "HMP_VERBOSITY", "TMPDIR"),
     # The managers download into a cache, and a job keeps nothing but its
-    # artefacts: that cache, and the polygon a box is written as, live in a
+    # artifacts: that cache, and the polygon a box is written as, live in a
     # scratch directory under $TMPDIR that the job removes.
     writes_outside_jobdir=("$TMPDIR",),
     reaches_network=REACHED_HOSTS,

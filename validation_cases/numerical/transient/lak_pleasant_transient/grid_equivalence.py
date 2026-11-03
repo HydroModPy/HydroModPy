@@ -238,7 +238,7 @@ def _build_irregular_simulation(
     """Build the transient SI MF6 simulation on the irregular triangle grid.
 
     Mirrors ``runtime_lak.build_hmp_simulation``: same TDIS, IMS, NPF, STO, IC,
-    recharge and per-period LAK forcing. Only the discretisation and the CHD edge
+    recharge and per-period LAK forcing. Only the discretization and the CHD edge
     selection differ (the irregular grid has no row / column structure, so the
     constant-head cells are picked by their x position).
     """
@@ -409,7 +409,7 @@ def _exchange_flux_per_period(path: Path, n_periods: int) -> tuple[float, ...]:
 
 
 def _run_irregular(workspace: Path, geometry: PleasantTransientGeometry) -> GridRunResult:
-    """Build, run and summarise the irregular triangle-grid LAK simulation."""
+    """Build, run and summarize the irregular triangle-grid LAK simulation."""
     mesh = _triangular_solver_mesh(geometry)
     lake_cells = resolve_lake_cells(
         None, lake_id=_LAKE_ID, polygon=_lake_polygon(geometry), cell_mesh=mesh.cell_mesh

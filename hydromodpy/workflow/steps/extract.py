@@ -181,7 +181,7 @@ class ExtractStep:
     ) -> PipelineState:
         """Restore the post-extraction state without re-running extraction.
 
-        The extraction artefacts already live in the Zarr / Parquet store
+        The extraction artifacts already live in the Zarr / Parquet store
         opened by :class:`PrepareSolverStep`. The summary is rebuilt as a
         marker so downstream steps know the rows are durable.
         """

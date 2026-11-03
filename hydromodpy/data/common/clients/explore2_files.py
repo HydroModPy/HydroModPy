@@ -7,10 +7,10 @@ CRS (Lambert II extended, EPSG:27572) with a one-cell margin before any value
 is read into memory, and refuses a non-standard calendar.
 
 The native SAFRAN grid is a Cartesian grid in EPSG:27572, but reprojecting its
-cell centres into the model CRS turns them into a warped, not axis-aligned,
-set of points: the discretisation reads a plain regular ``(y, x)`` grid
+cell centers into the model CRS turns them into a warped, not axis-aligned,
+set of points: the discretization reads a plain regular ``(y, x)`` grid
 (``spatial/forcing/sources.py``, ``find_xy_dims``), so this
-module resamples the reprojected centres by nearest neighbour onto a new
+module resamples the reprojected centers by nearest neighbor onto a new
 regular grid of the same spacing (8 km) in the model CRS.
 """
 
@@ -38,7 +38,7 @@ EXPLORE2_CRS = "EPSG:2154"
 """The CRS this reader resamples onto: the one every FieldRecord of this build carries."""
 
 EXPLORE2_CELL_SIZE_M = 8000.0
-"""SAFRAN grid spacing, in metres, both native and resampled."""
+"""SAFRAN grid spacing, in meters, both native and resampled."""
 
 _SOURCE_UNIT = "kg m-2 s-1"
 
@@ -219,7 +219,7 @@ def _reproject_bbox(
 def _reproject_grid(
     x: np.ndarray, y: np.ndarray, src_crs: str, dst_crs: str
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Reproject cell-centre coordinates. 1-D inputs broadcast to a 2-D (y, x) grid."""
+    """Reproject cell-center coordinates. 1-D inputs broadcast to a 2-D (y, x) grid."""
     from pyproj import Transformer
 
     if x.ndim == 1 and y.ndim == 1:
@@ -254,7 +254,7 @@ def _time_index_range(dates: np.ndarray, project_period: tuple[datetime, datetim
 def _regular_target_grid(
     x_scatter: np.ndarray, y_scatter: np.ndarray
 ) -> tuple[np.ndarray, np.ndarray]:
-    """A regular 8 km grid in the model CRS, covering the reprojected centres."""
+    """A regular 8 km grid in the model CRS, covering the reprojected centers."""
     cell = EXPLORE2_CELL_SIZE_M
     x0 = math.floor(x_scatter.min() / cell) * cell
     x1 = math.ceil(x_scatter.max() / cell) * cell

@@ -296,7 +296,7 @@ def _discretize_heterogeneous_source(
 
     Shared by the aquifer recharge and the soil residual ETP: both hand a
     ``LoadResult``-like ``source`` and get back ``{kper: (ncpl,) m/s}``, or
-    ``None`` when ``source`` carries neither fields nor points. The centres are
+    ``None`` when ``source`` carries neither fields nor points. The centers are
     those of the solver mesh, whatever its engine, and its planar mesh gives
     the cell polygons the ``"area"`` method weighs pixels by.
     """
@@ -367,7 +367,7 @@ def bind_soil_etp_from_flow(model) -> None:
 
     Outside soil mode MODFLOW 6 has never read the ETP [flow.sinks_sources.etp]
     activates; a project without a soil section keeps that
-    behaviour, with one warning added (``ETP_IGNORED_OUTSIDE_SOIL_MODE``).
+    behavior, with one warning added (``ETP_IGNORED_OUTSIDE_SOIL_MODE``).
     """
     model._soil_etp_source = None
     active = getattr(model.flow, "active_sinks_sources", [])
@@ -418,7 +418,7 @@ def build_soil_evta_payload(
 ) -> tuple[dict[int, np.ndarray] | dict[int, dict], np.ndarray, float] | None:
     """Build the EVTA payload for the ETP the soil reservoir leaves unmet.
 
-    Vectorised over cells and periods: the list builder's double loop
+    Vectorized over cells and periods: the list builder's double loop
     (``build_evt_stress_period_data``) would run 4.4e8 iterations at a
     Nancon-sized chronicle (243 552 cells x 1826 periods). ``None`` outside
     soil mode, so the caller keeps the routed-recharge EVT path untouched.

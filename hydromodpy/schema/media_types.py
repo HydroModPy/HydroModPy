@@ -1,7 +1,7 @@
 """The media types a job document names, spelled once.
 
-One artefact carries its media type in three places: the capability
-declaration, the output record of ``outcome.json`` and the artefact record of
+One artifact carries its media type in three places: the capability
+declaration, the output record of ``outcome.json`` and the artifact record of
 ``manifest.json``. Three literals would be three chances to write
 ``image/tiff;application=geotiff`` without the space, and an orchestrator
 filtering on the type would then miss the file it asked for.

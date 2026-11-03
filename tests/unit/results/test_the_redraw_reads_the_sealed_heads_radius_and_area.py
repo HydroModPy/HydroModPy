@@ -6,7 +6,7 @@ a figure traces the map the trials scored, and a key the run left out takes
 the criterion's default.
 
 On the 5 x 3 valley of cells of 1 ha, the mapped axis starts 40 m north of the
-centre of its head cell, which drains 5 ha; the cell below drains 10 ha.
+center of its head cell, which drains 5 ha; the cell below drains 10 ha.
 """
 
 from __future__ import annotations

@@ -62,9 +62,9 @@ Discharge at the outlet, MODFLOW-NWT.
 ::::
 
 ```{figure} /_static/figures/solvers/side_by_side.webp
-:alt: Groundwater head of the Nançon catchment at one date, MODFLOW-NWT on the left and MODFLOW 6 on the right, on one colour scale.
+:alt: Groundwater head of the Nançon catchment at one date, MODFLOW-NWT on the left and MODFLOW 6 on the right, on one color scale.
 
-Groundwater head at one date: MODFLOW-NWT on the left, MODFLOW 6 on the right, on one colour scale.
+Groundwater head at one date: MODFLOW-NWT on the left, MODFLOW 6 on the right, on one color scale.
 ```
 
 ```{figure} /_static/figures/solvers/difference_map.webp

@@ -2,7 +2,7 @@ Recipes
 =======
 
 Each recipe answers "I want to add X: where does it go and what contract must I
-honour?". It lists the files to create or edit, the contract (a Pydantic model,
+honor?". It lists the files to create or edit, the contract (a Pydantic model,
 a Protocol, a registry), the registration, the test to add and the pitfalls the
 layer matrix or the linter would flag. For a deeper read of the code, follow the
 link to the matching entry of :doc:`../packages/index`.

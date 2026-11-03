@@ -1,4 +1,4 @@
-"""The regular engine: cells on the DEM grid, centres the solvers read, and what its QA says."""
+"""The regular engine: cells on the DEM grid, centers the solvers read, and what its QA says."""
 
 from __future__ import annotations
 

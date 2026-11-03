@@ -16,7 +16,7 @@ floored = FieldParam(
     vertical_profile={**profile, "min_factor": 0.05},
 )
 
-# Layer centres of a four-layer decay column, as SolverMesh.layer_center_depths
+# Layer centers of a four-layer decay column, as SolverMesh.layer_center_depths
 # computes them: halfway between the two interfaces.
 shares, _ = layer_proportions(genmtd_lay="decay", nlay=4, lay_decay=2.0, lay_proportions=None)
 bottoms = H * shares

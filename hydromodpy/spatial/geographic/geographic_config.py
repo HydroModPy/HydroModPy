@@ -216,7 +216,7 @@ class GeographicConfig(HydroModelBase):
 
     @property
     def dem_resolution(self) -> float | None:
-        """Cell size the DEM is aggregated to, in metres, or None to keep its pixel."""
+        """Cell size the DEM is aggregated to, in meters, or None to keep its pixel."""
         return None if self.catchment is None else self.catchment.dem_resolution
 
     @property
@@ -354,7 +354,7 @@ class GeographicConfig(HydroModelBase):
 
     @model_validator(mode="after")
     def _check_catchment_is_implemented(self) -> GeographicConfig:
-        """Refuse ``kind = "txt"``: no code rasterises an XYZ text grid."""
+        """Refuse ``kind = "txt"``: no code rasterizes an XYZ text grid."""
         if isinstance(self.catchment, TxtCatchDef):
             raise ValueError(
                 "geographic.catchment.kind = 'txt' is not implemented: nothing "
@@ -388,7 +388,7 @@ class GeographicConfig(HydroModelBase):
 
     @model_validator(mode="after")
     def _check_sections_on_the_channel_tree(self) -> GeographicConfig:
-        """Refuse a notch or a bed regularisation with no channel tree or no catchment.
+        """Refuse a notch or a bed regularization with no channel tree or no catchment.
 
         The texts stay literal: the docs registry links the sections a refusal names.
         """

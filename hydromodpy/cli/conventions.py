@@ -495,7 +495,7 @@ def add_action_subparsers(
     """Attach a *required* action subparsers group to ``parser``.
 
     A bare group invocation (no sub-action) is a usage error: argparse
-    exits 2. The fallback handler keeps that behaviour explicit even if a
+    exits 2. The fallback handler keeps that behavior explicit even if a
     future argparse drops the ``required`` enforcement.
     """
     sub = parser.add_subparsers(dest=dest, metavar=metavar, required=True)

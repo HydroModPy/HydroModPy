@@ -1,4 +1,4 @@
-"""``[mesh]`` names an engine, sizes in metres and line intentions, and refuses what no engine reads."""
+"""``[mesh]`` names an engine, sizes in meters and line intentions, and refuses what no engine reads."""
 
 from __future__ import annotations
 

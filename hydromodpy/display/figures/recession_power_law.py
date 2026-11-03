@@ -90,7 +90,7 @@ def budget_outflow_per_day(sim: Run, component: str) -> pd.Series:
 def recession_cloud(discharge: pd.Series, *, skip: int = 0) -> tuple[np.ndarray, np.ndarray]:
     """Return ``(Q, -dQ/dt)`` over the falling limbs of ``discharge``.
 
-    A centred difference would mix a rise and a fall inside one estimate, so
+    A centered difference would mix a rise and a fall inside one estimate, so
     the rate is the step difference taken at the midpoint of the step, kept
     only where it is negative: a rising limb carries no recession. ``skip``
     drops the head of the chronicle, where the forcing that built the mound is

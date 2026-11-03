@@ -12,7 +12,7 @@ never did. "Flowing" is the definition the network criterion scores: the
 downstream closure of the seepage cells on the criterion graph, above the
 visible flow. The perennial class is therefore the yearly minimal extent of
 the criterion with no dry timestep allowed (``minimal_dry_duration`` shorter
-than a timestep), and the union of the two coloured classes its yearly maximal
+than a timestep), and the union of the two colored classes its yearly maximal
 extent with one flowing timestep (``maximal_flowing_duration`` of one timestep
 or less).
 """

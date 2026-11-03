@@ -52,7 +52,7 @@ class OceanicSourceConfig(
     # --- Constant source fields ---
     value: Annotated[float | None, Profile.USER] = Field(
         default=None,
-        description="Constant mean sea-level value in metres.",
+        description="Constant mean sea-level value in meters.",
         json_schema_extra={"unit": "m"},
     )
 

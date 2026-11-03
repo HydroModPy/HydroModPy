@@ -1,5 +1,5 @@
 # MODFLOW 6 on the triangles with XT3D switched off: the conductance two-point
-# flux between cell centres, the same scheme as the Boussinesq solver.
+# flux between cell centers, the same scheme as the Boussinesq solver.
 
 [[simulation.process]]
 solvers = ["modflow6"]

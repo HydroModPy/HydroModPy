@@ -207,12 +207,12 @@ class FlowLakeOutletManning(HydroModelBase):
     )
     invert: Annotated[Length, Profile.USER] = Field(
         ...,
-        description="Elevation of the outlet channel bed, in metres. No water leaves below it.",
+        description="Elevation of the outlet channel bed, in meters. No water leaves below it.",
         examples=[45.0],
     )
     width: Annotated[Length, Profile.USER] = Field(
         ...,
-        description="Width of the outlet channel, in metres.",
+        description="Width of the outlet channel, in meters.",
         examples=[5.0],
     )
     rough: Annotated[float, Profile.USER] = Field(
@@ -228,7 +228,7 @@ class FlowLakeOutletManning(HydroModelBase):
     slope: Annotated[float, Profile.USER] = Field(
         ...,
         gt=0.0,
-        description="Slope of the outlet channel bed, in metres of drop per metre of length.",
+        description="Slope of the outlet channel bed, in meters of drop per meter of length.",
         examples=[0.001],
         json_schema_extra={"unit": "-"},
     )

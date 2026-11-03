@@ -154,7 +154,7 @@ def requested_outputs(request: JobRequest, decl: CapabilityDecl) -> tuple[Output
 
     An empty or absent ``outputs`` member means all of them. Naming one the
     capability does not declare is refused, pointed at the name: a caller that
-    expects an artefact nobody produces must learn it before the run, not by
+    expects an artifact nobody produces must learn it before the run, not by
     finding the file missing after the seal.
     """
     wanted = dict(request.outputs)

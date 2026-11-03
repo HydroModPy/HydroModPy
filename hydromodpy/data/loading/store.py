@@ -195,7 +195,7 @@ class DataStore:
         """Load hydrography data (vector or raster) with catalog caching.
 
         The extent is ``config.mask_path``; ``base_raster`` is only the grid the
-        clipped network is rasterised onto.
+        clipped network is rasterized onto.
         """
         from hydromodpy.data.variables.hydrography.manager import HydrographyManager
 

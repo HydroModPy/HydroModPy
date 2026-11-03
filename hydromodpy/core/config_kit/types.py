@@ -109,9 +109,9 @@ Probability = Annotated[
 
 CellSamplingDensity = Annotated[
     int,
-    Field(ge=2, description="Sub-sampling density per cell axis used when rasterising masks."),
+    Field(ge=2, description="Sub-sampling density per cell axis used when rasterizing masks."),
 ]
-"""Sub-sampling density per cell axis used when rasterising masks."""
+"""Sub-sampling density per cell axis used when rasterizing masks."""
 
 
 # ---------------------------------------------------------------------------

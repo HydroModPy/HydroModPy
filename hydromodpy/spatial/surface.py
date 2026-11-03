@@ -216,14 +216,14 @@ class Surface:
         - leaves a NODATA cell AT the sentinel instead of shifting it.
 
         The sentinel must not move. The support is shared by reference, so it keeps
-        advertising the same ``nodata`` value, and every consumer recognises a
+        advertising the same ``nodata`` value, and every consumer recognizes a
         no-data cell by exact equality with it (``surface_sampling``, the
         discretization guard, the zonal statistics). Shifting ``-9999`` to
         ``-9999 - offset`` silently turns the sentinel into an ordinary elevation:
         it is then interpolated as if it were terrain, and a mesh cell whose stencil
         straddles the mask edge inherits a bottom dragged toward it. Such a cell has
         no idomain signature either, because the top of that same cell is clean: it
-        stays active and carries a column kilometres thick, with the transmissivity
+        stays active and carries a column kilometers thick, with the transmissivity
         and the storage that go with it.
 
         Example

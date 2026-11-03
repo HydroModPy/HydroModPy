@@ -160,7 +160,7 @@ def sampled_zone_fractions(
 
     ``zone_id`` gives the zone key of each sample point. The share of a zone is
     the count of its points over a total, which ``total`` chooses:
-    ``"samples"`` counts every point of the cell, ``"labelled"`` the points
+    ``"samples"`` counts every point of the cell, ``"labeled"`` the points
     that fall in a zone (a non-empty key), and ``"zone_keys"`` adds the counts
     of ``zone_keys``, a key named twice counted twice. A total of zero counts
     as one, so the cell gets a share of zero.

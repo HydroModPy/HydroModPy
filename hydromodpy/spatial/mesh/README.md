@@ -44,9 +44,9 @@ the same cells back.
 
 ## The two mesh objects
 
-`PlanarCellMesh` is the mesh of a run. It holds the cells with their centres and CRS, the
+`PlanarCellMesh` is the mesh of a run. It holds the cells with their centers and CRS, the
 line families (river chains, lake shores, barriers, sides), the zones, the engine identity and
-the quality report. Areas, edges and neighbours are computed once, on first use.
+the quality report. Areas, edges and neighbors are computed once, on first use.
 
 `HydroMesh` is the plain geometry inside it: vertices and blocks of cells, following the
 meshio data model. Plots and exchange files use it, and it accepts 3D cells. A block of
@@ -152,7 +152,7 @@ a search for the name finds its file.
 | which lines the mesh follows | `planning/families.py`, then `families.py` of each engine |
 | the river cells of a Voronoi mesh | `engines/voronoi/constraints/rivers.py` |
 | the quality numbers of a mesh | `model/quality.py` |
-| the area, the edges or the neighbours of a cell | `model/geometry.py` |
+| the area, the edges or the neighbors of a cell | `model/geometry.py` |
 | the cells under a point, a polygon or a line | `cells/` |
 | an exchange format | `io/` |
 
@@ -192,7 +192,7 @@ and sits in the same folder under `tests/unit/mesh/`, so `planning/size_field.py
 `tests/unit/mesh/planning/test_size_field.py`. A few small modules are tested through the
 module that calls them, for example `engines/voronoi/constraints/rivers.py` in
 `constraints/test_plan.py`. A test builds its grid, request and meshes with the helpers of
-`tests/_helpers/mesh_cases.py`, and the name of a test function says the behaviour it checks.
+`tests/_helpers/mesh_cases.py`, and the name of a test function says the behavior it checks.
 
 Three more checks guard the meshes. The engine contract
 (`tests/contract/test_mesh_engine_contract.py`) holds what all three engines must do. The mesh

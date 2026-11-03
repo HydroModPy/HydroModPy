@@ -30,7 +30,7 @@ This page keeps, as written, the development notes of `[Unreleased]` and of the 
 - `hmp run --format json` prints the workflow, the file and what the run gave, and `hmp spinup`, `hmp export` and `hmp publish` print what they wrote.
 - A failure prints its `HMPY.Exxx` code first on its line of stderr, a mistake on the command line included: `HMPY.E002: File not found: run.toml`. Under `--format json` stdout also holds `{"schema": "hmp.error.v1", "data": {"code", "title", "detail", "exit_code"}}`, unless the command had a result to write. New codes `HMPY.E001` (`CommandUsageError`, exit 2) and `HMPY.E002` (`NothingThereError`, exit 10).
 - `reference/cli/exit-codes` states what is promised: inside a major version an exit code keeps its number and its meaning, an `HMPY.Exxx` code keeps its meaning, and the words of a message may change.
-- `-w` is on every command, and it is read before the verb too: `hmp -w W catalog ls`. A command that reads no workspace accepts it and says so in its help. `hmp run --resume NAME` honours it.
+- `-w` is on every command, and it is read before the verb too: `hmp -w W catalog ls`. A command that reads no workspace accepts it and says so in its help. `hmp run --resume NAME` honors it.
 - `hmp campaign`: `array`, `case`, `collect`, `promote`, `prune`.
 - `hmp lock`: `update`, `verify`. `hmp completion`. `hmp catalog rank`. `hmp config validate-field`. `hmp config schema --bundle`.
 - `hmp data restore --to DIR`.
@@ -142,7 +142,7 @@ This page keeps, as written, the development notes of `[Unreleased]` and of the 
 - Mesh refinement where the water table is shallow (2026-10-26). A `[[mesh.refinement_zone]]` table
   takes a criterion `where` in place of a vector layer `path`, with a threshold `below` or `above`
   and, for a field of an earlier run, `run`. `where = "height_above_stream"` refines the DEM pixels
-  less than `below` metres above the stream they drain to (HAND, on the DEM of the mesh grid and the
+  less than `below` meters above the stream they drain to (HAND, on the DEM of the mesh grid and the
   network traced from it with `[geographic.river_network]`). A mapped network never enters, and such
   a zone turns the traced network on. `where = "watertable_depth"` and `where = "seepage"` read the
   field in the `fields.zarr` of the sealed run that `run` names, at any time step. The minimum over
@@ -172,7 +172,7 @@ This page keeps, as written, the development notes of `[Unreleased]` and of the 
   (2026-10-26): `hydraulic_conductivity_k22`, `hydraulic_conductivity_k33` and
   `conductivity_tensor_angle1` to `3`. K22 and K33 take the scale rule of K, and the conductivity
   panels of a `parameter_section` share one scale. `angle1` is in degrees on a full turn, from 0 to
-  360, with the cyclic colour map `twilight` and a tick every 90 degrees. `angle2` and `angle3` are
+  360, with the cyclic color map `twilight` and a tick every 90 degrees. `angle2` and `angle3` are
   linear. The `cmap` of both figures defaults to `None`, which is viridis, and `twilight` for
   `angle1`. Without `variables`, `parameter_section` adds K22 and the angles when the run holds
   them, and K33 only when it differs from K. A variable that the run does not hold is refused by
@@ -186,8 +186,8 @@ This page keeps, as written, the development notes of `[Unreleased]` and of the 
   returns the shares, and `views.catchment_total(run, variable)` sums a per-cell budget term, such
   as `recharge` or `drain`, with them: the recharge and the seepage over the catchment, per time
   step. The shares also cover the cells outside the basin that the polygon touches, because weights
-  limited to the basin lose the part of the polygon in the neighbouring cells. On a distorted disc
-  over a grid of 75 m, a mask by cell centre misses the area by -0.03 % (standard deviation 0.13 %)
+  limited to the basin lose the part of the polygon in the neighboring cells. On a distorted disc
+  over a grid of 75 m, a mask by cell center misses the area by -0.03 % (standard deviation 0.13 %)
   at a radius of 3 km and by -0.06 % (0.45 %) at 1 km, and weights limited to the basin by -0.67 %
   and -2.0 %. The array is optional, so the Zarr schema stays 3, and a run sealed without it counts
   the whole cells of its basin and says so. On example 04 the grid is the DEM, so no cell is cut and
@@ -203,7 +203,7 @@ This page keeps, as written, the development notes of `[Unreleased]` and of the 
   one warning per threshold a mesh crosses: triangles with a corner under 20 degrees, cells with a
   face crossed more than 0.25 of its length from its middle, concave cells. A mesh is never refused
   for them. A mesh cache entry stored before keeps its schema (`hydromodpy.mesh_cache.v1`) and
-  gets these entries measured on its stored mesh and centres when read, so the frozen gmsh mesh of
+  gets these entries measured on its stored mesh and centers when read, so the frozen gmsh mesh of
   a project is kept. A fourth per-cell field, `mesh_max_angle`, the largest interior angle of the
   cell, joins the computed quality fields, and the `mesh_cells` layer of `hmp export` carries it
   as `max_angle_deg`. On the stored Flume meshes the largest angle is 148 degrees at the 95th
@@ -233,7 +233,7 @@ This page keeps, as written, the development notes of `[Unreleased]` and of the 
   source grid and reused for every period and band; a cell no finite pixel reaches takes the nearest
   pixel. MODFLOW 6, MODFLOW-NWT and Boussinesq pass their planar mesh to the one forcing path
   (`discretize_fields_on_cells(mesh=...)`). A station source refuses `"area"`, and so does the
-  centre-grid interpolation of `spatial_interpolation`. The default stays `"nearest"`, so a run of
+  center-grid interpolation of `spatial_interpolation`. The default stays `"nearest"`, so a run of
   a current project is unchanged.
 - The mesh planner cleans the geometry first (2026-10-26). A new step,
   `spatial/mesh/planning/cleanup.py`, runs at the start of `plan_mesh_request` for every engine
@@ -275,7 +275,7 @@ This page keeps, as written, the development notes of `[Unreleased]` and of the 
   the column; `keep_min_thickness` moves its base down, the layers below and the base of the
   aquifer with it. A base is kept between the base of the aquifer and the base of the layer
   above. The domain places every base raster on the grid of its top and refuses one that
-  leaves a cell without value; the discretization samples it at the cell centres or resamples
+  leaves a cell without value; the discretization samples it at the cell centers or resamples
   it to a regular grid, so both meshes read it. MODFLOW-NWT has no pass-through cell: the
   configuration load refuses `pinch_out = "pass_through"` with it, and its build refuses a grid
   that holds one. The load also refuses a base surface `[data.layer_base]` does not declare, and
@@ -335,14 +335,14 @@ This page keeps, as written, the development notes of `[Unreleased]` and of the 
   sign or axis fails every case. A unit test also holds the median seed offset of a graded
   `voronoi` mesh under a quarter of `max_slope`, the floor of a graded Voronoi mesh.
 - Three more mesh quality fields per cell (2026-10-22), computed on read like the four before.
-  `mesh_bisection_offset` measures where the line joining two cell centres crosses their face,
+  `mesh_bisection_offset` measures where the line joining two cell centers crosses their face,
   from the face middle, over the face length: 0 for a bisected face, 0.5 through a face end, and
   a cell takes the largest value of its faces. `mesh_min_angle` is the smallest interior angle of
   the cell. `mesh_concavity` is the excess of the largest interior angle over 180 degrees, 0 for a
   convex cell; a corner within `STRAIGHT_CORNER_DEG` (0.1 degree) of 180 is straight. The
   `mesh_cells` layer of `hmp export` carries them as `bisection_offset`, `min_angle_deg` and
   `concavity_deg`. A run sealed before the cell-mesh layout serves the angle and the concavity
-  and refuses the bisection offset, which needs the cell centres. On the stored Flume meshes the
+  and refuses the bisection offset, which needs the cell centers. On the stored Flume meshes the
   smallest angle is 64 degrees at the first percentile (29 at worst) on the v2 Voronoi and 21
   (9.5) on the d2 triangles, and no cell is concave. `MeshQA` is unchanged: adding them to its
   quantiles changes the schema of the mesh cache.
@@ -515,7 +515,7 @@ This page keeps, as written, the development notes of `[Unreleased]` and of the 
   and the identity and licence in every Parquet footer; `claim_run_directory()` claims `runs/<name>`
   by one `mkdir` (`.vN` after a completed run, a stale claim reclaimed when its process is dead or
   under `--force`, a name held by the trash or a tombstone never given again, `if_exists = "fail"`
-  honoured); `seal_completed()` writes the record, the tables, the README and `manifest.json` last,
+  honored); `seal_completed()` writes the record, the tables, the README and `manifest.json` last,
   then `close_sealed_attempt()` removes `<run>/.hmp/`; a failed, aborted or partial attempt keeps its
   outcome, README and tables and never a manifest, and `Project.run(until_step=...)` reads such a
   run from its directory. The pipeline gains a 13th step, `SealStep`, journals under the run
@@ -570,8 +570,8 @@ This page keeps, as written, the development notes of `[Unreleased]` and of the 
   `core/toml_io/overrides.py` (a plan case refuses `HMP_SET_*`), `plan_budget()`; `hmp run
   --dry-run` prints the plan of a `[sites]` project and `hmp run project.toml` launches it
   (the local launcher above);
-  `resolve_single_site()` checks a `[site]` project against the workspace site catalogue.
-- The workspace site catalogue and the gauge (`hydromodpy/data/sites/`): `read_catalog`,
+  `resolve_single_site()` checks a `[site]` project against the workspace site catalog.
+- The workspace site catalog and the gauge (`hydromodpy/data/sites/`): `read_catalog`,
   `write_catalog`, `nearest_site`, `hmp site add | import | select | ls | show`; `apply_site_gauge()`
   fills the station sources from `[site] gauge` and refuses a conflicting station list;
   `gauge_of_run()` is written in the seal. Site selection runs by `hmp site select <file>`
@@ -601,7 +601,7 @@ This page keeps, as written, the development notes of `[Unreleased]` and of the 
   a real catchment names its site (`name`, `label`, `gauge`, `uri`), a project of N sites declares its
   table, recipes (`[sites.recipes]`, three forms, `recipes_table`), `bind`, `[sites.run]`,
   `[sites.summary]` and `[[sites.export]]`; `[site]` and `[sites]` never coexist. `SiteRow` fixes the
-  columns of the workspace site catalogue; `site_fingerprint()` is a pure function of the declaration;
+  columns of the workspace site catalog; `site_fingerprint()` is a pure function of the declaration;
   `resolve_gauge()` names a conflict between `[site] gauge` and a station key. Fields proper to one
   catchment carry `field_metadata(site_scoped=True)` (`core.config_kit.introspect.site_scoped_paths`).
 - One dotted-path analyser for `--set`, `HMP_SET_*`, `bind` and inline `set`
@@ -653,7 +653,7 @@ This page keeps, as written, the development notes of `[Unreleased]` and of the 
   "triangulation"`, the default when `[mesh.triangle] path` is given, takes the generators from
   that triangulation and keeps its dual, with the same faces as the former Voronoi mesh. At equal
   size parameters the generator makes about half the cells of the dual of a triangulation. Flume
-  v2 size parameters: 21 655 cells instead of 36 697, neighbour pairs above a size ratio of 1.5
+  v2 size parameters: 21 655 cells instead of 36 697, neighbor pairs above a size ratio of 1.5
   from 13 % to 4.8 %, the seed-to-centroid offset p50 at 0.095 of the cell size. Flume v2
   weekly run against its gmsh reference: NSE 0.8350 to 0.8373, KGE 0.897 to 0.913, mean
   discharge -3.66 %, layer-1 heads mean absolute difference 0.475 m, seepage area -11.8 %,
@@ -672,10 +672,10 @@ This page keeps, as written, the development notes of `[Unreleased]` and of the 
   engine).
 - Engines that are not reproducible (gmsh) cache their mesh under `<project>/.hmp/mesh_cache/`,
   keyed on the request hash and the engine and gmsh versions; resume and `restart_from` read it.
-- `PlanarCellMesh` (`spatial/mesh/model/`): a planar `HydroMesh` with one centre rule for every
+- `PlanarCellMesh` (`spatial/mesh/model/`): a planar `HydroMesh` with one center rule for every
   consumer (`centers`, `center_kind`), a required CRS, cell chains and face families, zone labels,
   the engine identity and a `MeshQA`. Its `DerivedGeometry` (areas, area centroids, edge table,
-  CSR adjacency, -1 padded connectivity) is computed once and vectorised: 1.5 s for 200 000
+  CSR adjacency, -1 padded connectivity) is computed once and vectorized: 1.5 s for 200 000
   Voronoi cells against 10.8 s for the per-consumer functions. The engines return it; a regular
   grid (`cell_mesh_from_regular_grid`) and a Boussinesq bundle (`cell_mesh_from_bundle`) are
   read into it by an adapter.
@@ -702,7 +702,7 @@ This page keeps, as written, the development notes of `[Unreleased]` and of the 
 - Every solver reads the cell mesh through the same helpers, whatever the engine:
   `spatial/mesh/ops/family_cells.py` (cells of a side, of the river, of a label),
   `cell_location.py` (`locate_cells`), `spatial/mesh/forcing/` (gridded and station forcing on the
-  cell centres), `spatial/field/zone_fractions.py`, `family_interior.py` (lake cells on
+  cell centers), `spatial/field/zone_fractions.py`, `family_interior.py` (lake cells on
   shore faces), `line_on_chain.py` (a reach on the river chain of the mesh) and `side_offset.py`
   (the `side_center_offset_m_p50` QA of the engines).
   `tests/integration/test_one_cell_mesh_gives_every_solver_the_same_recharge_and_k.py` proves
@@ -712,7 +712,7 @@ This page keeps, as written, the development notes of `[Unreleased]` and of the 
   (float64, the coordinates of the cell mesh; they are no longer read back from the MODFLOW 6
   grid file, which flopy rounds to nine significant digits above 1e5 m: on a Lambert project a
   vertex moved by up to 5e-3 m, and the island mesh area by 1.5 m2 in 131 650), cell rows, cell
-  centres (`face_x`, `face_y`), `face_family` and `edge_family` bit fields (CF `flag_masks`),
+  centers (`face_x`, `face_y`), `face_family` and `edge_family` bit fields (CF `flag_masks`),
   `face_zone`, and the UGRID edge tables (`edge_node_connectivity`, `edge_face_connectivity`,
   dimensions `edge` and `two`, fill -1). Group attributes record the engine, its version and
   seed, the CRS, the request hash, the QA and the gmsh, scipy, shapely and GEOS versions. Two
@@ -888,7 +888,7 @@ This page keeps, as written, the development notes of `[Unreleased]` and of the 
   and has to be run again.
 - `matching_hydrographic_network` is version 1.3: the map drawn from its heads, cut to the catchment, under the veto on
   `catchment_mismatch`. The protocol holds `DEFAULTS_BY_VERSION`, 1.2 and 1.3, and writes in the network output the values of
-  the version for each key the file leaves empty. A pin on 1.2 is honoured: the crossing rule, the whole file, no veto. A pin
+  the version for each key the file leaves empty. A pin on 1.2 is honored: the crossing rule, the whole file, no veto. A pin
   on another version is refused and names the ones carried.
 - `catchment_mismatch` reads the delineated outline, the one the mesh followed when it followed one, as its documentation
   said. It read the basin of D since 2026-10-14, which closes on the same outlet as the criterion, so a wrong branch did not
@@ -982,7 +982,7 @@ This page keeps, as written, the development notes of `[Unreleased]` and of the 
 - `key__merge` pairs a table with the inherited table of the same identity, the first of `id`, `name` and `source` that every table on both sides holds. A child writes only the tables it changes, in any order. Tables with no identity are refused unless each side holds one table, and the message says what to write. Before, `__merge` paired by position, so a table inserted at the head of the base silently moved every overlay down by one.
 - A rename in `RENAMED_KEYS` or a move in `MOVED_TABLES` also rewrites the dotted paths that name the key: the `overrides` of a calibration phase, `path` and `target` of a calibration parameter, the keys of `[sites.bind]` and of the `set` table of a recipe, `hmp run --set`, `hmp catalog rerun --set` and `HMP_SET_*`. `MOVED_TABLES` now takes a single key as well as a table.
 - `hydromodpy.lock` now carries an id like every other stored document, `schema = "hydromodpy.lock.v1"`, in place of `[hydromodpy] version = "2.0.0"`, which looked like a package version. A lock of the old shape is refused and names `hmp dev lock update`, which writes it again.
-- `hydromodpy.lock` now holds one record per cached input, `[[input]]`, with `variable`, `source`, `station_id`, `path`, `sha256`, `bytes`, `file_mtime` and `fetched_at`. It replaces both `[inputs]` and `[[artefact]]`, which said the same thing twice.
+- `hydromodpy.lock` now holds one record per cached input, `[[input]]`, with `variable`, `source`, `station_id`, `path`, `sha256`, `bytes`, `file_mtime` and `fetched_at`. It replaces both `[inputs]` and `[[artifact]]`, which said the same thing twice.
 - The `[schema]` table of `hydromodpy.lock` is gone. Its versions were already in `[hydromodpy]`, and its `config_sha256` is now `[hydromodpy] config_schema_sha256`.
 - In Python, `LockedArtifact` is now `LockedInput`, with `path` and `bytes` in place of `file_path` and `size_bytes`. `read_lockfile_inputs` returns these records, and `read_lockfile` is gone. `LOCKFILE_VERSION` is now `LOCKFILE_SCHEMA`.
 - `hmp install-binaries` and the download at the first run no longer go through `flopy.utils.get_modflow`. They fetch the release zip directly, so they use no GitHub API request and `GITHUB_TOKEN` no longer plays a part. The zip stays in `<cache>/bin-archives/`, not in `~/Downloads`, and another `--subset` costs no second download.
@@ -1070,7 +1070,7 @@ This page keeps, as written, the development notes of `[Unreleased]` and of the 
   RFC 7946: WGS 84 longitude and latitude, no `crs` member (2026-10-31). `hydromodpy_coordinate_crs` reads
   `OGC:CRS84` and the new `hydromodpy_project_crs` names the CRS the features came from. The GeoPackage
   and GeoParquet layers keep the project CRS. GDAL rounds the coordinates of `outlets_snapped.geojson`
-  to 7 decimals, about a centimetre. `hmp site import --layer` on a GeoJSON gives its sites in
+  to 7 decimals, about a centimeter. `hmp site import --layer` on a GeoJSON gives its sites in
   EPSG:4326, on a GeoPackage in the project CRS.
 - The snapped outlet of a site is read in the CRS of its outlet, a GeoJSON as RFC 7946 lon/lat or in its
   `crs` member, and the control map draws every layer in the CRS of its DEM, else in the project CRS
@@ -1135,7 +1135,7 @@ This page keeps, as written, the development notes of `[Unreleased]` and of the 
   `update_geographic_goldens.py` and `build_reduced_geology_inputs.py`, the old
   `domain/cases/build_reduced_inputs.py` (2026-10-28). The synthetic case is
   `run_geographic_synthetic_case.py`, and the two case TOMLs no script read are removed, since their
-  neighbour holds the same tables. The `cases/` packages no longer re-export.
+  neighbor holds the same tables. The `cases/` packages no longer re-export.
 - The site selection runner moved from `spatial.site_selection` to `workflow.site_selection`, since
   it collects data before the spatial selection runs (2026-10-28). `runner` is `selection_run`, with
   the plan in `selection_plan`, the TOML builders in `build_from_toml`, the CSV selection in
@@ -1197,9 +1197,9 @@ This page keeps, as written, the development notes of `[Unreleased]` and of the 
   returns the affine transform the store takes, and `None` when neither the backend cache nor the
   disk holds the raster. A raster read from the backend cache no longer comes back with the sign
   of its pixel height flipped.
-- The lake bed read from a bathymetry raster no longer counts a pixel whose centre lies exactly on
+- The lake bed read from a bathymetry raster no longer counts a pixel whose center lies exactly on
   a cell edge in the cell to its east or north (2026-10-28). Such a pixel now counts for no cell,
-  as `shapely.contains_xy` replaces a hand-written ray cast. With pixel centres on the edges a
+  as `shapely.contains_xy` replaces a hand-written ray cast. With pixel centers on the edges a
   cell bed can move by half a pixel of slope (12.5 m on a 25 m ramp in the test). The identity
   harness of the clean-up sees no change.
 - A `HydroMesh` holds its cells one way (2026-10-28). Each `CellBlock` keeps one `(n_cells, k)`
@@ -1210,15 +1210,15 @@ This page keeps, as written, the development notes of `[Unreleased]` and of the 
   drops the `-1` slots (`row[row >= 0]`). `cell_data["disv_cell_center"]`, which copied
   `PlanarCellMesh.centers`, goes: the Voronoi engines and `voronoi_planar_mesh` no longer write it,
   and `HydroMesh.cell_centroids()` gives the mean of the cell vertices. `connection_nonorthogonality_deg`
-  and `nonorthogonality_summary` take the cell centres as `centers`, the vertex means when left
+  and `nonorthogonality_summary` take the cell centers as `centers`, the vertex means when left
   out. The meshes, the QA, the VTU export and the store are unchanged, and a new cache entry of a
   Voronoi mesh holds the same arrays less `cell_data/disv_cell_center`. A mesh cached before keeps
   that entry, which nothing reads.
 - The DISV export and the XT3D advice read the Voronoi generators from the cell mesh (2026-10-28),
-  since a `HydroMesh` no longer carries them. `to_flopy_disv_args` takes the cell centres to write
+  since a `HydroMesh` no longer carries them. `to_flopy_disv_args` takes the cell centers to write
   as `centers`, the vertex means when left out, and `SolverMesh.to_disv_kwargs` passes
-  `SolverMesh.generator_centers`, the centres of a mesh centred on its generators and `None`
-  otherwise. The XT3D advice measures its angles from the same centres. The DISV file and the
+  `SolverMesh.generator_centers`, the centers of a mesh centered on its generators and `None`
+  otherwise. The XT3D advice measures its angles from the same centers. The DISV file and the
   advice are unchanged. The solver mesh helpers of the tests and of the validation cases take the
   generators of a hand-built Voronoi mesh as `centers`.
 - Boussinesq reads its arrays from the cell mesh (2026-10-28). `BoussinesqMesh.from_cell_mesh`
@@ -1232,9 +1232,9 @@ This page keeps, as written, the development notes of `[Unreleased]` and of the 
   `build_runtime_bundle_from_cell_mesh` becomes `mesh_arrays_from_cell_mesh`, and
   `_mesh_geometry.py` joins `_mesh_builders.py`.
 - `SolverMesh.cell_centroids()` becomes `SolverMesh.cell_centers()` (2026-10-28), because it
-  returns the centres MODFLOW 6 sees, the generator seeds on a Voronoi mesh, and not the
+  returns the centers MODFLOW 6 sees, the generator seeds on a Voronoi mesh, and not the
   centroids. The network criterion of the calibration reads the new name, and its error on a mesh
-  without centres names `cell_centers`. `HydroMesh` keeps `cell_centroids()`. The helpers
+  without centers names `cell_centers`. `HydroMesh` keeps `cell_centroids()`. The helpers
   `discretization_spatial.py` reads from `top_sampling.py`, and `flow_directions.py` from
   `catchment_basin.py`, become public.
 - The mesh modules take names a reader guesses (2026-10-28). In `hydromodpy.spatial.mesh`,
@@ -1306,10 +1306,10 @@ This page keeps, as written, the development notes of `[Unreleased]` and of the 
   `ops.vector_cell_mask`), the edge joining two vertices or shared by two cells
   (`DerivedGeometry.edge_ids`, `DerivedGeometry.edge_between`), the side of the vertex box a
   boundary edge lies on (`BOX_SIDES`, `box_side_of_edges`), the rings of a polygon
-  (`polygon_rings`) and the millimetre key of a vertex (`vertex_keys`, and `VERTEX_MERGE_M`, which
+  (`polygon_rings`) and the millimeter key of a vertex (`vertex_keys`, and `VERTEX_MERGE_M`, which
   moves there from the Voronoi tessellation). `connection_nonorthogonality_deg` and
   `nonorthogonality_summary` move from `ops/mesh_orthogonality.py` to `model/mesh_qa.py` and
-  compute the angle of the QA, vectorised. On the 1 645 meshes the tests build, the angles move by
+  compute the angle of the QA, vectorized. On the 1 645 meshes the tests build, the angles move by
   1.5e-6 degree at most and the XT3D choice does not change. The angles follow the edge table, and
   a mesh with an edge shared by three cells raises `ValueError` where the edge was skipped.
   `mesh_qa.mixed_cells` gives the cells a line crosses, for the QA and the Voronoi engine.
@@ -1403,7 +1403,7 @@ This page keeps, as written, the development notes of `[Unreleased]` and of the 
   `spatial/field/aggregation.py` goes, so `extract_homogeneous_series_from_fields` is now
   `spatial_mean_from_fields`. The mesh never imports the forcing. No result, TOML key, schema or
   store name changes.
-- Behaviour change: a gridded forcing in an unknown format stops the run (2026-10-27). A record
+- Behavior change: a gridded forcing in an unknown format stops the run (2026-10-27). A record
   whose data is neither an xarray Dataset nor a file path, or a file whose suffix is not `.nc`,
   `.nc4`, `.netcdf`, `.tif` or `.tiff`, gave a zero forcing on every cell with a warning. It now
   raises `DataContractViolation`, which names the type or the suffix received and the formats read.
@@ -1614,7 +1614,7 @@ This page keeps, as written, the development notes of `[Unreleased]` and of the 
 - `[workspace] project_root` is refused in a TOML file (the project root is the directory of
   `project.toml`, or of the root file of the `base_config` chain) and leaves the config hash;
   `[workspace]` is a DEV section. `if_exists` keeps `version` and `fail` only.
-- `docs/source/contribute/architecture/storage-layout.rst` describes the target: one artefact in the
+- `docs/source/contribute/architecture/storage-layout.rst` describes the target: one artifact in the
   directory of its producer, two state roots, the attempt protocol, the status precedence, versions
   computed on disk, the trash by move.
 - `[site] name` is required when `geographic.catchment.catch_def` declares a real catchment, in the
@@ -1638,7 +1638,7 @@ This page keeps, as written, the development notes of `[Unreleased]` and of the 
   (`coerce_vertical_config`, `layer_proportions`, `assert_bottom_below_top`); the copy in
   `solver/modflow_grid/discretization_spatial.py` is gone. The arithmetic is unchanged.
 - Spatial forcings (heterogeneous recharge) on a Boussinesq bundle are sampled at the cell
-  centres of `nodes.csv` rather than of the bundle's `mesh_2d.msh` (vertex means differ by at
+  centers of `nodes.csv` rather than of the bundle's `mesh_2d.msh` (vertex means differ by at
   most 5e-6 m; the 495 validation metrics are bit-identical).
 - The `viewer3d` extra (`pyvista`) is removed: the only reader, the interactive 3D viewer, left
   with the prism stack. `hmp doctor` and `_api` no longer list `pyvista` as an optional
@@ -1647,12 +1647,12 @@ This page keeps, as written, the development notes of `[Unreleased]` and of the 
   hydromodpy.config.hydromodpy_config` loads neither `zone_meshing` nor a launcher.
 - The mesh planner drops a hole of the domain, of a lake or of the catchment whose area is
   below the square of the local cell size, for every engine, with one INFO line. A bathymetry
-  polygonised from a 1 m raster no longer breaks the Voronoi tessellation. A larger hole that
+  polygonized from a 1 m raster no longer breaks the Voronoi tessellation. A larger hole that
   touches the outer ring or another hole at one point still stops the Voronoi engine at its
   area gate, which says so.
 - MODFLOW 6: XT3D is on by default for triangle cells, and an explicit `mf6_enable_xt3d` wins
   with a warning; other cells follow the non-orthogonality rule as before. On a `voronoi` mesh,
-  the top of a river-chain cell whose centre lies off the river line (a river crossing a
+  the top of a river-chain cell whose center lies off the river line (a river crossing a
   contact, a cell two thalwegs share, a river end near the boundary) is the zonal minimum of
   the DEM pixels it covers, also in `centroid` mode.
 - The contacts of the `generated_bands` and `generated_rings` supports are face lines for an
@@ -1692,7 +1692,7 @@ This page keeps, as written, the development notes of `[Unreleased]` and of the 
   18, 20. The `nearest` resampling of the 09 and 10 overlays falls back to bilinear. Geology
   contacts are reprojected to the project CRS; a geology map without a CRS is refused.
 - The solvers take a `PlanarCellMesh` (`setup.cell_mesh`) instead of a `GmshPlanarMesh2D`
-  (`setup.mesh_planar` is gone). The calibration `mesh_fingerprint` now hashes the cell centres
+  (`setup.mesh_planar` is gone). The calibration `mesh_fingerprint` now hashes the cell centers
   with the true cell count (it hashed a (2, n) tuple and counted 2 cells): calibration caches of
   gmsh runs miss once. Example 02 `run_cellular.py` still reads `setup.mesh_planar` and fails.
 - Zone fractions of a cell are exact for a vector geology source (polygon areas, one function
@@ -1714,7 +1714,7 @@ This page keeps, as written, the development notes of `[Unreleased]` and of the 
   shore faces enclose (225 cells against 241 on the pentagon test, the same area). A well, a
   side or a stream boundary is located by the cell mesh; `[lay, row, col]` addressing of a well
   or an SFR reach is refused (exit code 14) on every engine but `regular`.
-- `Run.field(bbox=)` and `to_xarray_batch(bbox=)` select cells by the centres of the run's own
+- `Run.field(bbox=)` and `to_xarray_batch(bbox=)` select cells by the centers of the run's own
   mesh. The default GeoTIFF resolution of an export is the side of the smallest cell, refused
   above 1e8 pixels. A map of a structured run is drawn from the `structured_shape` attribute of
   its stored mesh and no longer flips north and south (`origin="upper"`).
@@ -1993,7 +1993,7 @@ The old forms keep loading for two minor versions and `hmp doctor --fix-config <
 - Capability refusals of the configuration (layering, K tensor, transport, boundaries, restart) read the flow engine the file declares, not `solver.backend` alone.
 - `flow.restart_from` beside a `steady_state` or `spinup_cyclic` initial condition is refused, since the restart was overwritten without a message.
 - An empty-station marker in the data cache only answers for the window it was asked for.
-- `source_unit` is honoured for a folder of CSV stations; a LOC unit that contradicts it is refused.
+- `source_unit` is honored for a folder of CSV stations; a LOC unit that contradicts it is refused.
 - The calibration preflight refuses extent durations the timestep cannot read.
 - The catchment report postflight no longer expects optional figures.
 - `hmp catalog ls --solver` finds runs that stored several solvers.
@@ -2012,7 +2012,7 @@ The old forms keep loading for two minor versions and `hmp doctor --fix-config <
 - A MODFLOW 6 run with a lake and no stream network keeps the catchment drains in `discharge`. A calibration trial on such a run reads the same sum: the lake outlet plus the drains.
 - A run whose `fields.zarr` is under version 4 is refused by `hmp.open` and left out of the index with a warning, with the sentence every pre-release document gets. It used to open and then fail halfway through its readers.
 - `catchment` is refused as a station identifier and as a zone name, in a TOML key, in a site table, in a loaded record and at the store, with a message saying what to write. A gauge with that name used to be scored against the simulated outlet, and a zone with that name read as a uniform parameter.
-- A promoted run, and a session closed on a best from an earlier stage, now name the cost of that stage (`distance_gap`, not `nse_log` beside a cost in metres).
+- A promoted run, and a session closed on a best from an earlier stage, now name the cost of that stage (`distance_gap`, not `nse_log` beside a cost in meters).
 - `Session.best` and the report no longer return the run of an older trial when the best trial has not been promoted.
 - A refused `--resume` (changed cost, changed code, another case) leaves the session exactly as it was instead of marking it failed.
 - A journal cut in the middle of its last line resumes: the remnant is dropped before the next trial is written.
@@ -2044,7 +2044,7 @@ The old forms keep loading for two minor versions and `hmp doctor --fix-config <
   that project and reads its inputs there. A copy used to receive `runs/`, `data/` and `.hmp/`.
 - `Project.rerun` writes in the project that holds its source run, whatever the current directory. It used to write
   under the current directory, named after that folder.
-- `hmp dev lock restore` keeps nothing of an archive it refuses, and an artefact the lockfile names that is absent from
+- `hmp dev lock restore` keeps nothing of an archive it refuses, and an artifact the lockfile names that is absent from
   the archive, or an archive without a lockfile, is refused by name. It used to leave the bad files on disk and pass a
   missing one in silence.
 - A `[sites]` plan with a synthetic recharge runs. A generated series named a file that does not exist in the data
@@ -2083,18 +2083,18 @@ The old forms keep loading for two minor versions and `hmp doctor --fix-config <
   indexes rebuilt from them. `hydromodpy.lock` is described as what it is: the launcher of a `[sites]`
   project and `hmp dev lock` write it, and no ordinary run does.
 - The description of `solver.drain_bed_thickness_m` now says that its default of 1 m is a convention with no measured source. The value does not change.
-- A polygon cell whose zonal top falls so far under its centre sample that less than
+- A polygon cell whose zonal top falls so far under its center sample that less than
   `min_thickness_m` or a tenth of the column is left (a coarse cell on the flank of a quarry)
-  kept a column of a few centimetres, which MODFLOW 6 could not solve under Newton: the Flume v2
+  kept a column of a few centimeters, which MODFLOW 6 could not solve under Newton: the Flume v2
   run on a generated Voronoi mesh diverged at period 27. Its bottom now follows the top and the
-  column keeps the thickness of the centre sample. The regular grid keeps raising the top. The
+  column keeps the thickness of the center sample. The regular grid keeps raising the top. The
   tenth is an empirical threshold; on the frozen Flume d2 mesh it moves one cell (NSE +6.6e-5
   over 53 weeks), on the Flume v2 gmsh reference none.
 - Lake cells: a mesh whose `lakes` faces follow only part of the shore (arms narrower than a
   cell, 54 % on the two-lake Cheze at 80 m) resolves the lake cells by overlap, like a mesh
   without shore faces, instead of refusing the mesh.
 - A gridded recharge or ETP (SIM2, several stations, the soil reservoir EVTA) on a regular
-  grid read its values north-south mirrored: the cell centres handed to the sampler put row 0 at
+  grid read its values north-south mirrored: the cell centers handed to the sampler put row 0 at
   the south, while MODFLOW puts it at the north. Hit MF6 on a regular grid and every NWT run with
   a heterogeneous recharge or ETP; triangles and Voronoi were right. Example 04
   `step6_soil_reservoir.toml`: 28.8 % of the cells change recharge, mean discharge -0.10 %, NSE
@@ -2221,7 +2221,7 @@ No number moves for a file written under current names. A chain or an overlay th
   cell is the mean of the fine pixels it covers, on a grid aligned on the upper-left corner
   of the DEM, and a value finer than the DEM's own pixel is refused when the run starts.
   It is how a 25 m BD ALTI download runs at the 75 m of the published examples.
-- flow.partition_release_depth_m: the depth scale, in metres, over which the
+- flow.partition_release_depth_m: the depth scale, in meters, over which the
   regularized partition of the Boussinesq solver starts to release water at the
   surface, 0.05 m by default.
 - Validation case `stream_depletion_glover_balmer_2d`: a well pumping 100 m from a stream
@@ -2325,14 +2325,14 @@ No number moves for a file written under current names. A chain or an overlay th
   period and on an independent one.
 - The exponential vertical profile of a field is calibratable:
   `[calibration.parameters."K.characteristic_depth"]` (and `min_factor`) tune how K or Sy
-  decrease with depth, evaluated at the layer centres. A calibration target that is not the
+  decrease with depth, evaluated at the layer centers. A calibration target that is not the
   headline quantity of its instance now takes its physical bounds from its own leaf, so a
   depth under `K` is no longer checked against the range of a conductivity.
 - `[geographic] dem_correc_type = "capped_breach"`, with `[geographic.capped_breach]`
   `max_depth` (0.5 m) and `max_distance` (200 m), conditions the routing DEM by a least-cost
-  breach bounded in metres, then fills what the breach left (Lindsay 2016). The two bounds
+  breach bounded in meters, then fills what the breach left (Lindsay 2016). The two bounds
   become Whitebox's `max_cost`, a cumulative lowering along one breach path, and `max_dist`,
-  counted in cells. The realised lowering is measured, logged and stored with the geographic
+  counted in cells. The realized lowering is measured, logged and stored with the geographic
   metadata, with a warning when it exceeds `max_depth`. It is an option and `fill` stays the
   default: against `fill`, the catchment moved by less than 0.1 % on the Flume (25 m) and on
   the Nancon, but the agreement with BD Topage moved by 1.74 points on example 04's 75 m DEM
@@ -2350,13 +2350,13 @@ No number moves for a file written under current names. A chain or an overlay th
   upstream and downstream, across `notch_width` (10 m), by at most `max_depth` (3 m), and never
   where a dam or a weir is declared. On the Flume: 231 crossings found, 127 notched, 330 pixels
   lowered (median 0.32 m), catchment area and agreement with BD Topage unchanged.
-- `[geographic.bed_regularization]` (off by default) regularises the channel bed in the model
+- `[geographic.bed_regularization]` (off by default) regularizes the channel bed in the model
   top. On the pixels of the generated river network A, the ground G is replaced by its
   least-squares isotonic fit along the channel tree (Pardalos and Xue 1999): the bed never rises
   downstream and keeps its mean. A crossing notched by `[geographic.crossings]` is a gap the fit
   interpolates across, a weir or a dam of `[data.crossings]` within the crossings `snap_radius`
   cuts the tree, and a declared lake is left out with its surface. `min_slope` (1e-4) sets the
-  least drop, centred on each flat. The fit runs on the full-extent G, written as
+  least drop, centered on each flat. The fit runs on the full-extent G, written as
   `dem_ground_bed.tif`, and serves both the model top and the SFR streambed, so DRN and SFR read
   one bed; the routing DEM, A, the catchment and the mesh never read it, and the mesh cache key
   ignores the section. `dem_ground_bed.json` reports the rises before the fit, the pixels raised
@@ -2368,7 +2368,7 @@ No number moves for a file written under current names. A chain or an overlay th
 - `[[data.dem.sources]] source = "ign_geoplateforme_dem"` takes `dataset = "rge-alti"`: the RGE
   ALTI is assembled from the Geoplateforme WMS-Raster service by extent, at 5 m (default) or
   1 m, in tiles of at most 2,500 pixels (the server stops at 5,010). Inland, at 5 m the server
-  returns the 1 m pixel holding each centre, unchanged; other sizes go through an undocumented
+  returns the 1 m pixel holding each center, unchanged; other sizes go through an undocumented
   kernel and are refused. The server nodata, the flat -5 m water and the blend around them are
   nodata, while real land below the sea level is kept (the Ferques quarry, -66 m). The share of
   the box outside France, filled by another source, is written in the sidecar and warned above
@@ -2479,7 +2479,7 @@ No number moves for a file written under current names. A chain or an overlay th
 - `HydroModelBase.model_refused_keys` refuses a removed key with the key to write; rate
   forcings in length per time (`hydromodpy.physics.flow.sinks_sources.rate_forcing`).
 - Docs: the root of the site serves the `llms.txt` of main.
-- Docs: the Validation page draws the solvers of a case on one figure, each with its colour
+- Docs: the Validation page draws the solvers of a case on one figure, each with its color
   and shape, with a panel of each run minus its reference, from the recorded curves. It also
   compares MODFLOW 6 with MODFLOW-NWT on example 04: `render_ex04_figures.py` writes the NWT
   copy of the reference into its scratch project and draws the group `solvers`.
@@ -2568,7 +2568,7 @@ No number moves for a file written under current names. A chain or an overlay th
 - MODFLOW 6 reads a computational top. Under Newton it builds the horizontal conductance
   from the full thickness of the two cells times the upstream saturation, so a thickness
   that changes from one cell to the next gave too low a transmissivity (0.16 to 0.31 m of
-  head RMSE against MODFLOW-NWT on the Nançon over a flat or regionalised substratum). The
+  head RMSE against MODFLOW-NWT on the Nançon over a flat or regionalized substratum). The
   DISV of the GWF, GWT and PRT models now carries `z_top + max H_1 - H_1`, which gives every
   cell of the top layer the same thickness; lake columns keep the ground. Every package
   elevation, the initial heads and the run store keep the ground, which the build leaves
@@ -2622,7 +2622,7 @@ No number moves for a file written under current names. A chain or an overlay th
   above it; no target of the 320 example files changes unit.
 - `extinction_depth` of `[flow.sinks_sources.etp]` is a user field. Under MODFLOW 6 outside soil
   mode, an active `"etp"` is still ignored, and the run now says so once.
-- A raster read by a file family is labelled with the unit its manager declares (substratum and
+- A raster read by a file family is labeled with the unit its manager declares (substratum and
   lake bathymetry stay in m).
 - Under MODFLOW 6, a recharge chronicle whose negative part goes to EVT builds the EVTA
   arrays with numpy when every EVT cell sits on layer 0, instead of one Python record per
@@ -2660,7 +2660,7 @@ No number moves for a file written under current names. A chain or an overlay th
   so. Alpha is a diagnostic: a map it cannot read or that misses the catchment gives a warning,
   never an error. `stream_dem_agreement.json` loses its `burned` key.
 - `conditioning_impact_map` maps the top difference of two runs on one mesh (fill against
-  capped breach, bed regularisation off against on): `reference=<run>` is required, and a run
+  capped breach, bed regularization off against on): `reference=<run>` is required, and a run
   alone is skipped with a sentence.
 - The zonal channel mask and the projection of A read the same raster of A: the link raster,
   else the pruned stream raster when `prune_short_streams = true`, else the stream raster, each
@@ -2837,7 +2837,7 @@ No number moves for a file written under current names. A chain or an overlay th
   recharge was 13.1 % above the forcing on the aquifer (1.260e6 against 1.114e6 m3) and
   the constant-head outflow 6.5 times the flow the aquifer sent to the boundary. Heads
   are unchanged; the recharge now matches MODFLOW 6 to 1e-8, and the constant-head flux
-  of such a cell is what its free neighbours send in or draw out.
+  of such a cell is what its free neighbors send in or draw out.
 - The residual history of a Boussinesq run is zero on a cell with an imposed head, so
   its sum is the closure error of the run. It carried the constant-head flux, and the
   comparison budget reported a closure of 0.35 m3/s (CHECK) on the natural basin, now
@@ -2875,7 +2875,7 @@ No number moves for a file written under current names. A chain or an overlay th
   random, and 36 of the 48 coast cells stayed land; the run now reads a 1 m DEM whose
   shoreline sits 1 m inside the ring (radial RMSE 0.204 to 0.102 m and 0.088 to 0.056 m;
   the rest is the documented MODFLOW 6 Newton bias).
-- Validation: the late-time pumping reference is centred on the cell that holds the well,
+- Validation: the late-time pumping reference is centered on the cell that holds the well,
   15 m from the well point on the MODFLOW 6 triangles and 6.6 m on the Boussinesq ones, and
   the azimuthal spread is taken on the error (0.136 and 0.087 m down to 0.0013 and 0.020 m).
   The Boussinesq variants run on 10082 triangles, the cell area of the MODFLOW grid.
@@ -2886,10 +2886,10 @@ No number moves for a file written under current names. A chain or an overlay th
   value, so the page reads the share of the margin a run used instead of 100 % for any
   success.
 - Validation references compare what the model computes. The 1D cases pose their heads at
-  the centres of the boundary cells, where the model holds them (errors of 3 to 5 cm down
+  the centers of the boundary cells, where the model holds them (errors of 3 to 5 cm down
   to 3 to 7 mm). The late-time pumping case evaluates the Theis well function with SciPy,
   where a hand-written E1 was wrong between u = 1 and 8, and reads it at the solver cell
-  each monitor point reads. Ogata-Banks measures from the centre of the source cell. The
+  each monitor point reads. Ogata-Banks measures from the center of the source cell. The
   thin Brutsaert case drains to the substratum and is read on its late recession, with the
   dimensions of the strip. The steady interception case compares with the exact
   seepage-face solution and starts from a neutral state, not from the reference.
@@ -2901,7 +2901,7 @@ No number moves for a file written under current names. A chain or an overlay th
   folder.
 - The twin calibration tests publish the thresholds they assert; the stream-network twin
   stores its fields at full precision and sets the crossing rule it checks.
-- The Boussinesq solver honours `simulation.time.substeps_per_period` with every engine:
+- The Boussinesq solver honors `simulation.time.substeps_per_period` with every engine:
   each stress period is solved in that many backward Euler steps of equal length. The
   `local`, `scipy`, `scipy_sparse` and PETSc partition engines took one step per period
   whatever the file asked; the PETSc VI keys `vi_substeps_per_period` and
@@ -2922,7 +2922,7 @@ No number moves for a file written under current names. A chain or an overlay th
   side boundaries and the stream boundary on the Voronoi cells it solves, not on the
   triangles of the mesh. Since 2.0.0a1 such a run stopped on an out-of-range cell, or put a
   well in an unrelated cell without a warning (802 m off on a validation case). A side
-  boundary takes the cells centred on its nodes, where a fixed head belongs.
+  boundary takes the cells centered on its nodes, where a fixed head belongs.
 - `hmp calibrate FILE --list-phases` on a file without phases printed only "declares no
   phases". It now prints one line for the single search, with its method and why it was
   chosen, and what each block compares.
@@ -2966,7 +2966,7 @@ No number moves for a file written under current names. A chain or an overlay th
   a digest mismatch stops with exit code 16 (`FrozenDataError`) for every variable, not only for
   the DEM, the geology and the river network.
 - A custom DEM, geology file or river network without a CRS is refused (exit code 16) with the
-  command that writes one; it used to be labelled EPSG:2154 or EPSG:4326 silently.
+  command that writes one; it used to be labeled EPSG:2154 or EPSG:4326 silently.
 - Stations dropped outside the watershed mask are named in a warning; a source whose every
   station lies outside is refused.
 - A NetCDF grid's finite `_FillValue` or `missing_value` is read as its nodata value.
@@ -2979,7 +2979,7 @@ No number moves for a file written under current names. A chain or an overlay th
   reaching validation as unknown keys.
 - `first_clim` sets the rate of every steady stress period and of no other period, under
   MODFLOW 6, MODFLOW-NWT and Boussinesq, and for series, mappings and grids alike. MODFLOW 6
-  grids honour it on a steady period; MODFLOW-NWT and Boussinesq no longer replace a transient
+  grids honor it on a steady period; MODFLOW-NWT and Boussinesq no longer replace a transient
   period 0. With `negative_to_evt`, a steady period takes `first_clim` on the recharge part and
   on the deficit part, so its net rate is the one `first_clim` states. Example 04 and the frozen
   projects 00, 02 and 05 are bit-identical.
@@ -3049,7 +3049,7 @@ No number moves for a file written under current names. A chain or an overlay th
 - `hmp data get --workspace` keeps a downloaded river network in the workspace cache and reuses
   it, as a run does.
 - A comparison point or outlet located by x and y works again on runs of the current layout: the
-  cell is the nearest centre on the mesh each child stored.
+  cell is the nearest center on the mesh each child stored.
 - `hmp catalog restore` gives a trashed run its original name back when no other run holds it.
 - `hmp run` reports a TOML syntax error, or an error in its `base_config` chain, with the file at
   fault; both used to be printed as "Invalid override:".
@@ -3127,9 +3127,9 @@ No number moves for a file written under current names. A chain or an overlay th
   traces its reaches on A, whose threshold is `[geographic.river_network]`. Refused when declared.
 - The one-way pass that lowered the downstream reach top of each SFR link below its upstream one
   (by up to 29.8 m): the streambed profile comes from the bed profile solve alone, the bed
-  regularisation being the option that smooths it.
+  regularization being the option that smooths it.
 - `diagonal_neighbors` of the point and cell calibration outputs: their discharge follows D,
-  whose neighbourhood the mesh fixes (shared nodes on an all-quad mesh, shared faces
+  whose neighborhood the mesh fixes (shared nodes on an all-quad mesh, shared faces
   otherwise). A file declaring it there, including the dump of a run sealed before, is
   refused with the key named. The network outputs keep it for the criterion.
 - `[geographic.snap_streams]` and everything that existed only for it: the snap of the
@@ -3388,7 +3388,7 @@ No number moves for a file written under current names. A chain or an overlay th
   w_min |J_min| + w_max |J_max|. `max_iter = "auto"` budgets both roots.
 - `[geographic.snap_streams]` (`off` by default, `diagnose`, `apply`) moves the mapped network
   onto the talwegs of the criterion graph, flow-accumulation guided from downstream to upstream,
-  within a radius in metres (2 h_obs by default), rejecting what it cannot attach. Trials publish
+  within a radius in meters (2 h_obs by default), rejecting what it cannot attach. Trials publish
   the displacement (p50, p90), the rejected share, the length ratio and the floor F, the Doptim of
   the snapped map against the raw one; in `apply` Eq. 4 also bounds the displacement. A run
   stores its snapped map, and two figures, `observed_network_snap_map` and
@@ -3420,7 +3420,7 @@ No number moves for a file written under current names. A chain or an overlay th
 - A scoring window is accepted beside a network output read in one state; it is refused only when
   it does not hold that state. `warmup` and `warmup_periods` move to the expert profile.
 - Promoted calibration runs are named `<simulation name>_<phase>` instead of `<method>_iter_NNNN`.
-- Figures: `seepage_map` draws two classes; maps open on the catchment in projected metres; titles
+- Figures: `seepage_map` draws two classes; maps open on the catchment in projected meters; titles
   name the period drawn and say `catchment outlet`; the identity card drops its status and id rows
   and wraps long names; the network maps state the seepage threshold in words.
 - Normal console: the licence warning prints once per workspace; `Run completed` prints last; the
@@ -3439,8 +3439,8 @@ No number moves for a file written under current names. A chain or an overlay th
   options shown commented out; the burning of the routing DEM is dropped.
 - With both maps, a one-state network output is scored on the minimal map, as the WRR 2025 paper
   calibrates, and the maximal map is published as a validation outside the cost.
-- `L_ref`, the length that normalises roptim and sets the interval width of a network search, is
-  h_obs, the median distance between neighbouring cell centres over the mapped cells of the
+- `L_ref`, the length that normalizes roptim and sets the interval width of a network search, is
+  h_obs, the median distance between neighboring cell centers over the mapped cells of the
   catchment. Unchanged on a regular grid; the fine cell on a mesh refined along the streams.
 - roptim is always Doptim / h_obs, the paper's Eq. 3; a declared `observed_position_accuracy`
   enters the validity length only.
@@ -3582,7 +3582,7 @@ No number moves for a file written under current names. A chain or an overlay th
   (`tests/validation/calibration/test_twin_matching_stream_network_modflow6.py`, tolerances rows
   76 to 79).
 - `observed_rasterization` on a network calibration output. `"crossing"`, the default, keeps a
-  cell where a mapped line crosses the segment joining two edge-sharing cell centres: on a grid
+  cell where a mapped line crosses the segment joining two edge-sharing cell centers: on a grid
   this is WhiteboxTools VectorLinesToRaster, the paper's tool, so a model that reproduces the map
   scores J = 0. `"touch"` replays sessions made before. `line_crossing_cell_mask` serves DIS,
   DISV and Voronoi meshes. The redrawn comparison figures read the same rule, and each trial
@@ -3602,7 +3602,7 @@ No number moves for a file written under current names. A chain or an overlay th
 - `matching_hydrographic_network` declares six more departures: the outlet sealed into the
   target of D_so, the `L_cap` saturation and its 5 % guard, the log10 K bisection and its sweep,
   the support of D_os against the authors' published code, `breach` by default and the
-  rasterisation rule.
+  rasterization rule.
 - The aquifer geometry can be calibrated. `[calibration.parameters.thickness]` searches the
   thickness of a `constant_thickness` depth model (log space) and
   `[calibration.parameters.substratum_elevation]` the elevation of a `flat_substratum` one
@@ -3620,7 +3620,7 @@ No number moves for a file written under current names. A chain or an overlay th
   `d_sat_m`, `t_over_r_m` and `t_optim_m2_s`, printed on one line by
   `hmp calibrate`. A search on any other parameter gets none of them.
 - A raster substratum: two depth models read the bottom of the aquifer from
-  the new `[data.substratum]` variable, one user raster in metres.
+  the new `[data.substratum]` variable, one user raster in meters.
   `kind = "raster_substratum"` takes its values as the substratum elevation,
   the raster twin of `flat_substratum`; `kind = "raster_thickness"` subtracts
   them from the top, the raster twin of `constant_thickness`, and takes a
@@ -3700,7 +3700,7 @@ No number moves for a file written under current names. A chain or an overlay th
   computing the five dotted overrides by hand.
 - A phase's `objective_blocks` accepts a table, `{ block = share, ... }`,
   instead of a list, giving that phase its own share of each block's cost,
-  normalised to sum to one. The list form keeps the block's own declared
+  normalized to sum to one. The list form keeps the block's own declared
   weight, unchanged.
 - `[[calibration.phases]]` takes `uncertainty`, with the keys of
   `[calibration.uncertainty]`. The phase wins key by key, and a phase can run
@@ -3766,7 +3766,7 @@ No number moves for a file written under current names. A chain or an overlay th
   then snapped to the DEM grid. On the Nancon the margin falls from 825 m to 150 m and the box
   domain from 151.9 to 120.4 km2. A bare number keeps the v1 rule (N per cent of the square root
   of the area in km2, in km) with a warning, so sealed runs replay their domain. A distance is
-  normalised as `"150.0 m"` and a percentage as `"10%"`; `GeographicConfig.from_outlet` and
+  normalized as `"150.0 m"` and a percentage as `"10%"`; `GeographicConfig.from_outlet` and
   `from_polygon` default to `"10%"`.
 - The stream-network criterion descends D8 by default (`diagonal_neighbors = true`), the
   paper's reading. On a mesh whose faces are not all quadrilaterals it walks shared edges. The
@@ -3788,7 +3788,7 @@ No number moves for a file written under current names. A chain or an overlay th
   docs, the recipes and examples 10 and 21.
 - `d_sat_unset_fraction` splits into `d_sat_dry_fraction` and `d_sat_inactive_fraction` when
   the mesh says which cells are inactive.
-- `hydromodpy/data` is reorganised into sub-packages with one job each; its
+- `hydromodpy/data` is reorganized into sub-packages with one job each; its
   map and import rules are `hydromodpy/data/README.md`, enforced by
   `tests/unit/architecture/test_package_layouts.py`. What a TOML says does not
   change; `hydromodpy.data` gains `DataStore`, `DataRequest` and
@@ -3930,7 +3930,7 @@ No number moves for a file written under current names. A chain or an overlay th
 - A stream comparison redrawn from a run sets its seepage threshold with the mean recharge over
   the run, as the criterion does, instead of the recharge of the last timestep.
 - The delineation summary shows `buff_area` as declared, with its distance and area increase,
-  instead of a value labelled m2. The reference catchment-delineation case accepts `"20%"` and
+  instead of a value labeled m2. The reference catchment-delineation case accepts `"20%"` and
   distance strings.
 - The bisection returns a trial inside its final bracket; a trial tied on cost outside it is no
   longer returned.
@@ -3958,7 +3958,7 @@ No number moves for a file written under current names. A chain or an overlay th
   of always printing a constant thickness.
 - A station manager no longer reports a station inside its extent as outside
   it: the check reprojects each station to WGS84, the frame the extent
-  reaches it in, instead of comparing Lambert-93 metres with degrees. A data
+  reaches it in, instead of comparing Lambert-93 meters with degrees. A data
   request served by box now hands station managers their box in WGS84 and
   grid managers theirs in Lambert-93.
 - A data mask is read by one loader, `hydromodpy/data/common/source_extent.py`.
@@ -4010,7 +4010,7 @@ No number moves for a file written under current names. A chain or an overlay th
   workshop ETP from SIM2. The site 18 base mesh declares its DEM and its
   river-network threshold.
 - A stress-period stamp is the END of its period. Observations and forcings
-  were averaged over a window centred on it, so a monthly run compared January
+  were averaged over a window centered on it, so a monthly run compared January
   with mid-December to mid-January: 0.167 m3/s off on average through the daily
   product, a full month late through `QmM`, on a Nancon mean of 0.97 m3/s. A
   flux (the `time: mean` fields and the discharge) is now compared with the
@@ -4102,7 +4102,7 @@ No number moves for a file written under current names. A chain or an overlay th
   width per phase, taken around that phase's own optimum. It got none at all:
   the dispatch that builds one lives in the non-staged route, so the search was
   paid for in solver hours and nothing came back. Of the three declared
-  methods two were already honoured per phase - `cost_profile` inside the core
+  methods two were already honored per phase - `cost_profile` inside the core
   the staged route calls, `multistart` reimplemented by the staged runner - and
   `linearized` was orphaned by anatomy, not by meaning.
 - A width taken after an earlier phase froze parameters is conditional on that
@@ -4133,7 +4133,7 @@ No number moves for a file written under current names. A chain or an overlay th
   (`2000-01 to 2002-12`) instead of a step count. The two answer the same
   question over different windows, which reads as a contradiction when only
   one of them says which: on example 04, 787 cells carry flow during the wet
-  years and none in the classified one, pale blue on one map and grey on the
+  years and none in the classified one, pale blue on one map and gray on the
   other.
 - Example 04 renders eight figures instead of twenty. What went were the
   duplicates, not the diagnostics: four comparison panels folding the same 36
@@ -4202,7 +4202,7 @@ No number moves for a file written under current names. A chain or an overlay th
   calendar years by reading the year off each timestep's stamp, which is the
   END of its stress period. A monthly run of 2000 to 2002 therefore reported
   four cycles: a 2000 of eleven steps, a 2002 running December to November and
-  a 2003 one step long, so the map labelled "2002" classified a year that was
+  a 2003 one step long, so the map labeled "2002" classified a year that was
   a month out of phase. The year is now read at the middle of the step, which
   falls inside it whichever bound the solver stamps.
 - `hydrograph_log_nse` wrote its note across its own legend: pinned to the
@@ -4221,7 +4221,7 @@ No number moves for a file written under current names. A chain or an overlay th
   with one group per field and 36 steps each.
 - Re-exporting a NetCDF onto a file QGIS still had open truncated it to zero
   bytes: netCDF4 truncates before it writes and HDF5 then failed on the lock.
-  The write goes to a neighbouring file and is renamed into place, so a failed
+  The write goes to a neighboring file and is renamed into place, so a failed
   export destroys nothing and an open layer keeps reading what it has.
 - `hmp data export` refused every per-cell budget field. Its own field filter
   rebuilt the "what is readable here" rule and looked at the store root and
@@ -4261,7 +4261,7 @@ No number moves for a file written under current names. A chain or an overlay th
   `[flow].first_period_steady`.
 - MODPATH pathline and endpoint times are now converted to the unit the
   `particles` group declares. The MODFLOW-NWT extractor stored raw model time,
-  seconds, while labelling it `days`, so every stored travel time and every
+  seconds, while labeling it `days`, so every stored travel time and every
   residence-time figure built from it was off by a factor 86400.
 - `ITMUNI` is now read from the first non-comment record of a MODFLOW DIS file,
   where it actually sits. The previous reader parsed the LAYCBD line below it
@@ -4306,7 +4306,7 @@ No number moves for a file written under current names. A chain or an overlay th
 - Simulation identity keys renamed. `[simulation].run_id` and
   `[simulation].on_collision` are removed and now hard-fail under
   `extra="forbid"`. Use `[simulation].name` for the run identity and
-  `[simulation].if_exists` for name-collision behaviour. `if_exists`
+  `[simulation].if_exists` for name-collision behavior. `if_exists`
   defaults to `version` (mint the next `stem.vN`), replacing the old
   `replace` default; `replace` and `fail` remain available. `hmp doctor
   --fix-config FILE.toml` migrates old keys in place.
@@ -4320,7 +4320,7 @@ No number moves for a file written under current names. A chain or an overlay th
   are unaffected.
 - Raster / VTU / shapefile auto-export now defaults to the last timestep
   instead of the first. Set `[export].times = "first"` to keep the previous
-  behaviour.
+  behavior.
 - Documented the release policy for SemVer/PEP 440 versions, alpha/beta/rc
   pre-releases, the new `main` default line, the frozen `archive-v1` branch,
   release branches, tags, and GitHub Releases.
@@ -4371,7 +4371,7 @@ No number moves for a file written under current names. A chain or an overlay th
 - Top-level `[export]` configuration section promoting the raster / VTU /
   shapefile / time-series export toggles to a first-class config block.
 - New geographic `domain_extent` option (`box`, `watershed_buff`,
-  `watershed`) to select the modelled domain surface, and a mesh
+  `watershed`) to select the modeled domain surface, and a mesh
   `lake_refinement` block to refine cells around lakes and dams.
 - Calibration refactor - trial primitive plus step auto-invalidation:
   - `hydromodpy.simulation.execution.trial` with `TrialContext`,
@@ -4530,7 +4530,7 @@ No number moves for a file written under current names. A chain or an overlay th
 
 ### Fixed
 - SIM2 climate ingestion now uses the current Météo-France variable names and units and exposes the soil drought index.
-- Watershed visualisations restore the DEM colour bar, scale bar, and labelled watershed overlay.
+- Watershed visualizations restore the DEM color bar, scale bar, and labeled watershed overlay.
 ---
 
 ## [v0.1.0] - 2025-10-31

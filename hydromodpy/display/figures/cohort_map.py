@@ -1,4 +1,4 @@
-"""Map of a cohort: one point per site at its outlet, coloured by one column.
+"""Map of a cohort: one point per site at its outlet, colored by one column.
 
 Registered as ``map``, the name ``[sites.summary] figures`` writes.
 ``hmp campaign collect`` draws it under ``summary/figures/map_<variable>.png``
@@ -33,7 +33,7 @@ LABELLED_SITES_MAX = 40
 
 @register
 class CohortMap(BaseFigure):
-    """The outlets of a project's sites, coloured by a metric or a parameter."""
+    """The outlets of a project's sites, colored by a metric or a parameter."""
 
     spec = FigureSpec(
         name="map",
@@ -53,12 +53,12 @@ class CohortMap(BaseFigure):
         *,
         variable: Annotated[
             str,
-            Opt("Column of the cohort table the points are coloured by, a metric or a parameter."),
+            Opt("Column of the cohort table the points are colored by, a metric or a parameter."),
         ] = "nse",
         log: Annotated[
             bool | None,
             Opt(
-                "Force a log colour scale on or off. Left out, a log scale when the "
+                "Force a log color scale on or off. Left out, a log scale when the "
                 "positive values span more than one decade."
             ),
         ] = None,

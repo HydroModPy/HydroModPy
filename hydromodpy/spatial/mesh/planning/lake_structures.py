@@ -41,7 +41,7 @@ __all__ = [
 ]
 
 MIN_SILL_SIZE_M = 5.0
-"""Smallest cell size of a sill, in metres."""
+"""Smallest cell size of a sill, in meters."""
 
 SILL_SIZE_PER_GAP = 0.4
 """Cell size of a sill as a share of the gap between the two lakes."""

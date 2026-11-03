@@ -1,7 +1,7 @@
 """Read the lake footprint polygons that ``[geographic.enforce_lakes]`` declares.
 
 The lakes of the ground are read from one polygon file: the crossing notch
-leaves a lake alone, and the bed regularisation skips it. The routing DEM is no
+leaves a lake alone, and the bed regularization skips it. The routing DEM is no
 longer carved at the lakes (a ramp toward the outlet, an outlet notch, a stream
 capture): the cell drainage ``D`` already makes the water cross a lake, and
 those carves moved neither the basin, the network, nor the drains.

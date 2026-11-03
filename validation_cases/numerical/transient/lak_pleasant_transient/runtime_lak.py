@@ -337,7 +337,7 @@ def _last_value_per_period(values: list[float], n_periods: int) -> tuple[float, 
 def run_hmp(
     workspace: Path, *, geometry: PleasantTransientGeometry | None = None
 ) -> TransientLakeRunResult:
-    """Build, run, and summarise the transient multi-layer HMP LAK build."""
+    """Build, run, and summarize the transient multi-layer HMP LAK build."""
     geom = geometry if geometry is not None else load_geometry()
     sim, gwf, connectiondata = build_hmp_simulation(workspace, geometry=geom)
     sim.write_simulation(silent=True)

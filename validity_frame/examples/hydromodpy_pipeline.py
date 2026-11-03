@@ -22,7 +22,7 @@ logger = get_logger(__name__)
 
 
 class ValidityFrameProtocol(Protocol):
-    """Minimal contract an external validity frame must honour.
+    """Minimal contract an external validity frame must honor.
 
     ``verify`` raises when the state is invalid.
     """

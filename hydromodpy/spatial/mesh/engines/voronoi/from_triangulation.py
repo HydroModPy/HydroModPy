@@ -10,12 +10,12 @@ vertex ``v`` is cell ``v``; a cell past the last vertex is a boundary seed that
 the tessellation added for a piece of the domain no vertex reaches. A river
 runs through vertices, so its chain is the cells of those vertices; where the
 dual of two consecutive vertices shares no face (a constrained edge that is not
-Delaunay), the common neighbour closest to the line bridges them. A face family
+Delaunay), the common neighbor closest to the line bridges them. A face family
 line runs through vertices too, so no dual face lies on it: the family becomes
 the staircase of dual faces between the cells of its two sides, each cell taking
 the side most of the triangles around its vertex lie on. The river faces are the
 dual faces a river edge crosses, and the box sides are the faces of the cells
-centred on them.
+centered on them.
 
 The engine declares exact faces, which a staircase is not, and two readers take
 that declaration at its word: the zone of a cell (``zone_fractions``) and the cells
@@ -63,17 +63,17 @@ RIVERS_FAMILY = "rivers"
 """The family whose faces the river edges cross, and whose cells form the chains."""
 
 CENTRE_TOLERANCE_REL = 1.0e-6
-"""A cell is centred on a side within this share of its size."""
+"""A cell is centered on a side within this share of its size."""
 
 CENTRE_TOLERANCE_ABS_M = 1.0e-9
-"""Smallest distance [m] from a side that still counts as centred on it."""
+"""Smallest distance [m] from a side that still counts as centered on it."""
 
 UNSTAIRED_FAMILIES = ("lakes",)
 """Face families a dual does not publish as a staircase (see the module docstring)."""
 
 
 def _bridged(cells: np.ndarray, geometry: DerivedGeometry, centers: np.ndarray) -> np.ndarray:
-    """Bridge two chain cells without a shared face by their common neighbour nearest both."""
+    """Bridge two chain cells without a shared face by their common neighbor nearest both."""
     out = [int(cells[0])]
     for nxt in cells[1:].tolist():
         last = out[-1]
@@ -240,7 +240,7 @@ def side_faces(
     """The families ``boundary:<side>``: boundary faces on a side of the vertex box.
 
     The side of a face is the one :func:`box_side_of_edges` gives it. A side
-    that has cells centred on it keeps the faces of those cells only: a
+    that has cells centered on it keeps the faces of those cells only: a
     Dirichlet head belongs on the boundary, not half a cell inside.
     """
     outer = np.flatnonzero(geometry.edge_cells[:, 1] < 0)

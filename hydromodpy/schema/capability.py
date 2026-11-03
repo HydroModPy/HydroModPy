@@ -1,8 +1,8 @@
 """What a capability declares about itself, before any of it runs.
 
 A capability is a function from a validated input document to a directory of
-sealed artefacts. This module holds the declaration of one: the identity a
-caller pins, the model its inputs are validated against, the artefacts it
+sealed artifacts. This module holds the declaration of one: the identity a
+caller pins, the model its inputs are validated against, the artifacts it
 promises, and the failures it can return.
 
 Nothing here executes and nothing here imports a runtime. The declaration is
@@ -97,7 +97,7 @@ def _refuse_relative_path(path: str, *, owner: str) -> None:
 
 @dataclass(frozen=True, slots=True)
 class OutputDecl:
-    """One artefact a capability promises, named by a stable relative path."""
+    """One artifact a capability promises, named by a stable relative path."""
 
     id: str
     title: str

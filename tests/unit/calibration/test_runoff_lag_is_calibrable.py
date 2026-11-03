@@ -1,7 +1,7 @@
 """``[calibration.parameters.runoff_lag]`` resolves by name.
 
 Mirrors ``test_curve_number_and_runoff_time_are_calibrable.py``: the file
-names the quantity, the catalogue resolves it under
+names the quantity, the catalog resolves it under
 ``flow.sinks_sources.recharge.soil``, and a bound the physical registry
 rules out is caught at load.
 """

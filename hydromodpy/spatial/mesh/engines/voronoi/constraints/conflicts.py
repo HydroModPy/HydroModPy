@@ -238,7 +238,7 @@ def _clear_chain_links(state: ConstraintState) -> bool:
     """Keep the Gabriel disk of every chain link free of other constraint seeds.
 
     Two seeds whose disk on their link as diameter holds no other seed have
-    neighbouring cells, which keeps the chain continuous (gate G3); Lloyd keeps
+    neighboring cells, which keeps the chain continuous (gate G3); Lloyd keeps
     the free seeds out. A mirror seed in a disk yields its segments, a tip or a
     boundary seed goes, and a chain seed (or a crossing pair) joins the chain
     between the two: the river passes through its cell.

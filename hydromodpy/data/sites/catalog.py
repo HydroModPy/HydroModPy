@@ -92,7 +92,7 @@ def write_site_rows(path: Path, rows: Iterable[SiteRow]) -> Path:
 def nearest_site(
     rows: Iterable[SiteRow], *, x: float, y: float, crs: str | None
 ) -> tuple[SiteRow, float] | None:
-    """Return the site whose outlet is closest to a point, with the distance in metres.
+    """Return the site whose outlet is closest to a point, with the distance in meters.
 
     The point is moved into the CRS of each row before measuring; a row
     without a CRS is read in the CRS of the point. A geographic CRS is
@@ -174,7 +174,7 @@ def with_tags(row: SiteRow, tags: Sequence[str]) -> SiteRow:
 
 
 def _distance_m(row: SiteRow, *, x: float, y: float, crs: str | None) -> float:
-    """Distance in metres from a point to the outlet of ``row``."""
+    """Distance in meters from a point to the outlet of ``row``."""
     from pyproj import CRS, Geod, Transformer
 
     assert row.x_outlet is not None and row.y_outlet is not None

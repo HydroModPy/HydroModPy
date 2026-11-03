@@ -41,5 +41,5 @@ seeds = "triangulation"
 [domain.layers]
 nlay = 1
 
-# The well is a node of the mesh, so the dual cell that holds it is centred
+# The well is a node of the mesh, so the dual cell that holds it is centered
 # on the well.

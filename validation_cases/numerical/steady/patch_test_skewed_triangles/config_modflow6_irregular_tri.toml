@@ -1,5 +1,5 @@
 # MODFLOW 6 on the triangles with XT3D, the flux that reconstructs the gradient
-# from the neighbours. XT3D would switch on by itself on this mesh (95th
+# from the neighbors. XT3D would switch on by itself on this mesh (95th
 # percentile of the non-orthogonality 42 deg, trigger 30 deg); the key makes
 # the variant explicit.
 

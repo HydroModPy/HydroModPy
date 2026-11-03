@@ -51,7 +51,7 @@ SCENARIO_SUFFIXES = ("_scaled_down", "_scaled_up", "_k_only")
 BOUSSINESQ_SEEPAGE_BAND_M = 1e-6
 
 # The largest gap, in m, between the stored cell tops and the plane the closed form
-# assumes, binned like the model. The Boussinesq bundle sits 1 micrometre above it,
+# assumes, binned like the model. The Boussinesq bundle sits 1 micrometer above it,
 # which its writer needs at the toe.
 GEOMETRY_TOLERANCE_M = 1e-5
 
@@ -292,7 +292,7 @@ def build_seepage_limit_comparison(
     cell_size_m = hillslope_length_m / float(ncol)
 
     # The plane is read where the model reads it: at each cell, binned like the
-    # model. A surface sampled from a raster is flat past the centre of the end
+    # model. A surface sampled from a raster is flat past the center of the end
     # raster columns, so no point is read beyond them.
     geometry = strip_geometry_for_run(
         result,

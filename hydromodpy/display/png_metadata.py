@@ -168,7 +168,7 @@ def read_png_metadata(path: str | Path) -> dict[str, str]:
 
 
 FOOTER_COLOR: tuple[int, int, int] = (90, 90, 90)
-"""Grey of the identity footer text."""
+"""Gray of the identity footer text."""
 
 
 def stamp_png_identity(path: str | Path, identity: Identity) -> Path:

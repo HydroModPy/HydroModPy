@@ -1,7 +1,7 @@
 """Root Pydantic base class shared by every HydroModPy config model.
 
 All HydroModPy configuration classes inherit from :class:`HydroModelBase`
-rather than :class:`pydantic.BaseModel` directly. This centralises the
+rather than :class:`pydantic.BaseModel` directly. This centralizes the
 strictness defaults (``extra="forbid"``, ``validate_assignment=True``)
 that the architecture spec (``architecture_cible/02_config_pydantic.md``
 §3.1) requires to be uniform across the codebase.
@@ -370,7 +370,7 @@ class HydroModelBase(BaseModel):
         profile: ProfileName = "user",
         written_only: bool = False,
     ) -> Path:
-        """Serialise this config to a TOML file filtered by *profile*.
+        """Serialize this config to a TOML file filtered by *profile*.
 
         Round-trip guarantee: when ``profile="expert"`` is used on a fully
         resolved :class:`~hydromodpy.config.hydromodpy_config.HydroModPyConfig`,

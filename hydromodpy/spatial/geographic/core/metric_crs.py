@@ -1,7 +1,7 @@
 """Lengths and areas of vector layers, measured in one projected CRS.
 
-A layer in a geographic CRS is projected first, so a length is in metres and an
-area in square metres whatever CRS the file was written in.
+A layer in a geographic CRS is projected first, so a length is in meters and an
+area in square meters whatever CRS the file was written in.
 """
 
 from __future__ import annotations
@@ -88,7 +88,7 @@ def measure_linework_length_m(
     *,
     fallback_crs: str | object | None = None,
 ) -> float:
-    """Return total line length in metres after coercing to one metric CRS."""
+    """Return total line length in meters after coercing to one metric CRS."""
     if gdf is None or gdf.empty:
         return 0.0
     metric_gdf = project_gdf_for_metric_operations(gdf, fallback_crs=fallback_crs)

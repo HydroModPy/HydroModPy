@@ -2,7 +2,7 @@
 #
 # Canut catchment delineated on the fly from the regional DEM, steady MODFLOW 6
 # on a three-layer 50 m aquifer, with particle tracking. Nothing is drawn: the
-# run exists for the artefacts it leaves behind, which is what a batch or a
+# run exists for the artifacts it leaves behind, which is what a batch or a
 # headless machine needs.
 #
 # Read the results back with the catalog rather than with a figure:
@@ -95,7 +95,7 @@ release_times = [0.0]
 [display]
 enabled = false
 
-# The artefacts the run is for: one NetCDF of the gridded fields and the
+# The artifacts the run is for: one NetCDF of the gridded fields and the
 # catchment series as CSV, next to the Zarr and Parquet the catalog keeps.
 [[export]]
 variables = "all"

@@ -2,7 +2,7 @@
 
 A simulation stamp is the END of its period, an observation is stamped at the
 START of what it averages. These tests used to read a simulation stamp as the
-centre of its period, or to match it to the nearest observation; both put the
+center of its period, or to match it to the nearest observation; both put the
 observation one period late on a regular run, and they were rewritten when the
 stamp convention was measured on the solvers' own ``/time`` axis.
 """
@@ -34,7 +34,7 @@ def _block_daily(blocks: list[tuple[str, str, float]]) -> pd.Series:
 def test_observed_daily_values_are_binned_on_the_period_each_stamp_closes() -> None:
     # Two monthly stamps: [2019-12-01, 2020-01-01) and [2020-01-01, 2020-02-01).
     # The first period holds no observation, the second holds the three January
-    # days. The centred reading answered 2.0 and 12.0, mixing February in.
+    # days. The centered reading answered 2.0 and 12.0, mixing February in.
     obs = pd.Series(
         [1.0, 3.0, 10.0, 14.0],
         index=pd.DatetimeIndex(["2020-01-01", "2020-01-02", "2020-01-31", "2020-02-02"]),

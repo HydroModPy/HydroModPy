@@ -139,7 +139,7 @@ def _island_ring_radii_m(reference_cfg: dict) -> tuple[float, ...]:
 def _island_nodes_and_triangles(
     reference_cfg: dict,
 ) -> tuple[np.ndarray, list[tuple[int, int, int]]]:
-    """Return node offsets from the centre and their Delaunay triangles.
+    """Return node offsets from the center and their Delaunay triangles.
 
     Each ring holds nodes about ``TARGET_EDGE_M`` apart, shifted by half a step
     on every other ring, so the triangles are close to equilateral.

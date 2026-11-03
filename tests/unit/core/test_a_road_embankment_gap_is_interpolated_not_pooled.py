@@ -2,7 +2,7 @@
 
 Read as a measurement, a 3 m embankment across a straight bed is a rise the
 fit pools with the reach above it, lifting that reach. Marked as a gap, its
-value is replaced by the line between its measured neighbours and the
+value is replaced by the line between its measured neighbors and the
 measured bed is left as it was.
 """
 

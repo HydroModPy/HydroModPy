@@ -1,4 +1,4 @@
-"""Behavioural unit tests for the CMA-ES optimizer adapter.
+"""Behavioral unit tests for the CMA-ES optimizer adapter.
 
 The adapter under test is :mod:`hydromodpy.calibration.optim.adapters.cma_adapter`.
 It is backed by the ``cma`` package (not ``cmaes``); skip the whole module
@@ -16,7 +16,7 @@ file complements that with:
 - a fixed seed reproduces identical suggestions across two independent runs;
 - ``tell`` updates history and the running best, and failed/NaN evaluations
   map to ``FAILED_EVAL_COST``;
-- sigma0/popsize are honoured and the per-restart seed offset is applied;
+- sigma0/popsize are honored and the per-restart seed offset is applied;
 - budget exhaustion is reported through ``converged``/``suggest_next``;
 - the bare ``"cma"`` name is not registered, only ``"cma_es"``.
 """
@@ -58,7 +58,7 @@ _TARGET = {"x": 0.3, "y": 0.5}
 
 
 def _quadratic_cost(values) -> float:
-    """Convex bowl centred on ``_TARGET`` with a unique minimum of 0."""
+    """Convex bowl centered on ``_TARGET`` with a unique minimum of 0."""
     return float((values["x"] - _TARGET["x"]) ** 2 + (values["y"] - _TARGET["y"]) ** 2)
 
 

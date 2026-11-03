@@ -27,7 +27,7 @@ from hydromodpy.core.exceptions import (
 from hydromodpy.core.logging import get_logger
 
 # ---------------------------------------------------------------------------
-# Standardised exit codes for the hmp CLI. The shared grammar that emits them
+# Standardized exit codes for the hmp CLI. The shared grammar that emits them
 # lives in ``hydromodpy/cli/conventions.py``. Typed codes 10..23 map onto
 # specific exception classes; 0/1/2 keep their POSIX-conventional meaning;
 # 130 is the standard SIGINT termination code.
@@ -55,7 +55,7 @@ EXIT_CASES_FAILED = 23
 EXIT_SIGINT = 130
 
 PROJECT_ROOT_ENV = "HMP_PROJECT_ROOT"
-"""Project root every resolver honours first; ``-w`` sets it for a TOML verb."""
+"""Project root every resolver honors first; ``-w`` sets it for a TOML verb."""
 
 
 def exit_code_for(exc: BaseException) -> int:

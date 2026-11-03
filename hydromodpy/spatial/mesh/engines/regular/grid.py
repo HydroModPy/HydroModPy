@@ -2,7 +2,7 @@
 
 The solvers used to read the vertices back from ``flopy.StructuredGrid``. The
 engine now computes them with the same floating-point operations, so a run keeps
-its coordinates, its DIS file and its cell centres to the last bit.
+its coordinates, its DIS file and its cell centers to the last bit.
 """
 
 from __future__ import annotations

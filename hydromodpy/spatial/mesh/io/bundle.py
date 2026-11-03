@@ -22,7 +22,7 @@ empty.
 The reader depends only on the Python standard library.
 :func:`cell_mesh_from_bundle` reads the nodes, triangles and edges of a bundle
 as a ``PlanarCellMesh``: the nodes and the triangles in the order of the files,
-the vertex means as centres, the flagged edges as the ``rivers`` face family and
+the vertex means as centers, the flagged edges as the ``rivers`` face family and
 the boundary edges that lie on the bounding box as the ``boundary:<side>``
 families.
 """

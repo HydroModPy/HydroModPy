@@ -262,7 +262,7 @@ class RunArrayProvider:
         (no copy on read). ``variables`` lists field-registry names to
         include; missing fields raise ``FieldNotFoundError``. ``time_slice``
         is an optional ``slice`` object applied to the time dimension.
-        ``bbox`` restricts the dataset to cells whose centre
+        ``bbox`` restricts the dataset to cells whose center
         (``run.mesh.cell_centers()``) lies within the bounding box.
 
         A variable that is not persisted but is derivable on the fly
@@ -346,6 +346,6 @@ def _bbox_select_ugrid(ds, grid, bbox, face_dim):
 
 
 def _bbox_select_flat(ds, run, bbox):
-    """Slice a flat xarray dataset to the cells of the run mesh whose centre is in ``bbox``."""
+    """Slice a flat xarray dataset to the cells of the run mesh whose center is in ``bbox``."""
     inside = run.mesh.cells_in_bbox(bbox)
     return ds.isel(cell=np.flatnonzero(inside))

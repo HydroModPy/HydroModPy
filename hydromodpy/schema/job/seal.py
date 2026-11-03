@@ -151,7 +151,7 @@ class SealVerification:
 def verify_job(job: JobDirectory) -> SealVerification:
     """Re-check a job directory against its own seal, reading only the disk.
 
-    Every artefact still hashes to what the seal recorded, the input set still
+    Every artifact still hashes to what the seal recorded, the input set still
     digests to the id it carries, and the outcome names the same job. Nothing
     is repaired and nothing is rewritten. This is the verification that does
     not trust the seal: it re-reads every output.
@@ -228,7 +228,7 @@ def _outcome_problems(job: JobDirectory, manifest: Mapping[str, Any]) -> list[st
 
 
 def _artifact_problems(job: JobDirectory, entry: Any) -> list[str]:
-    """Check one sealed artefact against the bytes on disk."""
+    """Check one sealed artifact against the bytes on disk."""
     if not isinstance(entry, Mapping) or not entry.get("path"):
         return ["manifest.json inventories an artefact that carries no path"]
     relative = str(entry["path"])

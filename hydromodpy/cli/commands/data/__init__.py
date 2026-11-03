@@ -4,7 +4,7 @@ Sub-actions:
 
 Cache management:
 
-- ``hmp data ls``: list artefacts indexed in the workspace cache.
+- ``hmp data ls``: list artifacts indexed in the workspace cache.
 - ``hmp data get <request.json | variable>``: serve a data request into a folder.
 - ``hmp data check``: validate ``<variable>_custom/`` folders.
 - ``hmp data add <file>``: ingest a single file with explicit metadata.

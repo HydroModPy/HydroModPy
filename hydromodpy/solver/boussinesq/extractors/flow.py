@@ -167,7 +167,7 @@ class BoussinesqOutputAdapter:
             state_grp = grp.require_group("boussinesq_state")
             for key in payload.files:
                 arr = np.asarray(payload[key])
-                # A restart array shares no axis with its neighbours, so it
+                # A restart array shares no axis with its neighbors, so it
                 # names its own: an unnamed axis makes the store unopenable.
                 state_grp.create_array(
                     key,

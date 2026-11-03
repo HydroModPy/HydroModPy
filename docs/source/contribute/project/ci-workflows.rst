@@ -85,7 +85,7 @@ Use the first word of the job name.
    ``python -m pytest tests/characterization -q`` with the MODFLOW-NWT binary
    installed (``hmp install-binaries --subset mfnwt``). The tier holds strict
    ``xfail`` cases: one that starts to pass fails the job, which means a claim of
-   the code is now honoured and the marker must go.
+   the code is now honored and the marker must go.
 
 ``Tests``
    Reproduce the tier and the Python version named in the check, not the whole

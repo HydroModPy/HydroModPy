@@ -38,7 +38,7 @@ MORTON_STEP_M = 1.0
 """Cell of the fixed grid that orders the free seeds [m]."""
 
 _NEAREST_DISKS = 8
-"""Nearest disk centres a point is tested against."""
+"""Nearest disk centers a point is tested against."""
 
 _MIN_SLICE = 4096
 """Fewest candidates tested at once."""
@@ -49,7 +49,7 @@ _MORTON_BITS = 32
 def free_seed_count(h: SizeSampler, domain: BaseGeometry, n_constraint: int) -> int:
     """Number of free seeds: ``round(sum of A_pixel / h_pixel^2) - n_constraint``, at least 0.
 
-    The sum runs over the pixels of the size field whose centre lies in the
+    The sum runs over the pixels of the size field whose center lies in the
     local *domain*.
     """
     centres, pixel_area = h.pixel_centres()
@@ -106,10 +106,10 @@ def sample_free_seeds(
 
 
 class DiskSet:
-    """Disks ``(centre, radius)`` in the local frame, tested against their nearest centres."""
+    """Disks ``(center, radius)`` in the local frame, tested against their nearest centers."""
 
     def __init__(self, center: np.ndarray, radius: np.ndarray) -> None:
-        """Index the centres ``(k, 2)``; one radius [m] per centre."""
+        """Index the centers ``(k, 2)``; one radius [m] per center."""
         self.center = np.asarray(center, dtype=np.float64).reshape(-1, 2)
         radius = np.asarray(radius, dtype=np.float64).ravel()
         if radius.size != len(self.center):
@@ -137,7 +137,7 @@ class DiskSet:
     def project_out(self, points: np.ndarray, previous: np.ndarray) -> np.ndarray:
         """Move each point inside a disk radially onto the circle of the nearest such disk.
 
-        A point at the very centre leaves along the direction of its *previous*
+        A point at the very center leaves along the direction of its *previous*
         position; one with no direction keeps its previous position.
         """
         inside, index = self._inside(points)

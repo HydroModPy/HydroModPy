@@ -62,7 +62,7 @@ def coerce_length_series_to_m(
     units: object,
     label: str,
 ) -> np.ndarray:
-    """Convert one length payload to metres."""
+    """Convert one length payload to meters."""
     source_units = normalize_length_unit(str(units).strip() or "m")
     return np.asarray(
         convert_payload_to_m(values, unit=source_units, label=label),

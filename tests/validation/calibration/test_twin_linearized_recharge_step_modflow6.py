@@ -47,7 +47,7 @@ COST_AT_TRUTH = tol("twin_calibration_closure_noise_free_search_started_at_the_t
 """Normalized cost of the trial at the truth: both routes read the same numbers."""
 
 RELATIVE_AT_TRUTH = 1.0e-12
-"""The first point of the search is the centre of the bounds, exact to a few ulp."""
+"""The first point of the search is the center of the bounds, exact to a few ulp."""
 
 
 @pytest.mark.validation

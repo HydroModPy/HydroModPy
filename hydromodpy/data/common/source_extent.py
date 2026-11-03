@@ -23,7 +23,7 @@ the port calls a mask, the loader was already filling in.
 
 ``HydrographyManager`` was the third that read the object, and it needed more
 than a box: the project CRS, the polygon it clips to and ``watershed_dem``, the
-grid it rasterises onto. It is served here through :func:`mask_geometry`, which
+grid it rasterizes onto. It is served here through :func:`mask_geometry`, which
 is the same door one level down -- the shape and the box come from one file, so
 a mask cannot describe one thing to a clip and another to a request. The
 reference grid was never an extent and is now a constructor argument.
@@ -34,8 +34,8 @@ happened to be in, so ``_resolve_bbox_2154`` had to reopen ``watershed_shp``
 to learn what they meant. That is right only while ``mask_path`` *is*
 ``watershed_shp``, which holds for a project run and for nothing else: point
 ``mask_path`` at a WGS84 GeoPackage over Rennes while the project runs in
-Lambert-93, and ``(-1.7069, 48.1165)`` is read as metres and reprojected from
-metres -- it lands at ``-1.36 E, -5.98 S``, in the Gulf of Guinea, and the IGN
+Lambert-93, and ``(-1.7069, 48.1165)`` is read as meters and reprojected from
+meters -- it lands at ``-1.36 E, -5.98 S``, in the Gulf of Guinea, and the IGN
 request comes back from there. :class:`~hydromodpy.data.source.port.Extent` is
 the type that makes that unrepresentable, and it is F5b's, not a new one.
 
@@ -143,7 +143,7 @@ def mask_extent_in(path: str | Path, crs: str) -> Extent:
     EPSG:2154 to EPSG:4326, the box route is 680 m to 1 030 m wider on each
     side. That width is not free -- the catalog serves a cached download only
     when its entry is a superset of the request, so a box that grew by a
-    kilometre stops matching what is already on disk and asks the provider
+    kilometer stops matching what is already on disk and asks the provider
     again for data it has.
 
     Use this whenever the shape is in hand. :meth:`Extent.to_crs` remains the

@@ -13,7 +13,7 @@ download from. Example 04 uses files of the project. The last column says what i
 | Data | Producer | Form and fineness | Example 04 |
 |---|---|---|---|
 | Relief ({term}`digital elevation model`) | The national mapping agency (IGN): BD ALTI at 25 m, or RGE ALTI at 1 m or 5 m | Regular grid | A raster file with 75 m cells |
-| Geological map | The geological survey (BRGM): a map at 1:1,000,000, or the harmonised map at 1:50,000 | Polygons, with the scale of the map as limit | Not used: one value of K for the catchment |
+| Geological map | The geological survey (BRGM): a map at 1:1,000,000, or the harmonized map at 1:50,000 | Polygons, with the scale of the map as limit | Not used: one value of K for the catchment |
 | Mapped streams | Sandre and the French Biodiversity Office ({term}`BD Topage`); the Copernicus land service (EU-Hydro); OpenStreetMap. A file of your own works too, such as the {term}`BD TOPO` of IGN | Lines | The permanent reaches of the BD TOPO, from a file of the project |
 | Discharge at a gauge | The public interface {term}`Hub'Eau` (French Biodiversity Office and BRGM), for the national hydrometry | Daily series at a station | The {term}`NANCON station`, averaged by month |
 | Observed flow state of small streams | Hub'Eau, from the national low-flow observatory | Visits at stations | Not used |
@@ -36,7 +36,7 @@ result.
   between two hillsides.
 - The relief sets where water leaves the ground, and the cell of the model is 75 m. A map is read
   at the scale of the hillside ({term}`resolution`).
-- A geological map at 1:50,000 draws zones that are hundreds of metres wide. It does not tell the
+- A geological map at 1:50,000 draws zones that are hundreds of meters wide. It does not tell the
   conductivity of a particular field.
 - A mapped stream network draws what someone chose to draw, with a positional error. The score
   of a network takes it into account only if that error is declared ({doc}`network-metrics`).

@@ -54,7 +54,7 @@ def particle_travel_years(sim: Run) -> np.ndarray:
 
 
 def _log_spaced_density(values: np.ndarray, n_bins: int) -> tuple[np.ndarray, np.ndarray]:
-    """Return (bin centres, density) of ``values`` over log-spaced bins.
+    """Return (bin centers, density) of ``values`` over log-spaced bins.
 
     A travel-time distribution spans decades, so equal-width bins waste every
     one of them on the tail. The bins span the 1st to the 99th percentile,

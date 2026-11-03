@@ -1,7 +1,7 @@
 # Tolerances for the LAK regular-vs-irregular grid-equivalence study (see
 # tests/TOLERANCES.md row 42). The SAME lake-aquifer problem is solved on the
 # 15x15 quad DISV (225 cells) and on a refined Delaunay triangle DISV (~772 cells)
-# with identical physics. The residual is the genuine grid-discretisation signal,
+# with identical physics. The residual is the genuine grid-discretization signal,
 # not solver noise, so the envelope is derived from the observed difference.
 
 [stage]

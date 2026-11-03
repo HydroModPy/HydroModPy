@@ -6,11 +6,11 @@ better, how fast, and better at what. This figure answers in the words of the
 phase it draws.
 
 - The value tried at each run, on the axis the search walked (a log axis for
-  a log-transformed parameter), each marker coloured by the cost it earned.
+  a log-transformed parameter), each marker colored by the cost it earned.
   The best run is marked, the range of runs within tolerance of the best is a
   band, and the bracket of a bisection is shaded as it closes.
 - The cost of each run and the best reached so far, a staircase that only
-  goes down, labelled with the metric and its unit, with the run from which
+  goes down, labeled with the metric and its unit, with the run from which
   the search stays within tolerance of its best.
 - What the search improves: the cells the simulated seepage network gets
   right, adds and misses against the mapped streams, and the efficiency of the
@@ -19,7 +19,7 @@ phase it draws.
   downhill, a sampler explores then concentrates.
 
 The tolerance is read the way the calibration reads it: one mesh cell for a
-search scored on network distances in metres, five per cent of the best cost
+search scored on network distances in meters, five per cent of the best cost
 otherwise, unless ``[calibration.uncertainty]`` wrote another width. A value
 combined from two roots gets no interval, as in the calibration summary. The
 run marked is the one the calibration returned, as the session journal names
@@ -261,7 +261,7 @@ class CalibrationProgressFigure(BaseFigure):
         **_,
     ) -> Axes:
         search = _read_search(sim, session_id=session_id, output=output)
-        norm, cmap = _cost_colours(search.cost)
+        norm, cmap = _cost_colors(search.cost)
         _draw_cost(ax, search, norm=norm, cmap=cmap)
         return ax
 
@@ -627,7 +627,7 @@ def _draw_slide(fig: MplFigure, search: _Search) -> None:
         color="0.2",
     )
 
-    norm, cmap = _cost_colours(search.cost)
+    norm, cmap = _cost_colors(search.cost)
     top_axes = top.subplots(1, top_count, squeeze=False)[0]
     parameter_axes = list(top_axes[: len(search.parameters)])
     for ax, parameter in zip(parameter_axes, search.parameters, strict=False):
@@ -652,8 +652,8 @@ def _draw_slide(fig: MplFigure, search: _Search) -> None:
         _draw_series(bottom_axes.pop(0), search, series)
 
 
-def _cost_colours(cost: np.ndarray) -> tuple[Normalize, Any]:
-    """Return the colour scale of the cost: log when it spans decades, dark is low."""
+def _cost_colors(cost: np.ndarray) -> tuple[Normalize, Any]:
+    """Return the color scale of the cost: log when it spans decades, dark is low."""
     from matplotlib.colors import LogNorm, Normalize
 
     finite = cost[np.isfinite(cost)]
@@ -669,7 +669,7 @@ def _cost_colours(cost: np.ndarray) -> tuple[Normalize, Any]:
 
 
 def _mappable(norm: Normalize, cmap: Any) -> Any:
-    """Return a colour source a colorbar can read."""
+    """Return a color source a colorbar can read."""
     from matplotlib.cm import ScalarMappable
 
     mappable = ScalarMappable(norm=norm, cmap=cmap)
@@ -691,7 +691,7 @@ def _run_axis(ax: Axes, search: _Search) -> None:
 def _draw_parameter(
     ax: Axes, search: _Search, parameter: _Parameter, *, norm: Normalize, cmap: Any
 ) -> None:
-    """Panel 1: the value tried at each run, coloured by the cost it earned."""
+    """Panel 1: the value tried at each run, colored by the cost it earned."""
     runs, values, cost = search.runs, parameter.values, search.cost
     if parameter.log:
         ax.set_yscale("log")
@@ -1029,12 +1029,12 @@ def _mark_cut_bars(
 def _draw_series(ax: Axes, search: _Search, blocks: Sequence[CostBlock]) -> None:
     """Panel 3, series half: the efficiency itself per run, rising toward its best."""
     runs = search.runs
-    colours = (_BLUE, _RED, _SAND)
+    colors = (_BLUE, _RED, _SAND)
     names = []
     drawn = []
     rises = []
     for index, block in enumerate(blocks):
-        colour = colours[index % len(colours)]
+        color = colors[index % len(colors)]
         metric = block.metric or ""
         raw = np.asarray(block.raw, dtype=float)
         efficiency = rises_with_fit(metric) and not block.transformed
@@ -1045,12 +1045,12 @@ def _draw_series(ax: Axes, search: _Search, blocks: Sequence[CostBlock]) -> None
         rises.append(efficiency)
         prefix = f"{block.name}: " if len(blocks) > 1 else ""
         finite = np.isfinite(values)
-        ax.plot(runs[finite], values[finite], color=colour, lw=1.0, alpha=0.5, zorder=2)
+        ax.plot(runs[finite], values[finite], color=color, lw=1.0, alpha=0.5, zorder=2)
         ax.scatter(
             runs[finite],
             values[finite],
             s=60,
-            color=colour,
+            color=color,
             alpha=0.75,
             edgecolor="white",
             linewidth=0.8,
@@ -1062,7 +1062,7 @@ def _draw_series(ax: Axes, search: _Search, blocks: Sequence[CostBlock]) -> None
             runs,
             running,
             where="post",
-            color=colour,
+            color=color,
             lw=2.8,
             zorder=4,
             label=f"{prefix}best so far",

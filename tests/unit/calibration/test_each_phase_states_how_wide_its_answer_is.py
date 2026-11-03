@@ -3,14 +3,14 @@
 A phase may write its own ``uncertainty``, with the keys of
 ``[calibration.uncertainty]``, which stays the default of every phase. Key by
 key, the phase wins, then the section, then a default read off what the phase
-scores: one mesh cell, in metres, for a phase scored only by network distances,
+scores: one mesh cell, in meters, for a phase scored only by network distances,
 and five per cent of the best cost for any other. The cell is the median
-distance between the centres of neighbouring cells, measured by the network
+distance between the centers of neighboring cells, measured by the network
 criterion on the mesh it scores.
 
 No solver runs. The widths are read off the configuration, the check off
 preflight, and the one search goes through an evaluator that returns a gap in
-metres and the cell it was measured on, the way the network criterion does.
+meters and the cell it was measured on, the way the network criterion does.
 """
 
 from __future__ import annotations
@@ -106,7 +106,7 @@ def _widths(cfg: CalibrationConfig) -> dict[str, dict]:
 
 
 def _rectangles(nrow: int, ncol: int, dx: float, dy: float) -> tuple[np.ndarray, np.ndarray]:
-    """Return (centres, face_node_connectivity) of a grid of dx by dy cells."""
+    """Return (centers, face_node_connectivity) of a grid of dx by dy cells."""
     nodes_per_row = ncol + 1
     corner = (np.arange(nrow)[:, None] * nodes_per_row + np.arange(ncol)[None, :]).reshape(-1)
     connectivity = np.column_stack(
@@ -428,7 +428,7 @@ def test_list_phases_says_where_each_width_comes_from(tmp_path, capsys) -> None:
 
 
 class _GapInMetres:
-    """A network gap in metres, zero at K = 1e-5, measured on 60 m cells."""
+    """A network gap in meters, zero at K = 1e-5, measured on 60 m cells."""
 
     evaluator_id = "test_gap_in_metres"
     needs_prepared_model = False

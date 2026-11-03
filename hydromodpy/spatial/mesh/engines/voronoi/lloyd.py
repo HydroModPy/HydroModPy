@@ -5,7 +5,7 @@ the density ``rho = h^-4``. The centroid integrates ``rho`` with one point per
 fan triangle ``(seed, a, b)`` of the cell ring, at the triangle centroid. Three
 points per triangle integrate the density better, but on a graded field they
 pull the seeds further from the area centroid of their cells and raise the size
-ratio between neighbours, so the engine keeps one point.
+ratio between neighbors, so the engine keeps one point.
 
 The new position is then projected out of the hard disks (the Berge balls of
 the conformal face vertices, the Gabriel disks of the river chain segments),
@@ -90,7 +90,7 @@ def constraint_disks(plan: ConstraintPlan) -> tuple[DiskSet, DiskSet]:
 
     Hard disks: each Berge ball of a conformal vertex at ``1.02 R_v``, and the
     Gabriel disk of each link ``[start, end]`` between two distinct chain seeds
-    (centre at its middle, radius ``0.51 |end - start|``). Protection disks:
+    (center at its middle, radius ``0.51 |end - start|``). Protection disks:
     ``0.6 h(c)`` around each constraint seed ``c``.
     """
     faces, seeds = plan.faces, plan.seeds

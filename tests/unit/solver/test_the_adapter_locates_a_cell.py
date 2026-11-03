@@ -122,7 +122,7 @@ class TestOnASolverMesh:
 
 
 def _nwt_grid() -> SimpleNamespace:
-    """A 2 x 3 flopy-like grid of 10 m cells, centres on a 10 m lattice from the origin."""
+    """A 2 x 3 flopy-like grid of 10 m cells, centers on a 10 m lattice from the origin."""
     return SimpleNamespace(
         xcellcenters=np.array([[0.0, 10.0, 20.0], [0.0, 10.0, 20.0]]),
         ycellcenters=np.array([[0.0, 0.0, 0.0], [10.0, 10.0, 10.0]]),
@@ -144,7 +144,7 @@ class TestOnTheNwtGrid:
 
         model = SimpleNamespace(mf=SimpleNamespace(modelgrid=_nwt_grid()))
 
-        # Cells of 10 m: 14 m east of the last centre is 9 m out, 16 m is 11 m out.
+        # Cells of 10 m: 14 m east of the last center is 9 m out, 16 m is 11 m out.
         assert ModflowNwtFlowAdapter().locate_cell(_ctx(model), 34.0, 10.0) == (0, 1, 2)
         with caplog.at_level("WARNING"):
             assert ModflowNwtFlowAdapter().locate_cell(_ctx(model), 36.0, 10.0) is None

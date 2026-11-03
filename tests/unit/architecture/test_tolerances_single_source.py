@@ -84,7 +84,7 @@ INLINE_ROWS: frozenset[str] = frozenset(
         # tests/unit/core/test_v_valley_support_bench.py and
         # tests/unit/core/test_topographic_distance.py.
         "v_valley_support_bench_case_a__root_relative_gap_between_raw_and_closed_observed_network",
-        "v_valley_support_bench_case_b__root_drift_under_a_rasterisation_hole",
+        "v_valley_support_bench_case_b__root_drift_under_a_rasterization_hole",
         # Terrain port conformance suite, tests/contract/test_terrain_engine_contract.py.
         "terrain_engine_conformance__cross_engine_catchment_area",
         "terrain_engine_conformance__ln_transform_identity",
@@ -136,10 +136,10 @@ INLINE_ROWS: frozenset[str] = frozenset(
         "mesh_characterization_net__geometry_quantiles_relative_band",
         "mesh_characterization_net__cell_areas_and_their_sum_relative",
         "mesh_characterization_net__heads_share_of_the_golden_head_range",
-        "mesh_characterization_net__centre_offset_over_side_absolute_floor",
+        "mesh_characterization_net__center_offset_over_side_absolute_floor",
         "mesh_characterization_net__non_orthogonality_absolute_floor",
-        "mesh_characterization_net__neighbour_size_ratio_absolute_floor",
-        "mesh_characterization_net__probe_cell_centre_offset_absolute_floor",
+        "mesh_characterization_net__neighbor_size_ratio_absolute_floor",
+        "mesh_characterization_net__probe_cell_center_offset_absolute_floor",
         # Mesh engine conformance suite, tests/contract/test_mesh_engine_contract.py.
         # Session cost against the score of its run (decision m01), asserted in
         # tests/unit/calibration/test_the_session_cost_is_the_score_of_its_run.py.
@@ -302,7 +302,7 @@ def test_dupuit_fixed_head_doc_agrees_with_case_toml() -> None:
     """The Dupuit fixed-head head-RMSE doc rows match their enforced case-TOML.
 
     MF6 and NWT share ``tolerances.toml``, 0.011 m, rows 11 and 12: since the
-    reference poses its heads at the centres of the boundary columns, the two
+    reference poses its heads at the centers of the boundary columns, the two
     solvers measure the same error. A silent edit to either side surfaces here.
     """
     doc_mf6 = tol("dupuit_fixed_head_1d_mf6__head_rmse")
@@ -313,7 +313,7 @@ def test_dupuit_fixed_head_doc_agrees_with_case_toml() -> None:
     case_root = (
         _TESTS_ROOT.parent / "validation_cases" / "analytical" / "steady" / "dupuit_fixed_head_1d"
     )
-    # NWT and MF6 share one file since the heads are posed at the boundary-cell centres.
+    # NWT and MF6 share one file since the heads are posed at the boundary-cell centers.
     assert not (case_root / "tolerances_modflow6.toml").exists()
     shared_toml = (case_root / "tolerances.toml").read_text(encoding="utf-8")
     assert "rmse = 0.011" in shared_toml, "dupuit case-TOML rmse changed; revisit rows 11 and 12"

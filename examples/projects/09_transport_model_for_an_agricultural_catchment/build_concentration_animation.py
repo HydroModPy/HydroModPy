@@ -3,7 +3,7 @@
 ``project.toml`` writes one concentration map, at the end of the drought. The
 plume is a story about time, though, so this script renders the same registry
 figure once per stress period and stitches the frames into a GIF and into a
-plotly slider, the two artefacts the legacy example produced.
+plotly slider, the two artifacts the legacy example produced.
 
 Nothing is hand-drawn: every frame is ``concentration_map`` with a different
 ``timestep``, exactly what ``[display.overrides]`` would pass.
@@ -36,7 +36,7 @@ with hmp.open(HERE) as proj:
     n_steps = int(run.n_timesteps or 0)
     print(f"run {run.name}: {n_steps} stress periods")
 
-    # A shared colour scale, otherwise every frame renormalises and the plume
+    # A shared color scale, otherwise every frame renormalises and the plume
     # looks static while the numbers fall.
     frames = []
     for step in range(n_steps):

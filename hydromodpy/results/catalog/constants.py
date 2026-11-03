@@ -191,7 +191,7 @@ def _flips(metric: str) -> bool:
 
 
 def cost_of(metric: str, score: Value) -> Value:
-    """Return the cost a search minimises for a ``score`` of ``metric``.
+    """Return the cost a search minimizes for a ``score`` of ``metric``.
 
     One minus the score for a metric that rises with the fit (an efficiency,
     perfect at 1); the score itself for one that falls (an error, a distance).

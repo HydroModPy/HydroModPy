@@ -36,7 +36,7 @@ def _normalize_buff_area(value):
     - ``"10%"`` or ``"10 %"`` becomes the string ``"10%"``: the buffered
       catchment covers 10 per cent more area than the catchment;
     - ``"150 m"``, ``"0.15 km"`` or ``"150"`` becomes ``"150.0 m"``: an explicit
-      distance, a string with no unit being metres;
+      distance, a string with no unit being meters;
     - ``"10% of sqrt(area)"`` is the v1 rule written out: the distance is 10 per
       cent of the square root of the catchment area, about 50 per cent more area on
       a real catchment;
@@ -199,12 +199,12 @@ class OutletCatchDef(_CatchDefBase):
         description="Watershed delineated from outlet coordinates on a regional DEM.",
     )
     x_outlet: Annotated[float, Profile.USER] = Field(
-        description="Easting of the watershed outlet in the projected CRS of the project, in metres.",
+        description="Easting of the watershed outlet in the projected CRS of the project, in meters.",
         examples=[352400.0],
         json_schema_extra=field_metadata(unit="m", site_scoped=True),
     )
     y_outlet: Annotated[float, Profile.USER] = Field(
-        description="Northing of the watershed outlet in the projected CRS of the project, in metres.",
+        description="Northing of the watershed outlet in the projected CRS of the project, in meters.",
         examples=[6788300.0],
         json_schema_extra=field_metadata(unit="m", site_scoped=True),
     )

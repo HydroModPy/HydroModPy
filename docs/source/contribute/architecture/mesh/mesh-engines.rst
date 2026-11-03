@@ -214,7 +214,7 @@ of its ``engine_id``:
 Then ``[mesh] engine = "myengine"`` selects it. The registry ignores, with a warning, an entry
 point whose name is not the ``engine_id`` of its class or is the name of a built-in engine. Bump
 ``engine_version`` whenever the mesh for one request changes, because the cache and the run
-identity key on it. The engine raises ``MeshRequestError`` for a request it cannot honour and
+identity key on it. The engine raises ``MeshRequestError`` for a request it cannot honor and
 ``MeshGenerationError`` for a mesh it cannot build. The contract tests are
 ``tests/contract/test_mesh_engine_contract.py`` for every registered engine and
 ``tests/contract/test_mesh_conformance_reaches_an_installed_engine.py`` for a plugin. The contract

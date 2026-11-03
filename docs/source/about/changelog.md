@@ -4,7 +4,7 @@ Every release of HydroModPy and every change since the last one, newest first. T
 `CHANGELOG.md` file at the root of the repository, included as it is. It follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/). Under each release, *Added* lists new features,
-*Changed* lists changes of behaviour, *Removed* lists what was deleted and *Fixed* lists bug
+*Changed* lists changes of behavior, *Removed* lists what was deleted and *Fixed* lists bug
 fixes.
 
 The `[Unreleased]` section is the work merged since the last release. It ships with the next

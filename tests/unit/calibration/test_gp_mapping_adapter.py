@@ -26,7 +26,7 @@ from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpa
 
 
 def _quadratic_space() -> ParameterSpace:
-    """Return a 2D box space centred on the origin."""
+    """Return a 2D box space centered on the origin."""
     return ParameterSpace(
         [
             CalibParameter(name="x", lower=-2.0, upper=2.0),

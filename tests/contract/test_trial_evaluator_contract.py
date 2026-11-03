@@ -8,7 +8,7 @@ list this file keeps. An evaluator installed beside this build is therefore run
 by this suite without a line of ``tests/`` naming it, which is the only way a
 third party can find out whether its evaluator is usable: ``register()``
 certifies a class on the members it **declares**, and the real contract of this
-port is behavioural -- what comes back from a call, and what does not come out of
+port is behavioral -- what comes back from a call, and what does not come out of
 it as an exception.
 
 Two layers, and they do not answer the same question.

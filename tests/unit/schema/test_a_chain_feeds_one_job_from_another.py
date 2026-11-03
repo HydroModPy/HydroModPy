@@ -84,7 +84,7 @@ def _chain(**overrides: object) -> ChainRequest:
 
 
 class _Runner:
-    """A runner that writes the artefact and the outcome a real one would.
+    """A runner that writes the artifact and the outcome a real one would.
 
     Records the directories it was handed, so a test can assert what never ran.
     """

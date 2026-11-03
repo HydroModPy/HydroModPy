@@ -50,7 +50,7 @@ CELL_AREA_M2 = 100.0
 DRAIN_COND_M2_S = 0.04
 BAND_M = 0.5
 
-# The mesh top, by construction: a plane dropping one metre per column.
+# The mesh top, by construction: a plane dropping one meter per column.
 TOP_BY_CELL: dict[int, float] = {0: 100.0, 1: 99.0, 2: 98.0, 3: 100.0, 4: 99.0, 5: 98.0}
 
 # The DRAIN BED thickness, a declared scalar. The mesh below still varies its
@@ -237,7 +237,7 @@ class TestTheHandWrittenBand:
 
 
 class TestBothBackendsAgree:
-    """One meaning, one behaviour: the same mesh and the same D give the same rows."""
+    """One meaning, one behavior: the same mesh and the same D give the same rows."""
 
     @pytest.mark.parametrize("band_depth_m", [0.0, 0.25, 0.5, 1.0, 2.0])
     def test_same_mesh_same_depth_same_rows(self, band_depth_m: float) -> None:

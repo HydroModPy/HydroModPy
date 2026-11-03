@@ -4,7 +4,7 @@ A pass-through cell (``idomain = -1``) has no thickness: the pinch-out hands it 
 the active cell next to it. The lake counts its occupied layers in grid layers, so
 a column whose occupied layer is pinched out holds no lake water inside the stack
 and leaks through its bed into the first active cell below. A bank connection
-joins the lake water of a column to every active cell of a neighbour column that
+joins the lake water of a column to every active cell of a neighbor column that
 holds part of that water band, whatever its layer. A column left with no active
 cell under the lake is refused.
 
@@ -86,7 +86,7 @@ def test_a_bank_follows_the_lake_water_across_the_layers_of_a_higher_neighbour()
     )
     banks = _banks(_rows(mesh))
     assert banks == {((0, 0), 9.0, 10.0), ((1, 0), 7.0, 9.0), ((0, 2), 7.0, 10.0)}
-    # The two rows of the higher neighbour share the lake water band [7, 10] exactly.
+    # The two rows of the higher neighbor share the lake water band [7, 10] exactly.
     assert sum(t - b for (cell, b, t) in banks if cell[1] == 0) == pytest.approx(3.0)
 
 

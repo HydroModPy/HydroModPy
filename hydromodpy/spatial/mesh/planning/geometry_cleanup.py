@@ -1,9 +1,9 @@
 """Clean the geometry of the project inputs before the planner sizes it.
 
 Small defects of vector data reach the engine otherwise: two vertices a few
-centimetres apart, a river that stops one metre short of the boundary, a
+centimeters apart, a river that stops one meter short of the boundary, a
 contact that runs along another one before it ends, a hole of one square
-metre in a lake. Each one seeds cells a few metres apart, which the engine
+meter in a lake. Each one seeds cells a few meters apart, which the engine
 either over-refines or refuses.
 
 The planner first drops the holes smaller than one local cell squared

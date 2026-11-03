@@ -278,7 +278,7 @@ def geographic_dir(root: Path) -> Path:
 
 
 def touch_artifact(path: Path | str) -> None:
-    """Write one cache artefact: a 1-pixel GeoTIFF, the four files of a shapefile or a file.
+    """Write one cache artifact: a 1-pixel GeoTIFF, the four files of a shapefile or a file.
 
     Rasters are real: a cache hit describes the flow stack by reading its CRS
     and nodata, so it has to survive being read.

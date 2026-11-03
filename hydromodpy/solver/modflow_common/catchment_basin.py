@@ -6,13 +6,13 @@ share of each cell's area inside the delineated polygon, the weight of a
 catchment total of a spatial quantity.
 
 A model domain and a catchment are not the same surface. A mesh takes in a buffer
-around the catchment, so a sum over the domain includes the neighbouring
+around the catchment, so a sum over the domain includes the neighboring
 basins: measured on the Nancon at 25 m, 152.2 km2 of domain against 64.6 km2 of
 catchment, and 2.119 m3/s of drain outflow against 0.888 m3/s inside the basin.
 A discharge series compared to a gauge has to be the water that gauge sees, so
 the sum is restricted to the basin of D the build stored on the model. A model
 without one falls back on the old support ``polygon_covers``: the cells whose
-centre the catchment polygon covers.
+center the catchment polygon covers.
 
 The polygon is read by
 :func:`hydromodpy.spatial.geographic.delineated_catchment.catchment_outline`,
@@ -52,7 +52,7 @@ logger = get_logger(__name__)
 
 
 def polygon_cell_mask(geographic: object | None, solver_mesh: Any) -> np.ndarray | None:
-    """Cells whose centre the catchment polygon covers, None without a polygon.
+    """Cells whose center the catchment polygon covers, None without a polygon.
 
     The old support ``polygon_covers``. The build compares the basin of D with
     it, and a model without a basin of D sums its discharge over it. The polygon
@@ -107,10 +107,10 @@ def catchment_cell_mask(model: Any) -> np.ndarray:
     A model on a synthetic domain sums over every cell: the domain is its own
     support, as its budget carries the domain row alone. A model without a
     basin of D (or whose basin is only the largest one of a domain with neither
-    outlet nor polygon) sums over the cells whose centre the delineated
+    outlet nor polygon) sums over the cells whose center the delineated
     catchment covers. That support is refused by name rather than defaulted to
     the whole domain: without the polygon nothing can say which water a gauge
-    closes on, and a discharge objective scored on the wrong support optimises
+    closes on, and a discharge objective scored on the wrong support optimizes
     against the wrong water while looking perfectly healthy.
     """
     basin = getattr(model, "descent_basin", None)
@@ -195,7 +195,7 @@ def run_basin(geographic: object | None, solver_mesh: Any, descent: Descent) -> 
 
     The outlet is searched near the point the catchment was closed on (the
     snapped outlet, else the declared one), else inside the watershed polygon
-    (cells whose centre it covers), else the basin is only the largest one of
+    (cells whose center it covers), else the basin is only the largest one of
     the domain. Call it before D drops its adjacency. The polygon is compared
     with the basin: a gap above ``CATCHMENT_MISMATCH_WARNING_SHARE`` of its
     area is a warning, as in the stream criterion.

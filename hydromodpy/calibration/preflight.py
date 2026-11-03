@@ -687,7 +687,7 @@ def _check_outputs(calibration: Any, source: Path, project_config: Any) -> list[
     The geometry is looked for exactly where the run looks for it, so a file
     preflight calls missing is one the run would call missing too. A declared
     ``observed_network`` or ``minimal_observed_network`` is faced with the
-    project the same way a parameter's name is faced with the catalogue:
+    project the same way a parameter's name is faced with the catalog:
     refused here beside whatever else is wrong, rather than at the first trial.
     """
     from hydromodpy.calibration.observations.network_source import (
@@ -1224,7 +1224,7 @@ def _budgets(calibration: Any) -> list[tuple[str, str, list[str], Any, float | N
 def _check_the_interval_widths(calibration: Any) -> list[PreflightFinding]:
     """Refuse a share of the best cost on a search scored only by network distances.
 
-    A share is a fraction of the best cost. A network distance is in metres and
+    A share is a fraction of the best cost. A network distance is in meters and
     solved at zero, so a fraction of it says nothing about how far a stream may
     move. The width is read after the last solve, so this is where it is named,
     before any of it is paid for.
@@ -1434,7 +1434,7 @@ def _search_candidates(calibration: Any) -> list[tuple[Any | None, str, list[str
 def _outputs_scored_by_search(calibration: Any, phase: Any | None) -> dict[str, Any]:
     """Return the outputs one search scores, keyed by name.
 
-    Generalises the selection :func:`_linearized_scored_outputs` builds for a
+    Generalizes the selection :func:`_linearized_scored_outputs` builds for a
     linearized width to every search: naming no block reads every declared
     output, naming no output reads what the blocks read. A single-metric
     phase (its own ``variable``/``objective`` instead of blocks) never turns

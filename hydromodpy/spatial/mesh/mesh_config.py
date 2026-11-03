@@ -1,6 +1,6 @@
 """The ``[mesh]`` section: which engine meshes the model and how fine.
 
-User keys are sizes in metres, a path, or an intention per line family. Every
+User keys are sizes in meters, a path, or an intention per line family. Every
 algorithm setting is a DEV key with a fixed default. Without ``[mesh]`` the
 ``regular`` engine meshes the model with the DEM pixels. Every number of the
 mesh tables must be finite, since the planner and the engines read the sizes
@@ -302,14 +302,14 @@ class MeshConfig(HydroModelBase):
     transition_distance: Annotated[float, Profile.DEV] = Field(
         default=500.0,
         ge=0.0,
-        description="Distance in metres outside the catchment over which the cell size grows to its outside value.",
+        description="Distance in meters outside the catchment over which the cell size grows to its outside value.",
         json_schema_extra={"unit": "m"},
     )
     max_slope: Annotated[float, Profile.DEV] = Field(
         default=0.5,
         gt=0.0,
         le=1.0,
-        description="Largest growth of the cell size per metre of distance, which bounds the size ratio of two neighbours.",
+        description="Largest growth of the cell size per meter of distance, which bounds the size ratio of two neighbors.",
         json_schema_extra={"unit": "m/m"},
     )
     gap_cells: Annotated[float, Profile.DEV, VisibleWhen("engine", _TRIANGULATED_ENGINES)] = Field(

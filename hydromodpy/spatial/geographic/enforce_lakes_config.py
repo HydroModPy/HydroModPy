@@ -21,7 +21,7 @@ class LakeEnforcementConfig(HydroModelBase):
     already makes the water cross a lake, and the carve (a ramp toward the
     outlet, an outlet notch, a stream capture) moved neither the basin, the
     network nor the drains. The polygons stay a declared input for the two
-    steps that read them, the crossing notch and the bed regularisation.
+    steps that read them, the crossing notch and the bed regularization.
     """
 
     model_refused_keys: ClassVar[Mapping[str, str]] = {

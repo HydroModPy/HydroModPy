@@ -2,7 +2,7 @@
 
 A generated triangulation embeds every family line as mesh edges, so face
 families are exact. The ``rivers`` cell family is derived from its faces: the
-triangles on the left bank of each line, in order. Centres are the vertex
+triangles on the left bank of each line, in order. Centers are the vertex
 means the solvers use. gmsh is not reproducible, so the engine asks for a cache.
 """
 
@@ -134,7 +134,7 @@ def triangulate_request(request: MeshRequest) -> TriangulatedRequest:
 
 
 def _target_size(request: MeshRequest, centers: np.ndarray) -> np.ndarray:
-    """The cell size [m] the request asks for at each centre, for the QA."""
+    """The cell size [m] the request asks for at each center, for the QA."""
     if request.size_field is None:
         return np.full(len(centers), request.nominal_size_m)
     return request.size_field.sample(centers)

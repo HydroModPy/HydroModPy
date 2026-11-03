@@ -64,8 +64,8 @@ def rotated_strip_tensor(k_first: float, k_second: float, angle_deg: float) -> S
 class StoredStrip:
     """What one run stored.
 
-    ``x`` and ``y`` are in metres from the south-west corner, ``z`` is the
-    elevation of the cell centres. Arrays are ``(nlay, n_cells)``.
+    ``x`` and ``y`` are in meters from the south-west corner, ``z`` is the
+    elevation of the cell centers. Arrays are ``(nlay, n_cells)``.
     ``constant_head`` is the flow across the constant-head cells, in m3/s,
     positive into the aquifer.
     """

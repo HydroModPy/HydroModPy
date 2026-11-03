@@ -1,6 +1,6 @@
 """Custom lake-geometry data loader.
 
-Normalises a user-provided vector file (SHP/GPKG/GeoJSON) into the internal
+Normalizes a user-provided vector file (SHP/GPKG/GeoJSON) into the internal
 GeoParquet pivot and returns a :class:`FieldRecord` pointing at it.
 """
 

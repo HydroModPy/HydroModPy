@@ -53,7 +53,7 @@ INWARD_M = 1.0e-7
 """A seed this close to the ring of its cell [m] is moved this far inside it.
 
 A boundary seed lies on the ring of its clipped cell up to rounding, on the wrong
-side of it in a part of the cases. The port wants every centre inside its cell.
+side of it in a part of the cases. The port wants every center inside its cell.
 """
 
 

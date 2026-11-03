@@ -26,7 +26,7 @@ Notation
 --------
 
 Every quantity is per cell :math:`i`, or per edge :math:`e` between two cells, unless
-the table says otherwise. Lengths are in metres, times in seconds, rates in m/s.
+the table says otherwise. Lengths are in meters, times in seconds, rates in m/s.
 Every symbol of the site is on :doc:`notation`.
 
 .. dropdown:: Notation of this page
@@ -39,9 +39,9 @@ are in m/s, so they enter the balance multiplied by the area :math:`a_i`.
 From the Boussinesq equation to one residual per cell
 -----------------------------------------------------
 
-The solver does not discretise the differential form of the equation. It integrates
+The solver does not discretize the differential form of the equation. It integrates
 the balance over each triangle and writes the flux through each edge with a two-point
-formula between the centroids: a cell-centred finite-volume scheme with one head per
+formula between the centroids: a cell-centered finite-volume scheme with one head per
 cell. The space scheme is the descriptor ``FV_TRI_CELL_CENTERED`` in
 ``discretization/space.py``.
 
@@ -92,7 +92,7 @@ conserved across every edge.
 
 The thickness of the edge is the arithmetic mean, not the thickness of the donor
 cell. The flux therefore does not fall to zero when the cell that gives water is
-dry. On a sloping substratum a dry cell can sit higher than its wet neighbour and
+dry. On a sloping substratum a dry cell can sit higher than its wet neighbor and
 be asked to give water it does not hold. That is the case the lower obstacle
 handles (see `The lower obstacle`_).
 
@@ -145,7 +145,7 @@ carries :math:`\Phi^D_j = -R_j`, which is positive when water leaves the model
 through that cell. A constrained cell is a boundary, as in MODFLOW: its recharge,
 wells and drain do not act (``on_free_cells`` in ``assembly/inputs.py``), and a well
 placed there pumps nothing (the run warns). Its flux is the water its free
-neighbours send in or draw out, plus the change of its own storage when
+neighbors send in or draw out, plus the change of its own storage when
 :math:`H^D_j` changes between periods. The residual the run exports adds
 :math:`\Phi^D_j` back: it is zero on a constrained cell, and its sum is the closure
 error of the run (``_balance_residual_m3_s`` in ``drivers/state.py``).
@@ -318,7 +318,7 @@ The depth scale :math:`\delta` is :toml:`flow.runtime.partition_release_depth_m`
 default. A cell with an imposed head releases nothing: its constant-head flux
 carries the water it receives. The law follows the regularized partition of seepage
 and subsurface flow of :cite:t:`marcais2017`, smoothed over the depth of the water
-table in metres. The factor in front of :math:`\gamma_i`:
+table in meters. The factor in front of :math:`\gamma_i`:
 
 .. plot:: theory/figures/bq_partition.py
    :alt: The release factor against the depth of the water table below the land surface, on a linear and a log scale, for three depth scales.

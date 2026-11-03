@@ -282,9 +282,9 @@ class DataOverviewLauncher:
         """Resolve ``[geographic.crossings] path`` from ``[[data.crossings.sources]]`` if absent.
 
         Same shared resolver and same rule as the standard simulation pipeline:
-        read when the notch or the bed regularisation is on. The notch enabled
+        read when the notch or the bed regularization is on. The notch enabled
         with neither a path nor a source is refused here, where both are known;
-        the bed regularisation alone then fits without cuts.
+        the bed regularization alone then fits without cuts.
         """
         from hydromodpy.data.variables.crossings.resolver import (
             resolve_crossings_path_from_data_sources,

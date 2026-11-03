@@ -345,7 +345,7 @@ def apply_migrations(
     """Open ``db_path``, apply pending migrations, return the new version.
 
     Acquires a :class:`filelock.FileLock` on ``<db_path>.lock`` so concurrent
-    callers serialise their migration runs against the same physical database.
+    callers serialize their migration runs against the same physical database.
     Creates the parent directory of ``db_path`` if missing.
     """
     import duckdb

@@ -14,7 +14,7 @@ Three sources, in order of trust:
 3. The support's own sampling (``on_mesh``) otherwise: a raster map, and the
    analytical bands and rings, which keep their sampling.
 
-The fractions of a cell are normalised by the area its zones cover, so a cell
+The fractions of a cell are normalized by the area its zones cover, so a cell
 half outside the map still sums to one; a cell no zone reaches sums to zero.
 """
 

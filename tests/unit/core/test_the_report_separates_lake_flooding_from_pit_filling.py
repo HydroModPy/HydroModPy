@@ -1,7 +1,7 @@
 """The report counts a lake flooded to its spill apart from a pit filled outside lakes.
 
 On a plane rising to the north-east, one pit lies 2 m below its lowest
-neighbour and a lake of four cells lies 6 m below its own. ``n_raised`` and
+neighbor and a lake of four cells lies 6 m below its own. ``n_raised`` and
 ``max_raise_m`` see the pit alone, ``n_lake_flooded`` and ``max_lake_flood_m``
 the lake alone.
 """
@@ -21,10 +21,10 @@ LAKE = ((5, 5), (5, 6), (6, 5), (6, 6))
 def _plane() -> tuple[np.ndarray, np.ndarray]:
     rows, cols = np.meshgrid(np.arange(N), np.arange(N), indexing="ij")
     top = 10.0 + rows + cols
-    top[PIT] = 13.0  # lowest neighbour (1, 4) at 15
+    top[PIT] = 13.0  # lowest neighbor (1, 4) at 15
     lake_of = np.full(N * N, -1, dtype=int)
     for cell in LAKE:
-        top[cell] = 12.0  # lowest neighbour (4, 4) at 18
+        top[cell] = 12.0  # lowest neighbor (4, 4) at 18
         lake_of[cell[0] * N + cell[1]] = 0
     return top, lake_of
 

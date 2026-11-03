@@ -9,7 +9,7 @@ from hydromodpy.cli.helpers import apply_verbosity
 from hydromodpy.cli.output import emit
 
 NAME: str = "ls"
-HELP: str = "List artefacts indexed in the workspace cache"
+HELP: str = "List artifacts indexed in the workspace cache"
 
 
 def register(subparsers) -> argparse.ArgumentParser:

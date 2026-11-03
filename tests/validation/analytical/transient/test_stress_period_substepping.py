@@ -13,7 +13,7 @@ three statements that are easy to get backwards:
 2. A geometric partition (MODFLOW TSMULT) cannot help. Within a period the
    forcing is constant, so the backward-Euler end state is a commuting product
    over the steps: it depends on the multiset of step sizes and not on their
-   order, and equal steps minimise its error. A growth ratio and its reciprocal
+   order, and equal steps minimize its error. A growth ratio and its reciprocal
    give the same error, both worse than equal steps. This is why HydroModPy
    declares TSMULT = 1 and exposes no growth field.
 3. Adaptive time stepping must not undo the request. MF6 ignores the TDIS NSTP

@@ -4,7 +4,7 @@
 ``geographic: object``, which is why F5b's ``DataSource`` port left it
 unported: its selector is a point, not a box. The point is now declared --
 either the gauges are named with ``station_ids``, or the extent gives the
-shape whose centre the nearest gauge is searched from.
+shape whose center the nearest gauge is searched from.
 
 **The named station wins over an injected mask, and that is the composition
 this file exists to hold.** ``_apply_default_masks`` fills ``mask_path`` on
@@ -33,7 +33,7 @@ from hydromodpy.data.variables.oceanic.manager import OceanicManager
 
 PERIOD = (datetime(2003, 1, 1), datetime(2003, 1, 30))
 
-# A coastal basin near Brest, in Lambert-93. Its centre is around 48.4 N, 4.5 W.
+# A coastal basin near Brest, in Lambert-93. Its center is around 48.4 N, 4.5 W.
 BREST_BASIN_2154 = Polygon(
     [
         (145000.0, 6830000.0),
@@ -118,7 +118,7 @@ def test_no_selector_at_all_is_refused(monkeypatch):
 
 @pytest.mark.fast
 def test_a_mask_gives_the_point_to_search_from_in_degrees(tmp_path, monkeypatch):
-    """Anti-vacuity: the mask is in metres, so an unconverted centre is ~6.84e6."""
+    """Anti-vacuity: the mask is in meters, so an unconverted center is ~6.84e6."""
     captured = _capture(monkeypatch)
     source = OceanicSourceConfig(source="shom", mask_path=_mask(tmp_path))
 

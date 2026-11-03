@@ -1,4 +1,4 @@
-"""The run store keeps the cell mesh once, with its centres, families and edges.
+"""The run store keeps the cell mesh once, with its centers, families and edges.
 
 ``step_persist_mesh`` writes the geometry and the layout before the run. The solver
 extractors add the vertical part afterwards and never rewrite vertices or

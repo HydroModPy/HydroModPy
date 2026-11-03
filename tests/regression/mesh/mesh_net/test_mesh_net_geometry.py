@@ -5,7 +5,7 @@ well-and-stream strip (cells from 4 m to 60 m). The refactor of the mesh engines
 must keep these numbers: cell counts exactly, areas and quantiles within the
 "Mesh characterization net" bands of ``tests/TOLERANCES.md``.
 Five probe points per bundle pin the mesh in space: the quantiles are blind to a
-mirrored or rotated mesh, the area and centre of the cell under a fixed
+mirrored or rotated mesh, the area and center of the cell under a fixed
 coordinate are not. Refresh the golden on purpose with ``--update-goldens``.
 """
 

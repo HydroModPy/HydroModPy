@@ -51,7 +51,7 @@ from tests.regression.golden_utils import (
 )
 
 # Outlet of the committed regional DEM catchment (EPSG:2154); the synthetic lake
-# polygon is centred here so it lands inside the delineated catchment / DISV
+# polygon is centered here so it lands inside the delineated catchment / DISV
 # active area.
 _X_OUTLET = 265611.933
 _Y_OUTLET = 6784182.776

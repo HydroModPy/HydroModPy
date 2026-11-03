@@ -13,7 +13,7 @@ Setup:
   centroids of the triangles that own those edges (x = 10/3 and 100 - 10/3 m);
   on the Voronoi dual, one cell per node, they are held on the nodes of the
   faces (x = 0 and 100 m), on the generated mesh on its seeds of the sides (the
-  first and the last abscissa of its cell centres),
+  first and the last abscissa of its cell centers),
   no-flow north and south, no recharge,
 - an aquifer from -1000 to 1000 m with K = 1e-4 m/s: the transmissivity is
   uniform to 2e-4,

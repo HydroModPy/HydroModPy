@@ -99,7 +99,7 @@ C_n = \max\!\left(\frac{K_n\,a_n}{b_d},\ C_\mathrm{min}\right).
 $$ (eq-drain-conductance)
 
 The thickness $b_d$ is that of the clogging layer at the bottom of a
-watercourse, decimetres to a metre. It is not the thickness of an aquifer layer.
+watercourse, decimeters to a meter. It is not the thickness of an aquifer layer.
 A cell passes its own recharge when the head stands above the drain elevation by
 
 $$

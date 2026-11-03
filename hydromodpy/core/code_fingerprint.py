@@ -6,7 +6,7 @@ patch that only rewrites a figure moves it, and an unreleased edit of a solver
 does not. So the identity of a run and the cache of a calibration read the code
 itself, through :func:`code_fingerprint`.
 
-Each Python file is normalised with :mod:`tokenize`. Comments, docstrings and the
+Each Python file is normalized with :mod:`tokenize`. Comments, docstrings and the
 line layout go, so an edit of a docstring or a reflow of a call moves nothing,
 while any change of the code does. An f-string is kept as one token, the form
 Python 3.11 gives it, so one tree has one fingerprint from Python 3.11 to 3.13.
@@ -20,7 +20,7 @@ two lists equal to the matrix, so a new layer has to be classified. The package
 data that a computation reads enters with its layer (:data:`COMPUTE_DATA_FILES`).
 
 Tokenizing the scope costs about a second on Python 3.13 and more on Python 3.11,
-so the digest of a normalised file is kept on disk under the digest of its bytes,
+so the digest of a normalized file is kept on disk under the digest of its bytes,
 and only a file that changed is tokenized again. The table is cached per process.
 This module imports nothing heavy, because it runs before a skipped run returns.
 """
@@ -89,7 +89,7 @@ not list, so a new table has to be classified.
 """
 
 _RECIPE: Final[int] = 1
-"""Version of the normalisation. It enters every digest and names the disk cache."""
+"""Version of the normalization. It enters every digest and names the disk cache."""
 
 _CACHE_FILENAME: Final[str] = f"code_fingerprint.v{_RECIPE}.json"
 
@@ -111,7 +111,7 @@ _per_process: dict[tuple[Path, str], str] = {}
 def code_fingerprint(layers: Iterable[str] = COMPUTE_LAYERS) -> dict[str, str]:
     """Return ``{layer: digest}`` for *layers*, the whole compute scope by default.
 
-    The digest of a layer covers the normalised text of its Python files and the
+    The digest of a layer covers the normalized text of its Python files and the
     bytes of its data files, under their paths in the package. The result is
     cached per process, and it is the one function the identity of a run and the
     calibration cache read.
@@ -237,7 +237,7 @@ def _layer_files(root: Path, layer: str) -> list[Path]:
 
 
 def _file_digest(path: Path, digests: dict[str, str]) -> str:
-    """Return the digest of one file: normalised text for Python, bytes for data."""
+    """Return the digest of one file: normalized text for Python, bytes for data."""
     raw = path.read_bytes()
     if path.suffix != ".py":
         return hashlib.sha256(raw).hexdigest()

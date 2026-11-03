@@ -63,7 +63,7 @@ _FIGURE_KWARGS: dict[str, dict] = {"calibration_pairplot": {"parameters": ["K", 
 
 
 def _kge_cost(observed: np.ndarray, simulated: np.ndarray) -> float:
-    """Mirror ``calibrate_brutsaert`` which minimises ``1 - KGE``."""
+    """Mirror ``calibrate_brutsaert`` which minimizes ``1 - KGE``."""
     return 1.0 - float(_kge_metric(simulated, observed)["kge"])
 
 

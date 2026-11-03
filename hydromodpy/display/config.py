@@ -66,7 +66,7 @@ def time_selector(value: Any, where: str) -> str | int | None:
 
 
 class DisplayConfig(HydroModelBase):
-    """Display behaviour resolved from the ``[display]`` TOML section."""
+    """Display behavior resolved from the ``[display]`` TOML section."""
 
     model_refused_keys: ClassVar[Mapping[str, str]] = {
         "output_dir": (

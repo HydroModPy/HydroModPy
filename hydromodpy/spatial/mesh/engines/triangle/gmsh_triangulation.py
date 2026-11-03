@@ -4,7 +4,7 @@ The driver nodes the family lines with the domain boundary in shapely, hands
 gmsh one point per vertex and one straight curve per segment (``geo`` kernel,
 no OCC fragment), embeds the interior segments in the plane surface and meshes
 it under the size field of the request. Coordinates are shifted to an origin
-rounded to the kilometre while gmsh runs, so its tolerances act on small
+rounded to the kilometer while gmsh runs, so its tolerances act on small
 numbers.
 
 A cell size of the request is the side of the square of the same mean area.
@@ -58,7 +58,7 @@ and 200 m, the triangle count is ``A / l^2`` within 3 per cent for each algorith
 """
 
 _ORIGIN_STEP_M = 1000.0
-"""The shift origin is the domain centre rounded to this step [m]."""
+"""The shift origin is the domain center rounded to this step [m]."""
 
 _ON_LINE_M = 1.0e-6
 """A noded vertex within this distance [m] of a line splits it."""
@@ -194,7 +194,7 @@ def _write_size_field(
 ) -> None:
     """Hand the size field times *scale* to gmsh as a ``Structured`` background field.
 
-    The nodes are the pixel centres. A field above :data:`_MAX_FIELD_NODES`
+    The nodes are the pixel centers. A field above :data:`_MAX_FIELD_NODES`
     nodes is coarsened by an integer factor, keeping the minimum of each block.
     """
     grid = size_field.grid

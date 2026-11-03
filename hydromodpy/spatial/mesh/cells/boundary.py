@@ -1,4 +1,4 @@
-"""Cells of the outer sides, of the river and of a labelled family of a cell mesh.
+"""Cells of the outer sides, of the river and of a labeled family of a cell mesh.
 
 Every solver reads the cells that carry a side boundary, a stream boundary or a
 named family through these three functions, whatever the mesh engine. The
@@ -6,7 +6,7 @@ families come from the face rows and the cell chains of the ``PlanarCellMesh``.
 
 A Dirichlet head on a side is applied to the cells ``side_cells`` names, and those
 cells are not at the same distance from the side on every engine: half a cell on a
-regular grid, a third of a triangle height on triangles, nothing on a mesh centred
+regular grid, a third of a triangle height on triangles, nothing on a mesh centered
 on its generators. The mesh keeps that position, and the QA states it.
 """
 
@@ -47,10 +47,10 @@ def side_cells(cell_mesh: PlanarCellMesh, side: str) -> np.ndarray:
     ``side`` is ``west_side``, ``east_side``, ``south_side`` or ``north_side``.
     The cells are those with a face in the family ``boundary:<side>``: half a
     cell inside the domain on a regular grid, the cells touching the side on
-    triangles. On a mesh centred on its generators (the Voronoi dual), a Dirichlet
-    head belongs on the boundary: the side takes the cells whose centre lies on
+    triangles. On a mesh centered on its generators (the Voronoi dual), a Dirichlet
+    head belongs on the boundary: the side takes the cells whose center lies on
     it, within ``1e-6`` of the cell size, and falls back to the cells with a face
-    on the side, with a warning, when no centre lies there.
+    on the side, with a warning, when no center lies there.
     """
     if side not in SIDE_IDS:
         raise ValueError(f"Unsupported side boundary id: {side}")
@@ -71,7 +71,7 @@ def side_cells(cell_mesh: PlanarCellMesh, side: str) -> np.ndarray:
 
 
 def _cells_centred_on_side(cell_mesh: PlanarCellMesh, side: str) -> np.ndarray:
-    """Return the cells whose centre lies on one side of the vertex box."""
+    """Return the cells whose center lies on one side of the vertex box."""
     vertices = np.asarray(cell_mesh.mesh.vertices, dtype=float)
     axis = 0 if side in ("west_side", "east_side") else 1
     edge = (
@@ -118,11 +118,11 @@ def label_cells(cell_mesh: PlanarCellMesh, label: str) -> np.ndarray:
 
 
 SIDE_OFFSET_KEY = "side_center_offset_m_p50"
-"""Key of the median side-centre distance in ``MeshQA.extras``."""
+"""Key of the median side-center distance in ``MeshQA.extras``."""
 
 
 def side_center_offset_m(cell_mesh: PlanarCellMesh) -> np.ndarray:
-    """Return the distance [m] from the centre of each side cell to its side.
+    """Return the distance [m] from the center of each side cell to its side.
 
     One value per pair of a side and a cell that carries it, on the four sides of
     the box of the vertices. Empty when no side family exists.
@@ -144,10 +144,10 @@ def side_center_offset_m(cell_mesh: PlanarCellMesh) -> np.ndarray:
 
 
 def annotate_side_cells(cell_mesh: PlanarCellMesh, statement: str) -> PlanarCellMesh:
-    """Return ``cell_mesh`` with the engine's side statement and the side-centre offset in its QA.
+    """Return ``cell_mesh`` with the engine's side statement and the side-center offset in its QA.
 
     ``statement`` says which cells carry a side head on this engine. The median
-    distance of their centres to the side is added to ``qa.extras`` when the mesh
+    distance of their centers to the side is added to ``qa.extras`` when the mesh
     has a side. The derived geometry is carried over, not computed again.
     """
     offsets = side_center_offset_m(cell_mesh)

@@ -33,7 +33,7 @@ Il faudra un répertoire modflow avec le code du modèle. Le reste (paramètres 
 
 Bibliothèques :
 Possibilité de conflits, réflexion en cours à ce sujet côté aquifr.
-**Côté hmp : faire une liste des bibliothèques qu'on utilise**
+**Côté hmp : faire une liste des bibliothèques qu'on utilize**
 
 #### Méthode de travail
 

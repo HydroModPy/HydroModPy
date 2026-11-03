@@ -26,7 +26,7 @@ question and answers it *before* anything runs:
 - It is the surface ``hmp run --frozen`` verifies before launching, and the
   reference ``hmp lock verify`` compares the cache against. A manifest is
   written when a run ends, so it cannot gate one that has not started.
-- It is an input-side artefact, the sibling of ``project.toml`` and
+- It is an input-side artifact, the sibling of ``project.toml`` and
   ``configs/`` that a user commits next to them, exactly as ``poetry.lock``
   sits next to ``pyproject.toml``. Moving it under ``.hmp/`` would file a
   hand-readable reproducibility pin inside the internal area that

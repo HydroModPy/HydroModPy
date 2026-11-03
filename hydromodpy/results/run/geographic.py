@@ -152,7 +152,7 @@ class RunGeographicMixin:
         """Scalar grid metadata: cell_size, shape, extent, CRS, area.
 
         Raises ``RuntimeError`` for lumped simulations (``solver_category``
-        ``"lumped"``) which have no spatial discretisation, or when
+        ``"lumped"``) which have no spatial discretization, or when
         geographic metadata has not been ingested.
         """
         from hydromodpy.results.grid import build_grid
@@ -252,7 +252,7 @@ class RunGeographicMixin:
             Optional layer index, 0 for the top layer, for three-dimensional fields.
         bbox
             Optional ``(xmin, ymin, xmax, ymax)`` in the simulation CRS.
-            Cells whose centre (``run.mesh.cell_centers()``) falls outside the
+            Cells whose center (``run.mesh.cell_centers()``) falls outside the
             bounding box are set to ``NaN`` (for float dtypes) or ``0`` (for
             integer dtypes). The shape of the array does not change.
 
@@ -504,9 +504,9 @@ def _apply_bbox_mask(
     array: np.ndarray,
     bbox: tuple[float, float, float, float],
 ) -> np.ndarray:
-    """Mask cells whose centre is outside ``bbox`` (xmin, ymin, xmax, ymax).
+    """Mask cells whose center is outside ``bbox`` (xmin, ymin, xmax, ymax).
 
-    The centres are the ones of the run's own mesh, ``Mesh.cell_centers()``,
+    The centers are the ones of the run's own mesh, ``Mesh.cell_centers()``,
     so the selection is right on any mesh, not only on a grid of DEM pixels.
     The last axis of ``array`` is the cell axis.
     """

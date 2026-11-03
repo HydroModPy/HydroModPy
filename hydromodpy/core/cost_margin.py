@@ -2,7 +2,7 @@
 
 A margin carries its unit. ``"5%"`` is a share of the best cost, which suits an
 efficiency score. ``"75 m"`` is a length, which suits a criterion that is a
-network distance in metres and is solved at zero, where a share of the best has
+network distance in meters and is solved at zero, where a share of the best has
 nothing to take a fraction of. A bare number is refused: it said nothing about
 which of the two it was.
 """
@@ -27,7 +27,7 @@ _LENGTH = re.compile(rf"^({_NUMBER})\s*([A-Za-z]+)$")
 
 @dataclass(frozen=True)
 class CostMargin:
-    """A margin read: a fraction of the best cost, or a length in metres."""
+    """A margin read: a fraction of the best cost, or a length in meters."""
 
     kind: MarginKind
     value: float
@@ -37,7 +37,7 @@ def parse_cost_margin(value: object, *, label: str = "cost_margin") -> CostMargi
     """Return the margin *value* writes, or raise ``ValueError`` naming *label*.
 
     ``"5%"`` reads as a fraction, 0.05, of the best cost. ``"75 m"``, or any
-    other length unit, reads as metres.
+    other length unit, reads as meters.
     """
     if not isinstance(value, str):
         raise ValueError(f"{label} = {value!r} has no unit: {NEEDS_A_UNIT}.")

@@ -1,7 +1,7 @@
 """Result-storage layout contract: what one run and one session directory hold.
 
 A project keeps one index database, one directory per run and one directory
-per calibration session. Every artefact is written in the directory of what
+per calibration session. Every artifact is written in the directory of what
 produced it, under a name fixed by its class::
 
     <project>/.hmp/index.duckdb          index, rebuildable from the disk
@@ -33,7 +33,7 @@ produced it, under a name fixed by its class::
         phases/<phase>/session.json      descriptor of one phase: status, frozen, best
         trials/<n>/                      kept trials, each in the form of a run
         trial_series/trial-NNNNNN.parquet  opt-in: simulated/observed series of one trial
-        candidates/                      TOML overlays of materialised candidates
+        candidates/                      TOML overlays of materialized candidates
         README.md  figures/  report/  logs/
 
 The run directory name is the human run name (with its ``.vN`` version
@@ -184,7 +184,7 @@ ALLOWED_RUN_ENTRIES: frozenset[str] = (
     )
     | UNSEALED_RUN_ENTRIES
 )
-"""Every name a run directory may carry as an artefact.
+"""Every name a run directory may carry as an artifact.
 
 Anything else found in a run directory is either the runtime scratch named by
 :data:`RUN_SCRATCH_ENTRIES` or something the run did not declare.
@@ -195,7 +195,7 @@ RUN_SCRATCH_ENTRIES: frozenset[str] = frozenset({INTERNAL_DIRNAME})
 
 A run takes its locks under ``<run>/.hmp/locks/``. It is machine state with the
 lifetime of the process, like the pipeline log, so the seal does not inventory
-it: a manifest that lists a lock directory as an artefact of the run describes
+it: a manifest that lists a lock directory as an artifact of the run describes
 the machine that ran it, not the run.
 """
 
@@ -218,7 +218,7 @@ SESSION_PHASES_DIRNAME = "phases"
 """One descriptor directory per phase of a staged calibration."""
 
 SESSION_CANDIDATES_DIRNAME = "candidates"
-"""TOML overlays of the candidates a session materialised."""
+"""TOML overlays of the candidates a session materialized."""
 
 SESSION_METHODS_FILENAME = "methods.md"
 """The calibration method, in words, for the reader of the session."""

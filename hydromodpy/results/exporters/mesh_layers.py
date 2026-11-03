@@ -4,11 +4,11 @@ Three layers describe the mesh a run was solved on:
 
 ``mesh_cells``
     One polygon per cell, with its area, the families it belongs to, its zone,
-    its topography and its quality (centre offset, neighbour ratio,
+    its topography and its quality (center offset, neighbor ratio,
     non-orthogonality, bisection offset, smallest and largest angle,
     concavity).
 ``mesh_seeds``
-    One point per cell, at the centre the solver used, with the rule that
+    One point per cell, at the center the solver used, with the rule that
     placed it and the families of the cell.
 ``mesh_family_faces``
     One segment per face that lies on a line family (a barrier, a boundary),

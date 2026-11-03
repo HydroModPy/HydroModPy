@@ -159,7 +159,7 @@ def _absorb_stale_wal(
 
 
 def _precreate_with_block_size(db_path: str, block_size: int) -> None:
-    """Materialise a new DuckDB file with ``block_size`` before the real open.
+    """Materialize a new DuckDB file with ``block_size`` before the real open.
 
     ATTACHes the not-yet-existing file with the requested block size and
     checkpoints so the header records it; subsequent plain ``connect()`` calls
@@ -168,7 +168,7 @@ def _precreate_with_block_size(db_path: str, block_size: int) -> None:
     DuckDB registers attached database files process-wide, and the entry
     outlives the file: a connection still open on a path someone deleted keeps
     that path claimed although it is gone from disk. Sizing blocks is a
-    footprint optimisation, never a reason to refuse a connection, so that one
+    footprint optimization, never a reason to refuse a connection, so that one
     conflict is skipped and the caller falls through to a plain open. Every
     other failure propagates.
     """

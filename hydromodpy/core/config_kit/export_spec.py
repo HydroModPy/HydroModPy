@@ -718,7 +718,7 @@ def plan_outputs(
 
 
 def _check_plan(request: ExportRequest, planned: list[PlannedFile]) -> None:
-    """Refuse the keys no planned file can honour, and a file that is several."""
+    """Refuse the keys no planned file can honor, and a file that is several."""
     formats = {item.format for item in planned}
     flat = formats & NON_REPROJECTING_FORMATS
     # "all" takes each data in its format, so crs reprojects the ones that can be.

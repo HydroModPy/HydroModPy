@@ -92,7 +92,7 @@ def test_specified_outlet_has_no_geometry() -> None:
 
 def test_specified_outlet_emits_a_period_rate_row() -> None:
     # A SPECIFIED outlet must emit a PERIOD 'rate' row keyed by the global outlet
-    # number, else MF6 initialises the rate to zero and the outlet releases nothing.
+    # number, else MF6 initializes the rate to zero and the outlet releases nothing.
     from hydromodpy.solver.modflow6.builders.lake import _emit_outlet_rate_rows
 
     lakes = {

@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 class GeoFigureMixin:
     """Helpers for figures drawn on projected (x,y) axes.
 
-    The mixin assumes axes are in a projected CRS whose units are metres
+    The mixin assumes axes are in a projected CRS whose units are meters
     (this is the HydroModPy convention - all meshes live in a metric CRS).
     """
 

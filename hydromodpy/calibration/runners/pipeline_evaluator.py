@@ -1,7 +1,7 @@
 """The evaluator that runs HydroModPy itself, and the default of every document.
 
 It holds exactly what ``cli_runner`` held before it: a prepared trial context, a
-RAM metric extractor, and the water-budget rejection threshold. The behaviour is
+RAM metric extractor, and the water-budget rejection threshold. The behavior is
 unchanged on purpose -- F9a moves the call behind a name, it does not move a
 number. What it gains is a place: building the metric extractor needs
 ``trial_ctx.ctx``, so it belongs to the evaluator that owns a trial context and

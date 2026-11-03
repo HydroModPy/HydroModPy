@@ -112,7 +112,7 @@ class ScipyDEMethodConfig(BaseModel):
 class ScipyNelderMeadMethodConfig(BaseModel):
     """A local simplex, ``scipy.optimize.minimize(method='Nelder-Mead')``.
 
-    It starts from the centre of the sampling, or from the value an earlier
+    It starts from the center of the sampling, or from the value an earlier
     phase passed on. It is the method a search that names none gets when its cost has
     no sign to bracket. Use it when the range is already narrow, or to refine
     the result of a coarse search.
@@ -257,7 +257,7 @@ class GPMappingMethodConfig(BaseModel):
     )
     n_restarts: int = Field(
         default=5,
-        description="Starts of the optimiser that maximises the acquisition.",
+        description="Starts of the optimiser that maximizes the acquisition.",
     )
     n_refine: int | None = Field(
         default=None,

@@ -151,7 +151,7 @@
     },
     "BedRegularizationConfig": {
       "additionalProperties": false,
-      "description": "Least-change regularisation of the channel bed in the model top.\n\nA DEM read along its own channel rises downstream at many pixels: a deck, a\nhedge, a resampling artefact. A drain or a stream cell on such a rise cannot\ndrain into the next one. On the pixels of the generated channel tree only,\nthe regularisation fits the bed closest to the ground in least squares that\nnever rises downstream (the isotonic regression on a tree of Pardalos and\nXue, 1999), raising and lowering alike, then gives every pooled flat a\nminimum drop centred on its level. The pixels a crossing notch lowered are\ngaps: interpolated along the channel, never pulling the fit. A declared\nweir or dam cuts the tree, so its drop is kept, and a declared lake is left\nout with its surface.\n\nIt writes a regularised copy of the ground, and the model top and the SFR\nbed read it, so drains and stream reaches see one bed. The routing DEM, the\nchannel tree, the catchment and the mesh never read that copy.",
+      "description": "Least-change regularization of the channel bed in the model top.\n\nA DEM read along its own channel rises downstream at many pixels: a deck, a\nhedge, a resampling artifact. A drain or a stream cell on such a rise cannot\ndrain into the next one. On the pixels of the generated channel tree only,\nthe regularization fits the bed closest to the ground in least squares that\nnever rises downstream (the isotonic regression on a tree of Pardalos and\nXue, 1999), raising and lowering alike, then gives every pooled flat a\nminimum drop centered on its level. The pixels a crossing notch lowered are\ngaps: interpolated along the channel, never pulling the fit. A declared\nweir or dam cuts the tree, so its drop is kept, and a declared lake is left\nout with its surface.\n\nIt writes a regularized copy of the ground, and the model top and the SFR\nbed read it, so drains and stream reaches see one bed. The routing DEM, the\nchannel tree, the catchment and the mesh never read that copy.",
       "properties": {
         "enabled": {
           "default": false,
@@ -376,7 +376,7 @@
     },
     "CalibNetworkBoundWeights": {
       "additionalProperties": false,
-      "description": "How the two bounds of a network output share one calibrated value.\n\nA root search closes one root per bound and returns the weighted geometric\nmean, ``log K = minimal * log K*_minimal + maximal * log K*_maximal``. A\nminimiser has no root to combine and minimises\n``minimal * |J_minimal| + maximal * |J_maximal|`` instead, which tends to\nland on one of the two roots rather than between them.",
+      "description": "How the two bounds of a network output share one calibrated value.\n\nA root search closes one root per bound and returns the weighted geometric\nmean, ``log K = minimal * log K*_minimal + maximal * log K*_maximal``. A\nminimiser has no root to combine and minimizes\n``minimal * |J_minimal| + maximal * |J_maximal|`` instead, which tends to\nland on one of the two roots rather than between them.",
       "properties": {
         "minimal": {
           "default": 0.5,
@@ -1252,7 +1252,7 @@
         },
         "diagonal_neighbors": {
           "default": true,
-          "description": "Descend over shared nodes, the eight D8 neighbours of a quad mesh. True is the paper: its distances are traced by WhiteboxTools on a D8 pointer, and the delineation that produced the catchment uses one too. False descends over shared edges only, four neighbours (D4), and departs from the paper. It is not a second-decimal choice: on a synthetic valley whose talweg runs along the grid diagonal, the most accumulated cell collects 100 per cent of the domain over shared nodes and 6.6 per cent over shared edges. On a mesh whose faces are not all quadrilaterals no cell has a diagonal and the descent walks shared edges either way; on a Voronoi mesh the two graphs are the same one.",
+          "description": "Descend over shared nodes, the eight D8 neighbors of a quad mesh. True is the paper: its distances are traced by WhiteboxTools on a D8 pointer, and the delineation that produced the catchment uses one too. False descends over shared edges only, four neighbours (D4), and departs from the paper. It is not a second-decimal choice: on a synthetic valley whose talweg runs along the grid diagonal, the most accumulated cell collects 100 per cent of the domain over shared nodes and 6.6 per cent over shared edges. On a mesh whose faces are not all quadrilaterals no cell has a diagonal and the descent walks shared edges either way; on a Voronoi mesh the two graphs are the same one.",
           "examples": [
             true
           ],
@@ -1612,7 +1612,7 @@
             }
           ],
           "default": null,
-          "description": "GeoJSON point geometry. Coordinates are in metres.",
+          "description": "GeoJSON point geometry. Coordinates are in meters.",
           "title": "Geometry",
           "x-hmp-profile": "user"
         },
@@ -1666,7 +1666,7 @@
             }
           ],
           "default": null,
-          "description": "X coordinate. Accepts a bare number (metres) or a pint string like '100 m'. Beside 'observes' it is not read, and loading warns so, unless snap_radius is set and the station's record carries no coordinate.",
+          "description": "X coordinate. Accepts a bare number (meters) or a pint string like '100 m'. Beside 'observes' it is not read, and loading warns so, unless snap_radius is set and the station's record carries no coordinate.",
           "title": "X",
           "x-hmp-profile": "user"
         },
@@ -1720,7 +1720,7 @@
             }
           ],
           "default": null,
-          "description": "Y coordinate. Accepts a bare number (metres) or a pint string like '100 m'. Beside 'observes' it is not read, as for 'x'.",
+          "description": "Y coordinate. Accepts a bare number (meters) or a pint string like '100 m'. Beside 'observes' it is not read, as for 'x'.",
           "title": "Y",
           "x-hmp-profile": "user"
         },
@@ -1856,7 +1856,7 @@
     },
     "CalibParameterDecl": {
       "additionalProperties": false,
-      "description": "User declaration for one calibrated parameter.\n\nThe declaration is read from ``[calibration.parameters.<name>]``, and the\nsection name is the quantity: it is resolved against the catalogue the\nproject exposes, so a file states the range and nothing else. Writing\n``path`` is the way out for whatever the catalogue does not reach, and it\nwins without a lookup.\n\nUse ``mode=\"replace\"`` for direct parameter values and ``mode=\"scale\"``\nfor multiplicative factors applied to an existing config value.",
+      "description": "User declaration for one calibrated parameter.\n\nThe declaration is read from ``[calibration.parameters.<name>]``, and the\nsection name is the quantity: it is resolved against the catalog the\nproject exposes, so a file states the range and nothing else. Writing\n``path`` is the way out for whatever the catalog does not reach, and it\nwins without a lookup.\n\nUse ``mode=\"replace\"`` for direct parameter values and ``mode=\"scale\"``\nfor multiplicative factors applied to an existing config value.",
       "properties": {
         "bounds": {
           "anyOf": [
@@ -3136,7 +3136,7 @@
     },
     "CappedBreachConfig": {
       "additionalProperties": false,
-      "description": "Limits of the ``capped_breach`` DEM conditioning, in metres.\n\nRead only when ``[geographic] dem_correc_type = \"capped_breach\"``. Least-cost\nbreaching digs a path through the barrier that closes a depression. These two\nlimits bound that digging, and whatever they refuse is filled instead. Both\nare given in metres but the tool counts along the cells of a path (a sum of\nlowerings, a number of cells), so a given value does not mean the same thing\nat every grid resolution: see each field.",
+      "description": "Limits of the ``capped_breach`` DEM conditioning, in meters.\n\nRead only when ``[geographic] dem_correc_type = \"capped_breach\"``. Least-cost\nbreaching digs a path through the barrier that closes a depression. These two\nlimits bound that digging, and whatever they refuse is filled instead. Both\nare given in meters but the tool counts along the cells of a path (a sum of\nlowerings, a number of cells), so a given value does not mean the same thing\nat every grid resolution: see each field.",
       "properties": {
         "max_depth": {
           "anyOf": [
@@ -3271,7 +3271,7 @@
         },
         "disp_long": {
           "default": 0.0,
-          "description": "Longitudinal dispersivity, in metres.",
+          "description": "Longitudinal dispersivity, in meters.",
           "examples": [
             0.0
           ],
@@ -3908,7 +3908,7 @@
     },
     "CustomCrossingsSource": {
       "additionalProperties": false,
-      "description": "User-provided crossings file (SHP/GPKG/GeoJSON).\n\nThe file needs a ``kind`` column holding one of ``road``, ``railway``,\n``bridge``, ``weir``, ``dam`` or ``other``. ``name`` and ``drop_m`` (the\ndrop of a weir or a dam, in metres) are read when present.",
+      "description": "User-provided crossings file (SHP/GPKG/GeoJSON).\n\nThe file needs a ``kind`` column holding one of ``road``, ``railway``,\n``bridge``, ``weir``, ``dam`` or ``other``. ``name`` and ``drop_m`` (the\ndrop of a weir or a dam, in meters) are read when present.",
       "properties": {
         "source": {
           "const": "custom",
@@ -4322,7 +4322,7 @@
     },
     "CustomLayerBaseSource": {
       "additionalProperties": false,
-      "description": "User-provided raster of the base of one layer (GeoTIFF/ASC), elevations in metres.\n\nA layer of ``[domain.layers]`` reads it by its ``name`` through its ``surface``\nkey. The values are elevations in the datum of the DEM.",
+      "description": "User-provided raster of the base of one layer (GeoTIFF/ASC), elevations in meters.\n\nA layer of ``[domain.layers]`` reads it by its ``name`` through its ``surface``\nkey. The values are elevations in the datum of the DEM.",
       "properties": {
         "source": {
           "const": "custom",
@@ -5498,7 +5498,7 @@
     },
     "DisplayConfig": {
       "additionalProperties": false,
-      "description": "Display behaviour resolved from the ``[display]`` TOML section.",
+      "description": "Display behavior resolved from the ``[display]`` TOML section.",
       "properties": {
         "enabled": {
           "default": true,
@@ -7039,7 +7039,7 @@
         },
         "base_elevation": {
           "default": 20.0,
-          "description": "Elevation of the flat ground surface, in metres.",
+          "description": "Elevation of the flat ground surface, in meters.",
           "examples": [
             20.0
           ],
@@ -8893,7 +8893,7 @@
               "type": "string"
             }
           ],
-          "description": "Elevation of the outlet channel bed, in metres. No water leaves below it.",
+          "description": "Elevation of the outlet channel bed, in meters. No water leaves below it.",
           "examples": [
             45.0
           ],
@@ -8946,7 +8946,7 @@
               "type": "string"
             }
           ],
-          "description": "Width of the outlet channel, in metres.",
+          "description": "Width of the outlet channel, in meters.",
           "examples": [
             5.0
           ],
@@ -8965,7 +8965,7 @@
           "x-hmp-profile": "user"
         },
         "slope": {
-          "description": "Slope of the outlet channel bed, in metres of drop per metre of length.",
+          "description": "Slope of the outlet channel bed, in meters of drop per meter of length.",
           "examples": [
             0.001
           ],
@@ -9620,7 +9620,7 @@
               "type": "string"
             }
           ],
-          "description": "Length of the reach along the channel, in metres (rlen of MODFLOW 6 SFR).",
+          "description": "Length of the reach along the channel, in meters (rlen of MODFLOW 6 SFR).",
           "examples": [
             "250 m"
           ],
@@ -9673,7 +9673,7 @@
               "type": "string"
             }
           ],
-          "description": "Width of the channel of the reach, in metres (rwid of MODFLOW 6 SFR).",
+          "description": "Width of the channel of the reach, in meters (rwid of MODFLOW 6 SFR).",
           "examples": [
             "3 m"
           ],
@@ -9737,7 +9737,7 @@
               "type": "string"
             }
           ],
-          "description": "Elevation of the streambed top of the reach, in metres (rtp of MODFLOW 6 SFR).",
+          "description": "Elevation of the streambed top of the reach, in meters (rtp of MODFLOW 6 SFR).",
           "examples": [
             "42 m"
           ],
@@ -11578,7 +11578,7 @@
           "x-hmp-profile": "user"
         },
         "x": {
-          "description": "Easting of the point in the projected CRS of the project, in metres.",
+          "description": "Easting of the point in the projected CRS of the project, in meters.",
           "examples": [
             352400.0
           ],
@@ -11588,7 +11588,7 @@
           "x-hmp-profile": "user"
         },
         "y": {
-          "description": "Northing of the point in the projected CRS of the project, in metres.",
+          "description": "Northing of the point in the projected CRS of the project, in meters.",
           "examples": [
             6788300.0
           ],
@@ -13741,7 +13741,7 @@
     },
     "LakeEnforcementConfig": {
       "additionalProperties": false,
-      "description": "Lake footprint polygons that the ground corrections leave alone.\n\nThe routing DEM is no longer carved at the lakes: the cell drainage ``D``\nalready makes the water cross a lake, and the carve (a ramp toward the\noutlet, an outlet notch, a stream capture) moved neither the basin, the\nnetwork nor the drains. The polygons stay a declared input for the two\nsteps that read them, the crossing notch and the bed regularisation.",
+      "description": "Lake footprint polygons that the ground corrections leave alone.\n\nThe routing DEM is no longer carved at the lakes: the cell drainage ``D``\nalready makes the water cross a lake, and the carve (a ramp toward the\noutlet, an outlet notch, a stream capture) moved neither the basin, the\nnetwork nor the drains. The polygons stay a declared input for the two\nsteps that read them, the crossing notch and the bed regularization.",
       "properties": {
         "enabled": {
           "default": false,
@@ -14652,7 +14652,7 @@
         },
         "buffer": {
           "default": 200.0,
-          "description": "Transition distance, in metres, over which the lake sizes ramp back to global.",
+          "description": "Transition distance, in meters, over which the lake sizes ramp back to global.",
           "examples": [
             200.0
           ],
@@ -15634,7 +15634,7 @@
         },
         "transition_distance": {
           "default": 500.0,
-          "description": "Distance in metres outside the catchment over which the cell size grows to its outside value.",
+          "description": "Distance in meters outside the catchment over which the cell size grows to its outside value.",
           "examples": [
             500.0
           ],
@@ -15646,7 +15646,7 @@
         },
         "max_slope": {
           "default": 0.5,
-          "description": "Largest growth of the cell size per metre of distance, which bounds the size ratio of two neighbours.",
+          "description": "Largest growth of the cell size per meter of distance, which bounds the size ratio of two neighbors.",
           "examples": [
             0.5
           ],
@@ -17545,7 +17545,7 @@
           "x-hmp-profile": "user"
         },
         "x": {
-          "description": "Easting of the point in the project CRS, in metres like the mesh.",
+          "description": "Easting of the point in the project CRS, in meters like the mesh.",
           "examples": [
             352400.0
           ],
@@ -17555,7 +17555,7 @@
           "x-hmp-profile": "user"
         },
         "y": {
-          "description": "Northing of the point in the project CRS, in metres like the mesh.",
+          "description": "Northing of the point in the project CRS, in meters like the mesh.",
           "examples": [
             6788300.0
           ],
@@ -17933,7 +17933,7 @@
             }
           ],
           "default": null,
-          "description": "Constant mean sea-level value in metres.",
+          "description": "Constant mean sea-level value in meters.",
           "title": "Value",
           "unit": "m",
           "x-hmp-profile": "user"
@@ -18024,7 +18024,7 @@
           "x-hmp-profile": "user"
         },
         "x_outlet": {
-          "description": "Easting of the watershed outlet in the projected CRS of the project, in metres.",
+          "description": "Easting of the watershed outlet in the projected CRS of the project, in meters.",
           "examples": [
             352400.0
           ],
@@ -18035,7 +18035,7 @@
           "x-hmp-profile": "user"
         },
         "y_outlet": {
-          "description": "Northing of the watershed outlet in the projected CRS of the project, in metres.",
+          "description": "Northing of the watershed outlet in the projected CRS of the project, in meters.",
           "examples": [
             6788300.0
           ],
@@ -18237,7 +18237,7 @@
         },
         "timeseries_piezometry": {
           "default": true,
-          "description": "Draw the observed groundwater-level series of the piezometers, in metres.",
+          "description": "Draw the observed groundwater-level series of the piezometers, in meters.",
           "examples": [
             true
           ],
@@ -21379,7 +21379,7 @@
           "default": null,
           "description": "Readable name of the catchment, shown in reports, figure footers and tables. Free text; unset, the name is shown.",
           "examples": [
-            "Le Nan\u00e7on \u00e0 L\u00e9cousse"
+            "Le Nançon à Lécousse"
           ],
           "title": "Label",
           "x-hmp-profile": "user"
@@ -22896,7 +22896,7 @@
             }
           ],
           "default": null,
-          "description": "Base this far below the terrain (canonical metres).",
+          "description": "Base this far below the terrain (canonical meters).",
           "examples": [
             15.0
           ],
@@ -22918,7 +22918,7 @@
             }
           ],
           "default": null,
-          "description": "Base at this elevation, in the datum of the DEM (canonical metres).",
+          "description": "Base at this elevation, in the datum of the DEM (canonical meters).",
           "examples": [
             50.0
           ],
@@ -23044,7 +23044,7 @@
             }
           ],
           "default": 100.0,
-          "description": "Total domain length along x (metres). Accepts inline units, e.g. '0.1 km'.",
+          "description": "Total domain length along x (meters). Accepts inline units, e.g. '0.1 km'.",
           "examples": [
             100.0
           ],
@@ -23064,7 +23064,7 @@
             }
           ],
           "default": 1.0,
-          "description": "Total domain length along y (metres). Accepts inline units, e.g. '1 m'.",
+          "description": "Total domain length along y (meters). Accepts inline units, e.g. '1 m'.",
           "examples": [
             1.0
           ],
@@ -23127,7 +23127,7 @@
         },
         "nodata": {
           "default": -9999.0,
-          "description": "Nodata sentinel exported to raster artefacts.",
+          "description": "Nodata sentinel exported to raster artifacts.",
           "examples": [
             -9999.0
           ],
@@ -23857,7 +23857,7 @@
     },
     "VerticalGridConfig": {
       "additionalProperties": false,
-      "description": "How the aquifer between the top and the base of ``[domain.depth_model]`` is split into layers.\n\nIt is the ``[domain.layers]`` table, read by every solver, so a project has one\nlayering whatever solver runs it. It holds the layering strategy\n(``genmtd_lay``), the layer count, proportions or layer tables, the pinch-out\nrule and the nodata sentinel.\n\nAll geometric quantities are interpreted in SI metres.",
+      "description": "How the aquifer between the top and the base of ``[domain.depth_model]`` is split into layers.\n\nIt is the ``[domain.layers]`` table, read by every solver, so a project has one\nlayering whatever solver runs it. It holds the layering strategy\n(``genmtd_lay``), the layer count, proportions or layer tables, the pinch-out\nrule and the nodata sentinel.\n\nAll geometric quantities are interpreted in SI meters.",
       "properties": {
         "genmtd_lay": {
           "default": "constant",

@@ -3,7 +3,7 @@
 Water-table elevation, water-table depth, recharge, concentration and the
 seepage indicator are the same drawing with a different variable, colormap
 and label. Factoring them here keeps their styling identical and gives
-every one of them the same options: timestep, layer, colour scale and
+every one of them the same options: timestep, layer, color scale and
 declarative overlays.
 
 Subclasses only declare ``spec`` plus the class attributes below.

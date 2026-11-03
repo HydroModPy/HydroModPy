@@ -15,7 +15,7 @@ from tests._helpers.ugrid_meshes import quad_mesh
 
 
 def grid_centres(nrow: int, ncol: int) -> np.ndarray:
-    """Return the centre of each unit cell, row-major."""
+    """Return the center of each unit cell, row-major."""
     rows, cols = np.divmod(np.arange(nrow * ncol), ncol)
     return np.column_stack([cols + 0.5, rows + 0.5]).astype(float)
 

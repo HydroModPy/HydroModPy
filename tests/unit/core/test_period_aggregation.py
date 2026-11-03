@@ -7,7 +7,7 @@ water balance allowed.
 
 A stamp is the END of its period, as the solvers write it: January 2000 of a
 monthly run is stamped 2000-02-01. These tests used to read a stamp as the
-centre of a period reaching halfway to its neighbours; they were rewritten when
+center of a period reaching halfway to its neighbors; they were rewritten when
 that reading was found to compare January with mid-December to mid-January.
 """
 

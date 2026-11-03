@@ -2,7 +2,7 @@
 
 A ``MeshRequest`` goes to one of the registered engines (``regular``,
 ``triangle``, ``voronoi``), which returns a ``PlanarCellMesh``: the cells, their
-centres, the cell and face families, the zones, the identity and the QA. Every
+centers, the cell and face families, the zones, the identity and the QA. Every
 consumer (forcings, properties, boundary conditions, solvers, storage) reads
 that cell mesh, whatever the engine.
 

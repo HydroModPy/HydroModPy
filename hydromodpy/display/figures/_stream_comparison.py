@@ -3,7 +3,7 @@
 Four maps read the same catchment from four angles: where the two networks
 agree, how far apart they run, what the pair looks like on the relief, and
 which cells the routed flux keeps active. They read the partition through one
-function and colour it with one palette, because two derivations of one
+function and color it with one palette, because two derivations of one
 partition is how a map comes to disagree with the map printed beside it, and
 with the numbers a trial published.
 
@@ -52,7 +52,7 @@ GROUND_COLOR = "#EDEDED"
 """The cells a map measures nothing on: the ground the subject is drawn over.
 
 One tone across the whole set, so a reader moving from one map to the next
-reads the same grey as the same statement: nothing was measured here.
+reads the same gray as the same statement: nothing was measured here.
 """
 
 GROUND_EDGE = "#C8C8C8"
@@ -64,11 +64,11 @@ AGREEMENT_COLORS: dict[int, str] = {
     AGREEMENT_EXCESS: HIGH_CONTRAST_TRIPLET[1],
     AGREEMENT_MISSING: HIGH_CONTRAST_TRIPLET[2],
 }
-"""One colour per agreement class, the darkest for the agreement itself.
+"""One color per agreement class, the darkest for the agreement itself.
 
 The three lightnesses sit far enough apart for the classes to survive a
-greyscale print and every common colour-vision deficiency. The cells no network
-claims cover most of a catchment and take a light grey: drawn in anything
+grayscale print and every common color-vision deficiency. The cells no network
+claims cover most of a catchment and take a light gray: drawn in anything
 stronger they would carry the eye instead of the three classes the maps exist
 for.
 """
@@ -87,9 +87,9 @@ CELL_WEIGHT_PT = 0.7
 """Stroke laid around a drawn cell, in points.
 
 A stream cell is one cell wide. On a 50 m mesh printed seven inches across
-that is four pixels, and a fifth of a millimetre on paper: the line the map
-exists to show breaks up under its own rasterisation. A map carrying one
-subject strokes it in its own colour; a map carrying several that share the
+that is four pixels, and a fifth of a millimeter on paper: the line the map
+exists to show breaks up under its own rasterization. A map carrying one
+subject strokes it in its own color; a map carrying several that share the
 line strokes a casing over their union once, or each of them widens over the
 one beside it. It is a rendering width, not a measurement: every count on the
 page comes from the mask, never from the ink.
@@ -101,7 +101,7 @@ CASING_COLOR = "#4D4D4D"
 A casing is how a one-cell line gains weight without any class stealing it
 from the class beside it: the union of the drawn cells carries the stroke
 once, and each class is then laid flat inside it. Read straight, the rim says
-which cells the map measured on at all, before any colour of the scale does.
+which cells the map measured on at all, before any color of the scale does.
 """
 
 MAP_MARGIN_RATIO = 0.04
@@ -122,20 +122,20 @@ page keeps the composition when a caller asks for a smaller one.
 
 
 def ground_color() -> str:
-    """Return the ground grey for the current theme (darkened on a dark page)."""
+    """Return the ground gray for the current theme (darkened on a dark page)."""
     return neutral(GROUND_COLOR)
 
 
 def ground_edge() -> str:
-    """Return the border grey of a ground swatch for the current theme."""
+    """Return the border gray of a ground swatch for the current theme."""
     return neutral(GROUND_EDGE)
 
 
 def agreement_color(value: int) -> str:
-    """Return the colour of one agreement class for the current theme.
+    """Return the color of one agreement class for the current theme.
 
-    Only the ground class is a grey, so only it follows the theme. The three
-    coloured classes carry their meaning and are never touched.
+    Only the ground class is a gray, so only it follows the theme. The three
+    colored classes carry their meaning and are never touched.
     """
     if value == AGREEMENT_NEITHER:
         return ground_color()
@@ -173,12 +173,12 @@ def comparison_from_run(
 
     The run's sealed network output (:func:`network_criterion_settings`, the
     one named by ``output`` when the run sealed several) gives the seepage
-    threshold, the neighbour graph, the rasterisation of the map, the
+    threshold, the neighbor graph, the rasterization of the map, the
     positional accuracy and the state read; a run that sealed
     none takes the criterion's defaults, never a copy of them written here.
     A knob a caller names wins over the run's.
 
-    The result is memoised on the run object and the settings. Four figures of
+    The result is memoized on the run object and the settings. Four figures of
     one gallery ask for the same comparison, and each rebuild runs a priority
     flood plus two distance passes over the whole mesh: on the Nancon at 25 m
     that is 345 260 cells flooded four times for one identical answer.
@@ -293,7 +293,7 @@ def map_legend(ax: Axes, handles: Sequence, *, note: str, ncols: int = 2) -> Leg
     and the note pinned to the foot; on a real catchment they landed on each
     other and the last class was read through the note. Under the map neither
     can cover the subject nor the other, and the counts a reader came for are
-    on the same line as the colour they belong to.
+    on the same line as the color they belong to.
 
     The box belongs to the figure rather than to the axes, because that is
     what the layout engine can reserve room for: anchored below the axes
@@ -361,7 +361,7 @@ def draw_cells(
     edgecolor: str | None = None,
     hatch: str | None = None,
 ) -> PolyCollection | None:
-    """Draw one flat-coloured group of cells, or nothing when it is empty.
+    """Draw one flat-colored group of cells, or nothing when it is empty.
 
     ``edgecolor`` defaults to the fill, which turns ``weight_pt`` into the
     weight the group is drawn with rather than an outline around it.
@@ -393,7 +393,7 @@ class MapExtent:
     """``(xmin, xmax, ymin, ymax)`` of the window, in mesh coordinates."""
 
     inside: np.ndarray
-    """(n_cells,) bool: cells whose centre falls inside the window."""
+    """(n_cells,) bool: cells whose center falls inside the window."""
 
     name: str
     """What the window is, written for a note."""
@@ -434,7 +434,7 @@ def map_extent(
     """Return the window one map is framed on.
 
     ``catchment`` crops to the delineated watershed, which is where every
-    class of the criterion lives; ``mesh`` keeps the whole modelled domain, for
+    class of the criterion lives; ``mesh`` keeps the whole modeled domain, for
     a reader checking what the model does outside the basin it was scored on.
     A run carrying no delineation falls back to the mesh and says so, rather
     than inventing a box.
@@ -496,7 +496,7 @@ def _watershed(sim: Run):
 
 
 def catchment_cells(sim: Run, polygons: Sequence[np.ndarray]) -> np.ndarray | None:
-    """Return which cells have their centre inside the delineated catchment.
+    """Return which cells have their center inside the delineated catchment.
 
     ``None`` when the run declares no catchment. A map counts its classes
     over these cells, so the numbers in its key are the ones a reader sees

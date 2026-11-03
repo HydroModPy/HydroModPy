@@ -82,7 +82,7 @@ class CrossingsManager(SourceTable):
     # ------------------------------------------------------------------
 
     def load_custom(self, source_cfg: Any) -> list[FieldRecord]:
-        """Normalise the user's file into a GeoParquet copy and index it."""
+        """Normalize the user's file into a GeoParquet copy and index it."""
         frame = custom.load_custom(source_cfg)
         origin = custom.vector_file(source_cfg.path).resolve()
         stat = origin.stat()

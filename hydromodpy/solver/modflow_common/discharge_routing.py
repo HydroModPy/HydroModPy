@@ -45,10 +45,10 @@ def routing_graph_for_model(model: Any) -> DownhillGraph:
     the backend's build: filled so every cell drains, seeded on the rim and the
     constant-head cells, pinned along the generated network A. A river CHD
     keeps its steepest descent, so the release passes through it and the
-    outlet keeps the domain sum. Its neighbourhood
+    outlet keeps the domain sum. Its neighborhood
     is fixed by the mesh, shared nodes (D8) on quads and shared faces elsewhere.
     The raster the geographic step conditioned is never read: sampling it at
-    cell centres grows new pits and drops the cells whose centre falls on
+    cell centers grows new pits and drops the cells whose center falls on
     nodata.
     """
     descent = getattr(model, "descent", None)
@@ -71,7 +71,7 @@ def route_release_to_discharge(
     ``release`` is ``(n_times, n_cells)`` or ``(n_cells,)`` in m3/s per cell, the
     frame ``release_flux`` already serves. ``catchment_mask`` zeroes the cells
     outside the catchment, the basin of D the build kept, before routing: the
-    mesh is built on a buffered box, and the neighbouring basins drain into it.
+    mesh is built on a buffered box, and the neighboring basins drain into it.
     Measured on the Nancon at 25 m, the unmasked domain carries 2.4 times the
     water the gauge sees.
     """
@@ -159,7 +159,7 @@ def largest_drainable_share(
     Warns, once per call, when the ratio is far from one: a graph that cannot
     drain the delineated basin makes an accumulated discharge read at any of
     its cells meaningless, which is why this repository refuses to locate a
-    gauge by coordinate rather than score it. The ratio never penalises a
+    gauge by coordinate rather than score it. The ratio never penalizes a
     trial's cost, because it does not depend on one.
     """
     mask = np.asarray(catchment_mask, dtype=bool).reshape(-1)

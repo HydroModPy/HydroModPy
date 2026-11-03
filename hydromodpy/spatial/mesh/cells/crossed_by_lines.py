@@ -30,7 +30,7 @@ _TIE_TOLERANCE_M = 1.0e-6
 """Distance under which a crossing point counts as lying on a cell edge.
 
 A crossing computed in floating point lands a few ulps off the edge it should
-sit on; at Lambert-93 magnitudes that is about 1e-9 m. One micrometre catches
+sit on; at Lambert-93 magnitudes that is about 1e-9 m. One micrometer catches
 those and nothing a map can resolve.
 """
 
@@ -39,7 +39,7 @@ those and nothing a map can resolve.
 class LineCrossingMask:
     """The cells a linework crosses, and how many reaches needed the fallback.
 
-    ``n_fallback_parts`` counts the line parts that crossed no centre-to-centre
+    ``n_fallback_parts`` counts the line parts that crossed no center-to-center
     segment and were given the cell holding their midpoint instead.
     WhiteboxTools drops such a reach; here no mapped reach that reaches the
     mesh disappears, and the count says how often that departure applied.
@@ -68,7 +68,7 @@ def line_crossing_cell_mask(
 ) -> LineCrossingMask:
     """Mask of the cells holding a point where a line crosses the face graph.
 
-    The face graph joins the centres of every two cells that share an edge. A
+    The face graph joins the centers of every two cells that share an edge. A
     cell belongs to the line when it contains a point where the line crosses
     one of those segments. On a regular grid the segments are the cell medians,
     and this is exactly WhiteboxTools ``VectorLinesToRaster``, the tool of
@@ -80,12 +80,12 @@ def line_crossing_cell_mask(
     graph, one cell wide. A mapped network drawn thicker than that chain moves
     the zero with no hydrogeological reason: a model that reproduces the map
     exactly scores J < 0 under the touch rule, whose diagonal steps add the two
-    cells sharing the corner. Under this rule the polyline of a chain's centres
-    crosses the face graph only at those centres, and gives the chain back.
+    cells sharing the corner. Under this rule the polyline of a chain's centers
+    crosses the face graph only at those centers, and gives the chain back.
 
-    ``centres`` are the points the criterion samples the top at, the generator
+    ``centers`` are the points the criterion samples the top at, the generator
     seeds of a Voronoi mesh rather than its polygon centroids. A boundary cell
-    also joins its centre to the midpoint of each unshared edge, the half
+    also joins its center to the midpoint of each unshared edge, the half
     median WhiteboxTools draws up to the raster border.
 
     Ties are conservative: a crossing on an edge marks both cells, a crossing
@@ -180,10 +180,10 @@ def _face_graph_segments(
     *,
     usable: np.ndarray,
 ) -> np.ndarray:
-    """Return the centre-to-centre segments of the face graph as Shapely lines.
+    """Return the center-to-center segments of the face graph as Shapely lines.
 
     One segment per pair of usable cells sharing an edge, plus, for an edge no
-    other usable cell shares, the half segment from the centre to the edge
+    other usable cell shares, the half segment from the center to the edge
     midpoint.
     """
     import shapely

@@ -35,6 +35,6 @@ path = "../../steady/boussinesq_hillslope_interception_1d/mesh_bundles/boussines
 nlay = 1
 
 # A 2.5 m raster (160 x 12) under the 10 m columns of the structured grids: a
-# linear surface is flat past the centre of the end raster columns, 1.25 m from
+# linear surface is flat past the center of the end raster columns, 1.25 m from
 # the faces. The surface is 5.0 m, the outlet head, at the held cells: at the mean centroid of the two boundary
 # triangles of the east face, x = 398.29 m.

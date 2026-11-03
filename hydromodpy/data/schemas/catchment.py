@@ -6,7 +6,7 @@ geometry, CRS and area attributes. We validate:
 - the object is a non-empty GeoDataFrame
 - every geometry is a (Multi)Polygon
 - the CRS is declared
-- the reported area in square kilometres is positive
+- the reported area in square kilometers is positive
 - an ``outlet`` column is present or can be derived
 """
 

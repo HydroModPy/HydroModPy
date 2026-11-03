@@ -1,6 +1,6 @@
 """The crossing notch, run for real on Whitebox over a road across a valley.
 
-A V valley drains south and a road embankment, three metres high, is laid across
+A V valley drains south and a road embankment, three meters high, is laid across
 it at row 30. The geographic pipeline delineates, finds the road on the generated
 channel, notches the ground there, delineates again, and clips the model top from
 the notched ground. What the unit tests pin on recorders is checked here on the

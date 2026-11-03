@@ -144,7 +144,7 @@ def mesh_fingerprint(ctx: Any) -> dict[str, object] | None:
 
     Declaring the requested mesh settings would not be enough: gmsh is not
     reproducible, so the same request can produce a different triangulation, and
-    the stream-network criterion is normalised by cell size. A cost computed on
+    the stream-network criterion is normalized by cell size. A cost computed on
     another mesh is therefore not the same number, and a cache that cannot tell
     the two apart serves the first one's objectives for the second one's model.
 
@@ -271,7 +271,7 @@ def build_cache_context(
         "parameter_space": _parameter_space_context(space),
         "input_files": _input_file_fingerprints(base_cfg) if base_cfg is not None else {},
         # The mesh that was built, not the one that was requested: gmsh is not
-        # reproducible and the network criterion is normalised by cell size.
+        # reproducible and the network criterion is normalized by cell size.
         "mesh": mesh_fingerprint(trial_ctx.ctx) if trial_ctx is not None else None,
     }
 

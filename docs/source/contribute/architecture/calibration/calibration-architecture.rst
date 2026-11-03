@@ -3,7 +3,7 @@ Calibration architecture
 
 This page is the code-oriented entry point for the calibration stack: the package map, the
 reading path, the loop of one session and the core classes. For the operational reference
-(TOML sections, optimizer catalogue, storage rules, pitfalls, Python API), see
+(TOML sections, optimizer catalog, storage rules, pitfalls, Python API), see
 :doc:`calibration-guide`.
 
 Architecture map

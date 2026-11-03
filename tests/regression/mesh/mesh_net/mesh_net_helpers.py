@@ -10,7 +10,7 @@ bundle (gmsh is not reproducible, so a triangulation is never generated here):
 Nothing compares connectivity or cell ids. Cell counts are exact, the areas of
 a frozen bundle are compared at 1e-9 (they do not depend on Qhull or GEOS
 ordering), the quantiles at a platform-independent relative band. Isometries are
-caught by probe points: at fixed coordinates the area and the centre of the cell
+caught by probe points: at fixed coordinates the area and the center of the cell
 that holds the point, and the head of a run forced by an asymmetric recharge.
 
 Every tolerance is a row of ``tests/TOLERANCES.md`` read through ``tol()``; the
@@ -49,18 +49,18 @@ EXACT_METRICS = frozenset({"n_cells"})
 """Metrics compared by equality (the cell-count row of ``tests/TOLERANCES.md`` is ``n/a``)."""
 ABS_FLOOR = {
     "center_offset_over_side": tol(
-        "mesh_characterization_net__centre_offset_over_side_absolute_floor"
+        "mesh_characterization_net__center_offset_over_side_absolute_floor"
     ),
     "non_orthogonality_deg": tol("mesh_characterization_net__non_orthogonality_absolute_floor"),
-    "size_ratio": tol("mesh_characterization_net__neighbour_size_ratio_absolute_floor"),
-    "center_dx": tol("mesh_characterization_net__probe_cell_centre_offset_absolute_floor"),
-    "center_dy": tol("mesh_characterization_net__probe_cell_centre_offset_absolute_floor"),
+    "size_ratio": tol("mesh_characterization_net__neighbor_size_ratio_absolute_floor"),
+    "center_dx": tol("mesh_characterization_net__probe_cell_center_offset_absolute_floor"),
+    "center_dy": tol("mesh_characterization_net__probe_cell_center_offset_absolute_floor"),
 }
 """Absolute floors (metric name -> value) of the quantities that are (almost) zero or a count."""
 FACE_LENGTH_FRACTION = 0.1
 """A face counts for orthogonality when longer than this share of the median cell side."""
 
-# Island centre of the bundle (EPSG:2154) and fixed probe points around it, as
+# Island center of the bundle (EPSG:2154) and fixed probe points around it, as
 # (radius m, azimuth deg). Each probe sits at least 1 m from every triangle edge
 # and every Voronoi edge, so the cell under it does not depend on rounding.
 ISLAND_CENTER = (265705.0, 6784405.0)
@@ -71,7 +71,7 @@ PROBE_MIN_MARGIN_M = 1.0
 
 
 def probe_points() -> np.ndarray:
-    """Return the fixed probe coordinates around the island centre, shape (5, 2)."""
+    """Return the fixed probe coordinates around the island center, shape (5, 2)."""
     out = []
     for radius, azimuth in PROBE_POLAR:
         angle = np.radians(azimuth)
@@ -163,7 +163,7 @@ def voronoi_mesh(bundle: str = ISLAND_BUNDLE):
 
 
 def polygons_of_mesh(cell_mesh) -> tuple[list[np.ndarray], np.ndarray]:
-    """Cell polygons (vertex coordinates) and the cell centres of a ``PlanarCellMesh``."""
+    """Cell polygons (vertex coordinates) and the cell centers of a ``PlanarCellMesh``."""
     vertices = np.asarray(cell_mesh.mesh.vertices, dtype=float)[:, :2]
     polygons = [vertices[row[row >= 0]] for row in cell_mesh.mesh.flat_connectivity]
     return polygons, np.asarray(cell_mesh.centers, dtype=float)
@@ -206,12 +206,12 @@ def geometry_metrics(mesh, probes: np.ndarray | None = None) -> dict[str, Any]:
     """Geometry of one planar cell mesh: invariant quantiles, plus probe cells.
 
     - ``n_cells``, area quantiles (p5, p50, p95) and sum;
-    - neighbour size ratio of ``sqrt(area)`` over interior faces: p50, p95 and the
+    - neighbor size ratio of ``sqrt(area)`` over interior faces: p50, p95 and the
       share above 1.5;
     - seed-to-area-centroid distance over ``sqrt(area)``: p50, p95;
-    - non-orthogonality, the angle between the centre line and the face normal, on
+    - non-orthogonality, the angle between the center line and the face normal, on
       the faces longer than ``FACE_LENGTH_FRACTION`` of the median cell side: p95, max;
-    - with ``probes``, the area and the centre offset (cell centre minus probe, m) of the
+    - with ``probes``, the area and the center offset (cell center minus probe, m) of the
       cell holding each probe. The quantiles are the same for a mirrored or rotated
       mesh, the probe cells are not.
     """

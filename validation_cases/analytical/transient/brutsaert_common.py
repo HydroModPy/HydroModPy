@@ -227,7 +227,7 @@ def _read_csv_rows(path: Path) -> list[dict[str, str]]:
 
 
 def bundle_outlet_offset_m(bundle_dir: Path, length_x_m: float) -> float:
-    """Return the mean distance from the east edge to the centres of its boundary cells.
+    """Return the mean distance from the east edge to the centers of its boundary cells.
 
     A mesh solver pins the outlet head at the centroid of each cell that owns
     an east boundary edge. The mean is weighted by edge length, the width each
@@ -266,7 +266,7 @@ def outlet_offset_m(
 ) -> float:
     """Return the distance from the east edge to the cells that hold the outlet head.
 
-    Every backend pins the head at cell centres, not on the edge. A structured
+    Every backend pins the head at cell centers, not on the edge. A structured
     MODFLOW grid holds it half a column inside; a mesh, at the centroids of the
     triangles along the edge. A Voronoi dual holds it at the nodes of the edge,
     which sit on it, so the offset is zero.

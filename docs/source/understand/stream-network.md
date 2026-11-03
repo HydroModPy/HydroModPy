@@ -63,7 +63,7 @@ is {toml}`tau_specific_ratio|calibration.outputs.<name>.tau_specific_ratio`.
 The water that leaves the aquifer in a seepage cell flows downhill over the ground. The
 *simulated network* is every cell this water goes through, from each source as far as
 the slope leads it. The slope is the one of the {term}`digital elevation model`, read on the
-model cells. Pits (cells lower than all their neighbours, where water would be trapped) are
+model cells. Pits (cells lower than all their neighbors, where water would be trapped) are
 filled first, so that every cell has a way down.
 
 ```{figure} /_static/concepts/streams_and_seepage/method_simulated_active_postprocess.svg

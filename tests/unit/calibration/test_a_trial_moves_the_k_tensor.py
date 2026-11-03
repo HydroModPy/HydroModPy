@@ -2,12 +2,12 @@
 
 A trial writes its sample into a copy of the configuration
 (``TrialContext.fork``), and the flow of the trial is built again from it. So
-K22 and the angles travel the path K travels: the catalogue offers them, the
+K22 and the angles travel the path K travels: the catalog offers them, the
 sample lands in ``flow.param``, the shared mapping puts it on every cell, and
 the XT3D rule reads the arrays the build sets on the model. A trial that turns
 the tensor off the grid axes gets XT3D, a trial that keeps it on them does not.
 
-An angle is signed, so the catalogue searches it as written. It used to inherit
+An angle is signed, so the catalog searches it as written. It used to inherit
 the log search every field parameter declares for K, and a range such as
 [-30, 30] was refused at load.
 """

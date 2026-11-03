@@ -12,7 +12,7 @@ is read against that outline when the caller names the mesh, so that a cell and
 the polygon agree where the faces follow it.
 
 A run that keeps no basin of D publishes its catchment series on the cells whose
-centre the delineated polygon covers (:func:`watershed_cell_mask`), and a calibration
+center the delineated polygon covers (:func:`watershed_cell_mask`), and a calibration
 trial scores the same cells.
 """
 
@@ -56,7 +56,7 @@ def catchment_outline(
 def watershed_cell_mask(
     vertices: Any, connectivity: Any, watershed: gpd.GeoDataFrame, *, mesh_crs: Any
 ) -> np.ndarray:
-    """Return the cells whose centre the delineated watershed covers.
+    """Return the cells whose center the delineated watershed covers.
 
     The catchment series of a run without a basin of D are summed over these
     cells, and the discharge of its calibration trial too, so a run and its trial

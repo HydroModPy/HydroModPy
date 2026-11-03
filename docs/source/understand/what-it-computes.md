@@ -88,7 +88,7 @@ in example 04 and not for the other conditions of {doc}`stream-network`.
 
 The intended range of validity of the project, as the scientific documentation states it:
 shallow aquifers at catchment scale, unconfined or weakly confined, where the relief, the
-stream network and the geology organise the flow. Large deep sedimentary basins and coupled
+stream network and the geology organize the flow. Large deep sedimentary basins and coupled
 surface and atmosphere models fall outside this range. The limits are listed in
 [the theory of the flow problem](../theory/groundwater-flow.md#limits), and the page
 {doc}`what-validated-means` says how far the model has been tested.

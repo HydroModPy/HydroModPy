@@ -1,6 +1,6 @@
 # Tolerances for the transient multi-layer LAK regression (see tests/TOLERANCES.md
 # row 41). The case has no external reference: it pins the HMP DISV LAK build's own
-# converged behaviour, so the residual is governed by solver / BLAS noise and the
+# converged behavior, so the residual is governed by solver / BLAS noise and the
 # committed golden values, not by an inter-model comparison.
 
 [stage]

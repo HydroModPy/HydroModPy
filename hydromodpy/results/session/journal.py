@@ -14,7 +14,7 @@ Format
 See :class:`TrialLine`; every line carries the schema id
 :data:`TRIAL_SCHEMA`. What a trial gave in each case sits under ``cases``, keyed
 by ``case_id``, one entry for a session of one case. ``cost`` is the number the
-search minimised, null on a failed trial or when the search keeps no single
+search minimized, null on a failed trial or when the search keeps no single
 cost. A trial number appearing twice is one trial written twice (started, then
 completed): the last line wins. A trailing line without its newline is the
 remnant of a crash and is ignored; any other unreadable line is an error.
@@ -114,7 +114,7 @@ class TrialLine(HydroModelBase):
     )
     cost: float | None = Field(
         default=None,
-        description="The number the search minimised, null for a failed trial or when the "
+        description="The number the search minimized, null for a failed trial or when the "
         "search keeps no single cost",
     )
     cases: dict[str, TrialCase] = Field(
@@ -207,7 +207,7 @@ def physical_parameters(line: TrialLine) -> dict[str, float]:
 def trial_rows(line: TrialLine) -> Iterator[dict[str, Any]]:
     """Yield one plain row per case of a trial: what the promotion, the report and figures read.
 
-    ``cost`` is the number the search minimised and ``case_cost`` the cost of the
+    ``cost`` is the number the search minimized and ``case_cost`` the cost of the
     case of the row; ``status`` and ``case_status`` go the same way. A line that
     names no case gives one row with a null ``case_id``.
     ``duration_s`` is the time between the two stamps of the line.

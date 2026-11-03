@@ -29,7 +29,7 @@ budget term gains ``sign_convention``. The chunk bytes of the arrays did not mov
 The store built without a mesh layout (``_build_legacy_store``) kept the digest of
 that fourth capture: ``layout=None`` writes the same bytes as before the layout
 existed. A fifth digest, ``EXPECTED_LAYOUT_DIGEST``, was captured for the store
-built with a ``MeshLayout`` (``_build_layout_store``): it adds the cell centres,
+built with a ``MeshLayout`` (``_build_layout_store``): it adds the cell centers,
 the family bit fields, the zone codes, the edge tables and the engine attributes
 of ``mesh/``. The layout arrays are synthetic and only valid in shape, since the
 geometry of this golden (22 nodes, connectivity 0..39) has no real edges.
@@ -51,10 +51,10 @@ Everything entering the digest is byte-identical on Linux and on Windows:
   drive letter reaches the hash, and they are sorted by code point, so the
   order carries no locale;
 * the member set is frozen in ``STORE_MEMBERS`` and holds Zarr nodes and
-  chunks only, never a runtime artefact whose lifetime is platform-specific
+  chunks only, never a runtime artifact whose lifetime is platform-specific
   (a POSIX file lock outlives its release, its Windows twin does not);
 * payloads are read and hashed as bytes, so no newline translation applies,
-  and the JSON ones are re-serialised canonically, which drops key order and
+  and the JSON ones are re-serialized canonically, which drops key order and
   insignificant whitespace;
 * chunk payloads are little-endian arrays compressed by the codec pinned in
   the node metadata, and nothing samples mtime, size, mode or owner.

@@ -21,7 +21,7 @@ def run_lake_abacus(run: Run, lake_id: str | None = None) -> dict:
     With ``lake_id=None`` the lake holding the most water at full pool is returned,
     not the first one persisted: a reservoir and its pre-retenue differ by more than
     an order of magnitude in storage, and defaulting to whichever happened to be
-    written first shows the small one and hides the one being modelled. ``lake_ids``
+    written first shows the small one and hides the one being modeled. ``lake_ids``
     carries every persisted lake so a caller can iterate. Raises ``KeyError`` when no
     lake abacus was persisted for this run.
     """

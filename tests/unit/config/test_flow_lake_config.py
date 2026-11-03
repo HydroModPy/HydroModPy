@@ -53,7 +53,7 @@ def test_lake_config_validates_outlets_and_picks_the_right_class() -> None:
     )
 
     assert lake.bedleak == pytest.approx(0.1)
-    # initial_stage is a Length quantity; its canonical magnitude is metres.
+    # initial_stage is a Length quantity; its canonical magnitude is meters.
     assert float(lake.initial_stage.to("m").magnitude) == pytest.approx(85.0)
 
     weir, manning, specified = lake.outlets
@@ -89,7 +89,7 @@ def test_bedleak_unit_defaults_and_validates() -> None:
 
 
 def test_bedleak_unit_reaches_the_builder_through_the_binder() -> None:
-    # The config bedleak_unit must survive normalisation to the dict payload the
+    # The config bedleak_unit must survive normalization to the dict payload the
     # LAK builder reads, so a 1/day leakance is converted to 1/s rather than being
     # silently taken as 1/s (an 86400x conductance error).
     lake = FlowLakeConfig.model_validate(

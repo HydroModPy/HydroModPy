@@ -38,7 +38,7 @@ def _outlet(snap_dist: object) -> OutletCatchDef:
 
 # ---------------------------------------------------------------------------
 # Parse-success: a builder yields a model and the listed attributes must equal
-# the expected metres values. Ids map 1:1 to the former per-field test names.
+# the expected meters values. Ids map 1:1 to the former per-field test names.
 # ---------------------------------------------------------------------------
 
 PARSE_SUCCESS: list[tuple[str, Callable[[], BaseModel], dict[str, float]]] = [

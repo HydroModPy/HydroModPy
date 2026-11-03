@@ -1,4 +1,4 @@
-"""A ``path`` outside the catalogue warns, since it is the documented way out.
+"""A ``path`` outside the catalog warns, since it is the documented way out.
 
 ``hmp config targets`` lists what a project exposes, and a parameter that
 writes its own ``path`` reaches any value the configuration carries: the

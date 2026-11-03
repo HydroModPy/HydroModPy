@@ -18,7 +18,7 @@ from hydromodpy.examples.manifest import ExampleEntry
 
 
 def list_rows() -> list[dict[str, Any]]:
-    """Describe every catalogued example, with what this machine still misses."""
+    """Describe every cataloged example, with what this machine still misses."""
     return [_summary(entry) for entry in example_list()]
 
 

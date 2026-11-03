@@ -45,7 +45,7 @@ def _extract_scalar(cell: str) -> float | None:
     - Strip backticks and whitespace.
     - Reject cells containing ``,`` or multiple numbers (composite).
     - Convert ``%`` to a fraction (1 % -> 0.01).
-    - Reject ``n/a`` and units we do not normalise here.
+    - Reject ``n/a`` and units we do not normalize here.
     """
     raw = cell.strip().replace("`", "")
     if not raw or raw.lower() == "n/a":

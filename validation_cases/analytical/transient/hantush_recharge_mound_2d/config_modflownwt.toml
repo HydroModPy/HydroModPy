@@ -46,7 +46,7 @@ nlay = 1
 types = ["recharge"]
 
 # A rectangle of 300 m x 180 m at 20 mm/day, zero elsewhere: a raster of the
-# model grid, so each cell centre reads the pixel it sits in.
+# model grid, so each cell center reads the pixel it sits in.
 [[data.recharge.sources]]
 source = "custom"
 path = "recharge_zone.tif"

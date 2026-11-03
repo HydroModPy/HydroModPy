@@ -1,4 +1,4 @@
-"""The regularized partition releases water by the depth of the water table in metres."""
+"""The regularized partition releases water by the depth of the water table in meters."""
 
 from __future__ import annotations
 
@@ -123,7 +123,7 @@ def test_negative_recharge_reduces_the_supply_of_a_full_cell() -> None:
 def test_cell_with_a_prescribed_head_releases_nothing() -> None:
     # The held cell sits 2 cm under the ground, where a free cell would release
     # two thirds of what it receives. It takes no recharge, so what it receives
-    # is the inflow from its free neighbour, and all of it goes to the boundary.
+    # is the inflow from its free neighbor, and all of it goes to the boundary.
     mesh = _strip(3, z_top_m=5.0)
     prescribed = np.asarray([np.nan, np.nan, 4.98])
     assembly = assemble_steady_residual(

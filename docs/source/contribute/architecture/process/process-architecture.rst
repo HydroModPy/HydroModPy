@@ -160,7 +160,7 @@ Notes:
 - The sequence is logical and backend-agnostic at the high level.
 - Payload conversion is separated from the process runtime state.
 - Forcing is resolved to one value per stress period before the adapter runs.
-- Solver backends consume already-normalised process data.
+- Solver backends consume already-normalized process data.
 - For the DIS payload semantics, see :doc:`../solver/backends`.
 
 See also

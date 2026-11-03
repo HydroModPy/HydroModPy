@@ -1,4 +1,4 @@
-"""Model mesh drawn cell by cell, coloured by land-surface elevation.
+"""Model mesh drawn cell by cell, colored by land-surface elevation.
 
 The "what did the model actually discretize" figure. It works unchanged on
 a structured MODFLOW DIS grid (rectangles), on a MODFLOW 6 DISV Voronoi or
@@ -52,8 +52,8 @@ class MeshMap(BaseFigure):
         edge_color: Annotated[
             str,
             Opt(
-                "Colour of the cell edges, any Matplotlib colour. A grey is moved toward "
-                "the text colour on the dark preset."
+                "Color of the cell edges, any Matplotlib color. A grey is moved toward "
+                "the text color on the dark preset."
             ),
         ] = "0.25",
         edge_width: Annotated[

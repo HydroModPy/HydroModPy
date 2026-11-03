@@ -2,7 +2,7 @@
 
 ``register()`` certifies a candidate on the members it **declares**, and that is
 all a registry can do. The real contract of the trial-evaluator port is
-behavioural -- what comes back from a call, and what does not come out of it as
+behavioral -- what comes back from a call, and what does not come out of it as
 an exception -- so a class can pass the registry without a word and still be
 something no search can use. Only
 ``tests/contract/test_trial_evaluator_contract.py`` can see that.

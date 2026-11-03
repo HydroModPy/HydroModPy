@@ -33,7 +33,7 @@ def select_budget_zone(frame: Any) -> tuple[Any, str]:
     The zone whose support is the delineated catchment is written by the solver
     extractors and read by
     ``simulation.extraction.derivation.catchment_aggregation``. On a mesh that
-    takes in a buffer, a domain row carries the neighbouring basins too. The
+    takes in a buffer, a domain row carries the neighboring basins too. The
     catchment lies inside the domain, so summing the two counts its water twice.
     The catchment rows
     are returned when they exist, since every catchment series and the
@@ -396,11 +396,11 @@ def cell_adjacency_from_face_connectivity(
 def domain_edge_cells(face_node_connectivity: Any, active: Any) -> np.ndarray:
     """Return the active cells holding a face edge no other active cell shares.
 
-    The geometric boundary of the modelled domain, where water leaves the mesh.
+    The geometric boundary of the modeled domain, where water leaves the mesh.
     It is the seed set a priority flood needs to raise the closed depressions
     and nothing else.
 
-    Read off the mesh rather than off the neighbour count: a degree below the
+    Read off the mesh rather than off the neighbor count: a degree below the
     maximum means "on the edge" only on a structured grid, and a Voronoi dual
     carries every degree from three upwards in its interior.
     """

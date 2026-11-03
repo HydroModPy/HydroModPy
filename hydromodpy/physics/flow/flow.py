@@ -169,7 +169,7 @@ class Flow(ProcessSpatial):
         Optional groundwater/surface interaction closure selector consumed by
         the Boussinesq solver implementation.
     partition_release_depth_m : float
-        Depth scale in metres of the Boussinesq regularized partition closure.
+        Depth scale in meters of the Boussinesq regularized partition closure.
     runtime_max_iterations : int | None
         Optional nonlinear iteration-budget override forwarded to Boussinesq.
     runtime_tol_residual_inf : float | None

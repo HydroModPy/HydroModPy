@@ -1,4 +1,4 @@
-"""Filesystem path resolution for run artefacts.
+"""Filesystem path resolution for run artifacts.
 
 A run owns one directory, ``runs/<name>`` or a kept trial
 ``sessions/<name>/trials/<nnnn>``, named after the run itself (``my_run``,
@@ -77,7 +77,7 @@ class RunNameTooLongError(ConfigError, ValueError):
 def run_dirname(name: str | None) -> str:
     """Return the directory name of a run from its human name.
 
-    Case is preserved (the directory is meant to be recognised at a glance)
+    Case is preserved (the directory is meant to be recognized at a glance)
     and the ``.vN`` version suffix survives; only characters a filesystem
     cannot carry are folded to ASCII and replaced by an underscore.
 

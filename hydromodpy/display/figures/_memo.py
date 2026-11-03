@@ -18,13 +18,13 @@ from weakref import WeakKeyDictionary
 
 
 class RunMemo:
-    """Memoise one value per (run, knobs) pair, for as long as the run lives."""
+    """Memoize one value per (run, knobs) pair, for as long as the run lives."""
 
     def __init__(self) -> None:
         self._by_run: WeakKeyDictionary = WeakKeyDictionary()
 
     def get_or_build(self, run: Any, key: Hashable, build: Callable[[], Any]) -> Any:
-        """Return the memoised value for ``(run, key)``, building it if absent."""
+        """Return the memoized value for ``(run, key)``, building it if absent."""
         try:
             by_knob = self._by_run.get(run)
         except TypeError:

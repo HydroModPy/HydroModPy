@@ -15,7 +15,7 @@ move a finished study. For a new one, start from {doc}`index`.
   only what it changes. A loop over a parameter becomes several run files, or a calibration.
 - Results go to `runs/<name>/` as Zarr, Parquet and JSON. There is no pickle file to reload.
 - Units are written with the value, as in `"30 m"` or `unit = "m/s"`. Version 1 expected
-  metres and days. Version 2 stores SI units, so a v1 `hk` in m/day must be divided by 86400
+  meters and days. Version 2 stores SI units, so a v1 `hk` in m/day must be divided by 86400
   or written with its unit.
 - Data come from a `[data]` table, either from a provider or from your own file.
 

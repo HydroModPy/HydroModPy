@@ -2,7 +2,7 @@
 
 The per-cell cell-bottom floor lifts a reach's streambed top so its bed stays
 inside the aquifer cell. A lake-enforced routing DEM can hand a DOWNSTREAM reach
-a much higher cell bottom than its upstream neighbour, so flooring it up would
+a much higher cell bottom than its upstream neighbor, so flooring it up would
 push it above the upstream reach and re-break the monotone order the single-Picard
 routing (``maximum_picard_iterations=1``) relies on. ``build_sfr_package_args``
 floors every reach first, then re-sweeps outlet->head lifting upstream reaches so
@@ -84,7 +84,7 @@ def test_floor_lifting_a_downstream_reach_restores_monotone_order() -> None:
     # Start monotone (up 60.0 > down 59.9). The downstream cell bottom (65.0)
     # floors rtp[down] up to 66.1, above the upstream reach: without the re-sweep
     # the package would ship an uphill step. The fix lifts the upstream reach back
-    # above its floored downstream neighbour.
+    # above its floored downstream neighbor.
     mesh = _two_cell_mesh(up_bottom=40.0, down_bottom=65.0)
     network = _chain_network(rtp_up=60.0, rtp_down=59.9)
     args = build_sfr_package_args(_fake_model(), networks={"net0": network}, solver_mesh=mesh)

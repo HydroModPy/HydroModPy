@@ -47,7 +47,7 @@ def test_run_places_its_periods_on_the_calendar_through_one_provider() -> None:
 def test_run_keeps_canonical_field_readers() -> None:
     """``run.field`` and ``run.array.{dataset,to_xarray_batch}`` remain."""
     assert hasattr(Run, "field")
-    # ``array`` is initialised in ``__init__`` so check via __init__
+    # ``array`` is initialized in ``__init__`` so check via __init__
     assert callable(Run.__init__)
 
 

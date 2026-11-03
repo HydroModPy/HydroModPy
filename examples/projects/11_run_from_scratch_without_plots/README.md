@@ -2,7 +2,7 @@
 
 Canut catchment delineated on the fly from the regional DEM, **steady-state**
 flow with **MODFLOW 6** over a three-layer 50 m aquifer, with particle
-tracking. Nothing is drawn: the example exists for the artefacts it leaves
+tracking. Nothing is drawn: the example exists for the artifacts it leaves
 behind, which is what a machine with no screen needs.
 
 ## Run

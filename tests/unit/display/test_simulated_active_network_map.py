@@ -183,7 +183,7 @@ def test_the_persistence_mode_says_the_reduction_it_performs(mpl, masked) -> Non
 def test_a_cell_active_at_no_step_is_ground_and_not_the_foot_of_the_ramp(mpl, masked) -> None:
     # A sequential ramp is darkest at zero, so cells that never carried water
     # covered the page and the network vanished into its own background. The
-    # ground is its own collection under the ramp rather than a colour of it,
+    # ground is its own collection under the ramp rather than a color of it,
     # because a mapped collection carries one weight for all its cells and the
     # weight the network needs would widen the ground over the network.
     from matplotlib.colors import to_rgba

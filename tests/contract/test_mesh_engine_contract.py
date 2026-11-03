@@ -5,7 +5,7 @@ parametrized over what :mod:`hydromodpy.spatial.mesh.registry` resolves, not ove
 a list this file keeps. An engine installed beside this build is therefore run
 by this suite without a line of ``tests/`` naming it. ``register()`` certifies a
 class on the members it declares; the invariants a solver relies on (cells cover
-their centres, the areas add up, a chain is continuous) are only visible on a
+their centers, the areas add up, a chain is continuous) are only visible on a
 mesh, and this file is where they are checked. It is the one home of the
 properties the three built-in engines share.
 
@@ -397,7 +397,7 @@ def assert_each_row_runs_with_its_first_cell_on_the_left(cell_mesh: PlanarCellMe
 
 
 def assert_each_river_is_one_continuous_chain(cell_mesh: PlanarCellMesh, structured: bool) -> None:
-    """Two neighbours of a chain share a face, or a corner on a structured grid."""
+    """Two neighbors of a chain share a face, or a corner on a structured grid."""
     padded = cell_mesh.geometry.padded_connectivity
     chains = cell_mesh.chains("rivers")
     assert chains, "the river produced no chain"

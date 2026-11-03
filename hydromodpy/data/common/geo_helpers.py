@@ -14,9 +14,9 @@ from hydromodpy.data.contracts.location import StationLocation
 def require_declared_crs(crs: object, *, path: Path | str, variable: str) -> str:
     """Return the CRS a user file declares, or refuse the file.
 
-    A file without a CRS used to be labelled EPSG:2154 or EPSG:4326 without a
+    A file without a CRS used to be labeled EPSG:2154 or EPSG:4326 without a
     word. Read in the wrong frame, it is cut by a box in another frame, or
-    placed kilometres away. No guess is made: the file names its CRS.
+    placed kilometers away. No guess is made: the file names its CRS.
     """
     text = "" if crs is None else str(crs).strip()
     if text:

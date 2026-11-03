@@ -97,8 +97,8 @@ flags = sys.argv[2:]
 case_id = case.stem
 root = case.parent.parent.parent
 phase = "prepare" if "--until" in flags else "run"
-behaviours = root / "fake.json"
-behaviour = json.loads(behaviours.read_text()).get(case_id, {}) if behaviours.is_file() else {}
+behaviors = root / "fake.json"
+behavior = json.loads(behaviors.read_text()).get(case_id, {}) if behaviors.is_file() else {}
 seen = root / "seen"
 seen.mkdir(exist_ok=True)
 record = {
@@ -114,19 +114,19 @@ if phase == "prepare":
     import time
 
     record["started"] = time.time()
-    time.sleep(float(behaviour.get("prepare_sleep", 0)))
-    if behaviour.get("prepare") == "fail":
+    time.sleep(float(behavior.get("prepare_sleep", 0)))
+    if behavior.get("prepare") == "fail":
         # The preprocessing tree a failed prepare leaves in its scratch.
         scratch = root / ".hmp" / "scratch" / f"{case_id}.p{os.getpid()}" / "_preprocessing"
         scratch.mkdir(parents=True, exist_ok=True)
         (scratch / "dem.tif").write_bytes(b"0" * 64)
         (seen / f"{case_id}.prepare.json").write_text(json.dumps(record))
         sys.exit(16)
-    if behaviour.get("prepare") == "corrupt_cache":
+    if behavior.get("prepare") == "corrupt_cache":
         private = Path(os.environ["HMP_DATA_CACHE_PRIVATE"])
         private.parent.mkdir(parents=True, exist_ok=True)
         private.write_bytes(b"not a duckdb file")
-    if behaviour.get("register"):
+    if behavior.get("register"):
         import hashlib
         from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
@@ -148,7 +148,7 @@ if phase == "prepare":
     (seen / f"{case_id}.prepare.json").write_text(json.dumps(record))
     sys.exit(0)
 
-mode = behaviour.get("run", "complete")
+mode = behavior.get("run", "complete")
 (seen / f"{case_id}.run.json").write_text(json.dumps(record))
 if mode == "refuse":
     sys.exit(14)

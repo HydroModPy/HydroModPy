@@ -10,7 +10,7 @@ map cut to the catchment, the catchment bound, D8 where the mesh has corners.
 The basin is a comb on a DEM, 80 by 70 cells of 20 m. A main stem runs east to the
 outlet on the border, and five straight valleys join it, three from the north and
 two from the south, each with its own slope, so their heads do not move at the same
-K. Each valley is a V whose talweg runs through cell centres, with sides steep
+K. Each valley is a V whose talweg runs through cell centers, with sides steep
 enough to keep the seepage on the talweg: the flow toward a talweg, about
 ``R * 300 m``, stays below what the full aquifer carries down a side,
 ``K * 30 m * 0.06``. The simulated network is then one cell wide, like the trace of
@@ -206,7 +206,7 @@ storage = false
 
 
 def _surface() -> np.ndarray:
-    """Return the top on the cell centres, row 0 at the north."""
+    """Return the top on the cell centers, row 0 at the north."""
     column, row = np.meshgrid(np.arange(NX), np.arange(NY))
     main = (
         40.0
@@ -327,7 +327,7 @@ def _truth(root: Path, solver: str, k_m_s: float) -> Truth:
 
 
 def _lines(truth: Truth, starts: Iterable[int]) -> list[Any]:
-    """Return one line per start, down the descent through the cell centres.
+    """Return one line per start, down the descent through the cell centers.
 
     A line stops on the first cell a line already drew, a vertex of that line, so the
     noding finds a junction there. The one that reaches the outlet runs on past it,

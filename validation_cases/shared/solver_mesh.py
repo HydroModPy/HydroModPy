@@ -22,9 +22,9 @@ def solver_mesh_of(
     inactive_mask: np.ndarray,
     centers: np.ndarray | None = None,
 ) -> SolverMesh:
-    """Return the solver mesh of *planar*, in a local frame in metres.
+    """Return the solver mesh of *planar*, in a local frame in meters.
 
-    The cell centres are the generators ``centers`` of a Voronoi mesh when given,
+    The cell centers are the generators ``centers`` of a Voronoi mesh when given,
     the vertex means otherwise.
     """
     generated = centers is not None

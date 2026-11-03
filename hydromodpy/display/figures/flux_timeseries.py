@@ -39,7 +39,7 @@ if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
 
-# Stable colour per physical role, so the same component reads the same way
+# Stable color per physical role, so the same component reads the same way
 # across projects and backends. Unlisted components fall back to the cycle.
 _COMPONENT_COLORS: dict[str, str] = {
     "recharge": "dodgerblue",
@@ -142,7 +142,7 @@ class FluxTimeseries(BaseFigure):
             bar_color = _COMPONENT_COLORS.get(bar_components[0], "darkorange")
             for component in bar_components:
                 values = np.asarray(net[component], dtype="float64") * scale
-                # Centred, half-period bars so the drain/recharge steps stay
+                # Centered, half-period bars so the drain/recharge steps stay
                 # readable on either side of each pumping bar.
                 bar_ax.bar(
                     centers,
@@ -251,7 +251,7 @@ def _period_centers(index: pd.Index, period: float) -> np.ndarray:
     """Return the numeric midpoint of each stress period on the shared x-axis.
 
     ``where="post"`` step segments span ``[x[i], x[i] + period]``; the bar
-    centre is half a period to the right of the period start. Datetime labels
+    center is half a period to the right of the period start. Datetime labels
     are converted to matplotlib day numbers so bars co-register with the steps.
     """
     if isinstance(index, pd.DatetimeIndex):

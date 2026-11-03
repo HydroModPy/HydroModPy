@@ -10,7 +10,7 @@ data declaration when the geographic one is left empty.
 It returns **one** vector path holding every declared source merged, in the
 project CRS, with the fixed columns of the variable. Unlike the hydrography
 twin it never hands back the user's own file: a custom file is read and
-normalised like the others, so the notch can rely on the columns.
+normalized like the others, so the notch can rely on the columns.
 
 - A downloading source is asked over a bootstrap box around the outlet,
   intersected with the DEM footprint, because the watershed the data manager
@@ -46,14 +46,14 @@ from hydromodpy.core.state.paths import cache_dir as _hmp_cache_dir
 logger = get_logger(__name__)
 
 _BOOTSTRAP_BUFFER_M = 30_000
-"""Half-width of the outlet box the API sources are asked over, in metres.
+"""Half-width of the outlet box the API sources are asked over, in meters.
 
 Same value as the DEM and hydrography bootstraps, for the same reason: the only
 extent known before the delineation is a box around the declared outlet.
 """
 
 DOMAIN_MARGIN_M = 2_000
-"""Margin added around a known domain extent, in metres, for the download box.
+"""Margin added around a known domain extent, in meters, for the download box.
 
 A crossing just outside the domain can still cut a channel that enters it, so
 the box is the domain plus this margin and not the domain alone.

@@ -93,7 +93,7 @@ def test_zonal_channel_min_lowers_the_channel_cell_through_the_seam():
     dem = _ramp_dem()
     xs = (np.arange(_N) + 0.5) * (_EXTENT / _N)
     channel = np.zeros((_N, _N), dtype=bool)
-    notch = (xs >= 10.0) & (xs <= 15.0)  # off-centre channel in cell 0
+    notch = (xs >= 10.0) & (xs <= 15.0)  # off-center channel in cell 0
     dem[:, notch] = 5.0
     channel[:, notch] = True
     top_surface = _surface(dem, "top")

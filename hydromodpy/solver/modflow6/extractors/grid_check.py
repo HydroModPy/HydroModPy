@@ -107,8 +107,8 @@ def verify_disv_grid(
     """Compare a DISV grid file with the stored mesh; raise ``IncompatibleMeshError`` on a difference.
 
     ``vertices`` and ``connectivity`` are the stored ``mesh/`` arrays and
-    ``centers`` the stored cell centres, ``None`` for a store that has none (the
-    centres are then left unchecked). The counts, then every ring, then the
+    ``centers`` the stored cell centers, ``None`` for a store that has none (the
+    centers are then left unchecked). The counts, then every ring, then the
     coordinates are compared; the first cell or vertex that differs is named.
     """
     solved_xy, solved_rings = grb_geometry(grd)

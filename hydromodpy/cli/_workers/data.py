@@ -20,7 +20,7 @@ def list_data_cache(
     variable: str | None = None,
     provider: str | None = None,
 ) -> Any:
-    """List artefacts indexed in the workspace data cache."""
+    """List artifacts indexed in the workspace data cache."""
     from hydromodpy.cli.helpers import resolve_workspace as _resolve_ws
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 

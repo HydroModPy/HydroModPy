@@ -1,7 +1,7 @@
 """Each phase reports the fraction of the cost each block actually took.
 
 ``cost_block_fractions`` reads it off the ``<block>.total`` components
-:class:`CompositeObjective` already writes, weighted by the same normalised
+:class:`CompositeObjective` already writes, weighted by the same normalized
 weights the objective used: ``w_i * c_i / sum_j(w_j * c_j)``.
 ``mean_cost_block_fractions`` averages it over several trials, the way
 :func:`hydromodpy.calibration.runners.cli_runner._phase_cost_block_fractions`
@@ -26,7 +26,7 @@ from hydromodpy.calibration.persistence import CalibrationPersistence
 from hydromodpy.calibration.runners.cli_runner import _phase_cost_block_fractions
 from hydromodpy.calibration.runners.staged_runner import _reused_phase_cost_block_fractions
 
-BLOCKS = [("network", 1.0), ("hydrograph", 3.0)]  # normalised: 0.25 / 0.75
+BLOCKS = [("network", 1.0), ("hydrograph", 3.0)]  # normalized: 0.25 / 0.75
 
 
 def test_the_fraction_is_the_normalised_weighted_contribution() -> None:

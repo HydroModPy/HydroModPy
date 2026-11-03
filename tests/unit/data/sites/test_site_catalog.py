@@ -102,7 +102,7 @@ def test_a_bad_row_is_named_by_its_line(tmp_path):
 
 @pytest.mark.fast
 def test_nearest_site_measures_in_metres_across_crs():
-    lon, lat = -1.19785, 48.37462  # the Nancon outlet in WGS84, to about a metre
+    lon, lat = -1.19785, 48.37462  # the Nancon outlet in WGS84, to about a meter
     found = nearest_site([NANCON], x=lon, y=lat, crs="EPSG:4326")
 
     assert found is not None

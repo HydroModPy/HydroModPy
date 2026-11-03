@@ -21,8 +21,8 @@ where it shapes the criterion.
 :::
 
 ::::{dropdown} Notation of this page
-Every cell $n$ has a centre $x_n$ and an area $a_n$. A distance is a length in
-metres along cell-to-cell links, centre to centre. Sets of cells are written with
+Every cell $n$ has a center $x_n$ and an area $a_n$. A distance is a length in
+meters along cell-to-cell links, center to center. Sets of cells are written with
 capital letters.
 
 ```{hmp-notation}
@@ -37,7 +37,7 @@ depressions are resolved. The code floods the model top on the mesh with the
 priority flood of {doc}`exits/routing-on-the-mesh`, {eq}`eq-flood`, seeded on
 the border of the active domain, and reads the receivers $r(n)$ of
 {eq}`eq-receiver` on the flooded copy. The edge length $\ell(n)$ is the distance
-from the centre of $n$ to the centre of $r(n)$.
+from the center of $n$ to the center of $r(n)$.
 
 The flood is seeded on the whole border, where water leaves the model, not on
 the outlet alone: sealing one outlet would fill a valley of the buffer up to a
@@ -62,7 +62,7 @@ $$ (eq-downslope-distance)
 
 With one receiver per cell, exactly one descending path leaves a cell, so there
 is no shortest path to search for. The distance is not a Euclidean nearest
-distance: a source fifty metres from a stream but across a divide is far away
+distance: a source fifty meters from a stream but across a divide is far away
 downslope. And it is not symmetric: $d_{\mathcal{O}}$ on the simulated cells and
 $d_{\mathcal{S}}$ on the mapped cells differ, which is what lets one cost weigh an
 excess of simulated stream against a missing one. An empty target gives
@@ -88,7 +88,7 @@ In the code: `downslope_distance_to_mask`.
 
 The outlet $o$ closes the catchment, usually at the gauging station. With
 $A_d(n) = a_n + \sum_{m : r(m) = n} A_d(m)$ the area drained through $n$, the
-outlet is the most drained cell within two neighbour rings of the cell nearest
+outlet is the most drained cell within two neighbor rings of the cell nearest
 to the pour point the catchment was delineated from (two cells is the
 `SnapPourPoints` distance of the paper, read on the mesh). Without a pour point,
 the most drained cell of the delineated polygon closes the catchment, and without
@@ -167,7 +167,7 @@ The traced map is connected to the outlet by construction.
 ```
 
 *Crossing* keeps a cell when a mapped line crosses the segment joining the
-centres of two cells that share an edge: on a structured grid, the cell medians,
+centers of two cells that share an edge: on a structured grid, the cell medians,
 which is what the WhiteboxTools tool `VectorLinesToRaster` of the paper tests.
 The map is one cell wide, like the simulated network. A reach that crosses no
 segment marks the cell holding its midpoint instead, and the count is published
@@ -267,7 +267,7 @@ end of its interval where nothing seeps.
 **The cost is $J$, and its zero is a crossing.** The two curves $D_{so}$ and
 $D_{os}$, drawn against the calibrated parameter, cross, and the crossing is the
 answer. $D_{optim}$ is large at both ends of a sweep, so it has an interior
-minimum, and minimising it is a tempting substitute. It is a different estimator:
+minimum, and minimizing it is a tempting substitute. It is a different estimator:
 nothing places its minimum at the crossing.
 
 ```{eval-rst}
@@ -299,7 +299,7 @@ In the code: `seepage_distance_cost`.
 (downslope-validity)=
 ## 7. When a result is valid
 
-**The length scale.** $h_{obs}$ is the median distance between the centres of
+**The length scale.** $h_{obs}$ is the median distance between the centers of
 cells that share an edge, over the mapped cells of $\Omega_o$: the cell size on a
 regular grid, the size of the fine cells on a mesh refined along the streams. It
 is static, since the map does not move with $K$.
@@ -381,7 +381,7 @@ options are on {doc}`../reference/calibration-methods`.
 
 - Water leaves a cell by one receiver (single flow direction).
 - The model top, flooded on the mesh graph, is the surface water follows.
-- Distances are lengths along links between cell centres, not straight lines.
+- Distances are lengths along links between cell centers, not straight lines.
 - The mapped network is independent of the DEM. It is never burned into the
   surface.
 - The release flux is the whole of what leaves the aquifer for the surface.

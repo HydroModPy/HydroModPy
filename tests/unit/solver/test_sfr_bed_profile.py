@@ -2,7 +2,7 @@
 
 Every check the SFR path had before this verified that water ROUTES correctly.
 None compared a reach bed to the top of its own cell, so a bed could sit tens of
-metres under the land surface or perched above it with a perfect topology.
+meters under the land surface or perched above it with a perfect topology.
 """
 
 from __future__ import annotations

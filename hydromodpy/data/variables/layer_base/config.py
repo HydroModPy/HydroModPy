@@ -14,7 +14,7 @@ from hydromodpy.core.tracking import InputFile
 
 
 class CustomLayerBaseSource(HydroModelBase):
-    """User-provided raster of the base of one layer (GeoTIFF/ASC), elevations in metres.
+    """User-provided raster of the base of one layer (GeoTIFF/ASC), elevations in meters.
 
     A layer of ``[domain.layers]`` reads it by its ``name`` through its ``surface``
     key. The values are elevations in the datum of the DEM.

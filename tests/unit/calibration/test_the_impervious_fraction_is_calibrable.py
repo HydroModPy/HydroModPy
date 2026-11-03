@@ -1,7 +1,7 @@
 """``[calibration.parameters.impervious_fraction]`` resolves and is bounds-checked.
 
 Mirrors ``test_the_evt_extinction_depth_is_calibrable.py``: the file names the
-quantity, the catalogue resolves it to
+quantity, the catalog resolves it to
 ``flow.sinks_sources.recharge.soil.impervious_fraction``, and a bound the
 physical registry rules out (1 or more, which the field validator also
 refuses) is caught at load, before any trial runs.

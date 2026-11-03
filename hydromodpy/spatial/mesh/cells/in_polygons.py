@@ -3,7 +3,7 @@
 Vector twin of :mod:`~hydromodpy.spatial.mesh.cells.zonal_stats`: instead of
 reducing raster pixels onto cells, it answers which cells a linework (or any
 geometry set) reaches. A LINEWORK reaches every cell its geometry touches,
-never only the cells whose centre it contains: on a Voronoi mesh the centroid
+never only the cells whose center it contains: on a Voronoi mesh the centroid
 rule drops roughly half the cells of a one-cell-wide line, and any distance
 measured from a mask that thin is biased by half a cell.
 
@@ -71,7 +71,7 @@ def vector_cell_mask(
 
     ``rule`` says what "reaches" means. ``"touch"`` keeps every cell the
     geometry intersects, the rule a linework needs. ``"centroid"`` keeps the
-    cells whose centre the geometry contains, the rule an areal layer needs: a
+    cells whose center the geometry contains, the rule an areal layer needs: a
     catchment taken by touch is the delineated basin plus one exterior ring, and
     that ring is measured by whatever is averaged over the mask.
 
@@ -108,7 +108,7 @@ def vector_cell_mask(
     query = np.empty(len(parts), dtype=object)
     query[:] = parts
     if rule == "centroid":
-        # The tree holds the cell centres, so "the geometry contains the cell"
+        # The tree holds the cell centers, so "the geometry contains the cell"
         # is exactly the raster ``all_touched=False`` rule.
         tree = STRtree([polygon.centroid for polygon in kept])
         hits = tree.query(query, predicate="contains")

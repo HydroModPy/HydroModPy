@@ -148,12 +148,12 @@ class FlowReachConfig(HydroModelBase):
     )
     length: Annotated[Length, Profile.USER] = Field(
         ...,
-        description="Length of the reach along the channel, in metres (rlen of MODFLOW 6 SFR).",
+        description="Length of the reach along the channel, in meters (rlen of MODFLOW 6 SFR).",
         examples=["250 m"],
     )
     width: Annotated[Length, Profile.USER] = Field(
         ...,
-        description="Width of the channel of the reach, in metres (rwid of MODFLOW 6 SFR).",
+        description="Width of the channel of the reach, in meters (rwid of MODFLOW 6 SFR).",
         examples=["3 m"],
     )
     slope: Annotated[float, Profile.USER] = Field(
@@ -167,7 +167,7 @@ class FlowReachConfig(HydroModelBase):
     )
     top: Annotated[Length, Profile.USER] = Field(
         ...,
-        description="Elevation of the streambed top of the reach, in metres (rtp of MODFLOW 6 SFR).",
+        description="Elevation of the streambed top of the reach, in meters (rtp of MODFLOW 6 SFR).",
         examples=["42 m"],
     )
     upstream: Annotated[list[int], Profile.USER] = Field(

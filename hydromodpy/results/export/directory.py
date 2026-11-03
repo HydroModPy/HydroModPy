@@ -10,7 +10,7 @@ Three rules, each one a way a view could say more than the directory.
 
 **A view renders the seal and nothing else.** It reads ``manifest.json``,
 ``provenance.json`` and, for a job, ``inputset.json`` and ``outcome.json``.
-It never hashes an artefact again, never opens a workspace file and never
+It never hashes an artifact again, never opens a workspace file and never
 reads the clock: it is dated by ``sealed_at``. Rendering it twice gives the
 same bytes, so a view can be deleted and written again at any time.
 
@@ -242,7 +242,7 @@ def publication_of(root: Path) -> PublicationConfig:
 
 
 def _run_assets(entries: Any) -> list[AssetEntry]:
-    """Turn the artefact list of a run seal into assets, the seal itself aside."""
+    """Turn the artifact list of a run seal into assets, the seal itself aside."""
     assets: list[AssetEntry] = []
     for entry in _records(entries):
         path = str(entry.get("path") or "")
@@ -283,7 +283,7 @@ def _run_inputs(entries: Any) -> list[InputEntry]:
 
 
 def _stac_role(role: str) -> str:
-    """Map a run artefact role onto the STAC asset role vocabulary."""
+    """Map a run artifact role onto the STAC asset role vocabulary."""
     if role in ("fields", "data") or role.startswith("table:"):
         return "data"
     if role == "figure":
@@ -359,7 +359,7 @@ def _job_context(root: Path, manifest: Mapping[str, Any]) -> FairExportContext:
 
 
 def _job_assets(entries: Any) -> list[AssetEntry]:
-    """Turn the artefact list of a job seal into assets, digests included."""
+    """Turn the artifact list of a job seal into assets, digests included."""
     assets: list[AssetEntry] = []
     for entry in _records(entries):
         path = str(entry.get("path") or "")
@@ -471,7 +471,7 @@ def _wgs84_bbox(bbox: Any, epsg: int | None) -> tuple[float, float, float, float
     """Reproject a native bounding box to WGS84 longitude and latitude.
 
     A box whose CRS is not named is dropped rather than written as if it were
-    in degrees: a synthetic model in metres would land in the Gulf of Guinea.
+    in degrees: a synthetic model in meters would land in the Gulf of Guinea.
     """
     native = _bbox_or_none(bbox)
     if native is None or epsg is None:

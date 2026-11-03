@@ -1,10 +1,10 @@
-"""The one-instant and persistence maps open on the catchment, in metres.
+"""The one-instant and persistence maps open on the catchment, in meters.
 
 Measured on the example 04 gallery: the seepage map drew a yes-or-no field
 with a continuous red ramp, so a reader looked for fractions of seepage the
 field does not hold; the three maps drew the whole buffered model box in
-kilometres from its corner, while the confusion map beside them opened on the
-catchment in projected metres. The maps now share the frame, the axes and a
+kilometers from its corner, while the confusion map beside them opened on the
+catchment in projected meters. The maps now share the frame, the axes and a
 key that counts the cells a reader sees inside the outline.
 """
 
@@ -72,7 +72,7 @@ def test_the_seepage_map_draws_two_classes_and_no_ramp(mpl) -> None:
 
     SeepageMap().render(run, ax)
 
-    assert len(fig.axes) == 1, "a yes-or-no field takes no colour bar"
+    assert len(fig.axes) == 1, "a yes-or-no field takes no color bar"
     seepage = [c for c in ax.collections if c.get_label() == "_seepage"]
     assert len(seepage) == 1
     assert len(seepage[0].get_paths()) == 2

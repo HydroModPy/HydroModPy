@@ -379,7 +379,7 @@ not a systematic review.
   the July to September bias from +0.006 to +0.015 m3/s. A delay of 30 days, run at
   the monthly step, brings that bias from 0.000 to +0.058 m3/s, so the summer floor
   comes back.
-- **All the overflow goes down.** Every millimetre above the capacity enters the
+- **All the overflow goes down.** Every millimeter above the capacity enters the
   water table, and the drains of MODFLOW 6 split it between quick and slow flow.
   SWB2 treats its overflow the same way. {cite:t}`dewandel2020` send 55 % of the
   effective rain to the aquifer on hard rock, and they use that value on the

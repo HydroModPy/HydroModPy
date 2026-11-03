@@ -43,7 +43,7 @@ path = "mesh_bundles/boussinesq_hillslope_interception_irregular_tri_400x30/mesh
 nlay = 1
 
 # A 2.5 m raster (160 x 12) under the 10 m columns of the structured grids: a
-# linear surface is flat past the centre of the end raster columns (1.25 m from
+# linear surface is flat past the center of the end raster columns (1.25 m from
 # the faces), and the flow to the held head crosses that flat strip only by a
 # head above the surface, so the strip is kept short. The two boundary
 # triangles of the east face have their centroids at 397.7 and 398.9 m, whose

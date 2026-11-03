@@ -88,7 +88,7 @@ def test_zonal_channel_min_lowers_channel_cell():
     mesh = _quad_mesh(xmin=0.0, ymin=0.0, dx=50.0, dy=100.0, ncol=2, nrow=1)
     dem, channel = _notch_dem(n=40)
     transform = _grid_transform(0.0, 0.0, 100.0, 100.0, 40, 40)
-    centroid = np.array([25.0, 75.0])  # generator samples (unaffected by the off-centre notch)
+    centroid = np.array([25.0, 75.0])  # generator samples (unaffected by the off-center notch)
     res = zonal_top(
         planar_mesh=mesh,
         dem=dem,

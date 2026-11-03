@@ -62,7 +62,7 @@ def verify_dis_grid(
 
     The shape, the cell rings (the pattern of the regular engine) and the
     vertices are compared; a difference raises ``IncompatibleMeshError``. The
-    return value is the largest vertex shift in metres, ``None`` when the store
+    return value is the largest vertex shift in meters, ``None`` when the store
     holds no geometry (a warning, and nothing is checked).
     """
     mesh = root["mesh"] if "mesh" in root else {}

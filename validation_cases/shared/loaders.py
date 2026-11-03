@@ -336,11 +336,11 @@ def _read_bundle_table(bundle_dir: Path, name: str) -> np.ndarray:
 
 
 def bundle_cell_centers(bundle_dir: Path, n_cells: int) -> tuple[np.ndarray, str]:
-    """Return the ``(n_cells, 2)`` solver cell centres of one mesh bundle and the dual kind.
+    """Return the ``(n_cells, 2)`` solver cell centers of one mesh bundle and the dual kind.
 
     A triangle grid (``grid_dual = "triangle"``) keeps one cell per bundle
-    triangle, centred on its centroid. A Voronoi dual (``grid_dual = "voronoi"``)
-    has one cell per bundle node, and the node is the cell centre. The cell
+    triangle, centered on its centroid. A Voronoi dual (``grid_dual = "voronoi"``)
+    has one cell per bundle node, and the node is the cell center. The cell
     count tells the two apart.
     """
     cells = _read_bundle_table(bundle_dir, "cells.csv")
@@ -416,10 +416,10 @@ def _nearest_cell_history_to_grid(
     y_min: float,
     y_max: float,
 ) -> np.ndarray:
-    """Give each structured cell the value of the solver cell with the nearest centre.
+    """Give each structured cell the value of the solver cell with the nearest center.
 
-    For a Voronoi dual the nearest centre is the cell that holds the point, so
-    each structured cell reads the solver cell under its centre. Rows run from
+    For a Voronoi dual the nearest center is the cell that holds the point, so
+    each structured cell reads the solver cell under its center. Rows run from
     ``y_min`` up, like ``interpolate_bundle_history_to_structured_grids``.
     """
     from scipy.spatial import cKDTree
@@ -445,7 +445,7 @@ def nearest_cell_grid(
     y_min_m: float,
     y_max_m: float,
 ) -> np.ndarray:
-    """Give each cell of a ``ny x nx`` grid the value of the solver cell with the nearest centre.
+    """Give each cell of a ``ny x nx`` grid the value of the solver cell with the nearest center.
 
     Rows run from ``y_min_m`` up, like the other regridding helpers.
     """
@@ -478,7 +478,7 @@ def _regrid_bundle_history(
     """Project one time-cell history of a mesh-bundle run onto a ``ny x nx`` grid.
 
     A triangle grid goes through ``interpolate_bundle_history_to_structured_grids``.
-    A Voronoi dual reads, for each structured cell, the solver cell under its centre.
+    A Voronoi dual reads, for each structured cell, the solver cell under its center.
     A Voronoi dual collapsed to an x-profile bins its cells by node abscissa,
     weighted by polygon area, and so needs ``store`` and ``sim_id``.
     """
@@ -538,7 +538,7 @@ def load_cell_polygons(*, store: Any, sim_id: str) -> list[np.ndarray]:
 
 
 def load_cell_centers(*, store: Any, sim_id: str) -> np.ndarray:
-    """Return the ``(n_cells, 2)`` centre of every solver cell of one run, as the mesh stored it."""
+    """Return the ``(n_cells, 2)`` center of every solver cell of one run, as the mesh stored it."""
     sz = store.open_zarr(sim_id)
     try:
         x = np.asarray(sz.root["mesh"]["face_x"][:], dtype=float)

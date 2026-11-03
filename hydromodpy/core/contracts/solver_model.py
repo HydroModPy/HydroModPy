@@ -26,8 +26,8 @@ class SolverModel(Protocol):
     """A model a solver adapter produced, and where it works.
 
     ``full_path`` is a ``str`` on the MODFLOW families and a ``Path`` on
-    Boussinesq, which is why it is typed as both rather than normalised here:
-    normalising it would move a path string in seven classes for the benefit of
+    Boussinesq, which is why it is typed as both rather than normalized here:
+    normalizing it would move a path string in seven classes for the benefit of
     an annotation.
     """
 

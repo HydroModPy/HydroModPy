@@ -74,7 +74,7 @@ def test_a_vertex_moved_by_a_centimetre_is_refused_with_both_identities(tmp_path
 
 
 def test_a_shift_below_half_the_written_step_is_the_same_mesh(tmp_path: Path) -> None:
-    """A millimetre in y at 6.8e6 m is under half of flopy's 1e-2 m step there."""
+    """A millimeter in y at 6.8e6 m is under half of flopy's 1e-2 m step there."""
     mesh = _mesh()
     nudged = mesh.mesh.vertices[:, :2].copy()
     nudged[:, 1] += 0.001
@@ -82,7 +82,7 @@ def test_a_shift_below_half_the_written_step_is_the_same_mesh(tmp_path: Path) ->
 
 
 def test_the_same_shift_in_x_is_not(tmp_path: Path) -> None:
-    """The step at 3.5e5 m is 1e-3 m, so a millimetre in x is a vertex that moved."""
+    """The step at 3.5e5 m is 1e-3 m, so a millimeter in x is a vertex that moved."""
     mesh = _mesh()
     nudged = mesh.mesh.vertices[:, :2].copy()
     nudged[:, 0] += 0.001

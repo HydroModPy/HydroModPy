@@ -21,11 +21,11 @@ fig, ax = plt.subplots(figsize=(6.4, 3.4))
 for i, (left, right) in enumerate(zip(edges[:-1], edges[1:], strict=True)):
     inside = periods.inside[i]
     if inside.size:
-        value, colour = values[inside].mean(), BLUE
+        value, color = values[inside].mean(), BLUE
     else:
         value = values[periods.fill[i]]
-        colour = ORANGE if i in periods.uncovered else GREEN
-    ax.hlines(value, left, right, color=colour, lw=2.5)
+        color = ORANGE if i in periods.uncovered else GREEN
+    ax.hlines(value, left, right, color=color, lw=2.5)
     if i in periods.uncovered:
         ax.axvspan(left, right, color=ORANGE, alpha=0.12, lw=0)
 for edge in edges:

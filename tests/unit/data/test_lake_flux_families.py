@@ -1,7 +1,7 @@
 """Lake volumetric flux families register, scaffold-scan, and load.
 
 Guards the three per-lake volumetric (L^3/T) timeseries families
-(``lake_inflow``, ``lake_outflow``, ``lake_withdrawal``) modelled on the
+(``lake_inflow``, ``lake_outflow``, ``lake_withdrawal``) modeled on the
 ``lake_levels`` family: each is dispatchable, listed as a scaffold variable
 and a supported data-manager type, and its manager loads a custom CSV
 directory into PointRecord timeseries.

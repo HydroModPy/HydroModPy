@@ -76,7 +76,7 @@ version 1 or from an alpha. The long development notes of the alphas are kept in
 - Each stored format declares the oldest version that reads it. Every later 2.x reads every 2.0.0 run.
 - A name can be renamed in a minor version. The old name keeps working for two minor versions.
 - A calibration with no pin on the protocol follows 1.3: the map is cut to the catchment and
-  the network is rasterised from the heads of the observed streams.
+  the network is rasterized from the heads of the observed streams.
 - A tie on the cost in the last phase of a search promotes the trial that the search answered.
 - A date written on a stamp belongs to the period `(s, e]` that the stamp closes.
 - A chain of TOML files that sets one key under an old and a new name keeps the value of the last file.

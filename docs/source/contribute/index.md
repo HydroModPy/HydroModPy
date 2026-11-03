@@ -17,12 +17,12 @@ files, {doc}`Get started <../get-started/index>` and the
 | Fix an import the architecture gate refuses | {doc}`architecture/how-to/fix-an-architecture-gate` |
 | Cut a release | {doc}`architecture/how-to/cut-a-release` |
 | Change this documentation | {doc}`documentation/index` |
-| Understand how the code is organised | {doc}`architecture/mental-model` |
+| Understand how the code is organized | {doc}`architecture/mental-model` |
 
 ## The four blocks
 
 - **Recipes** ({doc}`architecture/how-to/index`): one page per extension, with
-  the files to touch, the contract to honour and the test to add.
+  the files to touch, the contract to honor and the test to add.
 - **Architecture** ({doc}`architecture/index`): the layers and their allowed
   imports, the packages, the storage layout and the subsystems.
 - **Documentation** ({doc}`documentation/index`): how this site is built, and

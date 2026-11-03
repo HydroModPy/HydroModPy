@@ -1,6 +1,6 @@
 """Validate the grid convergence of the steady Dupuit fixed-head case on the production path.
 
-Compared with: the steady Dupuit profile `h^2 = h_w^2 + (h_e^2 - h_w^2) (x - x_w) / (x_e - x_w)` between the heads held at the centres of the boundary columns, on 16, 32 and 64 columns.
+Compared with: the steady Dupuit profile `h^2 = h_w^2 + (h_e^2 - h_w^2) (x - x_w) / (x_e - x_w)` between the heads held at the centers of the boundary columns, on 16, 32 and 64 columns.
 
 The case runs through the launcher, the route of ``test_dupuit_fixed_head_1d.py``,
 on copies of its configuration refined twice by 2 (cells of 25, 12.5 and
@@ -8,7 +8,7 @@ on copies of its configuration refined twice by 2 (cells of 25, 12.5 and
 order of the scheme.
 
 Without Newton, MODFLOW 6 takes the harmonic mean of the two cell
-transmissivities, a centred scheme of order 2. A head posed half a cell away
+transmissivities, a centered scheme of order 2. A head posed half a cell away
 from where the reference expects it adds an error of order 1 and drops the
 observed order to 1. This is the check the MMS tests cannot make: they import
 nothing from ``hydromodpy``.
@@ -28,7 +28,7 @@ Newton (the upstream thickness weighting). The Boussinesq solver averages the
 thickness of the two cells in the edge flux, which is exact in ``h^2`` at the
 centroids. Its second-order error is that of the aggregation: the profile is the
 column mean of the centroids at dx/3 and 2dx/3, read against the reference at the
-column centre. PETSc and the default local engine give the same errors to 1e-9
+column center. PETSc and the default local engine give the same errors to 1e-9
 m; the local engine goes from the dense solver (64 and 256 cells) to scipy_sparse
 (1024 cells at 64 columns) inside the refinement without moving the result.
 

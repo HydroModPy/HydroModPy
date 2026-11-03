@@ -128,7 +128,7 @@ class HydrographicNetworkDistance:
         simulated: Sequence[float] | Any,
         observed: Sequence[float] | Any | None = None,
     ) -> CriterionResult:
-        """Return the cost in metres, with the pairs it was read from.
+        """Return the cost in meters, with the pairs it was read from.
 
         One pair has a signed residual. Two bounds have two, which no single
         number carries: the residual is then None and a root search reads the

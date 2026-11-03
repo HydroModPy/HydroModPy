@@ -2,7 +2,7 @@
 
 The SFR path already verifies that water ROUTES correctly: no cycle, a
 downstream-increasing numbering, a signed connectivity. Nothing verified that a
-reach bed sits where the terrain is. A bed can land tens of metres under the
+reach bed sits where the terrain is. A bed can land tens of meters under the
 land surface, or perched above it, and every topological check still passes.
 
 That gap has a measured cost. MODFLOW 6 switches a reach between connected and
@@ -116,7 +116,7 @@ def solve_reach_bed_profile(
             lo[ifno] = max(lo[ifno], min(lo[down] + drop(ifno, down), hi[ifno]))
 
     # Pass 2, downstream. The numbering is topological (asserted upstream of
-    # here), so every upstream neighbour is already final and the monotone
+    # here), so every upstream neighbor is already final and the monotone
     # constraint reads straight off it.
     #
     # Where the cell box and the downhill order disagree, the BOX WINS. A bed

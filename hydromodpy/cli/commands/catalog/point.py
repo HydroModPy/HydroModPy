@@ -68,7 +68,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     vertical.add_argument(
         "--depth",
         type=float,
-        metavar="METRES",
+        metavar="METERS",
         help="Depth below the local model top; picks the layer",
     )
     parser.add_argument("--label", help="Name of the point reported in the table")

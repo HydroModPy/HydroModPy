@@ -35,12 +35,12 @@ def capped_breach_of(geographic: object) -> CappedBreach | None:
 
 
 class CappedBreachConfig(HydroModelBase):
-    """Limits of the ``capped_breach`` DEM conditioning, in metres.
+    """Limits of the ``capped_breach`` DEM conditioning, in meters.
 
     Read only when ``[geographic] dem_correc_type = "capped_breach"``. Least-cost
     breaching digs a path through the barrier that closes a depression. These two
     limits bound that digging, and whatever they refuse is filled instead. Both
-    are given in metres but the tool counts along the cells of a path (a sum of
+    are given in meters but the tool counts along the cells of a path (a sum of
     lowerings, a number of cells), so a given value does not mean the same thing
     at every grid resolution: see each field.
     """

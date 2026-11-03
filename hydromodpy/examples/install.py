@@ -1,4 +1,4 @@
-"""Write one catalogued example into a scaffolded workspace.
+"""Write one cataloged example into a scaffolded workspace.
 
 Every file goes through the blob cache first, so a second install of the same
 example downloads nothing, and two examples sharing the regional DEM share the

@@ -62,7 +62,7 @@ from hydromodpy.core.topographic_distance import (
 
 logger = get_logger(__name__)
 
-#: Rings of neighbours the delineated outlet may move across to reach the most
+#: Rings of neighbors the delineated outlet may move across to reach the most
 #: accumulated cell of the criterion graph. Two cells is the ``SnapPourPoints``
 #: distance of the paper (twice the resolution): on a quad mesh descended D8
 #: the two rings are its five-by-five window.
@@ -114,7 +114,7 @@ def resolve_validity_length(
     accuracy_m: float | None = None,
     declared_m: float | None = None,
 ) -> ValidityLength:
-    """Return the validity length of Eq. 4, in metres.
+    """Return the validity length of Eq. 4, in meters.
 
     A declared length wins. Otherwise ``h = max(h_obs, accuracy)`` when an
     accuracy is declared, else ``h_obs``, and the length is ``2 h``, the two
@@ -142,7 +142,7 @@ class NetworkGeometry:
     the same gap to the basin of D the build kept, the cells the budget zone sums.
 
     ``observed`` is the map the criterion scores, as drawn on the cells by the
-    output's rasterisation rule. ``heads`` is the trace that drew it under the
+    output's rasterization rule. ``heads`` is the trace that drew it under the
     heads rule, None under the others. ``h_obs_m`` is the cell size on the mapped
     network, the length ``r_optim`` is divided by (Eq. 3).
     ``observed_position_accuracy_m`` is the declared accuracy of the map,
@@ -315,9 +315,9 @@ def neighbour_spacing_m(
     *,
     touching: np.ndarray | None = None,
 ) -> float:
-    """Return the median distance between the centres of cells sharing an edge.
+    """Return the median distance between the centers of cells sharing an edge.
 
-    Two cells are neighbours when they share an edge, whatever the descent the
+    Two cells are neighbors when they share an edge, whatever the descent the
     criterion routes on. ``touching`` keeps the pairs of which at least one
     cell lies in it. At least one, not both: under the crossing rule two
     successive mapped cells along a diagonal often share only a corner.
@@ -366,7 +366,7 @@ def observed_cell_size_m(
 ) -> float:
     """Return ``h_obs``, the size of one cell where the mapped network lies.
 
-    It is the median distance between neighbouring cell centres over the
+    It is the median distance between neighboring cell centers over the
     mapped cells of the catchment (:func:`neighbour_spacing_m`). The distances
     ``D_os`` start from those cells, so on a mesh refined along the streams
     the fine cells set the scale, not the coarse hillslope cells a
@@ -384,7 +384,7 @@ def observed_cell_size_m(
 
 
 def _rings_around(start: int, adjacency: list[set[int]], rings: int) -> np.ndarray:
-    """Return ``start`` and every cell at most ``rings`` neighbour steps from it."""
+    """Return ``start`` and every cell at most ``rings`` neighbor steps from it."""
     reached = {int(start)}
     frontier = {int(start)}
     for _ in range(int(rings)):
@@ -410,8 +410,8 @@ def resolve_outlet(
     the target legitimate rather than a fudge.
 
     ``near`` is the outlet the geographic step delineated from, in the mesh
-    CRS. The search then starts at the active cell whose centre is nearest to
-    it and keeps the most accumulated cell within ``rings`` neighbour steps on
+    CRS. The search then starts at the active cell whose center is nearest to
+    it and keeps the most accumulated cell within ``rings`` neighbor steps on
     ``adjacency``, the graph the metric descends: the ``SnapPourPoints`` rule
     of the paper, read on the mesh. Without ``near``, ``within`` restricts the
     search to a catchment; without either, the largest basin of the mesh wins.
@@ -519,11 +519,11 @@ def build_network_geometry(
     threshold is never written twice.
 
     ``diagonal_neighbors`` defaults to the D8 descent of the paper. It is
-    resolved against the mesh once, here, and the one neighbour graph that
+    resolved against the mesh once, here, and the one neighbor graph that
     comes out feeds the depression flood, the receiver graph, the downstream
     closure of both networks and the saturation cap alike.
 
-    The map is given as exactly one of ``observed``, the cells a rasterisation
+    The map is given as exactly one of ``observed``, the cells a rasterization
     rule drew, and ``heads``, the free ends of the map with where they may
     land (:mod:`hydromodpy.core.stream_heads`). The heads are traced down the
     graph built here, once the outlet and the catchment are resolved.
@@ -546,9 +546,9 @@ def build_network_geometry(
         if inactive_mask is None
         else np.asarray(inactive_mask, dtype=bool).reshape(-1)
     )
-    # THE SAME neighbour graph the metric will descend. The flood only
-    # guarantees a strictly lower neighbour among the cells it walked: fed the
-    # eight-neighbour graph while the metric reads the four-neighbour one, it
+    # THE SAME neighbor graph the metric will descend. The flood only
+    # guarantees a strictly lower neighbor among the cells it walked: fed the
+    # eight-neighbor graph while the metric reads the four-neighbor one, it
     # leaves every filled cell spilling over a diagonal the metric cannot take,
     # and 99.8 per cent of the catchment stops reaching the outlet instead of 0.
     adjacency = (
@@ -683,7 +683,7 @@ def build_network_geometry(
         metric.centroids, face_node_connectivity, observed=observed_mask, catchment=catchment
     )
 
-    # Open water is surface water: a seepage cell fifty metres from a bank stops
+    # Open water is surface water: a seepage cell fifty meters from a bank stops
     # at the reservoir, it does not swim across it and carry on to the next
     # mapped reach. Water bodies therefore JOIN the target of both distance
     # fields, while leaving both supports, which the cost does on its own side.

@@ -69,7 +69,7 @@ figure.hmp-val-fig figcaption { font-size: .82em; color: var(--pst-color-text-mu
 .hmp-val-lab text { fill: var(--pst-color-text-muted); font-size: 10px; }
 polyline.hmp-val-ref { fill: none; stroke: var(--pst-color-primary); stroke-width: 1.6; }
 polyline.hmp-val-ref-own { fill: none; stroke: var(--hmp-solver); stroke-width: 1.1; stroke-dasharray: 4 2; }
-/* One colour per solver (Okabe-Ito), the same on every figure; a shape goes with it. */
+/* One color per solver (Okabe-Ito), the same on every figure; a shape goes with it. */
 .hmp-val-s0 { --hmp-solver: #e69f00; }
 .hmp-val-s1 { --hmp-solver: #0072b2; }
 .hmp-val-s2 { --hmp-solver: #009e73; }

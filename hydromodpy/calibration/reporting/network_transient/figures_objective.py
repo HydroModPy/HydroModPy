@@ -214,7 +214,7 @@ def _plot_objective_cut(
     ax.set_yscale("log")
     ax.set_title(title)
     ax.set_xlabel(xlabel)
-    ax.set_ylabel("Normalised cost (log)")
+    ax.set_ylabel("Normalized cost (log)")
     ax.grid(True, which="both", ls=":", lw=0.45, color="#cfd8df")
     ax.legend(loc="best", fontsize=9)
 

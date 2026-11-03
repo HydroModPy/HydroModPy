@@ -1,16 +1,16 @@
 """Reproducibility-snapshot determinism for ``hydromodpy.lock``.
 
-These regression tests pin the deterministic behaviour of the data-freeze
+These regression tests pin the deterministic behavior of the data-freeze
 layer:
 
 - two lockfiles built from the same catalog inputs are byte-identical once
   the wall-clock timestamps (``generated_at`` / ``fetched_at``) are
-  normalised, and the content-bearing parts (``schema``, ``binaries``,
+  normalized, and the content-bearing parts (``schema``, ``binaries``,
   ``[[input]]``) round-trip without drift;
 - a snapshot survives a write -> read round-trip with field-level equality
   against the source catalog state;
 - the dark verification branches (missing catalog key, deleted on-disk
-  artefact, a lockfile that names nothing, schema-sha fallback, gzip archive
+  artifact, a lockfile that names nothing, schema-sha fallback, gzip archive
   round-trip) all classify mismatches correctly on real inputs.
 
 Everything runs on ``tmp_path``; nothing touches the repo tree.
@@ -245,7 +245,7 @@ def test_verify_frozen_flags_entry_absent_from_lockfile(tmp_path: Path) -> None:
 
 
 def test_verify_frozen_flags_deleted_artefact(tmp_path: Path) -> None:
-    """A locked artefact that vanished from disk is a ``missing`` mismatch."""
+    """A locked artifact that vanished from disk is a ``missing`` mismatch."""
     catalog, workspace, first, _second = _seed_two_inputs(tmp_path)
     dest = workspace / LOCKFILE_NAME
     write_lockfile(catalog, dest, **_SCHEMA_VERSIONS)

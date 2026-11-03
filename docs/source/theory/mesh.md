@@ -1,6 +1,6 @@
 # The mesh
 
-The solver does not see the DEM. It sees cells, each with one top, one bottom and one centre.
+The solver does not see the DEM. It sees cells, each with one top, one bottom and one center.
 This page explains how the code builds these cells from the DEM and how it checks them.
 
 :::{note}
@@ -24,9 +24,9 @@ The code builds the cells in this order.
 4. A check of the thickness ({ref}`mesh-acceptance`), then the layers ({ref}`mesh-layers`).
 5. The export to MODFLOW 6 as a DISV grid. A cell with no valid top or bottom is inactive.
 
-| Engine | Cells | Centre | Connections | Lines it follows |
+| Engine | Cells | Center | Connections | Lines it follows |
 |---|---|---|---|---|
-| `regular` | squares, one per DEM pixel or larger | cell centre | orthogonal | rivers as chains of cells, contacts and shores as staircases |
+| `regular` | squares, one per DEM pixel or larger | cell center | orthogonal | rivers as chains of cells, contacts and shores as staircases |
 | `triangle` | triangles | mean of the vertices | not orthogonal, XT3D on by default | rivers, contacts and shores as edges |
 | `voronoi` | polygons | the generator | orthogonal | rivers as chains of cells, contacts and shores as faces |
 
@@ -56,7 +56,7 @@ developer key {toml}`mesh.regular.shape` gives the rows and columns instead.
 The engine ignores {toml}`mesh.river_cell_size` and {toml}`mesh.river_band`, so a mesh finer
 along the rivers needs the `triangle` or the `voronoi` engine. A river is the chain of cells
 its line crosses. A contact or a shore becomes a staircase of faces, whose
-distance to the line is in the quality report. A barrier takes the faces whose two centres its
+distance to the line is in the quality report. A barrier takes the faces whose two centers its
 line separates. MODFLOW-NWT reads this grid as a DIS grid.
 
 (mesh-size)=
@@ -66,7 +66,7 @@ line separates. MODFLOW-NWT reads this grid as a DIS grid.
 ### Cleaning the lines
 
 Rivers, lake shores and geology contacts come from different sources, so they often miss each
-other by a few metres or carry tiny holes and repeated vertices. Before it computes any size,
+other by a few meters or carry tiny holes and repeated vertices. Before it computes any size,
 the planner cleans the domain and the families of {toml}`mesh.families`, at a tolerance of a
 tenth of a DEM pixel. It leaves a triangulation read from a file as it is. It drops the holes
 smaller than the square of the local cell size, and an island counts as a hole of its lake. It
@@ -125,10 +125,10 @@ $$ (eq-mesh-size)
 
 where $\xi_k$ is the distance to line $k$ and
 $\sigma_k = \min\bigl((\ell_g - \ell_{s,k}) / \xi_{s,k},\ \sigma_{\max}\bigr)$ its growth per
-metre. The field never goes below the DEM pixel $\Delta$. The background $\ell_b$ is $\ell_g$
+meter. The field never goes below the DEM pixel $\Delta$. The background $\ell_b$ is $\ell_g$
 in the catchment and grows outside to $\kappa\,\ell_g$, with $\kappa$ =
 {toml}`mesh.outside_factor`, over at least {toml}`mesh.transition_distance`. Since
-$\sigma_{\max}$ = {toml}`mesh.max_slope` bounds every term, two neighbouring cells differ in
+$\sigma_{\max}$ = {toml}`mesh.max_slope` bounds every term, two neighboring cells differ in
 size by a ratio of at most about $(1 + \sigma_{\max}/2)/(1 - \sigma_{\max}/2)$, which is 1.67
 for the default 0.5. A smaller slope gives a smoother mesh and more cells. A triangulation read
 from a file ignores the field.
@@ -177,7 +177,7 @@ On the Nançon catchment (64.6 km², DEM of 25 m, network threshold 0.05 km²), 
 ground is less than 2 m above the stream covers 20 % of the catchment. A Voronoi mesh of 75 m
 with this zone at 25 m holds 40 043 cells, against 14 897 at 75 m and 134 074 at 25 m. The ramp
 around the zone also costs cells, because the size is below 75 m on 58 % of the catchment. The
-size ratio between two neighbouring cells exceeds 1.5 on 2 % of the faces, against 0.3 % on the
+size ratio between two neighboring cells exceeds 1.5 on 2 % of the faces, against 0.3 % on the
 uniform mesh of 75 m.
 
 (mesh-gap)=
@@ -205,7 +205,7 @@ shores the faces follow count.
 The `triangle` engine builds a constrained Delaunay triangulation of $\Omega$ with Gmsh
 {cite:p}`geuzaine2009gmsh` under the size field. Rivers, contacts, shores and barriers are
 edges, so no triangle holds two zones, and the cells of a river are the triangles on one bank.
-The centre of a triangle is the mean of its vertices, so a connection has an angle
+The center of a triangle is the mean of its vertices, so a connection has an angle
 ({ref}`mesh-angle`), and MODFLOW 6 turns XT3D on by default. An explicit
 {toml}`modflow6.runtime.mf6_enable_xt3d` wins. Gmsh does not give the same triangulation twice
 for one input, so the engine keeps the first one in `.hmp/mesh_cache/`. It reuses it while the
@@ -227,8 +227,8 @@ Flume. Without lines, the field of the Flume gives 1.05.
 
 A cell of the `voronoi` engine is the Voronoi (PEBI) cell of a generator $\mathbf{s}_i$, the
 points closer to $\mathbf{s}_i$ than to any other generator, clipped to the outline $\Omega$.
-The generator is the cell centre. The engine puts one generator on each vertex of a river
-line, so the river runs through a chain of centres. It puts a pair of mirror generators across
+The generator is the cell center. The engine puts one generator on each vertex of a river
+line, so the river runs through a chain of centers. It puts a pair of mirror generators across
 each segment of a contact, a shore, a barrier or the catchment boundary, after
 {cite:t}`berge2019voronoi`, so the segment is a face. Other generators sit on the domain
 boundary. Free generators fill the rest with the density $\ell^{-2}$, and a Lloyd relaxation
@@ -239,7 +239,7 @@ So each cell lies in one zone, and the cells of a lake are those inside its shor
 river crosses a contact, the contact yields on a short segment, and the river cell there takes
 the minimum of its pixels as top ({ref}`mesh-top`). A flow barrier never yields, and the river
 chain crosses it through a barrier face. Every face is the perpendicular bisector of two
-generators, so $\varphi_{nm} = 0$ where both cells kept their generator as centre. As a check,
+generators, so $\varphi_{nm} = 0$ where both cells kept their generator as center. As a check,
 36 generators on a $6 \times 6$ lattice, the 16 inner ones moved at random, give 36 cells at
 $0^\circ$ on every connection. The construction and its gates are on
 {doc}`../contribute/architecture/mesh/voronoi-engine`.
@@ -249,9 +249,9 @@ $0^\circ$ on every connection. The construction and its gates are on
 
 MODFLOW 6 writes the flow between two cells as $G_{nm}\,(h_m - h_n)$, the two-point term of
 {eq}`eq-cell-balance` {cite:p}`harbaugh2005,langevin2017`. It is exact only when the
-conductivity is isotropic in the plane and the line between the centres is perpendicular to
+conductivity is isotropic in the plane and the line between the centers is perpendicular to
 the shared face. The code measures the departure as an angle. With $\mathbf{d}_{nm}$ the vector
-between the centres and $\mathbf{n}_{nm}$ the unit normal of the shared edge, it reads
+between the centers and $\mathbf{n}_{nm}$ the unit normal of the shared edge, it reads
 
 $$
 \varphi_{nm} = \arccos\!\left(\frac{\lvert \mathbf{d}_{nm} \cdot \mathbf{n}_{nm} \rvert}
@@ -261,7 +261,7 @@ $$ (eq-nonorthogonality)
 Over the edges shared by two cells, the code keeps the median, the 95th and 99th percentiles,
 the maximum and the share of angles above 30 degrees. The effect on the flux and the XT3D
 trigger are on {doc}`solvers/xt3d-on-irregular-disv-meshes`. For example, the two triangles of
-a $2 \times 1$ rectangle cut along its diagonal have their centres at $(2/3, 1/3)$ and
+a $2 \times 1$ rectangle cut along its diagonal have their centers at $(2/3, 1/3)$ and
 $(4/3, 2/3)$, so $\cos\varphi = 4/5$ and $\varphi \approx 36.9^\circ$. The four corners of the
 same rectangle, taken as seeds, give four Voronoi cells of $1 \times 0.5$, all at $0^\circ$.
 
@@ -272,7 +272,7 @@ same rectangle, taken as seeds, give four Voronoi cells of $1 \times 0.5$, all a
       :ref:`mesh-voronoi`, their 50 triangles (dotted) and their Voronoi cells (blue).
 ```
 
-The two-point term also assumes that the line of the centres crosses the face in its middle.
+The two-point term also assumes that the line of the centers crosses the face in its middle.
 On a face of length $L$ crossed at a distance $s$ from one end, the bisection offset is
 
 $$
@@ -299,7 +299,7 @@ the centroid rule.
 
 ### Centroid
 
-The code interpolates the DEM at the cell centre between the four pixel centres around it,
+The code interpolates the DEM at the cell center between the four pixel centers around it,
 with a zero weight on a nodata pixel:
 
 $$
@@ -307,15 +307,15 @@ $$
 {\sum_{k=1}^{4} w_k\, \mathbf{1}[Z_k \text{ valid}]} .
 $$
 
-The cell is inactive when its centre is outside the raster or the four pixels are nodata. On
-an incised channel the centre often falls on a bank, so the cell is too high. On a `voronoi`
-mesh, a river cell whose centre lies off the river line takes the minimum of its pixels in this
+The cell is inactive when its center is outside the raster or the four pixels are nodata. On
+an incised channel the center often falls on a bank, so the cell is too high. On a `voronoi`
+mesh, a river cell whose center lies off the river line takes the minimum of its pixels in this
 mode too. This happens where a contact crosses the river, where two thalwegs share a cell and
 at a river end near the boundary.
 
 ### Zonal
 
-The zonal rule reduces the pixels whose centre falls in the cell. A pixel is a channel pixel
+The zonal rule reduces the pixels whose center falls in the cell. A pixel is a channel pixel
 when the stream raster of the delineation marks it, with the mask widened by
 {toml}`modflow6.sgrid.top_sampling.channel_buffer_px` pixels. The code reads that raster only
 when {toml}`modflow6.sgrid.top_sampling.channel_source` asks for it, and without it every
@@ -339,22 +339,22 @@ guards against a nodata edge. Channel cells are exempt, and $\varepsilon_z = 0$ 
 guard off. A lowered top must also stay above the bottom. On the regular grid the code raises
 the top to at least $z_{\mathrm{bot},c} + b_{\min}$. On a triangle or Voronoi mesh the top
 stays. The bottom follows it down when the column left is thinner than $b_{\min}$ or than a
-tenth of the column of the centre sample:
+tenth of the column of the center sample:
 
 $$
 z_{\mathrm{bot},c} \leftarrow z_{\mathrm{top},c}
 - \max\bigl(\tilde z_c - z_{\mathrm{bot},c},\ b_{\min}\bigr).
 $$
 
-The cell then keeps the thickness of its centre sample, because MODFLOW 6 cannot solve under
-Newton a column of a few decimetres next to neighbours of tens of metres. Elsewhere the bottom
+The cell then keeps the thickness of its center sample, because MODFLOW 6 cannot solve under
+Newton a column of a few decimeters next to neighbors of tens of meters. Elsewhere the bottom
 stays, so a lowered top thins every layer of the column. The log counts these changes once per
 build.
 
 ```{eval-rst}
 .. plot:: theory/figures/mesh_zonal_top.py
    :alt: A cell over an incised channel and its three candidate tops.
-   :caption: A cell of 32 m radius over 5 m pixels, its centre on a bank 18 m from a channel
+   :caption: A cell of 32 m radius over 5 m pixels, its center on a bank 18 m from a channel
       incised 2 m (blue). The centroid sample and the hillslope median sit about 4 m above
       the channel minimum of ``zonal_top``.
 ```
@@ -442,7 +442,7 @@ $A_\Omega/\ell^2$ becomes $\int_\Omega \ell(\mathbf{x})^{-2}\,\mathrm{d}A$.
 
 The same count does not give the same edge. An equilateral triangle of side $\ell_T$ has the
 area $\frac{\sqrt3}{4}\ell_T^2$, and a Voronoi hexagon has $\frac{\sqrt3}{2}\ell_V^2$ when
-neighbouring seeds are $\ell_V$ apart, so
+neighboring seeds are $\ell_V$ apart, so
 
 $$
 N_T = \frac{4}{\sqrt3}\,\frac{A_\Omega}{\ell_T^2} \approx 2.31\,\frac{A_\Omega}{\ell_T^2},
@@ -487,7 +487,7 @@ table lists the checks that the sections above do not give.
 |---|---|---|
 | Solver and mesh | the solver reads the engine of `[mesh]` | refused when the file is read: `reads the meshes of the engines` |
 | River size | {toml}`mesh.river_cell_size` at most {toml}`mesh.cell_size` | refused when the file is read |
-| Voronoi build | each cell covers its generator, conformal faces lie on their lines, river chains are connected, the areas add up to the domain, no repeated vertex, no face under a micrometre | the build stops with `MeshGenerationError` |
+| Voronoi build | each cell covers its generator, conformal faces lie on their lines, river chains are connected, the areas add up to the domain, no repeated vertex, no face under a micrometer | the build stops with `MeshGenerationError` |
 | Solved grid | the DISV or DIS grid of the solver is the stored mesh | the run stops with `IncompatibleMeshError` |
 | Top and bottom | one valid cell at least, and the bottom strictly below the top on every valid cell | refused: `No finite overlapping valid cells found between top and bottom surfaces.` or `Bottom surface must be strictly below top surface on valid cells` |
 | Thick cells | thickness above the larger of 10 times the median and 500 m | warning on triangle and Voronoi meshes: `Aquifer thickness outliers:` |
@@ -497,8 +497,8 @@ table lists the checks that the sections above do not give.
 | Point on the mesh | a point outside the mesh lies within one cell size (the square root of the area) of a cell | no cell for the point, and a warning that names it, on every solver |
 
 Eight fields measure the cells one by one, computed on read: `mesh_cell_area`,
-`mesh_neighbour_ratio` (size ratio between neighbours), `mesh_center_offset` (offset of a
-centre from its cell centroid), `mesh_nonorthogonality`, `mesh_bisection_offset`,
+`mesh_neighbour_ratio` (size ratio between neighbors), `mesh_center_offset` (offset of a
+center from its cell centroid), `mesh_nonorthogonality`, `mesh_bisection_offset`,
 `mesh_min_angle`, `mesh_max_angle` and `mesh_concavity`, how far the largest angle exceeds
 180°. A corner within 0.1° of 180° counts as straight. The layer `mesh_cells` of `hmp export`
 carries the eight, and it names the two angle columns `min_angle_deg` and `max_angle_deg`. The
@@ -522,10 +522,10 @@ shares. `catchment_total` does it for a term of the budget stored per cell, such
 or the seepage. `catchment_mean` averages a variable with the share times the area of the cell,
 so a small cell counts less than a large one. A run with no stored share counts the whole cells
 of the basin of D and logs it. The shares also cover the cells outside the basin that the polygon
-touches. A distorted disc over a grid of 75 m shows why. A mask by cell centre gives the area of
+touches. A distorted disc over a grid of 75 m shows why. A mask by cell center gives the area of
 the polygon within -0.03 % (standard deviation 0.13 %) for a radius of 3 km, and within -0.06 %
 (0.45 %) for 1 km. Weights limited to the basin lose the part of the polygon that falls in the
-neighbouring cells, and give -0.67 % and -2.0 %.
+neighboring cells, and give -0.67 % and -2.0 %.
 
 On example 04 the polygon is the staircase of the DEM, so it cuts no cell of the grid and every
 share is 0 or 1. The totals still differ a little from the budget line, because the basin of D
@@ -544,7 +544,7 @@ is the largest basin of the domain, and `catchment_total` and `catchment_mean` r
 - A mesh is fixed for the run. It does not move with the water table.
 - The conductivity is isotropic in the plane unless the flow sets `K22` or the angles of the
   tensor, which MODFLOW 6 alone reads ({ref}`gwf-tensor`).
-- The coordinates are in a projected CRS in metres. The size field, the 1 mm merge of the
+- The coordinates are in a projected CRS in meters. The size field, the 1 mm merge of the
   Voronoi vertices and every distance of the engines rely on it.
 - The zonal rule takes the channel pixels from the stream raster of the delineation. It does
   not read the observed network.
@@ -558,11 +558,11 @@ is the largest basin of the domain, and `catchment_total` and `catchment_mean` r
   another cell count, and `restart_from` refuses a run solved on another mesh.
 - One request and one seed give one Voronoi mesh on one machine, GEOS and scipy build. Another
   build can give the same quality with another connectivity.
-- Where the size field grows at its largest slope, a Voronoi centre sits off its cell
+- Where the size field grows at its largest slope, a Voronoi center sits off its cell
   centroid by about a quarter of the slope times the cell size.
 - A lake arm narrower than the local cell cannot hold a pair of generators. The faces then
   follow part of the shore, and the cells of the lake are those its polygon overlaps.
-- A head imposed on a side applies at the centres of the cells with a face on it: half a cell
+- A head imposed on a side applies at the centers of the cells with a face on it: half a cell
   from the side on a regular grid, a third of the height on triangles, on the side for Voronoi
   cells.
 - The tenth of the column that moves a bottom under a lowered top is empirical. It keeps the
@@ -572,7 +572,7 @@ is the largest basin of the domain, and `catchment_total` and `catchment_mean` r
 - Two face lines that meet at less than 53 degrees make a gap that closes at the corner, so the
   cells at its tip take the size of the DEM pixel. Lines closer than a tenth of a pixel count
   as one.
-- A nodata value read as an elevation gives a cell kilometres deep with a clean top, and the
+- A nodata value read as an elevation gives a cell kilometers deep with a clean top, and the
   run converges. The thickness warning is the only sign, and a structured grid does not emit
   it.
 - Under Newton, XT3D can fail to converge on triangle cells, and the run stops with E401. The
@@ -684,6 +684,6 @@ hydromodpy.solver.modflow6.builders.solver_options
 
 - {doc}`solvers`: what the solvers do with the cells.
 - {doc}`solvers/xt3d-on-irregular-disv-meshes`: the XT3D terms and their trigger.
-- {doc}`groundwater-flow`: the equation the cells discretise.
+- {doc}`groundwater-flow`: the equation the cells discretize.
 - {doc}`../reference/parameters/mesh`: the mesh section as a reference page.
 - {doc}`../contribute/architecture/mesh/mesh-engines`: the port, the planner and the three engines.

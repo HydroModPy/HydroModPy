@@ -5,7 +5,7 @@ parameter id ("K", "Sy", ...), so ``_registry_id_for`` sees that id as the
 walk's ``instance``. A param id of "K" or "Sy" is also a ``PHYSICAL_BOUNDS``
 key for the conductivity or the specific yield themselves: without a leaf-first
 rule for a leaf that is not its instance's headline quantity, a depth bound
-declared in metres would be faced with a conductivity range in m/s and refused
+declared in meters would be faced with a conductivity range in m/s and refused
 on a unit mismatch that has nothing to do with the value.
 """
 

@@ -1,6 +1,6 @@
 """Typed convention for ``Field(json_schema_extra=...)`` metadata.
 
-The codebase attaches UI hints, calibration bindings, and serialisation flags
+The codebase attaches UI hints, calibration bindings, and serialization flags
 through ``json_schema_extra``. This module defines the canonical key set so
 typos surface during validation and tooling can rely on a stable contract.
 

@@ -4,7 +4,7 @@ A field lives on the unstructured mesh and is rasterized; a geographic raster
 (the DEM the catchment was cut from, the filled one) is a raster already and
 is written as it is, or warped when a CRS or a resolution is asked.
 
-Output rasters honour the OGC Cloud Optimized GeoTIFF (COG) 1.0 spec:
+Output rasters honor the OGC Cloud Optimized GeoTIFF (COG) 1.0 spec:
 internal tiling at 512x512 and zstd compression. The COG driver builds
 overviews at 2/4/8/16/32x only when the image is larger than one tile, so a
 small catchment carries none. Each raster carries provenance tags so

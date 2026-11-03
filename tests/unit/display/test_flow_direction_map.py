@@ -56,7 +56,7 @@ def tilted_plane() -> np.ndarray:
 
     One column and one row are the same drop, so the diagonal step falls twice
     as much over ``sqrt(2)`` times the distance: it is the steepest descent of
-    every interior cell, and no four-neighbour graph can take it.
+    every interior cell, and no four-neighbor graph can take it.
     """
     return np.asarray(
         [(column + row) * SOUTH_WEST_STEP_M for row in range(NY) for column in range(NX)],
@@ -155,7 +155,7 @@ def test_the_note_counts_the_cells_that_took_each_bearing(mpl) -> None:
     """Four bands and four absences look like eight bands until it is written.
 
     On a shared-edge graph the diagonals cannot be taken at all, which is the
-    first thing this map says and the one thing its colours cannot show.
+    first thing this map says and the one thing its colors cannot show.
     """
     fig, ax = mpl.subplots()
 
@@ -185,7 +185,7 @@ def test_the_outlet_is_marked_on_the_lowest_cell(mpl) -> None:
 
 
 # --------------------------------------------------------------------------- #
-# the neighbourhood the graph was built on
+# the neighborhood the graph was built on
 # --------------------------------------------------------------------------- #
 
 
@@ -214,7 +214,7 @@ def test_the_diagonal_descent_is_taken_once_the_graph_carries_it(mpl) -> None:
     try:
         interior = [cell(column, row) for row in (1, 2) for column in range(1, NX)]
         assert _octant_cells(ax, "SW") == sorted(interior)
-        # The southern row and the western column have no south-west neighbour,
+        # The southern row and the western column have no south-west neighbor,
         # so they keep the cardinal step that is left to them.
         assert _octant_cells(ax, "W") == [cell(column, 0) for column in range(1, NX)]
         assert _octant_cells(ax, "S") == [cell(0, row) for row in (1, 2)]
@@ -309,7 +309,7 @@ def test_a_top_stored_through_a_seven_digit_file_marks_no_raised_cell(mpl) -> No
 # --------------------------------------------------------------------------- #
 
 
-def test_the_compass_puts_each_colour_at_the_bearing_it_means(mpl) -> None:
+def test_the_compass_puts_each_color_at_the_bearing_it_means(mpl) -> None:
     from matplotlib.patches import Wedge
 
     fig, ax = mpl.subplots()
@@ -328,10 +328,10 @@ def test_the_compass_puts_each_colour_at_the_bearing_it_means(mpl) -> None:
                 for item in wedges
                 if tuple(np.asarray(item.get_facecolor()).reshape(-1)[:4]) == pytest.approx(face)
             ]
-            assert len(matching) == 1, f"one wedge carries the colour the map used for {name}"
+            assert len(matching) == 1, f"one wedge carries the color the map used for {name}"
             centre = (matching[0].theta1 + matching[0].theta2) / 2.0
             assert centre == pytest.approx(45.0 * OCTANT_NAMES.index(name)), (
-                f"the {name} colour must sit at the {name} bearing of the rose"
+                f"the {name} color must sit at the {name} bearing of the rose"
             )
     finally:
         mpl.close(fig)
@@ -373,14 +373,14 @@ def test_the_compass_names_the_eight_bearings(mpl) -> None:
 
 
 # --------------------------------------------------------------------------- #
-# the colours the map is read by
+# the colors the map is read by
 # --------------------------------------------------------------------------- #
 
 
 def test_the_two_states_that_carry_no_bearing_stay_off_the_circle() -> None:
     """A dead end and an inactive cell may not read as a ninth bearing.
 
-    The cyclic palette spans the whole lightness range, so a flat colour for
+    The cyclic palette spans the whole lightness range, so a flat color for
     either state can always land on one of the eight: the sand of the
     high-contrast triplet sits 0.04 in relative luminance from octant SE, in
     the same warm hue. Both neutrals must keep a real gap from all eight.
@@ -409,7 +409,7 @@ def test_the_dead_end_is_told_by_a_texture_and_not_by_a_hue(mpl) -> None:
     try:
         layer = _labelled(ax, NO_RECEIVER_LABEL)
         assert layer is not None
-        assert layer.get_hatch(), "a flat colour cannot be told from all eight octants"
+        assert layer.get_hatch(), "a flat color cannot be told from all eight octants"
         assert to_hex(layer.get_facecolor()[0]) == to_hex(_PIT_FACE)
     finally:
         mpl.close(fig)

@@ -6,7 +6,7 @@ A status page, a watcher or a launcher asks whether an attempt is still
 alive without opening any index. The attempt answers by rewriting one small
 file at a fixed interval; a reader compares its ``at`` with the clock. A
 pulse older than the threshold a reader chooses means ``stale``, which is a
-display word, never an authorisation: only a proven death lets another
+display word, never an authorization: only a proven death lets another
 attempt take the directory.
 
 Format

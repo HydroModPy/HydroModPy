@@ -18,7 +18,7 @@ water mover: a file that declares a stream network or a lake with another solver
 :::
 
 ::::{dropdown} Notation of this page
-Heads and elevations are in metres above the datum. A flux through a cell is in
+Heads and elevations are in meters above the datum. A flux through a cell is in
 m³/s, a flux per unit of area in m/s. Every symbol of the site is on
 {doc}`notation`.
 

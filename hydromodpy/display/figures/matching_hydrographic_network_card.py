@@ -12,10 +12,10 @@ closed on and the bracket it closed it in, because the stopping rule of the
 search is the width of that bracket and never the size of the residual. The
 second shows the storage value and its metric. The third puts ``D_optim``
 against the validity length the trial itself bounded it by (Eq. 4, in
-metres): it qualifies the result and never withholds it, so the value and the
+meters): it qualifies the result and never withholds it, so the value and the
 breach are drawn together. The fourth splits the cells into
 valid, excess and missing, because a residual near zero is either a good fit
-or a large excess cancelling a large gap, and a single number cannot tell
+or a large excess canceling a large gap, and a single number cannot tell
 those two apart.
 
 Nothing here is fabricated. A session that ran one phase draws with the second
@@ -184,7 +184,7 @@ class _MapView:
     """One map the two lower panels qualify, and the suffix its keys carry.
 
     ``label`` is empty when the output was scored on one map only: the panels
-    then read exactly as they always did. ``bound`` picks the colour and the
+    then read exactly as they always did. ``bound`` picks the color and the
     hatch of the map, and ``note`` qualifies it (a weight, or a validation
     outside the cost).
     """
@@ -616,7 +616,7 @@ class MatchingHydrographicNetworkCard(BaseFigure):
         *,
         output: str | None,
     ) -> None:
-        """Panel three: ``D_optim`` against the trial's validity length, in metres.
+        """Panel three: ``D_optim`` against the trial's validity length, in meters.
 
         The bound is the ``validity_length_m`` the trial published, never a
         ratio the card assumes: a declared positional accuracy widens it past

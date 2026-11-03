@@ -592,7 +592,7 @@ class TestRoutedDischarge:
     def test_discharge_is_routed_outflow_excluding_buffer_drains(self, runs):
         sid = self._setup_sim(runs)
         # Both extractors store ext_outflow positive. The buffer plain-DRN field
-        # (neighbouring-basin drainage) must NOT be added to the routed discharge.
+        # (neighboring-basin drainage) must NOT be added to the routed discharge.
         self._write_ext_outflow(runs, sid, "net:7", [1.0, 2.0, 3.0])
         self._write_ext_outflow(runs, sid, "net:2", [0.0, 0.0, 0.0])
         self._write_ext_outflow(runs, sid, "lake:res", [0.5, 0.5, 1.0])
@@ -841,7 +841,7 @@ class TestTheCatchmentSeriesUseTheCatchment:
 
         grp = self._grp(6)
         active = np.ones(6, dtype=bool)
-        # A box covering the centres of the first two cells only (x in 0..2).
+        # A box covering the centers of the first two cells only (x in 0..2).
         mask = _build_catchment_mask(
             self._store_with_watershed(box(-0.1, -0.1, 2.0, 1.1)), "sim", grp, active
         )
@@ -998,7 +998,7 @@ class TestLumpedBudgetPrefersTheCatchmentZone:
     """A ``zone_id = 'catchment'`` row is the only lumped row a gauge matches.
 
     Every other zone spans the model domain. On a buffered MODFLOW 6 grid that
-    takes in the neighbouring basins, so the ``catchment`` series would carry
+    takes in the neighboring basins, so the ``catchment`` series would carry
     more water than the outlet ever sees.
     """
 

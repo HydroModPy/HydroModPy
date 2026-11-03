@@ -1,6 +1,6 @@
 """What a finished run offers a reader today, and must keep offering tomorrow.
 
-These are the green half of the tier: they pin behaviour that already works and
+These are the green half of the tier: they pin behavior that already works and
 that no redesign is allowed to lose. They read the run directory the way an
 outsider would, through the file formats, never through a HydroModPy object.
 """
@@ -31,7 +31,7 @@ def test_the_run_directory_holds_only_declared_entries(produced_run: ProducedRun
     assert TABLES_DIRNAME in entries
     undeclared = entries - ALLOWED_RUN_ENTRIES
     # A real run also takes its locks under `<run>/.hmp/`, which is scratch and
-    # not an artefact. `tests/unit/results/test_run_layout_contract.py` never
+    # not an artifact. `tests/unit/results/test_run_layout_contract.py` never
     # sees it because its fixture writes the run directory by hand; bounding it
     # here keeps the gap visible instead of filtering hidden names away.
     assert undeclared <= RUN_SCRATCH_ENTRIES, f"undeclared entries: {sorted(undeclared)}"

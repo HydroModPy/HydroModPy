@@ -1,7 +1,7 @@
 """The crossing notch cuts a road embankment on the channel down to the bed line.
 
 The bench is the valley of ``tests/_helpers/ground_bench.py``: a channel down
-column 10, one metre of bed per row, a road raised across the whole width.
+column 10, one meter of bed per row, a road raised across the whole width.
 """
 
 import geopandas as gpd

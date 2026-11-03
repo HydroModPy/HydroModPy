@@ -298,7 +298,7 @@ class TestFigureOptionsFromTheCommandLine:
         ("item", "message"),
         [
             ("show_run_name=maybe", "valid boolean"),
-            ("colour=red", "has no option 'colour'; it takes:"),
+            ("color=red", "has no option 'color'; it takes:"),
             ("title", "write NAME=VALUE"),
             ("reference=other_run", "takes a Python object"),
         ],

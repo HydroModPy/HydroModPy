@@ -82,7 +82,7 @@ def _wkb(geometry: object) -> bytes:
 
 @dataclass(frozen=True, kw_only=True)
 class RasterGridSpec:
-    """The DEM grid a request lives on: row 0 north, cells ``dx`` by ``dy`` metres.
+    """The DEM grid a request lives on: row 0 north, cells ``dx`` by ``dy`` meters.
 
     ``xmin``, ``xmax``, ``ymin``, ``ymax`` are the exact bounds of the raster
     support. They are carried as given and not recomputed from the steps:
@@ -176,7 +176,7 @@ class RasterGridSpec:
 
 @dataclass(frozen=True, eq=False)
 class SizeField:
-    """Target cell size ``h(x)`` in metres on a grid, row 0 north."""
+    """Target cell size ``h(x)`` in meters on a grid, row 0 north."""
 
     values: np.ndarray
     grid: RasterGridSpec
@@ -195,7 +195,7 @@ class SizeField:
         object.__setattr__(self, "values", values)
 
     def sample(self, xy: np.ndarray) -> np.ndarray:
-        """Bilinear ``h`` at points ``(n, 2)`` from the pixel centres, held constant past the edge."""
+        """Bilinear ``h`` at points ``(n, 2)`` from the pixel centers, held constant past the edge."""
         points = np.asarray(xy, dtype=float).reshape(-1, 2)
         grid = self.grid
         cols = (points[:, 0] - grid.xmin) / grid.dx - 0.5
@@ -205,7 +205,7 @@ class SizeField:
 
 @dataclass(frozen=True)
 class LineFamilySpec:
-    """One family of lines and the intent the engine honours on them.
+    """One family of lines and the intent the engine honors on them.
 
     ``intent = "cell"``: the cells along a line form ordered chains (rivers).
     ``intent = "face"``: mesh faces follow the line (contacts, lake shores).

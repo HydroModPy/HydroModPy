@@ -51,4 +51,4 @@ def normalize_unit_token(
 
 
 UnitStr = Annotated[str | None, BeforeValidator(normalize_unit_token)]
-"""Optional unit token normalised against ``SUPPORTED_PARAMETER_UNITS``."""
+"""Optional unit token normalized against ``SUPPORTED_PARAMETER_UNITS``."""

@@ -14,9 +14,9 @@ from hydromodpy.core.units import UREG, LengthMeters
 
 
 def _to_meters(value: object, *, label: str) -> float:
-    """Convert a length-like value (number or pint string) to metres.
+    """Convert a length-like value (number or pint string) to meters.
 
-    A number without a unit is read in metres, written as a number or as a
+    A number without a unit is read in meters, written as a number or as a
     text, like the elevation of the DEM. Any other text must carry a length
     unit, which it keeps. A length that is not finite is refused.
     """
@@ -43,7 +43,7 @@ def _to_meters(value: object, *, label: str) -> float:
                 f"{label}: {value!r} is not a number nor a length with a unit."
             ) from exc
         # pint reads "1,5" as 15 and "10 %" as 0.1, both without a dimension, so
-        # only a plain number above may be read in metres.
+        # only a plain number above may be read in meters.
         if not hasattr(quantity, "check") or not quantity.check("[length]"):
             raise ValueError(
                 f"{label}: {value!r} is not a length; write it in metres or with a length unit."
@@ -62,7 +62,7 @@ def _normalize_cuts_and_labels(value: object, *, key: str, kind: str) -> object:
     """Read the cuts ``key`` of a bands or rings table and trim its labels.
 
     A relative cut is a share in ]0, 1[. An absolute cut is a length read in
-    metres, and it must be > 0.
+    meters, and it must be > 0.
     """
     if not isinstance(value, Mapping):
         return value

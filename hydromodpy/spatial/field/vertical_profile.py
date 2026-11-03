@@ -21,7 +21,7 @@ SUPPORTED_VERTICAL_PROFILE_INTERPOLATIONS = ("linear", "step")
 
 
 def _length_to_m(value: object, *, label: str) -> float:
-    """Convert a length-like input (number or pint string) to metres."""
+    """Convert a length-like input (number or pint string) to meters."""
     if value is None:
         raise ValueError(f"{label} cannot be None.")
     if isinstance(value, bool):

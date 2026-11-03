@@ -4,7 +4,7 @@ The setup step of a run, the rebuild of a live project, the domain case and the
 ``domain-build`` capability all build their ``Domain`` here. The declared
 section is copied before its zone ids are armed, so the ``[domain]`` of the
 project never carries ``catchment`` and ``geology`` as if the user had written
-them. The zones themselves are written later by the binders, from artefacts this
+them. The zones themselves are written later by the binders, from artifacts this
 function does not receive.
 
 Declare the zone ids the runtime binders write into the domain registry.
@@ -103,7 +103,7 @@ def build_domain(
     """Build the domain geometry *config* defines on *surface_topo*.
 
     The returned domain carries its vertical extent -- the substratum the
-    depth model derives -- and no zone at all. Whoever has the artefacts binds
+    depth model derives -- and no zone at all. Whoever has the artifacts binds
     them afterwards.
 
     *substratum_source* is the raster a raster depth model reads, on its own

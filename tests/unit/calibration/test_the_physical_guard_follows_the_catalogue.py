@@ -2,14 +2,14 @@
 
 The physical registry is consulted twice on the way in, and the two consultations
 do not know the same thing. ``optim.parameters`` asks under the name the file gave
-the parameter, which is all a bare name can do. The catalogue asks under the entry
+the parameter, which is all a bare name can do. The catalog asks under the entry
 the value belongs to, read off the config tree it walked.
 
-They diverged exactly on a heterogeneous field: the catalogue names a zone
+They diverged exactly on a heterogeneous field: the catalog names a zone
 ``Sy.zone_1`` and shows the specific-yield range beside it, while
 ``PHYSICAL_BOUNDS.get("sy.zone_1")`` is None, so the guard let a zone through at
 0.9 and refused the same 0.9 on the homogeneous form. The resolution knows the
-target, so it asks the question under the catalogue's own key.
+target, so it asks the question under the catalog's own key.
 """
 
 from __future__ import annotations

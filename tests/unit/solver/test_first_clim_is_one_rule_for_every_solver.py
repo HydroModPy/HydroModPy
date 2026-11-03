@@ -1,6 +1,6 @@
 """``first_clim`` sets the rate of every steady period, and of no other period.
 
-Before, the same key had three behaviours: MODFLOW 6 replaced the steady
+Before, the same key had three behaviors: MODFLOW 6 replaced the steady
 periods of a series and ignored a grid, MODFLOW-NWT and Boussinesq replaced
 period 0 whether it was steady or not. And a routed deficit kept the mean
 deficit whatever ``first_clim`` said, so the net rate of the steady period was

@@ -76,7 +76,7 @@ class PointRequest:
     """Where to read: coordinates, a cell index, and how to pick the layer.
 
     Exactly one of ``(x, y)`` or ``cell`` identifies the cell. At most one of
-    ``layer`` or ``depth`` picks the layer; ``depth`` is metres below the local
+    ``layer`` or ``depth`` picks the layer; ``depth`` is meters below the local
     model top and resolves against the mesh layer thicknesses. With neither,
     the point reads the top active cell of its column.
     """
@@ -227,7 +227,7 @@ def _top_active_layer_at(run: Run, cell: int) -> int | None:
 
 
 def _layer_at_depth(run: Run, mesh: Any, cell: int, depth: float, n_layers: int) -> int:
-    """Return the layer holding *depth* metres below the local model top."""
+    """Return the layer holding *depth* meters below the local model top."""
     thickness = _layer_thickness(run, cell, n_layers)
     if thickness is None:
         column = np.asarray(mesh.z_interfaces, dtype="float64")[:, cell]
@@ -322,7 +322,7 @@ class RunPointProvider:
         """Read one or more variables in one precise cell.
 
         The cell is named by project-CRS coordinates (``x`` and ``y``), by its
-        index (``cell``), or by a ``depth`` in metres below the local model top
+        index (``cell``), or by a ``depth`` in meters below the local model top
         that picks the layer. Virtual fields (``watertable_depth`` ...) answer
         like persisted ones.
 
@@ -338,7 +338,7 @@ class RunPointProvider:
             Zero-based layer index; negative counts from the bottom. Without a
             layer or a depth, the point reads the top active cell of its column.
         depth
-            Metres below the local model top, resolved against the mesh layer
+            Meters below the local model top, resolved against the mesh layer
             thicknesses. Mutually exclusive with ``layer``.
         label
             Name of the point, reported in the table.

@@ -1,8 +1,8 @@
 """A DEM, a geology file or a river network without a CRS is refused by name.
 
-They used to be labelled EPSG:2154 (DEM, geology) or EPSG:4326 (river network)
+They used to be labeled EPSG:2154 (DEM, geology) or EPSG:4326 (river network)
 without a word. A file in another frame was then cut by the wrong box, or
-placed kilometres away.
+placed kilometers away.
 """
 
 from __future__ import annotations

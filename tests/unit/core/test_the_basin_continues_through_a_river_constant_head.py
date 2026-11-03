@@ -2,7 +2,7 @@
 
 A constant-head cell on a slope keeps its steepest descent: the basin of the
 outlet goes on upstream of it. A constant-head cell at the bottom of a bowl has
-no lower neighbour: it is a sink, and the cells draining into it stay outside
+no lower neighbor: it is a sink, and the cells draining into it stay outside
 the basin. The basin never reads the stopping receiver, which ends every walk
 at a constant-head cell.
 """

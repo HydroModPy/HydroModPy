@@ -38,7 +38,7 @@ _MODEL_NAME = "lakp01hmp"
 
 
 def _variable_spacing_planar_mesh(*, delr_m: np.ndarray, delc_m: np.ndarray) -> HydroMesh:
-    """Build a structured quad ``HydroMesh`` honouring variable column/row widths.
+    """Build a structured quad ``HydroMesh`` honoring variable column/row widths.
 
     Cumulative edges give the real p01 cell sizes; rows run top (highest y) to
     bottom so flat row-major cell ids match the upstream ``(row, col)`` order.
@@ -208,7 +208,7 @@ def build_hmp_simulation(workspace: Path, *, geometry: LakeP01Geometry | None = 
 
 
 def run_hmp(workspace: Path, *, geometry: LakeP01Geometry | None = None) -> LakeRunResult:
-    """Build, run, and summarise the HMP SI LAK build."""
+    """Build, run, and summarize the HMP SI LAK build."""
     from collections import Counter
 
     sim, gwf, connectiondata = build_hmp_simulation(workspace, geometry=geometry)

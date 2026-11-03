@@ -14,7 +14,7 @@ extent every manager already reads, reprojecting it the way its provider needs
 handed over as a bare tuple would carry no CRS to any of them.
 
 **Hydrography and installed sources go through the source registry**, never
-through the hydrography manager, whose job is to rasterise the network onto a
+through the hydrography manager, whose job is to rasterize the network onto a
 project grid with Whitebox.
 
 **A variable that fails is listed with its error, never dropped.** The unit

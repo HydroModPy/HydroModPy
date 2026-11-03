@@ -63,10 +63,10 @@ SPLIT_COLORS: dict[str, str] = {
     "drainage": HIGH_CONTRAST_TRIPLET[2],
     "runoff": HIGH_CONTRAST_TRIPLET[1],
 }
-"""One colour per curve of the split, darkest for the total they sum to.
+"""One color per curve of the split, darkest for the total they sum to.
 
-The three lightnesses are far apart, so the split survives a greyscale print
-and every common colour-vision deficiency.
+The three lightnesses are far apart, so the split survives a grayscale print
+and every common color-vision deficiency.
 """
 
 OBSERVED_COLOR = "black"

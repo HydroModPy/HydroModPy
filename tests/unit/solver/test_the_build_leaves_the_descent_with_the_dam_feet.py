@@ -23,7 +23,7 @@ from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 N_ROWS, N_COLS = 5, 7
 LAKE = {"res": [2 * N_COLS + 3, 2 * N_COLS + 4]}
-TOE = 2 * N_COLS + 2  # west of the lake cell nearest the outlet, lower than its row neighbours
+TOE = 2 * N_COLS + 2  # west of the lake cell nearest the outlet, lower than its row neighbors
 
 
 def _mesh() -> SolverMesh:

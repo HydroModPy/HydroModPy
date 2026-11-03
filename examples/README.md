@@ -33,7 +33,7 @@ needs.
 | 08 | [`08_exponential_distribution_of_residence_times`](projects/08_exponential_distribution_of_residence_times/) | travel times against the exponential law of a well-mixed store | steady + PRT | ~5 s |
 | 09 | [`09_transport_model_for_an_agricultural_catchment`](projects/09_transport_model_for_an_agricultural_catchment/) | nitrate through an agricultural headwater, MODFLOW 6 GWT | monthly transient | ~8 min |
 | 10 | [`10_coupling_with_land_surface_model_pyhelp`](projects/10_coupling_with_land_surface_model_pyhelp/) | recharge computed by PyHELP, then K found from the network | steady + calibration | ~3 min |
-| 11 | [`11_run_from_scratch_without_plots`](projects/11_run_from_scratch_without_plots/) | headless run: artefacts only, no figure | steady + PRT | ~25 s |
+| 11 | [`11_run_from_scratch_without_plots`](projects/11_run_from_scratch_without_plots/) | headless run: artifacts only, no figure | steady + PRT | ~25 s |
 | 12 | [`12_network_calibration_from_apis`](projects/12_network_calibration_from_apis/) | Nancon from one outlet coordinate: DEM, network, gauge and recharge fetched, K found from the full BD Topage network | steady + calibration | ~3 min |
 
 Run any of them the same way:
@@ -88,7 +88,7 @@ DuckDB from the run directories, and a deleted `.hmp/` costs nothing.
 
 ## Data
 
-`data/` is organised by variable family, which is what a bare filename in a
+`data/` is organized by variable family, which is what a bare filename in a
 TOML resolves against: `path = "DEM_nancon_25m.tif"` reads
 `data/dem/DEM_nancon_25m.tif`.
 

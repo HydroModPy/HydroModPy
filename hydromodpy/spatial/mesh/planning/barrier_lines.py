@@ -2,7 +2,7 @@
 
 A lake cutoff wall is laid on the lake shore between its two wings, so that
 stretch is a line of the ``lakes`` family and of the ``barriers`` family. An
-engine must mesh it once: it recognises the stretch by its vertices, which
+engine must mesh it once: it recognizes the stretch by its vertices, which
 must then be the same in both families. Before the resampling, each barrier
 line is cut where it leaves a ring. The pieces off the rings are resampled as
 lines of their own, and the ends of each stretch are fixed nodes of the ring.
@@ -93,7 +93,7 @@ def split_barriers(
     A segment of a barrier line runs along a ring when its two ends and its
     middle lie within *tolerance* [m] of it. A wing, the piece between a
     stretch and a free end, shorter than ``shortest(xy)`` [m] at the point
-    where it leaves the stretch is left out: no cell there resolves it, and its few metres would shrink the circles of the ring
+    where it leaves the stretch is left out: no cell there resolves it, and its few meters would shrink the circles of the ring
     segments at the stretch end until they lose their pairs. Without a barrier
     or a ring family, or without such a segment, the families are kept as they
     are.

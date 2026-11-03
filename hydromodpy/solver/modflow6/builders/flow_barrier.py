@@ -374,7 +374,7 @@ def lake_wall_faces(
     """The faces of a lake cutoff wall bound on *payload*, positioned along its trace.
 
     With the lake cells, the wall hugs the lake cell set along the shore
-    (:func:`cutoff_wall_faces`); without them (the lake is not modelled) it
+    (:func:`cutoff_wall_faces`); without them (the lake is not modeled) it
     takes the faces of its line alone: the barrier family faces laid on it,
     or the faces it crosses on a staircase.
     """
@@ -464,7 +464,7 @@ def check_cutoff_wall_seal(
 ) -> None:
     """Refuse a lake cutoff wall that leaves the lake open past the dam.
 
-    For each modelled lake with a wall: walking from the downstream side along
+    For each modeled lake with a wall: walking from the downstream side along
     the wall never reaches the lake side without crossing a wall face
     (:func:`wall_leaks`); no HORIZONTAL LAK connection reaches a cell downstream
     of the wall; every face between a lake cell and a downstream cell carries

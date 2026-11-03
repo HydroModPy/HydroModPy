@@ -7,13 +7,13 @@ tokens live here so that downstream mappings stay consistent.
 
 The module provides:
 
-- ``BoundaryKind`` : enum of BC kinds recognised by HydroModPy.
+- ``BoundaryKind`` : enum of BC kinds recognized by HydroModPy.
 - ``NWT_PACKAGES`` / ``MF6_PACKAGES`` : dispatch tables mapping each
   ``BoundaryKind`` to the solver package code expected by FloPy.
 - ``resolve_packages`` : helper returning the package list used by an
   adapter for a given ``(BoundaryKind, solver)`` combination.
 
-Only the naming dispatch is centralised; the detailed payload builders
+Only the naming dispatch is centralized; the detailed payload builders
 stay with each backend because they depend on solver-specific data
 structures (DIS vs DISV coordinates, stress period data layouts, etc.).
 """

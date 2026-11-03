@@ -1,8 +1,8 @@
-"""A normalised network distance is counted in validity lengths.
+"""A normalized network distance is counted in validity lengths.
 
-A network block scores a distance in metres and a hydrograph block an
+A network block scores a distance in meters and a hydrograph block an
 efficiency, a pure number. Added raw, a phase share table between the two is an
-exchange rate between metres and an efficiency. ``normalize_cost = true`` on
+exchange rate between meters and an efficiency. ``normalize_cost = true`` on
 ``distance_gap`` or ``distance_mean`` divides each distance by the output's
 validity length (Eq. 4, ``"auto"`` = 2 h_obs), which the trial publishes, so the
 cost is a pure number and a share means a share.

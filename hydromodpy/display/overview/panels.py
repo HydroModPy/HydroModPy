@@ -81,7 +81,7 @@ def render_dem_map(
 
     if streams_gdf is not None and not streams_gdf.empty:
         # The 'terrain' colormap renders valley bottoms in blue, which would
-        # camouflage a steelblue stream layer; use a high-contrast colour
+        # camouflage a steelblue stream layer; use a high-contrast color
         # that stands out against the entire elevation palette.
         streams_gdf.plot(ax=ax, color="navy", linewidth=0.8, alpha=0.95)
         if stream_label:
@@ -343,7 +343,7 @@ def render_timeseries_multi(
     Parameters
     ----------
     date_start, date_end
-        Optional bounds applied via :meth:`Axes.set_xlim` so the panel honours
+        Optional bounds applied via :meth:`Axes.set_xlim` so the panel honors
         the requested time window even when the underlying records span a
         wider period.
     hlines
@@ -416,7 +416,7 @@ def render_timeseries_multi(
     return ax
 
 
-# ONDE flow states, 1 = dry to 5 = visible flow, coloured as in HydroModPy v1.
+# ONDE flow states, 1 = dry to 5 = visible flow, colored as in HydroModPy v1.
 _ONDE_STATES = (
     (1, "Dry", "#800000"),
     (2, "Invisible", "#ff9800"),
@@ -439,7 +439,7 @@ def render_intermittency(
 ) -> list[Axes]:
     """Render ONDE flow states, one strip per station.
 
-    Each observation is a coloured tick on the row of its flow state. The
+    Each observation is a colored tick on the row of its flow state. The
     given axes is split into one stacked axes per station, sharing time.
     """
     stations = [] if df is None else [c for c in df.columns if not df[c].dropna().empty]
@@ -483,7 +483,7 @@ def render_water_quality(
     """Render water-quality analyses, one strip per parameter.
 
     ``series_by_param`` maps parameter name to a dict of station_id -> Series.
-    A station keeps one colour on every strip. Analyses more than
+    A station keeps one color on every strip. Analyses more than
     ``_WQ_GAP_DAYS`` apart are not joined, so a gap in sampling stays a gap.
     """
     params = [p for p, by_station in series_by_param.items() if by_station]
@@ -751,12 +751,12 @@ def render_station_inventory(ax: Axes, *, inventory: list[dict]) -> Axes:
 
 
 def _outline_color() -> str:
-    """The colour of the catchment outline: black on a light page, light on a dark one."""
+    """The color of the catchment outline: black on a light page, light on a dark one."""
     return neutral("black")
 
 
 def _theme_table(table) -> None:
-    """Give the cells of a table the colours of the current theme.
+    """Give the cells of a table the colors of the current theme.
 
     A matplotlib table draws white cells with black edges, whatever the theme, so
     the light text of the dark theme would sit on white.
@@ -880,7 +880,7 @@ def _plot_station_points(ax, points: list[dict], target_crs=None, extent=None) -
 
 
 def _off_map_hint(xs: list[float], ys: list[float], extent) -> str:
-    """Distance and compass direction of the nearest point from the map centre."""
+    """Distance and compass direction of the nearest point from the map center."""
     left, right, bottom, top = extent
     cx, cy = (left + right) / 2.0, (bottom + top) / 2.0
     dx, dy = min(

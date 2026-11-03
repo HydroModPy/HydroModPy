@@ -2,7 +2,7 @@
 
 The module is a dependency-light JSONL reader that turns persisted
 calibration iteration traces into :class:`ObjectiveMappingPoint` records.
-These tests pin its real transformation behaviour:
+These tests pin its real transformation behavior:
 
 - normal multi-line history parsing with full payloads,
 - empty file, blank/whitespace lines, and a missing path,
@@ -107,7 +107,7 @@ class TestNormalParsing:
 
 class TestCoercion:
     def test_named_param_keys_become_str_and_values_float(self, tmp_path: Path) -> None:
-        """Integer-like JSON keys/values must be normalised, not kept as ints."""
+        """Integer-like JSON keys/values must be normalized, not kept as ints."""
         path = _write_jsonl(
             tmp_path,
             [{"params_named": {"alpha": 2, "beta": "3.5"}}],
@@ -216,7 +216,7 @@ class TestEmptyAndMissing:
 
 class TestObjectiveExtraction:
     def test_negative_objective_sign_preserved(self, tmp_path: Path) -> None:
-        """No sign flip: a maximised NSE stored as a negative cost stays signed."""
+        """No sign flip: a maximized NSE stored as a negative cost stays signed."""
         path = _write_jsonl(
             tmp_path,
             [

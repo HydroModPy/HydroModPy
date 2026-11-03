@@ -703,7 +703,7 @@ PROVENANCE_SCHEMA: Final[pa.Schema] = pa.schema(
             "source_sha256",
             pa.string(),
             nullable=True,
-            metadata=_field_meta(description="SHA-256 of the source artefact, hex digest"),
+            metadata=_field_meta(description="SHA-256 of the source artifact, hex digest"),
         ),
         pa.field(
             "loader_name",
@@ -739,13 +739,13 @@ PROVENANCE_SCHEMA: Final[pa.Schema] = pa.schema(
             "payload_sha256",
             pa.string(),
             nullable=True,
-            metadata=_field_meta(description="SHA-256 of the materialised array payload"),
+            metadata=_field_meta(description="SHA-256 of the materialized array payload"),
         ),
         pa.field(
             "n_records",
             pa.int64(),
             nullable=True,
-            metadata=_field_meta(description="Cardinality of the materialised payload"),
+            metadata=_field_meta(description="Cardinality of the materialized payload"),
         ),
         pa.field(
             "stats",
@@ -976,7 +976,7 @@ SOIL_BUDGET_SCHEMA: Final[pa.Schema] = pa.schema(
             pa.float64(),
             nullable=True,
             metadata=_field_meta(
-                description="Cell centre x, CRS of the run; null on the basin row"
+                description="Cell center x, CRS of the run; null on the basin row"
             ),
         ),
         pa.field(
@@ -984,7 +984,7 @@ SOIL_BUDGET_SCHEMA: Final[pa.Schema] = pa.schema(
             pa.float64(),
             nullable=True,
             metadata=_field_meta(
-                description="Cell centre y, CRS of the run; null on the basin row"
+                description="Cell center y, CRS of the run; null on the basin row"
             ),
         ),
         pa.field(
@@ -1156,7 +1156,7 @@ MESH_CELL_FAMILIES_SCHEMA: Final[pa.Schema] = pa.schema(
             pa.float64(),
             nullable=True,
             metadata=_field_meta(
-                description="Distance from the cell centre to the family line, m; null when the chain gives none"
+                description="Distance from the cell center to the family line, m; null when the chain gives none"
             ),
         ),
     ],

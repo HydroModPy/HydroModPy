@@ -175,7 +175,7 @@ option the engine names:
 An engine that stops on its evaluation budget, or on the spread of its own
 population, declares neither and leaves them ``None``. A precision handed to it
 is then refused with a message naming what does bound it, rather than accepted
-and dropped: a run reporting that it honoured a request it never read is worse
+and dropped: a run reporting that it honored a request it never read is worse
 than a run refusing the request.
 
 The budget is the same kind of statement. ``calibration.max_trials`` is the one
@@ -330,5 +330,5 @@ See also
 
 - :doc:`../packages/calibration` for the calibration package map.
 - :doc:`/contribute/architecture/calibration/calibration-guide` for the full
-  operational reference (TOML, optimizer catalogue, storage rules,
+  operational reference (TOML, optimizer catalog, storage rules,
   pitfalls, Python API).

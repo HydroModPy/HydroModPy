@@ -86,9 +86,9 @@ def height_above_stream(
 def _filled(z: np.ndarray, valid: np.ndarray, seeds: np.ndarray) -> np.ndarray:
     """*z* with every pixel raised so it holds a strictly lower path to a seed.
 
-    The flood runs on a grid padded by one closed ring, so a neighbour is a
+    The flood runs on a grid padded by one closed ring, so a neighbor is a
     fixed offset of the flat index. A pixel flooded at or below the level it
-    is reached from is raised a millimetre above it.
+    is reached from is raised a millimeter above it.
     """
     nrow, ncol = z.shape
     width = ncol + 2
@@ -124,7 +124,7 @@ def _filled(z: np.ndarray, valid: np.ndarray, seeds: np.ndarray) -> np.ndarray:
 def _steepest_receiver(
     filled: np.ndarray, valid: np.ndarray, *, dx: float, dy: float
 ) -> np.ndarray:
-    """Flat index of the steepest strictly lower neighbour of each pixel, -1 where none is."""
+    """Flat index of the steepest strictly lower neighbor of each pixel, -1 where none is."""
     nrow, ncol = filled.shape
     surface = np.where(valid, filled, np.inf)
     padded = np.pad(surface, 1, constant_values=np.inf)

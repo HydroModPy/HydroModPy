@@ -1,7 +1,7 @@
 """Where hydrography gets its extent, now that no object carries it.
 
 The manager used to read a ``geographic`` object for three things at once --
-the project CRS, the polygon it clips to and the grid it rasterises onto. Two
+the project CRS, the polygon it clips to and the grid it rasterizes onto. Two
 of them are a mask file and one is a constructor argument, and these are the
 tests that say so. The loader-side half matters as much as the manager-side
 one: ``_apply_default_masks`` only ever looked at ``cfg.sources``, and
@@ -70,7 +70,7 @@ def test_a_section_without_a_mask_is_refused_by_name(tmp_path, monkeypatch):
 
 @pytest.mark.fast
 def test_the_request_box_leaves_in_the_crs_the_source_declares(tmp_path, monkeypatch):
-    """The three hydrography sources declare degrees; the mask is in metres.
+    """The three hydrography sources declare degrees; the mask is in meters.
 
     Anti-vacuity: the Lambert-93 bounds of the fixture are around
     ``(300000, 6700000)``. Handing them over unconverted is the defect F5d-1
@@ -99,7 +99,7 @@ def test_the_request_box_leaves_in_the_crs_the_source_declares(tmp_path, monkeyp
 def test_the_clip_happens_in_the_frame_the_mask_declares(
     mock_backend_factory, mock_fetch, tmp_path
 ):
-    """A degrees mask and a metres network still meet, and the output is in degrees.
+    """A degrees mask and a meters network still meet, and the output is in degrees.
 
     This is the read that replaced ``geographic.crs_proj``. The old code
     reprojected the network into a CRS read off the object and clipped against
@@ -138,7 +138,7 @@ def test_rasterising_without_a_reference_grid_is_refused_by_name(tmp_path):
 
 @pytest.mark.fast
 def test_the_loader_fills_a_mask_declared_on_the_section(tmp_path):
-    """The generalisation hydrography needs, and the per-source fill it kept."""
+    """The generalization hydrography needs, and the per-source fill it kept."""
     watershed = tmp_path / "watershed.shp"
     result = SimpleNamespace(
         setup=SimpleNamespace(geographic=SimpleNamespace(watershed_shp=watershed))

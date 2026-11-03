@@ -3,8 +3,8 @@
 
 Reads the self-contained mesh bundle CSVs (no hydromodpy import) plus the lake,
 watershed and river vector layers, and renders one clean figure: the triangular
-mesh coloured by surface elevation (lakes highlighted), the watershed boundary,
-the stream network, a scale bar, a north arrow and an elevation colour bar.
+mesh colored by surface elevation (lakes highlighted), the watershed boundary,
+the stream network, a scale bar, a north arrow and an elevation color bar.
 """
 
 from __future__ import annotations
@@ -135,15 +135,15 @@ def main() -> None:
     )
     fig, ax = plt.subplots(figsize=(11.5, 6.4))
 
-    # Elevation colours over LAND cells only, so the colour bar spans the terrain
-    # (lakes get their own solid colour and do not skew the ramp).
+    # Elevation colors over LAND cells only, so the color bar spans the terrain
+    # (lakes get their own solid color and do not skew the ramp).
     land = lake_id == 0
     norm = Normalize(float(np.percentile(ztc[land], 1)), float(ztc[land].max()))
     cmap = _land_cmap()
     facecolors = cmap(norm(ztc))
     for k, (_, row) in enumerate(lakes.iterrows(), start=1):
-        colour, _ = _LAKE_STYLE.get(str(row.lake_id), ("#2166ac", str(row.lake_id)))
-        facecolors[lake_id == k] = matplotlib.colors.to_rgba(colour)
+        color, _ = _LAKE_STYLE.get(str(row.lake_id), ("#2166ac", str(row.lake_id)))
+        facecolors[lake_id == k] = matplotlib.colors.to_rgba(color)
 
     ax.add_collection(
         PolyCollection(polys, facecolors=facecolors, edgecolors="0.30", linewidths=0.15, zorder=1)
@@ -192,7 +192,7 @@ def main() -> None:
     _scale_bar(ax, 2.0)
     _north_arrow(ax)
 
-    # Colour bar for land-surface elevation.
+    # Color bar for land-surface elevation.
     sm = ScalarMappable(norm=norm, cmap=cmap)
     cbar = fig.colorbar(sm, ax=ax, shrink=0.82, pad=0.02, fraction=0.045)
     cbar.set_label("Land-surface elevation $z_{top}$ [m NGF]", fontsize=11)

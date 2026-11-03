@@ -260,7 +260,7 @@ def test_without_the_key_the_first_period_runs_in_time_from_the_initial_conditio
     assert run.runtime_summary["first_period_steady"] is False
     np.testing.assert_array_equal(history[0], _start_heads())
     np.testing.assert_allclose(history[1], one_step.head_m, rtol=0.0, atol=1.0e-12)
-    # One day drains a few metres of the 10 m above the steady state, not all of them.
+    # One day drains a few meters of the 10 m above the steady state, not all of them.
     assert np.max(history[1] - steady) > 1.0
 
 

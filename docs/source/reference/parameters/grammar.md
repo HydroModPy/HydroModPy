@@ -195,8 +195,8 @@ bare number is in the unit shown, and a string needs a unit: `"150"` is refused.
 
 | Kind of field | A bare number is in | Strings read | Examples |
 |---|---|---|---|
-| a length | metres | `"150 m"`, `"0.15 km"`, `"15000 cm"`, converted to metres | {toml}`geographic.catchment.snap_dist`, {toml}`domain.depth_model.thickness` |
-| a length in millimetres | mm | `"150 mm"`, `"15 cm"`, `"0.15 m"` | {toml}`flow.sinks_sources.recharge.soil.ru` |
+| a length | meters | `"150 m"`, `"0.15 km"`, `"15000 cm"`, converted to meters | {toml}`geographic.catchment.snap_dist`, {toml}`domain.depth_model.thickness` |
+| a length in millimeters | mm | `"150 mm"`, `"15 cm"`, `"0.15 m"` | {toml}`flow.sinks_sources.recharge.soil.ru` |
 | a duration in days | days | `"5 days"`, `"1 week"`, `"12 h"` | {toml}`flow.sinks_sources.recharge.soil.transit_time` |
 | a volumetric flow | m3/s | `"36 L/s"`, `"10 m^3/h"` | {toml}`flow.sinks_sources.wells.<name>.forcing.value` |
 | a flux density | m/s | `"2 mm/day"`, `"500 mm/yr"` | {toml}`flow.ic.h.rate` |
@@ -245,17 +245,17 @@ sibling `unit` key where the table has one. The table gives the unit by section.
 
 | Section | A bare number is in |
 |---|---|
-| `[geographic.catchment]` lengths (`snap_dist`, `dem_resolution`) | metres |
-| `[domain.depth_model]` thicknesses and depths | metres |
+| `[geographic.catchment]` lengths (`snap_dist`, `dem_resolution`) | meters |
+| `[domain.depth_model]` thicknesses and depths | meters |
 | `[data.recharge]` and `[flow.sinks_sources.recharge]` values | mm/day |
 | `[flow.sinks_sources.etp]` values | mm/day, as its `units` key says |
-| `[flow.sinks_sources.recharge.soil]` depths | millimetres |
+| `[flow.sinks_sources.recharge.soil]` depths | millimeters |
 | `[flow.sinks_sources.wells]` rates and forcings | m3/s |
 | `[flow.sinks_sources.lakes]` and `[flow.sinks_sources.sfr]` rates | m3/s |
-| a head boundary `value` in `[flow.bc]` | metres |
+| a head boundary `value` in `[flow.bc]` | meters |
 | a flux boundary forcing in `[flow.bc]` | m/s |
 | `[flow.param.<id>.field]` value | the unit of the name (`K` in m/s, `Ss` in 1/m, `Sy` without unit), or its `unit` key |
-| `[solver]` depths and thicknesses (`drain_band_depth_m`, `drain_bed_thickness_m`) | metres |
+| `[solver]` depths and thicknesses (`drain_band_depth_m`, `drain_bed_thickness_m`) | meters |
 | `[transport.modflow6prt.parameters]` times | days |
 | `[transport.modflow6gwt]` and `[transport.mt3dms]` rates and diffusion | seconds, the clock of the two solvers |
 | `[simulation.time]` `step_value` | the `step_unit` beside it |

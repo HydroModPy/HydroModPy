@@ -107,7 +107,7 @@ class _DedupFilter(logging.Filter):
     """Drop a warning the console has already shown, verbatim.
 
     A catchment delineated twice snaps its outlet twice and warns twice
-    about the same metres. The second line teaches nothing and pushes the
+    about the same meters. The second line teaches nothing and pushes the
     first one up the scrollback. Console only: the file logs keep every
     occurrence, and DEBUG/INFO repetitions are left alone because they
     often carry a counter the user is reading.

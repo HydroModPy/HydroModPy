@@ -110,7 +110,7 @@ class CalibrationObjectiveSurfaceFigure(BaseFigure):
         # A surface needs a plane to be drawn on. A one-dimensional search, or
         # two parameters a phase moved together, gives collinear points: the
         # triangulation is then degenerate and the interpolation returns an
-        # all-NaN grid that draws as an empty panel with a colour bar.
+        # all-NaN grid that draws as an empty panel with a color bar.
         spread = np.column_stack([px - px.mean(), py - py.mean()])
         if np.linalg.matrix_rank(spread) < 2:
             raise ValueError(

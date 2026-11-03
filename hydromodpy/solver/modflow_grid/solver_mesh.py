@@ -1,7 +1,7 @@
 """Unified solver mesh abstraction for structured and unstructured grids.
 
 ``SolverMesh`` is the single grid object that traverses the entire solver
-pipeline.  It wraps a ``PlanarCellMesh`` (planar geometry, centres, derived
+pipeline.  It wraps a ``PlanarCellMesh`` (planar geometry, centers, derived
 areas and adjacency, cell families) together with layer elevations, providing
 everything the solver needs to build MODFLOW DIS or DISV packages.
 
@@ -47,7 +47,7 @@ class SolverMesh:
     Parameters
     ----------
     cell_mesh : PlanarCellMesh
-        Planar cells with their centres, derived geometry and families.
+        Planar cells with their centers, derived geometry and families.
     top : ndarray, shape (n_cells,)
         Top elevation per cell.
     botm : ndarray, shape (nlay, n_cells)
@@ -133,7 +133,7 @@ class SolverMesh:
     def cell_centers(self) -> np.ndarray:
         """Return cell centers as ndarray (n_cells, 2).
 
-        These are the ``centers`` of the cell mesh, the one centre rule of every
+        These are the ``centers`` of the cell mesh, the one center rule of every
         consumer: the Voronoi generators written to the DISV file, so LAK
         connection lengths, the watershed DRN mask and PRT release points use
         the centers MODFLOW 6 sees, or the vertex mean on a regular grid and on
@@ -335,7 +335,7 @@ class SolverMesh:
 
     @property
     def generator_centers(self) -> np.ndarray | None:
-        """The ``(n_cells, 2)`` generators of a mesh centred on them (Voronoi), else ``None``."""
+        """The ``(n_cells, 2)`` generators of a mesh centered on them (Voronoi), else ``None``."""
         if self.cell_mesh.center_kind != "generator":
             return None
         return self.cell_mesh.centers
@@ -343,8 +343,8 @@ class SolverMesh:
     def to_disv_kwargs(self) -> dict[str, Any]:
         """Build FloPy DISV keyword arguments for MODFLOW 6.
 
-        A mesh centred on its generators (Voronoi) writes them as the DISV cell
-        centres, exact for its perpendicular-bisector faces. Any other mesh writes
+        A mesh centered on its generators (Voronoi) writes them as the DISV cell
+        centers, exact for its perpendicular-bisector faces. Any other mesh writes
         the mean of the cell vertices.
         """
         return to_flopy_disv_args(
@@ -413,7 +413,7 @@ def to_flopy_disv_args(
     botm : ndarray
         Bottom elevation per layer, shape ``(nlay, ncpl)``.
     centers : ndarray, optional
-        Cell centres to write, shape ``(ncpl, 2)``, for example the Voronoi
+        Cell centers to write, shape ``(ncpl, 2)``, for example the Voronoi
         generators. The mean of the cell vertices when ``None``.
 
     Notes

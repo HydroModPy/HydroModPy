@@ -4,7 +4,7 @@
     loads in small chunks when a query is typed. The theme's search button
     submits to this page with ?q=, read below. Extending page.html rather than
     the theme's search.html keeps the 1 MB Sphinx index off this page too.
-    The Component UI of Pagefind follows the WAI-ARIA patterns; its colours are
+    The Component UI of Pagefind follows the WAI-ARIA patterns; its colors are
     mapped to the theme tokens so it follows the light and dark modes. #}
 {%- block htmltitle -%}
   <title>{{ _("Search") }} - {{ docstitle }}</title>
@@ -52,7 +52,7 @@
   <script type="module" src="{{ pathto('pagefind/pagefind-component-ui.js', 1) }}"></script>
   <script type="module">
     const box = document.getElementById("hmp-search");
-    // The components read their dark colours from data-pf-theme; the theme
+    // The components read their dark colors from data-pf-theme; the theme
     // keeps its mode on <html data-theme>.
     const follow = () => {
       box.dataset.pfTheme = document.documentElement.dataset.theme === "dark" ? "dark" : "light";

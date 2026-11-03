@@ -636,7 +636,7 @@ def build_report() -> Path:
       </p>
       <p class="note">
         Etat au 15 avril 2026: les runs <code>NWT steady</code> avec <code>K</code> heterogene par geologie ne sont pas encore
-        numeriquement stabilises sur ces grands bassins. Les cartes de resultats affichees ici doivent donc etre lues
+        numeriquement stabilizes sur ces grands bassins. Les cartes de resultats affichees ici doivent donc etre lues
         comme des sorties exploratoires de premier test, tandis que les maillages conformes <code>MF6 irregular steady</code>
         restent le support geometrique de reference.
       </p>

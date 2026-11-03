@@ -205,7 +205,7 @@ class LakeAbacusComparison(BaseFigure):
         vol_unit = str(ab.get("volume_unit", "m3"))
         stage_unit = str(ab.get("stage_unit", "m"))
 
-        # Millions of cubic metres: a reservoir abacus spans 1e7, and raw m3 leaves the
+        # Millions of cubic meters: a reservoir abacus spans 1e7, and raw m3 leaves the
         # axis unreadable with an offset exponent in the corner.
         scale, scaled_unit = (1e6, "Mm3") if vol_unit == "m3" else (1.0, vol_unit)
         real_plot = real_volume / scale

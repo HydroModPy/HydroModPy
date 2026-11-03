@@ -2,7 +2,7 @@
 
 A catchment may be re-used across hundreds of simulations (e.g. calibration
 runs sweeping hydraulic parameters on a fixed domain). The geographic
-artefacts - DEM raster, geology raster, watershed polygon, river network -
+artifacts - DEM raster, geology raster, watershed polygon, river network -
 are identical across all those runs and do not need to be duplicated inside
 each run's ``fields.zarr``.
 
@@ -94,7 +94,7 @@ def _sorted_dict(obj: Any) -> Any:
 
 
 class GeographicCache:
-    """Read-through cache of geographic artefacts at ``workspace/geographic/``."""
+    """Read-through cache of geographic artifacts at ``workspace/geographic/``."""
 
     def __init__(self, workspace_path: str | Path) -> None:
         self._workspace = Path(workspace_path).expanduser().resolve()
@@ -157,11 +157,11 @@ class GeographicCache:
         manifest: Mapping[str, Any] | None = None,
         overwrite: bool = False,
     ) -> Path:
-        """Materialise ``payload_dir`` under ``<cache>/<fingerprint>/``.
+        """Materialize ``payload_dir`` under ``<cache>/<fingerprint>/``.
 
         ``payload_dir`` is copied recursively (or merged when ``overwrite``
         is ``False`` and the destination already exists). A ``manifest``
-        dict is written alongside the artefacts to make the cache
+        dict is written alongside the artifacts to make the cache
         self-describing and auditable.
         """
         dst = self.path_for(fingerprint)

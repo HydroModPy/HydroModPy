@@ -28,7 +28,7 @@ Comparison:
   `dq/dx = R`, `db/dx = S0 - q / (K b)` solved by shooting on the west
   discharge and RK4 integration of the thickness profile,
 - boundary positions: each side head is posed where the model holds it, at the
-  centre of the boundary column, or at the mean centroid of the boundary
+  center of the boundary column, or at the mean centroid of the boundary
   triangles on the triangle strip, or on the face on the Voronoi dual, whose
   cells are seeded on the face; a no-flow side stays on the domain face
   (`validation_cases/shared/strip_geometry.py`)

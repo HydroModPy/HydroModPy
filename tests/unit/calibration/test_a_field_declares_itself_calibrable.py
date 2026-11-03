@@ -56,7 +56,7 @@ class TestWhatIsAnnotated:
         assert found.bounds is None
 
     def test_the_catalogue_reads_it_off_the_field(self) -> None:
-        """The walk that builds the catalogue is the one that collects it."""
+        """The walk that builds the catalog is the one that collects it."""
         found = declared_calibrable(FieldHomogeneousSection.model_fields["value"])
 
         assert isinstance(found, Calibrable)

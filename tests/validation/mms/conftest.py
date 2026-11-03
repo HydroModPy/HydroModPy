@@ -1,6 +1,6 @@
 """Shared MMS convergence helpers.
 
-The Method of Manufactured Solutions (MMS) verifies that a discretisation
+The Method of Manufactured Solutions (MMS) verifies that a discretization
 converges to its expected theoretical order. A manufactured exact solution
 ``u_exact(x)`` (or ``u_exact(x, t)``) is substituted into the governing PDE
 to derive a consistent forcing term; the numerical scheme is then run on a
@@ -54,7 +54,7 @@ def run_mms_convergence(
     case_fn: Callable[[int], tuple[float, float]],
     refinements: Iterable[int],
 ) -> ConvergenceResult:
-    """Run ``case_fn(N)`` for each requested ``N`` and summarise the refinement study.
+    """Run ``case_fn(N)`` for each requested ``N`` and summarize the refinement study.
 
     ``case_fn`` must return ``(h, error)`` where ``h`` is the characteristic
     grid size used and ``error`` the L2 error with respect to the

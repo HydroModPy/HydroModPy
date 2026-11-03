@@ -17,7 +17,7 @@ the legend and in the note at the foot, and nothing is read into it here.
 
 Overlaps are drawn, not resolved. A cell that two packages act on (a drain on
 a streambed cell, a well under a lake) takes its own class rather than the
-colour of whichever package happens to be painted last, so the map never
+color of whichever package happens to be painted last, so the map never
 quietly hides a package behind another.
 
 A boundary package acts on a fraction of a mesh, and that fraction is what
@@ -72,12 +72,12 @@ BOUNDARY_PACKAGES: dict[str, tuple[str, str]] = {
     "constant_head": ("CHD", "#AAAA00"),
     "lake": ("LAK", "#88CCEE"),
 }
-"""Public field name of each boundary package, its MODFLOW label and colour.
+"""Public field name of each boundary package, its MODFLOW label and color.
 
-The colours are fixed per package so two runs of the same catchment can be
+The colors are fixed per package so two runs of the same catchment can be
 laid side by side, and they climb in lightness in the order written here
 (roughly L* 22, 32, 46, 57, 68, 79). Every pair is therefore separable in
-greyscale as well as in hue, and a map showing any subset keeps that spacing.
+grayscale as well as in hue, and a map showing any subset keeps that spacing.
 
 ``drain_to_mover`` is deliberately NOT an entry here. With ``route_drainage``
 the in-catchment drainage leaves through DRN-TO-MVR while the plain DRN record
@@ -130,7 +130,7 @@ MARK_POINTS = 2.4
 A page unit, not a ground unit, and that is the whole point: a 50 m cell on a
 12 km map printed five inches wide is 1.5 points across, and drops under a
 pixel as soon as the figure is scaled down for a report. The mark is a square
-of this side centred on the cell and painted in the colour of the class it
+of this side centered on the cell and painted in the color of the class it
 belongs to, so it can only ever widen a class, never narrow one: where the
 cells are already larger than it, it is invisible inside the one it covers.
 """
@@ -355,7 +355,7 @@ def _add_class(
     color: str,
     zorder: int,
 ) -> None:
-    """Draw one class of cells as a flat colour, or nothing when it is empty."""
+    """Draw one class of cells as a flat color, or nothing when it is empty."""
     from matplotlib.collections import PolyCollection
 
     selected = np.flatnonzero(mask)
@@ -382,7 +382,7 @@ def _add_marked_class(
     """Draw one acting class, and a page-space mark over each of its cells.
 
     The cells are the truth and are drawn first; the marks are painted on top
-    of them, in the same colour, and are what keeps the class on the page once
+    of them, in the same color, and are what keeps the class on the page once
     the mesh is finer than the print. See :data:`MARK_POINTS`.
     """
     selected = np.flatnonzero(mask)
@@ -422,7 +422,7 @@ def _crop_to_subject(
 
     So is a run whose delineation lands off the mesh. The bounds are taken as
     they are stored, in whatever CRS they were stored in, and a delineation
-    that came back in degrees while the mesh is in metres would frame the map
+    that came back in degrees while the mesh is in meters would frame the map
     on ground that holds no cell: an empty page, and the reader with no way of
     knowing why. The whole mesh is a worse frame than the catchment, and a
     readable one.

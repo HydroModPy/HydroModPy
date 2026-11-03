@@ -47,7 +47,7 @@ Each field in ``config.json`` keeps what the models declare in
 ``display_min``, ``display_max``, ``group``, ``stability``, ``value_docs``) and
 carries its visibility in ``x-hmp-profile`` (``user``, ``dev`` or ``expert``), so
 a form can hide the developer and expert fields. These annotations are the
-contract between the models and the UI. Honour them and you need no mapping
+contract between the models and the UI. Honor them and you need no mapping
 layer. They are added to a field as described in :doc:`add-a-config-field`.
 
 The contract of the schema is its property paths, their types and their
@@ -87,7 +87,7 @@ should call on each change, in well under 50 ms and without I/O. From Python:
 
 It resolves the dotted path on ``HydroModPyConfig``, picks the matching
 ``pydantic.TypeAdapter`` and returns a ``ValidationResult`` with ``valid``,
-``error``, ``warnings`` and ``dependent_fields_affected``. Lookups are memoised,
+``error``, ``warnings`` and ``dependent_fields_affected``. Lookups are memoized,
 so a repeated call on the same path is free. A frontend that is not written in
 Python reaches it through the CLI in a subprocess, or through any transport the
 integrator chooses.

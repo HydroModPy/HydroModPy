@@ -4,7 +4,7 @@ How the calibration engine runs
 This page is for a contributor who changes the calibration code in
 ``hydromodpy/calibration/``. It says how a calibration file becomes trials,
 which pipeline steps a trial replays, what is written where, how the cache
-recognises a trial, and what a bisection reports about itself. Every method and
+recognizes a trial, and what a bisection reports about itself. Every method and
 metric is listed from the code in :doc:`/reference/calibration-methods`; the package
 map and the diagrams are in :doc:`calibration-architecture`.
 
@@ -149,7 +149,7 @@ A trial of ``flow.param.K.field.value`` therefore replays steps 6 to 8. A trial
 of ``domain.depth_model.thickness`` replays from step 5. The mesh step reads
 its sections from the raw file once, so a mesh setting is refused as a
 calibration parameter: refining the mesh also moves the yardstick the network
-criterion is normalised by.
+criterion is normalized by.
 
 Storage
 -------
@@ -280,4 +280,4 @@ See also
 
 - :doc:`calibration-architecture`: package map and diagrams.
 - :doc:`../how-to/add-a-calibration-method`: register a new engine.
-- :doc:`/theory/calibration/inverse-problem-formulation`: what is minimised.
+- :doc:`/theory/calibration/inverse-problem-formulation`: what is minimized.

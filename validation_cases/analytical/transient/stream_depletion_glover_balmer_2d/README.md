@@ -32,9 +32,9 @@ Reference model:
   image, with `T = K b` and `S = Sy`,
 - the stream depletion is `erfc(sqrt(S a^2 / (4 T t)))` (Glover and Balmer 1954),
 - the closed form is read where the model computes: the stream line at the
-  centres of the stream cells (half a cell inside the face on the grid, about
-  3 m on the triangles, on the face for the Voronoi dual), the well at the centre
-  of the cell that takes the pumping, each monitor point at the centre of the
+  centers of the stream cells (half a cell inside the face on the grid, about
+  3 m on the triangles, on the face for the Voronoi dual), the well at the center
+  of the cell that takes the pumping, each monitor point at the center of the
   cell it reads,
 - the linearized theory holds: the largest drawdown, in the well cell, is 2.8 %
   of the saturated thickness on the grid and 3.6 % on the smaller well cell of
@@ -58,7 +58,7 @@ python -m validation_cases.analytical.transient.stream_depletion_glover_balmer_2
 
 Reference used by the documentation:
 
-- reference: Glover and Balmer (1954) stream depletion and the image-well Theis drawdown (Theis 1941), with `T = K b` and `S = Sy`, read at the stream, well and monitor cell centres
+- reference: Glover and Balmer (1954) stream depletion and the image-well Theis drawdown (Theis 1941), with `T = K b` and `S = Sy`, read at the stream, well and monitor cell centers
 
 ## Equations
 

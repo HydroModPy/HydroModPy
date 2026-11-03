@@ -51,7 +51,7 @@ CRS, CELL, SIZE, XMIN, YMAX, NODATA = "EPSG:2154", 25.0, 20, 300000.0, 6700500.0
 NODATA_ROWS = NODATA_COLS = slice(5, 7)  # a 2 x 2 hole inside the mask
 MASK_BOX = (300100.0, 6700100.0, 300400.0, 6700400.0)
 ELSEWHERE = (400000.0, 6800000.0, 400100.0, 6800100.0)
-CELLS_UNDER_MASK = 144  # 12 x 12 cell centres fall inside the box
+CELLS_UNDER_MASK = 144  # 12 x 12 cell centers fall inside the box
 ACTIVE_CELLS = CELLS_UNDER_MASK - 4  # the four nodata cells are not part of the domain
 THICKNESS = 30.0
 FLAT = {"kind": "flat_substratum", "substratum_elevation": 60.0}
@@ -130,7 +130,7 @@ def test_a_finished_job_is_sealed_with_the_declared_rasters_on_the_terrain_grid_
                 assert np.isnan(produced.read(1)[inactive]).all(), relative
     # Both exclusions are present, so neither is asserted vacuously.
     assert inactive[NODATA_ROWS, NODATA_COLS].all() and inactive[0, 0]
-    # The bottom is the runtime geometry: a body reimplementing it would seal an unrelated artefact.
+    # The bottom is the runtime geometry: a body reimplementing it would seal an unrelated artifact.
     active = ~inactive
     runtime = build_domain(DomainConfig.with_thickness(THICKNESS), surface_topo=build_surface_topo_from_dem(job.root.parent / "dem.tif"))  # fmt: skip
 

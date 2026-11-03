@@ -195,7 +195,7 @@ def test_a_pointer_that_closes_a_loop_is_refused() -> None:
 def _brick_mesh(nrow: int, n_bricks: int, top: float) -> SolverMesh:
     """Rows of 2 x 1 bricks, every other row shifted by half a brick.
 
-    Every brick carries the T-junction nodes of its neighbours, so the mesh is
+    Every brick carries the T-junction nodes of its neighbors, so the mesh is
     not all-quad and D descends by shared faces, like a Voronoi mesh.
     """
     width = 2 * n_bricks
@@ -235,7 +235,7 @@ def test_on_a_brick_mesh_a_runs_down_pinned_bricks_and_d_follows_it() -> None:
     nrow, n_bricks = 8, 4
     mesh = _brick_mesh(nrow, n_bricks, 30.0)
     n = int(mesh.n_cells)
-    # One-metre pixels; A runs south down raster column 3, from row 1 to row 6.
+    # One-meter pixels; A runs south down raster column 3, from row 1 to row 6.
     path = [(r, 3) for r in range(1, 7)]
     tree = _tree((nrow, 2 * n_bricks), path, pixel=1.0, top_y=float(nrow))
     bricks = [_brick_of(mesh, 3.5, nrow - r - 0.5) for r, _ in path]

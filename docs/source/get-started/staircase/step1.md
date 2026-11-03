@@ -76,8 +76,8 @@ Five figures, in `runs/nancon_step1_minimal/figures/`, listed by {toml}`display.
 
 | Figure | What it shows |
 |---|---|
-| `watershed_id_card` | The topography, the outlet, and a table of facts: what was modelled, where, over which period, on which grid |
-| `watertable_depth_map` | The depth of the water table below the land surface, in metres |
+| `watershed_id_card` | The topography, the outlet, and a table of facts: what was modeled, where, over which period, on which grid |
+| `watertable_depth_map` | The depth of the water table below the land surface, in meters |
 | `seepage_map` | The cells where the water table reaches the surface, a yes or no for each cell |
 | `cross_section` | The land surface, the water table and the seepage segments along a line. Here the line runs south to north through the outlet, so it cuts the tributaries across |
 | `water_budget` | One bar per component of the budget, inflow and outflow |
@@ -100,7 +100,7 @@ The run prints `WARNING` lines. None is an error, and each has a reason.
 
 | Warning | Why | What to do |
 |---|---|---|
-| `Outlet moved 130 m (limit 150 m) onto the flow network, from (389286, 6816519) to (389175, 6816450).` | The coordinate of the file does not fall on a stream cell of the DEM. The outlet moves inside a square window centred on it, of width {toml}`geographic.catchment.snap_dist`, here 150 m, which is 3 by 3 cells of the 75 m DEM. It lands on the cell of the window with the largest flow accumulation. The run warns when the move is more than half of that width. | Nothing, here. A move close to the limit means the coordinate is far from the stream: check it. With {toml}`geographic.catchment.snap_method` set to `"jenson"`, the outlet lands on the nearest cell of the stream network instead, and the run stops if the window holds none. On this example it moves 36 m instead of 130 m and the basin loses 5 cells out of 11 488. |
+| `Outlet moved 130 m (limit 150 m) onto the flow network, from (389286, 6816519) to (389175, 6816450).` | The coordinate of the file does not fall on a stream cell of the DEM. The outlet moves inside a square window centered on it, of width {toml}`geographic.catchment.snap_dist`, here 150 m, which is 3 by 3 cells of the 75 m DEM. It lands on the cell of the window with the largest flow accumulation. The run warns when the move is more than half of that width. | Nothing, here. A move close to the limit means the coordinate is far from the stream: check it. With {toml}`geographic.catchment.snap_method` set to `"jenson"`, the outlet lands on the nearest cell of the stream network instead, and the run stops if the window holds none. On this example it moves 36 m instead of 130 m and the basin loses 5 cells out of 11 488. |
 | `Simulated discharge is baseflow only: the run has no runoff forcing, so it underestimates a gauged total streamflow.` | The discharge of steps 1 and 2 is what the drains collect from the aquifer. A gauge measures that plus the surface runoff, and no runoff series is loaded. | Nothing, until step 4: it loads a runoff series, adds it to the discharge, and the warning goes. |
 | `Runs of this workspace are sealed without creator_name, creator_institution and a known licence. Add creator_name = "..." and creator_institution = "..." under [workspace] in <workspace.toml>; a licence comes from the 'license' key of each input sidecar (<file>.json).` | A run is sealed with a record of who made it and under which licence, and the workspace says neither. It prints once per workspace, on its first run: if you ran the demo of the quick start, you saw it there. | Cosmetic. Write the two keys under `[workspace]` in `workspace.toml`, or start with `hmp workspace init --creator-name "Your name"`. |
 

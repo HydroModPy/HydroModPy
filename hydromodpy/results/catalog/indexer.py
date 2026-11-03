@@ -48,7 +48,7 @@ sites                    the ``site`` blocks of the seals, counted over cases
 The label of a sealed run is computed here, with the rules and the known
 issues of this build, and dated. The rule version and a digest of the known
 issues register are stamped in ``index_meta`` next to the schema version: an
-index labelled by another build is rebuilt whole at the next pass, so a new
+index labeled by another build is rebuilt whole at the next pass, so a new
 rule or a new known issue reclassifies every run without touching its files.
 The run name is taken from the directory, never from the files: a rename
 moves the directory, so the tree is what the name is.
@@ -186,7 +186,7 @@ def index_new_runs(project_root: Path | str, *, incremental: bool = True) -> Ind
     """Bring the index up to date with the tree, by a diff when it can.
 
     Without an index, with an index of another schema version, with an index
-    labelled by other rules or another known issues register, or with
+    labeled by other rules or another known issues register, or with
     ``incremental=False``, the index is rebuilt whole. Otherwise only the
     directories that appeared, changed or disappeared since the last pass are
     written, and a tree that did not move writes nothing.
@@ -326,7 +326,7 @@ def known_issues_digest() -> str:
 
 
 def _index_is_of_this_build(index_path: Path) -> bool:
-    """Return whether the index at ``index_path`` has this schema and these labelling rules."""
+    """Return whether the index at ``index_path`` has this schema and these labeling rules."""
     if not index_path.is_file():
         return False
     try:
@@ -448,7 +448,7 @@ class _IndexWriter:
     # -- bookkeeping -----------------------------------------------------------
 
     def stamp(self) -> None:
-        """Record when the pass ran and which labelling build it labelled with."""
+        """Record when the pass ran and which labeling build it labeled with."""
         self._conn.execute(
             f"INSERT OR REPLACE INTO {INDEX_META_TABLE} (key, value) VALUES (?, ?), (?, ?), (?, ?)",
             [

@@ -1,6 +1,6 @@
 """Unit tests for ``hydromodpy.calibration.config`` schemas.
 
-Ports the behavioural intent of the old ``test_schemas.py`` to the new
+Ports the behavioral intent of the old ``test_schemas.py`` to the new
 :class:`CalibrationConfig`/``CalibParameterDecl`` pair. The old schema
 validated ``chronicle``/``bounds``/``calibration_method`` sections (all
 flattened at the top level); the new schema is a single ``[calibration]``

@@ -42,18 +42,18 @@ MM_PER_M = 1000.0
 class RechargeMoundComparison:
     """Head under the recharge rectangle against Hantush (1967).
 
-    Every head is compared with the reference read at the centre of the solver
-    cell that holds it: the cell centre on the structured grid, the centroid of
+    Every head is compared with the reference read at the center of the solver
+    cell that holds it: the cell center on the structured grid, the centroid of
     the triangle, the node of the Voronoi cell.
 
-    - ``x``: abscissa of the transect through the centre, along the long side
-      of the rectangle, in metres from the centre, every 20 m.
+    - ``x``: abscissa of the transect through the center, along the long side
+      of the rectangle, in meters from the center, every 20 m.
     - ``analytical_profiles`` / ``numerical_profiles``: head on the transect,
       one row per output time.
     - ``analytical_centre_rise`` / ``numerical_centre_rise``: head rise at the
-      centre over time.
+      center over time.
     - ``map_cell_polygons``, ``map_simulated``, ``map_reference``: plan view
-      at the final time, one entry per solver cell, in metres from the centre.
+      at the final time, one entry per solver cell, in meters from the center.
     """
 
     result: ValidationRunResult
@@ -94,7 +94,7 @@ def _reference_kwargs(reference_cfg: dict) -> dict:
 
 
 def _grid_centres(metadata: dict) -> tuple[np.ndarray, np.ndarray]:
-    """Return the x centres and the y centres, from the south, of the validation grid."""
+    """Return the x centers and the y centers, from the south, of the validation grid."""
     reference_cfg = dict(metadata["reference"])
     ny, nx = (int(value) for value in metadata["output"]["expected_spatial_shape"])
     dx = (float(reference_cfg["xmax"]) - float(reference_cfg["xmin"])) / nx
@@ -121,11 +121,11 @@ def _boussinesq_triangles(result) -> tuple[np.ndarray, list[np.ndarray]]:
 
 
 def _held_cell_centres(*, result, solver_name: str, metadata: dict, observable_name: str):
-    """Return the centre of the solver cell each validation grid cell holds.
+    """Return the center of the solver cell each validation grid cell holds.
 
     The array is ``(ny, nx, 2)``, rows in the order of the loaded heads: from
     the north on the structured MODFLOW grid, which the result store lists that
-    way, from the south after the nearest-centre projection of a mesh run.
+    way, from the south after the nearest-center projection of a mesh run.
     """
     x, y = _grid_centres(metadata)
     if solver_name in BOUSSINESQ_SOLVERS:
@@ -147,7 +147,7 @@ def _held_cell_centres(*, result, solver_name: str, metadata: dict, observable_n
 def _final_map(
     *, result, solver_name: str, metadata: dict, observable_name: str, heads: np.ndarray
 ):
-    """Return the outline, the final head and the cell centre of every solver cell."""
+    """Return the outline, the final head and the cell center of every solver cell."""
     if solver_name in BOUSSINESQ_SOLVERS:
         centres, polygons = _boussinesq_triangles(result)
         simulated = np.load(Path(result.out_path) / FINAL_CELL_HEADS)

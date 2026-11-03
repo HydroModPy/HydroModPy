@@ -1,14 +1,14 @@
 """The model top the routing diagnostics explain, built once from a run's mesh.
 
 The depression map and the flow direction map both need the persisted model
-top, a neighbour graph over the mesh faces, and the cell the stream criterion
+top, a neighbor graph over the mesh faces, and the cell the stream criterion
 seals. Building that object twice is how two maps printed side by side come to
 contradict each other, so both figures build it here.
 
-The neighbour graph is the same one
+The neighbor graph is the same one
 :func:`hydromodpy.core.stream_geometry.build_network_geometry` walks, and the
 choice between shared edges and shared nodes is the one knob that changes it. A
-flood conditioning a surface over one neighbourhood while a descent walks the
+flood conditioning a surface over one neighborhood while a descent walks the
 other leaves every filled cell spilling over a link the descent cannot take,
 which is a defect this repository has already paid for once.
 
@@ -18,7 +18,7 @@ is not one: it is the cell the stream criterion seals before measuring a
 distance to it, a choice made about the catchment rather than a property of the
 surface. A flood seeded on the mesh edge therefore raises the closed
 depressions and nothing else, the outlet included when the outlet sits in one;
-a flood seeded on the outlet alone must also raise every neighbouring basin,
+a flood seeded on the outlet alone must also raise every neighboring basin,
 which drains perfectly well and simply not here.
 
 This object is the model top T and what the criterion and the depression map
@@ -74,13 +74,13 @@ class RoutingSurface:
     """The mesh top, the graph over it, and the cell every path ends in."""
 
     topography: np.ndarray
-    """(n_cells,) persisted model top, in metres."""
+    """(n_cells,) persisted model top, in meters."""
 
     centroids: np.ndarray
-    """(n_cells, 2) face centres, the points a direction is measured between."""
+    """(n_cells, 2) face centers, the points a direction is measured between."""
 
     adjacency: list[set[int]]
-    """Neighbour indices per cell: shared edges, or shared nodes with diagonals."""
+    """Neighbor indices per cell: shared edges, or shared nodes with diagonals."""
 
     face_node_connectivity: np.ndarray
     """(n_cells, n_nodes) UGRID face definition the graph was built over."""
@@ -97,7 +97,7 @@ class RoutingSurface:
     domain_edge: np.ndarray
     """(n_cells,) bool: active cells holding a face edge no active cell shares.
 
-    The geometric boundary of the modelled domain, where water leaves the mesh.
+    The geometric boundary of the modeled domain, where water leaves the mesh.
     It does not move with ``diagonal_neighbors``: whichever links the descent
     is allowed to take, it leaves through the same faces.
     """
@@ -192,12 +192,12 @@ def routing_surface_from_run(
 ) -> RoutingSurface:
     """Build the routing surface of one run from its own mesh.
 
-    ``diagonal_neighbors`` picks the neighbour graph, the same knob and the
+    ``diagonal_neighbors`` picks the neighbor graph, the same knob and the
     same default as the stream criterion: shared nodes, the D8 descent of the
     paper on a quad mesh; shared edges when false, or when the mesh has faces
     that are not quadrilaterals and so no diagonal.
 
-    The result is memoised on the run object and the neighbour knob. Four
+    The result is memoized on the run object and the neighbor knob. Four
     figures of one gallery ask for the same surface and each rebuild walks the
     whole mesh: on the Nancon at 25 m that is 345 260 cells traversed four
     times for one identical answer.
@@ -260,7 +260,7 @@ def _catchment_cells(
     active: np.ndarray,
     mesh_crs: str | None,
 ) -> np.ndarray | None:
-    """Return the active cells whose centre falls in the delineated catchment.
+    """Return the active cells whose center falls in the delineated catchment.
 
     ``None`` when the run carries none, which is legitimate on a synthetic
     domain and moves the outlet to the low point of the whole active mesh. On a

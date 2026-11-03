@@ -2,7 +2,7 @@
 # Nançon - calibration of K against observed discharge
 # ----------------------------------------------------------------------
 # Overlay TOML. Inherits the project base config and runs an Optuna
-# campaign that searches log10(K) to maximise KGE between the simulated
+# campaign that searches log10(K) to maximize KGE between the simulated
 # drain discharge and the observed Nançon hydrograph.
 #
 # Sy, Ss and aquifer thickness are frozen at their baseline value.
@@ -87,10 +87,10 @@ seed = 42
 # calibration: it decomposes the fit into correlation, bias and
 # variability, so a poor amplitude is not hidden by a good mean.
 # Other choices: 'rmse' / 'mae' (scale-dependent error), 'nse'
-# (penalises mean bias only).
+# (penalizes mean bias only).
 objective = "kge"
 variable = "discharge"
-# Memoise duplicate parameter samples through a content-addressed cache.
+# Memoize duplicate parameter samples through a content-addressed cache.
 use_cache = true
 
 [calibration.parameters.K]

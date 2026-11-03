@@ -9,7 +9,7 @@ total of each gate.
   the seeds of its own sphere.
 - G2: each conformal segment is the face shared by the cells of its pair, its
   two nodes within 1 mm of the segment ends.
-- G3: two distinct consecutive cells of a chain are neighbours.
+- G3: two distinct consecutive cells of a chain are neighbors.
 - G4: the cell areas add up to the domain area at 1e-9.
 - G5: no vertex repeated in a cell, at least three per cell.
 - G6: no face shorter than 1e-6 m.
@@ -326,7 +326,7 @@ def _g2(
 def _g3(
     chains: Sequence[CellChain], geometry: DerivedGeometry, seeds: np.ndarray, frame: LocalFrame
 ) -> tuple[tuple[str, int, list[str]], int]:
-    """Two distinct consecutive cells of each chain are neighbours; return the links checked."""
+    """Two distinct consecutive cells of each chain are neighbors; return the links checked."""
     if not chains:
         return ("G3", 0, []), 0
     starts = np.concatenate([chain.cell_ids[:-1] for chain in chains])

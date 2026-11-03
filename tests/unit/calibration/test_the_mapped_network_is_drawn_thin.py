@@ -3,7 +3,7 @@
 ``observed_network_mask`` picks between ``"crossing"``, the thin line of
 WhiteboxTools VectorLinesToRaster that the paper used, and ``"touch"``, the
 rule before 2026-09, kept to replay an old session. The crossing rule joins
-the centres the solver mesh sampled its top at, so it reads them from the run.
+the centers the solver mesh sampled its top at, so it reads them from the run.
 """
 
 from __future__ import annotations
@@ -149,7 +149,7 @@ def _unclipped(*extra: LineString) -> ObservedNetwork:
 
 
 def _run_ctx_with_catchment(tmp_path, *, margin: float):
-    """A run whose delineated catchment overhangs the grid by ``margin`` metres."""
+    """A run whose delineated catchment overhangs the grid by ``margin`` meters."""
     from shapely.geometry import box
 
     shp = tmp_path / "watershed.shp"

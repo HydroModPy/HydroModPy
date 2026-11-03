@@ -1,4 +1,4 @@
-"""Step 0 refuses an export or a date the run cannot honour, naming the line.
+"""Step 0 refuses an export or a date the run cannot honor, naming the line.
 
 ``check_export_variables`` reads every ``[[export]]`` name against what a run
 can export and plans each block with the kind of each name.

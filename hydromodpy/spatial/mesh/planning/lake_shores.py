@@ -266,7 +266,7 @@ def _without_crumbs(geometry: BaseGeometry, radius: float) -> BaseGeometry:
     """*geometry* without the parts and holes smaller than ``radius**2``.
 
     The overlays leave crumbs where two outlines meet: a hole of a few square
-    metres, whose ring the mesh would follow in segments of a few metres.
+    meters, whose ring the mesh would follow in segments of a few meters.
     """
     floor = radius * radius
     parts = []

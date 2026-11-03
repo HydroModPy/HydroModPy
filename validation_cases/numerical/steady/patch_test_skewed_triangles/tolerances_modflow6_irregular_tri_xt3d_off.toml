@@ -10,7 +10,7 @@ reason = """
 gap = """
 The two-point flux is not consistent on these triangles. It takes the flux
 across an edge as T L (h_b - h_a) / d, d the distance between the two cell
-centres: that is the flux of a uniform gradient only where the centre line is
+centers: that is the flux of a uniform gradient only where the center line is
 normal to the edge. On this strip the angle between them has a median of 23 deg
 and a 95th percentile of 42 deg, so a linear head does not balance and the
 solution bends: 3 to 6 % of the head drop. Control run, the same files with

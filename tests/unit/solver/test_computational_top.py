@@ -1,4 +1,4 @@
-"""DISV vertices are written with enough digits for a sub-millimetre face (DISV-PREC)."""
+"""DISV vertices are written with enough digits for a sub-millimeter face (DISV-PREC)."""
 
 from __future__ import annotations
 

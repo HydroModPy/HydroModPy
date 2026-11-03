@@ -57,7 +57,7 @@ def mesh_cells(cell_mesh: PlanarCellMesh) -> tuple[MeshCell, ...]:
     """Return the ``MeshCell`` of each cell of ``cell_mesh``, in cell order.
 
     The nodes of a cell are its row of ``connectivity_rows`` without the ``-1``
-    slots. The centroid is the cell centre of the mesh.
+    slots. The centroid is the cell center of the mesh.
     """
     kind = cell_mesh.mesh.cell_types[0].value
     xy = np.asarray(cell_mesh.mesh.vertices, dtype=float)[:, :2]

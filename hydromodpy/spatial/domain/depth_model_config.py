@@ -77,7 +77,7 @@ class FlatSubstratumDepthModel(HydroModelBase):
                 # No bounds: an elevation range belongs to the site, and the
                 # registry refuses a bound past -500 .. 9000 m. Linear space and a
                 # uniform sampling because an elevation has no natural zero: it can be
-                # negative, and a metre matters as much at 10 m as at 100 m.
+                # negative, and a meter matters as much at 10 m as at 100 m.
                 search_space="identity",
                 sampling="uniform",
                 units="m",

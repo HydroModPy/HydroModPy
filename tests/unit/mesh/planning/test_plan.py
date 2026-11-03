@@ -337,7 +337,7 @@ def test_a_structure_drawn_as_a_polygon_is_refined_on_its_own_area(tmp_path: Pat
 
 
 def test_the_interior_size_refines_the_whole_lake(tmp_path: Path) -> None:
-    """The shore term alone leaves the centre of a lake coarser than the interior size."""
+    """The shore term alone leaves the center of a lake coarser than the interior size."""
     interior = _TRIANGLE.model_copy(
         update={"lake_refinement": LakeRefinementConfig(cell_size=20.0, interior_size=30.0)}
     )

@@ -26,7 +26,7 @@ Code map
   zone of a support in each cell, which the solvers read.
 - ``hydromodpy/spatial/field/plotting.py``: ``plot_cell_values``.
 - ``hydromodpy/spatial/field/geology_field.py``: geology-backed
-  specialisations built on the same field contract.
+  specializations built on the same field contract.
 
 Recommended reading path
 ------------------------
@@ -49,7 +49,7 @@ abstractions.
 Square case
 -----------
 
-This view shows how the square example specialises the core
+This view shows how the square example specializes the core
 abstractions and builds its unit-square meshes.
 
 .. uml:: diagrams/field_spatial_cases_classes.wsd

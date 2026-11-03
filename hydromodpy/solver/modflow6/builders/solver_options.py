@@ -155,7 +155,7 @@ def _warn_xt3d(message: str) -> None:
 def resolve_xt3d_decision(model, solver_mesh=None) -> Xt3dDecision:
     """Resolve XT3D once and memoize it on the model.
 
-    Honour an explicit ``mf6_enable_xt3d`` override. A written false against a
+    Honor an explicit ``mf6_enable_xt3d`` override. A written false against a
     required trigger raises a RuntimeWarning, also logged at WARNING; any other
     disagreement with the model checks logs a warning. Otherwise decide
     automatically from the K tensor, the cell type and the mesh

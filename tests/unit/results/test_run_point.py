@@ -29,7 +29,7 @@ from hydromodpy.results.spatial_index import (
 from hydromodpy.results.storage.sealing import seal_completed
 from tests._helpers.run_stores import open_run_store
 
-# A 2x2 grid of unit squares: cells 0..3, centres at (0.5, 0.5) ... (1.5, 1.5).
+# A 2x2 grid of unit squares: cells 0..3, centers at (0.5, 0.5) ... (1.5, 1.5).
 VERTICES = np.array(
     [
         [0.0, 0.0],

@@ -1,7 +1,7 @@
 """``[calibration.parameters.curve_number]`` and ``.runoff_time`` resolve by name.
 
 Mirrors ``test_the_impervious_fraction_is_calibrable.py``: the file names the
-quantity, the catalogue resolves it under ``flow.sinks_sources.recharge.soil``,
+quantity, the catalog resolves it under ``flow.sinks_sources.recharge.soil``,
 and a bound the physical registry rules out is caught at load.
 """
 

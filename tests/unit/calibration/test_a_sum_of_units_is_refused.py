@@ -1,14 +1,14 @@
-"""Adding a cost in metres to a cost in m3/s lets the unit set the weighting.
+"""Adding a cost in meters to a cost in m3/s lets the unit set the weighting.
 
 ``normalize_cost`` exists for exactly this: it divides a block's cost by a
 reference scale so that two blocks become comparable. Nothing enforced it. A file
-could weight a head RMSE in metres at 0.5 and a discharge RMSE in m3/s at 0.5,
-believe it had split the cost evenly, and hand the metres whatever share their
+could weight a head RMSE in meters at 0.5 and a discharge RMSE in m3/s at 0.5,
+believe it had split the cost evenly, and hand the meters whatever share their
 own magnitude happened to buy.
 
 The criterion now declares the unit of its cost, so the composite can see the
 mix and refuse it. Two costs in the same unit add up fine. Dimensionless ones add
-up fine. A mix is refused unless every dimensionful member is normalised, which
+up fine. A mix is refused unless every dimensionful member is normalized, which
 is what makes the weights mean what they say.
 """
 

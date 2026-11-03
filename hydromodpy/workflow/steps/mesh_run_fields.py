@@ -58,7 +58,7 @@ def read_run_fields(
 def read_run_field(project_root: Path, reference: str, field: str) -> RunFieldEnvelope:
     """Return the extremes over time of *field* in the run *reference* names.
 
-    ``watertable_depth`` is in metres. ``seepage`` is the drain outflow,
+    ``watertable_depth`` is in meters. ``seepage`` is the drain outflow,
     drain-to-mover included, divided by the cell area, in mm/d. Raises
     :class:`ConfigError` when no sealed run of the project matches, or when
     the run holds no mesh or not the field.

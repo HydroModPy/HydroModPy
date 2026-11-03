@@ -419,7 +419,7 @@ def render_figure(
     else:
         target = Path(save)
         # Treat suffix-less paths as a directory; anything with an extension
-        # is a complete file path the caller wants honoured verbatim.
+        # is a complete file path the caller wants honored verbatim.
         save_path = target / f"{figure_name}.png" if target.suffix == "" else target
     if dpi is not None:
         opts["dpi"] = dpi

@@ -7,11 +7,11 @@ Eight static fields describe how good the cells of a run are: ``mesh_cell_area``
 formulas of :mod:`hydromodpy.spatial.mesh.model.quality`, by cell, on the geometry
 derived from the stored vertices and connectivity.
 
-The area, the neighbour ratio, the two angles and the concavity need geometry
+The area, the neighbor ratio, the two angles and the concavity need geometry
 only, so every run serves them. The offset, the non-orthogonality and the bisection
-offset need the cell centres of the mesh, which a run stores since the cell-mesh
+offset need the cell centers of the mesh, which a run stores since the cell-mesh
 layout (``mesh/face_x``, ``mesh/face_y``). A store without them has the vertex mean
-at best, not the centre the solver used: those three fields are refused with the
+at best, not the center the solver used: those three fields are refused with the
 reason rather than computed on a guess.
 """
 

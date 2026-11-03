@@ -41,7 +41,7 @@ $[\log_{10} a_i, \log_{10} b_i]$, or normal.
 
 An output pairs a simulated quantity with what it is compared to: a station of a loaded
 record, or a mapped stream network. An objective block $b$ scores one or more outputs with
-one metric, which gives a raw cost $c_b(\theta)$, always to be minimised. The blocks add up
+one metric, which gives a raw cost $c_b(\theta)$, always to be minimized. The blocks add up
 as
 
 $$
@@ -62,7 +62,7 @@ $$
   $\log_{10}(c + 10^{-6})$, or $-1/(c + 10^{-6})$. It reshapes a cost before the weighting.
   It is not the log of the series, which is what the metric `nse_log` takes.
 
-Without normalisation, a cost in metres and a cost without unit add up, and the unit sets
+Without normalization, a cost in meters and a cost without unit add up, and the unit sets
 the balance instead of the weight. A file with no block scores one series with
 {toml}`calibration.objective` and {toml}`calibration.variable`: one block of weight one.
 
@@ -101,7 +101,7 @@ $$
 changes sign. `distance_gap` scores $\lvert J_s \rvert$, but its zero is a crossing, not
 the minimum of a smooth cost: the simulated network changes cell by cell, so $J_s$ steps
 over zero instead of reaching it. The method `bisection` uses that. It sweeps the box in
-log space, keeps the two neighbours where the sign changes, and halves that bracket until
+log space, keeps the two neighbors where the sign changes, and halves that bracket until
 its relative width falls under the precision {toml}`calibration.precision`. It never stops
 on the size of $\lvert J_s \rvert$, which may never get small. The value it returns is the
 completed trial of lowest cost inside the final bracket.
@@ -124,7 +124,7 @@ as long as the drains take their conductance from $K$. The argument is in
 ## The methods
 
 A method proposes the next values of $\theta$ from the costs it has seen. It changes how the
-minimum is found, never what is minimised. A search that names none gets `bisection` when it
+minimum is found, never what is minimized. A search that names none gets `bisection` when it
 moves one parameter in log space on signed criteria only, and `scipy_nelder_mead`
 otherwise.
 
@@ -196,7 +196,7 @@ told apart: they are one number and a ratio.
 
 - A low cost does not identify a parameter on its own. Several parameter sets can reach the
   same cost, and a calibration on one criterion returns one of them.
-- The weights of a multi-target cost are a modelling decision. Changing them changes which
+- The weights of a multi-target cost are a modeling decision. Changing them changes which
   model is called the best.
 - In a staged calibration, each phase is conditional on the values the earlier phases froze.
   Its width does not carry their uncertainty.

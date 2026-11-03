@@ -20,7 +20,7 @@ def locate_cell_on_cell_mesh(
 ) -> tuple[int, int, int] | None:
     """Return the flat selector ``(0, 0, cell_id)`` of the cell that holds ``(x, y)``.
 
-    A point outside every cell takes the cell whose centre is the nearest, when it
+    A point outside every cell takes the cell whose center is the nearest, when it
     lies within one cell size of that cell. Farther out the answer is ``None`` and
     a warning names the point.
     """

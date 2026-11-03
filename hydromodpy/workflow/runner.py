@@ -2,7 +2,7 @@
 
 ``Pipeline`` runs a list of :class:`Step` objects sequentially, optionally
 folding parallelisable cohorts through a thread pool. State is reconstructed
-from durable artefacts (Zarr, Parquet, the facts of the run) plus the TOML
+from durable artifacts (Zarr, Parquet, the facts of the run) plus the TOML
 config, never from pickle blobs. The step journal under
 ``<run>/.hmp/checkpoints/`` is the single source of truth for resume
 decisions: every step records its ``inputs_hash``, ``outputs_hash`` and
@@ -17,7 +17,7 @@ Two-phase execution
 
 * **Rebuild phase** (steps in ``[0, restart_index)``): each step is either
   re-executed in memory (cheap, idempotent steps such as validate, resolve,
-  setup) or restored from artefacts via ``Step.rebuild_state`` (heavy steps
+  setup) or restored from artifacts via ``Step.rebuild_state`` (heavy steps
   with declared ``artifacts``). No journal rows are written during this
   phase.
 * **Execute phase** (steps in ``[restart_index, end)``): cohorts are
@@ -96,18 +96,18 @@ class Pipeline:
 
         ``resume_from`` is the index of the first step to execute fully.
         Steps before that index are reconstructed via ``rebuild_state`` (or
-        re-executed in memory when they declare no artefacts).
+        re-executed in memory when they declare no artifacts).
 
         ``model_phase_ready`` marks a fresh run whose ``resume_from > 0`` only
         skips the model phase already built in this process - not a journal
         resume. Such a run is a new (possibly versioned) run, so it ignores any
         stale same-name manifest and rebuilds its prefix from the live ctx
-        rather than a prior run's journalled artefacts. A genuine resume
+        rather than a prior run's journalled artifacts. A genuine resume
         (``resume_from > 0`` with this False) keeps verifying the checkpoint.
 
         ``parallel`` (default True) consumes the Kahn cohort layout: a
         multi-step cohort is dispatched through a thread pool. The default
-        pipeline only produces singleton cohorts so the behaviour is identical
+        pipeline only produces singleton cohorts so the behavior is identical
         to the strict for-loop. Pass ``parallel=False`` to force the
         sequential path.
 
@@ -141,7 +141,7 @@ class Pipeline:
             existing = ResolvedRunManifest.read(self.run_dir)
             if restart_index > 0 and not model_phase_ready and existing is not None:
                 # Genuine resume: the prefix is reconstructed from the prior
-                # attempt's artefacts, so its config/pipeline must still match.
+                # attempt's artifacts, so its config/pipeline must still match.
                 existing.verify_state(state, self.steps, run_dir=self.run_dir)
                 manifest = existing
             else:
@@ -153,7 +153,7 @@ class Pipeline:
 
         # A from-scratch run and a model-phase-ready re-run rebuild their prefix
         # from the live ctx (is_prebuilt), never from a previous attempt's
-        # journalled artefacts, so drop any stale journal for this run_id.
+        # journalled artifacts, so drop any stale journal for this run_id.
         if (restart_index == 0 or model_phase_ready) and journal is not None:
             journal.invalidate_from(state.run_id, start_order=0, reason="from_scratch")
 
@@ -174,7 +174,7 @@ class Pipeline:
         )
 
     # ------------------------------------------------------------------
-    # Phase 1 - rebuild prior state from artefacts
+    # Phase 1 - rebuild prior state from artifacts
     # ------------------------------------------------------------------
 
     def _rebuild_prefix(
@@ -229,7 +229,7 @@ class Pipeline:
                     # The journal says this step already ran to completion, so
                     # restore it from disk whatever it declared: a step that
                     # writes into the shared run store (derive, display) has no
-                    # artefact of its own yet must not be executed twice.
+                    # artifact of its own yet must not be executed twice.
                     with progress.phase(name):
                         state = rebuild(
                             prior_state=state,
@@ -395,7 +395,7 @@ class Pipeline:
         Falls back to per-step singletons when (a) the DAG cannot be
         built (cycle, duplicate name) or (b) one or more steps lack an
         explicit ``depends_on`` declaration. The second case preserves
-        the linear behaviour for ad-hoc test pipelines whose fake steps
+        the linear behavior for ad-hoc test pipelines whose fake steps
         only define ``name`` and ``run``.
         """
         if not all(callable(getattr(s, "depends_on", None)) for s in self.steps):
@@ -576,7 +576,7 @@ def _collect_artifacts(
     state_out: PipelineState,
     workspace: Path | None,
 ) -> tuple[str, ...]:
-    """Ask ``step.artifacts(state_out)`` and normalise to workspace-relative POSIX URIs."""
+    """Ask ``step.artifacts(state_out)`` and normalize to workspace-relative POSIX URIs."""
     method = getattr(step, "artifacts", None)
     if method is None:
         return ()
@@ -601,7 +601,7 @@ def _collect_artifacts(
 
 
 def _to_relative_uri(item: object, workspace: Path | None) -> str | None:
-    """Convert a candidate artefact reference to a workspace-relative URI."""
+    """Convert a candidate artifact reference to a workspace-relative URI."""
     if item is None:
         return None
     if isinstance(item, Path):

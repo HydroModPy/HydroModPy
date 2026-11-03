@@ -7,7 +7,7 @@ stratified Latin hypercube; see the ``lhs`` adapter for that), is sampled
 and evaluated; subsequent iterations
 fit a :class:`sklearn.gaussian_process.GaussianProcessRegressor`
 surrogate to the accumulated (x, y) pairs and pick the next point by
-maximising Expected Improvement against the best observed value.
+maximizing Expected Improvement against the best observed value.
 
 The optimizer declares convergence when EI at its argmax falls below a
 configurable threshold (default ``1e-6``). With a non-zero ``kappa`` the
@@ -59,7 +59,7 @@ def _expected_improvement(
     y_best: float,
     xi: float = 0.0,
 ) -> np.ndarray:
-    """Return EI at ``x`` for a minimisation problem (negative = objective)."""
+    """Return EI at ``x`` for a minimization problem (negative = objective)."""
     x = np.atleast_2d(np.asarray(x, dtype=float))
     mu, sigma = gp.predict(x, return_std=True)
     sigma = np.asarray(sigma, dtype=float)
@@ -114,7 +114,7 @@ class GPMappingOptimizer:
         UCB-style exploration constant. When non-zero the acquisition
         switches from Expected Improvement to Lower Confidence Bound
         ``mu - kappa * sigma`` (minimisation). Default ``0.0`` keeps the
-        EI behaviour.
+        EI behavior.
     alpha
         Noise floor of the GP regressor (passed directly to
         :class:`sklearn.gaussian_process.GaussianProcessRegressor`).
@@ -263,7 +263,7 @@ class GPMappingOptimizer:
         if self._batch_queue:
             return self._batch_queue.pop(0)
 
-        # Fit the GP on observed (x, y) pairs, then maximise the acquisition.
+        # Fit the GP on observed (x, y) pairs, then maximize the acquisition.
         x_train = np.asarray(self._x_history, dtype=float)
         y_train = np.asarray(self._y_history, dtype=float)
         gp = self._fit_gp(x_train, y_train)
@@ -328,9 +328,9 @@ class GPMappingOptimizer:
     ) -> np.ndarray:
         """Return the acquisition values at ``x`` (higher = better)."""
         if self._kappa != 0.0:
-            # Lower Confidence Bound for minimisation: pick the smallest
+            # Lower Confidence Bound for minimization: pick the smallest
             # ``mu - kappa * sigma``. Return its negation so the caller
-            # always maximises.
+            # always maximizes.
             x = np.atleast_2d(np.asarray(x, dtype=float))
             mu, sigma = gp.predict(x, return_std=True)
             sigma = np.clip(np.asarray(sigma, dtype=float), 0.0, None)

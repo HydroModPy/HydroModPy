@@ -1,11 +1,11 @@
 """Round-trip TOML helpers powered by :mod:`tomlkit`.
 
-Serialise a :class:`HydroModelBase` instance to a commented TOML document
+Serialize a :class:`HydroModelBase` instance to a commented TOML document
 filtered by the requested :class:`Profile` so that
 ``hmp config --profile user`` emits a user-friendly template and
 ``--profile expert`` emits the full document.
 
-The helpers here only handle **serialisation**; loading is covered by
+The helpers here only handle **serialization**; loading is covered by
 ``loader.py`` and :meth:`HydroModPyConfig.from_toml`. For any fully
 resolved config instance::
 
@@ -38,7 +38,7 @@ from hydromodpy.core.config_kit.written import written_fields
 
 
 def _coerce_value(value: Any) -> Any:
-    """Convert Python values into something :mod:`tomlkit` can serialise.
+    """Convert Python values into something :mod:`tomlkit` can serialize.
 
     Supported transformations:
 
@@ -157,7 +157,7 @@ def _render_container_value(
 def _render_model_table(
     model: BaseModel, *, profile_threshold: Profile, written_only: bool = False
 ) -> Item:
-    """Render a Pydantic model as a :func:`tomlkit.table` honouring *profile_threshold*."""
+    """Render a Pydantic model as a :func:`tomlkit.table` honoring *profile_threshold*."""
     table = tomlkit.table()
     for field_name, info, value in _iter_serialisable_fields(
         model, profile_threshold=profile_threshold, written_only=written_only
@@ -188,7 +188,7 @@ def dump_toml_with_comments(
     profile: ProfileName = "user",
     written_only: bool = False,
 ) -> Path:
-    """Serialise *model* to a TOML document at *path*.
+    """Serialize *model* to a TOML document at *path*.
 
     Parameters
     ----------

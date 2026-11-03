@@ -30,7 +30,7 @@ never landed); ``failed`` and ``aborted`` stand; ``running`` is ``running``
 while the pulse is fresh and ``stale`` once it is older than the threshold
 the caller passes, or at once when its death is proven (this host, process
 gone: an OOM kill writes nothing). No outcome at all is ``unknown``.
-``stale`` is a word for a display, never an authorisation.
+``stale`` is a word for a display, never an authorization.
 
 This precedence is for a run directory only. A session directory has no
 manifest: its status is ``read_session(dir).status``, read from its

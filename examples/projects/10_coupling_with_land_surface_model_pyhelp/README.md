@@ -66,7 +66,7 @@ window, whatever step a file would write.
 
 PyHELP only runs the cells inside the catchment polygon, while the groundwater
 domain is the catchment plus a 20% buffer ring. `build_pyhelp_recharge.py`
-extends the grid over that ring with the value of the nearest modelled cell:
+extends the grid over that ring with the value of the nearest modeled cell:
 not a measurement, the least-wrong extension of one.
 
 ## The calibration

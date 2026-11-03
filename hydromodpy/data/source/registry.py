@@ -377,7 +377,7 @@ def _load_builtin(source_id: str) -> type | None:
     except Exception as exc:
         # Deliberately every exception and not ``ImportError``: a module that
         # fails at import time fails in whatever way its own imports do, and a
-        # C extension refusing to initialise raises none of them.
+        # C extension refusing to initialize raises none of them.
         raise DataRequestError(
             f"{source_id!r} is declared by this build at {path!r} and cannot be loaded here: "
             f"{type(exc).__name__}: {exc}. The declaration is right and the installation is "

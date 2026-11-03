@@ -1,7 +1,7 @@
-"""Materialise a self-contained TOML overlay for one calibration candidate.
+"""Materialize a self-contained TOML overlay for one calibration candidate.
 
 The overlay inherits the target simulation config via ``base_config`` and
-rewrites each configured parameter at its target dotted path (honouring
+rewrites each configured parameter at its target dotted path (honoring
 ``mode="replace"`` or ``"scale"``). The resulting file can be loaded by
 :class:`hydromodpy.Project` and re-run independently of the calibration
 session, which makes it the natural hand-off for sharing the best
@@ -246,7 +246,7 @@ def materialize_candidate(
         Reference directory for relative path rewriting. When supplied,
         ``base_config`` and ``workspace.root`` paths inside the overlay
         are emitted relative to this directory; otherwise absolute paths
-        are written (the historical behaviour).
+        are written (the historical behavior).
 
     Returns
     -------

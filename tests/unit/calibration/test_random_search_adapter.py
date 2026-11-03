@@ -43,7 +43,7 @@ def _log_space() -> ParameterSpace:
 
 
 def _quadratic(sugg: ParamSuggestion) -> EvaluationResult:
-    """Convex bowl centred at (1.0, 15.0); objective >= 0, min at centre."""
+    """Convex bowl centered at (1.0, 15.0); objective >= 0, min at center."""
     x = float(sugg.values["x"])
     y = float(sugg.values["y"])
     cost = (x - 1.0) ** 2 + (y - 15.0) ** 2

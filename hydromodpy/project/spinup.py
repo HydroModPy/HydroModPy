@@ -1,4 +1,4 @@
-"""Cyclic spin-up driver: repeat a forcing window until the state stabilises.
+"""Cyclic spin-up driver: repeat a forcing window until the state stabilizes.
 
 Each cycle runs the representative window, then the next cycle restarts from the
 previous cycle's Zarr (``[flow] restart_from``). The loop stops when the aquifer

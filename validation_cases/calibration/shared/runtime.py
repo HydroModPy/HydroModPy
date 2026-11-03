@@ -38,7 +38,7 @@ from validation_cases.shared.runtime import _dump_toml, resolve_validation_resul
 # Budget components that carry the outlet discharge, most specific first.
 # Both extraction paths speak the canonical vocabulary of
 # ``hydromodpy.solver.modflow_common.budget_components``: the catalog stores
-# canonical names, and raw solver record names are canonicalised before the
+# canonical names, and raw solver record names are canonicalized before the
 # lookup, so a Run and its solver output directory always resolve the same
 # component.
 OUTLET_BUDGET_COMPONENTS: tuple[str, ...] = ("drain", "constant_head")
@@ -576,7 +576,7 @@ def extract_outputs(
         Each declaration must expose ``variable``, ``support``, and the
         usual point/boundary/cell coordinates.
     """
-    # Normalise the configuration object to an iterable of (name, decl).
+    # Normalize the configuration object to an iterable of (name, decl).
     if hasattr(outputs_cfg, "items") and not hasattr(outputs_cfg, "support"):
         items = list(outputs_cfg.items())
     else:
@@ -744,7 +744,7 @@ def _run_flat_index(run: Any, *, x: float, y: float) -> int | None:
     included, with the resolver the trial route applies to the solver mesh. A
     point on the edge between two cells then lands in the same cell on both
     routes, where a rounding rule on one route and the polygons on the other
-    each picked a different neighbour. The raster ``grid`` serves only a Run
+    each picked a different neighbor. The raster ``grid`` serves only a Run
     that stored no mesh.
     """
     try:
@@ -1196,7 +1196,7 @@ def _resolve_cell_index_from_model(
 
     The point is located on the polygons of the solver mesh, like the truth
     route locates it on the stored mesh (see ``_run_flat_index``). A model with
-    no polygon geometry takes the nearest cell centre. ``flat_index`` is the
+    no polygon geometry takes the nearest cell center. ``flat_index`` is the
     cell rank in the mesh, the axis-2 offset of DISV heads, and ``(row, col)``
     splits it for the DIS heads of a structured model.
     """
@@ -1246,7 +1246,7 @@ def _model_polygon_cell(model: Any, *, x: float, y: float) -> int | None:
             y=y,
         )
     except Exception:
-        # No polygon geometry on this model: the caller keeps the nearest centre.
+        # No polygon geometry on this model: the caller keeps the nearest center.
         return None
 
 
@@ -1341,7 +1341,7 @@ def _write_calibration_toml_for_project(
     payload: dict[str, Any],
     simulation_config_name: str,
 ) -> Path:
-    """Materialise the calibration TOML in the project, next to the simulation."""
+    """Materialize the calibration TOML in the project, next to the simulation."""
     calibration_path = project_root / f"calibration_case_{method_instance_name}.toml"
     rendered: dict[str, Any] = {
         "base_config": str(simulation_config_name),

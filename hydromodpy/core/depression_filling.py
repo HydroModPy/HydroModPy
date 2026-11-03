@@ -7,11 +7,11 @@ distance at all.
 
 Conditioning a raster before delineation does not help a criterion that measures
 on a mesh. The result is pit-free **on the raster's own grid**; resampled onto a
-mesh with a different neighbourhood it grows new pits. The surface has to be
+mesh with a different neighborhood it grows new pits. The surface has to be
 conditioned on the graph the distances are measured on, which is what this does.
 
 The algorithm is the priority flood of Barnes, Lehman and Mulla (2014), written
-over an explicit neighbour list instead of a raster so it applies to a mesh of
+over an explicit neighbor list instead of a raster so it applies to a mesh of
 any cell arity. Water is walked inwards from the outlets, always through the
 lowest reachable rim, and any cell below the level of that rim is raised onto it.
 """
@@ -61,7 +61,7 @@ def fill_depressions_on_graph(
         One elevation per cell. A non-finite value marks an inactive cell: it is
         never raised and never crossed.
     adjacency
-        Neighbour indices per cell, the same graph the distances are measured on.
+        Neighbor indices per cell, the same graph the distances are measured on.
     outlets
         Boolean mask of the cells water may leave through. The standard form
         seeds the whole border of the domain (``domain_edge_cells``), where

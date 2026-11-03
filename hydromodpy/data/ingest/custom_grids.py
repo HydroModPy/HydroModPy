@@ -41,7 +41,7 @@ def load_custom_nc(
         target_unit=unit,
     )
     # A nodata value is a code in the source unit. Mask it before the
-    # conversion, which would turn -9999 into a number nothing recognises.
+    # conversion, which would turn -9999 into a number nothing recognizes.
     nodata_resolved = declared_nodata if declared_nodata is not None else nodata
     if nodata_resolved is not None:
         ds[data_var] = _masked(ds[data_var], nodata_resolved)

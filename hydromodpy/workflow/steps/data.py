@@ -356,7 +356,7 @@ def _read_watershed_polygons(geographic: object) -> list[object]:
     """Read the delineated watershed polygon(s) used to scope the stream links.
 
     The full-grid link raster covers the whole regional DEM; only the links
-    inside the modelled catchment can map onto the solver mesh.
+    inside the modeled catchment can map onto the solver mesh.
     """
     watershed_shp = getattr(geographic, "watershed_shp", None)
     if not watershed_shp or not Path(str(watershed_shp)).exists():

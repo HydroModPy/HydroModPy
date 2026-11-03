@@ -136,7 +136,7 @@ def observed_on_simulation_index(
       the spacing of the stamps, and a single stamp takes the mean of the whole
       chronicle.
     - ``"point"``, a state at the stamp instant (a head, a lake stage). A
-      finer chronicle is averaged on a window centred on the stamp, a coarser
+      finer chronicle is averaged on a window centered on the stamp, a coarser
       or same-frequency one gives its nearest sample within ``tolerance``.
 
     The rules are written once, in

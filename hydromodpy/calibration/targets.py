@@ -5,7 +5,7 @@ writing one required knowing the Pydantic tree by heart. The question a
 hydrogeologist asks runs the other way: what does THIS model carry that a search
 could move, what is it worth now, and in what unit.
 
-The catalogue answers from the resolved configuration rather than from a
+The catalog answers from the resolved configuration rather than from a
 hand-written inventory. A list typed by hand is an assertion about the code that
 nothing keeps true; walking the configuration that the run itself validated
 cannot drift from it, and it names the boundaries and parameters this project
@@ -19,7 +19,7 @@ itself declares.
 What is left out is deliberate. A boolean is a switch, not a value to search
 between two bounds. An index, a count, a coordinate and an identifier are not
 physical quantities. A field the user profile does not show is a knob of the numerical
-scheme, and searching over a substep count optimises the solver rather than the
+scheme, and searching over a substep count optimizes the solver rather than the
 model. The mesh is refused by :mod:`hydromodpy.calibration.optim.parameters` for
 its own reasons and is not offered here either.
 """
@@ -39,7 +39,7 @@ from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.units.physical_bounds import PHYSICAL_BOUNDS
 
 WALKED_SECTIONS: tuple[str, ...] = ("flow", "domain.depth_model")
-"""Configuration sections the catalogue walks.
+"""Configuration sections the catalog walks.
 
 Flow carries the hydraulic properties, the boundaries and the sinks and sources,
 which is what a groundwater calibration moves. The depth model carries the
@@ -108,7 +108,7 @@ class CalibrationTarget:
     this target exists; the walk already did."""
 
     current: float | None
-    """What the configuration holds today, which is where a bound is usually centred."""
+    """What the configuration holds today, which is where a bound is usually centered."""
 
     units: str | None
     """The unit the model reads this value in: the field its annotation names
@@ -152,12 +152,12 @@ def calibration_targets(config: Any) -> list[CalibrationTarget]:
 
 
 def targets_by_path(targets: list[CalibrationTarget]) -> dict[str, CalibrationTarget]:
-    """Index a catalogue by its dotted paths."""
+    """Index a catalog by its dotted paths."""
     return {target.path: target for target in targets}
 
 
 def targets_by_name(targets: list[CalibrationTarget]) -> dict[str, CalibrationTarget]:
-    """Index a catalogue by the name a TOML writes.
+    """Index a catalog by the name a TOML writes.
 
     Names are unique by construction: a spelling two targets would share is
     given to neither, and both fall back to a longer one.
@@ -200,7 +200,7 @@ def _walk(
         for field_name, sub_info in type(node).model_fields.items():
             # A field the user profile does not show is a knob of the numerical
             # scheme, not a property of the aquifer. Searching over a substep
-            # count would optimise the solver rather than the model.
+            # count would optimize the solver rather than the model.
             if extract_profile(sub_info) is not Profile.USER:
                 continue
             # A leaf's unit is its own Calibrable's, else its node's, else what

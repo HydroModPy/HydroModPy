@@ -195,7 +195,7 @@ def add_runoff_to_discharge(
     the outlet needs: it sees the runoff of the area it drains, not of the whole
     basin. The runoff is spatially uniform here, one rate averaged over its
     stations or its cells, so scaling that rate by the upstream area is the exact
-    generalisation of the whole-basin formula and adds no assumption.
+    generalization of the whole-basin formula and adds no assumption.
     """
     soil = getattr(getattr(ctx, "setup", None), "soil_forcings", None)
     runoff = (

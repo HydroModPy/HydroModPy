@@ -9,7 +9,7 @@ grid, a triangulation and a Voronoi mesh are served alike.
 ## How a forcing reaches the cells
 
 1. A solver builder (or the workflow) calls `discretize_fields_on_cells` or
-   `discretize_points_on_cells` in `cells.py`. It gives the loaded records, the cell centres, the
+   `discretize_points_on_cells` in `cells.py`. It gives the loaded records, the cell centers, the
    number of stress periods, the simulation window and the interpolation method.
 2. `cells.py` turns the window into the bounds of each stress period (`stress_period_bounds`).
 3. For a grid, `rasters.py` reads each record. A record whose CRS is not the CRS of the mesh is
@@ -48,7 +48,7 @@ A cell must read valid pixels only. A pixel is nodata when it is NaN once decode
 nodata of a GeoTIFF, or equal to the `nodata`, `_FillValue` or `missing_value` attribute of a
 dataset. If a nodata pixel is under a cell, the
 package refuses the forcing and says which cell and which period. It never lets the cell take a
-neighbour silently. A slice with no valid pixel is refused too, and so is `linear` on a grid of one
+neighbor silently. A slice with no valid pixel is refused too, and so is `linear` on a grid of one
 row or one column, which it cannot triangulate.
 
 The method `area` weighs each pixel by the area it shares with the cell polygon. A cell rate times
@@ -125,7 +125,7 @@ to ask for and what to do with the answer.
 
 The tests follow the layout of the code. A module is tested in `tests/unit/forcing/test_<module>.py`,
 for example `area_weights.py` in `tests/unit/forcing/test_area_weights.py`. The tests build their
-cell centres, gridded records, stations and windows with `tests/_helpers/forcing_cases.py`. The
+cell centers, gridded records, stations and windows with `tests/_helpers/forcing_cases.py`. The
 forcing is also exercised by `tests/unit/physics/test_forcing_spatial_config.py`,
 `tests/unit/physics/test_time_alignment.py` and `tests/unit/workflow/test_persist_watershed_forcing.py`.
 No contract or regression test is specific to this package.

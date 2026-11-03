@@ -297,7 +297,7 @@ class ScipyNelderMead:
         self._counted = 0
 
     def _initial_point(self, lower: np.ndarray, upper: np.ndarray) -> np.ndarray:
-        """Return where the simplex is built, the prior centre unless told otherwise.
+        """Return where the simplex is built, the prior center unless told otherwise.
 
         A caller states a start when it is repeating the search on purpose: the
         simplex is deterministic, so the same start returns the same answer and a

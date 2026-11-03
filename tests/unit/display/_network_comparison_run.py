@@ -85,7 +85,7 @@ def comparison_run(
 
     ``seepage_cells`` are the cells releasing water to the surface; every other
     cell releases nothing, so the simulated network is the downslope closure of
-    exactly those. ``descent_diagonals`` is the neighbourhood the stored descent
+    exactly those. ``descent_diagonals`` is the neighborhood the stored descent
     was built on, which the real build fixes by the mesh type. ``topography`` replaces the routing surface, and ``relief``
     the elevation the run persisted as a field: they are the same array unless
     a test drives the hillshade on its own.

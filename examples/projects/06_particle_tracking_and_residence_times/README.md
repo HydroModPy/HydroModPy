@@ -22,7 +22,7 @@ Runtime: about 4 s (3432 cells over 10 layers, 500 particles).
 
 | File | Family | Role |
 |---|---|---|
-| `dem/regional_dem_lasset.tif` | dem | 75 m DEM, a 20 km window centred on the outlet |
+| `dem/regional_dem_lasset.tif` | dem | 75 m DEM, a 20 km window centered on the outlet |
 | synthetic recharge | recharge | monthly climatology, mean 1.17 mm/d |
 
 The DEM is a window cut from the legacy regional raster (30 MB covering the
@@ -46,7 +46,7 @@ and therefore what spreads the residence-time distribution.
 | `watertable_depth_map` | water-table depth + seepage + particles |
 | `seepage_map` | seepage areas |
 | `accumulation_map` | accumulated drainage flux |
-| `particle_tracks` | pathlines coloured by travel time |
+| `particle_tracks` | pathlines colored by travel time |
 | `residence_time_distribution` | travel-time density against the exponential law |
 | `cross_section` | topography / water table / aquifer base section |
 | `water_budget` | budget per component |

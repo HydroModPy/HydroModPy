@@ -18,10 +18,10 @@ Each lake cell gets:
 * one VERTICAL connection to the first active cell below the lake column (the
   leakage / infiltration path towards the aquifer, using K33), and
 * one HORIZONTAL connection across every shared edge to each active cell of a
-  non-lake neighbour column that faces the lake water, whatever its layer
+  non-lake neighbor column that faces the lake water, whatever its layer
   (bank seepage, using K11). ``connwidth`` is the shared-edge length,
-  ``connlen`` the perpendicular half-distance from the neighbour centroid to the
-  edge, and ``belev`` / ``telev`` the neighbour cell bottom / top clipped to the
+  ``connlen`` the perpendicular half-distance from the neighbor centroid to the
+  edge, and ``belev`` / ``telev`` the neighbor cell bottom / top clipped to the
   lake vertical extent.
 
 Functions are pure and keyword-only, mirroring ``builders/wells.py``. They raise
@@ -112,12 +112,12 @@ _HORIZONTAL = "HORIZONTAL"
 _MIN_BEDLEAK = 0.0
 
 # Report the min_thickness clamp only when it moved the carved bed by more than a
-# centimetre: below that the shift is re-proportioning round-off, not a geometry the
+# centimeter: below that the shift is re-proportioning round-off, not a geometry the
 # user needs to know about.
 _BED_CLAMP_REPORT_TOL = 0.01
 
 # Thinnest band of lake water a bank connection must face. Elevations hold to the
-# millimetre, so a thinner overlap of the lake band and a neighbour cell is
+# millimeter, so a thinner overlap of the lake band and a neighbor cell is
 # round-off between two columns, not a bank.
 _MIN_BANK_THICKNESS_M = 1.0e-3
 
@@ -194,7 +194,7 @@ def apply_lake_idomain_mask(
 
     A lake occupies the top layers of each of its columns. The per-cell count is
     resolved in order: ``occupied_layers_by_cell[lake_id][cell]`` (a carved bed
-    that cuts a varying number of layers, deep centre vs shallow rim), else
+    that cuts a varying number of layers, deep center vs shallow rim), else
     ``occupied_layers_by_lake[lake_id]``, else the scalar ``occupied_layers``. The
     count is in grid layers, pass-through cells (``idomain = -1``) included: such a
     cell has no thickness, so a lake whose occupied layer is pinched out has no
@@ -394,7 +394,7 @@ def carve_lake_bed(
         else:
             # Fixed-area reservoir: the inactive cap of each column follows the real
             # basin depth. The per-cell occupied-layer count is the number of grid
-            # layers above the carved bed (deep centre cells cut more layers than
+            # layers above the carved bed (deep center cells cut more layers than
             # shallow rim cells), clamped to keep one cell below that is not a
             # pass-through. The cap takes its pass-through cells with it; below the
             # bed they stay flat, so the first active cell has its top on the bed.
@@ -500,13 +500,13 @@ def build_lake_connectiondata(
     * one VERTICAL connection to the first active cell below the occupied layers
       (the leakage path towards the aquifer), pass-through cells skipped, and
     * one HORIZONTAL connection across every shared edge to each active cell of
-      a non-lake neighbour column that faces the lake water (bank seepage).
+      a non-lake neighbor column that faces the lake water (bank seepage).
 
     The lake water of a column spans its occupied cap ``[bed, top]``. A bank
-    connection is clipped to the part of that band the neighbour cell holds,
+    connection is clipped to the part of that band the neighbor cell holds,
     whatever the layer index of that cell: on a sloping or pinched stack the
-    neighbour layers do not line up with the lake ones, and a pass-through
-    neighbour has handed its thickness to the active cell below it. A column
+    neighbor layers do not line up with the lake ones, and a pass-through
+    neighbor has handed its thickness to the active cell below it. A column
     whose cap is pinched out has no band, so it exchanges through its bed only.
 
     ``solver_mesh`` must already carry the lake idomain mask so that
@@ -554,8 +554,8 @@ def build_lake_connectiondata(
 
         Fixed area: the bank spans the occupied cap ``[lake_bottom, lake_top]``.
         Marnage (decision D8): the lake column stays active below its carved bed,
-        so the bank spans ``[carved bed, neighbour top]`` and never sits below the
-        bed. Every active neighbour cell that crosses that band by more than
+        so the bank spans ``[carved bed, neighbor top]`` and never sits below the
+        bed. Every active neighbor cell that crosses that band by more than
         ``_MIN_BANK_THICKNESS_M`` gets one row.
         """
         out: list[list[Any]] = []
@@ -567,7 +567,7 @@ def build_lake_connectiondata(
                 if neighbour in lake_set:
                     continue  # never connect a lake to another lake cell
                 if int(idomain[lay, neighbour]) <= 0:
-                    continue  # neighbour inactive at this layer
+                    continue  # neighbor inactive at this layer
                 cell_top = float(top[neighbour]) if lay == 0 else float(botm[lay - 1, neighbour])
                 if dynamic_area:
                     belev = max(float(botm[lay, neighbour]), lake_top)
@@ -576,7 +576,7 @@ def build_lake_connectiondata(
                     belev = max(float(botm[lay, neighbour]), lake_bottom)
                     telev = min(cell_top, lake_top)
                 if telev - belev <= _MIN_BANK_THICKNESS_M:
-                    continue  # neighbour cell sits outside the lake vertical extent
+                    continue  # neighbor cell sits outside the lake vertical extent
                 if _neighbour_behind_wall(cid, neighbour):
                     sealed[0] += 1
                     continue  # seal: no bank seepage across the dam
@@ -751,7 +751,7 @@ def build_lake_table(
     return table
 
 
-# Small depression depth that smooths the dry/wet behaviour and helps Newton
+# Small depression depth that smooths the dry/wet behavior and helps Newton
 # convergence. It is intentionally tiny relative to lake stages.
 _DEFAULT_SURFDEP = 0.1
 # Fallback leakance (1/T) used until a calibratable per-lake value is declared.
@@ -1358,7 +1358,7 @@ def resolve_spillway_seed_cells(
 ) -> dict[str, int]:
     """Dam-toe cell for each lake whose spillway routes to the downstream reach.
 
-    The seed is the cell at the foot of the dam: the lowest active non-lake neighbour of
+    The seed is the cell at the foot of the dam: the lowest active non-lake neighbor of
     the lake's discharge point. The discharge point is the outlet mover's explicit
     ``discharge_xy`` when given, else the lake shoreline cell nearest the domain outlet.
     Feeding it to the SFR rectification extends the channel up to the dam, so the spillway
@@ -1367,7 +1367,7 @@ def resolve_spillway_seed_cells(
 
     A lake with a cutoff wall takes its foot downstream of the wall: the wall has the
     lake on its left, and only the cells on its right (:func:`downstream_of_wall`) are
-    candidates, as for the HFB and the LAK seal. Without that, the lowest neighbour
+    candidates, as for the HFB and the LAK seal. Without that, the lowest neighbor
     can be a bank beside the wall or behind it, and the release would enter the
     aquifer on the lake side. A wall with no such cell on the shore is refused.
     """
@@ -1415,7 +1415,7 @@ def resolve_spillway_seed_cells(
 
 
 def _below_the_wall(wall: object, centroids: np.ndarray) -> np.ndarray | None:
-    """Per cell, whether its centre lies downstream of the wall; None without a wall."""
+    """Per cell, whether its center lies downstream of the wall; None without a wall."""
     if wall is None or getattr(wall, "is_empty", True):
         return None
     return np.asarray(downstream_of_wall(wall, centroids[:, :2]), dtype=bool)
@@ -1658,7 +1658,7 @@ def build_lake_obs_spec(
 
     ``obs_continuous`` is the flopy ``continuous`` mapping ``{csv_file: [(name,
     type, id[, id2]), ...]}`` with 0-based integer ids (flopy increments them to
-    MF6's 1-based convention). ``lake_obs_meta`` is the JSON-serialisable sidecar
+    MF6's 1-based convention). ``lake_obs_meta`` is the JSON-serializable sidecar
     mapping each observation name to its lake / quantity / connection so the
     extractor can re-key the obs CSV by ``(lake_id, totim)`` and isolate the
     VERTICAL exchange of the lake bed. A lake whose info carries ``wall_faces``

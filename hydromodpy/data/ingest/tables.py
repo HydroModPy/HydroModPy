@@ -280,7 +280,7 @@ def read_locations_csv(path: str | Path) -> LocationsArtifact:
     """Read and validate a locations CSV.
 
     Unlike :func:`read_timeseries_csv`, this function returns a *partial*
-    artefact when validation fails, so callers (e.g. ``hmp data check``)
+    artifact when validation fails, so callers (e.g. ``hmp data check``)
     can display every problem at once.
     """
     path = Path(path)

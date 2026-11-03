@@ -300,7 +300,7 @@ def _shared_recharge_dir(model) -> str | None:
     The returned path is OS-native: it is only ever handed to the local filesystem
     and to the ``OPEN/CLOSE`` line of the same run's MF6 input, inside a scratch
     tree the sandbox deletes on exit. Unlike the catalog's relative paths, it is
-    never read back on another platform, so it must not be posix-normalised.
+    never read back on another platform, so it must not be posix-normalized.
     """
     full_path = getattr(model, "full_path", None)
     if not full_path:
@@ -1002,7 +1002,7 @@ def run_pre_processing(  # noqa: PLR0915
         nper=int(model.nper),
         # TSMULT stays 1.0. Within one stress period the forcing is constant, so
         # the backward-Euler state at the period end depends only on the set of
-        # step sizes and not on their order, and equal steps minimise its error.
+        # step sizes and not on their order, and equal steps minimize its error.
         # simulation.time.substeps_per_period is the knob that buys accuracy here.
         perioddata=[
             (float(model.perlen[i]), int(model.nstp[i]), 1.0) for i in range(int(model.nper))
@@ -1057,7 +1057,7 @@ def run_pre_processing(  # noqa: PLR0915
     lake_cell_ids_by_lake = resolve_lake_cells_for_active_lakes(model, solver_mesh)
     occupied_layers_by_lake = resolve_lake_occupied_layers(model)
     # The open-water footprint of the run: every lake cell, marnage included.
-    # It answers "is this cell open water", not "is this lake modelled as
+    # It answers "is this cell open water", not "is this lake modeled as
     # active", so it is deliberately wider than the inactive-only list below.
     model.open_water_cell_ids = sorted(
         {int(cid) for cells in lake_cell_ids_by_lake.values() for cid in cells}
@@ -1081,7 +1081,7 @@ def run_pre_processing(  # noqa: PLR0915
             lid: cells for lid, cells in lake_cell_ids_by_lake.items() if lid not in marnage_ids
         }
         model._lake_cell_ids = sorted({cid for cells in inactive_lakes.values() for cid in cells})
-        # A carved bed cuts a per-cell number of layers (deep centre vs shallow
+        # A carved bed cuts a per-cell number of layers (deep center vs shallow
         # rim); the carve stashes that map so the mask follows the real basin.
         occupied_layers_by_cell = getattr(model, "_lake_occupied_layers_by_cell", None)
         solver_mesh = apply_lake_idomain_mask(
@@ -1378,7 +1378,7 @@ def run_pre_processing(  # noqa: PLR0915
             # route_drainage: every DRN cell of the basin of D follows the receivers
             # of D to the FIRST reach or lake it reaches, so the hillslope drainage
             # joins the water body it physically drains to. Cells outside that basin
-            # drain to a neighbouring one and stay plain DRN. The provider ids index
+            # drain to a neighboring one and stay plain DRN. The provider ids index
             # the period-0 rows, hence the static-DRN requirement.
             drainage_movers = []
             if sfr_routes_drainage(sfr_networks):
@@ -1436,7 +1436,7 @@ def run_pre_processing(  # noqa: PLR0915
 
     # LAK (lake / reservoir) package. Built after model.wel and before model.oc.
     # Lake cells were already made inactive above, so the CONNECTIONDATA targets
-    # active aquifer neighbours only. Controlled transfers (LAK -> LAK, SFR -> LAK,
+    # active aquifer neighbors only. Controlled transfers (LAK -> LAK, SFR -> LAK,
     # LAK -> SFR, DRN -> SFR) ride MVR, which is GWF-scoped and MUST be built last.
     all_mover_rows: list[list[object]] = list(drainage_mover_rows)
     n_lakes_built = 0

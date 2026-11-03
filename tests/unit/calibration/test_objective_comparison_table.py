@@ -1,6 +1,6 @@
 """``--list-phases`` and ``--check`` show what each block compares with what.
 
-Per objective block: its criterion, its normalised share, the simulated
+Per objective block: its criterion, its normalized share, the simulated
 quantity (support, variable, where) and the observed source: a station and
 the ``[data.<family>]`` section it comes from for a point output that
 ``observes`` one, or the mapped file for a network output. A phase that scores
@@ -132,7 +132,7 @@ def test_a_share_table_normalises_like_the_composite_objective(tmp_path: Path) -
 
     rows = {row["block"]: row for row in _rows_by_phase(cfg)["sy_hydrograph"]}
 
-    # weights 99 and 1, normalised: 0.99 and 0.01.
+    # weights 99 and 1, normalized: 0.99 and 0.01.
     assert rows["hydrograph"]["share"] == pytest.approx(0.99)
     assert rows["network"]["share"] == pytest.approx(0.01)
     assert sum(row["share"] for row in rows.values()) == pytest.approx(1.0)

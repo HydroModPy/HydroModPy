@@ -142,11 +142,11 @@ STEADY_J: list[float] = [
     -3.186,
     -1.965,
 ]
-"""Its signed residual, D_so - D_os, in metres; the cost is its absolute value."""
+"""Its signed residual, D_so - D_os, in meters; the cost is its absolute value."""
 
 
 def steady_bisection_rows() -> list[dict[str, Any]]:
-    """One journal row per trial of the steady bisection, cost |J| in metres."""
+    """One journal row per trial of the steady bisection, cost |J| in meters."""
     return [
         {
             "trial": trial,

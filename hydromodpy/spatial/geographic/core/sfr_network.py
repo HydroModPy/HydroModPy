@@ -18,7 +18,7 @@ differs from the DEM raster grid; this module never imports flopy or the mesh.
 Algorithm (no recursion, no segment renumbering -- a clean reach-only DAG):
 
 1. Each stream link (one id in the link raster) is one reach candidate.
-2. The downstream end of a link is its cell whose D8 neighbour leaves the link;
+2. The downstream end of a link is its cell whose D8 neighbor leaves the link;
    following the pointer there gives the unique downstream reach (or the lake, or
    the model outlet).
 3. A Kahn topological sort numbers the reaches downstream-increasing (``ifno``),
@@ -81,7 +81,7 @@ class SfrReachTrace:
 
 
 def _downstream_cell(row: int, col: int, d8: np.ndarray) -> tuple[int, int] | None:
-    """Return the D8 neighbour of (row, col), or None at a pit / out of bounds."""
+    """Return the D8 neighbor of (row, col), or None at a pit / out of bounds."""
     code = int(d8[row, col])
     offset = D8_WBT_OFFSETS.get(code)
     if offset is None:
@@ -160,7 +160,7 @@ def _order_link_cells(cells: list[tuple[int, int]], d8: np.ndarray) -> list[tupl
 def _link_outlet_cell(
     ordered_cells: list[tuple[int, int]], d8: np.ndarray, cell_set: set[tuple[int, int]]
 ) -> tuple[int, int]:
-    """Return the link's outlet cell (its D8 neighbour leaves the link)."""
+    """Return the link's outlet cell (its D8 neighbor leaves the link)."""
     for cell in reversed(ordered_cells):
         nxt = _downstream_cell(cell[0], cell[1], d8)
         if nxt is None or nxt not in cell_set:
@@ -426,7 +426,7 @@ def _downstream_target(
         return None, True, _lake_number(lake_label, lake_cell)
     if nxt is not None and int(link_id[nxt]) > 0 and int(link_id[nxt]) != link:
         return int(link_id[nxt]), False, None
-    # The immediate D8 neighbour is a non-stream gap cell (or None). Follow
+    # The immediate D8 neighbor is a non-stream gap cell (or None). Follow
     # the D8 path through the gap: WBT link rasters drop cells between links
     # and short of the lake, so a fragment that looks like an inland outlet
     # usually continues to its true downstream link or to the lake a few
@@ -547,7 +547,7 @@ def _top_with_nodata_as_nan(data: np.ndarray, nodata: float | None) -> np.ndarra
     """Return the model top as float, with the declared nodata turned into NaN.
 
     A sentinel such as -9999 is a finite float, so a bed read on it would pass
-    every numeric check and place the reach kilometres underground.
+    every numeric check and place the reach kilometers underground.
     """
     top = data.astype(float)
     if nodata is None:
@@ -577,7 +577,7 @@ def build_sfr_reach_trace_from_products(
     rejected). ``lake_polygons`` (model
     CRS) are rasterized onto the grid so the reach flowing into a lake is
     flagged terminal-to-lake. ``watershed_polygons`` (model CRS) restrict the
-    stream links to the modelled catchment: the full-grid link raster covers
+    stream links to the modeled catchment: the full-grid link raster covers
     the whole regional DEM and the out-of-watershed links belong to other
     catchments, outside the solver mesh.
     """

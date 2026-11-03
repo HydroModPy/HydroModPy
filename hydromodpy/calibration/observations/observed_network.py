@@ -12,7 +12,7 @@ of two mean distances, so a map drawn thicker than that chain moves the root
 with no hydrogeological reason.
 
 Two rules draw cells from the lines. ``"crossing"`` keeps the cell holding each
-point where a line crosses the segment joining two edge-sharing cell centres.
+point where a line crosses the segment joining two edge-sharing cell centers.
 On a structured grid it is WhiteboxTools ``VectorLinesToRaster``, the tool of
 Abherve et al. (2023), and a model that reproduces the map exactly scores
 J = 0 in D8 as in D4. ``"touch"`` keeps every cell the line intersects,
@@ -56,7 +56,7 @@ CellProjectionRasterization = Literal["crossing", "touch"]
 class ObservedNetworkMask:
     """The mapped network drawn on the mesh cells, and what the drawing cost.
 
-    ``n_fallback_parts`` counts the reaches that crossed no centre segment and
+    ``n_fallback_parts`` counts the reaches that crossed no center segment and
     were kept at the cell holding their midpoint; ``n_outside_parts`` the
     reaches that entered no mesh cell and were left out. Both are zero under
     the touch rule, which has no such case.
@@ -91,7 +91,7 @@ def observed_network_mask(
     reads a path itself and never re-derives a geometry. Both CRS are still
     required and the failure is loud: a silent mismatch produces a mask that
     is empty or plausible-but-wrong, and every distance downstream is reported
-    in metres.
+    in meters.
 
     ``rasterization`` is the crossing or touch rule of the module docstring;
     it has no default drawn from the criterion default, since that default
@@ -450,7 +450,7 @@ def water_body_mask(model: Any, *, n_cells: int) -> np.ndarray | None:
     reservoir or kept active for its varying level. Reading the inactive subset
     instead would leave a marnage reservoir inside both supports, and the
     question asked here is whether the cell is open water, not how the lake is
-    discretised.
+    discretized.
     """
     ids = getattr(model, "open_water_cell_ids", None)
     if ids is None:
@@ -499,7 +499,7 @@ def delineated_catchment_mask(
     discharge observable sum.
 
     A model that carries no basin of D keeps the old reference, the cells whose
-    centre the delineated polygon covers, and says so. The largest basin of a
+    center the delineated polygon covers, and says so. The largest basin of a
     synthetic domain is no catchment: the polygon is projected as before, and a
     domain without one gives ``None``.
 
@@ -548,7 +548,7 @@ def catchment_outline_mask(
         return None
 
     polygons = cell_polygons(np.asarray(planar_mesh.vertices, dtype=float), face_node_connectivity)
-    # A catchment is areal, so a cell belongs to it when its CENTRE is inside.
+    # A catchment is areal, so a cell belongs to it when its CENTER is inside.
     # The touch rule of the linework would add one exterior ring of cells that
     # lie mostly outside the divide, and that ring would read as a mismatch
     # against the graph catchment that is not one.

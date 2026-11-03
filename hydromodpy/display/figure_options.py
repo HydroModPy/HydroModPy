@@ -142,15 +142,14 @@ CmapOrOwn = Annotated[
 Vmin = Annotated[
     float | None,
     Opt(
-        "Lower end of the colour scale, in the unit of the field. Left out, the "
+        "Lower end of the color scale, in the unit of the field. Left out, the "
         "smallest value drawn."
     ),
 ]
 Vmax = Annotated[
     float | None,
     Opt(
-        "Upper end of the colour scale, in the unit of the field. Left out, the "
-        "largest value drawn."
+        "Upper end of the color scale, in the unit of the field. Left out, the largest value drawn."
     ),
 ]
 Layer = Annotated[

@@ -291,7 +291,7 @@ def _download_failed(release: str, url: str, target: Path, exc: NetworkError) ->
 def ensure_solver_binary(solver: str, bin_path: str | os.PathLike[str] | None = None) -> Path:
     """Resolve the exe for ``solver`` under ``bin_path``, downloading if needed.
 
-    Behaviour matrix:
+    Behavior matrix:
 
     * ``bin_path`` is ``None`` or matches the managed cache **and** the
       binary is present → return its path.
@@ -304,7 +304,7 @@ def ensure_solver_binary(solver: str, bin_path: str | os.PathLike[str] | None = 
     * ``bin_path`` is user-supplied and the binary is missing → log a
       warning and return the *expected* path. Solver execution will
       surface the missing-file error with its own diagnostics. This
-      preserves the permissive pre-v0.6 behaviour for callers that
+      preserves the permissive pre-v0.6 behavior for callers that
       instantiate solvers without running them (e.g. unit tests for
       config validation).
     """

@@ -1,6 +1,6 @@
 """``h_obs``: the length ``r_optim``, the Eq. 4 length and the interval width read.
 
-It is the median distance between the centres of neighbouring cells over the
+It is the median distance between the centers of neighboring cells over the
 mapped cells of the catchment. On a regular grid it is the cell size, so the
 numbers of the paper do not move; on a mesh refined along the streams it is the
 fine cell the distances start from, not the median cell of the catchment.

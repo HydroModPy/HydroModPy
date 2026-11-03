@@ -387,7 +387,7 @@ def _scored_on_line(extra: Mapping[str, Any]) -> str | None:
 def _r_optim_line(name: str, verdict: Mapping[str, Any]) -> str:
     """Return the Eq. 4 verdict of one network output, read at the returned trial.
 
-    Eq. 4 bounds ``D_optim`` by the validity length, in metres; ``r_optim`` is
+    Eq. 4 bounds ``D_optim`` by the validity length, in meters; ``r_optim`` is
     printed beside it as the paper's ratio.
     """
     length = verdict.get("validity_length_m")

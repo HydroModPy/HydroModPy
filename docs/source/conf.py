@@ -165,7 +165,7 @@ if os.environ.get("POLYVERSION_DATA"):
     if getattr(_polyversion_current, "name", None):
         _current_version = _polyversion_current.name
 
-# The theme reads its default colour mode here; an empty value logs an error
+# The theme reads its default color mode here; an empty value logs an error
 # in the console of every page.
 html_context = {**globals().get("html_context", {}), "default_mode": "auto"}
 
@@ -339,8 +339,8 @@ extensions = [
 
 # Theory figures are drawn at build time from the functions of the code, with
 # matplotlib's plot directive. Scripts run from the repository root, so they
-# import hydromodpy as installed in the build environment. One colour cycle
-# for every figure: the Okabe-Ito palette, readable by colour-blind readers.
+# import hydromodpy as installed in the build environment. One color cycle
+# for every figure: the Okabe-Ito palette, readable by color-blind readers.
 extensions.append("matplotlib.sphinxext.plot_directive")
 plot_working_directory = str(package_path)
 plot_include_source = False

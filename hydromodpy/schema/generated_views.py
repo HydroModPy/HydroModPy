@@ -2,7 +2,7 @@
 
 A generated view restates, in a public vocabulary, facts a sealed directory
 already holds: RO-Crate for a research-object reader, STAC for a geospatial
-catalogue, PROV-O for a lineage graph. It is rendered from the seal and the
+catalog, PROV-O for a lineage graph. It is rendered from the seal and the
 documents the seal hashes, so it can be rendered again at any time and must
 say the same thing.
 
@@ -18,7 +18,7 @@ RO_CRATE_VIEW_FILENAME = "ro-crate-metadata.json"
 """RO-Crate 1.1 metadata. The name is fixed by the RO-Crate specification."""
 
 STAC_ITEM_VIEW_FILENAME = "stac-item.json"
-"""STAC 1.0 Item describing the directory as one catalogue entry."""
+"""STAC 1.0 Item describing the directory as one catalog entry."""
 
 PROV_VIEW_FILENAME = "prov.jsonld"
 """W3C PROV-O lineage as a standalone JSON-LD document."""

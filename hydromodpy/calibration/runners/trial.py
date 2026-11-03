@@ -13,7 +13,7 @@ Three public entry points:
 - :func:`run_trial_light` - fork the trial context, inject one
   parameter sample, run steps ``[earliest..8]`` with
   ``execution.lightweight = True`` so no Zarr / Parquet / provenance
-  artefacts are written, extract the objective in RAM, and return a
+  artifacts are written, extract the objective in RAM, and return a
   :class:`TrialResult`.
 - :func:`promote_prepared_trial` - run the persistent downstream pipeline
   from the prepared context, writing the run of one trial into the
@@ -21,7 +21,7 @@ Three public entry points:
   the solve a trial kept, it reads that solve instead of solving again.
 
 The storage contract is strict: ``run_trial_light`` never writes to the
-store. Only promotion creates run artefacts. A trial the session may
+store. Only promotion creates run artifacts. A trial the session may
 promote leaves its solver folder in the run scratch
 (:mod:`~hydromodpy.calibration.runners.kept_solves`).
 
@@ -181,7 +181,7 @@ class TrialContext:
         """Return a new trial context isolated for one evaluation.
 
         - ``cfg`` is deep-copied and the calibration ``values`` are
-          injected via the calibration parameter space (honours
+          injected via the calibration parameter space (honors
           ``mode="replace"`` / ``"scale"``) when the space is provided,
           otherwise via raw dotted paths.
         - ``setup`` is shallow-copied into a fresh dataclass; the big
@@ -300,7 +300,7 @@ def prepare_trials(
         This is how a phase says what model it calibrates: a flow regime or a
         time step written after the prefix is prepared changes the baseline the
         forks copy, but not the time grid the prefix already built, so the
-        phase silently runs the discretisation of the one before it. A path
+        phase silently runs the discretization of the one before it. A path
         that names no field, at any segment, raises
         :class:`~hydromodpy.core.exceptions.ConfigValidationError`.
 

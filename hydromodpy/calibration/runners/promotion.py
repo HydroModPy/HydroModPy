@@ -503,7 +503,7 @@ def promote_phase_best(
     """Promote the best trial of an earlier phase under ``phases/<phase>/best/``.
 
     The run keeps the ``consumers`` budget policy: the permanent model of a
-    phase is read, not analysed term by term. Returns its ``sim_id``, or None
+    phase is read, not analyzed term by term. Returns its ``sim_id``, or None
     when the phase scored nothing or the promotion failed.
     """
     best = persistence.held_trial(phase)

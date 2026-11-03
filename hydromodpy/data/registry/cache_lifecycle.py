@@ -36,7 +36,7 @@ def _delete_entry_file(
 
     The catalog stores a workspace-anchored path relative to the data folder,
     so it is resolved the way the catalog reads it, never against the working
-    directory. The cache deletes only what it manages: a downloaded artefact,
+    directory. The cache deletes only what it manages: a downloaded artifact,
     or a copy it derived under ``data/blobs/``. A file the user provided is
     never deleted, only forgotten. Nor is a file that an entry staying in the
     catalog still names: ``leaving_ids`` are the entries being removed.

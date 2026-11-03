@@ -150,7 +150,7 @@ def refuse_answers_nobody_asked_for(
 
     A missing id is a model that cannot serve what the document declared, and a
     surplus one is a model and a document that disagree about a name -- scoring
-    what is left would report a cost under a declaration that was not honoured.
+    what is left would report a cost under a declaration that was not honored.
     Both are the model's fault and both are named here rather than surfacing as
     a ``KeyError`` inside the scorer.
     """

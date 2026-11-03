@@ -8,7 +8,7 @@ period (or that there is none), the version, whether the code was
 reproducible, the checks, the label of the day and its rules, the score and
 its window, and where each file is. The text is derived: it is rendered from
 the sealed files and can be rendered again. Its footer gives the digest of
-the manifest it summarises, so a reader can tell which seal a README belongs
+the manifest it summarizes, so a reader can tell which seal a README belongs
 to. It never names a host, a user or an absolute path.
 
 Format
@@ -249,7 +249,7 @@ def render_session_readme(
 
 
 def render_summary_readme(facts: SummaryFacts, *, digests: Mapping[str, str]) -> str:
-    """Return the README of a collected ``summary/``; *digests* name the files it summarises."""
+    """Return the README of a collected ``summary/``; *digests* name the files it summarizes."""
     period = (
         "no common period"
         if facts.period is None

@@ -15,7 +15,7 @@ bundles (``to_dataframe``,
 Why
 ---
 Calibration ensembles, recipe sweeps and ad hoc cohorts are all a
-"list of runs". Centralising it here keeps the per-run loop logic
+"list of runs". Centralizing it here keeps the per-run loop logic
 (sort, pivot, compare) in one place rather than duplicated across notebooks.
 
 Public API
@@ -429,7 +429,7 @@ class RunSet:
         ``xarray.Dataset`` by :meth:`SimulationZarr.to_xarray` (dask-backed).
         Arrays are concatenated along ``dim`` whose coordinate values are
         the simulation ids. Nothing is read into memory until the caller
-        materialises the array (``.compute()``, ``.values``, slicing,
+        materializes the array (``.compute()``, ``.values``, slicing,
         etc.). Simulations that lack the variable are skipped silently;
         if none match, an empty :class:`xarray.DataArray` is returned.
 

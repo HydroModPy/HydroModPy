@@ -38,7 +38,7 @@ _DAYS_PER_YEAR = 365.25
 
 @register
 class ParticleTracks(BaseFigure):
-    """Plan view of particle pathlines, coloured by travel time."""
+    """Plan view of particle pathlines, colored by travel time."""
 
     spec = FigureSpec(
         name="particle_tracks",
@@ -74,7 +74,7 @@ class ParticleTracks(BaseFigure):
         color_by: Annotated[
             str,
             Opt(
-                '"travel_time" colours each pathline by its travel time; any other '
+                '"travel_time" colors each pathline by its travel time; any other '
                 "value draws them all in one grey."
             ),
         ] = "travel_time",

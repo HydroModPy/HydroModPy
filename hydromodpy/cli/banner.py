@@ -20,7 +20,7 @@ _LETTER_LINES = [
     r" /_/ /_/\__, /_____/_/   \____/ /_/   /_/\____/_____/ /_/____\__, /  ",
 ]
 # Per-line column splits between the Hydro, Mod and Py letter groups. The
-# slanted font joins neighbour letters with a shared stroke, so the art keeps
+# slanted font joins neighbor letters with a shared stroke, so the art keeps
 # a blank column where the color changes: every letter is drawn whole in its
 # group's color. The boundaries shift left on lower lines, following the slant.
 _SPLITS = [(37, 59), (36, 58), (35, 57), (34, 56), (33, 55), (32, 54)]

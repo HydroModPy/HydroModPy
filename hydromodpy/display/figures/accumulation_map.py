@@ -2,12 +2,12 @@
 
 ``drain_accumulation_flux`` is the drain outflow summed along the downslope paths,
 so over one catchment it spans four to five decades. A linear ramp paints the
-trunk bright and leaves every headwater at the bottom colour, which is why the
+trunk bright and leaves every headwater at the bottom color, which is why the
 only figure reading the field so far thresholded it instead of showing it.
 This map draws the field itself, on a logarithmic ramp by default.
 
 A cell carrying no accumulated flux is not a small value, it is a cell no
-upslope release ever reached. Those cells are drawn in a flat neutral grey
+upslope release ever reached. Those cells are drawn in a flat neutral gray
 under both scales and counted in the legend, so the ramp only ever describes
 the drainage network itself.
 """
@@ -42,10 +42,10 @@ GROUND_EDGE = "#C8C8C8"
 PALETTE_FLOOR = 0.45
 """How much of the sequential palette is cut, as a fraction of its range.
 
-The pale end of a sequential palette is lighter than the ground grey, so the
+The pale end of a sequential palette is lighter than the ground gray, so the
 cells drawn in it would dissolve into the cells the ramp says nothing about.
 Dropping that end keeps every drawn value darker than the ground, which is
-also what carries the map through a greyscale print: one hue, and a lightness
+also what carries the map through a grayscale print: one hue, and a lightness
 that never meets the background.
 """
 
@@ -83,7 +83,7 @@ class AccumulationMap(ScalarFaceMap):
         scale: Annotated[
             Literal["log", "linear"],
             Opt(
-                'Colour ramp: "log" (the default) spreads the small flows of the '
+                'Color ramp: "log" (the default) spreads the small flows of the '
                 'headwaters, "linear" keeps the raw proportions.'
             ),
         ] = "log",
@@ -173,11 +173,11 @@ def truncated_palette(name: str, floor: float) -> Colormap:
 
     Which end that is has to be measured, not assumed. ``Blues`` and its
     family are light at the bottom, ``viridis`` and its family at the top,
-    and cutting the bottom of the second kind removes the dark colours and
-    leaves the pale ones sitting on the ground grey: the cells the ramp is
+    and cutting the bottom of the second kind removes the dark colors and
+    leaves the pale ones sitting on the ground gray: the cells the ramp is
     supposed to single out are then the ones that vanish.
 
-    Masked cells take the ground colour, which is how a cell with no
+    Masked cells take the ground color, which is how a cell with no
     accumulated flux leaves the ramp instead of sitting at its bottom.
     """
     from matplotlib.colors import ListedColormap
@@ -192,7 +192,7 @@ def truncated_palette(name: str, floor: float) -> Colormap:
 
 
 def _relative_luminance(color: str | tuple[float, ...]) -> float:
-    """Perceived brightness of one colour, the quantity a greyscale print keeps."""
+    """Perceived brightness of one color, the quantity a grayscale print keeps."""
     from matplotlib.colors import to_rgb
 
     channels = [

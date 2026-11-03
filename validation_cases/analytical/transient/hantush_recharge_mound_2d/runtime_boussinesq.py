@@ -54,7 +54,7 @@ def nearest_centroid_indices(centroids_xy: np.ndarray, points_xy: np.ndarray) ->
 
 
 def _structured_centres(metadata: dict) -> tuple[np.ndarray, np.ndarray]:
-    """Return the x and y centres of the validation grid, y from the south."""
+    """Return the x and y centers of the validation grid, y from the south."""
     reference_cfg = dict(metadata["reference"])
     ny, nx = (int(value) for value in metadata["output"]["expected_spatial_shape"])
     dx = (float(reference_cfg["xmax"]) - float(reference_cfg["xmin"])) / nx

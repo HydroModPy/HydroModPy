@@ -1,7 +1,7 @@
 """An evaluated run is a calibrated run scored out of its calibration window.
 
 ``Project.best`` and ``[sites.summary] best = "calibrated"`` kept the runs
-labelled ``calibrated`` only, so the split-sample run of a site, the one
+labeled ``calibrated`` only, so the split-sample run of a site, the one
 scored on days the search never saw, fell out of its best calibrated case.
 Both now keep ``evaluated`` too; ``label="calibrated"`` still asks for the
 in-window runs alone.

@@ -1,4 +1,4 @@
-"""The generated voronoi mesh: the note of an open lake shore and the centres inside their cells.
+"""The generated voronoi mesh: the note of an open lake shore and the centers inside their cells.
 
 The lake builder falls back on the overlap rule where the ``lakes`` faces leave
 part of a shore open, and the note puts the reason in the mesh QA, where the mesh is

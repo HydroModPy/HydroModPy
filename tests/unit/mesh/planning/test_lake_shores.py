@@ -1,7 +1,7 @@
 """A generated Voronoi mesh follows each lake shore at its cell size, and closes it.
 
 The mesh lays one mirror pair on each shore segment. A river chain in the lake,
-an arm narrower than a cell, or a wall wing of a few metres take or shrink those
+an arm narrower than a cell, or a wall wing of a few meters take or shrink those
 pairs and open the lake regions. The planner keeps the rivers half a river cell
 off the lakes, gives the mesh the shore smoothed at the cell scale, and leaves
 out a wall wing no cell resolves. A cell of an arm left out still joins its

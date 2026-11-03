@@ -1,11 +1,11 @@
 """The one mapping of the hydraulic properties of a flow onto a cell mesh.
 
 Every solver reads K, Kv, Sy and Ss from ``map_flow_properties``: one value per
-cell, evaluated at each layer-centre depth. MODFLOW 6 also reads the rest of the
+cell, evaluated at each layer-center depth. MODFLOW 6 also reads the rest of the
 K tensor, K22 and the three angles, the same way. A homogeneous parameter is its value
 times its vertical profile. A heterogeneous one is the zone-weighted mean of its
 zone values on the fractions ``zone_fractions`` gives for its spatial support.
-MODFLOW passes the layer-centre depths of its solver mesh, Boussinesq one layer
+MODFLOW passes the layer-center depths of its solver mesh, Boussinesq one layer
 at depth zero.
 """
 
@@ -260,7 +260,7 @@ def map_flow_properties(
     """Map the flow properties named in ``properties`` onto the cells of ``cell_mesh``.
 
     ``layer_depths`` is ``(nlay, n_cells)``, the depth below the top of each
-    layer centre. Each mapped property ``p`` gives ``p`` ``(nlay, n_cells)`` and
+    layer center. Each mapped property ``p`` gives ``p`` ``(nlay, n_cells)`` and
     ``p_value`` ``(n_cells,)``, the values at depth zero (``hk``, ``hk_value``,
     ...). A property with no flow parameter is mapped from
     ``optional_fill_values`` when it is not required, and left out when no fill

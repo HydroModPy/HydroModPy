@@ -22,7 +22,7 @@ THICKNESS_M = 50.0
 def dupuit_mound_m(k_m_s: float) -> float:
     """Return the rise of the water table from the east column to the west one.
 
-    Going upslope from the centre of the drain column, ``K (h - z_b) dh/dx = R (L - x)``,
+    Going upslope from the center of the drain column, ``K (h - z_b) dh/dx = R (L - x)``,
     with the saturated thickness over the sloping base and the no-flow divide at ``L``.
     """
     length = 1000.0 - CELL_M / 2.0

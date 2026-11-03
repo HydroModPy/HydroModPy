@@ -202,7 +202,7 @@ flow_regime = "transient"
 # Initial watertable: full aquifer (top of the substratum).
 # `top` is the safe transient warm-up start.
 kind = "top"
-description = "Watertable initialised at the topographic surface."
+description = "Watertable initialized at the topographic surface."
 
 
 # K (hydraulic conductivity).

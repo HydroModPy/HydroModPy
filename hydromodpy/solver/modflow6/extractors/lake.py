@@ -500,7 +500,7 @@ def build_lake_records(
 
 
 def final_lake_stages(timeseries: Sequence[Mapping[str, Any]]) -> dict[str, float]:
-    """Return each lake's last-step stage ``{lake_id: stage}`` (metres).
+    """Return each lake's last-step stage ``{lake_id: stage}`` (meters).
 
     Scans the records built by :func:`build_lake_records`, keeps the ``stage``
     value at the largest timestep per ``lake:<id>`` station, and strips the

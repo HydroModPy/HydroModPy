@@ -63,7 +63,7 @@ q_sim = series.query("source == 'simulated'").set_index("datetime")["value"]
 q_sim.index = q_sim.index - pd.offsets.MonthBegin(1)
 q_obs = q_obs.resample("MS").mean().reindex(q_sim.index)
 
-# The water-table record: one value per cell and per month, the cell centres
+# The water-table record: one value per cell and per month, the cell centers
 # in face_x and face_y. Same one-month shift as the CSV.
 ds = xr.open_dataset(folder / "watertable_2000_2002.nc")
 in_basin = shapely.contains_xy(basin, ds["face_x"].to_numpy(), ds["face_y"].to_numpy())

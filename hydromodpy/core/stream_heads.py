@@ -39,7 +39,7 @@ from hydromodpy.core.topographic_distance import DownslopeMetric
 logger = get_logger(__name__)
 
 _SAME_POINT_DECIMALS = 2
-"""Two free ends closer than a centimetre are one source."""
+"""Two free ends closer than a centimeter are one source."""
 
 __all__ = (
     "HeadCandidates",
@@ -144,7 +144,7 @@ class HeadTrace:
     """(k,) int: the cell each head landed on, -1 when lost."""
 
     snap_distance_m: np.ndarray
-    """(k,) float: head to landing cell centre, NaN when lost."""
+    """(k,) float: head to landing cell center, NaN when lost."""
 
     forced_cell: np.ndarray
     """(f,) int: the forced cells traced as heads, active ones only, sorted."""
@@ -182,7 +182,7 @@ class HeadTrace:
 def _window_area(tree, drained: np.ndarray, points: np.ndarray, radius: float) -> np.ndarray:
     """Return the largest drained area within ``radius`` of each point.
 
-    A point with no cell centre within the radius, on a mesh coarser than it,
+    A point with no cell center within the radius, on a mesh coarser than it,
     reads its nearest cell.
     """
     nearest = tree.query(points)[1]
@@ -228,7 +228,7 @@ def trace_from_heads(
     accumulated = accumulate_on_downhill_graph(graph, np.where(np.isfinite(areas), areas, 0.0))
     usable = np.flatnonzero(graph.active & np.isfinite(accumulated))
     radius = float(settings.snap_radius_m)
-    # cKDTree keeps a neighbour strictly closer than its bound, the window
+    # cKDTree keeps a neighbor strictly closer than its bound, the window
     # keeps one at the radius itself: the bound is nudged so both include it.
     bound = float(np.nextafter(radius, np.inf))
     threshold = float(settings.min_drained_area_m2)

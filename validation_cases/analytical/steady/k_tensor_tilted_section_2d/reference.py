@@ -1,7 +1,7 @@
 """Exact head and flux of a uniform flow with a K tensor tilted by ANGLE2.
 
 MODFLOW 6 turns the K11 axis by ANGLE2 about the K22 axis, clockwise seen from
-the positive K22 axis looking toward the centre (Langevin et al. 2017, TM 6-A55,
+the positive K22 axis looking toward the center (Langevin et al. 2017, TM 6-A55,
 NPF package). With ANGLE1 = 0 that axis is +y, and a positive ANGLE2 turns K11
 from +x toward +z: K11 rises toward the east. In the plane (x, z) the tensor
 then reads

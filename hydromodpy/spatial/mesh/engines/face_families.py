@@ -116,7 +116,7 @@ def edge_lookup(vertices: np.ndarray, triangles: np.ndarray) -> EdgeLookup:
 
 
 def without_repeats(values: np.ndarray) -> np.ndarray:
-    """The values as int64, each run of equal neighbours kept once."""
+    """The values as int64, each run of equal neighbors kept once."""
     values = np.asarray(values, dtype=np.int64)
     if values.size == 0:
         return values

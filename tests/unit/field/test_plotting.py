@@ -81,7 +81,7 @@ def test_quads_are_drawn_over_their_own_bounds(ax, mesh, values, xlim, ylim) -> 
 
 
 @pytest.mark.parametrize("planar", [False, True], ids=["hydro mesh", "cell mesh"])
-def test_plot_ragged_polygons_on_the_colour_range_asked(ax, planar: bool) -> None:
+def test_plot_ragged_polygons_on_the_color_range_asked(ax, planar: bool) -> None:
     verts = np.array([[1, 0], [1, 1], [0, 1], [-0.3, 0.5], [0, 0], [2, 0], [2, 1]], dtype=float)
     cells = (np.array([0, 1, 2, 3, 4]), np.array([0, 5, 6, 1]))
     mesh = HydroMesh(vertices=verts, cell_blocks=(CellBlock(CellType.POLYGON, cells),))

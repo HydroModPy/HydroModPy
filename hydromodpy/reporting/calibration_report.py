@@ -204,8 +204,8 @@ class _SessionRunStub:
         self.session_id = session_id
         # The rows as the journal wrote them. Flattening the nested parameters
         # here would be a second convention beside the one the figures already
-        # apply, and the two named the cost differently: the report labelled a
-        # panel "objective" where the same figure on a promoted run labelled it
+        # apply, and the two named the cost differently: the report labeled a
+        # panel "objective" where the same figure on a promoted run labeled it
         # "cost".
         self._iterations = list(iterations)
         self.name = f"calibration_{session_id[:8]}"

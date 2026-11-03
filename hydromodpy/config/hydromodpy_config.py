@@ -443,7 +443,7 @@ def _resolve_calibration_parameter_names(cfg: Any) -> None:
     """Give every calibration parameter the path its name points at.
 
     A parameter that names a quantity rather than a path is resolved against
-    the catalogue this very configuration exposes, so the search writes into a
+    the catalog this very configuration exposes, so the search writes into a
     value the model actually carries. A parameter that declares its path is left
     alone, and a configuration without a calibration costs one attribute read.
     """

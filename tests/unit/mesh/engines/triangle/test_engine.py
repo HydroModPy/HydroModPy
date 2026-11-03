@@ -1,4 +1,4 @@
-"""The triangle engine: centres the solvers read, the seed it records and what its QA says."""
+"""The triangle engine: centers the solvers read, the seed it records and what its QA says."""
 
 from __future__ import annotations
 

@@ -99,7 +99,7 @@ def _warn_on_outlier_thickness(*, top: np.ndarray, bot: np.ndarray, valid: np.nd
 
     A raster NODATA sentinel that reaches the sampler as an ordinary elevation is
     interpolated as if it were terrain, so a cell whose stencil straddles the mask
-    edge ends up kilometres deep with a perfectly clean top and an active idomain.
+    edge ends up kilometers deep with a perfectly clean top and an active idomain.
     Nothing downstream notices: the model converges and its mass balance closes,
     while those cells carry a transmissivity and a storage several hundred times the
     nominal ones. This check does not change the mesh; it makes the symptom visible
@@ -139,11 +139,11 @@ def _build_extruded_solver_mesh_from_runtime_planar(
     channel_mask: np.ndarray | None = None,
     base_surfaces: dict[str, Surface] | None = None,
 ) -> SolverMesh:
-    """Extrude an unstructured cell mesh: top, bottom and layer bases sampled at the cell centres."""
+    """Extrude an unstructured cell mesh: top, bottom and layer bases sampled at the cell centers."""
     hydro_mesh = cell_mesh.mesh
     x_centers, y_centers = cell_mesh.centers.T
 
-    # Sample top/botm at the cell centres (Voronoi generators or triangle centroids)
+    # Sample top/botm at the cell centers (Voronoi generators or triangle centroids)
     # from the domain surfaces.
     cfg = coerce_vertical_config(vertical_config)
     top_sampler = PreparedSurfaceSampler.from_surface(top_surface)

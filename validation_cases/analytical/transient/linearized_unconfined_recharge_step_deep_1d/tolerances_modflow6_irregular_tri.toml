@@ -14,5 +14,5 @@ error 2.6e-3 m, final RMSE 1.9e-5 m. The row spread is zero by construction:
 the loader collapses the strip to one profile. Backward Euler is first order
 in time: on the boundary step, 1, 2, 4 and 8 sub-steps per period give a
 space-time RMSE of 1.4e-3, 7.1e-4, 3.4e-4 and 1.6e-4 m. The heads are posed at
-the centres of the boundary cells.
+the centers of the boundary cells.
 """

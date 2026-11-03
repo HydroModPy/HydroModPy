@@ -1,6 +1,6 @@
 """Unit tests for ``hydromodpy.calibration.optim.engine``.
 
-Ports the behavioural intent of the old ``test_calibration2_core.py``
+Ports the behavioral intent of the old ``test_calibration2_core.py``
 to the new ask/tell architecture. The old engine took raw ``observed``
 arrays and bounds dicts and dispatched a named method; the new engine
 is solver-agnostic and takes ``space`` + ``optimizer`` + ``evaluator``.

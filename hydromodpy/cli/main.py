@@ -100,7 +100,7 @@ def main(argv: list[str] | None = None) -> None:
     parser is even built. Every scheduler stop, every container stop and every
     plain ``kill`` sends it, and the default handler ends the process where it
     stands: the ``finally`` that closes a session, or writes the outcome of a
-    cancelled job, never runs. Installed here rather than around one verb
+    canceled job, never runs. Installed here rather than around one verb
     because building the parser imports every command module, which is seconds
     of real work that a signal arriving in the meantime used to throw away
     without a trace.

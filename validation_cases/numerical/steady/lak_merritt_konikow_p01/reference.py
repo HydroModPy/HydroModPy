@@ -170,7 +170,7 @@ def build_reference_simulation(workspace: Path, *, geometry: LakeP01Geometry | N
 
 
 def run_reference(workspace: Path, *, geometry: LakeP01Geometry | None = None) -> LakeRunResult:
-    """Build, run, and summarise the upstream feet/days LAK reference."""
+    """Build, run, and summarize the upstream feet/days LAK reference."""
     sim, gwf, lak_conn = build_reference_simulation(workspace, geometry=geometry)
     sim.write_simulation(silent=True)
     success, buff = sim.run_simulation(silent=True)

@@ -1,7 +1,7 @@
 """The ``[site]`` section: which catchment a project models.
 
 A real catchment (``kind`` other than a synthetic domain) is named by a
-site, so two projects on the same river recognise each other and an index can
+site, so two projects on the same river recognize each other and an index can
 group runs by catchment rather than by project folder. The section is a root
 section of the project config, documented by the normal walk of the model.
 

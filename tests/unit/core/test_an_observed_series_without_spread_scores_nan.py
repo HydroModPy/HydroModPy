@@ -45,7 +45,7 @@ def test_a_purely_seasonal_series_scores_nan_against_its_own_cycle() -> None:
 
 
 def test_a_small_real_spread_is_still_scored() -> None:
-    # One millimetre on a hundred metres is ten million times the floor.
+    # One millimeter on a hundred meters is ten million times the floor.
     t = np.arange(3 * 365, dtype=float)
     obs = 100.0 + 1e-3 * np.sin(2.0 * np.pi * t / 30.0)
     sim = obs + 1e-4 * np.cos(2.0 * np.pi * t / 7.0)

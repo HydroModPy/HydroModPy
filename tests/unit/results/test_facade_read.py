@@ -30,7 +30,7 @@ from tests._helpers.run_stores import open_run_store
 def _write_field(store: RunStore) -> None:
     """Write a minimal MF6 run with a 1x2 ``head`` field."""
     sid = store.sim_id
-    # Two unit squares side by side: cell centres at x = 0.5 and x = 1.5.
+    # Two unit squares side by side: cell centers at x = 0.5 and x = 1.5.
     store.write_mesh(
         sid,
         np.array([[0, 0, 0], [1, 0, 0], [2, 0, 0], [0, 1, 0], [1, 1, 0], [2, 1, 0]], float),
@@ -184,7 +184,7 @@ def test_read_requires_run_argument():
 
 def test_read_bbox_restricts_cells(run):
     """``bbox=`` restricts the returned DataArray to faces within the box."""
-    # The cells of the stored mesh are centred at x=0.5 and x=1.5: only cell 0 is in the box.
+    # The cells of the stored mesh are centered at x=0.5 and x=1.5: only cell 0 is in the box.
     da = hmp.read(run, "head", bbox=(0.0, -1.0, 1.0, 1.0))
     assert da.sizes["cell"] == 1
 

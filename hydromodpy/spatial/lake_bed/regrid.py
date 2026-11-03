@@ -3,8 +3,8 @@
 The model mesh is usually coarser than the bathymetry raster, so a single
 bilinear sample at the cell centroid aliases the fine bed and does not conserve
 volume. This module computes a per-cell bed elevation by AREA-style zonal
-aggregation: it averages every raster pixel whose centre falls inside the cell
-polygon. Cells that are finer than the raster (no pixel centre inside) fall back
+aggregation: it averages every raster pixel whose center falls inside the cell
+polygon. Cells that are finer than the raster (no pixel center inside) fall back
 to a bilinear sample so a value is always produced where the raster covers the
 cell.
 """
@@ -35,7 +35,7 @@ def cell_bed_from_surface(
 ) -> dict[int, float]:
     """Return ``{cell_id: bed_elevation}`` sampled from the bathymetry surface.
 
-    Each cell gets the mean of the raster pixels whose centre lies inside the
+    Each cell gets the mean of the raster pixels whose center lies inside the
     cell polygon (zonal mean). When fewer than ``min_pixels`` finite pixels fall
     in the cell, a bilinear sample at the cell centroid is used instead. A cell
     whose centroid also misses the raster support yields ``NaN`` and is left for
@@ -96,9 +96,9 @@ def _zonal_mean(
     ncols: int,
     min_pixels: int,
 ) -> float | None:
-    """Mean of the pixels whose centre lies inside ``poly``; ``None`` if too few.
+    """Mean of the pixels whose center lies inside ``poly``; ``None`` if too few.
 
-    A pixel centre on an edge of the polygon is not inside it.
+    A pixel center on an edge of the polygon is not inside it.
     """
     px_min, py_min = float(poly[:, 0].min()), float(poly[:, 1].min())
     px_max, py_max = float(poly[:, 0].max()), float(poly[:, 1].max())

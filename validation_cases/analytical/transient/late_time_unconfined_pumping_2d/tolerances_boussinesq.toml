@@ -17,6 +17,6 @@ MODFLOW does: the space-time gap is the time step. The reference is read at
 the centroid of the triangle each monitor point reads, with the well at the
 centroid of the triangle that holds it, 6.6 m off the well point. Until
 2026-10-10 the mesh had 31 x 31 squares of 64.5 m (space-time RMSE 0.014 m)
-and the reference was centred on the well point, which gave an azimuthal
+and the reference was centered on the well point, which gave an azimuthal
 spread of 0.136 m: the offset of the well cell, not an asymmetry of the flow.
 """

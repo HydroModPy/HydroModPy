@@ -133,7 +133,7 @@ class TestPostRunResults:
         sid = store.sim_id
         config = ResultsConfig()
         # Trigger the "no extractor" path via a run-context solver name the
-        # _FakeProvider stub does not recognise.
+        # _FakeProvider stub does not recognize.
         ctx = _build_run_context(solver_name="custom_solver", solver_output_dir=tmp_path)
         _install_post_run_stubs(monkeypatch)
         with pytest.raises(RuntimeError, match="No output adapter"):

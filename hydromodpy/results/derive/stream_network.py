@@ -203,7 +203,7 @@ def network_comparison_from_run(
     and needs no recharge; any other value needs the run to carry its recharge
     budget, and the run is refused by name when it does not.
 
-    ``diagonal_neighbors`` is the neighbour graph of the descent, and its
+    ``diagonal_neighbors`` is the neighbor graph of the descent, and its
     default is the calibration output's: the D8 descent of the paper on a
     quad mesh. A figure redrawn on another graph than the trial scored would
     show a partition the reported numbers were never computed on.
@@ -226,7 +226,7 @@ def network_comparison_from_run(
     another mask than the watershed the run stores, and the redraw knows only the
     watershed.
 
-    The centres used here are the polygon centroids of the faces, because a
+    The centers used here are the polygon centroids of the faces, because a
     persisted mesh stores no other. On a Voronoi dual the solver sampled its top
     at the generator seeds instead, and a trial joins those seeds too when it
     draws the mapped network by ``"crossing"``. So a comparison redrawn from the
@@ -287,7 +287,7 @@ def network_comparison_from_run(
             dtype=bool,
         )
     elif observed_rasterization == "crossing":
-        # The persisted mesh stores no other centres than its vertices give,
+        # The persisted mesh stores no other centers than its vertices give,
         # the same ones the descent below routes on.
         observed = np.asarray(
             line_crossing_cell_mask(
@@ -376,7 +376,7 @@ def _delineated_catchment(sim: Run, polygons: np.ndarray, mesh_crs: str) -> np.n
 
     That is the reference the trials of the run measured their
     ``catchment_mismatch`` against. A run sealed before the basin was stored
-    keeps the old reference, the delineated watershed projected by the centre
+    keeps the old reference, the delineated watershed projected by the center
     of the cells, and says so. The largest basin of a synthetic domain is no
     catchment: the watershed is looked up as before, and a domain without one
     gives ``None``.
@@ -395,7 +395,7 @@ def _delineated_catchment(sim: Run, polygons: np.ndarray, mesh_crs: str) -> np.n
 
 
 def _watershed_catchment(sim: Run, polygons: np.ndarray, mesh_crs: str) -> np.ndarray | None:
-    """Project the delineated watershed onto the cells, by their centre."""
+    """Project the delineated watershed onto the cells, by their center."""
     from hydromodpy.spatial.mesh.cells.in_polygons import vector_cell_mask
 
     try:

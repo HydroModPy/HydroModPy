@@ -23,7 +23,7 @@ def build_bundle(bundle_dir: Path = BUNDLE_DIR) -> Path:
 
     The surface is the plane of the case, ``slope * (L - x)``: the toe is the
     east face, where it meets the flat substratum at 0 m. The writer wants the
-    top strictly above the bottom, so the profile sits 1 micrometre higher. A
+    top strictly above the bottom, so the profile sits 1 micrometer higher. A
     run does not read it: it samples its cell tops from the raster of its config.
     """
     return write_irregular_strip_bundle(

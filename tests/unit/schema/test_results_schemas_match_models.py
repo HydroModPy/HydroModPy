@@ -1,6 +1,6 @@
 """The committed JSON Schemas of the stored formats are what their models generate.
 
-A generated artefact without a gate drifts. The pairing of a file with its
+A generated artifact without a gate drifts. The pairing of a file with its
 model is made here, not in ``hydromodpy.schema``, which may not import
 ``results``. Refresh the files with::
 

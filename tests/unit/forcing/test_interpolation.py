@@ -1,4 +1,4 @@
-"""Nearest, linear and inverse-distance interpolation on ``(nrow, ncol)`` grids of centres.
+"""Nearest, linear and inverse-distance interpolation on ``(nrow, ncol)`` grids of centers.
 
 :mod:`hydromodpy.spatial.forcing.interpolation` reads a raster or scattered stations.
 """
@@ -28,7 +28,7 @@ def _plane(x: np.ndarray, y: np.ndarray) -> np.ndarray:
 
 
 def _targets(nrow: int = 3, ncol: int = 4) -> tuple[np.ndarray, np.ndarray]:
-    """Centres of 10 m cells inside the 0-40 m square, as ``(nrow, ncol)`` arrays."""
+    """Centers of 10 m cells inside the 0-40 m square, as ``(nrow, ncol)`` arrays."""
     cells = fc.centres(nrow, ncol).reshape(nrow, ncol, 2)
     return cells[..., 0], cells[..., 1]
 

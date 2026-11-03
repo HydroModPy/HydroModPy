@@ -270,7 +270,7 @@ def refuse_a_call_that_renames_the_route(
     ``variable`` picks the producer, the observed family and the gauge the
     search follows; ``objective`` picks the criterion and keys every reported
     component. All four are resolved once, from one document, when the
-    extractor is built. Honouring a different pair at call time would score a
+    extractor is built. Honoring a different pair at call time would score a
     record loaded for one variable through the producer of another, and report
     it under a criterion the session never recorded.
     """
@@ -417,7 +417,7 @@ def _build_composite_metric_extractor(
 
     def metric_fn(trial_ctx: Any, *, objective: str | None = None, variable: str | None = None):
         # Dropped, not refused, unlike variable + objective: this one is not
-        # parametrised by the pair. The criterion, the weights and the compared
+        # parametrized by the pair. The criterion, the weights and the compared
         # quantities are the blocks, so there is nothing a call could rename.
         del objective, variable
         # extract_outputs already names the output whose declaration is at

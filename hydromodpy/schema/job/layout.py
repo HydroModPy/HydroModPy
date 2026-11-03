@@ -31,16 +31,16 @@ JOB_MANIFEST_FILENAME = "manifest.json"
 """The seal, written last and atomically. Absent means the job did not finish."""
 
 OUTPUTS_DIRNAME = "outputs"
-"""The artefacts the capability declared, and nothing else."""
+"""The artifacts the capability declared, and nothing else."""
 
 LOGS_DIRNAME = "logs"
-"""Diagnostics of one job. Not an artefact, not in the seal."""
+"""Diagnostics of one job. Not an artifact, not in the seal."""
 
 JOB_LOG_FILENAME = "job.jsonl"
 """Structured log inside :data:`LOGS_DIRNAME`, still open when the seal is written."""
 
 PROGRESS_FILENAME = "progress.ndjson"
-"""Appended one JSON object per line while the job runs. Not an artefact."""
+"""Appended one JSON object per line while the job runs. Not an artifact."""
 
 SEALED_DOCUMENTS: tuple[str, ...] = (
     INPUTSET_FILENAME,

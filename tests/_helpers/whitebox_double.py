@@ -4,7 +4,7 @@ The geographic pipeline reaches its backend two ways: through file-in/file-out
 members, and through the in-memory ``*_raster`` / ``*_vector`` members the
 terrain engine uses so a batch reads its shared products once. A double that
 only serves the first makes the engine fail on an attribute, which is a test
-artefact and not a finding, so this one serves both from the same synthetic
+artifact and not a finding, so this one serves both from the same synthetic
 answers.
 
 Deliberately not a simulation: the flow pointer is all ones, the accumulation
@@ -63,7 +63,7 @@ def _pointer(raster: FakeRaster) -> FakeRaster:
 
 
 def _accumulation(raster: FakeRaster, *, log: bool) -> FakeRaster:
-    """Count cells in row-major order, and honour the transform that was asked.
+    """Count cells in row-major order, and honor the transform that was asked.
 
     ``log`` used to be ignored here. A double that answers the same numbers
     whatever transform it is handed lets a caller declare ``ln`` over a raster of

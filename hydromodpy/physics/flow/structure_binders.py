@@ -391,7 +391,7 @@ def auto_dam_axis(
 
     The dam is where the reservoir drains toward the catchment outlet: the
     footprint boundary point nearest the outlet (the spill point). The axis is
-    CENTRED ON that boundary point (so the wall sits at the lake edge and leaves
+    CENTERED ON that boundary point (so the wall sits at the lake edge and leaves
     essentially no lake cells behind it), oriented PERPENDICULAR to the outlet
     flow (spill -> outlet), with the local reservoir width taken from a chord a
     short ``width_probe`` inside the neck (the tip itself is degenerate), and
@@ -943,7 +943,7 @@ def apply_lake_meteo_forcings_to_flow(
                 attached = True
         # The watershed runoff RATE is only consumed by the exposed-band (marnage)
         # coupling, so surface it only for lakes that opt in (leaving the binder's
-        # behaviour unchanged for every other lake).
+        # behavior unchanged for every other lake).
         if (
             runoff_rate is not None
             and payload.get("runoff_rate") is None

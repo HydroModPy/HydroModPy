@@ -84,7 +84,7 @@ def stop_line(state: StopState | None, rule: str | None) -> str:
 
 @dataclass(frozen=True)
 class Validity:
-    """One check that qualifies a result without penalising it.
+    """One check that qualifies a result without penalizing it.
 
     ``passed`` is the verdict, ``message`` the sentence a reader who is not a
     hydrogeologist needs. ``fatal`` is true for the few checks whose failure

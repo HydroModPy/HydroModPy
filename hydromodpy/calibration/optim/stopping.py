@@ -11,7 +11,7 @@ So the file states the precision once, on the parameter, and each engine declare
 in its traits which of its own options that writes and in which units. An engine
 whose stopping rule is a budget and not a precision declares nothing, and a
 precision handed to it is refused rather than dropped: silently ignoring it would
-report a search that honoured a request it never read.
+report a search that honored a request it never read.
 
 The same declaration tells the engine loop why a search stopped, in one of
 three states (:data:`~hydromodpy.results.checks.StopState`). An engine that

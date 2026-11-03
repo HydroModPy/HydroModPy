@@ -124,13 +124,13 @@ class FlowWellLocationAbsoluteXY(HydroModelBase):
     )
     x: Annotated[float, Profile.USER] = Field(
         ...,
-        description="Easting of the point in the projected CRS of the project, in metres.",
+        description="Easting of the point in the projected CRS of the project, in meters.",
         examples=[352400.0],
         json_schema_extra={"unit": "m"},
     )
     y: Annotated[float, Profile.USER] = Field(
         ...,
-        description="Northing of the point in the projected CRS of the project, in metres.",
+        description="Northing of the point in the projected CRS of the project, in meters.",
         examples=[6788300.0],
         json_schema_extra={"unit": "m"},
     )

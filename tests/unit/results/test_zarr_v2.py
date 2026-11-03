@@ -43,7 +43,7 @@ def fresh_store(tmp_path: Path) -> SimulationZarr:
 
 def test_filelock_prevents_concurrent_write(tmp_path: Path) -> None:
     """The .lock file uses filelock semantics: two acquire() calls from two
-    independent FileLock objects must serialise."""
+    independent FileLock objects must serialize."""
     from filelock import FileLock, Timeout
 
     path = tmp_path / "sim.zarr"

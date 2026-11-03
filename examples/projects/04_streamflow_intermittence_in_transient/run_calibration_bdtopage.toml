@@ -63,7 +63,7 @@ maximal = 0.5
 support = "point"
 variable = "discharge"
 
-# Eq. 1 on each bound: the gap in metres, zero where the simulated extent
+# Eq. 1 on each bound: the gap in meters, zero where the simulated extent
 # reaches as far as its map.
 [[calibration.objective_blocks]]
 name = "network_extent"

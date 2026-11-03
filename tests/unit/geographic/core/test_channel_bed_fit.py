@@ -1,4 +1,4 @@
-"""The bed regularisation moves the channel pixels only, and leaves no rise along them.
+"""The bed regularization moves the channel pixels only, and leaves no rise along them.
 
 A synthetic valley on a 25 m grid: a main stem down the middle column and a tributary joining it
 from the west, both carrying a gentle bed plus a symmetric noise larger than the drop between two

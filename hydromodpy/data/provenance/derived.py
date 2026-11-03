@@ -5,7 +5,7 @@ tessellation, a format conversion. That copy never goes into
 ``data/<variable>/``. That folder holds the files the user drops, named
 ``<variable>_custom_*``, and auto_scan takes every such file for user data.
 The copy goes under ``data/blobs/<variable>/custom/``, the home of the
-normalised copies of ingested files. Its name carries the source stem and a
+normalized copies of ingested files. Its name carries the source stem and a
 key of the inputs that produced it, so two projects that derive different
 copies from one file never overwrite each other.
 """

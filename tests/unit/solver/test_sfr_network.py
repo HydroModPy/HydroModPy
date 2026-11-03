@@ -76,7 +76,7 @@ def test_a_line_off_the_mesh_crosses_no_cell() -> None:
 
 
 def test_a_line_that_grazes_a_corner_leaves_that_cell_out() -> None:
-    # Within a micrometre of the node (20, 10), the diagonal cuts a sliver off cell 6.
+    # Within a micrometer of the node (20, 10), the diagonal cuts a sliver off cell 6.
     graze = 0.5 * MIN_PIECE_LENGTH_M
     line = LineString([(10.0 + graze, 0.0), (30.0 + graze, 20.0)])
 

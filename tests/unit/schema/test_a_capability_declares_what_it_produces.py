@@ -1,4 +1,4 @@
-"""A capability declaration refuses at import time what it could not honour.
+"""A capability declaration refuses at import time what it could not honor.
 
 The declaration is the single source the process description is generated
 from, so a fault in it ships as a description that promises something no run

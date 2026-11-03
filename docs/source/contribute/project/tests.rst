@@ -63,10 +63,10 @@ Quality ladder
      - Does one real run leave on disk what a stranger can read back?
      - One ``hmp run`` of a committed example, read only through the file
        formats a reader would use. Five strict ``xfail`` cases record claims
-       the code makes and does not yet honour.
+       the code makes and does not yet honor.
      - ``pytest tests/characterization -q``
    * - ``contract``
-     - Do the implementations of a port honour the same behaviour?
+     - Do the implementations of a port honor the same behavior?
      - Compatibility contracts across implementations, such as the catalog
        backends and the cache backend.
      - ``pytest tests/contract -q``
@@ -150,7 +150,7 @@ The family that failed tells you where to look:
   recovers controlled truth.
 - ``characterization``: a run no longer leaves on disk what a reader expects,
   or a strict ``xfail`` started to pass, which means a claim of the code is now
-  honoured and the marker must go.
+  honored and the marker must go.
 - ``contract``: an implementation of a port no longer behaves like the others.
 - ``solver_sanity``: the external solver or its bundled binary
   drifted, not the orchestration.

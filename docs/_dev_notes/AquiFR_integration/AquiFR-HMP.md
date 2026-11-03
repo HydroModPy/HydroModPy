@@ -40,7 +40,7 @@ Permet de recevoir des données.
 Exemple : ```comm.Recv(buffer, source=2, tag=20)```
 
 ### Barrier
-Synchronisation globale.
+Synchronization globale.
 Tous les processus attendent que les autres aient atteint ce point.
 ```comm.Barrier()```
 
@@ -76,9 +76,9 @@ Le programme :
 2. lit les forçages météo
 3. envoie les données aux modèles
 4. récupère les résultats
-5. synchronise l’ensemble
+5. synchronize l’ensemble
 
-## 2.1 Initialisation MPI
+## 2.1 Initialization MPI
 Le programme récupère le communicateur global, le nombre total de processus, le rank courant et vérifie qu’il est exécuté uniquement par le rank 0.
 
 ## 2.2 Identification des applications
@@ -131,7 +131,7 @@ correspond aux jours simulés.
 3. calcul des modèles
 4. récupération des résultats
 5. envoi au pre_post-traitement
-6. synchronisation
+6. synchronization
 
 ## 2.7 Distribution des données
 
@@ -147,11 +147,11 @@ et éventuellement :
 - qnr : échange nappe-rivière
 - qdeb : débordement
 
-Le driver utilise ```comm.Recv(...)``` pour reconstruire les tableaux globaux.
+Le driver utilize ```comm.Recv(...)``` pour reconstruire les tableaux globaux.
 
-## 2.9 Post-traitement et synchronisation
+## 2.9 Post-traitement et synchronization
 
-Le driver envoie ensuite les résultats au processus de post-traitement, puis attend une synchronisation globale.
+Le driver envoie ensuite les résultats au processus de post-traitement, puis attend une synchronization globale.
 Cela garantit que toutes les sorties sont écrites et que tous les modèles sont synchronisés.
 
 # 3 - Contraintes pour intégrer un nouveau modèle
@@ -182,23 +182,23 @@ Le modèle doit renvoyer des tableaux compatibles avec le driver et le post-trai
 ## 3.6 Structure typique d’un modèle
 Un modèle intégré doit suivre ce schéma :
 
-1. Initialisation MPI
+1. Initialization MPI
 2. Réception des paramètres
 3. Boucle temporelle
 4. Réception des forçages
 5. Calcul physique
 6. Envoi des résultats
-7. Synchronisation
+7. Synchronization
 
 # 4 - Structure d'HydroModPy
 ## 4.1 Entrées
 HydroModPy prend en entrée un fichier de configuration au format TOML ou JSON contenant l’ensemble des paramètres nécessaires à la simulation. Ce fichier définit notamment les dates de simulation, le pas de temps, les paramètres physiques, les chemins vers les fichiers de données, les options numériques, les options à activer.
 
-HydroModPy utilise également un dossier */data* contenant différentes données nécessaires au calcul (données climatiques, géologiques, maillages, paramètres hydrauliques)
+HydroModPy utilize également un dossier */data* contenant différentes données nécessaires au calcul (données climatiques, géologiques, maillages, paramètres hydrauliques)
 Les formats de données peuvent varier : CSV, NetCDF, GeoTIFF, fichiers binaires, fichiers texte
 
 ## 4.2 Sorties
-HydroModPy produit plusieurs types de données de sortie permettant l’analyse des simulations hydrologiques et hydrogéologiques.
+HydroModPy produit plusieurs types de données de sortie permettant l’analyze des simulations hydrologiques et hydrogéologiques.
 Les résultats peuvent être écrits sous différents formats.
 
 ## 4.3 Lancement
@@ -219,10 +219,10 @@ Le lancement depuis Python permettra le couplage avec d'autres outils pour l'int
 L’intégration d’HydroModPy dans AquiFR nécessite le développement d’une surcouche d’interfaçage entre les deux systèmes, pour jouer le rôle d'adaptateur entre l’architecture MPI d’AquiFR et le fonctionnement interne d’HydroModPy.
 
 ## 5.1 Gestion MPI
-L'interface devra échanger avec le processus MPI principal afin de gérer l’attribution du rank MPI, la réception des données envoyées par le driver, l’envoi des résultats vers le driver et la synchronisation MPI.
+L'interface devra échanger avec le processus MPI principal afin de gérer l’attribution du rank MPI, la réception des données envoyées par le driver, l’envoi des résultats vers le driver et la synchronization MPI.
 
 ## 5.2 Conversion des paramètres AquiFR
-AquiFR utilise des fichiers de configuration de type *options.nam*.
+AquiFR utilize des fichiers de configuration de type *options.nam*.
 L’interface devra donc lire les paramètres AquiFR, extraire les informations utiles et convertir ces paramètres vers un format compatible HydroModPy (JSON ou TOML).
 
 ## 5.3 Gestion des données d’entrée

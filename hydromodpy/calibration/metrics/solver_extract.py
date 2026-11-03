@@ -126,7 +126,7 @@ def resolve_flow_adapter(trial_ctx: Any) -> tuple[Any, RunContext] | None:
 
 
 def _coerce_length_to_m(value: Any) -> float | None:
-    """Pull the magnitude in metres from a pint Quantity or bare number."""
+    """Pull the magnitude in meters from a pint Quantity or bare number."""
     if value is None:
         return None
     to_m = getattr(value, "to", None)
@@ -242,7 +242,7 @@ def observable_request_for_output(
                 xy=snap_xy,
                 radius_m=snap_m,
             )
-        # The declared variable is honoured. Coercing it to a head meant a block
+        # The declared variable is honored. Coercing it to a head meant a block
         # asking for the discharge at a gauge was silently scored on a head, and a
         # gauge is the commonest calibration target there is. A backend that cannot
         # serve the named variable at a cell refuses it by name.
@@ -329,7 +329,7 @@ def top_active_layer_of_cell(ctx: Any, row: int, col: int, *, name: str) -> int:
 
 
 def _snap_radius_m(output: Any) -> float | None:
-    """Return the opt-in gauge snap radius in metres, or None when it is off."""
+    """Return the opt-in gauge snap radius in meters, or None when it is off."""
     return _coerce_length_to_m(getattr(output, "snap_radius", None))
 
 
@@ -346,7 +346,7 @@ def snap_gauge_cell(
     The drained area is asked of the solver, over the whole mesh, on the graph
     its discharge is routed on: snapping on any other surface would land the
     gauge on a talweg the model does not route. ``xy`` is the gauge coordinate
-    the radius is measured from; ``None`` measures it from the cell centre,
+    the radius is measured from; ``None`` measures it from the cell center,
     which is all a ``support = "cell"`` output declares.
     """
     resolved = resolve_flow_adapter(ctx)
@@ -563,7 +563,7 @@ def catchment_saturation(
     active cell or under a lake. When it has one, the share splits into
     ``d_sat_dry_fraction`` (open column, no water table: a physical state that
     biases ``d_sat_m`` upward) and ``d_sat_inactive_fraction`` (outside the
-    solved domain, a lake footprint for one: a modelling choice, not a state).
+    solved domain, a lake footprint for one: a modeling choice, not a state).
     A model without the mask keeps the single ``d_sat_unset_fraction``.
 
     Empty when the backend serves no saturated thickness, and when it serves

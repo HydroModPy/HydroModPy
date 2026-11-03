@@ -37,7 +37,7 @@ def test_local_auth_backend_falls_back_to_windows_username(
 
 
 def test_local_auth_backend_allows_read_and_write() -> None:
-    """The permissive default authorises every resource."""
+    """The permissive default authorizes every resource."""
     backend = LocalAuthBackend()
     assert backend.can_read("catalog:project:naizin") is True
     assert backend.can_write("catalog:sim:abc") is True

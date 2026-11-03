@@ -29,7 +29,7 @@ pytestmark = pytest.mark.fast
 
 NODATA = -9999.0
 METHODS = ("nearest", "linear", "idw", "area")
-UNDER_A_CELL = (2, 1)  # the pixel under the centre of cell 4
+UNDER_A_CELL = (2, 1)  # the pixel under the center of cell 4
 BEYOND_THE_CELLS = (0, 3)  # the north-east pixel, which no cell reaches
 _ACCEPTED = r"\(\.nc, \.nc4, \.netcdf, \.tif, \.tiff\)"
 _DAYS = [float(day + 1) for day in range(31)]
@@ -242,7 +242,7 @@ def _raster(nodata_at: tuple[int, int] | None, bands: int = 1) -> np.ndarray:
 
 
 def _on_nine_cells(data, method: str, nper: int = 1, simulation_window=None, days=None):
-    """Read *data* on the 3 x 3 square cells of ``centres``, given as polygons too."""
+    """Read *data* on the 3 x 3 square cells of ``centers``, given as polygons too."""
     rings = [
         np.array([[0, 0], [1, 0], [1, 1], [0, 1]]) * fc.PIXEL
         + [col * fc.PIXEL, (2 - row) * fc.PIXEL]
@@ -302,7 +302,7 @@ def test_a_nodata_pixel_is_refused_under_a_cell_and_accepted_beyond(tmp_path, wr
     under = WRITERS[writer](tmp_path, _raster(UNDER_A_CELL))
     with pytest.raises(DataContractViolation, match=r"nodata pixel under 1 cell\(s\).*cell 4\."):
         _on_nine_cells(under, method)
-    if method == "idw":  # its neighbours reach the north-east pixel
+    if method == "idw":  # its neighbors reach the north-east pixel
         return
     beyond = WRITERS[writer](tmp_path / "beyond", _raster(BEYOND_THE_CELLS))
     np.testing.assert_allclose(_on_nine_cells(beyond, method)[0], 5.0 * fc.MM_DAY_TO_M_S, rtol=1e-12)  # fmt: skip

@@ -1,4 +1,4 @@
-"""A buffer of N per cent makes the modelled catchment N per cent larger in area.
+"""A buffer of N per cent makes the modeled catchment N per cent larger in area.
 
 Abherve et al. (2023, HESS 27, p. 3224) enlarge "the modeled domain by 10 %". The v1 code read the
 same "10" as 10 per cent of sqrt(area in km2) km, +53 per cent of area on the Nancon (64.7 km2).

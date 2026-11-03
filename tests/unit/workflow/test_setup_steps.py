@@ -1,7 +1,7 @@
 """[geographic.crossings] reads the file of [[data.crossings.sources]] when it has no path.
 
 The run setup and the data overview resolve it with the same rule: when the
-notch or the bed regularisation is on, and never over a declared path.
+notch or the bed regularization is on, and never over a declared path.
 """
 
 from pathlib import Path

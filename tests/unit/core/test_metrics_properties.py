@@ -1,6 +1,6 @@
 """Property-based tests for the hydrological efficiency metrics.
 
-``hydromodpy.core.metrics`` is the scoreboard: calibration minimises these
+``hydromodpy.core.metrics`` is the scoreboard: calibration minimizes these
 numbers, comparison ranks runs by them, and a thesis figure reports them. The
 example-based tests around the suite check a handful of known series against
 known scores. What they cannot check is the algebra that must hold for every
@@ -83,7 +83,7 @@ def test_a_perfect_simulation_scores_perfectly(observed: list[float]) -> None:
 
     The fixed point is the one score in the range that has a closed form, so it
     is the one a reader trusts without checking. A metric that returns 0.999999
-    for a perfect fit has a bug in its normalisation, not a rounding problem.
+    for a perfect fit has a bug in its normalization, not a rounding problem.
     """
     obs = np.asarray(observed, dtype=float)
     assume(_informative(obs))
@@ -119,7 +119,7 @@ def test_efficiencies_never_exceed_one(pair: tuple[list[float], list[float]]) ->
 def test_correlation_stays_inside_minus_one_and_one(
     pair: tuple[list[float], list[float]],
 ) -> None:
-    """Pearson r is bounded by construction; leaving the range means a bad normalisation."""
+    """Pearson r is bounded by construction; leaving the range means a bad normalization."""
     simulated, observed = (np.asarray(series, dtype=float) for series in pair)
     value = correlation(simulated, observed)
     assume(not math.isnan(value))
@@ -152,7 +152,7 @@ def test_nse_ignores_a_shared_offset_and_a_shared_scale(
     """NSE must not change when both series move together.
 
     Numerator and denominator carry the same units, so NSE is dimensionless:
-    reporting a level in centimetres rather than metres, or against a different
+    reporting a level in centimeters rather than meters, or against a different
     datum, cannot change the score. A ``ddof`` or a mean that leaks into only
     one of the two sums breaks exactly this and nothing else.
     """
@@ -175,7 +175,7 @@ def test_rmse_carries_the_unit_of_the_series(
 ) -> None:
     """RMSE is in the unit of the data, so it scales linearly with it.
 
-    This is what lets an RMSE be quoted in metres next to a head. A metric that
+    This is what lets an RMSE be quoted in meters next to a head. A metric that
     scaled with the square would still rank runs identically, which is why the
     error would survive the calibration tests and reach a figure caption.
     """

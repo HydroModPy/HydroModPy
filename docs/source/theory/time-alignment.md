@@ -62,7 +62,7 @@ the balance of the period with these means.
    A flux (top) and a state (bottom) on four monthly periods, read by
    ``period_mean_on_index`` and ``period_point_on_index``. The flux of a stamp is
    the mean of the period that ends there. The state is read at the stamp, here
-   on a window centred on it because the daily record is finer than the run.
+   on a window centered on it because the daily record is finer than the run.
 ```
 
 In the code: `time_method_for`.
@@ -87,8 +87,8 @@ where $t_h$ is the stamp of that observation and $\Delta t_o$ the step of its
 chronicle. That is a monthly mean on a daily run. Otherwise the period has no
 value, and a gap in the chronicle stays a gap.
 
-**A state.** A chronicle finer than the run is averaged on a window centred on
-the stamp, reaching halfway to the neighbouring stamps. A chronicle as coarse as
+**A state.** A chronicle finer than the run is averaged on a window centered on
+the stamp, reaching halfway to the neighboring stamps. A chronicle as coarse as
 the run, or coarser, gives the sample nearest the stamp, within the step of the
 run. Averaging a state over $[b_k, b_{k+1})$ would compare it with a value half a
 period earlier.

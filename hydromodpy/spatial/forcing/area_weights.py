@@ -30,10 +30,10 @@ _PAIRS_PER_CHUNK = 100_000
 
 
 def _pixel_edges(centres: np.ndarray, *, axis: str) -> tuple[np.ndarray, bool]:
-    """Ascending pixel edges from the pixel centres of one axis, and whether the axis descends.
+    """Ascending pixel edges from the pixel centers of one axis, and whether the axis descends.
 
-    An inner edge sits halfway between two centres; an outer edge sits as far
-    beyond the outer centre as the first inner edge.
+    An inner edge sits halfway between two centers; an outer edge sits as far
+    beyond the outer center as the first inner edge.
     """
     c = np.asarray(centres, dtype=float).reshape(-1)
     if c.size < 2:
@@ -114,9 +114,9 @@ def _clipped_areas(rings: np.ndarray, half_x: np.ndarray, half_y: np.ndarray) ->
 def area_weights(mesh: HydroMesh, source_x: np.ndarray, source_y: np.ndarray) -> sparse.csr_array:
     """Area each pixel shares with each cell, ``(n_cells, ny * nx)`` in m².
 
-    ``source_x`` and ``source_y`` are the 1-D pixel centres of a grid whose
+    ``source_x`` and ``source_y`` are the 1-D pixel centers of a grid whose
     values are laid out ``(ny, nx)``. Every cell is clipped by every pixel its
-    bounding box reaches, in coordinates centred on the pixel so the areas keep
+    bounding box reaches, in coordinates centered on the pixel so the areas keep
     their digits in a projected CRS.
     """
     x = np.asarray(source_x, dtype=float)

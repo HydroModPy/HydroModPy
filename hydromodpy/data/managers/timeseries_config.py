@@ -111,7 +111,7 @@ class TimeseriesSelectionMixin(HydroModelBase):
 
 
 class SparseStationFallbackMixin(HydroModelBase):
-    """Shared fallback search behaviour for sparse-station timeseries variables."""
+    """Shared fallback search behavior for sparse-station timeseries variables."""
 
     fallback_search_radius_km: Annotated[float | None, Profile.DEV] = Field(
         default=None,

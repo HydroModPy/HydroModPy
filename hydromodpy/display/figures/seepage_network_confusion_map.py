@@ -4,14 +4,14 @@
 readable image of ``J`` is the map of where each of the two happens: valid
 where the two networks share a cell, excess where only the model put one,
 missing where only the map did. A single scalar cannot say whether a residual
-near zero comes from a good fit or from a large excess cancelling a large gap,
+near zero comes from a good fit or from a large excess canceling a large gap,
 and this map can.
 
 Only if it can be read. The three classes are one cell wide and the mesh is
 not: on the Nancon they hold 1 681 cells out of 60 395, so the map opens on
 the delineated catchment, where every class of the criterion lives, and draws
 its cells with the weight a one-cell line needs to survive the page. The three
-counts sit in the key under the map, beside the colour each belongs to.
+counts sit in the key under the map, beside the color each belongs to.
 
 The partition is rebuilt from what the run persisted, through the construction
 the criterion scores, so the map cannot disagree with the numbers a trial
@@ -82,7 +82,7 @@ _FLAT_WEIGHT_PT = 0.0
 """What everything but the casing is drawn at, so no class widens over another.
 
 The three classes interleave cell by cell along the same one-cell line. Given
-a stroke each, every class grew half that stroke into its neighbours and the
+a stroke each, every class grew half that stroke into its neighbors and the
 one drawn first came out smaller than the count printed beside it: on the
 Nancon the valid class held the most cells of the three and the least ink of
 the three. The weight is carried once, by the casing under all of them.
@@ -99,7 +99,7 @@ class SeepageNetworkConfusionMap(BaseFigure):
     the criterion scores. Any backend persisting those draws the same map.
 
     ``extent`` picks the frame: ``catchment`` crops to the delineated
-    watershed, ``mesh`` keeps the whole modelled domain. The title names the
+    watershed, ``mesh`` keeps the whole modeled domain. The title names the
     stress period whose state was compared.
     """
 

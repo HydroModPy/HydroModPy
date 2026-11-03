@@ -111,7 +111,7 @@ def build_domain_document(
         "layers": [
             {
                 "index": 0,
-                # The top is an input and not an artefact of this job: naming
+                # The top is an input and not an artifact of this job: naming
                 # the resource of ``inputset.json`` is what lets a reader find
                 # the digest of the raster the bottom was derived from.
                 "top": {"input": "dem", "sha256": resolved.dem_digest},

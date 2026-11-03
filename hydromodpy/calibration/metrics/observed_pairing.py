@@ -160,7 +160,7 @@ def pair_outputs_with_observations(
     ``min_samples`` is the fewest pairs a member may be scored on. An overlap
     that collapses to three days still produces a number, and a weight of 65 per
     cent resting on three days is not what the file says it is. Every output
-    paired here honours it, whatever its support.
+    paired here honors it, whatever its support.
 
     A period of the window the record covers and the simulated value leaves
     NaN is dropped from both series and counted in

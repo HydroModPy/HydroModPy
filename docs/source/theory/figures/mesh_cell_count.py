@@ -19,10 +19,10 @@ layouts = [
 
 fig, ax = plt.subplots(figsize=(6.4, 3.6))
 target = AREA / DELTA**2
-for label, factor, colour, style, offset in layouts:
-    ax.loglog(sizes, factor * AREA / sizes**2, color=colour, ls=style, lw=1.8, label=label)
+for label, factor, color, style, offset in layouts:
+    ax.loglog(sizes, factor * AREA / sizes**2, color=color, ls=style, lw=1.8, label=label)
     size = np.sqrt(factor * AREA / target)
-    ax.plot(size, target, "o", color=colour, ms=6)
+    ax.plot(size, target, "o", color=color, ms=6)
     ax.annotate(f"{size:.0f} m", (size, target), xytext=offset, textcoords="offset points")
 ax.axhline(target, color="C6", lw=0.8, ls=":")
 ax.set_xticks([20, 50, 100, 200, 500], ["20", "50", "100", "200", "500"])

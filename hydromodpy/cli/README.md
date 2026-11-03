@@ -91,7 +91,7 @@ creates it when no path is given.
 
 - `commands/*.py` parse arguments, call `hydromodpy._api`, another package or a
   worker of `_workers/`, format the output and map errors to exit codes.
-- Reusable behaviour belongs in `hydromodpy._api` or in its domain package, and
+- Reusable behavior belongs in `hydromodpy._api` or in its domain package, and
   the command module calls it. Business logic never lives in `cli/`.
 - The workflow dispatch is not here. `hmp run` calls `dispatch_workflow`
   of `hydromodpy/project/dispatch/workflow.py` (`commands/run.py`), the same

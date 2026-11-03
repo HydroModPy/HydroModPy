@@ -31,12 +31,12 @@ class ObservationPointConfig(HydroModelBase):
         description="Station id of the point. Unique within the section.",
     )
     x: Annotated[float, Profile.USER] = Field(
-        description="Easting of the point in the project CRS, in metres like the mesh.",
+        description="Easting of the point in the project CRS, in meters like the mesh.",
         json_schema_extra={"unit": "m"},
         examples=[352400.0],
     )
     y: Annotated[float, Profile.USER] = Field(
-        description="Northing of the point in the project CRS, in metres like the mesh.",
+        description="Northing of the point in the project CRS, in meters like the mesh.",
         json_schema_extra={"unit": "m"},
         examples=[6788300.0],
     )

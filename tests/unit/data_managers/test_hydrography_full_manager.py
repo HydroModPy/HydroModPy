@@ -1,7 +1,7 @@
 """Manager-pipeline tests for the hydrography variable manager.
 
 Covers the custom loader (vector + TIF), the LoadResult contract and
-metadata accessors, the HydrographyManager rasterisation pipeline with the
+metadata accessors, the HydrographyManager rasterization pipeline with the
 stub Whitebox backend, the TIF fast-path, the catalog cache (hit/miss/
 force_refresh/subsume), and the DataStore delegation.
 """
@@ -441,7 +441,7 @@ class TestManagerTifPipeline:
         assert _hydrography_vector_path(result) is None
         assert _hydrography_raster_path(result).endswith("streams.tif")
         assert isinstance(_hydrography_array(result), np.ndarray)
-        # Vector rasterisation backend should NOT have been called
+        # Vector rasterization backend should NOT have been called
         backend.raster.vector_lines_to_raster.assert_not_called()
 
     @patch("hydromodpy.spatial.delineation.get_whitebox_backend")

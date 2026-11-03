@@ -84,7 +84,7 @@ def _resolve_api_success(raw_return: object, workspace: Path) -> bool:
     ``modflowapi.run_simulation`` returns ``None`` on both a converged and a
     non-converged run, so a ``None`` cannot be trusted as success: the verdict is
     read from the listing instead, matching the subprocess path. A non-``None``
-    return (a future modflowapi that reports the flag) is honoured directly.
+    return (a future modflowapi that reports the flag) is honored directly.
     """
     if raw_return is None:
         converged = _simulation_reached_normal_termination(workspace)

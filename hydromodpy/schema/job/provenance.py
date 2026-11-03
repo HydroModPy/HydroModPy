@@ -2,7 +2,7 @@
 
 The third document of the write order, and the only one that describes the
 machine rather than the work. It answers the one question a reader of a sealed
-directory cannot answer from the artefacts: *could I run this again and get
+directory cannot answer from the artifacts: *could I run this again and get
 these bytes?*
 
 Two things this document deliberately does not carry.

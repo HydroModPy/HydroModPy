@@ -11,7 +11,7 @@ grows as (Hantush 1967; Carleton 2010, USGS SIR 2010-5102)
     S*(alpha, beta) = int_0^1 erf(alpha / sqrt(tau)) erf(beta / sqrt(tau)) dtau,
     nu = K b / Sy,  n = 1 / sqrt(4 nu t).
 
-Hantush takes ``b = (hi + hm(t)) / 2``, with ``hm`` the head at the centre of
+Hantush takes ``b = (hi + hm(t)) / 2``, with ``hm`` the head at the center of
 the mound, which this module solves by fixed point at each time.
 """
 
@@ -123,7 +123,7 @@ def hantush_mound_rise(
 ) -> np.ndarray:
     """Return the head rise ``h - hi``, one row per time and one column per point.
 
-    ``x`` and ``y`` are measured from the centre of the recharge rectangle,
+    ``x`` and ``y`` are measured from the center of the recharge rectangle,
     whose half sides are ``half_length_x_m`` along x and ``half_width_y_m``
     along y.
     """

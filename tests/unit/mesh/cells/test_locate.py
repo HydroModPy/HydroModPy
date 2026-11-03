@@ -60,7 +60,7 @@ def _wells_arithmetic(grid: PlanarCellMesh, x: float, y: float) -> int:
 
 
 def _probes(cell_mesh: PlanarCellMesh, seed: int) -> np.ndarray:
-    """Random points over the bounds, cell centres, vertices, then the edge midpoints last."""
+    """Random points over the bounds, cell centers, vertices, then the edge midpoints last."""
     rng = np.random.default_rng(seed)
     xmin, ymin, xmax, ymax = cell_mesh.mesh.bounds()
     random = np.column_stack([rng.uniform(xmin, xmax, N_RANDOM), rng.uniform(ymin, ymax, N_RANDOM)])

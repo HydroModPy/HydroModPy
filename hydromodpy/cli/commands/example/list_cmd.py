@@ -1,4 +1,4 @@
-"""``hmp example list`` - the shipped catalogue, read offline from the wheel."""
+"""``hmp example list`` - the shipped catalog, read offline from the wheel."""
 
 from __future__ import annotations
 

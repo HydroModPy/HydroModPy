@@ -105,7 +105,7 @@ class MatchingHydrographicNetwork:
     Bumped from 1.1 to 1.2, 1.1 being what v2.0.0a1 released: the DEM is filled
     rather than breached before the catchment is cut ([geographic].dem_correc_type),
     the transient stage leaves the first year of the run out as spin-up, and the
-    bound of Eq. 4 is a length in metres (validity_length = 'auto') where it was
+    bound of Eq. 4 is a length in meters (validity_length = 'auto') where it was
     roptim_max = 2 on a ratio to the cell size.
 
     Bumped from 1.0 to 1.1: the descent used to build the criterion defaulted

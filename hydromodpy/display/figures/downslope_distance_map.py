@@ -6,7 +6,7 @@ branches carry almost the whole value. This map is the field behind the
 number. It says *where* the two networks disagree, which no scalar can, and it
 says it in the classes the paper reads, 0-75, 75-500, 500-1000 and more than
 1000 m, so two runs are compared on the same four steps instead of on two
-colour scales stretched to their own extremes.
+color scales stretched to their own extremes.
 
 Which of the two it draws is written on the page in words, not left to a
 symbol: the title names the cells the descent starts from and the network it
@@ -20,7 +20,7 @@ the scale: painting it in the nearest class would invent a perfect agreement
 where nothing was measured. A cell whose descent ends without meeting its
 target has no distance at all, and drawing it as "more than 1000 m" would
 state a length the algorithm never found; it gets a hatched state of its own,
-named in the legend. The support is cased in dark grey under its colours, so
+named in the legend. The support is cased in dark gray under its colors, so
 which cells were measured at all reads before any class does: the lightest
 class alone stands at a contrast of 1.3 against the ground, and a reader
 cannot see a scale they cannot find.
@@ -77,7 +77,7 @@ if TYPE_CHECKING:
 DistanceDirection = Literal["to_mapped", "to_simulated"]
 
 DISTANCE_CLASS_EDGES_M: tuple[float, ...] = (0.0, 75.0, 500.0, 1000.0)
-"""Lower edge of each distance class, in metres. The classes of the paper."""
+"""Lower edge of each distance class, in meters. The classes of the paper."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,11 +116,11 @@ _CLASS_RAMP: tuple[str, ...] = (
 The three darkest steps are the high-contrast triplet, ordered by lightness
 rather than by hue, and the lightest is a tint of the sand that opens it. The
 gaps in perceived brightness are wide enough for the four classes to stay
-ordered and separable on a greyscale print.
+ordered and separable on a grayscale print.
 
 The lightest class stops at a relative luminance of 0.63, well below the near
 white of an off-support cell at 0.85. A lighter tint printed almost the same
-grey as a cell that was never measured, which is exactly the confusion the
+gray as a cell that was never measured, which is exactly the confusion the
 third state exists to prevent.
 """
 
@@ -145,10 +145,10 @@ def class_labels(edges: Sequence[float]) -> tuple[str, ...]:
 
 
 def class_colors(n_classes: int) -> tuple[str, ...]:
-    """Return ``n_classes`` colours sampled along the light-to-dark ramp.
+    """Return ``n_classes`` colors sampled along the light-to-dark ramp.
 
     Four classes give back the ramp itself, so the default map is drawn in
-    exactly the four colours declared above; a caller passing its own edges
+    exactly the four colors declared above; a caller passing its own edges
     still gets a scale ordered by lightness.
     """
     from matplotlib.colors import LinearSegmentedColormap, to_hex

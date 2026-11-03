@@ -1,7 +1,7 @@
 """A run places its field values on its own mesh, not on the DEM pixels.
 
-``Run.field(bbox=)`` and the xarray reader select the cells whose centre lies in
-the box, the centres being the ones of ``run.mesh``. The default GeoTIFF
+``Run.field(bbox=)`` and the xarray reader select the cells whose center lies in
+the box, the centers being the ones of ``run.mesh``. The default GeoTIFF
 resolution is the side of the smallest cell of that mesh. Neither reads the DEM
 grid of the catalog, which a mesh is not obliged to follow.
 """
@@ -173,7 +173,7 @@ def test_bbox_on_a_grid_of_pixels_keeps_the_pixel_rule(project) -> None:
     with _sealed(project, vertices, faces, values, structured_shape=(nrow, ncol)) as (catalog, sid):
         run = Run(sid, catalog)
 
-        # The rule of the DEM lattice: pixel (i, j) is centred at (xmin + (j + .5) cs, ymax - (i + .5) cs).
+        # The rule of the DEM lattice: pixel (i, j) is centered at (xmin + (j + .5) cs, ymax - (i + .5) cs).
         cols, rows = np.meshgrid(np.arange(ncol), np.arange(nrow))
         xs = LAMBERT_X0 + (cols.ravel() + 0.5) * CELL
         ys = LAMBERT_Y0 + nrow * CELL - (rows.ravel() + 0.5) * CELL

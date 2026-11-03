@@ -15,7 +15,7 @@ renames string FILE keys, through ``MFTransient.update_transient_key``).
 Caching the resolved integer on the header instance turns each scan step
 into one attribute read, and the ``build_header_variables`` wrapper drops
 the cache so a rebind can never serve a stale key. Calls passing
-``data_path`` keep the original recursion-guard behaviour, and non-integer
+``data_path`` keep the original recursion-guard behavior, and non-integer
 keys are never cached.
 
 Remove this module once the fix lands in a flopy release.

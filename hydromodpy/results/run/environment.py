@@ -35,7 +35,7 @@ logger = get_logger(__name__)
 # The host environment is constant within a process, but calibration re-runs
 # ``capture_environment`` for every trial. The subprocess-backed probes below
 # (``mamba env export``, ``pip list``, ``git rev-parse``, ``--version``, binary
-# hashing) dominate a fast trial's build, so memoise them for the process. This
+# hashing) dominate a fast trial's build, so memoize them for the process. This
 # is pure provenance metadata: it never touches the model build, solve, or
 # objective, so caching it cannot change a result.
 
@@ -234,7 +234,7 @@ def solver_binary_identity(
     """Return ``(sha256, version_text)`` for a solver binary, or ``(None, None)``.
 
     Used to refine the recorded binary identity post-run with the exact binary
-    the solver executed (honouring a custom ``mf6_executable_name``).
+    the solver executed (honoring a custom ``mf6_executable_name``).
     """
     return _binary_sha256(solver_binary_path), _solver_version_text(solver_binary_path)
 
@@ -267,7 +267,7 @@ def capture_environment(
         "platform": _platform.platform(),
         "hostname": socket.gethostname(),
         "user_name": _user_name() or "",
-        # Copy the memoised mutable probes so a caller mutating the snapshot
+        # Copy the memoized mutable probes so a caller mutating the snapshot
         # cannot corrupt the process-level cache.
         "cpu_info": dict(_cpu_info()),
         "memory_gb": _memory_gb(),

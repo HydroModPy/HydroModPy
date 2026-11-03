@@ -10,7 +10,7 @@ through it. It
 resolves the two engines of this tree and anything installed under the
 ``hydromodpy.terrain.engine`` entry-point group, and it certifies a candidate on
 the members the port declares. That is all a registry can certify: the port also
-requires artefacts on disk, and only
+requires artifacts on disk, and only
 ``tests/contract/test_terrain_engine_contract.py`` sees those. It is
 parametrized on what the registry resolves, so it runs an outside engine without
 naming it.

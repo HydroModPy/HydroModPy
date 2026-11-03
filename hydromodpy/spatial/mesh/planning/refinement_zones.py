@@ -186,7 +186,7 @@ def cells_on_grid(
 ) -> np.ndarray:
     """The pixels of *grid* inside the *selected* cells, row 0 north.
 
-    A pixel is inside a cell when its centre is. The pixel under the centroid
+    A pixel is inside a cell when its center is. The pixel under the centroid
     of each selected cell is taken too, so a cell smaller than a pixel still
     marks one.
     """

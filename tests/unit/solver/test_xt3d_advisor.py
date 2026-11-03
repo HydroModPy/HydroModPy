@@ -73,7 +73,7 @@ def _solver_mesh(vertices) -> SolverMesh:
 
 
 def _quad_solver_mesh(shear: float):
-    """Two quadrilaterals side by side, the top row shifted by ``shear`` metres.
+    """Two quadrilaterals side by side, the top row shifted by ``shear`` meters.
 
     ``shear = 0`` gives two unit squares, an orthogonal connection; ``shear = 1`` a
     connection at 45 degrees to the normal of the shared face.

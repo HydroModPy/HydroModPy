@@ -22,7 +22,7 @@ Pages
       :link-type: doc
 
       ``HydroMesh``, the exchange format for plotting and I/O, and ``PlanarCellMesh``, the mesh
-      every solver reads, with its centre rule, derived geometry and line families.
+      every solver reads, with its center rule, derived geometry and line families.
 
    .. grid-item-card:: Mesh engines
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
