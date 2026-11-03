@@ -4539,8 +4539,6 @@ No number moves for a file written under current names. A chain or an overlay th
 - Established the initial project structure for hydrological/hydrogeological modeling workflows.
 - Defined the versioning convention following **Semantic Versioning (vX.Y.Z)**.
 
----
-
 [Unreleased]: https://github.com/HydroModPy/HydroModPy/compare/v1.0.0...dev
 [v1.0.0]: https://github.com/HydroModPy/HydroModPy/compare/v0.5.0...v1.0.0
 [v0.5.0]: https://github.com/HydroModPy/HydroModPy/compare/v0.4.0...v0.5.0
