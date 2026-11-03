@@ -26,14 +26,20 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Annotated, Any, Final
 
-from pydantic import Field
+from pydantic import ConfigDict, Field, field_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.stored import Vocabulary
-from hydromodpy.results.metric_rule import DateWindow
+from hydromodpy.core.io.document_version import VersionWindow
+from hydromodpy.results.metric_rule import DateWindow, PeriodWindow, calibration_extent
 
-CHECKS_SCHEMA: Final[str] = "hydromodpy.checks.v1"
+CHECKS_SCHEMA: Final[str] = "hydromodpy.checks.v2"
 """Schema id of the block, the name of its JSON Schema file."""
+
+CHECKS_VERSIONS: Final[VersionWindow] = VersionWindow(
+    oldest="hydromodpy.checks.v2", current=CHECKS_SCHEMA
+)
+"""Versions of the block this code reads."""
 
 CalibrationSessionStatus = Annotated[str, Vocabulary("completed", "partial", "aborted")]
 """How the session that promoted a run ended."""
@@ -99,9 +105,6 @@ class CalibratedBy(HydroModelBase):
     phase: str | None = Field(default=None, description="Phase of that session")
     trial: int = Field(ge=1, description="Trial number, unique in the session")
     session_status: CalibrationSessionStatus = Field(description="How the session ended")
-    window: DateWindow | None = Field(
-        default=None, description="Window the session scored its objective on"
-    )
     stop_state: StopState | None = Field(
         default=None,
         description="Why the search of that phase stopped: rule_met, plan_exhausted or "
@@ -111,10 +114,31 @@ class CalibratedBy(HydroModelBase):
         default=None,
         description="The rule that search stops on, 'budget' for one with no rule of its own",
     )
+    metric: str | None = Field(default=None, description="Name of the cost of the case of this run")
+    cost: float | None = Field(
+        default=None,
+        description="Cost of the case of this run at that trial, never the total of a joint "
+        "search; null when the search keeps no single cost",
+    )
+    windows: dict[str, PeriodWindow] = Field(
+        default_factory=dict,
+        description="Periods of the search as the case of this run read them, by name",
+    )
 
 
 class Checks(HydroModelBase):
     """The measured facts of a run, sealed with it."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    schema_: str = Field(default=CHECKS_SCHEMA, alias="schema", description="Schema id")
+
+    @field_validator("schema_")
+    @classmethod
+    def _read_here(cls, value: str) -> str:
+        if not CHECKS_VERSIONS.holds(value):
+            raise ValueError(f"schema is {value!r}, this module reads {CHECKS_SCHEMA!r}")
+        return value
 
     budget_pct: float | None = Field(default=None, description="Water-budget discrepancy, percent")
     budget_threshold_pct: float | None = Field(
@@ -125,9 +149,9 @@ class Checks(HydroModelBase):
         default=None, ge=0.0, le=1.0, description="Share of the score window with observations"
     )
     score_window: DateWindow | None = Field(
-        default=None, description="Window the run was scored on"
+        default=None, description="Window of the headline score, one by definition"
     )
-    n_samples: int | None = Field(default=None, ge=0, description="Samples the score used")
+    n_samples: int | None = Field(default=None, ge=0, description="Samples the headline score used")
     calibrated_by: CalibratedBy | None = Field(
         default=None, description="Present on a run promoted by a calibration"
     )
@@ -151,7 +175,7 @@ class Checks(HydroModelBase):
         """Return the block as one flat row, the columns of ``simulation.parquet``."""
         failed = self.failed_validities()
         by = self.calibrated_by
-        by_window = None if by is None else by.window
+        by_window = None if by is None else calibration_extent(by.windows)
         return {
             "budget_pct": self.budget_pct,
             "budget_threshold_pct": self.budget_threshold_pct,
@@ -166,6 +190,8 @@ class Checks(HydroModelBase):
             "calibrated_by_session_status": None if by is None else by.session_status,
             "calibrated_by_window_start": None if by_window is None else by_window.start,
             "calibrated_by_window_end": None if by_window is None else by_window.end,
+            "calibrated_by_metric": None if by is None else by.metric,
+            "calibrated_by_cost": None if by is None else by.cost,
             "validities_failed": ",".join(v.name for v in failed) if failed else None,
             "fatal_failed": self.fatal_failed(),
             "bounds_hit": ",".join(self.bounds_hit) if self.bounds_hit else None,
@@ -176,6 +202,7 @@ class Checks(HydroModelBase):
 __all__ = [
     "BUDGET_RULE",
     "CHECKS_SCHEMA",
+    "CHECKS_VERSIONS",
     "CalibratedBy",
     "CalibrationSessionStatus",
     "Checks",

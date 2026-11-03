@@ -16,10 +16,10 @@ from typing import Any
 
 import pandas as pd
 
-from hydromodpy.core.state.paths import parse_rel_dir
+from hydromodpy.core.state.paths import parse_rel_dir, session_dir_rel
 from hydromodpy.results.run.sealed import lineage_of
 from hydromodpy.results.run.view import Run, project_root_of
-from hydromodpy.results.session.descriptor import find_session_dir
+from hydromodpy.results.session.descriptor import BestTrial, find_session_dir
 from hydromodpy.results.session.view import Session
 
 __all__ = ("calibration_sessions", "calibration_trials", "session_dir_of")
@@ -57,7 +57,7 @@ def session_dir_of(source: Any, *, session_id: str | None = None) -> Path | None
     project_root, rel = split
     parsed = parse_rel_dir(rel)
     if session_id is None and parsed.kind == "trial":
-        return project_root / parsed.as_posix().rsplit("/", 2)[0]
+        return project_root / session_dir_rel(parsed.name)
     wanted = session_id
     if wanted is None:
         lineage = (
@@ -120,16 +120,18 @@ def _session_frame(session_dir: Path) -> pd.DataFrame:
     base = {
         "session_id": descriptor.session_id,
         "case_id": descriptor.case_id,
-        "site": descriptor.site,
+        "sites": list(descriptor.sites),
         "method": descriptor.method,
-        "objective_name": descriptor.objective_name,
+        "cost_name": descriptor.cost_name,
         "status": descriptor.status,
         "started_at": descriptor.started_at,
         "ended_at": descriptor.ended_at,
         "best_trial": descriptor.best.trial if descriptor.best is not None else None,
-        "best_sim_id": descriptor.best.sim_id if descriptor.best is not None else None,
+        "best_sim_id": None if descriptor.only_run is None else descriptor.only_run.sim_id,
         "root_search": descriptor.root_search,
-        "search_space": descriptor.search_space,
+        "bounds": {
+            name: bound.model_dump(mode="json") for name, bound in descriptor.bounds.items()
+        },
         "config": config,
     }
     phases = session.phases
@@ -142,13 +144,22 @@ def _session_frame(session_dir: Path) -> pd.DataFrame:
                 "status": phase.status,
                 "phase_name": phase.name,
                 "phase_index": phase.index,
-                "frozen": dict(phase.frozen),
+                "frozen": {
+                    name: value.model_dump(mode="json") for name, value in phase.frozen.items()
+                },
                 "best_trial": phase.best.trial if phase.best is not None else None,
-                "best_sim_id": phase.best.sim_id if phase.best is not None else None,
+                "best_sim_id": _best_run_of(phase.best),
             }
             for phase in phases
         ]
     )
+
+
+def _best_run_of(best: BestTrial | None) -> str | None:
+    """Return the run of a best trial of one case, ``None`` otherwise."""
+    if best is None or len(best.cases) != 1:
+        return None
+    return next(iter(best.cases.values())).sim_id
 
 
 def calibration_sessions(source: Any) -> pd.DataFrame:

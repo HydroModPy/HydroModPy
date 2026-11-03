@@ -74,7 +74,7 @@ def test_the_message_names_the_failed_trial_not_the_rule(tmp_path: Path, one_fai
     path = tmp_path / "calibration.toml"
     path.write_text(PROBE_TOML, encoding="utf-8")
 
-    report = run_calibration_cli(path, workspace=tmp_path, return_report=True)
+    report = run_calibration_cli(path, workspace=tmp_path)
 
     descriptor = read_session(report.session_dir)
     assert report.extra["search"]["converged"] is True

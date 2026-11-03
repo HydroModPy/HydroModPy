@@ -47,7 +47,7 @@ def _search(optimizer, max_trials: int | str, calls: list[int]) -> CalibrationEn
         return EvaluationResult(
             trial_id=sugg.trial_id,
             sim_id=None,
-            objective_value=float(sugg.values["Sy"]),
+            cost=float(sugg.values["Sy"]),
             status="completed",
         )
 

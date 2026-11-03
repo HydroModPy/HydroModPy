@@ -216,7 +216,7 @@ class TestGeometry:
             observed_position_accuracy_m=75.0,
         )
         # The error floor comes from the network's own precision, which a finer
-        # mesh does not improve. It widens Eq. 4, and roptim keeps h_obs.
+        # mesh does not improve. It widens Eq. 4, and r_optim keeps h_obs.
         assert geometry.h_obs_m == pytest.approx(CELL_SIZE)
         validity = geometry.validity_length()
         assert validity.length_m == pytest.approx(150.0)
@@ -266,8 +266,8 @@ class TestEndToEnd:
         for key in (
             "net.D_so",
             "net.D_os",
-            "net.Doptim",
-            "net.roptim",
+            "net.D_optim",
+            "net.r_optim",
             "net.n_valid",
             "net.n_excess",
             "net.n_missing",
@@ -278,7 +278,7 @@ class TestEndToEnd:
             "net.alpha_obs_closure_catchment",
             "net.frac_obs_outside_catchment",
             "net.frac_reachable_obs_raw",
-            "net.L_ref",
+            "net.h_obs",
             "net.L_cap",
         ):
             assert key in diagnostics, key
@@ -314,7 +314,7 @@ class TestEndToEnd:
             on_roptim_violation="error",
         )
         assert np.isfinite(simulated["net"][0])
-        assert "roptim" not in caplog.text
+        assert "r_optim" not in caplog.text
 
     def test_each_trial_still_records_the_ratio_and_its_verdict(
         self, monkeypatch, bench, stream_file
@@ -327,8 +327,8 @@ class TestEndToEnd:
             validity_length="1 mm",
             observed_rasterization="crossing",
         )
-        assert diagnostics["net.Doptim"] > 1e-3
-        assert diagnostics["net.roptim_valid"] == 0.0
+        assert diagnostics["net.D_optim"] > 1e-3
+        assert diagnostics["net.r_optim_valid"] == 0.0
         assert diagnostics["net.validity_length_m"] == pytest.approx(1e-3)
         assert diagnostics["net.validity_length_provenance"] == 3.0
 
@@ -338,9 +338,9 @@ class TestEndToEnd:
         _, diagnostics = self._extract(monkeypatch, bench, stream_file, 200.0)
         assert diagnostics["net.validity_length_m"] == pytest.approx(2.0 * CELL_SIZE)
         assert diagnostics["net.validity_length_provenance"] == 0.0
-        assert diagnostics["net.roptim"] == pytest.approx(diagnostics["net.Doptim"] / CELL_SIZE)
-        assert diagnostics["net.roptim_valid"] == float(
-            diagnostics["net.Doptim"] <= 2.0 * CELL_SIZE
+        assert diagnostics["net.r_optim"] == pytest.approx(diagnostics["net.D_optim"] / CELL_SIZE)
+        assert diagnostics["net.r_optim_valid"] == float(
+            diagnostics["net.D_optim"] <= 2.0 * CELL_SIZE
         )
 
     def test_the_secondary_diagnostics_travel_beside_the_pair(
@@ -389,7 +389,7 @@ class TestTheRefusalOfAnUnreachableSupport:
                 "frac_unreachable_so": 0.42,
                 "frac_unreachable_os": 0.11,
                 "D_os": 0.0,
-                "roptim": 0.0,
+                "r_optim": 0.0,
             },
         )
         monkeypatch.setattr(_solver_extract, "score_on_geometry", lambda *args, **kwargs: failed)

@@ -36,7 +36,7 @@ from typing import TYPE_CHECKING, Final
 if TYPE_CHECKING:
     import duckdb
 
-INDEX_SCHEMA_VERSION: Final[str] = "9"
+INDEX_SCHEMA_VERSION: Final[str] = "10"
 """Version of the index schema. A different value in a file means: rebuild it."""
 
 INDEX_META_TABLE: Final[str] = "index_meta"
@@ -239,21 +239,16 @@ CREATE TABLE simulations (
     calibrated_by_session_status  VARCHAR,
     calibrated_by_window_start    DATE,
     calibrated_by_window_end      DATE,
+    calibrated_by_metric          VARCHAR,
+    calibrated_by_cost            DOUBLE,
     validities_failed             VARCHAR,
     fatal_failed                  BOOLEAN NOT NULL,
     bounds_hit                    VARCHAR,
     code_reproducible             BOOLEAN,
     nse                           DOUBLE,
-    nse_window_start              DATE,
-    nse_window_end                DATE,
-    nse_n                         BIGINT,
-    nse_station                   VARCHAR,
-    nse_variable                  VARCHAR,
+    score_station                 VARCHAR,
+    score_variable                VARCHAR,
     metric_rule_version           VARCHAR,
-    objective_name                VARCHAR,
-    objective_value               DOUBLE,
-    objective_window_start        DATE,
-    objective_window_end          DATE,
     label                         VARCHAR NOT NULL
                                   CHECK (label IN ('exploratory', 'calibrated', 'evaluated', 'failed')),
     label_date                    DATE NOT NULL,
@@ -293,15 +288,17 @@ CREATE TABLE metrics (
     variable             VARCHAR,
     metric_name          VARCHAR NOT NULL,
     value                DOUBLE,
-    nse_window_start     DATE,
-    nse_window_end       DATE,
-    nse_n                BIGINT,
+    window_name          VARCHAR,
+    window_role          VARCHAR,
+    window_start         DATE,
+    window_end           DATE,
+    n_samples            BIGINT,
     n_clipped            BIGINT,
     n_sim_nan            BIGINT,
     metric_rule_version  VARCHAR
 );
 
-CREATE INDEX ix_metrics_sim_metric ON metrics(sim_id, metric_name);
+CREATE INDEX ix_metrics_sim_metric ON metrics(sim_id, metric_name, window_name);
 
 CREATE TABLE runs_environment (
     sim_id                UUID PRIMARY KEY,
@@ -403,64 +400,86 @@ _SESSIONS = """
 CREATE TABLE calibration_sessions (
     session_id             VARCHAR PRIMARY KEY,
     rel_dir                VARCHAR NOT NULL,
-    site                   VARCHAR,
     case_id                VARCHAR NOT NULL,
     project                VARCHAR,
     config_hash            VARCHAR NOT NULL,
     hydromodpy_version     VARCHAR NOT NULL,
     method                 VARCHAR NOT NULL,
-    search_space           JSON,
-    objective_name         VARCHAR NOT NULL,
-    objective_window_start DATE,
-    objective_window_end   DATE,
+    sites                  JSON NOT NULL,
+    bounds                 JSON,
+    cost_name              VARCHAR NOT NULL,
+    windows                JSON,
     n_trials               INTEGER NOT NULL,
     best_trial             INTEGER,
-    best_sim_id            VARCHAR,
-    best_rel_dir           VARCHAR,
-    best_objective         DOUBLE,
+    best_cost              DOUBLE,
     status                 VARCHAR NOT NULL,
     started_at             TIMESTAMPTZ NOT NULL,
     ended_at               TIMESTAMPTZ,
     error_message          VARCHAR,
-    root_search            JSON
+    root_search            JSON,
+    widths                 JSON
 );
 
 CREATE UNIQUE INDEX ux_cal_session_rel_dir ON calibration_sessions(rel_dir);
 CREATE INDEX ix_cal_session_case ON calibration_sessions(case_id);
 
+CREATE TABLE calibration_session_cases (
+    session_id   VARCHAR NOT NULL,
+    case_id      VARCHAR NOT NULL,
+    site         VARCHAR,
+    config_hash  VARCHAR NOT NULL,
+    best_sim_id  VARCHAR,
+    best_rel_dir VARCHAR,
+    best_cost    DOUBLE
+);
+
+CREATE UNIQUE INDEX ux_cal_session_case ON calibration_session_cases(session_id, case_id);
+CREATE INDEX ix_cal_session_case_site ON calibration_session_cases(site);
+
 CREATE TABLE calibration_phases (
-    session_id     VARCHAR NOT NULL,
-    phase_id       VARCHAR NOT NULL,
-    name           VARCHAR NOT NULL,
-    phase_index    INTEGER NOT NULL,
-    status         VARCHAR NOT NULL,
-    frozen         JSON,
-    best_trial     INTEGER,
-    best_sim_id    VARCHAR,
-    best_objective DOUBLE,
-    restarts       INTEGER NOT NULL
+    session_id  VARCHAR NOT NULL,
+    phase_id    VARCHAR NOT NULL,
+    name        VARCHAR NOT NULL,
+    phase_index INTEGER NOT NULL,
+    status      VARCHAR NOT NULL,
+    frozen      JSON,
+    windows     JSON,
+    best_trial  INTEGER,
+    best_cost   DOUBLE,
+    restarts    INTEGER NOT NULL
 );
 
 CREATE INDEX ix_cal_phases_session ON calibration_phases(session_id);
 
 CREATE TABLE calibration_iterations (
-    session_id   VARCHAR NOT NULL,
-    trial        INTEGER NOT NULL,
-    phase        VARCHAR NOT NULL,
-    restart      INTEGER NOT NULL,
-    params       JSON NOT NULL,
-    params_hash  VARCHAR,
-    objective    DOUBLE,
-    metrics      JSON,
-    status       VARCHAR NOT NULL,
-    started_at   TIMESTAMPTZ NOT NULL,
-    ended_at     TIMESTAMPTZ,
-    sim_id       VARCHAR,
-    rel_dir      VARCHAR
+    session_id VARCHAR NOT NULL,
+    trial      INTEGER NOT NULL,
+    phase      VARCHAR NOT NULL,
+    restart    INTEGER NOT NULL,
+    params     JSON NOT NULL,
+    cost       DOUBLE,
+    status     VARCHAR NOT NULL,
+    started_at TIMESTAMPTZ NOT NULL,
+    ended_at   TIMESTAMPTZ
 );
 
 CREATE UNIQUE INDEX ux_cal_iter_session_trial ON calibration_iterations(session_id, trial);
-CREATE INDEX ix_cal_iter_sim ON calibration_iterations(sim_id);
+
+CREATE TABLE calibration_trial_cases (
+    session_id  VARCHAR NOT NULL,
+    trial       INTEGER NOT NULL,
+    case_id     VARCHAR NOT NULL,
+    cost        DOUBLE,
+    status      VARCHAR NOT NULL,
+    params_hash VARCHAR,
+    from_cache  BOOLEAN NOT NULL,
+    components  JSON,
+    sim_id      VARCHAR,
+    rel_dir     VARCHAR
+);
+
+CREATE UNIQUE INDEX ux_cal_trial_case ON calibration_trial_cases(session_id, trial, case_id);
+CREATE INDEX ix_cal_trial_case_sim ON calibration_trial_cases(sim_id);
 """
 
 INDEX_DDL: Final[str] = _DIMENSIONS + _CASES + _SIMULATIONS + _SESSIONS
@@ -479,7 +498,12 @@ SIMULATION_CHILD_TABLES: Final[tuple[str, ...]] = (
 )
 """Tables keyed by ``sim_id`` that go with a ``simulations`` row."""
 
-SESSION_CHILD_TABLES: Final[tuple[str, ...]] = ("calibration_phases", "calibration_iterations")
+SESSION_CHILD_TABLES: Final[tuple[str, ...]] = (
+    "calibration_session_cases",
+    "calibration_phases",
+    "calibration_iterations",
+    "calibration_trial_cases",
+)
 """Tables keyed by ``session_id`` that go with a ``calibration_sessions`` row."""
 
 

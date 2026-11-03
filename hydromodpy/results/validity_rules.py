@@ -19,7 +19,7 @@ Labels, in order of precedence
    touches a quantity of the run. The run is declassed, whatever else it is.
 4. ``evaluated``: the run is calibrated (rule 5 holds) and was scored, with
    at least ``ValidityRules.min_scored_samples`` samples, on a window that
-   shares no day with the window the session scored (``calibrated_by.window``,
+   shares no day with the windows the session scored (``calibrated_by.windows``,
    bounds included). It is a split-sample: the calibrated parameters judged on
    days the search never saw. A window that overlaps the calibration window
    without being equal to it keeps the run ``calibrated``, with a reason that
@@ -78,7 +78,7 @@ from pydantic import Field
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.stored import Vocabulary
 from hydromodpy.results.checks import CalibrationSessionStatus, Checks
-from hydromodpy.results.metric_rule import DateWindow
+from hydromodpy.results.metric_rule import CALIBRATION_ROLE, DateWindow
 
 RULE_VERSION: Final[str] = "2"
 """Version of the labelling rules. Bump it when a label changes meaning."""
@@ -215,11 +215,17 @@ def label_for(
     scored = window is not None and (checks.n_samples or 0) >= active.min_scored_samples
     if by is not None and by.session_status in active.calibrated_session_statuses:
         promoted = f"promoted by session {by.session_id}, {by.session_status}"
-        if scored and by.window is not None and window != by.window:
+        searched = [
+            DateWindow(start=period.start, end=period.end)
+            for period in by.windows.values()
+            if period.role == CALIBRATION_ROLE
+        ]
+        if scored and searched and window not in searched:
             assert window is not None
             scoring = f"scored on {window.start} to {window.end} with {checks.n_samples} samples"
-            calibration = f"the calibration window {by.window.start} to {by.window.end}"
-            if _share_a_day(window, by.window):
+            start, end = min(p.start for p in searched), max(p.end for p in searched)
+            calibration = f"the calibration window {start} to {end}"
+            if any(_share_a_day(window, period) for period in searched):
                 reason = (
                     f"scored on a window that overlaps {calibration} "
                     f"(run window {window.start} to {window.end}, {checks.n_samples} samples)"

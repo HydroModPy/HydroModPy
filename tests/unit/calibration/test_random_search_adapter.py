@@ -50,7 +50,7 @@ def _quadratic(sugg: ParamSuggestion) -> EvaluationResult:
     return EvaluationResult(
         trial_id=sugg.trial_id,
         sim_id=f"sim-{sugg.trial_id}",
-        objective_value=cost,
+        cost=cost,
         status="completed",
     )
 
@@ -151,9 +151,9 @@ class TestTellAndBest:
         opt.tell(results)
         best = opt.best()
         assert best is not None
-        expected = min(results, key=lambda r: r.objective_value)
+        expected = min(results, key=lambda r: r.cost)
         assert best.trial_id == expected.trial_id
-        assert best.objective_value == pytest.approx(expected.objective_value)
+        assert best.cost == pytest.approx(expected.cost)
 
     def test_tell_accumulates_history_across_batches(self) -> None:
         """``best`` reflects the global minimum over several tell batches."""
@@ -165,8 +165,8 @@ class TestTellAndBest:
             all_results.extend(batch)
         best = opt.best()
         assert best is not None
-        global_min = min(all_results, key=lambda r: r.objective_value)
-        assert best.objective_value == pytest.approx(global_min.objective_value)
+        global_min = min(all_results, key=lambda r: r.cost)
+        assert best.cost == pytest.approx(global_min.cost)
 
     def test_random_search_approaches_convex_minimum(self) -> None:
         """Dense random sampling of a convex bowl gets close to the optimum."""
@@ -177,7 +177,7 @@ class TestTellAndBest:
         assert best is not None
         # Min cost is 0 at (1, 15); 2000 uniform draws over an 8x10 box land
         # comfortably below this loose bound without touching the optimum.
-        assert best.objective_value < 0.5
+        assert best.cost < 0.5
 
     def test_failed_trials_are_excluded_from_best(self) -> None:
         """Non-completed results never win even with a lower objective."""
@@ -186,20 +186,20 @@ class TestTellAndBest:
         good = EvaluationResult(
             trial_id=sugg[0].trial_id,
             sim_id="good",
-            objective_value=10.0,
+            cost=10.0,
             status="completed",
         )
         cheaper_but_failed = EvaluationResult(
             trial_id=sugg[1].trial_id,
             sim_id="bad",
-            objective_value=-1.0,
+            cost=-1.0,
             status="failed",
         )
         opt.tell([good, cheaper_but_failed])
         best = opt.best()
         assert best is not None
         assert best.trial_id == good.trial_id
-        assert best.objective_value == pytest.approx(10.0)
+        assert best.cost == pytest.approx(10.0)
 
     def test_best_is_none_when_all_trials_failed(self) -> None:
         opt = build_optimizer("random_search", _space(), seed=1)
@@ -209,7 +209,7 @@ class TestTellAndBest:
                 EvaluationResult(
                     trial_id=s.trial_id,
                     sim_id=None,
-                    objective_value=0.0,
+                    cost=0.0,
                     status="failed",
                 )
                 for s in sugg

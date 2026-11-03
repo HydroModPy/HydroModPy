@@ -250,11 +250,11 @@ A session folder
    ├── outcome.json
    ├── README.md           method, phases, best trial, the promoted run and its sim_id
    ├── config.toml         the resolved configuration of the case: the base of a promotion replay
-   ├── session.json        site, session_id, config_hash, search_space, best trial, status
-   ├── trials.jsonl        one trial per line; trial unique within the case; phase, restart, sim_id
+   ├── session.json        session_id, sites, cases, bounds, cost, windows, best trial, status
+   ├── trials.jsonl        one trial per line; trial unique within the session; phase, restart, cases
    ├── methods.md
-   ├── phases/<phase>/     session.json of the phase: status, frozen values, best
-   ├── trials/<nnnn>/      kept trials, each shaped like a run
+   ├── phases/<phase>/     session.json of the phase: status, frozen values, best, cost, windows
+   ├── trials/<nnnn>/      kept trials, each shaped like a run; <nnnn>/<case_id>/ with several cases
    ├── trial_series/       opt-in scored series per trial (persist_trial_series)
    ├── candidates/         TOML overlays of the candidates (materialize_candidates)
    ├── figures/            trajectory, cost profile
@@ -266,13 +266,40 @@ before the first trial, one line per trial as it completes, the descriptor again
 the outcome. An interrupted calibration keeps every trial it evaluated. A trial number is unique
 within a case across phases and restarts; a number written twice is one trial written twice and
 the last line wins. ``ALLOWED_SESSION_ENTRIES`` in ``hydromodpy/results/storage/contract.py`` lists
-the names.
+the names. While a search runs it writes ``logs/heartbeat.json``, the pulse a run writes, so a live
+session does not read as abandoned.
+
+A session is one search over one or several cases, and it stores everything by table. Whatever
+depends on a case has the ``case_id`` as its key, with one entry for a session of one case. Whatever
+depends on a period has the name of that period as its key, with one entry for a search with one
+window. So a reader of ``session.v4``, ``phase.v2`` and ``trial.v2`` already walks N cases and N
+periods, and a joint calibration or a validation period adds keys, not meanings.
+
+- ``session.json`` holds ``sites``, ``cases`` (site, config hash, frozen file, cost and the
+  fingerprint of each member of the cache key, by phase), ``bounds``, ``cost_name``, ``cost_label``,
+  ``windows``, ``scored``, ``best`` and ``widths``. Its ``case_id`` and ``config_hash`` name the case
+  of the plan that this directory is. ``widths`` stays empty until something computes a width.
+- A period of ``windows`` has a ``role``: ``calibration`` is what the search scores, ``validation`` is
+  kept apart from it and scored beside it, ``evaluation`` is ``[metrics] window`` of a run. Another
+  word reads as it is, and no computation counts it as calibration. ``by_case`` gives the window of
+  each case when they differ.
+- ``best`` holds one trial, one ``cost`` and one set of ``parameters``, those a phase froze included,
+  and ``cases`` holds the run and the cost of that trial in each case. ``cost`` is null when a search
+  keeps no single cost, and ``best`` is null when it keeps no single best.
+- A line of ``trials.jsonl`` holds the ``params`` the search proposed, the ``cost`` it minimised, and
+  ``cases``: for each case its cost, the ``components`` that make it, its ``params_hash``, its run,
+  its ``error`` and a free ``detail``. A cached trial reads ``components`` and the cost, and never the
+  run of another session.
+- The key of the trial cache reads the code by a fingerprint per layer, and the configuration as it
+  was written. A release that touches no computing code keeps ``--resume`` and the cache working, and
+  a refusal of ``--resume`` names the member of the key that differs.
 
 A calibration session and its promoted run are siblings, ``sessions/<case>/`` and
 ``runs/<case>/``, with the same version: the session reserves ``N`` and the promoted run takes it.
-The link between the two is ``manifest.lineage.session_id`` and ``session.json`` ``best.sim_id``;
-the identical name is a convenience for ``ls``. A case of calibration is done when its
-``session.json`` says ``completed`` for the config hash of the plan.
+The link between the two is ``manifest.lineage.session_id`` and ``best.cases.<case_id>.sim_id`` of
+``session.json``; the identical name is a convenience for ``ls``. In a joint session a run takes
+the name of its case. A case of calibration is done when its ``session.json`` says ``completed`` for
+the config hash of the plan.
 
 Above the run
 -------------
@@ -398,7 +425,8 @@ Every document HydroModPy writes carries its version: a ``schema`` id (``outcome
 and ``published.jsonl``, ``plan.json``, ``PUBLICATION.json``, the ledgers ``index.json``,
 ``<file>.meta.json``, ``logs/heartbeat.json``, ``facts.json``, ``steps.json``,
 ``launcher.lease``, ``hydromodpy.lock``), an integer (``manifest_version``, ``provenance_version``,
-``annotations_version``), ``zarr_schema_version`` on a store, ``hmp.schema_version`` on a Parquet table, or the
+``annotations_version``), ``schema`` on the ``checks`` block of a manifest,
+``zarr_schema_version`` on a store, ``hmp.schema_version`` on a Parquet table, or the
 ``schema_version`` row of the index. The documents of a job directory carry a ``schema`` id of
 their own, such as ``hmp-outcome/v1`` (``manifest.json``, ``inputset.json``, ``provenance.json``,
 ``outcome.json``, and ``chain-outcome.json`` at the root of a chain), and follow the same rule.
@@ -460,8 +488,10 @@ plan the command knows no case.
 
 The one migration of a file HydroModPy keeps is the grammar of a configuration
 (``config/config_migration.py``, applied on load; ``hmp doctor --fix-config <file>`` rewrites
-the file in place). ``tests/unit/results/test_every_document_carries_its_version.py`` holds the
-rule and lists the exempt files with their reason.
+the file in place). A file another one inherits stays as it is when its rewrite hangs on a key only
+that child writes, since a sibling can write another one, and the doctor says what to write.
+``tests/unit/results/test_every_document_carries_its_version.py`` holds the rule and lists the
+exempt files with their reason.
 
 Attempt protocol
 ----------------
@@ -803,7 +833,7 @@ Parquet format ``2.6`` written through ``write_table_atomic`` (temporary
 file plus ``os.replace``) with ZSTD level 5, 50 000-row groups, page
 index and bloom filters on the primary-key columns where the linked
 pyarrow build supports them. Each file carries
-``hmp.schema_version = "v2"`` plus its schema name, primary key and the
+``hmp.schema_version = "v3"`` plus its schema name, primary key and the
 run's ``identity`` block in Parquet key-value metadata, and is exposed as a DuckDB
 view named after the payload.
 
@@ -820,8 +850,18 @@ mesh above), ``provenance`` and the GeoParquet 1.1 layers ``geographic_*``. Thei
 
 ``simulation.parquet`` is written by the run from its ``RunRecord``: it carries ``project``,
 ``site``, ``site_fingerprint``, ``recipe``, ``case_id``, ``rel_dir``, ``attempt``, ``attempt_id``,
-the flattened ``checks``, and the metric rule columns ``nse_window_start``, ``nse_window_end``,
-``nse_n`` and ``metric_rule_version``. Without a declared gauge and window, ``nse`` is null.
+the flattened ``checks``, ``nse`` and where it was read (``score_station``, ``score_variable``) and
+``metric_rule_version``. ``score_window_start``, ``score_window_end`` and ``n_samples`` give the window
+and the pairs of the headline score. A promoted run carries the cost of its case in
+``calibrated_by_metric`` and ``calibrated_by_cost``, and ``calibrated_by_window_start`` and
+``calibrated_by_window_end`` span the periods of role ``calibration`` its case read. Without a
+declared gauge and window, ``nse`` is null.
+
+``metrics.parquet`` holds one row per metric, station, variable and period, keyed on ``sim_id``,
+``station_id``, ``variable``, ``metric`` and ``window_name``. The scores of a run and the numbers of
+the run itself (``variable = "runtime"``, with no period) both land there, through one writer. The
+period ``metrics`` is ``[metrics] window``, of role ``evaluation``, and it is the headline: a reader
+that wants one row per metric filters on it, so a validation period can sit beside it.
 ``parameters.parquet`` carries ``calibrated`` and ``origin`` (``declared``, ``site_table``,
 ``site_override``, ``recipe`` or ``calibrated``).
 
@@ -882,6 +922,12 @@ key and both values. It warns when the solver binary is not the one ``provenance
 naming both versions. Once it has run, it says what its build decided otherwise and which file it
 read that the source did not. ``hydromodpy.lock`` keeps its role for a project TOML.
 
+A replay never writes into the run it replays. A ``config.toml`` under ``<project>/runs/<name>/``,
+or in a kept trial of a session, answers for ``<project>``, with or without a ``project.toml``. A
+copy of a run outside any project is refused, and the refusal names the way out,
+``hmp run <copy>/config.toml --frozen -w <project>``: the new run goes to that project and reads
+its inputs there.
+
 The configuration of a sealed run is two files. ``config.toml`` holds what the run was given,
 overrides included, and a validator that tells a written key from its default answers on it as it
 did on the run. ``config.resolved.toml`` holds every key with its value, and is never read back as
@@ -892,6 +938,12 @@ the ETP the data step injected, with ``surface_offset_m`` and its reference, the
 took from the DEM pixel (``pixel``, ``cell_size``, ``river_cell_size``, ``river_band``), and the
 station a run deduced. What the solver adapter decides later goes to ``provenance.json``, block
 ``solver.options``: the IMS complexity and the XT3D decision of MODFLOW 6.
+
+A run describes its own solve. The run a calibration promotes, a kept trial and the best of a phase
+write the parameters they ran with, ``[workflow] mode = "simulation"`` and no ``[calibration]``, so
+a replay solves once and searches nothing. ``lineage`` and ``checks.calibrated_by`` name the session.
+The ``[calibration]`` section goes to the table ``[searched_under]`` of ``config.resolved.toml``,
+where a redraw of the network criterion reads it, so a copy of the run needs no session.
 
 Publishing and packages
 -----------------------

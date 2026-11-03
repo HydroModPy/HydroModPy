@@ -168,8 +168,8 @@ def test_the_criterion_of_the_document_moves_the_cost_and_not_the_model(tmp_path
     assert _model_digest() == before
     assert squared_error["best_parameters"]["k"] == pytest.approx(1e-4)
     assert efficiency["best_parameters"]["k"] == pytest.approx(1e-4)
-    assert float(squared_error["best_objective"]) != pytest.approx(
-        float(efficiency["best_objective"]), rel=1e-6
+    assert float(squared_error["best_cost"]) != pytest.approx(
+        float(efficiency["best_cost"]), rel=1e-6
     )
 
 
@@ -203,8 +203,8 @@ def test_the_weights_of_the_document_choose_which_record_the_search_believes(
     # The same cost on both sides: what the weights moved is which record is
     # believed, not the scale of the number. A search that reported a different
     # cost here would be scoring something the swap was not supposed to touch.
-    assert float(trusts_gauge["best_objective"]) == pytest.approx(
-        float(trusts_revision["best_objective"]), rel=1e-9
+    assert float(trusts_gauge["best_cost"]) == pytest.approx(
+        float(trusts_revision["best_cost"]), rel=1e-9
     )
 
 
@@ -225,7 +225,7 @@ def test_no_hydromodpy_model_is_prepared_for_a_document_that_names_a_forward_mod
     monkeypatch.setattr(cli_runner, "prepare_trials", refuse)
     report, _ = _calibrate(tmp_path, "unprepared")
 
-    assert report["n_iterations"] == 25
+    assert report["n_trials"] == 25
     assert Path(report["workspace"]) == tmp_path
 
 

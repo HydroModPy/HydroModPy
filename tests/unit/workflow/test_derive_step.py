@@ -105,7 +105,7 @@ def test_the_run_is_scored_under_its_rule_and_the_facts_carry_the_result(tmp_pat
         # The observed days are put on the simulated periods before scoring, so
         # a series paired with itself is close to one, not one.
         assert score.value is not None and 0.5 < score.value <= 1.0
-        assert score.nse_n > 0 and score.nse_window_end.isoformat() == "2020-01-31"
+        assert score.n_samples > 0 and score.window_end.isoformat() == "2020-01-31"
         metrics = {row.metric for row in store.facts.metrics if row.station == "J0014010"}
         assert {"nse", "kge", "rmse", "nse_log"} <= metrics
 
@@ -137,7 +137,7 @@ def test_without_a_declared_gauge_the_run_is_scored_at_the_gauge_it_deduced(tmp_
 
         score = store.facts.score
         assert score is not None and score.station == "J0014010"
-        assert score.value is not None and score.nse_n > 0
+        assert score.value is not None and score.n_samples > 0
 
 
 def test_without_a_window_the_headline_is_empty_and_says_so(tmp_path) -> None:
@@ -149,7 +149,7 @@ def test_without_a_window_the_headline_is_empty_and_says_so(tmp_path) -> None:
         derive_module.score_run_under_its_rule(SimpleNamespace(cfg=cfg), store=store)
 
         assert store.facts.score is not None
-        assert store.facts.score.value is None and store.facts.score.nse_n == 0
+        assert store.facts.score.value is None and store.facts.score.n_samples == 0
         assert store.facts.metrics == []
 
 

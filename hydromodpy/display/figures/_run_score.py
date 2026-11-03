@@ -77,7 +77,7 @@ def run_score(run: Run, *, stations: Sequence[str], variable: str) -> RunScore |
         if not values:
             continue
         first = rows.iloc[0]
-        start, end, n = first["nse_window_start"], first["nse_window_end"], first["nse_n"]
+        start, end, n = first["window_start"], first["window_end"], first["n_samples"]
         if pd.isna(start) or pd.isna(end) or pd.isna(n):
             continue
         return RunScore(

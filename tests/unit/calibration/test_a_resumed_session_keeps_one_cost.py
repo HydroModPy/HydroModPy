@@ -19,37 +19,26 @@ from typing import Any
 import pytest
 
 from hydromodpy.calibration import persistence as persistence_module
-from hydromodpy.calibration.optim.cache import params_hash
+from hydromodpy.calibration.optim.cache import context_fingerprints, params_hash
 from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
 from hydromodpy.calibration.persistence import CalibrationPersistence, PhaseContext
 from hydromodpy.calibration.runners.cli_runner import refuse_a_phase_another_cost_scored
 from hydromodpy.core.exceptions import CalibrationError
-from hydromodpy.results.metric_rule import DateWindow
 from hydromodpy.results.outcome import read_outcome, write_outcome
+from tests._helpers.session_documents import session_opening
 
 pytestmark = pytest.mark.unit
 
 PHASE = PhaseContext(name="steady_k")
-SCORED_BEFORE = {"schema": "test", "objective_window": "2001-2002"}
-SCORED_NOW = {"schema": "test", "objective_window": "2001-2003"}
+SCORED_BEFORE = {"schema": "test", "calibration": "2001-2002"}
+SCORED_NOW = {"schema": "test", "calibration": "2001-2003"}
 
 
 def _session(tmp_path: Path) -> CalibrationPersistence:
     session_dir = tmp_path / "sessions" / "calage"
     session_dir.mkdir(parents=True)
     persistence = CalibrationPersistence(session_dir)
-    persistence.start_session(
-        session_id="a" * 32,
-        case_id="calage",
-        site=None,
-        project="demo",
-        config_hash="c" * 64,
-        hydromodpy_version="2.0.0a5",
-        method="grid",
-        objective_name="nse",
-        search_space={"K": {"bounds": [1e-6, 1e-3]}},
-        objective_window=DateWindow(start="2001-01-01", end="2002-12-31"),
-    )
+    persistence.start_session(**session_opening("calage"))
     return persistence
 
 
@@ -60,9 +49,7 @@ def _journal(persistence: CalibrationPersistence, k: float, *, context: dict | N
         metadata["params_hash"] = params_hash(values, context=context)
     persistence.append_iteration(
         ParamSuggestion(trial_id=1, values=values),
-        EvaluationResult(
-            trial_id=1, sim_id=None, objective_value=0.1, status="completed", metadata=metadata
-        ),
+        EvaluationResult(trial_id=1, sim_id=None, cost=0.1, status="completed", metadata=metadata),
         phase=PHASE,
     )
 
@@ -74,12 +61,22 @@ class TestTheCostOfAReopenedPhase:
 
         refuse_a_phase_another_cost_scored(persistence, PHASE.name, SCORED_BEFORE)
 
-    def test_trials_another_cost_scored_stop_the_search(self, tmp_path) -> None:
+    @pytest.mark.parametrize(
+        ("recorded", "changed"),
+        [(True, "calibration changed since"), (False, "calibration, schema changed since")],
+    )
+    def test_trials_another_cost_scored_stop_the_search(
+        self, tmp_path, recorded: bool, changed: str
+    ) -> None:
         persistence = _session(tmp_path)
         _journal(persistence, 1e-5, context=SCORED_BEFORE)
+        if recorded:
+            persistence.record_context(PHASE.name, context_fingerprints(SCORED_BEFORE))
 
-        with pytest.raises(CalibrationError, match="does not score the same way"):
+        with pytest.raises(CalibrationError, match="does not score the same way") as caught:
             refuse_a_phase_another_cost_scored(persistence, PHASE.name, SCORED_NOW)
+
+        assert changed in str(caught.value)
 
     def test_another_phase_is_not_read(self, tmp_path) -> None:
         persistence = _session(tmp_path)

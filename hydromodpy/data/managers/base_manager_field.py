@@ -12,6 +12,7 @@ from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.data.managers.base_manager_common import BaseManagerCommon
+from hydromodpy.data.registry.constants import SENTINEL_CUSTOM
 
 logger = get_logger(__name__)
 
@@ -277,21 +278,25 @@ class BaseFieldManager(BaseManagerCommon):
         )
 
     def _register_point_records(self, records: list[PointRecord]) -> None:
-        """Register all PointRecords in the catalog (metadata only)."""
+        """Register the PointRecords read from a file, or custom, in the catalog (metadata only).
+
+        A series a source generates has no file, so the catalog has nothing to name.
+        """
         if self.catalog is None:
             return
         for r in records:
+            if r.file_path is None and r.source != "custom":
+                continue
             bbox = None
             crs = None
             if r.location is not None:
                 bbox = (r.location.x, r.location.y, r.location.x, r.location.y)
                 crs = r.location.crs
-            fp = str(r.file_path) if r.file_path is not None else r.source
             self.catalog.register(
                 variable=self.VARIABLE_NAME,
                 source=r.source,
                 station_id=r.station_id,
-                file_path=fp,
+                file_path=SENTINEL_CUSTOM if r.file_path is None else str(r.file_path),
                 date_start=r.date_start,
                 date_end=r.date_end,
                 unit=r.unit,

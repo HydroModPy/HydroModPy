@@ -285,7 +285,7 @@ def build_calibration(
         return EvaluationResult(
             trial_id=sugg.trial_id,
             sim_id=sim.sim_id,
-            objective_value=obj.total,
+            cost=obj.total,
             components=dict(obj.components),
             status="completed",
             metadata={"values": dict(sugg.values)},

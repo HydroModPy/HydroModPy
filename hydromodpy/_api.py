@@ -45,7 +45,6 @@ if TYPE_CHECKING:
 
     from hydromodpy.analysis.comparison.compare import Comparison
     from hydromodpy.calibration import CalibrationReport
-    from hydromodpy.calibration.runners.staged_runner import StagedCalibrationReport
     from hydromodpy.config import HydroModPyConfig
     from hydromodpy.examples.install import InstallReport
     from hydromodpy.examples.manifest import ExampleEntry
@@ -435,10 +434,8 @@ def calibrate(
     config: ConfigLike,
     *,
     phase: str | None = None,
-    list_phases: bool = False,
-    expand: bool = False,
     **kwargs: Any,
-) -> CalibrationReport | StagedCalibrationReport | list[dict[str, Any]] | dict[str, Any]:
+) -> CalibrationReport:
     """Run a calibration workflow from a TOML file or config object.
 
     Paths route directly to :func:`run_calibration_cli`; in-memory config
@@ -452,6 +449,9 @@ def calibrate(
     :meth:`~hydromodpy.project.Project.calibrate` writes the document a staged
     run needs next to the project's ``sessions/`` and runs it from there.
 
+    To read what a file declares without running anything, use
+    :func:`calibration_phases`.
+
     Parameters
     ----------
     config
@@ -461,58 +461,29 @@ def calibrate(
         Run only the named phase. It still needs the parameters its dependency
         froze, so a phase whose dependency has not run is refused rather than
         calibrated against un-frozen values.
-    list_phases
-        Return the declared phases without running anything. Each names the
-        method it runs; a phase that names none gets the one its criteria call
-        for, and ``method_reason`` says why. ``interval_width`` gives the width
-        the phase reads its interval with and where it comes from: written in
-        the phase, in ``[calibration.uncertainty]``, or the default that follows
-        what the phase scores. A phase that moves again a parameter an earlier
-        phase passes on also names that phase, and says whether its engine
-        starts from the passed value.
-    expand
-        Return the ``[calibration]`` section a protocol unfolds into, instead
-        of running anything. Needs ``config`` to be a TOML path. A file naming
-        a protocol gets the whole section it unfolds into, without the
-        ``protocol`` key, so it can be pasted in its place; a file naming none
-        gets its own section back unchanged. Refused together with ``phase``
-        or ``list_phases``: expand answers what would run, it does not run it.
     kwargs
         Options forwarded to the underlying calibration runner. The
         ``headless`` keyword controls the project initialization for the
         in-memory config branch and is ignored for the TOML branch (which
-        builds no project). ``return_report=False`` returns the
-        ``to_dict()`` payload of the report instead of the report.
+        builds no project).
 
     Returns
     -------
-    CalibrationReport or StagedCalibrationReport or list or dict
-        A run returns a report object, whatever the source of the
-        configuration: a :class:`~hydromodpy.calibration.CalibrationReport`
-        for a calibration without phases (``best_parameters``,
-        ``best_objective``, ``best_sim_id``, ``session_id``), a
-        :class:`~hydromodpy.calibration.runners.staged_runner.StagedCalibrationReport`
-        for one that declares ``[[calibration.phases]]`` (``phases``, each
-        with its own ``CalibrationReport``, and ``frozen``). A ``list`` of
-        phase descriptions when ``list_phases`` is set. A ``dict`` with
-        ``"calibration"`` and ``"protocol"`` keys when ``expand`` is set:
-        ``"protocol"`` is ``None`` for a file naming no protocol, else a
-        ``dict`` with ``"name"``, ``"version"``, ``"citation"`` (the first
-        reference, short form) and ``"inherited"`` (true when the protocol
-        comes from the ``base_config``).
+    CalibrationReport
+        What the calibration found, with or without phases, whatever the
+        source of the configuration: ``best``, ``best_by_case``, ``best_cost``,
+        ``best_parameters``, ``best_cases``, ``phases``, ``frozen``, ``windows``,
+        ``session`` and ``trials``.
 
     Raises
     ------
     FileNotFoundError
         If the calibration TOML path does not exist.
-    ValueError
-        If ``expand`` is combined with ``phase`` or ``list_phases``, or given
-        a config object instead of a TOML path.
     hydromodpy.core.exceptions.ConfigError
         If the configuration cannot be read and the answer depends on reading
-        it (``phase``, ``list_phases`` or ``expand``), or if the preflight,
-        the checks of ``hmp config check``, refuses the calibration a run or a
-        dry run would start. Every error is named, before anything is prepared.
+        it (``phase``), or if the preflight, the checks of ``hmp config check``,
+        refuses the calibration a run would start. Every error is named, before
+        anything is prepared.
     hydromodpy.core.exceptions.ConfigMissingError
         If neither ``config_path`` nor ``parameters`` is supplied.
     hydromodpy.core.exceptions.CalibrationError
@@ -527,6 +498,8 @@ def calibrate(
 
     See Also
     --------
+    calibration_phases
+        What a calibration declares, with nothing run.
     hydromodpy.calibration.runners.cli_runner.run_calibration_cli
         TOML entry point used by the path branch.
     hydromodpy.calibration.runners.staged_runner.run_staged_calibration
@@ -536,34 +509,20 @@ def calibrate(
     hydromodpy.calibration.CalibrationReport
         Structured calibration result.
     """
-    if expand and (phase is not None or list_phases):
-        raise ValueError(
-            "calibrate(expand=True) cannot be combined with phase or list_phases: "
-            "expand answers what a protocol writes, it runs nothing."
-        )
-
     from hydromodpy.core.exceptions import CalibrationError, ConfigError
     from hydromodpy.project.dispatch.workflow import no_such_phase
 
     if isinstance(config, (str, Path)):
         target = Path(config).expanduser().resolve()
-        if expand:
-            return _expand_calibration_section(target)
 
         from hydromodpy.calibration.preflight import preflight_launch
         from hydromodpy.calibration.runners.cli_runner import (
             load_toml_calibration,
             run_calibration_cli,
         )
-        from hydromodpy.calibration.runners.staged_runner import (
-            phase_summaries,
-            run_staged_calibration,
-        )
+        from hydromodpy.calibration.runners.staged_runner import run_staged_calibration
 
         kwargs.pop("headless", None)
-        # A report object in every branch: the plain runner returns its dict
-        # unless asked, the staged runner its report.
-        kwargs.setdefault("return_report", True)
         # Probe the file to decide staged or not. When that decision is all
         # that hangs on the read, a failure is left to the runner, which
         # reports it with its own context. When the answer itself is what the
@@ -571,13 +530,11 @@ def calibrate(
         try:
             cfg, _raw = load_toml_calibration(target)
         except Exception as exc:
-            if list_phases or phase is not None:
+            if phase is not None:
                 raise ConfigError(f"{target} cannot be read: {exc}") from exc
             return run_calibration_cli(target, **kwargs)
-        if list_phases:
-            return phase_summaries(cfg)
-        # The gate of every launch, dry run included: what `hmp config check`
-        # refuses stops here, before anything is prepared.
+        # The gate of every launch: what `hmp config check` refuses stops here,
+        # before anything is prepared.
         preflight_launch(target)
         if cfg.phases:
             return run_staged_calibration(target, phase=phase, **kwargs)
@@ -585,15 +542,8 @@ def calibrate(
             raise CalibrationError(no_such_phase(target.name, phase))
         return run_calibration_cli(target, **kwargs)
 
-    if expand:
-        raise ValueError("calibrate(expand=True) needs a TOML path, not a config object.")
-
     calibration = getattr(config, "calibration", None)
     declared = getattr(calibration, "phases", None)
-    if list_phases:
-        from hydromodpy.calibration.runners.staged_runner import phase_summaries
-
-        return phase_summaries(calibration)
     if not declared and phase is not None:
         raise CalibrationError(no_such_phase("this configuration", phase))
 
@@ -604,6 +554,89 @@ def calibrate(
         kwargs["phase"] = phase
     with Project(config, headless=headless) as project:
         return project.calibrate(**kwargs)
+
+
+def calibration_phases(
+    config: ConfigLike,
+    *,
+    workspace: str | Path | None = None,
+    check: bool = False,
+) -> dict[str, Any]:
+    """Return what a calibration declares, with nothing run and nothing written.
+
+    Parameters
+    ----------
+    config
+        Path of the calibration TOML file (``str`` or :class:`pathlib.Path`),
+        or a validated :class:`~hydromodpy.config.HydroModPyConfig`.
+    workspace
+        Override the project root the ``plan`` of a TOML path names.
+    check
+        Run the checks of ``hmp config check`` first, as a launch does. A file
+        they refuse raises.
+
+    Returns
+    -------
+    dict
+        ``"phases"``: the declared phases, empty for a file with one search.
+        Each names the method it runs; a phase that names none gets the one
+        its criteria call for, and ``method_reason`` says why. ``interval_width``
+        gives the width the phase reads its interval with and where it comes
+        from. A phase that moves again a parameter an earlier phase passes on
+        also names that phase, and says whether its engine starts from the
+        passed value.
+
+        ``"calibration"``: the whole ``[calibration]`` section a protocol
+        unfolds into, without the ``protocol`` key, so it can be pasted in its
+        place. A file naming no protocol gets its own section back. A config
+        object gets its section as it stands.
+
+        ``"protocol"``: ``None`` for a file naming no protocol, else a ``dict``
+        with ``"name"``, ``"version"``, ``"citation"`` (the first reference,
+        short form) and ``"inherited"`` (true when the protocol comes from the
+        ``base_config``).
+
+        ``"plan"``: for a TOML path, what a launch would write: its ``case``,
+        ``session_dir``, ``run_dir``, ``version``, ``phases``,
+        ``solves_in_parallel`` and ``save_runs``. ``None`` for a config object.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the calibration TOML path does not exist.
+    hydromodpy.core.exceptions.ConfigError
+        If the configuration cannot be read, or if ``check`` refuses it.
+    """
+    from hydromodpy.calibration.runners.staged_runner import phase_summaries
+    from hydromodpy.core.exceptions import ConfigError
+
+    if not isinstance(config, (str, Path)):
+        section = getattr(config, "calibration", None)
+        return {
+            "phases": phase_summaries(section),
+            "calibration": section.model_dump(mode="json", exclude_none=True),
+            "protocol": None,
+            "plan": None,
+        }
+    from hydromodpy.calibration.preflight import preflight_launch
+    from hydromodpy.calibration.runners.cli_runner import (
+        describe_dry_run,
+        load_toml_calibration,
+    )
+
+    target = Path(config).expanduser().resolve()
+    expanded = _expand_calibration_section(target)
+    try:
+        cfg, _raw = load_toml_calibration(target)
+    except Exception as exc:
+        raise ConfigError(f"{target} cannot be read: {exc}") from exc
+    if check:
+        preflight_launch(target)
+    return {
+        "phases": phase_summaries(cfg),
+        **expanded,
+        "plan": describe_dry_run(cfg, target, workspace=workspace),
+    }
 
 
 def _expand_calibration_section(target: Path) -> dict[str, Any]:

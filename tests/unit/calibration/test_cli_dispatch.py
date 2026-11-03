@@ -216,4 +216,4 @@ objective = "nse"
         toml = _write_analytic_bowl_toml(tmp_path / "calib.toml")
 
         summary = run_calibration_cli(toml, objective="test_cli_dispatch_metric_mod:my_metric")
-        assert summary["n_iterations"] > 0
+        assert summary.n_trials > 0

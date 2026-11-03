@@ -21,6 +21,7 @@ outside a project, the folder of the root file of the chain.
 
 from __future__ import annotations
 
+import os
 import re
 import tomllib
 from collections.abc import Callable, Mapping, Sequence
@@ -30,7 +31,11 @@ from typing import TYPE_CHECKING, Any, TypeVar
 
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME, resolve_project_root
+from hydromodpy.core.state.paths import (
+    PROJECT_MARKER_FILENAME,
+    is_sealed_run_dir,
+    resolve_project_root,
+)
 from hydromodpy.core.toml_io.merge import merge_toml_payloads
 from hydromodpy.core.toml_io.overrides import ENV_SOURCE, SET_SOURCE
 from hydromodpy.core.toml_io.paths import is_declared_absolute_path
@@ -253,13 +258,18 @@ def config_base_dir(toml_path: str | Path) -> Path:
     """Return the folder relative paths of *toml_path* are read from.
 
     It is the project root: the folder holding ``project.toml`` at or above
-    the file. Outside a project it is the folder of the root file of the
+    the file, or the project of the run that froze the file. A sealed file writes
+    its paths from the project root, so ``HMP_PROJECT_ROOT`` (``-w``) answers for a
+    copy of a run. Outside a project it is the folder of the root file of the
     ``base_config`` chain, so a file that inherits another reads its paths
     where that other file does.
     """
     resolved = Path(toml_path).resolve()
+    named = os.environ.get("HMP_PROJECT_ROOT")
+    if named and is_sealed_run_dir(resolved.parent):
+        return Path(named).expanduser().resolve()
     root = resolve_project_root(resolved.parent)
-    if (root / PROJECT_MARKER_FILENAME).is_file():
+    if root != resolved.parent or (root / PROJECT_MARKER_FILENAME).is_file():
         return root
     return read_toml_chain(resolved, migrate=False)[0].path.parent
 

@@ -101,9 +101,9 @@ def _scored(run: _Run, *, nse_log: float = 0.8123) -> _Run:
                 "variable": "discharge",
                 "metric": "nse_log",
                 "value": nse_log,
-                "nse_window_start": datetime.date(2011, 1, 2),
-                "nse_window_end": datetime.date(2011, 1, 3),
-                "nse_n": 2,
+                "window_start": datetime.date(2011, 1, 2),
+                "window_end": datetime.date(2011, 1, 3),
+                "n_samples": 2,
                 "metric_rule_version": "1",
             }
         ]

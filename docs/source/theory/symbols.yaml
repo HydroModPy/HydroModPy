@@ -1348,21 +1348,21 @@ symbols:
     pages: [notation, downslope-distance]
   - id: doptim
     symbol: D_{optim}
-    meaning: ":math:`(D_{so} + D_{os}) / 2`, a diagnostic (``Doptim``)"
+    meaning: ":math:`(D_{so} + D_{os}) / 2`, a diagnostic (``D_optim``)"
     unit: m
     set_by: derived
     group: descent
     pages: [notation, downslope-distance]
   - id: hobs
     symbol: h_{obs}
-    meaning: cell size where the mapped network lies, the median distance between neighbouring cell centres over the mapped cells (``L_ref``)
+    meaning: cell size where the mapped network lies, the median distance between neighbouring cell centres over the mapped cells (``h_obs``)
     unit: m
     set_by: derived
     group: descent
     pages: [notation, downslope-distance]
   - id: roptim
     symbol: r_{optim}
-    meaning: ":math:`D_{optim} / h_{obs}`, the validity indicator (``roptim``)"
+    meaning: ":math:`D_{optim} / h_{obs}`, the validity indicator (``r_optim``)"
     unit: "-"
     set_by: derived
     group: descent

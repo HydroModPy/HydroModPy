@@ -230,9 +230,7 @@ ParameterUnits = Annotated[
 ]
 ObjectiveName = Annotated[
     str | None,
-    Opt(
-        'Column of the trial table read as the cost. Left out, "objective_value", else "objective".'
-    ),
+    Opt('Column of the trial table read as the cost. Left out, "cost", else "objective".'),
 ]
 ParameterNames = Annotated[
     list[str] | None,

@@ -76,7 +76,7 @@ def test_variable_and_objective_keep_the_24_months_of_the_run() -> None:
 
 
 def test_the_pairs_session_json_records_are_those_of_the_run() -> None:
-    # session.json -> objective_samples is read from these components.
+    # session.json -> scored is read from these components.
     observed, simulated = _series()
     outputs = {
         "q": validate_calib_output(

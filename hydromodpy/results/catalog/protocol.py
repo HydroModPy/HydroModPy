@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     import numpy as np
     import pandas as pd
 
+    from hydromodpy.results.manifest import MetricRow
     from hydromodpy.results.run import Run
     from hydromodpy.results.zarr_store import SimulationZarr
     from hydromodpy.results.zarr_store.mesh_layout import MeshLayout
@@ -177,21 +178,8 @@ class SimulationStore(Protocol):
     ) -> None:
         """Persist one named vector feature of ``sim_id``."""
 
-    def write_metric(
-        self,
-        sim_id: str | UUID,
-        station_id: str,
-        metric_name: str,
-        value: float,
-        *,
-        variable: str = "head",
-        n_samples: int | None = None,
-        n_clipped: int | None = None,
-        n_sim_nan: int | None = None,
-        period_start: Any | None = None,
-        period_end: Any | None = None,
-    ) -> None:
-        """Persist a scalar metric for ``sim_id`` at ``station_id``."""
+    def write_metric(self, sim_id: str | UUID, row: MetricRow) -> None:
+        """Persist one metric row of ``sim_id``."""
 
     def write_provenance(
         self,

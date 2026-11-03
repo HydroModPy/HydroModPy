@@ -32,7 +32,7 @@ def _stepped(sugg: ParamSuggestion) -> EvaluationResult:
     return EvaluationResult(
         trial_id=sugg.trial_id,
         sim_id=None,
-        objective_value=abs(residual),
+        cost=abs(residual),
         status="completed",
         components={"net.J_signed": residual},
     )
@@ -68,13 +68,13 @@ def test_a_tie_outside_the_bracket_loses_to_one_inside() -> None:
     low, high = adapter.bracket
 
     # The situation of the Nancon: the first trial of minimal cost lies outside.
-    first_tie = min(history, key=lambda result: result.objective_value)
+    first_tie = min(history, key=lambda result: result.cost)
     assert not _inside(where[first_tie.trial_id], low, high)
 
     winner = adapter.best()
 
     assert winner is not None
-    assert winner.objective_value == first_tie.objective_value
+    assert winner.cost == first_tie.cost
     assert _inside(where[winner.trial_id], low, high)
 
 
@@ -88,7 +88,7 @@ def test_a_lower_cost_outside_the_closed_bracket_is_not_the_answer() -> None:
             return EvaluationResult(
                 trial_id=result.trial_id,
                 sim_id=None,
-                objective_value=0.5,
+                cost=0.5,
                 status="completed",
                 components={"net.J_signed": 0.5},
             )
@@ -112,7 +112,7 @@ def test_the_answer_is_outside_only_when_nothing_completed_lies_inside(caplog) -
             EvaluationResult(
                 trial_id=sugg.trial_id,
                 sim_id=None,
-                objective_value=abs(residuals[sugg.trial_id][0]),
+                cost=abs(residuals[sugg.trial_id][0]),
                 status=residuals[sugg.trial_id][1],
                 components={"net.J_signed": residuals[sugg.trial_id][0]},
             )

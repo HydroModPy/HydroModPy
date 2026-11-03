@@ -64,7 +64,7 @@ def make_run(
         for zone in ("0", "catchment")
         for term, fin, fout in terms
     )
-    columns = ("station", "metric", "value", "nse_window_start", "nse_window_end", "nse_n")
+    columns = ("station", "metric", "value", "window_start", "window_end", "n_samples")
     rows = ((gauge, m, 0.123456, "w0", "w1", n) for m in ("nse", "rmse"))
     metrics = pd.DataFrame(rows, columns=columns) if gauge else pd.DataFrame()
     x, y = np.array(centers).T
@@ -308,9 +308,9 @@ def test_scores_keep_their_window_and_samples_and_a_run_without_gauge_gives_none
             "station": "G",
             "metric": "nse",
             "value": 0.123456,
-            "nse_window_start": "w0",
-            "nse_window_end": "w1",
-            "nse_n": 4,
+            "window_start": "w0",
+            "window_end": "w1",
+            "n_samples": 4,
         }
     ]
     assert c.scores_table([make_run(gauge=None)]).empty

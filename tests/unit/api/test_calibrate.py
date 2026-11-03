@@ -37,7 +37,7 @@ def test_calibrate_with_path_routes_to_run_calibration_cli(monkeypatch, tmp_path
     result = hmp.calibrate(config, project="my_label")
     assert result == {"report": "ok"}
     assert captured["config_path"] == config.resolve()
-    assert captured["kwargs"] == {"project": "my_label", "return_report": True}
+    assert captured["kwargs"] == {"project": "my_label"}
 
 
 def test_calibrate_with_path_drops_headless_kwarg(monkeypatch, tmp_path: Path) -> None:
@@ -257,7 +257,7 @@ def _staged_config():
 
 
 class _FakeStagedReport:
-    """Stand-in for ``StagedCalibrationReport``: an object, not a mapping."""
+    """Stand-in for a ``CalibrationReport``: an object, not a mapping."""
 
     def to_dict(self) -> dict[str, bool]:
         return {"staged": True}
@@ -629,8 +629,8 @@ def test_file_backed_python_phases_document_holds_only_what_python_gave(
     assert written.calibration.protocol is None
 
 
-def test_calibrate_object_config_lists_its_phases(monkeypatch) -> None:
-    """``list_phases`` is answered from the config object, not swallowed."""
+def test_calibration_phases_of_a_config_object_builds_no_project(monkeypatch) -> None:
+    """The phases of a config object are read from its section, with nothing else to say."""
 
     class _NoProject:
         def __init__(self, *args, **kwargs):
@@ -639,7 +639,12 @@ def test_calibrate_object_config_lists_its_phases(monkeypatch) -> None:
     monkeypatch.setattr("hydromodpy.project.Project", _NoProject)
 
     config = SimpleNamespace(calibration=_staged_config())
-    assert hmp.calibrate(config, list_phases=True) == [
+    result = hmp.calibration_phases(config)
+
+    assert result["protocol"] is None
+    assert result["plan"] is None
+    assert set(result["calibration"]) >= {"method", "parameters", "phases"}
+    assert result["phases"] == [
         {
             "name": "steady_k",
             "description": "zero of the signed gap",
@@ -690,13 +695,13 @@ def test_dispatch_workflow_calibration_routes_phases_to_staged_runner(
 # ---------------------------------------------------------------------------
 
 
-def test_list_phases_surfaces_the_real_error_of_an_unreadable_toml(tmp_path: Path) -> None:
+def test_calibration_phases_surface_the_real_error_of_an_unreadable_toml(tmp_path: Path) -> None:
     """A file that cannot be read is not reported as declaring no phases."""
     from hydromodpy.core.exceptions import ConfigError
 
     config = _write_toml(tmp_path / "typo.toml", TYPO_TOML)
     with pytest.raises(ConfigError, match="not_a_field"):
-        hmp.calibrate(config, list_phases=True)
+        hmp.calibration_phases(config)
 
 
 def test_selected_phase_surfaces_the_real_error_of_an_unreadable_toml(tmp_path: Path) -> None:
@@ -765,12 +770,8 @@ def test_project_calibrate_without_a_phase_still_defers_to_the_runner(
 def test_project_calibrate_forwards_only_kwargs_the_staged_runner_accepts(
     monkeypatch, tmp_path: Path
 ) -> None:
-    """``return_report`` is documented on ``calibrate`` for every mode.
-
-    The double binds the forwarded call against the REAL signature, so a
-    keyword the staged runner does not declare fails here instead of reaching
-    the user as a bare ``TypeError``.
-    """
+    """The double binds the forwarded call against the REAL signature, so a keyword
+    the staged runner does not declare fails here and not for the user."""
     import inspect
 
     from hydromodpy.calibration.runners.staged_runner import run_staged_calibration
@@ -791,10 +792,9 @@ def test_project_calibrate_forwards_only_kwargs_the_staged_runner_accepts(
     )
 
     project = SimpleNamespace(config=None, _config_path=None)
-    Project.calibrate(project, config_path=config, phase="steady_k", return_report=False)
+    Project.calibrate(project, config_path=config, phase="steady_k")
 
     assert forwarded["phase"] == "steady_k"
-    assert forwarded["return_report"] is False
 
 
 def test_phase_on_a_mono_phase_toml_raises_a_typed_calibration_error(tmp_path: Path) -> None:
@@ -825,15 +825,14 @@ station_ids = ["G1"]
 _NO_PROTOCOL_TOML = """
 [calibration]
 seed = 7
-foo = "bar"
 """
 
 
-def test_calibrate_expand_returns_the_whole_section(tmp_path: Path) -> None:
+def test_calibration_phases_expand_returns_the_whole_section(tmp_path: Path) -> None:
     """A protocol file expands to its whole section, pasteable, with no ``protocol`` key."""
     config = _write_toml(tmp_path / "calib.toml", _PROTOCOL_TOML)
 
-    result = hmp.calibrate(config, expand=True)
+    result = hmp.calibration_phases(config)
 
     assert set(result["calibration"]) == {"parameters", "outputs", "objective_blocks", "phases"}
     phases = result["calibration"]["phases"]
@@ -877,22 +876,24 @@ station_ids = ["G1"]
 """
 
 
-def test_calibrate_expand_lists_an_output_the_file_already_declares_once(
+def test_calibration_phases_expand_lists_an_output_the_file_already_declares_once(
     tmp_path: Path,
 ) -> None:
     """A sealed run's own dump of the hydrograph output is one output, not two."""
     config = _write_toml(tmp_path / "calib.toml", _PROTOCOL_TOML_WITH_ITS_OWN_HYDROGRAPH)
 
-    result = hmp.calibrate(config, expand=True)
+    result = hmp.calibration_phases(config)
 
     assert set(result["calibration"]["outputs"]) == {"streams", "hydrograph"}
 
 
-def test_calibrate_expand_names_the_protocol_and_its_first_reference(tmp_path: Path) -> None:
+def test_calibration_phases_expand_names_the_protocol_and_its_first_reference(
+    tmp_path: Path,
+) -> None:
     """The header data names the protocol, its version and a short citation."""
     config = _write_toml(tmp_path / "calib.toml", _PROTOCOL_TOML)
 
-    result = hmp.calibrate(config, expand=True)
+    result = hmp.calibration_phases(config)
 
     assert result["protocol"] == {
         "name": "matching_hydrographic_network",
@@ -902,7 +903,7 @@ def test_calibrate_expand_names_the_protocol_and_its_first_reference(tmp_path: P
     }
 
 
-def test_calibrate_expand_says_when_the_protocol_comes_from_the_base_config(
+def test_calibration_phases_expand_says_when_the_protocol_comes_from_the_base_config(
     tmp_path: Path,
 ) -> None:
     """Only then does a file pasting the section under that base drop a protocol."""
@@ -912,24 +913,25 @@ def test_calibrate_expand_says_when_the_protocol_comes_from_the_base_config(
         'base_config = "project.toml"\n\n[calibration]\nseed = 3\n',
     )
 
-    result = hmp.calibrate(config, expand=True)
+    result = hmp.calibration_phases(config)
 
     assert result["protocol"]["inherited"] is True
     assert result["calibration"]["seed"] == 3
 
 
-def test_calibrate_expand_on_a_file_without_a_protocol_returns_its_own_section(
+def test_calibration_phases_expand_on_a_file_without_a_protocol_returns_its_own_section(
     tmp_path: Path,
 ) -> None:
     """No protocol declared: the section comes back unchanged, and ``protocol`` is None."""
     config = _write_toml(tmp_path / "calib.toml", _NO_PROTOCOL_TOML)
 
-    result = hmp.calibrate(config, expand=True)
+    result = hmp.calibration_phases(config)
 
-    assert result == {"calibration": {"seed": 7, "foo": "bar"}, "protocol": None}
+    assert result["calibration"] == {"seed": 7}
+    assert result["protocol"] is None
 
 
-def test_calibrate_expand_round_trips_through_a_hand_written_file(tmp_path: Path) -> None:
+def test_calibration_phases_expand_round_trips_through_a_hand_written_file(tmp_path: Path) -> None:
     """The printed section alone, pasted into a plain file, is the same calibration.
 
     A hand-written file drops the protocol table (``protocol__delete = true`` in
@@ -938,54 +940,12 @@ def test_calibrate_expand_round_trips_through_a_hand_written_file(tmp_path: Path
     -- must return the exact section the protocol expansion produced.
     """
     protocol_config = _write_toml(tmp_path / "protocol.toml", _PROTOCOL_TOML)
-    expanded = hmp.calibrate(protocol_config, expand=True)
+    expanded = hmp.calibration_phases(protocol_config)
 
     written = dump_toml({"calibration": expanded["calibration"]})
     hand_written = _write_toml(tmp_path / "hand_written.toml", written)
 
-    round_tripped = hmp.calibrate(hand_written, expand=True)
+    round_tripped = hmp.calibration_phases(hand_written)
 
     assert round_tripped["protocol"] is None
     assert round_tripped["calibration"] == expanded["calibration"]
-
-
-def test_calibrate_expand_refuses_list_phases(tmp_path: Path) -> None:
-    """``expand`` answers what would run, it does not also run or list it."""
-    config = _write_toml(tmp_path / "calib.toml", _PROTOCOL_TOML)
-
-    with pytest.raises(ValueError, match="expand"):
-        hmp.calibrate(config, expand=True, list_phases=True)
-
-
-def test_calibrate_expand_refuses_a_phase(tmp_path: Path) -> None:
-    config = _write_toml(tmp_path / "calib.toml", _PROTOCOL_TOML)
-
-    with pytest.raises(ValueError, match="expand"):
-        hmp.calibrate(config, expand=True, phase="steady_conductivity")
-
-
-def test_calibrate_expand_refuses_a_config_object() -> None:
-    """``expand`` unfolds a protocol from a TOML document, not a config object."""
-    config = SimpleNamespace(calibration=_staged_config())
-
-    with pytest.raises(ValueError, match="TOML path"):
-        hmp.calibrate(config, expand=True)
-
-
-def test_a_file_without_phases_returns_the_report_object(monkeypatch, tmp_path: Path) -> None:
-    """Both entry points ask the plain runner for its report, not its dict."""
-    from hydromodpy.project import Project
-
-    config = _write_toml(tmp_path / "calib.toml", MONO_PHASE_TOML)
-    calls: dict = {}
-    _patch_runners(monkeypatch, calls)
-
-    hmp.calibrate(config)
-    assert calls["cli_kwargs"]["return_report"] is True
-
-    project = SimpleNamespace(config=None, _config_path=None)
-    Project.calibrate(project, config_path=config)
-    assert calls["cli_kwargs"]["return_report"] is True
-
-    hmp.calibrate(config, return_report=False)
-    assert calls["cli_kwargs"]["return_report"] is False

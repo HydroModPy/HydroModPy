@@ -1,8 +1,9 @@
 """The JSON Schemas of the stored formats of ``results``, as package data.
 
 One ``<name>.<version>.json`` per format a run, a session, a plan or a
-publication writes: ``outcome.v1.json``, ``session.v3.json``, ``plan.v1.json``,
-``publication.v1.json``, ``ledger.v1.json``, ``checks.v1.json``. They are
+publication writes: ``outcome.v1.json``, ``session.v4.json``, ``phase.v2.json``,
+``trial.v2.json``, ``plan.v1.json``, ``publication.v1.json``, ``ledger.v1.json``,
+``checks.v2.json``. They are
 generated from the Pydantic models of ``hydromodpy.results`` with
 ``model_json_schema()`` and committed here, so a reader outside Python can
 validate a document without importing anything. A test refuses a committed
@@ -29,11 +30,13 @@ from pydantic import BaseModel
 
 SCHEMA_FILENAMES: Final[tuple[str, ...]] = (
     "outcome.v1.json",
-    "session.v3.json",
+    "session.v4.json",
+    "phase.v2.json",
+    "trial.v2.json",
     "plan.v1.json",
     "publication.v1.json",
     "ledger.v1.json",
-    "checks.v1.json",
+    "checks.v2.json",
 )
 """The files this package ships."""
 

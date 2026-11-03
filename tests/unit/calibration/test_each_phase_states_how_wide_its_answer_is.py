@@ -479,7 +479,7 @@ uses_outputs = ["net"]
 
 def _run(tmp_path: Path, uncertainty: str = ""):
     path = _write(tmp_path, SINGLE_SEARCH.format(uncertainty=uncertainty))
-    return run_calibration_cli(path, workspace=tmp_path, return_report=True)
+    return run_calibration_cli(path, workspace=tmp_path)
 
 
 def test_the_run_reads_one_mesh_cell_off_the_trials(tmp_path, gap_in_metres) -> None:
@@ -489,7 +489,7 @@ def test_the_run_reads_one_mesh_cell_off_the_trials(tmp_path, gap_in_metres) -> 
     assert (width["margin"], width["kind"]) == (60.0, "absolute")
     assert (width["source"], width["rule"]) == ("default", ONE_MESH_CELL)
     (interval,) = report.extra["parameter_intervals"]
-    assert interval["threshold"] == pytest.approx(report.best_objective + 60.0)
+    assert interval["threshold"] == pytest.approx(report.best_cost + 60.0)
     assert interval["kind"] == "absolute"
 
 
@@ -499,4 +499,4 @@ def test_the_run_reports_a_written_width_and_where_it_was_written(tmp_path, gap_
     width = report.extra["interval_width"]
     assert (width["margin"], width["source"]) == (120.0, "section")
     (interval,) = report.extra["parameter_intervals"]
-    assert interval["threshold"] == pytest.approx(report.best_objective + 120.0)
+    assert interval["threshold"] == pytest.approx(report.best_cost + 120.0)

@@ -1,4 +1,4 @@
-"""P7 Parquet v2 contract tests.
+"""Parquet table contract tests.
 
 Cover the pyarrow schemas declared in
 :mod:`hydromodpy.results.storage.parquet_schemas`, the atomic writer in
@@ -95,9 +95,27 @@ class TestSchemasStrict:
         assert TIMESERIES_SCHEMA.field("station_id").nullable is True
 
     def test_schema_strict_for_metrics(self):
-        names = METRICS_SCHEMA.names
-        assert "metric" in names
-        assert "valid_from" in names
+        assert METRICS_SCHEMA.names == [
+            "sim_id",
+            "station_id",
+            "variable",
+            "metric",
+            "value",
+            "window_name",
+            "window_role",
+            "window_start",
+            "window_end",
+            "n_samples",
+            "n_clipped",
+            "n_sim_nan",
+            "metric_rule_version",
+            "valid_from",
+        ]
+        assert METRICS_SCHEMA.field("value").nullable is True
+        assert pa.types.is_date32(METRICS_SCHEMA.field("window_start").type)
+        assert (
+            METRICS_SCHEMA.metadata[b"hmp.pk"] == b"sim_id,station_id,variable,metric,window_name"
+        )
         assert METRICS_SCHEMA.field("valid_from").nullable is False
         assert pa.types.is_timestamp(METRICS_SCHEMA.field("valid_from").type)
         assert METRICS_SCHEMA.field("valid_from").type.tz == "UTC"
@@ -188,7 +206,7 @@ class TestSchemaVersion:
         [
             ({b"hmp.schema_version": b"v9", b"hydromodpy_version": b"2.9.0"}, "HydroModPy 2.9.0"),
             ({b"hmp.schema_version": b"v9"}, NEWER_REMEDY),
-            ({b"hmp.schema_version": b"v1"}, OLDER_REMEDY),
+            ({b"hmp.schema_version": b"v2"}, OLDER_REMEDY),
             ({}, OLDER_REMEDY),
         ],
     )

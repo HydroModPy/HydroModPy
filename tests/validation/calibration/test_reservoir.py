@@ -25,7 +25,7 @@ NOT_APPLICABLE = {
 def _best_values(session) -> dict[str, float]:
     completed = [r for r in session.history if r.status == "completed"]
     assert completed, "calibration produced no completed trials"
-    best = min(completed, key=lambda r: r.objective_value)
+    best = min(completed, key=lambda r: r.cost)
     values = best.metadata.get("values") if best.metadata else None
     assert values, "evaluator did not stash values in metadata"
     return dict(values)
@@ -44,7 +44,7 @@ def test_one_reservoir_nelder_mead_recovers_truth() -> None:
     best = _best_values(session)
     truth = ONE_RESERVOIR_CASE.truth
     drift_tol = tol("reservoir_calibration_validation__recovered_log10_k_and_n_drift_from_truth")
-    assert math.isfinite(session.best.objective_value)
+    assert math.isfinite(session.best.cost)
     assert_metric_below(
         "Distance of log10 k to the truth",
         abs(math.log10(best["k"]) - math.log10(truth["k"])),
@@ -65,7 +65,7 @@ def test_two_reservoir_de_recovers_truth() -> None:
 
     best = _best_values(session)
     truth = TWO_RESERVOIR_CASE.truth
-    assert math.isfinite(session.best.objective_value)
+    assert math.isfinite(session.best.cost)
     assert_metric_below(
         "Distance of log10 k1 to the truth",
         abs(math.log10(best["k1"]) - math.log10(truth["k1"])),

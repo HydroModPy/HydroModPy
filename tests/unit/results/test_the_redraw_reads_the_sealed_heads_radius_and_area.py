@@ -16,6 +16,7 @@ import pytest
 from hydromodpy.core.stream_criterion_defaults import STREAM_CRITERION_DEFAULTS
 from hydromodpy.results.derive.network_criterion_settings import network_criterion_settings
 from hydromodpy.results.derive.stream_network import network_comparison_from_run
+from tests._helpers.sealed_runs import sealed_search
 from tests.unit.display._network_comparison_run import AXIS_COLUMN, cell, comparison_run
 
 
@@ -28,7 +29,7 @@ def _sealed_run(**heads):
         "observed_rasterization": "heads",
         **heads,
     }
-    run.config_snapshot = {"calibration": {"outputs": {"streams": output}}}
+    run.dir = sealed_search({"outputs": {"streams": output}})
     return run
 
 

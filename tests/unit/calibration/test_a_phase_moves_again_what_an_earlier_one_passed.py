@@ -319,9 +319,8 @@ class PerPhaseRunner:
         return CalibrationReport(
             session_id=persistence.descriptor.session_id,
             method=cfg.method,
-            n_iterations=1,
-            best_objective=0.1,
-            best_sim_id=None,
+            n_trials=1,
+            best_cost=0.1,
             duration_s=0.0,
             save_runs=cfg.save_runs,
             promoted=0,

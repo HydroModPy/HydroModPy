@@ -38,6 +38,7 @@ from hydromodpy.results.record import RunRecord
 from hydromodpy.results.run.sealed import MixedWindowsError
 from hydromodpy.results.storage.contract import TABLES_DIRNAME
 from tests._helpers.sealed_runs import WINDOW, seal_run, write_attempt, write_session_dir
+from tests._helpers.session_documents import calibration_window
 
 OTHER_WINDOW = DateWindow(start=date(2010, 1, 1), end=date(2014, 12, 31))
 
@@ -107,6 +108,15 @@ def _seal(
     """Seal ``runs/<site>-<recipe>[.vN]`` and return its directory."""
     case_id = f"{site}-{recipe}"
     name = case_id if version == 1 else f"{case_id}.v{version}"
+    cost_fields = (
+        {}
+        if objective is None
+        else {
+            "metric": "nse_log",
+            "cost": objective,
+            "windows": calibration_window(window.start, window.end),
+        }
+    )
     seal_run(
         root,
         name,
@@ -118,7 +128,11 @@ def _seal(
         parameters={"K": k},
         calibrated_by=(
             CalibratedBy(
-                session_id=f"s_{case_id}", phase="steady_k", trial=4, session_status="completed"
+                session_id=f"s_{case_id}",
+                phase="steady_k",
+                trial=4,
+                session_status="completed",
+                **cost_fields,
             )
             if calibrated
             else None
@@ -136,8 +150,6 @@ def _seal(
         "lineage": record.lineage.model_copy(update={"overrides": overrides or {}}),
         "site": record.site.model_copy(update={"x_outlet": x_outlet}),
     }
-    if objective is not None:
-        update.update(objective_name="nse_log", objective_value=objective, objective_window=window)
     record.model_copy(update=update).write(run_dir)
     return run_dir
 
@@ -221,7 +233,7 @@ def test_by_case_holds_every_planned_case_with_its_status(campaign: Path) -> Non
     assert by_case.loc["J0014010-base", "label"] == "exploratory"
     assert by_case.loc["J0014010-base", "K"] == pytest.approx(2e-5)
     assert by_case.loc["J0014010-base", "kge"] == pytest.approx(0.70)
-    assert by_case.loc["J0014010-base", "nse_window_start"] == "2016-01-01"
+    assert by_case.loc["J0014010-base", "score_window_start"] == "2016-01-01"
     assert by_case.loc["J0014010-base", "checks.budget_pct"] == pytest.approx(0.8)
     assert by_case.loc["J0014010-base", "metrics.nse"] == pytest.approx(0.81)
     csv_rows = pd.read_csv(campaign / "summary" / "by_case.csv")
@@ -261,11 +273,11 @@ def test_the_objective_of_the_session_sits_beside_the_nse(campaign: Path) -> Non
 
     by_site = pd.read_parquet(campaign / "summary" / "by_site.parquet").set_index("site")
     row = by_site.loc["J0014010"]
-    assert row["objective_name"] == "nse_log"
-    assert row["objective_value"] == pytest.approx(0.7)
+    assert row["calibrated_by_metric"] == "nse_log"
+    assert row["calibrated_by_cost"] == pytest.approx(0.7)
     assert row["nse"] == pytest.approx(0.62)
-    assert row["nse_window_start"] == "2016-01-01"
-    assert row["objective_window_start"] == "2016-01-01"
+    assert row["score_window_start"] == "2016-01-01"
+    assert row["calibrated_by_window_start"] == "2016-01-01"
 
 
 def test_the_latest_version_of_a_case_is_the_one_collected(tmp_path: Path) -> None:
@@ -305,8 +317,8 @@ def test_scores_on_two_windows_are_not_ranked_without_the_flag(tmp_path: Path) -
     collect_project(root, mixed_windows=True)
 
     by_site = pd.read_parquet(root / "summary" / "by_site.parquet").set_index("site")
-    assert by_site.loc["J0170000", "nse_window_start"] == "2010-01-01"
-    assert by_site.loc["J0014010", "nse_window_start"] == "2016-01-01"
+    assert by_site.loc["J0170000", "score_window_start"] == "2010-01-01"
+    assert by_site.loc["J0014010", "score_window_start"] == "2016-01-01"
 
 
 def test_a_column_no_manifest_has_is_refused_with_its_neighbours(tmp_path: Path) -> None:
@@ -497,7 +509,7 @@ def test_rank_rows_follows_the_direction_of_the_metric() -> None:
             "case_id": ["a-x", "b-x", "a-y"],
             "site": ["a", "b", "a"],
             "rmse": [0.3, 0.1, 0.2],
-            "nse_window_start": ["2016-01-01"] * 3,
+            "score_window_start": ["2016-01-01"] * 3,
         }
     )
 
@@ -702,7 +714,15 @@ def test_by_case_names_every_parameter_and_the_set_of_its_recipe(tmp_path: Path)
 
 def test_a_site_without_a_scored_run_says_why_it_has_no_best_case(tmp_path: Path) -> None:
     root = _project(tmp_path, summary_extra='best = "any"')
-    seal_run(root, "J0014010-base", project=root.name, site="J0014010", recipe="base", nse=None)
+    seal_run(
+        root,
+        "J0014010-base",
+        project=root.name,
+        site="J0014010",
+        recipe="base",
+        nse=None,
+        window=None,
+    )
     _seal(root, "J0170000", "base", nse=0.81)
 
     collect_project(root)

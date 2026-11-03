@@ -84,10 +84,10 @@ def test_calibration_convergence_reads_the_cost_column_of_a_real_trial_table(mpl
         name="grid_iter_0002",
         calibration_iterations=pd.DataFrame(
             {
-                "iteration": [1, 2, 3],
+                "trial": [1, 2, 3],
                 "sim_id": [str(uuid.uuid4()) for _ in range(3)],
                 "status": ["completed"] * 3,
-                "objective_value": [2.0, 0.5, 1.5],
+                "cost": [2.0, 0.5, 1.5],
             }
         ),
         timeseries=lambda *_args, **_kwargs: (_ for _ in ()).throw(KeyError("missing")),
@@ -99,7 +99,7 @@ def test_calibration_convergence_reads_the_cost_column_of_a_real_trial_table(mpl
     try:
         assert ax.lines[0].get_ydata().tolist() == [2.0, 0.5, 1.5]
         assert ax.lines[1].get_ydata().tolist() == [2.0, 0.5, 0.5]
-        assert ax.get_ylabel() == "objective_value"
+        assert ax.get_ylabel() == "cost"
         assert ax.lines[0].get_xdata().tolist() == [1.0, 2.0, 3.0]
     finally:
         mpl.close(fig)
@@ -111,9 +111,7 @@ def test_calibration_convergence_keeps_the_best_across_a_failed_trial(mpl) -> No
     run = SimpleNamespace(
         sim_id="sim-a",
         name=None,
-        calibration_iterations=pd.DataFrame(
-            {"iteration": [1, 2, 3], "objective_value": [2.0, float("nan"), 1.5]}
-        ),
+        calibration_iterations=pd.DataFrame({"trial": [1, 2, 3], "cost": [2.0, float("nan"), 1.5]}),
         timeseries=lambda *_args, **_kwargs: (_ for _ in ()).throw(KeyError("missing")),
     )
     fig, ax = mpl.subplots()
@@ -554,7 +552,7 @@ def test_calibration_posterior_and_pairplot_render_is_placeholder(mpl) -> None:
 # --------------------------------------------------------------------------- #
 
 # One row per trial exactly as the catalog stores it: the sampled parameters
-# stay nested in a JSON block, the cost sits in ``objective_value``, and no
+# stay nested in a JSON block, the cost sits in ``cost``, and no
 # parameter is spelled as a bare column. The three value sets are disjoint, so
 # a panel drawn from the cost cannot be mistaken for a panel drawn from a
 # parameter, and a figure that never opens the block has nothing to draw.
@@ -567,12 +565,12 @@ def _catalog_run(name: str = "calibration-real") -> SimpleNamespace:
     rows = [
         {
             "session_id": "s-real",
-            "iteration": index,
+            "trial": index,
             "sim_id": f"sim-{index}",
             "params_hash": f"hash-{index}",
             "parameters": json.dumps({"kh": {"value": kh}, "sy": {"value": sy}}),
-            "objective_value": cost,
-            "metrics": json.dumps({"nse": 0.5}),
+            "cost": cost,
+            "components": json.dumps({"nse": 0.5}),
             "status": "completed",
             "from_cache": False,
             "duration_s": 1.5,
@@ -593,7 +591,7 @@ def test_calibration_trace_traces_the_sampled_parameters_not_the_cost(mpl) -> No
 
     try:
         # Two parameters were sampled, so two parameter panels then the cost.
-        assert [ax.get_ylabel() for ax in fig.axes] == ["kh", "sy", "objective_value"]
+        assert [ax.get_ylabel() for ax in fig.axes] == ["kh", "sy", "cost"]
         assert fig.axes[0].lines[0].get_ydata().tolist() == CATALOG_KH
         assert fig.axes[1].lines[0].get_ydata().tolist() == CATALOG_SY
         assert fig.axes[2].lines[0].get_ydata().tolist() == CATALOG_COST
@@ -654,7 +652,7 @@ def test_calibration_objective_surface_spans_the_nested_parameters(mpl) -> None:
     try:
         surface = fig.axes[0]
         assert (surface.get_xlabel(), surface.get_ylabel()) == ("kh", "sy")
-        assert any("objective_value" in (ax.get_ylabel() or "") for ax in fig.axes)
+        assert any("cost" in (ax.get_ylabel() or "") for ax in fig.axes)
         # The best trial is the one the cost says, and it is marked there.
         best = CATALOG_COST.index(min(CATALOG_COST))
         star = next(
@@ -675,9 +673,9 @@ def test_a_calibration_that_sampled_nothing_is_refused_by_every_grid_figure() ->
         name=None,
         calibration_iterations=pd.DataFrame(
             {
-                "iteration": [0, 1],
+                "trial": [0, 1],
                 "parameters": [json.dumps({}), json.dumps({})],
-                "objective_value": [2.0, 1.0],
+                "cost": [2.0, 1.0],
                 "status": ["completed", "completed"],
             }
         ),

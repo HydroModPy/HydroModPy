@@ -297,12 +297,13 @@ def _strip_observability_keys(payload: Any) -> Any:
 
     ``workflow.profile`` only observes the run. ``PER_RUN_CONFIG_KEYS`` names
     the project root, filled from where the project sits on disk: a project
-    moved or copied elsewhere resumes the same run. Neither may invalidate an
-    existing checkpoint.
+    moved or copied elsewhere resumes the same run. ``simulation.name`` is the
+    directory of the run, which its frozen file writes and ``--case`` may have
+    replaced in the first launch. None may invalidate an existing checkpoint.
     """
     if not isinstance(payload, Mapping):
         return payload
-    dropped = {("workflow", "profile"), *PER_RUN_CONFIG_KEYS}
+    dropped = {("workflow", "profile"), ("simulation", "name"), *PER_RUN_CONFIG_KEYS}
     out = dict(payload)
     for section, key in dropped:
         block = out.get(section)

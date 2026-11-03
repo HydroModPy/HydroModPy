@@ -40,7 +40,7 @@ def _evaluate(suggestion):
     return EvaluationResult(
         trial_id=suggestion.trial_id,
         sim_id=None,
-        objective_value=float(np.hypot(x - 1.0, y + 2.0)),
+        cost=float(np.hypot(x - 1.0, y + 2.0)),
         status="completed",
     )
 

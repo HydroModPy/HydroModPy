@@ -21,10 +21,11 @@ from hydromodpy.results.annotations import add_tag
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.manifest import MetricRow
-from hydromodpy.results.metric_rule import MetricScore
+from hydromodpy.results.metric_rule import DateWindow
 from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
 from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.results.storage.sealing import seal_completed
+from tests._helpers.metric_rows import headline_row, headline_score
 from tests._helpers.run_stores import claim_run, facts_of
 
 PROJECT = "test"
@@ -144,6 +145,15 @@ def runs(tmp_path: Path) -> Iterator[RunBuilder]:
         builder.close()
 
 
+def write_plain_metric(
+    store: RunStore, station: str, metric: str, value: float, *, variable: str = "head"
+) -> None:
+    """Record a metric with no period, as a number of the run outside any scoring rule."""
+    store.write_metric(
+        store.sim_id, MetricRow(station=station, variable=variable, metric=metric, value=value)
+    )
+
+
 def score(
     store: RunStore,
     value: float,
@@ -156,30 +166,16 @@ def score(
 
     An NSE is also the headline score of the run.
     """
-    start, end = WINDOW
-    store.facts.put_metric(
-        MetricRow(
-            station=station,
-            variable=variable,
-            metric=metric,
-            value=value,
-            nse_window_start=start,
-            nse_window_end=end,
-            nse_n=366,
-            metric_rule_version="1",
-        )
-    )
+    shared = {
+        "station": station,
+        "variable": variable,
+        "window": DateWindow(start=WINDOW[0], end=WINDOW[1]),
+        "n_samples": 366,
+        "metric_rule_version": "1",
+    }
+    store.facts.put_metric(headline_row(metric, value, **shared))
     if metric == "nse":
-        store.facts.score = MetricScore(
-            metric=metric,
-            value=value,
-            station=station,
-            variable=variable,
-            nse_window_start=start,
-            nse_window_end=end,
-            nse_n=366,
-            metric_rule_version="1",
-        )
+        store.facts.score = headline_score(value, metric=metric, **shared)
 
 
 def populate(store: RunStore) -> None:
@@ -196,8 +192,8 @@ def populate(store: RunStore) -> None:
     store.write_timeseries(sid, "P01", "head", pd.Series(np.arange(10.0), index=idx))
     store.write_budget(sid, 0, "z1", "recharge", 100.0, 0.0)
     store.write_mass_balance(sid, 0, 100.0, 95.0, 5.0)
-    store.write_metric(sid, "P01", "nse", 0.85)
-    store.write_metric(sid, "P01", "kge", 0.78)
+    write_plain_metric(store, "P01", "nse", 0.85)
+    write_plain_metric(store, "P01", "kge", 0.78)
 
 
 __all__ = [
@@ -209,4 +205,5 @@ __all__ = [
     "populate",
     "runs",
     "score",
+    "write_plain_metric",
 ]

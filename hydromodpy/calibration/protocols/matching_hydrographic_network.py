@@ -147,7 +147,7 @@ class MatchingHydrographicNetwork:
             paper="the validity length is the DEM resolution and nothing else",
             here="unset, so the paper's reading holds unless a file states it; declared, "
             "it raises the cell size h of the automatic validity length to "
-            "max(h_obs, accuracy), and never changes roptim",
+            "max(h_obs, accuracy), and never changes r_optim",
             why=(
                 "the positional accuracy of the mapped network does not improve "
                 "because the mesh is refined, so without a floor the validity length "
@@ -157,15 +157,15 @@ class MatchingHydrographicNetwork:
         ),
         Deviation(
             key="validity_length",
-            paper="Eq. 4, roptim = Doptim / DEMres <= 2: two pixels of the DEM, one of "
+            paper="Eq. 4, r_optim = D_optim / DEMres <= 2: two pixels of the DEM, one of "
             "them budgeted for the error of the mapped network (HESS p. 3224)",
             here="'auto', a length in metres: 2 h, h being h_obs, the cell size on the "
             "mapped network (the DEM pixel on a regular grid, so the paper's bound "
             "there), raised to observed_position_accuracy when declared. A declared "
-            "length replaces it. roptim is still published as Doptim / h_obs, the "
+            "length replaces it. r_optim is still published as D_optim / h_obs, the "
             "paper's Eq. 3",
             why=(
-                "Doptim barely falls as the mesh is refined while two cells do, so a "
+                "D_optim barely falls as the mesh is refined while two cells do, so a "
                 "bound in cells declares an exact model invalid on a fine mesh for a "
                 "map-to-DEM mismatch the paper itself names as the limit (HESS "
                 "p. 3227)."
@@ -262,7 +262,7 @@ class MatchingHydrographicNetwork:
                 "network would then read as well matched simply because the "
                 "topography closes the gap for it. Tested on a synthetic V-valley "
                 "(tests/unit/core/test_v_valley_support_bench.py), where closing the "
-                "observed target instead moves roptim's root by more than a factor "
+                "observed target instead moves r_optim's root by more than a factor "
                 "of ten."
             ),
         ),

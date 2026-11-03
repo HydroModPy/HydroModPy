@@ -45,7 +45,7 @@ def _make_quadratic_evaluator(target: tuple[float, float] = (1.0, -2.0)):
         return EvaluationResult(
             trial_id=sugg.trial_id,
             sim_id=None,
-            objective_value=rmse,
+            cost=rmse,
             status="completed",
             metadata={"values": dict(sugg.values)},
         )
@@ -159,7 +159,7 @@ class TestDaMhGpBest:
             x = float(sugg.values["x"])
             y = float(sugg.values["y"])
             rmse = float(np.sqrt((x - 1.0) ** 2 + (y - (-2.0)) ** 2))
-            return EvaluationResult(trial_id=sugg.trial_id, sim_id=None, objective_value=rmse)
+            return EvaluationResult(trial_id=sugg.trial_id, sim_id=None, cost=rmse)
 
         engine = CalibrationEngine(
             space=space,

@@ -26,11 +26,16 @@ from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.optim.cache import ParamsHashCache
 from hydromodpy.calibration.runners import cli_runner as runner_module
 from hydromodpy.calibration.runners import promotion as promotion_module
-from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
+from hydromodpy.calibration.runners.cli_runner import (
+    describe_dry_run,
+    load_toml_calibration,
+    run_calibration_cli,
+)
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.session.descriptor import list_session_dirs, read_session
 from hydromodpy.results.session.journal import read_trials
 from tests._helpers.persisting_simulation import SimulationStub
+from tests._helpers.session_documents import session_opening
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -204,15 +209,15 @@ def _the_session(project: Path):
 class TestRunCalibrationCli:
     def test_run_completes_and_returns_summary(self, calib_toml, fake_pipeline, quadratic_metric):
         summary = run_calibration_cli(calib_toml, metric_fn=quadratic_metric, project="toy_project")
-        assert summary["session_id"]
-        assert summary["method"] == "grid"
-        assert summary["n_iterations"] == 5
-        assert summary["save_runs"] == "best_n"
-        assert summary["best_objective"] is not None
-        assert summary["best_trial"] in range(1, 6)
+        assert summary.session_id
+        assert summary.method == "grid"
+        assert summary.n_trials == 5
+        assert summary.save_runs == "best_n"
+        assert summary.best_cost is not None
+        assert summary.best_trial in range(1, 6)
         # best_n with 2: the best to runs/<case>, the next one under the session
-        assert summary["promoted"] == 2
-        assert summary["best_rel_dir"] == "runs/toy"
+        assert summary.promoted == 2
+        assert summary.best_rel_dir == "runs/toy"
         assert len(fake_pipeline) == 2
 
     # The file writes [simulation] name = "toy" itself, so the case is "toy" (D3).
@@ -235,8 +240,8 @@ class TestRunCalibrationCli:
     def test_save_runs_none_skips_promotion(self, tmp_path, fake_pipeline, quadratic_metric):
         toml = _write(tmp_path, save_runs="none", name="run")
         summary = run_calibration_cli(toml, metric_fn=quadratic_metric)
-        assert summary["save_runs"] == "none"
-        assert summary["promoted"] == 0
+        assert summary.save_runs == "none"
+        assert summary.promoted == 0
         assert fake_pipeline == []
         assert not (tmp_path / "runs").exists()
 
@@ -245,9 +250,9 @@ class TestRunCalibrationCli:
     ):
         toml = _write(tmp_path, save_runs="all", name="run")
         summary = run_calibration_cli(toml, metric_fn=quadratic_metric)
-        assert summary["save_runs"] == "all"
+        assert summary.save_runs == "all"
         # grid with max_trials=5: 5 trials, each one promoted
-        assert summary["promoted"] == 5
+        assert summary.promoted == 5
         assert len(fake_pipeline) == 5
 
     def test_the_trials_are_journaled_and_linked_to_their_runs(
@@ -257,10 +262,10 @@ class TestRunCalibrationCli:
 
         trials = read_trials(_the_session(calib_toml.parent))
         assert [t.trial for t in trials] == [1, 2, 3, 4, 5]
-        linked = [t for t in trials if t.sim_id is not None]
+        linked = [t for t in trials if t.only_case.sim_id is not None]
         assert len(linked) == 2
-        best = next(t for t in trials if t.trial == summary["best_trial"])
-        assert best.sim_id == summary["best_sim_id"]
+        best = next(t for t in trials if t.trial == summary.best_trial).only_case
+        assert best.sim_id == summary.best_sim_id
         assert best.rel_dir == "runs/toy"
 
     def test_the_session_is_closed_with_its_best(self, calib_toml, fake_pipeline, quadratic_metric):
@@ -270,9 +275,9 @@ class TestRunCalibrationCli:
         assert descriptor.status == "completed"
         assert descriptor.case_id == "toy"
         assert descriptor.best is not None
-        assert descriptor.best.trial == summary["best_trial"]
-        assert descriptor.best.sim_id == summary["best_sim_id"]
-        assert descriptor.best.rel_dir == "runs/toy"
+        assert descriptor.best.trial == summary.best_trial
+        assert descriptor.only_run.sim_id == summary.best_sim_id
+        assert descriptor.only_run.rel_dir == "runs/toy"
         outcome = read_outcome(_the_session(calib_toml.parent))
         assert outcome is not None and outcome.status == "completed"
         assert (_the_session(calib_toml.parent) / "README.md").is_file()
@@ -283,11 +288,13 @@ class TestRunCalibrationCli:
         run_calibration_cli(calib_toml, metric_fn=quadratic_metric)
         summary = run_calibration_cli(calib_toml, metric_fn=quadratic_metric)
 
-        assert summary["session_dir"].endswith("toy.v2")
-        assert summary["best_rel_dir"] == "runs/toy.v2"
+        assert summary.session_dir.name == "toy.v2"
+        assert summary.best_rel_dir == "runs/toy.v2"
 
     def test_a_dry_run_writes_nothing(self, calib_toml, fake_pipeline):
-        plan = run_calibration_cli(calib_toml, dry_run=True)
+        plan = describe_dry_run(
+            load_toml_calibration(calib_toml)[0], calib_toml, workspace=calib_toml.parent
+        )
 
         assert plan["case"] == "toy"
         assert plan["version"] == "toy"
@@ -300,7 +307,9 @@ class TestRunCalibrationCli:
     ):
         run_calibration_cli(calib_toml, metric_fn=quadratic_metric)
 
-        plan = run_calibration_cli(calib_toml, dry_run=True)
+        plan = describe_dry_run(
+            load_toml_calibration(calib_toml)[0], calib_toml, workspace=calib_toml.parent
+        )
 
         assert plan["version"] == "toy.v2"
         assert plan["session_dir"] == "sessions/toy.v2"
@@ -339,7 +348,7 @@ class TestCachePreload:
     ):
         """The second session sees cache hits for every trial the first one journaled."""
         summary_1 = run_calibration_cli(calib_toml, metric_fn=quadratic_metric)
-        assert summary_1["promoted"] == 2
+        assert summary_1.promoted == 2
 
         preloaded_snapshot: dict = {}
         from hydromodpy.calibration.runners import state as state_module
@@ -366,16 +375,7 @@ class TestCachePreload:
         session_dir.mkdir(parents=True)
         persistence = CalibrationPersistence(session_dir)
         persistence.start_session(
-            session_id="a" * 32,
-            case_id="old",
-            site=None,
-            project="p",
-            config_hash="c" * 64,
-            hydromodpy_version="2.0.0a5",
-            method="grid",
-            objective_name="rmse",
-            search_space={},
-            objective_window=None,
+            **session_opening("old", project="p", cost_name="rmse", bounds={})
         )
         for trial_id, params_hash in ((1, "legacyhash"), (2, "v2:scopedhash")):
             persistence.append_iteration(
@@ -383,7 +383,7 @@ class TestCachePreload:
                 EvaluationResult(
                     trial_id=trial_id,
                     sim_id=None,
-                    objective_value=float(trial_id),
+                    cost=float(trial_id),
                     status="completed",
                     components={"rmse": float(trial_id)},
                     metadata={"params_hash": params_hash},
@@ -415,7 +415,7 @@ class TestObjectiveEscapeHatch:
         sys.modules["test_calib_metric_mod"] = mod
 
         summary = run_calibration_cli(calib_toml, objective="test_calib_metric_mod:my_metric")
-        assert summary["n_iterations"] == 5
+        assert summary.n_trials == 5
         assert len(calls) == 5
         assert all(c["variable"] == "discharge" for c in calls)
 
@@ -552,8 +552,8 @@ class TestSessionLifecycle:
         trials = read_trials(session_dir)
         assert len(trials) == 2
         assert descriptor.best is not None
-        assert descriptor.best.trial == min(trials, key=lambda t: t.objective).trial
-        assert descriptor.best.sim_id is None, "no kept solve: nothing to promote in the margin"
+        assert descriptor.best.trial == min(trials, key=lambda t: t.cost).trial
+        assert descriptor.only_run.sim_id is None, "no kept solve: nothing to promote in the margin"
         assert fake_pipeline == []
         assert not (calib_toml.parent / "runs").exists()
         outcome = read_outcome(session_dir)
@@ -584,8 +584,9 @@ class TestSessionLifecycle:
         assert call["lineage"].kind == "promoted"
         assert call["calibrated_by"].session_status == "aborted"
         assert call["lineage"].trial == descriptor.best.trial
-        assert (descriptor.best.sim_id, descriptor.best.rel_dir) == (call["sim_id"], "runs/toy")
-        line = {t.trial: t for t in read_trials(session_dir)}[descriptor.best.trial]
+        run = descriptor.only_run
+        assert (run.sim_id, run.rel_dir) == (call["sim_id"], "runs/toy")
+        line = {t.trial: t for t in read_trials(session_dir)}[descriptor.best.trial].only_case
         assert (line.sim_id, line.rel_dir) == (call["sim_id"], "runs/toy")
 
     def test_the_abort_writes_its_pointer_in_under_a_second(self, tmp_path):
@@ -600,18 +601,7 @@ class TestSessionLifecycle:
         session_dir = tmp_path / "sessions" / "long"
         session_dir.mkdir(parents=True)
         persistence = CalibrationPersistence(session_dir)
-        persistence.start_session(
-            session_id="a" * 32,
-            case_id="long",
-            site=None,
-            project="p",
-            config_hash="c" * 64,
-            hydromodpy_version="2.0.0a5",
-            method="grid",
-            objective_name="nse",
-            search_space={},
-            objective_window=None,
-        )
+        persistence.start_session(**session_opening("long", project="p", bounds={}))
         for index, name in enumerate(("steady_k", "transient_sy", "transient_n")):
             context = PhaseContext(name, index, 0)
             persistence.start_phase(context, frozen={})
@@ -621,7 +611,7 @@ class TestSessionLifecycle:
                     EvaluationResult(
                         trial_id=trial_id,
                         sim_id=None,
-                        objective_value=float(trial_id),
+                        cost=float(trial_id),
                         status="completed",
                     ),
                     phase=context,
@@ -671,9 +661,9 @@ class TestAFailedPromotion:
 
         summary = run_calibration_cli(calib_toml, metric_fn=quadratic_metric)
 
-        assert summary["best_parameters"]
-        assert summary["promoted"] == 0
-        failures = summary["extra"]["promotion_failures"]
+        assert summary.best_parameters
+        assert summary.promoted == 0
+        failures = summary.extra["promotion_failures"]
         assert len(failures) == 2
         assert all("step 'display' failed" in line for line in failures)
         assert promotion_failures(summary) == failures
@@ -689,7 +679,7 @@ class TestAFailedPromotion:
 
         summary = run_calibration_cli(calib_toml, metric_fn=quadratic_metric)
 
-        assert "promotion_failures" not in summary["extra"]
+        assert "promotion_failures" not in summary.extra
         assert promotion_failures(summary) == []
 
 
@@ -703,7 +693,7 @@ class TestWhatTheSessionSays:
         session_dir = _the_session(calib_toml.parent)
         outcome = read_outcome(session_dir)
         assert outcome is not None and outcome.project == calib_toml.parent.name
-        assert read_session(session_dir).objective_name == "nse"
+        assert read_session(session_dir).cost_name == "nse"
 
     def test_a_named_project_is_kept(self, calib_toml, fake_pipeline, quadratic_metric):
         run_calibration_cli(calib_toml, metric_fn=quadratic_metric, project="demo")
@@ -727,7 +717,7 @@ class TestWhatTheSessionSays:
             }
         )
 
-        assert runner_module.session_objective_name(cfg) == "distance_gap + nse_log"
+        assert runner_module.session_cost_name(cfg) == "distance_gap + nse_log"
 
     def test_a_single_metric_search_keeps_the_pair_it_scores(self):
         cfg = CalibrationConfig.model_validate(
@@ -741,7 +731,7 @@ class TestWhatTheSessionSays:
             }
         )
 
-        assert runner_module.session_objective_name(cfg) == "kge"
+        assert runner_module.session_cost_name(cfg) == "kge"
 
 
 class TestTheProjectDefaults:

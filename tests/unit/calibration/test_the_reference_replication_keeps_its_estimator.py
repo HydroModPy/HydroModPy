@@ -83,7 +83,7 @@ def _replay(sugg: ParamSuggestion) -> EvaluationResult:
     return EvaluationResult(
         trial_id=sugg.trial_id,
         sim_id=None,
-        objective_value=_NANCON_STEADY_TRACE[point],
+        cost=_NANCON_STEADY_TRACE[point],
         status="completed",
     )
 

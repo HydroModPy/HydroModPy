@@ -15,23 +15,18 @@ from hydromodpy.analysis.comparison.pairwise import compare_pair
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.manifest import MetricRow
-from hydromodpy.results.metric_rule import METRIC_RULE_VERSION
+from hydromodpy.results.metric_rule import DateWindow
 from hydromodpy.results.storage.sealing import seal_completed
+from tests._helpers.metric_rows import headline_row
 from tests._helpers.run_stores import open_run_store
 
 STATION = "J0014010"
 
 
 def _row(variable: str, value: float, start: date, n: int) -> MetricRow:
-    return MetricRow(
-        station=STATION,
-        variable=variable,
-        metric="nse",
-        value=value,
-        nse_window_start=start,
-        nse_window_end=date(2020, 12, 31),
-        nse_n=n,
-        metric_rule_version=METRIC_RULE_VERSION,
+    window = DateWindow(start=start, end=date(2020, 12, 31))
+    return headline_row(
+        "nse", value, station=STATION, variable=variable, window=window, n_samples=n
     )
 
 

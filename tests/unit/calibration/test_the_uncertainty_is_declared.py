@@ -24,7 +24,7 @@ _SPACE = ParameterSpace.from_toml_mapping(
 
 
 def _trace(pairs: list[tuple[float, float]]) -> list[dict[str, object]]:
-    return [{"parameters": {"K": value}, "objective_value": cost} for value, cost in pairs]
+    return [{"parameters": {"K": value}, "cost": cost} for value, cost in pairs]
 
 
 _SHARP = _trace([(1.0, 10.0), (2.0, 1.0), (3.0, 1.02), (4.0, 9.0), (5.0, 30.0)])

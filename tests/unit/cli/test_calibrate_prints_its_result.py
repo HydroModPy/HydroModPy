@@ -26,9 +26,8 @@ def _report(**overrides: object) -> CalibrationReport:
     fields: dict[str, object] = {
         "session_id": "abc123",
         "method": "grid",
-        "n_iterations": 4,
-        "best_objective": 0.1234,
-        "best_sim_id": None,
+        "n_trials": 4,
+        "best_cost": 0.1234,
         "duration_s": 1.0,
         "save_runs": "none",
         "promoted": 0,
@@ -188,7 +187,7 @@ def test_a_report_with_no_optional_part_prints_the_bare_minimum() -> None:
 
 
 def test_a_report_with_no_candidate_evaluated_prints_nothing_and_does_not_crash() -> None:
-    report = _report(best_objective=None, best_parameters=None)
+    report = _report(best_cost=None, best_parameters=None)
 
     assert _format_calibration_result(report) == []
 
@@ -200,7 +199,7 @@ def test_a_bare_object_with_no_calibration_fields_does_not_crash() -> None:
 def test_the_mean_and_best_cost_share_are_printed_for_two_or_more_blocks() -> None:
     report = _report(
         best_parameters={"K": 6.4e-5},
-        objective_block_fractions={
+        cost_block_fractions={
             "mean": {"hydrograph": 0.5625, "network": 0.4375},
             "mean_n_trials": 14,
             "best": {"hydrograph": 0.75, "network": 0.25},
@@ -216,7 +215,7 @@ def test_the_mean_and_best_cost_share_are_printed_for_two_or_more_blocks() -> No
 def test_the_mean_share_falls_back_to_a_plain_label_without_a_trial_count() -> None:
     report = _report(
         best_parameters={"K": 6.4e-5},
-        objective_block_fractions={"mean": {"hydrograph": 0.6, "network": 0.4}},
+        cost_block_fractions={"mean": {"hydrograph": 0.6, "network": 0.4}},
     )
 
     lines = "\n".join(_format_calibration_result(report))
@@ -227,10 +226,10 @@ def test_the_mean_share_falls_back_to_a_plain_label_without_a_trial_count() -> N
 def test_a_reused_phase_that_could_not_recompute_its_share_says_so() -> None:
     report = _report(
         best_parameters={"K": 6.4e-5},
-        objective_block_fractions=None,
+        cost_block_fractions=None,
         extra={
             "reused_from_disk": True,
-            "objective_block_fractions_absent_note": (
+            "cost_block_fractions_absent_note": (
                 "reused from a previous run: its persisted trials carry no cost share "
                 "to read back, so it is not recomputed here"
             ),
@@ -246,7 +245,7 @@ def test_a_reused_phase_that_could_not_recompute_its_share_says_so() -> None:
 def test_a_single_block_share_is_not_printed() -> None:
     report = _report(
         best_parameters={"K": 6.4e-5},
-        objective_block_fractions={"mean": {"hydrograph": 1.0}, "best": {"hydrograph": 1.0}},
+        cost_block_fractions={"mean": {"hydrograph": 1.0}, "best": {"hydrograph": 1.0}},
     )
 
     lines = "\n".join(_format_calibration_result(report))
@@ -255,7 +254,7 @@ def test_a_single_block_share_is_not_printed() -> None:
 
 
 def test_a_report_with_no_computable_share_prints_nothing_about_it() -> None:
-    report = _report(best_parameters={"K": 6.4e-5}, objective_block_fractions=None)
+    report = _report(best_parameters={"K": 6.4e-5}, cost_block_fractions=None)
 
     lines = "\n".join(_format_calibration_result(report))
 
@@ -271,8 +270,8 @@ def test_a_staged_result_prints_each_phase_with_its_own_share() -> None:
         name="sy_transient",
         report=_report(
             best_parameters={"Sy": 0.06},
-            best_objective=0.27,
-            objective_block_fractions={
+            best_cost=0.27,
+            cost_block_fractions={
                 "mean": {"hydrograph": 0.36, "network_extension": 0.64},
                 "mean_n_trials": 14,
                 "best": {"hydrograph": 0.37, "network_extension": 0.63},
@@ -300,10 +299,10 @@ def test_the_eq4_verdict_the_bracket_and_the_search_are_printed() -> None:
     report = _report(
         best_parameters={"K": 6.4e-5},
         extra={
-            "roptim_verdict": {
+            "r_optim_verdict": {
                 "net": {
                     "value": 0.42,
-                    "Doptim": 31.5,
+                    "D_optim": 31.5,
                     "h_obs_m": 75.0,
                     "validity_length_m": 150.0,
                     "provenance": "auto",
@@ -331,7 +330,7 @@ def test_the_eq4_verdict_the_bracket_and_the_search_are_printed() -> None:
 
     lines = _format_calibration_result(report)
 
-    assert "  roptim (net) = 0.42, Doptim = 31.5 m <= 150 m (auto), Eq. 4 holds" in lines
+    assert "  r_optim (net) = 0.42, D_optim = 31.5 m <= 150 m (auto), Eq. 4 holds" in lines
     assert "  bracket on K: [6.3e-05, 6.36e-05], width 0.95% (closed)" in lines
     assert (
         "  search: met its own rule (rel_tol), converged, 15 evaluation(s) of 15 declared" in lines
@@ -342,10 +341,10 @@ def test_a_failed_verdict_an_open_bracket_and_an_unconverged_search_say_so() -> 
     report = _report(
         best_parameters={"K": 6.4e-5},
         extra={
-            "roptim_verdict": {
+            "r_optim_verdict": {
                 "net": {
                     "value": 3.1,
-                    "Doptim": 232.5,
+                    "D_optim": 232.5,
                     "h_obs_m": 75.0,
                     "validity_length_m": 150.0,
                     "provenance": "auto",
@@ -354,7 +353,7 @@ def test_a_failed_verdict_an_open_bracket_and_an_unconverged_search_say_so() -> 
                 },
                 "empty": {
                     "value": None,
-                    "Doptim": None,
+                    "D_optim": None,
                     "h_obs_m": None,
                     "validity_length_m": 150.0,
                     "provenance": "auto",
@@ -382,8 +381,8 @@ def test_a_failed_verdict_an_open_bracket_and_an_unconverged_search_say_so() -> 
 
     text = "\n".join(_format_calibration_result(report))
 
-    assert "roptim (net) = 3.1, Doptim = 232.5 m > 150 m (auto), Eq. 4 fails" in text
-    assert "roptim (empty): not a number" in text
+    assert "r_optim (net) = 3.1, D_optim = 232.5 m > 150 m (auto), Eq. 4 fails" in text
+    assert "r_optim (empty): not a number" in text
     assert "(open, the budget ran out first)" in text
     assert (
         "search: spent its budget before its rule (rel_tol) was met, not converged, "
@@ -395,7 +394,7 @@ def test_a_failed_verdict_an_open_bracket_and_an_unconverged_search_say_so() -> 
 def test_a_report_without_these_records_prints_none_of_them() -> None:
     text = "\n".join(_format_calibration_result(_report(best_parameters={"K": 6.4e-5})))
 
-    assert "roptim" not in text
+    assert "r_optim" not in text
     assert "bracket" not in text
     assert "search:" not in text
 

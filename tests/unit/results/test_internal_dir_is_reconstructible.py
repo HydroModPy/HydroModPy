@@ -23,7 +23,7 @@ from tests._helpers.sealed_runs import make_project, seal_run, write_attempt, wr
 
 _CASE_STATE_SQL = (
     "SELECT rel_dir, kind, case_id, site, CAST(sim_id AS VARCHAR), attempt_id, status, "
-    "name, solver, config_hash, label, rule_version, nse, nse_n, metric_rule_version "
+    "name, solver, config_hash, label, rule_version, nse, n_samples, metric_rule_version "
     "FROM v_cases"
 )
 _PARAMETER_STATE_SQL = (
@@ -31,12 +31,18 @@ _PARAMETER_STATE_SQL = (
     "FROM parameters p JOIN simulations s ON s.sim_id = p.sim_id"
 )
 _METRIC_STATE_SQL = (
-    "SELECT s.rel_dir, m.station_id, m.variable, m.metric_name, m.value, m.nse_n "
+    "SELECT s.rel_dir, m.station_id, m.variable, m.metric_name, m.value, m.n_samples "
     "FROM metrics m JOIN simulations s ON s.sim_id = m.sim_id"
 )
 _SESSION_STATE_SQL = (
-    "SELECT rel_dir, session_id, case_id, n_trials, best_trial, best_rel_dir, status "
-    "FROM calibration_sessions"
+    "SELECT s.rel_dir, s.session_id, s.case_id, s.n_trials, s.best_trial, c.best_rel_dir, "
+    "c.best_sim_id, s.status FROM calibration_sessions s "
+    "JOIN calibration_session_cases c ON c.session_id = s.session_id AND c.case_id = s.case_id"
+)
+_TRIAL_STATE_SQL = (
+    "SELECT i.session_id, i.trial, i.phase, i.cost, t.case_id, t.sim_id, t.rel_dir "
+    "FROM calibration_iterations i "
+    "JOIN calibration_trial_cases t ON t.session_id = i.session_id AND t.trial = i.trial"
 )
 
 
@@ -59,6 +65,7 @@ def _index_state(project: Path) -> dict[str, list[tuple]]:
                 _PARAMETER_STATE_SQL,
                 _METRIC_STATE_SQL,
                 _SESSION_STATE_SQL,
+                _TRIAL_STATE_SQL,
             )
         }
 
@@ -92,6 +99,7 @@ def test_deleting_the_internal_directory_loses_nothing(project, monkeypatch):
     state = _index_state(project)
     files = _files_outside_internal(project)
     assert len(state[_CASE_STATE_SQL]) == 6
+    assert len(state[_SESSION_STATE_SQL]) == 1 and state[_TRIAL_STATE_SQL]
 
     shutil.rmtree(internal_dir(project))
     assert _reindex(monkeypatch, project) == 0

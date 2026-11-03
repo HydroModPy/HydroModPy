@@ -17,7 +17,7 @@ import pytest
 from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
 from hydromodpy.calibration.persistence import DEFAULT_PHASE, CalibrationPersistence
 from hydromodpy.calibration.runners.promotion import select_trials_to_promote
-from hydromodpy.results.metric_rule import DateWindow
+from tests._helpers.session_documents import session_opening
 
 pytestmark = pytest.mark.unit
 
@@ -27,25 +27,14 @@ def persistence(tmp_path: Path) -> CalibrationPersistence:
     session_dir = tmp_path / "sessions" / "calage"
     session_dir.mkdir(parents=True)
     persistence = CalibrationPersistence(session_dir)
-    persistence.start_session(
-        session_id="a" * 32,
-        case_id="calage",
-        site=None,
-        project="demo",
-        config_hash="c" * 64,
-        hydromodpy_version="2.0.0a5",
-        method="scipy_nelder_mead",
-        objective_name="nse",
-        search_space={"K": {"bounds": [1e-6, 1e-3]}},
-        objective_window=DateWindow(start="2001-01-01", end="2002-12-31"),
-    )
+    persistence.start_session(**session_opening("calage", method="scipy_nelder_mead"))
     for trial_id, (cost, speculative) in enumerate(((0.3, False), (0.1, True), (0.2, False)), 1):
         persistence.append_iteration(
             ParamSuggestion(trial_id=trial_id, values={"K": 1e-5 * trial_id}),
             EvaluationResult(
                 trial_id=trial_id,
                 sim_id=None,
-                objective_value=cost,
+                cost=cost,
                 status="completed",
                 metadata={"speculative_unused": True} if speculative else {},
             ),

@@ -965,7 +965,7 @@ def score_network_output(
     single run. The keys a search reads:
 
     - ``n_bounds_scored``: 1 or 2, the bounds in the cost.
-    - one bound: ``J_signed``, ``D_so``, ``D_os``, ``Doptim``, ``roptim`` and
+    - one bound: ``J_signed``, ``D_so``, ``D_os``, ``D_optim``, ``r_optim`` and
       the rest, unsuffixed, plus the same set suffixed ``_minimal`` or
       ``_maximal`` for the bound it is.
     - two bounds: only the suffixed sets (``J_signed_minimal``,
@@ -977,7 +977,7 @@ def score_network_output(
       touches, ``n_years_scored`` and the rules it applied, as timesteps
       (``maximal_flowing_steps``, ``minimal_dry_steps``) of ``step_days`` days.
     - both maps: ``frac_minimal_outside_maximal``.
-    - every bound: ``roptim_valid`` (``Doptim <= validity_length_m``),
+    - every bound: ``r_optim_valid`` (``D_optim <= validity_length_m``),
       ``validity_length_m`` and ``validity_length_provenance``, the code of
       :data:`hydromodpy.core.stream_geometry.VALIDITY_PROVENANCE_CODE`.
 
@@ -1018,7 +1018,7 @@ def score_network_output(
     # Eq. 4 is not read here. The paper reads it at the optimum, and a search
     # crosses trials far from it on the way: testing every trial warned on
     # most of them and, in strict mode, refused a whole bracket before it
-    # closed. The runner reads roptim once, on the trial it returns.
+    # closed. The runner reads r_optim once, on the trial it returns.
 
     logger.info("Output %s scored with distance method %s.", name, DISTANCE_METHOD)
     geometry = maps.maximal

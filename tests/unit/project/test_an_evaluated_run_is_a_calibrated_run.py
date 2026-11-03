@@ -18,14 +18,14 @@ import pytest
 import hydromodpy as hmp
 from hydromodpy.project.summary import collect_project
 from hydromodpy.results.checks import CalibratedBy
-from hydromodpy.results.metric_rule import DateWindow
 from hydromodpy.results.validity_rules import CALIBRATED_LABELS
 from tests._helpers.sealed_runs import seal_run, write_session_dir
+from tests._helpers.session_documents import calibration_window
 from tests.unit.api.test_project_reads_a_campaign import _campaign
 
 pytestmark = pytest.mark.fast
 
-CALIBRATION_WINDOW = DateWindow(start=date(2010, 1, 1), end=date(2014, 12, 31))
+CALIBRATION_WINDOWS = calibration_window(date(2010, 1, 1), date(2014, 12, 31))
 
 
 def _evaluated_campaign(tmp_path: Path) -> tuple[Path, str]:
@@ -46,7 +46,7 @@ def _evaluated_campaign(tmp_path: Path) -> tuple[Path, str]:
             phase="steady_k",
             trial=2,
             session_status="completed",
-            window=CALIBRATION_WINDOW,
+            windows=CALIBRATION_WINDOWS,
         ),
     )
     write_session_dir(

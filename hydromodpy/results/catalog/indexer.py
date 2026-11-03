@@ -60,7 +60,7 @@ import hashlib
 import json
 import shutil
 import tomllib
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -664,9 +664,11 @@ class _IndexWriter:
                     "variable": metric.variable,
                     "metric_name": metric.metric,
                     "value": metric.value,
-                    "nse_window_start": metric.nse_window_start,
-                    "nse_window_end": metric.nse_window_end,
-                    "nse_n": metric.nse_n,
+                    "window_name": metric.window_name,
+                    "window_role": metric.window_role,
+                    "window_start": metric.window_start,
+                    "window_end": metric.window_end,
+                    "n_samples": metric.n_samples,
                     "n_clipped": metric.n_clipped,
                     "n_sim_nan": metric.n_sim_nan,
                     "metric_rule_version": metric.metric_rule_version,
@@ -836,13 +838,9 @@ class _IndexWriter:
             "rel_dir": entry.rel_dir,
             "kind": "session",
             "case_id": descriptor.case_id if descriptor is not None else outcome.case_id,
-            "site": descriptor.site if descriptor is not None else outcome.site,
+            "site": descriptor.only_site if descriptor is not None else outcome.site,
             "project": outcome.project if outcome is not None else None,
-            "sim_id": (
-                descriptor.best.sim_id
-                if descriptor is not None and descriptor.best is not None
-                else (outcome.sim_id if outcome is not None else None)
-            ),
+            "sim_id": _session_run(descriptor, outcome),
             "status": status,
             "heartbeat_at": None if beat is None else beat.at,
             "source_key": entry.key,
@@ -867,27 +865,23 @@ class _IndexWriter:
         trials = read_trials(entry.path)
         phases = list_phases(entry.path)
         best = descriptor.best
-        window = descriptor.objective_window
         self.insert(
             "calibration_sessions",
             {
                 "session_id": descriptor.session_id,
                 "rel_dir": entry.rel_dir,
-                "site": descriptor.site,
                 "case_id": descriptor.case_id,
                 "project": outcome.project if outcome is not None else None,
                 "config_hash": descriptor.config_hash,
                 "hydromodpy_version": descriptor.hydromodpy_version,
                 "method": descriptor.method,
-                "search_space": json.dumps(descriptor.search_space, default=str),
-                "objective_name": descriptor.objective_name,
-                "objective_window_start": None if window is None else window.start,
-                "objective_window_end": None if window is None else window.end,
+                "sites": json.dumps(descriptor.sites),
+                "bounds": _json_of(descriptor.bounds),
+                "cost_name": descriptor.cost_name,
+                "windows": _json_of(descriptor.windows),
                 "n_trials": len(trials),
                 "best_trial": None if best is None else best.trial,
-                "best_sim_id": None if best is None else best.sim_id,
-                "best_rel_dir": None if best is None else best.rel_dir,
-                "best_objective": None if best is None else best.objective,
+                "best_cost": None if best is None else best.cost,
                 "status": descriptor.status,
                 "started_at": descriptor.started_at,
                 "ended_at": descriptor.ended_at,
@@ -895,8 +889,23 @@ class _IndexWriter:
                 "root_search": (
                     None if descriptor.root_search is None else json.dumps(descriptor.root_search)
                 ),
+                "widths": _json_of(descriptor.widths),
             },
         )
+        for case_id, case in descriptor.cases.items():
+            run = None if best is None else best.cases.get(case_id)
+            self.insert(
+                "calibration_session_cases",
+                {
+                    "session_id": descriptor.session_id,
+                    "case_id": case_id,
+                    "site": case.site,
+                    "config_hash": case.config_hash,
+                    "best_sim_id": None if run is None else run.sim_id,
+                    "best_rel_dir": None if run is None else run.rel_dir,
+                    "best_cost": None if run is None else run.cost,
+                },
+            )
         for phase in phases:
             phase_best = phase.best
             self.insert(
@@ -907,13 +916,14 @@ class _IndexWriter:
                     "name": phase.name,
                     "phase_index": phase.index,
                     "status": phase.status,
-                    "frozen": json.dumps(phase.frozen, default=str),
+                    "frozen": _json_of(phase.frozen),
+                    "windows": _json_of(phase.windows),
                     "best_trial": None if phase_best is None else phase_best.trial,
-                    "best_sim_id": None if phase_best is None else phase_best.sim_id,
-                    "best_objective": None if phase_best is None else phase_best.objective,
+                    "best_cost": None if phase_best is None else phase_best.cost,
                     "restarts": phase.restarts,
                 },
             )
+        n_trial_cases = 0
         for trial in trials:
             self.insert(
                 "calibration_iterations",
@@ -922,27 +932,60 @@ class _IndexWriter:
                     "trial": trial.trial,
                     "phase": trial.phase,
                     "restart": trial.restart,
-                    "params": json.dumps(trial.params, default=str),
-                    "params_hash": trial.params_hash,
-                    "objective": trial.objective,
-                    "metrics": json.dumps(trial.metrics, default=str),
+                    "params": _json_of(trial.params),
+                    "cost": trial.cost,
                     "status": trial.status,
                     "started_at": trial.started_at,
                     "ended_at": trial.ended_at,
-                    "sim_id": trial.sim_id,
-                    "rel_dir": trial.rel_dir,
                 },
             )
+            for case_id, case in trial.cases.items():
+                n_trial_cases += 1
+                self.insert(
+                    "calibration_trial_cases",
+                    {
+                        "session_id": descriptor.session_id,
+                        "trial": trial.trial,
+                        "case_id": case_id,
+                        "cost": case.cost,
+                        "status": case.status,
+                        "params_hash": case.params_hash,
+                        "from_cache": case.from_cache,
+                        "components": json.dumps(case.components),
+                        "sim_id": case.sim_id,
+                        "rel_dir": case.rel_dir,
+                    },
+                )
         return {
             "calibration_sessions": 1,
+            "calibration_session_cases": len(descriptor.cases),
             "calibration_phases": len(phases),
             "calibration_iterations": len(trials),
+            "calibration_trial_cases": n_trial_cases,
         }
 
 
 # ---------------------------------------------------------------------------
 # Row helpers
 # ---------------------------------------------------------------------------
+
+
+def _json_of(table: Mapping[str, Any]) -> str:
+    """Return a table of stored models as the text of a JSON column."""
+    return json.dumps(
+        {
+            str(key): value.model_dump(mode="json", by_alias=True, exclude_defaults=True)
+            for key, value in table.items()
+        }
+    )
+
+
+def _session_run(descriptor: SessionDescriptor | None, outcome: Outcome | None) -> str | None:
+    """Return the run the row of a session in ``cases`` names, only with one case."""
+    if descriptor is None:
+        return None if outcome is None else outcome.sim_id
+    run = descriptor.only_run
+    return None if run is None else run.sim_id
 
 
 def _outcome_columns(outcome: Outcome) -> dict[str, Any]:
@@ -1044,8 +1087,8 @@ def _score_columns(manifest: Manifest) -> dict[str, Any]:
     """Where the headline score of the run was read, from its seal."""
     score = manifest.score
     return {
-        "nse_station": None if score is None else score.station,
-        "nse_variable": None if score is None else score.variable,
+        "score_station": None if score is None else score.station,
+        "score_variable": None if score is None else score.variable,
     }
 
 

@@ -4,6 +4,34 @@
       "additionalProperties": true,
       "description": "The session, phase and trial a promoted run comes from.",
       "properties": {
+        "cost": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Cost of the case of this run at that trial, never the total of a joint search; null when the search keeps no single cost",
+          "title": "Cost",
+          "x-hmp-profile": "user"
+        },
+        "metric": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of the cost of the case of this run",
+          "title": "Metric",
+          "x-hmp-profile": "user"
+        },
         "phase": {
           "anyOf": [
             {
@@ -84,17 +112,13 @@
           "type": "integer",
           "x-hmp-profile": "user"
         },
-        "window": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/DateWindow"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Window the session scored its objective on",
+        "windows": {
+          "additionalProperties": {
+            "$ref": "#/$defs/PeriodWindow"
+          },
+          "description": "Periods of the search as the case of this run read them, by name",
+          "title": "Windows",
+          "type": "object",
           "x-hmp-profile": "user"
         }
       },
@@ -130,6 +154,56 @@
         "end"
       ],
       "title": "DateWindow",
+      "type": "object"
+    },
+    "PeriodWindow": {
+      "additionalProperties": true,
+      "description": "A named period of a search: its role, its extent, and the window of each case.",
+      "properties": {
+        "by_case": {
+          "additionalProperties": {
+            "$ref": "#/$defs/DateWindow"
+          },
+          "description": "Window of each case by case id, empty when every case reads start to end",
+          "title": "By Case",
+          "type": "object",
+          "x-hmp-profile": "user"
+        },
+        "end": {
+          "description": "Last day of the period over all cases, included",
+          "format": "date",
+          "title": "End",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "role": {
+          "description": "What the period is for",
+          "examples": [
+            "example"
+          ],
+          "title": "Role",
+          "type": "string",
+          "x-hmp-profile": "user",
+          "x-hmp-vocabulary": [
+            "calibration",
+            "validation",
+            "evaluation"
+          ]
+        },
+        "start": {
+          "description": "First day of the period over all cases",
+          "format": "date",
+          "title": "Start",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "role",
+        "start",
+        "end"
+      ],
+      "title": "PeriodWindow",
       "type": "object"
     },
     "Validity": {
@@ -266,7 +340,7 @@
         }
       ],
       "default": null,
-      "description": "Samples the score used",
+      "description": "Samples the headline score used",
       "title": "N Samples",
       "x-hmp-profile": "user"
     },
@@ -286,6 +360,12 @@
       "title": "Obs Coverage",
       "x-hmp-profile": "user"
     },
+    "schema": {
+      "default": "hydromodpy.checks.v2",
+      "description": "Schema id",
+      "title": "Schema",
+      "type": "string"
+    },
     "score_window": {
       "anyOf": [
         {
@@ -296,7 +376,7 @@
         }
       ],
       "default": null,
-      "description": "Window the run was scored on",
+      "description": "Window of the headline score, one by definition",
       "x-hmp-profile": "user"
     },
     "validities": {

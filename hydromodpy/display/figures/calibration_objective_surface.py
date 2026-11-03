@@ -99,7 +99,7 @@ class CalibrationObjectiveSurfaceFigure(BaseFigure):
         first, second = _pair(table, parameters)
         _, px = table.parameter_values(first)
         _, py = table.parameter_values(second)
-        objective_name, pz = table.objective_values(objective)
+        cost_name, pz = table.cost_values(objective)
         finite = np.isfinite(px) & np.isfinite(py) & np.isfinite(pz)
         px, py, pz = px[finite], py[finite], pz[finite]
         if px.size < 4:
@@ -135,7 +135,7 @@ class CalibrationObjectiveSurfaceFigure(BaseFigure):
         ax.scatter([px[best]], [py[best]], marker="*", s=180, c="red", edgecolors="black", lw=0.6)
 
         fig = ax.figure
-        fig.colorbar(pcm, ax=ax, label=objective_name)
+        fig.colorbar(pcm, ax=ax, label=cost_name)
         ax.set_xlabel(first)
         ax.set_ylabel(second)
         ax.set_title(f"Objective surface ({method}){run_suffix(sim)}")

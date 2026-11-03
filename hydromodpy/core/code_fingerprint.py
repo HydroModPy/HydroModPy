@@ -78,11 +78,8 @@ OUTSIDE_SUBTREES: Final[tuple[str, ...]] = (
 )
 """Folders of a compute layer that index, copy or convert what a run already computed."""
 
-COMPUTE_DATA_FILES: Final[tuple[str, ...]] = (
-    "core/time/rech_chronicles.csv",
-    "spatial/administrative/departement.gpkg",
-)
-"""Package data a computation reads, by path under the package."""
+COMPUTE_DATA_FILES: Final[tuple[str, ...]] = ("spatial/administrative/departement.gpkg",)
+"""Package data a computation reads, by path under the package. A wheel ships each of them."""
 
 OTHER_DATA_SUFFIXES: Final[tuple[str, ...]] = (".md", ".tex", ".sql", ".toml", ".txt", ".pyc")
 """Suffixes of the other package files of a compute layer: documents and labels.
@@ -215,19 +212,29 @@ def _layer_digest(root: Path, layer: str, digests: dict[str, str]) -> str:
 
 
 def _layer_files(root: Path, layer: str) -> list[Path]:
-    """Return the files of one layer that enter its digest, sorted by path."""
+    """Return the files of one layer that enter its digest, sorted by path.
+
+    A layer with no module or a listed data file that is absent is a broken
+    install. Its digest would say nothing of the code, so it is refused.
+    """
     outside = tuple(f"{subtree}/" for subtree in OUTSIDE_SUBTREES)
-    files = [
+    modules = [
         path
         for path in (root / layer).rglob("*.py")
         if not path.relative_to(root).as_posix().startswith(outside)
     ]
-    files.extend(
-        root / relative
-        for relative in COMPUTE_DATA_FILES
-        if relative.startswith(f"{layer}/") and (root / relative).is_file()
-    )
-    return sorted(files)
+    data = [root / name for name in COMPUTE_DATA_FILES if name.startswith(f"{layer}/")]
+    absent = [path.relative_to(root).as_posix() for path in data if not path.is_file()]
+    if not modules or absent:
+        # Imported here: this module has to run alone, with the standard library.
+        from hydromodpy.core.exceptions import HydroModPyError
+
+        what = ", ".join(absent) if absent else f"any Python source in {layer}/"
+        raise HydroModPyError(
+            f"The installed package at {root} is incomplete: it lacks {what}, so the identity of "
+            "a run cannot be read from its code. Install HydroModPy again."
+        )
+    return sorted([*modules, *data])
 
 
 def _file_digest(path: Path, digests: dict[str, str]) -> str:

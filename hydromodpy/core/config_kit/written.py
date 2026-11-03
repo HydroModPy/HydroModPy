@@ -51,6 +51,20 @@ def written_payload(model: BaseModel) -> dict[str, Any]:
     return pruned
 
 
+def written_as_a_file(model: BaseModel) -> dict[str, Any]:
+    """Return what *model* says as a TOML file says it, at every depth.
+
+    It is :func:`written_payload` without what a file cannot hold or does not say: a
+    field marked ``toml_exclude``, which a loader fills, a null, and an empty section
+    or list at its default, which a loader fills too. An empty table over a default of
+    ``None`` stays: ``[mesh]`` and no mesh are two models. The document a run freezes
+    says the same, so this reads alike before and after a round trip through it.
+    """
+    said = _as_a_file(model, model.model_dump(mode="json"))
+    assert isinstance(said, dict)
+    return said
+
+
 def written_experimental_keys(model: BaseModel) -> tuple[str, ...]:
     """Return the experimental keys *model* was given, as dotted paths, in field order.
 
@@ -159,9 +173,41 @@ def _prune(value: Any, dumped: Any) -> Any:
     return dumped
 
 
+def _as_a_file(value: Any, dumped: Any) -> Any:
+    """Return *dumped* as a file says *value*, where both have the same shape (a model at root)."""
+    if isinstance(value, BaseModel) and isinstance(dumped, Mapping):
+        said = {}
+        for name in written_fields(value):
+            info = type(value).model_fields[name]
+            extra = info.json_schema_extra if isinstance(info.json_schema_extra, dict) else {}
+            if name not in dumped or extra.get("toml_exclude") is True:
+                continue
+            item = _as_a_file(getattr(value, name), dumped[name])
+            filled = item in ({}, []) and (
+                info.default is not None or info.default_factory is not None
+            )
+            if item is not None and not filled:
+                said[name] = item
+        return said
+    if isinstance(value, Mapping) and isinstance(dumped, Mapping) and len(value) == len(dumped):
+        pairs = zip(value.values(), dumped.items(), strict=True)
+        said = {key: _as_a_file(item, dumped_item) for item, (key, dumped_item) in pairs}
+        return {key: item for key, item in said.items() if item is not None}
+    if isinstance(value, (list, tuple)) and isinstance(dumped, list) and len(value) == len(dumped):
+        pairs = zip(value, dumped, strict=True)
+        items = [_as_a_file(item, dumped_item) for item, dumped_item in pairs]
+        return [item for item in items if item is not None]
+    if isinstance(dumped, Mapping):
+        return {key: item for key, item in dumped.items() if item is not None}
+    if isinstance(dumped, list):
+        return [item for item in dumped if item is not None]
+    return dumped
+
+
 __all__ = [
     "experimental_keys_line",
     "log_experimental_keys",
+    "written_as_a_file",
     "written_experimental_keys",
     "written_fields",
     "written_payload",

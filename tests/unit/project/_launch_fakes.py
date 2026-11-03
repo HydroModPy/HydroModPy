@@ -156,7 +156,7 @@ if mode.startswith("session_"):
     import pyarrow.parquet as pq
     from hydromodpy.calibration.runners.session import open_session_dir
     from hydromodpy.results.session.descriptor import (
-        SessionDescriptor, read_session, write_session,
+        SessionCase, SessionDescriptor, read_session, write_session,
     )
 
     planned = {row["case_id"]: row["config_hash"]
@@ -168,9 +168,13 @@ if mode.startswith("session_"):
             update={"status": "running", "ended_at": None, "error_message": None}
         )
     else:
+        case_hash = planned[case_id]
         descriptor = SessionDescriptor(
-            session_id=uuid.uuid4().hex, case_id=case_id, config_hash=planned[case_id],
-            hydromodpy_version="0", method="grid", objective_name="nse", started_at=started,
+            session_id=uuid.uuid4().hex, case_id=case_id, config_hash=case_hash,
+            cases={case_id: SessionCase(
+                config_hash=case_hash, config_file="config.toml", cost_name="nse",
+            )},
+            hydromodpy_version="0", method="grid", cost_name="nse", started_at=started,
         )
     write_session(session_dir, descriptor)
     outcome = {

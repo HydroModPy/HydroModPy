@@ -339,8 +339,8 @@ class TestTwoBounds:
         assert diagnostics["net.n_bounds_scored"] == 2.0
         # A single-root search must not silently close on one of the two.
         assert "net.J_signed" not in diagnostics
-        assert "net.roptim" not in diagnostics
-        for key in ("J_signed", "J", "D_so", "D_os", "Doptim", "roptim"):
+        assert "net.r_optim" not in diagnostics
+        for key in ("J_signed", "J", "D_so", "D_os", "D_optim", "r_optim"):
             assert f"net.{key}_minimal" in diagnostics
             assert f"net.{key}_maximal" in diagnostics
         assert diagnostics["net.J_minimal"] == pytest.approx(

@@ -40,8 +40,8 @@ def _phase(
         "index": index,
         "report": {
             "method": method,
-            "n_iterations": n,
-            "best_objective": cost,
+            "n_trials": n,
+            "best_cost": cost,
             "best_parameters": {parameter: value},
             "best_rel_dir": f"runs/{run_name}",
             "session_dir": str(tmp_path / "sessions" / session),

@@ -52,7 +52,7 @@ def _make_result(sugg, cost: float, status: str = "completed") -> EvaluationResu
     return EvaluationResult(
         trial_id=sugg.trial_id,
         sim_id=None,
-        objective_value=cost,
+        cost=cost,
         status=status,
     )
 
@@ -143,7 +143,7 @@ def test_de_converges_to_known_minimum() -> None:
         assert curve  # at least one generation ran
         best = opt.best()
         assert best is not None
-        assert best.objective_value < 1e-3
+        assert best.cost < 1e-3
         assert curve[-1] <= curve[0]  # running best never increases
     finally:
         opt.close()
@@ -155,7 +155,7 @@ def test_nelder_mead_converges_to_known_minimum() -> None:
         _drive(opt, ask_n=3)
         best = opt.best()
         assert best is not None
-        assert best.objective_value < 1e-4
+        assert best.cost < 1e-4
     finally:
         opt.close()
 
@@ -166,7 +166,7 @@ def test_de_seed_is_reproducible() -> None:
         opt = ScipyDE(_two_dim_space(), seed=7, maxiter=40, popsize=8, tol=1e-7)
         try:
             _drive(opt, ask_n=1)
-            runs.append(opt.best().objective_value)
+            runs.append(opt.best().cost)
         finally:
             opt.close()
     assert runs[0] == runs[1]
@@ -206,7 +206,7 @@ def test_failed_eval_maps_to_failed_cost_and_is_excluded_from_best() -> None:
         # best() only ever returns a completed evaluation, never the failure.
         assert best is not None
         assert best.status == "completed"
-        assert best.objective_value < FAILED_EVAL_COST
+        assert best.cost < FAILED_EVAL_COST
     finally:
         opt.close()
 

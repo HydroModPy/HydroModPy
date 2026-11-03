@@ -15,17 +15,21 @@ import pytest
 
 from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
 from hydromodpy.calibration.persistence import CalibrationPersistence, PersistDetail
+from tests._helpers.session_documents import session_opening
 
 
 def _session(tmp_path: Path, *, detail: PersistDetail) -> CalibrationPersistence:
-    persistence = CalibrationPersistence(tmp_path / "sessions" / "toy")
+    session_dir = tmp_path / "sessions" / "toy"
+    session_dir.mkdir(parents=True)
+    persistence = CalibrationPersistence(session_dir)
+    persistence.start_session(**session_opening("toy"))
     for trial_id, cost, unused in ((1, 1.0, False), (2, 0.2, True), (3, 0.5, False)):
         persistence.append_iteration(
             ParamSuggestion(trial_id=trial_id, values={"K": float(trial_id)}),
             EvaluationResult(
                 trial_id=trial_id,
                 sim_id=None,
-                objective_value=cost,
+                cost=cost,
                 status="completed",
                 metadata={"speculative_unused": True} if unused else {},
             ),
@@ -46,4 +50,4 @@ def test_the_unread_trial_stays_in_the_journal(tmp_path: Path) -> None:
     trials = _session(tmp_path, detail="none").trials()
 
     assert [line.trial for line in trials] == [1, 2, 3]
-    assert trials[1].metrics == {"speculative_unused": 1.0}
+    assert [line.speculative_unused for line in trials] == [False, True, False]

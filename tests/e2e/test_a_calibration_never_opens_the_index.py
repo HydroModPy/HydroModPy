@@ -168,7 +168,7 @@ def test_the_search_never_opens_the_index(project: Path, monkeypatch: pytest.Mon
 
     report = hmp.calibrate(project / "calage.toml")
 
-    assert report.n_iterations == 2
+    assert report.n_trials == 2
     session_dir = project / "sessions" / "calage"
     assert report.session_dir == session_dir
     assert read_session(session_dir).status == "completed"
@@ -198,6 +198,6 @@ def test_the_promotion_never_opens_the_index(
     assert report.promoted == 1
     assert report.best_rel_dir == "runs/calage"
     assert (project / "runs" / "calage" / "manifest.json").is_file()
-    best = read_session(project / "sessions" / "calage").best
-    assert best is not None and best.rel_dir == "runs/calage"
+    run = read_session(project / "sessions" / "calage").only_run
+    assert run is not None and run.rel_dir == "runs/calage"
     assert not (project / ".hmp" / "index.duckdb").exists()

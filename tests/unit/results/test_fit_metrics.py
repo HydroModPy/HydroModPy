@@ -62,7 +62,7 @@ def test_a_perfect_run_scores_one_on_the_whole_panel() -> None:
     assert by_metric["rmse"] == pytest.approx(0.0, abs=1e-12)
     assert scores.score.value == pytest.approx(1.0)
     assert (scores.score.station, scores.score.variable) == (GAUGE, "discharge")
-    assert scores.score.nse_n == 365
+    assert scores.score.n_samples == 365
 
 
 def test_the_spin_up_does_not_count() -> None:
@@ -75,8 +75,8 @@ def test_the_spin_up_does_not_count() -> None:
     scores = score_timeseries(_frame(_closing(days), simulated, days, observed), rule=rule)
 
     assert scores.score.value == pytest.approx(1.0)
-    assert scores.score.nse_n == 365
-    assert (scores.score.nse_window_start, scores.score.nse_window_end) == (
+    assert scores.score.n_samples == 365
+    assert (scores.score.window_start, scores.score.window_end) == (
         YEAR_2001.start,
         YEAR_2001.end,
     )
@@ -92,8 +92,8 @@ def test_without_a_window_nothing_is_scored() -> None:
 
     assert scores.rows == ()
     assert scores.score.value is None
-    assert scores.score.nse_window_start is None
-    assert scores.score.nse_n == 0
+    assert scores.score.window_start is None
+    assert scores.score.n_samples == 0
     assert scores.score.metric_rule_version == "2"
 
 
@@ -109,7 +109,7 @@ def test_without_a_station_the_rows_exist_but_the_headline_is_empty() -> None:
 
     assert {row.station for row in scores.rows} == {GAUGE}
     assert scores.score.value is None
-    assert scores.score.nse_window_start == YEAR_2001.start
+    assert scores.score.window_start == YEAR_2001.start
 
 
 def test_the_headline_is_read_at_the_rule_station_only() -> None:
@@ -148,7 +148,7 @@ def test_a_monthly_period_counts_only_when_it_lies_in_the_window() -> None:
     )
 
     # February to November: ten months, January and December left out.
-    assert scores.score.nse_n == 10
+    assert scores.score.n_samples == 10
     assert scores.score.value == pytest.approx(1.0)
 
 
@@ -164,8 +164,8 @@ def test_a_lake_level_is_read_at_its_stamp() -> None:
 
     rmse = [row for row in scores.rows if row.metric == "rmse"]
     assert [row.value for row in rmse] == [pytest.approx(0.0)]
-    assert rmse[0].nse_n == 10
-    assert (scores.score.variable, scores.score.nse_n) == ("lake_level", 10)
+    assert rmse[0].n_samples == 10
+    assert (scores.score.variable, scores.score.n_samples) == ("lake_level", 10)
 
 
 def test_an_observed_station_meets_the_simulated_series_of_the_same_station() -> None:
@@ -195,7 +195,7 @@ def test_series_that_never_meet_the_window_leave_no_row() -> None:
     )
 
     assert scores.rows == ()
-    assert scores.score.value is None and scores.score.nse_n == 0
+    assert scores.score.value is None and scores.score.n_samples == 0
 
 
 def test_a_steady_value_is_not_scored() -> None:
@@ -211,7 +211,7 @@ def test_a_steady_value_is_not_scored() -> None:
 
     assert scores.rows == ()
     assert scores.score.value is None
-    assert scores.score.nse_n == 0
+    assert scores.score.n_samples == 0
 
 
 def test_a_daily_gap_before_the_window_keeps_the_next_period_in_it() -> None:
@@ -228,7 +228,7 @@ def test_a_daily_gap_before_the_window_keeps_the_next_period_in_it() -> None:
     )
 
     # 5 March to 31 December: every day the gauge measured inside the window.
-    assert scores.score.nse_n == 302
+    assert scores.score.n_samples == 302
     assert scores.score.value == pytest.approx(1.0)
 
 
@@ -246,7 +246,7 @@ def test_a_monthly_gap_before_the_window_keeps_the_next_month_in_it() -> None:
     )
 
     # March to November: nine months, February unmeasured, January before the window.
-    assert scores.score.nse_n == 9
+    assert scores.score.n_samples == 9
     assert scores.score.value == pytest.approx(1.0)
 
 
@@ -288,7 +288,7 @@ def test_the_run_directory_is_read_without_the_index(tmp_path, monkeypatch) -> N
 
     expected = kernels.nse(simulated, observed)
     assert scores.score.value == pytest.approx(expected)
-    assert scores.score.nse_n == 365
+    assert scores.score.n_samples == 365
 
 
 def test_a_run_without_series_has_an_empty_score(tmp_path) -> None:

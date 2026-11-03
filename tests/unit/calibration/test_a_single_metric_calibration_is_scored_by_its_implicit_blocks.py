@@ -9,7 +9,7 @@ reproduces the old cost to the bit; several are averaged by the block weights,
 which may round differently in the last place.
 
 What the old route did not publish is now there: the pairs each cost was
-scored on, which ``objective_samples`` of ``session.json`` is read from.
+scored on, which ``scored`` of ``session.json`` is read from.
 """
 
 from __future__ import annotations
@@ -118,6 +118,11 @@ def _lake(station: str, seed: float) -> SimpleNamespace:
     return SimpleNamespace(station_id=station, variable="lake_level", data=_state_record(seed))
 
 
+def _pairs(components: dict[str, float]) -> dict[str, int]:
+    """Return the pairs a session would keep, by output."""
+    return {item.output: item.n for item in scored_samples(components, case_id="case")}
+
+
 def _score(variable: str, objective: str, ctx, **kwargs) -> tuple[float, dict[str, float]]:
     metric_fn = build_metric_extractor(variable, objective, ctx, **kwargs)
     cost, components = metric_fn(ctx, objective=objective, variable=variable)
@@ -132,7 +137,7 @@ def test_a_gauge_on_nse_log_and_a_window_costs_what_it_cost(monkeypatch) -> None
 
     assert cost == PINNED["discharge_nse_log_window"]
     assert components["nse_log@NANCON.raw_cost"] == cost
-    assert scored_samples(components)["discharge@NANCON"].n == 24
+    assert _pairs(components)["discharge@NANCON"] == 24
 
 
 def test_a_burn_in_in_samples_still_applies(monkeypatch) -> None:
@@ -154,7 +159,7 @@ def test_the_followed_gauge_alone_is_scored(monkeypatch) -> None:
     cost, components = _score("discharge", "nse", ctx, observed_station_id="UP")
 
     assert cost == PINNED["discharge_followed_gauge"]
-    assert set(scored_samples(components)) == {"discharge@UP"}
+    assert set(_pairs(components)) == {"discharge@UP"}
 
 
 def test_two_heads_average_as_they_did(monkeypatch) -> None:
@@ -195,7 +200,7 @@ def test_a_piezometer_the_mesh_cannot_place_is_left_out(monkeypatch) -> None:
     cost, components = _score("head", "mae", ctx)
 
     assert cost == PINNED["head_one_unplaced"]
-    assert set(scored_samples(components)) == {"head@PZ1"}
+    assert set(_pairs(components)) == {"head@PZ1"}
 
 
 @pytest.mark.parametrize(
@@ -209,4 +214,4 @@ def test_a_lake_on_a_seasonal_kernel_costs_what_it_cost(monkeypatch, metric, pin
 
     assert np.isfinite(cost)
     assert cost == PINNED[pin]
-    assert scored_samples(components)["lake_level@lac0"].n == 36
+    assert _pairs(components)["lake_level@lac0"] == 36

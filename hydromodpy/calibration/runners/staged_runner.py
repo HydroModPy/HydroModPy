@@ -43,7 +43,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -58,14 +58,14 @@ from hydromodpy.calibration.config import (
 from hydromodpy.calibration.evaluation import registry as evaluation_registry
 from hydromodpy.calibration.metrics.observed_pairing import OBSERVED_FAMILY_BY_VARIABLE
 from hydromodpy.calibration.metrics.series import DATA_FAMILY_SECTION
+from hydromodpy.calibration.optim.cache import context_fingerprints, differing_members
 from hydromodpy.calibration.optim.cost_margin import IntervalWidth
 from hydromodpy.calibration.optim.objective import (
-    mean_objective_block_fractions,
-    objective_block_fractions,
+    cost_block_fractions,
+    mean_cost_block_fractions,
 )
 from hydromodpy.calibration.optim.optimizer import FAILED_EVAL_COST, engine_traits
 from hydromodpy.calibration.optim.parameters import (
-    CalibParameter,
     ParameterSpace,
     apply_parameter_to_config,
 )
@@ -74,13 +74,17 @@ from hydromodpy.calibration.optim.stopping import settled
 from hydromodpy.calibration.persistence import (
     CalibrationPersistence,
     PhaseContext,
-    best_pointer,
 )
 from hydromodpy.calibration.protocols import (
     protocol_options_away_from_the_recipe,
     protocol_record,
 )
-from hydromodpy.calibration.report import samples_text
+from hydromodpy.calibration.report import (
+    CalibrationReport,
+    FrozenParameter,
+    PhaseRun,
+    samples_text,
+)
 from hydromodpy.calibration.runners.cli_runner import (
     SessionScope,
     _keep_trial_solves,
@@ -89,19 +93,19 @@ from hydromodpy.calibration.runners.cli_runner import (
     attach_a_linearized_width,
     closing_session,
     declared_window_text,
-    describe_dry_run,
     load_toml_calibration,
     open_calibration_session,
     promote_and_close,
     refuse_an_objective_that_is_not_an_entry_point,
     run_calibration_core,
     run_one_search,
+    session_cost_name,
     session_status_of,
 )
 from hydromodpy.calibration.runners.phase_regime import phase_overrides, regime_overrides
 from hydromodpy.calibration.runners.prepared_model import check_the_prepared_model
 from hydromodpy.calibration.runners.promotion import promote_phase_best, promotion_name_check
-from hydromodpy.calibration.runners.recap import write_methods
+from hydromodpy.calibration.runners.recap import cost_metric_label, scored_samples, write_methods
 from hydromodpy.calibration.runners.restarts import RestartSpread
 from hydromodpy.calibration.runners.resume import (
     best_parameters_of,
@@ -113,6 +117,7 @@ from hydromodpy.calibration.runners.session import (
     calibration_case_name,
     latest_session_dir,
     project_root_for,
+    search_windows,
 )
 from hydromodpy.calibration.runners.state import build_cache_context, space_from_config
 from hydromodpy.calibration.runners.state import (
@@ -124,173 +129,15 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.core.workspace.path_registry import in_run_scratch
 from hydromodpy.results.checks import FROZE_BUDGET_ONLY
 from hydromodpy.results.session.descriptor import SessionStatus
+from hydromodpy.results.session.phase import FrozenValue
 from hydromodpy.solver.base.solver_config import SolverConfig, solver_name_of_backend
 
 if TYPE_CHECKING:
     import numpy as np
 
-    from hydromodpy.calibration.report import CalibrationReport
     from hydromodpy.calibration.runners.trial import TrialContext
 
 logger = get_logger(__name__)
-
-
-# ---------------------------------------------------------------------------
-# Report
-# ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True, slots=True)
-class FrozenParameter:
-    """One parameter a phase calibrated and held fixed for the phases after it.
-
-    The declaration is the one the parent configuration carries, so the dotted
-    path and the mode (``replace`` / ``scale``) are honoured exactly as during
-    the phase that calibrated the value.
-    """
-
-    parameter: CalibParameter
-    value: float
-    phase: str
-
-    @property
-    def name(self) -> str:
-        """Calibration name of the frozen parameter."""
-        return self.parameter.name
-
-    @property
-    def path(self) -> str | None:
-        """Dotted path in the configuration the value is written to."""
-        return self.parameter.effective_path
-
-    def to_dict(self) -> dict[str, Any]:
-        """Return a JSON-friendly view of the frozen value."""
-        return {
-            "name": self.name,
-            "path": self.path,
-            "value": float(self.value),
-            "mode": self.parameter.mode,
-            "phase": self.phase,
-        }
-
-
-@dataclass(frozen=True, slots=True)
-class PhaseRun:
-    """One phase of a staged calibration: its report, its freeze, its status."""
-
-    name: str
-    index: int
-    session_id: str
-    report: CalibrationReport
-    frozen: tuple[FrozenParameter, ...]
-    reopened: tuple[FrozenParameter, ...] = ()
-    """The passed values this phase moved again, each with the phase that found it."""
-    status: SessionStatus = "completed"
-    """What the phase descriptor says of the search: completed, partial or failed."""
-    stop_note: str | None = None
-    """``FROZE_BUDGET_ONLY`` when the phase passed on the best of a budget-only search."""
-
-    def to_dict(self) -> dict[str, Any]:
-        """Return a JSON-friendly view of the phase, report included."""
-        summary: dict[str, Any] = {
-            "phase": self.name,
-            "index": self.index,
-            "session_id": self.session_id,
-            "status": self.status,
-            "frozen": [item.to_dict() for item in self.frozen],
-        }
-        if self.stop_note:
-            summary["stop_note"] = self.stop_note
-        if self.reopened:
-            summary["reopened"] = [item.to_dict() for item in self.reopened]
-        summary["report"] = self.report.to_dict()
-        return summary
-
-
-@dataclass(frozen=True, slots=True)
-class StagedCalibrationReport:
-    """Outcome of a calibration run in phases.
-
-    ``phases`` keeps the runs in the order they ran and ``frozen`` gathers,
-    in the same order, every value a settled phase declared frozen, with
-    the path it is written to. A parameter two phases froze appears twice; the
-    later value is the one the phases after both of them hold.
-    """
-
-    phases: tuple[PhaseRun, ...]
-    frozen: tuple[FrozenParameter, ...]
-    session_id: str
-    session_dir: Path | None = None
-    """``sessions/<case>``, the one session every phase wrote into."""
-    promoted: int = 0
-    """Count of runs the promotion of the last phase wrote."""
-    best_sim_id: str | None = None
-    """Id of the calibrated run, ``runs/<case>``, when it was written."""
-    best_rel_dir: str | None = None
-    """Directory of the calibrated run, relative to the project root."""
-    extra: dict[str, Any] = field(default_factory=dict)
-    """What the promotion reported beyond the phases: ``promotion_failures``."""
-    protocol: dict[str, Any] | None = None
-    """The published method that wrote these stages, when one did."""
-
-    methods_paragraph: str | None = None
-    """The prose this run writes about itself, conditioned on the stages that
-    completed. It is the only object by which someone who did not produce the
-    number can know what it rests on without reading Python."""
-
-    methods_path: Path | None = None
-    """The ``methods.md`` file the paragraph was written to, in the root session
-    folder. ``None`` when there is no paragraph or no session folder."""
-
-    restart_spreads: tuple[RestartSpread, ...] = ()
-    """Where the restarts of each phase landed, when the file asked for restarts.
-
-    The calibrated value is untouched: it is the best of them. This says how far
-    apart the others finished, which is the one thing a single search cannot
-    report about itself."""
-
-    reused_from_disk: tuple[str, ...] = ()
-    """Names of the phases read back from the reopened session instead of solved.
-
-    Only non-empty under ``hmp calibrate --resume``: a phase is reused when it
-    completed in the session and its recorded fingerprint matches this run's
-    own model, mesh and input files."""
-
-    steady_window: dict[str, Any] | None = None
-    """The span a ``regime = "steady"`` phase actually averaged its recharge
-    over: ``start``, ``end``, ``days``, and ``mean_recharge_m_s`` when the
-    steady phase's calibrated conductivity is known. ``None`` when no phase
-    declares a steady regime. Read back from the same translation the run
-    itself used (:func:`hydromodpy.calibration.runners.phase_regime.regime_overrides`),
-    never recomputed by a second reading of the file that could drift from it."""
-
-    def to_dict(self) -> dict[str, Any]:
-        """Return a JSON-friendly summary for the CLI."""
-        summary: dict[str, Any] = {
-            "session_id": self.session_id,
-            "phases": [phase.to_dict() for phase in self.phases],
-            "frozen": [item.to_dict() for item in self.frozen],
-            "promoted": int(self.promoted),
-            "best_sim_id": self.best_sim_id,
-            "best_rel_dir": self.best_rel_dir,
-        }
-        if self.session_dir is not None:
-            summary["session_dir"] = str(self.session_dir)
-        if self.extra:
-            summary["extra"] = dict(self.extra)
-        if self.protocol is not None:
-            summary["protocol"] = self.protocol
-        if self.methods_paragraph is not None:
-            summary["methods_paragraph"] = self.methods_paragraph
-        if self.methods_path is not None:
-            summary["methods_path"] = str(self.methods_path)
-        if self.reused_from_disk:
-            summary["reused_from_disk"] = list(self.reused_from_disk)
-        if self.restart_spreads:
-            summary["restart_spreads"] = [item.to_dict() for item in self.restart_spreads]
-        if self.steady_window is not None:
-            summary["steady_window"] = dict(self.steady_window)
-        return summary
 
 
 # ---------------------------------------------------------------------------
@@ -336,8 +183,9 @@ def _phase_config(cfg: CalibrationConfig, decl: CalibPhaseDecl) -> CalibrationCo
     # The phase-scoped fields (overrides, regime, steady_window) never enter this
     # payload: they reach prepare_trials through _PhasePlan.overrides. This
     # configuration feeds the params hash, so forwarding one would change the
-    # hash of every completed stage and void its cache and its reuse.
-    payload = cfg.model_dump()
+    # hash of every completed stage and void its cache and its reuse. What the file
+    # left unset stays unset, since the hash reads what was written.
+    payload = cfg.model_dump(exclude_unset=True)
     # A phase that names no method gets the one its criteria call for, written
     # here so the session, the params hash and the report all read that name.
     payload["method"] = cfg.method_for(decl)[0]
@@ -370,9 +218,9 @@ def _phase_config(cfg: CalibrationConfig, decl: CalibPhaseDecl) -> CalibrationCo
         # variable names is kept: it holds the declaration the criterion reads
         # (the maps, the extent table), and the model builds from it the one
         # implicit block the whole-file (objective, variable) route builds.
-        variable = payload["variable"]
+        variable = payload.get("variable", cfg.variable)
         payload["outputs"] = {
-            name: value for name, value in payload["outputs"].items() if name == variable
+            name: value for name, value in payload.get("outputs", {}).items() if name == variable
         }
         payload["objective_blocks"] = []
     else:
@@ -380,20 +228,20 @@ def _phase_config(cfg: CalibrationConfig, decl: CalibPhaseDecl) -> CalibrationCo
             shares = decl.objective_blocks
             payload["objective_blocks"] = [
                 {**block, "weight": shares[block["name"]]}
-                for block in payload["objective_blocks"]
+                for block in payload.get("objective_blocks", [])
                 if block["name"] in shares
             ]
         elif decl.objective_blocks:
             selected = set(decl.objective_blocks)
             payload["objective_blocks"] = [
-                block for block in payload["objective_blocks"] if block["name"] in selected
+                block for block in payload.get("objective_blocks", []) if block["name"] in selected
             ]
         if decl.outputs:
             payload["outputs"] = {name: payload["outputs"][name] for name in decl.outputs}
         elif decl.objective_blocks:
             read = {name for block in payload["objective_blocks"] for name in block["uses_outputs"]}
             payload["outputs"] = {
-                name: value for name, value in payload["outputs"].items() if name in read
+                name: value for name, value in payload.get("outputs", {}).items() if name in read
             }
     payload["phases"] = None
     # The protocol wrote these phases; a single phase of it is an ordinary
@@ -612,11 +460,11 @@ def _settled(report: CalibrationReport) -> bool:
     on. A search with no rule of its own settles on its budget: its best is the
     best of a budget-only search, which :func:`_frozen_by` says.
     """
-    if report.best_parameters is None or report.best_objective is None:
+    if report.best_parameters is None or report.best_cost is None:
         return False
     if _unsettled_search(report) is not None:
         return False
-    return math.isfinite(report.best_objective) and report.best_objective < FAILED_EVAL_COST
+    return math.isfinite(report.best_cost) and report.best_cost < FAILED_EVAL_COST
 
 
 def _froze_budget_only(report: CalibrationReport) -> bool:
@@ -643,11 +491,11 @@ def _why_unsettled(report: CalibrationReport) -> str:
     search = _unsettled_search(report)
     if search is None:
         return (
-            f"its session {report.session_id} produced no result over {report.n_iterations} "
+            f"its session {report.session_id} produced no result over {report.n_trials} "
             "trial(s): no best candidate, or a best cost at the failed-evaluation sentinel"
         )
     return (
-        f"its session {report.session_id} spent {report.n_iterations} trial(s) "
+        f"its session {report.session_id} spent {report.n_trials} trial(s) "
         f"(max_trials = {search.get('max_trials')}, plus {search.get('extension')} granted once) "
         f"before its stopping rule ({search.get('stopping_rule')}) was met, so its best "
         "candidate is where the budget ended, not a settled value. Raise max_trials: a "
@@ -680,7 +528,7 @@ def _frozen_by(
             decl.name,
             FROZE_BUDGET_ONLY,
             report.method,
-            report.n_iterations,
+            report.n_trials,
         )
     values = report.best_parameters or {}
     missing = [name for name in decl.parameters if name not in values]
@@ -876,15 +724,15 @@ def _require_dependency(decl: CalibPhaseDecl, ran: set[str]) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _reused_phase_objective_block_fractions(
+def _reused_phase_cost_block_fractions(
     phase_cfg: CalibrationConfig,
     persistence: CalibrationPersistence,
     phase: str,
 ) -> tuple[dict[str, Any] | None, str | None]:
-    """Return a reused phase's ``objective_block_fractions``, or why it has none.
+    """Return a reused phase's ``cost_block_fractions``, or why it has none.
 
     Same definition as the live path
-    (:func:`hydromodpy.calibration.runners.cli_runner._phase_objective_block_fractions`),
+    (:func:`hydromodpy.calibration.runners.cli_runner._phase_cost_block_fractions`),
     through the same functions, read from the journaled trials of the phase
     instead of an in-memory history.
 
@@ -902,10 +750,10 @@ def _reused_phase_objective_block_fractions(
         row
         for row in rows
         if row.get("status") == "completed"
-        and isinstance(row.get("objective_value"), (int, float))
-        and math.isfinite(row["objective_value"])
+        and isinstance(row.get("cost"), (int, float))
+        and math.isfinite(row["cost"])
     ]
-    mean_result = mean_objective_block_fractions(blocks, (row.get("metrics") for row in finished))
+    mean_result = mean_cost_block_fractions(blocks, (row.get("components") for row in finished))
     if mean_result is None:
         return None, (
             "reused from a previous run: its journaled trials carry no cost fraction "
@@ -913,8 +761,8 @@ def _reused_phase_objective_block_fractions(
         )
     mean_fractions, n_trials = mean_result
     payload: dict[str, Any] = {"mean": mean_fractions, "mean_n_trials": n_trials}
-    best_row = min(finished, key=lambda row: row["objective_value"])
-    best_fractions = objective_block_fractions(best_row.get("metrics"), blocks)
+    best_row = min(finished, key=lambda row: row["cost"])
+    best_fractions = cost_block_fractions(best_row.get("components"), blocks)
     if best_fractions is not None:
         payload["best"] = best_fractions
     return payload, None
@@ -939,8 +787,6 @@ def _reuse_from_disk(
     model, mesh and input files (:func:`~hydromodpy.calibration.runners.resume.fingerprint_matches`).
     Either way the caller solves the phase itself; this never runs anything.
     """
-    from hydromodpy.calibration.report import CalibrationReport
-
     stage = reusable_stage(persistence, decl.name)
     if stage is None:
         return None
@@ -952,12 +798,16 @@ def _reuse_from_disk(
         objective_entrypoint=objective,
     )
     if not fingerprint_matches(stage, cache_context=cache_context):
+        changed = differing_members(
+            persistence.recorded_context(decl.name), context_fingerprints(cache_context)
+        )
         logger.warning(
             "Phase %s completed in session %s, but its recorded fingerprint does not "
-            "match this run's model, mesh or input files; solving it again instead of "
-            "trusting a different problem's result.",
+            "match this run (%s changed); solving it again instead of trusting a "
+            "different problem's result.",
             decl.name,
             persistence.directory.name,
+            ", ".join(changed) or "the context",
         )
         return None
     missing = [name for name in decl.parameters if name not in stage.parameters]
@@ -977,26 +827,29 @@ def _reuse_from_disk(
         if decl.freeze_on_success
         else ()
     )
-    fractions, absent_note = _reused_phase_objective_block_fractions(
-        phase_cfg, persistence, decl.name
-    )
+    fractions, absent_note = _reused_phase_cost_block_fractions(phase_cfg, persistence, decl.name)
     extra: dict[str, Any] = {"reused_from_disk": True, "search_status": "completed"}
     if absent_note is not None:
-        extra["objective_block_fractions_absent_note"] = absent_note
+        extra["cost_block_fractions_absent_note"] = absent_note
+    pointer = persistence.best_pointer(persistence.held_trial(decl.name))
+    reused = persistence.phase(decl.name)
     report = CalibrationReport(
         session_id=persistence.descriptor.session_id,
         method=phase_cfg.method,
-        n_iterations=stage.n_iterations,
-        best_objective=stage.best_objective,
-        best_sim_id=None,
+        n_trials=stage.n_trials,
+        best_cost=stage.best_cost,
         best_trial=stage.trial,
         duration_s=0.0,
         save_runs="none",
         promoted=0,
         best_parameters=dict(stage.parameters),
-        objective_block_fractions=fractions,
+        best_cases={} if pointer is None else dict(pointer.cases),
+        cost_block_fractions=fractions,
         workspace=project_root,
         session_dir=persistence.directory,
+        cost_name=None if reused is None else reused.cost_name,
+        cost_label=None if reused is None else reused.cost_label,
+        windows={} if reused is None else dict(reused.windows),
         extra=extra,
     )
     return report, froze
@@ -1049,7 +902,7 @@ def replay_phase(
     raw: Mapping[str, Any],
     cfg_path: Path,
     phase: str,
-    frozen: Mapping[str, Any],
+    frozen: Mapping[str, FrozenValue],
 ) -> PhaseReplay:
     """Prepare the trials of ``phase`` the way the staged search prepared them.
 
@@ -1065,11 +918,9 @@ def replay_phase(
     plan = _phase_plans(cfg, selected, raw)[0]
     declared = space_from_config(cfg)
     held = [
-        FrozenParameter(
-            parameter=declared[name], value=float(entry["value"]), phase=str(entry.get("from"))
-        )
+        FrozenParameter(parameter=declared[name], value=entry.value, phase=entry.from_phase)
         for name, entry in frozen.items()
-        if name in declared.names and isinstance(entry, Mapping)
+        if name in declared.names
     ]
     trial_ctx = prepare_trials(
         cfg_path,
@@ -1081,15 +932,15 @@ def replay_phase(
     return PhaseReplay(config=plan.config, space=plan.space, trial_ctx=trial_ctx)
 
 
-def _frozen_payload(held: Sequence[FrozenParameter]) -> dict[str, Any]:
+def _frozen_payload(held: Sequence[FrozenParameter], case_id: str) -> dict[str, FrozenValue]:
     """Return the frozen values of a phase as its descriptor writes them."""
     return {
-        item.name: {
-            "value": float(item.value),
-            "path": item.path,
-            "mode": item.parameter.mode,
-            "from": item.phase,
-        }
+        item.name: FrozenValue(
+            value=float(item.value),
+            targets={case_id: item.path} if item.path else {},
+            mode=item.parameter.mode,
+            from_phase=item.phase,
+        )
         for item in held
     }
 
@@ -1360,10 +1211,8 @@ def run_staged_calibration(
     workspace: Path | str | None = None,
     project: str | None = None,
     metric_fn: TrialMetricFn | None = None,
-    return_report: bool = True,
     resume: bool = False,
-    dry_run: bool = False,
-) -> StagedCalibrationReport | dict[str, Any]:
+) -> CalibrationReport:
     """Run the phases of ``config_path`` one after the other, in one session.
 
     Parameters
@@ -1384,17 +1233,10 @@ def run_staged_calibration(
         name of the project root folder.
     metric_fn
         Programmatic override for the metric extractor.
-    return_report
-        When True (the default), return the structured
-        :class:`StagedCalibrationReport`; when False, its ``to_dict()``
-        payload. Same choice as ``run_calibration_cli``, opposite default:
-        every caller of the staged runner asks the report for its summary.
     resume
         Reopen the latest session of the case. A phase that completed there
         with the same fingerprint is read back instead of solved; the cut
         phase is solved again with its trials preloading the cache.
-    dry_run
-        Describe what would run, write nothing.
     """
     # Before the reuse branch, not inside the search: a run that reuses every
     # phase from disk never reaches the consumer, and the value travels into
@@ -1402,8 +1244,6 @@ def run_staged_calibration(
     refuse_an_objective_that_is_not_an_entry_point(objective)
     cfg_path = Path(config_path).expanduser().resolve()
     project_root = project_root_for(cfg_path, workspace)
-    if dry_run:
-        return describe_dry_run(cfg_path, project_root=project_root)
     cfg, raw = load_toml_calibration(cfg_path)
     if not evaluation_registry.needs_prepared_model(cfg.evaluator):
         # A staged calibration freezes a phase's result into the configuration
@@ -1430,6 +1270,7 @@ def run_staged_calibration(
         if existing is not None:
             persistence = CalibrationPersistence(existing)
             persistence.resume_session()
+            persistence.start_pulse()
             frozen.extend(_frozen_by_the_session(cfg, persistence, declared, plans))
     last_decl = plans[-1].decl
     runs: list[PhaseRun] = []
@@ -1532,7 +1373,13 @@ def run_staged_calibration(
                     index,
                     restart=0 if restart_of is None else restart_of.restarts + 1,
                 )
-                persistence.start_phase(context, frozen=_frozen_payload(held))
+                persistence.start_phase(
+                    context,
+                    frozen=_frozen_payload(held, persistence.case_id),
+                    cost_name=session_cost_name(cfg, decl),
+                    cost_label=cost_metric_label(cfg, decl),
+                    windows=search_windows(cfg, raw, phase=decl),
+                )
                 logger.info(
                     "Calibration phase %d/%d %s | method=%s parameters=%s",
                     index + 1,
@@ -1570,13 +1417,31 @@ def run_staged_calibration(
                 stop_note = FROZE_BUDGET_ONLY if froze and _froze_budget_only(report) else None
                 status = str(report.extra.get("search_status", "completed"))
                 search = report.extra.get("search") or {}
-                persistence.finish_phase(
+                # What the search answered with is what the phase passes on, which a
+                # tie on the cost can set apart from the lowest cost of the journal.
+                best_line = persistence.trial_line(report.best_trial) or persistence.best_trial(
+                    decl.name
+                )
+                pointer = persistence.best_pointer(best_line)
+                closed = persistence.finish_phase(
                     decl.name,
                     status=status,
-                    best=best_pointer(persistence.best_trial(decl.name)),
+                    best=pointer,
+                    scored=scored_samples(
+                        None
+                        if best_line is None
+                        else best_line.cases[persistence.case_id].components,
+                        case_id=persistence.case_id,
+                    ),
                     stop_state=search.get("stop_state"),
                     stopping_rule=search.get("stopping_rule"),
                     stop_note=stop_note,
+                )
+                report = replace(
+                    report,
+                    status=status,
+                    best_cases={} if pointer is None else dict(pointer.cases),
+                    windows=dict(closed.windows),
                 )
                 solved_reports.append(report)
                 if cfg.promote_phases and position < len(plans) - 1:
@@ -1648,14 +1513,16 @@ def run_staged_calibration(
         if final.extra.get("promotion_failures"):
             promotion_extra["promotion_failures"] = list(final.extra["promotion_failures"])
 
-    staged = StagedCalibrationReport(
+    descriptor = persistence.descriptor
+    return replace(
+        final,
+        method=descriptor.method,
+        n_trials=sum(run.report.n_trials for run in runs),
+        duration_s=sum(run.report.duration_s for run in runs),
+        save_runs=cfg.save_runs,
+        best_parameters=(None if descriptor.best is None else dict(descriptor.best.parameters)),
         phases=tuple(runs),
         frozen=tuple(frozen),
-        session_id=persistence.descriptor.session_id,
-        session_dir=persistence.directory,
-        promoted=final.promoted,
-        best_sim_id=final.best_sim_id,
-        best_rel_dir=final.best_rel_dir,
         extra=promotion_extra,
         protocol=(
             protocol_record(cfg.protocol.name, cfg.protocol) if cfg.protocol is not None else None
@@ -1666,7 +1533,6 @@ def run_staged_calibration(
         reused_from_disk=tuple(reused_from_disk),
         steady_window=steady_window,
     )
-    return staged if return_report else staged.to_dict()
 
 
 def _backend_name(document: Mapping[str, Any]) -> str:
@@ -1874,10 +1740,7 @@ def _scoring_sentence(runs: Sequence[PhaseRun]) -> str | None:
 
 
 __all__ = [
-    "FrozenParameter",
     "PhaseReplay",
-    "PhaseRun",
-    "StagedCalibrationReport",
     "objective_comparison_table",
     "phase_summaries",
     "replay_phase",

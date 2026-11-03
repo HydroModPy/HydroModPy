@@ -10,9 +10,11 @@ evaluator.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from pydantic import BaseModel
 
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.optim.cache import params_hash
@@ -49,10 +51,49 @@ def _hash(**changes: Any) -> str:
     return params_hash({"k": 1e-4}, context=_context(cfg))
 
 
-def test_the_schema_of_the_key_is_the_third() -> None:
+def test_the_schema_of_the_key_is_the_fourth() -> None:
     cfg = CalibrationConfig.model_validate(BASE)
 
-    assert _context(cfg)["schema"] == "hydromodpy.calibration.params_hash.v3"
+    assert _context(cfg)["schema"] == "hydromodpy.calibration.params_hash.v4"
+
+
+def test_the_key_is_flat_with_one_member_per_layer_of_code() -> None:
+    context = _context(CalibrationConfig.model_validate(BASE))
+
+    assert {
+        "metric_rule_version",
+        "model",
+        "calibration",
+        "override_paths",
+        "parameter_space",
+        "input_files",
+        "mesh",
+    } <= set(context)
+    assert [name for name in context if name.startswith("code.")]
+    assert "code_version" not in context, "a release number moves no hash"
+
+
+def test_the_model_enters_as_written_and_without_its_workspace() -> None:
+    class _Config(BaseModel):
+        workspace: dict[str, str] = {"root": "/somewhere"}
+        flow: dict[str, float] = {"K": 1e-4}
+        transport: dict[str, float] = {"alpha": 0.1}
+
+    written = _Config(flow={"K": 1e-4})
+    trial_ctx = SimpleNamespace(
+        base_cfg=written, ctx=SimpleNamespace(setup=SimpleNamespace(cell_mesh=None))
+    )
+    cfg = CalibrationConfig.model_validate(BASE)
+
+    context = state.build_cache_context(
+        cfg=cfg,
+        trial_ctx=trial_ctx,
+        space=state.space_from_config(cfg),
+        override_paths=state.override_paths(cfg),
+        objective_entrypoint=None,
+    )
+
+    assert context["model"] == {"flow": {"K": 1e-4}}, "no workspace, and no default written"
 
 
 @pytest.mark.parametrize(

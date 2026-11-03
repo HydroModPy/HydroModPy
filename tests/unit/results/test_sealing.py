@@ -22,7 +22,13 @@ import zarr
 from hydromodpy.core.budget_terms import BudgetKeep
 from hydromodpy.core.state.paths import INTERNAL_DIRNAME
 from hydromodpy.results.identity import ZARR_IDENTITY_ATTR, read_identity_from
-from hydromodpy.results.manifest import InputEntry, Manifest, list_artifacts, read_manifest
+from hydromodpy.results.manifest import (
+    InputEntry,
+    Manifest,
+    MetricRow,
+    list_artifacts,
+    read_manifest,
+)
 from hydromodpy.results.outcome import effective_status, read_outcome
 from hydromodpy.results.record import RunRecord
 from hydromodpy.results.storage import sealing
@@ -94,7 +100,7 @@ def filled(tmp_path: Path) -> RunStore:
     finally:
         sz.close()
     store.write_mass_balance(sid, 0, 10.0, 9.5, 5.0)
-    store.write_metric(sid, "P01", "nse", 0.8)
+    store.write_metric(sid, MetricRow(station="P01", metric="nse", value=0.8))
     store.write_provenance(sid, "dem", "ign_geoplateforme_dem", np.ones(4))
     store.record_input(sid, DEM_INPUT)
     store.write_geographic_metadata(sid, CATCHMENT)

@@ -20,7 +20,7 @@ The margin a file leaves unwritten follows what the search scores
 cent of the best cost otherwise.
 
 "One mesh cell" is ``h_obs``: the median distance between neighbouring cell
-centres over the mapped cells of the catchment, the length ``roptim`` is also
+centres over the mapped cells of the catchment, the length ``r_optim`` is also
 divided by. On a mesh refined along the streams it is the fine cell the
 distances start from, not the median cell of the catchment; on a regular grid
 it is the cell size. The criterion measures it and publishes it per trial as
@@ -145,7 +145,7 @@ def margin_intervals(
     *,
     margin: float = DEFAULT_MARGIN,
     kind: MarginKind = "relative",
-    objective: str = "objective_value",
+    objective: str = "cost",
     bounds: Mapping[str, tuple[float, float]] | None = None,
 ) -> list[ParameterInterval]:
     """Return, per parameter, the range of trials whose cost matched the best.

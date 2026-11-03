@@ -44,6 +44,7 @@ from hydromodpy.core.time.period_aggregation import period_edges
 from hydromodpy.core.time.selection import TimeSelectionError, resolve_state
 from hydromodpy.core.units.length import parse_to_m
 from hydromodpy.results.calibration_trials import calibration_sessions, calibration_trials
+from hydromodpy.results.run.sealed import search_of
 
 if TYPE_CHECKING:
     from hydromodpy.results.run import Run
@@ -174,18 +175,16 @@ def network_outputs_of_run(sim: Run) -> dict[str, Mapping[str, Any]]:
 
 
 def _calibration_section(sim: Run) -> Mapping[str, Any]:
-    """Return the ``[calibration]`` table a run sealed, empty when it sealed none."""
+    """Return the ``[calibration]`` table the run sealed beside its solve, empty without one."""
     try:
+        calibration = search_of(sim)
         snapshot = getattr(sim, "config_snapshot", None)
     except _MISSING_SNAPSHOT as exc:
         logger.debug("Run %s: no configuration snapshot (%s).", getattr(sim, "sim_id", "?"), exc)
         return {}
-    if not isinstance(snapshot, Mapping):
+    if not calibration:
         return {}
-    calibration = snapshot.get("calibration")
-    if not isinstance(calibration, Mapping):
-        return {}
-    return _read_as_renamed(snapshot, calibration)
+    return _read_as_renamed(snapshot if isinstance(snapshot, Mapping) else {}, calibration)
 
 
 def _read_as_renamed(

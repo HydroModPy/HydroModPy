@@ -140,10 +140,10 @@ def _with_seal_facts(df: Any, workspace_root: Path, metric: str | None) -> Any:
     roots = {path.name: path for path in iter_project_catalog_roots(workspace_root)}
     columns: dict[str, list[Any]] = {
         "overrides": [],
-        "nse_station": [],
-        "nse_variable": [],
-        "nse_window_start": [],
-        "nse_window_end": [],
+        "score_station": [],
+        "score_variable": [],
+        "score_window_start": [],
+        "score_window_end": [],
         "metric_rule_version": [],
     }
     values: list[Any] = []
@@ -153,10 +153,10 @@ def _with_seal_facts(df: Any, workspace_root: Path, metric: str | None) -> Any:
         facts = _readable_facts(root / str(rel_dir)) if root is not None and rel_dir else None
         score = None if facts is None else facts.manifest.score
         columns["overrides"].append("" if facts is None else overrides_text(facts.overrides))
-        columns["nse_station"].append(None if score is None else score.station)
-        columns["nse_variable"].append(None if score is None else score.variable)
-        columns["nse_window_start"].append(None if score is None else score.nse_window_start)
-        columns["nse_window_end"].append(None if score is None else score.nse_window_end)
+        columns["score_station"].append(None if score is None else score.station)
+        columns["score_variable"].append(None if score is None else score.variable)
+        columns["score_window_start"].append(None if score is None else score.window_start)
+        columns["score_window_end"].append(None if score is None else score.window_end)
         columns["metric_rule_version"].append(None if score is None else score.metric_rule_version)
         if metric is not None and metric != "nse":
             values.append(None if facts is None else facts.metrics.get(metric))
@@ -172,7 +172,7 @@ def _left_out_reasons(listed: Any, ranked: Any, metric: str) -> list[str]:
 
     sites = listed["site"].map(_site_of)
     kept = set(ranked["site"].map(_site_of))
-    windowed = listed["nse_window_start"].notna()
+    windowed = listed["score_window_start"].notna()
     groups: dict[bool, list[str]] = {}
     for site in sorted(set(sites) - kept):
         groups.setdefault(bool(windowed[sites == site].any()), []).append(site)

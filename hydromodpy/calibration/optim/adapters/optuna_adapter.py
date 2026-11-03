@@ -80,7 +80,7 @@ class OptunaAdapter:
             if trial is None:
                 continue
             if r.status == "completed":
-                self._study.tell(trial, r.objective_value)
+                self._study.tell(trial, r.cost)
             else:
                 self._study.tell(trial, state=optuna.trial.TrialState.FAIL)
             self._history.append(r)
@@ -89,7 +89,7 @@ class OptunaAdapter:
         valid = [r for r in self._history if r.status == "completed"]
         if not valid:
             return None
-        return min(valid, key=lambda r: r.objective_value)
+        return min(valid, key=lambda r: r.cost)
 
     def converged(self) -> bool:
         # Optuna has no natural convergence - budget is driven by the engine.

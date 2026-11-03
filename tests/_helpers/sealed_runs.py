@@ -9,12 +9,15 @@ pulse, a session is a descriptor with its journal. Nothing here opens
 from __future__ import annotations
 
 import hashlib
+import tempfile
 import uuid
+from collections.abc import Mapping
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME, parse_rel_dir, run_dir_rel
+from hydromodpy.core.toml_io.writer import dumps
 from hydromodpy.results.catalog.registration import split_stem_version
 from hydromodpy.results.checks import CalibratedBy, Checks
 from hydromodpy.results.heartbeat import Heartbeat, write_heartbeat
@@ -30,19 +33,32 @@ from hydromodpy.results.manifest import (
     MetricRow,
     ParameterRow,
 )
-from hydromodpy.results.metric_rule import DateWindow, MetricScore
+from hydromodpy.results.metric_rule import DateWindow, PeriodWindow
 from hydromodpy.results.outcome import Outcome, OutcomeError, write_outcome
 from hydromodpy.results.record import RunProvenance, RunRecord
-from hydromodpy.results.session.descriptor import BestTrial, SessionDescriptor, write_session
-from hydromodpy.results.session.journal import TrialLine, append_trial
+from hydromodpy.results.session.descriptor import (
+    BestCase,
+    BestTrial,
+    ParameterBound,
+    SessionCase,
+    SessionDescriptor,
+    write_session,
+)
+from hydromodpy.results.session.journal import TrialCase, TrialLine, TrialParam, append_trial
 from hydromodpy.results.session.phase import PhaseDescriptor, write_phase
-from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
+from hydromodpy.results.storage.contract import (
+    RUN_CONFIG_FILENAME,
+    RUN_RESOLVED_CONFIG_FILENAME,
+    RUN_SEARCH_TABLE,
+)
+from tests._helpers.metric_rows import headline_row, headline_score
 
 NOW = datetime(2026, 10, 15, 8, 2, 11, tzinfo=UTC)
 WINDOW = DateWindow(start=date(2016, 1, 1), end=date(2020, 12, 31))
 VERSION = "2.0.0a5"
 SITE = "J0014010"
 FINGERPRINT = "abcd1234abcd1234"
+CONFIG_HASH = "c0ffee" * 10 + "c0ff"
 
 
 def make_project(root: Path) -> Path:
@@ -95,26 +111,13 @@ def seal_run(
     score = None
     metrics: list[MetricRow] = []
     if nse is not None and window is not None:
-        score = MetricScore(
-            metric="nse",
-            value=nse,
-            station=site or "outlet",
-            variable="discharge",
-            nse_window_start=window.start,
-            nse_window_end=window.end,
-            nse_n=1827,
-            metric_rule_version="1",
+        station = site or "outlet"
+        score = headline_score(
+            nse, station=station, window=window, n_samples=1827, metric_rule_version="1"
         )
         metrics = [
-            MetricRow(
-                station=site or "outlet",
-                variable="discharge",
-                metric="nse",
-                value=nse,
-                nse_window_start=window.start,
-                nse_window_end=window.end,
-                nse_n=1827,
-                metric_rule_version="1",
+            headline_row(
+                "nse", nse, station=station, window=window, n_samples=1827, metric_rule_version="1"
             )
         ]
     manifest_site = None
@@ -358,23 +361,37 @@ def write_session_dir(
     directory = project_root / "sessions" / name
     directory.mkdir(parents=True, exist_ok=True)
     ended = None if status == "running" else started_at + timedelta(hours=1)
+    case = case_id or name
     best = None
     if best_trial is not None:
         best = BestTrial(
-            trial=best_trial, sim_id=best_sim_id, rel_dir=best_rel_dir, objective=-0.84
+            trial=best_trial,
+            cost=-0.84,
+            parameters={"K": 1e-5 * best_trial},
+            cases={case: BestCase(sim_id=best_sim_id, rel_dir=best_rel_dir, cost=-0.84)},
         )
     write_session(
         directory,
         SessionDescriptor(
-            site=site,
             session_id=sid,
-            case_id=case_id or name,
-            config_hash="c0ffee" * 10 + "c0ff",
+            case_id=case,
+            config_hash=CONFIG_HASH,
+            sites=[site] if site else [],
+            cases={
+                case: SessionCase(
+                    site=site,
+                    config_hash=CONFIG_HASH,
+                    config_file="config.toml",
+                    cost_name=objective,
+                )
+            },
             hydromodpy_version=VERSION,
             method="tpe",
-            search_space={"K": {"bounds": [1e-7, 1e-4], "search_space": "log"}},
-            objective_name=objective,
-            objective_window=WINDOW,
+            bounds={"K": ParameterBound(lower=1e-7, upper=1e-4, search_space="log")},
+            cost_name=objective,
+            windows={
+                "calibration": PeriodWindow(role="calibration", start=WINDOW.start, end=WINDOW.end)
+            },
             best=best,
             status=status,
             started_at=started_at,
@@ -400,20 +417,38 @@ def write_session_dir(
             TrialLine(
                 trial=number,
                 phase=phases[0],
-                params={"K": 1e-5 * number},
-                params_hash=f"h{number}",
-                objective=-0.5 - 0.1 * number,
+                params={"K": TrialParam(value=1e-5 * number)},
+                cost=-0.5 - 0.1 * number,
+                cases={
+                    case: TrialCase(
+                        cost=-0.5 - 0.1 * number,
+                        status="completed",
+                        params_hash=f"h{number}",
+                        sim_id=best_sim_id if number == best_trial else None,
+                        rel_dir=best_rel_dir if number == best_trial else None,
+                    )
+                },
                 status="completed",
                 started_at=started_at + timedelta(minutes=number),
                 ended_at=started_at + timedelta(minutes=number + 1),
-                sim_id=best_sim_id if number == best_trial else None,
-                rel_dir=best_rel_dir if number == best_trial else None,
             ),
         )
     return sid
 
 
+def sealed_search(calibration: Mapping[str, Any]) -> Path:
+    """Return a folder whose ``config.resolved.toml`` holds the search a promoted run came from.
+
+    A stand-in run takes it as its ``dir``, where ``search_of`` reads it.
+    """
+    folder = Path(tempfile.mkdtemp(prefix="sealed-search-"))
+    document = dumps({RUN_SEARCH_TABLE: dict(calibration)})
+    (folder / RUN_RESOLVED_CONFIG_FILENAME).write_text(document, encoding="utf-8")
+    return folder
+
+
 __all__ = [
+    "sealed_search",
     "FINGERPRINT",
     "NOW",
     "SITE",

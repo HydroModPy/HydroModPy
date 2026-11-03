@@ -58,6 +58,35 @@ def _normalize_context(value: Any, *, precision: int) -> Any:
     return value
 
 
+CLEAR_CONTEXT_MEMBERS = frozenset({"schema", "metric_rule_version"})
+"""The members of a cache context a fingerprint keeps in clear, as short words."""
+
+
+def context_fingerprints(context: Mapping[str, Any], *, precision: int = 12) -> dict[str, str]:
+    """Return one short fingerprint per member of a cache context.
+
+    Each one is the sha256, cut to 16 characters, of the canonical JSON of the
+    member, the same one :func:`params_hash` reads. A session keeps them to say
+    which member moved; the check itself stays the hash.
+    """
+    fingerprints: dict[str, str] = {}
+    for name in sorted(context, key=str):
+        value = context[name]
+        if name in CLEAR_CONTEXT_MEMBERS:
+            fingerprints[str(name)] = str(value)
+            continue
+        text = json.dumps(
+            _normalize_context(value, precision=precision), sort_keys=True, separators=(",", ":")
+        )
+        fingerprints[str(name)] = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+    return fingerprints
+
+
+def differing_members(recorded: Mapping[str, str], current: Mapping[str, str]) -> list[str]:
+    """Return the members of two sets of fingerprints that differ, by name."""
+    return sorted(name for name in {*recorded, *current} if recorded.get(name) != current.get(name))
+
+
 def params_hash(
     values: Mapping[str, float],
     *,
@@ -80,16 +109,15 @@ def params_hash(
 
 @dataclass(frozen=True, slots=True)
 class CachedEvaluation:
-    """Cached objective for one parameter hash."""
+    """Cached cost for one parameter hash: only the numbers, never the run of another session."""
 
-    sim_id: str | None
-    objective_value: float
+    cost: float
     status: str = "completed"
     components: Mapping[str, float] | None = None
 
 
 class ParamsHashCache:
-    """In-memory cache mapping params_hash to evaluated objective.
+    """In-memory cache mapping params_hash to evaluated cost.
 
     Thin wrapper; persistence is handled by the DuckDB ``calibration_iterations``
     table (column ``params_hash``). This class is for the current run only.
@@ -107,15 +135,13 @@ class ParamsHashCache:
     def put(
         self,
         key: str,
-        sim_id: str | None,
         *,
-        objective_value: float,
+        cost: float,
         status: str = "completed",
         components: Mapping[str, float] | None = None,
     ) -> None:
         self._hits[key] = CachedEvaluation(
-            sim_id=sim_id,
-            objective_value=float(objective_value),
+            cost=float(cost),
             status=status,
             components=components,
         )
@@ -124,4 +150,11 @@ class ParamsHashCache:
         return len(self._hits)
 
 
-__all__ = ["CachedEvaluation", "params_hash", "canonical_json", "ParamsHashCache"]
+__all__ = [
+    "CachedEvaluation",
+    "ParamsHashCache",
+    "canonical_json",
+    "context_fingerprints",
+    "differing_members",
+    "params_hash",
+]

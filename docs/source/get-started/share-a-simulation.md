@@ -112,6 +112,10 @@ names.
 carries, without touching `data/` of your workspace. It reads your own files only: a copy fed
 by Hub'Eau, SIM2 or BD Topage is refused, and the refusal names the import that installs them.
 
+A run folder you copied by hand carries no such bytes. The same command reads its inputs from
+the project `-w` names and writes the new run there. Nothing is ever written in the copy, and
+without `-w` the command refuses to start.
+
 ## Check an archive
 
 ```bash

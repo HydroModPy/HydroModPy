@@ -66,7 +66,7 @@ def _paragraph(document: dict) -> str:
     )
     steady = SimpleNamespace(
         name="steady_conductivity",
-        report=SimpleNamespace(best_parameters={"K": 1.0e-5}, best_objective=0.5, extra={}),
+        report=SimpleNamespace(best_parameters={"K": 1.0e-5}, best_cost=0.5, extra={}),
     )
     text = _methods_paragraph_for(cfg, [steady], [], geographic=_geographic_choices(document))
     assert text is not None

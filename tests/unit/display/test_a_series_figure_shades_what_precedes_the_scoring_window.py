@@ -56,9 +56,9 @@ class _Run:
                         "variable": "discharge",
                         "metric": "nse",
                         "value": 0.5,
-                        "nse_window_start": sealed[0],
-                        "nse_window_end": sealed[1],
-                        "nse_n": 3,
+                        "window_start": sealed[0],
+                        "window_end": sealed[1],
+                        "n_samples": 3,
                         "metric_rule_version": "1",
                     }
                 ]

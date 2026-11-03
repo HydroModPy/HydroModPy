@@ -10,7 +10,7 @@ incoming records to the matching schema before handing them to
 
 Schema-level metadata embeds ``hmp.schema``, ``hmp.schema_version``, ``hmp.pk``
 and CF ``Conventions``. Per-field metadata documents the physical unit and a
-short description. ``PARQUET_SCHEMA_VERSION`` is ``v2``. A table is read back with
+short description. ``PARQUET_SCHEMA_VERSION`` is ``v3``. A table is read back with
 :func:`~hydromodpy.results.storage.parquet_io.read_checked_table`, which refuses a
 version outside :data:`PARQUET_VERSIONS`, for a read and for an append alike. A
 column this code does not declare is additive: it reads, and an append keeps it.
@@ -25,10 +25,10 @@ import pyarrow as pa
 
 from hydromodpy.core.io.document_version import VersionWindow, check_version
 
-PARQUET_SCHEMA_VERSION: Final[str] = "v2"
+PARQUET_SCHEMA_VERSION: Final[str] = "v3"
 """Current Parquet schema generation. Stored in KV metadata of every file."""
 
-PARQUET_VERSIONS: Final[VersionWindow] = VersionWindow(oldest="v2", current=PARQUET_SCHEMA_VERSION)
+PARQUET_VERSIONS: Final[VersionWindow] = VersionWindow(oldest="v3", current=PARQUET_SCHEMA_VERSION)
 """Versions of a table of a run this code reads."""
 
 CF_CONVENTIONS: Final[str] = "CF-1.11"
@@ -271,8 +271,40 @@ METRICS_SCHEMA: Final[pa.Schema] = pa.schema(
         pa.field(
             "value",
             pa.float64(),
-            nullable=False,
-            metadata=_field_meta(description="Numerical metric value"),
+            nullable=True,
+            metadata=_field_meta(
+                description="Numerical metric value, null when it cannot be computed"
+            ),
+        ),
+        pa.field(
+            "window_name",
+            pa.string(),
+            nullable=True,
+            metadata=_field_meta(
+                description="Name of the period, 'metrics' for [metrics] window; "
+                "null on a number of the run itself"
+            ),
+        ),
+        pa.field(
+            "window_role",
+            pa.string(),
+            nullable=True,
+            metadata=_field_meta(
+                allowed="calibration|validation|evaluation",
+                description="What the period is for; another word reads as it is",
+            ),
+        ),
+        pa.field(
+            "window_start",
+            pa.date32(),
+            nullable=True,
+            metadata=_field_meta(description="First day of the period"),
+        ),
+        pa.field(
+            "window_end",
+            pa.date32(),
+            nullable=True,
+            metadata=_field_meta(description="Last day of the period, included"),
         ),
         pa.field(
             "n_samples",
@@ -299,27 +331,21 @@ METRICS_SCHEMA: Final[pa.Schema] = pa.schema(
             ),
         ),
         pa.field(
+            "metric_rule_version",
+            pa.string(),
+            nullable=True,
+            metadata=_field_meta(description="Version of the rule of the score"),
+        ),
+        pa.field(
             "valid_from",
             pa.timestamp("ms", tz="UTC"),
             nullable=False,
             metadata=_field_meta(description="Validity start, UTC"),
         ),
-        pa.field(
-            "period_start",
-            pa.timestamp("ms", tz="UTC"),
-            nullable=True,
-            metadata=_field_meta(description="Window start of the evaluation"),
-        ),
-        pa.field(
-            "period_end",
-            pa.timestamp("ms", tz="UTC"),
-            nullable=True,
-            metadata=_field_meta(description="Window end of the evaluation"),
-        ),
     ],
     metadata=_schema_metadata(
         "metrics",
-        pk=("sim_id", "station_id", "variable", "metric"),
+        pk=("sim_id", "station_id", "variable", "metric", "window_name"),
     ),
 )
 """Per-simulation calibration and validation metrics."""
@@ -481,6 +507,18 @@ def _checks_fields() -> list[pa.Field]:
             metadata=_field_meta(description="Last day of the window that session scored"),
         ),
         pa.field(
+            "calibrated_by_metric",
+            pa.string(),
+            nullable=True,
+            metadata=_field_meta(description="Name of the cost of the case of this run"),
+        ),
+        pa.field(
+            "calibrated_by_cost",
+            pa.float64(),
+            nullable=True,
+            metadata=_field_meta(description="Cost of the case of this run at its trial"),
+        ),
+        pa.field(
             "validities_failed",
             pa.string(),
             nullable=True,
@@ -599,53 +637,26 @@ SIMULATION_SCHEMA: Final[pa.Schema] = pa.schema(
             ),
         ),
         pa.field(
-            "nse_station",
+            "score_station",
             pa.string(),
             nullable=True,
-            metadata=_field_meta(description="Station the NSE was read at"),
+            metadata=_field_meta(description="Station the headline score was read at"),
         ),
         pa.field(
-            "nse_variable",
+            "score_variable",
             pa.string(),
             nullable=True,
-            metadata=_field_meta(description="Variable the NSE was read on"),
+            metadata=_field_meta(description="Variable the headline score was read on"),
         ),
-        pa.field("nse_window_start", pa.date32(), nullable=True),
-        pa.field("nse_window_end", pa.date32(), nullable=True),
-        pa.field("nse_n", pa.int64(), nullable=True),
         pa.field("metric_rule_version", pa.string(), nullable=True),
-        pa.field(
-            "objective_name",
-            pa.string(),
-            nullable=True,
-            metadata=_field_meta(description="Objective of the session that promoted the run"),
-        ),
-        pa.field(
-            "objective_value",
-            pa.float64(),
-            nullable=True,
-            metadata=_field_meta(description="Value of that objective for this run"),
-        ),
-        pa.field(
-            "objective_window_start",
-            pa.date32(),
-            nullable=True,
-            metadata=_field_meta(description="First day the session scored the objective on"),
-        ),
-        pa.field(
-            "objective_window_end",
-            pa.date32(),
-            nullable=True,
-            metadata=_field_meta(description="Last day the session scored the objective on"),
-        ),
     ],
     metadata=_schema_metadata("simulation", pk=("sim_id",)),
 )
 """The one-row index payload of a run, written at seal time from its ``RunRecord``.
 
 What the ``simulations`` index table holds about a run and means outside SQL,
-plus the site, the case, the attempt, the flattened ``checks``, the headline
-metric under its rule and the objective of the promoting session. Written
+plus the site, the case, the attempt, the flattened ``checks`` and the headline
+metric under its rule. Written
 for a completed run only: ``status`` is always ``completed``. The site
 fingerprint is ``site_fingerprint``, the only one. No label: the label is a function of reading. Not a
 Parquet *view* either: one file per run, read back whole by the indexer.

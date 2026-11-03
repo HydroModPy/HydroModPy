@@ -4,7 +4,7 @@
 which has to hash the model the search hashed. A geometry path is anchored to
 the file that declares it; read from two folders deeper, a bare filename found
 nothing, stayed relative, and moved the hash of every trial. The window the
-session scored its objective on closes an open bound with the declared period
+session scored its cost on closes an open bound with the declared period
 and reads the last phase of a staged calibration.
 """
 
@@ -16,8 +16,8 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.calibration.runners.cli_runner import load_toml_calibration
-from hydromodpy.calibration.runners.session import freeze_session_config, objective_window_of
-from hydromodpy.results.metric_rule import DateWindow
+from hydromodpy.calibration.runners.session import freeze_session_config, search_windows
+from tests._helpers.session_documents import calibration_window
 
 pytestmark = pytest.mark.unit
 
@@ -84,17 +84,13 @@ def test_an_open_end_is_the_end_of_the_declared_period(tmp_path) -> None:
     )
     cfg, raw = load_toml_calibration(path)
 
-    assert objective_window_of(cfg, raw) == DateWindow(
-        start=date(2001, 1, 1), end=date(2002, 12, 31)
-    )
+    assert search_windows(cfg, raw) == calibration_window(date(2001, 1, 1), date(2002, 12, 31))
 
 
 def test_no_window_is_the_whole_declared_period(tmp_path) -> None:
     cfg, raw = load_toml_calibration(_case(tmp_path))
 
-    assert objective_window_of(cfg, raw) == DateWindow(
-        start=date(2000, 1, 1), end=date(2002, 12, 31)
-    )
+    assert search_windows(cfg, raw) == calibration_window(date(2000, 1, 1), date(2002, 12, 31))
 
 
 def test_a_search_that_skips_samples_names_no_window(tmp_path) -> None:
@@ -103,7 +99,7 @@ def test_a_search_that_skips_samples_names_no_window(tmp_path) -> None:
     )
     cfg, raw = load_toml_calibration(path)
 
-    assert objective_window_of(cfg, raw) is None
+    assert search_windows(cfg, raw) == {}
 
 
 def test_a_staged_calibration_names_the_window_of_its_last_phase(tmp_path) -> None:
@@ -127,6 +123,4 @@ def test_a_staged_calibration_names_the_window_of_its_last_phase(tmp_path) -> No
     )
     cfg, raw = load_toml_calibration(_case(tmp_path, staged))
 
-    assert objective_window_of(cfg, raw) == DateWindow(
-        start=date(2001, 6, 1), end=date(2002, 12, 31)
-    )
+    assert search_windows(cfg, raw) == calibration_window(date(2001, 6, 1), date(2002, 12, 31))

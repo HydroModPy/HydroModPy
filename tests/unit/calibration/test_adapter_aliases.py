@@ -122,7 +122,7 @@ class TestCmaEsAdapter:
                     EvaluationResult(
                         trial_id=s.trial_id,
                         sim_id=None,
-                        objective_value=cost,
+                        cost=cost,
                         status="completed",
                     )
                 )

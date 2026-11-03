@@ -99,8 +99,9 @@ WorkspaceConfig	class
 __version__	str	
 analysis	module	
 bootstrap_proj	function	() -> None
-calibrate	function	(config: ConfigLike, *, phase: str | None = None, list_phases: bool = False, expand: bool = False, **kwargs: Any) -> CalibrationReport | StagedCalibrationReport | list[dict[str, Any]] | dict[str, Any]
+calibrate	function	(config: ConfigLike, *, phase: str | None = None, **kwargs: Any) -> CalibrationReport
 calibration	module	
+calibration_phases	function	(config: ConfigLike, *, workspace: str | Path | None = None, check: bool = False) -> dict[str, Any]
 catalog	module	
 compare	function	(refs: Sequence[str], *, variables: Sequence[str] | None = None, out: PathLike | None = None, workspace: PathLike | None = None) -> Comparison
 compare_pair	function	(sim_a: str, sim_b: str, *, workspace: PathLike | None = None) -> pd.DataFrame

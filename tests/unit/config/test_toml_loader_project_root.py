@@ -81,3 +81,18 @@ def test_a_file_in_a_sub_folder_of_a_project_reads_its_paths_from_the_root(tmp_p
 
     assert Path(cfg.workspace.data_dir) == tmp_path / "data"
     assert Path(cfg.workspace.project_root) == tmp_path
+
+
+def test_a_sealed_file_reads_its_paths_from_the_project(tmp_path: Path, monkeypatch) -> None:
+    """A sealed file writes them from the project root, wherever the run sits."""
+    flat = tmp_path / "flat" / "runs" / "first"
+    copy = tmp_path / "elsewhere" / "base"
+    for folder in (flat, copy):
+        folder.mkdir(parents=True)
+        (folder / "config.toml").write_text("", encoding="utf-8")
+        (folder / "manifest.json").write_text("{}", encoding="utf-8")
+
+    assert config_base_dir(flat / "config.toml") == (tmp_path / "flat").resolve()
+    assert config_base_dir(copy / "config.toml") == copy.resolve()
+    monkeypatch.setenv("HMP_PROJECT_ROOT", str(tmp_path / "project"))
+    assert config_base_dir(copy / "config.toml") == (tmp_path / "project").resolve()

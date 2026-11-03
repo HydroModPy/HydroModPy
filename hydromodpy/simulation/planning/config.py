@@ -9,7 +9,7 @@ from typing import Annotated, Any, ClassVar, Literal, TypeAlias
 
 from pydantic import Field, field_validator, model_validator
 
-from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.base import HydroModelBase, write_resolved
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import (
@@ -176,8 +176,8 @@ class SimulationTimeConfig(HydroModelBase):
                     "simulation.time.step_value unit conflicts with simulation.time.step_unit."
                 )
 
-        object.__setattr__(self, "step_value", int(scalar_float))
-        object.__setattr__(self, "step_unit", parsed_step_unit)
+        write_resolved(self, "step_value", int(scalar_float))
+        write_resolved(self, "step_unit", parsed_step_unit)
 
         if self.start_datetime is None or self.end_datetime is None:
             raise ValueError(

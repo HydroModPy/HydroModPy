@@ -42,7 +42,7 @@ def _evaluate(suggestion, *, root: float = ROOT, sign: float = 1.0) -> Evaluatio
     return EvaluationResult(
         trial_id=suggestion.trial_id,
         sim_id=None,
-        objective_value=abs(residual),
+        cost=abs(residual),
         status="completed",
         components={"net.J_signed": residual, "net.J": abs(residual)},
     )
@@ -112,7 +112,7 @@ class TestRootSearch:
 
         assert adapter.converged()
         # The residual never reaches zero, yet the search stops.
-        assert min(abs(r.objective_value) for r in history) > 0.0
+        assert min(abs(r.cost) for r in history) > 0.0
         low, high = adapter.bracket
         assert high - low <= math.log10(1.01)
 
@@ -141,7 +141,7 @@ class TestRootSearch:
         history = _run(adapter)
         best = adapter.best()
         assert best is not None
-        assert best.objective_value == min(r.objective_value for r in history)
+        assert best.cost == min(r.cost for r in history)
 
     def test_it_returns_an_evaluated_point_not_the_midpoint(self) -> None:
         adapter = BisectionAdapter(_space(), sweep_points=5)
@@ -179,7 +179,7 @@ class TestRefusal:
         blind = EvaluationResult(
             trial_id=suggestion.trial_id,
             sim_id=None,
-            objective_value=1.0,
+            cost=1.0,
             status="completed",
             components={"rmse": 1.0},
         )

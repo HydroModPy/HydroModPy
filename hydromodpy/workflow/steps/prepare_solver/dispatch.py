@@ -20,8 +20,8 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.core.toml_io.writer import dumps
 from hydromodpy.results.catalog.constants import solver_category
 from hydromodpy.results.catalog.registration import (
-    config_identity_hash,
     portable_config_source,
+    solve_identity_hash,
     split_stem_version,
 )
 from hydromodpy.results.lineage import Lineage
@@ -47,6 +47,8 @@ if TYPE_CHECKING:
     from hydromodpy.solver.modflow_common.binaries import SolverEngine
 
 logger = get_logger(__name__)
+
+_SEARCH_SECTION = "calibration"
 
 
 def _execution_mode(ctx: WorkflowContext, solver_name: str | None) -> str:
@@ -244,11 +246,15 @@ def frozen_config_of(
     gave) in place of its name, so a replay reads the run the mesh came from
     and not a later ``.vN`` of it. ``simulation.name`` is the name of the run, so
     a replay of the file answers to that run, whatever name the file it came from
-    gave.
+    gave. A run describes its own solve: a trial of a calibration writes the
+    parameters it ran with and no ``[calibration]``, so a replay solves once and
+    searches nothing. Its lineage and its checks name the session.
     """
     snapshot = collect_effective_config_snapshot(ctx)
     if ctx.run_dir is not None:
         snapshot.setdefault("simulation", {})["name"] = split_stem_version(ctx.run_dir.name)[0]
+    if snapshot.pop(_SEARCH_SECTION, None) is not None:
+        snapshot["workflow"] = {**(snapshot.get("workflow") or {}), "mode": "simulation"}
     flow = snapshot.get("flow")
     if restart_sim_id is not None and isinstance(flow, dict) and flow.get("restart_from"):
         flow["restart_from"] = {"sim_id": restart_sim_id, "path": str(flow["restart_from"])}
@@ -278,6 +284,14 @@ def portable_config_document(cfg: Any, run_dir: Path, project_root: Path) -> str
     return dumps(portable_config_payload(cfg, run_dir, project_root, written_only=True))
 
 
+def _search_of(cfg: Any, run_dir: Path, project_root: Path) -> Mapping[str, Any] | None:
+    """Return the ``[calibration]`` section *cfg* was given, portable, or None without one."""
+    if getattr(cfg, _SEARCH_SECTION, None) is None:
+        return None
+    written = portable_config_payload(cfg, run_dir, project_root, written_only=True)
+    return written.get(_SEARCH_SECTION)
+
+
 def _freeze_run_config(
     ctx: WorkflowContext, *, store: RunStore, restart_sim_id: str | None = None
 ) -> None:
@@ -290,7 +304,10 @@ def _freeze_run_config(
     documents = {
         RUN_CONFIG_FILENAME: portable_config_document(frozen, store.run_dir, project_root),
         RUN_RESOLVED_CONFIG_FILENAME: resolved_config_document(
-            frozen, project_root, build=resolved_at_build(ctx)
+            frozen,
+            project_root,
+            build=resolved_at_build(ctx),
+            search=_search_of(ctx.cfg, store.run_dir, project_root),
         ),
     }
     for name, document in documents.items():
@@ -435,7 +452,7 @@ def initial_facts(ctx: WorkflowContext, *, config_hash: str | None = None) -> Ru
     plan = ctx.execution.simulation_plan
     primary_solver = _primary_solver_for_simulation(plan)
     facts = collect_run_facts(ctx)
-    facts["config_hash"] = config_hash or config_identity_hash(ctx.cfg)
+    facts["config_hash"] = config_hash or solve_identity_hash(ctx.cfg)
     facts["config_source"] = portable_config_source(project_root, facts.get("config_source"))
     return RunFacts(
         sim_id=ctx.sim_id,

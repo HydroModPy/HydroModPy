@@ -144,12 +144,12 @@ def test_network_distances_and_diagnostics_do_not_masquerade_as_a_release_field(
     scorer = ObservableScorer(outputs, blocks)
 
     total, components = scorer.score(
-        {}, network_values={"net": [12.0, 20.0]}, diagnostics={"net.roptim": 0.3}
+        {}, network_values={"net": [12.0, 20.0]}, diagnostics={"net.r_optim": 0.3}
     )
 
     assert total == pytest.approx(8.0)
     assert components["network.raw_cost"] == pytest.approx(8.0)
-    assert components["net.roptim"] == pytest.approx(0.3)
+    assert components["net.r_optim"] == pytest.approx(0.3)
     with pytest.raises(ValueError, match="prepared network distances"):
         scorer.score({"net": ObservableResult("net", np.array([12.0, 20.0]), "m3/s")})
 

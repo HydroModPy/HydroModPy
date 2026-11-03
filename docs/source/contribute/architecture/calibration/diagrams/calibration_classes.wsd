@@ -33,7 +33,7 @@ package "hydromodpy.calibration.optim" {
   class EvaluationResult {
     +trial_id
     +sim_id
-    +objective_value
+    +cost
     +status
     +from_cache
   }

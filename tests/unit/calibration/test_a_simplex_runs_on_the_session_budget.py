@@ -34,7 +34,7 @@ def _noise():
         return EvaluationResult(
             trial_id=sugg.trial_id,
             sim_id=None,
-            objective_value=float(rng.uniform(1.0, 2.0)),
+            cost=float(rng.uniform(1.0, 2.0)),
             status="completed",
         )
 

@@ -15,6 +15,7 @@ from hydromodpy.display.figures.network_extent_bounds_map import (  # noqa: F401
     NetworkExtentBoundsMap,
     _draw_both,
 )
+from tests._helpers.sealed_runs import sealed_search
 from tests.unit.display._network_comparison_run import legend_labels, legend_note
 from tests.unit.results._transient_network_run import transient_run
 
@@ -120,20 +121,17 @@ def test_an_unknown_bound_is_refused(mpl) -> None:
 
 
 def _sealed(**extent) -> dict:
-    """A snapshot whose one network output scored two bounds by ``extent``."""
+    """A search whose one network output scored two bounds by ``extent``."""
     return {
-        "simulation": {"time": {"step_value": 1, "step_unit": "month"}},
-        "calibration": {
-            "outputs": {
-                "streams": {
-                    "support": "network",
-                    "observed_network": "data.hydrography",
-                    "minimal_observed_network": "data.hydrography",
-                    "tau_specific_ratio": 0.0,
-                    "extent": extent,
-                }
+        "outputs": {
+            "streams": {
+                "support": "network",
+                "observed_network": "data.hydrography",
+                "minimal_observed_network": "data.hydrography",
+                "tau_specific_ratio": 0.0,
+                "extent": extent,
             }
-        },
+        }
     }
 
 
@@ -148,7 +146,7 @@ def test_the_counts_are_said_to_be_scored_cells(mpl) -> None:
 
 def test_the_map_draws_the_rules_the_run_was_scored_by(mpl) -> None:
     run = transient_run()
-    run.config_snapshot = _sealed(visible_flow="5 L/s")
+    run.dir = sealed_search(_sealed(visible_flow="5 L/s"))
     fig, ax = mpl.subplots()
     NetworkExtentBoundsMap().render(run, ax)
 
@@ -163,7 +161,7 @@ def test_the_map_draws_the_rules_the_run_was_scored_by(mpl) -> None:
 
 def test_a_rule_the_caller_names_wins_over_the_run(mpl) -> None:
     run = transient_run()
-    run.config_snapshot = _sealed(visible_flow="5 L/s")
+    run.dir = sealed_search(_sealed(visible_flow="5 L/s"))
     fig, ax = mpl.subplots()
     NetworkExtentBoundsMap().render(run, ax, visible_flow="1 L/s")
 
@@ -182,15 +180,14 @@ def test_the_guard_reads_the_threshold_the_run_was_scored_by() -> None:
     run = _without_recharge()
     assert NetworkExtentBoundsMap().unavailable_reason(run) is not None
 
-    run.config_snapshot = _sealed()
+    run.dir = sealed_search(_sealed())
     assert NetworkExtentBoundsMap().unavailable_reason(run) is None
 
 
 def test_the_years_are_those_of_the_scoring_window_the_run_sealed(mpl) -> None:
     """A trial that left 2001 out as spin-up scored 2002 alone; so does the map."""
     run = transient_run()
-    run.config_snapshot = _sealed()
-    run.config_snapshot["calibration"]["scoring_window"] = {"start": "2002-01-01", "end": None}
+    run.dir = sealed_search({**_sealed(), "scoring_window": {"start": "2002-01-01"}})
     fig, ax = mpl.subplots()
     NetworkExtentBoundsMap().render(run, ax)
 
@@ -203,11 +200,9 @@ def test_the_years_are_those_of_the_scoring_window_the_run_sealed(mpl) -> None:
 
 def test_a_scoring_window_holding_no_complete_year_is_told_so() -> None:
     run = transient_run()
-    run.config_snapshot = _sealed()
-    run.config_snapshot["calibration"]["scoring_window"] = {
-        "start": "2001-03-01",
-        "end": "2002-06-30",
-    }
+    run.dir = sealed_search(
+        {**_sealed(), "scoring_window": {"start": "2001-03-01", "end": "2002-06-30"}}
+    )
 
     reason = NetworkExtentBoundsMap().unavailable_reason(run)
 

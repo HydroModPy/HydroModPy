@@ -195,7 +195,7 @@ class TestSignedGap:
         assert result.components["J_signed"] == pytest.approx(result.signed_gap)
 
     def test_the_result_carries_no_field_the_optimizer_does_not_read(self) -> None:
-        # The optimizer reads the components; a second copy of J and Doptim on
+        # The optimizer reads the components; a second copy of J and D_optim on
         # the dataclass was read by nothing and its docstring claimed otherwise.
         assert set(SeepageDistanceResult.__dataclass_fields__) == {
             "signed_gap",
@@ -219,14 +219,14 @@ class TestValidityCriterion:
         network erases."""
         observed = observed_network("shifted")
         rejected = [_evaluate(bench, geometry, observed, threshold) for threshold in THRESHOLDS]
-        r_optim = [r.components["roptim"] for r in rejected if r.status == "ok"]
+        r_optim = [r.components["r_optim"] for r in rejected if r.status == "ok"]
         assert r_optim, "the shifted case produced no evaluable point"
         assert max(r_optim) > 2.0
 
     def test_an_aligned_network_stays_inside_the_validity_bound(self, bench, geometry) -> None:
         result = _evaluate(bench, geometry, observed_network("aligned"), 200.0)
-        assert result.components["roptim"] < 2.0
-        assert result.components["roptim_valid"] == 1.0
+        assert result.components["r_optim"] < 2.0
+        assert result.components["r_optim_valid"] == 1.0
 
     def test_the_unreachable_guard_fails_the_trial(self, bench, geometry) -> None:
         # Cut the catchment in half so most of the observed support can no
@@ -336,7 +336,7 @@ class TestSupportsAndDiagnostics:
 
     def test_the_tail_shape_is_reported(self, bench, geometry) -> None:
         # D_so and D_os are tail statistics, not typical gaps: a median of zero
-        # with a heavy top decile is the normal shape, and roptim compares a
+        # with a heavy top decile is the normal shape, and r_optim compares a
         # two-pixel threshold against it.
         result = _evaluate(bench, geometry, observed_network("aligned"), 200.0)
         for key in ("D_so_median", "D_so_p90", "D_so_top5_share", "D_os_top5_share"):

@@ -22,6 +22,7 @@ import pandas as pd
 import pytest
 
 from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.manifest import MetricRow
 from hydromodpy.results.storage.sealing import seal_completed
 from tests._helpers.fixtures_catalog import simulation_catalog
 from tests._helpers.run_stores import open_run_store
@@ -68,7 +69,9 @@ def _seed_run(
         index=pd.date_range("2024-01-01", periods=n_timesteps, freq="D"),
     )
     store.write_timeseries(sid, station_id="outlet", variable="discharge", ts=ts, unit="m3/s")
-    store.write_metric(sid, station_id="outlet", metric_name="nse", value=0.7)
+    store.write_metric(
+        sid, MetricRow(station="outlet", variable="discharge", metric="nse", value=0.7)
+    )
     seal_completed(store)
     return sid
 

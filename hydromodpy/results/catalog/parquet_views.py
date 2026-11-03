@@ -45,6 +45,8 @@ def _duckdb_type_for(arrow_type: pa.DataType) -> str:
         return "BOOLEAN"
     if pa.types.is_timestamp(arrow_type):
         return "TIMESTAMPTZ" if arrow_type.tz else "TIMESTAMP"
+    if pa.types.is_date32(arrow_type):
+        return "DATE"
     if pa.types.is_binary(arrow_type) or pa.types.is_large_binary(arrow_type):
         return "BLOB"
     raise TypeError(f"Unsupported pyarrow type for DuckDB view: {arrow_type!r}")

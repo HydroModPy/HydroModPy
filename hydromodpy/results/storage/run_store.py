@@ -52,7 +52,6 @@ from hydromodpy.results.manifest import (
 )
 from hydromodpy.results.storage.array_fingerprint import fingerprint
 from hydromodpy.results.storage.arrow_tables import (
-    coerce_timestamp_utc,
     merge_with_existing,
     table_from_columns,
     table_from_records,
@@ -696,42 +695,13 @@ class RunStore:
             return self.tables_dir / f"{GEOGRAPHIC_FEATURE_PREFIX}{digest}{PARQUET_FILE_SUFFIX}"
         return target
 
-    def write_metric(
-        self,
-        sim_id: str | UUID,
-        station_id: str,
-        metric_name: str,
-        value: float,
-        *,
-        variable: str = "head",
-        n_samples: int | None = None,
-        n_clipped: int | None = None,
-        n_sim_nan: int | None = None,
-        period_start: Any | None = None,
-        period_end: Any | None = None,
-    ) -> None:
-        """Record one metric in the facts and in ``metrics.parquet``.
+    def write_metric(self, sim_id: str | UUID, row: MetricRow) -> None:
+        """Record one metric of the run: the one writer of the facts and of ``metrics.parquet``.
 
-        *n_clipped* is the number of negative values a log-scale score clipped
-        to zero; leave it unset on a metric that never clips. *n_sim_nan* is
-        the number of periods a NaN simulated value took out of the pairs.
+        A later row of the same station, variable, metric and period replaces it.
         """
         sid = self._check_sim(sim_id)
-        start = coerce_timestamp_utc(period_start)
-        end = coerce_timestamp_utc(period_end)
-        self._facts.put_metric(
-            MetricRow(
-                station=station_id,
-                variable=variable,
-                metric=metric_name,
-                value=None if value is None else float(value),
-                nse_window_start=None if start is None else start.date(),
-                nse_window_end=None if end is None else end.date(),
-                nse_n=None if n_samples is None else int(n_samples),
-                n_clipped=None if n_clipped is None else int(n_clipped),
-                n_sim_nan=None if n_sim_nan is None else int(n_sim_nan),
-            )
-        )
+        self._facts.put_metric(row)
         if not self._persistence.save_parquet:
             return
         self._write_parquet_records(
@@ -739,20 +709,23 @@ class RunStore:
             records=[
                 {
                     "sim_id": sid,
-                    "station_id": station_id,
-                    "variable": variable,
-                    "metric": metric_name,
-                    "value": float(value),
-                    "n_samples": None if n_samples is None else int(n_samples),
-                    "n_clipped": None if n_clipped is None else int(n_clipped),
-                    "n_sim_nan": None if n_sim_nan is None else int(n_sim_nan),
+                    "station_id": row.station,
+                    "variable": row.variable,
+                    "metric": row.metric,
+                    "value": row.value,
+                    "window_name": row.window_name,
+                    "window_role": row.window_role,
+                    "window_start": row.window_start,
+                    "window_end": row.window_end,
+                    "n_samples": row.n_samples,
+                    "n_clipped": row.n_clipped,
+                    "n_sim_nan": row.n_sim_nan,
+                    "metric_rule_version": row.metric_rule_version,
                     "valid_from": pd.Timestamp.now(tz="UTC"),
-                    "period_start": period_start,
-                    "period_end": period_end,
                 }
             ],
             schema=METRICS_SCHEMA,
-            pk_cols=("sim_id", "station_id", "variable", "metric"),
+            pk_cols=("sim_id", "station_id", "variable", "metric", "window_name"),
         )
 
     def write_runtime_metric(
@@ -764,15 +737,17 @@ class RunStore:
     ) -> None:
         """Record a number of the run itself (solve time, budget), which is no score.
 
-        The row stays in the facts and the seal; the index and the readers of
-        scores leave it out (:data:`~hydromodpy.results.manifest.RUNTIME_VARIABLE`).
+        The row stays in the facts, the table and the seal; the index and the
+        readers of scores leave it out (:data:`~hydromodpy.results.manifest.RUNTIME_VARIABLE`).
         """
         self.write_metric(
             sim_id,
-            station_id,
-            metric_name,
-            value,
-            variable=RUNTIME_VARIABLE,
+            MetricRow(
+                station=station_id,
+                variable=RUNTIME_VARIABLE,
+                metric=metric_name,
+                value=None if value is None else float(value),
+            ),
         )
 
     def write_provenance(

@@ -41,8 +41,8 @@ def _interval(*, reaches_lower: bool = False, reaches_upper: bool = False) -> Pa
     )
 
 
-def _result(objective_value: float = 0.123) -> EvaluationResult:
-    return EvaluationResult(trial_id=0, sim_id=None, objective_value=objective_value)
+def _result(cost: float = 0.123) -> EvaluationResult:
+    return EvaluationResult(trial_id=0, sim_id=None, cost=cost)
 
 
 def _space(*, path: str = "flow.param.K.field.value", mode: str = "replace", units=None):

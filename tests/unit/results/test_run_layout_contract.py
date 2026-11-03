@@ -38,7 +38,7 @@ from hydromodpy.core.state.paths import (
 )
 from hydromodpy.data.provenance.lockfile import LOCKFILE_NAME
 from hydromodpy.results.catalog.constants import PARQUET_VIEW_NAMES
-from hydromodpy.results.manifest import read_manifest
+from hydromodpy.results.manifest import MetricRow, read_manifest
 from hydromodpy.results.record import sealed_artifacts
 from hydromodpy.results.storage.attempt import close_sealed_attempt
 from hydromodpy.results.storage.contract import (
@@ -175,7 +175,7 @@ def solved_run(tmp_path):
     finally:
         sz.close()
     store.write_mass_balance(sim_id, 0, 10.0, 9.5, 5.0)
-    store.write_metric(sim_id, "P01", "nse", 0.8)
+    store.write_metric(sim_id, MetricRow(station="P01", metric="nse", value=0.8))
     store.write_provenance(sim_id, "dem", "dem.tif", np.ones(4))
     seal_completed(store)
     close_sealed_attempt(store.run_dir)

@@ -6,7 +6,7 @@ from hydromodpy.results.catalog import SimulationNotFoundError
 from hydromodpy.results.run import Run
 from tests._helpers.sealed_runs import write_attempt
 
-from ._test_simulation_api_builders import runs, score
+from ._test_simulation_api_builders import runs, score, write_plain_metric
 
 __all__ = ["runs"]
 
@@ -54,8 +54,7 @@ class TestCatalogQueryMethods:
         assert runs.catalog().find(nse_gt=0.7).count == 2
 
     def test_find_ignores_a_metric_scored_outside_the_rule(self, runs):
-        store = runs.open()
-        store.write_metric(store.sim_id, "P01", "nse", 0.95)
+        write_plain_metric(runs.open(), "P01", "nse", 0.95)
         assert runs.catalog().find(nse_gt=0.7).count == 0
 
     def test_find_combined_filters(self, runs):

@@ -64,7 +64,8 @@ def test_a_run_that_cannot_be_written_gets_no_sim_id_and_a_named_reason(
     assert "save_runs" in failure
     assert recorder.calls == []
     assert all(
-        line.sim_id is None and line.rel_dir is None for line in read_trials(persistence.directory)
+        line.only_case.sim_id is None and line.only_case.rel_dir is None
+        for line in read_trials(persistence.directory)
     )
     assert "save_catalog" in caplog.text
 

@@ -44,7 +44,7 @@ class EvaluationResult:
 
     trial_id: int
     sim_id: str | None
-    objective_value: float
+    cost: float
     status: str = "completed"
     duration_s: float = 0.0
     components: Mapping[str, float] | None = None

@@ -78,7 +78,7 @@ uses_outputs = ["net"]
 def _calibrate(tmp_path: Path):
     path = tmp_path / "calibration.toml"
     path.write_text(PROBE_TOML, encoding="utf-8")
-    return run_calibration_cli(path, workspace=tmp_path, return_report=True)
+    return run_calibration_cli(path, workspace=tmp_path)
 
 
 def test_a_session_where_no_trial_completed_exits_non_zero(tmp_path, probe, capsys) -> None:

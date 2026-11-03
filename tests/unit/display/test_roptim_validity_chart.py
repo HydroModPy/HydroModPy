@@ -73,7 +73,7 @@ def _rgba(color: str):
 # --------------------------------------------------------------------------- #
 
 
-def test_a_record_refuses_a_negative_roptim() -> None:
+def test_a_record_refuses_a_negative_r_optim() -> None:
     with pytest.raises(ValueError, match="r_optim"):
         SiteAgreement(label="cheze", transmissivity=1e-4, d_optim=120.0, r_optim=-0.5)
 

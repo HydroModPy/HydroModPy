@@ -126,7 +126,7 @@ def _build_iteration_trace(
                 "sim_id": None,
                 "params_hash": None,
                 "parameters": {"K": float(k), "Sy": float(sy)},
-                "objective_value": float(cost),
+                "cost": float(cost),
                 "metrics": None,
                 "status": "completed",
                 "from_cache": False,
@@ -150,7 +150,7 @@ class _RunStub:
         self.calibration_iterations = iterations
 
     def timeseries(self, variable: str, station: str) -> pd.DataFrame:  # noqa: ARG002
-        values = [row["objective_value"] for row in self.calibration_iterations]
+        values = [row["cost"] for row in self.calibration_iterations]
         idx = pd.date_range("2024-01-01", periods=len(values), freq="D", name="datetime")
         return pd.DataFrame({variable: values}, index=idx)
 
@@ -172,7 +172,7 @@ def _trace_arrays(trace: list[dict]) -> dict[str, np.ndarray]:
     return {
         "K": np.array([row["K"] for row in trace], dtype=float),
         "Sy": np.array([row["Sy"] for row in trace], dtype=float),
-        "objective_value": np.array([row["objective_value"] for row in trace], dtype=float),
+        "cost": np.array([row["cost"] for row in trace], dtype=float),
         "objective": np.array([row["objective"] for row in trace], dtype=float),
     }
 
@@ -212,7 +212,7 @@ def _check_trace_figure(fig, arrays: dict[str, np.ndarray]) -> None:
     """calibration_trace: one panel per parameter plus the objective, in order."""
     axes = fig.axes
     assert len(axes) == 3, "expected a K panel, a Sy panel and an objective panel"
-    for ax, key in zip(axes, ("K", "Sy", "objective_value"), strict=True):
+    for ax, key in zip(axes, ("K", "Sy", "cost"), strict=True):
         np.testing.assert_allclose(_series(ax), arrays[key])
         assert ax.get_ylabel() == key
     assert axes[-1].get_xlabel() == "Iteration"
@@ -225,7 +225,7 @@ def _check_landscape_figure(fig, arrays: dict[str, np.ndarray]) -> None:
     offsets = np.asarray(scatter.get_offsets())
     np.testing.assert_allclose(offsets[:, 0], arrays["K"])
     np.testing.assert_allclose(offsets[:, 1], arrays["Sy"])
-    np.testing.assert_allclose(np.asarray(scatter.get_array()), arrays["objective_value"])
+    np.testing.assert_allclose(np.asarray(scatter.get_array()), arrays["cost"])
     assert ax.get_xlabel() == "K"
     assert ax.get_ylabel() == "Sy"
 
@@ -260,7 +260,7 @@ def _check_pairplot_figure(fig, arrays: dict[str, np.ndarray]) -> None:
             offsets = np.asarray(scatter.get_offsets())
             np.testing.assert_allclose(offsets[:, 0], arrays[pj])
             np.testing.assert_allclose(offsets[:, 1], arrays[pi])
-            np.testing.assert_allclose(np.asarray(scatter.get_array()), arrays["objective_value"])
+            np.testing.assert_allclose(np.asarray(scatter.get_array()), arrays["cost"])
 
 
 def _check_objective_surface_figure(fig, arrays: dict[str, np.ndarray]) -> None:
@@ -270,8 +270,8 @@ def _check_objective_surface_figure(fig, arrays: dict[str, np.ndarray]) -> None:
     offsets = np.asarray(scatter.get_offsets())
     np.testing.assert_allclose(offsets[:, 0], arrays["K"])
     np.testing.assert_allclose(offsets[:, 1], arrays["Sy"])
-    np.testing.assert_allclose(np.asarray(scatter.get_array()), arrays["objective_value"])
-    best = int(np.argmin(arrays["objective_value"]))
+    np.testing.assert_allclose(np.asarray(scatter.get_array()), arrays["cost"])
+    best = int(np.argmin(arrays["cost"]))
     marker = _scatter(ax, 1)
     marker_xy = np.asarray(marker.get_offsets())[0]
     assert marker_xy == pytest.approx((arrays["K"][best], arrays["Sy"][best]))
@@ -357,6 +357,6 @@ def test_calibration_figure_renders_png(
 
 def test_iterations_dataframe_roundtrip(_sample_trace: list[dict]) -> None:
     df = iterations_to_dataframe(_sample_trace)
-    for column in ("iteration", "objective_value", "K", "Sy", "status"):
+    for column in ("iteration", "cost", "K", "Sy", "status"):
         assert column in df.columns
     assert len(df) == len(_sample_trace)

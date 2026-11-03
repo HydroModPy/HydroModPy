@@ -1,0 +1,763 @@
+{
+  "$defs": {
+    "BestCase": {
+      "additionalProperties": true,
+      "description": "What the best trial gave in one case: its run and its cost.",
+      "properties": {
+        "cost": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Cost of this case at this trial",
+          "title": "Cost",
+          "x-hmp-profile": "user"
+        },
+        "rel_dir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Directory of that run, a hint",
+          "title": "Rel Dir",
+          "x-hmp-profile": "user"
+        },
+        "sim_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run of the trial in this case",
+          "title": "Sim Id",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "BestCase",
+      "type": "object"
+    },
+    "BestTrial": {
+      "additionalProperties": true,
+      "description": "The trial a session or a phase holds as its best.",
+      "properties": {
+        "cases": {
+          "additionalProperties": {
+            "$ref": "#/$defs/BestCase"
+          },
+          "description": "By case id",
+          "title": "Cases",
+          "type": "object",
+          "x-hmp-profile": "user"
+        },
+        "cost": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Cost of the trial, null when the search keeps no single cost",
+          "title": "Cost",
+          "x-hmp-profile": "user"
+        },
+        "parameters": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "description": "Physical value of each parameter of the trial, those a phase froze included",
+          "title": "Parameters",
+          "type": "object",
+          "x-hmp-profile": "user"
+        },
+        "trial": {
+          "description": "Trial number, unique in the session",
+          "examples": [
+            1
+          ],
+          "minimum": 1,
+          "title": "Trial",
+          "type": "integer",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "trial"
+      ],
+      "title": "BestTrial",
+      "type": "object"
+    },
+    "CostInterval": {
+      "additionalProperties": true,
+      "description": "The range the trials could not tell from the best on the cost. Every member is optional.",
+      "properties": {
+        "kind": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How the margin reads: relative, absolute",
+          "title": "Kind",
+          "x-hmp-profile": "user"
+        },
+        "lower": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Low end, in the unit of the parameter",
+          "title": "Lower",
+          "x-hmp-profile": "user"
+        },
+        "lower_end": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "crossed, open or bound",
+          "title": "Lower End",
+          "x-hmp-profile": "user"
+        },
+        "margin": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Width on the cost it was read with",
+          "title": "Margin",
+          "x-hmp-profile": "user"
+        },
+        "n_trials": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Trials it was read over",
+          "title": "N Trials",
+          "x-hmp-profile": "user"
+        },
+        "n_within": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Trials inside the margin",
+          "title": "N Within",
+          "x-hmp-profile": "user"
+        },
+        "threshold": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Cost at which it was read",
+          "title": "Threshold",
+          "x-hmp-profile": "user"
+        },
+        "upper": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "High end, in the unit of the parameter",
+          "title": "Upper",
+          "x-hmp-profile": "user"
+        },
+        "upper_end": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "crossed, open or bound",
+          "title": "Upper End",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "CostInterval",
+      "type": "object"
+    },
+    "DateWindow": {
+      "additionalProperties": true,
+      "description": "A closed range of days, ``start`` and ``end`` included.",
+      "properties": {
+        "end": {
+          "description": "Last day of the window, included",
+          "format": "date",
+          "title": "End",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "start": {
+          "description": "First day of the window",
+          "format": "date",
+          "title": "Start",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "title": "DateWindow",
+      "type": "object"
+    },
+    "FrozenValue": {
+      "additionalProperties": true,
+      "description": "One value a phase holds fixed, found by an earlier phase.",
+      "properties": {
+        "from_phase": {
+          "description": "Phase that found it",
+          "examples": [
+            "example"
+          ],
+          "title": "From Phase",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "mode": {
+          "description": "replace or scale",
+          "examples": [
+            "example"
+          ],
+          "title": "Mode",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "targets": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Address of the value in each case, by case id",
+          "title": "Targets",
+          "type": "object",
+          "x-hmp-profile": "user"
+        },
+        "value": {
+          "description": "The value held",
+          "examples": [
+            1.0
+          ],
+          "title": "Value",
+          "type": "number",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "value",
+        "mode",
+        "from_phase"
+      ],
+      "title": "FrozenValue",
+      "type": "object"
+    },
+    "ParameterWidth": {
+      "additionalProperties": true,
+      "description": "The width of one calibrated value. Every member is optional, and none changes the value.",
+      "properties": {
+        "correlated": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "description": "Correlation coefficient with other parameters, by name",
+          "title": "Correlated",
+          "type": "object",
+          "x-hmp-profile": "user"
+        },
+        "interval": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CostInterval"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Interval on the cost",
+          "x-hmp-profile": "user"
+        },
+        "restarts": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RestartRange"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Spread of the restarts",
+          "x-hmp-profile": "user"
+        },
+        "sigma": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Linearised standard deviation, in the unit of the parameter",
+          "title": "Sigma",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "ParameterWidth",
+      "type": "object"
+    },
+    "PeriodWindow": {
+      "additionalProperties": true,
+      "description": "A named period of a search: its role, its extent, and the window of each case.",
+      "properties": {
+        "by_case": {
+          "additionalProperties": {
+            "$ref": "#/$defs/DateWindow"
+          },
+          "description": "Window of each case by case id, empty when every case reads start to end",
+          "title": "By Case",
+          "type": "object",
+          "x-hmp-profile": "user"
+        },
+        "end": {
+          "description": "Last day of the period over all cases, included",
+          "format": "date",
+          "title": "End",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "role": {
+          "description": "What the period is for",
+          "examples": [
+            "example"
+          ],
+          "title": "Role",
+          "type": "string",
+          "x-hmp-profile": "user",
+          "x-hmp-vocabulary": [
+            "calibration",
+            "validation",
+            "evaluation"
+          ]
+        },
+        "start": {
+          "description": "First day of the period over all cases",
+          "format": "date",
+          "title": "Start",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "role",
+        "start",
+        "end"
+      ],
+      "title": "PeriodWindow",
+      "type": "object"
+    },
+    "RestartRange": {
+      "additionalProperties": true,
+      "description": "Where the restarts of a search landed on one parameter.",
+      "properties": {
+        "highest": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Highest value of the restarts",
+          "title": "Highest",
+          "x-hmp-profile": "user"
+        },
+        "lowest": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Lowest value of the restarts",
+          "title": "Lowest",
+          "x-hmp-profile": "user"
+        },
+        "values": {
+          "description": "Value of each restart",
+          "items": {
+            "type": "number"
+          },
+          "title": "Values",
+          "type": "array",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "RestartRange",
+      "type": "object"
+    },
+    "ScoredSamples": {
+      "additionalProperties": true,
+      "description": "The pairs one dated output of one case was scored on, in one period.\n\nA stamp closes its period, so ``first`` and ``last`` are the ends of the\nfirst and last period scored, not the bounds of a window.",
+      "properties": {
+        "case_id": {
+          "description": "Case scored",
+          "examples": [
+            "example"
+          ],
+          "title": "Case Id",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "first": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "First period-end stamp scored",
+          "title": "First",
+          "x-hmp-profile": "user"
+        },
+        "last": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Last period-end stamp scored",
+          "title": "Last",
+          "x-hmp-profile": "user"
+        },
+        "n": {
+          "description": "Number of paired samples scored",
+          "examples": [
+            1
+          ],
+          "minimum": 0,
+          "title": "N",
+          "type": "integer",
+          "x-hmp-profile": "user"
+        },
+        "n_sim_nan": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Pairs of the window dropped because the simulated value is NaN (a dry cell); null when not counted",
+          "title": "N Sim Nan",
+          "x-hmp-profile": "user"
+        },
+        "output": {
+          "description": "Dated output scored; two cases may use one name",
+          "examples": [
+            "example"
+          ],
+          "title": "Output",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "window": {
+          "description": "Name of the period scored",
+          "examples": [
+            "example"
+          ],
+          "title": "Window",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "window",
+        "case_id",
+        "output",
+        "n"
+      ],
+      "title": "ScoredSamples",
+      "type": "object"
+    }
+  },
+  "additionalProperties": true,
+  "description": "Status, frozen values and best trial of one phase.",
+  "properties": {
+    "best": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/BestTrial"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Best trial of the phase",
+      "x-hmp-profile": "user"
+    },
+    "cost_label": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "What that cost reads as",
+      "title": "Cost Label",
+      "x-hmp-profile": "user"
+    },
+    "cost_name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Name of the cost of this phase",
+      "title": "Cost Name",
+      "x-hmp-profile": "user"
+    },
+    "frozen": {
+      "additionalProperties": {
+        "$ref": "#/$defs/FrozenValue"
+      },
+      "description": "Values frozen from earlier phases, by parameter",
+      "title": "Frozen",
+      "type": "object",
+      "x-hmp-profile": "user"
+    },
+    "index": {
+      "description": "Rank of the phase in the chain",
+      "examples": [
+        1
+      ],
+      "minimum": 0,
+      "title": "Index",
+      "type": "integer",
+      "x-hmp-profile": "user"
+    },
+    "name": {
+      "description": "Name of the phase, its directory",
+      "examples": [
+        "example"
+      ],
+      "pattern": "^[A-Za-z0-9_]+$",
+      "title": "Name",
+      "type": "string",
+      "x-hmp-profile": "user"
+    },
+    "phase_id": {
+      "description": "Id of the phase, unique in the session",
+      "examples": [
+        "example"
+      ],
+      "title": "Phase Id",
+      "type": "string",
+      "x-hmp-profile": "user"
+    },
+    "restarts": {
+      "default": 0,
+      "description": "Times the phase restarted",
+      "examples": [
+        0
+      ],
+      "minimum": 0,
+      "title": "Restarts",
+      "type": "integer",
+      "x-hmp-profile": "user"
+    },
+    "schema": {
+      "default": "hydromodpy.phase.v2",
+      "description": "Schema id",
+      "title": "Schema",
+      "type": "string"
+    },
+    "scored": {
+      "description": "The pairs the best cost of the phase was scored on",
+      "items": {
+        "$ref": "#/$defs/ScoredSamples"
+      },
+      "title": "Scored",
+      "type": "array",
+      "x-hmp-profile": "user"
+    },
+    "status": {
+      "default": "running",
+      "examples": [
+        "running"
+      ],
+      "title": "Status",
+      "type": "string",
+      "x-hmp-profile": "user",
+      "x-hmp-vocabulary": [
+        "running",
+        "completed",
+        "partial",
+        "aborted",
+        "failed"
+      ]
+    },
+    "stop_note": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "'froze the best of a budget-only search' when the phase passed on the best trial of a search with no rule of its own; none otherwise",
+      "title": "Stop Note",
+      "x-hmp-profile": "user"
+    },
+    "stop_state": {
+      "anyOf": [
+        {
+          "type": "string",
+          "x-hmp-vocabulary": [
+            "rule_met",
+            "plan_exhausted",
+            "budget_spent"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Why the search of the phase stopped: rule_met, plan_exhausted or budget_spent; none until it closes",
+      "title": "Stop State",
+      "x-hmp-profile": "user"
+    },
+    "stopping_rule": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The rule that search stops on, 'budget' for one with no rule of its own",
+      "title": "Stopping Rule",
+      "x-hmp-profile": "user"
+    },
+    "widths": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ParameterWidth"
+      },
+      "description": "Width of each value of the phase; empty when none",
+      "title": "Widths",
+      "type": "object",
+      "x-hmp-profile": "user"
+    },
+    "windows": {
+      "additionalProperties": {
+        "$ref": "#/$defs/PeriodWindow"
+      },
+      "description": "Periods of this phase, by name; empty for a steady phase without dates",
+      "title": "Windows",
+      "type": "object",
+      "x-hmp-profile": "user"
+    }
+  },
+  "required": [
+    "phase_id",
+    "name",
+    "index"
+  ],
+  "title": "PhaseDescriptor",
+  "type": "object"
+}

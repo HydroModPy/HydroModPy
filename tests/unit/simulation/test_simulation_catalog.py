@@ -14,7 +14,7 @@ from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.lineage import Lineage
 from hydromodpy.results.storage.contract import RUN_MANIFEST_FILENAME
 
-from ._test_simulation_api_builders import runs
+from ._test_simulation_api_builders import runs, write_plain_metric
 
 __all__ = ["runs"]
 
@@ -273,8 +273,8 @@ class TestWriteMethods:
 
     def test_write_metric_upsert(self, runs):
         store = runs.open()
-        store.write_metric(store.sim_id, "P01", "nse", 0.7)
-        store.write_metric(store.sim_id, "P01", "nse", 0.85)
+        write_plain_metric(store, "P01", "nse", 0.7)
+        write_plain_metric(store, "P01", "nse", 0.85)
         rows = (
             runs.catalog()
             .connection.execute(

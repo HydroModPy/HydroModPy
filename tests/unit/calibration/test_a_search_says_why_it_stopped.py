@@ -13,7 +13,6 @@ reads.
 from __future__ import annotations
 
 import math
-from datetime import UTC, datetime
 from types import SimpleNamespace
 
 import pytest
@@ -38,6 +37,7 @@ from hydromodpy.cli.commands.calibrate import _search_line
 from hydromodpy.results.checks import BUDGET_RULE, CalibratedBy, stop_text
 from hydromodpy.results.session.descriptor import SessionDescriptor
 from hydromodpy.results.session.phase import PhaseDescriptor
+from tests._helpers.session_documents import session_descriptor
 
 
 def _space(dim: int = 1) -> ParameterSpace:
@@ -49,9 +49,7 @@ def _space(dim: int = 1) -> ParameterSpace:
 
 def _bowl(sugg: ParamSuggestion) -> EvaluationResult:
     cost = sum((math.log10(float(value)) - 1.5) ** 2 for value in sugg.values.values())
-    return EvaluationResult(
-        trial_id=sugg.trial_id, sim_id=None, objective_value=cost, status="completed"
-    )
+    return EvaluationResult(trial_id=sugg.trial_id, sim_id=None, cost=cost, status="completed")
 
 
 def _rosenbrock(sugg: ParamSuggestion) -> EvaluationResult:
@@ -60,7 +58,7 @@ def _rosenbrock(sugg: ParamSuggestion) -> EvaluationResult:
     return EvaluationResult(
         trial_id=sugg.trial_id,
         sim_id=None,
-        objective_value=(1.0 - x) ** 2 + 100.0 * (y - x * x) ** 2,
+        cost=(1.0 - x) ** 2 + 100.0 * (y - x * x) ** 2,
         status="completed",
     )
 
@@ -70,7 +68,7 @@ def _signed_root(sugg: ParamSuggestion) -> EvaluationResult:
     return EvaluationResult(
         trial_id=sugg.trial_id,
         sim_id=None,
-        objective_value=abs(residual),
+        cost=abs(residual),
         status="completed",
         components={"net.J_signed": residual},
     )
@@ -233,16 +231,7 @@ def test_the_console_says_why_the_search_stopped() -> None:
 
 
 def _descriptor(**extra) -> SessionDescriptor:
-    return SessionDescriptor(
-        session_id="s1",
-        case_id="case",
-        config_hash="h",
-        hydromodpy_version="2.0.0a4",
-        method="random_search",
-        objective_name="nse",
-        started_at=datetime(2026, 10, 25, tzinfo=UTC),
-        **extra,
-    )
+    return session_descriptor(method="random_search", **extra)
 
 
 def test_the_session_descriptor_holds_the_state_and_reads_without_it() -> None:

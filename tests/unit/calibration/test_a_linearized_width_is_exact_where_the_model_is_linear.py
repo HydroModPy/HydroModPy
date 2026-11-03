@@ -204,9 +204,8 @@ class TestThePassOverAReport:
         return CalibrationReport(
             session_id="s",
             method="scipy_nelder_mead",
-            n_iterations=1,
-            best_objective=0.5,
-            best_sim_id=None,
+            n_trials=1,
+            best_cost=0.5,
             duration_s=1.0,
             save_runs="none",
             promoted=0,

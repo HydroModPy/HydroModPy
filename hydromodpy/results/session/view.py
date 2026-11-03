@@ -15,6 +15,11 @@ Why
 object with the words of the CLI: ``trials``, ``best``, ``phases``,
 ``config``. The figures and the report read the same trial frame
 (:data:`TRIAL_COLUMNS`) through :mod:`hydromodpy.results.calibration_trials`.
+
+A session holds one parameter set and one run per case. ``best`` is the run of
+a session of one case, and ``best_by_case`` holds them all. On a session of several
+cases ``best`` refuses and names ``best_by_case``: the first run would read one
+basin for the whole experiment, and ``None`` would say that no run exists.
 """
 
 from __future__ import annotations
@@ -26,14 +31,17 @@ from typing import TYPE_CHECKING, Any
 import pandas as pd
 
 from hydromodpy.core.state.paths import run_dir_rel
+from hydromodpy.results.errors import SeveralCasesError
 from hydromodpy.results.manifest import is_sealed
+from hydromodpy.results.metric_rule import PeriodWindow
 from hydromodpy.results.session.descriptor import (
+    BestCase,
     SessionDescriptor,
     SessionStatus,
     read_session,
     session_descriptor_path,
 )
-from hydromodpy.results.session.journal import read_trials, trial_row
+from hydromodpy.results.session.journal import read_trials, trial_rows
 from hydromodpy.results.session.phase import PhaseDescriptor, list_phases
 from hydromodpy.results.storage.contract import SESSION_CONFIG_FILENAME
 
@@ -44,18 +52,22 @@ TRIAL_COLUMNS: tuple[str, ...] = (
     "session_id",
     "phase",
     "restart",
-    "iteration",
+    "trial",
+    "case_id",
+    "site",
+    "cost",
+    "case_cost",
+    "components",
+    "parameters",
+    "status",
+    "case_status",
+    "from_cache",
+    "params_hash",
     "sim_id",
     "rel_dir",
-    "params_hash",
-    "parameters",
-    "objective_value",
-    "metrics",
-    "status",
-    "from_cache",
     "duration_s",
 )
-"""Columns of the trial frame; ``iteration`` is the trial number, unique in the session."""
+"""Columns of the trial frame, one row per trial and per case."""
 
 
 class Session:
@@ -76,7 +88,7 @@ class Session:
     >>> import hydromodpy as hmp
     >>> proj = hmp.open("~/ws/projects/bretagne")  # doctest: +SKIP
     >>> session = proj.sessions["J0014010-calage"]  # doctest: +SKIP
-    >>> session.trials.sort_values("objective_value").head()  # doctest: +SKIP
+    >>> session.trials.sort_values("cost").head()  # doctest: +SKIP
     >>> session.best.label()  # doctest: +SKIP
     """
 
@@ -125,10 +137,35 @@ class Session:
             return tomllib.load(handle)
 
     @property
+    def cases(self) -> tuple[str, ...]:
+        """The ids of the calibrated cases."""
+        return tuple(self.descriptor.cases)
+
+    @property
+    def sites(self) -> tuple[str, ...]:
+        """The sites of the calibrated cases."""
+        return tuple(self.descriptor.sites)
+
+    @property
+    def windows(self) -> dict[str, PeriodWindow]:
+        """The periods of the search whose best the session holds, by name."""
+        return dict(self.descriptor.windows)
+
+    @property
     def trials(self) -> pd.DataFrame:
-        """Every trial of the session, one row each, by trial number (:data:`TRIAL_COLUMNS`)."""
-        session_id = self.descriptor.session_id
-        rows = [{"session_id": session_id, **trial_row(line)} for line in read_trials(self._dir)]
+        """Every trial of the session, one row per trial and case (:data:`TRIAL_COLUMNS`)."""
+        descriptor = self.descriptor
+        rows = []
+        for line in read_trials(self._dir):
+            for row in trial_rows(line):
+                case = descriptor.cases.get(row["case_id"])
+                rows.append(
+                    {
+                        **row,
+                        "session_id": descriptor.session_id,
+                        "site": None if case is None else case.site,
+                    }
+                )
         return pd.DataFrame(rows, columns=list(TRIAL_COLUMNS))
 
     @property
@@ -137,27 +174,64 @@ class Session:
         return list_phases(self._dir)
 
     @property
+    def best_cost(self) -> float | None:
+        """The cost of the best trial, ``None`` without one."""
+        best = self.descriptor.best
+        return None if best is None else best.cost
+
+    @property
+    def best_parameters(self) -> dict[str, float]:
+        """The one parameter set of the best trial, empty without one."""
+        best = self.descriptor.best
+        return {} if best is None else dict(best.parameters)
+
+    @property
+    def best_by_case(self) -> dict[str, Run | None]:
+        """The run of the best trial in each case, ``None`` where it is missing.
+
+        Empty while no trial is held as best.
+        """
+        best = self.descriptor.best
+        if best is None:
+            return {}
+        return {case_id: self._run_of(case_id, case) for case_id, case in best.cases.items()}
+
+    @property
     def best(self) -> Run | None:
         """The run the best trial was promoted to, read from its directory.
 
         The descriptor names the run of the best trial; without that hint, the
         run paired with the session (``runs/<session name>``) is taken when it
-        carries the same id. ``None`` while no run holds the best trial.
+        carries the same id. ``None`` while no run holds the best trial, or
+        when the search keeps no single best.
+
+        Raises
+        ------
+        SeveralCasesError
+            If the session calibrates several cases: read ``best_by_case``.
         """
+        case_id = self.descriptor.only_case
+        if case_id is None:
+            raise SeveralCasesError(
+                f"session {self.name} holds one run per case ({', '.join(self.cases)}): "
+                "read best_by_case."
+            )
+        return self.best_by_case.get(case_id)
+
+    def _run_of(self, case_id: str, case: BestCase) -> Run | None:
+        """Return the run the best trial became in one case, or ``None``."""
         from hydromodpy.results.run.view import open_run_dir
 
-        best = self.descriptor.best
-        if best is None:
-            return None
         project_root = self._dir.parent.parent
-        hints = [best.rel_dir] if best.rel_dir else []
-        hints.append(run_dir_rel(self.name))
+        hints = [case.rel_dir] if case.rel_dir else []
+        if self.descriptor.only_case == case_id:
+            hints.append(run_dir_rel(self.name))
         for rel_dir in hints:
             directory = project_root / rel_dir
             if not is_sealed(directory):
                 continue
             run = open_run_dir(directory)
-            if best.sim_id is None or run.sim_id == best.sim_id:
+            if case.sim_id is None or run.sim_id == case.sim_id:
                 return run
         return None
 

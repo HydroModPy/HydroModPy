@@ -1,7 +1,7 @@
 """The metric rows of a run count the periods a NaN simulated value took out of the window.
 
 A run scored on a head whose cell went dry is scored on fewer periods than
-the window holds, and the rows said only ``nse_n``. Each row now says how
+the window holds, and the rows said only ``n_samples``. Each row now says how
 many periods of the window it lost to a NaN simulated value (``n_sim_nan``),
 in the seal, in ``metrics.parquet`` and in the ``metrics`` table of the index,
 and the scoring warns. A period the record leaves empty is not counted.
@@ -19,10 +19,10 @@ import pyarrow.parquet as pq
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.fit_metrics import score_timeseries
-from hydromodpy.results.manifest import MetricRow
 from hydromodpy.results.metric_rule import DateWindow, MetricRule
 from hydromodpy.results.run.sealed import metrics_frame
 from hydromodpy.results.storage.sealing import seal_completed
+from tests._helpers.metric_rows import headline_row
 from tests._helpers.run_stores import open_run_store
 
 PIEZOMETER = "P1"
@@ -70,22 +70,15 @@ def test_a_wet_run_counts_zero_and_does_not_warn(caplog) -> None:
 def test_the_store_the_seal_and_the_index_keep_n_sim_nan(tmp_path) -> None:
     root = tmp_path / "p"
     store = open_run_store(root, "a", create_zarr=False)
-    store.facts.put_metric(
-        MetricRow(
-            station=PIEZOMETER,
-            variable="head",
-            metric="nse",
-            value=0.5,
-            nse_window_start=WINDOW.start,
-            nse_window_end=WINDOW.end,
-            nse_n=20,
-            n_sim_nan=3,
-            metric_rule_version="2",
+    for metric, value in (("nse", 0.5), ("rmse", 0.1)):
+        store.write_metric(
+            store.sim_id,
+            headline_row(
+                metric, value, station=PIEZOMETER, variable="head", window=WINDOW, n_sim_nan=3
+            ),
         )
-    )
-    store.write_metric(store.sim_id, PIEZOMETER, "rmse", 0.1, variable="head", n_sim_nan=3)
     table = pq.read_table(store.table_path_for(store.sim_id, "metrics")).to_pandas()
-    assert table["n_sim_nan"].tolist() == [3]
+    assert table["n_sim_nan"].tolist() == [3, 3]
     record = seal_completed(store)
     assert metrics_frame(record)["n_sim_nan"].tolist() == [3, 3]
     rebuild_index(root)

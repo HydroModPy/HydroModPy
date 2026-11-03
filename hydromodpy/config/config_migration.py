@@ -200,8 +200,11 @@ def fix_config_chain(path: str | Path) -> dict[Path, list[str]]:
     Returns the changes of each file of the chain, root first, an empty list for a
     file already up to date. Nothing is written when the rewrite would change what
     the chain reads: a table several files fill key by key, for example, becomes a
-    list one file replaces. That raises :class:`ConfigError` naming the keys. Raises
-    :class:`FileNotFoundError` when a file is missing and a TOML error on a malformed one.
+    list one file replaces. That raises :class:`ConfigError` naming the keys. A file
+    whose rewrite hangs on a key a file below it writes stays as it is, and its lines
+    say what to write (:func:`_left_for_a_child`): another file can inherit it and
+    read it otherwise. Raises :class:`FileNotFoundError` when a file is missing and a
+    TOML error on a malformed one.
     """
     target = Path(path).expanduser()
     if not target.is_file():
@@ -218,7 +221,13 @@ def fix_config_chain(path: str | Path) -> dict[Path, list[str]]:
     before = copy.deepcopy(current)
     _every_rule(before)
     changes: dict[Path, list[str]] = {}
-    for file, doc in docs.items():
+    left: set[Path] = set()
+    for index, (file, doc) in enumerate(layers):
+        hanging = _left_for_a_child(layers, index, written=written, current=current)
+        if hanging:
+            changes[file] = hanging
+            left.add(file)
+            continue
         changes[file] = _every_rule(doc, written=written, current=current)
         changes[file].extend(_migrate_refused_keys(doc))
     after = _under_todays_names(layers, _reading_context(layers))
@@ -231,9 +240,43 @@ def fix_config_chain(path: str | Path) -> dict[Path, list[str]]:
             "by hand, then run this again."
         )
     for file, doc in docs.items():
-        if changes[file]:
+        if changes[file] and file not in left:
             file.write_text(tomlkit.dumps(doc), encoding="utf-8")
     return changes
+
+
+def _left_for_a_child(
+    layers: Sequence[Layer], index: int, *, written: Any, current: Any
+) -> list[str]:
+    """Return why layer *index* stays as it is, or nothing when it can be rewritten.
+
+    A rule reads the chain for what a table lacks: the method of a search option, the
+    flow solver of a layering, what a width is scored on. Read from a file below,
+    the answer holds for that file only, and a sibling can write another one. So the
+    layer is rewritten twice on copies, under the whole chain and under itself and
+    what it inherits. When the two differ, the rewrite hangs on a child.
+    """
+    source, doc = layers[index]
+    if index == len(layers) - 1:
+        return []
+    above = layers[: index + 1]
+    alone_written = _reading_context(above)
+    alone = copy.deepcopy(_plain(doc))
+    said_alone = _every_rule(
+        alone, written=alone_written, current=_under_todays_names(above, alone_written)
+    )
+    whole = copy.deepcopy(_plain(doc))
+    said_whole = _every_rule(whole, written=written, current=current)
+    if alone == whole:
+        return []
+    child, name = Path(str(layers[-1][0])).name, Path(str(source)).name
+    hanging = [change for change in said_whole if change not in said_alone] or said_whole
+    return [
+        f"{change}{CANNOT_REWRITE}that reading comes from a key {child} writes, and another "
+        f"file that inherits {name} can write another one. Write the new form in {child} "
+        f"and in each such file, then remove the old key from {name}"
+        for change in hanging
+    ]
 
 
 def fix_config_file(path: str | Path) -> list[str]:

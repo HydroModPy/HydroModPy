@@ -20,6 +20,11 @@ compare it once its own build is done (:func:`build_drift`). What is decided lat
 still, by the solver adapter, goes to the facts of the run and to
 ``provenance.json``, block ``solver.options``: the IMS complexity and the XT3D
 decision of MODFLOW 6, read back from the model.
+
+The table :data:`~hydromodpy.results.storage.contract.RUN_SEARCH_TABLE` of a run
+that came out of a calibration holds the ``[calibration]`` section of its session.
+``config.toml`` leaves it out, since a run replays as one solve. What a redraw of its
+network criterion reads stays with the run, so a copy of the run needs no session.
 """
 
 from __future__ import annotations
@@ -35,7 +40,11 @@ from hydromodpy.core.toml_io.paths import assign, portable_declared_path
 from hydromodpy.core.toml_io.writer import dumps
 from hydromodpy.core.tracking import rewrite_input_paths
 from hydromodpy.results.metric_rule import MetricRule
-from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME, RUN_RESOLVED_CONFIG_FILENAME
+from hydromodpy.results.storage.contract import (
+    RUN_CONFIG_FILENAME,
+    RUN_RESOLVED_CONFIG_FILENAME,
+    RUN_SEARCH_TABLE,
+)
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
@@ -77,12 +86,22 @@ def _shown(value: Any) -> str:
 
 
 def resolved_config_document(
-    config: Any, project_root: Path, *, build: Mapping[str, Any] | None = None
+    config: Any,
+    project_root: Path,
+    *,
+    build: Mapping[str, Any] | None = None,
+    search: Mapping[str, Any] | None = None,
 ) -> str:
-    """Return ``config.resolved.toml`` of *config* as TOML text."""
+    """Return ``config.resolved.toml`` of *config* as TOML text.
+
+    *build* is what the build decided, *search* the section of the calibration the
+    run came out of.
+    """
     payload = _resolved_payload(config, project_root)
     if build:
         payload[BUILD_TABLE] = dict(build)
+    if search:
+        payload[RUN_SEARCH_TABLE] = dict(search)
     return dumps(payload)
 
 
@@ -121,6 +140,7 @@ def config_drift(
     if sealed is None:
         return None
     sealed.pop(BUILD_TABLE, None)
+    sealed.pop(RUN_SEARCH_TABLE, None)
     current = tomllib.loads(dumps(_resolved_payload(config, project_root)))
     for payload in (sealed, current):
         rewrite_input_paths(payload, type(config), lambda marker, _path: marker.role)
@@ -159,7 +179,9 @@ def portable_config_payload(
     workspace (:func:`~hydromodpy.core.toml_io.paths.portable_declared_path`): a
     bare name found in ``data/``, a path relative to the project root, or
     ``../../data/...``. Every other path under the project root is written
-    relative to it. The document is staged in *staging_dir* while it is rendered.
+    relative to it. A data type with no section stays out of ``data.types``: the
+    planner inferred it, a file cannot list it, and a replay infers it again. The
+    document is staged in *staging_dir* while it is rendered.
     """
     staged = staging_dir / f".{RUN_CONFIG_FILENAME}.staged"
     cfg.to_toml(staged, profile="expert", written_only=written_only)
@@ -182,6 +204,9 @@ def portable_config_payload(
             workspace.pop(key, None)
         if not workspace:
             payload.pop("workspace")
+    data = payload.get("data")
+    if isinstance(data, dict) and "types" in data:
+        data["types"] = [name for name in data["types"] if name in data]
     return _relativise(payload, root)
 
 

@@ -16,13 +16,13 @@ from hydromodpy.display.figures._trial_diagnostics import trial_table
 
 
 def test_two_hundred_diagnostics_raise_no_performance_warning() -> None:
-    metrics = {f"net.diag_{index:03d}": float(index) for index in range(200)}
+    components = {f"net.diag_{index:03d}": float(index) for index in range(200)}
     rows = [
         {
-            "iteration": trial,
+            "trial": trial,
             "parameters": {"K": {"value": 10.0 ** -(trial + 4)}},
-            "metrics": dict(metrics),
-            "objective_value": float(trial),
+            "components": dict(components),
+            "cost": float(trial),
         }
         for trial in range(5)
     ]

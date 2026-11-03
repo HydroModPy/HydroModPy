@@ -55,7 +55,12 @@ from hydromodpy.cli.helpers import (
 )
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import data_cache_path_for, display_path, resolve_project_root
+from hydromodpy.core.state.paths import (
+    data_cache_path_for,
+    display_path,
+    refuse_a_sealed_run_as_project,
+    resolve_project_root,
+)
 from hydromodpy.core.toml_io.overrides import set_overrides
 
 logger = get_logger(__name__)
@@ -303,6 +308,7 @@ def _resume_from_ref(ref: str, *, args: argparse.Namespace) -> None:
     the run was executed with - through the same path as
     ``hmp run config.toml --resume NAME``.
     """
+    from hydromodpy.results.manifest import is_sealed, read_seal
     from hydromodpy.results.storage.attempt import run_dir_for_name
     from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
 
@@ -323,6 +329,13 @@ def _resume_from_ref(ref: str, *, args: argparse.Namespace) -> None:
             file=sys.stderr,
         )
         sys.exit(EXIT_NOT_FOUND)
+    if is_sealed(run_dir) and read_seal(run_dir).lineage.session_id is not None:
+        print(
+            f"{run_dir.name} came out of a calibration, and a run only holds its own solve. "
+            "Reopen the session from the file that launched it: hmp run <file>.toml --resume.",
+            file=sys.stderr,
+        )
+        sys.exit(EXIT_CONFIG)
 
     args.resume = run_dir.name
     _run_toml(config_path, args=args)
@@ -592,6 +605,12 @@ def _run_toml(
         sys.exit(EXIT_CONFIG)
 
     project_root = _resolve_project_root(config_path, raw_toml.get("workspace"))
+    try:
+        refuse_a_sealed_run_as_project(project_root)
+    except ConfigError as exc:
+        print(str(exc), file=sys.stderr)
+        cleanup_effective_toml(effective_path, source=config_path)
+        sys.exit(exit_code_for(exc))
     if frozen:
         from hydromodpy.project.replay_checks import sealed_run_of
 
@@ -631,7 +650,7 @@ def _run_toml(
                     replay_of=replayed_copy,
                 )
             elif workflow == "calibration" and resume is not None:
-                summary = hmp.calibrate(run_path, resume=True, return_report=False)
+                summary = hmp.calibrate(run_path, resume=True).to_dict()
             else:
                 summary = hmp.run(run_path)
     except KeyboardInterrupt as exc:
@@ -756,9 +775,9 @@ def _print_calibration_recap(summary: Mapping[str, Any], config_path: Path) -> N
                 else:
                     text += f" in [{float(bounds['lower']):.4g}, {float(bounds['upper']):.4g}]"
             values.append(text)
-        parts = [f"{report.get('method')}, {int(report.get('n_iterations') or 0)} runs"]
+        parts = [f"{report.get('method')}, {int(report.get('n_trials') or 0)} runs"]
         parts.append(", ".join(values) if values else "no best value")
-        best = report.get("best_objective")
+        best = report.get("best_cost")
         if best is not None:
             metric = extra.get("cost_metric")
             cost = f"cost {float(best):.4g}" + (f" ({metric})" if metric else "")

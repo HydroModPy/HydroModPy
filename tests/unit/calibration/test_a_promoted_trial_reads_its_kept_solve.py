@@ -559,16 +559,14 @@ def test_a_trial_without_a_kept_solve_is_solved_again_and_the_log_says_why(
         config_hash="c" * 64,
         hydromodpy_version="2.0.0a5",
         method="grid",
-        objective_name="nse",
-        search_space={},
-        objective_window=None,
+        cost_name="nse",
+        bounds={},
+        windows={},
     )
     for trial_id, cost in ((1, 1.0), (2, 0.5)):
         persistence.append_iteration(
             ParamSuggestion(trial_id=trial_id, values={}),
-            EvaluationResult(
-                trial_id=trial_id, sim_id=None, objective_value=cost, status="completed"
-            ),
+            EvaluationResult(trial_id=trial_id, sim_id=None, cost=cost, status="completed"),
         )
     monkeypatch.setattr(promotion_module, "promote_prepared_trial", _fake_promote)
     results = SimpleNamespace(persistence=SimpleNamespace(save_catalog=True))

@@ -164,11 +164,8 @@ def test_gc_marks_a_stale_attempt_aborted_and_leaves_a_live_one(
 
 
 def test_gc_closes_a_stale_session_so_it_can_be_trashed(monkeypatch, capsys, tmp_path) -> None:
-    from hydromodpy.results.session.descriptor import (
-        SessionDescriptor,
-        read_session,
-        write_session,
-    )
+    from hydromodpy.results.session.descriptor import read_session, write_session
+    from tests._helpers.session_documents import session_descriptor
 
     project = _project(tmp_path)
     session = project / "sessions" / "calib"
@@ -176,16 +173,8 @@ def test_gc_closes_a_stale_session_so_it_can_be_trashed(monkeypatch, capsys, tmp
     started = datetime.now(UTC) - timedelta(days=1)
     write_session(
         session,
-        SessionDescriptor(
-            site="demo",
-            session_id="sess0001",
-            case_id="calib",
-            config_hash="c0ffee",
-            hydromodpy_version="2.0.0a5",
-            method="tpe",
-            search_space={},
-            objective_name="nse",
-            started_at=started,
+        session_descriptor(
+            "calib", site="demo", session_id="sess0001", method="tpe", started_at=started
         ),
     )
     _outcome(session, "running", started_at=started)

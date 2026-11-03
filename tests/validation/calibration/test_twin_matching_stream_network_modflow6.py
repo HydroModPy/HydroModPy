@@ -648,7 +648,7 @@ def report(solver: str, truth: Truth) -> Any:
             ),
             encoding="utf-8",
         )
-        _RUNS[solver] = (truth, hmp.calibrate(config, return_report=True))
+        _RUNS[solver] = (truth, hmp.calibrate(config))
     return _RUNS[solver][1]
 
 
@@ -727,14 +727,14 @@ def test_a_network_only_bisection_recovers_the_conductivity_that_made_the_networ
         unit="m",
         inclusive=True,
     )
-    assert report.best_objective <= cell_spacing
+    assert report.best_cost <= cell_spacing
 
     # The sweep sees the sign structure the root search rests on: an excess of
     # simulated stream at the lower bound, a deficit at the upper one.
     assert _metric(_metrics_of(report, K_BOUNDS_M_S[0]), "J_signed") > 0.0
     assert _metric(_metrics_of(report, K_BOUNDS_M_S[1]), "J_signed") < 0.0
 
-    verdict = report.extra["roptim_verdict"][OUTPUT]
+    verdict = report.extra["r_optim_verdict"][OUTPUT]
     assert verdict["valid"] is True, verdict
 
     extra = report.extra

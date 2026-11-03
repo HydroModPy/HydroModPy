@@ -300,7 +300,7 @@ computation. The bound is read on the trial the search returns, and qualifies th
 value without replacing it: a violation logs a warning, or is refused after the
 session is saved when
 {toml}`on_roptim_violation|calibration.outputs.<name>.on_roptim_violation` is
-`"error"`. Each trial publishes `roptim` and `roptim_valid`.
+`"error"`. Each trial publishes `r_optim` and `r_optim_valid`.
 
 **The map against the surface.** Wherever the mapped lines do not sit in the
 talwegs of the model top, the distances measure a disagreement between two

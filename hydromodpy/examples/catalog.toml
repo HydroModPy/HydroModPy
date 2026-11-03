@@ -57,8 +57,8 @@ sha256 = "f897df1209023b9195a78fa64c348fe28ff130bdcaee0396856bea0764506c92"
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/py5_catalog.py"
 dest = "projects/04_streamflow_intermittence_in_transient/py5_catalog.py"
-size = 2814
-sha256 = "6d07ae66f9601ec6ffbb67bde6031bdc751e84f9ef7ec4b172d38143ddbca8f6"
+size = 2806
+sha256 = "fb596208a505c727a4f4a2bcd2338cb94fe93e65cb04f04cb8a904332a2232d8"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/py6_monthly_maps.py"

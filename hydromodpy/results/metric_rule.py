@@ -12,12 +12,17 @@ another version of the rule is told apart by ``metric_rule_version``.
 Format
 ------
 :class:`MetricRule` is what the configuration declares; :class:`MetricScore`
-is what a run stores next to the value: ``nse_window_start``,
-``nse_window_end``, ``nse_n``, ``n_clipped`` and ``metric_rule_version``. The window columns
-keep the ``nse_`` prefix whatever the metric, because that is their name in
-``simulation.parquet`` and in the summaries.
+is what a run stores next to the value: ``window_name``, ``window_role``,
+``window_start``, ``window_end``, ``n_samples``, ``n_clipped`` and
+``metric_rule_version``. :class:`PeriodWindow` is a named period of a calibration:
+its role, its extent and, when the cases of a session read different days, the
+window of each case.
 
-Without a window there is no score: ``value`` is ``None`` and ``nse_n`` is 0.
+The headline score of a run is the period :data:`HEADLINE_WINDOW`, the one
+``[metrics] window`` declares. A reader that wants one row per metric filters on
+that name, and any other period (a validation, a split-sample) stays beside it.
+
+Without a window there is no score: ``value`` is ``None`` and ``n_samples`` is 0.
 A window is inclusive of both days. The kernels are the ones of
 :mod:`hydromodpy.core.metrics`; a value they cannot compute (constant
 observations, empty overlap) is ``None`` too, never ``NaN``.
@@ -36,22 +41,37 @@ headline NSE stands for.
 from __future__ import annotations
 
 import math
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import date, datetime, time, timedelta
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Annotated, Final
 
 import numpy as np
 import pandas as pd
-from pydantic import Field, model_validator
+from pydantic import Field, ValidationInfo, model_validator
 
 from hydromodpy.core import metrics as kernels
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.stored import Vocabulary, reading_stored
 
 if TYPE_CHECKING:
     from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 
 METRIC_RULE_VERSION: Final[str] = "2"
 """Version of the scoring rule. Bump it when a score stops being comparable."""
+
+HEADLINE_WINDOW: Final[str] = "metrics"
+"""Name of the period the headline score of a run is computed on, ``[metrics] window``."""
+
+CALIBRATION_ROLE: Final[str] = "calibration"
+"""Role of a period the search scores: the cost, the best trial and the label read it."""
+
+EVALUATION_ROLE: Final[str] = "evaluation"
+"""Role of the period ``[metrics] window`` of a run, under the name :data:`HEADLINE_WINDOW`."""
+
+WindowRole = Annotated[str, Vocabulary(CALIBRATION_ROLE, "validation", EVALUATION_ROLE)]
+"""What a period is for. ``validation`` is kept apart from the search and scored beside it.
+
+Another word reads as it is, and no computation counts it as calibration."""
 
 
 class DateWindow(HydroModelBase):
@@ -71,6 +91,38 @@ class DateWindow(HydroModelBase):
         return self.start <= when <= self.end
 
 
+class PeriodWindow(HydroModelBase):
+    """A named period of a search: its role, its extent, and the window of each case."""
+
+    role: WindowRole = Field(description="What the period is for")
+    start: date = Field(description="First day of the period over all cases")
+    end: date = Field(description="Last day of the period over all cases, included")
+    by_case: dict[str, DateWindow] = Field(
+        default_factory=dict,
+        description="Window of each case by case id, empty when every case reads start to end",
+    )
+
+    @model_validator(mode="after")
+    def _ordered(self, info: ValidationInfo) -> PeriodWindow:
+        if not reading_stored(info) and self.end < self.start:
+            raise ValueError(f"period ends on {self.end}, before it starts on {self.start}")
+        return self
+
+    def of(self, case_id: str) -> DateWindow:
+        """Return the days *case_id* reads: its own window, else the whole extent."""
+        return self.by_case.get(case_id) or DateWindow(start=self.start, end=self.end)
+
+
+def calibration_extent(windows: Mapping[str, PeriodWindow]) -> DateWindow | None:
+    """Return the span of the periods a search scores, ``None`` when it scores no dated period."""
+    scored = [window for window in windows.values() if window.role == CALIBRATION_ROLE]
+    if not scored:
+        return None
+    return DateWindow(
+        start=min(window.start for window in scored), end=max(window.end for window in scored)
+    )
+
+
 class MetricRule(HydroModelBase):
     """Where and when a run is scored."""
 
@@ -79,6 +131,8 @@ class MetricRule(HydroModelBase):
         default=None, description="Days the metric is computed on; none means no score"
     )
     version: str = Field(default=METRIC_RULE_VERSION, description="Version of the scoring rule")
+    window_name: str = Field(default=HEADLINE_WINDOW, description="Name of the period")
+    window_role: WindowRole = Field(default=EVALUATION_ROLE, description="What the period is for")
 
     @classmethod
     def from_config(cls, config: HydroModPyConfig, *, gauge: str | None = None) -> MetricRule:
@@ -108,9 +162,11 @@ class MetricScore(HydroModelBase):
     value: float | None = Field(description="The score, or null when it could not be computed")
     station: str | None = Field(default=None, description="Station the score was read at")
     variable: str | None = Field(default=None, description="Variable the score was read on")
-    nse_window_start: date | None = Field(description="First day scored, null without a window")
-    nse_window_end: date | None = Field(description="Last day scored, null without a window")
-    nse_n: int = Field(ge=0, description="Samples the score used")
+    window_name: str | None = Field(default=None, description="Name of the period scored")
+    window_role: WindowRole | None = Field(default=None, description="What that period is for")
+    window_start: date | None = Field(description="First day scored, null without a window")
+    window_end: date | None = Field(description="Last day scored, null without a window")
+    n_samples: int = Field(ge=0, description="Samples the score used")
     n_clipped: int | None = Field(
         default=None,
         ge=0,
@@ -175,9 +231,11 @@ def score(
             value=None,
             station=station,
             variable=variable,
-            nse_window_start=None,
-            nse_window_end=None,
-            nse_n=0,
+            window_name=rule.window_name,
+            window_role=rule.window_role,
+            window_start=None,
+            window_end=None,
+            n_samples=0,
             n_clipped=0 if metric in CLIPPED_METRICS else None,
             metric_rule_version=rule.version,
         )
@@ -198,9 +256,11 @@ def score(
         value=value,
         station=station,
         variable=variable,
-        nse_window_start=rule.window.start,
-        nse_window_end=rule.window.end,
-        nse_n=n,
+        window_name=rule.window_name,
+        window_role=rule.window_role,
+        window_start=rule.window.start,
+        window_end=rule.window.end,
+        n_samples=n,
         n_clipped=n_clipped,
         metric_rule_version=rule.version,
     )
@@ -241,12 +301,18 @@ def _within(series: pd.Series, window: DateWindow) -> pd.Series:
 
 
 __all__ = [
+    "CALIBRATION_ROLE",
+    "EVALUATION_ROLE",
     "HEADLINE_METRICS",
+    "HEADLINE_WINDOW",
     "METRIC_NAMES",
     "METRIC_RULE_VERSION",
     "DateWindow",
     "MetricRule",
     "MetricScore",
+    "PeriodWindow",
+    "WindowRole",
+    "calibration_extent",
     "score",
     "score_run",
 ]

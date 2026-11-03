@@ -75,6 +75,7 @@ from hydromodpy.core.toml_io.paths import lookup
 from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
 from hydromodpy.results.catalog.constants import GLOBAL_ZONE, UnrankedMetricError, metric_sense
 from hydromodpy.results.catalog.registration import split_stem_version
+from hydromodpy.results.metric_rule import HEADLINE_WINDOW
 from hydromodpy.results.publication import redact
 from hydromodpy.results.run.sealed import INDEX_RULE, check_one_rule, rule_cell
 from hydromodpy.results.storage.contract import (
@@ -121,16 +122,16 @@ PLANNED_STATUS: Final[str] = "planned"
 DATE_COLUMNS: Final[frozenset[str]] = frozenset(
     {
         "label_date",
-        "nse_window_start",
-        "nse_window_end",
-        "objective_window_start",
-        "objective_window_end",
+        "score_window_start",
+        "score_window_end",
+        "calibrated_by_window_start",
+        "calibrated_by_window_end",
     }
 )
 """Columns that hold a day, written as ``YYYY-MM-DD``."""
 
 INTEGER_COLUMNS: Final[frozenset[str]] = frozenset(
-    {"version", "attempt", "nse_n", "n_cases", "n_completed"}
+    {"version", "attempt", "n_samples", "n_cases", "n_completed"}
 )
 """Columns that hold a count, kept integer when a cell is missing."""
 
@@ -158,16 +159,16 @@ CASE_COLUMNS: Final[tuple[str, ...]] = (
     "duration_s",
     "flow_solve_time_s",
     "nse",
-    "nse_window_start",
-    "nse_window_end",
-    "nse_n",
-    "nse_station",
-    "nse_variable",
+    "score_window_start",
+    "score_window_end",
+    "n_samples",
+    "score_station",
+    "score_variable",
     "metric_rule_version",
-    "objective_name",
-    "objective_value",
-    "objective_window_start",
-    "objective_window_end",
+    "calibrated_by_metric",
+    "calibrated_by_cost",
+    "calibrated_by_window_start",
+    "calibrated_by_window_end",
     "budget_pct",
     "converged",
     "overrides",
@@ -190,16 +191,16 @@ _FROM_INDEX: Final[tuple[str, ...]] = (
     "ended_at",
     "duration_s",
     "nse",
-    "nse_window_start",
-    "nse_window_end",
-    "nse_n",
-    "nse_station",
-    "nse_variable",
+    "score_window_start",
+    "score_window_end",
+    "n_samples",
+    "score_station",
+    "score_variable",
     "metric_rule_version",
-    "objective_name",
-    "objective_value",
-    "objective_window_start",
-    "objective_window_end",
+    "calibrated_by_metric",
+    "calibrated_by_cost",
+    "calibrated_by_window_start",
+    "calibrated_by_window_end",
     "budget_pct",
     "converged",
     "error_type",
@@ -228,16 +229,16 @@ SITE_HEAD_COLUMNS: Final[tuple[str, ...]] = (
     "sim_id",
 )
 SITE_SCORE_COLUMNS: Final[tuple[str, ...]] = (
-    "nse_window_start",
-    "nse_window_end",
-    "nse_n",
-    "nse_station",
-    "nse_variable",
+    "score_window_start",
+    "score_window_end",
+    "n_samples",
+    "score_station",
+    "score_variable",
     "metric_rule_version",
-    "objective_name",
-    "objective_value",
-    "objective_window_start",
-    "objective_window_end",
+    "calibrated_by_metric",
+    "calibrated_by_cost",
+    "calibrated_by_window_start",
+    "calibrated_by_window_end",
 )
 SITE_PLACE_COLUMNS: Final[tuple[str, ...]] = (
     "area_km2",
@@ -332,7 +333,7 @@ def read_run_facts(run_dir: str | Path) -> RunFacts | None:
         return None
     metrics = _headline_metrics(manifest)
     parameters = {row.name: row.value for row in manifest.parameters if row.zone == GLOBAL_ZONE}
-    document = manifest.model_dump(mode="json")
+    document = manifest.model_dump(mode="json", by_alias=True)
     document["metrics"] = dict(metrics)
     document["parameters"] = dict(parameters)
     return RunFacts(manifest=manifest, metrics=metrics, parameters=parameters, document=document)
@@ -341,7 +342,7 @@ def read_run_facts(run_dir: str | Path) -> RunFacts | None:
 def _headline_metrics(manifest: Manifest) -> dict[str, float | None]:
     """Return metric -> value at the station and variable of the headline score."""
     score = manifest.score
-    rows = list(manifest.metrics)
+    rows = [row for row in manifest.metrics if row.window_name in (HEADLINE_WINDOW, None)]
     if score is not None:
         rows = [
             row for row in rows if row.station == score.station and row.variable == score.variable
@@ -949,9 +950,9 @@ def unscored_reason(name: str, frame: pd.DataFrame, metric: str) -> str:
     """Say why no sealed run of *name* in *frame* has a finite *metric*.
 
     A run without a score window carries no score at all: that is the reason
-    named first. *frame* holds the ``nse_window_start`` column of the index.
+    named first. *frame* holds the ``score_window_start`` column of the index.
     """
-    windows = frame["nse_window_start"] if "nse_window_start" in frame.columns else ()
+    windows = frame["score_window_start"] if "score_window_start" in frame.columns else ()
     if not any(_clean(value) is not None for value in windows):
         return f"no sealed run of {name} is scored: declare [metrics] window"
     return f"no sealed run of {name} has a {metric}"
@@ -1400,7 +1401,7 @@ def _write_readme(
     windows = {
         (rule_cell(start), rule_cell(end))
         for start, end in zip(
-            completed["nse_window_start"], completed["nse_window_end"], strict=True
+            completed["score_window_start"], completed["score_window_end"], strict=True
         )
     }
     period = None

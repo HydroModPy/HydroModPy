@@ -132,9 +132,8 @@ def _report(stop_state: str, rule: str) -> CalibrationReport:
     return CalibrationReport(
         session_id="s1",
         method="random_search",
-        n_iterations=20,
-        best_objective=0.3,
-        best_sim_id=None,
+        n_trials=20,
+        best_cost=0.3,
         duration_s=1.0,
         save_runs="none",
         promoted=0,

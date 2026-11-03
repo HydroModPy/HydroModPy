@@ -6,7 +6,7 @@ it is usually the residual failing to respond to the parameter at all. Measured
 on the Nancon with the streams in SFR, the simulated network holds the reaches
 by construction whatever the conductivity, the residual stays positive across
 the whole declared interval, and the search closes three decades above it on a
-value that means nothing while roptim reports 1.5, inside its validity bound.
+value that means nothing while r_optim reports 1.5, inside its validity bound.
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ def _evaluate(suggestion, *, root: float) -> EvaluationResult:
     return EvaluationResult(
         trial_id=suggestion.trial_id,
         sim_id=None,
-        objective_value=abs(residual),
+        cost=abs(residual),
         status="completed",
         components={"net.J_signed": residual, "net.J": abs(residual)},
     )

@@ -9,7 +9,7 @@ import pytest
 from pydantic import ValidationError
 
 from hydromodpy.results.checks import CHECKS_SCHEMA, CalibratedBy, Checks, Validity
-from hydromodpy.results.metric_rule import DateWindow
+from hydromodpy.results.metric_rule import PeriodWindow
 from hydromodpy.results.storage.parquet_schemas import CHECK_COLUMNS
 from tests.unit.results._run_record_factory import make_checks
 
@@ -75,14 +75,35 @@ def test_an_unknown_key_is_refused_by_name():
 
 
 def test_the_block_has_a_schema_id_for_its_json_schema_file():
-    assert CHECKS_SCHEMA == "hydromodpy.checks.v1"
+    assert CHECKS_SCHEMA == "hydromodpy.checks.v2"
+    assert Checks().schema_ == CHECKS_SCHEMA
+    assert Checks.model_validate({"schema": CHECKS_SCHEMA}).schema_ == CHECKS_SCHEMA
     assert "validities" in Checks.model_json_schema()["properties"]
 
 
-def test_the_calibration_window_flattens_next_to_the_session():
-    window = DateWindow(start=date(2016, 1, 1), end=date(2018, 12, 31))
-    by = CalibratedBy(session_id="s", trial=1, session_status="completed", window=window)
+def test_a_block_of_another_schema_is_refused_by_name():
+    with pytest.raises(ValidationError, match="hydromodpy.checks.v1"):
+        Checks.model_validate({"schema": "hydromodpy.checks.v1"})
+
+
+def test_the_calibration_extent_flattens_next_to_the_session_and_the_cost_of_the_case():
+    windows = {
+        "first": PeriodWindow(role="calibration", start=date(2016, 1, 1), end=date(2017, 12, 31)),
+        "second": PeriodWindow(role="calibration", start=date(2017, 1, 1), end=date(2018, 12, 31)),
+        "check": PeriodWindow(role="validation", start=date(2010, 1, 1), end=date(2011, 12, 31)),
+    }
+    by = CalibratedBy(
+        session_id="s",
+        trial=1,
+        session_status="completed",
+        metric="kge",
+        cost=0.3,
+        windows=windows,
+    )
     flat = make_checks(calibrated_by=by).flatten()
     assert flat["calibrated_by_window_start"] == date(2016, 1, 1)
     assert flat["calibrated_by_window_end"] == date(2018, 12, 31)
-    assert make_checks().flatten()["calibrated_by_window_start"] is None
+    assert (flat["calibrated_by_metric"], flat["calibrated_by_cost"]) == ("kge", 0.3)
+    bare = make_checks(calibrated_by=by.model_copy(update={"windows": {}})).flatten()
+    assert bare["calibrated_by_window_start"] is None
+    assert make_checks(calibrated_by=None).flatten()["calibrated_by_metric"] is None

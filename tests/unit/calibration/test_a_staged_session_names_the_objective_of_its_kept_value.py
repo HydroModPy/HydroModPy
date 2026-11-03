@@ -1,6 +1,6 @@
 """A staged session names the objective its kept value is a cost of.
 
-``session.json`` of a two-stage calibration wrote ``objective_name =
+``session.json`` of a two-stage calibration wrote ``cost_name =
 "distance_gap + nse_log"``, every block of every stage joined, while its value
 and its window are those of the last stage, scored on ``nse_log`` alone. The
 promoted run inherits the name. It now names what the last stage scores.
@@ -9,7 +9,7 @@ promoted run inherits the name. It now names what the last stage scores.
 from __future__ import annotations
 
 from hydromodpy.calibration.config import CalibrationConfig
-from hydromodpy.calibration.runners.cli_runner import session_objective_name
+from hydromodpy.calibration.runners.cli_runner import session_cost_name
 
 _PARAMETERS = {
     "K": {"bounds": [1e-7, 1e-3], "path": "flow.param.K.field.value"},
@@ -42,10 +42,10 @@ def _staged(last: dict) -> CalibrationConfig:
 def test_the_name_is_the_last_stage_s_metric() -> None:
     cfg = _staged({"objective_blocks": ["hydrograph"]})
 
-    assert session_objective_name(cfg) == "nse_log"
+    assert session_cost_name(cfg) == "nse_log"
 
 
 def test_a_last_stage_on_the_single_metric_route_names_its_objective() -> None:
     cfg = _staged({"variable": "gauge", "objective": "kge"})
 
-    assert session_objective_name(cfg) == "kge"
+    assert session_cost_name(cfg) == "kge"

@@ -68,8 +68,8 @@ class RunTimeseriesMixin:
         -------
         pandas.DataFrame
             Long-form table: ``station``, ``variable``, ``metric``, ``value``
-            and the window each score was computed on (``nse_window_start``,
-            ``nse_window_end``, ``nse_n``, ``metric_rule_version``), then
+            and the window each score was computed on (``window_start``,
+            ``window_end``, ``n_samples``, ``metric_rule_version``), then
             ``n_clipped``, the negative values a log-scale score clipped to
             zero (0 on ``nse_log`` when none, empty on a metric that never
             clips), and ``n_sim_nan``, the periods of the window a NaN

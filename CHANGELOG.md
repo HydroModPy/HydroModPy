@@ -34,6 +34,17 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Added
+- `hmp.calibration_phases(config)` says what a calibration declares, with nothing run and nothing written: `phases`, the
+  `calibration` section a protocol unfolds into, the `protocol`, and the `plan` of a launch (case, session folder, run
+  folder, version). `check=True` runs the checks of `hmp config check` first.
+- `Session.best_by_case`, `best_cost`, `best_parameters`, `cases`, `sites` and `windows`. `Session.best` refuses a session
+  of several cases with `SeveralCasesError` and names `best_by_case`.
+- `session.json` keeps the fingerprint of each member of the trial cache key, by case and by phase. When `--resume` refuses,
+  it names the member that differs (`code.solver`, `model`, `input_files`...). A phase read back from disk says the same.
+- A running calibration writes `logs/heartbeat.json`, the pulse a run writes, so a live session no longer reads as stale
+  after five minutes in `hmp project status`.
+- JSON Schemas for `phase.v2` and `trial.v2`, beside `session.v4` and `checks.v2`, in `hydromodpy/schema/results/`.
+- A CI job gates the branch coverage of `calibration/`, one floor per sub-package.
 - A name of `hydromodpy.__all__` or an `hmp` command or flag that moves in a stable version now has a real way to keep working for its two minor versions. It has an entry in `OLD_NAMES` of `hydromodpy/_lazy.py` or `OLD_CLI_FORMS` of `hydromodpy/cli/conventions.py`, prints a `FutureWarning` with both names, and does what the new one does. Both tables are empty at 2.0.0. From the first stable version on, `python -m tools.surface_snapshot` refuses a name or a flag that leaves with no entry, and a test fails once an entry outlives its delay.
 - The documents of a job directory (`hmp-manifest/v2`, `hmp-inputset/v1`, `hmp-provenance/v1`, `hmp-outcome/v1`, `hmp-chain-outcome/v1`) follow the version rule of every stored document. A document newer than this code is refused with what to do, `verify_job` reports it, and an unknown key reads. `read_chain_outcome` reads the report of a chain.
 - A run seals `config.resolved.toml` beside `config.toml`: the whole configuration, with every default written and the
@@ -701,6 +712,56 @@ Each release section includes the following standard categories:
   (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
+- `hmp.calibrate` and `Project.calibrate` always return one `CalibrationReport`, with or without phases. A report in phases
+  now has `best_cost`, `best_parameters` (the whole set of the calibrated run, frozen values included), `best_cases`,
+  `windows`, `cost_name` and `cost_label`. `best_sim_id` and `best_rel_dir` read `best_cases`, and refuse on several
+  cases. `report.trials` replaces `report.iterations`.
+- A calibration session is stored in tables keyed by case and by period (`session.v4`, `phase.v2`, `trial.v2`): `sites`,
+  `cases`, `bounds`, `windows`, `scored`, `best.parameters`, `best.cases`, and `widths` (empty until something computes a
+  width). A line of `trials.jsonl` holds `cost`, `cases.<case_id>.components`, `error` and `detail`.
+- The cost is named `cost` everywhere: `cost_name`, `cost_label`, `best_cost`, `cost_block_fractions`, `n_trials`. The trial
+  frame has one row per trial and per case, with `trial`, `case_id`, `site`, `cost`, `case_cost`, `components`. The TOML keys
+  `objective` and `objective_blocks` do not move.
+- The Parquet table `metrics` (`v3`) now holds the scores of a run, not only its runtime numbers. Each row names its period:
+  `window_name`, `window_role`, `window_start`, `window_end`, `n_samples`, `metric_rule_version`. Its key gains `window_name`,
+  and `value` can be null. `period_start` and `period_end` are gone.
+- `simulation.parquet` and the index table `simulations`: `nse_station` and `nse_variable` become `score_station` and
+  `score_variable`. `calibrated_by_metric` and `calibrated_by_cost` are new. `nse_window_start`, `nse_window_end`, `nse_n`
+  and `objective_*` are gone: read `score_window_start`, `score_window_end`, `n_samples` and `calibrated_by_*`.
+- `checks.calibrated_by` holds `metric`, `cost` and `windows`. The manifest has no `objective_*` entry any more, and the
+  `checks` block carries its `schema`.
+- `Project.best` names its columns `window_start` and `window_end`.
+- Index version 10: `calibration_session_cases` and `calibration_trial_cases` are new, and a run reads through them. Run
+  `hmp catalog reindex`.
+- The network keys a trial publishes are `D_optim`, `r_optim`, `r_optim_valid` and `h_obs`, the names of the theory page.
+  The verdict is `extra["r_optim_verdict"]`.
+- The key of the trial cache reads the code by a fingerprint per layer and the configuration as the file wrote it, and no
+  longer the release number. A release that touches no computing code keeps `--resume` and the cache working.
+- The identity of a run reads what its configuration wrote. A key written at its default value is another identity than
+  no key, because a validator can tell the two apart: under a soil reservoir, `surface_offset = "2.0 m"` puts the EVT
+  surface 2 m below the drains and no key puts it on them, and `hmp run` used to skip the second as identical. An
+  override counts as written. The identity of a run reads back the same from its sealed `config.toml`, on a replay and
+  on a resume. This replaces the sentence "writing a default out in a file is the same computation". Every identity
+  changes once more.
+- `[workflow]` no longer enters the identity: it says what `hmp run` does with a file, and the sections hold what that
+  computes.
+- A run sealed by a calibration describes its own solve. The promoted run, a kept trial and the best of a phase write
+  the parameters they ran with, `[workflow] mode = "simulation"` and no `[calibration]`, and their identity does not read
+  the search. `hmp run runs/<promoted>/config.toml --frozen` solves once and gives the same heads, where it used to start
+  a new search. `lineage` and `checks.calibrated_by` still name the session. The section goes to the table
+  `[searched_under]` of `config.resolved.toml`, where a redraw of the network criterion reads it, so a copy of the run
+  needs no session.
+- `hmp run --resume <name>` on a run that came out of a calibration says to reopen the session from the file that
+  launched it: `hmp run <file>.toml --resume`.
+- A sealed `config.toml` holds what the run was given in `[data]` too. It used to spell out every default of each data
+  source, through the step that resolves the data types.
+- `hmp doctor --fix-config` leaves a parent file as it is when the rewrite of one of its keys hangs on a key a file below
+  it writes: the method of a search option, what a width is scored on, the timestep of a count, the flow solver of a
+  layering. A sibling can write another one, and it used to lose its reading: `max_iter` of a shared file became
+  `transient_max_trials` for the method of one child, and another child lost its `chain_length`. The doctor says what to
+  write in the child and what to remove from the parent, and prints `Left as it is` for such a file. The file keeps
+  loading as it did.
+- `hmp dev lock restore` refuses a bad archive with its own exit code, as a cache failure.
 - A sealed run stays in the index, `hmp catalog ls`, `hmp export` and `hmp project status` when its `outcome.json`, its `annotations.json` or its heartbeat cannot be read. The seal says the run is complete, so it counts as `completed`, with what the seal gives, and one warning names the document. The tags and notes of an unreadable `annotations.json` stay out of the index while the file stays on disk.
 - `read_manifest` and the new `read_seal` read a manifest the same way. A manifest with a valid version whose body its model refuses is unreadable everywhere: `hmp project show` counts it as `unreadable`, and `hmp run` takes a new version beside it.
 - `hmp.report()` and `hmp report render` with no session name pick the latest session whose descriptor, phases and journal all read, and warn about the one they leave out.
@@ -716,9 +777,8 @@ Each release section includes the following standard categories:
 - `Project.rerun(config_overrides=...)` is now `Project.rerun(set=...)`, with dotted paths, the grammar of `--set`.
 - The identity of a run reads the code that computes in place of the package version: the layers that change a number,
   over the tokens of each module. A release that only touches figures, commands, comments or docstrings keeps it, so an
-  identical run is not computed again and a run resumes. An edit of a solver changes it. The configuration enters
-  without the values that equal a default, so writing a default out in a file is the same computation. Every
-  identity changes once with this release.
+  identical run is not computed again and a run resumes. An edit of a solver changes it. Every identity changes once
+  with this release.
 - `hmp run --no-display` and `headless` are choices of the launch: nothing is drawn, and they enter neither the identity
   nor the sealed configuration. A headless run used to seal `display.save = false`, so its replay drew nothing.
 - `--no-display` no longer changes what a run keeps under `keep_per_cell_budget = false`: the run keeps what its figures
@@ -1482,6 +1542,11 @@ Each release section includes the following standard categories:
 - The compact network comparison reads the reference river from `mesh_cell_families`.
 
 ### Removed
+- `hmp.calibrate(list_phases=, expand=, dry_run=)`: use `hmp.calibration_phases`. `return_report=` on `hmp.calibrate` and on
+  the runners. The class `StagedCalibrationReport`.
+- Sessions and runs of a pre-release: `session.v3`, `phase.v1`, `trial.v1`, manifest 2 and Parquet `v2` are refused, and a
+  list leaves them out with a warning. Run them again.
+- `hydromodpy/core/time/rech_chronicles.csv`. Nothing read it, and no wheel shipped it.
 - `CHECKS_VERSIONS`, a declaration nothing read. The checks block has no version key of its own yet, and the seal around it carries the version that is checked.
 - `Project.simulate(properties=...)`. Nothing called it, and arrays handed to a run beside its files could not be
   sealed. Write a per-cell parameter as a field of the configuration.
@@ -1675,6 +1740,29 @@ Each release section includes the following standard categories:
   A run sealed before the family tables draws no reference line.
 
 ### Fixed
+- A trial read from the cache no longer carries the run of another session, nor its error and overlay as cost components.
+- A staged `--resume` after a root search that ended on a tie of its cost was refused, because the phase read back another
+  trial than the one it had passed on. A closed phase now holds the trial its search answered with.
+- `hmp project status` counted a live calibration as stale after 300 s.
+- A wheel and a checkout of one commit have one code fingerprint, so one identity. A listed data file the wheel did not
+  ship made them differ. An install with a compute layer that holds no Python source, or that lacks a listed data file,
+  is refused instead of hashing as the digest of nothing.
+- A replay never writes into the sealed run. A `config.toml` under `<project>/runs/<name>/`, or in a kept trial, answers
+  for `<project>`, with or without a `project.toml`. A copy of a run outside any project is refused by `hmp run` and by
+  `hmp.Project`, and the refusal names `hmp run <copy>/config.toml --frozen -w <project>`. With `-w`, the new run goes to
+  that project and reads its inputs there. A copy used to receive `runs/`, `data/` and `.hmp/`.
+- `Project.rerun` writes in the project that holds its source run, whatever the current directory. It used to write
+  under the current directory, named after that folder.
+- `hmp dev lock restore` keeps nothing of an archive it refuses, and an artefact the lockfile names that is absent from
+  the archive, or an archive without a lockfile, is refused by name. It used to leave the bad files on disk and pass a
+  missing one in silence.
+- A `[sites]` plan with a synthetic recharge runs. A generated series named a file that does not exist in the data
+  cache, and `--frozen` failed every case with `missing on data/recharge/data/recharge/synthetic`. It no longer enters
+  the cache, and `hmp dev lock verify` has nothing to say of an entry that names no file.
+- A sealed run with a data type the planner inferred reloads. `data.types` listed `oceanic` with no `[data.oceanic]`,
+  which a file may not do, so `hmp run` and `hmp catalog rerun` refused the run.
+- `hmp run --resume <name>` of a case launched with `--case` continues. The frozen file writes the name of the run, and
+  the checkpoint read that as a change of `[simulation]`.
 - `hmp catalog gc` no longer stops for the whole project when one sealed run has a newer, truncated or malformed `outcome.json`.
 - `hmp run` no longer ends in `string indices must be integers` on a manifest with a valid version and a refused body.
 - A running attempt whose heartbeat cannot be read reads as `unreadable` instead of stopping `hmp project status` and `hmp catalog gc`.
@@ -1774,6 +1862,12 @@ Each release section includes the following standard categories:
   below MODFLOW 6.
 
 ### Numbers
+- No number moves. A seeded calibration before and after this change, seven search methods on a closed-form evaluator and two
+  real MODFLOW 6 searches on the Nancon: 131 trials with the same values, costs and components, the same NSE, parameters and
+  scores of the promoted runs, and the same 55 arrays bit for bit.
+- Every cache key changes once, so the trials of an earlier session are solved again.
+- None. Example 04, before and after: 215 targets, largest difference 0. Its replay `--frozen --force` differs by
+  `version_int` alone. A promoted run of example 01, one solve from its sealed file: largest difference of the heads 0.
 - A run without an override moves no number: 0 on every array of the demo and of example 04, measured against the commit
   before this change.
 - A run with an override: 0 on the demo with `K=3.3e-3`, for a value written in the unit the file declares.

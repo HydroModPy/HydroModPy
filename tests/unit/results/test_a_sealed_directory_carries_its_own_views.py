@@ -24,7 +24,8 @@ from hydromodpy.results.export import (
     write_views,
 )
 from hydromodpy.results.export.stac import validate_item
-from hydromodpy.results.manifest import RUN_RECORD_MANIFEST_VERSION, list_artifacts
+from hydromodpy.results.manifest import list_artifacts
+from hydromodpy.results.record import PROVENANCE_VERSION
 from hydromodpy.results.storage.contract import ALLOWED_RUN_ENTRIES
 from hydromodpy.schema.generated_views import (
     GENERATED_VIEWS,
@@ -65,7 +66,7 @@ def _run_directory(
     (run_dir / "provenance.json").write_text(
         json.dumps(
             {
-                "provenance_version": RUN_RECORD_MANIFEST_VERSION,
+                "provenance_version": PROVENANCE_VERSION,
                 "sim_id": SIM_ID,
                 "tool": {"name": "hydromodpy", "version": "2.0.0a1"},
                 "git": {"commit": "c2fd549bd950e321ddbd04505ad9a5cea516ecd0", "dirty": True},

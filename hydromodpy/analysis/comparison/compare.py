@@ -298,7 +298,7 @@ def scores_table(runs: Sequence[Run]) -> pd.DataFrame:
     ]
     if not frames:
         return pd.DataFrame()
-    columns = ["run", "station", "metric", "value", "nse_window_start", "nse_window_end", "nse_n"]
+    columns = ["run", "station", "metric", "value", "window_start", "window_end", "n_samples"]
     return pd.concat(frames, ignore_index=True)[columns]
 
 

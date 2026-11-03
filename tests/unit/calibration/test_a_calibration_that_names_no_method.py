@@ -217,10 +217,10 @@ def test_a_single_stage_calibration_with_no_method_runs_the_chosen_one(tmp_path)
     """One log parameter scored on ``objective`` (nse), which is not signed: a minimiser."""
     path = _write(tmp_path, SINGLE_STAGE)
 
-    report = run_calibration_cli(path, workspace=tmp_path, return_report=True)
+    report = run_calibration_cli(path, workspace=tmp_path)
 
     assert report.method == "scipy_nelder_mead"
-    assert report.n_iterations >= 1
+    assert report.n_trials >= 1
     journals = list(tmp_path.rglob("session.json"))
     assert len(journals) == 1
     session = json.loads(journals[0].read_text(encoding="utf-8"))

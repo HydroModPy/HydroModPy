@@ -62,7 +62,7 @@ def test_calibrate_success_forwards_resolved_path_and_prints_summary(
         # whose absence made the command print nothing.
         return SimpleNamespace(
             best_parameters={"K": 2.1e-4},
-            best_objective=0.25,
+            best_cost=0.25,
             parameter_uncertainty=(),
             extra={},
         )
@@ -74,8 +74,7 @@ def test_calibrate_success_forwards_resolved_path_and_prints_summary(
     assert code == 0
     assert captured["path"] == config.resolve()
     assert captured["phase"] is None
-    # hmp.calibrate returns the report object by default: the CLI asks a plain run.
-    assert captured["kwargs"] == {"resume": False, "dry_run": False}
+    assert captured["kwargs"] == {"resume": False}
     err = capsys.readouterr().err
     assert "Calibration finished: calib.toml" in err
     assert "K = 0.00021" in err
@@ -210,28 +209,25 @@ def test_calibrate_lists_the_phases_without_running(monkeypatch, tmp_path, capsy
 
     config = tmp_path / "calib.toml"
     config.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")
-    calls: list[dict] = []
+    calls: list[Path] = []
 
-    def fake_calibrate(path: Path, *, phase=None, list_phases=False, **kwargs):
-        calls.append({"phase": phase, "list_phases": list_phases})
-        return [
-            {
-                "name": "steady_k_over_r",
-                "description": "zero of the signed gap",
-                "method": "bisection",
-                "parameters": ["K"],
-                "depends_on": None,
-                "freeze_on_success": True,
-            }
-        ]
+    def fake_phases(path: Path, **kwargs):
+        calls.append(path)
+        phase = {
+            "name": "steady_k_over_r",
+            "description": "zero of the signed gap",
+            "method": "bisection",
+            "parameters": ["K"],
+        }
+        return {"phases": [phase], "calibration": {}, "protocol": None, "plan": {}}
 
-    monkeypatch.setattr(hmp, "calibrate", fake_calibrate)
+    monkeypatch.setattr(hmp, "calibration_phases", fake_phases)
+    monkeypatch.setattr(hmp, "calibrate", lambda *args, **kwargs: pytest.fail("ran a search"))
 
     code = _run(monkeypatch, ["hmp", "calibrate", str(config), "--list-phases"])
 
     assert code == 0
-    # Listing must not run anything.
-    assert calls == [{"phase": None, "list_phases": True}]
+    assert calls == [config.resolve()]
     assert "steady_k_over_r" in capsys.readouterr().out
 
 
@@ -262,10 +258,10 @@ def test_calibrate_list_phases_reports_an_unreadable_config(monkeypatch, tmp_pat
     config = tmp_path / "calib.toml"
     config.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")
 
-    def fake_calibrate(path: Path, *, phase=None, list_phases=False, **kwargs):
+    def fake_phases(path: Path, **kwargs):
         raise ConfigError("calib.toml: 1 validation error for CalibrationConfig")
 
-    monkeypatch.setattr(hmp, "calibrate", fake_calibrate)
+    monkeypatch.setattr(hmp, "calibration_phases", fake_phases)
 
     code = _run(monkeypatch, ["hmp", "calibrate", str(config), "--list-phases"])
 

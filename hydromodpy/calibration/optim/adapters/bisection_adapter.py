@@ -850,7 +850,7 @@ class BisectionAdapter:
         if len(self._targets or ()) == 2:
             winner = self._combined_result()
             if winner is None:
-                winner = min(valid, key=lambda result: result.objective_value)
+                winner = min(valid, key=lambda result: result.cost)
         else:
             winner = self._pick(valid)
         self._warn_if_outside_the_declared_bounds(winner)
@@ -867,8 +867,8 @@ class BisectionAdapter:
         bracket = self._single_bracket()
         inside = [result for result in valid if self._inside(result.trial_id, bracket)]
         pool = inside or valid
-        lowest = min(result.objective_value for result in pool)
-        tied = [result for result in pool if _same_cost(result.objective_value, lowest)]
+        lowest = min(result.cost for result in pool)
+        tied = [result for result in pool if _same_cost(result.cost, lowest)]
         if bracket is None:
             return tied[0]
         middle = 0.5 * (bracket[0] + bracket[1])

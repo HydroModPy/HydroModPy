@@ -34,11 +34,11 @@ A manifest exists only for a completed run, and its presence is what
 even in failure is to write ``outcome.json``, ``README.md`` and the tables
 present, never ``manifest.json``.
 
-The calibration objective
--------------------------
-A run promoted by a session carries the objective of that session next to
-its NSE: ``objective_name``, ``objective_value`` and ``objective_window``,
-the window the session scored the objective on.
+The calibration cost
+--------------------
+A run promoted by a session says what the session scored it on in
+``checks.calibrated_by``: the name of the cost, its value for the case of this
+run and the periods that case read.
 """
 
 from __future__ import annotations
@@ -59,7 +59,6 @@ from hydromodpy.results.identity import Identity
 from hydromodpy.results.lineage import Lineage
 from hydromodpy.results.manifest import (
     PARAMETERS_TABLE_NAME,
-    RUN_RECORD_MANIFEST_VERSION,
     InputEntry,
     Manifest,
     ManifestArtifact,
@@ -75,7 +74,7 @@ from hydromodpy.results.manifest import (
     list_artifacts,
     read_seal,
 )
-from hydromodpy.results.metric_rule import DateWindow, MetricScore
+from hydromodpy.results.metric_rule import MetricScore
 from hydromodpy.results.storage.contract import (
     PARQUET_FILE_SUFFIX,
     RUN_INPUTS_FILENAME,
@@ -102,16 +101,17 @@ INPUTS_VERSIONS: Final[VersionWindow] = VersionWindow(
 )
 """Versions of ``inputs.json`` this code reads."""
 
-PROVENANCE_VERSIONS: Final[VersionWindow] = VersionWindow(
-    oldest=2, current=RUN_RECORD_MANIFEST_VERSION
-)
+PROVENANCE_VERSION: Final[int] = 2
+"""Version of ``provenance.json``. Its own number: a change of the seal does not move it."""
+
+PROVENANCE_VERSIONS: Final[VersionWindow] = VersionWindow(oldest=2, current=PROVENANCE_VERSION)
 """Versions of ``provenance.json`` this code reads."""
 
 
 class RunProvenance(HydroModelBase):
     """``provenance.json``: what produced the numbers, environment included."""
 
-    provenance_version: int = Field(default=RUN_RECORD_MANIFEST_VERSION)
+    provenance_version: int = Field(default=PROVENANCE_VERSION)
     sim_id: str
     tool: dict[str, Any] = Field(
         default_factory=dict, description="name, version, code_fingerprint by layer"
@@ -194,11 +194,6 @@ class RunRecord(HydroModelBase):
     parameters: list[ParameterRow] = Field(default_factory=list)
     metrics: list[MetricRow] = Field(default_factory=list)
     score: MetricScore | None = Field(default=None, description="The NSE under the metric rule")
-    objective_name: str | None = Field(default=None, description="Objective of the session")
-    objective_value: float | None = Field(default=None, description="Its value for this run")
-    objective_window: DateWindow | None = Field(
-        default=None, description="Window the session scored the objective on"
-    )
     budget: ManifestBudget | None = None
     provenance: RunProvenance
 
@@ -225,9 +220,6 @@ class RunRecord(HydroModelBase):
             raise ValueError("provenance names another run")
         if self.score is not None and self.score.metric != "nse":
             raise ValueError(f"the headline score is the NSE, not {self.score.metric}")
-        has_objective = self.objective_value is not None or self.objective_window is not None
-        if has_objective and self.objective_name is None:
-            raise ValueError("an objective value or window needs its objective_name")
         for name, value in (
             ("created_at", run.created_at),
             ("started_at", run.started_at),
@@ -244,7 +236,6 @@ class RunRecord(HydroModelBase):
         run, geometry, period = self.run, self.geometry, self.period
         bbox = geometry.bbox or (None, None, None, None)
         score = self.score
-        window = self.objective_window
         row: dict[str, Any] = {
             "sim_id": run.sim_id,
             "name": run.name,
@@ -292,16 +283,9 @@ class RunRecord(HydroModelBase):
             "doi": run.doi,
             **self.checks.flatten(),
             "nse": None if score is None else score.value,
-            "nse_station": None if score is None else score.station,
-            "nse_variable": None if score is None else score.variable,
-            "nse_window_start": None if score is None else score.nse_window_start,
-            "nse_window_end": None if score is None else score.nse_window_end,
-            "nse_n": None if score is None else score.nse_n,
+            "score_station": None if score is None else score.station,
+            "score_variable": None if score is None else score.variable,
             "metric_rule_version": None if score is None else score.metric_rule_version,
-            "objective_name": self.objective_name,
-            "objective_value": self.objective_value,
-            "objective_window_start": window.start if window is not None else None,
-            "objective_window_end": window.end if window is not None else None,
         }
         return row
 
@@ -380,9 +364,6 @@ class RunRecord(HydroModelBase):
             parameters=list(self.parameters),
             metrics=list(self.metrics),
             score=self.score,
-            objective_name=self.objective_name,
-            objective_value=self.objective_value,
-            objective_window=self.objective_window,
             budget=self.budget,
         )
 
@@ -407,7 +388,7 @@ class RunRecord(HydroModelBase):
             sealed_at=datetime.now(UTC), artifacts=sealed_artifacts(directory)
         )
         return write_json_durable(
-            directory / RUN_MANIFEST_FILENAME, manifest.model_dump(mode="json")
+            directory / RUN_MANIFEST_FILENAME, manifest.model_dump(mode="json", by_alias=True)
         )
 
     @classmethod
@@ -431,9 +412,6 @@ class RunRecord(HydroModelBase):
             parameters=manifest.parameters,
             metrics=manifest.metrics,
             score=manifest.score,
-            objective_name=manifest.objective_name,
-            objective_value=manifest.objective_value,
-            objective_window=manifest.objective_window,
             budget=manifest.budget,
             provenance=provenance,
         )

@@ -19,6 +19,7 @@ from hydromodpy.display.figures.simulated_active_network import (
     flowing_persistence,
 )
 from hydromodpy.results.derive import views
+from tests._helpers.sealed_runs import sealed_search
 from tests.unit.display._network_comparison_run import NX, NY, legend_note
 from tests.unit.results._transient_network_run import (
     HEAD,
@@ -46,16 +47,14 @@ def mpl():
 
 
 def _sealed(visible_flow: str) -> dict:
-    """A snapshot whose one network output scored two bounds at ``visible_flow``."""
+    """A search whose one network output scored two bounds at ``visible_flow``."""
     return {
-        "calibration": {
-            "outputs": {
-                "streams": {
-                    "support": "network",
-                    "observed_network": "data.hydrography",
-                    "tau_specific_ratio": 1.0e-4,
-                    "extent": {"visible_flow": visible_flow},
-                }
+        "outputs": {
+            "streams": {
+                "support": "network",
+                "observed_network": "data.hydrography",
+                "tau_specific_ratio": 1.0e-4,
+                "extent": {"visible_flow": visible_flow},
             }
         }
     }
@@ -97,7 +96,7 @@ def test_the_map_draws_the_criterion_share_and_names_its_definition(mpl) -> None
 def test_the_run_sealed_visible_flow_cuts_the_summer_outlet(mpl) -> None:
     """At 5 L/s the two-litre summer outlet no longer flows: 13 of 27 steps."""
     run = transient_run()
-    run.config_snapshot = _sealed("5 L/s")
+    run.dir = sealed_search(_sealed("5 L/s"))
     fig, ax = mpl.subplots()
     SimulatedActiveNetworkMap().render(run, ax, mode="persistence")
 

@@ -123,7 +123,7 @@ def _expand_only(target: Path, *, shown_as: str) -> None:
     from hydromodpy.core.toml_io.writer import dump
 
     try:
-        expanded = hmp.calibrate(target, expand=True)
+        expanded = hmp.calibration_phases(target)
     except ConfigError as exc:
         print(f"Config invalid: {exc}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
@@ -259,13 +259,12 @@ def _format_calibration_result(result: Any) -> list[str]:
     each one actually took (with how many trials the mean covers) and its
     share at the best trial. A phase reused from disk that could not
     recompute a share prints why instead
-    (``extra["objective_block_fractions_absent_note"]``). A root search on one
+    (``extra["cost_block_fractions_absent_note"]``). A root search on one
     bound prints its final ``bracket``; a root search on two bounds prints
     ``roots`` instead, one line per bound then the spread and the combined
     value (:func:`_roots_lines`). Returns nothing for a
-    result that carries no ``best_parameters`` (a staged calibration's own
-    report object, or a run that evaluated no candidate), so the caller stays
-    silent rather than guessing.
+    result that carries no ``best_parameters`` (a run that evaluated no
+    candidate), so the caller stays silent rather than guessing.
     """
     from hydromodpy.calibration.report import NO_OTHER_TRIAL, interval_is_degenerate
 
@@ -294,11 +293,11 @@ def _format_calibration_result(result: Any) -> list[str]:
             line += "  -- reached the search bound"
         lines.append(line)
 
-    best_objective = getattr(result, "best_objective", None)
-    if best_objective is not None:
+    best_cost = getattr(result, "best_cost", None)
+    if best_cost is not None:
         # A cost of 0.12 on an NSE reads as a poor score; the metric says it is 1 - NSE.
         metric = extra.get("cost_metric")
-        lines.append(f"  cost: {best_objective:.6g}" + (f" ({metric})" if metric else ""))
+        lines.append(f"  cost: {best_cost:.6g}" + (f" ({metric})" if metric else ""))
         scored = _scored_on_line(extra)
         if scored:
             lines.append(f"  scored on: {scored}")
@@ -327,8 +326,8 @@ def _format_calibration_result(result: Any) -> list[str]:
     elif "k_over_r" in extra:
         lines.append(f"  k_over_r = {extra['k_over_r']:.4g}")
 
-    for name, verdict in sorted((extra.get("roptim_verdict") or {}).items()):
-        lines.append(f"  {_roptim_line(name, verdict)}")
+    for name, verdict in sorted((extra.get("r_optim_verdict") or {}).items()):
+        lines.append(f"  {_r_optim_line(name, verdict)}")
     if extra.get("bracket"):
         lines.append(f"  {_bracket_line(extra['bracket'])}")
     if extra.get("roots"):
@@ -336,7 +335,7 @@ def _format_calibration_result(result: Any) -> list[str]:
     if extra.get("search"):
         lines.append(f"  {_search_line(extra['search'])}")
 
-    shares = getattr(result, "objective_block_fractions", None) or {}
+    shares = getattr(result, "cost_block_fractions", None) or {}
     mean_shares = shares.get("mean")
     if mean_shares and len(mean_shares) > 1:
         n_trials = shares.get("mean_n_trials")
@@ -349,8 +348,8 @@ def _format_calibration_result(result: Any) -> list[str]:
         best_shares = shares.get("best")
         if best_shares:
             lines.append(f"  cost share (best trial): {_shares_text(best_shares)}")
-    elif "objective_block_fractions_absent_note" in extra:
-        lines.append(f"  cost share: {extra['objective_block_fractions_absent_note']}")
+    elif "cost_block_fractions_absent_note" in extra:
+        lines.append(f"  cost share: {extra['cost_block_fractions_absent_note']}")
 
     return lines
 
@@ -371,10 +370,10 @@ def _scored_on_line(extra: Mapping[str, Any]) -> str | None:
     return None
 
 
-def _roptim_line(name: str, verdict: Mapping[str, Any]) -> str:
+def _r_optim_line(name: str, verdict: Mapping[str, Any]) -> str:
     """Return the Eq. 4 verdict of one network output, read at the returned trial.
 
-    Eq. 4 bounds ``Doptim`` by the validity length, in metres; ``roptim`` is
+    Eq. 4 bounds ``D_optim`` by the validity length, in metres; ``r_optim`` is
     printed beside it as the paper's ratio.
     """
     length = verdict.get("validity_length_m")
@@ -384,15 +383,15 @@ def _roptim_line(name: str, verdict: Mapping[str, Any]) -> str:
         bound += f" ({provenance})"
     causes = list(verdict.get("causes") or [])
     value = verdict.get("value")
-    optimal = verdict.get("Doptim")
+    optimal = verdict.get("D_optim")
     if "empty" in causes or optimal is None:
         return (
-            f"roptim ({name}): not a number, the simulated network is empty at the "
+            f"r_optim ({name}): not a number, the simulated network is empty at the "
             f"returned trial (validity length {bound})"
         )
     ratio = f"{float(value):.3g}" if value is not None else "not a number"
     sign = ">" if "doptim" in causes else "<="
-    head = f"roptim ({name}) = {ratio}, Doptim = {float(optimal):.4g} m {sign} {bound}"
+    head = f"r_optim ({name}) = {ratio}, D_optim = {float(optimal):.4g} m {sign} {bound}"
     if verdict.get("valid"):
         return f"{head}, Eq. 4 holds"
     reasons = []
@@ -456,9 +455,7 @@ def _search_line(search: Mapping[str, Any]) -> str:
 def _format_staged_calibration_result(result: Any) -> list[str]:
     """Return the lines to print for a finished staged calibration.
 
-    A :class:`~hydromodpy.calibration.runners.staged_runner.StagedCalibrationReport`
-    carries no ``best_parameters`` of its own: each phase does, in its own
-    ``report``. Formats each phase's report with :func:`_format_calibration_result`
+    Formats each phase's report with :func:`_format_calibration_result`
     and prefixes it with the phase's name, so a staged run prints as much per
     phase (cost, interval, cost share) as a single search prints for itself.
     """
@@ -562,7 +559,7 @@ def _calibrate(
         from hydromodpy.calibration.preflight import comparison_line
 
         try:
-            phases = hmp.calibrate(run_path, list_phases=True)
+            phases = hmp.calibration_phases(run_path)["phases"]
         except ConfigError as exc:
             print(f"Config invalid: {exc}", file=sys.stderr)
             sys.exit(EXIT_CONFIG)
@@ -580,8 +577,11 @@ def _calibrate(
 
     profile_output = resolve_profile_output(profile_arg, target)
     try:
+        if dry_run:
+            _print_dry_run(hmp.calibration_phases(run_path, check=True)["plan"])
+            return
         with profile_run(profile_output, description=f"hmp calibrate {target.name}"):
-            result = hmp.calibrate(run_path, phase=args.phase, resume=resume, dry_run=dry_run)
+            result = hmp.calibrate(run_path, phase=args.phase, resume=resume)
     except KeyboardInterrupt:
         print("Aborted by user.", file=sys.stderr)
         sys.exit(EXIT_SIGINT)
@@ -595,12 +595,7 @@ def _calibrate(
         print(f"Calibration failed: {exc}", file=sys.stderr)
         sys.exit(EXIT_CALIBRATION)
 
-    if dry_run:
-        _print_dry_run(result if isinstance(result, Mapping) else {})
-        return
     print(f"Calibration finished: {target.name}", file=sys.stderr)
-    if result is None:
-        return
     lines = (
         _format_staged_calibration_result(result)
         if getattr(result, "phases", None)

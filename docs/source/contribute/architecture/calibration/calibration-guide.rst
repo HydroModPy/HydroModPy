@@ -66,6 +66,14 @@ From the file to the trials
        an interrupted search keeps what it evaluated. ``hmp catalog reindex``
        rebuilds the index from these files.
 
+``hmp.calibrate`` and ``Project.calibrate`` always return a ``CalibrationReport``, with or
+without phases: ``best_cost``, ``best_parameters``, ``best_cases``, ``phases``, ``frozen``,
+``windows``, and the properties ``session``, ``best``, ``best_by_case`` and ``trials``, which read
+the session on disk. ``hmp.calibration_phases`` says what a file declares, with nothing run: its
+phases, the section a protocol unfolds into and what a launch would write. The same words read a
+session later: ``proj.sessions["<case>"].best`` is the run of a session of one case, and a session
+of several cases refuses it and names ``best_by_case``.
+
 A staged calibration runs one session per phase. Each ``session.json`` carries
 the phase name, its index and its parent session, so a rebuilt index gives the
 chain back. A phase whose search settled freezes its values
@@ -157,7 +165,7 @@ memory and are dropped at the end of the trial. Only scalars reach disk:
      - Where
    * - Parameters, cost, per-block costs, diagnostics, ``params_hash``
      - ``sessions/<session>/trials.jsonl``, one line per trial
-   * - Session identity, search space, best trial, root-search bracket
+   * - Session identity, cases, bounds, periods, best trial, root-search bracket
      - ``sessions/<session>/session.json``
    * - Series of every trial, when ``persist_trial_series`` is set
      - ``sessions/<session>/trial_series/trial-NNNNNN.parquet``
@@ -165,10 +173,11 @@ memory and are dropped at the end of the trial. Only scalars reach disk:
    * - Fields, tables, figures of a promoted trial
      - ``runs/<run>/``
    * - The index
-     - ``calibration_sessions`` and ``calibration_iterations`` in
+     - ``calibration_sessions``, ``calibration_session_cases``, ``calibration_iterations``
+       and ``calibration_trial_cases`` in
        ``.hmp/index.duckdb``, derived from the two journal files
 
-``calibration_iterations.sim_id`` is written before a promotion replays the
+``calibration_trial_cases.sim_id`` is written before a promotion replays the
 trial, not after: the display step of the promoted run draws the calibration
 figures only when an iteration row names that run. A promotion that fails
 clears the link. The best trial is promoted as ``<name>_<phase>``, or

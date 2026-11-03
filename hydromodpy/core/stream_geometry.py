@@ -89,7 +89,7 @@ VALIDITY_PROVENANCE_BY_CODE: dict[float, str] = {
 
 @dataclass(frozen=True, slots=True)
 class ValidityLength:
-    """The length Eq. 4 bounds ``Doptim`` by, and what set it.
+    """The length Eq. 4 bounds ``D_optim`` by, and what set it.
 
     ``provenance`` names the term that decided the length: ``"user"`` for a
     declared ``validity_length``, ``"declared_accuracy"`` when the declared
@@ -141,7 +141,7 @@ class NetworkGeometry:
     ``observed`` is the map the criterion scores, as drawn on the cells by the
     output's rasterisation rule. ``heads`` is the trace that drew it under the
     heads rule, None under the others. ``h_obs_m`` is the cell size on the mapped
-    network, the length ``roptim`` is divided by (Eq. 3).
+    network, the length ``r_optim`` is divided by (Eq. 3).
     ``observed_position_accuracy_m`` is the declared accuracy of the map,
     which only the validity length reads (:meth:`validity_length`).
     """

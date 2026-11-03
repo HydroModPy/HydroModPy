@@ -21,6 +21,7 @@ import pyarrow.parquet as pq
 
 from hydromodpy import __version__ as HYDROMODPY_VERSION
 from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.manifest import MetricRow
 from hydromodpy.results.storage.sealing import seal_completed
 from tests._helpers.fixtures_catalog import simulation_catalog
 from tests._helpers.run_stores import open_run_store
@@ -108,7 +109,7 @@ def _run_standard_writes(project: Path) -> str:
             {"param_name": "S", "value": 1e-4, "unit": "1/m"},
         ],
     )
-    store.write_metric(sid, "P01", "nse", 0.91)
+    store.write_metric(sid, MetricRow(station="P01", variable="head", metric="nse", value=0.91))
     store.write_run_environment(sid, solver_name="modflow6", rng_seed=42)
     idx = pd.date_range("2020-01-01", periods=3, freq="D", tz="UTC")
     store.write_timeseries(

@@ -49,7 +49,7 @@ class _BatchedStubOptimizer:
     def best(self) -> EvaluationResult | None:
         if not self._told:
             return None
-        return min(self._told, key=lambda r: r.objective_value)
+        return min(self._told, key=lambda r: r.cost)
 
     def converged(self) -> bool:
         return self._converged
@@ -60,7 +60,7 @@ def _constant_evaluator(value: float):
         return EvaluationResult(
             trial_id=sugg.trial_id,
             sim_id=f"sim-{sugg.trial_id:02d}",
-            objective_value=float(sugg.values.get("x", value)),
+            cost=float(sugg.values.get("x", value)),
             status="completed",
         )
 
@@ -87,7 +87,7 @@ def test_calibration_engine_parallel_four_trials() -> None:
         "sim-03",
         "sim-04",
     ]
-    assert sorted(r.objective_value for r in session.history) == [0.1, 0.2, 0.3, 0.4]
+    assert sorted(r.cost for r in session.history) == [0.1, 0.2, 0.3, 0.4]
 
 
 def test_calibration_engine_parallel_uses_threads() -> None:
@@ -103,7 +103,7 @@ def test_calibration_engine_parallel_uses_threads() -> None:
         return EvaluationResult(
             trial_id=sugg.trial_id,
             sim_id=f"sim-{sugg.trial_id:02d}",
-            objective_value=float(sugg.values["x"]),
+            cost=float(sugg.values["x"]),
             status="completed",
         )
 
@@ -130,7 +130,7 @@ def test_calibration_engine_parallel_one_is_sequential() -> None:
         return EvaluationResult(
             trial_id=sugg.trial_id,
             sim_id=f"sim-{sugg.trial_id:02d}",
-            objective_value=0.0,
+            cost=0.0,
             status="completed",
         )
 

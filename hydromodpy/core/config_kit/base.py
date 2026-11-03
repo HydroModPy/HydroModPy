@@ -379,4 +379,15 @@ class HydroModelBase(BaseModel):
         return dump_toml_with_comments(self, path, profile=profile, written_only=written_only)
 
 
-__all__ = ["HydroModelBase"]
+def write_resolved(model: BaseModel, name: str, value: Any) -> None:
+    """Write a field a validator read out of what the file wrote, and count it as written.
+
+    ``value = "1e-5 cm/s"`` writes ``unit`` too. The identity of a run and the cache
+    of a calibration read a configuration with ``exclude_unset``, so a field left out
+    of ``model_fields_set`` would make that value hash like ``"1e-5 m/s"``.
+    """
+    object.__setattr__(model, name, value)
+    model.model_fields_set.add(name)
+
+
+__all__ = ["HydroModelBase", "write_resolved"]

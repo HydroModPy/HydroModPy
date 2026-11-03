@@ -19,6 +19,8 @@ from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
+from hydromodpy.results.metric_rule import HEADLINE_WINDOW
+
 if TYPE_CHECKING:
     import xarray as xr
 
@@ -33,7 +35,7 @@ _SIM_META_SELECT = (
     "sv.code AS solver, sv.category AS solver_category, "
     "fr.code AS flow_regime, st.code AS status, "
     "s.n_cells, s.n_layers, s.n_timesteps, "
-    "s.config_hash, s.scientific_objective, s.nse, s.nse_station, s.nse_variable, "
+    "s.config_hash, s.scientific_objective, s.nse, s.score_station, s.score_variable, "
     "s.created_at, s.duration_s"
 )
 
@@ -198,9 +200,10 @@ class DatasetLoader:
             f"SELECT m.sim_id, m.metric_name, m.value "
             f"FROM metrics m JOIN simulations s ON s.sim_id = m.sim_id "
             f"WHERE m.sim_id IN ({placeholders}) "
-            f"AND m.station_id IS NOT DISTINCT FROM s.nse_station "
-            f"AND m.variable IS NOT DISTINCT FROM s.nse_variable",
-            sim_ids,
+            f"AND m.window_name = ? "
+            f"AND m.station_id IS NOT DISTINCT FROM s.score_station "
+            f"AND m.variable IS NOT DISTINCT FROM s.score_variable",
+            [*sim_ids, HEADLINE_WINDOW],
         )
         if df.empty:
             return df

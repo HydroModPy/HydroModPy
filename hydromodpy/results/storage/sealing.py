@@ -48,7 +48,6 @@ from hydromodpy.results.checks import Checks
 from hydromodpy.results.export.run_identity import label_of
 from hydromodpy.results.manifest import (
     KEY_PACKAGES,
-    RUN_RECORD_MANIFEST_VERSION,
     InputEntry,
     ManifestBudget,
     ManifestConfig,
@@ -197,7 +196,7 @@ def build_record(store: RunStore, *, ended_at: datetime) -> RunRecord:
         budget_threshold_pct=facts.budget_threshold_pct,
         converged=facts.converged,
         score_window=identity.score_window,
-        n_samples=None if facts.score is None else facts.score.nse_n,
+        n_samples=None if facts.score is None else facts.score.n_samples,
         calibrated_by=facts.calibrated_by,
         validities=list(facts.validities),
         bounds_hit=list(facts.bounds_hit),
@@ -217,9 +216,6 @@ def build_record(store: RunStore, *, ended_at: datetime) -> RunRecord:
         parameters=list(facts.parameters),
         metrics=list(facts.metrics),
         score=facts.score,
-        objective_name=facts.objective_name,
-        objective_value=facts.objective_value,
-        objective_window=facts.objective_window,
         budget=_budget_of(run_dir),
         provenance=build_provenance(facts, ended_at=ended_at),
     )
@@ -268,7 +264,6 @@ def build_provenance(facts: RunFacts, *, ended_at: datetime) -> RunProvenance:
     env = facts.environment
     frozen = list(env.get("env_packages") or [])
     return RunProvenance(
-        provenance_version=RUN_RECORD_MANIFEST_VERSION,
         sim_id=facts.sim_id,
         tool={
             "name": "hydromodpy",

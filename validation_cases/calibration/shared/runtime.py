@@ -1381,12 +1381,12 @@ def _assess_method_result_from_report(
     completed_df = iterations_df[completed_mask]
     cost_best = (
         None
-        if report.best_objective is None or not math.isfinite(float(report.best_objective))
-        else float(report.best_objective)
+        if report.best_cost is None or not math.isfinite(float(report.best_cost))
+        else float(report.best_cost)
     )
     params_best: dict[str, float] = {}
     if not completed_df.empty:
-        best_idx = completed_df["objective"].astype(float).idxmin()
+        best_idx = completed_df["cost"].astype(float).idxmin()
         best_row = iterations_df.loc[best_idx]
         params_best = _normalize_parameter_payload(best_row.get("params"))
     param_abs_error = _param_abs_error(
@@ -1434,8 +1434,8 @@ def _assess_method_result_from_report(
     block_reference_scale: dict[str, float] = {}
     block_n_values: dict[str, int] = {}
     if not completed_df.empty:
-        best_idx = completed_df["objective"].astype(float).idxmin()
-        metrics_payload = iterations_df.loc[best_idx].get("metrics")
+        best_idx = completed_df["cost"].astype(float).idxmin()
+        metrics_payload = iterations_df.loc[best_idx].get("components")
         if isinstance(metrics_payload, str):
             try:
                 metrics_payload = json.loads(metrics_payload)
@@ -1468,8 +1468,8 @@ def _assess_method_result_from_report(
                     "params_named": params_named,
                     "objective_total": (
                         None
-                        if row["objective"] is None or not math.isfinite(float(row["objective"]))
-                        else float(row["objective"])
+                        if row["cost"] is None or not math.isfinite(float(row["cost"]))
+                        else float(row["cost"])
                     ),
                 }
             )
@@ -1602,6 +1602,31 @@ def _summarize_candidate_timings_for_report(
     return summary
 
 
+def _journal_frame(session_dir: Path) -> Any:
+    """Return the trials of a session of one case as one row per line of its journal."""
+    import pandas as pd
+
+    from hydromodpy.results.session.journal import read_trials
+
+    return pd.DataFrame(
+        [
+            {
+                "trial": line.trial,
+                "status": line.status,
+                "cost": line.cost,
+                "params": {
+                    name: param.model_dump(exclude_defaults=True)
+                    for name, param in line.params.items()
+                },
+                "components": {} if line.only_case is None else dict(line.only_case.components),
+                "started_at": line.started_at,
+                "ended_at": line.ended_at,
+            }
+            for line in read_trials(session_dir)
+        ]
+    )
+
+
 def _candidate_timing_values_from_iterations(iterations_df: Any) -> list[dict[str, float]]:
     """Build candidate timing summaries from the trial journal.
 
@@ -1640,13 +1665,13 @@ def _write_iteration_history_jsonl(
     with path.open("w", encoding="utf-8") as stream:
         for _, row in iterations_df.iterrows():
             params_named = _normalize_parameter_payload(row.get("params"))
-            metrics_payload = row.get("metrics") or {}
+            metrics_payload = row.get("components") or {}
             if isinstance(metrics_payload, str):
                 try:
                     metrics_payload = json.loads(metrics_payload)
                 except json.JSONDecodeError:
                     metrics_payload = {}
-            obj = row.get("objective")
+            obj = row.get("cost")
             try:
                 obj_value = None if obj is None or not math.isfinite(float(obj)) else float(obj)
             except (TypeError, ValueError):
@@ -1900,13 +1925,12 @@ def run_twin_benchmark_case(
             metric_fn=custom_metric_fn,
             workspace=project_root,
             project=str(definition.case_id),
-            return_report=True,
         )
         session_prepare_time_seconds = float(time.perf_counter() - session_prepare_t0)
 
         # The trials are read from the session journal on disk: a calibration
         # never writes the index.
-        iterations_df = report.iterations
+        iterations_df = _journal_frame(report.session_dir)
         candidate_timing_values = _candidate_timing_values_from_iterations(iterations_df)
 
         assessed_result = _assess_method_result_from_report(

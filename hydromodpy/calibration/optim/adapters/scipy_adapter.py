@@ -172,7 +172,7 @@ class _ScipyAdapterBase:
                 if tid == r.trial_id:
                     self._pending.pop(i)
                     break
-            value = r.objective_value
+            value = r.cost
             if r.status != "completed" or not np.isfinite(value):
                 value = FAILED_EVAL_COST
             self._bridge.feed(float(value))
@@ -182,7 +182,7 @@ class _ScipyAdapterBase:
         valid = [r for r in self._history if r.status == "completed"]
         if not valid:
             return None
-        return min(valid, key=lambda r: r.objective_value)
+        return min(valid, key=lambda r: r.cost)
 
     def converged(self) -> bool:
         """Whether SciPy ended on its own tolerance, not on its own evaluation cap."""
@@ -371,7 +371,7 @@ class ScipyNelderMead:
                 # A result that names no pending trial answers the oldest one,
                 # as the SciPy bridge this replaces read its values in order.
                 key = self._pending.pop(next(iter(self._pending)))
-            value = r.objective_value
+            value = r.cost
             if r.status != "completed" or not np.isfinite(value):
                 value = FAILED_EVAL_COST
             self._told[key] = r
@@ -398,7 +398,7 @@ class ScipyNelderMead:
         valid = [r for r in self._used if r.status == "completed"]
         if not valid:
             return None
-        return min(valid, key=lambda r: r.objective_value)
+        return min(valid, key=lambda r: r.cost)
 
     def converged(self) -> bool:
         """Whether SciPy's run would end with ``success``: its tolerance, not a cap."""

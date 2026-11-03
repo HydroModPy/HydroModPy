@@ -16,10 +16,10 @@ import pytest
 
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.constants import UnrankedMetricError
-from hydromodpy.results.manifest import MetricRow
-from hydromodpy.results.metric_rule import DateWindow, MetricScore
+from hydromodpy.results.metric_rule import DateWindow
 from hydromodpy.results.run.group import RunSet
 from hydromodpy.results.run.sealed import MixedWindowsError
+from tests._helpers.metric_rows import GAUGE, headline_row, headline_score
 from tests.unit.results._run_record_factory import (
     ATTEMPT_ID,
     SIM_ID,
@@ -27,8 +27,6 @@ from tests.unit.results._run_record_factory import (
     make_identity,
     make_record,
 )
-
-GAUGE = "J0014010"
 
 
 class _Directories:
@@ -53,29 +51,15 @@ def _no_index(monkeypatch):
 
 def _metrics(values: dict[str, float], window: DateWindow, station: str = GAUGE) -> dict:
     rows = [
-        MetricRow(
-            station=station,
-            variable="discharge",
-            metric=name,
-            value=value,
-            nse_window_start=window.start,
-            nse_window_end=window.end,
-            nse_n=100,
-            metric_rule_version="1",
+        headline_row(
+            name, value, station=station, window=window, n_samples=100, metric_rule_version="1"
         )
         for name, value in values.items()
     ]
     # A second station the run also observes: never mixed into the gauge columns.
     rows.append(rows[0].model_copy(update={"station": "OTHER", "value": -5.0}))
-    score = MetricScore(
-        metric="nse",
-        value=values.get("nse"),
-        station=station,
-        variable="discharge",
-        nse_window_start=window.start,
-        nse_window_end=window.end,
-        nse_n=100,
-        metric_rule_version="1",
+    score = headline_score(
+        values.get("nse"), station=station, window=window, n_samples=100, metric_rule_version="1"
     )
     return {"metrics": rows, "score": score}
 
@@ -128,9 +112,9 @@ def test_the_metric_columns_are_named_by_metric_and_carry_the_window(scored) -> 
         "sim_id",
         "station",
         "variable",
-        "nse_window_start",
-        "nse_window_end",
-        "nse_n",
+        "window_start",
+        "window_end",
+        "n_samples",
         "metric_rule_version",
     ]
     assert {"nse", "rmse", "pbias"} <= set(frame.columns)
@@ -138,7 +122,7 @@ def test_the_metric_columns_are_named_by_metric_and_carry_the_window(scored) -> 
     by_id = frame.set_index("sim_id")
     assert by_id.loc[ids["b"], "nse"] == pytest.approx(0.9)
     assert by_id.loc[ids["b"], "station"] == GAUGE
-    assert by_id.loc[ids["b"], "nse_window_start"] == WINDOW.start
+    assert by_id.loc[ids["b"], "window_start"] == WINDOW.start
     # A run that never completed is listed with empty cells.
     assert by_id.loc[ids["d"]].isna().all()
 
@@ -162,7 +146,7 @@ def test_compare_lists_best_first_with_the_window(scored) -> None:
     assert list(table["sim_id"]) == [ids["b"], ids["a"], ids["c"]]
     assert list(table["name"]) == ["b", "a", "c"]
     assert set(table["station"]) == {GAUGE}
-    assert set(table["nse_window_end"]) == {WINDOW.end}
+    assert set(table["window_end"]) == {WINDOW.end}
 
 
 def test_sort_by_orders_the_raw_value(scored) -> None:

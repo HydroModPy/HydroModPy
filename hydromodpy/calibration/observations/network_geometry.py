@@ -80,7 +80,7 @@ def mesh_cell_m(run_ctx: RunContext, geometry: NetworkGeometry) -> float:
     """Return the size of one cell of the mesh a trial's network criterion scored.
 
     It is ``h_obs``, the median distance between neighbouring cell centres over
-    the mapped cells of the catchment, the same length ``roptim`` is divided
+    the mapped cells of the catchment, the same length ``r_optim`` is divided
     by. The width of an interval and the validity ratio then read one scale,
     measured where the distances start. On a regular grid it is the cell size.
     ``run_ctx`` is not read: the geometry already holds the measure.

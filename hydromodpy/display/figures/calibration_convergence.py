@@ -58,7 +58,7 @@ class CalibrationConvergenceFigure(BaseFigure):
             table = trial_table(sim)
             iters = table.iterations()
             if table.has_objective():
-                label, values = table.objective_values()
+                label, values = table.cost_values()
             else:
                 # A bare column of costs, under no name the table knows.
                 numeric = table.frame.select_dtypes("number")

@@ -88,6 +88,9 @@ RUN_RESOLVED_CONFIG_FILENAME = "config.resolved.toml"
 RUN_PROVENANCE_FILENAME = "provenance.json"
 """Environment, versions and git state of one run."""
 
+RUN_SEARCH_TABLE = "searched_under"
+"""Table of ``config.resolved.toml``: the ``[calibration]`` section a promoted run came from."""
+
 RUN_MANIFEST_FILENAME = "manifest.json"
 """Seal of a complete run directory. Absent means the run did not finish."""
 
@@ -335,6 +338,7 @@ __all__ = [
     "RUN_PUBLISHED_FILENAME",
     "RUN_REPORT_DIRNAME",
     "RUN_RESOLVED_CONFIG_FILENAME",
+    "RUN_SEARCH_TABLE",
     "RUN_SOLVER_DIRNAME",
     "RUN_STORAGE_LAYER_NAMES",
     "SESSION_CANDIDATES_DIRNAME",

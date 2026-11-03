@@ -16,6 +16,7 @@ from hydromodpy.results.derive.virtual_fields import (
     field_descriptor,
     simulated_active_network_stack,
 )
+from tests._helpers.sealed_runs import sealed_search
 from tests.unit.results._transient_network_run import (
     HEAD,
     HILLSLOPE,
@@ -39,8 +40,8 @@ def test_each_step_holds_the_cells_flowing_at_that_step() -> None:
 def test_the_sealed_visible_flow_cuts_the_summer_outlet() -> None:
     """At 5 L/s the two-litre summer outlet no longer flows."""
     run = transient_run()
-    run.config_snapshot = {
-        "calibration": {
+    run.dir = sealed_search(
+        {
             "outputs": {
                 "streams": {
                     "support": "network",
@@ -50,7 +51,7 @@ def test_the_sealed_visible_flow_cuts_the_summer_outlet() -> None:
                 }
             }
         }
-    }
+    )
     (june,) = simulated_active_network_stack(run, [5])
     assert june[OUTLET] == 0.0
 

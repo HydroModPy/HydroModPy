@@ -38,7 +38,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from hydromodpy.calibration.config import CalibrationConfig
-from hydromodpy.calibration.persistence import SPECULATIVE_UNUSED, CalibrationPersistence
+from hydromodpy.calibration.optim.cache import context_fingerprints, differing_members
+from hydromodpy.calibration.persistence import CalibrationPersistence
 from hydromodpy.calibration.runners.trial import promote_prepared_trial
 from hydromodpy.core import progress
 from hydromodpy.core.exceptions import CalibrationError
@@ -56,14 +57,19 @@ from hydromodpy.results.catalog.registration import (
 )
 from hydromodpy.results.checks import CalibratedBy, CalibrationSessionStatus, StopState
 from hydromodpy.results.lineage import Lineage
+from hydromodpy.results.metric_rule import PeriodWindow
 from hydromodpy.results.session.descriptor import (
-    BestTrial,
     SessionDescriptor,
     read_session,
     resolve_session_dir,
 )
-from hydromodpy.results.session.journal import TrialLine, trial_row
-from hydromodpy.results.session.phase import phase_dir
+from hydromodpy.results.session.journal import (
+    TrialCase,
+    TrialLine,
+    physical_parameters,
+    trial_rows,
+)
+from hydromodpy.results.session.phase import PhaseDescriptor, phase_dir
 from hydromodpy.results.storage.run_facts import CalibratedParameter, PromotionFacts
 from hydromodpy.results.trash import trash_run
 
@@ -112,16 +118,16 @@ def select_trials_to_promote(
         rows = [
             row
             for row in persistence.load_iterations(phase)
-            if row["status"] == "completed" and row["objective_value"] is not None
+            if row["status"] == "completed" and row["cost"] is not None
         ]
         # The first row becomes runs/<case>: a speculative trial, solved and
         # never read by the search, may be kept but never ahead of the best.
         return sorted(
             rows,
             key=lambda row: (
-                bool((row["metrics"] or {}).get(SPECULATIVE_UNUSED)),
-                row["objective_value"],
-                row["iteration"],
+                row["speculative_unused"],
+                row["cost"],
+                row["trial"],
             ),
         )
     return []
@@ -213,7 +219,7 @@ def promote_best_after_abort(
     to be solved again, which the margin after a signal does not allow: it is
     left to ``hmp project promote <case> --trial N``, and the log says so.
     """
-    best = persistence.best_trial(phase)
+    best = persistence.held_trial(phase)
     if best is None or trial_ctx is None or cfg.save_runs == "none":
         return PromotionOutcome()
     retention = trial_ctx.kept_solves
@@ -234,7 +240,7 @@ def promote_best_after_abort(
         )
         return PromotionOutcome()
     return _promote_rows(
-        [trial_row(best)],
+        list(trial_rows(best)),
         trial_ctx=trial_ctx,
         persistence=persistence,
         project_root=project_root,
@@ -264,13 +270,13 @@ def _promote_rows(
     descriptor = persistence.descriptor
     session_id = descriptor.session_id
     stem = split_stem_version(session_dir.name)[0]
-    best_number = int(rows[0]["iteration"])
+    best_number = int(rows[0]["trial"])
     failures: list[str] = []
     count = 0
     best_sim_id: str | None = None
     best_rel_dir: str | None = None
     for row in progress.track(rows, "Promoting calibrated runs"):
-        number = int(row["iteration"])
+        number = int(row["trial"])
         is_best = number == best_number
         rel_dir = (
             run_dir_rel(session_dir.name) if is_best else trial_dir_rel(session_dir.name, number)
@@ -285,16 +291,15 @@ def _promote_rows(
             run_dir = _reserve_paired_run(project_root, session_dir, persistence, number, failures)
             if run_dir is None:
                 continue
-            calibrated_by = CalibratedBy(
-                session_id=session_id,
-                phase=phase,
-                trial=number,
+            calibrated_by = calibrated_by_of(
+                descriptor,
+                persistence.phase(phase),
+                row,
                 session_status=session_status,
-                window=descriptor.objective_window,
                 stop_state=stop_state,
                 stopping_rule=stopping_rule,
             )
-            promotion = promotion_facts(descriptor, row)
+            promotion = promotion_facts(row)
             kind = "promoted"
         else:
             run_dir = project_root / rel_dir
@@ -337,23 +342,56 @@ BOUND_TOLERANCE = 1e-6
 """Share of the searched range within which a value counts as on its bound."""
 
 
-def promotion_facts(descriptor: SessionDescriptor, row: Mapping[str, Any]) -> PromotionFacts:
+def promotion_facts(row: Mapping[str, Any]) -> PromotionFacts:
     """Return what the session says about the run its trial ``row`` becomes.
 
-    The objective of the session, its value for the trial and the window it
-    was scored on; the convergence of the trial solve (a trial completes only
-    once its solve terminated normally); the parameters whose value ended on
-    a bound of the searched range; and the parameters the trial set, named as
-    the parameter rows of the run name them.
+    The convergence of the trial solve (a trial completes only once its solve
+    terminated normally); the parameters whose value ended on a bound of the
+    searched range; and the parameters the trial set, named as the parameter
+    rows of the run name them.
     """
     parameters = row.get("parameters") or {}
     return PromotionFacts(
-        objective_name=descriptor.objective_name,
-        objective_value=row.get("objective_value"),
-        objective_window=descriptor.objective_window,
         converged=row.get("status") == "completed",
         bounds_hit=sorted(name for name, payload in parameters.items() if _on_bound(payload)),
         calibrated=[_calibrated_parameter(name, payload) for name, payload in parameters.items()],
+    )
+
+
+def calibrated_by_of(
+    descriptor: SessionDescriptor,
+    phase: PhaseDescriptor | None,
+    row: Mapping[str, Any],
+    *,
+    session_status: CalibrationSessionStatus,
+    stop_state: StopState | None,
+    stopping_rule: str | None,
+) -> CalibratedBy:
+    """Return what the seal of a promoted run says of the session and the trial it comes from.
+
+    ``metric`` and ``cost`` are those of the case of this run, and ``windows`` the
+    periods that case read: a run of a joint search never carries the total. The
+    phase of the trial names its cost and its windows when it wrote them.
+    """
+    case_id = row["case_id"]
+    case = descriptor.cases.get(case_id)
+    phase_named = phase is not None and phase.cost_name is not None
+    windows = phase.windows if phase is not None and phase_named else descriptor.windows
+    return CalibratedBy(
+        session_id=descriptor.session_id,
+        phase=row["phase"],
+        trial=int(row["trial"]),
+        session_status=session_status,
+        stop_state=stop_state,
+        stopping_rule=stopping_rule,
+        metric=None if case is None else case.cost_name,
+        cost=row["case_cost"],
+        windows={
+            name: PeriodWindow(
+                role=window.role, start=window.of(case_id).start, end=window.of(case_id).end
+            )
+            for name, window in windows.items()
+        },
     )
 
 
@@ -383,7 +421,8 @@ def _calibrated_parameter(name: str, payload: Any) -> CalibratedParameter:
     rows named by its last segment, and a parameter without target the rows
     of its own name.
     """
-    target = payload.get("target") if isinstance(payload, Mapping) else None
+    targets = payload.get("targets") if isinstance(payload, Mapping) else None
+    target = next(iter(targets.values()), None) if targets else None
     if not target:
         return CalibratedParameter(name=str(name))
     parts = str(target).split(".")
@@ -398,12 +437,13 @@ def _calibrated_parameter(name: str, payload: Any) -> CalibratedParameter:
 
 def _already_written(
     persistence: CalibrationPersistence, number: int, rel_dir: str, project_root: Path
-) -> TrialLine | None:
-    """Return the journal line of a trial that already became the run at ``rel_dir``."""
+) -> TrialCase | None:
+    """Return what the journal says of a trial that already became the run at ``rel_dir``."""
     line = next((item for item in persistence.trials() if item.trial == number), None)
-    if line is None or line.sim_id is None or line.rel_dir != rel_dir:
+    case = None if line is None else line.only_case
+    if case is None or case.sim_id is None or case.rel_dir != rel_dir:
         return None
-    return line if (project_root / rel_dir).is_dir() else None
+    return case if (project_root / rel_dir).is_dir() else None
 
 
 def _reserve_paired_run(
@@ -425,7 +465,11 @@ def _reserve_paired_run(
         return reserve_version_dirname(project_root, "run", stem, pair_with=session_dir)
     except VersionPairingError:
         holder = next(
-            (item.trial for item in persistence.trials() if item.rel_dir == rel_dir),
+            (
+                item.trial
+                for item in persistence.trials()
+                if item.only_case is not None and item.only_case.rel_dir == rel_dir
+            ),
             None,
         )
         held_by = f"trial {holder} of this session" if holder is not None else "another run"
@@ -449,7 +493,7 @@ def promote_phase_best(
     phase is read, not analysed term by term. Returns its ``sim_id``, or None
     when the phase scored nothing or the promotion failed.
     """
-    best = persistence.best_trial(phase)
+    best = persistence.held_trial(phase)
     if best is None:
         return None
     if not _writes_runs(trial_ctx):
@@ -461,7 +505,7 @@ def promote_phase_best(
     failures: list[str] = []
     sim_id = _promote_one(
         trial_ctx,
-        trial_row(best),
+        next(trial_rows(best)),
         override_paths=override_paths,
         run_dir=run_dir,
         name=f"{split_stem_version(session_dir.name)[0]}_{phase}",
@@ -480,6 +524,7 @@ def promote_phase_best(
     )
     if sim_id is not None:
         persistence.link_trial(best.trial, sim_id=sim_id, rel_dir=None)
+        persistence.refresh_phase_best(phase)
     for failure in failures:
         logger.error("Promotion of the best trial of phase %s failed: %s", phase, failure)
     return sim_id
@@ -500,7 +545,7 @@ def _promote_one(
     failures: list[str],
 ) -> str | None:
     """Promote one trial row into ``run_dir``; append to ``failures`` and return None on error."""
-    number = int(row["iteration"])
+    number = int(row["trial"])
     values = _values_of(row, override_paths)
     kept, why_not = (
         retention.take(number) if retention is not None else (None, "this session keeps no solve")
@@ -560,7 +605,6 @@ def promote_trial_from_session(
     ``sim_id`` and the new ``rel_dir`` either way.
     """
     from hydromodpy.calibration.optim.cache import params_hash
-    from hydromodpy.calibration.runners.resume import physical_values
     from hydromodpy.calibration.runners.state import build_cache_context, override_paths
     from hydromodpy.results.storage.contract import SESSION_CONFIG_FILENAME
 
@@ -575,14 +619,17 @@ def promote_trial_from_session(
         )
     stem = as_name or split_stem_version(session_dir.name)[0]
     kept_dir = project_root / trial_dir_rel(session_dir.name, int(trial))
+    case = line.only_case
     if kept_dir.is_dir():
         target = _reserve_after_the_fact(project_root, session_dir, as_name)
         # The reserved directory is empty: one rename moves the kept trial onto
         # it, and the claim its mkdir made is never released in between.
         os.replace(kept_dir, target)
         rel_dir = run_dir_rel(target.name)
-        persistence.link_trial(int(trial), sim_id=line.sim_id, rel_dir=rel_dir)
-        _point_best_if_better(persistence, line, rel_dir)
+        linked = persistence.link_trial(
+            int(trial), sim_id=None if case is None else case.sim_id, rel_dir=rel_dir
+        )
+        _point_best_if_better(persistence, linked)
         return target
 
     hash_cfg, space, trial_ctx = replay_context(
@@ -590,7 +637,7 @@ def promote_trial_from_session(
     )
     if not _writes_runs(trial_ctx):
         raise CalibrationError(f"trial {trial} is not promoted: {NO_CATALOG_NO_RUN}")
-    values = physical_values(line.params)
+    values = physical_parameters(line)
     context = build_cache_context(
         cfg=hash_cfg,
         trial_ctx=trial_ctx,
@@ -599,11 +646,15 @@ def promote_trial_from_session(
         objective_entrypoint=None,
     )
     moved = {name: values[name] for name in space.names if name in values}
-    if line.params_hash is not None and params_hash(moved, context=context) != line.params_hash:
+    recorded = None if case is None else case.params_hash
+    if recorded is not None and params_hash(moved, context=context) != recorded:
+        changed = differing_members(
+            persistence.recorded_context(line.phase), context_fingerprints(context)
+        )
         raise CalibrationError(
             f"trial {trial} of {session_dir.name} was scored on another model: its "
-            "params_hash is not reproduced by the configuration, the mesh or the input "
-            "files read today. Nothing is replayed."
+            f"params_hash is not reproduced today ({', '.join(changed) or 'the context'} "
+            "changed). Nothing is replayed."
         )
     run_dir = _reserve_after_the_fact(project_root, session_dir, as_name)
     sim_id = str(uuid.uuid4())
@@ -613,14 +664,16 @@ def promote_trial_from_session(
     )
     # The phase of the trial says why its search stopped; a search without
     # phases says it on the session itself.
-    stopped = persistence.phase(line.phase) or descriptor
+    phase = persistence.phase(line.phase)
+    stopped = phase or descriptor
+    row = next(trial_rows(line))
     promote_prepared_trial(
         trial_ctx,
         moved,
         name=stem,
         sim_id=sim_id,
         run_dir=run_dir,
-        promotion=promotion_facts(descriptor, trial_row(line)),
+        promotion=promotion_facts(row),
         lineage=Lineage(
             session_id=descriptor.session_id,
             phase=line.phase,
@@ -628,19 +681,19 @@ def promote_trial_from_session(
             kind="promoted",
             parent_hint=session_dir_rel(session_dir.name),
         ),
-        calibrated_by=CalibratedBy(
-            session_id=descriptor.session_id,
-            phase=line.phase,
-            trial=line.trial,
+        calibrated_by=calibrated_by_of(
+            descriptor,
+            phase,
+            row,
             session_status=status,
-            window=descriptor.objective_window,
             stop_state=stopped.stop_state,
             stopping_rule=stopped.stopping_rule,
         ),
     )
     rel_dir = run_dir_rel(run_dir.name)
-    persistence.link_trial(int(trial), sim_id=sim_id, rel_dir=rel_dir)
-    _point_best_if_better(persistence, line.model_copy(update={"sim_id": sim_id}), rel_dir)
+    _point_best_if_better(
+        persistence, persistence.link_trial(int(trial), sim_id=sim_id, rel_dir=rel_dir)
+    )
     return run_dir
 
 
@@ -691,17 +744,11 @@ def _reserve_after_the_fact(project_root: Path, session_dir: Path, as_name: str 
     return reserve_version_dirname(project_root, "run", stem)
 
 
-def _point_best_if_better(
-    persistence: CalibrationPersistence, line: TrialLine, rel_dir: str
-) -> None:
+def _point_best_if_better(persistence: CalibrationPersistence, line: TrialLine) -> None:
     """Point ``session.json`` at the promoted trial when it is the best of the session."""
     best = persistence.best_trial()
     if best is not None and best.trial == line.trial:
-        persistence.set_best(
-            BestTrial(
-                trial=line.trial, sim_id=line.sim_id, rel_dir=rel_dir, objective=line.objective
-            )
-        )
+        persistence.set_best(persistence.best_pointer(line))
 
 
 def prune_session(
@@ -735,6 +782,7 @@ def prune_session(
 __all__ = [
     "PHASE_BEST_DIRNAME",
     "PromotionOutcome",
+    "calibrated_by_of",
     "promote_best_after_abort",
     "promote_phase_best",
     "promote_session",

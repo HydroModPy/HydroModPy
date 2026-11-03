@@ -20,6 +20,7 @@ from hydromodpy.results.derive.network_criterion_settings import (
     network_criterion_settings,
 )
 from hydromodpy.results.derive.stream_extent import network_extents_from_run
+from tests._helpers.sealed_runs import sealed_search
 from tests.unit.results._transient_network_run import transient_run
 
 STEPS = {
@@ -61,9 +62,9 @@ def test_a_stored_monthly_run_with_no_rule_counts_one_and_one() -> None:
 def test_a_stored_run_that_sealed_a_table_without_the_rules_reads_none() -> None:
     run = SimpleNamespace(
         sim_id="sim-x",
-        config_snapshot={
-            "simulation": {"time": {"step_value": 1, "step_unit": "month"}},
-            "calibration": {
+        config_snapshot={"simulation": {"time": {"step_value": 1, "step_unit": "month"}}},
+        dir=sealed_search(
+            {
                 "outputs": {
                     "net": {
                         "support": "network",
@@ -71,8 +72,8 @@ def test_a_stored_run_that_sealed_a_table_without_the_rules_reads_none() -> None
                         "extent": {"year_quorum": 1.0},
                     }
                 }
-            },
-        },
+            }
+        ),
     )
     rules = network_criterion_settings(run).extent_rules
 

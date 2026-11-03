@@ -21,9 +21,9 @@ from hydromodpy.core import metrics as core
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.fit_metrics import score_timeseries
-from hydromodpy.results.manifest import MetricRow
-from hydromodpy.results.metric_rule import DateWindow, MetricRule, MetricScore, score
+from hydromodpy.results.metric_rule import DateWindow, MetricRule, score
 from hydromodpy.results.storage.sealing import seal_completed
+from tests._helpers.metric_rows import headline_row, headline_score
 from tests._helpers.run_stores import open_run_store
 from validation_cases.calibration.recession_hillslope_aquifer import experiment as case
 
@@ -111,30 +111,11 @@ def test_the_brutsaert_case_follows_the_same_rule() -> None:
 def test_the_store_the_seal_and_the_index_keep_n_clipped(tmp_path) -> None:
     root = tmp_path / "p"
     store = open_run_store(root, "a", create_zarr=False)
-    store.facts.put_metric(
-        MetricRow(
-            station="S",
-            variable="discharge",
-            metric="nse_log",
-            value=0.5,
-            nse_window_start=WINDOW.start,
-            nse_window_end=WINDOW.end,
-            nse_n=10,
-            n_clipped=2,
-            metric_rule_version="1",
-        )
+    store.write_metric(
+        store.sim_id,
+        headline_row("nse_log", 0.5, station="S", window=WINDOW, n_clipped=2),
     )
-    store.write_metric(store.sim_id, "S", "nse_log", 0.5, variable="discharge", n_clipped=2)
-    store.facts.score = MetricScore(
-        metric="nse",
-        value=0.5,
-        station="S",
-        variable="discharge",
-        nse_window_start=WINDOW.start,
-        nse_window_end=WINDOW.end,
-        nse_n=10,
-        metric_rule_version="1",
-    )
+    store.facts.score = headline_score(0.5, station="S", window=WINDOW)
     seal_completed(store)
     rebuild_index(root)
 

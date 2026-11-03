@@ -19,8 +19,7 @@ from hydromodpy.results.manifest import (
     ManifestRun,
     read_manifest,
 )
-from hydromodpy.results.metric_rule import DateWindow
-from hydromodpy.results.record import RunRecord, sealed_artifacts
+from hydromodpy.results.record import PROVENANCE_VERSION, RunRecord, sealed_artifacts
 from hydromodpy.results.storage.contract import (
     RUN_INPUTS_FILENAME,
     RUN_MANIFEST_FILENAME,
@@ -92,18 +91,18 @@ def test_the_manifest_is_flushed_to_the_disk(run_dir, monkeypatch):
     assert len(synced) >= 2
 
 
-def test_the_manifest_is_version_two_and_typed(run_dir):
+def test_the_manifest_is_version_three_and_typed(run_dir):
     make_record().write(run_dir)
 
     payload = read_manifest(run_dir)
     manifest = Manifest.model_validate(payload)
-    assert payload["manifest_version"] == RUN_RECORD_MANIFEST_VERSION == 2
+    assert payload["manifest_version"] == RUN_RECORD_MANIFEST_VERSION == 3
     assert manifest.site is not None and manifest.site.name == "J0014010"
     assert manifest.lineage.kind == "promoted"
     assert manifest.identity.sim_id == SIM_ID
     assert manifest.identity.label is None
     assert manifest.checks.calibrated_by is not None
-    assert manifest.score is not None and manifest.score.nse_n == 1827
+    assert manifest.score is not None and manifest.score.n_samples == 1827
     assert [p.origin for p in manifest.parameters] == ["calibrated", "declared"]
 
 
@@ -146,10 +145,11 @@ def test_simulation_parquet_has_the_declared_columns_and_one_row(run_dir):
     assert row["rel_dir"] == "runs/J0014010-base.v2"
     assert row["attempt"] == 2
     assert row["nse"] == 0.81
-    assert row["nse_n"] == 1827
+    assert row["n_samples"] == 1827
     assert row["metric_rule_version"] == "1"
-    assert str(row["nse_window_start"]) == "2016-01-01"
-    assert row["calibrated_by_trial"] == 7
+    assert str(row["score_window_start"]) == "2016-01-01"
+    assert (row["calibrated_by_trial"], row["calibrated_by_metric"]) == (7, "nse")
+    assert row["calibrated_by_cost"] == 0.84
     assert row["fatal_failed"] is False
     assert "label" not in row
 
@@ -189,7 +189,7 @@ def test_provenance_keeps_host_and_user_in_the_tree_and_gains_environment(run_di
     payload = json.loads((run_dir / RUN_PROVENANCE_FILENAME).read_text(encoding="utf-8"))
     assert payload["platform"]["hostname"] == "node12"
     assert payload["environment"]["binaries"]["mf6"] == "ef" * 32
-    assert payload["provenance_version"] == RUN_RECORD_MANIFEST_VERSION
+    assert payload["provenance_version"] == PROVENANCE_VERSION == 2
 
 
 def test_inputs_json_lists_every_loaded_input(run_dir):
@@ -248,24 +248,22 @@ def test_the_site_fingerprint_is_the_only_fingerprint():
     assert "geographic_fingerprint" not in make_record().simulation_row()
 
 
-def test_the_objective_of_the_session_rides_next_to_the_nse(run_dir):
-    window = DateWindow(start="2016-01-01", end="2018-12-31")
-    record = make_record(objective_name="nse", objective_value=0.84, objective_window=window)
-    record.write(run_dir)
+def test_the_cost_of_the_case_rides_with_the_session_that_promoted_the_run(run_dir):
+    make_record().write(run_dir)
 
     row = pq.read_table(run_dir / TABLES_DIRNAME / "simulation.parquet").to_pylist()[0]
-    assert row["objective_name"] == "nse"
-    assert row["objective_value"] == 0.84
-    assert str(row["objective_window_start"]) == "2016-01-01"
-    assert str(row["objective_window_end"]) == "2018-12-31"
-    names = SIMULATION_SCHEMA.names
-    assert names.index("objective_name") > names.index("nse_n")
-    assert RunRecord.read(run_dir).objective_window == window
+    assert (row["calibrated_by_metric"], row["calibrated_by_cost"]) == ("nse", 0.84)
+    by = RunRecord.read(run_dir).checks.calibrated_by
+    assert by is not None and (by.metric, by.cost) == ("nse", 0.84)
 
 
-def test_an_objective_value_needs_its_name():
-    with pytest.raises(ValidationError, match="objective_name"):
-        make_record(objective_value=0.84)
+@pytest.mark.parametrize(
+    "column",
+    ["nse_window_start", "nse_window_end", "nse_n", "nse_station", "nse_variable"]
+    + ["objective_name", "objective_value", "objective_window_start", "objective_window_end"],
+)
+def test_the_simulation_table_keeps_no_column_of_a_retired_name(column):
+    assert column not in SIMULATION_SCHEMA.names
 
 
 @pytest.mark.parametrize("rel_dir", ["/abs/runs/x", "runs/../x", "outputs/x", "runs/x/y"])

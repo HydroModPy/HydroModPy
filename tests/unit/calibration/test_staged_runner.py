@@ -174,8 +174,8 @@ def _baseline() -> SimpleNamespace:
 class FakeRunner:
     """Stands in for the preparation and the calibration loop of one phase."""
 
-    def __init__(self, *, best_objective: float | None = 0.25) -> None:
-        self.best_objective = best_objective
+    def __init__(self, *, best_cost: float | None = 0.25) -> None:
+        self.best_cost = best_cost
         self.values = {"K": K_CALIBRATED, "Sy": SY_CALIBRATED}
         self.prepared: list[dict[str, str]] = []
         self.overridden: list[dict[str, object]] = []
@@ -244,16 +244,15 @@ class FakeRunner:
         return CalibrationReport(
             session_id=persistence.descriptor.session_id,
             method=cfg.method,
-            n_iterations=cfg.max_trials,
-            best_objective=self.best_objective,
-            best_sim_id=None,
+            n_trials=cfg.max_trials,
+            best_cost=self.best_cost,
             duration_s=1.0,
             save_runs=cfg.save_runs,
             promoted=0,
-            best_parameters=None if self.best_objective is None else best,
+            best_parameters=None if self.best_cost is None else best,
             workspace=project_root,
             session_dir=persistence.directory,
-            extra={"search_status": "completed" if self.best_objective is not None else "failed"},
+            extra={"search_status": "completed" if self.best_cost is not None else "failed"},
         )
 
 
@@ -383,7 +382,7 @@ def test_freeze_on_success_false_leaves_the_next_phase_free_to_move_it(tmp_path,
 def test_a_phase_that_did_not_converge_freezes_nothing(tmp_path, monkeypatch) -> None:
     # No phase of INDEPENDENT is written against what another one freezes, so
     # the chain survives the failure and what it hands over stays observable.
-    fake = FakeRunner(best_objective=None)
+    fake = FakeRunner(best_cost=None)
     monkeypatch.setattr(staged_runner, "prepare_trials", fake.prepare_trials)
     monkeypatch.setattr(staged_runner, "run_calibration_core", fake.run_calibration_core)
 
@@ -397,7 +396,7 @@ def test_a_phase_that_did_not_converge_freezes_nothing(tmp_path, monkeypatch) ->
 def test_a_best_cost_at_the_failure_sentinel_is_not_a_convergence(tmp_path, monkeypatch) -> None:
     from hydromodpy.calibration.optim.optimizer import FAILED_EVAL_COST
 
-    fake = FakeRunner(best_objective=FAILED_EVAL_COST)
+    fake = FakeRunner(best_cost=FAILED_EVAL_COST)
     monkeypatch.setattr(staged_runner, "prepare_trials", fake.prepare_trials)
     monkeypatch.setattr(staged_runner, "run_calibration_core", fake.run_calibration_core)
 
@@ -413,7 +412,7 @@ def test_a_freezing_phase_that_produced_no_result_stops_the_chain(tmp_path, monk
     calibrate it against the values the TOML declares. Its dependency did run,
     so nothing else in the chain is in a position to notice.
     """
-    fake = FakeRunner(best_objective=None)
+    fake = FakeRunner(best_cost=None)
     monkeypatch.setattr(staged_runner, "prepare_trials", fake.prepare_trials)
     monkeypatch.setattr(staged_runner, "run_calibration_core", fake.run_calibration_core)
 
@@ -536,11 +535,13 @@ def test_a_refused_preparation_is_reported_with_the_phase_that_asked_for_it(
 # -- return shape ------------------------------------------------------------
 
 
-def test_the_runner_can_return_the_payload_instead_of_the_report(tmp_path, runner) -> None:
-    """``Project.calibrate`` documents ``return_report`` for every mode."""
-    payload = run_staged_calibration(_write(tmp_path), return_report=False)
+def test_the_runner_always_returns_a_report_whose_summary_lists_the_phases(
+    tmp_path, runner
+) -> None:
+    report = run_staged_calibration(_write(tmp_path))
 
-    assert isinstance(payload, dict)
+    assert isinstance(report, CalibrationReport)
+    payload = report.to_dict()
     assert [item["phase"] for item in payload["phases"]] == ["steady_k", "transient_sy"]
     assert payload["session_id"] == payload["phases"][0]["session_id"]
 
@@ -564,8 +565,8 @@ def test_every_phase_writes_into_the_one_session_of_the_case(tmp_path, runner) -
         ("steady_k", 0, "completed"),
         ("transient_sy", 1, "completed"),
     ]
-    assert phases[1].frozen["K"]["value"] == pytest.approx(K_CALIBRATED)
-    assert phases[1].frozen["K"]["from"] == "steady_k"
+    assert phases[1].frozen["K"].value == pytest.approx(K_CALIBRATED)
+    assert phases[1].frozen["K"].from_phase == "steady_k"
 
 
 def test_the_session_is_named_by_the_file_that_carries_calibration(tmp_path, runner) -> None:
@@ -936,9 +937,8 @@ def test_a_phase_reused_from_disk_gets_a_note_instead_of_a_recomputed_width(
     disk_report = CalibrationReport(
         session_id="disk-session",
         method="bisection",
-        n_iterations=1,
-        best_objective=0.1,
-        best_sim_id=None,
+        n_trials=1,
+        best_cost=0.1,
         duration_s=0.0,
         save_runs="none",
         promoted=0,
@@ -987,9 +987,8 @@ def test_a_reused_single_metric_phase_gets_the_structural_note_not_the_reuse_one
     disk_report = CalibrationReport(
         session_id="disk-session",
         method="bisection",
-        n_iterations=1,
-        best_objective=0.1,
-        best_sim_id=None,
+        n_trials=1,
+        best_cost=0.1,
         duration_s=0.0,
         save_runs="none",
         promoted=0,
@@ -1075,9 +1074,8 @@ def _phase_run(name: str, extra: dict) -> staged_runner.PhaseRun:
     report = CalibrationReport(
         session_id="s",
         method="bisection",
-        n_iterations=1,
-        best_objective=0.1,
-        best_sim_id=None,
+        n_trials=1,
+        best_cost=0.1,
         duration_s=1.0,
         save_runs="none",
         promoted=0,

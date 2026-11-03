@@ -34,6 +34,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Literal
 
+from hydromodpy.core.config_kit.written import written_as_a_file
 from hydromodpy.core.exceptions import ImportConflictError, WriteConflictError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import (
@@ -58,6 +59,8 @@ _RUN_INPUTS_KEY = "__run_inputs__"
 _RUN_CODE_KEY = "__code__"
 _RUN_MESH_ENGINE_KEY = "__mesh_engine__"
 _WORKSPACE_SECTION = "workspace"
+_WORKFLOW_SECTION = "workflow"
+_SEARCH_SECTION = "calibration"
 
 
 def run_identity_hash(config: dict | None, *, inputs: dict[str, str] | None = None) -> str | None:
@@ -76,9 +79,11 @@ def run_identity_hash(config: dict | None, *, inputs: dict[str, str] | None = No
     to it, so two copies of one project hash alike.
 
     An override of a run is a change of its configuration, so it needs no entry of
-    its own. :func:`config_identity_hash` gives the configuration without the
-    values that equal a default: a default that moves is seen by the fingerprint,
-    and writing a default out in a file is no other computation.
+    its own. :func:`config_identity_hash` gives what the configuration wrote: a
+    default that moves is seen by the fingerprint, and a key written at its default
+    value counts, because a validator can tell the two apart (``surface_offset`` of
+    an ETP under a soil reservoir). ``[workflow]`` stays out: it says what ``hmp run``
+    does with the file, and the sections hold what that computes.
 
     A run the configuration reads (``[flow] restart_from``, the ``run`` of a
     ``[[mesh.refinement_zone]]``) enters by its ``sim_id``
@@ -95,6 +100,7 @@ def run_identity_hash(config: dict | None, *, inputs: dict[str, str] | None = No
     from hydromodpy.results.source_runs import resolve_source_runs
 
     payload = json.loads(json.dumps(config, default=str))
+    payload.pop(_WORKFLOW_SECTION, None)
     workspace = payload.pop(_WORKSPACE_SECTION, None)
     project_root = workspace.get("project_root") if isinstance(workspace, dict) else None
     if project_root:
@@ -115,14 +121,30 @@ def run_identity_hash(config: dict | None, *, inputs: dict[str, str] | None = No
 def config_identity_hash(config: Any) -> str | None:
     """Return the identity hash of a validated configuration and of the files it names.
 
-    The project root anchors the paths, so it stays even when ``[workspace]`` equals
-    the default the current directory would give it.
+    The dump is what the configuration wrote, as the ``config.toml`` of its run reads
+    back (:func:`~hydromodpy.core.config_kit.written.written_as_a_file`): a key written
+    at its default value counts, and so does an override. The project root anchors the
+    paths, so it stays even when ``[workspace]`` equals the default the current
+    directory would give it. A ``[calibration]`` section enters: this is what a session
+    and a planned case compare. What a run compares is :func:`solve_identity_hash`.
     """
-    dump = config.model_dump(mode="json", exclude_defaults=True)
+    dump = written_as_a_file(config)
     root = getattr(getattr(config, "workspace", None), "project_root", None)
     if root is not None:
         dump[_WORKSPACE_SECTION] = {"project_root": str(root)}
     return run_identity_hash(dump, inputs=input_file_digests(config))
+
+
+def solve_identity_hash(config: Any) -> str | None:
+    """Return the identity hash of the solve *config* describes, without its search.
+
+    It is the ``config_hash`` of a run, promoted by a calibration or not: a run seals
+    its own solve and not the search that chose its parameters, so its ``config.toml``
+    reads back to this hash.
+    """
+    if getattr(config, _SEARCH_SECTION, None) is not None:
+        config = config.model_copy(update={_SEARCH_SECTION: None})
+    return config_identity_hash(config)
 
 
 def _relative_to_project(value: Any, project_root: Path) -> Any:

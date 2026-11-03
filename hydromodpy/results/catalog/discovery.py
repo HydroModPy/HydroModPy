@@ -40,6 +40,7 @@ from hydromodpy.results.catalog.constants import (
     metric_sense,
 )
 from hydromodpy.results.catalog.registration import split_stem_version
+from hydromodpy.results.metric_rule import HEADLINE_WINDOW
 from hydromodpy.results.trash import TrashedEntry, list_trash
 
 if TYPE_CHECKING:
@@ -78,11 +79,12 @@ _SELECTOR_FORCE = (
 
 RULE_METRIC_SQL = (
     "m.metric_rule_version IS NOT NULL "
-    "AND m.station_id IS NOT DISTINCT FROM s.nse_station "
-    "AND m.variable IS NOT DISTINCT FROM s.nse_variable"
+    f"AND m.window_name = '{HEADLINE_WINDOW}' "
+    "AND m.station_id IS NOT DISTINCT FROM s.score_station "
+    "AND m.variable IS NOT DISTINCT FROM s.score_variable"
 )
-"""A metric row scored under the run's metric rule, at the station and on the
-variable its headline score was read: one row per metric and run."""
+"""A metric row scored under the run's metric rule, in the headline period, at the
+station and on the variable its headline score was read: one row per metric and run."""
 
 
 def short_id(sim_id: str | UUID) -> str:
@@ -761,8 +763,9 @@ class DiscoveryMixin:
         def _metrics(sid: str) -> dict:
             rows = self._backend.fetch_all(
                 "SELECT metric_name, station_id, variable, value, "
-                "nse_window_start, nse_window_end, nse_n FROM metrics WHERE sim_id = ?",
-                [sid],
+                "window_start, window_end, n_samples FROM metrics "
+                "WHERE sim_id = ? AND window_name = ?",
+                [sid, HEADLINE_WINDOW],
             )
             return {
                 (r[0], r[1], r[2]): {

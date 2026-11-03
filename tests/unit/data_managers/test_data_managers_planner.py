@@ -156,6 +156,17 @@ def test_with_resolved_types_injects_default_geology_section() -> None:
     assert resolved_cfg.geology is not None
 
 
+def test_with_resolved_types_leaves_the_defaults_unset() -> None:
+    """A run seals what it was given: a default spelled out would become a key of the file."""
+    sources = [{"source": "synthetic", "values": [1.0]}]
+    cfg = DataManagersConfig(types=["recharge"], recharge={"sources": sources})
+
+    resolved = cfg.with_resolved_types(["recharge"])
+
+    assert resolved.recharge.sources[0].model_fields_set == {"source", "values"}
+    assert "inference_mode" not in resolved.model_fields_set
+
+
 def test_plan_types_merge_explicit_and_inferred_deterministically() -> None:
     cfg = DataManagersConfig(types=["oceanic", "hydrometry"])
     plan = DataPlanner().build(

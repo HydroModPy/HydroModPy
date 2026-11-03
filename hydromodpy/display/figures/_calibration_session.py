@@ -143,7 +143,8 @@ def journal_descriptor(sim: Run, session_id: Any) -> dict[str, Any]:
     payload = descriptor.model_dump(mode="json")
     best = descriptor.best
     payload["best_trial"] = best.trial if best is not None else None
-    payload["best_sim_id"] = best.sim_id if best is not None else None
+    run = descriptor.only_run
+    payload["best_sim_id"] = None if run is None else run.sim_id
     return payload
 
 
@@ -195,7 +196,9 @@ def parameter_declaration(
     Read from the search space of the journal, the parameters of the recorded
     configuration and the block the first trial wrote, the last one winning.
     """
-    space = as_mapping(descriptor.get("search_space")).get(name)
+    space = dict(as_mapping(as_mapping(descriptor.get("bounds")).get(name)))
+    if "lower" in space:
+        space["bounds"] = [space["lower"], space["upper"]]
     declared = as_mapping(session_config(descriptor).get("parameters")).get(name)
     meta: Mapping[str, Any] = {}
     if "parameters" in table.frame.columns:
@@ -204,7 +207,7 @@ def parameter_declaration(
             if block:
                 meta = as_mapping(block.get(name))
                 break
-    return {**as_mapping(space), **as_mapping(declared), **meta}
+    return {**space, **as_mapping(declared), **meta}
 
 
 def declared_units(table: TrialTable, descriptor: Mapping[str, Any], name: str) -> str:

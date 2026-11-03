@@ -21,7 +21,7 @@ What the loop actually reads
 ----------------------------
 Measured, not assumed: :class:`~hydromodpy.calibration.optim.engine.CalibrationEngine`
 reads ``trial_id`` and ``values`` off a suggestion, and branches on ``status`` and
-``objective_value`` of a result. Everything else on ``EvaluationResult`` -- the
+``cost`` of a result. Everything else on ``EvaluationResult`` -- the
 simulation id, the cache flag, the metadata -- is filled by the runner for
 persistence and reporting, never by the loop. :class:`TrialOutcome` therefore
 carries what the loop needs and what a report cannot reconstruct, and nothing

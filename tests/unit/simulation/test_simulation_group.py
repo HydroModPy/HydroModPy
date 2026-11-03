@@ -91,7 +91,7 @@ class TestSimulationGroup:
             "hydromodpy.workflow.steps.planning.step_build_plan", lambda *a, **k: None
         )
         monkeypatch.setattr("hydromodpy.workflow.runner.Pipeline", _Pipeline)
-        monkeypatch.setattr("hydromodpy.project.runner.config_identity_hash", lambda _cfg: "h")
+        monkeypatch.setattr("hydromodpy.project.runner.solve_identity_hash", lambda _cfg: "h")
 
         workspace = SimpleNamespace(
             root=tmp_path / "workspace",

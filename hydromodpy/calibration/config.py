@@ -1202,23 +1202,23 @@ class CalibOutputNetwork(HydroModelBase):
         default=None,
         description="Positional accuracy of the mapped network. It enters the automatic "
         "validity length only: the cell size h there is max(h_obs, this), because a map "
-        "is not placed better when the mesh is refined. roptim stays Doptim / h_obs, the "
+        "is not placed better when the mesh is refined. r_optim stays D_optim / h_obs, the "
         "paper's Eq. 3. Unset is the literal reading of the paper.",
     )
     validity_length: Annotated[Literal["auto"] | Length, Profile.USER] = Field(
         default="auto",
         description="Validity bound of Eq. 4, a length: the calibration is valid when "
-        "Doptim <= this. 'auto' is 2 h, the paper's two cells, where h is h_obs, the cell "
+        "D_optim <= this. 'auto' is 2 h, the paper's two cells, where h is h_obs, the cell "
         "size on the mapped network, raised to 'observed_position_accuracy' when one is "
         "declared. A length such as '150 m' is used as it is. The bound qualifies the "
         "result and never penalises the cost.",
     )
     on_roptim_violation: Annotated[Literal["warn", "error"], Profile.USER] = Field(
         default="warn",
-        description="What a violation of Eq. 4 does: Doptim above 'validity_length'. The "
+        description="What a violation of Eq. 4 does: D_optim above 'validity_length'. The "
         "bound is read once, on the trial the search returns, as the paper reads it at the "
         "optimum, and on each bound in the cost of the two-bound mode; every trial still "
-        "records 'roptim', 'roptim_valid' and 'validity_length_m'. 'warn' logs it and "
+        "records 'r_optim', 'r_optim_valid' and 'validity_length_m'. 'warn' logs it and "
         "returns the value, because a calibration is asked for a number. 'error' raises "
         "after the session is saved, so a staged calibration freezes nothing and runs no "
         "phase that depends on this one.",

@@ -162,7 +162,7 @@ def score_timeseries(
     for station, variable, simulated, observed in pairs:
         scores = _score_pair(simulated, observed, rule, station, variable, period_start)
         nse = next(item for item in scores if item.metric == HEADLINE_METRIC)
-        if rule.window is not None and nse.nse_n > 0:
+        if rule.window is not None and nse.n_samples > 0:
             lost = _simulated_nan_in_window(simulated, observed, rule, variable, period_start)
             if lost:
                 logger.warning(
@@ -248,7 +248,7 @@ def _score_pair(
     scores = score_run(
         dated["sim"], dated["obs"], rule, METRIC_NAMES, station=station, variable=variable
     )
-    if min(item.nse_n for item in scores) >= MIN_PAIRED_PERIODS:
+    if min(item.n_samples for item in scores) >= MIN_PAIRED_PERIODS:
         return scores
     nothing = dated.iloc[0:0]
     return score_run(
@@ -341,9 +341,11 @@ def _row(item: MetricScore, *, n_sim_nan: int) -> MetricRow:
         variable=item.variable,
         metric=item.metric,
         value=item.value,
-        nse_window_start=item.nse_window_start,
-        nse_window_end=item.nse_window_end,
-        nse_n=item.nse_n,
+        window_name=item.window_name,
+        window_role=item.window_role,
+        window_start=item.window_start,
+        window_end=item.window_end,
+        n_samples=item.n_samples,
         n_clipped=item.n_clipped,
         n_sim_nan=n_sim_nan,
         metric_rule_version=item.metric_rule_version,
@@ -368,9 +370,11 @@ def _headline(at_station: dict[str, MetricScore], rule: MetricRule) -> MetricSco
         metric="nse",
         value=None,
         station=rule.station,
-        nse_window_start=None if window is None else window.start,
-        nse_window_end=None if window is None else window.end,
-        nse_n=0,
+        window_name=rule.window_name,
+        window_role=rule.window_role,
+        window_start=None if window is None else window.start,
+        window_end=None if window is None else window.end,
+        n_samples=0,
         metric_rule_version=rule.version,
     )
 

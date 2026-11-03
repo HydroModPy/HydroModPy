@@ -11,14 +11,21 @@ from __future__ import annotations
 import inspect
 import os
 import re
+import tarfile
 import threading
 from collections.abc import Iterator
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import tomlkit
 
-from hydromodpy.core.exceptions import FrozenDataError, SchemaVersionMismatchError
+from hydromodpy.core.exceptions import (
+    CacheCorruptionError,
+    FrozenDataError,
+    SchemaVersionMismatchError,
+)
+from hydromodpy.data.managers.base_manager_field import BaseFieldManager
 from hydromodpy.data.provenance.lockfile import (
     LOCKFILE_NAME,
     LOCKFILE_SCHEMA,
@@ -78,7 +85,7 @@ def test_write_lockfile_contains_required_sections(tmp_path: Path) -> None:
     assert "python_version" in meta
     assert "catalog_schema_version" in meta
     assert meta["zarr_schema_version"] == ZARR_SCHEMA_VERSION == "3"
-    assert meta["parquet_schema_version"] == PARQUET_SCHEMA_VERSION == "v2"
+    assert meta["parquet_schema_version"] == PARQUET_SCHEMA_VERSION == "v3"
 
     assert read_lockfile_inputs(dest), "[[input]] must list registered artefacts"
     assert set(doc["input"][0]) == {
@@ -318,6 +325,59 @@ def test_archive_and_restore(tmp_path: Path) -> None:
     restore_dir = tmp_path / "restored"
     restore_archive(archive, restore_dir)
     assert (restore_dir / LOCKFILE_NAME).is_file()
+
+
+def _damage_tamper(path: Path) -> None:
+    path.write_text("other bytes\n")
+
+
+@pytest.mark.parametrize(
+    ("damage", "said"),
+    [
+        pytest.param(_damage_tamper, "expected sha256", id="tampered"),
+        pytest.param(Path.unlink, "absent from the archive", id="missing"),
+    ],
+)
+def test_a_bad_archive_is_refused_and_leaves_nothing(tmp_path: Path, damage, said: str) -> None:
+    catalog, workspace, src = _seed_workspace(tmp_path)
+    archive = tmp_path / "good.tar"
+    archive_lockfile(catalog, archive, lockfile_dest=workspace / LOCKFILE_NAME, **_SCHEMA_VERSIONS)
+    unpacked = tmp_path / "unpacked"
+    with tarfile.open(archive) as tar:
+        tar.extractall(unpacked, filter="data")
+    damage(unpacked / "artefacts" / sha256_of(src) / src.name)
+    bad = tmp_path / "bad.tar"
+    with tarfile.open(bad, "w") as tar:
+        tar.add(unpacked, arcname=".")
+
+    target = tmp_path / "out" / "restored"
+    with pytest.raises(CacheCorruptionError, match=re.escape(said)):
+        restore_archive(bad, target)
+    assert list(target.parent.iterdir()) == []
+
+
+def test_an_archive_without_its_lockfile_is_refused(tmp_path: Path) -> None:
+    bare = tmp_path / "bare.tar"
+    with tarfile.open(bare, "w"):
+        pass
+    with pytest.raises(CacheCorruptionError, match=f"holds no {LOCKFILE_NAME}"):
+        restore_archive(bare, tmp_path / "restored")
+
+
+def test_a_generated_series_names_no_file_in_the_catalog(tmp_path: Path) -> None:
+    """A synthetic recharge has no file: the catalog named one, and ``--frozen`` looked for it."""
+    catalog, workspace, _ = _seed_workspace(tmp_path)
+    manager = SimpleNamespace(catalog=catalog, VARIABLE_NAME="recharge")
+    generated = SimpleNamespace(source="synthetic", file_path=None, location=None)
+    BaseFieldManager._register_point_records(manager, [generated])
+    assert not catalog.backend.fetch_all("SELECT id FROM entries WHERE source = 'synthetic'")
+
+    dest = workspace / LOCKFILE_NAME
+    write_lockfile(catalog, dest, **_SCHEMA_VERSIONS)
+    # An entry with no file was never in a lock, so the lock has nothing to say of it.
+    catalog.register(variable="recharge", source="synthetic", file_path="no_such_file")
+    assert verify_frozen(catalog, dest) == []
+    assert verify_inputs_strict(catalog, dest) == []
 
 
 def test_lockfile_resolves_workspace_data_variable_relative_paths(tmp_path: Path) -> None:

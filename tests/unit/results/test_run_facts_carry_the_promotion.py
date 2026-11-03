@@ -1,20 +1,18 @@
 """The facts of a promoted run say what its session found.
 
-The objective of the session and its value for the trial, the convergence
-of the trial solve, the parameters that ended on a bound, and the parameters
-the session set: their rows say ``origin = "calibrated"``, whether they were
+The convergence of the trial solve, the parameters that ended on a bound, and
+the parameters the session set: their rows say ``origin = "calibrated"``, whether they were
 written before the promotion was applied or after it, and a sealed run reads
 them back from its manifest.
 """
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 
 import pytest
 
 from hydromodpy.results.manifest import ParameterRow
-from hydromodpy.results.metric_rule import DateWindow
 from hydromodpy.results.storage.run_facts import (
     CalibratedParameter,
     PromotionFacts,
@@ -25,7 +23,6 @@ from tests.unit.results._run_record_factory import make_record
 pytestmark = pytest.mark.unit
 
 NOW = datetime(2026, 10, 16, tzinfo=UTC)
-WINDOW = DateWindow(start=date(2001, 1, 1), end=date(2002, 12, 31))
 
 
 def _facts() -> RunFacts:
@@ -47,9 +44,6 @@ def _row(name: str, *, zone: str = "__global__", value: float = 1.0) -> Paramete
 
 def _promotion(**updates) -> PromotionFacts:
     payload = {
-        "objective_name": "nse_log",
-        "objective_value": 0.21,
-        "objective_window": WINDOW,
         "converged": True,
         "bounds_hit": ["K"],
         "calibrated": [CalibratedParameter(name="K")],
@@ -58,14 +52,12 @@ def _promotion(**updates) -> PromotionFacts:
     return PromotionFacts(**payload)
 
 
-def test_the_promotion_writes_the_objective_the_convergence_and_the_bounds() -> None:
+def test_the_promotion_writes_the_convergence_and_the_bounds() -> None:
     facts = _facts()
 
     facts.apply_promotion(_promotion())
 
-    assert facts.objective_name == "nse_log"
-    assert facts.objective_value == pytest.approx(0.21)
-    assert facts.objective_window == WINDOW
+    assert not {"cost_name", "cost", "objective_window"} & set(RunFacts.model_fields)
     assert facts.converged is True
     assert facts.bounds_hit == ["K"]
 

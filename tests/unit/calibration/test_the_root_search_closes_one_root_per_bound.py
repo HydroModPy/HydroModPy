@@ -28,7 +28,7 @@ from hydromodpy.calibration.preflight import _check_the_budgets
 from hydromodpy.calibration.runners.cli_runner import (
     _closes_two_roots,
     _engine_kwargs,
-    _roptim_verdict_extra,
+    _r_optim_verdict_extra,
     _search_outcome_extra,
     load_toml_calibration,
 )
@@ -64,16 +64,14 @@ def _two_bounds(
         if seen is not None:
             seen.append(sugg)
         if fail and sugg.trial_id in fail:
-            return EvaluationResult(
-                trial_id=sugg.trial_id, sim_id=None, objective_value=1e9, status="failed"
-            )
+            return EvaluationResult(trial_id=sugg.trial_id, sim_id=None, cost=1e9, status="failed")
         value = float(sugg.values["K"])
         j_min = _staircase(root_min, value)
         j_max = _staircase(root_max, value)
         return EvaluationResult(
             trial_id=sugg.trial_id,
             sim_id=None,
-            objective_value=w_min * abs(j_min) + w_max * abs(j_max),
+            cost=w_min * abs(j_min) + w_max * abs(j_max),
             status="completed",
             components={
                 "net.n_bounds_scored": 2.0,
@@ -82,12 +80,12 @@ def _two_bounds(
                 "net.J_signed_minimal": j_min,
                 "net.J_signed_maximal": j_max,
                 "net.J_signed_minimal_y2001": j_min,
-                "net.roptim_minimal": 1.5,
-                "net.roptim_maximal": 2.5,
-                "net.L_ref_minimal": 50.0,
-                "net.L_ref_maximal": 50.0,
-                "net.Doptim_minimal": 75.0,
-                "net.Doptim_maximal": 125.0,
+                "net.r_optim_minimal": 1.5,
+                "net.r_optim_maximal": 2.5,
+                "net.h_obs_minimal": 50.0,
+                "net.h_obs_maximal": 50.0,
+                "net.D_optim_minimal": 75.0,
+                "net.D_optim_maximal": 125.0,
                 "net.validity_length_m_minimal": 100.0,
                 "net.validity_length_m_maximal": 110.0,
                 "net.validity_length_provenance_minimal": 0.0,
@@ -107,7 +105,7 @@ def _one_bound(root: float = ROOT_MAX, *, n_bounds: bool = True):
         return EvaluationResult(
             trial_id=sugg.trial_id,
             sim_id=None,
-            objective_value=abs(residual),
+            cost=abs(residual),
             status="completed",
             components=components,
         )
@@ -376,12 +374,12 @@ def test_eq4_is_read_on_each_bound_in_the_cost() -> None:
     adapter = _two_root_adapter()
     session = _run(adapter, _two_bounds())
 
-    extra = _roptim_verdict_extra({"net": _Output()}, session.best.components)
+    extra = _r_optim_verdict_extra({"net": _Output()}, session.best.components)
 
-    verdicts = extra["roptim_verdict"]
+    verdicts = extra["r_optim_verdict"]
     assert set(verdicts) == {"net_minimal", "net_maximal"}
     assert verdicts["net_minimal"]["valid"] is True
-    assert verdicts["net_minimal"]["Doptim"] == 75.0
+    assert verdicts["net_minimal"]["D_optim"] == 75.0
     assert verdicts["net_maximal"]["valid"] is False
     assert verdicts["net_maximal"]["value"] == 2.5
     # Each bound is read against the length its own map resolved.
@@ -395,7 +393,7 @@ def test_eq4_skips_a_bound_weighted_zero() -> None:
         _two_bounds(weights=(1.0, 0.0))(ParamSuggestion(trial_id=1, values={"K": 1e-5})).components
     )
 
-    verdicts = _roptim_verdict_extra({"net": _Output()}, components)["roptim_verdict"]
+    verdicts = _r_optim_verdict_extra({"net": _Output()}, components)["r_optim_verdict"]
 
     assert set(verdicts) == {"net_minimal"}
 

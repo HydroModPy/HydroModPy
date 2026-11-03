@@ -329,7 +329,7 @@ def test_the_adapter_reads_scipys_trials_in_scipys_order(width: int) -> None:
     told: list[tuple[ParamSuggestion, EvaluationResult]] = []
     while batch := optimizer.ask(width):
         results = [
-            EvaluationResult(trial_id=s.trial_id, sim_id=None, objective_value=_misfit(s.values))
+            EvaluationResult(trial_id=s.trial_id, sim_id=None, cost=_misfit(s.values))
             for s in batch
         ]
         # The order values come back in changes nothing.
@@ -337,11 +337,11 @@ def test_the_adapter_reads_scipys_trials_in_scipys_order(width: int) -> None:
         told.extend(zip(batch, results, strict=True))
 
     used = [(s, r) for s, r in told if not r.metadata.get("speculative_unused")]
-    assert [(dict(s.values), r.objective_value) for s, r in used] == visited
+    assert [(dict(s.values), r.cost) for s, r in used] == visited
     assert optimizer.converged() == result.success
     best = optimizer.best()
     assert best is not None
-    assert best.objective_value == min(cost for _values, cost in visited)
+    assert best.cost == min(cost for _values, cost in visited)
     if width == 1:
         assert len(told) == len(visited)
 
@@ -352,9 +352,7 @@ def test_the_adapter_reads_scipys_trials_in_scipys_order(width: int) -> None:
 
 
 def _evaluate(sugg: ParamSuggestion) -> EvaluationResult:
-    return EvaluationResult(
-        trial_id=sugg.trial_id, sim_id=None, objective_value=_misfit(sugg.values)
-    )
+    return EvaluationResult(trial_id=sugg.trial_id, sim_id=None, cost=_misfit(sugg.values))
 
 
 def _engine_run(parallel: int, max_trials: int):
@@ -369,9 +367,7 @@ def _engine_run(parallel: int, max_trials: int):
     ).run()
     used = [r for r in session.history if not r.metadata.get("speculative_unused")]
     unused = [r for r in session.history if r.metadata.get("speculative_unused")]
-    path = [
-        (values_of[r.trial_id], r.objective_value) for r in sorted(used, key=lambda r: r.trial_id)
-    ]
+    path = [(values_of[r.trial_id], r.cost) for r in sorted(used, key=lambda r: r.trial_id)]
     return session, values_of, used, unused, path
 
 
@@ -385,7 +381,7 @@ def test_a_parallel_run_ends_where_the_sequential_one_ends(max_trials: int) -> N
     assert len(par_used) == len(seq_used) == len(sequential.history)
     assert parallel.converged == sequential.converged
     assert par_values[parallel.best.trial_id] == seq_values[sequential.best.trial_id]
-    assert parallel.best.objective_value == sequential.best.objective_value
+    assert parallel.best.cost == sequential.best.cost
     # The candidates solved for nothing are real solves: kept, and marked.
     assert par_unused
     assert len(parallel.history) == len(par_used) + len(par_unused)

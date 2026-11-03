@@ -77,11 +77,6 @@ class PromotionFacts(HydroModelBase):
     :meth:`RunFacts.apply_promotion` when the run opens.
     """
 
-    objective_name: str = Field(description="Objective of the session")
-    objective_value: float | None = Field(default=None, description="Its value for the trial")
-    objective_window: DateWindow | None = Field(
-        default=None, description="Window the session scored the objective on"
-    )
     converged: bool = Field(description="Whether the solve of the trial converged")
     bounds_hit: list[str] = Field(
         default_factory=list, description="Calibrated parameters that ended on a bound"
@@ -150,9 +145,6 @@ class RunFacts(HydroModelBase):
     validities: list[Validity] = Field(default_factory=list)
     bounds_hit: list[str] = Field(default_factory=list)
     score: MetricScore | None = None
-    objective_name: str | None = None
-    objective_value: float | None = None
-    objective_window: DateWindow | None = None
     calibrated: list[CalibratedParameter] = Field(
         default_factory=list, description="Parameters a calibration set; their rows say so"
     )
@@ -214,9 +206,6 @@ class RunFacts(HydroModelBase):
             validities=list(checks.validities),
             bounds_hit=list(checks.bounds_hit),
             score=manifest.score,
-            objective_name=manifest.objective_name,
-            objective_value=manifest.objective_value,
-            objective_window=manifest.objective_window,
             calibrated=[
                 CalibratedParameter(name=row.name, zone=row.zone)
                 for row in manifest.parameters
@@ -227,14 +216,10 @@ class RunFacts(HydroModelBase):
     def apply_promotion(self, promotion: PromotionFacts) -> None:
         """Write what the promoting session says about the run into its facts.
 
-        The objective of the session and its value for the trial, the
-        convergence of the trial solve, the parameters that ended on a bound,
-        and the parameters the session set: their rows, written now or later,
-        say ``origin = "calibrated"``.
+        The convergence of the trial solve, the parameters that ended on a
+        bound, and the parameters the session set: their rows, written now or
+        later, say ``origin = "calibrated"``.
         """
-        self.objective_name = promotion.objective_name
-        self.objective_value = promotion.objective_value
-        self.objective_window = promotion.objective_window
         self.converged = promotion.converged
         self.bounds_hit = list(promotion.bounds_hit)
         self.calibrated = list(promotion.calibrated)
@@ -267,9 +252,11 @@ class RunFacts(HydroModelBase):
         ]
 
     def put_metric(self, row: MetricRow) -> None:
-        """Keep one value per station, variable and metric; the last write wins."""
-        key = (row.station, row.variable, row.metric)
-        self.metrics = [m for m in self.metrics if (m.station, m.variable, m.metric) != key] + [row]
+        """Keep one value per station, variable, metric and period; the last write wins."""
+        key = (row.station, row.variable, row.metric, row.window_name)
+        self.metrics = [
+            m for m in self.metrics if (m.station, m.variable, m.metric, m.window_name) != key
+        ] + [row]
 
     def put_tracked_input(self, row: TrackedInput) -> None:
         """Keep one entry per role and path; the last write wins."""
@@ -296,8 +283,8 @@ def identity_of(facts: RunFacts) -> Identity:
     score = facts.score
     score_window = (
         None
-        if score is None or score.nse_window_start is None or score.nse_window_end is None
-        else DateWindow(start=score.nse_window_start, end=score.nse_window_end)
+        if score is None or score.window_start is None or score.window_end is None
+        else DateWindow(start=score.window_start, end=score.window_end)
     )
     period = (
         None

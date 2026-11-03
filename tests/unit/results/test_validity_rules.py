@@ -8,7 +8,7 @@ import pytest
 from packaging.specifiers import SpecifierSet
 from pydantic import ValidationError
 
-from hydromodpy.results.checks import CalibratedBy, Checks, Validity
+from hydromodpy.results.checks import Checks, Validity
 from hydromodpy.results.manifest import RUN_MANIFEST_FILENAME
 from hydromodpy.results.metric_rule import DateWindow
 from hydromodpy.results.validity_rules import (
@@ -21,7 +21,13 @@ from hydromodpy.results.validity_rules import (
 )
 from hydromodpy.solver.base import registry as solver_registry
 from hydromodpy.spatial.mesh import registry as mesh_registry
-from tests.unit.results._run_record_factory import WINDOW, make_checks, make_identity, make_record
+from tests.unit.results._run_record_factory import (
+    WINDOW,
+    make_calibrated_by,
+    make_checks,
+    make_identity,
+    make_record,
+)
 
 CURRENT = "2.0.0a5"
 MF6 = run_quantities(solver="modflow6", mesh_engine="voronoi", has_metrics=True)
@@ -31,8 +37,7 @@ CALIBRATION_WINDOW = DateWindow(start=date(2010, 1, 1), end=date(2015, 12, 31))
 
 
 def _promoted(status: str, window: DateWindow | None = None, **overrides) -> Checks:
-    by = CalibratedBy(session_id="s", trial=3, session_status=status, window=window)
-    return make_checks(calibrated_by=by, **overrides)
+    return make_checks(calibrated_by=make_calibrated_by(window, status=status), **overrides)
 
 
 def test_calibrated_only_when_the_session_completed_and_no_fatal_validity_failed():

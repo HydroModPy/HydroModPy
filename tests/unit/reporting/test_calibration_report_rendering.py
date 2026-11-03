@@ -33,8 +33,8 @@ def _payload(tmp_path: Path) -> _Payload:
         session={"session_id": "abcdef123456", "method": "grid"},
         iterations=[
             {
-                "iteration": 0,
-                "objective_value": 1.0,
+                "trial": 0,
+                "cost": 1.0,
                 "status": "completed",
                 "parameters": {},
             }
@@ -136,7 +136,7 @@ def test_the_report_hands_the_figures_the_rows_a_session_wrote() -> None:
     """One flattening for both carriers, so one figure gives one reading.
 
     The report used to flatten the journal itself, under its own convention: it
-    renamed ``objective_value`` to ``objective`` and dropped every other column.
+    renamed ``cost`` to ``objective`` and dropped every other column.
     The figures flatten too, and label the cost panel after the column they
     resolve, so the same figure named the same quantity differently depending on
     whether it was drawn from a session journal or from a promoted run.
@@ -146,8 +146,8 @@ def test_the_report_hands_the_figures_the_rows_a_session_wrote() -> None:
 
     rows = [
         {
-            "iteration": 0,
-            "objective_value": 0.5,
+            "trial": 0,
+            "cost": 0.5,
             "status": "completed",
             "sim_id": "deadbeef",
             "parameters": {
@@ -157,8 +157,8 @@ def test_the_report_hands_the_figures_the_rows_a_session_wrote() -> None:
         },
         # parameters as a JSON string, the way DuckDB persists them
         {
-            "iteration": 1,
-            "objective_value": 0.3,
+            "trial": 1,
+            "cost": 0.3,
             "parameters": '{"K": {"value": 5e-5}, "bedleak": {"value": 9e-6}}',
         },
     ]
@@ -168,13 +168,13 @@ def test_the_report_hands_the_figures_the_rows_a_session_wrote() -> None:
 
     table = trial_table(stub)
     assert table.parameters == ("K", "bedleak")
-    assert table.objective_column() == "objective_value"
+    assert table.objective_column() == "cost"
     assert table.parameter_values("K")[1].tolist() == pytest.approx([1e-4, 5e-5])
-    assert table.objective_values()[1].tolist() == pytest.approx([0.5, 0.3])
+    assert table.cost_values()[1].tolist() == pytest.approx([0.5, 0.3])
 
     # The HTML path reads the same key rather than a renamed copy of it.
-    series = stub.timeseries("objective_value")
-    assert series["objective_value"].tolist() == pytest.approx([0.5, 0.3])
+    series = stub.timeseries("cost")
+    assert series["cost"].tolist() == pytest.approx([0.5, 0.3])
 
 
 def test_render_html_escapes_session_rows_figures_and_iteration_preview() -> None:
@@ -190,8 +190,8 @@ def test_render_html_escapes_session_rows_figures_and_iteration_preview() -> Non
         },
         [
             {
-                "iteration": 1,
-                "objective_value": 0.125,
+                "trial": 1,
+                "cost": 0.125,
                 "status": "<done>",
                 "parameters": {"b": "<tag>", "a": 1},
             }

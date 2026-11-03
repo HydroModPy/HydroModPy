@@ -24,6 +24,8 @@ from hydromodpy.results.catalog.index_schema import (
 from hydromodpy.results.catalog.indexer import index_is_current, known_issues_digest, scan_tree
 from hydromodpy.results.catalog.views import V_CASES_FIXED_COLUMNS
 from hydromodpy.results.checks import CalibratedBy
+from hydromodpy.results.session.descriptor import BestCase, BestTrial, write_session
+from hydromodpy.results.session.journal import append_trial
 from hydromodpy.results.storage.contract import (
     RUN_ATTEMPTS_DIRNAME,
     RUN_MANIFEST_FILENAME,
@@ -31,7 +33,14 @@ from hydromodpy.results.storage.contract import (
     TABLES_DIRNAME,
 )
 from hydromodpy.results.validity_rules import RULE_VERSION
-from tests._helpers.sealed_runs import make_project, seal_run, write_attempt, write_session_dir
+from tests._helpers.sealed_runs import (
+    CONFIG_HASH,
+    make_project,
+    seal_run,
+    write_attempt,
+    write_session_dir,
+)
+from tests._helpers.session_documents import joint_session, joint_trial
 
 SESSION_ID = "sess0001"
 
@@ -219,6 +228,51 @@ def test_a_session_comes_back_with_its_trials_and_phases(project):
     assert _rows(project, "SELECT session_id FROM simulations WHERE name = 'calib'") == [
         (SESSION_ID,)
     ]
+
+
+def test_a_session_comes_back_with_its_cases_and_the_cases_of_each_trial(project):
+    rebuild_index(project)
+
+    assert _rows(
+        project,
+        "SELECT case_id, site, config_hash, best_rel_dir FROM calibration_session_cases",
+    ) == [("calib", "J0014010", CONFIG_HASH, "runs/calib")]
+    assert _rows(
+        project,
+        "SELECT trial, case_id, status, from_cache, rel_dir FROM calibration_trial_cases",
+    ) == [(1, "calib", "completed", False, None), (2, "calib", "completed", False, "runs/calib")]
+    assert _rows(project, "SELECT site, sim_id IS NOT NULL FROM cases WHERE kind = 'session'") == [
+        ("J0014010", True)
+    ]
+
+
+def test_a_joint_session_names_no_single_site_or_run_in_cases(tmp_path):
+    root = make_project(tmp_path / "demo")
+    directory = root / "sessions" / "joint"
+    directory.mkdir(parents=True)
+    best = BestTrial(
+        trial=1, cost=0.4, cases={"a": BestCase(sim_id="x" * 32, cost=0.3), "b": BestCase(cost=0.5)}
+    )
+    write_session(directory, joint_session(best=best))
+    append_trial(directory, joint_trial())
+
+    rebuild_index(root)
+
+    assert _rows(root, "SELECT site, sim_id FROM cases WHERE kind = 'session'") == [(None, None)]
+    assert _rows(
+        root, "SELECT case_id, site, best_sim_id, best_cost FROM calibration_session_cases"
+    ) == [
+        ("a", "S1", "x" * 32, 0.3),
+        ("b", "S2", None, 0.5),
+    ]
+    assert _rows(root, "SELECT trial, case_id, cost FROM calibration_trial_cases") == [
+        (1, "a", 0.3),
+        (1, "b", 0.5),
+    ]
+    assert _rows(root, "SELECT cost FROM calibration_iterations") == [(0.4,)]
+    ((sites, windows),) = _rows(root, "SELECT sites, windows FROM calibration_sessions")
+    assert json.loads(sites) == ["S1", "S2"]
+    assert set(json.loads(windows)["calibration"]["by_case"]) == {"a", "b"}
 
 
 def test_a_session_keeps_its_root_search_in_the_index(tmp_path):

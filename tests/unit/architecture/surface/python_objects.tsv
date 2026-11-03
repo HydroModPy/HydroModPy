@@ -147,13 +147,19 @@ RunSet.to_dataframe	method	(self, *, params: list[str] | None = None, metrics: l
 RunSet.to_xarray	method	(self, variable: str, *, dim: str = 'sim') -> xr.DataArray
 RunSet.worst	method	(self, metric: str, *, mixed_windows: bool = False) -> Run
 Session.best	property	Run | None
+Session.best_by_case	property	dict[str, Run | None]
+Session.best_cost	property	float | None
+Session.best_parameters	property	dict[str, float]
+Session.cases	property	tuple[str, ...]
 Session.config	property	dict[str, Any]
 Session.descriptor	property	SessionDescriptor
 Session.dir	property	Path
 Session.name	property	str
 Session.phases	property	list[PhaseDescriptor]
+Session.sites	property	tuple[str, ...]
 Session.status	property	SessionStatus
 Session.trials	property	pd.DataFrame
+Session.windows	property	dict[str, PeriodWindow]
 Workspace.projects	property	builtins.list[str]
 Workspace.root	property	Path
 Workspace.runs	method	(self, *, site: str | None = None, project: str | None = None) -> pd.DataFrame

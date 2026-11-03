@@ -17,9 +17,8 @@ def _report() -> CalibrationReport:
     return CalibrationReport(
         session_id="s1",
         method="scipy_nelder_mead",
-        n_iterations=120,
-        best_objective=2.9,
-        best_sim_id=None,
+        n_trials=120,
+        best_cost=2.9,
         duration_s=1.0,
         save_runs="none",
         promoted=0,

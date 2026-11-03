@@ -7,20 +7,20 @@ network averages to ``D_os``. The criterion is
 
     J_signed = D_so - D_os        the residual a root search drives to zero
     J        = abs(J_signed)      the cost, Eq. 1 of the paper
-    Doptim   = (D_so + D_os) / 2  Eq. 2, a diagnostic and never the cost
-    roptim   = Doptim / h_obs     Eq. 3, the validity indicator
-    Doptim  <= validity_length    Eq. 4, the validity bound, in metres
+    D_optim   = (D_so + D_os) / 2  Eq. 2, a diagnostic and never the cost
+    r_optim   = D_optim / h_obs     Eq. 3, the validity indicator
+    D_optim  <= validity_length    Eq. 4, the validity bound, in metres
 
-``roptim`` is the paper's ratio, published for comparison with its Table 1.
+``r_optim`` is the paper's ratio, published for comparison with its Table 1.
 The bound is a length (:func:`hydromodpy.core.stream_geometry.
 resolve_validity_length`): two cells ``2 h_obs`` by default, the paper's
-``roptim <= 2``, widened by a declared positional accuracy, or set by the
+``r_optim <= 2``, widened by a declared positional accuracy, or set by the
 output.
 
 ``D_so`` large means a network spilling far outside the mapped one; ``D_os``
 large means one that never grew. Zero is the balance between excess and
 missing, that is the intersection of two curves, not the minimum of a
-distance. Minimising ``Doptim`` instead is a different estimator: it does have
+distance. Minimising ``D_optim`` instead is a different estimator: it does have
 an interior minimum, but nothing puts that minimum at the crossing.
 
 The two supports are treated differently on purpose. The simulated network is
@@ -73,7 +73,7 @@ algorithm, which made it commentary rather than provenance.
 class SeepageDistanceResult:
     """The signed residual and everything needed to read it.
 
-    ``J`` and ``Doptim`` live in ``components`` beside the thirty other
+    ``J`` and ``D_optim`` live in ``components`` beside the thirty other
     quantities one trial produces, and are read from there.
     """
 
@@ -207,10 +207,10 @@ def seepage_distance_cost(
 ) -> SeepageDistanceResult:
     """Evaluate the signed gap for one trial.
 
-    ``length_scale_m`` is ``h_obs``, the divisor of ``roptim`` (Eq. 3).
-    ``validity`` is the length ``Doptim`` is bounded by (Eq. 4); None is
+    ``length_scale_m`` is ``h_obs``, the divisor of ``r_optim`` (Eq. 3).
+    ``validity`` is the length ``D_optim`` is bounded by (Eq. 4); None is
     ``2 * length_scale_m``, the paper's two cells. Each trial publishes
-    ``roptim_valid``, ``validity_length_m`` and the provenance code
+    ``r_optim_valid``, ``validity_length_m`` and the provenance code
     ``validity_length_provenance``; the runner reads them once, at the trial
     the search returns.
 
@@ -326,7 +326,7 @@ def seepage_distance_cost(
         # counting +inf and over dropping them from the support.
         status = "failed"
 
-    roptim = optimal / float(length_scale_m) if np.isfinite(optimal) else float("nan")
+    r_optim = optimal / float(length_scale_m) if np.isfinite(optimal) else float("nan")
     bound = validity or ValidityLength(2.0 * float(length_scale_m), "auto")
     within = bool(np.isfinite(optimal) and optimal <= bound.length_m)
 
@@ -347,9 +347,9 @@ def seepage_distance_cost(
         "D_os": d_os,
         "J": abs(signed_gap),
         "J_signed": signed_gap,
-        "Doptim": optimal,
-        "roptim": roptim,
-        "roptim_valid": float(within),
+        "D_optim": optimal,
+        "r_optim": r_optim,
+        "r_optim_valid": float(within),
         "validity_length_m": float(bound.length_m),
         "validity_length_provenance": bound.code,
         "D_so_seepage_only": d_so_seepage_only,
@@ -363,7 +363,7 @@ def seepage_distance_cost(
         "D_so_area": by_area_so,
         "D_os_cell": by_cell_os,
         "D_os_area": by_area_os,
-        "L_ref": float(length_scale_m),
+        "h_obs": float(length_scale_m),
         "L_cap": float(saturation_cap_m),
         "n_seepage": float(int(supports.seepage.sum())),
         "n_network_sim": float(so["n_support"]),

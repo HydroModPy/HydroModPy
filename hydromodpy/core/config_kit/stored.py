@@ -28,6 +28,11 @@ _READING_STORED: Final[dict[str, bool]] = {"reading_stored_document": True}
 M = TypeVar("M", bound=BaseModel)
 
 
+def reading_stored(info: ValidationInfo) -> bool:
+    """Return whether a validator runs on a read: a check across fields runs at writing only."""
+    return info.context is _READING_STORED
+
+
 def read_stored(model: type[M], payload: Any) -> M:
     """Validate a *payload* read from disk: an unknown key and an unknown word are kept."""
     return model.model_validate(payload, extra="allow", context=_READING_STORED)
@@ -83,4 +88,4 @@ class Vocabulary:
         raise ValueError(f"{value!r} is not one of {', '.join(self.words)}")
 
 
-__all__ = ["Vocabulary", "dump_stored", "read_stored"]
+__all__ = ["Vocabulary", "dump_stored", "read_stored", "reading_stored"]

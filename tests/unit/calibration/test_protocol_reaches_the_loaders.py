@@ -118,25 +118,29 @@ def test_the_run_records_what_the_protocol_rests_on(project: Path) -> None:
     assert "10.5194/hess-27-3221-2023" in record["references"][0]
 
 
-def test_the_staged_report_carries_the_protocol_it_followed() -> None:
-    from hydromodpy.calibration.protocols import protocol_record
-    from hydromodpy.calibration.runners.staged_runner import StagedCalibrationReport
+def _report(**fields):
+    from hydromodpy.calibration.report import CalibrationReport
 
-    report = StagedCalibrationReport(
-        phases=(),
-        frozen=(),
+    return CalibrationReport(
         session_id="abc",
-        protocol=protocol_record("matching_hydrographic_network"),
+        method="grid",
+        n_trials=0,
+        best_cost=None,
+        duration_s=0.0,
+        save_runs="none",
+        promoted=0,
+        **fields,
     )
 
-    summary = report.to_dict()
+
+def test_the_report_carries_the_protocol_it_followed() -> None:
+    from hydromodpy.calibration.protocols import protocol_record
+
+    summary = _report(protocol=protocol_record("matching_hydrographic_network")).to_dict()
+
     assert summary["protocol"]["name"] == "matching_hydrographic_network"
     assert summary["protocol"]["references"]
 
 
-def test_a_hand_written_staged_report_says_nothing_about_a_protocol() -> None:
-    from hydromodpy.calibration.runners.staged_runner import StagedCalibrationReport
-
-    summary = StagedCalibrationReport(phases=(), frozen=(), session_id="abc").to_dict()
-
-    assert "protocol" not in summary
+def test_a_hand_written_report_says_nothing_about_a_protocol() -> None:
+    assert "protocol" not in _report().to_dict()

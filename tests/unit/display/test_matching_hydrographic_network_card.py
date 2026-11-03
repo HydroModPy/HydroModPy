@@ -18,6 +18,7 @@ from hydromodpy.display.figures.matching_hydrographic_network_card import (
     MatchingHydrographicNetworkCard,
 )
 from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET
+from hydromodpy.results.session.descriptor import ParameterBound
 
 from ._render_helpers import relative_luminance
 
@@ -56,17 +57,17 @@ def mpl():
 
 
 PUBLISHED = {
-    "Doptim": 217.5,
-    "roptim": 0.87,
-    "roptim_valid": 1.0,
+    "D_optim": 217.5,
+    "r_optim": 0.87,
+    "r_optim_valid": 1.0,
     "validity_length_m": 500.0,
     "validity_length_provenance": 0.0,
     "n_valid": 120.0,
     "n_excess": 30.0,
     "n_missing": 18.0,
-    "L_ref": 250.0,
+    "h_obs": 250.0,
 }
-"""A trial at h_obs = 250 m: Doptim = 0.87 h_obs, bounded by the auto 2 h_obs."""
+"""A trial at h_obs = 250 m: D_optim = 0.87 h_obs, bounded by the auto 2 h_obs."""
 
 
 def _criterion_diagnostics(mean_recharge: float) -> dict[str, float]:
@@ -121,16 +122,16 @@ def _root_rows(
     for index, (value, residual) in enumerate(
         zip(values or ROOT_VALUES, residuals or ROOT_RESIDUALS, strict=True)
     ):
-        metrics = {f"{OUTPUT}.{key}": number for key, number in published.items()}
+        components = {f"{OUTPUT}.{key}": number for key, number in published.items()}
         if residual is None:
-            metrics = {}
+            components = {}
         else:
-            metrics[f"{OUTPUT}.J_signed"] = residual
+            components[f"{OUTPUT}.J_signed"] = residual
         row = {
-            "iteration": index,
+            "trial": index,
             "parameters": {"K_over_R": {"value": value}},
-            "metrics": metrics,
-            "objective_value": abs(residual) if residual is not None else None,
+            "components": components,
+            "cost": abs(residual) if residual is not None else None,
             "status": "completed" if residual is not None else "failed",
         }
         if session_id is not None:
@@ -149,12 +150,12 @@ def _storage_rows(
     """Stage two: the storage parameter against the objective of its phase."""
     return [
         {
-            "iteration": index,
+            "trial": index,
             "session_id": session_id,
             "phase": phase,
             "parameters": {"specific_yield": {"value": value}},
-            "metrics": {},
-            "objective_value": objective,
+            "components": {},
+            "cost": objective,
             "status": "completed" if objective is not None else "failed",
         }
         for index, (value, objective) in enumerate(
@@ -169,9 +170,9 @@ def _sessions(*, staged: bool = True) -> pd.DataFrame:
             "session_id": SESSION_ID,
             "phase_name": ROOT_PHASE,
             "phase_index": 0,
-            "objective_name": "distance_gap",
+            "cost_name": "distance_gap",
             "best_trial": 3,
-            "best_objective": 40.0,
+            "best_cost": 40.0,
         }
     ]
     if staged:
@@ -180,9 +181,9 @@ def _sessions(*, staged: bool = True) -> pd.DataFrame:
                 "session_id": SESSION_ID,
                 "phase_name": STORAGE_PHASE,
                 "phase_index": 1,
-                "objective_name": "nse",
+                "cost_name": "nse",
                 "best_trial": 1,
-                "best_objective": 0.11,
+                "best_cost": 0.11,
             }
         )
     return pd.DataFrame(rows)
@@ -312,7 +313,7 @@ def test_stage_one_says_so_when_no_sign_change_was_sampled(mpl) -> None:
 
 def test_a_point_with_no_root_reports_no_calibrated_diagnostics(mpl) -> None:
     # Reading the least-bad point as the answer would be a minimised mean
-    # distance in disguise, so its roptim and its counts are not the card's.
+    # distance in disguise, so its r_optim and its counts are not the card's.
     run = _staged_run(residuals=[300.0, 120.0, 80.0, 40.0])
 
     fig = MatchingHydrographicNetworkCard().plot(run)
@@ -397,17 +398,17 @@ def test_the_validity_panel_shows_doptim_against_the_trial_validity_length(mpl) 
 
     try:
         ax = _panel(fig, "Validity")
-        assert ax.get_xlabel() == "Doptim = (D_so + D_os) / 2 (m)"
-        bar = _patch(ax, "Doptim")
+        assert ax.get_xlabel() == "D_optim = (D_so + D_os) / 2 (m)"
+        bar = _patch(ax, "D_optim")
         assert bar.get_width() == pytest.approx(217.5)
         assert bar.get_facecolor() == _rgba(HIGH_CONTRAST_TRIPLET[0])
         bound = _line(ax, "bound")
         assert bound.get_xdata()[0] == pytest.approx(500.0)
         note = _texts(ax)
-        assert "Doptim = 217.5 m <= 500 m" in note
+        assert "D_optim = 217.5 m <= 500 m" in note
         assert "within the validity bound" in note
         assert "validity length: two cells, 2 h_obs" in note
-        assert "roptim = Doptim / h_obs = 0.87, h_obs = 250 m" in note
+        assert "r_optim = D_optim / h_obs = 0.87, h_obs = 250 m" in note
     finally:
         mpl.close(fig)
 
@@ -416,9 +417,9 @@ def test_a_breach_qualifies_the_value_and_never_withholds_it(mpl) -> None:
     run = _staged_run(
         diagnostics={
             **PUBLISHED,
-            "Doptim": 2360.0,
-            "roptim": 9.44,
-            "roptim_valid": 0.0,
+            "D_optim": 2360.0,
+            "r_optim": 9.44,
+            "r_optim_valid": 0.0,
             "n_valid": 4.0,
             "n_excess": 210.0,
             "n_missing": 190.0,
@@ -429,7 +430,7 @@ def test_a_breach_qualifies_the_value_and_never_withholds_it(mpl) -> None:
 
     try:
         validity = _panel(fig, "Validity")
-        bar = _patch(validity, "Doptim")
+        bar = _patch(validity, "D_optim")
         assert bar.get_width() == pytest.approx(2360.0)
         assert bar.get_facecolor() == _rgba(HIGH_CONTRAST_TRIPLET[2])
         note = _texts(validity)
@@ -444,14 +445,14 @@ def test_a_breach_qualifies_the_value_and_never_withholds_it(mpl) -> None:
 
 
 def test_a_widened_validity_length_is_the_bound_not_two_cells(mpl) -> None:
-    # roptim = 2.4 breaks the paper's roptim <= 2, but a declared positional
+    # r_optim = 2.4 breaks the paper's r_optim <= 2, but a declared positional
     # accuracy of 400 m widened the trial's bound to 800 m: the trial is valid,
     # and the card says so with the run's own verdict.
     run = _staged_run(
         diagnostics={
             **PUBLISHED,
-            "Doptim": 600.0,
-            "roptim": 2.4,
+            "D_optim": 600.0,
+            "r_optim": 2.4,
             "validity_length_m": 800.0,
             "validity_length_provenance": 2.0,
         }
@@ -461,12 +462,12 @@ def test_a_widened_validity_length_is_the_bound_not_two_cells(mpl) -> None:
 
     try:
         validity = _panel(fig, "Validity")
-        assert _patch(validity, "Doptim").get_facecolor() == _rgba(HIGH_CONTRAST_TRIPLET[0])
+        assert _patch(validity, "D_optim").get_facecolor() == _rgba(HIGH_CONTRAST_TRIPLET[0])
         assert _line(validity, "bound").get_xdata()[0] == pytest.approx(800.0)
         note = _texts(validity)
         assert "600 m <= 800 m: within the validity bound" in note
         assert "widened by the declared positional accuracy" in note
-        assert "roptim = Doptim / h_obs = 2.4" in note
+        assert "r_optim = D_optim / h_obs = 2.4" in note
     finally:
         mpl.close(fig)
 
@@ -481,7 +482,7 @@ def test_an_unpublished_doptim_is_drawn_as_absent_never_as_zero(mpl) -> None:
     try:
         ax = _panel(fig, "Validity")
         assert not ax.patches
-        assert "Doptim not published" in _texts(ax)
+        assert "D_optim not published" in _texts(ax)
     finally:
         mpl.close(fig)
 
@@ -525,7 +526,7 @@ def test_the_three_counts_are_drawn_apart_so_they_cannot_cancel(mpl) -> None:
 
 def test_an_absent_count_is_named_absent_and_gets_no_bar(mpl) -> None:
     run = _staged_run(
-        diagnostics={"roptim": 0.87, "roptim_valid": 1.0, "n_valid": 120.0, "n_missing": 18.0},
+        diagnostics={"r_optim": 0.87, "r_optim_valid": 1.0, "n_valid": 120.0, "n_missing": 18.0},
     )
 
     fig = MatchingHydrographicNetworkCard().plot(run)
@@ -640,7 +641,7 @@ def test_the_card_reads_the_json_blocks_the_index_hands_back(mpl) -> None:
     run = _staged_run()
     frame = run.calibration_iterations
     frame["parameters"] = [json.dumps(block) for block in frame["parameters"]]
-    frame["metrics"] = [json.dumps(block) for block in frame["metrics"]]
+    frame["components"] = [json.dumps(block) for block in frame["components"]]
 
     fig = MatchingHydrographicNetworkCard().plot(run)
 
@@ -648,7 +649,7 @@ def test_the_card_reads_the_json_blocks_the_index_hands_back(mpl) -> None:
         assert _line(_panel(fig, "Stage 1"), "K_over_R =").get_xdata()[0] == pytest.approx(
             CLOSED_VALUE
         )
-        assert _patch(_panel(fig, "Validity"), "Doptim").get_width() == pytest.approx(217.5)
+        assert _patch(_panel(fig, "Validity"), "D_optim").get_width() == pytest.approx(217.5)
     finally:
         mpl.close(fig)
 
@@ -688,21 +689,21 @@ COMBINED_TRIAL = 5
 
 AT_THE_RETURNED_TRIAL = {
     "minimal": {
-        "Doptim": 217.5,
-        "roptim": 0.87,
+        "D_optim": 217.5,
+        "r_optim": 0.87,
         "validity_length_m": 500.0,
         "validity_length_provenance": 0.0,
-        "L_ref": 250.0,
+        "h_obs": 250.0,
         "n_valid": 120.0,
         "n_excess": 30.0,
         "n_missing": 18.0,
     },
     "maximal": {
-        "Doptim": 820.0,
-        "roptim": 3.28,
+        "D_optim": 820.0,
+        "r_optim": 3.28,
         "validity_length_m": 500.0,
         "validity_length_provenance": 0.0,
-        "L_ref": 250.0,
+        "h_obs": 250.0,
         "n_valid": 300.0,
         "n_excess": 90.0,
         "n_missing": 60.0,
@@ -741,20 +742,20 @@ ROOTS = {
 def _two_bound_rows(*, weights: tuple[float, float] = (0.5, 0.5)) -> list[dict]:
     rows = []
     for index, value in enumerate(TWO_VALUES):
-        metrics = {f"{OUTPUT}.n_bounds_scored": 2.0, f"{OUTPUT}.R_mean_m_s": 3.0e-8}
+        components = {f"{OUTPUT}.n_bounds_scored": 2.0, f"{OUTPUT}.R_mean_m_s": 3.0e-8}
         for bound, weight in zip(("minimal", "maximal"), weights, strict=True):
-            metrics[f"{OUTPUT}.J_signed_{bound}"] = TWO_RESIDUALS[bound][index]
-            metrics[f"{OUTPUT}.weight_{bound}"] = weight
+            components[f"{OUTPUT}.J_signed_{bound}"] = TWO_RESIDUALS[bound][index]
+            components[f"{OUTPUT}.weight_{bound}"] = weight
             for key, number in AT_THE_RETURNED_TRIAL[bound].items():
                 published = number if index == COMBINED_TRIAL else 999.0
-                metrics[f"{OUTPUT}.{key}_{bound}"] = published
+                components[f"{OUTPUT}.{key}_{bound}"] = published
         rows.append(
             {
-                "iteration": index,
+                "trial": index,
                 "session_id": SESSION_ID,
                 "parameters": {"K_over_R": {"value": value}},
-                "metrics": metrics,
-                "objective_value": 1.0,
+                "components": components,
+                "cost": 1.0,
                 "status": "completed",
             }
         )
@@ -815,7 +816,9 @@ def test_an_unsolved_combined_value_is_said_not_drawn(mpl) -> None:
         assert "combined value not solved" in _texts(ax)
         assert not [line for line in ax.lines if str(line.get_label()).startswith("K_over_R =")]
         # The session's best trial still says where the run read Eq. 4.
-        assert _patch(_panel(fig, "Validity"), "Doptim minimal").get_width() == pytest.approx(217.5)
+        assert _patch(_panel(fig, "Validity"), "D_optim minimal").get_width() == pytest.approx(
+            217.5
+        )
     finally:
         mpl.close(fig)
 
@@ -826,8 +829,8 @@ def test_two_bounds_qualify_each_bound_at_the_returned_trial(mpl) -> None:
     try:
         ax = _panel(fig, "Validity")
         assert [tick.get_text() for tick in ax.get_yticklabels()] == ["minimal", "maximal"]
-        minimal = _patch(ax, "Doptim minimal")
-        maximal = _patch(ax, "Doptim maximal")
+        minimal = _patch(ax, "D_optim minimal")
+        maximal = _patch(ax, "D_optim maximal")
         assert minimal.get_width() == pytest.approx(217.5)
         assert maximal.get_width() == pytest.approx(820.0)
         assert minimal.get_facecolor() == _rgba(HIGH_CONTRAST_TRIPLET[0])
@@ -835,10 +838,10 @@ def test_two_bounds_qualify_each_bound_at_the_returned_trial(mpl) -> None:
         assert _line(ax, "bound minimal").get_xdata()[0] == pytest.approx(500.0)
         assert _line(ax, "bound maximal").get_xdata()[0] == pytest.approx(500.0)
         note = _texts(ax)
-        assert "minimal (weight 0.5): Doptim = 217.5 m <= 500 m, Eq. 4 holds" in note
-        assert "maximal (weight 0.5): Doptim = 820 m > 500 m, Eq. 4 fails" in note
-        assert "J_signed = -45 m, roptim = 0.87, h_obs = 250 m, length: two cells, 2 h_obs" in note
-        assert "J_signed = 140 m, roptim = 3.28, h_obs = 250 m" in note
+        assert "minimal (weight 0.5): D_optim = 217.5 m <= 500 m, Eq. 4 holds" in note
+        assert "maximal (weight 0.5): D_optim = 820 m > 500 m, Eq. 4 fails" in note
+        assert "J_signed = -45 m, r_optim = 0.87, h_obs = 250 m, length: two cells, 2 h_obs" in note
+        assert "J_signed = 140 m, r_optim = 3.28, h_obs = 250 m" in note
         assert "not published" not in note
         assert "999" not in note
     finally:
@@ -878,7 +881,7 @@ def test_the_combined_trial_of_the_report_wins_over_the_session_best(mpl) -> Non
 
     try:
         validity = _panel(fig, "Validity")
-        assert _patch(validity, "Doptim minimal").get_width() == pytest.approx(217.5)
+        assert _patch(validity, "D_optim minimal").get_width() == pytest.approx(217.5)
     finally:
         mpl.close(fig)
 
@@ -897,7 +900,7 @@ def test_a_run_drawn_on_its_own_reads_the_roots_and_the_returned_trial_from_the_
         method="bisection",
         phase="transient_conductivity",
         config={"parameters": {"K_over_R": {"units": "-"}}},
-        search_space={"K_over_R": {"bounds": [1e-6, 1e-2]}},
+        bounds={"K_over_R": ParameterBound(lower=1e-6, upper=1e-2, search_space="identity")},
         best_trial=COMBINED_TRIAL,
         root_search={"roots": ROOTS},
     )
@@ -910,8 +913,8 @@ def test_a_run_drawn_on_its_own_reads_the_roots_and_the_returned_trial_from_the_
         assert "Delta = log10(K*_maximal / K*_minimal) = 1 decade(s)" in note
         assert "combined K_over_R = 0.0001012, weighted geometric mean 0.5 / 0.5" in note
         validity = _panel(fig, "Validity")
-        assert _patch(validity, "Doptim minimal").get_width() == pytest.approx(217.5)
-        assert _patch(validity, "Doptim maximal").get_width() == pytest.approx(820.0)
+        assert _patch(validity, "D_optim minimal").get_width() == pytest.approx(217.5)
+        assert _patch(validity, "D_optim maximal").get_width() == pytest.approx(820.0)
         counts = _panel(fig, "Cells at the calibrated point")
         assert counts.patches
         assert "the returned trial is not known" not in _texts(counts)
@@ -939,8 +942,8 @@ def test_a_bound_weighted_zero_is_drawn_outside_the_verdict(mpl) -> None:
     try:
         note = _texts(_panel(fig, "Validity"))
         assert "minimal (weight 0, outside the verdict): " in note
-        assert "Doptim = 217.5 m <= 500 m, within the bound, no verdict" in note
-        assert "maximal (weight 1): Doptim = 820 m > 500 m, Eq. 4 fails" in note
+        assert "D_optim = 217.5 m <= 500 m, within the bound, no verdict" in note
+        assert "maximal (weight 1): D_optim = 820 m > 500 m, Eq. 4 fails" in note
     finally:
         mpl.close(fig)
 
@@ -951,11 +954,11 @@ def test_a_bound_weighted_zero_is_drawn_outside_the_verdict(mpl) -> None:
 
 
 VALIDATION = {
-    "Doptim": 640.0,
-    "roptim": 2.56,
+    "D_optim": 640.0,
+    "r_optim": 2.56,
     "validity_length_m": 500.0,
     "validity_length_provenance": 0.0,
-    "L_ref": 250.0,
+    "h_obs": 250.0,
     "n_valid": 210.0,
     "n_excess": 12.0,
     "n_missing": 95.0,
@@ -981,15 +984,15 @@ def test_a_validation_map_is_drawn_beside_the_scored_map(mpl) -> None:
             CLOSED_VALUE
         )
         ax = _panel(fig, "Validity")
-        assert _patch(ax, "Doptim minimal").get_width() == pytest.approx(217.5)
-        assert _patch(ax, "Doptim maximal").get_width() == pytest.approx(640.0)
+        assert _patch(ax, "D_optim minimal").get_width() == pytest.approx(217.5)
+        assert _patch(ax, "D_optim maximal").get_width() == pytest.approx(640.0)
         note = _texts(ax)
-        assert "minimal (in the cost): Doptim = 217.5 m <= 500 m, Eq. 4 holds" in note
+        assert "minimal (in the cost): D_optim = 217.5 m <= 500 m, Eq. 4 holds" in note
         assert (
-            "maximal (validation outside the cost): Doptim = 640 m > 500 m, "
+            "maximal (validation outside the cost): D_optim = 640 m > 500 m, "
             "beyond the bound, no verdict" in note
         )
-        assert "J_signed = -310 m, roptim = 2.56" in note
+        assert "J_signed = -310 m, r_optim = 2.56" in note
         counts = _panel(fig, "Cells at the calibrated point")
         labels = {str(patch.get_label()) for patch in counts.patches}
         assert any(label.endswith("maximal (210 cells)") for label in labels)
@@ -1007,8 +1010,8 @@ def test_one_map_with_its_bound_suffix_reads_as_one_map(mpl) -> None:
 
     try:
         ax = _panel(fig, "Validity")
-        assert [str(patch.get_label()) for patch in ax.patches] == ["Doptim = 217.5 m"]
-        assert "roptim = Doptim / h_obs = 0.87, h_obs = 250 m" in _texts(ax)
+        assert [str(patch.get_label()) for patch in ax.patches] == ["D_optim = 217.5 m"]
+        assert "r_optim = D_optim / h_obs = 0.87, h_obs = 250 m" in _texts(ax)
         counts = _panel(fig, "Cells at the calibrated point")
         assert len(counts.patches) == 3
         assert not any(patch.get_hatch() for patch in counts.patches)
@@ -1045,10 +1048,10 @@ def test_h_obs_is_read_under_the_key_the_run_verdict_reads() -> None:
     from hydromodpy.display.figures.matching_hydrographic_network_card import H_OBS_KEY
 
     found = {
-        f"{OUTPUT}.roptim_minimal": 0.87,
-        f"{OUTPUT}.Doptim_minimal": 217.5,
+        f"{OUTPUT}.r_optim_minimal": 0.87,
+        f"{OUTPUT}.D_optim_minimal": 217.5,
         f"{OUTPUT}.validity_length_m_minimal": 500.0,
         f"{OUTPUT}.{H_OBS_KEY}_minimal": 250.0,
     }
 
-    assert _eq4_verdict(OUTPUT, found, suffix="_minimal")["h_obs_m"] == 250.0
+    assert _eq4_verdict(OUTPUT, found, suffix="_minimal")["h_obs"] == 250.0

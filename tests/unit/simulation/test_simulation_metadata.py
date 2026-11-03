@@ -24,7 +24,8 @@ class TestSimulationMetadata:
         cfg = {"flow": {"K": 1.5}}
         sid = runs.open(config=cfg).sim_id
         sim = Run(sid, runs.catalog())
-        assert sim.config_snapshot == cfg
+        # A sealed configuration names no machine: the project that holds the run anchors it.
+        assert sim.config_snapshot == {**cfg, "workspace": {"project_root": str(runs.project_root)}}
 
     def test_tags(self, runs):
         sid = runs.open(tags=["fast", "test"]).sim_id

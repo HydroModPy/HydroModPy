@@ -42,7 +42,11 @@ from hydromodpy.calibration.config import (
 )
 from hydromodpy.calibration.evaluation import TrialRequest
 from hydromodpy.calibration.evaluation import registry as evaluation_registry
-from hydromodpy.calibration.optim.cache import ParamsHashCache
+from hydromodpy.calibration.optim.cache import (
+    ParamsHashCache,
+    context_fingerprints,
+    differing_members,
+)
 from hydromodpy.calibration.optim.cost_margin import (
     IntervalWidth,
     ParameterInterval,
@@ -51,8 +55,8 @@ from hydromodpy.calibration.optim.cost_margin import (
 from hydromodpy.calibration.optim.diagnostics import correlated_parameter_pairs
 from hydromodpy.calibration.optim.engine import CalibrationEngine
 from hydromodpy.calibration.optim.objective import (
-    mean_objective_block_fractions,
-    objective_block_fractions,
+    cost_block_fractions,
+    mean_cost_block_fractions,
 )
 from hydromodpy.calibration.optim.optimizer import (
     EvaluationResult,
@@ -71,7 +75,6 @@ from hydromodpy.calibration.persistence import (
     DEFAULT_PHASE,
     CalibrationPersistence,
     PhaseContext,
-    best_pointer,
 )
 from hydromodpy.calibration.protocols import expand_calibration_protocol
 from hydromodpy.calibration.report import NO_OTHER_TRIAL, interval_is_degenerate
@@ -99,10 +102,10 @@ from hydromodpy.calibration.runners.sandbox import keep_trial_scratch
 from hydromodpy.calibration.runners.session import (
     calibration_case_name,
     freeze_session_config,
-    objective_window_of,
     open_session_dir,
     project_root_for,
-    search_space_payload,
+    search_windows,
+    session_bounds,
     session_config_hash,
 )
 from hydromodpy.calibration.runners.state import (
@@ -300,15 +303,15 @@ def _api_isolation_needed(parallel: int) -> bool:
     return parallel > 1
 
 
-def session_objective_name(cfg: CalibrationConfig) -> str:
-    """Return the metric a session scores on, as its objective blocks name it.
+def session_cost_name(cfg: CalibrationConfig, phase: CalibPhaseDecl | None = None) -> str:
+    """Return the metric a search scores on, as its objective blocks name it.
 
     A search scored through blocks names their metrics, joined by ``" + "``
     when there are several. A single-metric search names its ``objective``.
-    A staged session keeps the value and the window of its last phase, so it
-    names what that phase scores.
+    Without ``phase``, a staged session keeps the value and the window of its
+    last phase, so it names what that phase scores.
     """
-    last = cfg.phases[-1] if cfg.phases else None
+    last = phase if phase is not None else (cfg.phases[-1] if cfg.phases else None)
     if last is not None and last.is_single_metric:
         return str(last.objective or cfg.objective)
     metrics = [str(block.metric) for block, _weight in cfg.objective_blocks_for(last)]
@@ -403,7 +406,7 @@ def calibration_trace(
 ) -> list[dict[str, Any]]:
     """Return the session history in the shape the diagnostics read.
 
-    The cost travels under ``objective_value``, which the diagnostics know as a
+    The cost travels under ``cost``, which the diagnostics know as a
     meta column. Under any other name it is taken for one more calibrated
     parameter, and a single-parameter search then reports the parameter as
     correlated with its own cost.
@@ -411,7 +414,7 @@ def calibration_trace(
     return [
         {
             "parameters": dict(values_by_trial[item.trial_id]),
-            "objective_value": item.objective_value,
+            "cost": item.cost,
         }
         for item in history
         if item.trial_id in values_by_trial
@@ -525,7 +528,7 @@ def _log_parameter_interval(interval: ParameterInterval, best: EvaluationResult 
             interval.name,
             interval.best,
             " and ".join(reach),
-            best.objective_value if best is not None else float("nan"),
+            best.cost if best is not None else float("nan"),
         )
         return
     if interval_is_degenerate(interval.to_dict()):
@@ -578,31 +581,31 @@ def _conductivity_unit(trial_ctx: Any, param: CalibParameter) -> str:
     return "m/s"
 
 
-def _roptim_verdict_extra(
+def _r_optim_verdict_extra(
     outputs: Mapping[str, Any] | None,
     components: Mapping[str, float] | None,
 ) -> dict[str, Any]:
     """Read Eq. 4 on the trial the search returns, once per network output.
 
-    The paper reads ``roptim <= 2`` at the optimum ("At this point", HESS
+    The paper reads ``r_optim <= 2`` at the optimum ("At this point", HESS
     27, p. 3225), and so does this: a trial on the way to the root is not the
     result, and bounding it refused whole brackets. The bound is a length:
-    ``Doptim <= validity_length_m``, which each trial publishes with its
-    provenance beside ``roptim`` and ``roptim_valid``. ``roptim`` is still
-    ``Doptim / h_obs``, the paper's Eq. 3, for comparison with its Table 1.
+    ``D_optim <= validity_length_m``, which each trial publishes with its
+    provenance beside ``r_optim`` and ``r_optim_valid``. ``r_optim`` is still
+    ``D_optim / h_obs``, the paper's Eq. 3, for comparison with its Table 1.
 
-    Returns ``{"roptim_verdict": {key: {value, Doptim, h_obs_m,
+    Returns ``{"r_optim_verdict": {key: {value, D_optim, h_obs,
     validity_length_m, provenance, valid, causes}}}``, or nothing when no
-    network output published a ``roptim``. ``causes`` lists what failed:
-    ``"doptim"`` (Doptim above the length) and ``"empty"`` (no simulated
+    network output published a ``r_optim``. ``causes`` lists what failed:
+    ``"doptim"`` (D_optim above the length) and ``"empty"`` (no simulated
     network at the returned trial, so nothing to qualify). A failure warns
     once. With ``on_roptim_violation = "error"`` it
     raises :class:`CalibrationError`; the caller has already saved the
     session, and a staged calibration stops there, before freezing anything.
 
-    An output scored on two bounds has no unsuffixed ``roptim``: Eq. 4 is
+    An output scored on two bounds has no unsuffixed ``r_optim``: Eq. 4 is
     read on each bound in the cost, under ``<output>_minimal`` and
-    ``<output>_maximal`` (:func:`_roptim_reads`), each against its own length.
+    ``<output>_maximal`` (:func:`_r_optim_reads`), each against its own length.
     """
     found = components or {}
     verdicts: dict[str, dict[str, Any]] = {}
@@ -611,7 +614,7 @@ def _roptim_verdict_extra(
         (name, output, key, suffix)
         for name, output in sorted((outputs or {}).items())
         if output.support == "network"
-        for key, suffix in _roptim_reads(name, found)
+        for key, suffix in _r_optim_reads(name, found)
     ]
     for name, output, key, suffix in reads:
         verdict = _eq4_verdict(name, found, suffix=suffix)
@@ -624,7 +627,7 @@ def _roptim_verdict_extra(
             fatal.append(message)
     if fatal:
         raise CalibrationError(" ".join(fatal))
-    return {"roptim_verdict": verdicts} if verdicts else {}
+    return {"r_optim_verdict": verdicts} if verdicts else {}
 
 
 def _finite_or_none(value: float) -> float | None:
@@ -633,9 +636,9 @@ def _finite_or_none(value: float) -> float | None:
 
 def _eq4_verdict(name: str, found: Mapping[str, float], *, suffix: str) -> dict[str, Any]:
     """Return the Eq. 4 verdict of one bound of one output, from its components."""
-    value = float(found[f"{name}.roptim{suffix}"])
-    optimal = float(found.get(f"{name}.Doptim{suffix}", float("nan")))
-    h_obs = float(found.get(f"{name}.L_ref{suffix}", float("nan")))
+    value = float(found[f"{name}.r_optim{suffix}"])
+    optimal = float(found.get(f"{name}.D_optim{suffix}", float("nan")))
+    h_obs = float(found.get(f"{name}.h_obs{suffix}", float("nan")))
     length = float(found.get(f"{name}.validity_length_m{suffix}", float("nan")))
     code = float(found.get(f"{name}.validity_length_provenance{suffix}", float("nan")))
     causes: list[str] = []
@@ -645,8 +648,8 @@ def _eq4_verdict(name: str, found: Mapping[str, float], *, suffix: str) -> dict[
         causes.append("doptim")
     return {
         "value": _finite_or_none(value),
-        "Doptim": _finite_or_none(optimal),
-        "h_obs_m": _finite_or_none(h_obs),
+        "D_optim": _finite_or_none(optimal),
+        "h_obs": _finite_or_none(h_obs),
         "validity_length_m": _finite_or_none(length),
         "provenance": VALIDITY_PROVENANCE_BY_CODE.get(code),
         "valid": not causes,
@@ -660,15 +663,15 @@ def _eq4_violation_message(key: str, verdict: Mapping[str, Any]) -> str:
     bound = f"{length:.4g} m" if length is not None else "not published"
     if "empty" in verdict["causes"]:
         return (
-            f"Output {key!r}: Doptim is not a number at the returned trial, so the validity "
+            f"Output {key!r}: D_optim is not a number at the returned trial, so the validity "
             f"length {bound} cannot qualify it: the simulated network is empty there."
         )
     parts: list[str] = []
     if "doptim" in verdict["causes"]:
         ratio = verdict["value"]
         parts.append(
-            f"the mean mismatch Doptim = {verdict['Doptim']:.4g} m exceeds the validity "
-            f"length {bound} ({verdict['provenance'] or 'provenance unknown'}), roptim = "
+            f"the mean mismatch D_optim = {verdict['D_optim']:.4g} m exceeds the validity "
+            f"length {bound} ({verdict['provenance'] or 'provenance unknown'}), r_optim = "
             + (f"{ratio:.3g} cells of h_obs" if ratio is not None else "not a number")
         )
     return (
@@ -678,10 +681,10 @@ def _eq4_violation_message(key: str, verdict: Mapping[str, Any]) -> str:
     )
 
 
-def _roptim_reads(name: str, found: Mapping[str, float]) -> list[tuple[str, str]]:
-    """Return ``(verdict key, component suffix)`` for each roptim Eq. 4 reads on an output.
+def _r_optim_reads(name: str, found: Mapping[str, float]) -> list[tuple[str, str]]:
+    """Return ``(verdict key, component suffix)`` for each r_optim Eq. 4 reads on an output.
 
-    One bound in the cost: the unsuffixed ``roptim``, keyed by the output.
+    One bound in the cost: the unsuffixed ``r_optim``, keyed by the output.
     Two bounds: each bound weighted above zero, keyed ``<output>_<bound>``.
     The maximal map of a one-state output with both maps is a validation
     outside the cost, and is not read here.
@@ -691,14 +694,14 @@ def _roptim_reads(name: str, found: Mapping[str, float]) -> list[tuple[str, str]
         ROOT_BOUNDS,
     )
 
-    if f"{name}.roptim" in found:
+    if f"{name}.r_optim" in found:
         return [(name, "")]
     if float(found.get(f"{name}.{BOUNDS_COMPONENT}", 1.0)) < 2.0:
         return []
     return [
         (f"{name}_{bound}", f"_{bound}")
         for bound in ROOT_BOUNDS
-        if f"{name}.roptim_{bound}" in found
+        if f"{name}.r_optim_{bound}" in found
         and float(found.get(f"{name}.weight_{bound}", 1.0)) > 0.0
     ]
 
@@ -895,12 +898,12 @@ def _status_of_the_search(
     )
 
 
-def _phase_objective_block_fractions(
+def _phase_cost_block_fractions(
     cfg: CalibrationConfig,
     history: list[EvaluationResult],
     best: EvaluationResult | None,
 ) -> dict[str, Any] | None:
-    """Return the ``objective_block_fractions`` a finished phase's report carries.
+    """Return the ``cost_block_fractions`` a finished phase's report carries.
 
     ``"mean"`` averages each block's fraction of the cost over the finished
     trials (``status == "completed"`` and a finite objective, the convention
@@ -914,17 +917,15 @@ def _phase_objective_block_fractions(
     if not blocks:
         return None
     finished = [
-        result
-        for result in history
-        if result.status == "completed" and math.isfinite(result.objective_value)
+        result for result in history if result.status == "completed" and math.isfinite(result.cost)
     ]
-    mean_result = mean_objective_block_fractions(blocks, (result.components for result in finished))
+    mean_result = mean_cost_block_fractions(blocks, (result.components for result in finished))
     if mean_result is None:
         return None
     mean_fractions, n_trials = mean_result
     payload: dict[str, Any] = {"mean": mean_fractions, "mean_n_trials": n_trials}
     if best is not None:
-        best_fractions = objective_block_fractions(best.components, blocks)
+        best_fractions = cost_block_fractions(best.components, blocks)
         if best_fractions is not None:
             payload["best"] = best_fractions
     return payload
@@ -1214,6 +1215,7 @@ def run_calibration_core(
         objective_entrypoint=objective,
     )
     refuse_a_phase_another_cost_scored(persistence, context.name, cache_context)
+    persistence.record_context(context.name, context_fingerprints(cache_context))
 
     materialize_root: Path | None = None
     if cfg.materialize_candidates:
@@ -1272,7 +1274,7 @@ def run_calibration_core(
         return EvaluationResult(
             trial_id=sugg.trial_id,
             sim_id=None,
-            objective_value=result.cost,
+            cost=result.cost,
             status=db_status,
             duration_s=result.duration_s,
             components=dict(result.components) or None,
@@ -1416,7 +1418,7 @@ def run_calibration_core(
         )
     )
     extra.update(_search_outcome_extra(session))
-    extra.update(_roptim_verdict_extra(cfg.outputs, best.components if best else None))
+    extra.update(_r_optim_verdict_extra(cfg.outputs, best.components if best else None))
     # Read by the console recap, which cannot reach the configuration.
     extra["parameter_units"] = parameter_units(cfg)
     extra["cost_metric"] = cost_metric_label(cfg)
@@ -1430,12 +1432,14 @@ def run_calibration_core(
         session_id=persistence.descriptor.session_id,
         method=cfg.method,
         extra=extra,
-        n_iterations=len(session.history),
-        best_objective=best.objective_value if best else None,
-        best_sim_id=None,
+        status=extra["search_status"],
+        cost_name=session_cost_name(cfg),
+        cost_label=extra["cost_metric"],
+        n_trials=len(session.history),
+        best_cost=best.cost if best else None,
         best_trial=persistence.trial_number(best.trial_id, context) if best else None,
         best_parameters=values_by_trial.get(best.trial_id) if best else None,
-        objective_block_fractions=_phase_objective_block_fractions(cfg, session.history, best),
+        cost_block_fractions=_phase_cost_block_fractions(cfg, session.history, best),
         duration_s=float(session.duration_s if session.duration_s else elapsed),
         save_runs=cfg.save_runs,
         promoted=0,
@@ -1525,13 +1529,18 @@ def promote_and_close(
     elif final_status == "failed":
         failed = _failed_trials(persistence)
         error = f"no trial completed; {failed}" if failed else "no trial completed"
+    persistence.refresh_phase_best(phase)
     best_line = persistence.best_trial(phase)
-    persistence.finalize_session(
+    pointer = persistence.best_pointer(best_line)
+    case_id = persistence.case_id
+    descriptor = persistence.finalize_session(
         status=final_status,
-        best=best_pointer(best_line),
+        best=pointer,
         error=error,
         root_search=root_search,
-        objective_samples=scored_samples(best_line.metrics if best_line is not None else None),
+        scored=scored_samples(
+            None if best_line is None else best_line.cases[case_id].components, case_id=case_id
+        ),
         stop_state=stop_state,
         stopping_rule=stopping_rule,
         stop_note=stop_note,
@@ -1545,9 +1554,12 @@ def promote_and_close(
     return replace(
         report,
         extra=extra,
+        status=final_status,
         promoted=promotion.count,
-        best_sim_id=promotion.best_sim_id,
-        best_rel_dir=promotion.best_rel_dir,
+        cost_name=descriptor.cost_name,
+        cost_label=descriptor.cost_label,
+        best_cases={} if pointer is None else dict(pointer.cases),
+        windows=dict(descriptor.windows),
     )
 
 
@@ -1614,11 +1626,13 @@ def abort_session(persistence: CalibrationPersistence, *, phase: str, error: str
     cut = persistence.phase(phase)
     if cut is not None and cut.status == "running":
         persistence.finish_phase(
-            phase, status="aborted", best=best_pointer(persistence.best_trial(phase))
+            phase, status="aborted", best=persistence.best_pointer(persistence.best_trial(phase))
         )
     pointed = pointer_phase(persistence, phase)
     persistence.finalize_session(
-        status="aborted", best=best_pointer(persistence.best_trial(pointed)), error=error
+        status="aborted",
+        best=persistence.best_pointer(persistence.held_trial(pointed)),
+        error=error,
     )
     return pointed
 
@@ -1627,7 +1641,7 @@ def fail_session(persistence: CalibrationPersistence, *, phase: str, error: str)
     """Write ``failed`` with the error, pointing at the best trial so far."""
     persistence.finalize_session(
         status="failed",
-        best=best_pointer(persistence.best_trial(pointer_phase(persistence, phase))),
+        best=persistence.best_pointer(persistence.held_trial(pointer_phase(persistence, phase))),
         error=error,
     )
 
@@ -1673,6 +1687,8 @@ def closing_session(scope: SessionScope) -> Iterator[SessionScope]:
             fail_session(scope.persistence, phase=scope.phase, error=str(exc))
         raise
     finally:
+        if scope.persistence is not None:
+            scope.persistence.stop_pulse()
         _release_trial_solves(scope.trial_ctx)
         _release_session_scratch(scope.trial_ctx)
 
@@ -1691,7 +1707,8 @@ def abort_and_promote(scope: SessionScope, *, error: str) -> PromotionOutcome:
         override_paths=resolve_override_paths(scope.cfg),
     )
     if promotion.best_sim_id is not None:
-        persistence.set_best(best_pointer(persistence.best_trial(pointed)))
+        persistence.refresh_phase_best(pointed)
+        persistence.set_best(persistence.best_pointer(persistence.held_trial(pointed)))
     for failure in promotion.failures:
         logger.error("Promotion after the interruption failed: %s", failure)
     return promotion
@@ -1795,8 +1812,10 @@ def _with_linearized_width(
     )
 
 
-def describe_dry_run(cfg_path: Path, *, project_root: Path) -> dict[str, Any]:
-    """Return what a calibration would do, without writing anything.
+def describe_dry_run(
+    cfg: CalibrationConfig, cfg_path: Path, *, workspace: Path | str | None = None
+) -> dict[str, Any]:
+    """Return what the calibration of ``cfg`` would do, without writing anything.
 
     The version is the one the session would reserve now
     (:func:`~hydromodpy.results.catalog.registration.next_version_dirname`); the
@@ -1804,7 +1823,7 @@ def describe_dry_run(cfg_path: Path, *, project_root: Path) -> dict[str, Any]:
     """
     from hydromodpy.results.catalog.registration import next_version_dirname
 
-    cfg, _raw = load_toml_calibration(cfg_path)
+    project_root = project_root_for(cfg_path, workspace)
     case = calibration_case_name(cfg_path)
     dirname = next_version_dirname(project_root, case)
     phases = [
@@ -1832,7 +1851,6 @@ def describe_dry_run(cfg_path: Path, *, project_root: Path) -> dict[str, Any]:
         "phases": phases,
         "solves_in_parallel": int(cfg.parallel),
         "save_runs": cfg.save_runs,
-        "dry_run": True,
     }
 
 
@@ -1853,10 +1871,8 @@ def run_calibration_cli(
     workspace: Path | str | None = None,
     project: str | None = None,
     metric_fn: TrialMetricFn | None = None,
-    return_report: bool = False,
     resume: bool = False,
-    dry_run: bool = False,
-) -> dict | object:
+) -> CalibrationReport:
     """Run a calibration described by ``config_path``.
 
     Parameters
@@ -1876,20 +1892,13 @@ def run_calibration_cli(
         of the project root folder.
     metric_fn
         Programmatic override for the metric extractor.
-    return_report
-        When True, return the structured :class:`CalibrationReport`
-        instead of its ``to_dict()`` payload.
     resume
         Reopen the latest session of the case instead of starting a new one;
         the trials already journaled preload the cache.
-    dry_run
-        Describe what would run, write nothing.
     """
     refuse_an_objective_that_is_not_an_entry_point(objective)
     cfg_path = Path(config_path).expanduser().resolve()
     project_root = project_root_for(cfg_path, workspace)
-    if dry_run:
-        return describe_dry_run(cfg_path, project_root=project_root)
     cfg, raw = load_toml_calibration(cfg_path)
     cfg = _with_its_method(cfg)
     space = space_from_config(cfg)
@@ -1958,9 +1967,7 @@ def run_calibration_cli(
                 key: report.extra[key] for key in ("bracket", "roots") if key in report.extra
             },
         )
-    if return_report:
-        return report
-    return report.to_dict()
+    return report
 
 
 def session_method(cfg: CalibrationConfig) -> str:
@@ -1990,13 +1997,15 @@ def refuse_a_phase_another_cost_scored(
         persistence, phase_name, cache_context=cache_context
     )
     if differ:
+        changed = differing_members(
+            persistence.recorded_context(phase_name), context_fingerprints(cache_context)
+        )
         raise CalibrationError(
             f"{persistence.directory.name} holds {len(differ)} trial(s) of phase "
-            f"{phase_name!r} that this document does not score the same way: the model, "
-            "its input files, the outputs, the objective or the scoring window changed "
-            "since they ran. A session keeps one cost, so that its best trial is a fair "
-            "pick. Start a new session (drop --resume or --phase), or give the variant "
-            "its own --case."
+            f"{phase_name!r} that this document does not score the same way: "
+            f"{', '.join(changed) or 'the cost'} changed since they ran. A session keeps "
+            "one cost, so that its best trial is a fair pick. Start a new session (drop "
+            "--resume or --phase), or give the variant its own --case."
         )
     if unchecked:
         logger.warning(
@@ -2029,6 +2038,7 @@ def open_calibration_session(
     persistence = CalibrationPersistence(session_dir)
     if reopened:
         persistence.resume_session()
+        persistence.start_pulse()
         return persistence, True
     freeze_session_config(session_dir, raw, cfg)
     persistence.start_session(
@@ -2039,12 +2049,13 @@ def open_calibration_session(
         config_hash=session_config_hash(raw, trial_ctx),
         hydromodpy_version=HYDROMODPY_VERSION,
         method=session_method(cfg),
-        objective_name=session_objective_name(cfg),
+        cost_name=session_cost_name(cfg),
         # The value the session keeps is the one of its last phase.
-        objective_label=cost_metric_label(cfg, cfg.phases[-1] if cfg.phases else None),
-        search_space=search_space_payload(space),
-        objective_window=objective_window_of(cfg, raw),
+        cost_label=cost_metric_label(cfg, cfg.phases[-1] if cfg.phases else None),
+        bounds=session_bounds(space, case),
+        windows=search_windows(cfg, raw),
     )
+    persistence.start_pulse()
     return persistence, False
 
 
@@ -2076,7 +2087,7 @@ __all__ = [
     "run_one_search",
     "search_status",
     "session_method",
-    "session_objective_name",
+    "session_cost_name",
     "search_stop",
     "session_status_of",
     "write_session_readme",

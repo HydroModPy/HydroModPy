@@ -23,7 +23,7 @@ from hydromodpy.core.exceptions import ConfigError, ResumeError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.project.attempt import AttemptHandle, SealedRun, run_attempt, sealed_run_of
 from hydromodpy.project.run_overrides import override_changes
-from hydromodpy.results.catalog.registration import config_identity_hash
+from hydromodpy.results.catalog.registration import solve_identity_hash
 from hydromodpy.results.storage.attempt import scratch_dir_for_attempt
 
 if TYPE_CHECKING:
@@ -407,7 +407,7 @@ class ProjectRunner:
         site = getattr(getattr(cfg_run, "site", None), "name", None)
         # The identity of this run, computed once: the claim compares it to
         # the one of the previous attempt, the facts of the run record it.
-        config_hash = config_identity_hash(cfg_run) if claims else None
+        config_hash = solve_identity_hash(cfg_run) if claims else None
         bracket = (
             run_attempt(
                 workspace_path,
