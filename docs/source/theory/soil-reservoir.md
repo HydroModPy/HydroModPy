@@ -159,8 +159,8 @@ with $\psi_t = 1$ if $\mathrm{RU} = 0$. The two symbols are
 {toml}`kc|flow.sinks_sources.recharge.soil.kc`, and
 {toml}`ru|flow.sinks_sources.recharge.soil.ru` is the capacity. $\alpha$ is the $1 - p$ of FAO-56 {cite:p}`allen1998` and the $LP$ of HBV
 {cite:p}`seibert2012`, and {cite:t}`manabe1969` has the same form with 0.75. The
-default 0.6 is a choice made here. It means $p = 0.40$, under table 22 of FAO-56 for
-pasture (0.60), cereals and maize (0.55).
+default 0.45 is a choice made here. It means $p = 0.55$, the value of table 22 of FAO-56
+for cereals and maize (0.60 for pasture).
 
 ### 4. Overflow
 
@@ -235,7 +235,7 @@ In the code: `soil_step`.
 ## Three days, by hand
 
 The numbers below come from one call of `soil_step`, {eq}`eq-soil-wetness` to
-{eq}`eq-soil-column`, for each day, with $\mathrm{RU} = 150$ mm, $\alpha = 0.6$, $k_c = 1$,
+{eq}`eq-soil-column`, for each day, with $\mathrm{RU} = 150$ mm, $\alpha = 0.45$, $k_c = 1$,
 $f = b = \tau = 0$. The last day adds a curve number of 80 with $\tau_q = 0$. Its store is
 full, so $w = 1$ and $\sigma$ is the retention at the wet number, $\mathrm{CN}_\mathrm{III} = 90.2$.
 
@@ -243,12 +243,12 @@ full, so $w = 1$ and $\sigma$ is the retention at the wet number, $\mathrm{CN}_\
 |---|---|---|---|
 | $S_{t-1}$ (mm) | 40 | 145 | 150 |
 | $P_t$, $E_t$ (mm/day) | 0, 4 | 30, 3 | 30, 3 |
-| What happens | $W = 40$ is below $\alpha\,\mathrm{RU} = 90$, so $\psi = 0.444$ | $W = 175$, evaporation 3, $175 - 3 - 150 = 22$ leaves | $w = 1$, $\sigma = 27.6$, $Q = 11.50$, then $W = 168.50$ |
-| ETR (mm/day) | 1.78 | 3.00 | 3.00 |
+| What happens | $W = 40$ is below $\alpha\,\mathrm{RU} = 67.5$, so $\psi = 0.593$ | $W = 175$, evaporation 3, $175 - 3 - 150 = 22$ leaves | $w = 1$, $\sigma = 27.6$, $Q = 11.50$, then $W = 168.50$ |
+| ETR (mm/day) | 2.37 | 3.00 | 3.00 |
 | Recharge $N_t$ (mm/day) | 0 | 22.00 | 15.50 |
 | Runoff (mm/day) | 0 | 0 | 11.50 |
-| $S_t$ (mm) | 38.22 | 150 | 150 |
-| Residual ETP (mm/day) | 2.22 | 0 | 0 |
+| $S_t$ (mm) | 37.63 | 150 | 150 |
+| Residual ETP (mm/day) | 1.63 | 0 | 0 |
 
 On the third day, $30 = 3.00 + 15.50 + 11.50$: the balance closes with no
 change of store.
@@ -307,7 +307,7 @@ recharge falls as the capacity grows.
 
 ```{eval-rst}
 .. plot:: theory/figures/soil_ru_response.py
-   :alt: Mean annual recharge and evapotranspiration against the soil capacity, from 0 to 300 mm. Recharge falls from about 670 to 300 mm per year, evapotranspiration rises from about 230 to 600; the rain is 904 mm per year.
+   :alt: Mean annual recharge and evapotranspiration against the soil capacity, from 0 to 300 mm. Recharge falls from about 670 to 275 mm per year, evapotranspiration rises from about 235 to 630; the rain is 904 mm per year.
 
    Recharge and evapotranspiration against :math:`\mathrm{RU}`, from
    ``spinup_state`` and ``run_soil_balance`` on a synthetic six-year climate
@@ -320,10 +320,10 @@ Example 04 prints the same ladder on its own forcing, the SIM2 rain and ETP of
 
 | $\mathrm{RU}$ (mm) | 50 | 100 | 150 | 200 | 250 |
 |---|---|---|---|---|---|
-| Recharge (mm/year) | 450 | 399 | 364 | 333 | 304 |
+| Recharge (mm/year) | 443 | 389 | 350 | 315 | 280 |
 
 Over the same days the rain is 911 mm/year, the ETP 693 mm/year and the gauged
-discharge 327 mm/year. From 50 to 250 mm the recharge loses a third, and the
+discharge 327 mm/year. From 50 to 250 mm the recharge loses more than a third, and the
 discharge alone does not fix the capacity. The soil map of Brittany gives 100 to
 200 mm on schist and granite {cite:p}`berthier2013`, and {cite:t}`dewandel2020` take
 125 mm on this catchment. To set the capacity, see
@@ -393,7 +393,7 @@ not a systematic review.
   keeps draining slowly. A calibrated bypass often stands in for that slow drainage
   {cite:p}`ireson2013`. On the rain and ETP of example 04, 2015-2020, bypass shares
   of 0.1 and 0.2 give 0.18 and 0.36 mm/day of recharge from July to September, for
-  0.006 at the default. So a bypass rebuilds the summer floor of the SIM2 drainage,
+  0.000 at the default. So a bypass rebuilds the summer floor of the SIM2 drainage,
   and it stays at 0 unless the site shows preferential flow.
 - **The neutral value of $k_c$.** $k_c$ scales the loaded ETP, so $k_c = 1$ is neutral
   only if the surface of that ETP looks like the site. The attribute dictionaries of
@@ -459,7 +459,7 @@ A soil section that uses the curve-number branch. Its keys link to their card.
 ```{hmp-toml}
 [flow.sinks_sources.recharge.soil]
 ru = "150 mm"
-alpha = 0.6
+alpha = 0.45
 kc = 1.0
 impervious_fraction = 0.02
 bypass_fraction = 0.0

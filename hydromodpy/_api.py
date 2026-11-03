@@ -132,14 +132,15 @@ def open(path: PathLike) -> Project | Run | Session | Workspace:
     if not target.exists():
         raise FileNotFoundError(f"{target} does not exist")
     if target.is_dir():
+        # A session carries an outcome.json of its own, so it is told first.
+        if session_descriptor_path(target).is_file():
+            return Session(target)
         holds_a_run = any(
             (target / name).is_file() for name in (RUN_MANIFEST_FILENAME, RUN_OUTCOME_FILENAME)
         )
         if holds_a_run:
             # A run copied out of its project reads from its own seal and files.
             return open_run_dir(target)
-        if session_descriptor_path(target).is_file():
-            return Session(target)
         if not (target / PROJECT_MARKER_FILENAME).is_file() and is_workspace_root(target):
             return Workspace(target)
     root = resolve_project_root(target.parent if target.is_file() else target)

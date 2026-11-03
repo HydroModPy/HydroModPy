@@ -8,7 +8,7 @@ description = "Synthetic steady-state unconfined flow with fixed heads, linear t
 
 [[simulation.process]]
 id = "flow_validation"
-type = "flow"
+kind = "flow"
 solvers = ["modflow_nwt"]
 
 [geographic]
@@ -34,10 +34,11 @@ right_to_left_amplitude = 2.0
 kind = "constant_thickness"
 thickness = "30.0 m"
 
+[domain.layers]
+nlay = 1
+
 [flow]
 flow_regime = "steady"
-active_sinks_sources = []
-active_bc = ["west_side", "east_side", "drainage"]
 param_list = ["K"]
 
 [flow.param.K.field]
@@ -46,7 +47,7 @@ kind = "homogeneous"
 value = "1e-4 m/s"
 
 [flow.ic]
-type = "custom"
+kind = "custom"
 value = "6.25 m"
 
 [flow.bc.west_side]
@@ -59,16 +60,13 @@ value = "5.25 m"
 
 [flow.bc.drainage]
 application_domain = "top"
-kind = "cauchy"
+kind = "drain"
 # No conductance: each drain takes C = K * cell_area / solver.drain_bed_thickness_m,
 # a leakance K / b per unit area that is the same on every mesh.
 
 [solver]
 # Leakance K / b = 1e-4 / 40 = 2.5e-6 1/s.
 drain_bed_thickness_m = 40.0
-
-[modflownwt.sgrid.vertical]
-nlay = 1
 
 [display]
 enabled = false

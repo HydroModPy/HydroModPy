@@ -13,9 +13,6 @@ solvers = ["modflow6"]
 mf_verbose = false
 mf6_ims_complexity = "COMPLEX"
 
-[modflow6.sgrid.vertical]
-nlay = 1
-
 [geographic.synthetic.grid]
 xmin = 265400.0
 ymin = 6784100.0
@@ -23,3 +20,7 @@ ymin = 6784100.0
 [mesh]
 engine = "voronoi"
 cell_size = 10.0
+
+[domain.layers]
+nlay = 1
+

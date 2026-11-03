@@ -15,13 +15,6 @@ mf6_preconditioner_drop_tolerance = 0.0
 [modflow6.process_specific]
 vka = 1.0
 
-[modflow6.sgrid.vertical]
-nlay = 1
-
-# A 2.5 m raster (160 x 12) under the 10 m columns of the structured grids: a
-# linear surface is flat past the centre of the end raster columns, 1.25 m from
-# the faces. The surface is 5.0 m, the outlet head, at the held cells: at the mean centroid of the two boundary
-# triangles of the east face, x = 398.29 m.
 [geographic.synthetic.grid]
 length_x = "400.0 m"
 length_y = "30.0 m"
@@ -37,3 +30,11 @@ engine = "triangle"
 
 [mesh.triangle]
 path = "../../steady/boussinesq_hillslope_interception_1d/mesh_bundles/boussinesq_hillslope_interception_irregular_tri_400x30/mesh_2d.msh"
+
+[domain.layers]
+nlay = 1
+
+# A 2.5 m raster (160 x 12) under the 10 m columns of the structured grids: a
+# linear surface is flat past the centre of the end raster columns, 1.25 m from
+# the faces. The surface is 5.0 m, the outlet head, at the held cells: at the mean centroid of the two boundary
+# triangles of the east face, x = 398.29 m.

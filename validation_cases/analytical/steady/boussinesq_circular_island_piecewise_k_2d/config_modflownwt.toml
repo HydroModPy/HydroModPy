@@ -14,7 +14,7 @@ coverage_policy = "ignore"
 
 [[simulation.process]]
 id = "flow_validation"
-type = "flow"
+kind = "flow"
 solvers = ["modflow_nwt"]
 
 [geographic]
@@ -47,6 +47,9 @@ labels = ["inner_ring", "middle_ring", "outer_ring"]
 kind = "flat_substratum"
 substratum_elevation = -5.0
 
+[domain.layers]
+nlay = 1
+
 [data]
 types = ["oceanic", "recharge"]
 inference_mode = "strict"
@@ -58,8 +61,6 @@ value = 0.0
 
 [flow]
 flow_regime = "steady"
-active_sinks_sources = ["recharge"]
-active_bc = ["ocean"]
 param_list = ["K"]
 
 [flow.param.K.field]
@@ -70,7 +71,7 @@ values = { inner_ring = "8e-6 m/s", middle_ring = "4e-6 m/s", outer_ring = "1e-5
 field_spatial_id = "k_rings"
 
 [flow.ic]
-type = "custom"
+kind = "custom"
 value = "1.0 m"
 
 [flow.bc.ocean]
@@ -83,9 +84,6 @@ first_clim = "mean"
 [[data.recharge.sources]]
 source = "synthetic"
 values = [1.0]
-
-[modflownwt.sgrid.vertical]
-nlay = 1
 
 [display]
 enabled = false

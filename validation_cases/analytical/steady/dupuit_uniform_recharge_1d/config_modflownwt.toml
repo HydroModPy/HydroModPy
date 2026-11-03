@@ -8,7 +8,7 @@ description = "Synthetic steady-state unconfined flow with uniform recharge and 
 
 [[simulation.process]]
 id = "flow_validation"
-type = "flow"
+kind = "flow"
 solvers = ["modflow_nwt"]
 
 [geographic]
@@ -33,10 +33,11 @@ base_elevation = 20.0
 kind = "constant_thickness"
 thickness = "20.0 m"
 
+[domain.layers]
+nlay = 1
+
 [flow]
 flow_regime = "steady"
-active_sinks_sources = ["recharge"]
-active_bc = ["west_side", "east_side"]
 param_list = ["K"]
 
 [flow.param.K.field]
@@ -45,7 +46,7 @@ kind = "homogeneous"
 value = "1e-4 m/s"
 
 [flow.ic]
-type = "custom"
+kind = "custom"
 value = "5.0 m"
 
 [flow.bc.west_side]
@@ -66,9 +67,6 @@ inference_mode = "warn"
 [[data.recharge.sources]]
 source = "synthetic"
 values = [3.0]
-
-[modflownwt.sgrid.vertical]
-nlay = 1
 
 [display]
 enabled = false

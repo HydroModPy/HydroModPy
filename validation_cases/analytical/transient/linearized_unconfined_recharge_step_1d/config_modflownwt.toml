@@ -14,7 +14,7 @@ coverage_policy = "ignore"
 
 [[simulation.process]]
 id = "flow_validation"
-type = "flow"
+kind = "flow"
 solvers = ["modflow_nwt"]
 
 [geographic]
@@ -39,11 +39,17 @@ base_elevation = 20.0
 kind = "constant_thickness"
 thickness = "20.0 m"
 
+[domain.layers]
+nlay = 1
+
+# The NWT closures are absolute, in m and m3/s. The defaults (1e-4 m, 500
+# m3/day = 5.8e-3 m3/s) are fifty times this model's whole recharge
+# (1.2e-4 m3/s), so NWT stopped with a residual worth 1.5 per cent of the flow
+# in the first days of the step. A twin trial is rejected above 1 per cent.
+# These closures bring every step of the listing to 0.00 per cent.
 [flow]
 first_period_steady = false
 flow_regime = "transient"
-active_sinks_sources = ["recharge"]
-active_bc = ["west_side", "east_side"]
 param_list = ["K", "Ss", "Sy"]
 
 [flow.param.K.field]
@@ -62,7 +68,7 @@ kind = "homogeneous"
 value = "0.10 -"
 
 [flow.ic]
-type = "custom"
+kind = "custom"
 value = "10.0 m"
 
 [flow.bc.west_side]
@@ -85,14 +91,6 @@ inference_mode = "warn"
 source = "synthetic"
 values = [10.0]
 
-[modflownwt.sgrid.vertical]
-nlay = 1
-
-# The NWT closures are absolute, in m and m3/s. The defaults (1e-4 m, 500
-# m3/day = 5.8e-3 m3/s) are fifty times this model's whole recharge
-# (1.2e-4 m3/s), so NWT stopped with a residual worth 1.5 per cent of the flow
-# in the first days of the step. A twin trial is rejected above 1 per cent.
-# These closures bring every step of the listing to 0.00 per cent.
 [modflownwt.runtime.nwt]
 headtol = 1e-9
 fluxtol = 1e-10

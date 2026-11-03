@@ -167,9 +167,9 @@ def apply_etp_load_result_to_flow(
     The runtime keeps any user-defined ETP policy (``surface_offset``,
     ``extinction_depth``, ``first_clim``, ``spatial_mode``, etc.) when
     a base ``flow.sinks_sources['etp']`` already exists; otherwise the
-    typed config is created from scratch with sensible defaults that
-    reproduce the legacy behaviour (``DEM - 2 m`` ET surface, 1 m
-    extinction depth). ``from_soil_reservoir=True`` is what the soil
+    typed config is created from scratch with the defaults of the table
+    (``DEM - 2 m`` ET surface, 2 m extinction depth).
+    ``from_soil_reservoir=True`` is what the soil
     binder passes: the EVT surface defaults to 0 m below the drain
     elevation instead of 2 m below the topographic surface, unless the
     file wrote ``surface_offset`` itself, and the returned config is
@@ -190,7 +190,7 @@ def apply_etp_load_result_to_flow(
     spatial_mode = "auto"
     interpolation_method = "nearest"
     surface_offset = 0.0 if from_soil_reservoir else 2.0
-    extinction_depth = 1.0
+    extinction_depth = 2.0
     if etp_cfg is not None:
         first_clim = getattr(etp_cfg, "first_clim", first_clim)
         spatial_mode = getattr(etp_cfg, "spatial_mode", spatial_mode)

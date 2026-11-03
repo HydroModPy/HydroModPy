@@ -90,9 +90,7 @@ def run_boussinesq_stream_depletion_case(
     flow_section = boussinesq_variant_flow_section(
         {
             "flow_regime": "transient",
-            "ic": {"type": "custom", "value": base_head_m},
-            "active_sinks_sources": ["wells"],
-            "active_bc": ["west_side"],
+            "ic": {"kind": "custom", "value": base_head_m},
             "sinks_sources": {
                 "wells": {
                     "P1": {

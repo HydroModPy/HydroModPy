@@ -98,12 +98,12 @@ The check ends with this table:
 mm/year                   mean   2016 least rain   2019 most rain
 precipitation            911.4             797.3           1032.8
 ETP                      692.5             634.9            724.1
-ETR                      547.8             510.6            526.3
-recharge to MODFLOW      363.6             296.9            505.6
+ETR                      561.2             522.1            536.9
+recharge to MODFLOW      350.1             296.9            495.0
 ...
-unmet ETP 144.7 mm/year, offered to EVT: the water table gives it only where it is shallow
-recharge July-September: 0.006 mm/day
-recharge for other ru, mm/year: 50 mm 449.9 | 100 mm 399.3 | 150 mm 363.6 | 200 mm 332.5 | 250 mm 304.0
+unmet ETP 131.3 mm/year, offered to EVT: the water table gives it only where it is shallow
+recharge July-September: 0.000 mm/day
+recharge for other ru, mm/year: 50 mm 443.0 | 100 mm 388.8 | 150 mm 350.1 | 200 mm 314.5 | 250 mm 280.2
 gauged discharge NANCON: 326.5 mm/year on 2192 of 2192 days, catchment 64.62 km2
 ```
 
@@ -148,7 +148,7 @@ The value first came from matching the SIM2 drainage plus runoff over 2015-2020,
 window holds the step of the SIM2 drainage, so the match proves nothing. Its other soil
 parameters keep their defaults. The ETP that the soil could not
 meet is offered to the water table, which evaporates it where it is shallow: the rate is
-full at the drain elevation and falls to zero {toml}`1 m below it|flow.sinks_sources.etp.extinction_depth`.
+full at the drain elevation and falls to zero {toml}`2 m below it|flow.sinks_sources.etp.extinction_depth`.
 
 Previous: {doc}`step5`. To see how the soil reservoir works, read {doc}`../../theory/soil-reservoir`.
 K and Sy by zone are keys of {doc}`[flow.param] <../../reference/parameters/flow/param>`.

@@ -101,9 +101,7 @@ def run_boussinesq_hantush_recharge_mound_case(
     flow_section = boussinesq_variant_flow_section(
         {
             "flow_regime": "transient",
-            "ic": {"type": "custom", "value": initial_head_m},
-            "active_sinks_sources": ["recharge"],
-            "active_bc": ["west_side", "east_side", "north_side", "south_side"],
+            "ic": {"kind": "custom", "value": initial_head_m},
             "sinks_sources": {
                 "recharge": {
                     "heterogeneous_source": recharge_source,

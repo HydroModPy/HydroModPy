@@ -333,8 +333,6 @@ def _apply_transient_payload(
     flow["param"] = param
     flow["param_list"] = ["K", "Ss", "Sy"]
     flow["flow_regime"] = "transient"
-    flow["active_sinks_sources"] = ["recharge"]
-    flow["active_bc"] = ["east_side", "drainage"]
     flow["ic"] = {"kind": "custom", "value": f"{INITIAL_HEAD_M:.6f} m"}
     flow["sinks_sources"] = {"recharge": {"first_clim": "first"}}
 
@@ -729,8 +727,6 @@ def _run_boussinesq(
             "runtime_max_iterations": runtime_max_iterations,
             "runtime_tol_residual_inf": runtime_tol_residual_inf,
             "ic": {"kind": "custom", "value": INITIAL_HEAD_M},
-            "active_sinks_sources": ["recharge"],
-            "active_bc": ["east_side", "drainage"],
             "sinks_sources": {
                 "recharge": {
                     "values": recharge_series_m_s,

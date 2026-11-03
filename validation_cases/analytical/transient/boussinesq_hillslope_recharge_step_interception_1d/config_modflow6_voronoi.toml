@@ -15,13 +15,6 @@ mf6_preconditioner_drop_tolerance = 0.0
 [modflow6.process_specific]
 vka = 1.0
 
-[modflow6.sgrid.vertical]
-nlay = 1
-
-# A 2.5 m raster (160 x 12) under the 10 m columns of the structured grids: a
-# linear surface is flat past the centre of the end raster columns, 1.25 m from
-# the faces. The surface is 5.0 m, the outlet head, at the held cells: on the nodes of the east
-# face, x = 400 m.
 [geographic.synthetic.grid]
 length_x = "400.0 m"
 length_y = "30.0 m"
@@ -40,3 +33,11 @@ path = "../../steady/boussinesq_hillslope_interception_1d/mesh_bundles/boussines
 
 [mesh.voronoi]
 seeds = "triangulation"
+
+[domain.layers]
+nlay = 1
+
+# A 2.5 m raster (160 x 12) under the 10 m columns of the structured grids: a
+# linear surface is flat past the centre of the end raster columns, 1.25 m from
+# the faces. The surface is 5.0 m, the outlet head, at the held cells: on the nodes of the east
+# face, x = 400 m.

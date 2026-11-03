@@ -115,9 +115,7 @@ def run_boussinesq_hillslope_sloping_substratum_case(
                 "max_iterations": 80,
                 "tol_residual_inf": 1.0e-7,
             },
-            "ic": {"type": "custom", "value": INITIAL_HEAD_M},
-            "active_sinks_sources": ["recharge"],
-            "active_bc": ["east_side", "drainage"],
+            "ic": {"kind": "custom", "value": INITIAL_HEAD_M},
             "sinks_sources": {
                 "recharge": {
                     "values": recharge_series_m_s,

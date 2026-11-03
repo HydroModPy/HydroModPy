@@ -136,7 +136,7 @@ sha256 = "943c7c12f9988dee094a871b60b556f12aa85f7ff3cf845c6f09d549d8f3376d"
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/step6_soil_reservoir.toml"
 dest = "projects/04_streamflow_intermittence_in_transient/step6_soil_reservoir.toml"
 size = 4672
-sha256 = "422e4ea82d88999a6f112e6c03ffeaa38dd7fc5db1cf52db8cf6b0b9b4cd7b0f"
+sha256 = "5378db95a97e47d73f63a250b31ba72553e987bec38730705e08b94d0a338c60"
 
 [[example.data]]
 repo_path = "examples/data/dem/DEM_armorican_massif.tif"

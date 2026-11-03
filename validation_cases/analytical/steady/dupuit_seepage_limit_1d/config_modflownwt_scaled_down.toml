@@ -1,12 +1,13 @@
 [[simulation.process]]
 solvers = ["modflow_nwt"]
 
-[modflownwt.sgrid.vertical]
-nlay = 1
-
 [flow.param.K.field]
 value = "2.5e-6 m/s"
 
 [[data.recharge.sources]]
 source = "synthetic"
 values = [0.0864]
+
+[domain.layers]
+nlay = 1
+

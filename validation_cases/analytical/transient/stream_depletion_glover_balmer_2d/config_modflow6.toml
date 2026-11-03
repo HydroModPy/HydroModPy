@@ -8,5 +8,5 @@ mf6_outer_dvclose = 1e-9
 mf6_inner_dvclose = 1e-10
 mf6_inner_rclose = 1e-10
 
-[modflow6.sgrid.vertical]
+[domain.layers]
 nlay = 1

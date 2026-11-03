@@ -79,7 +79,7 @@ ru = "150 mm"
 
 # The ETP the soil left unmet is offered to the water table, which
 # evaporates it where it is shallow: the rate is full at the drain elevation
-# and falls to zero 1 m below it (extinction_depth).
+# and falls to zero 2 m below it (extinction_depth).
 [flow.sinks_sources.etp]
 
 # A figure that fails is logged and the run goes on.

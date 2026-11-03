@@ -5,5 +5,5 @@ solvers = ["modflow6"]
 mf_verbose = false
 mf6_ims_complexity = "COMPLEX"
 
-[modflow6.sgrid.vertical]
+[domain.layers]
 nlay = 1

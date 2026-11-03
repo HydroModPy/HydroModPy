@@ -460,7 +460,7 @@ def build_soil_evta_payload(
     band_term = 0.5 * band_depth if drain_active and band_depth > 0.0 else 0.0
     surface_offset_m = float(getattr(model, "_soil_evt_surface_offset_m", 0.0))
     surface = top_flat - band_term - surface_offset_m
-    depth = float(getattr(model, "_soil_evt_extinction_depth_m", 1.0))
+    depth = float(getattr(model, "_soil_evt_extinction_depth_m", 2.0))
     return rate_payload, surface, depth
 
 

@@ -15,11 +15,6 @@ mf6_inner_rclose = 1e-10
 [modflow6.process_specific]
 vka = 1.0
 
-[modflow6.sgrid.vertical]
-nlay = 1
-
-# The well is a node of the mesh: the triangle that holds it is the one the
-# run locates, and the comparison reads its centroid.
 [flow.sinks_sources.wells.P1]
 units = "m3/day"
 description = "Pumping well 100 m from the stream, on the refined triangle mesh"
@@ -39,3 +34,9 @@ engine = "triangle"
 
 [mesh.triangle]
 path = "../../../shared/mesh_bundles/stream_depletion_glover_balmer_tri_refined_well/mesh_2d.msh"
+
+[domain.layers]
+nlay = 1
+
+# The well is a node of the mesh: the triangle that holds it is the one the
+# run locates, and the comparison reads its centroid.

@@ -174,7 +174,7 @@ def test_a_run_reads_back_with_its_values(project: Path, name: str) -> None:
         expected["n_layers"],
         expected["n_timesteps"],
     )
-    assert run.params == expected["parameters"]
+    assert run.parameters["value"].to_dict() == expected["parameters"]
     assert run.label().label == label
     assert run.checks.budget_pct == expected["budget_pct"]
     assert run.inputs == []
@@ -247,7 +247,7 @@ def test_the_frozen_demo_holds_the_physics_of_the_demo(project: Path) -> None:
     assert abs(recharge - budget.loc["drain", "flux_out"]) / recharge < BUDGET_CLOSURE
 
     head = run.field("head")[0].reshape(20, 20)
-    assert run.params["K"] == 1.0e-4
+    assert run.parameters.loc["K", "value"] == 1.0e-4
     assert head[:, 0].mean() - head[:, -1].mean() == pytest.approx(
         dupuit_mound_m(1.0e-4), rel=MOUND_RTOL
     )

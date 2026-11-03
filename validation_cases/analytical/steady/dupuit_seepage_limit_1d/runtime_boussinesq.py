@@ -188,8 +188,6 @@ def run_boussinesq_seepage_limit_case(
     flow_section = boussinesq_variant_flow_section(
         {
             "flow_regime": "steady",
-            "active_sinks_sources": ["recharge"],
-            "active_bc": [],
             "sinks_sources": {
                 "recharge": {"values": recharge, "first_clim": "mean", "units": "m/s"}
             },

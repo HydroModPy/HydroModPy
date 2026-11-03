@@ -82,14 +82,14 @@ class SoilReservoirConfig(HydroModelBase):
         examples=["150 mm"],
     )
     alpha: Annotated[float, Profile.USER] = Field(
-        default=0.6,
+        default=0.45,
         gt=0.0,
         le=1.0,
         description=(
             "Share of ru above which the soil evaporates at the full rate kc x ETP. "
             "Below alpha x ru, ETR falls linearly with the stored water. It is 1 - p "
-            "of FAO-56 and LP of HBV. The default 0.6 is a choice: it means p = 0.40, "
-            "under FAO-56 table 22 for pasture (0.60), cereals and maize (0.55). Above "
+            "of FAO-56 and LP of HBV. The default 0.45 is a choice: it means p = 0.55, "
+            "the value of FAO-56 table 22 for cereals and maize (pasture 0.60). Above "
             "0, at most 1. Kept fixed by default: on the discharge alone it trades off "
             "with ru, since both move the annual volume."
         ),
@@ -264,7 +264,7 @@ class SoilReservoirConfig(HydroModelBase):
             raise ValueError(
                 f"alpha = {value:g}: alpha is the share of ru above which the soil "
                 "evaporates at the full rate kc x ETP, above 0 and at most 1. Write a "
-                "value such as 0.6."
+                "value such as 0.45."
             )
         return value
 

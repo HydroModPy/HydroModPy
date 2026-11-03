@@ -407,15 +407,6 @@ def write_piecewise_strip_launcher_config(
     With ``runtime_backend=None`` the ``[flow]`` table has no runtime key, so
     the run gets the default engine of the library.
     """
-    active_bc: list[str] = []
-    if west_head_m is not None:
-        active_bc.append("west_side")
-    if east_head_m is not None:
-        active_bc.append("east_side")
-    active_sinks_sources: list[str] = []
-    if recharge_rate_m_s is not None:
-        active_sinks_sources.append("recharge")
-
     runtime_lines: list[str] = []
     if runtime_backend is not None:
         runtime_flow = {
@@ -499,12 +490,10 @@ def write_piecewise_strip_launcher_config(
         "[flow]",
         'flow_regime = "steady"',
         'param_list = ["K"]',
-        f"active_sinks_sources = [{', '.join(json.dumps(item) for item in active_sinks_sources)}]",
-        f"active_bc = [{', '.join(json.dumps(item) for item in active_bc)}]",
         "",
         *runtime_lines,
         "[flow.ic]",
-        'type = "custom"',
+        'kind = "custom"',
         f"value = {float(initial_head_m):.12g}",
         "",
         "[flow.param.K.field]",

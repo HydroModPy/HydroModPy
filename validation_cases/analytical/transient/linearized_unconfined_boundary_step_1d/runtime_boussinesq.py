@@ -44,9 +44,7 @@ def run_boussinesq_linearized_unconfined_boundary_step_case(
         "runtime": {
             "backend": str(runtime_backend),
         },
-        "ic": {"type": "custom", "value": base_head_m},
-        "active_sinks_sources": [],
-        "active_bc": ["west_side", "east_side"],
+        "ic": {"kind": "custom", "value": base_head_m},
         "bc": {
             "west_side": {"value": float(reference_cfg["west_head_m"])},
             "east_side": {"value": base_head_m},

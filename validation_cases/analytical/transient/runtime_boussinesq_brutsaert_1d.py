@@ -127,9 +127,7 @@ def run_boussinesq_brutsaert_recession_case(
             boussinesq_variant_flow_section(
                 {
                     "flow_regime": "steady",
-                    "ic": {"type": "custom", "value": float(east_head_m)},
-                    "active_sinks_sources": ["recharge"],
-                    "active_bc": ["east_side"],
+                    "ic": {"kind": "custom", "value": float(east_head_m)},
                     "sinks_sources": {
                         "recharge": {
                             "values": _mm_day_to_m_s(steady_recharge_mm_day),
@@ -178,8 +176,7 @@ def run_boussinesq_brutsaert_recession_case(
                     "runtime": {
                         "ts_vi_steps_per_period": 1,
                     },
-                    "ic": {"type": "custom", "value": float(east_head_m)},
-                    "active_bc": ["east_side"],
+                    "ic": {"kind": "custom", "value": float(east_head_m)},
                     "bc": {
                         "east_side": {"value": float(east_head_m)},
                     },
@@ -262,13 +259,15 @@ def run_boussinesq_brutsaert_recession_case(
         "steady_residual_norm_inf": float(steady_residual),
         "acceptable_steady_residual_inf": float(acceptable_steady_residual_inf),
         "steady_runtime_backend": str(steady_model.runtime_summary.get("runtime_backend")),
-        "steady_surface_interaction_model": str(steady_model.flow.config.surface_interaction_model),
+        "steady_surface_interaction_model": str(
+            steady_model.flow.config.runtime.surface_interaction_model
+        ),
         "transient_runtime_backend": str(transient_model.runtime_summary.get("runtime_backend")),
         "transient_time_steps_per_period": int(
             transient_model.runtime_summary.get("time_steps_per_period", 1)
         ),
         "transient_surface_interaction_model": str(
-            transient_model.flow.config.surface_interaction_model
+            transient_model.flow.config.runtime.surface_interaction_model
         ),
         "nx": int(nx),
         "ny": int(ny),

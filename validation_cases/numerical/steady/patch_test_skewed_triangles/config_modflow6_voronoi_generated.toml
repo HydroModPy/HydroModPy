@@ -16,9 +16,6 @@ mf6_inner_dvclose = 1e-10
 mf6_inner_rclose = 1e-10
 mf_verbose = false
 
-[modflow6.sgrid.vertical]
-nlay = 1
-
 [mesh]
 engine = "voronoi"
 cell_size = 10.0
@@ -28,6 +25,9 @@ kind = "generated_bands"
 coordinate_mode = "relative"
 breaks = [0.5]
 labels = ["west_half", "east_half"]
+
+[domain.layers]
+nlay = 1
 
 [flow.param.K.field]
 id = "K"

@@ -562,8 +562,6 @@ def _run_boussinesq_irregular(*, timeout: int) -> ValidationRunResult:
         "runtime_max_iterations": 80,
         "runtime_tol_residual_inf": 1.0e-7,
         "ic": {"kind": "custom", "value": INITIAL_HEAD_M},
-        "active_sinks_sources": ["recharge"],
-        "active_bc": ["east_side", "drainage"],
         "sinks_sources": {
             "recharge": {
                 "values": [mm_day_to_m_s(float(value)) for value in RECHARGE_SERIES_MM_DAY],

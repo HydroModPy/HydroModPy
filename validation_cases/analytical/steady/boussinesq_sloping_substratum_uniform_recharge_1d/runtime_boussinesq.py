@@ -71,12 +71,10 @@ def run_boussinesq_sloping_substratum_uniform_recharge_case(
                 "surface_interaction_model": "vi_obstacle",
             },
             "ic": {
-                "type": "custom",
+                "kind": "custom",
                 "value": 0.5
                 * (float(reference_cfg["west_head"]) + float(reference_cfg["east_head"])),
             },
-            "active_sinks_sources": ["recharge"],
-            "active_bc": ["west_side", "east_side"],
             "sinks_sources": {
                 "recharge": {
                     "values": _mm_day_to_m_s(float(reference_cfg["recharge_mm_day"])),

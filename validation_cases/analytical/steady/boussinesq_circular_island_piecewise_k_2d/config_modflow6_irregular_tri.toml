@@ -12,9 +12,6 @@ mf6_ims_complexity = "COMPLEX"
 [modflow6.process_specific]
 vka = 1.0
 
-[modflow6.sgrid.vertical]
-nlay = 1
-
 [geographic.synthetic.grid]
 xmin = 265400.0
 ymin = 6784100.0
@@ -24,3 +21,7 @@ engine = "triangle"
 
 [mesh.triangle]
 path = "../../../shared/mesh_bundles/boussinesq_circular_island_piecewise_k_irregular_tri_radial_48/mesh_2d.msh"
+
+[domain.layers]
+nlay = 1
+

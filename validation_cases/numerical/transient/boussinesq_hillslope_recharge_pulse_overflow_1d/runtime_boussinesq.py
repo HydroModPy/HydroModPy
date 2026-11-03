@@ -383,9 +383,7 @@ def run_boussinesq_hillslope_overflow_case(
         "flow_regime": "transient",
         # The pulse starts from the initial head, not from a steady state.
         "first_period_steady": False,
-        "ic": {"type": "custom", "value": float(geometry_cfg["initial_head_m"])},
-        "active_sinks_sources": ["recharge"],
-        "active_bc": ["east_side"],
+        "ic": {"kind": "custom", "value": float(geometry_cfg["initial_head_m"])},
         "sinks_sources": {
             "recharge": {
                 "values": [mm_day_to_m_s(float(value)) for value in recharge_mm_day],
@@ -402,7 +400,6 @@ def run_boussinesq_hillslope_overflow_case(
     }
     drainage_conductance_m2_s = geometry_cfg.get("drainage_conductance_m2_s", None)
     if drainage_conductance_m2_s is not None and float(drainage_conductance_m2_s) > 0.0:
-        flow_section["active_bc"] = ["east_side", "drainage"]
         flow_section["bc"]["cauchy"] = {
             "drainage": {
                 "application_domain": "top",

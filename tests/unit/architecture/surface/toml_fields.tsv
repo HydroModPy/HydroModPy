@@ -753,7 +753,7 @@ flow.runtime.vi_substeps_per_period	int	1	experimental
 flow.sinks_sources	table	<table>	stable
 flow.sinks_sources.etp	table | None	None	stable
 flow.sinks_sources.etp.enabled	bool	True	stable
-flow.sinks_sources.etp.extinction_depth	float	1.0	stable
+flow.sinks_sources.etp.extinction_depth	float	2.0	stable
 flow.sinks_sources.etp.first_clim	str | float	'mean'	stable
 flow.sinks_sources.etp.heterogeneous_source	Any	None	stable
 flow.sinks_sources.etp.interpolation_method	Literal['nearest', 'linear', 'idw', 'area']	'nearest'	stable
@@ -1004,7 +1004,7 @@ flow.sinks_sources.recharge.heterogeneous_source	Any	None	stable
 flow.sinks_sources.recharge.interpolation_method	Literal['nearest', 'linear', 'idw', 'area']	'nearest'	stable
 flow.sinks_sources.recharge.negative_to_evt	bool	True	stable
 flow.sinks_sources.recharge.soil	table | None	None	stable
-flow.sinks_sources.recharge.soil.alpha	float	0.6	experimental
+flow.sinks_sources.recharge.soil.alpha	float	0.45	experimental
 flow.sinks_sources.recharge.soil.bypass_fraction	float	0.0	experimental
 flow.sinks_sources.recharge.soil.curve_number	float | None	None	experimental
 flow.sinks_sources.recharge.soil.impervious_fraction	float	0.0	experimental

@@ -46,9 +46,7 @@ def run_boussinesq_dupuit_fixed_head_case(
         "runtime": {
             "backend": str(runtime_backend),
         },
-        "ic": {"type": "custom", "value": 0.5 * (west_head_m + east_head_m)},
-        "active_sinks_sources": [],
-        "active_bc": ["west_side", "east_side"],
+        "ic": {"kind": "custom", "value": 0.5 * (west_head_m + east_head_m)},
         "bc": {
             "west_side": {"value": west_head_m},
             "east_side": {"value": east_head_m},

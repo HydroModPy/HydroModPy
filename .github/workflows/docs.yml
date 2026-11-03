@@ -169,7 +169,7 @@ jobs:
           echo "867534ddb678abca7f214bc4706ead0922bd5252ffe8035fc227013f66c8b214  vale.tar.gz" | sha256sum -c -
           tar xzf vale.tar.gz vale
 
-      # The house style: British spelling, one word per concept, no em dash,
+      # The house style: one word per concept, no em dash,
       # sentence case headings. The rules are in styles/HydroModPy.
       - name: Check the house style of the written pages
         run: |

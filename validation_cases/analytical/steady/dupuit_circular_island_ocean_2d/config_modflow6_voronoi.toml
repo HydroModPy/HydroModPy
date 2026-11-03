@@ -12,15 +12,6 @@ mf6_ims_complexity = "COMPLEX"
 [modflow6.process_specific]
 vka = 1.0
 
-[modflow6.sgrid.vertical]
-nlay = 1
-
-# Node rings sit at 196 m (land) and 200 m, the coast, where the model must
-# hold the sea level. A cell takes the ocean head where the DEM sampled at its
-# node is at or below sea level, and a node on the shoreline itself is a tie:
-# the bilinear sample of the 10 m raster read -0.25 to +1.07 m there, and 36 of
-# the 48 coast cells stayed land. A 1 m raster with the shoreline 1 m inside
-# the coast ring reads -1 m on every coast node and 2.07 m on the 196 m ring.
 [geographic.synthetic.grid]
 xmin = 265400.0
 ymin = 6784100.0
@@ -38,3 +29,13 @@ path = "../../../shared/mesh_bundles/dupuit_circular_island_ocean_irregular_tri_
 
 [mesh.voronoi]
 seeds = "triangulation"
+
+[domain.layers]
+nlay = 1
+
+# Node rings sit at 196 m (land) and 200 m, the coast, where the model must
+# hold the sea level. A cell takes the ocean head where the DEM sampled at its
+# node is at or below sea level, and a node on the shoreline itself is a tie:
+# the bilinear sample of the 10 m raster read -0.25 to +1.07 m there, and 36 of
+# the 48 coast cells stayed land. A 1 m raster with the shoreline 1 m inside
+# the coast ring reads -1 m on every coast node and 2.07 m on the 196 m ring.

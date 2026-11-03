@@ -232,9 +232,7 @@ def run_boussinesq_hillslope_interception_case(
                 {
                     "flow_regime": "steady",
                     # A neutral start: the whole hillslope at the outlet head.
-                    "ic": {"type": "custom", "value": EAST_HEAD_M},
-                    "active_sinks_sources": ["recharge"],
-                    "active_bc": ["east_side"],
+                    "ic": {"kind": "custom", "value": EAST_HEAD_M},
                     "sinks_sources": {
                         "recharge": {
                             "values": mm_day_to_m_s(RECHARGE_MM_DAY),

@@ -2,8 +2,8 @@
 
 Each day the rain reaches the soil before it evaporates. ETR falls linearly
 below alpha x RU: alpha is 1 - p of FAO-56 (Allen et al. 1998) and LP of HBV
-(Seibert and Vis 2012). The default alpha = 0.6 is our choice: it means p = 0.40,
-under FAO-56 table 22 for pasture (0.60), cereals and maize (0.55). The water
+(Seibert and Vis 2012). The default alpha = 0.45 is our choice: it means p = 0.55,
+the value of FAO-56 table 22 for cereals and maize (pasture 0.60). The water
 above RU leaves the soil; a linear reservoir
 of time constant ``transit_time_days``, integrated exactly over the day, can
 delay it. The sealed share of a column runs off, and so does an optional

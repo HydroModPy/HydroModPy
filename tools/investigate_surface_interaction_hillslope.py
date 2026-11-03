@@ -232,8 +232,6 @@ def _apply_scenario_to_launcher_payload(
     bc["dirichlet"] = dirichlet
     bc["cauchy"] = cauchy
     flow["bc"] = bc
-    flow["active_sinks_sources"] = ["recharge"]
-    flow["active_bc"] = ["east_side", "drainage"]
     flow["ic"] = {
         "kind": "custom",
         "value": f"{INITIAL_HEAD_M:.6f} m",
@@ -387,8 +385,6 @@ def _run_boussinesq_scenario(
                 "runtime_backend": "local",
                 "flow_regime": "steady",
                 "ic": {"kind": "custom", "value": initial_head_m},
-                "active_sinks_sources": ["recharge"],
-                "active_bc": ["east_side", "drainage"],
                 "sinks_sources": {
                     "recharge": {
                         "values": mm_day_to_m_s(float(scenario.recharge_mm_day)),

@@ -90,13 +90,15 @@ class FlowEtpConfig(HydroModelBase):
         json_schema_extra=field_metadata(unit="m"),
     )
     extinction_depth: Annotated[LengthMeters, Profile.USER] = Field(
-        default=1.0,
+        default=2.0,
         gt=0.0,
         description=(
             "Depth (m) below the EVT surface where the water table stops "
             "evaporating; the rate falls linearly between the surface and this "
-            "depth. 1 m by default. Read by MODFLOW-NWT, and by MODFLOW 6 in "
-            "soil mode for the ETP the soil left unmet. Calibrate it with "
+            "depth. 2 m by default, a choice: this depth often reaches the deepest "
+            "roots, and 150 mm of soil capacity means about 1 to 2 m of them. Read by "
+            "MODFLOW-NWT, and by MODFLOW 6 in soil mode for the ETP the soil left "
+            "unmet. Calibrate it with "
             "[calibration.parameters.extinction_depth]; the range belongs to the "
             "site, so a file has to state it."
         ),

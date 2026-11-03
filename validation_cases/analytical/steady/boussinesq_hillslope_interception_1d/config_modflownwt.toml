@@ -7,7 +7,7 @@ description = "Synthetic steady hillslope with an outlet head at the toe and a s
 
 [[simulation.process]]
 id = "flow_validation"
-type = "flow"
+kind = "flow"
 solvers = ["modflow_nwt"]
 
 [geographic]
@@ -35,10 +35,11 @@ right_to_left_amplitude = 4.875
 kind = "flat_substratum"
 substratum_elevation = 0.0
 
+[domain.layers]
+nlay = 1
+
 [flow]
 flow_regime = "steady"
-active_sinks_sources = ["recharge"]
-active_bc = ["east_side", "drainage"]
 param_list = ["K"]
 
 [flow.param.K.field]
@@ -47,7 +48,7 @@ kind = "homogeneous"
 value = "1e-4 m/s"
 
 [flow.ic]
-type = "custom"
+kind = "custom"
 value = "5.0625 m"
 
 [flow.bc.east_side]
@@ -57,7 +58,7 @@ value = "5.0625 m"
 
 [flow.bc.drainage]
 application_domain = "top"
-kind = "cauchy"
+kind = "drain"
 # No conductance: each drain takes C = K * cell_area / b with b = 1 m.
 value = "0.0 m2/s"
 
@@ -71,9 +72,6 @@ inference_mode = "warn"
 [[data.recharge.sources]]
 source = "synthetic"
 values = [2.0]
-
-[modflownwt.sgrid.vertical]
-nlay = 1
 
 [display]
 enabled = false

@@ -15,7 +15,7 @@ coverage_policy = "ignore"
 
 [[simulation.process]]
 id = "flow_validation"
-type = "flow"
+kind = "flow"
 solvers = ["modflow_nwt"]
 
 [geographic]
@@ -40,11 +40,15 @@ base_elevation = 40.0
 kind = "constant_thickness"
 thickness = "40.0 m"
 
+[domain.layers]
+nlay = 1
+
+# The validation profile of the 1D cases: chi-MD with COMPLEX options, closures
+# three decades below the smallest head change and flux the case compares. The
+# run is in seconds.
 [flow]
 first_period_steady = false
 flow_regime = "transient"
-active_sinks_sources = ["wells"]
-active_bc = ["west_side"]
 param_list = ["K", "Ss", "Sy"]
 
 [flow.param.K.field]
@@ -63,7 +67,7 @@ kind = "homogeneous"
 value = "0.1 -"
 
 [flow.ic]
-type = "custom"
+kind = "custom"
 value = "30.0 m"
 
 # The stream: a straight line along the west side, held at the initial head.
@@ -84,12 +88,6 @@ cell = [0, 80, 10]
 value = -300.0
 kind = "constant"
 
-[modflownwt.sgrid.vertical]
-nlay = 1
-
-# The validation profile of the 1D cases: chi-MD with COMPLEX options, closures
-# three decades below the smallest head change and flux the case compares. The
-# run is in seconds.
 [modflownwt.runtime.nwt]
 version = "mfnwt"
 listunit = 2
