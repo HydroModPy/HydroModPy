@@ -685,6 +685,15 @@ Each release section includes the following standard categories:
   (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
+- `hydromodpy.lock` now carries an id like every other stored document, `schema = "hydromodpy.lock.v1"`, in place of `[hydromodpy] version = "2.0.0"`, which looked like a package version. A lock of the old shape is refused and names `hmp dev lock update`, which writes it again.
+- `hydromodpy.lock` now holds one record per cached input, `[[input]]`, with `variable`, `source`, `station_id`, `path`, `sha256`, `bytes`, `file_mtime` and `fetched_at`. It replaces both `[inputs]` and `[[artefact]]`, which said the same thing twice.
+- The `[schema]` table of `hydromodpy.lock` is gone. Its versions were already in `[hydromodpy]`, and its `config_sha256` is now `[hydromodpy] config_schema_sha256`.
+- In Python, `LockedArtifact` is now `LockedInput`, with `path` and `bytes` in place of `file_path` and `size_bytes`. `read_lockfile_inputs` returns these records, and `read_lockfile` is gone. `LOCKFILE_VERSION` is now `LOCKFILE_SCHEMA`.
+- `hmp install-binaries` and the download at the first run no longer go through `flopy.utils.get_modflow`. They fetch the release zip directly, so they use no GitHub API request and `GITHUB_TOKEN` no longer plays a part. The zip stays in `<cache>/bin-archives/`, not in `~/Downloads`, and another `--subset` costs no second download.
+- `hmp install-binaries --release <tag>` installs only a release whose digests HydroModPy holds. `latest` and any other tag are refused, and the message says how to run another build through `HMP_BIN`.
+- A failed HELP3O load now raises at once with its cause. It used to return nothing and stop later on a generic message.
+- `.manifest.json` of the binary cache also records the zip and its sha256.
+- HELP3O now lives in `<cache>/help3o/<tag>/`, so a file left in the flat cache by an older install is never read.
 - A document newer than what this HydroModPy reads is refused with "upgrade HydroModPy", and it names the version that wrote it when known. One older, or with no version, is refused as written by a pre-release that must be run again. A store of another Zarr or Parquet version now raises `SchemaVersionMismatchError` like any other document.
 - A key or a word a later 2.x added to a stored document now reads, at any depth: `manifest.json`, `outcome.json`, `session.json`, the plan, the ledgers, `PUBLICATION.json`, `inputs.json`, `provenance.json` and `INSTALL.toml`. Models still refuse an unknown key or word when they write.
 - The published JSON Schemas under `hydromodpy/schema/results/` allow additional properties. A status, a kind, a regime or a topology is a string with its words in `x-hmp-vocabulary`.
@@ -1428,6 +1437,9 @@ Each release section includes the following standard categories:
 - The compact network comparison reads the reference river from `mesh_cell_families`.
 
 ### Removed
+- `<solver>_path` keys in `[binaries]` of `hydromodpy.lock`. A lock travels with its project, so it holds no path of the machine that wrote it.
+- `help3o_available()` in pyhelp, which nothing called.
+- `binaries.release_url`, replaced by `binaries.asset_url`.
 - `ZarrSchemaVersionError` and `ParquetSchemaVersionError`. Use `SchemaVersionMismatchError`.
 - The adoption of data caches older than the migration ledger. None shipped in a stable release.
 - The "V1 release contract" page. Its address redirects to the versions page. Its surface table gave way to
@@ -1615,6 +1627,7 @@ Each release section includes the following standard categories:
   A run sealed before the family tables draws no reference line.
 
 ### Fixed
+- The docs said `hydromodpy.lock` records the solver binaries. The launcher and `hmp dev lock update` leave that section empty, and each run records the binary it used. The docs now say so.
 - An append to a Parquet table of a run no longer drops a column a later version added. The rows of this writer read it as null.
 - Reading a table of a run now checks its `hmp.schema_version`, like an append does. The log line "rewriting as v2", which came just before a refusal, is gone.
 - A data cache migrated by a newer HydroModPy is refused, naming the migration it holds and the latest this code knows. It used to open silently.
@@ -1695,7 +1708,12 @@ Each release section includes the following standard categories:
   below MODFLOW 6.
 
 ### Numbers
+- None. The release stays 23.0 and the extracted `mf6` and `mfnwt` are byte-identical to what `flopy.utils.get_modflow` installed. A later move of a pin is a number change until proven otherwise, by a new rule in the release checklist.
 - None. This lot changes no number of a run.
+
+### Security
+- The MODFLOW binaries are verified against a sha256 per platform zip written in the package, for release 23.0. A zip that hashes to anything else is refused, naming both digests, and no file of it reaches the binary folder.
+- The HELP3O extension is pinned to the tag `v2025.11-34` of `HydroModPy/HELP3O-binaries` with a sha256 per platform and Python version. It used to come from `releases/latest` with no check, and it is native code loaded into the process. The check runs before every load. A combination the release does not cover is refused by name: it covers Python 3.11, 3.12 and 3.13 on Linux x86_64, macOS arm64 and x86_64, and Windows amd64.
 
 ## [v2.0.0a5] - 2026-10-13
 

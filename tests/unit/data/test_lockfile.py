@@ -18,11 +18,10 @@ from pathlib import Path
 import pytest
 import tomlkit
 
-from hydromodpy.core.exceptions import FrozenDataError
+from hydromodpy.core.exceptions import FrozenDataError, SchemaVersionMismatchError
 from hydromodpy.data.provenance.lockfile import (
     LOCKFILE_NAME,
-    LOCKFILE_VERSION,
-    read_lockfile,
+    LOCKFILE_SCHEMA,
     read_lockfile_binaries,
     read_lockfile_inputs,
     read_lockfile_meta,
@@ -69,21 +68,38 @@ def test_write_lockfile_contains_required_sections(tmp_path: Path) -> None:
     write_lockfile(catalog, dest, **_SCHEMA_VERSIONS)
 
     doc = tomlkit.parse(dest.read_text())
-    for section in ("hydromodpy", "binaries", "schema", "inputs"):
+    assert doc["schema"] == LOCKFILE_SCHEMA == "hydromodpy.lock.v1"
+    for section in ("hydromodpy", "binaries", "input"):
         assert section in doc, f"missing [{section}] section"
 
     meta = read_lockfile_meta(dest)
-    assert meta["version"] == LOCKFILE_VERSION
+    assert "version" not in meta
     assert "hydromodpy_version" in meta
     assert "python_version" in meta
     assert "catalog_schema_version" in meta
     assert meta["zarr_schema_version"] == ZARR_SCHEMA_VERSION == "3"
     assert meta["parquet_schema_version"] == PARQUET_SCHEMA_VERSION == "v2"
 
-    inputs = read_lockfile_inputs(dest)
-    assert inputs, "inputs section must list registered artefacts"
-    payload = next(iter(inputs.values()))
-    assert set(payload) == {"sha256", "bytes", "fetched_at"}
+    assert read_lockfile_inputs(dest), "[[input]] must list registered artefacts"
+    assert set(doc["input"][0]) == {
+        "variable",
+        "source",
+        "station_id",
+        "path",
+        "sha256",
+        "bytes",
+        "file_mtime",
+        "fetched_at",
+    }
+
+
+def test_a_lockfile_of_the_old_shape_is_refused_by_name(tmp_path: Path) -> None:
+    """``[schema]`` was a table of the old shape, and it is no version."""
+    dest = tmp_path / LOCKFILE_NAME
+    dest.write_text('[hydromodpy]\nversion = "2.0.0"\n\n[schema]\ncatalog = 1\n')
+
+    with pytest.raises(SchemaVersionMismatchError, match="carries no schema.*hmp dev lock update"):
+        read_lockfile_inputs(dest)
 
 
 def test_write_lockfile_atomic(tmp_path: Path) -> None:
@@ -108,7 +124,7 @@ def test_write_lockfile_atomic(tmp_path: Path) -> None:
     assert leftovers == []
     # Final payload is well-formed TOML with our header.
     parsed = tomlkit.parse(dest.read_text())
-    assert parsed["hydromodpy"]["version"] == LOCKFILE_VERSION
+    assert parsed["schema"] == LOCKFILE_SCHEMA
     # The previously stored bytes were complete (sanity, not a partial write).
     assert tomlkit.parse(pristine.decode("utf-8"))["hydromodpy"]["version"] == "old"
     threading.current_thread()  # keep the import in use for clarity
@@ -128,7 +144,9 @@ def test_lockfile_includes_binary_sha256(tmp_path: Path) -> None:
 
     binaries = read_lockfile_binaries(dest)
     assert binaries.get("modflow6_sha256") == sha256_of(fake_solver)
-    assert "modflow6_path" in binaries
+    # A lockfile travels with its project: no path of this machine in it.
+    assert not any(key.endswith("_path") for key in binaries)
+    assert str(tmp_path) not in dest.read_text()
 
 
 def test_lockfile_includes_inputs_sha256(tmp_path: Path) -> None:
@@ -137,10 +155,9 @@ def test_lockfile_includes_inputs_sha256(tmp_path: Path) -> None:
     write_lockfile(catalog, dest, **_SCHEMA_VERSIONS)
     inputs = read_lockfile_inputs(dest)
     assert len(inputs) == 1
-    key, payload = next(iter(inputs.items()))
-    assert key == src.relative_to(workspace).as_posix()
-    assert payload["sha256"] == sha256_of(src)
-    assert payload["bytes"] == src.stat().st_size
+    assert inputs[0].path == src.relative_to(workspace).as_posix()
+    assert inputs[0].sha256 == sha256_of(src)
+    assert inputs[0].bytes == src.stat().st_size
 
 
 def test_verify_lockfile_passes_when_unchanged(tmp_path: Path) -> None:
@@ -258,12 +275,12 @@ def test_sidecar_emitted_on_register(tmp_path: Path) -> None:
     assert payload["source"] == "hubeau"
 
 
-def test_lockfile_round_trip_artefact_block(tmp_path: Path) -> None:
-    """The ``[[artefact]]`` records round-trip through write/read_lockfile()."""
+def test_lockfile_round_trip_input_records(tmp_path: Path) -> None:
+    """The ``[[input]]`` records round-trip through the writer and the reader."""
     catalog, workspace, _ = _seed_workspace(tmp_path)
     dest = workspace / LOCKFILE_NAME
     write_lockfile(catalog, dest, **_SCHEMA_VERSIONS)
-    entries = read_lockfile(dest)
+    entries = read_lockfile_inputs(dest)
     assert len(entries) == 1
     assert entries[0].variable == "hydrometry"
     assert entries[0].sha256
@@ -320,9 +337,9 @@ def test_lockfile_resolves_workspace_data_variable_relative_paths(tmp_path: Path
     dest = workspace / LOCKFILE_NAME
     write_lockfile(cat, dest, **_SCHEMA_VERSIONS)
 
-    entries = read_lockfile(dest)
+    entries = read_lockfile_inputs(dest)
     assert len(entries) == 1
-    assert entries[0].file_path == src.relative_to(workspace).as_posix()
+    assert entries[0].path == src.relative_to(workspace).as_posix()
     assert entries[0].sha256 == sha256_of(src)
     assert verify_frozen(cat, dest) == []
 
@@ -342,8 +359,8 @@ def test_verify_frozen_keeps_distinct_gridded_artifacts(tmp_path: Path) -> None:
     dest = workspace / LOCKFILE_NAME
     write_lockfile(cat, dest, **_SCHEMA_VERSIONS)
 
-    entries = read_lockfile(dest)
-    assert {entry.file_path for entry in entries} == {
+    entries = read_lockfile_inputs(dest)
+    assert {entry.path for entry in entries} == {
         first.relative_to(workspace).as_posix(),
         second.relative_to(workspace).as_posix(),
     }
@@ -426,7 +443,7 @@ def test_frozen_mode_reads_the_lockfile_lock_update_wrote(
     assert not (workspace / "data" / LOCKFILE_NAME).exists()
 
     set_frozen_mode(True, project_root=project_root)
-    assert [artifact.station_id for artifact in cache_store.locked_artifacts()] == ["A"]
+    assert [item.station_id for item in cache_store.locked_inputs()] == ["A"]
 
 
 def test_frozen_precheck_accepts_the_lockfile_lock_update_wrote(
@@ -494,7 +511,7 @@ def test_the_data_layer_holds_no_copy_of_the_schema_versions(writer) -> None:
         assert parameters[name].default is inspect.Parameter.empty
 
 
-def test_locked_artifacts_names_the_expected_path_when_missing(
+def test_locked_inputs_names_the_expected_path_when_missing(
     tmp_path: Path,
     frozen_mode_reset: None,
 ) -> None:
@@ -507,17 +524,17 @@ def test_locked_artifacts_names_the_expected_path_when_missing(
 
     expected = project_lockfile_path(project_root.resolve())
     with pytest.raises(RuntimeError, match=re.escape(str(expected))):
-        cache_store.locked_artifacts()
+        cache_store.locked_inputs()
 
 
-def test_locked_artifacts_without_a_bound_project_says_so(frozen_mode_reset: None) -> None:
+def test_locked_inputs_without_a_bound_project_says_so(frozen_mode_reset: None) -> None:
     """A lookup made outside frozen mode names the missing binding, never guesses."""
     from hydromodpy.data.provenance.lockfile import set_frozen_mode
     from hydromodpy.data.registry import cache_store
 
     set_frozen_mode(False)
     with pytest.raises(RuntimeError, match="no project bound"):
-        cache_store.locked_artifacts()
+        cache_store.locked_inputs()
 
 
 def test_enabling_frozen_mode_without_a_project_is_refused(frozen_mode_reset: None) -> None:
@@ -575,7 +592,7 @@ def test_project_runner_binds_the_project_root_it_runs(
         def run(self, initial: object, **kwargs: object) -> dict:
             seen["frozen"] = is_frozen_mode()
             seen["root"] = frozen_project_root()
-            seen["stations"] = [a.station_id for a in cache_store.locked_artifacts()]
+            seen["stations"] = [a.station_id for a in cache_store.locked_inputs()]
             return {"ctx": ctx}
 
     monkeypatch.setattr("hydromodpy.workflow.runner.Pipeline", RecordingPipeline)
@@ -590,6 +607,7 @@ def test_project_runner_binds_the_project_root_it_runs(
             workspace=SimpleNamespace(project_root=project_root),
             geographic=None,
             domain=None,
+            flow=None,
             run_id=None,
             flow_runtime_overrides=None,
         ),
@@ -721,7 +739,6 @@ def test_the_lockfile_records_the_project_commit(
     assert lock_update(project=str(project_root)) == dest
     meta = read_lockfile_meta(dest)
 
-    assert meta["version"] == LOCKFILE_VERSION
     assert meta["project_git_commit"] == "commit-of-demo"
 
 
@@ -853,6 +870,48 @@ def test_atomic_write_uses_a_short_temporary_suffix(
     assert len(swapped[0]) - len(prefix) == 8
 
 
+@pytest.mark.parametrize(
+    ("station", "digest", "refusal"),
+    [
+        ("A", None, None),
+        ("A", "0" * 64, "SHA-256"),
+        ("B", None, "absent from hydromodpy.lock"),
+    ],
+    ids=["pinned", "another digest", "not pinned"],
+)
+def test_frozen_matching_reads_the_one_record(
+    tmp_path: Path, frozen_mode_reset: None, station: str, digest: str | None, refusal: str | None
+) -> None:
+    """A catalog entry and a registration are both matched against ``[[input]]``."""
+    from types import SimpleNamespace
+
+    from hydromodpy.data.provenance.lockfile import set_frozen_mode
+    from hydromodpy.data.registry import cache_store
+
+    catalog, workspace, src = _seed_workspace(tmp_path)
+    write_lockfile(catalog, workspace / LOCKFILE_NAME, **_SCHEMA_VERSIONS)
+    set_frozen_mode(True, project_root=workspace)
+    found = {"variable": "hydrometry", "source": "hubeau", "station_id": station}
+    sha256 = digest or sha256_of(src)
+    file_path = src.relative_to(workspace).as_posix()
+
+    checks = (
+        lambda: cache_store.reject_frozen_entry_mismatch(
+            catalog, SimpleNamespace(**found, file_path=file_path, sha256=sha256)
+        ),
+        lambda: cache_store.reject_frozen_register(
+            catalog, **found, file_path=Path(file_path), file_sha256=sha256, is_custom=False
+        ),
+    )
+    for check in checks:
+        if refusal is None:
+            check()
+        else:
+            with pytest.raises(FrozenDataError, match=refusal):
+                check()
+    catalog.close()
+
+
 def test_a_frozen_refusal_is_a_typed_data_failure(
     tmp_path: Path,
     frozen_mode_reset: None,
@@ -868,7 +927,7 @@ def test_a_frozen_refusal_is_a_typed_data_failure(
     set_frozen_mode(True, project_root=project_root)
 
     with pytest.raises(DataCacheError) as info:
-        cache_store.locked_artifacts()
+        cache_store.locked_inputs()
 
     assert isinstance(info.value, FrozenDataError)
     assert exit_code_for(info.value) == EXIT_VALIDATION

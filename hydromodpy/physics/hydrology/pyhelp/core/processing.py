@@ -37,19 +37,7 @@ def run_help_singlecell(item):
     """Run HELP for a single cell."""
     cellname, outparam = item
 
-    # Check if HELP3O is available
     help3o = ensure_help3o_loaded()
-    if help3o is None:
-        raise RuntimeError(
-            "HELP3O Fortran extension is not available. "
-            "This usually happens when:\n"
-            "1. The binary could not be downloaded from GitHub\n"
-            "2. The binary is not compatible with your system\n"
-            "3. You are using an unsupported Python version\n"
-            "Please check your internet connection and ensure you are using "
-            "Python 3.11, 3.12, or 3.13 on Linux, macOS, or Windows."
-        )
-
     help3o.run_simulation(*outparam)
     results = read_monthly_help_output(outparam[5])
     if DEL_TEMPFILES:

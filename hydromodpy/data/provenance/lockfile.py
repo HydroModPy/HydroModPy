@@ -3,13 +3,14 @@
 A lockfile freezes the build environment plus every input artefact that fed
 a HydroModPy run. It records:
 
-- ``[hydromodpy]``: package + git commit + python + schema versions.
-- ``[binaries]``: solver names + binary SHA-256 + ``--version`` text.
-- ``[schema]``: catalog / zarr / parquet schema versions (and config sha256).
-- ``[inputs]``: every catalog entry keyed by workspace-relative path with
-  ``sha256``, ``bytes`` and ``fetched_at``.
-- ``[[artefact]]`` rows: legacy per-artefact detail (``variable``, ``source``,
-  ``station_id``) used by frozen-mode replay.
+- ``schema``: the id of the format, ``hydromodpy.lock.v1``.
+- ``[hydromodpy]``: package + git commit + python, the catalog / zarr / parquet
+  schema versions and the sha256 of the config schema.
+- ``[binaries]``: solver names + binary SHA-256 + ``--version`` text. Never a path,
+  because a lockfile travels with its project.
+- ``[[input]]``: one record per catalog entry, with ``variable``, ``source``,
+  ``station_id``, the workspace-relative ``path``, ``sha256``, ``bytes``,
+  ``file_mtime`` and ``fetched_at``, the instant of the snapshot.
 
 This module reads the file and needs no database. Writing, verifying and
 archiving it read the cache index, so they live in
@@ -26,9 +27,10 @@ why the project root, and not the workspace, owns the file.
 Frozen mode is two module variables: one project is frozen per process. The
 runner sets it before a run and clears it after.
 
-Every reader refuses a lockfile whose ``[hydromodpy] version`` lies outside
-:data:`LOCKFILE_VERSIONS`, naming the version read and the command that
-writes it again: a lockfile is never migrated.
+Every reader refuses a lockfile whose ``schema`` lies outside
+:data:`LOCKFILE_VERSIONS`, by the rule of
+:mod:`hydromodpy.core.io.document_version`, naming the version read and the
+command that writes it again: a lockfile is never migrated.
 """
 
 from __future__ import annotations
@@ -44,8 +46,8 @@ from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.io.document_version import VersionWindow, check_version
 
 LOCKFILE_NAME = "hydromodpy.lock"
-LOCKFILE_VERSION = "2.0.0"
-LOCKFILE_VERSIONS = VersionWindow(oldest="2.0.0", current=LOCKFILE_VERSION)
+LOCKFILE_SCHEMA = "hydromodpy.lock.v1"
+LOCKFILE_VERSIONS = VersionWindow(oldest="hydromodpy.lock.v1", current=LOCKFILE_SCHEMA)
 LOCKFILE_REMEDY = "Write it again from the data cache with `hmp dev lock update`."
 
 # Process-wide frozen-mode state. Consulted by data loaders to refuse fresh
@@ -123,16 +125,16 @@ def frozen_project_root() -> Path | None:
 
 
 @dataclass(frozen=True)
-class LockedArtifact:
-    """One locked artefact recorded in the lockfile."""
+class LockedInput:
+    """One ``[[input]]`` record of the lockfile: one catalog entry and its file."""
 
     variable: str
     source: str
     station_id: str | None
-    file_path: str
+    path: str
     sha256: str
+    bytes: int | None
     file_mtime: float | None
-    size_bytes: int | None
     fetched_at: str
 
 
@@ -162,50 +164,44 @@ def sha256_of(path: Path, *, chunk: int = 64 * 1024) -> str:
 
 
 def _parse(path: Path | str) -> tomlkit.TOMLDocument:
-    """Parse the lockfile at *path*; refuse it unless its version lies in the window."""
+    """Parse the lockfile at *path*; refuse it unless its ``schema`` lies in the window."""
     target = Path(path)
     doc = tomlkit.parse(target.read_text())
+    raw = doc.get("schema")
     header = doc.get("hydromodpy")
-    raw = header.get("version") if isinstance(header, dict) else None
-    found = None if raw is None else str(raw)
-    writer = header.get("hydromodpy_version") if isinstance(header, dict) else None
     check_version(
-        found,
+        raw if isinstance(raw, str) else None,
         LOCKFILE_VERSIONS,
         document=target,
-        key="hydromodpy.version",
-        writer=writer,
+        key="schema",
+        writer=header.get("hydromodpy_version") if isinstance(header, dict) else None,
         remedy=LOCKFILE_REMEDY,
     )
     return doc
 
 
 def read_lockfile_schema_sha256(path: Path | str) -> str | None:
-    """Return the ``schema.config_sha256`` recorded in the lockfile, when present."""
-    doc = _parse(path)
-    schema = doc.get("schema")
-    if not isinstance(schema, dict):
-        return None
-    value = schema.get("config_sha256")
+    """Return the sha256 of the config schema recorded in the lockfile, when present."""
+    value = read_lockfile_meta(path).get("config_schema_sha256")
     return str(value) if value is not None else None
 
 
-def read_lockfile_inputs(path: Path | str) -> dict[str, dict[str, Any]]:
-    """Return the ``[inputs]`` table from the lockfile (rel_path -> payload)."""
+def read_lockfile_inputs(path: Path | str) -> list[LockedInput]:
+    """Load every ``[[input]]`` record of the lockfile."""
     doc = _parse(path)
-    raw = doc.get("inputs")
-    if not isinstance(raw, dict):
-        return {}
-    out: dict[str, dict[str, Any]] = {}
-    for key, value in raw.items():
-        if not isinstance(value, dict):
-            continue
-        out[str(key)] = {
-            "sha256": str(value.get("sha256", "")),
-            "bytes": int(value.get("bytes", 0) or 0),
-            "fetched_at": str(value.get("fetched_at", "")),
-        }
-    return out
+    return [
+        LockedInput(
+            variable=str(item["variable"]),
+            source=str(item["source"]),
+            station_id=(str(item["station_id"]) if "station_id" in item else None),
+            path=str(item["path"]),
+            sha256=str(item["sha256"]),
+            bytes=(int(item["bytes"]) if "bytes" in item else None),
+            file_mtime=(float(item["file_mtime"]) if "file_mtime" in item else None),
+            fetched_at=str(item.get("fetched_at", "")),
+        )
+        for item in doc.get("input", [])
+    ]
 
 
 def read_lockfile_binaries(path: Path | str) -> dict[str, str | None]:
@@ -229,36 +225,16 @@ def read_lockfile_meta(path: Path | str) -> dict[str, Any]:
     return {str(k): (None if v is None else v) for k, v in raw.items()}
 
 
-def read_lockfile(path: Path | str) -> list[LockedArtifact]:
-    """Load every legacy ``[[artefact]]`` block of the lockfile."""
-    doc = _parse(path)
-    out: list[LockedArtifact] = []
-    for item in doc.get("artefact", []):
-        out.append(
-            LockedArtifact(
-                variable=str(item["variable"]),
-                source=str(item["source"]),
-                station_id=(str(item["station_id"]) if "station_id" in item else None),
-                file_path=str(item["file_path"]),
-                sha256=str(item["sha256"]),
-                file_mtime=(float(item["file_mtime"]) if "file_mtime" in item else None),
-                size_bytes=(int(item["size_bytes"]) if "size_bytes" in item else None),
-                fetched_at=str(item.get("fetched_at", "")),
-            )
-        )
-    return out
-
-
 __all__ = [
     "LOCKFILE_NAME",
     "LOCKFILE_REMEDY",
-    "LOCKFILE_VERSION",
+    "LOCKFILE_SCHEMA",
+    "LOCKFILE_VERSIONS",
     "LockMismatch",
-    "LockedArtifact",
+    "LockedInput",
     "frozen_project_root",
     "is_frozen_mode",
     "project_lockfile_path",
-    "read_lockfile",
     "read_lockfile_binaries",
     "read_lockfile_inputs",
     "read_lockfile_meta",

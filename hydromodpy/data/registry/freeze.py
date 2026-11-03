@@ -12,9 +12,9 @@ Verification has two modes:
 - ``verify_frozen`` (used by ``hmp dev lock verify`` and the frozen-mode catalog)
   walks every entry and reports :class:`LockMismatch` records (one per kind:
   ``"missing"``, ``"sha256"``).
-- ``verify_inputs_strict`` returns the same kind of report but is consumed by
-  ``hmp dev lock verify --strict`` to map ``sha256`` mismatches to a non-zero
-  exit.
+- ``verify_inputs_strict`` returns the same kind of report for the files the
+  lockfile names, and is consumed by ``hmp dev lock verify --strict`` and
+  ``hmp run --frozen`` to map a mismatch to a non-zero exit.
 """
 
 from __future__ import annotations
@@ -31,10 +31,9 @@ import tomlkit
 from hydromodpy.core.version import __version__ as _HMP_VERSION
 from hydromodpy.data.provenance.lockfile import (
     LOCKFILE_NAME,
-    LOCKFILE_VERSION,
-    LockedArtifact,
+    LOCKFILE_SCHEMA,
+    LockedInput,
     LockMismatch,
-    read_lockfile,
     read_lockfile_inputs,
     sha256_of,
 )
@@ -93,7 +92,7 @@ def _solver_version_text(binary: Path) -> str | None:
 
 def _entry_to_locked(
     row: dict[str, Any], *, catalog: DataCatalogDuckDB, fetched_at: str
-) -> LockedArtifact | None:
+) -> LockedInput | None:
     path = catalog.resolve_path(row["file_path"], variable=row.get("variable"))
     if not path.is_file():
         return None
@@ -102,16 +101,16 @@ def _entry_to_locked(
         size = path.stat().st_size
     except OSError:
         pass
-    return LockedArtifact(
+    return LockedInput(
         variable=row["variable"],
         source=row["source"],
         station_id=row.get("station_id"),
-        file_path=str(row["file_path"]),
+        path=str(row["file_path"]),
         sha256=str(row.get("sha256") or sha256_of(path)),
+        bytes=size,
         file_mtime=round(float(row["file_mtime"]), 6)
         if row.get("file_mtime") is not None
         else None,
-        size_bytes=size,
         fetched_at=fetched_at,
     )
 
@@ -156,44 +155,27 @@ def _collect_binaries(*, solvers: dict[str, Path] | None) -> dict[str, dict[str,
     for name, path in solvers.items():
         p = Path(path) if path is not None else None
         if p is None or not p.is_file():
-            payload[str(name)] = {"sha256": None, "version_text": None, "path": None}
+            payload[str(name)] = {"sha256": None, "version_text": None}
             continue
         payload[str(name)] = {
             "sha256": sha256_of(p),
             "version_text": _solver_version_text(p),
-            "path": str(p),
         }
     return payload
 
 
-def _inputs_section(
-    catalog: DataCatalogDuckDB,
-    *,
-    fetched_at: str,
-) -> tuple[list[LockedArtifact], dict[str, dict[str, Any]]]:
-    """Return (locked artefacts, inputs-by-path mapping).
+def _locked_inputs(catalog: DataCatalogDuckDB, *, fetched_at: str) -> list[LockedInput]:
+    """Return one record per catalog entry whose file is on disk.
 
-    ``fetched_at`` is read once per snapshot and stamped on every artefact,
+    ``fetched_at`` is read once per snapshot and stamped on every record,
     so one lockfile carries one instant instead of one clock read per row.
     """
     rows = catalog.backend.query(
         "SELECT variable, source, station_id, file_path, file_mtime, sha256 "
         "FROM entries ORDER BY variable, source, station_id, file_path"
     ).to_dict(orient="records")
-    locked: list[LockedArtifact] = []
-    inputs: dict[str, dict[str, Any]] = {}
-    for row in rows:
-        la = _entry_to_locked(row, catalog=catalog, fetched_at=fetched_at)
-        if la is None:
-            continue
-        locked.append(la)
-        key = str(row["file_path"])
-        inputs[key] = {
-            "sha256": la.sha256,
-            "bytes": int(la.size_bytes) if la.size_bytes is not None else 0,
-            "fetched_at": la.fetched_at,
-        }
-    return locked, inputs
+    locked = (_entry_to_locked(row, catalog=catalog, fetched_at=fetched_at) for row in rows)
+    return [item for item in locked if item is not None]
 
 
 # ---------------------------------------------------------------------- public
@@ -214,18 +196,14 @@ def write_lockfile(
     The two storage schema versions belong to ``hydromodpy.results``, which this layer
     cannot import, so the caller passes them in.
 
-    The file is written atomically (tmp + ``fsync`` + ``os.replace``). The
-    four mandatory sections are always emitted:
+    The file is written atomically (tmp + ``fsync`` + ``os.replace``). Its parts
+    are always emitted:
 
+    - ``schema``, the id of the format.
     - ``[hydromodpy]`` with version, git commit, python version, schema
-      version numbers.
+      version numbers and the sha256 of the config schema.
     - ``[binaries]`` with per-solver ``sha256`` and ``version_text`` entries.
-    - ``[schema]`` summary of catalog / zarr / parquet schema versions.
-    - ``[inputs]`` keyed by relative path with ``sha256`` / ``bytes`` /
-      ``fetched_at``.
-
-    Existing ``[[artefact]]`` records remain so legacy frozen-mode replay
-    keeps working.
+    - ``[[input]]``, one record per catalog entry whose file is on disk.
     """
     dest = Path(dest)
 
@@ -234,9 +212,9 @@ def write_lockfile(
     stamped_at = _now_iso()
 
     doc = tomlkit.document()
+    doc.add("schema", LOCKFILE_SCHEMA)
 
     hmp_table = tomlkit.table()
-    hmp_table.add("version", LOCKFILE_VERSION)
     hmp_table.add("hydromodpy_version", _HMP_VERSION)
     git_commit = _git_head(_CHECKOUT_ROOT)
     if git_commit:
@@ -248,6 +226,8 @@ def write_lockfile(
     hmp_table.add("catalog_schema_version", _cache_target_version())
     hmp_table.add("zarr_schema_version", zarr_schema_version)
     hmp_table.add("parquet_schema_version", parquet_schema_version)
+    if schema_sha256 is not None:
+        hmp_table.add("config_schema_sha256", schema_sha256)
     hmp_table.add("generated_at", stamped_at)
     doc.add("hydromodpy", hmp_table)
 
@@ -256,50 +236,28 @@ def write_lockfile(
     for solver_name, info in bin_payload.items():
         sha = info.get("sha256")
         ver = info.get("version_text")
-        path = info.get("path")
         if sha is not None:
             binaries_table.add(f"{solver_name}_sha256", sha)
         if ver is not None:
             binaries_table.add(f"{solver_name}_version_text", ver)
-        if path is not None:
-            binaries_table.add(f"{solver_name}_path", path)
     doc.add("binaries", binaries_table)
 
-    schema_table = tomlkit.table()
-    schema_table.add("catalog", _cache_target_version())
-    schema_table.add("zarr", zarr_schema_version)
-    schema_table.add("parquet", parquet_schema_version)
-    if schema_sha256 is not None:
-        schema_table.add("config_sha256", schema_sha256)
-    doc.add("schema", schema_table)
-
-    locked_list, inputs_payload = _inputs_section(catalog, fetched_at=stamped_at)
-
-    inputs_table = tomlkit.table()
-    for rel_path, payload in inputs_payload.items():
-        inline = tomlkit.inline_table()
-        inline["sha256"] = payload["sha256"]
-        inline["bytes"] = int(payload["bytes"])
-        inline["fetched_at"] = payload["fetched_at"]
-        inputs_table.add(rel_path, inline)
-    doc.add("inputs", inputs_table)
-
-    artefacts = tomlkit.aot()
-    for la in locked_list:
+    records = tomlkit.aot()
+    for item in _locked_inputs(catalog, fetched_at=stamped_at):
         table = tomlkit.table()
-        table.add("variable", la.variable)
-        table.add("source", la.source)
-        if la.station_id is not None:
-            table.add("station_id", la.station_id)
-        table.add("file_path", la.file_path)
-        table.add("sha256", la.sha256)
-        if la.file_mtime is not None:
-            table.add("file_mtime", la.file_mtime)
-        if la.size_bytes is not None:
-            table.add("size_bytes", la.size_bytes)
-        table.add("fetched_at", la.fetched_at)
-        artefacts.append(table)
-    doc["artefact"] = artefacts
+        table.add("variable", item.variable)
+        table.add("source", item.source)
+        if item.station_id is not None:
+            table.add("station_id", item.station_id)
+        table.add("path", item.path)
+        table.add("sha256", item.sha256)
+        if item.bytes is not None:
+            table.add("bytes", item.bytes)
+        if item.file_mtime is not None:
+            table.add("file_mtime", item.file_mtime)
+        table.add("fetched_at", item.fetched_at)
+        records.append(table)
+    doc["input"] = records
 
     _atomic_write_text(dest, tomlkit.dumps(doc))
     return dest
@@ -309,9 +267,10 @@ def verify_frozen(
     catalog: DataCatalogDuckDB,
     lockfile: Path | str,
 ) -> list[LockMismatch]:
-    """Return every mismatch between *lockfile* artefacts and the catalog."""
+    """Return every mismatch between the *lockfile* records and the catalog."""
     locked = {
-        (la.variable, la.source, la.station_id, la.file_path): la for la in read_lockfile(lockfile)
+        (item.variable, item.source, item.station_id, item.path): item
+        for item in read_lockfile_inputs(lockfile)
     }
     mismatches: list[LockMismatch] = []
     rows = catalog.backend.fetch_all("SELECT variable, source, station_id, file_path FROM entries")
@@ -319,8 +278,8 @@ def verify_frozen(
     for variable, source, station_id, file_path in rows:
         key = (variable, source, station_id, file_path)
         seen.add(key)
-        la = locked.get(key)
-        if la is None:
+        item = locked.get(key)
+        if item is None:
             mismatches.append(
                 LockMismatch(
                     kind="missing",
@@ -341,36 +300,36 @@ def verify_frozen(
                     variable=variable,
                     source=source,
                     station_id=station_id,
-                    expected=la.sha256,
+                    expected=item.sha256,
                     observed=None,
                     path=str(file_path),
                 )
             )
             continue
         actual_sha = sha256_of(p)
-        if actual_sha != la.sha256:
+        if actual_sha != item.sha256:
             mismatches.append(
                 LockMismatch(
                     kind="sha256",
                     variable=variable,
                     source=source,
                     station_id=station_id,
-                    expected=la.sha256,
+                    expected=item.sha256,
                     observed=actual_sha,
                     path=str(file_path),
                 )
             )
-    for key, la in locked.items():
+    for key, item in locked.items():
         if key not in seen:
             mismatches.append(
                 LockMismatch(
                     kind="missing",
-                    variable=la.variable,
-                    source=la.source,
-                    station_id=la.station_id,
-                    expected=la.sha256,
+                    variable=item.variable,
+                    source=item.source,
+                    station_id=item.station_id,
+                    expected=item.sha256,
                     observed=None,
-                    path=la.file_path,
+                    path=item.path,
                 )
             )
     return mismatches
@@ -380,20 +339,22 @@ def verify_inputs_strict(
     catalog: DataCatalogDuckDB,
     lockfile: Path | str,
 ) -> list[LockMismatch]:
-    """Return only ``sha256`` mismatches found in the ``[inputs]`` section.
+    """Return what changed among the files the lockfile names, by path.
 
-    Used by ``hmp dev lock verify --strict`` to fail with exit 1 when any tracked
-    input changed. Missing artefacts are reported with ``kind="missing"``.
+    Used by ``hmp dev lock verify --strict`` and ``hmp run --frozen`` to stop on a
+    tracked input that changed. An entry the lockfile does not name is left to
+    ``verify_frozen``, which also answers for a lockfile that names nothing.
+    Missing artefacts are reported with ``kind="missing"``.
     """
-    expected = read_lockfile_inputs(lockfile)
+    expected = {item.path: item for item in read_lockfile_inputs(lockfile)}
     if not expected:
         return verify_frozen(catalog, lockfile)
     rows = catalog.backend.fetch_all("SELECT variable, source, station_id, file_path FROM entries")
     mismatches: list[LockMismatch] = []
     for variable, source, station_id, file_path in rows:
         key = str(file_path)
-        meta = expected.get(key)
-        if meta is None:
+        locked = expected.get(key)
+        if locked is None:
             continue
         p = catalog.resolve_path(file_path, variable=variable)
         if not p.is_file():
@@ -403,21 +364,21 @@ def verify_inputs_strict(
                     variable=variable,
                     source=source,
                     station_id=station_id,
-                    expected=meta["sha256"],
+                    expected=locked.sha256,
                     observed=None,
                     path=key,
                 )
             )
             continue
         actual = sha256_of(p)
-        if actual != meta["sha256"]:
+        if actual != locked.sha256:
             mismatches.append(
                 LockMismatch(
                     kind="sha256",
                     variable=variable,
                     source=source,
                     station_id=station_id,
-                    expected=meta["sha256"],
+                    expected=locked.sha256,
                     observed=actual,
                     path=key,
                 )
@@ -514,15 +475,14 @@ def restore_archive(archive: Path | str, dest_dir: Path | str) -> Path:
 
     lockfile_path = dest_dir / LOCKFILE_NAME
     if lockfile_path.is_file():
-        locked = read_lockfile(lockfile_path)
-        for la in locked:
-            candidate = dest_dir / "artefacts" / la.sha256 / Path(la.file_path).name
+        for item in read_lockfile_inputs(lockfile_path):
+            candidate = dest_dir / "artefacts" / item.sha256 / Path(item.path).name
             if candidate.is_file():
                 actual = sha256_of(candidate)
-                if actual != la.sha256:
+                if actual != item.sha256:
                     raise RuntimeError(
                         f"SHA-256 mismatch after restore: {candidate} "
-                        f"expected {la.sha256}, got {actual}"
+                        f"expected {item.sha256}, got {actual}"
                     )
     return dest_dir
 

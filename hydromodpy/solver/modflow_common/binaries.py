@@ -1,29 +1,37 @@
-"""Solver binary resolution and lazy download.
+"""Solver binary resolution and verified download.
 
 Downstream solvers (MODFLOW 6, MODFLOW-NWT, MODPATH, MT3D-USGS) ask for
 an executable by its canonical name (``"mf6"``, ``"mfnwt"``, ``"mp6"``,
 ``"mp7"``, ``"mt3dusgs"``). This module locates the file in ``bin_path``
-and, when ``bin_path`` is the HydroModPy-managed cache, downloads it via
-``flopy.utils.get_modflow`` if missing.
+and, when ``bin_path`` is the HydroModPy-managed cache, installs it from the
+pinned release if missing.
 
 Layout
 ------
 
-Solvers are looked up under ``<bin_path>/<exe>`` (flat layout produced
-by ``flopy.utils.get_modflow``). The managed cache lives at
-``~/.cache/hydromodpy/bin/`` (or the platform equivalent) and a custom
-directory may be passed via the ``HMP_BIN`` env var or the
-``--bindir`` flag of ``hmp install-binaries``.
+Solvers are looked up under ``<bin_path>/<exe>``, a flat folder. The managed
+cache lives at ``~/.cache/hydromodpy/bin/`` (or the platform equivalent) and a
+custom directory may be passed via the ``HMP_BIN`` env var or the ``--bindir``
+flag of ``hmp install-binaries``.
 
 Versioning policy
 -----------------
+
+A release of ``MODFLOW-ORG/executables`` holds one zip per platform, with every
+solver inside. :data:`RELEASE_ASSETS` writes the sha256 of each zip of each
+release HydroModPy installs, so one digest covers every binary this module
+manages. A zip that hashes to anything else is refused, before a file of it
+reaches ``bin_path``. A release with no digests here is refused too. A new entry
+is a number change until proven otherwise, under the rule of the page
+``contribute/architecture/how-to/cut-a-release``.
 
 Once a binary lands in the managed cache we never auto-refresh it: the
 same MODFLOW version stays in place for the lifetime of the cache, for
 reproducibility (a run started today must yield the same results a year
 from now unless the user opts in to an upgrade). A manifest written
-alongside the binaries (``.manifest.json``) records the download date
-and USGS release tag. To pull newer USGS binaries, the user runs::
+alongside the binaries (``.manifest.json``) records the download date,
+the release tag and the zip with its sha256. To download the binaries again,
+the user runs::
 
     hmp install-binaries --upgrade
 
@@ -35,10 +43,12 @@ from __future__ import annotations
 import importlib
 import json
 import os
+import platform
 import re
+import shutil
 import subprocess
 import sys
-import urllib.error
+import zipfile
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -46,7 +56,8 @@ from pathlib import Path
 from typing import Literal
 
 from hydromodpy.core import progress
-from hydromodpy.core.exceptions import NetworkError
+from hydromodpy.core.exceptions import NetworkError, SolverBinaryError
+from hydromodpy.core.io.pinned_download import fetch_pinned
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import cache_dir
 from hydromodpy.solver.modflow_common.executables import ensure_platform_executable
@@ -57,7 +68,17 @@ MANIFEST_FILENAME = ".manifest.json"
 DEFAULT_RELEASE = "23.0"
 
 BINARIES_REPOSITORY = "MODFLOW-ORG/executables"
-"""GitHub repository ``flopy.utils.get_modflow`` reads the solver binaries from."""
+"""GitHub repository the solver binaries are downloaded from."""
+
+RELEASE_ASSETS: dict[str, dict[str, str]] = {
+    "23.0": {
+        "linux.zip": "610bb1918e3f9d9b7d0124de158b65281e42a086205c3adf342324ca7d067adb",
+        "mac.zip": "2a8c31084e20d4d0318fbb2e54cedee6799fda2205b796af6c18e7732acde14b",
+        "macarm.zip": "a075ea618d38d8cdf32d5ecd4f354f173950239639a86391dbf4236b68c0e6d2",
+        "win64.zip": "83f95eaf5c2492b0471d621de960893a1576d4ba6db80195d789dd28503df7d2",
+    },
+}
+"""The sha256 of each platform zip, per release HydroModPy installs."""
 
 SOLVER_EXECUTABLES: dict[str, str] = {"modflow6": "mf6", "modflow_nwt": "mfnwt"}
 """Catalog solver code -> canonical executable this module can fetch."""
@@ -111,11 +132,7 @@ def is_managed_cache(bin_path: str | os.PathLike[str]) -> bool:
 
 
 def locate_solver_binary(bin_path: str | os.PathLike[str], solver: str) -> Path | None:
-    """Return the exe path under ``bin_path`` or ``None`` if missing.
-
-    Looks up the flat ``<bin_path>/<exe>`` layout produced by
-    ``flopy.utils.get_modflow``.
-    """
+    """Return the exe path under ``bin_path`` or ``None`` if missing."""
     bin_dir = Path(bin_path).expanduser()
     candidate = bin_dir / exe_filename(solver)
     return candidate if candidate.is_file() else None
@@ -137,7 +154,9 @@ def read_manifest(bindir: str | os.PathLike[str] | None = None) -> dict | None:
         return None
 
 
-def _write_manifest(bindir: Path, *, release: str, solvers: list[str], replace: bool) -> None:
+def _write_manifest(
+    bindir: Path, *, release: str, asset: str, solvers: list[str], replace: bool
+) -> None:
     path = _manifest_path(bindir)
     existing = read_manifest(bindir) if not replace else None
     merged_solvers = set(solvers)
@@ -145,6 +164,8 @@ def _write_manifest(bindir: Path, *, release: str, solvers: list[str], replace: 
         merged_solvers.update(existing["solvers"])
     manifest = {
         "release": release,
+        "asset": asset,
+        "asset_sha256": RELEASE_ASSETS[release][asset],
         "downloaded_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "solvers": sorted(merged_solvers),
     }
@@ -152,6 +173,34 @@ def _write_manifest(bindir: Path, *, release: str, solvers: list[str], replace: 
         path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     except OSError as exc:
         logger.warning("Failed to write cache manifest %s: %s", path, exc)
+
+
+def _release_asset() -> str:
+    """Return the name of the zip of a release that serves this platform."""
+    key = _platform_key()
+    if key == "win":
+        return "win64.zip"
+    if key == "darwin":
+        return "macarm.zip" if platform.machine().lower() in {"arm64", "aarch64"} else "mac.zip"
+    return "linux.zip"
+
+
+def asset_url(release: str, asset: str) -> str:
+    """Return the address of one zip of ``release``."""
+    return f"https://github.com/{BINARIES_REPOSITORY}/releases/download/{release}/{asset}"
+
+
+def _pinned_digest(release: str, asset: str) -> str:
+    """Return the sha256 of ``asset``; refuse a release with no digest in the package."""
+    digest = RELEASE_ASSETS.get(release, {}).get(asset)
+    if digest is None:
+        raise SolverBinaryError(
+            f"HydroModPy holds no sha256 for {asset} of MODFLOW release {release}, so it does "
+            f"not install it. It installs release {', '.join(RELEASE_ASSETS)}. To run another "
+            f"build, fetch it yourself (get-modflow <folder> --release-id {release}) and set "
+            "HMP_BIN to that folder. Each run records the sha256 of the binary it used."
+        )
+    return digest
 
 
 def download_solver_binaries(
@@ -162,12 +211,12 @@ def download_solver_binaries(
     force: bool = False,
     release: str = DEFAULT_RELEASE,
 ) -> Path:
-    """Download solver binaries via ``flopy.utils.get_modflow``.
+    """Install solver binaries from the zip of ``release``, verified against its sha256.
 
     ``bindir`` defaults to the managed cache. ``subset`` defaults to the
-    full set of solvers this module knows about. When ``force`` is True
-    the download archive is re-fetched even if previously cached by
-    flopy. ``release`` pins the MODFLOW-ORG/executables tag.
+    full set of solvers this module knows about. The zip stays in the cache, so
+    another subset costs no second download. When ``force`` is True it is
+    fetched again. ``release`` pins the MODFLOW-ORG/executables tag.
     """
     target = Path(bindir).expanduser() if bindir else managed_bin_dir()
     target.mkdir(parents=True, exist_ok=True)
@@ -179,46 +228,61 @@ def download_solver_binaries(
             f"Unknown solver name(s): {unknown}. Expected subset of {list(available_solvers())}."
         )
 
+    asset = _release_asset()
+    digest = _pinned_digest(release, asset)
+    url = asset_url(release, asset)
+    if not quiet:
+        logger.info("Downloading solver binaries %s (release=%s) into %s", names, release, target)
     try:
-        from flopy.utils import get_modflow
-    except ImportError as exc:
-        raise RuntimeError(
-            "flopy is required to download solver binaries. "
-            "Install it via `pip install flopy` or re-run `pip install -e .`."
-        ) from exc
-
-    logger.info("Downloading solver binaries %s (release=%s) into %s", names, release, target)
-    try:
-        get_modflow(str(target), subset=names, quiet=quiet, force=force, release_id=release)
-    except (urllib.error.URLError, TimeoutError, ConnectionError) as exc:
-        raise _download_failed(release, target, exc) from exc
-    except RuntimeError as exc:
-        # flopy wraps an HTTP failure of the release query in a RuntimeError.
-        if isinstance(exc.__cause__, urllib.error.URLError):
-            raise _download_failed(release, target, exc.__cause__) from exc
-        raise
-    except ValueError as exc:
-        # flopy reports a GitHub rate limit or a refused token as a ValueError.
-        if "GITHUB_TOKEN" in str(exc):
-            raise _download_failed(release, target, exc) from exc
-        raise
-    _write_manifest(target, release=release, solvers=names, replace=force)
+        archive = fetch_pinned(
+            url,
+            cache_dir() / "bin-archives" / f"modflow_executables-{release}-{asset}",
+            sha256=digest,
+            remedy=_mismatch_remedy(target),
+            force=force,
+        )
+    except NetworkError as exc:
+        raise _download_failed(release, url, target, exc) from exc
+    _extract_solvers(archive, names, target)
+    _write_manifest(target, release=release, asset=asset, solvers=names, replace=force)
     return target
 
 
-def release_url(release: str) -> str:
-    """Return the GitHub API address the binaries of ``release`` are read from."""
-    base = f"https://api.github.com/repos/{BINARIES_REPOSITORY}/releases"
-    return f"{base}/latest" if release == "latest" else f"{base}/tags/{release}"
+def _mismatch_remedy(target: Path) -> str:
+    """Say what to do when a download is not the file this version was released with."""
+    return (
+        "This is not the file this version of HydroModPy was released with, so do not use it. "
+        "Check your proxy, try again later, and report it at "
+        "https://github.com/HydroModPy/HydroModPy/issues if it stays. To run meanwhile, copy "
+        f"executables you trust into {target}, or into a folder named by HMP_BIN."
+    )
 
 
-def _download_failed(release: str, target: Path, exc: BaseException) -> NetworkError:
+def _extract_solvers(archive: Path, names: list[str], target: Path) -> None:
+    """Place the executables ``names`` of a verified zip in ``target``, one rename each."""
+    with zipfile.ZipFile(archive) as bundle:
+        present = set(bundle.namelist())
+        for name in names:
+            filename = exe_filename(name)
+            if filename not in present:
+                raise SolverBinaryError(
+                    f"{archive} holds no {filename}, so {name} cannot be installed from it."
+                )
+            partial = target / f".{filename}.{os.getpid()}.part"
+            try:
+                with bundle.open(filename) as reader, partial.open("wb") as writer:
+                    shutil.copyfileobj(reader, writer)
+                ensure_platform_executable(partial).replace(target / filename)
+            finally:
+                partial.unlink(missing_ok=True)
+
+
+def _download_failed(release: str, url: str, target: Path, exc: NetworkError) -> NetworkError:
     """Name the address, the cause and what to set, for a download that did not reach GitHub."""
-    reason = getattr(exc, "reason", None) or exc
+    reason = exc.context.get("last_exception") or exc
     return NetworkError(
-        f"Could not download the MODFLOW binaries of release {release} from "
-        f"{release_url(release)}: {reason}. Behind a proxy, set HTTPS_PROXY (and HTTP_PROXY). "
-        "When GitHub limits the requests, set GITHUB_TOKEN to a personal access token. "
+        f"Could not download the MODFLOW binaries of release {release} from {url}: {reason}. "
+        "Behind a proxy, set HTTPS_PROXY (and HTTP_PROXY). "
         f"Without network, copy the executables into {target}, or into a folder named by "
         "HMP_BIN."
     )
@@ -278,10 +342,9 @@ def ensure_solver_library(
 ) -> Path:
     """Resolve a MODFLOW shared library (e.g. ``libmf6``) under ``bin_path``.
 
-    Mirrors :func:`ensure_solver_binary`: ``flopy.utils.get_modflow`` DOES fetch
-    shared objects named in the subset, so on a managed-cache miss the library is
-    downloaded before failing, keeping the api runner as zero-setup as the
-    subprocess runner. ``bin_path`` defaults to the managed cache.
+    Mirrors :func:`ensure_solver_binary`: on a managed-cache miss the library is
+    installed from the same zip before failing, keeping the api runner as zero-setup
+    as the subprocess runner. ``bin_path`` defaults to the managed cache.
     """
     bindir = Path(bin_path).expanduser() if bin_path else managed_bin_dir()
     found = locate_solver_binary(bindir, solver)
@@ -478,8 +541,10 @@ def warn_on_mf6_version_mismatch(
 __all__ = [
     "DEFAULT_RELEASE",
     "MANIFEST_FILENAME",
+    "RELEASE_ASSETS",
     "SOLVER_EXECUTABLES",
     "SolverEngine",
+    "asset_url",
     "available_solvers",
     "download_solver_binaries",
     "ensure_solver_binary",

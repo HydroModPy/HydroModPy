@@ -167,22 +167,6 @@ class DataCatalogDuckDB:
     def _frozen_enabled() -> bool:
         return cache_store.frozen_enabled()
 
-    def _match_locked_artifact(
-        self,
-        *,
-        variable: str,
-        source: str,
-        station_id: str | None,
-        file_path: Path | str,
-    ):
-        return cache_store.match_locked_artifact(
-            self,
-            variable=variable,
-            source=source,
-            station_id=station_id,
-            file_path=file_path,
-        )
-
     def _reject_frozen_cache_miss(
         self,
         *,

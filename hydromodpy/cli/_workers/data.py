@@ -129,7 +129,7 @@ def add_data_entry(
     )
     from hydromodpy.data.provenance.lockfile import (
         project_lockfile_path,
-        read_lockfile,
+        read_lockfile_inputs,
         resolve_lockfile_root,
         sha256_of,
     )
@@ -144,7 +144,7 @@ def add_data_entry(
         lockfile = project_lockfile_path(resolve_lockfile_root(project))
         if not lockfile.is_file():
             raise FileNotFoundError(f"--frozen requested but no lockfile at {lockfile}")
-        expected = {la.sha256 for la in read_lockfile(lockfile)}
+        expected = {item.sha256 for item in read_lockfile_inputs(lockfile)}
         if sha256_of(src) not in expected:
             raise ValueError(f"--frozen: {src} SHA-256 does not match any lockfile entry")
 
