@@ -47,11 +47,15 @@ def _run(time, *, edges=MONTHS, stamps=None, n_timesteps=None) -> SimpleNamespac
     return run
 
 
-@pytest.mark.parametrize("time", ["2002-10-15", "2002-10-01", datetime.date(2002, 10, 31)])
+@pytest.mark.parametrize("time", ["2002-10-15", "2002-11-01", datetime.date(2002, 10, 31)])
 def test_a_date_reads_the_period_that_holds_it(time) -> None:
     settings = network_criterion_settings(_run(time))
 
     assert settings.timestep == OCTOBER_2002
+
+
+def test_the_stamp_of_a_period_reads_the_state_it_closes() -> None:
+    assert network_criterion_settings(_run("2002-10-01")).timestep == OCTOBER_2002 - 1
 
 
 def test_the_redraw_reads_the_state_the_trials_scored() -> None:

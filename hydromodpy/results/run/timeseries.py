@@ -15,6 +15,7 @@ from functools import cached_property
 
 import pandas as pd
 
+from hydromodpy.core.scope import CATCHMENT, OBSERVED, SIMULATED
 from hydromodpy.core.time.period_aggregation import period_end_stamps
 from hydromodpy.results.derive.downsample import (
     DEFAULT_TARGET_POINTS,
@@ -25,8 +26,6 @@ from hydromodpy.results.derive.time_alignment import normalize_period_bounds, so
 from hydromodpy.results.manifest import RUNTIME_VARIABLE, is_sealed
 from hydromodpy.results.run.sealed import metrics_frame
 from hydromodpy.results.run.tables import has_rows, read_run_table
-
-_GLOBAL_ZONE = "__global__"
 
 
 class RunTimeseriesMixin:
@@ -47,14 +46,14 @@ class RunTimeseriesMixin:
             "parameters",
             columns=("param_name", "zone_id", "value", "unit", "parameterization"),
         )
-        # Homogeneous params are stored under "__global__"; hide that column
+        # Homogeneous params are stored under "catchment"; hide that column
         # from the canonical view unless zonal rows are present.
         if df.empty:
             return df.set_index("param_name")
         df = df.sort_values(["param_name", "zone_id"], na_position="first", ignore_index=True)
-        is_zonal = df["zone_id"].fillna(_GLOBAL_ZONE) != _GLOBAL_ZONE
+        is_zonal = df["zone_id"].fillna(CATCHMENT) != CATCHMENT
         if is_zonal.any():
-            df["zone_id"] = df["zone_id"].fillna(_GLOBAL_ZONE)
+            df["zone_id"] = df["zone_id"].fillna(CATCHMENT)
             return df.set_index(["param_name", "zone_id"])
         return df.drop(columns=["zone_id"]).set_index("param_name")
 
@@ -90,15 +89,18 @@ class RunTimeseriesMixin:
         """
         return has_rows(self, table)
 
-    def stations(self, variable: str) -> list[str]:
-        """Return the sorted station ids carrying one simulated variable.
+    def stations(self, variable: str, *, source: str = SIMULATED) -> list[str]:
+        """Return the sorted station ids carrying one variable, simulated by default.
 
-        Lets a caller enumerate multi-station families (one ``sfr:<net>:<reach>``
-        station per SFR reach, gauge ids, ...) before fetching each series with
-        :meth:`timeseries`.
+        Lets a caller enumerate multi-station families (one ``reach_id`` station
+        per SFR reach, gauge ids, ...) before fetching each series with
+        :meth:`timeseries`. ``source="observed"`` lists the gauges that measure it.
         """
         result = read_run_table(
-            self, "timeseries", where={"variable": variable}, columns=("station_id",)
+            self,
+            "timeseries",
+            where={"variable": variable, "source": source},
+            columns=("station_id",),
         )
         return sorted({str(value) for value in result["station_id"]})
 
@@ -110,8 +112,9 @@ class RunTimeseriesMixin:
         period: tuple | str | None = None,
         downsample: str | None = None,
         n_out: int | None = None,
+        source: str = SIMULATED,
     ) -> pd.Series:
-        """Return one simulated time series.
+        """Return one time series, simulated unless ``source`` says otherwise.
 
         Parameters
         ----------
@@ -131,6 +134,9 @@ class RunTimeseriesMixin:
         n_out
             Target sample count for ``downsample="lttb"`` or ``"auto"``.
             Defaults to ``5000``.
+        source
+            ``"simulated"``, the default, or ``"observed"`` for the measurement
+            of the same variable.
 
         Returns
         -------
@@ -143,7 +149,7 @@ class RunTimeseriesMixin:
             Raised when no matching time series exists.
         """
         if station is None:
-            stations = self.stations(variable)
+            stations = self.stations(variable, source=source)
             if not stations:
                 raise KeyError(f"No timeseries for sim={self._sim_id}, var={variable}")
             if len(stations) > 1:
@@ -155,7 +161,7 @@ class RunTimeseriesMixin:
         result = read_run_table(
             self,
             "timeseries",
-            where={"station_id": station, "variable": variable},
+            where={"station_id": station, "variable": variable, "source": source},
             columns=("time", "timestep", "value"),
         ).sort_values("timestep", kind="stable")
         # The table stores instants in UTC; the simulation time_index is
@@ -189,15 +195,13 @@ class RunTimeseriesMixin:
         """Return observed timeseries ingested for this simulation.
 
         Observation series are persisted in the ``timeseries`` table of the run
-        with an ``_obs`` suffix on the variable name (see
+        with ``source = observed`` (see
         :func:`hydromodpy.simulation.extraction.derivation.observation_ingest.ingest_observations`).
-        This accessor strips that suffix on read so callers query with the
-        canonical variable name (``discharge``, ``head``, ...).
 
         Parameters
         ----------
         variable : str
-            Canonical variable name (no ``_obs`` suffix).
+            Canonical variable name (``discharge``, ``head``, ...).
         station : str, optional
             Station id to filter on. When ``None``, every observed station
             for ``variable`` is returned.
@@ -215,7 +219,7 @@ class RunTimeseriesMixin:
         ValueError
             When no observation rows match the filter.
         """
-        where = {"variable": f"{variable}_obs"}
+        where = {"variable": variable, "source": OBSERVED}
         if station is not None:
             where["station_id"] = station
         df = read_run_table(
@@ -313,7 +317,7 @@ class RunTimeseriesMixin:
         ``zone_id``).
         """
         df = read_run_table(self, "parameters", columns=("param_name", "zone_id", "value"))
-        glob = df[df["zone_id"].isna() | (df["zone_id"] == _GLOBAL_ZONE)]
+        glob = df[df["zone_id"].isna() | (df["zone_id"] == CATCHMENT)]
         return {
             str(name): float(val)
             for name, val in zip(glob["param_name"], glob["value"], strict=True)

@@ -28,7 +28,7 @@ REGISTRY_CONTRACT: dict[str, tuple[str, str, tuple[str, ...]]] = {
     "accumulation_map": (
         "hydromodpy.display.figures.accumulation_map.AccumulationMap",
         "spatial",
-        ("accumulation_flux",),
+        ("drain_accumulation_flux",),
     ),
     "bisection_bracket_trace": (
         "hydromodpy.display.figures.bisection_bracket_trace.BisectionBracketTraceFigure",
@@ -326,12 +326,12 @@ REGISTRY_CONTRACT: dict[str, tuple[str, str, tuple[str, ...]]] = {
     "simulated_active_network": (
         "hydromodpy.display.figures.simulated_active_network.SimulatedActiveNetworkMap",
         "spatial",
-        ("accumulation_flux",),
+        ("drain_accumulation_flux",),
     ),
     "simulated_active_network_reference_overlay": (
         "hydromodpy.display.figures.simulated_active_network.SimulatedActiveNetworkReferenceOverlay",
         "comparison",
-        ("accumulation_flux",),
+        ("drain_accumulation_flux",),
     ),
     "stiff_diagram": ("hydromodpy.display.figures.stiff_diagram.StiffDiagramFigure", "table", ()),
     "water_budget": ("hydromodpy.display.figures.water_budget.WaterBudget", "balance", ()),

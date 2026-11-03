@@ -898,6 +898,9 @@ def test_a_phase_scoring_only_a_network_output_keeps_its_report(
 support = "network"
 observed_network = "data.hydrography"
 
+[calibration.outputs.net.verdict]
+max_catchment_mismatch = false
+
 [[calibration.objective_blocks]]
 name = "net_block"
 metric = "distance_gap"

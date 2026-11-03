@@ -71,7 +71,7 @@ class _Run:
         return False
 
     def stations(self, variable: str) -> list[str]:
-        return ["_catchment"] if variable == "discharge" else []
+        return ["catchment"] if variable == "discharge" else []
 
     def timeseries(self, variable: str, *, station: str | None = None, **_) -> pd.Series:
         if variable != "discharge":

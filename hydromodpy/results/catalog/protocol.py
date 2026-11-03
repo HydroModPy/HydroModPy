@@ -57,7 +57,7 @@ class SimulationStore(Protocol):
         variable: str,
         ts: pd.Series,
         unit: str = "",
-        qflag: str = "simulated",
+        source: str = "simulated",
     ) -> None:
         """Persist a per-station timeseries for ``sim_id``."""
 
@@ -69,7 +69,7 @@ class SimulationStore(Protocol):
         component: str,
         flux_in: float,
         flux_out: float,
-        unit: str = "m3/s",
+        unit: str = "m3 s-1",
     ) -> None:
         """Persist one budget row for ``sim_id``."""
 
@@ -254,8 +254,10 @@ class SimulationStore(Protocol):
         station_id: str,
         variable: str,
         period: tuple | None = None,
+        *,
+        source: str = "simulated",
     ) -> pd.Series:
-        """Read a per-station simulated timeseries for ``sim_id``."""
+        """Read a per-station timeseries for ``sim_id``, simulated unless ``source`` says."""
 
     def list_simulations(self, **filters: Any) -> pd.DataFrame:
         """Return one DataFrame row per sealed run matching ``filters``."""

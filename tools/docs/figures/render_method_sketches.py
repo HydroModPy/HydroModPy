@@ -440,7 +440,7 @@ def render_simulated_active_postprocess() -> None:
         ["surface emergence q_i", "q_i+ = max(q_i, 0)", "routing graph upstream(i)"],
         ["A_i = q_i+ + sum(A_j)", "m_i = 1[A_i >= Q_thr]"],
         "j runs over upstream cells or faces.",
-        ["accumulation_flux A_i", "thresholded mask m_i", "comparison to reference lines"],
+        ["drain_accumulation_flux A_i", "thresholded mask m_i", "comparison to reference lines"],
     )
 
     svg.rect(58, 315, 495, 285, klass="panel", rx=14)

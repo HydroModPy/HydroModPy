@@ -202,6 +202,32 @@ def test_the_shipped_register_declasses_the_versions_it_names_and_not_the_curren
     assert "discharge_scores_before_period_alignment" in hits_old
 
 
+def test_a_fix_of_a_derived_field_declasses_the_runs_sealed_under_the_old_rules():
+    issue = KnownIssue(
+        id="seepage_band",
+        versions=">=2.0.0a1",
+        quantities=["derived@1"],
+        since_commit="abc",
+        description="The seepage mask of these runs read the wrong band.",
+    )
+    sealed_under = run_quantities(solver="modflow6", derive_rule_version="1")
+    assert "derived@1" in sealed_under
+
+    old = label_for(
+        make_checks(), hydromodpy_version="2.0.1", quantities=sealed_under, issues=[issue]
+    )
+    assert old.label == "exploratory"
+    assert old.known_issues == ("seepage_band",)
+
+    new = label_for(
+        make_checks(),
+        hydromodpy_version="2.0.1",
+        quantities=run_quantities(solver="modflow6", derive_rule_version="2"),
+        issues=[issue],
+    )
+    assert new.known_issues == ()
+
+
 def test_run_quantities_spell_the_vocabulary_of_the_register():
     assert run_quantities(solver="boussinesq") == ("heads@boussinesq", "fluxes@boussinesq")
     assert run_quantities(solver="modflow_nwt", mesh_engine="regular", has_metrics=True) == (

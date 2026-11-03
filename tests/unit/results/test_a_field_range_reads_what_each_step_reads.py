@@ -183,7 +183,7 @@ class TestAStoredField:
 
 
 class TestAFieldRebuiltOnRead:
-    @pytest.mark.parametrize("variable", ["release_flux", "fluxes_from_budget"])
+    @pytest.mark.parametrize("variable", ["release_flux", "budget_flux_per_area"])
     def test_a_range_rebuild_is_each_step_rebuilt(self, catalog, sid, variable) -> None:
         run = Run(sid, catalog)
 
@@ -240,7 +240,7 @@ class TestAFieldRebuiltOnRead:
 
 
 class TestTheErrors:
-    @pytest.mark.parametrize("variable", ["no_such_field", "mass_accumulated"])
+    @pytest.mark.parametrize("variable", ["no_such_field", "mass_seepage_running_sum"])
     def test_a_field_nothing_holds_raises_what_a_step_read_raises(
         self, catalog, sid, variable
     ) -> None:

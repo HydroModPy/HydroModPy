@@ -16,6 +16,7 @@ from hydromodpy.calibration.config import validate_calib_output
 from hydromodpy.calibration.observations.network_source import (
     ObservedNetwork,
     UnresolvedObservedNetwork,
+    cut_to_the_catchment,
     resolve_observed_network,
     unresolved_minimal_observed_networks,
     unresolved_observed_networks,
@@ -112,6 +113,96 @@ class TestTheThreeRoutes:
         assert resolved.dem_derived is False
         assert resolved.path == str(path)
         assert len(resolved.geometry) == 2
+
+
+class TestTheCutToTheCatchment:
+    """A file and the network the data layer loaded draw one map, from one mask."""
+
+    def _with_a_mask(self, tmp_path, *, reference=None):
+        mask = tmp_path / "watershed.gpkg"
+        square = Polygon([(0, 0), (10, 0), (10, 10), (0, 10)])
+        gpd.GeoDataFrame(geometry=[square], crs=CRS).to_file(mask, driver="GPKG")
+        run_ctx = _run_ctx(reference=reference)
+        run_ctx.state.setup.geographic = SimpleNamespace(watershed_shp=str(mask))
+        return run_ctx, square
+
+    def _file(self, tmp_path):
+        path = tmp_path / "streams.gpkg"
+        line = LineString([(5, 5), (5, 20)])
+        gpd.GeoDataFrame(geometry=[line], crs=CRS).to_file(path, driver="GPKG")
+        return path
+
+    def test_a_file_is_cut_and_names_the_outline(self, tmp_path) -> None:
+        run_ctx, square = self._with_a_mask(tmp_path)
+        output = _output(stream_geometry_path=str(self._file(tmp_path)))
+
+        cut = cut_to_the_catchment(run_ctx, resolve_observed_network(run_ctx, output), output)
+
+        assert cut.clipped is True
+        assert cut.geometry.total_bounds[3] == pytest.approx(10.0)
+        assert cut.cut_outline.equals(square)
+
+    def test_the_two_routes_draw_the_same_map(self, tmp_path) -> None:
+        reference = _network(vector_path="/data/streams.shp")
+        run_ctx, _ = self._with_a_mask(tmp_path, reference=reference)
+        whole = gpd.read_file(self._file(tmp_path))
+        output_file = _output(stream_geometry_path=str(self._file(tmp_path)))
+        from_file = cut_to_the_catchment(
+            run_ctx, resolve_observed_network(run_ctx, output_file), output_file
+        )
+        reference._write(gpd.clip(whole, Polygon([(0, 0), (10, 0), (10, 10), (0, 10)])))
+        output_data = _output(observed_network="data.hydrography")
+
+        from_data = cut_to_the_catchment(
+            run_ctx, resolve_observed_network(run_ctx, output_data), output_data
+        )
+
+        assert from_file.clipped and from_data.clipped
+        assert from_file.geometry.geometry.iloc[0].equals(from_data.geometry.geometry.iloc[0])
+        assert from_data.cut_outline.equals(from_file.cut_outline)
+
+    def test_a_line_that_touches_the_outline_keeps_its_lines_and_no_point(self, tmp_path) -> None:
+        run_ctx, _ = self._with_a_mask(tmp_path)
+        path = tmp_path / "touching.gpkg"
+        lines = [LineString([(10, 5), (20, 5)]), LineString([(10, 2), (12, 5), (10, 8), (5, 8)])]
+        gpd.GeoDataFrame(geometry=lines, crs=CRS).to_file(path, driver="GPKG")
+        output = _output(stream_geometry_path=str(path))
+
+        cut = cut_to_the_catchment(run_ctx, resolve_observed_network(run_ctx, output), output)
+
+        assert set(cut.geometry.geom_type) <= {"LineString", "MultiLineString"}
+        assert cut.geometry.geometry.length.sum() == pytest.approx(5.0)
+
+    def test_false_keeps_the_file_whole_and_every_end(self, tmp_path) -> None:
+        run_ctx, _ = self._with_a_mask(tmp_path)
+        output = _output(
+            stream_geometry_path=str(self._file(tmp_path)), clip_map_to_catchment=False
+        )
+
+        kept = cut_to_the_catchment(run_ctx, resolve_observed_network(run_ctx, output), output)
+
+        assert kept.clipped is False
+        assert kept.cut_outline is None
+        assert kept.geometry.total_bounds[3] == pytest.approx(20.0)
+
+    def test_a_run_with_no_mask_keeps_the_map(self, tmp_path) -> None:
+        run_ctx = _run_ctx()
+        output = _output(stream_geometry_path=str(self._file(tmp_path)))
+
+        kept = cut_to_the_catchment(run_ctx, resolve_observed_network(run_ctx, output), output)
+
+        assert kept.clipped is False
+        assert kept.cut_outline is None
+
+    def test_a_map_out_of_the_catchment_is_refused_by_name(self, tmp_path) -> None:
+        run_ctx, _ = self._with_a_mask(tmp_path)
+        path = tmp_path / "away.gpkg"
+        line = LineString([(50, 50), (60, 60)])
+        gpd.GeoDataFrame(geometry=[line], crs=CRS).to_file(path, driver="GPKG")
+        output = _output(stream_geometry_path=str(path))
+
+        with pytest.raises(UnresolvedObservedNetwork, match="no line inside the catchment"):
+            cut_to_the_catchment(run_ctx, resolve_observed_network(run_ctx, output), output)
 
 
 class TestNothingIsWrittenBack:

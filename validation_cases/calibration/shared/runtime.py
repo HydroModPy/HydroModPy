@@ -14,7 +14,7 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.core.field_routing import CATCHMENT_BUDGET_ZONE
+from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.core.state.paths import (
     PROJECT_MARKER_FILENAME,
     data_cache_path_for,
@@ -639,7 +639,7 @@ def _extract_outlet_discharge_from_run(run: Any) -> np.ndarray | None:
     bud = run.budget()
     if bud is None or bud.empty:
         return None
-    bud = bud[bud["zone_id"].astype(str) != CATCHMENT_BUDGET_ZONE]
+    bud = bud[bud["zone_id"].astype(str) != CATCHMENT]
     if bud.empty:
         return None
     available = {str(c).strip().lower() for c in bud["component"].unique() if c is not None}

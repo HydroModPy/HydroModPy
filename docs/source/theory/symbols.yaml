@@ -1270,7 +1270,7 @@ symbols:
     pages: [exits/simulated-network, downslope-distance]
   - id: accumulated-flux
     symbol: F_n
-    meaning: "drain outflow routed downstream on :math:`D` (``accumulation_flux``); not a budget"
+    meaning: "drain outflow routed downstream on :math:`D` (``drain_accumulation_flux``); not a budget"
     unit: "m³/s"
     set_by: derived
     group: exits
@@ -1462,7 +1462,7 @@ symbols:
     symbol: f_{so}, f_{os}
     meaning: "share of a support whose descent never meets its target (``frac_unreachable_so``, ``frac_unreachable_os``)"
     unit: "-"
-    set_by: "bound on :math:`f_{so}`: :toml:`max_unreachable_fraction|calibration.outputs.<name>.max_unreachable_fraction`"
+    set_by: "reported per trial, bounds nothing"
     group: descent
     pages: [downslope-distance]
   - id: position-accuracy

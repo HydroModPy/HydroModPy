@@ -25,6 +25,7 @@ import numpy as np
 
 from hydromodpy.core.exceptions import MeshError, PipelineError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.core.state.paths import encode_workspace_path
 from hydromodpy.data.contracts.spatial_field import INPUT_FILES_KEY
 from hydromodpy.results.manifest import InputEntry
@@ -375,7 +376,6 @@ def _portable_path(source_path: Path | None, anchor: Path | str | None) -> str:
 # persist time. The catchment discharge derivation reads runoff back from
 # Zarr forcing/ when no stream network routes it.
 _WATERSHED_MEAN_FORCINGS = frozenset({"runoff", "recharge"})
-_WATERSHED_MEAN_STATION = "_watershed"
 
 
 def _watershed_mean_series(load_result: object):
@@ -546,7 +546,7 @@ def step_persist_forcings(ctx: WorkflowContext, *, store: SimulationStore) -> No
                     try:
                         sz.write_forcing_timeseries(
                             name,
-                            _WATERSHED_MEAN_STATION,
+                            CATCHMENT,
                             np.asarray(series.index.values, dtype="datetime64[ns]"),
                             series.to_numpy(dtype="float64"),
                             unit=getattr(fields_list[0], "unit", "") or "",
@@ -593,22 +593,23 @@ def _soil_budget_rows(soil: object) -> list[dict[str, object]]:
                     "class_index": int(columns.class_index[j]),
                     "x": float(columns.x[j]),
                     "y": float(columns.y[j]),
-                    "ru_mm": float(ru_mm[j]),
+                    "available_water_capacity": float(ru_mm[j]),
                     "basin_weight": float(columns.basin_weight[j]),
                     "year": int(budget.years[i]),
                     "days": int(budget.days[i]),
-                    "precipitation_mm": float(budget.precipitation[i, j]),
-                    "etp_mm": float(budget.etp[i, j]),
-                    "etr_mm": float(budget.etr[i, j]),
-                    "residual_etp_mm": float(budget.residual_etp[i, j]),
-                    "recharge_mm": float(budget.recharge[i, j]),
-                    "runoff_mm": float(budget.runoff[i, j]),
-                    "runoff_cn_mm": float(budget.runoff_cn[i, j]),
-                    "soil_storage_change_mm": float(budget.soil_storage_change[i, j]),
-                    "transit_storage_change_mm": float(budget.transit_storage_change[i, j]),
-                    "cn_storage_change_mm": float(budget.cn_storage_change[i, j]),
-                    "lag_storage_change_mm": float(budget.lag_storage_change[i, j]),
-                    "balance_residual_mm": float(budget.residual[i, j]),
+                    "precipitation": float(budget.precipitation[i, j]),
+                    "etp": float(budget.etp[i, j]),
+                    "etr": float(budget.etr[i, j]),
+                    "residual_etp": float(budget.residual_etp[i, j]),
+                    "recharge": float(budget.recharge[i, j]),
+                    "runoff": float(budget.runoff[i, j]),
+                    "runoff_cn": float(budget.runoff_cn[i, j]),
+                    "soil_storage_change": float(budget.soil_storage_change[i, j]),
+                    "transit_storage_change": float(budget.transit_storage_change[i, j]),
+                    "cn_storage_change": float(budget.cn_storage_change[i, j]),
+                    "lag_storage_change": float(budget.lag_storage_change[i, j]),
+                    "balance_residual": float(budget.residual[i, j]),
+                    "unit": "mm",
                 }
             )
 
@@ -616,27 +617,28 @@ def _soil_budget_rows(soil: object) -> list[dict[str, object]]:
     for i in range(n_years):
         rows.append(
             {
-                "column_id": _WATERSHED_MEAN_STATION,
+                "column_id": CATCHMENT,
                 "cell_index": None,
                 "class_index": None,
                 "x": None,
                 "y": None,
-                "ru_mm": basin_ru_mm,
+                "available_water_capacity": basin_ru_mm,
                 "basin_weight": 1.0,
                 "year": int(budget.years[i]),
                 "days": int(budget.days[i]),
-                "precipitation_mm": float(budget.basin("precipitation")[i]),
-                "etp_mm": float(budget.basin("etp")[i]),
-                "etr_mm": float(budget.basin("etr")[i]),
-                "residual_etp_mm": float(budget.basin("residual_etp")[i]),
-                "recharge_mm": float(budget.basin("recharge")[i]),
-                "runoff_mm": float(budget.basin("runoff")[i]),
-                "runoff_cn_mm": float(budget.basin("runoff_cn")[i]),
-                "soil_storage_change_mm": float(budget.basin("soil_storage_change")[i]),
-                "transit_storage_change_mm": float(budget.basin("transit_storage_change")[i]),
-                "cn_storage_change_mm": float(budget.basin("cn_storage_change")[i]),
-                "lag_storage_change_mm": float(budget.basin("lag_storage_change")[i]),
-                "balance_residual_mm": float(budget.basin("residual")[i]),
+                "precipitation": float(budget.basin("precipitation")[i]),
+                "etp": float(budget.basin("etp")[i]),
+                "etr": float(budget.basin("etr")[i]),
+                "residual_etp": float(budget.basin("residual_etp")[i]),
+                "recharge": float(budget.basin("recharge")[i]),
+                "runoff": float(budget.basin("runoff")[i]),
+                "runoff_cn": float(budget.basin("runoff_cn")[i]),
+                "soil_storage_change": float(budget.basin("soil_storage_change")[i]),
+                "transit_storage_change": float(budget.basin("transit_storage_change")[i]),
+                "cn_storage_change": float(budget.basin("cn_storage_change")[i]),
+                "lag_storage_change": float(budget.basin("lag_storage_change")[i]),
+                "balance_residual": float(budget.basin("residual")[i]),
+                "unit": "mm",
             }
         )
     return rows

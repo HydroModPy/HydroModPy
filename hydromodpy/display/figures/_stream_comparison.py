@@ -196,6 +196,7 @@ def comparison_from_run(
         "observed_position_accuracy_m": settings.observed_position_accuracy_m,
         "heads_snap_radius_m": settings.heads_snap_radius_m,
         "heads_min_drained_area_km2": settings.heads_min_drained_area_km2,
+        "clip_map_to_catchment": settings.clip_map_to_catchment,
     }
     return _COMPARISON_MEMO.get_or_build(
         sim,

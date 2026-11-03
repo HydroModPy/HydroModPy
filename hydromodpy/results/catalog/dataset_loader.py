@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
+from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.results.metric_rule import HEADLINE_WINDOW
 
 if TYPE_CHECKING:
@@ -181,7 +182,7 @@ class DatasetLoader:
             return df
         df["sim_id"] = df["sim_id"].astype(str)
         df["key"] = df["param_name"].where(
-            df["zone_id"] == "__global__",
+            df["zone_id"] == CATCHMENT,
             df["param_name"] + "_" + df["zone_id"],
         )
         wide = df.pivot_table(

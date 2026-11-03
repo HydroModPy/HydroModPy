@@ -40,10 +40,10 @@ def _frame(dry: pd.DatetimeIndex) -> pd.DataFrame:
         pd.Timestamp("2001-01-25", tz="UTC")
     )
     rows = [
-        {"station_id": PIEZOMETER, "variable": "head", "time": t, "value": v}
+        {"station_id": PIEZOMETER, "variable": "head", "source": "simulated", "time": t, "value": v}
         for t, v in simulated.items()
     ] + [
-        {"station_id": PIEZOMETER, "variable": "head_obs", "time": t, "value": v}
+        {"station_id": PIEZOMETER, "variable": "head", "source": "observed", "time": t, "value": v}
         for t, v in observed.items()
     ]
     return pd.DataFrame(rows)

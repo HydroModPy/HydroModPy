@@ -124,7 +124,8 @@ FlowReachWidthConfig: TypeAlias = Annotated[
 class FlowReachConfig(HydroModelBase):
     """One explicit reach row, used to bypass automatic network delineation.
 
-    Connectivity is given by 1-based reach ids. ``upstream`` lists the reaches
+    Connectivity is given by 1-based reach ids, the numbers the ``reach`` column
+    of the ``sfr_reaches`` table of a run keeps. ``upstream`` lists the reaches
     whose downstream end feeds this reach; ``downstream`` lists the reaches this
     reach feeds. The two must be reciprocal across the network.
     """

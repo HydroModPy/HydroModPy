@@ -102,9 +102,20 @@ L_{cap} = \max_{n \in \Omega_o} d_{\{o\}}(n) .
 $$ (eq-catchment)
 
 The delineated polygon builds the domain and places the outlet; it is not the
-support. Their symmetric difference over the area of the polygon is published as
-`catchment_mismatch`, with a warning above five per cent. $L_{cap}$ is static: it
-is the value an unreachable cell takes in the means ({ref}`downslope-means`).
+support. Their symmetric difference over the area of the polygon, the outline the
+mesh followed when it followed one, is published as `catchment_mismatch`. The same
+gap to the basin of D the build kept, the cells the budget zone sums, is published
+as `basin_mismatch`. A wrong outlet closes the basin of D on the same wrong branch,
+so only the first one shows it. Above
+{toml}`max_catchment_mismatch|calibration.outputs.<name>.verdict.max_catchment_mismatch`,
+5 per cent by default, the search is refused before its first solve. On the Nançon
+the gap is 0.4 per cent on the default grid of 21 406 cells, 3.8 and 2.8 per cent on
+grids of 60 and 80 cells a side, and 1.5 and 2.4 per cent on Voronoi meshes of 200
+and 100 m that follow the smoothed outline. It passes 5 per cent on grids of 30 and
+45 cells a side (11.0 and 6.8), on a Voronoi mesh of 400 m (6.3) and on the grid of
+120 cells a side (5.6), where the outlet closes on another branch. $L_{cap}$ is
+static: it is the value an unreachable cell takes in the means
+({ref}`downslope-means`).
 
 In the code: `resolve_outlet`.
 
@@ -120,12 +131,18 @@ field. A steady phase reads one state of the run.
 **The mapped network** $\mathcal{O}$ is a set of lines, drawn on the cells by
 one of three rules chosen by
 {toml}`observed_rasterization|calibration.outputs.<name>.observed_rasterization`.
+It is first cut to the delineated catchment
+({toml}`clip_map_to_catchment|calibration.outputs.<name>.clip_map_to_catchment`),
+with the shape {toml}`data.hydrography` clips what it loads to, so a file and that
+section draw the same map, and so does a figure redrawn from the run.
 
 *Heads* (the default) keeps only where the map says a stream starts, and lets the
 receiver graph draw the rest: the path a ditch gave a mapped line is something a
 model on a DEM cannot reproduce, and drawn cell by cell it would count as error.
 
-1. The lines are merged between junctions and free ends.
+1. The lines are merged between junctions and free ends. A free end on the outline
+   the map was cut along was made by the cut: the stream goes on beyond it, so it is
+   no head. It is counted as `n_cut_ends`.
 2. A free end is a head when the largest drained area within the radius $r_s$ of
    it does not exceed the same quantity at the other end of its reach. The
    drained area decides, never the direction the line was drawn in.
@@ -218,12 +235,14 @@ excess. $D_{os}$ large means a simulated network that never grew to the mapped
 one, a deficit. At a balanced point most distances are zero, so the means are
 carried by a few cells: they are tail statistics.
 
-The unreachable shares $f_{so}$ and $f_{os}$ are reported on both sides. The bound
-{toml}`max_unreachable_fraction|calibration.outputs.<name>.max_unreachable_fraction`
-guards $f_{so}$ only: its target does not move between trials, and a large share
-means the surface is not conditioned. The target of $f_{os}$ is the simulated
-network the calibration moves: at a high conductivity it retracts into the
-talwegs, and mapped cells legitimately have nothing left to descend into.
+The unreachable shares $f_{so}$ and $f_{os}$ are reported on both sides, and neither
+refuses a trial. $f_{so}$ is zero by construction: the outlet is in the target of
+$D_{so}$, and every cell of the catchment reaches the outlet. The target of $f_{os}$
+is the simulated network the calibration moves: at a high conductivity it retracts
+into the talwegs, and mapped cells legitimately have nothing left to descend into.
+`frac_outlet_terminated` is the share of the simulated support whose descent meets
+the target only at the sealed outlet. It says how much of $D_{so}$ rests on that one
+cell, and a network in excess legitimately gives a large share, so it bounds nothing.
 
 In the code: `mean_downslope_distance`.
 
@@ -375,8 +394,9 @@ options are on {doc}`../reference/calibration-methods`.
 
 What the code refuses:
 
-- a trial where more than the bound of the simulated support never reaches the
-  map: the surface still holds depressions;
+- a search whose scored catchment differs from the delineated outline by more than
+  its bound, before the first solve: an outlet on another branch, or a mesh too
+  coarse for the catchment;
 - a mapped network that lands on no active cell, or on no cell of the catchment.
   The message names the CRS as the first suspect;
 - a heads rule that draws no stream: no free end on an active cell, every free
@@ -405,6 +425,20 @@ What the code does not represent:
   paper, or `breach` {cite:p}`lindsay2016breaching`, or `capped_breach`). The
   criterion always floods the model top on the mesh; a breached raster reaches it
   only through the domain and the outlet.
+- **The recharge of the steady stage.** The protocol averages it over the window the
+  run loads, three years in example 04, where the paper reads a normal of sixty
+  years, 1960 to 2019. It is a declared departure, and $K$ is only readable with
+  the $\bar N$ and the window printed beside it. Write a long
+  {toml}`steady_window|calibration.protocol.steady_window` when the forcing covers one.
+  A window across 31 July 2015 reads a break of the SIM2 product: the summer drainage
+  over example 04 no longer falls under 0.3 mm/day after it ({doc}`soil-reservoir`).
+- **The visible flow.** In one state the simulated network is the closure of the
+  sources, whatever it carries. A visible flow exists in a transient run only, in
+  the two-bound mode and in the persistence figures, which apply 1 L/s by default,
+  so such a figure and a one-state score do not read the same network.
+- **The two-bound mode is outside the protocol.** The protocol scores its network
+  output at its steady stage, and an extent table is refused on a steady search. Its
+  transient stage scores the hydrograph alone. A two-bound search is written by hand.
 - **Domain of validity.** The method was built for unconfined aquifers in a
   temperate humid climate, with gentle gradients and a strong groundwater-stream
   connection. Outside that, the criterion still computes, and it means less.
@@ -421,12 +455,13 @@ calibration.outputs.<name>.tau_specific_ratio
 calibration.outputs.<name>.weighting
 calibration.outputs.<name>.diagonal_neighbors
 calibration.outputs.<name>.observed_rasterization
+calibration.outputs.<name>.clip_map_to_catchment
 calibration.outputs.<name>.heads_snap_radius
 calibration.outputs.<name>.heads_min_drained_area_km2
 calibration.outputs.<name>.observed_position_accuracy
 calibration.outputs.<name>.validity_length
 calibration.outputs.<name>.on_roptim_violation
-calibration.outputs.<name>.max_unreachable_fraction
+calibration.outputs.<name>.verdict.max_catchment_mismatch
 calibration.outputs.<name>.alpha_warning_threshold
 calibration.method_options
 geographic.dem_correc_type

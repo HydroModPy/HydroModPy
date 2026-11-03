@@ -109,22 +109,33 @@ def stored_parameter_value(raw: Any) -> float:
 
 
 def select_trials_to_promote(
-    cfg: CalibrationConfig, persistence: CalibrationPersistence, phase: str
+    cfg: CalibrationConfig,
+    persistence: CalibrationPersistence,
+    phase: str,
+    *,
+    answered: int | None = None,
 ) -> list[dict[str, Any]]:
-    """Return the trial rows of ``phase`` that ``cfg.save_runs`` promotes, best first."""
+    """Return the trial rows of ``phase`` that ``cfg.save_runs`` promotes, best first.
+
+    ``answered`` is the trial the search returned. It comes first and takes
+    ``runs/<case>``, so the run promoted is the value the report prints: a tie on
+    the cost, for one, can set it apart from the lowest cost of the journal.
+    """
     if cfg.save_runs == "best_n":
-        return persistence.top_n(cfg.save_best_n, phase)
+        return persistence.top_n(cfg.save_best_n, phase, answered=answered)
     if cfg.save_runs == "all":
         rows = [
             row
             for row in persistence.load_iterations(phase)
             if row["status"] == "completed" and row["cost"] is not None
         ]
+        held = persistence.answered_trial(answered, phase)
         # The first row becomes runs/<case>: a speculative trial, solved and
         # never read by the search, may be kept but never ahead of the best.
         return sorted(
             rows,
             key=lambda row: (
+                held is None or row["trial"] != held.trial,
                 row["speculative_unused"],
                 row["cost"],
                 row["trial"],
@@ -178,16 +189,17 @@ def promote_session(
     override_paths: Mapping[str, str],
     stop_state: StopState | None = None,
     stopping_rule: str | None = None,
+    answered: int | None = None,
 ) -> PromotionOutcome:
     """Promote the trials of the last phase and return what was written.
 
-    The best trial takes ``runs/<case>/``, paired with the session, keeps the
-    project's ``keep_per_cell_budget`` and carries ``checks.calibrated_by``,
-    with why the search of that phase stopped, and the facts of
-    :func:`promotion_facts`. Every other kept trial takes
+    The trial the search answered (``answered``) takes ``runs/<case>/``, paired
+    with the session, keeps the project's ``keep_per_cell_budget`` and carries
+    ``checks.calibrated_by``, with why the search of that phase stopped, and the
+    facts of :func:`promotion_facts`. Every other kept trial takes
     ``sessions/<case>/trials/<n>/`` with the ``consumers`` budget policy.
     """
-    rows = select_trials_to_promote(cfg, persistence, phase)
+    rows = select_trials_to_promote(cfg, persistence, phase, answered=answered)
     if not rows:
         return PromotionOutcome()
     return _promote_rows(
@@ -745,9 +757,14 @@ def _reserve_after_the_fact(project_root: Path, session_dir: Path, as_name: str 
 
 
 def _point_best_if_better(persistence: CalibrationPersistence, line: TrialLine) -> None:
-    """Point ``session.json`` at the promoted trial when it is the best of the session."""
-    best = persistence.best_trial()
-    if best is not None and best.trial == line.trial:
+    """Point ``session.json`` at the promoted trial when it is the best the session holds.
+
+    The session names the trial its search answered, and a tie on the cost can set
+    that one apart from the lowest cost of the journal.
+    """
+    held = persistence.descriptor.best
+    best = persistence.best_trial() if held is None else None
+    if line.trial == (held.trial if held is not None else getattr(best, "trial", None)):
         persistence.set_best(persistence.best_pointer(line))
 
 

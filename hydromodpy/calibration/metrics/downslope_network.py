@@ -82,7 +82,7 @@ class SeepageDistanceResult:
     picking the best trial by lowest cost gives the trial closest to zero and
     not the most negative one."""
 
-    status: Literal["ok", "empty_network", "failed"]
+    status: Literal["ok", "empty_network"]
     components: dict[str, float]
 
 
@@ -202,7 +202,6 @@ def seepage_distance_cost(
     saturation_cap_m: float,
     excluded: np.ndarray | None = None,
     weighting: Weighting = "cell",
-    max_unreachable_fraction: float = 0.05,
     validity: ValidityLength | None = None,
 ) -> SeepageDistanceResult:
     """Evaluate the signed gap for one trial.
@@ -216,17 +215,20 @@ def seepage_distance_cost(
 
     ``distance_to_observed`` is the descent length to the mapped network with
     the outlet sealed in, and ``distance_to_observed_raw`` the same without it.
-    Both depend only on the topography, so a calibration computes them once and
-    passes them in at every trial; only the distance to the simulated network
-    is recomputed here.
+    Both depend only on the topography and on the map, so the geometry of one
+    trial holds them (:func:`score_on_geometry`). Only the distance to the
+    simulated network is computed here.
 
     Both supports are intersected with the topographic catchment, which is not
     a detail: on the buffered model domain a tenth of the cells drain outside
-    the basin and never meet the mapped network, so the unreachable guard would
-    abort on every real catchment and the excess would pollute ``D_so`` with
-    paths that mean nothing. Measured on a real mesh, the same criterion sees
-    15 per cent unreachable over the active mesh and 0.1 per cent over its
-    catchment.
+    the basin and never meet the mapped network, and the excess would pollute
+    ``D_so`` with paths that mean nothing. Inside the catchment every cell reaches
+    the sealed outlet, so ``frac_unreachable_so`` is zero by construction and only
+    ``frac_unreachable_os`` can move: its target is the simulated network, which a
+    high K retracts into the talwegs, so a mapped cell then has nothing to descend
+    into. That is the measurement saying the model has no stream there, the signal
+    a search reads at the high end of its bracket, and those cells saturate at the
+    longest descent of the basin.
 
     Water-body cells go in ``excluded``: they stay in the graph so an upslope
     cell can still descend through the reservoir, and they stay in the target
@@ -291,7 +293,7 @@ def seepage_distance_cost(
 
     d_so = so["mean"]
     d_os = os_["mean"]
-    status: Literal["ok", "empty_network", "failed"] = "ok"
+    status: Literal["ok", "empty_network"] = "ok"
     if simulated.n_network == 0 or not np.any(support_so):
         # The high end of the bracket: no network at all. The residual is
         # defined and negative, which is what a root search needs; a large
@@ -308,24 +310,6 @@ def seepage_distance_cost(
     n_support_os = max(os_["n_support"], 1.0)
     frac_unreachable_so = so["n_unreachable"] / n_support_so
     frac_unreachable_os = os_["n_unreachable"] / n_support_os
-    if status == "ok" and frac_unreachable_so > float(max_unreachable_fraction):
-        # The bound guards ONE direction: D_so, whose target is the mapped
-        # network with the outlet sealed into it. That target does not move
-        # between trials, and every cell of a conditioned catchment reaches it,
-        # so anything beyond a few per cent means the surface is not conditioned
-        # and the number would be a fiction. This is the direction the 0.03 to
-        # 2.5 per cent of the specification was measured on.
-        #
-        # D_os is NOT guarded. Its target is the SIMULATED network, which is
-        # what the calibration moves: a high K retracts the simulated network
-        # into the talwegs, and mapped cells then legitimately have nothing to
-        # descend into. That is not a broken surface, it is the measurement
-        # saying the model has no stream there, and it is the very signal the
-        # search reads at the high end of its bracket. Those cells saturate at
-        # the basin's longest descent, the policy section 3.6 chose over
-        # counting +inf and over dropping them from the support.
-        status = "failed"
-
     r_optim = optimal / float(length_scale_m) if np.isfinite(optimal) else float("nan")
     bound = validity or ValidityLength(2.0 * float(length_scale_m), "auto")
     within = bool(np.isfinite(optimal) and optimal <= bound.length_m)
@@ -405,7 +389,6 @@ def score_on_geometry(
     geometry: NetworkGeometry,
     *,
     weighting: Weighting = "cell",
-    max_unreachable_fraction: float = 0.05,
     validity_length_m: float | None = None,
 ) -> SeepageDistanceResult:
     """Score one simulated network against the map a geometry was built on.
@@ -429,7 +412,6 @@ def score_on_geometry(
         saturation_cap_m=geometry.saturation_cap_m,
         excluded=geometry.excluded,
         weighting=weighting,
-        max_unreachable_fraction=max_unreachable_fraction,
         validity=geometry.validity_length(validity_length_m),
     )
 

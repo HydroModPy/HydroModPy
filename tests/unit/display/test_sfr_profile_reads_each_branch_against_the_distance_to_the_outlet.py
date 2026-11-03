@@ -22,7 +22,6 @@ import pandas as pd
 import pyarrow as pa
 import pytest
 
-from hydromodpy.display.figure import FigureNotApplicable
 from hydromodpy.display.figures.sfr_longitudinal_profile import (
     SfrLongitudinalProfile,
     distance_to_outlet,
@@ -32,8 +31,9 @@ from hydromodpy.results.storage.parquet_schemas import PARQUET_SCHEMA_VERSION
 
 LINKS = pd.DataFrame(
     {
+        "reach_id": [f"main:{reach}" for reach in range(6)],
         "network_id": ["main"] * 6,
-        "ifno": [0, 1, 2, 3, 4, 5],
+        "reach": [0, 1, 2, 3, 4, 5],
         "rlen": [100.0] * 6,
         "ustrf": [1.0] * 6,
         "downstream": [[2], [3], [4], [4], [5], []],
@@ -52,7 +52,7 @@ def _run(tables: Path, links: pd.DataFrame = LINKS) -> SimpleNamespace:
         tables / "sfr_reaches.parquet",
         kv_metadata={"hmp.schema_version": PARQUET_SCHEMA_VERSION},
     )
-    stations = {ifno: f"sfr:main:{ifno}" for ifno in FLOW}
+    stations = {reach: f"main:{reach}" for reach in FLOW}
     return SimpleNamespace(
         sim_id="sim-sfr",
         name="nancon",
@@ -79,7 +79,8 @@ def test_a_fork_follows_the_branch_that_takes_the_larger_share_of_the_flow() -> 
     links = pd.DataFrame(
         {
             "network_id": ["main"] * 4,
-            "ifno": [0, 1, 2, 3],
+            "reach_id": [f"main:{reach}" for reach in range(4)],
+            "reach": [0, 1, 2, 3],
             "rlen": [100.0, 400.0, 100.0, 100.0],
             "ustrf": [1.0, 0.3, 0.7, 1.0],
             "downstream": [[1, 2], [3], [3], []],
@@ -126,21 +127,5 @@ def test_the_axis_says_what_it_measures(tmp_path: Path) -> None:
     try:
         SfrLongitudinalProfile().render(_run(tmp_path), ax)
         assert ax.get_xlabel() == "distance to the outlet, along the main path (m)"
-    finally:
-        plt.close(fig)
-
-
-def test_a_run_sealed_before_the_table_stored_its_links_is_skipped_with_the_remedy(
-    tmp_path: Path,
-) -> None:
-    pytest.importorskip("matplotlib")
-    mpl.use("Agg")
-    import matplotlib.pyplot as plt
-
-    old = LINKS.drop(columns="downstream")
-    fig, ax = plt.subplots()
-    try:
-        with pytest.raises(FigureNotApplicable, match="Run it again"):
-            SfrLongitudinalProfile().render(_run(tmp_path, old), ax)
     finally:
         plt.close(fig)

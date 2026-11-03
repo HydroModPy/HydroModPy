@@ -165,8 +165,12 @@ def network_maps_from_run(run_ctx: RunContext, output: CalibOutputNetwork) -> Ne
     a backend that does not expose one says which one rather than failing deep
     inside a numpy call.
     """
-    from hydromodpy.calibration.observations.network_source import resolve_observed_network
+    from hydromodpy.calibration.observations.network_source import (
+        cut_to_the_catchment,
+        resolve_observed_network,
+    )
     from hydromodpy.calibration.observations.observed_network import (
+        catchment_outline_mask,
         delineated_catchment_mask,
         delineated_outlet_xy,
         observed_network_mask,
@@ -197,8 +201,10 @@ def network_maps_from_run(run_ctx: RunContext, output: CalibOutputNetwork) -> Ne
     centres = np.asarray(solver_mesh.cell_centers(), dtype=float)
     # Resolved once per trial. Neither the mask projections below nor the
     # caller in metrics/solver_extract.py re-resolves them.
-    resolved = resolve_observed_network(run_ctx, output)
+    resolved = cut_to_the_catchment(run_ctx, resolve_observed_network(run_ctx, output), output)
     minimal_source = resolve_minimal_network(run_ctx, output)
+    if minimal_source is not None:
+        minimal_source = cut_to_the_catchment(run_ctx, minimal_source, output)
     # The criterion routes on the TOPOGRAPHIC surface, never on the model's
     # active domain: section 4.4 measures 0.03 to 2.5 per cent of unreachable
     # cells on the first against 10.5 to 14.4 on the second. Cutting the graph
@@ -215,6 +221,7 @@ def network_maps_from_run(run_ctx: RunContext, output: CalibOutputNetwork) -> Ne
     recharge = mean_recharge_m_s(model)
     excluded = water_body_mask(model, n_cells=int(solver_mesh.n_cells))
     polygon = delineated_catchment_mask(run_ctx, planar_mesh, connectivity)
+    outline = catchment_outline_mask(run_ctx, planar_mesh, connectivity)
     outlet_xy = delineated_outlet_xy(run_ctx)
 
     def on_map(
@@ -242,6 +249,7 @@ def network_maps_from_run(run_ctx: RunContext, output: CalibOutputNetwork) -> Ne
             inactive_mask=inactive,
             excluded=excluded,
             delineated_catchment=polygon,
+            catchment_outline=outline,
             delineated_outlet_xy=outlet_xy,
             diagonal_neighbors=bool(output.diagonal_neighbors),
             observed_position_accuracy_m=_accuracy_in_m(output),

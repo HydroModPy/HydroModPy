@@ -3,9 +3,9 @@
 The store only persists primary variables: the head, the budget terms, the
 concentration and the mesh. Every derived field is rebuilt on read from them:
 ``watertable_elevation``, ``watertable_depth``, ``seepage_mask``,
-``outflow_drain``, ``release_flux``, ``fluxes_from_budget``, the two
+``outflow_drain``, ``release_flux``, ``budget_flux_per_area``, the two
 accumulation fluxes and the solute chain ``concentration_seepage``,
-``mass_seepage``, ``mass_accumulated``. Each has a whole-range computation in
+``mass_seepage``, ``mass_seepage_running_sum``. Each has a whole-range computation in
 :data:`VIRTUAL_FIELD_ROWS`, and a single step is one row of it, so a step read
 alone equals the row of a range read, bit for bit. A store written before the
 fields were rebuilt on read may still hold some of them under ``derived/``:
@@ -24,8 +24,8 @@ import numpy as np
 from hydromodpy.core.budget_terms import POLICY_CONSUMERS, budget_terms_for, kept_budget
 from hydromodpy.core.field_routing import (
     DRN_TO_MVR_KEYS,
+    budget_outflow_stack,
     drain_band_depth,
-    drain_budget_stack_to_positive_outflow,
     drain_stack_with_mover,
     find_drain_budget_key,
     has_release_budget,
@@ -36,8 +36,8 @@ from hydromodpy.core.field_routing import (
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
 from hydromodpy.results.derive.accumulation import (
-    accumulation_flux_available,
-    accumulation_flux_rows,
+    drain_accumulation_flux_available,
+    drain_accumulation_flux_rows,
     release_accumulation_flux_available,
     release_accumulation_flux_rows,
 )
@@ -281,8 +281,8 @@ def outflow_drain_rows(root: Any, start: int, stop: int) -> np.ndarray:
 
     The drain term with the drain-to-mover term added when the run holds both,
     in the unit of the budget. The sign convention is the one of
-    :func:`hydromodpy.core.field_routing.drain_budget_stack_to_positive_outflow`;
-    the result is non-negative and finite.
+    :func:`hydromodpy.core.field_routing.budget_outflow_stack`; the result is
+    non-negative and finite.
     """
     budget = root.get("budget")
     if budget is None:
@@ -294,8 +294,7 @@ def outflow_drain_rows(root: Any, start: int, stop: int) -> np.ndarray:
 
     def rows(first: int, last: int) -> np.ndarray:
         stack = drain_stack_with_mover(budget, drn_key, first, last)
-        outflow = np.maximum(drain_budget_stack_to_positive_outflow(stack, n_cells=n_cells), 0.0)
-        return np.where(np.isfinite(outflow), outflow, 0.0)
+        return budget_outflow_stack(stack, n_cells=n_cells)
 
     return _in_passes(rows, start, stop, n_cells)
 
@@ -357,7 +356,7 @@ def _mass_seepage_plan(root: Any) -> RowsOf:
             flux = np.ones((last - first, n_cells), dtype="float64")
         else:
             drain = np.asarray(budget[drn_key][first:last], dtype="float64")
-            flux = drain_budget_stack_to_positive_outflow(drain, n_cells=n_cells)
+            flux = budget_outflow_stack(drain, n_cells=n_cells)
         return concentration_seepage(first, last) * flux
 
     return rows
@@ -374,7 +373,7 @@ def mass_seepage_rows(root: Any, start: int, stop: int) -> np.ndarray:
     )
 
 
-def mass_accumulated_rows(root: Any, start: int, stop: int) -> np.ndarray:
+def mass_seepage_running_sum_rows(root: Any, start: int, stop: int) -> np.ndarray:
     """Return the running sum of ``mass_seepage`` over steps ``[start, stop)``.
 
     The sum runs from step 0, so a range costs the steps before it too. A NaN
@@ -425,7 +424,7 @@ def release_flux_rows(root: Any, start: int, stop: int) -> np.ndarray:
 
 
 FLUX_BUDGET_COMPONENTS = ("drain", "recharge")
-"""Budget terms ``fluxes_from_budget`` normalises, the first one present wins."""
+"""Budget terms ``budget_flux_per_area`` normalises, the first one present wins."""
 
 
 def cell_area_from_mesh(root: Any, n_cells: int) -> np.ndarray | None:
@@ -449,14 +448,14 @@ def cell_area_from_mesh(root: Any, n_cells: int) -> np.ndarray | None:
     return areas[:n_cells]
 
 
-def fluxes_from_budget_rows(root: Any, start: int, stop: int) -> np.ndarray:
-    """Return ``fluxes_from_budget`` over steps ``[start, stop)``.
+def budget_flux_per_area_rows(root: Any, start: int, stop: int) -> np.ndarray:
+    """Return ``budget_flux_per_area`` over steps ``[start, stop)``.
 
     The first stored term of :data:`FLUX_BUDGET_COMPONENTS`, summed over
     layers, divided by the cell area: m3/s over m2, so m/s. Cells of no area
     are NaN. This is the computation the derive step used to store.
     """
-    from hydromodpy.results.derive.derived import fluxes_from_budget
+    from hydromodpy.results.derive.derived import budget_flux_per_area
 
     budget = root.get("budget")
     if budget is None:
@@ -478,7 +477,7 @@ def fluxes_from_budget_rows(root: Any, start: int, stop: int) -> np.ndarray:
         if stack.ndim == 3:
             stack = stack.sum(axis=1)
         stack = stack.reshape(stack.shape[0], -1)[:, :n_cells]
-        return np.asarray(fluxes_from_budget(stack, area), dtype="float64")[:, :n_cells]
+        return np.asarray(budget_flux_per_area(stack, area), dtype="float64")[:, :n_cells]
 
     return _in_passes(compute, start, stop, n_cells)
 
@@ -606,8 +605,8 @@ def _single_step(rows: Callable[[Any, int, int], np.ndarray]) -> Callable[[Any, 
 BUDGET_ONLY_FIELDS: tuple[str, ...] = (
     "outflow_drain",
     "release_flux",
-    "fluxes_from_budget",
-    "accumulation_flux",
+    "budget_flux_per_area",
+    "drain_accumulation_flux",
     "release_accumulation_flux",
 )
 
@@ -649,12 +648,12 @@ VIRTUAL_FIELD_ROWS: dict[str, Any] = {
     "seepage_mask": seepage_mask_rows,
     "outflow_drain": outflow_drain_rows,
     "release_flux": release_flux_rows,
-    "fluxes_from_budget": fluxes_from_budget_rows,
-    "accumulation_flux": accumulation_flux_rows,
+    "budget_flux_per_area": budget_flux_per_area_rows,
+    "drain_accumulation_flux": drain_accumulation_flux_rows,
     "release_accumulation_flux": release_accumulation_flux_rows,
     "concentration_seepage": concentration_seepage_rows,
     "mass_seepage": mass_seepage_rows,
-    "mass_accumulated": mass_accumulated_rows,
+    "mass_seepage_running_sum": mass_seepage_running_sum_rows,
 }
 VIRTUAL_FIELD_ROWS.update(
     {name: _needing_kept_terms(name, VIRTUAL_FIELD_ROWS[name]) for name in BUDGET_ONLY_FIELDS}
@@ -704,7 +703,7 @@ def available_virtual_fields(root: Any) -> list[str]:
     accumulation fluxes need the head, their budget terms and a descent, stored
     or rebuilt from the mesh topology. The solute chain needs the stored
     concentration: ``concentration_seepage`` also a seepage mask,
-    ``mass_seepage`` also a budget group, ``mass_accumulated`` nothing more.
+    ``mass_seepage`` also a budget group, ``mass_seepage_running_sum`` nothing more.
     The mesh quality fields need the stored geometry, and the cell centres for
     the offset, the non-orthogonality and the bisection offset
     (:mod:`hydromodpy.results.derive.mesh_quality`).
@@ -728,9 +727,9 @@ def available_virtual_fields(root: Any) -> list[str]:
             names.append("release_flux")
         has_geometry = mesh is not None and "vertices" in mesh and "face_node_connectivity" in mesh
         if has_geometry and any(name in budget for name in FLUX_BUDGET_COMPONENTS):
-            names.append("fluxes_from_budget")
-    if accumulation_flux_available(root):
-        names.append("accumulation_flux")
+            names.append("budget_flux_per_area")
+    if drain_accumulation_flux_available(root):
+        names.append("drain_accumulation_flux")
     if release_accumulation_flux_available(root):
         names.append("release_accumulation_flux")
     names = [
@@ -754,7 +753,7 @@ def _solute_fields_available(root: Any, budget: Any | None) -> list[str]:
     if budget is not None and (rebuildable or _has_stored(root, "concentration_seepage")):
         names.append("mass_seepage")
     if _has_stored(root, "mass_seepage") or "mass_seepage" in names:
-        names.append("mass_accumulated")
+        names.append("mass_seepage_running_sum")
     return names
 
 

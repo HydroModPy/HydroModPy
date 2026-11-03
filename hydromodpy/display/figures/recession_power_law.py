@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, Annotated
 import numpy as np
 import pandas as pd
 
-from hydromodpy.core.units.labels import CATCHMENT_OUTLET_STATION
+from hydromodpy.core.scope import CATCHMENT, DOMAIN
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Opt, Station
 from hydromodpy.display.figure_registry import register
@@ -77,7 +77,7 @@ def budget_outflow_per_day(sim: Run, component: str) -> pd.Series:
     rows = sim.budget(component=component)
     if rows.empty:
         raise ValueError(f"budget component '{component}' is empty for sim {sim.sim_id}")
-    zone = "0" if (rows["zone_id"] == "0").any() else rows["zone_id"].iloc[0]
+    zone = DOMAIN if (rows["zone_id"] == DOMAIN).any() else rows["zone_id"].iloc[0]
     zoned = rows.loc[rows["zone_id"] == zone]
     steps = np.asarray(zoned["timestep"], dtype="int64")
     values = np.asarray(zoned["flux_out"], dtype="float64") * SECONDS_PER_DAY
@@ -125,7 +125,7 @@ class RecessionPowerLaw(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        station: Station = CATCHMENT_OUTLET_STATION,
+        station: Station = CATCHMENT,
         variable: Annotated[
             str, Opt('Stored discharge series read, in m3/s, for example "discharge".')
         ] = "discharge",

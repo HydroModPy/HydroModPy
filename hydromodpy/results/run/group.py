@@ -40,6 +40,7 @@ from typing import TYPE_CHECKING, Any, Final
 import pandas as pd
 
 from hydromodpy.core import progress
+from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.results.catalog.constants import metric_sense
 from hydromodpy.results.manifest import is_sealed
 from hydromodpy.results.metric_rule import METRIC_NAMES
@@ -188,7 +189,7 @@ class RunSet:
         if df.empty:
             return df
         df["key"] = df["param_name"].where(
-            df["zone_id"] == "__global__",
+            df["zone_id"] == CATCHMENT,
             df["param_name"] + "_" + df["zone_id"],
         )
         return df.pivot_table(

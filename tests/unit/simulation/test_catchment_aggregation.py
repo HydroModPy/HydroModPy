@@ -9,9 +9,8 @@ import pandas as pd
 import pytest
 
 from hydromodpy.core.exceptions import ExtractError
-from hydromodpy.core.field_routing import CATCHMENT_BUDGET_ZONE
+from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
-    _CATCHMENT_STATION,
     _add_runoff_to_discharge_series,
     _aggregate_from_lumped_budget,
     _aggregate_variable,
@@ -49,12 +48,11 @@ class TestReduce:
         # Only active cells 5 + 7 = 12.
         assert _reduce(field, mask, "sum") == pytest.approx(12.0)
 
-    def test_abs_sum_uses_absolute_value_and_mask(self):
-        # Drain fluxes are signed; discharge spec sums absolute values.
+    def test_outflow_sum_counts_what_leaves_and_keeps_the_mask(self):
+        # Budget fluxes are negative when water leaves; what enters is no outflow.
         field = np.array([-3.0, -1000.0, 4.0, 9999.0])
         mask = np.array([True, False, True, False])
-        # |−3| + |4| = 7; masked cells excluded.
-        assert _reduce(field, mask, "abs_sum") == pytest.approx(7.0)
+        assert _reduce(field, mask, "outflow_sum") == pytest.approx(3.0)
 
     def test_max_respects_mask(self):
         field = np.array([1.0, 1.0e9, 5.0, 3.0])
@@ -90,7 +88,7 @@ class TestReduce:
         assert _reduce(field, None, "sum") == pytest.approx(66.0)
 
     def test_2d_mean_picks_first_layer(self):
-        # Non sum/abs_sum reducers collapse a 2D field to its first layer.
+        # Non sum/outflow_sum reducers collapse a 2D field to its first layer.
         field = np.array([[2.0, 4.0, 6.0], [100.0, 200.0, 300.0]])
         # First layer mean = (2+4+6)/3 = 4.
         assert _reduce(field, None, "mean_active") == pytest.approx(4.0)
@@ -402,21 +400,20 @@ class TestAggregateVariable:
         # frames: array shaped (n_ts, n_cells); stored at root under *name*.
         return _DictGroup({name: _FakeArray(np.asarray(frames, dtype="float64"))})
 
-    def test_resolves_root_alternative_and_abs_sum(self):
-        # store_var alternatives must resolve to the stored root array.
+    def test_resolves_the_root_array_and_sums_its_outflow(self):
         frames = np.array([[-1.0, 2.0, -3.0], [4.0, -5.0, 6.0]])  # 2 timesteps
         grp = self._grp_with_root_field("drain", frames)
         out = _aggregate_variable(
             store=None,
             sim_id="s",
             grp=grp,
-            store_var="drains|drain",
+            store_var="drain",
             n_timesteps=2,
             active_mask=None,
-            reducer="abs_sum",
+            reducer="outflow_sum",
         )
-        # abs sums per timestep: 1+2+3=6 ; 4+5+6=15.
-        assert out == pytest.approx([6.0, 15.0])
+        # Outflow per timestep: 1+3=4 ; 5.
+        assert out == pytest.approx([4.0, 5.0])
 
     def test_prefers_derived_over_root(self):
         # Same key present in derived/ and root; derived wins.
@@ -490,11 +487,11 @@ class TestAggregateEndToEnd:
     def test_writes_discharge_timeseries_from_drain_field(self, runs):
         n_ts, n_cells = 3, 4
         sid = self._setup_sim(runs, n_ts=n_ts, n_cells=n_cells)
-        # Signed drain fluxes per timestep; discharge = abs_sum over cells.
+        # Signed drain fluxes per timestep; discharge = outflow summed over cells.
         drain_frames = {
-            0: np.array([[-1.0, -2.0, -3.0, -4.0]]),  # abs_sum = 10
-            1: np.array([[-2.0, -2.0, -2.0, -2.0]]),  # abs_sum = 8
-            2: np.array([[1.0, 1.0, 1.0, 1.0]]),  # abs_sum = 4
+            0: np.array([[-1.0, -2.0, -3.0, -4.0]]),  # outflow = 10
+            1: np.array([[-2.0, -2.0, -2.0, -2.0]]),  # outflow = 8
+            2: np.array([[-1.0, -1.0, -1.0, 1.0]]),  # outflow = 3, one cell gains water
         }
         for t in range(n_ts):
             runs.store(sid).write_field(
@@ -503,19 +500,39 @@ class TestAggregateEndToEnd:
 
         aggregate_catchment_timeseries(sid, runs.store(sid))
 
-        ts = runs.store(sid).query_timeseries(sid, _CATCHMENT_STATION, "discharge")
+        ts = runs.store(sid).query_timeseries(sid, CATCHMENT, "discharge")
         assert len(ts) == n_ts
-        np.testing.assert_allclose(sorted(ts.values), [4.0, 8.0, 10.0])
+        np.testing.assert_allclose(sorted(ts.values), [3.0, 8.0, 10.0])
         # Unit must be persisted as m3/s.
         rows = runs.store(sid).read_table("timeseries")
-        assert set(rows.loc[rows["variable"] == "discharge", "unit"]) == {"m3/s"}
+        assert set(rows.loc[rows["variable"] == "discharge", "unit"]) == {"m3 s-1"}
+
+    def test_a_surface_excess_is_water_that_reaches_the_discharge(self, runs):
+        # A Boussinesq run sends its water through the excess: the drain alone reads zero.
+        n_ts = 2
+        sid = runs.open(solver="boussinesq", n_cells=4, n_layers=1, n_timesteps=n_ts).sim_id
+        store = runs.store(sid)
+        store.write_time(sid, np.array([86400.0, 172800.0]), units="seconds since 1970-01-01")
+        store.write_field(sid, "head", 0, np.zeros((1, 4)), n_timesteps=n_ts)
+        store.write_field(sid, "head", 1, np.zeros((1, 4)))
+        for t, (drain, excess) in enumerate([(-1.0e-9, -2.0), (-1.0e-9, -3.0)]):
+            kept = {"n_timesteps": n_ts} if t == 0 else {}
+            store.write_field(sid, "drain", t, np.full(4, drain), subgroup="budget", **kept)
+            store.write_field(
+                sid, "surface_excess", t, np.full(4, excess), subgroup="budget", **kept
+            )
+
+        aggregate_catchment_timeseries(sid, store)
+
+        ts = store.query_timeseries(sid, CATCHMENT, "discharge")
+        np.testing.assert_allclose(ts.values, [8.0 + 4e-9, 12.0 + 4e-9])
 
     def test_no_aggregable_field_writes_nothing(self, runs):
         # head exists (so n_timesteps>0) but no drain/well field -> no output.
         sid = self._setup_sim(runs)
         aggregate_catchment_timeseries(sid, runs.store(sid))
         with pytest.raises(KeyError):
-            runs.store(sid).query_timeseries(sid, _CATCHMENT_STATION, "discharge")
+            runs.store(sid).query_timeseries(sid, CATCHMENT, "discharge")
 
 
 class TestRoutedDischarge:
@@ -536,9 +553,9 @@ class TestRoutedDischarge:
             )
         if with_drains:
             drain_frames = {
-                0: np.array([[-1.0, -2.0, -3.0, -4.0]]),  # abs_sum = 10
-                1: np.array([[-2.0, -2.0, -2.0, -2.0]]),  # abs_sum = 8
-                2: np.array([[1.0, 1.0, 1.0, 1.0]]),  # abs_sum = 4
+                0: np.array([[-1.0, -2.0, -3.0, -4.0]]),  # outflow = 10
+                1: np.array([[-2.0, -2.0, -2.0, -2.0]]),  # outflow = 8
+                2: np.array([[-1.0, -1.0, -1.0, -1.0]]),  # outflow = 4
             }
             for t in range(n_ts):
                 runs.store(sid).write_field(
@@ -556,13 +573,13 @@ class TestRoutedDischarge:
         sid = self._setup_sim(runs)
         # Both extractors store ext_outflow positive. The buffer plain-DRN field
         # (neighbouring-basin drainage) must NOT be added to the routed discharge.
-        self._write_ext_outflow(runs, sid, "sfr:net:7", [1.0, 2.0, 3.0])
-        self._write_ext_outflow(runs, sid, "sfr:net:2", [0.0, 0.0, 0.0])
+        self._write_ext_outflow(runs, sid, "net:7", [1.0, 2.0, 3.0])
+        self._write_ext_outflow(runs, sid, "net:2", [0.0, 0.0, 0.0])
         self._write_ext_outflow(runs, sid, "lake:res", [0.5, 0.5, 1.0])
 
         aggregate_catchment_timeseries(sid, runs.store(sid))
 
-        ts = runs.store(sid).query_timeseries(sid, _CATCHMENT_STATION, "discharge")
+        ts = runs.store(sid).query_timeseries(sid, CATCHMENT, "discharge")
         # routed = sfr + lake per timestep; the |DRN| buffer field is excluded.
         np.testing.assert_allclose(ts.values, [1.5, 2.5, 4.0])
 
@@ -583,7 +600,7 @@ class TestRoutedDischarge:
 
         aggregate_catchment_timeseries(sid, runs.store(sid))
 
-        ts = runs.store(sid).query_timeseries(sid, _CATCHMENT_STATION, "discharge")
+        ts = runs.store(sid).query_timeseries(sid, CATCHMENT, "discharge")
         np.testing.assert_allclose(ts.values, [3.0, 3.0, 3.0])
 
     def test_routed_branch_skips_lumped_runoff(self, runs, monkeypatch):
@@ -594,32 +611,35 @@ class TestRoutedDischarge:
 
         monkeypatch.setattr(mod, "_add_runoff_to_discharge_series", _must_not_run)
         sid = self._setup_sim(runs)
-        self._write_ext_outflow(runs, sid, "sfr:net:7", [1.0, 1.0, 1.0])
+        self._write_ext_outflow(runs, sid, "net:7", [1.0, 1.0, 1.0])
 
         aggregate_catchment_timeseries(sid, runs.store(sid))
 
-        ts = runs.store(sid).query_timeseries(sid, _CATCHMENT_STATION, "discharge")
+        ts = runs.store(sid).query_timeseries(sid, CATCHMENT, "discharge")
         # routed only; the buffer DRN field and lumped runoff are both excluded.
         np.testing.assert_allclose(ts.values, [1.0, 1.0, 1.0])
 
     def test_routed_only_discharge_written_without_drain_field(self, runs):
         # Pure SFR drainage: no DRN array at all, discharge = routed outflow.
         sid = self._setup_sim(runs, with_drains=False)
-        self._write_ext_outflow(runs, sid, "sfr:net:7", [2.0, 4.0, 6.0])
+        self._write_ext_outflow(runs, sid, "net:7", [2.0, 4.0, 6.0])
 
         aggregate_catchment_timeseries(sid, runs.store(sid))
 
-        ts = runs.store(sid).query_timeseries(sid, _CATCHMENT_STATION, "discharge")
+        ts = runs.store(sid).query_timeseries(sid, CATCHMENT, "discharge")
         np.testing.assert_allclose(ts.values, [2.0, 4.0, 6.0])
 
-    def test_non_network_stations_do_not_trigger_routed_branch(self, runs):
-        # An ext_outflow series on a foreign station must not be summed.
+    def test_a_measured_outflow_does_not_trigger_routed_branch(self, runs):
+        # Only a simulated ext_outflow is the routed discharge.
         sid = self._setup_sim(runs)
-        self._write_ext_outflow(runs, sid, "piezo:42", [100.0, 100.0, 100.0])
+        idx = pd.date_range("2020-01-01", periods=3, freq="D")
+        runs.store(sid).write_timeseries(
+            sid, "G1", "ext_outflow", pd.Series([100.0] * 3, index=idx), source="observed"
+        )
 
         aggregate_catchment_timeseries(sid, runs.store(sid))
 
-        ts = runs.store(sid).query_timeseries(sid, _CATCHMENT_STATION, "discharge")
+        ts = runs.store(sid).query_timeseries(sid, CATCHMENT, "discharge")
         np.testing.assert_allclose(ts.values, [10.0, 8.0, 4.0])
 
 
@@ -677,18 +697,9 @@ class TestAggregateFromLumpedBudget:
         sid = self._register(runs)
         self._write_drain_budget(runs, sid, {0: 10.0, 1: 8.0, 2: 4.0})
 
-        values = _aggregate_from_lumped_budget(runs.store(sid), sid, "drain", "abs_sum", 3)
+        values = _aggregate_from_lumped_budget(runs.store(sid), sid, "drain", "outflow_sum", 3)
 
         assert values == pytest.approx([10.0, 8.0, 4.0])
-
-    def test_alternative_component_name_is_resolved(self, runs):
-        # store_var carries alternatives ("drains|drain"): the first match wins.
-        sid = self._register(runs)
-        self._write_drain_budget(runs, sid, {0: 2.0, 1: 3.0, 2: 5.0})
-
-        values = _aggregate_from_lumped_budget(runs.store(sid), sid, "drains|drain", "abs_sum", 3)
-
-        assert values == pytest.approx([2.0, 3.0, 5.0])
 
     def test_signed_reducer_returns_in_minus_out(self, runs):
         sid = self._register(runs)
@@ -705,7 +716,7 @@ class TestAggregateFromLumpedBudget:
         sid = self._register(runs)
         self._write_drain_budget(runs, sid, {0: 10.0, 2: 4.0})
 
-        values = _aggregate_from_lumped_budget(runs.store(sid), sid, "drain", "abs_sum", 3)
+        values = _aggregate_from_lumped_budget(runs.store(sid), sid, "drain", "outflow_sum", 3)
 
         assert values[0] == pytest.approx(10.0)
         assert np.isnan(values[1])
@@ -715,7 +726,9 @@ class TestAggregateFromLumpedBudget:
         sid = self._register(runs)
         self._write_drain_budget(runs, sid, {0: 1.0})
 
-        assert _aggregate_from_lumped_budget(runs.store(sid), sid, "river", "abs_sum", 1) is None
+        assert (
+            _aggregate_from_lumped_budget(runs.store(sid), sid, "river", "outflow_sum", 1) is None
+        )
 
     def test_unsupported_reducer_returns_none(self, runs):
         sid = self._register(runs)
@@ -733,7 +746,7 @@ class TestAggregateFromLumpedBudget:
                 raise RuntimeError(f"{view_name} table is unreadable")
 
         with pytest.raises(ExtractError, match="lumped budget"):
-            _aggregate_from_lumped_budget(_BrokenStore(), sid, "drain", "abs_sum", 1)
+            _aggregate_from_lumped_budget(_BrokenStore(), sid, "drain", "outflow_sum", 1)
 
     def test_end_to_end_discharge_without_spatial_budget(self, runs):
         # No drain Zarr field at all: the lumped budget alone must produce the
@@ -747,12 +760,12 @@ class TestAggregateFromLumpedBudget:
 
         aggregate_catchment_timeseries(sid, runs.store(sid))
 
-        ts = runs.store(sid).query_timeseries(sid, _CATCHMENT_STATION, "discharge")
+        ts = runs.store(sid).query_timeseries(sid, CATCHMENT, "discharge")
         np.testing.assert_allclose(ts.values, [10.0, 8.0, 4.0])
 
 
 class TestTheCatchmentSeriesUseTheCatchment:
-    """The station is named ``_catchment``. The support has to be one.
+    """The station is named ``catchment``. The support has to be one.
 
     A model domain is not a catchment: MODFLOW-NWT meshes the delineated basin
     so the two coincide, MODFLOW 6 meshes the buffered box so they do not.
@@ -922,7 +935,7 @@ class TestTheCatchmentSeriesUseTheCatchment:
         assert mask.tolist() == [True, True, False, False, False, False]
         assert (
             "Catchment timeseries for sim sim: the run stores no basin of D, so the "
-            "'_catchment' series keep the old support 'polygon_centroid'." in caplog.text
+            "catchment series keep the old support 'polygon_centroid'." in caplog.text
         )
 
     def test_the_largest_basin_of_a_synthetic_domain_keeps_the_domain(self, caplog):
@@ -965,7 +978,7 @@ class TestLumpedBudgetPrefersTheCatchmentZone:
     """A ``zone_id = 'catchment'`` row is the only lumped row a gauge matches.
 
     Every other zone spans the model domain. On a buffered MODFLOW 6 grid that
-    takes in the neighbouring basins, so the ``_catchment`` series would carry
+    takes in the neighbouring basins, so the ``catchment`` series would carry
     more water than the outlet ever sees.
     """
 
@@ -994,9 +1007,9 @@ class TestLumpedBudgetPrefersTheCatchmentZone:
     def test_the_catchment_row_wins_over_the_domain_row(self, runs):
         sid = self._register(runs)
         self._write(runs, sid, "0", {0: 2.119, 1: 2.0})
-        self._write(runs, sid, CATCHMENT_BUDGET_ZONE, {0: 0.888, 1: 0.8})
+        self._write(runs, sid, CATCHMENT, {0: 0.888, 1: 0.8})
 
-        values = _aggregate_from_lumped_budget(runs.store(sid), sid, "drain", "abs_sum", 2)
+        values = _aggregate_from_lumped_budget(runs.store(sid), sid, "drain", "outflow_sum", 2)
 
         # Neither the domain row nor the sum of the two: only the basin.
         assert values == pytest.approx([0.888, 0.8])
@@ -1007,9 +1020,9 @@ class TestLumpedBudgetPrefersTheCatchmentZone:
         # doubled the discharge without a word.
         sid = self._register(runs, n_ts=1)
         self._write(runs, sid, "0", {0: 2.0})
-        self._write(runs, sid, CATCHMENT_BUDGET_ZONE, {0: 0.5})
+        self._write(runs, sid, CATCHMENT, {0: 0.5})
 
-        values = _aggregate_from_lumped_budget(runs.store(sid), sid, "drain", "abs_sum", 1)
+        values = _aggregate_from_lumped_budget(runs.store(sid), sid, "drain", "outflow_sum", 1)
 
         assert values == pytest.approx([0.5])
         assert values[0] != pytest.approx(2.5)
@@ -1020,7 +1033,7 @@ class TestLumpedBudgetPrefersTheCatchmentZone:
 
         with caplog.at_level("WARNING"):
             values = _aggregate_from_lumped_budget(
-                runs.store(sid), sid, "drain", "abs_sum", 1, catchment_fraction=0.42
+                runs.store(sid), sid, "drain", "outflow_sum", 1, catchment_fraction=0.42
             )
 
         # The value is reported as it stands: rescaling a domain total by an
@@ -1038,7 +1051,7 @@ class TestLumpedBudgetPrefersTheCatchmentZone:
 
         with caplog.at_level("WARNING"):
             values = _aggregate_from_lumped_budget(
-                runs.store(sid), sid, "drain", "abs_sum", 1, catchment_fraction=1.0
+                runs.store(sid), sid, "drain", "outflow_sum", 1, catchment_fraction=1.0
             )
 
         assert values == pytest.approx([0.888])
@@ -1093,12 +1106,12 @@ class TestTheCatchmentRowBeatsTheRoundedPerCellField:
 
     def _discharge(self, runs, sid) -> np.ndarray:
         aggregate_catchment_timeseries(sid, runs.store(sid))
-        return runs.store(sid).query_timeseries(sid, _CATCHMENT_STATION, "discharge").values
+        return runs.store(sid).query_timeseries(sid, CATCHMENT, "discharge").values
 
     def test_the_catchment_row_gives_the_series_exactly(self, runs):
         sid = self._sim_with_drain_field(runs)
         exact = {0: 3.141592653589793, 1: 2.718281828459045}
-        self._write_row(runs, sid, CATCHMENT_BUDGET_ZONE, exact)
+        self._write_row(runs, sid, CATCHMENT, exact)
 
         series = self._discharge(runs, sid)
 

@@ -204,10 +204,10 @@ ProtocolSteadySpan: TypeAlias = Annotated[
 class MatchingHydrographicNetworkOptions(HydroModelBase):
     """What a file may say about the protocol beyond naming it.
 
-    Everything here has a default that reproduces the published method. The
-    names are the ones the file uses for its own parameters and outputs, and the
-    engines are free: the method is the pair of criteria and the order they run
-    in, not the optimizer that walks them.
+    Every default here is the value of the publication or a departure the protocol
+    declares and prints (``Deviation``). The names are the ones the file uses for
+    its own parameters and outputs, and the engines are free: the method is the
+    pair of criteria and the order they run in, not the optimizer that walks them.
     """
 
     model_legacy_keys = {
@@ -237,8 +237,10 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
         default=None,
         description=(
             "Recipe version this file was written against. Unset runs the version this "
-            "installation carries; pinned, a mismatch is refused rather than "
-            "approximated, so a result that informed a decision stays replayable."
+            "installation carries. Pinned, the file runs what that version writes for "
+            "every key of the network output it leaves empty, so a result that informed "
+            "a decision stays replayable. A version the installation no longer carries "
+            "is refused rather than approximated."
         ),
     )
     conductivity: Annotated[str, Profile.USER] = Field(
@@ -246,9 +248,9 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
         description="Name of the calibration parameter stage one moves, as the file "
         "declares it under [calibration.parameters].",
     )
-    storage: Annotated[str | None, Profile.USER] = Field(
+    storage: Annotated[str | Literal[False], Profile.USER] = Field(
         default="Sy",
-        description="Name of the calibration parameter stage two moves. Null runs the "
+        description="Name of the calibration parameter stage two moves. false runs the "
         "network stage alone, which is a method in its own right: it identifies the "
         "conductivity without any discharge record.",
     )
@@ -359,8 +361,8 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
     scoring_window: Annotated[ProtocolScoringWindow | None, Profile.USER] = Field(
         default=None,
         description="Dates bounding the samples stage two scores on, as {start, end} in "
-        "ISO 8601, either one optional, for every block it scores, a network one "
-        "included. A date that does not parse is refused when the file is read. Unset, "
+        "ISO 8601, either one optional. A date that does not parse is refused when the "
+        "file is read. Unset, "
         "stage two scores the window of [metrics] when the file writes one, and "
         "otherwise from one year after [simulation.time].start_datetime: the first "
         "year is spin-up. A scoring_window or warmup_periods on [calibration] replaces "
@@ -375,6 +377,17 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
         if isinstance(data, str):
             return {"name": data}
         return data
+
+    @field_validator("storage", mode="before")
+    @classmethod
+    def _no_storage_is_written_false(cls, value: object) -> object:
+        """Hold the network stage alone as ``False``, whichever way it was said.
+
+        A dump drops a ``None``, and an absent key reloads as the default, so a
+        run sealed in this mode would come back with two stages. ``False`` is
+        what TOML can write, and it survives the round trip.
+        """
+        return False if value is None else value
 
     @model_validator(mode="after")
     def _check_each_stage_method_takes_its_options(self) -> MatchingHydrographicNetworkOptions:
@@ -956,8 +969,9 @@ class CalibNetworkExtent(HydroModelBase):
         description="Routed discharge a cell of the downstream closure has to carry to "
         "flow: a discharge with its unit ('1 L/s') or a share of the outlet discharge at "
         "the same timestep ('1%'). '0 L/s' is the geometric definition. Never scaled with "
-        "the cell size. No value is agreed: Zanetti et al. (2024) threshold a simulated "
-        "discharge at 10 L/s, field zero-flow thresholds of 1 to 3 L/s are in use.",
+        "the cell size. It exists in this transient mode only: an output read in one state "
+        "scores the closure alone. No value is agreed: Zanetti et al. (2024) threshold a "
+        "simulated discharge at 10 L/s, field zero-flow thresholds of 1 to 3 L/s are in use.",
     )
     weights: Annotated[CalibNetworkBoundWeights, Profile.USER] = Field(
         default_factory=CalibNetworkBoundWeights,
@@ -979,6 +993,35 @@ class CalibNetworkExtent(HydroModelBase):
     def _readable_visible_flow(cls, value: str) -> str:
         """Refuse a threshold the criterion could not read at the first trial."""
         parse_visible_flow(value)
+        return value
+
+
+class CalibNetworkVerdict(HydroModelBase):
+    """When the result of a network output is refused rather than qualified."""
+
+    max_catchment_mismatch: Annotated[
+        Annotated[float, Field(ge=0.0)] | Literal[False], Profile.USER
+    ] = Field(
+        default=STREAM_CRITERION_DEFAULTS.max_catchment_mismatch,
+        description="Largest gap allowed between the scored catchment and the delineated "
+        "one, as a share of the delineated area: 'catchment_mismatch', the area of their "
+        "symmetric difference over the area of the outline the mesh followed. It depends on "
+        "the geometry alone, so it is read once, before the first solve, and a gap above it "
+        "refuses the search. A large gap means an outlet on another branch, or a mesh too "
+        "coarse for the catchment. false never refuses, and the gap is still published on "
+        "every trial. A synthetic domain has no delineated catchment and is never refused.",
+        json_schema_extra={"unit": "-"},
+    )
+
+    @field_validator("max_catchment_mismatch", mode="before")
+    @classmethod
+    def _true_is_no_share(cls, value: object) -> object:
+        """Refuse ``true``, which the float of the union would read as a share of one."""
+        if value is True:
+            raise ValueError(
+                "max_catchment_mismatch = true says nothing: write a share such as 0.05, "
+                "or false for no refusal."
+            )
         return value
 
 
@@ -1009,6 +1052,16 @@ class CalibOutputNetwork(HydroModelBase):
     ``extent``, a transient run is scored on two bounds, the yearly maximal
     mask against the maximal map and the minimal mask against the minimal map.
     """
+
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "max_unreachable_fraction": (
+            "it bounded a share that is zero by construction, since the outlet is sealed "
+            "into the target of D_so. Delete it. What it meant to catch is a surface or an "
+            "outlet that does not close on the catchment, and "
+            "[calibration.outputs.<name>.verdict] max_catchment_mismatch refuses that, 0.05 "
+            "by default."
+        ),
+    }
 
     variable: Annotated[str, Profile.USER] = Field(
         default="release_flux",
@@ -1168,6 +1221,14 @@ class CalibOutputNetwork(HydroModelBase):
         "outlet. Keep 'crossing' for a map that is not a tree: canals, braids, polders, "
         "karst.",
     )
+    clip_map_to_catchment: Annotated[bool, Profile.USER] = Field(
+        default=STREAM_CRITERION_DEFAULTS.clip_map_to_catchment,
+        description="Cut the mapped network to the delineated catchment before drawing it, "
+        "with the shape the hydrography data family clips what it loads to, so "
+        "'stream_geometry_path' and observed_network = 'data.hydrography' draw the same map "
+        "from the same file. Under 'heads' an end the cut made is no stream head. false "
+        "reads a file whole and takes every free end as a candidate head.",
+    )
     heads_snap_radius: Annotated[
         Length, Profile.USER, VisibleWhen("observed_rasterization", "heads")
     ] = Field(
@@ -1238,17 +1299,9 @@ class CalibOutputNetwork(HydroModelBase):
             )
         return value
 
-    max_unreachable_fraction: Annotated[float, Profile.USER] = Field(
-        default=0.05,
-        ge=0.0,
-        le=1.0,
-        description="Bound on 'frac_unreachable_so' alone: the share of the simulated "
-        "network whose descent never meets the mapped one, whose target does not move "
-        "between trials. Beyond a few per cent the routing surface is not conditioned "
-        "and D_so would be a fiction. The reciprocal share, 'frac_unreachable_os', is "
-        "reported and deliberately left unbounded: its target is the simulated network, "
-        "which the search itself retracts.",
-        json_schema_extra={"unit": "-"},
+    verdict: Annotated[CalibNetworkVerdict, Profile.USER] = Field(
+        default_factory=CalibNetworkVerdict,
+        description="When the result of this output is refused rather than qualified.",
     )
     alpha_warning_threshold: Annotated[float, Profile.EXPERT] = Field(
         default=STREAM_CRITERION_DEFAULTS.alpha_warning_threshold,
@@ -1284,7 +1337,7 @@ class CalibOutputNetwork(HydroModelBase):
         default="last",
         description="Which single state the release flux is read at: 'last' (default), "
         "'first', or an ISO date such as '2002-10-15', which reads the state of the "
-        "period that holds it, [start, end). That state is dated at its period's end, "
+        "period that holds it, (start, end]. That state is dated at its period's end, "
         "which is the date a scoring_window is compared with. A steady phase runs one "
         "period over its window, so every date of that window reads its one state and "
         "one output serves both regimes. 'all' and a list of dates are refused: a "

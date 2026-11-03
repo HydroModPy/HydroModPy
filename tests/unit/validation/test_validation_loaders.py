@@ -39,7 +39,7 @@ class _BudgetOnlyStore:
     """A store whose only readable table is the budget.
 
     Mirrors what a launcher run of a fixed-head strip leaves behind: no Zarr
-    entry under the observable's name, no `_catchment` timeseries at all, and a
+    entry under the observable's name, no `catchment` timeseries at all, and a
     budget carrying one lumped constant-head record per timestep.
     """
 

@@ -65,6 +65,7 @@ def _run_score() -> tuple[float, int]:
                 {
                     "station_id": GAUGE,
                     "variable": "discharge",
+                    "source": "simulated",
                     "time": simulated.index,
                     "value": simulated.to_numpy(),
                 }
@@ -72,7 +73,8 @@ def _run_score() -> tuple[float, int]:
             pd.DataFrame(
                 {
                     "station_id": GAUGE,
-                    "variable": "discharge_obs",
+                    "variable": "discharge",
+                    "source": "observed",
                     "time": observed.index,
                     "value": observed.to_numpy(),
                 }

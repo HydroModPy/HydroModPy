@@ -696,11 +696,12 @@ def _expand_calibration_section(target: Path) -> dict[str, Any]:
         citation = (
             f"{reference.authors.split(',')[0].strip()} et al. {reference.year}, {reference.doi}"
         )
+    pinned = declaration.get("version") if isinstance(declaration, dict) else None
     return {
         "calibration": section,
         "protocol": {
             "name": protocol.name,
-            "version": protocol.version,
+            "version": protocol.version if pinned is None else str(pinned),
             "citation": citation,
             "inherited": inherited,
         },
@@ -963,7 +964,7 @@ def read(
     time
         The period of a field: an index (``int``, negative counts from the
         end), a date (``"2002-10-15"``, ``datetime.date``) that resolves to
-        the stress period holding it, ``"first"`` or ``"last"``; or a
+        the stress period ``(start, end]`` holding it, ``"first"`` or ``"last"``; or a
         ``slice`` of indexes. ``None`` loads every persisted period lazily. A
         series or a feature refuses ``time``; window a series with
         ``sel={"period": (start, end)}``.

@@ -1,7 +1,6 @@
 """Catalog constants and small solver helpers.
 
-Hosts the string sentinel of the stored tables (``GLOBAL_ZONE``), the
-Parquet view names, the solver vocabulary and the direction of every metric. The DDL of the index lives in
+Hosts the Parquet view names, the solver vocabulary and the direction of every metric. The DDL of the index lives in
 :mod:`hydromodpy.results.catalog.index_schema`.
 """
 
@@ -11,9 +10,6 @@ from typing import TYPE_CHECKING, Literal, TypeVar
 
 if TYPE_CHECKING:
     import numpy as np
-
-GLOBAL_ZONE = "__global__"
-"""Sentinel parameter zone used when no spatial zoning applies."""
 
 # Per-simulation Parquet view aliases. Files live at
 # ``runs/<run>/tables.parquet/<view>.parquet`` in the project.
@@ -225,7 +221,6 @@ def metric_rank_sql(metric: str, *, best: bool, column: str = "m.value") -> str:
 
 
 __all__ = [
-    "GLOBAL_ZONE",
     "METRIC_SENSE",
     "MESH_ENGINE_SQL",
     "PARQUET_VIEW_NAMES",

@@ -350,6 +350,44 @@ def _file_rules(doc: Any, *, context: Any, sealed: bool) -> list[str]:
     changes.extend(_rename_simulation_keys(doc))
     changes.extend(_rename_export_times(doc))
     changes.extend(_rename_keys(doc, sealed=sealed, context=context))
+    changes.extend(_rename_field_values(doc))
+    return changes
+
+
+RENAMED_FIELDS: dict[str, str] = {
+    "accumulation_flux": "drain_accumulation_flux",
+    "mass_accumulated": "mass_seepage_running_sum",
+    "fluxes_from_budget": "budget_flux_per_area",
+}
+"""Fields that took another name, in the values of ``[[export]] variables`` and of a figure."""
+
+
+def _rename_field_values(doc: Any) -> list[str]:
+    """Rewrite a retired field name where a table writes it as a value."""
+    changes: list[str] = []
+    exports = doc.get("export")
+    tables = exports if isinstance(exports, list) else ([exports] if exports else [])
+    for position, table in enumerate(tables):
+        written = table.get("variables") if isinstance(table, Mapping) else None
+        if isinstance(written, str) and written in RENAMED_FIELDS:
+            table["variables"] = RENAMED_FIELDS[written]
+            changes.append(f"export[{position}].variables: {written} -> {RENAMED_FIELDS[written]}")
+        elif isinstance(written, list):
+            for index, name in enumerate(written):
+                if isinstance(name, str) and name in RENAMED_FIELDS:
+                    written[index] = RENAMED_FIELDS[name]
+                    changes.append(
+                        f"export[{position}].variables: {name} -> {RENAMED_FIELDS[name]}"
+                    )
+    display = doc.get("display")
+    overrides = display.get("overrides") if isinstance(display, Mapping) else None
+    for figure, options in (overrides or {}).items():
+        written = options.get("variable") if isinstance(options, Mapping) else None
+        if isinstance(written, str) and written in RENAMED_FIELDS:
+            options["variable"] = RENAMED_FIELDS[written]
+            changes.append(
+                f"display.overrides.{figure}.variable: {written} -> {options['variable']}"
+            )
     return changes
 
 
@@ -2121,6 +2159,12 @@ REFUSED_OR_RETIRED_FORMS: tuple[OldForm, ...] = (
         for key in ("lightweight_extraction", "persist_model_distribution", "persistence")
     ),
     OldForm("data.project_crs", "geographic.crs_project", ALPHA_FORM, rewritten=False),
+    OldForm(
+        "calibration.outputs.{*}.max_unreachable_fraction",
+        "calibration.outputs.{*}.verdict.max_catchment_mismatch",
+        ALPHA_FORM,
+        rewritten=False,
+    ),
     OldForm("data.hydrography.sources[*].typename", None, ALPHA_FORM, rewritten=False),
 )
 """The old forms no rule here carries: the models refuse them, or read and ignore them."""

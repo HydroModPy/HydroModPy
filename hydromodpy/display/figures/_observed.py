@@ -1,6 +1,6 @@
 """Finding the observations a simulated series should be judged against.
 
-A simulated catchment series lives at the pseudo-station ``_catchment``; the
+A simulated catchment series lives at the station ``catchment``; the
 measurement it answers to lives at the id of the gauge that recorded it. Asking
 for observations at the simulated station therefore finds nothing, which is why
 a comparison figure has to be told, or has to work out, which station holds the

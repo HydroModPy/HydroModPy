@@ -16,8 +16,8 @@ Three layers describe the mesh a run was solved on:
 
 A GeoPackage holds the layers of a request in one file; a Shapefile holds one
 layer per file. The CRS is the one the ``mesh/`` group states, never the one of
-the run root, and ``crs`` reprojects it. A run sealed before the cell-mesh
-layout states none, so it holds no layer and the export says why.
+the run root, and ``crs`` reprojects it. A mesh that states none holds no layer,
+and the export says why.
 """
 
 from __future__ import annotations
@@ -168,10 +168,7 @@ def _mesh_reason(mesh: Any) -> str | None:
     if mesh is None or "vertices" not in mesh or "face_node_connectivity" not in mesh:
         return "the run stored no mesh geometry"
     if not mesh.attrs.get("crs"):
-        return (
-            "the run was sealed before the cell-mesh layout: its mesh states no CRS and "
-            "stores no cell centres or families, so its cells cannot be placed in a GIS file"
-        )
+        return "the mesh of the run states no CRS, so its cells cannot be placed in a GIS file"
     return None
 
 

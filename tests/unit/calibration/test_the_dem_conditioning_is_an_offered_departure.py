@@ -108,30 +108,35 @@ class TestTheRunReadsTheGeographicSection:
 
 
 class TestTheCheckReadsWhatTheFileWrote:
-    def test_a_written_breach_is_reported(self) -> None:
+    def _item(self, geographic):
         from types import SimpleNamespace
 
-        from hydromodpy.calibration.preflight import _values_this_file_set
-        from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
+        from hydromodpy.calibration.config import MatchingHydrographicNetworkOptions
+        from hydromodpy.calibration.protocols import deviations_in_force
 
-        cfg = SimpleNamespace(
-            calibration=SimpleNamespace(outputs={}),
-            geographic=GeographicConfig.model_construct(dem_correc_type="breach"),
+        calibration = SimpleNamespace(
+            outputs={},
+            protocol=MatchingHydrographicNetworkOptions(name="matching_hydrographic_network"),
+        )
+        return next(
+            item
+            for item in deviations_in_force(calibration, geographic)
+            if item.key == "dem_correc_type"
         )
 
-        assert _values_this_file_set(cfg, ["dem_correc_type"]) == {"dem_correc_type": "breach"}
-
-    def test_the_default_left_unwritten_is_not_reported(self) -> None:
-        from types import SimpleNamespace
-
-        from hydromodpy.calibration.preflight import _values_this_file_set
+    def test_a_written_breach_is_reported(self) -> None:
         from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
-        geographic = GeographicConfig.model_construct(crs_project="EPSG:2154")
-        cfg = SimpleNamespace(calibration=SimpleNamespace(outputs={}), geographic=geographic)
+        item = self._item(GeographicConfig.model_construct(dem_correc_type="breach"))
 
-        assert geographic.dem_correc_type == "fill"
-        assert _values_this_file_set(cfg, ["dem_correc_type"]) == {}
+        assert (item.written, item.value, item.state) == (True, "breach", "departs")
+
+    def test_the_default_left_unwritten_is_not_reported(self) -> None:
+        from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
+
+        item = self._item(GeographicConfig.model_construct(crs_project="EPSG:2154"))
+
+        assert (item.written, item.value, item.state) == (False, "fill", "as_paper")
 
 
 class TestTheSolverFallbackFollowsTheConfig:

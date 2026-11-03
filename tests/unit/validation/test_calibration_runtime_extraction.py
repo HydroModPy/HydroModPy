@@ -280,9 +280,9 @@ def test_the_truth_discharge_leaves_the_catchment_row_out():
     """The catchment cells lie in the domain, so adding their row counts them twice."""
     budget = pd.DataFrame(
         [
-            {"timestep": 0, "zone_id": "0", "component": "constant_head", "flux_out": 3.0},
+            {"timestep": 0, "zone_id": "domain", "component": "constant_head", "flux_out": 3.0},
             {"timestep": 0, "zone_id": "catchment", "component": "constant_head", "flux_out": 1.0},
-            {"timestep": 1, "zone_id": "0", "component": "constant_head", "flux_out": 2.0},
+            {"timestep": 1, "zone_id": "domain", "component": "constant_head", "flux_out": 2.0},
             {"timestep": 1, "zone_id": "catchment", "component": "constant_head", "flux_out": 0.5},
         ]
     )

@@ -16,6 +16,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from hydromodpy.core.scope import series_selector
+
 #: The name ``read_variable`` gives to the particle paths of a run.
 PARTICLES = "particles"
 
@@ -51,6 +53,7 @@ def read_variable(
     from hydromodpy.results.derive.mesh_quality import MESH_QUALITY_DESCRIPTORS
     from hydromodpy.results.errors import FieldNotFoundError
     from hydromodpy.results.run import Run
+    from hydromodpy.results.run.tables import has_rows
 
     if not isinstance(run, Run):
         raise TypeError(f"read expects a Run object as first argument, got {type(run).__name__}")
@@ -69,11 +72,12 @@ def read_variable(
     if field_registry.has(var):
         return _read_field(run, var, time=_period_index(run, time), layer=layer, bbox=bbox)
 
-    if _has_timeseries_var(run, var):
+    variable, source = series_selector(var)
+    if has_rows(run, "timeseries", variable=variable, source=source):
         _refuse_time(var, time, "a series", 'sel={"period": (start, end)}')
         station = sel_kw.pop("station", None)
         period = sel_kw.pop("period", None)
-        return run.timeseries(var, station=station, period=period)
+        return run.timeseries(variable, station=station, period=period, source=source)
 
     if _has_geographic_feature(run, var):
         _refuse_time(var, time, "a geographic feature", "no time selector")
@@ -153,13 +157,6 @@ def _read_field(
     if layer is not None and "layer" in da.dims:
         da = da.isel(layer=layer)
     return da
-
-
-def _has_timeseries_var(run: Any, variable: str) -> bool:
-    """True when ``variable`` appears in the ``timeseries`` table of the run."""
-    from hydromodpy.results.run.tables import has_rows
-
-    return has_rows(run, "timeseries", variable=variable)
 
 
 def _has_geographic_feature(run: Any, feature_name: str) -> bool:

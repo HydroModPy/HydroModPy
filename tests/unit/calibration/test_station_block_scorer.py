@@ -223,7 +223,7 @@ class TestThePipelineTakesTheSameRoute:
 
     def test_the_extractor_reports_what_a_bare_scorer_reports(self, monkeypatch) -> None:
         """The discharge route is the one whose producer rewrites its values."""
-        served = {"_catchment": _answer("_catchment", [2.0, 2.0, 2.0])}
+        served = {"catchment": _answer("catchment", [2.0, 2.0, 2.0])}
         monkeypatch.setattr(
             "hydromodpy.calibration.metrics.composite.resolve_flow_adapter",
             lambda ctx: (
@@ -244,7 +244,7 @@ class TestThePipelineTakesTheSameRoute:
 
     def test_a_trial_may_not_rename_the_criterion_it_is_scored_on(self, monkeypatch) -> None:
         """The records, the producer and the followed gauge were all chosen here."""
-        served = {"_catchment": _answer("_catchment", [2.0, 2.0, 2.0])}
+        served = {"catchment": _answer("catchment", [2.0, 2.0, 2.0])}
         monkeypatch.setattr(
             "hydromodpy.calibration.metrics.composite.resolve_flow_adapter",
             lambda ctx: (
@@ -266,7 +266,7 @@ class TestThePipelineTakesTheSameRoute:
             metric_fn(SimpleNamespace(), objective="nse", variable="discharge")
 
     def test_a_trial_may_not_rename_the_variable_either(self, monkeypatch) -> None:
-        served = {"_catchment": _answer("_catchment", [2.0, 2.0, 2.0])}
+        served = {"catchment": _answer("catchment", [2.0, 2.0, 2.0])}
         monkeypatch.setattr(
             "hydromodpy.calibration.metrics.composite.resolve_flow_adapter",
             lambda ctx: (

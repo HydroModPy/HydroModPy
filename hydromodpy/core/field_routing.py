@@ -1,4 +1,9 @@
-"""Pure helpers for drain budgets and mesh routing."""
+"""Pure helpers for budget fluxes and mesh routing.
+
+A per-cell budget flux has one sign for every solver, the one MODFLOW gives it:
+positive when water enters the aquifer, negative when it leaves. Each solver
+writes that sign, so a reader never guesses it.
+"""
 
 from __future__ import annotations
 
@@ -8,6 +13,7 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.scope import CATCHMENT, DOMAIN
 
 logger = get_logger(__name__)
 
@@ -17,35 +23,29 @@ logger = get_logger(__name__)
 # before writing, so the store only ever holds "drain".
 DRAIN_BUDGET_KEYS = ("drain",)
 
-# Budget zone whose support is the delineated catchment rather than the model
-# domain. MODFLOW-NWT meshes the basin, so the two coincide; MODFLOW 6 meshes a
-# buffered box, so a domain-wide row carries the neighbouring basins too. A row
-# under this zone is the only lumped row a gauge at the outlet can be compared
-# to. Written by the solver extractors, read by
-# ``simulation.extraction.derivation.catchment_aggregation``.
-CATCHMENT_BUDGET_ZONE = "catchment"
-
-#: Budget zone of the whole model domain.
-DOMAIN_BUDGET_ZONE = "0"
-
 
 def select_budget_zone(frame: Any) -> tuple[Any, str]:
     """Return the budget rows of one zone, and the frame they cover.
 
-    A budget table may hold a model-domain row (zone ``"0"``) and a
-    catchment row (:data:`CATCHMENT_BUDGET_ZONE`) for the same component and
-    timestep. The catchment lies inside the domain, so summing the two counts
-    its water twice. The catchment rows are returned when they exist, since
-    every catchment series and the hydrograph read them; otherwise the domain
-    rows, otherwise the table as it is.
+    A budget table may hold a model-domain row (zone :data:`DOMAIN`) and a
+    catchment row (zone :data:`CATCHMENT`) for the same component and timestep.
+    The zone whose support is the delineated catchment is written by the solver
+    extractors and read by
+    ``simulation.extraction.derivation.catchment_aggregation``. MODFLOW-NWT
+    meshes the basin, so the two coincide; MODFLOW 6 meshes a buffered box, so a
+    domain row carries the neighbouring basins too. The catchment lies inside
+    the domain, so summing the two counts its water twice. The catchment rows
+    are returned when they exist, since every catchment series and the
+    hydrograph read them; otherwise the domain rows, otherwise the table as it
+    is.
     """
     if "zone_id" not in frame.columns:
         return frame, "the model domain"
     zone_id = frame["zone_id"].astype(str)
-    catchment = frame.loc[zone_id == CATCHMENT_BUDGET_ZONE]
+    catchment = frame.loc[zone_id == CATCHMENT]
     if not catchment.empty:
         return catchment, "the delineated catchment"
-    domain = frame.loc[zone_id == DOMAIN_BUDGET_ZONE]
+    domain = frame.loc[zone_id == DOMAIN]
     if not domain.empty:
         return domain, "the model domain"
     return frame, "the model domain"
@@ -62,31 +62,19 @@ def find_drain_budget_key(mapping: Any) -> str | None:
     return None
 
 
-def _positive_outflow_from_signed(signed: np.ndarray) -> np.ndarray:
+def _outflow_from_signed(signed: np.ndarray) -> np.ndarray:
     """Sum signed ``(time, layer, cell)`` budgets into positive per-cell outflow.
 
-    The all-positive fallback (budgets stored with outflow-positive sign) is
-    decided independently per timestep, matching the historical per-field call.
+    Water leaves where the flux is negative. A positive flux enters and adds
+    nothing to the outflow, and a missing value counts as no flow.
     """
     finite = np.isfinite(signed) & (signed > -9000.0)
-    positive_outflow = np.where(finite, np.maximum(-signed, 0.0), 0.0)
-    has_finite = finite.any(axis=(1, 2))
-    has_outflow = (positive_outflow > 0.0).any(axis=(1, 2))
-    has_positive = ((signed > 0.0) & finite).any(axis=(1, 2))
-    has_negative = ((signed < 0.0) & finite).any(axis=(1, 2))
-    fallback = has_finite & ~has_outflow & has_positive & ~has_negative
-    if np.any(fallback):
-        positive_signed = np.where(finite, signed, 0.0)
-        positive_outflow = np.where(fallback[:, None, None], positive_signed, positive_outflow)
-    return positive_outflow.sum(axis=1).astype("float64", copy=False)
+    outflow = np.where(finite, np.maximum(-signed, 0.0), 0.0)
+    return outflow.sum(axis=1).astype("float64", copy=False)
 
 
-def drain_budget_to_positive_outflow(
-    component_field: Any,
-    *,
-    n_cells: int | None = None,
-) -> np.ndarray:
-    """Convert a signed drain budget to positive per-cell outflow."""
+def budget_outflow(component_field: Any, *, n_cells: int | None = None) -> np.ndarray:
+    """Return the positive per-cell outflow of one step of a signed budget field."""
     field = np.asarray(component_field, dtype=float)
     if field.ndim == 0:
         field = field.reshape(1)
@@ -101,15 +89,11 @@ def drain_budget_to_positive_outflow(
     else:
         signed = field.reshape(field.shape[0], -1)
 
-    return _positive_outflow_from_signed(signed[None])[0]
+    return _outflow_from_signed(signed[None])[0]
 
 
-def drain_budget_stack_to_positive_outflow(
-    component_stack: Any,
-    *,
-    n_cells: int,
-) -> np.ndarray:
-    """Convert a signed ``(time, ...)`` drain budget stack to positive outflow.
+def budget_outflow_stack(component_stack: Any, *, n_cells: int) -> np.ndarray:
+    """Return the positive per-cell outflow of a signed ``(time, ...)`` budget stack.
 
     Returns a ``(time, n_cells)`` array; layers are summed per timestep.
     """
@@ -119,10 +103,12 @@ def drain_budget_stack_to_positive_outflow(
     elif stack.ndim != 3:
         raise ValueError(f"Expected a (time, ...) budget stack, got shape {stack.shape}")
     n_cells_int = int(n_cells)
+    if stack.size == 0:
+        return np.zeros((stack.shape[0], n_cells_int), dtype="float64")
     per_step = stack.shape[1] * stack.shape[2]
     if n_cells_int > 0 and per_step % n_cells_int == 0:
         stack = stack.reshape(stack.shape[0], -1, n_cells_int)
-    return _positive_outflow_from_signed(stack)
+    return _outflow_from_signed(stack)
 
 
 # Canonical public name of the DRN-TO-MVR budget record (see
@@ -139,20 +125,14 @@ DRN_TO_MVR_KEYS = ("drain_to_mover",)
 STREAM_CONSTANT_HEAD_BUDGET = "constant_head_stream"
 
 #: Persisted budget components that carry groundwater OUT of the aquifer to the
-#: surface, beside the drain, each with the sign a value takes when it LEAVES.
-#:
-#: The two conventions really do meet here. MODFLOW signs a budget from the
-#: aquifer's point of view, so ``stream`` (SFR), ``lake`` (LAK) and the
-#: stream-role constant head are negative when the aquifer loses water. The
-#: Boussinesq ``surface_excess`` is already an outflow and is positive. Reading
-#: them all with one clamp silently dropped whichever half had the other sign,
-#: which is how a run with its streams in SFR reported the drain alone.
-SURFACE_RELEASE_BUDGETS: dict[str, float] = {
-    "stream": -1.0,
-    "lake": -1.0,
-    STREAM_CONSTANT_HEAD_BUDGET: -1.0,
-    "surface_excess": 1.0,
-}
+#: surface, beside the drain: the stream (SFR), the lake (LAK), the stream-role
+#: constant head and the Boussinesq ``surface_excess``.
+SURFACE_RELEASE_BUDGETS: tuple[str, ...] = (
+    "stream",
+    "lake",
+    STREAM_CONSTANT_HEAD_BUDGET,
+    "surface_excess",
+)
 
 
 RELEASE_BUDGET_KEYS: tuple[str, ...] = (
@@ -185,27 +165,6 @@ def drain_stack_with_mover(budget: Any, drn_key: str | None, start: int, stop: i
         if extra.shape == base.shape:
             base = base + extra
     return base
-
-
-def positive_cell_flux_stack(component_stack: Any, *, n_cells: int) -> np.ndarray:
-    """Return positive per-cell volumetric outflow from a ``(time, ...)`` stack."""
-    stack = np.asarray(component_stack, dtype=float)
-    if stack.size == 0:
-        return np.zeros((stack.shape[0] if stack.ndim else 0, int(n_cells)), dtype="float64")
-    if stack.ndim == 2:
-        stack = stack[:, None, :]
-    per_step = int(np.prod(stack.shape[1:]))
-    if per_step % int(n_cells) == 0:
-        values = stack.reshape(stack.shape[0], -1, int(n_cells))
-    else:
-        values = stack.reshape(stack.shape[0], stack.shape[1], -1)
-    if values.shape[-1] != int(n_cells):
-        raise ValueError(
-            f"Budget component has {values.shape[-1]} cells after reshape; expected {n_cells}."
-        )
-    finite = np.isfinite(values) & (values > -9000.0)
-    positive = np.where(finite, np.maximum(values, 0.0), 0.0)
-    return positive.sum(axis=1).astype("float64", copy=False)
 
 
 def has_release_budget(budget: Any) -> bool:
@@ -256,12 +215,11 @@ def release_flux_stack(budget: Any, *, n_cells: int, start: int, stop: int) -> n
     release = np.zeros((n_steps, int(n_cells)), dtype="float64")
     drn_stack = drain_stack_with_mover(budget, drn_key, int(start), int(stop))
     if drn_stack is not None:
-        release += drain_budget_stack_to_positive_outflow(drn_stack, n_cells=n_cells)
+        release += budget_outflow_stack(drn_stack, n_cells=n_cells)
     for name in extra:
         stack = np.asarray(budget[name][int(start) : int(stop)], dtype="float64")
-        release += positive_cell_flux_stack(stack * SURFACE_RELEASE_BUDGETS[name], n_cells=n_cells)
-    release = np.maximum(release, 0.0)
-    return np.where(np.isfinite(release), release, 0.0)
+        release += budget_outflow_stack(stack, n_cells=n_cells)
+    return release
 
 
 def active_surface_mask(topography: Any, *, nodata_floor: float = -9000.0) -> np.ndarray:
@@ -279,11 +237,12 @@ def seepage_mask(
 ) -> np.ndarray:
     """Canonical seepage criterion, shared by every reader and writer.
 
-    ``surface_excess`` is the solver-declared surface release flux. When a
-    backend produces it (Boussinesq constrained formulations) it wins: those
-    formulations clamp the head at the surface over broad areas while the real
-    seepage flows through that flux, so the geometric test over-reports. Without
-    it (MODFLOW 6, MODFLOW-NWT) the mask is ``watertable >= topography``.
+    ``surface_excess`` is the solver-declared surface release flux, negative
+    where water leaves the aquifer like every budget flux. When a backend
+    produces it (Boussinesq constrained formulations) it wins: those formulations
+    clamp the head at the surface over broad areas while the real seepage flows
+    through that flux, so the geometric test over-reports. Without it (MODFLOW 6,
+    MODFLOW-NWT) the mask is ``watertable >= topography``.
 
     ``band_depth`` is the sub-cell discharge band the run gave its drains
     (``solver.drain_band_depth_m``). A banded drain sits at ``top - D/2``, the
@@ -299,7 +258,7 @@ def seepage_mask(
     returns a float mask of the same shape.
     """
     if surface_excess is not None:
-        return (np.asarray(surface_excess, dtype=float) > 0.0).astype("float64")
+        return (np.asarray(surface_excess, dtype=float) < 0.0).astype("float64")
     if watertable is None or topography is None:
         raise ValueError("seepage_mask needs either surface_excess or watertable + topography")
     wt = np.asarray(watertable, dtype=float)
@@ -596,8 +555,6 @@ def accumulate_on_downhill_graph(graph: DownhillGraph, local_values: Any) -> np.
 
 
 __all__ = [
-    "CATCHMENT_BUDGET_ZONE",
-    "DOMAIN_BUDGET_ZONE",
     "DRAIN_BAND_DEPTH_ATTR",
     "DRAIN_BUDGET_KEYS",
     "DRN_TO_MVR_KEYS",
@@ -611,13 +568,12 @@ __all__ = [
     "cell_adjacency_from_face_connectivity",
     "cell_centroids_from_mesh",
     "domain_edge_cells",
-    "drain_budget_stack_to_positive_outflow",
-    "drain_budget_to_positive_outflow",
+    "budget_outflow",
+    "budget_outflow_stack",
     "drain_band_depth",
     "drain_stack_with_mover",
     "find_drain_budget_key",
     "has_release_budget",
-    "positive_cell_flux_stack",
     "release_flux_stack",
     "seepage_mask",
 ]

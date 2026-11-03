@@ -111,7 +111,7 @@ def test_lake_extractor_states_not_scaled_rates_to_m3_s(
     # (86400) must NOT be produced.
     assert rec[(station, "ext_outflow")]["value"] == pytest.approx(1.0)
     assert abs(rec[(station, "ext_outflow")]["value"]) != pytest.approx(_SECONDS_PER_STEP)
-    assert rec[(station, "ext_outflow")]["unit"] == "m3/s"
+    assert rec[(station, "ext_outflow")]["unit"] == "m3 s-1"
 
     # Lake-aquifer exchange = the applied flux / seconds. Lake loses water, so the
     # lake-side flux is strictly negative.

@@ -160,11 +160,12 @@ def _timeseries(run_dir: Path, sim_id: str) -> None:
         {
             "sim_id": sim_id,
             "station_id": "J0014010",
-            "variable": ["discharge"] * 3 + ["discharge_obs"] * 3,
+            "variable": "discharge",
+            "source": ["simulated"] * 3 + ["observed"] * 3,
             "timestep": [0, 1, 2] * 2,
             "time": list(times) * 2,
             "value": [1.0, 2.0, 3.0, 1.1, 2.1, 3.1],
-            "unit": "m3/s",
+            "unit": "m3 s-1",
         }
     )
     frame.to_parquet(run_dir / TABLES_DIRNAME / "timeseries.parquet")

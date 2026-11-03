@@ -4,7 +4,7 @@ The shared standalone model runs real MF6, the production
 ``Modflow6OutputAdapter`` extracts into the real store of a claimed run
 (Zarr/Parquet), the run is SEALED and the project INDEXED, and the per-reach
 series are queried back through the index reader under
-``station_id = sfr:<network>:<reach>`` and compared to the values read directly
+``station_id = <network>:<reach>`` and compared to the values read directly
 from the obs CSV.
 """
 

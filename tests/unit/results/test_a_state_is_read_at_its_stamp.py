@@ -163,7 +163,6 @@ def test_the_registry_states_and_fluxes_are_the_ones_expected() -> None:
         ("outlet_discharge", "mean"),
         ("discharge_obs", "mean"),
         ("lake_level", "point"),
-        ("lake_level_obs", "point"),
         ("stage", "point"),
         ("volume", "point"),
         ("surface_area", "point"),

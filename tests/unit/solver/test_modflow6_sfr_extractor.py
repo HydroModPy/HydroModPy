@@ -93,7 +93,7 @@ def test_build_sfr_columns_signs_units_and_stations(tmp_path: Path) -> None:
 
     dsflow = by_key[(sfr_station_id("net0", 0), "downstream_flow", 0)]
     assert dsflow["value"] == pytest.approx(4320.0 / 86400.0)  # negated outflow
-    assert dsflow["unit"] == "m3/s"
+    assert dsflow["unit"] == "m3 s-1"
 
     # 'sfr' obs positive = stream losing; stored stream-POV = negative.
     exchange = by_key[(sfr_station_id("net0", 0), "gw_exchange", 0)]
@@ -113,7 +113,7 @@ def test_build_sfr_columns_signs_units_and_stations(tmp_path: Path) -> None:
     total = (-864.0 + 432.0) / 86400.0
     assert budget["flux_out"] == pytest.approx(abs(total))
     assert budget["flux_in"] == pytest.approx(0.0)
-    assert budget["unit"] == "m3/s"
+    assert budget["unit"] == "m3 s-1"
 
 
 def test_build_sfr_columns_multi_step_with_calendar(tmp_path: Path) -> None:

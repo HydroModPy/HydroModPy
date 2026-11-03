@@ -19,12 +19,12 @@ _ID = Identity(
     hydromodpy_version="2.0.0a5",
 )
 _ROW = "nancon,nancon_monthly,"
-_HEADER = "site,case_id,datetime,station_id,variable,value,unit"
+_HEADER = "site,case_id,datetime,station_id,variable,source,value,unit"
 
 
 _COLUMNS = (
     "sim_id VARCHAR, station_id VARCHAR, variable VARCHAR, timestep BIGINT, "
-    "time TIMESTAMPTZ, value DOUBLE, unit VARCHAR"
+    "time TIMESTAMPTZ, value DOUBLE, unit VARCHAR, source VARCHAR DEFAULT 'simulated'"
 )
 
 
@@ -34,7 +34,14 @@ def _write_payload(path: Path, values: str) -> Path:
         # A session zone east of Greenwich: the file must not be shifted by it.
         conn.execute("SET TimeZone = 'Europe/Paris'")
         conn.execute(f"CREATE TABLE timeseries ({_COLUMNS})")
-        conn.execute(f"INSERT INTO timeseries VALUES {values}")
+        conn.execute(
+            "INSERT INTO timeseries (sim_id, station_id, variable, timestep, time, value, unit) "
+            f"VALUES {values}"
+        )
+        conn.execute(
+            "UPDATE timeseries SET source = 'observed', variable = replace(variable, '_obs', '') "
+            "WHERE variable LIKE '%_obs'"
+        )
         conn.execute(f"COPY timeseries TO '{path}' (FORMAT PARQUET)")
     return path
 
@@ -59,10 +66,10 @@ def test_export_orders_and_writes_naive_times_of_the_run_clock(
     assert result == target
     lines = target.read_text().splitlines()
     assert lines[0] == _HEADER
-    assert lines[1] == _ROW + ",A,discharge,0.25,m3/s"  # NULL time stays empty
-    assert lines[2] == _ROW + "2007-01-01 00:00:00,A,head,1.0,m"
-    assert lines[3] == _ROW + "2007-01-02 00:00:00,A,head,1.5,m"
-    assert lines[4] == _ROW + "2007-01-01 00:00:00,B,head,2.5,m"
+    assert lines[1] == _ROW + ",A,discharge,simulated,0.25,m3/s"  # NULL time stays empty
+    assert lines[2] == _ROW + "2007-01-01 00:00:00,A,head,simulated,1.0,m"
+    assert lines[3] == _ROW + "2007-01-02 00:00:00,A,head,simulated,1.5,m"
+    assert lines[4] == _ROW + "2007-01-01 00:00:00,B,head,simulated,2.5,m"
     assert len(lines) == 5
     parsed = pd.to_datetime(pd.read_csv(target)["datetime"])
     assert parsed.iloc[1] == pd.Timestamp("2007-01-01")
@@ -93,20 +100,20 @@ def test_export_creates_parent_directories(payload: Path, tmp_path: Path) -> Non
     export_csv(payload, "s2", target, identity=_ID)
     assert target.read_text().splitlines() == [
         _HEADER,
-        _ROW + "2007-01-01 00:00:00,A,head,9.0,m",
+        _ROW + "2007-01-01 00:00:00,A,head,simulated,9.0,m",
     ]
 
 
-def test_the_catchment_sentinel_is_renamed(tmp_path: Path) -> None:
+def test_the_catchment_station_keeps_its_stored_name(tmp_path: Path) -> None:
     payload = _write_payload(
         tmp_path / "timeseries.parquet",
-        "('s', '_catchment', 'discharge', 0, '2000-02-01 00:00:00+00', 1.0, 'm3/s')",
+        "('s', 'catchment', 'discharge', 0, '2000-02-01 00:00:00+00', 1.0, 'm3/s')",
     )
     target = tmp_path / "q.csv"
     export_csv(payload, "s", target, identity=_ID)
     assert (
         target.read_text().splitlines()[1]
-        == _ROW + "2000-02-01 00:00:00,catchment,discharge,1.0,m3/s"
+        == _ROW + "2000-02-01 00:00:00,catchment,discharge,simulated,1.0,m3/s"
     )
 
 

@@ -13,11 +13,14 @@ checks that family, on a run whose table holds only the catchment discharge.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
 
 from hydromodpy.display import get, names
+from hydromodpy.display.figures import sfr_reach_timeseries
 
 NEEDS_A_REFERENCE_RUN = {"difference_map", "side_by_side"}
 """Figures drawn from Python with ``reference=<run>``; ``spec`` cannot say so."""
@@ -47,6 +50,9 @@ class _Catalog:
 
     def open_zarr(self, sim_id: str) -> _Store:
         return _Store(self._groups, self._lakes)
+
+    def tables_dir_for(self, sim_id: str) -> Path:
+        return Path("no-tables")
 
 
 class _EmptyRun:
@@ -121,7 +127,7 @@ class _TransientRun(_EmptyRun):
         lakes: dict | None = None,
     ) -> None:
         super().__init__(lakes=lakes)
-        self._stations = {"discharge": ["_catchment"], **(stations or {})}
+        self._stations = {"discharge": ["catchment"], **(stations or {})}
         self._gauged = gauged or {}
 
     def has_table(self, table: str) -> bool:
@@ -216,8 +222,17 @@ def test_a_figure_refuses_a_run_whose_series_are_not_its_own(name: str) -> None:
 @pytest.mark.parametrize(
     "name", ["sfr_longitudinal_profile", "sfr_reach_network", "sfr_reach_timeseries"]
 )
-def test_a_stream_reach_figure_applies_once_the_run_routed_its_reaches(name: str) -> None:
-    run = _TransientRun(stations={"downstream_flow": ["sfr:main:1", "sfr:main:2"]})
+def test_a_stream_reach_figure_applies_once_the_run_routed_its_reaches(
+    name: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run = _TransientRun(stations={"downstream_flow": ["main:1", "main:2"]})
+    monkeypatch.setattr(
+        sfr_reach_timeseries,
+        "sfr_reach_links",
+        lambda _run: pd.DataFrame(
+            {"reach_id": ["main:1", "main:2"], "network_id": ["main"] * 2, "reach": [1, 2]}
+        ),
+    )
 
     assert get(name).unavailable_reason(run) is None
 

@@ -149,4 +149,4 @@ def test_the_lake_records_carry_the_wall_flow(tmp_path: Path) -> None:
     assert set(wall) == {"lake:res", "lake:res:layer1", "lake:res:layer2"}
     assert wall["lake:res"] == pytest.approx(inflow, rel=1e-6)
     assert wall["lake:res:layer1"] + wall["lake:res:layer2"] == pytest.approx(wall["lake:res"])
-    assert all(r["unit"] == "m3/s" for r in timeseries if r["variable"] == "cutoff_wall_flow")
+    assert all(r["unit"] == "m3 s-1" for r in timeseries if r["variable"] == "cutoff_wall_flow")

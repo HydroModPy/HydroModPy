@@ -24,7 +24,19 @@ class TestWhatItAlwaysSays:
         text = methods_paragraph(NAME, stages_that_ran=["steady_conductivity"])
 
         assert NAME in text
+        assert "version 1.3" in text
+
+    def test_a_pinned_file_says_its_pin(self) -> None:
+        text = methods_paragraph(NAME, stages_that_ran=["steady_conductivity"], version="1.2")
+
         assert "version 1.2" in text
+
+    def test_it_says_where_it_departs_in_every_run(self) -> None:
+        text = methods_paragraph(NAME, stages_that_ran=["steady_conductivity"])
+
+        assert "departs from it in every run" in text
+        for key in ("steady_recharge_window", "d_os_support", "outlet_sealed_into_d_so_target"):
+            assert key in text
 
     def test_it_cites_the_publication(self) -> None:
         text = methods_paragraph(NAME, stages_that_ran=["steady_conductivity"])

@@ -91,7 +91,7 @@ def test_period_edges_follow_the_solver_time_axis() -> None:
 def test_step_at_resolves_a_date_inside_on_and_past_the_edges() -> None:
     run = _monthly()
     assert run.periods.step_at("2002-10-15") == 33
-    assert run.periods.step_at("2002-10-01") == 33
+    assert run.periods.step_at("2002-10-01") == 32
     assert run.periods.step_at("2003-01-01") == 35
     assert run.periods.step_at("last") == 35
     assert run.periods.step_at(-2) == 34

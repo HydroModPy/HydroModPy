@@ -85,7 +85,7 @@ def patched_registry(monkeypatch, runs_module):
             # 'nb_' stubs miss a raw budget field the budget switch keeps.
             required: tuple[str, ...] = ()
             if name.startswith("nd_"):
-                required = ("accumulation_flux",)
+                required = ("drain_accumulation_flux",)
             elif name.startswith("nb_"):
                 required = ("recharge",)
             stubs[name] = _StubFigure(

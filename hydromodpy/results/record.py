@@ -58,6 +58,7 @@ from hydromodpy.results.checks import Checks
 from hydromodpy.results.identity import Identity
 from hydromodpy.results.lineage import Lineage
 from hydromodpy.results.manifest import (
+    DERIVE_RULE_VERSION,
     PARAMETERS_TABLE_NAME,
     InputEntry,
     Manifest,
@@ -179,6 +180,10 @@ class RunRecord(HydroModelBase):
     other status with the sentence of the module docstring.
     """
 
+    derive_rule_version: str = Field(
+        default=DERIVE_RULE_VERSION,
+        description="Version of the rules the derived fields of this run are rebuilt by",
+    )
     run: ManifestRun
     site: ManifestSite | None = None
     geometry: ManifestGeometry = Field(default_factory=ManifestGeometry)
@@ -350,6 +355,7 @@ class RunRecord(HydroModelBase):
     def to_manifest(self, *, sealed_at: datetime, artifacts: list[ManifestArtifact]) -> Manifest:
         """Return the seal, given the inventory of the directory."""
         return Manifest(
+            derive_rule_version=self.derive_rule_version,
             sealed_at=sealed_at,
             run=self.run,
             site=self.site,

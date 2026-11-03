@@ -76,9 +76,15 @@ class Deviation:
     the publication: a file that pins ``key`` to ``paper_value`` matches it and
     must not be reported as a departure, which is what the Methods paragraph
     (:mod:`hydromodpy.calibration.protocols.boilerplate`) checks this against.
-    ``None`` is a valid publication value (an unset option) as much as it is
-    the default for a departure with no comparable option at all; ``key`` says
-    which case applies.
+    ``None`` is a valid publication value: an option the publication has no use
+    for, which departs once it holds a value.
+    """
+
+    always: bool = False
+    """True when no value of an option brings the run back to the publication.
+
+    The departure holds in every run, so it is declared and printed as such, and
+    ``paper_value`` has nothing to be compared with.
     """
 
 
@@ -98,8 +104,9 @@ class CalibrationProtocol(Protocol):
     """The recipe's own version, pinned by a file that has to be replayable.
 
     A number that informed a decision must be reproducible with the recipe of its
-    era, not with whatever the recipe became. A file may pin this; an unknown
-    version is refused rather than approximated by the current one."""
+    era, not with whatever the recipe became. A file may pin this or an older line
+    of ``defaults_by_version``; another version is refused rather than approximated
+    by the current one."""
 
     title: str
     """One line naming the method as a reader would say it."""
@@ -119,6 +126,9 @@ class CalibrationProtocol(Protocol):
 
     deviations: tuple[Deviation, ...]
     """Where this implementation departs from the publication, and why."""
+
+    defaults_by_version: Mapping[str, Mapping[str, Any]]
+    """What each version carried writes for the keys a file leaves empty."""
 
     adjustable: frozenset[str]
     """Which options a file may change and still be running this protocol.

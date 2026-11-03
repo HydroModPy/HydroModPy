@@ -60,9 +60,9 @@ def export_vtu(
     output_path : str or Path
         Destination ``.vtu`` file.
     layer : int, optional
-        Layer of a field of several layers. Left out, every layer is written,
-        one cell array per layer named ``<variable>_layer<N>``, ``N`` counted
-        from 0 at the top; a field of one layer keeps its bare name.
+        Layer of a field of several layers. Left out, the field is one cell
+        array named ``<variable>`` with one component per layer, counted from
+        0 at the top, whatever the number of layers.
     values : numpy.ndarray, optional
         The per-cell values to write, when the caller computed them.
     metadata : mapping of str to str or int, optional
@@ -140,10 +140,7 @@ def _cell_block(connectivity: np.ndarray) -> CellBlock:
 
 
 def _layer_arrays(data: np.ndarray, variable: str, layer: int | None) -> dict[str, np.ndarray]:
-    """Return the cell arrays to write: the layer asked for, or every layer."""
+    """Return the one cell array to write: the layer asked for, or a component per layer."""
     if data.ndim == 1 or layer is not None:
         return {variable: one_layer(data, variable, layer, "VTU")}
-    n_layers = int(data.shape[0])
-    if n_layers == 1:
-        return {variable: data[0]}
-    return {f"{variable}_layer{index}": data[index] for index in range(n_layers)}
+    return {variable: data.T}

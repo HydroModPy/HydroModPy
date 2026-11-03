@@ -58,8 +58,8 @@ depth = np.ma.masked_where(outside, depth)
 # 2001). Move it back to the first day to compare it with the monthly means of
 # the gauge. Step 5 exports 2001-2002 only: the year 2000 is the spin-up.
 series = pd.read_csv(next(folder.glob("*_series*.csv")), parse_dates=["datetime"])
-q_obs = series.query("variable == 'discharge_obs'").set_index("datetime")["value"]
-q_sim = series.query("variable == 'discharge'").set_index("datetime")["value"]
+q_obs = series.query("source == 'observed'").set_index("datetime")["value"]
+q_sim = series.query("source == 'simulated'").set_index("datetime")["value"]
 q_sim.index = q_sim.index - pd.offsets.MonthBegin(1)
 q_obs = q_obs.resample("MS").mean().reindex(q_sim.index)
 

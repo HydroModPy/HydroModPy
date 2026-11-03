@@ -31,7 +31,7 @@ Catalog.project_path	property	Path
 Catalog.query_budget	method	(self, sim_id: str | UUID, zone_id: str | None = None, period: tuple[int, int] | None = None) -> pd.DataFrame
 Catalog.query_field	method	(self, sim_id: str | UUID, variable: str, timestep: int, layer: int | None = None) -> np.ndarray
 Catalog.query_mass_balance	method	(self, sim_id: str | UUID) -> pd.DataFrame
-Catalog.query_timeseries	method	(self, sim_id: str | UUID, station_id: str, variable: str, period: tuple | None = None) -> pd.Series
+Catalog.query_timeseries	method	(self, sim_id: str | UUID, station_id: str, variable: str, period: tuple | None = None, *, source: str = 'simulated') -> pd.Series
 Catalog.rank	method	(self, project: str, metric: str = 'nse', *, ascending: bool | None = None, n: int = 1, best_first: bool = True, site: str | None = None, mixed_windows: bool = False) -> RunSet
 Catalog.read	method	(self, ref: str, var: str, *, time: Any = None, layer: int | None = None, sel: dict | None = None, bbox: tuple[float, float, float, float] | None = None) -> Any
 Catalog.read_geographic_feature	method	(self, sim_id: str | UUID, feature_name: str) -> gpd.GeoDataFrame
@@ -128,12 +128,12 @@ Run.record	property	RunRecord
 Run.sim_id	property	str
 Run.site	property	str | None
 Run.solver	property	str | None
-Run.stations	method	(self, variable: str) -> list[str]
+Run.stations	method	(self, variable: str, *, source: str = 'simulated') -> list[str]
 Run.status	property	str | None
 Run.tag	method	(self, *specs: str) -> Run
 Run.tags	property	list[str] | None
 Run.time_index	method	
-Run.timeseries	method	(self, variable: str, *, station: str | None = None, period: tuple | str | None = None, downsample: str | None = None, n_out: int | None = None) -> pd.Series
+Run.timeseries	method	(self, variable: str, *, station: str | None = None, period: tuple | str | None = None, downsample: str | None = None, n_out: int | None = None, source: str = 'simulated') -> pd.Series
 RunSet.best	method	(self, metric: str, *, mixed_windows: bool = False) -> Run
 RunSet.compare	method	(self, metric: str, *, mixed_windows: bool = False) -> pd.DataFrame
 RunSet.count	property	int

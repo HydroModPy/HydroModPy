@@ -37,8 +37,9 @@ import pyarrow as pa
 
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.scope import CATCHMENT, DOMAIN, SIMULATED
 from hydromodpy.core.state.paths import encode_workspace_path
-from hydromodpy.results.catalog.constants import GLOBAL_ZONE
+from hydromodpy.core.units.udunits import udunits_spelling
 from hydromodpy.results.catalog.storage_paths import sanitize_segment
 from hydromodpy.results.identity import Identity
 from hydromodpy.results.manifest import (
@@ -104,7 +105,16 @@ SOLVER_DIAGNOSTICS_DIRNAME = "solver_diagnostics"
 """Folder of the diagnostics a solver writes for its run, ``exports/solver_diagnostics/``."""
 
 _PROVENANCE_SOURCE_TYPES = ("http_api", "custom_file", "data_manager", "derived", "cache")
-_TIMESERIES_KEY = ("sim_id", "station_id", "variable", "timestep")
+_TIMESERIES_KEY = ("sim_id", "station_id", "variable", "source", "timestep")
+
+
+def _column_units(units: Any) -> Any:
+    """Return a ``unit`` column, one text or one text per row, in udunits spelling."""
+    if units is None or isinstance(units, str):
+        return udunits_spelling(units)
+    values = np.asarray(units, dtype=object).tolist()
+    spelled = {unit: udunits_spelling(unit) for unit in set(values)}
+    return np.array([spelled[unit] for unit in values], dtype=object)
 
 
 class RunStore:
@@ -454,7 +464,7 @@ class RunStore:
         variable: str,
         ts: pd.Series,
         unit: str = "",
-        qflag: str = "simulated",
+        source: str = SIMULATED,
     ) -> None:
         """Append one station and variable series to ``timeseries.parquet``."""
         if not self._persistence.save_parquet or ts is None or len(ts) == 0:
@@ -471,8 +481,8 @@ class RunStore:
                     "timestep": np.arange(len(ts), dtype="int64"),
                     "time": index,
                     "value": ts.to_numpy(dtype="float64"),
-                    "unit": unit,
-                    "qflag": qflag,
+                    "unit": udunits_spelling(unit),
+                    "source": source,
                 },
                 TIMESERIES_SCHEMA,
                 defaults={"sim_id": sid},
@@ -492,8 +502,8 @@ class RunStore:
             row = dict(record)
             row.setdefault("sim_id", sid)
             row.setdefault("component", None)
-            row.setdefault("unit", "")
-            row.setdefault("qflag", "simulated")
+            row["unit"] = udunits_spelling(row.get("unit"))
+            row.setdefault("source", SIMULATED)
             rows.append(row)
         self._write_parquet_records(
             target=self.table_path_for(sid, "timeseries"),
@@ -508,7 +518,9 @@ class RunStore:
             return
         sid = self._check_sim(sim_id)
         table = table_from_columns(
-            columns, TIMESERIES_SCHEMA, defaults={"sim_id": sid, "unit": "", "qflag": "simulated"}
+            {**columns, "unit": _column_units(columns.get("unit", ""))},
+            TIMESERIES_SCHEMA,
+            defaults={"sim_id": sid, "source": SIMULATED},
         )
         if table.num_rows == 0:
             return
@@ -524,7 +536,7 @@ class RunStore:
         component: str,
         flux_in: float,
         flux_out: float,
-        unit: str = "m3/s",
+        unit: str = "m3 s-1",
     ) -> None:
         """Store one term of the water budget."""
         self.write_budgets(
@@ -551,8 +563,8 @@ class RunStore:
             row = dict(record)
             row.setdefault("sim_id", sid)
             zone = row.get("zone_id")
-            row["zone_id"] = GLOBAL_ZONE if zone is None else str(zone)
-            row.setdefault("unit", "m3/s")
+            row["zone_id"] = DOMAIN if zone is None else str(zone)
+            row["unit"] = udunits_spelling(row.get("unit", "m3 s-1"))
             row["timestep"] = int(row["timestep"])
             rows.append(row)
         self._write_parquet_records(
@@ -597,7 +609,7 @@ class RunStore:
             row = dict(record)
             row.setdefault("sim_id", sid)
             row.setdefault("quantity", "water")
-            row.setdefault("unit", "m3/s")
+            row["unit"] = udunits_spelling(row.get("unit", "m3 s-1"))
             row.setdefault("storage_in", 0.0)
             row.setdefault("storage_out", 0.0)
             row["timestep"] = int(row["timestep"])
@@ -815,9 +827,9 @@ class RunStore:
             self._facts.put_parameter(
                 ParameterRow(
                     name=str(param["param_name"]),
-                    zone=GLOBAL_ZONE if zone is None else str(zone),
+                    zone=CATCHMENT if zone is None else str(zone),
                     value=None if value is None else float(value),
-                    unit=param.get("unit"),
+                    unit=udunits_spelling(param.get("unit")) or None,
                     parameterization=parameterization,
                     origin=origin,
                     calibrated=calibrated,
@@ -984,6 +996,8 @@ class RunStore:
         station_id: str,
         variable: str,
         period: tuple | None = None,
+        *,
+        source: str = SIMULATED,
     ) -> pd.Series:
         """Read one series of the run at one station, indexed by naive UTC time."""
         from hydromodpy.results.derive.time_alignment import normalize_period_bounds
@@ -992,7 +1006,11 @@ class RunStore:
         frame = self.read_table("timeseries")
         if frame.empty:
             raise KeyError(f"No timeseries for sim={sim_id}, station={station_id}, var={variable}")
-        rows = frame[(frame["station_id"] == station_id) & (frame["variable"] == variable)]
+        rows = frame[
+            (frame["station_id"] == station_id)
+            & (frame["variable"] == variable)
+            & (frame["source"] == source)
+        ]
         if period is not None:
             lo, hi, hi_inclusive = normalize_period_bounds(period)
             times = pd.DatetimeIndex(rows["time"])

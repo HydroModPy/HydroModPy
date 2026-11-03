@@ -130,7 +130,7 @@ def _score(variable: str, objective: str, ctx, **kwargs) -> tuple[float, dict[st
 
 
 def test_a_gauge_on_nse_log_and_a_window_costs_what_it_cost(monkeypatch) -> None:
-    _serve(monkeypatch, {"_catchment": _simulated(0.3)})
+    _serve(monkeypatch, {"catchment": _simulated(0.3)})
     ctx = _ctx("hydrometry", [_gauge("NANCON", 0.0)])
 
     cost, components = _score("discharge", "nse_log", ctx, scoring_window=WINDOW)
@@ -141,7 +141,7 @@ def test_a_gauge_on_nse_log_and_a_window_costs_what_it_cost(monkeypatch) -> None
 
 
 def test_a_burn_in_in_samples_still_applies(monkeypatch) -> None:
-    _serve(monkeypatch, {"_catchment": _simulated(0.3)})
+    _serve(monkeypatch, {"catchment": _simulated(0.3)})
     ctx = _ctx("hydrometry", [_gauge("NANCON", 0.0)])
 
     cost, components = _score("discharge", "kge", ctx, warmup_periods=3)
@@ -153,7 +153,7 @@ def test_a_burn_in_in_samples_still_applies(monkeypatch) -> None:
 
 
 def test_the_followed_gauge_alone_is_scored(monkeypatch) -> None:
-    _serve(monkeypatch, {"_catchment": _simulated(0.3)})
+    _serve(monkeypatch, {"catchment": _simulated(0.3)})
     ctx = _ctx("hydrometry", [_gauge("OUTLET", 0.0), _gauge("UP", 1.0)])
 
     cost, components = _score("discharge", "nse", ctx, observed_station_id="UP")

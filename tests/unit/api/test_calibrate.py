@@ -897,7 +897,7 @@ def test_calibration_phases_expand_names_the_protocol_and_its_first_reference(
 
     assert result["protocol"] == {
         "name": "matching_hydrographic_network",
-        "version": "1.2",
+        "version": "1.3",
         "citation": "Abherve et al. 2023, 10.5194/hess-27-3221-2023",
         "inherited": False,
     }

@@ -181,7 +181,7 @@ def test_a_cell_with_no_neighbour_has_no_ratio_and_no_angle(tmp_path):
     store.close()
 
 
-def test_a_run_stored_before_the_cell_mesh_layout_serves_the_geometry_fields_only(tmp_path):
+def test_a_store_without_cell_centres_serves_the_geometry_fields_only(tmp_path):
     store = _store(tmp_path / "fields.zarr", _grid(), layout=False)
 
     assert available_virtual_fields(store.root) == [
@@ -195,7 +195,7 @@ def test_a_run_stored_before_the_cell_mesh_layout_serves_the_geometry_fields_onl
     assert mesh_quality_unavailable_reason(store.root, "mesh_bisection_offset") is not None
     reason = mesh_quality_unavailable_reason(store.root, "mesh_center_offset")
     assert reason is not None
-    assert "before the cell-mesh layout" in reason
+    assert "no cell centres" in reason
     with pytest.raises(KeyError, match="mesh_nonorthogonality is not available.*cell centres"):
         mesh_quality_values(store.root, "mesh_nonorthogonality")
     store.close()

@@ -343,7 +343,7 @@ reach tops keep reading the model top.
 
 Consumers on D: the per-cell discharge and upstream area of the calibration
 observables (``modflow_common/discharge_routing.py``), the accumulation of
-cell fluxes (``accumulation_flux``, ``release_accumulation_flux``), and the
+cell fluxes (``drain_accumulation_flux``, ``release_accumulation_flux``), and the
 flow direction map, which also marks the cells D raised on its copy.
 
 Declared apart, each on its own surface:

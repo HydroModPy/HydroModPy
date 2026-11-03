@@ -105,6 +105,9 @@ class NetworkCriterionSettings:
     heads_min_drained_area_km2: float = STREAM_CRITERION_DEFAULTS.heads_min_drained_area_km2
     """Under the heads rule, the drained area a landing cell needs, in km2."""
 
+    clip_map_to_catchment: bool = STREAM_CRITERION_DEFAULTS.clip_map_to_catchment
+    """Whether the map was cut to the catchment, with no cut end taken for a head."""
+
     timestep: int = -1
     """The state a single-state output reads: ``-1`` for ``last``, ``0`` for ``first``.
 
@@ -333,6 +336,9 @@ def _settings_of_output(
         ),
         heads_snap_radius_m=float(radius_m),
         heads_min_drained_area_km2=area_km2,
+        clip_map_to_catchment=bool(
+            payload.get("clip_map_to_catchment", defaults.clip_map_to_catchment)
+        ),
         timestep=timestep,
         extent=_extent_rules(payload.get("extent"), where=where),
         n_network_outputs=n_outputs,
@@ -345,7 +351,7 @@ def _timestep_of_time(sim: Run, time: Any, *, where: str) -> int:
     """Return the timestep a single-state output reads.
 
     ``"last"`` and ``"first"`` read ``-1`` and ``0``. A date reads the period
-    ``[s, e)`` that holds it, on the run's own period edges, by the rule the
+    ``(s, e]`` that holds it, on the run's own period edges, by the rule the
     trials scored the output with
     (:func:`hydromodpy.core.time.selection.resolve_state`). A date the run
     does not hold is refused, as the calibration refused it.

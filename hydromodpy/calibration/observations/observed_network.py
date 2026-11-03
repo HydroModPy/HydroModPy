@@ -172,14 +172,20 @@ def observed_head_candidates(run_ctx: RunContext, observed: ObservedNetwork) -> 
     """
     frame, mesh_crs = _placeable(run_ctx, observed)
     candidates = network_head_candidates(
-        list(frame.geometry), mesh_crs=mesh_crs, geometry_crs=observed.crs
+        list(frame.geometry),
+        mesh_crs=mesh_crs,
+        geometry_crs=observed.crs,
+        cut_outline=observed.cut_outline,
+        cut_crs=observed.cut_crs,
     )
     logger.info(
-        "Mapped stream network (%s%s): %d feature(s), %d free end(s) examined as heads%s.",
+        "Mapped stream network (%s%s): %d feature(s), %d free end(s) examined as heads, "
+        "%d made by the cut to the catchment left out%s.",
         observed.source,
         ", clipped" if observed.clipped else "",
         len(frame),
         candidates.n_candidates,
+        candidates.n_cut_ends,
         f", from {observed.path}" if observed.path else "",
     )
     return candidates
@@ -487,7 +493,7 @@ def delineated_catchment_mask(
     The criterion does not score this mask. It scores the cells upstream of
     the outlet on its own conditioned graph, and reads this one only to close
     on it when no outlet point exists and to publish how far the two differ
-    (``catchment_mismatch``). The reference is the basin the build kept on the
+    (``basin_mismatch``). The reference is the basin the build kept on the
     model (``model.descent_basin``), the same cells the budget zone and the
     discharge observable sum.
 
@@ -503,7 +509,7 @@ def delineated_catchment_mask(
     basin = getattr(model, "descent_basin", None)
     if basin is not None and basin.is_catchment:
         return np.array(basin.mask, dtype=bool)
-    polygon = _polygon_catchment_mask(run_ctx, planar_mesh, face_node_connectivity)
+    polygon = catchment_outline_mask(run_ctx, planar_mesh, face_node_connectivity)
     if polygon is not None and basin is None:
         # A model with no such attribute builds no D (Boussinesq): expected.
         log = logger.warning if hasattr(model, "descent_basin") else logger.info
@@ -514,12 +520,17 @@ def delineated_catchment_mask(
     return polygon
 
 
-def _polygon_catchment_mask(
+def catchment_outline_mask(
     run_ctx: RunContext,
     planar_mesh: Any,
     face_node_connectivity: np.ndarray,
 ) -> np.ndarray | None:
     """Project the catchment polygon the geographic pipeline delineated onto the cells.
+
+    The outline the mesh followed when it followed one, the smoothed one, and the
+    delineated polygon otherwise (``catchment_outline``). ``catchment_mismatch``
+    reads the scored catchment against this mask, because a wrong outlet closes the
+    basin of D on the same wrong branch and only the delineation shows it.
 
     None for a synthetic domain: its box is the domain, not a catchment.
     """
@@ -551,6 +562,7 @@ def _polygon_catchment_mask(
 
 __all__ = (
     "ObservedNetworkMask",
+    "catchment_outline_mask",
     "delineated_catchment_mask",
     "delineated_outlet_xy",
     "observed_head_candidates",

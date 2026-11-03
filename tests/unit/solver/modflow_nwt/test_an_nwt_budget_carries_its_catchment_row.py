@@ -4,7 +4,7 @@ MODFLOW-NWT meshes the buffered box, so its domain row also sums the drains of
 the neighbouring basins. On the Nancon the catchment is under half of the box.
 A run that kept no per-cell drain (``keep_per_cell_budget = false``, or a trial
 a calibration saves beside its best) had only that domain row to build its
-``_catchment`` discharge from. The series then carried about twice the water
+``catchment`` discharge from. The series then carried about twice the water
 the gauge sees, while the calibration trial had summed the drains of the basin
 of D. The same model scored KGE 0.87 as a trial and 0.24 as a saved run.
 """
@@ -18,7 +18,7 @@ import numpy as np
 import pytest
 
 from hydromodpy.core.budget_terms import BudgetKeep
-from hydromodpy.core.field_routing import CATCHMENT_BUDGET_ZONE, DOMAIN_BUDGET_ZONE
+from hydromodpy.core.scope import CATCHMENT, DOMAIN
 from hydromodpy.solver.modflow_common.descent_store import DESCENT_SIDECAR_SUFFIX
 from hydromodpy.solver.modflow_nwt.extractors import flow as nwt_flow
 from hydromodpy.solver.modflow_nwt.extractors.flow import ModflowNwtOutputAdapter
@@ -105,15 +105,15 @@ def _rows(monkeypatch, tmp_path: Path, *, catchment_mask) -> dict[tuple[str, str
 def test_the_catchment_row_sums_the_basin_alone(tmp_path, monkeypatch) -> None:
     rows = _rows(monkeypatch, tmp_path, catchment_mask=BASIN)
 
-    assert rows[(DOMAIN_BUDGET_ZONE, "drain")]["flux_out"] == pytest.approx(10.0)
-    assert rows[(CATCHMENT_BUDGET_ZONE, "drain")]["flux_out"] == pytest.approx(3.0)
-    assert rows[(CATCHMENT_BUDGET_ZONE, "recharge")]["flux_in"] == pytest.approx(2.5)
+    assert rows[(DOMAIN, "drain")]["flux_out"] == pytest.approx(10.0)
+    assert rows[(CATCHMENT, "drain")]["flux_out"] == pytest.approx(3.0)
+    assert rows[(CATCHMENT, "recharge")]["flux_in"] == pytest.approx(2.5)
 
 
 def test_a_run_without_a_basin_keeps_the_domain_row_alone(tmp_path, monkeypatch) -> None:
     rows = _rows(monkeypatch, tmp_path, catchment_mask=None)
 
-    assert {zone for zone, _component in rows} == {DOMAIN_BUDGET_ZONE}
+    assert {zone for zone, _component in rows} == {DOMAIN}
 
 
 def _sidecar(tmp_path: Path, monkeypatch, record) -> Path:

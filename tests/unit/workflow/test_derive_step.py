@@ -96,7 +96,7 @@ def test_the_run_is_scored_under_its_rule_and_the_facts_carry_the_result(tmp_pat
         sid = store.sim_id
         store.facts.period_start = pd.Timestamp("2020-01-01", tz="UTC").to_pydatetime()
         store.write_timeseries(sid, "J0014010", "discharge", observed * 1.0)
-        store.write_timeseries(sid, "J0014010", "discharge_obs", observed)
+        store.write_timeseries(sid, "J0014010", "discharge", observed, source="observed")
 
         derive_module.score_run_under_its_rule(SimpleNamespace(cfg=cfg), store=store)
 
@@ -131,7 +131,7 @@ def test_without_a_declared_gauge_the_run_is_scored_at_the_gauge_it_deduced(tmp_
         store.facts.period_start = pd.Timestamp("2020-01-01", tz="UTC").to_pydatetime()
         store.facts.site = ManifestSite(name="nancon", gauge="J0014010", fingerprint="f")
         store.write_timeseries(sid, "J0014010", "discharge", observed * 1.0)
-        store.write_timeseries(sid, "J0014010", "discharge_obs", observed)
+        store.write_timeseries(sid, "J0014010", "discharge", observed, source="observed")
 
         derive_module.score_run_under_its_rule(SimpleNamespace(cfg=cfg), store=store)
 

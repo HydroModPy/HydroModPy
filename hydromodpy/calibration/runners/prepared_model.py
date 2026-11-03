@@ -1,11 +1,12 @@
 """The checks that need the prepared model, run once right after the preparation.
 
 The preflight (:mod:`hydromodpy.calibration.preflight`) checks the document
-before anything is prepared. Three things it cannot see need the
+before anything is prepared. Four things it cannot see need the
 configuration the pipeline was prepared from: a bound outside the range the
-field accepts, which only building the flow tells, and the conductance of
-the drains and of the release packages a network search relies on, as the
-phase built them. :func:`check_the_prepared_model` runs them, once per
+field accepts, which only building the flow tells, the conductance of the
+drains and of the release packages a network search relies on, as the phase
+built them, and the catchment a network criterion would score, which only the
+model top on the mesh tells. :func:`check_the_prepared_model` runs them, once per
 preparation, before the session is reserved: once for a search without
 phases, once per phase of a staged one, whatever the restarts.
 
@@ -39,13 +40,14 @@ def check_the_prepared_model(
     An evaluator that needs no prepared model built none, so there is
     nothing to check. Raises :class:`ValueError` for a bound the field
     refuses and :class:`~hydromodpy.core.exceptions.ObjectiveError` for a
-    conductance the network criterion cannot trust.
+    conductance or a catchment the network criterion cannot trust.
     """
     if trial_ctx is None:
         return
     _assert_bounds_valid(trial_ctx, space)
     _assert_network_conductance_proportional(cfg, trial_ctx, space)
     _assert_active_release_packages_follow_k(cfg, trial_ctx, space)
+    _assert_the_scored_catchment_is_the_delineated_one(cfg, trial_ctx, space)
 
 
 def _assert_bounds_valid(trial_ctx: Any, space: ParameterSpace) -> None:
@@ -301,6 +303,65 @@ def _assert_active_release_packages_follow_k(
     message = release_package_conductance_conflict(network_outputs_of(cfg), flow, moves_k=moves_k)
     if message is not None:
         raise ObjectiveError(message)
+
+
+def _assert_the_scored_catchment_is_the_delineated_one(
+    cfg: CalibrationConfig, trial_ctx: Any, space: ParameterSpace
+) -> None:
+    """Refuse a network search whose scored catchment is not the catchment asked for.
+
+    The criterion scores the cells whose descent reaches the outlet on the mesh graph.
+    ``catchment_mismatch`` says how far those sit from the delineated outline, and it
+    depends on the geometry alone, so one build before the first solve answers for every
+    trial. The geometry is the one a trial builds, on a model built and not solved, so
+    a map that draws no stream is refused here too, with the message of the trial. The
+    model and the geometry cost about two seconds on 21 406 cells. An output with
+    ``verdict.max_catchment_mismatch = false`` builds nothing and is never refused.
+    """
+    from hydromodpy.calibration.runners.trial import TrialContext, built_model
+
+    if not isinstance(trial_ctx, TrialContext):
+        return
+    outputs = {name: cfg.outputs[name] for name in network_outputs_of(cfg) if name in cfg.outputs}
+    bounded = {
+        name: output
+        for name, output in outputs.items()
+        if getattr(output, "support", None) == "network"
+        and output.verdict.max_catchment_mismatch is not False
+    }
+    if not bounded:
+        return
+    from hydromodpy.calibration.metrics.solver_extract import (
+        resolve_flow_adapter,
+        scored_catchment_mismatch,
+    )
+
+    values = {param.name: float(param.lower) for param in space}
+    with built_model(trial_ctx, values) as ctx:
+        resolved = resolve_flow_adapter(ctx)
+        if resolved is None:
+            return
+        run_ctx = resolved[1]
+        for name, output in sorted(bounded.items()):
+            gap = scored_catchment_mismatch(run_ctx, output)
+            bound = float(output.verdict.max_catchment_mismatch)
+            if gap > bound:
+                raise ObjectiveError(
+                    f"Network output {name!r}: catchment_mismatch = {gap:.1%}, the catchment "
+                    "read on the descent graph differs from the delineated one by that share "
+                    f"of its area, over the {bound:.1%} bound of "
+                    "verdict.max_catchment_mismatch. The criterion would score another basin "
+                    "than the one asked for. An outlet on another branch does this, and so "
+                    "does a mesh too coarse for the catchment. Check the outlet, refine the "
+                    "mesh, or write a larger bound knowing what it buys."
+                )
+            logger.info(
+                "Network output %s: catchment_mismatch = %.2f%% of the delineated area, under "
+                "the %.1f%% bound.",
+                name,
+                100.0 * gap,
+                100.0 * bound,
+            )
 
 
 __all__ = [

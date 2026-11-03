@@ -16,15 +16,18 @@ from __future__ import annotations
 
 import copy
 import datetime
+import tomllib
 
 import pytest
+from pydantic import ValidationError
 
-from hydromodpy.calibration.config import CalibPhaseDecl
+from hydromodpy.calibration.config import CalibPhaseDecl, MatchingHydrographicNetworkOptions
 from hydromodpy.calibration.protocols import (
     available_protocols,
     expand_calibration_protocol,
     get_protocol,
 )
+from hydromodpy.calibration.runners.materialize import write_overlay_toml
 from hydromodpy.calibration.runners.phase_regime import phase_overrides
 
 _SIMULATION = {
@@ -329,16 +332,40 @@ class TestNamingTheRoles:
         assert phases[0]["parameters"] == ["hk_bedrock"]
         assert phases[1]["parameters"] == ["sy_bedrock"]
 
-    def test_dropping_the_storage_leaves_the_network_stage_alone(self) -> None:
+    @pytest.mark.parametrize("storage", [False, None])
+    def test_dropping_the_storage_leaves_the_network_stage_alone(self, storage) -> None:
         """The network criterion is a method in its own right, not half of one."""
         doc = _doc(
-            protocol={"name": "matching_hydrographic_network", "storage": None},
+            protocol={"name": "matching_hydrographic_network", "storage": storage},
         )
         del doc["calibration"]["parameters"]["Sy"]
 
         phases = expand_calibration_protocol(doc)["calibration"]["phases"]
 
         assert [phase["name"] for phase in phases] == ["steady_conductivity"]
+
+    def test_the_network_stage_alone_survives_a_sealed_run(self, tmp_path) -> None:
+        """TOML holds no null, so a dump of this mode must write false and reload one stage."""
+        declared = MatchingHydrographicNetworkOptions(
+            name="matching_hydrographic_network", storage=None
+        )
+        assert declared.storage is False
+        path = tmp_path / "sealed.toml"
+        write_overlay_toml(
+            path, {"calibration": {"protocol": declared.model_dump(mode="json", exclude_none=True)}}
+        )
+        reloaded = tomllib.loads(path.read_text(encoding="utf-8"))["calibration"]["protocol"]
+        assert reloaded["storage"] is False
+        doc = _doc(protocol=reloaded)
+        del doc["calibration"]["parameters"]["Sy"]
+
+        phases = expand_calibration_protocol(doc)["calibration"]["phases"]
+
+        assert [phase["name"] for phase in phases] == ["steady_conductivity"]
+
+    def test_true_names_no_parameter(self) -> None:
+        with pytest.raises(ValidationError):
+            MatchingHydrographicNetworkOptions(name="matching_hydrographic_network", storage=True)
 
 
 class TestItLeavesTheRestAlone:

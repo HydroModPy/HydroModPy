@@ -119,7 +119,7 @@ def test_a_drain_only_figure_names_the_drain(seeded) -> None:
 
     assert reason is not None
     assert "the model has no drain," in reason
-    assert "accumulation_flux" in reason
+    assert "drain_accumulation_flux" in reason
 
 
 def test_a_model_with_a_drain_keeps_the_figure_reason(seeded) -> None:

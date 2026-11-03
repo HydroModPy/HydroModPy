@@ -1,9 +1,10 @@
 """The catchment the criterion is compared with is the basin of D the model kept.
 
 The criterion closes its own catchment on its own graph and publishes how far it
-sits from a reference, ``catchment_mismatch``. That reference is the basin of D
-of the build, the cells the budget zone and the discharge observable also sum.
-A model without a basin keeps the delineated polygon and says so.
+sits from two references. ``basin_mismatch`` reads the basin of D of the build, the
+cells the budget zone and the discharge observable also sum. ``catchment_mismatch``
+reads the delineated outline. A model without a basin keeps the delineated polygon
+and says so.
 """
 
 from __future__ import annotations
@@ -70,7 +71,7 @@ POLYGON = np.array([False, True, True, True, False, False])
 @pytest.fixture
 def polygon(monkeypatch):
     """Serve the polygon projection without a shapefile on disk."""
-    monkeypatch.setattr(observed_network, "_polygon_catchment_mask", lambda *_args: POLYGON.copy())
+    monkeypatch.setattr(observed_network, "catchment_outline_mask", lambda *_args: POLYGON.copy())
 
 
 def test_a_model_basin_is_the_reference(polygon, caplog) -> None:
@@ -122,7 +123,7 @@ def test_the_largest_basin_of_a_synthetic_domain_is_no_catchment(polygon, caplog
 
 
 def test_a_domain_with_neither_basin_nor_polygon_gives_none(monkeypatch, caplog) -> None:
-    monkeypatch.setattr(observed_network, "_polygon_catchment_mask", lambda *_args: None)
+    monkeypatch.setattr(observed_network, "catchment_outline_mask", lambda *_args: None)
 
     with caplog.at_level(logging.WARNING):
         reference = delineated_catchment_mask(_ctx(None), None, None)
@@ -207,6 +208,22 @@ def test_a_basin_that_is_the_graph_catchment_leaves_no_gap(output) -> None:
 
     assert geometry.catchment.all()
     assert geometry.diagnostics["catchment_mismatch"] == pytest.approx(0.0)
+
+
+def test_the_gap_reads_the_delineated_outline_and_the_basin_has_its_own(
+    output, monkeypatch
+) -> None:
+    # An outlet on another branch closes the basin of D on that branch too, so the
+    # basin cannot tell. The outline can, and the veto reads the gap to it.
+    half = np.zeros(N_CELLS, dtype=bool)
+    half[: N_CELLS // 2] = True
+    monkeypatch.setattr(observed_network, "catchment_outline_mask", lambda *_args: half.copy())
+    ctx = _bench_ctx(_basin(np.ones(N_CELLS, dtype=bool)), OUTLET_XY)
+
+    diagnostics = network_maps_from_run(ctx, output).maximal.diagnostics
+
+    assert diagnostics["catchment_mismatch"] == pytest.approx((N_CELLS - half.sum()) / half.sum())
+    assert diagnostics["basin_mismatch"] == pytest.approx(0.0)
 
 
 def test_a_smaller_basin_is_published_as_the_gap(output) -> None:

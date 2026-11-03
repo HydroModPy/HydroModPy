@@ -111,7 +111,7 @@ class TestTrash:
             [
                 {
                     "timestep": 0,
-                    "zone_id": "0",
+                    "zone_id": "domain",
                     "component": "recharge",
                     "flux_in": 1.0,
                     "flux_out": 0.0,

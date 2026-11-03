@@ -66,6 +66,7 @@ from pydantic import ValidationError
 
 from hydromodpy.core.exceptions import ConfigError, DataError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.core.state.paths import (
     PROJECT_MARKER_FILENAME,
     parse_rel_dir,
@@ -73,7 +74,7 @@ from hydromodpy.core.state.paths import (
 )
 from hydromodpy.core.toml_io.paths import lookup
 from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
-from hydromodpy.results.catalog.constants import GLOBAL_ZONE, UnrankedMetricError, metric_sense
+from hydromodpy.results.catalog.constants import UnrankedMetricError, metric_sense
 from hydromodpy.results.catalog.registration import split_stem_version
 from hydromodpy.results.metric_rule import HEADLINE_WINDOW
 from hydromodpy.results.publication import redact
@@ -332,7 +333,7 @@ def read_run_facts(run_dir: str | Path) -> RunFacts | None:
     if manifest is None:
         return None
     metrics = _headline_metrics(manifest)
-    parameters = {row.name: row.value for row in manifest.parameters if row.zone == GLOBAL_ZONE}
+    parameters = {row.name: row.value for row in manifest.parameters if row.zone == CATCHMENT}
     document = manifest.model_dump(mode="json", by_alias=True)
     document["metrics"] = dict(metrics)
     document["parameters"] = dict(parameters)

@@ -62,7 +62,7 @@ def load_observed(ctx: Any, variable: str) -> list[ObservedSeries]:
             series = pd.Series(
                 df["value"].astype("float64").values,
                 index=pd.DatetimeIndex(idx),
-                name=f"{rec.variable}_obs",
+                name=str(rec.variable),
             )
             out.append(
                 ObservedSeries(
@@ -150,7 +150,7 @@ def _station_runoff_mm_per_day(points: Any) -> pd.Series | None:
 def _gridded_runoff_mm_per_day(runoff: Any) -> pd.Series | None:
     """Return the watershed mean of a gridded runoff, in mm/day, or None.
 
-    The reduction the run persists as ``forcing/runoff/_watershed``, which the
+    The reduction the run persists as ``forcing/runoff/catchment``, which the
     derived catchment discharge reads back: every cell of each field averaged,
     in the data-manager unit, the index naive in UTC. What a trial is scored on
     is then what its run reports. The reduction says it has nothing to reduce

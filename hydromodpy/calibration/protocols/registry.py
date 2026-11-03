@@ -9,7 +9,8 @@ from __future__ import annotations
 import copy
 import functools
 from collections.abc import Mapping
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, Literal
 
 from pydantic import TypeAdapter, ValidationError
 
@@ -337,9 +338,10 @@ def protocol_record(name: str, declared: object | None = None) -> dict[str, Any]
     its era, not with whatever the recipe became.
     """
     protocol = get_protocol(name)
+    pinned = getattr(declared, "version", None)
     record: dict[str, Any] = {
         "name": protocol.name,
-        "version": protocol.version,
+        "version": protocol.version if pinned is None else str(pinned),
         "title": protocol.title,
         "summary": protocol.summary,
         "stages": list(protocol.stages),
@@ -352,6 +354,7 @@ def protocol_record(name: str, declared: object | None = None) -> dict[str, Any]
                 "here": deviation.here,
                 "why": deviation.why,
                 "paper_value": deviation.paper_value,
+                "always": deviation.always,
             }
             for deviation in protocol.deviations
         ],
@@ -363,9 +366,129 @@ def protocol_record(name: str, declared: object | None = None) -> dict[str, Any]
     return record
 
 
+DeviationState = Literal["always", "departs", "as_paper", "reads_paper"]
+"""Where one declared deviation leaves a run.
+
+``always`` holds whatever the file says. ``departs`` is an option whose value in
+force leaves the publication, ``as_paper`` one whose value is the publication's,
+and ``reads_paper`` an option left unset where the publication has no use for it.
+"""
+
+
+@dataclass(frozen=True)
+class DeviationInForce:
+    """One declared deviation, with what this calibration does about it."""
+
+    key: str
+    paper: str
+    here: str
+    value: object
+    """The value in force, None when the deviation has no option or the option is unset."""
+
+    written: bool
+    """Whether the file wrote the value, a value other than its version writes anyway."""
+
+    state: DeviationState
+
+
+def _network_outputs_read(calibration: Any) -> list[Any]:
+    """Return the network outputs the protocol scores: the one it names, else all of them."""
+    outputs = getattr(calibration, "outputs", None) or {}
+    named = getattr(getattr(calibration, "protocol", None), "network_output", None)
+    if named in outputs:
+        return [outputs[named]]
+    return [output for output in outputs.values() if getattr(output, "support", "") == "network"]
+
+
+def _places_deviations_are_set(calibration: Any, geographic: Any) -> list[Any]:
+    """Return the models that hold the keys a protocol departs on.
+
+    The network outputs with their verdict tables, then ``[geographic]`` for
+    ``dem_correc_type``. A gauge is not the criterion the deviations describe.
+    """
+    places: list[Any] = []
+    for output in _network_outputs_read(calibration):
+        places.append(output)
+        if getattr(output, "verdict", None) is not None:
+            places.append(output.verdict)
+    if geographic is not None:
+        places.append(geographic)
+    return places
+
+
+def _version_writes(row: Mapping[str, Any], key: str, value: object) -> bool:
+    """Say whether the version's line writes ``value`` for ``key``, in a table of it or not."""
+    held = [row[key]] if key in row else []
+    held.extend(table[key] for table in row.values() if isinstance(table, Mapping) and key in table)
+    return any(item == value for item in held)
+
+
+def _departs(deviation: Any, value: object) -> bool:
+    """Say whether the value in force leaves the publication.
+
+    Where the publication has a value, any other departs. Where it has none, any
+    value does.
+    """
+    if deviation.paper_value is None:
+        return value is not None
+    try:
+        return bool(value != deviation.paper_value)
+    except (TypeError, ValueError):
+        # A length compared with the word 'auto': two different things.
+        return True
+
+
+def deviations_in_force(calibration: Any, geographic: Any = None) -> tuple[DeviationInForce, ...]:
+    """Return every deviation of the protocol ``calibration`` names, as this file runs it.
+
+    ``calibration`` is the validated ``[calibration]`` section, expanded, and
+    ``geographic`` the ``[geographic]`` section when the caller holds it. Empty
+    without a protocol. A key the file left empty holds the value of its version
+    after the expansion, so the version's line says which values the file did not
+    choose.
+    """
+    declared = getattr(calibration, "protocol", None)
+    if declared is None:
+        return ()
+    protocol = get_protocol(declared.name)
+    version = protocol.version if declared.version is None else str(declared.version)
+    row = protocol.defaults_by_version.get(version, {})
+    places = _places_deviations_are_set(calibration, geographic)
+    found: list[DeviationInForce] = []
+    for deviation in protocol.deviations:
+        holder = next(
+            (place for place in places if deviation.key in type(place).model_fields), None
+        )
+        value = None if holder is None else getattr(holder, deviation.key)
+        written = (
+            holder is not None
+            and deviation.key in holder.model_fields_set
+            and not _version_writes(row, deviation.key, value)
+        )
+        if deviation.always:
+            state: DeviationState = "always"
+        elif holder is None or (deviation.paper_value is None and value is None):
+            state = "reads_paper"
+        else:
+            state = "departs" if _departs(deviation, value) else "as_paper"
+        found.append(
+            DeviationInForce(
+                key=deviation.key,
+                paper=deviation.paper,
+                here=deviation.here,
+                value=value,
+                written=written,
+                state=state,
+            )
+        )
+    return tuple(found)
+
+
 __all__ = [
     "WRITTEN_SECTIONS",
+    "DeviationInForce",
     "available_protocols",
+    "deviations_in_force",
     "expand_calibration_protocol",
     "get_protocol",
     "protocol_options_away_from_the_recipe",

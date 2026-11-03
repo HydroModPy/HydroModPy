@@ -132,8 +132,8 @@ SIM_ID_MASK = "<sim_id>"
 # Updating these is allowed only when an intentional data change is shipped
 # together.
 GOLDEN_PARAMETERS = (
-    '[["<sim_id>", "K", "__global__", 1.5, "m/d", null], '
-    '["<sim_id>", "S", "__global__", 0.0001, "1/m", null]]'
+    '[["<sim_id>", "K", "catchment", 1.5, "m d-1", null], '
+    '["<sim_id>", "S", "catchment", 0.0001, "m-1", null]]'
 )
 GOLDEN_METRICS = '[["<sim_id>", "P01", "head", "nse", 0.91]]'
 GOLDEN_RUN_ENV = json.dumps(
@@ -141,7 +141,7 @@ GOLDEN_RUN_ENV = json.dumps(
     sort_keys=True,
 )
 GOLDEN_OBJECTIVE = '[["<sim_id>", "calibration of K field"]]'
-GOLDEN_TIMESERIES_SHA256 = "e99498a28699ca8dfcd666d5730622366f26bf452937f8a2dc79d229986d6485"
+GOLDEN_TIMESERIES_SHA256 = "f85f88784e3b0a113aa7cb5fcb4e0255f046530e76de47f5ab889a1f59830e1b"
 
 
 def test_writes_golden(tmp_path: Path) -> None:

@@ -48,6 +48,7 @@ __all__ = [
     "build_sfr_columns",
     "read_sfr_meta",
     "routed_outflow_series",
+    "reach_number",
     "sfr_station_id",
 ]
 
@@ -78,9 +79,14 @@ _UNIT_BY_QUANTITY: dict[str, str] = {
 }
 
 
+def reach_number(reach_ifno: int) -> int:
+    """Return the number a user reads for a reach: the TOML's, 1 for the first reach."""
+    return int(reach_ifno) + 1
+
+
 def sfr_station_id(network_id: str, reach_ifno: int) -> str:
-    """Return the timeseries ``station_id`` for one reach (``sfr:<net>:<ifno>``)."""
-    return f"sfr:{network_id}:{int(reach_ifno)}"
+    """Return the ``reach_id`` of one reach, its ``station_id`` in ``timeseries``."""
+    return f"{network_id}:{reach_number(reach_ifno)}"
 
 
 @dataclass(frozen=True)
@@ -285,7 +291,7 @@ def build_sfr_columns(
         timestep_parts.append(steps.astype("int64"))
         value_parts.append(values.astype("float64"))
         unit_parts.append(
-            np.full(steps.size, _UNIT_BY_QUANTITY.get(entry.quantity, "m3/s"), dtype=object)
+            np.full(steps.size, _UNIT_BY_QUANTITY.get(entry.quantity, "m3 s-1"), dtype=object)
         )
         if calendar is not None:
             time_parts.append(calendar[steps])
@@ -325,7 +331,7 @@ def build_sfr_columns(
                     "component": "sfr_gwf",
                     "flux_in": max(total, 0.0),
                     "flux_out": abs(min(total, 0.0)),
-                    "unit": "m3/s",
+                    "unit": "m3 s-1",
                 }
             )
 
@@ -414,7 +420,7 @@ def routed_outflow_series(
     This is the one definition of the routed discharge: the ``ext-outflow`` of
     every reach plus the ``ext-outflow`` of every lake outlet, sign-corrected
     the same way :func:`build_sfr_columns` does. The store sums the same two
-    terms (stations ``sfr:*`` and ``lake:*``). A network whose reaches end in a
+    terms. A network whose reaches end in a
     lake has no reach ext-outflow: the water leaves through the lake outlet, and
     leaving it out would score a flow of zero.
 

@@ -80,19 +80,16 @@ class TestSchemasStrict:
             "sim_id",
             "station_id",
             "variable",
+            "source",
             "component",
             "timestep",
             "time",
             "value",
             "unit",
-            "qflag",
         ]
-        # sim_id, variable, value are not nullable.
-        assert TIMESERIES_SCHEMA.field("sim_id").nullable is False
-        assert TIMESERIES_SCHEMA.field("variable").nullable is False
-        assert TIMESERIES_SCHEMA.field("value").nullable is False
-        # station_id is nullable: global series exist.
-        assert TIMESERIES_SCHEMA.field("station_id").nullable is True
+        # A catchment series is at the station catchment: nothing here is null.
+        for name in ("sim_id", "station_id", "variable", "source", "value"):
+            assert TIMESERIES_SCHEMA.field(name).nullable is False
 
     def test_schema_strict_for_metrics(self):
         assert METRICS_SCHEMA.names == [
@@ -294,7 +291,7 @@ class TestBatchWrite:
                 "time": pd.Timestamp("2020-01-01", tz="UTC") + pd.Timedelta(days=i),
                 "value": float(i),
                 "unit": "m",
-                "qflag": "simulated",
+                "source": "simulated",
             }
             for i in range(n_records)
         ]

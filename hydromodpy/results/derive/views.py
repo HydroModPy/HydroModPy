@@ -443,7 +443,7 @@ def drainage_density(
 ) -> pd.Series:
     """Share of the active cells of the catchment whose routed drain flux is positive.
 
-    Reads ``accumulation_flux`` (m³/d, rebuilt on read) and returns the share of
+    Reads ``drain_accumulation_flux`` (m³/d, rebuilt on read) and returns the share of
     cells above ``threshold``, per timestep. The support is the catchment, the
     active faces of the basin of D taken whole, the cells that
     ``cell_field_active_metrics`` counts as ``catchment_cell_count``, so the view
@@ -451,7 +451,7 @@ def drainage_density(
     A run that stores no catchment reads the active domain instead. Unit: ``%``.
     """
     mask = _active_mask(sim)
-    stack = _stack_field(sim, "accumulation_flux")
+    stack = _stack_field(sim, "drain_accumulation_flux")
     if mask is None:
         mask = np.ones(stack.shape[1], dtype=bool)
     mask = _in_catchment(sim, mask)
@@ -466,7 +466,7 @@ def drainage_density(
 def persistence(
     sim: Run,
     *,
-    variable: str = "accumulation_flux",
+    variable: str = "drain_accumulation_flux",
     threshold: float = 0.0,
     window: Literal["year", "full"] = "full",
 ) -> np.ndarray | pd.DataFrame:
@@ -493,7 +493,7 @@ def persistence(
 def cell_field_active_mask(
     sim: Run,
     *,
-    variable: str = "accumulation_flux",
+    variable: str = "drain_accumulation_flux",
     threshold: float = 0.0,
     mode: CellFieldActiveMode | None = None,
     persistence_threshold: float = 0.5,
@@ -548,7 +548,7 @@ def cell_field_active_mask(
 def cell_field_active_metrics(
     sim: Run,
     *,
-    variable: str = "accumulation_flux",
+    variable: str = "drain_accumulation_flux",
     threshold: float = 0.0,
     persistence_threshold: float = 0.5,
 ) -> dict[str, float | int | str]:
@@ -627,7 +627,7 @@ def cell_field_active_metrics(
 def _cell_field_active_state(
     sim: Run,
     *,
-    variable: str = "accumulation_flux",
+    variable: str = "drain_accumulation_flux",
     threshold: float = 0.0,
     mode: CellFieldActiveMode | None = None,
     persistence_threshold: float = 0.5,
@@ -659,7 +659,7 @@ def cell_field_network_overlap_metrics(
     sim: Run,
     *,
     network_role: str = "reference",
-    variable: str = "accumulation_flux",
+    variable: str = "drain_accumulation_flux",
     threshold: float = 0.0,
     mode: CellFieldActiveMode | None = None,
     persistence_threshold: float = 0.5,
@@ -734,7 +734,7 @@ def cell_field_network_distance_metrics(
     sim: Run,
     *,
     network_role: str = "reference",
-    variable: str = "accumulation_flux",
+    variable: str = "drain_accumulation_flux",
     threshold: float = 0.0,
     mode: CellFieldActiveMode | None = None,
     persistence_threshold: float = 0.5,

@@ -52,7 +52,7 @@ def _monthly_store(project: Path) -> RunStore:
     store.write_time(sid, STAMPS.values.astype("datetime64[s]").astype("int64"))
     store.write_timeseries(sid, "J0014010", "discharge", pd.Series([1.0, 2.0, 3.0], index=STAMPS))
     store.write_timeseries(
-        sid, "J0014010", "discharge_obs", pd.Series([1.5, 2.5], index=STAMPS[:2]), qflag="observed"
+        sid, "J0014010", "discharge", pd.Series([1.5, 2.5], index=STAMPS[:2]), source="observed"
     )
     store.write_budgets(
         sid,

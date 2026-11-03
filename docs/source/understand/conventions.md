@@ -1,0 +1,82 @@
+# Conventions of a run
+
+A run stores numbers. This page says how to read them: which date reads which period, which
+sign a flux has, what a station or a zone is called, and how layers and reaches are counted. The
+rules are the same for every solver and they do not change from one model to the next.
+
+## A date reads the period that holds it
+
+A run has one value per stress period, and the time stored with a value is the end of its
+period: the stamp. January 2000 of a monthly run is stamped 2000-02-01.
+
+A date `t` reads the period `(s, e]` that holds it, where `s` is the start of the period and `e`
+its stamp. So a date equal to a stamp reads the period that stamp closes, and a date copied from
+the time axis of a NetCDF file or from a CSV finds its own value again. The first date of the
+record belongs to the first period.
+
+| Monthly run from 2000-01-01, `time =` | Period read | Stored stamp |
+|---|---|---|
+| `"2000-01-01"` | January 2000 | 2000-02-01 |
+| `"2000-01-15"` | January 2000 | 2000-02-01 |
+| `"2000-02-01"` | January 2000 | 2000-02-01 |
+| `"2000-02-02"` | February 2000 | 2000-03-01 |
+
+A state, such as a head, is the value at the stamp. A flux, such as a drain flux, is the mean over
+the period. So a date inside a period reads the state at the end of that period. On a daily run,
+`time = "2002-10-15"` reads the period that ends at the start of 15 October, which is the day of
+14 October.
+
+A window from `start` to `end` keeps every period with some time between the two dates. Two stamps
+keep the periods between them, so `2001-01-01` to `2002-01-01` is the twelve months of 2001 on a
+monthly run. A window of one date reads the period that date reads.
+
+The rule is the same in `hmp.read`, `run.field`, `[[export]]`, `[display]` and the `time` of a
+network output of a calibration. How a run stamps its periods is on {doc}`/theory/time-alignment`.
+
+## A budget flux is negative when water leaves the aquifer
+
+Every per-cell flux of the `budget/` group of a run follows the sign of MODFLOW, for every solver:
+positive when water enters the aquifer, negative when it leaves. A drain flux is negative. A
+recharge is positive. A storage term is positive when the aquifer takes water from its storage. A
+well is negative when it pumps. The sum of the signed fluxes of a cell is the change of its storage.
+
+The fields rebuilt from these fluxes say what they hold in their name: `outflow_drain`,
+`release_flux` and the accumulation fluxes are positive outflows. The `budgets` table splits each
+term in `flux_in` and `flux_out`, both positive.
+
+## One word for the whole catchment
+
+`catchment` means the whole catchment wherever a table needs a word for it: the station of a
+catchment series such as `discharge`, the zone of a budget row, the zone of a uniform parameter, and
+the soil column of the basin mean. `domain` is the zone of a budget row over the whole model domain.
+The two differ when the mesh takes in a buffer around the catchment, so only the `catchment` row
+compares with a gauge at the outlet.
+
+## A column says where a series comes from
+
+The `source` column of the `timeseries` table says `simulated` or `observed`. A simulated discharge
+and a gauged one have the same variable, `discharge`. To read the gauge by name, `hmp.read` and
+`[[export]]` take `discharge_obs`, which no table stores. A CSV export has the same `source` column.
+
+## How things are counted
+
+| What | First value | Where |
+|---|---|---|
+| Layer | 0, the top layer | Everywhere |
+| Period and time step | 0 | `timestep` of a table, `time` of a read |
+| Cell | 0 | `cell_id` of a table, rank on the face axis of a field |
+| Reach | 1 | `reach` of `sfr_reaches`, `upstream` and `downstream` of a TOML reach |
+
+A reach keeps one number between the TOML and the results. Its `reach_id`, `<network>:<reach>`, is
+its `station_id` in the `timeseries` table, and the table `sfr_reaches` gives its geometry and the
+reaches it drains into.
+
+A NetCDF variable or a VTU cell array keeps its name at any number of layers. A field with layers
+has a `layer` dimension in a NetCDF file and one component per layer in a VTU file. QGIS reads a
+NetCDF file with one layer asked for: `hmp export` with `--layer`, or `layer =` in `[[export]]`.
+
+## Units
+
+The `unit` column of a table, and the `units` attribute of a field, are written in udunits spelling:
+`m3 s-1`, `mm d-1`, `m`, `1` for a dimensionless value. The columns of the `soil_budget` table hold
+water depths in the unit its `unit` column says, `mm`.

@@ -28,9 +28,15 @@ UPSTREAM = "J0013010"
 YEAR_2001 = DateWindow(start=date(2001, 1, 1), end=date(2001, 12, 31))
 
 
-def _rows(station: str, variable: str, times, values) -> list[dict]:
+def _rows(station: str, variable: str, times, values, source: str = "simulated") -> list[dict]:
     return [
-        {"station_id": station, "variable": variable, "time": t, "value": float(v)}
+        {
+            "station_id": station,
+            "variable": variable,
+            "source": source,
+            "time": t,
+            "value": float(v),
+        }
         for t, v in zip(times, values, strict=True)
     ]
 
@@ -39,9 +45,9 @@ def _outlet_and_upstream() -> pd.DataFrame:
     days = pd.date_range("2001-01-01", "2001-12-31", freq="D", tz="UTC")
     values = np.linspace(1.0, 4.0, len(days))
     return pd.DataFrame(
-        _rows("_catchment", "discharge", days.shift(1, freq="D"), values)
-        + _rows(OUTLET, "discharge_obs", days, values)
-        + _rows(UPSTREAM, "discharge_obs", days, values * 0.3)
+        _rows("catchment", "discharge", days.shift(1, freq="D"), values)
+        + _rows(OUTLET, "discharge", days, values, source="observed")
+        + _rows(UPSTREAM, "discharge", days, values * 0.3, source="observed")
     )
 
 
@@ -80,9 +86,9 @@ def test_the_sealed_readme_names_the_gauge_that_was_not_scored(tmp_path) -> None
     with open_run_store(tmp_path / "demo", "upstream", n_cells=4, n_timesteps=10) as store:
         sid = store.sim_id
         store.facts.period_start = pd.Timestamp("2020-01-01", tz="UTC").to_pydatetime()
-        store.write_timeseries(sid, "_catchment", "discharge", observed * 1.0)
-        store.write_timeseries(sid, OUTLET, "discharge_obs", observed)
-        store.write_timeseries(sid, UPSTREAM, "discharge_obs", observed * 0.3)
+        store.write_timeseries(sid, "catchment", "discharge", observed * 1.0)
+        store.write_timeseries(sid, OUTLET, "discharge", observed, source="observed")
+        store.write_timeseries(sid, UPSTREAM, "discharge", observed * 0.3, source="observed")
 
         derive_module.score_run_under_its_rule(SimpleNamespace(cfg=cfg), store=store)
 

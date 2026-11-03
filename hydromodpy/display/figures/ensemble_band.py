@@ -6,7 +6,8 @@ from typing import TYPE_CHECKING, Annotated, Any
 
 import numpy as np
 
-from hydromodpy.core.units.labels import CATCHMENT_OUTLET_STATION, axis_label, station_label
+from hydromodpy.core.scope import CATCHMENT
+from hydromodpy.core.units.labels import axis_label, station_label
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_options import Opt, Station, Variable
 from hydromodpy.display.figure_registry import register
@@ -42,7 +43,7 @@ class EnsembleBandFigure(BaseFigure):
         sim: Any,
         ax: Axes,
         *,
-        station: Station = CATCHMENT_OUTLET_STATION,
+        station: Station = CATCHMENT,
         variable: Variable = "discharge",
         observed: Annotated[
             Any | None,

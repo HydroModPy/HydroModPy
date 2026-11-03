@@ -1,6 +1,6 @@
 """The drainage network the routed flux keeps active, and the cut that made it.
 
-``accumulation_flux`` is a continuous field and an active network is a set of
+``drain_accumulation_flux`` is a continuous field and an active network is a set of
 cells, so between the two sits a threshold. A map that shows only the result
 leaves a reader unable to tell a model that drains half its catchment from one
 threshold set too low, which is why the cut, the reduction over time and the
@@ -16,7 +16,7 @@ the definition the network criterion scores
 (:func:`hydromodpy.core.stream_extent.flowing_cells`): the downstream closure
 of the cells releasing above ``tau * R * A`` on the criterion graph, above the
 visible flow, with the settings the run's sealed network output scored with.
-A persistence drawn on ``accumulation_flux > 0`` would colour another network
+A persistence drawn on ``drain_accumulation_flux > 0`` would colour another network
 than the one the trial and the persistence maps beside it read. A caller who
 names a ``variable`` or a ``threshold`` asks for that field cut instead, and
 a run the criterion graph cannot be rebuilt on falls back to it and says why.
@@ -102,7 +102,7 @@ _FLOWING_NOTE = "the share of the timesteps each cell flows, drawn uncut"
 _FLOWING_CBAR = "Flowing persistence (0-1)"
 _ACTIVE_CBAR = "Active persistence (0-1)"
 
-_DEFAULT_VARIABLE = "accumulation_flux"
+_DEFAULT_VARIABLE = "drain_accumulation_flux"
 _DEFAULT_THRESHOLD = 0.0
 
 _FLOWING_MEMO = RunMemo()
@@ -139,7 +139,7 @@ class SimulatedActiveNetworkMap(BaseFigure):
     """Map the active drainage network inferred from a simulated flux field.
 
     ``variable`` and ``threshold`` are the cut: a cell is active where the
-    field exceeds the threshold, ``accumulation_flux > 0`` when left out, and
+    field exceeds the threshold, ``drain_accumulation_flux > 0`` when left out, and
     ``mode`` says how the timesteps are reduced to one answer. In the
     ``persistence`` mode with neither named, a cell is active where it flows
     as the network criterion says, with the run's sealed criterion settings
@@ -152,7 +152,7 @@ class SimulatedActiveNetworkMap(BaseFigure):
         name="simulated_active_network",
         title="Simulated active network",
         kind="spatial",
-        required_fields=("accumulation_flux",),
+        required_fields=("drain_accumulation_flux",),
         # The "persistence" mode with no cut reads the network criterion.
         optional_fields=("release_flux",),
         default_figsize=(7.0, 6.2),
@@ -166,7 +166,7 @@ class SimulatedActiveNetworkMap(BaseFigure):
         variable: Annotated[
             str | None,
             Opt(
-                "Stored field cut by threshold. Left out, accumulation_flux; in the "
+                "Stored field cut by threshold. Left out, drain_accumulation_flux; in the "
                 '"persistence" mode with threshold left out too, the network '
                 "criterion says which cells flow."
             ),
@@ -416,7 +416,7 @@ class SimulatedActiveNetworkReferenceOverlay(BaseFigure):
         name="simulated_active_network_reference_overlay",
         title="Simulated active network vs reference",
         kind="comparison",
-        required_fields=("accumulation_flux",),
+        required_fields=("drain_accumulation_flux",),
         default_figsize=(7.8, 5.8),
     )
 
@@ -425,7 +425,7 @@ class SimulatedActiveNetworkReferenceOverlay(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        variable: Annotated[str, Opt("Stored field cut by threshold.")] = "accumulation_flux",
+        variable: Annotated[str, Opt("Stored field cut by threshold.")] = "drain_accumulation_flux",
         threshold: Annotated[
             float,
             Opt("A cell is active where the field exceeds it, in the unit of the field."),

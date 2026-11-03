@@ -9,6 +9,7 @@ from hydromodpy.display.figure_options import LogY, Opt
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._scoring_window import shade_before_window
 from hydromodpy.display.maps.axes import style_date_axis
+from hydromodpy.results.run.sfr import sfr_reach_links
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -19,22 +20,19 @@ STATE_UNITS = {"stage": "m", "depth": "m"}
 
 
 def sfr_reach_stations(sim: Run, variable: str) -> list[tuple[str, int, str]]:
-    """Return the ``(network_id, reach_ifno, station_id)`` triples for one variable.
+    """Return the ``(network_id, reach, station_id)`` triples for one variable.
 
-    SFR series land under ``station_id = sfr:<network>:<reach>``; the triples are
-    sorted by reach number so a longitudinal sweep follows the routing order.
+    The ``sfr_reaches`` table names the reaches; a series lands under the
+    ``reach_id`` of its reach. The triples are sorted by reach number so a
+    longitudinal sweep follows the routing order.
     """
-    triples: list[tuple[str, int, str]] = []
-    for station in sim.stations(variable):
-        parts = str(station).split(":")
-        if len(parts) != 3 or parts[0] != "sfr":
-            continue
-        try:
-            triples.append((parts[1], int(parts[2]), station))
-        except ValueError:
-            continue
-    triples.sort(key=lambda item: (item[0], item[1]))
-    return triples
+    held = set(sim.stations(variable))
+    links = sfr_reach_links(sim)
+    return [
+        (str(row.network_id), int(row.reach), str(row.reach_id))
+        for row in links.itertuples(index=False)
+        if row.reach_id in held
+    ]
 
 
 def no_reach_series_reason(sim: Run, variable: str = "downstream_flow") -> str | None:
@@ -52,7 +50,7 @@ def no_reach_series_reason(sim: Run, variable: str = "downstream_flow") -> str |
 class SfrReachTimeseries(BaseFigure):
     """Time series of one quantity on one SFR reach.
 
-    Defaults to the most downstream reach (highest ``ifno``, the network gauge)
+    Defaults to the most downstream reach (highest number, the network gauge)
     and the routed ``downstream_flow``.
     """
 
@@ -91,22 +89,22 @@ class SfrReachTimeseries(BaseFigure):
         if not triples:
             raise KeyError(f"sfr_reach_timeseries: no SFR '{variable}' series for sim {sim.sim_id}")
         if reach is None:
-            network_id, ifno, station = triples[-1]
+            network_id, reach, station = triples[-1]
         else:
             matches = [t for t in triples if t[1] == int(reach)]
             if not matches:
                 raise KeyError(
                     f"sfr_reach_timeseries: no reach {reach} with '{variable}' for sim {sim.sim_id}"
                 )
-            network_id, ifno, station = matches[0]
+            network_id, reach, station = matches[0]
 
         ts = sim.timeseries(variable, station=station)
-        ax.plot(ts.index, ts.values, color="steelblue", lw=1.2, label=f"reach {ifno}")
+        ax.plot(ts.index, ts.values, color="steelblue", lw=1.2, label=f"reach {reach}")
         ax.set_xlabel("Date")
         ax.set_ylabel(f"{variable} ({STATE_UNITS.get(variable, 'm³/s')})")
         if log_y:
             ax.set_yscale("log")
-        ax.set_title(f"SFR {variable}{run_suffix(sim)} @ {network_id}:{ifno}")
+        ax.set_title(f"SFR {variable}{run_suffix(sim)} @ {network_id}:{reach}")
         ax.grid(True, ls=":", lw=0.4)
         shade_before_window(ax, sim)
         ax.legend(fontsize=13, framealpha=0.94)

@@ -16,7 +16,8 @@ from hydromodpy.core.budget_terms import (
     BudgetKeep,
     kept_budget,
 )
-from hydromodpy.core.field_routing import CATCHMENT_BUDGET_ZONE, STREAM_CONSTANT_HEAD_BUDGET
+from hydromodpy.core.field_routing import STREAM_CONSTANT_HEAD_BUDGET
+from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.results.zarr_store import SimulationZarr
 from hydromodpy.solver.modflow6.extractors import flow as mf6_flow
 from hydromodpy.solver.modflow6.extractors.cbc_reader import CbcRecord
@@ -166,8 +167,8 @@ def test_budget_fluxes_scaled_and_split(store: _FakeStore) -> None:
     rcha0 = by_key[(0, "recharge")]
     assert rcha0["flux_in"] == pytest.approx(4.0 / _SPT)
     assert rcha0["flux_out"] == pytest.approx(2.0 / _SPT)
-    assert rcha0["zone_id"] == "0"
-    assert rcha0["unit"] == "m3/s"
+    assert rcha0["zone_id"] == "domain"
+    assert rcha0["unit"] == "m3 s-1"
     drn1 = by_key[(1, "drain")]
     assert drn1["flux_in"] == pytest.approx(4.0 / _SPT)
     assert drn1["flux_out"] == pytest.approx(0.0)
@@ -210,7 +211,7 @@ def test_unknown_kstpkper_is_ignored(monkeypatch: pytest.MonkeyPatch) -> None:
 class TestCatchmentBudgetZone:
     """The second budget row whose support is the basin, not the buffered box.
 
-    MODFLOW 6 meshes a box wider than the catchment, so the ``zone_id = "0"``
+    MODFLOW 6 meshes a box wider than the catchment, so the ``zone_id = "domain"``
     row takes in the neighbouring basins. The per-cell array is in memory while
     the budget is read and dropped right after unless the run keeps the term,
     so this is the one place the basin can be summed for free.
@@ -245,27 +246,27 @@ class TestCatchmentBudgetZone:
         store = self._extract(self._rcha_cbb(), monkeypatch, mask)
 
         by_zone = {row["zone_id"]: row for row in store.budgets}
-        assert set(by_zone) == {"0", CATCHMENT_BUDGET_ZONE}
+        assert set(by_zone) == {"domain", CATCHMENT}
         # Domain keeps every cell: +1 +3 in, -2 -4 out.
-        assert by_zone["0"]["flux_in"] == pytest.approx(4.0 / _SPT)
-        assert by_zone["0"]["flux_out"] == pytest.approx(6.0 / _SPT)
+        assert by_zone["domain"]["flux_in"] == pytest.approx(4.0 / _SPT)
+        assert by_zone["domain"]["flux_out"] == pytest.approx(6.0 / _SPT)
         # The basin holds cells 0 and 2, so it sees no outflow at all.
-        assert by_zone[CATCHMENT_BUDGET_ZONE]["flux_in"] == pytest.approx(4.0 / _SPT)
-        assert by_zone[CATCHMENT_BUDGET_ZONE]["flux_out"] == pytest.approx(0.0)
-        assert by_zone[CATCHMENT_BUDGET_ZONE]["component"] == by_zone["0"]["component"]
-        assert by_zone[CATCHMENT_BUDGET_ZONE]["unit"] == "m3/s"
+        assert by_zone[CATCHMENT]["flux_in"] == pytest.approx(4.0 / _SPT)
+        assert by_zone[CATCHMENT]["flux_out"] == pytest.approx(0.0)
+        assert by_zone[CATCHMENT]["component"] == by_zone["domain"]["component"]
+        assert by_zone[CATCHMENT]["unit"] == "m3 s-1"
 
     def test_without_a_mask_only_the_domain_row_is_written(self, monkeypatch):
         store = self._extract(self._rcha_cbb(), monkeypatch, None)
 
-        assert [row["zone_id"] for row in store.budgets] == ["0"]
+        assert [row["zone_id"] for row in store.budgets] == ["domain"]
 
     def test_an_empty_basin_is_not_written_as_zero(self, monkeypatch):
         # An all-false mask would write a row of zeros under a name that claims
         # to be the catchment, which is worse than carrying no row at all.
         store = self._extract(self._rcha_cbb(), monkeypatch, np.zeros(4, dtype=bool))
 
-        rows = [row for row in store.budgets if row["zone_id"] == CATCHMENT_BUDGET_ZONE]
+        rows = [row for row in store.budgets if row["zone_id"] == CATCHMENT]
         assert rows == [] or rows[0]["flux_in"] != 0.0 or rows[0]["flux_out"] != 0.0
 
 

@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from hydromodpy.core.units.labels import CATCHMENT_OUTLET_STATION, axis_label, station_label
+from hydromodpy.core.scope import CATCHMENT
+from hydromodpy.core.units.labels import axis_label, station_label
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import LogY, Station, Variable
 from hydromodpy.display.figure_registry import register
@@ -40,7 +41,7 @@ class HydrographSimObs(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        station: Station = CATCHMENT_OUTLET_STATION,
+        station: Station = CATCHMENT,
         variable: Variable = "discharge",
         log_y: LogY = False,
         **_,
@@ -61,7 +62,7 @@ class HydrographSimObs(BaseFigure):
         )
 
         # Simulated discharge lives at the catchment-outlet pseudo-station
-        # (``station``, default ``_catchment``), while observations come from
+        # (``station``, default ``catchment``), while observations come from
         # real gauges keyed by their own id. Fetch every observed gauge and
         # let the per-station loop align each onto the simulation index.
         obs_df = sim.observed(variable)

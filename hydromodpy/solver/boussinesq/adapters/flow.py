@@ -68,19 +68,21 @@ class BoussinesqFlowAdapter:
     def declared_observables(self, config: object) -> tuple[ObservableSupport, ...]:
         """Say what this run can serve, and why two things are out of reach.
 
-        Boussinesq already computes a saturation excess per cell and its mesh
-        carries the connectivity, the areas and the elevations, so the
-        stream-network criterion is reachable here. Lakes and routed reaches are
-        not: this solver has no advanced-package concept to build them from, which
-        is a different verdict from an adapter that is merely incomplete.
+        Boussinesq computes a saturation excess per cell, but its extraction does
+        not serve it, so the stream-network criterion cannot score a trial here.
+        Serving it is work on this solver. Lakes and routed reaches are out of
+        reach for another reason: this solver has no advanced-package concept to
+        build them from.
         """
         del config
         return (
             servable("head", "read at any cell from the solver output"),
             servable("discharge", "integrated over the domain"),
-            servable(
+            unavailable(
                 "release_flux",
-                "per-cell saturation excess, which the solver already computes",
+                "the Boussinesq extraction serves heads and discharge, not the per-cell "
+                "saturation excess the solver computes. Use a MODFLOW backend for the "
+                "stream-network criterion.",
             ),
             unavailable(
                 "stage",
@@ -129,8 +131,8 @@ class BoussinesqFlowAdapter:
     ) -> dict[str, ObservableResult]:
         """Read observables from the Boussinesq scratch directory.
 
-        Discharge is reconstructed from ``drainage_flux_history_m3_s`` summed
-        over all cells per timestep, which is the MODFLOW DRAIN convention.
+        Discharge is the drains and the saturation excess summed over all cells
+        per timestep, the water leaving the aquifer at the surface.
         Heads are read at flattened cell indices: the Boussinesq mesh is one
         unstructured layer, so a ``(k, i, j)`` cell is read as ``cell_id = j``.
         Every head request is served in one pass over the history.

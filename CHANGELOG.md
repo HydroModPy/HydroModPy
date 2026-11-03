@@ -34,6 +34,28 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Added
+- A user page, "Conventions of a run" (`docs/source/understand/conventions.md`): which date reads which period, the sign of a
+  budget flux, the words `catchment` and `domain`, the `source` column, how layers, cells and reaches are counted, and the
+  spelling of units.
+- A seal states `derive_rule_version`, the version of the rules that rebuild the derived fields of a run on read. A run exposes
+  it to the register as the quantity `derived@<version>`, so a later fix of a derived field can declass the runs sealed under
+  the old rules.
+- `layer` in `[[export]]` and `--layer` in `hmp export` now apply to a NetCDF file: the variable holds that layer, without a
+  `layer` dimension and with a scalar `layer` coordinate. This is the form QGIS reads.
+- `Run.stations`, `Run.timeseries` and `query_timeseries` take `source="observed"`.
+- `[calibration.outputs.<name>.verdict] max_catchment_mismatch`, 0.05 by default. A search whose scored catchment differs
+  from the delineated one by more than this share of its area is refused before its first solve, with the share and the
+  bound. `false` never refuses. The gap is `catchment_mismatch`, published on every trial.
+- `[calibration.outputs.<name>] clip_map_to_catchment`, true by default. A mapped network given as a file is cut to the
+  delineated catchment with the shape `data.hydrography` clips to, so the two draw the same map from the same file. Under
+  `heads` an end the cut made is no head, counted as `n_cut_ends`. `false` reads the file whole.
+- `session.json` has a `protocol` entry: the name, the version the session ran, and every departure from the publication in
+  force. The file itself stays `hydromodpy.session.v4`.
+- A launch prints the departures from the paper, as `hmp config check` does. The departures no key brings back are named on
+  one line, and `-v` says each in full.
+- `basin_mismatch` on every network trial: the gap between the scored catchment and the basin of D the build kept.
+- `Deviation.always`, the departures no value of an option brings back. New declared departures: `steady_recharge_window`,
+  `clip_map_to_catchment`, `max_catchment_mismatch`, `unreached_distance_capped`.
 - `hmp.calibration_phases(config)` says what a calibration declares, with nothing run and nothing written: `phases`, the
   `calibration` section a protocol unfolds into, the `protocol`, and the `plan` of a launch (case, session folder, run
   folder, version). `check=True` runs the checks of `hmp config check` first.
@@ -712,6 +734,59 @@ Each release section includes the following standard categories:
   (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
+- A date reads the period `(start, end]` that holds it, and the first date of the record reads the first period. A date equal
+  to a stamp reads the period that stamp closes, so a date copied from a NetCDF time axis or a CSV finds its own value again.
+  It used to read the next period, except at the last stamp. This holds in `hmp.read`, `run.field`, `[[export]]`, `[display]`
+  and the `time` of a network output. A window from `start` to `end` keeps the periods with time between the two dates: a
+  window that ends on a stamp no longer takes the period after that stamp, and a window of one date reads the period that date
+  reads.
+- Every per-cell budget flux has the sign of MODFLOW for every solver, positive when water enters the aquifer and negative when
+  it leaves. Boussinesq now stores `drain` and `surface_excess` negative. Readers no longer guess a sign step by step, so a
+  drain flux that is positive at every cell of a step is water entering, not an outflow. The field registry states the sign and
+  a budget field carries the attribute `sign_convention`.
+- One word for the whole catchment, `catchment`, in place of `_catchment` (station), `__global__` (uniform parameter) and
+  `_watershed` (soil column, forcing station). The budget zone over the whole model is `domain` for every solver, in place of
+  `0`.
+- The `timeseries` table has a column `source`, `simulated` or `observed`, in place of the suffix `_obs` on the variable and of
+  the column `qflag`. Its key gains `source`. `hmp.read` and `[[export]]` still take `discharge_obs` as the name of a gauged
+  series, which no table stores. A series CSV has the column `source`, and `variable` reads `discharge` for both.
+- A stream reach is the station `<network>:<reach>` in place of `sfr:<network>:<ifno>`. The table `sfr_reaches` names it
+  `reach_id`, and its column `reach` replaces `ifno`. A reach keeps the number the TOML gives it, from 1, and `downstream`
+  uses that number too.
+- A NetCDF variable and a VTU cell array keep their name at any number of layers: `head`, with a `layer` dimension in NetCDF and
+  one component per layer in VTU, never `head_layer0`. A field with fewer layers than the model names its own dimension,
+  `recharge_layer`. A NetCDF file with every layer is not read by QGIS: export one layer for it.
+- Every `unit` of a table is in udunits spelling: `m3 s-1`, `mm d-1`, `kg s-1`, `m-1`, `1`.
+- The columns of `soil_budget` no longer carry a unit in their name: `precipitation`, `etp`, `etr`, `residual_etp`, `recharge`,
+  `runoff`, `runoff_cn`, `soil_storage_change`, `transit_storage_change`, `cn_storage_change`, `lag_storage_change`,
+  `balance_residual`, and `available_water_capacity` for `ru_mm`. A column `unit` says `mm`.
+- Three fields took clearer names. `hmp doctor --fix-config` rewrites them in `[[export]] variables` and in a figure option.
+  | Old | New | What it holds |
+  |---|---|---|
+  | `accumulation_flux` | `drain_accumulation_flux` | The drain outflow summed down the descent, m3 s-1 |
+  | `mass_accumulated` | `mass_seepage_running_sum` | The running sum over the steps of the solute mass flux, a sum of rates and not a mass |
+  | `fluxes_from_budget` | `budget_flux_per_area` | One budget term over the cell area, m s-1, signed as the term |
+- `watertable_depth` now states the CF standard name `water_table_depth`. CF has no standard name for a hydraulic head, a
+  specific yield or a cell budget flux of an aquifer, so those keep an empty `standard_name` and their CSDMS name.
+- The stored field format goes to `zarr_schema_version` 4, and both bounds of its window are 4. A store of an alpha is refused
+  and has to be run again.
+- `matching_hydrographic_network` is version 1.3: the map drawn from its heads, cut to the catchment, under the veto on
+  `catchment_mismatch`. The protocol holds `DEFAULTS_BY_VERSION`, 1.2 and 1.3, and writes in the network output the values of
+  the version for each key the file leaves empty. A pin on 1.2 is honoured: the crossing rule, the whole file, no veto. A pin
+  on another version is refused and names the ones carried.
+- `catchment_mismatch` reads the delineated outline, the one the mesh followed when it followed one, as its documentation
+  said. It read the basin of D since 2026-10-14, which closes on the same outlet as the criterion, so a wrong branch did not
+  show.
+- `storage = false` on `[calibration.protocol]` writes the network stage alone in TOML. `None` from Python reads the same, and
+  a run sealed in this mode reloads with one stage.
+- A search in its last phase promotes the trial it answered, the one the report prints. It used to promote the lowest trial
+  number of a tie on the cost.
+- The line of K prints the window of its recharge, and the report has `r_mean_window`.
+- The Methods paragraph lists every option a deviation is declared on, not seven, and the departures of every run.
+- The persistence figures and the docs say that a visible flow exists in a transient run only.
+- The docs say that the protocol does not offer the two-bound mode, recommend a long `steady_window` when the forcing covers
+  one, and name the break of SIM2 on 31 July 2015.
+- The MODFLOW 6 and NWT flow runs take `stop_before_the_solve` in `flow_runtime_overrides`: the model is built and not solved.
 - `hmp.calibrate` and `Project.calibrate` always return one `CalibrationReport`, with or without phases. A report in phases
   now has `best_cost`, `best_parameters` (the whole set of the calibrated run, frozen values included), `best_cases`,
   `windows`, `cost_name` and `cost_label`. `best_sim_id` and `best_rel_dir` read `best_cases`, and refuse on several
@@ -1542,6 +1617,14 @@ Each release section includes the following standard categories:
 - The compact network comparison reads the reference river from `mesh_cell_families`.
 
 ### Removed
+- The `legacy` mesh layout: `Mesh.layout`, `Mesh.layout_note` and their note. No readable store can hold it.
+- `hydromodpy.core.field_routing.positive_cell_flux_stack` and the constants `CATCHMENT_BUDGET_ZONE`, `DOMAIN_BUDGET_ZONE`,
+  `GLOBAL_ZONE`, `CATCHMENT_OUTLET_STATION`. `drain_budget_to_positive_outflow` and `drain_budget_stack_to_positive_outflow` are
+  `budget_outflow` and `budget_outflow_stack`. The words live in `hydromodpy.core.scope`.
+- `max_unreachable_fraction`. It bounded a share that is zero by construction, since the outlet is sealed into the target of
+  `D_so`. A file that writes it is refused, and the message names `verdict.max_catchment_mismatch`. `hmp doctor --fix-config`
+  does not rewrite it, because the two keys bound different quantities: delete the line. The `failed` status of a network trial
+  goes with it.
 - `hmp.calibrate(list_phases=, expand=, dry_run=)`: use `hmp.calibration_phases`. `return_report=` on `hmp.calibrate` and on
   the runners. The class `StagedCalibrationReport`.
 - Sessions and runs of a pre-release: `session.v3`, `phase.v1`, `trial.v1`, manifest 2 and Parquet `v2` are refused, and a
@@ -1740,6 +1823,12 @@ Each release section includes the following standard categories:
   A run sealed before the family tables draws no reference line.
 
 ### Fixed
+- The `discharge` of a Boussinesq run read about zero, because it summed the drain only and that solver sends its water through
+  the saturation excess. It now sums what leaves the aquifer at the surface, drains and excess. A calibration scores the same sum.
+- The Boussinesq adapter declares `release_flux` unavailable, with its reason. Its extraction never served it, and the check
+  of a file said otherwise until the first trial.
+- The record of a pinned file says the pinned version.
+- A mapped line that only touches the catchment outline no longer leaves a point in the network: the cut keeps lines alone.
 - A trial read from the cache no longer carries the run of another session, nor its error and overlay as cost components.
 - A staged `--resume` after a root search that ended on a tie of its cost was refused, because the phase read back another
   trial than the one it had passed on. A closed phase now holds the trial its search answered with.
@@ -1862,6 +1951,37 @@ Each release section includes the following standard categories:
   below MODFLOW 6.
 
 ### Numbers
+- Boussinesq `discharge`, island of the test suite, three months: 4.2e-9, 9.6e-10 and 4.2e-11 m3/s before, 0.012709, 0.025505
+  and 0.010800 m3/s after. MODFLOW 6 on the same mesh reads 0.011417, 0.023888 and 0.009734 m3/s. Any score of a Boussinesq
+  discharge changes with it.
+- Boussinesq `budget/drain` and `budget/surface_excess` change sign, the size stays. The sum of the signed fields now closes
+  against the change of storage: 3.7e-7 of the recharge on the steady period and 1.5e-7, 1.0e-8 on the two transient ones, where
+  it was off by 1.48 times the recharge.
+- Example 04, MODFLOW 6: no number moves. The 55 arrays of the store are bit-identical, `budget/drain` included, and so are the
+  values of `timeseries` (14640 rows), `budgets` (288 rows) and the 11 scores (NSE 0.9345).
+- A network output whose `time` falls on a stamp reads one period earlier. On example 04, `time = "2002-10-01"` read October
+  2002 and now reads September 2002: `distance_gap` 86.32 to 79.08 m (-8.4 %), `D_optim` 142.4 to 139.2 m (-2.2 %), simulated
+  network 473 to 481 cells. A date inside a period does not move, so `time = "2002-10-15"`, the date of the example, gives the
+  same numbers to the bit. On a daily run a date reads the day before, since a stamp falls at midnight: on a coarse daily
+  grid of example 04 that left the criterion unchanged.
+- A window that ends on a stamp keeps one period fewer: `2001-01-01` to `2002-01-01` on a monthly run is 12 periods, it was 13.
+Measured on example 04 against an export of `07630b105`, K searched by the bisection of stage one, steady over 2000-2002.
+- A file pinned on 1.2, against the same file at the base with `observed_rasterization = "crossing"` written: both stages on
+  30 x 30, 23 trials. Every K, Sy and cost, every component but the two below, NSE 0.94268 and the 55 Zarr arrays of the run are
+  bit for bit the same. The same with `heads` written, 19 trials.
+- `catchment_mismatch` changes meaning on every run and enters no cost: 0 becomes 0.37 % on the shipped mesh of 21 406 cells,
+  and 11.0 % on 30 x 30. The old number is `basin_mismatch`.
+- The cut to the catchment under `heads`, no pin: on the shipped mesh and on 60 x 60 every K and every cost of the search are
+  bit for bit the same, and the heads examined fall from 154 to 29, the lost ones from 83 to 0. On 30 x 30, J at the best trial
+  goes from 11.0 to 50.3 m and K follows the tie below. Under `crossing` on the shipped mesh, written in the file, 3 mapped cells
+  of 499 leave, J goes from 1.965 to 1.985 m at the best trial, and K does not move.
+- A tie on the cost in a last phase promotes the trial the search answered. On the shipped mesh by hand, in one steady phase,
+  trials 13 and 14 tie at J = 0.8106 m, and the promoted K goes from 8.058e-5 to 7.962e-5 m/s, -1.2 %. On 30 x 30, trials 9 and
+  13, from 1.4678e-4 to 1.5034e-4 m/s, +2.4 %. No other search moves: a phase before the last already held the answer, so the K
+  frozen by stage one of the protocol does not move. A two-root bisection in a last phase moves too: it now promotes the combined
+  value the report prints.
+- A file with no pin on a coarse mesh is refused where it ran: 5 % refuses Nancon on a grid of 45 cells a side or fewer, on a
+  Voronoi mesh of 400 m and on the grid of 120 a side, where the outlet closes on another branch.
 - No number moves. A seeded calibration before and after this change, seven search methods on a closed-form evaluator and two
   real MODFLOW 6 searches on the Nancon: 131 trials with the same values, costs and components, the same NSE, parameters and
   scores of the promoted runs, and the same 55 arrays bit for bit.

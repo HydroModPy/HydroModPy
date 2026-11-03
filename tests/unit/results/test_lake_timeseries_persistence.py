@@ -40,7 +40,7 @@ def _lake_records(station: str) -> list[dict]:
                 "time": time,
                 "value": stage,
                 "unit": "m",
-                "qflag": "simulated",
+                "source": "simulated",
             }
         )
         records.append(
@@ -51,7 +51,7 @@ def _lake_records(station: str) -> list[dict]:
                 "time": time,
                 "value": exchange,
                 "unit": "m3/s",
-                "qflag": "simulated",
+                "source": "simulated",
             }
         )
     return records

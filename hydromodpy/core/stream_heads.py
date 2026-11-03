@@ -69,13 +69,15 @@ class HeadCandidates:
     at a fixed step, for the agreement between the trace and the map.
     ``forced_cells`` are mesh cells that are heads whatever the map says, the
     foot of each dam: they come from the model, not from the lines, and carry
-    no snap.
+    no snap. ``n_cut_ends`` counts the free ends left out because the cut of the
+    map to the catchment made them: the stream goes on beyond them.
     """
 
     head_xy: np.ndarray
     reach_end_xy: np.ndarray
     map_points_xy: np.ndarray
     forced_cells: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=np.int64))
+    n_cut_ends: int = 0
 
     def __post_init__(self) -> None:
         heads = _points(self.head_xy, "head_xy")
@@ -116,6 +118,7 @@ def concat_candidates(a: HeadCandidates, b: HeadCandidates) -> HeadCandidates:
         reach_end_xy=reach_end_xy[keep],
         map_points_xy=np.concatenate([a.map_points_xy, b.map_points_xy]),
         forced_cells=np.concatenate([a.forced_cells, b.forced_cells]),
+        n_cut_ends=a.n_cut_ends + b.n_cut_ends,
     )
 
 
@@ -154,6 +157,9 @@ class HeadTrace:
 
     settings: HeadsSettings
 
+    n_cut_ends: int = 0
+    """Free ends left out because the cut of the map to the catchment made them."""
+
     @property
     def n_lost(self) -> int:
         """Heads with no landing cell within the radius."""
@@ -166,6 +172,7 @@ class HeadTrace:
         return {
             "n_heads": float(self.head_cell.size),
             "n_heads_lost": float(self.n_lost),
+            "n_cut_ends": float(self.n_cut_ends),
             "n_forced_heads": float(self.forced_cell.size),
             "head_snap_p90_m": float(np.percentile(landed, 90.0)) if landed.size else float("nan"),
             "heads_trace_near_map_share": float(self.near_map_share),
@@ -236,7 +243,10 @@ def trace_from_heads(
         )
 
     if n_candidates == 0 or usable.size == 0:
-        raise refuse("the map holds no free end on an active cell")
+        raise refuse(
+            "the map holds no free end on an active cell"
+            + (f", {candidates.n_cut_ends} more made by its cut" if candidates.n_cut_ends else "")
+        )
     centres = np.asarray(metric.centroids, dtype=float)[:, :2]
     tree = cKDTree(centres[usable])
     drained = accumulated[usable]
@@ -293,4 +303,5 @@ def trace_from_heads(
         n_candidates=n_candidates,
         near_map_share=near_share,
         settings=settings,
+        n_cut_ends=candidates.n_cut_ends,
     )

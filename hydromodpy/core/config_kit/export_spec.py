@@ -312,7 +312,11 @@ class ExportRequest(HydroModelBase):
     layer: Annotated[int | None, Profile.DEV] = Field(
         default=None,
         ge=0,
-        description="Model layer of a 3D field. Left out, every layer a format can hold.",
+        description=(
+            "Model layer of a 3D field, counted from 0 at the top. Left out, every layer a "
+            "format can hold: a NetCDF variable or a VTU cell array has one entry per layer. "
+            "QGIS reads a NetCDF that names one layer."
+        ),
     )
     nodata: Annotated[float, Profile.EXPERT] = Field(
         default=-9999.0,

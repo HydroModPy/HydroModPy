@@ -27,7 +27,7 @@ FLUXES = (0.0, 1.0e-6, 1.0e-4, 1.0e-2)
 EMPTY_CELL = 0
 
 
-def _run(values=FLUXES, *, field: str = "accumulation_flux") -> SimpleNamespace:
+def _run(values=FLUXES, *, field: str = "drain_accumulation_flux") -> SimpleNamespace:
     """Return a run holding one row of square cells carrying ``values``."""
     n = len(values)
     vertices = np.asarray(
@@ -261,7 +261,7 @@ def test_a_palette_floor_outside_the_palette_is_refused() -> None:
 def test_unavailable_reason_names_the_field_a_run_lacks() -> None:
     reason = AccumulationMap().unavailable_reason(_run(field="head"))
     assert isinstance(reason, str)
-    assert "accumulation_flux" in reason
+    assert "drain_accumulation_flux" in reason
     assert AccumulationMap().unavailable_reason(_run()) is None
 
 

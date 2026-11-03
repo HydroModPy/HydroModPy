@@ -205,6 +205,29 @@ class SessionCase(HydroModelBase):
     )
 
 
+class ProtocolDeparture(HydroModelBase):
+    """One place a session leaves the publication its protocol cites."""
+
+    key: str = Field(description="The option or the concept that carries the departure")
+    here: str = Field(description="What this implementation does")
+    paper: str = Field(description="What the publication does")
+    value: str | None = Field(default=None, description="The value in force, none without option")
+    always: bool = Field(default=False, description="No value of an option brings it back")
+    written: bool = Field(
+        default=False, description="The file wrote the value, rather than its version"
+    )
+
+
+class SessionProtocol(HydroModelBase):
+    """The published method a session follows and where it leaves it."""
+
+    name: str = Field(description="Name of the protocol")
+    version: str = Field(description="Version the session ran, the pinned one or the installed one")
+    departures: list[ProtocolDeparture] = Field(
+        default_factory=list, description="Every departure from the publication in force"
+    )
+
+
 class SessionDescriptor(HydroModelBase):
     """Identity, search and outcome of one calibration session."""
 
@@ -246,6 +269,10 @@ class SessionDescriptor(HydroModelBase):
     )
     widths: dict[str, ParameterWidth] = Field(
         default_factory=dict, description="Width of each calibrated value; empty when none"
+    )
+    protocol: SessionProtocol | None = Field(
+        default=None,
+        description="The protocol the session follows; none when it names no protocol",
     )
     status: SessionStatus = Field(default="running")
     started_at: datetime = Field(description="Start of the session, UTC")
@@ -420,10 +447,12 @@ __all__ = [
     "CostInterval",
     "ParameterBound",
     "ParameterWidth",
+    "ProtocolDeparture",
     "RestartRange",
     "ScoredSamples",
     "SessionCase",
     "SessionDescriptor",
+    "SessionProtocol",
     "SessionStatus",
     "check_case_tables",
     "find_session_dir",

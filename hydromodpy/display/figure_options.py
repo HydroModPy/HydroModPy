@@ -176,7 +176,7 @@ Extent = Annotated[
 Station = Annotated[
     str,
     Opt(
-        'Station whose series is drawn: a gauge id, or "_catchment" for the '
+        'Station whose series is drawn: a gauge id, or "catchment" for the '
         "series at the catchment outlet."
     ),
 ]

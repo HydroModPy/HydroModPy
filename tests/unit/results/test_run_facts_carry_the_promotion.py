@@ -38,7 +38,7 @@ def _facts() -> RunFacts:
     )
 
 
-def _row(name: str, *, zone: str = "__global__", value: float = 1.0) -> ParameterRow:
+def _row(name: str, *, zone: str = "catchment", value: float = 1.0) -> ParameterRow:
     return ParameterRow(name=name, zone=zone, value=value, origin="declared", calibrated=False)
 
 
@@ -117,4 +117,4 @@ def test_a_sealed_run_reads_its_calibrated_parameters_back() -> None:
 
     facts = RunFacts.from_manifest(manifest)
 
-    assert facts.calibrated == [CalibratedParameter(name="K", zone="__global__")]
+    assert facts.calibrated == [CalibratedParameter(name="K", zone="catchment")]

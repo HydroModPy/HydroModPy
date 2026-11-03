@@ -184,6 +184,8 @@ class ReadsMixin:
         station_id: str,
         variable: str,
         period: tuple | None = None,
+        *,
+        source: str = "simulated",
     ) -> pd.Series:
         """Read one series of a run at one station.
 
@@ -198,6 +200,9 @@ class ReadsMixin:
         period
             ``(start, end)`` dates, both included, or a year as text
             (``"2002"``). ``None`` reads the whole series.
+        source
+            ``"simulated"``, the default, or ``"observed"`` for the measurement
+            of the same variable.
 
         Returns
         -------
@@ -219,9 +224,9 @@ class ReadsMixin:
 
         query = (
             "SELECT time, timestep, value FROM timeseries "
-            "WHERE sim_id = ? AND station_id = ? AND variable = ?"
+            "WHERE sim_id = ? AND station_id = ? AND variable = ? AND source = ?"
         )
-        params: list = [str(sim_id), station_id, variable]
+        params: list = [str(sim_id), station_id, variable, source]
         if period is not None:
             lo, hi, hi_inclusive = normalize_period_bounds(period)
             query += " AND time >= ? AND time " + ("<= ?" if hi_inclusive else "< ?")

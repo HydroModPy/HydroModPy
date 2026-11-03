@@ -12,7 +12,6 @@ from hydromodpy.core.time.time_method import (
     DEFAULT_TIME_METHOD,
     OBSERVABLE_TIME_METHODS,
     TimeMethod,
-    bare_observable_name,
     time_method_from_cell_methods,
 )
 from hydromodpy.results.field_registry import FIELD_REGISTRY
@@ -84,10 +83,9 @@ def time_method_for(variable: str | None) -> TimeMethod:
     :data:`hydromodpy.core.time.time_method.OBSERVABLE_TIME_METHODS`, which
     names the calibration variables and the observed families: ``discharge``
     is ``"mean"``, ``lake_level`` and ``stage`` are ``"point"``. Any other name
-    is ``"mean"``, the rule a discharge is scored on. The ``_obs`` suffix of an
-    ingested observation is ignored.
+    is ``"mean"``, the rule a discharge is scored on.
     """
-    name = bare_observable_name(variable)
+    name = str(variable or "").strip()
     descriptor = FIELD_REGISTRY.get(name)
     if descriptor is not None:
         return time_method_from_cell_methods(descriptor.cell_methods)

@@ -467,7 +467,7 @@
         },
         "visible_flow": {
           "default": "1 L/s",
-          "description": "Routed discharge a cell of the downstream closure has to carry to flow: a discharge with its unit ('1 L/s') or a share of the outlet discharge at the same timestep ('1%'). '0 L/s' is the geometric definition. Never scaled with the cell size. No value is agreed: Zanetti et al. (2024) threshold a simulated discharge at 10 L/s, field zero-flow thresholds of 1 to 3 L/s are in use.",
+          "description": "Routed discharge a cell of the downstream closure has to carry to flow: a discharge with its unit ('1 L/s') or a share of the outlet discharge at the same timestep ('1%'). '0 L/s' is the geometric definition. Never scaled with the cell size. It exists in this transient mode only: an output read in one state scores the closure alone. No value is agreed: Zanetti et al. (2024) threshold a simulated discharge at 10 L/s, field zero-flow thresholds of 1 to 3 L/s are in use.",
           "examples": [
             "1 L/s"
           ],
@@ -482,6 +482,40 @@
         }
       },
       "title": "CalibNetworkExtent",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
+    "CalibNetworkVerdict": {
+      "additionalProperties": false,
+      "description": "When the result of a network output is refused rather than qualified.",
+      "properties": {
+        "max_catchment_mismatch": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "const": false,
+              "type": "boolean"
+            }
+          ],
+          "default": 0.05,
+          "description": "Largest gap allowed between the scored catchment and the delineated one, as a share of the delineated area: 'catchment_mismatch', the area of their symmetric difference over the area of the outline the mesh followed. It depends on the geometry alone, so it is read once, before the first solve, and a gap above it refuses the search. A large gap means an outlet on another branch, or a mesh too coarse for the catchment. false never refuses, and the gap is still published on every trial. A synthetic domain has no delineated catchment and is never refused.",
+          "examples": [
+            0.05
+          ],
+          "title": "Max Catchment Mismatch",
+          "unit": "-",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "CalibNetworkVerdict",
       "type": "object",
       "patternProperties": {
         "^.+__delete$": {
@@ -1240,6 +1274,16 @@
           "type": "string",
           "x-hmp-profile": "user"
         },
+        "clip_map_to_catchment": {
+          "default": true,
+          "description": "Cut the mapped network to the delineated catchment before drawing it, with the shape the hydrography data family clips what it loads to, so 'stream_geometry_path' and observed_network = 'data.hydrography' draw the same map from the same file. Under 'heads' an end the cut made is no stream head. false reads a file whole and takes every free end as a candidate head.",
+          "examples": [
+            true
+          ],
+          "title": "Clip Map To Catchment",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
         "heads_snap_radius": {
           "anyOf": [
             {
@@ -1431,17 +1475,9 @@
           "type": "string",
           "x-hmp-profile": "user"
         },
-        "max_unreachable_fraction": {
-          "default": 0.05,
-          "description": "Bound on 'frac_unreachable_so' alone: the share of the simulated network whose descent never meets the mapped one, whose target does not move between trials. Beyond a few per cent the routing surface is not conditioned and D_so would be a fiction. The reciprocal share, 'frac_unreachable_os', is reported and deliberately left unbounded: its target is the simulated network, which the search itself retracts.",
-          "examples": [
-            0.05
-          ],
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "title": "Max Unreachable Fraction",
-          "type": "number",
-          "unit": "-",
+        "verdict": {
+          "$ref": "#/$defs/CalibNetworkVerdict",
+          "description": "When the result of this output is refused rather than qualified.",
           "x-hmp-profile": "user"
         },
         "alpha_warning_threshold": {
@@ -1494,7 +1530,7 @@
             }
           ],
           "default": "last",
-          "description": "Which single state the release flux is read at: 'last' (default), 'first', or an ISO date such as '2002-10-15', which reads the state of the period that holds it, [start, end). That state is dated at its period's end, which is the date a scoring_window is compared with. A steady phase runs one period over its window, so every date of that window reads its one state and one output serves both regimes. 'all' and a list of dates are refused: a network output reads one state.",
+          "description": "Which single state the release flux is read at: 'last' (default), 'first', or an ISO date such as '2002-10-15', which reads the state of the period that holds it, (start, end]. That state is dated at its period's end, which is the date a scoring_window is compared with. A steady phase runs one period over its window, so every date of that window reads its one state and one output serves both regimes. 'all' and a list of dates are refused: a network output reads one state.",
           "examples": [
             "last"
           ],
@@ -6233,7 +6269,7 @@
             }
           ],
           "default": null,
-          "description": "Model layer of a 3D field. Left out, every layer a format can hold.",
+          "description": "Model layer of a 3D field, counted from 0 at the top. Left out, every layer a format can hold: a NetCDF variable or a VTU cell array has one entry per layer. QGIS reads a NetCDF that names one layer.",
           "title": "Layer",
           "x-hmp-profile": "dev"
         },
@@ -10053,7 +10089,7 @@
     },
     "FlowReachConfig": {
       "additionalProperties": false,
-      "description": "One explicit reach row, used to bypass automatic network delineation.\n\nConnectivity is given by 1-based reach ids. ``upstream`` lists the reaches\nwhose downstream end feeds this reach; ``downstream`` lists the reaches this\nreach feeds. The two must be reciprocal across the network.",
+      "description": "One explicit reach row, used to bypass automatic network delineation.\n\nConnectivity is given by 1-based reach ids, the numbers the ``reach`` column\nof the ``sfr_reaches`` table of a run keeps. ``upstream`` lists the reaches\nwhose downstream end feeds this reach; ``downstream`` lists the reaches this\nreach feeds. The two must be reciprocal across the network.",
       "properties": {
         "cell": {
           "anyOf": [
@@ -15695,7 +15731,7 @@
     },
     "MatchingHydrographicNetworkOptions": {
       "additionalProperties": false,
-      "description": "What a file may say about the protocol beyond naming it.\n\nEverything here has a default that reproduces the published method. The\nnames are the ones the file uses for its own parameters and outputs, and the\nengines are free: the method is the pair of criteria and the order they run\nin, not the optimizer that walks them.",
+      "description": "What a file may say about the protocol beyond naming it.\n\nEvery default here is the value of the publication or a departure the protocol\ndeclares and prints (``Deviation``). The names are the ones the file uses for\nits own parameters and outputs, and the engines are free: the method is the\npair of criteria and the order they run in, not the optimizer that walks them.",
       "properties": {
         "name": {
           "const": "matching_hydrographic_network",
@@ -15717,7 +15753,7 @@
             }
           ],
           "default": null,
-          "description": "Recipe version this file was written against. Unset runs the version this installation carries; pinned, a mismatch is refused rather than approximated, so a result that informed a decision stays replayable.",
+          "description": "Recipe version this file was written against. Unset runs the version this installation carries. Pinned, the file runs what that version writes for every key of the network output it leaves empty, so a result that informed a decision stays replayable. A version the installation no longer carries is refused rather than approximated.",
           "title": "Version",
           "x-hmp-profile": "user"
         },
@@ -15737,11 +15773,12 @@
               "type": "string"
             },
             {
-              "type": "null"
+              "const": false,
+              "type": "boolean"
             }
           ],
           "default": "Sy",
-          "description": "Name of the calibration parameter stage two moves. Null runs the network stage alone, which is a method in its own right: it identifies the conductivity without any discharge record.",
+          "description": "Name of the calibration parameter stage two moves. false runs the network stage alone, which is a method in its own right: it identifies the conductivity without any discharge record.",
           "examples": [
             "Sy"
           ],
@@ -15995,7 +16032,7 @@
             }
           ],
           "default": null,
-          "description": "Dates bounding the samples stage two scores on, as {start, end} in ISO 8601, either one optional, for every block it scores, a network one included. A date that does not parse is refused when the file is read. Unset, stage two scores the window of [metrics] when the file writes one, and otherwise from one year after [simulation.time].start_datetime: the first year is spin-up. A scoring_window or warmup_periods on [calibration] replaces both. A run of one year or less is scored whole. Write start = the run's own start to score the spin-up year too.",
+          "description": "Dates bounding the samples stage two scores on, as {start, end} in ISO 8601, either one optional. A date that does not parse is refused when the file is read. Unset, stage two scores the window of [metrics] when the file writes one, and otherwise from one year after [simulation.time].start_datetime: the first year is spin-up. A scoring_window or warmup_periods on [calibration] replaces both. A run of one year or less is scored whole. Write start = the run's own start to score the spin-up year too.",
           "title": "Scoring Window",
           "x-hmp-profile": "user"
         }

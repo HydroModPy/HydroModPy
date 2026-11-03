@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Annotated
 
 import numpy as np
 
-from hydromodpy.display.figure import BaseFigure, FigureNotApplicable, FigureSpec, run_suffix
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Opt
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._instant import instant_label
@@ -28,23 +28,23 @@ def distance_to_outlet(links: DataFrame) -> dict[tuple[str, int], float]:
     """Return the distance from the middle of each reach to the outlet of its network.
 
     The path follows, at each fork, the downstream reach that takes the larger
-    share of the flow (``ustrf``, the lower ``ifno`` on a tie). Reach numbers
+    share of the flow (``ustrf``, the lower number on a tie). Reach numbers
     increase downstream, so one pass from the last reach to the first is enough.
     The distance is in the unit of ``rlen`` (metres).
     """
     distances: dict[tuple[str, int], float] = {}
     for network, rows in links.groupby("network_id", sort=False):
-        length = dict(zip(rows["ifno"].astype(int), rows["rlen"].astype(float), strict=True))
-        share = dict(zip(rows["ifno"].astype(int), rows["ustrf"].astype(float), strict=True))
+        length = dict(zip(rows["reach"].astype(int), rows["rlen"].astype(float), strict=True))
+        share = dict(zip(rows["reach"].astype(int), rows["ustrf"].astype(float), strict=True))
         main_next: dict[int, int | None] = {}
-        for ifno, downstream in zip(rows["ifno"].astype(int), rows["downstream"], strict=True):
+        for reach, downstream in zip(rows["reach"].astype(int), rows["downstream"], strict=True):
             known = [int(down) for down in downstream if int(down) in length]
-            main_next[ifno] = min(known, key=lambda down: (-share[down], down)) if known else None
+            main_next[reach] = min(known, key=lambda down: (-share[down], down)) if known else None
         to_end: dict[int, float] = {}
-        for ifno in sorted(length, reverse=True):
-            following = main_next[ifno]
-            to_end[ifno] = length[ifno] + (0.0 if following is None else to_end[following])
-            distances[(str(network), ifno)] = to_end[ifno] - 0.5 * length[ifno]
+        for reach in sorted(length, reverse=True):
+            following = main_next[reach]
+            to_end[reach] = length[reach] + (0.0 if following is None else to_end[following])
+            distances[(str(network), reach)] = to_end[reach] - 0.5 * length[reach]
     return distances
 
 
@@ -98,23 +98,19 @@ class SfrLongitudinalProfile(BaseFigure):
             raise KeyError(
                 f"sfr_longitudinal_profile: no SFR '{variable}' series for sim {sim.sim_id}"
             )
-        try:
-            links = sfr_reach_links(sim)
-        except KeyError as exc:
-            # The run was sealed before the reach table stored its connectivity.
-            raise FigureNotApplicable(str(exc.args[0])) from exc
+        links = sfr_reach_links(sim)
         distance = distance_to_outlet(links)
         value: dict[tuple[str, int], float] = {}
         stamp = None
-        for network, ifno, station in triples:
+        for network, reach, station in triples:
             series = sim.timeseries(variable, station=station)
-            value[(network, ifno)] = float(series.iloc[timestep])
+            value[(network, reach)] = float(series.iloc[timestep])
             stamp = series.index[timestep]
         points = sorted(key for key in value if key in distance)
         if not points:
             raise KeyError(f"sfr_longitudinal_profile: no reach of sim {sim.sim_id} has a position")
         downstream = {
-            (str(row.network_id), int(row.ifno)): [int(down) for down in row.downstream]
+            (str(row.network_id), int(row.reach)): [int(down) for down in row.downstream]
             for row in links.itertuples()
         }
         segments = [

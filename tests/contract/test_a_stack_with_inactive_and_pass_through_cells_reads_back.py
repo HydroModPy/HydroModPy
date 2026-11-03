@@ -190,7 +190,7 @@ def test_the_store_keeps_the_interfaces_and_the_idomain_of_every_cell(stack_run,
 def test_the_store_says_its_schema_and_how_its_layers_were_built(stack_run, run) -> None:
     sz = run._catalog.open_zarr(stack_run.sid)
     try:
-        assert sz.root.attrs["zarr_schema_version"] == ZARR_SCHEMA_VERSION == "3"
+        assert sz.root.attrs["zarr_schema_version"] == ZARR_SCHEMA_VERSION == "4"
         assert sz.root["mesh"].attrs["vertical_layout"] == VERTICAL_LAYOUT_COLUMN_FRACTIONS
         assert sz.root["mesh"]["idomain"].dtype == np.int8
     finally:
@@ -223,8 +223,8 @@ def test_a_point_without_a_layer_reads_its_top_active_cell(stack_run, run) -> No
 def test_the_exports_number_the_layers_from_zero(stack_run, run) -> None:
     (out,) = run.export(["head", "idomain"], format="netcdf", file="stack.nc")
     with xr.open_dataset(out) as ds:
-        assert {f"head_layer{k}" for k in range(NLAY)} <= set(ds.data_vars)
-        assert "head_layer3" not in ds
-        np.testing.assert_array_equal(ds["idomain_layer1"].values, stack_run.mesh.idomain[1])
+        assert ds["head"].dims == ("time", "layer", "n_face")
+        np.testing.assert_array_equal(ds["layer"].values, np.arange(NLAY))
+        np.testing.assert_array_equal(ds["idomain"].sel(layer=1).values, stack_run.mesh.idomain[1])
         assert ds["z_interfaces"].dims == ("n_z_interface", "n_face")
         assert ds["z_interfaces"].shape == (NLAY + 1, N_CELLS)

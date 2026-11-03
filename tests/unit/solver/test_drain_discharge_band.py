@@ -436,7 +436,7 @@ class TestTheSeepageCriterionFollowsTheBand:
         mask = seepage_mask(
             watertable=self.WATERTABLE,
             topography=self.TOP,
-            surface_excess=np.array([0.0, 0.0, 1e-6]),
+            surface_excess=np.array([0.0, 0.0, -1e-6]),
             band_depth=1.0,
         )
 

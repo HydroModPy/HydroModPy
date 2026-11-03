@@ -6,9 +6,11 @@ figures and the exports.
 
 The convention is the one of :mod:`hydromodpy.core.time.period_aggregation`
 and of :class:`hydromodpy.core.time.window.ResolvedSimulationTimeGrid`. A run
-of ``n`` periods has ``n + 1`` edges and period ``i`` is the half-open interval
-``[edges[i], edges[i + 1])``. A date resolves to the period that holds it. The
-last edge closes the record, so it resolves to the last period.
+of ``n`` periods has ``n + 1`` edges, and the stamp of period ``i`` is its end,
+``edges[i + 1]``. A date ``t`` reads the period ``(edges[i], edges[i + 1]]`` that
+holds it, so a date equal to a stamp reads the period that stamp closes. A date
+copied from the time axis of a NetCDF or from a CSV finds its own value again.
+The first edge opens the record and closes nothing, so it reads the first period.
 
 A steady run over a window has one period over the whole window, so every date
 of the record resolves to 0. A steady run without a window has no dates at
@@ -178,17 +180,16 @@ def resolve_instant(selector: Any, edges: Any, *, n_periods: int | None = None) 
         raise TimeSelectionError(f"{_instant_text(instant)}: {_NO_DATES}.")
     if instant < index[0] or instant > index[-1]:
         raise TimeSelectionError(f"{_instant_text(instant)} is outside the record: {_span(index)}.")
-    if instant == index[-1]:
-        return n - 1
-    return int(index.searchsorted(instant, side="right")) - 1
+    return max(int(index.searchsorted(instant, side="left")) - 1, 0)
 
 
 def resolve_state(selector: Any, edges: Any, *, n_periods: int) -> int:
     """Return the index of the one state a single-state reader takes.
 
     ``selector`` is read as :func:`resolve_instant` reads it: a date takes the
-    period ``[s, e)`` that holds it. A run of one period with no dates serves
-    that state to any selector: nothing is there to tell a date from another.
+    period ``(s, e]`` that holds it, and a state is the value at the stamp ``e``.
+    A run of one period with no dates serves that state to any selector: nothing
+    is there to tell a date from another.
     ``edges`` are the run's ``n_periods + 1`` period edges, or ``None``.
 
     The calibration scores a network output at this state, and a figure of the
@@ -221,9 +222,9 @@ def _period_bound(bound: Any, index: pd.DatetimeIndex | None, n: int, *, start: 
     """Return the index of the first (``start``) or last period a bound keeps.
 
     A date start keeps the first period that ends after it, a date end the
-    last period that starts at or before it. Either is clamped to the record,
-    so a window that runs past the record keeps the periods inside it. A date
-    wholly outside the record on its own side raises.
+    last period that starts before it, the one its date reads. Either is clamped
+    to the record, so a window that runs past the record keeps the periods inside
+    it. A date wholly outside the record on its own side raises.
     """
     word = _keyword(bound)
     if word is not None:
@@ -239,30 +240,43 @@ def _period_bound(bound: Any, index: pd.DatetimeIndex | None, n: int, *, start: 
         raise TimeSelectionError(
             f"the period {side} {_instant_text(instant)} is outside the record: {_span(index)}."
         )
-    position = int(index.searchsorted(instant, side="right")) - 1
+    position = int(index.searchsorted(instant, side="right" if start else "left")) - 1
     return min(max(position, 0), n - 1)
 
 
 def resolve_period(
     start: Any, end: Any, edges: Any, *, n_periods: int | None = None
 ) -> tuple[int, ...]:
-    """Return every period that overlaps the closed interval ``[start, end]``.
+    """Return every period with time inside the window from ``start`` to ``end``.
 
     ``start`` and ``end`` are selectors as :func:`resolve_instant` reads
-    them. A date bound keeps the periods that overlap the interval, so a
-    window that runs past the record keeps the periods inside it. A window
-    that overlaps no period raises, and so does a start after the end.
+    them. A date bound keeps the periods that overlap the window, so a window
+    that runs past the record keeps the periods inside it, and two stamps keep
+    the periods between them. A window of one date reads the period that date
+    reads. A window that overlaps no period raises, and so does a start after
+    the end.
     """
     index = _edges(edges)
     n = _count(index, n_periods)
     first = _period_bound(start, index, n, start=True)
     last = _period_bound(end, index, n, start=False)
+    if first == last + 1 and _same_date(start, end):
+        return (last,)
     if first > last:
         raise TimeSelectionError(
             f"the period from {start!r} to {end!r} ends before it starts "
             f"(period {first} to period {last})."
         )
     return tuple(range(first, last + 1))
+
+
+def _same_date(start: Any, end: Any) -> bool:
+    """Return whether two bounds name one date, indexes and keywords left out."""
+    if _keyword(start) is not None or _keyword(end) is not None:
+        return False
+    if _is_index(start) or _is_index(end):
+        return False
+    return _as_date(start) == _as_date(end)
 
 
 def _is_midnight(ts: pd.Timestamp) -> bool:

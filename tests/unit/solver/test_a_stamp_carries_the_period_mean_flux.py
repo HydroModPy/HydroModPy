@@ -291,7 +291,7 @@ def _expected_period_means(keys, lengths, arrays) -> dict[str, list[dict[str, An
 
 
 def _budget_rows(store: _RecordingStore, component: str) -> list[dict]:
-    rows = [r for r in store.budgets if r["component"] == component and r["zone_id"] == "0"]
+    rows = [r for r in store.budgets if r["component"] == component and r["zone_id"] == "domain"]
     return sorted(rows, key=lambda row: row["timestep"])
 
 

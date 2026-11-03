@@ -71,10 +71,10 @@ from validation_cases.shared.loaders import bundle_cell_centers
 
 NOT_APPLICABLE = {
     "boussinesq": (
-        "The Boussinesq adapter declares release_flux servable but extract_observables serves only head and discharge, so the stream-network criterion cannot score a Boussinesq trial. The PETSc engine also needs 3000 iterations to solve this hillslope."
+        "The Boussinesq adapter declares release_flux unavailable: extract_observables serves only head and discharge, so the stream-network criterion cannot score a Boussinesq trial. The PETSc engine also needs 3000 iterations to solve this hillslope."
     ),
     "boussinesq_local": (
-        "The Boussinesq adapter declares release_flux servable but extract_observables serves only head and discharge, so the stream-network criterion cannot score a Boussinesq trial. The sparse Newton method of the default engine also fails on this 800-cell hillslope."
+        "The Boussinesq adapter declares release_flux unavailable: extract_observables serves only head and discharge, so the stream-network criterion cannot score a Boussinesq trial. The sparse Newton method of the default engine also fails on this 800-cell hillslope."
     ),
 }
 
@@ -654,11 +654,11 @@ def report(solver: str, truth: Truth) -> Any:
 
 def _metrics_of(report: Any, k_value: float) -> dict[str, float]:
     """Return the published components of the trial evaluated at ``k_value``."""
-    rows = report.iterations
+    rows = report.trials
     for _, row in rows.iterrows():
-        if math.isclose(float(row["params"]["K"]["value"]), k_value, rel_tol=1e-12):
-            return dict(row["metrics"])
-    raise AssertionError(f"no trial at K = {k_value!r} among {len(rows)} iterations.")
+        if math.isclose(float(row["parameters"]["K"]["value"]), k_value, rel_tol=1e-12):
+            return dict(row["components"])
+    raise AssertionError(f"no trial at K = {k_value!r} among {len(rows)} trials.")
 
 
 def _metric(metrics: dict[str, float], key: str) -> float:

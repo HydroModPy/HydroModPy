@@ -39,7 +39,7 @@ from ._network_comparison_run import (
 ACTIVE_CELLS = (cell(2, 0), cell(2, 1), cell(4, 2))
 """Two cells of the middle column and one on the far eastern flank."""
 
-FIELD = "accumulation_flux"
+FIELD = "drain_accumulation_flux"
 """Named by the persistence tests that draw a field cut, not the criterion's flowing."""
 
 
@@ -236,7 +236,7 @@ def test_the_note_names_the_cut_that_produced_the_network(mpl, masked) -> None:
 
     try:
         note = legend_note(ax)
-        assert "active where accumulation_flux > 0.25 m3 s-1" in note
+        assert "active where drain_accumulation_flux > 0.25 m3 s-1" in note
         assert "reduced over time as: steady active cells" in note
     finally:
         mpl.close(fig)

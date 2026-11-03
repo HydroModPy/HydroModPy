@@ -65,6 +65,9 @@ _SHAPE_TO_COORDINATES = {
 # pointing at the simulation's mesh topology variable.
 _FACE_SHAPES = frozenset({SHAPE_TIME_LAYER_FACE, SHAPE_TIME_FACE, SHAPE_LAYER_FACE, SHAPE_FACE})
 UGRID_MESH_VARIABLE = "mesh/topology"
+BUDGET_GROUP = "budget/"
+NOT_AQUIFER_TERMS = frozenset({"lake_to_mover", "stream_to_mover", "mover"})
+"""Budget records of the surface side of the water mover, which keep the sign MODFLOW 6 gives them."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -129,13 +132,20 @@ class FieldDescriptor:
         return " ".join(self.dimensions)
 
 
+BUDGET_SIGN_RULE = "positive enters the aquifer, negative leaves it"
+"""The sign of every field under ``budget/``, the one MODFLOW gives a budget, for every solver."""
+
 FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     # -- Primary state variables (written by solver adapters) ----------------
     # NOTE on ``standard_name``: only entries whose value is in the CF v85
     # vocabulary (see ``cf_validation.is_cf_standard_name``) carry a non-empty
-    # ``standard_name``. Hydrogeology concepts absent from CF v85 ship an empty
-    # CF ``standard_name`` and a CSDMS fallback under ``csdms_standard_name``;
-    # downstream readers must consult that field when CF is empty.
+    # ``standard_name``. CF has no hydraulic head, no specific yield and no cell
+    # budget flux of an aquifer, and its names for fluxes are per unit area
+    # (kg m-2 s-1), which a cell flux in m3 s-1 cannot take. ``soil_porosity`` and
+    # ``soil_hydraulic_conductivity_at_saturation`` describe a soil, not an
+    # aquifer. Those fields ship an empty CF ``standard_name`` and a CSDMS fallback
+    # under ``csdms_standard_name``; downstream readers must consult that field
+    # when CF is empty.
     "head": FieldDescriptor(
         public_name="head",
         zarr_path="head",
@@ -174,7 +184,8 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     "watertable_depth": FieldDescriptor(
         public_name="watertable_depth",
         zarr_path="derived/watertable_depth",
-        standard_name="",
+        # CF v85: water_table_depth, canonical units m.
+        standard_name="water_table_depth",
         csdms_standard_name="subsurface_water_top_surface__depth",
         long_name="Depth of the water table below land surface",
         units="m",
@@ -213,7 +224,7 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
         zarr_path="budget/recharge",
         standard_name="",
         csdms_standard_name="subsurface_water__recharge_volume_flux",
-        long_name="Groundwater recharge volumetric flux",
+        long_name="Groundwater recharge volumetric flux (positive enters the aquifer)",
         units="m3 s-1",
         shape=SHAPE_TIME_LAYER_FACE,
         cell_methods="time: mean area: mean",
@@ -224,7 +235,7 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
         zarr_path="budget/drain",
         standard_name="",
         csdms_standard_name="subsurface_water__drain_volume_flux",
-        long_name="Groundwater flux to drains (positive leaves aquifer)",
+        long_name="Groundwater flux to drains (negative leaves the aquifer)",
         units="m3 s-1",
         shape=SHAPE_TIME_LAYER_FACE,
         cell_methods="time: mean area: mean",
@@ -235,7 +246,7 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
         zarr_path="budget/drain_to_mover",
         standard_name="",
         csdms_standard_name="subsurface_water__drain_volume_flux",
-        long_name="Drain flux handed to the water mover (positive leaves aquifer)",
+        long_name="Drain flux handed to the water mover (negative leaves the aquifer)",
         units="m3 s-1",
         shape=SHAPE_TIME_LAYER_FACE,
         cell_methods="time: mean area: mean",
@@ -246,7 +257,7 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
         zarr_path="budget/storage",
         standard_name="",
         csdms_standard_name="subsurface_water__storage_volume_flux",
-        long_name="Storage term of the cell water balance (MODFLOW-NWT, positive when storage releases water)",
+        long_name="Storage term of the cell water balance (MODFLOW-NWT, positive enters the aquifer from storage)",
         units="m3 s-1",
         shape=SHAPE_TIME_LAYER_FACE,
         cell_methods="time: mean area: mean",
@@ -257,7 +268,7 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
         zarr_path="budget/storage_ss",
         standard_name="",
         csdms_standard_name="subsurface_water__specific_storage_volume_flux",
-        long_name="Specific-storage term of the cell water balance (MODFLOW 6, positive when storage releases water)",
+        long_name="Specific-storage term of the cell water balance (MODFLOW 6, positive enters the aquifer from storage)",
         units="m3 s-1",
         shape=SHAPE_TIME_LAYER_FACE,
         cell_methods="time: mean area: mean",
@@ -268,7 +279,7 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
         zarr_path="budget/storage_sy",
         standard_name="",
         csdms_standard_name="subsurface_water__specific_yield_volume_flux",
-        long_name="Specific-yield term of the cell water balance (MODFLOW 6, positive when storage releases water)",
+        long_name="Specific-yield term of the cell water balance (MODFLOW 6, positive enters the aquifer from storage)",
         units="m3 s-1",
         shape=SHAPE_TIME_LAYER_FACE,
         cell_methods="time: mean area: mean",
@@ -279,7 +290,7 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
         zarr_path="budget/evapotranspiration",
         standard_name="",
         csdms_standard_name="subsurface_water__evapotranspiration_volume_flux",
-        long_name="Evapotranspiration flux drawn from the aquifer (negative leaves aquifer)",
+        long_name="Evapotranspiration flux drawn from the aquifer (negative leaves the aquifer)",
         units="m3 s-1",
         shape=SHAPE_TIME_LAYER_FACE,
         cell_methods="time: mean area: mean",
@@ -290,7 +301,7 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
         zarr_path="budget/general_head",
         standard_name="",
         csdms_standard_name="subsurface_water__general_head_volume_flux",
-        long_name="Flux across general-head boundary cells (positive enters aquifer)",
+        long_name="Flux across general-head boundary cells (positive enters the aquifer)",
         units="m3 s-1",
         shape=SHAPE_TIME_LAYER_FACE,
         cell_methods="time: mean area: mean",
@@ -351,9 +362,9 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
         cell_methods="time: mean area: sum",
         derived_by="core",
     ),
-    "accumulation_flux": FieldDescriptor(
-        public_name="accumulation_flux",
-        zarr_path="derived/accumulation_flux",
+    "drain_accumulation_flux": FieldDescriptor(
+        public_name="drain_accumulation_flux",
+        zarr_path="derived/drain_accumulation_flux",
         standard_name="",
         csdms_standard_name="subsurface_water__accumulation_volume_flux",
         long_name="Drain outflow accumulated along the drainage network",
@@ -373,12 +384,12 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
         cell_methods="time: mean area: sum",
         derived_by="core",
     ),
-    "fluxes_from_budget": FieldDescriptor(
-        public_name="fluxes_from_budget",
-        zarr_path="derived/fluxes_from_budget",
+    "budget_flux_per_area": FieldDescriptor(
+        public_name="budget_flux_per_area",
+        zarr_path="derived/budget_flux_per_area",
         standard_name="",
         csdms_standard_name="subsurface_water__budget_unit_area_volume_flux",
-        long_name="One budget term (drain, else recharge) summed over layers per unit cell area",
+        long_name="One budget term (drain, else recharge) summed over layers per unit cell area, signed as the term",
         units="m s-1",
         shape=SHAPE_TIME_FACE,
         cell_methods="time: mean area: mean",
@@ -407,12 +418,12 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
         cell_methods="time: mean area: mean",
         derived_by="core",
     ),
-    "mass_accumulated": FieldDescriptor(
-        public_name="mass_accumulated",
-        zarr_path="derived/mass_accumulated",
+    "mass_seepage_running_sum": FieldDescriptor(
+        public_name="mass_seepage_running_sum",
+        zarr_path="derived/mass_seepage_running_sum",
         standard_name="",
         csdms_standard_name="subsurface_water__seepage_accumulated_mass_flux",
-        long_name="Running sum over time steps of the solute mass flux at seepage cells",
+        long_name="Running sum over the time steps of the solute mass flux at seepage cells, not a mass",
         units="kg s-1",
         shape=SHAPE_TIME_FACE,
         cell_methods="time: mean area: mean",
@@ -423,7 +434,7 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
         zarr_path="budget/river",
         standard_name="",
         csdms_standard_name="subsurface_water__river_exchange_volume_flux",
-        long_name="River leakage flux (positive enters aquifer)",
+        long_name="River leakage flux (positive enters the aquifer)",
         units="m3 s-1",
         shape=SHAPE_TIME_LAYER_FACE,
         cell_methods="time: mean area: mean",
@@ -434,7 +445,7 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
         zarr_path="budget/well",
         standard_name="",
         csdms_standard_name="subsurface_water__well_volume_flux",
-        long_name="Well withdrawal or injection flux",
+        long_name="Well withdrawal or injection flux (positive enters the aquifer)",
         units="m3 s-1",
         shape=SHAPE_TIME_LAYER_FACE,
         cell_methods="time: mean area: mean",
@@ -445,7 +456,7 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
         zarr_path="budget/stream",
         standard_name="",
         csdms_standard_name="subsurface_water__stream_exchange_volume_flux",
-        long_name="Streambed leakage flux exchanged with the SFR network",
+        long_name="Streambed leakage flux exchanged with the SFR network (positive enters the aquifer)",
         units="m3 s-1",
         shape=SHAPE_TIME_LAYER_FACE,
         cell_methods="time: mean area: mean",
@@ -456,7 +467,7 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
         zarr_path="budget/lake",
         standard_name="",
         csdms_standard_name="subsurface_water__lake_exchange_volume_flux",
-        long_name="Lakebed leakage flux exchanged with the LAK package",
+        long_name="Lakebed leakage flux exchanged with the LAK package (positive enters the aquifer)",
         units="m3 s-1",
         shape=SHAPE_TIME_LAYER_FACE,
         cell_methods="time: mean area: mean",
@@ -467,7 +478,7 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
         zarr_path="budget/constant_head",
         standard_name="",
         csdms_standard_name="subsurface_water__constant_head_volume_flux",
-        long_name="Flux across constant-head cells (positive enters aquifer)",
+        long_name="Flux across constant-head cells (positive enters the aquifer)",
         units="m3 s-1",
         shape=SHAPE_TIME_LAYER_FACE,
         cell_methods="time: mean area: mean",
@@ -480,7 +491,7 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
         csdms_standard_name="subsurface_water__stream_constant_head_volume_flux",
         long_name=(
             "Flux across the constant-head cells that carry the stream role "
-            "(positive enters aquifer), zero elsewhere"
+            "(positive enters the aquifer), zero elsewhere"
         ),
         units="m3 s-1",
         shape=SHAPE_TIME_LAYER_FACE,
@@ -492,7 +503,7 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
         zarr_path="budget/surface_excess",
         standard_name="",
         csdms_standard_name="land_surface__saturation_excess_volume_flux",
-        long_name="Saturation-excess outflow volumetric flux",
+        long_name="Saturation-excess flux at the land surface (negative leaves the aquifer)",
         units="m3 s-1",
         shape=SHAPE_TIME_FACE,
         cell_methods="time: mean area: mean",
@@ -762,6 +773,8 @@ def cf_attrs(name: str) -> dict[str, object]:
         attrs["valid_min"] = float(desc.valid_min)
     if desc.valid_max is not None:
         attrs["valid_max"] = float(desc.valid_max)
+    if desc.zarr_path.startswith(BUDGET_GROUP) and name not in NOT_AQUIFER_TERMS:
+        attrs["sign_convention"] = BUDGET_SIGN_RULE
     if desc.shape in _FACE_SHAPES:
         attrs["mesh"] = UGRID_MESH_VARIABLE
         attrs["location"] = "face"
@@ -774,6 +787,7 @@ __all__ = [
     "SHAPE_LAYER_FACE",
     "SHAPE_FACE",
     "SHAPE_PARTICLES",
+    "BUDGET_SIGN_RULE",
     "UGRID_MESH_VARIABLE",
     "AXIS_EDGE",
     "AXIS_ENDPOINT",

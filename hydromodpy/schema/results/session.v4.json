@@ -435,6 +435,80 @@
       "title": "PeriodWindow",
       "type": "object"
     },
+    "ProtocolDeparture": {
+      "additionalProperties": true,
+      "description": "One place a session leaves the publication its protocol cites.",
+      "properties": {
+        "always": {
+          "default": false,
+          "description": "No value of an option brings it back",
+          "examples": [
+            false
+          ],
+          "title": "Always",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "here": {
+          "description": "What this implementation does",
+          "examples": [
+            "example"
+          ],
+          "title": "Here",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "key": {
+          "description": "The option or the concept that carries the departure",
+          "examples": [
+            "example"
+          ],
+          "title": "Key",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "paper": {
+          "description": "What the publication does",
+          "examples": [
+            "example"
+          ],
+          "title": "Paper",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The value in force, none without option",
+          "title": "Value",
+          "x-hmp-profile": "user"
+        },
+        "written": {
+          "default": false,
+          "description": "The file wrote the value, rather than its version",
+          "examples": [
+            false
+          ],
+          "title": "Written",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "key",
+        "here",
+        "paper"
+      ],
+      "title": "ProtocolDeparture",
+      "type": "object"
+    },
     "RestartRange": {
       "additionalProperties": true,
       "description": "Where the restarts of a search landed on one parameter.",
@@ -655,6 +729,45 @@
       ],
       "title": "SessionCase",
       "type": "object"
+    },
+    "SessionProtocol": {
+      "additionalProperties": true,
+      "description": "The published method a session follows and where it leaves it.",
+      "properties": {
+        "departures": {
+          "description": "Every departure from the publication in force",
+          "items": {
+            "$ref": "#/$defs/ProtocolDeparture"
+          },
+          "title": "Departures",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "name": {
+          "description": "Name of the protocol",
+          "examples": [
+            "example"
+          ],
+          "title": "Name",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "version": {
+          "description": "Version the session ran, the pinned one or the installed one",
+          "examples": [
+            "example"
+          ],
+          "title": "Version",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "name",
+        "version"
+      ],
+      "title": "SessionProtocol",
+      "type": "object"
     }
   },
   "additionalProperties": true,
@@ -777,6 +890,19 @@
       ],
       "title": "Method",
       "type": "string",
+      "x-hmp-profile": "user"
+    },
+    "protocol": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SessionProtocol"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The protocol the session follows; none when it names no protocol",
       "x-hmp-profile": "user"
     },
     "root_search": {

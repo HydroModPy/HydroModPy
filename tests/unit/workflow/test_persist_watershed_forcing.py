@@ -61,7 +61,7 @@ def test_gridded_runoff_persists_watershed_mean(tmp_path):
 
         sz = catalog.open_zarr(sid)
         try:
-            station = sz.root["forcing"]["runoff"]["_watershed"]
+            station = sz.root["forcing"]["runoff"]["catchment"]
             values = np.asarray(station["values"][:], dtype="float64")
             # Spatial mean of each 2x2 frame.
             np.testing.assert_allclose(values, [1.5, 5.5, 9.5])
@@ -96,7 +96,7 @@ def test_station_backed_runoff_skips_watershed_mean(tmp_path):
         try:
             runoff_grp = sz.root["forcing"]["runoff"]
             assert "sta1" in runoff_grp
-            assert "_watershed" not in runoff_grp
+            assert "catchment" not in runoff_grp
         finally:
             sz.close()
 
@@ -115,7 +115,7 @@ def test_non_allowlisted_family_keeps_field_only(tmp_path):
         sz = catalog.open_zarr(sid)
         try:
             forcing = sz.root["forcing"]
-            assert "precipitation" not in forcing or "_watershed" not in forcing["precipitation"]
+            assert "precipitation" not in forcing or "catchment" not in forcing["precipitation"]
         finally:
             sz.close()
 

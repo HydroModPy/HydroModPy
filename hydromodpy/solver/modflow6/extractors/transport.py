@@ -61,7 +61,7 @@ class Modflow6GwtOutputAdapter(Mt3dmsExtractorBase):
         writer = getattr(store, "write_mass_balances", None)
         if writer is None:
             return
-        rows = [{**record, "quantity": "solute", "unit": "kg/s"} for record in records]
+        rows = [{**record, "quantity": "solute", "unit": "kg s-1"} for record in records]
         try:
             writer(sim_id, rows)
         except Exception:

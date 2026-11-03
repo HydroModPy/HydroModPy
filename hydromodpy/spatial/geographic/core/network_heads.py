@@ -37,6 +37,13 @@ one junction can carry it a few ulps apart. A centimetre is far below what a
 map resolves and far above that noise.
 """
 
+_CUT_END_TOLERANCE_M = 0.01
+"""A free end this close to the outline the map was cut along is an end of the cut.
+
+The cut computes it on the outline in floating point, a few ulps off. The same
+centimetre as :data:`_END_DECIMALS`, for the same reason.
+"""
+
 
 def network_head_candidates(
     lines: Sequence[BaseGeometry],
@@ -44,6 +51,8 @@ def network_head_candidates(
     mesh_crs: CrsLike,
     geometry_crs: CrsLike,
     sample_step_m: float = 10.0,
+    cut_outline: BaseGeometry | None = None,
+    cut_crs: CrsLike | None = None,
 ) -> HeadCandidates:
     """Return the free ends of ``lines`` and the other end of each one's reach.
 
@@ -53,6 +62,11 @@ def network_head_candidates(
     free end is an endpoint met once; a closed ring has none, and the point
     where a reach meets it is a junction. ``map_points_xy`` samples every line
     each ``sample_step_m``, ends included.
+
+    ``cut_outline`` is the polygon, in ``cut_crs``, the lines were cut along. A
+    free end on it was made by the cut: the stream goes on beyond it, so it is
+    no head. It is left out and counted in ``n_cut_ends``. The other end of its
+    reach stays, because which end drains more is still read through it.
     """
     import shapely
 
@@ -94,6 +108,15 @@ def network_head_candidates(
             if counts[tuple(np.round(point, _END_DECIMALS))] == 1:
                 head_xy.append(point)
                 reach_end_xy.append(other)
+    heads = np.asarray(head_xy, dtype=float).reshape(-1, 2)
+    reach_ends = np.asarray(reach_end_xy, dtype=float).reshape(-1, 2)
+    n_cut_ends = 0
+    if cut_outline is not None and heads.shape[0]:
+        outline = to_mesh_crs([cut_outline], mesh_crs=mesh_crs, geometry_crs=cut_crs)[0]
+        gap = shapely.distance(shapely.points(heads), outline.boundary)
+        kept = gap > _CUT_END_TOLERANCE_M
+        n_cut_ends = int(np.count_nonzero(~kept))
+        heads, reach_ends = heads[kept], reach_ends[kept]
 
     samples: list[np.ndarray] = []
     for line in merged:
@@ -101,9 +124,10 @@ def network_head_candidates(
         samples.append(shapely.get_coordinates(shapely.line_interpolate_point(line, steps)))
 
     return HeadCandidates(
-        head_xy=np.asarray(head_xy, dtype=float).reshape(-1, 2),
-        reach_end_xy=np.asarray(reach_end_xy, dtype=float).reshape(-1, 2),
+        head_xy=heads,
+        reach_end_xy=reach_ends,
         map_points_xy=np.concatenate(samples).reshape(-1, 2),
+        n_cut_ends=n_cut_ends,
     )
 
 

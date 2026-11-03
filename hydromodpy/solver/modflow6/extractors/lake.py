@@ -423,7 +423,7 @@ def build_lake_records(
                         timestep=t,
                         time=calendar,
                         value=value,
-                        unit=_UNIT_BY_QUANTITY.get(quantity, "m3/s"),
+                        unit=_UNIT_BY_QUANTITY.get(quantity, "m3 s-1"),
                     )
                 )
 
@@ -440,7 +440,7 @@ def build_lake_records(
                         timestep=t,
                         time=calendar,
                         value=exchange_m3_s,
-                        unit="m3/s",
+                        unit="m3 s-1",
                     )
                 )
                 if applied.under_dam is not None:
@@ -451,7 +451,7 @@ def build_lake_records(
                             timestep=t,
                             time=calendar,
                             value=applied.under_dam[t] / spt,
-                            unit="m3/s",
+                            unit="m3 s-1",
                         )
                     )
                 budgets.append(
@@ -461,7 +461,7 @@ def build_lake_records(
                         "component": "lak_gwf",
                         "flux_in": max(exchange_m3_s, 0.0),
                         "flux_out": abs(min(exchange_m3_s, 0.0)),
-                        "unit": "m3/s",
+                        "unit": "m3 s-1",
                     }
                 )
 
@@ -482,7 +482,7 @@ def build_lake_records(
                         timestep=t,
                         time=calendar,
                         value=values[t] / spt,
-                        unit="m3/s",
+                        unit="m3 s-1",
                     )
                 )
             timeseries.append(
@@ -492,7 +492,7 @@ def build_lake_records(
                     timestep=t,
                     time=calendar,
                     value=total,
-                    unit="m3/s",
+                    unit="m3 s-1",
                 )
             )
 

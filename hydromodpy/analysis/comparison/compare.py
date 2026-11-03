@@ -18,6 +18,7 @@ import pandas as pd
 from matplotlib.figure import Figure
 from scipy.spatial import cKDTree
 
+from hydromodpy.core.scope import OBSERVED
 from hydromodpy.core.state.paths import runs_dir_for, summary_dir_for
 from hydromodpy.display.maps.ugrid import render_face_field
 from hydromodpy.results.derive import views
@@ -314,8 +315,8 @@ def budget_table(runs: Sequence[Run], start: pd.Timestamp, end: pd.Timestamp) ->
         if budget.empty:
             continue
         units = set(budget["unit"])
-        if units != {"m3/s"}:
-            raise ComparisonCaseError(f"{run.name} has budget rows in {sorted(units)}, not m3/s.")
+        if units != {"m3 s-1"}:
+            raise ComparisonCaseError(f"{run.name} has budget rows in {sorted(units)}, not m3 s-1.")
         durations = whole_periods(run, start, end)
         weight = pd.Series(durations.to_numpy(), index=_stamps(run).get_indexer(durations.index))
         budget = budget[budget["timestep"].isin(weight.index)].copy()
@@ -336,7 +337,7 @@ def network_table(runs: Sequence[Run]) -> pd.DataFrame:
         | views.cell_field_network_distance_metrics(run, network_role=role)
         for run in runs
         for role in NETWORK_ROLES
-        if run.has_field("accumulation_flux") and run.has_hydrographic_network(role)
+        if run.has_field("drain_accumulation_flux") and run.has_hydrographic_network(role)
     ]
     kept = ("_ratio", "_median_m")
     table = pd.DataFrame(rows)
@@ -441,7 +442,7 @@ def _draw_series(
     axes = figure.subplots()
     for name in frame.columns:
         axes.plot(frame.index, frame[name], label=name)
-    if variable == "discharge" and reference.stations(f"{variable}_obs"):
+    if variable == "discharge" and reference.stations(variable, source=OBSERVED):
         observed = reference.observed(variable)
         observed = observed[observed["datetime"].between(frame.index[0], frame.index[-1])]
         axes.plot(observed["datetime"], observed["value"], "k:", label="observed")

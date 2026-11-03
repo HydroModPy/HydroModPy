@@ -25,7 +25,8 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
-from hydromodpy.results.catalog.constants import GLOBAL_ZONE, MESH_ENGINE_SQL
+from hydromodpy.core.scope import CATCHMENT
+from hydromodpy.results.catalog.constants import MESH_ENGINE_SQL
 from hydromodpy.results.metric_rule import HEADLINE_WINDOW, METRIC_NAMES
 
 if TYPE_CHECKING:
@@ -161,7 +162,7 @@ def global_parameter_columns(conn: duckdb.DuckDBPyConnection) -> list[str]:
     """Return the global parameter names the index can pivot into ``v_cases``."""
     rows = conn.execute(
         "SELECT DISTINCT param_name FROM parameters WHERE zone_id = ? ORDER BY param_name",
-        [GLOBAL_ZONE],
+        [CATCHMENT],
     ).fetchall()
     taken = {name.lower() for name in V_CASES_FIXED_COLUMNS}
     return [
@@ -186,7 +187,7 @@ def _v_cases_ddl(parameter_names: list[str]) -> str:
             "    SELECT\n"
             "        sim_id,\n"
             f"{pivot}\n"
-            f"    FROM parameters WHERE zone_id = '{GLOBAL_ZONE}' GROUP BY sim_id\n"
+            f"    FROM parameters WHERE zone_id = '{CATCHMENT}' GROUP BY sim_id\n"
             ") p ON p.sim_id = v.sim_id"
         )
     return (
@@ -239,7 +240,7 @@ SELECT
     param_name,
     zone_id,
     CASE
-        WHEN zone_id = '{GLOBAL_ZONE}' THEN param_name
+        WHEN zone_id = '{CATCHMENT}' THEN param_name
         ELSE param_name || '::' || zone_id
     END AS param_key,
     value,

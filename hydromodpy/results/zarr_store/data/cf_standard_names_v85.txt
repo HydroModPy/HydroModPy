@@ -11,9 +11,11 @@
 # and the runtime cost is zero. A full XML vendoring with parser can be
 # added by writing ``cf-standard-name-table-v85.xml`` next to this file
 # and extending ``cf_validation.py`` to read it.
+altitude
 cell_thickness
 land_binary_mask
 soil_porosity
 surface_altitude
 surface_runoff_flux
 water_flux_into_sea_water_from_rivers
+water_table_depth

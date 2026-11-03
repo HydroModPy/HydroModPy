@@ -3,9 +3,10 @@
 Everything here follows from the topography and from the mapped network, never
 from a calibrated parameter: the receiver graph, the linework projected onto the
 cells, the catchment, the distance field, the reference length and the
-saturation cap. A trial recomputes only the distance towards the network it just
-simulated, which is one ``O(n_cells)`` pass. That asymmetry is what makes the
-comparison affordable, and geometry does not move when ``K`` does.
+saturation cap. Geometry does not move when ``K`` does. A trial still rebuilds it,
+because the build costs little beside a solve
+(:func:`hydromodpy.calibration.metrics.solver_extract.score_network_output` says
+how little), and the check made before the first solve reads this same build.
 
 One surface carries all of it. The model top is conditioned on the mesh graph
 by a priority flood seeded on the border of the active domain, the standard
@@ -68,7 +69,8 @@ logger = get_logger(__name__)
 OUTLET_SNAP_RINGS = 2
 
 #: Share of the delineated polygon's area the graph catchment may differ by
-#: before the gap is logged as a warning. It decides what is LOGGED only.
+#: before the gap is logged as a warning. It decides what is LOGGED only: what
+#: refuses a search is the ``verdict.max_catchment_mismatch`` of its output.
 CATCHMENT_MISMATCH_WARNING_SHARE = 0.05
 
 ValidityProvenance = Literal["auto", "declared_accuracy", "user"]
@@ -135,8 +137,9 @@ class NetworkGeometry:
 
     ``catchment`` is the scored support: the cells whose descent on the
     conditioned graph reaches ``outlet``. ``catchment_mismatch`` is the area of
-    the symmetric difference between it and the delineated raster polygon,
-    divided by the polygon's area; NaN when no polygon was given.
+    the symmetric difference between it and the delineated outline, divided by
+    the area of the outline; NaN when no outline was given. ``basin_mismatch`` is
+    the same gap to the basin of D the build kept, the cells the budget zone sums.
 
     ``observed`` is the map the criterion scores, as drawn on the cells by the
     output's rasterisation rule. ``heads`` is the trace that drew it under the
@@ -165,6 +168,7 @@ class NetworkGeometry:
     h_obs_m: float = float("nan")
     observed_position_accuracy_m: float | None = None
     heads: HeadTrace | None = None
+    basin_mismatch: float = float("nan")
 
     def validity_length(self, declared_m: float | None = None) -> ValidityLength:
         """Return the Eq. 4 length this map is qualified against.
@@ -193,8 +197,9 @@ class NetworkGeometry:
         gap between them is attributable rather than mysterious.
 
         ``catchment_mismatch`` says how far the scored catchment, read on the
-        criterion graph, sits from the polygon the geographic step delineated
-        on its raster.
+        criterion graph, sits from the polygon the geographic step delineated,
+        the outline the mesh followed when it followed one. ``basin_mismatch``
+        says how far it sits from the basin of D of the build.
 
         Under the heads rule the indices of the heads join them: how many
         were kept and lost, the 90th percentile of their snap distance, and
@@ -208,6 +213,7 @@ class NetworkGeometry:
             "frac_obs_outside_catchment": self.frac_obs_outside_catchment,
             "frac_reachable_obs_raw": self.frac_reachable_obs_raw,
             "catchment_mismatch": self.catchment_mismatch,
+            "basin_mismatch": self.basin_mismatch,
             "n_outlet_sealed": float(0.0 if self.observed[self.outlet] else 1.0),
             "R_mean_m_s": self.mean_recharge_m_s,
         }
@@ -467,6 +473,7 @@ def build_network_geometry(
     inactive_mask: np.ndarray | None = None,
     excluded: np.ndarray | None = None,
     delineated_catchment: np.ndarray | None = None,
+    catchment_outline: np.ndarray | None = None,
     delineated_outlet_xy: tuple[float, float] | None = None,
     diagonal_neighbors: bool = STREAM_CRITERION_DEFAULTS.diagonal_neighbors,
     observed_position_accuracy_m: float | None = None,
@@ -485,9 +492,12 @@ def build_network_geometry(
     it, the most accumulated cell of ``delineated_catchment`` closes the
     catchment, and without either the largest basin of the mesh does. The
     catchment scored is every cell whose descent reaches that outlet.
-    ``delineated_catchment``, the raster polygon projected on the cells, is
-    only compared to it: ``catchment_mismatch`` publishes the gap, and a gap
-    above ``catchment_mismatch_warning_share`` is logged as a warning.
+    ``delineated_catchment``, the reference the run holds on the cells, the basin
+    of D or the raster polygon, is only compared to it: ``basin_mismatch`` publishes
+    the gap. ``catchment_outline``, the delineated outline projected on the cells, is
+    compared the same way: ``catchment_mismatch`` publishes the gap, and a gap above
+    ``catchment_mismatch_warning_share`` is logged as a warning. Without an outline
+    the gap reads ``delineated_catchment``.
 
     ``excluded`` holds the cells whose surface-water extent is an input rather
     than an output: a lake, an ocean-role boundary, a mapped wetland. They stay
@@ -623,7 +633,13 @@ def build_network_geometry(
     # no descent from outside enters it, and every cell of it reaches the
     # outlet without being raised towards it.
     catchment = np.isfinite(downslope_distance_to_mask(metric, outlet_mask)) & active
-    mismatch = _catchment_mismatch(polygon, catchment, areas)
+    basin_gap = _catchment_mismatch(polygon, catchment, areas)
+    outline = (
+        polygon
+        if catchment_outline is None
+        else np.asarray(catchment_outline, dtype=bool).reshape(-1) & active
+    )
+    mismatch = _catchment_mismatch(outline, catchment, areas)
     if np.isfinite(mismatch) and mismatch > float(catchment_mismatch_warning_share):
         logger.warning(
             "Network criterion: the catchment read on the criterion graph differs from the "
@@ -632,7 +648,7 @@ def build_network_geometry(
             "another branch, or a mesh much coarser than the DEM the polygon came from.",
             100.0 * mismatch,
             int(catchment.sum()),
-            int(polygon.sum()) if polygon is not None else 0,
+            int(outline.sum()) if outline is not None else 0,
         )
     else:
         logger.info(
@@ -740,6 +756,7 @@ def build_network_geometry(
         outlet=outlet,
         catchment=catchment,
         catchment_mismatch=mismatch,
+        basin_mismatch=basin_gap,
         distance_to_observed=distance_sealed,
         distance_to_observed_raw=distance_raw,
         cell_area_m2=areas,

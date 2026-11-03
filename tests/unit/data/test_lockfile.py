@@ -84,7 +84,7 @@ def test_write_lockfile_contains_required_sections(tmp_path: Path) -> None:
     assert "hydromodpy_version" in meta
     assert "python_version" in meta
     assert "catalog_schema_version" in meta
-    assert meta["zarr_schema_version"] == ZARR_SCHEMA_VERSION == "3"
+    assert meta["zarr_schema_version"] == ZARR_SCHEMA_VERSION == "4"
     assert meta["parquet_schema_version"] == PARQUET_SCHEMA_VERSION == "v3"
 
     assert read_lockfile_inputs(dest), "[[input]] must list registered artefacts"

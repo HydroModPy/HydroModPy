@@ -35,9 +35,9 @@ import copy as _copy
 import math
 import threading
 import time
-from collections.abc import Iterable, Mapping, Sequence
-from contextlib import nullcontext
-from dataclasses import dataclass, field
+from collections.abc import Iterable, Iterator, Mapping, Sequence
+from contextlib import contextmanager, nullcontext
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -70,6 +70,7 @@ from hydromodpy.simulation.planning.plan import (
     WATER_BUDGET_METRIC,
     WATER_BUDGET_WORST_METRIC,
 )
+from hydromodpy.solver.base.adapter_protocol import STOP_BEFORE_THE_SOLVE
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
@@ -420,6 +421,58 @@ def _trial_owns_its_recharge(trial_ctx: TrialContext) -> bool:
     else:
         paths = list(trial_ctx.override_paths.values())
     return any(path.startswith(_RECHARGE_PREFIX) for path in paths)
+
+
+class _FlowBuildLauncher:
+    """Execute the flow runs of a plan alone, for a setup that stops before their solve."""
+
+    def execute(self, plan: Any, state: Any, *, callbacks: Any = None, store: Any = None) -> Any:
+        from hydromodpy.simulation.execution.runner import SimulationRunner
+
+        del callbacks
+        runs = tuple(run for run in plan.runs if run.process_type == "flow")
+        return SimulationRunner().execute(replace(plan, runs=runs), state, store=store)
+
+
+@contextmanager
+def built_model(trial_ctx: TrialContext, values: Mapping[str, float]) -> Iterator[Any]:
+    """Yield the workflow context of one trial with its flow model built and not solved.
+
+    The same fork and the same steps as :func:`run_trial_light`, up to the solver
+    launcher, in a sandbox of its own that is swept on exit. A check that needs the
+    model before the first solve reads it here, with what a trial reads.
+    """
+    provider = get_trial_pipeline_provider()
+    setup = trial_ctx.ctx.setup
+    sandbox = TrialSandbox(
+        str(getattr(setup, "run_id", "") or "trial"),
+        0,
+        scratch_root=getattr(getattr(setup, "workspace", None), "solver_scratch_folder", None),
+    )
+    overrides = {**sandbox.flow_overrides, STOP_BEFORE_THE_SOLVE: True}
+    if _trial_owns_its_recharge(trial_ctx):
+        overrides["trial_owns_its_recharge"] = True
+    with progress.suppressed(), sandbox:
+        with _STRUCTURAL_BIND_LOCK:
+            forked = trial_ctx.fork(values, flow_runtime_overrides=overrides)
+            sandbox.track(forked.ctx.execution)
+        names = [step.name for step in forked.downstream_steps]
+        through_the_launcher = names.index("run_solver") + 1
+        steps = provider.with_solver_launcher(
+            forked.downstream_steps[forked.earliest : through_the_launcher], _FlowBuildLauncher()
+        )
+        state = provider.make_state(
+            "calibration-prepared-model",
+            {
+                "cfg": forked.ctx.cfg,
+                "config_path": forked.cfg_path,
+                "raw_toml": dict(forked.raw_toml),
+                "ctx": forked.ctx,
+                "skip_display": True,
+            },
+        )
+        provider.make_pipeline(steps).run(state)
+        yield forked.ctx
 
 
 def run_trial_light(

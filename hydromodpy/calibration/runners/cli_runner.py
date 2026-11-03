@@ -76,7 +76,11 @@ from hydromodpy.calibration.persistence import (
     CalibrationPersistence,
     PhaseContext,
 )
-from hydromodpy.calibration.protocols import expand_calibration_protocol
+from hydromodpy.calibration.protocols import (
+    deviations_in_force,
+    expand_calibration_protocol,
+    get_protocol,
+)
 from hydromodpy.calibration.report import NO_OTHER_TRIAL, interval_is_degenerate
 from hydromodpy.calibration.runners.failure_watch import ConsecutiveFailureWatch
 from hydromodpy.calibration.runners.kept_solves import TrialSolveRetention, retention_capacity
@@ -132,7 +136,11 @@ from hydromodpy.core.stream_geometry import VALIDITY_PROVENANCE_BY_CODE
 from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
 from hydromodpy.core.workspace.path_registry import in_run_scratch
 from hydromodpy.results.checks import CalibrationSessionStatus, StopState
-from hydromodpy.results.session.descriptor import SessionStatus
+from hydromodpy.results.session.descriptor import (
+    ProtocolDeparture,
+    SessionProtocol,
+    SessionStatus,
+)
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.optim.engine import CalibrationSession
@@ -754,8 +762,12 @@ def _network_ratios_extra(
         return {}
     k_over_r = conductivity / recharge
     extra: dict[str, Any] = {"k_over_r": k_over_r, "k_optim_m_s": conductivity}
+    window = _recharge_window(trial_ctx)
+    if window is not None:
+        extra["r_mean_window"] = {"start": window[0], "end": window[1]}
+    over = "" if window is None else f" over {window[0]} to {window[1]}"
     note = (
-        f"k_over_r = {k_over_r:.4g} against R_mean_m_s = {recharge:.4g} m/s on output "
+        f"k_over_r = {k_over_r:.4g} against R_mean_m_s = {recharge:.4g} m/s{over} on output "
         f"{output!r}, k_optim = {conductivity:.4g} m/s"
     )
     d_sat = _non_negative(found.get(f"{output}.d_sat_m"))
@@ -777,6 +789,20 @@ def _network_ratios_extra(
                 )
     extra["k_over_r_note"] = note + "."
     return extra
+
+
+def _recharge_window(trial_ctx: Any) -> tuple[str, str] | None:
+    """Return the dates the recharge of a trial is the mean of, or None when it has none.
+
+    The window the phase prepared its trials on, which a steady regime writes into
+    ``[simulation.time]``: the mean recharge is only readable with its dates, since
+    a three-year window and a sixty-year normal give another K/R.
+    """
+    time = getattr(getattr(getattr(trial_ctx, "base_cfg", None), "simulation", None), "time", None)
+    start, end = getattr(time, "start_datetime", None), getattr(time, "end_datetime", None)
+    if start is None or end is None:
+        return None
+    return str(start)[:10], str(end)[:10]
 
 
 def _search_outcome_extra(session: CalibrationSession) -> dict[str, Any]:
@@ -1510,6 +1536,7 @@ def promote_and_close(
             override_paths=resolve_override_paths(cfg),
             stop_state=stop_state,
             stopping_rule=stopping_rule,
+            answered=report.best_trial,
         )
     final_status: SessionStatus = status
     error: str | None = None
@@ -1530,7 +1557,11 @@ def promote_and_close(
         failed = _failed_trials(persistence)
         error = f"no trial completed; {failed}" if failed else "no trial completed"
     persistence.refresh_phase_best(phase)
-    best_line = persistence.best_trial(phase)
+    # What the search answered with, which a tie on the cost can set apart from
+    # the lowest cost of the journal.
+    best_line = persistence.answered_trial(report.best_trial, phase) or persistence.best_trial(
+        phase
+    )
     pointer = persistence.best_pointer(best_line)
     case_id = persistence.case_id
     descriptor = persistence.finalize_session(
@@ -2054,9 +2085,38 @@ def open_calibration_session(
         cost_label=cost_metric_label(cfg, cfg.phases[-1] if cfg.phases else None),
         bounds=session_bounds(space, case),
         windows=search_windows(cfg, raw),
+        protocol=_protocol_of_session(cfg, trial_ctx),
     )
     persistence.start_pulse()
     return persistence, False
+
+
+def _protocol_of_session(
+    cfg: CalibrationConfig, trial_ctx: TrialContext | None
+) -> SessionProtocol | None:
+    """Return the protocol a session follows and where it leaves the publication, or None."""
+    declared = cfg.protocol
+    if declared is None:
+        return None
+    base_cfg = getattr(trial_ctx, "base_cfg", None)
+    departures = [
+        ProtocolDeparture(
+            key=item.key,
+            here=item.here,
+            paper=item.paper,
+            value=None if item.value is None else str(item.value),
+            always=item.state == "always",
+            written=item.written,
+        )
+        for item in deviations_in_force(cfg, getattr(base_cfg, "geographic", None))
+        if item.state in ("always", "departs")
+    ]
+    protocol = get_protocol(declared.name)
+    return SessionProtocol(
+        name=protocol.name,
+        version=protocol.version if declared.version is None else str(declared.version),
+        departures=departures,
+    )
 
 
 def _site_name(raw: Mapping[str, Any]) -> str | None:

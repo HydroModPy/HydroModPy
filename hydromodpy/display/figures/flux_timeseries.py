@@ -22,7 +22,8 @@ from typing import TYPE_CHECKING, Annotated
 import numpy as np
 import pandas as pd
 
-from hydromodpy.core.field_routing import CATCHMENT_BUDGET_ZONE, select_budget_zone
+from hydromodpy.core.field_routing import select_budget_zone
+from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.core.units.labels import AXIS_LABELS, axis_label
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Opt
@@ -223,7 +224,7 @@ def _is_catchment_frame(frame: pd.DataFrame) -> bool:
     """Return True when every row of the frame is the catchment zone."""
     if "zone_id" not in frame.columns:
         return False
-    return set(frame["zone_id"].astype(str)) == {CATCHMENT_BUDGET_ZONE}
+    return set(frame["zone_id"].astype(str)) == {CATCHMENT}
 
 
 def _period_seconds(index: pd.Index) -> float:

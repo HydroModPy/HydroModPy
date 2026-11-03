@@ -237,7 +237,12 @@ def _resolve_time(sim: Run, options: dict[str, Any]) -> str | None:
 # Fields built from the water that leaves the aquifer at the surface. Their
 # per-cell terms come from the one table of ``core.budget_terms``, minus the
 # recharge some of them also read, which is an entry and not an exit.
-_EXIT_FIELDS = ("release_flux", "release_accumulation_flux", "accumulation_flux", "outflow_drain")
+_EXIT_FIELDS = (
+    "release_flux",
+    "release_accumulation_flux",
+    "drain_accumulation_flux",
+    "outflow_drain",
+)
 
 
 def _exit_terms_of(field: str) -> tuple[str, ...]:

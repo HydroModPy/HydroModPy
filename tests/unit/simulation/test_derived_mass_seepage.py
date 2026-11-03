@@ -1,7 +1,7 @@
 """Conservation tests for the solute / mass / release-flux fields rebuilt on read.
 
 These cover the transport-specific fields (concentration_seepage, mass_seepage,
-mass_accumulated) plus the solver-neutral release/drain flux fields. No array of
+mass_seepage_running_sum) plus the solver-neutral release/drain flux fields. No array of
 their own is written: each is rebuilt from the stored concentration, drain and
 surface-excess terms when it is read.
 
@@ -9,10 +9,10 @@ The asserts target genuine invariants derived from the science:
 
 * ``mass_seepage`` = concentration at seepage cells * positive drain outflow,
   with units m3/s * (mass/m3) = mass/s. Zero where there is no seepage.
-* ``mass_accumulated[t]`` is the running cumulative sum of ``mass_seepage``,
+* ``mass_seepage_running_sum[t]`` is the running cumulative sum of ``mass_seepage``,
   i.e. the discrete time-integral of the mass-flux series. We verify the
-  closure ``mass_accumulated[t] - mass_accumulated[t-1] == mass_seepage[t]``
-  and ``mass_accumulated[-1] == sum_t mass_seepage[t]`` cell by cell.
+  closure ``mass_seepage_running_sum[t] - mass_seepage_running_sum[t-1] == mass_seepage[t]``
+  and ``mass_seepage_running_sum[-1] == sum_t mass_seepage[t]`` cell by cell.
 * ``release_flux`` = positive drain outflow + positive surface-excess outflow,
   is non-negative and finite everywhere (m3/s).
 """
@@ -22,10 +22,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.core.field_routing import (
-    drain_budget_to_positive_outflow,
-    positive_cell_flux_stack,
-)
+from hydromodpy.core.field_routing import budget_outflow, budget_outflow_stack
 
 from ._test_simulation_api_builders import RunBuilder, runs
 
@@ -136,7 +133,7 @@ class TestMassSeepageConservation:
         for t in range(n_ts):
             ms = runs.reader().query_field(sid, "mass_seepage", t)
             active = seep[t] > 0
-            pos_out = drain_budget_to_positive_outflow(drn[t], n_cells=n_cells)
+            pos_out = budget_outflow(drn[t], n_cells=n_cells)
             expected = np.where(active, conc[t] * pos_out, np.nan)
             # active cells: finite mass equal to conc * positive outflow.
             assert np.allclose(ms[active], expected[active])
@@ -149,7 +146,7 @@ class TestMassSeepageConservation:
         #    cumul[t] = cumul[t-1] + mass_seepage[t] cell by cell (NaN-aware).
         prev = np.zeros(n_cells)
         for t in range(n_ts):
-            ma = runs.reader().query_field(sid, "mass_accumulated", t)
+            ma = runs.reader().query_field(sid, "mass_seepage_running_sum", t)
             expected_cumul = prev + mass[t]
             assert np.allclose(ma, expected_cumul, equal_nan=True)
             prev = ma
@@ -160,7 +157,7 @@ class TestMassSeepageConservation:
         partial = np.zeros(np.count_nonzero(stable))
         prev_partial = np.zeros(np.count_nonzero(stable))
         for t in range(n_ts):
-            ma = runs.reader().query_field(sid, "mass_accumulated", t)[stable]
+            ma = runs.reader().query_field(sid, "mass_seepage_running_sum", t)[stable]
             partial = partial + mass[t][stable]
             assert np.allclose(ma, partial)
             assert np.all(ma + 1e-12 >= prev_partial)
@@ -223,8 +220,8 @@ class TestReleaseFluxNonNegative:
         _write_head(runs, sid, head, n_ts=n_ts)
 
         drn = -rng.uniform(0.0, 2.0, (n_ts, n_cells))
-        # surface_excess is a positive per-cell outflow (already a release).
-        sexc = rng.uniform(0.0, 1.5, (n_ts, n_cells))
+        # surface_excess is signed like every budget flux: negative where it leaves.
+        sexc = -rng.uniform(0.0, 1.5, (n_ts, n_cells))
         for t in range(n_ts):
             runs.store(sid).write_field(
                 sid,
@@ -245,9 +242,8 @@ class TestReleaseFluxNonNegative:
 
         for t in range(n_ts):
             rf = runs.reader().query_field(sid, "release_flux", t)
-            pos_drn = drain_budget_to_positive_outflow(drn[t], n_cells=n_cells)
-            # The surface excess is already a non-negative release.
-            expected = pos_drn + np.maximum(sexc[t], 0.0)
+            pos_drn = budget_outflow(drn[t], n_cells=n_cells)
+            expected = pos_drn + np.maximum(-sexc[t], 0.0)
             assert np.allclose(rf, expected)
             # release flux is non-negative and finite (m3/s).
             assert np.all(rf >= 0.0)
@@ -286,14 +282,14 @@ class TestTheChainFromTheHead:
                 subgroup="budget",
             )
 
-        # mass_accumulated obeys the literal cumulative recurrence over
+        # mass_seepage_running_sum obeys the literal cumulative recurrence over
         # mass_seepage (NaN-aware).
         mass = np.full((n_ts, n_cells), np.nan)
         for t in range(n_ts):
             mass[t] = runs.reader().query_field(sid, "mass_seepage", t)
         prev = np.zeros(n_cells)
         for t in range(n_ts):
-            ma = runs.reader().query_field(sid, "mass_accumulated", t)
+            ma = runs.reader().query_field(sid, "mass_seepage_running_sum", t)
             assert np.allclose(ma, prev + mass[t], equal_nan=True)
             # finite accumulated values are non-negative (sources >= 0).
             assert np.all(ma[np.isfinite(ma)] >= 0.0)
@@ -319,7 +315,7 @@ class TestSoluteChainDependencies:
                 subgroup="budget",
             )
 
-        for variable in ("concentration_seepage", "mass_seepage", "mass_accumulated"):
+        for variable in ("concentration_seepage", "mass_seepage", "mass_seepage_running_sum"):
             with pytest.raises(KeyError):
                 runs.reader().query_field(sid, variable, 0)
 
@@ -367,7 +363,7 @@ class TestDrainRoutingChain:
 
         for t in range(n_ts):
             od = runs.reader().query_field(sid, "outflow_drain", t)
-            expected = drain_budget_to_positive_outflow(drn[t], n_cells=n_cells)
+            expected = budget_outflow(drn[t], n_cells=n_cells)
             assert np.allclose(od, expected)
             # outflow is a positive volumetric flux (m3/s), non-negative, finite.
             assert np.all(od >= 0.0)
@@ -382,7 +378,7 @@ class TestDrainRoutingChain:
         sexc = rng.uniform(0.0, 1.0, (n_ts, n_cells))
         sid = self._seed_drain(runs, n_ts=n_ts, n_cells=n_cells, drn_stack=drn, surface_excess=sexc)
 
-        for variable in ("accumulation_flux", "release_accumulation_flux"):
+        for variable in ("drain_accumulation_flux", "release_accumulation_flux"):
             with pytest.raises(KeyError):
                 runs.reader().query_field(sid, variable, 0)
         # The local fluxes stay readable.
@@ -442,8 +438,8 @@ class TestMeshGraphRouting:
         drn = -np.array([[1.0, 1.0, 1.0, 1.0, 1.0]])  # 1 m3/s released per cell
         sid = self._seed_routable(runs, n_ts=n_ts, n_cells=n_cells, drn_stack=drn, topo=topo)
 
-        local = drain_budget_to_positive_outflow(drn[0], n_cells=n_cells)
-        acc = runs.reader().query_field(sid, "accumulation_flux", 0)
+        local = budget_outflow(drn[0], n_cells=n_cells)
+        acc = runs.reader().query_field(sid, "drain_accumulation_flux", 0)
         acc_finite = acc[np.isfinite(acc)]
         # The routed field differs from the local field (routing actually ran).
         assert not np.allclose(acc, local)
@@ -455,30 +451,26 @@ class TestMeshGraphRouting:
         assert acc[-1] >= acc[0]
 
 
-class TestPositiveCellFlux:
-    """positive_cell_flux_stack sums only finite, positive per-cell contributions.
+class TestBudgetOutflow:
+    """budget_outflow_stack sums what leaves the aquifer: the finite, negative fluxes."""
 
-    The single-field helper was folded into the time-vectorised stack version;
-    one timestep with shape ``(1, layers, cells)`` reproduces the old behaviour.
-    """
-
-    def test_drops_negative_and_nodata_and_sums_layers(self):
+    def test_drops_inflow_and_nodata_and_sums_layers(self):
         n_cells = 4
-        # one timestep, two layers: positives kept, negatives/nodata zeroed.
+        # one timestep, two layers: outflow kept, inflow and nodata zeroed.
         stack = np.array(
             [
                 [
-                    [1.0, -2.0, 3.0, -99999.0],
-                    [0.5, 4.0, np.nan, 2.0],
+                    [-1.0, 2.0, -3.0, -99999.0],
+                    [-0.5, -4.0, np.nan, -2.0],
                 ]
             ]
         )  # shape (time=1, layers=2, cells=4)
-        out = positive_cell_flux_stack(stack, n_cells=n_cells)[0]
+        out = budget_outflow_stack(stack, n_cells=n_cells)[0]
         # cell0: 1.0+0.5; cell1: 0+4.0; cell2: 3.0+0(nan); cell3: 0(nodata)+2.0
         assert np.allclose(out, [1.5, 4.0, 3.0, 2.0])
         assert np.all(out >= 0.0)
         assert out.shape == (n_cells,)
 
     def test_empty_stack_returns_zeros(self):
-        out = positive_cell_flux_stack(np.empty((0, 1, 3)), n_cells=3)
+        out = budget_outflow_stack(np.empty((0, 1, 3)), n_cells=3)
         assert out.shape == (0, 3)

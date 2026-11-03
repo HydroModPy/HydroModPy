@@ -1,7 +1,7 @@
 """A figure names its instant by date, and a date the run does not hold is a skip.
 
 Measured on the Nancon. The file used to write ``timestep = 33`` for October
-2002 of the monthly run, ``timestep = 1018`` for the same month of the daily
+2002 of the monthly run, ``timestep = 1017`` for the same month of the daily
 run, and a calibration phase override ``timestep = 0`` for its steady stage,
 which solves one period over the whole record. Reading step 33 out of a
 one-step store raised inside zarr, and ``on_error = "raise"`` turned a
@@ -98,7 +98,7 @@ def _config(**display) -> DisplayConfig:
 
 @pytest.mark.parametrize(
     ("edges", "expected"),
-    [(MONTHLY, 33), (DAILY, 1018), (STEADY, 0)],
+    [(MONTHLY, 33), (DAILY, 1017), (STEADY, 0)],
     ids=["monthly", "daily", "one-period steady"],
 )
 def test_one_date_names_the_period_that_holds_it_on_every_grid(
@@ -111,7 +111,7 @@ def test_one_date_names_the_period_that_holds_it_on_every_grid(
     assert drawn["timestep"] == expected
     assert "time" not in drawn
     # The same instant on the three grids: the period drawn holds the date.
-    assert edges[expected] <= pd.Timestamp(OCTOBER) < edges[expected + 1]
+    assert edges[expected] < pd.Timestamp(OCTOBER) <= edges[expected + 1]
 
 
 def test_the_steady_stage_draws_the_date_with_no_phase_override(figure, tmp_path) -> None:
@@ -219,7 +219,7 @@ def test_a_skip_by_date_is_not_a_warning(figure, tmp_path) -> None:
 def test_one_figure_resolves_its_date_and_refuses_one_the_run_does_not_hold(figure) -> None:
     # hmp.figure and hmp viz show go through render_figure.
     render_figure("seepage_map", _Run(DAILY), time=OCTOBER)
-    assert figure.drawn[0]["timestep"] == 1018
+    assert figure.drawn[0]["timestep"] == 1017
 
     window = pd.date_range("2001-01-01", "2002-01-01", freq="MS")
     with pytest.raises(ValueError, match="does not apply to this run: time '2002-10-15'"):

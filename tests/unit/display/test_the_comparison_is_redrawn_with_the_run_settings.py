@@ -58,6 +58,7 @@ def test_a_run_that_sealed_no_output_is_redrawn_with_the_defaults(captured) -> N
             "observed_position_accuracy_m": None,
             "heads_snap_radius_m": STREAM_CRITERION_DEFAULTS.heads_snap_radius_m,
             "heads_min_drained_area_km2": STREAM_CRITERION_DEFAULTS.heads_min_drained_area_km2,
+            "clip_map_to_catchment": STREAM_CRITERION_DEFAULTS.clip_map_to_catchment,
         }
     ]
 
@@ -76,6 +77,7 @@ def test_a_run_that_sealed_an_output_is_redrawn_with_its_settings(captured) -> N
             "observed_position_accuracy_m": 40.0,
             "heads_snap_radius_m": STREAM_CRITERION_DEFAULTS.heads_snap_radius_m,
             "heads_min_drained_area_km2": STREAM_CRITERION_DEFAULTS.heads_min_drained_area_km2,
+            "clip_map_to_catchment": STREAM_CRITERION_DEFAULTS.clip_map_to_catchment,
         }
     ]
 

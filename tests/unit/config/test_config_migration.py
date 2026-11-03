@@ -872,3 +872,21 @@ def test_the_doctor_follows_a_directive_of_a_renamed_key_and_a_list_a_child_adds
         "max_trials__delete": True,
         "phases__append": [{"name": "late", "max_trials": 3}],
     }
+
+
+def test_a_renamed_field_is_rewritten_where_a_table_names_it(tmp_path: Path) -> None:
+    config = tmp_path / "run.toml"
+    config.write_text(
+        '[[export]]\nvariables = ["head", "accumulation_flux"]\nformat = "netcdf"\n\n'
+        '[[export]]\nvariables = "fluxes_from_budget"\nformat = "netcdf"\n\n'
+        '[display.overrides.simulated_active_network_map]\nvariable = "accumulation_flux"\n',
+        encoding="utf-8",
+    )
+
+    changes = fix_config_file(config)
+
+    text = config.read_text(encoding="utf-8")
+    assert "drain_accumulation_flux" in text
+    assert "budget_flux_per_area" in text
+    assert '"accumulation_flux"' not in text
+    assert len(changes) == 3

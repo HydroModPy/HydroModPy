@@ -279,6 +279,8 @@ periods, and a joint calibration or a validation period adds keys, not meanings.
   fingerprint of each member of the cache key, by phase), ``bounds``, ``cost_name``, ``cost_label``,
   ``windows``, ``scored``, ``best`` and ``widths``. Its ``case_id`` and ``config_hash`` name the case
   of the plan that this directory is. ``widths`` stays empty until something computes a width.
+  ``protocol`` names the protocol a session follows and its version, with every departure from the
+  publication in force, and stays null without a protocol.
 - A period of ``windows`` has a ``role``: ``calibration`` is what the search scores, ``validation`` is
   kept apart from it and scored beside it, ``evaluation`` is ``[metrics] window`` of a run. Another
   word reads as it is, and no computation counts it as calibration. ``by_case`` gives the window of
@@ -583,7 +585,7 @@ Per-run Zarr store
 ------------------
 
 Zarr **format 3** store, carrying HydroModPy's own
-``zarr_schema_version = "3"`` in its root attributes. The store is staged
+``zarr_schema_version = "4"`` in its root attributes. The store is staged
 and promoted to its final path with a rename at registration, then
 appended to in place for the whole solve, under a cross-process file
 lock. It is not staged again at the end, because live readers follow that
@@ -656,11 +658,11 @@ terms and the stored mesh by the readers
 (:mod:`hydromodpy.results.derive.virtual_fields`), on the same grid, with a
 range path so a window of steps reads only its slab: ``watertable_elevation``,
 ``watertable_depth``, ``seepage_mask``, ``release_flux``, ``outflow_drain``,
-``accumulation_flux``, ``release_accumulation_flux``, ``fluxes_from_budget`` and
+``drain_accumulation_flux``, ``release_accumulation_flux``, ``budget_flux_per_area`` and
 the solute fields ``concentration_seepage``, ``mass_seepage`` and
-``mass_accumulated``. Nothing time-varying is written under ``derived/``. A
+``mass_seepage_running_sum``. Nothing time-varying is written under ``derived/``. A
 store written before holds some of these arrays under ``derived/`` (in
-float64 for ``release_flux`` and ``fluxes_from_budget``), and every reader
+float64 for ``release_flux`` and ``budget_flux_per_area``), and every reader
 returns the stored array first, so it reads as it always did.
 
 None of this bumps ``zarr_schema_version``: the layout, the names, the
@@ -734,17 +736,23 @@ The vertical geometry follows the table.
        attribute ``flag_values`` lists them. It is a static field of ``run.field`` and of
        the exports
 
-**Vertical geometry.** ``zarr_schema_version`` is 3 since a run stores the vertical geometry of
+**Version 4.** ``zarr_schema_version`` is 4 since every budget flux of every solver has the sign
+of MODFLOW, negative when water leaves the aquifer. Boussinesq stored ``drain`` and
+``surface_excess`` positive before. Both bounds of the window of the versions are 4, so a store of
+an alpha is refused and must be run again.
+
+**Vertical geometry.** Since version 3 a run stores the vertical geometry of
 every cell. ``mesh/z_interfaces`` has one column per cell, where it held the column of cell 0
 before, and ``mesh/idomain`` holds the ``idomain`` of the solved model, so a column whose first
 layer is pinched out reads back as it was solved. The attribute
 ``vertical_layout`` of ``mesh/`` says how the layers were built, ``column_fractions`` for shares
 of the thickness and ``surfaces`` for the base surfaces of ``[domain.layers]``. MODFLOW 6,
 MODFLOW-NWT (from ``IBOUND``) and Boussinesq write them, and ``run.mesh.z_interfaces`` is always
-one column per cell. Layers are counted from 0 everywhere: a layered field is
-``<var>_layer0``, ``<var>_layer1`` in NetCDF and VTU, and a message names layer, row and column
-from 0. A store of schema 2 is refused when it is opened, like any version below the window of
-its family, and must be run again (the rule of the versions of the stored documents, above).
+one column per cell. Layers are counted from 0 everywhere: a layered field is one variable with a
+``layer`` dimension in NetCDF and one array with a component per layer in VTU, at any number of
+layers, and a message names layer, row and column from 0. A store below the window of its family is
+refused when it is opened, and must be run again (the rule of the versions of the stored documents,
+above).
 The array ``idomain`` is never rounded, and a reader that needs the top active cell of a column
 takes ``top_active_layer`` of ``hydromodpy/core/vertical_column.py``.
 
@@ -760,7 +768,7 @@ when the engine publishes no offset for the chain); the faces of the face-intent
 ``boundary:*`` sides) are in ``mesh_face_families`` (``face_row``, ``family``, ``edge_id``, the two
 nodes, the cell on each side and the zone names). A run whose mesh has no such family writes no
 table: an absent table is an empty one when the ``engine`` attribute is present. All of this is
-additive, so ``zarr_schema_version`` does not change. A run sealed before it has none of these
+additive. A run sealed before it has none of these
 arrays, no ``engine`` and no ``crs`` attribute on ``mesh/``; its readers say so and do not
 rebuild them.
 
@@ -773,9 +781,7 @@ declares ``_FillValue = -1`` for the padding of the short rows. On a run with a 
 and these coordinates name the ``crs`` of the group in ``grid_mapping``. ``node_coordinates`` of
 ``topology`` names ``node_x node_y``, where it named ``vertices`` before, and ``vertices`` stays
 for the readers of HydroModPy. Its third column, z = 0 for a planar mesh, gets no array of its
-own. The new arrays are additive, so ``zarr_schema_version`` stays at 3. A run sealed before them
-reads in HydroModPy as before, but a UGRID reader needs ``node_x`` and ``node_y`` split out of
-``vertices`` and a ``_FillValue`` on the connectivity to open it.
+own.
 
 **Routing descent.** A MODFLOW 6 or MODFLOW-NWT run stores the descent D it was built with under
 ``mesh/``, one value per face and none rounded: ``descent_receiver``, ``descent_surface``, the
@@ -786,11 +792,11 @@ found it (``basin_rule``), the area (``basin_area_m2``), whether D was seeded at
 (``basin_seeded_at_outlet``) and the rule version (``basin_version``). The attributes of
 ``descent_receiver`` name the neighbourhood and carry the build report. The solver build leaves D
 and its basin in the solver folder as ``<model>.descent.npz`` and the extractor copies them into
-the store right after the mesh. ``run.descent`` reads them back, and the flow direction map and ``accumulation_flux`` route on it
+the store right after the mesh. ``run.descent`` reads them back, and the flow direction map and ``drain_accumulation_flux`` route on it
 (the contract of D is in :doc:`solver/backends`). A Boussinesq run stores the mesh of its
 setup like any other and stores no D: its readers rebuild D from the stored top, as for a run
 sealed before D was stored. The
-arrays are new datasets, so ``zarr_schema_version`` does not change. A run sealed before D was stored has no
+arrays are new datasets. A run sealed before D was stored has no
 ``descent_*`` array, and its readers rebuild D from the stored top, with no channel pin, no
 constant-head seed and no lake. A run sealed with D but before ``descent_basin`` has no basin, and
 each reader of the catchment says which older support it falls back to.
@@ -802,9 +808,8 @@ polygon has 1. The build writes it with ``descent_basin`` and the sidecar of D c
 not change the basin, which stays all or nothing, and it weights the total over the catchment of a
 quantity that varies in space (``hydromodpy.results.derive.views.catchment_total``, see
 :doc:`/theory/mesh`). The sidecar and the store refuse a fraction with no basin, a value outside
-[0, 1] and an array of another size than the mesh. The array is optional and additive, so
-``zarr_schema_version`` stays at 3. A run sealed without it, or without a polygon, counts the whole
-cells of its basin of D, and its readers say so. A synthetic domain has no polygon and no outlet,
+[0, 1] and an array of another size than the mesh. A run sealed without it, or without a polygon,
+counts the whole cells of its basin of D, and its readers say so. A synthetic domain has no polygon and no outlet,
 so it stores no fraction, its basin is the largest one of the domain, and its budget has the
 domain row only.
 
@@ -821,7 +826,7 @@ grid MODFLOW receives is written the same way a SIM2 recharge would be, as
 ``forcing/recharge_recharge``.
 
 A gridded recharge also keeps its spatial mean as a station-shaped series under
-``forcing/recharge/_watershed``, like a gridded runoff, so a reader of
+``forcing/recharge/catchment``, like a gridded runoff, so a reader of
 ``forcing/recharge`` finds a series whatever the source is. A run whose solver holds
 its recharge on the model stamps ``criterion_mean_recharge_m_s`` on the ``forcing``
 group: the mean recharge its trials score with, which a figure reads back.
@@ -842,11 +847,16 @@ are plain ``.parquet`` files. No suffix marks a container.
 
 The payloads are ``simulation``, ``parameters``, ``metrics``, ``timeseries``, ``budgets``,
 ``mass_balance``, ``observation_points``, ``sfr_reaches`` (the resolved SFR reach geometry, the
-only record of which cell carries which reach, absent when the run built no stream network),
+only record of which cell carries which reach, absent when the run built no stream network; its
+``reach_id`` is the ``station_id`` of the reach in ``timeseries`` and its ``reach`` counts from 1, as
+the TOML does),
 ``soil_budget`` (one row per soil column and calendar year, absent outside soil mode),
 ``mesh_cell_families`` and ``mesh_face_families`` (the line families of the mesh, see the cell
 mesh above), ``provenance`` and the GeoParquet 1.1 layers ``geographic_*``. Their columns are generated in
-:doc:`generated/storage-tree`.
+:doc:`generated/storage-tree`. ``timeseries`` keys a series on its ``source``, ``simulated`` or
+``observed``, so a series and its gauge carry one variable name. A table says ``catchment`` for the
+whole catchment and ``domain`` for the whole model (:doc:`/understand/conventions`), and writes every
+``unit`` in udunits spelling.
 
 ``simulation.parquet`` is written by the run from its ``RunRecord``: it carries ``project``,
 ``site``, ``site_fingerprint``, ``recipe``, ``case_id``, ``rel_dir``, ``attempt``, ``attempt_id``,

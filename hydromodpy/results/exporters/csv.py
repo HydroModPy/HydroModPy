@@ -22,22 +22,12 @@ from typing import TYPE_CHECKING, Any
 import pandas as pd
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.scope import OBSERVED, series_selector
 
 if TYPE_CHECKING:
     from hydromodpy.results.identity import Identity
 
 logger = get_logger(__name__)
-
-OBSERVED_SUFFIX = "_obs"
-"""The suffix of an observed series, stored beside the simulated one."""
-
-EXPORTED_STATION_NAMES: dict[str, str] = {"_catchment": "catchment"}
-"""Internal station ids and the name an exported file gives them.
-
-``_catchment`` is the station the whole-catchment simulated series are stored
-under (``simulation/extraction/derivation/catchment_aggregation.py``). The
-leading underscore marks it internal; next to a real gauge code in a
-spreadsheet it reads as a broken join."""
 
 _TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 
@@ -53,7 +43,15 @@ def _identity_values(identity: Identity) -> tuple[str, str]:
     return (identity.site or identity.case_id, identity.case_id)
 
 
-SERIES_COLUMNS = (*IDENTITY_COLUMNS, "datetime", "station_id", "variable", "value", "unit")
+SERIES_COLUMNS = (
+    *IDENTITY_COLUMNS,
+    "datetime",
+    "station_id",
+    "variable",
+    "source",
+    "value",
+    "unit",
+)
 """The columns of a series CSV, one row per value."""
 
 
@@ -66,7 +64,7 @@ def _in_windows(frame: pd.DataFrame, windows: Sequence[Window]) -> pd.Series:
     No window keeps no row, as an empty ``variables`` list does.
     """
     keep = pd.Series(False, index=frame.index)
-    observed = frame["variable"].str.endswith(OBSERVED_SUFFIX)
+    observed = frame["source"] == OBSERVED
     clock = frame["_clock"]
     for start, end in windows:
         lo, hi = pd.Timestamp(start), pd.Timestamp(end)
@@ -88,8 +86,9 @@ def export_csv(
 ) -> Path:
     """Export the series of a simulation to a CSV file.
 
-    Columns are ``site, case_id, datetime, station_id, variable, value,
-    unit``, one row per value, ordered by station, variable and step.
+    Columns are ``site, case_id, datetime, station_id, variable, source,
+    value, unit``, one row per value, ordered by station, variable, source
+    and step.
 
     Parameters
     ----------
@@ -105,7 +104,8 @@ def export_csv(
     station_id : str, optional
         Keep one station. ``None`` keeps them all.
     variables : sequence of str, optional
-        Keep these variables. ``None`` keeps them all.
+        Keep these series, a measurement written ``<variable>_obs``. ``None``
+        keeps them all.
     windows : sequence of (start, end), optional
         Keep the rows inside these windows of the run clock, naive
         timestamps. ``None`` keeps every row, the observations before and
@@ -133,11 +133,12 @@ def export_csv(
     if station_id is not None:
         frame = frame[frame["station_id"] == station_id]
     if variables is not None:
-        frame = frame[frame["variable"].isin(list(variables))]
+        asked = [series_selector(name) for name in variables]
+        pairs = pd.MultiIndex.from_frame(frame[["variable", "source"]])
+        frame = frame[pairs.isin(asked)]
     if windows is not None:
         frame = frame[_in_windows(frame, windows)]
-    frame = frame.assign(station_id=frame["station_id"].replace(EXPORTED_STATION_NAMES))
-    frame = frame.sort_values(["station_id", "variable", "timestep"], kind="stable")
+    frame = frame.sort_values(["station_id", "variable", "source", "timestep"], kind="stable")
     frame = frame.assign(datetime=frame["_clock"].dt.strftime(_TIME_FORMAT))
     frame["site"], frame["case_id"] = _identity_values(identity)
     frame.loc[:, list(SERIES_COLUMNS)].to_csv(output_path, index=False)
@@ -154,7 +155,7 @@ def _read_series(path: Path, sim_id: str) -> pd.DataFrame:
     ``_clock`` holds each time as a naive UTC timestamp, the run clock. A run
     without a payload has no row.
     """
-    columns = ["sim_id", "station_id", "variable", "timestep", "time", "value", "unit"]
+    columns = ["sim_id", "station_id", "variable", "source", "timestep", "time", "value", "unit"]
     if path.is_file():
         frame = pd.read_parquet(path, columns=columns)
         frame = frame[frame["sim_id"] == sim_id].copy()

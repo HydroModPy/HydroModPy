@@ -47,24 +47,69 @@ NETWORK_BLOCK = "network_extension"
 HYDROGRAPH_OUTPUT = "hydrograph"
 HYDROGRAPH_BLOCK = "hydrograph"
 
+_VERDICT = "verdict"
+_HEADS_ONLY = ("heads_snap_radius", "heads_min_drained_area_km2")
+
+_DEFAULTS_1_2: Mapping[str, Any] = {
+    "tau_specific_ratio": 1.0e-4,
+    "weighting": "cell",
+    "diagonal_neighbors": True,
+    "observed_rasterization": "crossing",
+    "clip_map_to_catchment": False,
+    "heads_snap_radius": 100.0,
+    "heads_min_drained_area_km2": 0.02,
+    "validity_length": "auto",
+    _VERDICT: {"max_catchment_mismatch": False},
+}
+
+DEFAULTS_BY_VERSION: Mapping[str, Mapping[str, Any]] = {
+    "1.2": _DEFAULTS_1_2,
+    "1.3": {
+        **_DEFAULTS_1_2,
+        "observed_rasterization": "heads",
+        "clip_map_to_catchment": True,
+        _VERDICT: {"max_catchment_mismatch": 0.05},
+    },
+}
+"""What each version of the protocol writes in the network output, one line per version.
+
+A key the file leaves empty takes the value of the version the file runs, so
+moving a default in :mod:`hydromodpy.core.stream_criterion_defaults` cannot move
+a pinned file. The keys are the ones that change a number, or refuse a search:
+the three that only decide what is logged stay with the model. The last line is
+what a file without a pin runs. A test holds it equal to the defaults of the
+model, so a default that moves without a new line here fails.
+
+1.2 is the method as it ran on 2026-09-28: the mapped network drawn by the
+crossing rule, read whole from a file, with no veto. 1.3 draws it from its heads,
+cuts it to the catchment and refuses a catchment that is not the delineated one.
+"""
+
 
 class MatchingHydrographicNetwork:
     """Conductivity from the mapped stream network, storage from the hydrograph."""
 
     name = "matching_hydrographic_network"
-    version = "1.2"
-    """Bumped from 1.1, which v2.0.0a1 released. Three defaults moved, and each
-    changes the result of a file re-run without a pin: the DEM is filled rather
-    than breached before the catchment is cut ([geographic].dem_correc_type),
-    the transient stage leaves the first year of the run out as spin-up, and
-    the bound of Eq. 4 is a length in metres (validity_length = 'auto') where
-    it was roptim_max = 2 on a ratio to the cell size.
+    defaults_by_version = DEFAULTS_BY_VERSION
+    version = next(reversed(DEFAULTS_BY_VERSION))
+    """The last line of :data:`DEFAULTS_BY_VERSION`, what a file without a pin runs.
+
+    Bumped from 1.2 to 1.3: the map is drawn from its heads, cut to the catchment
+    with no cut end taken for a head, and a scored catchment too far from the
+    delineated one is refused before the first solve. A pin on 1.2 keeps the
+    crossing rule, the whole file and no refusal.
+
+    Bumped from 1.1 to 1.2, 1.1 being what v2.0.0a1 released: the DEM is filled
+    rather than breached before the catchment is cut ([geographic].dem_correc_type),
+    the transient stage leaves the first year of the run out as spin-up, and the
+    bound of Eq. 4 is a length in metres (validity_length = 'auto') where it was
+    roptim_max = 2 on a ratio to the cell size.
 
     Bumped from 1.0 to 1.1: the descent used to build the criterion defaulted
     to D8, and the validity bound of Eq. 4 was read only at the point the
     search returns rather than at every trial.
 
-    A pin on an older version is refused rather than silently upgraded.
+    A pin on a version outside the table is refused rather than approximated.
     """
     title = "Matching the hydrographic network"
     summary = (
@@ -123,10 +168,9 @@ class MatchingHydrographicNetwork:
         # hillslope it runs on MODFLOW 6. Stage two reads a discharge, which NWT
         # serves as MODFLOW 6 does.
         "modflow_nwt": "tested",
-        # Its adapter declares the per-cell release flux servable, but its
-        # extraction serves only heads and discharge, so the stream-network
-        # criterion of stage one cannot score a trial. The twin leaves it out for
-        # that reason.
+        # Its adapter declares the per-cell release flux unavailable, so the
+        # stream-network criterion of stage one cannot score a trial. The twin
+        # leaves it out for that reason.
         "boussinesq": "unsupported",
     }
 
@@ -214,22 +258,51 @@ class MatchingHydrographicNetwork:
                 "seepage for the sole reason that it is the basin's exit, not because "
                 "the network disagrees with the map."
             ),
+            always=True,
         ),
         Deviation(
-            key="max_unreachable_fraction",
+            key="unreached_distance_capped",
             paper="not addressed: the authors' own code drops an unreached cell "
             "silently before averaging (objective_function.py)",
-            here="an unreached distance is capped at L_cap (the longest descent to "
-            "the outlet, not dropped) rather than left out of the mean, and the run "
-            "is refused when more than 5 per cent of D_so's support never reaches "
-            "the mapped network",
+            here="an unreached distance is capped at L_cap, the longest descent to the "
+            "outlet, and stays in the mean",
             why=(
-                "silently dropping unreached cells lets an ill-conditioned run report "
-                "a favourable D_so from a support that has quietly shrunk; capping "
-                "counts every cell as a large but finite penalty instead, and the "
-                "5 per cent guard catches the case where too much of the support is "
-                "gone for the average to mean anything."
+                "silently dropping unreached cells lets a run report a favourable "
+                "distance from a support that has quietly shrunk; capping counts "
+                "every cell as a large but finite penalty instead. With the outlet "
+                "sealed the cap only ever reaches D_os: every cell of the scored "
+                "catchment reaches the target of D_so."
             ),
+            always=True,
+        ),
+        Deviation(
+            key="max_catchment_mismatch",
+            paper="no bound: the paper scores the pixels of the delineated catchment, so "
+            "the question does not arise on its raster",
+            here="the search is refused before its first solve when the catchment read on "
+            "the descent graph differs from the delineated outline by more than 5 per cent "
+            "of its area",
+            why=(
+                "the criterion scores the cells whose descent reaches the outlet on the "
+                "mesh graph, and those may not be the catchment asked for. On Nancon the "
+                "gap is 0.4 per cent on the default grid and 1.5 to 2.4 on Voronoi meshes "
+                "of 200 and 100 m; it passes 5 per cent on grids under about 2000 cells, and "
+                "where the outlet closes on another branch."
+            ),
+            paper_value=False,
+        ),
+        Deviation(
+            key="steady_recharge_window",
+            paper="the recharge of the steady stage is the mean of 1960 to 2019 (HESS "
+            "p. 3224), a sixty-year normal",
+            here="the mean of the window the run loads, [simulation.time] or steady_window "
+            "(2000 to 2002 in the shipped example), printed beside K with its dates",
+            why=(
+                "K/R is what the stage identifies, so K follows the R a file can load. A "
+                "protocol cannot invent a normal the forcing does not cover. Write a long "
+                "steady_window when it does cover one, and read R beside K before citing K."
+            ),
+            always=True,
         ),
         Deviation(
             key="bisection_variable_and_sweep",
@@ -244,6 +317,7 @@ class MatchingHydrographicNetwork:
                 "sign change on its own, and the criterion is refused rather than run "
                 "past a bracket that never finds one."
             ),
+            always=True,
         ),
         Deviation(
             key="d_os_support",
@@ -265,6 +339,7 @@ class MatchingHydrographicNetwork:
                 "observed target instead moves r_optim's root by more than a factor "
                 "of ten."
             ),
+            always=True,
         ),
         Deviation(
             key="dem_correc_type",
@@ -301,7 +376,8 @@ class MatchingHydrographicNetwork:
             here="'heads' by default and departs from the paper: it keeps the free "
             "ends of the map and traces the model's own descent from each, so the "
             "map is connected to the outlet by construction and the path a field "
-            "or a ditch gave the mapped line no longer counts as error; 'crossing' "
+            "or a ditch gave the mapped line no longer counts as error; an end the "
+            "cut to the catchment made is no head; 'crossing' "
             "is offered and matches the paper, a cell belongs to the network when "
             "the line crosses the segment joining two edge-sharing cell centres, "
             "WhiteboxTools' own rule on a structured grid, except that a reach "
@@ -325,6 +401,20 @@ class MatchingHydrographicNetwork:
             paper_value="crossing",
         ),
         Deviation(
+            key="clip_map_to_catchment",
+            paper="the text scores the mapped pixels of the catchment and says nothing of a "
+            "line that leaves it",
+            here="the map is cut to the delineated catchment before it is drawn, with the "
+            "shape the hydrography data family clips to; false reads a file whole",
+            why=(
+                "a file and data.hydrography then draw the same map from the same file, and "
+                "a figure redrawn from a run draws the map the trial scored. A cell of the "
+                "map outside the polygon but on the scored graph leaves it: 3 cells of 499 "
+                "under the crossing rule on Nancon, K unmoved to the fourth digit."
+            ),
+            paper_value=False,
+        ),
+        Deviation(
             key="spin_up_year",
             paper="stage two simulates 2020 to 2023 and scores June to October of the "
             "drought year 2022 alone (WRR 2025, Fig. 5): the years before are simulated "
@@ -343,6 +433,7 @@ class MatchingHydrographicNetwork:
                 "its question, which no default can carry, so the default keeps the "
                 "whole record past the spin-up and leaves that window to the file."
             ),
+            always=True,
         ),
     )
 
@@ -374,6 +465,9 @@ class MatchingHydrographicNetwork:
     def expand(self, options: Mapping[str, Any], document: Mapping[str, Any]) -> dict[str, Any]:
         """Return the document with the two stages and their objective block written.
 
+        The network output takes the values of the version the file runs for
+        each key it leaves empty (:data:`DEFAULTS_BY_VERSION`).
+
         The transient stage scores itself through a block that reads a point
         output observing the gauging station, except when that station is not
         known from the document alone (several loaded, or a source that
@@ -385,23 +479,24 @@ class MatchingHydrographicNetwork:
         opts = MatchingHydrographicNetworkOptions.model_validate(
             {"name": self.name, **dict(options)}
         )
-        if opts.version is not None and str(opts.version) != self.version:
+        version = self.version if opts.version is None else str(opts.version)
+        if version not in DEFAULTS_BY_VERSION:
             raise ValueError(
-                f"[calibration.protocol] pins {self.name!r} at version "
-                f"{opts.version!r}, and this installation carries {self.version!r}. A "
-                "pin exists so a result stays replayable, so it is refused rather than "
-                "approximated."
+                f"[calibration.protocol] pins {self.name!r} at version {version!r}, and this "
+                f"installation carries {', '.join(DEFAULTS_BY_VERSION)}. A pin exists so a "
+                "result stays replayable, so it is refused rather than approximated."
             )
         expanded = copy.deepcopy(dict(document))
         calibration = dict(expanded.get("calibration") or {})
 
         parameters = calibration.get("parameters") or {}
-        _require_parameter(parameters, opts.conductivity, "conductivity", opts.storage)
-        if opts.storage is not None:
-            _require_parameter(parameters, opts.storage, "storage", opts.storage)
+        _require_parameter(parameters, opts.conductivity, "conductivity")
+        if opts.storage:
+            _require_parameter(parameters, opts.storage, "storage")
 
         outputs = dict(calibration.get("outputs") or {})
         network_output = _resolve_network_output(outputs, opts)
+        outputs[network_output] = _with_the_defaults_of(version, outputs[network_output])
 
         objective_blocks = [
             {
@@ -410,7 +505,7 @@ class MatchingHydrographicNetwork:
                 "uses_outputs": [network_output],
             }
         ]
-        station = _resolve_observed_station(document, opts) if opts.storage is not None else None
+        station = _resolve_observed_station(document, opts) if opts.storage else None
         if station is not None:
             _write_hydrograph_output(outputs, opts, station)
             objective_blocks.append(
@@ -430,9 +525,29 @@ class MatchingHydrographicNetwork:
         return expanded
 
 
-def _require_parameter(
-    parameters: Mapping[str, Any], name: str, role: str, storage: str | None
-) -> None:
+def _with_the_defaults_of(version: str, output: Any) -> Any:
+    """Return a network output with the values of ``version`` for each key it leaves empty.
+
+    A key the file writes wins, table by table. The ``heads_`` keys are written only
+    under the heads rule, the only one that reads them. An output that is not a table
+    is left to the validation of the section, which names what is wrong with it.
+    """
+    if not isinstance(output, Mapping):
+        return output
+    written = dict(output)
+    defaults = DEFAULTS_BY_VERSION[version]
+    rule = written.get("observed_rasterization", defaults["observed_rasterization"])
+    for key, value in defaults.items():
+        if key in _HEADS_ONLY and rule != "heads":
+            continue
+        if isinstance(value, Mapping) and isinstance(written.get(key, {}), Mapping):
+            written[key] = {**value, **written.get(key, {})}
+        else:
+            written.setdefault(key, value)
+    return written
+
+
+def _require_parameter(parameters: Mapping[str, Any], name: str, role: str) -> None:
     if name in parameters:
         return
     declared = ", ".join(sorted(parameters)) or "nothing"
@@ -573,10 +688,8 @@ def _transient_window_by_default(
     ``[metrics] window``, the window the run is scored on (H45), when it
     writes both bounds. Otherwise the stage runs the project's own time grid,
     whose first year starts from an initial condition the run did not
-    produce. Left unwindowed, the hydrograph and any network block scored in
-    that phase would read it, and a two-bound network would count it as one
-    more complete year. So the window then opens one year after
-    ``[simulation.time].start_datetime``, with no end.
+    produce. Left unwindowed, the hydrograph would read it. So the window then
+    opens one year after ``[simulation.time].start_datetime``, with no end.
 
     ``None`` when a declaration already says what the phase scores, and wins:
     ``scoring_window`` on the protocol, ``scoring_window`` or
@@ -666,7 +779,7 @@ def why_the_spin_up_year_is_scored(calibration: Any, time: Any) -> str | None:
     declared = getattr(calibration, "protocol", None)
     if getattr(declared, "name", None) != MatchingHydrographicNetwork.name:
         return None
-    if declared.storage is None or declared.scoring_window is not None:
+    if not declared.storage or declared.scoring_window is not None:
         return None
     if calibration.scoring_window is not None or calibration.warmup_periods:
         return None
@@ -744,11 +857,13 @@ def _phases(
         steady["precision"] = float(opts.steady_precision)
     if opts.steady_method_options:
         steady["method_options"] = dict(opts.steady_method_options)
-    if opts.storage is None:
+    if not opts.storage:
         return [steady]
 
-    # The window bounds every block the phase scores, a network one included,
-    # so the spin-up year leaves the hydrograph and a two-bound extent alike.
+    # The window bounds every block the phase scores. The protocol scores its
+    # network output in stage one alone, in one state, so the hydrograph is the
+    # only block it leaves the spin-up year out of: stage one is steady, which an
+    # extent table is refused on (the two-bound mode is outside the protocol).
     scored = ""
     if opts.scoring_window is None and default_window is not None:
         if default_window.get("end") is None:
@@ -856,6 +971,7 @@ def _raw_window(window: Any) -> Mapping[str, Any] | None:
 
 
 __all__ = [
+    "DEFAULTS_BY_VERSION",
     "HYDROGRAPH_BLOCK",
     "HYDROGRAPH_OUTPUT",
     "NETWORK_BLOCK",

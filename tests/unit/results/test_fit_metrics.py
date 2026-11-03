@@ -25,17 +25,23 @@ GAUGE = "J0014010"
 YEAR_2001 = DateWindow(start=date(2001, 1, 1), end=date(2001, 12, 31))
 
 
-def _rows(station: str, variable: str, times, values) -> list[dict]:
+def _rows(station: str, variable: str, times, values, source: str = "simulated") -> list[dict]:
     return [
-        {"station_id": station, "variable": variable, "time": t, "value": float(v)}
+        {
+            "station_id": station,
+            "variable": variable,
+            "source": source,
+            "time": t,
+            "value": float(v),
+        }
         for t, v in zip(times, values, strict=True)
     ]
 
 
 def _frame(sim_times, sim_values, obs_times, obs_values, *, gauge: str = GAUGE) -> pd.DataFrame:
     return pd.DataFrame(
-        _rows("_catchment", "discharge", sim_times, sim_values)
-        + _rows(gauge, "discharge_obs", obs_times, obs_values)
+        _rows("catchment", "discharge", sim_times, sim_values)
+        + _rows(gauge, "discharge", obs_times, obs_values, source="observed")
     )
 
 
@@ -102,7 +108,7 @@ def test_without_a_station_the_rows_exist_but_the_headline_is_empty() -> None:
     values = np.linspace(1.0, 4.0, len(days))
     frame = pd.DataFrame(
         _rows(GAUGE, "discharge", _closing(days), values)
-        + _rows(GAUGE, "discharge_obs", days, values)
+        + _rows(GAUGE, "discharge", days, values, source="observed")
     )
 
     scores = score_timeseries(frame, rule=MetricRule(window=YEAR_2001))
@@ -117,9 +123,9 @@ def test_the_headline_is_read_at_the_rule_station_only() -> None:
     values = np.linspace(1.0, 4.0, len(days))
     frame = pd.DataFrame(
         _rows("OTHER", "discharge", _closing(days), values)
-        + _rows("OTHER", "discharge_obs", days, values)
+        + _rows("OTHER", "discharge", days, values, source="observed")
         + _rows(GAUGE, "discharge", _closing(days), values)
-        + _rows(GAUGE, "discharge_obs", days, values * 2.0)
+        + _rows(GAUGE, "discharge", days, values * 2.0, source="observed")
     )
 
     scores = score_timeseries(frame, rule=MetricRule(station=GAUGE, window=YEAR_2001))
@@ -156,7 +162,8 @@ def test_a_lake_level_is_read_at_its_stamp() -> None:
     days = pd.date_range("2001-01-01", "2001-01-30", freq="D", tz="UTC")
     stages = np.linspace(80.0, 90.0, len(days))
     frame = pd.DataFrame(
-        _rows("lac0", "lake_level", days, stages) + _rows("lac0", "lake_level_obs", days, stages)
+        _rows("lac0", "lake_level", days, stages)
+        + _rows("lac0", "lake_level", days, stages, source="observed")
     )
     window = DateWindow(start=date(2001, 1, 1), end=date(2001, 1, 10))
 
@@ -174,8 +181,8 @@ def test_an_observed_station_meets_the_simulated_series_of_the_same_station() ->
     frame = pd.DataFrame(
         _rows("P1", "head", days, heads)
         + _rows("P2", "head", days, heads + 5.0)
-        + _rows("P1", "head_obs", days, heads)
-        + _rows("P3", "head_obs", days, heads)
+        + _rows("P1", "head", days, heads, source="observed")
+        + _rows("P3", "head", days, heads, source="observed")
     )
 
     scores = score_timeseries(frame, rule=MetricRule(window=YEAR_2001))

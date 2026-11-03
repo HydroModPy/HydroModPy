@@ -36,7 +36,11 @@ class _FakeCatalog:
         if has_timeseries:
             tables_dir.mkdir(parents=True, exist_ok=True)
             write_table_atomic(
-                pa.Table.from_pandas(pd.DataFrame({"variable": ["discharge"], "value": [1.0]})),
+                pa.Table.from_pandas(
+                    pd.DataFrame(
+                        {"variable": ["discharge"], "source": ["simulated"], "value": [1.0]}
+                    )
+                ),
                 tables_dir / "timeseries.parquet",
                 kv_metadata={"hmp.schema_version": PARQUET_SCHEMA_VERSION},
             )
@@ -70,7 +74,7 @@ class _FakeRun(Run):
         }
         return "ndarray_field"
 
-    def timeseries(self, var, *, station=None, period=None):
+    def timeseries(self, var, *, station=None, period=None, source="simulated"):
         self.recorded["timeseries"] = {
             "var": var,
             "station": station,

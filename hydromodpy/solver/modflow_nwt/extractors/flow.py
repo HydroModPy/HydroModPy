@@ -9,8 +9,8 @@ import numpy as np
 
 from hydromodpy.core.budget_terms import BudgetKeep
 from hydromodpy.core.exceptions import ExtractError, IncompatibleMeshError, MeshError
-from hydromodpy.core.field_routing import CATCHMENT_BUDGET_ZONE
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.scope import CATCHMENT, DOMAIN
 from hydromodpy.core.units.time import (
     CF_EPOCH,
     CF_TIME_UNITS,
@@ -407,11 +407,11 @@ class ModflowNwtOutputAdapter:
                 budget_records.append(
                     {
                         "timestep": t,
-                        "zone_id": "0",
+                        "zone_id": DOMAIN,
                         "component": comp_key,
                         "flux_in": flux_in,
                         "flux_out": abs(flux_out),
-                        "unit": "m3/s",
+                        "unit": "m3 s-1",
                     }
                 )
                 if catchment_cells is not None and arrays[0].ndim >= 2:
@@ -419,7 +419,7 @@ class ModflowNwtOutputAdapter:
                     budget_records.append(
                         {
                             "timestep": t,
-                            "zone_id": CATCHMENT_BUDGET_ZONE,
+                            "zone_id": CATCHMENT,
                             "component": comp_key,
                             "flux_in": weighted_period_scalar(
                                 [float(np.maximum(cells, 0).sum()) for cells in in_basin], weights
@@ -430,7 +430,7 @@ class ModflowNwtOutputAdapter:
                                     weights,
                                 )
                             ),
-                            "unit": "m3/s",
+                            "unit": "m3 s-1",
                         }
                     )
                 if per_cell and arrays[0].ndim >= 2:

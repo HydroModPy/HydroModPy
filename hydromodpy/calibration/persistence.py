@@ -47,6 +47,7 @@ from hydromodpy.results.session.descriptor import (
     ScoredSamples,
     SessionCase,
     SessionDescriptor,
+    SessionProtocol,
     SessionStatus,
     read_session,
     session_descriptor_path,
@@ -86,6 +87,14 @@ class PhaseContext:
     name: str = DEFAULT_PHASE
     index: int = 0
     restart: int = 0
+
+
+def _answered_first(lines: Sequence[TrialLine], answered: TrialLine | None) -> list[TrialLine]:
+    """Return ranked trials with the one the search answered first, unchanged without it."""
+    ranked = list(lines)
+    if answered is None:
+        return ranked
+    return [answered, *(line for line in ranked if line.trial != answered.trial)]
 
 
 class CalibrationPersistence:
@@ -155,6 +164,7 @@ class CalibrationPersistence:
         bounds: Mapping[str, ParameterBound],
         windows: Mapping[str, PeriodWindow],
         cost_label: str | None = None,
+        protocol: SessionProtocol | None = None,
     ) -> SessionDescriptor:
         """Write the opening descriptor and the running outcome."""
         now = datetime.now(UTC)
@@ -178,6 +188,7 @@ class CalibrationPersistence:
             cost_name=cost_name,
             cost_label=cost_label,
             windows=dict(windows),
+            protocol=protocol,
             started_at=now,
         )
         write_session(self._directory, descriptor)
@@ -474,6 +485,22 @@ class CalibrationPersistence:
         """Return the line of one trial, or None."""
         return next((line for line in self.trials() if line.trial == number), None)
 
+    def answered_trial(self, number: int | None, phase: str | None = None) -> TrialLine | None:
+        """Return the trial a search answered with its number, or None.
+
+        The answer of a search is not always the lowest number of the lowest cost: a
+        bisection answers inside its last bracket, and two trials often share one
+        ``abs(J)`` to the last digit. A search that read a point from the cache
+        answers with the number of that replay, and the point stays the trial that
+        solved it, so the run it became is found. A number out of the ranking is no
+        answer: a speculative trial, or no trial at all.
+        """
+        ranked = self._ranked(phase)
+        held = next((line for line in ranked if line.trial == number), None)
+        if held is None:
+            return None
+        return next(line for line in ranked if line.params == held.params)
+
     def held_trial(self, phase: str) -> TrialLine | None:
         """Return the trial a closed phase holds as its best, the one it passed on.
 
@@ -509,13 +536,17 @@ class CalibrationPersistence:
         """Return the trials as plain rows, one per trial number."""
         return [row for line in self.trials(phase) for row in trial_rows(line)]
 
-    def top_n(self, n: int, phase: str | None = None) -> list[dict[str, Any]]:
+    def top_n(
+        self, n: int, phase: str | None = None, *, answered: int | None = None
+    ) -> list[dict[str, Any]]:
         """Return the ``n`` best trials, as rows, ranked like :meth:`best_trial`.
 
         The first row is the trial the search froze, so the run promoted from it
-        is the value the session reports.
+        is the value the session reports. ``answered`` is the number of the trial
+        the search returned, the same rule as :meth:`held_trial`.
         """
-        return [row for line in self._ranked(phase)[: max(0, int(n))] for row in trial_rows(line)]
+        ranked = _answered_first(self._ranked(phase), self.answered_trial(answered, phase))
+        return [row for line in ranked[: max(0, int(n))] for row in trial_rows(line)]
 
 
 def _another_live_writer(outcome: Outcome) -> bool:

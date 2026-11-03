@@ -222,18 +222,20 @@ class HydroMesh:
     def with_cell_data(self, **fields: np.ndarray) -> HydroMesh:
         """Return a new mesh with validated per-cell arrays added.
 
-        The method preserves immutability of the original mesh and therefore
-        behaves as a light builder around the frozen dataclass.
+        An array holds one value per cell, or one row per cell with several
+        components. The method preserves immutability of the original mesh and
+        therefore behaves as a light builder around the frozen dataclass.
         """
         merged = dict(self.cell_data)
         for key, arr in fields.items():
             arr = np.asarray(arr)
-            if arr.reshape(-1).size != self.n_cells:
+            per_cell = arr.ndim == 2 and arr.shape[0] == self.n_cells
+            if not per_cell and arr.reshape(-1).size != self.n_cells:
                 raise ValueError(
                     f"cell_data['{key}'] must have {self.n_cells} values, "
                     f"got {arr.reshape(-1).size}"
                 )
-            merged[key] = arr.reshape(-1)
+            merged[key] = arr if per_cell else arr.reshape(-1)
         return HydroMesh(
             vertices=self.vertices,
             cell_blocks=self.cell_blocks,

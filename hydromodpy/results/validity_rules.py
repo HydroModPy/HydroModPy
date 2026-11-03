@@ -58,9 +58,12 @@ The register ships in the wheel next to this module and is read with
 
 A run exposes its quantities as tokens: ``metrics`` when it carries a
 score, ``heads@<solver>`` and ``fluxes@<solver>`` for its solver,
-``mesh@<engine>`` for its mesh engine. An issue hits a run when its versions
+``mesh@<engine>`` for its mesh engine, ``derived@<version>`` for the rules its
+seal stamps as ``derive_rule_version``. An issue hits a run when its versions
 contain the run's ``hydromodpy_version`` and one of its quantities is one of
-the run's. The register is a feature: a fix lands with its entry.
+the run's. The register is a feature: a fix lands with its entry. The derived
+fields are rebuilt on read, so a fix of one changes what an old run reads: the fix
+bumps ``DERIVE_RULE_VERSION`` and its entry names ``derived@<old version>``.
 """
 
 from __future__ import annotations
@@ -157,7 +160,11 @@ def known_issues_hitting(
 
 
 def run_quantities(
-    *, solver: str, mesh_engine: str | None = None, has_metrics: bool = False
+    *,
+    solver: str,
+    mesh_engine: str | None = None,
+    has_metrics: bool = False,
+    derive_rule_version: str | None = None,
 ) -> tuple[str, ...]:
     """Return the quantity tokens a run exposes, the vocabulary of the register."""
     tokens = [f"heads@{solver}", f"fluxes@{solver}"]
@@ -165,6 +172,8 @@ def run_quantities(
         tokens.append(f"mesh@{mesh_engine}")
     if has_metrics:
         tokens.append("metrics")
+    if derive_rule_version:
+        tokens.append(f"derived@{derive_rule_version}")
     return tuple(tokens)
 
 

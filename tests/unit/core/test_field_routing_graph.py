@@ -7,9 +7,9 @@ import pytest
 
 from hydromodpy.core.field_routing import (
     accumulate_on_downhill_graph,
+    budget_outflow,
+    budget_outflow_stack,
     build_downhill_graph,
-    drain_budget_stack_to_positive_outflow,
-    drain_budget_to_positive_outflow,
 )
 
 
@@ -83,22 +83,19 @@ def test_drain_stack_matches_per_timestep_helper() -> None:
     stack[rng.random(stack.shape) < 0.1] = np.nan
     stack[rng.random(stack.shape) < 0.05] = -99999.0
 
-    batched = drain_budget_stack_to_positive_outflow(stack, n_cells=n_cells)
-    per_timestep = np.stack(
-        [drain_budget_to_positive_outflow(stack[t], n_cells=n_cells) for t in range(n_timesteps)]
-    )
+    batched = budget_outflow_stack(stack, n_cells=n_cells)
+    per_timestep = np.stack([budget_outflow(stack[t], n_cells=n_cells) for t in range(n_timesteps)])
     assert np.allclose(batched, per_timestep, equal_nan=True)
 
 
-def test_drain_stack_all_positive_fallback_is_per_timestep() -> None:
-    # One timestep uses the outflow-positive sign convention, the other the
-    # standard negative convention; the fallback must not leak across rows.
+def test_a_positive_flux_enters_the_aquifer_at_every_step() -> None:
+    # No reader guesses a sign: an all-positive step is water that enters.
     stack = np.array(
         [
             [[1.0, 2.0, 3.0]],
             [[-1.0, -2.0, 0.0]],
         ]
     )
-    batched = drain_budget_stack_to_positive_outflow(stack, n_cells=3)
-    assert np.allclose(batched[0], [1.0, 2.0, 3.0])
+    batched = budget_outflow_stack(stack, n_cells=3)
+    assert np.allclose(batched[0], [0.0, 0.0, 0.0])
     assert np.allclose(batched[1], [1.0, 2.0, 0.0])

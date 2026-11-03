@@ -72,7 +72,7 @@ class _Run:
         return True
 
     def stations(self, variable: str) -> list[str]:
-        return ["_catchment", "sfr:net:1"]
+        return ["catchment", "net:1"]
 
     def timeseries(self, variable: str, *, station: str | None = None, **_) -> pd.Series:
         return pd.Series(np.linspace(1.0, 2.0, len(STAMPS)), index=STAMPS)
@@ -125,6 +125,14 @@ def _drawn(figure_name, run, monkeypatch=None):
 
 
 FIGURES = ["hydrograph", "hydrograph_sim_obs", "piezo", "sfr", "flux", "lake_stage", "residuals"]
+
+
+@pytest.fixture(autouse=True)
+def _one_reach(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "hydromodpy.display.figures.sfr_reach_timeseries.sfr_reach_links",
+        lambda _run: pd.DataFrame({"reach_id": ["net:1"], "network_id": ["net"], "reach": [1]}),
+    )
 
 
 def _shades(ax):

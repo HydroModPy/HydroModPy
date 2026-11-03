@@ -92,6 +92,7 @@ class TestImportCSVTimeseries:
             "datetime",
             "station_id",
             "variable",
+            "source",
             "value",
             "unit",
         ]
@@ -111,15 +112,15 @@ class TestImportCSVTimeseries:
 
     def test_unknown_variable_raises(self, tmp_path):
         out = tmp_path / "ts.csv"
-        out.write_text("site,case_id,datetime,station_id,variable,value,unit\n")
+        out.write_text("site,case_id,datetime,station_id,variable,source,value,unit\n")
         with pytest.raises(UnknownFieldError):
             import_csv_timeseries(out, variable="not_a_field")
 
     def test_unknown_variable_in_file_raises(self, tmp_path):
         out = tmp_path / "ts.csv"
         out.write_text(
-            "site,case_id,datetime,station_id,variable,value,unit\n"
-            "n,n_run,2020-01-01,outlet,bogus_variable,1.0,m\n"
+            "site,case_id,datetime,station_id,variable,source,value,unit\n"
+            "n,n_run,2020-01-01,outlet,bogus_variable,simulated,1.0,m\n"
         )
         with pytest.raises(UnknownFieldError):
             import_csv_timeseries(out)
@@ -136,7 +137,7 @@ class TestImportCSVTimeseries:
 
     def test_empty_file_returns_empty_frame(self, tmp_path):
         out = tmp_path / "empty.csv"
-        out.write_text("site,case_id,datetime,station_id,variable,value,unit\n")
+        out.write_text("site,case_id,datetime,station_id,variable,source,value,unit\n")
         df = import_csv_timeseries(out)
         assert df.empty
 

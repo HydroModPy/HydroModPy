@@ -80,13 +80,20 @@ def test_the_row_of_a_run_carries_n_clipped() -> None:
             {
                 "station_id": "_c",
                 "variable": "discharge",
+                "source": "simulated",
                 "time": t + pd.Timedelta(1, unit="D"),
                 "value": v,
             }
             for t, v in zip(DAYS.tz_localize("UTC"), values, strict=True)
         ]
         obs = [
-            {"station_id": "S", "variable": "discharge_obs", "time": t, "value": v}
+            {
+                "station_id": "S",
+                "variable": "discharge",
+                "source": "observed",
+                "time": t,
+                "value": v,
+            }
             for t, v in zip(DAYS.tz_localize("UTC"), OBSERVED, strict=True)
         ]
         return sim + obs

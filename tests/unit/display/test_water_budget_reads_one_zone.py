@@ -1,6 +1,6 @@
 """``water_budget`` reads one budget zone, never sums the domain and the catchment.
 
-``budgets`` may hold a whole-model-domain row (``zone_id="0"``) and a
+``budgets`` may hold a whole-model-domain row (``zone_id="domain"``) and a
 delineated-catchment row for the same component and timestep. A plain
 ``groupby("component")`` over both double-counts the water: the catchment is
 a subset of the domain.
@@ -49,7 +49,7 @@ class _ZonedBudgetRun:
         return pd.DataFrame(
             {
                 "component": ["recharge", "recharge"],
-                "zone_id": ["0", "catchment"],
+                "zone_id": ["domain", "catchment"],
                 "timestep": [0, 0],
                 "flux_in": [1.093, 0.586],
                 "flux_out": [0.0, 0.0],

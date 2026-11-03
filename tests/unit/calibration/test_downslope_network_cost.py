@@ -228,17 +228,9 @@ class TestValidityCriterion:
         assert result.components["r_optim"] < 2.0
         assert result.components["r_optim_valid"] == 1.0
 
-    def test_the_unreachable_guard_fails_the_trial(self, bench, geometry) -> None:
-        # Cut the catchment in half so most of the observed support can no
-        # longer reach anything: the trial must fail loudly rather than average
-        # over a truncated support.
-        observed = observed_network("aligned")
-        result = _evaluate(bench, geometry, observed, 200.0, max_unreachable_fraction=-1.0)
-        assert result.status == "failed"
 
-
-class TestTheUnreachableGuardIsOneSided:
-    """The bound holds on ``D_so`` and on nothing else.
+class TestTheUnreachableSharesAreReportedAndBoundNothing:
+    """Both shares are published, and neither refuses a trial.
 
     The two directions do not mean the same thing. ``D_so`` descends onto the
     mapped network, which does not move over the search, so a cell that never
@@ -270,7 +262,6 @@ class TestTheUnreachableGuardIsOneSided:
             cell_area_m2=geometry["areas"],
             length_scale_m=LENGTH_SCALE,
             saturation_cap_m=geometry["cap"],
-            max_unreachable_fraction=0.05,
         )
 
     def test_a_mapped_support_that_cannot_descend_leaves_the_trial_standing(
@@ -293,15 +284,18 @@ class TestTheUnreachableGuardIsOneSided:
         assert result.components["frac_unreachable_so"] == 0.0
         assert result.status == "ok"
 
-    def test_a_simulated_support_that_cannot_descend_fails_the_trial(self, bench, geometry) -> None:
-        # The same trial, with the descent to the mapped network taken away:
-        # this is the side the bound is on.
+    def test_a_simulated_support_that_cannot_descend_is_a_reported_share(
+        self, bench, geometry
+    ) -> None:
+        # The same trial, with the descent to the mapped network taken away. A
+        # geometry cannot produce this, the outlet being sealed into the target, so
+        # no status says it: the share is the whole record of it.
         result = self._evaluate(
             bench, geometry, self._truncated_network(), np.full(N_CELLS, np.inf)
         )
 
         assert result.components["frac_unreachable_so"] == pytest.approx(1.0)
-        assert result.status == "failed"
+        assert result.status == "ok"
 
 
 class TestSupportsAndDiagnostics:

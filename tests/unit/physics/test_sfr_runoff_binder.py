@@ -42,7 +42,7 @@ def _three_period_window() -> ResolvedSimulationTimeWindow:
 
 def _runoff_result() -> SimpleNamespace:
     record = PointRecord(
-        station_id="_catchment",
+        station_id="catchment",
         variable="runoff",
         source="sim2",
         unit="mm/day",

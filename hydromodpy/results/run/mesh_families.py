@@ -40,13 +40,13 @@ def mesh_families(run: Run) -> MeshFamilies:
     Raises
     ------
     FieldNotFoundError
-        The run was sealed before mesh families were stored, or has no mesh. A run
+        The mesh group names no engine, or the run has no mesh. A run
         that stored its mesh and has no family returns two empty tables.
     """
     if not _stores_families(run):
         raise FieldNotFoundError(
-            f"Run '{run.sim_id}' was sealed before mesh families were stored: its mesh group "
-            "names no engine, and no family table was written for it.",
+            f"Run '{run.sim_id}' stores no mesh families: its mesh group names no engine, "
+            "and no family table was written for it.",
             sim_id=run.sim_id,
             variable="mesh_families",
         )
@@ -61,7 +61,7 @@ def mesh_families(run: Run) -> MeshFamilies:
 
 
 def _stores_families(run: Run) -> bool:
-    """Say whether the mesh group of ``run`` carries the cell-mesh layout (it names an engine)."""
+    """Say whether the mesh group of ``run`` names an engine, which writes the family tables."""
     sz = run._catalog.open_zarr(run.sim_id)
     try:
         mesh = sz.root.get("mesh")

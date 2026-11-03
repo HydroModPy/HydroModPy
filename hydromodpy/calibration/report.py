@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.scope import CATCHMENT, OBSERVED, SIMULATED
 from hydromodpy.results.errors import SeveralCasesError
 from hydromodpy.results.metric_rule import CALIBRATION_ROLE, PeriodWindow
 from hydromodpy.results.session.descriptor import (
@@ -495,9 +496,11 @@ def _timeseries_table(run_dir: Path) -> pd.DataFrame | None:
     return None if table is None else table.to_pandas()
 
 
-def _series_of(table: pd.DataFrame, *, variable: str, station: str | None) -> pd.DataFrame | None:
-    """Return ``datetime, value`` rows of one variable at one station, or None when empty."""
-    rows = table[table["variable"] == variable]
+def _series_of(
+    table: pd.DataFrame, *, variable: str, source: str, station: str | None
+) -> pd.DataFrame | None:
+    """Return ``datetime, value`` rows of one series at one station, or None when empty."""
+    rows = table[(table["variable"] == variable) & (table["source"] == source)]
     if station is not None:
         rows = rows[rows["station_id"] == station]
     if rows.empty:
@@ -512,8 +515,8 @@ def _load_best_discharge(run_dir: Path) -> tuple[pd.DataFrame | None, pd.DataFra
     if table is None:
         return None, None
     return (
-        _series_of(table, variable="discharge", station="_catchment"),
-        _series_of(table, variable="discharge_obs", station=None),
+        _series_of(table, variable="discharge", source=SIMULATED, station=CATCHMENT),
+        _series_of(table, variable="discharge", source=OBSERVED, station=None),
     )
 
 
@@ -531,7 +534,7 @@ def _load_best_lake_level(run_dir: Path) -> tuple[pd.DataFrame | None, pd.DataFr
     if stages.empty:
         return None, None
     station = str(sorted(stages["station_id"].unique())[0])
-    return _series_of(table, variable="stage", station=station), None
+    return _series_of(table, variable="stage", source=SIMULATED, station=station), None
 
 
 def samples_text(samples: Mapping[str, Mapping[str, Any]]) -> str:

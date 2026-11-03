@@ -17,6 +17,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from hydromodpy.core.scope import SIMULATED
 from hydromodpy.solver.modflow_common.period_steps import group_ends_by_stamp
 
 __all__ = [
@@ -170,7 +171,7 @@ def timeseries_record(
         "timestep": int(timestep),
         "value": float(value),
         "unit": unit,
-        "qflag": "simulated",
+        "source": SIMULATED,
     }
     if time is not None:
         record["time"] = pd.Timestamp(time)

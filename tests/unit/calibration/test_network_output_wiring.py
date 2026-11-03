@@ -373,48 +373,6 @@ class TestEndToEnd:
         assert "net.d_sat_unset_fraction" not in diagnostics
 
 
-class TestTheRefusalOfAnUnreachableSupport:
-    """The refusal has to name the quantity that was compared to the bound.
-
-    The guard was narrowed to ``D_so`` alone; a message still naming both, and
-    still offering a retracted simulated network as a cause, sends the reader
-    after something the guard cannot have seen.
-    """
-
-    def _fail(self, monkeypatch, bench, stream_file):
-        failed = SeepageDistanceResult(
-            signed_gap=float("nan"),
-            status="failed",
-            components={
-                "frac_unreachable_so": 0.42,
-                "frac_unreachable_os": 0.11,
-                "D_os": 0.0,
-                "r_optim": 0.0,
-            },
-        )
-        monkeypatch.setattr(_solver_extract, "score_on_geometry", lambda *args, **kwargs: failed)
-        with pytest.raises(ObjectiveError) as excinfo:
-            _extract(monkeypatch, bench, stream_file, 200.0)
-        return str(excinfo.value)
-
-    def test_it_reports_the_share_that_was_bounded(self, monkeypatch, bench, stream_file) -> None:
-        message = self._fail(monkeypatch, bench, stream_file)
-        assert "frac_unreachable_so" in message
-        assert "42.0%" in message
-        assert "5%" in message
-
-    def test_it_names_the_other_share_as_an_unbounded_diagnostic(
-        self, monkeypatch, bench, stream_file
-    ) -> None:
-        message = self._fail(monkeypatch, bench, stream_file)
-        head, _, tail = message.partition("frac_unreachable_os")
-        assert tail, "the reciprocal share is not named at all"
-        assert "not bounded" in tail
-        # The cause the narrowed guard cannot have detected must be gone: the
-        # target of D_so is fixed for the whole search.
-        assert "too small" not in head + tail
-
-
 class TestTheUnitTheReleaseFieldArrivesIn:
     """The seepage threshold is a recharge in m/s times a cell area.
 

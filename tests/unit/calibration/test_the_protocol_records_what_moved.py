@@ -17,6 +17,7 @@ from hydromodpy.calibration.config import (
     CalibrationProtocolDecl,
 )
 from hydromodpy.calibration.protocols import (
+    deviations_in_force,
     protocol_options_away_from_the_recipe,
     protocol_record,
 )
@@ -117,52 +118,51 @@ def test_the_rasterisation_deviation_names_heads_as_the_new_default() -> None:
     assert entry["paper_value"] == "crossing"
 
 
+def _diagonal_item(*outputs_named: tuple[str, object]):
+    calibration = SimpleNamespace(outputs=dict(outputs_named), protocol=_declared())
+    return next(
+        item for item in deviations_in_force(calibration) if item.key == "diagonal_neighbors"
+    )
+
+
 def test_the_value_a_file_actually_set_is_reported_even_when_it_is_false() -> None:
     # A boolean default is the case a "skip what is None" reader gets wrong, and it
     # is the one that matters here: false IS the departure.
-    from hydromodpy.calibration.preflight import _values_this_file_set
-
-    cfg = SimpleNamespace(
-        calibration=SimpleNamespace(
-            outputs={
-                "net": CalibOutputNetwork.model_construct(
-                    support="network", diagonal_neighbors=False
-                )
-            }
-        )
+    item = _diagonal_item(
+        ("net", CalibOutputNetwork.model_construct(support="network", diagonal_neighbors=False))
     )
-    assert _values_this_file_set(cfg, ["diagonal_neighbors"]) == {"diagonal_neighbors": False}
+
+    assert item.written is True
+    assert item.value is False
+    assert item.state == "departs"
 
 
 def test_a_gauge_s_own_diagonal_neighbors_is_not_read_as_the_network_s() -> None:
     # Only the network output carries the criterion's diagonal_neighbors: a
     # value found on a gauge would report a departure the criterion never made.
-    from hydromodpy.calibration.preflight import _values_this_file_set
-
-    cfg = SimpleNamespace(
-        calibration=SimpleNamespace(
-            outputs={
-                "gauge": CalibOutputPoint.model_construct(
-                    support="point", diagonal_neighbors=False
-                ),
-                "net": CalibOutputNetwork.model_construct(
-                    support="network", diagonal_neighbors=True
-                ),
-            }
-        )
+    item = _diagonal_item(
+        ("gauge", CalibOutputPoint.model_construct(support="point", diagonal_neighbors=False)),
+        ("net", CalibOutputNetwork.model_construct(support="network", diagonal_neighbors=True)),
     )
-    assert _values_this_file_set(cfg, ["diagonal_neighbors"]) == {"diagonal_neighbors": True}
+
+    assert item.value is True
+    assert item.state == "as_paper"
 
 
 def test_a_default_the_file_left_unwritten_is_not_claimed_by_it() -> None:
     # "this file sets True" for a value the file never wrote sent the reader
     # looking for a line that is not there.
-    from hydromodpy.calibration.preflight import _values_in_force, _values_this_file_set
+    item = _diagonal_item(("net", CalibOutputNetwork.model_construct(support="network")))
 
-    cfg = SimpleNamespace(
-        calibration=SimpleNamespace(
-            outputs={"net": CalibOutputNetwork.model_construct(support="network")}
-        )
+    assert item.written is False
+    assert item.value is True
+
+
+def test_a_value_the_version_writes_is_not_claimed_by_the_file() -> None:
+    # The expansion writes the values of the version into the output, so a value
+    # that is merely the version's is set on the model and chosen by nobody.
+    item = _diagonal_item(
+        ("net", CalibOutputNetwork.model_construct(support="network", diagonal_neighbors=True))
     )
-    assert _values_this_file_set(cfg, ["diagonal_neighbors"]) == {}
-    assert _values_in_force(cfg, ["diagonal_neighbors"]) == {"diagonal_neighbors": True}
+
+    assert item.written is False

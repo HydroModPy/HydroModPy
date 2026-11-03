@@ -76,6 +76,7 @@ from hydromodpy.calibration.persistence import (
     PhaseContext,
 )
 from hydromodpy.calibration.protocols import (
+    deviations_in_force,
     protocol_options_away_from_the_recipe,
     protocol_record,
 )
@@ -1419,9 +1420,9 @@ def run_staged_calibration(
                 search = report.extra.get("search") or {}
                 # What the search answered with is what the phase passes on, which a
                 # tie on the cost can set apart from the lowest cost of the journal.
-                best_line = persistence.trial_line(report.best_trial) or persistence.best_trial(
-                    decl.name
-                )
+                best_line = persistence.answered_trial(
+                    report.best_trial, decl.name
+                ) or persistence.best_trial(decl.name)
                 pointer = persistence.best_pointer(best_line)
                 closed = persistence.finish_phase(
                     decl.name,
@@ -1665,27 +1666,16 @@ def _methods_paragraph_for(
         return None
     completed = [run.name for run in runs if _settled(run.report)]
     calibrated = {item.name: float(item.value) for item in frozen}
-    # Read on the network outputs only: a gauge is not the criterion the
-    # deviations describe.
+    # Every option a deviation is declared on, on the output the protocol scores.
     chosen: dict[str, object] = {}
-    for output in (cfg.outputs or {}).values():
-        if getattr(output, "support", None) != "network":
+    for item in deviations_in_force(cfg):
+        value = item.value
+        if value is None:
             continue
-        for key in (
-            "tau_specific_ratio",
-            "observed_position_accuracy",
-            "validity_length",
-            "weighting",
-            "diagonal_neighbors",
-            "observed_rasterization",
-        ):
-            value = getattr(output, key, None)
-            if value is None:
-                continue
-            # A length is a pint quantity; the paragraph prints it in metres.
-            if callable(getattr(value, "to", None)):
-                value = f"{float(value.to('m').magnitude):g} m"
-            chosen.setdefault(key, value)
+        # A length is a pint quantity; the paragraph prints it in metres.
+        if callable(getattr(value, "to", None)):
+            value = f"{float(value.to('m').magnitude):g} m"
+        chosen[item.key] = value
     for key, value in (geographic or {}).items():
         chosen.setdefault(key, value)
     conditional_widths = {
@@ -1708,6 +1698,7 @@ def _methods_paragraph_for(
         absent_widths=absent_widths or None,
         backend=backend,
         steady_window=steady_window,
+        version=cfg.protocol.version,
     )
     scoring = _scoring_sentence(runs)
     return paragraph if scoring is None else f"{paragraph}\n\n{scoring}"

@@ -128,12 +128,12 @@ class TestBudgetAndMassBalance:
     def test_budget_roundtrip(self, runs):
         store = runs.open(solver="modflow_nwt")
         for t in range(5):
-            store.write_budget(store.sim_id, t, "0", "recharge", 100.0 + t, 0.0)
-            store.write_budget(store.sim_id, t, "0", "drain", 0.0, 80.0 + t)
+            store.write_budget(store.sim_id, t, "domain", "recharge", 100.0 + t, 0.0)
+            store.write_budget(store.sim_id, t, "domain", "drain", 0.0, 80.0 + t)
 
         catalog = runs.catalog()
         assert len(catalog.query_budget(store.sim_id)) == 10
-        assert len(catalog.query_budget(store.sim_id, zone_id="0", period=(1, 3))) == 6
+        assert len(catalog.query_budget(store.sim_id, zone_id="domain", period=(1, 3))) == 6
 
     def test_mass_balance_roundtrip(self, runs):
         store = runs.open(solver="modflow_nwt")

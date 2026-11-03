@@ -166,7 +166,7 @@ def test_boussinesq_extractor_writes_cellwise_interfaces_and_volumetric_budgets(
             )
             np.testing.assert_allclose(
                 budget["surface_excess"][:],
-                np.asarray([[1.0e-7, 0.0], [0.0, 4.0e-7]], dtype=float),
+                np.asarray([[-1.0e-7, 0.0], [0.0, -4.0e-7]], dtype=float),
             )
             # Positive into the aquifer, as the registry and MODFLOW sign it.
             np.testing.assert_allclose(

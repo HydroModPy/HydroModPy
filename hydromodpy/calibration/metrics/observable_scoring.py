@@ -191,7 +191,7 @@ def network_state_period(time: Any, boundaries: Sequence[Any] | None, *, n_perio
 
     ``time`` is the output's ``"first"``, ``"last"`` or ISO date, resolved as
     :func:`hydromodpy.core.time.selection.resolve_instant` does: a date reads
-    the period ``[s, e)`` that holds it. A steady phase runs one period over
+    the period ``(s, e]`` that holds it. A steady phase runs one period over
     its window, so every date of that window reads its one state. A run of one
     period with no dates serves that state to any selector: nothing is there to
     tell a date from another. ``boundaries`` are the run's ``n_periods + 1``

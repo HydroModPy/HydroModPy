@@ -22,7 +22,7 @@ from hydromodpy.display.figures.hydrograph_log_nse import (
 
 from ._render_helpers import relative_luminance
 
-STATION = "_catchment"
+STATION = "catchment"
 
 
 @pytest.fixture
@@ -448,7 +448,6 @@ def test_the_catchment_outlet_is_named_in_the_title(mpl) -> None:
 
     try:
         assert ax.get_title().endswith("@ catchment outlet")
-        assert "_catchment" not in ax.get_title()
     finally:
         mpl.close(fig)
 

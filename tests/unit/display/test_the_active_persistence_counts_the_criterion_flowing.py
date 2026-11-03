@@ -4,7 +4,7 @@ The run is the monthly V-valley of :mod:`tests.unit.results._transient_network_r
 27 monthly steps: the whole axis flows in the 13 winter months, the outlet
 alone in the 14 others at two litres per second. With the default visible flow
 of 1 L/s the outlet flows at every step and the two upper axis cells at 13 of
-27. A field cut on ``accumulation_flux`` would read another network, so the
+27. A field cut on ``drain_accumulation_flux`` would read another network, so the
 map draws the criterion's count unless a caller names a field, and a run the
 criterion graph cannot be rebuilt on falls back to the field and says why.
 """
@@ -90,7 +90,7 @@ def test_the_map_draws_the_criterion_share_and_names_its_definition(mpl) -> None
     assert "tau" not in note
     assert "the share of the timesteps each cell flows, drawn uncut" in note
     assert "criterion settings: the defaults, this run sealed no network output" in note
-    assert "accumulation_flux" not in note
+    assert "drain_accumulation_flux" not in note
 
 
 def test_the_run_sealed_visible_flow_cuts_the_summer_outlet(mpl) -> None:
@@ -111,23 +111,23 @@ def test_a_named_field_is_drawn_as_asked(mpl, monkeypatch) -> None:
     monkeypatch.setattr(views, "cell_field_active_mask", lambda *_a, **_k: fraction)
     fig, ax = mpl.subplots()
     SimulatedActiveNetworkMap().render(
-        transient_run(), ax, mode="persistence", variable="accumulation_flux"
+        transient_run(), ax, mode="persistence", variable="drain_accumulation_flux"
     )
 
     assert "active persistence" in ax.get_title()
     note = legend_note(ax)
-    assert "active where accumulation_flux > 0" in note
+    assert "active where drain_accumulation_flux > 0" in note
     assert "not the criterion" not in note
 
 
 def test_a_run_the_criterion_cannot_read_falls_back_and_says_why(mpl, monkeypatch) -> None:
     run = transient_run()
-    run.has_field = lambda variable, **_: variable in {"accumulation_flux", "topography"}
+    run.has_field = lambda variable, **_: variable in {"drain_accumulation_flux", "topography"}
     fraction = np.full(NX * NY, 0.25)
     monkeypatch.setattr(views, "cell_field_active_mask", lambda *_a, **_k: fraction)
     fig, ax = mpl.subplots()
     SimulatedActiveNetworkMap().render(run, ax, mode="persistence")
 
     note = legend_note(ax)
-    assert "active where accumulation_flux > 0" in note
+    assert "active where drain_accumulation_flux > 0" in note
     assert "not the criterion's flowing cells: run has no per-cell release_flux" in note

@@ -34,7 +34,7 @@ def make_run(
     head=(1.0, 2.0),
     params=None,
     gauge="G",
-    unit="m3/s",
+    unit="m3 s-1",
     networks=(),
     flows=True,
     regime="transient",
@@ -48,7 +48,7 @@ def make_run(
     """
     stamps = pd.date_range(start, periods=n + 1, freq=freq)[1:]
     q_at = q if callable(q) else lambda _: q
-    series = {"discharge": ("_catchment", 0.0), "head": ("P1", 50.0)}
+    series = {"discharge": ("catchment", 0.0), "head": ("P1", 50.0)}
     offsets = {"watertable_elevation": 0.0, "watertable_depth": 100.0, "head": 0.0}
     terms = (("recharge", 2.0, 0.0), ("drain", 0.0, 2.0))
     budget = pd.DataFrame(
@@ -61,7 +61,7 @@ def make_run(
             "unit": unit,
         }
         for t in range(n if has_budget else 0)
-        for zone in ("0", "catchment")
+        for zone in ("domain", "catchment")
         for term, fin, fout in terms
     )
     columns = ("station", "metric", "value", "window_start", "window_end", "n_samples")
@@ -80,8 +80,8 @@ def make_run(
         values = [q_at(d) + series[variable][1] for d in stamps]
         return pd.Series(values, index=stamps, name=variable)
 
-    def stations(variable):
-        return ([gauge] if gauge else []) if variable.endswith("_obs") else [series[variable][0]]
+    def stations(variable, *, source="simulated"):
+        return ([gauge] if gauge else []) if source == "observed" else [series[variable][0]]
 
     return NS(
         name=name,
@@ -106,7 +106,7 @@ def make_run(
         timeseries=timeseries,
         field=lambda v, timestep: np.asarray(head) + offsets[v] + 10.0 * timestep,
         budget=lambda: budget,
-        has_field=lambda v: v in fields or (flows and v == "accumulation_flux"),
+        has_field=lambda v: v in fields or (flows and v == "drain_accumulation_flux"),
         has_hydrographic_network=lambda role: role in networks,
         observed=lambda v: pd.DataFrame({"datetime": stamps, "value": 1.0}),
     )
@@ -124,7 +124,7 @@ def make_run(
         ),
         ([make_run(), make_run("b", start="2000-01-05")], "share no date"),
         ([make_run(regime="steady", n=1), make_run("b")], "Steady and transient"),
-        ([make_run(), make_run("b", unit="m3/d")], "b has budget rows in ..m3/d.., not m3/s"),
+        ([make_run(), make_run("b", unit="m3/d")], "b has budget rows in ..m3/d.., not m3 s-1"),
         ([make_run(), make_run("b", head=[[1.0, 2.0]])], "watertable_elevation is not one value"),
     ],
 )
@@ -138,7 +138,7 @@ def test_two_series_pair_on_their_shared_dates_only() -> None:
     rows = c.compare([make_run(), late]).tables["series"].to_dict("records")
     assert rows[0] == {
         "variable": "discharge",
-        "station": "_catchment",
+        "station": "catchment",
         "run": "b",
         "reference": "a",
         "first": "2000-01-04 00:00:00",
@@ -194,7 +194,9 @@ def test_steady_runs_compare_whatever_date_their_solver_wrote(tmp_path: Path) ->
     result = c.compare([first, second], ["head"])
     assert result.tables["series"].iloc[0][["first", "n", "bias"]].tolist() == ["steady", 1, 2.0]
     assert result.tables["maps"].iloc[0][["date", "bias"]].tolist() == ["steady", 1.0]
-    budget = result.tables["budget"].query("run == 'b' and zone == '0'").set_index("term")["m3_s"]
+    budget = (
+        result.tables["budget"].query("run == 'b' and zone == 'domain'").set_index("term")["m3_s"]
+    )
     assert budget.to_dict() == {"drain": -2.0, "recharge": 2.0, "residual": 0.0}
     text = result.write(tmp_path).read_text()
     assert "Reference a. Steady state." in text
@@ -245,7 +247,7 @@ def test_budget_terms_stay_per_zone_and_are_weighted_by_duration_on_the_shared_d
     one = table.query("run == 'a' and zone == 'catchment'").set_index("term")["m3_s"]
     # (4 x 1 + 5 x 3) / 4
     assert one.to_dict() == {"drain": -4.75, "recharge": 4.75, "residual": 0.0}
-    assert set(table["zone"]) == {"0", "catchment"}
+    assert set(table["zone"]) == {"domain", "catchment"}
 
 
 def test_a_run_without_budget_rows_is_left_out_of_the_budget() -> None:

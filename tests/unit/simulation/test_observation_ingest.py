@@ -59,7 +59,7 @@ def _query(store: RunStore) -> pd.DataFrame:
 
 
 class TestIngest:
-    def test_writes_obs_variable_with_suffix(self, runs):
+    def test_writes_the_variable_as_observed(self, runs):
         store = runs.open()
         sid = store.sim_id
         loaded = _StubLoadedData(
@@ -70,11 +70,11 @@ class TestIngest:
 
         assert written == 1
         rows = _query(store)
-        assert list(rows["variable"].unique()) == ["discharge_obs"]
+        assert list(rows["variable"].unique()) == ["discharge"]
         assert list(rows["station_id"].unique()) == ["NANCON"]
         assert len(rows) == 5
-        assert rows["unit"].iloc[0] == "m3/s"
-        assert rows["qflag"].unique().tolist() == ["observed"]
+        assert rows["unit"].iloc[0] == "m3 s-1"
+        assert rows["source"].unique().tolist() == ["observed"]
         assert rows["value"].iloc[0] == 0.0
 
     def test_handles_multiple_managers(self, runs):
@@ -90,7 +90,7 @@ class TestIngest:
         assert written == 2
         rows = _query(store)
         variables = set(rows["variable"].unique())
-        assert variables == {"discharge_obs", "water_level_obs"}
+        assert variables == {"discharge", "water_level"}
 
     def test_skips_missing_managers(self, runs):
         store = runs.open()
@@ -124,7 +124,7 @@ class TestIngest:
         ingest_observations(sid, store, loaded)
 
         run = runs.catalog()[sid]
-        series = run.timeseries("discharge_obs", station="NANCON")
+        series = run.timeseries("discharge", station="NANCON", source="observed")
         assert isinstance(series, pd.Series)
         assert len(series) == 5
         assert series.iloc[0] == pytest.approx(0.0)

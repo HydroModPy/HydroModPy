@@ -73,7 +73,7 @@ DEFAULT_MODFLOW_OUTPUT_NAMES = [
     "outflow_drain",
     "groundwater_flux",
     "groundwater_storage",
-    "accumulation_flux",
+    "drain_accumulation_flux",
 ]
 
 NODATA_SENTINELS_BY_VARIABLE = {
@@ -603,7 +603,7 @@ def collect_store_field_signatures(
         try:
             result[name] = store_field_signature(store, sim_id, name)
         except KeyError:
-            # Variable may not exist (e.g. accumulation_flux when no drain).
+            # Variable may not exist (e.g. drain_accumulation_flux when no drain).
             # Mirror legacy behavior: skip silently so golden comparison
             # only covers variables that exist.
             pass

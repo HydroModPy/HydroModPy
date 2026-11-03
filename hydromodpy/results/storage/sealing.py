@@ -47,6 +47,7 @@ from hydromodpy.results.catalog.registration import split_stem_version
 from hydromodpy.results.checks import Checks
 from hydromodpy.results.export.run_identity import label_of
 from hydromodpy.results.manifest import (
+    DERIVE_RULE_VERSION,
     KEY_PACKAGES,
     InputEntry,
     ManifestBudget,
@@ -203,6 +204,7 @@ def build_record(store: RunStore, *, ended_at: datetime) -> RunRecord:
         code_reproducible=identity.code_reproducible,
     )
     return RunRecord(
+        derive_rule_version=DERIVE_RULE_VERSION,
         run=run,
         site=facts.site,
         geometry=geometry,

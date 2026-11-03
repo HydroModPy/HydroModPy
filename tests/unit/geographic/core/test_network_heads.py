@@ -7,7 +7,14 @@ loop has no free end: the point where a reach meets a pond outline is a junction
 
 import numpy as np
 import pytest
-from shapely.geometry import GeometryCollection, LinearRing, LineString, MultiLineString, Point
+from shapely.geometry import (
+    GeometryCollection,
+    LinearRing,
+    LineString,
+    MultiLineString,
+    Point,
+    Polygon,
+)
 
 from hydromodpy.spatial.geographic.core.network_heads import line_parts, network_head_candidates
 from tests._helpers.mesh_cases import LAMBERT93_WKT
@@ -61,6 +68,34 @@ def test_a_t_junction_without_a_shared_vertex_is_noded() -> None:
     heads = sorted(tuple(map(float, head)) for head in candidates.head_xy)
     assert heads == [(0.0, 0.0), (50.0, 80.0), (100.0, 0.0)]
     assert {tuple(map(float, end)) for end in candidates.reach_end_xy} == {(50.0, 0.0)}
+
+
+class TestAnEndOfTheCutIsNoHead:
+    OUTLINE = Polygon([(0.0, 0.0), (100.0, 0.0), (100.0, 100.0), (0.0, 100.0)])
+
+    def test_a_free_end_on_the_outline_is_left_out_and_counted(self) -> None:
+        lines = [LineString([(50.0, 50.0), (100.0, 50.0)])]
+        candidates = network_head_candidates(
+            lines, mesh_crs=CRS, geometry_crs=CRS, cut_outline=self.OUTLINE, cut_crs=CRS
+        )
+
+        assert _sorted_pairs(candidates) == [((50.0, 50.0), (100.0, 50.0))]
+        assert candidates.n_cut_ends == 1
+
+    def test_without_the_outline_every_free_end_is_a_candidate(self) -> None:
+        lines = [LineString([(50.0, 50.0), (100.0, 50.0)])]
+        candidates = network_head_candidates(lines, mesh_crs=CRS, geometry_crs=CRS)
+
+        assert candidates.n_candidates == 2
+        assert candidates.n_cut_ends == 0
+
+    def test_an_end_a_metre_inside_the_outline_is_a_head(self) -> None:
+        lines = [LineString([(50.0, 50.0), (99.0, 50.0)])]
+        candidates = network_head_candidates(
+            lines, mesh_crs=CRS, geometry_crs=CRS, cut_outline=self.OUTLINE, cut_crs=CRS
+        )
+
+        assert candidates.n_candidates == 2
 
 
 def test_the_lines_are_reprojected_to_the_mesh_crs() -> None:

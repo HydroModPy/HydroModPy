@@ -43,6 +43,7 @@ from pydantic import Field, field_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.stored import Vocabulary, read_stored
 from hydromodpy.core.io.document_version import VersionWindow
+from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.results.checks import Checks
 from hydromodpy.results.identity import Identity
 from hydromodpy.results.lineage import Lineage
@@ -245,7 +246,7 @@ class ParameterRow(HydroModelBase):
     """One parameter value of a run, in one zone."""
 
     name: str = Field(description="Parameter name as the solver builder knows it")
-    zone: str = Field(default="__global__", description="Zone the value applies to")
+    zone: str = Field(default=CATCHMENT, description="Zone the value applies to")
     value: float | None = None
     unit: str | None = None
     parameterization: str | None = Field(default=None, description="uniform, zonal, field...")
@@ -310,10 +311,24 @@ class ManifestBudget(HydroModelBase):
     kept_terms: list[str]
 
 
+DERIVE_RULE_VERSION: Final[str] = "1"
+"""Version of the rules that rebuild the derived fields of a run on read.
+
+A seal stamps it. A fix that changes what a stored run reads through a derived
+field bumps it and adds an entry to ``known_issues.toml`` on the token
+``derived@<old version>``, which :func:`hydromodpy.results.validity_rules.run_quantities`
+gives a run sealed under that version.
+"""
+
+
 class Manifest(HydroModelBase):
-    """The seal of a completed run directory, version 2."""
+    """The seal of a completed run directory, version 3."""
 
     manifest_version: int = Field(default=RUN_RECORD_MANIFEST_VERSION)
+    derive_rule_version: str = Field(
+        default=DERIVE_RULE_VERSION,
+        description="Version of the rules the derived fields of this run are rebuilt by",
+    )
     sealed_at: datetime
     run: ManifestRun
     site: ManifestSite | None = None

@@ -61,6 +61,23 @@ def _ratios(components, *, best=None, space=None, outputs=("network",), trial_ct
     )
 
 
+class TestTheRechargeBesideK:
+    def test_the_line_of_k_gives_the_window_of_its_recharge(self) -> None:
+        time = SimpleNamespace(start_datetime="2000-01-01", end_datetime="2002-12-31T00:00:00")
+        trial_ctx = SimpleNamespace(base_cfg=SimpleNamespace(simulation=SimpleNamespace(time=time)))
+
+        extra = _ratios({"network.R_mean_m_s": 2.0e-8}, trial_ctx=trial_ctx)
+
+        assert "m/s over 2000-01-01 to 2002-12-31 on output" in extra["k_over_r_note"]
+        assert extra["r_mean_window"] == {"start": "2000-01-01", "end": "2002-12-31"}
+
+    def test_a_run_with_no_dates_says_none(self) -> None:
+        extra = _ratios({"network.R_mean_m_s": 2.0e-8})
+
+        assert " over " not in extra["k_over_r_note"]
+        assert "r_mean_window" not in extra
+
+
 class TestPaperRatios:
     def test_every_ratio_of_table_1_for_a_conductivity_search(self) -> None:
         extra = _ratios(

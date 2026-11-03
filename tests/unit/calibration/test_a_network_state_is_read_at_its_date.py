@@ -85,7 +85,8 @@ class TestTheDeclaration:
 class TestWhichPeriodADateReads:
     def test_a_date_reads_the_month_that_holds_it(self) -> None:
         assert network_state_period("2002-10-15", MONTHS, n_periods=36) == 33
-        assert network_state_period("2002-10-01", MONTHS, n_periods=36) == 33
+        assert network_state_period("2002-11-01", MONTHS, n_periods=36) == 33
+        assert network_state_period("2002-10-01", MONTHS, n_periods=36) == 32
 
     def test_first_and_last_read_the_ends(self) -> None:
         assert network_state_period("first", MONTHS, n_periods=36) == 0

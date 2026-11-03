@@ -21,8 +21,10 @@ import zarr
 
 from hydromodpy.core.budget_terms import BudgetKeep
 from hydromodpy.core.state.paths import INTERNAL_DIRNAME
+from hydromodpy.results.export.run_identity import label_of
 from hydromodpy.results.identity import ZARR_IDENTITY_ATTR, read_identity_from
 from hydromodpy.results.manifest import (
+    DERIVE_RULE_VERSION,
     InputEntry,
     Manifest,
     MetricRow,
@@ -47,6 +49,7 @@ from hydromodpy.results.storage.contract import (
 )
 from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.results.storage.sealing import seal_completed, sealed_config_hash
+from hydromodpy.results.validity_rules import RULE_VERSION
 from tests._helpers.run_stores import open_run_store
 
 CATCHMENT = {
@@ -147,6 +150,13 @@ def test_an_unsealed_attempt_is_never_closed_as_completed(filled: RunStore) -> N
         close_sealed_attempt(filled.run_dir)
     assert read_outcome(filled.run_dir).status == "running"
     assert (filled.run_dir / INTERNAL_DIRNAME).is_dir()
+
+
+def test_the_seal_stamps_the_rules_of_the_derived_fields(filled: RunStore) -> None:
+    manifest = seal_completed(filled)
+
+    assert manifest.derive_rule_version == DERIVE_RULE_VERSION
+    assert label_of(manifest).rule_version == RULE_VERSION
 
 
 def test_the_manifest_carries_the_facts_of_the_run(filled: RunStore) -> None:

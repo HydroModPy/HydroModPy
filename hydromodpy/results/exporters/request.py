@@ -588,6 +588,7 @@ class _Writer:
                 **self._once("global_attrs", self.target.global_attrs),
                 **_netcdf_identity_attrs(self.target.identity),
             },
+            layer=self.request.layer,
         )
 
     def _quality_values(self, names: Sequence[str]) -> dict[str, np.ndarray]:

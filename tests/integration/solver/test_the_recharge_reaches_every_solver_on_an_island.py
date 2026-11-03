@@ -68,7 +68,7 @@ def _project(
 
 def _budget_last(root: Path, name: str) -> dict[str, tuple[float, float]]:
     table = pd.read_parquet(root / "runs" / name / "tables.parquet" / "budgets.parquet")
-    table = table[table["zone_id"].astype(str) == "0"]
+    table = table[table["zone_id"].astype(str) == "domain"]
     last = table[table["timestep"] == table["timestep"].max()]
     return {row.component: (row.flux_in, row.flux_out) for row in last.itertuples()}
 
@@ -112,7 +112,7 @@ value = 1e-5
     run_island(config)
 
     table = pd.read_parquet(root / "runs" / "deficit" / "tables.parquet" / "budgets.parquet")
-    table = table[table["zone_id"].astype(str) == "0"]
+    table = table[table["zone_id"].astype(str) == "domain"]
     assert "evapotranspiration" in set(table["component"])
     recharge = table[table["component"] == "recharge"].sort_values("timestep")
     rates = recharge["flux_in"].to_numpy()
@@ -195,7 +195,7 @@ def test_a_steady_first_period_receives_the_time_mean(tmp_path: Path, solver: st
     run_island(_three_month_island(root, "steady", solver=solver, first_period_steady=True))
 
     table = pd.read_parquet(root / "runs" / "steady" / "tables.parquet" / "budgets.parquet")
-    table = table[table["zone_id"].astype(str) == "0"]
+    table = table[table["zone_id"].astype(str) == "domain"]
     recharge = table[table["component"] == "recharge"].sort_values("timestep")
     rates = recharge["flux_in"].to_numpy(dtype=float)
 

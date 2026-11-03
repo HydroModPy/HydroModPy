@@ -16,6 +16,7 @@ import pytest
 from hydromodpy.core.stream_criterion_defaults import STREAM_CRITERION_DEFAULTS
 from hydromodpy.results.derive.network_criterion_settings import network_criterion_settings
 from hydromodpy.results.derive.stream_network import network_comparison_from_run
+from hydromodpy.spatial.geographic.core import network_heads
 from tests._helpers.sealed_runs import sealed_search
 from tests.unit.display._network_comparison_run import AXIS_COLUMN, cell, comparison_run
 
@@ -41,6 +42,7 @@ def _redraw(run):
         observed_rasterization=settings.observed_rasterization,
         heads_snap_radius_m=settings.heads_snap_radius_m,
         heads_min_drained_area_km2=settings.heads_min_drained_area_km2,
+        clip_map_to_catchment=settings.clip_map_to_catchment,
     )
 
 
@@ -71,3 +73,28 @@ def test_the_sealed_radius_loses_a_head_the_default_would_keep() -> None:
 
     with pytest.raises(ValueError, match="snap radius 30 m"):
         _redraw(_sealed_run(heads_snap_radius="30 m", heads_min_drained_area_km2=0.04))
+
+
+@pytest.mark.parametrize(
+    ("sealed", "cut"),
+    [
+        ({}, True),
+        ({"clip_map_to_catchment": True}, True),
+        ({"clip_map_to_catchment": False}, False),
+    ],
+)
+def test_the_redraw_takes_no_end_of_the_cut_for_a_head_unless_the_run_did(
+    monkeypatch, sealed, cut
+) -> None:
+    real = network_heads.network_head_candidates
+    outlines = []
+
+    def spy(lines, **kwargs):
+        outlines.append(kwargs.get("cut_outline"))
+        return real(lines, **kwargs)
+
+    monkeypatch.setattr(network_heads, "network_head_candidates", spy)
+
+    _redraw(_sealed_run(heads_snap_radius=50.0, heads_min_drained_area_km2=0.04, **sealed))
+
+    assert (outlines[0] is not None) is cut
