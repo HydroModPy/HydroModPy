@@ -3,9 +3,9 @@
 Current inference scope (V3)
 ----------------------------
 - ``domain.zone_ids`` containing ``geology`` -> activate ``geology``
-- ``flow.active_bc`` containing ``stream`` -> activate ``hydrography``
-- ``flow.active_bc`` containing ``ocean`` -> activate ``oceanic``
-- ``flow.active_bc`` containing ``lake`` -> activate the lake
+- ``[flow.bc.stream]`` active -> activate ``hydrography``
+- ``[flow.bc.ocean]`` active -> activate ``oceanic``
+- ``[flow.sinks_sources.lakes.<name>]`` active -> activate the lake
   families the model actually consumes (``lake_geometry``, ``lake_abacus``,
   ``lake_inflow``, ``lake_withdrawal``). Families without a consumer
   (``lake_bathymetry``, ``lake_levels``, ``lake_outflow``) are not auto-inferred
@@ -68,8 +68,8 @@ class DataPlanner:
             Raw untyped TOML dictionary used for custom-section inference
             (for example custom hook payloads).
         flow_active_bc:
-            Validated `flow.active_bc` list used for boundary-condition-driven
-            inference (`stream`/`ocean`).
+            The active boundaries of the run, `FlowConfig.active_bc`, used for
+            boundary-condition-driven inference (`stream`/`ocean`).
         flow_soil_reservoir:
             Whether ``[flow.sinks_sources.recharge.soil]`` is declared. A plain
             bool, not the config object: the planner lives in `data/`, which
@@ -110,14 +110,14 @@ class DataPlanner:
                 inferred_types,
                 reasons_by_type,
                 "hydrography",
-                "inferred from flow.active_bc containing 'stream'",
+                "inferred from [flow.bc.stream]",
             )
         if "ocean" in active_bc and "oceanic" not in explicit_set:
             self._add_inference(
                 inferred_types,
                 reasons_by_type,
                 "oceanic",
-                "inferred from flow.active_bc containing 'ocean'",
+                "inferred from [flow.bc.ocean]",
             )
 
         if "lake" in active_bc:
@@ -137,7 +137,7 @@ class DataPlanner:
                         inferred_types,
                         reasons_by_type,
                         lake_family,
-                        "inferred from flow.active_bc containing 'lake'",
+                        "inferred from [flow.sinks_sources.lakes]",
                     )
 
         if flow_soil_reservoir:

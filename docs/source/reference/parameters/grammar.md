@@ -347,7 +347,7 @@ match a name written elsewhere.
 | Table | The key is | It must match |
 |---|---|---|
 | {toml}`flow.param.<id>` | a parameter name: `K`, `Sy`, `Ss` | an entry of {toml}`flow.param_list`; `field.id`, if written, is the same name |
-| {toml}`flow.bc.<name>` | one of `drainage`, `ocean`, `stream`, `north_side`, `south_side`, `east_side`, `west_side` | the same id in {toml}`flow.active_bc`; a table is optional when the registry describes the boundary |
+| {toml}`flow.bc.<name>` | one of `drainage`, `ocean`, `stream`, `north_side`, `south_side`, `east_side`, `west_side` | nothing: the table turns the boundary on, even empty, and `enabled = false` in it turns it off |
 | {toml}`flow.sinks_sources.wells.<name>`, `lakes`, `sfr`, `flow_barriers` | a name you choose | for a lake, the `lake_id` of a calibration output with `support = "lake"` |
 | {toml}`domain.supports.<name>` | a name you choose | `field_spatial_id` of the parameters that use it, and `data.geology.id` for a geology support |
 | {toml}`calibration.parameters.<name>` | `K`, `Sy`, `Ss`, `thickness` or `drainage` resolve to their target; any other name needs `path` | `parameters` of a calibration phase |

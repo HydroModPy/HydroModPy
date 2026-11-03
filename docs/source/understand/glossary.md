@@ -184,7 +184,7 @@ hydraulic head
   Elevation of the {term}`water table` at a point. It is the unknown that the model computes in
   each cell; the {term}`depth to water table` is deduced from it.
 
-  *In the file (initial state):* {toml}`flow.ic.h.type`.
+  *In the file (initial state):* {toml}`flow.ic.h.kind`.
 
 hydrograph
   Curve of the flow as a function of time.
@@ -197,7 +197,7 @@ initial condition
   State of the water table at the start of the computation. In example 04, a first month in
   {term}`steady state` provides it.
 
-  *In the file:* {toml}`flow.ic.h.type`, {toml}`flow.first_period_steady`.
+  *In the file:* {toml}`flow.ic.h.kind`, {toml}`flow.first_period_steady`.
 
 interfluve
   The higher ground between two valleys. The water table is deep under it.

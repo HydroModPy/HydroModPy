@@ -482,7 +482,7 @@ def _relax_for_loader(node: dict[str, Any]) -> None:
 def _admit_flat_flow_ic(schema: dict[str, Any]) -> None:
     """Accept the flat ``[flow.ic]`` form next to the ``{h = ...}`` container.
 
-    ``FlowConfig`` normalises ``[flow.ic] type = "top"`` into the container
+    ``FlowConfig`` normalises ``[flow.ic] kind = "top"`` into the container
     before validation, so the model schema only describes the container.
     """
     defs = schema.get("$defs", {})

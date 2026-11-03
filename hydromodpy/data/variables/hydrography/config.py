@@ -151,8 +151,7 @@ class HydrographyConfig(HydroModelBase):
     """Top-level hydrography configuration.
 
     The section lists stream-network sources used by data loading and boundary
-    preparation. It is commonly inferred when ``flow.active_bc`` contains a
-    stream boundary condition.
+    preparation. It is commonly inferred when ``[flow.bc.stream]`` is declared.
 
     ``mask_path`` sits here and not on a source because the manager concatenates
     every source before clipping **once**: two sources disagreeing on the extent

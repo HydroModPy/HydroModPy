@@ -305,14 +305,14 @@ class Boussinesq:
             raise IncompatibleCapabilitiesError(
                 "The boussinesq backend does not support advanced-package "
                 "boundaries (LAK lake/reservoir); they require the modflow6 "
-                "backend. Offending active_bc: " + ",".join(advanced_bc) + "."
+                "backend. Offending boundaries: " + ",".join(advanced_bc) + "."
             )
 
         unsupported: list[str] = []
         if unsupported_bc:
-            unsupported.append("active_bc=" + ",".join(unsupported_bc))
+            unsupported.append("boundaries " + ",".join(unsupported_bc))
         if unsupported_sinks_sources:
-            unsupported.append("active_sinks_sources=" + ",".join(unsupported_sinks_sources))
+            unsupported.append("sinks and sources " + ",".join(unsupported_sinks_sources))
 
         if unsupported:
             raise NotImplementedError(

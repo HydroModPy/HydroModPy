@@ -218,9 +218,9 @@ _ADVANCED_PACKAGE_LABEL: Mapping[str, str] = {
 """Display label for the active_bc ids the registry declares 'advanced_package'.
 
 RIV and GHB would join this table -- neither ties its conductance to K by
-construction -- but neither is a constructible ``flow.active_bc`` id today:
+construction -- but neither is a constructible boundary id today:
 ``FLOW_BOUNDARY_DEFINITIONS`` (``boundary_condition_registry.py``) declares no
-'riv' and no 'ghb' entry, so ``flow.active_bc = ["riv"]`` is refused at config
+'riv' and no 'ghb' entry, so a ``[flow.bc.riv]`` table is refused at config
 load, before a calibration ever reaches this guard.
 """
 

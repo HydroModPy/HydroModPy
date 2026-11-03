@@ -79,8 +79,7 @@ class OceanicConfig(BaseVariableConfig):
     """Top-level oceanic configuration.
 
     The section groups sea-level sources and an optional date window. It is
-    commonly inferred when ``flow.active_bc`` contains an ocean boundary
-    condition.
+    commonly inferred when ``[flow.bc.ocean]`` is declared.
     """
 
     _TOML_SECTION = "oceanic"

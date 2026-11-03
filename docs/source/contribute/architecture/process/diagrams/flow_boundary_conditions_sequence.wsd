@@ -9,7 +9,7 @@ participant "BoundaryConditionBundle" as Bundle
 participant "Solver adapter" as Adapter
 participant "Backend package/operator" as Backend
 
-User -> FlowConfig: define [flow.bc]\nand flow.active_bc
+User -> FlowConfig: define [flow.bc]
 FlowConfig -> Normalizer: validate and normalize sections
 Normalizer --> FlowConfig: flat mapping keyed by bc id
 

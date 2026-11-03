@@ -108,7 +108,7 @@ faces with it, removes the mixed cell.
 
 ```{hmp-params}
 flow.param.K.field.value
-flow.param.K.field_vertical_profile.mode
+flow.param.K.field_vertical_profile.kind
 data.geology.cell_samples_per_axis
 domain.supports.<name>.default_cell_samples_per_axis
 ```

@@ -189,12 +189,12 @@ Four periods of equal length with rates 2, 4, 9 and 1, from calls of
 
 Periods 1 to 3 keep 4, 9 and 1 in both rows.
 
-A run that starts from a steady state of its own ({toml}`flow.ic`, type
+A run that starts from a steady state of its own ({toml}`flow.ic`, kind
 `steady_state`) builds an auxiliary steady model for that state, with
 `first_clim` set to `"mean"`, or to the prescribed rate. That model has one period
 and reads the rates of the run's periods with their lengths, so the mean is the
 same one. The starting states are
-the types of {doc}`[flow.ic] <../reference/parameters/flow/ic>`.
+the kinds of {doc}`[flow.ic] <../reference/parameters/flow/ic>`.
 
 In the code: `apply_first_clim`.
 

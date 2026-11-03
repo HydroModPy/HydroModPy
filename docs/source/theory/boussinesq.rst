@@ -495,7 +495,7 @@ start to its end, so the run reports no change of storage over it. When the key 
 false, the first period is a backward Euler step from the initial heads, like the
 others.
 
-The initial heads come from :toml:`flow.ic.h.type`. With ``steady_state``, the solver
+The initial heads come from :toml:`flow.ic.h.kind`. With ``steady_state``, the solver
 first runs one steady solve with the same method, under the time mean of the recharge,
 each period by its length, or under the rate of :toml:`flow.ic.h.rate`, with the boundary
 heads of the first period.
@@ -569,7 +569,7 @@ the engine. Open a row for its card.
    flow.bc.drainage.value
    solver.drain_bed_thickness_m
    flow.bc.stream.value
-   flow.ic.h.type
+   flow.ic.h.kind
    flow.ic.h.source
    flow.ic.h.rate
    flow.bc.<name>.support_label

@@ -91,7 +91,7 @@ symbols:
     symbol: h_0
     meaning: head at the start of the run
     unit: m
-    set_by: ":toml:`type|flow.ic.h.type`"
+    set_by: ":toml:`kind|flow.ic.h.kind`"
     group: space
     pages: [notation, groundwater-flow]
   - id: ztop
@@ -284,7 +284,7 @@ symbols:
     symbol: f(d)
     meaning: factor that scales a property with the depth :math:`d` below the top
     unit: "-"
-    set_by: ":toml:`mode|flow.param.K.field_vertical_profile.mode`"
+    set_by: ":toml:`kind|flow.param.K.field_vertical_profile.kind`"
     group: ground
     pages: [notation, groundwater-flow, solvers/field-to-cell-parameter-transfer]
   - id: dc
@@ -335,7 +335,7 @@ symbols:
     symbol: \Phi_{n,p}
     meaning: flow into cell :math:`n` from the stress package :math:`p`, positive into the aquifer
     unit: m³/s
-    set_by: ":toml:`flow.active_sinks_sources`, :toml:`flow.active_bc`"
+    set_by: ":toml:`flow.sinks_sources`, :toml:`flow.bc`"
     group: fluxes
     pages: [groundwater-flow, exits, exits/simulated-network]
 

@@ -354,7 +354,7 @@ The head at the start of the run, $h_0$, is declared in the flat table `[flow.ic
 Its value is the same in every layer of a column. `bottom` is the bottom of the
 deepest layer.
 
-| `type` | $h_0$ |
+| `kind` | $h_0$ |
 |---|---|
 | `top` | $z_\mathrm{top}$ |
 | `top_offset` | $z_\mathrm{top} - v$, with $v$ the `value` |
@@ -364,7 +364,7 @@ deepest layer.
 | `spinup_cyclic` | the state a cyclic run settles at, see below |
 
 In every case, a cell on an imposed head (an ocean, a stream or a side boundary)
-starts at that head. `top` is a full aquifer; the card of {toml}`flow.ic.h.type`
+starts at that head. `top` is a full aquifer; the card of {toml}`flow.ic.h.kind`
 gives the default.
 
 **The equilibrium.** For `steady_state`, the code first solves an auxiliary
@@ -512,13 +512,13 @@ domain.layers.pinch_out
 flow.param.K.field.value
 flow.param.Sy.field.value
 flow.param.Ss.field.value
-flow.param.K.field_vertical_profile.mode
+flow.param.K.field_vertical_profile.kind
 flow.param.K.field_vertical_profile.characteristic_depth
 flow.param.K.field_vertical_profile.min_factor
 modflow6.process_specific.vka
 flow.flow_regime
 flow.first_period_steady
-flow.ic.h.type
+flow.ic.h.kind
 flow.ic.h.value
 flow.ic.h.source
 flow.ic.h.boundary_condition_policy

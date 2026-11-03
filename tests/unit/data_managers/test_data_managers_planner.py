@@ -92,7 +92,7 @@ def test_planner_infers_hydrography_from_flow_stream_boundary() -> None:
 
     assert plan.inferred_types == ("hydrography",)
     assert plan.types == ("hydrography",)
-    assert "flow.active_bc" in plan.reasons_for("hydrography")[0]
+    assert "[flow.bc.stream]" in plan.reasons_for("hydrography")[0]
 
 
 def test_planner_infers_oceanic_from_flow_ocean_boundary() -> None:
@@ -107,7 +107,7 @@ def test_planner_infers_oceanic_from_flow_ocean_boundary() -> None:
 
     assert plan.inferred_types == ("oceanic",)
     assert plan.types == ("oceanic",)
-    assert "flow.active_bc" in plan.reasons_for("oceanic")[0]
+    assert "[flow.bc.ocean]" in plan.reasons_for("oceanic")[0]
 
 
 def test_planner_does_not_duplicate_explicit_oceanic() -> None:
