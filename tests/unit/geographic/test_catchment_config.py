@@ -4,11 +4,15 @@ The table and the DEM of the dem shape have no default. A synthetic support
 still leaves the catchment out, and a [data.dem] source may still give the DEM.
 """
 
+from pathlib import Path
+
 import pytest
 from pydantic import ValidationError
 
+from hydromodpy.config import HydroModPyConfig
 from hydromodpy.spatial.geographic.catchment_config import DemCatchDef
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
+from hydromodpy.spatial.geographic.river_network_config import river_network_for_the_mesh
 
 _OUTLET = {
     "kind": "from_outlet_coord",
@@ -37,6 +41,14 @@ def test_the_catchment_and_the_dem_of_the_dem_shape_have_no_default_but_a_source
     bootstrap = {"allow_dem_bootstrap": True}
     dem_shape = {"catchment": {"kind": "dem"}}
     assert GeographicConfig.model_validate(dem_shape, context=bootstrap).dem_init_path is None
+
+
+def test_a_dem_from_a_data_source_survives_the_assignment_of_the_section():
+    example = Path(__file__).parents[3] / "examples/projects/12_network_calibration_from_apis"
+    cfg = HydroModPyConfig.from_toml(example / "project.toml")
+    assert cfg.geographic.dem_init_path is None
+    cfg.geographic = river_network_for_the_mesh(cfg)
+    assert cfg.geographic.dem_init_path is None
 
 
 @pytest.mark.parametrize(

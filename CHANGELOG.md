@@ -100,6 +100,8 @@ version 1 or from an alpha. The long development notes of the alphas are kept in
 
 ### Fixed
 
+- A project whose DEM comes from a `[data.dem]` source alone, with no `dem_init_path`, opens again.
+  Assigning the geographic section refused it before any step ran.
 - The citations of the soil reservoir are checked against the sources. The AMC I and III
   formulas now cite NEH-630, whose table they fit, the limits of `curve_number` point to the same
   handbook, and the default of `alpha` says it is a choice made here.

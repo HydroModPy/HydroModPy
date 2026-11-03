@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Annotated, Any, ClassVar, Literal
 
-from pydantic import Field, ValidationInfo, field_validator, model_validator
+from pydantic import Field, PrivateAttr, ValidationInfo, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
@@ -32,6 +32,10 @@ class GeographicConfig(HydroModelBase):
     Synthetic mode builds an analytical support and bypasses external DEM
     delineation.
     """
+
+    # A [data.dem] source was in view when this section was accepted. Assigning the
+    # section on the root validates it again, with no such view.
+    _dem_from_data: bool = PrivateAttr(default=False)
 
     model_refused_keys: ClassVar[Mapping[str, str]] = {
         "enforce_streams": (
@@ -468,8 +472,9 @@ class GeographicConfig(HydroModelBase):
         if self.catchment is None:
             raise ValueError(MISSING_CATCHMENT)
         context = info.context or {}
-        allow_dem_bootstrap = bool(context.get("allow_dem_bootstrap"))
-        if self.catchment.dem_init_path is None and not allow_dem_bootstrap:
+        if context.get("allow_dem_bootstrap"):
+            self._dem_from_data = True
+        if self.catchment.dem_init_path is None and not self._dem_from_data:
             raise ValueError(
                 f"kind='{self.catchment.kind}' requires 'dem_init_path' "
                 "(path to the DEM raster or XYZ text file)."
