@@ -98,7 +98,7 @@ class Modflow6FlowAdapter:
         backend always writes.
         """
         active = _active_bc(config)
-        lake_declared = bool({"lake", "reservoir"} & active)
+        lake_declared = "lake" in active
         sfr_declared = "sfr" in active
         return (
             servable("head", "read at any cell from the head file"),
@@ -110,8 +110,8 @@ class Modflow6FlowAdapter:
                 if lake_declared
                 else under_condition(
                     "stage",
-                    "add 'lake' (or 'reservoir') to flow.active_bc and declare the lake "
-                    "under flow.sinks_sources.lakes; MODFLOW 6 builds LAK on that.",
+                    "declare the lake under flow.sinks_sources.lakes; MODFLOW 6 builds LAK "
+                    "on that.",
                 )
             ),
             (
@@ -119,8 +119,8 @@ class Modflow6FlowAdapter:
                 if sfr_declared
                 else under_condition(
                     "routed_discharge",
-                    "add 'sfr' to flow.active_bc and declare the network under "
-                    "flow.sinks_sources.sfr; without it the discharge at a cell is the "
+                    "declare the network under flow.sinks_sources.sfr; without it the "
+                    "discharge at a cell is the "
                     "upstream accumulation of the release flux instead.",
                 )
             ),

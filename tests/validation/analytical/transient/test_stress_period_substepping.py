@@ -567,7 +567,7 @@ def _boussinesq_step_rmse(workspace: Path, *, solver: str, substeps: int) -> flo
     )
     flow_section: dict[str, object] = {
         "flow_regime": "transient",
-        "ic": {"type": "custom", "value": base_head},
+        "ic": {"kind": "custom", "value": base_head},
         "active_sinks_sources": [],
         "active_bc": ["west_side", "east_side"],
         "bc": {

@@ -56,10 +56,10 @@ PRIVATE_TRIAL_RECHARGE_KEY: str = "trial_owns_its_recharge"
 TRIAL_RECHARGE_DIRNAME: str = "_recharge"
 
 ETP_IGNORED_OUTSIDE_SOIL_MODE = (
-    'flow.active_sinks_sources lists "etp", and MODFLOW 6 draws no ETP from the water '
+    "[flow.sinks_sources.etp] is declared, and MODFLOW 6 draws no ETP from the water "
     "table outside soil mode: the loaded ETP is ignored, as before. Declare "
     "[flow.sinks_sources.recharge.soil] to send the ETP the soil leaves unmet to the "
-    'EVT package, or remove "etp" from flow.active_sinks_sources.'
+    "EVT package, or remove [flow.sinks_sources.etp]."
 )
 
 
@@ -365,8 +365,8 @@ def resolve_deferred_heterogeneous_recharge(model) -> None:
 def bind_soil_etp_from_flow(model) -> None:
     """Resolve the soil residual ETP source MODFLOW 6 draws through EVTA.
 
-    Outside soil mode MODFLOW 6 has never read the ETP ``"etp"`` activates in
-    ``flow.active_sinks_sources``; a project without a soil section keeps that
+    Outside soil mode MODFLOW 6 has never read the ETP [flow.sinks_sources.etp]
+    activates; a project without a soil section keeps that
     behaviour, with one warning added (``ETP_IGNORED_OUTSIDE_SOIL_MODE``).
     """
     model._soil_etp_source = None

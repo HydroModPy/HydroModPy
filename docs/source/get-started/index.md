@@ -24,7 +24,7 @@ connection):
 |---|---|---|
 | `pip install --pre hydromodpy` | Installs the package and its geospatial wheels, 1.3 GB in a clean environment. | about 2 min |
 | `hmp workspace init` | Makes `~/hydromodpy`, with 27 data folders and the project `example`. | 8 s |
-| `hmp run .../run_demo.toml` | Solves a synthetic 1 km square with MODFLOW-NWT. No download, except the solver itself the very first time. | 9 to 15 s |
+| `hmp run .../run_demo.toml` | Solves a synthetic 1 km square under a steady recharge with MODFLOW-NWT. No download, except the solver itself the very first time. | 9 to 15 s |
 | `hmp example add 04` | Fetches the Nançon catchment, 92 MiB, most of it a regional DEM. Cached by content: a second workspace costs nothing. | 20 s |
 | `hmp run .../step1_minimal.toml` | Solves the real catchment in steady state with MODFLOW 6, draws five figures and writes four files. | 25 to 45 s |
 

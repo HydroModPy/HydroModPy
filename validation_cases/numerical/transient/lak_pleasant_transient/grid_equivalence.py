@@ -222,7 +222,7 @@ def _lake_definition(geometry: PleasantTransientGeometry, *, period: int) -> dic
             "volume": [row[1] for row in geometry.abacus_rows],
             "sarea": [row[2] for row in geometry.abacus_rows],
         },
-        "stageinit": geometry.stage_init_m,
+        "initial_stage": geometry.stage_init_m,
         "rainfall": {"value": geometry.rainfall_m_per_s[period], "units": "m/s"},
         "evaporation": {"value": geometry.evaporation_m_per_s[period], "units": "m/s"},
         "runoff": {"value": geometry.runoff_m3_per_s[period], "units": "m3/s"},

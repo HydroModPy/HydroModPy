@@ -10,9 +10,6 @@ run without a README.
 from __future__ import annotations
 
 import argparse
-import json
-import math
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -22,8 +19,15 @@ from hydromodpy.cli.conventions import (
     verbosity_parser,
     workspace_parser,
 )
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, apply_verbosity, exit_code_for
-from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
+from hydromodpy.cli.helpers import (
+    EXIT_NOT_FOUND,
+    apply_verbosity,
+    exit_code_for,
+    project_root_of,
+    refuse,
+)
+from hydromodpy.cli.output import emit
+from hydromodpy.core.state.paths import catalog_path_for
 
 NAME: str = "show"
 HELP: str = "Print the README of a run, or its facts, metrics and parameters from the index"
@@ -50,16 +54,9 @@ def register(subparsers) -> argparse.ArgumentParser:
 def run(args: argparse.Namespace) -> None:
     apply_verbosity(args, {})
     from hydromodpy.cli._workers.catalog import show_simulation
-    from hydromodpy.results.catalog import (
-        AmbiguousReferenceError,
-        Catalog,
-        SimulationNotFoundError,
-    )
 
-    project_root = resolve_project_root(
-        Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
-    )
-    named = bool(getattr(args, "workspace", None))
+    project_root = project_root_of(args)
+    named = bool(args.workspace)
     if (
         args.format == "table"
         and not args.detail
@@ -67,18 +64,16 @@ def run(args: argparse.Namespace) -> None:
     ):
         return
     if not catalog_path_for(project_root).is_file():
-        print(f"No index at {project_root}; run `hmp catalog reindex` first", file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
+        refuse(f"No index at {project_root}; run `hmp catalog reindex` first", EXIT_NOT_FOUND)
 
-    try:
-        payload = show_simulation(args.sim_ref, workspace=project_root, detail=args.detail)
-    except (AmbiguousReferenceError, SimulationNotFoundError, FileNotFoundError) as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(exit_code_for(exc))
+    payload = show_simulation(args.sim_ref, workspace=project_root, detail=args.detail)
 
-    if args.format == "json":
-        print(json.dumps(_finite(payload), indent=2, default=str))
-        return
+    emit(args, "catalog show", payload, table=lambda: _print_facts(project_root, payload, args))
+
+
+def _print_facts(project_root: Path, payload: dict[str, Any], args: argparse.Namespace) -> None:
+    """Print what the index holds about one run, for people."""
+    from hydromodpy.results.catalog import Catalog
 
     name = payload.get("name") or payload["sim_id"][:8]
     print(f"Run {name}")
@@ -145,17 +140,6 @@ def run(args: argparse.Namespace) -> None:
     print(f"next: hmp catalog tag {ref} +pinned | hmp catalog diff {ref} <other>")
 
 
-def _finite(value: Any) -> Any:
-    """Return *value* with every NaN and infinity replaced by ``None``, as strict JSON needs."""
-    if isinstance(value, float) and not math.isfinite(value):
-        return None
-    if isinstance(value, dict):
-        return {key: _finite(item) for key, item in value.items()}
-    if isinstance(value, list | tuple):
-        return [_finite(item) for item in value]
-    return value
-
-
 def _print_readme(project_root: Path, ref: str, named: bool) -> bool:
     """Print the README of the run ``ref`` names; ``False`` when it carries none.
 
@@ -170,8 +154,7 @@ def _print_readme(project_root: Path, ref: str, named: bool) -> bool:
         rel_dir = resolve_rel_dir(project_root, ref)
     except Exception as exc:  # noqa: BLE001 - map resolver errors to typed exit codes
         hint = "" if named else " Name the workspace or the project with -w."
-        print(f"{exc}{hint}", file=sys.stderr)
-        sys.exit(exit_code_for(exc))
+        refuse(f"{exc}{hint}", exit_code_for(exc), cause=exc)
     run_dir = project_root / rel_dir
     readme = run_dir / README_FILENAME
     if not readme.is_file():

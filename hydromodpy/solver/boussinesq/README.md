@@ -106,10 +106,10 @@ Starting from one validated `Flow` process object:
 
 1. `flow.flow_regime`
    selects the temporal problem kind (`steady` or `transient`);
-2. `flow.runtime_backend`
+2. `flow.runtime.backend`
    selects the requested execution family (`local`, `scipy`,
    `scipy_sparse`, `petsc`);
-3. `flow.surface_interaction_model`
+3. `flow.runtime.surface_interaction_model`
    selects or requests the groundwater/surface closure
    (`auto`, `regularized_partition`, `complementarity`);
 4. `methods/`

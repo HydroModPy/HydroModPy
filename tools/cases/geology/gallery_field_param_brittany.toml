@@ -8,4 +8,4 @@ csv_value_column = "K_value"
 field_spatial_id = "field_geology"
 
 [field_vertical_profile]
-mode = "none"
+kind = "none"

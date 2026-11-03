@@ -561,7 +561,7 @@ def _run_boussinesq_irregular(*, timeout: int) -> ValidationRunResult:
         "flow_regime": "transient",
         "runtime_max_iterations": 80,
         "runtime_tol_residual_inf": 1.0e-7,
-        "ic": {"type": "custom", "value": INITIAL_HEAD_M},
+        "ic": {"kind": "custom", "value": INITIAL_HEAD_M},
         "active_sinks_sources": ["recharge"],
         "active_bc": ["east_side", "drainage"],
         "sinks_sources": {
@@ -575,7 +575,7 @@ def _run_boussinesq_irregular(*, timeout: int) -> ValidationRunResult:
             "east_side": {"value": EAST_HEAD_M},
             "drainage": {
                 "application_domain": "top",
-                "kind": "cauchy",
+                "kind": "drain",
                 "value": DRAINAGE_CONDUCTANCE_M2_S,
             },
         },

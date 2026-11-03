@@ -3,7 +3,7 @@
 Mutates ``os.environ['PROJ_DATA']`` / ``PROJ_LIB`` so PROJ uses the database
 that ships with the active environment, and falls back to a compatible
 candidate when the layout version is too old. This is opt-in: call
-``hydromodpy.bootstrap_proj()`` from user code or CLI when needed.
+``hydromodpy.core.io.proj_bootstrap.bootstrap_proj()`` from user code or CLI when needed.
 ``import hydromodpy`` does not run it.
 """
 
@@ -271,8 +271,8 @@ def bootstrap_proj() -> None:
 
     Examples
     --------
-    >>> import hydromodpy as hmp
-    >>> hmp.bootstrap_proj()
+    >>> from hydromodpy.core.io.proj_bootstrap import bootstrap_proj
+    >>> bootstrap_proj()
     """
     _ensure_proj_data_from_env()
     _ensure_proj_db_compatibility()

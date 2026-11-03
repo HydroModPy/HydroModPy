@@ -325,7 +325,7 @@ def network_comparison_from_run(
         clipping_warning_gap=float(clipping_warning_gap),
     )
 
-    release = np.asarray(sim.field("release_flux", timestep=timestep), dtype=float).reshape(-1)
+    release = np.asarray(sim.field("release_flux", time=timestep), dtype=float).reshape(-1)
     if release.size != n_cells:
         raise ValueError(
             f"release_flux holds {release.size} cells and the mesh holds {n_cells}; "

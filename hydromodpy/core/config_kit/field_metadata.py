@@ -14,7 +14,6 @@ Use :func:`field_metadata` when declaring a new ``Field``::
         json_schema_extra=field_metadata(
             widget_type="input",
             unit="m/s",
-            display_name_fr="Conductivite hydraulique",
         ),
     )
 
@@ -60,8 +59,6 @@ class FieldMetadata(TypedDict, total=False):
 
     widget_type: WidgetType
     unit: str
-    display_name_fr: str
-    help_text_fr: str
     display_min: float
     display_max: float
     calibrable: Any
@@ -95,12 +92,16 @@ def field_metadata(**kwargs: Any) -> dict[str, Any]:
 
 def is_valid_field_metadata(payload: dict[str, Any]) -> bool:
     """Return True when *payload* only contains canonical keys."""
-    return set(payload).issubset(_ALLOWED_KEYS)
+    return not unknown_metadata_keys(payload)
 
 
 def unknown_metadata_keys(payload: dict[str, Any]) -> set[str]:
-    """Return the set of keys in *payload* that are not canonical."""
-    return set(payload) - _ALLOWED_KEYS
+    """Return the set of keys in *payload* that are not canonical.
+
+    An ``x-hmp-`` key is an extension of the published schema, written by a model that
+    carries a vocabulary, and is not counted.
+    """
+    return {key for key in payload if key not in _ALLOWED_KEYS and not key.startswith("x-hmp-")}
 
 
 __all__ = [

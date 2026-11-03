@@ -82,14 +82,14 @@ def _time_grid(cfg: object) -> tuple[Any, int] | None:
 def _time_selectors(cfg: object) -> list[tuple[str, str, Any]]:
     """Return every ``(where, kind, selector)`` a config reads a time with.
 
-    ``kind`` is ``"instant"`` for one selector and ``"period"`` for a
-    ``(start, end)`` pair. The ``[[export]]`` blocks give ``time`` and
-    ``period``; ``[display]`` gives ``time``, and so can the options of each
-    figure under ``[display.overrides.<figure>]``.
+    ``kind`` is ``"instant"`` for one selector, ``"dates"`` for a list of them
+    and ``"period"`` for a ``(start, end)`` pair. The ``[[export]]`` blocks give
+    ``time`` and ``period``; ``[display]`` gives ``time``, and so can the options
+    of each figure under ``[display.overrides.<figure>]``.
     """
     selectors: list[tuple[str, str, Any]] = []
     for index, request in enumerate(getattr(cfg, "export", None) or ()):
-        selectors.extend((f"export[{index}].time", "instant", item) for item in request.times)
+        selectors.append((f"export[{index}].time", "dates", request.times))
         if request.period is not None:
             selectors.append((f"export[{index}].period", "period", request.period))
     display = getattr(cfg, "display", None)
@@ -108,10 +108,15 @@ def check_time_selectors(cfg: object) -> None:
     Reads every time selector of ``[[export]]`` and ``[display]`` against the
     stress periods ``[simulation.time]`` resolves to: a date outside the
     record, a date on a steady run without a window, a step index past the
-    end. Run by step 0 of ``hmp run`` and by ``hmp config check``, so the
+    end, two dates of one list that read the same period. Run by step 0 of ``hmp run`` and by ``hmp config check``, so the
     mistake costs nothing: no solve is paid for before it is caught.
     """
-    from hydromodpy.core.time import TimeSelectionError, resolve_instant, resolve_period
+    from hydromodpy.core.time import (
+        TimeSelectionError,
+        resolve_instant,
+        resolve_instants,
+        resolve_period,
+    )
 
     selectors = _time_selectors(cfg)
     if not selectors:
@@ -126,6 +131,8 @@ def check_time_selectors(cfg: object) -> None:
         try:
             if kind == "period":
                 resolve_period(selector[0], selector[1], edges, n_periods=count)
+            elif kind == "dates":
+                resolve_instants(selector, edges, n_periods=count)
             else:
                 resolve_instant(selector, edges, n_periods=count)
         except TimeSelectionError as exc:

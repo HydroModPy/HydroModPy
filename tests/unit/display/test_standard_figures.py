@@ -295,14 +295,14 @@ def test_hydrograph_sim_obs_marks_single_sample_series(mpl) -> None:
         def observed(self, variable: str, station: str | None = None) -> pd.DataFrame:
             # A lone discharge stamp with no known start, as this run has no
             # catalog row, takes the mean of the whole record. That record has
-            # to reach the stamp, and one sample alone has no interval, so it
-            # holds two.
+            # to reach the stamp, and under three samples it has no interval, so it
+            # holds three.
             return pd.DataFrame(
                 {
-                    "datetime": pd.to_datetime(["2000-06-13", "2000-06-14"]),
-                    "station_id": ["NANCON", "NANCON"],
-                    "variable": [variable, variable],
-                    "value": [1.4, 1.5],
+                    "datetime": pd.to_datetime(["2000-06-12", "2000-06-13", "2000-06-14"]),
+                    "station_id": ["NANCON"] * 3,
+                    "variable": [variable] * 3,
+                    "value": [1.4, 1.5, 1.5],
                 }
             )
 

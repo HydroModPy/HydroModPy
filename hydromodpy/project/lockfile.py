@@ -6,7 +6,7 @@ The launcher of a ``[sites]`` project writes ``hydromodpy.lock`` once, at
 the end of the prepare phase, from the shared cache every prepared case
 filled (:mod:`hydromodpy.project.launch.prepare`). The workers then run
 ``--frozen`` against it. No run rewrites it: a lockfile rewritten by every
-run was a writer of the cache in every run. ``hmp dev lock`` writes it by
+run was a writer of the cache in every run. ``hmp lock`` writes it by
 hand for a single project.
 
 Why the file stays at the project root
@@ -24,7 +24,7 @@ question and answers it *before* anything runs:
 - Its scope is the **workspace data cache**, not one run: it freezes every
   catalog entry with its digest, including files no run has consumed yet.
 - It is the surface ``hmp run --frozen`` verifies before launching, and the
-  reference ``hmp dev lock verify`` compares the cache against. A manifest is
+  reference ``hmp lock verify`` compares the cache against. A manifest is
   written when a run ends, so it cannot gate one that has not started.
 - It is an input-side artefact, the sibling of ``project.toml`` and
   ``configs/`` that a user commits next to them, exactly as ``poetry.lock``

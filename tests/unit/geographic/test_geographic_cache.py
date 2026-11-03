@@ -29,7 +29,7 @@ from tests._helpers.geographic_cases import (
 from tests._helpers.geotiffs import write_geotiff
 
 FILL_FINGERPRINT_WITHOUT_THE_BURN = (
-    "e98e054d5ea4b7e52eb24e122f7a85384b6e2338528dedb35b527b8708490ffb"
+    "220dff94bfb6faf7fa95d9b9e8d2de890fb9db49b98b4d720898507cffa5aa7e"
 )
 """The fingerprint of 79fe734ea, before the capped breach existed, minus the retired sections.
 

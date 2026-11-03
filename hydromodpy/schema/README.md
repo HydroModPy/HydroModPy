@@ -74,8 +74,8 @@ hydromodpy/schema/
 For a front end, from a terminal or from Python:
 
 ```
-hmp dev schema export --output ./schema/
-hmp dev schema validate-field <path> <value> [--context FILE]
+hmp config schema --bundle --to ./schema/
+hmp config validate-field <path> <value> [--context FILE]
 ```
 
 There is no HTTP server. A consumer ships the JSON over its own transport.

@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.core.exceptions import ObjectiveError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.physics.flow.property_ids import CONDUCTIVITY_IDS
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.optim.parameters import ParameterSpace
@@ -96,13 +97,10 @@ def _assert_bounds_valid(trial_ctx: Any, space: ParameterSpace) -> None:
                 ) from exc
 
 
-_CONDUCTIVITY_PARAM_IDS: tuple[str, ...] = ("K", "Kx", "Ky", "Kz")
-
-
 def moves_a_hydraulic_conductivity(paths: Iterable[str | None]) -> bool:
     """True when one of ``paths`` addresses a hydraulic conductivity field.
 
-    Matches ``flow.param.K``, ``Kx``, ``Ky`` or ``Kz`` at any depth under it
+    Matches ``flow.param.K``, ``Kv`` or ``K22`` at any depth under it
     (a per-zone value included) and nothing else: ``flow.param.Ss`` shares the
     ``flow.param`` prefix but not the id. Shared by the two guards below and by
     :mod:`hydromodpy.calibration.preflight`, which faces the same declared
@@ -113,7 +111,7 @@ def moves_a_hydraulic_conductivity(paths: Iterable[str | None]) -> bool:
             continue
         parts = str(path).split(".")
         if len(parts) >= 3 and parts[0] == "flow" and parts[1] == "param":
-            if parts[2] in _CONDUCTIVITY_PARAM_IDS:
+            if parts[2] in CONDUCTIVITY_IDS:
                 return True
     return False
 
@@ -216,7 +214,6 @@ def _assert_network_conductance_proportional(
 _ADVANCED_PACKAGE_LABEL: Mapping[str, str] = {
     "sfr": "SFR (routed stream reaches)",
     "lake": "LAK",
-    "reservoir": "LAK",
 }
 """Display label for the active_bc ids the registry declares 'advanced_package'.
 
@@ -343,7 +340,11 @@ def _assert_the_scored_catchment_is_the_delineated_one(
             return
         run_ctx = resolved[1]
         for name, output in sorted(bounded.items()):
-            gap = scored_catchment_mismatch(run_ctx, output)
+            try:
+                gap = scored_catchment_mismatch(run_ctx, output)
+            except ValueError as exc:
+                # A map that draws no stream, in the words of a trial.
+                raise ObjectiveError(f"Network output {name!r}: {exc}") from exc
             bound = float(output.verdict.max_catchment_mismatch)
             if gap > bound:
                 raise ObjectiveError(
@@ -351,9 +352,13 @@ def _assert_the_scored_catchment_is_the_delineated_one(
                     "read on the descent graph differs from the delineated one by that share "
                     f"of its area, over the {bound:.1%} bound of "
                     "verdict.max_catchment_mismatch. The criterion would score another basin "
-                    "than the one asked for. An outlet on another branch does this, and so "
-                    "does a mesh too coarse for the catchment. Check the outlet, refine the "
-                    "mesh, or write a larger bound knowing what it buys."
+                    "than the one asked for. Three causes: an outlet on another branch, a mesh "
+                    "too coarse for the catchment, or two conditionings of one DEM that "
+                    "disagree along the divide (the polygon is cut on one, the descent graph "
+                    "is built on the other, and a finer mesh does not close that gap). Check "
+                    "the outlet first. If the gap is the third kind and you accept it, write "
+                    "a larger bound, or max_catchment_mismatch = false, under "
+                    "[calibration.outputs.<name>.verdict], knowing what it buys."
                 )
             logger.info(
                 "Network output %s: catchment_mismatch = %.2f%% of the delineated area, under "

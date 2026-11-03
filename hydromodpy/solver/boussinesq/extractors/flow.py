@@ -18,6 +18,42 @@ from hydromodpy.solver.boussinesq.export_payload import first_period_snapshot
 logger = get_logger(__name__)
 
 
+def _storage_flux(payload, *, first_snapshot: int, n_periods: int) -> np.ndarray | None:
+    """Return the mean flux out of storage of each period, ``(n_periods, n_cells)`` in m3/s.
+
+    MODFLOW signs it: positive when water leaves storage to enter the flow. It is
+    the opposite of the temporal term of the transient residual, the change of
+    the drainable volume ``area * Sy * max(h - z_bottom, 0)`` over the period. The
+    volume is a state, so the steps of a period telescope to its two ends. On a
+    cell with an imposed head the constant-head flux already holds that term. A
+    first period solved steady starts from its own solution, so it changes nothing.
+    ``None`` for a steady history, whose first snapshot closes a period.
+    """
+    if first_snapshot == 0:
+        return None
+    missing = [
+        name
+        for name in ("storage_coefficient", "z_bottom_m", "cell_area_m2")
+        if payload.get(name) is None
+    ]
+    if missing:
+        raise KeyError(f"Boussinesq storage budget requires {', '.join(missing)}")
+    stop = first_snapshot + n_periods
+    head = np.asarray(payload["head_history_m"], dtype=float)[first_snapshot - 1 : stop]
+    volume = (
+        np.asarray(payload["cell_area_m2"], dtype=float)
+        * np.asarray(payload["storage_coefficient"], dtype=float)
+        * np.maximum(head - np.asarray(payload["z_bottom_m"], dtype=float), 0.0)
+    )
+    elapsed = np.asarray(payload["snapshot_elapsed_seconds"], dtype=float)
+    flux = -np.diff(volume, axis=0) / np.diff(elapsed[first_snapshot - 1 : stop]).reshape(-1, 1)
+    imposed = payload.get("prescribed_head_history_m_by_cell")
+    if imposed is not None and np.size(imposed):
+        free = ~np.isfinite(np.asarray(imposed, dtype=float)[first_snapshot:stop])
+        flux = flux * free
+    return flux
+
+
 class BoussinesqOutputAdapter:
     """Read Boussinesq state history and inject fields into a Catalog.
 
@@ -160,6 +196,10 @@ class BoussinesqOutputAdapter:
         residual counts ``drain``, ``surface_excess`` and ``constant_head``
         positive when water leaves, so those three are negated here, once, and
         the state group keeps the solver histories as the solver wrote them.
+
+        ``storage`` is the term of the transient residual, the change of the
+        drainable volume over the period: :func:`_storage_flux`. A steady history
+        changes no storage and writes no such term.
         """
         area = None if cell_area_m2 is None else np.asarray(cell_area_m2, dtype=float).reshape(-1)
         if area is not None and area.size != int(n_cells):
@@ -205,6 +245,7 @@ class BoussinesqOutputAdapter:
                 _rate_to_flux("saturation_excess_history_m_s", "saturation excess")
             ),
             "constant_head": _leaving(_history("prescribed_head_flux_history_m3_s")),
+            "storage": _storage_flux(payload, first_snapshot=first_snapshot, n_periods=n_timesteps),
         }
         return {name: stack for name, stack in candidates.items() if stack is not None}
 
@@ -245,15 +286,16 @@ class BoussinesqOutputAdapter:
     ) -> None:
         """Write the per-cell budget terms the run keeps, with solver units.
 
-        ``surface_excess`` is written like any other term: the seepage mask is
-        rebuilt on read from it. The ``budget/`` group then records the policy
-        and the terms kept.
+        A term has the ``(time, layer, cell)`` shape of every solver, with its one
+        layer. ``surface_excess`` is a flux at the land surface and has no layer:
+        the seepage mask is rebuilt on read from it. The ``budget/`` group then
+        records the policy and the terms kept.
         """
         written: list[str] = []
         for name, stack in components.items():
             if not budget_terms.keeps(name):
                 continue
-            values = stack.reshape(stack.shape[0], 1, -1) if name == "well" else stack
+            values = stack if name == "surface_excess" else stack[:, np.newaxis, :]
             store.write_field_stack(sim_id, name, values, subgroup="budget")
             written.append(name)
 

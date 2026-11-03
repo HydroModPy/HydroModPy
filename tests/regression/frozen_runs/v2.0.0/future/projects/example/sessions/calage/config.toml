@@ -1,0 +1,118 @@
+[geographic]
+source_mode = "synthetic"
+crs_project = "EPSG:2154"
+
+[geographic.synthetic]
+case_id = "example_synthetic"
+
+[geographic.synthetic.grid]
+length_x = "1000 m"
+length_y = "1000 m"
+nx = 20
+ny = 20
+
+[geographic.synthetic.topography]
+kind = "linear"
+base_elevation = 20.0
+right_to_left_amplitude = 5.0
+
+[data]
+types = []
+
+[domain.depth_model]
+kind = "constant_thickness"
+thickness = "50 m"
+
+[flow]
+flow_regime = "steady"
+param_list = [
+    "K",
+    "Sy",
+]
+active_sinks_sources = [
+    "recharge",
+]
+active_bc = [
+    "drainage",
+]
+
+[flow.param.K.field]
+kind = "homogeneous"
+value = "1.0e-4 m/s"
+
+[flow.param.Sy.field]
+kind = "homogeneous"
+value = "0.12 -"
+
+[flow.sinks_sources.recharge]
+values = 0.8
+units = "mm/day"
+
+[display]
+figures = [
+    "water_budget",
+]
+on_error = "warn"
+dpi = 40
+enabled = false
+
+[workflow]
+mode = "calibration"
+
+[simulation]
+name = "calage"
+description = "K on three values, scored on one head of the demo."
+
+[simulation.time]
+start_datetime = "2000-01-01T00:00:00"
+end_datetime = "2000-12-31T00:00:00"
+step_value = "1 year"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = [
+    "modflow_nwt",
+]
+
+[calibration]
+save_runs = "best_n"
+use_cache = false
+
+[calibration.parameters.K]
+bounds = [
+    5e-05,
+    0.0002,
+]
+search_space = "log"
+
+[calibration.outputs.upland_head]
+support = "point"
+variable = "head"
+x = 25.0
+y = 525.0
+observed_values = [
+    20.91,
+]
+
+[[calibration.objective_blocks]]
+name = "heads"
+metric = "rmse"
+uses_outputs = [
+    "upland_head",
+]
+
+[[calibration.phases]]
+name = "k_grid"
+parameters = [
+    "K",
+]
+regime = "steady"
+objective_blocks = [
+    "heads",
+]
+method = "grid"
+max_trials = 3
+
+[calibration.phases.method_options]
+points_per_dim = 3

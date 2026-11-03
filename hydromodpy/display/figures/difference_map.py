@@ -48,8 +48,8 @@ class DifferenceMap(BaseFigure):
                 "this figure compares two runs on one mesh: pass reference=<run>."
             )
         ts = last_timestep(sim) if timestep is None else timestep
-        a = np.asarray(sim.field(field, timestep=ts)).ravel()
-        b = np.asarray(reference.field(field, timestep=ts)).ravel()
+        a = np.asarray(sim.field(field, time=ts)).ravel()
+        b = np.asarray(reference.field(field, time=ts)).ravel()
         if a.shape != b.shape:
             raise ValueError(
                 f"difference_map: incompatible mesh - sim has {a.size} faces, "

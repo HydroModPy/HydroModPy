@@ -9,7 +9,8 @@ Scope
 This page documents the runtime contract used for groundwater flow boundary
 conditions.
 
-The public TOML grammar remains under ``[flow.bc]`` and ``flow.active_bc``.
+The public TOML grammar is ``[flow.bc]``: a boundary is active when it is declared,
+and ``enabled = false`` switches it off.
 The runtime architecture now adds one explicit middle layer:
 
 - ``FlowBoundaryConditionConfig`` stores one normalized boundary payload.
@@ -31,7 +32,7 @@ Quick access
    * - Question
      - Primary code location
      - What to look for
-   * - Which ids can appear in ``flow.active_bc``?
+   * - Which ids can ``[flow.bc.<id>]`` take, and which can ``FlowConfig.active_bc`` hold?
      - ``hydromodpy.physics.flow.FLOW_BOUNDARY_DEFINITIONS``
      - Canonical id, family, support kind, and backend support.
    * - How is TOML normalized?
@@ -102,8 +103,8 @@ Runtime sequence
 Notes
 -----
 
-- ``active_bc`` remains explicit: declared boundaries are not assembled unless
-  their id is active.
+- ``active_bc`` is read from the tables: a boundary is assembled when it is declared
+  and does not say ``enabled = false``.
 - The registry is deliberately small. It describes the current canonical ids
   and backend support; it does not hide backend-specific package semantics.
 - Adding a new canonical boundary should start in the registry, then each

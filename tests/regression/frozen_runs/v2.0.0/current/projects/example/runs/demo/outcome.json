@@ -1,0 +1,21 @@
+{
+  "schema": "hydromodpy.outcome.v1",
+  "case_id": "demo",
+  "site": null,
+  "project": "example",
+  "attempt": 1,
+  "attempt_id": "0c34b345d2544b4eaf19736f50dd68c2",
+  "sim_id": "d552124b-0920-4a8c-9d86-644b68b5cb30",
+  "status": "completed",
+  "exit_code": 0,
+  "signal": null,
+  "written_by": "worker",
+  "started_at": "2026-11-03T05:21:42.736058Z",
+  "ended_at": "2026-11-03T05:21:44.108449Z",
+  "host": "frozen",
+  "pid": 2128726,
+  "scheduler_job_id": null,
+  "step": null,
+  "error": null,
+  "log_tail": []
+}

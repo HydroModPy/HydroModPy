@@ -283,7 +283,7 @@ def test_python_mode_resolves_a_bare_name_and_chooses_as_the_toml_does(tmp_path)
     (tmp_path / "streams.gpkg").write_bytes(b"")
 
     class _Project:
-        config = HydroModPyConfig.from_toml(project_toml)
+        _cfg = HydroModPyConfig.from_toml(project_toml)
         _config_path = project_toml
         _ctx = None
 

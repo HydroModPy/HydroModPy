@@ -32,20 +32,11 @@ Core responsibilities:
   - `set_sinks_sources(...)`.
 
 
-### 2. Base Configuration Schema
+### 2. One Shape For A Quantity Over Time
 
-`process_spatial_config.py` defines `ProcessSpatialConfig`, a minimal shared
-Pydantic schema with:
-
-- `param_list`,
-- `param`,
-- `ic`,
-- `bc`,
-- `sinks_sources`.
-
-Concrete process configs (for example `FlowConfig`) can inherit from this base
-schema and specialize validation.
-
+`forcing.py` defines `TimeSeriesForcing`, the one shape of a quantity that varies over
+the stress periods, and the three ways a mount reads it: `VolumeRateForcing`,
+`SurfaceRateForcing` and `HeadForcing`.
 
 ### 3. Shared Payload Models
 
@@ -74,7 +65,7 @@ handling small conveniences such as `unit` -> `units`.
 
 - `__init__.py`: public exports for the base layer.
 - `process_spatial.py`: abstract runtime base class.
-- `process_spatial_config.py`: base config schema.
+- `forcing.py`: the shared time-series forcing.
 - `initial_conditions.py`: generic initial-condition model.
 - `initial_conditions_config.py`: initial-condition normalizer.
 - `boundary_conditions.py`: generic boundary-condition model.
@@ -85,7 +76,7 @@ handling small conveniences such as `unit` -> `units`.
 
 ## Typical Integration Pattern
 
-1. Define a process-specific config inheriting from `ProcessSpatialConfig`.
+1. Define a process-specific config on `HydroModelBase`.
 2. Parse and validate TOML into that config.
 3. In the runtime process class (subclass of `ProcessSpatial`):
    - call `set_parameters_from_config(...)`,

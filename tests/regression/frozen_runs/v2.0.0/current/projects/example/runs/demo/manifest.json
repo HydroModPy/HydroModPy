@@ -1,0 +1,301 @@
+{
+  "manifest_version": 3,
+  "derive_rule_version": "1",
+  "sealed_at": "2026-11-03T05:21:44.098627Z",
+  "run": {
+    "sim_id": "d552124b-0920-4a8c-9d86-644b68b5cb30",
+    "name": "demo",
+    "name_stem": "demo",
+    "version": 1,
+    "status": "completed",
+    "project": "example",
+    "case_id": "demo",
+    "recipe": null,
+    "rel_dir": "runs/demo",
+    "attempt": 1,
+    "attempt_id": "0c34b345d2544b4eaf19736f50dd68c2",
+    "solver": "modflow_nwt",
+    "solver_category": "distributed",
+    "flow_regime": "steady",
+    "created_at": "2026-11-03T05:21:42.736058Z",
+    "started_at": "2026-11-03T05:21:42.736058Z",
+    "ended_at": "2026-11-03T05:21:44.011598Z",
+    "duration_s": 1.27554,
+    "description": "Scaffolded synthetic steady-flow run under a uniform recharge.",
+    "scientific_objective": null,
+    "contact_email": null,
+    "doi": null,
+    "license": "LicenseRef-undetermined"
+  },
+  "site": null,
+  "geometry": {
+    "n_cells": 400,
+    "n_layers": 1,
+    "mesh_topology": "structured_2d",
+    "mesh_engine": "regular",
+    "mesh_engine_version": "1.1.1",
+    "mesh_hash": "48ebc775bacafd4e10f0f6a134360eba6a97bd4eb8961401c1a19da71d0e4083",
+    "crs_wkt": "PROJCRS[\"RGF93 v1 / Lambert-93\",BASEGEOGCRS[\"RGF93 v1\",DATUM[\"Reseau Geodesique Francais 1993 v1\",ELLIPSOID[\"GRS 1980\",6378137,298.257222101,LENGTHUNIT[\"metre\",1]]],PRIMEM[\"Greenwich\",0,ANGLEUNIT[\"degree\",0.0174532925199433]],ID[\"EPSG\",4171]],CONVERSION[\"Lambert-93\",METHOD[\"Lambert Conic Conformal (2SP)\",ID[\"EPSG\",9802]],PARAMETER[\"Latitude of false origin\",46.5,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8821]],PARAMETER[\"Longitude of false origin\",3,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8822]],PARAMETER[\"Latitude of 1st standard parallel\",49,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8823]],PARAMETER[\"Latitude of 2nd standard parallel\",44,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8824]],PARAMETER[\"Easting at false origin\",700000,LENGTHUNIT[\"metre\",1],ID[\"EPSG\",8826]],PARAMETER[\"Northing at false origin\",6600000,LENGTHUNIT[\"metre\",1],ID[\"EPSG\",8827]]],CS[Cartesian,2],AXIS[\"easting (X)\",east,ORDER[1],LENGTHUNIT[\"metre\",1]],AXIS[\"northing (Y)\",north,ORDER[2],LENGTHUNIT[\"metre\",1]],USAGE[SCOPE[\"Engineering survey, topographic mapping.\"],AREA[\"France - onshore and offshore, mainland and Corsica (France métropolitaine including Corsica).\"],BBOX[41.15,-9.86,51.56,10.38]],ID[\"EPSG\",2154]]",
+    "crs_epsg": 2154,
+    "bbox": [
+      0.0,
+      0.0,
+      1000.0,
+      1000.0
+    ],
+    "catchment": {
+      "crs_proj": "EPSG:2154",
+      "catch_area": "1.0",
+      "dem_res": "50.0",
+      "catch_def": "synthetic",
+      "nrow": "20",
+      "ncol": "20"
+    }
+  },
+  "period": {
+    "start": "2000-01-01T00:00:00Z",
+    "end": "2001-01-01T00:00:00Z",
+    "n_timesteps": 1,
+    "time_unit": "year"
+  },
+  "config": {
+    "file": "config.toml",
+    "hash": "54f23cb10eeaf3f5009887e1915cf2f82c2fb07224f93d2af5b4362091a7d19b",
+    "source": "run_demo.toml"
+  },
+  "lineage": {
+    "parent_sim_id": null,
+    "session_id": null,
+    "phase": null,
+    "trial": null,
+    "kind": null,
+    "overrides": {},
+    "drift": {},
+    "parent_hint": null
+  },
+  "identity": {
+    "site": null,
+    "site_fingerprint": null,
+    "case_id": "demo",
+    "sim_id": "d552124b-0920-4a8c-9d86-644b68b5cb30",
+    "attempt_id": "0c34b345d2544b4eaf19736f50dd68c2",
+    "config_hash": "54f23cb10eeaf3f5009887e1915cf2f82c2fb07224f93d2af5b4362091a7d19b",
+    "mesh_hash": "48ebc775bacafd4e10f0f6a134360eba6a97bd4eb8961401c1a19da71d0e4083",
+    "period": {
+      "start": "2000-01-01",
+      "end": "2001-01-01"
+    },
+    "score_window": null,
+    "label": null,
+    "label_date": null,
+    "rule_version": null,
+    "hydromodpy_version": "2.0.0a5",
+    "code_reproducible": false
+  },
+  "checks": {
+    "schema": "hydromodpy.checks.v2",
+    "budget_pct": 0.05999999865889549,
+    "budget_threshold_pct": null,
+    "converged": null,
+    "obs_coverage": null,
+    "score_window": null,
+    "n_samples": 0,
+    "calibrated_by": null,
+    "validities": [],
+    "bounds_hit": [],
+    "code_reproducible": false
+  },
+  "inputs": [],
+  "artifacts": [
+    {
+      "path": "manifest.json",
+      "role": "manifest",
+      "format": "json",
+      "bytes": null
+    },
+    {
+      "path": "config.resolved.toml",
+      "role": "config_resolved",
+      "format": "toml",
+      "bytes": 6347
+    },
+    {
+      "path": "config.toml",
+      "role": "config",
+      "format": "toml",
+      "bytes": 1511
+    },
+    {
+      "path": "fields.zarr",
+      "role": "fields",
+      "format": "zarr",
+      "bytes": 116497
+    },
+    {
+      "path": "inputs.json",
+      "role": "other",
+      "format": "json",
+      "bytes": 107
+    },
+    {
+      "path": "provenance.json",
+      "role": "provenance",
+      "format": "json",
+      "bytes": 11525
+    },
+    {
+      "path": "tables.parquet/budgets.parquet",
+      "role": "table:budgets",
+      "format": "parquet",
+      "bytes": 6121
+    },
+    {
+      "path": "tables.parquet/geographic_watershed.parquet",
+      "role": "table:geographic_watershed",
+      "format": "parquet",
+      "bytes": 15503
+    },
+    {
+      "path": "tables.parquet/geographic_watershed_box_buff.parquet",
+      "role": "table:geographic_watershed_box_buff",
+      "format": "parquet",
+      "bytes": 15524
+    },
+    {
+      "path": "tables.parquet/geographic_watershed_contour.parquet",
+      "role": "table:geographic_watershed_contour",
+      "format": "parquet",
+      "bytes": 15516
+    },
+    {
+      "path": "tables.parquet/mass_balance.parquet",
+      "role": "table:mass_balance",
+      "format": "parquet",
+      "bytes": 6749
+    },
+    {
+      "path": "tables.parquet/mesh_face_families.parquet",
+      "role": "table:mesh_face_families",
+      "format": "parquet",
+      "bytes": 8070
+    },
+    {
+      "path": "tables.parquet/metrics.parquet",
+      "role": "table:metrics",
+      "format": "parquet",
+      "bytes": 8202
+    },
+    {
+      "path": "tables.parquet/parameters.parquet",
+      "role": "table:parameters",
+      "format": "parquet",
+      "bytes": 7831
+    },
+    {
+      "path": "tables.parquet/simulation.parquet",
+      "role": "table:simulation",
+      "format": "parquet",
+      "bytes": 33548
+    },
+    {
+      "path": "tables.parquet/timeseries.parquet",
+      "role": "table:timeseries",
+      "format": "parquet",
+      "bytes": 6704
+    }
+  ],
+  "parameters": [
+    {
+      "name": "K",
+      "zone": "catchment",
+      "value": 0.0001,
+      "unit": "m s-1",
+      "parameterization": "homogeneous",
+      "origin": "declared",
+      "calibrated": false
+    },
+    {
+      "name": "Sy",
+      "zone": "catchment",
+      "value": 0.12,
+      "unit": "1",
+      "parameterization": "homogeneous",
+      "origin": "declared",
+      "calibrated": false
+    },
+    {
+      "name": "thickness",
+      "zone": "catchment",
+      "value": 50.0,
+      "unit": "m",
+      "parameterization": "homogeneous",
+      "origin": "declared",
+      "calibrated": false
+    }
+  ],
+  "metrics": [
+    {
+      "station": "flow_main::modflow_nwt",
+      "variable": "runtime",
+      "metric": "flow_solve_time_seconds",
+      "value": 0.008147765882313251,
+      "window_name": null,
+      "window_role": null,
+      "window_start": null,
+      "window_end": null,
+      "n_samples": null,
+      "n_clipped": null,
+      "n_sim_nan": null,
+      "metric_rule_version": null
+    },
+    {
+      "station": "flow_main::modflow_nwt",
+      "variable": "runtime",
+      "metric": "water_budget_percent_discrepancy",
+      "value": -0.06,
+      "window_name": null,
+      "window_role": null,
+      "window_start": null,
+      "window_end": null,
+      "n_samples": null,
+      "n_clipped": null,
+      "n_sim_nan": null,
+      "metric_rule_version": null
+    },
+    {
+      "station": "flow_main::modflow_nwt",
+      "variable": "runtime",
+      "metric": "water_budget_worst_percent_discrepancy",
+      "value": -0.06,
+      "window_name": null,
+      "window_role": null,
+      "window_start": null,
+      "window_end": null,
+      "n_samples": null,
+      "n_clipped": null,
+      "n_sim_nan": null,
+      "metric_rule_version": null
+    }
+  ],
+  "score": {
+    "metric": "nse",
+    "value": null,
+    "station": null,
+    "variable": null,
+    "window_name": "metrics",
+    "window_role": "evaluation",
+    "window_start": null,
+    "window_end": null,
+    "n_samples": 0,
+    "n_clipped": null,
+    "metric_rule_version": "2"
+  },
+  "budget": {
+    "policy": "all",
+    "kept_terms": [
+      "constant_head",
+      "drain",
+      "recharge"
+    ]
+  }
+}

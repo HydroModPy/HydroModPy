@@ -61,7 +61,7 @@ def test_version_flag_prints_version(monkeypatch, capsys) -> None:
 
 @pytest.mark.parametrize("shell", ["bash", "zsh", "fish"])
 def test_completion_emits_script(monkeypatch, capsys, shell: str) -> None:
-    monkeypatch.setattr(sys, "argv", ["hmp", "dev", "completion", shell])
+    monkeypatch.setattr(sys, "argv", ["hmp", "completion", shell])
     main()
     out = capsys.readouterr().out
     assert "hmp" in out
@@ -106,12 +106,12 @@ def test_config_check_reports_invalid_toml(monkeypatch, capsys, tmp_path) -> Non
 
 
 def test_config_template_writes_toml(monkeypatch, tmp_path) -> None:
-    """``hmp config template FILE`` creates a non-empty TOML file."""
+    """``hmp config template --to FILE`` creates a non-empty TOML file."""
     out = tmp_path / "cfg.toml"
     monkeypatch.setattr(
         sys,
         "argv",
-        ["hmp", "config", "template", str(out), "--profile", "user"],
+        ["hmp", "config", "template", "--to", str(out), "--profile", "user"],
     )
     main()
     assert out.is_file()

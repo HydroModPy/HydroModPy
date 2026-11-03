@@ -9,6 +9,7 @@ from typing import Annotated
 from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.units import LengthMeters
 from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig
@@ -24,6 +25,7 @@ class NwtSolverConfig(HydroModelBase):
     listunit: Annotated[int, Profile.EXPERT] = Field(
         default=2,
         description="Fortran unit number used for the MODFLOW list file.",
+        json_schema_extra=field_metadata(unit="-"),
     )
     verbose: Annotated[bool, Profile.EXPERT] = Field(
         default=False,
@@ -40,10 +42,12 @@ class NwtSolverConfig(HydroModelBase):
             "writes MODFLOW-NWT in seconds. The default is the 500 m3/day of the NWT "
             "manual. A value of 500 here would be 500 m3/s, a bound no model reaches."
         ),
+        json_schema_extra=field_metadata(unit="m3/s"),
     )
     maxiterout: Annotated[int, Profile.EXPERT] = Field(
         default=5000,
         description="Maximum outer nonlinear iterations in the NWT solver.",
+        json_schema_extra=field_metadata(unit="-"),
     )
     thickfact: Annotated[float, Profile.EXPERT] = Field(
         default=1e-5,
@@ -54,6 +58,7 @@ class NwtSolverConfig(HydroModelBase):
             "thickness, and so the conductance and the storage, to zero near the bottom and "
             "the top of a cell (THICKFACT of the NWT package). Dimensionless."
         ),
+        json_schema_extra=field_metadata(unit="-"),
     )
     linmeth: Annotated[int, Profile.EXPERT] = Field(
         default=2,
@@ -62,14 +67,17 @@ class NwtSolverConfig(HydroModelBase):
             "default: on a stiff recession GMRES stops reducing the residual and NWT "
             "then accepts a frozen head as converged, with a budget off by 200 per cent."
         ),
+        json_schema_extra=field_metadata(unit="-"),
     )
     iprnwt: Annotated[int, Profile.EXPERT] = Field(
         default=1,
         description="NWT print flag controlling iteration diagnostics in listing outputs.",
+        json_schema_extra=field_metadata(unit="-"),
     )
     ibotav: Annotated[int, Profile.EXPERT] = Field(
         default=1,
         description="NWT option for averaging saturated thickness at the cell bottom.",
+        json_schema_extra=field_metadata(unit="-"),
     )
     options: Annotated[str, Profile.EXPERT] = Field(
         default="MODERATE",
@@ -87,6 +95,7 @@ class NwtSolverConfig(HydroModelBase):
     backflag: Annotated[int, Profile.EXPERT] = Field(
         default=0,
         description="NWT backtracking activation flag.",
+        json_schema_extra=field_metadata(unit="-"),
     )
     stoptol: Annotated[float, Profile.EXPERT] = Field(
         default=1e-10,
@@ -104,6 +113,7 @@ class DisConfig(HydroModelBase):
             "seconds because [simulation.time] already materializes every period length "
             "in seconds, so the run is in seconds whatever this says."
         ),
+        json_schema_extra=field_metadata(unit="-"),
     )
 
 
@@ -122,6 +132,7 @@ class UpwConfig(HydroModelBase):
     iphdry: Annotated[int, Profile.EXPERT] = Field(
         default=1,
         description="UPW dry-cell head output flag (IPHDRY).",
+        json_schema_extra=field_metadata(unit="-"),
     )
     hdry: Annotated[float, Profile.EXPERT] = Field(
         default=-100.0,
@@ -130,6 +141,7 @@ class UpwConfig(HydroModelBase):
     layvka: Annotated[int, Profile.EXPERT] = Field(
         default=1,
         description="UPW flag controlling VKA interpretation per layer (LAYVKA).",
+        json_schema_extra=field_metadata(unit="-"),
     )
 
 
@@ -139,14 +151,17 @@ class EvtConfig(HydroModelBase):
     nevtop: Annotated[int, Profile.EXPERT] = Field(
         default=3,
         description="EVT option code that defines how ET extinction depth is applied (NEVTOP).",
+        json_schema_extra=field_metadata(unit="-"),
     )
     ievt: Annotated[int, Profile.EXPERT] = Field(
         default=1,
         description="EVT integer array selector used when NEVTOP requires layer indices (IEVT).",
+        json_schema_extra=field_metadata(unit="-"),
     )
     ipakcb: Annotated[int, Profile.EXPERT] = Field(
         default=1,
         description="EVT cell-by-cell budget output flag (IPAKCB).",
+        json_schema_extra=field_metadata(unit="-"),
     )
 
 
@@ -165,6 +180,7 @@ class WelConfig(HydroModelBase):
     ipakcb: Annotated[int, Profile.EXPERT] = Field(
         default=1,
         description="WEL cell-by-cell budget output flag (IPAKCB).",
+        json_schema_extra=field_metadata(unit="-"),
     )
 
 
@@ -228,6 +244,7 @@ class ModflowProcessSpecificConfig(HydroModelBase):
     vka: Annotated[float, Profile.EXPERT] = Field(
         default=1.0,
         description="Vertical hydraulic conductivity control passed to the UPW package (VKA).",
+        json_schema_extra=field_metadata(unit="-"),
     )
     exdp: Annotated[LengthMeters, Profile.EXPERT] = Field(
         default=1.0,

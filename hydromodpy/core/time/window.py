@@ -440,9 +440,9 @@ def _iter_simulation_processes(cfg: Any) -> tuple[Any, ...]:
 def _process_type(process_cfg: Any) -> str:
     """Return normalized process type from typed objects or mappings."""
     if isinstance(process_cfg, dict):
-        raw_type = process_cfg.get("type", "")
+        raw_type = process_cfg.get("kind", "")
     else:
-        raw_type = getattr(process_cfg, "type", "")
+        raw_type = getattr(process_cfg, "kind", "")
     return str(raw_type).strip().lower()
 
 

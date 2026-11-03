@@ -12,9 +12,8 @@ of a lake are in {doc}`../reference/parameters/flow/sinks_sources/sfr` and
 :::{note}
 **Scope.** MODFLOW 6 builds every exit below. MODFLOW-NWT builds the drains, the
 sea, the side heads and the evapotranspiration package, and no stream, lake or
-water mover: a file that lists `"sfr"`, `"lake"` or `"reservoir"` in
-{toml}`flow.active_bc` with another solver in {toml}`solver.backend` is refused
-when it is read. The Boussinesq solver has its own surface exchange, on
+water mover: a file that declares a stream network or a lake with another solver in
+{toml}`solver.backend` is refused when it is read. The Boussinesq solver has its own surface exchange, on
 {doc}`boussinesq`.
 :::
 
@@ -32,12 +31,12 @@ m³/s, a flux per unit of area in m/s. Every symbol of the site is on
 
 | Exit | Law | MODFLOW 6 | MODFLOW-NWT | Switched on by | Page |
 |---|---|---|---|---|---|
-| Drain at the ground surface | one-sided, head dependent | DRN | DRN | `"drainage"` in {toml}`flow.active_bc` | {doc}`exits/drains-and-et` |
-| Evapotranspiration from the water table | linear in depth | EVTA | EVT | `"etp"` in {toml}`flow.active_sinks_sources`, or a negative recharge | {doc}`exits/drains-and-et` |
-| Sea | fixed head | CHD | BAS and CHD | `"ocean"` in {toml}`flow.active_bc` | {doc}`exits/head-boundaries` |
-| River head, lateral heads | fixed head | CHD | lateral heads only | `"stream"`, `"west_side"` and the other sides | {doc}`exits/head-boundaries` |
-| Lake or reservoir | storage, head dependent bed and banks | LAK | none | `"lake"` or `"reservoir"` | {doc}`exits/lakes` |
-| Stream network | routed flow, head dependent streambed | SFR | none | `"sfr"` | {doc}`exits/streams-and-mover` |
+| Drain at the ground surface | one-sided, head dependent | DRN | DRN | a `[flow.bc.drainage]` table | {doc}`exits/drains-and-et` |
+| Evapotranspiration from the water table | linear in depth | EVTA | EVT | a `[flow.sinks_sources.etp]` table, or a negative recharge | {doc}`exits/drains-and-et` |
+| Sea | fixed head | CHD | BAS and CHD | a `[flow.bc.ocean]` table | {doc}`exits/head-boundaries` |
+| River head, lateral heads | fixed head | CHD | lateral heads only | a `[flow.bc.stream]` table, `[flow.bc.west_side]` and the other sides | {doc}`exits/head-boundaries` |
+| Lake or reservoir | storage, head dependent bed and banks | LAK | none | a `[flow.sinks_sources.lakes.<id>]` table | {doc}`exits/lakes` |
+| Stream network | routed flow, head dependent streambed | SFR | none | a `[flow.sinks_sources.sfr.<id>]` table | {doc}`exits/streams-and-mover` |
 | Transfer between exits | a rule on a provider flow | MVR | none | a mover key of an exit | {doc}`exits/streams-and-mover` |
 
 Wells are a prescribed flux and not an exit. Recharge is not an exit either, but
@@ -118,14 +117,14 @@ exits/simulated-network
 ## Parameters of this page
 
 ```{hmp-params}
-flow.active_bc
-flow.active_sinks_sources
+flow.bc.<name>.enabled
+flow.sinks_sources.recharge.enabled
 solver.backend
 ```
 
 Example 04 declares the drains alone:
 
-```{hmp-resolved} flow.active_bc
+```{hmp-resolved} flow.bc
 :config: step4_transient.toml
 ```
 

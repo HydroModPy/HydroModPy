@@ -477,6 +477,11 @@ thickness = "50 m"
 [flow]
 flow_regime = "steady"
 param_list = ["K", "Sy"]
+# Water enters as recharge and leaves through drains at the land surface, where
+# the water table reaches it. The mound between the two is about R L^2 / (2 K b):
+# 0.9 m here, and it follows K.
+
+[flow.bc.drainage]
 
 [flow.param.K.field]
 kind = "homogeneous"
@@ -485,6 +490,10 @@ value = "1.0e-4 m/s"
 [flow.param.Sy.field]
 kind = "homogeneous"
 value = "0.12 -"
+
+[flow.sinks_sources.recharge]
+values = 0.8
+units = "mm/day"
 
 [display]
 # Figures rendered at the end of every run in this project. This shortlist
@@ -515,7 +524,7 @@ mode = "simulation"
 
 [simulation]
 name = "{run_name}"
-description = "Scaffolded synthetic steady-flow run."
+description = "Scaffolded synthetic steady-flow run under a uniform recharge."
 
 [simulation.time]
 start_datetime = "2000-01-01T00:00:00"

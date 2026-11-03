@@ -116,11 +116,11 @@ pytest tests/regression/fast/ -q -n auto
 The `hmp` CLI wraps the most common invocations:
 
 ```bash
-hmp test unit                # → pytest tests/unit/
-hmp test regression --fast   # → pytest tests/regression/fast/
-hmp test regression --fast --intercomparison
-hmp test regression --extensive
-hmp test regression --update-goldens
+hmp dev test unit                # → pytest tests/unit/
+hmp dev test regression --fast   # → pytest tests/regression/fast/
+hmp dev test regression --fast --intercomparison
+hmp dev test regression --extensive
+hmp dev test regression --update-goldens
 ```
 
 ## Environment

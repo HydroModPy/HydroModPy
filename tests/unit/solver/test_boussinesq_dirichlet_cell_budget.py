@@ -163,7 +163,11 @@ def _run_strip(
         nonlinear_iterations=(1,) * len(rates),
         converged_by_period=(True,) * len(rates),
     )
-    payload = build_state_history_export_payload(state)
+    payload = build_state_history_export_payload(state) | {
+        "storage_coefficient": mesh.storage_coefficient,
+        "z_bottom_m": mesh.z_bottom_m,
+        "cell_area_m2": mesh.cell_area_m2,
+    }
     first = first_period_snapshot(payload, n_snapshots=len(rates) + 1)
     assert first == 1
     components = BoussinesqOutputAdapter._budget_components(
@@ -177,12 +181,14 @@ def _run_strip(
 
 
 def _assert_budget_closes(mesh: _MiniMesh, state, components) -> None:
-    """The signed fluxes add up to what the free cells store, every term from the aquifer."""
+    """The signed terms add up to zero, the storage term being what the free cells store."""
     free = np.arange(mesh.n_cells) > 0
     storage = np.diff(state.head_history_m, axis=0) * mesh.storage_coefficient * mesh.cell_area_m2
     stored_m3_s = storage[:, free].sum(axis=1) / DAY_S
+    np.testing.assert_allclose(components["storage"].sum(axis=1), -stored_m3_s, rtol=1e-12)
+    np.testing.assert_allclose(components["storage"][:, 0], 0.0, atol=0.0)
     signed = sum(components[name].sum(axis=1) for name in components)
-    np.testing.assert_allclose(signed, stored_m3_s, rtol=1e-9, atol=1e-15)
+    np.testing.assert_allclose(signed, 0.0, atol=1e-12)
 
 
 def test_exported_recharge_is_the_forcing_on_the_free_cells_and_the_budget_closes() -> None:

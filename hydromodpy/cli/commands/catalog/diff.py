@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import argparse
-import sys
 from pathlib import Path
 
 from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, apply_verbosity, exit_code_for
+from hydromodpy.cli.helpers import apply_verbosity
+from hydromodpy.cli.output import emit
 from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.core.state.paths import resolve_project_root
 
@@ -102,31 +102,21 @@ def run(args: argparse.Namespace) -> None:
     workspace_root = resolve_project_root(
         Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
     )
-    try:
-        result = diff_simulations(args.ref_a, args.ref_b, workspace=workspace_root)
-    except FileNotFoundError as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
-    except Exception as exc:  # noqa: BLE001 - map resolver errors to typed exit codes
-        print(str(exc), file=sys.stderr)
-        sys.exit(exit_code_for(exc))
+    result = diff_simulations(args.ref_a, args.ref_b, workspace=workspace_root)
 
-    if args.format == "json":
-        import json
+    def table() -> None:
+        print(f"a: {result['a'][:8]}   b: {result['b'][:8]}")
+        _print_delta("params", result["params"])
+        _print_metrics(result["metrics"])
 
-        print(
-            json.dumps(
-                {
-                    "a": result["a"],
-                    "b": result["b"],
-                    "params": _delta_to_list(result["params"]),
-                    "metrics": _metrics_to_list(result["metrics"]),
-                },
-                default=str,
-            )
-        )
-        return
-
-    print(f"a: {result['a'][:8]}   b: {result['b'][:8]}")
-    _print_delta("params", result["params"])
-    _print_metrics(result["metrics"])
+    emit(
+        args,
+        "catalog diff",
+        {
+            "a": result["a"],
+            "b": result["b"],
+            "params": _delta_to_list(result["params"]),
+            "metrics": _metrics_to_list(result["metrics"]),
+        },
+        table=table,
+    )

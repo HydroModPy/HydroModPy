@@ -28,7 +28,7 @@ def _per_zone(values=GRANITE_SCHIST, **kwargs) -> FieldParam:
 
 
 def _exponential() -> FieldParam:
-    return _homogeneous(vertical_profile={"mode": "exponential", "characteristic_depth": 9.0})
+    return _homogeneous(vertical_profile={"kind": "exponential", "characteristic_depth": 9.0})
 
 
 def _square(n_cells: int = 12, kind: str = "structured"):
@@ -51,7 +51,7 @@ def test_a_value_is_stored_in_its_si_unit(identifier, unit, value, si_unit, si_v
 
 
 def test_per_zone_values_take_their_inline_units_and_the_profile():
-    profile = {"mode": "tabulated", "depths": [0.0, 20.0, 40.0], "factors": [1.0, 0.5, 0.25]}
+    profile = {"kind": "tabulated", "depths": [0.0, 20.0, 40.0], "factors": [1.0, 0.5, 0.25]}
     param = _per_zone({"granite": "10 m/day", "micaschists": "2 m/day"}, vertical_profile=profile)
     zones = np.array(["granite", "micaschists", "granite"], dtype=object)
     np.testing.assert_allclose(param.to_array(zone_ids=zones), np.array([10, 2, 10]) / 86400)
@@ -143,7 +143,7 @@ def test_a_parameter_placed_without_its_zones_mesh_or_depth_is_refused(call, err
 @pytest.mark.parametrize("key", ["mesh", "field_discretization"])
 def test_a_homogeneous_value_on_a_mesh_takes_its_profile(key):
     mesh = _square()
-    param = _homogeneous(7.25, vertical_profile={"mode": "exponential", "characteristic_depth": 30})
+    param = _homogeneous(7.25, vertical_profile={"kind": "exponential", "characteristic_depth": 30})
     target = {key: mesh if key == "mesh" else SimpleNamespace(mesh=mesh)}
 
     at_surface = param.to_mesh_field(**target)
@@ -158,9 +158,9 @@ def test_a_homogeneous_value_on_a_mesh_takes_its_profile(key):
 
 @pytest.mark.parametrize(
     ("param", "match"),
-    [(_homogeneous(0.01, identifier="Sy", vertical_profile={"mode": "exponential", "characteristic_depth": 1.0}),
+    [(_homogeneous(0.01, identifier="Sy", vertical_profile={"kind": "exponential", "characteristic_depth": 1.0}),
       r"specific yield \(id='Sy'\) in the mesh cells at depth 20.0 m: 9 of 9 value\(s\) outside"),
-     (_per_zone({"granite": 1e-12, "micaschists": 1e-5}, vertical_profile={"mode": "exponential", "characteristic_depth": 1.0}),
+     (_per_zone({"granite": 1e-12, "micaschists": 1e-5}, vertical_profile={"kind": "exponential", "characteristic_depth": 1.0}),
       r"\(id='K'\) in the mesh cells at depth 20.0 m: [0-9]+ of 9 value\(s\) .* the first at index [0-9]+")],
     ids=["homogeneous-under-its-profile", "zone-under-its-profile"],
 )  # fmt: skip
@@ -203,7 +203,7 @@ def test_a_value_table_that_misses_a_zone_is_refused():
 
 @pytest.mark.parametrize(
     "param",
-    [_homogeneous(1.0, unit="m/day", vertical_profile={"mode": "exponential", "characteristic_depth": 9.0}),
+    [_homogeneous(1.0, unit="m/day", vertical_profile={"kind": "exponential", "characteristic_depth": 9.0}),
      _per_zone()],
     ids=["homogeneous", "per-zone"],
 )  # fmt: skip

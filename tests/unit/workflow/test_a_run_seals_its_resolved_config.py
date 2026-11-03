@@ -158,7 +158,7 @@ def test_where_an_input_file_sits_is_no_drift_and_its_digest_answers_for_it(tmp_
             workflow={"mode": "simulation"},
             workspace=WorkspaceConfig(project_root=str(tmp_path), root=str(tmp_path)),
             site={"name": "s"},
-            geographic={"catchment": {"catch_def": "dem", "dem_init_path": path}},
+            geographic={"catchment": {"kind": "dem", "dem_init_path": path}},
         )
 
     run_dir = _sealed(tmp_path / "runs" / "x", with_dem("dem/first.tif"), tmp_path)

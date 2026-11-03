@@ -21,6 +21,8 @@ form of the value, not its magnitude, says what it means:
   Abherve et al. (2023, HESS 27, p. 3224) state, "increasing the modeled domain
   by 10 %". The distance is solved on the real polygon;
 - any other string (``"150.0 m"``) is an explicit distance in metres;
+- ``"10% of sqrt(area)"`` is the v1 rule written out, with the same distance as the
+  bare number below;
 - a bare number (``10.0``) is the historical v1 rule, ``sqrt(area in km2) *
   10 / 100`` km. It enlarges a real catchment by about 50 %, not 10 %. It is
   kept, with a warning, so a sealed run replays the domain it was built on.
@@ -42,6 +44,7 @@ compared to it.
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
@@ -62,7 +65,12 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-BufferRule = Literal["area_percent", "distance", "legacy_sqrt_percent"]
+BufferRule = Literal["area_percent", "distance", "sqrt_area", "legacy_sqrt_percent"]
+
+SQRT_AREA_FORM = re.compile(
+    r"^\s*([0-9]*\.?[0-9]+)\s*%\s*of\s*sqrt\(\s*area\s*\)\s*$", re.IGNORECASE
+)
+"""The explicit form of the v1 rule, ``"10% of sqrt(area)"``."""
 
 BUFFER_QUAD_SEGS = 16
 """Segments per quarter circle of every buffer this module builds.
@@ -93,6 +101,8 @@ def _parse_length_meters(token: str, *, label: str) -> float:
 def buffer_rule_of(buff_area: float | str) -> BufferRule:
     """Return which rule a normalized ``buff_area`` value selects."""
     if isinstance(buff_area, str):
+        if SQRT_AREA_FORM.match(buff_area):
+            return "sqrt_area"
         return "area_percent" if buff_area.strip().endswith("%") else "distance"
     return "legacy_sqrt_percent"
 
@@ -220,8 +230,10 @@ def _compute_buffer_distance(
         raw = buffer_distance_for_area_increase(catchment, pct / 100.0)
         return _snap_to_resolution(raw, dem_resolution)
 
+    written_out = SQRT_AREA_FORM.match(buff_area) if isinstance(buff_area, str) else None
+    percent = float(written_out.group(1)) if written_out else float(buff_area)
     area_km2 = float(catchment.area) / 1_000_000.0
-    buff_raw = np.sqrt(area_km2) * (float(buff_area) / 100.0) * 1000.0
+    buff_raw = np.sqrt(area_km2) * (percent / 100.0) * 1000.0
     if buff_raw <= 0.0:
         raise ValueError("buff_area percentage must produce a distance > 0")
     return _snap_to_resolution(float(int(round(buff_raw))), dem_resolution)

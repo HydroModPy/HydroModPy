@@ -39,7 +39,7 @@ name = "nancon"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 """
@@ -107,6 +107,16 @@ class TestDates:
         with pytest.raises(ConfigError, match=r"export\[1\]\.time: 2003-06-01 is outside") as err:
             check_time_selectors(cfg)
         assert "2000-01-01 to 2003-01-01" in str(err.value)
+
+    def test_two_dates_on_one_period_are_refused_before_the_solve(self, tmp_path: Path) -> None:
+        cfg = _load(
+            tmp_path,
+            '[[export]]\nvariables = "head"\ntime = ["2000-01-10", "2000-02-01"]\n',
+            grid=MONTHLY,
+        )
+
+        with pytest.raises(ConfigError, match=r"export\[0\]\.time: '2000-01-10' and '2000-02-01'"):
+            check_time_selectors(cfg)
 
     def test_a_period_outside_the_record(self, tmp_path: Path) -> None:
         cfg = _load(

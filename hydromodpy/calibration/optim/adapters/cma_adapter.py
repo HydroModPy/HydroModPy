@@ -85,8 +85,8 @@ class CmaEsAdapter:
             import cma
         except ImportError as exc:  # pragma: no cover - optional dependency
             raise ImportError(
-                "The 'cma' package is required for the cma_es method; "
-                "install via 'pip install cma'."
+                "The 'cma' package is required for the cma_es method. "
+                "Install the calibration extra: pip install 'hydromodpy[calibration]'."
             ) from exc
 
         self.space = space

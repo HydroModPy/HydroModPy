@@ -18,13 +18,13 @@ A reopened session (``--resume``, ``--phase``) promotes once more at its end.
 A trial whose journal line already names the directory it would take is not
 written again. The paired run directory is never overwritten: when it holds
 another trial of the session, the new best is not written, the failure says
-so, and ``hmp project promote <case> --trial N`` writes it under the next
+so, and ``hmp campaign promote <case> --trial N`` writes it under the next
 version of the case.
 
-``hmp project promote <case> --trial N`` replays a trial after the fact from
+``hmp campaign promote <case> --trial N`` replays a trial after the fact from
 ``sessions/<case>/config.toml`` and the frozen values of its phase, after
 checking its fingerprint; a trial already kept under ``trials/<n>/`` is
-moved. ``hmp project prune <case> --keep best`` trashes the other kept trials.
+moved. ``hmp campaign prune <case> --keep best`` trashes the other kept trials.
 """
 
 from __future__ import annotations
@@ -229,7 +229,7 @@ def promote_best_after_abort(
     The session is closed ``aborted`` already; the run says so in
     ``checks.calibrated_by``. A best trial whose solve was not kept would have
     to be solved again, which the margin after a signal does not allow: it is
-    left to ``hmp project promote <case> --trial N``, and the log says so.
+    left to ``hmp campaign promote <case> --trial N``, and the log says so.
     """
     best = persistence.held_trial(phase)
     if best is None or trial_ctx is None or cfg.save_runs == "none":
@@ -243,7 +243,7 @@ def promote_best_after_abort(
     if kept is None:
         logger.info(
             "Trial %d of phase %s is not promoted after the interruption: %s. "
-            "hmp project promote %s --trial %d replays it.",
+            "hmp campaign promote %s --trial %d replays it.",
             best.trial,
             phase,
             why_not,
@@ -383,7 +383,8 @@ def calibrated_by_of(
 
     ``metric`` and ``cost`` are those of the case of this run, and ``windows`` the
     periods that case read: a run of a joint search never carries the total. The
-    phase of the trial names its cost and its windows when it wrote them.
+    phase of the trial names its cost and its windows when it wrote them, and
+    ``metric`` is then the cost of that phase.
     """
     case_id = row["case_id"]
     case = descriptor.cases.get(case_id)
@@ -396,7 +397,7 @@ def calibrated_by_of(
         session_status=session_status,
         stop_state=stop_state,
         stopping_rule=stopping_rule,
-        metric=None if case is None else case.cost_name,
+        metric=phase.cost_name if phase_named else (None if case is None else case.cost_name),
         cost=row["case_cost"],
         windows={
             name: PeriodWindow(
@@ -487,7 +488,7 @@ def _reserve_paired_run(
         held_by = f"trial {holder} of this session" if holder is not None else "another run"
         failures.append(
             f"trial {number}: {rel_dir} already holds {held_by} and is not overwritten; "
-            f"hmp project promote {stem} --trial {number} writes it under the next version."
+            f"hmp campaign promote {stem} --trial {number} writes it under the next version."
         )
         return None
 
@@ -591,7 +592,7 @@ def _promote_one(
 
 
 # ---------------------------------------------------------------------------
-# After the fact: hmp project promote, hmp project prune
+# After the fact: hmp campaign promote, hmp campaign prune
 # ---------------------------------------------------------------------------
 
 
@@ -768,14 +769,8 @@ def _point_best_if_better(persistence: CalibrationPersistence, line: TrialLine) 
         persistence.set_best(persistence.best_pointer(line))
 
 
-def prune_session(
-    project_root: Path,
-    case: str,
-    *,
-    keep: str = "best",
-    now: datetime | None = None,
-) -> list[Path]:
-    """Trash the kept trials of a session, all but the best, and return what moved."""
+def trials_to_prune(project_root: Path, case: str, *, keep: str = "best") -> list[Path]:
+    """Return the kept trials of a session a prune moves, all but the best."""
     if keep != "best":
         raise CalibrationError(f"keep={keep!r}: the only policy is 'best'.")
     session_dir = resolve_session_dir(project_root, case)
@@ -784,16 +779,27 @@ def prune_session(
     trials_root = session_dir / TRIALS_DIRNAME
     if not trials_root.is_dir():
         return []
-    moved: list[Path] = []
+    return [
+        entry
+        for entry in sorted(trials_root.iterdir())
+        if entry.is_dir() and entry.name.isdigit() and int(entry.name) != best
+    ]
+
+
+def prune_session(
+    project_root: Path,
+    case: str,
+    *,
+    keep: str = "best",
+    now: datetime | None = None,
+) -> list[Path]:
+    """Trash the kept trials of a session, all but the best, and return what moved."""
+    doomed = trials_to_prune(project_root, case, keep=keep)
     stamp = now or datetime.now(UTC)
-    for entry in sorted(trials_root.iterdir()):
-        if not entry.is_dir() or not entry.name.isdigit():
-            continue
-        number = int(entry.name)
-        if number == best:
-            continue
-        moved.append(trash_run(project_root, trial_dir_rel(session_dir.name, number), now=stamp))
-    return moved
+    return [
+        trash_run(project_root, trial_dir_rel(entry.parent.parent.name, int(entry.name)), now=stamp)
+        for entry in doomed
+    ]
 
 
 __all__ = [
@@ -810,4 +816,5 @@ __all__ = [
     "replay_context",
     "select_trials_to_promote",
     "stored_parameter_value",
+    "trials_to_prune",
 ]

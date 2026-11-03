@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import argparse
-import sys
 
-from hydromodpy.cli.helpers import EXIT_CONFIG, exit_code_for
+from hydromodpy.cli.conventions import add_destination, workspace_parser
+from hydromodpy.cli.helpers import EXIT_CONFIG, exit_code_for, refuse
 from hydromodpy.core.exceptions import HydroModPyError
 
 NAME: str = "examples"
@@ -19,11 +19,12 @@ def register(subparsers) -> argparse.ArgumentParser:
     manifest_p = sub.add_parser(
         "manifest",
         help="Rewrite the example catalog",
-        epilog="Example:\n  hmp dev examples manifest --root examples --output manifest.json",
+        parents=[workspace_parser(reads_none=True)],
+        epilog="Example:\n  hmp dev examples manifest --root examples --to manifest.json",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     manifest_p.add_argument("--root", default=None, help="Checkout root (default: auto-detect)")
-    manifest_p.add_argument("--output", default=None, help="Destination (default: the wheel copy)")
+    add_destination(manifest_p, help="Destination (default: the wheel copy)", metavar="FILE")
 
     parser.set_defaults(_handler=run)
     return parser
@@ -35,17 +36,15 @@ def run(args: argparse.Namespace) -> None:
     from hydromodpy.cli._workers.example import generate_manifest
 
     if getattr(args, "examples_command", None) != "manifest":
-        print("usage: hmp dev examples manifest [--root PATH] [--output PATH]", file=sys.stderr)
-        sys.exit(EXIT_CONFIG)
+        refuse("usage: hmp dev examples manifest [--root PATH] [--to FILE]", EXIT_CONFIG)
 
     try:
         written, entries = generate_manifest(
             root=Path(args.root) if args.root else None,
-            destination=Path(args.output) if args.output else None,
+            destination=Path(args.to) if args.to else None,
         )
     except (HydroModPyError, OSError) as exc:
-        print(f"[dev examples] {exc}", file=sys.stderr)
-        sys.exit(exit_code_for(exc))
+        refuse(f"[dev examples] {exc}", exit_code_for(exc), cause=exc)
 
     print(f"[dev examples] Wrote {written}")
     for entry in entries:

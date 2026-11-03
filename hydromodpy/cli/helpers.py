@@ -10,8 +10,20 @@ import uuid
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
+from hydromodpy.cli.output import failed
+from hydromodpy.core.exceptions import (
+    CalibrationError,
+    CommandUsageError,
+    ConfigError,
+    DataError,
+    FailedCasesError,
+    HydroModPyError,
+    NothingThereError,
+    StepError,
+    WriteConflictError,
+)
 from hydromodpy.core.logging import get_logger
 
 # ---------------------------------------------------------------------------
@@ -42,6 +54,9 @@ EXIT_CATALOG_UNREADABLE = 22
 EXIT_CASES_FAILED = 23
 EXIT_SIGINT = 130
 
+PROJECT_ROOT_ENV = "HMP_PROJECT_ROOT"
+"""Project root every resolver honours first; ``-w`` sets it for a TOML verb."""
+
 
 def exit_code_for(exc: BaseException) -> int:
     """Map an exception instance to the matching typed exit code.
@@ -51,23 +66,17 @@ def exit_code_for(exc: BaseException) -> int:
     """
     from hydromodpy.core.exceptions import (
         BackupFailedError,
-        CalibrationError,
         CapabilityVersionMismatchError,
         CatalogUnreadableError,
-        ConfigError,
         ConfigMissingError,
         CrossProjectsError,
-        DataError,
-        FailedCasesError,
         ImportConflictError,
         JobUsageError,
         MigrationFailedError,
         ReadOnlyError,
         SchemaVersionMismatchError,
         SolverError,
-        StepError,
         TerrainError,
-        WriteConflictError,
     )
     from hydromodpy.results.catalog.discovery import (
         AmbiguousReferenceError,
@@ -95,12 +104,13 @@ def exit_code_for(exc: BaseException) -> int:
     if isinstance(exc, FileNotFoundError):
         return EXIT_NOT_FOUND
     mapping: tuple[tuple[type[BaseException], int], ...] = (
+        (CommandUsageError, EXIT_USAGE),
         (JobUsageError, EXIT_USAGE),
         (CapabilityVersionMismatchError, EXIT_SCHEMA_MISMATCH),
         (SchemaVersionMismatchError, EXIT_SCHEMA_MISMATCH),
         (WriteConflictError, EXIT_WRITE_CONFLICT),
         # The archive collides with a row the catalog holds: a write conflict
-        # that --force or --as resolves, not a concurrent writer.
+        # that --name resolves, not a concurrent writer.
         (ImportConflictError, EXIT_WRITE_CONFLICT),
         (ReadOnlyError, EXIT_READ_ONLY),
         # The directory of the case is held by another worker, or says
@@ -137,6 +147,88 @@ def exit_code_for(exc: BaseException) -> int:
     return EXIT_GENERIC
 
 
+_CLASS_OF_EXIT: dict[int, type[HydroModPyError]] = {
+    EXIT_GENERIC: HydroModPyError,
+    EXIT_USAGE: CommandUsageError,
+    EXIT_NOT_FOUND: NothingThereError,
+    EXIT_WRITE_CONFLICT: WriteConflictError,
+    EXIT_CONFIG: ConfigError,
+    EXIT_VALIDATION: DataError,
+    EXIT_CALIBRATION: CalibrationError,
+    EXIT_CASES_FAILED: FailedCasesError,
+}
+"""The class whose ``HMPY.Exxx`` a failure carries when no exception of ours names its own."""
+
+
+def _class_of(exc: BaseException | None, exit_code: int) -> type[HydroModPyError]:
+    """Return the class that names a failure: the one raised, else the one of its exit code."""
+    while isinstance(exc, StepError):
+        exc = exc.cause
+    if isinstance(exc, HydroModPyError):
+        return type(exc)
+    return _CLASS_OF_EXIT.get(exit_code, HydroModPyError)
+
+
+def error_code(exc: BaseException) -> str:
+    """Return the ``HMPY.Exxx`` code a failure prints.
+
+    The pipeline wraps what a step raised, so the code is the one of that cause, as
+    the exit code is. A builtin raised by HydroModPy takes the code of its exit code,
+    and ``HMPY.E000`` when it has none: that is a bug of ours, not of the caller.
+    """
+    return _class_of(exc, exit_code_for(exc)).code
+
+
+def _leave(message: str, klass: type[HydroModPyError], code: str, exit_code: int) -> NoReturn:
+    """Print the failure on stderr, with its code first, and end with its exit code."""
+    print(f"{code}: {message}", file=sys.stderr)
+    title = "A failure with no category of its own" if klass is HydroModPyError else klass.title()
+    failed(code, title, message, exit_code)
+    sys.exit(exit_code)
+
+
+def fail(exc: BaseException) -> NoReturn:
+    """End the command on an exception: its code, its message, its exit code.
+
+    An interruption is no failure of the command, so it carries no code.
+    """
+    exit_code = exit_code_for(exc)
+    if isinstance(exc, KeyboardInterrupt):
+        print(str(exc) or "Interrupted.", file=sys.stderr)
+        sys.exit(exit_code)
+    klass = _class_of(exc, exit_code)
+    _leave(str(exc) or type(exc).__name__, klass, klass.code, exit_code)
+
+
+def refuse(message: str, exit_code: int, *, cause: BaseException | None = None) -> NoReturn:
+    """End the command on a refusal of its own, in words of its own.
+
+    It carries the code of *cause*, when it comes from one, else the code of
+    the class of its exit code.
+    """
+    klass = _class_of(cause, exit_code)
+    _leave(message, klass, klass.code, exit_code)
+
+
+def confirm(args: Any, question: str, *, doing: str) -> None:
+    """Return once the user agreed: ``-y``, or a yes on a terminal. Stops otherwise.
+
+    Without a terminal and without ``-y``, *doing* names what is refused.
+    """
+    if args.yes:
+        return
+    if not sys.stdin.isatty():
+        refuse(f"Refusing to {doing} without -y in non-interactive mode.", EXIT_USAGE)
+    try:
+        answer = input(f"{question} [y/N] ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        print("\nAborted.", file=sys.stderr)
+        sys.exit(EXIT_SIGINT)
+    if answer not in {"y", "yes"}:
+        print("Aborted.", file=sys.stderr)
+        sys.exit(EXIT_SIGINT)
+
+
 def exit_if_session_unfinished(result: Any) -> None:
     """Say why a calibration session did not complete, then exit with the calibration code.
 
@@ -147,7 +239,6 @@ def exit_if_session_unfinished(result: Any) -> None:
     the reason ``session.json`` gives. Returns when the session completed.
     """
     from hydromodpy.calibration.report import promotion_failures, unfinished_session
-    from hydromodpy.core.exceptions import CalibrationError
 
     failures = promotion_failures(result)
     for line in failures:
@@ -156,7 +247,7 @@ def exit_if_session_unfinished(result: Any) -> None:
     if unfinished is not None:
         print(f"  {unfinished}.", file=sys.stderr)
     if failures or unfinished is not None:
-        sys.exit(exit_code_for(CalibrationError("the calibration session did not complete")))
+        refuse("the calibration session did not complete", EXIT_CALIBRATION)
 
 
 # ---------------------------------------------------------------------------
@@ -229,17 +320,15 @@ def resolve_workspace(workspace_arg: str | None) -> Path:
     named = workspace_arg or os.environ.get("HMP_WORKSPACE")
     start = Path(named).expanduser().resolve() if named else Path.cwd().resolve()
     if not start.is_dir():
-        print(
+        refuse(
             f"Workspace {start} does not exist. Run 'hmp workspace init {start}' first.",
-            file=sys.stderr,
+            EXIT_NOT_FOUND,
         )
-    else:
-        print(
-            f"No HydroModPy workspace at or above {start}. Name one with -w, "
-            "or run 'hmp workspace init' first.",
-            file=sys.stderr,
-        )
-    sys.exit(EXIT_NOT_FOUND)
+    refuse(
+        f"No HydroModPy workspace at or above {start}. Name one with -w, "
+        "or run 'hmp workspace init' first.",
+        EXIT_NOT_FOUND,
+    )
 
 
 def resolve_project(workspace_arg: str | None) -> Path:
@@ -257,12 +346,44 @@ def resolve_project(workspace_arg: str | None) -> Path:
     start = Path(workspace_arg).expanduser().resolve() if workspace_arg else Path.cwd().resolve()
     root = resolve_project_root(start)
     if not is_project_root(root):
-        print(
+        refuse(
             f"No {PROJECT_MARKER_FILENAME} at or above {start}. Name the project with -w.",
-            file=sys.stderr,
+            EXIT_NOT_FOUND,
         )
-        sys.exit(EXIT_NOT_FOUND)
     return root
+
+
+def project_root_of(args: Any) -> Path:
+    """Return the project root ``-w`` names, or the one around the current directory.
+
+    Nothing is checked: a verb that reads an index refuses when it finds none.
+    """
+    from hydromodpy.core.state.paths import resolve_project_root
+
+    named = getattr(args, "workspace", None)
+    return resolve_project_root(Path(named or Path.cwd()).expanduser().resolve())
+
+
+@contextmanager
+def project_named_by_w(workspace_arg: str | None) -> Iterator[None]:
+    """Make the project ``-w`` names the project of a TOML verb, for the block.
+
+    A run, its checks and its frozen-mode verification all resolve the project
+    root through ``HMP_PROJECT_ROOT``. It is set for the block and put back as
+    it was after.
+    """
+    if not workspace_arg:
+        yield
+        return
+    previous = os.environ.get(PROJECT_ROOT_ENV)
+    os.environ[PROJECT_ROOT_ENV] = str(resolve_project(workspace_arg))
+    try:
+        yield
+    finally:
+        if previous is None:
+            os.environ.pop(PROJECT_ROOT_ENV, None)
+        else:
+            os.environ[PROJECT_ROOT_ENV] = previous
 
 
 def resolve_named_project(workspace_arg: str | None, name: str | None) -> Path:
@@ -276,8 +397,7 @@ def resolve_named_project(workspace_arg: str | None, name: str | None) -> Path:
 
     project_dir = resolve_workspace(workspace_arg) / PROJECTS_DIRNAME / name
     if not project_dir.is_dir():
-        print(f"No such project: {project_dir}", file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
+        refuse(f"No such project: {project_dir}", EXIT_NOT_FOUND)
     return project_dir
 
 
@@ -294,12 +414,11 @@ def resolve_project_ref(workspace_arg: str | None, ref: str | None) -> Path:
     start = Path(ref).expanduser().resolve()
     root = resolve_project_root(start)
     if not (root / PROJECT_MARKER_FILENAME).is_file():
-        print(
+        refuse(
             f"No {PROJECT_MARKER_FILENAME} at or above {start}: name a project directory, "
             "or a project name under projects/ of the workspace.",
-            file=sys.stderr,
+            EXIT_NOT_FOUND,
         )
-        sys.exit(EXIT_NOT_FOUND)
     return root
 
 
@@ -334,8 +453,7 @@ def apply_verbosity(args: Any, raw_toml: Mapping[str, Any]) -> str:
     try:
         return set_verbosity(level or DEFAULT_VERBOSITY)
     except ValueError as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_CONFIG)
+        refuse(str(exc), EXIT_CONFIG, cause=exc)
 
 
 def auto_scan_workspace(config_path: Path) -> None:
@@ -369,11 +487,10 @@ def _require_pyinstrument() -> None:
     try:
         import pyinstrument  # noqa: F401
     except ImportError:
-        print(
+        refuse(
             "pyinstrument is required for --profile. Install it with: pip install pyinstrument",
-            file=sys.stderr,
+            EXIT_CONFIG,
         )
-        sys.exit(EXIT_CONFIG)
 
 
 def profile_arg_from_toml(raw_toml: Mapping[str, Any]) -> str | None:
@@ -502,8 +619,15 @@ __all__ = (
     "EXIT_CATALOG_UNREADABLE",
     "EXIT_CASES_FAILED",
     "EXIT_SIGINT",
+    "PROJECT_ROOT_ENV",
+    "confirm",
+    "error_code",
     "exit_code_for",
     "exit_if_session_unfinished",
+    "fail",
+    "project_named_by_w",
+    "project_root_of",
+    "refuse",
     "find_project_root",
     "find_workspace_root",
     "find_data_workspace",

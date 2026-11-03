@@ -108,7 +108,9 @@ def run_boussinesq_stream_depletion_case(
             },
             "bc": {"west_side": {"value": base_head_m}},
             # One TS step in each substep: the time steps of the MODFLOW runs.
-            "ts_vi_steps_per_period": 1,
+            "runtime": {
+                "ts_vi_steps_per_period": 1,
+            },
         },
         flow_regime="transient",
         solver=solver_name,

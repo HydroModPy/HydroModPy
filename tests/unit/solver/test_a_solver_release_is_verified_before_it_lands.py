@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
 import io
 import os
 import re
@@ -11,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.cli.commands import install_binaries as install_command
 from hydromodpy.cli.helpers import exit_code_for
+from hydromodpy.cli.main import main as cli_main
 from hydromodpy.core.exceptions import CacheCorruptionError, NetworkError, SolverBinaryError
 from hydromodpy.solver.modflow_common import binaries
 from tests.unit.core._fake_release import digest_of, serve_assets
@@ -186,12 +185,10 @@ def test_the_command_prints_a_refusal_and_exits_with_its_code(
         raise raised
 
     monkeypatch.setattr(binaries, "download_solver_binaries", refuse)
-    args = argparse.Namespace(
-        subset="mf6", mf6_prt=False, bindir=str(tmp_path), upgrade=False, quiet=True, release=None
-    )
+    args = ["install-binaries", "--subset", "mf6", "--to", str(tmp_path), "-q"]
 
     with pytest.raises(SystemExit) as stopped:
-        install_command.run(args)
+        cli_main(args)
 
     assert stopped.value.code == exit_code_for(raised)
     assert str(raised) in capsys.readouterr().err

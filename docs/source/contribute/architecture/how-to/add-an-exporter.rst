@@ -118,7 +118,7 @@ Choose what to read
   GeoTIFF, GeoPackage, VTU follow this pattern.
 - **Layer**: ``Catalog.read_geographic_feature`` for a vector layer,
   ``SimulationZarr.read_geographic_raster`` for a raster one.
-- **Bundle**: the whole run. There is one: ``hmp publish --format tar``
+- **Bundle**: the whole run. There is one: ``hmp publish --container tar``
   (``results/export/publish.py``), which copies the sealed run.
 
 Every file lands under ``runs/<run>/exports/`` and carries the identity block of

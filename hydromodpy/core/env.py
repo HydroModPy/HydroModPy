@@ -337,7 +337,7 @@ ENV_VARS: tuple[EnvVar, ...] = (
         "a new folder under the scratch root",
         "test",
         "Scratch folder of one test session. Set by the test conftest and by "
-        "``hmp test``, inherited by the subprocesses.",
+        "``hmp dev test``, inherited by the subprocesses.",
     ),
     EnvVar(
         "HMP_WHEEL_SITE",

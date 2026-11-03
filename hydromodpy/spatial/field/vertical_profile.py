@@ -44,21 +44,21 @@ def normalize_vertical_profile(
 ) -> dict[str, Any]:
     """Check a profile mapping and return its canonical form."""
     if vertical_profile is None:
-        return {"mode": "none"}
+        return {"kind": "none"}
     if not isinstance(vertical_profile, Mapping):
         raise TypeError("vertical_profile must be a mapping when provided")
 
-    mode = str(vertical_profile.get("mode", "none")).strip().lower()
+    mode = str(vertical_profile.get("kind", "none")).strip().lower()
     if mode not in SUPPORTED_VERTICAL_PROFILE_MODES:
         allowed = ", ".join(SUPPORTED_VERTICAL_PROFILE_MODES)
         raise ValueError(f"Unsupported vertical profile mode '{mode}'. Allowed: {allowed}")
 
     if mode == "none":
-        return {"mode": "none"}
+        return {"kind": "none"}
 
     if mode == "exponential":
         if "characteristic_depth" not in vertical_profile:
-            raise KeyError("vertical_profile mode='exponential' requires 'characteristic_depth'")
+            raise KeyError("vertical_profile kind='exponential' requires 'characteristic_depth'")
         characteristic_depth = _length_to_m(
             vertical_profile["characteristic_depth"],
             label="vertical_profile.characteristic_depth",
@@ -75,7 +75,7 @@ def normalize_vertical_profile(
                 raise ValueError("vertical_profile.min_factor must be in [0, 1]")
 
         normalized = {
-            "mode": "exponential",
+            "kind": "exponential",
             "characteristic_depth": characteristic_depth,
         }
         if min_factor is not None:
@@ -84,9 +84,9 @@ def normalize_vertical_profile(
 
     # The mode check above leaves "tabulated" as the only mode here.
     if "depths" not in vertical_profile:
-        raise KeyError("vertical_profile mode='tabulated' requires 'depths'")
+        raise KeyError("vertical_profile kind='tabulated' requires 'depths'")
     if "factors" not in vertical_profile:
-        raise KeyError("vertical_profile mode='tabulated' requires 'factors'")
+        raise KeyError("vertical_profile kind='tabulated' requires 'factors'")
 
     depths = np.asarray(vertical_profile["depths"], dtype=float).reshape(-1)
     factors = np.asarray(vertical_profile["factors"], dtype=float).reshape(-1)
@@ -113,7 +113,7 @@ def normalize_vertical_profile(
         )
 
     return {
-        "mode": "tabulated",
+        "kind": "tabulated",
         "depths": depths.tolist(),
         "factors": factors.tolist(),
         "interpolation": interpolation,
@@ -133,7 +133,7 @@ def normalize_depth(depth):
 def vertical_factor(vertical_profile: Mapping[str, Any], depth=0.0):
     """Return the factor of a canonical profile at ``depth`` (float or array)."""
     depth_arr = normalize_depth(depth)
-    mode = str(vertical_profile.get("mode", "none"))
+    mode = str(vertical_profile.get("kind", "none"))
 
     if mode == "none":
         out = np.ones_like(depth_arr, dtype=float)

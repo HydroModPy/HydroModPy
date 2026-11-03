@@ -30,7 +30,7 @@ keep_solver_files = {keep}
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [display]

@@ -1,6 +1,6 @@
 """The ``[site]`` section: which catchment a project models.
 
-A real catchment (``catch_def`` other than a synthetic domain) is named by a
+A real catchment (``kind`` other than a synthetic domain) is named by a
 site, so two projects on the same river recognise each other and an index can
 group runs by catchment rather than by project folder. The section is a root
 section of the project config, documented by the normal walk of the model.
@@ -22,6 +22,7 @@ from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import StationName
 
 SITE_NAME_PATTERN = r"^[A-Za-z0-9_]+$"
 """Grammar of a site name: letters, digits and underscores, case kept.
@@ -43,7 +44,7 @@ class SiteConfig(HydroModelBase):
             "Name of the catchment: letters, digits and underscores, case kept. It is "
             "the identity of the site inside the workspace, the value of the site "
             "column of the index and of every exported table. A real catchment "
-            "(geographic.catchment.catch_def from_outlet_coord, from_polyg_shp or "
+            "(geographic.catchment.kind from_outlet_coord, from_polyg_shp or "
             "dem) is refused without it. The dash is reserved: it separates the site "
             "from the recipe in a case id."
         ),
@@ -57,7 +58,7 @@ class SiteConfig(HydroModelBase):
         ),
         examples=["Le Nançon à Lécousse"],
     )
-    gauge: Annotated[str | None, Profile.USER] = Field(
+    gauge: Annotated[StationName | None, Profile.USER] = Field(
         default=None,
         description=(
             "Station that measures the catchment, written once for every key that "

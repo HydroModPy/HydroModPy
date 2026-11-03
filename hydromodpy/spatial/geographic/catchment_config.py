@@ -16,6 +16,7 @@ from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.tracking import InputFile
 from hydromodpy.core.units import UREG, LengthMeters
+from hydromodpy.spatial.geographic.core.catchment_domain import SQRT_AREA_FORM
 
 __all__ = [
     "CatchDef",
@@ -36,8 +37,12 @@ def _normalize_buff_area(value):
       catchment covers 10 per cent more area than the catchment;
     - ``"150 m"``, ``"0.15 km"`` or ``"150"`` becomes ``"150.0 m"``: an explicit
       distance, a string with no unit being metres;
-    - a bare number stays a float: the legacy v1 rule, which a sealed run
-      still carries and must replay.
+    - ``"10% of sqrt(area)"`` is the v1 rule written out: the distance is 10 per
+      cent of the square root of the catchment area, about 50 per cent more area on
+      a real catchment;
+    - a bare number stays a float: the same v1 rule, which a sealed run still
+      carries and must replay. ``hmp doctor --fix-config`` rewrites it as the
+      explicit form above, with the same distance.
 
     A run is re-read from its own sealed config, so this validator reads what
     it wrote: ``normalize(normalize(x)) == normalize(x)``.
@@ -48,6 +53,12 @@ def _normalize_buff_area(value):
         token = value.strip()
         if token == "":
             raise ValueError("geographic.catchment.buff_area cannot be empty.")
+        written_out = SQRT_AREA_FORM.match(token)
+        if written_out:
+            pct = float(written_out.group(1))
+            if pct <= 0.0:
+                raise ValueError("geographic.catchment.buff_area percent must be > 0.")
+            return f"{pct:g}% of sqrt(area)"
         if token.endswith("%"):
             pct = float(token[:-1].strip())
             if pct <= 0.0:
@@ -72,17 +83,18 @@ _BUFF_AREA_DESCRIPTION = (
     "catchment AREA by that share, the rule of Abherve et al. (2023): the "
     "distance is solved on the real polygon, then snapped to the DEM grid. A "
     "length ('500 m', '2 km') is an explicit distance, snapped to the DEM grid "
-    "like the percentage. A bare number (10) keeps "
-    "the rule of version 1, 10 per cent of sqrt(area in km2) km, about 50 per cent "
-    "more area on a real catchment, and warns: it lets a sealed run replay its "
-    "domain."
+    "like the percentage. '10% of sqrt(area)' is the rule of version 1 written out, "
+    "10 per cent of the square root of the catchment area, about 50 per cent more area "
+    "on a real catchment. A bare number (10) still reads as that rule and warns, so a "
+    "sealed run replays its domain; hmp doctor --fix-config rewrites it in the explicit "
+    "form with the same distance."
 )
 
 
 MISSING_CATCHMENT = (
-    "geographic.catchment.catch_def is required when "
+    "geographic.catchment.kind is required when "
     "geographic.source_mode='standard'. Add a [geographic.catchment] table "
-    'with catch_def = "dem", "txt", "from_outlet_coord" or "from_polyg_shp".'
+    'with kind = "dem", "txt", "from_outlet_coord" or "from_polyg_shp".'
 )
 
 
@@ -109,6 +121,9 @@ class _CatchDefBase(HydroModelBase):
             "('75 m', a bare number in metres). The routing surface, the catchment, the "
             "mesh and the model top all take it. Unset keeps the pixel of the DEM file, "
             "which is what the mesh follows otherwise: 25 m for a BD ALTI download. "
+            "Second of three sizes, each read from the one before: "
+            "data.dem.sources.resolution_m says what a provider serves, this key "
+            "what the run works on, and mesh.cell_size what the model solves on. "
             "Aggregation only: each coarse cell is the mean of the fine pixels it covers, "
             "nodata left out, on a grid aligned on the upper-left corner of the DEM; a "
             "value finer than the DEM's own pixel is refused when the run starts. The "
@@ -137,7 +152,7 @@ class _CatchDefBase(HydroModelBase):
 class DemCatchDef(_CatchDefBase):
     """Model domain defined directly from a DEM raster."""
 
-    catch_def: Annotated[Literal["dem"], Profile.USER] = Field(
+    kind: Annotated[Literal["dem"], Profile.USER] = Field(
         default="dem",
         description="Catchment defined by the DEM raster extent.",
     )
@@ -159,7 +174,7 @@ class DemCatchDef(_CatchDefBase):
 class TxtCatchDef(_CatchDefBase):
     """Model domain defined from an XYZ text grid plus a cell size."""
 
-    catch_def: Annotated[Literal["txt"], Profile.USER] = Field(
+    kind: Annotated[Literal["txt"], Profile.USER] = Field(
         default="txt",
         description=(
             "Catchment defined from an XYZ text grid (cell_size required). Not implemented: "
@@ -179,7 +194,7 @@ class TxtCatchDef(_CatchDefBase):
 class OutletCatchDef(_CatchDefBase):
     """Watershed delineated from an outlet coordinate."""
 
-    catch_def: Annotated[Literal["from_outlet_coord"], Profile.USER] = Field(
+    kind: Annotated[Literal["from_outlet_coord"], Profile.USER] = Field(
         default="from_outlet_coord",
         description="Watershed delineated from outlet coordinates on a regional DEM.",
     )
@@ -228,7 +243,7 @@ class OutletCatchDef(_CatchDefBase):
 class PolygonCatchDef(_CatchDefBase):
     """Watershed delineated from a polygon shapefile."""
 
-    catch_def: Annotated[Literal["from_polyg_shp"], Profile.USER] = Field(
+    kind: Annotated[Literal["from_polyg_shp"], Profile.USER] = Field(
         default="from_polyg_shp",
         description="Watershed delineated from a polygon shapefile plus a regional DEM.",
     )
@@ -248,5 +263,5 @@ class PolygonCatchDef(_CatchDefBase):
 
 CatchDef: TypeAlias = Annotated[
     DemCatchDef | TxtCatchDef | OutletCatchDef | PolygonCatchDef,
-    Field(discriminator="catch_def", description="Catchment definition discriminator."),
+    Field(discriminator="kind", description="Catchment definition discriminator."),
 ]

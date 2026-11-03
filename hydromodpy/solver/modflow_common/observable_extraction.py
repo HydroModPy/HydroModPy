@@ -25,6 +25,7 @@ from hydromodpy.core.contracts.observables import (
     require_unique_request_ids,
 )
 from hydromodpy.core.exceptions import ObservableNotAvailableError
+from hydromodpy.core.field_routing import networks_route_drainage
 from hydromodpy.solver.base.observables import (
     field_observable,
     scalar_observable,
@@ -235,26 +236,6 @@ def _aquifer_bounds(model: Any) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     return top, botm[-1].reshape(-1), layer
 
 
-def _networks_route_drainage(model: Any) -> bool:
-    """Return False when an SFR network of the model keeps its drainage out of the reaches.
-
-    A model with no network, or one that does not say, keeps the routed reader's
-    answer: ``route_drainage`` defaults to on.
-    """
-    flow = getattr(model, "flow", None)
-    sinks_sources = getattr(flow, "sinks_sources", None)
-    networks = sinks_sources.get("sfr") if isinstance(sinks_sources, dict) else None
-    for payload in (networks or {}).values():
-        flag = (
-            payload.get("route_drainage")
-            if isinstance(payload, Mapping)
-            else getattr(payload, "route_drainage", None)
-        )
-        if flag is False:
-            return False
-    return True
-
-
 def extract_common_modflow_observables(
     output_dir: Path,
     model_name: str,
@@ -295,22 +276,22 @@ def extract_common_modflow_observables(
     unserved = [r for r in requests if id(r) not in handled]
 
     if discharge_requests:
-        # A routed network owns the discharge observable. With route_drainage the
+        # A routed series owns the discharge observable. With route_drainage the
         # in-catchment drainage has been moved into DRN-TO-MVR, so the plain DRAIN
         # record left in the budget is the buffer drainage of the neighbouring
-        # basins and summing it would score the wrong water. Without it the
-        # hillslope drainage stays in DRAIN, outside the routed series, so the
-        # catchment DRAIN budget is added to it. The baseflow of the reach cells
-        # leaves through the bed leakage, never through DRAIN, so nothing is counted
-        # twice. The runoff forcing is injected into the network either way. The
-        # reader is injected by the backend: SFR is MODFLOW 6 only, and
-        # `modflow_common` must not import a backend.
+        # basins and summing it would score the wrong water. Without it, or with a
+        # lake and no network, the hillslope drainage stays in DRAIN, outside the
+        # routed series, so the catchment DRAIN budget is added to it. The baseflow
+        # of the reach cells leaves through the bed leakage, never through DRAIN, so
+        # nothing is counted twice. The runoff forcing is injected into the network
+        # or the lake either way. The reader is injected by the backend: SFR and LAK
+        # are MODFLOW 6 only, and `modflow_common` must not import a backend.
         series = None
         routed = False
         if routed_discharge_reader is not None:
             series = routed_discharge_reader(output_dir, model_name, time_index)
             routed = series is not None
-        if routed and not _networks_route_drainage(model):
+        if routed and not networks_route_drainage(getattr(model, "flow", None)):
             try:
                 hillslope = extract_discharge_from_cbc(
                     output_dir,

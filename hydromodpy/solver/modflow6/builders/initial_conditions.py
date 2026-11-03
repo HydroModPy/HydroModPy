@@ -162,7 +162,7 @@ def read_restart_lake_stages(path: str) -> dict[str, float]:
     Reads the ``lake_state_final`` group written at extraction time, the lake
     companion of the ``head`` field for ``[flow] restart_from``. Returns an empty
     mapping when the prior run had no lake (older stores, non-lake runs), so
-    callers keep the per-lake ``stageinit``.
+    callers keep the per-lake ``initial_stage``.
     """
     root = _open_restart_zarr(path)
     if "lake_state_final" not in root:

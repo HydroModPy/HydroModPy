@@ -45,7 +45,7 @@ def outlet_config(
     return GeographicConfig.model_validate(
         {
             "catchment": {
-                "catch_def": "from_outlet_coord",
+                "kind": "from_outlet_coord",
                 "dem_init_path": dem,
                 "x_outlet": x,
                 "y_outlet": y,
@@ -309,7 +309,7 @@ def cached_tree(root: Path, *, flow_products=None, domain: dict | None = None, *
     config = GeographicConfig.model_validate(
         {
             "catchment": {
-                "catch_def": "from_outlet_coord",
+                "kind": "from_outlet_coord",
                 "dem_init_path": dem,
                 "x_outlet": 1.0,
                 "y_outlet": 2.0,
@@ -352,7 +352,7 @@ def load_cached(config, paths):
 
 
 OUTLET_CATCHMENT = {
-    "catch_def": "from_outlet_coord",
+    "kind": "from_outlet_coord",
     "x_outlet": 450.0,
     "y_outlet": 450.0,
     "snap_dist": 100,
@@ -364,7 +364,7 @@ OUTLET_CATCHMENT = {
 def polygon_catchment(root: Path) -> dict:
     """A 600 m square catchment shapefile on the ramp, as a catchment table."""
     path = write_features(root / "inputs" / "catchment.shp", [box(100.0, 100.0, 700.0, 700.0)])
-    return {"catch_def": "from_polyg_shp", "polyg_shp_path": path, "buff_area": 20.0}
+    return {"kind": "from_polyg_shp", "polyg_shp_path": path, "buff_area": 20.0}
 
 
 def delineate_on_fake_backend(root: Path, monkeypatch, catchment: dict, **config):
@@ -488,7 +488,7 @@ def outlet_case_toml(
         f'[workspace]\nroot = "{root.as_posix()}"',
         f'[geographic]\ncrs_project = "{LAMBERT}"\ndem_correc_type = "{dem_correc_type}"',
         "[geographic.catchment]",
-        f'catch_def = "from_outlet_coord"\ndem_init_path = "{dem}"',
+        f'kind = "from_outlet_coord"\ndem_init_path = "{dem}"',
         f"x_outlet = {case['x']}\ny_outlet = {case['y']}\nsnap_dist = 50\nbuff_area = 20.0",
     ]
     if river_network is not None:
@@ -502,11 +502,13 @@ def outlet_case_toml(
 def delineate_case_toml(path: Path):
     """Delineate the catchment of a project TOML in its workspace, as a run does."""
     from hydromodpy.config import HydroModPyConfig
-    from hydromodpy.core.workspace import Workspace
+    from hydromodpy.core.workspace import WorkspaceLayout
     from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
 
     cfg = HydroModPyConfig.from_toml(path)
-    return CatchmentDelineation(config=cfg.geographic, initializing=Workspace(config=cfg.workspace))
+    return CatchmentDelineation(
+        config=cfg.geographic, initializing=WorkspaceLayout(config=cfg.workspace)
+    )
 
 
 GOLDEN_FLOAT_KEYS = (

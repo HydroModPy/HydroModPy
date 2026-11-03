@@ -798,7 +798,7 @@ def _extract_head_at_point_from_run(
         ok = True
         for t in range(n_ts):
             try:
-                frame = run.field(name, timestep=t)
+                frame = run.field(name, time=t)
             except Exception:
                 ok = False
                 break

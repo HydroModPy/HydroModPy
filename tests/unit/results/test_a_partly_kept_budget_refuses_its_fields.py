@@ -75,7 +75,7 @@ def test_a_consumers_store_with_the_drain_only_refuses_the_release_flux(project)
         assert not run.has_field("release_flux")
         assert "release_flux" not in run.array.list_fields()
         with pytest.raises(FieldNotFoundError):
-            run.field("release_flux", timestep=0)
+            run.field("release_flux", time=0)
         with pytest.raises(KeyError):
             read_field_or_virtual(catalog, sid, "release_flux", 0)
         with pytest.raises(KeyError):

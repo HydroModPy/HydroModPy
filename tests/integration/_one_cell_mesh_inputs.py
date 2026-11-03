@@ -382,7 +382,7 @@ def make_flow(case: RechargeCase, *, profile: bool) -> Flow:
     }
     if profile:
         k_param["field_vertical_profile"] = {
-            "mode": "exponential",
+            "kind": "exponential",
             "characteristic_depth": CHARACTERISTIC_DEPTH_M,
         }
     flow = Flow(
@@ -400,10 +400,9 @@ def make_flow(case: RechargeCase, *, profile: bool) -> Flow:
                     },
                     "Ss": {"field": {"kind": "homogeneous", "value": 1.0e-5}},
                 },
-                "ic": {"type": "top"},
+                "ic": {"kind": "top"},
                 "flow_regime": "transient",
                 "first_period_steady": False,
-                "active_sinks_sources": ["recharge"],
                 "sinks_sources": {"recharge": {"values": 0.0}},
             }
         )

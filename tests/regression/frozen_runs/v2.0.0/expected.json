@@ -1,0 +1,465 @@
+{
+  "demo": {
+    "sim_id": "d552124b-0920-4a8c-9d86-644b68b5cb30",
+    "name": "demo",
+    "project": "example",
+    "solver": "modflow_nwt",
+    "flow_regime": "steady",
+    "status": "completed",
+    "n_cells": 400,
+    "n_layers": 1,
+    "n_timesteps": 1,
+    "period": {
+      "start": "2000-01-01T00:00:00Z",
+      "end": "2001-01-01T00:00:00Z",
+      "n_timesteps": 1,
+      "time_unit": "year"
+    },
+    "budget_pct": 0.05999999865889549,
+    "parameters": {
+      "K": 0.0001,
+      "Sy": 0.12,
+      "thickness": 50.0
+    },
+    "lineage": {
+      "parent_sim_id": null,
+      "session_id": null,
+      "phase": null,
+      "trial": null,
+      "kind": null,
+      "overrides": {},
+      "drift": {},
+      "parent_hint": null
+    },
+    "head": {
+      "shape": [
+        1,
+        1,
+        400
+      ],
+      "min": 20.001953125,
+      "max": 20.9072265625,
+      "sample": [
+        20.906982421875,
+        20.902099609375,
+        20.89208984375,
+        20.876953125,
+        20.857177734375,
+        20.83251953125,
+        20.802978515625,
+        20.768798828125,
+        20.72998046875,
+        20.686279296875,
+        20.63818359375,
+        20.585205078125,
+        20.528076171875,
+        20.466064453125,
+        20.39990234375,
+        20.3291015625,
+        20.253662109375,
+        20.174072265625,
+        20.090087890625,
+        20.001953125
+      ],
+      "sha256": "7b678ffde32e753e2f6d88c076a03138ab95fd7dae01de6779c071bf12027be2"
+    },
+    "topography": {
+      "shape": [
+        400
+      ],
+      "min": 20.0,
+      "max": 25.0,
+      "sample": [
+        25.0,
+        24.736839294433594,
+        24.47368049621582,
+        24.210529327392578,
+        23.947370529174805,
+        23.6842098236084,
+        23.421049118041992,
+        23.15789031982422,
+        22.894739151000977,
+        22.631580352783203,
+        22.368419647216797,
+        22.105260848999023,
+        21.84210968017578,
+        21.578950881958008,
+        21.3157901763916,
+        21.052629470825195,
+        20.789470672607422,
+        20.52631950378418,
+        20.263160705566406,
+        20.0
+      ],
+      "sha256": "3d8cd9d73f524d612a34dbdd13ce511f815a5c6d9b85502c4e47b08d38b5768f"
+    },
+    "time": [
+      978307200
+    ],
+    "budget_terms": [
+      "constant_head",
+      "drain",
+      "recharge"
+    ],
+    "budget": [
+      {
+        "component": "constant_head",
+        "flux_in": 0.0,
+        "flux_out": 0.0,
+        "unit": "m3 s-1"
+      },
+      {
+        "component": "drain",
+        "flux_in": 0.0,
+        "flux_out": 0.00926522383815609,
+        "unit": "m3 s-1"
+      },
+      {
+        "component": "recharge",
+        "flux_in": 0.009259259240934625,
+        "flux_out": 0.0,
+        "unit": "m3 s-1"
+      }
+    ],
+    "mass_balance": [
+      {
+        "quantity": "water",
+        "total_in": 0.0092593003064394,
+        "total_out": 0.009265200234949589,
+        "percent_error": -0.05999999865889549
+      }
+    ],
+    "parameters_table": [
+      {
+        "param_name": "K",
+        "value": 0.0001,
+        "unit": "m s-1"
+      },
+      {
+        "param_name": "Sy",
+        "value": 0.12,
+        "unit": "1"
+      },
+      {
+        "param_name": "thickness",
+        "value": 50.0,
+        "unit": "m"
+      }
+    ],
+    "metrics": [
+      {
+        "station_id": "flow_main::modflow_nwt",
+        "variable": "runtime",
+        "metric": "flow_solve_time_seconds",
+        "value": 0.008147765882313251
+      },
+      {
+        "station_id": "flow_main::modflow_nwt",
+        "variable": "runtime",
+        "metric": "water_budget_percent_discrepancy",
+        "value": -0.06
+      },
+      {
+        "station_id": "flow_main::modflow_nwt",
+        "variable": "runtime",
+        "metric": "water_budget_worst_percent_discrepancy",
+        "value": -0.06
+      }
+    ],
+    "timeseries": [
+      {
+        "station_id": "catchment",
+        "variable": "discharge",
+        "source": "simulated",
+        "value": 0.009265221655368805,
+        "unit": "m3 s-1"
+      }
+    ],
+    "tables": [
+      "budgets",
+      "geographic_watershed",
+      "geographic_watershed_box_buff",
+      "geographic_watershed_contour",
+      "mass_balance",
+      "mesh_face_families",
+      "metrics",
+      "parameters",
+      "simulation",
+      "timeseries"
+    ],
+    "watershed_area_m2": 1000000.0,
+    "tags": [
+      "frozen"
+    ],
+    "notes": [
+      "Frozen for the compatibility test."
+    ],
+    "exports": [
+      "discharge.csv"
+    ],
+    "figures": [
+      "water_budget.png"
+    ]
+  },
+  "calibrated_run": {
+    "sim_id": "83dee61c-53b9-4f5e-b68d-51e0b2181c75",
+    "name": "calage",
+    "project": "example",
+    "solver": "modflow_nwt",
+    "flow_regime": "steady",
+    "status": "completed",
+    "n_cells": 400,
+    "n_layers": 1,
+    "n_timesteps": 1,
+    "period": {
+      "start": "2000-01-01T00:00:00Z",
+      "end": "2001-01-01T00:00:00Z",
+      "n_timesteps": 1,
+      "time_unit": "day"
+    },
+    "budget_pct": 0.05999999865889549,
+    "parameters": {
+      "K": 0.0001,
+      "Sy": 0.12,
+      "thickness": 50.0
+    },
+    "lineage": {
+      "parent_sim_id": null,
+      "session_id": "1c17c2c39cc54263a6aa64a447d7233e",
+      "phase": "k_grid",
+      "trial": 2,
+      "kind": "promoted",
+      "overrides": {},
+      "drift": {},
+      "parent_hint": "sessions/calage"
+    },
+    "head": {
+      "shape": [
+        1,
+        1,
+        400
+      ],
+      "min": 20.001953125,
+      "max": 20.9072265625,
+      "sample": [
+        20.906982421875,
+        20.902099609375,
+        20.89208984375,
+        20.876953125,
+        20.857177734375,
+        20.83251953125,
+        20.802978515625,
+        20.768798828125,
+        20.72998046875,
+        20.686279296875,
+        20.63818359375,
+        20.585205078125,
+        20.528076171875,
+        20.466064453125,
+        20.39990234375,
+        20.3291015625,
+        20.253662109375,
+        20.174072265625,
+        20.090087890625,
+        20.001953125
+      ],
+      "sha256": "7b678ffde32e753e2f6d88c076a03138ab95fd7dae01de6779c071bf12027be2"
+    },
+    "topography": {
+      "shape": [
+        400
+      ],
+      "min": 20.0,
+      "max": 25.0,
+      "sample": [
+        25.0,
+        24.736839294433594,
+        24.47368049621582,
+        24.210529327392578,
+        23.947370529174805,
+        23.6842098236084,
+        23.421049118041992,
+        23.15789031982422,
+        22.894739151000977,
+        22.631580352783203,
+        22.368419647216797,
+        22.105260848999023,
+        21.84210968017578,
+        21.578950881958008,
+        21.3157901763916,
+        21.052629470825195,
+        20.789470672607422,
+        20.52631950378418,
+        20.263160705566406,
+        20.0
+      ],
+      "sha256": "3d8cd9d73f524d612a34dbdd13ce511f815a5c6d9b85502c4e47b08d38b5768f"
+    },
+    "time": [
+      978307200
+    ],
+    "budget_terms": [
+      "constant_head",
+      "drain",
+      "recharge"
+    ],
+    "budget": [
+      {
+        "component": "constant_head",
+        "flux_in": 0.0,
+        "flux_out": 0.0,
+        "unit": "m3 s-1"
+      },
+      {
+        "component": "drain",
+        "flux_in": 0.0,
+        "flux_out": 0.00926522383815609,
+        "unit": "m3 s-1"
+      },
+      {
+        "component": "recharge",
+        "flux_in": 0.009259259240934625,
+        "flux_out": 0.0,
+        "unit": "m3 s-1"
+      }
+    ],
+    "mass_balance": [
+      {
+        "quantity": "water",
+        "total_in": 0.0092593003064394,
+        "total_out": 0.009265200234949589,
+        "percent_error": -0.05999999865889549
+      }
+    ],
+    "parameters_table": [
+      {
+        "param_name": "K",
+        "value": 0.0001,
+        "unit": "m s-1"
+      },
+      {
+        "param_name": "Sy",
+        "value": 0.12,
+        "unit": "1"
+      },
+      {
+        "param_name": "thickness",
+        "value": 50.0,
+        "unit": "m"
+      }
+    ],
+    "metrics": [
+      {
+        "station_id": "flow_main::modflow_nwt",
+        "variable": "runtime",
+        "metric": "flow_solve_time_seconds",
+        "value": 0.006980532081797719
+      },
+      {
+        "station_id": "flow_main::modflow_nwt",
+        "variable": "runtime",
+        "metric": "water_budget_percent_discrepancy",
+        "value": -0.06
+      },
+      {
+        "station_id": "flow_main::modflow_nwt",
+        "variable": "runtime",
+        "metric": "water_budget_worst_percent_discrepancy",
+        "value": -0.06
+      }
+    ],
+    "timeseries": [
+      {
+        "station_id": "catchment",
+        "variable": "discharge",
+        "source": "simulated",
+        "value": 0.009265221655368805,
+        "unit": "m3 s-1"
+      }
+    ],
+    "tables": [
+      "budgets",
+      "geographic_watershed",
+      "geographic_watershed_box_buff",
+      "geographic_watershed_contour",
+      "mass_balance",
+      "mesh_face_families",
+      "metrics",
+      "parameters",
+      "simulation",
+      "timeseries"
+    ],
+    "watershed_area_m2": 1000000.0,
+    "tags": [],
+    "notes": [],
+    "exports": [],
+    "figures": []
+  },
+  "session": {
+    "session_id": "1c17c2c39cc54263a6aa64a447d7233e",
+    "case_id": "calage",
+    "status": "completed",
+    "method": "grid",
+    "cost_name": "rmse",
+    "best": {
+      "trial": 2,
+      "cost": 0.002899322509765767,
+      "parameters": {
+        "K": 0.0001
+      },
+      "cases": {
+        "calage": {
+          "sim_id": "83dee61c-53b9-4f5e-b68d-51e0b2181c75",
+          "rel_dir": "runs/calage",
+          "cost": 0.002899322509765767
+        }
+      }
+    },
+    "windows": {},
+    "bounds": {
+      "K": {
+        "lower": 5e-05,
+        "upper": 0.0002,
+        "search_space": "log",
+        "units": "m/s",
+        "targets": {
+          "calage": "flow.param.K.field.value"
+        }
+      }
+    },
+    "stop_state": "plan_exhausted",
+    "phases": [
+      "k_grid"
+    ],
+    "trials": [
+      {
+        "trial": 1,
+        "K": 4.9999999999999996e-05,
+        "cost": 0.8850992584228514,
+        "status": "completed",
+        "phase": "k_grid",
+        "sim_id": null
+      },
+      {
+        "trial": 2,
+        "K": 0.0001,
+        "cost": 0.002899322509765767,
+        "status": "completed",
+        "phase": "k_grid",
+        "sim_id": "83dee61c-53b9-4f5e-b68d-51e0b2181c75"
+      },
+      {
+        "trial": 3,
+        "K": 0.00020000000000000004,
+        "cost": 0.45547309875488295,
+        "status": "completed",
+        "phase": "k_grid",
+        "sim_id": null
+      }
+    ]
+  },
+  "digests": {
+    "current": "24cd2d66dc52fb44175aabf3332622273640106012256630cc0f943e44d06363",
+    "future": "aab7d5b212fe2ef48003aeb85d08ec645d95f34f8c95c71d2f76070028dd069b"
+  }
+}

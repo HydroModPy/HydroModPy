@@ -1,0 +1,35 @@
+{
+  "schema": "hydromodpy.identity.v1",
+  "file": "discharge.csv",
+  "identity": {
+    "site": null,
+    "site_fingerprint": null,
+    "case_id": "demo",
+    "sim_id": "d552124b-0920-4a8c-9d86-644b68b5cb30",
+    "attempt_id": "0c34b345d2544b4eaf19736f50dd68c2",
+    "config_hash": "54f23cb10eeaf3f5009887e1915cf2f82c2fb07224f93d2af5b4362091a7d19b",
+    "mesh_hash": "48ebc775bacafd4e10f0f6a134360eba6a97bd4eb8961401c1a19da71d0e4083",
+    "period": {
+      "start": "2000-01-01",
+      "end": "2001-01-01",
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    },
+    "score_window": null,
+    "label": null,
+    "label_date": null,
+    "rule_version": null,
+    "hydromodpy_version": "2.0.0a5",
+    "code_reproducible": false,
+    "from_a_later_version": {
+      "kept": true,
+      "note": "written by a later 2.x"
+    }
+  },
+  "from_a_later_version": {
+    "kept": true,
+    "note": "written by a later 2.x"
+  }
+}

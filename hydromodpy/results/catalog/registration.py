@@ -29,6 +29,7 @@ import os
 import re
 import shutil
 import tarfile
+import tempfile
 import uuid
 from collections.abc import Callable
 from pathlib import Path
@@ -279,7 +280,7 @@ def split_stem_version(name: str) -> tuple[str, int | None]:
 _RESERVE_ATTEMPTS = 1000
 
 
-class VersionPairingError(FileExistsError):
+class VersionPairingError(WriteConflictError, FileExistsError):
     """The run directory a session is paired with is already taken."""
 
 
@@ -434,7 +435,9 @@ def live_version_dir(project_root: Path, name: str) -> Path:
     )
 
 
-def rename_case(project_root: Path, rel_dir: str, new_name: str) -> tuple[str, ...]:
+def rename_case(
+    project_root: Path, rel_dir: str, new_name: str, *, dry_run: bool = False
+) -> tuple[str, ...]:
     """Move a run, and the session of the same name, to ``new_name``.
 
     ``rel_dir`` is ``runs/<name>`` or ``sessions/<name>``; whichever of the
@@ -450,6 +453,8 @@ def rename_case(project_root: Path, rel_dir: str, new_name: str) -> tuple[str, .
     or rename may take it. A copy published under the old name still names
     its run by ``sim_id``. A directory a live attempt writes into is never
     moved.
+
+    With *dry_run* every check runs and the new directories are returned, nothing moves.
 
     Returns the new relative directories, run first. Raises
     :class:`NameTakenError` for a taken name, ``ValueError`` for a name that
@@ -480,6 +485,11 @@ def rename_case(project_root: Path, rel_dir: str, new_name: str) -> tuple[str, .
             f"{new_name!r} is taken: a directory of runs/, sessions/ or the trash holds it, "
             "or a tombstone remembers it. A deleted name is never given out again."
         )
+    if dry_run:
+        return tuple(
+            (run_dir_rel if rel == run_dir_rel(parsed.name) else session_dir_rel)(new_name)
+            for rel in sources
+        )
     moved: list[tuple[Path, Path]] = []
     try:
         for rel in sources:
@@ -506,6 +516,7 @@ def import_publication(
     *,
     name: str | None = None,
     admit: Callable[[Path], None] | None = None,
+    dry_run: bool = False,
 ) -> str:
     """Bring a run published by ``hmp publish`` into the project; return its ``rel_dir``.
 
@@ -522,6 +533,9 @@ def import_publication(
     ``runs/``: the catalog layer installs the inputs of the copy there, and a
     refusal it raises leaves the project as it was.
 
+    With *dry_run* the copy is staged outside the project, every check and *admit* run,
+    and the ``rel_dir`` the run would take is returned. Nothing enters the project.
+
     Raises :class:`~hydromodpy.core.exceptions.ImportConflictError` when a
     run of the project already carries the published ``sim_id``, and
     ``ValueError`` when the copy is not a sealed run or a digest differs.
@@ -530,14 +544,17 @@ def import_publication(
     origin = Path(source).expanduser()
     if not origin.exists():
         raise FileNotFoundError(f"No published run at {origin}")
-    staging = internal_dir(root) / f"{_IMPORT_STAGING_PREFIX}{uuid.uuid4().hex}"
-    staging.mkdir(parents=True)
+    if dry_run:
+        staging = Path(tempfile.mkdtemp(prefix=_IMPORT_STAGING_PREFIX))
+    else:
+        staging = internal_dir(root) / f"{_IMPORT_STAGING_PREFIX}{uuid.uuid4().hex}"
+        staging.mkdir(parents=True)
     try:
         copy = _stage_copy(origin, staging)
         publication = read_publication(copy)
         if publication.kind == "project" and not publication.members:
             raise ValueError(
-                f"{origin} is a project package written by hmp project export; install it "
+                f"{origin} is a project package written by hmp publish --package; install it "
                 "with hmp project import."
             )
         if publication.kind != "run":
@@ -562,6 +579,9 @@ def import_publication(
             )
         if admit is not None:
             admit(copy)
+        if dry_run:
+            bare = name if name is not None else split_stem_version(source_rel.name)[0]
+            return run_dir_rel(next_version_dirname(root, bare))
         for entry in sorted(copy.iterdir()):
             if entry.name not in ALLOWED_RUN_ENTRIES:
                 logger.info("%s is not a run entry; left out of the import", entry.name)

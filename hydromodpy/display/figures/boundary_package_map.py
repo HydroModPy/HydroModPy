@@ -276,7 +276,7 @@ class BoundaryPackageMap(BaseFigure):
 
 def _acting_cells(sim: Run, name: str, step: int, n_faces: int) -> np.ndarray:
     """Return the cells one package carries a non-zero flux on, at one step."""
-    return acting_faces(np.asarray(sim.field(name, timestep=step)), name, n_faces)
+    return acting_faces(np.asarray(sim.field(name, time=step)), name, n_faces)
 
 
 def _note(sim: Run, step: int, over: str, *, acting_cells: int, n_faces: int) -> str:

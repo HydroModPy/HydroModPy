@@ -40,6 +40,9 @@ from hydromodpy.calibration.config import (
     scoring_window_of_the_run,
 )
 from hydromodpy.calibration.protocols.base import Deviation, Reference
+from hydromodpy.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 STEADY_STAGE = "steady_conductivity"
 TRANSIENT_STAGE = "transient_storage"
@@ -280,29 +283,37 @@ class MatchingHydrographicNetwork:
             paper="no bound: the paper scores the pixels of the delineated catchment, so "
             "the question does not arise on its raster",
             here="the search is refused before its first solve when the catchment read on "
-            "the descent graph differs from the delineated outline by more than 5 per cent "
-            "of its area",
+            "the descent graph differs from the delineated outline by more than the bound "
+            "of verdict.max_catchment_mismatch, as a share of its area: 5 per cent from "
+            "version 1.3, no bound on 1.2",
             why=(
                 "the criterion scores the cells whose descent reaches the outlet on the "
                 "mesh graph, and those may not be the catchment asked for. On Nancon the "
                 "gap is 0.4 per cent on the default grid and 1.5 to 2.4 on Voronoi meshes "
-                "of 200 and 100 m; it passes 5 per cent on grids under about 2000 cells, and "
-                "where the outlet closes on another branch."
+                "of 200 and 100 m; it passes 5 per cent on coarse grids (11 per cent on 30 by 30 "
+                "cells, 3.8 per cent on 60 by 60, 5.6 per cent on 120 by 120), where the outlet "
+                "closes on another branch, and where the two conditionings of one DEM, the one "
+                "that cuts the polygon and the one the descent graph is built on, disagree "
+                "along the divide, which no mesh refinement closes."
             ),
             paper_value=False,
         ),
         Deviation(
             key="steady_recharge_window",
-            paper="the recharge of the steady stage is the mean of 1960 to 2019 (HESS "
-            "p. 3224), a sixty-year normal",
-            here="the mean of the window the run loads, [simulation.time] or steady_window "
-            "(2000 to 2002 in the shipped example), printed beside K with its dates",
+            paper="the recharge of the steady stage is the mean of 1960 to 2019 (HESS 2023, "
+            'p. 3224), a sixty-year normal, and WRR 2025 applies "the mean rescaled recharge '
+            'from the historical reanalysis (2020-2023)", the mean of the record it loads',
+            here="the mean of the window the run loads, [simulation.time] or steady_window, "
+            "printed beside K with its dates; it is the publication's own reading once "
+            "steady_window is written to a window the forcing covers",
             why=(
                 "K/R is what the stage identifies, so K follows the R a file can load. A "
                 "protocol cannot invent a normal the forcing does not cover. Write a long "
                 "steady_window when it does cover one, and read R beside K before citing K."
             ),
-            always=True,
+            holds=lambda calibration, metrics_window: (
+                getattr(getattr(calibration, "protocol", None), "steady_window", None) is None
+            ),
         ),
         Deviation(
             key="bisection_variable_and_sweep",
@@ -373,7 +384,8 @@ class MatchingHydrographicNetwork:
             paper="the mapped network is rasterised onto the model grid by "
             "WhiteboxTools' VectorLinesToRaster, whose own assignment rule is not "
             "restated in the text",
-            here="'heads' by default and departs from the paper: it keeps the free "
+            here="'heads' from version 1.3 (1.2 draws 'crossing'), and it departs from the "
+            "paper: it keeps the free "
             "ends of the map and traces the model's own descent from each, so the "
             "map is connected to the outlet by construction and the path a field "
             "or a ditch gave the mapped line no longer counts as error; an end the "
@@ -399,6 +411,33 @@ class MatchingHydrographicNetwork:
                 "silently."
             ),
             paper_value="crossing",
+        ),
+        Deviation(
+            key="heads_snap_radius",
+            paper="not addressed: the paper has no heads rule",
+            here="under the heads rule, a mapped stream head lands on a cell within this "
+            "distance of it, and a head with no such cell is lost; the value in force is "
+            "printed",
+            why=(
+                "a mapped head is never at a cell centre, so landing it needs a distance. "
+                "The radius changes which heads are drawn, so it moves K, and it is "
+                "declared with its value."
+            ),
+            paper_value=None,
+            only_when=("observed_rasterization", "heads"),
+        ),
+        Deviation(
+            key="heads_min_drained_area_km2",
+            paper="not addressed: the paper has no heads rule",
+            here="under the heads rule, a head lands only on a cell that drains at least this "
+            "area in km2; the value in force is printed",
+            why=(
+                "a head next to its valley should land in the valley and not on the ridge "
+                "cell beside it. The area changes which cell is drawn, so it moves K, and "
+                "it is declared with its value."
+            ),
+            paper_value=None,
+            only_when=("observed_rasterization", "heads"),
         ),
         Deviation(
             key="clip_map_to_catchment",
@@ -433,7 +472,9 @@ class MatchingHydrographicNetwork:
                 "its question, which no default can carry, so the default keeps the "
                 "whole record past the spin-up and leaves that window to the file."
             ),
-            always=True,
+            holds=lambda calibration, metrics_window: _scores_the_spin_up_year(
+                calibration, metrics_window
+            ),
         ),
     )
 
@@ -486,6 +527,8 @@ class MatchingHydrographicNetwork:
                 f"installation carries {', '.join(DEFAULTS_BY_VERSION)}. A pin exists so a "
                 "result stays replayable, so it is refused rather than approximated."
             )
+        if opts.version is not None and version == "1.2":
+            _tell_what_a_pin_on_1_2_runs()
         expanded = copy.deepcopy(dict(document))
         calibration = dict(expanded.get("calibration") or {})
 
@@ -523,6 +566,42 @@ class MatchingHydrographicNetwork:
         )
         expanded["calibration"] = calibration
         return expanded
+
+
+_TOLD: set[str] = set()
+
+
+def _tell_what_a_pin_on_1_2_runs() -> None:
+    """Say once that a pin on 1.2 names two methods in the history of the releases.
+
+    The table holds 1.2 as it ran on 2026-09-28 (the crossing rule). The release
+    v2.0.0a5 carried the same number with the heads rule, which a pin on 1.2 does
+    not reproduce.
+    """
+    text = (
+        "[calibration.protocol] pins version 1.2, which this release runs with "
+        "observed_rasterization = 'crossing', whole map and no veto. v2.0.0a5 ran its "
+        "version 1.2 under 'heads', and K differs between the two: write "
+        "observed_rasterization = 'heads' in the network output to bring that back."
+    )
+    if text not in _TOLD:
+        _TOLD.add(text)
+        logger.warning(text)
+
+
+def _scores_the_spin_up_year(calibration: Any, metrics_window: Any) -> bool:
+    """Say whether stage two runs on the spin-up default, the first year left out.
+
+    That default is what a file leaves when it writes no scoring window on the
+    protocol or on [calibration], no warm-up and no [metrics] window.
+    """
+    if getattr(getattr(calibration, "protocol", None), "scoring_window", None) is not None:
+        return False
+    if getattr(calibration, "scoring_window", None) is not None:
+        return False
+    if getattr(calibration, "warmup_periods", None):
+        return False
+    return scoring_window_of_the_run(_raw_window(metrics_window)) is None
 
 
 def _with_the_defaults_of(version: str, output: Any) -> Any:

@@ -54,6 +54,7 @@ def _transient_payload() -> dict[str, np.ndarray]:
         "z_top_m": np.asarray([10.0, 12.0]),
         "z_bottom_m": np.asarray([0.0, 1.0]),
         "cell_area_m2": np.asarray([100.0, 200.0]),
+        "storage_coefficient": np.asarray([0.1, 0.1]),
     }
 
 
@@ -161,15 +162,31 @@ def test_a_trial_is_scored_on_the_discharge_the_run_reports(tmp_path: Path) -> N
     )
     np.savez(tmp_path / "_boussinesq_state_history.npz", **payload)
 
-    discharge = extract_discharge_history(tmp_path, time_index=PERIOD_ENDS)
+    discharge = extract_discharge_history(tmp_path, catchment_mask=None, time_index=PERIOD_ENDS)
 
     # Drains plus the excess over the area of its cell, 100 m2.
     np.testing.assert_allclose(discharge.to_numpy(), [2.0, 4.0, 6.0])
 
 
+def test_a_trial_sums_only_the_cells_of_the_catchment(tmp_path: Path) -> None:
+    payload = _transient_payload()
+    payload["saturation_excess_history_m_s"] = np.asarray(
+        [[0.0, 0.0], [0.01, 0.0], [0.02, 0.0], [0.03, 0.0]]
+    )
+    np.savez(tmp_path / "_boussinesq_state_history.npz", **payload)
+
+    first_cell = extract_discharge_history(tmp_path, catchment_mask=np.asarray([True, False]))
+    second_cell = extract_discharge_history(tmp_path, catchment_mask=np.asarray([False, True]))
+
+    np.testing.assert_allclose(first_cell.to_numpy(), [1.0, 2.0, 3.0])
+    np.testing.assert_allclose(second_cell.to_numpy(), [1.0, 2.0, 3.0])
+    with pytest.raises(ValueError, match="holds 3 cells"):
+        extract_discharge_history(tmp_path, catchment_mask=np.ones(3, dtype=bool))
+
+
 def test_calibration_readers_return_dated_period_series(extracted) -> None:
     output_dir = extracted.output_dir
-    discharge = extract_discharge_history(output_dir, time_index=PERIOD_ENDS)
+    discharge = extract_discharge_history(output_dir, catchment_mask=None, time_index=PERIOD_ENDS)
     heads = extract_head_history_at_cells(
         output_dir, station_cells={"P1": (0, 0, 1)}, time_index=PERIOD_ENDS
     )

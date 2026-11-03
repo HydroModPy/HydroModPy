@@ -1,7 +1,7 @@
 """One row of a site table: the columns of ``data/sites/catalog.csv``.
 
 The workspace keeps its declared sites in ``data/sites/catalog.csv``, and
-``hmp project collect --write-sites`` writes the same columns. A
+``hmp campaign collect --write-sites`` writes the same columns. A
 :class:`SiteRow` fixes those columns and their order, so the catalog writer,
 its readers and the plan of a ``[sites]`` project without ``bind`` agree on
 one shape. Reading and writing the CSV file belongs to the data layer; this
@@ -19,6 +19,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from hydromodpy.core.scope import station_name_refusal
 from hydromodpy.core.site.config import SITE_NAME_PATTERN, SITE_URI_PATTERN
 
 SITE_ROW_COLUMNS: tuple[str, ...] = (
@@ -100,6 +101,9 @@ class SiteRow:
             )
         if (self.x_outlet is None) != (self.y_outlet is None):
             raise ValueError("columns x_outlet and y_outlet: write both or neither.")
+        refusal = None if self.gauge is None else station_name_refusal(self.gauge)
+        if refusal is not None:
+            raise ValueError(f"column gauge: {refusal}")
 
     @classmethod
     def from_mapping(cls, row: Mapping[str, Any]) -> SiteRow:

@@ -36,7 +36,7 @@ step_value = "1 day"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [data]
@@ -51,12 +51,14 @@ source = "sim2"
 extent = "watershed"
 
 [flow]
-active_sinks_sources = ["recharge", "etp"]
-active_bc = ["drainage"]
 first_period_steady = {first_period_steady}
 
 [flow.ic]
-type = "steady_state"
+kind = "steady_state"
+
+[flow.bc.drainage]
+
+[flow.sinks_sources.etp]
 
 {soil_section}
 """
@@ -89,7 +91,7 @@ def test_a_soil_run_with_a_steady_first_period_is_refused(tmp_path: Path) -> Non
         "stress period (1 day) as a steady state under that period's "
         "recharge alone, zero after a dry day: the run would start from a "
         "drained aquifer. Write first_period_steady = false under [flow] "
-        'and add [flow.ic] type = "steady_state", which starts the run from '
+        'and add [flow.ic] kind = "steady_state", which starts the run from '
         "the steady state under the mean recharge of the whole run."
     ) in str(excinfo.value)
 

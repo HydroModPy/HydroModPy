@@ -14,9 +14,7 @@ from hydromodpy.core.config_kit.introspect import site_scoped_paths
 from hydromodpy.core.exceptions import ConfigError, ConfigValidationError
 
 SYNTHETIC: dict[str, Any] = {"geographic": {"source_mode": "synthetic"}}
-REAL: dict[str, Any] = {
-    "geographic": {"catchment": {"catch_def": "dem", "dem_init_path": "dem.tif"}}
-}
+REAL: dict[str, Any] = {"geographic": {"catchment": {"kind": "dem", "dem_init_path": "dem.tif"}}}
 
 
 def test_the_four_sections_are_root_sections() -> None:
@@ -60,7 +58,7 @@ def test_a_real_catchment_without_a_site_is_refused_by_the_rule() -> None:
     with pytest.raises(ConfigError) as caught:
         require_site_for_real_catchment(cfg)
     message = str(caught.value)
-    assert "catch_def = 'dem'" in message
+    assert "kind = 'dem'" in message
     assert '[site] with name = "<catchment>"' in message
 
 

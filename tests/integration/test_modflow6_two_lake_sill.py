@@ -50,25 +50,25 @@ def _two_lake_model(*, strt0: float, strt1: float) -> SimpleNamespace:
         model_output_name="twolake",
         time_units="seconds",
         flow=SimpleNamespace(
-            active_bc=["reservoir"],
+            active_bc=["lake"],
             sinks_sources={
                 "lakes": {
                     "lac0": {
                         "polygon": None,
                         "bedleak": 0.0,  # sealed bed: isolate the weir coupling
                         "abacus": abacus,
-                        "stageinit": strt0,
+                        "initial_stage": strt0,
                         "outlets": [
-                            {"couttype": "WEIR", "invert": _CREST, "width": 24.0, "lakeout": 2}
+                            {"kind": "WEIR", "invert": _CREST, "width": 24.0, "lakeout": 2}
                         ],
                     },
                     "lac1": {
                         "polygon": None,
                         "bedleak": 0.0,
                         "abacus": abacus,
-                        "stageinit": strt1,
+                        "initial_stage": strt1,
                         "outlets": [
-                            {"couttype": "WEIR", "invert": _SPILL, "width": 35.0, "lakeout": 0},
+                            {"kind": "WEIR", "invert": _SPILL, "width": 35.0, "lakeout": 0},
                         ],
                     },
                 }

@@ -83,7 +83,7 @@ def step_configure_results(
     points, and the seepage mask of a surface-excess solver. ``hmp run
     --no-display`` is a choice of the launch: it draws nothing now and keeps what
     the figures read, so the data of a run depend on its configuration alone and
-    ``hmp viz regen`` can draw them later. ``lightweight`` is a calibration trial:
+    ``hmp export <run> --regen figures`` can draw them later. ``lightweight`` is a calibration trial:
     it logs the decision at DEBUG, not INFO.
     """
     if results.keep_per_cell_budget:

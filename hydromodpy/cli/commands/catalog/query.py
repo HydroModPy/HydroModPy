@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import argparse
-import sys
 from pathlib import Path
 
 import duckdb
 
 from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
-from hydromodpy.cli.helpers import EXIT_GENERIC, EXIT_NOT_FOUND, apply_verbosity
+from hydromodpy.cli.helpers import EXIT_GENERIC, EXIT_NOT_FOUND, apply_verbosity, refuse
+from hydromodpy.cli.output import emit
 from hydromodpy.core.state.paths import resolve_project_root
 
 NAME: str = "query"
@@ -50,21 +50,11 @@ def run(args: argparse.Namespace) -> None:
     try:
         df = query_catalog(args.sql, workspace=project_root, limit=args.limit)
     except FileNotFoundError as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
+        refuse(str(exc), EXIT_NOT_FOUND, cause=exc)
     except duckdb.Error as exc:
-        print(f"SQL error: {exc}", file=sys.stderr)
-        sys.exit(EXIT_GENERIC)
+        refuse(f"SQL error: {exc}", EXIT_GENERIC, cause=exc)
 
     if df is None or df.empty:
-        print("(empty result)")
+        emit(args, "catalog query", [], table=lambda: print("(empty result)"))
         return
-
-    if args.format == "json":
-        print(df.to_json(orient="records", date_format="iso", indent=2))
-        return
-    if args.format == "csv":
-        print(df.to_csv(index=False), end="")
-        return
-
-    print(df.to_string(index=False))
+    emit(args, "catalog query", df, table=lambda: print(df.to_string(index=False)))

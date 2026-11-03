@@ -25,14 +25,18 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from collections.abc import Iterable, Iterator, Mapping
-from contextlib import contextmanager
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
 from pydantic import ValidationError
 
-from hydromodpy.cli.conventions import profile_parser, verbosity_parser, workspace_parser
+from hydromodpy.cli.conventions import (
+    format_parser,
+    profile_parser,
+    verbosity_parser,
+    workspace_parser,
+)
 from hydromodpy.cli.effective_toml import (
     ConfigFileError,
     add_override_arguments,
@@ -46,13 +50,18 @@ from hydromodpy.cli.helpers import (
     EXIT_NOT_FOUND,
     EXIT_SIGINT,
     EXIT_USAGE,
+    PROJECT_ROOT_ENV,
     apply_verbosity,
     exit_code_for,
     exit_if_session_unfinished,
+    fail,
     profile_arg_from_toml,
     profile_run,
+    project_named_by_w,
+    refuse,
     resolve_profile_output,
 )
+from hydromodpy.cli.output import emit
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import (
@@ -67,9 +76,6 @@ logger = get_logger(__name__)
 
 NAME: str = "run"
 HELP: str = "Run a workflow from a TOML config"
-
-PROJECT_ROOT_ENV = "HMP_PROJECT_ROOT"
-"""Project root every resolver honours first; ``-w`` sets it for the run."""
 
 INDEXED_WORKFLOWS = ("simulation", "overview")
 """Workflows whose run directory the command indexes once the worker has returned."""
@@ -111,7 +117,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        parents=[profile_parser(), verbosity_parser(), workspace_parser()],
+        parents=[format_parser(), profile_parser(), verbosity_parser(), workspace_parser()],
         epilog="Examples:\n  hmp run run.toml\n  hmp run run.toml --dry-run\n  hmp run run.toml --set flow.param.K.field.value=2e-5\n  hmp run run.toml --overlay daily.toml --case baseline_daily\n  hmp run run.toml --from setup_process --until run_solver\n  hmp run --resume baseline_monthly\n  hmp run run.toml --fresh",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -142,7 +148,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         dest="from_step",
         default=None,
         metavar="STEP",
-        help="Resume from a specific pipeline step (name or index).",
+        help="Start from this pipeline step, by its name.",
     )
     until_arg = parser.add_argument(
         "--until",
@@ -150,7 +156,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         default=None,
         metavar="STEP",
         help=(
-            "Stop after the specified pipeline step (name or index). On a [sites] "
+            "Stop after this pipeline step, by its name. On a [sites] "
             "project, --until data stops after the prepare phase."
         ),
     )
@@ -182,13 +188,13 @@ def register(subparsers) -> argparse.ArgumentParser:
         "--force",
         action="store_true",
         help=(
-            "Recompute even when a completed run with an identical resolved config "
-            "and the same name already exists, and claim a stale case whose process "
-            "cannot be proven dead. Without it an identical run is not recomputed: "
-            "the command stops and names it. Simulation workflow only. On a [sites] "
-            "project it also lifts the budget ceilings (parallel, prepare_parallel, "
-            "calibrations, cores), takes over the lease of a launcher still alive and "
-            "plans over a running case."
+            "Go past what the command refuses because of what is there: recompute when a "
+            "completed run with an identical resolved config and the same name already "
+            "exists, and claim a stale case whose process cannot be proven dead. Without it "
+            "an identical run is not recomputed: the command stops and names it. Simulation "
+            "workflow only. On a [sites] project it also lifts the budget ceilings (parallel, "
+            "prepare_parallel, calibrations, cores), takes over the lease of a launcher still "
+            "alive and plans over a running case."
         ),
     )
     parser.add_argument(
@@ -242,15 +248,6 @@ def register(subparsers) -> argparse.ArgumentParser:
         dest="no_display",
         help="Skip auto-rendering of the figures listed in [display].figures.",
     )
-    parser.add_argument(
-        "--no-parallel",
-        action="store_true",
-        dest="no_parallel",
-        help=(
-            "Force the Pipeline to run cohorts sequentially. Useful for "
-            "debugging or to keep deterministic step ordering."
-        ),
-    )
     add_override_arguments(parser)
     parser.set_defaults(_handler=run)
     return parser
@@ -262,49 +259,39 @@ def run(args: argparse.Namespace) -> None:
     try:
         apply_thread_budget()
     except ValueError as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_CONFIG)
+        refuse(str(exc), EXIT_CONFIG, cause=exc)
     config = getattr(args, "config", None)
     if config is None:
         resume = getattr(args, "resume", None)
         if not resume:
-            print(
-                "Provide a TOML config, or --resume REF to resume a catalog run.",
-                file=sys.stderr,
-            )
-            sys.exit(EXIT_CONFIG)
-        _resume_from_ref(str(resume), args=args)
+            refuse("Provide a TOML config, or --resume REF to resume a catalog run.", EXIT_CONFIG)
+        with project_named_by_w(getattr(args, "workspace", None)):
+            _resume_from_ref(str(resume), args=args)
         return
 
     target = Path(config).expanduser().resolve()
     if not target.is_file():
-        print(f"File not found: {target}", file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
+        refuse(f"File not found: {target}", EXIT_NOT_FOUND)
 
     if target.suffix == ".toml":
-        with _project_named_by_w(getattr(args, "workspace", None)):
+        with project_named_by_w(getattr(args, "workspace", None)):
             _run_toml(target, args=args)
     elif target.suffix == ".py":
-        print(
+        refuse(
             "Python scripts are not supported by 'hmp run'. "
             "Use 'hmp dev run-script <script.py>' for prototypes.",
-            file=sys.stderr,
+            EXIT_CONFIG,
         )
-        sys.exit(EXIT_CONFIG)
     else:
-        print(
-            f"Unsupported file type: {target.suffix} (expected .toml)",
-            file=sys.stderr,
-        )
-        sys.exit(EXIT_CONFIG)
+        refuse(f"Unsupported file type: {target.suffix} (expected .toml)", EXIT_CONFIG)
 
 
 def _resume_from_ref(ref: str, *, args: argparse.Namespace) -> None:
     """Continue an interrupted case from the config frozen in its own run directory.
 
-    Resolves REF as a case name under ``runs/`` of the project discovered from
-    the current directory (``baseline`` is its latest version, ``baseline.v2`` that
-    one) and replays ``runs/<name>/config.toml`` - the resolved configuration
+    Resolves REF as a case name under ``runs/`` of the project ``-w`` names, else
+    the one around the current directory (``baseline`` is its latest version,
+    ``baseline.v2`` that one) and replays ``runs/<name>/config.toml`` - the resolved configuration
     the run was executed with - through the same path as
     ``hmp run config.toml --resume NAME``.
     """
@@ -312,57 +299,31 @@ def _resume_from_ref(ref: str, *, args: argparse.Namespace) -> None:
     from hydromodpy.results.storage.attempt import run_dir_for_name
     from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
 
-    workspace = resolve_project_root(Path.cwd().resolve())
+    named = os.environ.get(PROJECT_ROOT_ENV)
+    workspace = Path(named) if named else resolve_project_root(Path.cwd().resolve())
     run_dir = run_dir_for_name(workspace, ref)
     if run_dir is None:
-        print(
+        refuse(
             f"No case named {ref!r} under {display_path(workspace)}/runs; run --resume REF "
             "must be invoked from the project, or pass a TOML config explicitly.",
-            file=sys.stderr,
+            EXIT_NOT_FOUND,
         )
-        sys.exit(EXIT_NOT_FOUND)
     config_path = run_dir / RUN_CONFIG_FILENAME
     if not config_path.is_file():
-        print(
+        refuse(
             f"Case '{run_dir.name}' has no frozen {RUN_CONFIG_FILENAME} in "
             f"{display_path(run_dir)}; pass the TOML config explicitly to resume it.",
-            file=sys.stderr,
+            EXIT_NOT_FOUND,
         )
-        sys.exit(EXIT_NOT_FOUND)
     if is_sealed(run_dir) and read_seal(run_dir).lineage.session_id is not None:
-        print(
+        refuse(
             f"{run_dir.name} came out of a calibration, and a run only holds its own solve. "
             "Reopen the session from the file that launched it: hmp run <file>.toml --resume.",
-            file=sys.stderr,
+            EXIT_CONFIG,
         )
-        sys.exit(EXIT_CONFIG)
 
     args.resume = run_dir.name
     _run_toml(config_path, args=args)
-
-
-@contextmanager
-def _project_named_by_w(workspace_arg: str | None) -> Iterator[None]:
-    """Make the project ``-w`` names the project of the run, for the block.
-
-    The run, its checks and its frozen-mode verification all resolve the
-    project root through ``HMP_PROJECT_ROOT``; it is set for the block and
-    put back as it was after.
-    """
-    if not workspace_arg:
-        yield
-        return
-    from hydromodpy.cli.helpers import resolve_project
-
-    previous = os.environ.get(PROJECT_ROOT_ENV)
-    os.environ[PROJECT_ROOT_ENV] = str(resolve_project(workspace_arg))
-    try:
-        yield
-    finally:
-        if previous is None:
-            os.environ.pop(PROJECT_ROOT_ENV, None)
-        else:
-            os.environ[PROJECT_ROOT_ENV] = previous
 
 
 def _replay_project_root() -> Path:
@@ -372,12 +333,11 @@ def _replay_project_root() -> Path:
     named = os.environ.get(PROJECT_ROOT_ENV)
     root = Path(named) if named else resolve_project_root(Path.cwd().resolve())
     if not (root / PROJECT_MARKER_FILENAME).is_file():
-        print(
+        refuse(
             f"A published copy replays into a project: no {PROJECT_MARKER_FILENAME} at or above "
             f"{Path.cwd()}. Name the project with -w.",
-            file=sys.stderr,
+            EXIT_NOT_FOUND,
         )
-        sys.exit(EXIT_NOT_FOUND)
     return root
 
 
@@ -406,8 +366,7 @@ def _replay_published_copy(copy_dir: Path, config_path: Path, *, args: argparse.
         shutil.rmtree(workdir, ignore_errors=True)
         if folder.is_dir() and not any(folder.iterdir()):
             folder.rmdir()
-        print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_CONFIG)
+        refuse(str(exc), EXIT_CONFIG, cause=exc)
     folder.mkdir(parents=True, exist_ok=True)
     replay_path = folder / f"{copy_dir.name}.toml"
     replay_path.write_text(dumps(payload), encoding="utf-8")
@@ -458,11 +417,7 @@ def _run_toml(
 
     from hydromodpy.config.sites.plan import refuse_env_overrides
 
-    try:
-        refuse_env_overrides(os.environ, config_path)
-    except ConfigError as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_CONFIG)
+    refuse_env_overrides(os.environ, config_path)
 
     effective_path: Path | None = None
     try:
@@ -470,14 +425,11 @@ def _run_toml(
             config_path, args=args
         )
     except ConfigFileError as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_CONFIG)
+        refuse(str(exc), EXIT_CONFIG, cause=exc)
     except FileNotFoundError as exc:
-        print(f"Missing file: {exc}", file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
+        refuse(f"Missing file: {exc}", EXIT_NOT_FOUND, cause=exc)
     except ValueError as exc:
-        print(f"Invalid override: {exc}", file=sys.stderr)
-        sys.exit(EXIT_CONFIG)
+        refuse(f"Invalid override: {exc}", EXIT_CONFIG, cause=exc)
     run_path = effective_path or config_path
 
     # Before the first line is printed: the banner and every step below obey
@@ -504,20 +456,17 @@ def _run_toml(
     try:
         _check_single_site(run_path, raw_toml)
     except ValidationError as exc:
-        print(f"Config invalid: {exc}", file=sys.stderr)
         cleanup_effective_toml(effective_path, source=config_path)
-        sys.exit(EXIT_CONFIG)
+        refuse(f"Config invalid: {exc}", EXIT_CONFIG, cause=exc)
     except ConfigError as exc:
-        print(str(exc), file=sys.stderr)
         cleanup_effective_toml(effective_path, source=config_path)
-        sys.exit(EXIT_CONFIG)
+        refuse(str(exc), EXIT_CONFIG, cause=exc)
 
     try:
         workflow = resolve_workflow(run_path, cli_workflow=None)
     except WorkflowError as exc:
-        print(str(exc), file=sys.stderr)
         cleanup_effective_toml(effective_path, source=config_path)
-        sys.exit(EXIT_CONFIG)
+        refuse(str(exc), EXIT_CONFIG, cause=exc)
 
     resume = getattr(args, "resume", None)
     resume_ref = resume
@@ -527,7 +476,6 @@ def _run_toml(
     until_step = getattr(args, "until_step", None)
     no_display = bool(getattr(args, "no_display", False))
     frozen = bool(getattr(args, "frozen", False))
-    parallel = not bool(getattr(args, "no_parallel", False))
     force = bool(getattr(args, "force", False))
     fresh = bool(getattr(args, "fresh", False))
     case_name = resolve_case_name(getattr(args, "case", None), raw_toml, config_path)
@@ -541,76 +489,75 @@ def _run_toml(
             try:
                 preflight_launch(run_path)
             except ConfigError as exc:
-                print(f"Config invalid: {exc}", file=sys.stderr)
                 cleanup_effective_toml(effective_path, source=config_path)
-                sys.exit(EXIT_CONFIG)
-        _print_dry_run(
+                refuse(f"Config invalid: {exc}", EXIT_CONFIG, cause=exc)
+        plan = _dry_run_plan(
             workflow,
-            run_path,
+            config_path,
             raw_toml,
             resume=resume,
             from_step=from_step,
             until_step=until_step,
         )
         cleanup_effective_toml(effective_path, source=config_path)
+        emit(
+            args,
+            "run",
+            {"workflow": workflow, "config": config_path, "dry_run": True, "result": plan},
+            table=lambda: _print_dry_run(plan),
+        )
         return
 
     if resume is not None and workflow not in ("simulation", "calibration"):
-        print(
+        cleanup_effective_toml(effective_path, source=config_path)
+        refuse(
             "--resume is only supported for the 'simulation' and 'calibration' workflows "
             f"(detected '{workflow}').",
-            file=sys.stderr,
+            EXIT_CONFIG,
         )
-        cleanup_effective_toml(effective_path, source=config_path)
-        sys.exit(EXIT_CONFIG)
 
     if resume_ref and workflow == "calibration":
-        print(
+        cleanup_effective_toml(effective_path, source=config_path)
+        refuse(
             "A calibration reopens the latest session of the case its file names: "
             f"pass a bare --resume, not --resume {resume_ref}.",
-            file=sys.stderr,
+            EXIT_CONFIG,
         )
-        cleanup_effective_toml(effective_path, source=config_path)
-        sys.exit(EXIT_CONFIG)
 
     if (from_step is not None or until_step is not None) and workflow == "calibration":
-        print(
+        cleanup_effective_toml(effective_path, source=config_path)
+        refuse(
             "--from / --until are only supported for the 'simulation' workflow "
             "(detected 'calibration'). To run the first steps of this file, for "
             "example to check the soil reservoir alone, add "
             "--set workflow.mode=simulation: "
             f"hmp run {config_path.name} --until load_data --set workflow.mode=simulation",
-            file=sys.stderr,
+            EXIT_CONFIG,
         )
-        cleanup_effective_toml(effective_path, source=config_path)
-        sys.exit(EXIT_CONFIG)
 
     if (from_step is not None or until_step is not None) and workflow != "simulation":
-        print(
+        cleanup_effective_toml(effective_path, source=config_path)
+        refuse(
             f"--from / --until are only supported for the "
             f"'simulation' workflow (detected '{workflow}').",
-            file=sys.stderr,
+            EXIT_CONFIG,
         )
-        cleanup_effective_toml(effective_path, source=config_path)
-        sys.exit(EXIT_CONFIG)
 
     if force and workflow != "simulation":
-        print(
+        cleanup_effective_toml(effective_path, source=config_path)
+        refuse(
             f"--force is only supported for the 'simulation' workflow "
             f"(detected '{workflow}'), which is the only one that skips an "
             f"identical completed run.",
-            file=sys.stderr,
+            EXIT_CONFIG,
         )
-        cleanup_effective_toml(effective_path, source=config_path)
-        sys.exit(EXIT_CONFIG)
 
     project_root = _resolve_project_root(config_path, raw_toml.get("workspace"))
     try:
         refuse_a_sealed_run_as_project(project_root)
     except ConfigError as exc:
-        print(str(exc), file=sys.stderr)
         cleanup_effective_toml(effective_path, source=config_path)
-        sys.exit(exit_code_for(exc))
+        refuse(str(exc), exit_code_for(exc), cause=exc)
     if frozen:
         from hydromodpy.project.replay_checks import sealed_run_of
 
@@ -623,9 +570,8 @@ def _run_toml(
             try:
                 _verify_frozen_inputs_strict(run_path, raw_toml)
             except FrozenVerificationError as exc:
-                print(f"--frozen: {exc}", file=sys.stderr)
                 cleanup_effective_toml(effective_path, source=config_path)
-                sys.exit(EXIT_CONFIG)
+                refuse(f"--frozen: {exc}", EXIT_CONFIG, cause=exc)
 
     try:
         with profile_run(profile_output, description=f"hmp run {config_path.name} ({workflow})"):
@@ -643,7 +589,6 @@ def _run_toml(
                     until_step=until_step,
                     no_display=no_display,
                     frozen=frozen,
-                    parallel=parallel,
                     force=force,
                     fresh=fresh,
                     overrides=lineage_overrides,
@@ -652,17 +597,17 @@ def _run_toml(
             elif workflow == "calibration" and resume is not None:
                 summary = hmp.calibrate(run_path, resume=True).to_dict()
             else:
-                summary = hmp.run(run_path)
+                summary = dispatch_workflow(workflow, run_path)
+                if workflow == "overview":
+                    summary = summary.to_dict()
     except KeyboardInterrupt as exc:
         _close_dead_attempt(project_root, case_name, exc)
         print("Aborted by user.", file=sys.stderr)
         sys.exit(EXIT_SIGINT)
     except ValidationError as exc:
-        print(f"Config invalid: {exc}", file=sys.stderr)
-        sys.exit(EXIT_CONFIG)
+        refuse(f"Config invalid: {exc}", EXIT_CONFIG, cause=exc)
     except FileNotFoundError as exc:
-        print(f"Missing file: {exc}", file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
+        refuse(f"Missing file: {exc}", EXIT_NOT_FOUND, cause=exc)
     except BaseException as exc:
         _close_dead_attempt(project_root, case_name, exc)
         raise
@@ -670,6 +615,21 @@ def _run_toml(
         cleanup_effective_toml(effective_path, source=config_path)
         if workflow in INDEXED_WORKFLOWS and not dry_run and not os.environ.get(LAUNCHED_ENV):
             _index_after_worker(project_root)
+
+    if getattr(args, "format", "table") != "table":
+        emit(
+            args,
+            "run",
+            {
+                "workflow": workflow,
+                "config": config_path,
+                "dry_run": False,
+                "result": _result_of(summary),
+            },
+        )
+        if workflow == "calibration":
+            exit_if_session_unfinished(summary)
+        return
 
     if isinstance(summary, Mapping) and summary.get("skipped"):
         from hydromodpy.project.dispatch.workflow import identical_run_message
@@ -810,8 +770,17 @@ def _print_calibration_recap(summary: Mapping[str, Any], config_path: Path) -> N
         print(f"  Methods:   {display_path(summary['methods_path'])}", file=sys.stderr)
 
 
-class FrozenVerificationError(RuntimeError):
+class FrozenVerificationError(ConfigError, RuntimeError):
     """Raised when ``--frozen`` finds a lockfile drift before running anything."""
+
+
+def _result_of(summary: Any) -> Any:
+    """Return what a workflow gave as what a program reads: a mapping, or nothing."""
+    if summary is None or isinstance(summary, Mapping):
+        return summary
+    if hasattr(summary, "to_dict"):
+        return summary.to_dict()
+    return {key: getattr(summary, key, None) for key in ("sim_id", "name")}
 
 
 def _verify_frozen_inputs_strict(config_path: Path, raw_toml: dict[str, Any]) -> Path:
@@ -835,7 +804,7 @@ def _verify_frozen_inputs_strict(config_path: Path, raw_toml: dict[str, Any]) ->
     if not lockfile_path.is_file():
         raise FrozenVerificationError(
             f"hydromodpy.lock not found at {lockfile_path}; --frozen on a project TOML reads "
-            "that file: write it with `hmp dev lock update`, or replay the config.toml of a run, "
+            "that file: write it with `hmp lock update`, or replay the config.toml of a run, "
             "which carries its own record."
         )
 
@@ -969,15 +938,31 @@ def _print_sites_dry_run(config_path: Path, *, args: argparse.Namespace) -> None
             env=os.environ,
         )
     except (ConfigError, ValueError) as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_CONFIG)
-    for line in dry_run_lines(draft, plan_budget(draft)):
-        print(line)
-    for line in group_issues(draft.warnings):
+        refuse(str(exc), EXIT_CONFIG, cause=exc)
+    lines = dry_run_lines(draft, plan_budget(draft))
+    warnings = group_issues(draft.warnings)
+    errors = [] if draft.ok else group_issues(draft.errors)
+    for line in warnings:
         print(f"[dry-run] warning : {line}", file=sys.stderr)
+    for line in errors:
+        print(f"[dry-run] error   : {line}", file=sys.stderr)
+
+    def table() -> None:
+        for line in lines:
+            print(line)
+
+    emit(
+        args,
+        "run",
+        {
+            "workflow": "sites",
+            "config": config_path,
+            "dry_run": True,
+            "result": {"lines": list(lines), "warnings": list(warnings), "errors": list(errors)},
+        },
+        table=table,
+    )
     if not draft.ok:
-        for line in group_issues(draft.errors):
-            print(f"[dry-run] error   : {line}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
 
 
@@ -988,12 +973,11 @@ def _launch_sites_project(config_path: Path, *, args: argparse.Namespace) -> Non
 
     resume = getattr(args, "resume", None)
     if resume:
-        print(
+        refuse(
             f"--resume {resume}: on a [sites] project --resume takes no case name; name the "
             "case with --only and pass a bare --resume.",
-            file=sys.stderr,
+            EXIT_USAGE,
         )
-        sys.exit(EXIT_USAGE)
     force = bool(getattr(args, "force", False))
     root = resolve_project_root(config_path.parent)
     try:
@@ -1018,23 +1002,47 @@ def _launch_sites_project(config_path: Path, *, args: argparse.Namespace) -> Non
         print("Launch aborted by user.", file=sys.stderr)
         sys.exit(EXIT_SIGINT)
     except (HydroModPyError, ValueError) as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(exit_code_for(exc))
-    if report.until is not None:
-        print(
-            f"[launch] plan {report.plan_hash}: {len(report.prepared)} case(s) prepared, "
-            f"{report.n_failed} failed to prepare; stopped after the prepare phase"
-        )
-    else:
-        print(
-            f"[launch] plan {report.plan_hash}: {len(report.cases)} case(s) started, "
-            f"{report.n_completed} completed, {report.n_failed} not completed"
-        )
+        fail(exc)
+
+    def table() -> None:
+        if report.until is not None:
+            print(
+                f"[launch] plan {report.plan_hash}: {len(report.prepared)} case(s) prepared, "
+                f"{report.n_failed} failed to prepare; stopped after the prepare phase"
+            )
+        else:
+            print(
+                f"[launch] plan {report.plan_hash}: {len(report.cases)} case(s) started, "
+                f"{report.n_completed} completed, {report.n_failed} not completed"
+            )
+        print(f"[launch] journal: {display_path(report.journal)}")
+
     for case in report.cases:
         if case.status != "completed":
             detail = f" ({case.error})" if case.error else ""
             print(f"[launch]   {case.case_id}: {case.status}{detail}", file=sys.stderr)
-    print(f"[launch] journal: {display_path(report.journal)}")
+    emit(
+        args,
+        "run",
+        {
+            "workflow": "sites",
+            "config": config_path,
+            "dry_run": False,
+            "result": {
+                "plan_hash": report.plan_hash,
+                "until": report.until,
+                "n_prepared": len(report.prepared),
+                "n_completed": report.n_completed,
+                "n_failed": report.n_failed,
+                "cases": [
+                    {"case_id": case.case_id, "status": case.status, "error": case.error}
+                    for case in report.cases
+                ],
+                "journal": report.journal,
+            },
+        },
+        table=table,
+    )
     if report.n_failed:
         sys.exit(EXIT_CASES_FAILED)
 
@@ -1057,7 +1065,7 @@ def _check_single_site(config_path: Path, raw_toml: Mapping[str, Any]) -> None:
     resolve_single_site(cfg, workspace_root)
 
 
-def _print_dry_run(
+def _dry_run_plan(
     workflow: str,
     config_path: Path,
     raw_toml: dict,
@@ -1065,20 +1073,33 @@ def _print_dry_run(
     resume: str | None,
     from_step: str | None,
     until_step: str | None,
-) -> None:
-    """Print the resolved workflow plan without executing it."""
-    print(f"[dry-run] workflow: {workflow}")
-    print(f"[dry-run] config  : {config_path}")
-    print(f"[dry-run] sections: {', '.join(sorted(raw_toml))}")
-    if resume is not None:
-        print(f"[dry-run] resume  : {resume}")
-    if from_step is not None:
-        print(f"[dry-run] from    : {from_step}")
-    if until_step is not None:
-        print(f"[dry-run] until   : {until_step}")
+) -> dict[str, Any]:
+    """Return the resolved workflow plan, without executing it."""
+    steps: list[str] = []
     if workflow == "simulation":
         from hydromodpy.workflow.orchestrator import standard_steps
 
+        steps = [type(step).__name__ for step in standard_steps()]
+    return {
+        "workflow": workflow,
+        "config": str(config_path),
+        "sections": sorted(raw_toml),
+        "resume": resume,
+        "from": from_step,
+        "until": until_step,
+        "steps": steps,
+    }
+
+
+def _print_dry_run(plan: Mapping[str, Any]) -> None:
+    """Print the plan, one fact per line."""
+    print(f"[dry-run] workflow: {plan['workflow']}")
+    print(f"[dry-run] config  : {plan['config']}")
+    print(f"[dry-run] sections: {', '.join(plan['sections'])}")
+    for label, key in (("resume  ", "resume"), ("from    ", "from"), ("until   ", "until")):
+        if plan[key] is not None:
+            print(f"[dry-run] {label}: {plan[key]}")
+    if plan["steps"]:
         print("[dry-run] steps   :")
-        for i, step in enumerate(standard_steps()):
-            print(f"  {i:02d}  {type(step).__name__}")
+        for i, step in enumerate(plan["steps"]):
+            print(f"  {i:02d}  {step}")

@@ -5,8 +5,7 @@ Why
 A figure or an export is derived: it can be rendered again from the sealed
 run. What cannot be recovered is how it was made: by which producer, with
 which options, under which version, and what the run was called that day.
-The ledger keeps one entry per file so ``hmp viz regen`` and
-``hmp export --regen`` replay it, and so a reader knows what a file is
+The ledger keeps one entry per file so ``hmp export --regen`` replays it, and so a reader knows what a file is
 without opening it.
 
 Format

@@ -395,9 +395,9 @@ for each. A threshold is a bound a test accepts, not a measured error, so it ran
 
 The in-house solver writes one residual per triangle of the `triangle` engine. It solves each stress
 period in {toml}`simulation.time.substeps_per_period` backward Euler steps.
-{toml}`flow.runtime_backend` picks the nonlinear solver, `auto` by default: the dense `local`
+{toml}`flow.runtime.backend` picks the nonlinear solver, `auto` by default: the dense `local`
 engine up to 400 cells and the sparse `scipy_sparse` above; a dense engine asked by name
-stops on a larger mesh. {toml}`flow.surface_interaction_model` picks the closure for the
+stops on a larger mesh. {toml}`flow.runtime.surface_interaction_model` picks the closure for the
 water that reaches the surface. It builds recharge, wells, the side, stream and ocean
 imposed heads, and top drainage, and refuses the rest. Its flux between two cells uses the
 two cell centres only: on triangles far from equilateral it is not consistent, and the
@@ -476,9 +476,9 @@ messages, are these.
   runtime asked by name stops on a mesh of more than 400 cells.
 - **Boundaries.** Lakes, reservoirs, SFR and barriers need MODFLOW 6. The `stream` boundary
   needs MODFLOW 6 or Boussinesq. When {toml}`solver.backend` names `modflow_nwt`, the file
-  is refused when it is read if it asks for {toml}`flow.active_bc` with `sfr`, `lake`,
-  `reservoir` or `stream`, for flow barriers or a dam cutoff wall, or for a head initial
-  condition of type `spinup_cyclic`. `does not support the 'sfr' boundary` is the start of
+  is refused when it is read if it declares a stream network, a lake or a `stream`
+  boundary, flow barriers or a dam cutoff wall, or a head initial condition of kind
+  `spinup_cyclic`. `does not support the 'sfr' boundary` is the start of
   the message for the first case, and
   `does not support flow barriers / dam cutoff walls (HFB); they require the 'modflow6' backend.`
   is the whole message for barriers.

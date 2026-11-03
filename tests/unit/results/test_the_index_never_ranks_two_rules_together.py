@@ -3,7 +3,7 @@
 A 90-day NSE of 0.97 ranked above a 5-year NSE of 0.60 in ``Catalog.best``,
 ``@best:nse`` and ``find(nse_gt=...)``: each ordered the ``metrics`` rows
 whatever their window, station or variable. They now refuse, naming the rules
-found, unless ``mixed_windows=True``. ``hmp dev rank`` and the best-per-project
+found, unless ``mixed_windows=True``. ``hmp catalog rank`` and the best-per-project
 view have their own files.
 """
 

@@ -9,7 +9,7 @@ This module defines:
 - `FlowICTop`, `FlowICTopOffset`, `FlowICBottom`, `FlowICCustom`,
   `FlowICSteadyState`: the five discriminated variants describing how head
   values are initialized.
-- `FlowInitialCondition`: discriminated union (on the `type` field) over the
+- `FlowInitialCondition`: discriminated union (on the `kind` field) over the
   five variants above.
 - `FlowInitialConditions`: the runtime container currently exposing the `h`
   initial condition consumed by the flow process and solver adapters.
@@ -41,8 +41,8 @@ class _FlowICBase(BaseInitialCondition):
     value: Annotated[object | None, Profile.USER] = Field(
         None,
         description=(
-            "Number the starting state reads, in metres: the head for type 'custom', "
-            "the depth below the top for type 'top_offset'. The other types refuse it."
+            "Number the starting state reads, in metres: the head for kind 'custom', "
+            "the depth below the top for kind 'top_offset'. The other kinds refuse it."
         ),
         json_schema_extra=field_metadata(unit="m"),
     )
@@ -83,7 +83,7 @@ class FlowICTop(_FlowICBase):
         description="Runtime unit for the initial hydraulic-head field.",
         json_schema_extra=field_metadata(toml_exclude=True),
     )
-    type: Annotated[Literal["top"], Profile.USER] = Field(
+    kind: Annotated[Literal["top"], Profile.USER] = Field(
         "top",
         description="Initialize head at the top surface (full aquifer).",
     )
@@ -92,7 +92,7 @@ class FlowICTop(_FlowICBase):
 class FlowICTopOffset(_FlowICBase):
     """Initialize head at the top surface minus a vertical offset `value`."""
 
-    type: Annotated[Literal["top_offset"], Profile.USER] = Field(
+    kind: Annotated[Literal["top_offset"], Profile.USER] = Field(
         "top_offset",
         description="Initialize head at the top surface minus `value`.",
     )
@@ -110,7 +110,7 @@ class FlowICBottom(_FlowICBase):
         description="Runtime unit for the initial hydraulic-head field.",
         json_schema_extra=field_metadata(toml_exclude=True),
     )
-    type: Annotated[Literal["bottom"], Profile.USER] = Field(
+    kind: Annotated[Literal["bottom"], Profile.USER] = Field(
         "bottom",
         description="Initialize head at the bottom surface (empty aquifer).",
     )
@@ -119,7 +119,7 @@ class FlowICBottom(_FlowICBase):
 class FlowICCustom(_FlowICBase):
     """Initialize head with one explicit numeric value."""
 
-    type: Annotated[Literal["custom"], Profile.USER] = Field(
+    kind: Annotated[Literal["custom"], Profile.USER] = Field(
         "custom",
         description="Initialize head with one explicit numeric value.",
     )
@@ -137,7 +137,7 @@ class FlowICSteadyState(_FlowICBase):
         description="Runtime unit for the initial hydraulic-head field.",
         json_schema_extra=field_metadata(toml_exclude=True),
     )
-    type: Annotated[Literal["steady_state"], Profile.USER] = Field(
+    kind: Annotated[Literal["steady_state"], Profile.USER] = Field(
         "steady_state",
         description=(
             "Initialize a transient run from a same-solver steady solve using "
@@ -220,7 +220,7 @@ class FlowICSpinupCyclic(_FlowICBase):
         description="Runtime unit for the initial hydraulic-head field.",
         json_schema_extra=field_metadata(toml_exclude=True),
     )
-    type: Annotated[Literal["spinup_cyclic"], Profile.USER] = Field(
+    kind: Annotated[Literal["spinup_cyclic"], Profile.USER] = Field(
         "spinup_cyclic",
         description=(
             "Repeat the simulated period, each cycle starting from the state the "
@@ -263,7 +263,7 @@ FlowInitialCondition: TypeAlias = Annotated[
     | FlowICCustom
     | FlowICSteadyState
     | FlowICSpinupCyclic,
-    Field(discriminator="type", description="Flow initial-condition type discriminator."),
+    Field(discriminator="kind", description="Flow initial-condition kind discriminator."),
 ]
 """Discriminated union of flow initial-condition variants."""
 
@@ -297,7 +297,7 @@ class FlowInitialConditions(HydroModelBase):
         payload = dict(value)
         if "h" in payload:
             return payload
-        if any(key in payload for key in ("type", "value", "units", "unit", "description")):
+        if any(key in payload for key in ("kind", "value", "units", "unit", "description")):
             return {"h": payload}
         return payload
 

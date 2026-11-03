@@ -42,7 +42,7 @@ def test_project_drops_removed_surface() -> None:
 
 def test_project_keeps_canonical_run_phase_verbs() -> None:
     """``Project`` keeps the high-level run-phase verbs and the launch verbs of a project."""
-    for name in ("execute", "simulate", "calibrate", "prepare", "rerun", "plan", "run", "collect"):
+    for name in ("simulate", "calibrate", "prepare", "rerun", "plan", "launch", "collect"):
         assert hasattr(Project, name), f"Project lost canonical verb {name!r}"
 
 

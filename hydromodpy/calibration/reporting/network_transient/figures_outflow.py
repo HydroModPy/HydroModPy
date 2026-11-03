@@ -330,7 +330,7 @@ def _steady_drain_from_score_row(row: dict[str, str]) -> np.ndarray | None:
     try:
         with Catalog(catalog_path) as catalog:
             run = catalog[catalog.resolve(row.get("steady_ref", "run_0001"))]
-            return np.asarray(run.field("outflow_drain", timestep=-1), dtype=float).reshape(-1)
+            return np.asarray(run.field("outflow_drain", time=-1), dtype=float).reshape(-1)
     except Exception:
         return None
 

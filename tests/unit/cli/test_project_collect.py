@@ -13,9 +13,10 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.cli.commands.project import collect
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_VALIDATION
+from hydromodpy.cli.commands.campaign import collect
+from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_VALIDATION, exit_code_for
 from hydromodpy.results.metric_rule import DateWindow
+from hydromodpy.results.run.sealed import MixedWindowsError
 from tests._helpers.sealed_runs import seal_run
 
 
@@ -70,10 +71,9 @@ def test_mixed_windows_exit_with_the_validation_code(tmp_path, capsys) -> None:
     )
 
     args = _parse([str(root)])
-    with pytest.raises(SystemExit) as refused:
+    with pytest.raises(MixedWindowsError, match="--mixed-windows") as refused:
         args._handler(args)
-    assert refused.value.code == EXIT_VALIDATION
-    assert "--mixed-windows" in capsys.readouterr().err
+    assert exit_code_for(refused.value) == EXIT_VALIDATION
 
     args = _parse([str(root), "--mixed-windows"])
     args._handler(args)
@@ -85,9 +85,9 @@ def test_a_folder_outside_any_project_is_not_found(tmp_path) -> None:
     lonely.mkdir()
 
     args = _parse([str(lonely)])
-    with pytest.raises(SystemExit) as missing:
+    with pytest.raises(FileNotFoundError) as missing:
         args._handler(args)
-    assert missing.value.code == EXIT_NOT_FOUND
+    assert exit_code_for(missing.value) == EXIT_NOT_FOUND
 
 
 def test_a_figure_not_drawn_is_named_on_stderr(tmp_path, capsys) -> None:

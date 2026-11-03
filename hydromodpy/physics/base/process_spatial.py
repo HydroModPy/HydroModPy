@@ -35,7 +35,6 @@ from typing import Generic, TypeVar
 
 from hydromodpy.physics.base.boundary_conditions import BoundaryCondition
 from hydromodpy.physics.base.initial_conditions import InitialCondition
-from hydromodpy.physics.base.process_spatial_config import ProcessSpatialConfig
 from hydromodpy.physics.base.sinks_sources import SinkSource
 
 TInitialConditions = TypeVar("TInitialConditions")
@@ -61,7 +60,7 @@ def _coerce_field_param(parameter_id: str, raw_parameter: object) -> object:
         if "field_vertical_profile" in raw_parameter and "vertical_profile" not in payload:
             payload["vertical_profile"] = raw_parameter["field_vertical_profile"]
     payload.setdefault("id", parameter_id)
-    if "kind" not in payload and "mode" not in payload:
+    if "kind" not in payload:
         return raw_parameter
     return get_field_param_factory()(payload)
 
@@ -181,7 +180,6 @@ __all__ = [
     "InitialCondition",
     "BoundaryCondition",
     "SinkSource",
-    "ProcessSpatialConfig",
     "TInitialConditions",
     "ProcessSpatial",
 ]

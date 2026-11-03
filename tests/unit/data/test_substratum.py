@@ -73,19 +73,19 @@ def test_manager_reads_a_tiny_geotiff(tmp_path: Path) -> None:
     assert record.crs.upper().endswith("2154")
 
 
-def test_manager_falls_back_on_default_crs_and_warns(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_a_raster_without_a_crs_is_refused_unless_default_crs_is_written(tmp_path: Path) -> None:
     src = _write_geotiff(tmp_path / "no_crs.tif", crs=None)
-    config = SubstratumConfig.from_raster(src)
-    manager = SubstratumManager(config=config, catalog=None, data_dir=tmp_path)
+    refused = SubstratumManager(
+        config=SubstratumConfig.from_raster(src), catalog=None, data_dir=tmp_path
+    )
+    with pytest.raises(Exception, match="declares no CRS"):
+        refused.load()
 
-    with caplog.at_level(logging.WARNING):
-        result = manager.load()
-
-    record = result.fields[0]
-    assert record.crs == "EPSG:2154"
-    assert any("substratum" in message and "default_crs" in message for message in caplog.messages)
+    written = SubstratumConfig.model_validate(
+        {"sources": [{"source": "custom", "path": str(src), "default_crs": "EPSG:4326"}]}
+    )
+    record = SubstratumManager(config=written, catalog=None, data_dir=tmp_path).load().fields[0]
+    assert record.crs == "EPSG:4326"
 
 
 def test_from_toml_section_builds_substratum_even_when_not_in_types(tmp_path: Path) -> None:

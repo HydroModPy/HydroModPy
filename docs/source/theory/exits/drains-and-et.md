@@ -51,11 +51,19 @@ what is left may only draw from water that would otherwise reach the drain. The
 card of {toml}`surface_offset|flow.sinks_sources.etp.surface_offset` says which
 value applies to which solver.
 
+The offset $o_\mathrm{et}$ has one rule. A value written in the file wins. With the key
+unset, $o_\mathrm{et}$ is 0 m in soil mode, where the reference is the drain elevation, and
+2 m in every other case, where the reference is the topographic surface. So 2 m applies
+as soon as a run reads an ETP from [data.etp], whether or not the file holds a
+[flow.sinks_sources.etp] table, and it comes from no source: it reproduces the first
+versions of HydroModPy. A run writes the value it used in `config.resolved.toml`, under
+`resolved_at_build`.
+
 The sea cells, the river cells and the lake cells carry no aquifer
 evapotranspiration: a lake evaporates through LAK. The deficit of a negative
 recharge is also kept off the cells that have no active layer.
 
-The word `"etp"` in {toml}`flow.active_sinks_sources` acts differently by solver.
+A [flow.sinks_sources.etp] table acts differently by solver.
 Under MODFLOW-NWT the loaded ETP drives the package. Under MODFLOW 6 it acts in
 soil mode only, where it sends the residual ETP of the reservoir to EVTA; outside
 soil mode MODFLOW 6 ignores it and logs a warning. The Boussinesq solver refuses

@@ -1250,7 +1250,7 @@ class CoverageDirective(SphinxDirective):
             out.append(
                 "<h2 id='cov-known'>Named parameters without a range</h2><p>"
                 + ", ".join(f"<code>{esc(k)}</code>" for k in no_range)
-                + " have a default unit in <code>FlowConfig._DEFAULT_PARAM_UNITS</code> and no entry in "
+                + " have a default unit in <code>FLOW_PROPERTY_IDS</code> and no entry in "
                 "<code>PHYSICAL_BOUNDS</code>, so no value is refused.</p>"
             )
         out.append("<h2 id='cov-links'>Where the connections come from</h2><ul>")

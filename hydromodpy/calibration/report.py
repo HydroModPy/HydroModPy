@@ -24,6 +24,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from pydantic import BaseModel, ConfigDict, Field
+
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.scope import CATCHMENT, OBSERVED, SIMULATED
 from hydromodpy.results.errors import SeveralCasesError
@@ -371,6 +373,74 @@ class CalibrationReport:
         return payload
 
 
+CALIBRATE_SCHEMA = "hydromodpy.calibrate.v1"
+"""The JSON Schema of what ``hmp calibrate --format json`` holds in ``data``."""
+
+
+class CalibrationResult(BaseModel):
+    """What ``hmp calibrate --format json`` writes: :meth:`CalibrationReport.to_dict`, as a contract.
+
+    Experimental with the report it reads: its shape may change until the rework
+    of the calibration is published. A key that does not apply is null.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    session_id: str = Field(description="Id of the session the search belongs to.")
+    method: str = Field(description="Optimizer method name.")
+    status: str = Field(description="How the session closed: completed, partial, aborted, failed.")
+    n_trials: int = Field(description="Number of trials actually run.")
+    best_cost: float | None = Field(description="Lowest cost reached. Null if no trial completed.")
+    duration_s: float = Field(description="Wall-clock duration of the search, in seconds.")
+    save_runs: str = Field(description="The save_runs mode used: none, best_n or all.")
+    promoted: int = Field(description="Count of trials promoted to runs after the search.")
+    best_cases: dict[str, Any] = Field(
+        description="The run and the cost of the best trial, by case."
+    )
+    best_sim_id: str | None = Field(default=None, description="Run of the one case.")
+    best_rel_dir: str | None = Field(default=None, description="Its folder under the project.")
+    cost_name: str | None = Field(default=None, description="Name of the cost minimised.")
+    cost_label: str | None = Field(default=None, description="What it reads as: 1 - nse_log.")
+    best_trial: int | None = Field(default=None, description="Number of the best trial.")
+    best_parameters: dict[str, float] | None = Field(
+        default=None, description="Physical values of the best candidate, by parameter name."
+    )
+    windows: dict[str, Any] | None = Field(
+        default=None, description="The periods the best trial was scored on, by name."
+    )
+    parameter_uncertainty: list[dict[str, Any]] | None = Field(
+        default=None, description="Width beside each calibrated value, when the file asked for one."
+    )
+    cost_block_fractions: dict[str, Any] | None = Field(
+        default=None, description="Fraction of the cost each block took, 0 to 1."
+    )
+    workspace: str | None = Field(default=None, description="Project root of the session.")
+    session_dir: str | None = Field(default=None, description="Folder of the session.")
+    phases: list[dict[str, Any]] | None = Field(
+        default=None, description="The phases in the order they ran, each with its own report."
+    )
+    frozen: list[dict[str, Any]] | None = Field(
+        default=None, description="Every value a settled phase declared frozen."
+    )
+    reused_from_disk: list[str] | None = Field(
+        default=None, description="The phases read back from the session instead of solved."
+    )
+    restart_spreads: list[dict[str, Any]] | None = Field(
+        default=None, description="Where the restarts of each phase landed."
+    )
+    steady_window: dict[str, Any] | None = Field(
+        default=None, description="The span a steady phase averaged its recharge over."
+    )
+    protocol: dict[str, Any] | None = Field(
+        default=None, description="The published method that wrote these stages."
+    )
+    methods_paragraph: str | None = Field(
+        default=None, description="The prose this run writes about itself."
+    )
+    methods_path: str | None = Field(default=None, description="The file that paragraph is in.")
+    extra: dict[str, Any] | None = Field(default=None, description="Free-form metadata.")
+
+
 # ---------------------------------------------------------------------------
 # SessionReportData - data handed to the display layer
 # ---------------------------------------------------------------------------
@@ -456,7 +526,7 @@ def load_session_report_data(session_dir: Path) -> SessionReportData:
             sim_df, obs_df = _load_best_discharge(run_dir)
     phases = persistence.phases()
     session_row = descriptor.model_dump(mode="json", by_alias=True)
-    session_row["n_trials"] = len(iterations)
+    session_row["n_trials"] = len({row["trial"] for row in iterations})
     session_row["best_cost"] = best.cost if best is not None else None
     session_row["best_sim_id"] = best_sim_id
     session_row["phase_name"] = phases[-1].name if phases else None
@@ -614,8 +684,10 @@ def unfinished_session(result: Any) -> str | None:
 
 
 __all__ = (
+    "CALIBRATE_SCHEMA",
     "NO_OTHER_TRIAL",
     "CalibrationReport",
+    "CalibrationResult",
     "FrozenParameter",
     "PhaseRun",
     "SessionReportData",

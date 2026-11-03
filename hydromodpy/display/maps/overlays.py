@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from hydromodpy.core.exceptions import DisplayError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.display.maps.axes import overlay_watershed_contour
 from hydromodpy.display.maps.mesh_geometry import face_centroids, face_polygons
@@ -37,7 +38,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class OverlayUnavailable(RuntimeError):
+class OverlayUnavailable(DisplayError, RuntimeError):
     """Raised when a requested overlay has no data in this run.
 
     ``actionable`` is true when the user asked the run for the data (it declares
@@ -67,7 +68,7 @@ def draw_seepage(ax: Axes, sim: Run, *, timestep: int | None = None, **_) -> Non
 
     if not sim.has_field("seepage_mask"):
         raise OverlayUnavailable("run has no seepage_mask field")
-    mask = np.asarray(sim.field("seepage_mask", timestep=_resolve_timestep(sim, timestep)))
+    mask = np.asarray(sim.field("seepage_mask", time=_resolve_timestep(sim, timestep)))
     mask = mask.ravel() > 0
     if not mask.any():
         return
@@ -152,7 +153,7 @@ def draw_wells(ax: Axes, sim: Run, *, timestep: int | None = None, **_) -> None:
     if not sim.has_field("well"):
         raise _well_field_missing(sim)
     step = _resolve_timestep(sim, timestep)
-    flux = _flatten_cells(np.asarray(sim.field("well", timestep=step), dtype="float64"))
+    flux = _flatten_cells(np.asarray(sim.field("well", time=step), dtype="float64"))
     active = np.flatnonzero(np.isfinite(flux) & (np.abs(flux) > 0.0))
     if active.size == 0:
         # A well is often idle at the last stress period while the package
@@ -213,7 +214,7 @@ def _peak_well_flux(sim: Run) -> np.ndarray:
     n_steps = sim.n_timesteps or 1
     peak: np.ndarray | None = None
     for step in range(n_steps):
-        flux = _flatten_cells(np.asarray(sim.field("well", timestep=step), dtype="float64"))
+        flux = _flatten_cells(np.asarray(sim.field("well", time=step), dtype="float64"))
         if peak is None:
             peak = flux
             continue

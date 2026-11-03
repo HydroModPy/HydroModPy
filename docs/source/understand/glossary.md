@@ -56,7 +56,7 @@ catchment
   Surface that gathers water toward a single exit point, the {term}`outlet`. In HydroModPy, it
   is drawn from the relief and the position of the outlet.
 
-  *In the file:* {toml}`geographic.catchment.catch_def`.
+  *In the file:* {toml}`geographic.catchment.kind`.
 
 cell
   One square of the computation grid: 75 m wide in example 04. The model computes one value per
@@ -98,7 +98,7 @@ drain
   the reverse. In example 04, the drains are placed at the ground surface and their capacity
   (the {term}`conductance`) is deduced from K.
 
-  *In the file:* {toml}`flow.active_bc`.
+  *In the file:* a `[flow.bc.drainage]` table.
 
 ensemble
   A set of runs of the same model with different parameters or inputs. The spread between the
@@ -163,7 +163,7 @@ site
 
 summary
   The tables, map, figures and report over all the {term}`cases <case>` of a project, written
-  under `summary/` by `hmp project collect`. It is rebuilt from the runs each time.
+  under `summary/` by `hmp campaign collect`. It is rebuilt from the runs each time.
 
 groundwater
   Water that fills the pores of the ground below the {term}`water table`.

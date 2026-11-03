@@ -29,8 +29,6 @@ def _attr(payload: object, name: str) -> object:
 def forcing_kind(forcing: object) -> str | None:
     """Return the forcing discriminator (``constant`` / ``csv`` / ...) or None."""
     kind = _attr(forcing, "kind")
-    if kind is None:
-        kind = _attr(forcing, "mode")
     return str(kind) if kind is not None else None
 
 

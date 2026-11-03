@@ -11,7 +11,7 @@ Layout
 
 Solvers are looked up under ``<bin_path>/<exe>``, a flat folder. The managed
 cache lives at ``~/.cache/hydromodpy/bin/`` (or the platform equivalent) and a
-custom directory may be passed via the ``HMP_BIN`` env var or the ``--bindir``
+custom directory may be passed via the ``HMP_BIN`` env var or the ``--to``
 flag of ``hmp install-binaries``.
 
 Versioning policy

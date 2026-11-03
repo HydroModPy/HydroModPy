@@ -29,7 +29,7 @@ def _profile(**profile) -> dict:
 
 
 def _tabulated(**override) -> dict:
-    return _profile(**dict(mode="tabulated", depths=[0.0, 10.0], factors=[1.0, 0.5]) | override)
+    return _profile(**dict(kind="tabulated", depths=[0.0, 10.0], factors=[1.0, 0.5]) | override)
 
 
 @pytest.mark.parametrize(
@@ -46,9 +46,9 @@ def _tabulated(**override) -> dict:
         ({"field": PER_ZONE | {"values": {"a": "10 m/day"}}}, "field", {"values": {"a": "10 m/day"}}),
         ({"field": CSV | {"field_spatial_id": "g"}}, "field",
          {"values_source": "csv", "values_csv_file": Path("map.csv"), "field_spatial_id": "g"}),
-        (_profile(mode="exponential", characteristic_depth=30.0), "field_vertical_profile",
-         {"mode": "exponential", "characteristic_depth": 30.0}),
-        (_profile(mode="exponential", characteristic_depth="30.0 m", min_factor=1e-3),
+        (_profile(kind="exponential", characteristic_depth=30.0), "field_vertical_profile",
+         {"kind": "exponential", "characteristic_depth": 30.0}),
+        (_profile(kind="exponential", characteristic_depth="30.0 m", min_factor=1e-3),
          "field_vertical_profile", {"characteristic_depth": 30.0, "min_factor": 1e-3}),
         (_tabulated(), "field_vertical_profile", {"depths": [0.0, 10.0], "interpolation": "linear"}),
     ],
@@ -83,10 +83,10 @@ def test_a_field_table_is_normalised(payload, section, expected):
         ({"field": {"kind": "heterogeneous", "values": {"a": 1.0}}}, "field_spatial_id is required"),
         ({"field": CSV | {"values_csv_file": None, "field_spatial_id": "g"}}, "values_csv_file"),
         ({"field": CSV}, "field_spatial_id is required"),
-        (_profile(mode="exponential"), "characteristic_depth is required"),
-        (_profile(mode="exponential", characteristic_depth=30.0, min_factor=1.2), "min_factor"),
-        (_profile(mode="tabulated", factors=[1.0]), "depths is required"),
-        (_profile(mode="tabulated", depths=[0.0]), "factors is required"),
+        (_profile(kind="exponential"), "characteristic_depth is required"),
+        (_profile(kind="exponential", characteristic_depth=30.0, min_factor=1.2), "min_factor"),
+        (_profile(kind="tabulated", factors=[1.0]), "depths is required"),
+        (_profile(kind="tabulated", depths=[0.0]), "factors is required"),
         (_tabulated(depths=[0.0]), "must have same length"),
         (_tabulated(depths=[-1.0, 10.0]), "must be >= 0"),
         (_tabulated(depths=[0.0, 0.0]), "strictly increasing"),
@@ -118,8 +118,8 @@ def test_a_field_file_is_read_and_its_errors_name_it(tmp_path: Path):
         (_k(3.5, values={"a": 1.0}, field_spatial_id="g"), _k(3.5)),
         (PER_ZONE | {"value": 1.0, "values": {"a": "10 m/day"}}, PER_ZONE | {"values": {"a": "10 m/day"}}),
         (
-            _k(3.5, field_vertical_profile={"mode": "exponential", "characteristic_depth": 50.0, "min_factor": 0.01}),
-            _k(3.5) | {"vertical_profile": {"mode": "exponential", "characteristic_depth": 50.0,
+            _k(3.5, field_vertical_profile={"kind": "exponential", "characteristic_depth": 50.0, "min_factor": 0.01}),
+            _k(3.5) | {"vertical_profile": {"kind": "exponential", "characteristic_depth": 50.0,
                                             "min_factor": 0.01, "interpolation": "linear"}},
         ),
     ],
@@ -159,7 +159,7 @@ def test_a_resolved_parameter_without_its_values_is_refused(payload, error, matc
 def test_a_project_section_takes_its_key_as_id_and_its_profile():
     payload = {
         "field": {"kind": "homogeneous", "value": 2.0},
-        "field_vertical_profile": {"mode": "exponential", "characteristic_depth": 9.0},
+        "field_vertical_profile": {"kind": "exponential", "characteristic_depth": 9.0},
     }
 
     resolved = resolve_field_param_config_payload(payload, param_id="K", section_label="flow.K")

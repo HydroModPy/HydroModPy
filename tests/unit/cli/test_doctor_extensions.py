@@ -43,7 +43,7 @@ def _make_workspace(tmp_path: Path) -> tuple[Path, Path]:
 
 
 def _checks(out: str) -> dict[str, dict]:
-    return {entry["name"]: entry for entry in json.loads(out)["checks"]}
+    return {entry["name"]: entry for entry in json.loads(out)["data"]["checks"]}
 
 
 def test_doctor_help_lists_new_flags(monkeypatch, capsys) -> None:
@@ -65,7 +65,7 @@ def test_doctor_lifecycle_counts_a_stale_attempt_from_the_disk(
 
     code = _run(
         monkeypatch,
-        ["hmp", "doctor", "--workspace", str(workspace), "--lifecycle", "--json"],
+        ["hmp", "doctor", "--workspace", str(workspace), "--lifecycle", "--format", "json"],
     )
 
     assert code in (0, 1)
@@ -88,7 +88,7 @@ def test_doctor_cross_catalog_names_a_run_the_index_lacks(
 
     code = _run(
         monkeypatch,
-        ["hmp", "doctor", "--workspace", str(workspace), "--cross-catalog", "--json"],
+        ["hmp", "doctor", "--workspace", str(workspace), "--cross-catalog", "--format", "json"],
     )
 
     assert code in (0, 1)
@@ -141,7 +141,9 @@ def test_doctor_prt_renders_in_the_report(monkeypatch, tmp_path, capsys, doctor_
     monkeypatch.setattr(doctor_module, "_locate_mf6", lambda: mf6)
     monkeypatch.setattr(doctor_module, "_mf6_version", lambda _exe: ("mf6: 6.6.3", (6, 6, 3)))
 
-    code = _run(monkeypatch, ["hmp", "doctor", "--workspace", str(tmp_path), "--prt", "--json"])
+    code = _run(
+        monkeypatch, ["hmp", "doctor", "--workspace", str(tmp_path), "--prt", "--format", "json"]
+    )
     assert code in (0, 1)
     out = capsys.readouterr().out
     assert "prt:mf6_version" in out
@@ -154,7 +156,7 @@ def test_doctor_finds_the_workspace_that_holds_the_cwd(
     monkeypatch.delenv("HMP_WORKSPACE", raising=False)
     monkeypatch.chdir(project)
 
-    code = _run(monkeypatch, ["hmp", "doctor", "--json"])
+    code = _run(monkeypatch, ["hmp", "doctor", "--format", "json"])
 
     assert code in (0, 1)
     checks = _checks(capsys.readouterr().out)
@@ -169,7 +171,7 @@ def test_doctor_finds_the_workspace_that_holds_the_cwd(
 def test_doctor_takes_w(monkeypatch, tmp_path, capsys, isolated_state) -> None:
     workspace, _project = _make_workspace(tmp_path)
 
-    code = _run(monkeypatch, ["hmp", "doctor", "-w", str(workspace), "--json"])
+    code = _run(monkeypatch, ["hmp", "doctor", "-w", str(workspace), "--format", "json"])
 
     assert code in (0, 1)
     assert _checks(capsys.readouterr().out)["workspace"]["status"] == "OK"

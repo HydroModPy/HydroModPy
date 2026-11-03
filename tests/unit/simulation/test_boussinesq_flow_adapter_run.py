@@ -95,9 +95,8 @@ def test_boussinesq_flow_adapter_supports_runtime_mesh_with_heterogeneous_rechar
                     "K": _homogeneous_param(1.0e-5),
                     "Sy": _homogeneous_param(0.2),
                 },
-                "ic": {"type": "custom", "value": 7.0},
+                "ic": {"kind": "custom", "value": 7.0},
                 "first_period_steady": False,
-                "active_sinks_sources": ["recharge"],
                 "sinks_sources": {
                     "recharge": {
                         "values": 0.0,
@@ -172,9 +171,8 @@ def test_boussinesq_flow_adapter_reads_the_river_faces_of_the_cell_mesh(
                     "K": _homogeneous_param(1.0e-5),
                     "Sy": _homogeneous_param(0.2),
                 },
-                "ic": {"type": "custom", "value": 8.0},
+                "ic": {"kind": "custom", "value": 8.0},
                 "first_period_steady": False,
-                "active_bc": ["stream"],
                 "bc": {
                     "stream": {"kind": "dirichlet", "value": 7.0},
                 },
@@ -234,7 +232,7 @@ def test_boussinesq_flow_adapter_runs_transient_and_writes_outputs(tmp_path: Pat
             mesh_bundle=None,
             mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
             flow=Flow(
-                FlowConfig.model_validate({"ic": {"type": "top"}, "first_period_steady": False})
+                FlowConfig.model_validate({"ic": {"kind": "top"}, "first_period_steady": False})
             ),
             domain=None,
             time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
@@ -276,10 +274,8 @@ def test_boussinesq_flow_adapter_supports_recharge_and_side_dirichlet(
             flow=Flow(
                 _build_flow_config(
                     {
-                        "ic": {"type": "custom", "value": 7.0},
+                        "ic": {"kind": "custom", "value": 7.0},
                         "first_period_steady": False,
-                        "active_sinks_sources": ["recharge"],
-                        "active_bc": ["west_side"],
                         "sinks_sources": {"recharge": {"values": 1.0e-7, "units": "m/s"}},
                         "bc": {
                             "west_side": {"kind": "dirichlet", "value": 10.0},
@@ -330,9 +326,8 @@ def test_boussinesq_flow_adapter_supports_absolute_xy_well(
             flow=Flow(
                 _build_flow_config(
                     {
-                        "ic": {"type": "custom", "value": 8.0},
+                        "ic": {"kind": "custom", "value": 8.0},
                         "first_period_steady": False,
-                        "active_sinks_sources": ["wells"],
                         "sinks_sources": {
                             "wells": {
                                 "W1": {
@@ -386,9 +381,8 @@ def test_boussinesq_flow_adapter_supports_stream_on_river_edges(
             flow=Flow(
                 _build_flow_config(
                     {
-                        "ic": {"type": "custom", "value": 8.0},
+                        "ic": {"kind": "custom", "value": 8.0},
                         "first_period_steady": False,
-                        "active_bc": ["stream"],
                         "bc": {
                             "stream": {"kind": "dirichlet", "value": 7.0},
                         },
@@ -432,9 +426,8 @@ def test_boussinesq_flow_adapter_supports_ocean_on_coastal_edges(
             flow=Flow(
                 _build_flow_config(
                     {
-                        "ic": {"type": "custom", "value": 8.0},
+                        "ic": {"kind": "custom", "value": 8.0},
                         "first_period_steady": False,
-                        "active_bc": ["ocean"],
                         "bc": {
                             "ocean": {"kind": "dirichlet", "value": 10.5},
                         },

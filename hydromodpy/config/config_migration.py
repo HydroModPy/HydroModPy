@@ -41,6 +41,18 @@ Rewrites legacy ``[simulation]`` keys in place, preserving comments and layout:
   dropped when it is 2, the paper's bound, which ``validity_length = "auto"``
   reproduces; any other value is refused, since a ratio has no length without
   the cell size of the run
+- ``flow.active_bc`` and ``flow.active_sinks_sources`` folded into the tables they
+  listed: a table is active when it is declared. A table present and not listed gets
+  ``enabled = false``, and a name listed with no table gets an empty one
+  (:func:`_fold_the_activation_lists`), so a file means what it meant. A document that
+  writes neither list is read under the new rule: nothing tells it from a new file.
+- ``kind`` of a drain: ``cauchy`` and ``robin`` are one linear drain, ``drain``
+- the seven keys ``[transport]`` inherited and never read dropped
+- ``geographic.catchment.buff_area`` written as a bare number -> ``"N% of sqrt(area)"``,
+  the rule of version 1 written out, with the same distance (:func:`_write_out_the_bare_buffer`)
+- ``[workspace] catalog_path`` and ``runs_dir`` dropped: the loader refuses them with the
+  storage layout contract, the index and the runs of a project have one place and a file
+  cannot move them
 - ``[workspace] project_root``, ``[display] output_dir`` and
   ``[calibration] rerun_best_with_outputs`` dropped, ``simulation.if_exists =
   "replace"`` rewritten as ``"version"``: the loader refuses each of them with
@@ -113,6 +125,8 @@ from hydromodpy.core.toml_io.loader import read_toml_chain
 from hydromodpy.core.toml_io.merge import DIRECTIVE_SUFFIXES, merge_toml_payloads
 from hydromodpy.core.toml_io.overrides import COMMAND_LINE_SOURCES
 from hydromodpy.core.toml_io.paths import DottedPath, parse
+from hydromodpy.physics.flow.flow_runtime_config import FLOW_RUNTIME_KEYS
+from hydromodpy.physics.flow.property_ids import NEVER_READ_IDS, OLD_PROPERTY_IDS
 
 _logger = get_logger(__name__)
 
@@ -186,15 +200,24 @@ class TableMove:
 _LAYERING = "domain.layers"
 
 #: What the loader moves to another path: the layering each solver wrote under
-#: ``sgrid``, which every solver reads from ``[domain.layers]`` now. Two rows with
-#: one ``new`` are alternatives, and the flow solver chooses between them.
-MOVED_TABLES: tuple[TableMove, ...] = tuple(
-    TableMove(f"{section}.sgrid.vertical", _LAYERING, since=ALPHA_FORM)
-    for section in _SOLVER_SECTIONS
+#: ``sgrid``, which every solver reads from ``[domain.layers]`` now, and the settings of
+#: the Boussinesq solve. Two rows with one ``new`` are alternatives, and the flow solver
+#: chooses between them.
+MOVED_TABLES: tuple[TableMove, ...] = (
+    *(
+        TableMove(f"{section}.sgrid.vertical", _LAYERING, since=ALPHA_FORM)
+        for section in _SOLVER_SECTIONS
+    ),
+    *(
+        TableMove(f"flow.{old}", f"flow.runtime.{new}", since=ALPHA_FORM)
+        for old, new in FLOW_RUNTIME_KEYS.items()
+    ),
 )
 
 
-def fix_config_chain(path: str | Path) -> dict[Path, list[str]]:
+def fix_config_chain(
+    path: str | Path, *, dry_run: bool = False, diffs: dict[Path, str] | None = None
+) -> dict[Path, list[str]]:
     """Rewrite each file of the ``base_config`` chain of *path* that holds an old form.
 
     Returns the changes of each file of the chain, root first, an empty list for a
@@ -203,7 +226,9 @@ def fix_config_chain(path: str | Path) -> dict[Path, list[str]]:
     list one file replaces. That raises :class:`ConfigError` naming the keys. A file
     whose rewrite hangs on a key a file below it writes stays as it is, and its lines
     say what to write (:func:`_left_for_a_child`): another file can inherit it and
-    read it otherwise. Raises :class:`FileNotFoundError` when a file is missing and a
+    read it otherwise. With *dry_run* every check runs and no file is written. When
+    *diffs* is given it receives, for each file that would be rewritten, the unified
+    diff of the rewrite. Raises :class:`FileNotFoundError` when a file is missing and a
     TOML error on a malformed one.
     """
     target = Path(path).expanduser()
@@ -222,13 +247,16 @@ def fix_config_chain(path: str | Path) -> dict[Path, list[str]]:
     _every_rule(before)
     changes: dict[Path, list[str]] = {}
     left: set[Path] = set()
+    # Read before any layer is rewritten: a layer that folds its list stops saying it.
+    readings = [_lists_as_this_layer_reads_them(layers, i, current) for i in range(len(layers))]
     for index, (file, doc) in enumerate(layers):
-        hanging = _left_for_a_child(layers, index, written=written, current=current)
+        reading = readings[index]
+        hanging = _left_for_a_child(layers, index, written=written, current=reading)
         if hanging:
             changes[file] = hanging
             left.add(file)
             continue
-        changes[file] = _every_rule(doc, written=written, current=current)
+        changes[file] = _every_rule(doc, written=written, current=reading)
         changes[file].extend(_migrate_refused_keys(doc))
     after = _under_todays_names(layers, _reading_context(layers))
     _every_rule(after)
@@ -241,8 +269,56 @@ def fix_config_chain(path: str | Path) -> dict[Path, list[str]]:
         )
     for file, doc in docs.items():
         if changes[file] and file not in left:
-            file.write_text(tomlkit.dumps(doc), encoding="utf-8")
+            if diffs is not None:
+                diffs[file] = _unified_diff(file, tomlkit.dumps(doc))
+            if not dry_run:
+                file.write_text(tomlkit.dumps(doc), encoding="utf-8")
     return changes
+
+
+def _unified_diff(file: Path, after: str) -> str:
+    """Return the unified diff from the text of *file* on disk to *after*."""
+    import difflib
+
+    before = file.read_text(encoding="utf-8-sig")
+    return "".join(
+        difflib.unified_diff(
+            before.splitlines(keepends=True),
+            after.splitlines(keepends=True),
+            fromfile=str(file),
+            tofile=f"{file} (migrated)",
+        )
+    )
+
+
+def _lists_as_this_layer_reads_them(
+    layers: Sequence[Layer], index: int, current: dict[str, Any]
+) -> dict[str, Any]:
+    """Return *current* with the activation lists and tables this layer answers for.
+
+    A file writes ``enabled = false`` for the tables it can see. A list held below this
+    layer folds there, so a layer that holds none leaves its tables alone. A table
+    declared below this layer switches itself off there, so a layer that holds a list
+    does not write for it.
+    """
+    flow = layers[index][1].get("flow")
+    above = layers[: index + 1]
+    above_flow = _under_todays_names(above, _reading_context(above)).get("flow")
+    reading = copy.deepcopy(current)
+    read_flow = reading.get("flow")
+    if not isinstance(read_flow, dict):
+        return reading
+    if isinstance(flow, Mapping) and _activation_keys_of(flow):
+        lists = {name: read_flow[name] for name in _ACTIVATION_LISTS if name in read_flow}
+        read_flow = dict(above_flow) if isinstance(above_flow, Mapping) else {}
+        read_flow.update(lists)
+    else:
+        for name in _ACTIVATION_LISTS:
+            read_flow.pop(name, None)
+            if isinstance(above_flow, Mapping) and name in above_flow:
+                read_flow[name] = above_flow[name]
+    reading["flow"] = read_flow
+    return reading
 
 
 def _left_for_a_child(
@@ -351,6 +427,10 @@ def _file_rules(doc: Any, *, context: Any, sealed: bool) -> list[str]:
     changes.extend(_rename_export_times(doc))
     changes.extend(_rename_keys(doc, sealed=sealed, context=context))
     changes.extend(_rename_field_values(doc))
+    changes.extend(_rename_the_drain_kinds(doc))
+    changes.extend(_write_out_the_bare_buffer(doc))
+    changes.extend(_rename_the_property_ids(doc))
+    changes.extend(_drop_what_transport_never_read(doc))
     return changes
 
 
@@ -396,9 +476,11 @@ def _whole_document_rules(doc: Any, *, context: Any, sealed: bool) -> list[str]:
 
     A table of toggles becomes a list, and a list does not merge key by key. A
     width and its mode become one key. What a method option counted hangs on the
-    method. A ratio is checked on what the files end up saying.
+    method. A ratio is checked on what the files end up saying. A list that activates
+    tables hangs on the tables every layer declares.
     """
     changes = _drop_the_validity_ratio(doc)
+    changes.extend(_fold_the_activation_lists(doc, context=context))
     export = _migrate_export_variables(doc)
     exploded = _explode_export_table(doc)
     changes.extend(export)
@@ -443,6 +525,13 @@ def _rename_simulation_keys(doc: Any) -> list[str]:
 _DROPPED_KEYS: dict[str, str] = {
     "workspace.project_root": (
         "the project root is the folder that holds project.toml, or the folder of the file"
+    ),
+    "workspace.catalog_path": (
+        "the index of a project is <project>/.hmp/index.duckdb, fixed by the storage layout "
+        "contract"
+    ),
+    "workspace.runs_dir": (
+        "the runs of a project are in <project>/runs/, fixed by the storage layout contract"
     ),
     "display.output_dir": "figures are written under runs/<run>/figures/",
     "calibration.rerun_best_with_outputs": (
@@ -649,6 +738,26 @@ RENAMED_KEYS: tuple[KeyRename, ...] = (
         for scope in _EXTENT_RULE_SCOPES
         for old, new in _EXTENT_RULE_KEYS
     ),
+    KeyRename("flow.bc.{*}.forcing", "mode", "kind", since=ALPHA_FORM),
+    KeyRename("flow.ic", "type", "kind", since=ALPHA_FORM),
+    KeyRename("flow.ic.h", "type", "kind", since=ALPHA_FORM),
+    KeyRename("flow.param.{*}.field_vertical_profile", "mode", "kind", since=ALPHA_FORM),
+    KeyRename("flow.sinks_sources.lakes.{*}.outlets[*]", "couttype", "kind", since=ALPHA_FORM),
+    KeyRename("flow.sinks_sources.lakes.{*}", "stageinit", "initial_stage", since=ALPHA_FORM),
+    KeyRename("geographic.catchment", "catch_def", "kind", since=ALPHA_FORM),
+    KeyRename("simulation.process[*]", "type", "kind", since=ALPHA_FORM),
+    KeyRename("solver.backend", "backend", "kind", since=ALPHA_FORM),
+    *(
+        KeyRename("transport.modflow6prt.parameters", f"{name}_days", name, since=ALPHA_FORM)
+        for name in (
+            "release_times",
+            "track_times",
+            "track_time_step",
+            "stop_time",
+            "stop_travel_time",
+        )
+    ),
+    *(KeyRename("flow.param", old, new, since=ALPHA_FORM) for old, new in OLD_PROPERTY_IDS.items()),
 )
 """Every key a file wrote under another name, with the name that replaced it.
 
@@ -1475,12 +1584,12 @@ _EXPORT_TABLE_KEYS = frozenset(
 # The selectors a request writing the whole run refuses.
 _RUN_REFUSED_KEYS = ("period", "crs", "resolution", "layer")
 # The archive of a run (`package = true`, `fmt = "hmp"`, a `.hmp` file) is
-# not an export any more: `hmp publish --format tar` writes it from a sealed run.
+# not an export any more: `hmp publish --container tar` writes it from a sealed run.
 _ARCHIVE_FORMAT = "hmp"
 _ARCHIVE_SUFFIX = ".hmp"
 _ARCHIVE_DROPPED = (
     '[export] archive request(s) dropped (package = true, fmt = "hmp", a .hmp file): the '
-    "archive of a run is written by hmp publish --format tar, not by an export"
+    "archive of a run is written by hmp publish --container tar, not by an export"
 )
 _ARTIFACT_KEYS = {
     "var": "variables",
@@ -1823,6 +1932,278 @@ def _flatten_boundary_conditions(doc: Any) -> list[str]:
     return changes
 
 
+_OLD_DRAIN_KINDS = frozenset({"cauchy", "robin"})
+
+
+def _rename_the_drain_kinds(doc: Any) -> list[str]:
+    """Rewrite ``kind = 'cauchy'`` and ``kind = 'robin'`` as ``kind = 'drain'``.
+
+    Both built one linear drain under every solver, with the same numbers. Nothing read
+    the difference, and the Boussinesq closure has its own key.
+    """
+    changes: list[str] = []
+    for where, table in _tables_at(doc, "flow.bc.{*}"):
+        if _plain(table.get("kind")) in _OLD_DRAIN_KINDS:
+            changes.append(f"{where}.kind {_plain(table['kind'])!r} -> 'drain'")
+            table["kind"] = "drain"
+    for where, table in _path_tables(doc):
+        for key in [str(key) for key in table]:
+            parts = key.split(".")
+            if (
+                len(parts) == 4
+                and parts[:2] == ["flow", "bc"]
+                and parts[3] == "kind"
+                and _plain(table[key]) in _OLD_DRAIN_KINDS
+            ):
+                changes.append(f"{where}.\"{key}\" {_plain(table[key])!r} -> 'drain'")
+                table[key] = "drain"
+    return changes
+
+
+def _write_out_the_bare_buffer(doc: Any) -> list[str]:
+    """Rewrite a bare number ``buff_area = 10`` as ``"10% of sqrt(area)"``.
+
+    A bare number has always been the rule of version 1, a distance of that percent of
+    the square root of the catchment area. The explicit form draws the same distance,
+    so the domain does not move, and the file says what the number means.
+    """
+    changes: list[str] = []
+    for where, table in _tables_at(doc, "geographic.catchment"):
+        value = _plain(table.get("buff_area"))
+        if isinstance(value, bool) or not isinstance(value, int | float) or value <= 0:
+            continue
+        table["buff_area"] = f"{float(value):g}% of sqrt(area)"
+        changes.append(f"{where}.buff_area {value!r} -> '{float(value):g}% of sqrt(area)'")
+    return changes
+
+
+def _rename_the_property_ids(doc: Any) -> list[str]:
+    """Rewrite what names a property next to its key: ``param_list``, and the id of its field.
+
+    The key itself is a row of :data:`RENAMED_KEYS`.
+    """
+    flow = doc.get("flow") if isinstance(doc, Mapping) else None
+    if not isinstance(flow, Mapping):
+        return []
+    changes: list[str] = []
+    listed = _plain(flow.get("param_list"))
+    if isinstance(listed, list) and any(name in OLD_PROPERTY_IDS for name in listed):
+        renamed = [OLD_PROPERTY_IDS.get(name, name) for name in listed]
+        flow["param_list"] = renamed
+        changes.append(f"flow.param_list {listed!r} -> {renamed!r}")
+    for where, field_table in _tables_at(doc, "flow.param.{*}.field"):
+        if _plain(field_table.get("id")) in OLD_PROPERTY_IDS:
+            old = _plain(field_table["id"])
+            field_table["id"] = OLD_PROPERTY_IDS[old]
+            changes.append(f"{where}.id {old!r} -> {OLD_PROPERTY_IDS[old]!r}")
+    return changes
+
+
+_TRANSPORT_NEVER_READ = (
+    "param_list",
+    "param",
+    "ic",
+    "bc",
+    "sinks_sources",
+    "active_sinks_sources",
+    "active_bc",
+)
+"""Keys ``[transport]`` inherited from a base class. No transport solver read them."""
+
+
+def _drop_what_transport_never_read(doc: Any) -> list[str]:
+    """Drop the inherited keys of ``[transport]``, whatever they held."""
+    transport = doc.get("transport") if isinstance(doc, Mapping) else None
+    if not isinstance(transport, Mapping):
+        return []
+    changes: list[str] = []
+    for key in _TRANSPORT_NEVER_READ:
+        if key in transport:
+            del transport[key]
+            changes.append(f"transport.{key} dropped (no transport solver read it)")
+    return changes
+
+
+_ACTIVATION_LISTS = ("active_bc", "active_sinks_sources")
+_LAKE_NAMES = frozenset({"lake", "reservoir"})
+_COLLECTIONS = {"lakes": "active_bc", "sfr": "active_bc", "wells": "active_sinks_sources"}
+"""The tables of ``sinks_sources`` that hold entries under free names, and the list that named them."""
+
+
+def _activation_keys_of(flow: Mapping[str, Any]) -> list[str]:
+    """Return the keys of a flow section that write a list, a directive of one included."""
+    keys: list[str] = []
+    for key in flow:
+        name = str(key)
+        for suffix in DIRECTIVE_SUFFIXES:
+            name = name.removesuffix(suffix)
+        if name in _ACTIVATION_LISTS:
+            keys.append(str(key))
+    return keys
+
+
+def _sections_of(flow: Any) -> list[tuple[str, str, str]]:
+    """Return the tables a flow section declares: their path under it, their list, their name."""
+    if not isinstance(flow, Mapping):
+        return []
+    found: list[tuple[str, str, str]] = []
+    bc = flow.get("bc")
+    if isinstance(bc, Mapping):
+        found.extend(
+            (f"bc.{key}", "active_bc", str(key))
+            for key, table in bc.items()
+            if isinstance(table, Mapping)
+        )
+    tables = flow.get("sinks_sources")
+    if isinstance(tables, Mapping):
+        for name in ("recharge", "etp"):
+            if isinstance(tables.get(name), Mapping):
+                found.append((f"sinks_sources.{name}", "active_sinks_sources", name))
+        for collection, listed_in in _COLLECTIONS.items():
+            entries = tables.get(collection)
+            if isinstance(entries, Mapping):
+                name = "lake" if collection == "lakes" else collection
+                found.extend(
+                    (f"sinks_sources.{collection}.{key}", listed_in, name)
+                    for key, table in entries.items()
+                    if isinstance(table, Mapping)
+                )
+    return found
+
+
+def _is_listed(name: str, listed: Sequence[str]) -> bool:
+    """Whether *listed* names a table called *name*: ``reservoir`` was another word for lake."""
+    return name in listed or (name in _LAKE_NAMES and bool(_LAKE_NAMES & set(listed)))
+
+
+def _path_of_a_name(list_name: str, name: str) -> str:
+    """Return the table a name of a list stands for, under ``flow``."""
+    if list_name == "active_bc" and name in _LAKE_NAMES:
+        return "sinks_sources.lakes"
+    if list_name == "active_bc" and name == "sfr":
+        return "sinks_sources.sfr"
+    return f"bc.{name}" if list_name == "active_bc" else f"sinks_sources.{name}"
+
+
+def _list_of(flow: Any, list_name: str) -> list[str] | None:
+    """Return what a flow section lists, or ``None`` when it writes no list."""
+    value = _plain(flow.get(list_name)) if isinstance(flow, Mapping) else None
+    if isinstance(value, list):
+        return [str(item).strip() for item in value]
+    return None
+
+
+def _an_empty_table(doc: Any) -> Any:
+    return tomlkit.table() if isinstance(doc, tomlkit.TOMLDocument) else {}
+
+
+def _fold_the_activation_lists(doc: Any, *, context: Any) -> list[str]:
+    """Fold ``flow.active_bc`` and ``flow.active_sinks_sources`` into the tables, keeping the meaning.
+
+    A list said what was active, so a table it does not name gets ``enabled = false``,
+    a name with no table gets an empty one, and the list goes. *context* is what the
+    layers say together, since a list and the tables it speaks of can sit in two files.
+    The layer that holds the list writes for all of them. A layer that holds only tables
+    switches off its own. A document with no list at all reads under the new rule.
+    """
+    changes = _fold_the_lists_of_a_path_table(doc, context=context)
+    flow = doc.get("flow") if isinstance(doc, Mapping) else None
+    reading = context.get("flow") if isinstance(context, Mapping) else None
+    if not isinstance(flow, Mapping) or not isinstance(reading, Mapping):
+        return changes
+    listed = {name: _list_of(reading, name) for name in _ACTIVATION_LISTS}
+    if all(value is None for value in listed.values()):
+        return changes
+    held = _activation_keys_of(flow)
+    own = {path for path, _, _ in _sections_of(flow)}
+    sections = _sections_of(reading)
+    for path, list_name, name in sections:
+        if _is_listed(name, listed[list_name] or ()):
+            continue
+        if listed[list_name] is None and path not in own:
+            # No list says anything about a table another file declares: that file was
+            # already read under the new rule, or it never had a list to fold.
+            continue
+        if held or path in own:
+            _set_at(doc, f"flow.{path}.enabled", False)
+            changes.append(f"flow.{path} not listed in flow.{list_name} -> enabled = false")
+    if held:
+        declared = {path for path, _, _ in sections}
+        for list_name, names in listed.items():
+            for name in names or ():
+                path = _path_of_a_name(list_name, name)
+                if path in declared or any(p.startswith(f"{path}.") for p in declared):
+                    continue
+                declared.add(path)
+                if _value_at(doc, f"flow.{path}") is None:
+                    _set_at(doc, f"flow.{path}", _an_empty_table(doc))
+                changes.append(f"flow.{list_name} names {name!r} -> [flow.{path}]")
+    # Fetched again: a write can leave a proxy of an out-of-order table stale.
+    flow = doc["flow"]
+    for key in held:
+        del flow[key]
+        changes.append(f"flow.{key} folded into the tables it listed")
+    if not flow:
+        del doc["flow"]
+    return changes
+
+
+def _path_tables(doc: Any) -> list[tuple[str, Any]]:
+    """Return the tables whose keys are dotted paths: the overrides of a phase, the set of a recipe."""
+    found = [
+        (f"{where}.overrides", phase["overrides"])
+        for where, phase in _tables_at(doc, _PHASES)
+        if isinstance(phase.get("overrides"), Mapping)
+    ]
+    found.extend(_tables_at(doc, "sites.recipes.{*}.set"))
+    return found
+
+
+def _fold_the_lists_of_a_path_table(doc: Any, *, context: Any) -> list[str]:
+    """Rewrite a list a phase or a recipe overrides as one ``enabled`` per table.
+
+    A nested ``flow`` table in an override folds on its own. A line of ``[sites.bind]``
+    holds a column and no list, so the file keeps it and the loader refuses it.
+    """
+    reading = context.get("flow") if isinstance(context, Mapping) else None
+    sections = _sections_of(reading)
+    named: list[tuple[str, str, str]] = []
+    for list_name in _ACTIVATION_LISTS:
+        for name in _list_of(reading, list_name) or ():
+            path = _path_of_a_name(list_name, name)
+            if path not in {section[0] for section in sections} and path not in _ANY_ENTRY:
+                named.append((path, list_name, name))
+    changes: list[str] = []
+    for where, table in _path_tables(doc):
+        for list_name in _ACTIVATION_LISTS:
+            key = f"flow.{list_name}"
+            value = _plain(table.get(key))
+            if not isinstance(value, list):
+                continue
+            listed = [str(item).strip() for item in value]
+            known = [*sections, *named]
+            for path, owner, name in known:
+                if owner != list_name:
+                    continue
+                table[f"flow.{path}.enabled"] = _is_listed(name, listed)
+            for name in listed:
+                path = _path_of_a_name(list_name, name)
+                if path in _ANY_ENTRY or any(section[0] == path for section in known):
+                    continue
+                table[f"flow.{path}.enabled"] = True
+            del table[key]
+            changes.append(f'{where}."{key}" -> one enabled per table')
+        nested = table.get("flow")
+        if isinstance(nested, Mapping) and any(name in nested for name in _ACTIVATION_LISTS):
+            merged = {"flow": {**dict(_plain(reading) or {}), **dict(_plain(nested))}}
+            changes.extend(_fold_the_activation_lists(table, context=merged))
+    return changes
+
+
+_ANY_ENTRY = frozenset({"sinks_sources.lakes", "sinks_sources.sfr", "sinks_sources.wells"})
+"""A name that stands for all the entries of a table, and names no table of its own."""
+
+
 def _persistence_tables(doc: Any) -> list[tuple[str, Any]]:
     """Return every ``(path, table)`` pair holding a persistence section."""
     results = (doc.get("simulation") or {}).get("results")
@@ -1886,11 +2267,11 @@ def _raw_flow_process_solver(simulation: Any) -> tuple[str, str] | None:
         return None
     for process in processes:
         if isinstance(process, Mapping):
-            kind = str(process.get("type", "")).strip().lower()
+            kind = str(process.get("kind", process.get("type", ""))).strip().lower()
             solvers = process.get("solvers")
             process_id = process.get("id")
         else:
-            kind = str(getattr(process, "type", "")).strip().lower()
+            kind = str(getattr(process, "kind", "")).strip().lower()
             solvers = getattr(process, "solvers", None)
             process_id = getattr(process, "id", None)
         if kind != "flow" or not isinstance(solvers, list | tuple):
@@ -1922,7 +2303,8 @@ def _flow_solver_section(doc: Any) -> str:
         solver = doc.get("solver")
         name = solver.get("backend") if isinstance(solver, Mapping) else None
         if isinstance(name, Mapping):
-            name = name.get("name") if name.get("backend") == "custom" else name.get("backend")
+            tag = name.get("kind", name.get("backend"))
+            name = name.get("name") if tag == "custom" else tag
     return _SOLVER_SECTION_OF.get(str(name or "").strip().lower(), "modflow6")
 
 
@@ -2135,8 +2517,18 @@ HAND_WRITTEN_FORMS: tuple[OldForm, ...] = (
         for key in sorted({option for _, option in _BUDGET_OPTIONS})
     ),
     *(OldForm(path, None, ALPHA_FORM) for path in _DROPPED_KEYS),
+    OldForm("flow.active_bc", "flow.bc", ALPHA_FORM),
+    OldForm("flow.active_sinks_sources", "flow.sinks_sources", ALPHA_FORM),
+    *(OldForm(f"transport.{key}", None, ALPHA_FORM) for key in _TRANSPORT_NEVER_READ),
 )
 """The old forms a function of this module rewrites, one line for each key it reads."""
+
+OLD_VALUES: tuple[tuple[str, str, str], ...] = (
+    ("flow.bc.kind", "cauchy", "drain"),
+    ("flow.bc.kind", "robin", "drain"),
+    ("geographic.catchment.buff_area", "10", "10% of sqrt(area)"),
+)
+"""Values a rule rewrites under a key that keeps its name, as (key, old value, new value)."""
 
 REFUSED_OR_RETIRED_FORMS: tuple[OldForm, ...] = (
     *(
@@ -2166,6 +2558,10 @@ REFUSED_OR_RETIRED_FORMS: tuple[OldForm, ...] = (
         rewritten=False,
     ),
     OldForm("data.hydrography.sources[*].typename", None, ALPHA_FORM, rewritten=False),
+    *(
+        OldForm(f"flow.param.{old}", f"flow.param.{new}", ALPHA_FORM, rewritten=False)
+        for old, new in NEVER_READ_IDS.items()
+    ),
 )
 """The old forms no rule here carries: the models refuse them, or read and ignore them."""
 
@@ -2199,6 +2595,7 @@ __all__ = [
     "DEPRECATION_DELAY_MINORS",
     "HAND_WRITTEN_FORMS",
     "MOVED_TABLES",
+    "OLD_VALUES",
     "REFUSED_OR_RETIRED_FORMS",
     "RENAMED_KEYS",
     "RETIRED_RESULTS_TABLES",

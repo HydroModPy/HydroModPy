@@ -56,5 +56,5 @@ def test_json_stays_the_events(tmp_path: Path, capsys: pytest.CaptureFixture[str
 
     log.run(_args(project, "json"))
 
-    events = json.loads(capsys.readouterr().out)
+    events = json.loads(capsys.readouterr().out)["data"]
     assert [event["event"] for event in events] == ["launch_start", "case_end", "case_end"]

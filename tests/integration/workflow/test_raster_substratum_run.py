@@ -26,7 +26,7 @@ name = "raster_substratum"
 
 [[simulation.process]]
 id = "flow"
-type = "flow"
+kind = "flow"
 solvers = ["modflow_nwt"]
 
 [workspace]

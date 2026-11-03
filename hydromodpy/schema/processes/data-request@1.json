@@ -587,7 +587,7 @@
               },
               "default_crs": {
                 "default": "EPSG:2154",
-                "description": "CRS assumed for a raster that carries none of its own. Defaults to RGF93/Lambert-93 (EPSG:2154); set it to the site CRS for a non-French dataset.",
+                "description": "CRS to use for a raster that carries none of its own. Only a value written here is used: without it, a file with no CRS is refused.",
                 "examples": [
                   "EPSG:2154"
                 ],
@@ -630,7 +630,7 @@
               },
               "default_crs": {
                 "default": "EPSG:2154",
-                "description": "CRS assumed for a file that carries none of its own. Defaults to RGF93/Lambert-93 (EPSG:2154); set it to the site CRS for a non-French dataset.",
+                "description": "CRS to use for a file that carries none of its own. Only a value written here is used: without it, a file with no CRS is refused.",
                 "examples": [
                   "EPSG:2154"
                 ],
@@ -682,7 +682,7 @@
               },
               "default_crs": {
                 "default": "EPSG:2154",
-                "description": "CRS assumed for a raster that carries none of its own. Defaults to RGF93/Lambert-93 (EPSG:2154); set it to the site CRS for a non-French dataset.",
+                "description": "CRS to use for a raster that carries none of its own. Only a value written here is used: without it, a file with no CRS is refused.",
                 "examples": [
                   "EPSG:2154"
                 ],
@@ -725,7 +725,7 @@
               },
               "default_crs": {
                 "default": "EPSG:2154",
-                "description": "CRS assumed for a raster that carries none of its own. Defaults to RGF93/Lambert-93 (EPSG:2154); set it to the site CRS for a non-French dataset.",
+                "description": "CRS to use for a raster that carries none of its own. Only a value written here is used: without it, a file with no CRS is refused.",
                 "examples": [
                   "EPSG:2154"
                 ],
@@ -767,7 +767,7 @@
               },
               "default_crs": {
                 "default": "EPSG:2154",
-                "description": "CRS assumed for a raster that carries none of its own. Defaults to RGF93/Lambert-93 (EPSG:2154); set it to the site CRS for a non-French dataset.",
+                "description": "CRS to use for a raster that carries none of its own. Only a value written here is used: without it, a file with no CRS is refused.",
                 "examples": [
                   "EPSG:2154"
                 ],
@@ -787,7 +787,7 @@
             "description": "Top-level ``[data]`` configuration for manager families.\n\nThe `types` list declares user-requested data families. The effective\nactive set can also include planner-inferred families deduced from other\nsections (domain, flow) depending on `inference_mode`.\n\nFor each active type, the matching nested section can be validated dynamically:\n- `geology` already uses its dedicated Pydantic model (`GeologyConfig`),\n- `oceanic` uses `OceanicConfig`,\n- the other data families are kept as validated mappings for now.\n\nUse this model for validation only. Runtime activation order is represented\nby ``DataLoadPlan`` and loaded by ``DataManagersRuntimeLoader``.",
             "properties": {
               "types": {
-                "description": "Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'crossings', 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'layer_base', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_capacity', 'soil_moisture', 'substratum', 'temperature', 'water_quality', 'wind'.",
+                "description": "Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, a [flow.bc.stream] table). Allowed values: 'crossings', 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'layer_base', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_capacity', 'soil_moisture', 'substratum', 'temperature', 'water_quality', 'wind'.",
                 "items": {
                   "type": "string"
                 },
@@ -1542,6 +1542,7 @@
                 "minimum": 2,
                 "title": "Cell Samples Per Axis",
                 "type": "integer",
+                "unit": "-",
                 "x-hmp-profile": "dev"
               }
             },
@@ -1878,6 +1879,7 @@
                 ],
                 "title": "Page Size",
                 "type": "integer",
+                "unit": "-",
                 "x-hmp-profile": "dev"
               },
               "group_name": {
@@ -1898,6 +1900,7 @@
                 ],
                 "title": "Euhydro Page Size",
                 "type": "integer",
+                "unit": "-",
                 "x-hmp-profile": "dev"
               },
               "force_refresh": {
@@ -2334,7 +2337,7 @@
                   }
                 ],
                 "default": null,
-                "description": "DEM pixel size in metres. 'bd-alti' accepts 25 only and defaults to it. 'rge-alti' accepts 1 or 5 and defaults to 5: the 1 m grid is native and, inland, a 5 m request returns its centre pixels unchanged, while the server resamples any other size with an undocumented kernel. A request above 150 million pixels is refused (a 1 m box is limited to about 12 km a side), so 1 m cannot bootstrap a project from its outlet: give dem_init_path a file or use 5 m.",
+                "description": "DEM pixel size in metres, the size a provider serves. It comes first of three: geographic.catchment.dem_resolution aggregates this pixel, and mesh.cell_size defaults to the result. 'bd-alti' accepts 25 only and defaults to it. 'rge-alti' accepts 1 or 5 and defaults to 5: the 1 m grid is native and, inland, a 5 m request returns its centre pixels unchanged, while the server resamples any other size with an undocumented kernel. A request above 150 million pixels is refused (a 1 m box is limited to about 12 km a side), so 1 m cannot bootstrap a project from its outlet: give dem_init_path a file or use 5 m.",
                 "title": "Resolution M",
                 "x-hmp-profile": "user"
               },
@@ -5045,6 +5048,7 @@
                 "default": null,
                 "description": "Recharge values in mm/day. Single value for constant, list for time-varying.",
                 "title": "Values",
+                "unit": "mm/day",
                 "x-hmp-profile": "user"
               },
               "start_date": {
@@ -5087,6 +5091,7 @@
                 "default": null,
                 "description": "Number of periods for synthetic series.",
                 "title": "Periods",
+                "unit": "-",
                 "x-hmp-profile": "dev"
               },
               "amplitude": {
@@ -5101,6 +5106,7 @@
                 "default": null,
                 "description": "Sinusoidal amplitude in mm/day (superimposed on values).",
                 "title": "Amplitude",
+                "unit": "mm/day",
                 "x-hmp-profile": "expert"
               },
               "period_days": {
@@ -5129,6 +5135,7 @@
                 "default": null,
                 "description": "Added to the sinusoid, in mm/day. Requires amplitude and period_days.",
                 "title": "Offset",
+                "unit": "mm/day",
                 "x-hmp-profile": "expert"
               }
             },

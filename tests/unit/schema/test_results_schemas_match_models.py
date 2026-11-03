@@ -15,6 +15,7 @@ from typing import Any
 import pytest
 from pydantic import BaseModel
 
+from hydromodpy.calibration.report import CALIBRATE_SCHEMA, CalibrationResult
 from hydromodpy.results.checks import CHECKS_SCHEMA, Checks
 from hydromodpy.results.ledger import LEDGER_SCHEMA, Ledger
 from hydromodpy.results.outcome import OUTCOME_SCHEMA, Outcome
@@ -42,6 +43,7 @@ MODELS: dict[str, type[BaseModel]] = {
     PUBLICATION_SCHEMA: Publication,
     LEDGER_SCHEMA: Ledger,
     CHECKS_SCHEMA: Checks,
+    CALIBRATE_SCHEMA: CalibrationResult,
 }
 
 SCHEMAS_DIR = Path(shipped.__file__).resolve().parent

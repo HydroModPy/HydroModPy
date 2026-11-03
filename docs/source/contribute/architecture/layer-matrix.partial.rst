@@ -5,7 +5,7 @@
 Layer matrix
 ------------
 
-19 layers, 146 granted edges. A layer always implicitly allows imports targeting itself; anything absent from a row
+18 layers, 138 granted edges. A layer always implicitly allows imports targeting itself; anything absent from a row
 is forbidden and fails CI.
 
 .. list-table::
@@ -18,7 +18,7 @@ is forbidden and fails CI.
      - ``<root>``, ``core``, ``schema``, ``config``, ``physics``,
        ``data``, ``spatial``, ``simulation``, ``solver``, ``calibration``,
        ``results``, ``display``, ``analysis``, ``reporting``,
-       ``workflow``, ``catalog``, ``examples``, ``cli``
+       ``workflow``, ``examples``, ``cli``
    * - ``core``
      - ``core``
    * - ``schema``
@@ -60,18 +60,16 @@ is forbidden and fails CI.
        ``workflow``
    * - ``examples``
      - ``core``, ``examples``
-   * - ``catalog``
-     - ``core``, ``schema``, ``data``, ``results``, ``catalog``
    * - ``project``
      - ``core``, ``schema``, ``config``, ``physics``, ``data``,
        ``spatial``, ``simulation``, ``solver``, ``calibration``,
        ``results``, ``display``, ``analysis``, ``reporting``,
-       ``workflow``, ``catalog``, ``project``
+       ``workflow``, ``project``
    * - ``cli``
      - ``<root>``, ``core``, ``schema``, ``config``, ``physics``,
        ``data``, ``spatial``, ``simulation``, ``solver``, ``calibration``,
        ``results``, ``display``, ``analysis``, ``reporting``,
-       ``workflow``, ``catalog``, ``project``, ``examples``, ``cli``
+       ``workflow``, ``project``, ``examples``, ``cli``
 
 Documented tolerances
 ---------------------

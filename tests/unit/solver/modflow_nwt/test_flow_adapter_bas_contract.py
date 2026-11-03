@@ -34,7 +34,7 @@ def _build_adapter(
 
     flow = SimpleNamespace(
         initial_conditions=SimpleNamespace(
-            h=SimpleNamespace(type=initial_type, value=initial_value)
+            h=SimpleNamespace(kind=initial_type, value=initial_value)
         ),
         boundary_conditions=bc,
         active_bc=active_bc,

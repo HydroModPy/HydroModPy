@@ -63,7 +63,6 @@ FORBIDDEN_NEIGHBOURS = (
     "hydromodpy.data.managers",
     "hydromodpy.data.registry",
     "hydromodpy.data.loading",
-    "hydromodpy.catalog",
     "hydromodpy.workflow",
     "hydromodpy.project",
 )

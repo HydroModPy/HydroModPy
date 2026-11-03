@@ -8,7 +8,7 @@ File references (geometry polygon, bathymetry, abacus table) live in the data
 layer (``data/variables/lake*``); this module holds only the boundary-condition
 *parameters*, mirroring :mod:`hydromodpy.physics.flow.sinks_sources.wells`.
 
-The outlets are a discriminated union on ``couttype``:
+The outlets are a discriminated union on ``kind``, the couttype of MODFLOW 6:
 
 * :class:`FlowLakeOutletWeir`     -- a fixed-crest weir (``invert``, ``width``),
 * :class:`FlowLakeOutletManning`  -- a Manning channel (``invert``, ``width``,
@@ -41,9 +41,12 @@ from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
 from hydromodpy.core.units import FlowRate, Length
 from hydromodpy.core.units.leakance import normalize_per_s_unit
+from hydromodpy.physics.base.forcing import (
+    SurfaceRateForcing,
+    VolumeRateForcing,
+    declared_forcing_values,
+)
 from hydromodpy.physics.flow.sinks_sources.cutoff_wall import CutoffWallConfig
-from hydromodpy.physics.flow.sinks_sources.rate_forcing import FlowRateForcingConfig
-from hydromodpy.physics.flow.sinks_sources.wells import FlowWellForcingConfig
 
 
 class FlowLakeOutletMover(HydroModelBase):
@@ -149,9 +152,12 @@ class FlowLakeOutletWeir(HydroModelBase):
     coefficient (``Cd`` is fixed inside MF6).
     """
 
-    couttype: Annotated[Literal["WEIR"], Profile.USER] = Field(
+    kind: Annotated[Literal["WEIR"], Profile.USER] = Field(
         default="WEIR",
-        description="Discriminator tag for the weir outlet type.",
+        description="This outlet is a weir one (couttype of MODFLOW 6 LAK).",
+        json_schema_extra=field_metadata(
+            renamed_from=["flow.sinks_sources.lakes.outlets.couttype"]
+        ),
     )
     invert: Annotated[Length, Profile.USER] = Field(
         ...,
@@ -192,9 +198,12 @@ class FlowLakeOutletWeir(HydroModelBase):
 class FlowLakeOutletManning(HydroModelBase):
     """A Manning channel outlet: ``Q ~ (1/rough)*width*d^(5/3)*sqrt(slope)``."""
 
-    couttype: Annotated[Literal["MANNING"], Profile.USER] = Field(
+    kind: Annotated[Literal["MANNING"], Profile.USER] = Field(
         default="MANNING",
-        description="Discriminator tag for the Manning outlet type.",
+        description="This outlet is a Manning one (couttype of MODFLOW 6 LAK).",
+        json_schema_extra=field_metadata(
+            renamed_from=["flow.sinks_sources.lakes.outlets.couttype"]
+        ),
     )
     invert: Annotated[Length, Profile.USER] = Field(
         ...,
@@ -244,14 +253,17 @@ class FlowLakeOutletManning(HydroModelBase):
 class FlowLakeOutletSpecified(HydroModelBase):
     """A specified-flow outlet (controlled release / gate): ``Q = rate``.
 
-    ``rate`` is volumetric [L^3/T] and signed (+ = inflow, - = outflow). A
+    ``rate`` is volumetric [L^3/T] and signed (+ enters the lake, - leaves it). A
     transient release schedule may be declared via ``forcing`` instead of a
     constant ``rate``.
     """
 
-    couttype: Annotated[Literal["SPECIFIED"], Profile.USER] = Field(
+    kind: Annotated[Literal["SPECIFIED"], Profile.USER] = Field(
         default="SPECIFIED",
-        description="Discriminator tag for the specified-flow outlet type.",
+        description="This outlet is a specified-flow one (couttype of MODFLOW 6 LAK).",
+        json_schema_extra=field_metadata(
+            renamed_from=["flow.sinks_sources.lakes.outlets.couttype"]
+        ),
     )
     rate: Annotated[FlowRate | None, Profile.USER] = Field(
         default=None,
@@ -260,7 +272,7 @@ class FlowLakeOutletSpecified(HydroModelBase):
             "negative one leaves it."
         ),
     )
-    forcing: Annotated[FlowWellForcingConfig | None, Profile.DEV] = Field(
+    forcing: Annotated[VolumeRateForcing | None, Profile.DEV] = Field(
         default=None,
         description="Optional transient release schedule resolved at runtime.",
     )
@@ -298,7 +310,7 @@ class FlowLakeOutletSpecified(HydroModelBase):
 FlowLakeOutletConfig: TypeAlias = Annotated[
     FlowLakeOutletWeir | FlowLakeOutletManning | FlowLakeOutletSpecified,
     Field(
-        discriminator="couttype",
+        discriminator="kind",
         description=("Discriminated union of lake outlet payloads (WEIR, MANNING, or SPECIFIED)."),
     ),
 ]
@@ -415,32 +427,12 @@ def lake_forcing_sign_refusal(keyword: str, value: float, *, where: str = "") ->
     )
 
 
-def declared_forcing_values(forcing: object) -> list[float]:
-    """Return the values a forcing declares in the file, before any CSV is read."""
-    if forcing is None:
-        return []
-    kind = getattr(forcing, "kind", None)
-    if kind == "constant":
-        value = forcing.value
-        return [float(getattr(value, "magnitude", value))]
-    if kind == "seasonal":
-        mapping = forcing.by_month or forcing.by_season or {}
-        return [float(value) for value in mapping.values()]
-    if kind == "piecewise":
-        return [
-            value
-            for segment in forcing.segments
-            for value in declared_forcing_values(segment.forcing)
-        ]
-    return []
-
-
 class FlowLakeConfig(HydroModelBase):
     """
     Typed boundary-condition payload for one MODFLOW 6 LAK lake.
 
     The lake exchanges with the aquifer through its CONNECTIONDATA, parameterized
-    by ``bedleak`` (the lake-bed leakance, 1/T). ``stageinit`` is the initial lake
+    by ``bedleak`` (the lake-bed leakance, 1/T). ``initial_stage`` is the initial lake
     stage. ``outlets`` declare the surverse / spillway / controlled releases; the
     transient forcings (``rainfall`` and ``evaporation`` as rates L/T, ``runoff``,
     ``inflow`` and ``withdrawal`` as volumetric L^3/T) are optional runtime
@@ -450,6 +442,13 @@ class FlowLakeConfig(HydroModelBase):
     abacus, observed levels) are declared separately in the data layer.
     """
 
+    enabled: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description=(
+            "Whether this lake is built. Declaring it is what activates it. false keeps the table "
+            "and builds nothing from it."
+        ),
+    )
     bedleak: Annotated[float, Profile.USER] = Field(
         ...,
         ge=0.0,
@@ -478,17 +477,18 @@ class FlowLakeConfig(HydroModelBase):
             "so a 1/day leakance is not silently taken as 1/s."
         ),
     )
-    stageinit: Annotated[Length, Profile.USER] = Field(
+    initial_stage: Annotated[Length, Profile.USER] = Field(
         ...,
         description=(
             "Lake stage at the start of the run: the elevation of the water surface, in metres."
         ),
         examples=[45.0],
+        json_schema_extra=field_metadata(renamed_from=["flow.sinks_sources.lakes.stageinit"]),
     )
     steady_stage_hold: Annotated[bool, Profile.USER] = Field(
         default=False,
         description=(
-            "Hold the lake stage at stageinit during the steady warm-up period(s) "
+            "Hold the lake stage at initial_stage during the steady warm-up period(s) "
             "(LAK status CONSTANT) and re-activate it on the first transient "
             "period. Use for a managed reservoir whose observed initial level is "
             "far from the natural steady equilibrium: the aquifer equilibrates "
@@ -525,6 +525,7 @@ class FlowLakeConfig(HydroModelBase):
             "1.0 m) to stabilise and speed up the active-littoral steady solve when "
             "many lakebed cells toggle at once; it slightly fuzzes the shoreline."
         ),
+        json_schema_extra=field_metadata(unit="m"),
     )
     bed_reconstruction: Annotated[BathymetryReconstructionConfig | None, Profile.USER] = Field(
         default=None,
@@ -549,32 +550,32 @@ class FlowLakeConfig(HydroModelBase):
         ),
         json_schema_extra=field_metadata(stability="experimental"),
     )
-    rainfall: Annotated[FlowRateForcingConfig | None, Profile.USER] = Field(
+    rainfall: Annotated[SurfaceRateForcing | None, Profile.USER] = Field(
         default=None,
         description=(
             "Rainfall on the lake over time, as a rate per unit of lake surface (m/s in SI). "
             "It wins over the rainfall taken from [data.precipitation]."
         ),
     )
-    evaporation: Annotated[FlowRateForcingConfig | None, Profile.USER] = Field(
+    evaporation: Annotated[SurfaceRateForcing | None, Profile.USER] = Field(
         default=None,
         description=(
             "Open-water evaporation over time, as a rate per unit of lake surface "
             "(m/s in SI). It wins over the evaporation taken from [data.etp]."
         ),
     )
-    runoff: Annotated[FlowWellForcingConfig | None, Profile.USER] = Field(
+    runoff: Annotated[VolumeRateForcing | None, Profile.USER] = Field(
         default=None,
         description=(
             "Runoff that enters the lake over time, as a volume per time (m3/s in SI). "
             "It wins over the runoff taken from [data.runoff]."
         ),
     )
-    inflow: Annotated[FlowWellForcingConfig | None, Profile.USER] = Field(
+    inflow: Annotated[VolumeRateForcing | None, Profile.USER] = Field(
         default=None,
         description="Other inflow to the lake over time, as a volume per time (m3/s in SI).",
     )
-    withdrawal: Annotated[FlowWellForcingConfig | None, Profile.USER] = Field(
+    withdrawal: Annotated[VolumeRateForcing | None, Profile.USER] = Field(
         default=None,
         description=(
             "Rate of water taken from the lake over time, as a volume per time "
@@ -631,6 +632,5 @@ __all__ = [
     "FlowLakeOutletMover",
     "FlowLakeOutletSpecified",
     "FlowLakeOutletWeir",
-    "declared_forcing_values",
     "lake_forcing_sign_refusal",
 ]

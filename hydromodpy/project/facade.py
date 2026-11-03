@@ -27,7 +27,7 @@ The facade is composed of three cohesive helpers:
 A project is also opened on its directory, read only, by ``hmp.open``
 (:func:`open_project`). It then reads its plan, its runs and its sessions
 from the disk, and launches its cases with the words of ``hmp project``:
-``plan``, ``run``, ``status``, ``collect``, ``publish``. Its configuration is
+``plan``, ``launch``, ``status``, ``collect``, ``publish``. Its configuration is
 read from ``project.toml`` only when a model verb needs it.
 
 Example
@@ -37,18 +37,20 @@ Example
     import hydromodpy as hmp
 
     project = hmp.Project("project.toml")  # cheap: validates config
-    run = project.simulate(Sy=0.05, K=5e-5, name="baseline")  # builds, then runs
-    wt = run.field("watertable_depth", timestep=12)
+    run = project.simulate(
+        set={"Sy": 0.05, "K": 5e-5}, name="baseline"
+    )  # builds, then runs
+    wt = run.field("watertable_depth", time=12)
 
     # Parameter sweep: one simulate() per value
     for sy in (0.01, 0.05, 0.1):
-        project.simulate(name=f"sy_{sy}", Sy=sy)
+        project.simulate(name=f"sy_{sy}", set={"Sy": sy})
 
     project.close()
 
     proj = hmp.open("projects/bretagne_k")  # a [sites] project, read only
     proj.cases  # the plan joined to the outcomes
-    proj.best("nse", by="site")  # the best calibrated run of each site
+    proj.best_runs("nse", by="site")  # the best calibrated run of each site
 """
 
 from __future__ import annotations
@@ -57,8 +59,10 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
+from hydromodpy.core.config_kit.base import frozen_copy
 from hydromodpy.core.exceptions import ConfigMissingError, PipelineError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.old_members import refuse_old_member
 from hydromodpy.core.state.paths import (
     PROJECT_MARKER_FILENAME,
     resolve_project_root,
@@ -89,7 +93,6 @@ if TYPE_CHECKING:
     from hydromodpy.config import HydroModPyConfig
     from hydromodpy.config.sites.expansion import PlanDraft
     from hydromodpy.core.state.data import LoadedDataContext
-    from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.core.time.window import (
         ResolvedSimulationTimeGrid,
         ResolvedSteadySimulationTimeGrid,
@@ -158,7 +161,7 @@ class Project:
     --------
     >>> import hydromodpy as hmp
     >>> project = hmp.Project("project.toml")  # doctest: +SKIP
-    >>> run = project.simulate(Sy=0.05)  # doctest: +SKIP
+    >>> run = project.simulate(set={"Sy": 0.05})  # doctest: +SKIP
     >>> project.close()  # doctest: +SKIP
     """
 
@@ -235,6 +238,7 @@ class Project:
                 if target in CONFIGURED_STATE_FIELDS and state.cfg is None and state.root:
                     self._configure_opened()
                 return getattr(state, target)
+        refuse_old_member("Project", name)
         raise AttributeError(f"{type(self).__name__!r} object has no attribute {name!r}")
 
     def _configure_opened(self) -> None:
@@ -257,7 +261,7 @@ class Project:
         if find_sites_file(read_toml_chain(marker)) is not None:
             raise SitesProjectError(
                 f"{marker} is a [sites] project: each case is configured by its plan. Read "
-                "it with proj.cases, launch it with proj.run(), or build one case with "
+                "it with proj.cases, launch it with proj.launch(), or build one case with "
                 "hmp.Project('plan/<hash>/<case>.toml')."
             )
         try:
@@ -276,7 +280,6 @@ class Project:
         solver: str | None = None,
         headless: bool = False,
         no_display: bool = False,
-        **overrides,
     ) -> Run:
         """Launch a new simulation from a persisted run snapshot.
 
@@ -292,14 +295,11 @@ class Project:
         name
             Optional name for the derived run.
         set
-            Values to set on the stored configuration, by dotted path, the grammar
-            of ``--set``: ``{"flow.param.K.field.value": 2e-4}``. The result is
-            validated, so an unknown key raises.
+            Values to set on the stored configuration, as in :meth:`simulate`: a dotted
+            path, the grammar of ``--set``, or a name of ``hmp config targets``. The result
+            is validated, so an unknown key raises.
         solver, headless, no_display
             Options forwarded to the derived :class:`Project`.
-        overrides
-            Keywords of :meth:`Project.simulate` such as ``K``, which are changes of
-            the configuration of the new run too.
 
         Returns
         -------
@@ -328,7 +328,6 @@ class Project:
             source_sim_id=run.sim_id,
             source_dir=run.dir,
             project_options={"solver": solver, "headless": headless, "no_display": no_display},
-            **overrides,
         )
         if new_run is None:
             raise PipelineError(
@@ -385,8 +384,13 @@ class Project:
 
     @property
     def config(self) -> HydroModPyConfig:
-        """Validated configuration driving this project (read-only)."""
-        return self._cfg
+        """A frozen copy of the configuration of this project, taken at each read.
+
+        Assigning to it raises :class:`~hydromodpy.core.exceptions.FrozenConfigError`. A
+        run takes its changes by ``simulate(set=...)``. A configuration takes them by
+        ``HydroModPyConfig.with_changes``, and the result opens a new :class:`Project`.
+        """
+        return frozen_copy(self._cfg)
 
     # -- Inspection properties --------------------------------------------
 
@@ -450,11 +454,6 @@ class Project:
         self._ensure_model_built()
         return self._ctx.loaded_data
 
-    @property
-    def workflow_context(self) -> WorkflowContext:
-        """Mutable workflow runtime state threaded through workflow steps."""
-        return self._ctx
-
     # -- Project directory: reads and launch (hmp project) -----------------
 
     @property
@@ -505,7 +504,7 @@ class Project:
         """The calibration sessions of the project, by directory name."""
         return ProjectSessions(self.root)
 
-    def best(
+    def best_runs(
         self,
         metric: str = "nse",
         *,
@@ -513,7 +512,10 @@ class Project:
         label: str | Sequence[str] | None = CALIBRATED_LABELS,
         mixed_windows: bool = False,
     ) -> pd.DataFrame:
-        """Return the best completed run of each site, one row each.
+        """Return the best completed run of each site, one row each, as a table.
+
+        ``best`` names one :class:`~hydromodpy.results.run.Run` everywhere else:
+        ``proj.runs().best(metric)`` is the run itself.
 
         The metric is read at the gauge of each run, in the window of its
         rule; best follows its direction. The calibrated runs are ranked by
@@ -534,23 +536,30 @@ class Project:
         Examples
         --------
         >>> proj = hmp.open("projects/bretagne_k")  # doctest: +SKIP
-        >>> proj.best("nse", by="site")  # doctest: +SKIP
+        >>> proj.best_runs("nse", by="site")  # doctest: +SKIP
         """
         return best_frame(self._index(), metric, by=by, label=label, mixed_windows=mixed_windows)
 
     def plan(
-        self, *, set_overrides: Mapping[str, Any] | None = None, force: bool = False
+        self,
+        *,
+        set: Mapping[str, Any] | None = None,  # noqa: A002 - the name of `--set`
+        force: bool = False,
     ) -> PlanDraft:
         """Resolve the cases of a ``[sites]`` project and write ``plan/<hash>/``.
 
-        The words of ``hmp project plan``. A plan is not rewritten while one
-        of its cases runs, unless ``force``.
+        The words of ``hmp project plan``, with the changes of ``--set`` by dotted path. A
+        plan is not rewritten while one of its cases runs, unless ``force``.
         """
+        from hydromodpy.core.toml_io.paths import assign, parse
         from hydromodpy.project.launch import plan_project
 
-        return plan_project(self.root, set_overrides=set_overrides, force=force)
+        payload: dict[str, Any] = {}
+        for dotted, value in (set or {}).items():
+            assign(payload, parse(dotted), value)
+        return plan_project(self.root, set_overrides=payload, force=force)
 
-    def run(
+    def launch(
         self,
         *,
         parallel: int | None = None,
@@ -568,7 +577,7 @@ class Project:
         those states (``"failed"``, ``("failed", "stale")``), ``site`` the
         cases of one site, ``until="data"`` stops after the data phase.
         ``parallel`` is the budget of solves side by side; a calibration case
-        counts its own ``[calibration] parallel``.
+        counts its own ``[calibration] parallel``. :meth:`simulate` runs one simulation.
         """
         from hydromodpy.project.launch import run_plan
 
@@ -596,7 +605,7 @@ class Project:
     def collect(self, *, write_sites: bool = False, mixed_windows: bool = False) -> SummaryPaths:
         """Write ``summary/``: one table per case and per site, figures, report, README.
 
-        The words of ``hmp project collect``.
+        The words of ``hmp campaign collect``.
         """
         from hydromodpy.project.summary import collect_project
 
@@ -628,84 +637,81 @@ class Project:
 
     # -- Run-phase API (delegates to ProjectRunner) -----------------------
 
-    def execute(
+    def _execute(
         self,
         *,
+        set: Mapping[str, Any] | None = None,  # noqa: A002 - the name of `--set`
         name: str | None = None,
         resume: str | None = None,
-        from_step: str | int | None = None,
-        until_step: str | int | None = None,
-        dry_run: bool = False,
+        from_step: str | None = None,
+        until_step: str | None = None,
         frozen: bool = False,
         no_display: bool = False,
-        parallel: bool = True,
         fresh: bool = False,
         force: bool = False,
         lineage: Lineage | None = None,
         calibrated_by: CalibratedBy | None = None,
-        **overrides,
     ) -> SealedRun | None:
         """Run one attempt of the case and return what its directory says.
 
         The worker verb: it claims ``runs/<case>/``, runs the Pipeline, seals
         the run and closes its outcome, and never opens the index of the
         project. ``hmp run`` stops here and indexes afterwards. The keywords
-        are those of :meth:`simulate`, plus ``lineage`` and ``calibrated_by``,
-        the blocks a promotion or a rerun seals its run with.
+        are those of :meth:`simulate`, without ``dry_run``.
         """
-        label = name or resume or self.config.simulation.name or "run"
-        project_root = Path(self.config.workspace.project_root)
+        label = name or resume or self._cfg.simulation.name or "run"
+        project_root = Path(self._cfg.workspace.project_root)
         resumes = scratch_of_resumed_run(project_root, resume) if resume is not None else None
         with run_scratch(project_root, label, resumes=resumes):
             return self._runner.execute(
+                set=set,
                 name=name,
                 resume=resume,
                 from_step=from_step,
                 until_step=until_step,
-                dry_run=dry_run,
                 frozen=frozen,
                 no_display=no_display,
-                parallel=parallel,
                 fresh=fresh,
                 force=force,
                 lineage=lineage,
                 calibrated_by=calibrated_by,
-                **overrides,
             )
 
     def simulate(
         self,
         *,
+        set: Mapping[str, Any] | None = None,  # noqa: A002 - the name of `--set`
         name: str | None = None,
         resume: str | None = None,
-        from_step: str | int | None = None,
-        until_step: str | int | None = None,
+        from_step: str | None = None,
+        until_step: str | None = None,
         dry_run: bool = False,
         frozen: bool = False,
         no_display: bool = False,
-        parallel: bool = True,
         fresh: bool = False,
         force: bool = False,
         lineage: Lineage | None = None,
         calibrated_by: CalibratedBy | None = None,
-        **overrides,
-    ) -> Run | None:
+    ) -> Run | PlanDraft | None:
         """Run one simulation through the configured workflow and return its result.
 
         Builds the model phase on first call (lazy), then runs the Pipeline.
         A run bounded by ``until_step`` before ``setup_process`` needs no shared
         model phase: it executes its own steps and builds nothing else, which is
         how a catchment is delineated without loading data or meshing.
-        A keyword such as ``K``, ``Sy`` or ``thickness`` (a name of ``hmp config
-        targets``, in the unit the configuration declares for it) and ``first_clim``
-        are changes of the configuration of this run: they are written in its
-        sealed ``config.toml`` and a rerun repeats them. Call once per point to
-        sweep a parameter.
+        Call once per point to sweep a parameter.
         Once the attempt is closed, the index of the project is refreshed from
         the run directory and the :class:`Run` view is returned.
 
         Parameters
         ----------
+        set
+            Changes of the configuration of this run. A key is a dotted path, the grammar
+            of ``--set``, or a name of ``hmp config targets`` such as ``K``, ``Sy`` or
+            ``thickness``, or ``first_clim``, in the unit the configuration declares for
+            it. They are applied before its plan is built, written in its sealed
+            ``config.toml``, recorded by dotted path in ``lineage.overrides``, and a rerun
+            repeats them.
         name
             Run name, the case the directory is named after. Defaults to
             ``[simulation] name`` of the configuration, and to ``run_0001``,
@@ -713,10 +719,10 @@ class Project:
         resume
             Name of an interrupted case to continue in place from its journal.
         from_step, until_step
-            Optional step bounds for partial workflow execution. A step name,
-            a class name, or an index inside the pipeline.
+            Bounds of a partial run: names of pipeline steps, listed in
+            :data:`~hydromodpy.core.pipeline_steps.STEP_NAMES`.
         dry_run
-            Build and validate the workflow without executing solver work.
+            Say what this run would do, and run nothing.
         frozen
             Require frozen input-data references.
         no_display
@@ -729,15 +735,12 @@ class Project:
         lineage, calibrated_by
             The lineage block and the promoting session the run is sealed
             with; a promotion or a rerun passes them.
-        overrides
-            Values applied to the configuration of this run before its plan is
-            built, and recorded by dotted path in ``lineage.overrides``.
 
         Returns
         -------
-        Run or None
-            Persisted run view for simulation workflows. Dry runs and
-            head-only windows return ``None``.
+        Run or PlanDraft or None
+            The persisted run view, or its ``PlanDraft`` for a dry run. ``None`` when the
+            run keeps nothing to read: a window that stops before ``setup_process``.
 
         Raises
         ------
@@ -752,7 +755,7 @@ class Project:
 
         Examples
         --------
-        >>> run = project.simulate(Sy=0.05, name="probe")  # doctest: +SKIP
+        >>> run = project.simulate(set={"Sy": 0.05}, name="probe")  # doctest: +SKIP
         >>> run.label()  # doctest: +SKIP
 
         See Also
@@ -762,24 +765,26 @@ class Project:
         hydromodpy.results.run.Run
             Per-simulation result view returned by successful runs.
         """
-        label = name or resume or self.config.simulation.name or "run"
-        project_root = Path(self.config.workspace.project_root)
+        if dry_run:
+            return self._runner.draft(
+                set=set, name=name, resume=resume, from_step=from_step, until_step=until_step
+            )
+        label = name or resume or self._cfg.simulation.name or "run"
+        project_root = Path(self._cfg.workspace.project_root)
         resumes = scratch_of_resumed_run(project_root, resume) if resume is not None else None
         with run_scratch(project_root, label, resumes=resumes):
             return self._runner.run(
+                set=set,
                 name=name,
                 resume=resume,
                 from_step=from_step,
                 until_step=until_step,
-                dry_run=dry_run,
                 frozen=frozen,
                 no_display=no_display,
-                parallel=parallel,
                 fresh=fresh,
                 force=force,
                 lineage=lineage,
                 calibrated_by=calibrated_by,
-                **overrides,
             )
 
     def calibrate(
@@ -907,7 +912,7 @@ class Project:
             # Fall back to the [calibration] section carried by this project's
             # config, so a fully in-memory HydroModPyConfig calibrates without
             # re-declaring parameters= (matches the TOML path).
-            embedded = getattr(getattr(self, "config", None), "calibration", None)
+            embedded = getattr(self._cfg, "calibration", None)
             if embedded is not None:
                 declared = [decl.name for decl in (getattr(embedded, "phases", None) or [])]
                 source = self._config_path
@@ -978,7 +983,7 @@ class Project:
         # Completed from the target each parameter names, as the TOML route does,
         # so a bare K searches the log space its field declares and gets the
         # same method as the same file would.
-        project_config = getattr(self, "config", None)
+        project_config = self._cfg
         if project_config is not None:
             from hydromodpy.calibration.parameter_resolution import resolve_parameter_targets
 

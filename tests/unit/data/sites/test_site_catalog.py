@@ -15,6 +15,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.cli.commands import site
+from hydromodpy.cli.helpers import fail
 from hydromodpy.core.site import SITE_ROW_COLUMNS, SiteRow
 from hydromodpy.data.sites.catalog import (
     SITE_CATALOG_RELPATH,
@@ -64,7 +65,10 @@ def _hmp_site(argv: list[str]) -> None:
     parser = argparse.ArgumentParser(prog="hmp")
     site.register(parser.add_subparsers(dest="command"))
     args = parser.parse_args(["site", *argv])
-    args._handler(args)
+    try:
+        args._handler(args)
+    except Exception as exc:  # noqa: BLE001 - what the dispatcher of hmp does
+        fail(exc)
 
 
 @pytest.mark.fast
@@ -175,9 +179,9 @@ def test_hmp_site_add_ls_and_show_drive_the_catalog(tmp_path, capsys):
         ]
     )
     _hmp_site(["ls", "--format", "json", "-w", str(root)])
-    listed = json.loads(capsys.readouterr().out.split("\n", 1)[1])
+    listed = json.loads(capsys.readouterr().out.split("\n", 1)[1])["data"]
     _hmp_site(["show", "nancon", "--format", "json", "-w", str(root)])
-    shown = json.loads(capsys.readouterr().out)
+    shown = json.loads(capsys.readouterr().out)["data"]
 
     assert [record["site"] for record in listed] == ["nancon"]
     assert shown["gauge"] == "J001401001"

@@ -44,7 +44,7 @@ step_unit = "day"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [geographic]

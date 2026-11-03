@@ -36,6 +36,9 @@ from hydromodpy.core.units.udunits import udunits_spelling
         ("mg/L", "mg L-1"),
         ("mg/l", "mg L-1"),
         ("MJ/m2/j", "MJ m-2 d-1"),
+        ("kg/m2/s", "kg m-2 s-1"),
+        ("m3/s/km2", "m3 s-1 km-2"),
+        ("uS/cm", "uS cm-1"),
         ("°C", "degC"),
         ("", ""),
         (None, ""),
@@ -45,5 +48,20 @@ def test_a_unit_is_written_one_way(written: str | None, spelled: str) -> None:
     assert udunits_spelling(written) == spelled
 
 
-def test_a_text_the_grammar_cannot_read_stays_as_the_provider_wrote_it() -> None:
-    assert udunits_spelling("mg(NO3)/L") == "mg(NO3)/L"
+@pytest.mark.parametrize(
+    "written",
+    [
+        "mg(NO3)/L",
+        "mg/L NO3",
+        "mg NO3/L",
+        "n/a",
+        "m a s l",
+        "m a.s.l.",
+        "m NGF",
+        "kg/m2 s",
+        "M3/S",
+        "/s",
+    ],
+)
+def test_a_text_the_grammar_cannot_read_stays_as_the_provider_wrote_it(written: str) -> None:
+    assert udunits_spelling(written) == written

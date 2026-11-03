@@ -253,6 +253,7 @@ float sums then differ in the last digits (9.074855002572016e-09 against
 """
 
 _alpha_warned: bool = False
+_heads_lost_warned: bool = False
 
 
 def _warn_if_recharge_moved(recharge: float) -> None:
@@ -786,8 +787,26 @@ def _require_mapped_cells(mask: np.ndarray) -> None:
 
 
 def _log_heads(trace: HeadTrace) -> None:
-    """Say how the heads drew the map, on one line."""
+    """Say how the heads drew the map, on one line, and once per process what a loss costs.
+
+    A lost head draws nothing, so the reach under it leaves the map and the search
+    reads a higher K, with a balanced J and a valid ratio all the same. Five of six
+    heads lost put a twin a factor of 9.6 off.
+    """
+    global _heads_lost_warned
     indices = trace.indices
+    if trace.n_lost and not _heads_lost_warned:
+        _heads_lost_warned = True
+        logger.warning(
+            "Network criterion: %d of %d head(s) of the map landed on no cell draining at "
+            "least %.3g km2 within %.0f m. The reaches under them are not drawn, so K reads "
+            "higher than this map says. Check the CRS of the map, or widen heads_snap_radius, "
+            "or lower heads_min_drained_area_km2.",
+            trace.n_lost,
+            int(indices["n_heads"]),
+            trace.settings.min_drained_area_m2 / 1.0e6,
+            trace.settings.snap_radius_m,
+        )
     logger.info(
         "Network criterion: %d head(s) of %d free end(s) traced, %d lost within %.0f m on "
         "cells draining at least %.3g km2; p90 snap distance %.1f m, %.1f%% of the trace "

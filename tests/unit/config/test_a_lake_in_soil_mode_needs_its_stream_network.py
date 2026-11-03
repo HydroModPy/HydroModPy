@@ -1,8 +1,8 @@
 """A lake in soil mode only sees the water the stream network routes to it.
 
 The soil reservoir sends its recharge to the aquifer through drains, not
-through a direct lake package: without ``"sfr"`` in ``flow.active_bc``, a lake
-or a reservoir would never receive any of it.
+through a direct lake package: without a ``[flow.sinks_sources.sfr]`` network, a
+lake would never receive any of it.
 """
 
 from __future__ import annotations
@@ -34,7 +34,7 @@ step_value = "1 day"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [data]
@@ -49,60 +49,58 @@ source = "sim2"
 extent = "watershed"
 
 [flow]
-active_sinks_sources = ["recharge", "etp"]
-active_bc = {active_bc}
 first_period_steady = false
 
 [flow.ic]
-type = "steady_state"
+kind = "steady_state"
+
+[flow.bc.drainage]
+
+[flow.sinks_sources.etp]
 
 [flow.sinks_sources.recharge.soil]
 ru = "150 mm"
+{tables}
+"""
+
+LAKE = """
+[flow.sinks_sources.lakes.pond]
+bedleak = 1e-6
+initial_stage = "10 m"
 """
 
 
-def _write(tmp_path: Path, active_bc: list[str]) -> Path:
+def _write(tmp_path: Path, tables: str = "") -> Path:
     config_path = tmp_path / "project.toml"
-    config_path.write_text(
-        SOIL_PROJECT_TOML.format(root=tmp_path.as_posix(), active_bc=active_bc),
-        encoding="utf-8",
-    )
+    config_path.write_text(SOIL_PROJECT_TOML.format(tables=tables), encoding="utf-8")
     return config_path
 
 
-@pytest.mark.parametrize("token", ["lake", "reservoir"])
-def test_a_lake_or_reservoir_without_sfr_is_refused_by_name(tmp_path: Path, token: str) -> None:
-    config_path = _write(tmp_path, ["drainage", token])
+def test_a_lake_without_a_network_is_refused(tmp_path: Path) -> None:
+    config_path = _write(tmp_path, LAKE)
 
     with pytest.raises(ConfigValidationError) as excinfo:
         HydroModPyConfig.from_toml(config_path)
 
     assert (
-        f'flow.active_bc lists "{token}" without "sfr": in soil mode the '
-        "water that seeps out of the ground reaches a lake only through the "
-        'stream network, so the lake would receive none of it. Add "sfr" '
-        "with its [flow.sinks_sources.sfr] network, or remove "
-        "[flow.sinks_sources.recharge.soil] and load [data.runoff] as before."
+        "[flow.sinks_sources.lakes] declares a lake with no stream network: in soil "
+        "mode the water that seeps out of the ground reaches a lake only through the "
+        "stream network, so the lake would receive none of it. Declare a "
+        "[flow.sinks_sources.sfr] network, or remove [flow.sinks_sources.recharge.soil] "
+        "and load [data.runoff] as before."
     ) in str(excinfo.value)
 
 
-def test_a_lake_with_sfr_loads(tmp_path: Path) -> None:
-    config_path = _write(tmp_path, ["drainage", "lake", "sfr"])
+def test_a_lake_with_a_network_loads(tmp_path: Path) -> None:
+    config_path = _write(tmp_path, LAKE + "[flow.sinks_sources.sfr.main]\n")
 
     cfg = HydroModPyConfig.from_toml(config_path)
 
-    assert "lake" in cfg.flow.active_bc
+    assert {"lake", "sfr"} <= set(cfg.flow.active_bc)
 
 
 def _write_with_network(tmp_path: Path, network_lines: str) -> Path:
-    config_path = _write(tmp_path, ["drainage", "lake", "sfr"])
-    config_path.write_text(
-        config_path.read_text(encoding="utf-8")
-        + "\n[flow.sinks_sources.sfr.main]\n"
-        + network_lines,
-        encoding="utf-8",
-    )
-    return config_path
+    return _write(tmp_path, LAKE + "[flow.sinks_sources.sfr.main]\n" + network_lines)
 
 
 def test_route_drainage_is_on_by_default() -> None:

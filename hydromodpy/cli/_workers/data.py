@@ -190,8 +190,9 @@ def remove_data_entries(
     provider: str | None = None,
     station_id: str | None = None,
     delete_files: bool = False,
+    dry_run: bool = False,
 ) -> int:
-    """Remove cache entries matching the filters. Returns the removed count."""
+    """Remove cache entries matching the filters. Returns the count, removed or found."""
     from hydromodpy.cli.helpers import resolve_workspace as _resolve_ws
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
@@ -205,6 +206,7 @@ def remove_data_entries(
             source=provider,
             station_id=station_id,
             delete_files=delete_files,
+            dry_run=dry_run,
         )
 
 
@@ -213,8 +215,9 @@ def prune_data_cache(
     *,
     older_than_days: int = 30,
     delete_files: bool = False,
+    dry_run: bool = False,
 ) -> int:
-    """Drop cache entries older than N days. Returns the removed count."""
+    """Drop cache entries older than N days. Returns the count, removed or found."""
     from hydromodpy.cli.helpers import resolve_workspace as _resolve_ws
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
@@ -223,7 +226,9 @@ def prune_data_cache(
     if not db_path.exists():
         return 0
     with DataCatalogDuckDB(db_path) as catalog:
-        return catalog.prune_older_than(days=older_than_days, delete_files=delete_files)
+        return catalog.prune_older_than(
+            days=older_than_days, delete_files=delete_files, dry_run=dry_run
+        )
 
 
 def archive_data_cache(output: Any, *, workspace: Any = None) -> Path:
@@ -249,13 +254,16 @@ def archive_data_cache(output: Any, *, workspace: Any = None) -> Path:
     return dest
 
 
-def restore_data_cache(source: Any, *, workspace: Any = None) -> Path:
-    """Restore a cache archive into the workspace. Returns destination path."""
+def restore_data_cache(source: Any, *, workspace: Any = None, to: Any = None) -> Path:
+    """Restore a cache archive and verify its SHA-256. Returns the destination.
+
+    The destination is *to*, else ``data/imported`` of the workspace.
+    """
     from hydromodpy.cli.helpers import resolve_workspace as _resolve_ws
     from hydromodpy.data.registry.freeze import restore_archive
 
     workspace_root = _resolve_ws(str(workspace) if workspace else None)
     src = Path(source).expanduser().resolve()
-    dest = workspace_root / "data" / "imported"
+    dest = Path(to).expanduser().resolve() if to else workspace_root / "data" / "imported"
     restore_archive(src, dest)
     return dest

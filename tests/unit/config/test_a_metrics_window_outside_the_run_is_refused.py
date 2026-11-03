@@ -34,7 +34,7 @@ step_value = "1 day"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [metrics]

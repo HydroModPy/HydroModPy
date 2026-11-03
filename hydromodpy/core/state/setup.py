@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from hydromodpy.core.workspace import Workspace
+    from hydromodpy.core.workspace import WorkspaceLayout
 
 
 @dataclass
@@ -19,7 +19,7 @@ class SetupContext:
     ``spatial.geographic`` and ``spatial.mesh.io``.
     """
 
-    workspace: Workspace | None = None
+    workspace: WorkspaceLayout | None = None
     geographic: Any = None
     geographic_features: Any = None
     domain_geographic: Any = None

@@ -1,0 +1,18 @@
+{
+  "annotations_version": 1,
+  "sim_id": "d552124b-0920-4a8c-9d86-644b68b5cb30",
+  "tags": [
+    "frozen"
+  ],
+  "notes": [
+    {
+      "note": "Frozen for the compatibility test.",
+      "added_by": null,
+      "added_at": "2026-11-03T05:21:55.046885Z"
+    }
+  ],
+  "from_a_later_version": {
+    "kept": true,
+    "note": "written by a later 2.x"
+  }
+}

@@ -33,7 +33,7 @@ def test_workspace_family_help_lists_actions(monkeypatch, capsys) -> None:
 
 def test_workspace_init_scaffolds_workspace(monkeypatch, tmp_path) -> None:
     target = tmp_path / "fresh_ws"
-    monkeypatch.setattr(sys, "argv", ["hmp", "workspace", "init", "--path", str(target)])
+    monkeypatch.setattr(sys, "argv", ["hmp", "workspace", "init", "-w", str(target)])
     _load_main().main()
     assert target.is_dir()
     assert (target / "projects").is_dir()
@@ -117,7 +117,7 @@ def test_clean_results_refuses_while_an_attempt_runs(monkeypatch, capsys, tmp_pa
 def test_workspace_list_takes_w(monkeypatch, capsys, tmp_path) -> None:
     workspace, _project = _workspace_with_results(tmp_path)
 
-    code = _run(monkeypatch, ["hmp", "workspace", "list", "-w", str(workspace), "--json"])
+    code = _run(monkeypatch, ["hmp", "workspace", "list", "-w", str(workspace), "--format", "json"])
 
     assert code == 0
     assert "alpha" in capsys.readouterr().out

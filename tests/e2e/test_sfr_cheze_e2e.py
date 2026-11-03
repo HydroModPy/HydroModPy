@@ -109,7 +109,7 @@ mode = "simulation"
 crs_project = "{_PROJECT_CRS}"
 
 [geographic.catchment]
-catch_def = "from_outlet_coord"
+kind = "from_outlet_coord"
 dem_init_path = "{_DEM_PATH}"
 x_outlet = {_X_OUTLET}
 y_outlet = {_Y_OUTLET}
@@ -142,7 +142,7 @@ coverage_policy = "warn"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [flow]
@@ -164,7 +164,7 @@ kind = "homogeneous"
 value = "0.05 -"
 
 [flow.ic]
-type = "top"
+kind = "top"
 
 [flow.bc.drainage]
 application_domain = "top"
@@ -176,7 +176,7 @@ first_clim = "mean"
 [flow.sinks_sources.lakes.{_LAKE_ID}]
 bedleak = 1e-10
 bedleak_unit = "1/s"
-stageinit = "{_STAGE_INIT_M} m"
+initial_stage = "{_STAGE_INIT_M} m"
 
 # The managed withdrawal that empties the reservoir unless the catchment
 # streamflow feeds it (the Cheze regime: supply abstraction vs river inflow).
@@ -186,7 +186,7 @@ value = 0.0004
 units = "m3/s"
 
 [[flow.sinks_sources.lakes.{_LAKE_ID}.outlets]]
-couttype = "WEIR"
+kind = "WEIR"
 invert = "{_SPILLWAY_INVERT_M} m"
 width = "5.0 m"
 lakeout = 0

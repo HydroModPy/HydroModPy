@@ -43,12 +43,11 @@ def resolve_bin_path() -> str:
     return str(target)
 
 
-class Workspace:
+class WorkspaceLayout:
     """
-    Prepare and expose the folder structure for one project workspace.
-
-    This class keeps the same behavior as the historical `Initializing`
-    implementation, with a clearer name that reflects its responsibility.
+    Prepare and expose the folder structure of one project: its folders, its log, its
+    binaries. ``hmp.open`` on a workspace root gives another object,
+    :class:`hydromodpy.project.accessors.Workspace`, which reads the projects it holds.
     """
 
     def __init__(self, config: WorkspaceConfig):

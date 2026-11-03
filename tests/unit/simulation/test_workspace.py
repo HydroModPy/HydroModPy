@@ -10,8 +10,8 @@ from hydromodpy.core.state.paths import (
     RUNS_DIRNAME,
 )
 from hydromodpy.core.workspace import (
-    Workspace,
     WorkspaceConfig,
+    WorkspaceLayout,
     WorkspacePathRegistry,
 )
 
@@ -33,7 +33,7 @@ def test_workspace_bin_path_defaults_to_managed_cache(tmp_path, monkeypatch) -> 
 
     project = _scaffold(tmp_path / "ws")
     cfg = WorkspaceConfig(project_root=project)
-    workspace = Workspace(config=cfg)
+    workspace = WorkspaceLayout(config=cfg)
 
     assert Path(workspace.bin_path).resolve() == (cache_dir() / "bin").resolve()
 
@@ -46,7 +46,7 @@ def test_workspace_bin_path_honours_env_override(tmp_path, monkeypatch) -> None:
 
     project = _scaffold(tmp_path / "ws")
     cfg = WorkspaceConfig(project_root=project)
-    workspace = Workspace(config=cfg)
+    workspace = WorkspaceLayout(config=cfg)
 
     assert Path(workspace.bin_path).resolve() == custom_bin.resolve()
 
@@ -54,7 +54,7 @@ def test_workspace_bin_path_honours_env_override(tmp_path, monkeypatch) -> None:
 def test_workspace_exposes_canonical_path_registry(tmp_path) -> None:
     project = _scaffold(tmp_path / "ws")
     cfg = WorkspaceConfig(project_root=project)
-    workspace = Workspace(config=cfg)
+    workspace = WorkspaceLayout(config=cfg)
 
     assert isinstance(workspace.paths, WorkspacePathRegistry)
     assert workspace.paths.project_root == workspace.project_root
@@ -63,7 +63,7 @@ def test_workspace_exposes_canonical_path_registry(tmp_path) -> None:
 def test_workspace_creates_folder_structure(tmp_path) -> None:
     project = _scaffold(tmp_path / "ws")
     cfg = WorkspaceConfig(project_root=project)
-    workspace = Workspace(config=cfg)
+    workspace = WorkspaceLayout(config=cfg)
 
     assert workspace.project_root.is_dir()
     assert workspace.solver_scratch_folder == (
@@ -137,17 +137,7 @@ def test_a_retired_workspace_key_is_refused_with_its_replacement(
         WorkspaceConfig(project_root=project, **{key: "x"})
 
 
-def test_workspace_component_override(tmp_path) -> None:
-    """An explicit catalog_path keeps data root project-local unless root is set."""
-    ws_root = tmp_path / "ws"
-    ws_root.mkdir()
-    project = tmp_path / "projectdir"
-    project.mkdir()
-    custom_catalog = ws_root / "custom.duckdb"
-    cfg = WorkspaceConfig(
-        project_root=project,
-        catalog_path=custom_catalog,
-    )
-    assert cfg.catalog_path == custom_catalog.resolve()
-    assert cfg.root == project.resolve()
-    assert cfg.resolution_source == "explicit"
+def test_workspace_refuses_a_catalog_path(tmp_path) -> None:
+    """The catalog sits in the storage layout; a file cannot place it elsewhere."""
+    with pytest.raises(ValidationError, match="catalog_path"):
+        WorkspaceConfig(project_root=tmp_path, catalog_path=tmp_path / "custom.duckdb")

@@ -19,6 +19,7 @@ from typing import Annotated, Any, ClassVar, Literal
 from pydantic import Field, field_validator
 
 from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning, HydroModelBase
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 
 # What a figure option names an instant with, and what it used to be called.
@@ -113,6 +114,7 @@ class DisplayConfig(HydroModelBase):
         default=150,
         ge=1,
         description="DPI used when saving raster figures.",
+        json_schema_extra=field_metadata(unit="dpi"),
     )
     cmap: Annotated[str, Profile.USER] = Field(
         default="viridis",
@@ -130,13 +132,13 @@ class DisplayConfig(HydroModelBase):
         description=(
             "Names of registered figures to auto-render at the end of "
             "`hmp run`, written to runs/<run>/figures/ and recorded in "
-            "figures/index.json, which `hmp viz regen` replays. Every name must "
+            "figures/index.json, which `hmp export <run> --regen figures` replays. Every name must "
             "exist in the figure registry; list them with `hmp viz list`. "
             "A figure whose requirements the run does not meet is skipped "
             "with an explicit reason. Empty list disables auto-rendering. "
             "Disable per-run via `hmp run --no-display` or for an entire "
             "Python Project via `Project(..., no_display=True)`: nothing is drawn then, "
-            "and the run keeps the same data, so `hmp viz regen` can draw them later."
+            "and the run keeps the same data, so `hmp export <run> --regen figures` can draw them later."
         ),
     )
     on_error: Annotated[Literal["warn", "raise"], Profile.USER] = Field(

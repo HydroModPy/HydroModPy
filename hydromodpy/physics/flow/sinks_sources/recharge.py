@@ -61,12 +61,21 @@ class FlowRechargeConfig(HydroModelBase):
         to SI ``m/s`` when the process is built.
     """
 
+    enabled: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description=(
+            "Whether the model receives this recharge. Declaring it is what activates it. false keeps the table "
+            "and builds nothing from it."
+        ),
+    )
     values: Annotated[Any, Profile.USER] = Field(
         default=0.0,
         description=(
             "Recharge rate: one number, one number per stress period, or a table "
             "{period: value} that states every period, in the unit that 'units' names "
-            "(mm/day by default). A calibration reads its bounds in that unit too. "
+            "(mm/day by default). It is positive when water enters the aquifer; a negative "
+            "rate leaves it, through the EVT package when negative_to_evt holds. A "
+            "calibration reads its bounds in that unit too. "
             "Do not write it beside [data.recharge] or the soil section, which "
             "replace it."
         ),

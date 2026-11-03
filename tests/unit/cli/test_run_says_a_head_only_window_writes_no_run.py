@@ -28,7 +28,6 @@ def _run(monkeypatch, argv: list[str]) -> int:
         ("build_geographic", True),
         ("load_data", True),
         ("build_mesh", True),
-        ("0", True),
         ("setup_process", False),
         ("run_solver", False),
         ("seal", False),

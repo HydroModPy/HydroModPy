@@ -3,18 +3,19 @@
 from __future__ import annotations
 
 import argparse
-import sys
 from datetime import UTC, datetime
-from pathlib import Path
 
 from hydromodpy.cli.conventions import (
     add_sim_ref,
     confirm_parser,
+    dry_run_parser,
+    format_parser,
     verbosity_parser,
     workspace_parser,
 )
-from hydromodpy.cli.helpers import EXIT_SIGINT, EXIT_USAGE, apply_verbosity, exit_code_for
-from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
+from hydromodpy.cli.helpers import apply_verbosity, confirm, project_root_of
+from hydromodpy.cli.output import emit
+from hydromodpy.core.state.paths import catalog_path_for
 
 NAME: str = "delete"
 HELP: str = "Move a run or a session to the trash (reversible); --now to remove it for good"
@@ -24,7 +25,13 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        parents=[workspace_parser(), confirm_parser(), verbosity_parser()],
+        parents=[
+            workspace_parser(),
+            confirm_parser(),
+            dry_run_parser(),
+            format_parser(),
+            verbosity_parser(),
+        ],
         epilog=(
             "The reference is the directory: a bare name is runs/<name> exactly, and\n"
             "a bare name whose stem has other versions is refused with the list.\n"
@@ -50,7 +57,8 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Act on a pinned directory, or on one whose attempt stopped beating (stale)",
+        help="Go past the pin and the stale attempt: act on a pinned directory, or on one whose "
+        "attempt stopped beating",
     )
     parser.set_defaults(_handler=run)
     return parser
@@ -61,45 +69,42 @@ def run(args: argparse.Namespace) -> None:
     from hydromodpy.results.catalog.discovery import resolve_rel_dir
     from hydromodpy.results.trash import list_trash, purge_trashed, trash_run
 
-    root = resolve_project_root(
-        Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
-    )
-    try:
-        rel_dir = resolve_rel_dir(root, args.sim_ref, site=args.site, unambiguous=True)
-    except Exception as exc:  # noqa: BLE001 - map resolver errors to typed exit codes
-        print(str(exc), file=sys.stderr)
-        sys.exit(exit_code_for(exc))
-
+    root = project_root_of(args)
+    rel_dir = resolve_rel_dir(root, args.sim_ref, site=args.site, unambiguous=True)
+    facts = {"rel_dir": rel_dir, "removed_for_good": args.now}
+    if args.dry_run:
+        verb = "remove for good" if args.now else "move to the trash"
+        emit(
+            args,
+            "catalog delete",
+            {**facts, "applied": False},
+            table=lambda: print(f"would {verb} {rel_dir}"),
+        )
+        return
     verb = "Remove for good" if args.now else "Trash"
-    if not args.yes:
-        if not sys.stdin.isatty():
-            print(
-                f"Refusing to {verb.lower()} without -y in non-interactive mode.", file=sys.stderr
-            )
-            sys.exit(EXIT_USAGE)
-        try:
-            resp = input(f"{verb} {rel_dir}? [y/N] ").strip().lower()
-        except (EOFError, KeyboardInterrupt):
-            print("\nAborted.", file=sys.stderr)
-            sys.exit(EXIT_SIGINT)
-        if resp not in {"y", "yes"}:
-            print("Aborted.", file=sys.stderr)
-            sys.exit(EXIT_SIGINT)
+    confirm(args, f"{verb} {rel_dir}?", doing=verb.lower())
 
     now = datetime.now(UTC)
-    try:
-        trashed = trash_run(root, rel_dir, now=now, force=args.force)
-        if args.now:
-            entry = next(entry for entry in list_trash(root) if entry.path == trashed)
-            purge_trashed(root, [entry], now=now)
-    except Exception as exc:  # noqa: BLE001 - map in-use, protected and IO errors
-        print(str(exc), file=sys.stderr)
-        sys.exit(exit_code_for(exc))
+    trashed = trash_run(root, rel_dir, now=now, force=args.force)
+    if args.now:
+        entry = next(entry for entry in list_trash(root) if entry.path == trashed)
+        purge_trashed(root, [entry], now=now)
     if catalog_path_for(root).is_file():
         from hydromodpy.results.catalog.indexer import index_new_runs
 
         index_new_runs(root)
-    if args.now:
-        print(f"removed {rel_dir}; its name stays taken (trash/tombstones.txt)")
-    else:
-        print(f"moved {rel_dir} to trash/{trashed.name}. Restore: hmp catalog restore {rel_dir}")
+
+    def table() -> None:
+        if args.now:
+            print(f"removed {rel_dir}; its name stays taken (trash/tombstones.txt)")
+        else:
+            print(
+                f"moved {rel_dir} to trash/{trashed.name}. Restore: hmp catalog restore {rel_dir}"
+            )
+
+    emit(
+        args,
+        "catalog delete",
+        {**facts, "applied": True, "trashed_to": None if args.now else trashed},
+        table=table,
+    )

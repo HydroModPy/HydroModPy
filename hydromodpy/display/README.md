@@ -139,7 +139,7 @@ hydromodpy/display/
 ├── catchment_report/      catchment report (hmp report catchment <toml>)
 │
 └── quicklook/             a quick look at data, outside the catalogue; unrelated to `hmp viz`
-    ├── viz.py                 hmp.viz.show(data): an xarray array, a series or a GeoDataFrame
+    ├── viz.py                 viz.show(data): an xarray array, a series or a GeoDataFrame
     ├── scalable.py            datashader rasterisation for viz.py
     └── animation.py           GIF, MP4 or plotly slider from PNG already rendered
 ```
@@ -218,10 +218,10 @@ finished run    ->  runs.render_figures_for_run(run, DisplayConfig)
 
 **Cohort figures.** `figures/cohort_map.py` and `figures/cohort_distribution.py`
 draw one table with one row per site, not a run; `figures/cohort_table.py` reads
-the columns they share. `hmp project collect` (`project/summary.py`) draws them
+the columns they share. `hmp campaign collect` (`project/summary.py`) draws them
 under `summary/figures/` for each name of `[sites.summary] figures`.
 
-`hmp viz regen <run>` replays `figures/index.json` (`runs.regen_figures`).
+`hmp export <run> --regen figures` replays `figures/index.json` (`runs.regen_figures`).
 `hmp viz show` and `hmp.figure(...)` go through `runs.render_figure`, which
 renders one figure after the same applicability check and stamps a saved PNG
 with the identity of its run. `hmp viz list --run <ref>` calls
@@ -293,7 +293,6 @@ Another package of `hydromodpy/` imports only these modules (the `public` list o
 | `hydromodpy.display.config` | `DisplayConfig` |
 | `hydromodpy.display.figure_registry` | `get`, `resolve`, `names`, `figure_option_names` |
 | `hydromodpy.display.runs` | rendering the figures of a run, and their availability |
-| `hydromodpy.display.quicklook.viz` | `hmp.viz` |
 | `hydromodpy.display.maps.axes`, `hydromodpy.display.maps.ugrid`, `hydromodpy.display.maps.geo` | map tools reused by `reporting` |
 | `hydromodpy.display.report_blocks` | HTML engine (`reporting`, and `calibration` through a tolerance) |
 | `hydromodpy.display.overview`, `hydromodpy.display.overview.config` | overview and `OverviewConfig` |

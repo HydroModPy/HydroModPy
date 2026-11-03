@@ -55,7 +55,7 @@ from hydromodpy.config.sites.tables import (
     read_table,
     table_from_site_rows,
 )
-from hydromodpy.core.config_kit.written import written_experimental_keys
+from hydromodpy.core.config_kit.written import written_experimental_keys, written_payload
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.site import SITE_NAME_PATTERN
 from hydromodpy.core.state.paths import (
@@ -82,7 +82,7 @@ from hydromodpy.core.toml_io.writer import dumps
 from hydromodpy.core.workspace.workspace_toml import near_site_m as workspace_near_site_m
 from hydromodpy.results.catalog.storage_paths import MAX_DIRNAME_LEN
 
-CaseKind = Literal["simulation", "calibration"]
+CaseKind = Literal["simulation", "calibration", "overview"]
 
 RECIPE_COLUMN = "recipe"
 """Mandatory column of a recipe table: the name of the recipe."""
@@ -199,13 +199,18 @@ class DraftCase:
 
 @dataclass(frozen=True, slots=True)
 class PlanDraft:
-    """A plan before it is written: its cases, and what is wrong with them."""
+    """A plan before it is written: its cases, and what is wrong with them.
+
+    A ``[sites]`` project holds one case per site and recipe, and :func:`expand_plan`
+    fills every field. A single configuration holds one case and no table: ``sites_config``
+    and ``site_table`` are ``None``, and ``steps`` says what its run would execute.
+    """
 
     project_root: Path
-    project_file: Path
-    config_path: Path
-    sites_config: SitesConfig
-    site_table: Table
+    project_file: Path | None
+    config_path: Path | None
+    sites_config: SitesConfig | None
+    site_table: Table | None
     sites: tuple[ResolvedSite, ...]
     recipes: tuple[ResolvedRecipe, ...]
     cases: tuple[DraftCase, ...]
@@ -213,6 +218,8 @@ class PlanDraft:
     warnings: tuple[PlanIssue, ...] = ()
     inputs: tuple[Path, ...] = ()
     """Every file the plan was made from, for its fingerprints."""
+    steps: tuple[str, ...] = ()
+    """The pipeline steps the one case of a single configuration would execute, in order."""
 
     @property
     def ok(self) -> bool:
@@ -372,6 +379,44 @@ def expand_plan(
         errors=tuple(errors),
         warnings=tuple(warnings),
         inputs=tuple(dict.fromkeys(inputs)),
+    )
+
+
+def single_case_draft(
+    config: Any,
+    *,
+    name: str,
+    config_path: Path | None,
+    steps: Sequence[str],
+    kind: CaseKind = "simulation",
+    done: bool = False,
+) -> PlanDraft:
+    """Return the plan of one configuration, already validated: one case, no table."""
+    from hydromodpy.results.catalog.registration import solve_identity_hash
+
+    site = getattr(getattr(config, "site", None), "name", None)
+    case = DraftCase(
+        case_id=name,
+        site=str(site or ""),
+        recipe="",
+        document=written_payload(config),
+        config_hash=solve_identity_hash(config),
+        kind=kind,
+        solves=1,
+        kept_solves=1,
+        done=done,
+        experimental_keys=written_experimental_keys(config),
+    )
+    return PlanDraft(
+        project_root=Path(config.workspace.project_root),
+        project_file=config_path,
+        config_path=config_path,
+        sites_config=None,
+        site_table=None,
+        sites=(),
+        recipes=(),
+        cases=(case,),
+        steps=tuple(steps),
     )
 
 
@@ -936,6 +981,7 @@ __all__ = [
     "CaseKind",
     "DraftCase",
     "PlanDraft",
+    "single_case_draft",
     "ResolvedRecipe",
     "ResolvedSite",
     "SitesProjectError",

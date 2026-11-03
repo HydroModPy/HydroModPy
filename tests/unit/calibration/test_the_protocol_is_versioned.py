@@ -89,6 +89,26 @@ class TestTheVersion:
 
         assert expanded["calibration"]["phases"]
 
+    def test_a_pin_on_1_2_says_what_a5_ran_under_that_number(self, caplog) -> None:
+        from hydromodpy.calibration.protocols import matching_hydrographic_network as module
+
+        module._TOLD.clear()
+        with caplog.at_level("WARNING"):
+            expand_calibration_protocol(_doc({"name": NAME, "version": "1.2"}))
+
+        assert "v2.0.0a5" in caplog.text and "observed_rasterization = 'heads'" in caplog.text
+
+    def test_the_heads_keys_are_declared_departures_with_their_value(self) -> None:
+        from hydromodpy.calibration.protocols import deviations_in_force
+
+        doc = expand_calibration_protocol(_doc({"name": NAME}))
+        section = CalibrationConfig.model_validate(doc["calibration"])
+
+        told = {item.key: item for item in deviations_in_force(section)}
+
+        assert told["heads_snap_radius"].state == "departs"
+        assert told["heads_min_drained_area_km2"].value == 0.02
+
     def test_a_mismatched_pin_is_refused_rather_than_approximated(self) -> None:
         with pytest.raises(ValueError, match="carries 1.2, 1.3.*replayable"):
             expand_calibration_protocol(_doc({"name": NAME, "version": "0.9"}))
@@ -195,7 +215,8 @@ class TestTheSessionWritesItsDepartures:
         assert departures["observed_rasterization"].written is False
         assert departures["max_catchment_mismatch"].value == "0.05"
         assert departures["tau_specific_ratio"].always is False
-        assert departures["steady_recharge_window"].always is True
+        assert departures["steady_recharge_window"].always is False
+        assert "steady_recharge_window" in departures
         assert "dem_correc_type" not in departures
 
     def test_a_pin_on_1_2_writes_its_own_defaults(self) -> None:

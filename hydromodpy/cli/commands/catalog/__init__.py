@@ -8,7 +8,8 @@ Sub-actions:
   from the index (``--detail``, ``--format json``).
 - ``hmp catalog point <sim_ref>... --var V``: read a variable in one cell,
   named by coordinates, cell id or depth, on one or several runs.
-- ``hmp catalog gc``: plans by default; ``--apply`` marks dead attempts
+- ``hmp catalog rank``: rank the runs of a project by a metric, best or worst first.
+- ``hmp catalog gc``: says what it would do; ``-y`` marks dead attempts
   aborted, trashes old versions and removes expired trash, each removed
   directory leaving a tombstone.
 - ``hmp catalog reindex``: rebuild the index from the run directories.
@@ -39,6 +40,7 @@ from hydromodpy.cli.commands.catalog import (
     note,
     point,
     query,
+    rank,
     reindex,
     rename,
     rerun,
@@ -58,6 +60,7 @@ ACTIONS = (
     query,
     show,
     point,
+    rank,
     gc,
     reindex,
     delete,

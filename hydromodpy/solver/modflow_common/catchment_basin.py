@@ -5,9 +5,8 @@ The basin of D at the catchment outlet is computed once per build
 share of each cell's area inside the delineated polygon, the weight of a
 catchment total of a spatial quantity.
 
-A model domain and a catchment are not the same surface. MODFLOW-NWT meshes the
-delineated catchment, so summing a budget over the domain sums the catchment.
-MODFLOW 6 meshes the buffered box, so the same sum includes the neighbouring
+A model domain and a catchment are not the same surface. A mesh takes in a buffer
+around the catchment, so a sum over the domain includes the neighbouring
 basins: measured on the Nancon at 25 m, 152.2 km2 of domain against 64.6 km2 of
 catchment, and 2.119 m3/s of drain outflow against 0.888 m3/s inside the basin.
 A discharge series compared to a gauge has to be the water that gauge sees, so

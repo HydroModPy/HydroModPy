@@ -57,10 +57,6 @@ The rules
 Special layers
 --------------
 
-``catalog``
-   Public V1 facade over cache and project catalog. It may import
-   ``data`` and ``results`` to wrap their stores. The reverse edge is forbidden.
-
 ``project``
    Public object-oriented facade. It binds workflow and calibration launchers to
    ``Project``, so that lower layers do not depend on the facade.

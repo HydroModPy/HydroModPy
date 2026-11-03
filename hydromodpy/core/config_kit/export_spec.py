@@ -33,6 +33,7 @@ from typing import Annotated, Any
 from pydantic import Field, TypeAdapter, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 
 EXPORT_ALL = "all"
@@ -131,7 +132,7 @@ _GROUP_STEM: dict[ExportKind, str] = {ExportKind.field: "fields", ExportKind.ser
 RETIRED_FORMATS: dict[str, str] = {
     "package": (
         'format = "package" is retired: the portable archive of a run is '
-        "'hmp publish <run> --to DEST --format tar --with results --with inputs'. "
+        "'hmp publish <run> --to DEST --container tar --with results --with inputs'. "
         "Drop this [[export]] block."
     ),
 }
@@ -253,7 +254,7 @@ class ExportRequest(HydroModelBase):
             "The file format. Left out, each data takes its natural format, or the one "
             "the extension of 'file' names. 'stac', 'rocrate' and 'prov' write the "
             'metadata of the run; those three describe the whole run and take variables = "all" '
-            "only. The portable archive of a run is written by 'hmp publish --format tar'."
+            "only. The portable archive of a run is written by 'hmp publish --container tar'."
         ),
         json_schema_extra={
             "value_docs": {
@@ -317,6 +318,7 @@ class ExportRequest(HydroModelBase):
             "format can hold: a NetCDF variable or a VTU cell array has one entry per layer. "
             "QGIS reads a NetCDF that names one layer."
         ),
+        json_schema_extra=field_metadata(unit="-"),
     )
     nodata: Annotated[float, Profile.EXPERT] = Field(
         default=-9999.0,

@@ -1,11 +1,11 @@
-"""The keywords of ``Project.simulate``, as changes of the configuration of the run.
+"""The ``set=`` of a run, as changes of its configuration.
 
-``simulate(K=3.3e-3, first_clim="first")`` is shorthand for dotted paths, the
-grammar of ``--set``. A name is the one ``hmp config targets`` lists for this
-project, so a run and a calibration call a value alike, and a number is read in
-the unit the configuration declares for it, as in the file. The changes are what
-the run applies to its configuration before its plan is built, what it seals in
-``config.toml`` and what ``lineage.overrides`` records.
+``simulate(set={"K": 3.3e-3, "first_clim": "first"})`` is shorthand for dotted paths,
+the grammar of ``--set``, and a dotted path is written as it is. A name is the one
+``hmp config targets`` lists for this project, so a run and a calibration call a value
+alike, and a number is read in the unit the configuration declares for it, as in the
+file. The changes are what the run applies to its configuration before its plan is
+built, what it seals in ``config.toml`` and what ``lineage.overrides`` records.
 """
 
 from __future__ import annotations
@@ -20,9 +20,10 @@ _NOT_A_TARGET: dict[str, str] = {"first_clim": "flow.sinks_sources.recharge.firs
 
 
 def override_changes(config: Any, overrides: Mapping[str, Any]) -> dict[str, Any]:
-    """Return the dotted paths and values the keyword *overrides* of a run stand for.
+    """Return the dotted paths and values the *overrides* of a run stand for.
 
-    A name nothing answers to is refused with the names this project offers.
+    A dotted path stands for itself, and the configuration validates it when it takes
+    the change. A name nothing answers to is refused with the names this project offers.
     """
     if not overrides:
         return {}
@@ -31,7 +32,9 @@ def override_changes(config: Any, overrides: Mapping[str, Any]) -> dict[str, Any
     targets = targets_by_name(calibration_targets(config))
     changes: dict[str, Any] = {}
     for name, value in overrides.items():
-        if name in _NOT_A_TARGET:
+        if "." in name:
+            changes[name] = value
+        elif name in _NOT_A_TARGET:
             changes[_NOT_A_TARGET[name]] = value
         elif name in targets:
             changes[targets[name].path] = value

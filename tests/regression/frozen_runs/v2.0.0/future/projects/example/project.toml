@@ -1,0 +1,77 @@
+# ===========================================================================
+# HydroModPy - Project configuration
+# ===========================================================================
+# Project : example
+#
+# This file defines shared settings for all runs in this project:
+# geographic support, domain, data sources, and flow parameters.
+#
+# Run files (run_*.toml) inherit from this file via:
+#   base_config = "project.toml"
+# ===========================================================================
+
+
+[geographic]
+source_mode = "synthetic"
+# Synthetic mode has no DEM to read a CRS from, so it is spelled out here.
+# Without it, spatial exports (GeoTIFF) have no coordinate system to write.
+crs_project = "EPSG:2154"
+
+[geographic.synthetic]
+case_id = "example_synthetic"
+
+[geographic.synthetic.grid]
+length_x = "1000 m"
+length_y = "1000 m"
+nx = 20
+ny = 20
+
+[geographic.synthetic.topography]
+kind = "linear"
+base_elevation = 20.0
+right_to_left_amplitude = 5.0
+
+[data]
+types = []
+
+[domain]
+
+[domain.depth_model]
+# Also "flat_substratum" (one elevation), or "raster_substratum" and
+# "raster_thickness" to read an elevation or a thickness from [[data.substratum.sources]].
+kind = "constant_thickness"
+thickness = "50 m"
+
+[flow]
+flow_regime = "steady"
+param_list = ["K", "Sy"]
+# Water enters as recharge and leaves through drains at the land surface, where
+# the water table reaches it. The mound between the two is about R L^2 / (2 K b):
+# 0.9 m here, and it follows K.
+active_sinks_sources = ["recharge"]
+active_bc = ["drainage"]
+
+[flow.param.K.field]
+kind = "homogeneous"
+value = "1.0e-4 m/s"
+
+[flow.param.Sy.field]
+kind = "homogeneous"
+value = "0.12 -"
+
+[flow.sinks_sources.recharge]
+values = 0.8
+units = "mm/day"
+
+[display]
+# Figures rendered at the end of every run in this project. This shortlist
+# only needs the mesh and the steady-state head field, so it renders on the
+# synthetic demo with no observation data. "hmp viz list" shows every
+# registered figure and what result each one needs.
+figures = ["mesh_map", "piezometric_map", "watertable_depth_map", "water_budget"]
+on_error = "warn"  # log a figure that fails to render and keep going
+
+[[export]]
+# Writes the head as a GeoTIFF under runs/<run>/exports/, so the first result
+# is something you can open in QGIS, not just numbers in a log.
+variables = "head"

@@ -48,7 +48,7 @@ step_value = "1 day"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [geographic]
@@ -91,7 +91,7 @@ active_bc = ["drainage"]
 first_period_steady = false
 
 [flow.ic]
-type = "steady_state"
+kind = "steady_state"
 
 [flow.param.K.field]
 kind = "homogeneous"

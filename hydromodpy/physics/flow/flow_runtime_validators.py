@@ -1,10 +1,4 @@
-"""Pre-validators for the Boussinesq runtime knobs on FlowConfig.
-
-These free functions implement the normalization logic for the 13 flat
-``runtime_*`` / ``vi_*`` / ``ts_vi_*`` fields kept on :class:`FlowConfig`
-for backward-compatible TOML payloads. Extracting them keeps
-``flow_config.py`` focused on the field declarations.
-"""
+"""Pre-validators of ``[flow.runtime]``, the settings of the Boussinesq solve."""
 
 from __future__ import annotations
 
@@ -25,7 +19,7 @@ def normalize_runtime_backend(value: object) -> str:
     text = str(value or "auto").strip().lower()
     if text not in _RUNTIME_BACKENDS:
         raise ValueError(
-            "flow.runtime_backend must be 'auto', 'local', 'scipy', 'scipy_sparse', or 'petsc'"
+            "flow.runtime.backend must be 'auto', 'local', 'scipy', 'scipy_sparse', or 'petsc'"
         )
     return text
 
@@ -35,7 +29,7 @@ def normalize_surface_interaction_model(value: object) -> str:
     text = str(value or "auto").strip().lower() or "auto"
     if text not in _SURFACE_MODELS:
         raise ValueError(
-            "flow.surface_interaction_model must be 'auto', "
+            "flow.runtime.surface_interaction_model must be 'auto', "
             "'regularized_partition', 'complementarity', 'vi_obstacle', "
             "or 'ts_vi_obstacle'"
         )

@@ -86,7 +86,7 @@ def test_a_segment_that_names_a_value_is_refused() -> None:
 
 
 def test_a_segment_that_names_a_union_names_its_variants() -> None:
-    with pytest.raises(ValueError, match="names a union of 3 models"):
+    with pytest.raises(ValueError, match="names a union of 2 models"):
         export_schema(section="flow.bc")
 
 

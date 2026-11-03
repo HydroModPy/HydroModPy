@@ -59,6 +59,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
+from hydromodpy.core.exceptions import WriteConflictError
 from hydromodpy.core.interrupts import TerminationRequested
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import (
@@ -105,15 +106,15 @@ CLAIMED_ELSEWHERE = "another worker claimed this case"
 """The sentence a worker that lost a claim ends with."""
 
 
-class AttemptClaimedError(RuntimeError):
+class AttemptClaimedError(WriteConflictError, RuntimeError):
     """Another worker claimed the same attempt of this case first."""
 
 
-class CaseAliveError(RuntimeError):
+class CaseAliveError(WriteConflictError, RuntimeError):
     """The case is running elsewhere and its death is not proven."""
 
 
-class DirectoryWithoutOutcomeError(RuntimeError):
+class DirectoryWithoutOutcomeError(WriteConflictError, RuntimeError):
     """The latest directory of the case carries no outcome and no seal."""
 
 

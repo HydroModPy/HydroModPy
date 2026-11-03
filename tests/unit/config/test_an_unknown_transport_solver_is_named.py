@@ -19,8 +19,8 @@ def _config(tmp_path, transport: str) -> HydroModPyConfig:
         geographic=GeographicConfig(source_mode="synthetic"),
         simulation={
             "process": [
-                {"id": "flow_main", "type": "flow", "solvers": ["modflow6"]},
-                {"id": "transport_main", "type": "transport", "solvers": [transport]},
+                {"id": "flow_main", "kind": "flow", "solvers": ["modflow6"]},
+                {"id": "transport_main", "kind": "transport", "solvers": [transport]},
             ]
         },
     )

@@ -175,7 +175,9 @@ def run_boussinesq_brutsaert_recession_case(
                 {
                     "flow_regime": "transient",
                     # The time grid holds the steps; TS VI takes one per grid step.
-                    "ts_vi_steps_per_period": 1,
+                    "runtime": {
+                        "ts_vi_steps_per_period": 1,
+                    },
                     "ic": {"type": "custom", "value": float(east_head_m)},
                     "active_bc": ["east_side"],
                     "bc": {

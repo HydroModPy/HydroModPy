@@ -242,7 +242,7 @@ def delete_simulation_artifacts(
     """Move one run of an open catalog to the project trash and return what moved.
 
     Used by ``hmp dev manage`` when iterating over the runs of a project. The
-    bytes stay in ``trash/`` until ``hmp catalog gc --apply`` frees them.
+    bytes stay in ``trash/`` until ``hmp catalog gc -y`` frees them.
     """
     from hydromodpy.results.trash import trash_run
 

@@ -36,7 +36,7 @@ def _make_cfg_with_time(
                 coverage_policy=coverage_policy,
             ),
             process=[
-                SimpleNamespace(type="flow", solvers=["modflow_nwt"]),
+                SimpleNamespace(kind="flow", solvers=["modflow_nwt"]),
             ],
         ),
         flow=SimpleNamespace(flow_regime="transient"),
@@ -163,7 +163,7 @@ def test_require_flow_simulation_time_grid_requires_window_for_flow_process() ->
 def test_require_flow_simulation_time_grid_keeps_window_optional_without_flow_process() -> None:
     cfg = _make_cfg_with_time()
     cfg.simulation.time = None
-    cfg.simulation.process = [SimpleNamespace(type="transport", solvers=["mt3dms"])]
+    cfg.simulation.process = [SimpleNamespace(kind="transport", solvers=["mt3dms"])]
 
     assert require_flow_simulation_time_grid(cfg) is None
 

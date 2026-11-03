@@ -32,11 +32,10 @@ A process inherits ``ProcessSpatial[TInitialConditions]`` from
        @abstractmethod
        def set_sinks_sources(self, sinks_sources: dict): ...
 
-Its configuration inherits ``ProcessSpatialConfig`` from
-``hydromodpy/physics/base/process_spatial_config.py``, which declares
-``param_list``, ``param``, ``ic``, ``bc``, ``sinks_sources``,
-``active_sinks_sources`` and ``active_bc``. The base stays generic: no rule of
-flow or transport belongs in it.
+Its configuration is a ``HydroModelBase`` that declares what the process reads.
+Flow declares ``param``, ``ic``, ``bc`` and ``sinks_sources``. Transport declares one
+block per solver. A process shares no base configuration, so a process never carries
+a key it does not read.
 
 Where a process lives
 ---------------------

@@ -17,6 +17,7 @@ from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import NonEmptyPath, NonEmptyStr, Probability
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
+from hydromodpy.core.scope import zone_name_refusal
 from hydromodpy.core.units import LengthMeters
 from hydromodpy.core.units.scalar import parse_scalar_and_unit
 from hydromodpy.spatial.field.field_param_units import UnitStr, normalize_unit_token
@@ -80,6 +81,9 @@ def normalize_values(value: Any, *, label: str) -> dict[str, float | str] | None
     values: dict[str, float | str] = {}
     for key, raw_value in dict(value).items():
         key_text = str(key)
+        refusal = zone_name_refusal(key_text)
+        if refusal is not None:
+            raise ValueError(f"{label}: {refusal}")
         values[key_text] = normalize_value(raw_value, label=f"{label}['{key_text}']")
     if len(values) == 0:
         raise ValueError(f"{label} cannot be empty")
@@ -291,18 +295,19 @@ FieldSection: TypeAlias = Annotated[
 class FieldVerticalProfileSection(HydroModelBase):
     """Schema for `[field_vertical_profile]`."""
 
-    mode: Annotated[VerticalProfileMode, Profile.USER] = Field(
+    kind: Annotated[VerticalProfileMode, Profile.USER] = Field(
         default="none",
         description=(
-            "Depth dependency mode shared over the full domain. "
+            "Depth dependency shared over the full domain. "
             "Allowed values: 'none', 'exponential', 'tabulated'."
         ),
+        json_schema_extra=field_metadata(renamed_from=["flow.param.field_vertical_profile.mode"]),
     )
     characteristic_depth: Annotated[LengthMeters | None, Profile.USER] = Field(
         default=None,
         gt=0.0,
         description=(
-            "Characteristic depth for exponential mode. "
+            "Characteristic depth for kind 'exponential'. "
             "Vertical factor is exp(-depth/characteristic_depth). Calibrate it with "
             '[calibration.parameters."K.characteristic_depth"] (or the field\'s own id); '
             "the range belongs to the site, so a file has to state it."
@@ -319,7 +324,7 @@ class FieldVerticalProfileSection(HydroModelBase):
     min_factor: Annotated[Probability | None, Profile.USER] = Field(
         default=None,
         description=(
-            "Optional floor factor for exponential mode. "
+            "Optional floor factor for kind 'exponential'. "
             "If provided, factor is max(exp(-depth/characteristic_depth), min_factor). "
             'Calibrate it with [calibration.parameters."K.min_factor"].'
         ),
@@ -333,40 +338,42 @@ class FieldVerticalProfileSection(HydroModelBase):
     depths: Annotated[list[float] | None, Profile.DEV] = Field(
         default=None,
         min_length=1,
-        description="Depth nodes for tabulated mode (meters, first value must be 0).",
+        description="Depth nodes for kind 'tabulated' (meters, first value must be 0).",
+        json_schema_extra=field_metadata(unit="m"),
     )
     factors: Annotated[list[float] | None, Profile.DEV] = Field(
         default=None,
         min_length=1,
         description=(
-            "Multiplicative factors aligned with `depths` for tabulated mode "
+            "Multiplicative factors aligned with `depths` for kind 'tabulated' "
             "(first value must be 1 at depth 0)."
         ),
+        json_schema_extra=field_metadata(unit="-"),
     )
     interpolation: Annotated[VerticalProfileInterpolation, Profile.DEV] = Field(
         default="linear",
         description=(
-            "Interpolation strategy for tabulated mode. Allowed values: 'linear' or 'step'."
+            "Interpolation strategy for kind 'tabulated'. Allowed values: 'linear' or 'step'."
         ),
     )
 
     @model_validator(mode="after")
-    def _validate_mode_payload(self):
-        if self.mode == "none":
+    def _validate_kind_payload(self):
+        if self.kind == "none":
             return self
 
-        if self.mode == "exponential":
+        if self.kind == "exponential":
             if self.characteristic_depth is None:
                 raise ValueError(
-                    "field_vertical_profile.characteristic_depth is required when mode='exponential'"
+                    "field_vertical_profile.characteristic_depth is required when kind='exponential'"
                 )
             return self
 
-        if self.mode == "tabulated":
+        if self.kind == "tabulated":
             if self.depths is None:
-                raise ValueError("field_vertical_profile.depths is required when mode='tabulated'")
+                raise ValueError("field_vertical_profile.depths is required when kind='tabulated'")
             if self.factors is None:
-                raise ValueError("field_vertical_profile.factors is required when mode='tabulated'")
+                raise ValueError("field_vertical_profile.factors is required when kind='tabulated'")
             if len(self.depths) != len(self.factors):
                 raise ValueError("field_vertical_profile.depths and factors must have same length")
             if any(v < 0.0 for v in self.depths):

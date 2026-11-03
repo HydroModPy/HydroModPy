@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any
 import pandas as pd
 import pyarrow as pa
 
+from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.results.manifest import PARAMETERS_TABLE_NAME
 from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX
 from hydromodpy.results.storage.parquet_io import read_checked_table
@@ -54,4 +55,17 @@ def has_rows(run: Run, name: str, **where: Any) -> bool:
     return not read_run_table(run, name, where=where).empty
 
 
-__all__ = ["has_rows", "read_run_table"]
+def global_parameters(run: Run) -> dict[str, float]:
+    """Return the values of the parameters of *run* that hold one value for the catchment.
+
+    ``run.parameters`` holds them all, with their units and their zones.
+    """
+    frame = read_run_table(run, "parameters", columns=("param_name", "zone_id", "value"))
+    kept = frame[frame["zone_id"].isna() | (frame["zone_id"] == CATCHMENT)]
+    return {
+        str(name): float(value)
+        for name, value in zip(kept["param_name"], kept["value"], strict=True)
+    }
+
+
+__all__ = ["global_parameters", "has_rows", "read_run_table"]

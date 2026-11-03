@@ -5,7 +5,7 @@ Current inference scope (V3)
 - ``domain.zone_ids`` containing ``geology`` -> activate ``geology``
 - ``flow.active_bc`` containing ``stream`` -> activate ``hydrography``
 - ``flow.active_bc`` containing ``ocean`` -> activate ``oceanic``
-- ``flow.active_bc`` containing ``lake``/``reservoir`` -> activate the lake
+- ``flow.active_bc`` containing ``lake`` -> activate the lake
   families the model actually consumes (``lake_geometry``, ``lake_abacus``,
   ``lake_inflow``, ``lake_withdrawal``). Families without a consumer
   (``lake_bathymetry``, ``lake_levels``, ``lake_outflow``) are not auto-inferred
@@ -120,8 +120,7 @@ class DataPlanner:
                 "inferred from flow.active_bc containing 'ocean'",
             )
 
-        if active_bc & {"lake", "reservoir"}:
-            lake_token = "lake" if "lake" in active_bc else "reservoir"
+        if "lake" in active_bc:
             # Only the families the model consumes: geometry + abacus build the LAK
             # package, inflow + withdrawal feed its forcings. bathymetry is consumed
             # only when a lake opts into bed_reconstruction, so it stays an explicit
@@ -138,7 +137,7 @@ class DataPlanner:
                         inferred_types,
                         reasons_by_type,
                         lake_family,
-                        f"inferred from flow.active_bc containing '{lake_token}'",
+                        "inferred from flow.active_bc containing 'lake'",
                     )
 
         if flow_soil_reservoir:

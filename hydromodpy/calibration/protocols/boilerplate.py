@@ -32,6 +32,9 @@ def methods_paragraph(
     absent_widths: Mapping[str, str] | None = None,
     steady_window: Mapping[str, object] | None = None,
     version: str | None = None,
+    held: Mapping[str, float] | None = None,
+    stages_declared: int | None = None,
+    conditional_in_force: Sequence[str] = (),
 ) -> str:
     """Return the Methods prose for one calibration that ran.
 
@@ -45,6 +48,12 @@ def methods_paragraph(
     support status is stated when it is not one this repository tests.
 
     ``version`` is the version the file pinned, the installed one when None.
+
+    ``held`` carries the best value of each parameter of a stage that did not
+    settle, which is the value the promoted run holds. ``stages_declared`` is the
+    number of stages the file declares, the protocol's own when None.
+    ``conditional_in_force`` names the departures that depend on the file and hold
+    in this run.
 
     ``steady_window`` carries the span stage one actually averaged its recharge
     over -- ``start``, ``end``, ``days``, and ``mean_recharge_m_s`` when it is
@@ -81,17 +90,32 @@ def methods_paragraph(
         parts.append("No stage of the protocol completed, so no calibrated value is reported.")
         return " ".join(parts)
 
+    total = (
+        len(protocol.stages)
+        if stages_declared is None
+        else min(stages_declared, len(protocol.stages))
+    )
     described = [str(text).rstrip(".") for text in list(protocol.stages)[: len(ran)]]
     parts.append(
-        f"{len(ran)} of the {len(protocol.stages)} stages completed: "
+        f"{len(ran)} of the {total} stages completed: "
         + "; ".join(f"({index}) {text}" for index, text in enumerate(described, start=1))
         + "."
     )
-    if len(ran) < len(protocol.stages):
-        parts.append(
-            "The remaining stage did not complete, so any parameter it would have "
-            "calibrated keeps the value it entered the calibration with."
-        )
+    left_out = any(item["key"] == "storage" and not item["here"] for item in options or ())
+    if left_out:
+        parts.append("The file left the stage that fits the storage out (storage = false).")
+    elif len(ran) < total:
+        if held:
+            kept = ", ".join(f"{key} = {value:.4g}" for key, value in sorted(held.items()))
+            parts.append(
+                "The remaining stage did not settle, so the run holds the best value its "
+                f"search had reached when it stopped: {kept}."
+            )
+        else:
+            parts.append(
+                "The remaining stage did not complete, so any parameter it would have "
+                "calibrated keeps the value it entered the calibration with."
+            )
 
     if steady_window:
         start = steady_window.get("start")
@@ -132,6 +156,16 @@ def methods_paragraph(
     )
     if always:
         parts.append(f"This implementation departs from it in every run: {always}.")
+
+    conditional = "; ".join(
+        f"{deviation.key}: {deviation.here}"
+        for deviation in protocol.deviations
+        if deviation.key in conditional_in_force
+    )
+    if conditional:
+        parts.append(
+            f"With the declarations of this file it also departs from it as follows: {conditional}."
+        )
 
     if options:
         listed = ", ".join(

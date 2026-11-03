@@ -13,8 +13,15 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy.cli.conventions import add_sim_ref, verbosity_parser
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_USAGE, apply_verbosity
+from hydromodpy.cli.conventions import (
+    add_destination,
+    add_sim_ref,
+    format_parser,
+    verbosity_parser,
+    workspace_parser,
+)
+from hydromodpy.cli.helpers import EXIT_USAGE, apply_verbosity, refuse
+from hydromodpy.cli.output import emit
 
 NAME: str = "show"
 HELP: str = "Render one figure for a simulation"
@@ -24,10 +31,10 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        parents=[verbosity_parser()],
+        parents=[workspace_parser(), format_parser(), verbosity_parser()],
         epilog=(
             "Examples:\n"
-            "  hmp viz show @last flux_timeseries --output flux.png\n"
+            "  hmp viz show @last flux_timeseries --to flux.png\n"
             "  hmp viz show @last seepage_map --time 2002-10-15 --opt show_run_name=false\n"
             '  hmp viz show @last hydrograph_sim_obs --opt "title=Outlet discharge" '
             "--opt figsize=[8,4]"
@@ -38,12 +45,8 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument(
         "figure", help="Figure name from 'hmp viz list' (e.g. watertable_depth_map)"
     )
-    parser.add_argument("-w", "--workspace", default=None, help="Project catalog root")
-    parser.add_argument(
-        "--output",
-        default=None,
-        type=Path,
-        help="Output file path (default: runs/<run>/figures/<figure>.png)",
+    add_destination(
+        parser, help="Output file (default: runs/<run>/figures/<figure>.png)", metavar="FILE"
     )
     parser.add_argument(
         "--time",
@@ -73,10 +76,6 @@ def register(subparsers) -> argparse.ArgumentParser:
 def run(args: argparse.Namespace) -> None:
     apply_verbosity(args, {})
     from hydromodpy.cli._workers.viz import render_figure
-    from hydromodpy.results.catalog import (
-        AmbiguousReferenceError,
-        SimulationNotFoundError,
-    )
 
     if args.options:
         from hydromodpy.cli._workers.viz import parse_figure_options
@@ -84,20 +83,15 @@ def run(args: argparse.Namespace) -> None:
         try:
             options = parse_figure_options(args.figure, args.options)
         except (KeyError, ValueError) as exc:
-            print(str(exc).strip("'\""), file=sys.stderr)
-            sys.exit(EXIT_USAGE)
+            refuse(str(exc).strip("'\""), EXIT_USAGE, cause=exc)
     else:
         options = {}
-    try:
-        save = render_figure(
-            args.sim_ref,
-            args.figure,
-            workspace=args.workspace,
-            output=args.output,
-            time=args.time,
-            options=options,
-        )
-    except (AmbiguousReferenceError, SimulationNotFoundError) as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
-    print(f"wrote {save}", file=sys.stderr)
+    save = render_figure(
+        args.sim_ref,
+        args.figure,
+        workspace=args.workspace,
+        output=Path(args.to) if args.to else None,
+        time=args.time,
+        options=options,
+    )
+    emit(args, "viz show", {"path": save}, table=lambda: print(f"wrote {save}", file=sys.stderr))

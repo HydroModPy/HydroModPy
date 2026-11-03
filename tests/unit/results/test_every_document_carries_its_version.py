@@ -30,7 +30,7 @@ Exempt documents, and why:
   date``, with no structure to version; a malformed line is refused by its
   number.
 - ``summary/`` tables, page and RO-Crate: derived, written again whole by
-  ``hmp project collect`` (its ledgers ``index.json`` are versioned, below).
+  ``hmp campaign collect`` (its ledgers ``index.json`` are versioned, below).
 - ``.hmp/identity_notice.json`` of a workspace: a memo of the warnings
   already given; losing it repeats one warning.
 - ``request.json`` of a job and ``chain.json``: an input the caller writes, read
@@ -59,6 +59,7 @@ import pytest
 from pydantic import BaseModel, ValidationError
 
 import hydromodpy
+import hydromodpy as hmp
 from hydromodpy.calibration.persistence import CalibrationPersistence
 from hydromodpy.calibration.runners.session import open_session_dir
 from hydromodpy.cli._workers.catalog import abandoned_calibration_session_count
@@ -232,7 +233,7 @@ WRITER = "2.0.0a1"
 """The version that wrote the run, the plan and the copy: not the one that reads them."""
 
 TRANSIENT = "It is transient state: delete it and run again."
-LOCK = "hmp dev lock update"
+LOCK = "hmp lock update"
 REINDEX = "hmp catalog reindex"
 
 RUN = "nancon_daily"
@@ -1096,9 +1097,34 @@ def _refused_manifest(tree: Tree) -> None:
     target.write_text(json.dumps(payload), encoding="utf-8")
 
 
+def _older_field_store(tree: Tree) -> None:
+    """Store a sealed run whose field store is below the window, its manifest still read."""
+    target = tree.run / "fields.zarr" / "zarr.json"
+    target.parent.mkdir(exist_ok=True)
+    attributes = {"zarr_schema_version": "3", "hydromodpy_version": "2.0.0a5"}
+    target.write_text(json.dumps({"attributes": attributes}), encoding="utf-8")
+
+
 UNREADABLE_MANIFESTS = pytest.mark.parametrize(
-    "spoil", [_future_manifest, _refused_manifest], ids=["newer", "refused body"]
+    "spoil",
+    [_future_manifest, _refused_manifest, _older_field_store],
+    ids=["newer", "refused body", "older field store"],
 )
+
+
+def test_a_run_under_the_field_store_version_is_refused_with_one_sentence(
+    tree: Tree, caplog: pytest.LogCaptureFixture
+) -> None:
+    _older_field_store(tree)
+
+    with pytest.raises(SchemaVersionMismatchError, match="pre-release .* must be run again"):
+        hmp.open(tree.run)
+    with caplog.at_level(logging.WARNING):
+        report = rebuild_index(tree.project)
+
+    assert [entry.rel_dir for entry in report.skipped] == [f"runs/{RUN}"]
+    assert "must be run again" in report.skipped[0].reason
+    assert any("index left out" in record.getMessage() for record in caplog.records)
 
 
 def _future_session(tree: Tree) -> None:

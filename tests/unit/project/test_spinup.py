@@ -68,7 +68,7 @@ class _StubProject:
     """Minimal Project stand-in: simulate() returns a pre-written cycle Zarr."""
 
     def __init__(self, cfg, cycle_zarrs: list[str]) -> None:
-        self.config = cfg
+        self.config = self._cfg = cfg
         self._cycle_zarrs = cycle_zarrs
         self._i = 0
         self._by_sid: dict[str, str] = {}
@@ -88,7 +88,7 @@ class _StubProject:
     def simulate(self, *, name: str):
         # Record the restart_from and IC type the driver set for this cycle.
         self.simulated_restart_from.append(self.config.flow.restart_from)
-        self.simulated_ic_type.append(self.config.flow.ic.h.type)
+        self.simulated_ic_type.append(self.config.flow.ic.h.kind)
         path = self._cycle_zarrs[self._i]
         self._i += 1
         sid = f"sid::{name}"
@@ -98,7 +98,7 @@ class _StubProject:
 
 def _stub_config() -> SimpleNamespace:
     return SimpleNamespace(
-        flow=FlowConfig(),  # real flow config so ic.h.type / restart_from behave
+        flow=FlowConfig(),  # real flow config so ic.h.kind / restart_from behave
         simulation=SimpleNamespace(time=SimpleNamespace(start_datetime=None, end_datetime=None)),
         spinup=None,
     )
@@ -145,7 +145,7 @@ def test_run_spinup_switches_steady_ic_to_top_on_restart(tmp_path: Path) -> None
         _write_cycle_zarr(tmp_path / "c2.zarr", [[5.0, 5.0]], {"lac0": 86.0}),
     ]
     cfg = _stub_config()
-    cfg.flow.ic = FlowInitialConditions.model_validate({"type": "steady_state"})
+    cfg.flow.ic = FlowInitialConditions.model_validate({"kind": "steady_state"})
     project = _StubProject(cfg, zarrs)
 
     run_spinup(project, spinup=SpinupConfig(max_cycles=3, tol_head=0.01, tol_stage=0.01))

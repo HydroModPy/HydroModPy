@@ -62,7 +62,6 @@ OUTSIDE_LAYERS: Final[tuple[str, ...]] = (
     "display",
     "analysis",
     "reporting",
-    "catalog",
     "examples",
     "project",
     "cli",

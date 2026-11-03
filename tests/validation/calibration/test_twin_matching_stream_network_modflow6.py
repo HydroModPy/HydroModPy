@@ -25,7 +25,8 @@ criterion calls, and its round trip through the GPKG back onto the mesh is
 checked cell for cell before any calibration runs. The round trip goes through
 the resolver and ``observed_network_mask`` under the crossing rule, the route a
 ``stream_geometry_path`` takes in a calibration trial. The calibration sets that
-rule: the default, ``heads``, needs a drained area this hillslope never reaches.
+rule: the default, ``heads``, needs a drained area this hillslope never reaches, and
+``test_twin_matching_stream_heads_modflow6.py`` runs that default on a basin that does.
 
 What this twin cannot see: on a single row no two network cells meet only at a
 corner, so the crossing and the touch rules give the same mask here. The
@@ -63,7 +64,16 @@ import pytest
 
 from hydromodpy.core.stream_geometry import neighbour_spacing_m
 from tests._helpers.tolerances import tol
-from tests.regression.golden_utils import assert_required_executables
+from tests.validation.calibration.helpers import (
+    MODFLOW6_RUNTIME_TOML,
+    NETWORK_OUTPUT,
+    NETWORK_TWIN_TOML,
+    network_metric,
+    recharge_read_back_rel,
+    require_network_twin_executables,
+    simulated_network,
+    trial_metrics,
+)
 from tests.validation.helpers import assert_metric_below
 from validation_cases.shared.boussinesq_uniform_strip import write_uniform_strip_bundle
 from validation_cases.shared.gmsh_irregular_strip import write_gmsh22_triangle_mesh_from_bundle_csv
@@ -121,7 +131,6 @@ SOLVERS = [
 more block in ``_SOLVER_BLOCKS`` and, for a mesh, one in ``_write_bundle``."""
 
 CRS = "EPSG:2154"
-OUTPUT = "seepage_network"
 
 K_TRUE_M_S = 6.0e-6
 """K/R = 600. Chosen so the seepage face starts near 360 m, inside the 800 m
@@ -129,15 +138,6 @@ hillslope, and so no sweep point of the bracket below falls on it."""
 
 RECHARGE_MM_DAY = 0.864
 RECHARGE_M_S = 1.0e-8
-RECHARGE_REL = {
-    "modflow_nwt": tol(
-        "twin_stream_network_calibration_modflow_nwt__recharge_read_back_from_the_solver_files_rel_against_the_input"
-    )
-}
-"""Relative error of the recharge read back from the solver files. MODFLOW 6 writes
-double precision and returns the input to 1e-9. MODFLOW-NWT writes its flow terms
-in single precision, whose rounding is 6e-8."""
-RECHARGE_REL_DEFAULT = 1.0e-9
 THICKNESS_M = 30.0
 N_CELLS = 400
 CELL_M = 2.0
@@ -160,25 +160,7 @@ D_SAT_REL = tol("d_sat_m_at_the_returned_trial_against_the_truth_run")
 IDENTITY_REL = tol("k_optim_m_s_k_over_r_t_over_r_m_t_optim_m2_s")
 """TOLERANCES.md row 79: the report's ratios are products of what it read."""
 
-_PROJECT_TOML = """\
-[workflow]
-mode = "{mode}"
-
-[simulation]
-name = "{name}"
-
-[[simulation.process]]
-id = "flow"
-type = "flow"
-solvers = ["{solver_id}"]
-
-# The round trip compares the recharge read back to 1e-9: compact storage
-# keeps 16 mantissa bits, about 1e-5.
-[simulation.results.persistence]
-field_precision = "exact"
-
-[workspace]
-
+_GEOGRAPHIC_TOML = """\
 [geographic]
 source_mode = "synthetic"
 crs_project = "{crs}"
@@ -197,56 +179,10 @@ ny = 1
 kind = "linear"
 base_elevation = 50.0
 right_to_left_amplitude = 16.0
-
-[domain.depth_model]
-kind = "constant_thickness"
-thickness = "{thickness_m} m"
-
-[flow]
-flow_regime = "steady"
-active_sinks_sources = ["recharge"]
-active_bc = ["drainage"]
-param_list = ["K"]
-
-[flow.param.K.field]
-kind = "homogeneous"
-unit = "m/s"
-value = {k_m_s!r}
-
-[flow.ic]
-type = "top"
-
-# A conductance of zero selects the fallback K * cell area / bed thickness,
-# the one that keeps the network a function of K/R.
-[flow.bc.drainage]
-application_domain = "top"
-kind = "cauchy"
-value = "0.0 m2/s"
-
-[flow.sinks_sources.recharge]
-first_clim = "mean"
-
-[data]
-types = ["recharge"]
-inference_mode = "warn"
-
-[[data.recharge.sources]]
-source = "synthetic"
-values = [{recharge_mm_day!r}]
-
-{solver_blocks}
-[display]
-enabled = false
-"""
-
-_MODFLOW6_RUNTIME = """\
-[modflow6.runtime]
-mf_verbose = false
-mf6_ims_complexity = "COMPLEX"
 """
 
 _MESH_RUNTIME = (
-    _MODFLOW6_RUNTIME
+    MODFLOW6_RUNTIME_TOML
     + """\
 # On these thin strips the 500 outer iterations of the COMPLEX preset do not
 # converge at K above about 1e-5 m/s, where the seepage face retreats to the
@@ -266,7 +202,7 @@ shape = [1, {n_cells}]
 [domain.layers]
 nlay = 1
 """,
-    "modflow6": _MODFLOW6_RUNTIME
+    "modflow6": MODFLOW6_RUNTIME_TOML
     + """\
 
 [mesh.regular]
@@ -370,15 +306,15 @@ def _project_toml(
         n_cells=N_CELLS,
         bundle_dir=None if bundle_dir is None else bundle_dir.as_posix(),
     )
-    return _PROJECT_TOML.format(
+    geographic = _GEOGRAPHIC_TOML.format(
+        crs=CRS, length_m=N_CELLS * CELL_M, cell_m=CELL_M, n_cells=N_CELLS
+    )
+    return NETWORK_TWIN_TOML.format(
         solver_id=_SOLVER_IDS[solver],
         solver_blocks=blocks,
         mode=mode,
         name=name,
-        crs=CRS,
-        length_m=N_CELLS * CELL_M,
-        cell_m=CELL_M,
-        n_cells=N_CELLS,
+        geographic=geographic,
         thickness_m=THICKNESS_M,
         k_m_s=float(k_m_s),
         recharge_mm_day=RECHARGE_MM_DAY,
@@ -403,64 +339,16 @@ class Truth:
     bundle_dir: Path | None
 
 
-def _cell_centres(solver: str, polygons: np.ndarray, bundle_dir: Path | None) -> np.ndarray:
-    """Return the points the criterion samples the top at, one per cell.
+def _generator_nodes(polygons: np.ndarray, bundle_dir: Path | None) -> np.ndarray:
+    """Return the generator nodes of the bundle, the centres of its Voronoi cells.
 
-    The polygon centroids on the grid and the triangles, the generator nodes of
-    the bundle on the Voronoi mesh, whose polygon centroids are not its centres.
+    Their polygon centroids are not the points the criterion samples the top at.
     """
-    if solver != "modflow6_voronoi":
-        return np.asarray([[p.centroid.x, p.centroid.y] for p in polygons], dtype=float)
     centres, kind = bundle_cell_centers(bundle_dir, len(polygons))
     assert kind == "voronoi", kind
     inside = [bool(p.buffer(1e-9).contains(Point(x, y))) for p, (x, y) in zip(polygons, centres)]
     assert all(inside), "each bundle node must lie in the Voronoi polygon of the same index"
     return centres
-
-
-def _simulated_network(
-    sim: Any, solver: str, bundle_dir: Path | None
-) -> tuple[Any, Any, np.ndarray, np.ndarray, np.ndarray, float]:
-    """Build the network of a finished run with the criterion's own functions.
-
-    The mapped network does not enter the simulated one: it only feeds the
-    distances. The geometry builder still wants a non-empty mask, so every
-    cell is passed. The defaults are the calibration output's, read from the
-    same model it reads them from.
-    """
-    from hydromodpy.core.stream_criterion_defaults import STREAM_CRITERION_DEFAULTS
-    from hydromodpy.core.stream_geometry import build_network_geometry
-    from hydromodpy.core.stream_network import build_simulated_network
-    from hydromodpy.spatial.mesh.model.geometry import cell_polygons
-
-    mesh = sim.mesh
-    vertices = np.asarray(mesh.vertices, dtype=float)
-    connectivity = np.asarray(mesh.face_node_connectivity)
-    topography = np.asarray(mesh.topography, dtype=float).reshape(-1)
-    polygons = cell_polygons(vertices, connectivity)
-    areas = np.asarray([polygon.area for polygon in polygons], dtype=float)
-    centroids = _cell_centres(solver, polygons, bundle_dir)
-
-    # Read back from the budget the solver wrote, as the results layer does.
-    recharge = np.asarray(sim.field("recharge", timestep=-1), dtype=float).reshape(-1)
-    recharge_m_s = float(np.mean(recharge / areas))
-
-    geometry = build_network_geometry(
-        topography=topography,
-        face_node_connectivity=connectivity,
-        vertices=vertices,
-        observed=np.ones(topography.size, dtype=bool),
-        cell_area_m2=areas,
-        cell_centroids=centroids,
-        mean_recharge_m_s=recharge_m_s,
-        tau_specific_ratio=STREAM_CRITERION_DEFAULTS.tau_specific_ratio,
-        diagonal_neighbors=STREAM_CRITERION_DEFAULTS.diagonal_neighbors,
-    )
-    release = np.asarray(sim.field("release_flux", timestep=-1), dtype=float).reshape(-1)
-    simulated = build_simulated_network(
-        release, threshold_m3_s=geometry.threshold_m3_s, metric=geometry.metric
-    )
-    return simulated, geometry, polygons, topography, centroids, recharge_m_s
 
 
 def _mapped_lines(network: np.ndarray, centres: np.ndarray, *, grid: bool) -> list[Any]:
@@ -557,10 +445,15 @@ def _truth(root: Path, solver: str) -> Truth:
     project = Project(config, no_display=True)
     try:
         sim = project.simulate()
-        simulated, geometry, polygons, topography, centres, recharge_m_s = _simulated_network(
-            sim, solver, bundle_dir
+        simulated, geometry, polygons, topography, centres, recharge_m_s = simulated_network(
+            sim,
+            centres_of=(
+                (lambda cells: _generator_nodes(cells, bundle_dir))
+                if solver == "modflow6_voronoi"
+                else None
+            ),
         )
-        head = np.asarray(sim.field("head", timestep=-1), dtype=float).reshape(1, -1)
+        head = np.asarray(sim.field("head", time=-1), dtype=float).reshape(1, -1)
         mesh = sim.mesh
         mesh_crs = str(mesh.crs)
         vertices = np.asarray(mesh.vertices, dtype=float)
@@ -605,19 +498,10 @@ _RUNS: dict[str, tuple[Truth, Any]] = {}
 """Truth and calibration report per column, so the two tests of a column share one run."""
 
 
-def _require_executables(solver: str) -> None:
-    assert_required_executables(
-        require_modflow=solver == "modflow_nwt",
-        require_modflow6=solver.startswith("modflow6"),
-        require_modpath=False,
-        require_mt3dms=False,
-    )
-
-
 @pytest.fixture
 def truth(solver: str, tmp_path_factory: pytest.TempPathFactory) -> Truth:
     if solver not in _RUNS:
-        _require_executables(solver)
+        require_network_twin_executables(solver)
         built = _truth(tmp_path_factory.mktemp(f"twin_network_{solver}"), solver)
         _RUNS[solver] = (built, None)
     return _RUNS[solver][0]
@@ -643,26 +527,13 @@ def report(solver: str, truth: Truth) -> Any:
                 rel_tol=REL_TOL,
                 k_low=K_BOUNDS_M_S[0],
                 k_high=K_BOUNDS_M_S[1],
-                output=OUTPUT,
+                output=NETWORK_OUTPUT,
                 mapped=truth.mapped_path.as_posix(),
             ),
             encoding="utf-8",
         )
         _RUNS[solver] = (truth, hmp.calibrate(config))
     return _RUNS[solver][1]
-
-
-def _metrics_of(report: Any, k_value: float) -> dict[str, float]:
-    """Return the published components of the trial evaluated at ``k_value``."""
-    rows = report.trials
-    for _, row in rows.iterrows():
-        if math.isclose(float(row["parameters"]["K"]["value"]), k_value, rel_tol=1e-12):
-            return dict(row["components"])
-    raise AssertionError(f"no trial at K = {k_value!r} among {len(rows)} trials.")
-
-
-def _metric(metrics: dict[str, float], key: str) -> float:
-    return float(metrics[f"{OUTPUT}.{key}"])
 
 
 @pytest.mark.parametrize("solver", SOLVERS)
@@ -684,9 +555,7 @@ def test_the_mapped_network_projects_back_onto_the_cells_it_was_written_from(
     assert mismatched.size == 0, f"cells differing after the round trip: {mismatched.tolist()}"
     # The seal writes the projection as WKT: compare the projections, not the text.
     assert pyproj.CRS.from_user_input(truth.mesh_crs) == pyproj.CRS.from_user_input(CRS)
-    assert math.isclose(
-        truth.recharge_m_s, RECHARGE_M_S, rel_tol=RECHARGE_REL.get(solver, RECHARGE_REL_DEFAULT)
-    )
+    assert math.isclose(truth.recharge_m_s, RECHARGE_M_S, rel_tol=recharge_read_back_rel(solver))
 
 
 @pytest.mark.parametrize("solver", SOLVERS)
@@ -708,21 +577,21 @@ def test_a_network_only_bisection_recovers_the_conductivity_that_made_the_networ
         inclusive=True,
     )
 
-    best = _metrics_of(report, k_hat)
+    best = trial_metrics(report, k_hat)
     # The criterion scored the network the GPKG holds, projected by its own
     # route: the same count of mapped cells inside its catchment, all reached.
     # The catchment is the whole strip but on the Voronoi mesh, whose two rows
     # of nodes sit at one elevation and so do not drain into each other.
-    assert _metric(best, "n_network_obs") == float((truth.network & truth.catchment).sum())
-    assert _metric(best, "frac_unreachable_so") == 0.0
+    assert network_metric(best, "n_network_obs") == float((truth.network & truth.catchment).sum())
+    assert network_metric(best, "frac_unreachable_so") == 0.0
     # TOLERANCES.md row 77: a stream cannot move by less than one cell.
-    cell_spacing = _metric(best, "cell_spacing_m")
+    cell_spacing = network_metric(best, "cell_spacing_m")
     assert math.isclose(cell_spacing, truth.cell_spacing_m, rel_tol=1e-9)
     if solver in ("modflow_nwt", "modflow6"):
         assert math.isclose(cell_spacing, CELL_M, rel_tol=1e-9)
     assert_metric_below(
         "Signed distance gap at the best K",
-        abs(_metric(best, "J_signed")),
+        abs(network_metric(best, "J_signed")),
         cell_spacing,
         unit="m",
         inclusive=True,
@@ -731,25 +600,25 @@ def test_a_network_only_bisection_recovers_the_conductivity_that_made_the_networ
 
     # The sweep sees the sign structure the root search rests on: an excess of
     # simulated stream at the lower bound, a deficit at the upper one.
-    assert _metric(_metrics_of(report, K_BOUNDS_M_S[0]), "J_signed") > 0.0
-    assert _metric(_metrics_of(report, K_BOUNDS_M_S[1]), "J_signed") < 0.0
+    assert network_metric(trial_metrics(report, K_BOUNDS_M_S[0]), "J_signed") > 0.0
+    assert network_metric(trial_metrics(report, K_BOUNDS_M_S[1]), "J_signed") < 0.0
 
-    verdict = report.extra["r_optim_verdict"][OUTPUT]
+    verdict = report.extra["r_optim_verdict"][NETWORK_OUTPUT]
     assert verdict["valid"] is True, verdict
 
     extra = report.extra
-    recharge = _metric(best, "R_mean_m_s")
+    recharge = network_metric(best, "R_mean_m_s")
     assert math.isclose(
         recharge,
         truth.recharge_m_s,
-        rel_tol=RECHARGE_REL.get(solver, RECHARGE_REL_DEFAULT),
+        rel_tol=recharge_read_back_rel(solver),
     )
     assert math.isclose(extra["k_optim_m_s"], k_hat, rel_tol=IDENTITY_REL)
     assert math.isclose(extra["k_over_r"], k_hat / recharge, rel_tol=IDENTITY_REL)
     assert abs(extra["k_over_r"] / (K_TRUE_M_S / RECHARGE_M_S) - 1.0) <= K_RECOVERY_REL
 
     d_sat = extra["d_sat_m"]
-    assert math.isclose(d_sat, _metric(best, "d_sat_m"), rel_tol=IDENTITY_REL)
+    assert math.isclose(d_sat, network_metric(best, "d_sat_m"), rel_tol=IDENTITY_REL)
     assert 0.0 < d_sat <= THICKNESS_M
     assert_metric_below(
         "Relative error of the saturation length",

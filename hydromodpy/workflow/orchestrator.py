@@ -3,7 +3,7 @@
 Two things live here: ``prepare_runtime``, which chains the model phase
 (workspace, geographic, data, mesh) in one call, and ``standard_steps``,
 which names the thirteen steps of a full simulation in the order the phase
-contract fixes.
+contract fixes, under the names of :data:`hydromodpy.core.pipeline_steps.STEP_NAMES`.
 
 The run phase itself belongs to the steps: :class:`PrepareSolverStep` opens
 what a run writes to and :class:`SealStep` seals it. Nothing here drives a

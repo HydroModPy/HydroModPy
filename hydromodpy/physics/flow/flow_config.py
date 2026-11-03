@@ -13,7 +13,6 @@ from typing import Annotated, ClassVar
 
 from pydantic import (
     Field,
-    ValidationError,
     ValidationInfo,
     field_validator,
     model_validator,
@@ -22,35 +21,20 @@ from pydantic import (
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.config_kit.types import IdentifierStr
-from hydromodpy.physics.base import ProcessSpatialConfig
 from hydromodpy.physics.flow import flow_toml_loader
-from hydromodpy.physics.flow.boundary_condition_registry import (
-    SUPPORTED_FLOW_BOUNDARY_IDS,
-    boundary_definition,
-)
 from hydromodpy.physics.flow.boundary_conditions import (
     BCEntry,
     FlowBoundaryConditionConfig,
 )
 from hydromodpy.physics.flow.flow_param_config import FlowParam
-from hydromodpy.physics.flow.flow_runtime_config import FlowRuntimeConfig
-from hydromodpy.physics.flow.flow_runtime_fields import FlowRuntimeFields
-from hydromodpy.physics.flow.flow_runtime_validators import (
-    normalize_bool,
-    normalize_positive_float,
-    normalize_positive_float_or_none,
-    normalize_positive_int,
-    normalize_positive_int_or_none,
-    normalize_runtime_backend,
-    normalize_surface_interaction_model,
-)
+from hydromodpy.physics.flow.flow_runtime_config import FLOW_RUNTIME_KEYS, FlowRuntimeConfig
 from hydromodpy.physics.flow.initial_conditions import (
     FlowInitialConditions,
 )
 from hydromodpy.physics.flow.initial_conditions_config import (
     normalize_flow_initial_conditions,
 )
+from hydromodpy.physics.flow.property_ids import default_unit_of, refusal_of_a_retired_id
 from hydromodpy.physics.flow.regime import FlowRegime, normalize_flow_regime
 from hydromodpy.physics.flow.sinks_sources import (
     FlowBarrierConfig,
@@ -98,15 +82,27 @@ class RestartReference(HydroModelBase):
         return self
 
 
-class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
+class FlowConfig(HydroModelBase):
     """Flow-process configuration.
 
     Parameters are declared in `param_list` (ordered list of ids), and
-    parameter payloads are stored in `param`. The 13 flat
-    ``runtime_*``/``vi_*``/``ts_vi_*`` Boussinesq knobs are declared on
-    :class:`FlowRuntimeFields` and grouped together by the
-    :attr:`runtime` property as a :class:`FlowRuntimeConfig` view.
+    parameter payloads are stored in `param`. A boundary or a sink is active when
+    it is declared and does not say ``enabled = false``: :attr:`active_bc` and
+    :attr:`active_sinks_sources` read that from the tables, and no list says it.
     """
+
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "active_bc": (
+            "a boundary is active when its table is declared. Write [flow.bc.<id>], or "
+            "enabled = false in a table to keep it and switch it off."
+        ),
+        "active_sinks_sources": (
+            "a sink or a source is active when its table is declared. Write "
+            "[flow.sinks_sources.<name>], or enabled = false in a table to keep it and "
+            "switch it off."
+        ),
+        **{old: f"it moved to [flow.runtime], as {new}." for old, new in FLOW_RUNTIME_KEYS.items()},
+    }
 
     flow_regime: Annotated[FlowRegime, Profile.USER] = Field(
         default="transient",
@@ -128,11 +124,6 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
                     "Solves the heads through time; it starts from the state [flow.ic] gives."
                 ),
             },
-            display_name_fr="Régime d'écoulement",
-            help_text_fr=(
-                "Régime stationnaire (steady) ou transitoire (transient). "
-                "Le régime transitoire requiert une condition initiale [flow.ic]."
-            ),
         ),
     )
     first_period_steady: Annotated[bool, Profile.USER] = Field(
@@ -145,11 +136,6 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
         json_schema_extra=field_metadata(
             widget_type="checkbox",
             unit="-",
-            display_name_fr="Premiere periode stationnaire",
-            help_text_fr=(
-                "En regime transitoire, force la premiere periode de calcul en stationnaire. "
-                "En regime stationnaire, toutes les periodes restent stationnaires."
-            ),
         ),
     )
     restart_from: Annotated[str | RestartReference | None, Profile.USER] = Field(
@@ -164,9 +150,9 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
             "the project; otherwise the cell count differs and restart is refused. None keeps [flow.ic]. "
             "Read only by a solver that declares it can: elsewhere the run is refused "
             "rather than started from [flow.ic] without a word. This is one of the four "
-            "ways to say where a transient starts, next to [flow.ic] type='steady_state' "
+            "ways to say where a transient starts, next to [flow.ic] kind='steady_state' "
             "(equilibrium under the mean recharge, or under a rate you state with "
-            "source='prescribed'), type='custom'/'top'/'bottom' (a level you write), and "
+            "source='prescribed'), kind='custom'/'top'/'bottom' (a level you write), and "
             "`hmp spinup` (repeat a representative window until the state stops moving, "
             "then point this key at its result)."
         ),
@@ -193,30 +179,28 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
             "- ``[flow.bc.<id>]``, one block per boundary, keyed by what it is. "
             "Canonical ids: ``drainage``, ``ocean``, ``stream``, ``north_side``, "
             "``south_side``, ``east_side``, ``west_side``\n"
-            "- a boundary the registry describes entirely needs NO block: listing "
-            "it in ``flow.active_bc`` is enough\n"
+            "- declaring a block is what activates the boundary, and "
+            "``enabled = false`` switches it off. An empty block is enough for a "
+            "boundary the registry describes entirely, such as a drainage\n"
             "\n"
             "**Common keys**\n"
             "\n"
-            "- ``kind``: optional, the registry supplies it; write it only to "
-            "depart from the default, and only within a family (``cauchy`` and "
-            "``robin`` may be swapped, a prescribed head may not)\n"
+            "- ``kind``: optional, the registry supplies it: ``dirichlet`` for an "
+            "imposed head, ``drain`` for the linear drain ``q = C (h - h_ref)``\n"
             "- ``value``: optional on a drainage, where leaving it out derives the "
-            "conductance from K; required for a prescribed head\n"
+            "conductance from K; a head boundary with no value and no forcing "
+            "builds no constant head\n"
             "- ``application_domain``: optional, the registry supplies it, and a "
             "value contradicting it is refused\n"
             "\n"
             "**Allowed application_domain values:** ``top``, ``north side``, "
             "``south side``, ``east side``, ``west side``.\n"
             "\n"
-            "**Default units:** ``m`` for dirichlet, ``m2/s`` for cauchy/robin.\n"
+            "**Default units:** ``m`` for dirichlet, ``m2/s`` for drain.\n"
             "\n"
-            "**Cauchy vs Robin:** both map to the same MODFLOW ``DRN`` package; "
-            "the distinction only matters for the Boussinesq solver, which uses "
-            "two different surface-interaction closures (``cauchy`` for the "
-            "linear formulation ``q = C(h - h_ref)``, ``robin`` for the "
-            "regularized partition / complementarity variants selected by "
-            "``flow.surface_interaction_model``)."
+            "**The drain under each solver:** the MODFLOW solvers build a ``DRN`` "
+            "package. The Boussinesq solver takes its surface closure from "
+            "``flow.runtime.surface_interaction_model``."
         ),
     )
     ic: Annotated[FlowInitialConditions, Profile.USER] = Field(
@@ -230,29 +214,46 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
         default_factory=FlowSinksSourcesConfig,
         description="Typed sinks/sources payload (for example pumping wells).",
     )
-    active_sinks_sources: Annotated[list[IdentifierStr], Profile.USER] = Field(
-        default_factory=list,
+    runtime: Annotated[FlowRuntimeConfig, Profile.USER] = Field(
+        default_factory=FlowRuntimeConfig,
         description=(
-            "Explicitly activated sink/source names for this flow run: 'recharge', "
-            "'wells', 'etp'. 'etp' means three things. Under MODFLOW-NWT the loaded "
-            "ETP drives the EVT package. Under MODFLOW 6 it acts only in soil mode "
-            "([flow.sinks_sources.recharge.soil]), where it sends the ETP the soil "
-            "left unmet to the EVT package; outside soil mode MODFLOW 6 ignores it "
-            "and says so. Boussinesq rejects it at solver-contract validation. An "
-            "empty list means no sink/source package is assembled by the solver."
+            "Settings of the Boussinesq solve: its engine, its surface closure, its "
+            "iteration budget and tolerances. The MODFLOW solvers do not read them."
         ),
-        examples=[["recharge"], ["recharge", "wells"], ["etp"]],
     )
-    active_bc: Annotated[list[IdentifierStr], Profile.USER] = Field(
-        default_factory=list,
-        description=(
-            "Boundaries this run builds, by their canonical names: 'ocean', 'stream', "
-            "'north_side', 'south_side', 'east_side', 'west_side', 'drainage', 'lake', "
-            "'reservoir'. 'lake' and 'reservoir' build a MODFLOW 6 LAK package, so only "
-            "the modflow6 solver takes them. An empty list builds no boundary."
-        ),
-        examples=[["ocean"], ["west_side", "east_side", "drainage"]],
-    )
+
+    @property
+    def active_bc(self) -> list[str]:
+        """Return the boundaries this run builds: those declared and not switched off.
+
+        'lake' and 'sfr' stand for the tables of ``sinks_sources`` that build a MODFLOW 6
+        LAK and SFR package, so only the modflow6 solver takes them.
+        """
+        active = [bc_id for bc_id, boundary in self.bc.items() if boundary.enabled]
+        if self.sinks_sources.enabled_lakes():
+            active.append("lake")
+        if self.sinks_sources.enabled_networks():
+            active.append("sfr")
+        return active
+
+    @property
+    def active_sinks_sources(self) -> list[str]:
+        """Return the sinks and sources this run builds: those declared and not switched off.
+
+        'etp' means three things. Under MODFLOW-NWT the loaded ETP drives the EVT
+        package. Under MODFLOW 6 it acts only in soil mode, where it sends the ETP the
+        soil left unmet to the EVT package; outside soil mode MODFLOW 6 ignores it and
+        says so. Boussinesq rejects it at solver-contract validation.
+        """
+        tables = self.sinks_sources
+        active: list[str] = []
+        if tables.recharge is not None and tables.recharge.enabled:
+            active.append("recharge")
+        if tables.enabled_wells():
+            active.append("wells")
+        if tables.etp is not None and tables.etp.enabled:
+            active.append("etp")
+        return active
 
     @model_validator(mode="before")
     @classmethod
@@ -314,6 +315,9 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
             param_id = str(raw_key).strip()
             if param_id == "":
                 raise ValueError("flow.param cannot contain empty parameter ids")
+            refusal = refusal_of_a_retired_id(param_id)
+            if refusal is not None:
+                raise ValueError(refusal)
             if isinstance(raw_payload, FlowParam):
                 out[param_id] = raw_payload
                 continue
@@ -354,10 +358,10 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
                 f"flow.param contains ids not declared in flow.param_list: {extra_text}"
             )
         head_ic = getattr(self.ic, "h", None)
-        head_ic_type = str(getattr(head_ic, "type", "")).strip().lower()
-        if head_ic_type == "steady_state" and self.flow_regime != "transient":
+        head_ic_kind = str(getattr(head_ic, "kind", "")).strip().lower()
+        if head_ic_kind == "steady_state" and self.flow_regime != "transient":
             raise ValueError(
-                "flow.ic.type='steady_state' is only supported when flow.flow_regime='transient'"
+                "flow.ic.kind='steady_state' is only supported when flow.flow_regime='transient'"
             )
         return self
 
@@ -366,57 +370,6 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
     def _validate_flow_regime(cls, value):
         """Validate flow regime enumeration."""
         return normalize_flow_regime(value)
-
-    @field_validator("runtime_backend", mode="before")
-    @classmethod
-    def _validate_runtime_backend(cls, value):
-        return normalize_runtime_backend(value)
-
-    @field_validator("surface_interaction_model", mode="before")
-    @classmethod
-    def _validate_surface_interaction_model(cls, value):
-        return normalize_surface_interaction_model(value)
-
-    @field_validator("runtime_max_iterations", mode="before")
-    @classmethod
-    def _validate_runtime_max_iterations(cls, value):
-        return normalize_positive_int_or_none(value, field="runtime_max_iterations")
-
-    @field_validator("vi_substeps_per_period", mode="before")
-    @classmethod
-    def _validate_vi_substeps_per_period(cls, value):
-        return normalize_positive_int(value, field="vi_substeps_per_period", default=1)
-
-    @field_validator("vi_substep_on_failure", mode="before")
-    @classmethod
-    def _validate_vi_substep_on_failure(cls, value):
-        return normalize_bool(value, field="vi_substep_on_failure")
-
-    @field_validator("vi_max_adaptive_substeps", mode="before")
-    @classmethod
-    def _validate_vi_max_adaptive_substeps(cls, value):
-        return normalize_positive_int_or_none(value, field="vi_max_adaptive_substeps")
-
-    @field_validator("ts_vi_steps_per_period", mode="before")
-    @classmethod
-    def _validate_ts_vi_steps_per_period(cls, value):
-        return normalize_positive_int(value, field="ts_vi_steps_per_period", default=4)
-
-    @field_validator("ts_vi_adapt", mode="before")
-    @classmethod
-    def _validate_ts_vi_adapt(cls, value):
-        return normalize_bool(value, field="ts_vi_adapt")
-
-    @field_validator("ts_vi_dt_min_fraction", "ts_vi_dt_max_fraction", mode="before")
-    @classmethod
-    def _validate_ts_vi_dt_fraction(cls, value, info):
-        default = 1.0 / 64.0 if info.field_name == "ts_vi_dt_min_fraction" else 1.0 / 4.0
-        return normalize_positive_float(value, field=info.field_name, default=default)
-
-    @field_validator("runtime_tol_residual_inf", "runtime_tol_state_update_inf", mode="before")
-    @classmethod
-    def _validate_runtime_tolerances(cls, value, info):
-        return normalize_positive_float_or_none(value, field=info.field_name)
 
     @field_validator("bc", mode="before")
     @classmethod
@@ -432,42 +385,6 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
             base_dir=base_dir,
             workspace_data_dir=workspace_data_dir,
         )
-
-    @model_validator(mode="after")
-    def _declare_boundaries_the_registry_can_describe(self) -> FlowConfig:
-        """Build a boundary the registry fully describes when no table declares it.
-
-        ``active_bc`` already says which boundaries a run carries, and the
-        registry owns their kind, their application domain and their units. A
-        drainage therefore needs no table at all: what a table adds is a value
-        the registry cannot know, such as an imposed conductance or a head.
-
-        Only boundaries whose canonical payload validates on its own are built
-        here. One that needs a value the registry does not hold is left absent,
-        exactly as before, so this adds a capability and removes none.
-        """
-        from pydantic import TypeAdapter
-
-        for bc_id in self.active_bc:
-            if bc_id in self.bc:
-                continue
-            definition = boundary_definition(bc_id)
-            if definition is None or definition.default_type not in (
-                "dirichlet",
-                "cauchy",
-                "robin",
-            ):
-                continue
-            payload = {
-                "id": bc_id,
-                "kind": definition.default_type,
-                "_location_prefix": f"flow.bc.{definition.default_type}.{bc_id}",
-            }
-            try:
-                self.bc[bc_id] = TypeAdapter(BCEntry).validate_python(payload)
-            except ValidationError:
-                continue
-        return self
 
     @field_validator("ic", mode="before")
     @classmethod
@@ -486,141 +403,52 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
         """Normalize sinks/sources payload from `[flow.sinks_sources]`."""
         return normalize_flow_sinks_sources(value, location_prefix="flow.sinks_sources")
 
-    @field_validator("active_sinks_sources", mode="before")
-    @classmethod
-    def _validate_active_sinks_sources(cls, value):
-        """
-        Validate that ``active_sinks_sources`` only contains allowed values.
-
-        For ``Flow``, the permitted sink/source identifiers are
-        ``'recharge'``, ``'wells'`` and ``'etp'``. Any other value is an
-        error. Duplicates are rejected to keep the list unambiguous.
-        """
-        _ALLOWED = {"recharge", "wells", "etp"}
-        if value is None:
-            return []
-        if not isinstance(value, (list, tuple)):
-            raise ValueError("flow.active_sinks_sources must be a list")
-        out: list[str] = []
-        seen: set[str] = set()
-        for raw in value:
-            name = str(raw).strip()
-            if name not in _ALLOWED:
-                allowed_text = ", ".join(sorted(_ALLOWED))
-                raise ValueError(
-                    f"flow.active_sinks_sources: '{name}' is not a valid sink/source "
-                    f"for Flow. Allowed values: {allowed_text}."
-                )
-            if name in seen:
-                raise ValueError(f"flow.active_sinks_sources cannot contain duplicates: '{name}'")
-            seen.add(name)
-            out.append(name)
-        return out
-
-    @field_validator("active_bc", mode="before")
-    @classmethod
-    def _validate_active_bc(cls, value):
-        """
-        Validate that ``active_bc`` only contains allowed boundary-condition ids.
-
-        For ``Flow``, permitted ids are the canonical ids declared in the
-        flow boundary-condition registry.
-        Duplicates are rejected to keep the list unambiguous.
-        """
-        _ALLOWED = SUPPORTED_FLOW_BOUNDARY_IDS
-        if value is None:
-            return []
-        if not isinstance(value, (list, tuple)):
-            raise ValueError("flow.active_bc must be a list")
-        out: list[str] = []
-        seen: set[str] = set()
-        for raw in value:
-            name = str(raw).strip()
-            if name not in _ALLOWED:
-                allowed_text = ", ".join(sorted(_ALLOWED))
-                raise ValueError(
-                    f"flow.active_bc: '{name}' is not a valid boundary-condition id "
-                    f"for Flow. Allowed values: {allowed_text}."
-                )
-            if name in seen:
-                raise ValueError(f"flow.active_bc cannot contain duplicates: '{name}'")
-            seen.add(name)
-            out.append(name)
-        return out
-
-    _DEFAULT_PARAM_UNITS: ClassVar[dict[str, str]] = {
-        "K": "m/s",
-        "K22": "m/s",
-        "Kx": "m/s",
-        "Ky": "m/s",
-        "Kz": "m/s",
-        "Ss": "1/m",
-        "Sy": "-",
-        "porosity": "-",
-        "n": "-",
-    }
-
     @classmethod
     def _homogeneous_param_entry(cls, param_id: str, value: float) -> dict:
-        unit = cls._DEFAULT_PARAM_UNITS.get(param_id, "-")
         return {
-            "field": {"id": param_id, "kind": "homogeneous", "unit": unit, "value": float(value)}
+            "field": {
+                "id": param_id,
+                "kind": "homogeneous",
+                "unit": default_unit_of(param_id),
+                "value": float(value),
+            }
         }
-
-    @classmethod
-    def _homogeneous(
-        cls,
-        parameters: Mapping[str, float],
-        *,
-        flow_regime: FlowRegime,
-        active_bc: list[str] | None,
-        active_sinks_sources: list[str] | None,
-    ) -> FlowConfig:
-        if not parameters:
-            raise ValueError("homogeneous() requires at least one parameter (e.g. K=5e-5)")
-        return cls(
-            flow_regime=flow_regime,
-            param_list=list(parameters),
-            param={pid: cls._homogeneous_param_entry(pid, v) for pid, v in parameters.items()},
-            active_bc=active_bc or [],
-            active_sinks_sources=active_sinks_sources or [],
-        )
 
     @classmethod
     def homogeneous(
         cls,
         *,
         flow_regime: FlowRegime = "transient",
-        active_bc: list[str] | None = None,
-        active_sinks_sources: list[str] | None = None,
+        bc: Mapping[str, object] | None = None,
+        sinks_sources: Mapping[str, object] | None = None,
         **parameters: float,
     ) -> FlowConfig:
         """Build a FlowConfig with homogeneous parameters.
 
         Pass K, Sy, Ss, porosity etc. as keyword arguments. Each becomes a
         homogeneous scalar parameter. Units are inferred from the canonical
-        names (K in m/s, Ss in 1/m, Sy dimensionless).
+        names (K in m/s, Ss in 1/m, Sy dimensionless). *bc* and *sinks_sources* hold
+        the tables a TOML file would declare, and what they declare is active.
         """
-        return cls._homogeneous(
-            parameters,
+        if not parameters:
+            raise ValueError("homogeneous() requires at least one parameter (e.g. K=5e-5)")
+        return cls(
             flow_regime=flow_regime,
-            active_bc=active_bc,
-            active_sinks_sources=active_sinks_sources,
+            param_list=list(parameters),
+            param={pid: cls._homogeneous_param_entry(pid, v) for pid, v in parameters.items()},
+            bc=dict(bc or {}),
+            sinks_sources=dict(sinks_sources or {}),
         )
 
     @classmethod
     def steady(cls, **parameters: float) -> FlowConfig:
         """Shortcut for a steady-state FlowConfig with homogeneous parameters."""
-        return cls._homogeneous(
-            parameters, flow_regime="steady", active_bc=None, active_sinks_sources=None
-        )
+        return cls.homogeneous(flow_regime="steady", **parameters)
 
     @classmethod
     def transient(cls, **parameters: float) -> FlowConfig:
         """Shortcut for a transient FlowConfig with homogeneous parameters."""
-        return cls._homogeneous(
-            parameters, flow_regime="transient", active_bc=None, active_sinks_sources=None
-        )
+        return cls.homogeneous(flow_regime="transient", **parameters)
 
     @classmethod
     def from_toml_section(

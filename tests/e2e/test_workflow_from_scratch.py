@@ -148,7 +148,7 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
         "get",
         "dem",
         "--bbox=-1.17,48.4,-1.0,48.5",
-        "--out",
+        "--to",
         str(refused_out),
     )
     assert refused.returncode == 14, f"stderr:\n{refused.stderr}"
@@ -182,7 +182,7 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     served_out = tmp_path / "served"
-    served = _run_hmp("data", "get", str(request), "--out", str(served_out))
+    served = _run_hmp("data", "get", str(request), "--to", str(served_out))
     assert served.returncode == 0, f"`hmp data get` failed.\nstderr:\n{served.stderr}"
     report = json.loads((served_out / "request.json").read_text(encoding="utf-8"))
     (entry,) = report["files"]

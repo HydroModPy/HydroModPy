@@ -15,19 +15,19 @@ from hydromodpy.solver.base import registry
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
 
-def _config(tmp_path, solver: str, active_bc: list[str]) -> HydroModPyConfig:
+def _config(tmp_path, solver: str, bc: dict) -> HydroModPyConfig:
     return HydroModPyConfig(
         workflow={"mode": "simulation"},
         workspace=WorkspaceConfig(project_root=str(tmp_path), root=str(tmp_path)),
         geographic=GeographicConfig(source_mode="synthetic"),
-        simulation={"process": [{"id": "flow_main", "type": "flow", "solvers": [solver]}]},
-        flow=FlowConfig(active_bc=active_bc),
+        simulation={"process": [{"id": "flow_main", "kind": "flow", "solvers": [solver]}]},
+        flow=FlowConfig(bc=bc),
     )
 
 
 def test_an_unknown_flow_solver_is_refused_with_the_valid_names(tmp_path) -> None:
     with pytest.raises(ValueError) as excinfo:
-        _config(tmp_path, "modflow7", ["drainage"])
+        _config(tmp_path, "modflow7", {"drainage": {}})
     message = str(excinfo.value)
     assert "Unknown flow solver 'modflow7'" in message
     assert "neither built in nor a registered plugin" in message
@@ -52,7 +52,7 @@ def test_a_registered_plugin_flow_solver_is_accepted(tmp_path) -> None:
 
     registry.register("flow", "pluginflow", _Adapter)
     try:
-        cfg = _config(tmp_path, "pluginflow", [])
+        cfg = _config(tmp_path, "pluginflow", {})
     finally:
         registry.unregister("flow", "pluginflow")
     assert cfg.solver.backend_name == "pluginflow"

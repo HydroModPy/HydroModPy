@@ -11,7 +11,7 @@ from hydromodpy.spatial.geographic.catchment_config import DemCatchDef
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
 _OUTLET = {
-    "catch_def": "from_outlet_coord",
+    "kind": "from_outlet_coord",
     "dem_init_path": "dem.tif",
     "x_outlet": 1.0,
     "y_outlet": 2.0,
@@ -35,7 +35,7 @@ def test_the_catchment_and_the_dem_of_the_dem_shape_have_no_default_but_a_source
     assert dem.examples == ["dem.tif"]
     assert GeographicConfig.model_validate({"source_mode": "synthetic"}).catchment is None
     bootstrap = {"allow_dem_bootstrap": True}
-    dem_shape = {"catchment": {"catch_def": "dem"}}
+    dem_shape = {"catchment": {"kind": "dem"}}
     assert GeographicConfig.model_validate(dem_shape, context=bootstrap).dem_init_path is None
 
 
@@ -44,12 +44,12 @@ def test_the_catchment_and_the_dem_of_the_dem_shape_have_no_default_but_a_source
     [
         pytest.param({}, r"Add a \[geographic.catchment\] table", id="no-table"),
         pytest.param(
-            {"catchment": {"catch_def": "dem"}},
+            {"catchment": {"kind": "dem"}},
             "requires 'dem_init_path'",
             id="dem-shape-without-its-dem",
         ),
         pytest.param(
-            {"catchment": {"catch_def": "from_outlet_coord", "dem_init_path": "d.tif"}},
+            {"catchment": {"kind": "from_outlet_coord", "dem_init_path": "d.tif"}},
             "from_outlet_coord",
             id="outlet-without-its-coordinates",
         ),

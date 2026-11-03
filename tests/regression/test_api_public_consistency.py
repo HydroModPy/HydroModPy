@@ -1,12 +1,10 @@
-"""CI lint: enforce ``__all__`` ⟷ ``_LAZY_IMPORTS`` ∪ ``_MODULE_EXPORTS``.
+"""CI lint: ``__all__`` is the lazy names and the direct names, and each one resolves.
 
-Every key in ``hydromodpy._LAZY_IMPORTS`` and ``hydromodpy._MODULE_EXPORTS``
-must appear in ``hydromodpy.__all__`` and resolve via ``hmp.<name>``. Any
-direct (non-lazy) export defined in ``hydromodpy/__init__.py`` must be
-listed in ``_DIRECT_EXPORTS`` below so additions are explicitly registered.
+Any direct (non-lazy) export defined in ``hydromodpy/__init__.py`` must be listed in
+``_DIRECT_EXPORTS`` below so additions are explicitly registered. A package opened by
+``hmp.<name>`` stays out of ``__all__``.
 
-Also pins the return-type contract of ``hmp.run`` and ``hmp.calibrate`` across
-their TOML-path and config-object branches (T1 residual: P5, P6, P9).
+Also pins that ``hmp.calibrate`` takes one route per source of the configuration.
 """
 
 from __future__ import annotations
@@ -27,7 +25,6 @@ _DIRECT_EXPORTS = frozenset(
     {
         "open",
         "index",
-        "catalog",
         "read",
         "example_add",
         "example_list",
@@ -42,8 +39,6 @@ _DIRECT_EXPORTS = frozenset(
         "compare_pair",
         "report",
         "doctor",
-        "bootstrap_proj",
-        "log_manager",
         "__version__",
     }
 )
@@ -55,17 +50,18 @@ def test_lazy_import_listed_in_all(name: str) -> None:
 
 
 @pytest.mark.parametrize("name", sorted(_MODULE_EXPORTS))
-def test_module_export_listed_in_all(name: str) -> None:
-    assert name in hmp.__all__, f"_MODULE_EXPORTS[{name!r}] missing from __all__"
+def test_a_package_stays_out_of_all_and_opens(name: str) -> None:
+    assert name not in hmp.__all__
+    assert getattr(hmp, name).__name__ == f"hydromodpy.{name}"
 
 
-@pytest.mark.parametrize("name", sorted(set(_LAZY_IMPORTS) | set(_MODULE_EXPORTS)))
-def test_lazy_or_module_resolves(name: str) -> None:
+@pytest.mark.parametrize("name", sorted(_LAZY_IMPORTS))
+def test_lazy_name_resolves(name: str) -> None:
     assert getattr(hmp, name) is not None
 
 
 def test_all_set_equals_lazy_union_module_union_direct() -> None:
-    expected = set(_LAZY_IMPORTS) | set(_MODULE_EXPORTS) | set(_DIRECT_EXPORTS)
+    expected = set(_LAZY_IMPORTS) | set(_DIRECT_EXPORTS)
     actual = set(hmp.__all__)
     missing = expected - actual
     extra = actual - expected
@@ -81,12 +77,6 @@ def test_all_has_no_duplicates() -> None:
 def test_lazy_and_module_keys_disjoint() -> None:
     overlap = set(_LAZY_IMPORTS) & set(_MODULE_EXPORTS)
     assert not overlap, f"keys present in both _LAZY_IMPORTS and _MODULE_EXPORTS: {sorted(overlap)}"
-
-
-# ---------------------------------------------------------------------------
-# Return-type consistency between TOML-path and config-object branches.
-# Pins the post-T1-residual contract so future drift is caught.
-# ---------------------------------------------------------------------------
 
 
 class _FakeProject:
@@ -108,11 +98,6 @@ class _FakeProject:
     def calibrate(self, **kwargs):
         type(self).last_calibrate_kwargs = kwargs
         return type(self).calibrate_result
-
-
-def _write_simulation_toml(path: Path) -> Path:
-    path.write_text('[workflow]\nmode = "simulation"\n', encoding="utf-8")
-    return path
 
 
 def test_calibrate_path_skips_project_detour(monkeypatch, tmp_path: Path) -> None:

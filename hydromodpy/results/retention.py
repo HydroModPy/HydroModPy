@@ -61,7 +61,7 @@ from hydromodpy.results.trash import (
 )
 
 TRASH_RETENTION_DAYS = 30
-"""Days a trashed directory stays restorable before ``gc --apply`` removes it."""
+"""Days a trashed directory stays restorable before ``gc -y`` removes it."""
 
 DEFAULT_KEEP_VERSIONS = 5
 """Versions of one name ``gc`` keeps by default before trashing the older ones."""

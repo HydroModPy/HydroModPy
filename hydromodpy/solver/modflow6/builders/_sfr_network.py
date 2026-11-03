@@ -69,8 +69,8 @@ def _length_m(value: object) -> float:
 def _active_sfr_definitions(model) -> dict[str, dict[str, Any]]:
     """Return the active SFR network definitions keyed by network id.
 
-    A network is active when ``sfr`` is listed in ``flow.active_bc``. The
-    payloads come from ``flow.sinks_sources['sfr']`` (config objects or runtime
+    A network is active when its table is declared and not switched off, which
+    ``flow.active_bc`` says as ``sfr``. The payloads come from ``flow.sinks_sources['sfr']`` (config objects or runtime
     mappings carrying the binder-attached ``reach_trace``).
     """
     flow = getattr(model, "flow", None)

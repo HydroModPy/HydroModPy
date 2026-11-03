@@ -186,16 +186,33 @@ def _with_mesh(get, *, area_m2, rule):
     return wrapped
 
 
+class _SeriesStore:
+    """The ``timeseries`` table of a run, with a gauge or without one."""
+
+    def __init__(self, *, gauged: bool) -> None:
+        self._rows = pd.DataFrame(
+            {"variable": ["discharge"], "source": ["observed" if gauged else "simulated"]}
+        )
+
+    def read_table(self, view_name):
+        assert view_name == "timeseries"
+        return self._rows
+
+
 class TestAddRunoffToDischarge:
-    def test_no_runoff_forcing_returns_unchanged(self):
+    def test_no_runoff_forcing_returns_unchanged_and_says_nothing_without_a_gauge(self, caplog):
         # grp.get("forcing") is None -> baseflow passed through untouched.
         idx = pd.date_range("2020-01-01", periods=3, freq="D")
         discharge = pd.Series([1.0, 2.0, 3.0], index=idx, name="discharge")
         grp = _FakeRootGroup(forcing=None)
 
-        out = _add_runoff_to_discharge_series(discharge, str(uuid4()), store=None, grp=grp)
+        with caplog.at_level("WARNING"):
+            out = _add_runoff_to_discharge_series(
+                discharge, str(uuid4()), store=_SeriesStore(gauged=False), grp=grp
+            )
 
         pd.testing.assert_series_equal(out, discharge)
+        assert not [r for r in caplog.records if "baseflow" in r.getMessage()]
 
     def test_no_runoff_forcing_warns_once_per_run_in_plain_words(self, caplog):
         idx = pd.date_range("2020-01-01", periods=2, freq="D")
@@ -204,7 +221,10 @@ class TestAddRunoffToDischarge:
         with caplog.at_level("WARNING"):
             for _ in range(3):
                 _add_runoff_to_discharge_series(
-                    discharge, sim_id, store=None, grp=_FakeRootGroup(forcing=None)
+                    discharge,
+                    sim_id,
+                    store=_SeriesStore(gauged=True),
+                    grp=_FakeRootGroup(forcing=None),
                 )
         (message,) = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
         assert message == (

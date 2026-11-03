@@ -438,11 +438,15 @@ def _departs(deviation: Any, value: object) -> bool:
         return True
 
 
-def deviations_in_force(calibration: Any, geographic: Any = None) -> tuple[DeviationInForce, ...]:
+def deviations_in_force(
+    calibration: Any, geographic: Any = None, metrics_window: Any = None
+) -> tuple[DeviationInForce, ...]:
     """Return every deviation of the protocol ``calibration`` names, as this file runs it.
 
     ``calibration`` is the validated ``[calibration]`` section, expanded, and
-    ``geographic`` the ``[geographic]`` section when the caller holds it. Empty
+    ``geographic`` the ``[geographic]`` section when the caller holds it and
+    ``metrics_window`` ``[metrics] window`` when it does, which a conditional
+    deviation reads. Empty
     without a protocol. A key the file left empty holds the value of its version
     after the expansion, so the version's line says which values the file did not
     choose.
@@ -460,6 +464,10 @@ def deviations_in_force(calibration: Any, geographic: Any = None) -> tuple[Devia
             (place for place in places if deviation.key in type(place).model_fields), None
         )
         value = None if holder is None else getattr(holder, deviation.key)
+        if holder is not None and deviation.only_when is not None:
+            gate, wanted = deviation.only_when
+            if getattr(holder, gate, wanted) != wanted:
+                value = None
         written = (
             holder is not None
             and deviation.key in holder.model_fields_set
@@ -467,6 +475,8 @@ def deviations_in_force(calibration: Any, geographic: Any = None) -> tuple[Devia
         )
         if deviation.always:
             state: DeviationState = "always"
+        elif deviation.holds is not None:
+            state = "departs" if deviation.holds(calibration, metrics_window) else "as_paper"
         elif holder is None or (deviation.paper_value is None and value is None):
             state = "reads_paper"
         else:

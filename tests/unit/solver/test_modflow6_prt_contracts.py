@@ -45,9 +45,9 @@ def test_transport_config_accepts_modflow6prt_parameters() -> None:
                     "release_zone": "upstream_nonriver",
                     "upstream_top_quantile": 0.85,
                     "max_particles": 12,
-                    "release_times_days": [0.0, 10.0],
-                    "track_times_days": [1.0, 2.0, 3.0],
-                    "track_time_step_days": 10.0,
+                    "release_times": [0.0, 10.0],
+                    "track_times": [1.0, 2.0, 3.0],
+                    "track_time_step": 10.0,
                 }
             }
         }
@@ -57,8 +57,8 @@ def test_transport_config_accepts_modflow6prt_parameters() -> None:
     assert transport.modflow6prt.parameters["release_zone"] == "upstream_nonriver"
     assert transport.modflow6prt.parameters["upstream_top_quantile"] == 0.85
     assert transport.modflow6prt.parameters["max_particles"] == 12
-    assert transport.parameters["modflow6prt"]["release_times_days"] == [0.0, 10.0]
-    assert transport.modflow6prt.parameters["track_time_step_days"] == 10.0
+    assert transport.parameters["modflow6prt"]["release_times"] == [0.0, 10.0]
+    assert transport.modflow6prt.parameters["track_time_step"] == 10.0
 
 
 def test_modflow6_prt_upstream_nonriver_release_excludes_stream_cells() -> None:
@@ -251,8 +251,8 @@ def test_modflow6_prt_can_write_minimal_disv_package(tmp_path: Path) -> None:
                 "parameters": {
                     "release_zone": "domain",
                     "max_particles": 1,
-                    "release_times_days": [0.0],
-                    "track_times_days": [0.5],
+                    "release_times": [0.0],
+                    "track_times": [0.5],
                 }
             }
         }
@@ -322,10 +322,10 @@ def test_modflow6_prt_converts_day_controls_to_model_seconds(tmp_path: Path) -> 
                 "parameters": {
                     "release_zone": "domain",
                     "max_particles": 1,
-                    "release_times_days": [1.0],
-                    "track_times_days": [2.0],
-                    "stop_time_days": 3.0,
-                    "stop_travel_time_days": 4.0,
+                    "release_times": [1.0],
+                    "track_times": [2.0],
+                    "stop_time": 3.0,
+                    "stop_travel_time": 4.0,
                 }
             }
         }
@@ -391,9 +391,9 @@ def test_modflow6_prt_generates_regular_track_times(tmp_path: Path) -> None:
                 "parameters": {
                     "release_zone": "domain",
                     "max_particles": 1,
-                    "release_times_days": [0.0],
-                    "track_time_step_days": 10.0,
-                    "stop_time_days": 30.0,
+                    "release_times": [0.0],
+                    "track_time_step": 10.0,
+                    "stop_time": 30.0,
                 }
             }
         }

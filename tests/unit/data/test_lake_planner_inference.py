@@ -36,15 +36,6 @@ def test_unconsumed_lake_families_are_not_auto_inferred() -> None:
     assert not any(family in plan.inferred_types for family in _UNCONSUMED_LAKE_FAMILIES)
 
 
-def test_reservoir_token_also_infers_families() -> None:
-    plan = DataPlanner().build(_empty_config(), flow_active_bc=["reservoir"])
-    assert set(_CONSUMED_LAKE_FAMILIES).issubset(set(plan.inferred_types))
-    assert all(
-        any("reservoir" in r for r in plan.reasons_by_type[family])
-        for family in _CONSUMED_LAKE_FAMILIES
-    )
-
-
 def test_non_lake_boundary_does_not_infer_lake_families() -> None:
     plan = DataPlanner().build(_empty_config(), flow_active_bc=["stream", "ocean"])
     everything = (*_CONSUMED_LAKE_FAMILIES, *_UNCONSUMED_LAKE_FAMILIES)

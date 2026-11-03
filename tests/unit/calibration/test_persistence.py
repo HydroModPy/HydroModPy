@@ -15,8 +15,9 @@ import pytest
 
 from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
 from hydromodpy.calibration.persistence import CalibrationPersistence, PhaseContext
+from hydromodpy.core.exceptions import CalibrationError
 from hydromodpy.results.outcome import read_outcome
-from hydromodpy.results.session.descriptor import read_session
+from hydromodpy.results.session.descriptor import read_session, write_session
 from hydromodpy.results.session.journal import read_trials, trials_path
 from hydromodpy.results.session.phase import FrozenValue, read_phase
 from tests._helpers.session_documents import calibration_window, session_opening
@@ -398,3 +399,63 @@ class TestThePhases:
         assert persistence.recorded_context("sy") == {"model": "a" * 16}
         assert persistence.recorded_context("other") == {}
         assert set(read_session(persistence.directory).cases["calage"].context) == {"sy", "k"}
+
+
+class TestTheFixesOfTheReview:
+    def test_the_session_reads_the_cost_of_the_phase_its_best_comes_from(self, tmp_path) -> None:
+        persistence = _open(tmp_path)
+        context = PhaseContext("steady_k", 0, 0)
+        persistence.start_phase(
+            context, frozen={}, cost_name="distance_gap", cost_label="distance gap"
+        )
+        persistence.append_iteration(_suggestion(1, 1e-4), _result(1, 295.0), phase=context)
+        best = persistence.best_pointer(persistence.best_trial("steady_k"))
+
+        persistence.finalize_session(status="aborted", best=best, error="SIGTERM")
+
+        descriptor = read_session(persistence.directory)
+        assert (descriptor.cost_name, descriptor.cost_label) == ("distance_gap", "distance gap")
+        assert descriptor.cases[descriptor.case_id].cost_name == "distance_gap"
+
+    def test_a_cut_last_line_is_dropped_before_the_next_append(self, tmp_path) -> None:
+        persistence = _open(tmp_path)
+        persistence.append_iteration(_suggestion(1, 1e-4), _result(1, 0.4))
+        persistence.append_iteration(_suggestion(2, 2e-4), _result(2, 0.3))
+        journal = trials_path(persistence.directory)
+        journal.write_bytes(journal.read_bytes()[:-30])
+        persistence.finalize_session(status="aborted", best=None, error="cut")
+
+        reopened = CalibrationPersistence(persistence.directory)
+        reopened.resume_session()
+        reopened.append_iteration(_suggestion(2, 3e-4), _result(2, 0.2))
+
+        assert [line.trial for line in read_trials(persistence.directory)] == [1, 2]
+
+    def test_an_infeasible_point_is_no_crash_and_keeps_its_error(self, tmp_path) -> None:
+        persistence = _open(tmp_path)
+        line = persistence.append_iteration(
+            _suggestion(1, 1e-4),
+            _result(
+                1,
+                float("nan"),
+                status="infeasible",
+                metadata={"error": "infeasible: head above the top"},
+            ),
+        )
+
+        assert line.status == "infeasible"
+        assert line.only_case.error == "infeasible: head above the top"
+
+    def test_a_session_whose_case_is_not_among_its_cases_is_refused_untouched(
+        self, tmp_path
+    ) -> None:
+        persistence = _open(tmp_path)
+        persistence.finalize_session(status="completed", best=None)
+        descriptor = read_session(persistence.directory)
+        write_session(persistence.directory, descriptor.model_copy(update={"case_id": "joint"}))
+        before = (persistence.directory / "session.json").read_bytes()
+
+        with pytest.raises(CalibrationError, match="joint"):
+            CalibrationPersistence(persistence.directory).resume_session()
+
+        assert (persistence.directory / "session.json").read_bytes() == before

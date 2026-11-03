@@ -48,7 +48,7 @@ def _one_site_config(root, name: str, x: float, y: float):
             "geographic": {
                 "crs_project": "EPSG:2154",
                 "catchment": {
-                    "catch_def": "from_outlet_coord",
+                    "kind": "from_outlet_coord",
                     "dem_init_path": "dem.tif",
                     "x_outlet": x,
                     "y_outlet": y,
@@ -63,12 +63,12 @@ def _one_site_config(root, name: str, x: float, y: float):
                     "end_datetime": "2000-03-31",
                     "step_value": "1 month",
                 },
-                "process": [{"id": "flow_main", "type": "flow", "solvers": ["modflow6"]}],
+                "process": [{"id": "flow_main", "kind": "flow", "solvers": ["modflow6"]}],
             },
             "flow": {
                 "flow_regime": "steady",
                 "param_list": ["K"],
-                "active_bc": ["drainage"],
+                "bc": {"drainage": {}},
                 "param": {"K": {"field": {"kind": "homogeneous", "unit": "m/s", "value": 5e-5}}},
             },
         },

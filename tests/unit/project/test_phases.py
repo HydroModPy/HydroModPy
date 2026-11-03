@@ -12,9 +12,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from hydromodpy.project.phases import river_network_for_the_mesh
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-from hydromodpy.spatial.geographic.river_network_config import RiverNetworkConfig
+from hydromodpy.spatial.geographic.river_network_config import (
+    RiverNetworkConfig,
+    river_network_for_the_mesh,
+)
 from hydromodpy.spatial.mesh.mesh_config import MeshConfig
 
 

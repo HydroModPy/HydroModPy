@@ -65,14 +65,14 @@ most are ``regression``, ``validation``, ``analytical``, ``steady``,
    @pytest.mark.mf6
    def test_my_workflow(tmp_path): ...
 
-``hmp test`` selects subsets of three tiers:
+``hmp dev test`` selects subsets of three tiers:
 
 .. code-block:: bash
 
-   hmp test unit
-   hmp test regression --fast --mf6
-   hmp test regression --extensive
-   hmp test validation --analytical --steady
+   hmp dev test unit
+   hmp dev test regression --fast --mf6
+   hmp dev test regression --extensive
+   hmp dev test validation --analytical --steady
 
 The other tiers go through ``pytest`` (for example
 ``pytest tests/integration -q``, ``pytest -m solver_sanity -q``,
@@ -118,11 +118,11 @@ and checks what it holds:
 
 .. code-block:: python
 
-   import hydromodpy as hmp
+   from hydromodpy.physics.transport.transport import Transport
 
 
    def test_transport_mapping_config_populates_all_solver_parameter_blocks() -> None:
-       transport = hmp.TransportProcess({"modpath": {"parameters": {"track_dir": "backward"}}})
+       transport = Transport({"modpath": {"parameters": {"track_dir": "backward"}}})
        assert transport.modpath.parameters["track_dir"] == "backward"
 
 Integration pattern

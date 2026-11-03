@@ -157,7 +157,7 @@ def test_bbox_selects_the_cells_of_an_irregular_mesh(project) -> None:
         )
         assert 0 < inside.sum() < len(values)
 
-        masked = run.field("head", 0, bbox=box)
+        masked = run.field("head", time=0, bbox=box)
         np.testing.assert_array_equal(np.isfinite(masked[0]), inside)
         np.testing.assert_array_equal(masked[0][inside], values[inside])
 
@@ -180,7 +180,7 @@ def test_bbox_on_a_grid_of_pixels_keeps_the_pixel_rule(project) -> None:
         box = (LAMBERT_X0 + CELL, LAMBERT_Y0 + CELL, LAMBERT_X0 + 3.6 * CELL, LAMBERT_Y0 + 3 * CELL)
         expected = (xs >= box[0]) & (xs <= box[2]) & (ys >= box[1]) & (ys <= box[3])
 
-        masked = run.field("head", 0, bbox=box)
+        masked = run.field("head", time=0, bbox=box)
         np.testing.assert_array_equal(np.isfinite(masked[0]), expected)
         assert run.mesh.structured_shape == (nrow, ncol)
 
@@ -189,7 +189,7 @@ def test_a_bbox_that_is_not_a_box_is_refused(project) -> None:
     vertices, faces = _irregular_mesh()
     with _sealed(project, vertices, faces, np.arange(6.0)) as (catalog, sid):
         with pytest.raises(ValueError, match="xmin<xmax"):
-            Run(sid, catalog).field("head", 0, bbox=(10.0, 0.0, 0.0, 10.0))
+            Run(sid, catalog).field("head", time=0, bbox=(10.0, 0.0, 0.0, 10.0))
 
 
 def test_stored_face_centres_win_over_the_corner_mean() -> None:

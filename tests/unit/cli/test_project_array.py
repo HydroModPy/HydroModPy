@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.cli.commands.project import array
+from hydromodpy.cli.commands.campaign import array
 from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, EXIT_USAGE
 from tests.unit.project.test_slurm_array import planned_project
 

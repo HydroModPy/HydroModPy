@@ -7,6 +7,7 @@ writes that sign, so a reader never guesses it.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -31,10 +32,10 @@ def select_budget_zone(frame: Any) -> tuple[Any, str]:
     catchment row (zone :data:`CATCHMENT`) for the same component and timestep.
     The zone whose support is the delineated catchment is written by the solver
     extractors and read by
-    ``simulation.extraction.derivation.catchment_aggregation``. MODFLOW-NWT
-    meshes the basin, so the two coincide; MODFLOW 6 meshes a buffered box, so a
-    domain row carries the neighbouring basins too. The catchment lies inside
-    the domain, so summing the two counts its water twice. The catchment rows
+    ``simulation.extraction.derivation.catchment_aggregation``. On a mesh that
+    takes in a buffer, a domain row carries the neighbouring basins too. The
+    catchment lies inside the domain, so summing the two counts its water twice.
+    The catchment rows
     are returned when they exist, since every catchment series and the
     hydrograph read them; otherwise the domain rows, otherwise the table as it
     is.
@@ -49,6 +50,31 @@ def select_budget_zone(frame: Any) -> tuple[Any, str]:
     if not domain.empty:
         return domain, "the model domain"
     return frame, "the model domain"
+
+
+def networks_route_drainage(flow: Any) -> bool:
+    """Return whether a stream network takes the hillslope drainage of this flow.
+
+    Only an active SFR network can: ``route_drainage``, on by default, hands the
+    outflow of a drain to its reaches through the mover. A lake alone takes none,
+    so without a network, or with a network that keeps its drainage out, the
+    catchment drains hold water the routed series does not. A published discharge
+    and the discharge of a trial both read this answer.
+    """
+    active = {str(name).lower() for name in getattr(flow, "active_bc", None) or ()}
+    sinks_sources = getattr(flow, "sinks_sources", None)
+    networks = sinks_sources.get("sfr") if isinstance(sinks_sources, Mapping) else None
+    if "sfr" not in active or not networks:
+        return False
+    for payload in networks.values():
+        flag = (
+            payload.get("route_drainage")
+            if isinstance(payload, Mapping)
+            else getattr(payload, "route_drainage", None)
+        )
+        if flag is False:
+            return False
+    return True
 
 
 def find_drain_budget_key(mapping: Any) -> str | None:

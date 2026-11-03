@@ -1,0 +1,58 @@
+{
+  "shape": [
+    400
+  ],
+  "data_type": "int32",
+  "chunk_grid": {
+    "name": "regular",
+    "configuration": {
+      "chunk_shape": [
+        400
+      ]
+    }
+  },
+  "chunk_key_encoding": {
+    "name": "default",
+    "configuration": {
+      "separator": "/"
+    }
+  },
+  "fill_value": 0,
+  "codecs": [
+    {
+      "name": "bytes",
+      "configuration": {
+        "endian": "little"
+      }
+    },
+    {
+      "name": "zstd",
+      "configuration": {
+        "level": 0,
+        "checksum": false
+      }
+    }
+  ],
+  "attributes": {
+    "long_name": "Line families each cell belongs to",
+    "flag_masks": [
+      1,
+      2,
+      4,
+      8
+    ],
+    "flag_meanings": "boundary_west boundary_east boundary_south boundary_north",
+    "family_names": [
+      "boundary:west",
+      "boundary:east",
+      "boundary:south",
+      "boundary:north"
+    ]
+  },
+  "dimension_names": [
+    "face"
+  ],
+  "zarr_format": 3,
+  "node_type": "array",
+  "storage_transformers": []
+}

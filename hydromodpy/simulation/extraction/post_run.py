@@ -14,6 +14,7 @@ from typing import Any
 
 from hydromodpy.core.budget_terms import BudgetKeep
 from hydromodpy.core.contracts.solver_registry import get_solver_registry_provider
+from hydromodpy.core.field_routing import networks_route_drainage
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.stream_recharge import CRITERION_MEAN_RECHARGE_ATTR, mean_recharge_m_s
 from hydromodpy.physics.flow.sinks_sources.wells import (
@@ -338,20 +339,9 @@ def _resolve_run_start_datetime(ctx: RunContext) -> str | None:
 
 
 def _drainage_outside_routed(ctx: RunContext) -> bool:
-    """True when an SFR network of the run keeps the hillslope drainage out of its reaches."""
-    flow = getattr(getattr(ctx, "state", None), "setup", None)
-    flow = getattr(flow, "flow", None)
-    sinks_sources = getattr(flow, "sinks_sources", None)
-    networks = sinks_sources.get("sfr") if isinstance(sinks_sources, dict) else None
-    for payload in (networks or {}).values():
-        flag = (
-            payload.get("route_drainage")
-            if isinstance(payload, Mapping)
-            else getattr(payload, "route_drainage", None)
-        )
-        if flag is False:
-            return True
-    return False
+    """True when no network routes the hillslope drainage, a lake alone included."""
+    setup = getattr(getattr(ctx, "state", None), "setup", None)
+    return not networks_route_drainage(getattr(setup, "flow", None))
 
 
 def derive_run_outputs(
@@ -395,10 +385,9 @@ def derive_run_outputs(
             aggregate_catchment_timeseries,
         )
 
-        if _drainage_outside_routed(ctx):
-            aggregate_catchment_timeseries(sim_id, store, drainage_outside_routed=True)
-        else:
-            aggregate_catchment_timeseries(sim_id, store)
+        aggregate_catchment_timeseries(
+            sim_id, store, drainage_outside_routed=_drainage_outside_routed(ctx)
+        )
 
 
 def cleanup_solver_outputs(

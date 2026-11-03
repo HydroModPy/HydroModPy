@@ -42,7 +42,7 @@ from pydantic import Field, field_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.stored import Vocabulary, read_stored
-from hydromodpy.core.io.document_version import VersionWindow
+from hydromodpy.core.io.document_version import VersionWindow, check_version
 from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.results.checks import Checks
 from hydromodpy.results.identity import Identity
@@ -61,7 +61,7 @@ from hydromodpy.results.storage.contract import (
     RUN_SCRATCH_ENTRIES,
     TABLES_DIRNAME,
 )
-from hydromodpy.results.storage.json_io import read_sealed_json
+from hydromodpy.results.storage.json_io import read_json, read_sealed_json
 from hydromodpy.schema.generated_views import GENERATED_VIEWS
 
 RUN_RECORD_MANIFEST_VERSION = 3
@@ -412,7 +412,33 @@ def _manifest_payload(run_dir: Path | str) -> dict[str, Any]:
         raise FileNotFoundError(
             f"No {RUN_MANIFEST_FILENAME} in {run_dir}: this run directory is incomplete."
         )
-    return read_sealed_json(path, MANIFEST_VERSIONS, key="manifest_version")
+    payload = read_sealed_json(path, MANIFEST_VERSIONS, key="manifest_version")
+    _check_fields_version(Path(run_dir) / FIELDS_STORE_NAME)
+    return payload
+
+
+def _check_fields_version(fields: Path) -> None:
+    """Refuse a run whose field store this code does not read.
+
+    The seal is what every reader of a run goes through first. A store of an
+    older format changes what the tables beside it mean too, so the whole run is
+    refused here, by one sentence, and not reader by reader. A run without a field
+    store has nothing to refuse.
+    """
+    root = fields / "zarr.json"
+    if not root.is_file():
+        return
+    # Imported here: zarr is heavy, and every command reads a manifest.
+    from hydromodpy.results.zarr_store.constants import ZARR_VERSIONS
+
+    attributes = read_json(root).get("attributes", {})
+    check_version(
+        attributes.get("zarr_schema_version"),
+        ZARR_VERSIONS,
+        document=fields,
+        key="zarr_schema_version",
+        writer=attributes.get("hydromodpy_version"),
+    )
 
 
 def is_sealed(run_dir: Path | str) -> bool:

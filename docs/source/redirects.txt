@@ -240,7 +240,8 @@ architecture/overview/two-databases.rst                                         
 architecture/package-layout.rst                                                   contribute/architecture/packages/index
 architecture/packages/analysis.rst                                                contribute/architecture/packages/analysis
 architecture/packages/calibration.rst                                             contribute/architecture/packages/calibration
-architecture/packages/catalog.rst                                                 contribute/architecture/packages/catalog
+architecture/packages/catalog.rst                                                 contribute/architecture/packages/project
+contribute/architecture/packages/catalog                                          contribute/architecture/packages/project
 architecture/packages/cli.rst                                                     contribute/architecture/packages/cli
 architecture/packages/config.rst                                                  contribute/architecture/packages/config
 architecture/packages/core.rst                                                    contribute/architecture/packages/core

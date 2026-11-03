@@ -116,7 +116,7 @@ def _overview_state(tmp_path: Path) -> DataOverviewState:
             date_start="2020-01-01",
             date_end="2020-01-02",
         ),
-        geographic=SimpleNamespace(catch_def="from_outlet_coord", dem_correc_type="breach"),
+        geographic=SimpleNamespace(kind="from_outlet_coord", dem_correc_type="breach"),
         data=SimpleNamespace(
             types=["recharge"],
             recharge=SimpleNamespace(

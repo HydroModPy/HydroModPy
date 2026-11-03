@@ -103,7 +103,7 @@ def test_run_setup_builds_synthetic_geographic_when_requested(monkeypatch) -> No
     captured: dict[str, object] = {}
 
     monkeypatch.setattr(
-        "hydromodpy.workflow.steps.setup.Workspace",
+        "hydromodpy.workflow.steps.setup.WorkspaceLayout",
         _DummyWorkspace,
     )
     monkeypatch.setattr(
@@ -172,7 +172,7 @@ def test_run_setup_builds_synthetic_geographic_when_requested(monkeypatch) -> No
 def test_run_setup_declares_the_binder_zone_ids(monkeypatch) -> None:
     """apply_geology_to_domain writes under a fixed zone id, so the runtime arms it."""
     monkeypatch.setattr(
-        "hydromodpy.workflow.steps.setup.Workspace",
+        "hydromodpy.workflow.steps.setup.WorkspaceLayout",
         _DummyWorkspace,
     )
     monkeypatch.setattr(
@@ -217,7 +217,7 @@ def test_run_setup_declares_the_binder_zone_ids(monkeypatch) -> None:
 
 def test_run_setup_declares_requested_geology_support_id(monkeypatch) -> None:
     monkeypatch.setattr(
-        "hydromodpy.workflow.steps.setup.Workspace",
+        "hydromodpy.workflow.steps.setup.WorkspaceLayout",
         _DummyWorkspace,
     )
     monkeypatch.setattr(
@@ -277,7 +277,7 @@ def test_run_setup_declares_requested_geology_support_id(monkeypatch) -> None:
 
 def test_run_setup_rejects_heterogeneous_flow_when_support_is_undeclared(monkeypatch) -> None:
     monkeypatch.setattr(
-        "hydromodpy.workflow.steps.setup.Workspace",
+        "hydromodpy.workflow.steps.setup.WorkspaceLayout",
         _DummyWorkspace,
     )
     monkeypatch.setattr(

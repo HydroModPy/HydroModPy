@@ -156,7 +156,7 @@ def run_spinup(
     heads. ``spinup`` defaults to the project's ``[spinup]`` section, then to
     :class:`SpinupConfig` defaults.
     """
-    cfg = project.config
+    cfg = project._cfg
     settings = spinup or cfg.spinup or SpinupConfig()
 
     # run_spinup drives ONE Project through cycles by mutating its config in place
@@ -193,8 +193,8 @@ def run_spinup(
         for index in range(settings.max_cycles):
             if prev_zarr is not None:
                 cfg.flow.restart_from = prev_zarr
-                if cfg.flow.ic.h.type == "steady_state":
-                    cfg.flow.ic = FlowInitialConditions.model_validate({"type": "top"})
+                if cfg.flow.ic.h.kind == "steady_state":
+                    cfg.flow.ic = FlowInitialConditions.model_validate({"kind": "top"})
 
             run = project.simulate(name=f"{name_prefix}_{index}")
             if run is None:

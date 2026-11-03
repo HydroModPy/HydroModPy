@@ -14,7 +14,6 @@ from pathlib import Path
 
 import pytest
 
-import hydromodpy
 from hydromodpy.cli.commands import run as run_command
 from hydromodpy.core.logging import set_verbosity
 
@@ -136,11 +135,19 @@ def test_a_calibration_of_one_phase_reads_as_one_phase(tmp_path, monkeypatch, ca
     assert len(lines) == 4
 
 
+def _dispatches(monkeypatch, summary: dict) -> None:
+    """Make ``hmp run`` get *summary* from the calibration it would launch."""
+    monkeypatch.setattr(
+        "hydromodpy.project.dispatch.workflow.dispatch_workflow", lambda workflow, path: summary
+    )
+    monkeypatch.setattr("hydromodpy.calibration.preflight.preflight_launch", lambda *a, **k: None)
+
+
 def _run_calibration_file(tmp_path: Path, monkeypatch, verbosity: str | None) -> None:
     config = tmp_path / "run_calibration.toml"
     config.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(hydromodpy, "run", lambda path: _staged_summary(tmp_path))
+    _dispatches(monkeypatch, _staged_summary(tmp_path))
     args = argparse.Namespace(
         dry_run=False,
         no_display=False,
@@ -188,7 +195,7 @@ def test_a_failed_promotion_is_named_and_exits_with_the_calibration_code(
     config = tmp_path / "run_calibration.toml"
     config.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(hydromodpy, "run", lambda path: _failed_promotion_summary(tmp_path))
+    _dispatches(monkeypatch, _failed_promotion_summary(tmp_path))
     args = argparse.Namespace(dry_run=False, no_display=False, verbosity=verbosity, profile=None)
     try:
         with pytest.raises(SystemExit) as exited:

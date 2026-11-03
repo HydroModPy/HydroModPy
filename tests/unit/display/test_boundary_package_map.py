@@ -132,7 +132,7 @@ def _run(
         n_timesteps=n_timesteps,
         mesh=SimpleNamespace(vertices=vertices, face_node_connectivity=faces),
         has_field=lambda variable, **_: variable in stacks,
-        field=lambda variable, timestep=-1, **_: stacks[variable][timestep],
+        field=lambda variable, time=-1, **_: stacks[variable][time],
         geographic=geographic,
         opened_stores=opened,
         _catalog=SimpleNamespace(open_zarr=open_zarr),

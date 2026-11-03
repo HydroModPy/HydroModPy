@@ -52,7 +52,7 @@ def field_param_from_toml(toml_path: str | Path, section: str = "field") -> Fiel
         value = 1e-5
 
         [flow.param.K.field_vertical_profile]
-        mode = "exponential"
+        kind = "exponential"
         characteristic_depth = 30.0
 
     Heterogeneous values from CSV (for long geology-property tables):

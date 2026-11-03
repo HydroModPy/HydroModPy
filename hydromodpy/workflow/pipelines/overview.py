@@ -2,7 +2,7 @@
 
 Orchestrates four phases:
 
-1. **Workspace** - prepare output directories.
+1. **WorkspaceLayout** - prepare output directories.
 2. **Geographic** - delineate watershed from outlet coordinates.
 3. **Data loading** - download / load all requested data families.
 4. **Report** - generate overview PNGs (one per panel).
@@ -56,6 +56,28 @@ class _OverviewLoaderContext:
     data_plan: Any
 
 
+@dataclass(frozen=True, slots=True)
+class OverviewResult:
+    """What an overview drew, and where it sealed it."""
+
+    name: str | None
+    run_dir: Path | None
+    catchment_area_km2: float | None
+    report_paths: tuple[Path, ...]
+    web_report: Path | None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return the result as text and numbers, for a program."""
+        return {
+            "mode": "data_overview",
+            "name": self.name,
+            "run_dir": None if self.run_dir is None else str(self.run_dir),
+            "catchment_area_km2": self.catchment_area_km2,
+            "report_paths": [str(path) for path in self.report_paths],
+            "web_report": None if self.web_report is None else str(self.web_report),
+        }
+
+
 class DataOverviewLauncher:
     """Generate a "watershed identity card" from a TOML configuration file."""
 
@@ -69,15 +91,15 @@ class DataOverviewLauncher:
 
     def run(
         self, claim: RunClaim | None = None, *, config_hash: str | None = None
-    ) -> dict[str, Any]:
-        """Execute the full overview pipeline and return a result summary.
+    ) -> OverviewResult:
+        """Execute the full overview pipeline and return what it drew.
 
         With the *claim* of its run directory, the overview seals that
         directory once its report is drawn.
         """
         state = DataOverviewState(cfg=self.cfg, config_path=self.config_path)
 
-        # Phase 1: Workspace
+        # Phase 1: WorkspaceLayout
         self._setup_workspace(state)
 
         # Phase 1b: DEM bootstrap (download via API if no local path)
@@ -106,16 +128,15 @@ class DataOverviewLauncher:
         web_report = overview_web_report_path(state) if report_paths else None
         if claim is not None:
             self.seal(state, claim, config_hash=config_hash)
-        return {
-            "mode": "data_overview",
-            "name": claim.name if claim is not None else getattr(self.cfg.overview, "name", None),
-            "run_dir": None if claim is None else str(claim.run_dir),
-            "catchment_area_km2": (
+        return OverviewResult(
+            name=claim.name if claim is not None else getattr(self.cfg.overview, "name", None),
+            run_dir=None if claim is None else Path(claim.run_dir),
+            catchment_area_km2=(
                 state.domain_geographic.catchment_area_km2 if state.domain_geographic else None
             ),
-            "report_paths": [str(p) for p in report_paths],
-            "web_report": str(web_report) if web_report and web_report.is_file() else None,
-        }
+            report_paths=tuple(Path(path) for path in report_paths),
+            web_report=Path(web_report) if web_report and Path(web_report).is_file() else None,
+        )
 
     def seal(self, state: DataOverviewState, claim: RunClaim, *, config_hash: str | None) -> Any:
         """Seal the run directory of the overview and return its record.
@@ -172,15 +193,15 @@ class DataOverviewLauncher:
         return seal_completed(store)
 
     # ------------------------------------------------------------------
-    # Phase 1 - Workspace
+    # Phase 1 - WorkspaceLayout
     # ------------------------------------------------------------------
 
     @staticmethod
     def _setup_workspace(state: DataOverviewState) -> None:
-        from hydromodpy.core.workspace.workspace import Workspace
+        from hydromodpy.core.workspace.workspace import WorkspaceLayout
 
-        state.workspace = Workspace(config=state.cfg.workspace)
-        logger.debug("[overview] Workspace: %s", state.workspace.project_root)
+        state.workspace = WorkspaceLayout(config=state.cfg.workspace)
+        logger.debug("[overview] WorkspaceLayout: %s", state.workspace.project_root)
 
     # ------------------------------------------------------------------
     # Phase 1b - DEM bootstrap (API download)
@@ -226,7 +247,7 @@ class DataOverviewLauncher:
         require_dem_crs(resolved)
         if geo_cfg.catchment is None:
             raise ConfigMissingError(
-                "geographic.catchment.catch_def is required when [[data.dem.sources]] is "
+                "geographic.catchment.kind is required when [[data.dem.sources]] is "
                 "the DEM source. Add a [geographic.catchment] table with catch_def."
             )
         geo_cfg.catchment.dem_init_path = resolved

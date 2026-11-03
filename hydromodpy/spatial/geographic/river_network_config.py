@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import Field, model_validator
 
@@ -13,6 +13,7 @@ from hydromodpy.core.units import LengthMeters
 
 __all__ = [
     "RiverNetworkConfig",
+    "river_network_for_the_mesh",
 ]
 
 
@@ -145,3 +146,25 @@ class RiverNetworkConfig(HydroModelBase):
                 else "threshold_cells = 500."
             )
         )
+
+
+def river_network_for_the_mesh(cfg: Any) -> Any:
+    """Return ``cfg.geographic`` with ``[geographic.river_network]`` on when the mesh needs it.
+
+    The rule is :meth:`MeshConfig.requires_river_trace`. The config refused a
+    mesh that needs the network without its threshold when it loaded, so the
+    network can be switched on as it is. A project and a calibration trial both
+    read the geographic through here, so a file that runs also calibrates.
+    """
+    geographic = cfg.geographic
+    network = geographic.river_network
+    if network.enabled or cfg.mesh is None:
+        return geographic
+    active_bc = {str(bc).strip().lower() for bc in cfg.flow.active_bc}
+    if not cfg.mesh.requires_river_trace(
+        active_bc=active_bc, synthetic=geographic.uses_synthetic_geographic()
+    ):
+        return geographic
+    return geographic.model_copy(
+        update={"river_network": network.model_copy(update={"enabled": True})}, deep=True
+    )

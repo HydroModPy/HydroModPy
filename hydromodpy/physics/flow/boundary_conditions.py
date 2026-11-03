@@ -26,8 +26,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from numbers import Real
-from pathlib import Path
-from typing import Annotated, ClassVar, Literal, TypeAlias
+from typing import Annotated, Literal, TypeAlias
 
 from pydantic import Field, field_validator, model_validator
 
@@ -36,13 +35,12 @@ from hydromodpy.core.config_kit.calibrable import Calibrable
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import NonEmptyStr
-from hydromodpy.core.tracking import InputFile
 from hydromodpy.core.units import (
     canonical_unit_short_form,
     check_unit_compatible,
     parse_to_canonical_magnitude,
 )
-from hydromodpy.physics.base.forcing import FlowTimeAggregate
+from hydromodpy.physics.base.forcing import HeadForcing, carries_a_unit
 
 ALLOWED_BC_APPLICATION_DOMAINS = {
     "top",
@@ -104,7 +102,7 @@ _BOUNDARY_UNIT_TARGETS: dict[str, tuple[str, str]] = {
     "1/s": ("1/s", "leakance"),
 }
 
-BoundaryKind: TypeAlias = Literal["dirichlet", "cauchy", "robin"]
+BoundaryKind: TypeAlias = Literal["dirichlet", "drain"]
 
 
 def _extract_explicit_boundary_units(payload: Mapping[str, object]) -> str | None:
@@ -185,87 +183,6 @@ def _extract_support_label(payload: Mapping[str, object]) -> str | None:
     return str(raw_value)
 
 
-class FlowBoundaryForcingConstantConfig(HydroModelBase):
-    """Constant head forcing applied to every stress period."""
-
-    mode: Annotated[Literal["constant"], Profile.USER] = Field(
-        default="constant",
-        description="Discriminator tag for the constant boundary-forcing variant.",
-    )
-    value: Annotated[float, Profile.USER] = Field(
-        ...,
-        description=(
-            "Head the boundary keeps in every stress period, in the unit units names "
-            "(metres by default)."
-        ),
-        json_schema_extra={"unit": "m"},
-        examples=[12.5],
-    )
-    units: Annotated[str | None, Profile.DEV] = Field(
-        default=None,
-        description="Source units of forcing values before runtime conversion.",
-    )
-
-
-class FlowBoundaryForcingCsvConfig(HydroModelBase):
-    """CSV-backed boundary forcing resolved at runtime against simulation.time."""
-
-    model_refused_keys: ClassVar[Mapping[str, str]] = {
-        "fill_method": (
-            "no step reads it. A stress period with no sample takes the sample in force, "
-            "and simulation.time.coverage_policy decides what happens before or after the "
-            "record."
-        ),
-    }
-
-    mode: Annotated[Literal["csv"], Profile.USER] = Field(
-        default="csv",
-        description="Discriminator tag for the CSV-backed boundary-forcing variant.",
-    )
-    path_file: Annotated[
-        Path,
-        Profile.DEV,
-        InputFile(role="flow_bc", category="data"),
-    ] = Field(
-        ...,
-        description="CSV file path containing time-series boundary head values when mode='csv'.",
-    )
-    sep: Annotated[NonEmptyStr, Profile.DEV] = Field(
-        default=",",
-        description="CSV column separator.",
-    )
-    date_column: Annotated[NonEmptyStr, Profile.DEV] = Field(
-        default="date",
-        description="CSV column containing timestamps.",
-    )
-    date_format: Annotated[str | None, Profile.DEV] = Field(
-        default=None,
-        description="Optional datetime format passed to pandas.to_datetime.",
-    )
-    value_column: Annotated[NonEmptyStr, Profile.DEV] = Field(
-        default="value",
-        description="CSV column containing boundary head values.",
-    )
-    aggregate: Annotated[FlowTimeAggregate, Profile.DEV] = Field(
-        default="mean",
-        description="Stress-period aggregation method.",
-    )
-    units: Annotated[str | None, Profile.DEV] = Field(
-        default=None,
-        description="Source units of forcing values before runtime conversion.",
-    )
-
-
-FlowBoundaryForcingConfig: TypeAlias = Annotated[
-    FlowBoundaryForcingConstantConfig | FlowBoundaryForcingCsvConfig,
-    Field(
-        discriminator="mode",
-        description="Discriminated union of boundary-forcing payloads (constant or csv).",
-    ),
-]
-"""Discriminated union of boundary-forcing payloads selected by the mode tag."""
-
-
 class FlowBoundaryConditionConfig(HydroModelBase):
     """
     Normalized flow boundary-condition payload.
@@ -275,19 +192,28 @@ class FlowBoundaryConditionConfig(HydroModelBase):
     - consumed by `Flow` runtime and solver adapter layers.
     """
 
+    enabled: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description=(
+            "Whether the run builds this boundary. Declaring it is what activates it. "
+            "false keeps the table and builds nothing from it."
+        ),
+    )
     id: Annotated[str, Profile.USER] = Field(
         ...,
         description=(
-            "Canonical name of the boundary, the same one flow.active_bc lists: 'drainage', "
-            "'ocean', 'stream', 'north_side', 'south_side', 'east_side' or 'west_side'. It "
-            "fixes where the boundary applies."
+            "Canonical name of the boundary, the key of its [flow.bc.<id>] table: "
+            "'drainage', 'ocean', 'stream', 'north_side', 'south_side', 'east_side' or "
+            "'west_side'. It fixes where the boundary applies."
         ),
         examples=["drainage"],
     )
     value: Annotated[float | list[float] | None, Profile.USER] = Field(
         default=None,
         description=(
-            "Boundary-condition value, scalar or one value per stress period. On a "
+            "Boundary-condition value, scalar or one value per stress period. On a head "
+            "boundary it is the head in metres; left out with no forcing, the table only "
+            "activates the boundary and no constant head is built. On a "
             "drainage boundary it is a conductance in m2/s, and it may be left out: "
             "the run then derives it from the conductivity, C = K * cell_area / "
             "solver.drain_bed_thickness_m, which keeps the drain proportional to K "
@@ -307,21 +233,22 @@ class FlowBoundaryConditionConfig(HydroModelBase):
     kind: Annotated[BoundaryKind, Profile.USER] = Field(
         "dirichlet",
         description=(
-            "Type of the boundary: an imposed head ('dirichlet') or a drain ('cauchy', "
-            "'robin'). Unset, the boundary's id decides."
+            "Type of the boundary: an imposed head ('dirichlet') or a linear drain "
+            "('drain'). Unset, the boundary's id decides."
         ),
     )
     data_value: Annotated[bool, Profile.DEV] = Field(
         False,
         description="If True, boundary-condition values are sourced from data.",
     )
-    forcing: Annotated[FlowBoundaryForcingConfig | None, Profile.DEV] = Field(
+    forcing: Annotated[HeadForcing | None, Profile.DEV] = Field(
         default=None,
         description=(
-            "Optional runtime forcing declaration for lateral Dirichlet boundaries. "
-            "Supported modes: 'constant' and 'csv'. The launcher resolves this "
-            "payload to boundary.value using [simulation.time]."
+            "Head of a Dirichlet boundary over time, a bare number in metres unless units "
+            "names another length. The launcher resolves it to boundary.value using "
+            "[simulation.time]."
         ),
+        json_schema_extra=field_metadata(unit="m"),
     )
     application_domain: Annotated[str | None, Profile.USER] = Field(
         None,
@@ -396,7 +323,7 @@ class FlowBoundaryConditionConfig(HydroModelBase):
                 "head can follow a chronicle: "
                 f"{', '.join(sorted(FORCING_CAPABLE_DIRICHLET_BC_IDS))}"
             )
-        if self.value is None and self.forcing is None:
+        if self.value is None and self.forcing is None and self.kind != "dirichlet":
             raise ValueError("boundary requires either value or forcing")
         if self.kind == "dirichlet":
             if self.forcing is None:
@@ -442,7 +369,7 @@ class FlowBoundaryConditionConfig(HydroModelBase):
             check_unit_compatible(raw_units, canonical_unit="m**2/s", label="hydraulic-conductance")
             if raw_units != "m2/s":
                 raise ValueError(
-                    "boundary.units must be normalized to 'm2/s' for runtime Cauchy/Robin values"
+                    "boundary.units must be normalized to 'm2/s' for runtime drain values"
                 )
             object.__setattr__(self, "units", "m2/s")
         return self
@@ -454,8 +381,8 @@ class DirichletBC(FlowBoundaryConditionConfig):
     kind: Annotated[Literal["dirichlet"], Profile.USER] = Field(
         default="dirichlet",
         description=(
-            "Type of the boundary: an imposed head ('dirichlet') or a drain ('cauchy', "
-            "'robin'). Unset, the boundary's id decides."
+            "Type of the boundary: an imposed head ('dirichlet') or a linear drain "
+            "('drain'). Unset, the boundary's id decides."
         ),
     )
 
@@ -490,9 +417,13 @@ class DirichletBC(FlowBoundaryConditionConfig):
                 location_prefix=location_prefix,
             )
             forcing = dict(forcing_payload)
-            forcing["units"] = source_units
+            if not carries_a_unit(forcing.get("value")):
+                forcing["units"] = source_units
             payload["forcing"] = forcing
             payload["value"] = None
+            payload["units"] = "m"
+        elif "value" not in payload:
+            # An empty table activates the boundary and gives it no head.
             payload["units"] = "m"
         else:
             value, units = _coerce_boundary_value_and_units(
@@ -557,8 +488,27 @@ class DirichletBC(FlowBoundaryConditionConfig):
         return payload
 
 
-class _DrainageBC(FlowBoundaryConditionConfig):
-    """Shared Cauchy/Robin boundary payload behavior."""
+class DrainBC(FlowBoundaryConditionConfig):
+    """A drain with the linear exchange q = C (h - h_ref); MODFLOW builds a DRN."""
+
+    kind: Annotated[Literal["drain"], Profile.USER] = Field(
+        default="drain",
+        description=(
+            "Type of the boundary: an imposed head ('dirichlet') or a linear drain "
+            "('drain'). Unset, the boundary's id decides."
+        ),
+        json_schema_extra=field_metadata(
+            value_docs={
+                "drain": "q = C (h - h_ref). MODFLOW builds a DRN. Boussinesq takes its "
+                "closure from flow.runtime.surface_interaction_model.",
+            }
+        ),
+    )
+    forcing: Annotated[None, Profile.DEV] = Field(
+        default=None,
+        exclude=True,
+        description="A drain does not support runtime head forcing.",
+    )
 
     value: Annotated[float | list[float] | None, Profile.USER] = Field(
         default=None,
@@ -580,10 +530,11 @@ class _DrainageBC(FlowBoundaryConditionConfig):
         ),
     )
 
+    @model_validator(mode="before")
     @classmethod
-    def _canonicalize_drainage_payload(cls, data, *, expected_kind: str):
+    def _canonicalize_payload(cls, data):
         if not isinstance(data, Mapping):
-            raise TypeError(f"{expected_kind.capitalize()} boundary payload must be a mapping")
+            raise TypeError("Drain boundary payload must be a mapping")
         payload = dict(data)
         location_prefix = str(payload.pop("_location_prefix", "flow.bc"))
 
@@ -592,10 +543,10 @@ class _DrainageBC(FlowBoundaryConditionConfig):
             raise ValueError(f"{location_prefix}.id cannot be empty")
         payload["id"] = bc_id
 
-        raw_kind = str(payload.get("kind", expected_kind)).strip().lower()
-        if raw_kind != expected_kind:
-            raise ValueError(f"{location_prefix}.kind must be '{expected_kind}'")
-        payload["kind"] = expected_kind
+        raw_kind = str(payload.get("kind", "drain")).strip().lower()
+        if raw_kind != "drain":
+            raise ValueError(f"{location_prefix}.kind must be 'drain'")
+        payload["kind"] = "drain"
 
         # A drainage conductance may be left unsaid, and then it is derived from
         # K: C = K * cell_area / bed_thickness. That proportionality is what
@@ -652,7 +603,7 @@ class _DrainageBC(FlowBoundaryConditionConfig):
         payload["description"] = str(
             payload.get(
                 "description",
-                f"{expected_kind.capitalize()} drainage boundary condition on {application_domain}",
+                f"Drain boundary condition on {application_domain}",
             )
         )
         payload["data_value"] = bool(payload.get("data_value", False))
@@ -660,51 +611,7 @@ class _DrainageBC(FlowBoundaryConditionConfig):
         return payload
 
 
-class CauchyBC(_DrainageBC):
-    """A drain with the linear exchange q = C (h - h_ref); MODFLOW builds a DRN."""
-
-    kind: Annotated[Literal["cauchy"], Profile.USER] = Field(
-        default="cauchy",
-        description=(
-            "Type of the boundary: an imposed head ('dirichlet') or a drain ('cauchy', "
-            "'robin'). Unset, the boundary's id decides."
-        ),
-    )
-    forcing: Annotated[None, Profile.DEV] = Field(
-        default=None,
-        exclude=True,
-        description="Cauchy boundaries do not support runtime head forcing.",
-    )
-
-    @model_validator(mode="before")
-    @classmethod
-    def _canonicalize_payload(cls, data):
-        return cls._canonicalize_drainage_payload(data, expected_kind="cauchy")
-
-
-class RobinBC(_DrainageBC):
-    """A drain with the regularized exchange Boussinesq selects; MODFLOW builds a DRN."""
-
-    kind: Annotated[Literal["robin"], Profile.USER] = Field(
-        default="robin",
-        description=(
-            "Type of the boundary: an imposed head ('dirichlet') or a drain ('cauchy', "
-            "'robin'). Unset, the boundary's id decides."
-        ),
-    )
-    forcing: Annotated[None, Profile.DEV] = Field(
-        default=None,
-        exclude=True,
-        description="Robin boundaries do not support runtime head forcing.",
-    )
-
-    @model_validator(mode="before")
-    @classmethod
-    def _canonicalize_payload(cls, data):
-        return cls._canonicalize_drainage_payload(data, expected_kind="robin")
-
-
 BCEntry: TypeAlias = Annotated[
-    DirichletBC | CauchyBC | RobinBC,
+    DirichletBC | DrainBC,
     Field(discriminator="kind", description="Boundary-condition kind discriminator."),
 ]

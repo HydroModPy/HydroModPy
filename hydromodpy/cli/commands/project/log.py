@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 import argparse
-import csv
-import json
-import sys
 
 from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
-from hydromodpy.cli.helpers import apply_verbosity, exit_code_for
+from hydromodpy.cli.helpers import apply_verbosity
+from hydromodpy.cli.output import emit
 
 NAME: str = "log"
 HELP: str = "Print the journal of the latest launch (--failed: one line per failed case)"
@@ -51,26 +49,25 @@ def run(args: argparse.Namespace) -> None:
     from hydromodpy.cli._workers.project import sites_project_root
     from hydromodpy.project.launch import read_journal
 
-    try:
-        events = read_journal(
-            sites_project_root(args.project or args.workspace or "."),
-            failed_only=bool(args.failed),
-            job=args.job,
-        )
-    except Exception as exc:  # noqa: BLE001 - map errors to typed exit codes
-        print(str(exc), file=sys.stderr)
-        sys.exit(exit_code_for(exc))
-    if args.format == "json":
-        print(json.dumps(events, indent=2, default=str))
-        return
-    if args.format == "csv":
-        _write_csv(events)
-        return
-    if not events:
-        print("no failed case" if args.failed else "no launch journal")
-        return
-    for event in events:
-        print(_line(event))
+    events = read_journal(
+        sites_project_root(args.project or args.workspace or "."),
+        failed_only=bool(args.failed),
+        job=args.job,
+    )
+
+    def table() -> None:
+        if not events:
+            print("no failed case" if args.failed else "no launch journal")
+        for event in events:
+            print(_line(event))
+
+    emit(
+        args,
+        "project log",
+        events,
+        table=table,
+        csv=(CSV_COLUMNS, [_csv_row(event) for event in events]),
+    )
 
 
 CSV_COLUMNS: tuple[str, ...] = (
@@ -87,17 +84,12 @@ CSV_COLUMNS: tuple[str, ...] = (
 """Columns of ``--format csv``: one row per event; fields an event lacks stay empty."""
 
 
-def _write_csv(events: list[dict]) -> None:
-    """Write the events as CSV, the error as one ``type: message`` cell."""
-    writer = csv.DictWriter(sys.stdout, fieldnames=list(CSV_COLUMNS), extrasaction="ignore")
-    writer.writeheader()
-    for event in events:
-        error = event.get("error")
-        if isinstance(error, dict):
-            error = f"{error.get('type')}: {error.get('message')}"
-        row = {column: event.get(column) for column in CSV_COLUMNS}
-        row["error"] = error
-        writer.writerow({key: "" if value is None else value for key, value in row.items()})
+def _csv_row(event: dict) -> dict:
+    """Return one event as one row, the error as one ``type: message`` cell."""
+    error = event.get("error")
+    if isinstance(error, dict):
+        error = f"{error.get('type')}: {error.get('message')}"
+    return {**{column: event.get(column) for column in CSV_COLUMNS}, "error": error}
 
 
 def _line(event: dict) -> str:

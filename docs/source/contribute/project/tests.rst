@@ -25,7 +25,7 @@ Quality ladder
    * - ``unit``
      - Does one local function, class, or schema behave correctly?
      - Isolated Python logic, local contracts, small fixtures.
-     - ``hmp test unit``
+     - ``hmp dev test unit``
    * - ``integration``
      - Do several subsystems still cooperate?
      - Cross-module workflows without golden files.
@@ -37,15 +37,15 @@ Quality ladder
    * - ``regression`` (fast)
      - Did a known workflow output drift?
      - Full workflows compared to committed golden signatures.
-     - ``hmp test regression --fast``
+     - ``hmp dev test regression --fast``
    * - ``regression`` (extensive)
      - Same, with heavier fixtures.
      - Wider workflow coverage; pre-merge / pre-release.
-     - ``hmp test regression --extensive``
+     - ``hmp dev test regression --extensive``
    * - ``validation`` (analytical)
      - Does the numerical result match a trusted reference?
      - Closed-form, semi-analytical, or stress benchmarks.
-     - ``hmp test validation --fast`` / ``--steady`` / ``--transient``
+     - ``hmp dev test validation --fast`` / ``--steady`` / ``--transient``
    * - ``validation`` (MMS)
      - Does the discrete scheme converge as theory predicts?
      - Manufactured solutions, refinement studies.
@@ -88,7 +88,7 @@ workflow stability, numerical consistency, and scientific validity.
 
 Practical notes:
 
-- ``hmp test`` wraps the unit, regression, and validation suites.
+- ``hmp dev test`` wraps the unit, regression, and validation suites.
 - ``pytest`` is the direct entry point for the integration, e2e, MMS,
   characterization, contract and marker-based subsets.
 - Run in parallel with the rules of :ref:`run-the-tests`.

@@ -69,6 +69,7 @@ from hydromodpy.core.config_kit.types import (
     OptionalPath,
     PositiveFloat,
     PositiveInt,
+    StationName,
 )
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
 from hydromodpy.core.cost_margin import parse_cost_margin
@@ -274,7 +275,9 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
     )
     steady_max_trials: Annotated[PositiveInt | Literal["auto"], Profile.USER] = Field(
         default="auto",
-        json_schema_extra=field_metadata(renamed_from=["calibration.protocol.steady_max_iter"]),
+        json_schema_extra=field_metadata(
+            renamed_from=["calibration.protocol.steady_max_iter"], unit="-"
+        ),
         description="Evaluation budget of stage one. 'auto' lets an engine that counts "
         "its evaluations size it: the bisection budgets its worst case, S + 2E + "
         "ceil(log2(1 / t)) for a root found after its E bracket expansions, 23 on "
@@ -309,10 +312,11 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
         "and both required. A date that does not parse is refused when the file is "
         "read. Unset takes the whole [simulation.time] window.",
     )
-    transient_metric: Annotated[str, Profile.USER] = Field(
+    transient_metric: Annotated[MetricKind, Profile.USER] = Field(
         default="nse_log",
         description="Criterion of stage two. The default weights recessions as heavily "
         "as peaks, which is where storage shows.",
+        json_schema_extra={"value_docs": _METRIC_VALUE_DOCS},
     )
     transient_method: Annotated[str, Profile.USER] = Field(
         default="scipy_nelder_mead",
@@ -353,7 +357,7 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
         default="discharge",
         description="Observed variable stage two is scored on.",
     )
-    observed_station_id: Annotated[str | None, Profile.USER] = Field(
+    observed_station_id: Annotated[StationName | None, Profile.USER] = Field(
         default=None,
         description="Gauge whose cost drives stage two. Required with several stations loaded.",
         json_schema_extra=field_metadata(site_scoped=True),
@@ -557,7 +561,7 @@ class ScoresAnObservedRecord:
     simulated quantities and has no record to fit.
     """
 
-    observes: Annotated[str | None, Profile.USER] = Field(
+    observes: Annotated[StationName | None, Profile.USER] = Field(
         default=None,
         description="Station whose loaded record this output is scored against. The "
         "record is aligned on the simulated timestamps, so a weighted block scores "
@@ -719,7 +723,7 @@ class CalibOutputBoundary(ScoresAnObservedRecord, HydroModelBase):
     )
     boundary_id: Annotated[str, Profile.USER] = Field(
         description=(
-            "Id of the boundary whose flux is summed, as flow.active_bc names it "
+            "Id of the boundary whose flux is summed, the key of its [flow.bc.<id>] table "
             "(for example 'drainage')."
         ),
         examples=["drainage"],
@@ -1022,6 +1026,9 @@ class CalibNetworkVerdict(HydroModelBase):
                 "max_catchment_mismatch = true says nothing: write a share such as 0.05, "
                 "or false for no refusal."
             )
+        if isinstance(value, int) and not isinstance(value, bool) and value == 0:
+            # The union would read the integer 0 as false and switch the veto off.
+            return 0.0
         return value
 
 
@@ -1323,6 +1330,7 @@ class CalibOutputNetwork(HydroModelBase):
         "reaches trace through the buffer, where no cell is required to descend into "
         "the network, so they inflate the closure without adding to the numerator. "
         "Reported together with clipping_warning_gap, never alone.",
+        json_schema_extra=field_metadata(unit="-"),
     )
     clipping_warning_gap: Annotated[float, Profile.EXPERT] = Field(
         default=STREAM_CRITERION_DEFAULTS.clipping_warning_gap,
@@ -1581,6 +1589,7 @@ class CalibObjectiveBlockDecl(HydroModelBase):
             "scoring_window.start instead, a date that means the same span at any step "
             "and bounds a network state too. Kept so older files load unchanged."
         ),
+        json_schema_extra=field_metadata(unit="-"),
     )
 
     @model_validator(mode="after")
@@ -1909,7 +1918,7 @@ class CalibPhaseDecl(HydroModelBase):
         "the first solve a number below its nominal count "
         "(see [calibration].max_trials). Any other engine gets 100 from 'auto', and no "
         "extension when it spends them before its stopping rule.",
-        json_schema_extra=field_metadata(renamed_from=["calibration.phases.max_iter"]),
+        json_schema_extra=field_metadata(renamed_from=["calibration.phases.max_iter"], unit="-"),
     )
     precision: Annotated[PositiveFloat | None, Profile.USER] = Field(
         default=None,
@@ -1986,7 +1995,7 @@ class CalibPhaseDecl(HydroModelBase):
         "phase does not use objective blocks. Same vocabulary as a block's 'metric'.",
         json_schema_extra={"value_docs": _METRIC_VALUE_DOCS},
     )
-    observed_station_id: Annotated[str | None, Profile.USER] = Field(
+    observed_station_id: Annotated[StationName | None, Profile.USER] = Field(
         default=None,
         description="Discharge station whose record a discharge calibration fits, scored at its own mesh cell on the discharge routed to that cell. The other loaded gauges are not scored. Required with several discharge stations loaded, optional with one. Overrides the calibration-level value for this phase.",
         json_schema_extra=field_metadata(site_scoped=True),
@@ -2384,7 +2393,7 @@ class CalibrationConfig(HydroModelBase):
     )
     max_trials: Annotated[PositiveInt | Literal["auto"], Profile.USER] = Field(
         default="auto",
-        json_schema_extra=field_metadata(renamed_from=["calibration.max_iter"]),
+        json_schema_extra=field_metadata(renamed_from=["calibration.max_iter"], unit="-"),
         description=(
             "Maximum number of evaluations of the search. It is the only bound on how "
             "long a search runs: no method option counts evaluations of its own. 'auto' lets an engine that "
@@ -2470,6 +2479,7 @@ class CalibrationConfig(HydroModelBase):
             "and bounds a network state too. Kept so older files load unchanged. "
             "Default 0 (no exclusion)."
         ),
+        json_schema_extra=field_metadata(unit="-"),
     )
     scoring_window: Annotated[CalibScoringWindow | None, Profile.USER] = Field(
         default=None,
@@ -2545,7 +2555,7 @@ class CalibrationConfig(HydroModelBase):
             "objective scores when no objective block is declared."
         ),
     )
-    observed_station_id: Annotated[str | None, Profile.USER] = Field(
+    observed_station_id: Annotated[StationName | None, Profile.USER] = Field(
         default=None,
         description="Discharge station whose record a discharge calibration fits, scored at its own mesh cell on the discharge routed to that cell. The other loaded gauges are not scored. Required with several discharge stations loaded, optional with one.",
         json_schema_extra=field_metadata(site_scoped=True),

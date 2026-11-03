@@ -20,7 +20,7 @@ phase, and writes the pointer of the best trial of the last completed phase
 (or of the cut phase when no phase completed) in under a second
 (:func:`abort_session`); that trial is then promoted from its kept solve
 when it has one (:func:`promote_best_after_abort`), anything else is left to
-``hmp project promote``. The three runners close their session through one
+``hmp campaign promote``. The three runners close their session through one
 scope (:func:`closing_session`).
 """
 
@@ -82,7 +82,7 @@ from hydromodpy.calibration.protocols import (
     get_protocol,
 )
 from hydromodpy.calibration.report import NO_OTHER_TRIAL, interval_is_degenerate
-from hydromodpy.calibration.runners.failure_watch import ConsecutiveFailureWatch
+from hydromodpy.calibration.runners.failure_watch import INFEASIBLE_PREFIX, ConsecutiveFailureWatch
 from hydromodpy.calibration.runners.kept_solves import TrialSolveRetention, retention_capacity
 from hydromodpy.calibration.runners.prepared_model import (
     check_the_prepared_model,
@@ -1261,9 +1261,13 @@ def run_calibration_core(
         # the candidate file and the promotion name the trial by.
         number = persistence.assign_trial_number(sugg.trial_id, context)
         result = evaluator.evaluate(TrialRequest(trial_id=number, values=sugg.values))
-        # The journal accepts only finite lifecycle states. Map "failed" metric
-        # errors onto "crashed".
-        db_status = "crashed" if result.status == "failed" else result.status
+        # The journal accepts only finite lifecycle states. A "failed" metric
+        # error is "infeasible" when the evaluator said so by its prefix, and
+        # "crashed" otherwise.
+        db_status = result.status
+        if result.status == "failed":
+            infeasible = (result.error or "").startswith(INFEASIBLE_PREFIX)
+            db_status = "infeasible" if infeasible else "crashed"
         meta: dict[str, object] = {}
         if result.error:
             meta["error"] = result.error
@@ -1627,7 +1631,11 @@ def _why_partial(persistence: CalibrationPersistence, report: CalibrationReport)
 
 def _failed_trials(persistence: CalibrationPersistence) -> str | None:
     """Name the trials of the session that failed or crashed, the first ten in full."""
-    failed = [line.trial for line in persistence.trials() if line.status in ("failed", "crashed")]
+    failed = [
+        line.trial
+        for line in persistence.trials()
+        if line.status in ("failed", "crashed", "infeasible")
+    ]
     if not failed:
         return None
     shown = ", ".join(str(number) for number in failed[:10])
@@ -1955,6 +1963,7 @@ def run_calibration_cli(
         space=space,
         trial_ctx=trial_ctx,
         project=project,
+        objective=objective,
     )
     phase = PhaseContext(DEFAULT_PHASE, 0, 0)
     _keep_trial_solves(cfg, trial_ctx)
@@ -2048,6 +2057,30 @@ def refuse_a_phase_another_cost_scored(
         )
 
 
+def refuse_a_changed_cost(
+    persistence: CalibrationPersistence,
+    phase_name: str,
+    *,
+    cfg: CalibrationConfig,
+    trial_ctx: TrialContext | None,
+    space: ParameterSpace,
+    objective: str | None,
+) -> None:
+    """Refuse, writing nothing, a reopening whose cost differs from the journal's.
+
+    Run before :meth:`CalibrationPersistence.resume_session` and ``start_phase``,
+    so that a refusal leaves the session on disk as it was.
+    """
+    cache_context = build_cache_context(
+        cfg=cfg,
+        trial_ctx=trial_ctx,
+        space=space,
+        override_paths=resolve_override_paths(cfg),
+        objective_entrypoint=objective,
+    )
+    refuse_a_phase_another_cost_scored(persistence, phase_name, cache_context)
+
+
 def open_calibration_session(
     project_root: Path,
     case: str,
@@ -2058,6 +2091,7 @@ def open_calibration_session(
     space: ParameterSpace,
     trial_ctx: TrialContext | None,
     project: str | None,
+    objective: str | None = None,
 ) -> tuple[CalibrationPersistence, bool]:
     """Reserve or reopen ``sessions/<case>`` and open its journal.
 
@@ -2068,6 +2102,14 @@ def open_calibration_session(
     session_dir, reopened = open_session_dir(project_root, case, resume=resume)
     persistence = CalibrationPersistence(session_dir)
     if reopened:
+        refuse_a_changed_cost(
+            persistence,
+            DEFAULT_PHASE,
+            cfg=cfg,
+            trial_ctx=trial_ctx,
+            space=space,
+            objective=objective,
+        )
         persistence.resume_session()
         persistence.start_pulse()
         return persistence, True
@@ -2085,14 +2127,14 @@ def open_calibration_session(
         cost_label=cost_metric_label(cfg, cfg.phases[-1] if cfg.phases else None),
         bounds=session_bounds(space, case),
         windows=search_windows(cfg, raw),
-        protocol=_protocol_of_session(cfg, trial_ctx),
+        protocol=_protocol_of_session(cfg, trial_ctx, raw),
     )
     persistence.start_pulse()
     return persistence, False
 
 
 def _protocol_of_session(
-    cfg: CalibrationConfig, trial_ctx: TrialContext | None
+    cfg: CalibrationConfig, trial_ctx: TrialContext | None, raw: Mapping[str, Any] | None = None
 ) -> SessionProtocol | None:
     """Return the protocol a session follows and where it leaves the publication, or None."""
     declared = cfg.protocol
@@ -2108,7 +2150,9 @@ def _protocol_of_session(
             always=item.state == "always",
             written=item.written,
         )
-        for item in deviations_in_force(cfg, getattr(base_cfg, "geographic", None))
+        for item in deviations_in_force(
+            cfg, getattr(base_cfg, "geographic", None), _metrics_window_of(raw)
+        )
         if item.state in ("always", "departs")
     ]
     protocol = get_protocol(declared.name)
@@ -2117,6 +2161,12 @@ def _protocol_of_session(
         version=protocol.version if declared.version is None else str(declared.version),
         departures=departures,
     )
+
+
+def _metrics_window_of(raw: Mapping[str, Any] | None) -> Any:
+    """Return ``[metrics] window`` of a document, or None."""
+    metrics = None if raw is None else raw.get("metrics")
+    return metrics.get("window") if isinstance(metrics, Mapping) else None
 
 
 def _site_name(raw: Mapping[str, Any]) -> str | None:
@@ -2138,6 +2188,7 @@ __all__ = [
     "fail_session",
     "load_toml_calibration",
     "open_calibration_session",
+    "refuse_a_changed_cost",
     "pointer_phase",
     "promote_and_close",
     "refuse_an_objective_that_is_not_an_entry_point",

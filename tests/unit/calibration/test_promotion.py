@@ -367,7 +367,7 @@ class TestAReopenedSessionPromotesOnceMore:
         assert (again.count, again.best_sim_id, again.best_rel_dir) == (0, None, None)
         (failure,) = again.failures
         assert failure.startswith("trial 3: runs/calage already holds trial 2 of this session")
-        assert "hmp project promote calage --trial 3" in failure
+        assert "hmp campaign promote calage --trial 3" in failure
         assert len(recorder.calls) == 1
         assert (tmp_path / "runs" / "calage" / "manifest.json").is_file()
         by_trial = {line.trial: line for line in read_trials(persistence.directory)}
@@ -385,7 +385,7 @@ class TestAReopenedSessionPromotesOnceMore:
         assert outcome.count == 0
         assert outcome.failures == [
             "trial 2: runs/calage already holds another run and is not overwritten; "
-            "hmp project promote calage --trial 2 writes it under the next version."
+            "hmp campaign promote calage --trial 2 writes it under the next version."
         ]
         assert recorder.calls == []
 
@@ -439,7 +439,7 @@ class TestThePromotionAfterAnInterruption:
         assert outcome == PromotionOutcome()
         assert recorder.calls == []
         assert not (tmp_path / "runs").exists()
-        assert "hmp project promote calage --trial 2 replays it" in caplog.text
+        assert "hmp campaign promote calage --trial 2 replays it" in caplog.text
 
     def test_nothing_to_point_at_promotes_nothing(self, tmp_path, recorder) -> None:
         persistence = _session(tmp_path, costs={})

@@ -744,7 +744,7 @@ KNOWN_HOST = "flow.param.<id>"
 def _known_keys() -> None:
     """Named instances of ``flow.param.<id>`` the code knows: K, Ss, Sy, porosity.
 
-    Units come from ``FlowConfig._DEFAULT_PARAM_UNITS`` and ranges from
+    Units come from ``FLOW_PROPERTY_IDS`` (and ``porosity`` and ``n``, free ids a plugin reads) and ranges from
     ``PHYSICAL_BOUNDS``. Each id with a physical bound gets two pseudo-nodes, the
     table ``flow.param.<key>`` and its value ``flow.param.<key>.field.value``, so a
     search for "conductivity" finds K. They are not children of ``flow.param``: the
@@ -752,14 +752,14 @@ def _known_keys() -> None:
     """
     try:
         from hydromodpy.core.units.physical_bounds import PHYSICAL_BOUNDS
-        from hydromodpy.physics.flow.flow_config import FlowConfig
+        from hydromodpy.physics.flow.property_ids import FLOW_PROPERTY_IDS
     except Exception:
         return
     host = nodes.get(KNOWN_HOST)
     value = nodes.get(f"{KNOWN_HOST}.field.value")
     if host is None or value is None:
         return
-    units = getattr(FlowConfig, "_DEFAULT_PARAM_UNITS", {})
+    units = {prop.id: prop.unit for prop in FLOW_PROPERTY_IDS} | {"porosity": "-", "n": "-"}
     known: dict[str, dict[str, Any]] = {}
     by_label: dict[str, str] = {}
     for key, unit in units.items():
@@ -819,7 +819,7 @@ def _known_keys() -> None:
         }
         known[key]["paths"] = [table_path, value_path]
     host["known_keys"] = known
-    host["known_keys_source"] = "FlowConfig._DEFAULT_PARAM_UNITS, PHYSICAL_BOUNDS"
+    host["known_keys_source"] = "property_ids.FLOW_PROPERTY_IDS, PHYSICAL_BOUNDS"
 
 
 # ---------------------------------------------------------------- path resolution

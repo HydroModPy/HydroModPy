@@ -17,6 +17,7 @@ from typing import Any
 import pytest
 
 from hydromodpy.config import config_migration
+from hydromodpy.physics.flow.flow_runtime_config import FLOW_RUNTIME_KEYS
 from tools.docs import field_registry, legacy_keys, toml_changelog
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -26,6 +27,7 @@ LAST_RELEASE = ROOT / "tools" / "docs" / "snapshots" / "fields-2.0.0a4.json"
 MOVES = {
     "modflow6.sgrid.vertical": "domain.layers",
     "modflownwt.sgrid.vertical": "domain.layers",
+    **{f"flow.{old}": f"flow.runtime.{new}" for old, new in FLOW_RUNTIME_KEYS.items()},
 }
 
 

@@ -131,13 +131,28 @@ def test_a_steady_year_then_months_is_one_rule_not_two() -> None:
 def test_a_monthly_chronicle_on_a_daily_run_holds_its_month() -> None:
     # A QmM stands for its whole month, so every day of January takes the
     # January value and the first day of February takes February's.
-    qmm = pd.Series([4.0, 8.0], index=pd.DatetimeIndex(["2020-01-01", "2020-02-01"]))
+    qmm = pd.Series(
+        [4.0, 8.0, 6.0], index=pd.DatetimeIndex(["2020-01-01", "2020-02-01", "2020-03-01"])
+    )
     sim_index = pd.date_range("2020-01-30", periods=4, freq="D")
 
     aligned = observed_on_simulation_index(qmm, sim_index)
 
     # Periods: [01-29, 01-30), [01-30, 01-31), [01-31, 02-01), [02-01, 02-02).
     assert aligned.tolist() == [4.0, 4.0, 4.0, 8.0]
+
+
+def test_two_samples_do_not_stand_for_the_period_between_them() -> None:
+    # One spacing cannot tell a step from a gap, so February stays empty.
+    two = pd.Series([1.0, 3.0], index=pd.DatetimeIndex(["2003-01-01", "2003-03-01"]))
+    stamps = pd.DatetimeIndex(["2003-02-01", "2003-03-01", "2003-04-01"])
+
+    aligned = observed_on_simulation_index(two, stamps, start="2003-01-01")
+
+    assert observation_step(two.index) is None
+    assert aligned.iloc[0] == 1.0
+    assert np.isnan(aligned.iloc[1])
+    assert aligned.iloc[2] == 3.0
 
 
 def test_a_gap_in_a_coarse_chronicle_stays_a_gap() -> None:

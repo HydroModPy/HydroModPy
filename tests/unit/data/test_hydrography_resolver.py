@@ -196,7 +196,7 @@ root = "{project}"
 name = "site_a"
 
 [geographic.catchment]
-catch_def = "dem"
+kind = "dem"
 dem_init_path = "dem.tif"
 
 [[data.hydrography.sources]]

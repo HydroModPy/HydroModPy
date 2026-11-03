@@ -19,7 +19,7 @@ def test_lake_outlet_mover_reach_targets_sfr() -> None:
         "lac0": {
             "outlets": [
                 {
-                    "couttype": "WEIR",
+                    "kind": "WEIR",
                     "invert": 95.0,
                     "width": 5.0,
                     "lakeout": 0,
@@ -38,9 +38,9 @@ def test_outlet_numbering_stays_in_lockstep_with_mover_less_outlets() -> None:
     lakes = {
         "lac0": {
             "outlets": [
-                {"couttype": "WEIR", "invert": 95.0, "width": 5.0, "lakeout": 0},
+                {"kind": "WEIR", "invert": 95.0, "width": 5.0, "lakeout": 0},
                 {
-                    "couttype": "SPECIFIED",
+                    "kind": "SPECIFIED",
                     "lakeout": 0,
                     "mover": {"reach": 1, "mvrtype": "UPTO", "value": 0.5},
                 },
@@ -56,7 +56,7 @@ def test_lake_outlet_mover_reach_zero_raises() -> None:
         "lac0": {
             "outlets": [
                 {
-                    "couttype": "WEIR",
+                    "kind": "WEIR",
                     "invert": 95.0,
                     "width": 5.0,
                     "lakeout": 0,

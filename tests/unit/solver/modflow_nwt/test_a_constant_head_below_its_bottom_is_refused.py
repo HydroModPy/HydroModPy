@@ -21,7 +21,7 @@ from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 def _adapter(boundary_conditions: dict[str, object], *, nper: int = 1) -> FlowToModflowAdapter:
     dem = np.array([[20.0, 20.0, 20.0], [20.0, 20.0, 20.0]])
     flow = SimpleNamespace(
-        initial_conditions=SimpleNamespace(h=SimpleNamespace(type="top", value=0.0)),
+        initial_conditions=SimpleNamespace(h=SimpleNamespace(kind="top", value=0.0)),
         boundary_conditions=boundary_conditions,
         active_bc=list(boundary_conditions),
         sinks_sources={},

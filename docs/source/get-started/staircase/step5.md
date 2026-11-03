@@ -108,7 +108,7 @@ The Shapefile is one block and several files (`.shp`, `.dbf`, `.prj`, `.shx`, `.
 the run counts as one export. Every export carries the identity of the run: a GeoPackage in
 its metadata table, any other file in a `.meta.json` beside it, and `exports/index.json`
 lists them all. The portable archive of the run is a copy out of the project:
-`hmp publish nancon_step5_export --to nancon.tar --format tar --with results --with inputs`.
+`hmp publish nancon_step5_export --to nancon.tar --container tar --with results --with inputs`.
 It holds the DEM, the GeoPackage and the station series the run read, and
 `hmp catalog import nancon.tar` installs them in another workspace
 ({doc}`../share-a-simulation`).

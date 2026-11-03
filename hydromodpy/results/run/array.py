@@ -267,8 +267,8 @@ class RunArrayProvider:
 
         A variable that is not persisted but is derivable on the fly
         (water-table elevation/depth, seepage mask, drain outflow) is
-        rebuilt timestep by timestep and loaded eagerly, so ``has_field``
-        and this reader agree on what a run exposes.
+        rebuilt over the periods of ``time_slice`` and loaded eagerly, so
+        ``has_field`` and this reader agree on what a run exposes.
         """
         import xarray as xr
 
@@ -280,7 +280,7 @@ class RunArrayProvider:
             for name in variables:
                 desc = field_registry.get(name)
                 arr = lookup_zarr_path(sz.root, desc.zarr_path)
-                derived = _virtual_field_stack(run, sz, name) if arr is None else None
+                derived = _virtual_field_stack(run, sz, name, time_slice) if arr is None else None
                 if arr is None and derived is None:
                     raise FieldNotFoundError(
                         f"Field '{name}' not found in simulation '{run._sim_id}'",
@@ -302,7 +302,7 @@ class RunArrayProvider:
                 values = derived if derived is not None else field_array_view(arr, da)
                 if shape == field_registry.SHAPE_TIME_LAYER_FACE and values.ndim == 2:
                     values = values[:, np.newaxis, :]
-                if time_slice is not None and dims and dims[0] == "time":
+                if derived is None and time_slice is not None and dims and dims[0] == "time":
                     values = values[time_slice]
                 data_vars[name] = xr.DataArray(
                     values,
@@ -320,17 +320,17 @@ class RunArrayProvider:
         return ds
 
 
-def _virtual_field_stack(run, sz, name: str) -> np.ndarray | None:
+def _virtual_field_stack(run, sz, name: str, time_slice: slice | None) -> np.ndarray | None:
     """Rebuild a non-persisted field as a ``(time, cell)`` array, or ``None``.
 
-    Reuses the already-open Zarr handle so a whole-run stack costs one
-    open instead of one per timestep.
+    Reuses the already-open Zarr handle so a stack costs one open instead of one per
+    timestep, and only the periods of *time_slice* are rebuilt.
     """
     from hydromodpy.results.derive.virtual_fields import derive_field_stack
 
-    n_steps = int(run.n_timesteps or 1)
-    stack = derive_field_stack(sz, run._sim_id, name, range(n_steps))
-    return None if stack is None else stack.reshape(n_steps, -1)
+    steps = range(int(run.n_timesteps or 1))[time_slice or slice(None)]
+    stack = derive_field_stack(sz, run._sim_id, name, steps)
+    return None if stack is None else stack.reshape(len(steps), -1)
 
 
 def _bbox_select_ugrid(ds, grid, bbox, face_dim):

@@ -16,7 +16,7 @@ def test_project_lifecycle_end_to_end(tmp_path: Path) -> None:
     workspace = tmp_path / "ws"
     runner = CliRunner()
 
-    init = runner.invoke(["hmp", "workspace", "init", "--path", str(workspace)])
+    init = runner.invoke(["hmp", "workspace", "init", str(workspace)])
     assert init.ok, init.stderr
     assert (workspace / "projects").is_dir()
     assert (workspace / "data").is_dir()
@@ -47,7 +47,7 @@ def test_project_lifecycle_end_to_end(tmp_path: Path) -> None:
 def test_workspace_clean_dry_run_lists_targets(tmp_path: Path) -> None:
     workspace = tmp_path / "ws"
     runner = CliRunner()
-    runner.invoke(["hmp", "workspace", "init", "--path", str(workspace)])
+    runner.invoke(["hmp", "workspace", "init", str(workspace)])
     scratch = scratch_root_for(workspace)
     scratch.mkdir(parents=True, exist_ok=True)
     (scratch / "stale.txt").write_text("artifact")

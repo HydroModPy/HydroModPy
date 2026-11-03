@@ -121,7 +121,8 @@ class TestTimeseriesCycle:
         result = runs.catalog().query_timeseries(
             store.sim_id, "S1", "head", period=("2020-01-10", "2020-01-20")
         )
-        assert len(result) == 11
+        # A simulated value is stamped at the end of its period: (start, end].
+        assert result.index.strftime("%m-%d").tolist() == [f"01-{day}" for day in range(11, 21)]
 
 
 class TestBudgetAndMassBalance:
@@ -133,7 +134,7 @@ class TestBudgetAndMassBalance:
 
         catalog = runs.catalog()
         assert len(catalog.query_budget(store.sim_id)) == 10
-        assert len(catalog.query_budget(store.sim_id, zone_id="domain", period=(1, 3))) == 6
+        assert len(catalog.query_budget(store.sim_id, zone_id="domain", steps=(1, 3))) == 6
 
     def test_mass_balance_roundtrip(self, runs):
         store = runs.open(solver="modflow_nwt")

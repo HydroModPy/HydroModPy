@@ -16,7 +16,7 @@ the UI never copies it.
 The schema export
 -----------------
 
-``hmp dev schema export --output ./schema/`` writes three files:
+``hmp config schema --bundle --to ./schema/`` writes three files:
 
 .. list-table::
    :header-rows: 1
@@ -67,12 +67,12 @@ files that omit required keys. ``hmp config schema --editor`` and
 ``tests/unit/docs/test_docs_config_consistency.py`` keeps it equal to what the
 code exports. A frontend that needs the required keys and the strict unions
 reads the model schema instead: ``hmp config schema``, or the three files of
-``hmp dev schema export``.
+``hmp config schema --bundle --to DIR``.
 
 The partial validator
 ---------------------
 
-``hmp dev schema validate-field <path> <value>`` runs the validator your form
+``hmp config validate-field <path> <value>`` runs the validator your form
 should call on each change, in well under 50 ms and without I/O. From Python:
 
 .. code-block:: python
@@ -101,7 +101,7 @@ Angular applications usually pair the schema with ``ngx-formly`` or
 
 .. code-block:: bash
 
-   hmp dev schema export --output ./src/app/api/schema/
+   hmp config schema --bundle --to ./src/app/api/schema/
 
 React, with ``@rjsf/core``:
 

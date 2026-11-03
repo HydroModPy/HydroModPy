@@ -52,7 +52,7 @@ coverage_policy = "ignore"
 
 [[simulation.process]]
 id = "flow"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [workspace]
@@ -91,11 +91,11 @@ unit = "m/s"
 value = 5e-6
 
 [flow.ic]
-type = "top"
+kind = "top"
 
 [flow.bc.drainage]
 application_domain = "top"
-kind = "cauchy"
+kind = "drain"
 value = "0.0 m2/s"
 
 [flow.sinks_sources.recharge]

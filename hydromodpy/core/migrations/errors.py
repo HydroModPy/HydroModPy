@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from hydromodpy.core.exceptions import MigrationFailedError
 
-class MigrationError(Exception):
+
+class MigrationError(MigrationFailedError):
     """Base class for every migration failure."""
 
 

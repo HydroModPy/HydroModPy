@@ -11,8 +11,8 @@ Two choices are independent. The method is the physics: the unknowns, the closur
 the space scheme and the time scheme. The engine is the numerics: the nonlinear
 solver, the matrix layout, the Jacobian and the linear solver. Two runs can share a
 method and differ by the engine. The keys are
-{toml}`flow.surface_interaction_model` for the closure and
-{toml}`flow.runtime_backend` for the engine.
+{toml}`flow.runtime.surface_interaction_model` for the closure and
+{toml}`flow.runtime.backend` for the engine.
 
 ### The method
 
@@ -36,11 +36,11 @@ space scheme is the same for all four methods.
 base_config = "step4_transient.toml"
 
 [solver]
-backend = { backend = "boussinesq" }
+backend = { kind = "boussinesq" }
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["boussinesq"]
 
 # The rivers the mesh follows: every cell that drains more than 0.5 km2.
@@ -55,8 +55,8 @@ engine = "triangle"
 geology = "none"
 lakes = "none"
 
-[flow]
-runtime_backend = "scipy_sparse"
+[flow.runtime]
+backend = "scipy_sparse"
 surface_interaction_model = "regularized_partition"
 ```
 
@@ -71,11 +71,11 @@ The same file with the mixed closure:
 base_config = "step4_transient.toml"
 
 [solver]
-backend = { backend = "boussinesq" }
+backend = { kind = "boussinesq" }
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["boussinesq"]
 
 # The rivers the mesh follows: every cell that drains more than 0.5 km2.
@@ -90,8 +90,8 @@ engine = "triangle"
 geology = "none"
 lakes = "none"
 
-[flow]
-runtime_backend = "petsc"
+[flow.runtime]
+backend = "petsc"
 surface_interaction_model = "complementarity"
 ```
 
@@ -103,15 +103,15 @@ closure is implemented only on PETSc:
 base_config = "step4_transient.toml"
 
 [solver]
-backend = { backend = "boussinesq" }
+backend = { kind = "boussinesq" }
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["boussinesq"]
 
-[flow]
-runtime_backend = "scipy_sparse"
+[flow.runtime]
+backend = "scipy_sparse"
 surface_interaction_model = "complementarity"
 ```
 
@@ -140,8 +140,8 @@ supported on Linux.` They run in serial, on `PETSc.COMM_SELF`.
 Every engine looks for a head $h$ such that the residual vector is zero. The
 vector it tests is the solver residual: the balance in m³/s on a free cell,
 and $h_j - H^D_j$ in metres on a constrained cell. The tolerance
-{toml}`flow.runtime_tol_residual_inf` applies to the largest absolute entry. The
-iteration budget is {toml}`flow.runtime_max_iterations`; when the key is not set,
+{toml}`flow.runtime.tol_residual_inf` applies to the largest absolute entry. The
+iteration budget is {toml}`flow.runtime.max_iterations`; when the key is not set,
 the runtime has its own budget, larger on `scipy_sparse` than on the others
 (`build_runtime_options` in `solver_contract.py`). A step that does not converge
 ends the run.
@@ -171,7 +171,7 @@ runs `local` up to 400 cells and `scipy_sparse` above, and logs the engine once
 The `scipy` engine keeps the same residual. It gives SciPy a semi-analytic dense
 Jacobian and lets `scipy.optimize.root` with the `hybr` method drive the solve
 (`runtimes/scipy_dense.py`). SciPy stops on its own criterion on the step, set
-from {toml}`flow.runtime_tol_state_update_inf`, and the run then checks the residual
+from {toml}`flow.runtime.tol_state_update_inf`, and the run then checks the residual
 against the tolerance: a solve that SciPy calls successful but whose residual is
 above the tolerance is reported as not converged. It has the same limit of 400
 cells.
@@ -229,7 +229,7 @@ bottom still asks to lose water starts at the bottom. In a transient run, the fi
 guess of $q^{\mathrm{ex}}$ is the release the regularised partition would
 give when the recharge is positive or a well flux is negative, and zero otherwise
 (`_initial_transient_q_ex_guess`). That guess uses a depth scale of 5 % of the head
-scale $h_s$, not {toml}`flow.partition_release_depth_m`, so that it starts off the
+scale $h_s$, not {toml}`flow.runtime.partition_release_depth_m`, so that it starts off the
 kink of the Fischer-Burmeister function. The choice changes the path to the
 solution, not the equations.
 
@@ -258,7 +258,7 @@ PETSc only, and both keep the head as the only unknown.
   at its lower bound. The upper bound is relaxed when a positive drain conductance
   is declared, so that the drain carries the exchange at the surface
   (`runtimes/vi_bounds.py`). Each time step can be cut into substeps, with
-  {toml}`flow.vi_substeps_per_period`, and a failed time step can be retried with more
+  {toml}`flow.runtime.vi_substeps_per_period`, and a failed time step can be retried with more
   substeps.
 - `ts_vi_obstacle` hands the time stepping to PETSc TS with a backward Euler
   scheme, inside each time step, and keeps the same bounds. The storage term is
@@ -275,11 +275,11 @@ A file that chooses the experimental closure and cuts each period into substeps:
 base_config = "step4_transient.toml"
 
 [solver]
-backend = { backend = "boussinesq" }
+backend = { kind = "boussinesq" }
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["boussinesq"]
 
 # The rivers the mesh follows: every cell that drains more than 0.5 km2.
@@ -294,8 +294,8 @@ engine = "triangle"
 geology = "none"
 lakes = "none"
 
-[flow]
-runtime_backend = "petsc"
+[flow.runtime]
+backend = "petsc"
 surface_interaction_model = "vi_obstacle"
 vi_substeps_per_period = 4
 vi_substep_on_failure = true
@@ -322,20 +322,20 @@ constraint was active and how much demand the storage could not meet.
 The keys of the engines and of the experimental obstacle runtimes.
 
 ```{hmp-params}
-flow.runtime_backend
-flow.surface_interaction_model
-flow.runtime_max_iterations
-flow.runtime_tol_residual_inf
-flow.runtime_tol_state_update_inf
-flow.vi_substeps_per_period
-flow.vi_substep_on_failure
-flow.vi_max_adaptive_substeps
-flow.ts_vi_steps_per_period
-flow.ts_vi_adapt
-flow.ts_vi_dt_min_fraction
-flow.ts_vi_dt_max_fraction
-flow.ts_vi_type
-flow.ts_vi_snes_type
+flow.runtime.backend
+flow.runtime.surface_interaction_model
+flow.runtime.max_iterations
+flow.runtime.tol_residual_inf
+flow.runtime.tol_state_update_inf
+flow.runtime.vi_substeps_per_period
+flow.runtime.vi_substep_on_failure
+flow.runtime.vi_max_adaptive_substeps
+flow.runtime.ts_vi_steps_per_period
+flow.runtime.ts_vi_adapt
+flow.runtime.ts_vi_dt_min_fraction
+flow.runtime.ts_vi_dt_max_fraction
+flow.runtime.ts_vi_type
+flow.runtime.ts_vi_snes_type
 ```
 
 ## In the code

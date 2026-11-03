@@ -23,7 +23,7 @@ def _make_bc_adapter(boundary_conditions, active_bc, nper=1, simulation_window=N
     """Build a minimal FlowToModflowAdapter focused on the BC path."""
     flow = types.SimpleNamespace(
         boundary_conditions=boundary_conditions,
-        initial_conditions=types.SimpleNamespace(h=types.SimpleNamespace(type="custom", value=0.0)),
+        initial_conditions=types.SimpleNamespace(h=types.SimpleNamespace(kind="custom", value=0.0)),
         flow_regime="transient",
         active_sinks_sources=[],
         active_bc=active_bc,
@@ -103,7 +103,7 @@ def test_boundary_forcing_constant_is_resolved_in_adapter_without_runtime_bindin
         kind="dirichlet",
         units="cm",
         application_domain="west side",
-        forcing={"mode": "constant", "value": 5.0},
+        forcing={"kind": "constant", "value": 5.0},
     )
     adapter = _make_bc_adapter({"west_side": west_bc}, active_bc=["west_side"], nper=2)
 
@@ -125,7 +125,7 @@ def test_boundary_forcing_csv_requires_simulation_window():
         units="m",
         application_domain="west side",
         forcing={
-            "mode": "csv",
+            "kind": "csv",
             "path_file": "dummy.csv",
         },
     )

@@ -18,8 +18,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-from hydromodpy.cli.conventions import workspace_parser
-from hydromodpy.cli.helpers import EXIT_GENERIC, find_workspace
+from hydromodpy.cli.conventions import dry_run_parser, format_parser, workspace_parser
+from hydromodpy.cli.helpers import EXIT_GENERIC, EXIT_USAGE, find_workspace, refuse
+from hydromodpy.cli.output import emit
 
 NAME: str = "doctor"
 HELP: str = "Diagnose the local environment (Python, deps, solvers, workspace)"
@@ -54,15 +55,14 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        parents=[workspace_parser()],
+        parents=[workspace_parser(), dry_run_parser(), format_parser()],
         epilog=(
-            "Examples:\n  hmp doctor\n  hmp doctor -w ~/hydromodpy --json\n"
-            "  hmp doctor --toml run.toml\n  hmp doctor --fix-config run.toml"
+            "Examples:\n  hmp doctor\n  hmp doctor -w ~/hydromodpy --format json\n"
+            "  hmp doctor --fix-config run.toml\n"
+            "The workspace a TOML file resolves to: hmp config check run.toml -v"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--toml", default=None, help="Resolve the workspace from a project TOML")
-    parser.add_argument("--json", action="store_true", help="Emit a JSON report")
     parser.add_argument(
         "--cross-catalog",
         action="store_true",
@@ -85,7 +85,8 @@ def register(subparsers) -> argparse.ArgumentParser:
         help=(
             "Rewrite every old key of a TOML and of the files it inherits through base_config "
             "under its current name, in place, and print what changed in each file. Preserves "
-            "comments and layout. A key that still loads warns and names this option."
+            "comments and layout. A key that still loads warns and names this option. "
+            "With --dry-run it prints the diff it would write and writes nothing."
         ),
     )
     parser.set_defaults(_handler=run)
@@ -95,11 +96,13 @@ def register(subparsers) -> argparse.ArgumentParser:
 def run(args: argparse.Namespace) -> None:
     fix_config = getattr(args, "fix_config", None)
     if fix_config is not None:
-        _fix_config(fix_config)
+        _fix_config(fix_config, dry_run=args.dry_run)
         return
+    if args.dry_run:
+        refuse("--dry-run goes with --fix-config: the other checks write nothing.", EXIT_USAGE)
 
     workspace = find_workspace(args.workspace)
-    report = _build_report(workspace, args.workspace, toml=args.toml)
+    report = _build_report(workspace, args.workspace)
 
     if getattr(args, "cross_catalog", False):
         report["checks"].extend(_cross_catalog_checks(workspace))
@@ -108,46 +111,63 @@ def run(args: argparse.Namespace) -> None:
     if getattr(args, "prt", False):
         report["checks"].extend(_prt_checks())
 
-    if args.json:
-        import json as _json
-
-        print(_json.dumps(report, indent=2, default=str))
-    else:
-        _print_report(report)
+    emit(args, "doctor", report, table=lambda: _print_report(report))
 
     if any(entry.get("status") == "KO" for entry in report["checks"]):
         sys.exit(EXIT_GENERIC)
 
 
-def _fix_config(toml_path: str) -> None:
+def _fix_config(toml_path: str, *, dry_run: bool = False) -> None:
     """Rewrite a TOML and the files it inherits under the current grammar."""
     from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND
     from hydromodpy.config.config_migration import fix_config_chain
     from hydromodpy.core.config_kit.base import CANNOT_REWRITE
 
     path = Path(toml_path).expanduser()
+    diffs: dict[Path, str] = {}
     try:
-        chain = fix_config_chain(path)
+        chain = fix_config_chain(path, dry_run=dry_run, diffs=diffs)
     except FileNotFoundError as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
+        refuse(str(exc), EXIT_NOT_FOUND, cause=exc)
     except Exception as exc:  # noqa: BLE001 - surface a clean parse error
-        print(f"Could not migrate {path}: {exc}", file=sys.stderr)
-        sys.exit(EXIT_CONFIG)
+        refuse(f"Could not migrate {path}: {exc}", EXIT_CONFIG, cause=exc)
 
+    refused: Exception | None = None
     for file, changes in chain.items():
         if not changes:
-            print(f"{file} is already up to date.")
+            refusal = _refusal_of(file) if file.resolve() == path.resolve() else None
+            if refusal is None:
+                print(f"{file} is already up to date.")
+            else:
+                print(f"{file} has nothing to migrate, and the loader still refuses it:")
+                print(f"  - {refusal}")
+                refused = refusal
             continue
         untouched = all(CANNOT_REWRITE in change for change in changes)
-        print(f"{'Left as it is' if untouched else 'Migrated'} {file}:")
+        label = "Left as it is" if untouched else ("Would migrate" if dry_run else "Migrated")
+        print(f"{label} {file}:")
         for change in changes:
             print(f"  - {change}")
+        if dry_run and diffs.get(file):
+            print(diffs[file], end="" if diffs[file].endswith("\n") else "\n")
+    if refused is not None:
+        sys.exit(EXIT_CONFIG)
 
 
-def _build_report(
-    workspace: Path | None, workspace_arg: str | None, *, toml: str | None = None
-) -> dict:
+def _refusal_of(file: Path) -> Exception | None:
+    """Return what the loader says of *file* when it refuses a retired key, else ``None``."""
+    from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
+
+    try:
+        get_root_config_provider().from_toml(file)
+    except Exception as exc:  # noqa: BLE001 - the message is what the user needs
+        # A partial file fails to load for reasons that are not a retired key; only
+        # the keys the loader no longer accepts are the doctor's business.
+        return exc if "not accepted any more" in str(exc) else None
+    return None
+
+
+def _build_report(workspace: Path | None, workspace_arg: str | None) -> dict:
     from hydromodpy.core.version import __version__ as hmp_version
 
     checks: list[dict] = []
@@ -325,7 +345,7 @@ def _build_report(
                 }
             )
 
-    for entry in _probe_workspace(workspace, workspace_arg, toml=toml):
+    for entry in _probe_workspace(workspace, workspace_arg):
         checks.append(entry)
 
     return {
@@ -336,11 +356,9 @@ def _build_report(
     }
 
 
-def _probe_workspace(ws: Path | None, workspace_arg: str | None, *, toml: str | None) -> list[dict]:
+def _probe_workspace(ws: Path | None, workspace_arg: str | None) -> list[dict]:
     try:
         from hydromodpy.core.state.paths import PROJECTS_DIRNAME, catalog_path_for
-        from hydromodpy.core.workspace.config import WorkspaceConfig
-        from hydromodpy.core.workspace.exceptions import WorkspaceError
     except Exception as exc:  # pragma: no cover
         return [
             {
@@ -350,9 +368,6 @@ def _probe_workspace(ws: Path | None, workspace_arg: str | None, *, toml: str | 
                 "hint": "Reinstall hydromodpy",
             }
         ]
-
-    if toml is not None:
-        return _probe_from_toml(Path(toml).expanduser().resolve(), WorkspaceConfig, WorkspaceError)
 
     if ws is None:
         where = (
@@ -425,16 +440,11 @@ def _probe_result_storage(
     ]
 
 
-def _probe_from_toml(toml_path: Path, WorkspaceConfig, WorkspaceError) -> list[dict]:
-    if not toml_path.exists():
-        return [
-            {
-                "name": "workspace",
-                "status": "KO",
-                "detail": f"TOML not found: {toml_path}",
-                "hint": "Check the path passed to --toml",
-            }
-        ]
+def probe_toml_workspace(toml_path: Path) -> list[dict]:
+    """Check the workspace a TOML file resolves to: where it comes from, and its folders."""
+    from hydromodpy.core.workspace.config import WorkspaceConfig
+    from hydromodpy.core.workspace.exceptions import WorkspaceError
+
     try:
         from hydromodpy.core.state.paths import resolve_project_root
         from hydromodpy.core.toml_io.loader import load_toml_with_base_config
@@ -445,7 +455,7 @@ def _probe_from_toml(toml_path: Path, WorkspaceConfig, WorkspaceError) -> list[d
         # that holds project.toml, and the loader sets project_root to it.
         base_dir = resolve_project_root(toml_path.parent)
         workspace_section = dict(raw.get("workspace", {}))
-        for key in ("root", "catalog_path", "data_dir", "runs_dir"):
+        for key in ("root", "data_dir"):
             if key in workspace_section and workspace_section[key] is not None:
                 workspace_section[key] = str(
                     resolve_declared_path(workspace_section[key], base_dir=base_dir)
@@ -461,13 +471,13 @@ def _probe_from_toml(toml_path: Path, WorkspaceConfig, WorkspaceError) -> list[d
                 "hint": str(exc),
             }
         ]
-    except Exception as exc:  # pragma: no cover - defensive
+    except Exception as exc:  # noqa: BLE001 - this check informs, the findings refuse
         return [
             {
                 "name": "workspace",
                 "status": "KO",
                 "detail": f"config load failed: {exc}",
-                "hint": "Validate the TOML with `hmp config check`",
+                "hint": None,
             }
         ]
 
@@ -626,7 +636,7 @@ def _lifecycle_checks(workspace: Path | None) -> list[dict]:
                 f"{len(stale)} attempt(s) running with no heartbeat for >{stale_minutes} min"
                 + (f": {', '.join(stale)}" if stale else "")
             ),
-            "hint": "Run 'hmp catalog gc --apply' in the project to mark them aborted",
+            "hint": "Run 'hmp catalog gc -y' in the project to mark them aborted",
         },
         {
             "name": "lifecycle:abandoned_calibration_sessions",
@@ -635,7 +645,7 @@ def _lifecycle_checks(workspace: Path | None) -> list[dict]:
                 f"{abandoned_sessions} calibration session(s) still running after "
                 f"{ABANDONED_SESSION_MINUTES // 60} h with no outcome"
             ),
-            "hint": "Run 'hmp catalog gc --apply' in the project to close them as aborted",
+            "hint": "Run 'hmp catalog gc -y' in the project to close them as aborted",
         },
         {
             "name": "lifecycle:orphan_calibration_sessions",
@@ -647,7 +657,7 @@ def _lifecycle_checks(workspace: Path | None) -> list[dict]:
             "name": "lifecycle:tmp_files",
             "status": "OK" if tmp_files == 0 else "WARN",
             "detail": f"{tmp_files} stale tmp-* file(s) on disk",
-            "hint": "Run 'hmp catalog gc --apply' in the project to clean them up",
+            "hint": "Run 'hmp catalog gc -y' in the project to clean them up",
         },
     ]
 

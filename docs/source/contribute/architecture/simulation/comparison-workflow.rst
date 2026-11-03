@@ -10,7 +10,7 @@ reads every run through the public ``Run`` API.
 
    hmp report compare nancon-mf6 nancon-bouss
    hmp report compare calage_nm calage_tpe --by site
-   hmp report compare runs/a runs/b --variables watertable_depth --out ../mesh_study
+   hmp report compare runs/a runs/b --variables watertable_depth --to ../mesh_study
 
 From Python, ``hmp.compare(["nancon-mf6", "nancon-bouss"])`` gives the same tables without
 writing anything, and ``Comparison.write`` writes them.
@@ -44,7 +44,7 @@ the other run, and no further than one cell size. ``same_mesh`` and ``n`` say wh
 Outputs
 -------
 
-The folder is ``summary/report/compare/<refs>/`` of the project, or ``--out``. Under ``--by site``
+The folder is ``summary/report/compare/<refs>/`` of the project, or ``--to``. Under ``--by site``
 each site has its own sub-folder, and ``by_site.csv`` joins their scores.
 
 .. code-block:: text

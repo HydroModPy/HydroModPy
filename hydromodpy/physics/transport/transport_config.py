@@ -10,7 +10,7 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
-from hydromodpy.physics.base import ProcessSpatialConfig
+from hydromodpy.core.units.types import DurationDays
 
 
 class ModpathParametersConfig(HydroModelBase):
@@ -39,6 +39,7 @@ class ModpathParametersConfig(HydroModelBase):
         default=1,
         ge=1,
         description="Number of particles per axis in each cell.",
+        json_schema_extra=field_metadata(unit="-"),
     )
     zloc_div: Annotated[bool, Profile.DEV] = Field(
         default=False,
@@ -48,6 +49,7 @@ class ModpathParametersConfig(HydroModelBase):
         default=None,
         ge=1,
         description="Optional random downsampling count of injected particles.",
+        json_schema_extra=field_metadata(unit="-"),
     )
     sel_slice: Annotated[int | None, Profile.USER] = Field(
         default=None,
@@ -82,7 +84,13 @@ class TransportModpathConfig(HydroModelBase):
 
 
 class ConcentrationTransportParametersConfig(HydroModelBase):
-    """Configuration payload shared by concentration transport solvers."""
+    """Configuration payload shared by concentration transport solvers.
+
+    MODFLOW 6 GWT and MODFLOW-NWT MT3DMS keep their own time base, the SI second. Every
+    rate here is per second, whatever the unit of the timestep of ``[simulation.time]``,
+    and the ``unit`` of each field says it. Only ``[transport.modflow6prt]`` counts in
+    days, with the unit explicit in the key or in the text.
+    """
 
     spc_name: Annotated[str, Profile.USER] = Field(
         default="NO3",
@@ -105,15 +113,18 @@ class ConcentrationTransportParametersConfig(HydroModelBase):
     )
     disp_long: Annotated[float, Profile.DEV] = Field(
         default=0.0,
-        description="Longitudinal dispersivity [L].",
+        description="Longitudinal dispersivity, in metres.",
+        json_schema_extra=field_metadata(unit="m"),
     )
     disp_transh: Annotated[float, Profile.DEV] = Field(
         default=0.0,
         description="Horizontal transverse dispersivity ratio.",
+        json_schema_extra=field_metadata(unit="-"),
     )
     disp_transv: Annotated[float, Profile.DEV] = Field(
         default=0.0,
         description="Vertical transverse dispersivity ratio.",
+        json_schema_extra=field_metadata(unit="-"),
     )
     diffu_coeff: Annotated[float, Profile.DEV] = Field(
         default=0.0,
@@ -122,6 +133,7 @@ class ConcentrationTransportParametersConfig(HydroModelBase):
             "runs on the SI SECONDS clock, so this value is consumed per second "
             "(a per-day value is ~86400x too large)."
         ),
+        json_schema_extra=field_metadata(unit="m2/s"),
     )
     react_order: Annotated[Literal[None, 0, 1], Profile.DEV] = Field(
         default=None,
@@ -131,6 +143,7 @@ class ConcentrationTransportParametersConfig(HydroModelBase):
             "(first-order, proportional to concentration, in 1/s). Rates are on "
             "the SI SECONDS clock used by the GWT backend."
         ),
+        json_schema_extra=field_metadata(unit="-"),
     )
     scheme: Annotated[Literal["upstream", "central", "TVD"], Profile.DEV] = Field(
         default="upstream",
@@ -148,6 +161,7 @@ class ConcentrationTransportParametersConfig(HydroModelBase):
             "zero-order (react_order=0). A per-day value is ~86400x too large and "
             "annihilates the solute. Can be overridden at runtime."
         ),
+        json_schema_extra=field_metadata(unit="1/s, or mass/volume/s"),
     )
     porosity: Annotated[float | None, Profile.USER] = Field(
         default=None,
@@ -249,6 +263,7 @@ class Modflow6PrtParametersConfig(HydroModelBase):
     ] = Field(
         default=None,
         description=("Cells to release particles from, by their index in the mesh counted from 0."),
+        json_schema_extra=field_metadata(unit="-"),
     )
     max_particles: Annotated[int | None, Profile.USER] = Field(
         default=None,
@@ -268,41 +283,67 @@ class Modflow6PrtParametersConfig(HydroModelBase):
         ),
         json_schema_extra={"unit": "-"},
     )
-    release_times_days: Annotated[list[float] | None, Profile.USER] = Field(
+    release_times: Annotated[list[DurationDays] | None, Profile.USER] = Field(
         default=None,
         description=(
-            "Times particles are released at, in days from the start of the run. Unset, "
-            "they are released once at the start."
+            "Times particles are released at, from the start of the run. A bare number is "
+            "in days; a text carries its unit, such as '6 months'. Unset, they are released "
+            "once at the start."
         ),
-        json_schema_extra={"unit": "day"},
+        examples=[[0.0], ["1 year"]],
+        json_schema_extra=field_metadata(
+            unit="day",
+            renamed_from=["transport.modflow6prt.parameters.release_times_days"],
+        ),
     )
-    track_times_days: Annotated[list[float] | None, Profile.USER] = Field(
+    track_times: Annotated[list[DurationDays] | None, Profile.USER] = Field(
         default=None,
         description=(
-            "Times the particle positions are written at, in days from the start of the run."
+            "Times the particle positions are written at, from the start of the run. A bare "
+            "number is in days; a text carries its unit."
         ),
-        json_schema_extra={"unit": "day"},
+        json_schema_extra=field_metadata(
+            unit="day",
+            renamed_from=["transport.modflow6prt.parameters.track_times_days"],
+        ),
     )
-    track_time_step_days: Annotated[float | None, Profile.USER] = Field(
+    track_time_step: Annotated[DurationDays | None, Profile.USER] = Field(
         default=None,
         gt=0.0,
         description=(
-            "Spacing, in days, of regular output times from 0 to stop_time_days. "
-            "track_times_days wins over it. It needs stop_time_days."
+            "Spacing of regular output times from 0 to stop_time. A bare number is in days; "
+            "a text carries its unit. track_times wins over it. It needs stop_time."
         ),
-        json_schema_extra={"unit": "day"},
+        examples=[30.0, "1 month"],
+        json_schema_extra=field_metadata(
+            unit="day",
+            renamed_from=["transport.modflow6prt.parameters.track_time_step_days"],
+        ),
     )
-    stop_time_days: Annotated[float | None, Profile.USER] = Field(
+    stop_time: Annotated[DurationDays | None, Profile.USER] = Field(
         default=None,
         gt=0.0,
-        description="Time all particles stop at, in days from the start of the run.",
-        json_schema_extra={"unit": "day"},
+        description=(
+            "Time all particles stop at, from the start of the run. A bare number is in "
+            "days; a text carries its unit, such as '100 years'."
+        ),
+        examples=[36500.0, "100 years"],
+        json_schema_extra=field_metadata(
+            unit="day",
+            renamed_from=["transport.modflow6prt.parameters.stop_time_days"],
+        ),
     )
-    stop_travel_time_days: Annotated[float | None, Profile.USER] = Field(
+    stop_travel_time: Annotated[DurationDays | None, Profile.USER] = Field(
         default=None,
         gt=0.0,
-        description="Longest time a particle may travel, in days from its release.",
-        json_schema_extra={"unit": "day"},
+        description=(
+            "Longest time a particle may travel, from its release. A bare number is in days; "
+            "a text carries its unit."
+        ),
+        json_schema_extra=field_metadata(
+            unit="day",
+            renamed_from=["transport.modflow6prt.parameters.stop_travel_time_days"],
+        ),
     )
     extend_tracking: Annotated[bool, Profile.USER] = Field(
         default=True,
@@ -345,36 +386,8 @@ class TransportModflow6PrtConfig(HydroModelBase):
     )
 
 
-class TransportConfig(ProcessSpatialConfig):
+class TransportConfig(HydroModelBase):
     """Transport-process configuration."""
-
-    # Keep shared ProcessSpatial schema inheritance, but exclude these generic
-    # containers from default transport serialization.
-    param_list: Annotated[list[str], Profile.USER] = Field(
-        default_factory=list,
-        exclude=True,
-        description="Inherited generic parameter list (excluded from transport serialization).",
-    )
-    param: Annotated[dict[str, object], Profile.USER] = Field(
-        default_factory=dict,
-        exclude=True,
-        description="Inherited generic parameter map (excluded from transport serialization).",
-    )
-    ic: Annotated[object | None, Profile.USER] = Field(
-        default=None,
-        exclude=True,
-        description="Inherited initial-condition payload (excluded from transport serialization).",
-    )
-    bc: Annotated[dict[str, object], Profile.USER] = Field(
-        default_factory=dict,
-        exclude=True,
-        description="Inherited boundary-condition map (excluded from transport serialization).",
-    )
-    sinks_sources: Annotated[dict[str, object], Profile.USER] = Field(
-        default_factory=dict,
-        exclude=True,
-        description="Inherited sinks/sources map (excluded from transport serialization).",
-    )
 
     modpath: Annotated[TransportModpathConfig, Profile.USER] = Field(
         default_factory=TransportModpathConfig,

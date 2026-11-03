@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import UUID
 
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.state.paths import parse_rel_dir
 from hydromodpy.results.storage.contract import (
     FIELDS_STORE_NAME,
@@ -61,7 +62,7 @@ def sanitize_segment(value: str | None, *, max_len: int = MAX_SEGMENT_LEN) -> st
     return slug[:max_len].rstrip("_-") or UNNAMED
 
 
-class RunNameTooLongError(ValueError):
+class RunNameTooLongError(ConfigError, ValueError):
     """A run name maps to a directory name longer than the filesystem budget."""
 
     def __init__(self, name: str, length: int) -> None:

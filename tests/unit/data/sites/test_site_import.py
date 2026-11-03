@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.cli.commands import site
+from hydromodpy.cli.helpers import fail
 from hydromodpy.core.site import SITE_ROW_COLUMNS, SiteRow
 from hydromodpy.data.sites.catalog import read_catalog, write_catalog
 from hydromodpy.data.sites.importers import (
@@ -39,7 +40,10 @@ def _hmp_site(argv: list[str]) -> None:
     parser = argparse.ArgumentParser(prog="hmp")
     site.register(parser.add_subparsers(dest="command"))
     args = parser.parse_args(["site", *argv])
-    args._handler(args)
+    try:
+        args._handler(args)
+    except Exception as exc:  # noqa: BLE001 - what the dispatcher of hmp does
+        fail(exc)
 
 
 def _stations() -> list[dict]:

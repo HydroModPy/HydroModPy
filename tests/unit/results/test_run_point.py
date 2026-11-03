@@ -195,7 +195,7 @@ class TestReadPoint:
 
     def test_a_virtual_field_reads_like_a_persisted_one(self, run):
         frame = run.probe.series("watertable_depth", cell=1)
-        reference = [float(run.field("watertable_depth", timestep=t)[1]) for t in range(N_STEPS)]
+        reference = [float(run.field("watertable_depth", time=t)[1]) for t in range(N_STEPS)]
         assert frame["value"].tolist() == reference
 
     @pytest.mark.parametrize("elements_per_block", [None, N_CELLS, 2 * N_CELLS])
@@ -214,7 +214,7 @@ class TestReadPoint:
 
     def test_the_point_matches_the_full_field(self, run):
         frame = run.probe.series("head", cell=2, layer=0)
-        reference = [float(run.field("head", timestep=t, layer=0)[2]) for t in range(N_STEPS)]
+        reference = [float(run.field("head", time=t, layer=0)[2]) for t in range(N_STEPS)]
         assert frame["value"].tolist() == reference
 
     def test_an_unknown_field_is_named(self, run):

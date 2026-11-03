@@ -89,9 +89,9 @@ def _promoted_run(tmp_path, *, forcing_mm_d=FORCING_MM_D, edges=EDGES, store=Tru
     run.n_timesteps = len(budget)
     run.periods = SimpleNamespace(edges=edges)
 
-    def field(variable, *, timestep=-1, **_):
+    def field(variable, *, time=-1, **_):
         if variable == "recharge":
-            return np.full(NX * NY, budget[timestep] * CELL_AREA_M2)
+            return np.full(NX * NY, budget[time] * CELL_AREA_M2)
         return fields[variable]
 
     run.field = field

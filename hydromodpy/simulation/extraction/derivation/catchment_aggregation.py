@@ -10,7 +10,7 @@ import pandas as pd
 
 from hydromodpy.core.exceptions import ExtractError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.scope import CATCHMENT, SIMULATED
+from hydromodpy.core.scope import CATCHMENT, OBSERVED, SIMULATED
 from hydromodpy.core.time.period_aggregation import period_end_stamps, period_mean_on_index
 
 logger = get_logger(__name__)
@@ -86,14 +86,15 @@ def aggregate_catchment_timeseries(
     """Read spatial fields from the store and write catchment-aggregated timeseries.
 
     The ``discharge`` series is the surface water leaving the catchment. When
-    the run carries SFR / LAK extracted series, the discharge IS the routed
-    outflow (``ext_outflow`` at terminal reaches and lake outlets), which already
-    carries the in-watershed drainage (routed through DRN-TO-MVR) and the runoff
-    injected into the network; the residual plain-DRN record is buffer drainage
-    from neighbouring basins and is excluded. Without a stream network the series
-    falls back to the lumped accounting: the water the aquifer loses through its
-    drains and its surface excess, plus the watershed runoff forcing read from
-    Zarr ``forcing/``.
+    the run carries SFR / LAK extracted series, the discharge holds the routed
+    outflow (``ext_outflow`` at terminal reaches and lake outlets), with the runoff
+    injected into the network. A network that routes the drainage has moved the
+    in-watershed drainage there through DRN-TO-MVR, so the residual plain-DRN record
+    is buffer drainage from neighbouring basins and is excluded. Without such a
+    network, a lake alone included, the catchment drains are added to the routed
+    outflow. A run with no routed series at all falls back to the lumped accounting:
+    the water the aquifer loses through its drains and its surface excess, plus the
+    watershed runoff forcing read from Zarr ``forcing/``.
 
     Parameters
     ----------
@@ -104,9 +105,9 @@ def aggregate_catchment_timeseries(
     time_index : pd.DatetimeIndex, optional
         Datetime labels for each timestep. When None, integer indices are used.
     drainage_outside_routed : bool
-        True when the network does not route the hillslope drainage
-        (``route_drainage = false``). The catchment drain budget then holds water
-        the routed series leaves out, so it is added to the routed series.
+        True when no network routes the hillslope drainage: ``route_drainage =
+        false``, or a lake without a network. The catchment drain budget then holds
+        water the routed series leaves out, so it is added to the routed series.
     """
     sz = store.open_zarr(sim_id)
     try:
@@ -150,15 +151,15 @@ def aggregate_catchment_timeseries(
             for output_var, values in pending
         }
         if routed is not None:
-            # The routed SFR/LAK ext_outflow already carries the in-watershed
-            # drainage (moved into the DRN-TO-MVR record by route_drainage, whose
-            # plain-DRN residual is ~0). The remaining plain-DRN outflow is the
-            # buffer (neighbouring-basin) drainage, which must NOT feed this
-            # catchment, so it is dropped instead of added.
+            # With route_drainage the routed SFR/LAK ext_outflow already carries the
+            # in-watershed drainage (moved into the DRN-TO-MVR record, whose plain-DRN
+            # residual is ~0). The remaining plain-DRN outflow is the buffer
+            # (neighbouring-basin) drainage, which must NOT feed this catchment, so
+            # it is dropped instead of added.
             routed_series = pd.Series(routed, index=ts_index, name="discharge", dtype="float64")
             if drainage_outside_routed and "discharge" in series_by_var:
-                # Without route_drainage the hillslope drainage stays in DRAIN: it
-                # is not the buffer drainage, and the routed series does not hold it.
+                # Nothing routed the hillslope drainage, so it stays in DRAIN: it is
+                # not the buffer drainage, and the routed series does not hold it.
                 routed_series = routed_series + series_by_var["discharge"]
             series_by_var["discharge"] = routed_series
             _warn_routed_without_runoff(store, sim_id, grp)
@@ -329,6 +330,14 @@ def _routed_outflow_by_timestep(
     return values
 
 
+def _holds_a_gauged_discharge(store: Any) -> bool:
+    """Return whether the run holds an observed discharge to set against the simulated one."""
+    frame = store.read_table("timeseries")
+    if frame.empty:
+        return False
+    return bool(((frame["variable"] == "discharge") & (frame["source"] == OBSERVED)).any())
+
+
 def _add_runoff_to_discharge_series(
     discharge: pd.Series,
     sim_id: str,
@@ -343,16 +352,17 @@ def _add_runoff_to_discharge_series(
     arrays persisted by ``step_persist_forcings``. Stations are averaged
     in mm/day, resampled to the simulation index, then converted to m³/s
     using the catchment area read from ``geographic_metadata``. When no
-    runoff forcing is found, a one-shot warning is emitted and the
-    baseflow is returned unchanged. ``start`` is the start of the first
-    stress period, the run window start, when it is known.
+    runoff forcing is found, the baseflow is returned unchanged, with a
+    one-shot warning when the run holds a gauge it will be read against.
+    ``start`` is the start of the first stress period, the run window start,
+    when it is known.
     """
     runoff_grp = None
     forcing = grp.get("forcing")
     if forcing is not None and "runoff" in forcing:
         runoff_grp = forcing["runoff"]
     if runoff_grp is None:
-        if sim_id not in _RUNOFF_WARNING_EMITTED:
+        if sim_id not in _RUNOFF_WARNING_EMITTED and _holds_a_gauged_discharge(store):
             logger.warning(
                 "Simulated discharge is baseflow only: the run has no runoff forcing, "
                 "so it underestimates a gauged total streamflow."
@@ -517,10 +527,9 @@ def _warn_lumped_budget_is_domain_wide(
 ) -> None:
     """Say once that a catchment series is carrying a domain-wide budget.
 
-    Silent when the catchment covers the whole active domain: a MODFLOW-NWT run
-    meshes the delineated basin, so its domain row already has the catchment for
-    support and there is nothing to warn about. Silent too when the share is
-    unknown, because ``_build_catchment_mask`` has already said why it could not
+    Silent when the catchment covers the whole active domain: its domain row
+    already has the catchment for support and there is nothing to warn about.
+    Silent too when the share is unknown, because ``_build_catchment_mask`` has already said why it could not
     place the watershed.
     """
     if catchment_fraction is None or catchment_fraction >= 1.0:
@@ -671,9 +680,8 @@ def _build_catchment_mask(store: Any, sim_id: str, grp, active: np.ndarray | Non
     """Cells of the catchment: the basin of D the run stored, else the delineated polygon.
 
     These series are written under the ``catchment`` station, so the support
-    has to be the catchment. It is not the same surface as the model domain:
-    MODFLOW-NWT meshes the delineated basin, so the two coincide, while
-    MODFLOW 6 meshes the buffered box. Measured on the Nancon at 25 m, 152.2
+    has to be the catchment. It is not the same surface as the model domain,
+    since a mesh takes in a buffer around it. Measured on the Nancon at 25 m, 152.2
     km2 of domain against 64.6 km2 of catchment, and 2.119 m3/s of drain
     outflow against 0.888 m3/s inside the basin: summed over the domain, a
     series compared to a gauge carries 2.4 times the water that gauge sees.
@@ -725,13 +733,8 @@ def _build_catchment_mask(store: Any, sim_id: str, grp, active: np.ndarray | Non
         )
         return active
 
-    from hydromodpy.spatial.mesh.cells.in_polygons import vector_cell_mask
-    from hydromodpy.spatial.mesh.model.geometry import cell_polygons
+    from hydromodpy.spatial.geographic.delineated_catchment import watershed_cell_mask
 
-    polygons = cell_polygons(
-        np.asarray(mesh["vertices"][:], dtype="float64"),
-        np.asarray(mesh["face_node_connectivity"][:]),
-    )
     crs = _mesh_crs(grp)
     if crs is None:
         # Never guessed: an overlay run on the wrong frame lands the catchment
@@ -743,15 +746,8 @@ def _build_catchment_mask(store: Any, sim_id: str, grp, active: np.ndarray | Non
             sim_id,
         )
         return active
-    mask = np.asarray(
-        vector_cell_mask(
-            polygons,
-            list(watershed.geometry),
-            mesh_crs=crs,
-            geometry_crs=watershed.crs,
-            rule="centroid",
-        ),
-        dtype=bool,
+    mask = watershed_cell_mask(
+        mesh["vertices"][:], mesh["face_node_connectivity"][:], watershed, mesh_crs=crs
     )
     if active is not None and mask.size == active.size:
         mask = mask & active

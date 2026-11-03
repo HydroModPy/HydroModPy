@@ -41,7 +41,9 @@ def run_boussinesq_linearized_unconfined_boundary_step_case(
 
     flow_section = {
         "flow_regime": "transient",
-        "runtime_backend": str(runtime_backend),
+        "runtime": {
+            "backend": str(runtime_backend),
+        },
         "ic": {"type": "custom", "value": base_head_m},
         "active_sinks_sources": [],
         "active_bc": ["west_side", "east_side"],
@@ -51,9 +53,11 @@ def run_boussinesq_linearized_unconfined_boundary_step_case(
         },
     }
     if surface_interaction_model is not None:
-        flow_section["surface_interaction_model"] = str(surface_interaction_model)
+        flow_section.setdefault("runtime", {})["surface_interaction_model"] = str(
+            surface_interaction_model
+        )
     if str(surface_interaction_model or "").strip().lower() == "ts_vi_obstacle":
-        flow_section.update(
+        flow_section.setdefault("runtime", {}).update(
             {
                 "ts_vi_steps_per_period": 4,
                 "ts_vi_adapt": False,
@@ -62,7 +66,7 @@ def run_boussinesq_linearized_unconfined_boundary_step_case(
             }
         )
     if str(surface_interaction_model or "").strip().lower() == "vi_obstacle":
-        flow_section.update(
+        flow_section.setdefault("runtime", {}).update(
             {
                 "vi_substeps_per_period": 4,
                 "vi_substep_on_failure": False,

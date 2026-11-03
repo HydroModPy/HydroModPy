@@ -19,6 +19,8 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.core.scope import zone_name_refusal
 from hydromodpy.core.units.hydraulic_conductivity import (
     M_PER_S_CANONICAL_UNITS,
     factor_to_m_per_s,
@@ -145,6 +147,9 @@ class FieldParam:
         values: dict[str, float] = {}
         for key, raw_value in dict(values_by_key).items():
             zone_key = str(key)
+            refusal = zone_name_refusal(zone_key)
+            if refusal is not None:
+                raise ConfigError(f"{self.identifier}.values: {refusal}")
             values[zone_key] = self._convert_scalar_payload_to_si(
                 raw_value,
                 location=f"{self.identifier}.values[{zone_key}]",
@@ -208,7 +213,7 @@ class FieldParam:
 
     @property
     def has_vertical_variation(self):
-        return str(self.vertical_profile.get("mode", "none")) != "none"
+        return str(self.vertical_profile.get("kind", "none")) != "none"
 
     def vertical_factor(self, depth=0.0):
         return vertical_factor(self.vertical_profile, depth)

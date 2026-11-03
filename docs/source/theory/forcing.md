@@ -240,11 +240,11 @@ reaches the ETP package:
 - **MODFLOW-NWT.** The loaded ETP drives the package, with the deficit of
   {ref}`forcing-negative`.
 - **MODFLOW 6 without a soil reservoir.** The loaded ETP is ignored, with a
-  warning if `"etp"` is in {toml}`flow.active_sinks_sources`. Only the deficit
+  warning if a [flow.sinks_sources.etp] table is declared. Only the deficit
   reaches the package.
 - **MODFLOW 6 with a soil reservoir.** The ETP the soil could not meet reaches the
   package.
-- **Boussinesq.** `"etp"` in {toml}`flow.active_sinks_sources` is refused.
+- **Boussinesq.** A [flow.sinks_sources.etp] table is refused.
 
 Under MODFLOW 6 the recharge is set to zero on lake cells: the lake gets its own
 rain through the lake package. A bed cell of an active-shore lake recharges as land

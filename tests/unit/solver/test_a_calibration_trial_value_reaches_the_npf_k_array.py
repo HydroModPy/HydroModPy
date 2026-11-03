@@ -54,7 +54,7 @@ def _hk(characteristic_depth: float) -> np.ndarray:
         identifier="K",
         kind="homogeneous",
         value=1e-4,
-        vertical_profile={"mode": "exponential", "characteristic_depth": characteristic_depth},
+        vertical_profile={"kind": "exponential", "characteristic_depth": characteristic_depth},
     )
     flow = SimpleNamespace(parameters={"K": field_param})
     domain = SimpleNamespace(zones={})

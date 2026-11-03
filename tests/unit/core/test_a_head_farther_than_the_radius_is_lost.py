@@ -5,6 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from hydromodpy.core import stream_geometry
 from tests.unit.core._heads_valley import AXIS, candidates, cell, centre, valley_geometry
 
 
@@ -22,6 +23,27 @@ def test_a_head_farther_than_the_radius_is_lost() -> None:
     assert geometry.diagnostics["n_heads"] == 2.0
     assert geometry.diagnostics["n_heads_lost"] == 1.0
     assert not geometry.observed[cell(15, 0)]
+
+
+def test_a_lost_head_warns_once_with_what_to_check(
+    caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(stream_geometry, "_heads_lost_warned", False)
+    junction = centre(15, AXIS)
+    heads = candidates([(centre(5, AXIS), junction), ((-200.0, 155.0), junction)])
+
+    with caplog.at_level("WARNING", logger="hydromodpy.core.stream_geometry"):
+        valley_geometry(heads, snap_radius_m=100.0)
+        valley_geometry(heads, snap_radius_m=100.0)
+
+    warned = [
+        record.getMessage()
+        for record in caplog.records
+        if "landed on no cell" in record.getMessage()
+    ]
+    assert len(warned) == 1
+    assert "1 of 2 head(s)" in warned[0]
+    assert "heads_snap_radius" in warned[0]
 
 
 def test_a_head_lands_on_the_nearest_cell_draining_enough() -> None:

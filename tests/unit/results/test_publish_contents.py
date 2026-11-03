@@ -18,9 +18,9 @@ import tarfile
 
 import pytest
 
-from hydromodpy.catalog.share import inputs_of
 from hydromodpy.core.exceptions import ConfigMissingError, ExportError
 from hydromodpy.core.payload import read_index
+from hydromodpy.project.share import inputs_of
 from hydromodpy.results.export.publish import INPUTS_DIRNAME, publish, publish_project, verify
 from hydromodpy.results.ledger import sha256_of
 from hydromodpy.results.publication import read_publication, read_published

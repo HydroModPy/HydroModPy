@@ -49,7 +49,7 @@ def _adapter(
 ) -> FlowToModflowAdapter:
     dem = np.full((NROW, NCOL), 20.0)
     flow = SimpleNamespace(
-        initial_conditions=SimpleNamespace(h=SimpleNamespace(type="top", value=0.0)),
+        initial_conditions=SimpleNamespace(h=SimpleNamespace(kind="top", value=0.0)),
         boundary_conditions={},
         active_bc=[],
         sinks_sources={},

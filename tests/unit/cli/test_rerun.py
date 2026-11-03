@@ -135,7 +135,7 @@ def test_the_provider_seals_the_child_as_a_rerun_of_its_source(monkeypatch) -> N
 
     class _Project:
         def __init__(self, config) -> None:
-            self.config = config
+            self.config = self._cfg = config
             self._ctx = types.SimpleNamespace(parent_sim_id=None)
 
         def simulate(self, *, name, lineage):

@@ -1,7 +1,7 @@
 """The LAK OUTLETS builder (surverse / spillway).
 
 An outlet row follows the FloPy layout
-``[outletno, lakein, lakeout, couttype, invert, width, rough, slope]``. The
+``[outletno, lakein, lakeout, kind, invert, width, rough, slope]``. The
 tests check:
 
 * WEIR / MANNING / SPECIFIED each build the right row, with MANNING carrying
@@ -41,16 +41,16 @@ def _grid_4x4(nlay: int = 2) -> SolverMesh:
 def test_weir_outlet_row_to_external_boundary() -> None:
     lakes = {
         "lac0": {
-            "outlets": [{"couttype": "WEIR", "invert": 87.0, "width": 12.0, "lakeout": 0}],
+            "outlets": [{"kind": "WEIR", "invert": 87.0, "width": 12.0, "lakeout": 0}],
         }
     }
     rows = build_lake_outlets(None, lakes=lakes)
     assert len(rows) == 1
-    outletno, lakein, lakeout, couttype, invert, width, rough, slope = rows[0]
+    outletno, lakein, lakeout, kind, invert, width, rough, slope = rows[0]
     assert outletno == 0
     assert lakein == 0
     assert lakeout == -1  # config 0 -> external boundary (FloPy -1)
-    assert couttype == "WEIR"
+    assert kind == "WEIR"
     assert invert == pytest.approx(87.0)
     assert width == pytest.approx(12.0)
     # WEIR ignores rough / slope.
@@ -63,7 +63,7 @@ def test_manning_outlet_carries_rough_and_slope() -> None:
         "lac0": {
             "outlets": [
                 {
-                    "couttype": "MANNING",
+                    "kind": "MANNING",
                     "invert": 90.0,
                     "width": 5.0,
                     "rough": 0.03,
@@ -73,8 +73,8 @@ def test_manning_outlet_carries_rough_and_slope() -> None:
         }
     }
     rows = build_lake_outlets(None, lakes=lakes)
-    _, _, lakeout, couttype, invert, width, rough, slope = rows[0]
-    assert couttype == "MANNING"
+    _, _, lakeout, kind, invert, width, rough, slope = rows[0]
+    assert kind == "MANNING"
     assert lakeout == -1
     assert invert == pytest.approx(90.0)
     assert width == pytest.approx(5.0)
@@ -83,10 +83,10 @@ def test_manning_outlet_carries_rough_and_slope() -> None:
 
 
 def test_specified_outlet_has_no_geometry() -> None:
-    lakes = {"lac0": {"outlets": [{"couttype": "SPECIFIED", "lakeout": 0}]}}
+    lakes = {"lac0": {"outlets": [{"kind": "SPECIFIED", "lakeout": 0}]}}
     rows = build_lake_outlets(None, lakes=lakes)
-    _, _, _, couttype, invert, width, rough, slope = rows[0]
-    assert couttype == "SPECIFIED"
+    _, _, _, kind, invert, width, rough, slope = rows[0]
+    assert kind == "SPECIFIED"
     assert (invert, width, rough, slope) == (0.0, 0.0, 0.0, 0.0)
 
 
@@ -98,8 +98,8 @@ def test_specified_outlet_emits_a_period_rate_row() -> None:
     lakes = {
         "lac0": {
             "outlets": [
-                {"couttype": "WEIR", "lakeout": 0},  # global outlet 0
-                {"couttype": "SPECIFIED", "lakeout": 0, "rate": -2.5},  # global outlet 1
+                {"kind": "WEIR", "lakeout": 0},  # global outlet 0
+                {"kind": "SPECIFIED", "lakeout": 0, "rate": -2.5},  # global outlet 1
             ]
         }
     }
@@ -120,7 +120,7 @@ def test_outlet_routes_directly_to_downstream_lake() -> None:
     # Preretenue (lac0) -> retenue (lac1) via a WEIR with lakeout=2 (the second
     # lake, 1-based).
     lakes = {
-        "lac0": {"outlets": [{"couttype": "WEIR", "invert": 87.0, "width": 30.0, "lakeout": 2}]},
+        "lac0": {"outlets": [{"kind": "WEIR", "invert": 87.0, "width": 30.0, "lakeout": 2}]},
         "lac1": {"outlets": []},
     }
     rows = build_lake_outlets(None, lakes=lakes)
@@ -134,7 +134,7 @@ def test_lakeout_two_on_two_lake_model_resolves_to_index_one() -> None:
     # Config lakeout is 1-based: lakeout=2 is the second lake, which FloPy stores
     # as 0-based index 1 (written to the MF6 file as lake number 2).
     lakes = {
-        "lac0": {"outlets": [{"couttype": "WEIR", "invert": 87.0, "width": 30.0, "lakeout": 2}]},
+        "lac0": {"outlets": [{"kind": "WEIR", "invert": 87.0, "width": 30.0, "lakeout": 2}]},
         "lac1": {"outlets": []},
     }
     rows = build_lake_outlets(None, lakes=lakes)
@@ -145,7 +145,7 @@ def test_lakeout_two_on_two_lake_model_resolves_to_index_one() -> None:
 def test_lakeout_greater_than_lake_count_is_rejected() -> None:
     # lakeout=2 but only one lake declared: no downstream lake to route to.
     lakes = {
-        "lac0": {"outlets": [{"couttype": "WEIR", "invert": 87.0, "width": 30.0, "lakeout": 2}]},
+        "lac0": {"outlets": [{"kind": "WEIR", "invert": 87.0, "width": 30.0, "lakeout": 2}]},
     }
     with pytest.raises(ValueError, match="no matching downstream lake"):
         build_lake_outlets(None, lakes=lakes)
@@ -154,7 +154,7 @@ def test_lakeout_greater_than_lake_count_is_rejected() -> None:
 def test_outlet_routing_a_lake_to_itself_is_rejected() -> None:
     # lac0 is the first lake; lakeout=1 would route it back to itself.
     lakes = {
-        "lac0": {"outlets": [{"couttype": "WEIR", "invert": 87.0, "width": 30.0, "lakeout": 1}]},
+        "lac0": {"outlets": [{"kind": "WEIR", "invert": 87.0, "width": 30.0, "lakeout": 1}]},
         "lac1": {"outlets": []},
     }
     with pytest.raises(ValueError, match="routes the lake to itself"):
@@ -164,7 +164,7 @@ def test_outlet_routing_a_lake_to_itself_is_rejected() -> None:
 def test_manning_outlet_rejects_zero_slope() -> None:
     lakes = {
         "lac0": {
-            "outlets": [{"couttype": "MANNING", "invert": 90.0, "width": 5.0, "rough": 0.03}],
+            "outlets": [{"kind": "MANNING", "invert": 90.0, "width": 5.0, "rough": 0.03}],
         }
     }
     with pytest.raises(ValueError, match="positive slope"):
@@ -172,14 +172,14 @@ def test_manning_outlet_rejects_zero_slope() -> None:
 
 
 def test_weir_outlet_requires_invert() -> None:
-    lakes = {"lac0": {"outlets": [{"couttype": "WEIR", "width": 5.0}]}}
+    lakes = {"lac0": {"outlets": [{"kind": "WEIR", "width": 5.0}]}}
     with pytest.raises(ValueError, match="requires an invert"):
         build_lake_outlets(None, lakes=lakes)
 
 
 def test_unknown_couttype_is_rejected() -> None:
-    lakes = {"lac0": {"outlets": [{"couttype": "SIPHON", "invert": 1.0, "width": 1.0}]}}
-    with pytest.raises(ValueError, match="couttype must be one of"):
+    lakes = {"lac0": {"outlets": [{"kind": "SIPHON", "invert": 1.0, "width": 1.0}]}}
+    with pytest.raises(ValueError, match="kind must be one of"):
         build_lake_outlets(None, lakes=lakes)
 
 
@@ -197,10 +197,8 @@ def _model_with_outlet() -> SimpleNamespace:
                         "polygon": polygon,
                         "bedleak": 0.3,
                         "abacus": abacus,
-                        "stageinit": 80.0,
-                        "outlets": [
-                            {"couttype": "WEIR", "invert": 95.0, "width": 8.0, "lakeout": 0}
-                        ],
+                        "initial_stage": 80.0,
+                        "outlets": [{"kind": "WEIR", "invert": 95.0, "width": 8.0, "lakeout": 0}],
                         "rainfall": {"value": 4.0, "units": "mm/day"},
                     }
                 }
@@ -265,12 +263,12 @@ def test_reciprocal_weirs_with_the_same_crest_are_refused() -> None:
     lakes = {
         "reservoir": {
             "outlets": [
-                {"couttype": "WEIR", "invert": 87.57, "width": 35.0, "lakeout": 0},
-                {"couttype": "WEIR", "invert": 86.93, "width": 24.0, "lakeout": 2},
+                {"kind": "WEIR", "invert": 87.57, "width": 35.0, "lakeout": 0},
+                {"kind": "WEIR", "invert": 86.93, "width": 24.0, "lakeout": 2},
             ]
         },
         "preretenue": {
-            "outlets": [{"couttype": "WEIR", "invert": 86.93, "width": 24.0, "lakeout": 1}],
+            "outlets": [{"kind": "WEIR", "invert": 86.93, "width": 24.0, "lakeout": 1}],
         },
     }
     with pytest.raises(ValueError, match="Reciprocal") as err:
@@ -284,11 +282,9 @@ def test_reciprocal_outlets_with_different_crests_stay_a_warning(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     lakes = {
-        "reservoir": {
-            "outlets": [{"couttype": "WEIR", "invert": 90.0, "width": 24.0, "lakeout": 2}]
-        },
+        "reservoir": {"outlets": [{"kind": "WEIR", "invert": 90.0, "width": 24.0, "lakeout": 2}]},
         "preretenue": {
-            "outlets": [{"couttype": "WEIR", "invert": 86.93, "width": 24.0, "lakeout": 1}],
+            "outlets": [{"kind": "WEIR", "invert": 86.93, "width": 24.0, "lakeout": 1}],
         },
     }
     with caplog.at_level(logging.WARNING):
@@ -300,8 +296,8 @@ def test_reciprocal_outlets_with_different_crests_stay_a_warning(
 def test_lake_outlet_cascade_is_not_reported(caplog: pytest.LogCaptureFixture) -> None:
     # A real cascade (upstream lake -> downstream lake -> external) is not a loop.
     lakes = {
-        "upper": {"outlets": [{"couttype": "WEIR", "invert": 90.0, "width": 10.0, "lakeout": 2}]},
-        "lower": {"outlets": [{"couttype": "WEIR", "invert": 80.0, "width": 10.0, "lakeout": 0}]},
+        "upper": {"outlets": [{"kind": "WEIR", "invert": 90.0, "width": 10.0, "lakeout": 2}]},
+        "lower": {"outlets": [{"kind": "WEIR", "invert": 80.0, "width": 10.0, "lakeout": 0}]},
     }
     with caplog.at_level(logging.WARNING):
         build_lake_outlets(None, lakes=lakes)

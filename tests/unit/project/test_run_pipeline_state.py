@@ -25,7 +25,7 @@ name = "declared_name"
 
 [[simulation.process]]
 id = "flow"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [workspace]
@@ -37,7 +37,7 @@ name = "naizin"
 crs_project = "EPSG:2154"
 
 [geographic.catchment]
-catch_def = "from_outlet_coord"
+kind = "from_outlet_coord"
 dem_init_path = "{dem}"
 x_outlet = 265611.933
 y_outlet = 6784182.776
@@ -104,7 +104,7 @@ def captured_state(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> PipelineS
     monkeypatch.setattr("hydromodpy.workflow.runner.Pipeline", _Pipeline)
 
     project = Project(config_path, no_display=True)
-    project.execute(name="asked_name")
+    project._execute(name="asked_name")
 
     assert len(seen) == 1
     return seen[0]

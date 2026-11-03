@@ -5,7 +5,7 @@ a polyline, modeled in MODFLOW 6 as a Horizontal Flow Barrier (HFB). It is the
 canonical barrier payload, used in two places:
 
 * a general addon ``[flow.sinks_sources.flow_barriers.<id>]`` (modflow6 backend
-  only; declaring one activates it, there is no active_bc gate), and
+  only; declaring one activates it, like any other boundary), and
 * the dam cutoff wall / grout curtain ``[...lakes.<id>.cutoff_wall]``, where the
   barrier sits on the dam axis and forces the under-dam seepage below the wall.
 
@@ -48,6 +48,13 @@ class FlowBarrierConfig(HydroModelBase):
     use of this payload.
     """
 
+    enabled: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description=(
+            "Whether this barrier is built. Declaring it is what activates it. false keeps the table "
+            "and builds nothing from it."
+        ),
+    )
     auto: Annotated[bool, Profile.USER] = Field(
         default=False,
         description=(
@@ -81,6 +88,7 @@ class FlowBarrierConfig(HydroModelBase):
             "uniform; several are interpolated per vertex along the trace. The HFB blocks "
             "every layer down to this depth. Mutually exclusive with base_elevation."
         ),
+        json_schema_extra=field_metadata(unit="m"),
     )
     crest_elevation: Annotated[float | None, Profile.USER] = Field(
         default=None,

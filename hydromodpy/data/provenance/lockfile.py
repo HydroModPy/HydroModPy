@@ -48,7 +48,7 @@ from hydromodpy.core.io.document_version import VersionWindow, check_version
 LOCKFILE_NAME = "hydromodpy.lock"
 LOCKFILE_SCHEMA = "hydromodpy.lock.v1"
 LOCKFILE_VERSIONS = VersionWindow(oldest="hydromodpy.lock.v1", current=LOCKFILE_SCHEMA)
-LOCKFILE_REMEDY = "Write it again from the data cache with `hmp dev lock update`."
+LOCKFILE_REMEDY = "Write it again from the data cache with `hmp lock update`."
 
 # Process-wide frozen-mode state. Consulted by data loaders to refuse fresh
 # downloads when a lockfile is authoritative, and to know which project's

@@ -235,6 +235,7 @@ def run_calibration_programmatic(
         space=space,
         trial_ctx=trial_ctx,
         project=project_label,
+        objective=objective,
     )
     _keep_trial_solves(cfg, trial_ctx)
     scope = SessionScope(

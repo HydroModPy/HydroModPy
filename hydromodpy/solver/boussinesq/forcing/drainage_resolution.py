@@ -80,10 +80,10 @@ class DrainageResolutionMixin:
         boundary = self.boundary_conditions_mapping().get("drainage")
         if boundary is None:
             raise ValueError("Active boundary 'drainage' is missing from flow.bc.")
-        boundary_kind = str(getattr(boundary, "kind", "cauchy")).strip().lower()
-        if boundary_kind not in {"cauchy", "robin"}:
+        boundary_kind = str(getattr(boundary, "kind", "drain")).strip().lower()
+        if boundary_kind != "drain":
             raise ValueError(
-                "Boundary 'drainage' must be of kind cauchy/robin for the "
+                "Boundary 'drainage' must be of kind drain for the "
                 "current boussinesq backend slice."
             )
         return self.simple_period_series(

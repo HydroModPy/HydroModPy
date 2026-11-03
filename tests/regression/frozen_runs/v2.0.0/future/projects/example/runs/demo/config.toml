@@ -1,0 +1,106 @@
+export = [
+    { variables = "discharge" },
+]
+
+[workflow]
+mode = "simulation"
+
+[geographic]
+source_mode = "synthetic"
+crs_project = "EPSG:2154"
+
+[geographic.synthetic]
+case_id = "example_synthetic"
+
+[geographic.synthetic.grid]
+length_x = 1000.0
+length_y = 1000.0
+nx = 20
+ny = 20
+
+[geographic.synthetic.topography]
+kind = "linear"
+base_elevation = 20.0
+right_to_left_amplitude = 5.0
+
+[domain.depth_model]
+kind = "constant_thickness"
+thickness = 50.0
+
+[data]
+types = []
+
+[flow]
+param_list = [
+    "K",
+    "Sy",
+]
+active_sinks_sources = [
+    "recharge",
+]
+active_bc = [
+    "drainage",
+]
+flow_regime = "steady"
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+unit = "m/s"
+value = 0.0001
+
+[flow.param.Sy.field]
+id = "Sy"
+kind = "homogeneous"
+unit = "-"
+value = 0.12
+
+[flow.ic]
+
+[flow.bc.drainage]
+id = "drainage"
+value = 0.0
+description = "Cauchy drainage boundary condition on top"
+units = "m2/s"
+kind = "cauchy"
+data_value = false
+application_domain = "top"
+
+[flow.sinks_sources.recharge]
+values = 0.8
+units = "mm/day"
+
+[transport]
+
+[simulation]
+name = "demo"
+description = "Scaffolded synthetic steady-flow run under a uniform recharge."
+
+[simulation.time]
+start_datetime = 2000-01-01 00:00:00
+end_datetime = 2000-12-31 00:00:00
+step_value = 1
+step_unit = "year"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = [
+    "modflow_nwt",
+]
+
+[solver.backend]
+backend = "modflow_nwt"
+
+[modflownwt]
+
+[modflow6]
+
+[display]
+dpi = 40
+figures = [
+    "water_budget",
+]
+on_error = "warn"
+
+[observation]

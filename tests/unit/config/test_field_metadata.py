@@ -18,7 +18,7 @@ from hydromodpy.core.config_kit.field_metadata import (
     is_valid_field_metadata,
     unknown_metadata_keys,
 )
-from hydromodpy.physics.flow.flow_config import FlowConfig
+from hydromodpy.physics.flow.flow_runtime_config import FlowRuntimeConfig
 from hydromodpy.physics.flow.sinks_sources.container import FlowSinksSourcesConfig
 from hydromodpy.physics.flow.sinks_sources.lake import FlowLakeConfig
 from hydromodpy.physics.hydrology.soil_reservoir.config import SoilReservoirConfig
@@ -36,11 +36,11 @@ PUBLISHED_SCHEMA = ROOT / "docs" / "source" / "_static" / "hydromodpy-schema.jso
 #: What decision D10 of the 2.0.0 campaign calls experimental, field by field.
 MARKED: dict[type[BaseModel], tuple[str, ...]] = {
     HydroModPyConfig: ("calibration",),
-    FlowConfig: (
-        "runtime_backend",
-        "runtime_max_iterations",
-        "runtime_tol_residual_inf",
-        "runtime_tol_state_update_inf",
+    FlowRuntimeConfig: (
+        "backend",
+        "max_iterations",
+        "tol_residual_inf",
+        "tol_state_update_inf",
         "vi_substeps_per_period",
         "vi_substep_on_failure",
         "vi_max_adaptive_substeps",
@@ -73,7 +73,11 @@ MARKED_FIELDS = [(model, field) for model, fields in MARKED.items() for field in
 
 #: A value of a selector, on a key that stays stable for its other values.
 MARKED_VALUES: dict[tuple[type[BaseModel], str], tuple[str, ...]] = {
-    (FlowConfig, "surface_interaction_model"): ("complementarity", "vi_obstacle", "ts_vi_obstacle"),
+    (FlowRuntimeConfig, "surface_interaction_model"): (
+        "complementarity",
+        "vi_obstacle",
+        "ts_vi_obstacle",
+    ),
     (TransportProcessConfig, "solvers"): ("modpath", "modflow6_prt"),
 }
 
@@ -170,7 +174,7 @@ def test_the_drain_bed_thickness_says_its_value_has_no_measured_source() -> None
         "flow.sinks_sources.lakes.<name>.cutoff_wall",
         "flow.sinks_sources.lakes.<name>.cutoff_wall.depths",
         "flow.sinks_sources.recharge.soil.alpha",
-        "flow.vi_substeps_per_period",
+        "flow.runtime.vi_substeps_per_period",
         "geographic.domain_extent",
         "solver.backend.name",
     ],
@@ -197,7 +201,7 @@ def test_the_docs_show_no_mark_beside_a_marked_key(registry: dict, path: str) ->
 
 
 def test_the_docs_show_which_values_of_a_selector_are_marked(registry: dict, chips) -> None:
-    node = registry["flow.surface_interaction_model"]
+    node = registry["flow.runtime.surface_interaction_model"]
     assert not node["stability"]
     assert any(
         "experimental if" in chip and "vi_obstacle" in chip for chip in chips(node, in_variant=True)
@@ -212,8 +216,6 @@ def test_field_metadata_helper_accepts_canonical_keys() -> None:
         unit="m/s",
         display_min=0.0,
         display_max=1.0,
-        display_name_fr="Conductivite",
-        help_text_fr="Vitesse aquifere.",
         toml_exclude=False,
         group="advanced",
         stability="experimental",

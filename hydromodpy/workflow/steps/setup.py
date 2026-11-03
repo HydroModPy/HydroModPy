@@ -11,7 +11,7 @@ from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.rng import RngManager
 from hydromodpy.core.state.paths import preprocessing_dir
-from hydromodpy.core.workspace import Workspace
+from hydromodpy.core.workspace import WorkspaceLayout
 from hydromodpy.results.storage.attempt import scratch_dir_for_attempt
 from hydromodpy.simulation import ensure_flow, ensure_transport
 from hydromodpy.spatial.domain.build import (
@@ -113,7 +113,7 @@ def resolve_dem_init_path(cfg: object, run_state: WorkflowContext) -> None:
         catchment = getattr(geographic_cfg, "catchment", None)
         if catchment is None:
             raise ConfigError(
-                "geographic.catchment.catch_def is required when [[data.dem.sources]] is "
+                "geographic.catchment.kind is required when [[data.dem.sources]] is "
                 "the DEM source. Add a [geographic.catchment] table with catch_def."
             )
         _require_dem_crs(resolved)
@@ -460,7 +460,7 @@ def run_setup(
 
     setup_state = run_state.setup
 
-    setup_state.workspace = Workspace(config=cfg.workspace)
+    setup_state.workspace = WorkspaceLayout(config=cfg.workspace)
     if run_state.run_dir is not None:
         setup_state.workspace.solver_scratch_folder = scratch_dir_for_attempt(
             setup_state.workspace.project_root, run_state.run_dir, run_state.attempt

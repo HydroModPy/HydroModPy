@@ -15,7 +15,7 @@ from hydromodpy.workflow.steps.prepare_solver.validate import site_block
 
 
 def _ctx(site: SiteConfig, stations: tuple[str, ...]) -> SimpleNamespace:
-    catchment = SimpleNamespace(catch_def="from_outlet_coord", x_outlet=1.0, y_outlet=2.0)
+    catchment = SimpleNamespace(kind="from_outlet_coord", x_outlet=1.0, y_outlet=2.0)
     hydrometry = SimpleNamespace(points=[SimpleNamespace(station_id=s) for s in stations])
     return SimpleNamespace(
         cfg=SimpleNamespace(

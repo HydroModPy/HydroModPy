@@ -71,6 +71,7 @@ from hydromodpy.simulation.planning.plan import (
     WATER_BUDGET_WORST_METRIC,
 )
 from hydromodpy.solver.base.adapter_protocol import STOP_BEFORE_THE_SOLVE
+from hydromodpy.spatial.geographic.river_network_config import river_network_for_the_mesh
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
@@ -331,6 +332,9 @@ def prepare_trials(
     else:
         path_set = {str(p) for p in override_paths}
         path_map = {p: p for p in path_set}
+
+    # Mirror Project._configure: a mesh that follows the rivers needs their network.
+    cfg.geographic = river_network_for_the_mesh(cfg)
 
     # Mirror Project._configure: discover the spatial supports referenced by
     # heterogeneous flow parameters so step_03 (build_geographic) can validate

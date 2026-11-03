@@ -18,7 +18,7 @@ import pickle
 
 def test_the_runtime_state_survives_a_process_boundary(live_project) -> None:
     """A real context, after a real run, pickles and comes back."""
-    context = live_project.workflow_context
+    context = live_project._ctx
     restored = pickle.loads(pickle.dumps(context))
     assert restored.sim_id == context.sim_id
     assert restored.config_path == context.config_path

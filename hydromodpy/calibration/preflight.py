@@ -362,9 +362,18 @@ def protocol_lines(cfg: Any) -> tuple[list[str], list[str]]:
     # Where this run departs from the publication it cites. A reader comparing a
     # result to the literature needs this before the run, not after.
     always: list[str] = []
-    for item in deviations_in_force(cfg.calibration, getattr(cfg, "geographic", None)):
+    for item in deviations_in_force(
+        cfg.calibration,
+        getattr(cfg, "geographic", None),
+        getattr(getattr(cfg, "metrics", None), "window", None),
+    ):
         told = f"{item.here} (paper: {item.paper})"
-        suffix = f" - this file sets {_rendered(item.value)}" if item.written else ""
+        if item.written:
+            suffix = f" - this file sets {_rendered(item.value)}"
+        elif item.value is not None:
+            suffix = f" - value in force: {_rendered(item.value)}"
+        else:
+            suffix = ""
         if item.state == "always":
             always.append(item.key)
             verbose.append(f"  always differs from the paper on {item.key}: {told}")
@@ -1505,7 +1514,7 @@ def _check_the_network_search_can_trust_its_release_packages(
 ) -> list[PreflightFinding]:
     """Refuse a K-moving network search next to an SFR or LAK with a fixed conductance.
 
-    Checked against the ``flow.active_bc`` of the model each search runs: a
+    Checked against the boundaries the model of each search declares: a
     phase that turns a package off through its own ``overrides``, as
     ``auto_sfr_drn.toml`` does, is checked without it.
     """

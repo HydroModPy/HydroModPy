@@ -1,7 +1,7 @@
 """Map of a cohort: one point per site at its outlet, coloured by one column.
 
 Registered as ``map``, the name ``[sites.summary] figures`` writes.
-``hmp project collect`` draws it under ``summary/figures/map_<variable>.png``
+``hmp campaign collect`` draws it under ``summary/figures/map_<variable>.png``
 for each name of ``[sites.summary] variables``: the best K or the NSE of every catchment of a
 project on one map. A site without a value is drawn hollow, so a reader sees
 which catchments the table leaves empty.

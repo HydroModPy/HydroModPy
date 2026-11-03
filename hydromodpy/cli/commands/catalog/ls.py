@@ -4,7 +4,7 @@ Each run shows its site, its label, its score and the ``overrides`` its seal
 records (what ``--set`` changed), so a ``.v2`` says how it differs.
 ``--best METRIC`` ranks the runs by that metric, best first; ``--by site``
 groups them by site, and with ``--best`` keeps the best run of each site. The
-ranking rule is the one of ``hmp project collect``: scores computed on
+ranking rule is the one of ``hmp campaign collect``: scores computed on
 different windows are refused unless ``--mixed-windows``. A site whose runs
 are all left out by ``--best`` is named once, with why (no ``[metrics]
 window``, or no such metric): on stdout under the table, on stderr beside
@@ -27,7 +27,9 @@ from hydromodpy.cli.helpers import (
     apply_verbosity,
     exit_code_for,
     find_workspace_root,
+    refuse,
 )
+from hydromodpy.cli.output import emit
 
 NAME: str = "ls"
 HELP: str = "List the sealed runs recorded in the project index"
@@ -110,11 +112,7 @@ def _resolve_workspace(workspace_arg: str | None) -> Path:
     found = find_workspace_root(start)
     if (found / "projects").is_dir() or (found / "data").is_dir():
         return found
-    print(
-        f"No project index or workspace at or above {start}. Name one with -w.",
-        file=sys.stderr,
-    )
-    sys.exit(EXIT_NOT_FOUND)
+    refuse(f"No project index or workspace at or above {start}. Name one with -w.", EXIT_NOT_FOUND)
 
 
 def _readable_facts(run_dir: Path) -> Any:
@@ -190,18 +188,17 @@ def run(args: argparse.Namespace) -> None:
     apply_verbosity(args, {})
     from hydromodpy.cli._workers.catalog import list_simulations
     from hydromodpy.project.summary import rank_rows
-    from hydromodpy.results.catalog import iter_project_catalog_roots, short_id
+    from hydromodpy.results.catalog import iter_project_catalog_roots
     from hydromodpy.results.catalog.constants import UnrankedMetricError
     from hydromodpy.results.run.sealed import MixedWindowsError
 
     workspace_root = _resolve_workspace(args.workspace)
     if not iter_project_catalog_roots(workspace_root):
-        print(
+        refuse(
             f"No indexed project found under {workspace_root}; run `hmp catalog reindex` "
             "in a project first",
-            file=sys.stderr,
+            EXIT_NOT_FOUND,
         )
-        sys.exit(EXIT_NOT_FOUND)
 
     df = list_simulations(
         workspace_root,
@@ -214,7 +211,12 @@ def run(args: argparse.Namespace) -> None:
         limit=None if args.best else args.limit,
     )
     if df.empty:
-        print(f"(no sealed run recorded under {workspace_root})")
+        emit(
+            args,
+            "catalog ls",
+            [],
+            table=lambda: print(f"(no sealed run recorded under {workspace_root})"),
+        )
         return
 
     df = _with_seal_facts(df, workspace_root, args.best)
@@ -227,8 +229,7 @@ def run(args: argparse.Namespace) -> None:
         elif args.by == "site":
             df = df.sort_values("site", kind="stable", na_position="last")
     except UnrankedMetricError as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_USAGE)
+        refuse(str(exc), EXIT_USAGE, cause=exc)
     except MixedWindowsError as exc:
         print(str(exc), file=sys.stderr)
         if args.by is None:
@@ -236,22 +237,19 @@ def run(args: argparse.Namespace) -> None:
         sys.exit(exit_code_for(exc))
     if args.best and args.limit is not None:
         df = df.head(int(args.limit))
-    machine = args.format in ("json", "csv")
     if df.empty:
         reasons = [f"(no sealed run under {workspace_root} has a {args.best})", *reasons]
-        if not machine:
-            for line in reasons:
-                print(line)
-            return
-
+    # A reason is not a row: beside a document it goes to stderr, so stdout parses.
+    machine = args.format != "table"
+    emit(args, "catalog ls", df, table=lambda: _print_runs(df, args, reasons))
     if machine:
-        if args.format == "json":
-            print(df.to_json(orient="records", date_format="iso"))
-        else:
-            print(df.to_csv(index=False), end="")
         for line in reasons:
             print(line, file=sys.stderr)
-        return
+
+
+def _print_runs(df: Any, args: argparse.Namespace, reasons: list[str]) -> None:
+    """Print the runs for people, by project or by site, then the sites left out."""
+    from hydromodpy.results.catalog import short_id
 
     group = "site" if args.by == "site" else "project"
     current: Any = object()

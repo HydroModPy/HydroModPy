@@ -4,8 +4,9 @@ Holds the run-phase entry points backing the facade: :meth:`ProjectRunner.execut
 runs one attempt of a case through the workflow Pipeline and returns what its
 directory says; :meth:`ProjectRunner.run` is the same followed by the index
 refresh and the :class:`~hydromodpy.results.run.Run` view ``Project.simulate``
-returns. The worker side (``hmp run``) stops at ``execute``: it never opens
-the index, the launcher indexes after it.
+returns; :meth:`ProjectRunner.draft` says what a run would do and runs nothing.
+The worker side (``hmp run``) stops at ``execute``: it never opens the index, the
+launcher indexes after it.
 
 The attempt protocol (claim of ``runs/<case>/``, pulse, outcome) is
 :mod:`hydromodpy.project.attempt`; the seal is the last step of the pipeline.
@@ -13,7 +14,7 @@ The attempt protocol (claim of ``runs/<case>/``, pulse, outcome) is
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager, nullcontext
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -27,6 +28,7 @@ from hydromodpy.results.catalog.registration import solve_identity_hash
 from hydromodpy.results.storage.attempt import scratch_dir_for_attempt
 
 if TYPE_CHECKING:
+    from hydromodpy.config.sites.expansion import PlanDraft
     from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.project.facade import Project
     from hydromodpy.results.run import Run
@@ -54,51 +56,53 @@ def _pin_parent_sim_id(ctx: WorkflowContext, parent_sim_id: str | None) -> Itera
         ctx.parent_sim_id = previous
 
 
-def resolve_step_index(step: str | int, steps: tuple) -> int:
-    """Resolve a step name (or integer/digit string) to a tuple index.
+def resolve_step_index(step: str, steps: tuple) -> int:
+    """Return the position of the step named *step* in *steps*.
 
-    Accepts either the ``step.name`` attribute (snake_case, e.g.
-    ``"setup_process"``), the class name (``"SetupProcessStep"``), the
-    class-name prefix (``"setupprocess"``), or a numeric index.
+    A step is named by its ``name``, one of
+    :data:`~hydromodpy.core.pipeline_steps.STEP_NAMES`. An index would move when a
+    version inserts a step, so it is refused, and a class name is no contract.
     """
-    if isinstance(step, int):
-        return step
-    text = str(step)
-    if text.isdigit():
-        return int(text)
-    lower = text.lower()
-    target = lower.removesuffix("step").rstrip("_")
-    flat = target.replace("_", "")
-    for idx, obj in enumerate(steps):
-        if getattr(obj, "name", None) == lower:
-            return idx
-        candidate = type(obj).__name__.lower().removesuffix("step").rstrip("_")
-        if candidate == flat:
-            return idx
-    known = ", ".join(type(s).__name__ for s in steps)
-    raise ConfigError(f"Unknown pipeline step: {step!r}. Known steps: {known}")
-
-
-def _bounded_step_index(
-    step: str | int | None,
-    steps: tuple,
-    *,
-    label: str,
-) -> int | None:
-    """Resolve a step bound and refuse one that lands outside the pipeline.
-
-    An index past either end used to run a truncated or empty window and
-    report success, which is indistinguishable from a run that did its work.
-    """
-    if step is None:
-        return None
-    index = resolve_step_index(step, steps)
-    if not 0 <= index < len(steps):
+    if not isinstance(step, str):
+        known = ", ".join(getattr(obj, "name", type(obj).__name__) for obj in steps)
         raise ConfigError(
-            f"{label} {step!r} resolves to index {index}, outside the {len(steps)}-step "
-            f"pipeline. Name a step or give an index in 0..{len(steps) - 1}."
+            f"A pipeline step is named, not numbered: got {step!r}. Known steps: {known}."
         )
-    return index
+    for index, obj in enumerate(steps):
+        if getattr(obj, "name", None) == step:
+            return index
+    known = ", ".join(getattr(obj, "name", type(obj).__name__) for obj in steps)
+    raise ConfigError(f"Unknown pipeline step: {step!r}. Known steps: {known}.")
+
+
+def _bounded_step_index(step: str | None, steps: tuple) -> int | None:
+    """Resolve a step bound, ``None`` when there is none."""
+    return None if step is None else resolve_step_index(step, steps)
+
+
+def _refuse_an_empty_window(
+    from_step: str | None, from_idx: int | None, until_step: str | None, until_idx: int | None
+) -> None:
+    """Refuse a step window whose start comes after its end."""
+    if from_idx is not None and until_idx is not None and from_idx > until_idx:
+        raise ConfigError(f"from_step {from_step!r} is past until_step {until_step!r}.")
+
+
+def _window_stops_before_the_model(
+    until_step: str | None, until_idx: int | None, first_model_step: int, resume: str | None
+) -> bool:
+    """Say whether a window ends before ``setup_process``.
+
+    Such a window reaches no step able to open a run, so it is not a run and claims no
+    directory, and it keeps no journal to resume from.
+    """
+    head_only = until_idx is not None and until_idx < first_model_step
+    if head_only and resume is not None:
+        raise ConfigError(
+            f"until_step {until_step!r} stops before 'setup_process', so the run keeps no "
+            f"journal to resume from. Drop --resume, or widen the window."
+        )
+    return head_only
 
 
 def model_phase_index(steps: tuple) -> int:
@@ -184,35 +188,23 @@ def _resolve_resume_step_index(
     return plan.restart_index
 
 
-def _print_dry_run_plan(
-    *,
-    run_id: str,
-    steps: tuple,
-    resume_from: int | None,
-) -> None:
-    """Emit the resolved Pipeline plan without executing any step."""
-    print(f"[dry-run] run_id    : {run_id}")
-    if resume_from is not None:
-        print(f"[dry-run] resume_from: {resume_from}")
-    print("[dry-run] steps     :")
-    for idx, step in enumerate(steps):
-        print(f"  {idx:02d}  {type(step).__name__}")
+def run_view_of(run_dir: Path, *, project_root: Path, sim_id: str) -> Run | None:
+    """Return the view of a run directory: a sealed run through its seal, else its store.
 
-
-def _unsealed_run_view(sealed: SealedRun) -> Run | None:
-    """Return the view of a run that stopped before its seal, read from its directory.
-
-    The index lists sealed runs only, so a partial run is read through its
-    own store. A run that wrote no facts has nothing to read: ``None``.
+    The index lists sealed runs only, so a run that stopped before its seal is read
+    through its own store. A run that wrote no facts has nothing to read: ``None``.
     """
-    from hydromodpy.results.run.view import Run
+    from hydromodpy.results.manifest import is_sealed
+    from hydromodpy.results.run.view import Run, open_run_dir
     from hydromodpy.results.storage.run_facts import read_facts
     from hydromodpy.results.storage.run_store import RunStore
 
-    if read_facts(sealed.run_dir) is None:
+    if is_sealed(run_dir):
+        return open_run_dir(run_dir)
+    if read_facts(run_dir) is None:
         return None
-    store = RunStore.open(sealed.run_dir, workspace=sealed.project_root)
-    return Run(sealed.sim_id, store)
+    store = RunStore.open(run_dir, workspace=project_root)
+    return Run(sim_id, store)
 
 
 class ProjectRunner:
@@ -231,19 +223,17 @@ class ProjectRunner:
     def run(
         self,
         *,
+        set: Mapping[str, Any] | None = None,  # noqa: A002 - the name of `--set`
         name: str | None = None,
         resume: str | None = None,
-        from_step: str | int | None = None,
-        until_step: str | int | None = None,
-        dry_run: bool = False,
+        from_step: str | None = None,
+        until_step: str | None = None,
         frozen: bool = False,
         no_display: bool = False,
-        parallel: bool = True,
         fresh: bool = False,
         force: bool = False,
         lineage: Any = None,
         calibrated_by: Any = None,
-        **overrides,
     ) -> Run | None:
         """Run one attempt and return the :class:`Run` view of its directory.
 
@@ -255,62 +245,104 @@ class ProjectRunner:
         directory, or no facts to read, returns ``None``.
         """
         sealed = self.execute(
+            set=set,
             name=name,
             resume=resume,
             from_step=from_step,
             until_step=until_step,
-            dry_run=dry_run,
             frozen=frozen,
             no_display=no_display,
-            parallel=parallel,
             fresh=fresh,
             force=force,
             lineage=lineage,
             calibrated_by=calibrated_by,
-            **overrides,
         )
         if sealed is None:
             return None
         from hydromodpy.project import phases as project_phases
         from hydromodpy.results.catalog.indexer import index_new_runs
-        from hydromodpy.results.manifest import is_sealed
-        from hydromodpy.results.run.view import open_run_dir
 
         project = self._project
         index_new_runs(sealed.project_root)
         project_phases.open_catalog(project)
-        if is_sealed(sealed.run_dir):
-            run_view = open_run_dir(sealed.run_dir)
-        else:
-            run_view = _unsealed_run_view(sealed)
-            if run_view is None:
-                return None
-        project._run_history.append(run_view)
+        run_view = run_view_of(
+            sealed.run_dir, project_root=sealed.project_root, sim_id=sealed.sim_id
+        )
+        if run_view is not None:
+            project._run_history.append(run_view)
         return run_view
+
+    def _run_name(self, name: str | None, resume: str | None) -> str | None:
+        """Return the name of a run: asked, or what the configuration calls it."""
+        if resume is not None:
+            return resume
+        if name is not None:
+            return name
+        # The configuration names its run: ``[simulation] name``, which a TOML file
+        # defaults to its own stem.
+        return str(getattr(self._project._cfg.simulation, "name", "") or "").strip() or None
+
+    def draft(
+        self,
+        *,
+        set: Mapping[str, Any] | None = None,  # noqa: A002 - the name of `--set`
+        name: str | None = None,
+        resume: str | None = None,
+        from_step: str | None = None,
+        until_step: str | None = None,
+    ) -> PlanDraft:
+        """Say what one run would do, with nothing run and nothing written.
+
+        The draft holds one case: the document of the run with its changes, its
+        identity, whether a completed run already holds it, and the steps of its
+        window.
+        """
+        from hydromodpy.config.sites.expansion import single_case_draft
+        from hydromodpy.project.dispatch.workflow import completed_identical_run
+        from hydromodpy.workflow.orchestrator import standard_steps
+
+        project = self._project
+        all_steps = standard_steps()
+        until_idx = _bounded_step_index(until_step, all_steps)
+        from_idx = _bounded_step_index(from_step, all_steps)
+        _refuse_an_empty_window(from_step, from_idx, until_step, until_idx)
+        first_model_step = model_phase_index(all_steps)
+        head_only = _window_stops_before_the_model(until_step, until_idx, first_model_step, resume)
+        start = from_idx
+        if start is None and not head_only and self._is_model_phase_ready():
+            start = first_model_step
+        changes = override_changes(project._cfg, set or {})
+        cfg_run = project._cfg.with_changes(changes) if changes else project._cfg
+        run_name = self._run_name(name, resume) or DEFAULT_RUN_NAME_TEMPLATE.format(counter=1)
+        window = all_steps[start or 0 : None if until_idx is None else until_idx + 1]
+        return single_case_draft(
+            cfg_run,
+            name=run_name,
+            config_path=project._config_path,
+            steps=tuple(step.name for step in window),
+            done=completed_identical_run(cfg_run, name=run_name) is not None,
+        )
 
     def execute(
         self,
         *,
+        set: Mapping[str, Any] | None = None,  # noqa: A002 - the name of `--set`
         name: str | None = None,
         resume: str | None = None,
-        from_step: str | int | None = None,
-        until_step: str | int | None = None,
-        dry_run: bool = False,
+        from_step: str | None = None,
+        until_step: str | None = None,
         frozen: bool = False,
         no_display: bool = False,
-        parallel: bool = True,
         fresh: bool = False,
         force: bool = False,
         lineage: Any = None,
         calibrated_by: Any = None,
-        **overrides,
     ) -> SealedRun | None:
         """Run one attempt of the case through the workflow Pipeline.
 
         Returns what the run directory says once the attempt is closed, or
-        ``None`` for a dry run and for a window that owns no run record.
-        Never opens the index: the worker writes its directory, the caller
-        indexes it afterwards.
+        ``None`` for a window that owns no run record. Never opens the index: the
+        worker writes its directory, the caller indexes it afterwards.
 
         ``resume`` names the case to continue; the attempt resumes in place
         from the journal of its directory. ``fresh`` files everything the
@@ -329,40 +361,23 @@ class ProjectRunner:
         # nothing else: it is no part of the identity or of the sealed config.
         skip_display = bool(project._no_display or project._headless or no_display)
 
-        changes = override_changes(project._cfg, overrides)
+        changes = override_changes(project._cfg, set or {})
 
-        if resume is not None:
-            name = resume
-        if name is None:
-            # The configuration names its run: ``[simulation] name``, which a
-            # TOML file defaults to its own stem. The counter only names a run
-            # whose configuration carries no name at all.
-            name = str(getattr(project._cfg.simulation, "name", "") or "").strip() or None
+        name = self._run_name(name, resume)
         if name is None:
             project._run_counter += 1
             name = DEFAULT_RUN_NAME_TEMPLATE.format(counter=project._run_counter)
 
         all_steps = standard_steps()
         steps = all_steps
-        until_idx = _bounded_step_index(until_step, all_steps, label="until_step")
-        from_idx = _bounded_step_index(from_step, all_steps, label="from_step")
+        until_idx = _bounded_step_index(until_step, all_steps)
+        from_idx = _bounded_step_index(from_step, all_steps)
+        _refuse_an_empty_window(from_step, from_idx, until_step, until_idx)
         if until_idx is not None:
-            if from_idx is not None and from_idx > until_idx:
-                raise ConfigError(
-                    f"from_step {from_step!r} (index {from_idx}) is past until_step "
-                    f"{until_step!r} (index {until_idx}): the window is empty."
-                )
             steps = tuple(all_steps[: until_idx + 1])
 
-        # A window that stops before ``setup_process`` reaches no step able to
-        # open a run, so it is not a run and claims no directory.
         first_model_step = model_phase_index(all_steps)
-        head_only = until_idx is not None and until_idx < first_model_step
-        if head_only and resume is not None:
-            raise ConfigError(
-                f"until_step {until_step!r} stops before 'setup_process', so the run keeps no "
-                f"journal to resume from. Drop --resume, or widen the window."
-            )
+        head_only = _window_stops_before_the_model(until_step, until_idx, first_model_step, resume)
         # The Pipeline owns the model phase: it executes ``build_geographic``,
         # ``load_data`` and ``build_mesh`` itself, so each of them gets a
         # journal row and a process death inside one of them leaves a trace.
@@ -370,15 +385,8 @@ class ProjectRunner:
 
         workspace_path = self._resolve_workspace_path()
         persisted = bool(project._cfg.simulation.results.persistence.save_catalog)
-        claims = not head_only and not dry_run and persisted
+        claims = not head_only and persisted
         model_phase_ready = needs_model_phase and self._is_model_phase_ready()
-
-        if dry_run:
-            resume_from = from_idx if from_idx is not None else None
-            if resume_from is None and model_phase_ready:
-                resume_from = first_model_step
-            _print_dry_run_plan(run_id=name, steps=steps, resume_from=resume_from)
-            return None
 
         # The configuration this run is defined by, overrides included. It is
         # what the plan reads, what the Pipeline signs, what the run seals, and
@@ -437,7 +445,6 @@ class ProjectRunner:
                 model_phase_index=first_model_step,
                 skip_display=skip_display,
                 frozen=frozen,
-                parallel=parallel,
                 run_overrides=changes or None,
                 config_hash=config_hash,
                 lineage=lineage,
@@ -463,7 +470,6 @@ class ProjectRunner:
         model_phase_index: int,
         skip_display: bool,
         frozen: bool,
-        parallel: bool,
         run_overrides: dict[str, Any] | None,
         config_hash: str | None,
         lineage: Any,
@@ -554,7 +560,6 @@ class ProjectRunner:
             final = pipeline.run(
                 initial,
                 resume_from=resume_from,
-                parallel=parallel,
                 model_phase_ready=in_process_skip,
                 heartbeat=None if handle is None else handle.heartbeat,
             )

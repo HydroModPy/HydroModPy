@@ -17,7 +17,7 @@ import platform
 import sys
 from pathlib import Path
 
-from hydromodpy.cli.helpers import EXIT_USAGE, exit_code_for
+from hydromodpy.cli.helpers import EXIT_USAGE, fail
 
 
 def _version_string() -> str:
@@ -47,10 +47,14 @@ def _version_string() -> str:
 
 def _build_parser() -> argparse.ArgumentParser:
     from hydromodpy.cli.commands import ALL_COMMANDS
-    from hydromodpy.cli.conventions import install_old_cli_forms
+    from hydromodpy.cli.conventions import (
+        HmpParser,
+        add_workspace_before_the_verb,
+        install_old_cli_forms,
+    )
 
     prog = Path(sys.argv[0]).stem if sys.argv[0] else "hmp"
-    parser = argparse.ArgumentParser(
+    parser = HmpParser(
         prog=prog,
         description="HydroModPy command-line interface",
     )
@@ -61,6 +65,7 @@ def _build_parser() -> argparse.ArgumentParser:
         version=_version_string(),
         help="Print version and exit",
     )
+    add_workspace_before_the_verb(parser)
     subparsers = parser.add_subparsers(
         dest="command", metavar="<command>", required=True, help="Available commands"
     )
@@ -88,7 +93,8 @@ def main(argv: list[str] | None = None) -> None:
 
     Unhandled exceptions raised by a subcommand handler are routed through
     :func:`hydromodpy.cli.helpers.exit_code_for` so the shell sees the right
-    typed exit code. ``SystemExit`` propagates unchanged.
+    typed exit code, with the ``HMPY.Exxx`` of the failure first on the line
+    stderr gets. ``SystemExit`` propagates unchanged.
 
     SIGTERM is turned into an exception for the whole process, before the
     parser is even built. Every scheduler stop, every container stop and every
@@ -107,6 +113,9 @@ def main(argv: list[str] | None = None) -> None:
 
 def _dispatch(argv: list[str] | None) -> None:
     """Build the parser, parse *argv* and run the handler it names."""
+    from hydromodpy.cli.conventions import WORKSPACE_ROOT_DEST
+    from hydromodpy.cli.output import stdout_for_a_program
+
     parser = _build_parser()
     _enable_argcomplete(parser)
     args = parser.parse_args(argv)
@@ -115,20 +124,21 @@ def _dispatch(argv: list[str] | None) -> None:
     if handler is None:
         parser.print_help(sys.stderr)
         sys.exit(EXIT_USAGE)
+    # Named after the verb too, the last one on the line wins, as a repeated flag does.
+    args.workspace = getattr(args, "workspace", None) or getattr(args, WORKSPACE_ROOT_DEST)
 
     from hydromodpy.core.bootstrap_hook import ensure_bootstrapped
     from hydromodpy.core.io.proj_bootstrap import bootstrap_proj
 
     ensure_bootstrapped()
     bootstrap_proj()
-    try:
-        handler(args)
-    except SystemExit:
-        raise
-    except BaseException as exc:
-        message = str(exc) or type(exc).__name__
-        print(message, file=sys.stderr)
-        sys.exit(exit_code_for(exc))
+    with stdout_for_a_program(args):
+        try:
+            handler(args)
+        except SystemExit:
+            raise
+        except BaseException as exc:
+            fail(exc)
 
 
 if __name__ == "__main__":

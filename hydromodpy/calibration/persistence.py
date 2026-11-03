@@ -58,6 +58,7 @@ from hydromodpy.results.session.journal import (
     TrialLine,
     TrialParam,
     append_trial,
+    cut_remnant,
     next_trial_number,
     physical_parameters,
     read_trials,
@@ -222,6 +223,14 @@ class CalibrationPersistence:
                 "host. Let it end, or stop it, before resuming the session."
             )
         descriptor = read_session(self._directory)
+        if descriptor.case_id not in descriptor.cases:
+            raise CalibrationError(
+                f"{self._directory.name} holds the cases {sorted(descriptor.cases)} and not "
+                f"{descriptor.case_id!r}, the case of this directory. A session of several "
+                "cases is written by a later release: this one cannot resume it."
+            )
+        # The remnant of a cut write goes before the first append glues to it.
+        cut_remnant(self._directory)
         descriptor = descriptor.model_copy(
             update={"status": "running", "ended_at": None, "error_message": None}
         )
@@ -262,8 +271,10 @@ class CalibrationPersistence:
         phases that froze the best of a budget-only search.
         """
         now = datetime.now(UTC)
-        descriptor = read_session(self._directory).model_copy(
+        current = read_session(self._directory)
+        descriptor = current.model_copy(
             update={
+                **self._cost_of_best(current, best),
                 "status": status,
                 "ended_at": now,
                 "best": best,
@@ -281,8 +292,36 @@ class CalibrationPersistence:
 
     def set_best(self, best: BestTrial | None) -> None:
         """Rewrite the best pointer of the descriptor, status unchanged."""
-        descriptor = read_session(self._directory).model_copy(update={"best": best})
+        current = read_session(self._directory)
+        descriptor = current.model_copy(update={**self._cost_of_best(current, best), "best": best})
         write_session(self._directory, descriptor)
+
+    def _cost_of_best(
+        self, descriptor: SessionDescriptor, best: BestTrial | None
+    ) -> dict[str, Any]:
+        """Return the cost name, label and windows of the phase the best trial comes from.
+
+        A staged session scores each phase with its own cost, so the session says
+        what the cost of its best means by the phase that holds that best. Nothing
+        changes when the phase named no cost.
+        """
+        line = None if best is None else self.trial_line(best.trial)
+        phase = None if line is None else self.phase(line.phase)
+        if phase is None or phase.cost_name is None:
+            return {}
+        cases = descriptor.cases
+        case = cases.get(descriptor.case_id)
+        if case is not None:
+            case = case.model_copy(
+                update={"cost_name": phase.cost_name, "cost_label": phase.cost_label}
+            )
+            cases = {**cases, descriptor.case_id: case}
+        return {
+            "cost_name": phase.cost_name,
+            "cost_label": phase.cost_label,
+            "windows": dict(phase.windows),
+            "cases": cases,
+        }
 
     def refresh_phase_best(self, name: str) -> None:
         """Rewrite the best pointer of a phase once its trial became a run."""
@@ -597,7 +636,8 @@ def _build_trial(
         params_hash=metadata.get("params_hash"),
         from_cache=bool(result.from_cache) or result.status == "cached",
         sim_id=None if result.from_cache else result.sim_id,
-        error=str(error) if error and detail != "none" else None,
+        # An infeasible point is told apart from a crash by its error only.
+        error=str(error) if error and (detail != "none" or status == "infeasible") else None,
         detail=_kept_detail(metadata, detail),
     )
     return TrialLine(

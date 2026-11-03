@@ -13,6 +13,7 @@ import shlex
 
 import pytest
 
+from hydromodpy.cli.conventions import OldVerb
 from hydromodpy.cli.main import _build_parser
 
 HEAD = re.compile(r"^Examples?:\s*$")
@@ -20,6 +21,8 @@ NAMES_OF_EXAMPLE_PROJECTS = ("cheze", "nancon", "naizin", "step4", "step5")
 
 
 def _leaves(parser: argparse.ArgumentParser, path: tuple[str, ...] = ()):
+    if isinstance(parser, OldVerb):
+        return
     subs = [a for a in parser._actions if isinstance(a, argparse._SubParsersAction)]
     if not subs:
         yield path, parser

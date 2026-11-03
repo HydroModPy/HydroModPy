@@ -174,7 +174,7 @@ Example 04 gives the three values, one for the whole catchment:
 **A depth factor.** A property can carry a `field_vertical_profile`. The value
 of layer $j$ in a column is the value of the field times $f(d_j)$, where $d_j$ is
 the depth of the middle of the layer below $z_\mathrm{top}$. For
-`mode = "exponential"`:
+`kind = "exponential"`:
 
 $$
 f(d) = e^{-d/d_c}, \qquad \text{or } \max\bigl(e^{-d/d_c},\ f_\mathrm{min}\bigr)
@@ -182,7 +182,7 @@ f(d) = e^{-d/d_c}, \qquad \text{or } \max\bigl(e^{-d/d_c},\ f_\mathrm{min}\bigr)
 $$ (eq-depth-factor)
 
 Without {toml}`min_factor|flow.param.K.field_vertical_profile.min_factor`, the
-factor has no floor and tends to zero with depth. For `mode = "tabulated"`, the
+factor has no floor and tends to zero with depth. For `kind = "tabulated"`, the
 factor is a linear or stepwise interpolation of the table you give, equal to the
 first and last factor outside the table. With one layer, $d_j$ is half the
 thickness: the profile then gives one factor per cell and no variation with
@@ -429,8 +429,9 @@ page.
 
 Recharge and injection are positive when water enters the aquifer, and a well with
 a negative rate pumps. Where no boundary is activated, the edge of the domain
-carries no flow. The two keys that activate them are {toml}`flow.active_bc` and
-{toml}`flow.active_sinks_sources`.
+carries no flow. A boundary or a sink is active when its table is declared, under
+{toml}`flow.bc.<name>` or `[flow.sinks_sources]`, and `enabled = false` keeps the table
+and switches it off.
 
 (gwf-limits)=
 ## Limits

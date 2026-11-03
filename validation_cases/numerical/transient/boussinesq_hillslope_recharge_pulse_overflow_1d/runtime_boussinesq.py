@@ -396,7 +396,9 @@ def run_boussinesq_hillslope_overflow_case(
         "bc": {
             "east_side": {"value": float(geometry_cfg["east_head_m"])},
         },
-        "surface_interaction_model": str(variant.surface_interaction_model),
+        "runtime": {
+            "surface_interaction_model": str(variant.surface_interaction_model),
+        },
     }
     drainage_conductance_m2_s = geometry_cfg.get("drainage_conductance_m2_s", None)
     if drainage_conductance_m2_s is not None and float(drainage_conductance_m2_s) > 0.0:
@@ -409,11 +411,15 @@ def run_boussinesq_hillslope_overflow_case(
             }
         }
     if variant.runtime_backend is not None:
-        flow_section["runtime_backend"] = str(variant.runtime_backend)
+        flow_section.setdefault("runtime", {})["backend"] = str(variant.runtime_backend)
     if resolved_runtime_max_iterations is not None:
-        flow_section["runtime_max_iterations"] = int(resolved_runtime_max_iterations)
+        flow_section.setdefault("runtime", {})["max_iterations"] = int(
+            resolved_runtime_max_iterations
+        )
     if resolved_runtime_tol_residual_inf is not None:
-        flow_section["runtime_tol_residual_inf"] = float(resolved_runtime_tol_residual_inf)
+        flow_section.setdefault("runtime", {})["tol_residual_inf"] = float(
+            resolved_runtime_tol_residual_inf
+        )
 
     flow = Flow(build_flow_config(flow_section, case_dir=CASE_DIR))
 

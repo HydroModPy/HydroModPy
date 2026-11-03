@@ -194,8 +194,8 @@ def test_mf6_prt_release_point_uses_absolute_centroid(tmp_path: Path) -> None:
             "modflow6prt": {
                 "parameters": {
                     "release_zone": "domain",
-                    "release_times_days": [0.0],
-                    "track_times_days": [0.5],
+                    "release_times": [0.0],
+                    "track_times": [0.5],
                 }
             }
         }

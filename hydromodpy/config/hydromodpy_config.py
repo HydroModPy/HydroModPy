@@ -10,7 +10,7 @@ Usage::
     from hydromodpy.config import HydroModPyConfig
 
     cfg = HydroModPyConfig.from_toml(
-        "examples/projects/03_canut_watershed/project.toml"
+        "examples/projects/01_simplified_example_presented_in_the_paper/project.toml"
     )
     cfg.workspace.project_root
     cfg.geographic.catch_def
@@ -119,7 +119,7 @@ Verbosity = Literal["quiet", "normal", "verbose", "debug"]
 
 ANALYSIS_SECTION_REFUSAL = (
     "[analysis] was removed: a comparison is hmp report compare over sealed runs, "
-    "figures are hmp viz regen on a run"
+    "figures are hmp export <run> --regen figures on a run"
 )
 HYDROMETRY_SECTION_REFUSAL = (
     "a root [hydrometry] is not read: a run reads its stations from [data.hydrometry]"
@@ -222,7 +222,7 @@ def _declared_flow_engine(cfg: HydroModPyConfig) -> str | None:
     ``solver.backend_name`` falls back to the global default.
     """
     for process in getattr(getattr(cfg, "simulation", None), "process", None) or ():
-        if getattr(process, "type", None) == "flow" and getattr(process, "solvers", None):
+        if getattr(process, "kind", None) == "flow" and getattr(process, "solvers", None):
             return str(process.solvers[0])
     solver_cfg = getattr(cfg, "solver", None)
     engine = getattr(solver_cfg, "backend_name", None) if solver_cfg is not None else None
@@ -460,7 +460,7 @@ def _resolve_calibration_parameter_names(cfg: Any) -> None:
 REAL_CATCHMENT_DEFINITIONS: frozenset[str] = frozenset(
     {"from_outlet_coord", "from_polyg_shp", "dem"}
 )
-"""Values of ``geographic.catchment.catch_def`` that model a real catchment, named by a site."""
+"""Values of ``geographic.catchment.kind`` that model a real catchment, named by a site."""
 
 
 def require_site_for_real_catchment(config: Any) -> None:
@@ -479,7 +479,7 @@ def require_site_for_real_catchment(config: Any) -> None:
     if catch_def not in REAL_CATCHMENT_DEFINITIONS:
         return
     raise ConfigError(
-        f"geographic.catchment.catch_def = {catch_def!r} models a real catchment, and no "
+        f"geographic.catchment.kind = {catch_def!r} models a real catchment, and no "
         '[site] names it. Add [site] with name = "<catchment>" (letters, digits and '
         'underscores), and gauge = "<station>" when a station measures it.'
     )
@@ -517,7 +517,7 @@ class HydroModPyConfig(HydroModelBase):
         default=None,
         description=(
             "The catchment this project models: its name, label, gauge and registry "
-            "URI. Required when geographic.catchment.catch_def declares a real "
+            "URI. Required when geographic.catchment.kind declares a real "
             "catchment (from_outlet_coord, from_polyg_shp or dem); a synthetic domain "
             "has none. Refused beside [sites], where each case takes its site from a "
             "row of the site table."
@@ -926,7 +926,7 @@ class HydroModPyConfig(HydroModelBase):
         params = getattr(getattr(self, "flow", None), "param", None) or {}
         for param_id, param in params.items():
             profile = getattr(param, "field_vertical_profile", None)
-            if str(param_id).lower() != "k" or profile is None or profile.mode == "none":
+            if str(param_id).lower() != "k" or profile is None or profile.kind == "none":
                 continue
             if engine_value == "boussinesq":
                 logger.warning(
@@ -959,7 +959,7 @@ class HydroModPyConfig(HydroModelBase):
             return
         for param_id in tensor_ids:
             profile = getattr(params[param_id], "field_vertical_profile", None)
-            if param_id.startswith("angle") and profile is not None and profile.mode != "none":
+            if param_id.startswith("angle") and profile is not None and profile.kind != "none":
                 raise ValueError(
                     f"flow.param.{param_id} has a vertical profile, which would scale the "
                     "angle with depth. Remove [flow.param."
@@ -1172,7 +1172,7 @@ class HydroModPyConfig(HydroModelBase):
             transport_solvers = [
                 name
                 for process in processes
-                if getattr(process, "type", None) == "transport"
+                if getattr(process, "kind", None) == "transport"
                 for name in getattr(process, "solvers", None) or []
             ]
             _refuse_unknown_transport_solvers(transport_solvers)
@@ -1193,7 +1193,7 @@ class HydroModPyConfig(HydroModelBase):
             sinks_sources = getattr(flow_cfg, "sinks_sources", None)
 
             # Every active boundary must be supported by the chosen backend, or it
-            # would be silently ignored at build time (lake/reservoir/sfr on NWT or
+            # would be silently ignored at build time (lake/sfr on NWT or
             # Boussinesq were accepted then dropped).
             for bc_id in sorted(active_bc):
                 definition = boundary_definition(bc_id)
@@ -1202,39 +1202,9 @@ class HydroModPyConfig(HydroModelBase):
                     raise IncompatibleCapabilitiesError(
                         f"solver.backend={engine_value!r} does not support the '{bc_id}' "
                         f"boundary (supported by: {supported}); it would be silently ignored. "
-                        f"Use a supported backend or remove '{bc_id}' from flow.active_bc."
+                        f"Use a supported backend, or remove the '{bc_id}' table, or write "
+                        "enabled = false in it."
                     )
-
-            lakes = getattr(sinks_sources, "lakes", None) or {}
-            if lakes and not ({"lake", "reservoir"} & active_bc):
-                raise ValueError(
-                    "flow.sinks_sources.lakes declares lakes but flow.active_bc lists "
-                    "neither 'lake' nor 'reservoir'; add 'lake' (or 'reservoir') to "
-                    "flow.active_bc to activate the LAK package, or remove the lakes. "
-                    "The LAK builder only activates on active_bc, so as-is the lakes "
-                    "would be silently ignored."
-                )
-            sfr_payload = getattr(sinks_sources, "sfr", None) or {}
-            if sfr_payload and "sfr" not in active_bc:
-                raise ValueError(
-                    "flow.sinks_sources.sfr declares stream networks but flow.active_bc does "
-                    "not list 'sfr'; add 'sfr' to activate the SFR package, or remove the "
-                    "networks. As-is the streams would be silently ignored."
-                )
-            # Every backend builds its wells only when active_sinks_sources lists
-            # them, so declared wells would otherwise pump nothing, silently.
-            wells = getattr(sinks_sources, "wells", None) or {}
-            active_sinks_sources = {
-                str(name).lower() for name in getattr(flow_cfg, "active_sinks_sources", []) or []
-            }
-            if wells and "wells" not in active_sinks_sources:
-                names = ", ".join(sorted(str(name) for name in wells))
-                raise ValueError(
-                    f"flow.sinks_sources.wells declares wells ({names}) but "
-                    "flow.active_sinks_sources does not list 'wells', so no well "
-                    "would pump: add 'wells' to flow.active_sinks_sources, or remove "
-                    "the wells."
-                )
 
             # A hotstart is read by the backends that declare they can read one.
             # Elsewhere the key was accepted and never looked at, so the run
@@ -1254,12 +1224,12 @@ class HydroModPyConfig(HydroModelBase):
             # backend that cannot do that would start from flow.ic and report a
             # settled antecedent it never computed.
             head_ic = getattr(getattr(flow_cfg, "ic", None), "h", None)
-            if str(getattr(head_ic, "type", "")) == "spinup_cyclic":
+            if str(getattr(head_ic, "kind", "")) == "spinup_cyclic":
                 from hydromodpy.solver.base.registry import capabilities
 
                 if CYCLIC_SPINUP_CAPABILITY not in capabilities("flow", str(engine_value)):
                     raise IncompatibleCapabilitiesError(
-                        f"flow.ic.type='spinup_cyclic' repeats the simulated period until "
+                        f"flow.ic.kind='spinup_cyclic' repeats the simulated period until "
                         f"the state settles, and solver.backend={engine_value!r} cannot: it "
                         "would start from the declared initial condition and say nothing. "
                         f"Use a backend that declares {CYCLIC_SPINUP_CAPABILITY!r}, or run "
@@ -1270,7 +1240,8 @@ class HydroModPyConfig(HydroModelBase):
             # Flow barriers and dam cutoff walls are a MODFLOW 6-only addon.
             barriers = getattr(sinks_sources, "flow_barriers", None) or {}
             has_cutoff = any(
-                getattr(lake_cfg, "cutoff_wall", None) is not None for lake_cfg in lakes.values()
+                getattr(lake_cfg, "cutoff_wall", None) is not None
+                for lake_cfg in sinks_sources.enabled_lakes().values()
             )
             if (barriers or has_cutoff) and engine_value != "modflow6":
                 raise IncompatibleCapabilitiesError(
@@ -1335,25 +1306,23 @@ class HydroModPyConfig(HydroModelBase):
             }
             if "recharge" not in active_sinks_sources:
                 raise ValueError(
-                    "[flow.sinks_sources.recharge.soil] computes a recharge that "
-                    "flow.active_sinks_sources does not list, so MODFLOW would "
-                    'receive none: add "recharge" to flow.active_sinks_sources.'
+                    "[flow.sinks_sources.recharge.soil] computes a recharge and its table "
+                    "says enabled = false, so MODFLOW would receive none: remove "
+                    "enabled = false, or remove the soil section."
                 )
 
             soil_active_bc = {
                 str(name).lower() for name in getattr(flow_cfg, "active_bc", []) or []
             }
-            if soil_active_bc & {"lake", "reservoir"} and "sfr" not in soil_active_bc:
-                lake_token = "lake" if "lake" in soil_active_bc else "reservoir"
+            if "lake" in soil_active_bc and "sfr" not in soil_active_bc:
                 raise ValueError(
-                    f'flow.active_bc lists "{lake_token}" without "sfr": in soil '
-                    "mode the water that seeps out of the ground reaches a lake "
+                    "[flow.sinks_sources.lakes] declares a lake with no stream network: in "
+                    "soil mode the water that seeps out of the ground reaches a lake "
                     "only through the stream network, so the lake would receive "
-                    'none of it. Add "sfr" with its [flow.sinks_sources.sfr] '
-                    "network, or remove [flow.sinks_sources.recharge.soil] and "
-                    "load [data.runoff] as before."
+                    "none of it. Declare a [flow.sinks_sources.sfr] network, or remove "
+                    "[flow.sinks_sources.recharge.soil] and load [data.runoff] as before."
                 )
-            if soil_active_bc & {"lake", "reservoir"}:
+            if "lake" in soil_active_bc:
                 soil_sinks = getattr(flow_cfg, "sinks_sources", None)
                 soil_sfr = getattr(soil_sinks, "sfr", None) or {}
                 items = soil_sfr.items() if hasattr(soil_sfr, "items") else []
@@ -1614,7 +1583,7 @@ class HydroModPyConfig(HydroModelBase):
             raise _section_refusal(
                 "capability_gallery",
                 "Section [capability_gallery] is no longer supported: the figures of "
-                "a run are drawn again by hmp viz regen on the run.",
+                "a run are drawn again by hmp export <run> --regen figures.",
                 source_path=source_path,
             )
         for retired_section in ("analysis", "hydrometry"):

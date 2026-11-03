@@ -88,7 +88,7 @@ Run only solver intercomparisons:
 
 ```powershell
 python -m pytest -m "regression and intercomparison" -q -n auto
-hmp test regression --fast --intercomparison -j 1
+hmp dev test regression --fast --intercomparison -j 1
 ```
 
 Run one specific test:
@@ -106,39 +106,39 @@ python -m pytest tests/regression/extensive/test_simulation_regression_extensive
 Run via the `hmp` CLI:
 
 ```powershell
-hmp test regression
+hmp dev test regression
 ```
 
 ```powershell
-hmp test regression --extensive
+hmp dev test regression --extensive
 ```
 
 ```powershell
-hmp test regression --fast
+hmp dev test regression --fast
 ```
 
 ```powershell
-hmp test regression --slow
+hmp dev test regression --slow
 ```
 
 ```powershell
-hmp test regression --list
+hmp dev test regression --list
 ```
 
 ```powershell
-hmp test regression simulation_regression_fast_mf6 --fast --mf6 -j 1
+hmp dev test regression simulation_regression_fast_mf6 --fast --mf6 -j 1
 ```
 
 ```powershell
-hmp test regression simulation_regression_fast_nwt --fast --nwt -j 1
+hmp dev test regression simulation_regression_fast_nwt --fast --nwt -j 1
 ```
 
 ```powershell
-hmp test regression simulation_regression_extensive_mf6 --extensive --mf6 -j 1
+hmp dev test regression simulation_regression_extensive_mf6 --extensive --mf6 -j 1
 ```
 
 ```powershell
-hmp test regression simulation_regression_extensive_nwt --extensive --nwt -j 1
+hmp dev test regression simulation_regression_extensive_nwt --extensive --nwt -j 1
 ```
 
 ## Parallel execution (`-n`)
@@ -216,6 +216,13 @@ python -m pytest tests/regression/fast/intercomparison/test_mf6_support_intercom
 python -m pytest tests/regression/extensive/test_simulation_regression_extensive_mf6_regression.py -q --update-goldens
 python -m pytest tests/regression/extensive/test_simulation_regression_extensive_nwt_regression.py -q --update-goldens
 ```
+
+## Frozen runs
+
+`frozen_runs/` keeps a run and a calibration session as 2.0.0 stored them. A golden
+compares what the code writes today with a reference, `frozen_runs/` reads old files
+with the code of today. It has its own `README.md`, and `--update-goldens` does not
+touch it.
 
 ## Notes
 

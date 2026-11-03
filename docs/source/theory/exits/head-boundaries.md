@@ -74,7 +74,7 @@ In the code: `assemble_constant_head_stress_period_data`.
 ## Parameters of this page
 
 ```{hmp-params}
-flow.active_bc
+flow.bc.<name>.enabled
 flow.bc.<name>.value
 flow.bc.<name>.support_label
 ```

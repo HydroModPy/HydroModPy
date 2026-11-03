@@ -35,7 +35,7 @@ step_unit = "day"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [geographic]
@@ -80,9 +80,7 @@ def prepared(monkeypatch) -> list[str]:
     """Prepare a model whose drains carry a fixed conductance, and record it."""
     from hydromodpy.physics.flow.flow_config import FlowConfig
 
-    flow = FlowConfig.model_validate(
-        {"active_bc": ["drainage"], "bc": {"drainage": {"kind": "cauchy", "value": 1e-3}}}
-    )
+    flow = FlowConfig.model_validate({"bc": {"drainage": {"kind": "drain", "value": 1e-3}}})
     reached: list[str] = []
 
     def _prepare(cfg_path, **_kwargs):

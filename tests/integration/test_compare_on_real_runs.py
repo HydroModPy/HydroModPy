@@ -74,7 +74,7 @@ def runs(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
 
 
 def _compare(runs: dict[str, Path], first: str, second: str, out: Path) -> dict[str, pd.DataFrame]:
-    hmp_main(["report", "compare", str(runs[first]), str(runs[second]), "--out", str(out)])
+    hmp_main(["report", "compare", str(runs[first]), str(runs[second]), "--to", str(out)])
     assert (out / "README.md").is_file()
     names = ("budget", "series", "maps")
     return {name: pd.read_csv(out / f"{name}.csv") for name in names}
@@ -114,7 +114,5 @@ def test_a_daily_and_a_monthly_run_of_a_steady_recharge_agree_on_the_months(
 
 def test_a_steady_and_a_transient_run_are_refused(runs, tmp_path: Path) -> None:
     with pytest.raises(SystemExit) as refused:
-        hmp_main(
-            ["report", "compare", str(runs["mf6"]), str(runs["daily"]), "--out", str(tmp_path)]
-        )
+        hmp_main(["report", "compare", str(runs["mf6"]), str(runs["daily"]), "--to", str(tmp_path)])
     assert refused.value.code != 0

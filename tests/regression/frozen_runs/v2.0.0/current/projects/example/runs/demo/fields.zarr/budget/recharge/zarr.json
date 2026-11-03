@@ -1,0 +1,64 @@
+{
+  "shape": [
+    1,
+    1,
+    400
+  ],
+  "data_type": "float32",
+  "chunk_grid": {
+    "name": "regular",
+    "configuration": {
+      "chunk_shape": [
+        1,
+        1,
+        400
+      ]
+    }
+  },
+  "chunk_key_encoding": {
+    "name": "default",
+    "configuration": {
+      "separator": "/"
+    }
+  },
+  "fill_value": "NaN",
+  "codecs": [
+    {
+      "name": "bytes",
+      "configuration": {
+        "endian": "little"
+      }
+    },
+    {
+      "name": "blosc",
+      "configuration": {
+        "typesize": 4,
+        "cname": "zstd",
+        "clevel": 5,
+        "shuffle": "bitshuffle",
+        "blocksize": 0
+      }
+    }
+  ],
+  "attributes": {
+    "long_name": "Groundwater recharge volumetric flux (positive enters the aquifer)",
+    "units": "m3 s-1",
+    "cell_methods": "time: mean area: mean",
+    "grid_mapping": "crs",
+    "coordinates": "time layer face",
+    "csdms_standard_name": "subsurface_water__recharge_volume_flux",
+    "sign_convention": "positive enters the aquifer, negative leaves it",
+    "mesh": "mesh/topology",
+    "location": "face",
+    "quantization": "quantization_info",
+    "quantization_nsb": 16
+  },
+  "dimension_names": [
+    "time",
+    "layer",
+    "face"
+  ],
+  "zarr_format": 3,
+  "node_type": "array",
+  "storage_transformers": []
+}

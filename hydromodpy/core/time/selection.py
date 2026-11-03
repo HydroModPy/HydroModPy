@@ -28,15 +28,18 @@ A selector is one of:
 from __future__ import annotations
 
 import datetime as _dt
-from collections.abc import Iterable, Sequence
+from collections.abc import Sequence
 from typing import Any
 
 import numpy as np
 import pandas as pd
 
+from hydromodpy.core.exceptions import ResultsError
+
 __all__ = (
     "TimeSelectionError",
     "grid_edges",
+    "in_series_window",
     "period_label",
     "resolve_instant",
     "resolve_instants",
@@ -50,7 +53,7 @@ _KEYWORDS = ("first", "last")
 _ONE_DAY = pd.Timedelta(1, unit="D")
 
 
-class TimeSelectionError(ValueError):
+class TimeSelectionError(ResultsError, ValueError):
     """A time selector names no period of the run."""
 
 
@@ -212,10 +215,23 @@ def resolve_instants(
     """Return the period index of every selector, in the order given.
 
     ``selectors`` is an iterable of selectors. A single selector is read as a
-    list of one.
+    list of one. A list where two selectors read one period is refused, naming
+    them: under ``(s, e]`` the first edge and the first stamp read the same
+    period, so a list of month starts would read January twice and lose the last
+    month without a word.
     """
-    items: Iterable[Any] = (selectors,) if _scalar(selectors) else selectors
-    return tuple(resolve_instant(item, edges, n_periods=n_periods) for item in items)
+    items: tuple[Any, ...] = (selectors,) if _scalar(selectors) else tuple(selectors)
+    steps = tuple(resolve_instant(item, edges, n_periods=n_periods) for item in items)
+    seen: dict[int, Any] = {}
+    for item, step in zip(items, steps, strict=True):
+        if step in seen:
+            raise TimeSelectionError(
+                f"{seen[step]!r} and {item!r} read the same period, number {step}: a date "
+                "reads the period that ends on or after it. Keep one of them, or write a "
+                "window, period = (start, end), to read every period between two dates."
+            )
+        seen[step] = item
+    return steps
 
 
 def _period_bound(bound: Any, index: pd.DatetimeIndex | None, n: int, *, start: bool) -> int:
@@ -224,7 +240,8 @@ def _period_bound(bound: Any, index: pd.DatetimeIndex | None, n: int, *, start: 
     A date start keeps the first period that ends after it, a date end the
     last period that starts before it, the one its date reads. Either is clamped
     to the record, so a window that runs past the record keeps the periods inside
-    it. A date wholly outside the record on its own side raises.
+    it. A start on the last edge or past it has no period after it, and an end on
+    the first edge or before it has none before it, so both raise.
     """
     word = _keyword(bound)
     if word is not None:
@@ -234,11 +251,12 @@ def _period_bound(bound: Any, index: pd.DatetimeIndex | None, n: int, *, start: 
     instant = _as_date(bound)
     if index is None:
         raise TimeSelectionError(f"{_instant_text(instant)}: {_NO_DATES}.")
-    outside = instant > index[-1] if start else instant < index[0]
+    outside = instant >= index[-1] if start else instant <= index[0]
     if outside:
         side = "starting" if start else "ending"
         raise TimeSelectionError(
-            f"the period {side} {_instant_text(instant)} is outside the record: {_span(index)}."
+            f"the period {side} {_instant_text(instant)} is outside the record: {_span(index)}. "
+            "To read the period a date falls in, give that one date."
         )
     position = int(index.searchsorted(instant, side="right" if start else "left")) - 1
     return min(max(position, 0), n - 1)
@@ -258,10 +276,10 @@ def resolve_period(
     """
     index = _edges(edges)
     n = _count(index, n_periods)
+    if _same_date(start, end):
+        return (resolve_instant(start, index, n_periods=n),)
     first = _period_bound(start, index, n, start=True)
     last = _period_bound(end, index, n, start=False)
-    if first == last + 1 and _same_date(start, end):
-        return (last,)
     if first > last:
         raise TimeSelectionError(
             f"the period from {start!r} to {end!r} ends before it starts "
@@ -277,6 +295,68 @@ def _same_date(start: Any, end: Any) -> bool:
     if _is_index(start) or _is_index(end):
         return False
     return _as_date(start) == _as_date(end)
+
+
+def _window_bounds(period: Any) -> tuple[Any, Any]:
+    """Return the two bounds of a window, a year as text standing for that calendar year."""
+    if isinstance(period, str):
+        if not period.strip().isdigit():
+            raise TimeSelectionError(f"{period!r} is not a year nor a (start, end) pair.")
+        year = int(period)
+        return f"{year}-01-01", f"{year + 1}-01-01"
+    start, end = period
+    return start, end
+
+
+def _series_span(period: Any, edges: Any) -> tuple[pd.Timestamp, pd.Timestamp]:
+    """Return the span a window over a series reads.
+
+    On a run with dates this is the span of the periods :func:`resolve_period`
+    keeps, so a series and a field read one window the same way. Without edges
+    the two bounds are the span, and only a date range has a meaning there.
+    """
+    start, end = _window_bounds(period)
+    index = _edges(edges)
+    if index is not None:
+        periods = resolve_period(start, end, index)
+        return index[periods[0]], index[periods[-1] + 1]
+    if _same_date(start, end):
+        resolve_period(start, end, None)
+    lo, hi = _as_date(start), _as_date(end)
+    if lo > hi:
+        raise TimeSelectionError(f"the period from {start!r} to {end!r} ends before it starts.")
+    return lo, hi
+
+
+def in_series_window(times: Any, *, observed: Any, period: Any, edges: Any = None) -> np.ndarray:
+    """Return the mask of the rows of a series a window keeps.
+
+    This is the one reading of a window over a series, shared by ``hmp.read``,
+    ``Run.timeseries``, the catalog and the CSV export. A simulated value is
+    stamped at the end of its period, so a window keeps ``(lo, hi]``. An
+    observation is stamped when it was taken, so a window keeps ``[lo, hi)``. Each
+    keeps what falls in the periods of the window.
+
+    Parameters
+    ----------
+    times
+        The stamps of the rows, read in UTC.
+    observed
+        One boolean for all the rows, or one per row: whether the row is a measurement.
+    period
+        ``(start, end)`` selectors as :func:`resolve_period` reads them, or a
+        year as text, ``"2002"``.
+    edges
+        The ``n + 1`` period edges of the run. ``None`` reads the two bounds as they
+        are, for a caller that holds the span already or a run without edges.
+    """
+    lo, hi = _series_span(period, edges)
+    stamps = pd.DatetimeIndex(times)
+    if stamps.tz is not None:
+        stamps = stamps.tz_convert("UTC").tz_localize(None)
+    taken = np.asarray((stamps >= lo) & (stamps < hi))
+    closed = np.asarray((stamps > lo) & (stamps <= hi))
+    return np.where(np.asarray(observed, dtype=bool), taken, closed)
 
 
 def _is_midnight(ts: pd.Timestamp) -> bool:

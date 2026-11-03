@@ -47,7 +47,7 @@ def test_list_names_example_04(monkeypatch, capsys) -> None:
 
 def test_show_json_marks_every_file_missing_on_a_cold_cache(monkeypatch, capsys) -> None:
     assert _run(monkeypatch, ["hmp", "example", "show", "04", "--format", "json"]) == 0
-    payload = json.loads(capsys.readouterr().out)
+    payload = json.loads(capsys.readouterr().out)["data"]
     assert payload["id"] == "04"
     assert payload["missing_size"] == payload["total_size"]
     assert all(row["cached"] is False for row in payload["data"])
@@ -109,7 +109,7 @@ def test_add_into_a_missing_workspace_exits_not_found(monkeypatch, tmp_path) -> 
 
 def test_dev_examples_manifest_rewrites_the_catalog(monkeypatch, capsys, tmp_path) -> None:
     output = tmp_path / "catalog.toml"
-    code = _run(monkeypatch, ["hmp", "dev", "examples", "manifest", "--output", str(output)])
+    code = _run(monkeypatch, ["hmp", "dev", "examples", "manifest", "--to", str(output)])
     assert code == 0
     from hydromodpy.examples.manifest import catalog_path
 

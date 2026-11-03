@@ -31,7 +31,7 @@ In dependency order, lowest first.
 | `common/` | helpers with no variable config and no cache: HTTP, units, geometry, file naming, and the one mask loader (`source_extent.py`); `clients/` holds what several variables share: the SIM2 product table and download, the Hub'Eau station helpers, the local DRIAS Explore2 NetCDF reader (`explore2_files.py`, read by `precipitation` and `etp`) |
 | `ingest/` | a user file to the storage format and to records: rasters, vectors, tables, station folders, grids |
 | `provenance/` | what sits next to a file on disk: sidecars, derived copies, `hydromodpy.lock` |
-| `registry/` | the DuckDB index of the cache (`data/cache.duckdb`); the files and their sidecars stay the truth. `DataCatalogDuckDB` opens it read-write (one process), read-only (`hmp data` reads, the `--frozen` check) or layered inside a case the launcher started: writes go to a private cache, the shared file is read one query at a time, and `merge_private_cache` folds the private file in when the case ends |
+| `registry/` | the DuckDB index of the cache (`data/cache.duckdb`); the files and their sidecars stay the truth. `input_cache.py` reads it for a workspace: `InputCache(workspace).list(variable=, source=, limit=)` and `.find(...)`. `DataCatalogDuckDB` opens it read-write (one process), read-only (`hmp data` reads, the `--frozen` check) or layered inside a case the launcher started: writes go to a private cache, the shared file is read one query at a time, and `merge_private_cache` folds the private file in when the case ends |
 | `managers/` | the bases the variable managers inherit: shared state and the `SOURCES` dispatch, the grid cache, the per-station cache, the user-file-only variables |
 | `variables/` | one package per `[data.<name>]` section, all on the template below |
 | `sites/` | the sites of the workspace: `data/sites/catalog.csv` in `SiteRow` rows (`catalog.py`, its only reader and writer, with the name and `near_site_m` checks), the importers behind `hmp site import` (site table, outlet layer, Hub'Eau stations), and `[site] gauge` as the station of the series sources (`gauge.py`) |
@@ -156,7 +156,7 @@ variable and source, cut to the extent and period, beside a report
 
 | entry | output |
 |---|---|
-| `hmp data get request.json --out DIR`, or `hmp data get <variable> --bbox ... --crs ... --out DIR` | `DIR/` |
+| `hmp data get request.json --to DIR`, or `hmp data get <variable> --bbox ... --crs ... --to DIR` | `DIR/` |
 | `run_request(DataRequest(...), out_dir)` | a `RequestReport` |
 
 From Python, without a project:

@@ -429,15 +429,20 @@ def routed_outflow_series(
     has been moved into DRN-TO-MVR, so what is left in DRAIN is the buffer
     drainage of the neighbouring basins.
 
-    Returns ``None`` when the run carries no SFR observations, which is how the
-    caller knows to fall back to the drain sum. Raises
-    :class:`ObservableNotAvailableError` when the series is zero at every
-    stamp: a routed network that never evacuates water is not a discharge a
+    A lake without a network routes what reaches it and leaves through its outlets,
+    so its outlet outflow is the routed series, zero included: the drains are added
+    to it by the caller, as the store does.
+
+    Returns ``None`` when the run carries no SFR observations and no lake outlet,
+    which is how the caller knows to fall back to the drain sum. Raises
+    :class:`ObservableNotAvailableError` when the series of a network is zero at
+    every stamp: a routed network that never evacuates water is not a discharge a
     calibration can score.
     """
     spec = read_sfr_meta(output_dir / f"{model_name}.sfr.meta.json")
     if spec is None:
-        return None
+        spt = float(seconds_per_time_unit) if seconds_per_time_unit else 1.0
+        return _lake_outlet_outflow(output_dir, model_name, times, spt, len(times))[0]
     obs_path = output_dir / f"{model_name}.sfr.obs.csv"
     if not obs_path.is_file():
         return None

@@ -64,7 +64,7 @@ class GeographicConfig(HydroModelBase):
     ] = Field(
         description=(
             "How the model domain is defined. Required when source_mode='standard', "
-            "left out when it is 'synthetic'. The shape is chosen by 'catch_def' on the "
+            "left out when it is 'synthetic'. The shape is chosen by 'kind' on the "
             "nested table: 'dem' | 'txt' | 'from_outlet_coord' | 'from_polyg_shp'."
         ),
     )
@@ -198,7 +198,7 @@ class GeographicConfig(HydroModelBase):
     @property
     def catch_def(self) -> str | None:
         """Discriminator value of the active catchment variant, or None for synthetic."""
-        return None if self.catchment is None else self.catchment.catch_def
+        return None if self.catchment is None else self.catchment.kind
 
     @property
     def dem_init_path(self) -> Path | None:
@@ -264,7 +264,7 @@ class GeographicConfig(HydroModelBase):
         return cls(
             source_mode="standard",
             catchment={
-                "catch_def": "from_outlet_coord",
+                "kind": "from_outlet_coord",
                 "dem_init_path": Path(dem) if dem is not None else None,
                 "x_outlet": float(x),
                 "y_outlet": float(y),
@@ -287,7 +287,7 @@ class GeographicConfig(HydroModelBase):
         """Model domain driven entirely by a DEM raster."""
         return cls(
             source_mode="standard",
-            catchment={"catch_def": "dem", "dem_init_path": Path(dem)},
+            catchment={"kind": "dem", "dem_init_path": Path(dem)},
             crs_project=crs_project,
             **overrides,
         )
@@ -306,7 +306,7 @@ class GeographicConfig(HydroModelBase):
         return cls(
             source_mode="standard",
             catchment={
-                "catch_def": "from_polyg_shp",
+                "kind": "from_polyg_shp",
                 "dem_init_path": Path(dem),
                 "polyg_shp_path": Path(polygon),
                 "buff_area": buff_area,
@@ -350,10 +350,10 @@ class GeographicConfig(HydroModelBase):
 
     @model_validator(mode="after")
     def _check_catchment_is_implemented(self) -> GeographicConfig:
-        """Refuse ``catch_def = "txt"``: no code rasterises an XYZ text grid."""
+        """Refuse ``kind = "txt"``: no code rasterises an XYZ text grid."""
         if isinstance(self.catchment, TxtCatchDef):
             raise ValueError(
-                "geographic.catchment.catch_def = 'txt' is not implemented: nothing "
+                "geographic.catchment.kind = 'txt' is not implemented: nothing "
                 "rasterises an XYZ text grid. Use 'dem' with a raster, or "
                 "'from_outlet_coord' / 'from_polyg_shp' with a regional DEM."
             )
@@ -397,7 +397,7 @@ class GeographicConfig(HydroModelBase):
         if self.crossings.enabled and (support := self._undelineated_support()):
             raise ValueError(
                 "[geographic.crossings] cuts a delineated catchment: it needs "
-                f"catch_def = 'from_outlet_coord' or 'from_polyg_shp', not {support}."
+                f"kind = 'from_outlet_coord' or 'from_polyg_shp', not {support}."
             )
         if self.bed_regularization.enabled and not self.river_network.enabled:
             raise ValueError(
@@ -408,7 +408,7 @@ class GeographicConfig(HydroModelBase):
         if self.bed_regularization.enabled and (support := self._undelineated_support()):
             raise ValueError(
                 "[geographic.bed_regularization] fits the bed of a delineated catchment: "
-                f"it needs catch_def = 'from_outlet_coord' or 'from_polyg_shp', not {support}."
+                f"it needs kind = 'from_outlet_coord' or 'from_polyg_shp', not {support}."
             )
         return self
 
@@ -417,7 +417,7 @@ class GeographicConfig(HydroModelBase):
         if self.uses_synthetic_geographic():
             return "a synthetic support"
         if self.catch_def == "dem":
-            return "catch_def = dem"
+            return "kind = dem"
         return None
 
     @model_validator(mode="after")
@@ -467,7 +467,7 @@ class GeographicConfig(HydroModelBase):
         allow_dem_bootstrap = bool(context.get("allow_dem_bootstrap"))
         if self.catchment.dem_init_path is None and not allow_dem_bootstrap:
             raise ValueError(
-                f"catch_def='{self.catchment.catch_def}' requires 'dem_init_path' "
+                f"kind='{self.catchment.kind}' requires 'dem_init_path' "
                 "(path to the DEM raster or XYZ text file)."
             )
         return self

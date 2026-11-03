@@ -15,10 +15,10 @@ real scheduler. Read them before the first submission, and run a small plan firs
 
 ```bash
 hmp project plan .
-hmp project array . --scheduler slurm
+hmp campaign array . --scheduler slurm
 ```
 
-`hmp project array` writes a folder `jobs/<stamp>-slurm/` with three files, frozen when they
+`hmp campaign array` writes a folder `jobs/<stamp>-slurm/` with three files, frozen when they
 are written:
 
 | File | What it holds |
@@ -27,7 +27,7 @@ are written:
 | `prepare.sh` | An array that fetches the data of each case, `hmp run <case> --until load_data`, with `--set workflow.mode=simulation` for a calibration case. It is the only job that adds to the input cache of the workspace. |
 | `array.sh` | The array of the solves, `hmp run <case> --frozen`, one task per case, plus `--resume <case>` on a simulation that an earlier attempt left unfinished. |
 
-Each task finds its case with `hmp project case <job> <N>`, which reads the frozen
+Each task finds its case with `hmp campaign case <job> <N>`, which reads the frozen
 `cases.txt` of its own job, and chooses the flags of `hmp run` when it starts, from the
 state its case is in: a resubmitted task resumes its case. `HMP_PYTHON` overrides the
 interpreter the scripts call. A new plan, written while an array waits in the queue, does not
@@ -68,7 +68,7 @@ place.
 hmp project status .
 hmp project log . --failed
 hmp catalog reindex -w . --incremental
-hmp project collect .
+hmp campaign collect .
 ```
 
 `hmp project status` reads the `outcome.json` and the heartbeat of each case. When `sacct`

@@ -25,8 +25,9 @@ CF_CONVENTIONS = "CF-1.11, ACDD-1.3, UGRID-1.0"
 # validated on open. Version 3 stored the vertical geometry of every cell:
 # ``mesh/z_interfaces`` (layer_interface, face), ``mesh/idomain`` (layer, face)
 # and the ``vertical_layout`` attribute of ``mesh/``. Version 4 signs every budget
-# flux of every solver as MODFLOW does, negative when water leaves the aquifer. A
-# run of an earlier version is refused: it has to be run again.
+# flux of every solver as MODFLOW does, negative when water leaves the aquifer, and
+# gives every term with layers its layer axis on every solver. A run of an earlier
+# version is refused: it has to be run again.
 ZARR_SCHEMA_VERSION = "4"
 ZARR_VERSIONS = VersionWindow(oldest="4", current=ZARR_SCHEMA_VERSION)
 

@@ -12,6 +12,7 @@ from typing import Annotated, Literal
 from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.field_precision import DEFAULT_FIELD_PRECISION, FieldPrecision
 
@@ -74,6 +75,7 @@ class PersistenceConfig(HydroModelBase):
             "read this field. The default says 5 rather than 3 so the declaration "
             "at least matches the bytes actually written."
         ),
+        json_schema_extra=field_metadata(unit="-"),
     )
 
 

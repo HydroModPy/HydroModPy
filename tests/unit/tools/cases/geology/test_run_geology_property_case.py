@@ -87,7 +87,7 @@ def _write_demo_tomls(tmp_path: Path) -> tuple[Path, Path]:
             field_spatial_id = "field_geology"
 
             [field_vertical_profile]
-            mode = "none"
+            kind = "none"
             """
         ).strip()
         + "\n",

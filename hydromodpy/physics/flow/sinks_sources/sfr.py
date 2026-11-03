@@ -37,13 +37,22 @@ from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.units import Length
 from hydromodpy.core.units.hydraulic_conductivity import normalize_m_per_s_unit
-from hydromodpy.physics.flow.sinks_sources.rate_forcing import FlowRateForcingConfig
-from hydromodpy.physics.flow.sinks_sources.wells import (
-    FlowWellForcingConfig,
-    FlowWellLocation,
+from hydromodpy.physics.base.forcing import (
+    SurfaceRateForcing,
+    VolumeRateForcing,
+    declared_forcing_values,
 )
+from hydromodpy.physics.flow.sinks_sources.wells import FlowWellLocation
 
 _MVR_RULES = ("FACTOR", "UPTO", "EXCESS", "THRESHOLD")
+
+SFR_DIRECTED_FORCINGS: tuple[str, ...] = (
+    "headwater_inflow",
+    "runoff",
+    "rainfall",
+    "evaporation",
+)
+"""Forcings of a network whose name says their direction, each a value of zero or more."""
 
 
 class FlowReachWidthConstant(HydroModelBase):
@@ -164,10 +173,12 @@ class FlowReachConfig(HydroModelBase):
     upstream: Annotated[list[int], Profile.USER] = Field(
         default_factory=list,
         description="1-based ids of reaches whose downstream end feeds this reach.",
+        json_schema_extra=field_metadata(unit="-"),
     )
     downstream: Annotated[list[int], Profile.USER] = Field(
         default_factory=list,
         description="1-based ids of reaches this reach feeds.",
+        json_schema_extra=field_metadata(unit="-"),
     )
     ustrf: Annotated[float, Profile.USER] = Field(
         default=1.0,
@@ -212,7 +223,7 @@ class FlowReachDiversionConfig(HydroModelBase):
             }
         },
     )
-    divflow: Annotated[FlowWellForcingConfig | None, Profile.DEV] = Field(
+    divflow: Annotated[VolumeRateForcing | None, Profile.DEV] = Field(
         default=None,
         description="Per-period diversion flow [L^3/T] (or fraction for FRACTION).",
     )
@@ -234,6 +245,14 @@ class FlowReachNetworkConfig(HydroModelBase):
     feeds that lake (1-based) through an MVR record (SFR -> LAK). When None, the
     network outflow leaves the model and SFR runs with no lake at all.
     """
+
+    enabled: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description=(
+            "Whether this stream network is built. Declaring it is what activates it. false keeps the table "
+            "and builds nothing from it."
+        ),
+    )
 
     # --- Delineation knobs -------------------------------------------------- #
     min_reach_length: Annotated[Length, Profile.USER] = Field(
@@ -344,25 +363,25 @@ class FlowReachNetworkConfig(HydroModelBase):
     )
 
     # --- Forcings (resolved at runtime) ------------------------------------ #
-    headwater_inflow: Annotated[FlowWellForcingConfig | None, Profile.USER] = Field(
+    headwater_inflow: Annotated[VolumeRateForcing | None, Profile.USER] = Field(
         default=None,
         description=(
             "Inflow from outside the model at the headwater reaches, as a volume per time "
             "(m3/s in SI)."
         ),
     )
-    runoff: Annotated[FlowWellForcingConfig | None, Profile.USER] = Field(
+    runoff: Annotated[VolumeRateForcing | None, Profile.USER] = Field(
         default=None,
         description=(
             "Overland runoff that enters the network, as a volume per time (m3/s in SI), "
             "shared over the reaches by length."
         ),
     )
-    rainfall: Annotated[FlowRateForcingConfig | None, Profile.USER] = Field(
+    rainfall: Annotated[SurfaceRateForcing | None, Profile.USER] = Field(
         default=None,
         description="Rainfall on the channel surface, as a rate (m/s in SI).",
     )
-    evaporation: Annotated[FlowRateForcingConfig | None, Profile.USER] = Field(
+    evaporation: Annotated[SurfaceRateForcing | None, Profile.USER] = Field(
         default=None,
         description=(
             "Evaporation from the channel surface, as a positive rate (m/s in SI) that "
@@ -464,6 +483,7 @@ class FlowReachNetworkConfig(HydroModelBase):
             "reaches the network as routed drainage. 0 demotes only headwater leaves, a "
             "negative value keeps every traced cell. Default 2 removes stubs up to ~3 cells."
         ),
+        json_schema_extra=field_metadata(unit="-"),
     )
     rectify_min_component_cells: Annotated[int, Profile.EXPERT] = Field(
         default=2,
@@ -474,7 +494,21 @@ class FlowReachNetworkConfig(HydroModelBase):
             "Its water still reaches the network as routed DRN. Default 2 drops single-cell "
             "components; 1 keeps every component."
         ),
+        json_schema_extra=field_metadata(unit="-"),
     )
+
+    @model_validator(mode="after")
+    def _refuse_negative_forcings(self) -> FlowReachNetworkConfig:
+        """Refuse a negative value on a forcing whose name says its direction."""
+        for keyword in SFR_DIRECTED_FORCINGS:
+            negative = [v for v in declared_forcing_values(getattr(self, keyword)) if v < 0.0]
+            if negative:
+                raise ValueError(
+                    f"Stream network {keyword} = {negative[0]:g} is negative. The name says "
+                    "the direction of the water, so the value is a rate of zero or more. "
+                    f"Write {keyword} as a positive rate."
+                )
+        return self
 
     @field_validator("streambed_k_unit")
     @classmethod

@@ -189,7 +189,6 @@ def build_store(kind: str, project: Path) -> RunStore:
             store.write_topography(top, z_interfaces=z_interfaces, n_cells=N_CELLS, n_layers=1)
             _write_descent(store, top)
             head = head[:, 0, :]
-            budget = {name: values[:, 0, :] for name, values in budget.items()}
             # The fixtures read this step as an outflow, through the sign guess of the
             # base: the water that left is written as MODFLOW signs it.
             budget["drain"][4] = -budget["drain"][4]

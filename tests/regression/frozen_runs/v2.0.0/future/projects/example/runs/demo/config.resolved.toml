@@ -1,0 +1,364 @@
+export = [
+    { variables = "discharge", nodata = -9999.0 },
+]
+
+[workflow]
+mode = "simulation"
+verbosity = "normal"
+profile = false
+
+[geographic]
+source_mode = "synthetic"
+crs_project = "EPSG:2154"
+dem_correc_type = "fill"
+domain_extent = "box"
+reuse_existing_outputs = false
+write_intermediates = false
+terrain_engine = "whitebox_workflows"
+
+[geographic.synthetic]
+case_id = "example_synthetic"
+
+[geographic.synthetic.grid]
+length_x = 1000.0
+length_y = 1000.0
+nx = 20
+ny = 20
+xmin = 0.0
+ymin = 0.0
+crs = "EPSG:2154"
+nodata = -9999.0
+
+[geographic.synthetic.topography]
+kind = "linear"
+base_elevation = 20.0
+right_to_left_amplitude = 5.0
+
+[geographic.river_network]
+enabled = false
+threshold_mode = "area_km2"
+prune_short_streams = false
+min_stream_length_m = 0.0
+compute_strahler_order = true
+compute_stream_links = true
+all_vertices = false
+
+[geographic.enforce_lakes]
+enabled = false
+
+[geographic.crossings]
+enabled = false
+kinds = [
+    "road",
+    "railway",
+    "bridge",
+]
+notch_width = 10.0
+bed_reach = 50.0
+max_depth = 3.0
+snap_radius = 30.0
+
+[geographic.bed_regularization]
+enabled = false
+min_slope = 0.0001
+
+[domain]
+zone_ids = []
+
+[domain.supports]
+
+[domain.depth_model]
+kind = "constant_thickness"
+thickness = 50.0
+
+[domain.layers]
+genmtd_lay = "constant"
+nlay = 1
+pinch_out = "pass_through"
+nodata = -9999.0
+
+[data]
+types = []
+inference_mode = "warn"
+
+[flow]
+runtime_backend = "auto"
+surface_interaction_model = "auto"
+partition_release_depth_m = 0.05
+vi_substeps_per_period = 1
+vi_substep_on_failure = false
+ts_vi_steps_per_period = 4
+ts_vi_adapt = false
+ts_vi_dt_min_fraction = 0.015625
+ts_vi_dt_max_fraction = 0.25
+ts_vi_type = "beuler"
+ts_vi_snes_type = "vinewtonrsls"
+param_list = [
+    "K",
+    "Sy",
+]
+active_sinks_sources = [
+    "recharge",
+]
+active_bc = [
+    "drainage",
+]
+flow_regime = "steady"
+first_period_steady = true
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+unit = "m/s"
+value = 0.0001
+
+[flow.param.Sy.field]
+id = "Sy"
+kind = "homogeneous"
+unit = "-"
+value = 0.12
+
+[flow.ic.h]
+description = "Initial condition 'h'"
+type = "top"
+
+[flow.bc.drainage]
+id = "drainage"
+value = 0.0
+description = "Cauchy drainage boundary condition on top"
+units = "m2/s"
+kind = "cauchy"
+data_value = false
+application_domain = "top"
+
+[flow.sinks_sources.wells]
+
+[flow.sinks_sources.lakes]
+
+[flow.sinks_sources.sfr]
+
+[flow.sinks_sources.flow_barriers]
+
+[flow.sinks_sources.recharge]
+values = 0.8
+first_clim = "mean"
+units = "mm/day"
+negative_to_evt = true
+spatial_mode = "auto"
+interpolation_method = "nearest"
+
+[transport]
+param_list = []
+active_sinks_sources = []
+active_bc = []
+
+[transport.param]
+
+[transport.bc]
+
+[transport.sinks_sources]
+
+[transport.modpath.parameters]
+zone_partic = "domain"
+track_dir = "forward"
+cell_div = 1
+zloc_div = false
+
+[transport.mt3dms.parameters]
+spc_name = "NO3"
+sconc_init = 0.0
+sconc_input = 0.0
+disp_long = 0.0
+disp_transh = 0.0
+disp_transv = 0.0
+diffu_coeff = 0.0
+scheme = "upstream"
+rate_decay = 0.0
+plot_conc = true
+
+[transport.modflow6gwt.parameters]
+spc_name = "NO3"
+sconc_init = 0.0
+sconc_input = 0.0
+disp_long = 0.0
+disp_transh = 0.0
+disp_transv = 0.0
+diffu_coeff = 0.0
+scheme = "upstream"
+rate_decay = 0.0
+plot_conc = true
+
+[transport.modflow6prt.parameters]
+release_zone = "domain"
+upstream_top_quantile = 0.9
+outlet_bottom_quantile = 0.1
+track_dir = "forward"
+local_z = 0.5
+extend_tracking = true
+dry_tracking_method = "drop"
+exit_solve_tolerance = 1e-05
+write_track_csv = true
+write_track_binary = true
+
+[simulation]
+name = "demo"
+tags = []
+if_exists = "version"
+description = "Scaffolded synthetic steady-flow run under a uniform recharge."
+
+[simulation.time]
+start_datetime = 2000-01-01 00:00:00
+end_datetime = 2000-12-31 00:00:00
+step_value = 1
+step_unit = "year"
+substeps_per_period = 1
+coverage_policy = "error"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = [
+    "modflow_nwt",
+]
+
+[simulation.results]
+keep_solver_files = false
+keep_per_cell_budget = true
+
+[simulation.results.persistence]
+save_catalog = true
+save_zarr = true
+field_precision = "compact"
+save_parquet = true
+compression = "zstd"
+compression_level = 5
+
+[solver]
+sink_fill = false
+drain_bed_thickness_m = 1.0
+drain_conductance_floor_m2_s = 1e-12
+drain_band_depth_m = 0.0
+
+[solver.backend]
+backend = "modflow_nwt"
+
+[modflownwt.runtime.nwt]
+version = "mfnwt"
+listunit = 2
+verbose = false
+headtol = 0.0001
+fluxtol = 0.005787037037037037
+maxiterout = 5000
+thickfact = 1e-05
+linmeth = 2
+iprnwt = 1
+ibotav = 1
+options = "MODERATE"
+continue_run = false
+backflag = 0
+stoptol = 1e-10
+
+[modflownwt.runtime.dis]
+itmuni = 0
+
+[modflownwt.runtime.bas]
+hnoflo = -9999.0
+
+[modflownwt.runtime.upw]
+iphdry = 1
+hdry = -100.0
+layvka = 1
+
+[modflownwt.runtime.evt]
+nevtop = 3
+ievt = 1
+ipakcb = 1
+
+[modflownwt.runtime.oc]
+compact = true
+
+[modflownwt.runtime.wel]
+ipakcb = 1
+
+[modflownwt.runtime.lmt]
+output_file_name = "mt3d_link.ftl"
+extension = "lmt8"
+output_format = "unformatted"
+
+[modflownwt.process_specific]
+vka = 1.0
+exdp = 1.0
+
+[modflownwt.sgrid.top_sampling]
+mode = "centroid"
+hillslope_stat = "median"
+channel_stat = "min"
+channel_source = "streams_raster"
+channel_buffer_px = 0
+spike_guard_tol_m = 2.0
+min_pixels = 3
+min_thickness_m = 0.1
+
+[modflow6.runtime]
+mf6_executable_name = "mf6"
+ims_print_option = "NONE"
+print_head = false
+save_specific_discharge = true
+save_saturation = true
+mf6_runner = "subprocess"
+mf6_ims_complexity = "COMPLEX"
+mf_verbose = false
+mf6_outer_dvclose = 0.0001
+mf6_inner_dvclose = 0.0001
+mf6_outer_maximum = 500
+mf6_inner_maximum = 500
+mf6_reordering_method = "none"
+mf6_newton = true
+mf6_newton_under_relaxation = true
+mf6_ats = false
+mf6_ats_dtmin_s = 60.0
+mf6_rewet_wetfct = 0.1
+mf6_rewet_iwetit = 1
+mf6_rewet_ihdwet = 0
+mf6_rewet_wetdry = 0.1
+
+[modflow6.process_specific]
+vka = 1.0
+evt_extinction_depth = 1.0
+lak_forcing_mode = "auto"
+ts6_min_periods = 120
+
+[modflow6.sgrid.top_sampling]
+mode = "centroid"
+hillslope_stat = "median"
+channel_stat = "min"
+channel_source = "streams_raster"
+channel_buffer_px = 0
+spike_guard_tol_m = 2.0
+min_pixels = 3
+min_thickness_m = 0.1
+
+[display]
+enabled = true
+backend = "auto"
+preset = "default"
+show = false
+save = true
+dpi = 40
+cmap = "viridis"
+figures = [
+    "water_budget",
+]
+on_error = "warn"
+
+[display.overrides]
+
+[observation]
+points = []
+variables = [
+    "head",
+]
+
+[resolved_at_build.mesh]
+pixel = 50.0
+cell_size = 50.0

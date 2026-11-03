@@ -231,7 +231,7 @@ class _InMemoryPythonProject:
         workspace = SimpleNamespace(root=ws_root, project_root=ws_root)
         setup = SimpleNamespace(workspace=workspace)
         self._ctx = SimpleNamespace(setup=setup)
-        self.config = SimpleNamespace(
+        self.config = self._cfg = SimpleNamespace(
             model_dump=lambda **kwargs: {"workflow": {"mode": "simulation"}}
         )
 
@@ -293,7 +293,7 @@ def test_project_calibrate_toml_mode_routes_phases_to_staged_runner(
     calls: dict = {}
     _patch_runners(monkeypatch, calls)
 
-    project = SimpleNamespace(config=None, _config_path=None)
+    project = SimpleNamespace(_cfg=None, _config_path=None)
     result = Project.calibrate(project, config_path=config)
 
     assert isinstance(result, _FakeStagedReport)
@@ -312,7 +312,7 @@ def test_project_calibrate_embedded_phases_route_to_staged_runner(
     _patch_runners(monkeypatch, calls)
 
     project = SimpleNamespace(
-        config=SimpleNamespace(calibration=_staged_config()),
+        _cfg=SimpleNamespace(calibration=_staged_config()),
         _config_path=config,
     )
     result = Project.calibrate(project, phase="steady_k")
@@ -348,7 +348,7 @@ def test_project_calibrate_in_memory_embedded_phases_route_to_staged_runner(
     ws_root = tmp_path / "ws"
     ws_root.mkdir()
     project = _InMemoryPythonProject(ws_root)
-    project.config.calibration = _staged_config()
+    project._cfg.calibration = _staged_config()
 
     result = Project.calibrate(project, phase="steady_k")
 
@@ -449,7 +449,7 @@ name = "naizin"
 crs_project = "EPSG:2154"
 
 [geographic.catchment]
-catch_def = "from_outlet_coord"
+kind = "from_outlet_coord"
 dem_init_path = "naizin_dem.tif"
 x_outlet = 265611.933
 y_outlet = 6784182.776
@@ -481,7 +481,7 @@ name = "minimal"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow_nwt"]
 
 [calibration]
@@ -742,7 +742,7 @@ def test_project_calibrate_with_a_phase_surfaces_the_real_error_of_an_unreadable
     calls: dict = {}
     _patch_runners(monkeypatch, calls)
 
-    project = SimpleNamespace(config=None, _config_path=None)
+    project = SimpleNamespace(_cfg=None, _config_path=None)
     with pytest.raises(ConfigError) as refusal:
         Project.calibrate(project, config_path=config, phase="steady_k")
 
@@ -762,7 +762,7 @@ def test_project_calibrate_without_a_phase_still_defers_to_the_runner(
     calls: dict = {}
     _patch_runners(monkeypatch, calls)
 
-    project = SimpleNamespace(config=None, _config_path=None)
+    project = SimpleNamespace(_cfg=None, _config_path=None)
     assert Project.calibrate(project, config_path=config) == {"staged": False}
     assert calls["cli_path"] == config.resolve()
 
@@ -791,7 +791,7 @@ def test_project_calibrate_forwards_only_kwargs_the_staged_runner_accepts(
         fake_staged,
     )
 
-    project = SimpleNamespace(config=None, _config_path=None)
+    project = SimpleNamespace(_cfg=None, _config_path=None)
     Project.calibrate(project, config_path=config, phase="steady_k")
 
     assert forwarded["phase"] == "steady_k"

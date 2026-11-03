@@ -73,8 +73,8 @@ def test_project_best_keeps_an_evaluated_run(tmp_path: Path) -> None:
 
     with hmp.open(project) as proj:
         assert proj.cases.set_index("case_id").loc["nancon-k2e_5", "label"] == "evaluated"
-        best = proj.best("nse", by="site")
-        in_window = proj.best("nse", by="site", label="calibrated")
+        best = proj.best_runs("nse", by="site")
+        in_window = proj.best_runs("nse", by="site", label="calibrated")
 
     assert list(best["sim_id"]) == [evaluated]
     assert best.iloc[0]["label"] == "evaluated"

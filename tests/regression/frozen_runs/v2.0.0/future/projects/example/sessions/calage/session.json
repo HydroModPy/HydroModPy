@@ -1,0 +1,100 @@
+{
+  "schema": "hydromodpy.session.v4",
+  "session_id": "1c17c2c39cc54263a6aa64a447d7233e",
+  "case_id": "calage",
+  "config_hash": "38efa4990ac8acc8b15d9de21cc80ced442f29b4c5eb2b7802da89af895d6886",
+  "sites": [],
+  "cases": {
+    "calage": {
+      "site": null,
+      "config_hash": "38efa4990ac8acc8b15d9de21cc80ced442f29b4c5eb2b7802da89af895d6886",
+      "config_file": "config.toml",
+      "cost_name": "rmse",
+      "cost_label": "rmse",
+      "context": {
+        "k_grid": {
+          "calibration": "33c3091b0040878c",
+          "code.calibration": "fa8933363c56585b",
+          "code.config": "8dd1449c89c533eb",
+          "code.core": "abedb9d61ce5c4ff",
+          "code.data": "ac0bd9da4e26ee5c",
+          "code.physics": "97011dde40f25c11",
+          "code.results": "2497084b80fb0569",
+          "code.simulation": "7719f8cf180d590f",
+          "code.solver": "55f4fcb28ea3c205",
+          "code.spatial": "5bbd8059d783fcc5",
+          "code.workflow": "6e72aca5409f8f1c",
+          "effective_domain": "18b26c23863b716c",
+          "input_files": "4f53cda18c2baa0c",
+          "mesh": "475d8ecc71593e1f",
+          "metric_rule_version": "2",
+          "model": "7c1eb43cfada7ddf",
+          "override_paths": "efaa8c9f4d53125c",
+          "parameter_space": "b256dd72e9ff7346",
+          "schema": "hydromodpy.calibration.params_hash.v4"
+        }
+      },
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    }
+  },
+  "hydromodpy_version": "2.0.0a5",
+  "method": "grid",
+  "bounds": {
+    "K": {
+      "lower": 5e-05,
+      "upper": 0.0002,
+      "search_space": "log",
+      "units": "m/s",
+      "targets": {
+        "calage": "flow.param.K.field.value"
+      },
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    }
+  },
+  "cost_name": "rmse",
+  "cost_label": "rmse",
+  "windows": {},
+  "scored": [],
+  "best": {
+    "trial": 2,
+    "cost": 0.002899322509765767,
+    "parameters": {
+      "K": 0.0001
+    },
+    "cases": {
+      "calage": {
+        "sim_id": "83dee61c-53b9-4f5e-b68d-51e0b2181c75",
+        "rel_dir": "runs/calage",
+        "cost": 0.002899322509765767,
+        "from_a_later_version": {
+          "kept": true,
+          "note": "written by a later 2.x"
+        }
+      }
+    },
+    "from_a_later_version": {
+      "kept": true,
+      "note": "written by a later 2.x"
+    }
+  },
+  "widths": {},
+  "protocol": null,
+  "status": "completed",
+  "started_at": "2026-11-03T05:21:51.395463Z",
+  "ended_at": "2026-11-03T05:21:52.835213Z",
+  "error_message": null,
+  "root_search": null,
+  "stop_state": "plan_exhausted",
+  "stopping_rule": "every grid point",
+  "stop_note": null,
+  "from_a_later_version": {
+    "kept": true,
+    "note": "written by a later 2.x"
+  }
+}

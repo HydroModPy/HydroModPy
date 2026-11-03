@@ -56,6 +56,29 @@ def test_reach_and_lake_outflows_add_up(tmp_path: Path) -> None:
     np.testing.assert_allclose(series, [0.6, 0.7, 0.8])
 
 
+def _lake_alone(root: Path, lake_out: list[float]) -> None:
+    """Write the sidecars of a lake with an outlet and no network."""
+    _write_run(root, reach_out=[0.0, 0.0, 0.0], lake_out=lake_out)
+    (root / "m.sfr.meta.json").unlink()
+    (root / "m.sfr.obs.csv").unlink()
+
+
+def test_a_lake_without_a_network_serves_its_outlet(tmp_path: Path) -> None:
+    _lake_alone(tmp_path, [0.1, 0.2, 0.3])
+    series = routed_outflow_series(tmp_path, "m", times=TIMES, seconds_per_time_unit=1.0)
+    np.testing.assert_allclose(series, [0.1, 0.2, 0.3])
+
+
+def test_a_lake_whose_outlet_stays_dry_is_a_routed_zero_the_drains_add_to(tmp_path: Path) -> None:
+    _lake_alone(tmp_path, [0.0, 0.0, 0.0])
+    series = routed_outflow_series(tmp_path, "m", times=TIMES, seconds_per_time_unit=1.0)
+    np.testing.assert_allclose(series, [0.0, 0.0, 0.0])
+
+
+def test_a_run_without_network_nor_lake_has_no_routed_series(tmp_path: Path) -> None:
+    assert routed_outflow_series(tmp_path, "m", times=TIMES, seconds_per_time_unit=1.0) is None
+
+
 def test_a_series_of_zeros_is_refused(tmp_path: Path) -> None:
     _write_run(tmp_path, reach_out=[0.0, 0.0, 0.0], lake_out=None)
     with pytest.raises(ObservableNotAvailableError, match="zero"):

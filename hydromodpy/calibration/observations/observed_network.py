@@ -177,6 +177,7 @@ def observed_head_candidates(run_ctx: RunContext, observed: ObservedNetwork) -> 
         geometry_crs=observed.crs,
         cut_outline=observed.cut_outline,
         cut_crs=observed.cut_crs,
+        outlet_xy=delineated_outlet_xy(run_ctx),
     )
     logger.info(
         "Mapped stream network (%s%s): %d feature(s), %d free end(s) examined as heads, "

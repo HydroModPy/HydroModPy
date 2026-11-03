@@ -46,8 +46,10 @@ TRIAL_VERSIONS: Final[VersionWindow] = VersionWindow(
 )
 """Versions of one line of the journal this code reads."""
 
-TrialStatus = Annotated[str, Vocabulary("running", "completed", "failed", "crashed", "aborted")]
-"""Where a trial stands."""
+TrialStatus = Annotated[
+    str, Vocabulary("running", "completed", "failed", "crashed", "infeasible", "aborted")
+]
+"""Where a trial stands. ``infeasible`` is a point the search may leave, not a crash."""
 
 
 class TrialParam(HydroModelBase):
@@ -151,6 +153,24 @@ def append_trial(session_dir: str | Path, line: TrialLine) -> Path:
     return target
 
 
+def cut_remnant(session_dir: str | Path) -> bool:
+    """Drop the text after the last newline of the journal, return whether there was any.
+
+    That text is the remnant of a write a crash cut. It is never a trial, and
+    the next append would glue a new line to it and make both unreadable.
+    """
+    target = trials_path(session_dir)
+    if not target.is_file():
+        return False
+    data = target.read_bytes()
+    kept = data[: data.rfind(b"\n") + 1]
+    if len(kept) == len(data):
+        return False
+    with open(target, "r+b") as handle:
+        handle.truncate(len(kept))
+    return True
+
+
 def read_trials(session_dir: str | Path) -> list[TrialLine]:
     """Return the trials of a session, one per number, the last line of each winning."""
     target = trials_path(session_dir)
@@ -225,6 +245,7 @@ __all__ = [
     "TrialParam",
     "TrialStatus",
     "append_trial",
+    "cut_remnant",
     "next_trial_number",
     "physical_parameters",
     "read_trials",

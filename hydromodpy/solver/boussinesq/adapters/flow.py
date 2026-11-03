@@ -14,6 +14,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any, ClassVar
 
+import numpy as np
 import pandas as pd
 
 from hydromodpy.core.contracts.observables import (
@@ -52,6 +53,29 @@ from hydromodpy.solver.boussinesq.runtimes.vi_obstacle_diagnostics import (
     write_vi_obstacle_diagnostic_files,
 )
 from hydromodpy.solver.boussinesq.solver_contract import layering_refusal
+from hydromodpy.spatial.geographic.delineated_catchment import (
+    catchment_outline,
+    watershed_cell_mask,
+)
+
+
+def _published_support(ctx: RunContext) -> np.ndarray | None:
+    """Return the cells the run publishes its discharge on, ``None`` for the whole domain.
+
+    A Boussinesq mesh takes in the buffer of the domain and builds no D, so the run
+    sums its catchment series over the cells whose centre the delineated polygon
+    covers. A trial scores the same cells. Like the run, a domain with no polygon,
+    no declared CRS or no cell inside the polygon stays the whole domain.
+    """
+    watershed = catchment_outline(getattr(ctx.state.setup, "geographic", None))
+    crs = getattr(getattr(ctx.state.cfg, "geographic", None), "crs_project", None)
+    cell_mesh = getattr(getattr(ctx.model, "mesh", None), "cell_mesh", None)
+    if watershed is None or crs is None or cell_mesh is None:
+        return None
+    mask = watershed_cell_mask(
+        cell_mesh.mesh.vertices, cell_mesh.geometry.padded_connectivity, watershed, mesh_crs=crs
+    )
+    return mask if mask.any() else None
 
 
 class BoussinesqFlowAdapter:
@@ -77,7 +101,11 @@ class BoussinesqFlowAdapter:
         del config
         return (
             servable("head", "read at any cell from the solver output"),
-            servable("discharge", "integrated over the domain"),
+            servable(
+                "discharge",
+                "summed over the cells the delineated catchment covers, or over the "
+                "domain when the run has no catchment",
+            ),
             unavailable(
                 "release_flux",
                 "the Boussinesq extraction serves heads and discharge, not the per-cell "
@@ -131,8 +159,9 @@ class BoussinesqFlowAdapter:
     ) -> dict[str, ObservableResult]:
         """Read observables from the Boussinesq scratch directory.
 
-        Discharge is the drains and the saturation excess summed over all cells
-        per timestep, the water leaving the aquifer at the surface.
+        Discharge is the drains and the saturation excess summed over the cells
+        the run publishes it on, per timestep, the water leaving the aquifer at
+        the surface.
         Heads are read at flattened cell indices: the Boussinesq mesh is one
         unstructured layer, so a ``(k, i, j)`` cell is read as ``cell_id = j``.
         Every head request is served in one pass over the history.
@@ -160,7 +189,9 @@ class BoussinesqFlowAdapter:
                 )
 
         if discharge_requests:
-            series = extract_discharge_history(output_dir, time_index=time_index)
+            series = extract_discharge_history(
+                output_dir, catchment_mask=_published_support(ctx), time_index=time_index
+            )
             for request in discharge_requests:
                 served[request.id] = series_observable(request, series, units="m3 s-1")
 

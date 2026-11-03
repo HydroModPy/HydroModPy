@@ -610,6 +610,8 @@ class _Writer:
         name = item.variables[0]
         timed = is_timed(field_descriptor(name))
         if item.instant is not None:
+            # Read the dates as one list first: two that read one period are refused.
+            _ = self.steps
             pairs = [(self.run.periods.step_at(item.instant), dest)]
         elif not timed:
             pairs = [(0, dest.with_name(dest.name.replace(f"_{STEP_DATE_TOKEN}", "")))]

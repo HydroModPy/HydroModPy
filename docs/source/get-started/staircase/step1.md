@@ -110,7 +110,7 @@ The run prints `WARNING` lines. None is an error, and each has a reason.
 flow.flow_regime
 flow.param.K.field.value
 domain.depth_model.thickness
-flow.active_bc
+flow.bc.<name>.enabled
 ```
 
 Sy is declared too, for step 4: a steady solve never reads it.

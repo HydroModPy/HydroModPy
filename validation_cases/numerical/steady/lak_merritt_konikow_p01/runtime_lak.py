@@ -94,7 +94,7 @@ def _hmp_model(geometry: LakeP01Geometry) -> SimpleNamespace:
                         "polygon": None,
                         "bedleak": geometry.bedleak_per_s,
                         "abacus": abacus,
-                        "stageinit": geometry.stage_init_m,
+                        "initial_stage": geometry.stage_init_m,
                         "rainfall": {"value": geometry.rainfall_m_per_s, "units": "m/s"},
                         "evaporation": {
                             "value": geometry.evaporation_m_per_s,

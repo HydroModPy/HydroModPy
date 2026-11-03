@@ -35,7 +35,7 @@ mode = "overview"
 crs_project = "EPSG:2154"
 
 [geographic.catchment]
-catch_def = "from_outlet_coord"
+kind = "from_outlet_coord"
 dem_init_path = "dem.tif"
 x_outlet = 389285.9
 y_outlet = 6816518.7
@@ -89,7 +89,7 @@ def test_an_overview_claims_writes_and_seals_its_run_directory(
     seen: dict = {}
     _draw_one_panel(monkeypatch, seen)
 
-    summary = run_overview(project / "overview.toml")
+    summary = run_overview(project / "overview.toml").to_dict()
 
     run_dir = project / "runs" / "nancon"
     assert summary["run_dir"] == str(run_dir)
@@ -115,7 +115,7 @@ def test_a_second_overview_of_the_same_site_takes_the_next_version(
     _draw_one_panel(monkeypatch, {})
     run_overview(project / "overview.toml")
 
-    second = run_overview(project / "overview.toml")
+    second = run_overview(project / "overview.toml").to_dict()
 
     assert second["run_dir"] == str(project / "runs" / "nancon.v2")
     assert overview_run_dir(project, "nancon") == project / "runs" / "nancon.v2"

@@ -215,7 +215,7 @@ def class_entry(name: str, cls: Any, kind: str) -> dict[str, Any]:
     if kind == "config":
         tags = {}
         for fname, field in getattr(cls, "model_fields", {}).items():
-            if fname in ("source", "kind", "type", "mode", "catch_def"):
+            if fname in ("source", "kind", "type", "mode", "kind"):
                 args = getattr(field.annotation, "__args__", ())
                 if (
                     getattr(field.annotation, "__origin__", None) is not None
@@ -598,6 +598,13 @@ def exceptions(codes: list[dict[str, Any]], verbs: list[dict[str, Any]]) -> list
 # ---------------------------------------------------------------- keywords against flags
 
 
+KEYWORD_FLAG_DESTS: dict[str, dict[str, str]] = {
+    "export": {"format": "file_format", "folder": "to", "file": "to"},
+}
+"""A keyword whose flag has another name on the command line. ``--format`` of ``hmp export``
+is what the command prints, and its file format is ``--as``."""
+
+
 def keyword_table(verb: str, commands: list[dict[str, Any]]) -> dict[str, Any] | None:
     """The keyword arguments of ``hmp.<verb>`` set against the flags of ``hmp <verb>``."""
     fn = getattr(hmp, verb, None)
@@ -637,8 +644,9 @@ def keyword_table(verb: str, commands: list[dict[str, Any]]) -> dict[str, Any] |
     flags = [a for a in command["arguments"] if not a["positional"]]
     rows = []
     used: set[str] = set()
+    moved = KEYWORD_FLAG_DESTS.get(verb, {})
     for kw, row in keywords.items():
-        flag = next((a for a in flags if a["dest"] == kw), None)
+        flag = next((a for a in flags if a["dest"] == moved.get(kw, kw)), None)
         invert = False
         if flag is None:
             flag = next((a for a in flags if a["dest"] == f"no_{kw}"), None)
@@ -668,15 +676,34 @@ def keyword_table(verb: str, commands: list[dict[str, Any]]) -> dict[str, Any] |
 # ---------------------------------------------------------------- exit codes of each command
 
 
+def cli_outputs() -> list[dict[str, Any]]:
+    """What each command writes under ``--format json`` and ``csv``, as ``cli/output.py`` declares it."""
+    import importlib
+
+    output = importlib.import_module("hydromodpy.cli.output")
+    return [
+        {
+            "verb": item.verb,
+            "schema": item.schema,
+            "rows": item.rows,
+            "fields": list(item.fields),
+            "open_fields": item.open_fields,
+            "experimental": item.experimental,
+        }
+        for item in (*output.OUTPUTS, output.ERROR)
+    ]
+
+
 def command_exit_codes(
     commands: list[dict[str, Any]], codes: list[dict[str, Any]]
 ) -> dict[str, dict[str, Any]]:
     """Exit codes each command sets itself, read from the code its handler runs.
 
     The handler and the functions of its own module it calls are scanned for
-    ``sys.exit(...)`` and ``raise SystemExit(...)``, and so are the functions of
-    ``cli/helpers.py`` it calls. A ``sys.exit(exit_code_for(exc))`` is reported
-    as the mapped exit, whose code is the one of the exception class.
+    ``sys.exit(...)``, ``raise SystemExit(...)`` and ``refuse(message, code)``, and so
+    are the functions of ``cli/helpers.py`` it calls. A ``fail(exc)`` or a
+    ``sys.exit(exit_code_for(exc))`` is reported as the mapped exit, whose code is the
+    one of the exception class.
     """
     import importlib
 
@@ -734,6 +761,13 @@ def command_exit_codes(
                         if code is not None:
                             direct.add(code)
                         mapped = mapped or is_mapped
+                    elif isinstance(target, ast.Name) and target.id == "refuse":
+                        code, is_mapped = value_of(call.args[1])
+                        if code is not None:
+                            direct.add(code)
+                        mapped = mapped or is_mapped
+                    elif isinstance(target, ast.Name) and target.id == "fail":
+                        mapped = True
                     elif isinstance(target, ast.Name):
                         callee = funcs.get(target.id) or helper_funcs.get(target.id)
                         if callee is not None and id(callee) not in seen:
@@ -909,7 +943,7 @@ TASKS: dict[str, dict[str, Any]] = {
         },
         "intro": {
             "Read the project": "The cases, sites, runs and sessions of the project, read from its directory.",
-            "Launch the cases": "The words of hmp project: plan the cases, launch them, collect the summary, publish it.",
+            "Launch the cases": "The words of hmp project and hmp campaign: plan the cases, launch them, collect the summary, publish it.",
             "Build one model": "Configure one model from a TOML file and build its catchment, data and mesh.",
             "Run one model": "Run, calibrate or spin up the model this project configures.",
             "Lifecycle": "Release the index handle and the preprocessing files.",
@@ -977,6 +1011,9 @@ def build(nodes: dict[str, dict[str, Any]]) -> dict[str, Any]:
             modules.append(
                 {"name": name, "qualname": obj.__name__, "summary": first_line(inspect.getdoc(obj))}
             )
+        elif inspect.isclass(obj) and issubclass(obj, BaseException):
+            # The exceptions have their own page, with their codes.
+            continue
         elif inspect.isclass(obj):
             if issubclass(obj, BaseModel):
                 kind = "config"
@@ -1074,6 +1111,7 @@ def build(nodes: dict[str, dict[str, Any]]) -> dict[str, Any]:
         "commands": commands,
         "cli_to_verbs": twins,
         "exit_codes": codes,
+        "cli_outputs": cli_outputs(),
         "command_exit_codes": command_exit_codes(commands, codes),
         "exceptions": exceptions(codes, verbs),
         "keyword_tables": keyword_tables,

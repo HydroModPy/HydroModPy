@@ -1,0 +1,66 @@
+{
+  "shape": [
+    20,
+    20
+  ],
+  "data_type": "float32",
+  "chunk_grid": {
+    "name": "regular",
+    "configuration": {
+      "chunk_shape": [
+        20,
+        20
+      ]
+    }
+  },
+  "chunk_key_encoding": {
+    "name": "default",
+    "configuration": {
+      "separator": "/"
+    }
+  },
+  "fill_value": -9999.0,
+  "codecs": [
+    {
+      "name": "bytes",
+      "configuration": {
+        "endian": "little"
+      }
+    },
+    {
+      "name": "blosc",
+      "configuration": {
+        "typesize": 4,
+        "cname": "zstd",
+        "clevel": 5,
+        "shuffle": "bitshuffle",
+        "blocksize": 0
+      }
+    }
+  ],
+  "attributes": {
+    "transform": [
+      50.0,
+      0.0,
+      0.0,
+      0.0,
+      -50.0,
+      1000.0
+    ],
+    "crs": "EPSG:2154",
+    "nodata": -9999.0,
+    "shape": [
+      20,
+      20
+    ],
+    "missing_value": -9999.0,
+    "grid_mapping": "watershed_dem_crs"
+  },
+  "dimension_names": [
+    "watershed_dem_y",
+    "watershed_dem_x"
+  ],
+  "zarr_format": 3,
+  "node_type": "array",
+  "storage_transformers": []
+}

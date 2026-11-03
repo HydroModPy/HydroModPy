@@ -6,7 +6,9 @@ usable through ``subparsers.add_parser(..., parents=[...])``:
 
 - :func:`workspace_parser` -- ``-w/--workspace`` selector
 - :func:`confirm_parser` -- ``-y/--yes`` confirmation flag
-- :func:`format_parser` -- ``--format {table,json,csv}`` for read commands
+- :func:`format_parser` -- ``--format {table,json,csv}``, what :mod:`hydromodpy.cli.output` writes
+- :func:`dry_run_parser` -- ``--dry-run`` on a verb that removes or rewrites
+- :func:`add_destination` -- ``--to``, the one spelling of a destination
 - :func:`profile_parser` -- ``--profile [HTML_PATH]`` pyinstrument flag
 - :func:`verbosity_parser` -- ``-q/-v/--debug/--verbosity`` console verbosity
 - :func:`add_sim_ref` -- canonical ``sim_ref`` positional
@@ -14,9 +16,15 @@ usable through ``subparsers.add_parser(..., parents=[...])``:
 :func:`add_action_subparsers` attaches a *required* action group: a bare
 group (``hmp catalog`` with no sub-action) is a usage error and exits 2.
 
-:data:`OLD_CLI_FORMS` lists the commands and flags that moved in a stable
-version, and :func:`install_old_cli_forms` keeps them working: each warns, then
-forwards to the new form. The policy is ``docs/source/about/versions.md``.
+:data:`OLD_CLI_FORMS` lists the commands and flags that moved, and
+:func:`install_old_cli_forms` puts them on the tree. One that moved in a stable
+version keeps working: it warns, then forwards to the new form. One that left
+before the first stable version is refused with a message that names the new
+form. The policy is ``docs/source/about/versions.md``.
+
+``--force`` has one meaning on every verb: go past a refusal this verb makes
+because of what is already there, or what protects it. An existing file, a
+pinned run, a running case. It never skips a question, which is ``-y``.
 
 A guard test (``tests/unit/cli/test_cli_conventions.py``) introspects the
 argparse tree and fails if a command drifts from this grammar.
@@ -29,16 +37,25 @@ import sys
 import warnings
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, NoReturn
 
+from hydromodpy.core.exceptions import CommandUsageError
 from hydromodpy.core.logging import VERBOSITY_LEVELS
 
 FORMAT_CHOICES: tuple[str, ...] = ("table", "json", "csv")
 
 
+class HmpParser(argparse.ArgumentParser):
+    """The parser of ``hmp``: a mistake on the command line carries its code, as any failure does."""
+
+    def error(self, message: str) -> NoReturn:
+        self.print_usage(sys.stderr)
+        self.exit(2, f"{CommandUsageError.code}: {self.prog}: {message}\n")
+
+
 @dataclass(frozen=True, slots=True)
 class OldCliForm:
-    """A command or a flag of ``hmp`` that moved in a stable version.
+    """A command or a flag of ``hmp`` that moved.
 
     Both forms are written as a user types them. A flag stays on its command, and
     its new form may fix a value: ``hmp catalog ls --long`` to ``hmp catalog ls
@@ -49,16 +66,75 @@ class OldCliForm:
     old: str
     new: str
     since: str
-    """The version that moved it. It keeps working for two minor versions, that one included."""
+    """The version that moved it. It stays here for two minor versions, that one included."""
+
+    refused: bool = False
+    """It left before the first stable version, so it has no alias: it is refused, and
+    the message names *new*, which may then hold words to fill in (``REF``, ``DIR``)."""
 
 
-OLD_CLI_FORMS: tuple[OldCliForm, ...] = ()
-"""The old forms :func:`install_old_cli_forms` keeps working.
+_FORMS_REFUSED_AT_2_0: tuple[tuple[str, str], ...] = (
+    # Verbs that fold into another.
+    ("hmp replay", "hmp publish REF --to DIR --with inputs"),
+    (
+        "hmp project export",
+        "hmp publish PROJECT --package --to FILE [--container tar|dir] [--with runs]",
+    ),
+    ("hmp viz regen", "hmp export REF --regen figures"),
+    ("hmp doctor --toml", "hmp config check FILE -v"),
+    ("hmp dev lock archive", "hmp data archive --to FILE"),
+    ("hmp dev lock restore", "hmp data restore FILE --to DIR"),
+    # Verbs that moved.
+    ("hmp test", "hmp dev test"),
+    ("hmp project case", "hmp campaign case"),
+    ("hmp project array", "hmp campaign array"),
+    ("hmp project collect", "hmp campaign collect"),
+    ("hmp project prune", "hmp campaign prune"),
+    ("hmp project promote", "hmp campaign promote"),
+    ("hmp dev completion", "hmp completion"),
+    ("hmp dev lock update", "hmp lock update"),
+    ("hmp dev lock verify", "hmp lock verify"),
+    ("hmp dev rank", "hmp catalog rank --project PROJECT"),
+    ("hmp dev schema export", "hmp config schema --bundle --to DIR"),
+    ("hmp dev schema validate-field", "hmp config validate-field PATH VALUE"),
+    # One option for what a program reads.
+    ("hmp workspace list --json", "hmp workspace list --format json"),
+    ("hmp doctor --json", "hmp doctor --format json"),
+    ("hmp config targets --json", "hmp config targets FILE --format json"),
+    # A destination is --to.
+    ("hmp export --folder", "hmp export REF NAME --to FOLDER/"),
+    ("hmp export --file", "hmp export REF NAME --to FILE"),
+    ("hmp catalog point --output", "hmp catalog point REF --to FILE"),
+    ("hmp catalog point -o", "hmp catalog point REF --to FILE"),
+    ("hmp viz show --output", "hmp viz show REF FIGURE --to FILE"),
+    ("hmp config schema --out", "hmp config schema --to FILE"),
+    ("hmp data get --out", "hmp data get TARGET --to DIR"),
+    ("hmp report compare --out", "hmp report compare REF REF --to DIR"),
+    ("hmp install-binaries --bindir", "hmp install-binaries --to DIR"),
+    ("hmp workspace init --path", "hmp workspace init PATH"),
+    ("hmp config template FILE", "hmp config template --to FILE"),
+    ("hmp config wizard FILE", "hmp config wizard --to FILE"),
+    ("hmp data archive FILE", "hmp data archive --to FILE"),
+    # It changed nothing: every run has the same step order.
+    ("hmp run --no-parallel", "hmp run FILE"),
+    # A preview is --dry-run, and doing it is -y.
+    ("hmp catalog gc --apply", "hmp catalog gc -y"),
+    # --force goes past a refusal, and --upgrade downloads again.
+    ("hmp install-binaries --force", "hmp install-binaries --upgrade"),
+    # A file format is --as, so a name is --name.
+    ("hmp catalog import --as", "hmp catalog import SOURCE --name NAME"),
+    ("hmp project import --as", "hmp project import SOURCE --name NAME"),
+    ("hmp campaign promote --as", "hmp campaign promote CASE --trial N --name NAME"),
+)
 
-Empty at 2.0.0, because a form removed before the first stable version has no
-entry. From then on ``tools/surface_snapshot.py`` refuses a command or a flag that
-leaves ``hmp`` without an entry here, and a test fails once an entry outlives its
-delay.
+OLD_CLI_FORMS: tuple[OldCliForm, ...] = tuple(
+    OldCliForm(old, new, "2.0.0", refused=True) for old, new in _FORMS_REFUSED_AT_2_0
+)
+"""The old forms :func:`install_old_cli_forms` puts on the tree.
+
+At 2.0.0 it only holds the forms refused because they left before that version. From
+then on ``tools/surface_snapshot.py`` refuses a command or a flag that leaves ``hmp``
+without an entry here, and a test fails once an entry outlives its delay.
 """
 
 
@@ -117,6 +193,59 @@ class OldVerb(argparse.ArgumentParser):
         return self.target.parse_known_args(args, namespace)
 
 
+def _refusal(form: OldCliForm) -> str:
+    return f"{form.old} is gone. Write: {form.new}"
+
+
+class RefusedFlag(OldFlag):
+    """Stands for a flag that left before the first stable version: names the new form, stops."""
+
+    def __init__(self, option_strings: Sequence[str], dest: str, *, form: OldCliForm) -> None:
+        argparse.Action.__init__(
+            self,
+            option_strings,
+            dest,
+            nargs="?",
+            default=argparse.SUPPRESS,
+            help=argparse.SUPPRESS,
+        )
+        self.form = form
+
+    def __call__(self, parser, namespace, values, option_string=None) -> None:
+        parser.error(_refusal(self.form))
+
+
+class RefusedPositional(RefusedFlag):
+    """Stands for a destination that was a positional: says what it is now, when one is typed."""
+
+    def __init__(self, option_strings: Sequence[str], dest: str, *, form: OldCliForm, **_: Any):
+        super().__init__(option_strings, dest, form=form)
+
+    def __call__(self, parser, namespace, values, option_string=None) -> None:
+        if values is not None:
+            parser.error(_refusal(self.form))
+
+
+class RefusedVerb(OldVerb):
+    """Stands for a command that left before the first stable version: names the new form, stops.
+
+    One stands for a whole old group, ``hmp dev lock``. The words typed after it
+    choose the form to name, and a bare group names them all.
+    """
+
+    def __init__(self, first: OldCliForm, *, prog: str) -> None:
+        argparse.ArgumentParser.__init__(self, prog=prog, add_help=False)
+        self.forms = [first]
+
+    def error(self, message: str) -> NoReturn:
+        self.exit(2, f"{CommandUsageError.code}: {message}\n")
+
+    def parse_known_args(self, args=None, namespace=None) -> tuple[argparse.Namespace, list[str]]:
+        typed = " ".join([self.prog, *(args or ())])
+        chosen = [form for form in self.forms if f"{typed} ".startswith(f"{form.old} ")]
+        self.error(" ".join(_refusal(form) + "." for form in chosen or self.forms))
+
+
 def _commands_of(parser: argparse.ArgumentParser) -> dict[str, Any]:
     """Return the commands of a group, by name."""
     return next(a for a in parser._actions if isinstance(a, argparse._SubParsersAction)).choices
@@ -131,12 +260,15 @@ def _parser_of(root: argparse.ArgumentParser, words: Sequence[str]) -> argparse.
 
 
 def install_old_cli_forms(root: argparse.ArgumentParser) -> None:
-    """Make each form of :data:`OLD_CLI_FORMS` work on the parser tree of ``hmp``.
+    """Put each form of :data:`OLD_CLI_FORMS` on the parser tree of ``hmp``.
 
     A form that names a command or a flag the tree does not hold raises when the
     tree is built, so the gate of the surfaces finds it before a user does.
     """
     for form in OLD_CLI_FORMS:
+        if form.refused:
+            _install_refusal(root, form)
+            continue
         old, new = form.old.split()[1:], form.new.split()[1:]
         if not old[-1].startswith("-"):
             _commands_of(_parser_of(root, old[:-1]))[old[-1]] = OldVerb(form, _parser_of(root, new))
@@ -156,7 +288,49 @@ def install_old_cli_forms(root: argparse.ArgumentParser) -> None:
         )
 
 
-def workspace_parser() -> argparse.ArgumentParser:
+def _install_refusal(root: argparse.ArgumentParser, form: OldCliForm) -> None:
+    """Refuse *form* on the tree, at its flag, or at the first of its words the tree lost."""
+    words = form.old.split()[1:]
+    if words[-1].startswith("-"):
+        _parser_of(root, words[:-1]).add_argument(words[-1], action=RefusedFlag, form=form)
+        return
+    if words[-1].isupper():
+        _parser_of(root, words[:-1]).add_argument(
+            "was_positional", action=RefusedPositional, nargs="?", form=form
+        )
+        return
+    parser = root
+    for depth, word in enumerate(words):
+        commands = _commands_of(parser)
+        found = commands.get(word)
+        if isinstance(found, RefusedVerb):
+            found.forms.append(form)
+            return
+        if found is None:
+            prog = " ".join(["hmp", *words[: depth + 1]])
+            commands[word] = RefusedVerb(form, prog=prog)
+            return
+        parser = found
+    raise KeyError(f"{form.old} is still a command: an old form cannot stand for it.")
+
+
+WORKSPACE_ROOT_DEST = "workspace_before_the_verb"
+"""Where ``hmp -w W <verb>`` keeps W, so that the default of the verb does not overwrite it."""
+
+
+def add_workspace_before_the_verb(parser: argparse.ArgumentParser) -> None:
+    """Accept ``-w`` before the verb too: ``hmp -w W catalog ls``."""
+    parser.add_argument(
+        "-w",
+        "--workspace",
+        dest=WORKSPACE_ROOT_DEST,
+        metavar="WORKSPACE",
+        default=None,
+        help="Workspace root or project directory, for the command that follows",
+    )
+
+
+def workspace_parser(*, reads_none: bool = False) -> argparse.ArgumentParser:
     """Parent parser exposing the shared ``-w/--workspace`` selector.
 
     Accepts a workspace root or a project directory. A project verb resolves
@@ -164,6 +338,9 @@ def workspace_parser() -> argparse.ArgumentParser:
     verb through :func:`hydromodpy.cli.helpers.resolve_workspace`. Without
     ``-w`` the verb looks above the current directory and stops when it finds
     nothing: it never falls back on ``~/hydromodpy``.
+
+    Every verb takes ``-w``, so a script can always write ``hmp -w W <verb>``.
+    A verb that reads no workspace says so in its help (*reads_none*).
     """
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument(
@@ -172,33 +349,63 @@ def workspace_parser() -> argparse.ArgumentParser:
         metavar="WORKSPACE",
         default=None,
         help=(
-            "Workspace root or project directory "
+            "Accepted on every command. This one reads no workspace"
+            if reads_none
+            else "Workspace root or project directory "
             "(default: the one that holds the current directory)"
         ),
     )
     return parser
 
 
-def confirm_parser() -> argparse.ArgumentParser:
-    """Parent parser exposing the shared ``-y/--yes`` confirmation flag."""
+def dry_run_parser() -> argparse.ArgumentParser:
+    """Parent parser exposing ``--dry-run``: say what the verb would do, and change nothing."""
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument(
-        "-y",
-        "--yes",
+        "--dry-run",
         action="store_true",
-        help="Skip the confirmation prompt",
+        dest="dry_run",
+        help="Say what would change, and change nothing",
     )
     return parser
 
 
-def format_parser(*, default: str = "table") -> argparse.ArgumentParser:
-    """Parent parser exposing the shared ``--format`` selector for read commands."""
+def add_destination(
+    parser: argparse.ArgumentParser, *, help: str, required: bool = False, metavar: str = "DEST"
+) -> None:
+    """Add ``--to``, the one spelling of where a verb writes."""
+    parser.add_argument("--to", default=None, required=required, metavar=metavar, help=help)
+
+
+def confirm_parser(*, help: str = "Skip the confirmation prompt") -> argparse.ArgumentParser:
+    """Parent parser exposing the shared ``-y/--yes`` confirmation flag."""
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("-y", "--yes", action="store_true", help=help)
+    return parser
+
+
+def format_parser(*, default: str = "table", not_for: str = "") -> argparse.ArgumentParser:
+    """Parent parser exposing ``--format``: what :func:`hydromodpy.cli.output.emit` writes.
+
+    *not_for* is what to say to a value that is not one of the three, on a verb
+    where ``--format`` used to name something else.
+    """
+
+    def _format(value: str) -> str:
+        if not_for and value not in FORMAT_CHOICES:
+            raise argparse.ArgumentTypeError(
+                f"{value!r} is not an output of this command, which is one of "
+                f"{', '.join(FORMAT_CHOICES)}. {not_for}"
+            )
+        return value
+
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument(
         "--format",
+        type=_format,
         choices=FORMAT_CHOICES,
         default=default,
-        help=f"Output format (default: {default})",
+        help=f"What the command prints: a table for people, json or csv (default: {default})",
     )
     return parser
 
@@ -307,12 +514,20 @@ def _require_subcommand(parser: argparse.ArgumentParser) -> None:
 __all__ = (
     "FORMAT_CHOICES",
     "OLD_CLI_FORMS",
+    "WORKSPACE_ROOT_DEST",
+    "HmpParser",
     "OldCliForm",
     "OldFlag",
     "OldVerb",
+    "RefusedFlag",
+    "RefusedPositional",
+    "RefusedVerb",
     "add_action_subparsers",
+    "add_destination",
     "add_sim_ref",
+    "add_workspace_before_the_verb",
     "confirm_parser",
+    "dry_run_parser",
     "format_parser",
     "install_old_cli_forms",
     "profile_parser",

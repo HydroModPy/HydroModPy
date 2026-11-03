@@ -61,7 +61,7 @@ CATCHMENT = {
     "ncol": 240,
     "crs_proj": "EPSG:2154",
     "epsg": 2154,
-    "catch_def": "from_outlet_coord",
+    "kind": "from_outlet_coord",
 }
 
 DEM_INPUT = InputEntry(
@@ -192,7 +192,7 @@ def test_the_manifest_keeps_the_catchment_area_the_outlet_and_the_grid(filled: R
     assert catchment["dem_res"] == pytest.approx(5.0)
     assert (catchment["nrow"], catchment["ncol"]) == (120, 240)
     assert catchment["crs_proj"] == "EPSG:2154"
-    assert catchment["catch_def"] == "from_outlet_coord"
+    assert catchment["kind"] == "from_outlet_coord"
 
 
 def test_the_inputs_the_run_loaded_are_sealed_with_their_provider_and_licence(

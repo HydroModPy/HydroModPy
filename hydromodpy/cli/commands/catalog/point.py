@@ -6,11 +6,16 @@ Thin wrapper around :func:`hydromodpy.cli._workers.catalog.point_simulations`.
 from __future__ import annotations
 
 import argparse
-import sys
 from pathlib import Path
 
-from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, apply_verbosity, exit_code_for
+from hydromodpy.cli.conventions import (
+    add_destination,
+    format_parser,
+    verbosity_parser,
+    workspace_parser,
+)
+from hydromodpy.cli.helpers import apply_verbosity
+from hydromodpy.cli.output import emit
 from hydromodpy.core.state.paths import resolve_project_root
 
 NAME: str = "point"
@@ -20,7 +25,7 @@ EPILOG = """Examples:
   hmp catalog point @last --var head --xy 395100 6824925
   hmp catalog point @last --var head --cell 5000 --timestep -1
   hmp catalog point @last --var head --xy 395100 6824925 --depth 12.5
-  hmp catalog point run_a run_b --var watertable_depth --cell 5000 -o point.csv
+  hmp catalog point run_a run_b --var watertable_depth --cell 5000 --to point.csv
 """
 
 
@@ -72,12 +77,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         type=int,
         help="Keep a single timestep (negative counts from the end)",
     )
-    parser.add_argument(
-        "-o",
-        "--output",
-        metavar="FILE",
-        help="Write the table to a .csv or .parquet file",
-    )
+    add_destination(parser, help="Write the table to a .csv or .parquet file", metavar="FILE")
     parser.set_defaults(_handler=run)
     return parser
 
@@ -85,51 +85,28 @@ def register(subparsers) -> argparse.ArgumentParser:
 def run(args: argparse.Namespace) -> None:
     apply_verbosity(args, {})
     from hydromodpy.cli._workers.catalog import point_simulations
-    from hydromodpy.results.catalog import (
-        AmbiguousReferenceError,
-        SimulationNotFoundError,
-    )
-    from hydromodpy.results.errors import FieldNotFoundError
-    from hydromodpy.results.run.point import PointOutsideMeshError
 
     workspace_root = resolve_project_root(
         Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
     )
     x, y = args.xy if args.xy else (None, None)
-    try:
-        frame = point_simulations(
-            list(args.sim_ref),
-            workspace=workspace_root,
-            variables=list(args.variables),
-            x=x,
-            y=y,
-            cell=args.cell,
-            layer=args.layer,
-            depth=args.depth,
-            label=args.label,
-            timestep=args.timestep,
-            output=args.output,
-        )
-    except FileNotFoundError as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
-    except (AmbiguousReferenceError, SimulationNotFoundError, FieldNotFoundError) as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(exit_code_for(exc))
-    except (PointOutsideMeshError, IndexError, ValueError) as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(exit_code_for(exc))
+    frame = point_simulations(
+        list(args.sim_ref),
+        workspace=workspace_root,
+        variables=list(args.variables),
+        x=x,
+        y=y,
+        cell=args.cell,
+        layer=args.layer,
+        depth=args.depth,
+        label=args.label,
+        timestep=args.timestep,
+        output=args.to,
+    )
 
-    if frame.empty:
-        print("(no value at this point)")
-        return
+    def table() -> None:
+        print("(no value at this point)" if frame.empty else frame.to_string(index=False))
+        if args.to:
+            print(f"written: {args.to}")
 
-    if args.format == "json":
-        print(frame.to_json(orient="records", date_format="iso", indent=2))
-    elif args.format == "csv":
-        print(frame.to_csv(index=False), end="")
-    else:
-        print(frame.to_string(index=False))
-
-    if args.output:
-        print(f"written: {args.output}")
+    emit(args, "catalog point", frame, table=table)

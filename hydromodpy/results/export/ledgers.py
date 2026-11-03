@@ -4,7 +4,7 @@ A figure goes to ``runs/<run>/figures/`` and an export to
 ``runs/<run>/exports/``. Each directory keeps one ``index.json``
 (:mod:`hydromodpy.results.ledger`) with one entry per file: who wrote it, with
 which options, under which version, its digest and the identity block it
-carries. ``hmp viz regen`` and ``hmp export --regen`` replay these entries.
+carries. ``hmp export --regen`` replays these entries.
 """
 
 from __future__ import annotations

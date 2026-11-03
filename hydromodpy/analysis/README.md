@@ -14,7 +14,7 @@ physics. This file is the map of the package.
 
 ## How a command reaches it
 
-`hmp report compare <ref>... [--by site] [--variables] [--out]` calls
+`hmp report compare <ref>... [--by site] [--variables] [--to]` calls
 `compare_references` or `compare_by_site`. A run is opened from its sealed
 directory and read through the public `Run` API, so a comparison never opens the
 project index and never writes into a run. `pairwise.py` is the one exception:

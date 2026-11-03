@@ -6,8 +6,9 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy.cli.conventions import workspace_parser
-from hydromodpy.cli.helpers import EXIT_USAGE, exit_code_for
+from hydromodpy.cli.conventions import dry_run_parser, format_parser, workspace_parser
+from hydromodpy.cli.helpers import EXIT_USAGE, refuse
+from hydromodpy.cli.output import emit
 
 NAME: str = "import"
 HELP: str = "Declare sites from a table, a vector layer or Hub'Eau stations"
@@ -17,7 +18,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        parents=[workspace_parser()],
+        parents=[workspace_parser(), dry_run_parser(), format_parser()],
         epilog=(
             "Examples:\n"
             "  hmp site import stations.csv --tag bretagne\n"
@@ -78,10 +79,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Replace sites of the same name and accept outlets close to other sites",
-    )
-    parser.add_argument(
-        "--dry-run", action="store_true", help="Print the sites read without writing the catalog"
+        help="Go past the refusal: replace sites of the same name, accept outlets close to others",
     )
     parser.set_defaults(_handler=run)
     return parser
@@ -101,35 +99,44 @@ def run(args: argparse.Namespace) -> None:
         if given
     ]
     if len(chosen) != 1:
-        print(
+        refuse(
             "hmp site import reads exactly one source: a table, --hubeau or --layer "
             f"(given: {', '.join(chosen) or 'none'}).",
-            file=sys.stderr,
+            EXIT_USAGE,
         )
-        sys.exit(EXIT_USAGE)
     if args.hubeau and args.bbox is None:
-        print("--hubeau needs --bbox XMIN YMIN XMAX YMAX.", file=sys.stderr)
-        sys.exit(EXIT_USAGE)
+        refuse("--hubeau needs --bbox XMIN YMIN XMAX YMAX.", EXIT_USAGE)
     if args.layer is not None and args.name_field is None:
-        print("--layer needs --name-field, the field holding the site name.", file=sys.stderr)
-        sys.exit(EXIT_USAGE)
+        refuse("--layer needs --name-field, the field holding the site name.", EXIT_USAGE)
 
     root = resolve_workspace(args.workspace)
-    try:
-        imported = _read(args, root)
-        rows = [with_tags(row, args.tag) for row in imported.rows]
-        for reason in imported.skipped:
-            print(f"[skipped] {reason}", file=sys.stderr)
+    imported = _read(args, root)
+    rows = [with_tags(row, args.tag) for row in imported.rows]
+    for reason in imported.skipped:
+        print(f"[skipped] {reason}", file=sys.stderr)
+    if not args.dry_run:
+        declare_sites(root, rows, force=args.force)
+    catalog = catalog_path(root)
+
+    def table() -> None:
         if args.dry_run:
             for row in rows:
                 print(_line(row))
             print(f"{len(rows)} site(s) read, nothing written (--dry-run)")
-            return
-        declare_sites(root, rows, force=args.force)
-    except Exception as exc:  # noqa: BLE001 - map errors to typed exit codes
-        print(str(exc), file=sys.stderr)
-        sys.exit(exit_code_for(exc))
-    print(f"[written] {len(rows)} site(s): {catalog_path(root)}")
+        else:
+            print(f"[written] {len(rows)} site(s): {catalog}")
+
+    emit(
+        args,
+        "site import",
+        {
+            "applied": not args.dry_run,
+            "catalog": catalog,
+            "skipped": list(imported.skipped),
+            "sites": [row.to_mapping() for row in rows],
+        },
+        table=table,
+    )
 
 
 def _read(args: argparse.Namespace, root: Path):

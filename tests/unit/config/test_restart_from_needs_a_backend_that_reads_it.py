@@ -46,7 +46,7 @@ def test_a_backend_that_cannot_restart_refuses_the_key(tmp_path, backend: str) -
     with pytest.raises(IncompatibleCapabilitiesError) as caught:
         HydroModPyConfig(
             **_base_kwargs(tmp_path),
-            solver=SolverConfig(backend={"backend": backend}),
+            solver=SolverConfig(backend={"kind": backend}),
             flow=FlowConfig(restart_from="runs/spinup_3/fields.zarr"),
         )
 
@@ -58,7 +58,7 @@ def test_a_backend_that_cannot_restart_refuses_the_key(tmp_path, backend: str) -
 def test_modflow6_accepts_it(tmp_path) -> None:
     cfg = HydroModPyConfig(
         **_base_kwargs(tmp_path),
-        solver=SolverConfig(backend={"backend": "modflow6"}),
+        solver=SolverConfig(backend={"kind": "modflow6"}),
         flow=FlowConfig(restart_from="runs/spinup_3/fields.zarr"),
     )
 
@@ -68,7 +68,7 @@ def test_modflow6_accepts_it(tmp_path) -> None:
 def test_leaving_it_unset_is_fine_on_any_backend(tmp_path) -> None:
     cfg = HydroModPyConfig(
         **_base_kwargs(tmp_path),
-        solver=SolverConfig(backend={"backend": "boussinesq"}),
+        solver=SolverConfig(backend={"kind": "boussinesq"}),
         mesh=MeshConfig(engine="triangle", families={"rivers": "none"}),
         flow=FlowConfig(),
     )

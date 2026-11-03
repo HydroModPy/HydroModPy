@@ -138,7 +138,7 @@ def test_the_array_script_carries_the_warning_the_cpus_the_scratch_and_the_trap(
     assert 'export HMP_SCRATCH_ROOT="$SLURM_TMPDIR"' in text
     assert "trap forward_term TERM" in text
     assert (
-        'CASE_TOML="$("$HMP_PYTHON" -m hydromodpy project case "$JOB" "$SLURM_ARRAY_TASK_ID")"'
+        'CASE_TOML="$("$HMP_PYTHON" -m hydromodpy campaign case "$JOB" "$SLURM_ARRAY_TASK_ID")"'
         in text
     )
     assert "task-flags \\\n    --phase solve" in text
@@ -166,7 +166,7 @@ def test_the_prepare_script_throttles_and_writes_the_lock_once(tmp_path: Path) -
     assert "-m hydromodpy.project.launch.slurm write-lock" in text
     assert not re.search(r"(^|\$\()\s*hmp ", text, re.M)
     assert '"$HMP_PYTHON" -m hydromodpy run "$CASE_TOML"' in text
-    assert "hmp dev lock" not in text
+    assert "hmp lock" not in text
     assert "export HMP_THREADS_PER_CASE=2" in text
     assert "HMP_SCRATCH_ROOT" not in text
     assert (job.directory / "prepared").is_dir() and (job.directory / "logs").is_dir()

@@ -8,6 +8,7 @@ directory alone.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -15,6 +16,7 @@ from pyproj import Transformer
 
 from hydromodpy.results.export.context import FairExportContext
 from hydromodpy.results.export.directory import context_from_directory
+from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
 from tests.unit.results._run_record_factory import SIM_ID, make_record
 
 NATIVE_BBOX = (340000.0, 6790000.0, 360000.0, 6810000.0)
@@ -34,7 +36,14 @@ def sealed_run(root: Path) -> Path:
     run_dir = root / record.run.rel_dir
     (run_dir / "fields.zarr").mkdir(parents=True)
     (run_dir / "fields.zarr" / "zarr.json").write_text(
-        '{"zarr_format": 3, "node_type": "group", "attributes": {}}', encoding="utf-8"
+        json.dumps(
+            {
+                "zarr_format": 3,
+                "node_type": "group",
+                "attributes": {"zarr_schema_version": ZARR_SCHEMA_VERSION},
+            }
+        ),
+        encoding="utf-8",
     )
     record.write(run_dir)
     return run_dir

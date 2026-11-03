@@ -2,10 +2,12 @@
 # validation runtime drops the runtime keys of the case and reads only the [flow]
 # of this file, so the closure is stated here. Its Newton closure is absolute (m3/s).
 [flow]
-runtime_max_iterations = 300
-runtime_tol_residual_inf = 1e-8
-runtime_tol_state_update_inf = 1e-11
 
 [flow.ic]
-type = "custom"
+kind = "custom"
 value = 4.0
+
+[flow.runtime]
+max_iterations = 300
+tol_residual_inf = 1e-8
+tol_state_update_inf = 1e-11

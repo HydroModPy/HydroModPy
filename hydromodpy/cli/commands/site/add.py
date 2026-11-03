@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import argparse
-import sys
 
-from hydromodpy.cli.conventions import workspace_parser
-from hydromodpy.cli.helpers import EXIT_CONFIG, exit_code_for
+from hydromodpy.cli.conventions import format_parser, workspace_parser
+from hydromodpy.cli.helpers import EXIT_CONFIG, refuse
+from hydromodpy.cli.output import emit
 
 NAME: str = "add"
 HELP: str = "Declare one site in data/sites/catalog.csv"
@@ -16,7 +16,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        parents=[workspace_parser()],
+        parents=[workspace_parser(), format_parser()],
         epilog=(
             "Example:\n  hmp site add couesnon --outlet 377120 6831410 "
             "--gauge J017000001 --uri hubeau:J0170000"
@@ -42,7 +42,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Replace a site of the same name and accept an outlet close to another site",
+        help="Go past the refusal: replace a site of the same name, accept an outlet close to another",
     )
     parser.set_defaults(_handler=run)
     return parser
@@ -67,11 +67,12 @@ def run(args: argparse.Namespace) -> None:
             tags=tuple(dict.fromkeys(args.tag)),
         )
     except ValueError as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_CONFIG)
-    try:
-        declare_sites(root, [row], force=args.force)
-    except Exception as exc:  # noqa: BLE001 - map errors to typed exit codes
-        print(str(exc), file=sys.stderr)
-        sys.exit(exit_code_for(exc))
-    print(f"[written] site {row.site}: {catalog_path(root)}")
+        refuse(str(exc), EXIT_CONFIG, cause=exc)
+    declare_sites(root, [row], force=args.force)
+    catalog = catalog_path(root)
+    emit(
+        args,
+        "site add",
+        {**row.to_mapping(), "catalog": catalog},
+        table=lambda: print(f"[written] site {row.site}: {catalog}"),
+    )

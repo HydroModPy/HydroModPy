@@ -1,8 +1,11 @@
 """Read a CSV time series file produced by :mod:`hydromodpy.results.exporters.csv`.
 
-Inverse of :func:`hydromodpy.results.exporters.csv.export_csv`. Variable names
-present in the CSV are validated against :mod:`hydromodpy.results.field_registry`
-so unknown fields fail fast with :class:`UnknownFieldError`.
+Inverse of :func:`hydromodpy.results.exporters.csv.export_csv`. A simulated name is
+validated against the series a solve writes
+(:data:`~hydromodpy.results.exporters.vocabulary.SIMULATED_SERIES`) and the field
+registry, so an unknown name fails fast with :class:`UnknownFieldError`. A measurement
+keeps the name its provider gave it, a water-quality parameter for instance, so it is
+not checked.
 """
 
 from __future__ import annotations
@@ -11,11 +14,21 @@ from pathlib import Path
 
 import pandas as pd
 
+from hydromodpy.core.exceptions import UnknownFieldError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.scope import OBSERVED, SIMULATED, series_selector
 from hydromodpy.results import field_registry
 from hydromodpy.results.exporters.csv import SERIES_COLUMNS
+from hydromodpy.results.exporters.vocabulary import SIMULATED_SERIES
 
 logger = get_logger(__name__)
+
+
+def _check_series(variable: str, source: str) -> None:
+    """Refuse a series ``export_csv`` cannot have written."""
+    if source == OBSERVED or variable in SIMULATED_SERIES or field_registry.has(variable):
+        return
+    raise UnknownFieldError(variable, (*SIMULATED_SERIES, *field_registry.all_names()))
 
 
 def import_csv_timeseries(
@@ -33,9 +46,9 @@ def import_csv_timeseries(
     station_id : str, optional
         Keep only rows for this station. ``None`` keeps all stations.
     variable : str, optional
-        Keep only rows for this variable. The name is validated against the
-        canonical field registry. ``None`` keeps all variables present in the
-        file.
+        Keep only the rows of this series, by the name ``hmp.read`` and
+        ``[[export]]`` read it: ``discharge``, or ``discharge_obs`` for the
+        measurement. ``None`` keeps all the series of the file.
 
     Returns
     -------
@@ -44,8 +57,9 @@ def import_csv_timeseries(
         ``station_id``, ``variable``, ``source``, ``value`` (float64), ``unit``. Empty
         when the input file contains only the header.
     """
-    if variable is not None:
-        field_registry.get(variable)
+    asked = None if variable is None else series_selector(variable)
+    if asked is not None:
+        _check_series(*asked)
 
     input_path = Path(input_path)
     if not input_path.is_file():
@@ -73,16 +87,21 @@ def import_csv_timeseries(
             }
         )
 
-    for name in df["variable"].dropna().unique():
-        field_registry.get(str(name))
+    for name, source in df[["variable", "source"]].dropna().drop_duplicates().to_numpy():
+        if source not in (SIMULATED, OBSERVED):
+            raise ValueError(
+                f"CSV {input_path}: source {source!r} of {name!r} is neither {SIMULATED!r} "
+                f"nor {OBSERVED!r}. Write one of the two, as export_csv does."
+            )
+        _check_series(str(name), str(source))
 
     df["datetime"] = pd.to_datetime(df["datetime"], utc=True)
     df["value"] = df["value"].astype("float64")
 
     if station_id is not None:
         df = df[df["station_id"] == station_id]
-    if variable is not None:
-        df = df[df["variable"] == variable]
+    if asked is not None:
+        df = df[(df["variable"] == asked[0]) & (df["source"] == asked[1])]
 
     df = df.reset_index(drop=True)
     logger.info("Imported CSV: %s (%d rows)", input_path, len(df))

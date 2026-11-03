@@ -393,7 +393,7 @@ def refuse_constant_heads_below_bottom(
         "as written. "
         + " ".join(lines)
         + " Raise the head above the bottom of the aquifer there, give the boundary "
-        "a deeper aquifer (domain.depth_model), or remove it from flow.active_bc."
+        "a deeper aquifer (domain.depth_model), or write enabled = false in its table."
     )
 
 

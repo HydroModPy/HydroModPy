@@ -100,9 +100,9 @@ def apply_recharge_load_result_to_flow(
 
     if "recharge" not in (getattr(flow, "active_sinks_sources", None) or []):
         logger.warning(
-            "[data.recharge] is loaded and flow.active_sinks_sources does not list "
-            '"recharge", so the model receives no recharge: add "recharge" to '
-            "flow.active_sinks_sources, or remove it from data.types."
+            "[data.recharge] is loaded and [flow.sinks_sources.recharge] is absent or says "
+            "enabled = false, so the model receives no recharge: declare the table, or "
+            "remove it from data.types."
         )
 
     sinks_sources = getattr(flow, "sinks_sources", {})

@@ -51,7 +51,7 @@ name = "toy"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow_nwt"]
 
 [flow.param.K.field]
@@ -537,7 +537,7 @@ class TestSessionLifecycle:
         """SIGTERM: ``aborted`` and the pointer of the best completed trial.
 
         The fake pipeline keeps no solve, so nothing is promoted: a replay
-        after a signal is left to ``hmp project promote``.
+        after a signal is left to ``hmp campaign promote``.
         """
         from hydromodpy.core.interrupts import TerminationRequested
 

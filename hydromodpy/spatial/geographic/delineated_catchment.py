@@ -10,12 +10,18 @@ A mesh that follows the catchment follows the outline the planner smoothed, not
 the staircase of the DEM pixels (``PlanarCellMesh.smoothed_catchment``). A cell
 is read against that outline when the caller names the mesh, so that a cell and
 the polygon agree where the faces follow it.
+
+A run that keeps no basin of D publishes its catchment series on the cells whose
+centre the delineated polygon covers (:func:`watershed_cell_mask`), and a calibration
+trial scores the same cells.
 """
 
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
+import numpy as np
 
 from hydromodpy.spatial.geographic.synthetic_config import SYNTHETIC_CATCH_DEF
 
@@ -47,4 +53,29 @@ def catchment_outline(
     return None if frame.empty else frame
 
 
-__all__ = ["catchment_outline"]
+def watershed_cell_mask(
+    vertices: Any, connectivity: Any, watershed: gpd.GeoDataFrame, *, mesh_crs: Any
+) -> np.ndarray:
+    """Return the cells whose centre the delineated watershed covers.
+
+    The catchment series of a run without a basin of D are summed over these
+    cells, and the discharge of its calibration trial too, so a run and its trial
+    read one support. ``mesh_crs`` is the CRS the mesh coordinates are in.
+    """
+    from hydromodpy.spatial.mesh.cells.in_polygons import vector_cell_mask
+    from hydromodpy.spatial.mesh.model.geometry import cell_polygons
+
+    polygons = cell_polygons(np.asarray(vertices, dtype="float64"), np.asarray(connectivity))
+    return np.asarray(
+        vector_cell_mask(
+            polygons,
+            list(watershed.geometry),
+            mesh_crs=mesh_crs,
+            geometry_crs=watershed.crs,
+            rule="centroid",
+        ),
+        dtype=bool,
+    )
+
+
+__all__ = ["catchment_outline", "watershed_cell_mask"]

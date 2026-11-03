@@ -22,8 +22,10 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from hydromodpy.core.exceptions import CalibrationError
 
-class GaugeSnapError(ValueError):
+
+class GaugeSnapError(CalibrationError, ValueError):
     """The snap radius reaches no cell but the one the gauge already sits in."""
 
 

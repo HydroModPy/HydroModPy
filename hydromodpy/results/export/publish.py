@@ -21,7 +21,7 @@ under ``inputs/<sha256><suffix>``, with their sidecars under
 ``inputs/<sha256>.json``, addressed by content
 (:mod:`hydromodpy.core.payload`). The caller builds that index, from the
 workspace the run read
-(:func:`hydromodpy.catalog.share.run_bundle`): this module never reads the
+(:func:`hydromodpy.project.share.run_bundle`): this module never reads the
 data layer. Never: ``.hmp/``, ``logs/``, ``attempts/``, ``outcome.json``,
 ``published.jsonl``.
 
@@ -159,6 +159,7 @@ def publish(
     with_: Sequence[PublicationExtra] = (),
     public: bool = False,
     inputs: InputsOf | None = None,
+    dry_run: bool = False,
 ) -> Path:
     """Copy a sealed run or the summary of a project out of the tree; return the copy.
 
@@ -183,6 +184,8 @@ def publish(
         whose licence does not allow redistribution.
     inputs
         How to build the install index of the run; required with ``"inputs"``.
+    dry_run
+        Run every check, return where the copy would land and write nothing.
 
     Raises
     ------
@@ -196,7 +199,9 @@ def publish(
     root = Path(project_root).resolve()
     manifest = _checked_source(source_dir, root, public=public)
     bundle = _bundle_of(source_dir, manifest, with_, inputs, public=public)
-    target = _target_path(Path(to).expanduser().resolve(), format, source_dir.name)
+    target = _target_path(Path(to).expanduser().resolve(), format, source_dir.name, dry_run=dry_run)
+    if dry_run:
+        return target
     line = _publish_one(
         source_dir,
         target,
@@ -218,6 +223,7 @@ def publish_project(
     with_: Sequence[PublicationExtra] = (),
     public: bool = False,
     inputs: InputsOf | None = None,
+    dry_run: bool = False,
 ) -> list[Path]:
     """Copy every sealed run and the summary of a project, each in its own folder under *to*.
 
@@ -225,7 +231,8 @@ def publish_project(
     once. A member that is refused leaves nothing in *to* and no line in any
     ``published.jsonl``. With ``format = "tar"`` each member is an archive
     ``<member>.tar`` under *to*. *to* gets its own ``PUBLICATION.json``, of
-    kind ``project``, that lists every member.
+    kind ``project``, that lists every member. With *dry_run* every check runs, the
+    copies it would write are returned, and nothing is written.
 
     Raises
     ------
@@ -246,7 +253,12 @@ def publish_project(
         source: _bundle_of(source, manifest, with_, inputs, public=public)
         for source, manifest in checked
     }
-    destination = _target_path(Path(to).expanduser().resolve(), "dir", root.name)
+    destination = _target_path(Path(to).expanduser().resolve(), "dir", root.name, dry_run=dry_run)
+    if dry_run:
+        return [
+            destination / (f"{source.name}.tar" if format == "tar" else source.name)
+            for source in sources
+        ]
     staging = destination.parent / f".{destination.name}.staging-{uuid.uuid4().hex[:8]}"
     staging.mkdir(parents=True)
     extras = list(dict.fromkeys(with_))
@@ -480,7 +492,7 @@ def _project_publication(project_root: Path) -> Any:
         return PublicationConfig.model_validate(tomllib.load(handle).get("publication") or {})
 
 
-def _target_path(to: Path, format: PublicationFormat, name: str) -> Path:
+def _target_path(to: Path, format: PublicationFormat, name: str, *, dry_run: bool = False) -> Path:
     """Return where the copy lands, refusing a destination that already holds something."""
     if format == "tar":
         target = to if to.suffix else to.with_name(f"{to.name}.tar")
@@ -491,7 +503,7 @@ def _target_path(to: Path, format: PublicationFormat, name: str) -> Path:
         raise ExportError(
             f"{to} exists and is not an empty directory: publish {name} to a new directory."
         )
-    if to.is_dir():
+    if to.is_dir() and not dry_run:
         to.rmdir()
     return to
 
@@ -593,8 +605,7 @@ def _redacted_text(text: str, prefixes: tuple[str, ...]) -> str:
 class MissingInputError(ExportError):
     """An input of a run is not on disk any more, so a copy cannot carry its bytes.
 
-    ``detail`` says which input and why; the message adds what to do on a
-    publication. ``hmp replay`` prints ``detail`` with its own advice.
+    ``detail`` says which input and why; the message adds what to do.
     """
 
     def __init__(self, detail: str, *, derived: bool = False) -> None:
@@ -617,7 +628,7 @@ def _bundle_of(
     if inputs is None:
         raise ExportError(
             "with inputs needs the install index of the run: pass inputs=run_bundle "
-            "(hydromodpy.catalog.share), as hmp publish does."
+            "(hydromodpy.project.share), as hmp publish does."
         )
     bundle = inputs(source)
     if public:

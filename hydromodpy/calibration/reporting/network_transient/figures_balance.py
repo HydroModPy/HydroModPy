@@ -226,7 +226,7 @@ def _q_total_release_series(
                 run = catalog[ref]
                 stack = np.vstack(
                     [
-                        np.asarray(run.field("outflow_drain", timestep=t), dtype=float).reshape(-1)
+                        np.asarray(run.field("outflow_drain", time=t), dtype=float).reshape(-1)
                         for t in range(int(run.n_timesteps or 0))
                     ]
                 )

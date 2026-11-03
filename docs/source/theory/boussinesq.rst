@@ -314,7 +314,7 @@ and the release is
 
    s_i(h) = \exp\!\left(-\frac{d_i(h)}{\delta}\right)\gamma_i
 
-The depth scale :math:`\delta` is :toml:`flow.partition_release_depth_m`, 0.05 m by
+The depth scale :math:`\delta` is :toml:`flow.runtime.partition_release_depth_m`, 0.05 m by
 default. A cell with an imposed head releases nothing: its constant-head flux
 carries the water it receives. The law follows the regularized partition of seepage
 and subsurface flow of :cite:t:`marcais2017`, smoothed over the depth of the water
@@ -463,8 +463,8 @@ unmet demand.
 Methods and engines
 -------------------
 
-:toml:`flow.surface_interaction_model` picks the closure and
-:toml:`flow.runtime_backend` the engine; the pair resolves to one method. A closure
+:toml:`flow.runtime.surface_interaction_model` picks the closure and
+:toml:`flow.runtime.backend` the engine; the pair resolves to one method. A closure
 that the backend does not implement is refused when the solve starts. The default
 ``auto`` runs the dense engine ``local`` up to 400 cells and the sparse engine
 ``scipy_sparse`` above, and logs which one runs. Asked by name, the dense engines
@@ -512,7 +512,7 @@ Limits
   per cell, and no specific storage or anisotropy. Where this stops being true is on
   :doc:`groundwater-flow`. The solver reads no ``[domain.layers]``, so a file or a
   calibration phase that asks it for more than one layer, or for layers by surfaces, is
-  refused when it is read. An override of ``Project.run(properties=...)`` sets K and Sy, and
+  refused when it is read. A runtime override of the properties of a run sets K and Sy, and
   Kv, Ss, K22 and the angles of the K tensor are refused by name.
 - **Skewed cells.** The two-point flux is accurate where the line between the two
   centroids is perpendicular to the edge. The solver has no correction for skewed
@@ -520,8 +520,8 @@ Limits
 - **Triangles only.** A mesh with another cell shape is refused: the message says
   ``Boussinesq V1 currently supports only triangular cells``.
 - **Supported terms.** Recharge, wells, side, stream and ocean imposed heads, and
-  the top drain. A file that activates anything else in
-  :toml:`flow.active_sinks_sources` or :toml:`flow.active_bc` is refused: ETP, lakes
+  the top drain. A file that declares anything else under
+  ``[flow.sinks_sources]`` or ``[flow.bc]`` is refused: ETP, lakes
   and reservoirs, stream routing, flow barriers. The soil reservoir is wired to
   MODFLOW 6 only. A file with a ``[transport]`` section and this solver is refused
   when it is read.
@@ -533,8 +533,8 @@ Limits
 - **What can be read back.** The solver serves the head at a cell, the discharge
   over the domain, and the release per cell. It has no lake stage and no routed
   discharge, because it has no lake package and no stream reaches.
-- **Experimental.** The cards of :toml:`flow.runtime_backend` and
-  :toml:`flow.surface_interaction_model` are marked experimental, and the
+- **Experimental.** The cards of :toml:`flow.runtime.backend` and
+  :toml:`flow.runtime.surface_interaction_model` are marked experimental, and the
   description of the obstacle closures says so too.
 - **Not a model of overland flow.** The water released at the surface leaves the
   model. It is not routed downhill. Neither surface closure routes the water over the
@@ -555,12 +555,12 @@ the engine. Open a row for its card.
    flow.flow_regime
    flow.first_period_steady
    simulation.time.substeps_per_period
-   flow.runtime_backend
-   flow.surface_interaction_model
-   flow.partition_release_depth_m
-   flow.runtime_max_iterations
-   flow.runtime_tol_residual_inf
-   flow.runtime_tol_state_update_inf
+   flow.runtime.backend
+   flow.runtime.surface_interaction_model
+   flow.runtime.partition_release_depth_m
+   flow.runtime.max_iterations
+   flow.runtime.tol_residual_inf
+   flow.runtime.tol_state_update_inf
    flow.param.K.field.value
    flow.param.Sy.field.value
    flow.sinks_sources.recharge.values

@@ -119,7 +119,7 @@ class DataManagersConfig(HydroModelBase):
         description=(
             "Ordered list of data-manager types explicitly requested in [data]. "
             "The launcher may append inferred types deduced from other sections "
-            "(for example domain.zone_ids, flow.active_bc). "
+            "(for example domain.zone_ids, a [flow.bc.stream] table). "
             "Allowed values: " + ", ".join(f"'{t}'" for t in SUPPORTED_DATA_MANAGER_TYPES) + "."
         ),
     )

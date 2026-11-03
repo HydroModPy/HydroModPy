@@ -74,7 +74,7 @@ def _flow(offset: float, **wall: object) -> SimpleNamespace:
     lake = FlowLakeConfig.model_validate(
         {
             "bedleak": 1e-6,
-            "stageinit": "81 m",
+            "initial_stage": "81 m",
             "cutoff_wall": {"line": coords, "depths": [10.0], "hydchr": 1e-9, **wall},
         }
     )

@@ -45,12 +45,12 @@ data cache before the run?
 |---|---|---|
 | What exactly was run? | The summary of the run: solver, status, duration, size of the grid, parameters, scores and the start of the configuration fingerprint. The frozen configuration and the provenance record are files of the run folder, which you can open. | `hmp catalog show <run>` |
 | What differs between two runs? | The comparison of the two. | `hmp catalog diff <run A> <run B>` |
-| Whether the data cache is still the one that was used | A check of the cache against the lockfile. | `hmp dev lock verify` |
+| Whether the data cache is still the one that was used | A check of the cache against the lockfile. | `hmp lock verify` |
 | To replay a stored run with exactly the same data and settings | A run that checks each input against the record of the run, and refuses a file or a setting that moved, a default included, naming it. A run a calibration promoted replays as one solve. The new run goes to the project that holds the file. For a copy outside any project, name it with `-w <project>`. | `hmp run <run>/config.toml --frozen` |
 | To replay a project file on its pinned data | A run that refuses any fresh download and stops on a checksum that does not match the lockfile. | `hmp run --frozen <file>` |
 | To rerun a stored run, changing one setting | A rerun from the stored configuration. A default that moved since gets a warning and a line in the lineage of the new run. | `hmp catalog rerun <run> --set path=value` |
 | To hand a run to someone | A copy that stands alone: the README, the frozen configuration, the provenance with the machine and the user removed, and the checksum of every file. | `hmp publish <run> --to <folder>` |
-| To hand a run and its data to a colleague, who reruns it | A copy with every file the run read, which their import installs in their `data/`. | `hmp publish <run> --to sim.tar --format tar --with inputs`, then `hmp catalog import sim.tar` |
+| To hand a run and its data to a colleague, who reruns it | A copy with every file the run read, which their import installs in their `data/`. | `hmp publish <run> --to sim.tar --container tar --with inputs`, then `hmp catalog import sim.tar` |
 | Whether a copy you received is intact | A check of every file of the copy against the checksums it carries. | `hmp publish --verify <folder>` |
 
 The options of each command are in the {doc}`command reference <../reference/cli/index>`.

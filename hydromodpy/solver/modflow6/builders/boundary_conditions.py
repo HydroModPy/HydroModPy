@@ -438,7 +438,7 @@ def refuse_constant_heads_below_bottom(
         "A constant head is below the bottom of its cell, and MODFLOW 6 stops on it. "
         + " ".join(lines)
         + " Raise the head above the bottom of the aquifer there, give the boundary "
-        "a deeper aquifer (domain.depth_model), or remove it from flow.active_bc."
+        "a deeper aquifer (domain.depth_model), or write enabled = false in its table."
     )
 
 

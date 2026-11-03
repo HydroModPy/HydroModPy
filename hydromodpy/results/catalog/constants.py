@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal, TypeVar
 
+from hydromodpy.core.exceptions import ResultsError
+
 if TYPE_CHECKING:
     import numpy as np
 
@@ -102,7 +104,7 @@ def validate_solver_code(solver_name: str) -> str:
 
 # Which value of a metric is the good one. The single table of metric
 # directions: ``@best:<metric>``, ``Catalog.best``, ``RunSet.best``,
-# ``hmp dev rank`` and the calibration criteria read it, so "best" means the
+# ``hmp catalog rank`` and the calibration criteria read it, so "best" means the
 # best fit whatever the metric, and a score becomes a cost the same way
 # everywhere.
 #
@@ -145,7 +147,7 @@ A query naming one is refused with the new name.
 """
 
 
-class UnrankedMetricError(ValueError):
+class UnrankedMetricError(ResultsError, ValueError):
     """Raised when a metric has no declared direction, so best is undefined."""
 
 

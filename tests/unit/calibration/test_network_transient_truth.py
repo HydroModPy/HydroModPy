@@ -178,8 +178,8 @@ def test_score_candidate_from_runs_uses_outflow_drain_fields(tmp_path) -> None:
             self._steady_field = steady_field
             self._stack = stack
 
-        def field(self, variable, timestep=-1):
-            del timestep
+        def field(self, variable, time=-1):
+            del time
             assert variable == "outflow_drain"
             return self._steady_field
 

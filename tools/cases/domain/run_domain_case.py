@@ -2,7 +2,7 @@
 
 This module exposes:
 
-- ``run_domain_case_from_toml`` to build ``Workspace``, geographic context, and ``Domain``.
+- ``run_domain_case_from_toml`` to build ``WorkspaceLayout``, geographic context, and ``Domain``.
 - ``plot_domain_summary`` to export a quick validation PNG (top, vertical scalar maps,
   catchment zones, and optional geology classes).
 - a CLI entrypoint (``main``) for local runs and smoke checks.
@@ -33,7 +33,7 @@ if (repo_root / "hydromodpy").exists() and str(repo_root) not in sys.path:
 
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.state.paths import preprocessing_dir
-from hydromodpy.core.workspace import Workspace
+from hydromodpy.core.workspace import WorkspaceLayout
 from hydromodpy.spatial.domain.build import (
     build_domain,
     read_layer_base_sources,
@@ -139,7 +139,7 @@ def run_domain_case_from_toml(
     """
     # 1) Load validated config and initialize workspace/geographic context.
     cfg = HydroModPyConfig.from_toml(config_toml)
-    workspace = Workspace(config=cfg.workspace)
+    workspace = WorkspaceLayout(config=cfg.workspace)
     if cfg.geographic.uses_synthetic_geographic():
         geographic = build_synthetic_geographic(
             config=cfg.geographic.synthetic,

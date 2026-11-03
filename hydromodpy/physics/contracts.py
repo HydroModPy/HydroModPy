@@ -1,7 +1,7 @@
 """Shared process contracts used by HydroModPy internals.
 
 This module provides the explicit import path for generic process-layer
-building blocks such as ``ProcessSpatial`` and ``ProcessSpatialConfig``,
+building blocks such as ``ProcessSpatial``,
 plus structural Protocols (``LoadResultProto``, ``FieldParamLike``) used
 to type spatial- and data-layer inputs without importing them.
 
@@ -20,7 +20,6 @@ from hydromodpy.physics.base import (
     BoundaryCondition,
     InitialCondition,
     ProcessSpatial,
-    ProcessSpatialConfig,
     SinkSource,
 )
 
@@ -141,7 +140,6 @@ __all__ = [
     "InitialCondition",
     "LoadResultProto",
     "ProcessSpatial",
-    "ProcessSpatialConfig",
     "SinkSource",
     "get_field_aggregator",
     "get_field_param_factory",

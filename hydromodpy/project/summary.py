@@ -1480,7 +1480,7 @@ def _write_rocrate(
         "name": f"Summary of {project}",
         "description": (
             f"Tables, figures and exports collected from the runs of the project {project} "
-            "by hmp project collect."
+            "by hmp campaign collect."
         ),
         "dateCreated": collected_at.isoformat(),
         "hasPart": [{"@id": node["@id"]} for node in file_nodes],

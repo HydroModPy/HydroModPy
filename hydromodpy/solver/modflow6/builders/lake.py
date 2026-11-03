@@ -873,8 +873,8 @@ def build_lak_package_args(
     lake_conn_info: list[dict[str, Any]] = []
 
     # Hotstart: a prior run's Zarr (via [flow] restart_from) seeds each lake's
-    # initial stage from its last value, overriding stageinit. Absent lake / older
-    # store -> empty map, so the stageinit fallback below still applies.
+    # initial stage from its last value, overriding initial_stage. Absent lake / older
+    # store -> empty map, so the initial_stage fallback below still applies.
     restart_source = resolve_restart_from(model)
     restart_stages = read_restart_lake_stages(restart_source) if restart_source else {}
 
@@ -938,11 +938,11 @@ def build_lak_package_args(
         _warn_table_off_connection_floor(
             str(lake_id), table, _lake_connection_floor(rows, solver_mesh)
         )
-        stageinit = definition.get("stageinit")
+        initial_stage = definition.get("initial_stage")
         if lake_id in restart_stages:
             strt = float(restart_stages[lake_id])
-        elif stageinit is not None:
-            strt = _scalar(stageinit)
+        elif initial_stage is not None:
+            strt = _scalar(initial_stage)
         else:
             strt = float(table[0][0])
 

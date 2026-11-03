@@ -199,7 +199,7 @@ def test_time_grid_sub_step_count_must_be_a_positive_integer() -> None:
 
 
 def test_auto_engine_is_the_flow_default_and_resolves_on_the_mesh_size() -> None:
-    assert FlowConfig().runtime_backend == "auto"
+    assert FlowConfig().runtime.backend == "auto"
     assert resolve_runtime_backend_name("auto", n_cells=DENSE_ENGINE_MAX_CELLS) == "local"
     assert resolve_runtime_backend_name("auto", n_cells=DENSE_ENGINE_MAX_CELLS + 1) == (
         "scipy_sparse"

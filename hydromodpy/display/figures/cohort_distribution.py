@@ -1,7 +1,7 @@
 """Distribution of one column across the sites of a cohort.
 
 Registered as ``distribution``, the name ``[sites.summary] figures`` writes.
-``hmp project collect`` draws it under
+``hmp campaign collect`` draws it under
 ``summary/figures/distribution_<variable>.png`` for each name of
 ``[sites.summary] variables``: how the best K or the NSE spreads over the
 catchments of a project. A box gives the quartiles, every site is a point on

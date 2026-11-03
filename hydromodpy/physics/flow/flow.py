@@ -36,12 +36,12 @@ runtime attributes after ``set_config(...)`` is called:
   BC id (``"ocean"``, ``"drainage"``, ``"west_side"``, …).
 - ``boundary_condition_application_domains`` : optional per-BC domain strings
   (e.g. ``"top"``, ``"west side"``), used by some spatial adapters.
-- ``active_bc`` : list of BC ids explicitly activated in the config;
+- ``active_bc`` : list of BC ids declared in the config and not switched off;
   only these ids will be processed by the solver adapter.
 - ``sinks_sources`` : dict with two keys:
   ``"wells"`` → ``dict[str, FlowWellConfig]``,
   ``"recharge"`` → ``FlowRechargeConfig | None``.
-- ``active_sinks_sources`` : list of sink/source categories explicitly
+- ``active_sinks_sources`` : list of sink/source categories declared
   activated (e.g. ``["wells", "recharge"]``).
 
 Runtime lifecycle
@@ -81,6 +81,7 @@ Non-goals
 
 from numbers import Real
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units import (
     convert_payload_to_m_per_s,
     convert_to_m_per_s,
@@ -130,6 +131,9 @@ def _flux_payload_update(
             label=f"{location_prefix}.first_clim",
         )
     return update
+
+
+logger = get_logger(__name__)
 
 
 class Flow(ProcessSpatial):
@@ -264,7 +268,7 @@ class Flow(ProcessSpatial):
         3. ``initial_conditions`` are built from ``config.ic`` via the
            process-specific normalizer (delegates to
            ``normalize_flow_initial_conditions``).
-        4. ``active_*`` lists are copied from config, then
+        4. ``active_*`` lists are read from what config declares, then
            ``boundary_conditions`` and ``boundary_condition_bundle`` are built
            from ``config.bc``.
         5. ``sinks_sources`` is populated from ``config.sinks_sources``
@@ -276,21 +280,21 @@ class Flow(ProcessSpatial):
         self.config = config
         self.flow_regime = config.flow_regime
         self.first_period_steady = config.first_period_steady
-        self.runtime_backend = config.runtime_backend
-        self.surface_interaction_model = config.surface_interaction_model
-        self.partition_release_depth_m = config.partition_release_depth_m
-        self.runtime_max_iterations = config.runtime_max_iterations
-        self.runtime_tol_residual_inf = config.runtime_tol_residual_inf
-        self.runtime_tol_state_update_inf = config.runtime_tol_state_update_inf
-        self.vi_substeps_per_period = config.vi_substeps_per_period
-        self.vi_substep_on_failure = config.vi_substep_on_failure
-        self.vi_max_adaptive_substeps = config.vi_max_adaptive_substeps
-        self.ts_vi_steps_per_period = config.ts_vi_steps_per_period
-        self.ts_vi_adapt = config.ts_vi_adapt
-        self.ts_vi_dt_min_fraction = config.ts_vi_dt_min_fraction
-        self.ts_vi_dt_max_fraction = config.ts_vi_dt_max_fraction
-        self.ts_vi_type = config.ts_vi_type
-        self.ts_vi_snes_type = config.ts_vi_snes_type
+        self.runtime_backend = config.runtime.backend
+        self.surface_interaction_model = config.runtime.surface_interaction_model
+        self.partition_release_depth_m = config.runtime.partition_release_depth_m
+        self.runtime_max_iterations = config.runtime.max_iterations
+        self.runtime_tol_residual_inf = config.runtime.tol_residual_inf
+        self.runtime_tol_state_update_inf = config.runtime.tol_state_update_inf
+        self.vi_substeps_per_period = config.runtime.vi_substeps_per_period
+        self.vi_substep_on_failure = config.runtime.vi_substep_on_failure
+        self.vi_max_adaptive_substeps = config.runtime.vi_max_adaptive_substeps
+        self.ts_vi_steps_per_period = config.runtime.ts_vi_steps_per_period
+        self.ts_vi_adapt = config.runtime.ts_vi_adapt
+        self.ts_vi_dt_min_fraction = config.runtime.ts_vi_dt_min_fraction
+        self.ts_vi_dt_max_fraction = config.runtime.ts_vi_dt_max_fraction
+        self.ts_vi_type = config.runtime.ts_vi_type
+        self.ts_vi_snes_type = config.runtime.ts_vi_snes_type
         # Parameters are resolved in the declared order from `flow.param_list`.
         self.set_parameters_from_config(
             self._runtime_parameter_payloads(config),
@@ -299,7 +303,7 @@ class Flow(ProcessSpatial):
         )
         # Flow has one typed IC structure (`FlowInitialConditions`).
         self.set_initial_conditions(config.ic)
-        # active_* lists control which declared items solver adapters process.
+        # Solver adapters process what is declared and not switched off.
         self.active_sinks_sources = list(config.active_sinks_sources)
         self.active_bc = list(config.active_bc)
         # Boundary conditions are normalized as typed objects + domain hints.
@@ -372,6 +376,16 @@ class Flow(ProcessSpatial):
         for bc_id, raw_payload in boundary_conditions_cfg.items():
             # Allow already-instantiated typed payloads.
             if isinstance(raw_payload, FlowBoundaryConditionConfig):
+                if raw_payload.value is None and raw_payload.forcing is None:
+                    # A head boundary declared with no head. A solver treats it as
+                    # one with nothing to build, or refuses it where it must have one.
+                    if raw_payload.enabled:
+                        logger.warning(
+                            "[flow.bc.%s] gives no value and no forcing, so MODFLOW builds "
+                            "no constant head there and Boussinesq refuses the run.",
+                            bc_id,
+                        )
+                    continue
                 parsed[bc_id] = raw_payload
                 application_domain = raw_payload.application_domain
                 if isinstance(application_domain, str) and application_domain.strip():
@@ -419,7 +433,7 @@ class Flow(ProcessSpatial):
         if parsed is None:
             self.initial_condition_types = {}
             return
-        self.initial_condition_types = {"h": parsed.h.type}
+        self.initial_condition_types = {"h": parsed.h.kind}
 
     def set_boundary_conditions(
         self,
@@ -473,7 +487,7 @@ class Flow(ProcessSpatial):
             return
 
         normalized_wells = {}
-        for well_id, well_cfg in sinks_sources.wells.items():
+        for well_id, well_cfg in sinks_sources.enabled_wells().items():
             raw_units = getattr(well_cfg, "units", "m3/s")
             try:
                 canonical_units = normalize_m3_per_s_unit(raw_units)
@@ -508,11 +522,9 @@ class Flow(ProcessSpatial):
             )
 
         self.sinks_sources["wells"] = normalized_wells
-        self.sinks_sources["lakes"] = dict(getattr(sinks_sources, "lakes", {}) or {})
-        self.sinks_sources["sfr"] = dict(getattr(sinks_sources, "sfr", {}) or {})
-        self.sinks_sources["flow_barriers"] = dict(
-            getattr(sinks_sources, "flow_barriers", {}) or {}
-        )
+        self.sinks_sources["lakes"] = sinks_sources.enabled_lakes()
+        self.sinks_sources["sfr"] = sinks_sources.enabled_networks()
+        self.sinks_sources["flow_barriers"] = sinks_sources.enabled_barriers()
         self.sinks_sources["recharge"] = self._normalize_recharge_config(
             sinks_sources.recharge,
             location_prefix="flow.sinks_sources.recharge",

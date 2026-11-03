@@ -57,11 +57,6 @@ class FlowPhysicalProperties(HydroModelBase):
         json_schema_extra=field_metadata(
             widget_type="input",
             unit="m/s",
-            display_name_fr="Conductivité hydraulique",
-            help_text_fr=(
-                "Vitesse à laquelle l'eau traverse l'aquifère (m/s). "
-                "Accepte une valeur numérique (m/s) ou une chaîne '<valeur> <unité>'."
-            ),
             display_min=1e-14,
             display_max=1e2,
         ),
@@ -73,8 +68,6 @@ class FlowPhysicalProperties(HydroModelBase):
         json_schema_extra=field_metadata(
             widget_type="slider",
             unit="-",
-            display_name_fr="Porosité efficace",
-            help_text_fr="Fraction d'eau libérée par gravité (0-1).",
             display_min=0.001,
             display_max=0.5,
         ),
@@ -86,11 +79,6 @@ class FlowPhysicalProperties(HydroModelBase):
         json_schema_extra=field_metadata(
             widget_type="input",
             unit="1/m",
-            display_name_fr="Emmagasinement spécifique",
-            help_text_fr=(
-                "Volume d'eau libéré par unité de volume d'aquifère pour "
-                "une baisse unitaire de charge (m^-1)."
-            ),
             display_min=1e-9,
             display_max=1e-3,
         ),

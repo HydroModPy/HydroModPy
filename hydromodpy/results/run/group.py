@@ -345,7 +345,7 @@ class RunSet:
         return Run(str(ranked["sim_id"].iloc[0]), self._catalog)
 
     def sort_by(
-        self, metric: str, ascending: bool = True, *, mixed_windows: bool = False
+        self, metric: str, *, ascending: bool = True, mixed_windows: bool = False
     ) -> RunSet:
         """Return a new group ordered by the raw value of one metric.
 
@@ -421,7 +421,7 @@ class RunSet:
         """Write ``to_dataframe()`` to a CSV file."""
         self.to_dataframe().to_csv(str(path), index=False)
 
-    def to_xarray(self, variable: str, *, dim: str = "sim") -> xr.DataArray:
+    def to_xarray(self, variable: str, *, dim: str = "run") -> xr.DataArray:
         """Return a lazy stacked ``xarray.DataArray`` of ``variable`` across sims.
 
         Each per-simulation Zarr store is opened via

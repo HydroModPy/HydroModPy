@@ -39,7 +39,7 @@ name = "naizin_override"
 
 [[simulation.process]]
 id = "flow"
-type = "flow"
+kind = "flow"
 solvers = ["modflow_nwt"]
 
 [workspace]
@@ -49,7 +49,7 @@ crs_project = "EPSG:2154"
 dem_correc_type = "breach"
 
 [geographic.catchment]
-catch_def = "from_outlet_coord"
+kind = "from_outlet_coord"
 dem_init_path = "{dem}"
 x_outlet = 265611.933
 y_outlet = 6784182.776
@@ -82,7 +82,7 @@ kind = "homogeneous"
 value = "1e-5 m/s"
 
 [flow.ic]
-type = "custom"
+kind = "custom"
 value = "5.0 m"
 
 [domain.layers]
@@ -120,7 +120,7 @@ def launched_with_an_override(tmp_path_factory: pytest.TempPathFactory):
     try:
         project.simulate(
             name=RUN_NAME,
-            thickness=OVERRIDDEN_THICKNESS,
+            set={"thickness": OVERRIDDEN_THICKNESS},
             until_step="setup_process",
         )
         built = _thickness_of(project)
@@ -168,7 +168,7 @@ def test_a_resume_repeating_the_override_keeps_it(launched_with_an_override) -> 
     try:
         project.simulate(
             resume=RUN_NAME,
-            thickness=OVERRIDDEN_THICKNESS,
+            set={"thickness": OVERRIDDEN_THICKNESS},
             until_step="setup_process",
         )
         resumed = _thickness_of(project)
@@ -214,9 +214,9 @@ def test_a_second_override_on_the_same_project_rebuilds_the_domain(
 
     project = Project(root / "project.toml", no_display=True)
     try:
-        project.simulate(name="probe_70", thickness=70.0, until_step="setup_process")
+        project.simulate(name="probe_70", set={"thickness": 70.0}, until_step="setup_process")
         first = _thickness_of(project)
-        project.simulate(name="probe_120", thickness=120.0, until_step="setup_process")
+        project.simulate(name="probe_120", set={"thickness": 120.0}, until_step="setup_process")
         second = _thickness_of(project)
     finally:
         project.close()
@@ -238,7 +238,7 @@ def test_a_plain_run_after_an_override_goes_back_to_the_declared_domain(
 
     project = Project(root / "project.toml", no_display=True)
     try:
-        project.simulate(name="overridden", thickness=99.0, until_step="setup_process")
+        project.simulate(name="overridden", set={"thickness": 99.0}, until_step="setup_process")
         overridden = _thickness_of(project)
         project.simulate(name="plain", until_step="setup_process")
         plain = _thickness_of(project)
@@ -258,7 +258,7 @@ def test_a_dry_run_leaves_the_context_on_the_declared_configuration(
 
     project = Project(root / "project.toml", no_display=True)
     try:
-        project.simulate(name="preview", thickness=99.0, dry_run=True)
+        project.simulate(name="preview", set={"thickness": 99.0}, dry_run=True)
         assert project._ctx.cfg is project._cfg
     finally:
         project.close()

@@ -271,15 +271,16 @@ def observation_step(stamps: Any) -> pd.DateOffset | pd.Timedelta | None:
     A regular chronicle answers with its calendar frequency, so a monthly mean
     stamped at its month start reaches the next month start. A chronicle with
     gaps answers with its median spacing, in whole months when every stamp
-    falls on the same day of the month. A single sample answers ``None``.
+    falls on the same day of the month. Under three samples the answer is
+    ``None``: one spacing cannot tell a step from a gap, so two samples a month
+    apart do not stand for the month between them.
     """
     ordered = _naive(stamps).sort_values().unique()
-    if len(ordered) < 2:
+    if len(ordered) < 3:
         return None
-    if len(ordered) >= 3:
-        freq = pd.infer_freq(ordered)
-        if freq is not None:
-            return pd.tseries.frequencies.to_offset(freq)
+    freq = pd.infer_freq(ordered)
+    if freq is not None:
+        return pd.tseries.frequencies.to_offset(freq)
     same_day = (ordered.day == ordered[0].day).all() and (ordered.time == ordered[0].time()).all()
     if same_day:
         # Truncate a fractional median on purpose: a shorter reach leaves a

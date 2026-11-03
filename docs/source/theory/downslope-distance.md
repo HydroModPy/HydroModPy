@@ -443,6 +443,57 @@ What the code does not represent:
   temperate humid climate, with gentle gradients and a strong groundwater-stream
   connection. Outside that, the criterion still computes, and it means less.
 
+## Measured
+
+**A twin with six heads.** A comb basin of 5600 cells of 20 m makes a network one
+cell wide at $K/\bar N = 600$, and that network, written as a map of six lines, is
+the truth. The protocol finds $K$ again to 0.45 per cent on MODFLOW-NWT, MODFLOW 6
+and a Voronoi mesh, with $J = 0$, inside a band of 3 per cent that the width of the
+zero plateau and the stop of the search set. A map drawn at another $K$ gives that
+$K$. A wrong map moves the answer, and the last two rows below are what a balanced
+$J$ does not show:
+
+| The map | $K$ off by | $D_{optim}$ | $r_{optim}$ valid |
+|---|---|---|---|
+| The truth | 0.45 % | 0 m | yes |
+| One head missing | 6.5 % | 2.2 m | yes |
+| All valley heads three cells low | 8.6 % | 0.3 m | yes |
+| All valley heads five cells south, three valleys shorter and two longer | 2.4 % | 6.0 m | yes |
+| 200 m off, five of six heads lost | a factor of 9.6 | 0 m | yes |
+
+The bound of two cells passes every row, so it does not check a map. Read
+$D_{optim}$ against zero on a twin, and `n_heads_lost` on any run: a lost head logs a
+warning, because the reach under it leaves the map and $K$ reads higher. A map that
+wanders a cell off its talwegs below its heads gives the same $K$ to the last bit
+under the heads rule, and $K$ 11.6 per cent low under the crossing rule.
+
+**On the Nançon.** The default grid of 21 406 cells, protocol 1.3, recharge over
+2000 to 2002, with the 29 heads the cut map holds, none lost, is below. One root over
+four decades of $K$ in each case.
+
+| Case | $K$ (m/s) | `Sy` | NSE | $J$ (m) | $D_{optim}$ (m) | Mapped cells | $K$ where $\lvert J \rvert$ is under one cell |
+|---|---|---|---|---|---|---|---|
+| Heads, D8 | 7.96e-5 | 0.0441 | 0.9392 | -0.81 | 104.1 | 473 | 6.92e-5 to 8.63e-5 |
+| Crossing, D8 | 8.11e-5 | 0.0432 | 0.9393 | -1.99 | 114.0 | 496 | 6.98e-5 to 9.90e-5 |
+| Heads, D4 | 6.94e-5 | 0.0441 | 0.9395 | -1.80 | 100.8 | 662 | 6.31e-5 to 8.47e-5 |
+
+The two rules agree on $K$. The 1.8 per cent between them is the size of the tie under
+heads, where five trials from 7.92e-5 to 8.06e-5 m/s read the same $J$. Heads
+misses 97 cells and adds 169 where crossing misses 194 and adds 238, and its root is
+sharper: $\lvert J \rvert$ stays under a tenth of a cell over 1.8 per cent of $K$,
+against 6.2 per cent.
+
+D4 moves $K$ by 12.9 per cent, far more than the tie. Its root sits on a step of the
+curve, where $J$ falls by 62 m over 0.5 per cent of $K$, and $D_{optim}$ is not
+comparable, because the walk differs. It draws 40 per cent more cells, and its catchment
+leaves the outline by 1.2 per cent against 0.4. On a twin whose valleys run along the
+grid diagonal it leaves the outline by 17 per cent, which the bound refuses, and with
+the bound lifted it lands 4.5 per cent off against 2.4 per cent for D8. On valleys
+along the grid axes the two are equal.
+
+The hydrograph does not decide. NSE moves by 3e-4 over these three values of $K$,
+and `Sy` stays within the 5 per cent the search stops on.
+
 ## Parameters of this page
 
 ```{hmp-params}

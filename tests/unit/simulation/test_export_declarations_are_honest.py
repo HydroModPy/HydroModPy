@@ -157,7 +157,7 @@ class TestTheRequestAcceptsWhatItSays:
         assert request.names == []
 
     def test_the_package_format_is_refused_with_what_replaces_it(self) -> None:
-        with pytest.raises(ValidationError, match="hmp publish <run> --to DEST --format tar"):
+        with pytest.raises(ValidationError, match="hmp publish <run> --to DEST --container tar"):
             ExportRequest(variables="all", format="package")
 
     def test_a_view_of_the_run_lands_at_the_root_of_the_exports(self) -> None:

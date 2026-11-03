@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import argparse
-import sys
 
-from hydromodpy.cli.helpers import EXIT_CONFIG
+from hydromodpy.cli.conventions import format_parser, workspace_parser
+from hydromodpy.cli.helpers import EXIT_CONFIG, refuse
+from hydromodpy.cli.output import emit
 from hydromodpy.core.state.paths import WORKSPACE_TOML_FILENAME
 
 NAME: str = "init"
@@ -16,12 +17,14 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        epilog="Examples:\n  hmp workspace init ~/hydromodpy\n  hmp workspace init --path ./ws --project-name my_project",
+        parents=[workspace_parser(), format_parser()],
+        epilog="Examples:\n  hmp workspace init ~/hydromodpy\n  hmp workspace init ./ws --project-name my_project",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("path", nargs="?", default=None, help="Workspace path")
-    parser.add_argument("--path", dest="path_opt", default=None, help="Alternate flag-form")
-    parser.add_argument("--force", action="store_true", help="Overwrite an existing workspace")
+    parser.add_argument("path", nargs="?", default=None, help="Workspace path, or give it with -w")
+    parser.add_argument(
+        "--force", action="store_true", help="Go past the refusal: reuse a workspace that exists"
+    )
     parser.add_argument(
         "--project-name",
         default=None,
@@ -40,19 +43,21 @@ def register(subparsers) -> argparse.ArgumentParser:
 def run(args: argparse.Namespace) -> None:
     from hydromodpy.cli._workers.workspace import init_workspace
 
-    resolved = args.path or getattr(args, "path_opt", None)
     try:
         result = init_workspace(
-            resolved,
+            args.path or args.workspace,
             force=args.force,
             project_name=args.project_name,
             creator_name=args.creator_name,
             creator_email=args.creator_email,
         )
     except FileExistsError as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_CONFIG)
+        refuse(str(exc), EXIT_CONFIG, cause=exc)
+    emit(args, "workspace init", result, table=lambda: _print_layout(result))
 
+
+def _print_layout(result: dict[str, str]) -> None:
+    """Print where the workspace is, what it holds and how to start."""
     from hydromodpy.data.workspace.scaffold import EXAMPLE_PROJECT_NAME, VARIABLES
 
     target = result["path"]

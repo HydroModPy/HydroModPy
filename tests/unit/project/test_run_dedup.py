@@ -292,11 +292,12 @@ def test_two_identical_hmp_run_calls_give_the_same_run(monkeypatch, tmp_path: Pa
     monkeypatch.setattr(
         "hydromodpy.project.Project",
         make_capturing_project(
-            captured, result=SimpleNamespace(name="demo.v2", sim_id="new"), verb="simulate"
+            captured, result=SimpleNamespace(name="demo.v2", sim_id="new"), verb="_execute"
         ),
     )
     monkeypatch.setattr(
-        "hydromodpy._api._open_run", lambda root, run_dir: ("opened", Path(run_dir).name)
+        "hydromodpy.project.dispatch.workflow.completed_run_view",
+        lambda summary: ("opened", summary["name"]),
     )
 
     assert hmp.run(config, name="demo") == ("opened", "demo")

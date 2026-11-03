@@ -16,7 +16,7 @@ from __future__ import annotations
 import types as stdlib_types
 import typing
 import warnings
-from collections.abc import Mapping
+from collections.abc import Iterable, Iterator, Mapping
 from enum import Enum
 from pathlib import Path
 from typing import Annotated, Any, ClassVar, Literal, get_args, get_origin
@@ -27,10 +27,14 @@ from pydantic_core import PydanticUndefined
 from hydromodpy.core.config_kit.introspect import extract_profile
 from hydromodpy.core.config_kit.profile import ProfileName
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
+from hydromodpy.core.exceptions import FrozenConfigError
 
 _NONE_TYPE = type(None)
 
 _BOOLEAN_FIELDS: dict[type[BaseModel], frozenset[str]] = {}
+
+_FROZEN_MARK = "__hmp_frozen__"
+"""The key of ``__dict__`` that marks a frozen copy of a section."""
 
 
 class ConfigKeyRenamedWarning(FutureWarning):
@@ -320,6 +324,17 @@ class HydroModelBase(BaseModel):
                         field_schema.setdefault("examples", examples)
         return schema
 
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Assign a field, unless this section belongs to a frozen copy."""
+        if _FROZEN_MARK in self.__dict__:
+            raise FrozenConfigError(
+                f"{type(self).__name__}.{name}: this is a frozen copy of the configuration, "
+                "so the change would reach nothing. A run takes its changes by "
+                "project.simulate(set={...}). A configuration takes them by "
+                "config.with_changes({...}), and the result opens a new Project."
+            )
+        super().__setattr__(name, value)
+
     @model_validator(mode="before")
     @classmethod
     def _strip_computed_fields(cls, data: Any) -> Any:
@@ -379,6 +394,44 @@ class HydroModelBase(BaseModel):
         return dump_toml_with_comments(self, path, profile=profile, written_only=written_only)
 
 
+def frozen_copy(model: HydroModelBase) -> HydroModelBase:
+    """Return a deep copy of *model* that refuses every assignment, at every depth.
+
+    The mark sits in the ``__dict__`` of each section. Pydantic reads the fields of a
+    model by their names and skips it, so the copy dumps and compares like the original.
+    :func:`thawed_copy` gives a copy that can be changed again.
+    """
+    copied = model.model_copy(deep=True)
+    for section in _sections_of(copied):
+        section.__dict__[_FROZEN_MARK] = True
+    return copied
+
+
+def thawed_copy(model: HydroModelBase) -> HydroModelBase:
+    """Return *model* when it was never frozen, else a deep copy that can be changed."""
+    if _FROZEN_MARK not in model.__dict__:
+        return model
+    copied = model.model_copy(deep=True)
+    for section in _sections_of(copied):
+        section.__dict__.pop(_FROZEN_MARK, None)
+    return copied
+
+
+def _sections_of(value: Any) -> Iterator[HydroModelBase]:
+    """Yield every config model under *value*, itself included."""
+    if isinstance(value, HydroModelBase):
+        yield value
+        children: Iterable[Any] = value.__dict__.values()
+    elif isinstance(value, Mapping):
+        children = value.values()
+    elif isinstance(value, list | tuple):
+        children = value
+    else:
+        return
+    for child in children:
+        yield from _sections_of(child)
+
+
 def write_resolved(model: BaseModel, name: str, value: Any) -> None:
     """Write a field a validator read out of what the file wrote, and count it as written.
 
@@ -390,4 +443,4 @@ def write_resolved(model: BaseModel, name: str, value: Any) -> None:
     model.model_fields_set.add(name)
 
 
-__all__ = ["HydroModelBase", "write_resolved"]
+__all__ = ["HydroModelBase", "frozen_copy", "thawed_copy", "write_resolved"]

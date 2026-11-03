@@ -84,6 +84,7 @@ class HydrographySourceConfig(HydroModelBase):
     page_size: Annotated[int, Profile.DEV] = Field(
         default=50_000,
         description="WFS pagination page size (BD Topage), in features.",
+        json_schema_extra=field_metadata(unit="-"),
     )
 
     # --- EU-Hydro (EEA REST) ---
@@ -94,6 +95,7 @@ class HydrographySourceConfig(HydroModelBase):
     euhydro_page_size: Annotated[int, Profile.DEV] = Field(
         default=1000,
         description="Pagination page size for EU-Hydro REST queries.",
+        json_schema_extra=field_metadata(unit="-"),
     )
 
     # --- Cache ---

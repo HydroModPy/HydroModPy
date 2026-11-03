@@ -83,7 +83,7 @@ def test_watch_says_dead_for_a_proven_death(
 
     watch.run(args)
 
-    rows = json.loads(capsys.readouterr().out)
+    rows = json.loads(capsys.readouterr().out)["data"]
     assert [(row["rel_dir"], row["dead"]) for row in rows] == [("runs/case", True)]
 
 

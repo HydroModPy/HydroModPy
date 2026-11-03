@@ -17,7 +17,6 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.catalog.share import inputs_of
 from hydromodpy.cli.helpers import EXIT_CONFIG
 from hydromodpy.core.payload import INSTALL_FILENAME, read_index, stored_name
 from hydromodpy.project.launch.replay import (
@@ -25,6 +24,7 @@ from hydromodpy.project.launch.replay import (
     published_copy_of,
     replay_payload,
 )
+from hydromodpy.project.share import inputs_of
 from hydromodpy.results.export.publish import INPUTS_DIRNAME, publish
 from hydromodpy.results.manifest import InputEntry, TrackedInput
 from tests._helpers.cli_runner import CliRunner
@@ -52,7 +52,7 @@ name = "nancon_step5_export"
 crs_project = "EPSG:2154"
 
 [geographic.catchment]
-catch_def = "from_outlet_coord"
+kind = "from_outlet_coord"
 dem_init_path = "dem.tif"
 x_outlet = 389285.9
 y_outlet = 6816518.7

@@ -144,8 +144,7 @@ with a sentence:
   `modflow6` backend, a declared `[simulation.time]`, and its spin-up;
 - `[calibration]` needs a non-empty `flow.param_list`, and `[transport]` is
   refused with the `boussinesq` backend;
-- every boundary in `flow.active_bc` must be supported by the backend, declared
-  lakes and `sfr` networks must be listed in `flow.active_bc`, and
+- every declared boundary must be supported by the backend, and
   `flow.restart_from`, a `spinup_cyclic` initial condition, flow barriers and
   cutoff walls need a backend that declares the capability (a mismatch raises
   `IncompatibleCapabilitiesError`).

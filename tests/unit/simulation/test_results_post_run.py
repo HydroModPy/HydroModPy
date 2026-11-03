@@ -111,7 +111,7 @@ def _install_post_run_stubs(
     monkeypatch.setattr(
         "hydromodpy.simulation.extraction.derivation.catchment_aggregation."
         "aggregate_catchment_timeseries",
-        lambda sim_id, store: None,
+        lambda sim_id, store, **kwargs: None,
     )
     return provider
 
@@ -204,7 +204,7 @@ class TestPostRunResults:
         provider = _FakeProvider(extractor=_FakeLumpedExtractor())
         monkeypatch.setattr(post_run_module, "get_solver_registry_provider", lambda: provider)
 
-        def _fail_aggregation(sim_id, store):
+        def _fail_aggregation(sim_id, store, **kwargs):
             raise AssertionError("lumped extractors must not aggregate spatial fields")
 
         monkeypatch.setattr(

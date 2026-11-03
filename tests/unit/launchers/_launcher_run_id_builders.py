@@ -42,7 +42,7 @@ class _DummyGeographic:
             surface_topo=self.get_domain_surface_topo(),
             watershed_shp="watershed.shp",
             catchment_area_km2=1.0,
-            catch_def="from_outlet_coord",
+            kind="from_outlet_coord",
             x_outlet=1.0,
             y_outlet=2.0,
             watershed_box_buff_dem="watershed_box_buff_dem.tif",
@@ -77,7 +77,7 @@ def _patch_launcher_deps(monkeypatch):
 
     Patches target the workflow step modules where the business logic now lives.
     """
-    monkeypatch.setattr("hydromodpy.workflow.steps.setup.Workspace", _DummyWorkspace)
+    monkeypatch.setattr("hydromodpy.workflow.steps.setup.WorkspaceLayout", _DummyWorkspace)
     monkeypatch.setattr("hydromodpy.workflow.steps.setup.CatchmentDelineation", _DummyGeographic)
     # One module deeper than the step: ``build_domain`` is the constructor the
     # step calls, and it is the copy-then-arm of the declared section these

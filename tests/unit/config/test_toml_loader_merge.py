@@ -25,11 +25,8 @@ def test_load_toml_with_base_config_merges_nested_sections(tmp_path: Path) -> No
                 'name = "site_a"',
                 "",
                 "[geographic.catchment]",
-                'catch_def = "dem"',
+                'kind = "dem"',
                 'dem_init_path = "dem.tif"',
-                "[flow]",
-                'active_bc = ["ocean"]',
-                "",
                 "[flow.bc.ocean]",
                 'kind = "dirichlet"',
                 'value = "1.0 m"',
@@ -43,11 +40,8 @@ def test_load_toml_with_base_config_merges_nested_sections(tmp_path: Path) -> No
             [
                 'base_config = "base.toml"',
                 "",
-                "[flow]",
-                'active_bc = ["ocean", "drainage"]',
-                "",
                 "[flow.bc.drainage]",
-                'kind = "cauchy"',
+                'kind = "drain"',
                 'value = "0.0 m2/s"',
                 'application_domain = "top"',
             ]
@@ -57,8 +51,8 @@ def test_load_toml_with_base_config_merges_nested_sections(tmp_path: Path) -> No
 
     payload = load_toml_with_base_config(child_path)
 
-    assert payload["geographic"]["catchment"]["catch_def"] == "dem"
-    assert payload["flow"]["active_bc"] == ["ocean", "drainage"]
+    assert payload["geographic"]["catchment"]["kind"] == "dem"
+    assert list(payload["flow"]["bc"]) == ["ocean", "drainage"]
     assert payload["flow"]["bc"]["ocean"]["data_value"] is True
     assert payload["flow"]["bc"]["drainage"]["application_domain"] == "top"
 
@@ -83,11 +77,8 @@ def test_hydromodpy_config_from_toml_supports_base_config(tmp_path: Path) -> Non
                 'name = "site_a"',
                 "",
                 "[geographic.catchment]",
-                'catch_def = "dem"',
+                'kind = "dem"',
                 'dem_init_path = "dem.tif"',
-                "[flow]",
-                'active_bc = ["ocean"]',
-                "",
                 "[flow.bc.ocean]",
                 'kind = "dirichlet"',
                 'value = "1.0 m"',
@@ -101,8 +92,8 @@ def test_hydromodpy_config_from_toml_supports_base_config(tmp_path: Path) -> Non
             [
                 'base_config = "base.toml"',
                 "",
-                "[flow]",
-                'active_bc = ["ocean", "drainage"]',
+                "[flow.bc.drainage]",
+                'kind = "drain"',
             ]
         ),
         encoding="utf-8",

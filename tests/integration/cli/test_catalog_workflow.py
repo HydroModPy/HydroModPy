@@ -20,7 +20,7 @@ from tests._helpers.run_stores import open_run_store
 def _seed_project_with_simulation(workspace: Path, project: str = "demo") -> str:
     """Initialise a workspace + project + one sealed, indexed simulation."""
     runner = CliRunner()
-    runner.invoke(["hmp", "workspace", "init", "--path", str(workspace)])
+    runner.invoke(["hmp", "workspace", "init", str(workspace)])
     runner.invoke(["hmp", "project", "new", project, "--workspace", str(workspace)])
 
     project_dir = workspace / "projects" / project

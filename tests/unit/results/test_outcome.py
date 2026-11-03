@@ -186,3 +186,12 @@ def test_another_schema_is_refused():
 def test_an_unknown_key_is_refused_by_name():
     with pytest.raises(ValidationError, match="validity"):
         Outcome.model_validate({**_outcome("running").model_dump(by_alias=True), "validity": "ok"})
+
+
+def test_the_step_is_an_open_vocabulary_that_names_the_steps_of_today() -> None:
+    from hydromodpy.core.pipeline_steps import STEP_NAMES
+
+    schema = Outcome.model_json_schema()["properties"]["step"]
+    assert tuple(schema["x-hmp-vocabulary"]) == STEP_NAMES
+    assert schema["x-hmp-vocabulary-open"] is True
+    assert _outcome("running", step="a_step_of_a_later_version").step == "a_step_of_a_later_version"

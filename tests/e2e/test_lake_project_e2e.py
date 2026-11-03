@@ -150,7 +150,7 @@ mode = "simulation"
 crs_project = "{_PROJECT_CRS}"
 
 [geographic.catchment]
-catch_def = "from_outlet_coord"
+kind = "from_outlet_coord"
 dem_init_path = "{_DEM_PATH}"
 x_outlet = {_X_OUTLET}
 y_outlet = {_Y_OUTLET}
@@ -176,7 +176,7 @@ coverage_policy = "warn"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [flow]
@@ -198,7 +198,7 @@ kind = "homogeneous"
 value = "0.02 -"
 
 [flow.ic]
-type = "top"
+kind = "top"
 
 [flow.bc.drainage]
 application_domain = "top"
@@ -237,10 +237,10 @@ def _write_lake_config(
     flow_extra = f"""
 [flow.sinks_sources.lakes.{_LAKE_ID}]
 bedleak = 0.1
-stageinit = "{_STAGE_INIT_M} m"
+initial_stage = "{_STAGE_INIT_M} m"
 
 [[flow.sinks_sources.lakes.{_LAKE_ID}.outlets]]
-couttype = "WEIR"
+kind = "WEIR"
 invert = "104.0 m"
 width = "5.0 m"
 lakeout = 0
@@ -360,7 +360,7 @@ def test_lake_project_e2e_builds_lak_and_extracts_stage(tmp_path: Path) -> None:
     )
     assert laktab_files, f"No laktab written under {model_ws}: the abacus did not reach LAK."
 
-    # SECONDARY: the lake produced a finite stage series near stageinit, proving
+    # SECONDARY: the lake produced a finite stage series near initial_stage, proving
     # the lake actually ran. Lake series land under the ``lake:<id>`` station id.
     store = _open_result_store(out_path)
     try:
@@ -370,7 +370,7 @@ def test_lake_project_e2e_builds_lak_and_extracts_stage(tmp_path: Path) -> None:
         last_stage = float(stage.iloc[-1])
         assert last_stage == last_stage, "lake stage is NaN"  # NaN-check
         assert 98.0 < last_stage < 108.0, (
-            f"lake stage {last_stage} not in the abacus bracket near stageinit {_STAGE_INIT_M}"
+            f"lake stage {last_stage} not in the abacus bracket near initial_stage {_STAGE_INIT_M}"
         )
         # The lake-aquifer exchange must also be extracted for the lake id.
         exchange = store.query_timeseries(sim_id, f"lake:{_LAKE_ID}", "gwf_exchange")

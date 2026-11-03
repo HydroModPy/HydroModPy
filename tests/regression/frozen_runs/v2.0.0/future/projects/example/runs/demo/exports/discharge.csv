@@ -1,0 +1,2 @@
+site,case_id,datetime,station_id,variable,source,value,unit
+demo,demo,2001-01-01 00:00:00,catchment,discharge,simulated,0.009265221655368805,m3 s-1

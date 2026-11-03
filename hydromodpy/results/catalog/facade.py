@@ -240,14 +240,14 @@ class Catalog(ReadsMixin, DiscoveryMixin, SchemaDiscoveryMixin):
     def read(
         self,
         ref: str,
-        var: str,
+        variable: str,
         *,
         time: Any = None,
         layer: int | None = None,
         sel: dict | None = None,
         bbox: tuple[float, float, float, float] | None = None,
     ) -> Any:
-        """Read ``var`` for the run referenced by ``ref``.
+        """Read ``variable`` for the run referenced by ``ref``, as :func:`hydromodpy.read` does.
 
         ``ref`` is resolved through :meth:`resolve`. ``time`` takes what
         :func:`hydromodpy.read` takes: a period index, a date, ``"first"`` or
@@ -255,7 +255,7 @@ class Catalog(ReadsMixin, DiscoveryMixin, SchemaDiscoveryMixin):
         """
         from hydromodpy.results.derive.reading import read_variable
 
-        return read_variable(self[ref], var, time=time, layer=layer, sel=sel, bbox=bbox)
+        return read_variable(self[ref], variable, time=time, layer=layer, sel=sel, bbox=bbox)
 
     # -- Lifetime -------------------------------------------------------------
 

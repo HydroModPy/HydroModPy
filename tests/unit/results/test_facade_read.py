@@ -114,11 +114,17 @@ def test_read_zarr_field_returns_xarray_dataarray(run):
     assert da.shape == (2, 1, 2)
 
 
-def test_read_zarr_field_eager_with_time_int_returns_ndarray(run):
-    """When ``time`` is an int, dispatch returns the eager numpy slice."""
-    arr = hmp.read(run, "head", time=0, layer=0)
-    assert isinstance(arr, np.ndarray)
-    np.testing.assert_array_equal(arr.ravel(), [1.0, 2.0])
+def test_one_period_is_a_data_array_without_the_time_dimension(run):
+    """``time`` selects in a field and never changes the type."""
+    import xarray as xr
+
+    for time in (0, -2, np.int64(0)):
+        da = hmp.read(run, "head", time=time, layer=0)
+        assert isinstance(da, xr.DataArray)
+        assert da.dims == ("cell",)
+        np.testing.assert_array_equal(da.values, run.field("head", time=0, layer=0).ravel())
+    with pytest.raises(IndexError, match="no such period"):
+        hmp.read(run, "head", time=5)
 
 
 def test_read_zarr_field_with_layer_selects_layer(run):
@@ -190,11 +196,8 @@ def test_read_attribute_exposed_on_module_top_level():
 
 
 def test_facade_read_dispatch_rule(run):
-    """One rule: ``time`` int -> ndarray, otherwise lazy DataArray."""
+    """One type per nature of variable, with ``time`` or without."""
     import xarray as xr
 
-    arr = hmp.read(run, "head", time=0, layer=0)
-    assert isinstance(arr, np.ndarray)
-
-    da = hmp.read(run, "head")
-    assert isinstance(da, xr.DataArray)
+    for kwargs in ({}, {"time": 0}, {"time": slice(0, 1)}, {"time": 0, "layer": 0}):
+        assert isinstance(hmp.read(run, "head", **kwargs), xr.DataArray)

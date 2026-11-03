@@ -69,7 +69,7 @@ class ScalarFaceMap(BaseFigure):
 
     def values(self, sim: Run, *, timestep: int, layer: int | None) -> np.ndarray:
         """Return the per-face values to draw. Override to post-process."""
-        values = np.asarray(sim.field(self.field_name(), timestep=timestep, layer=layer))
+        values = np.asarray(sim.field(self.field_name(), time=timestep, layer=layer))
         if values.ndim > 1:
             # Layered field with no explicit layer selection: show the top active
             # cell of each column, the one the surface processes act on.

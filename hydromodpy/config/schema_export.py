@@ -6,7 +6,7 @@ provide autocompletion, validation, and documentation for HydroModPy TOML
 configurations.
 
 The exporter preserves the rich ``json_schema_extra`` annotations attached
-to fields (``widget_type``, ``unit``, ``display_name_fr``, ``help_text_fr``,
+to fields (``widget_type``, ``unit``,
 ``display_min``, ``display_max``) which a front-end (React, ...)
 can consume to render tailored widgets.
 
@@ -74,7 +74,7 @@ CLI::
     hmp config schema                     # full root schema to stdout
     hmp config schema --section flow      # one section
     hmp config schema --profile user      # filtered to user-level fields
-    hmp config schema --out schema.json   # write to file
+    hmp config schema --to schema.json    # write to file
 """
 
 from __future__ import annotations

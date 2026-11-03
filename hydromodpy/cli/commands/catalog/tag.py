@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import argparse
-import sys
-from pathlib import Path
 
-from hydromodpy.cli.conventions import add_sim_ref, verbosity_parser, workspace_parser
-from hydromodpy.cli.helpers import EXIT_USAGE, apply_verbosity, exit_code_for
-from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
+from hydromodpy.cli.conventions import (
+    add_sim_ref,
+    format_parser,
+    verbosity_parser,
+    workspace_parser,
+)
+from hydromodpy.cli.helpers import EXIT_USAGE, apply_verbosity, project_root_of, refuse
+from hydromodpy.cli.output import emit
+from hydromodpy.core.state.paths import catalog_path_for
 
 NAME: str = "tag"
 HELP: str = "Add or remove tags on a run (reserved tag: pinned, kept out of trash and gc)"
@@ -18,7 +22,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        parents=[workspace_parser(), verbosity_parser()],
+        parents=[workspace_parser(), format_parser(), verbosity_parser()],
         epilog="Example:\n  hmp catalog tag baseline.v2 pinned paper --rm draft",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -53,33 +57,35 @@ def run(args: argparse.Namespace) -> None:
     add = tuple(dict.fromkeys(t.lstrip("+") for t in args.add_tags))
     remove = tuple(dict.fromkeys(args.rm))
     if not add and not remove:
-        print("Nothing to do: pass tags to add or --rm TAG to remove.", file=sys.stderr)
-        sys.exit(EXIT_USAGE)
+        refuse("Nothing to do: pass tags to add or --rm TAG to remove.", EXIT_USAGE)
 
-    root = resolve_project_root(
-        Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
-    )
-    try:
-        rel_dir = resolve_rel_dir(root, args.sim_ref, site=args.site)
-        run_dir = root / rel_dir
-        before = read_annotations(run_dir).tags
-        for tag in add:
-            add_tag(run_dir, tag)
-        for tag in remove:
-            remove_tag(run_dir, tag)
-        after = read_annotations(run_dir).tags
-    except Exception as exc:  # noqa: BLE001 - map resolver and IO errors to exit codes
-        print(str(exc), file=sys.stderr)
-        sys.exit(exit_code_for(exc))
+    root = project_root_of(args)
+    rel_dir = resolve_rel_dir(root, args.sim_ref, site=args.site)
+    run_dir = root / rel_dir
+    before = read_annotations(run_dir).tags
+    for tag in add:
+        add_tag(run_dir, tag)
+    for tag in remove:
+        remove_tag(run_dir, tag)
+    after = read_annotations(run_dir).tags
     added = [tag for tag in after if tag not in before]
     removed = [tag for tag in before if tag not in after]
     if (added or removed) and catalog_path_for(root).is_file():
         from hydromodpy.results.catalog.indexer import index_new_runs
 
         index_new_runs(root)
-    if added:
-        print(f"added: {', '.join(added)}  [{rel_dir}]")
-    if removed:
-        print(f"removed: {', '.join(removed)}  [{rel_dir}]")
-    if not added and not removed:
-        print("no tag change (already present / absent)")
+
+    def table() -> None:
+        if added:
+            print(f"added: {', '.join(added)}  [{rel_dir}]")
+        if removed:
+            print(f"removed: {', '.join(removed)}  [{rel_dir}]")
+        if not added and not removed:
+            print("no tag change (already present / absent)")
+
+    emit(
+        args,
+        "catalog tag",
+        {"rel_dir": rel_dir, "added": added, "removed": removed, "tags": list(after)},
+        table=table,
+    )

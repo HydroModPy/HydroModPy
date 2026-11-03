@@ -9,11 +9,11 @@ mid-write leaves the previous lockfile untouched.
 
 Verification has two modes:
 
-- ``verify_frozen`` (used by ``hmp dev lock verify`` and the frozen-mode catalog)
+- ``verify_frozen`` (used by ``hmp lock verify`` and the frozen-mode catalog)
   walks every entry and reports :class:`LockMismatch` records (one per kind:
   ``"missing"``, ``"sha256"``).
 - ``verify_inputs_strict`` returns the same kind of report for the files the
-  lockfile names, and is consumed by ``hmp dev lock verify --strict`` and
+  lockfile names, and is consumed by ``hmp lock verify --strict`` and
   ``hmp run --frozen`` to map a mismatch to a non-zero exit.
 """
 
@@ -347,7 +347,7 @@ def verify_inputs_strict(
 ) -> list[LockMismatch]:
     """Return what changed among the files the lockfile names, by path.
 
-    Used by ``hmp dev lock verify --strict`` and ``hmp run --frozen`` to stop on a
+    Used by ``hmp lock verify --strict`` and ``hmp run --frozen`` to stop on a
     tracked input that changed. An entry the lockfile does not name is left to
     ``verify_frozen``, which also answers for a lockfile that names nothing.
     Missing artefacts are reported with ``kind="missing"``.
@@ -503,7 +503,7 @@ def _refuse_a_bad_archive(archive: Path, extracted: Path) -> None:
     if not lockfile_path.is_file():
         raise CacheCorruptionError(
             f"{archive} holds no {LOCKFILE_NAME}, so nothing in it can be checked. "
-            "Nothing was restored. Write it again with `hmp dev lock archive`."
+            "Nothing was restored. Write it again with `hmp data archive --to FILE`."
         )
     faults: list[str] = []
     for item in read_lockfile_inputs(lockfile_path):
@@ -517,7 +517,7 @@ def _refuse_a_bad_archive(archive: Path, extracted: Path) -> None:
     if faults:
         raise CacheCorruptionError(
             f"{archive} does not hold what its {LOCKFILE_NAME} names, so nothing was restored. "
-            "Write it again with `hmp dev lock archive`:\n  " + "\n  ".join(faults)
+            "Write it again with `hmp data archive --to FILE`:\n  " + "\n  ".join(faults)
         )
 
 

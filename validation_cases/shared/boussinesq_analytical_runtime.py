@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, MutableMapping
 from typing import Any
 
-from hydromodpy.physics.flow.flow_runtime_fields import FlowRuntimeFields
+from hydromodpy.physics.flow.flow_runtime_config import FLOW_RUNTIME_KEYS
 
 ANALYTICAL_STEADY_SURFACE_MODEL = "vi_obstacle"
 ANALYTICAL_TRANSIENT_SURFACE_MODEL = "ts_vi_obstacle"
@@ -14,7 +14,8 @@ ANALYTICAL_RUNTIME_BACKEND = "petsc"
 # runtime_backend 'auto' (the dense 'local' engine up to 400 cells, 'scipy_sparse'
 # above) with the regularized partition surface closure.
 DEFAULT_ENGINE_SOLVER = "boussinesq_local"
-_RUNTIME_KEYS = frozenset(FlowRuntimeFields.model_fields)
+# The runtime keys a case may still carry flat in [flow], and the [flow.runtime] table.
+_RUNTIME_KEYS = frozenset(FLOW_RUNTIME_KEYS) | {"runtime"}
 
 
 def _normalize_flow_regime(value: object) -> str:
@@ -25,11 +26,11 @@ def _normalize_flow_regime(value: object) -> str:
 
 
 def analytical_boussinesq_runtime_overrides(flow_regime: str | None) -> dict[str, object]:
-    """Return the PETSc runtime knobs used by default analytical Boussinesq runs."""
+    """Return the ``[flow.runtime]`` knobs used by default analytical Boussinesq runs."""
     regime = _normalize_flow_regime(flow_regime or "steady")
     if regime == "transient":
         return {
-            "runtime_backend": ANALYTICAL_RUNTIME_BACKEND,
+            "backend": ANALYTICAL_RUNTIME_BACKEND,
             "surface_interaction_model": ANALYTICAL_TRANSIENT_SURFACE_MODEL,
             "ts_vi_steps_per_period": 4,
             "ts_vi_adapt": False,
@@ -37,7 +38,7 @@ def analytical_boussinesq_runtime_overrides(flow_regime: str | None) -> dict[str
             "ts_vi_snes_type": "vinewtonrsls",
         }
     return {
-        "runtime_backend": ANALYTICAL_RUNTIME_BACKEND,
+        "backend": ANALYTICAL_RUNTIME_BACKEND,
         "surface_interaction_model": ANALYTICAL_STEADY_SURFACE_MODEL,
     }
 
@@ -50,19 +51,22 @@ def apply_analytical_boussinesq_runtime_defaults(
 ) -> dict[str, Any]:
     """Return ``flow_section`` with the analytical PETSc runtime default applied.
 
-    Missing runtime keys are filled with the analytical PETSc VI/TS-VI defaults.
-    Explicit caller-provided values are kept unless ``force`` is true.
+    The knobs are written in the ``runtime`` table of the section. Missing ones are
+    filled with the analytical PETSc VI/TS-VI defaults. Explicit caller-provided
+    values are kept unless ``force`` is true.
     """
     normalized = dict(flow_section)
     regime = str(flow_regime or normalized.get("flow_regime") or "steady")
     defaults = analytical_boussinesq_runtime_overrides(regime)
+    runtime = dict(normalized.get("runtime") or {})
     if force:
-        normalized.update(defaults)
-        return normalized
-    for key, value in defaults.items():
-        current = normalized.get(key)
-        if current is None or (isinstance(current, str) and not current.strip()):
-            normalized[key] = value
+        runtime.update(defaults)
+    else:
+        for key, value in defaults.items():
+            current = runtime.get(key)
+            if current is None or (isinstance(current, str) and not current.strip()):
+                runtime[key] = value
+    normalized["runtime"] = runtime
     return normalized
 
 

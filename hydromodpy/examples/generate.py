@@ -3,7 +3,7 @@
 The generator walks an explicit whitelist, resolves each project's data
 references the way a run resolves them
 (:func:`hydromodpy.core.payload.resolve.project_data`, the resolver of
-``hmp project export`` too), hashes every file and writes the manifest. It only runs from a source checkout: a wheel does not carry
+``hmp publish --package`` too), hashes every file and writes the manifest. It only runs from a source checkout: a wheel does not carry
 ``examples/``.
 """
 

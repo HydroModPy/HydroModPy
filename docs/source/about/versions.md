@@ -35,6 +35,8 @@ that gives the old name and the new one, once per key and per file. `hmp doctor 
 <file>` rewrites your file and the files it inherits, and keeps your comments. An old name of Python, or an old `hmp` command
 or flag, prints a `FutureWarning` with both names and then does what the new one does. The
 changelog lists the rename under `Changed` with both names, and later its removal under `Removed`.
+A command or a flag that left before 2.0.0 has no alias: it is refused, with a message that names
+its new form, until 2.2.
 
 ### Numbers
 
@@ -80,6 +82,7 @@ Anything marked experimental may change in any minor version, without the delay 
   `geographic.domain_extent` and the `custom` backend. The
   {doc}`parameter reference </reference/parameters/index>` marks each key. A run lists the
   experimental keys its file writes in one line of its log, and `hmp config check` shows them.
+- On the command line: the result of `hmp calibrate --format json`, with the report it reads.
 - In Python: the shape of `CalibrationReport`, and the `solver`, `solver.extractor` and
   `calibration.evaluator` plugin ports, as {doc}`the contracts page
   </contribute/architecture/contracts>` details.
@@ -95,7 +98,8 @@ number that was wrong, under the rule above.
 
 The names are the ones the generated pages list: the {doc}`Python reference
 </reference/python/index>`, the {doc}`command line reference </reference/cli/index>` with its
-{doc}`exit codes </reference/cli/exit-codes>`, and the {doc}`parameter reference
+{doc}`exit codes </reference/cli/exit-codes>` and what {doc}`a program reads
+</reference/cli/machine-output>`, and the {doc}`parameter reference
 </reference/parameters/index>`. A module path outside `hydromodpy.__all__` is internal, except the
 short list on {doc}`the contracts page </contribute/architecture/contracts>`. So is any `HMP_*`
 variable that {doc}`its generated page </contribute/architecture/generated/environment>` does

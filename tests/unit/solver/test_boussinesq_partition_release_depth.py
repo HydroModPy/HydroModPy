@@ -5,6 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from hydromodpy.physics.flow import Flow
 from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.physics.flow.flow_runtime_config import DEFAULT_PARTITION_RELEASE_DEPTH_M
 from hydromodpy.solver.boussinesq.assembly.residual_facade import (
@@ -45,13 +46,15 @@ def _strip(n_cells: int, *, z_top_m: float, z_bottom_m: float = 0.0) -> _MiniMes
 
 
 def test_default_depth_scale_is_a_flow_field_in_metres() -> None:
-    assert FlowConfig().partition_release_depth_m == DEPTH_M == 0.05
+    assert FlowConfig().runtime.partition_release_depth_m == DEPTH_M == 0.05
     assert (
-        build_runtime_options(FlowConfig(partition_release_depth_m=0.02)).regularization_radius
+        build_runtime_options(
+            Flow(FlowConfig(runtime={"partition_release_depth_m": 0.02}))
+        ).regularization_radius
         == 0.02
     )
     with pytest.raises(ValueError):
-        FlowConfig(partition_release_depth_m=0.0)
+        FlowConfig(runtime={"partition_release_depth_m": 0.0})
 
 
 def test_release_share_follows_the_depth_below_the_surface_not_the_thickness() -> None:

@@ -34,6 +34,30 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Added
+- A second stream-network twin runs what protocol 1.3 freezes: the heads rule, the map cut to the catchment and the catchment bound, on a basin with six heads, on MODFLOW-NWT, MODFLOW 6 and a Voronoi mesh. It also checks that a wrong map fails.
+- The theory page of the downslope distance has a "Measured" section: the twin, heads against crossing and D4 against D8 on the Nançon.
+- `tests/regression/frozen_runs/` keeps a run and a calibration session as 2.0.0 stored them, and the same files with a key, a column and an array that a later 2.x could add. Each commit reads both through `hmp.open`, `Run`, `Session`, `hmp.read`, `hmp.index` and `hmp catalog reindex`, and compares the values. `python -m tools.regenerate_frozen_runs` writes them.
+- A transient Boussinesq run writes a `storage` budget term, per cell and in the `budgets` table, so its domain budget closes as the MODFLOW runs do. It holds the change of the drainable volume over each period, positive when water leaves storage.
+- `Session` and the whole exception hierarchy at the top level.
+- `hmp.calibration_phases`, in place of `list_phases` and `expand`.
+- `Project.launch`, `Project.best_runs`.
+- A list of the modules a plugin imports, in `contribute/architecture/contracts.rst`, kept by a test.
+- `--format table|json|csv` is on every command, except the ones that print a document and nothing else (`hmp config template`, `resolve`, `schema`, `wizard`, `hmp completion`) and `hmp dev`. Under `json`, stdout holds one object and nothing else: `{"schema": "hmp.catalog.ls.v1", "data": ...}`. `data` is an array for a command that lists, an empty one when there is nothing to list, and an object otherwise. A solver or a library that prints goes to stderr. The page `reference/cli/machine-output` is the contract, with the fields of each command, generated from `hydromodpy/cli/output.py`.
+- `hmp calibrate --format json` prints the result of the calibration, `hydromodpy/schema/results/calibrate.v1.json` is its JSON Schema, and `--list-phases`, `--expand` and `--dry-run` print theirs. It is experimental with `CalibrationReport`.
+- `hmp run --format json` prints the workflow, the file and what the run gave, and `hmp spinup`, `hmp export` and `hmp publish` print what they wrote.
+- A failure prints its `HMPY.Exxx` code first on its line of stderr, a mistake on the command line included: `HMPY.E002: File not found: run.toml`. Under `--format json` stdout also holds `{"schema": "hmp.error.v1", "data": {"code", "title", "detail", "exit_code"}}`, unless the command had a result to write. New codes `HMPY.E001` (`CommandUsageError`, exit 2) and `HMPY.E002` (`NothingThereError`, exit 10).
+- `reference/cli/exit-codes` states what is promised: inside a major version an exit code keeps its number and its meaning, an `HMPY.Exxx` code keeps its meaning, and the words of a message may change.
+- `-w` is on every command, and it is read before the verb too: `hmp -w W catalog ls`. A command that reads no workspace accepts it and says so in its help. `hmp run --resume NAME` honours it.
+- `hmp campaign`: `array`, `case`, `collect`, `promote`, `prune`.
+- `hmp lock`: `update`, `verify`. `hmp completion`. `hmp catalog rank`. `hmp config validate-field`. `hmp config schema --bundle`.
+- `hmp data restore --to DIR`.
+- `--dry-run` on `hmp catalog gc`, `catalog delete`, `catalog trash --empty`, `project delete`, `campaign prune`, `data remove`, `data prune` and `privacy purge`.
+- `hmp config check -v` says which workspace the file resolves to, with its folders, and `--format json` always holds it.
+- `hmp export --regen figures` and `--regen exports`. A bare `--regen` writes again what each ledger records.
+- `geographic.catchment.buff_area = "10% of sqrt(area)"` writes the rule of version 1 out: the buffer is 10 per cent of the square root of the catchment area, about 50 per cent more area on a real catchment.
+- The reference page on the grammar of a file lists, section by section, the unit a bare number is read in. About seventy more fields carry a `unit` in the generated reference.
+- `--dry-run` on `hmp spinup`, `hmp catalog rerun`, `rename`, `restore` and `import`, `hmp project import`, `hmp publish` and `hmp doctor --fix-config`. It runs the same checks, says what would be done and writes nothing. For `--fix-config` it prints the diff it would write.
+- The JSON of these commands has an `applied` field, as `hmp catalog delete` already had.
 - A user page, "Conventions of a run" (`docs/source/understand/conventions.md`): which date reads which period, the sign of a
   budget flux, the words `catchment` and `domain`, the `source` column, how layers, cells and reaches are counted, and the
   spelling of units.
@@ -734,6 +758,95 @@ Each release section includes the following standard categories:
   (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
+- A mapped head that lands on no cell now logs a warning, once per process, with what to check. Five of six heads lost put a twin a factor of 9.6 off with a balanced `J` and a valid `r_optim`, and it said nothing before.
+- The Methods paragraph of a protocol run with `storage = false` says the file left the storage stage out. It used to say that stage did not complete.
+- The scaffolded demo (`hmp workspace init`, `hmp project new`) now takes a steady recharge of 0.8 mm/day and drains it at the land surface. Before, it had no source and no sink, so its head was flat whatever K was. Your own projects are not touched: the template only writes a project that does not exist yet.
+- `drain`, `recharge` and `constant_head` of a Boussinesq run are stored as `(time, layer, cell)`, as `well` was and as every other solver does. `ds["drain"].isel(layer=0)` on a NetCDF export now reads the same on all solvers. `surface_excess` stays `(time, cell)`: it is a flux at the land surface.
+- A window over a series keeps the stress periods it overlaps, in `hmp.read`, `Run.timeseries`, `Run.observed`, the catalog reads and the CSV export, through one function. A simulated value is kept by its stamp, `(start, end]`. A measurement is kept by its date, `[start, end)`. One date reads the period that date reads, and a window inside one period reads that period.
+- A window that only touches the record is refused: it starts on the last stamp, or ends on the first date. One date on either of them still reads its period.
+- A list of dates where two read the same period is refused, naming them, in every export format.
+- `import_csv_timeseries` reads what `export_csv` writes. It knows the series vocabulary, a measurement included, and `variable="discharge_obs"` reads the measurement.
+- `udunits_spelling` leaves a text alone unless every word is a known unit and every group after a `/` holds one factor, so `mg/L NO3`, `n/a` and `m a s l` are stored as written.
+- With fewer than three samples, a chronicle has no step of its own, so a period that holds no sample stays empty when paired with a simulated series.
+- The trial journal accepts the status `infeasible`, written for a point the search may leave; its error text is kept whatever `persist_iteration_detail` says. The `trial.v2` schema lists it.
+- A pin on protocol version 1.2 logs that v2.0.0a5 ran the same number with `observed_rasterization = "heads"`, and how to get it back.
+- `heads_snap_radius` and `heads_min_drained_area_km2` are declared departures from the paper, printed with their value in force.
+- `steady_recharge_window` and `spin_up_year` are reported as departures only when the file leaves them to the default.
+- The catchment veto message names a third cause (two conditionings of one DEM that disagree) and says what to write to lift it. Example 10 writes `max_catchment_mismatch = false` with its reason.
+- The Methods paragraph states the value a run holds when a stage did not settle, and no longer claims a missing stage on a one-stage file.
+- `hmp.run` gives a `Run` for a simulation, an `OverviewResult` for an overview, a `PlanDraft` with `dry_run=True`, and `None` when the run keeps nothing to read. Changes of the configuration go in `set={...}`, a key being a dotted path or a name of `hmp config targets`. A calibration is refused and points to `hmp.calibrate`, a `[sites]` project to `Project.launch`.
+- `Project.simulate` and `Project.rerun` take `set=` as well. The loose keywords such as `K=` and `Sy=` are gone, and so is `parallel=`.
+- `Run.field` reads `time=` by name, as `hmp.read` does. `Run.budget` and `query_budget` take `steps=` for indexes and `period=` for dates.
+- `hmp.read` gives one type for each kind of variable (array, series, table of shapes, table of positions), and `time=` never changes it.
+- A pipeline step is named in `from_step` and `until_step`. An index is refused. `outcome.step` is an open vocabulary.
+- `Project.config` gives a frozen copy, taken at each read. Assigning to it raises `FrozenConfigError`. A run takes its changes by `simulate(set=...)`.
+- The two classes called `Workspace` have two names: `hmp.Workspace` is what `hmp.open` gives, `WorkspaceLayout` is the one of `hydromodpy.core.workspace`.
+- `hmp.__all__` holds the verbs, `Project`, `Run`, `RunSet`, `Catalog`, `Session`, `Workspace`, `HydroModPyConfig` and the exceptions. Other names stay under `hydromodpy.<module>`, out of the contract.
+- Every public exception derives from `HydroModPyError`, and all of them are at the top level, for instance `hmp.ConfigError`.
+- `--force` has one meaning on every command: go past a refusal the command makes because of what is already there or what protects it, such as an existing file, a pinned run or a running case. It never skips a question, which is `-y`.
+- `hmp catalog gc` and `hmp workspace clean` print their plan and change nothing without `-y`. `hmp catalog trash --empty`, `hmp data remove` and `hmp data prune` now ask, and refuse without `-y` when nobody can answer.
+- `hmp viz show` and `hmp viz list --run` of an ambiguous reference exit 20, as every other command does. They exited 10.
+- A command moved or renamed before 2.0.0 is refused with a message that names the new form, until 2.2. There is no alias. The table:
+| Old form | New form |
+|---|---|
+| `hmp replay REF --into DIR` | `hmp publish REF --to DIR --with inputs`, which prints the line that runs the copy again |
+| `hmp project export PROJECT --to FILE --format tar --with runs` | `hmp publish PROJECT --package --to FILE --container tar --with runs` |
+| `hmp viz regen REF` | `hmp export REF --regen figures` |
+| `hmp export REF --regen` | the same, and it now writes the figures too; `--regen exports` for the exports alone |
+| `hmp doctor --toml FILE` | `hmp config check FILE -v` |
+| `hmp doctor --json` | `hmp doctor --format json` |
+| `hmp workspace list --json` | `hmp workspace list --format json` |
+| `hmp config targets FILE --json` | `hmp config targets FILE --format json` |
+| `hmp export REF NAME --format F` | `hmp export REF NAME --as F` |
+| `hmp export REF NAME --folder D` | `hmp export REF NAME --to D/` |
+| `hmp export REF NAME --file F` | `hmp export REF NAME --to F` |
+| `hmp publish REF --format tar` | `hmp publish REF --container tar` |
+| `hmp catalog point REF -o F`, `--output F` | `hmp catalog point REF --to F` |
+| `hmp viz show REF FIGURE --output F` | `hmp viz show REF FIGURE --to F` |
+| `hmp config schema --out F` | `hmp config schema --to F` |
+| `hmp config template F` | `hmp config template --to F` |
+| `hmp config wizard F` | `hmp config wizard --to F` |
+| `hmp data get TARGET --out D` | `hmp data get TARGET --to D` |
+| `hmp data archive F` | `hmp data archive --to F` |
+| `hmp report compare REF REF --out D` | `hmp report compare REF REF --to D` |
+| `hmp install-binaries --bindir D` | `hmp install-binaries --to D` |
+| `hmp install-binaries --force` | `hmp install-binaries --upgrade` |
+| `hmp install-binaries --quiet` | `hmp install-binaries -q` |
+| `hmp workspace init --path P` | `hmp workspace init P`, or `-w P` |
+| `hmp catalog gc --apply` | `hmp catalog gc -y` |
+| `hmp catalog import SOURCE --as NAME` | `hmp catalog import SOURCE --name NAME` |
+| `hmp project import SOURCE --as NAME` | `hmp project import SOURCE --name NAME` |
+| `hmp project promote CASE --trial N --as NAME` | `hmp campaign promote CASE --trial N --name NAME` |
+| `hmp project prune CASE` | `hmp campaign prune CASE` |
+| `hmp project case JOB N` | `hmp campaign case JOB N` |
+| `hmp project array` | `hmp campaign array` |
+| `hmp project collect` | `hmp campaign collect` |
+| `hmp test` | `hmp dev test` |
+| `hmp dev completion` | `hmp completion` |
+| `hmp dev lock update --output F` | `hmp lock update --to F` |
+| `hmp dev lock verify` | `hmp lock verify` |
+| `hmp dev lock archive F` | `hmp data archive --to F` |
+| `hmp dev lock restore F --output D` | `hmp data restore F --to D` |
+| `hmp dev rank PROJECT` | `hmp catalog rank --project PROJECT` |
+| `hmp dev schema export --output D` | `hmp config schema --bundle --to D` |
+| `hmp dev schema validate-field P V` | `hmp config validate-field P V` |
+| `hmp dev examples manifest --output F` | `hmp dev examples manifest --to F` |
+- A script that read `--format json` now reads `data` of the envelope. Some keys moved with it: `hmp catalog gc` writes `applied` where it wrote `apply`, `hmp data check` writes each issue as `{path, message}`.
+- A job array written before this version calls `hydromodpy project case`: write the job again with `hmp campaign array`.
+- A boundary condition or a sink is now active when its table is declared, and `enabled = false` switches it off. `flow.active_bc` and `flow.active_sinks_sources` are gone. `hmp doctor --fix-config` folds each list into the tables it named: a table the list did not name gets `enabled = false`, and a name with no table gets an empty one.
+- The settings of the Boussinesq solve move from `[flow]` to `[flow.runtime]`.
+- One time series block, `kind = "constant" | "csv" | "piecewise" | "seasonal"`, serves every boundary condition and sink. The JSON Schema is 2 % smaller.
+- Every discriminator is called `kind`.
+- `cauchy` and `robin` boundaries were the same linear drain. Both are now `kind = "drain"`.
+- `[flow.param.<id>]` takes one id for a property. A vertical conductivity is `Kv`.
+- `[transport.modflow6prt.parameters]` takes explicit units. The default stays in days.
+- `[transport]` no longer accepts seven keys it inherited and never read.
+- A bare `buff_area = 10` is still read with the rule of version 1. `hmp doctor --fix-config` now rewrites it as `"10% of sqrt(area)"`, which draws the same distance, so no domain moves.
+- `calibration.protocol.transient_metric` and `sites.summary.metrics` accept only the metrics that exist. A value such as `"bogus"` is refused with the list of the ones that do.
+- A raster or a lake file without a CRS is refused, with the command that writes one. It no longer receives EPSG:2154. A `default_crs` written in the source table still stands in for the missing CRS.
+- `workspace.catalog_path` and `workspace.runs_dir` are refused with a pointer to the storage layout. The index of a project is `<project>/.hmp/index.duckdb` and its runs are in `<project>/runs/`.
+- The validation cases write their Boussinesq settings in `[flow.runtime]`.
+- `hydromodpy.__all__` goes from 112 to 58 names. Only the categories of the exception hierarchy, the exceptions the verbs document and the classes that set an exit code stay at the top level. The other exceptions are imported from `hydromodpy.core.exceptions` or `hydromodpy.results.errors`, and `hydromodpy.<Name>` says where.
 - A date reads the period `(start, end]` that holds it, and the first date of the record reads the first period. A date equal
   to a stamp reads the period that stamp closes, so a date copied from a NetCDF time axis or a CSV finds its own value again.
   It used to read the next period, except at the last stamp. This holds in `hmp.read`, `run.field`, `[[export]]`, `[display]`
@@ -1616,7 +1729,41 @@ Each release section includes the following standard categories:
   once. An unknown engine never matches a previous run.
 - The compact network comparison reads the reference river from `mesh_cell_families`.
 
+### Deprecated
+The old names keep loading for two minor versions and `hmp doctor --fix-config <file>` rewrites them.
+| Old | New |
+|---|---|
+| `flow.active_bc`, `flow.active_sinks_sources` | `enabled` in each table of `flow.bc`, `flow.sinks_sources` |
+| `flow.bc.dirichlet.<id>`, `flow.bc.cauchy.<id>`, `flow.bc.robin.<id>` | `flow.bc.<id>` with `kind` |
+| `kind = "cauchy"`, `kind = "robin"` | `kind = "drain"` |
+| `flow.bc.<id>.forcing.mode` | `flow.bc.<id>.forcing.kind` |
+| `flow.ic.type`, `flow.ic.h.type` | `flow.ic.kind`, `flow.ic.h.kind` |
+| `flow.param.<id>.field_vertical_profile.mode` | `flow.param.<id>.field_vertical_profile.kind` |
+| `flow.sinks_sources.lakes.<id>.outlets[].couttype` | `flow.sinks_sources.lakes.<id>.outlets[].kind` |
+| `flow.sinks_sources.lakes.<id>.stageinit` | `flow.sinks_sources.lakes.<id>.initial_stage` |
+| `geographic.catchment.catch_def` | `geographic.catchment.kind` |
+| `simulation.process[].type` | `simulation.process[].kind` |
+| `solver.backend.backend` | `solver.backend.kind` |
+| `flow.runtime_backend` | `flow.runtime.backend` |
+| `flow.runtime_max_iterations`, `flow.runtime_tol_residual_inf`, `flow.runtime_tol_state_update_inf` | `flow.runtime.max_iterations`, `flow.runtime.tol_residual_inf`, `flow.runtime.tol_state_update_inf` |
+| `flow.surface_interaction_model`, `flow.partition_release_depth_m`, `flow.vi_*`, `flow.ts_vi_*` | the same names under `flow.runtime` |
+| `flow.param.k`, `kv`, `K33`, `k33`, `SY`, `sy`, `S`, `s`, `SS`, `ss`, `k22` | `K`, `Kv`, `Kv`, `Kv`, `Sy`, `Sy`, `Sy`, `Sy`, `Ss`, `Ss`, `K22` |
+| `transport.modflow6prt.parameters.release_times_days`, `track_times_days`, `track_time_step_days`, `stop_time_days`, `stop_travel_time_days` | the same names without `_days`, with an explicit unit |
+| `transport.param_list`, `param`, `ic`, `bc`, `sinks_sources`, `active_sinks_sources`, `active_bc` | dropped |
+The old forms keep loading for two minor versions and `hmp doctor --fix-config <file>` rewrites them.
+| Old | New |
+|---|---|
+| `geographic.catchment.buff_area = 10` (a bare number) | `geographic.catchment.buff_area = "10% of sqrt(area)"` |
+| `workspace.catalog_path`, `workspace.runs_dir` | none, the doctor deletes them |
+
 ### Removed
+- `results.derive.time_alignment.normalize_period_bounds`, replaced by `core.time.selection.in_series_window`.
+- `Project.run` (now `Project.launch`), `Project.execute` (private), `Project.best` (now `Project.best_runs`, or `Project.runs().best` for one `Run`), `Project.workflow_context` (private), `Run.params` (now `Run.parameters`).
+- The module `hydromodpy.catalog` (the entry cache is `hydromodpy.data.registry.input_cache.InputCache`).
+- The names below leave the top level. Asking for one raises `OldNameError` with its new path.
+- `hmp replay`, `hmp project export`, `hmp viz regen`, `hmp test`, `hmp doctor --toml` and every `--json`, as the table says. What they did is kept under the new form.
+- `flow.param.Kz`, `Kx` and `Ky` are refused. No solver ever read them, so the runs of a file that held them did not use them. Write `Kv`, `K` or `K22`.
+- `display_name_fr` and `help_text_fr` leave the JSON Schema. They held French text no page read.
 - `OptionalText` and the module `hydromodpy.core.config_kit.validators`, the constants `NODATA_SENTINELS`, `RESULTS_NODATA`
   and `EXTREME_NODATA` of `hydromodpy.core.nodata`, `history_has_initial_snapshot` and `log_missing_field`. Nothing called them.
 - The `legacy` mesh layout: `Mesh.layout`, `Mesh.layout_note` and their note. No readable store can hold it.
@@ -1825,6 +1972,27 @@ Each release section includes the following standard categories:
   A run sealed before the family tables draws no reference line.
 
 ### Fixed
+- `hmp calibrate` builds the river network when a generated mesh follows the rivers, as `hmp run` already did. A file that ran stopped at the mesh step when calibrated, unless it wrote `enabled = true` under `[geographic.river_network]`.
+- A map that draws no stream under the heads rule is refused before the first solve with a typed calibration error and its exit code, not a bare `ValueError`.
+- The warning "Simulated discharge is baseflow only" no longer shows on a run that holds no discharge gauge. There is nothing to compare, so the demo no longer warns on its first run.
+- The docstring of `hmp.read` now says what it does with an array that has no registered name: it reads through `Run.field`.
+- A Boussinesq calibration trial sums its discharge over the cells the run publishes it on, the ones the delineated polygon covers, and no longer over the whole mesh with its buffer.
+- A MODFLOW 6 run with a lake and no stream network keeps the catchment drains in `discharge`. A calibration trial on such a run reads the same sum: the lake outlet plus the drains.
+- A run whose `fields.zarr` is under version 4 is refused by `hmp.open` and left out of the index with a warning, with the sentence every pre-release document gets. It used to open and then fail halfway through its readers.
+- `catchment` is refused as a station identifier and as a zone name, in a TOML key, in a site table, in a loaded record and at the store, with a message saying what to write. A gauge with that name used to be scored against the simulated outlet, and a zone with that name read as a uniform parameter.
+- A promoted run, and a session closed on a best from an earlier stage, now name the cost of that stage (`distance_gap`, not `nse_log` beside a cost in metres).
+- `Session.best` and the report no longer return the run of an older trial when the best trial has not been promoted.
+- A refused `--resume` (changed cost, changed code, another case) leaves the session exactly as it was instead of marking it failed.
+- A journal cut in the middle of its last line resumes: the remnant is dropped before the next trial is written.
+- A trial that kept no components is no longer served from the cache to a search that needs them.
+- Changing the simulation name, its description or the export blocks no longer invalidates the trial cache.
+- `max_catchment_mismatch = 0` keeps the veto on at zero tolerance instead of switching it off.
+- The calibration figures (progress, trace, convergence, and the others reading the trials) are now offered for a run promoted from a session.
+- `hmp calibrate --dry-run --phase <unknown>` refuses, as a run does.
+- `hmp doctor --fix-config` no longer says a file with a retired key is up to date.
+- `hmp.calibration_phases` returns the protocol of a config object.
+- A session whose case is not listed among its cases is refused by name on `--resume`.
+- The mapped-network heads are tested against the catchment outline in the outline's own CRS, and a reach whose only upstream end lies on the outline (away from the outlet) is warned about.
 - The `discharge` of a Boussinesq run read about zero, because it summed the drain only and that solver sends its water through
   the saturation excess. It now sums what leaves the aquifer at the surface, drains and excess. A calibration scores the same sum.
 - The Boussinesq adapter declares `release_flux` unavailable, with its reason. Its extraction never served it, and the check
@@ -1953,6 +2121,15 @@ Each release section includes the following standard categories:
   below MODFLOW 6.
 
 ### Numbers
+No default and no stored number moves. Nothing measured here changes a result of 1.3. Measures on example 04, default mesh, protocol 1.3, for the record:
+- `observed_rasterization = "crossing"` against the default `heads`: K +1.8 %, Sy -2.0 %, NSE +1e-4, D_optim 114.0 m against 104.1 m.
+- `diagonal_neighbors = false` against the default D8: K -12.9 %, Sy unchanged, NSE +3e-4, D_optim 100.8 m against 104.1 m, 662 mapped cells against 473.
+- Scaffolded demo at K = 1e-4 m/s: the head goes from 22.53 m everywhere to 20.00 m at the drains and 20.91 m at the far side, with 0.00926 m3/s in and out and -0.06 % of budget error. The mound follows K: 1.79 m at 5e-5 m/s, 0.91 m at 1e-4, 0.45 m at 2e-4, within 0.3 % of Dupuit over the sloping base. No other run changes.
+- MODFLOW 6, a lake and no SFR, `discharge` over a three-month valley with a buffer: `3.855e-05, 3.856e-05, 3.855e-05` m3/s before, `0.100996, 0.143696, 0.087693` m3/s after, about 2 600 to 3 700 times more. The old number was the lake outlet alone and left out the catchment drains. SFR and SFR plus lake do not move, to the bit, in steady and transient. MODFLOW-NWT cannot hold a lake.
+- Boussinesq, a calibration trial on a mesh wider than its catchment: the old series was the domain sum, 2.0 times the published one on an island cut in half (`0.012709, 0.025505, 0.0108` against `0.00631, 0.012774, 0.005342` m3/s). It now equals the published one to the stored rounding. Without a buffer nothing moves.
+- Boussinesq, `residual` of `compare` on the island: `-1.47e-05` m3/s before, `-1.40e-09` after, and per period `-3.3e-09, +1.575e-04, -1.850e-04` before, `-3.3e-09, -8.4e-10, -3.1e-11` after. Steady runs and the MODFLOW solvers do not move.
+- A window read on stamps gives one value less than before, as the CSV export already did: on example 04, February 2000 reads 1 simulated value and 29 measurements, where it read 2 and 30.
+- Example 04 through the comparator: 213 targets, no drift, and no drift against the base run for any stored number.
 - Boussinesq `discharge`, island of the test suite, three months: 4.2e-9, 9.6e-10 and 4.2e-11 m3/s before, 0.012709, 0.025505
   and 0.010800 m3/s after. MODFLOW 6 on the same mesh reads 0.011417, 0.023888 and 0.009734 m3/s. Any score of a Boussinesq
   discharge changes with it.

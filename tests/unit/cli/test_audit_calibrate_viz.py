@@ -12,6 +12,7 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
+from hydromodpy.calibration.report import CalibrationReport
 from hydromodpy.core.state.paths import catalog_path_for
 
 
@@ -41,6 +42,20 @@ def test_calibrate_wrong_extension_returns_config(monkeypatch, tmp_path) -> None
     assert code == 14
 
 
+def _report(**fields: object) -> CalibrationReport:
+    """A real report: the command prints and serialises what the class holds."""
+    base = dict(
+        session_id="s",
+        method="optuna",
+        n_trials=1,
+        best_cost=None,
+        duration_s=1.0,
+        save_runs="none",
+        promoted=0,
+    )
+    return CalibrationReport(**{**base, **fields})
+
+
 def test_calibrate_success_forwards_resolved_path_and_prints_summary(
     monkeypatch,
     tmp_path,
@@ -56,16 +71,7 @@ def test_calibrate_success_forwards_resolved_path_and_prints_summary(
         captured["path"] = path
         captured["phase"] = phase
         captured["kwargs"] = kwargs
-        # The shape a CalibrationReport actually has. This fake used to invent a
-        # `summary` attribute, which is the attribute the command read and which
-        # no report class has ever defined: the test manufactured the very data
-        # whose absence made the command print nothing.
-        return SimpleNamespace(
-            best_parameters={"K": 2.1e-4},
-            best_cost=0.25,
-            parameter_uncertainty=(),
-            extra={},
-        )
+        return _report(best_parameters={"K": 2.1e-4}, best_cost=0.25)
 
     monkeypatch.setattr(hmp, "calibrate", fake_calibrate)
 
@@ -94,7 +100,6 @@ def test_viz_family_help_lists_actions(monkeypatch, capsys) -> None:
     assert code == 0
     out = capsys.readouterr().out
     assert "show" in out
-    assert "regen" in out
     assert "gallery" not in out
     assert "serve" not in out
 
@@ -194,7 +199,7 @@ def test_calibrate_forwards_the_selected_phase(monkeypatch, tmp_path) -> None:
 
     def fake_calibrate(path: Path, *, phase=None, **kwargs):
         captured["phase"] = phase
-        return SimpleNamespace(summary={})
+        return _report()
 
     monkeypatch.setattr(hmp, "calibrate", fake_calibrate)
 

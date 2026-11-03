@@ -7,6 +7,7 @@ from typing import Annotated, Literal
 from pydantic import Field, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import CellSamplingDensity, NonEmptyStr
 from hydromodpy.core.units import UREG, LengthMeters
@@ -137,6 +138,7 @@ class GeneratedBandsSupportConfig(DomainSupportBaseConfig):
     default_cell_samples_per_axis: Annotated[CellSamplingDensity, Profile.DEV] = Field(
         default=8,
         description="Sub-sampling resolution per cell axis used when rasterizing band masks.",
+        json_schema_extra=field_metadata(unit="-"),
     )
 
     @model_validator(mode="before")

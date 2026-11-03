@@ -22,7 +22,7 @@ Usage::
 
 CLI::
 
-    hmp dev schema export --output ./schema/
+    hmp config schema --bundle --to ./schema/
 """
 
 from __future__ import annotations

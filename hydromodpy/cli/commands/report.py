@@ -9,7 +9,7 @@ Sub-actions:
 - ``hmp report compare <ref> <ref>... [--by site]``: compare N sealed runs of
   one site (differences, parameters, scores, budget, network, maps, series) and
   write a folder with its README under ``summary/report/compare/`` of the
-  project, or ``--out``; ``--by site`` writes one folder per site and joins the
+  project, or ``--to``; ``--by site`` writes one folder per site and joins the
   scores of the references.
 - ``hmp report catchment <report_config>``: build a catchment HTML report from
   one catchment report TOML configuration.
@@ -20,20 +20,25 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-from hydromodpy.cli.conventions import verbosity_parser, workspace_parser
+from hydromodpy.cli.conventions import (
+    add_destination,
+    format_parser,
+    verbosity_parser,
+    workspace_parser,
+)
 from hydromodpy.cli.helpers import (
     EXIT_CONFIG,
     EXIT_NOT_FOUND,
     EXIT_VALIDATION,
     apply_verbosity,
+    project_named_by_w,
+    refuse,
 )
+from hydromodpy.cli.output import emit
 from hydromodpy.core import progress
 from hydromodpy.core.state.paths import resolve_project_root
-
-if TYPE_CHECKING:
-    from hydromodpy.display.catchment_report.pipeline import CatchmentReportPipelineResult
 
 NAME: str = "report"
 HELP: str = "Render HTML reports and compare sealed runs"
@@ -53,7 +58,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     render_p = sub.add_parser(
         "render",
         help="Render an HTML report for a calibration session",
-        parents=[workspace_parser(), verbosity_parser()],
+        parents=[workspace_parser(), format_parser(), verbosity_parser()],
         epilog="Example:\n  hmp report render ab12cd34 --open",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -78,12 +83,12 @@ def register(subparsers) -> argparse.ArgumentParser:
     compare_p = sub.add_parser(
         "compare",
         help="Compare sealed runs of one site and write a folder with its README",
-        parents=[workspace_parser(), verbosity_parser()],
+        parents=[workspace_parser(), format_parser(), verbosity_parser()],
         epilog=(
             "Examples:\n"
             "  hmp report compare k_low k_high\n"
             "  hmp report compare calage_nm calage_tpe --by site\n"
-            "  hmp report compare runs/coarse runs/fine --out ../mesh_study"
+            "  hmp report compare runs/coarse runs/fine --to ../mesh_study"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -113,17 +118,16 @@ def register(subparsers) -> argparse.ArgumentParser:
             "and the depth to the water table when every run has them."
         ),
     )
-    compare_p.add_argument(
-        "--out",
-        type=Path,
-        default=None,
+    add_destination(
+        compare_p,
         help="Folder of the comparison. Default: summary/report/compare/<refs>/ of the project.",
+        metavar="DIR",
     )
 
     catchment_p = sub.add_parser(
         "catchment",
         help="Build a catchment HTML report from one TOML configuration",
-        parents=[verbosity_parser()],
+        parents=[workspace_parser(), format_parser(), verbosity_parser()],
         epilog="Examples:\n  hmp report catchment report.toml\n  hmp report catchment report.toml --report-only",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -145,11 +149,10 @@ def run(args: argparse.Namespace) -> None:
     if action == "catchment":
         _cmd_catchment(args)
         return
-    print(
+    refuse(
         "Usage: hmp report {render|compare|catchment} [options]. See 'hmp report --help'.",
-        file=sys.stderr,
+        EXIT_CONFIG,
     )
-    sys.exit(EXIT_CONFIG)
 
 
 def _cmd_render(args: argparse.Namespace) -> None:
@@ -161,12 +164,15 @@ def _cmd_render(args: argparse.Namespace) -> None:
         with progress.status("Rendering calibration report"):
             out_path = hmp.report(args.sim_ref, workspace=workspace_root)
     except ConfigMissingError as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
+        refuse(str(exc), EXIT_NOT_FOUND, cause=exc)
     except ConfigError as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_CONFIG)
-    print(f"wrote {out_path}", file=sys.stderr)
+        refuse(str(exc), EXIT_CONFIG, cause=exc)
+    emit(
+        args,
+        "report render",
+        {"path": out_path},
+        table=lambda: print(f"wrote {out_path}", file=sys.stderr),
+    )
     if args.open_browser:
         import webbrowser
 
@@ -191,7 +197,7 @@ def _cmd_compare(args: argparse.Namespace) -> None:
     )
     try:
         with progress.status("Comparing runs"):
-            folder = args.out or default_folder(args.refs, project_root)
+            folder = Path(args.to) if args.to else default_folder(args.refs, project_root)
             if args.by == "site":
                 written = compare_by_site(
                     args.refs, folder, project_root=project_root, variables=variables
@@ -202,12 +208,15 @@ def _cmd_compare(args: argparse.Namespace) -> None:
                 )
                 written = comparison.write(folder)
     except ComparisonReferenceError as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
+        refuse(str(exc), EXIT_NOT_FOUND, cause=exc)
     except ComparisonCaseError as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_VALIDATION)
-    print(f"wrote {written}", file=sys.stderr)
+        refuse(str(exc), EXIT_VALIDATION, cause=exc)
+    emit(
+        args,
+        "report compare",
+        {"folder": written},
+        table=lambda: print(f"wrote {written}", file=sys.stderr),
+    )
 
 
 def _add_catchment_arguments(parser: argparse.ArgumentParser) -> None:
@@ -295,27 +304,26 @@ def _cmd_catchment(args: argparse.Namespace) -> None:
 
     try:
         overrides = _catchment_overrides(args)
-        result = run_catchment_report_pipeline(
-            args.report_config,
-            preset=preset_from_name(args.preset) if args.preset else None,
-            **overrides,
-        )
+        with project_named_by_w(args.workspace):
+            result = run_catchment_report_pipeline(
+                args.report_config,
+                preset=preset_from_name(args.preset) if args.preset else None,
+                **overrides,
+            )
     except (ValueError, ConfigError) as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_CONFIG)
+        refuse(str(exc), EXIT_CONFIG, cause=exc)
 
-    _print_catchment_result(result)
+    written = {
+        "overview_config": result.overview_config,
+        "simulation_config": result.simulation_config,
+        "context_summary": result.context_summary,
+        "html_report": result.html_report,
+        "postflight_report": result.postflight_report,
+    }
 
+    def table() -> None:
+        for key, value in written.items():
+            if value is not None:
+                print(f"{key}={value}")
 
-def _print_catchment_result(result: CatchmentReportPipelineResult) -> None:
-    """Print the paths the catchment report wrote, one ``key=path`` per line."""
-    if result.overview_config is not None:
-        print(f"overview_config={result.overview_config}")
-    if result.simulation_config is not None:
-        print(f"simulation_config={result.simulation_config}")
-    if result.context_summary is not None:
-        print(f"context_summary={result.context_summary}")
-    if result.html_report is not None:
-        print(f"html_report={result.html_report}")
-    if result.postflight_report is not None:
-        print(f"postflight_report={result.postflight_report}")
+    emit(args, "report catchment", written, table=table)

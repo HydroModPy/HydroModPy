@@ -21,6 +21,7 @@ import xarray as xr
 from shapely.geometry import LineString, box
 
 from hydromodpy.core.config_kit.export_spec import ExportKind, ExportRequest
+from hydromodpy.core.time import TimeSelectionError
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.exporters import request as request_module
@@ -422,6 +423,17 @@ def test_run_export_and_hmp_export_speak_the_words_of_the_toml(dated_run) -> Non
     assert hmp.export(run, "discharge", period=("2000-01-01", "2000-01-31")) == [
         exports / "discharge_2000-01-01_2000-01-31.csv"
     ]
+
+
+@pytest.mark.parametrize("fmt", ["netcdf", "geotiff"])
+def test_two_dates_that_read_one_period_are_refused_in_every_format(dated_run, fmt: str) -> None:
+    catalog, sid, exports = dated_run
+    request = ExportRequest(variables="head", time=["2000-01-10", "2000-01-20"], format=fmt)
+
+    with pytest.raises(TimeSelectionError, match="'2000-01-10' and '2000-01-20' read the same"):
+        export_run(catalog, sid, request)
+
+    assert not exports.exists() or not any(exports.iterdir())
 
 
 def test_an_empty_time_list_is_refused_before_any_file(dated_run) -> None:

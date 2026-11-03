@@ -34,7 +34,7 @@ dem_correc_type = "breach"
 write_intermediates = true
 
 [geographic.catchment]
-catch_def = "from_outlet_coord"
+kind = "from_outlet_coord"
 dem_init_path = "{dem}"
 x_outlet = 265611.933
 y_outlet = 6784182.776
@@ -218,7 +218,7 @@ def test_the_fingerprint_sees_a_conditioning_vector_edited_in_place(tmp_path: Pa
 
     payload = {
         "source_mode": "standard",
-        "catchment": {"catch_def": "dem", "dem_init_path": str(DEM)},
+        "catchment": {"kind": "dem", "dem_init_path": str(DEM)},
         "enforce_lakes": {"enabled": True, "lake_geometry_path": str(lakes)},
     }
 

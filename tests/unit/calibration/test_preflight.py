@@ -791,8 +791,7 @@ class TestTheNetworkSearchCanTrustItsReleasePackages:
     """SFR and LAK build their own conductance, never derived from K."""
 
     _SFR = """
-    [flow]
-    active_bc = ["sfr"]
+    [flow.sinks_sources.sfr.net]
 
     [calibration]
     method = "grid"
@@ -822,8 +821,7 @@ class TestTheNetworkSearchCanTrustItsReleasePackages:
 
     def test_sfr_alongside_a_parameter_that_is_not_k_passes(self, tmp_path) -> None:
         doc = """
-        [flow]
-        active_bc = ["sfr"]
+        [flow.sinks_sources.sfr.net]
 
         [calibration]
         method = "grid"
@@ -847,13 +845,13 @@ class TestTheNetworkSearchCanTrustItsReleasePackages:
         assert "SFR" not in _messages(findings)
 
     def test_an_active_lake_moving_k_is_named(self, tmp_path) -> None:
-        doc = self._SFR.replace('active_bc = ["sfr"]', 'active_bc = ["lake"]')
+        doc = self._SFR.replace("sfr.net]", "lakes.lac0]\ninitial_stage = 1.0\nbedleak = 0.1")
         findings = _preflight(_write(tmp_path, doc))
 
         assert "LAK" in _messages(findings)
 
     def test_drainage_alone_passes(self, tmp_path) -> None:
-        doc = self._SFR.replace('active_bc = ["sfr"]', 'active_bc = ["drainage"]')
+        doc = self._SFR.replace("sinks_sources.sfr.net", "bc.drainage")
         findings = _preflight(_write(tmp_path, doc))
 
         assert "SFR" not in _messages(findings)
@@ -861,8 +859,7 @@ class TestTheNetworkSearchCanTrustItsReleasePackages:
 
     def test_a_k_search_on_a_non_network_output_passes(self, tmp_path) -> None:
         doc = """
-        [flow]
-        active_bc = ["sfr"]
+        [flow.sinks_sources.sfr.net]
 
         [calibration]
         method = "grid"
@@ -931,8 +928,7 @@ class TestASingleMetricPhaseScoringANetworkOutput:
 
     def test_a_single_metric_network_phase_next_to_an_active_sfr_is_named(self, tmp_path) -> None:
         doc = """
-        [flow]
-        active_bc = ["sfr"]
+        [flow.sinks_sources.sfr.net]
 
         [calibration]
         method = "grid"

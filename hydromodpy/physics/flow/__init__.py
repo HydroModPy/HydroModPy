@@ -16,7 +16,7 @@ from .boundary_condition_registry import (
     boundary_definition,
     supported_boundary_ids_for_backend,
 )
-from .boundary_conditions import CauchyBC, DirichletBC, FlowBoundaryConditionConfig, RobinBC
+from .boundary_conditions import DirichletBC, DrainBC, FlowBoundaryConditionConfig
 from .flow import Flow
 from .flow_config import FlowConfig, FlowParam
 from .initial_conditions import (
@@ -48,8 +48,7 @@ __all__ = [
     "FlowInitialCondition",
     "FlowInitialConditions",
     "DirichletBC",
-    "CauchyBC",
-    "RobinBC",
+    "DrainBC",
     "FlowBoundaryConditionConfig",
     "BoundaryConditionBundle",
     "FlowBoundaryDefinition",

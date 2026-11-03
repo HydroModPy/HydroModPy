@@ -28,7 +28,7 @@ class _DemoLength(BaseModel):
 
 def _outlet(snap_dist: object) -> OutletCatchDef:
     return OutletCatchDef(
-        catch_def="from_outlet_coord",
+        kind="from_outlet_coord",
         x_outlet=0.0,
         y_outlet=0.0,
         snap_dist=snap_dist,
@@ -104,7 +104,7 @@ PARSE_SUCCESS: list[tuple[str, Callable[[], BaseModel], dict[str, float]]] = [
     ),
     (
         "test_txt_catchdef_cell_size_uses_length_meters",
-        lambda: TxtCatchDef(catch_def="txt", cell_size="0.025 km"),
+        lambda: TxtCatchDef(kind="txt", cell_size="0.025 km"),
         {"cell_size": 25.0},
     ),
     (

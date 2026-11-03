@@ -48,10 +48,12 @@ and forwards the parsed namespace to ``args._handler``.
 
 Reuse the shared grammar from ``hydromodpy/cli/conventions.py`` instead
 of re-declaring flags: ``workspace_parser()`` for ``-w/--workspace``,
-``confirm_parser()`` for ``-y/--yes``, ``format_parser()`` for
-``--format {table,json,csv}``, ``add_sim_ref()`` for the canonical
-``sim_ref`` positional. ``tests/unit/cli/test_cli_conventions.py``
-introspects the argparse tree and fails on drift.
+``confirm_parser()`` for ``-y/--yes``, ``dry_run_parser()`` for
+``--dry-run``, ``format_parser()`` for ``--format {table,json,csv}``,
+``add_destination()`` for ``--to``, ``add_sim_ref()`` for the canonical
+``sim_ref`` positional. ``tests/unit/cli/test_machine_output.py`` walks
+the argparse tree and fails on a verb without ``-w`` or ``--format``, or
+with a flag that left the grammar.
 
 Files to create
 ---------------
@@ -65,8 +67,9 @@ Two edits.
    import argparse
 
    import hydromodpy as hmp
-   from hydromodpy.cli.conventions import workspace_parser
+   from hydromodpy.cli.conventions import format_parser, workspace_parser
    from hydromodpy.cli.helpers import resolve_workspace
+   from hydromodpy.cli.output import emit
 
 
    NAME = "myverb"
@@ -74,7 +77,13 @@ Two edits.
 
 
    def register(subparsers):
-       parser = subparsers.add_parser(NAME, help=HELP, parents=[workspace_parser()])
+       parser = subparsers.add_parser(
+           NAME,
+           help=HELP,
+           parents=[workspace_parser(), format_parser()],
+           epilog="Example:\n  hmp myverb my_project -w ~/hydromodpy",
+           formatter_class=argparse.RawDescriptionHelpFormatter,
+       )
        parser.add_argument("project", help="Project name.")
        parser.set_defaults(_handler=run)
        return parser
@@ -83,7 +92,12 @@ Two edits.
    def run(args):
        workspace = hmp.open(resolve_workspace(args.workspace))
        project = workspace[args.project]
-       project.do_my_thing()
+       written = project.do_my_thing()
+       emit(args, "myverb", {"path": written}, table=lambda: print(f"wrote {written}"))
+
+**Declare what it writes** in ``OUTPUTS`` of ``hydromodpy/cli/output.py``. ``emit`` is the only
+function that writes JSON or CSV, and the page on what a program reads is generated from that
+table. A verb whose output is a document, such as a TOML file, has no entry and no ``--format``.
 
 **Register it** in ``hydromodpy/cli/commands/__init__.py``:
 
@@ -109,13 +123,17 @@ Conventions
   ``geopandas``) **inside** the handler, not at the top of the
   module. The CLI must boot fast.
 - ``stdout`` carries the result the user asked for; diagnostics and
-  progress go to ``stderr`` or through ``logging``. A read command that
-  accepts ``--format json`` must emit parseable JSON on ``stdout`` and
-  nothing else.
-- Map user-facing errors to a typed exit code with
-  ``hydromodpy.cli.helpers.exit_code_for``; let unexpected errors
-  propagate. Exit codes are 0 success, 1 generic, 2 usage, 10..23
-  specific failure categories, 130 SIGINT.
+  progress go to ``stderr`` or through ``logging``. Under ``--format
+  json`` the dispatcher keeps stdout for what ``emit`` writes.
+- A destination is ``--to``. A preview is ``--dry-run``. A verb that
+  removes something takes ``-y``. ``--force`` means one thing: go past
+  a refusal the verb makes because of what is already there or what
+  protects it, and the refusal names ``--force``. A name is ``--name``.
+- Let an exception propagate: the dispatcher prints its ``HMPY.Exxx``
+  and ends with ``exit_code_for``. A refusal of the verb itself is
+  ``hydromodpy.cli.helpers.refuse(message, EXIT_...)``. Exit codes are
+  0 success, 1 generic, 2 usage, 10..23 specific failure categories,
+  130 SIGINT.
 
 Workflow flags
 --------------
@@ -133,13 +151,13 @@ Subcommands
 
 A verb with a handful of actions nests a second ``add_subparsers`` in
 its own module: ``hmp config template``, ``hmp config check``,
-``hmp report render``, ``hmp test regression``.
+``hmp report render``.
 
 A verb with a whole lifecycle becomes a **family**: a sub-package under
 ``cli/commands/`` whose ``__init__.py`` declares ``NAME``, ``HELP`` and
 an ``ACTIONS`` tuple, with one module per action following the same
 four-symbol shape. ``hmp catalog`` (``ls``, ``query``, ``show``,
-``point``, ``gc``, ``reindex``, ``delete``, ``restore``, ``trash``,
+``point``, ``rank``, ``gc``, ``reindex``, ``delete``, ``restore``, ``trash``,
 ``tag``, ``note``, ``rename``, ``diff``, ``watch``, ``import``,
 ``rerun``) is the reference. Attach the group with
 ``add_action_subparsers`` so a bare ``hmp catalog`` is a usage error and

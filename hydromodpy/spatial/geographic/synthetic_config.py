@@ -9,12 +9,13 @@ from typing import Annotated, Literal, TypeAlias
 from pydantic import Field, computed_field, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import PositiveInt
 from hydromodpy.core.units import LengthMeters
 
 SYNTHETIC_CATCH_DEF = "synthetic"
-"""The ``catch_def`` of a synthetic geographic, whose box is its domain and no catchment."""
+"""The catchment kind of a synthetic geographic, whose box is its domain and no catchment."""
 
 
 class SyntheticGridConfig(HydroModelBase):
@@ -172,6 +173,7 @@ class RadialIslandTopography(HydroModelBase):
             "Central island elevation (m). The land surface decays nonlinearly "
             "to sea level at the shoreline."
         ),
+        json_schema_extra=field_metadata(unit="m"),
     )
     center_x: Annotated[LengthMeters | None, Profile.DEV] = Field(
         default=None,

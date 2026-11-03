@@ -73,7 +73,7 @@ with a recipe, named ``<site>-<recipe>``:
    ├── sessions/
    │   ├── J0014010-calage/
    │   └── ...
-   ├── summary/                hmp project collect: by_case.*, by_site.*, catalog.csv, ...
+   ├── summary/                hmp campaign collect: by_case.*, by_site.*, catalog.csv, ...
    ├── jobs/
    │   ├── 20261020-091500-local/   journal.jsonl of the local launcher
    │   └── 20261020-143000-slurm/   prepare.sh, array.sh, cases.txt, journal.jsonl
@@ -330,12 +330,12 @@ Above the run
      - no, and the index does not need it
    * - ``jobs/<stamp>-slurm/cases.txt``, ``prepare.sh``, ``array.sh``
      - frozen when generated
-     - ``hmp project array``
+     - ``hmp campaign array``
      - no
    * - ``summary/by_case.*``, ``by_site.*``, ``catalog.csv``, ``exports/``, ``report/``,
        ``README.md``
      - flat views of the index and of the best case of each site
-     - ``hmp project collect``
+     - ``hmp campaign collect``
      - yes
 
 A plan is never rewritten while one of its cases is ``running``: ``hmp project plan`` refuses
@@ -441,12 +441,16 @@ version. A change it cannot ignore raises the current version, keeps the oldest 
 the reader of the old version with it. Nothing upgrades a stored document to another version:
 a sealed file stays as it was written.
 
+``tests/regression/frozen_runs/`` holds this promise. It keeps a run and a calibration session as
+2.0.0 stored them, and the same with a key, a column and an array that a later 2.x could add. Each
+commit reads both by the public path and compares the values.
+
 A reader refuses a document outside the window, and the message names the version read, the
 version that wrote it when known, what this code reads and what to do:
 
 - newer than the window: upgrade HydroModPy to read it;
 - older than the window, or with no version: a pre-release wrote it, so it must be run again;
-- the lockfile: ``hmp dev lock update`` writes it again.
+- the lockfile: ``hmp lock update`` writes it again.
 
 Two kinds of document keep one exact version, because what they hold can be made again:
 
@@ -638,7 +642,7 @@ whichever precision the store holds.
 extractor produces, under the canonical CBC name: the exchange terms
 (``recharge``, ``drain``, ``river``, ``constant_head``, ``lake``, ``stream``,
 ``evapotranspiration``, ...) and the storage terms (``storage`` under
-MODFLOW-NWT, ``storage_ss`` and ``storage_sy`` under MODFLOW 6). Each term has
+MODFLOW-NWT and Boussinesq, ``storage_ss`` and ``storage_sy`` under MODFLOW 6). Each term has
 a descriptor in :mod:`hydromodpy.results.field_registry`, so it can be listed,
 exported and read with ``run.field``. The group carries two attributes that
 say what the run kept (:mod:`hydromodpy.core.budget_terms`):
@@ -911,11 +915,11 @@ is meant to be committed and to travel, so it holds no path of the machine that 
 - ``[hydromodpy]`` holds the ``hydromodpy`` version, the git commits, the Python version, the
   catalog, Zarr and Parquet schema versions and the sha256 of the config schema.
 - ``[binaries]`` holds the SHA-256 and the version text of the solver binaries a writer names. The
-  launcher and ``hmp dev lock update`` name none, and each run records the binary it used.
+  launcher and ``hmp lock update`` name none, and each run records the binary it used.
 - ``[[input]]`` is one record per entry of the cache: ``variable``, ``source``, ``station_id``, the
   workspace-relative ``path``, ``sha256``, ``bytes``, ``file_mtime`` and ``fetched_at``, the instant
   of the snapshot. Everything that reads the lock reads this record: the check of ``--frozen``,
-  ``hmp dev lock verify``, a restored archive and the frozen matching of the data cache.
+  ``hmp lock verify``, a restored archive and the frozen matching of the data cache.
 
 The ``prepare`` phase writes it once per plan, never each run.
 ``hmp run --frozen`` refuses any source whose fingerprint changed since, and checks the lockfile
@@ -968,12 +972,12 @@ of every file the run read, addressed by content under ``inputs/``, sidecars inc
 receives one line in ``published.jsonl``. ``.hmp/``, ``logs/``, host, user and absolute paths
 never leave: one function redacts every copy.
 
-The portable package **is** ``hmp publish --with results --with inputs --format tar``. Importing
+The portable package **is** ``hmp publish --with results --with inputs --container tar``. Importing
 it (``hmp catalog import``) installs every file of ``INSTALL.toml`` into ``data/`` of the
 workspace (identical bytes cost nothing, other bytes at one path are refused by name), merges the
 station rows, registers the delivered files in ``data/cache.duckdb`` and the site in
 ``data/sites/catalog.csv``, then extracts the run under ``runs/`` and runs an incremental
-reindex. ``hmp project export`` writes a whole project on the same index, and
+reindex. ``hmp publish --package`` writes a whole project on the same index, and
 ``hmp project import`` installs it as ``projects/<name>``.
 
 Reading one cell

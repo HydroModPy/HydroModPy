@@ -213,7 +213,10 @@ class MeshConfig(HydroModelBase):
             "cells, whatever the engine: a domain of area A gets about A / cell_size^2 "
             "cells, and a regular, a triangle and a voronoi cell of this size have about "
             "the same area. It is the side of the regular grid cells and the background "
-            "size of the triangle and voronoi engines. Unset, the DEM pixel size."
+            "size of the triangle and voronoi engines. Unset, the DEM pixel size, which is "
+            "the pixel of geographic.catchment.dem_resolution when that key is set, else "
+            "the pixel of the DEM file. It is the last of the three sizes and reads none "
+            "of them back: it changes the cells and not the surface that was delineated."
         ),
         json_schema_extra={"unit": "m"},
     )

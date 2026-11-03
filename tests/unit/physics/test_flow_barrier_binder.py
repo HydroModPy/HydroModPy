@@ -23,7 +23,7 @@ def test_cutoff_wall_binder_attaches_an_inline_line() -> None:
     lake = FlowLakeConfig.model_validate(
         {
             "bedleak": 1e-6,
-            "stageinit": "81.82 m",
+            "initial_stage": "81.82 m",
             "cutoff_wall": {
                 "line": [[331142.0, 6780439.3], [331119.4, 6780718.7]],
                 "depths": [10.0],
@@ -42,7 +42,7 @@ def test_cutoff_wall_binder_attaches_an_inline_line() -> None:
 
 
 def test_cutoff_wall_binder_is_a_noop_without_a_wall() -> None:
-    lake = FlowLakeConfig.model_validate({"bedleak": 1e-6, "stageinit": "81.82 m"})
+    lake = FlowLakeConfig.model_validate({"bedleak": 1e-6, "initial_stage": "81.82 m"})
     flow = SimpleNamespace(sinks_sources={"lakes": {"reservoir": lake}})
     assert apply_cutoff_wall_to_flow(flow=flow) is False
 

@@ -57,6 +57,7 @@ class RechargeSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
     values: Annotated[list[float] | None, Profile.USER] = Field(
         default=None,
         description="Recharge values in mm/day. Single value for constant, list for time-varying.",
+        json_schema_extra=field_metadata(unit="mm/day"),
     )
     start_date: Annotated[str | None, Profile.USER] = Field(
         default=None,
@@ -69,10 +70,12 @@ class RechargeSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
     periods: Annotated[int | None, Profile.DEV] = Field(
         default=None,
         description="Number of periods for synthetic series.",
+        json_schema_extra=field_metadata(unit="-"),
     )
     amplitude: Annotated[float | None, Profile.EXPERT] = Field(
         default=None,
         description="Sinusoidal amplitude in mm/day (superimposed on values).",
+        json_schema_extra=field_metadata(unit="mm/day"),
     )
     period_days: Annotated[int | None, Profile.EXPERT] = Field(
         default=None,
@@ -81,6 +84,7 @@ class RechargeSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
     offset: Annotated[float | None, Profile.EXPERT] = Field(
         default=None,
         description="Added to the sinusoid, in mm/day. Requires amplitude and period_days.",
+        json_schema_extra=field_metadata(unit="mm/day"),
     )
 
     @model_validator(mode="after")

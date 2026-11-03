@@ -20,8 +20,8 @@ def _scalar(value: object) -> float:
 def _active_lake_definitions(model) -> dict[str, dict[str, Any]]:
     """Return the active lake definitions ``{lake_id: {polygon, bedleak, abacus}}``.
 
-    A lake is active when ``lake`` or ``reservoir`` is listed in
-    ``flow.active_bc``. Geometry, bedleak and abacus are surfaced by the data /
+    A lake is active when its table is declared and not switched off, which
+    ``flow.active_bc`` says as ``lake``. Geometry, bedleak and abacus are surfaced by the data /
     physics layers; this helper only normalizes the lookup so the orchestrator
     stays grid-focused.
     """
@@ -29,7 +29,7 @@ def _active_lake_definitions(model) -> dict[str, dict[str, Any]]:
     if flow is None:
         return {}
     active_bc = {str(name).lower() for name in getattr(flow, "active_bc", []) or []}
-    if not ({"lake", "reservoir"} & active_bc):
+    if "lake" not in active_bc:
         return {}
 
     sinks_sources = getattr(flow, "sinks_sources", {})
@@ -46,7 +46,7 @@ def _active_lake_definitions(model) -> dict[str, dict[str, Any]]:
             "abacus": _lake_attr(payload, "abacus"),
             "bathymetry": _lake_attr(payload, "bathymetry"),
             "bed_reconstruction": _lake_attr(payload, "bed_reconstruction"),
-            "stageinit": _lake_attr(payload, "stageinit"),
+            "initial_stage": _lake_attr(payload, "initial_stage"),
             "steady_stage_hold": _lake_attr(payload, "steady_stage_hold"),
             "occupied_layers": _lake_attr(payload, "occupied_layers"),
             "fill_enclosed_cells": _lake_attr(payload, "fill_enclosed_cells"),

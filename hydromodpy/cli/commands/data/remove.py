@@ -4,8 +4,15 @@ from __future__ import annotations
 
 import argparse
 
-from hydromodpy.cli.conventions import verbosity_parser
-from hydromodpy.cli.helpers import apply_verbosity
+from hydromodpy.cli.conventions import (
+    confirm_parser,
+    dry_run_parser,
+    format_parser,
+    verbosity_parser,
+    workspace_parser,
+)
+from hydromodpy.cli.helpers import apply_verbosity, confirm
+from hydromodpy.cli.output import emit
 
 NAME: str = "remove"
 HELP: str = "Remove cache entries for a variable/provider/station"
@@ -15,11 +22,16 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        parents=[verbosity_parser()],
-        epilog="Example:\n  hmp data remove --variable precipitation --provider sim2 --delete-files",
+        parents=[
+            workspace_parser(),
+            confirm_parser(),
+            dry_run_parser(),
+            format_parser(),
+            verbosity_parser(),
+        ],
+        epilog="Example:\n  hmp data remove --variable precipitation --provider sim2 --delete-files -y",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("-w", "--workspace", default=None, help="Workspace holding the data cache")
     parser.add_argument("--variable", default=None, help="Remove the entries of this variable")
     parser.add_argument("--provider", default=None, help="Remove the entries of this provider")
     parser.add_argument(
@@ -37,11 +49,20 @@ def run(args: argparse.Namespace) -> None:
     apply_verbosity(args, {})
     from hydromodpy.cli._workers.data import remove_data_entries
 
+    if not args.dry_run:
+        confirm(args, "Remove these cache entries?", doing="remove cache entries")
     n = remove_data_entries(
         args.workspace,
         variable=args.variable,
         provider=args.provider,
         station_id=args.station_id,
         delete_files=args.delete_files,
+        dry_run=args.dry_run,
     )
-    print(f"  Removed {n} entry(ies).")
+    verb = "Would remove" if args.dry_run else "Removed"
+    emit(
+        args,
+        "data remove",
+        {"applied": not args.dry_run, "removed": n},
+        table=lambda: print(f"  {verb} {n} entry(ies)."),
+    )

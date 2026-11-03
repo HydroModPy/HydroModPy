@@ -42,7 +42,7 @@ class _Project:
 
 
 def _lake_project(unit: str = "1/day") -> _Project:
-    return _Project(lakes={"cheze": {"bedleak": 0.01, "bedleak_unit": unit, "stageinit": 45.0}})
+    return _Project(lakes={"cheze": {"bedleak": 0.01, "bedleak_unit": unit, "initial_stage": 45.0}})
 
 
 def _barrier(**values: object) -> dict[str, object]:

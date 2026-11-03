@@ -8,7 +8,7 @@ import pytest
 
 
 def _load_module():
-    return importlib.import_module("hydromodpy.cli.commands.test")
+    return importlib.import_module("hydromodpy.cli.commands.dev.test")
 
 
 def _load_main_module():
@@ -41,7 +41,7 @@ def _capture_pytest_invocation(
 def test_hmp_regression_fast_mf6_builds_fast_tier_selection(monkeypatch) -> None:
     args, _ = _capture_pytest_invocation(
         monkeypatch,
-        ["hmp", "test", "regression", "--fast", "--mf6"],
+        ["hmp", "dev", "test", "regression", "--fast", "--mf6"],
     )
 
     assert args[:3] == [str(Path(sys.executable)), "-m", "pytest"]
@@ -68,7 +68,7 @@ def test_regression_discovery_keeps_embedded_regression_vocab(tmp_path: Path) ->
 def test_hmp_regression_fast_intercomparison_builds_marker_selection(monkeypatch) -> None:
     args, _ = _capture_pytest_invocation(
         monkeypatch,
-        ["hmp", "test", "regression", "--fast", "--intercomparison"],
+        ["hmp", "dev", "test", "regression", "--fast", "--intercomparison"],
     )
 
     assert args[:3] == [str(Path(sys.executable)), "-m", "pytest"]
@@ -80,7 +80,7 @@ def test_hmp_regression_fast_intercomparison_builds_marker_selection(monkeypatch
 def test_hmp_validation_fast_steady_builds_validation_marker_selection(monkeypatch) -> None:
     args, _ = _capture_pytest_invocation(
         monkeypatch,
-        ["hmp", "test", "validation", "--fast", "--steady"],
+        ["hmp", "dev", "test", "validation", "--fast", "--steady"],
     )
 
     assert args[:3] == [str(Path(sys.executable)), "-m", "pytest"]
@@ -92,7 +92,7 @@ def test_hmp_validation_fast_steady_builds_validation_marker_selection(monkeypat
 def test_hmp_unit_fast_builds_daily_marker_selection(monkeypatch) -> None:
     args, _ = _capture_pytest_invocation(
         monkeypatch,
-        ["hmp", "test", "unit", "--fast"],
+        ["hmp", "dev", "test", "unit", "--fast"],
     )
 
     assert args[:3] == [str(Path(sys.executable)), "-m", "pytest"]
@@ -104,7 +104,7 @@ def test_hmp_unit_fast_builds_daily_marker_selection(monkeypatch) -> None:
 def test_hmp_unit_slow_builds_nightly_marker_selection(monkeypatch) -> None:
     args, _ = _capture_pytest_invocation(
         monkeypatch,
-        ["hmp", "test", "unit", "--slow"],
+        ["hmp", "dev", "test", "unit", "--slow"],
     )
 
     assert args[:3] == [str(Path(sys.executable)), "-m", "pytest"]
@@ -123,7 +123,7 @@ def test_hmp_validation_rejects_extensive(monkeypatch) -> None:
         return 0
 
     monkeypatch.setattr(module.subprocess, "call", _fake_call)
-    monkeypatch.setattr(sys, "argv", ["hmp", "test", "validation", "--extensive"])
+    monkeypatch.setattr(sys, "argv", ["hmp", "dev", "test", "validation", "--extensive"])
 
     with pytest.raises(SystemExit) as exc_info:
         main_module.main()
@@ -142,7 +142,7 @@ def test_hmp_validation_rejects_intercomparison(monkeypatch) -> None:
         return 0
 
     monkeypatch.setattr(module.subprocess, "call", _fake_call)
-    monkeypatch.setattr(sys, "argv", ["hmp", "test", "validation", "--intercomparison"])
+    monkeypatch.setattr(sys, "argv", ["hmp", "dev", "test", "validation", "--intercomparison"])
 
     with pytest.raises(SystemExit) as exc_info:
         main_module.main()
@@ -161,7 +161,7 @@ def test_hmp_unit_rejects_extensive(monkeypatch) -> None:
         return 0
 
     monkeypatch.setattr(module.subprocess, "call", _fake_call)
-    monkeypatch.setattr(sys, "argv", ["hmp", "test", "unit", "--extensive"])
+    monkeypatch.setattr(sys, "argv", ["hmp", "dev", "test", "unit", "--extensive"])
 
     with pytest.raises(SystemExit) as exc_info:
         main_module.main()
@@ -177,7 +177,7 @@ def test_hmp_test_uses_external_pytest_basetemp(monkeypatch, tmp_path: Path) -> 
 
     args, env = _capture_pytest_invocation(
         monkeypatch,
-        ["hmp", "test", "unit"],
+        ["hmp", "dev", "test", "unit"],
     )
 
     assert env is not None
@@ -207,7 +207,7 @@ def test_hmp_test_reuses_inherited_pytest_session_scratch(
 
     args, env = _capture_pytest_invocation(
         monkeypatch,
-        ["hmp", "test", "unit"],
+        ["hmp", "dev", "test", "unit"],
     )
 
     assert env is not None

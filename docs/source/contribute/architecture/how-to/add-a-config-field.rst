@@ -167,7 +167,7 @@ Add a field to an existing section
    from hydromodpy.core.units import HydraulicConductivity
 
 
-   class FlowConfig(ProcessSpatialConfig):
+   class FlowConfig(HydroModelBase):
        # ... existing fields ...
 
        k_aquifer: Annotated[HydraulicConductivity, Profile.USER] = Field(
@@ -226,7 +226,7 @@ Add a brand-new section
    ``python -m tools.docs.schema_export`` and commit the diff.
    ``tests/unit/docs/test_docs_config_consistency.py`` fails while the file in
    ``docs/source/_static/`` differs from what the code exports. The frontend
-   export, ``hmp dev schema export``, is written on demand and is not committed.
+   export, ``hmp config schema --bundle --to DIR``, is written on demand and is not committed.
 
 Describe the field
 ------------------

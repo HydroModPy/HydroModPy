@@ -28,12 +28,12 @@ Catalog.load_dataset	method	(self, filters: dict[str, Any] | None = None, *, fie
 Catalog.metrics	method	(self) -> list[str]
 Catalog.open_zarr	method	(self, sim_id: str | UUID) -> SimulationZarr
 Catalog.project_path	property	Path
-Catalog.query_budget	method	(self, sim_id: str | UUID, zone_id: str | None = None, period: tuple[int, int] | None = None) -> pd.DataFrame
+Catalog.query_budget	method	(self, sim_id: str | UUID, zone_id: str | None = None, steps: tuple[int, int] | None = None) -> pd.DataFrame
 Catalog.query_field	method	(self, sim_id: str | UUID, variable: str, timestep: int, layer: int | None = None) -> np.ndarray
 Catalog.query_mass_balance	method	(self, sim_id: str | UUID) -> pd.DataFrame
 Catalog.query_timeseries	method	(self, sim_id: str | UUID, station_id: str, variable: str, period: tuple | None = None, *, source: str = 'simulated') -> pd.Series
 Catalog.rank	method	(self, project: str, metric: str = 'nse', *, ascending: bool | None = None, n: int = 1, best_first: bool = True, site: str | None = None, mixed_windows: bool = False) -> RunSet
-Catalog.read	method	(self, ref: str, var: str, *, time: Any = None, layer: int | None = None, sel: dict | None = None, bbox: tuple[float, float, float, float] | None = None) -> Any
+Catalog.read	method	(self, ref: str, variable: str, *, time: Any = None, layer: int | None = None, sel: dict | None = None, bbox: tuple[float, float, float, float] | None = None) -> Any
 Catalog.read_geographic_feature	method	(self, sim_id: str | UUID, feature_name: str) -> gpd.GeoDataFrame
 Catalog.read_geographic_metadata	method	(self, sim_id: str | UUID) -> dict[str, str]
 Catalog.rel_dir_of	method	(self, sim_id: str | UUID) -> str
@@ -50,7 +50,7 @@ Catalog.tables_dir_for	method	(self, sim_id: str | UUID) -> Path
 Catalog.variables	method	(self) -> list[str]
 Catalog.workspace_path	property	Path
 Catalog.worst	method	(self, project: str, metric: str = 'nse', *, site: str | None = None, mixed_windows: bool = False) -> Run
-Project.best	method	(self, metric: str = 'nse', *, by: Literal['site', 'recipe'] | None = 'site', label: str | Sequence[str] | None = ('calibrated', 'evaluated'), mixed_windows: bool = False) -> pd.DataFrame
+Project.best_runs	method	(self, metric: str = 'nse', *, by: Literal['site', 'recipe'] | None = 'site', label: str | Sequence[str] | None = ('calibrated', 'evaluated'), mixed_windows: bool = False) -> pd.DataFrame
 Project.build_geographic	method	(self, *, reuse_dem: bool = False) -> None
 Project.build_mesh	method	(self, **overrides) -> None
 Project.calibrate	method	(self, *, config_path: str | Path | None = None, parameters: dict[str, dict] | None = None, outputs: dict[str, dict] | None = None, objective_blocks: list[dict] | None = None, phases: list[dict] | None = None, method: str | None = None, max_trials: int | None = None, save_runs: str | None = None, seed: int | None = None, phase: str | None = None, **kwargs)
@@ -61,31 +61,29 @@ Project.config	property	HydroModPyConfig
 Project.data	property	ProjectDataAccessor
 Project.data_loaded	property	set[str]
 Project.domain	property	Domain | None
-Project.execute	method	(self, *, name: str | None = None, resume: str | None = None, from_step: str | int | None = None, until_step: str | int | None = None, dry_run: bool = False, frozen: bool = False, no_display: bool = False, parallel: bool = True, fresh: bool = False, force: bool = False, lineage: Lineage | None = None, calibrated_by: CalibratedBy | None = None, **overrides) -> SealedRun | None
 Project.geographic	property	CatchmentDelineation | None
 Project.has_mesh	property	bool
+Project.launch	method	(self, *, parallel: int | None = None, only: str | Sequence[str] = (), site: str | None = None, until: str | None = None, fresh: bool = False, force: bool = False, resume: bool = False, prepare_parallel: int | None = None) -> LaunchReport
 Project.load_data	method	(self, *, types: list[str] | None = None) -> None
 Project.loaded_data	property	LoadedDataContext
-Project.plan	method	(self, *, set_overrides: Mapping[str, Any] | None = None, force: bool = False) -> PlanDraft
+Project.plan	method	(self, *, set: Mapping[str, Any] | None = None, force: bool = False) -> PlanDraft
 Project.prepare	method	(self) -> Project
 Project.publish	method	(self, to: str | Path, *, format: PublicationFormat = 'dir', with_: Sequence[PublicationExtra] = (), public: bool = False) -> Path
 Project.rebuild_geographic	method	(self, *, reuse_dem: bool = False) -> None
 Project.reload_data	method	(self, *, types: list[str]) -> None
-Project.rerun	classmethod	(run: Run, *, name: str | None = None, set: Mapping[str, Any] | None = None, solver: str | None = None, headless: bool = False, no_display: bool = False, **overrides) -> Run
+Project.rerun	classmethod	(run: Run, *, name: str | None = None, set: Mapping[str, Any] | None = None, solver: str | None = None, headless: bool = False, no_display: bool = False) -> Run
 Project.root	property	Path
-Project.run	method	(self, *, parallel: int | None = None, only: str | Sequence[str] = (), site: str | None = None, until: str | None = None, fresh: bool = False, force: bool = False, resume: bool = False, prepare_parallel: int | None = None) -> LaunchReport
 Project.runs	property	ProjectRunsAccessor
 Project.sessions	property	ProjectSessions
 Project.setup_workspace	method	(self) -> None
-Project.simulate	method	(self, *, name: str | None = None, resume: str | None = None, from_step: str | int | None = None, until_step: str | int | None = None, dry_run: bool = False, frozen: bool = False, no_display: bool = False, parallel: bool = True, fresh: bool = False, force: bool = False, lineage: Lineage | None = None, calibrated_by: CalibratedBy | None = None, **overrides) -> Run | None
+Project.simulate	method	(self, *, set: Mapping[str, Any] | None = None, name: str | None = None, resume: str | None = None, from_step: str | None = None, until_step: str | None = None, dry_run: bool = False, frozen: bool = False, no_display: bool = False, fresh: bool = False, force: bool = False, lineage: Lineage | None = None, calibrated_by: CalibratedBy | None = None) -> Run | PlanDraft | None
 Project.sites	property	gpd.GeoDataFrame
 Project.spinup	method	(self, *, spinup: SpinupConfig | None = None, name_prefix: str = 'spinup') -> SpinupResult
 Project.status	method	(self) -> StatusReport
 Project.store	property	Catalog
 Project.time_grid	property	ResolvedSimulationTimeGrid | ResolvedSteadySimulationTimeGrid | None
-Project.workflow_context	property	WorkflowContext
 Run.available_hydrographic_network_roles	method	(self) -> list[str]
-Run.budget	method	(self, component: str | None = None, zone_id: str | None = None, period: tuple[int, int] | None = None) -> pd.DataFrame
+Run.budget	method	(self, component: str | None = None, *, zone_id: str | None = None, period: tuple | str | None = None, steps: tuple[int, int] | None = None) -> pd.DataFrame
 Run.catchment_mask	method	
 Run.checks	property	Checks
 Run.config_snapshot	property	dict | None
@@ -94,7 +92,7 @@ Run.dem	method
 Run.dir	property	Path
 Run.export	method	(self, variables: str | list[str], *, time: Any = None, period: tuple[Any, Any] | None = None, format: str | None = None, folder: str | Path | None = None, file: str | Path | None = None, crs: str | None = None, resolution: float | None = None, layer: int | None = None, nodata: float = -9999.0) -> list[Path]
 Run.exports	property	list[Path]
-Run.field	method	(self, variable: str, timestep: int = -1, layer: int | None = None, *, bbox: tuple[float, float, float, float] | None = None) -> np.ndarray
+Run.field	method	(self, variable: str, *, time: int | str | datetime.date | pd.Timestamp | np.datetime64 = -1, layer: int | None = None, bbox: tuple[float, float, float, float] | None = None) -> np.ndarray
 Run.figures	property	list[Path]
 Run.flow_regime	property	str | None
 Run.geographic	method	(self, feature_name: str) -> gpd.GeoDataFrame
@@ -118,10 +116,9 @@ Run.n_layers	property	int | None
 Run.n_timesteps	property	int | None
 Run.name	property	str | None
 Run.note	method	(self, text: str) -> Run
-Run.observed	method	(self, variable: str, station: str | None = None, period: tuple | None = None) -> pd.DataFrame
+Run.observed	method	(self, variable: str, *, station: str | None = None, period: tuple | None = None) -> pd.DataFrame
 Run.outlet	method	
 Run.parameters	property	pd.DataFrame
-Run.params	method	
 Run.project	property	str
 Run.recharge_forcing	method	(self) -> pd.Series
 Run.record	property	RunRecord
@@ -141,10 +138,10 @@ RunSet.filter	method	(self, **criteria) -> RunSet
 RunSet.metrics	property	pd.DataFrame
 RunSet.parameters	property	pd.DataFrame
 RunSet.sim_ids	property	list[str]
-RunSet.sort_by	method	(self, metric: str, ascending: bool = True, *, mixed_windows: bool = False) -> RunSet
+RunSet.sort_by	method	(self, metric: str, *, ascending: bool = True, mixed_windows: bool = False) -> RunSet
 RunSet.to_csv	method	(self, path: Path | str) -> None
 RunSet.to_dataframe	method	(self, *, params: list[str] | None = None, metrics: list[str] | None = None) -> pd.DataFrame
-RunSet.to_xarray	method	(self, variable: str, *, dim: str = 'sim') -> xr.DataArray
+RunSet.to_xarray	method	(self, variable: str, *, dim: str = 'run') -> xr.DataArray
 RunSet.worst	method	(self, metric: str, *, mixed_windows: bool = False) -> Run
 Session.best	property	Run | None
 Session.best_by_case	property	dict[str, Run | None]

@@ -136,6 +136,7 @@ class SitesRunConfig(HydroModelBase):
             "default is 1: one run already kept about 1.8 cores busy, and parallel "
             "times threads_per_case above the cores is refused without --force."
         ),
+        json_schema_extra=field_metadata(unit="-"),
     )
     keep_attempts: Annotated[int, Profile.DEV] = Field(
         default=1,
@@ -144,6 +145,7 @@ class SitesRunConfig(HydroModelBase):
             "Earlier attempts of a case kept under runs/<case>/attempts/ when a "
             "fresh attempt starts. Shown by --dry-run."
         ),
+        json_schema_extra=field_metadata(unit="-"),
     )
     prepare_parallel: Annotated[int, Profile.DEV] = Field(
         default=2,
@@ -154,6 +156,7 @@ class SitesRunConfig(HydroModelBase):
             "since they write the same data files. Above 8 the launcher refuses "
             "without --force: 16 runs writing the data cache at once lost a write."
         ),
+        json_schema_extra=field_metadata(unit="-"),
     )
 
 
@@ -216,6 +219,17 @@ class SitesSummaryConfig(HydroModelBase):
     def _columns_are_dotted_paths(cls, value: list[str]) -> list[str]:
         for column in value:
             parse_dotted_path(column)
+        return value
+
+    @field_validator("metrics")
+    @classmethod
+    def _metrics_are_metrics_of_the_rule(cls, value: list[str]) -> list[str]:
+        unknown = [name for name in value if name not in METRIC_NAMES]
+        if unknown:
+            raise ValueError(
+                f"metrics {', '.join(map(repr, unknown))} are not metrics the run rule writes: "
+                f"{', '.join(METRIC_NAMES)}."
+            )
         return value
 
     @field_validator("rank_by")

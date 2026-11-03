@@ -420,19 +420,25 @@ def write_piecewise_strip_launcher_config(
     if runtime_backend is not None:
         runtime_flow = {
             "flow_regime": "steady",
-            "runtime_backend": runtime_backend,
+            "runtime": {
+                "backend": runtime_backend,
+            },
         }
         if surface_interaction_model is not None:
-            runtime_flow["surface_interaction_model"] = surface_interaction_model
+            runtime_flow.setdefault("runtime", {})["surface_interaction_model"] = (
+                surface_interaction_model
+            )
         if apply_runtime_defaults:
             runtime_flow = apply_analytical_boussinesq_runtime_defaults(
                 runtime_flow,
                 flow_regime="steady",
             )
+        runtime = runtime_flow["runtime"]
         runtime_lines = [
-            f"runtime_backend = {json.dumps(str(runtime_flow['runtime_backend']))}",
-            "surface_interaction_model = "
-            f"{json.dumps(str(runtime_flow['surface_interaction_model']))}",
+            "[flow.runtime]",
+            f"backend = {json.dumps(str(runtime['backend']))}",
+            f"surface_interaction_model = {json.dumps(str(runtime['surface_interaction_model']))}",
+            "",
         ]
 
     lines = [
@@ -492,11 +498,11 @@ def write_piecewise_strip_launcher_config(
         "",
         "[flow]",
         'flow_regime = "steady"',
-        *runtime_lines,
         'param_list = ["K"]',
         f"active_sinks_sources = [{', '.join(json.dumps(item) for item in active_sinks_sources)}]",
         f"active_bc = [{', '.join(json.dumps(item) for item in active_bc)}]",
         "",
+        *runtime_lines,
         "[flow.ic]",
         'type = "custom"',
         f"value = {float(initial_head_m):.12g}",

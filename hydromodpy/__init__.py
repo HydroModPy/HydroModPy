@@ -9,7 +9,6 @@ import warnings
 # "no aliases / no re-exports" rule in CLAUDE.md. CLI verbs and Python
 # user code must reach the same canonical symbols through this module,
 # so the verbs in `hydromodpy/_api` are re-exported here on purpose.
-from hydromodpy import catalog  # noqa: F401  --  expose ``hmp.catalog`` namespace
 from hydromodpy._api import (
     calibrate,
     calibration_phases,
@@ -32,7 +31,6 @@ from hydromodpy._bootstrap import bootstrap  # noqa: F401  -- import registers t
 from hydromodpy._lazy import LAZY_IMPORTS as _LAZY_IMPORTS
 from hydromodpy._lazy import MODULE_EXPORTS as _MODULE_EXPORTS
 from hydromodpy._lazy import OLD_NAMES as _OLD_NAMES
-from hydromodpy.core.io.proj_bootstrap import bootstrap_proj
 from hydromodpy.core.logging import DEFAULT_VERBOSITY, LogManager, verbosity_from_env
 from hydromodpy.core.version import __version__
 
@@ -49,13 +47,10 @@ __email__ = (
 _log_manager = LogManager(
     mode=verbosity_from_env() or DEFAULT_VERBOSITY, log_dir=None, overwrite=False
 )
-# Public access to log manager for users
-log_manager = _log_manager
 
 _DIRECT_EXPORTS = [
     "open",
     "index",
-    "catalog",
     "read",
     "example_add",
     "example_list",
@@ -69,9 +64,7 @@ _DIRECT_EXPORTS = [
     "compare",
     "compare_pair",
     "report",
-    "bootstrap_proj",
     "doctor",
-    "log_manager",
     "__version__",
 ]
 
@@ -93,6 +86,12 @@ def __getattr__(name: str):
         return attr
     if name in _OLD_NAMES:
         entry = _OLD_NAMES[name]
+        if entry.refused:
+            from hydromodpy.core.exceptions import OldNameError
+
+            raise OldNameError(
+                f"hydromodpy.{name} left the top level before {entry.since}. Use {entry.new}."
+            )
         # stacklevel=1 names this file: the console routing hides a deprecation it
         # reads as a third party's, and the reader of this one wrote the call.
         warnings.warn(
@@ -105,4 +104,4 @@ def __getattr__(name: str):
     raise AttributeError(f"module 'hydromodpy' has no attribute {name!r}")
 
 
-__all__ = [*_DIRECT_EXPORTS, *_LAZY_IMPORTS, *_MODULE_EXPORTS]
+__all__ = [*_DIRECT_EXPORTS, *_LAZY_IMPORTS]

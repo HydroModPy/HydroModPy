@@ -1,7 +1,7 @@
 """MF6 LAK driven by a piecewise (csv-then-constant) lake forcing.
 
 A tiny single-lake DISV model is run over a four-period daily transient. The
-lake inflow is declared as a :class:`FlowWellForcingPiecewiseConfig` whose first
+lake inflow is declared as a :class:`PiecewiseForcing` whose first
 segment reads a csv chronicle (days 1-2) and whose second segment is a constant
 (days 3-4). The production lake builder ``build_lake_period_data`` resolves it to
 a TS6 STEPWISE series; this test asserts the series the builder emits matches the
@@ -20,7 +20,7 @@ from hydromodpy.core.time import (
     ResolvedSimulationTimeWindow,
     build_simulation_time_boundaries,
 )
-from hydromodpy.physics.flow.sinks_sources.wells import FlowWellForcingPiecewiseConfig
+from hydromodpy.physics.base.forcing import PiecewiseForcing
 from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
 from hydromodpy.solver.modflow6.builders.lake import build_lake_period_data
 from hydromodpy.solver.modflow6.support.time_series import attach_time_series
@@ -65,8 +65,8 @@ class _FakeModel:
         self.modflow_config = _FakeConfig(mode="ts6", min_periods=0)
 
 
-def _piecewise_forcing(csv_path: Path) -> FlowWellForcingPiecewiseConfig:
-    return FlowWellForcingPiecewiseConfig(
+def _piecewise_forcing(csv_path: Path) -> PiecewiseForcing:
+    return PiecewiseForcing(
         segments=[
             {
                 "start": "2000-01-01",

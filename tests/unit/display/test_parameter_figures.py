@@ -84,7 +84,7 @@ class _Run:
     def has_field(self, variable: str, **_) -> bool:
         return variable in self._fields
 
-    def field(self, variable: str, timestep: int = -1, **_) -> np.ndarray:
+    def field(self, variable: str, time: int = -1, **_) -> np.ndarray:
         return self._fields[variable]
 
 

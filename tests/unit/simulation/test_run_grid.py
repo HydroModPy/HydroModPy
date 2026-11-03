@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 
 from hydromodpy.results.run import Run
+from hydromodpy.results.run.tables import global_parameters
 
 from ._test_simulation_api_builders import RunBuilder, runs
 
@@ -284,7 +285,7 @@ class TestFields:
         run = Run(sid, runs.reader())
         ds = run.array.to_xarray_batch(("head",))
         for t in range(3):
-            frame = np.asarray(run.field("head", timestep=t)).ravel()
+            frame = np.asarray(run.field("head", time=t)).ravel()
             np.testing.assert_array_equal(ds["head"].isel(time=t, layer=0).values, frame)
 
     def test_list_fields_lists_readable_registry_names(self, runs):
@@ -301,7 +302,7 @@ class TestFields:
         assert fields == ["head", "watertable_depth", "watertable_elevation"]
         # every listed name is readable through run.field
         for name in fields:
-            assert run.field(name, timestep=0).size == n_cells
+            assert run.field(name, time=0).size == n_cells
 
 
 class TestTimeIndex:
@@ -346,7 +347,7 @@ class TestParams:
             sid, [{"param_name": "K", "value": 5e-5}, {"param_name": "Sy", "value": 0.05}]
         )
         run = Run(sid, runs.reader())
-        assert run.params == {"K": 5e-5, "Sy": 0.05}
+        assert global_parameters(run) == {"K": 5e-5, "Sy": 0.05}
 
     def test_params_excludes_zonal_rows(self, runs):
         sid = _register_sim(runs)
@@ -359,7 +360,7 @@ class TestParams:
             ],
         )
         run = Run(sid, runs.reader())
-        assert run.params == {"thickness": 30.0}
+        assert global_parameters(run) == {"thickness": 30.0}
 
 
 class TestOutlet:

@@ -46,8 +46,8 @@ class SideBySideMapFigure(BaseFigure):
             )
         ts = last_timestep(sim) if timestep is None else timestep
         cbar_label = self.axis_label_for(field)
-        a = np.asarray(sim.field(field, timestep=ts)).ravel()
-        b = np.asarray(reference.field(field, timestep=ts)).ravel()
+        a = np.asarray(sim.field(field, time=ts)).ravel()
+        b = np.asarray(reference.field(field, time=ts)).ravel()
         vmin = float(np.nanmin([a.min(), b.min()]))
         vmax = float(np.nanmax([a.max(), b.max()]))
         render_face_field(
@@ -92,8 +92,8 @@ class SideBySideMapFigure(BaseFigure):
         ts = last_timestep(sim) if timestep is None else timestep
         descriptor = self.field_descriptor_for(field)
         cbar_label = f"{descriptor.long_name} ({descriptor.units})"
-        a = np.asarray(sim.field(field, timestep=ts)).ravel()
-        b = np.asarray(reference.field(field, timestep=ts)).ravel()
+        a = np.asarray(sim.field(field, time=ts)).ravel()
+        b = np.asarray(reference.field(field, time=ts)).ravel()
         vmin = float(np.nanmin([a.min(), b.min()]))
         vmax = float(np.nanmax([a.max(), b.max()]))
         render_face_field(

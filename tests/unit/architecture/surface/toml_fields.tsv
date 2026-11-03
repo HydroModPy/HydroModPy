@@ -127,7 +127,7 @@ calibration.protocol.storage	str | Literal[False]	'Sy'	experimental
 calibration.protocol.transient_max_trials	int	120	experimental
 calibration.protocol.transient_method	str	'scipy_nelder_mead'	experimental
 calibration.protocol.transient_method_options	dict[str, Any]	{}	experimental
-calibration.protocol.transient_metric	str	'nse_log'	experimental
+calibration.protocol.transient_metric	Literal['rmse', 'nse', 'kge', 'mae', 'nse_log', 'nse_delta', 'nse_seasonal', 'reservoir', 'distance_gap', 'distance_mean']	'nse_log'	experimental
 calibration.protocol.transient_precision	float | None	None	experimental
 calibration.protocol.version	str | None	None	experimental
 calibration.reject_water_budget_above	float | None	1.0	experimental
@@ -649,27 +649,43 @@ export.resolution	float | None	None	stable
 export.time	str | int | list[str | int] | None	None	stable
 export.variables	str | list[str]	<required>	stable
 flow	table	<table>	stable
-flow.active_bc	list[str]	[]	stable
-flow.active_sinks_sources	list[str]	[]	stable
 flow.bc	dict[str, table]	{}	stable
 flow.bc.application_domain	str | None	None	stable
 flow.bc.data_value	bool	False	stable
 flow.bc.description	str	''	stable
+flow.bc.enabled	bool	True	stable
 flow.bc.forcing	table | None	None	stable
 flow.bc.forcing.aggregate	Literal['mean', 'last']	'mean'	stable
+flow.bc.forcing.by_month	dict[int, float] | None	None	stable
+flow.bc.forcing.by_season	dict[str, float] | None	None	stable
 flow.bc.forcing.date_column	str	'date'	stable
 flow.bc.forcing.date_format	str | None	None	stable
-flow.bc.forcing.mode	Literal['constant']	'constant'	stable
-flow.bc.forcing.mode	Literal['csv']	'csv'	stable
+flow.bc.forcing.kind	Literal['constant']	'constant'	stable
+flow.bc.forcing.kind	Literal['csv']	'csv'	stable
+flow.bc.forcing.kind	Literal['piecewise']	'piecewise'	stable
+flow.bc.forcing.kind	Literal['seasonal']	'seasonal'	stable
 flow.bc.forcing.path_file	Path	<required>	stable
+flow.bc.forcing.segments	list[table]	<required>	stable
+flow.bc.forcing.segments.end	str | None	None	stable
+flow.bc.forcing.segments.forcing	table	<required>	stable
+flow.bc.forcing.segments.forcing.aggregate	Literal['mean', 'last']	'mean'	stable
+flow.bc.forcing.segments.forcing.date_column	str	'date'	stable
+flow.bc.forcing.segments.forcing.date_format	str | None	None	stable
+flow.bc.forcing.segments.forcing.kind	Literal['constant']	'constant'	stable
+flow.bc.forcing.segments.forcing.kind	Literal['csv']	'csv'	stable
+flow.bc.forcing.segments.forcing.path_file	Path	<required>	stable
+flow.bc.forcing.segments.forcing.sep	str	','	stable
+flow.bc.forcing.segments.forcing.units	str | None	None	stable
+flow.bc.forcing.segments.forcing.value	float | str	<required>	stable
+flow.bc.forcing.segments.forcing.value_column	str	'value'	stable
+flow.bc.forcing.segments.start	str	<required>	stable
 flow.bc.forcing.sep	str	','	stable
 flow.bc.forcing.units	str | None	None	stable
-flow.bc.forcing.value	float	<required>	stable
+flow.bc.forcing.value	float | str	<required>	stable
 flow.bc.forcing.value_column	str	'value'	stable
 flow.bc.id	str	<required>	stable
-flow.bc.kind	Literal['cauchy']	'cauchy'	stable
 flow.bc.kind	Literal['dirichlet']	'dirichlet'	stable
-flow.bc.kind	Literal['robin']	'robin'	stable
+flow.bc.kind	Literal['drain']	'drain'	stable
 flow.bc.support_label	str | None	None	stable
 flow.bc.units	str	''	stable
 flow.bc.value	float | list[float] | None	None	stable
@@ -680,17 +696,17 @@ flow.ic.h	table	<table>	stable
 flow.ic.h.boundary_condition_policy	Literal['first_period'] | None	None	stable
 flow.ic.h.description	str	''	stable
 flow.ic.h.first_cycle_from	Literal['top', 'steady_state']	'top'	stable
+flow.ic.h.kind	Literal['bottom']	'bottom'	stable
+flow.ic.h.kind	Literal['custom']	'custom'	stable
+flow.ic.h.kind	Literal['spinup_cyclic']	'spinup_cyclic'	stable
+flow.ic.h.kind	Literal['steady_state']	'steady_state'	stable
+flow.ic.h.kind	Literal['top']	'top'	stable
+flow.ic.h.kind	Literal['top_offset']	'top_offset'	stable
 flow.ic.h.max_cycles	int	4	stable
 flow.ic.h.rate	float | None	None	stable
 flow.ic.h.recharge_statistic	Literal['time_mean'] | None	None	stable
 flow.ic.h.source	Literal['recharge', 'mean_recharge', 'prescribed'] | None	None	stable
 flow.ic.h.tol_head	Any	'0.01 m'	stable
-flow.ic.h.type	Literal['bottom']	'bottom'	stable
-flow.ic.h.type	Literal['custom']	'custom'	stable
-flow.ic.h.type	Literal['spinup_cyclic']	'spinup_cyclic'	stable
-flow.ic.h.type	Literal['steady_state']	'steady_state'	stable
-flow.ic.h.type	Literal['top']	'top'	stable
-flow.ic.h.type	Literal['top_offset']	'top_offset'	stable
 flow.ic.h.units	str	''	stable
 flow.ic.h.value	Any	<required>	stable
 flow.ic.h.value	object | None	None	stable
@@ -712,19 +728,31 @@ flow.param.field_vertical_profile.characteristic_depth	float | None	None	stable
 flow.param.field_vertical_profile.depths	list[float] | None	None	stable
 flow.param.field_vertical_profile.factors	list[float] | None	None	stable
 flow.param.field_vertical_profile.interpolation	Literal['linear', 'step']	'linear'	stable
+flow.param.field_vertical_profile.kind	Literal['none', 'exponential', 'tabulated']	'none'	stable
 flow.param.field_vertical_profile.min_factor	float | None	None	stable
-flow.param.field_vertical_profile.mode	Literal['none', 'exponential', 'tabulated']	'none'	stable
 flow.param_list	list[str]	[]	stable
-flow.partition_release_depth_m	float	0.05	experimental
 flow.restart_from	str | table | None	None	stable
 flow.restart_from.path	str | None	None	stable
 flow.restart_from.sim_id	str | None	None	stable
-flow.runtime_backend	Literal['auto', 'local', 'scipy', 'scipy_sparse', 'petsc']	'auto'	experimental
-flow.runtime_max_iterations	int | None	None	experimental
-flow.runtime_tol_residual_inf	float | None	None	experimental
-flow.runtime_tol_state_update_inf	float | None	None	experimental
+flow.runtime	table	<table>	stable
+flow.runtime.backend	Literal['auto', 'local', 'scipy', 'scipy_sparse', 'petsc']	'auto'	experimental
+flow.runtime.max_iterations	int | None	None	experimental
+flow.runtime.partition_release_depth_m	float	0.05	experimental
+flow.runtime.surface_interaction_model	Literal['auto', 'regularized_partition', 'complementarity', 'vi_obstacle', 'ts_vi_obstacle']	'auto'	stable
+flow.runtime.tol_residual_inf	float | None	None	experimental
+flow.runtime.tol_state_update_inf	float | None	None	experimental
+flow.runtime.ts_vi_adapt	bool	False	experimental
+flow.runtime.ts_vi_dt_max_fraction	float	0.25	experimental
+flow.runtime.ts_vi_dt_min_fraction	float	0.015625	experimental
+flow.runtime.ts_vi_snes_type	str	'vinewtonrsls'	experimental
+flow.runtime.ts_vi_steps_per_period	int	4	experimental
+flow.runtime.ts_vi_type	str	'beuler'	experimental
+flow.runtime.vi_max_adaptive_substeps	int | None	None	experimental
+flow.runtime.vi_substep_on_failure	bool	False	experimental
+flow.runtime.vi_substeps_per_period	int	1	experimental
 flow.sinks_sources	table	<table>	stable
 flow.sinks_sources.etp	table | None	None	stable
+flow.sinks_sources.etp.enabled	bool	True	stable
 flow.sinks_sources.etp.extinction_depth	float	1.0	stable
 flow.sinks_sources.etp.first_clim	str | float	'mean'	stable
 flow.sinks_sources.etp.heterogeneous_source	Any	None	stable
@@ -738,6 +766,7 @@ flow.sinks_sources.flow_barriers.auto	bool	False	experimental
 flow.sinks_sources.flow_barriers.base_elevation	float | None	None	experimental
 flow.sinks_sources.flow_barriers.crest_elevation	float | None	None	experimental
 flow.sinks_sources.flow_barriers.depths	list[float] | None	None	experimental
+flow.sinks_sources.flow_barriers.enabled	bool	True	experimental
 flow.sinks_sources.flow_barriers.hydchr	float | None	None	experimental
 flow.sinks_sources.flow_barriers.hydchr_unit	str	'1/s'	experimental
 flow.sinks_sources.flow_barriers.k	float | None	None	experimental
@@ -761,6 +790,7 @@ flow.sinks_sources.lakes.cutoff_wall.auto	bool	False	experimental
 flow.sinks_sources.lakes.cutoff_wall.base_elevation	float | None	None	experimental
 flow.sinks_sources.lakes.cutoff_wall.crest_elevation	float | None	None	experimental
 flow.sinks_sources.lakes.cutoff_wall.depths	list[float] | None	None	experimental
+flow.sinks_sources.lakes.cutoff_wall.enabled	bool	True	experimental
 flow.sinks_sources.lakes.cutoff_wall.hydchr	float | None	None	experimental
 flow.sinks_sources.lakes.cutoff_wall.hydchr_unit	str	'1/s'	experimental
 flow.sinks_sources.lakes.cutoff_wall.k	float | None	None	experimental
@@ -770,6 +800,7 @@ flow.sinks_sources.lakes.cutoff_wall.line_path	Path | None	None	experimental
 flow.sinks_sources.lakes.cutoff_wall.snap_tolerance	float	50.0	experimental
 flow.sinks_sources.lakes.cutoff_wall.thickness	float | None	None	experimental
 flow.sinks_sources.lakes.cutoff_wall.thickness_unit	str	'm'	experimental
+flow.sinks_sources.lakes.enabled	bool	True	stable
 flow.sinks_sources.lakes.evaporation	table | None	None	stable
 flow.sinks_sources.lakes.evaporation.aggregate	Literal['mean', 'last']	'mean'	stable
 flow.sinks_sources.lakes.evaporation.by_month	dict[int, float] | None	None	stable
@@ -792,12 +823,12 @@ flow.sinks_sources.lakes.evaporation.segments.forcing.kind	Literal['csv']	'csv'	
 flow.sinks_sources.lakes.evaporation.segments.forcing.path_file	Path	<required>	stable
 flow.sinks_sources.lakes.evaporation.segments.forcing.sep	str	','	stable
 flow.sinks_sources.lakes.evaporation.segments.forcing.units	str | None	None	stable
-flow.sinks_sources.lakes.evaporation.segments.forcing.value	float	<required>	stable
+flow.sinks_sources.lakes.evaporation.segments.forcing.value	float | str	<required>	stable
 flow.sinks_sources.lakes.evaporation.segments.forcing.value_column	str	'value'	stable
 flow.sinks_sources.lakes.evaporation.segments.start	str	<required>	stable
 flow.sinks_sources.lakes.evaporation.sep	str	','	stable
 flow.sinks_sources.lakes.evaporation.units	str | None	None	stable
-flow.sinks_sources.lakes.evaporation.value	float	<required>	stable
+flow.sinks_sources.lakes.evaporation.value	float | str	<required>	stable
 flow.sinks_sources.lakes.evaporation.value_column	str	'value'	stable
 flow.sinks_sources.lakes.fill_enclosed_cells	bool	False	stable
 flow.sinks_sources.lakes.inflow	table | None	None	stable
@@ -822,18 +853,16 @@ flow.sinks_sources.lakes.inflow.segments.forcing.kind	Literal['csv']	'csv'	stabl
 flow.sinks_sources.lakes.inflow.segments.forcing.path_file	Path	<required>	stable
 flow.sinks_sources.lakes.inflow.segments.forcing.sep	str	','	stable
 flow.sinks_sources.lakes.inflow.segments.forcing.units	str | None	None	stable
-flow.sinks_sources.lakes.inflow.segments.forcing.value	Any	<required>	stable
+flow.sinks_sources.lakes.inflow.segments.forcing.value	float | str	<required>	stable
 flow.sinks_sources.lakes.inflow.segments.forcing.value_column	str	'value'	stable
 flow.sinks_sources.lakes.inflow.segments.start	str	<required>	stable
 flow.sinks_sources.lakes.inflow.sep	str	','	stable
 flow.sinks_sources.lakes.inflow.units	str | None	None	stable
-flow.sinks_sources.lakes.inflow.value	Any	<required>	stable
+flow.sinks_sources.lakes.inflow.value	float | str	<required>	stable
 flow.sinks_sources.lakes.inflow.value_column	str	'value'	stable
+flow.sinks_sources.lakes.initial_stage	Any	<required>	stable
 flow.sinks_sources.lakes.occupied_layers	int	1	stable
 flow.sinks_sources.lakes.outlets	list[table]	[]	stable
-flow.sinks_sources.lakes.outlets.couttype	Literal['MANNING']	'MANNING'	stable
-flow.sinks_sources.lakes.outlets.couttype	Literal['SPECIFIED']	'SPECIFIED'	stable
-flow.sinks_sources.lakes.outlets.couttype	Literal['WEIR']	'WEIR'	stable
 flow.sinks_sources.lakes.outlets.forcing	table | None	None	stable
 flow.sinks_sources.lakes.outlets.forcing.aggregate	Literal['mean', 'last']	'mean'	stable
 flow.sinks_sources.lakes.outlets.forcing.by_month	dict[int, float] | None	None	stable
@@ -856,14 +885,17 @@ flow.sinks_sources.lakes.outlets.forcing.segments.forcing.kind	Literal['csv']	'c
 flow.sinks_sources.lakes.outlets.forcing.segments.forcing.path_file	Path	<required>	stable
 flow.sinks_sources.lakes.outlets.forcing.segments.forcing.sep	str	','	stable
 flow.sinks_sources.lakes.outlets.forcing.segments.forcing.units	str | None	None	stable
-flow.sinks_sources.lakes.outlets.forcing.segments.forcing.value	Any	<required>	stable
+flow.sinks_sources.lakes.outlets.forcing.segments.forcing.value	float | str	<required>	stable
 flow.sinks_sources.lakes.outlets.forcing.segments.forcing.value_column	str	'value'	stable
 flow.sinks_sources.lakes.outlets.forcing.segments.start	str	<required>	stable
 flow.sinks_sources.lakes.outlets.forcing.sep	str	','	stable
 flow.sinks_sources.lakes.outlets.forcing.units	str | None	None	stable
-flow.sinks_sources.lakes.outlets.forcing.value	Any	<required>	stable
+flow.sinks_sources.lakes.outlets.forcing.value	float | str	<required>	stable
 flow.sinks_sources.lakes.outlets.forcing.value_column	str	'value'	stable
 flow.sinks_sources.lakes.outlets.invert	Any	<required>	stable
+flow.sinks_sources.lakes.outlets.kind	Literal['MANNING']	'MANNING'	stable
+flow.sinks_sources.lakes.outlets.kind	Literal['SPECIFIED']	'SPECIFIED'	stable
+flow.sinks_sources.lakes.outlets.kind	Literal['WEIR']	'WEIR'	stable
 flow.sinks_sources.lakes.outlets.lakeout	int	0	stable
 flow.sinks_sources.lakes.outlets.mover	table | None	None	stable
 flow.sinks_sources.lakes.outlets.mover.discharge_xy	tuple[float, float] | None	None	stable
@@ -898,12 +930,12 @@ flow.sinks_sources.lakes.rainfall.segments.forcing.kind	Literal['csv']	'csv'	sta
 flow.sinks_sources.lakes.rainfall.segments.forcing.path_file	Path	<required>	stable
 flow.sinks_sources.lakes.rainfall.segments.forcing.sep	str	','	stable
 flow.sinks_sources.lakes.rainfall.segments.forcing.units	str | None	None	stable
-flow.sinks_sources.lakes.rainfall.segments.forcing.value	float	<required>	stable
+flow.sinks_sources.lakes.rainfall.segments.forcing.value	float | str	<required>	stable
 flow.sinks_sources.lakes.rainfall.segments.forcing.value_column	str	'value'	stable
 flow.sinks_sources.lakes.rainfall.segments.start	str	<required>	stable
 flow.sinks_sources.lakes.rainfall.sep	str	','	stable
 flow.sinks_sources.lakes.rainfall.units	str | None	None	stable
-flow.sinks_sources.lakes.rainfall.value	float	<required>	stable
+flow.sinks_sources.lakes.rainfall.value	float | str	<required>	stable
 flow.sinks_sources.lakes.rainfall.value_column	str	'value'	stable
 flow.sinks_sources.lakes.runoff	table | None	None	stable
 flow.sinks_sources.lakes.runoff.aggregate	Literal['mean', 'last']	'mean'	stable
@@ -927,14 +959,13 @@ flow.sinks_sources.lakes.runoff.segments.forcing.kind	Literal['csv']	'csv'	stabl
 flow.sinks_sources.lakes.runoff.segments.forcing.path_file	Path	<required>	stable
 flow.sinks_sources.lakes.runoff.segments.forcing.sep	str	','	stable
 flow.sinks_sources.lakes.runoff.segments.forcing.units	str | None	None	stable
-flow.sinks_sources.lakes.runoff.segments.forcing.value	Any	<required>	stable
+flow.sinks_sources.lakes.runoff.segments.forcing.value	float | str	<required>	stable
 flow.sinks_sources.lakes.runoff.segments.forcing.value_column	str	'value'	stable
 flow.sinks_sources.lakes.runoff.segments.start	str	<required>	stable
 flow.sinks_sources.lakes.runoff.sep	str	','	stable
 flow.sinks_sources.lakes.runoff.units	str | None	None	stable
-flow.sinks_sources.lakes.runoff.value	Any	<required>	stable
+flow.sinks_sources.lakes.runoff.value	float | str	<required>	stable
 flow.sinks_sources.lakes.runoff.value_column	str	'value'	stable
-flow.sinks_sources.lakes.stageinit	Any	<required>	stable
 flow.sinks_sources.lakes.steady_stage_hold	bool	False	stable
 flow.sinks_sources.lakes.surfdep	float | None	None	stable
 flow.sinks_sources.lakes.withdrawal	table | None	None	stable
@@ -959,14 +990,15 @@ flow.sinks_sources.lakes.withdrawal.segments.forcing.kind	Literal['csv']	'csv'	s
 flow.sinks_sources.lakes.withdrawal.segments.forcing.path_file	Path	<required>	stable
 flow.sinks_sources.lakes.withdrawal.segments.forcing.sep	str	','	stable
 flow.sinks_sources.lakes.withdrawal.segments.forcing.units	str | None	None	stable
-flow.sinks_sources.lakes.withdrawal.segments.forcing.value	Any	<required>	stable
+flow.sinks_sources.lakes.withdrawal.segments.forcing.value	float | str	<required>	stable
 flow.sinks_sources.lakes.withdrawal.segments.forcing.value_column	str	'value'	stable
 flow.sinks_sources.lakes.withdrawal.segments.start	str	<required>	stable
 flow.sinks_sources.lakes.withdrawal.sep	str	','	stable
 flow.sinks_sources.lakes.withdrawal.units	str | None	None	stable
-flow.sinks_sources.lakes.withdrawal.value	Any	<required>	stable
+flow.sinks_sources.lakes.withdrawal.value	float | str	<required>	stable
 flow.sinks_sources.lakes.withdrawal.value_column	str	'value'	stable
 flow.sinks_sources.recharge	table | None	None	stable
+flow.sinks_sources.recharge.enabled	bool	True	stable
 flow.sinks_sources.recharge.first_clim	str | float	'mean'	stable
 flow.sinks_sources.recharge.heterogeneous_source	Any	None	stable
 flow.sinks_sources.recharge.interpolation_method	Literal['nearest', 'linear', 'idw', 'area']	'nearest'	stable
@@ -1012,15 +1044,16 @@ flow.sinks_sources.sfr.diversions.divflow.segments.forcing.kind	Literal['csv']	'
 flow.sinks_sources.sfr.diversions.divflow.segments.forcing.path_file	Path	<required>	stable
 flow.sinks_sources.sfr.diversions.divflow.segments.forcing.sep	str	','	stable
 flow.sinks_sources.sfr.diversions.divflow.segments.forcing.units	str | None	None	stable
-flow.sinks_sources.sfr.diversions.divflow.segments.forcing.value	Any	<required>	stable
+flow.sinks_sources.sfr.diversions.divflow.segments.forcing.value	float | str	<required>	stable
 flow.sinks_sources.sfr.diversions.divflow.segments.forcing.value_column	str	'value'	stable
 flow.sinks_sources.sfr.diversions.divflow.segments.start	str	<required>	stable
 flow.sinks_sources.sfr.diversions.divflow.sep	str	','	stable
 flow.sinks_sources.sfr.diversions.divflow.units	str | None	None	stable
-flow.sinks_sources.sfr.diversions.divflow.value	Any	<required>	stable
+flow.sinks_sources.sfr.diversions.divflow.value	float | str	<required>	stable
 flow.sinks_sources.sfr.diversions.divflow.value_column	str	'value'	stable
 flow.sinks_sources.sfr.diversions.reach	int	<required>	stable
 flow.sinks_sources.sfr.diversions.to_reach	int	<required>	stable
+flow.sinks_sources.sfr.enabled	bool	True	stable
 flow.sinks_sources.sfr.evaporation	table | None	None	stable
 flow.sinks_sources.sfr.evaporation.aggregate	Literal['mean', 'last']	'mean'	stable
 flow.sinks_sources.sfr.evaporation.by_month	dict[int, float] | None	None	stable
@@ -1043,12 +1076,12 @@ flow.sinks_sources.sfr.evaporation.segments.forcing.kind	Literal['csv']	'csv'	st
 flow.sinks_sources.sfr.evaporation.segments.forcing.path_file	Path	<required>	stable
 flow.sinks_sources.sfr.evaporation.segments.forcing.sep	str	','	stable
 flow.sinks_sources.sfr.evaporation.segments.forcing.units	str | None	None	stable
-flow.sinks_sources.sfr.evaporation.segments.forcing.value	float	<required>	stable
+flow.sinks_sources.sfr.evaporation.segments.forcing.value	float | str	<required>	stable
 flow.sinks_sources.sfr.evaporation.segments.forcing.value_column	str	'value'	stable
 flow.sinks_sources.sfr.evaporation.segments.start	str	<required>	stable
 flow.sinks_sources.sfr.evaporation.sep	str	','	stable
 flow.sinks_sources.sfr.evaporation.units	str | None	None	stable
-flow.sinks_sources.sfr.evaporation.value	float	<required>	stable
+flow.sinks_sources.sfr.evaporation.value	float | str	<required>	stable
 flow.sinks_sources.sfr.evaporation.value_column	str	'value'	stable
 flow.sinks_sources.sfr.headwater_inflow	table | None	None	stable
 flow.sinks_sources.sfr.headwater_inflow.aggregate	Literal['mean', 'last']	'mean'	stable
@@ -1072,12 +1105,12 @@ flow.sinks_sources.sfr.headwater_inflow.segments.forcing.kind	Literal['csv']	'cs
 flow.sinks_sources.sfr.headwater_inflow.segments.forcing.path_file	Path	<required>	stable
 flow.sinks_sources.sfr.headwater_inflow.segments.forcing.sep	str	','	stable
 flow.sinks_sources.sfr.headwater_inflow.segments.forcing.units	str | None	None	stable
-flow.sinks_sources.sfr.headwater_inflow.segments.forcing.value	Any	<required>	stable
+flow.sinks_sources.sfr.headwater_inflow.segments.forcing.value	float | str	<required>	stable
 flow.sinks_sources.sfr.headwater_inflow.segments.forcing.value_column	str	'value'	stable
 flow.sinks_sources.sfr.headwater_inflow.segments.start	str	<required>	stable
 flow.sinks_sources.sfr.headwater_inflow.sep	str	','	stable
 flow.sinks_sources.sfr.headwater_inflow.units	str | None	None	stable
-flow.sinks_sources.sfr.headwater_inflow.value	Any	<required>	stable
+flow.sinks_sources.sfr.headwater_inflow.value	float | str	<required>	stable
 flow.sinks_sources.sfr.headwater_inflow.value_column	str	'value'	stable
 flow.sinks_sources.sfr.lake_feeder_snap	Any	'300 m'	stable
 flow.sinks_sources.sfr.manning	float	0.035	stable
@@ -1110,12 +1143,12 @@ flow.sinks_sources.sfr.rainfall.segments.forcing.kind	Literal['csv']	'csv'	stabl
 flow.sinks_sources.sfr.rainfall.segments.forcing.path_file	Path	<required>	stable
 flow.sinks_sources.sfr.rainfall.segments.forcing.sep	str	','	stable
 flow.sinks_sources.sfr.rainfall.segments.forcing.units	str | None	None	stable
-flow.sinks_sources.sfr.rainfall.segments.forcing.value	float	<required>	stable
+flow.sinks_sources.sfr.rainfall.segments.forcing.value	float | str	<required>	stable
 flow.sinks_sources.sfr.rainfall.segments.forcing.value_column	str	'value'	stable
 flow.sinks_sources.sfr.rainfall.segments.start	str	<required>	stable
 flow.sinks_sources.sfr.rainfall.sep	str	','	stable
 flow.sinks_sources.sfr.rainfall.units	str | None	None	stable
-flow.sinks_sources.sfr.rainfall.value	float	<required>	stable
+flow.sinks_sources.sfr.rainfall.value	float | str	<required>	stable
 flow.sinks_sources.sfr.rainfall.value_column	str	'value'	stable
 flow.sinks_sources.sfr.reaches	list[table] | None	None	stable
 flow.sinks_sources.sfr.reaches.cell	table | None	None	stable
@@ -1161,12 +1194,12 @@ flow.sinks_sources.sfr.runoff.segments.forcing.kind	Literal['csv']	'csv'	stable
 flow.sinks_sources.sfr.runoff.segments.forcing.path_file	Path	<required>	stable
 flow.sinks_sources.sfr.runoff.segments.forcing.sep	str	','	stable
 flow.sinks_sources.sfr.runoff.segments.forcing.units	str | None	None	stable
-flow.sinks_sources.sfr.runoff.segments.forcing.value	Any	<required>	stable
+flow.sinks_sources.sfr.runoff.segments.forcing.value	float | str	<required>	stable
 flow.sinks_sources.sfr.runoff.segments.forcing.value_column	str	'value'	stable
 flow.sinks_sources.sfr.runoff.segments.start	str	<required>	stable
 flow.sinks_sources.sfr.runoff.sep	str	','	stable
 flow.sinks_sources.sfr.runoff.units	str | None	None	stable
-flow.sinks_sources.sfr.runoff.value	Any	<required>	stable
+flow.sinks_sources.sfr.runoff.value	float | str	<required>	stable
 flow.sinks_sources.sfr.runoff.value_column	str	'value'	stable
 flow.sinks_sources.sfr.storage	bool	False	stable
 flow.sinks_sources.sfr.streambed_k	float	1e-06	stable
@@ -1182,6 +1215,7 @@ flow.sinks_sources.sfr.width.value	Any	<required>	stable
 flow.sinks_sources.sfr.width.widths	dict[int, Any]	<required>	stable
 flow.sinks_sources.wells	dict[str, table]	{}	stable
 flow.sinks_sources.wells.description	str	''	stable
+flow.sinks_sources.wells.enabled	bool	True	stable
 flow.sinks_sources.wells.flux	float | list[float] | None	None	stable
 flow.sinks_sources.wells.forcing	table | None	None	stable
 flow.sinks_sources.wells.forcing.aggregate	Literal['mean', 'last']	'mean'	stable
@@ -1205,12 +1239,12 @@ flow.sinks_sources.wells.forcing.segments.forcing.kind	Literal['csv']	'csv'	stab
 flow.sinks_sources.wells.forcing.segments.forcing.path_file	Path	<required>	stable
 flow.sinks_sources.wells.forcing.segments.forcing.sep	str	','	stable
 flow.sinks_sources.wells.forcing.segments.forcing.units	str | None	None	stable
-flow.sinks_sources.wells.forcing.segments.forcing.value	Any	<required>	stable
+flow.sinks_sources.wells.forcing.segments.forcing.value	float | str	<required>	stable
 flow.sinks_sources.wells.forcing.segments.forcing.value_column	str	'value'	stable
 flow.sinks_sources.wells.forcing.segments.start	str	<required>	stable
 flow.sinks_sources.wells.forcing.sep	str	','	stable
 flow.sinks_sources.wells.forcing.units	str | None	None	stable
-flow.sinks_sources.wells.forcing.value	Any	<required>	stable
+flow.sinks_sources.wells.forcing.value	float | str	<required>	stable
 flow.sinks_sources.wells.forcing.value_column	str	'value'	stable
 flow.sinks_sources.wells.location	table	<required>	stable
 flow.sinks_sources.wells.location.cell	tuple[int, int, int]	<required>	stable
@@ -1223,16 +1257,6 @@ flow.sinks_sources.wells.location.x_rel	float	<required>	stable
 flow.sinks_sources.wells.location.y	float	<required>	stable
 flow.sinks_sources.wells.location.y_rel	float	<required>	stable
 flow.sinks_sources.wells.units	str	'm3/s'	stable
-flow.surface_interaction_model	Literal['auto', 'regularized_partition', 'complementarity', 'vi_obstacle', 'ts_vi_obstacle']	'auto'	stable
-flow.ts_vi_adapt	bool	False	experimental
-flow.ts_vi_dt_max_fraction	float	0.25	experimental
-flow.ts_vi_dt_min_fraction	float	0.015625	experimental
-flow.ts_vi_snes_type	str	'vinewtonrsls'	experimental
-flow.ts_vi_steps_per_period	int	4	experimental
-flow.ts_vi_type	str	'beuler'	experimental
-flow.vi_max_adaptive_substeps	int | None	None	experimental
-flow.vi_substep_on_failure	bool	False	experimental
-flow.vi_substeps_per_period	int	1	experimental
 geographic	table	<required>	stable
 geographic.bed_regularization	table	<table>	stable
 geographic.bed_regularization.enabled	bool	False	stable
@@ -1242,14 +1266,14 @@ geographic.capped_breach.max_depth	float	0.5	stable
 geographic.capped_breach.max_distance	float	200.0	stable
 geographic.catchment	table | None	<required>	stable
 geographic.catchment.buff_area	str | float	<required>	stable
-geographic.catchment.catch_def	Literal['dem']	'dem'	stable
-geographic.catchment.catch_def	Literal['from_outlet_coord']	'from_outlet_coord'	stable
-geographic.catchment.catch_def	Literal['from_polyg_shp']	'from_polyg_shp'	stable
-geographic.catchment.catch_def	Literal['txt']	'txt'	stable
 geographic.catchment.cell_size	float	<required>	stable
 geographic.catchment.dem_init_path	Path | None	<required>	stable
 geographic.catchment.dem_init_path	Path | None	None	stable
 geographic.catchment.dem_resolution	float | None	None	stable
+geographic.catchment.kind	Literal['dem']	'dem'	stable
+geographic.catchment.kind	Literal['from_outlet_coord']	'from_outlet_coord'	stable
+geographic.catchment.kind	Literal['from_polyg_shp']	'from_polyg_shp'	stable
+geographic.catchment.kind	Literal['txt']	'txt'	stable
 geographic.catchment.polyg_shp_path	Path	<required>	stable
 geographic.catchment.snap_dist	float	<required>	stable
 geographic.catchment.snap_method	Literal['window', 'jenson']	'window'	stable
@@ -1487,11 +1511,11 @@ simulation.name	str	''	stable
 simulation.process	list[table]	[]	stable
 simulation.process.backend	Literal['catchment']	'catchment'	stable
 simulation.process.id	str	<required>	stable
+simulation.process.kind	Literal['flow']	'flow'	stable
+simulation.process.kind	Literal['mesh']	'mesh'	stable
+simulation.process.kind	Literal['transport']	'transport'	stable
 simulation.process.solvers	list[str]	<required>	stable
 simulation.process.solvers	list[str]	[]	stable
-simulation.process.type	Literal['flow']	'flow'	stable
-simulation.process.type	Literal['mesh']	'mesh'	stable
-simulation.process.type	Literal['transport']	'transport'	stable
 simulation.results	table	<table>	stable
 simulation.results.keep_per_cell_budget	bool	True	stable
 simulation.results.keep_solver_files	bool	False	stable
@@ -1550,10 +1574,10 @@ sites.summary.variables	list[str]	[]	stable
 sites.table	Path | None	None	stable
 solver	table	<table>	stable
 solver.backend	table	<table>	stable
-solver.backend.backend	Literal['boussinesq']	'boussinesq'	stable
-solver.backend.backend	Literal['custom']	'custom'	stable
-solver.backend.backend	Literal['modflow6']	'modflow6'	stable
-solver.backend.backend	Literal['modflow_nwt']	'modflow_nwt'	stable
+solver.backend.kind	Literal['boussinesq']	'boussinesq'	stable
+solver.backend.kind	Literal['custom']	'custom'	stable
+solver.backend.kind	Literal['modflow6']	'modflow6'	stable
+solver.backend.kind	Literal['modflow_nwt']	'modflow_nwt'	stable
 solver.backend.name	str	<required>	experimental
 solver.drain_band_depth_m	float	0.0	stable
 solver.drain_bed_thickness_m	float	1.0	stable
@@ -1566,8 +1590,6 @@ spinup.tol_stage	float	0.01	stable
 spinup.window_end	str | None	None	stable
 spinup.window_start	str | None	None	stable
 transport	table	<table>	stable
-transport.active_bc	list[str]	[]	stable
-transport.active_sinks_sources	list[str]	[]	stable
 transport.modflow6gwt	table	<table>	stable
 transport.modflow6gwt.parameters	table	<table>	stable
 transport.modflow6gwt.parameters.diffu_coeff	float	0.0	stable
@@ -1592,14 +1614,14 @@ transport.modflow6prt.parameters.max_particles	int | None	None	experimental
 transport.modflow6prt.parameters.outlet_bottom_quantile	float	0.1	experimental
 transport.modflow6prt.parameters.particle_cell_ids	list[int] | None	None	experimental
 transport.modflow6prt.parameters.porosity	float | None	None	experimental
-transport.modflow6prt.parameters.release_times_days	list[float] | None	None	experimental
+transport.modflow6prt.parameters.release_times	list[float] | None	None	experimental
 transport.modflow6prt.parameters.release_zone	str	'domain'	experimental
 transport.modflow6prt.parameters.sel_slice	int | None	None	experimental
-transport.modflow6prt.parameters.stop_time_days	float | None	None	experimental
-transport.modflow6prt.parameters.stop_travel_time_days	float | None	None	experimental
+transport.modflow6prt.parameters.stop_time	float | None	None	experimental
+transport.modflow6prt.parameters.stop_travel_time	float | None	None	experimental
 transport.modflow6prt.parameters.track_dir	Literal['forward']	'forward'	experimental
-transport.modflow6prt.parameters.track_time_step_days	float | None	None	experimental
-transport.modflow6prt.parameters.track_times_days	list[float] | None	None	experimental
+transport.modflow6prt.parameters.track_time_step	float | None	None	experimental
+transport.modflow6prt.parameters.track_times	list[float] | None	None	experimental
 transport.modflow6prt.parameters.upstream_top_quantile	float	0.9	experimental
 transport.modflow6prt.parameters.write_track_binary	bool	True	experimental
 transport.modflow6prt.parameters.write_track_csv	bool	True	experimental
@@ -1631,7 +1653,5 @@ workflow.mode	Literal['simulation', 'calibration', 'overview'] | None	None	stabl
 workflow.profile	bool | str	False	stable
 workflow.verbosity	Literal['quiet', 'normal', 'verbose', 'debug']	'normal'	stable
 workspace	table	<required>	stable
-workspace.catalog_path	Path | None	None	stable
 workspace.data_dir	Path | None	None	stable
 workspace.root	Path | UPath | None	None	stable
-workspace.runs_dir	Path | None	None	stable

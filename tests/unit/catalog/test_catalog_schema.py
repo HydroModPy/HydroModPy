@@ -1,4 +1,4 @@
-"""Schema discovery of the reader, and the input-cache namespace of ``hmp.catalog``."""
+"""Schema discovery of the reader, and ``InputCache``, the input cache of a workspace."""
 
 from __future__ import annotations
 
@@ -60,8 +60,8 @@ def test_describe_is_human_readable(project) -> None:
 
 
 def test_inputs_namespace_via_catalog_package(tmp_path: Path) -> None:
-    from hydromodpy.catalog import InputsNamespace
+    from hydromodpy.data.registry.input_cache import InputCache
 
-    inputs = InputsNamespace(tmp_path)
+    inputs = InputCache(tmp_path)
     assert inputs.has_cache() is False
     assert inputs.db_path == (tmp_path.resolve() / "data" / "cache.duckdb")

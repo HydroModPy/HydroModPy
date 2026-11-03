@@ -4,21 +4,19 @@ Sub-actions:
 
 - ``hmp viz list``: print the figure names accepted by ``[display].figures``.
 - ``hmp viz show <sim_ref> <figure>``: render one figure for one simulation.
-- ``hmp viz regen <sim_ref>``: draw again the figures ``figures/index.json``
-  of the run records.
 """
 
 from __future__ import annotations
 
 import argparse
 
-from hydromodpy.cli.commands.viz import list_cmd, regen, show
+from hydromodpy.cli.commands.viz import list_cmd, show
 from hydromodpy.cli.conventions import add_action_subparsers
 
 NAME: str = "viz"
-HELP: str = "Visualization helpers (list, show, regen)"
+HELP: str = "List the figures and draw one"
 
-ACTIONS = (list_cmd, show, regen)
+ACTIONS = (list_cmd, show)
 
 
 def register(subparsers) -> argparse.ArgumentParser:

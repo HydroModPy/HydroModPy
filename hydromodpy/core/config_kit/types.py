@@ -7,6 +7,8 @@ from typing import Annotated, Literal, TypeAlias
 
 from pydantic import AfterValidator, BeforeValidator, Field
 
+from hydromodpy.core.scope import station_name_refusal
+
 # ---------------------------------------------------------------------------
 # String types
 # ---------------------------------------------------------------------------
@@ -63,6 +65,17 @@ NormalizedLowerStr = Annotated[str, BeforeValidator(_strip_lower)]
 
 NonEmptyStr = Annotated[str, BeforeValidator(_strip_non_empty)]
 """Non-empty string after stripping whitespace."""
+
+
+def _station_name(value: str) -> str:
+    refusal = station_name_refusal(value)
+    if refusal is not None:
+        raise ValueError(refusal)
+    return value
+
+
+StationName = Annotated[str, AfterValidator(_station_name)]
+"""Identifier of a station, refused when it is the word of the whole catchment."""
 
 NonEmptyPath = Annotated[Path, BeforeValidator(_strip_non_empty)]
 """File or folder path, refused when empty. Typed ``Path`` so tools know it is one."""
@@ -135,6 +148,7 @@ __all__ = [
     "PositiveFloat",
     "PositiveInt",
     "Probability",
+    "StationName",
     "StripLower",
     "TimePeriodUnit",
 ]

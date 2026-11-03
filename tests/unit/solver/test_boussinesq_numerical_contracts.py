@@ -92,6 +92,7 @@ def _write_transient_payload(output_dir: Path) -> None:
         "z_top_m": np.asarray([10.0, 12.0], dtype=float),
         "z_bottom_m": np.asarray([0.0, 1.0], dtype=float),
         "cell_area_m2": np.asarray([100.0, 200.0], dtype=float),
+        "storage_coefficient": np.asarray([0.1, 0.1], dtype=float),
     }
     np.savez(output_dir / "_boussinesq_state_history.npz", **state_payload)
     (output_dir / "_boussinesq_summary.json").write_text(
@@ -134,7 +135,7 @@ def _extract_transient(tmp_path: Path, **kwargs: object) -> tuple[RunStore, str]
     return store, store.sim_id
 
 
-_ALL_COMPONENTS = ["constant_head", "drain", "recharge", "surface_excess", "well"]
+_ALL_COMPONENTS = ["constant_head", "drain", "recharge", "storage", "surface_excess", "well"]
 
 
 def test_boussinesq_extractor_writes_cellwise_interfaces_and_volumetric_budgets(
@@ -160,9 +161,11 @@ def test_boussinesq_extractor_writes_cellwise_interfaces_and_volumetric_budgets(
             # The whole per-cell budget by default, every term under its name.
             budget = zarr_store.root["budget"]
             assert sorted(budget.array_keys()) == _ALL_COMPONENTS
+            # Every term carries its one layer, as on every solver. A flux at the land
+            # surface has none.
             np.testing.assert_allclose(
                 budget["recharge"][0],
-                np.asarray([1.0e-6, 4.0e-6], dtype=float),
+                np.asarray([[1.0e-6, 4.0e-6]], dtype=float),
             )
             np.testing.assert_allclose(
                 budget["surface_excess"][:],
@@ -171,7 +174,18 @@ def test_boussinesq_extractor_writes_cellwise_interfaces_and_volumetric_budgets(
             # Positive into the aquifer, as the registry and MODFLOW sign it.
             np.testing.assert_allclose(
                 budget["constant_head"][:],
-                np.asarray([[-0.05, 0.0], [0.02, 0.0]], dtype=float),
+                np.asarray([[[-0.05, 0.0]], [[0.02, 0.0]]], dtype=float),
+            )
+            # The heads rise, so the water goes into storage: area * Sy * dh / dt.
+            np.testing.assert_allclose(
+                budget["storage"][:],
+                np.asarray(
+                    [
+                        [[-100.0 * 0.1 * 0.5 / 86400.0, -200.0 * 0.1 * 0.5 / 86400.0]],
+                        [[-100.0 * 0.1 * 0.2 / 86400.0, -200.0 * 0.1 * 0.2 / 86400.0]],
+                    ],
+                    dtype=float,
+                ),
             )
             kept = kept_budget(zarr_store.root)
             assert kept is not None

@@ -190,7 +190,7 @@ def _stack_virtual_field(sim: Run, variable: str, n: int) -> list[np.ndarray]:
 
     try:
         with progress.status(f"Deriving {variable}"):
-            return [np.asarray(sim.field(variable, timestep=t)).ravel() for t in range(n)]
+            return [np.asarray(sim.field(variable, time=t)).ravel() for t in range(n)]
     except FieldNotFoundError:
         explanation = missing_field_explanation([variable], sim)
         if not explanation:

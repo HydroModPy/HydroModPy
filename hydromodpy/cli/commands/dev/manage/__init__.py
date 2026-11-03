@@ -10,7 +10,7 @@ from pathlib import Path
 
 from hydromodpy.cli.commands.dev.manage.backend import _WorkspaceManagerBackend
 from hydromodpy.cli.commands.dev.manage.server import _WorkspaceManagerHandler, load_index_html
-from hydromodpy.cli.helpers import EXIT_CONFIG, resolve_workspace
+from hydromodpy.cli.helpers import EXIT_CONFIG, refuse, resolve_workspace
 
 NAME = "manage"
 HELP = "Open a local browser UI to inspect DuckDB tables and manage simulations"
@@ -55,12 +55,11 @@ def run(args: argparse.Namespace) -> None:
     try:
         import duckdb  # noqa: F401
     except ImportError:
-        print(
+        refuse(
             "DuckDB is required for 'hmp dev manage'. Reinstall the project dependencies first: "
             "pip install -e .",
-            file=sys.stderr,
+            EXIT_CONFIG,
         )
-        sys.exit(EXIT_CONFIG)
 
     workspace_arg = getattr(args, "workspace", None)
     scan_root_arg = getattr(args, "scan_root", None)

@@ -9,6 +9,7 @@ into :class:`Run`; ``self`` is the :class:`Run` instance whose ``_sim_id``,
 
 from __future__ import annotations
 
+import datetime
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -226,38 +227,41 @@ class RunGeographicMixin:
     def field(
         self,
         variable: str,
-        timestep: int = -1,
-        layer: int | None = None,
         *,
+        time: int | str | datetime.date | pd.Timestamp | np.datetime64 = -1,
+        layer: int | None = None,
         bbox: tuple[float, float, float, float] | None = None,
     ) -> np.ndarray:
-        """Read one field, persisted or recomputed on the fly.
+        """Read one period of one field, persisted or recomputed on the fly, as an array.
 
-        Delegates to ``Catalog.query_field``, which falls back to the virtual
-        derivations (watertable elevation/depth, seepage mask, drain outflow)
-        when the field is not persisted. This keeps ``has_field`` honest: a
-        variable it reports as available always reads back as an array.
-        Each call opens the store: many steps read through :func:`field_range`.
+        Takes the words of :func:`hydromodpy.read`, for one period. Delegates to
+        ``Catalog.query_field``, which falls back to the virtual derivations
+        (watertable elevation/depth, seepage mask, drain outflow) when the field is not
+        persisted. This keeps ``has_field`` honest: a variable it reports as available
+        always reads back as an array. Each call opens the store: many steps read through
+        :func:`field_range`.
 
         Parameters
         ----------
         variable
             Public field name registered in ``hydromodpy.results.field_registry``.
-        timestep
-            Timestep index. Negative values count from the end.
+        time
+            One period: an index (negative counts from the end), a date that resolves to
+            the stress period holding it, ``"first"`` or ``"last"``. The last by default.
         layer
-            Optional layer index for three-dimensional fields.
+            Optional layer index, 0 for the top layer, for three-dimensional fields.
         bbox
             Optional ``(xmin, ymin, xmax, ymax)`` in the simulation CRS.
             Cells whose centre (``run.mesh.cell_centers()``) falls outside the
             bounding box are set to ``NaN`` (for float dtypes) or ``0`` (for
-            integer dtypes).
+            integer dtypes). The shape of the array does not change.
 
         Returns
         -------
         numpy.ndarray
             Field values for the requested time and layer selection.
         """
+        timestep = self._period_index_of(time)
         n_ts = self._load_row().get("n_timesteps")
         if n_ts is not None and timestep < 0:
             timestep = n_ts + timestep
@@ -268,6 +272,22 @@ class RunGeographicMixin:
         if bbox is not None:
             arr = _apply_bbox_mask(self, arr, bbox)
         return arr
+
+    def _period_index_of(
+        self, time: int | str | datetime.date | pd.Timestamp | np.datetime64
+    ) -> int:
+        """Turn one period selector into its index; an index stays as it is."""
+        if isinstance(time, bool):
+            raise TypeError("time must be a period index, a date, 'first' or 'last', not a bool.")
+        if isinstance(time, (int, np.integer)):
+            return int(time)
+        if isinstance(time, np.datetime64):
+            time = pd.Timestamp(time)
+        if isinstance(time, (str, datetime.date, pd.Timestamp)):
+            return int(self.periods.step_at(time))
+        raise TypeError(
+            f"time must be a period index, a date, 'first' or 'last'; got {type(time).__name__}."
+        )
 
     def has_field(self, variable: str, *, subgroup: str | None = None) -> bool:
         """Return true when a field is available for this run.
@@ -383,7 +403,7 @@ def field_range(
 ) -> np.ndarray:
     """Read one field over timesteps ``[start, stop)``, the store opened once.
 
-    Row ``i`` is ``run.field(variable, timestep=start + i, layer=layer)``, bit
+    Row ``i`` is ``run.field(variable, time=start + i, layer=layer)``, bit
     for bit: a stored array is sliced in one read, a field rebuilt on read is
     rebuilt over the whole range. Negative bounds count from the end, as the
     timestep of ``Run.field`` does. A module function rather than a ``Run``
@@ -422,14 +442,14 @@ def field_steps(run: Run, variable: str, steps: Sequence[int]) -> np.ndarray:
     if not order:
         return np.empty((0, 0), dtype="float64")
     if not callable(getattr(getattr(run, "_catalog", None), "open_zarr", None)):
-        return np.stack([np.asarray(run.field(variable, timestep=step)) for step in order])
+        return np.stack([np.asarray(run.field(variable, time=step)) for step in order])
     n_ts = run._load_row().get("n_timesteps")
     if n_ts is not None:
         order = [n_ts + step if step < 0 else step for step in order]
     parts: list[np.ndarray] = []
     for first, last in _consecutive_runs(order):
         if last - first == 1:
-            parts.append(np.asarray(run.field(variable, timestep=order[first]))[None])
+            parts.append(np.asarray(run.field(variable, time=order[first]))[None])
         else:
             parts.append(field_range(run, variable, order[first], order[last - 1] + 1))
     return np.concatenate(parts)

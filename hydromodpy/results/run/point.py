@@ -35,6 +35,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import pandas as pd
 
+from hydromodpy.core.exceptions import ResultsError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.vertical_column import top_active_layer
 from hydromodpy.results import field_registry
@@ -66,7 +67,7 @@ POINT_COLUMNS: tuple[str, ...] = (
 _SEARCH_GROUPS: tuple[str | None, ...] = (None, "state", "derived", "budget", "mesh")
 
 
-class PointOutsideMeshError(ValueError):
+class PointOutsideMeshError(ResultsError, ValueError):
     """The requested coordinates fall outside the simulation mesh."""
 
 

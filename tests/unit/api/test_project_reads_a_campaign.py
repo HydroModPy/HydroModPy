@@ -46,7 +46,7 @@ mode = "simulation"
 crs_project = "EPSG:2154"
 
 [geographic.catchment]
-catch_def = "from_outlet_coord"
+kind = "from_outlet_coord"
 dem_init_path = "dem.tif"
 snap_dist = "150 m"
 buff_area = "10%"
@@ -58,7 +58,7 @@ step_value = "1 month"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow6"]
 
 [flow]
@@ -194,8 +194,8 @@ def test_best_by_site_ranks_the_calibrated_runs_under_their_rule(tmp_path: Path)
     sim_ids = _launched(project)
 
     with hmp.open(project) as proj:
-        best = proj.best("nse", by="site")
-        every = proj.best("nse", by="site", label=None)
+        best = proj.best_runs("nse", by="site")
+        every = proj.best_runs("nse", by="site", label=None)
 
     assert list(best["site"]) == ["nancon"]
     row = best.iloc[0]
@@ -213,12 +213,12 @@ def test_best_keeps_a_run_with_no_site(tmp_path: Path, caplog) -> None:
     seal_run(project, "alone", site=None, nse=0.6)
 
     with hmp.open(project) as proj:
-        only = proj.best("nse", label=None)
+        only = proj.best_runs("nse", label=None)
         with caplog.at_level(logging.WARNING):
-            calibrated = proj.best("nse")
+            calibrated = proj.best_runs("nse")
         seal_run(project, "placed", nse=0.7)
         rebuild_index(project)
-        both = proj.best("nse", label=None)
+        both = proj.best_runs("nse", label=None)
 
     assert list(only["case_id"]) == ["alone"] and only["site"].isna().all()
     assert calibrated.empty and "no site" in caplog.text
@@ -233,8 +233,8 @@ def test_best_names_the_sites_it_leaves_out_and_why(tmp_path: Path, caplog) -> N
     seal_run(project, "couesnon-base", site="couesnon", recipe="base", nse=0.6)
 
     with hmp.open(project) as proj, caplog.at_level(logging.WARNING):
-        every = proj.best("nse", by="site", label=None)
-        calibrated = proj.best("nse", by="site")
+        every = proj.best_runs("nse", by="site", label=None)
+        calibrated = proj.best_runs("nse", by="site")
 
     assert list(every["site"]) == ["couesnon"]
     assert calibrated.empty
@@ -253,8 +253,8 @@ def test_best_refuses_two_windows_inside_one_site(tmp_path: Path) -> None:
 
     with hmp.open(project) as proj:
         with pytest.raises(MixedWindowsError, match="different rules"):
-            proj.best("nse", by="site", label=None)
-        assert len(proj.best("nse", by="site", label=None, mixed_windows=True)) == 1
+            proj.best_runs("nse", by="site", label=None)
+        assert len(proj.best_runs("nse", by="site", label=None, mixed_windows=True)) == 1
 
 
 def test_runs_of_a_site_carry_their_metrics_without_suffix(tmp_path: Path) -> None:
@@ -322,7 +322,7 @@ def test_the_launch_verbs_speak_the_words_of_the_cli(
     monkeypatch.setattr(summary, "collect_project", collect_project)
 
     with hmp.open(project) as proj:
-        assert proj.run(parallel=8, only="failed", site="nancon") == "launched"
+        assert proj.launch(parallel=8, only="failed", site="nancon") == "launched"
         assert proj.collect(write_sites=True) == "collected"
         proj.plan()
         status = proj.status()
@@ -356,5 +356,5 @@ def test_a_sites_project_is_never_configured_as_one_model(tmp_path: Path) -> Non
     project = _campaign(tmp_path)
 
     with hmp.open(project) as proj:
-        with pytest.raises(SitesProjectError, match="proj.run"):
+        with pytest.raises(SitesProjectError, match="proj.launch"):
             proj.config  # noqa: B018

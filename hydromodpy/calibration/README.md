@@ -204,15 +204,15 @@ is read rather than inside the adapter.
    keeps its solver folder (`runners/kept_solves.py`), and its promotion goes
    on from extraction on that folder instead of solving again. The journal
    line of a promoted trial receives the `sim_id` and the `rel_dir` of its run.
-   `hmp project promote <case> --trial N` replays a trial after the fact from
+   `hmp campaign promote <case> --trial N` replays a trial after the fact from
    `sessions/<case>/config.toml` and the frozen values of its phase
    (`promote_trial_from_session`; a trial kept under `trials/<n>/` is moved,
-   with the seal it was written with); `hmp project prune <case> --keep best`
+   with the seal it was written with); `hmp campaign prune <case> --keep best`
    trashes the other kept trials (`prune_session`). A reopened session
    promotes once more at its end: a trial already written is not written
    again, and the paired `runs/<case>/` is never overwritten; when it holds
    another trial of the session, the new best is reported as a promotion
-   failure, the session closes `partial`, and `hmp project promote` writes it
+   failure, the session closes `partial`, and `hmp campaign promote` writes it
    under the next version.
 9. **Close.** `session.json` takes the status (`completed`, `partial`,
    `failed`, `aborted`) and the best trial, `outcome.json` the issue,

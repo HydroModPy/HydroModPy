@@ -112,6 +112,8 @@ def preload_hash_cache(project_root: Path, cache: ParamsHashCache) -> int:
                     or not params_hash.startswith("v2:")
                     or case.status != "completed"
                     or case.cost is None
+                    # A trial that kept no components cannot answer a root search.
+                    or not case.components
                 ):
                     continue
                 cache.put(
@@ -238,6 +240,13 @@ def build_cache_context(
     # The project root is where the folder sits: another machine, the same cost.
     for section_name in ("calibration", "display", "overview", "mesh", "workspace"):
         model_payload.pop(section_name, None)
+    # A name, a description and what is exported after the run change no cost.
+    model_payload.pop("export", None)
+    simulation = model_payload.get("simulation")
+    if isinstance(simulation, dict):
+        model_payload["simulation"] = {
+            key: value for key, value in simulation.items() if key not in ("name", "description")
+        }
 
     section = cfg.model_dump(mode="json", exclude_unset=True)
     calibration_payload = {key: section[key] for key in _COST_KEYS if key in section}

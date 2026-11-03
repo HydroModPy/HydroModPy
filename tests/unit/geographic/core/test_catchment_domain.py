@@ -124,6 +124,23 @@ def test_a_percent_a_bare_number_and_a_distance_stay_three_different_distances()
     assert drawn["10 m"] != drawn["10%"]
 
 
+def test_a_bare_number_and_its_explicit_form_draw_the_same_domain(nancon_square, tmp_path) -> None:
+    """The migration writes ``10`` as ``"10% of sqrt(area)"`` and no distance moves."""
+    for resolution in (None, 75.0):
+        bare = derive_catchment_domain(
+            nancon_square, tmp_path / "bare", buff_area=_normalized(10), dem_resolution=resolution
+        )
+        explicit = derive_catchment_domain(
+            nancon_square,
+            tmp_path / "explicit",
+            buff_area=_normalized("10% of sqrt(area)"),
+            dem_resolution=resolution,
+        )
+        assert explicit.buffer_rule == "sqrt_area"
+        assert explicit.buffer_distance_m == bare.buffer_distance_m
+        assert explicit.buffer_area_increase == bare.buffer_area_increase
+
+
 def test_a_sealed_bare_distance_string_and_a_dem_on_disk_read_as_metres_and_cells(
     nancon_square, tmp_path
 ) -> None:
@@ -137,7 +154,8 @@ def test_a_sealed_bare_distance_string_and_a_dem_on_disk_read_as_metres_and_cell
 @pytest.mark.parametrize(
     ("declared", "normalized"),
     [("10%", "10%"), ("10 %", "10%"), (" 12.5% ", "12.5%"), ("150 m", "150.0 m"), ("0.15 km", "150.0 m"),
-     ("150", "150.0 m"), ("10.0", "10.0 m"), (10, 10.0), (10.0, 10.0)],
+     ("150", "150.0 m"), ("10.0", "10.0 m"), (10, 10.0), (10.0, 10.0),
+     ("10% of sqrt(area)", "10% of sqrt(area)"), (" 12.5 % OF sqrt( area ) ", "12.5% of sqrt(area)")],
 )  # fmt: skip
 def test_the_config_writes_one_form_per_rule_and_reads_it_back(declared, normalized) -> None:
     once = _normalized(declared)

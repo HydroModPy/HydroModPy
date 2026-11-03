@@ -29,6 +29,20 @@ def require_declared_crs(crs: object, *, path: Path | str, variable: str) -> str
     )
 
 
+def crs_of_a_user_file(crs: object, source_cfg: object, *, path: Path | str, variable: str) -> str:
+    """Return the CRS of a user file, or the ``default_crs`` the user wrote, or refuse.
+
+    The ``default_crs`` default (EPSG:2154) is never applied: only a value written in
+    the source table stands in for a file that declares none.
+    """
+    fields_set = getattr(source_cfg, "model_fields_set", ())
+    if "default_crs" in fields_set and not (crs is not None and str(crs).strip()):
+        written = str(getattr(source_cfg, "default_crs", "")).strip()
+        if written:
+            return written
+    return require_declared_crs(crs, path=path, variable=variable)
+
+
 def bbox_hash(bbox: tuple) -> str:
     """Short deterministic hash of a bounding box for filenames."""
     s = f"{bbox[0]:.6f}_{bbox[1]:.6f}_{bbox[2]:.6f}_{bbox[3]:.6f}"

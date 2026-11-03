@@ -417,6 +417,21 @@ computational top, the filling of closed depressions and the saturated thickness
 calibration read the same cell ({doc}`solvers`).
 
 (mesh-budget)=
+## Three sizes, read in order
+
+Three keys speak of a size, and each one reads the one before it.
+
+1. {toml}`resolution_m|data.dem.sources.resolution_m` asks a provider for a pixel. With a DEM
+   file, the file has its own pixel and this key does not apply.
+2. {toml}`dem_resolution|geographic.catchment.dem_resolution` aggregates that pixel before anything
+   is delineated. It cannot be finer than the pixel of the DEM: the run refuses it. The routing
+   surface, the catchment, the mesh and the model top take the result. Unset, the pixel stays.
+3. {toml}`cell_size|mesh.cell_size` sizes the cells of the model. Unset, it is the pixel from
+   step 2. A triangle or a voronoi mesh never grades finer than this pixel, whatever a size says.
+
+So the same run can route on 25 m, and solve on 50 m cells. A cell size changes the cells, and
+never the surface that was delineated.
+
 ## 8. How many cells a size costs
 
 The cost of a run grows with the number of cells, so this section counts them. For the three

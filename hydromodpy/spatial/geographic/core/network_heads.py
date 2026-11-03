@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.stream_heads import HeadCandidates
 
 if TYPE_CHECKING:
@@ -28,6 +29,8 @@ if TYPE_CHECKING:
     from hydromodpy.core.io.crs import CrsLike
 
 __all__ = ["line_parts", "network_head_candidates"]
+
+logger = get_logger(__name__)
 
 _END_DECIMALS = 2
 """Endpoints are matched on coordinates rounded to 0.01 m.
@@ -41,8 +44,15 @@ _CUT_END_TOLERANCE_M = 0.01
 """A free end this close to the outline the map was cut along is an end of the cut.
 
 The cut computes it on the outline in floating point, a few ulps off. The same
-centimetre as :data:`_END_DECIMALS`, for the same reason.
+centimetre as :data:`_END_DECIMALS`, for the same reason. It is a length in metres, turned into
+the units of the CRS of the cut before it is compared there.
 """
+
+_METRE_IN_DEGREES = 1.0 / 111_320.0
+"""A metre of a geographic CRS, in degrees: about, for a test on the order of a centimetre."""
+
+_OUTLET_RADIUS_M = 100.0
+"""A cut end this close to the outlet is where the catchment drains out, and is expected."""
 
 
 def network_head_candidates(
@@ -53,6 +63,7 @@ def network_head_candidates(
     sample_step_m: float = 10.0,
     cut_outline: BaseGeometry | None = None,
     cut_crs: CrsLike | None = None,
+    outlet_xy: tuple[float, float] | None = None,
 ) -> HeadCandidates:
     """Return the free ends of ``lines`` and the other end of each one's reach.
 
@@ -67,6 +78,11 @@ def network_head_candidates(
     free end on it was made by the cut: the stream goes on beyond it, so it is
     no head. It is left out and counted in ``n_cut_ends``. The other end of its
     reach stays, because which end drains more is still read through it.
+
+    The ends are tested against the outline in the CRS of the cut, before any
+    reprojection, where the outline is exact. A cut end other than the outlet
+    (``outlet_xy``, in the mesh CRS) whose reach has no other free end is a reach
+    nothing traces: it is warned about, and never becomes a head.
     """
     import shapely
 
@@ -112,10 +128,12 @@ def network_head_candidates(
     reach_ends = np.asarray(reach_end_xy, dtype=float).reshape(-1, 2)
     n_cut_ends = 0
     if cut_outline is not None and heads.shape[0]:
-        outline = to_mesh_crs([cut_outline], mesh_crs=mesh_crs, geometry_crs=cut_crs)[0]
-        gap = shapely.distance(shapely.points(heads), outline.boundary)
-        kept = gap > _CUT_END_TOLERANCE_M
+        gap = _gap_to_the_outline(heads, cut_outline, mesh_crs=mesh_crs, cut_crs=cut_crs)
+        kept = gap > _cut_end_tolerance(cut_crs)
         n_cut_ends = int(np.count_nonzero(~kept))
+        _warn_of_reaches_nothing_traces(
+            heads[~kept], reach_ends[~kept], heads[kept], outlet_xy=outlet_xy
+        )
         heads, reach_ends = heads[kept], reach_ends[kept]
 
     samples: list[np.ndarray] = []
@@ -129,6 +147,66 @@ def network_head_candidates(
         map_points_xy=np.concatenate(samples).reshape(-1, 2),
         n_cut_ends=n_cut_ends,
     )
+
+
+def _gap_to_the_outline(
+    points: np.ndarray, outline: BaseGeometry, *, mesh_crs: CrsLike, cut_crs: CrsLike | None
+) -> np.ndarray:
+    """Return the distance of each mesh-CRS point to the outline, in the CRS of the cut."""
+    import shapely
+    from pyproj import Transformer
+
+    from hydromodpy.core.io.crs import require_crs
+
+    mesh = require_crs(mesh_crs, "mesh_crs")
+    cut = require_crs(cut_crs, "cut_crs")
+    if not mesh.equals(cut):
+        x, y = Transformer.from_crs(mesh, cut, always_xy=True).transform(points[:, 0], points[:, 1])
+        points = np.column_stack([x, y])
+    return np.asarray(shapely.distance(shapely.points(points), outline.boundary), dtype=float)
+
+
+def _cut_end_tolerance(cut_crs: CrsLike | None) -> float:
+    """Return :data:`_CUT_END_TOLERANCE_M` in the units of the CRS of the cut."""
+    from hydromodpy.core.io.crs import require_crs
+
+    cut = require_crs(cut_crs, "cut_crs")
+    if cut.is_geographic:
+        return _CUT_END_TOLERANCE_M * _METRE_IN_DEGREES
+    return _CUT_END_TOLERANCE_M / float(cut.axis_info[0].unit_conversion_factor)
+
+
+def _warn_of_reaches_nothing_traces(
+    cut: np.ndarray,
+    other_ends: np.ndarray,
+    kept: np.ndarray,
+    *,
+    outlet_xy: tuple[float, float] | None,
+) -> None:
+    """Warn of each cut end, but the outlet, whose reach has no free end left to trace it.
+
+    Under the heads rule a reach is drawn from a free end. One whose only free end
+    lies on the outline is drawn by nothing, so the mapped network lacks it. It is
+    not made a head: the stream goes on beyond the outline.
+    """
+    if not cut.shape[0]:
+        return
+    kept_keys = {tuple(np.round(point, _END_DECIMALS)) for point in kept}
+    lost = 0
+    for point, other in zip(cut, other_ends, strict=True):
+        if tuple(np.round(other, _END_DECIMALS)) in kept_keys:
+            continue
+        if outlet_xy is not None and np.hypot(*(point - np.asarray(outlet_xy))) <= _OUTLET_RADIUS_M:
+            continue
+        lost += 1
+    if lost:
+        logger.warning(
+            "%d reach(es) of the mapped network have no free end inside the catchment (their "
+            "only upstream end lies on the outline the map was cut along, away from the "
+            "outlet). The heads rule draws nothing for them, so they are missing from the "
+            "map the criterion scores against.",
+            lost,
+        )
 
 
 def line_parts(geometries: Sequence[BaseGeometry]) -> list[BaseGeometry]:

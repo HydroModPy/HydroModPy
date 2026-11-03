@@ -1,7 +1,7 @@
 """Tests that ``json_schema_extra`` annotations survive the export pipeline.
 
-Widget metadata (``widget_type``, ``unit``, ``display_name_fr``,
-``help_text_fr``, ``display_min``, ``display_max``) is the contract
+Widget metadata (``widget_type``, ``unit``,
+``display_min``, ``display_max``) is the contract
 between Pydantic models and external UIs. These tests guard that contract
 against accidental regressions when the schema export evolves.
 """
@@ -14,8 +14,6 @@ from pathlib import Path
 REQUIRED_UI_KEYS = {
     "widget_type",
     "unit",
-    "display_name_fr",
-    "help_text_fr",
     "display_min",
     "display_max",
 }
@@ -82,19 +80,4 @@ def test_exported_config_preserves_widget_metadata(tmp_path: Path) -> None:
     k = phys_schema["properties"]["k_aquifer"]
     assert k.get("widget_type") == "input"
     assert k.get("unit") == "m/s"
-    assert k.get("display_name_fr")
-    assert k.get("help_text_fr")
-
-
-def test_help_text_fr_is_french_when_present() -> None:
-    """Soft sanity check: any field carrying help_text_fr has non-empty content."""
-    from hydromodpy.config.schema_export import export_schema
-    from hydromodpy.physics.flow.physical_properties import FlowPhysicalProperties
-
-    schema = export_schema(FlowPhysicalProperties)
-    for field_name, entry in schema["properties"].items():
-        help_fr = entry.get("help_text_fr")
-        if help_fr is not None:
-            assert isinstance(help_fr, str) and help_fr.strip(), (
-                f"{field_name} has empty help_text_fr"
-            )
+    assert "display_name_fr" not in k

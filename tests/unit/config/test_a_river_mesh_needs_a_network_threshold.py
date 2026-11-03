@@ -20,7 +20,7 @@ def _payload(**sections: Any) -> dict[str, Any]:
         "workflow": {"mode": "simulation"},
         "workspace": {"project_root": "."},
         "site": {"name": "site_a"},
-        "geographic": {"catchment": {"catch_def": "dem", "dem_init_path": "dem.tif"}},
+        "geographic": {"catchment": {"kind": "dem", "dem_init_path": "dem.tif"}},
         "mesh": {"engine": "voronoi"},
     }
     payload.update(sections)
@@ -112,7 +112,7 @@ def test_a_zone_that_reads_a_run_needs_no_network() -> None:
 def test_a_stream_boundary_on_a_mesh_read_from_a_file_names_the_file() -> None:
     mesh = {"engine": "triangle", "triangle": {"path": "mesh/catchment.msh"}}
     with pytest.raises(ValueError) as excinfo:
-        HydroModPyConfig.model_validate(_payload(mesh=mesh, flow={"active_bc": ["stream"]}))
+        HydroModPyConfig.model_validate(_payload(mesh=mesh, flow={"bc": {"stream": {}}}))
     message = str(excinfo.value)
     assert "The 'stream' boundary on a [mesh.triangle] path mesh" in message
     assert "Set threshold_area_km2 under [geographic.river_network]" in message

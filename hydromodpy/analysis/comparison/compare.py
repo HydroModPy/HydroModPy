@@ -18,11 +18,13 @@ import pandas as pd
 from matplotlib.figure import Figure
 from scipy.spatial import cKDTree
 
+from hydromodpy.core.exceptions import ResultsError
 from hydromodpy.core.scope import OBSERVED
 from hydromodpy.core.state.paths import runs_dir_for, summary_dir_for
 from hydromodpy.display.maps.ugrid import render_face_field
 from hydromodpy.results.derive import views
 from hydromodpy.results.manifest import is_sealed
+from hydromodpy.results.run.tables import global_parameters
 from hydromodpy.results.run.view import Run, open_run_dir
 from hydromodpy.results.storage.contract import RUN_REPORT_DIRNAME
 
@@ -34,11 +36,11 @@ STEADY = pd.Timestamp("1970-01-01 00:00:01")
 """A steady run has no date that compares, so this stamp stands for its only step."""
 
 
-class ComparisonCaseError(ValueError):
+class ComparisonCaseError(ResultsError, ValueError):
     """The runs cannot be compared, and the message says why."""
 
 
-class ComparisonReferenceError(LookupError):
+class ComparisonReferenceError(ResultsError, LookupError):
     """A reference names no sealed run."""
 
 
@@ -258,7 +260,7 @@ def _on_reference(
 ) -> np.ndarray:
     """Read *variable* at *date* at the cell nearest each reference cell, NaN when too far."""
     step = int(_stamps(run).get_loc(date))
-    values = np.asarray(run.field(variable, timestep=step), dtype=float)
+    values = np.asarray(run.field(variable, time=step), dtype=float)
     if values.ndim != 1:
         raise ComparisonCaseError(f"{variable} is not one value per cell, so it has no map here.")
     distance, nearest = cKDTree(run.mesh.cell_centers()).query(centers)
@@ -283,7 +285,7 @@ def runs_table(runs: Sequence[Run]) -> pd.DataFrame:
 
 def parameters_table(runs: Sequence[Run]) -> pd.DataFrame:
     """The parameters whose value differs between the runs, one column per run."""
-    table = pd.DataFrame({run.name: pd.Series(run.params, dtype=float) for run in runs})
+    table = pd.DataFrame({run.name: pd.Series(global_parameters(run), dtype=float) for run in runs})
     return table[table.nunique(axis=1, dropna=False) > 1].rename_axis("parameter").reset_index()
 
 

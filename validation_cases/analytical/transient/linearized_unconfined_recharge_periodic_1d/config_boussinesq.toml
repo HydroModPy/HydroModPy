@@ -1,3 +1,5 @@
 [flow]
-runtime_backend = "petsc"
+
+[flow.runtime]
+backend = "petsc"
 surface_interaction_model = "ts_vi_obstacle"

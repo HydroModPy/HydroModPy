@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, ClassVar, Literal
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.data.common.geo_helpers import crs_of_a_user_file
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.managers.base_manager_common import CUSTOM_SOURCE, SourceTable
@@ -99,18 +100,7 @@ class RasterFileManager(BaseFileManager):
         with rasterio.open(str(path)) as src:
             bounds = src.bounds
             has_crs = bool(src.crs)
-            if has_crs:
-                crs = str(src.crs)
-            else:
-                crs = str(getattr(source_cfg, "default_crs", "EPSG:2154"))
-                logger.warning(
-                    "Custom %s raster %s carries no CRS; using default_crs=%s. "
-                    "Set data.%s.sources[].default_crs for a non-French site.",
-                    self.VARIABLE_NAME,
-                    path,
-                    crs,
-                    self.VARIABLE_NAME,
-                )
+            crs = crs_of_a_user_file(src.crs, source_cfg, path=path, variable=self.VARIABLE_NAME)
             bbox = (bounds.left, bounds.bottom, bounds.right, bounds.top)
 
         if derived_dir is not None:

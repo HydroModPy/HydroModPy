@@ -20,9 +20,11 @@ def _load_main():
 def _run(monkeypatch, argv: list[str]) -> int:
     module = _load_main()
     monkeypatch.setattr(sys, "argv", argv)
-    with pytest.raises(SystemExit) as exc_info:
+    try:
         module.main()
-    return int(exc_info.value.code or 0)
+    except SystemExit as exc:
+        return int(exc.code or 0)
+    return 0
 
 
 def _make_workspace_with_project(tmp_path: Path) -> tuple[Path, Path]:

@@ -10,15 +10,22 @@ from __future__ import annotations
 import argparse
 import sys
 
-from hydromodpy.cli.conventions import confirm_parser, verbosity_parser, workspace_parser
+from hydromodpy.cli.conventions import (
+    confirm_parser,
+    dry_run_parser,
+    format_parser,
+    verbosity_parser,
+    workspace_parser,
+)
 from hydromodpy.cli.helpers import (
     EXIT_NOT_FOUND,
-    EXIT_SIGINT,
-    EXIT_USAGE,
     EXIT_WRITE_CONFLICT,
     apply_verbosity,
+    confirm,
+    refuse,
     resolve_workspace,
 )
+from hydromodpy.cli.output import emit
 
 NAME: str = "delete"
 HELP: str = "Delete a project directory: its configs, runs, sessions and trash"
@@ -28,7 +35,13 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        parents=[workspace_parser(), confirm_parser(), verbosity_parser()],
+        parents=[
+            workspace_parser(),
+            confirm_parser(),
+            dry_run_parser(),
+            format_parser(),
+            verbosity_parser(),
+        ],
         epilog="Example:\n  hmp project delete demo -w ~/hydromodpy -y",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -48,39 +61,41 @@ def run(args: argparse.Namespace) -> None:
     workspace = resolve_workspace(args.workspace)
     project_dir = workspace / PROJECTS_DIRNAME / args.project
     if not project_dir.is_dir():
-        print(f"No such project: {project_dir}", file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
+        refuse(f"No such project: {project_dir}", EXIT_NOT_FOUND)
 
     entries = scan_tree(project_dir).values()
     running = [
         e.rel_dir for e in entries if e.kind != "session" and effective_status(e.path) == "running"
     ]
     if running:
-        print(
+        refuse(
             f"{args.project} has {len(running)} attempt(s) still running "
             f"({', '.join(running)}). Stop them first.",
-            file=sys.stderr,
+            EXIT_WRITE_CONFLICT,
         )
-        sys.exit(EXIT_WRITE_CONFLICT)
 
-    if not args.yes:
-        if not sys.stdin.isatty():
-            print("Refusing to delete without -y in non-interactive mode.", file=sys.stderr)
-            sys.exit(EXIT_USAGE)
-        try:
-            resp = input(f"Delete project {project_dir}? [y/N] ").strip().lower()
-        except (EOFError, KeyboardInterrupt):
-            print("\nAborted.", file=sys.stderr)
-            sys.exit(EXIT_SIGINT)
-        if resp not in {"y", "yes"}:
-            print("Aborted.", file=sys.stderr)
-            sys.exit(EXIT_SIGINT)
+    published = [
+        entry.rel_dir for entry in entries if (entry.path / RUN_PUBLISHED_FILENAME).is_file()
+    ]
+    facts = {"project": args.project, "path": project_dir, "published": published}
+    if args.dry_run:
+        emit(
+            args,
+            "project delete",
+            {**facts, "applied": False},
+            table=lambda: print(f"would delete project {project_dir}"),
+        )
+        return
+    confirm(args, f"Delete project {project_dir}?", doing="delete")
 
-    for entry in entries:
-        if (entry.path / RUN_PUBLISHED_FILENAME).is_file():
-            print(
-                f"{entry.rel_dir} was published: its copies now point at a deleted source",
-                file=sys.stderr,
-            )
+    for rel_dir in published:
+        print(f"{rel_dir} was published: its copies now point at a deleted source", file=sys.stderr)
     result = delete_project(args.project, workspace=workspace, force=args.yes)
-    print(f"Deleted project {args.project} ({result['bytes_freed'] / 1e6:.2f} MB freed)")
+    emit(
+        args,
+        "project delete",
+        {**facts, "applied": True, "bytes_freed": result["bytes_freed"]},
+        table=lambda: print(
+            f"Deleted project {args.project} ({result['bytes_freed'] / 1e6:.2f} MB freed)"
+        ),
+    )

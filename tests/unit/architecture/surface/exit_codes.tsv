@@ -6,6 +6,7 @@ CapabilityVersionMismatchError	11
 CatalogError	1
 CatalogUnreadableError	22
 CheckpointError	1
+CommandUsageError	2
 ConfigError	14
 ConfigMissingError	14
 ConfigValidationError	14
@@ -41,6 +42,7 @@ ExportError	1
 ExtractError	1
 FailedCasesError	23
 FigureNotFoundError	1
+FrozenConfigError	14
 FrozenDataError	16
 HydroModPyError	1
 ImplicitInferenceError	14
@@ -57,8 +59,10 @@ MeshRequestError	1
 MigrationFailedError	19
 MissingForcingError	16
 NetworkError	16
+NothingThereError	10
 ObjectiveError	21
 ObservableNotAvailableError	15
+OldNameError	1
 OptimizerError	21
 PipelineError	1
 ReadOnlyError	13

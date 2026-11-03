@@ -16,7 +16,7 @@ rules, how a `Flow` is built, and where to add what.
 | part | answers |
 |---|---|
 | `contracts.py` | how physics reads what it must not import: `LoadResultProto` and `FieldParamLike`, and the hooks `_bootstrap.py` fills with the spatial constructors (`register_field_param_factory` and its three siblings) |
-| `base/` | what every spatial process shares: the `ProcessSpatial` runtime base, `ProcessSpatialConfig`, the generic initial-condition, boundary-condition and sink/source models and their normalizers, the `ConstantForcing`, `CsvForcing` and `SyntheticForcing` payloads |
+| `base/` | what every spatial process shares: the `ProcessSpatial` runtime base, the generic initial-condition, boundary-condition and sink/source models and their normalizers, the `ConstantForcing`, `CsvForcing` and `SyntheticForcing` payloads |
 | `forcing/` | how a loaded series becomes a solver-ready one: `resolve_forcing` (homogeneous or heterogeneous), unit conversion, alignment to the simulation window |
 | `hydrology/soil_reservoir/` | the daily soil reservoir: `config.py` is what `[flow.sinks_sources.recharge.soil]` can say, `kernel.py` is the arithmetic (curve-number runoff, root-zone storage, transit store, spin-up, balance) |
 | `hydrology/synthetic/` | synthetic precipitation, inflow and recharge series for demonstrators and tests |
@@ -30,10 +30,10 @@ rules, how a `Flow` is built, and where to add what.
 |---|---|
 | `flow_config.py`, `flow_param_config.py` | the `[flow]` schema; `FlowParam` wraps the field sections of `[flow.param.<id>]` |
 | `flow_toml_loader.py` | how a raw `[flow]` section is read: id canonicalization, forcing paths resolved against the project folders |
-| `flow_runtime_fields.py`, `flow_runtime_validators.py`, `flow_runtime_config.py` | the Boussinesq runtime knobs on `FlowConfig`, their validators, and the grouped view `FlowConfig.runtime` |
+| `flow_runtime_validators.py`, `flow_runtime_config.py` | the Boussinesq runtime knobs on `FlowConfig`, their validators, and the grouped view `FlowConfig.runtime` |
 | `flow.py` | the runtime `Flow` and `set_config` |
 | `initial_conditions.py`, `initial_conditions_config.py` | the head initial conditions: `top`, `top_offset`, `bottom`, `custom`, `steady_state`, `spinup_cyclic`, and their normalizer |
-| `boundary_conditions.py`, `boundary_condition_registry.py` | the Dirichlet, Cauchy and Robin payloads; the table of canonical boundary ids with the package each backend uses (`FLOW_BOUNDARY_DEFINITIONS`) and `BoundaryConditionBundle`, which solvers read |
+| `boundary_conditions.py`, `boundary_condition_registry.py` | the Dirichlet and drain payloads; the table of canonical boundary ids with the package each backend uses (`FLOW_BOUNDARY_DEFINITIONS`) and `BoundaryConditionBundle`, which solvers read |
 | `sinks_sources/` | one module per payload: `wells`, `recharge`, `etp`, `lake`, `sfr`, `flow_barrier`; `container.py` groups them under `[flow.sinks_sources]` |
 | `structure_binders.py` | the `apply_*_to_flow` functions that put loaded data into a built `Flow` |
 | `time_forcing.py`, `history_contract.py` | how a forcing is resolved against the simulation window; the shared time axes of transient histories |
@@ -65,7 +65,7 @@ Who imports physics: `solver` (most of it), `simulation`, `workflow`,
 hydromodpy/physics/
   __init__.py                  lazy names: Flow, FlowConfig, Transport, ProcessSpatial, ...
   contracts.py
-  base/         process_spatial.py (ProcessSpatial)  process_spatial_config.py
+  base/         process_spatial.py (ProcessSpatial)  forcing.py (TimeSeriesForcing)
                 initial_conditions.py  boundary_conditions.py  sinks_sources.py   (generic models)
                 *_config.py (normalizers)  forcing.py
   forcing/      forcing_bridge.py  time_alignment.py  validation.py  types.py
@@ -117,5 +117,5 @@ config into the kernel parameters. It applies to MODFLOW 6 only.
 | a sink or source kind | a payload module in `flow/sinks_sources/`, a field on `FlowSinksSourcesConfig` in `container.py`, a `Flow.sinks_sources` key in `Flow.set_sinks_sources` |
 | a way to bring loaded data into a `Flow` | an `apply_*_to_flow` function in `flow/structure_binders.py`, called from `workflow/steps/data.py` |
 | an initial-condition type | a model in `flow/initial_conditions.py` and its entry in `FlowInitialConditions` |
-| a new process | a subpackage that subclasses `ProcessSpatial`, with a config on `ProcessSpatialConfig`; see `docs/source/contribute/architecture/how-to/add-a-process.rst` |
+| a new process | a subpackage that subclasses `ProcessSpatial`, with a config on `HydroModelBase`; see `docs/source/contribute/architecture/how-to/add-a-process.rst` |
 | a soil-reservoir option | a field on `SoilReservoirConfig` (`config.py`), its use in `kernel.py` or `simulation/soil_recharge.py` |

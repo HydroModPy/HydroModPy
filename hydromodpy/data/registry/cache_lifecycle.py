@@ -78,8 +78,9 @@ def invalidate(
     source: str | None = None,
     station_id: str | None = None,
     delete_files: bool = False,
+    dry_run: bool = False,
 ) -> int:
-    """Remove matching entries. Returns count deleted.
+    """Remove matching entries. Returns count deleted, or the count found under *dry_run*.
 
     Sentinel entries (SENTINEL_CUSTOM, SENTINEL_EMPTY file_path) are
     excluded from deletion to preserve placeholder records.
@@ -92,6 +93,8 @@ def invalidate(
         where = " WHERE " + " AND ".join(clauses)
 
         backend = catalog.backend
+        if dry_run:
+            return len(backend.fetch_all(f"SELECT id FROM entries{where}", params))
         if delete_files:
             rows = backend.fetch_all(
                 f"SELECT id, file_path, variable, is_custom FROM entries{where}",
@@ -310,8 +313,9 @@ def prune_older_than(
     *,
     days: int,
     delete_files: bool = False,
+    dry_run: bool = False,
 ) -> int:
-    """Delete cache entries older than *days* days. Returns count removed."""
+    """Delete cache entries older than *days* days. Returns count removed, or found under *dry_run*."""
     backend = catalog.backend
     rows = backend.fetch_all(
         "SELECT id, file_path, variable, is_custom FROM entries "
@@ -322,10 +326,12 @@ def prune_older_than(
     for eid, fp, var, custom in rows:
         if fp in (SENTINEL_CUSTOM, SENTINEL_EMPTY):
             continue
+        count += 1
+        if dry_run:
+            continue
         if delete_files:
             _delete_entry_file(catalog, fp, variable=var, is_custom=bool(custom), leaving_ids=[eid])
         backend.execute("DELETE FROM entries WHERE id = ?", [eid])
-        count += 1
     return count
 
 

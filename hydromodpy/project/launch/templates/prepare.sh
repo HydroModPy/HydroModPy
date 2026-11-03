@@ -12,7 +12,7 @@
 # {{N_CASES}} cases, {{PREPARE_PARALLEL}} side by side), the only phase that
 # writes the shared data cache. The task that completes the phase writes
 # hydromodpy.lock, which the solves verify with --frozen.
-# Written by `hmp project array` on {{STAMP}}; frozen, never rewritten.
+# Written by `hmp campaign array` on {{STAMP}}; frozen, never rewritten.
 # Submit:  prep=$(sbatch --parsable {{JOB_DIR}}/prepare.sh)
 # Not verified on a cluster yet.
 

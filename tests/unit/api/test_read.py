@@ -65,15 +65,6 @@ class _FakeRun(Run):
         self._catalog = catalog or _FakeCatalog(Path("tables.parquet"))
         self.recorded: dict = {}
 
-    def field(self, var, *, timestep=None, layer=None, bbox=None):
-        self.recorded["field"] = {
-            "var": var,
-            "timestep": timestep,
-            "layer": layer,
-            "bbox": bbox,
-        }
-        return "ndarray_field"
-
     def timeseries(self, var, *, station=None, period=None, source="simulated"):
         self.recorded["timeseries"] = {
             "var": var,
@@ -88,26 +79,9 @@ class _FakeRun(Run):
 
 
 def test_read_rejects_non_run() -> None:
-    """``hmp.read`` raises TypeError when ``sim`` is not a Run."""
+    """``hmp.read`` raises TypeError when ``run`` is not a Run."""
     with pytest.raises(TypeError, match="Run object"):
         hmp.read("not_a_run", "head")
-
-
-def test_read_zarr_field_eager_when_time_is_int(monkeypatch) -> None:
-    """Single timestep with default lazy returns the eager field array."""
-    monkeypatch.setattr(
-        "hydromodpy.results.field_registry.has",
-        lambda name: name == "head",
-    )
-    run = _FakeRun()
-    result = hmp.read(run, "head", time=2, layer=0)
-    assert result == "ndarray_field"
-    assert run.recorded["field"] == {
-        "var": "head",
-        "timestep": 2,
-        "layer": 0,
-        "bbox": None,
-    }
 
 
 def test_read_timeseries_dispatch(monkeypatch, tmp_path: Path) -> None:
@@ -146,3 +120,17 @@ def test_read_raises_when_variable_unknown(monkeypatch, tmp_path: Path) -> None:
     run = _FakeRun(catalog=_FakeCatalog(tmp_path / "tables.parquet"))
     with pytest.raises(FieldNotFoundError):
         hmp.read(run, "unknown_var")
+
+
+@pytest.mark.parametrize("kind", ["series", "feature"])
+def test_a_series_and_a_feature_refuse_a_time(kind: str, monkeypatch, tmp_path: Path) -> None:
+    """Only a field has periods, so ``time=`` never changes the type a read gives."""
+    monkeypatch.setattr("hydromodpy.results.field_registry.has", lambda name: False)
+    catalog = _FakeCatalog(
+        tmp_path / "tables.parquet",
+        has_timeseries=kind == "series",
+        geographic_features=["watershed_polygon"] if kind == "feature" else None,
+    )
+    name = "discharge" if kind == "series" else "watershed_polygon"
+    with pytest.raises(ValueError, match="time"):
+        hmp.read(_FakeRun(catalog=catalog), name, time=-1)

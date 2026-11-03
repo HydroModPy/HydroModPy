@@ -211,6 +211,7 @@ def _completed_steady_session(project: Path, *, recorded_marker: str) -> Calibra
             sim_id=None,
             cost=0.01,
             status="completed",
+            components={"J": 0.01},
             metadata={
                 "params_hash": params_hash({"K": K_FROM_DISK}, context={"marker": recorded_marker})
             },
@@ -298,6 +299,8 @@ class TestResumeReusesWhatCompleted:
         # This run's own model/mesh/input-file context ("v2") is not the one the
         # session was scored under ("v1" below): not the same problem.
         _apply(monkeypatch, fake, marker="v2")
+        # The cost refusal is tested on its own; here it stands aside to see the re-solve.
+        monkeypatch.setattr(staged_runner, "refuse_a_phase_another_cost_scored", lambda *_a: None)
         _completed_steady_session(tmp_path, recorded_marker="v1")
 
         report = run_staged_calibration(cfg_path, resume=True)
@@ -418,6 +421,7 @@ class TestASessionThatAlreadyPromotedIsReopened:
         # The model changed since (another fingerprint): the phase is solved
         # again on top of what steady_k passed on, and finds a better trial.
         _apply(monkeypatch, fake, marker="v2")
+        monkeypatch.setattr(staged_runner, "refuse_a_phase_another_cost_scored", lambda *_a: None)
         fake.objective = 0.05
 
         again = run_staged_calibration(cfg_path, phase="transient_sy")
@@ -430,7 +434,7 @@ class TestASessionThatAlreadyPromotedIsReopened:
         assert (tmp_path / "runs" / "calage" / "manifest.json").is_file()
         descriptor = read_session(tmp_path / "sessions" / "calage")
         assert descriptor.status == "partial", "the search is sound; only the run is missing"
-        assert "hmp project promote calage --trial 3" in (descriptor.error_message or "")
+        assert "hmp campaign promote calage --trial 3" in (descriptor.error_message or "")
         by_trial = {line.trial: line for line in read_trials(tmp_path / "sessions" / "calage")}
         assert by_trial[2].only_case.sim_id == first.best_sim_id
         assert by_trial[3].only_case.rel_dir is None
@@ -458,7 +462,7 @@ class TestAnInterruptedStagedSearch:
         assert read_phase(session_dir, "transient_sy").status == "aborted"
         assert read_phase(session_dir, "transient_sy").best.trial == 2
         # The solve of steady_k went with its phase: its promotion is left to
-        # hmp project promote, nothing is written in the margin.
+        # hmp campaign promote, nothing is written in the margin.
         assert recorder.calls == []
         assert not (tmp_path / "runs").exists()
 

@@ -103,7 +103,9 @@ class IgnGeoplateformeDemSource(_FrenchAdministrativeDemSource):
     resolution_m: Annotated[float | None, Profile.USER] = Field(
         default=None,
         description=(
-            "DEM pixel size in metres. 'bd-alti' accepts 25 only and defaults to it. "
+            "DEM pixel size in metres, the size a provider serves. It comes first of three: "
+            "geographic.catchment.dem_resolution aggregates this pixel, and mesh.cell_size "
+            "defaults to the result. 'bd-alti' accepts 25 only and defaults to it. "
             "'rge-alti' accepts 1 or 5 and defaults to 5: the 1 m grid is native and, "
             "inland, a 5 m request returns its centre pixels unchanged, while the server "
             "resamples any other size with an undocumented kernel. A request above 150 "
