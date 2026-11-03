@@ -22,11 +22,12 @@ from hydromodpy.config.sites.plan import (
     refuse_env_overrides,
     write_plan_draft,
 )
+from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning, forget_old_forms_told
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.toml_io.paths import lookup
-from hydromodpy.results.manifest import RUN_RECORD_MANIFEST_VERSION
 from hydromodpy.results.plan_store import current_plan_hash, read_plan
 from hydromodpy.results.storage.contract import RUN_MANIFEST_FILENAME
+from tests._helpers.sealed_runs import manifest_document
 
 _PROJECT = """\
 [workspace]
@@ -628,13 +629,7 @@ def _seal(project: Path, dirname: str, config_hash: str) -> None:
     run_dir = project / "runs" / dirname
     run_dir.mkdir(parents=True)
     (run_dir / RUN_MANIFEST_FILENAME).write_text(
-        json.dumps(
-            {
-                "manifest_version": RUN_RECORD_MANIFEST_VERSION,
-                "identity": {"config_hash": config_hash},
-            }
-        ),
-        encoding="utf-8",
+        json.dumps(manifest_document(name=dirname, config_hash=config_hash)), encoding="utf-8"
     )
 
 
@@ -656,7 +651,7 @@ def test_a_case_sealed_after_the_plan_leaves_the_plan_unchanged(tmp_path: Path) 
 
 def test_the_config_hash_of_a_case_is_the_hash_of_the_worker(tmp_path: Path) -> None:
     from hydromodpy.config import HydroModPyConfig
-    from hydromodpy.results.catalog.registration import input_file_digests, run_identity_hash
+    from hydromodpy.results.catalog.registration import config_identity_hash
 
     project = write_sites_project(tmp_path)
     draft = expand_plan(project, project / "project.toml")
@@ -664,8 +659,31 @@ def test_the_config_hash_of_a_case_is_the_hash_of_the_worker(tmp_path: Path) -> 
 
     for case in draft.cases:
         cfg = HydroModPyConfig.from_toml(plan_dir / f"{case.case_id}.toml")
-        worker = run_identity_hash(cfg.model_dump(mode="json"), inputs=input_file_digests(cfg))
-        assert worker == case.config_hash, case.case_id
+        assert config_identity_hash(cfg) == case.config_hash, case.case_id
+
+
+def test_a_plan_moves_with_the_code_that_computes_and_with_nothing_else(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A case is computed again after an edit of a solver, and not after an edit of a figure."""
+    from hydromodpy.core import code_fingerprint as fingerprint_module
+    from hydromodpy.core.code_fingerprint import RUN_LAYERS, code_fingerprint
+
+    project = write_sites_project(tmp_path)
+    table = code_fingerprint(RUN_LAYERS)
+
+    def hashes() -> dict[str, str | None]:
+        draft = expand_plan(project, project / "project.toml")
+        return {case.case_id: case.config_hash for case in draft.cases}
+
+    base = hashes()
+    monkeypatch.setattr(fingerprint_module, "code_fingerprint", lambda _layers: dict(table))
+    assert hashes() == base
+    monkeypatch.setattr(
+        fingerprint_module, "code_fingerprint", lambda _layers: {**table, "solver": "edited"}
+    )
+    moved = hashes()
+    assert set(moved) == set(base) and all(moved[case] != base[case] for case in base)
 
 
 def test_a_sealed_run_or_a_completed_session_marks_the_case_done(tmp_path: Path) -> None:
@@ -774,3 +792,43 @@ def test_a_recipes_table_names_the_file_of_a_recipe(tmp_path: Path) -> None:
         "couesnon-daily_low",
         "nancon-daily_low",
     ]
+
+
+def test_one_row_of_the_migration_reaches_every_layer_of_a_case(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A bind line, a recipe, a site file and --set all write the key under its old name."""
+    from hydromodpy.config import config_migration as migration
+    from hydromodpy.config.config_migration import KeyRename
+
+    rows = (
+        KeyRename("flow.param.{*}.field", "value_before", "value", since="2.3.0"),
+        KeyRename("mesh", "size_before", "cell_size", since="2.3.0"),
+    )
+    monkeypatch.setattr(migration, "RENAMED_KEYS", (*migration.RENAMED_KEYS, *rows))
+    project = write_sites_project(
+        tmp_path,
+        recipes_extra='small = { file = "project.toml", set = { "mesh.size_before" = 50.0 } }\n',
+    )
+    marker = project / "project.toml"
+    marker.write_text(
+        marker.read_text(encoding="utf-8").replace(
+            f'"{_K_PATH}" = "k"', f'"{_K_PATH}_before" = "k"'
+        ),
+        encoding="utf-8",
+    )
+    (project / "site_overrides" / "couesnon.toml").write_text(
+        "[mesh]\nsize_before = 60.0\n", encoding="utf-8"
+    )
+
+    forget_old_forms_told()
+    with pytest.warns(ConfigKeyRenamedWarning):
+        draft = expand_plan(project, marker)
+    with pytest.warns(ConfigKeyRenamedWarning, match="--set"):
+        forced = expand_plan(project, marker, set_overrides={"mesh": {"size_before": 70.0}})
+
+    assert not draft.errors
+    assert _k(_case(draft, "nancon-base")) == pytest.approx(1e-5)
+    assert lookup(_case(draft, "nancon-small").document, "mesh.cell_size") == 50.0
+    assert lookup(_case(draft, "couesnon-base").document, "mesh.cell_size") == 60.0
+    assert all(lookup(case.document, "mesh.cell_size") == 70.0 for case in forced.cases)

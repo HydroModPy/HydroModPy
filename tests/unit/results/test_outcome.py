@@ -10,7 +10,6 @@ import pytest
 from pydantic import ValidationError
 
 from hydromodpy.results.heartbeat import Heartbeat, write_heartbeat
-from hydromodpy.results.manifest import RUN_RECORD_MANIFEST_VERSION
 from hydromodpy.results.outcome import (
     OUTCOME_SCHEMA,
     Outcome,
@@ -20,6 +19,7 @@ from hydromodpy.results.outcome import (
     write_outcome,
 )
 from hydromodpy.results.storage.contract import RUN_MANIFEST_FILENAME, RUN_OUTCOME_FILENAME
+from tests._helpers.sealed_runs import manifest_document
 
 NOW = datetime(2026, 10, 14, 8, 2, 11, tzinfo=UTC)
 
@@ -106,9 +106,7 @@ def test_the_outcome_is_flushed_to_the_disk(tmp_path, monkeypatch):
 
 def test_a_manifest_means_completed_whatever_the_outcome_says(tmp_path):
     write_outcome(tmp_path, _outcome("failed"))
-    (tmp_path / RUN_MANIFEST_FILENAME).write_text(
-        json.dumps({"manifest_version": RUN_RECORD_MANIFEST_VERSION}), encoding="utf-8"
-    )
+    (tmp_path / RUN_MANIFEST_FILENAME).write_text(json.dumps(manifest_document()), encoding="utf-8")
 
     assert effective_status(tmp_path) == "completed"
 

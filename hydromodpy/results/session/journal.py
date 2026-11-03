@@ -29,7 +29,7 @@ from typing import Annotated, Any, Final
 from pydantic import ConfigDict, Field, field_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
-from hydromodpy.core.config_kit.stored import Vocabulary, read_stored
+from hydromodpy.core.config_kit.stored import Vocabulary, dump_stored, read_stored
 from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.results.rel_dir import checked_rel_dir
 from hydromodpy.results.storage.contract import SESSION_TRIALS_FILENAME
@@ -85,7 +85,7 @@ def append_trial(session_dir: str | Path, line: TrialLine) -> Path:
     """Append one line to the journal, in one write, and return its path."""
     target = trials_path(session_dir)
     target.parent.mkdir(parents=True, exist_ok=True)
-    text = json.dumps(line.model_dump(mode="json", by_alias=True), ensure_ascii=False) + "\n"
+    text = json.dumps(dump_stored(line), ensure_ascii=False) + "\n"
     fd = os.open(target, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o644)
     try:
         os.write(fd, text.encode("utf-8"))

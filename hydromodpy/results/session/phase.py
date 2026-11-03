@@ -25,7 +25,7 @@ from typing import Any, Final
 from pydantic import ConfigDict, Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
-from hydromodpy.core.config_kit.stored import read_stored
+from hydromodpy.core.config_kit.stored import dump_stored, read_stored
 from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.results.checks import StopState
 from hydromodpy.results.session.descriptor import BestTrial, SessionStatus
@@ -85,7 +85,7 @@ def phase_dir(session_dir: str | Path, name: str) -> Path:
 def write_phase(session_dir: str | Path, descriptor: PhaseDescriptor) -> Path:
     """Write the descriptor of a phase durably and return its path."""
     target = phase_dir(session_dir, descriptor.name) / SESSION_DESCRIPTOR_FILENAME
-    return write_json_durable(target, descriptor.model_dump(mode="json", by_alias=True))
+    return write_json_durable(target, dump_stored(descriptor))
 
 
 def read_phase(session_dir: str | Path, name: str) -> PhaseDescriptor:

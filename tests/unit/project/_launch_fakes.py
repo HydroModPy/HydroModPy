@@ -30,6 +30,7 @@ import pytest
 
 from hydromodpy.project.launch import local as launch_local
 from hydromodpy.project.launch import prepare as launch_prepare
+from tests._helpers.sealed_runs import manifest_document
 
 PROJECT = """\
 [workspace]
@@ -205,15 +206,12 @@ if mode == "fail":
     sys.exit(15)
 import pyarrow.parquet as pq
 
-from hydromodpy.results.manifest import RUN_RECORD_MANIFEST_VERSION
-
 # The seal holds the hash of the plan, as a real worker of the plan seals it.
 planned = {row["case_id"]: row["config_hash"]
            for row in pq.read_table(case.parent / "cases.parquet").to_pylist()}
-(run_dir / "manifest.json").write_text(
-    json.dumps({"manifest_version": RUN_RECORD_MANIFEST_VERSION,
-                "identity": {"config_hash": planned[case_id]}})
-)
+manifest = json.loads(@MANIFEST@)
+manifest["identity"]["config_hash"] = planned[case_id]
+(run_dir / "manifest.json").write_text(json.dumps(manifest))
 outcome.update(status="completed", ended_at=now, exit_code=0)
 (run_dir / "outcome.json").write_text(json.dumps(outcome))
 """
@@ -247,7 +245,9 @@ def seen(project: Path, case_id: str, phase: str = "run") -> dict:
 def fake_worker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Make the launcher start the fake worker instead of ``hmp run``."""
     script = tmp_path / "fake_worker.py"
-    script.write_text(FAKE_WORKER, encoding="utf-8")
+    script.write_text(
+        FAKE_WORKER.replace("@MANIFEST@", repr(json.dumps(manifest_document()))), encoding="utf-8"
+    )
 
     def worker(case, flags=()):
         return [sys.executable, str(script), str(case.path), *flags]

@@ -74,7 +74,7 @@ from hydromodpy.project.accessors import (
     sites_frame,
 )
 from hydromodpy.project.catalog import ProjectCatalog
-from hydromodpy.project.runner import ProjectRunner, _pin_parent_sim_id, scratch_of_resumed_run
+from hydromodpy.project.runner import ProjectRunner, scratch_of_resumed_run
 from hydromodpy.project.state import (
     CONFIGURED_STATE_FIELDS,
     PROJECT_ATTR_TO_STATE_FIELD,
@@ -145,13 +145,14 @@ class Project:
         A TOML path, a fully-built :class:`HydroModPyConfig`, a ``dict``
         payload, or a JSON string (auto-detected).
     solver : str, optional
-        Flow solver name. Auto-detected from the config, defaults to
-        ``"modflow_nwt"``.
+        Flow solver of a configuration that declares no process. One that declares
+        another solver is refused: the plan and the replay read the configuration.
     headless : bool, optional
-        Disable display and postprocess runners (useful for calibration
-        loops where generating figures per iteration is wasteful).
+        Draw no figure (useful for calibration loops where generating figures
+        per iteration is wasteful). A choice of this launch: it changes neither
+        the identity of a run, nor its sealed configuration, nor what it keeps.
     no_display : bool, optional
-        Skip display generation for later run phases.
+        The same, said by the option of ``hmp run``.
 
     Examples
     --------
@@ -271,7 +272,7 @@ class Project:
         run: Run,
         *,
         name: str | None = None,
-        config_overrides: Mapping[str, Any] | None = None,
+        set: Mapping[str, Any] | None = None,  # noqa: A002 - the name of `--set`
         solver: str | None = None,
         headless: bool = False,
         no_display: bool = False,
@@ -290,14 +291,15 @@ class Project:
             Persisted run to use as the reproducible source snapshot.
         name
             Optional name for the derived run.
-        config_overrides
-            Deep-merge patch applied to the stored config snapshot. Keys must
-            match :class:`HydroModPyConfig` top-level fields; the merged
-            payload is validated by Pydantic, so unknown keys raise.
+        set
+            Values to set on the stored configuration, by dotted path, the grammar
+            of ``--set``: ``{"flow.param.K.field.value": 2e-4}``. The result is
+            validated, so an unknown key raises.
         solver, headless, no_display
             Options forwarded to the derived :class:`Project`.
         overrides
-            Flow parameter overrides forwarded to :meth:`Project.simulate`.
+            Keywords of :meth:`Project.simulate` such as ``K``, which are changes of
+            the configuration of the new run too.
 
         Returns
         -------
@@ -317,17 +319,17 @@ class Project:
                 f"Simulation '{run.sim_id}' has no config snapshot - cannot rerun"
             )
 
-        from hydromodpy.config import HydroModPyConfig
+        from hydromodpy.project.dispatch.rerun import rerun_config
 
-        cfg = HydroModPyConfig.from_snapshot(snapshot, **(config_overrides or {}))
-        project = cls(
-            cfg,
-            solver=solver,
-            headless=headless,
-            no_display=no_display,
+        new_run = rerun_config(
+            snapshot,
+            changes=set or {},
+            name=name,
+            source_sim_id=run.sim_id,
+            source_dir=run.dir,
+            project_options={"solver": solver, "headless": headless, "no_display": no_display},
+            **overrides,
         )
-        with _pin_parent_sim_id(project._ctx, run.sim_id):
-            new_run = project._runner.run(name=name, **overrides)
         if new_run is None:
             raise PipelineError(
                 f"rerun of '{run.sim_id}' did not produce a new Run "
@@ -694,9 +696,11 @@ class Project:
         A run bounded by ``until_step`` before ``setup_process`` needs no shared
         model phase: it executes its own steps and builds nothing else, which is
         how a catchment is delineated without loading data or meshing.
-        Flow parameter overrides (``Sy``, ``K``, ``Ss``) and the special keys
-        ``thickness``, ``first_clim``, ``properties`` are applied to the plan
-        before the Pipeline runs. Call once per point to sweep a parameter.
+        A keyword such as ``K``, ``Sy`` or ``thickness`` (a name of ``hmp config
+        targets``, in the unit the configuration declares for it) and ``first_clim``
+        are changes of the configuration of this run: they are written in its
+        sealed ``config.toml`` and a rerun repeats them. Call once per point to
+        sweep a parameter.
         Once the attempt is closed, the index of the project is refreshed from
         the run directory and the :class:`Run` view is returned.
 
@@ -726,7 +730,8 @@ class Project:
             The lineage block and the promoting session the run is sealed
             with; a promotion or a rerun passes them.
         overrides
-            Parameter overrides applied to the simulation plan.
+            Values applied to the configuration of this run before its plan is
+            built, and recorded by dotted path in ``lineage.overrides``.
 
         Returns
         -------

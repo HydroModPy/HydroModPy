@@ -34,6 +34,22 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Added
+- A name of `hydromodpy.__all__` or an `hmp` command or flag that moves in a stable version now has a real way to keep working for its two minor versions. It has an entry in `OLD_NAMES` of `hydromodpy/_lazy.py` or `OLD_CLI_FORMS` of `hydromodpy/cli/conventions.py`, prints a `FutureWarning` with both names, and does what the new one does. Both tables are empty at 2.0.0. From the first stable version on, `python -m tools.surface_snapshot` refuses a name or a flag that leaves with no entry, and a test fails once an entry outlives its delay.
+- The documents of a job directory (`hmp-manifest/v2`, `hmp-inputset/v1`, `hmp-provenance/v1`, `hmp-outcome/v1`, `hmp-chain-outcome/v1`) follow the version rule of every stored document. A document newer than this code is refused with what to do, `verify_job` reports it, and an unknown key reads. `read_chain_outcome` reads the report of a chain.
+- A run seals `config.resolved.toml` beside `config.toml`: the whole configuration, with every default written and the
+  values a rule derives from it (the terrain engine an unset key takes, `shoreline_band`, `hfb_buffer`, the station of
+  the metrics). Its table `[resolved_at_build]` holds what the build decided: an ETP the data step injected with its
+  surface, the cell sizes a mesh took from the DEM pixel, the gauge a run deduced. `hmp publish` copies the file.
+- `provenance.json` states what the solver adapter decided once it built the model (`solver.options`: the IMS complexity
+  and the XT3D decision of MODFLOW 6) and the fingerprint of the code by layer (`tool.code_fingerprint`).
+- `lineage.drift` in the manifest of a rerun: each key that differs from what its source sealed, with both values.
+- `hmp run <run>/config.toml --frozen` replays from the record of the run. It refuses an input whose digest differs from
+  `inputs.json` or `manifest.json`, naming the file and both digests, and a value that differs from
+  `config.resolved.toml`, naming each key and both values. It warns when the solver binary is not the one the run
+  recorded, naming both versions. `hydromodpy.lock` keeps its role for a project TOML.
+- `hmp catalog rerun` and `Project.rerun` warn on the same keys and record them in the lineage.
+- `tests/unit/config/corpus/` holds real TOMLs of the tags `v2.0.0a1` to `v2.0.0a5`, and `tests/unit/config/test_historical_configs.py` checks each one through `hmp doctor --fix-config` and `hmp config check`.
+- The grammar page of the reference states how `__merge` pairs tables and when it refuses.
 - Each family of stored documents now declares the oldest version it reads next to its current one. Every later 2.x reads every 2.0.0 document.
 - `hydromodpy_version_min` in `workspace.toml` is now enforced. A run, a project or a command on a workspace that asks for a newer HydroModPy stops before any work and names both versions. A pre-release counts as its release.
 - `docs/source/about/versions.md` is now the one statement of what a version may change. The whole 2 line
@@ -685,6 +701,35 @@ Each release section includes the following standard categories:
   (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
+- A sealed run stays in the index, `hmp catalog ls`, `hmp export` and `hmp project status` when its `outcome.json`, its `annotations.json` or its heartbeat cannot be read. The seal says the run is complete, so it counts as `completed`, with what the seal gives, and one warning names the document. The tags and notes of an unreadable `annotations.json` stay out of the index while the file stays on disk.
+- `read_manifest` and the new `read_seal` read a manifest the same way. A manifest with a valid version whose body its model refuses is unreadable everywhere: `hmp project show` counts it as `unreadable`, and `hmp run` takes a new version beside it.
+- `hmp.report()` and `hmp report render` with no session name pick the latest session whose descriptor, phases and journal all read, and warn about the one they leave out.
+- `python -m tools.surface_snapshot` no longer takes a form the loader only refuses as the migration of a removed stable TOML key. It refuses a stable key marked experimental from the first stable version on, and before that version the key still needs its migration to leave.
+- `Project.simulate(K=, Sy=, thickness=, first_clim=)` changes the configuration of the run before its plan is built.
+  The override is in the sealed `config.toml`, so a rerun repeats it, and `lineage.overrides` records it by dotted path
+  (`flow.param.K.field.value`), as `--set` does. A run with an override now runs every process its configuration
+  declares, as its replay does, and not only the flow.
+- A number given to `simulate(K=...)` is read in the unit the file declares for `K`, as a value of `--set` and a
+  calibration read it. It used to be read in m/s whatever the file said.
+- `simulate` takes the names `hmp config targets` lists, plus `first_clim`. A heterogeneous `K` is refused with those
+  names: the keyword used to do nothing there, silently. An override is validated with the whole document.
+- `Project.rerun(config_overrides=...)` is now `Project.rerun(set=...)`, with dotted paths, the grammar of `--set`.
+- The identity of a run reads the code that computes in place of the package version: the layers that change a number,
+  over the tokens of each module. A release that only touches figures, commands, comments or docstrings keeps it, so an
+  identical run is not computed again and a run resumes. An edit of a solver changes it. The configuration enters
+  without the values that equal a default, so writing a default out in a file is the same computation. Every
+  identity changes once with this release.
+- `hmp run --no-display` and `headless` are choices of the launch: nothing is drawn, and they enter neither the identity
+  nor the sealed configuration. A headless run used to seal `display.save = false`, so its replay drew nothing.
+- `--no-display` no longer changes what a run keeps under `keep_per_cell_budget = false`: the run keeps what its figures
+  read, so `hmp viz regen` can draw them later. Such a run keeps more than it did before.
+- `Project(cfg, solver=...)` is refused when the configuration declares another flow solver. It used to apply to a run
+  with an override and be ignored by a plain one.
+- Each file of a `base_config` chain, each `--overlay` file, `--set` and `HMP_SET_*` now read under today's key names before the merge. A key written under an old name in a child or an overlay wins over the same key written under its new name in the parent, as the same key under one name would. Before, `[domain.layers] nlay = 3` in a base and `[modflow6.sgrid.vertical] nlay = 5` in an overlay gave 3 and dropped the 5.
+- A warning about an old key names the file that holds it, and `hmp doctor --fix-config <that file>` is what it says to run.
+- `hmp doctor --fix-config <file>` follows the `base_config` chain. It rewrites each file that holds an old form, keeps comments, and prints what changed in each file. It writes nothing when rewriting the files one by one would change what they read together, and it names those keys.
+- `key__merge` pairs a table with the inherited table of the same identity, the first of `id`, `name` and `source` that every table on both sides holds. A child writes only the tables it changes, in any order. Tables with no identity are refused unless each side holds one table, and the message says what to write. Before, `__merge` paired by position, so a table inserted at the head of the base silently moved every overlay down by one.
+- A rename in `RENAMED_KEYS` or a move in `MOVED_TABLES` also rewrites the dotted paths that name the key: the `overrides` of a calibration phase, `path` and `target` of a calibration parameter, the keys of `[sites.bind]` and of the `set` table of a recipe, `hmp run --set`, `hmp catalog rerun --set` and `HMP_SET_*`. `MOVED_TABLES` now takes a single key as well as a table.
 - `hydromodpy.lock` now carries an id like every other stored document, `schema = "hydromodpy.lock.v1"`, in place of `[hydromodpy] version = "2.0.0"`, which looked like a package version. A lock of the old shape is refused and names `hmp dev lock update`, which writes it again.
 - `hydromodpy.lock` now holds one record per cached input, `[[input]]`, with `variable`, `source`, `station_id`, `path`, `sha256`, `bytes`, `file_mtime` and `fetched_at`. It replaces both `[inputs]` and `[[artefact]]`, which said the same thing twice.
 - The `[schema]` table of `hydromodpy.lock` is gone. Its versions were already in `[hydromodpy]`, and its `config_sha256` is now `[hydromodpy] config_schema_sha256`.
@@ -1437,6 +1482,9 @@ Each release section includes the following standard categories:
 - The compact network comparison reads the reference river from `mesh_cell_families`.
 
 ### Removed
+- `CHECKS_VERSIONS`, a declaration nothing read. The checks block has no version key of its own yet, and the seal around it carries the version that is checked.
+- `Project.simulate(properties=...)`. Nothing called it, and arrays handed to a run beside its files could not be
+  sealed. Write a per-cell parameter as a field of the configuration.
 - `<solver>_path` keys in `[binaries]` of `hydromodpy.lock`. A lock travels with its project, so it holds no path of the machine that wrote it.
 - `help3o_available()` in pyhelp, which nothing called.
 - `binaries.release_url`, replaced by `binaries.asset_url`.
@@ -1627,6 +1675,24 @@ Each release section includes the following standard categories:
   A run sealed before the family tables draws no reference line.
 
 ### Fixed
+- `hmp catalog gc` no longer stops for the whole project when one sealed run has a newer, truncated or malformed `outcome.json`.
+- `hmp run` no longer ends in `string indices must be integers` on a manifest with a valid version and a refused body.
+- A running attempt whose heartbeat cannot be read reads as `unreadable` instead of stopping `hmp project status` and `hmp catalog gc`.
+- A rewrite of a stored document keeps the keys it does not understand. `hmp catalog tag`, `hmp catalog note`, the closing of an attempt or a session, a phase, a trial link and a ledger entry no longer erase what a later 2.x added.
+- `hmp.open(project).best()` no longer raises `Categorical categories cannot be null` on a project whose runs have no site. A run with no site now appears, in a group of its own.
+- A replay of a run was another computation for the identity, because the sealed `[domain]` wrote the zone ids the build
+  arms. It writes the ones the file declares, so `hmp run <run>/config.toml` answers "identical" when nothing moved.
+- The sealed `simulation.name` is the name of the run, so a replay answers to that run and not to the file it came from.
+- `manifest.config.source` and `simulation.name` name the file the user named under `--set` or `--overlay`, and no
+  longer the temporary copy deleted after the run.
+- `hmp.run(path, headless=True)` reaches the run, and `hmp.run(config, force=True)` reaches the claim of a stale case.
+- A run resumed right after its solver no longer fails in `extract`: the folder it solved in, its grid, its binary and
+  the recharge the criterion reads are recorded as soon as the solve ends.
+- A plain run after `simulate(K=...)` in one `Project` goes back to the declared value, and each point of a sweep gets
+  its own lineage.
+- `simulate(first_clim=...)` no longer crashes on a file without `[flow.sinks_sources.recharge]`.
+- An `--overlay` file keeps its `__append` and `__merge` directives until it meets the file it overlays. Before, it was merged on nothing first, so `[[export__append]]` in an overlay replaced the inherited list, and `__merge` was refused.
+- Renaming a key keeps the comment of a line that holds a boolean.
 - The docs said `hydromodpy.lock` records the solver binaries. The launcher and `hmp dev lock update` leave that section empty, and each run records the binary it used. The docs now say so.
 - An append to a Parquet table of a run no longer drops a column a later version added. The rows of this writer read it as null.
 - Reading a table of a run now checks its `hmp.schema_version`, like an append does. The log line "rewriting as v2", which came just before a refusal, is gone.
@@ -1708,6 +1774,12 @@ Each release section includes the following standard categories:
   below MODFLOW 6.
 
 ### Numbers
+- A run without an override moves no number: 0 on every array of the demo and of example 04, measured against the commit
+  before this change.
+- A run with an override: 0 on the demo with `K=3.3e-3`, for a value written in the unit the file declares.
+- Under `keep_per_cell_budget = false` with `--no-display`, the fields kept grow to what the figures read. No value of a
+  kept field changes.
+No number moves for a file written under current names. A chain or an overlay that wrote one key under both an old and a new name used to keep the value of the new name, and now keeps the value of the last file, so such a file can change its result. None of the example files of `v2.0.0a1` to `v2.0.0a5` is in that case.
 - None. The release stays 23.0 and the extracted `mf6` and `mfnwt` are byte-identical to what `flopy.utils.get_modflow` installed. A later move of a pin is a number change until proven otherwise, by a new rule in the release checklist.
 - None. This lot changes no number of a run.
 

@@ -1,0 +1,26 @@
+base_config = "step2_local_data.toml"
+[simulation]
+name = "nancon_step4_transient"
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2002-12-31"
+[flow]
+flow_regime = "transient"
+param_list = ["K", "Sy", "Ss"]
+[flow.param.Ss.field]
+kind = "homogeneous"
+unit = "m-1"
+value = 1e-5
+[data]
+types = ["hydrography", "hydrometry", "recharge", "runoff"]
+[[data.recharge.sources]]
+source = "custom"
+path = "recharge"
+station_ids = ["NANCON"]
+[[data.runoff.sources]]
+source = "custom"
+path = "runoff"
+station_ids = ["NANCON"]
+[display]
+time = "2002-10-15"
+figures = ["flux_timeseries", "hydrograph_sim_obs", "seepage_map"]

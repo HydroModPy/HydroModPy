@@ -112,41 +112,39 @@ def test_project_rerun_builds_from_snapshot_and_delegates_parent(
 ) -> None:
     from hydromodpy.config import HydroModPyConfig
     from hydromodpy.project import Project
-    from hydromodpy.project.runner import ProjectRunner
 
     cfg = object()
     captured: dict[str, Any] = {}
 
-    def _fake_from_snapshot(cls, snapshot, **overrides):
+    def _fake_from_snapshot(cls, snapshot, *, changes=None):
         captured["snapshot"] = snapshot
-        captured["config_overrides"] = overrides
+        captured["changes"] = changes
         return cfg
 
-    def _fake_run(self, *, name=None, **overrides):
+    def _fake_simulate(self, *, name=None, lineage=None, **overrides):
         captured["name"] = name
-        captured["parent_sim_id"] = self._project._ctx.parent_sim_id
+        captured["parent_sim_id"] = self._ctx.parent_sim_id
+        captured["lineage"] = lineage
         captured["run_overrides"] = overrides
         return SimpleNamespace(sim_id="child")
 
     monkeypatch.setattr(HydroModPyConfig, "from_snapshot", classmethod(_fake_from_snapshot))
-    monkeypatch.setattr(ProjectRunner, "run", _fake_run)
+    monkeypatch.setattr(Project, "simulate", _fake_simulate)
 
     parent = SimpleNamespace(
         sim_id="parent",
+        dir=None,
         config_snapshot={"workflow": {"mode": "simulation"}},
     )
 
-    child = Project.rerun(
-        parent,
-        name="derived",
-        config_overrides={"display": {"save": False}},
-        K=2.0,
-    )
+    child = Project.rerun(parent, name="derived", set={"display.save": False}, K=2.0)
 
     assert child.sim_id == "child"
     assert stub_project_phases["config"] is cfg
     assert captured["snapshot"] == {"workflow": {"mode": "simulation"}}
-    assert captured["config_overrides"] == {"display": {"save": False}}
+    assert captured["changes"] == {"display.save": False}
     assert captured["name"] == "derived"
     assert captured["parent_sim_id"] == "parent"
+    assert captured["lineage"].kind == "rerun"
+    assert captured["lineage"].overrides == {"display.save": False}
     assert captured["run_overrides"]["K"] == 2.0

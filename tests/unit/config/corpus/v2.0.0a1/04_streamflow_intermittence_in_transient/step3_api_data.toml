@@ -1,0 +1,14 @@
+base_config = "step1_minimal.toml"
+[simulation]
+name = "nancon_step3_api"
+[data]
+types = ["hydrography", "hydrometry"]
+[[data.hydrography.sources]]
+source = "bdtopage"
+[data.hydrometry]
+date_start = "2000-01-01"
+date_end = "2002-12-31"
+[[data.hydrometry.sources]]
+source = "hubeau"
+product = "QmnJ"
+station_ids = ["J001401001"]

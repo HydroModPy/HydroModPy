@@ -277,6 +277,16 @@ class LakeRefinementConfig(HydroModelBase):
         ),
     )
 
+    @property
+    def resolved_shoreline_band(self) -> float:
+        """Half-width of the shoreline band, in metres: the key, else ``2 * cell_size``."""
+        return self.shoreline_band if self.shoreline_band is not None else 2.0 * self.cell_size
+
+    @property
+    def resolved_hfb_buffer(self) -> float:
+        """Half-width of the cutoff-wall zone, in metres: the key, else ``2 * dam_buffer``."""
+        return self.hfb_buffer if self.hfb_buffer is not None else 2.0 * self.dam_buffer
+
     @model_validator(mode="before")
     @classmethod
     def _the_table_alone_switches_the_refinement_on(cls, data: Any) -> Any:

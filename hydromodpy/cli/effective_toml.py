@@ -55,8 +55,9 @@ def materialize_effective_toml(
     path for ``--set`` and ``HMP_SET_*`` and under ``overlay`` for the
     overlay files, the way ``lineage.overrides`` seals it.
     """
-    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
-    from hydromodpy.core.toml_io.merge import merge_toml_payloads
+    from hydromodpy.config.config_migration import rewrite_dotted_path
+    from hydromodpy.core.toml_io.loader import merge_toml_layers, read_toml_chain
+    from hydromodpy.core.toml_io.paths import effective_copy_prefix
     from hydromodpy.core.toml_io.writer import dumps
 
     overlays = [Path(path).expanduser().resolve() for path in getattr(args, "overlay", []) or []]
@@ -64,23 +65,24 @@ def materialize_effective_toml(
     cli_payload = set_overrides(set_items)
     env_payload = env_overrides(os.environ)
 
-    base_payload = load_config_file(config_path, load_toml_with_base_config)
-    overlay_payloads = [load_config_file(path, load_toml_with_base_config) for path in overlays]
-    raw_toml = merge_toml_payloads(
-        {},
-        base_chain=[base_payload],
-        overlays=overlay_payloads,
-        cli_overrides=cli_payload,
-        env_overrides=env_payload,
+    chains = [
+        load_config_file(path, lambda file: read_toml_chain(file, migrate=False))
+        for path in (config_path, *overlays)
+    ]
+    raw_toml = load_config_file(
+        config_path,
+        lambda _: merge_toml_layers(chains, cli_overrides=cli_payload, env_overrides=env_payload),
     )
     lineage_overrides: dict[str, Any] = {}
     for item in set_items:
         dotted_path, raw_value = item.split("=", 1)
-        lineage_overrides[dotted_path.strip()] = parse_override_value(raw_value)
+        lineage_overrides[rewrite_dotted_path(dotted_path.strip())] = parse_override_value(
+            raw_value
+        )
     for name in env_set_names(os.environ):
         # The case after the prefix is the case of the key, as env_overrides applies it.
         dotted = name[len(ENV_SET_PREFIX) :].replace(ENV_PATH_SEPARATOR, ".")
-        lineage_overrides[dotted] = parse_override_value(os.environ[name])
+        lineage_overrides[rewrite_dotted_path(dotted)] = parse_override_value(os.environ[name])
     if overlays:
         lineage_overrides["overlay"] = [path.name for path in overlays]
     case = getattr(args, "case", None)
@@ -97,7 +99,7 @@ def materialize_effective_toml(
     with tempfile.NamedTemporaryFile(
         "w",
         encoding="utf-8",
-        prefix=f".{config_path.stem}.effective.",
+        prefix=effective_copy_prefix(config_path.stem),
         suffix=".toml",
         dir=config_path.parent,
         delete=False,
@@ -126,8 +128,8 @@ def _own_name(config_path: Path) -> str:
     return config_path.stem
 
 
-def load_config_file(path: Path, loader: Any) -> dict[str, Any]:
-    """Load one file with its base_config chain, naming the file at fault."""
+def load_config_file(path: Path, loader: Any) -> Any:
+    """Run *loader* on one file and its base_config chain, naming the file at fault."""
     import tomllib
 
     try:

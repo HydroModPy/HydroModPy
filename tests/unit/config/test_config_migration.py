@@ -15,6 +15,7 @@ from hydromodpy.config.config_migration import (
     DEPRECATION_DELAY_MINORS,
     OldForm,
     document_path,
+    fix_config_chain,
     fix_config_file,
     migrate_config_doc,
     migrate_config_doc_on_load,
@@ -27,7 +28,10 @@ from hydromodpy.core.config_kit.base import (
     forget_old_forms_told,
     warn_old_form,
 )
+from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.core.version import __version__
+from tools.surface_snapshot import outlived_interface_forms
 
 
 def _write(tmp_path: Path, body: str) -> Path:
@@ -392,8 +396,8 @@ def test_a_load_migrates_in_memory_and_warns_once_per_key_and_file(tmp_path: Pat
         changes = migrate_config_doc_on_load(doc, source=source)
 
     assert changes == [
-        "export.variables (boolean table) -> list ['head']",
         "export.times -> export.time ('last')",
+        "export.variables (boolean table) -> list ['head']",
         "[export] toggles and artifacts -> 1 [[export]] block(s) (geotiff)",
     ]
     assert doc["export"] == [{"variables": ["head"], "format": "geotiff", "time": "last"}]
@@ -415,7 +419,7 @@ def test_a_report_on_a_file_sees_its_old_forms_again(tmp_path: Path) -> None:
     with pytest.warns(ConfigKeyRenamedWarning):
         migrate_config_doc_on_load(tomllib.loads(OLD_EXPORT), source=source)
 
-    forget_old_forms_told(source)
+    forget_old_forms_told()
 
     with pytest.warns(ConfigKeyRenamedWarning):
         migrate_config_doc_on_load(tomllib.loads(OLD_EXPORT), source=source)
@@ -439,10 +443,12 @@ def test_the_delay_is_two_minor_versions_the_one_that_retired_the_form_included(
 
 
 def test_no_old_form_outlives_its_delay() -> None:
-    late = [f"{form.old} (since {form.since})" for form in outlived_forms(__version__)]
+    forms = (*outlived_forms(__version__), *outlived_interface_forms(__version__))
+    late = [f"{form.old} (since {form.since})" for form in forms]
     assert late == [], (
         f"HydroModPy {__version__} still holds old forms past their delay: {late}. Delete each "
-        "one from hydromodpy/config/config_migration.py. A row of RENAMED_KEYS stays with "
+        "one from hydromodpy/config/config_migration.py, OLD_NAMES in hydromodpy/_lazy.py or "
+        "OLD_CLI_FORMS in hydromodpy/cli/conventions.py. A row of RENAMED_KEYS stays with "
         "sealed_only=True, because a run sealed under the old name stays readable."
     )
 
@@ -528,9 +534,7 @@ def test_renames_a_figure_timestep_to_time(tmp_path: Path) -> None:
 
     changes = fix_config_file(path)
 
-    assert changes == [
-        "display.overrides.seepage_map.timestep -> display.overrides.seepage_map.time (33)"
-    ]
+    assert changes == ["display.overrides.seepage_map.timestep -> time"]
     overrides = tomllib.loads(path.read_text())["display"]["overrides"]
     assert overrides == {"seepage_map": {"time": 33}, "cross_section": {"orientation": "sn"}}
     assert fix_config_file(path) == []
@@ -542,7 +546,7 @@ def test_a_figure_that_says_both_is_left_for_the_loader_to_refuse() -> None:
     phase = {"display.overrides.seepage_map.timestep": 0, "display.overrides.seepage_map.time": 1}
     doc["calibration"] = {"phases": [{"overrides": dict(phase)}]}
 
-    assert migrate_config_doc(doc) == []
+    assert all(" left: " in change for change in migrate_config_doc(doc))
     assert doc["display"]["overrides"]["seepage_map"] == {"timestep": 33, "time": "2002-10-15"}
     assert doc["calibration"]["phases"][0]["overrides"] == phase
 
@@ -673,3 +677,130 @@ def test_the_ratio_bound_migrates_on_load_and_a_current_file_is_untouched() -> N
     assert migrate_config_doc_on_load(doc, source="calibration.toml")
     assert migrate_config_doc(current) == []
     assert current["calibration"]["outputs"]["net"] == {"validity_length": "150 m"}
+
+
+def _chain(tmp_path: Path, parent: str, child: str) -> tuple[Path, Path]:
+    """Write a parent and a child that inherits it; return both paths."""
+    first = tmp_path / "parent.toml"
+    first.write_text(parent, encoding="utf-8")
+    second = tmp_path / "child.toml"
+    second.write_text(f'base_config = "parent.toml"\n{child}', encoding="utf-8")
+    return first, second
+
+
+def test_the_doctor_follows_the_chain_and_rewrites_each_file_that_holds_an_old_form(
+    tmp_path: Path,
+) -> None:
+    parent, child = _chain(
+        tmp_path,
+        '# the project\n[simulation]\non_collision = "version" # keep every run\n',
+        "# one run\n[calibration]\nmax_iter = 5 # short\n",
+    )
+
+    changes = fix_config_chain(child)
+
+    assert changes == {
+        parent: ["simulation.on_collision -> if_exists ('version')"],
+        child: ["calibration.max_iter -> max_trials"],
+    }
+    assert "# the project" in parent.read_text()
+    assert "# one run" in child.read_text()
+    assert "# short" in child.read_text()
+    assert tomllib.loads(parent.read_text())["simulation"] == {"if_exists": "version"}
+    assert tomllib.loads(child.read_text())["calibration"] == {"max_trials": 5}
+    assert fix_config_chain(child) == {parent: [], child: []}
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", ConfigKeyRenamedWarning)
+        load_toml_with_base_config(child)
+
+
+@pytest.mark.parametrize(
+    ("parent", "said"),
+    [
+        pytest.param(
+            '[simulation]\non_collision = "version"\n',
+            "simulation.on_collision -> if_exists",
+            id="a key one file can move",
+        ),
+        pytest.param(
+            '[export]\nnetcdf = true\nvariables = ["head"]\n',
+            "[export] toggles and artifacts",
+            id="a table that waits for the merge",
+        ),
+    ],
+)
+def test_a_warning_names_the_file_that_holds_the_key(
+    tmp_path: Path, parent: str, said: str
+) -> None:
+    holder, child = _chain(tmp_path, parent, "[workflow]\nprofile = false\n")
+    forget_old_forms_told()
+
+    with pytest.warns(ConfigKeyRenamedWarning) as told:
+        load_toml_with_base_config(child)
+
+    messages = [str(warning.message) for warning in told]
+    assert any(said in message for message in messages)
+    for message in messages:
+        assert message.startswith(f"{holder}: ")
+        assert f"hmp doctor --fix-config {holder}" in message
+
+
+def test_the_doctor_reads_what_a_parent_holds(tmp_path: Path) -> None:
+    """The count of steps sits in the child, its step in the parent."""
+    _, child = _chain(
+        tmp_path,
+        '[simulation.time]\nstep_value = 1\nstep_unit = "month"\n',
+        "[calibration.outputs.net.extent]\nmaximal_flowing_steps = 2\n",
+    )
+
+    fix_config_chain(child)
+
+    extent = tomllib.loads(child.read_text())["calibration"]["outputs"]["net"]["extent"]
+    assert extent == {"maximal_flowing_duration": "2 months"}
+
+
+def test_the_doctor_reads_the_method_a_parent_holds(tmp_path: Path) -> None:
+    _, child = _chain(
+        tmp_path,
+        '[calibration]\nmethod = "cma_es"\nmax_trials = 50\n',
+        "[calibration.method_options]\nmax_evaluations = 80\n",
+    )
+
+    fix_config_chain(child)
+
+    assert tomllib.loads(child.read_text())["calibration"] == {"max_trials": 50}
+
+
+def test_the_doctor_writes_nothing_when_a_rewrite_would_change_what_the_chain_reads(
+    tmp_path: Path,
+) -> None:
+    """Toggles of one table become two lists, and the second would replace the first."""
+    parent, child = _chain(
+        tmp_path,
+        '[export]\nnetcdf = true\nvariables = ["head"]\n',
+        "[export]\nvtu = true\n",
+    )
+    written = parent.read_text(), child.read_text()
+
+    with pytest.raises(ConfigError, match=r"would change what they read at export"):
+        fix_config_chain(child)
+
+    assert (parent.read_text(), child.read_text()) == written
+
+
+def test_the_doctor_follows_a_directive_of_a_renamed_key_and_a_list_a_child_adds(
+    tmp_path: Path,
+) -> None:
+    path = _write(
+        tmp_path,
+        "[calibration]\nmax_iter__delete = true\n\n[[calibration.phases__append]]\n"
+        'name = "late"\nmax_iter = 3\n',
+    )
+
+    fix_config_file(path)
+
+    calibration = tomllib.loads(path.read_text())["calibration"]
+    assert calibration == {
+        "max_trials__delete": True,
+        "phases__append": [{"name": "late", "max_trials": 3}],
+    }

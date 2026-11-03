@@ -242,9 +242,17 @@ def test_an_outcome_from_another_job_is_caught(tmp_path: Path) -> None:
     [
         ('["not", "an", "object"]', "not a JSON object"),
         ("{", "cannot be read as JSON"),
-        ('{"artifacts": "outputs/watershed.gpkg"}', "no artifact list"),
-        ('{"artifacts": [{"bytes": 3}]}', "carries no path"),
-        ('{"artifacts": [{"path": "../../etc/passwd", "sha256": "x"}]}', "outside the job"),
+        ('{"artifacts": []}', "carries no schema"),
+        ('{"schema": "hmp-manifest/v3"}', "upgrade HydroModPy"),
+        (
+            '{"schema": "hmp-manifest/v2", "artifacts": "outputs/watershed.gpkg"}',
+            "no artifact list",
+        ),
+        ('{"schema": "hmp-manifest/v2", "artifacts": [{"bytes": 3}]}', "carries no path"),
+        (
+            '{"schema": "hmp-manifest/v2", "artifacts": [{"path": "../../etc/passwd"}]}',
+            "outside the job",
+        ),
     ],
 )
 def test_a_manifest_this_process_did_not_write_is_reported_and_not_raised(

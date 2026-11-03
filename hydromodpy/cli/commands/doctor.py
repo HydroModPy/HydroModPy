@@ -1,8 +1,8 @@
 """``hmp doctor`` - diagnose the local environment.
 
-It reads and reports. The one file it rewrites is the TOML that
-``--fix-config`` names, migrated in place to the current grammar. The
-workspace is the one ``-w`` names or the one that holds the current
+It reads and reports. The files it rewrites are the TOML that ``--fix-config``
+names and the files it inherits through ``base_config``, migrated in place to
+the current grammar. The workspace is the one ``-w`` names or the one that holds the current
 directory, never a default folder: without one, the workspace checks say so
 and name ``-w``.
 """
@@ -83,8 +83,9 @@ def register(subparsers) -> argparse.ArgumentParser:
         default=None,
         metavar="FILE.toml",
         help=(
-            "Rewrite every old key of a TOML under its current name, in place. "
-            "Preserves comments and layout. A key that still loads warns and names this option."
+            "Rewrite every old key of a TOML and of the files it inherits through base_config "
+            "under its current name, in place, and print what changed in each file. Preserves "
+            "comments and layout. A key that still loads warns and names this option."
         ),
     )
     parser.set_defaults(_handler=run)
@@ -119,13 +120,13 @@ def run(args: argparse.Namespace) -> None:
 
 
 def _fix_config(toml_path: str) -> None:
-    """Migrate a project TOML to the current simulation-management schema."""
+    """Rewrite a TOML and the files it inherits under the current grammar."""
     from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND
-    from hydromodpy.config.config_migration import fix_config_file
+    from hydromodpy.config.config_migration import fix_config_chain
 
     path = Path(toml_path).expanduser()
     try:
-        changes = fix_config_file(path)
+        chain = fix_config_chain(path)
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
@@ -133,12 +134,13 @@ def _fix_config(toml_path: str) -> None:
         print(f"Could not migrate {path}: {exc}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
 
-    if not changes:
-        print(f"{path} is already up to date.")
-        return
-    print(f"Migrated {path}:")
-    for change in changes:
-        print(f"  - {change}")
+    for file, changes in chain.items():
+        if not changes:
+            print(f"{file} is already up to date.")
+            continue
+        print(f"Migrated {file}:")
+        for change in changes:
+            print(f"  - {change}")
 
 
 def _build_report(

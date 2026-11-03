@@ -13,7 +13,6 @@ from hydromodpy.core.budget_terms import (
     budget_terms_for,
 )
 from hydromodpy.core.config_kit.export_spec import load_export_requests
-from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.simulation.planning.plan import ProcessRun, SimulationPlan
 from hydromodpy.simulation.planning.results_config import ResultsConfig
@@ -62,102 +61,6 @@ def test_step_build_plan_delegates_to_simulation_planner(monkeypatch) -> None:
     assert ctx.setup.run_id == "run-from-cli"
     assert ctx.execution.simulation_plan is plan
     assert ctx.execution.process_runs_by_id == {"flow_main::modflow6": plan.runs[0]}
-
-
-def test_step_build_plan_uses_override_branch_when_partial_inputs_are_supplied(
-    monkeypatch,
-) -> None:
-    captured: dict[str, object] = {}
-    override_plan = SimulationPlan(name="override", description="override")
-
-    def fake_build_plan_with_overrides(ctx, **kwargs):
-        captured["ctx"] = ctx
-        captured.update(kwargs)
-        return override_plan
-
-    monkeypatch.setattr(
-        planning_module,
-        "_build_plan_with_overrides",
-        fake_build_plan_with_overrides,
-    )
-    ctx = SimpleNamespace()
-
-    returned = planning_module.step_build_plan(
-        ctx,
-        name="calibration-trial",
-        overrides={"hydraulic_conductivity": 2.5},
-        thickness=30.0,
-        first_clim="wet",
-        solver="modflow6",
-    )
-
-    assert returned is override_plan
-    # ``thickness`` selects this branch but is not forwarded: its value is
-    # already resolved into ``ctx.cfg`` by ``resolve_run_config``, and the
-    # domain builder reads it there.
-    assert captured == {
-        "ctx": ctx,
-        "name": "calibration-trial",
-        "overrides": {"hydraulic_conductivity": 2.5},
-        "first_clim": "wet",
-        "solver": "modflow6",
-    }
-
-
-def test_step_apply_flow_overrides_patches_known_parameters() -> None:
-    flow = SimpleNamespace(
-        parameters={
-            "hydraulic_conductivity": SimpleNamespace(value=1.0),
-            "specific_yield": SimpleNamespace(value=0.2),
-        }
-    )
-
-    planning_module.step_apply_flow_overrides(
-        flow,
-        {"hydraulic_conductivity": 4.5, "specific_yield": 0.12},
-    )
-
-    assert flow.parameters["hydraulic_conductivity"].value == 4.5
-    assert flow.parameters["specific_yield"].value == 0.12
-
-
-def test_step_apply_flow_overrides_rejects_unknown_parameter_with_available_keys() -> None:
-    flow = SimpleNamespace(
-        parameters={
-            "hydraulic_conductivity": SimpleNamespace(value=1.0),
-            "specific_yield": SimpleNamespace(value=0.2),
-        }
-    )
-
-    with pytest.raises(ConfigError, match="Unknown parameter 'porosity'"):
-        planning_module.step_apply_flow_overrides(flow, {"porosity": 0.3})
-
-
-def test_default_flow_solver_prefers_declared_flow_process_over_backend() -> None:
-    ctx = SimpleNamespace(
-        cfg=SimpleNamespace(
-            simulation=SimpleNamespace(
-                process=(
-                    SimpleNamespace(type="transport", solvers=("mt3dms",)),
-                    SimpleNamespace(type="flow", solvers=("modflow6", "boussinesq")),
-                )
-            ),
-            solver=SimpleNamespace(backend_name="fallback_backend"),
-        )
-    )
-
-    assert planning_module._default_flow_solver(ctx) == "modflow6"
-
-
-def test_default_flow_solver_falls_back_to_solver_backend() -> None:
-    ctx = SimpleNamespace(
-        cfg=SimpleNamespace(
-            simulation=SimpleNamespace(process=()),
-            solver=SimpleNamespace(backend_name="boussinesq"),
-        )
-    )
-
-    assert planning_module._default_flow_solver(ctx) == "boussinesq"
 
 
 # ---------------------------------------------------------------------------
@@ -430,61 +333,3 @@ def _config_with_thickness(tmp_path, thickness: float):
         geographic=GeographicConfig(source_mode="synthetic"),
         domain={"depth_model": {"kind": "constant_thickness", "thickness": thickness}},
     )
-
-
-def test_resolve_run_config_returns_the_declared_config_when_nothing_is_overridden(
-    tmp_path,
-) -> None:
-    cfg = _config_with_thickness(tmp_path, 50.0)
-
-    assert planning_module.resolve_run_config(cfg, thickness=None) is cfg
-
-
-def test_resolve_run_config_carries_the_override_into_the_domain_section(tmp_path) -> None:
-    cfg = _config_with_thickness(tmp_path, 50.0)
-
-    resolved = planning_module.resolve_run_config(cfg, thickness=99.0)
-
-    assert resolved.domain.depth_model.thickness == 99.0
-
-
-def test_resolve_run_config_leaves_the_declared_config_untouched(tmp_path) -> None:
-    """The project keeps the configuration it declares; the run gets its own."""
-    cfg = _config_with_thickness(tmp_path, 50.0)
-
-    planning_module.resolve_run_config(cfg, thickness=99.0)
-
-    assert cfg.domain.depth_model.thickness == 50.0
-
-
-def test_resolve_run_config_shares_every_section_the_override_does_not_touch(tmp_path) -> None:
-    """Only the overridden section is copied: identity elsewhere is the point.
-
-    A deep copy of the whole configuration would detach the sections a Project
-    resolved once at load time, such as the spatial supports it hands to the
-    setup step.
-    """
-    cfg = _config_with_thickness(tmp_path, 50.0)
-
-    resolved = planning_module.resolve_run_config(cfg, thickness=99.0)
-
-    assert resolved.flow is cfg.flow
-    assert resolved.simulation is cfg.simulation
-    assert resolved.domain is not cfg.domain
-
-
-def test_resolve_run_config_refuses_a_thickness_on_a_kind_that_has_none(tmp_path) -> None:
-    """Assigning the field on a flat substratum used to raise a raw Pydantic error."""
-    from hydromodpy.config import HydroModPyConfig
-    from hydromodpy.core.workspace.config import WorkspaceConfig
-    from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-
-    cfg = HydroModPyConfig(
-        workflow={"mode": "simulation"},
-        workspace=WorkspaceConfig(project_root=str(tmp_path), root=str(tmp_path)),
-        geographic=GeographicConfig(source_mode="synthetic"),
-        domain={"depth_model": {"kind": "flat_substratum", "substratum_elevation": 10.0}},
-    )
-
-    with pytest.raises(ConfigError, match="'flat_substratum' has no thickness"):
-        planning_module.resolve_run_config(cfg, thickness=30.0)

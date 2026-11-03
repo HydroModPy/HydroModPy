@@ -37,14 +37,12 @@ from hydromodpy.calibration.config import CalibrationConfig, apply_project_defau
 from hydromodpy.calibration.protocols import expand_calibration_protocol
 from hydromodpy.config.config_migration import (
     _raw_flow_process_solver,
-    migrate_config_doc_on_load,
     migrate_sealed_config_doc,
 )
 from hydromodpy.config.metrics_config import MetricsConfig
 from hydromodpy.config.publication_config import PublicationConfig
 from hydromodpy.config.sites.models import SitesConfig
 from hydromodpy.config.toml_section_loader import (
-    _deep_merge,
     _load_data_section,
     _load_flow_section,
     _load_optional_calibration_section,
@@ -63,6 +61,7 @@ from hydromodpy.core.config_kit.introspect import (
     resolve_profile,
 )
 from hydromodpy.core.config_kit.profile import Profile, ProfileName
+from hydromodpy.core.config_kit.written import written_payload
 from hydromodpy.core.exceptions import (
     ConfigError,
     ConfigValidationError,
@@ -81,6 +80,7 @@ from hydromodpy.core.toml_io.error_locator import (
     validation_error_details,
 )
 from hydromodpy.core.toml_io.loader import config_base_dir, load_toml_with_base_config
+from hydromodpy.core.toml_io.paths import assign, parse, source_of_effective_copy
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.data import DataManagersConfig
 from hydromodpy.display.config import DisplayConfig
@@ -435,7 +435,7 @@ def _derive_name_from_filename(toml_path: Path) -> str:
     ``run_steady_nwt.toml`` -> ``steady_nwt``
     ``config.toml`` -> ``config``
     """
-    stem = toml_path.stem
+    stem = source_of_effective_copy(toml_path).stem
     return re.sub(r"^run_", "", stem)
 
 
@@ -1470,11 +1470,10 @@ class HydroModPyConfig(HydroModelBase):
             The fully loaded and path-resolved configuration instance.
         """
         toml_path = Path(toml_path).expanduser().resolve()
+        # A config written against an earlier schema still loads: the loader
+        # migrates each file of the chain in memory. Reading never rewrites a file;
+        # only `hmp doctor` does, and the warning says so.
         raw = load_toml_with_base_config(toml_path)
-        # A config written against an earlier schema still loads: the migration
-        # runs on the parsed payload, in memory. Reading never rewrites the file;
-        # only `hmp doctor` does, and the log line says so.
-        migrate_config_doc_on_load(raw, source=toml_path)
 
         if validate_profile is not None:
             threshold = resolve_profile(validate_profile)
@@ -1838,8 +1837,9 @@ class HydroModPyConfig(HydroModelBase):
     @classmethod
     def from_snapshot(
         cls,
-        snapshot: dict[str, Any],
-        **overrides: Any,
+        snapshot: Mapping[str, Any],
+        *,
+        changes: Mapping[str, Any] | None = None,
     ) -> HydroModPyConfig:
         """Reconstruct a config from the frozen configuration of a run.
 
@@ -1851,22 +1851,37 @@ class HydroModPyConfig(HydroModelBase):
 
         Parameters
         ----------
-        snapshot : dict
+        snapshot : Mapping
             The frozen ``config.toml`` of a run, as a mapping.
-        overrides
-            Keyword overrides merged into the snapshot before
-            validation.  Nested dicts are merged recursively.
+        changes : Mapping, optional
+            Values to set before validation, by dotted path: the grammar of
+            ``--set`` (:func:`hydromodpy.core.toml_io.paths.parse`).
 
         Returns
         -------
         HydroModPyConfig
         """
-        merged = _deep_merge(snapshot, overrides) if overrides else snapshot
+        merged = copy.deepcopy(dict(snapshot))
+        for dotted, value in (changes or {}).items():
+            assign(merged, dotted, value)
         workspace = merged.get("workspace")
         project_root = workspace.get("project_root") if isinstance(workspace, Mapping) else None
         if project_root:
             return cls.from_dict(merged, base_dir=project_root, sealed=True)
         return cls.model_validate(merged, context={"validation_context": "snapshot"})
+
+    def with_changes(self, changes: Mapping[str, Any]) -> HydroModPyConfig:
+        """Return this configuration with *changes* set, by dotted path, and validated.
+
+        This is the one way a configuration takes a change after it is built: a
+        keyword override of a run, a rerun. The whole document is validated, so
+        the cross-section checks see the change. The result shares every section
+        no change touches with this configuration: a built domain or flow compares
+        its section by identity to know whether it still describes the run.
+        """
+        validated = type(self).from_snapshot(written_payload(self), changes=changes)
+        touched = {parse(dotted).parts[0] for dotted in changes}
+        return self.model_copy(update={name: getattr(validated, name) for name in touched})
 
 
 # Resolve the config forward references (and wire the DI graph) lazily, the first

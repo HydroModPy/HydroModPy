@@ -25,6 +25,9 @@ the outcome was closed and the descriptor was not.
 A session or a run this code cannot read, written by another version, costs
 one warning and is left out. A case left with nothing readable is ``planned``:
 it is not done, and running it takes a new version beside the one left out.
+A sealed run whose outcome this code cannot read stays ``completed``, with what
+its seal says of the attempt. A plan this code cannot read is refused, because
+without it no case is known.
 """
 
 from __future__ import annotations
@@ -43,6 +46,7 @@ from hydromodpy.core.state.paths import (
     sessions_dir_for,
 )
 from hydromodpy.results.catalog.registration import split_stem_version
+from hydromodpy.results.manifest import read_seal
 from hydromodpy.results.outcome import (
     DEFAULT_STALE_AFTER_S,
     EffectiveStatus,
@@ -51,7 +55,8 @@ from hydromodpy.results.outcome import (
 )
 from hydromodpy.results.plan_store import StoredPlan, read_plan
 from hydromodpy.results.storage.attempt import latest_version_dir
-from hydromodpy.results.storage.json_io import readable
+from hydromodpy.results.storage.contract import RUN_OUTCOME_FILENAME
+from hydromodpy.results.storage.json_io import beside_seal, readable
 
 CaseStatus = Literal[
     "planned",
@@ -144,8 +149,22 @@ def _run_state(run_dir: Path, *, now: datetime, stale_after_s: float) -> Effecti
 
 
 def _outcome_document(directory: Path) -> dict[str, Any] | None:
-    outcome = readable(read_outcome, directory)
-    return None if outcome is None else outcome.model_dump(mode="json", by_alias=True)
+    """Return what the outcome says, else what a seal says of the attempt.
+
+    Called once the seal or the descriptor of *directory* was read, so an
+    outcome this code cannot read takes nothing from its status.
+    """
+    outcome = beside_seal(read_outcome, directory, RUN_OUTCOME_FILENAME)
+    if outcome is not None:
+        return outcome.model_dump(mode="json", by_alias=True)
+    seal = readable(read_seal, directory)
+    if seal is None:
+        return None
+    return {
+        "attempt": seal.run.attempt,
+        "started_at": seal.run.started_at,
+        "ended_at": seal.run.ended_at,
+    }
 
 
 def case_state(

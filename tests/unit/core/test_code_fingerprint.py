@@ -1,0 +1,289 @@
+"""The fingerprint of the code that computes: what moves it and what does not.
+
+It decides whether a run is the same computation as another one, so an edit of a
+docstring must leave it alone and an edit of a solver must not. The trees are
+written here, so an edit is a line of the test.
+"""
+
+from __future__ import annotations
+
+import json
+import shutil
+import subprocess
+import tokenize
+from pathlib import Path
+
+import pytest
+import yaml
+
+from hydromodpy.core import code_fingerprint as fingerprint_module
+from hydromodpy.core.code_fingerprint import (
+    COMPUTE_DATA_FILES,
+    COMPUTE_LAYERS,
+    OTHER_DATA_SUFFIXES,
+    OUTSIDE_LAYERS,
+    OUTSIDE_SUBTREES,
+    RUN_LAYERS,
+    clear_fingerprint_cache,
+    code_fingerprint,
+    fingerprint_tree,
+    normalised_source,
+)
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+
+SOLVER = '''"""Module docstring."""
+
+import math
+
+
+def rate(x, y):
+    """Say what it does."""
+    # A comment.
+    return math.sqrt(x) + f"{y:>{x}}"
+'''
+
+
+@pytest.fixture(autouse=True)
+def _private_disk_cache(tmp_path_factory, monkeypatch) -> None:
+    cache = tmp_path_factory.mktemp("fingerprint") / "fingerprint.json"
+    monkeypatch.setattr(fingerprint_module, "_disk_cache_path", lambda: cache)
+    clear_fingerprint_cache()
+
+
+def _tree(root: Path) -> Path:
+    for relative, text in {
+        "solver/rate.py": SOLVER,
+        "display/figure.py": "def draw():\n    return 1\n",
+        "cli/main.py": "def main():\n    return 1\n",
+        "results/storage/store.py": "VALUE = 1\n",
+        "results/export/publish.py": "VALUE = 1\n",
+        "core/time/rech_chronicles.csv": "a,b\n",
+    }.items():
+        path = root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+    return root
+
+
+def _table(root: Path) -> dict[str, str]:
+    clear_fingerprint_cache()
+    return fingerprint_tree(root, RUN_LAYERS)
+
+
+@pytest.mark.parametrize(
+    "edited",
+    [
+        pytest.param(SOLVER.replace("Say what it does.", "Say it otherwise."), id="docstring"),
+        pytest.param(SOLVER.replace("Module docstring.", "Another."), id="module-docstring"),
+        pytest.param(SOLVER.replace("# A comment.", "# Another one."), id="comment"),
+        pytest.param(SOLVER.replace("    # A comment.\n", ""), id="comment-gone"),
+        pytest.param(SOLVER.replace("(x, y)", "(\n    x,\n    y\n)"), id="wrapped-call"),
+        pytest.param(SOLVER.replace("import math\n", "import math  \n\n\n"), id="blank-lines"),
+    ],
+)
+def test_an_edit_that_computes_nothing_moves_nothing(edited: str) -> None:
+    assert normalised_source(edited) == normalised_source(SOLVER)
+
+
+@pytest.mark.parametrize(
+    ("edited", "word"),
+    [
+        pytest.param(SOLVER.replace("sqrt", "floor"), "name", id="call"),
+        pytest.param(SOLVER.replace("{y:>{x}}", "{y:<{x}}"), "f-string", id="f-string"),
+        pytest.param(SOLVER.replace("    return", "    if x:\n        return"), "if", id="branch"),
+    ],
+)
+def test_an_edit_of_the_code_moves_it(edited: str, word: str) -> None:
+    assert normalised_source(edited) != normalised_source(SOLVER), word
+
+
+def test_the_structure_of_a_block_stays_in_the_digest() -> None:
+    inside = "if a:\n    b()\n    c()\n"
+    after = "if a:\n    b()\nc()\n"
+    assert normalised_source(inside) != normalised_source(after)
+
+
+def test_a_string_assigned_is_code_and_a_bare_one_is_not() -> None:
+    assert normalised_source('x = 1\n"""A note."""\n') == normalised_source("x = 1\n")
+    assert normalised_source('x = "A note."\n') != normalised_source("x = 1\n")
+
+
+@pytest.mark.parametrize(
+    "fstring",
+    ['f"{x:>{w}}"', 'f"{{literal}} {x!r}"', 'rf"a{x}\\d"', 'f"é{x}é"', 'f"""{x}\n{y}"""'],
+)
+def test_an_f_string_is_one_token_as_python_3_11_gives_it(fstring: str) -> None:
+    """Python 3.12 splits it in parts. The digest has to be the one 3.11 reads."""
+    assert normalised_source(f"é = {fstring}\n") == f"é\n=\n{fstring}\nNEWLINE"
+    assert tokenize.STRING in {
+        kind for kind, _text in fingerprint_module._merged_tokens(f"a = {fstring}\n")
+    }
+
+
+def test_the_table_has_one_digest_per_layer_and_an_edit_moves_its_own(tmp_path: Path) -> None:
+    root = _tree(tmp_path / "hydromodpy")
+    base = _table(root)
+    assert set(base) == set(RUN_LAYERS)
+
+    (root / "solver" / "rate.py").write_text(SOLVER.replace("sqrt", "floor"), encoding="utf-8")
+    edited = _table(root)
+    assert edited["solver"] != base["solver"]
+    assert {k: v for k, v in edited.items() if k != "solver"} == {
+        k: v for k, v in base.items() if k != "solver"
+    }
+
+
+@pytest.mark.parametrize(
+    "outside",
+    ["display/figure.py", "cli/main.py", "results/export/publish.py", "docs/index.py"],
+)
+def test_an_edit_outside_the_scope_keeps_the_identity(tmp_path: Path, outside: str) -> None:
+    root = _tree(tmp_path / "hydromodpy")
+    base = _table(root)
+
+    path = root / outside
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("def edited():\n    return 2\n", encoding="utf-8")
+
+    assert _table(root) == base
+
+
+def test_a_docstring_edit_of_a_solver_keeps_the_identity(tmp_path: Path) -> None:
+    root = _tree(tmp_path / "hydromodpy")
+    base = _table(root)
+
+    (root / "solver" / "rate.py").write_text(
+        SOLVER.replace("Say what it does.", "Another word."), encoding="utf-8"
+    )
+
+    assert _table(root) == base
+
+
+@pytest.mark.parametrize(
+    ("edited", "layer"),
+    [("solver/added.py", "solver"), ("results/storage/added.py", "results")],
+)
+def test_a_new_module_in_the_scope_moves_its_layer(tmp_path: Path, edited: str, layer: str) -> None:
+    root = _tree(tmp_path / "hydromodpy")
+    base = _table(root)
+    (root / edited).write_text("VALUE = 2\n", encoding="utf-8")
+    assert _table(root)[layer] != base[layer]
+
+
+def test_package_data_a_computation_reads_enters(tmp_path: Path) -> None:
+    root = _tree(tmp_path / "hydromodpy")
+    base = _table(root)
+    (root / "core" / "time" / "rech_chronicles.csv").write_text("a,b\n1,2\n", encoding="utf-8")
+    assert _table(root)["core"] != base["core"]
+
+
+def test_a_bare_table_is_cached_per_process_and_on_disk(tmp_path: Path, monkeypatch) -> None:
+    root = _tree(tmp_path / "hydromodpy")
+    base = _table(root)
+
+    calls: list[str] = []
+    monkeypatch.setattr(
+        fingerprint_module,
+        "normalised_source",
+        lambda source: calls.append(source) or "never read",
+    )
+    assert fingerprint_tree(root, RUN_LAYERS) == base
+    clear_fingerprint_cache()
+    # A new process reads the disk: only a file whose bytes changed is tokenized.
+    assert fingerprint_tree(root, RUN_LAYERS) == base
+    assert calls == []
+
+
+def test_a_corrupt_or_unwritable_disk_cache_only_costs_time(tmp_path: Path, monkeypatch) -> None:
+    root = _tree(tmp_path / "hydromodpy")
+    base = _table(root)
+
+    corrupt = tmp_path / "corrupt.json"
+    corrupt.write_text("not json", encoding="utf-8")
+    monkeypatch.setattr(fingerprint_module, "_disk_cache_path", lambda: corrupt)
+    assert _table(root) == base
+    assert json.loads(corrupt.read_text(encoding="utf-8"))
+
+    blocked = tmp_path / "file"
+    blocked.write_text("", encoding="utf-8")
+    monkeypatch.setattr(fingerprint_module, "_disk_cache_path", lambda: blocked / "cache.json")
+    assert _table(root) == base
+
+
+def test_a_layer_outside_the_scope_is_refused() -> None:
+    with pytest.raises(ValueError, match="not a compute layer: display"):
+        code_fingerprint(("display",))
+
+
+def test_the_scope_covers_the_layer_matrix() -> None:
+    """A new layer of the matrix has to say whether it changes a number."""
+    matrix = yaml.safe_load(
+        (REPO_ROOT / "tests" / "unit" / "architecture" / "layer_matrix.yaml").read_text(
+            encoding="utf-8"
+        )
+    )
+    declared = set(matrix["allowed"])
+    assert set(COMPUTE_LAYERS) | set(OUTSIDE_LAYERS) == declared
+    assert not set(COMPUTE_LAYERS) & set(OUTSIDE_LAYERS)
+    assert {"display", "reporting", "cli"} <= set(OUTSIDE_LAYERS)
+    assert set(RUN_LAYERS) == set(COMPUTE_LAYERS) - {"calibration"}
+
+
+def test_every_package_file_of_the_scope_is_classified() -> None:
+    """A table a computation could read has to say whether it enters the fingerprint."""
+    package = REPO_ROOT / "hydromodpy"
+    outside = tuple(f"{subtree}/" for subtree in OUTSIDE_SUBTREES)
+    unknown = []
+    for layer in COMPUTE_LAYERS:
+        for path in (package / layer).rglob("*"):
+            relative = path.relative_to(package).as_posix()
+            if (
+                path.is_dir()
+                or "__pycache__" in path.parts
+                or path.suffix in (*OTHER_DATA_SUFFIXES, ".py")
+                or relative.startswith(outside)
+                or relative in COMPUTE_DATA_FILES
+            ):
+                continue
+            unknown.append(relative)
+    assert unknown == []
+    assert all((package / relative).is_file() for relative in COMPUTE_DATA_FILES)
+    assert all((package / subtree).is_dir() for subtree in OUTSIDE_SUBTREES)
+
+
+@pytest.mark.allow_subprocess
+@pytest.mark.parametrize(
+    "other",
+    [
+        Path.home() / ".cache" / "hmp-ci" / "venv311" / "bin" / "python3.11",
+        *(Path(shutil.which(name) or name) for name in ("python3.11", "python3.12", "python3.13")),
+    ],
+    ids=str,
+)
+def test_another_python_gives_the_same_fingerprint(other: Path, tmp_path: Path) -> None:
+    """The module runs alone under any interpreter, since it imports the standard library."""
+    if not other.is_file() or subprocess.run([str(other), "--version"]).returncode != 0:
+        pytest.skip(f"no working interpreter at {other}")
+    source = Path(fingerprint_module.__file__)
+    script = (
+        "import importlib.util, json, pathlib, sys\n"
+        f"spec = importlib.util.spec_from_file_location('fp', {str(source)!r})\n"
+        "module = importlib.util.module_from_spec(spec)\n"
+        "sys.modules['fp'] = module\n"
+        "spec.loader.exec_module(module)\n"
+        "print(json.dumps([\n"
+        "    module.normalised_source(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))\n"
+        "]))\n"
+    )
+    probe = tmp_path / "probe.py"
+    probe.write_text(script, encoding="utf-8")
+    subject = tmp_path / "subject.py"
+    subject.write_text(SOLVER + 'é = f"é{{x}} {1 + 1:>{2}}"\n', encoding="utf-8")
+    done = subprocess.run(
+        [str(other), "-I", str(probe), str(subject)],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert json.loads(done.stdout) == [normalised_source(subject.read_text(encoding="utf-8"))]

@@ -1,0 +1,40 @@
+[workflow]
+mode = "simulation"
+[workspace]
+project_root = "."
+[simulation]
+name = "nancon_step1_minimal"
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow6"]
+[geographic]
+crs_project = "EPSG:2154"
+[geographic.catchment]
+catch_def = "from_outlet_coord"
+dem_init_path = "DEM_armorican_massif.tif"
+x_outlet = 389285.910
+y_outlet = 6816518.749
+snap_dist = "150 m"
+buff_area = "10%"
+[domain.depth_model]
+kind = "constant_thickness"
+thickness = "30.0 m"
+[flow]
+flow_regime = "steady"
+param_list = ["K", "Sy"]
+active_sinks_sources = ["recharge"]
+active_bc = ["drainage"]
+[flow.param.K.field]
+kind = "homogeneous"
+unit = "m/s"
+value = 5e-5
+[flow.param.Sy.field]
+kind = "homogeneous"
+unit = "-"
+value = 0.05
+[flow.sinks_sources.recharge]
+values = 0.78
+[display]
+on_error = "raise"
+figures = ["watershed_id_card", "seepage_map"]

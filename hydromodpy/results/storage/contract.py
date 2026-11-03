@@ -7,7 +7,8 @@ produced it, under a name fixed by its class::
     <project>/.hmp/index.duckdb          index, rebuildable from the disk
     <project>/runs/<name>/               one run, named after the run itself
         outcome.json                     issue of the attempt, written first and last
-        config.toml                      frozen resolved configuration
+        config.toml                      frozen configuration: what the run was given
+        config.resolved.toml             the same with every default, and what the build decided
         inputs.json                      every loaded input: provider, product, sha256, licence
         provenance.json                  environment, versions, git, binaries
         manifest.json                    seal, written last
@@ -79,7 +80,10 @@ PARQUET_FILE_SUFFIX = ".parquet"
 """Suffix of a single Parquet payload inside :data:`TABLES_DIRNAME`."""
 
 RUN_CONFIG_FILENAME = "config.toml"
-"""Frozen resolved configuration of one run."""
+"""Frozen configuration of one run: what it was given. A replay reads this file."""
+
+RUN_RESOLVED_CONFIG_FILENAME = "config.resolved.toml"
+"""Whole configuration of one run, defaults written. A replay compares against it."""
 
 RUN_PROVENANCE_FILENAME = "provenance.json"
 """Environment, versions and git state of one run."""
@@ -173,6 +177,7 @@ ALLOWED_RUN_ENTRIES: frozenset[str] = (
     | frozenset(
         {
             RUN_CONFIG_FILENAME,
+            RUN_RESOLVED_CONFIG_FILENAME,
             RUN_PROVENANCE_FILENAME,
             RUN_MANIFEST_FILENAME,
             RUN_INPUTS_FILENAME,
@@ -329,6 +334,7 @@ __all__ = [
     "RUN_PROVENANCE_FILENAME",
     "RUN_PUBLISHED_FILENAME",
     "RUN_REPORT_DIRNAME",
+    "RUN_RESOLVED_CONFIG_FILENAME",
     "RUN_SOLVER_DIRNAME",
     "RUN_STORAGE_LAYER_NAMES",
     "SESSION_CANDIDATES_DIRNAME",

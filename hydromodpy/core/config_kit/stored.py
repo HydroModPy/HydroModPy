@@ -3,7 +3,11 @@
 A model stays ``extra="forbid"``, so a mistake at writing raises. A document on
 disk may come from a later 2.x, which added a key or a word this code does not
 know. Every read of a stored document goes through :func:`read_stored`, which
-ignores the unknown key, at any depth, and keeps the unknown word.
+accepts the unknown key, at any depth, and keeps the unknown word.
+
+A document this code reads, changes and writes again keeps what it does not
+understand: :func:`read_stored` holds the unknown keys on the model, and
+:func:`dump_stored` puts them back. A later 2.x then finds what it wrote.
 
 A stored field that can grow (a status, a kind, a regime) is a ``str`` with a
 :class:`Vocabulary`: the words are checked when the model is built to be
@@ -12,7 +16,7 @@ written, and any word reads back.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any, Final, TypeVar
 
 from pydantic import BaseModel, ValidationInfo
@@ -25,8 +29,32 @@ M = TypeVar("M", bound=BaseModel)
 
 
 def read_stored(model: type[M], payload: Any) -> M:
-    """Validate a *payload* read from disk: an unknown key is ignored, an unknown word kept."""
-    return model.model_validate(payload, extra="ignore", context=_READING_STORED)
+    """Validate a *payload* read from disk: an unknown key and an unknown word are kept."""
+    return model.model_validate(payload, extra="allow", context=_READING_STORED)
+
+
+def dump_stored(document: BaseModel) -> dict[str, Any]:
+    """Return *document* as the JSON a file holds, with the unknown keys its reading kept."""
+    rendered = document.model_dump(mode="json", by_alias=True)
+    _put_back_unknown_keys(document, rendered)
+    return rendered
+
+
+def _put_back_unknown_keys(value: Any, rendered: Any) -> None:
+    """Walk *value* and its rendering side by side: ``model_dump`` leaves the unknown keys out."""
+    if isinstance(value, BaseModel) and isinstance(rendered, dict):
+        rendered.update(value.__pydantic_extra__ or {})
+        for name, field in type(value).model_fields.items():
+            key = field.serialization_alias or name
+            if key in rendered:
+                _put_back_unknown_keys(getattr(value, name), rendered[key])
+    elif isinstance(value, Mapping) and isinstance(rendered, dict):
+        for key, item in value.items():
+            if str(key) in rendered:
+                _put_back_unknown_keys(item, rendered[str(key)])
+    elif isinstance(value, list | tuple) and isinstance(rendered, list):
+        for item, out in zip(value, rendered, strict=False):
+            _put_back_unknown_keys(item, out)
 
 
 class Vocabulary:
@@ -55,4 +83,4 @@ class Vocabulary:
         raise ValueError(f"{value!r} is not one of {', '.join(self.words)}")
 
 
-__all__ = ["Vocabulary", "read_stored"]
+__all__ = ["Vocabulary", "dump_stored", "read_stored"]

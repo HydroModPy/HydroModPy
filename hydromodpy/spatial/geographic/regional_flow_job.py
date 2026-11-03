@@ -15,9 +15,15 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from hydromodpy.core.exceptions import JobUsageError, TerrainProductError
 from hydromodpy.schema.job.digest import sha256_file
 from hydromodpy.schema.job.directory import JobDirectory
-from hydromodpy.schema.job.documents import read_document, write_document
+from hydromodpy.schema.job.documents import read_document, read_versioned, write_document
 from hydromodpy.schema.job.inputset import InputResource, build_inputset, inline_resource
-from hydromodpy.schema.job.outcome import JobOutcome, OutputRecord, error_record, now
+from hydromodpy.schema.job.outcome import (
+    OUTCOME_VERSIONS,
+    JobOutcome,
+    OutputRecord,
+    error_record,
+    now,
+)
 from hydromodpy.schema.job.provenance import build_provenance, write_provenance
 from hydromodpy.schema.job.request import content_address
 from hydromodpy.schema.job.reuse import reuse_sealed_outcome
@@ -209,7 +215,7 @@ def load_regional_flow_job(
     if request_document.get("process") != {"id": PROCESS_ID, "version": PROCESS_VERSION}:
         raise JobUsageError(f"Job {job.root} is not a {PROCESS_ID} {PROCESS_VERSION} job")
     request = RegionalFlowRequest.model_validate(request_document["inputs"])
-    stored = JobOutcome.from_document(read_document(job.outcome_path))
+    stored = JobOutcome.from_document(read_versioned(job.outcome_path, OUTCOME_VERSIONS))
     described_id = content_address(
         process_id=PROCESS_ID,
         process_version=PROCESS_VERSION,

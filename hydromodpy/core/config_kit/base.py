@@ -47,24 +47,30 @@ _OLD_FORMS_TOLD: set[tuple[str, str]] = set()
 """What this process has already told, as (file, change)."""
 
 _FIX_CONFIG = "hmp doctor --fix-config"
-_CANNOT_REWRITE = " left: "
+CANNOT_REWRITE = " left: "
 """Marks a change the migration could not make. The loader then refuses the key."""
 
 
-def warn_old_form(source: str | Path | None, change: str) -> None:
+def warn_old_form(source: str | Path | None, change: str, *, rewritable: bool = True) -> None:
     """Warn that a file loads through an old form, once per file and per key.
 
     *change* says the old key and the new one, as the migration wrote them. A
     payload that came from no file has nothing to remember it by, so it is told
-    every time.
+    every time. *rewritable* is false for a source the doctor has no file to rewrite
+    for, such as ``--set``.
     """
     where = "config" if source is None else str(source)
     if source is not None:
         if (where, change) in _OLD_FORMS_TOLD:
             return
         _OLD_FORMS_TOLD.add((where, change))
-    if _CANNOT_REWRITE in change:
+    if CANNOT_REWRITE in change:
         message = f"{where}: {change}."
+    elif not rewritable:
+        message = (
+            f"{where}: {change}. This old form keeps loading for two minor versions; "
+            "write the new name."
+        )
     else:
         target = "<file>" if source is None else where
         message = (
@@ -76,10 +82,12 @@ def warn_old_form(source: str | Path | None, change: str) -> None:
     warnings.warn(message, ConfigKeyRenamedWarning, stacklevel=1)
 
 
-def forget_old_forms_told(source: str | Path) -> None:
-    """Let a report on *source* see its old forms again, whatever was printed before."""
-    where = str(source)
-    _OLD_FORMS_TOLD.difference_update({told for told in _OLD_FORMS_TOLD if told[0] == where})
+def forget_old_forms_told() -> None:
+    """Let a report see the old forms again, whatever was printed before.
+
+    All of them: a file reports the old forms of the files it inherits too.
+    """
+    _OLD_FORMS_TOLD.clear()
 
 
 def _annotation_leaves(annotation: Any) -> list[Any]:

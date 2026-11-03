@@ -168,8 +168,9 @@ def register(subparsers) -> argparse.ArgumentParser:
         "--frozen",
         action="store_true",
         help=(
-            "Reject any fresh download when hydromodpy.lock is present; "
-            "every artefact must already be in the catalog and match its SHA-256."
+            "On a project TOML, reject any fresh download: every artefact must already be "
+            "in the catalog and match hydromodpy.lock. On the config.toml of a run, check its "
+            "inputs against its record and refuse a value that differs from config.resolved.toml."
         ),
     )
     parser.add_argument(
@@ -401,7 +402,7 @@ def _replay_published_copy(copy_dir: Path, config_path: Path, *, args: argparse.
     previous = os.environ.get(PROJECT_ROOT_ENV)
     os.environ[PROJECT_ROOT_ENV] = str(root)
     try:
-        _run_toml(replay_path, args=args)
+        _run_toml(replay_path, args=args, replayed_copy=copy_dir)
     finally:
         replay_path.unlink(missing_ok=True)
         shutil.rmtree(workdir, ignore_errors=True)
@@ -413,13 +414,16 @@ def _replay_published_copy(copy_dir: Path, config_path: Path, *, args: argparse.
             os.environ[PROJECT_ROOT_ENV] = previous
 
 
-def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
+def _run_toml(
+    config_path: Path, *, args: argparse.Namespace, replayed_copy: Path | None = None
+) -> None:
     """Run a workflow from a TOML file.
 
     The workflow is the declared ``[workflow] mode`` or the one the sections
     imply; a retired mode exits with ``EXIT_CONFIG`` and names its replacement.
     The frozen configuration of a published copy, with ``--frozen``, replays
-    from the bytes of the copy (:func:`_replay_published_copy`).
+    from the bytes of the copy (:func:`_replay_published_copy`), which is
+    *replayed_copy* here.
     """
     from hydromodpy.project.launch.replay import published_copy_of
 
@@ -587,18 +591,23 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         cleanup_effective_toml(effective_path, source=config_path)
         sys.exit(EXIT_CONFIG)
 
+    project_root = _resolve_project_root(config_path, raw_toml.get("workspace"))
     if frozen:
+        from hydromodpy.project.replay_checks import sealed_run_of
+
+        # A project TOML answers to its lockfile. The frozen configuration of a run
+        # answers to the record of that run, which the simulation dispatch checks.
         # The pre-check only reports drift. Frozen mode itself travels with
         # ``frozen=frozen`` into the simulation dispatch, which binds and
         # releases it around that one run instead of leaving the process frozen.
-        try:
-            _verify_frozen_inputs_strict(run_path, raw_toml)
-        except FrozenVerificationError as exc:
-            print(f"--frozen: {exc}", file=sys.stderr)
-            cleanup_effective_toml(effective_path, source=config_path)
-            sys.exit(EXIT_CONFIG)
+        if sealed_run_of(config_path) is None:
+            try:
+                _verify_frozen_inputs_strict(run_path, raw_toml)
+            except FrozenVerificationError as exc:
+                print(f"--frozen: {exc}", file=sys.stderr)
+                cleanup_effective_toml(effective_path, source=config_path)
+                sys.exit(EXIT_CONFIG)
 
-    project_root = _resolve_project_root(config_path, raw_toml.get("workspace"))
     try:
         with profile_run(profile_output, description=f"hmp run {config_path.name} ({workflow})"):
             if workflow == "simulation":
@@ -619,6 +628,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
                     force=force,
                     fresh=fresh,
                     overrides=lineage_overrides,
+                    replay_of=replayed_copy,
                 )
             elif workflow == "calibration" and resume is not None:
                 summary = hmp.calibrate(run_path, resume=True, return_report=False)
@@ -786,7 +796,7 @@ class FrozenVerificationError(RuntimeError):
 
 
 def _verify_frozen_inputs_strict(config_path: Path, raw_toml: dict[str, Any]) -> Path:
-    """Verify the project lockfile before launching a ``--frozen`` run.
+    """Verify the project lockfile before launching a ``--frozen`` run of a project TOML.
 
     Resolves the same project root as the lockfile writer, opens the data
     cache read-only, and calls
@@ -805,7 +815,9 @@ def _verify_frozen_inputs_strict(config_path: Path, raw_toml: dict[str, Any]) ->
     lockfile_path = project_lockfile_path(project_root)
     if not lockfile_path.is_file():
         raise FrozenVerificationError(
-            f"hydromodpy.lock not found at {lockfile_path}; --frozen requires a prior run."
+            f"hydromodpy.lock not found at {lockfile_path}; --frozen on a project TOML reads "
+            "that file: write it with `hmp dev lock update`, or replay the config.toml of a run, "
+            "which carries its own record."
         )
 
     data_dir = _resolve_workspace_data_dir(workspace_payload, project_root)

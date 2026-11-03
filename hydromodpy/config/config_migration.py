@@ -12,9 +12,8 @@ Rewrites legacy ``[simulation]`` keys in place, preserving comments and layout:
 - the ``[export]`` table of format toggles and ``[[export.artifacts]]`` -> one
   ``[[export]]`` request per toggle and per artifact; a table with every
   format off wrote nothing and is dropped without a word
-- ``[display.overrides.<figure>] timestep`` -> ``time``, and the dotted
-  calibration phase override ``"display.overrides.<figure>.timestep"`` ->
-  ``"display.overrides.<figure>.time"``
+- ``[display.overrides.<figure>] timestep`` -> ``time``, a row of
+  :data:`RENAMED_KEYS`
 - ``[modflow6.tgrid]`` and ``[modflownwt.tgrid]`` dropped: neither backend
   read them
 - ``solver_scratch`` and ``persistence.save_lock`` dropped: both drove
@@ -24,11 +23,9 @@ Rewrites legacy ``[simulation]`` keys in place, preserving comments and layout:
   ``[domain.layers]``, which every solver reads. When both are written, the
   table of the flow solver is kept (the first solver of the first flow
   process, else ``solver.backend``, else MODFLOW 6) and the other is dropped
-  with a line saying whether it held other values. An existing
-  ``[domain.layers]`` wins over both. The dotted override
-  ``"<solver>.sgrid.vertical.<key>"`` of a calibration phase ->
-  ``"domain.layers.<key>"``, under the same rule. The paths come from
-  :data:`MOVED_TABLES`, which the changes page of the docs reads too.
+  with a line saying whether it held other values. A ``[domain.layers]`` in the
+  same file wins over both. The paths come from :data:`MOVED_TABLES`, which the
+  changes page of the docs reads too.
 - ``geographic.bottom_path`` -> one ``[[data.substratum.sources]]`` entry,
   ``[domain.depth_model]`` left as it is (the old key was never read)
 - ``[simulation.results.derived]`` and ``[simulation.results.budget]`` dropped,
@@ -53,15 +50,34 @@ Rewrites legacy ``[simulation]`` keys in place, preserving comments and layout:
 
 This is a migration tool, not a backward-compat shim: the runtime model itself
 never accepts the old keys (``extra="forbid"``). ``migrate_config_doc`` and
-:data:`RENAMED_KEYS` are the document-to-document transforms; two callers wrap
-them. ``fix_config_file`` (reached through ``hmp doctor --fix-config``) rewrites a
-file on disk once, so a project TOML catches up for good.
-``migrate_config_doc_on_load`` runs the same transforms in memory on a payload
-already parsed by a caller, without touching the file it came from, and warns once
-per key and per file. ``HydroModPyConfig.from_toml`` calls it on the raw payload,
-before validation, so a config written for an earlier schema still loads without
-the doctor having run on it first. The calibration loader reaches it through the
-root-config provider, since the calibration layer does not import this one.
+:data:`RENAMED_KEYS` are the document-to-document transforms; two kinds of caller
+wrap them. ``fix_config_chain`` (reached through ``hmp doctor --fix-config``)
+rewrites on disk each file of a ``base_config`` chain that holds an old form, so a
+project catches up for good. The loader of :mod:`hydromodpy.core.toml_io.loader`
+reads old forms in memory, through the root-config provider, and warns once per key
+and per file, under the name of the file that holds the key.
+
+Order
+-----
+Each layer of a document (a file of a chain, an overlay, ``--set``,
+``HMP_SET_*``) is migrated on its own before the merge
+(:func:`migrate_layers`), so an old name in an overlay wins over a new name in its
+base as the same key under the new name would. Only the rules that a layer can
+apply alone run there: a key or a table under its new path. Reading a value another
+layer holds is allowed, and goes through the context, the raw layers merged. Then
+every rule runs on the merged document (:func:`migrate_merged_doc`). Three families
+wait for it, because they need the whole document or because the merge rule depends
+on their shape: a table of toggles that becomes a list, a pair of keys that becomes
+one, and an option whose meaning hangs on another key.
+
+Dotted paths
+------------
+Some keys and values of a document are themselves paths into the document: the
+``overrides`` of a calibration phase, ``path`` and ``target`` of a calibration
+parameter, the keys of ``[sites.bind]`` and of the ``set`` table of a recipe.
+:func:`moved_paths` derives one table from :data:`RENAMED_KEYS` and
+:data:`MOVED_TABLES`, so a new row rewrites those too, and :func:`rewrite_dotted_path`
+reads it for a path given on a command line.
 
 Deprecation
 -----------
@@ -70,13 +86,15 @@ and :func:`old_forms`). A form keeps loading for two minor versions, the one tha
 retired it included, then it leaves this module:
 ``tests/unit/config/test_config_migration.py`` fails when one outlives its delay.
 The policy is ``docs/source/about/versions.md``. A rename from now on is one row of
-:data:`RENAMED_KEYS`. At the end of its delay the row stays with
+:data:`RENAMED_KEYS`, a key or a table that changes place one row of
+:data:`MOVED_TABLES`. At the end of its delay the row of a rename stays with
 ``sealed_only=True``, because a run sealed under the old name stays readable for
 the whole major line, and only the live file loses it.
 """
 
 from __future__ import annotations
 
+import copy
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -85,11 +103,16 @@ from typing import Any
 import tomlkit
 from packaging.version import Version
 
-from hydromodpy.core.config_kit.base import warn_old_form
+from hydromodpy.core.config_kit.base import CANNOT_REWRITE, warn_old_form
 from hydromodpy.core.config_kit.export_spec import RUN_FORMATS, format_from_path
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import is_sealed_run_config
 from hydromodpy.core.time import parse_step_spec
+from hydromodpy.core.toml_io.loader import read_toml_chain
+from hydromodpy.core.toml_io.merge import DIRECTIVE_SUFFIXES, merge_toml_payloads
+from hydromodpy.core.toml_io.overrides import COMMAND_LINE_SOURCES
+from hydromodpy.core.toml_io.paths import DottedPath, parse
 
 _logger = get_logger(__name__)
 
@@ -142,11 +165,11 @@ RETIRED_RESULTS_TABLES: tuple[str, ...] = (
 
 @dataclass(frozen=True)
 class TableMove:
-    """A table the loader moves, whole, to another path.
+    """A table or a key the loader moves, whole, to another path.
 
-    Every key of the table keeps its name under the new path. A calibration phase
-    that sets one by its dotted path, ``"<old>.<key>"`` in ``overrides``, is moved
-    to ``"<new>.<key>"`` too. The migration below and the docs read the same
+    Every key of the table keeps its name under the new path. A dotted path that
+    reaches it, ``"<old>.<key>"``, moves to ``"<new>.<key>"`` too
+    (:func:`moved_paths`). The migration below and the docs read the same
     declaration, so the changes page lists the move the loader makes.
     """
 
@@ -162,57 +185,154 @@ class TableMove:
 
 _LAYERING = "domain.layers"
 
-#: The tables the loader moves to another path: the layering each solver wrote
-#: under ``sgrid``, which every solver reads from ``[domain.layers]`` now.
+#: What the loader moves to another path: the layering each solver wrote under
+#: ``sgrid``, which every solver reads from ``[domain.layers]`` now. Two rows with
+#: one ``new`` are alternatives, and the flow solver chooses between them.
 MOVED_TABLES: tuple[TableMove, ...] = tuple(
     TableMove(f"{section}.sgrid.vertical", _LAYERING, since=ALPHA_FORM)
     for section in _SOLVER_SECTIONS
 )
 
 
-def fix_config_file(path: str | Path) -> list[str]:
-    """Rewrite legacy ``[simulation]`` keys in ``path`` in place.
+def fix_config_chain(path: str | Path) -> dict[Path, list[str]]:
+    """Rewrite each file of the ``base_config`` chain of *path* that holds an old form.
 
-    Returns the list of human-readable changes applied (empty when the file is
-    already up to date). Raises :class:`FileNotFoundError` when the path is
-    missing and :class:`tomlkit.exceptions.ParseError` on malformed TOML.
+    Returns the changes of each file of the chain, root first, an empty list for a
+    file already up to date. Nothing is written when the rewrite would change what
+    the chain reads: a table several files fill key by key, for example, becomes a
+    list one file replaces. That raises :class:`ConfigError` naming the keys. Raises
+    :class:`FileNotFoundError` when a file is missing and a TOML error on a malformed one.
     """
-    path = Path(path).expanduser()
-    if not path.is_file():
-        raise FileNotFoundError(f"No TOML file at {path}")
-
+    target = Path(path).expanduser()
+    if not target.is_file():
+        raise FileNotFoundError(f"No TOML file at {target}")
     # utf-8-sig: several configs in this repository carry a BOM, and tomlkit
     # reads it as an empty key on line 1, so the doctor could not fix them.
-    doc = tomlkit.parse(path.read_text(encoding="utf-8-sig"))
-    changes = migrate_config_doc(doc)
-    changes.extend(_migrate_refused_keys(doc))
-    changes.extend(_rename_keys(doc, sealed=False))
-    if changes:
-        path.write_text(tomlkit.dumps(doc), encoding="utf-8")
+    docs = {
+        item.path: tomlkit.parse(item.path.read_text(encoding="utf-8-sig"))
+        for item in read_toml_chain(target, migrate=False)
+    }
+    layers = list(docs.items())
+    written = _reading_context(layers)
+    current = _under_todays_names(layers, written)
+    before = copy.deepcopy(current)
+    _every_rule(before)
+    changes: dict[Path, list[str]] = {}
+    for file, doc in docs.items():
+        changes[file] = _every_rule(doc, written=written, current=current)
+        changes[file].extend(_migrate_refused_keys(doc))
+    after = _under_todays_names(layers, _reading_context(layers))
+    _every_rule(after)
+    moved = _different_keys(before, after)
+    if moved:
+        raise ConfigError(
+            f"Rewriting {target} and the files it inherits one by one would change what they "
+            f"read at {', '.join(moved)}, so nothing was written. Move these keys to one file "
+            "by hand, then run this again."
+        )
+    for file, doc in docs.items():
+        if changes[file]:
+            file.write_text(tomlkit.dumps(doc), encoding="utf-8")
     return changes
 
 
-def migrate_config_doc(doc: Any) -> list[str]:
-    """Apply the legacy ``[simulation]`` key migrations to a parsed doc in place.
+def fix_config_file(path: str | Path) -> list[str]:
+    """Rewrite the chain of *path*, as :func:`fix_config_chain`; return the changes of *path*."""
+    return fix_config_chain(path)[Path(path).expanduser().resolve()]
 
-    Works on a plain ``dict`` (``tomllib``) or a ``tomlkit`` document, so
-    ``fix_config_file`` can rewrite a file while ``migrate_config_doc_on_load``
-    migrates an in-memory payload for the read path. Returns the list of
-    human-readable changes applied.
+
+def _under_todays_names(layers: Sequence[Layer], written: Any) -> dict[str, Any]:
+    """Return *layers* merged with their keys under today's names, the layers left as they are.
+
+    One layer stands alone, as in :func:`_reading_context`.
     """
-    changes: list[str] = _drop_dead_result_options(doc)
+    merged: dict[str, Any] = {}
+    for _, doc in layers:
+        own = copy.deepcopy(_plain(doc))
+        _migrate_refused_keys(own)
+        _file_rules(own, context=written, sealed=False)
+        merged = own if len(layers) == 1 else merge_toml_payloads(merged, own)
+    return merged
+
+
+def _different_keys(before: Any, after: Any, *, where: str = "") -> list[str]:
+    """Return the dotted paths where two documents differ."""
+    if not (isinstance(before, Mapping) and isinstance(after, Mapping)):
+        return [] if before == after else [where]
+    found: list[str] = []
+    for key in sorted({*before, *after}):
+        path = f"{where}.{key}" if where else str(key)
+        if key not in before or key not in after:
+            found.append(path)
+        else:
+            found.extend(_different_keys(before[key], after[key], where=path))
+    return found
+
+
+def migrate_config_doc(doc: Any) -> list[str]:
+    """Apply every migration to a parsed doc in place, reading the doc alone.
+
+    Works on a plain ``dict`` (``tomllib``) or a ``tomlkit`` document. Returns the
+    list of human-readable changes applied.
+    """
+    return _every_rule(doc)
+
+
+def _every_rule(
+    doc: Any, *, written: Any = None, current: Any = None, sealed: bool = False
+) -> list[str]:
+    """Run the rules of a layer, then those of a whole document, on *doc*.
+
+    *written* is what the layers say as they are written, and *current* what they say
+    under today's names. Unset, *doc* stands for both.
+    """
+    changes = _file_rules(doc, context=doc if written is None else written, sealed=sealed)
+    changes.extend(
+        _whole_document_rules(doc, context=doc if current is None else current, sealed=sealed)
+    )
+    if _EMPTY_EXPORT_DROPPED in changes:
+        # The older spellings of a table that wrote nothing lead nowhere either.
+        changes = [change for change in changes if not change.startswith("export.")]
+    return changes
+
+
+def _file_rules(doc: Any, *, context: Any, sealed: bool) -> list[str]:
+    """The rules one layer can apply alone: a key or a table under its new path."""
+    changes = _drop_dead_result_options(doc)
     changes.extend(_report_retired_results_tables(doc))
     changes.extend(_move_the_bottom_path(doc))
-    changes.extend(_move_the_layering(doc))
-    changes.extend(_move_the_phase_layering(doc))
+    changes.extend(_move_the_tables(doc, context))
     changes.extend(_flatten_boundary_conditions(doc))
     changes.extend(_drop_the_solver_time_grids(doc))
-    changes.extend(_drop_the_validity_ratio(doc))
+    changes.extend(_rename_simulation_keys(doc))
+    changes.extend(_rename_export_times(doc))
+    changes.extend(_rename_keys(doc, sealed=sealed, context=context))
+    return changes
 
+
+def _whole_document_rules(doc: Any, *, context: Any, sealed: bool) -> list[str]:
+    """The rules that wait for the merge.
+
+    A table of toggles becomes a list, and a list does not merge key by key. A
+    width and its mode become one key. What a method option counted hangs on the
+    method. A ratio is checked on what the files end up saying.
+    """
+    changes = _drop_the_validity_ratio(doc)
+    export = _migrate_export_variables(doc)
+    exploded = _explode_export_table(doc)
+    changes.extend(export)
+    changes.extend(exploded)
+    changes.extend(_rewrite_search_options(doc, sealed=sealed, context=context))
+    changes.extend(_rewrite_cost_margin(doc, sealed=sealed, context=context))
+    return changes
+
+
+def _rename_simulation_keys(doc: Any) -> list[str]:
+    """Rewrite the ``[simulation]`` keys whose new name may already be written."""
     simulation = doc.get("simulation")
     if simulation is None:
-        return _finish(doc, changes)
-
+        return []
+    changes: list[str] = []
     if "on_collision" in simulation:
         value = simulation["on_collision"]
         if "if_exists" not in simulation:
@@ -235,7 +355,7 @@ def migrate_config_doc(doc: Any) -> list[str]:
         del simulation["run_id"]
 
     changes.extend(_promote_export(doc, simulation))
-    return _finish(doc, changes)
+    return changes
 
 
 #: Keys the loader refuses and a file can drop without changing what a run does.
@@ -259,13 +379,10 @@ def _migrate_refused_keys(doc: Any) -> list[str]:
     those are carried across too.
     """
     changes = _migrate_refused_scope(doc, where="")
-    phases = (doc.get("calibration") or {}).get("phases")
-    if isinstance(phases, Mapping):
-        phases = [phases]
-    for index, phase in enumerate(phases or ()):
-        overrides = phase.get("overrides") if isinstance(phase, Mapping) else None
+    for label, phase in _tables_at(doc, _PHASES):
+        overrides = phase.get("overrides")
         if isinstance(overrides, Mapping):
-            where = f"calibration.phases[{index}].overrides."
+            where = f"{label}.overrides."
             changes.extend(_migrate_refused_dotted(overrides, where))
             changes.extend(_migrate_refused_scope(overrides, where=where))
     return changes
@@ -328,11 +445,14 @@ class KeyRename:
     ``scope`` is the table that holds it, written as the path of the document:
     ``calibration``, ``calibration.protocol``. ``name[*]`` walks each table of a
     list (``calibration.phases[*]``) and ``{*}`` the tables a table holds under
-    free names (``calibration.parameters.{*}``).
+    free names (``calibration.parameters.{*}``). One row is enough: the dotted paths
+    that name the key follow (:func:`moved_paths`), and so do the directives
+    ``<old>__append``, ``<old>__merge`` and ``<old>__delete``.
 
     ``convert(value, doc)`` returns the value to write under the new name, or
     raises :class:`_CannotRewrite` with the reason when it cannot decide: the
-    doctor then leaves the key and says why.
+    doctor then leaves the key and says why. *doc* is the context, what the layers
+    of the document say together.
 
     ``sealed_drop`` makes the read of a sealed config drop the key instead of
     renaming it, for an option that no longer exists and that a replay of the
@@ -360,8 +480,8 @@ def _steps_to_duration(value: Any, doc: Any) -> str:
     The extent rules of a network output were counts of timesteps and are now
     durations. ``N`` steps of the ``[simulation.time]`` step are written as
     ``N`` times that step (``2`` monthly steps are ``"2 months"``), which the run
-    converts back to exactly ``N`` steps. A file that does not carry its step,
-    because ``base_config`` does, cannot be converted.
+    converts back to exactly ``N`` steps. *doc* is what the layers say together,
+    so the step can sit in a parent.
     """
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         raise _CannotRewrite(f"{value!r} is not a count of timesteps")
@@ -369,8 +489,9 @@ def _steps_to_duration(value: Any, doc: Any) -> str:
     time = simulation.get("time") if isinstance(simulation, Mapping) else None
     if not isinstance(time, Mapping) or time.get("step_value") is None:
         raise _CannotRewrite(
-            "the timestep is not in this file ([simulation.time] step_value), so the count "
-            "cannot be turned into a duration; write the duration, such as '1 month'"
+            "the timestep is not in this file or the files it inherits ([simulation.time] "
+            "step_value), so the count cannot be turned into a duration; write the duration, "
+            "such as '1 month'"
         )
     if _a_phase_sets_the_step(doc):
         raise _CannotRewrite(
@@ -399,9 +520,8 @@ def _a_phase_sets_the_step(doc: Any) -> bool:
 _EXTENT_RULE_SCOPES = (
     "calibration.outputs.{*}.extent",
     "display.overrides.network_extent_bounds_map",
-    "calibration.phases[*].overrides.display.overrides.network_extent_bounds_map",
 )
-"""Where the two extent rules are written: the output, the figure, a phase's figure."""
+"""Where the two extent rules are written: the output and the figure."""
 
 _EXTENT_RULE_KEYS = (
     ("maximal_flowing_steps", "maximal_flowing_duration"),
@@ -424,6 +544,7 @@ RENAMED_KEYS: tuple[KeyRename, ...] = (
     KeyRename("calibration.parameters.{*}", "transform", "search_space", since=ALPHA_FORM),
     KeyRename("calibration.parameters.{*}", "prior", "sampling", since=ALPHA_FORM),
     KeyRename("calibration.objective_blocks[*]", "transform", "cost_transform", since=ALPHA_FORM),
+    KeyRename("display.overrides.{*}", "timestep", "time", since=ALPHA_FORM),
     KeyRename("calibration", "optimizer_kwargs", "method_options", since=ALPHA_FORM),
     KeyRename("calibration.phases[*]", "optimizer_kwargs", "method_options", since=ALPHA_FORM),
     KeyRename(
@@ -470,80 +591,254 @@ def migrate_sealed_config_doc(doc: Any) -> list[str]:
     expanded: a protocol stage sealed with an old key would otherwise read as a
     contradiction of the protocol that wrote it.
     """
-    return _rename_keys(doc, sealed=True)
+    changes = _rename_keys(doc, sealed=True)
+    changes.extend(_rewrite_search_options(doc, sealed=True))
+    changes.extend(_rewrite_cost_margin(doc, sealed=True))
+    return changes
 
 
-def _rename_keys(doc: Any, *, sealed: bool) -> list[str]:
-    """Apply :data:`RENAMED_KEYS` to *doc*, for a file (the doctor) or a sealed read."""
+def _rename_keys(doc: Any, *, sealed: bool, context: Any = None) -> list[str]:
+    """Apply :data:`RENAMED_KEYS` to *doc*, then to the dotted paths it writes."""
+    reading = doc if context is None else context
+    changes = _rename_tables(doc, context=reading, sealed=sealed)
+    changes.extend(_rewrite_dotted_paths(doc, context=reading, sealed=sealed))
+    return changes
+
+
+def _rename_tables(doc: Any, *, context: Any, sealed: bool, prefix: str = "") -> list[str]:
+    """Apply :data:`RENAMED_KEYS` to the tables of *doc*, a document or one written nested."""
     changes: list[str] = []
     for rule in RENAMED_KEYS:
         if rule.sealed_only and not sealed:
             continue
         for where, table in _tables_at(doc, rule.scope):
-            if rule.old not in table:
-                continue
-            label = f"{where}.{rule.old}" if where else rule.old
-            if sealed and rule.sealed_drop:
-                del table[rule.old]
-                changes.append(f"{label} dropped (sealed)")
-                continue
-            if rule.new in table:
-                changes.append(f"{label} left: {rule.new!r} is given too, keep one")
-                continue
-            value = _plain(table[rule.old])
-            if rule.convert is not None:
-                try:
-                    value = rule.convert(value, doc)
-                except _CannotRewrite as reason:
-                    if sealed and rule.sealed_drop_unconverted:
-                        del table[rule.old]
-                        changes.append(f"{label} dropped (sealed): {reason}")
-                    else:
-                        changes.append(f"{label} left: {reason}")
-                    continue
-            _move_key(table, rule.old, rule.new, value)
-            changes.append(f"{label} -> {rule.new}")
-    changes.extend(_rename_dotted_figure_overrides(doc, sealed=sealed))
-    changes.extend(_rewrite_search_options(doc, sealed=sealed))
-    changes.extend(_rewrite_cost_margin(doc, sealed=sealed))
+            base = f"{prefix}{where}"
+            label = f"{base}.{rule.old}" if base else rule.old
+            if rule.old in table:
+                changes.extend(_rename_one(table, rule, label, context=context, sealed=sealed))
+            changes.extend(_rename_directives(table, rule, label))
     return changes
 
 
-def _rename_dotted_figure_overrides(doc: Any, *, sealed: bool) -> list[str]:
-    """Rename the extent rules a calibration phase writes as a dotted figure override.
+def _rename_one(
+    table: Any, rule: KeyRename, label: str, *, context: Any, sealed: bool
+) -> list[str]:
+    """Rename one key of *table*, or say why it stays."""
+    if sealed and rule.sealed_drop:
+        del table[rule.old]
+        return [f"{label} dropped (sealed)"]
+    if rule.new in table:
+        return [f"{label}{CANNOT_REWRITE}{rule.new!r} is given too, keep one"]
+    value = _plain(table[rule.old])
+    if rule.convert is not None:
+        try:
+            value = rule.convert(value, context)
+        except _CannotRewrite as reason:
+            if sealed and rule.sealed_drop_unconverted:
+                del table[rule.old]
+                return [f"{label} dropped (sealed): {reason}"]
+            return [f"{label}{CANNOT_REWRITE}{reason}"]
+    _move_key(table, rule.old, rule.new, value)
+    return [f"{label} -> {rule.new}"]
 
-    A phase reaches a figure option by its dotted path, such as
-    ``"display.overrides.network_extent_bounds_map.maximal_flowing_steps"``, as
-    :func:`_rename_phase_timesteps` does for ``timestep``. The same rule rewrites
-    the key and its value; a path whose new name is also written is left.
-    """
-    figure = _EXTENT_RULE_SCOPES[1]
-    rules = {f"{figure}.{rule.old}": rule for rule in RENAMED_KEYS if rule.scope == figure}
+
+def _rename_directives(table: Any, rule: KeyRename, label: str) -> list[str]:
+    """Rename ``<old>__append``, ``<old>__merge`` and ``<old>__delete``, which name the key too."""
     changes: list[str] = []
-    for where, phase in _tables_at(doc, "calibration.phases[*]"):
-        overrides = phase.get("overrides")
-        if not isinstance(overrides, Mapping):
+    for suffix in DIRECTIVE_SUFFIXES:
+        old, new = rule.old + suffix, rule.new + suffix
+        if old not in table:
             continue
-        for key in list(overrides):
-            rule = rules.get(str(key))
-            if rule is None:
+        if new in table:
+            changes.append(f"{label}{suffix}{CANNOT_REWRITE}{new!r} is given too, keep one")
+            continue
+        _move_key(table, old, new, _plain(table[old]))
+        changes.append(f"{label}{suffix} -> {new}")
+    return changes
+
+
+@dataclass(frozen=True)
+class MovedPath:
+    """One dotted path that moved: a row of :data:`RENAMED_KEYS` or :data:`MOVED_TABLES`.
+
+    ``old`` and ``new`` are the parts of the path, with ``{*}`` for a free name. A
+    path under ``old`` moves with it, whatever follows.
+    """
+
+    old: tuple[str, ...]
+    new: tuple[str, ...]
+    rule: KeyRename | TableMove
+
+    def rewrite(self, path: str) -> str | None:
+        """Return *path* under the new name, or ``None`` when it does not start with ``old``."""
+        try:
+            parts = list(parse(path).parts)
+        except ValueError:
+            # Not a path this table can read: the place that reads it refuses it.
+            return None
+        suffix = next((s for s in DIRECTIVE_SUFFIXES if parts[-1].endswith(s)), "")
+        parts[-1] = parts[-1].removesuffix(suffix)
+        if len(parts) < len(self.old):
+            return None
+        free: list[str] = []
+        for token, part in zip(self.old, parts, strict=False):
+            if token == "{*}":
+                free.append(part)
+            elif token != part:
+                return None
+        names = iter(free)
+        moved = [next(names) if token == "{*}" else token for token in self.new]
+        return f"{DottedPath((*moved, *parts[len(self.old) :]))}{suffix}"
+
+    @property
+    def converts(self) -> bool:
+        """Whether the value changes form on the way, which a path alone cannot do."""
+        return isinstance(self.rule, KeyRename) and self.rule.convert is not None
+
+
+def moved_paths(*, sealed: bool = False) -> tuple[MovedPath, ...]:
+    """Return every dotted path that moved, in the order of the two tables.
+
+    It is read at each call, so a new row of :data:`RENAMED_KEYS` or
+    :data:`MOVED_TABLES` reaches every place a path is written. A row whose scope
+    walks a list has no dotted path: a path takes no index.
+    """
+    rows = [
+        MovedPath(
+            (*rule.scope.split("."), rule.old),
+            (*rule.scope.split("."), rule.new),
+            rule,
+        )
+        for rule in RENAMED_KEYS
+        if "[*]" not in rule.scope and (sealed or not rule.sealed_only)
+    ]
+    rows.extend(
+        MovedPath(tuple(move.old.split(".")), tuple(move.new.split(".")), move)
+        for move in MOVED_TABLES
+    )
+    return tuple(rows)
+
+
+def rewrite_dotted_path(path: str, *, sealed: bool = False) -> str:
+    """Return a dotted path of the document under its current name.
+
+    A path whose value changes form on the way stays as it is, and the place that
+    reads it refuses it.
+    """
+    for row in moved_paths(sealed=sealed):
+        if not row.converts:
+            path = row.rewrite(path) or path
+    return path
+
+
+_PHASES = "calibration.phases[*]"
+_PATH_KEYS = ("sites.bind", "sites.recipes.{*}.set")
+"""Tables of the document whose keys are dotted paths, besides the overrides of a phase."""
+
+_PARAMETERS = "calibration.parameters.{*}"
+_PATH_VALUES = ("path", "target")
+"""The keys of a calibration parameter whose value is a dotted path."""
+
+
+def _rewrite_dotted_paths(doc: Any, *, context: Any, sealed: bool) -> list[str]:
+    """Rewrite the paths *doc* writes as keys and values, by :func:`moved_paths`."""
+    changes: list[str] = []
+    for where, phase in _tables_at(doc, _PHASES):
+        overrides = phase.get("overrides")
+        if isinstance(overrides, Mapping):
+            label = f"{where}.overrides"
+            changes.extend(_rewrite_path_keys(overrides, label, context=context, sealed=sealed))
+            # A phase may write the same keys as nested tables instead.
+            changes.extend(
+                _rename_tables(overrides, context=context, sealed=sealed, prefix=f"{label}.")
+            )
+            changes.extend(_move_the_tables(overrides, context))
+    for scope in _PATH_KEYS:
+        for where, table in _tables_at(doc, scope):
+            changes.extend(
+                _rewrite_path_keys(
+                    table, where, context=context, sealed=sealed, holds_values=scope != "sites.bind"
+                )
+            )
+    changes.extend(_rewrite_path_values(doc, sealed=sealed))
+    return changes
+
+
+def _rewrite_path_keys(
+    table: Any, where: str, *, context: Any, sealed: bool, holds_values: bool = True
+) -> list[str]:
+    """Rewrite the dotted keys of *table*. *holds_values* says its values are key values."""
+    changes: list[str] = []
+    beaten = _beaten_moves(table, context)
+    for row in moved_paths(sealed=sealed):
+        for key in [str(key) for key in table]:
+            renamed = row.rewrite(key)
+            if renamed is None:
                 continue
-            label = f'{where}.overrides."{key}"'
-            renamed = f"{figure}.{rule.new}"
-            if renamed in overrides:
-                changes.append(f"{label} left: {renamed!r} is given too, keep one")
+            label = f'{where}."{key}"'
+            if row.rule in beaten:
+                del table[key]
+                changes.append(f"{label} dropped ({beaten[row.rule].section} is the flow solver)")
+            elif renamed in table:
+                changes.append(f'{label}{CANNOT_REWRITE}"{renamed}" is given too, keep one')
+            elif sealed and isinstance(row.rule, KeyRename) and row.rule.sealed_drop:
+                del table[key]
+                changes.append(f"{label} dropped (sealed)")
+            else:
+                changes.extend(
+                    _move_path_key(table, key, renamed, row, label, context, sealed, holds_values)
+                )
+    return changes
+
+
+def _move_path_key(
+    table: Any,
+    key: str,
+    renamed: str,
+    row: MovedPath,
+    label: str,
+    context: Any,
+    sealed: bool,
+    holds_values: bool,
+) -> list[str]:
+    """Move one dotted key to its new path, with its value in the new form."""
+    value = _plain(table[key])
+    if row.converts:
+        if not holds_values:
+            return [
+                f"{label}{CANNOT_REWRITE}the value of this key changes form under its new "
+                "name, and a bind line holds a column; write the new key and its values by hand"
+            ]
+        try:
+            value = row.rule.convert(value, context)
+        except _CannotRewrite as reason:
+            if sealed and row.rule.sealed_drop_unconverted:
+                del table[key]
+                return [f"{label} dropped (sealed): {reason}"]
+            return [f"{label}{CANNOT_REWRITE}{reason}"]
+    _move_key(table, key, renamed, value)
+    return [f'{label} -> "{renamed}"']
+
+
+def _rewrite_path_values(doc: Any, *, sealed: bool) -> list[str]:
+    """Rewrite ``path`` and ``target`` of the calibration parameters."""
+    changes: list[str] = []
+    for where, table in _tables_at(doc, _PARAMETERS):
+        for name in _PATH_VALUES:
+            value = _plain(table.get(name))
+            if not isinstance(value, str):
                 continue
-            try:
-                value = rule.convert(_plain(overrides[key]), doc) if rule.convert else None
-            except _CannotRewrite as reason:
-                if sealed and rule.sealed_drop_unconverted:
-                    del overrides[key]
-                    changes.append(f"{label} dropped (sealed): {reason}")
-                else:
-                    changes.append(f"{label} left: {reason}")
-                continue
-            _move_key(overrides, str(key), renamed, value)
-            changes.append(f'{label} -> "{renamed}"')
+            label = f"{where}.{name}"
+            moved = rewrite_dotted_path(value, sealed=sealed)
+            if moved != value:
+                table[name] = moved
+                changes.append(f"{label} {value!r} -> {moved!r}")
+            if any(row.converts and row.rewrite(moved) for row in moved_paths(sealed=sealed)):
+                changes.append(
+                    f"{label}{CANNOT_REWRITE}the key {moved!r} takes another form under its "
+                    "new name, so a search cannot move it as it is; write its new path and "
+                    "its bounds by hand"
+                )
     return changes
 
 
@@ -558,7 +853,7 @@ _NO_UNIT_TO_WRITE = (
 )
 
 
-def _rewrite_cost_margin(doc: Any, *, sealed: bool) -> list[str]:
+def _rewrite_cost_margin(doc: Any, *, sealed: bool, context: Any = None) -> list[str]:
     """Turn ``tolerance`` and ``mode`` of the uncertainty tables into one ``cost_margin``.
 
     The unit is the one the old mode implied: a relative width, or one left
@@ -568,15 +863,20 @@ def _rewrite_cost_margin(doc: Any, *, sealed: bool) -> list[str]:
     section's, so the pair a phase read is rewritten into the phase. What the
     doctor cannot decide it leaves, with the reason. A sealed config drops what
     it cannot write: the width only qualifies a calibrated value, it never
-    moved one, so the run replays the same.
+    moved one, so the run replays the same. What the search scores and what a
+    phase inherits are read from *context*, since a parent file can hold them.
     """
     calibration = doc.get("calibration") if isinstance(doc, Mapping) else None
     if not isinstance(calibration, Mapping):
         return []
     section = calibration.get("uncertainty")
+    reading = (doc if context is None else context).get("calibration")
+    if not isinstance(reading, Mapping):
+        reading = calibration
+    read_section = reading.get("uncertainty")
     inherited = (
-        (_plain(section.get("tolerance")), _plain(section.get("mode")))
-        if isinstance(section, Mapping)
+        (_plain(read_section.get("tolerance")), _plain(read_section.get("mode")))
+        if isinstance(read_section, Mapping)
         else (None, None)
     )
     changes: list[str] = []
@@ -591,7 +891,7 @@ def _rewrite_cost_margin(doc: Any, *, sealed: bool) -> list[str]:
                         table,
                         f"calibration.phases[{index}].uncertainty",
                         inherited,
-                        _scored_on_distances(calibration, phase),
+                        _scored_on_distances(reading, phase),
                         sealed=sealed,
                     )
                 )
@@ -602,7 +902,7 @@ def _rewrite_cost_margin(doc: Any, *, sealed: bool) -> list[str]:
                 section,
                 "calibration.uncertainty",
                 (None, None),
-                _scored_on_distances(calibration, None),
+                _scored_on_distances(reading, None),
                 sealed=sealed,
             )
         )
@@ -763,7 +1063,7 @@ _RENAMED_OPTIONS = {("da_mh_gp", "max_iter"): "chain_length"}
 _OPTION_NAMES = frozenset({"maxfev", "max_evaluations", "max_iter", "maxiter"})
 
 
-def _rewrite_search_options(doc: Any, *, sealed: bool) -> list[str]:
+def _rewrite_search_options(doc: Any, *, sealed: bool, context: Any = None) -> list[str]:
     """Rewrite the method options that bounded a search, now that ``max_trials`` does.
 
     An option that counted evaluations (``maxfev``, ``max_evaluations``, the
@@ -772,12 +1072,19 @@ def _rewrite_search_options(doc: Any, *, sealed: bool) -> list[str]:
     stopped at the first one it met. ``maxiter`` counts iterations or
     generations, not evaluations: the doctor leaves it, with the reason. A
     sealed config drops both, because a run on disk is replayed as one solve and
-    never searches again. The chain of ``da_mh_gp`` is ``chain_length``.
+    never searches again. The chain of ``da_mh_gp`` is ``chain_length``. The method
+    and the budget can sit in a parent, so *context* is read for what the table lacks.
     """
     changes: list[str] = []
     for search in _SEARCH_SCOPES:
+        read = dict(_tables_at(doc if context is None else context, search.scope))
         for where, table in _tables_at(doc, search.scope):
-            method = _plain(table.get(search.method)) or search.default_method
+            inherited = read.get(where, {})
+            method = (
+                _plain(table.get(search.method))
+                or _plain(inherited.get(search.method))
+                or search.default_method
+            )
             for options_key in search.options:
                 options = table.get(options_key)
                 if not isinstance(options, Mapping):
@@ -787,7 +1094,9 @@ def _rewrite_search_options(doc: Any, *, sealed: bool) -> list[str]:
                 for key in [key for key in options if key in _OPTION_NAMES]:
                     label = f"{prefix}.{key}"
                     changes.extend(
-                        _rewrite_option(table, options, key, method, label, search, sealed=sealed)
+                        _rewrite_option(
+                            table, options, key, method, label, search, inherited, sealed=sealed
+                        )
                     )
                 if not options:
                     del table[options_key]
@@ -806,6 +1115,7 @@ def _rewrite_option(
     method: Any,
     label: str,
     search: _SearchScope,
+    inherited: Mapping[str, Any],
     *,
     sealed: bool,
 ) -> list[str]:
@@ -835,7 +1145,7 @@ def _rewrite_option(
     value = _plain(options[key])
     if isinstance(value, bool) or not isinstance(value, int) or value < 1:
         return [f"{label} left: {value!r} is not a positive integer"]
-    declared = _plain(table.get(search.budget))
+    declared = _plain(table.get(search.budget, inherited.get(search.budget)))
     kept = min(value, declared) if isinstance(declared, int) else value
     del options[key]
     _set_key(table, search.budget, kept, after=search.method)
@@ -866,7 +1176,9 @@ def _move_key(table: Any, old: str, new: str, value: Any) -> None:
     """
     position = _position(table, old)
     original = table.get(old)
-    comment = getattr(getattr(original, "trivia", None), "comment", "") or ""
+    # A tomlkit table hands out a boolean as a plain bool, which holds no comment.
+    item = table.value.item(old) if position is not None else original
+    comment = getattr(getattr(item, "trivia", None), "comment", "") or ""
     del table[old]
     item = _moved_table(original) or _scalar_item(value, comment)
     if position is None or item is None:
@@ -899,7 +1211,7 @@ def _position(table: Any, key: str) -> int | None:
 
 def _scalar_item(value: Any, comment: str) -> Any:
     """Return *value* as a tomlkit item carrying *comment*, or ``None`` for a table or a list."""
-    if isinstance(value, bool) or not isinstance(value, int | float | str):
+    if not isinstance(value, int | float | str):
         return None
     item = tomlkit.item(value)
     if comment.startswith("#"):
@@ -911,7 +1223,9 @@ def _tables_at(doc: Any, scope: str) -> list[tuple[str, Any]]:
     """Return every table of *doc* that *scope* names, with where it sits.
 
     ``a.b`` descends by name, ``a[*]`` walks the tables of a list, ``{*}`` walks
-    the tables under free names. A name that leads to no table is skipped.
+    the tables under free names. A name that leads to no table is skipped. A list
+    a file adds to or merges is walked too: ``a__append`` and ``a__merge`` hold the
+    same tables as ``a``.
     """
     found: list[tuple[str, Any]] = [("", doc)]
     for token in scope.split("."):
@@ -927,62 +1241,132 @@ def _tables_at(doc: Any, scope: str) -> list[tuple[str, Any]]:
                     if isinstance(child, Mapping)
                 )
             elif token.endswith("[*]"):
-                name = token[:-3]
-                child = node.get(name)
-                members = [child] if isinstance(child, Mapping) else child
-                if isinstance(members, Sequence) and not isinstance(members, str):
-                    stepped.extend(
-                        (f"{join}{name}[{index}]", member)
-                        for index, member in enumerate(members)
-                        if isinstance(member, Mapping)
-                    )
+                for name in (token[:-3], f"{token[:-3]}__append", f"{token[:-3]}__merge"):
+                    child = node.get(name)
+                    members = [child] if isinstance(child, Mapping) else child
+                    if isinstance(members, Sequence) and not isinstance(members, str):
+                        stepped.extend(
+                            (f"{join}{name}[{index}]", member)
+                            for index, member in enumerate(members)
+                            if isinstance(member, Mapping)
+                        )
             elif isinstance(node.get(token), Mapping):
                 stepped.append((f"{join}{token}", node[token]))
         found = stepped
     return found
 
 
-def migrate_config_doc_on_load(doc: Any, *, source: str | Path | None = None) -> list[str]:
-    """Apply every migration to *doc* in memory, for a config being read, not fixed.
+Layer = tuple[str | Path | None, Any]
+"""Where a part of a document came from, and what it writes."""
 
-    Meant for ``HydroModPyConfig.from_toml``: called on the freshly parsed
-    payload, before Pydantic validation, so a config written for an earlier
-    schema still loads. Never touches the file *doc* came from - only
-    ``fix_config_file`` writes to disk. Warns once per key and per file, naming
-    the old key, the new key and the doctor; says nothing when the document was
-    already current.
+
+def _is_sealed(source: str | Path | None) -> bool:
+    """Whether *source* is the frozen config of a run, which no one edits."""
+    return (
+        source is not None and source not in COMMAND_LINE_SOURCES and is_sealed_run_config(source)
+    )
+
+
+def _reading_context(layers: Sequence[Layer]) -> dict[str, Any]:
+    """Return the layers merged as they are written, for a rule that reads another key.
+
+    One layer stands alone: an overlay read by itself holds directives that have
+    nothing to apply to yet.
+    """
+    if len(layers) == 1:
+        return copy.deepcopy(_plain(layers[0][1]))
+    merged: dict[str, Any] = {}
+    for _, doc in layers:
+        merged = merge_toml_payloads(merged, copy.deepcopy(_plain(doc)))
+    return merged
+
+
+def _tell(source: str | Path | None, changes: Sequence[str]) -> None:
+    """Warn about *changes* under the name of *source*, in silence for a sealed file."""
+    if _is_sealed(source):
+        if changes:
+            _logger.debug("%s: sealed config read as renamed: %s", source, "; ".join(changes))
+        return
+    for change in changes:
+        if change in _QUIET_CHANGES:
+            _logger.debug("%s: %s", source or "config", change)
+        else:
+            warn_old_form(source, change, rewritable=source not in COMMAND_LINE_SOURCES)
+
+
+def migrate_layers(layers: Sequence[Layer]) -> list[str]:
+    """Migrate each layer of a document on its own, in place, before the merge.
+
+    A key is told under the name of the layer that holds it. A key a rule cannot
+    move yet stays, and :func:`migrate_merged_doc` has the last word on it, since the
+    merged document may hold what the rule needed. Never touches a file.
+    """
+    context = _reading_context(layers)
+    changes: list[str] = []
+    for source, doc in layers:
+        own = _file_rules(doc, context=context, sealed=_is_sealed(source))
+        _tell(source, [change for change in own if CANNOT_REWRITE not in change])
+        changes.extend(own)
+    return changes
+
+
+def _change_label(change: str) -> str:
+    """Return the key a change speaks of: what comes before its verb."""
+    for verb in (" -> ", CANNOT_REWRITE, " dropped", " ("):
+        change = change.split(verb, 1)[0]
+    return change
+
+
+def _labels_of(doc: Any) -> set[str]:
+    """Return the keys the rules would touch in *doc*, which stays as it is."""
+    try:
+        return {_change_label(change) for change in _every_rule(copy.deepcopy(_plain(doc)))}
+    except ValueError:
+        # A value only the whole document can refuse: the merged pass says it.
+        return set()
+
+
+def migrate_merged_doc(doc: Any, layers: Sequence[Layer] = ()) -> list[str]:
+    """Run every rule on the merged document, in place, for what waited for the merge.
+
+    A change is told under the last layer that holds its key, and in silence with no
+    *layers*, for a document whose layers were told already.
+    """
+    leaf = layers[-1][0] if layers else None
+    sealed = _is_sealed(leaf)
+    if not _every_rule(copy.deepcopy(_plain(doc)), sealed=sealed):
+        return []
+    held = [(source, _labels_of(own)) for source, own in layers]
+    changes = _every_rule(doc, sealed=sealed)
+    for change in changes if layers else ():
+        label = _change_label(change)
+        holder = next(
+            (
+                source
+                for source, labels in reversed(held)
+                if any(label.startswith(key) or key.startswith(label) for key in labels)
+            ),
+            leaf,
+        )
+        _tell(holder, [change])
+    return changes
+
+
+def migrate_config_doc_on_load(doc: Any, *, source: str | Path | None = None) -> list[str]:
+    """Apply every migration to *doc* in memory, for one document read on its own.
+
+    Reading a file goes through :func:`migrate_layers` and :func:`migrate_merged_doc`,
+    which the loader calls. This is both of them on a payload that came whole. Never
+    touches the file *doc* came from. Warns once per key and per file, naming the old
+    key, the new key and the doctor; says nothing when the document was already current.
 
     A *source* that is the frozen config of a run already on disk
     (:func:`~hydromodpy.core.state.paths.is_sealed_run_config`) is read in silence,
     with the rules of :func:`migrate_sealed_config_doc`: no one edits a sealed file.
     """
-    changes = migrate_config_doc(doc)
-    sealed = source is not None and is_sealed_run_config(source)
-    changes.extend(_rename_keys(doc, sealed=sealed))
-    if sealed:
-        if changes:
-            _logger.debug("%s: sealed config read as renamed: %s", source, "; ".join(changes))
-        return changes
-    for change in changes:
-        if change in _QUIET_CHANGES:
-            _logger.debug("%s: %s", source or "config", change)
-        else:
-            warn_old_form(source, change)
-    return changes
-
-
-def _finish(doc: Any, changes: list[str]) -> list[str]:
-    """Run the migrations that must see the promoted top-level tables."""
-    export_changes = _migrate_export_variables(doc)
-    export_changes.extend(_rename_export_times(doc))
-    exploded = _explode_export_table(doc)
-    if _EMPTY_EXPORT_DROPPED in exploded:
-        # The older spellings of a table that wrote nothing lead nowhere either.
-        changes.extend(exploded)
-    else:
-        changes.extend(export_changes)
-        changes.extend(exploded)
-    changes.extend(_rename_display_timestep(doc))
+    layers = [(source, doc)]
+    changes = migrate_layers(layers)
+    changes.extend(migrate_merged_doc(doc, layers))
     return changes
 
 
@@ -1155,65 +1539,6 @@ def _explode_export_table(doc: Any) -> list[str]:
     ]
 
 
-def _rename_timestep(table: Any, where: str) -> list[str]:
-    """Rename the ``timestep`` of one figure's options to ``time``.
-
-    A table holding both is left as it is: the two may name different
-    instants, and the display loader refuses it with the line to delete.
-    """
-    if not isinstance(table, Mapping) or "timestep" not in table or "time" in table:
-        return []
-    value = table["timestep"]
-    del table["timestep"]
-    table["time"] = value
-    return [f"{where}.timestep -> {where}.time ({_plain(value)!r})"]
-
-
-def _rename_display_timestep(doc: Any) -> list[str]:
-    """Rename the figure option ``timestep`` to ``time``, a date or a step.
-
-    It is written in ``[display.overrides.<figure>]`` and, as a dotted path,
-    in the ``overrides`` of a calibration phase.
-    """
-    changes: list[str] = []
-    overrides = (doc.get("display") or {}).get("overrides")
-    if isinstance(overrides, Mapping):
-        for figure in list(overrides):
-            changes.extend(_rename_timestep(overrides[figure], f"display.overrides.{figure}"))
-    phases = (doc.get("calibration") or {}).get("phases")
-    if isinstance(phases, Mapping):
-        phases = [phases]
-    for index, phase in enumerate(phases or ()):
-        phase_overrides = phase.get("overrides") if isinstance(phase, Mapping) else None
-        if isinstance(phase_overrides, Mapping):
-            changes.extend(_rename_phase_timesteps(phase_overrides, index))
-    return changes
-
-
-def _rename_phase_timesteps(overrides: Any, index: int) -> list[str]:
-    """Rename the ``timestep`` a calibration phase writes into a figure's options."""
-    where = f"calibration.phases[{index}].overrides"
-    changes: list[str] = []
-    for key in list(overrides):
-        parts = str(key).split(".")
-        if len(parts) != 4 or parts[:2] != ["display", "overrides"] or parts[3] != "timestep":
-            continue
-        renamed = ".".join([*parts[:3], "time"])
-        if renamed in overrides:
-            # Both reach the figure once the phase is applied; the display
-            # loader refuses that pair and names the line to delete.
-            continue
-        value = overrides[key]
-        del overrides[key]
-        overrides[renamed] = value
-        changes.append(f'{where}."{key}" -> "{renamed}"')
-    nested = (overrides.get("display") or {}).get("overrides")
-    if isinstance(nested, Mapping):
-        for figure in list(nested):
-            changes.extend(_rename_timestep(nested[figure], f"{where}.display.overrides.{figure}"))
-    return changes
-
-
 def _migrate_export_variables(doc: Any) -> list[str]:
     """Rewrite the ``[export.variables]`` boolean submodel as a flat list.
 
@@ -1336,15 +1661,12 @@ def drop_retired_results_tables(doc: Any) -> list[str]:
 
 def _drop_retired_phase_overrides(doc: Any) -> list[str]:
     """Drop the retired tables a calibration phase writes in its ``overrides``."""
-    phases = (doc.get("calibration") or {}).get("phases")
-    if isinstance(phases, Mapping):
-        phases = [phases]
     dropped: list[str] = []
-    for index, phase in enumerate(phases or ()):
-        overrides = phase.get("overrides") if isinstance(phase, Mapping) else None
+    for label, phase in _tables_at(doc, _PHASES):
+        overrides = phase.get("overrides")
         if not isinstance(overrides, Mapping):
             continue
-        where = f"calibration.phases[{index}].overrides"
+        where = f"{label}.overrides"
         for key in list(overrides):
             if any(str(key) == t or str(key).startswith(f"{t}.") for t in RETIRED_RESULTS_TABLES):
                 del overrides[key]
@@ -1523,9 +1845,11 @@ def _flow_solver_section(doc: Any) -> str:
     return _SOLVER_SECTION_OF.get(str(name or "").strip().lower(), "modflow6")
 
 
-def _layering_difference(dropped: Mapping[str, Any], kept: Mapping[str, Any]) -> str:
-    """Return the keys where *dropped* departs from *kept*, or an empty string."""
+def _difference(dropped: Any, kept: Any) -> str:
+    """Return where a dropped value departs from the kept one, or an empty string."""
     dropped, kept = _plain(dropped), _plain(kept)
+    if not (isinstance(dropped, Mapping) and isinstance(kept, Mapping)):
+        return "" if dropped == kept else f"{dropped!r} against {kept!r}"
 
     def shown(table: Mapping[str, Any], key: str) -> str:
         return repr(table[key]) if key in table else "unset"
@@ -1538,85 +1862,121 @@ def _layering_difference(dropped: Mapping[str, Any], kept: Mapping[str, Any]) ->
     return ", ".join(differences)
 
 
-def _move_the_layering(doc: Any) -> list[str]:
-    """Move ``[modflow6.sgrid.vertical]`` and ``[modflownwt.sgrid.vertical]`` to ``[domain.layers]``.
+def _value_at(doc: Any, path: str) -> Any:
+    """Return what *doc* holds at the dotted *path*, or ``None``."""
+    *parents, key = path.split(".")
+    table = _descend(doc, parents)
+    return None if table is None else table.get(key)
 
-    The layering describes the aquifer, so one table serves every solver. When
-    both solver tables exist, the one of the flow solver is kept, since it built
-    the runs of the file. The other is dropped with a line that says whether it
-    held other values. An existing ``[domain.layers]`` wins over both.
-    """
-    found: dict[str, Any] = {}
+
+def _set_at(doc: Any, path: str, value: Any) -> None:
+    """Write *value* at the dotted *path* of *doc*, creating the tables on the way."""
+    *parents, key = path.split(".")
+    is_file = isinstance(doc, tomlkit.TOMLDocument)
+    table = doc
+    for part in parents:
+        child = table.get(part)
+        if not isinstance(child, Mapping):
+            table[part] = tomlkit.table(is_super_table=True) if is_file else {}
+            child = table[part]
+        table = child
+    moved = _moved_table(value)
+    table[key] = value if moved is None else moved
+
+
+def _moves_by_target() -> dict[str, list[TableMove]]:
+    """Return the rows of :data:`MOVED_TABLES`, by the path they lead to."""
+    grouped: dict[str, list[TableMove]] = {}
     for move in MOVED_TABLES:
-        table = _descend(doc, move.old.split("."))
-        if table is not None:
-            found[move.section] = table
-    if not found:
-        return []
-    parent_key, layers_key = _LAYERING.split(".")
-    domain = doc.get(parent_key)
-    layers = domain.get(layers_key) if isinstance(domain, Mapping) else None
-    kept = None
-    if not isinstance(layers, Mapping):
-        kept = _flow_solver_section(doc) if len(found) > 1 else next(iter(found))
-        layers = found[kept]
-    changes: list[str] = []
-    old_of = {move.section: move.old for move in MOVED_TABLES}
-    for name, table in found.items():
-        _drop_table(doc, old_of[name])
-        if name == kept:
-            changes.append(f"{old_of[name]} -> [{_LAYERING}]")
-            continue
-        owner = f"[{_LAYERING}] already set" if kept is None else f"{kept} is the flow solver"
-        difference = _layering_difference(table, layers)
-        held = f"it held other values: {difference}" if difference else "same values"
-        changes.append(f"{old_of[name]} dropped ({owner}; {held})")
-    if kept is not None:
-        if not isinstance(domain, Mapping):
-            is_file = isinstance(doc, tomlkit.TOMLDocument)
-            doc[parent_key] = tomlkit.table(is_super_table=True) if is_file else {}
-            domain = doc[parent_key]
-        domain[layers_key] = layers
-    return changes
+        grouped.setdefault(move.new, []).append(move)
+    return grouped
 
 
-def _move_the_phase_layering(doc: Any) -> list[str]:
-    """Move the dotted ``<solver>.sgrid.vertical`` overrides of a calibration phase to ``domain.layers``.
+def _kept_move(written: Sequence[TableMove], context: Any) -> TableMove:
+    """Return the one of several moves to one path that wins: the flow solver's."""
+    if len(written) > 1:
+        section = _flow_solver_section(context)
+        for move in written:
+            if move.section == section:
+                return move
+    return written[0]
 
-    A phase writes the layering by dotted path. When it writes the paths of
-    both solvers, those of the flow solver are kept, as
-    :func:`_move_the_layering` keeps its table, and the others are dropped.
+
+def _move_the_tables(doc: Any, context: Any) -> list[str]:
+    """Move what :data:`MOVED_TABLES` lists to its new path.
+
+    Several old paths can lead to one, as the table of each solver leads to
+    ``[domain.layers]``. When the document writes more than one, *context* decides:
+    the one of the flow solver is kept, since it built the runs of the file, and the
+    others are dropped with a line that says whether they held other values. The new
+    path written in the same file wins over all of them.
     """
     changes: list[str] = []
-    for where, phase in _tables_at(doc, "calibration.phases[*]"):
-        overrides = phase.get("overrides")
-        if not isinstance(overrides, Mapping):
-            continue
-        found: dict[str, list[str]] = {}
-        for move in MOVED_TABLES:
-            keys = [
-                str(key) for key in overrides if key == move.old or key.startswith(f"{move.old}.")
-            ]
-            if keys:
-                found[move.section] = keys
-        if not found:
-            continue
-        old_of = {move.section: move for move in MOVED_TABLES}
-        kept = _flow_solver_section(doc) if len(found) > 1 else next(iter(found))
-        for name, keys in found.items():
-            for key in keys:
-                label = f'{where}.overrides."{key}"'
-                if name != kept:
-                    del overrides[key]
-                    changes.append(f"{label} dropped ({kept} is the flow solver)")
-                    continue
-                moved = old_of[name].new + key.removeprefix(old_of[name].old)
-                if moved in overrides:
-                    changes.append(f'{label} left: "{moved}" is given too, keep one')
-                    continue
-                _move_key(overrides, key, moved, _plain(overrides[key]))
-                changes.append(f'{label} -> "{moved}"')
+    for target, moves in _moves_by_target().items():
+        found = [move for move in moves if _value_at(doc, move.old) is not None]
+        if found:
+            changes.extend(_move_to(doc, target, moves, found, context))
+        changes.extend(_move_directives(doc, target, moves))
     return changes
+
+
+def _move_to(
+    doc: Any, target: str, moves: Sequence[TableMove], found: Sequence[TableMove], context: Any
+) -> list[str]:
+    """Move or drop each of the old paths *found* in *doc*."""
+    written = [move for move in moves if _value_at(context, move.old) is not None] or found
+    kept = _kept_move(written, context)
+    existing = _value_at(doc, target)
+    winner = existing if existing is not None else _value_at(context, kept.old)
+    changes: list[str] = []
+    moved = None
+    for move in found:
+        value = _value_at(doc, move.old)
+        _drop_table(doc, move.old)
+        if existing is None and move == kept:
+            moved = value
+            changes.append(f"{move.old} -> [{target}]")
+            continue
+        owner = (
+            f"[{target}] already set"
+            if existing is not None
+            else (f"{kept.section} is the flow solver")
+        )
+        difference = _difference(value, winner)
+        held = f"it held other values: {difference}" if difference else "same values"
+        changes.append(f"{move.old} dropped ({owner}; {held})")
+    if moved is not None:
+        _set_at(doc, target, moved)
+    return changes
+
+
+def _move_directives(doc: Any, target: str, moves: Sequence[TableMove]) -> list[str]:
+    """Move ``<old>__delete``, ``<old>__append`` and ``<old>__merge`` of a moved path."""
+    changes: list[str] = []
+    for move in moves:
+        for suffix in DIRECTIVE_SUFFIXES:
+            value = _value_at(doc, move.old + suffix)
+            if value is None:
+                continue
+            _drop_table(doc, move.old + suffix)
+            _set_at(doc, target + suffix, _plain(value))
+            changes.append(f"{move.old}{suffix} -> {target}{suffix}")
+    return changes
+
+
+def _beaten_moves(table: Any, context: Any) -> dict[TableMove, TableMove]:
+    """Return the moves a table of dotted keys writes that lose, with the one that wins."""
+    beaten: dict[TableMove, TableMove] = {}
+    for moves in _moves_by_target().values():
+        written = [
+            move
+            for move in moves
+            if any(key == move.old or str(key).startswith(f"{move.old}.") for key in table)
+        ]
+        if len(written) > 1:
+            kept = _kept_move(written, context)
+            beaten.update({move: kept for move in written if move != kept})
+    return beaten
 
 
 def _drop_table(doc: Any, path: str) -> None:
@@ -1663,7 +2023,6 @@ HAND_WRITTEN_FORMS: tuple[OldForm, ...] = (
     ),
     OldForm("export.variables.{*}", "export.variables", ALPHA_FORM),
     OldForm("export.times", "export.time", ALPHA_FORM),
-    OldForm("display.overrides.{*}.timestep", "display.overrides.{*}.time", ALPHA_FORM),
     *(OldForm(f"{section}.tgrid", None, ALPHA_FORM) for section in _SOLVER_SECTIONS),
     OldForm("geographic.bottom_path", "data.substratum.sources", ALPHA_FORM),
     OldForm(
@@ -1757,14 +2116,21 @@ __all__ = [
     "RENAMED_KEYS",
     "RETIRED_RESULTS_TABLES",
     "KeyRename",
+    "Layer",
+    "MovedPath",
     "OldForm",
     "TableMove",
     "document_path",
     "drop_retired_results_tables",
+    "fix_config_chain",
     "fix_config_file",
     "migrate_config_doc",
     "migrate_config_doc_on_load",
+    "migrate_layers",
+    "migrate_merged_doc",
     "migrate_sealed_config_doc",
+    "moved_paths",
     "old_forms",
     "outlived_forms",
+    "rewrite_dotted_path",
 ]

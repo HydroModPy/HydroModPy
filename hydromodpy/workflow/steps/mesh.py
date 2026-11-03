@@ -21,7 +21,11 @@ from hydromodpy.spatial.mesh.cache import (
 )
 from hydromodpy.spatial.mesh.mesh_config import MeshConfig
 from hydromodpy.spatial.mesh.model.quality import quality_warnings
-from hydromodpy.spatial.mesh.planning.plan import plan_mesh_request, smoothed_catchment
+from hydromodpy.spatial.mesh.planning.plan import (
+    plan_mesh_request,
+    resolved_sizes,
+    smoothed_catchment,
+)
 from hydromodpy.workflow.internals.state import PipelineState
 from hydromodpy.workflow.steps.mesh_inputs import planning_inputs
 
@@ -91,6 +95,7 @@ def step_mesh(ctx: WorkflowContext, *, resume: bool = False) -> None:
         "cache_key": key,
         "library_versions": library_versions(),
         "qa": _qa_with_notes(cell_mesh, request),
+        "sizes": resolved_sizes(mesh_cfg, request),
     }
 
 

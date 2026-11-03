@@ -4,7 +4,7 @@ Boussinesq reads ``K`` as the per-cell hydraulic conductivity and ``Sy`` as the
 per-cell storage coefficient, both at depth zero: the backend has one layer.
 They come from the mapping every solver shares
 (``solver.field_property_mapping.map_flow_properties``). A runtime override
-(``Project.run(properties=...)``) of K or Sy wins over the flow parameter, as it
+(``flow_runtime_overrides``) of K or Sy wins over the flow parameter, as it
 does on MODFLOW. An override of a property Boussinesq does not read (Kv, Ss, K22,
 the angles of the K tensor) is refused by name rather than dropped.
 """

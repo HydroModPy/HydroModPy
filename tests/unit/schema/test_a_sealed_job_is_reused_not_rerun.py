@@ -13,7 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.core.exceptions import JobUsageError
+from hydromodpy.core.exceptions import JobUsageError, SchemaVersionMismatchError
+from hydromodpy.core.io.document_version import NEWER_REMEDY
 from hydromodpy.schema.job.directory import JobDirectory
 from hydromodpy.schema.job.documents import read_document, render_document, write_document
 from hydromodpy.schema.job.outcome import JobOutcome, OutputRecord, now
@@ -102,6 +103,19 @@ class TestADirectoryThatCannotBeRead:
         sealed.manifest_path.write_text("{oh dear", encoding="utf-8")
 
         with pytest.raises(JobUsageError, match="manifest.json"):
+            reuse_sealed_outcome(sealed, job_id=JOB_ID)
+
+    def test_a_seal_of_a_later_version_says_to_upgrade(self, sealed):
+        write_document(sealed.manifest_path, {"schema": "hmp-manifest/v3", "job_id": JOB_ID})
+
+        with pytest.raises(SchemaVersionMismatchError, match=NEWER_REMEDY):
+            reuse_sealed_outcome(sealed, job_id=JOB_ID)
+
+    def test_an_outcome_of_a_later_version_says_to_upgrade(self, sealed):
+        document = read_document(sealed.outcome_path)
+        write_document(sealed.outcome_path, {**document, "schema": "hmp-outcome/v2"})
+
+        with pytest.raises(SchemaVersionMismatchError, match=NEWER_REMEDY):
             reuse_sealed_outcome(sealed, job_id=JOB_ID)
 
     def test_a_seal_that_is_not_an_object_is_a_usage_error(self, sealed):

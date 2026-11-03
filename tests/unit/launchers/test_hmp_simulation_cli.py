@@ -121,8 +121,10 @@ def test_hmp_run_applies_overlay_set_and_env_overrides(monkeypatch, tmp_path) ->
 
     assert captured["config_path"] != config.resolve()
     assert not captured["config_path"].exists()
-    assert captured["payload"]["simulation"]["name"] == "overlay"
-    assert captured["payload"]["simulation"]["run_id"] == "env_run"
+    # ``run_id`` is the old form of ``name``: each layer is migrated on its own, then the
+    # environment wins over ``--set``, which wins over the overlay and the base.
+    assert captured["payload"]["simulation"]["name"] == "env_run"
+    assert "run_id" not in captured["payload"]["simulation"]
 
 
 def test_hmp_run_resume_forwards_run_id(monkeypatch, tmp_path) -> None:

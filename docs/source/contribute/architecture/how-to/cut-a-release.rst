@@ -63,7 +63,8 @@ The checklist
    must exist and must not be the last one of the file.
 5. **Read the numbers section.** Each entry names the quantity and the size of the
    change, and has its entry in ``hydromodpy/results/known_issues.toml``, under the
-   rule of `Changing a number`_.
+   rule of `Changing a number`_. A pin moved since the last tag has its entry too,
+   under the rule of `Moving a pinned binary`_.
 6. **Review the surface snapshots.** Read what changed since the last tag:
    ``git diff vX.Y.Z -- tests/unit/architecture/surface/``. Each removed or renamed
    line must be in the changelog with both names, and each TOML key it removes must
@@ -106,6 +107,54 @@ the old number was wrong. It carries three things in the commit that makes it:
 - the goldens it moves, under the rule of ``tests/regression/README.md``.
 
 Moving a default is another thing: see the Defaults section of :doc:`/about/versions`.
+
+Moving a pinned binary
+----------------------
+
+HydroModPy downloads two native files at run time, and each one is pinned by a tag
+and by a sha256 per platform asset. A download that hashes to anything else is
+refused and never reaches the disk under its name.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 34 66
+
+   * - What
+     - Where it is pinned
+   * - MODFLOW executables and ``libmf6`` (``MODFLOW-ORG/executables``)
+     - ``DEFAULT_RELEASE`` and ``RELEASE_ASSETS`` in
+       ``hydromodpy/solver/modflow_common/binaries.py``. One zip per platform holds
+       every solver, so one digest covers them all.
+   * - The HELP3O extension (``HydroModPy/HELP3O-binaries``)
+     - ``HELP3O_RELEASE`` and ``HELP3O_ASSETS`` in
+       ``hydromodpy/physics/hydrology/pyhelp/core/paths.py``. One asset per platform
+       and Python version.
+
+A new release is a number change until proven otherwise, because a new solver build
+can move a run even when no line of HydroModPy moved. So a bump is never a one-line
+change. It goes through these steps, in the commit that moves the pin:
+
+1. Read the digests from GitHub, without a download:
+
+   .. code-block:: bash
+
+      gh api repos/MODFLOW-ORG/executables/releases/tags/<tag> \
+        --jq '.assets[] | [.name, .digest] | @tsv'
+
+   Write the tag and every digest in the table. A Python version or a platform the
+   new tag adds goes in the table, and one it drops is refused from then on, so say
+   so in the changelog.
+2. Install the new binaries and run the regression tiers and the validation cases
+   against them, with ``tests/regression/README.md``. Move a golden only with its
+   stated reason, and update the versions ``tests/TOLERANCES.md`` names.
+3. Write the entry under ``Numbers`` in ``CHANGELOG.md``, with the old and new
+   release and the size of the change, measured before and after. If nothing moved,
+   the entry says that and names what was run. If a number moved, this is
+   `Changing a number`_, with its ``[[issue]]`` in ``known_issues.toml``.
+
+A digest that changes while the tag stays is a new release too: the asset was
+replaced upstream, so the same steps apply. An existing cache is never refreshed by
+a bump. ``hmp install-binaries --upgrade`` is what moves a user to the new pin.
 
 What the tag starts
 -------------------

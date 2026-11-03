@@ -23,6 +23,8 @@ def register(subparsers) -> argparse.ArgumentParser:
         epilog=(
             "The new run keeps the name of its source and takes the next version;\n"
             "its manifest names the source in lineage (parent_sim_id, kind = rerun).\n"
+            "A key that differs from config.resolved.toml of the source gets a warning\n"
+            "and is recorded in lineage.drift.\n"
             "\n"
             "Example:\n"
             "  hmp catalog rerun baseline --set flow.param.K.field.value=2e-4"
@@ -53,14 +55,25 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def _parse_overrides(items: list[str]) -> dict:
-    """Read ``--set PATH=VALUE`` items the way ``hmp run --set`` reads them: values are TOML."""
+    """Read ``--set PATH=VALUE`` items the way ``hmp run --set`` reads them: values are TOML.
+
+    A path under an old name reads under its current one, since the frozen config
+    the overrides apply to has the current names.
+    """
+    from hydromodpy.config.config_migration import rewrite_dotted_path
+    from hydromodpy.core.config_kit.base import warn_old_form
+    from hydromodpy.core.toml_io.overrides import SET_SOURCE
+
     overrides: dict = {}
     for item in items:
         if "=" not in item:
             print(f"Invalid --set {item!r}; expected PATH=VALUE.", file=sys.stderr)
             sys.exit(EXIT_USAGE)
         path, _, raw = item.partition("=")
-        overrides[path.strip()] = parse_override_value(raw)
+        current = rewrite_dotted_path(path.strip())
+        if current != path.strip():
+            warn_old_form(SET_SOURCE, f"{path.strip()} -> {current}", rewritable=False)
+        overrides[current] = parse_override_value(raw)
     return overrides
 
 
@@ -91,7 +104,11 @@ def run(args: argparse.Namespace) -> None:
         name = args.name or split_stem_version(parse_rel_dir(rel_dir).name)[0]
         new_sid = str(
             get_rerun_provider().rerun(
-                snapshot, overrides=overrides, name=name, source_sim_id=identity_of(source)
+                snapshot,
+                overrides=overrides,
+                name=name,
+                source_sim_id=identity_of(source),
+                source_dir=source,
             )
         )
     except Exception as exc:  # noqa: BLE001 - map resolver and launch errors to exit codes

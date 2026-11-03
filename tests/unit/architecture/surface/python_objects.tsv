@@ -71,7 +71,7 @@ Project.prepare	method	(self) -> Project
 Project.publish	method	(self, to: str | Path, *, format: PublicationFormat = 'dir', with_: Sequence[PublicationExtra] = (), public: bool = False) -> Path
 Project.rebuild_geographic	method	(self, *, reuse_dem: bool = False) -> None
 Project.reload_data	method	(self, *, types: list[str]) -> None
-Project.rerun	classmethod	(run: Run, *, name: str | None = None, config_overrides: Mapping[str, Any] | None = None, solver: str | None = None, headless: bool = False, no_display: bool = False, **overrides) -> Run
+Project.rerun	classmethod	(run: Run, *, name: str | None = None, set: Mapping[str, Any] | None = None, solver: str | None = None, headless: bool = False, no_display: bool = False, **overrides) -> Run
 Project.root	property	Path
 Project.run	method	(self, *, parallel: int | None = None, only: str | Sequence[str] = (), site: str | None = None, until: str | None = None, fresh: bool = False, force: bool = False, resume: bool = False, prepare_parallel: int | None = None) -> LaunchReport
 Project.runs	property	ProjectRunsAccessor

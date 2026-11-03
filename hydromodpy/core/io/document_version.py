@@ -2,11 +2,11 @@
 
 Every document HydroModPy writes on disk carries its version: a ``schema`` id
 such as ``hydromodpy.outcome.v1``, an integer ``*_version`` field, a string
-such as ``"3"``, ``"v2"`` or ``"2.0.0"``, or the ``schema_version`` row of the
-index. A reader refuses a document that carries none, or one it does not read,
-with :class:`~hydromodpy.core.exceptions.SchemaVersionMismatchError`. The
-message names the version read, the version that wrote it when known, what this
-code reads and what to do.
+such as ``"3"`` or ``"v2"``, or the ``schema_version`` row of the index. A reader
+refuses a document that carries none, or one it does not read, with
+:class:`~hydromodpy.core.exceptions.SchemaVersionMismatchError`. The message names
+the version read, the version that wrote it when known, what this code reads and
+what to do.
 
 A family of sealed documents declares a :class:`VersionWindow` next to its
 current constant, the oldest version it reads and the current one, so every
@@ -30,8 +30,12 @@ what they hold can be made again. The index (``.hmp/index.duckdb``) is rebuilt
 with ``hmp catalog reindex``. A transient document (a pulse, the facts of an
 attempt, a lease) is deleted and the run starts again (:data:`TRANSIENT_REMEDY`).
 
-A stored document is never rewritten in place. The one migration of a file
-HydroModPy keeps is the grammar of a configuration, in
+Nothing upgrades a stored document to another version in place. Sealed files
+stay as they were written. The living ones (``annotations.json``, ``outcome.json``,
+``session.json``, ``phases/<p>/session.json``, the ledgers) are written again by
+the commands that own them, at their version, and such a rewrite keeps what it
+does not understand (:func:`~hydromodpy.core.config_kit.stored.dump_stored`). The
+one migration of a file HydroModPy keeps is the grammar of a configuration, in
 :mod:`hydromodpy.config.config_migration`, because a configuration is an input.
 """
 
@@ -59,7 +63,7 @@ FOREIGN_REMEDY: Final[str] = "It is another kind of document."
 """What to say of a document whose ``schema`` id names another family."""
 
 _VERSION_TEXT: Final[re.Pattern[str]] = re.compile(
-    r"^(?:(?P<family>[A-Za-z_][\w.]*)\.)?v?(?P<number>\d+(?:\.\d+){0,2})$"
+    r"^(?:(?P<family>[A-Za-z_][\w.\-]*)[./])?v?(?P<number>\d+(?:\.\d+){0,2})$"
 )
 
 Standing = Literal["inside", "newer", "older", "foreign"]
@@ -70,8 +74,8 @@ def parse_version(value: object) -> tuple[str | None, tuple[int, int, int]] | No
     """Return the family and the number of a version, ``None`` when it is not one.
 
     Every form a stored document uses reads here: ``2``, ``"3"``, ``"v2"``,
-    ``"hydromodpy.outcome.v1"`` and ``"2.0.0"``. A missing part of the number
-    counts as 0.
+    ``"hydromodpy.outcome.v1"`` and ``"hmp-outcome/v1"``. A number may have up to
+    three parts, such as ``"2.0.0"``, and a missing part counts as 0.
     """
     if isinstance(value, bool):
         return None

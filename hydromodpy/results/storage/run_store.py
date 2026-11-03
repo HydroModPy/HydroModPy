@@ -36,7 +36,6 @@ import pandas as pd
 import pyarrow as pa
 
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
-from hydromodpy.core.config_kit.stored import read_stored
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import encode_workspace_path
 from hydromodpy.results.catalog.constants import GLOBAL_ZONE
@@ -45,12 +44,11 @@ from hydromodpy.results.identity import Identity
 from hydromodpy.results.manifest import (
     RUNTIME_VARIABLE,
     InputEntry,
-    Manifest,
     MetricRow,
     ParameterRow,
     TrackedInput,
     is_sealed,
-    read_manifest,
+    read_seal,
 )
 from hydromodpy.results.storage.array_fingerprint import fingerprint
 from hydromodpy.results.storage.arrow_tables import (
@@ -153,7 +151,7 @@ class RunStore:
         stored = read_facts(directory)
         sealed = stored is None and facts is None and is_sealed(directory)
         if sealed:
-            stored = RunFacts.from_manifest(read_stored(Manifest, read_manifest(directory)))
+            stored = RunFacts.from_manifest(read_seal(directory))
         if facts is None and stored is None:
             raise FileNotFoundError(f"{directory} carries no facts.json and none were given")
         current = facts if facts is not None else stored
@@ -866,9 +864,10 @@ class RunStore:
         solver_engine: str | None = None,
         solver_execution_mode: str | None = None,
         solver_version_text: str | None = None,
+        solver_options: dict[str, Any] | None = None,
         rng_seed: int | None = None,
     ) -> None:
-        """Record the host environment and the solver engine of the run."""
+        """Record the host environment, the solver engine and what it decided at build."""
         from hydromodpy.results.run.environment import capture_environment
 
         self._check_sim(sim_id)
@@ -883,6 +882,8 @@ class RunStore:
         snapshot["solver_execution_mode"] = solver_execution_mode
         if solver_version_text:
             snapshot["solver_version_text"] = solver_version_text
+        if solver_options:
+            snapshot["solver_options"] = solver_options
         snapshot["rng_seed"] = None if rng_seed is None else int(rng_seed)
         self._facts.environment = snapshot
 

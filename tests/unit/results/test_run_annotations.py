@@ -89,11 +89,15 @@ def test_a_cleared_file_reads_back_with_no_tag_and_the_sim_id_of_the_run(tmp_pat
     assert read_annotations(run_dir) == Annotations(sim_id=sid)
 
 
-def test_a_broken_sidecar_is_reported_not_ignored(project):
-    root, _sid = project
-    annotations_path(root / "runs" / "alpha").write_text("[]", encoding="utf-8")
+def test_a_broken_sidecar_costs_a_warning_and_the_seal_stands(project, caplog):
+    root, sid = project
+    target = annotations_path(root / "runs" / "alpha")
+    target.write_text("[]", encoding="utf-8")
 
     report = rebuild_index(root)
 
-    assert [item.rel_dir for item in report.skipped] == ["runs/alpha"]
-    assert "annotations" in report.skipped[0].reason.lower()
+    assert report.skipped == ()
+    assert report.indexed == ("runs/alpha",)
+    assert _tags_and_notes(root, sid) == ([], [])
+    assert any(str(target) in record.getMessage() for record in caplog.records)
+    assert target.read_text(encoding="utf-8") == "[]"

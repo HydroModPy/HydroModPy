@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from hydromodpy.core.budget_terms import SURFACE_EXCESS_TERM, BudgetKeep, budget_terms_for_fields
-from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
@@ -24,76 +23,13 @@ logger = get_logger(__name__)
 DEFAULT_FLOW_PROCESS_ID = "flow_main"
 
 
-def resolve_run_config(cfg: Any, *, thickness: float | None) -> Any:
-    """Return the configuration this run is defined by.
+def step_build_plan(ctx: WorkflowContext, *, name: str) -> SimulationPlan:
+    """Build the SimulationPlan of the run from ``ctx.cfg.simulation``.
 
-    An override of a declared value belongs to the configuration of the run,
-    not to an object built from it. The domain is built from ``cfg.domain`` by
-    every path that builds it - a fresh run, a prefix reconstruction after a
-    process death, another process entirely - so a thickness patched onto the
-    built ``Domain`` is lost the next time one of them runs, and the
-    configuration the run archives beside its results describes a run that
-    never happened.
-
-    The returned configuration shares every section with ``cfg`` except the one
-    an override touches, so a run that overrides nothing gets ``cfg`` itself,
-    and the domain section is an object identity a later run can compare against
-    what built its geometry. A deep copy of the whole configuration would detach
-    the sections a Project resolved once at load time and still hands around.
-
-    ``model_copy(update=...)`` does not re-run the cross-section validators of
-    ``HydroModPyConfig``, and none of them reads ``domain``: the copy is as
-    valid as the configuration it derives from. A section any of them does read
-    - ``flow``, ``solver``, ``transport``, ``calibration``, ``data`` - cannot be
-    folded in this way without validating the result.
+    An override of the run is already in ``ctx.cfg``, so the plan and the sealed
+    configuration describe one run. Sets ``ctx.setup.run_id``,
+    ``ctx.execution.simulation_plan`` and the process-run map.
     """
-    if thickness is None:
-        return cfg
-    kind = cfg.domain.depth_model.kind
-    if kind != "constant_thickness":
-        # Assigning the field on another kind raised a raw Pydantic error.
-        raise ConfigError(
-            f"thickness overrides domain.depth_model.thickness, and depth_model kind "
-            f"{kind!r} has no thickness. Change [domain.depth_model] in the "
-            "configuration instead."
-        )
-    domain_cfg = cfg.domain.model_copy(deep=True)
-    domain_cfg.depth_model.thickness = thickness
-    return cfg.model_copy(update={"domain": domain_cfg})
-
-
-def step_build_plan(
-    ctx: WorkflowContext,
-    *,
-    name: str,
-    overrides: dict[str, Any] | None = None,
-    thickness: float | None = None,
-    first_clim: str | None = None,
-    solver: str | None = None,
-) -> SimulationPlan:
-    """Build the SimulationPlan to execute.
-
-    When overrides, thickness or first_clim are provided, synthesize a minimal
-    single-flow plan with patched Flow parameters. Otherwise delegate to
-    SimulationPlanner using the declared simulation.process list. Sets
-    ctx.setup.run_id, ctx.execution.simulation_plan and the process-run map.
-
-    ``thickness`` is read here only to know that this run is a single-process
-    parameter probe: its value is already resolved into ``ctx.cfg`` by
-    :func:`resolve_run_config`, and the domain builder reads it there.
-    """
-    if overrides or thickness is not None or first_clim is not None:
-        return _build_plan_with_overrides(
-            ctx,
-            name=name,
-            overrides=overrides or {},
-            first_clim=first_clim,
-            solver=solver,
-        )
-    return _build_plan_from_config(ctx, name=name)
-
-
-def _build_plan_from_config(ctx: WorkflowContext, *, name: str) -> SimulationPlan:
     from hydromodpy.simulation import SimulationPlanner
 
     plan = SimulationPlanner().build(ctx.cfg.simulation)
@@ -101,71 +37,6 @@ def _build_plan_from_config(ctx: WorkflowContext, *, name: str) -> SimulationPla
     ctx.execution.simulation_plan = plan
     ctx.execution.process_runs_by_id = {r.id: r for r in plan.runs}
     return plan
-
-
-def _build_plan_with_overrides(
-    ctx: WorkflowContext,
-    *,
-    name: str,
-    overrides: dict[str, Any],
-    first_clim: str | None,
-    solver: str | None,
-) -> SimulationPlan:
-    from hydromodpy.physics.flow import Flow
-    from hydromodpy.simulation.planning.plan import ProcessRun, SimulationPlan
-    from hydromodpy.workflow.steps.data import apply_structural_updates_from_data
-
-    flow = Flow(config=ctx.cfg.flow)
-    step_apply_flow_overrides(flow, overrides)
-
-    if first_clim is not None:
-        recharge_ss = getattr(flow, "sinks_sources", {})
-        if "recharge" in recharge_ss:
-            recharge_ss["recharge"].first_clim = first_clim
-
-    ctx.setup.flow = flow
-    ctx.setup.run_id = name
-
-    # Run the SAME full binder cascade the canonical data step and the trial fork
-    # use, so an override / sweep run keeps every forcing (lake meteo and flux,
-    # runoff -> SFR, ETP, oceanic) instead of a partial hand-maintained list.
-    apply_structural_updates_from_data(ctx)
-
-    solver_name = solver or _default_flow_solver(ctx)
-    run_entry = ProcessRun(
-        id=ProcessRun.build_id(DEFAULT_FLOW_PROCESS_ID, solver_name),
-        process_id=DEFAULT_FLOW_PROCESS_ID,
-        process_type="flow",
-        solver=solver_name,
-    )
-    plan = SimulationPlan(name=name, description=name, runs=(run_entry,))
-    ctx.execution.simulation_plan = plan
-    ctx.execution.process_runs_by_id = {run_entry.id: run_entry}
-    return plan
-
-
-def step_apply_flow_overrides(flow, overrides: dict[str, Any]) -> None:
-    """Patch homogeneous flow parameters in-place.
-
-    Raises ValueError if an override targets an unknown parameter, listing the
-    available keys so calibration loops fail fast.
-    """
-    for key, value in overrides.items():
-        if key not in flow.parameters:
-            available = ", ".join(sorted(flow.parameters))
-            raise ConfigError(f"Unknown parameter '{key}'. Available: {available}")
-        flow.parameters[key].value = value
-
-
-def _default_flow_solver(ctx: WorkflowContext) -> str:
-    """Resolve the flow solver name from cfg.simulation.process."""
-    for proc in ctx.cfg.simulation.process or ():
-        if proc.type == "flow" and proc.solvers:
-            return proc.solvers[0]
-    engine = getattr(getattr(ctx.cfg, "solver", None), "backend_name", None)
-    if engine:
-        return str(engine)
-    raise ConfigError("No flow solver declared in simulation.process or solver.backend")
 
 
 # ---------------------------------------------------------------------------
@@ -206,11 +77,14 @@ def step_configure_results(
     ``[simulation.results] keep_per_cell_budget = true`` (the default) keeps
     every term the extractor produces. ``false`` keeps the union of the terms
     the declared consumers read: the figures of ``[display].figures`` and the
-    overlays they ask for (only when ``display_active`` and ``display.enabled``;
-    ``hmp run --no-display`` turns it off), the ``[[export]]`` requests, the
-    calibration outputs, the variables of the ``[observation]`` points, and the
-    seepage mask of a surface-excess solver. ``lightweight`` is a calibration
-    trial: it logs the decision at DEBUG, not INFO.
+    overlays they ask for (when ``display.enabled``, and not for a calibration
+    trial, which draws nothing: ``display_active`` is false), the ``[[export]]``
+    requests, the calibration outputs, the variables of the ``[observation]``
+    points, and the seepage mask of a surface-excess solver. ``hmp run
+    --no-display`` is a choice of the launch: it draws nothing now and keeps what
+    the figures read, so the data of a run depend on its configuration alone and
+    ``hmp viz regen`` can draw them later. ``lightweight`` is a calibration trial:
+    it logs the decision at DEBUG, not INFO.
     """
     if results.keep_per_cell_budget:
         return BudgetKeep.everything()

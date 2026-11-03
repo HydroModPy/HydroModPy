@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 from hydromodpy.results.annotations import read_annotations
-from hydromodpy.results.manifest import RUN_RECORD_MANIFEST_VERSION
+from tests._helpers.sealed_runs import manifest_document
 
 SIM_ID = "9a4f0c1e-0000-4000-8000-000000000001"
 
@@ -29,7 +29,7 @@ def _run(tmp_path: Path) -> tuple[Path, Path]:
     run_dir.mkdir(parents=True)
     (project / "project.toml").write_text('[site]\nname = "p"\n', encoding="utf-8")
     (run_dir / "manifest.json").write_text(
-        json.dumps({"manifest_version": RUN_RECORD_MANIFEST_VERSION, "run": {"sim_id": SIM_ID}}),
+        json.dumps(manifest_document(sim_id=SIM_ID)),
         encoding="utf-8",
     )
     return project, run_dir

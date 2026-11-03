@@ -28,7 +28,7 @@ from typing import Any, Final
 from pydantic import ConfigDict, Field, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
-from hydromodpy.core.config_kit.stored import read_stored
+from hydromodpy.core.config_kit.stored import dump_stored, read_stored
 from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.results.identity import Identity
 from hydromodpy.results.storage.contract import LEDGER_FILENAME
@@ -98,14 +98,16 @@ class Ledger(HydroModelBase):
         return next((entry for entry in self.entries if entry.file == file), None)
 
     def append(self, entry: LedgerEntry) -> None:
-        """Add *entry*, replacing the entry of the same file if any."""
-        self.entries = [kept for kept in self.entries if kept.file != entry.file] + [entry]
+        """Add *entry*, replacing the entry of the same file if any.
+
+        The list is changed in place: an assignment would validate the model
+        again and lose the unknown keys its reading kept.
+        """
+        self.entries[:] = [kept for kept in self.entries if kept.file != entry.file] + [entry]
 
     def write(self, directory: str | Path) -> Path:
         """Write the ledger atomically and return its path."""
-        return write_json_atomic(
-            ledger_path(directory), self.model_dump(mode="json", by_alias=True)
-        )
+        return write_json_atomic(ledger_path(directory), dump_stored(self))
 
 
 def ledger_path(directory: str | Path) -> Path:

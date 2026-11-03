@@ -5,6 +5,28 @@ Kept separate from ``__init__.py`` so the package init stays minimal.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True, slots=True)
+class OldName:
+    """A name of ``hydromodpy.__all__`` that moved in a stable version."""
+
+    new: str
+    """The name of ``hydromodpy.__all__`` that replaces it."""
+    since: str
+    """The version that moved it. It keeps working for two minor versions, that one included."""
+
+
+OLD_NAMES: dict[str, OldName] = {}
+"""The old names ``hydromodpy.__getattr__`` still forwards, with a ``FutureWarning``.
+
+Empty at 2.0.0, because a name removed before the first stable version has no
+entry. From then on ``tools/surface_snapshot.py`` refuses a name that leaves
+``__all__`` without an entry here, and a test fails once an entry outlives its
+delay. The policy is ``docs/source/about/versions.md``.
+"""
+
 MODULE_EXPORTS: dict[str, str] = {
     "analysis": "hydromodpy.analysis",
     "calibration": "hydromodpy.calibration",

@@ -1,0 +1,445 @@
+[workflow]
+mode = "simulation"
+profile = false
+[workspace]
+project_root = "/home/bb/Documents/01_Git_Repository/03-HydroModPy-lakeres/examples/projects/21_nancon_network_calibration"
+root = "/home/bb/Documents/01_Git_Repository/03-HydroModPy-lakeres/examples"
+catalog_path = "/home/bb/Documents/01_Git_Repository/03-HydroModPy-lakeres/examples/projects/21_nancon_network_calibration/.hmp/index.duckdb"
+data_dir = "/home/bb/Documents/01_Git_Repository/03-HydroModPy-lakeres/examples/data"
+runs_dir = "/home/bb/Documents/01_Git_Repository/03-HydroModPy-lakeres/examples/projects/21_nancon_network_calibration/runs"
+[geographic]
+source_mode = "standard"
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+domain_extent = "box"
+reuse_existing_outputs = true
+write_intermediates = false
+[geographic.catchment]
+dem_init_path = "/home/bb/Documents/01_Git_Repository/03-HydroModPy-lakeres/examples/data/dem/DEM_nancon_25m.tif"
+catch_def = "from_outlet_coord"
+x_outlet = 389285.91
+y_outlet = 6816518.749
+snap_dist = 150.0
+buff_area = 10.0
+[geographic.synthetic]
+case_id = "flat20"
+[geographic.synthetic.grid]
+length_x = 100.0
+length_y = 1.0
+nx = 100
+ny = 1
+xmin = 0.0
+ymin = 0.0
+crs = "EPSG:2154"
+nodata = -9999.0
+[geographic.synthetic.topography]
+kind = "flat"
+base_elevation = 20.0
+[geographic.river_network]
+enabled = true
+threshold_mode = "area_km2"
+threshold_area_km2 = 1.0
+prune_short_streams = false
+min_stream_length_m = 0.0
+compute_strahler_order = true
+compute_stream_links = true
+all_vertices = false
+[geographic.enforce_streams]
+enabled = true
+stream_geometry_path = "/home/bb/Documents/01_Git_Repository/03-HydroModPy-lakeres/examples/data/hydrography/nancon_stream_network.gpkg"
+mode = "constant"
+depth_m = 10.0
+adaptive_percentile = 95.0
+relief_report_percentile = 95.0
+rasterize_all_touched = true
+dem_nodata_fallback = -9999.0
+alpha_warning_threshold = 0.9
+max_catchment_area_drift = 0.05
+[geographic.enforce_lakes]
+enabled = false
+slope = 0.003
+buffer_m = 15.0
+capture_radius_m = 0.0
+capture_max_streams = 8
+capture_min_acc_fraction = 0.3
+[geographic.dam_carve]
+enabled = false
+buffer_m = 40.0
+[domain]
+[domain.depth_model]
+kind = "constant_thickness"
+thickness = 30.0
+[data]
+types = ["dem", "geology", "hydrography", "hydrometry", "recharge", "runoff"]
+inference_mode = "warn"
+[[data.dem.sources]]
+force_refresh = false
+source = "custom"
+path = "/home/bb/Documents/01_Git_Repository/03-HydroModPy-lakeres/examples/data/dem/DEM_nancon_25m.tif"
+[data.geology]
+id = "field_geology"
+cell_samples_per_axis = 8
+[[data.geology.sources]]
+force_refresh = false
+source = "brgm_1m"
+[[data.hydrography.sources]]
+source = "custom"
+path = "/home/bb/Documents/01_Git_Repository/03-HydroModPy-lakeres/examples/data/hydrography/nancon_stream_network.gpkg"
+rasterize_field = "FID"
+typename = "sa:CoursEau_FXX_Topage2025"
+page_size = 2000
+group_name = "River_Net_lines"
+euhydro_page_size = 1000
+force_refresh = false
+waterway_types = ["river", "stream"]
+[data.hydrometry]
+date_start = "2000-01-01"
+date_end = "2009-12-31"
+[[data.hydrometry.sources]]
+station_ids = ["NANCON"]
+extent = "watershed"
+force_refresh = false
+col_id = "id"
+col_x = "x"
+col_y = "y"
+col_crs = "crs"
+col_datetime = "datetime"
+col_value = "value"
+default_crs = "EPSG:4326"
+source = "custom"
+path = "/home/bb/Documents/01_Git_Repository/03-HydroModPy-lakeres/examples/data/hydrometry"
+require_observations = true
+[data.recharge]
+date_start = "2000-01-01"
+date_end = "2009-12-31"
+[[data.recharge.sources]]
+station_ids = ["NANCON_REA"]
+force_refresh = false
+col_id = "id"
+col_x = "x"
+col_y = "y"
+col_crs = "crs"
+col_datetime = "datetime"
+col_value = "value"
+default_crs = "EPSG:4326"
+source = "custom"
+path = "/home/bb/Documents/01_Git_Repository/03-HydroModPy-lakeres/examples/data/recharge"
+[data.runoff]
+date_start = "2000-01-01"
+date_end = "2009-12-31"
+[[data.runoff.sources]]
+station_ids = ["NANCON_REA"]
+force_refresh = false
+col_id = "id"
+col_x = "x"
+col_y = "y"
+col_crs = "crs"
+col_datetime = "datetime"
+col_value = "value"
+default_crs = "EPSG:4326"
+source = "custom"
+path = "/home/bb/Documents/01_Git_Repository/03-HydroModPy-lakeres/examples/data/runoff"
+[flow]
+runtime_backend = "local"
+surface_interaction_model = "auto"
+vi_substeps_per_period = 1
+vi_substep_on_failure = false
+ts_vi_steps_per_period = 4
+ts_vi_adapt = false
+ts_vi_dt_min_fraction = 0.015625
+ts_vi_dt_max_fraction = 0.25
+ts_vi_type = "beuler"
+ts_vi_snes_type = "vinewtonrsls"
+param_list = ["K", "Sy", "Ss"]
+active_sinks_sources = ["recharge"]
+active_bc = ["drainage", "sfr"]
+flow_regime = "transient"
+first_period_steady = true
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+unit = "m/s"
+value = 0.00021033748010870326
+[flow.param.Sy.field]
+id = "Sy"
+kind = "homogeneous"
+unit = "-"
+value = 0.019574338205844314
+[flow.param.Ss.field]
+id = "Ss"
+kind = "homogeneous"
+unit = "m-1"
+value = 1e-05
+[flow.ic.h]
+description = "Nappe initialisee a la surface topographique."
+type = "top"
+[flow.bc.drainage]
+id = "drainage"
+value = 0.0
+description = "Drainage de Cauchy sur la face superieure de l'aquifere."
+units = "m2/s"
+kind = "cauchy"
+data_value = false
+application_domain = "top"
+[flow.sinks_sources.wells]
+[flow.sinks_sources.lakes]
+[flow.sinks_sources.sfr.nancon]
+stream_threshold_km2 = 1.0
+min_reach_length = "0 m"
+manning = 0.035
+streambed_k = 0.00261
+streambed_k_unit = "m/s"
+streambed_thickness = "1 m"
+min_slope = 0.0001
+bed_incision = "0.5 m"
+max_bed_sag = "5 m"
+connected_to_aquifer = true
+route_drainage = true
+storage = false
+diversions = []
+outflow_mvrtype = "FACTOR"
+outflow_value = 1.0
+lake_feeder_snap = "300 m"
+outlet_keepout = "1000 m"
+rectify_on_mesh = false
+rectify_stub_max_upstream = 2
+rectify_min_component_cells = 2
+[flow.sinks_sources.sfr.nancon.width]
+kind = "constant"
+value = "2 m"
+[flow.sinks_sources.flow_barriers]
+[flow.sinks_sources.recharge]
+values = 0.0
+first_clim = "mean"
+units = "mm/day"
+negative_to_evt = true
+spatial_mode = "auto"
+interpolation_method = "nearest"
+[transport]
+param_list = []
+active_sinks_sources = []
+active_bc = []
+[transport.param]
+[transport.bc]
+[transport.sinks_sources]
+[transport.modpath.parameters]
+zone_partic = "domain"
+track_dir = "forward"
+cell_div = 1
+zloc_div = false
+[transport.mt3dms.parameters]
+spc_name = "NO3"
+sconc_init = 0.0
+sconc_input = 0.0
+disp_long = 0.0
+disp_transh = 0.0
+disp_transv = 0.0
+diffu_coeff = 0.0
+scheme = "upstream"
+rate_decay = 0.0
+plot_conc = true
+[transport.modflow6gwt.parameters]
+spc_name = "NO3"
+sconc_init = 0.0
+sconc_input = 0.0
+disp_long = 0.0
+disp_transh = 0.0
+disp_transv = 0.0
+diffu_coeff = 0.0
+scheme = "upstream"
+rate_decay = 0.0
+plot_conc = true
+[transport.modflow6prt.parameters]
+release_zone = "domain"
+upstream_top_quantile = 0.9
+outlet_bottom_quantile = 0.1
+track_dir = "forward"
+local_z = 0.5
+extend_tracking = true
+dry_tracking_method = "drop"
+exit_solve_tolerance = 1e-05
+write_track_csv = true
+write_track_binary = true
+[simulation]
+name = "nancon_sfr_calibrated"
+tags = []
+if_exists = "replace"
+description = "Nancon - SFR + DRN, K par le reseau en drain pur puis Sy route."
+[simulation.time]
+start_datetime = 2000-01-01T00:00:00
+end_datetime = 2001-12-31T00:00:00
+step_value = 1
+step_unit = "day"
+substeps_per_period = 1
+coverage_policy = "warn"
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow6"]
+[simulation.results]
+keep_solver_files = false
+[simulation.results.persistence]
+save_catalog = true
+save_zarr = true
+save_parquet = true
+compression = "zstd"
+compression_level = 3
+[simulation.results.derived]
+watertable_elevation = true
+watertable_depth = true
+seepage_areas = true
+release_flux = true
+accumulation_flux = true
+release_accumulation_flux = false
+outflow_drain = false
+concentration_seepage = false
+mass_seepage = false
+mass_accumulated = false
+[simulation.results.budget]
+spatial_fields = false
+[solver]
+sink_fill = false
+drain_bed_thickness_m = 1.0
+drain_conductance_floor_m2_s = 1e-12
+drain_band_depth_m = 0.0
+[solver.backend]
+backend = "modflow6"
+[modflownwt.runtime.nwt]
+version = "mfnwt"
+listunit = 2
+verbose = false
+headtol = 0.0001
+fluxtol = 500.0
+maxiterout = 5000
+thickfact = 1e-05
+linmeth = 1
+iprnwt = 1
+ibotav = 1
+options = "COMPLEX"
+continue_run = false
+backflag = 0
+stoptol = 1e-10
+[modflownwt.runtime.dis]
+itmuni = 0
+[modflownwt.runtime.bas]
+hnoflo = -9999.0
+[modflownwt.runtime.upw]
+iphdry = 1
+hdry = -100.0
+layvka = 1
+[modflownwt.runtime.evt]
+nevtop = 3
+ievt = 1
+ipakcb = 1
+[modflownwt.runtime.oc]
+compact = true
+[modflownwt.runtime.wel]
+ipakcb = 1
+[modflownwt.runtime.lmt]
+output_file_name = "mt3d_link.ftl"
+extension = "lmt8"
+output_format = "unformatted"
+[modflownwt.process_specific]
+vka = 1.0
+exdp = 1.0
+[modflownwt.sgrid]
+grid_dual = "voronoi"
+condition_top = false
+condition_top_epsilon = 0.001
+[modflownwt.sgrid.planar]
+mode = "keep_native"
+resampling = "bilinear"
+[modflownwt.sgrid.vertical]
+genmtd_lay = "constant"
+nlay = 1
+nodata = -9999.0
+[modflownwt.sgrid.top_sampling]
+mode = "centroid"
+hillslope_stat = "median"
+channel_stat = "min"
+channel_source = "streams_raster"
+channel_buffer_px = 0
+spike_guard_tol_m = 2.0
+min_pixels = 3
+min_thickness_m = 0.1
+network_safety_net = false
+max_channel_lowering_m = 5.0
+[modflow6.runtime]
+mf6_executable_name = "mf6"
+ims_print_option = "SUMMARY"
+print_head = false
+save_specific_discharge = false
+save_saturation = false
+mf6_runner = "subprocess"
+mf6_ims_complexity = "COMPLEX"
+mf_verbose = false
+mf6_outer_dvclose = 0.02
+mf6_inner_dvclose = 0.0001
+mf6_outer_maximum = 1500
+mf6_inner_maximum = 500
+mf6_newton = true
+mf6_newton_under_relaxation = true
+mf6_ats = false
+mf6_ats_dtmin_s = 60.0
+mf6_rewet_wetfct = 0.1
+mf6_rewet_iwetit = 1
+mf6_rewet_ihdwet = 0
+mf6_rewet_wetdry = 0.1
+[modflow6.process_specific]
+vka = 1.0
+evt_extinction_depth = 1.0
+lak_forcing_mode = "auto"
+ts6_min_periods = 120
+[modflow6.sgrid]
+grid_dual = "voronoi"
+condition_top = false
+condition_top_epsilon = 0.001
+[modflow6.sgrid.planar]
+mode = "keep_native"
+resampling = "bilinear"
+[modflow6.sgrid.vertical]
+genmtd_lay = "constant"
+nlay = 1
+nodata = -9999.0
+[modflow6.sgrid.top_sampling]
+mode = "centroid"
+hillslope_stat = "median"
+channel_stat = "min"
+channel_source = "streams_raster"
+channel_buffer_px = 0
+spike_guard_tol_m = 2.0
+min_pixels = 3
+min_thickness_m = 0.1
+network_safety_net = false
+max_channel_lowering_m = 5.0
+[display]
+enabled = true
+backend = "auto"
+preset = "default"
+show = false
+save = true
+output_dir = "figures"
+dpi = 150
+figures = ["watershed_id_card", "mesh_map", "boundary_package_map", "depression_map", "flow_direction_map", "hydrograph_sim_obs", "hydrograph_log_nse", "hydrograph", "duration_curve", "recession", "seasonal_boxplot", "water_budget", "flux_timeseries", "sfr_reach_network", "sfr_longitudinal_profile", "sfr_reach_timeseries", "piezometric_map", "watertable_depth_map", "seepage_map", "recharge_map", "cross_section", "accumulation_map", "simulated_active_network", "simulated_active_network_reference_overlay", "seepage_network_reference_overlay", "seepage_network_confusion_map", "downslope_distance_map", "hydrographic_network_reference", "hydrographic_network_generated", "hydrographic_network_comparison", "matching_hydrographic_network_card", "bisection_bracket_trace", "downslope_distance_crossing", "parameter_cost_profile", "calibration_convergence", "calibration_trace", "calibration_posterior"]
+on_error = "warn"
+[display.overrides.hydrograph_log_nse]
+scoring_window = ["2001-01-01", "2001-12-31"]
+[export]
+netcdf = false
+csv_timeseries = false
+vtu = false
+geotiff = false
+shapefile = false
+package = false
+variables = ["head", "watertable_elevation", "watertable_depth", "seepage_mask"]
+time = "last"
+artifacts = []
+[persistence]
+save_catalog = true
+save_zarr = true
+save_parquet = true
+compression = "zstd"
+compression_level = 3
+[observation]
+points = []
+variables = ["head"]

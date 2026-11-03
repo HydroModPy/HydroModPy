@@ -149,6 +149,14 @@ class Modflow6:
     def _resolve_ims_complexity(self, solver_mesh=None) -> str:
         return resolve_ims_complexity_for(self, solver_mesh)
 
+    def resolved_solver_options(self) -> dict[str, object]:
+        """Return what this model decided once built, for ``provenance.json``."""
+        return {
+            "ims_complexity": self._resolve_ims_complexity(),
+            "xt3d": self._xt3d_is_enabled(),
+            "xt3d_source": self._xt3d_activation_mode(),
+        }
+
     def _log_xt3d_resolution(self, solver_mesh=None) -> None:
         log_xt3d_resolution(self, solver_mesh)
 

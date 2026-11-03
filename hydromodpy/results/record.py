@@ -73,7 +73,7 @@ from hydromodpy.results.manifest import (
     ParameterRow,
     TrackedInput,
     list_artifacts,
-    read_manifest,
+    read_seal,
 )
 from hydromodpy.results.metric_rule import DateWindow, MetricScore
 from hydromodpy.results.storage.contract import (
@@ -113,7 +113,9 @@ class RunProvenance(HydroModelBase):
 
     provenance_version: int = Field(default=RUN_RECORD_MANIFEST_VERSION)
     sim_id: str
-    tool: dict[str, Any] = Field(default_factory=dict, description="name, version")
+    tool: dict[str, Any] = Field(
+        default_factory=dict, description="name, version, code_fingerprint by layer"
+    )
     git: dict[str, Any] = Field(default_factory=dict, description="commit, dirty, project_commit")
     python: dict[str, Any] = Field(default_factory=dict, description="version")
     platform: dict[str, Any] = Field(
@@ -121,7 +123,11 @@ class RunProvenance(HydroModelBase):
     )
     packages: dict[str, str] = Field(default_factory=dict, description="key package versions")
     solver: dict[str, Any] = Field(
-        default_factory=dict, description="name, engine, version, binary_path, binary_sha256"
+        default_factory=dict,
+        description=(
+            "name, engine, version, binary_path, binary_sha256, and options: what the adapter "
+            "decided once it built the model (IMS complexity, XT3D)"
+        ),
     )
     timing: dict[str, Any] = Field(
         default_factory=dict, description="started_at, ended_at, duration_s"
@@ -408,7 +414,7 @@ class RunRecord(HydroModelBase):
     def read(cls, run_dir: str | Path) -> RunRecord:
         """Read a record back from a sealed directory."""
         directory = Path(run_dir)
-        manifest = read_stored(Manifest, read_manifest(directory))
+        manifest = read_seal(directory)
         provenance = read_provenance(directory)
         inputs = read_inputs(directory)
         return cls(

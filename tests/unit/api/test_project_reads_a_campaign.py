@@ -20,10 +20,17 @@ import geopandas as gpd
 import pytest
 
 import hydromodpy as hmp
+from hydromodpy.results.catalog import rebuild_index
 from hydromodpy.results.checks import CalibratedBy
 from hydromodpy.results.metric_rule import DateWindow
 from hydromodpy.results.run.sealed import MixedWindowsError
-from tests._helpers.sealed_runs import WINDOW, seal_run, write_attempt, write_session_dir
+from tests._helpers.sealed_runs import (
+    WINDOW,
+    make_project,
+    seal_run,
+    write_attempt,
+    write_session_dir,
+)
 
 pytestmark = pytest.mark.fast
 
@@ -198,6 +205,24 @@ def test_best_by_site_ranks_the_calibrated_runs_under_their_rule(tmp_path: Path)
     assert row["nse_window_start"] == WINDOW.start
     assert row["nse_window_end"] == WINDOW.end
     assert list(every["case_id"]) == ["nancon-k2e_5"]
+
+
+def test_best_keeps_a_run_with_no_site(tmp_path: Path, caplog) -> None:
+    project = make_project(tmp_path / "plain")
+    seal_run(project, "alone", site=None, nse=0.6)
+
+    with hmp.open(project) as proj:
+        only = proj.best("nse", label=None)
+        with caplog.at_level(logging.WARNING):
+            calibrated = proj.best("nse")
+        seal_run(project, "placed", nse=0.7)
+        rebuild_index(project)
+        both = proj.best("nse", label=None)
+
+    assert list(only["case_id"]) == ["alone"] and only["site"].isna().all()
+    assert calibrated.empty and "no site" in caplog.text
+    assert list(both["case_id"]) == ["placed", "alone"]
+    assert both["nse"].tolist() == pytest.approx([0.7, 0.6])
 
 
 def test_best_names_the_sites_it_leaves_out_and_why(tmp_path: Path, caplog) -> None:

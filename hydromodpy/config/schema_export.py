@@ -324,8 +324,8 @@ _BASE_CONFIG_SCHEMA: dict[str, Any] = {
     "description": (
         "Path of a TOML file this file extends, relative to this file. The keys written "
         "here replace the ones the base file sets. Lists replace the base list: the suffix "
-        "__append extends it, __merge merges its tables in order, and a key is removed "
-        "with <key>__delete = true."
+        "__append extends it, __merge merges each table with the inherited one of the same "
+        "id, name or source, and a key is removed with <key>__delete = true."
     ),
 }
 

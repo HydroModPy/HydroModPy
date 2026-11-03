@@ -8,7 +8,7 @@ The Boussinesq backend accepts either:
   properties per cell (the validation runtimes).
 
 A bundle is never completed from ``Flow`` parameters: a flow ``K`` or ``Sy`` next
-to a bundle is refused, and so is a ``Project.run(properties=...)`` override, so
+to a bundle is refused, and so is a runtime property override, so
 one property never has two silent sources. On a cell mesh the override wins over
 the flow, for K and Sy, and the properties Boussinesq does not read are refused.
 Keeping these helpers out of the adapter file makes the adapter symmetrical with
@@ -190,7 +190,7 @@ def _refuse_flow_properties_on_bundle(
 
 
 def _refuse_property_overrides_on_bundle(overrides: object, *, bundle: CatchmentMeshBundle) -> None:
-    """Refuse a ``Project.run(properties=...)`` override on a run whose cells come from a bundle.
+    """Refuse a runtime property override on a run whose cells come from a bundle.
 
     The bundle carries its properties per cell, and an override would be
     dropped in silence.

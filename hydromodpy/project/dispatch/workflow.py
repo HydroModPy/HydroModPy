@@ -29,7 +29,7 @@ def run_overview(config_path: str | Path) -> dict[str, Any]:
     from hydromodpy.core.config_kit.written import log_experimental_keys
     from hydromodpy.display.overview import overview_name
     from hydromodpy.project.attempt import run_attempt
-    from hydromodpy.results.catalog.registration import input_file_digests, run_identity_hash
+    from hydromodpy.results.catalog.registration import config_identity_hash
     from hydromodpy.workflow.pipelines.overview import DataOverviewLauncher
 
     launcher = DataOverviewLauncher(config_path)
@@ -38,7 +38,7 @@ def run_overview(config_path: str | Path) -> dict[str, Any]:
     overview = getattr(cfg, "overview", None)
     name = overview_name(site, getattr(overview, "name", None) if overview is not None else None)
     project_root = Path(cfg.workspace.project_root)
-    config_hash = run_identity_hash(cfg.model_dump(mode="json"), inputs=input_file_digests(cfg))
+    config_hash = config_identity_hash(cfg)
     simulation = getattr(cfg, "simulation", None)
     log_experimental_keys(cfg)
     with run_attempt(
@@ -139,7 +139,7 @@ def completed_identical_run(config: Any, *, name: str) -> tuple[str | None, str]
     Identical means the same run identity hash
     (:func:`~hydromodpy.results.catalog.registration.run_identity_hash`): the
     resolved configuration, without the per-run members, the contents of the
-    input files it names and the HydroModPy version. It is the
+    input files it names and the fingerprint of the code that computes. It is the
     ``identity.config_hash`` a run seals, so two runs of an unchanged file on
     unchanged data match. The run must carry the name ``name`` or be a
     version of it (``name.v2``): every version is looked at, newest first,
@@ -149,11 +149,7 @@ def completed_identical_run(config: Any, *, name: str) -> tuple[str | None, str]
     seal cannot be read, never matches.
     """
     from hydromodpy.core.state.paths import runs_dir_for
-    from hydromodpy.results.catalog.registration import (
-        input_file_digests,
-        run_identity_hash,
-        split_stem_version,
-    )
+    from hydromodpy.results.catalog.registration import config_identity_hash, split_stem_version
     from hydromodpy.results.manifest import read_manifest
     from hydromodpy.results.storage.sealing import sealed_config_hash
 
@@ -161,9 +157,7 @@ def completed_identical_run(config: Any, *, name: str) -> tuple[str | None, str]
     runs = runs_dir_for(root)
     if not runs.is_dir():
         return None
-    config_hash = run_identity_hash(
-        config.model_dump(mode="json"), inputs=input_file_digests(config)
-    )
+    config_hash = config_identity_hash(config)
     if config_hash is None:
         return None
     versions: list[tuple[int, Path]] = []
@@ -201,6 +195,8 @@ def run_simulation(
     force: bool = False,
     fresh: bool = False,
     overrides: Mapping[str, Any] | None = None,
+    headless: bool = False,
+    replay_of: Path | None = None,
 ) -> dict[str, Any]:
     """Execute one attempt of a case from a TOML file, the worker verb.
 
@@ -212,13 +208,31 @@ def run_simulation(
     is never opened here: the summary comes from the run directory, and the
     caller indexes it afterwards. ``overrides`` are the dotted paths a
     ``--set`` or an overlay changed, sealed in ``lineage.overrides``.
+    The frozen configuration of a run with ``frozen`` replays from the record of
+    that run and not from a lockfile (:mod:`hydromodpy.project.replay_checks`): other
+    bytes or another configuration are refused before anything runs, and what the
+    replay did otherwise is said once it has run. ``replay_of`` names a published copy,
+    which replays the same way, its inputs checked already.
     """
     from hydromodpy.project import Project
     from hydromodpy.results.lineage import Lineage
 
-    with Project(config_path, no_display=no_display) as project:
+    with Project(config_path, no_display=no_display, headless=headless) as project:
         run_name = name or project.config.simulation.name or Path(config_path).stem
         project_root = str(Path(project.config.workspace.project_root))
+        source_run = replay_of
+        if frozen or replay_of is not None:
+            from hydromodpy.project.replay_checks import check_replay, sealed_run_of
+
+            source_run = replay_of or sealed_run_of(Path(config_path))
+            if source_run is not None:
+                check_replay(
+                    project.config,
+                    source_run,
+                    project_root=Path(project_root),
+                    inputs_checked=replay_of is not None,
+                )
+                frozen = False
         plain_run = (
             not force
             and resume is None
@@ -252,6 +266,10 @@ def run_simulation(
         )
         if result is None:
             return {}
+        if source_run is not None:
+            from hydromodpy.project.replay_checks import warn_replay_differences
+
+            warn_replay_differences(source_run, Path(result.run_dir))
         summary: dict[str, Any] = {
             "name": result.name,
             "sim_id": result.sim_id,

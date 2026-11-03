@@ -49,6 +49,7 @@ from hydromodpy.results.storage.contract import (
     RUN_MANIFEST_FILENAME,
     RUN_PROVENANCE_FILENAME,
     RUN_REPORT_DIRNAME,
+    RUN_RESOLVED_CONFIG_FILENAME,
     SESSION_CONFIG_FILENAME,
     SESSION_DESCRIPTOR_FILENAME,
     SESSION_PHASES_DIRNAME,
@@ -127,7 +128,8 @@ def render_run_readme(
     lines += [
         "## Where is what",
         "",
-        f"- `{RUN_CONFIG_FILENAME}`: the resolved configuration, replayable",
+        f"- `{RUN_CONFIG_FILENAME}`: what the run was given, replayable; "
+        f"`{RUN_RESOLVED_CONFIG_FILENAME}`: the same with every default",
         f"- `{RUN_MANIFEST_FILENAME}`: the seal; `{RUN_PROVENANCE_FILENAME}`: the environment; "
         f"`{RUN_INPUTS_FILENAME}`: the inputs",
         f"- `{TABLES_DIRNAME}/`: tables (pyarrow); `fields.zarr/`: fields (zarr)",

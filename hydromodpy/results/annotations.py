@@ -42,9 +42,9 @@ from typing import Final
 from pydantic import ConfigDict, Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
-from hydromodpy.core.config_kit.stored import read_stored
+from hydromodpy.core.config_kit.stored import dump_stored, read_stored
 from hydromodpy.core.io.document_version import VersionWindow
-from hydromodpy.results.manifest import is_sealed, read_manifest
+from hydromodpy.results.manifest import is_sealed, read_seal
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.storage.contract import RUN_ANNOTATIONS_FILENAME
 from hydromodpy.results.storage.json_io import read_sealed_json, write_json_atomic
@@ -83,8 +83,8 @@ def annotations_path(run_dir: Path | str) -> Path:
 def read_annotations(run_dir: Path | str) -> Annotations:
     """Read ``annotations.json``, empty when the run carries none.
 
-    A malformed file raises: the indexer reports the run instead of dropping
-    annotations it cannot parse.
+    A malformed file raises. The indexer keeps the run and warns, and the file
+    stays as it is.
     """
     target = annotations_path(run_dir)
     if not target.is_file():
@@ -103,8 +103,7 @@ def write_annotations(run_dir: Path | str, annotations: Annotations) -> Path:
     directory = Path(run_dir)
     if annotations.sim_id is None:
         annotations = annotations.model_copy(update={"sim_id": _sim_id_of(directory)})
-    payload = annotations.model_dump(mode="json", by_alias=True)
-    return write_json_atomic(annotations_path(directory), payload)
+    return write_json_atomic(annotations_path(directory), dump_stored(annotations))
 
 
 def add_tag(run_dir: Path | str, tag: str) -> Annotations:
@@ -143,15 +142,11 @@ def add_note(
 
 
 def _sim_id_of(run_dir: Path) -> str | None:
-    """Return the ``sim_id`` the outcome or the seal of *run_dir* declares."""
-    outcome = read_outcome(run_dir)
-    if outcome is not None and outcome.sim_id:
-        return str(outcome.sim_id)
+    """Return the ``sim_id`` the seal of *run_dir* declares, else its outcome."""
     if is_sealed(run_dir):
-        sim_id = read_manifest(run_dir).get("run", {}).get("sim_id")
-        if sim_id:
-            return str(sim_id)
-    return None
+        return read_seal(run_dir).run.sim_id
+    outcome = read_outcome(run_dir)
+    return None if outcome is None or not outcome.sim_id else str(outcome.sim_id)
 
 
 __all__ = [

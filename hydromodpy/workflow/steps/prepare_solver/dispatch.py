@@ -10,7 +10,6 @@ context.
 
 from __future__ import annotations
 
-import tomllib
 from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -18,21 +17,23 @@ from typing import TYPE_CHECKING, Any
 from hydromodpy.core.exceptions import PipelineError
 from hydromodpy.core.io.atomic_replace import staged_path
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.toml_io.paths import portable_declared_path
 from hydromodpy.core.toml_io.writer import dumps
-from hydromodpy.core.tracking import rewrite_input_paths
 from hydromodpy.results.catalog.constants import solver_category
 from hydromodpy.results.catalog.registration import (
-    input_file_digests,
+    config_identity_hash,
     portable_config_source,
-    run_identity_hash,
     split_stem_version,
 )
 from hydromodpy.results.lineage import Lineage
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.storage.attempt import claim_reserved_directory, claim_run_directory
-from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
+from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME, RUN_RESOLVED_CONFIG_FILENAME
 from hydromodpy.results.storage.run_facts import RunFacts, read_facts
+from hydromodpy.workflow.steps.prepare_solver.resolved import (
+    portable_config_payload,
+    resolved_at_build,
+    resolved_config_document,
+)
 from hydromodpy.workflow.steps.prepare_solver.restart import resolve_restart_source
 from hydromodpy.workflow.steps.prepare_solver.validate import (
     _primary_solver_for_simulation,
@@ -46,11 +47,6 @@ if TYPE_CHECKING:
     from hydromodpy.solver.modflow_common.binaries import SolverEngine
 
 logger = get_logger(__name__)
-
-# ``[workspace]`` keys the loader resolves to absolute paths of this machine.
-# The frozen configuration leaves them out: the project that holds the run is
-# the anchor, and the loader rebuilds them from where the file sits.
-_WORKSPACE_MACHINE_KEYS = ("project_root", "root", "catalog_path", "data_dir", "runs_dir")
 
 
 def _execution_mode(ctx: WorkflowContext, solver_name: str | None) -> str:
@@ -108,6 +104,19 @@ def _resolve_solver_engine(ctx: WorkflowContext, solver_name: str | None) -> Sol
     )
 
 
+def _solver_options_of_the_built_model(
+    ctx: WorkflowContext, solver_name: str | None
+) -> dict | None:
+    """Return what the built flow model decided for its solver, or None before it exists."""
+    plan = ctx.execution.simulation_plan
+    models = ctx.execution.models_by_run_id
+    for run in getattr(plan, "runs", ()) or ():
+        if run.process_type == "flow" and run.solver == solver_name and run.id in models:
+            read_back = getattr(models[run.id], "resolved_solver_options", None)
+            return None if read_back is None else read_back()
+    return None
+
+
 def _write_run_environment(
     ctx: WorkflowContext,
     sim_id: str,
@@ -125,6 +134,7 @@ def _write_run_environment(
         solver_engine=None if engine is None else engine.kind,
         solver_execution_mode=_execution_mode(ctx, solver_name),
         solver_version_text=None if engine is None else engine.version,
+        solver_options=_solver_options_of_the_built_model(ctx, solver_name),
         rng_seed=getattr(ctx.cfg.simulation, "rng_seed", None),
     )
 
@@ -216,23 +226,38 @@ def _write_zarr_time(ctx: WorkflowContext, sim_id: str, *, store: RunStore) -> N
     )
 
 
-def _relativise(payload: Any, project_root: Path) -> Any:
-    """Return *payload* with every absolute path under *project_root* made relative."""
-    if isinstance(payload, dict):
-        return {key: _relativise(value, project_root) for key, value in payload.items()}
-    if isinstance(payload, list):
-        return [_relativise(item, project_root) for item in payload]
-    if (
-        isinstance(payload, str)
-        and payload.startswith(("/", "\\"))
-        or (isinstance(payload, str) and len(payload) > 2 and payload[1] == ":")
-    ):
-        candidate = Path(payload)
-        try:
-            return candidate.relative_to(project_root).as_posix()
-        except ValueError:
-            return payload
-    return payload
+def frozen_config_of(
+    ctx: WorkflowContext,
+    *,
+    restart_sim_id: str | None = None,
+    zone_runs: Mapping[str, str] | None = None,
+) -> Any:
+    """Return the configuration a run freezes, as a replay reads it back.
+
+    It holds what the run was given, not the defaults it took: a validator that
+    tells a written key from its default (``values`` beside
+    ``[flow.sinks_sources.recharge.soil]``, ``surface_offset`` of a soil ETP)
+    answers on the replay as it did on the run. The domain section is the one
+    the built domain carries. A hotstart whose source has a ``sim_id`` is written
+    as the table ``{sim_id, path}``. A refinement zone that read an earlier run
+    writes the ``sim_id`` of that run (*zone_runs*, by the reference the zone
+    gave) in place of its name, so a replay reads the run the mesh came from
+    and not a later ``.vN`` of it. ``simulation.name`` is the name of the run, so
+    a replay of the file answers to that run, whatever name the file it came from
+    gave.
+    """
+    snapshot = collect_effective_config_snapshot(ctx)
+    if ctx.run_dir is not None:
+        snapshot.setdefault("simulation", {})["name"] = split_stem_version(ctx.run_dir.name)[0]
+    flow = snapshot.get("flow")
+    if restart_sim_id is not None and isinstance(flow, dict) and flow.get("restart_from"):
+        flow["restart_from"] = {"sim_id": restart_sim_id, "path": str(flow["restart_from"])}
+    mesh = snapshot.get("mesh")
+    if zone_runs and isinstance(mesh, dict):
+        for zone in mesh.get("refinement_zone") or ():
+            if isinstance(zone, dict) and zone.get("run") in zone_runs:
+                zone["run"] = zone_runs[zone["run"]]
+    return type(ctx.cfg).model_validate(snapshot)
 
 
 def frozen_config_document(
@@ -242,87 +267,35 @@ def frozen_config_document(
     restart_sim_id: str | None = None,
     zone_runs: Mapping[str, str] | None = None,
 ) -> str:
-    """Return the resolved configuration of the run as portable TOML text.
-
-    The document holds what the run was given, not the defaults it took: a
-    validator that tells a written key from its default (``values`` beside
-    ``[flow.sinks_sources.recharge.soil]``, ``surface_offset`` of a soil ETP)
-    answers on the replay as it did on the run. The domain section is the one
-    the built domain carries. The ``[workspace]`` keys the loader resolves on
-    this machine are left out, and every path under the project root is
-    written relative to it, so the document replays from another checkout of
-    the same project. A hotstart whose source has a ``sim_id`` is written as
-    the table ``{sim_id, path}``. A refinement zone that read an earlier run
-    writes the ``sim_id`` of that run (*zone_runs*, by the reference the zone
-    gave) in place of its name, so a replay reads the run the mesh came from
-    and not a later ``.vN`` of it.
-    """
+    """Return the configuration of the run as portable TOML text (:func:`frozen_config_of`)."""
     assert ctx.run_dir is not None
-    snapshot = collect_effective_config_snapshot(ctx)
-    flow = snapshot.get("flow")
-    if restart_sim_id is not None and isinstance(flow, dict) and flow.get("restart_from"):
-        flow["restart_from"] = {"sim_id": restart_sim_id, "path": str(flow["restart_from"])}
-    mesh = snapshot.get("mesh")
-    if zone_runs and isinstance(mesh, dict):
-        for zone in mesh.get("refinement_zone") or ():
-            if isinstance(zone, dict) and zone.get("run") in zone_runs:
-                zone["run"] = zone_runs[zone["run"]]
-    cfg_effective = type(ctx.cfg).model_validate(snapshot)
+    cfg_effective = frozen_config_of(ctx, restart_sim_id=restart_sim_id, zone_runs=zone_runs)
     return portable_config_document(cfg_effective, ctx.run_dir, project_root)
 
 
 def portable_config_document(cfg: Any, run_dir: Path, project_root: Path) -> str:
-    """Return *cfg* as the portable TOML text a run directory freezes.
-
-    Only the fields *cfg* was given are written, so the text validates back
-    into a configuration with the same fields set. The ``[workspace]`` keys
-    the loader resolves on this machine are left out. Every input file the
-    configuration names is written in the form that resolves back to it
-    from any copy of the workspace
-    (:func:`~hydromodpy.core.toml_io.paths.portable_declared_path`): a bare
-    name found in ``data/``, a path relative to the project root, or
-    ``../../data/...``. Every other path under the project root is written
-    relative to it. The document is staged in *run_dir* while it is rendered.
-    """
-    staged = run_dir / f".{RUN_CONFIG_FILENAME}.staged"
-    cfg.to_toml(staged, profile="expert", written_only=True)
-    try:
-        payload = tomllib.loads(staged.read_text(encoding="utf-8"))
-    finally:
-        staged.unlink(missing_ok=True)
-    root = project_root.resolve()
-    data_dir = getattr(getattr(cfg, "workspace", None), "data_dir", None)
-    rewrite_input_paths(
-        payload,
-        type(cfg),
-        lambda marker, value: portable_declared_path(
-            value, role=marker.role, project_root=root, data_dir=data_dir
-        ),
-    )
-    workspace = payload.get("workspace")
-    if isinstance(workspace, dict):
-        for key in _WORKSPACE_MACHINE_KEYS:
-            workspace.pop(key, None)
-        if not workspace:
-            payload.pop("workspace")
-    return dumps(_relativise(payload, root))
+    """Return the fields *cfg* was given as the portable TOML text a run directory freezes."""
+    return dumps(portable_config_payload(cfg, run_dir, project_root, written_only=True))
 
 
 def _freeze_run_config(
     ctx: WorkflowContext, *, store: RunStore, restart_sim_id: str | None = None
 ) -> None:
-    """Write the resolved configuration into the run directory, in one rename."""
+    """Write ``config.toml`` and ``config.resolved.toml`` of the run, each in one rename."""
     project_root = Path(store.workspace_path or store.run_dir.parent.parent)
-    target = store.run_dir / RUN_CONFIG_FILENAME
     summary = getattr(ctx.setup, "mesh_summary", None) or {}
-    document = frozen_config_document(
-        ctx,
-        project_root,
-        restart_sim_id=restart_sim_id,
-        zone_runs=summary.get("zone_runs"),
+    frozen = frozen_config_of(
+        ctx, restart_sim_id=restart_sim_id, zone_runs=summary.get("zone_runs")
     )
-    with staged_path(target) as staged:
-        staged.write_text(document, encoding="utf-8")
+    documents = {
+        RUN_CONFIG_FILENAME: portable_config_document(frozen, store.run_dir, project_root),
+        RUN_RESOLVED_CONFIG_FILENAME: resolved_config_document(
+            frozen, project_root, build=resolved_at_build(ctx)
+        ),
+    }
+    for name, document in documents.items():
+        with staged_path(store.run_dir / name) as staged:
+            staged.write_text(document, encoding="utf-8")
     store.facts.config_file = RUN_CONFIG_FILENAME
 
 
@@ -447,9 +420,7 @@ def planned_recipe(project_root: Path, case_id: str) -> str | None:
     return None if case is None else case.recipe
 
 
-def initial_facts(
-    ctx: WorkflowContext, *, run_overrides: dict | None, config_hash: str | None = None
-) -> RunFacts:
+def initial_facts(ctx: WorkflowContext, *, config_hash: str | None = None) -> RunFacts:
     """Return the facts of the attempt as the context knows them at opening.
 
     *config_hash* is the identity hash the caller computed for the claim; it
@@ -464,11 +435,7 @@ def initial_facts(
     plan = ctx.execution.simulation_plan
     primary_solver = _primary_solver_for_simulation(plan)
     facts = collect_run_facts(ctx)
-    facts["config_hash"] = config_hash or run_identity_hash(
-        ctx.cfg.model_dump(mode="json"),
-        overrides=run_overrides,
-        inputs=input_file_digests(ctx.cfg),
-    )
+    facts["config_hash"] = config_hash or config_identity_hash(ctx.cfg)
     facts["config_source"] = portable_config_source(project_root, facts.get("config_source"))
     return RunFacts(
         sim_id=ctx.sim_id,
@@ -488,12 +455,7 @@ def initial_facts(
     )
 
 
-def step_open_run(
-    ctx: WorkflowContext,
-    *,
-    store: RunStore,
-    run_overrides: dict | None = None,
-) -> None:
+def step_open_run(ctx: WorkflowContext, *, store: RunStore) -> None:
     """Record what the run was built from in its store.
 
     The store is the one of ``ctx.run_dir``, opened by the caller on the
@@ -541,6 +503,7 @@ def step_open_run(
 __all__ = (
     "bind_run_directory",
     "frozen_config_document",
+    "frozen_config_of",
     "portable_config_document",
     "initial_facts",
     "planned_recipe",

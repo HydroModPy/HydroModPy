@@ -32,6 +32,7 @@ from pathlib import Path
 from typing import Any, Final
 
 from hydromodpy.core.budget_terms import kept_budget
+from hydromodpy.core.code_fingerprint import RUN_LAYERS, code_fingerprint
 from hydromodpy.core.licensing import UNDETERMINED_LICENSE
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import (
@@ -269,7 +270,11 @@ def build_provenance(facts: RunFacts, *, ended_at: datetime) -> RunProvenance:
     return RunProvenance(
         provenance_version=RUN_RECORD_MANIFEST_VERSION,
         sim_id=facts.sim_id,
-        tool={"name": "hydromodpy", "version": env.get("hydromodpy_version") or HMP_VERSION},
+        tool={
+            "name": "hydromodpy",
+            "version": env.get("hydromodpy_version") or HMP_VERSION,
+            "code_fingerprint": code_fingerprint(RUN_LAYERS),
+        },
         git={
             "commit": env.get("git_commit"),
             "dirty": env.get("git_dirty"),
@@ -291,6 +296,7 @@ def build_provenance(facts: RunFacts, *, ended_at: datetime) -> RunProvenance:
             "version": env.get("solver_version_text"),
             "binary_path": env.get("solver_binary_path"),
             "binary_sha256": env.get("solver_binary_sha256"),
+            "options": env.get("solver_options"),
         },
         timing={
             "started_at": facts.started_at.isoformat(),

@@ -135,7 +135,8 @@ class DisplayConfig(HydroModelBase):
             "A figure whose requirements the run does not meet is skipped "
             "with an explicit reason. Empty list disables auto-rendering. "
             "Disable per-run via `hmp run --no-display` or for an entire "
-            "Python Project via `Project(..., no_display=True)`."
+            "Python Project via `Project(..., no_display=True)`: nothing is drawn then, "
+            "and the run keeps the same data, so `hmp viz regen` can draw them later."
         ),
     )
     on_error: Annotated[Literal["warn", "raise"], Profile.USER] = Field(

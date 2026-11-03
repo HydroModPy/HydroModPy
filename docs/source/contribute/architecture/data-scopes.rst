@@ -37,6 +37,13 @@ Exposed through:
 Each row carries a workspace-relative POSIX ``file_path``, so a cache
 stays portable between machines.
 
+A project pins the state of this cache in ``hydromodpy.lock``, at its root. The file
+holds one ``[[input]]`` record per entry, with its ``variable``, ``source``,
+``station_id``, ``path``, ``sha256``, ``bytes``, ``file_mtime`` and ``fetched_at``.
+``hmp run --frozen``, ``hmp dev lock verify``, a restored archive and the frozen
+matching of the cache all read that one record. :doc:`storage-layout` gives the whole
+document.
+
 **One writer at a time.** When a project launches its cases, the ``prepare``
 phase runs each case up to its data (``hmp run <case>.toml --until
 load_data``). A case opens the shared cache read-only, one request at a time,
@@ -217,6 +224,8 @@ tables, ``manifest.json``, ``session.json``, the ledgers, ``PUBLICATION.json``)
 are never rewritten. Each family reads a window of versions, and every later 2.x
 reads every 2.0.0 document, by the rule in
 :doc:`storage-layout` and in :mod:`hydromodpy.core.io.document_version`.
+``hydromodpy.lock`` follows the same rule with its ``schema`` id, and a lock outside
+the window is written again with ``hmp dev lock update``.
 
 User TOML files are out of scope: Pydantic with ``extra="forbid"`` handles them,
 and ``hmp doctor --fix-config`` rewrites their grammar. ``workspace.toml`` also
@@ -261,8 +270,8 @@ Rules for a change
    current backend, and check that applying the migration twice changes nothing.
 5. **A reader-breaking change raises the current version of its family.** A change
    of shape, dtype, column order or meaning of an existing field keeps the oldest
-   version of the window and brings the reader of the old version. Nothing rewrites
-   the stored document. A refactor that does not touch the disk changes nothing. The
+   version of the window and brings the reader of the old version. Nothing upgrades
+   the stored document in place. A refactor that does not touch the disk changes nothing. The
    float width of a Zarr field is the exception: ``float32``
    (``field_precision = "compact"``) and ``float64`` (``"exact"``) is a per-store
    choice written in each array's metadata, and every reader returns ``float64``.
@@ -270,8 +279,9 @@ Rules for a change
    ``hmp catalog import`` checks every digest before it writes anything into the
    project.
 
-Do not silently accept an unknown table or column, and do not inject data from
-outside a migration: it works only on the handle it is given.
+A migration of the workspace cache works only on the handle it is given, and brings
+in no table, column or data from outside it. A reader of a stored run is another
+matter: it accepts a column or a key it does not know, as rule 2 says.
 
 Where each version is declared
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -302,6 +312,9 @@ The values are in the code. Read them there, not here.
      - ``hydromodpy/results/annotations.py``
    * - ``LEDGER_SCHEMA`` (``figures/index.json``, ``exports/index.json``)
      - ``hydromodpy/results/ledger.py``
+   * - The documents of a job (``hmp-manifest/v2``, ``hmp-inputset/v1``,
+       ``hmp-provenance/v1``, ``hmp-outcome/v1``, ``hmp-chain-outcome/v1``)
+     - ``hydromodpy/schema/job/``, beside the writer of each document
 
 .. _artifact-policy:
 

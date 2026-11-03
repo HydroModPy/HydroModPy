@@ -6,7 +6,9 @@ keys are renamed today: ``RENAMED_KEYS`` is what each rename adds a row to.
 
 from __future__ import annotations
 
+import copy
 import tomllib
+from argparse import Namespace
 from pathlib import Path
 
 import pytest
@@ -17,12 +19,18 @@ from hydromodpy.config import HydroModPyConfig
 from hydromodpy.config import config_migration as migration
 from hydromodpy.config.config_migration import (
     KeyRename,
+    TableMove,
+    fix_config_chain,
     fix_config_file,
+    migrate_config_doc,
     migrate_config_doc_on_load,
     migrate_sealed_config_doc,
+    moved_paths,
+    rewrite_dotted_path,
 )
 from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning
 from hydromodpy.core.exceptions import ConfigValidationError
+from hydromodpy.core.toml_io.loader import read_toml_chain
 from hydromodpy.workflow.steps.prepare_solver.dispatch import portable_config_document
 
 PROJECT = """\
@@ -327,3 +335,179 @@ def test_a_comment_survives_in_a_document_the_doctor_wrote(
     migration._rename_keys(doc, sealed=False)
 
     assert "seed = 7 # fixed" in tomlkit.dumps(doc)
+
+
+# One row per kind of rename, each new to the schema, as a lot of renames will add.
+CELL = KeyRename("mesh", "size_before", "cell_size", since=SINCE)
+OPTION = KeyRename("display.overrides.{*}", "shade_before", "cmap", since=SINCE)
+FILL = TableMove("solver.fill_before", "flow.fill_after", since=SINCE)
+OUTLET = TableMove("geographic.outlet_before", "site.outlet_after", since=SINCE)
+
+
+@pytest.fixture
+def renames(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(migration, "RENAMED_KEYS", (*migration.RENAMED_KEYS, CELL, OPTION))
+    monkeypatch.setattr(migration, "MOVED_TABLES", (*migration.MOVED_TABLES, FILL, OUTLET))
+
+
+def _phase(overrides: dict) -> dict:
+    return {"calibration": {"phases": [{"name": "one", "overrides": overrides}]}}
+
+
+PLACES = {
+    "the key itself": ({"mesh": {"size_before": 1}}, {"mesh": {"cell_size": 1}}),
+    "a directive of the key": (
+        {"mesh": {"size_before__delete": True}},
+        {"mesh": {"cell_size__delete": True}},
+    ),
+    "a key that changes table": (
+        {"solver": {"fill_before": True}},
+        {"flow": {"fill_after": True}},
+    ),
+    "a table that changes place": (
+        {"geographic": {"outlet_before": {"x": 1}}},
+        {"site": {"outlet_after": {"x": 1}}},
+    ),
+    "a figure option": (
+        {"display": {"overrides": {"seepage_map": {"shade_before": "a"}}}},
+        {"display": {"overrides": {"seepage_map": {"cmap": "a"}}}},
+    ),
+    "a phase override": (_phase({"mesh.size_before": 1}), _phase({"mesh.cell_size": 1})),
+    "a phase override under a moved table": (
+        _phase({"geographic.outlet_before.x": 1}),
+        _phase({"site.outlet_after.x": 1}),
+    ),
+    "a phase override of a figure": (
+        _phase({"display.overrides.seepage_map.shade_before": "a"}),
+        _phase({"display.overrides.seepage_map.cmap": "a"}),
+    ),
+    "a phase override written as tables": (
+        _phase({"mesh": {"size_before": 1}}),
+        _phase({"mesh": {"cell_size": 1}}),
+    ),
+    "a phase a child adds": (
+        {"calibration": {"phases__append": [{"overrides": {"mesh.size_before": 1}}]}},
+        {"calibration": {"phases__append": [{"overrides": {"mesh.cell_size": 1}}]}},
+    ),
+    "a phase a child merges": (
+        {"calibration": {"phases__merge": [{"name": "a", "overrides": {"mesh.size_before": 1}}]}},
+        {"calibration": {"phases__merge": [{"name": "a", "overrides": {"mesh.cell_size": 1}}]}},
+    ),
+    "the path of a parameter": (
+        {"calibration": {"parameters": {"p": {"path": "mesh.size_before"}}}},
+        {"calibration": {"parameters": {"p": {"path": "mesh.cell_size"}}}},
+    ),
+    "the target of a parameter": (
+        {"calibration": {"parameters": {"p": {"target": "solver.fill_before"}}}},
+        {"calibration": {"parameters": {"p": {"target": "flow.fill_after"}}}},
+    ),
+    "a bind line": (
+        {"sites": {"bind": {"mesh.size_before": "size"}}},
+        {"sites": {"bind": {"mesh.cell_size": "size"}}},
+    ),
+    "the set table of a recipe": (
+        {"sites": {"recipes": {"r": {"set": {"mesh.size_before": 2}}}}},
+        {"sites": {"recipes": {"r": {"set": {"mesh.cell_size": 2}}}}},
+    ),
+}
+
+
+@pytest.mark.usefixtures("renames")
+@pytest.mark.parametrize(("written", "expected"), PLACES.values(), ids=PLACES.keys())
+def test_one_row_of_a_table_rewrites_every_place_a_path_is_written(
+    written: dict, expected: dict
+) -> None:
+    doc = copy.deepcopy(written)
+
+    with pytest.warns(ConfigKeyRenamedWarning):
+        migrate_config_doc_on_load(doc, source="a_file.toml")
+
+    assert doc == expected
+
+
+@pytest.mark.usefixtures("renames")
+def test_one_row_reaches_the_command_line_and_the_helpers() -> None:
+    assert rewrite_dotted_path("mesh.size_before") == "mesh.cell_size"
+    assert rewrite_dotted_path("solver.fill_before") == "flow.fill_after"
+    assert rewrite_dotted_path("geographic.outlet_before.x") == "site.outlet_after.x"
+    assert rewrite_dotted_path("display.overrides.a_map.shade_before") == (
+        "display.overrides.a_map.cmap"
+    )
+    assert rewrite_dotted_path("mesh.size_before__delete") == "mesh.cell_size__delete"
+    assert rewrite_dotted_path("mesh.cell_size") == "mesh.cell_size"
+    assert CELL in {row.rule for row in moved_paths()}
+
+
+@pytest.mark.usefixtures("renames")
+def test_a_set_on_the_command_line_follows_the_row(tmp_path: Path) -> None:
+    from hydromodpy.cli.effective_toml import materialize_effective_toml
+
+    base = tmp_path / "base.toml"
+    base.write_text("[mesh]\ncell_size = 1\n", encoding="utf-8")
+    args = Namespace(overlay=[], set_overrides=["mesh.size_before=2"], case=None)
+
+    with pytest.warns(ConfigKeyRenamedWarning, match="--set"):
+        effective, payload, lineage = materialize_effective_toml(base, args=args)
+    assert effective is not None
+    effective.unlink()
+
+    assert payload == {"mesh": {"cell_size": 2}}
+    assert lineage == {"mesh.cell_size": 2}
+
+
+@pytest.mark.usefixtures("renames")
+def test_the_doctor_follows_the_row_everywhere_and_keeps_the_comments(tmp_path: Path) -> None:
+    path = tmp_path / "project.toml"
+    path.write_text(
+        "# the sites\n"
+        "[sites.bind]\n"
+        '"mesh.size_before" = "size" # a column\n'
+        "\n"
+        "[calibration.parameters.p]\n"
+        'path = "mesh.size_before" # moved by the search\n'
+        "\n"
+        "[[calibration.phases]]\n"
+        'name = "one"\n'
+        "[calibration.phases.overrides]\n"
+        '"solver.fill_before" = true # a phase\n',
+        encoding="utf-8",
+    )
+
+    changes = fix_config_chain(path)[path]
+
+    assert len(changes) == 3
+    text = path.read_text()
+    for comment in ("# the sites", "# a column", "# moved by the search", "# a phase"):
+        assert comment in text
+    written = tomllib.loads(text)
+    assert written["sites"]["bind"] == {"mesh.cell_size": "size"}
+    assert written["calibration"]["parameters"]["p"]["path"] == "mesh.cell_size"
+    assert written["calibration"]["phases"][0]["overrides"] == {"flow.fill_after": True}
+
+
+@pytest.mark.usefixtures("renames")
+def test_a_project_file_reads_its_bind_lines_under_the_new_name(tmp_path: Path) -> None:
+    path = tmp_path / "project.toml"
+    path.write_text('[sites.bind]\n"mesh.size_before" = "size"\n', encoding="utf-8")
+
+    with pytest.warns(ConfigKeyRenamedWarning):
+        chain = read_toml_chain(path)
+
+    assert chain[-1].own == {"sites": {"bind": {"mesh.cell_size": "size"}}}
+
+
+def test_a_value_that_changes_form_cannot_follow_a_path_alone() -> None:
+    doc = {
+        "sites": {"bind": {"display.overrides.network_extent_bounds_map.minimal_dry_steps": "n"}},
+        "calibration": {
+            "parameters": {
+                "p": {"path": "display.overrides.network_extent_bounds_map.minimal_dry_steps"}
+            }
+        },
+    }
+
+    changes = migrate_config_doc(doc)
+
+    assert any("a bind line holds a column" in change for change in changes)
+    assert any("a search cannot move it" in change for change in changes)
+    assert "minimal_dry_steps" in str(doc["sites"]["bind"])

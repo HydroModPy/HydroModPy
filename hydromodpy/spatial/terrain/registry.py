@@ -150,6 +150,11 @@ def register(engine_cls: type, *, replace: bool = False) -> type:
     return engine_cls
 
 
+def resolved_engine_id(engine_id: str | None = None) -> str:
+    """Return the id a lookup of *engine_id* resolves to, without importing the engine."""
+    return DEFAULT_ENGINE_ID if engine_id is None else engine_id
+
+
 def get(engine_id: str | None = None) -> type:
     """Return the engine **class** registered under *engine_id*.
 
@@ -164,7 +169,7 @@ def get(engine_id: str | None = None) -> type:
         When no engine answers to that name. A malformed request and not an
         engine failure: the caller fixes it without a DEM in hand.
     """
-    wanted = DEFAULT_ENGINE_ID if engine_id is None else engine_id
+    wanted = resolved_engine_id(engine_id)
     cls = _REGISTRY.get(wanted)
     if cls is not None:
         return cls

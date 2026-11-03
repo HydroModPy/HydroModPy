@@ -69,7 +69,6 @@ from uuid import uuid4
 
 import duckdb
 
-from hydromodpy.core.config_kit.stored import read_stored
 from hydromodpy.core.io.atomic_replace import rename_over_open_file
 from hydromodpy.core.io.db_retry import connect_with_retry
 from hydromodpy.core.logging import get_logger
@@ -100,17 +99,19 @@ from hydromodpy.results.catalog.registration import split_stem_version
 from hydromodpy.results.catalog.views import ensure_views
 from hydromodpy.results.export.run_identity import label_of
 from hydromodpy.results.heartbeat import read_heartbeat
-from hydromodpy.results.manifest import Manifest, read_manifest
+from hydromodpy.results.manifest import Manifest, read_seal
 from hydromodpy.results.outcome import Outcome, effective_status, read_outcome
 from hydromodpy.results.record import read_provenance
 from hydromodpy.results.session.descriptor import SessionDescriptor, read_session
 from hydromodpy.results.session.journal import read_trials
 from hydromodpy.results.session.phase import list_phases
 from hydromodpy.results.storage.contract import (
+    HEARTBEAT_FILENAME,
     PARQUET_FILE_SUFFIX,
     RUN_ANNOTATIONS_FILENAME,
     RUN_ATTEMPTS_DIRNAME,
     RUN_CONFIG_FILENAME,
+    RUN_LOGS_DIRNAME,
     RUN_MANIFEST_FILENAME,
     RUN_OUTCOME_FILENAME,
     RUN_PROVENANCE_FILENAME,
@@ -120,7 +121,7 @@ from hydromodpy.results.storage.contract import (
     SIMULATION_TABLE_NAME,
     TABLES_DIRNAME,
 )
-from hydromodpy.results.storage.json_io import read_json, readable
+from hydromodpy.results.storage.json_io import beside_seal, read_json, readable, reason_text
 from hydromodpy.results.storage.parquet_io import read_checked_table
 from hydromodpy.results.validity_rules import RULE_VERSION, load_known_issues
 
@@ -398,9 +399,10 @@ def _write_index(
                 try:
                     counts = writer.index_entry(entry)
                 except Exception as exc:  # noqa: BLE001 - one bad directory never aborts a pass
-                    logger.warning("index left out %s: %s", rel_dir, exc)
+                    reason = reason_text(exc)
+                    logger.warning("index left out %s: %s", rel_dir, reason)
                     writer.forget(rel_dir)
-                    skipped.append(SkippedEntry(rel_dir, str(exc)))
+                    skipped.append(SkippedEntry(rel_dir, reason))
                     continue
                 (sessions if entry.kind == "session" else written).append(rel_dir)
                 for table, count in counts.items():
@@ -516,18 +518,25 @@ class _IndexWriter:
 
     def _index_run(self, entry: DiskEntry) -> dict[str, int]:
         path = entry.path
-        outcome = read_outcome(path)
         sealed = (path / RUN_MANIFEST_FILENAME).is_file()
+        # The seal says the run is complete: what cannot be read beside it costs a warning.
+        manifest = read_seal(path) if sealed else None
+        outcome = (
+            beside_seal(read_outcome, path, RUN_OUTCOME_FILENAME) if sealed else read_outcome(path)
+        )
         if outcome is None and not sealed:
             raise ValueError(f"neither {RUN_OUTCOME_FILENAME} nor {RUN_MANIFEST_FILENAME}")
-        manifest = read_stored(Manifest, read_manifest(path)) if sealed else None
         status = effective_status(path, now=self._at)
         counts: dict[str, int] = {}
         if manifest is not None:
             counts.update(self._index_seal(entry, manifest))
         run = manifest.run if manifest is not None else None
         site = manifest.site.name if manifest is not None and manifest.site else None
-        beat = read_heartbeat(path)
+        beat = (
+            beside_seal(read_heartbeat, path, f"{RUN_LOGS_DIRNAME}/{HEARTBEAT_FILENAME}")
+            if sealed
+            else read_heartbeat(path)
+        )
         case: dict[str, Any] = {
             "rel_dir": entry.rel_dir,
             "kind": entry.kind,
@@ -764,7 +773,9 @@ class _IndexWriter:
         return 1
 
     def _insert_annotations(self, sim_id: str, path: Path) -> dict[str, int]:
-        annotations = read_annotations(path)
+        annotations = beside_seal(read_annotations, path, RUN_ANNOTATIONS_FILENAME)
+        if annotations is None:
+            return {"tags": 0, "sim_notes": 0}
         for tag in annotations.tags:
             self.insert("tags", {"sim_id": sim_id, "tag": tag})
         for note in annotations.notes:

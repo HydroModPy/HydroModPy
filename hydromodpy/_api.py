@@ -314,10 +314,10 @@ def run(config: ConfigLike, **kwargs: Any) -> Run | dict | None:
         ``force``, ``resume``, ``from_step``, ``until_step``, ``dry_run``,
         ``frozen``, ``no_display``, ``parallel`` for a simulation. With a
         configuration object, any other keyword is a parameter override
-        (``K=1e-5``), as in :meth:`~hydromodpy.project.Project.simulate`. The
-        ``headless`` keyword is honored on both branches (path and config
-        object) and controls the underlying ``Project`` interactive side
-        effects.
+        (``K=1e-5``), as in :meth:`~hydromodpy.project.Project.simulate`. A
+        simulation takes ``headless`` on both branches (path and config object):
+        the run draws no figure, as with ``no_display``. Neither enters the
+        identity of the run or its sealed configuration.
 
     Returns
     -------
@@ -368,6 +368,7 @@ def run(config: ConfigLike, **kwargs: Any) -> Run | dict | None:
         workflow = resolve_workflow(config_path, cli_workflow=None)
         if workflow == "simulation":
             _refuse_overrides_on_a_path(config_path, kwargs)
+            kwargs["headless"] = headless
         summary = dispatch_workflow(workflow, config_path, **kwargs)
         # The simulation adapter returns a summary dict; expose it as the Run
         # so hmp.read / hmp.export accept the result on either branch.
@@ -401,7 +402,7 @@ def run(config: ConfigLike, **kwargs: Any) -> Run | dict | None:
         )
         with Project(config, headless=headless) as project:
             existing = completed_identical_run(project.config, name=name) if plain else None
-            result = None if existing is not None else project.simulate(**kwargs)
+            result = None if existing is not None else project.simulate(force=force, **kwargs)
         if existing is not None:
             run_obj = _open_run(root, runs_dir_for(Path(root)) / str(existing[0]))
             _report_identical_run({"name": existing[0], "sim_id": existing[1]})

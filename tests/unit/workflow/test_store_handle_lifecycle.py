@@ -58,7 +58,7 @@ def _ctx(project: Path, *, reserved_sim_id: str | None = None) -> SimpleNamespac
             geographic=SimpleNamespace(crs_project="EPSG:2154"),
             site=None,
             domain=None,
-            model_dump=lambda mode="json": {"flow": {"k": 1e-5}},
+            model_dump=lambda mode="json", exclude_defaults=False: {"flow": {"k": 1e-5}},
         ),
         setup=SimpleNamespace(
             workspace=SimpleNamespace(root=project.parent, project_root=project),
@@ -146,7 +146,7 @@ def test_the_initial_facts_name_the_run_its_solver_and_its_hash(tmp_path: Path) 
         ctx, run_dir=None, lineage=None, calibrated_by=None, run_overrides={"K": 1e-5}
     )
 
-    facts = initial_facts(ctx, run_overrides={"K": 1e-5})
+    facts = initial_facts(ctx)
 
     assert facts.sim_id == ctx.sim_id
     assert facts.name == "requested_name"

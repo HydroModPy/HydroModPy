@@ -1,0 +1,21 @@
+base_config = "step4_transient.toml"
+[simulation]
+name = "nancon_step5_export"
+[export]
+geotiff = true
+csv_timeseries = true
+time = 33
+variables = ["head", "watertable_elevation", "watertable_depth", "seepage_mask"]
+[[export.artifacts]]
+var = ["head", "watertable_depth"]
+dest = "fields_2000_2002.nc"
+time = "all"
+[display]
+figures = [
+    "watershed_id_card",
+    "flux_timeseries",
+    "hydrograph_sim_obs",
+    "seepage_map",
+]
+[display.overrides.seepage_map]
+timestep = 33

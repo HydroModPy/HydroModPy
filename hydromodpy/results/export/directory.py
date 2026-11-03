@@ -38,6 +38,7 @@ from uuid import uuid4
 from hydromodpy.config.publication_config import PublicationConfig
 from hydromodpy.core.exceptions import ExportError
 from hydromodpy.core.io.atomic_replace import rename_over_open_file
+from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.results.export.context import AssetEntry, FairExportContext, InputEntry
 from hydromodpy.results.manifest import read_manifest
 from hydromodpy.results.record import PROVENANCE_VERSIONS
@@ -49,14 +50,17 @@ from hydromodpy.results.storage.contract import (
 from hydromodpy.results.storage.json_io import read_sealed_json
 from hydromodpy.schema.generated_views import VIEW_FILENAMES
 from hydromodpy.schema.job.digest import sha256_file
+from hydromodpy.schema.job.documents import check_job_document
 from hydromodpy.schema.job.extent import SpatialExtent
-from hydromodpy.schema.job.inputset import UNDETERMINED
+from hydromodpy.schema.job.inputset import INPUTSET_VERSIONS, UNDETERMINED
 from hydromodpy.schema.job.layout import (
     INPUTSET_FILENAME,
     JOB_PROVENANCE_FILENAME,
     OUTCOME_FILENAME,
 )
-from hydromodpy.schema.job.seal import JOB_PROFILE
+from hydromodpy.schema.job.outcome import OUTCOME_VERSIONS
+from hydromodpy.schema.job.provenance import PROVENANCE_VERSIONS as JOB_PROVENANCE_VERSIONS
+from hydromodpy.schema.job.seal import JOB_PROFILE, MANIFEST_VERSIONS
 from hydromodpy.schema.media_types import (
     JSON_MEDIA_TYPE,
     OCTET_STREAM_MEDIA_TYPE,
@@ -104,6 +108,7 @@ def context_from_directory(directory: Path | str) -> FairExportContext:
         )
     manifest = _read_object(manifest_path)
     if manifest.get("profile") == JOB_PROFILE:
+        check_job_document(manifest, MANIFEST_VERSIONS, path=manifest_path)
         return _job_context(root, manifest)
     if "manifest_version" in manifest:
         return _run_context(root, read_manifest(root))
@@ -293,9 +298,9 @@ def _stac_role(role: str) -> str:
 
 def _job_context(root: Path, manifest: Mapping[str, Any]) -> FairExportContext:
     """Read a job directory: its seal and the three documents the seal hashes."""
-    inputset = _optional_object(root / INPUTSET_FILENAME)
-    provenance = _optional_object(root / JOB_PROVENANCE_FILENAME)
-    outcome = _optional_object(root / OUTCOME_FILENAME)
+    inputset = _optional_object(root / INPUTSET_FILENAME, INPUTSET_VERSIONS)
+    provenance = _optional_object(root / JOB_PROVENANCE_FILENAME, JOB_PROVENANCE_VERSIONS)
+    outcome = _optional_object(root / OUTCOME_FILENAME, OUTCOME_VERSIONS)
     process = _mapping(outcome.get("process")) or _mapping(provenance.get("process"))
     backend = _mapping(provenance.get("backend"))
     resources = _records(inputset.get("resources"))
@@ -551,11 +556,11 @@ def _read_object(path: Path) -> Mapping[str, Any]:
     return document
 
 
-def _optional_object(path: Path) -> Mapping[str, Any]:
+def _optional_object(path: Path, window: VersionWindow) -> Mapping[str, Any]:
     """Read a document the seal hashes, empty when the directory lacks it."""
     if not path.is_file():
         return {}
-    return _read_object(path)
+    return check_job_document(_read_object(path), window, path=path)
 
 
 __all__ = [

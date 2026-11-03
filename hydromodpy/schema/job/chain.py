@@ -58,9 +58,10 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from hydromodpy.core.exceptions import ConfigValidationError, JobUsageError
+from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.core.toml_io.error_locator import format_validation_error, validation_error_details
 from hydromodpy.schema.capability import CapabilityDecl
-from hydromodpy.schema.job.documents import write_document
+from hydromodpy.schema.job.documents import read_versioned, write_document
 from hydromodpy.schema.job.layout import REQUEST_FILENAME
 from hydromodpy.schema.job.outcome import JobStatus, error_record, now
 from hydromodpy.schema.job.refusal import refuse_request
@@ -73,6 +74,8 @@ CHAIN_OUTCOME_FILENAME = "chain-outcome.json"
 """What the chain leaves beside it: one record per declared step."""
 
 CHAIN_OUTCOME_SCHEMA = "hmp-chain-outcome/v1"
+CHAIN_OUTCOME_VERSIONS = VersionWindow(oldest=CHAIN_OUTCOME_SCHEMA, current=CHAIN_OUTCOME_SCHEMA)
+"""Versions of the report of a chain this code reads."""
 
 STEP_ID_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9_-]*$"
 """The spelling a step id may take, because it names a directory.
@@ -489,6 +492,11 @@ def run_chain(
     return ChainOutcome(exit_code=exit_code, document=document)
 
 
+def read_chain_outcome(root: str | Path) -> Mapping[str, Any]:
+    """Read back the report a chain left at *root*, under the rule of a stored document."""
+    return read_versioned(Path(root) / CHAIN_OUTCOME_FILENAME, CHAIN_OUTCOME_VERSIONS)
+
+
 def _refuse_a_root_that_cannot_be_reported_into(root: Path) -> None:
     """Refuse a root whose report name is already taken by something else.
 
@@ -642,6 +650,7 @@ __all__ = [
     "CHAIN_FILENAME",
     "CHAIN_OUTCOME_FILENAME",
     "CHAIN_OUTCOME_SCHEMA",
+    "CHAIN_OUTCOME_VERSIONS",
     "MAX_STEPS",
     "NOT_RUN",
     "STEP_ID_PATTERN",
@@ -653,6 +662,7 @@ __all__ = [
     "ResolvedStep",
     "StepLink",
     "read_chain",
+    "read_chain_outcome",
     "resolve_chain",
     "run_chain",
     "step_directory",

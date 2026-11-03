@@ -78,7 +78,8 @@ def check_project(path: str | Path) -> CheckReport:
 
 def _check(target: Path) -> CheckReport:
     try:
-        chain = read_toml_chain(target)
+        # As written: the load below says the old forms, and the report collects them.
+        chain = read_toml_chain(target, migrate=False)
     except tomllib.TOMLDecodeError as exc:
         return CheckReport(path=target, kind="simulation", errors=(f"Invalid TOML syntax: {exc}",))
     except (TypeError, ValueError, OSError) as exc:
@@ -91,7 +92,7 @@ def _check(target: Path) -> CheckReport:
         return CheckReport(path=target, kind="sites", errors=(str(exc),))
     if sites_file is not None:
         return _check_sites_project(target)
-    document = merge_toml_chain(chain)
+    document = merge_toml_chain(chain, migrate=False)
     try:
         declared = extract_workflow_field(document)
         if declared is not None:
@@ -127,7 +128,7 @@ def _load(target: Path) -> tuple[Any, list[str], list[str]]:
 
     errors: list[str] = []
     cfg = None
-    forget_old_forms_told(Path(target).expanduser().resolve())
+    forget_old_forms_told()
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always", ConfigKeyRenamedWarning)
         warnings.simplefilter("always", UserWarning)

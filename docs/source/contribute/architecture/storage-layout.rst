@@ -133,8 +133,8 @@ Classes of artefacts
      - Sealed
      - Regenerable
    * - raw result
-     - ``fields.zarr/``, ``tables.parquet/``, ``config.toml``, ``inputs.json``,
-       ``provenance.json``, ``manifest.json``, ``mesh/``
+     - ``fields.zarr/``, ``tables.parquet/``, ``config.toml``, ``config.resolved.toml``,
+       ``inputs.json``, ``provenance.json``, ``manifest.json``, ``mesh/``
      - ``config.toml``, ``session.json``, ``trials.jsonl``, ``phases/``
      - ``plan/<hash>/``
      - yes
@@ -196,7 +196,8 @@ A run folder
    runs/<case>/
    ├── outcome.json        attempt, attempt_id, host, pid, status, sim_id; written before any step
    ├── README.md           generated at the seal: site, period, version, checks, label, sha256
-   ├── config.toml         the resolved configuration, frozen; paths relative to the project root
+   ├── config.toml         what the run was given, overrides included; paths relative to the project root
+   ├── config.resolved.toml  the same with every default, and what the build decided; a replay compares to it
    ├── inputs.json         sealed: provider, product, version, request, fetched_at, sha256, licence
    ├── provenance.json     environment, versions, git, solver binaries; host and user stay here
    ├── manifest.json       the seal, written last
@@ -354,6 +355,14 @@ of :mod:`hydromodpy.core.state.paths`.
 **An identical case is skipped from disk**: the worker reads ``identity.config_hash`` in
 ``runs/<case>/manifest.json``, never the index. ``if_exists`` is ``version`` or ``fail``.
 
+**The hash says that two runs compute the same thing.** It covers the configuration without
+``[workspace]``, ``simulation.name`` and the values that equal a default, the digests of the input
+files, the mesh engine with its version, and the fingerprint of the code that computes
+(``hydromodpy/core/code_fingerprint.py``): one digest per layer that changes a number, over the
+tokens of each module, so a comment, a docstring or a reflow moves nothing and a figure or a
+command is out of its scope. A default that moves is seen through that fingerprint. The table is
+in ``provenance.json``, block ``tool``, so two runs that differ say in which layer.
+
 **The hash reads the run a case starts from.** A ``restart_from``, and a ``run`` of a
 ``[[mesh.refinement_zone]]``, name an earlier run. Before it hashes the configuration, the code
 replaces that name by the ``sim_id`` of the sealed run it designates
@@ -388,17 +397,19 @@ Every document HydroModPy writes carries its version: a ``schema`` id (``outcome
 ``inputs.json``, ``session.json``, ``phases/<p>/session.json``, each line of ``trials.jsonl``
 and ``published.jsonl``, ``plan.json``, ``PUBLICATION.json``, the ledgers ``index.json``,
 ``<file>.meta.json``, ``logs/heartbeat.json``, ``facts.json``, ``steps.json``,
-``launcher.lease``), an integer (``manifest_version``, ``provenance_version``,
-``annotations_version``), ``[hydromodpy] version`` in ``hydromodpy.lock``,
-``zarr_schema_version`` on a store, ``hmp.schema_version`` on a Parquet table, or the
-``schema_version`` row of the index.
+``launcher.lease``, ``hydromodpy.lock``), an integer (``manifest_version``, ``provenance_version``,
+``annotations_version``), ``zarr_schema_version`` on a store, ``hmp.schema_version`` on a Parquet table, or the
+``schema_version`` row of the index. The documents of a job directory carry a ``schema`` id of
+their own, such as ``hmp-outcome/v1`` (``manifest.json``, ``inputset.json``, ``provenance.json``,
+``outcome.json``, and ``chain-outcome.json`` at the root of a chain), and follow the same rule.
 
 The rule is written once, in :mod:`hydromodpy.core.io.document_version`. Every later 2.x reads
 every 2.0.0 document. Each family of sealed documents declares a window next to its current
 version, the oldest version it reads and the current one, and the two are equal at 2.0.0. A
 change that a reader can ignore (a new optional key, column or array) does not change the
 version. A change it cannot ignore raises the current version, keeps the oldest one and brings
-the reader of the old version with it. Nothing rewrites a stored document.
+the reader of the old version with it. Nothing upgrades a stored document to another version:
+a sealed file stays as it was written.
 
 A reader refuses a document outside the window, and the message names the version read, the
 version that wrote it when known, what this code reads and what to do:
@@ -413,19 +424,39 @@ Two kinds of document keep one exact version, because what they hold can be made
 - a transient document (pulse, facts, step journal, lease): delete it and run again.
 
 Inside the window a document written by a later 2.x reads. Models refuse an unknown key when
-they write, and every read of a stored document ignores one, at any depth
-(:func:`~hydromodpy.core.config_kit.stored.read_stored`). The published JSON Schemas under
+they write, and every read of a stored document accepts one, at any depth
+(:func:`~hydromodpy.core.config_kit.stored.read_stored`). Some documents stay alive after they
+are written: ``annotations.json``, ``outcome.json``, ``session.json``,
+``phases/<p>/session.json``, the lines of ``trials.jsonl`` and the ledgers. The commands that
+own them write them again, at their version, and such a rewrite keeps the keys it does not
+understand (:func:`~hydromodpy.core.config_kit.stored.dump_stored`), so a later 2.x finds what
+it wrote. The published JSON Schemas under
 ``hydromodpy/schema/results/`` allow additional properties. A stored field that can grow (a
 status, a kind, a regime, a topology) is a string with a written vocabulary: a word outside it
 is refused when the model is built to be written, and any word reads back. An append to a
 Parquet table keeps a column this code does not declare, and its own rows read it as null.
 
-Where a list or a decision reads a run or a session (``hmp project show``, ``hmp project status``,
-the skip of a case that is done, the trash, the gc), a document this code cannot read costs one
-warning naming it and is left out
-(:func:`~hydromodpy.results.storage.json_io.readable`). A case with an unreadable run is not
-done, and running it takes a new version beside the one left out. A gesture that names one
-document (``hmp.open``, ``hmp calibrate --resume``) keeps the refusal.
+Where a list or a decision reads a run or a session (``hmp project show``, the cases of ``hmp
+project status``, the skip of a case that is done, the trash, the gc, the session ``hmp report
+render`` picks when none is named), a document this code cannot read costs one warning naming it
+and is left out (:func:`~hydromodpy.results.storage.json_io.readable`). A manifest whose body its
+model refuses counts as one that cannot be read, at any version, and ``read_manifest`` and
+``read_seal`` read it the same way. A case with an unreadable run is not done, and running it
+takes a new version beside the one left out. A session counts as read when its descriptor, its
+phases and its journal all read.
+
+The seal says that a run is complete, so a document beside it never takes the run out of a list
+(:func:`~hydromodpy.results.storage.json_io.beside_seal`). An ``outcome.json``,
+``annotations.json`` or heartbeat of a sealed run that is newer than the window, or damaged, costs
+one warning naming it. The run stays in the index, in ``hmp catalog ls``, ``hmp export``, ``hmp
+project status`` and the gc, as ``completed``, with what its seal gives. The seal does not say the
+host, the process or the last step, so these stay empty, and the tags and notes stay out of the
+index while the file stays on disk. A newer outcome inside the window reads, and its unknown keys
+are kept.
+
+A gesture that names one document keeps the refusal: ``hmp.open``, ``hmp calibrate --resume``,
+``hmp report render <session>``, and the plan ``hmp project status`` reads, because without its
+plan the command knows no case.
 
 The one migration of a file HydroModPy keeps is the grammar of a configuration
 (``config/config_migration.py``, applied on load; ``hmp doctor --fix-config <file>`` rewrites
@@ -823,10 +854,20 @@ Concurrency and atomic writes
 Lockfile and reproducibility
 ----------------------------
 
-``hydromodpy.lock`` pins the workspace input cache of a project: the ``hydromodpy`` version, git
-commit, Python version and config schema fingerprint; the solver binaries with their SHA-256 and
-version text; the catalog, Zarr and Parquet schema versions; the input fingerprints (relative
-path, SHA-256, size, fetch date). The ``prepare`` phase writes it once per plan, never each run.
+``hydromodpy.lock`` pins the workspace input cache of a project. It is a TOML document with the
+id ``schema = "hydromodpy.lock.v1"``, read by the same version rule as the other documents, and it
+is meant to be committed and to travel, so it holds no path of the machine that wrote it.
+
+- ``[hydromodpy]`` holds the ``hydromodpy`` version, the git commits, the Python version, the
+  catalog, Zarr and Parquet schema versions and the sha256 of the config schema.
+- ``[binaries]`` holds the SHA-256 and the version text of the solver binaries a writer names. The
+  launcher and ``hmp dev lock update`` name none, and each run records the binary it used.
+- ``[[input]]`` is one record per entry of the cache: ``variable``, ``source``, ``station_id``, the
+  workspace-relative ``path``, ``sha256``, ``bytes``, ``file_mtime`` and ``fetched_at``, the instant
+  of the snapshot. Everything that reads the lock reads this record: the check of ``--frozen``,
+  ``hmp dev lock verify``, a restored archive and the frozen matching of the data cache.
+
+The ``prepare`` phase writes it once per plan, never each run.
 ``hmp run --frozen`` refuses any source whose fingerprint changed since, and checks the lockfile
 read-only.
 
@@ -834,11 +875,29 @@ The inputs of one run are sealed in its own ``inputs.json``: one entry per loade
 its provider, product, product version, the full request (extent, period, stations, step),
 ``fetched_at``, path, SHA-256, size and licence. A replay never depends on the project-wide file.
 
+``hmp run <run>/config.toml --frozen`` replays from that record alone. Before anything runs it
+refuses an input whose digest differs from ``inputs.json`` or from ``manifest.json``, naming the
+file and both digests, and a configuration that differs from ``config.resolved.toml``, naming each
+key and both values. It warns when the solver binary is not the one ``provenance.json`` records,
+naming both versions. Once it has run, it says what its build decided otherwise and which file it
+read that the source did not. ``hydromodpy.lock`` keeps its role for a project TOML.
+
+The configuration of a sealed run is two files. ``config.toml`` holds what the run was given,
+overrides included, and a validator that tells a written key from its default answers on it as it
+did on the run. ``config.resolved.toml`` holds every key with its value, and is never read back as
+a configuration. Its body adds what a rule derives from the configuration alone, by the rule the
+builders use: ``geographic.terrain_engine``, ``mesh.lake_refinement.shoreline_band`` and
+``hfb_buffer``, ``metrics.station``. Its table ``[resolved_at_build]`` holds what the build decided:
+the ETP the data step injected, with ``surface_offset_m`` and its reference, the cell sizes the mesh
+took from the DEM pixel (``pixel``, ``cell_size``, ``river_cell_size``, ``river_band``), and the
+station a run deduced. What the solver adapter decides later goes to ``provenance.json``, block
+``solver.options``: the IMS complexity and the XT3D decision of MODFLOW 6.
+
 Publishing and packages
 -----------------------
 
-``hmp publish <ref> --to <dir>`` copies ``README.md``, ``config.toml``, a redacted
-``provenance.json``, ``inputs.json``, ``manifest.json``, ``figures/``, ``exports/`` and
+``hmp publish <ref> --to <dir>`` copies ``README.md``, ``config.toml``,
+``config.resolved.toml``, a redacted ``provenance.json``, ``inputs.json``, ``manifest.json``, ``figures/``, ``exports/`` and
 ``report/``, generates ``ro-crate-metadata.json`` and writes ``PUBLICATION.json`` (the source
 project, relative directory and ``sim_id``, the SHA-256 of the manifest and of every copied file,
 the label and its date, the version, the date). ``--with results`` adds the stores and

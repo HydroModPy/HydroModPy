@@ -17,6 +17,7 @@ writes itself; the table wins over the base.
 
 from __future__ import annotations
 
+import copy
 import math
 import os
 import re
@@ -28,6 +29,7 @@ from typing import Any, Literal
 
 from pydantic import ValidationError
 
+from hydromodpy.config.config_migration import migrate_layers, migrate_merged_doc
 from hydromodpy.config.sites.binding import (
     Binding,
     BindingError,
@@ -68,7 +70,7 @@ from hydromodpy.core.toml_io.loader import (
     read_toml_chain,
 )
 from hydromodpy.core.toml_io.merge import merge_toml_payloads
-from hydromodpy.core.toml_io.overrides import env_overrides
+from hydromodpy.core.toml_io.overrides import ENV_SOURCE, SET_SOURCE, env_overrides
 from hydromodpy.core.toml_io.paths import (
     UnknownPathError,
     assign,
@@ -339,8 +341,9 @@ def expand_plan(
     )
     _warn_near_outlets(sites, near_site_m, warnings)
 
-    cli_payload = dict(set_overrides or {})
+    cli_payload = copy.deepcopy(dict(set_overrides or {}))
     env_payload = env_overrides(os.environ if env is None else env)
+    migrate_layers([(SET_SOURCE, cli_payload), (ENV_SOURCE, env_payload)])
     cases: list[DraftCase] = []
     for site in sites:
         for recipe in selected:
@@ -736,6 +739,8 @@ def _resolve_case(
             cli_overrides=cli,
             env_overrides=env,
         )
+        # What waited for the whole document. Each layer told its old forms already.
+        migrate_merged_doc(document)
     except ValueError as exc:
         errors.append(PlanIssue(message=str(exc), origin=recipe.file.name, case_id=case_id))
         return None
@@ -875,9 +880,9 @@ def _owner_of(
 
 def _config_hash(cfg: Any) -> str | None:
     """Return the identity hash of a case, the one its run records."""
-    from hydromodpy.results.catalog.registration import input_file_digests, run_identity_hash
+    from hydromodpy.results.catalog.registration import config_identity_hash
 
-    return run_identity_hash(cfg.model_dump(mode="json"), inputs=input_file_digests(cfg))
+    return config_identity_hash(cfg)
 
 
 def case_is_done(root: Path, case_id: str, config_hash: str | None, kind: CaseKind) -> bool:
@@ -890,7 +895,7 @@ def case_is_done(root: Path, case_id: str, config_hash: str | None, kind: CaseKi
     if config_hash is None:
         return False
     from hydromodpy.results.catalog.registration import split_stem_version
-    from hydromodpy.results.manifest import is_sealed, read_manifest
+    from hydromodpy.results.manifest import is_sealed, read_seal
     from hydromodpy.results.storage.json_io import readable
 
     if kind == "calibration":
@@ -917,11 +922,8 @@ def case_is_done(root: Path, case_id: str, config_hash: str | None, kind: CaseKi
     for entry in runs.iterdir():
         if split_stem_version(entry.name)[0] != case_id or not is_sealed(entry):
             continue
-        manifest = readable(read_manifest, entry)
-        if manifest is None:
-            continue
-        identity = manifest.get("identity") or {}
-        if identity.get("config_hash") == config_hash:
+        seal = readable(read_seal, entry)
+        if seal is not None and seal.identity.config_hash == config_hash:
             return True
     return False
 

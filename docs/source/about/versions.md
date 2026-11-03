@@ -32,8 +32,9 @@ This covers the name or the place of a TOML key, an `hmp` command or flag, a nam
 The old name keeps working for two minor versions, the one that changes it included. A key
 renamed in 2.3 still loads in 2.3 and 2.4, and can go in 2.5. While it works it prints a warning
 that gives the old name and the new one, once per key and per file. `hmp doctor --fix-config
-<file>` rewrites your file, and keeps your comments. The changelog lists the rename under
-`Changed` with both names, and later its removal under `Removed`.
+<file>` rewrites your file and the files it inherits, and keeps your comments. An old name of Python, or an old `hmp` command
+or flag, prints a `FutureWarning` with both names and then does what the new one does. The
+changelog lists the rename under `Changed` with both names, and later its removal under `Removed`.
 
 ### Numbers
 
@@ -50,6 +51,21 @@ A file that does not say which defaults it wants follows the defaults of 2.0, fo
 line. So a key you did not write never changes your numbers. The day a default has to move, an
 optional `edition` key comes with it, and only a file that writes this key gets the new value.
 The key does not exist yet, because no default has moved.
+
+### What makes two runs the same
+
+Two runs are the same computation when their configurations, the bytes of their input files,
+the mesh engine and the code that computes agree. A release that only touches figures, commands
+or this documentation keeps that identity, so an identical run is not computed again, and an edit
+of a solver changes it.
+
+### What a sealed run keeps
+
+A run seals `config.toml`, what it was given, overrides included, and `config.resolved.toml`, the
+same with every default written. `hmp run <run>/config.toml --frozen` compares the two with what
+this version would use and refuses a key that moved. It also checks the digests of the inputs the
+run recorded, and warns when the solver binary differs. `hmp catalog rerun` warns on the same keys
+and records them in the lineage of the new run.
 
 ### Experimental
 

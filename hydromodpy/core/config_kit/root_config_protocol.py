@@ -11,6 +11,7 @@ root config from raw payloads without depending on ``hydromodpy.config``.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -35,13 +36,20 @@ class RootConfigProvider(Protocol):
         ``sealed`` reads the frozen config of a run already on disk.
         """
 
-    def migrate_on_load(
-        self, payload: dict[str, Any], *, source: str | Path | None = None
-    ) -> list[str]:
-        """Migrate a raw TOML payload written for an earlier schema, in memory.
+    def migrate_layers(self, layers: Sequence[tuple[str | Path | None, Any]]) -> list[str]:
+        """Migrate each layer of a document on its own, in place, before the merge.
 
-        Rewrites ``payload`` in place and returns the changes applied. Raises
-        :class:`ValueError` on a legacy key that has no exact equivalent.
+        A layer is where its keys came from and the document that writes them.
+        Returns the changes applied.
+        """
+
+    def migrate_merged(
+        self, document: dict[str, Any], layers: Sequence[tuple[str | Path | None, Any]]
+    ) -> list[str]:
+        """Run the migrations that need the merged document, in place.
+
+        Returns the changes applied. Raises :class:`ValueError` on a legacy key that
+        has no exact equivalent.
         """
 
 

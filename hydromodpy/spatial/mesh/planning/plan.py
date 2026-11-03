@@ -47,6 +47,8 @@ from hydromodpy.spatial.mesh.planning.size_terms import (
     line_gap_terms,
     outside_coarsening,
     refinement_terms,
+    river_band_m,
+    river_size_m,
 )
 from hydromodpy.spatial.mesh.request import LineFamilySpec, MeshRequest, RasterGridSpec, SizeField
 from hydromodpy.spatial.mesh.resample import KINK_MIN_SHARE, node_tolerance, resample_families
@@ -54,6 +56,16 @@ from hydromodpy.spatial.mesh.resample import KINK_MIN_SHARE, node_tolerance, res
 __all__ = ["plan_mesh_request", "smoothed_catchment"]
 
 _logger = get_logger(__name__)
+
+
+def resolved_sizes(mesh_cfg: MeshConfig, request: MeshRequest) -> dict[str, float]:
+    """Return the sizes [m] the mesh of *request* took from the DEM pixel and the rules."""
+    pixel = _pixel_size(request.grid)
+    sizes = {"pixel": pixel, "cell_size": float(request.nominal_size_m)}
+    if request.size_field is not None and any(family.name == "rivers" for family in request.lines):
+        sizes["river_cell_size"] = float(river_size_m(mesh_cfg, pixel=pixel))
+        sizes["river_band"] = float(river_band_m(mesh_cfg, h0=request.nominal_size_m))
+    return sizes
 
 
 def _pixel_size(grid: RasterGridSpec) -> float:

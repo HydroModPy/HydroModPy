@@ -1,0 +1,16 @@
+base_config = "step1_minimal.toml"
+[simulation]
+name = "nancon_step2_local"
+[simulation.results.derived]
+release_flux = true
+[data]
+types = ["hydrography", "hydrometry"]
+[[data.hydrography.sources]]
+source = "custom"
+path = "nancon_stream_network.gpkg"
+[[data.hydrometry.sources]]
+source = "custom"
+path = "hydrometry"
+station_ids = ["NANCON"]
+[display]
+figures = ["watershed_id_card", "seepage_network_confusion_map"]

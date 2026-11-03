@@ -25,7 +25,7 @@ from typing import Any, Final
 from pydantic import ConfigDict, Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
-from hydromodpy.core.config_kit.stored import read_stored
+from hydromodpy.core.config_kit.stored import dump_stored, read_stored
 from hydromodpy.core.state.paths import INTERNAL_DIRNAME, RUN_INTERNAL_CHECKPOINTS_DIRNAME
 from hydromodpy.core.version import __version__ as HMP_VERSION
 from hydromodpy.results.checks import CalibratedBy, Validity
@@ -108,6 +108,10 @@ class RunFacts(HydroModelBase):
     solver_category: str | None = None
     flow_regime: FlowRegime | None = None
     config_hash: str | None = Field(default=None, description="Identity hash, without [workspace]")
+    solver_output_dirs: dict[str, str] = Field(
+        default_factory=dict,
+        description="Folder each run of the plan solved in, by run id, for a resume to read",
+    )
     config_source: str | None = Field(default=None, description="File the run was launched from")
     config_file: str | None = Field(default=None, description="config.toml once frozen")
     description: str | None = None
@@ -323,7 +327,7 @@ def facts_path(run_dir: str | Path) -> Path:
 
 def write_facts(run_dir: str | Path, facts: RunFacts) -> Path:
     """Write the facts atomically and return their path."""
-    return write_json_atomic(facts_path(run_dir), facts.model_dump(mode="json", by_alias=True))
+    return write_json_atomic(facts_path(run_dir), dump_stored(facts))
 
 
 def read_facts(run_dir: str | Path) -> RunFacts | None:

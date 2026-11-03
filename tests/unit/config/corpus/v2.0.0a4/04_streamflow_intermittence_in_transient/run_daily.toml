@@ -1,0 +1,12 @@
+base_config = "project.toml"
+[simulation]
+name = "nancon_intermittence_mf6_daily"
+description = "Nancon catchment, daily transient 2000-2002, seasonal seepage intermittence."
+[simulation.time]
+step_value = "1 day"
+[[data.recharge.sources]]
+station_ids = ["NANCON_REA"]
+[[data.runoff.sources]]
+station_ids = ["NANCON_REA"]
+[display]
+figures__append = ["hydrograph_sim_obs", "duration_curve", "recession"]

@@ -11,8 +11,8 @@ import pytest
 
 import hydromodpy
 from hydromodpy.cli.commands.catalog import rerun as rerun_cmd
-from hydromodpy.results.manifest import RUN_RECORD_MANIFEST_VERSION
 from hydromodpy.results.run import rerun_contract
+from tests._helpers.sealed_runs import manifest_document
 
 SOURCE_ID = "9a4f0c1e-0000-4000-8000-000000000001"
 NEW_ID = "7b1e0000-0000-4000-8000-000000000002"
@@ -47,7 +47,7 @@ def _project(tmp_path: Path) -> Path:
         '[simulation]\nname = "nancon_monthly"\n[flow]\nk = 1e-5\n', encoding="utf-8"
     )
     (run_dir / "manifest.json").write_text(
-        json.dumps({"manifest_version": RUN_RECORD_MANIFEST_VERSION, "run": {"sim_id": SOURCE_ID}}),
+        json.dumps(manifest_document(sim_id=SOURCE_ID)),
         encoding="utf-8",
     )
     return project
@@ -73,16 +73,18 @@ def test_rerun_reads_the_frozen_config_and_keeps_the_name(
     calls: dict = {}
 
     class MockProvider:
-        def rerun(self, snapshot, *, overrides, name, source_sim_id=None):
+        def rerun(self, snapshot, *, overrides, name, source_sim_id=None, source_dir=None):
             calls.update(
-                overrides=dict(overrides), name=name, snapshot=snapshot, source=source_sim_id
+                overrides=dict(overrides),
+                name=name,
+                snapshot=snapshot,
+                source=source_sim_id,
+                source_dir=source_dir,
             )
             new_dir = project / "runs" / "nancon_monthly.v3"
             new_dir.mkdir()
             (new_dir / "manifest.json").write_text(
-                json.dumps(
-                    {"manifest_version": RUN_RECORD_MANIFEST_VERSION, "run": {"sim_id": NEW_ID}}
-                ),
+                json.dumps(manifest_document(sim_id=NEW_ID)),
                 encoding="utf-8",
             )
             return NEW_ID
@@ -102,6 +104,7 @@ def test_rerun_reads_the_frozen_config_and_keeps_the_name(
     assert code == 0
     assert calls["name"] == "nancon_monthly"
     assert calls["source"] == SOURCE_ID
+    assert calls["source_dir"] == project.resolve() / "runs" / "nancon_monthly.v2"
     assert calls["overrides"] == {"flow.k": 2e-4}
     assert calls["snapshot"]["flow"]["k"] == 1e-5
     assert calls["snapshot"]["workspace"]["project_root"] == str(project.resolve())
@@ -131,8 +134,8 @@ def test_the_provider_seals_the_child_as_a_rerun_of_its_source(monkeypatch) -> N
     seen: dict = {}
 
     class _Project:
-        def __init__(self, snapshot) -> None:
-            self.config = {"flow": {"k": 1e-5}}
+        def __init__(self, config) -> None:
+            self.config = config
             self._ctx = types.SimpleNamespace(parent_sim_id=None)
 
         def simulate(self, *, name, lineage):
@@ -147,7 +150,11 @@ def test_the_provider_seals_the_child_as_a_rerun_of_its_source(monkeypatch) -> N
     monkeypatch.setattr(project_module, "Project", _Project)
     from hydromodpy.config import HydroModPyConfig
 
-    monkeypatch.setattr(HydroModPyConfig, "from_snapshot", classmethod(lambda cls, s: s))
+    monkeypatch.setattr(
+        HydroModPyConfig,
+        "from_snapshot",
+        classmethod(lambda cls, s, changes=None: {"flow": {"k": changes["flow.k"]}}),
+    )
 
     new_id = ProjectRerunProvider().rerun(
         {"flow": {"k": 1e-5}},

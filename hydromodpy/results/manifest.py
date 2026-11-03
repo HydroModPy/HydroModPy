@@ -40,7 +40,7 @@ from typing import Annotated, Any, Final, Literal
 from pydantic import Field, field_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
-from hydromodpy.core.config_kit.stored import Vocabulary
+from hydromodpy.core.config_kit.stored import Vocabulary, read_stored
 from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.results.checks import Checks
 from hydromodpy.results.identity import Identity
@@ -55,6 +55,7 @@ from hydromodpy.results.storage.contract import (
     RUN_FIGURES_DIRNAME,
     RUN_MANIFEST_FILENAME,
     RUN_PROVENANCE_FILENAME,
+    RUN_RESOLVED_CONFIG_FILENAME,
     RUN_SCRATCH_ENTRIES,
     TABLES_DIRNAME,
 )
@@ -358,13 +359,14 @@ KEY_PACKAGES: tuple[str, ...] = (
 _ARTEFACT_ROLES: dict[str, str] = {
     FIELDS_STORE_NAME: "fields",
     RUN_CONFIG_FILENAME: "config",
+    RUN_RESOLVED_CONFIG_FILENAME: "config_resolved",
     RUN_PROVENANCE_FILENAME: "provenance",
     RUN_MANIFEST_FILENAME: "manifest",
 }
 
 
-def read_manifest(run_dir: Path | str) -> dict[str, Any]:
-    """Return the manifest of a run directory.
+def read_seal(run_dir: Path | str) -> Manifest:
+    """Return the manifest of a run directory, typed.
 
     Raises
     ------
@@ -373,7 +375,26 @@ def read_manifest(run_dir: Path | str) -> dict[str, Any]:
     hydromodpy.core.exceptions.SchemaVersionMismatchError
         When its ``manifest_version`` is missing or lies outside
         :data:`MANIFEST_VERSIONS`; the message names the version that wrote it.
+    pydantic.ValidationError
+        When the model refuses its body. A list that reads through
+        :func:`~hydromodpy.results.storage.json_io.readable` leaves it out.
     """
+    return read_stored(Manifest, _manifest_payload(run_dir))
+
+
+def read_manifest(run_dir: Path | str) -> dict[str, Any]:
+    """Return the manifest of a run directory as the file holds it, future keys included.
+
+    It reads and refuses what :func:`read_seal` reads and refuses, so one
+    manifest never reads two ways. A caller that wants the fields takes
+    :func:`read_seal`.
+    """
+    payload = _manifest_payload(run_dir)
+    read_stored(Manifest, payload)
+    return payload
+
+
+def _manifest_payload(run_dir: Path | str) -> dict[str, Any]:
     path = Path(run_dir) / RUN_MANIFEST_FILENAME
     if not path.is_file():
         raise FileNotFoundError(
@@ -519,4 +540,5 @@ __all__ = [
     "is_sealed",
     "list_artifacts",
     "read_manifest",
+    "read_seal",
 ]

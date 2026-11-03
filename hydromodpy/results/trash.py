@@ -57,7 +57,7 @@ from hydromodpy.core.state.paths import (
     trash_dir_for,
 )
 from hydromodpy.results.annotations import read_annotations
-from hydromodpy.results.manifest import is_sealed, read_manifest
+from hydromodpy.results.manifest import read_seal
 from hydromodpy.results.outcome import effective_status, read_outcome
 from hydromodpy.results.session.descriptor import read_session
 from hydromodpy.results.storage.contract import (
@@ -326,14 +326,12 @@ def gc_trash(project_root: Path, *, older_than: timedelta, now: datetime) -> lis
 
 def identity_of(directory: Path) -> str | None:
     """Return the ``sim_id`` or ``session_id`` a directory declares, if any."""
+    seal = readable(read_seal, directory)
+    if seal is not None:
+        return seal.run.sim_id
     outcome = readable(read_outcome, directory)
     if outcome is not None and outcome.sim_id:
         return str(outcome.sim_id)
-    if is_sealed(directory):
-        manifest = readable(read_manifest, directory)
-        sim_id = None if manifest is None else manifest.get("run", {}).get("sim_id")
-        if sim_id:
-            return str(sim_id)
     if (directory / SESSION_DESCRIPTOR_FILENAME).is_file():
         descriptor = readable(read_session, directory)
         if descriptor is not None and descriptor.session_id:

@@ -17,7 +17,9 @@ import argparse
 import pytest
 
 from hydromodpy.cli import conventions
+from hydromodpy.cli.commands.project import status
 from hydromodpy.cli.main import _build_parser
+from tools.docs.api_registry import walk_parser
 
 # Family groups whose bare invocation must be a usage error (exit 2).
 REQUIRED_GROUPS = (
@@ -186,3 +188,91 @@ def test_dev_doctor_removed() -> None:
     dev_sub = _subparsers_action(top.choices["dev"])
     assert "doctor" not in dev_sub.choices
     assert "doctor" in top.choices
+
+
+OLD_FORMS = (
+    (
+        "hmp project status --stale",
+        "hmp project status --stale-minutes",
+        ["project", "status", "--stale", "7"],
+        ("stale_minutes", 7.0),
+    ),
+    (
+        "hmp project status --json",
+        "hmp project status --format json",
+        ["project", "status", "--json"],
+        ("format", "json"),
+    ),
+    (
+        "hmp project status --silent",
+        "hmp project status --quiet",
+        ["project", "status", "--silent"],
+        ("verbosity", "quiet"),
+    ),
+    (
+        "hmp project state",
+        "hmp project status",
+        ["project", "state", "--format", "csv"],
+        ("format", "csv"),
+    ),
+    ("hmp status", "hmp project status", ["status", "--format", "csv"], ("format", "csv")),
+)
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "argv", "expected"), OLD_FORMS, ids=[row[0] for row in OLD_FORMS]
+)
+def test_an_old_form_warns_and_does_what_the_new_form_does(
+    old: str,
+    new: str,
+    argv: list[str],
+    expected: tuple[str, object],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    form = conventions.OldCliForm(old, new, "2.3.0")
+    monkeypatch.setattr(conventions, "OLD_CLI_FORMS", (form,))
+
+    with pytest.warns(FutureWarning, match=f"{old} is now {new}.*2.3.0"):
+        args = _parse(argv)
+
+    dest, value = expected
+    assert getattr(args, dest) == value
+    assert args._handler is status.run
+
+
+def test_an_old_form_leaves_the_new_form_and_the_help_alone(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    forms = tuple(conventions.OldCliForm(old, new, "2.3.0") for old, new, _, _ in OLD_FORMS)
+    monkeypatch.setattr(conventions, "OLD_CLI_FORMS", forms)
+
+    assert _parse(["project", "status"]).format == "table"
+    with pytest.raises(SystemExit):
+        _parse(["project", "status", "--help"])
+
+    assert "--silent" not in capsys.readouterr().out
+    commands = {" ".join(row["path"]): row for row in walk_parser(_build_parser(), ["hmp"])}
+    assert not {"hmp status", "hmp project state"} & set(commands)
+    flags = {flag for arg in commands["hmp project status"]["arguments"] for flag in arg["flags"]}
+    assert not {"--stale", "--json", "--silent"} & flags
+
+
+def test_a_required_flag_is_answered_by_either_form(monkeypatch: pytest.MonkeyPatch) -> None:
+    form = conventions.OldCliForm(
+        "hmp project array --sched", "hmp project array --scheduler", "2.3.0"
+    )
+    monkeypatch.setattr(conventions, "OLD_CLI_FORMS", (form,))
+
+    assert _parse(["project", "array", "--scheduler", "slurm"]).scheduler == "slurm"
+    with pytest.warns(FutureWarning, match="--sched is now"):
+        assert _parse(["project", "array", "--sched", "slurm"]).scheduler == "slurm"
+    with pytest.raises(SystemExit):
+        _parse(["project", "array"])
+
+
+def test_an_old_form_that_names_nothing_stops_the_build(monkeypatch: pytest.MonkeyPatch) -> None:
+    form = conventions.OldCliForm("hmp project status --old", "hmp project status --none", "2.3.0")
+    monkeypatch.setattr(conventions, "OLD_CLI_FORMS", (form,))
+
+    with pytest.raises(KeyError, match="--none"):
+        _build_parser()

@@ -1,0 +1,45 @@
+base_config = "step4_transient.toml"
+[simulation]
+name = "nancon_step5_export"
+[[export]]
+variables = ["watershed", "hydrographic_network_reference"]
+[[export]]
+variables = "watershed"
+format = "shapefile"
+[[export]]
+variables = "watershed_dem"
+[[export]]
+variables = ["head", "watertable_depth", "seepage_mask"]
+time = "2002-10-15"
+[[export]]
+variables = "simulated_active_network"
+time = "2002-10-15"
+format = "geopackage"
+[[export]]
+variables = ["head", "watertable_depth"]
+file = "watertable_2000_2002.nc"
+[[export]]
+variables = ["discharge", "discharge_obs"]
+period = ["2001-01-01", "2002-12-31"]
+[[export]]
+variables = "budget"
+[[export]]
+variables = "watertable_depth"
+time = "2002-10-15"
+file = "watertable_depth_wgs84.tif"
+crs = "EPSG:4326"
+[[export]]
+variables = "head"
+time = "2002-10-15"
+format = "vtu"
+[[export]]
+variables = "all"
+format = "package"
+[display]
+figures = [
+    "watershed_id_card",
+    "flux_timeseries",
+    "hydrograph_sim_obs",
+    "seepage_map",
+    "seepage_network_confusion_map",
+]

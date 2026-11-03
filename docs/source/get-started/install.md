@@ -88,6 +88,8 @@ hmp install-binaries
 ```
 
 `--subset mf6,mfnwt` takes only some of the programs and `--upgrade` downloads them again.
+Each version of HydroModPy names one MODFLOW release and the sha256 of its files, and a download
+that does not match is refused.
 The other options are in {doc}`the command reference <../reference/cli/install-binaries>`.
 The environment variable `HMP_BIN` points HydroModPy at a folder of your own binaries, flat,
 with the file names `mf6`, `mfnwt` and so on. When it is set, HydroModPy reads that folder
@@ -146,8 +148,8 @@ other solvers do not need it. The workflows are in `.github/workflows/` and desc
 | `hmp: command not found` | The environment that holds the command is not active, or the folder of pip scripts is not on `PATH` (a `pip install --user`). | Activate the environment. Or call the module, which is the same program: `python -m hydromodpy --version`. On Windows the command is `.venv\Scripts\hmp.exe`. |
 | `hmp --version` prints `1.0.0` | `--pre` was left out, so pip took the stable release. | `pip install --pre --upgrade hydromodpy`. |
 | `ImportError: ... cannot open shared object file` when `gmsh` or `rasterio` loads, on Linux | A system library is missing. The Dockerfile of the repository installs `libglu1-mesa` for gmsh and `libexpat1` for rasterio. | On Debian or Ubuntu: `sudo apt-get install libglu1-mesa libexpat1`. |
-| `Could not download the MODFLOW binaries of release <tag> from <address>: [Errno 111] Connection refused. ...` from `hmp install-binaries`, or `step 'run_solver' failed: NetworkError: Could not download ...` from the first run. Exit code 16 | The binaries are downloaded from GitHub and the machine has no direct route to it. | Behind a proxy, set `HTTPS_PROXY` (`urllib` reads it). Offline, download the executables elsewhere, copy them in one flat folder and set `HMP_BIN` to it. |
-| `use GITHUB_TOKEN env to bypass rate limit` | GitHub limits the unauthenticated requests that look up the release. | Set `GITHUB_TOKEN` to a token of your own and run the command again. |
+| `Could not download the MODFLOW binaries of release <tag> from <address>: [Errno 111] Connection refused. ...` from `hmp install-binaries`, or `step 'run_solver' failed: NetworkError: Could not download ...` from the first run. Exit code 16 | The binaries are downloaded from GitHub and the machine has no direct route to it. | Behind a proxy, set `HTTPS_PROXY` (`requests` reads it). Offline, download the executables elsewhere, copy them in one flat folder and set `HMP_BIN` to it. |
+| `<zip> downloaded from <address> hashes to <digest>, and HydroModPy pins sha256 <digest> for it. ...` from `hmp install-binaries` or the first run. Exit code 16 | The file that arrived is not the one this version was released with. HydroModPy keeps nothing of it. | Check the proxy and try again. If it stays, report it, and meanwhile set `HMP_BIN` to a folder of executables you trust. |
 | `WARN solver:mf6 not cached, not on PATH` from `hmp doctor` | Nothing was downloaded yet. | Run `hmp install-binaries`, or run any simulation: the first one downloads. |
 | Pip builds a library for a long time, or fails on `rasterio` or `pyproj` | No wheel for your Python or platform. | Use the conda tab above and let conda-forge provide that library. |
 

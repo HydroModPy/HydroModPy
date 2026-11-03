@@ -1,0 +1,73 @@
+base_config = "project.toml"
+[workflow]
+mode = "calibration"
+[simulation]
+name = "nancon_intermittence_mf6_bdtopage"
+description = "Nancon, K from the permanent and complete BD Topage maps, then Sy from the gauge."
+[data.hydrography]
+sources__delete = true
+[[data.hydrography.sources]]
+source = "bdtopage"
+[calibration]
+rerun_best_with_outputs = true
+[calibration.parameters.K]
+bounds = [1e-7, 1e-3]
+[calibration.parameters.Sy]
+bounds = [5e-3, 0.35]
+[calibration.outputs.seepage_network]
+support = "network"
+observed_network = "data.hydrography"
+minimal_observed_network = "data.hydrography"
+[calibration.outputs.seepage_network.extent]
+maximal_flowing_steps = 1
+minimal_dry_steps = 1
+year_quorum = 1.0
+visible_flow = "1 L/s"
+[calibration.outputs.seepage_network.extent.weights]
+minimal = 0.5
+maximal = 0.5
+[calibration.outputs.hydrograph]
+support = "point"
+variable = "discharge"
+observes = "NANCON"
+[[calibration.objective_blocks]]
+name = "network_extent"
+metric = "distance_gap"
+uses_outputs = ["seepage_network"]
+[[calibration.objective_blocks]]
+name = "hydrograph"
+metric = "nse_log"
+uses_outputs = ["hydrograph"]
+[[calibration.phases]]
+name = "transient_conductivity"
+description = "Match the yearly minimal and maximal simulated extents to the permanent and complete BD Topage maps by moving K, monthly transient."
+parameters = ["K"]
+regime = "transient"
+objective_blocks = ["network_extent"]
+method = "bisection"
+[calibration.phases.scoring_window]
+start = "2001-01-01"
+[[calibration.phases]]
+name = "transient_storage"
+description = "Read Sy from the observed hydrograph, K frozen, monthly transient, scored from 2001-01-01 on."
+parameters = ["Sy"]
+regime = "transient"
+objective_blocks = ["hydrograph"]
+method = "scipy_nelder_mead"
+max_iter = 30
+tolerance = 0.05
+depends_on = "transient_conductivity"
+[calibration.phases.scoring_window]
+start = "2001-01-01"
+[display]
+figures = [
+    "watershed_id_card",
+    "hydrographic_network_permanence",
+    "network_extent_bounds_map",
+    "hydrograph_log_nse",
+    "flow_persistence_map",
+    "seepage_network_confusion_map",
+    "bisection_bracket_trace",
+    "parameter_cost_profile",
+    "matching_hydrographic_network_card",
+]

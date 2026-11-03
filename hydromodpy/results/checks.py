@@ -30,16 +30,10 @@ from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.stored import Vocabulary
-from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.results.metric_rule import DateWindow
 
 CHECKS_SCHEMA: Final[str] = "hydromodpy.checks.v1"
 """Schema id of the block, the name of its JSON Schema file."""
-
-CHECKS_VERSIONS: Final[VersionWindow] = VersionWindow(
-    oldest="hydromodpy.checks.v1", current=CHECKS_SCHEMA
-)
-"""Versions of the block this code reads; the seal around it carries the key that is checked."""
 
 CalibrationSessionStatus = Annotated[str, Vocabulary("completed", "partial", "aborted")]
 """How the session that promoted a run ended."""

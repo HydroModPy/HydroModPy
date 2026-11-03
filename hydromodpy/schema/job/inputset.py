@@ -24,12 +24,15 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
+from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.core.licensing import UNDETERMINED_LICENSE
 from hydromodpy.schema.job.digest import sha256_file, sha256_value
 from hydromodpy.schema.job.extent import SpatialExtent
 from hydromodpy.schema.media_types import JSON_MEDIA_TYPE
 
 INPUTSET_SCHEMA = "hmp-inputset/v1"
+INPUTSET_VERSIONS = VersionWindow(oldest=INPUTSET_SCHEMA, current=INPUTSET_SCHEMA)
+"""Versions of the input set this code reads."""
 
 Confidence = Literal["declared", "assumed", "undetermined"]
 
@@ -236,6 +239,7 @@ def build_inputset(resources: Sequence[InputResource]) -> InputSet:
 
 __all__ = [
     "INPUTSET_SCHEMA",
+    "INPUTSET_VERSIONS",
     "UNDETERMINED",
     "Confidence",
     "InputResource",

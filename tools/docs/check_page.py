@@ -98,7 +98,7 @@ class Registry:
         current = ""
         for seg in concrete.split("."):
             seg = seg.strip('"')
-            for suffix in ("__append", "__delete"):
+            for suffix in ("__append", "__delete", "__merge"):
                 seg = seg.removesuffix(suffix)
             cands = self.nodes.get(current, {}).get("children", [])
             nxt = f"{current}.{seg}" if current else seg

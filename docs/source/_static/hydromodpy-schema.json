@@ -5485,7 +5485,7 @@
           "x-hmp-profile": "user"
         },
         "figures": {
-          "description": "Names of registered figures to auto-render at the end of `hmp run`, written to runs/<run>/figures/ and recorded in figures/index.json, which `hmp viz regen` replays. Every name must exist in the figure registry; list them with `hmp viz list`. A figure whose requirements the run does not meet is skipped with an explicit reason. Empty list disables auto-rendering. Disable per-run via `hmp run --no-display` or for an entire Python Project via `Project(..., no_display=True)`.",
+          "description": "Names of registered figures to auto-render at the end of `hmp run`, written to runs/<run>/figures/ and recorded in figures/index.json, which `hmp viz regen` replays. Every name must exist in the figure registry; list them with `hmp viz list`. A figure whose requirements the run does not meet is skipped with an explicit reason. Empty list disables auto-rendering. Disable per-run via `hmp run --no-display` or for an entire Python Project via `Project(..., no_display=True)`: nothing is drawn then, and the run keeps the same data, so `hmp viz regen` can draw them later.",
           "items": {
             "type": "string"
           },
@@ -25600,7 +25600,7 @@
     },
     "base_config": {
       "type": "string",
-      "description": "Path of a TOML file this file extends, relative to this file. The keys written here replace the ones the base file sets. Lists replace the base list: the suffix __append extends it, __merge merges its tables in order, and a key is removed with <key>__delete = true."
+      "description": "Path of a TOML file this file extends, relative to this file. The keys written here replace the ones the base file sets. Lists replace the base list: the suffix __append extends it, __merge merges each table with the inherited one of the same id, name or source, and a key is removed with <key>__delete = true."
     }
   },
   "title": "HydroModPyConfig",

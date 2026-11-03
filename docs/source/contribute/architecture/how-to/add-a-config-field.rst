@@ -335,8 +335,14 @@ A stable key leaves under the rules of :doc:`/about/versions`, so it keeps loadi
 for two minor versions. In one change:
 
 1. Add a row to ``RENAMED_KEYS`` in ``hydromodpy/config/config_migration.py``, with
-   ``since`` set to the version that will ship the change. A load then reads the old
-   name with a warning, and ``hmp doctor --fix-config`` rewrites the file.
+   ``since`` set to the version that will ship the change, or a row to ``MOVED_TABLES``
+   when the key or the table changes place. A load then reads the old name with a
+   warning, and ``hmp doctor --fix-config`` rewrites the file and the files it inherits.
+   That one row also carries the dotted paths that name the key: the ``overrides`` of a
+   calibration phase, ``path`` and ``target`` of a calibration parameter, the keys of
+   ``[sites.bind]`` and of the ``set`` table of a recipe, ``--set``, ``HMP_SET_*``, and
+   the directives ``<old>__append``, ``<old>__merge`` and ``<old>__delete``. A figure
+   option is a row with the scope ``display.overrides.{*}``.
 2. List the old key in the ``model_refused_keys`` of the model, with ``renamed_to``, so
    a config built in Python is told what to write.
 3. Name the old path in ``renamed_from`` on the new field, so the changes page lists
@@ -344,6 +350,9 @@ for two minor versions. In one change:
 4. Run ``python -m tools.surface_snapshot``. It refuses a stable key that has no row in
    the table, and it records the key in ``removed_toml_keys.tsv``.
 5. Write the old and the new name under ``Changed`` in the changelog.
+
+``tests/unit/config/test_historical_configs.py`` loads real files of the published alphas
+from ``tests/unit/config/corpus/``, so a rename with no row fails there.
 
 A row outlives its delay when the version of the package reaches ``since`` plus two
 minor versions, and ``tests/unit/config/test_config_migration.py`` then fails. Set

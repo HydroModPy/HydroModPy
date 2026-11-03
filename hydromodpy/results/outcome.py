@@ -21,9 +21,10 @@ Precedence, when reading
 ------------------------
 :func:`effective_status` reads the directory and answers one word. The seal
 wins: ``manifest.json`` present means ``completed`` whatever the outcome says,
-because the manifest is written before the outcome flips to ``completed``. A
-seal, or an outcome, this code cannot read is ``unreadable``, after one warning
-naming it: a directory of another version never stops a listing.
+because the manifest is written before the outcome flips to ``completed``, and
+the outcome is not even read. A seal this code cannot read, or the outcome or
+the pulse of an unsealed directory, is ``unreadable``, after one warning naming
+it: a directory of another version never stops a listing.
 Then the outcome: ``completed`` without a manifest is ``partial`` (the seal
 never landed); ``failed`` and ``aborted`` stand; ``running`` is ``running``
 while the pulse is fresh and ``stale`` once it is older than the threshold
@@ -46,11 +47,11 @@ from typing import Annotated, Final, Literal
 from pydantic import ConfigDict, Field, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
-from hydromodpy.core.config_kit.stored import Vocabulary, read_stored
+from hydromodpy.core.config_kit.stored import Vocabulary, dump_stored, read_stored
 from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.core.state.paths import process_is_alive
 from hydromodpy.results.heartbeat import heartbeat_age_s
-from hydromodpy.results.manifest import read_manifest
+from hydromodpy.results.manifest import read_seal
 from hydromodpy.results.storage.contract import RUN_MANIFEST_FILENAME, RUN_OUTCOME_FILENAME
 from hydromodpy.results.storage.json_io import (
     UNREADABLE_ERRORS,
@@ -135,7 +136,7 @@ def outcome_path(run_dir: str | Path) -> Path:
 
 def write_outcome(run_dir: str | Path, outcome: Outcome) -> Path:
     """Write the outcome durably and return its path."""
-    return write_json_durable(outcome_path(run_dir), outcome.model_dump(mode="json", by_alias=True))
+    return write_json_durable(outcome_path(run_dir), dump_stored(outcome))
 
 
 def read_outcome(run_dir: str | Path) -> Outcome | None:
@@ -165,7 +166,7 @@ def effective_status(
     """
     directory = Path(run_dir)
     if (directory / RUN_MANIFEST_FILENAME).is_file():
-        return "unreadable" if readable(read_manifest, directory) is None else "completed"
+        return "unreadable" if readable(read_seal, directory) is None else "completed"
     try:
         outcome = read_outcome(directory)
     except UNREADABLE_ERRORS as exc:
@@ -180,7 +181,11 @@ def effective_status(
     if death_is_proven(outcome.host, outcome.pid):
         return "stale"
     instant = now if now is not None else datetime.now(UTC)
-    age = heartbeat_age_s(directory, instant)
+    try:
+        age = heartbeat_age_s(directory, instant)
+    except UNREADABLE_ERRORS as exc:
+        warn_unreadable(directory, exc)
+        return "unreadable"
     if age is None:
         pulse = datetime.fromtimestamp(outcome_path(directory).stat().st_mtime, tz=UTC)
         age = (instant - pulse).total_seconds()

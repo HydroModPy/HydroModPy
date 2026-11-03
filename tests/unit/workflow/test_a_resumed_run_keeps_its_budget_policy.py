@@ -71,7 +71,7 @@ def _extracted_store(tmp_path: Path, keep: BudgetKeep | None, written=()) -> _St
     return _Store(fields)
 
 
-def _resume(monkeypatch, ctx, store: _Store, *, skip_display: bool) -> None:
+def _resume(monkeypatch, ctx, store: _Store) -> None:
     from tests._helpers.sealed_runs import write_attempt
 
     @contextmanager
@@ -84,7 +84,7 @@ def _resume(monkeypatch, ctx, store: _Store, *, skip_display: bool) -> None:
     prior = PipelineState(
         run_id="run",
         step_index=5,
-        data={"ctx": ctx, "skip_display": skip_display, "run_dir": run_dir},
+        data={"ctx": ctx, "run_dir": run_dir},
     )
     PrepareSolverStep().rebuild_state(prior_state=prior, workspace=project, run_id="run")
     assert ctx.run_dir == run_dir
@@ -96,17 +96,17 @@ def test_a_run_extracted_with_the_whole_budget_resumes_with_it(monkeypatch, tmp_
     ctx = _ctx(keep_per_cell_budget=False)
     store = _extracted_store(tmp_path, BudgetKeep.everything(), written=("drain", "recharge"))
 
-    _resume(monkeypatch, ctx, store, skip_display=True)
+    _resume(monkeypatch, ctx, store)
 
     assert ctx.budget_terms == BudgetKeep.everything()
 
 
 def test_a_consumers_run_resumes_with_the_terms_it_kept(monkeypatch, tmp_path) -> None:
-    # Extracted with the figures, resumed with --no-display: the figure terms stay.
+    # The store says what the extraction kept, whatever the file says today.
     ctx = _ctx(keep_per_cell_budget=False)
     store = _extracted_store(tmp_path, BudgetKeep.of_terms(("recharge",)))
 
-    _resume(monkeypatch, ctx, store, skip_display=True)
+    _resume(monkeypatch, ctx, store)
 
     assert ctx.budget_terms == BudgetKeep.of_terms(("recharge",))
 
@@ -115,9 +115,9 @@ def test_a_run_resumed_before_its_extraction_decides_its_policy(monkeypatch, tmp
     ctx = _ctx(keep_per_cell_budget=False)
     store = _extracted_store(tmp_path, None)
 
-    _resume(monkeypatch, ctx, store, skip_display=True)
+    _resume(monkeypatch, ctx, store)
 
-    assert ctx.budget_terms == BudgetKeep.of_terms(())
+    assert ctx.budget_terms == BudgetKeep.of_terms(("recharge",))
 
 
 def test_a_resume_without_a_field_store_creates_none(monkeypatch, tmp_path) -> None:
@@ -125,7 +125,7 @@ def test_a_resume_without_a_field_store_creates_none(monkeypatch, tmp_path) -> N
     (tmp_path / "runs" / "run").mkdir(parents=True)
     store = _Store(tmp_path / "runs" / "run" / "fields.zarr")
 
-    _resume(monkeypatch, ctx, store, skip_display=False)
+    _resume(monkeypatch, ctx, store)
 
     assert ctx.budget_terms == BudgetKeep.of_terms(("recharge",))
     assert not store.fields.exists()
@@ -137,6 +137,6 @@ def test_a_fresh_run_decides_again_whatever_the_context_carries() -> None:
     ctx = _ctx(keep_per_cell_budget=True)
     ctx.budget_terms = BudgetKeep.of_terms(("drain",))
 
-    prepare_solver_module._resolve_plan_and_results(ctx, skip_display=False)
+    prepare_solver_module._resolve_plan_and_results(ctx)
 
     assert ctx.budget_terms == BudgetKeep.everything()

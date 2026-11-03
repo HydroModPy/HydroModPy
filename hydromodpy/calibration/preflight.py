@@ -268,7 +268,7 @@ def check_calibration_file(target: Path) -> CalibrationCheck:
     from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 
     target = Path(target).expanduser().resolve()
-    forget_old_forms_told(target)
+    forget_old_forms_told()
     with warnings.catch_warnings(record=True) as caught:
         # Only the categories a file's author acts on are forced through; the
         # others keep the filters they had, so nothing ignored today is printed.

@@ -23,6 +23,15 @@ ENV_SET_PREFIX = "HMP_SET_"
 ENV_PATH_SEPARATOR = "__"
 """What stands for a dot in the name of an environment variable."""
 
+SET_SOURCE = "--set"
+"""The name of the ``--set`` overrides, where a message names a file for a key."""
+
+ENV_SOURCE = f"{ENV_SET_PREFIX}*"
+"""The name of the ``HMP_SET_*`` overrides, where a message names a file for a key."""
+
+COMMAND_LINE_SOURCES = (SET_SOURCE, ENV_SOURCE)
+"""The sources of a key that are no file."""
+
 
 def parse_override_value(text: str) -> Any:
     """Return *text* read as a TOML value, or the text itself when it is not one."""
@@ -63,8 +72,11 @@ def env_overrides(env: Mapping[str, str]) -> dict[str, Any]:
 
 
 __all__ = [
+    "COMMAND_LINE_SOURCES",
     "ENV_PATH_SEPARATOR",
     "ENV_SET_PREFIX",
+    "ENV_SOURCE",
+    "SET_SOURCE",
     "env_overrides",
     "env_set_names",
     "parse_override_value",

@@ -11,9 +11,14 @@ Regenerate with one command, after a change of surface made on purpose::
     python -m tools.surface_snapshot
 
 The command refuses to drop a stable TOML key that has no row in
-``hydromodpy/config/config_migration.py``. A stable key it drops goes into
-``removed_toml_keys.tsv``, so the gate still holds the migration after the old
-snapshot is gone.
+``hydromodpy/config/config_migration.py``, a row that rewrites the key. A stable key it
+drops goes into ``removed_toml_keys.tsv``, so the gate still holds the migration after
+the old snapshot is gone. From the first stable version on, it also refuses a name of
+``hydromodpy.__all__`` with no entry in ``hydromodpy/_lazy.py``, a command or a flag of
+``hmp`` with no entry in ``hydromodpy/cli/conventions.py``, and a stable TOML key marked
+experimental. What it drops goes into ``removed_names.tsv``. Before that version a name
+or a flag has no alias, so it leaves with no entry, and a stable key marked experimental
+stays in ``demoted_toml_keys.tsv``, so that it still needs its migration to leave.
 
 A row must read the same under every supported Python, so annotations are written out
 here and never through ``repr``: a ``pathlib.Path`` is ``pathlib._local.Path`` on 3.13.
@@ -43,7 +48,11 @@ from pydantic_core import PydanticUndefined
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SNAPSHOT_DIR = REPO_ROOT / "tests" / "unit" / "architecture" / "surface"
 REMOVED_TOML_KEYS = "removed_toml_keys.tsv"
+DEMOTED_TOML_KEYS = "demoted_toml_keys.tsv"
+REMOVED_NAMES = "removed_names.tsv"
 TOML_SURFACE = "toml_fields.tsv"
+FACADE_SURFACE = "python_facade.tsv"
+CLI_SURFACE = "cli_tree.tsv"
 EXPERIMENTAL = "experimental"
 REGENERATE = "python -m tools.surface_snapshot"
 
@@ -198,13 +207,17 @@ def python_objects() -> list[str]:
 
 
 def _action_rows(parser: argparse.ArgumentParser, command: str) -> Iterator[str]:
+    from hydromodpy.cli.conventions import OldFlag, OldVerb
+
     yield f"{command}\tcommand"
     for action in parser._actions:
         if isinstance(action, argparse._SubParsersAction):
             for name, child in action.choices.items():
-                yield from _action_rows(child, f"{command} {name}")
+                # An old form is not surface any more, like a TOML key only a migration reads.
+                if not isinstance(child, OldVerb):
+                    yield from _action_rows(child, f"{command} {name}")
             continue
-        if isinstance(action, argparse._HelpAction):
+        if isinstance(action, argparse._HelpAction | OldFlag):
             continue
         label = ",".join(sorted(action.option_strings)) or f"<{action.dest}>"
         extras = [f"nargs={action.nargs}"] if action.nargs is not None else []
@@ -313,9 +326,9 @@ def processes() -> list[str]:
 
 
 SURFACES: dict[str, Callable[[], list[str]]] = {
-    "python_facade.tsv": python_facade,
+    FACADE_SURFACE: python_facade,
     "python_objects.tsv": python_objects,
-    "cli_tree.tsv": cli_tree,
+    CLI_SURFACE: cli_tree,
     "exit_codes.tsv": exit_codes,
     TOML_SURFACE: toml_fields,
     "processes.tsv": processes,
@@ -376,24 +389,102 @@ def compare(before: Iterable[str], after: Iterable[str]) -> SurfaceDiff:
 
 
 def migration_for(path: str) -> Any | None:
-    """Return the old form that covers a TOML path, by its own path or a moved parent."""
+    """Return the old form that rewrites a TOML path, by its own path or a moved parent.
+
+    A form the loader only refuses is no migration: ``hmp doctor --fix-config`` cannot
+    rewrite it, and the promise of ``versions.md`` is that it does.
+    """
     from hydromodpy.config.config_migration import document_path, old_forms
 
     for form in old_forms():
         old = document_path(form.old)
-        if path == old or path.startswith(f"{old}."):
+        if form.rewritten and (path == old or path.startswith(f"{old}.")):
             return form
     return None
 
 
-def stable_removals(before: Iterable[str], after: Iterable[str]) -> list[str]:
-    """Return the TOML paths that left and were not marked experimental."""
+def _is_stable(rows: Iterable[str]) -> bool:
+    return not all(row.endswith(f"\t{EXPERIMENTAL}") for row in rows)
+
+
+def stable_removals(
+    before: Iterable[str], after: Iterable[str], demoted: Iterable[str] = ()
+) -> list[str]:
+    """Return the TOML paths that left, not marked experimental or marked so after a promise."""
+    old, new = _by_name(before), _by_name(after)
+    promised = set(demoted)
+    return [
+        name for name in sorted(set(old) - set(new)) if name in promised or _is_stable(old[name])
+    ]
+
+
+def demotions(before: Iterable[str], after: Iterable[str]) -> list[str]:
+    """Return the TOML paths that were stable and are marked experimental now."""
     old, new = _by_name(before), _by_name(after)
     return [
         name
-        for name in sorted(set(old) - set(new))
-        if not all(row.endswith(f"\t{EXPERIMENTAL}") for row in old[name])
+        for name in sorted(set(old) & set(new))
+        if _is_stable(old[name]) and not _is_stable(new[name])
     ]
+
+
+def _facade_names(rows: Iterable[str]) -> set[str]:
+    return set(_by_name(rows))
+
+
+def _cli_names(rows: Iterable[str]) -> set[str]:
+    """Return each command and each flag of the rows. A positional is neither."""
+    names: set[str] = set()
+    for label in _by_name(rows):
+        command, _, last = label.rpartition(" ")
+        if last.startswith("-"):
+            names.update(f"{command} {flag}" for flag in last.split(","))
+        elif not last.startswith("<"):
+            names.add(label)
+    return names
+
+
+INTERFACE_NAMES: dict[str, Callable[[Iterable[str]], set[str]]] = {
+    FACADE_SURFACE: _facade_names,
+    CLI_SURFACE: _cli_names,
+}
+"""The surfaces whose names keep working for their delay, and how to read their names."""
+
+
+def interface_forms() -> tuple[Any, ...]:
+    """Return the entries of the tables of old names and old forms of ``hmp``, as old forms."""
+    from hydromodpy import _lazy
+    from hydromodpy.cli import conventions
+    from hydromodpy.config.config_migration import OldForm
+
+    return (
+        *(OldForm(name, entry.new, entry.since) for name, entry in _lazy.OLD_NAMES.items()),
+        *(OldForm(form.old, form.new, form.since) for form in conventions.OLD_CLI_FORMS),
+    )
+
+
+def outlived_interface_forms(version: str) -> tuple[Any, ...]:
+    """Return the entries of the two tables that *version* should no longer hold."""
+    return tuple(form for form in interface_forms() if form.outlived_by(version))
+
+
+def entry_for(name: str) -> Any | None:
+    """Return the entry that keeps a name of the facade or of ``hmp`` working.
+
+    The entry of a command covers its flags and the commands under it.
+    """
+    for form in interface_forms():
+        if name == form.old or name.startswith(f"{form.old} "):
+            return form
+    return None
+
+
+def before_the_tag() -> bool:
+    """Whether this build comes before the first stable version, when nothing is promised."""
+    from hydromodpy.config.config_migration import ALPHA_FORM
+    from hydromodpy.core.version import __version__
+
+    return Version(__version__) < Version(ALPHA_FORM)
 
 
 def installed_release() -> str:
@@ -403,26 +494,58 @@ def installed_release() -> str:
     return Version(__version__).base_version
 
 
+def _names_that_left(directory: Path, current: dict[str, list[str]]) -> list[str]:
+    """Return the names of the facade and of ``hmp`` the snapshots hold and this build does not."""
+    left: set[str] = set()
+    for surface, names_of in INTERFACE_NAMES.items():
+        if surface in current:
+            left |= names_of(read_rows(directory / surface)) - names_of(current[surface])
+    return sorted(left)
+
+
+def _extend_ledger(ledger: Path, rows: list[str]) -> None:
+    rows = read_rows(ledger) + rows
+    ledger.write_text("\n".join(sorted(set(rows))) + "\n" if rows else "", encoding="utf-8")
+
+
 def regenerate(directory: Path = SNAPSHOT_DIR) -> list[str]:
     """Write every surface; return what could not be accepted, without writing anything."""
     current = {surface: rows_of(surface) for surface in SURFACES}
-    removed = stable_removals(read_rows(directory / TOML_SURFACE), current[TOML_SURFACE])
+    before, after = read_rows(directory / TOML_SURFACE), current[TOML_SURFACE]
+    demoted = [row.split("\t")[0] for row in read_rows(directory / DEMOTED_TOML_KEYS)]
+    removed = stable_removals(before, after, demoted)
+    newly_demoted = demotions(before, after)
+    promised = not before_the_tag()
+    left = _names_that_left(directory, current) if promised else []
     refused = [
-        f"{path}: this stable TOML key left and config_migration.py has no row for it. Add the "
-        "row, with its `since`, so that hmp doctor --fix-config rewrites it, or mark the key "
-        "experimental first if it was never promised."
+        f"{path}: this stable TOML key left and config_migration.py has no row that rewrites it. "
+        "Add the row, with its `since`, so that hmp doctor --fix-config rewrites it, or mark the "
+        "key experimental first if it was never promised and has never been stable."
         for path in removed
         if migration_for(path) is None
     ]
+    refused += [
+        f"{name}: this public name left and nothing keeps it working. Add an entry with its "
+        "`since`: OLD_NAMES in hydromodpy/_lazy.py for Python, OLD_CLI_FORMS in "
+        "hydromodpy/cli/conventions.py for hmp."
+        for name in left
+        if entry_for(name) is None
+    ]
+    if promised:
+        refused += [
+            f"{path}: this stable TOML key is marked experimental. A stable version made a promise "
+            "on it: keep it stable, or rename it with its row in config_migration.py."
+            for path in newly_demoted
+        ]
     if refused:
         return refused
     directory.mkdir(parents=True, exist_ok=True)
     for surface, rows in current.items():
         (directory / surface).write_text("\n".join(rows) + "\n", encoding="utf-8")
-    ledger = directory / REMOVED_TOML_KEYS
     release = installed_release()
-    rows = read_rows(ledger) + [f"{path}\t{release}" for path in removed]
-    ledger.write_text("\n".join(sorted(set(rows))) + "\n" if rows else "", encoding="utf-8")
+    _extend_ledger(directory / REMOVED_TOML_KEYS, [f"{path}\t{release}" for path in removed])
+    _extend_ledger(directory / REMOVED_NAMES, [f"{name}\t{release}" for name in left])
+    _extend_ledger(directory / DEMOTED_TOML_KEYS, newly_demoted)
     return []
 
 

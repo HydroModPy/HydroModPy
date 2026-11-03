@@ -268,17 +268,16 @@ def best_frame(
     if rows.empty:
         logger.warning("best(%r): no completed run in the index of this project.", metric)
     labels = (label,) if isinstance(label, str) else tuple(label or ())
-    groups = [(None, rows)] if by is None else list(rows.groupby(by, dropna=False, sort=True))
     out: list[dict[str, Any]] = []
     left_out: list[tuple[str, pd.DataFrame, bool]] = []
-    for key, completed in groups:
+    for key, completed in _groups_of(rows, by):
         group = completed if label is None else completed[completed["label"].isin(labels)]
         sim_ids = [str(sid) for sid in group["sim_id"]]
         ranked = RunSet(sim_ids, catalog).compare(metric, mixed_windows=mixed_windows)
         if ranked.empty:
             every = [str(sid) for sid in completed["sim_id"]]
             scored = not RunSet(every, catalog).compare(metric, mixed_windows=True).empty
-            name = "the project" if by is None else str(key)
+            name = "the project" if by is None else f"no {by}" if key is None else str(key)
             left_out.append((name, completed, scored))
             continue
         top = ranked.iloc[0]
@@ -302,6 +301,19 @@ def best_frame(
         out.append(row)
     _warn_left_out(metric, left_out, " or ".join(labels))
     return pd.DataFrame(out)
+
+
+def _groups_of(
+    rows: pd.DataFrame, by: Literal["site", "recipe"] | None
+) -> list[tuple[str | None, pd.DataFrame]]:
+    """Return the rows of each value of *by*, by name, then the rows with no value under ``None``."""
+    if by is None:
+        return [(None, rows)]
+    missing = rows[by].isna()
+    groups: list[tuple[str | None, pd.DataFrame]] = [
+        (str(key), group) for key, group in rows[~missing].groupby(by, sort=True)
+    ]
+    return [*groups, (None, rows[missing])] if missing.any() else groups
 
 
 def _warn_left_out(metric: str, left_out: list[tuple[str, pd.DataFrame, bool]], label: str) -> None:

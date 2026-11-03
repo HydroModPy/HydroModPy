@@ -96,7 +96,7 @@ def test_run_with_config_object_uses_project(monkeypatch, tmp_path: Path) -> Non
     assert result is verb_result
     assert captured["init_cfg"] is fake_cfg
     assert captured["init_headless"] is True
-    assert captured["verb_kwargs"] == {"name": "alpha"}
+    assert captured["verb_kwargs"] == {"name": "alpha", "force": False}
     assert captured["closed"] is True
 
 
@@ -110,7 +110,8 @@ def test_force_is_not_a_parameter_override(monkeypatch, tmp_path: Path) -> None:
     )
     monkeypatch.setattr("hydromodpy._api._open_run", lambda root, sid: sid)
     hmp.run(_fake_cfg(tmp_path, name="x"), force=True)
-    assert captured["verb_kwargs"] == {}
+    # It reaches the claim of the run: a stale case can be taken over.
+    assert captured["verb_kwargs"] == {"force": True}
 
 
 def test_an_identical_completed_run_is_returned_not_recomputed(monkeypatch, tmp_path: Path) -> None:
@@ -144,7 +145,7 @@ def test_an_identical_completed_run_is_returned_not_recomputed(monkeypatch, tmp_
     # A parameter override is another run: never skipped.
     captured.clear()
     assert hmp.run(_fake_cfg(tmp_path, name="x"), K=1e-5).sim_id == "new"
-    assert captured["verb_kwargs"] == {"K": 1e-5}
+    assert captured["verb_kwargs"] == {"K": 1e-5, "force": False}
 
 
 def test_a_path_takes_a_name_and_refuses_an_override(monkeypatch, tmp_path: Path) -> None:
@@ -164,7 +165,9 @@ def test_a_path_takes_a_name_and_refuses_an_override(monkeypatch, tmp_path: Path
 
     # The run is read from its directory, runs/<name> under the project root.
     assert hmp.run(config, name="x") == (tmp_path, tmp_path / "runs" / "x")
-    assert captured["kwargs"] == {"name": "x"}
+    assert captured["kwargs"] == {"name": "x", "headless": False}
+    hmp.run(config, headless=True)
+    assert captured["kwargs"] == {"headless": True}
 
     with pytest.raises(TypeError, match="takes no parameter override"):
         hmp.run(config, K=1e-5)
@@ -187,4 +190,4 @@ def test_a_step_zero_window_is_never_skipped(monkeypatch, tmp_path: Path, window
     monkeypatch.setattr("hydromodpy._api._open_run", lambda root, run_dir: ("opened", run_dir))
 
     assert hmp.run(_fake_cfg(tmp_path, name="x"), **window).sim_id == "new"
-    assert captured["verb_kwargs"] == window
+    assert captured["verb_kwargs"] == {"force": False, **window}

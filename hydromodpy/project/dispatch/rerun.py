@@ -9,11 +9,50 @@ protocol registered at bootstrap.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Any
 
-from hydromodpy.core.logging import get_logger
+from hydromodpy.core.exceptions import PipelineError
 
-logger = get_logger(__name__)
+
+def rerun_config(
+    snapshot: Mapping[str, Any],
+    *,
+    changes: Mapping[str, Any],
+    name: str | None,
+    source_sim_id: str | None,
+    source_dir: Path | None,
+    project_options: Mapping[str, Any] | None = None,
+    **keywords: Any,
+) -> Any:
+    """Run the frozen configuration *snapshot* again and return the new run.
+
+    The snapshot is read from the project it names in ``[workspace]
+    project_root`` (:meth:`HydroModPyConfig.from_snapshot`): its paths resolve in
+    the workspace of that project, wherever the run was frozen. *changes* are the
+    dotted paths to set, the grammar of ``--set``. Each key that differs from what
+    *source_dir* sealed for another reason (a default that moved) gets a warning.
+    The seal of the new run carries ``lineage.kind = "rerun"``, the id of its
+    source, the dotted paths that changed, and the keys that moved.
+    """
+    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.project import Project
+    from hydromodpy.project.replay_checks import warn_config_drift
+    from hydromodpy.project.runner import _pin_parent_sim_id
+    from hydromodpy.results.lineage import Lineage
+
+    project = Project(
+        HydroModPyConfig.from_snapshot(snapshot, changes=changes), **(project_options or {})
+    )
+    drift = warn_config_drift(project.config, source_dir, intended=changes)
+    lineage = Lineage(
+        parent_sim_id=source_sim_id,
+        kind="rerun" if source_sim_id else None,
+        overrides={str(key): value for key, value in changes.items()},
+        drift=drift,
+    )
+    with _pin_parent_sim_id(project._ctx, source_sim_id):
+        return project.simulate(name=name, lineage=lineage, **keywords)
 
 
 class ProjectRerunProvider:
@@ -26,36 +65,19 @@ class ProjectRerunProvider:
         overrides: Mapping[str, Any],
         name: str | None,
         source_sim_id: str | None = None,
+        source_dir: Path | None = None,
     ) -> str:
-        """Rebuild the config, apply dotted-path overrides, and simulate.
-
-        The snapshot is read from the project it names in ``[workspace]
-        project_root`` (:meth:`HydroModPyConfig.from_snapshot`): its paths
-        resolve in the workspace of that project, wherever the run was frozen.
-
-        ``source_sim_id`` is pinned as the child's ``parent_sim_id`` and the
-        seal of the child carries ``lineage.kind = "rerun"`` with the dotted
-        paths that changed.
-        """
-        from hydromodpy.calibration.optim.parameters import set_by_path
-        from hydromodpy.config import HydroModPyConfig
-        from hydromodpy.project import Project
-        from hydromodpy.project.runner import _pin_parent_sim_id
-        from hydromodpy.results.lineage import Lineage
-
-        project = Project(HydroModPyConfig.from_snapshot(dict(snapshot)))
-        for dotted, value in overrides.items():
-            set_by_path(project.config, dotted, value)
-        lineage = Lineage(
-            parent_sim_id=source_sim_id,
-            kind="rerun" if source_sim_id else None,
-            overrides={str(key): value for key, value in overrides.items()},
+        """Rebuild the config, apply dotted-path overrides, and simulate (:func:`rerun_config`)."""
+        run = rerun_config(
+            snapshot,
+            changes=overrides,
+            name=name,
+            source_sim_id=source_sim_id,
+            source_dir=source_dir,
         )
-        with _pin_parent_sim_id(project._ctx, source_sim_id):
-            run = project.simulate(name=name, lineage=lineage)
         if run is None:
-            raise RuntimeError("Rerun did not produce a run.")
+            raise PipelineError("Rerun did not produce a run.")
         return run.sim_id
 
 
-__all__ = ["ProjectRerunProvider"]
+__all__ = ["ProjectRerunProvider", "rerun_config"]

@@ -121,22 +121,6 @@ def test_a_window_reaching_the_process_phase_leaves_it_to_the_pipeline(
     assert project.built == 0
 
 
-@pytest.mark.parametrize("patch", [{"Sy": 0.05}, {"thickness": 30.0}, {"first_clim": "2000-01"}])
-def test_a_run_that_patches_the_model_phase_builds_it_first(
-    tmp_path: Path, patch: dict[str, object]
-) -> None:
-    """``step_build_plan`` patches a model, so that model has to be there.
-
-    It rebuilds the domain on a new thickness and replays the data binders on
-    the loaded forcings; neither works on an untouched Project.
-    """
-    project = _StubProject(tmp_path)
-
-    _dry_run(project, **patch)
-
-    assert project.built == 1
-
-
 def test_an_already_built_project_reruns_the_head_steps_it_is_asked_for(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

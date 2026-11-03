@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hydromodpy.core import progress
-from hydromodpy.core.exceptions import ConfigMissingError
+from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
 from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
@@ -64,6 +64,7 @@ def configure(
         project._cfg = HydroModPyConfig.from_toml(project._config_path)
         raw_toml = load_toml_with_base_config(project._config_path)
 
+    _refuse_another_solver(project._cfg, solver)
     project._solver = solver or detect_solver(project)
     ensure_simulation_block(project)
 
@@ -102,9 +103,6 @@ def configure(
 
     project._headless = headless
     project._no_display = no_display
-    if headless:
-        project._cfg.display.save = False
-        project._cfg.display.show = False
 
     project._store = None
     project._project_name = None
@@ -272,6 +270,25 @@ def open_catalog(project: Project) -> None:
     project._store = Catalog(Path(ws.project_root))
 
 
+def _refuse_another_solver(cfg: HydroModPyConfig, solver: str | None) -> None:
+    """Refuse a ``solver=`` the plan of the configuration would not run.
+
+    The plan is read from the configuration, and so is the replay of the run: a
+    solver chosen beside it would not be what the run seals.
+    """
+    declared = [
+        name
+        for process in cfg.simulation.process or ()
+        if process.type == "flow"
+        for name in process.solvers
+    ]
+    if solver and declared and solver not in declared:
+        raise ConfigError(
+            f"solver={solver!r} is not in [[simulation.process]], which runs "
+            f"{', '.join(declared)}. Write the solver in the file, or leave solver= out."
+        )
+
+
 def detect_solver(project: Project) -> str:
     """Resolve the flow solver from the declared process list or solver block."""
     sim = project._cfg.simulation
@@ -317,6 +334,7 @@ def ensure_simulation_block(project: Project) -> None:
     if project._cfg.simulation.has_processes():
         return
 
+    from hydromodpy.core.toml_io.paths import source_of_effective_copy
     from hydromodpy.simulation.planning.config import (
         FlowProcessConfig,
         SimulationConfig,
@@ -334,7 +352,7 @@ def ensure_simulation_block(project: Project) -> None:
         )
 
     default_name = (
-        re.sub(r"^run_", "", project._config_path.stem)
+        re.sub(r"^run_", "", source_of_effective_copy(project._config_path).stem)
         if project._config_path is not None
         else "simulation"
     )

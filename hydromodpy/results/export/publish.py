@@ -11,7 +11,7 @@ there is no second packer.
 
 What a copy holds
 -----------------
-Always: ``README.md``, ``config.toml``, ``provenance.json`` (redacted),
+Always: ``README.md``, ``config.toml``, ``config.resolved.toml``, ``provenance.json`` (redacted),
 ``inputs.json``, ``manifest.json``, ``figures/``, ``exports/``, ``report/``,
 a generated ``ro-crate-metadata.json`` and ``PUBLICATION.json``
 (:mod:`hydromodpy.results.publication`). ``with_ = ("results",)`` adds
@@ -111,6 +111,7 @@ from hydromodpy.results.storage.contract import (
     RUN_PROVENANCE_FILENAME,
     RUN_PUBLISHED_FILENAME,
     RUN_REPORT_DIRNAME,
+    RUN_RESOLVED_CONFIG_FILENAME,
     TABLES_DIRNAME,
 )
 from hydromodpy.results.storage.json_io import check_sealed
@@ -126,6 +127,7 @@ InputsOf = Callable[[Path], PayloadBundle]
 RUN_COPY_ENTRIES: Final[tuple[str, ...]] = (
     README_FILENAME,
     RUN_CONFIG_FILENAME,
+    RUN_RESOLVED_CONFIG_FILENAME,
     RUN_PROVENANCE_FILENAME,
     RUN_INPUTS_FILENAME,
     RUN_MANIFEST_FILENAME,

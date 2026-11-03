@@ -36,6 +36,7 @@ answers, the import rule, and where to add what.
 | part | answers |
 |---|---|
 | `io/` | low-level I/O: deterministic JSON (`json_dumps`, `json_loads`), one `HTTPClient` for the data sources, raster, vector and GeoParquet writers, the canonical Parquet options, CRS helpers, the PROJ bootstrap, atomic file replacement, the single open point of every DuckDB file with its lock retry (`db_retry.py`), and the version rule of every stored document (`document_version.py`: a reader refuses a version it does not know, naming it and what to do) |
+| `code_fingerprint.py` | which code computes? `code_fingerprint()`: one digest per layer that changes a number, over the tokens of each module, the same from Python 3.11 to 3.13. The identity of a run and the calibration cache read it |
 | `logging.py`, `progress.py`, `progress_ndjson.py` | the console and file logging policy (`LogManager`, `get_logger`, verbosity), the live progress display, and the NDJSON progress sink |
 | `interrupts.py` | `terminate_as_interrupt`: SIGTERM raises like SIGINT, so a run closes its session |
 | `bootstrap_hook.py` | `ensure_bootstrapped`: lazy trigger of the root bootstrap, so a layer never imports the root module |

@@ -8,8 +8,13 @@ Three suffixes change that rule for one key:
 
 - ``<key>__append = [...]`` adds the items after the inherited ones;
 - ``<key>__delete = true`` removes the inherited key or table;
-- ``<key>__merge = [...]`` merges a list of tables with the inherited list
-  table by table, in order. Both lists must have the same length.
+- ``<key>__merge = [...]`` merges a list of tables with the inherited list,
+  table by table, each with the inherited table of the same identity. The
+  identity is the first of ``id``, ``name`` and ``source`` that every table of
+  both lists holds. A table the overlay does not name stays as it is. A list of
+  one table merges with a list of one table, since there is one way to pair
+  them. Anything else is refused: position says nothing once a parent inserts
+  a table.
 
 For example::
 
@@ -36,6 +41,13 @@ _APPEND_SUFFIX = "__append"
 _DELETE_SUFFIX = "__delete"
 _MERGE_SUFFIX = "__merge"
 DIRECTIVE_SUFFIXES = (_APPEND_SUFFIX, _DELETE_SUFFIX, _MERGE_SUFFIX)
+
+IDENTITY_KEYS = ("id", "name", "source")
+"""The keys that tell one table of a list from another, in the order ``__merge`` tries them.
+
+The models that declare one of them are listed by a test, which walks the schema.
+The merge itself runs on documents before validation, so it reads the keys only.
+"""
 
 
 def _split_directive_keys(
@@ -80,8 +92,33 @@ def _split_directive_keys(
     return replace, append, delete, merge
 
 
-def _merge_tables_in_order(key: str, existing: Any, items: list[Any]) -> list[Any]:
-    """Merge a list of tables with the inherited one, table by table."""
+def _identity_key(tables: Sequence[Sequence[Mapping[str, Any]]]) -> str | None:
+    """Return the identity key every table of the lists holds, or ``None``."""
+    for key in IDENTITY_KEYS:
+        if all(key in table for items in tables for table in items):
+            return key
+    return None
+
+
+def _indexed_by(
+    directive: str, identity: str, tables: Sequence[Mapping[str, Any]], whose: str
+) -> dict[Any, Mapping[str, Any]]:
+    """Return *tables* by their identity, refusing a value two of them share."""
+    indexed: dict[Any, Mapping[str, Any]] = {}
+    for table in tables:
+        value = table[identity]
+        if not isinstance(value, str | int) or value in indexed:
+            raise ValueError(
+                f"merge directive {directive!r}: {whose} tables cannot be told apart, "
+                f"{identity} = {value!r} is not one value for one table. Give each table its "
+                f"own {identity}, or replace the list with {directive.removesuffix(_MERGE_SUFFIX)!r}"
+            )
+        indexed[value] = table
+    return indexed
+
+
+def _merge_tables_by_identity(key: str, existing: Any, items: list[Any]) -> list[Any]:
+    """Merge a list of tables with the inherited one, each table with its namesake."""
     directive = key + _MERGE_SUFFIX
     if existing is None:
         raise ValueError(f"merge directive {directive!r} has no inherited list to merge with")
@@ -90,15 +127,31 @@ def _merge_tables_in_order(key: str, existing: Any, items: list[Any]) -> list[An
             f"merge directive {directive!r} needs an inherited list of tables "
             f"(found {type(existing).__name__})"
         )
-    if len(existing) != len(items):
+    identity = _identity_key((existing, items))
+    if identity is None:
+        if len(existing) == len(items) == 1:
+            return [_merge_two_payloads(existing[0], items[0])]
+        keys = ", ".join(IDENTITY_KEYS[:-1]) + f" or {IDENTITY_KEYS[-1]}"
         raise ValueError(
-            f"merge directive {directive!r} has {len(items)} table(s) and the inherited "
-            f"list has {len(existing)}; write one table per inherited table, or replace "
-            f"the list with {key!r}"
+            f"merge directive {directive!r} cannot pair these tables: every table on both "
+            f"sides needs one of {keys}, and the {len(items)} table(s) written here and the "
+            f"{len(existing)} inherited do not all hold one. Write that key in each table, "
+            f"replace the list with {key!r}, or add tables with {key + _APPEND_SUFFIX!r}"
+        )
+    inherited = _indexed_by(directive, identity, existing, "the inherited")
+    written = _indexed_by(directive, identity, items, "the written")
+    unknown = [value for value in written if value not in inherited]
+    if unknown:
+        raise ValueError(
+            f"merge directive {directive!r}: no inherited table has {identity} = "
+            f"{unknown[0]!r} (the inherited ones are {list(inherited)!r}). Correct the "
+            f"{identity}, or add the table with {key + _APPEND_SUFFIX!r}"
         )
     return [
-        _merge_two_payloads(base_item, override_item)
-        for base_item, override_item in zip(existing, items, strict=True)
+        _merge_two_payloads(table, written[table[identity]])
+        if table[identity] in written
+        else table
+        for table in existing
     ]
 
 
@@ -128,7 +181,7 @@ def _merge_two_payloads(
             merged[key] = value
 
     for key, items in merge.items():
-        merged[key] = _merge_tables_in_order(key, merged.get(key), items)
+        merged[key] = _merge_tables_by_identity(key, merged.get(key), items)
 
     for key, items in append.items():
         existing = merged.get(key)
@@ -175,4 +228,4 @@ def merge_toml_payloads(
     return merged
 
 
-__all__ = ["DIRECTIVE_SUFFIXES", "merge_toml_payloads"]
+__all__ = ["DIRECTIVE_SUFFIXES", "IDENTITY_KEYS", "merge_toml_payloads"]

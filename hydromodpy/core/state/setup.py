@@ -28,8 +28,8 @@ class SetupContext:
     # model phase once and drives several runs through it; a run defined by
     # another configuration - a thickness sweep, a run following an overridden
     # one - must not inherit the previous run's geometry, and this is what says
-    # so. Identity, not equality: ``resolve_run_config`` hands back the declared
-    # section itself when a run overrides nothing.
+    # so. Identity, not equality: ``HydroModPyConfig.with_changes`` keeps every
+    # section a run does not override.
     domain_config_source: Any = None
     flow: Any = None
     transport: Any = None

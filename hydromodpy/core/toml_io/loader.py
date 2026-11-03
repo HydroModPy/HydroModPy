@@ -4,6 +4,12 @@ A file inherits another with ``base_config = "project.toml"``; the chain is
 read root first and merged by :mod:`hydromodpy.core.toml_io.merge`.
 :func:`read_toml_chain` returns the files of the chain with the keys each one
 writes itself, :func:`load_toml_with_base_config` the merged document.
+:func:`merge_toml_layers` adds the overlays, ``--set`` and ``HMP_SET_*`` on top.
+
+Each file reads under the key names of today before the merge, so an old name in
+one file meets a new name in another as the same key does. The rules are the ones of
+``config_migration``, reached through the root-config provider. A warning names the
+file that holds the old key, and nothing here writes a file.
 
 Every relative path a project file declares is read from one base, the
 project root: the folder that holds ``project.toml`` above the file, or,
@@ -17,14 +23,16 @@ from __future__ import annotations
 
 import re
 import tomllib
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar
 
+from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME, resolve_project_root
 from hydromodpy.core.toml_io.merge import merge_toml_payloads
+from hydromodpy.core.toml_io.overrides import ENV_SOURCE, SET_SOURCE
 from hydromodpy.core.toml_io.paths import is_declared_absolute_path
 
 if TYPE_CHECKING:
@@ -138,7 +146,10 @@ class ChainFile:
 
     path: Path
     own: dict[str, Any]
-    """The document of the file, ``base_config`` removed, directives kept."""
+    """The document of the file, ``base_config`` removed, directives kept.
+
+    Under the key names of today, unless the chain was read with ``migrate=False``.
+    """
 
 
 def _base_config_of(path: Path, raw: Mapping[str, Any]) -> Path | None:
@@ -154,10 +165,12 @@ def _base_config_of(path: Path, raw: Mapping[str, Any]) -> Path | None:
     return base_path
 
 
-def read_toml_chain(toml_path: str | Path) -> tuple[ChainFile, ...]:
+def read_toml_chain(toml_path: str | Path, *, migrate: bool = True) -> tuple[ChainFile, ...]:
     """Return the files of the ``base_config`` chain of *toml_path*, root first.
 
-    The last element is *toml_path* itself. A cycle raises ``ValueError``.
+    The last element is *toml_path* itself. A cycle raises ``ValueError``. Each file
+    is migrated on its own and warns under its own name, or is left as it is written
+    with ``migrate=False``.
     """
     files: list[ChainFile] = []
     seen: list[Path] = []
@@ -173,15 +186,62 @@ def read_toml_chain(toml_path: str | Path) -> tuple[ChainFile, ...]:
         files.append(ChainFile(path=current, own=own))
         current = _base_config_of(current, raw)
     files.reverse()
+    if migrate:
+        get_root_config_provider().migrate_layers([(item.path, item.own) for item in files])
     return tuple(files)
 
 
-def merge_toml_chain(files: tuple[ChainFile, ...] | list[ChainFile]) -> dict[str, Any]:
-    """Merge the files of a chain, root first, and strip the empty placeholders."""
+def _merged_files(files: Sequence[ChainFile]) -> dict[str, Any]:
+    """Merge the documents of *files*, root first, and strip the empty placeholders."""
     merged: dict[str, Any] = {}
     for item in files:
         merged = merge_toml_payloads(merged, item.own)
     return _strip_empty_strings(merged)
+
+
+def merge_toml_chain(
+    files: tuple[ChainFile, ...] | list[ChainFile], *, migrate: bool = True
+) -> dict[str, Any]:
+    """Merge the files of a chain, root first, and strip the empty placeholders.
+
+    With ``migrate``, the rules that wait for the whole document run on the result.
+    """
+    merged = _merged_files(files)
+    if migrate:
+        get_root_config_provider().migrate_merged(merged, [(item.path, item.own) for item in files])
+    return merged
+
+
+def merge_toml_layers(
+    chains: Sequence[Sequence[ChainFile]],
+    *,
+    cli_overrides: dict[str, Any] | None = None,
+    env_overrides: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Merge a file, its overlays, ``--set`` and ``HMP_SET_*``, each migrated on its own.
+
+    *chains* holds the chain of the file then the chain of each overlay, as
+    :func:`read_toml_chain` reads them with ``migrate=False``. The two payloads are
+    migrated in place.
+    """
+    layers: list[tuple[Path | str, dict[str, Any]]] = [
+        (item.path, item.own) for chain in chains for item in chain
+    ]
+    if cli_overrides:
+        layers.append((SET_SOURCE, cli_overrides))
+    if env_overrides:
+        layers.append((ENV_SOURCE, env_overrides))
+    provider = get_root_config_provider()
+    provider.migrate_layers(layers)
+    # File by file: an overlay merged on nothing first would spend its directives.
+    merged = merge_toml_payloads(
+        _merged_files(chains[0]),
+        overlays=[_strip_empty_strings(item.own) for chain in chains[1:] for item in chain],
+        cli_overrides=cli_overrides,
+        env_overrides=env_overrides,
+    )
+    provider.migrate_merged(merged, layers)
+    return merged
 
 
 def load_toml_with_base_config(toml_path: str | Path) -> dict[str, Any]:
@@ -201,7 +261,7 @@ def config_base_dir(toml_path: str | Path) -> Path:
     root = resolve_project_root(resolved.parent)
     if (root / PROJECT_MARKER_FILENAME).is_file():
         return root
-    return read_toml_chain(resolved)[0].path.parent
+    return read_toml_chain(resolved, migrate=False)[0].path.parent
 
 
 def validate_toml(

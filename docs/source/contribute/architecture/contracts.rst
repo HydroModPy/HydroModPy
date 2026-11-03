@@ -135,8 +135,15 @@ Changing a contract
 A change to the facade, to a stable port or to the two Protocols below is announced.
 The old name keeps working for two minor versions and warns, and this page and
 :doc:`storage-layout` change with it. A renamed TOML key gets its row in
-``hydromodpy/config/config_migration.py``, with ``since``, and a test fails once a
-row outlives its delay. A change to a stored schema needs a bump of the matching
+``hydromodpy/config/config_migration.py``, with ``since``. A renamed name of
+``hmp.__all__`` gets its entry in ``OLD_NAMES`` of ``hydromodpy/_lazy.py``, and a renamed
+``hmp`` command or flag its entry in ``OLD_CLI_FORMS`` of
+``hydromodpy/cli/conventions.py``, both with ``since``. Each warns with a
+``FutureWarning``, then forwards to the new form. A test fails once a row or an entry
+outlives its delay. These two tables are empty at 2.0.0, because a name that left before
+the first stable version keeps no alias. A public method of the result objects is not in
+them: the gate below names its removal, and the changelog says it. A change to a stored
+schema needs a bump of the matching
 version constant and a reader for the old version. The constants and where they live
 are in :doc:`data-scopes`.
 
@@ -151,9 +158,14 @@ changed. To accept it, regenerate the files and commit them with the change:
 
    python -m tools.surface_snapshot
 
-The command refuses to drop a stable TOML key that has no row in the migration table.
-A key it drops goes into ``removed_toml_keys.tsv``, and the test holds it there until
-its delay ends.
+The command refuses to drop a stable TOML key that has no row in the migration table
+that rewrites it, because a form the loader only refuses is no migration. A key it drops
+goes into ``removed_toml_keys.tsv``, and the test holds it there until its delay ends.
+From the first stable version on, the command refuses in the same way a name of
+``hmp.__all__``, a command or a flag that leaves with no entry in its table, and what
+leaves goes into ``removed_names.tsv``. It also refuses a stable key marked experimental,
+because the mark would free the key from its promise. Before that version a key marked
+experimental stays in ``demoted_toml_keys.tsv``, and it still needs its migration to leave.
 
 Storage
 -------
@@ -167,8 +179,9 @@ takes SQL in the dialect of DuckDB.
 
 ``hydromodpy.lock`` freezes the data cache of a project before a run. The launcher of
 a ``[sites]`` project writes it, and ``hmp dev lock`` writes it by hand for a single
-project. ``hmp run --frozen`` verifies it and refuses without one. No other run needs
-it, because the manifest of a run records the inputs of that run. See
+project. ``hmp run --frozen`` on a project TOML verifies it and refuses without one. No
+other run needs it, because the manifest of a run records the inputs of that run: on the
+``config.toml`` of a run, ``--frozen`` reads that record. See
 :ref:`artifact-policy` for the sidecar formats that are allowed.
 
 Storage Protocol: ``CatalogBackend``

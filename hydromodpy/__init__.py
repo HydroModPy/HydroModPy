@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import warnings
 
 # Public API facade. This is the single allowed exception to the
 # "no aliases / no re-exports" rule in CLAUDE.md. CLI verbs and Python
@@ -29,6 +30,7 @@ from hydromodpy._api import (
 from hydromodpy._bootstrap import bootstrap  # noqa: F401  -- import registers the lazy hook
 from hydromodpy._lazy import LAZY_IMPORTS as _LAZY_IMPORTS
 from hydromodpy._lazy import MODULE_EXPORTS as _MODULE_EXPORTS
+from hydromodpy._lazy import OLD_NAMES as _OLD_NAMES
 from hydromodpy.core.io.proj_bootstrap import bootstrap_proj
 from hydromodpy.core.logging import DEFAULT_VERBOSITY, LogManager, verbosity_from_env
 from hydromodpy.core.version import __version__
@@ -87,6 +89,17 @@ def __getattr__(name: str):
         attr = getattr(module, attr_name)
         globals()[name] = attr
         return attr
+    if name in _OLD_NAMES:
+        entry = _OLD_NAMES[name]
+        # stacklevel=1 names this file: the console routing hides a deprecation it
+        # reads as a third party's, and the reader of this one wrote the call.
+        warnings.warn(
+            f"hydromodpy.{name} is now hydromodpy.{entry.new}. The old name keeps working for "
+            f"two minor versions from {entry.since}.",
+            FutureWarning,
+            stacklevel=1,
+        )
+        return getattr(importlib.import_module(__name__), entry.new)
     raise AttributeError(f"module 'hydromodpy' has no attribute {name!r}")
 
 

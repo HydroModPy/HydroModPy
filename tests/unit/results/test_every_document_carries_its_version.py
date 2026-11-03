@@ -33,6 +33,8 @@ Exempt documents, and why:
   ``hmp project collect`` (its ledgers ``index.json`` are versioned, below).
 - ``.hmp/identity_notice.json`` of a workspace: a memo of the warnings
   already given; losing it repeats one warning.
+- ``request.json`` of a job and ``chain.json``: an input the caller writes, read
+  by its own validation, not a stored result.
 """
 
 from __future__ import annotations
@@ -50,6 +52,7 @@ from pathlib import Path
 from typing import Any, Literal, get_args, get_origin
 
 import duckdb
+import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
@@ -81,15 +84,22 @@ from hydromodpy.core.state.paths import catalog_path_for
 from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
 from hydromodpy.data.provenance.lockfile import (
     LOCKFILE_NAME,
-    LOCKFILE_VERSION,
+    LOCKFILE_SCHEMA,
     read_lockfile_meta,
 )
 from hydromodpy.data.provenance.sidecars import Sidecar
 from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 from hydromodpy.data.registry.freeze import write_lockfile
 from hydromodpy.project.launch.lease import LEASE_SCHEMA, acquire_lease, lease_path, read_lease
-from hydromodpy.project.launch.status import case_state
-from hydromodpy.results.annotations import ANNOTATIONS_VERSION, Annotations, read_annotations
+from hydromodpy.project.launch.status import case_state, project_status
+from hydromodpy.results.annotations import (
+    ANNOTATIONS_VERSION,
+    Annotations,
+    add_note,
+    add_tag,
+    read_annotations,
+    remove_tag,
+)
 from hydromodpy.results.catalog import Catalog, rebuild_index
 from hydromodpy.results.catalog.index_schema import (
     INDEX_META_TABLE,
@@ -114,6 +124,7 @@ from hydromodpy.results.manifest import (
     Manifest,
     ManifestRun,
     read_manifest,
+    read_seal,
 )
 from hydromodpy.results.outcome import OUTCOME_SCHEMA, Outcome, effective_status, read_outcome
 from hydromodpy.results.plan_store import PLAN_SCHEMA, Plan, PlanCase, read_plan, write_plan
@@ -138,7 +149,7 @@ from hydromodpy.results.record import (
     read_inputs,
     read_provenance,
 )
-from hydromodpy.results.retention import RetentionPolicy, plan_gc
+from hydromodpy.results.retention import RetentionPolicy, mark_aborted, plan_gc
 from hydromodpy.results.session.descriptor import (
     SESSION_SCHEMA,
     SessionDescriptor,
@@ -154,7 +165,7 @@ from hydromodpy.results.session.phase import (
     phase_dir,
     read_phase,
 )
-from hydromodpy.results.storage.attempt import claim_run_directory
+from hydromodpy.results.storage.attempt import claim_run_directory, finish_attempt
 from hydromodpy.results.storage.contract import (
     LEDGER_FILENAME,
     PLAN_FILENAME,
@@ -178,6 +189,16 @@ from hydromodpy.results.storage.run_facts import (
 from hydromodpy.results.storage.sealing import sealed_config_hash
 from hydromodpy.results.trash import identity_of, is_protected
 from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
+from hydromodpy.schema.job.chain import (
+    CHAIN_OUTCOME_FILENAME,
+    CHAIN_OUTCOME_VERSIONS,
+    read_chain_outcome,
+)
+from hydromodpy.schema.job.documents import read_versioned
+from hydromodpy.schema.job.inputset import INPUTSET_VERSIONS
+from hydromodpy.schema.job.outcome import OUTCOME_VERSIONS as JOB_OUTCOME_VERSIONS
+from hydromodpy.schema.job.provenance import PROVENANCE_VERSIONS as JOB_PROVENANCE_VERSIONS
+from hydromodpy.schema.job.seal import MANIFEST_VERSIONS as JOB_MANIFEST_VERSIONS
 from hydromodpy.workflow.internals.data_description import (
     SCHEMA_VERSION as LOADED_DATA_SCHEMA,
 )
@@ -537,8 +558,8 @@ DOCUMENTS: tuple[Document, ...] = (
     Document(
         "hydromodpy.lock",
         lambda t: t.lockfile,
-        "hydromodpy.version",
-        LOCKFILE_VERSION,
+        "schema",
+        LOCKFILE_SCHEMA,
         lambda t: read_lockfile_meta(t.lockfile),
         LOCK,
         kind="toml",
@@ -669,8 +690,7 @@ WINDOWS: dict[str, tuple[str, str]] = {
 OTHER_WINDOWS: tuple[tuple[str, str, object], ...] = (
     ("hydromodpy.results.zarr_store.constants", "ZARR_VERSIONS", ZARR_SCHEMA_VERSION),
     ("hydromodpy.results.storage.parquet_schemas", "PARQUET_VERSIONS", PARQUET_SCHEMA_VERSION),
-    ("hydromodpy.data.provenance.lockfile", "LOCKFILE_VERSIONS", LOCKFILE_VERSION),
-    ("hydromodpy.results.checks", "CHECKS_VERSIONS", "hydromodpy.checks.v1"),
+    ("hydromodpy.data.provenance.lockfile", "LOCKFILE_VERSIONS", LOCKFILE_SCHEMA),
 )
 
 
@@ -1043,6 +1063,19 @@ def _future_manifest(tree: Tree) -> None:
     _rewrite(document, tree, RUN_RECORD_MANIFEST_VERSION + 1)
 
 
+def _refused_manifest(tree: Tree) -> None:
+    """Store a manifest at the current version whose body its model refuses."""
+    target = tree.run / RUN_MANIFEST_FILENAME
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    payload.update(run="x", sealed_at="notadate")
+    target.write_text(json.dumps(payload), encoding="utf-8")
+
+
+UNREADABLE_MANIFESTS = pytest.mark.parametrize(
+    "spoil", [_future_manifest, _refused_manifest], ids=["newer", "refused body"]
+)
+
+
 def _future_session(tree: Tree) -> None:
     document = next(item for item in DOCUMENTS if item.name == "session.json")
     _rewrite(document, tree, _bumped(SESSION_SCHEMA))
@@ -1076,6 +1109,7 @@ RUN_LISTINGS: tuple[tuple[str, Callable[[Tree, str], Any], Any], ...] = (
 RUN_REL = f"runs/{RUN}"
 
 
+@UNREADABLE_MANIFESTS
 @pytest.mark.parametrize(
     ("name", "ask", "answer"), RUN_LISTINGS, ids=[name for name, _ask, _answer in RUN_LISTINGS]
 )
@@ -1083,12 +1117,13 @@ def test_a_listing_with_one_unreadable_run_leaves_it_out(
     name: str,
     ask: Callable[[Tree, str], Any],
     answer: Any,
+    spoil: Callable[[Tree], None],
     tree: Tree,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     config_hash = _config_hash(tree)
     assert case_is_done(tree.project, RUN, config_hash, "simulation")
-    _future_manifest(tree)
+    spoil(tree)
 
     with caplog.at_level(logging.WARNING):
         assert ask(tree, config_hash) == answer
@@ -1122,9 +1157,12 @@ def test_a_missing_document_says_nothing(tmp_path: Path, caplog: pytest.LogCaptu
     assert caplog.records == []
 
 
-def test_a_new_attempt_leaves_an_unreadable_run_as_it_is(tree: Tree) -> None:
+@UNREADABLE_MANIFESTS
+def test_a_new_attempt_leaves_an_unreadable_run_as_it_is(
+    spoil: Callable[[Tree], None], tree: Tree
+) -> None:
     """A case with an unreadable run is not done, and running it takes a new version."""
-    _future_manifest(tree)
+    spoil(tree)
 
     claim = claim_run_directory(tree.project, RUN, case_id=RUN, project="demo")
 
@@ -1140,6 +1178,79 @@ def test_an_unreadable_outcome_is_left_out_of_a_listing(tree: Tree) -> None:
     assert effective_status(tree.run) == "unreadable"
     assert identity_of(tree.run) is None
     assert case_state(tree.project, RUN).status == "planned"
+
+
+OUTCOMES_THAT_DO_NOT_READ = {
+    "newer": lambda text: text.replace(OUTCOME_SCHEMA, str(_bumped(OUTCOME_SCHEMA))),
+    "truncated": lambda text: text[:40],
+    "not an object": lambda text: "[1, 2]",
+}
+
+
+@pytest.mark.parametrize(
+    "spoil", OUTCOMES_THAT_DO_NOT_READ.values(), ids=OUTCOMES_THAT_DO_NOT_READ.keys()
+)
+def test_the_seal_stands_beside_an_outcome_this_code_cannot_read(
+    spoil: Callable[[str], str], tree: Tree, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The run stays in every list, as completed, with what its seal gives and one warning."""
+    target = tree.run / RUN_OUTCOME_FILENAME
+    target.write_text(spoil(target.read_text(encoding="utf-8")), encoding="utf-8")
+    seal = read_seal(tree.run)
+    write_plan(
+        tree.project,
+        Plan(plan_hash="fedc3210", hydromodpy_version=WRITER, created_at=NOW, n_cases=1),
+        pa.table({"site": ["J0014010"]}),
+        [PlanCase(case_id=RUN, config_hash="h", config_path=f"{RUN}.toml")],
+        {RUN: "[flow]\nK = 1e-5\n"},
+    )
+
+    with caplog.at_level(logging.WARNING):
+        report = rebuild_index(tree.project)
+        rows = project_status(tree.project).rows
+        planned = plan_gc(tree.project, RetentionPolicy(keep_versions=0), now=NOW)
+        tagged = add_tag(tree.run, "kept")
+
+    assert RUN_REL in report.indexed
+    with Catalog(tree.project) as catalog:
+        case = catalog.cases.set_index("rel_dir").loc[RUN_REL]
+    assert case["status"] == "completed" and case["sim_id"] == seal.run.sim_id
+    assert case["attempt_id"] == seal.run.attempt_id
+    assert case["host"] is None or pd.isna(case["host"])
+    row = next(item for item in rows if item.case_id == RUN)
+    assert (row.status, row.rel_dir, row.attempt) == ("completed", RUN_REL, seal.run.attempt)
+    assert row.started_at == seal.run.started_at and row.host is None
+    assert RUN_REL in planned.superseded_runs
+    assert tagged.sim_id == seal.run.sim_id and identity_of(tree.run) == seal.run.sim_id
+    warned = [
+        record.getMessage() for record in caplog.records if str(target) in record.getMessage()
+    ]
+    assert len(warned) == 1 and "the seal stands" in warned[0]
+
+
+def test_the_age_limit_of_the_gc_reads_the_seal_of_a_run_whose_outcome_does_not_read(
+    tree: Tree,
+) -> None:
+    (tree.run / RUN_OUTCOME_FILENAME).write_text("[]", encoding="utf-8")
+    policy = RetentionPolicy(keep_versions=None, max_age_days=1)
+
+    assert RUN_REL in plan_gc(tree.project, policy, now=NOW + timedelta(days=2)).expired_runs
+    assert RUN_REL not in plan_gc(tree.project, policy, now=NOW).expired_runs
+
+
+def test_a_pulse_this_code_cannot_read_makes_a_running_attempt_unreadable(tree: Tree) -> None:
+    heartbeat = next(item for item in DOCUMENTS if item.name == "logs/heartbeat.json")
+    _rewrite(heartbeat, tree, _bumped(HEARTBEAT_SCHEMA))
+
+    assert effective_status(tree.running) == "unreadable"
+
+
+def test_project_status_refuses_a_plan_it_cannot_read(tree: Tree) -> None:
+    plan = next(item for item in DOCUMENTS if item.name == "plan/<hash>/plan.json")
+    _rewrite(plan, tree, _bumped(PLAN_SCHEMA))
+
+    with pytest.raises(SchemaVersionMismatchError, match=NEWER_REMEDY):
+        project_status(tree.project)
 
 
 def test_annotations_that_do_not_read_keep_a_directory_protected(tree: Tree) -> None:
@@ -1197,6 +1308,23 @@ def test_the_latest_session_is_the_latest_one_this_code_reads(tree: Tree) -> Non
     assert [path.name for path, _ in readable_documents(read_session, [tree.session])] == []
 
 
+@pytest.mark.parametrize("name", ["phases/<p>/session.json", "trials.jsonl"])
+def test_a_session_counts_as_read_when_its_phases_and_its_journal_read(
+    name: str, tree: Tree
+) -> None:
+    """Picking the latest session leaves it out, and naming it keeps the refusal."""
+    document = next(item for item in DOCUMENTS if item.name == name)
+    _rewrite(document, tree, _bumped(document.version))
+
+    with pytest.raises(ConfigMissingError, match="No readable calibration session"):
+        resolve_session_dir(tree.project, None)
+    write_session_dir(tree.project, "older", started_at=NOW - timedelta(days=1))
+    assert resolve_session_dir(tree.project, None).name == "older"
+    assert resolve_session_dir(tree.project, SESSION) == tree.session
+    with pytest.raises(SchemaVersionMismatchError):
+        document.read(tree)
+
+
 def test_a_project_with_no_readable_session_says_so(tree: Tree) -> None:
     _future_session(tree)
 
@@ -1218,3 +1346,195 @@ def test_the_refusal_maps_to_the_schema_mismatch_exit_code() -> None:
     from hydromodpy.cli.helpers import EXIT_SCHEMA_MISMATCH, exit_code_for
 
     assert exit_code_for(SchemaVersionMismatchError("x")) == EXIT_SCHEMA_MISMATCH
+
+
+# -- A rewrite keeps what it does not understand -------------------------------
+
+
+FUTURE_KEY = "added_by_a_later_version"
+
+
+def _new_ledger_entry(tree: Tree) -> None:
+    directory = tree.run / RUN_FIGURES_DIRNAME
+    ledger = Ledger.read(directory)
+    ledger.append(ledger.entries[0].model_copy(update={"file": "other.png"}))
+    ledger.write(directory)
+
+
+REWRITES: tuple[
+    tuple[str, Callable[[Tree], Path], tuple[tuple[Any, ...], ...], Callable[[Tree], Any]], ...
+] = (
+    (
+        "add_tag",
+        lambda t: t.run / RUN_ANNOTATIONS_FILENAME,
+        ((),),
+        lambda t: add_tag(t.run, "new"),
+    ),
+    (
+        "remove_tag",
+        lambda t: t.run / RUN_ANNOTATIONS_FILENAME,
+        ((),),
+        lambda t: remove_tag(t.run, "best"),
+    ),
+    (
+        "add_note",
+        lambda t: t.run / RUN_ANNOTATIONS_FILENAME,
+        ((),),
+        lambda t: add_note(t.run, "hello"),
+    ),
+    (
+        "gc closes an attempt",
+        lambda t: t.running / RUN_OUTCOME_FILENAME,
+        ((),),
+        lambda t: mark_aborted(t.running, now=NOW),
+    ),
+    (
+        "an attempt finishes",
+        lambda t: t.running / RUN_OUTCOME_FILENAME,
+        ((),),
+        lambda t: finish_attempt(t.running, status="failed", error=RuntimeError("boom")),
+    ),
+    (
+        "a session resumes",
+        lambda t: session_descriptor_path(t.session),
+        ((), ("best",)),
+        lambda t: CalibrationPersistence(t.session).resume_session(),
+    ),
+    (
+        "a phase finishes",
+        lambda t: phase_dir(t.session, PHASE) / SESSION_DESCRIPTOR_FILENAME,
+        ((),),
+        lambda t: CalibrationPersistence(t.session).finish_phase(
+            PHASE, status="aborted", best=None
+        ),
+    ),
+    (
+        "a ledger takes an entry",
+        lambda t: t.run / RUN_FIGURES_DIRNAME / LEDGER_FILENAME,
+        ((), ("entries", 0)),
+        _new_ledger_entry,
+    ),
+    (
+        "the facts move on",
+        lambda t: facts_path(t.running),
+        ((),),
+        lambda t: write_facts(t.running, read_facts(t.running).model_copy(update={"attempt": 2})),
+    ),
+)
+"""Every rewrite of a stored JSON document, and where a later version may have added a key."""
+
+
+@pytest.mark.parametrize(
+    ("name", "path_of", "paths", "rewrite"), REWRITES, ids=[row[0] for row in REWRITES]
+)
+def test_a_future_key_survives_a_rewrite(
+    name: str,
+    path_of: Callable[[Tree], Path],
+    paths: tuple[tuple[Any, ...], ...],
+    rewrite: Callable[[Tree], Any],
+    tree: Tree,
+) -> None:
+    target = path_of(tree)
+    before = json.loads(target.read_text(encoding="utf-8"))
+    for path in paths:
+        _nested(before, path)[FUTURE_KEY] = {"any": 1}
+    target.write_text(json.dumps(before), encoding="utf-8")
+
+    rewrite(tree)
+
+    after = json.loads(target.read_text(encoding="utf-8"))
+    assert after != before, "the rewrite changed nothing, so it proves nothing"
+    for path in paths:
+        assert _nested(after, path)[FUTURE_KEY] == {"any": 1}
+
+
+def test_a_future_key_on_a_note_survives_the_next_one(tree: Tree) -> None:
+    add_note(tree.run, "first")
+    target = tree.run / RUN_ANNOTATIONS_FILENAME
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    payload["notes"][0][FUTURE_KEY] = 1
+    target.write_text(json.dumps(payload), encoding="utf-8")
+
+    add_note(tree.run, "second")
+
+    notes = json.loads(target.read_text(encoding="utf-8"))["notes"]
+    assert [note["note"] for note in notes] == ["first", "second"]
+    assert notes[0][FUTURE_KEY] == 1 and FUTURE_KEY not in notes[1]
+
+
+def test_a_future_key_of_a_trial_survives_its_link_to_a_run(tree: Tree) -> None:
+    target = trials_path(tree.session)
+    lines = target.read_text(encoding="utf-8").splitlines()
+    number = json.loads(lines[0])["trial"]
+    lines[0] = json.dumps({**json.loads(lines[0]), FUTURE_KEY: 1})
+    target.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    CalibrationPersistence(tree.session).link_trial(number, sim_id=RUN_ID, rel_dir=RUN_REL)
+
+    last = json.loads(target.read_text(encoding="utf-8").splitlines()[-1])
+    assert (last["sim_id"], last[FUTURE_KEY]) == (RUN_ID, 1)
+
+
+def test_a_model_still_refuses_an_unknown_key_when_it_writes() -> None:
+    with pytest.raises(ValidationError):
+        Annotations(**{FUTURE_KEY: 1})
+
+
+# -- The documents of a job ----------------------------------------------------
+
+
+JOB_WINDOWS = pytest.mark.parametrize(
+    "window",
+    [
+        INPUTSET_VERSIONS,
+        JOB_PROVENANCE_VERSIONS,
+        JOB_OUTCOME_VERSIONS,
+        JOB_MANIFEST_VERSIONS,
+        CHAIN_OUTCOME_VERSIONS,
+    ],
+    ids=lambda window: str(window.current),
+)
+
+
+@JOB_WINDOWS
+def test_a_job_document_inside_its_window_reads_with_a_future_key(
+    window: VersionWindow, tmp_path: Path
+) -> None:
+    target = tmp_path / "document.json"
+    target.write_text(json.dumps({"schema": window.current, FUTURE_KEY: 1}), encoding="utf-8")
+
+    assert read_versioned(target, window)[FUTURE_KEY] == 1
+
+
+@JOB_WINDOWS
+def test_a_job_document_outside_its_window_is_refused_by_what_it_is(
+    window: VersionWindow, tmp_path: Path
+) -> None:
+    target = tmp_path / "document.json"
+    (tmp_path / "provenance.json").write_text(
+        json.dumps({"tool": {"version": WRITER}}), encoding="utf-8"
+    )
+    for payload, remedy in (
+        ({"schema": _bumped(window.current)}, NEWER_REMEDY),
+        ({"schema": _older(window.current)}, OLDER_REMEDY),
+        ({}, OLDER_REMEDY),
+        ([], OLDER_REMEDY),
+        ({"schema": "hmp-another/v1"}, FOREIGN_REMEDY),
+    ):
+        target.write_text(json.dumps(payload), encoding="utf-8")
+        with pytest.raises(SchemaVersionMismatchError) as refused:
+            read_versioned(target, window)
+        assert remedy in str(refused.value)
+        assert f"written by HydroModPy {WRITER}" in str(refused.value)
+
+
+def test_the_report_of_a_chain_reads_under_its_window(tmp_path: Path) -> None:
+    target = tmp_path / CHAIN_OUTCOME_FILENAME
+    target.write_text(json.dumps({"schema": CHAIN_OUTCOME_VERSIONS.current}), encoding="utf-8")
+    assert read_chain_outcome(tmp_path)["schema"] == CHAIN_OUTCOME_VERSIONS.current
+
+    target.write_text(
+        json.dumps({"schema": _bumped(CHAIN_OUTCOME_VERSIONS.current)}), encoding="utf-8"
+    )
+    with pytest.raises(SchemaVersionMismatchError, match=NEWER_REMEDY):
+        read_chain_outcome(tmp_path)

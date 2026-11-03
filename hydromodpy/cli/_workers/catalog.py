@@ -326,7 +326,7 @@ def watch_running(workspace: Any, *, stale_minutes: float | None = None) -> list
         outcome = readable(read_outcome, path)
         if outcome is None:
             continue
-        beat = read_heartbeat(path)
+        beat = readable(read_heartbeat, path)
         age_s = None if beat is None else max(0.0, (now - beat.at).total_seconds())
         rows.append(
             {

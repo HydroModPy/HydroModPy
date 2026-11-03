@@ -21,6 +21,7 @@ from hydromodpy.results.heartbeat import Heartbeat, write_heartbeat
 from hydromodpy.results.identity import Identity
 from hydromodpy.results.lineage import Lineage
 from hydromodpy.results.manifest import (
+    Manifest,
     ManifestConfig,
     ManifestGeometry,
     ManifestPeriod,
@@ -227,6 +228,49 @@ def seal_run(
 
         write_annotations(directory, Annotations(sim_id=sid, tags=tuple(tags)))
     return sid
+
+
+def manifest_document(
+    *, sim_id: str | None = None, name: str = "demo", config_hash: str = "0" * 64, **blocks: Any
+) -> dict[str, Any]:
+    """Return the JSON of a manifest its model reads, for a test that writes no run around it.
+
+    A key of ``blocks`` replaces the key of the document, and ``run`` updates its block.
+    """
+    sid = sim_id or str(uuid.uuid4())
+    stem, version = split_stem_version(name)
+    document = Manifest(
+        sealed_at=NOW,
+        run=ManifestRun(
+            sim_id=sid,
+            name=name,
+            name_stem=stem,
+            version=version or 1,
+            status="completed",
+            project="demo",
+            case_id=name,
+            rel_dir=run_dir_rel(name),
+            attempt=1,
+            attempt_id="a" * 32,
+            solver="modflow6",
+            created_at=NOW,
+        ),
+        geometry=ManifestGeometry(),
+        period=ManifestPeriod(),
+        config=ManifestConfig(file=RUN_CONFIG_FILENAME, hash=config_hash),
+        lineage=Lineage(),
+        identity=Identity(
+            case_id=name,
+            sim_id=sid,
+            attempt_id="a" * 32,
+            config_hash=config_hash,
+            hydromodpy_version=VERSION,
+        ),
+        checks=Checks(),
+    ).model_dump(mode="json")
+    document["run"].update(blocks.pop("run", {}))
+    document.update(blocks)
+    return document
 
 
 def write_attempt(

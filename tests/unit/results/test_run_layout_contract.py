@@ -39,6 +39,7 @@ from hydromodpy.core.state.paths import (
 from hydromodpy.data.provenance.lockfile import LOCKFILE_NAME
 from hydromodpy.results.catalog.constants import PARQUET_VIEW_NAMES
 from hydromodpy.results.manifest import read_manifest
+from hydromodpy.results.record import sealed_artifacts
 from hydromodpy.results.storage.attempt import close_sealed_attempt
 from hydromodpy.results.storage.contract import (
     ALLOWED_RUN_ENTRIES,
@@ -49,7 +50,9 @@ from hydromodpy.results.storage.contract import (
     RUN_INPUTS_FILENAME,
     RUN_LOGS_DIRNAME,
     RUN_OUTCOME_FILENAME,
+    RUN_RESOLVED_CONFIG_FILENAME,
     TABLES_DIRNAME,
+    UNSEALED_RUN_ENTRIES,
 )
 from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.results.storage.sealing import IDENTITY_NOTICE_FILENAME, seal_completed
@@ -208,6 +211,19 @@ def test_a_completed_run_carries_its_outcome_readme_inputs_and_logs(solved_run):
     assert (run_dir / README_FILENAME).is_file()
     assert (run_dir / RUN_INPUTS_FILENAME).is_file()
     assert (run_dir / RUN_LOGS_DIRNAME).is_dir()
+
+
+def test_the_whole_configuration_of_a_run_is_a_sealed_entry_of_its_directory(solved_run):
+    assert RUN_RESOLVED_CONFIG_FILENAME in ALLOWED_RUN_ENTRIES
+    assert RUN_RESOLVED_CONFIG_FILENAME not in UNSEALED_RUN_ENTRIES
+    project, _sim_id, _author = solved_run
+    run_dir = project / RUNS_DIRNAME / RUN_NAME
+    assert RUN_RESOLVED_CONFIG_FILENAME not in {
+        artifact["path"] for artifact in read_manifest(run_dir)["artifacts"]
+    }, "this store wrote no such file: the seal lists what is there"
+    (run_dir / RUN_RESOLVED_CONFIG_FILENAME).write_text("[flow]\n", encoding="utf-8")
+    roles = {entry.path: entry.role for entry in sealed_artifacts(run_dir)}
+    assert roles[RUN_RESOLVED_CONFIG_FILENAME] == "config_resolved"
 
 
 def test_a_completed_run_keeps_no_internal_directory(solved_run):
