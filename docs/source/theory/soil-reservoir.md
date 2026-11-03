@@ -1,152 +1,106 @@
 # The daily soil reservoir
 
-Each day, a soil store takes the rain, loses water to evapotranspiration, and
-sends the water it cannot hold down to the water table. This page gives the
-equations the code solves, what they assume, and where they stop being true.
-It does not say how to set up a run: for that, see
+The soil reservoir turns the daily rain and ETP of a grid into the recharge of a MODFLOW 6
+run. It is a water balance with one store per column. The store fills with the rain, loses
+water to the plants, and sends down what exceeds its capacity. This page gives the equations
+of `hydromodpy/physics/hydrology/soil_reservoir/kernel.py`, what they assume and what they
+leave out. Only MODFLOW 6 accepts the reservoir, so a file that declares
+{toml}`flow.sinks_sources.recharge.soil` with another solver is refused. To set up a run, see
 {doc}`step 6 of the staircase <../get-started/staircase/step6>`.
 
-:::{note}
-**Scope.** The reservoir runs under MODFLOW 6 only. A file that declares
-{toml}`flow.sinks_sources.recharge.soil` with another flow solver is refused
-when it is read. The equations below are the ones of
-`hydromodpy/physics/hydrology/soil_reservoir/kernel.py`.
-:::
-
-## The model in one picture
+## The water path
 
 ```{raw} html
 <figure class="hmp-theory-figure" style="margin:1.2rem 0">
-<svg viewBox="0 40 800 315" role="img" aria-labelledby="soil-fig-title soil-fig-desc" style="width:100%;height:auto;max-width:800px;font-family:inherit;font-size:13px;color:var(--pst-color-text-base)">
+<svg viewBox="0 0 820 400" role="img" aria-labelledby="soil-fig-title soil-fig-desc" style="width:100%;height:auto;max-width:820px;font-family:inherit;font-size:14px">
 <title id="soil-fig-title">Water path through the daily soil reservoir</title>
-<desc id="soil-fig-desc">Rain splits into a sealed share that runs off, a curve-number runoff that is routed and delayed, a bypass that goes to the transit store, and the rest that enters the soil store. The soil store loses evapotranspiration and overflows to the transit store, which releases the recharge.</desc>
+<desc id="soil-fig-desc">Rain enters the soil store. The store loses water to evapotranspiration, at most kc times the ETP and less below alpha times RU, and its overflow becomes the recharge of MODFLOW 6. The demand the soil could not meet goes to the EVT package. Off by default: a curve number takes runoff from the rain, routes it and delays it, a bypass skips the store, a transit store delays the overflow, and a sealed share of the rain runs off at once.</desc>
 <defs>
 <marker id="soil-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker>
 </defs>
-<g fill="none" stroke="currentColor" stroke-width="1.5" marker-end="url(#soil-arrow)">
-<path d="M80 150 H110"/>
-<path d="M240 150 H290"/>
-<path d="M430 150 H500"/>
-<path d="M620 150 H680"/>
-<path d="M360 130 V70" />
-<path d="M265 150 V205 H560 V172"/>
-<path d="M210 170 V270 H290"/>
-<path d="M400 270 H440"/>
-<path d="M540 270 H680"/>
-<path d="M45 170 V325 H735 V290"/>
+<g fill="none" stroke="currentColor" stroke-width="1.5">
+<path d="M110 190 H340" marker-end="url(#soil-arrow)"/>
+<path d="M460 190 H700" marker-end="url(#soil-arrow)"/>
+<path d="M400 164 V96" marker-end="url(#soil-arrow)"/>
+<path d="M490 70 H700" marker-end="url(#soil-arrow)"/>
+</g>
+<g fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4">
+<path d="M210 216 V310 H340" marker-end="url(#soil-arrow)"/>
+<path d="M460 310 H500" marker-end="url(#soil-arrow)"/>
+<path d="M600 310 H700" marker-end="url(#soil-arrow)"/>
+<path d="M300 190 V250 H585 V216" marker-end="url(#soil-arrow)"/>
+<path d="M65 216 V372 H750 V336" marker-end="url(#soil-arrow)"/>
 </g>
 <g fill="var(--pst-color-surface)" stroke="var(--pst-color-border)" stroke-width="1.5">
-<rect x="10" y="130" width="70" height="40" rx="6"/>
-<rect x="110" y="130" width="130" height="40" rx="6"/>
-<rect x="290" y="130" width="140" height="40" rx="6" stroke="var(--pst-color-primary)" stroke-width="2.5"/>
-<rect x="500" y="130" width="120" height="40" rx="6"/>
-<rect x="680" y="130" width="110" height="40" rx="6" stroke="var(--pst-color-primary)" stroke-width="2.5"/>
-<rect x="290" y="250" width="110" height="40" rx="6"/>
-<rect x="440" y="250" width="100" height="40" rx="6"/>
-<rect x="680" y="250" width="110" height="40" rx="6"/>
+<rect x="20" y="164" width="90" height="52" rx="5"/>
+<rect x="340" y="164" width="120" height="52" rx="5" stroke="var(--pst-color-primary)" stroke-width="2.5"/>
+<rect x="310" y="44" width="180" height="52" rx="5"/>
+<rect x="700" y="164" width="100" height="52" rx="5"/>
+<rect x="700" y="44" width="100" height="52" rx="5"/>
+</g>
+<g fill="var(--pst-color-surface)" stroke="var(--pst-color-border)" stroke-width="1.5" stroke-dasharray="6 4">
+<rect x="150" y="164" width="120" height="52" rx="5"/>
+<rect x="530" y="164" width="110" height="52" rx="5"/>
+<rect x="340" y="284" width="120" height="52" rx="5"/>
+<rect x="500" y="284" width="100" height="52" rx="5"/>
+<rect x="700" y="284" width="100" height="52" rx="5"/>
 </g>
 <g fill="currentColor" text-anchor="middle">
-<text x="45" y="155">Rain P</text>
-<text x="175" y="155">1 Curve number</text>
-<text x="360" y="155">Soil store S</text>
-<text x="560" y="155">5 Transit store R</text>
-<text x="735" y="155">Recharge</text>
-<text x="345" y="275">6 Routing</text>
-<text x="490" y="275">7 Lag</text>
-<text x="735" y="275">Runoff</text>
+<text x="65" y="195">Rain P</text>
+<text x="210" y="195">Curve number</text>
+<text x="400" y="186">Soil store S</text>
+<text x="400" y="66">Evapotranspiration ETR</text>
+<text x="585" y="186">Transit</text>
+<text x="585" y="204">store R</text>
+<text x="750" y="186">Recharge N</text>
+<text x="750" y="66">EVT</text>
+<text x="400" y="306">Routing</text>
+<text x="400" y="324">store C</text>
+<text x="550" y="315">Delay L</text>
+<text x="750" y="306">Runoff</text>
 </g>
 <g fill="var(--pst-color-text-muted)" text-anchor="middle" font-size="12">
-<text x="360" y="60">3 ETR, at most kc E</text>
-<text x="410" y="198">2 bypass, share b</text>
-<text x="265" y="143">P - Q</text>
-<text x="465" y="143">4 X</text>
-<text x="650" y="143">O</text>
-<text x="200" y="215" text-anchor="end">Q</text>
-<text x="390" y="340">8 sealed share f: runs off at once, no evaporation</text>
+<text x="400" y="204">capacity RU</text>
+<text x="400" y="84">at most k<tspan dy="3" font-size="10">c</tspan><tspan dy="-3"> E, less below α RU</tspan></text>
+<text x="750" y="204">MODFLOW 6</text>
+<text x="750" y="84">MODFLOW 6</text>
+<text x="750" y="324">to the discharge</text>
+<text x="595" y="62">unmet demand</text>
+<text x="500" y="182">X</text>
+<text x="670" y="182">O</text>
+<text x="305" y="182">P - Q</text>
+<text x="220" y="262">Q</text>
+<text x="445" y="244">bypass, share b</text>
+<text x="400" y="366">sealed share f, at once</text>
 </g>
 </svg>
-<figcaption class="hmp-muted" style="font-size:.9em">The numbers 1 to 8 are the steps of the next sections. The two thick boxes are the stores that the soil and transit equations update; the recharge is what MODFLOW 6 receives.</figcaption>
+<figcaption class="hmp-muted" style="font-size:.9em">The solid boxes work in every soil run. The dashed boxes and paths are off by default, and each one starts when the file sets its key.</figcaption>
 </figure>
 ```
 
 ::::{dropdown} Notation of this page
-Every column of the reservoir is independent, so the column index is left out.
-$t$ is the day. Stores are in mm of water per unit of unsealed area, fluxes in
-mm/day. Every symbol of the site is on {doc}`notation`.
+Every column of the reservoir is independent, so the column index is left out. $t$ is the day.
+Stores are in mm of water per unit of unsealed area, and fluxes in mm/day. Every symbol of the
+site is on {doc}`notation`.
 
 ```{hmp-notation}
 ```
 ::::
 
-The state before the first day, $S_0$, $R_0$ and $C_0$, comes from
-{toml}`spinup|flow.sinks_sources.recharge.soil.spinup` (see
-{ref}`soil-start`).
-
 (soil-balance)=
 ## The daily balance
 
-The code applies the steps below in this order, for every column and every
-day.
-
-### 1. Curve-number runoff (optional)
-
-Read only when {toml}`curve_number|flow.sinks_sources.recharge.soil.curve_number`
-is set, between 30 and 98. Without it, $Q_t = 0$ and the step costs nothing:
-the result is the same, bit for bit, as without the term.
-
-The runoff is the SCS curve-number runoff, written the same way in HELP
-{cite:p}`schroeder1994`, eq. 21, and in NEH-630 {cite:p}`nrcs2004`, eq. 10-1. The
-conversion of a class II number to the dry (class I) and wet (class III) numbers is
-$\mathrm{CN}_I = 4.2\,\mathrm{CN} / (10 - 0.058\,\mathrm{CN})$ and
-$\mathrm{CN}_{III} = 23\,\mathrm{CN} / (10 + 0.13\,\mathrm{CN})$, a fit that stays
-about one number from table 10-1 of NEH-630. The code makes these choices:
-
-- The number in the file is the class II one. The code derives the other two.
-- The wetness of the soil is the store at the end of the day before, as a share
-  of its capacity (next equation).
-- The retention $\sigma_t$, in mm, moves linearly with $w_t$ between its value
-  at the dry number ($w_t = 0$) and its value at the wet number ($w_t = 1$).
-  HELP also ties the retention to the soil water, with other bounds
-  {cite:p}`schroeder1994`. SWAT uses these two bounds, at the wilting point and
-  at field capacity, on a curve that adds 2.54 mm at saturation
-  {cite:p}`neitsch2011`. This straight line is a choice made here, and the class
-  II retention falls at $w_t \approx 0.71$.
-- The initial abstraction is $0.2\,\sigma_t$, because the tables of curve numbers
-  were built with that ratio. Measured ratios are far lower
-  {cite:p}`hawkins2002`, and using one needs a converted number.
-- The rain that infiltrates is $P_t - Q_t$. The runoff $Q_t$ is taken before
-  the soil sees the rain, so the soil gets less of it.
+With the default values, a day has three steps. The rain reaches the soil first, so the water
+in the soil before any evaporation is
 
 $$
-w_t = \min\!\left(1,\ \max\!\left(0,\ \frac{S_{t-1}}{\mathrm{RU}}\right)\right),
-\qquad w_t = 1 \text{ if } \mathrm{RU} = 0 .
-$$ (eq-soil-wetness)
+W_t = S_{t-1} + P_t ,
+$$ (eq-soil-wet)
 
-The retention is not a store. No water sits in it and the balance never counts
-it, and NEH-630 warns against reading it as the storage of the soil
-{cite:p}`nrcs2004`, p. 10-5. The term reads the soil and never the water table, so
-it renders saturation runoff badly: it can run off an interfluve with a deep water
-table in winter and miss a saturated valley bottom. The drains of MODFLOW 6 already
-give that saturation runoff, which is why the term stays off by default.
-
-### 2. Bypass
-
-A constant share $b$ of the infiltrating rain skips the soil. The rest is
-added to the store:
-
-$$
-B_t = b\,(P_t - Q_t), \qquad
-W_t = S_{t-1} + (1 - b)\,(P_t - Q_t).
-$$ (eq-soil-bypass)
-
-Here $b$ is {toml}`bypass_fraction|flow.sinks_sources.recharge.soil.bypass_fraction`.
-$W_t$ is the water in the soil after the rain and before any evaporation.
-
-### 3. Evapotranspiration
-
-The soil evaporates at the full rate $k_c E_t$ while it holds more than
-$\alpha\,\mathrm{RU}$. Below that, the rate falls linearly with the store. It
-can never exceed what the soil holds:
+where $S_{t-1}$ is the store at the end of the day before. The soil evaporates at the full rate
+$k_c E_t$ while it holds more than $\alpha\,\mathrm{RU}$. Below that level the rate falls
+linearly with the store, and it can never exceed what the soil holds. The evapotranspiration
+reads
 
 $$
 \psi_t = \min\!\left(1,\ \frac{W_t}{\alpha\,\mathrm{RU}}\right),
@@ -154,17 +108,8 @@ $$
 \mathrm{ETR}_t = \min\bigl(W_t,\ k_c\,E_t\,\psi_t\bigr),
 $$ (eq-soil-etr)
 
-with $\psi_t = 1$ if $\mathrm{RU} = 0$. The two symbols are
-{toml}`alpha|flow.sinks_sources.recharge.soil.alpha` and
-{toml}`kc|flow.sinks_sources.recharge.soil.kc`, and
-{toml}`ru|flow.sinks_sources.recharge.soil.ru` is the capacity. $\alpha$ is the $1 - p$ of FAO-56 {cite:p}`allen1998` and the $LP$ of HBV
-{cite:p}`seibert2012`, and {cite:t}`manabe1969` has the same form with 0.75. The
-default 0.45 is a choice made here. It means $p = 0.55$, the value of table 22 of FAO-56
-for cereals and maize (0.60 for pasture).
-
-### 4. Overflow
-
-What exceeds the capacity leaves the soil. Nothing else does:
+with $\psi_t = 1$ if $\mathrm{RU} = 0$. The water above the capacity leaves the soil, and the
+rest stays for the next day:
 
 $$
 X_t = \max\bigl(0,\ W_t - \mathrm{ETR}_t - \mathrm{RU}\bigr),
@@ -172,51 +117,171 @@ X_t = \max\bigl(0,\ W_t - \mathrm{ETR}_t - \mathrm{RU}\bigr),
 S_t = W_t - \mathrm{ETR}_t - X_t .
 $$ (eq-soil-overflow)
 
-### 5. Transit through the unsaturated zone
+With the default values, this overflow $X_t$ is the recharge $N_t$ of MODFLOW 6. The demand the
+soil could not meet, $k_c E_t - \mathrm{ETR}_t$, is offered to the water table
+({ref}`soil-results`).
 
-The overflow and the bypass enter one linear reservoir of time constant
-$\tau$, {toml}`transit_time|flow.sinks_sources.recharge.soil.transit_time`.
-The inflow $I_t = X_t + B_t$ is taken as constant over the day, and the
-reservoir is integrated exactly over that day:
+The capacity {toml}`ru|flow.sinks_sources.recharge.soil.ru` is the water the roots can draw. It
+belongs to the site, so it has no default. The soil map of Brittany gives 100 to 200 mm on
+schist and granite {cite:p}`berthier2013`, and {cite:t}`dewandel2020` take 125 mm on the
+catchment of example 04.
+
+The share {toml}`alpha|flow.sinks_sources.recharge.soil.alpha` sets when the plants begin to
+close their stomata. It is the $1 - p$ of FAO-56 {cite:p}`allen1998` and the $LP$ of HBV
+{cite:p}`seibert2012`, and {cite:t}`manabe1969` has the same form with 0.75. The default 0.45 is
+our choice. It means $p = 0.55$, the value of table 22 of FAO-56 for cereals and maize, with
+0.60 for pasture.
+
+The factor {toml}`kc|flow.sinks_sources.recharge.soil.kc` scales the loaded ETP. The value 1
+assumes that the surface of this ETP looks like the site. The attribute dictionaries of SIM2
+label its ETP Penman-Monteith, but we found no primary text of Météo-France that gives its
+reference surface.
+
+(soil-ru)=
+## How much recharge, by capacity
+
+The capacity moves the recharge more than any other parameter. A larger store keeps more of the
+winter rain for the summer, when the plants take it back.
+
+```{eval-rst}
+.. plot:: theory/figures/soil_ru_response.py
+   :alt: Mean annual recharge and evapotranspiration against the soil capacity, from 0 to 300 mm. Recharge falls from about 670 to 275 mm per year, evapotranspiration rises from about 235 to 630; the rain is 904 mm per year.
+
+   Recharge and evapotranspiration against :math:`\mathrm{RU}`, from
+   ``spinup_state`` and ``run_soil_balance`` on a synthetic six-year climate
+   (904 mm of rain and 698 mm of ETP per year, the other keys at their
+   defaults). The two curves sum to the rain over the run.
+```
+
+Example 04 prints the same ladder on the SIM2 rain and ETP of 2015 to 2020 over its catchment:
+
+| $\mathrm{RU}$ (mm) | 50 | 100 | 150 | 200 | 250 |
+|---|---|---|---|---|---|
+| Recharge (mm/year) | 443 | 389 | 350 | 315 | 280 |
+
+Over the same days the rain is 911 mm/year, the ETP 693 mm/year and the gauged discharge
+327 mm/year. So the discharge alone does not fix the capacity.
+
+## What the recharge represents
+
+With the default values the reservoir has no runoff term. All the water above RU goes to the
+water table, so this recharge is an effective rain. Its counterpart in SIM2 is the drainage plus
+the runoff, DRAINC + RUNC. On the catchment of example 04, from October 1985 to July 2015, the
+reservoir gives 308 mm/year and SIM2 gives 243 + 79 = 322 mm/year.
+
+MODFLOW 6 then splits this water. Where the water table reaches the drain elevation, the water
+leaves through the drain in the same period. Elsewhere it passes through the aquifer. So the
+split between quick and slow flow comes from the aquifer parameters and the drains. On example
+04 at the daily step, 2016 to 2020, with K = 3.16e-5 m/s and Sy = 0.04, the filter of Lyne and
+Hollick (0.925, three passes) gives a baseflow index of 0.69 for the run and 0.67 for the gauge.
+Across K from 1e-7 to 1e-4 m/s and Sy from 0.02 to 0.08, the index of the run goes from 0.03 to
+0.81. {cite:t}`dewandel2020` impose the split at the surface instead, with 55 % of the effective
+rain going to the aquifer on hard rock. Their share and this index are different quantities, so
+the comparison says nothing of the path of the water.
+
+A strong rain on a dry soil gives no quick flow in this model, because the soil takes it and the
+plants use it later.
+
+## The optional terms
+
+In the code, a day runs the curve number, then the bypass, the evaporation and the overflow, the
+transit, and at the end the routing and the delay of the runoff. The sealed share changes the
+area that all of them apply to.
+
+### Curve number
+
+A part of the rain runs off before it reaches the soil. The key
+{toml}`curve_number|flow.sinks_sources.recharge.soil.curve_number` starts this term, with a value
+between 30 and 98. The runoff is the SCS formula of HELP {cite:p}`schroeder1994`, eq. 21, and
+NEH-630 {cite:p}`nrcs2004`, eq. 10-1:
+
+$$
+Q_t = \frac{(P_t - 0.2\,\sigma_t)^2}{P_t + 0.8\,\sigma_t}
+\quad \text{if } P_t > 0.2\,\sigma_t ,
+\qquad Q_t = 0 \text{ otherwise.}
+$$ (eq-soil-cn)
+
+The retention $\sigma_t$, in mm, depends on the wetness of the soil the day before,
+
+$$
+w_t = \min\!\left(1,\ \max\!\left(0,\ \frac{S_{t-1}}{\mathrm{RU}}\right)\right),
+\qquad w_t = 1 \text{ if } \mathrm{RU} = 0 .
+$$ (eq-soil-wetness)
+
+It moves linearly with $w_t$, from the retention of the dry number at $w_t = 0$ to the retention
+of the wet number at $w_t = 1$. The file gives the class II number. The code derives
+$\mathrm{CN}_I = 4.2\,\mathrm{CN} / (10 - 0.058\,\mathrm{CN})$ and
+$\mathrm{CN}_{III} = 23\,\mathrm{CN} / (10 + 0.13\,\mathrm{CN})$, a fit about one number from
+table 10-1 of NEH-630, and a number gives the retention $25400 / \mathrm{CN} - 254$. The straight
+line is our choice. HELP uses other bounds {cite:p}`schroeder1994`, and SWAT uses a curve that
+adds 2.54 mm at saturation {cite:p}`neitsch2011`. The ratio 0.2 stays because the tables of
+numbers were built with it, although measured ratios are far lower {cite:p}`hawkins2002`.
+
+The retention is no store, because no water sits in it and the balance never counts it. NEH-630
+warns against reading it as the storage of the soil {cite:p}`nrcs2004`, p. 10-5. The term reads
+the soil and never the water table, so it renders saturation runoff badly. The drains of
+MODFLOW 6 already give that runoff and the term can count it twice, so it stays off by default.
+
+### Bypass
+
+Water can reach the water table through cracks, root channels and worm holes without wetting the
+soil. The key {toml}`bypass_fraction|flow.sinks_sources.recharge.soil.bypass_fraction` gives this
+flow as a constant share $b$ of the rain that infiltrates:
+
+$$
+B_t = b\,(P_t - Q_t), \qquad
+W_t = S_{t-1} + (1 - b)\,(P_t - Q_t).
+$$ (eq-soil-bypass)
+
+The share stays the same in every season and every storm, and real preferential flow does not. A
+calibrated bypass often stands in for the slow drainage that this store does not have
+{cite:p}`ireson2013`. On the rain and ETP of example 04, 2015 to 2020, shares of 0.1 and 0.2 give
+0.18 and 0.36 mm/day of recharge from July to September, for 0.000 without a bypass. So a bypass
+rebuilds a summer floor, and it stays at 0 unless the site shows preferential flow.
+
+### Transit through the unsaturated zone
+
+The water can take time to cross the unsaturated zone. The key
+{toml}`transit_time|flow.sinks_sources.recharge.soil.transit_time` sets the time constant $\tau$
+of one linear reservoir, whose outflow is $R/\tau$. The inflow $I_t = X_t + B_t$ is constant over
+the day and the code integrates the reservoir exactly:
 
 $$
 R_t = \tau I_t + (R_{t-1} - \tau I_t)\,e^{-1/\tau},
 \qquad
-O_t = I_t - (R_t - R_{t-1}).
+O_t = I_t - (R_t - R_{t-1}),
 $$ (eq-soil-transit)
 
-$O_t$ is the water that reaches the water table. If $\tau = 0$, then
-$O_t = I_t$ and $R_t = R_{t-1}$.
+where $O_t$ is the water that reaches the water table. A pulse leaves as a falling exponential,
+and $\tau = 0$ gives $O_t = I_t$. The limit of 30 days leaves the slow response to MODFLOW 6. One
+constant applies to the whole catchment, whatever the depth of the water table.
 
-### 6. Routing of the curve-number runoff
+On example 04, 2016 to 2020, with K = 3.16e-5 m/s and Sy = 0.04, a delay of 5 days raises the NSE
+of the daily discharge from 0.57 to 0.79 and moves the July to September bias from +0.006 to
++0.015 m3/s. A delay of 30 days, run at the monthly step, brings that bias from 0.000 to
++0.058 m3/s, so the summer floor comes back.
 
-The runoff $Q_t$ goes through the same exact reservoir, with the time
-constant $\tau_q$, {toml}`runoff_time|flow.sinks_sources.recharge.soil.runoff_time`,
-and its own store $C_t$. The routed runoff is called $Q^r_t$. If $\tau_q = 0$,
-then $Q^r_t = Q_t$.
+### Routing and delay of the runoff
 
-### 7. Delay of the curve-number runoff
-
-A pure delay of $L$ days, {toml}`runoff_lag|flow.sinks_sources.recharge.soil.runoff_lag`,
-follows. Write $L = n + \varphi$ with $n$ a whole number of days and
-$0 \le \varphi < 1$. The delayed runoff is a linear interpolation between two
-whole-day shifts:
+The curve-number runoff goes through the same reservoir, with the time constant $\tau_q$ of
+{toml}`runoff_time|flow.sinks_sources.recharge.soil.runoff_time` and its own store $C_t$. The
+routed runoff is $Q^r_t$, and $\tau_q = 0$ gives $Q^r_t = Q_t$. A pure delay of $L$ days,
+{toml}`runoff_lag|flow.sinks_sources.recharge.soil.runoff_lag`, follows. With $L = n + \varphi$,
+where $n$ is a whole number of days and $0 \le \varphi < 1$, the delayed runoff reads
 
 $$
 Q^L_t = (1 - \varphi)\,Q^r_{t-n} + \varphi\,Q^r_{t-n-1} .
 $$ (eq-soil-lag)
 
-A day that falls before day 1 of the run reads zero, or, with
-`spinup = "first_year"`, the days at the end of the last repeated first year,
-which stand for the days before the run.
-The delay is not a store: it moves water in time and keeps its volume, except
-the part pushed beyond the last day of the run.
+Both keys are read only with a curve number. They move the runoff in time and keep its volume,
+apart from the part pushed beyond the last day of the run. A day before the first day reads zero,
+or, with `spinup = "first_year"`, the end of the last repeated year.
 
-### 8. Fluxes per unit of column area
+### Sealed share
 
-The stores above are per unit of unsealed area. The sealed share $f$,
-{toml}`impervious_fraction|flow.sinks_sources.recharge.soil.impervious_fraction`,
-gets no infiltration and no evaporation. The fluxes of the column are:
+The key {toml}`impervious_fraction|flow.sinks_sources.recharge.soil.impervious_fraction` gives
+the share $f$ of the area that is sealed. The rain on it runs off the same day, with no soil and
+no evaporation. The stores above are per unit of unsealed area, so the fluxes of the column read
 
 $$
 \begin{aligned}
@@ -227,17 +292,16 @@ N_t &= (1 - f)\,O_t,\\
 \end{aligned}
 $$ (eq-soil-column)
 
-$N_t$ is the recharge MODFLOW 6 receives. The residual ETP is the demand
-$k_c E_t$ that the soil could not meet.
-
-In the code: `soil_step`.
+A curve number fitted on a total runoff such as RUNC already holds the runoff of the sealed
+ground, so $f$ stays at 0 with it. A mean of curve numbers does not replace $f$ either, because
+the soil then keeps its whole area and its evapotranspiration.
 
 ## Three days, by hand
 
-The numbers below come from one call of `soil_step`, {eq}`eq-soil-wetness` to
-{eq}`eq-soil-column`, for each day, with $\mathrm{RU} = 150$ mm, $\alpha = 0.45$, $k_c = 1$,
-$f = b = \tau = 0$. The last day adds a curve number of 80 with $\tau_q = 0$. Its store is
-full, so $w = 1$ and $\sigma$ is the retention at the wet number, $\mathrm{CN}_\mathrm{III} = 90.2$.
+The numbers below come from one call of `soil_step` for each day, with
+$\mathrm{RU} = 150$ mm, $\alpha = 0.45$, $k_c = 1$ and $f = b = \tau = 0$. The last day adds a
+curve number of 80 with $\tau_q = 0$. Its store is full, so $w = 1$ and $\sigma$ is the retention
+of the wet number, $\mathrm{CN}_\mathrm{III} = 90.2$.
 
 | | Dry day | Overflow | Curve number |
 |---|---|---|---|
@@ -250,196 +314,89 @@ full, so $w = 1$ and $\sigma$ is the retention at the wet number, $\mathrm{CN}_\
 | $S_t$ (mm) | 37.63 | 150 | 150 |
 | Residual ETP (mm/day) | 1.63 | 0 | 0 |
 
-On the third day, $30 = 3.00 + 15.50 + 11.50$: the balance closes with no
-change of store.
-
 (soil-closure)=
 ## The balance closes
 
-Over any run, per column and per day:
+Over any run, per column and per day,
 
 $$
 P_t = \mathrm{ETR}^{\text{col}}_t + N_t + \text{runoff}_t
 + \Delta\bigl[(1 - f)(S + R + C)\bigr]_t + \Delta\Lambda_t ,
 $$ (eq-soil-closure)
 
-where $\Lambda_t$ is the running total of runoff held back by the delay
-({toml}`runoff_lag|flow.sinks_sources.recharge.soil.runoff_lag`). The
-function `balance_residual` computes the difference between the two sides. On
-400 days of random rain and ETP over three columns, with a sealed share, a
-bypass, a transit time, a curve number and a delay all switched on, the largest
-residual is under $10^{-13}$ mm: rounding error only.
+where $\Lambda_t$ is the running total of runoff held back by the delay. The function
+`balance_residual` computes the difference between the two sides. On 400 days of random rain and
+ETP over three columns, with all the options on, the largest residual is under $10^{-13}$ mm.
 
 (soil-start)=
 ## The starting state
 
-With `spinup = "none"`, the soil starts full and the other stores empty:
-$S_0 = \mathrm{RU}$, $R_0 = C_0 = 0$.
-
-With `spinup = "first_year"`, the default, the first 365 days of rain and ETP
-are run again and again, starting from that full soil. The loop stops when no
-store of any column moves by $0.1$ mm or more over one repetition, or after 20
-repetitions. The state at the end of the last repetition is $S_0$, $R_0$ and
-$C_0$. If 20 repetitions are not enough, the run stops with an error. A run
-shorter than 52 weeks is refused with this option, and a run of 364 days repeats
-those 364 days.
+With `spinup = "none"`, the soil starts full and the other stores empty. With
+`spinup = "first_year"`, the default, the first 365 days run again and again from that full soil,
+until no store moves by 0.1 mm or more over one repetition. The run stops with an error if 20
+repetitions are not enough. A run shorter than 52 weeks is refused with this option, and a run of
+364 days repeats those 364 days.
 
 ## Columns and capacity classes
 
-Without {toml}`data.soil_capacity`, each cell of the rain and ETP grid is one
-column and the same RU applies to all. With it, the pixels of the raster in
-each cell are sorted by capacity and cut into ten classes of equal pixel
-count. Each class is a column, with a capacity
-$\mathrm{RU} \times (\text{class mean} / \text{raster mean})$. The value
-given in the file is therefore the mean capacity, and the raster only spreads
-it. The basin value of any flux gives every cell its share of the catchment, and
-every class of a cell its share of the pixels. A run without a catchment polygon
-gives every cell the same weight. A capacity spread below the cell belongs to the
-family of {cite:t}`moore2007`. Classes of equal pixel count from a soil map are a
-choice made here.
-
-(soil-ru)=
-## How much recharge, by capacity
-
-$\mathrm{RU}$ is the parameter the recharge depends on most. A larger store keeps
-more of the winter rain for the summer, when the plants take it back, so the
-recharge falls as the capacity grows.
-
-```{eval-rst}
-.. plot:: theory/figures/soil_ru_response.py
-   :alt: Mean annual recharge and evapotranspiration against the soil capacity, from 0 to 300 mm. Recharge falls from about 670 to 275 mm per year, evapotranspiration rises from about 235 to 630; the rain is 904 mm per year.
-
-   Recharge and evapotranspiration against :math:`\mathrm{RU}`, from
-   ``spinup_state`` and ``run_soil_balance`` on a synthetic six-year climate
-   (904 mm of rain and 698 mm of ETP per year, the other keys at their
-   defaults). The two curves sum to the rain over the run.
-```
-
-Example 04 prints the same ladder on its own forcing, the SIM2 rain and ETP of
-2015 to 2020 over its catchment:
-
-| $\mathrm{RU}$ (mm) | 50 | 100 | 150 | 200 | 250 |
-|---|---|---|---|---|---|
-| Recharge (mm/year) | 443 | 389 | 350 | 315 | 280 |
-
-Over the same days the rain is 911 mm/year, the ETP 693 mm/year and the gauged
-discharge 327 mm/year. From 50 to 250 mm the recharge loses more than a third, and the
-discharge alone does not fix the capacity. The soil map of Brittany gives 100 to
-200 mm on schist and granite {cite:p}`berthier2013`, and {cite:t}`dewandel2020` take
-125 mm on this catchment. To set the capacity, see
-{toml}`ru|flow.sinks_sources.recharge.soil.ru`.
+Without {toml}`data.soil_capacity`, each cell of the rain and ETP grid is one column with the same
+RU. With it, the pixels of the raster in each cell are sorted by capacity and cut into ten classes
+of equal pixel count. Each class is a column of capacity
+$\mathrm{RU} \times (\text{class mean} / \text{raster mean})$, so the value in the file stays the
+mean capacity and the raster only spreads it. A capacity spread below the cell belongs to the
+family of {cite:t}`moore2007`, and these classes are our choice. The basin value of a flux gives
+each cell its share of the catchment, or the same weight without a catchment polygon.
 
 ## Where the pieces come from
 
-The threshold balance and its overflow are the soil budget of
-{cite:t}`thornthwaite1957`, which also gives a daily procedure and a start from a
-repeated year. SWB2 {cite:p}`westenbroek2018` has the same order within a day and
-the same overflow. GSFLOW {cite:p}`markstrom2008` is the closest published chain,
-with a daily threshold soil, a preferential flow, a delay and the unused ETP passed
-to MODFLOW. It differs by its saturation runoff and its feedback from the water
-table. No published model with this whole assembly was found, and the search was
-not a systematic review.
+The threshold balance and its overflow are the soil budget of {cite:t}`thornthwaite1957`, which
+also gives a daily procedure and a start from a repeated year. SWB2 {cite:p}`westenbroek2018` has
+the same order within a day and the same overflow, but it first takes a runoff from the rain.
+GSFLOW {cite:p}`markstrom2008` is the closest published chain, with a daily threshold soil, a
+preferential flow, a delay and the unused ETP passed to MODFLOW. It differs by its saturation
+runoff and its feedback from the water table. We found no published model with this whole
+assembly, and the search was not a systematic review.
 
 ## Assumptions
 
-- The rain of a day reaches the soil before it evaporates, the same day. The
-  evaporation stress of day $t$ is computed on the store after the rain.
 - The rain and the ETP are constant over the day.
-- All the water above RU leaves the soil as drainage. There is no
-  saturation-excess runoff term in the kernel.
-- The bypass is a constant share of the infiltrating rain, the same in every
-  season.
-- The unsaturated zone is one linear reservoir per column, with one time
-  constant for the whole catchment.
-- The sealed share receives rain and nothing else: it neither infiltrates nor
-  evaporates, and its runoff is immediate.
-- The curve-number runoff reads the wetness of the day before, not the one
-  after the rain.
-- Columns do not exchange water with each other.
-- One value of $\alpha$, $k_c$, $f$, $b$, $\tau$, CN, $\tau_q$ and $L$ applies to
-  the whole catchment and to the whole run. Only RU varies, through the
-  capacity classes.
-- The rain is one total grid: snow counts as rain on the day it falls. The
-  file is refused unless `components = ["total"]`.
+- The rain falls before the soil evaporates, so the stress of a day reads the store after the rain.
+- The curve number reads the wetness of the day before.
+- Columns do not exchange water.
+- One value of $\alpha$, $k_c$, $f$, $b$, $\tau$, CN, $\tau_q$ and $L$ holds for the catchment and the run.
+- Snow counts as rain on the day it falls, and the file is refused unless `components = ["total"]`.
 
 ## Limits
 
-- **No feedback from the aquifer.** The soil store never reads the water
-  table. A shallow water table does not reduce the capacity. The only link
-  back is the residual ETP, which MODFLOW 6 may draw from the water table
-  ({ref}`soil-results`).
-- **Daily forcing only.** The rain and the ETP must have one value per day
-  and per cell, with no gap and no negative value, on a standard calendar,
-  with the rain and the ETP on the same grid, in the CRS of the model. Otherwise the run stops
-  before the reservoir is computed.
-- **No groundwater memory.** The transit time is limited to 30 days, so that
-  the slow response comes from MODFLOW 6 and not from this reservoir. The default
-  is no delay. On example 04, 2016 to 2020, with K = 3.16e-5 m/s and Sy = 0.04, a
-  delay of 5 days raises the NSE of the daily discharge from 0.57 to 0.79 and moves
-  the July to September bias from +0.006 to +0.015 m3/s. A delay of 30 days, run at
-  the monthly step, brings that bias from 0.000 to +0.058 m3/s, so the summer floor
-  comes back.
-- **All the overflow goes down.** Every millimeter above the capacity enters the
-  water table, and the drains of MODFLOW 6 split it between quick and slow flow.
-  SWB2 treats its overflow the same way. {cite:t}`dewandel2020` send 55 % of the
-  effective rain to the aquifer on hard rock, and they use that value on the
-  catchment of example 04. On the same run at the daily step, the Lyne and Hollick
-  filter (0.925, three passes) gives a baseflow index of 0.69 for the run and 0.67
-  for the gauge. That index is not the same quantity as the 55 %, so it shows the
-  split at the outlet and says nothing of the path of the water. Across K from 1e-7
-  to 1e-4 m/s and Sy from 0.02 to 0.08 the index of the run goes from 0.03 to 0.81,
-  so the split belongs to the aquifer parameters.
-- **No drainage below RU.** The drainage stops at the threshold, where a real soil
-  keeps draining slowly. A calibrated bypass often stands in for that slow drainage
-  {cite:p}`ireson2013`. On the rain and ETP of example 04, 2015-2020, bypass shares
-  of 0.1 and 0.2 give 0.18 and 0.36 mm/day of recharge from July to September, for
-  0.000 at the default. So a bypass rebuilds the summer floor of the SIM2 drainage,
-  and it stays at 0 unless the site shows preferential flow.
-- **The neutral value of $k_c$.** $k_c$ scales the loaded ETP, so $k_c = 1$ is neutral
-  only if the surface of that ETP looks like the site. The attribute dictionaries of
-  SIM2 label its ETP Penman-Monteith, and no primary text of Météo-France found so
-  far gives the reference surface.
-- **Curve number and delay.** $\tau_q$ and $L$ are read only when
-  `curve_number` is set. A fractional delay spreads a one-day pulse over
-  two days. The part of the delayed runoff that falls after the last day of
-  the run is not represented.
-- **First period.** A steady first stress period is refused, since it would
-  hold the recharge of one day only.
-- **SIM2 drainage is not a summer reference across 31 July 2015.** Over the catchment of
-  example 04, the SIM2 drainage (DRAINC) jumps from 0.000 to exactly 0.300 mm/day
-  on 31 July 2015 and never falls below about 0.16 mm/day after: its 30-day
-  minimum is 0.29, 0.23 and 0.30 mm/day in 2016, 2017 and 2018, against 0.00
-  mm/day in the summers 2008 to 2015, on the four extents tested alike. A recharge from this reservoir falls to zero in a dry summer;
-  compare it with the SIM2 drainage period by period, never across that step.
-  {cite:t}`lemoigne2020` describe the sub-grid drainage of SIM as a stand-in for the
-  missing aquifers, and they do not explain this step.
-- **No other runoff.** Water that leaves saturated ground is not a term of
-  this model. In a run, it leaves through the drains of MODFLOW 6.
+- The soil never reads the water table, so a shallow water table does not reduce the capacity.
+- The drainage stops at RU, where a real soil keeps draining slowly.
+- The rain and the ETP need one value per day and per cell, with no gap and no negative value, on a standard calendar, on one grid, in the CRS of the model.
+- A steady first stress period is refused, because it would hold the recharge of one day only.
+- The SIM2 drainage jumps from 0.000 to 0.300 mm/day on 31 July 2015 over the catchment of example 04, so compare a recharge with it period by period. {cite:t}`lemoigne2020` do not explain this step.
 
 (soil-results)=
 ## Where the results go
 
-The reservoir hands three daily grids to the rest of the run, in mm/day on the
-cells of the rain grid.
+The reservoir hands three daily grids to the rest of the run, in mm/day on the cells of the rain
+grid.
 
-- The **recharge** goes to the MODFLOW 6 recharge package. A file that also
-  loads a recharge, through {toml}`data.types`, is refused.
-- The **residual ETP** goes to the MODFLOW 6 evapotranspiration package, which
-  draws it from the water table. The rate falls linearly to zero at
-  {toml}`flow.sinks_sources.etp.extinction_depth` below the drain elevation of the cell.
-  This needs a [flow.sinks_sources.etp] table. The default of 2 m is a choice made
-  here, and the depth matters for the low flows: on example 04, from 1 m to 2 m, the
-  July to September bias of the discharge goes from +0.017 to 0.000 m3/s and the lowest
-  monthly flow of 2019 from 0.174 to 0.151 m3/s, for 0.153 gauged.
-- The **runoff** goes where a loaded runoff would go: the stream networks, the
-  lakes, and the discharge that a calibration compares with the gauge. A file
-  that also loads a runoff, through {toml}`data.types`, is refused, because
-  the same water would be counted twice.
+The recharge goes to the MODFLOW 6 recharge package. A file that also loads a recharge through
+{toml}`data.types` is refused.
+
+The residual ETP goes to the MODFLOW 6 evapotranspiration package, which draws it from the water
+table. This needs a [flow.sinks_sources.etp] table. The rate falls linearly to zero at
+{toml}`extinction_depth|flow.sinks_sources.etp.extinction_depth` below the drain elevation of the
+cell. The default of 2 m is our choice, and this depth matters for the low flows. On example 04,
+from 1 m to 2 m, the July to September bias of the discharge goes from +0.017 to 0.000 m3/s and the
+lowest monthly flow of 2019 from 0.174 to 0.151 m3/s, for 0.153 gauged.
+
+The runoff goes where a loaded runoff would go, to the stream networks, the lakes and the discharge
+that a calibration compares with the gauge. A file that also loads a runoff through
+{toml}`data.types` is refused, because the same water would count twice.
 
 ## Parameters of this page
 
-The fields below are the ones that appear in the equations. Open a row for
-its card.
+The fields below are the ones that appear in the equations. Open a row for its card.
 
 ```{hmp-params}
 flow.sinks_sources.recharge.soil.ru
@@ -452,16 +409,17 @@ flow.sinks_sources.recharge.soil.curve_number
 flow.sinks_sources.recharge.soil.runoff_time
 flow.sinks_sources.recharge.soil.runoff_lag
 flow.sinks_sources.recharge.soil.spinup
+flow.sinks_sources.etp.extinction_depth
 ```
 
-A soil section that uses the curve-number branch. Its keys link to their card.
+A soil section with every key and a curve number. Its keys link to their card.
 
 ```{hmp-toml}
 [flow.sinks_sources.recharge.soil]
 ru = "150 mm"
 alpha = 0.45
 kc = 1.0
-impervious_fraction = 0.02
+impervious_fraction = 0.0
 bypass_fraction = 0.0
 transit_time = "3 days"
 curve_number = 78
@@ -472,8 +430,8 @@ spinup = "first_year"
 
 ## Checked by
 
-The tests that import the code of this page. The box is generated: a new test
-appears here on the next build.
+The tests that import the code of this page. The box is generated, so a new test appears here on
+the next build.
 
 ```{hmp-tested-by}
 hydromodpy.physics.hydrology.soil_reservoir

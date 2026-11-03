@@ -109,7 +109,8 @@ version 1 or from an alpha. The long development notes of the alphas are kept in
   calibrated number above the table, which no source supports.
 - The theory page of the soil reservoir now says that the retention of the curve number is not a
   store, where each piece comes from, how much the capacity moves the recharge, and what the
-  bypass, the transit, the overflow and the extinction depth do to the low flows.
+  bypass, the transit, the overflow and the extinction depth do to the low flows. It also says that
+  its default recharge stands for the drainage plus the runoff of SIM2.
 - A soil run on a steady first period now names `[flow.ic] kind`, and step 6 of example 04 uses
   the `kind` key and the `[flow.sinks_sources.etp]` table.
 - The MODFLOW 6 `discharge` of a run with a lake and no SFR, the Boussinesq `discharge`, and the
