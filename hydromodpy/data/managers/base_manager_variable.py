@@ -478,16 +478,22 @@ class BaseVariableManager(BaseManagerCommon):
         if self.catalog is None:
             return
         for sid in station_ids:
+            window = self.project_period
             self.catalog.register(
                 variable=self.VARIABLE_NAME,
                 source=source,
                 station_id=sid,
                 file_path=SENTINEL_EMPTY,
                 is_custom=False,
+                fetch_metadata=(
+                    None
+                    if window is None
+                    else {_ASKED_WINDOW_KEY: [window[0].isoformat(), window[1].isoformat()]}
+                ),
             )
 
     def _is_empty_sentinel(self, source: str, station_id: str) -> bool:
-        """Check if a station was previously marked as having no data."""
+        """Check if a station had no data for the requested window."""
         if self.catalog is None:
             return False
         entry = self.catalog.find_cached(
@@ -495,7 +501,15 @@ class BaseVariableManager(BaseManagerCommon):
             source=source,
             station_id=station_id,
         )
-        return entry is not None and entry.file_path == SENTINEL_EMPTY
+        if entry is None or entry.file_path != SENTINEL_EMPTY:
+            return False
+        # The sentinel answers for the window it was asked for. Another window
+        # may hold data, so it is asked again. A sentinel with no recorded
+        # window comes from an older cache and keeps answering for any window.
+        asked = self._cached_window(source=source, station_id=station_id)
+        if asked is None or self.project_period is None:
+            return True
+        return asked[0] <= self.project_period[0] and self.project_period[1] <= asked[1]
 
     def _upsert_api_loc(self, loc: StationLocation, source: str) -> None:
         """Add or update a station in the API LOC file."""

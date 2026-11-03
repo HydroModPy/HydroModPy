@@ -135,7 +135,7 @@ def _fix_config(toml_path: str, *, dry_run: bool = False) -> None:
     refused: Exception | None = None
     for file, changes in chain.items():
         if not changes:
-            refusal = _refusal_of(file) if file.resolve() == path.resolve() else None
+            refusal = _refusal_of(file)
             if refusal is None:
                 print(f"{file} is already up to date.")
             else:

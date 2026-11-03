@@ -31,13 +31,13 @@ PROJECT_ROOT = "[workspace] project_root is not a key of a file"
 """The loader refuses it with the line to delete, and the doctor deletes the line."""
 
 REASONS = {
-    "the drains replaced stream enforcement": "geographic.enforce_streams: Extra inputs",
+    "the drains replaced stream enforcement": "'enforce_streams' is not accepted any more",
     "the figure takes its window from the run": "has no option 'scoring_window'",
     "a list replaces, it no longer merges by position": "sources[0].source: Field required",
     "a source names its path": "sources[0].path: Field required",
     "a recharge series replaces the constant": "would be replaced by the series [data.recharge]",
     "an archive is written by hmp publish": 'format = "package" is retired',
-    "the runoff ratio left the recharge source": "runoff_ratio: Extra inputs",
+    "the runoff ratio left the recharge source": "'runoff_ratio' is not accepted any more",
     "[mesh] replaced [mesh_catchment]": "Section [mesh_catchment] is replaced by [mesh]",
     "[mesh] replaced [mesh_input]": "Section [mesh_input] is replaced by [mesh.triangle]",
     "[persistence] is not read": "Section [persistence] is not read by any run",

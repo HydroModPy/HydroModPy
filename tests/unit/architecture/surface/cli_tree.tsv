@@ -457,6 +457,7 @@ hmp export --debug	nargs=0
 hmp export --format	choices=['csv', 'json', 'table'] default='table'
 hmp export --layer	
 hmp export --list	nargs=0
+hmp export --nodata	
 hmp export --period	nargs=2
 hmp export --quiet,-q	nargs=0
 hmp export --regen	nargs=? choices=['all', 'exports', 'figures']

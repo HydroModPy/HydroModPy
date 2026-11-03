@@ -134,7 +134,7 @@ def test_the_editor_schema_is_valid_json_schema_2020_12() -> None:
 
 def test_the_model_schema_keeps_its_required_keys() -> None:
     """Frontends and the lockfile read the model schema, not the editor one."""
-    assert "workspace" in export_schema().get("required", [])
+    assert "geographic" in export_schema().get("required", [])
     assert "required" not in editor_schema()
     assert "base_config" not in export_schema()["properties"]
 

@@ -194,3 +194,14 @@ def test_the_cycles_store_exact_heads_and_the_project_gets_its_precision_back(
 
     assert seen == ["exact", "exact"]
     assert cfg.simulation.results.persistence.field_precision == "compact"
+
+
+def test_spinup_refuses_a_sites_project(tmp_path: Path) -> None:
+    import hydromodpy as hmp
+    from hydromodpy.core.exceptions import ConfigError
+
+    project = tmp_path / "project.toml"
+    project.write_text('[sites]\ntable = "sites.csv"\n\n[sites.recipes]\nbase = "base.toml"\n')
+
+    with pytest.raises(ConfigError, match=r"declares \[sites\]"):
+        hmp.spinup(project)

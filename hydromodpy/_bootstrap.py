@@ -159,7 +159,7 @@ def _register_solver_registry_provider() -> None:
 def _register_root_config_contracts() -> None:
     """Wire HydroModPyConfig into the core config_kit registry.
 
-    The 15x15 layer matrix forbids ``core -> config``. The
+    The 19-layer matrix forbids ``core -> config``. The
     config_kit registry, JSON Schema exporter and other downstream layers
     (results, schema) reach the root model through the
     ``RootConfigProvider`` Protocol declared in
@@ -200,7 +200,7 @@ def _register_root_config_contracts() -> None:
 def _register_dynamic_flow_examples_contract() -> None:
     """Wire dynamic-flow TOML examples into the core toml_io generator.
 
-    The 15x15 layer matrix forbids ``core -> physics`` and
+    The 19-layer matrix forbids ``core -> physics`` and
     ``core -> spatial``. The TOML generator delegates the rendering of
     dynamic ``[flow.param.*]``, ``[flow.bc.*]`` and ``[flow.sinks_sources.*]``
     example blocks to the provider declared in

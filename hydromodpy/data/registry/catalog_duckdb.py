@@ -262,8 +262,12 @@ class DataCatalogDuckDB:
         bbox: tuple | None = None,
         date_start: datetime | None = None,
         date_end: datetime | None = None,
+        product_version: str | None = None,
     ) -> _CatalogEntry | None:
         """Find a cached entry covering the requested extent/period (superset).
+
+        With a *product_version*, an entry fetched from another version of the
+        provider's product, or from one that recorded none, does not answer.
 
         A layered catalog asks the shared cache first, then its private one.
         """
@@ -274,6 +278,7 @@ class DataCatalogDuckDB:
             "bbox": bbox,
             "date_start": date_start,
             "date_end": date_end,
+            "product_version": product_version,
         }
         with self._shared() as shared:
             if shared is not None:

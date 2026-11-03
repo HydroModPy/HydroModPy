@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib
 import json
 import os
+import socket
 import sys
 import time
 from datetime import UTC, datetime, timedelta
@@ -41,7 +42,17 @@ def _make_run(project: Path, name: str) -> Path:
     return run_dir
 
 
-def _outcome(run_dir: Path, status: str, *, started_at: datetime) -> None:
+def _dead_pid() -> int:
+    """A pid that belonged to a process of this host and is gone."""
+    pid = os.fork()
+    if pid == 0:
+        os._exit(0)
+    os.waitpid(pid, 0)
+    return pid
+
+
+def _outcome(run_dir: Path, status: str, *, started_at: datetime, dead: bool = False) -> None:
+    """Write an outcome. A dead attempt ran on this host under a pid that is gone."""
     write_outcome(
         run_dir,
         Outcome(
@@ -52,8 +63,8 @@ def _outcome(run_dir: Path, status: str, *, started_at: datetime) -> None:
             written_by="worker",
             started_at=started_at,
             ended_at=None if status == "running" else started_at,
-            host="node-1",
-            pid=os.getpid(),
+            host=socket.gethostname() if dead else "node-1",
+            pid=_dead_pid() if dead else os.getpid(),
         ),
     )
 
@@ -142,7 +153,7 @@ def test_gc_marks_a_stale_attempt_aborted_and_leaves_a_live_one(
 ) -> None:
     project = _project(tmp_path)
     stale = _make_run(project, "stale")
-    _outcome(stale, "running", started_at=datetime.now(UTC) - timedelta(days=1))
+    _outcome(stale, "running", started_at=datetime.now(UTC) - timedelta(days=1), dead=True)
     day_ago = time.time() - 86400
     os.utime(stale / "outcome.json", (day_ago, day_ago))
     (stale / ".hmp" / "scratch").mkdir(parents=True)
@@ -175,7 +186,7 @@ def test_gc_closes_a_stale_session_so_it_can_be_trashed(monkeypatch, capsys, tmp
             "calib", site="demo", session_id="sess0001", method="tpe", started_at=started
         ),
     )
-    _outcome(session, "running", started_at=started)
+    _outcome(session, "running", started_at=started, dead=True)
     day_ago = time.time() - 86400
     os.utime(session / "outcome.json", (day_ago, day_ago))
 

@@ -310,7 +310,18 @@ class TestGeoTIFFExport:
             assert tags.get("HMP_SIM_ID") == str(sid)
             assert tags.get("HMP_VARIABLE") == "head"
             assert tags.get("HMP_UNITS") == "m"
-            assert "HMP_TIMESTAMP" in tags
+            assert "HMP_EXPORTED_AT" in tags
+            # The fixture has no period edges, so the model instant is unknown and left out.
+            assert "HMP_TIMESTAMP" not in tags
+
+    def test_a_nodata_value_is_written_in_the_file(self, catalog_with_data):
+        catalog, sid, exports = catalog_with_data
+        out = exports / "nodata.tif"
+        _export(catalog, sid, variables="head", file=out, time=0, layer=0, nodata=-1.0)
+        import rasterio
+
+        with rasterio.open(str(out)) as src:
+            assert src.nodata == -1.0
 
     def test_a_resolution_left_out_follows_the_mesh(self, catalog_with_data):
         catalog, sid, exports = catalog_with_data

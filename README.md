@@ -31,17 +31,7 @@ outputs.
 ## Install
 
 ```bash
-pip install --pre hydromodpy
-```
-
-The current `main` documentation targets the v2 alpha line. Use
-`pip install hydromodpy` only when you want the latest stable release.
-
-`2.0.0a1` misses `whitebox-workflows` in its dependencies, and
-`build_geographic` fails without it. On that release, add it by hand:
-
-```bash
-pip install whitebox-workflows==1.3.5
+pip install hydromodpy
 ```
 
 Optional extras: `[ide]`, `[test]`, `[docs]`. Solver binaries

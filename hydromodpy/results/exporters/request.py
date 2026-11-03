@@ -652,6 +652,11 @@ class _Writer:
             if resolution is None:
                 resolution = self._once("resolution", self.target.default_resolution)
             period = period_label(step, self.edges) if timed and self.edges is not None else None
+            import pandas as pd
+
+            model_time = None
+            if timed and self.edges is not None:
+                model_time = pd.Timestamp(self.edges[step + 1]).isoformat()
             return export_geotiff(
                 self.zarr_path,
                 self.sim_id,
@@ -664,6 +669,7 @@ class _Writer:
                 nodata=request.nodata,
                 values=values,
                 period=period or None,
+                model_time=model_time,
             )
         if fmt is ExportFormat.geopackage:
             if name == SIMULATED_ACTIVE_NETWORK:

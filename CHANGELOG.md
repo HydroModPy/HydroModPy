@@ -34,6 +34,15 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Added
+- `NOTICE` with the PyHELP MIT licence and the data licences, shipped in the source distribution.
+- `version` in `CITATION.cff`.
+- Page "Coming from version 1" with the table of v1 keys and commands.
+- `hmp export --nodata` sets the fill value of a GeoTIFF.
+- GeoTIFF tag `HMP_EXPORTED_AT` holds the wall clock of the export.
+- JSON Schemas of `manifest.json` (`manifest.v3.json`) and `provenance.json` (`provenance.v2.json`) in `hydromodpy/schema/results/`, generated like the others and open to additional properties. The gate `test_results_schemas_match_models.py` covers them.
+- Each file entry of the manifest `artifacts` list carries a `sha256`. It is optional on read, and a directory store (`fields.zarr`) and the manifest itself carry none.
+- `hmp doctor` reports `results:seal_digest` when a sealed file is missing or no longer matches its digest. `hydromodpy.results.manifest.seal_problems(run_dir)` gives the list.
+- `find_cached(..., product_version=...)` on the data catalog: with a version, only an entry whose `fetch_metadata.product_version` equals it answers.
 - The release workflow starts with a gate: the tagged commit must be on `main` or `dev`, its main CI run must have passed, and the example catalog must match the tree. The wheel is tested on Python 3.11, 3.12 and 3.13 before the upload.
 - `tools/ci/check_example_catalog.py` hashes every file `catalog.toml` names. CI and the release procedure run it.
 - A weekly job installs the dependencies at their lower bounds and with no upper cap, then runs the stored-format tests.
@@ -761,6 +770,17 @@ Each release section includes the following standard categories:
   (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
+- The classifier is `Development Status :: 4 - Beta`. Install instructions no longer use `--pre` or a fixed version number.
+- The quick start enters the workspace with `cd ~/hydromodpy` before `hmp example add`.
+- `hmp config schema` no longer requires `workspace`, `workspace.project_root` or `geographic.catchment`, which the loader fills.
+- GeoTIFF tag `HMP_TIMESTAMP` now holds the model instant (end of the period) instead of the export time.
+- GeoTIFF export keeps float32 when the field is float32.
+- Figure and pyhelp labels that were in French are in English.
+- One SHA-256 file helper, `hydromodpy.core.io.file_digest.sha256_of`. Seven copies (ledger, payload install, lockfile, sidecars, geographic cache, cache store, network-transient manifest) now call it. The old names remain.
+- The index no longer skips a run whose solver code is not in the `solvers` table. The code is added, with the category the run names or `unknown`, as regimes and topologies already were. A name typed by a user is still checked by `validate_solver_code`.
+- `hmp doctor --fix-config` now reports a retired key found in any file of the `base_config` chain, not only in the named file.
+- `results/derive/stream_network.py` passes `catchment_outline=` to `build_network_geometry`.
+- Docstring of the Boussinesq drainage outflow states the base DRN seepage rule it follows.
 - The wheel smoke test runs on Python 3.11, 3.12 and 3.13.
 - The weekly install test checks the default branch with pip on Linux, macOS and Windows. Only Linux blocks.
 - Dependency caps follow the majors the tests passed on: `pyarrow<27`, `duckdb<3`, `optuna<6`, `plotly<8`, `Pillow<14`, `filelock<5`. `pandas` stays below 3.
@@ -1769,6 +1789,9 @@ The old forms keep loading for two minor versions and `hmp doctor --fix-config <
 | `workspace.catalog_path`, `workspace.runs_dir` | none, the doctor deletes them |
 
 ### Removed
+- The `runs/<run>/mesh/` and solver listing promises of the storage contract (the mesh lives in `fields.zarr`).
+- Dead readers of `derived/` stacks in `results/derive/virtual_fields.py` (`_has_stored`, `_stored_rows`, `_stored_or`).
+- Unused module `core/toml_io/descriptions.py`.
 - The `duckdb` extra, which repeated a base dependency, and `pynvml` from the `metrics` extra, which nothing imported.
 - Examples `03_canut_watershed`, `05_nancon_data_overview`, `07_mesh_gallery` and `20_atelier_nancon` moved out of the repository.
 - `results.derive.time_alignment.normalize_period_bounds`, replaced by `core.time.selection.in_series_window`.
@@ -1986,6 +2009,30 @@ The old forms keep loading for two minor versions and `hmp doctor --fix-config <
   A run sealed before the family tables draws no reference line.
 
 ### Fixed
+- The `next:` line of the quick start matches what `hmp run` prints.
+- The "Add a solver" page no longer describes a registry check that does not exist, and documents `accepted_meshes`.
+- `--frozen` replay keeps the bytes of each input when two inputs share a role.
+- SLURM task scripts drop `HMP_SET_*` and `HMP_RUN_SCRATCH` from the submitting shell.
+- `hmp spinup` refuses a `[sites]` project with a message.
+- A tar destination with a dot in its name gets the `.tar` suffix.
+- `record_derived_file` takes a lock, so concurrent exports no longer lose ledger entries.
+- `viz regen` advises `--to`, the flag that exists.
+- `geographic.enforce_streams` and a recharge source `runoff_ratio` are refused by name with advice instead of a generic extra-input error.
+- Docs: `many-catchments.md` no longer points at `hmp example add 19`; "15x15 layer matrix" docstrings say 19-layer.
+- Capability refusals of the configuration (layering, K tensor, transport, boundaries, restart) read the flow engine the file declares, not `solver.backend` alone.
+- `flow.restart_from` beside a `steady_state` or `spinup_cyclic` initial condition is refused, since the restart was overwritten without a message.
+- An empty-station marker in the data cache only answers for the window it was asked for.
+- `source_unit` is honoured for a folder of CSV stations; a LOC unit that contradicts it is refused.
+- The calibration preflight refuses extent durations the timestep cannot read.
+- The catchment report postflight no longer expects optional figures.
+- `hmp catalog ls --solver` finds runs that stored several solvers.
+- Boussinesq warm start counts injection, not pumping, as loading.
+- `catalog gc` closes a stale run only when its death is proven.
+- `hmp campaign array` applies the same `prepare_parallel` ceiling as a local launch.
+- `hmp.open` opens a sealed run directory outside a project.
+- `sites_run_config` names the missing `project.toml`.
+- Fields stored by a run written before the fields were rebuilt on read (water table, seepage mask, concentration at seepage, mass at seepage) are read again, not rebuilt as NaN.
+- The network redraw no longer reads the delineated polygon when the run stores a basin of D.
 - `hmp calibrate` builds the river network when a generated mesh follows the rivers, as `hmp run` already did. A file that ran stopped at the mesh step when calibrated, unless it wrote `enabled = true` under `[geographic.river_network]`.
 - A map that draws no stream under the heads rule is refused before the first solve with a typed calibration error and its exit code, not a bare `ValueError`.
 - The warning "Simulated discharge is baseflow only" no longer shows on a run that holds no discharge gauge. There is nothing to compare, so the demo no longer warns on its first run.

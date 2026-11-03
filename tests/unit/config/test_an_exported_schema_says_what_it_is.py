@@ -118,3 +118,15 @@ def test_extracting_an_absent_property_names_what_is_there() -> None:
     root = export_schema(section="simulation")
     with pytest.raises(KeyError, match="is not a property of this schema"):
         extract_property_schema(root, "no_such_property")
+
+
+def test_the_default_schema_does_not_require_what_the_loader_fills():
+    """A real file never names the project root, and a synthetic support has no catchment."""
+    from hydromodpy.config.schema_export import export_schema
+
+    schema = export_schema()
+    defs = schema["$defs"]
+
+    assert "workspace" not in schema.get("required", [])
+    assert "project_root" not in defs["WorkspaceConfig"].get("required", [])
+    assert "catchment" not in defs["GeographicConfig"].get("required", [])

@@ -33,6 +33,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -90,17 +91,6 @@ def _sorted_dict(obj: Any) -> Any:
     if isinstance(obj, (list, tuple)):
         return [_sorted_dict(item) for item in obj]
     return obj
-
-
-def _sha256_file(path: Path, *, chunk_size: int = 1 << 20) -> str:
-    h = hashlib.sha256()
-    with path.open("rb") as fh:
-        while True:
-            buf = fh.read(chunk_size)
-            if not buf:
-                break
-            h.update(buf)
-    return h.hexdigest()
 
 
 class GeographicCache:
@@ -239,7 +229,7 @@ class GeographicCache:
 def _maybe_hash(path: Path) -> str | None:
     try:
         if path.is_file():
-            return _sha256_file(path)
+            return sha256_of(path)
     except OSError:
         logger.debug("Cannot hash %s", path, exc_info=True)
     return None

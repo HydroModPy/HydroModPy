@@ -153,6 +153,12 @@ def register(subparsers) -> argparse.ArgumentParser:
         default=None,
         help="Model layer of a field of several layers (0 is the top one)",
     )
+    parser.add_argument(
+        "--nodata",
+        type=float,
+        default=None,
+        help="Fill value of the cells a GeoTIFF has no data for (default: -9999)",
+    )
     parser.set_defaults(_handler=run)
     return parser
 
@@ -189,6 +195,7 @@ def run(args: argparse.Namespace) -> None:
                 crs=args.crs,
                 resolution=args.resolution,
                 layer=args.layer,
+                **({} if args.nodata is None else {"nodata": args.nodata}),
             )
 
     def table() -> None:

@@ -74,3 +74,13 @@ def test_leaving_it_unset_is_fine_on_any_backend(tmp_path) -> None:
     )
 
     assert cfg.flow.restart_from is None
+
+
+@pytest.mark.parametrize("kind", ["steady_state", "spinup_cyclic"])
+def test_a_restart_beside_a_computed_start_is_refused(tmp_path, kind: str) -> None:
+    with pytest.raises(ValueError, match="overwrite the restart"):
+        HydroModPyConfig(
+            **_base_kwargs(tmp_path),
+            solver=SolverConfig(backend={"kind": "modflow6"}),
+            flow=FlowConfig(restart_from="runs/spinup_3/fields.zarr", ic={"h": {"kind": kind}}),
+        )

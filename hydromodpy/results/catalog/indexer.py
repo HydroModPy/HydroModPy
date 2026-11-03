@@ -84,6 +84,7 @@ from hydromodpy.core.state.paths import (
 )
 from hydromodpy.core.version import __version__
 from hydromodpy.results.annotations import read_annotations
+from hydromodpy.results.catalog.constants import solver_category
 from hydromodpy.results.catalog.index_schema import (
     INDEX_META_TABLE,
     INDEX_SCHEMA_VERSION,
@@ -1028,8 +1029,10 @@ def _lookup_ids(connection: duckdb.DuckDBPyConnection, row: dict[str, Any]) -> d
     """Resolve the dimension codes of a row into their ids.
 
     A regime or a topology the tables do not hold yet is added: a later version
-    may write one, and the index keeps what the run says. The solver codes stay
-    a strict vocabulary (:func:`validate_solver_code`).
+    may write one, and the index keeps what the run says. A solver code the
+    table does not hold is added the same way, with the category the row names
+    or ``unknown``: a name is checked when it is typed
+    (:func:`validate_solver_code`), not when a seal is read.
     """
 
     def _id(table: str, code: Any) -> int | None:
@@ -1038,18 +1041,29 @@ def _lookup_ids(connection: duckdb.DuckDBPyConnection, row: dict[str, Any]) -> d
         found = connection.execute(f"SELECT id FROM {table} WHERE code = ?", [str(code)]).fetchone()
         return None if found is None else int(found[0])
 
-    def _id_or_new(table: str, code: Any) -> int | None:
+    def _id_or_new(table: str, code: Any, *, category: str | None = None) -> int | None:
         found = _id(table, code)
         if found is not None or code is None:
             return found
         last = connection.execute(f"SELECT COALESCE(MAX(id), 0) FROM {table}").fetchone()
         new_id = int(last[0]) + 1
-        connection.execute(f"INSERT INTO {table} (id, code) VALUES (?, ?)", [new_id, str(code)])
+        if category is None:
+            connection.execute(f"INSERT INTO {table} (id, code) VALUES (?, ?)", [new_id, str(code)])
+        else:
+            connection.execute(
+                f"INSERT INTO {table} (id, code, category) VALUES (?, ?, ?)",
+                [new_id, str(code), category],
+            )
         return new_id
 
-    solver_id = _id("solvers", row.get("solver"))
-    if solver_id is None:
-        raise ValueError(f"unknown solver code {row.get('solver')!r}")
+    solver = row.get("solver")
+    if solver is None:
+        raise ValueError("the run names no solver")
+    solver_id = _id_or_new(
+        "solvers",
+        solver,
+        category=row.get("solver_category") or solver_category(str(solver)) or "unknown",
+    )
     return {
         "solver_id": solver_id,
         "status_id": _id("statuses", "completed"),

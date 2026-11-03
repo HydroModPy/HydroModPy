@@ -100,7 +100,7 @@ def list_simulations(
         if sims.empty:
             continue
         if solver:
-            sims = sims[sims["solver"].fillna("").str.lower() == canonical_solver_code(solver)]
+            sims = sims[_runs_with_solver(sims["solver"], canonical_solver_code(solver))]
         if site:
             sims = sims[sims["site"].fillna("") == site]
         if status:
@@ -116,6 +116,15 @@ def list_simulations(
     if limit is not None:
         out = out.head(int(limit))
     return _stable_listing_projection(out)
+
+
+def _runs_with_solver(stored: Any, wanted: str) -> Any:
+    """Mask of the runs whose solver list holds ``wanted``, such as "modflow6,modpath"."""
+    from hydromodpy.results.catalog.constants import canonical_solver_code
+
+    return stored.fillna("").map(
+        lambda text: wanted in {canonical_solver_code(part) for part in str(text).split(",")}
+    )
 
 
 def _stable_listing_projection(df: Any) -> Any:

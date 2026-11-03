@@ -559,7 +559,7 @@ def regen_figures(sim: Run, run_dir: Path, *, dpi: int = 150) -> FigureRenderRep
     if not entries:
         raise ValueError(
             f"{figures_dir} records no figure to draw again. Draw one with "
-            "'hmp viz show <run> <figure> --save' or list figures in [display]."
+            "'hmp viz show <run> <figure> --to FILE' or list figures in [display]."
         )
     rendered: list[str] = []
     written: list[Path] = []

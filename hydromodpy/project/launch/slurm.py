@@ -93,7 +93,11 @@ from hydromodpy.project.launch.journal import (
     read_case_list,
     write_case_list,
 )
-from hydromodpy.project.launch.local import sites_run_config, worker_flags
+from hydromodpy.project.launch.local import (
+    effective_prepare_parallel,
+    sites_run_config,
+    worker_flags,
+)
 from hydromodpy.project.launch.prepare import workspace_data_dir
 from hydromodpy.project.launch.status import plan_is_stale
 from hydromodpy.results.catalog.registration import split_stem_version
@@ -219,7 +223,9 @@ def write_slurm_array(
         )
     run = sites_run_config(root)
     threads = _positive("threads_per_case", threads_per_case, run.threads_per_case)
-    prepare = _positive("prepare_parallel", prepare_parallel, run.prepare_parallel)
+    prepare = effective_prepare_parallel(
+        _positive("prepare_parallel", prepare_parallel, run.prepare_parallel), force=False
+    )
     directives = _directives(partition, walltime)
     max_solves = max(case.solves for case in planned_cases(stored))
 

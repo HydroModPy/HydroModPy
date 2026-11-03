@@ -125,18 +125,18 @@ def plot_sim_vs_obs_yearly_streamflow(sim_qflow, obs_qflow, fig_title, figname=N
     )
 
     ax.tick_params(axis="both", direction="out", labelsize=12)
-    ax.set_ylabel("Débit par unité de surface\n(mm/an)", fontsize=16, labelpad=10)
-    ax.set_xlabel("Années", fontsize=16, labelpad=10)
+    ax.set_ylabel("Flow per unit area\n(mm/yr)", fontsize=16, labelpad=10)
+    ax.set_xlabel("Years", fontsize=16, labelpad=10)
     ax.axis(ymin=0, ymax=1600)
     ax.grid(axis="y", color=[0.35, 0.35, 0.35], ls="-", lw=0.5)
     ax.axis([1980, 2025, 0, 1200])
 
     lines = [l1, l2, l3, l4]
     labels = [
-        "Débit total observé",
-        "Débit total simulé",
-        "Débit base observé",
-        "Débit base simulé",
+        "Observed total flow",
+        "Simulated total flow",
+        "Observed baseflow",
+        "Simulated baseflow",
     ]
     legend = ax.legend(
         lines,
@@ -196,8 +196,8 @@ def plot_streamflow_scatter(sim_qflow, obs_qflow, fig_title, figname=None):
 
     xymin, xymax = 100, 1100
     ax.axis([xymin, xymax, xymin, xymax])
-    ax.set_ylabel("Débits Simulés (mm/an)", fontsize=16, labelpad=15)
-    ax.set_xlabel("Débits Observés (mm/an)", fontsize=16, labelpad=15)
+    ax.set_ylabel("Simulated flow (mm/yr)", fontsize=16, labelpad=15)
+    ax.set_xlabel("Observed flow (mm/yr)", fontsize=16, labelpad=15)
 
     ax.tick_params(axis="both", direction="out", labelsize=12)
 
@@ -217,7 +217,7 @@ def plot_streamflow_scatter(sim_qflow, obs_qflow, fig_title, figname=None):
     ax.text(
         0,
         1,
-        f"RMSE débit total = {rmse_qtot:0.1f} mm/an",
+        f"RMSE total flow = {rmse_qtot:0.1f} mm/yr",
         transform=ax.transAxes + offset,
         ha="left",
         va="top",
@@ -227,7 +227,7 @@ def plot_streamflow_scatter(sim_qflow, obs_qflow, fig_title, figname=None):
     ax.text(
         0,
         1,
-        f"ME débit total = {me_qtot:0.1f} mm/an",
+        f"ME total flow = {me_qtot:0.1f} mm/yr",
         transform=ax.transAxes + offset,
         ha="left",
         va="top",
@@ -238,7 +238,7 @@ def plot_streamflow_scatter(sim_qflow, obs_qflow, fig_title, figname=None):
     ax.text(
         0,
         1,
-        f"RMSE débit base = {rmse_qbase:0.1f} mm/an",
+        f"RMSE baseflow = {rmse_qbase:0.1f} mm/yr",
         transform=ax.transAxes + offset,
         ha="left",
         va="top",
@@ -248,7 +248,7 @@ def plot_streamflow_scatter(sim_qflow, obs_qflow, fig_title, figname=None):
     ax.text(
         0,
         1,
-        f"ME débit base = {me_qbase:0.1f} mm/an",
+        f"ME baseflow = {me_qbase:0.1f} mm/yr",
         transform=ax.transAxes + offset,
         ha="left",
         va="top",
@@ -262,7 +262,7 @@ def plot_streamflow_scatter(sim_qflow, obs_qflow, fig_title, figname=None):
 
     # Add a legend.
     lines = [l1, l2, l3]
-    labels = ["1:1", "Débit total", "Débit base"]
+    labels = ["1:1", "Total flow", "Baseflow"]
     legend = ax.legend(
         lines,
         labels,

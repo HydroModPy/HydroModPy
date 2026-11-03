@@ -208,3 +208,20 @@ def test_an_empty_gap_is_asked_once(tmp_path: Path, monkeypatch: pytest.MonkeyPa
         manager.catalog.close()
         assert [r.station_id for r in records] == ["B"]
     assert asked == [(datetime(2000, 1, 31), datetime(2000, 1, 31))]
+
+
+def test_an_empty_station_answers_for_its_window_only(tmp_path: Path) -> None:
+    catalog = DataCatalogDuckDB(tmp_path / "cache.duckdb")
+    (tmp_path / "d").mkdir()
+    january = (datetime(2000, 1, 1), datetime(2000, 1, 31))
+    manager = _Manager(
+        config=SimpleNamespace(), catalog=catalog, project_period=january, data_dir=tmp_path / "d"
+    )
+    manager._register_empty_api_stations(["B"], "hubeau")
+
+    assert manager._is_empty_sentinel("hubeau", "B")
+    manager.project_period = (datetime(2000, 1, 10), datetime(2000, 1, 20))
+    assert manager._is_empty_sentinel("hubeau", "B")
+    manager.project_period = (datetime(2000, 1, 1), datetime(2000, 3, 1))
+    assert not manager._is_empty_sentinel("hubeau", "B")
+    catalog.close()

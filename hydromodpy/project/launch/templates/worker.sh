@@ -3,6 +3,12 @@
 # signal and waits. After the worker, the trap step writes `failed` in the run
 # directory when the worker exited without writing its own outcome.
 # The flags of `hmp run` are the local launcher's, read when the task starts.
+# The shell that submitted the job may carry the overrides of the plan or the
+# scratch of an enclosing run. A task takes none of them.
+unset HMP_RUN_SCRATCH
+for _hmp_var in $(compgen -e | grep '^HMP_SET_'); do
+    unset "$_hmp_var"
+done
 cd "$PROJECT_ROOT" || exit 1
 CASE_TOML="$("$HMP_PYTHON" -m hydromodpy campaign case "$JOB" "$SLURM_ARRAY_TASK_ID")" || exit 2
 FLAGS_TEXT="$("$HMP_PYTHON" -m hydromodpy.project.launch.slurm task-flags \

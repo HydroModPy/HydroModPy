@@ -90,6 +90,15 @@ def test_a_tar_is_swept_like_a_directory(tmp_path) -> None:
     assert _sweep(extracted, _private_strings(project)) == []
 
 
+def test_a_tar_destination_with_a_dot_in_its_name_still_gets_the_tar_suffix(tmp_path) -> None:
+    project = make_project(tmp_path)
+    archive = publish(
+        make_sealed_run(project), tmp_path / "out" / "nancon.v2", project_root=project, format="tar"
+    )
+
+    assert archive.name == "nancon.v2.tar"
+
+
 def test_a_copy_that_would_still_leak_is_refused_whole(tmp_path) -> None:
     import pyarrow as pa
     import pyarrow.parquet as pq

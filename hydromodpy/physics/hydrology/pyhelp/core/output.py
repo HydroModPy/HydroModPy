@@ -28,12 +28,12 @@ logger = get_logger(__name__)
 
 VARNAMES = ["precip", "rechg", "runoff", "evapo", "subrun1", "subrun2", "perco"]
 LABELS = {
-    "precip": "Précipitations totales",
-    "rechg": "Recharge au roc",
-    "runoff": "Ruissellement de surface",
-    "evapo": "Évapotranspiration",
-    "subrun1": "Ruissellement hypodermique superficiel",
-    "subrun2": "Ruissellement hypodermique profond",
+    "precip": "Total precipitation",
+    "rechg": "Recharge to bedrock",
+    "runoff": "Surface runoff",
+    "evapo": "Evapotranspiration",
+    "subrun1": "Shallow interflow",
+    "subrun2": "Deep interflow",
 }
 COLORS = {
     "precip": "#1f77b4",
@@ -283,7 +283,7 @@ class HelpOutput:
             )
 
         ax.set_ylabel(
-            "Composantes mensuelles moyennes\ndu bilan hydrologique (mm/mois)",
+            "Mean monthly components\nof the water budget (mm/month)",
             fontsize=16,
             labelpad=10,
         )
@@ -293,7 +293,7 @@ class HelpOutput:
 
         # http://bdl.oqlf.gouv.qc.ca/bdl/gabarit_bdl.asp?id=3619
         ax.set_xticklabels(
-            ["Jan", "Fév", "Mar", "Avr", "Mai", "Jun", "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc"]
+            ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
         )
         ax.tick_params(axis="both", direction="out", labelsize=12)
 
@@ -317,9 +317,9 @@ class HelpOutput:
         year_min = masked_years.min()
         year_max = masked_years.max()
         if year_min == year_max:
-            text = f"Année considérée pour le bilan : {year_min:0.0f}"
+            text = f"Year used for the budget : {year_min:0.0f}"
         else:
-            text = "Années considérées pour le bilan : "
+            text = "Years used for the budget : "
             text += f"{year_min:0.0f} - {year_max:0.0f}"
 
         fig.canvas.draw()
@@ -397,7 +397,7 @@ class HelpOutput:
                 ax.text(
                     x,
                     var_avg_yearly,
-                    f"{round(var_avg_yearly)}\nmm/an",
+                    f"{round(var_avg_yearly)}\nmm/yr",
                     ha="center",
                     va="bottom",
                     transform=ax.transData + text_offset,
@@ -420,7 +420,7 @@ class HelpOutput:
         ax.tick_params(axis="y", direction="out", labelsize=12)
         ax.tick_params(axis="x", direction="out", length=0)
         ax.set_ylabel(
-            "Composantes annuelles moyennes\ndu bilan hydrologique (mm/an)",
+            "Mean annual components\nof the water budget (mm/yr)",
             fontsize=16,
             labelpad=10,
         )
@@ -446,9 +446,9 @@ class HelpOutput:
         year_min = masked_years.min()
         year_max = masked_years.max()
         if year_min == year_max:
-            text = f"Année considérée pour le bilan : {year_min:0.0f}"
+            text = f"Year used for the budget : {year_min:0.0f}"
         else:
-            text = "Années considérées pour le bilan : "
+            text = "Years used for the budget : "
             text += f"{year_min:0.0f} - {year_max:0.0f}"
 
         fig.canvas.draw()
@@ -534,10 +534,8 @@ class HelpOutput:
             )
 
         ax.tick_params(axis="both", direction="out", labelsize=12)
-        ax.set_ylabel(
-            "Composantes annuelles\ndu bilan hydrologique (mm/an)", fontsize=16, labelpad=10
-        )
-        ax.set_xlabel("Années", fontsize=16, labelpad=10)
+        ax.set_ylabel("Annual components\nof the water budget (mm/yr)", fontsize=16, labelpad=10)
+        ax.set_xlabel("Years", fontsize=16, labelpad=10)
         ax.axis(ymin=0)
         ax.xaxis.get_major_locator().set_params(integer=True)
         ax.grid(axis="y", color=[0.35, 0.35, 0.35], ls="-", lw=0.5)

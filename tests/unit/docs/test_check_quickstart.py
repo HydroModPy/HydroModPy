@@ -16,9 +16,9 @@ from tools.docs import check_quickstart as qs
 PAGE_TEXT = qs.PAGE.read_text(encoding="utf-8")
 
 
-def test_the_commands_are_the_five_of_the_page() -> None:
+def test_the_commands_are_the_six_of_the_page() -> None:
     commands = qs.quick_start_commands(PAGE_TEXT)
-    assert [c[0] for c in commands] == ["pip", "hmp", "hmp", "hmp", "hmp"]
+    assert [c[0] for c in commands] == ["pip", "hmp", "cd", "hmp", "hmp", "hmp"]
     runs = [c for c in commands if c[:2] == ["hmp", "run"]]
     assert len(runs) == 2
     assert runs[0][2].endswith("run_demo.toml")
@@ -34,7 +34,7 @@ def test_the_promised_lines_match_themselves_and_a_real_run() -> None:
     done, following = qs.line_patterns(*qs.promised_lines(PAGE_TEXT))
     real = [
         "Run completed: demo [28693ca4] 2s",
-        "next: hmp catalog show demo | hmp catalog diff demo <other> | hmp export demo --list",
+        "next: hmp catalog show demo | hmp publish demo --to <folder> | hmp export demo --list",
     ]
     assert qs.lines_match(done, following, real)
     assert qs.lines_match(done, following, list(qs.promised_lines(PAGE_TEXT)))
@@ -47,7 +47,7 @@ def test_the_promised_lines_match_themselves_and_a_real_run() -> None:
         ["Run completed: demo [28693ca4] 2s", "next: hmp catalog show demo"],
         [
             "Run completed: demo [28693ca4] 2s",
-            "next: hmp catalog show other | hmp catalog diff other <other> | hmp export other --list",
+            "next: hmp catalog show other | hmp publish other --to <folder> | hmp export other --list",
         ],
         ["Run failed: demo [28693ca4] 2s", "next: hmp catalog show demo"],
     ],

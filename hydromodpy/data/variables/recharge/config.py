@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, ClassVar, Literal
 
 from pydantic import Field, model_validator
 
@@ -25,6 +26,13 @@ class RechargeSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
     constant, time-varying, or sinusoidal depending on the declared values and
     optional amplitude settings.
     """
+
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "runoff_ratio": (
+            "no step ever read it, the recharge of a source is the water that "
+            "reaches the saturated zone; give that net recharge in `values`"
+        ),
+    }
 
     source: Annotated[Literal["custom", "sim2", "synthetic"], Profile.USER] = Field(
         ...,

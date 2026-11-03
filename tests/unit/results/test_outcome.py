@@ -195,3 +195,19 @@ def test_the_step_is_an_open_vocabulary_that_names_the_steps_of_today() -> None:
     assert tuple(schema["x-hmp-vocabulary"]) == STEP_NAMES
     assert schema["x-hmp-vocabulary-open"] is True
     assert _outcome("running", step="a_step_of_a_later_version").step == "a_step_of_a_later_version"
+
+
+def test_gc_does_not_close_a_silent_run_whose_death_is_not_proven(tmp_path):
+    from hydromodpy.results.retention import RetentionPolicy, plan_gc
+
+    run_dir = tmp_path / "runs" / "far"
+    run_dir.mkdir(parents=True)
+    write_outcome(run_dir, _outcome("running", host="another-host"))
+    write_heartbeat(
+        run_dir, Heartbeat(at=NOW, pid=4421, host="another-host", attempt_id="7c1e" * 8, step="x")
+    )
+
+    plan = plan_gc(tmp_path, RetentionPolicy(), now=NOW + timedelta(days=2))
+
+    assert effective_status(run_dir, now=NOW + timedelta(days=2)) == "stale"
+    assert plan.stale_runs == ()

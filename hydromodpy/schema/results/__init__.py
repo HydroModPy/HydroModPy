@@ -3,7 +3,7 @@
 One ``<name>.<version>.json`` per format a run, a session, a plan or a
 publication writes: ``outcome.v1.json``, ``session.v4.json``, ``phase.v2.json``,
 ``trial.v2.json``, ``plan.v1.json``, ``publication.v1.json``, ``ledger.v1.json``,
-``checks.v2.json``, and of what ``hmp calibrate --format json`` prints,
+``checks.v2.json``, ``manifest.v3.json``, ``provenance.v2.json``, and of what ``hmp calibrate --format json`` prints,
 ``calibrate.v1.json``. They are
 generated from the Pydantic models of ``hydromodpy.results`` and
 ``hydromodpy.calibration`` with ``model_json_schema()`` and committed here, so a reader outside Python can
@@ -39,6 +39,8 @@ SCHEMA_FILENAMES: Final[tuple[str, ...]] = (
     "ledger.v1.json",
     "checks.v2.json",
     "calibrate.v1.json",
+    "manifest.v3.json",
+    "provenance.v2.json",
 )
 """The files this package ships."""
 

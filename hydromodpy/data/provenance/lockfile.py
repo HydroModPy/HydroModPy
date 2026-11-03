@@ -35,7 +35,6 @@ command that writes it again: a lockfile is never migrated.
 
 from __future__ import annotations
 
-import hashlib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -44,6 +43,7 @@ import tomlkit
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.io.document_version import VersionWindow, check_version
+from hydromodpy.core.io.file_digest import sha256_of
 
 LOCKFILE_NAME = "hydromodpy.lock"
 LOCKFILE_SCHEMA = "hydromodpy.lock.v1"
@@ -152,15 +152,6 @@ class LockMismatch:
 
 
 # ---------------------------------------------------------------------- helpers
-
-
-def sha256_of(path: Path, *, chunk: int = 64 * 1024) -> str:
-    """Compute the SHA-256 digest of a file on disk."""
-    hasher = hashlib.sha256()
-    with open(path, "rb") as fh:
-        for buf in iter(lambda: fh.read(chunk), b""):
-            hasher.update(buf)
-    return hasher.hexdigest()
 
 
 def _parse(path: Path | str) -> tomlkit.TOMLDocument:

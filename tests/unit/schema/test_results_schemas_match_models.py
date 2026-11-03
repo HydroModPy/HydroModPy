@@ -18,9 +18,11 @@ from pydantic import BaseModel
 from hydromodpy.calibration.report import CALIBRATE_SCHEMA, CalibrationResult
 from hydromodpy.results.checks import CHECKS_SCHEMA, Checks
 from hydromodpy.results.ledger import LEDGER_SCHEMA, Ledger
+from hydromodpy.results.manifest import MANIFEST_DOCUMENT_SCHEMA, Manifest
 from hydromodpy.results.outcome import OUTCOME_SCHEMA, Outcome
 from hydromodpy.results.plan_store import PLAN_SCHEMA, Plan
 from hydromodpy.results.publication import PUBLICATION_SCHEMA, Publication
+from hydromodpy.results.record import PROVENANCE_DOCUMENT_SCHEMA, RunProvenance
 from hydromodpy.results.session.descriptor import SESSION_SCHEMA, SessionDescriptor
 from hydromodpy.results.session.journal import TRIAL_SCHEMA, TrialLine
 from hydromodpy.results.session.phase import PHASE_SCHEMA, PhaseDescriptor
@@ -44,6 +46,8 @@ MODELS: dict[str, type[BaseModel]] = {
     LEDGER_SCHEMA: Ledger,
     CHECKS_SCHEMA: Checks,
     CALIBRATE_SCHEMA: CalibrationResult,
+    MANIFEST_DOCUMENT_SCHEMA: Manifest,
+    PROVENANCE_DOCUMENT_SCHEMA: RunProvenance,
 }
 
 SCHEMAS_DIR = Path(shipped.__file__).resolve().parent

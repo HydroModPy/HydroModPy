@@ -18,11 +18,11 @@ Versions follow Semantic Versioning for meaning and PEP 440 for the string.
    MAJOR.MINOR.PATCHbN        2.0.0b1     beta
    MAJOR.MINOR.PATCHrcN       2.0.0rc1    release candidate
 
-The Git tag is the version with a leading ``v``: ``v2.0.0a5``, ``v2.0.0``. Do not
+The Git tag is the version with a leading ``v``: ``v2.0.0rc1``, ``v2.0.0``. Do not
 invent other forms such as ``release-v2`` or ``v2-beta``.
 
-Four places must agree
-----------------------
+Five places must agree
+-----------------------
 
 .. list-table::
    :header-rows: 1
@@ -33,6 +33,10 @@ Four places must agree
    * - ``pyproject.toml``
      - ``[project] version``. This is the source of the package version, and a
        source checkout reads its ``__version__`` from it.
+   * - ``CITATION.cff``
+     - ``version``. Keep it equal to ``pyproject.toml``. It has no ``doi`` of the
+       release: the DOI of a version exists only after Zenodo archives it, so add
+       it to ``identifiers`` then.
    * - ``hydromodpy/core/version.py``
      - ``_FALLBACK_VERSION``, used when neither the checkout nor the installed
        metadata answers. Keep it equal to ``pyproject.toml``.
@@ -179,7 +183,8 @@ rewrites ``switcher.json``, the list the version menu of the site reads, from th
 folders it finds on the ``gh-pages`` branch, with ``main`` marked as preferred.
 
 Python installers ignore a pre-release unless asked, so users install one with
-``pip install --pre hydromodpy`` or by exact version.
+``pip install --pre hydromodpy`` or by exact version. Pages for users never show
+the flag or a version number. The number lives in ``pyproject.toml`` only.
 
 Hotfix
 ------

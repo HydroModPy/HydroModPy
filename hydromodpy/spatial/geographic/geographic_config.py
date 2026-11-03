@@ -34,6 +34,10 @@ class GeographicConfig(HydroModelBase):
     """
 
     model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "enforce_streams": (
+            "the base model puts drains on the top of every cell and never snaps "
+            "the network to the observed streams; delete the key"
+        ),
         "dam_carve": (
             "the dam carve of the ground is removed, it flattened a corridor "
             "below the thalweg and the cell drainage D already makes the water "

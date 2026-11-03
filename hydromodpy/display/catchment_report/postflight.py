@@ -8,6 +8,7 @@ from typing import Any
 
 from hydromodpy.core.exceptions import DataContractViolation
 from hydromodpy.display.catchment_report.artifacts import rel
+from hydromodpy.display.catchment_report.block_specs import optional_figure_ids
 from hydromodpy.display.catchment_report.resources import REPO_ROOT
 
 
@@ -80,7 +81,11 @@ def _expected_figure_ids(config: Any, manifest: dict[str, Any]) -> tuple[str, ..
     specs = (
         config.artifact_specs if config.artifact_specs is not None else config.preset.artifact_specs
     )
-    return tuple(sorted(spec.figure_id for spec in specs))
+    block_specs = getattr(config, "block_specs", None)
+    if block_specs is None:
+        block_specs = config.preset.block_specs
+    optional = optional_figure_ids(block_specs)
+    return tuple(sorted(spec.figure_id for spec in specs if spec.figure_id not in optional))
 
 
 def _copied_figures(manifest: dict[str, Any]) -> dict[str, str]:

@@ -210,3 +210,34 @@ def test_hmp_run_frozen_on_a_copy_without_its_inputs_is_refused(tmp_path: Path) 
     assert "--with inputs" in result.stderr
     assert not (project / "runs").exists()
     assert not (project / ".hmp" / "replay").exists()
+
+
+def test_two_inputs_of_one_role_keep_their_own_bytes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from types import SimpleNamespace
+
+    import hydromodpy.project.launch.replay as replay
+    import hydromodpy.results.manifest as manifest
+    import hydromodpy.results.publication as publication
+
+    items = [
+        SimpleNamespace(dest=f"data/{name}.tif", sha256=name * 4, root="workspace", provider=None)
+        for name in ("a", "b")
+    ]
+    index = SimpleNamespace(files=items, stations=[])
+    entries = [
+        {"role": "dem", "path": item.dest, "declared_path": f"{item.dest}"} for item in items
+    ]
+    monkeypatch.setattr(replay, "checked_index", lambda _copy: index)
+    monkeypatch.setattr(replay, "_refuse_delivered_inputs", lambda *_: None)
+    monkeypatch.setattr(manifest, "read_manifest", lambda _copy: {"inputs": entries})
+    monkeypatch.setattr(
+        publication,
+        "read_publication",
+        lambda _copy: SimpleNamespace(source=SimpleNamespace(project="p")),
+    )
+    monkeypatch.setattr(replay, "_workspace_path", lambda item, _project: item.dest)
+    found = replay.input_files_by_role(tmp_path, tmp_path / "work")
+    assert found["data/a.tif"] != found["data/b.tif"]
+    assert "dem" not in found

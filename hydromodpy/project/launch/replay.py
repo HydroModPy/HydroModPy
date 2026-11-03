@@ -87,7 +87,11 @@ def checked_index(copy_dir: Path) -> InstallIndex:
 
 
 def input_files_by_role(copy_dir: Path, workdir: Path) -> dict[str, Path]:
-    """Return the file or folder that holds each input the seal records, by role.
+    """Return the file or folder that holds each input the seal records.
+
+    The key is the value the configuration declared for the input, which is
+    unique to it. Two inputs of one role keep their own bytes. The role is a
+    second key only when one input has it.
 
     A declared file is its stored bytes under ``inputs/``. A declared folder
     is rebuilt under *workdir*, at the path the seal records, from the files
@@ -102,13 +106,16 @@ def input_files_by_role(copy_dir: Path, workdir: Path) -> dict[str, Path]:
     project = read_publication(copy).source.project
     by_path = {_workspace_path(item, project): item for item in index.files}
     found: dict[str, Path] = {}
+    roles: dict[str, int] = {}
     for entry in read_manifest(copy).get("inputs") or ():
         role, path = entry.get("role"), entry.get("path")
         if not role or not path:
             continue
+        key = str(entry.get("declared_path") or role)
+        roles[str(role)] = roles.get(str(role), 0) + 1
         item = by_path.get(str(path))
         if item is not None:
-            found[str(role)] = copy / INPUTS_DIRNAME / stored_name(item.sha256, item.dest)
+            found[key] = copy / INPUTS_DIRNAME / stored_name(item.sha256, item.dest)
             continue
         members = [(key, member) for key, member in by_path.items() if key.startswith(f"{path}/")]
         if not members:
@@ -116,7 +123,12 @@ def input_files_by_role(copy_dir: Path, workdir: Path) -> dict[str, Path]:
                 f"--frozen: the input {role!r} ({path}) is not in {INSTALL_FILENAME}; publish "
                 "the run with --with inputs to replay it alone."
             )
-        found[str(role)] = _rebuilt_folder(copy, index, workdir, str(path), members)
+        found[key] = _rebuilt_folder(copy, index, workdir, str(path), members)
+    for entry in read_manifest(copy).get("inputs") or ():
+        role = str(entry.get("role") or "")
+        key = str(entry.get("declared_path") or role)
+        if role and roles.get(role) == 1 and key in found:
+            found.setdefault(role, found[key])
     return found
 
 
@@ -181,7 +193,7 @@ def replay_payload(copy_dir: Path, payload: Mapping[str, Any], *, workdir: Path)
         rewrite_input_paths(
             document,
             HydroModPyConfig,
-            lambda marker, value: str(files[marker.role]) if marker.role in files else value,
+            lambda marker, value: str(files.get(value) or files.get(marker.role) or value),
         )
     return document
 

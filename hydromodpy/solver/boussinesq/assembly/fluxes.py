@@ -187,7 +187,11 @@ def drainage_outflow_from_head(
 ) -> np.ndarray:
     """Return one drainage outflow per cell.
 
-    A cell whose conductance is not positive takes the derived one.
+    A cell whose conductance is not positive takes the derived one, so a drain
+    acts at the ground surface on every cell where ``head > z_top``. This is the
+    seepage rule of the base DRN package on both MODFLOW backends, where a drain
+    sits at the top of every cell and takes ``K * area / bed thickness`` when no
+    conductance is declared. Only ``None`` (drainage switched off) gives zeros.
     """
     if drainage_conductance_m2_s is None:
         return np.zeros(mesh.n_cells, dtype=float)

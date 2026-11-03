@@ -893,8 +893,7 @@ class HydroModPyConfig(HydroModelBase):
         layers = getattr(domain, "layers", None)
         if layers is None:
             return
-        engine = getattr(solver_cfg, "backend_name", None) if solver_cfg is not None else None
-        engine_value = getattr(engine, "value", engine)
+        engine_value = _declared_flow_engine(self)
         if engine_value == "boussinesq":
             for refusal in _boussinesq_layering_refusals(
                 layers, getattr(self, "calibration", None)
@@ -965,8 +964,7 @@ class HydroModPyConfig(HydroModelBase):
                     "angle with depth. Remove [flow.param."
                     f"{param_id}.field_vertical_profile]; give the angle per zone instead."
                 )
-        engine = getattr(solver_cfg, "backend_name", None) if solver_cfg is not None else None
-        engine_value = getattr(engine, "value", engine)
+        engine_value = _declared_flow_engine(self)
         if engine_value in {"modflow_nwt", "boussinesq"}:
             raise ValueError(
                 f"flow.param sets {', '.join(tensor_ids)}, the K tensor past K and Kv, "
@@ -1166,8 +1164,7 @@ class HydroModPyConfig(HydroModelBase):
         if solver_cfg is not None:
             # A transport runs when [[simulation.process]] declares one; the
             # [transport] section is always there, filled with its defaults.
-            engine = getattr(solver_cfg, "backend_name", None)
-            engine_value = getattr(engine, "value", engine)
+            engine_value = _declared_flow_engine(self)
             processes = getattr(getattr(self, "simulation", None), "process", None) or []
             transport_solvers = [
                 name
@@ -1187,8 +1184,7 @@ class HydroModPyConfig(HydroModelBase):
         if flow_cfg is not None and solver_cfg is not None:
             from hydromodpy.physics.flow.boundary_condition_registry import boundary_definition
 
-            engine = getattr(solver_cfg, "backend_name", None)
-            engine_value = getattr(engine, "value", engine)
+            engine_value = _declared_flow_engine(self)
             active_bc = {str(name).lower() for name in getattr(flow_cfg, "active_bc", []) or []}
             sinks_sources = getattr(flow_cfg, "sinks_sources", None)
 
@@ -1220,10 +1216,25 @@ class HydroModPyConfig(HydroModelBase):
                         f"{RESTART_CAPABILITY!r}, or drop flow.restart_from."
                     )
 
+            # A steady pre-solve or a cyclic spin-up writes its own heads after the
+            # hotstart is read, so the restart would be overwritten and unused.
+            head_ic = getattr(getattr(flow_cfg, "ic", None), "h", None)
+            ic_kind = str(getattr(head_ic, "kind", ""))
+            if getattr(flow_cfg, "restart_from", None) and ic_kind in {
+                "steady_state",
+                "spinup_cyclic",
+            }:
+                raise ValueError(
+                    f"flow.restart_from is set and flow.ic.kind = {ic_kind!r} computes "
+                    "its own initial heads, which would overwrite the restart without "
+                    "a message. Write a flow.ic of kind 'top' (or any kind that is not "
+                    "'steady_state' or 'spinup_cyclic') to start from the restart, or "
+                    "drop flow.restart_from to keep the computed start."
+                )
+
             # A cyclic spin-up repeats the run's own period inside the run. A
             # backend that cannot do that would start from flow.ic and report a
             # settled antecedent it never computed.
-            head_ic = getattr(getattr(flow_cfg, "ic", None), "h", None)
             if str(getattr(head_ic, "kind", "")) == "spinup_cyclic":
                 from hydromodpy.solver.base.registry import capabilities
 

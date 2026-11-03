@@ -140,6 +140,19 @@ def diagnose_result_storage(
             )
         )
 
+    changed = _runs_changed_since_seal(run_dirs.values())
+    if changed:
+        first_dir, first_problem = changed[0]
+        diagnostics.append(
+            StorageDiagnostic(
+                "results:seal_digest",
+                "WARN",
+                f"{len(changed)} run(s) hold a file that no longer matches its seal",
+                f"first: {first_dir.name}: {first_problem}",
+                tuple(str(directory) for directory, _ in changed),
+            )
+        )
+
     if not diagnostics:
         diagnostics.append(
             StorageDiagnostic(
@@ -149,6 +162,20 @@ def diagnose_result_storage(
             )
         )
     return diagnostics
+
+
+def _runs_changed_since_seal(directories) -> list[tuple[Path, str]]:
+    """Return ``(run directory, first problem)`` for each sealed run whose digests differ."""
+    from hydromodpy.results.manifest import is_sealed, seal_problems
+
+    changed = []
+    for directory in directories:
+        if not is_sealed(directory):
+            continue
+        problems = seal_problems(directory)
+        if problems:
+            changed.append((directory, problems[0]))
+    return changed
 
 
 def is_run_directory(path: Path) -> bool:

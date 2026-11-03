@@ -20,8 +20,8 @@ it keeps flowing, and how all of it changes with the seasons.
 :::
 
 ```{important}
-This documentation follows the 2.0 pre-release line, version {{ release }}. Install it
-with `pip install --pre hydromodpy`. Projects written for version 1 should stay pinned
+This documentation is for version {{ release }}. Install it
+with `pip install hydromodpy`. Projects written for version 1 should stay pinned
 to an exact tag such as `v1.0.0`.
 ```
 

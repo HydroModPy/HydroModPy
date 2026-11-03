@@ -88,6 +88,7 @@ def preflight_calibration(config: Any, *, source: str | Path) -> list[PreflightF
     findings.extend(_check_the_network_search_can_trust_its_release_packages(calibration, searched))
     findings.extend(_check_the_minimal_maps_are_there(calibration, where_from))
     findings.extend(_check_an_extent_is_scored_on_a_transient_run(calibration, searched))
+    findings.extend(_check_the_extent_durations_fit_the_timestep(calibration, searched))
     findings.extend(_check_a_network_estimator_names_its_network_output(calibration))
     findings.extend(
         _check_the_scoring_windows_hold_what_they_score(calibration, searched, where_from)
@@ -1618,6 +1619,65 @@ def _check_an_extent_is_scored_on_a_transient_run(
                     "state, without the extent table, or run the search transient.",
                 )
             )
+    return findings
+
+
+def _check_the_extent_durations_fit_the_timestep(
+    calibration: Any, searched: Mapping[str | None, Any]
+) -> list[PreflightFinding]:
+    """Refuse extent durations the timestep of a search cannot read.
+
+    The scoring counts the rules in timesteps of a complete year and refuses
+    them at the first trial (``extent_step_problems``). The same test runs here
+    on the nominal year of the step the search runs, before any budget is spent.
+    A phase that overrides the step is left to that first trial.
+    """
+    from hydromodpy.core.stream_extent import (
+        dry_steps,
+        extent_step_problems,
+        flowing_steps,
+        parse_extent_duration,
+    )
+    from hydromodpy.core.time.window import nominal_step_days
+
+    findings: list[PreflightFinding] = []
+    for phase, _where, _ in _search_candidates(calibration):
+        config = _config_of(searched, phase)
+        overrides = getattr(phase, "overrides", None) or {}
+        if config is None or any(str(key).startswith("simulation.time") for key in overrides):
+            continue
+        time = getattr(getattr(config, "simulation", None), "time", None)
+        value = getattr(time, "step_value", None)
+        unit = getattr(time, "step_unit", None)
+        if value is None or unit is None:
+            continue
+        step_days = nominal_step_days(value, unit)
+        for name, output in sorted(_outputs_scored_by_search(calibration, phase).items()):
+            extent = getattr(output, "extent", None)
+            if extent is None:
+                continue
+            try:
+                maximal = flowing_steps(
+                    parse_extent_duration(extent.maximal_flowing_duration), step_days
+                )
+                dry = dry_steps(parse_extent_duration(extent.minimal_dry_duration), step_days)
+            except ValueError:
+                continue
+            problems = extent_step_problems(
+                [max(1, round(365.0 / step_days))],
+                maximal_flowing_steps=maximal,
+                minimal_dry_steps=dry,
+            )
+            if problems:
+                findings.append(
+                    PreflightFinding(
+                        "error",
+                        f"[calibration.outputs.{name}.extent]",
+                        f"maximal_flowing_duration = {extent.maximal_flowing_duration!r} and "
+                        f"minimal_dry_duration = {extent.minimal_dry_duration!r} cannot be "
+                        f"read on a timestep of {step_days:g} days: " + "; ".join(problems) + ".",
+                    )
+                )
     return findings
 
 

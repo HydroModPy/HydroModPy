@@ -15,7 +15,7 @@ Always: ``README.md``, ``config.toml``, ``config.resolved.toml``, ``provenance.j
 ``inputs.json``, ``manifest.json``, ``figures/``, ``exports/``, ``report/``,
 a generated ``ro-crate-metadata.json`` and ``PUBLICATION.json``
 (:mod:`hydromodpy.results.publication`). ``with_ = ("results",)`` adds
-``fields.zarr/``, ``tables.parquet/`` and ``mesh/``; ``with_ = ("inputs",)``
+``fields.zarr/`` and ``tables.parquet/``; ``with_ = ("inputs",)``
 adds the install index ``INSTALL.toml`` and the bytes of every file it lists
 under ``inputs/<sha256><suffix>``, with their sidecars under
 ``inputs/<sha256>.json``, addressed by content
@@ -107,7 +107,6 @@ from hydromodpy.results.storage.contract import (
     RUN_FIGURES_DIRNAME,
     RUN_INPUTS_FILENAME,
     RUN_MANIFEST_FILENAME,
-    RUN_MESH_DIRNAME,
     RUN_PROVENANCE_FILENAME,
     RUN_PUBLISHED_FILENAME,
     RUN_REPORT_DIRNAME,
@@ -137,7 +136,7 @@ RUN_COPY_ENTRIES: Final[tuple[str, ...]] = (
 )
 """What every copy of a run holds, when the run has it."""
 
-RESULTS_ENTRIES: Final[tuple[str, ...]] = (FIELDS_STORE_NAME, TABLES_DIRNAME, RUN_MESH_DIRNAME)
+RESULTS_ENTRIES: Final[tuple[str, ...]] = (FIELDS_STORE_NAME, TABLES_DIRNAME)
 """What ``with results`` adds to the copy of a run."""
 
 _STRUCTURED_SUFFIXES: Final[frozenset[str]] = frozenset({".json", ".jsonld", ".toml"})
@@ -495,7 +494,7 @@ def _project_publication(project_root: Path) -> Any:
 def _target_path(to: Path, format: PublicationFormat, name: str, *, dry_run: bool = False) -> Path:
     """Return where the copy lands, refusing a destination that already holds something."""
     if format == "tar":
-        target = to if to.suffix else to.with_name(f"{to.name}.tar")
+        target = to if to.suffix == ".tar" else to.with_name(f"{to.name}.tar")
         if target.exists():
             raise ExportError(f"{target} exists: name another archive, or delete it first.")
         return target

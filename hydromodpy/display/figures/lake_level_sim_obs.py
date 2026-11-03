@@ -92,11 +92,11 @@ def _metrics_box(ax: Axes, sim_values: np.ndarray, obs_values: np.ndarray, unit:
     lines = [
         f"KGE   {decomposition['kge']:+.4f}",
         f"  r   {decomposition['r']:+.4f}",
-        f"  a   {decomposition['alpha']:.4f}   (ecart-type sim/obs)",
-        f"  b   {decomposition['beta']:.4f}   (moyenne sim/obs)",
+        f"  a   {decomposition['alpha']:.4f}   (std ratio sim/obs)",
+        f"  b   {decomposition['beta']:.4f}   (mean ratio sim/obs)",
         f"NSE   {nse(sim_values, obs_values):+.4f}",
         f"RMSE  {rmse(sim_values, obs_values):.4g} {unit}",
-        f"biais {bias(sim_values, obs_values):+.4g} {unit}",
+        f"bias  {bias(sim_values, obs_values):+.4g} {unit}",
         f"n     {sim_values.size}",
     ]
     ax.text(

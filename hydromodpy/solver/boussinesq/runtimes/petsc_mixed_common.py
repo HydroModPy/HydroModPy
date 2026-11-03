@@ -237,7 +237,7 @@ def _initial_transient_q_ex_guess(
         well_flux_m3_s if well_flux_m3_s is not None else 0.0,
         dtype=float,
     ).reshape(-1)
-    has_positive_surface_loading = bool(np.any(recharge > 0.0)) or bool(np.any(well_flux < 0.0))
+    has_positive_surface_loading = bool(np.any(recharge > 0.0)) or bool(np.any(well_flux > 0.0))
     if not has_positive_surface_loading:
         return np.zeros(mesh.n_cells, dtype=float)
     guess = np.maximum(

@@ -45,6 +45,7 @@ from hydromodpy.results.manifest import is_sealed, read_seal
 from hydromodpy.results.outcome import (
     Outcome,
     OutcomeError,
+    death_is_proven,
     effective_status,
     read_outcome,
     write_outcome,
@@ -114,6 +115,12 @@ class _Version:
     started_at: datetime | None
 
 
+def _death_is_proven_for(run_dir: Path) -> bool:
+    """Whether the attempt of ``run_dir`` ran on this host and its process is gone."""
+    outcome = readable(read_outcome, run_dir)
+    return outcome is not None and death_is_proven(outcome.host, outcome.pid)
+
+
 def plan_gc(project_root: Path, policy: RetentionPolicy, *, now: datetime) -> GcPlan:
     """Return what ``gc`` would do in ``project_root``, touching nothing."""
     root = Path(project_root)
@@ -122,7 +129,9 @@ def plan_gc(project_root: Path, policy: RetentionPolicy, *, now: datetime) -> Gc
     for run_dir in _dirs(runs_dir_for(root)):
         rel_dir = run_dir_rel(run_dir.name)
         state = effective_status(run_dir, now=now)
-        if state == "stale":
+        if state == "stale" and _death_is_proven_for(run_dir):
+            # A silent heartbeat alone is no proof: the process may live on
+            # another host or sit in a long step. Such a run is left running.
             stale.append(rel_dir)
         if state in _LIVE_STATES or state == "unreadable" or is_protected(run_dir):
             continue

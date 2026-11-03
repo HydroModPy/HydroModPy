@@ -258,6 +258,7 @@ def test_a_plan_older_than_its_project_file_is_refused(tmp_path: Path) -> None:
         ({"walltime": "10"}, "stopped at its start"),
         ({"threads_per_case": 0}, "threads_per_case"),
         ({"prepare_parallel": 0}, "prepare_parallel"),
+        ({"prepare_parallel": 99}, "above 8"),
     ],
 )
 def test_invalid_options_are_refused(tmp_path: Path, kwargs: dict, message: str) -> None:
@@ -309,3 +310,14 @@ def test_hmp_project_case_reads_the_line_of_its_task(tmp_path: Path) -> None:
     for task in (0, 4):
         with pytest.raises(IndexError, match="1..3"):
             case_for_task(root, job.directory.name, task)
+
+
+@pytest.mark.allow_subprocess
+def test_a_task_script_strips_the_overrides_of_the_submitting_shell() -> None:
+    from hydromodpy.project.launch.slurm import _worker_block
+
+    env = {"PATH": "/usr/bin:/bin", "HMP_SET_a__b": "1", "HMP_RUN_SCRATCH": "/x"}
+    script = _worker_block("solve").split('cd "$PROJECT_ROOT"')[0]
+    probe = script + '\nenv | grep -c "^HMP_" || true\n'
+    out = subprocess.run(["bash", "-c", probe], env=env, capture_output=True, text=True)
+    assert out.stdout.strip() == "0"

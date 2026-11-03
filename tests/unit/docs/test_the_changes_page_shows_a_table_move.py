@@ -24,9 +24,12 @@ ROOT = Path(__file__).resolve().parents[3]
 EXT = ROOT / "docs" / "source" / "_ext"
 LAST_RELEASE = ROOT / "tools" / "docs" / "snapshots" / "fields-2.0.0a4.json"
 
-MOVES = {
+LAYERING_MOVES = {
     "modflow6.sgrid.vertical": "domain.layers",
     "modflownwt.sgrid.vertical": "domain.layers",
+}
+MOVES = {
+    **LAYERING_MOVES,
     **{f"flow.{old}": f"flow.runtime.{new}" for old, new in FLOW_RUNTIME_KEYS.items()},
 }
 
@@ -122,7 +125,7 @@ def test_a_moved_table_is_a_key_the_loader_still_reads() -> None:
 
 
 def test_without_the_declaration_a_move_reads_as_a_removal_and_an_addition() -> None:
-    old = _layering_registry(tables=tuple(MOVES), nlay_default="1", extra=False)
+    old = _layering_registry(tables=tuple(LAYERING_MOVES), nlay_default="1", extra=False)
     new = _layering_registry(tables=("domain.layers",), nlay_default="1", extra=False)
 
     out = toml_changelog.diff(old, new)
@@ -133,10 +136,10 @@ def test_without_the_declaration_a_move_reads_as_a_removal_and_an_addition() -> 
 
 
 def test_a_declared_move_is_listed_once_with_its_old_and_new_path() -> None:
-    old = _layering_registry(tables=tuple(MOVES), nlay_default="1", extra=False)
+    old = _layering_registry(tables=tuple(LAYERING_MOVES), nlay_default="1", extra=False)
     new = _layering_registry(tables=("domain.layers",), nlay_default="3", extra=True)
 
-    out = toml_changelog.diff(old, new, MOVES)
+    out = toml_changelog.diff(old, new, LAYERING_MOVES)
 
     assert out["renamed"] == [
         {"from": "modflow6.sgrid.vertical", "to": "domain.layers"},
@@ -151,48 +154,48 @@ def test_a_declared_move_is_listed_once_with_its_old_and_new_path() -> None:
 
 def test_a_moved_table_is_listed_even_when_its_whole_section_is_gone() -> None:
     old = _layering_registry(
-        tables=tuple(MOVES), nlay_default="1", extra=False, solver_keeps_sgrid=False
+        tables=tuple(LAYERING_MOVES), nlay_default="1", extra=False, solver_keeps_sgrid=False
     )
     new = _layering_registry(
         tables=("domain.layers",), nlay_default="1", extra=False, solver_keeps_sgrid=False
     )
 
-    out = toml_changelog.diff(old, new, MOVES)
+    out = toml_changelog.diff(old, new, LAYERING_MOVES)
 
-    assert [r["from"] for r in out["renamed"]] == list(MOVES)
+    assert [r["from"] for r in out["renamed"]] == list(LAYERING_MOVES)
     assert out["removed"] == ["modflow6", "modflownwt"]
 
 
 def test_a_move_the_pair_does_not_hold_changes_nothing() -> None:
     new = _layering_registry(tables=("domain.layers",), nlay_default="1", extra=False)
-    out = toml_changelog.diff(new, new, MOVES)
+    out = toml_changelog.diff(new, new, LAYERING_MOVES)
     assert out == toml_changelog.diff(new, new)
 
-    old = _layering_registry(tables=tuple(MOVES), nlay_default="1", extra=False)
+    old = _layering_registry(tables=tuple(LAYERING_MOVES), nlay_default="1", extra=False)
     gone = toml_changelog.diff(old, new, {"modflow6.sgrid.vertical": "a.table.nobody.has"})
     assert gone["removed"] == ["modflow6.sgrid.vertical", "modflownwt.sgrid.vertical"]
     assert gone["renamed"] == []
 
 
 def test_the_history_passes_the_moves_to_every_pair() -> None:
-    old = _layering_registry(tables=tuple(MOVES), nlay_default="1", extra=False)
+    old = _layering_registry(tables=tuple(LAYERING_MOVES), nlay_default="1", extra=False)
     new = _layering_registry(tables=("domain.layers",), nlay_default="1", extra=False)
 
-    out = toml_changelog.history([old, new], MOVES)
+    out = toml_changelog.history([old, new], LAYERING_MOVES)
 
-    assert [r["from"] for r in out["pairs"][0]["renamed"]] == list(MOVES)
+    assert [r["from"] for r in out["pairs"][0]["renamed"]] == list(LAYERING_MOVES)
 
 
 def test_the_layering_of_this_tree_is_a_move_against_the_last_release() -> None:
     payload, _gates = field_registry.build_payload("current")
     release = json.loads(LAST_RELEASE.read_text())
-    assert set(MOVES) <= set(release["nodes"])
+    assert set(LAYERING_MOVES) <= set(release["nodes"])
 
     out = toml_changelog.diff(release, toml_changelog.snapshot(payload), legacy_keys.moved_tables())
 
     assert {"from": "modflow6.sgrid.vertical", "to": "domain.layers"} in out["renamed"]
     assert {"from": "modflownwt.sgrid.vertical", "to": "domain.layers"} in out["renamed"]
-    assert not [p for p in out["removed"] if p in MOVES]
+    assert not [p for p in out["removed"] if p in LAYERING_MOVES]
     assert "domain.layers" not in out["added"]
     assert "domain.layers.nlay" not in out["added"]
 

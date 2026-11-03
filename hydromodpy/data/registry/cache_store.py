@@ -13,13 +13,13 @@ from __future__ import annotations
 
 import time
 from datetime import datetime
-from hashlib import sha256
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import duckdb
 
 from hydromodpy.core.exceptions import FrozenDataError
+from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import decode_workspace_path, encode_workspace_path
 from hydromodpy.data.provenance.sidecars import (
@@ -448,13 +448,8 @@ def json_or_none(d: dict | None) -> str | None:
 
 
 def sha256_or_none(path: Path) -> str | None:
-    if not path.is_file():
-        return None
-    digest = sha256()
-    with open(path, "rb") as fh:
-        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+    """Return the SHA-256 of a file, or None when it is not there."""
+    return sha256_of(path) if path.is_file() else None
 
 
 def emit_input_sidecar(

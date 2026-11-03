@@ -10,7 +10,6 @@ Specification: ``reports_db/99_master.md §5.3``.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 from datetime import UTC, datetime
@@ -19,6 +18,7 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict
 
 from hydromodpy.core.config_kit.stored import read_stored
+from hydromodpy.core.io.file_digest import sha256_of as compute_sha256
 
 SIDECAR_SUFFIX = ".json"
 
@@ -138,15 +138,6 @@ def load_sidecar(file_path: Path) -> Sidecar:
     raw = target.read_text(encoding="utf-8")
     payload = json.loads(raw)
     return read_stored(Sidecar, payload)
-
-
-def compute_sha256(path: Path, chunk_size: int = 1 << 20) -> str:
-    """Return the streaming SHA-256 hex digest of ``path``."""
-    digest = hashlib.sha256()
-    with open(path, "rb") as handle:
-        for chunk in iter(lambda: handle.read(chunk_size), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 __all__ = [

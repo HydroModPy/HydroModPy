@@ -1,6 +1,6 @@
 """Solver-registry Protocol and module-level provider singleton.
 
-The 15x15 layer matrix forbids ``simulation -> solver`` and
+The 19-layer matrix forbids ``simulation -> solver`` and
 ``analysis -> solver``. Planning, the runner, post-run ingestion,
 transport helpers, and comparison launchers reach the solver registry
 through :class:`SolverRegistryProvider`. The concrete provider is wired

@@ -97,7 +97,7 @@ class PyhelpEra5(PyhelpCsvManager):
         )
 
         if "valid_time" not in ds.dims:
-            raise ValueError("Pas de dimension temporelle détectée.")
+            raise ValueError("No time dimension found.")
 
         var = list(ds.data_vars)[0]
         da = ds[var]

@@ -9,7 +9,9 @@ carries. ``hmp export --regen`` replays these entries.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+import os
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -43,10 +45,33 @@ def record_derived_file(
         sha256=sha256_of(target),
         identity=identity,
     )
-    ledger = Ledger.read(root)
-    ledger.append(entry)
-    ledger.write(root)
+    with _locked(root):
+        ledger = Ledger.read(root)
+        ledger.append(entry)
+        ledger.write(root)
     return entry
+
+
+@contextmanager
+def _locked(directory: Path) -> Iterator[None]:
+    """Hold an exclusive lock on *directory* while a ledger is read, changed and written.
+
+    Two writers would otherwise read the same ledger and the later write would
+    drop the entry of the earlier one. Where ``fcntl`` is missing (Windows) no
+    lock is taken.
+    """
+    try:
+        import fcntl
+    except ImportError:
+        yield
+        return
+    directory.mkdir(parents=True, exist_ok=True)
+    descriptor = os.open(directory, os.O_RDONLY)
+    try:
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        yield
+    finally:
+        os.close(descriptor)
 
 
 __all__ = ["record_derived_file"]

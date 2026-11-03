@@ -163,5 +163,5 @@ them, the objective of each calibration sits in its own columns, under its own n
 `hmp publish .` copies the project out of the tree, one folder per site and the summary,
 each with its `README.md` and its `PUBLICATION.json`.
 
-Example 19 (`hmp example add 19`) is a small project of this shape on catchments of
+Example 19 (`examples/projects/19_many_catchments`) is a small project of this shape on catchments of
 Brittany, with a simulation recipe and a short calibration.

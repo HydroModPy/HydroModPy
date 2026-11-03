@@ -123,7 +123,7 @@ def open(path: PathLike) -> Project | Run | Session | Workspace:
     )
     from hydromodpy.project.accessors import Workspace
     from hydromodpy.project.facade import open_project
-    from hydromodpy.results.run.view import open_run_dir, project_root_of
+    from hydromodpy.results.run.view import open_run_dir
     from hydromodpy.results.session.descriptor import session_descriptor_path
     from hydromodpy.results.session.view import Session
     from hydromodpy.results.storage.contract import RUN_MANIFEST_FILENAME, RUN_OUTCOME_FILENAME
@@ -135,7 +135,8 @@ def open(path: PathLike) -> Project | Run | Session | Workspace:
         holds_a_run = any(
             (target / name).is_file() for name in (RUN_MANIFEST_FILENAME, RUN_OUTCOME_FILENAME)
         )
-        if holds_a_run and project_root_of(target) is not None:
+        if holds_a_run:
+            # A run copied out of its project reads from its own seal and files.
             return open_run_dir(target)
         if session_descriptor_path(target).is_file():
             return Session(target)
@@ -809,6 +810,12 @@ def spinup(
     from hydromodpy.project.spinup import run_spinup
 
     source = Path(config).expanduser().resolve() if isinstance(config, (str, Path)) else config
+    if isinstance(source, Path) and source.is_file():
+        from hydromodpy.config.sites.expansion import is_sites_project
+        from hydromodpy.workflow.dispatch import load_raw_toml
+
+        if is_sites_project(load_raw_toml(source)):
+            _refuse_a_sites_project(source)
 
     # Snapshot a clean production config before the spin-up mutates the model's
     # (cycle window, restart_from, IC).

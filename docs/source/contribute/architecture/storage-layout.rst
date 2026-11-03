@@ -102,8 +102,8 @@ Two state roots
 
 **The project** ``.hmp/`` **is strictly rebuildable.** It holds the index (``index.duckdb``), the
 debug logs (``logs/``), the launcher lease (``launcher.lease``) and the mesh cache
-(``mesh_cache/``). The mesh cache is a true cache: every run copies the mesh entry it consumes into
-its own ``mesh/``. ``rm -rf .hmp`` followed by ``hmp catalog reindex`` gives back the same project.
+(``mesh_cache/``). The mesh cache is a true cache: the mesh of a run is stored in the ``mesh/`` group of its
+``fields.zarr``. ``rm -rf .hmp`` followed by ``hmp catalog reindex`` gives back the same project.
 
 **What cannot be rebuilt is visible and named.** ``trash/`` is the trash, ``jobs/`` keeps the
 journal and the frozen scripts of each launch, ``runs/<case>/attempts/`` keeps the earlier
@@ -134,7 +134,7 @@ Classes of artefacts
      - Regenerable
    * - raw result
      - ``fields.zarr/``, ``tables.parquet/``, ``config.toml``, ``config.resolved.toml``,
-       ``inputs.json``, ``provenance.json``, ``manifest.json``, ``mesh/``
+       ``inputs.json``, ``provenance.json``, ``manifest.json``
      - ``config.toml``, ``session.json``, ``trials.jsonl``, ``phases/``
      - ``plan/<hash>/``
      - yes
@@ -176,7 +176,7 @@ Classes of artefacts
      - no
      - no
    * - diagnostic
-     - ``logs/``: ``run.log``, solver listing, ``heartbeat.json``, ``job-<id>.out``
+     - ``logs/``: ``run.log``, ``heartbeat.json``, ``job-<id>.out``
      - ``logs/``
      - ``.hmp/logs/``
      - no
@@ -204,11 +204,10 @@ A run folder
    ├── annotations.json    tags and notes, written after the seal
    ├── fields.zarr/        the array store
    ├── tables.parquet/     the tabular payloads
-   ├── mesh/               the mesh entry the run consumed, when it cannot be rebuilt bit for bit
    ├── figures/            index.json + the figures of this run
    ├── exports/            index.json + the files of each [[export]]
    ├── report/             index.html
-   ├── logs/               run.log, solver listing, heartbeat.json
+   ├── logs/               run.log, heartbeat.json
    ├── published.jsonl     one line per publication of this run; absent until published
    ├── attempts/<n>/       outcome.json and logs/ of an earlier attempt; absent at the first
    ├── solver/             the solver folder, kept only with keep_solver_files = true
@@ -221,7 +220,7 @@ Those names are the whole vocabulary: ``ALLOWED_RUN_ENTRIES`` in
 ``manifest.json`` is written last, through a temporary file, ``fsync`` of the file and of the
 directory, and a rename. Its blocks are ``run``, ``geometry``, ``period``, ``config``, ``site``,
 ``lineage`` (by identifiers), ``identity``, ``checks`` and ``artifacts`` (which lists
-``inputs.json`` and ``mesh/``), plus the run's ``parameters`` and ``metrics`` summaries.
+``inputs.json``), plus the run's ``parameters`` and ``metrics`` summaries.
 ``geometry.catchment`` carries the catchment area and the outlet: a discharge derived from runoff
 is scaled by that area. ``geometry.mesh_engine`` and ``geometry.mesh_engine_version`` name the
 engine that built the mesh. A run received alone says its catchment and its facts.

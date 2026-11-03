@@ -53,6 +53,7 @@ from pydantic import ConfigDict, Field, model_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.stored import read_stored
 from hydromodpy.core.io.document_version import VersionWindow
+from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.core.licensing import UNDETERMINED_LICENSE
 from hydromodpy.results.checks import Checks
 from hydromodpy.results.identity import Identity
@@ -104,6 +105,9 @@ INPUTS_VERSIONS: Final[VersionWindow] = VersionWindow(
 
 PROVENANCE_VERSION: Final[int] = 2
 """Version of ``provenance.json``. Its own number: a change of the seal does not move it."""
+
+PROVENANCE_DOCUMENT_SCHEMA: Final[str] = f"hydromodpy.provenance.v{PROVENANCE_VERSION}"
+"""Id of the published JSON Schema of ``provenance.json`` (``schema/results/provenance.v2.json``)."""
 
 PROVENANCE_VERSIONS: Final[VersionWindow] = VersionWindow(oldest=2, current=PROVENANCE_VERSION)
 """Versions of ``provenance.json`` this code reads."""
@@ -427,13 +431,20 @@ def sealed_artifacts(run_dir: str | Path) -> list[ManifestArtifact]:
     """Inventory the sealed entries of a run directory.
 
     What :data:`~hydromodpy.results.storage.contract.UNSEALED_RUN_ENTRIES`
-    names is left out: derived, mutable, diagnostic or history.
+    names is left out: derived, mutable, diagnostic or history. A file carries
+    its ``sha256``. A directory store and the manifest itself do not: the first
+    is too large to hash at every seal, the second is not written yet.
     """
-    return [
-        ManifestArtifact(**entry)
-        for entry in list_artifacts(Path(run_dir))
-        if Path(entry["path"]).parts[0] not in UNSEALED_RUN_ENTRIES
-    ]
+    root = Path(run_dir)
+    artifacts = []
+    for entry in list_artifacts(root):
+        if Path(entry["path"]).parts[0] in UNSEALED_RUN_ENTRIES:
+            continue
+        path = root / entry["path"]
+        if entry["role"] != "manifest" and path.is_file():
+            entry = {**entry, "sha256": sha256_of(path)}
+        artifacts.append(ManifestArtifact(**entry))
+    return artifacts
 
 
 __all__ = [

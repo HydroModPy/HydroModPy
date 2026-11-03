@@ -271,3 +271,17 @@ def test_a_run_rel_dir_follows_the_one_grammar(rel_dir):
     run = make_record().run.model_dump()
     with pytest.raises(ValidationError, match="not a result directory"):
         ManifestRun.model_validate({**run, "rel_dir": rel_dir})
+
+
+def test_a_sealed_file_carries_its_digest_and_a_change_is_reported(run_dir):
+    from hydromodpy.results.manifest import seal_problems
+
+    record = make_record()
+    record.write(run_dir)
+    by_path = {entry.path: entry for entry in sealed_artifacts(run_dir)}
+    assert by_path["config.toml"].sha256 is not None
+    assert by_path["manifest.json"].sha256 is None
+    assert seal_problems(run_dir) == []
+
+    (run_dir / "config.toml").write_text("changed", encoding="utf-8")
+    assert any("config.toml" in problem for problem in seal_problems(run_dir))
