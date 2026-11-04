@@ -1407,6 +1407,7 @@ def run_staged_calibration(
                     phase=context,
                     passed_start=passed_start,
                     interval_width=plan.width,
+                    balanced=decl.balanced_evaluation,
                 )
                 restart_spreads.extend(spread)
                 report = _attach_linearized_width(

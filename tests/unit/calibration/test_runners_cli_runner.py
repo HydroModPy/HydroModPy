@@ -3690,3 +3690,40 @@ def test_the_calibration_loader_refuses_another_ratio_by_name(tmp_path) -> None:
 
     assert path.name in str(raised.value)
     assert "roptim_max = 3 has no exact equivalent" in str(raised.value)
+
+
+@pytest.mark.parametrize(
+    ("delta", "warned"),
+    [
+        (None, False),
+        (0.4, False),
+        (0.5, False),
+        (0.51, True),
+        (1.82, True),
+        (-1.276, True),
+        (-0.4, False),
+    ],
+)
+def test_two_roots_more_than_half_a_decade_apart_are_warned_about(delta, warned, caplog) -> None:
+    with caplog.at_level(logging.WARNING):
+        cli_runner._log_the_two_roots({**ROOTS, "delta_log10": delta})
+
+    assert ("satisfies neither map" in caplog.text) is warned
+
+
+def test_a_balanced_search_starts_its_outer_search_on_the_structure() -> None:
+    k = {"bounds": [1e-7, 1e-3], "search_space": "log", "path": cli_runner.CONDUCTIVITY_PATH}
+    sy = {"bounds": [0.01, 0.3], "search_space": "identity"}
+    cfg = CalibrationConfig.model_validate(
+        {"method": "scipy_nelder_mead", "precision": 0.1, "parameters": {"K": k, "Sy": sy}}
+    )
+
+    search = cli_runner._balanced_search(
+        cfg, cli_runner.space_from_config(cfg), start_at=np.array([-5.0, 0.2])
+    )
+    first = search.ask()[0]
+    search.close()
+
+    assert first.values["Sy"] == pytest.approx(0.2)
+    # Seven sweep points, then 2/3 of a decade halved to log10(1.1): five more.
+    assert search.solves_per_point == 12

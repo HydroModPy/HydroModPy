@@ -262,6 +262,7 @@ class FakeRunner:
         phase=None,
         start_at=None,
         interval_width=None,
+        balanced=False,
     ) -> CalibrationReport:
         self.calls.append(
             SimpleNamespace(
@@ -283,7 +284,10 @@ class FakeRunner:
             if self.per_phase
             else {name: self.values[name] for name in cfg.parameters}
         )
-        extra = {"search_status": "completed" if self.best_cost is not None else "failed"}
+        extra = {
+            "search_status": "completed" if self.best_cost is not None else "failed",
+            "search": {"stop_state": "rule_met", "converged": True, "stopping_rule": "xatol"},
+        }
         best_trial = None
         if self.journal:
             line = journal_trial(
@@ -297,11 +301,6 @@ class FakeRunner:
             if phase is not None and phase.name == self.cut_at:
                 raise TerminationRequested("signal 15")
             best_trial = line.trial
-            extra["search"] = {
-                "stop_state": "rule_met",
-                "converged": True,
-                "stopping_rule": "xatol",
-            }
         return CalibrationReport(
             session_id=persistence.descriptor.session_id,
             method=cfg.method,

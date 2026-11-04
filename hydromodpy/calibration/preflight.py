@@ -85,6 +85,8 @@ def preflight_calibration(config: Any, *, source: str | Path) -> list[PreflightF
     findings.extend(_check_the_interval_widths(calibration))
     findings.extend(_check_the_backend_can_serve_the_outputs(calibration, searched))
     findings.extend(_check_the_network_criterion_is_not_asked_to_pick_a_ridge(calibration))
+    findings.extend(_check_a_minimiser_on_two_bounds(calibration))
+    findings.extend(_check_the_balanced_phases(calibration))
     findings.extend(_check_the_network_search_can_trust_its_release_packages(calibration, searched))
     findings.extend(_check_an_extent_is_scored_on_a_transient_run(calibration, searched))
     findings.extend(_check_the_extent_durations_fit_the_timestep(calibration, searched))
@@ -825,7 +827,7 @@ def _check_engines(calibration: Any) -> list[PreflightFinding]:
                         f"declare(s) another search space.",
                     )
                 )
-        if traits.needs_signed_residual and not any(
+        if traits.needs_signed_residual and not all(
             _publishes_a_signed_residual(metric) for metric in metrics
         ):
             named = ", ".join(sorted(metrics)) or "nothing"
@@ -850,6 +852,19 @@ def _check_engines(calibration: Any) -> list[PreflightFinding]:
                     f"likelihood on it, and this search is scored on {named}. The chain "
                     f"would sample that number as if it were {traits.reads_cost_as}. "
                     f"Score it on {traits.reads_cost_as}.",
+                )
+            )
+        # J measures a balance: with anything else to move, |J| falls by trading excess
+        # for missing stream, the two networks no closer.
+        if any(_publishes_a_signed_residual(metric) for metric in metrics) and (
+            len(names) > 1 or len(metrics) > 1
+        ):
+            findings.append(
+                PreflightFinding(
+                    "warning",
+                    where,
+                    "distance_gap enters a cost beside another parameter or metric, and can "
+                    "fall by trading excess for missing stream. Score distance_mean.",
                 )
             )
         if parallel > 1 and not traits.supports_parallel:
@@ -1084,6 +1099,14 @@ def _roots_of_the_search(calibration: Any, phase: Any | None) -> int:
     )
 
 
+def _names_its_method_walks(calibration: Any, phase: Any) -> list[str]:
+    """Return what the method of a phase walks: all it moves but the root of a balanced one."""
+    from hydromodpy.calibration.runners.prepared_model import balanced_roots
+
+    roots = balanced_roots(calibration, phase.parameters) if phase.balanced_evaluation else []
+    return [name for name in phase.parameters if name not in roots]
+
+
 def _budgets(calibration: Any) -> list[tuple[str, str, list[str], Any, float | None, dict]]:
     """Return one entry per search: where its budget is written, its engine and its options."""
     if not calibration.phases:
@@ -1101,7 +1124,7 @@ def _budgets(calibration: Any) -> list[tuple[str, str, list[str], Any, float | N
         (
             f"[[calibration.phases]] {phase.name!r}",
             calibration.method_for(phase)[0],
-            list(phase.parameters),
+            _names_its_method_walks(calibration, phase),
             calibration.max_trials_for(phase),
             calibration.precision_for(phase),
             calibration.method_options_for(phase),
@@ -1395,6 +1418,99 @@ def _check_the_network_criterion_is_not_asked_to_pick_a_ridge(
                 "but one, or score an output this search does not share the ridge on.",
             )
         )
+    return findings
+
+
+def _check_a_minimiser_on_two_bounds(calibration: Any) -> list[PreflightFinding]:
+    """Refuse a minimiser on one parameter and two weighted bounds.
+
+    A root search combines two roots and a minimiser returns the lowest weighted
+    cost, so the value would depend on the method. Several parameters leave no root
+    search to differ from: K and the porosity together on the two maps stay open
+    for the twin to measure.
+    """
+    from hydromodpy.calibration.optim.optimizer import engine_traits
+
+    findings: list[PreflightFinding] = []
+    for (phase, where, names), search in zip(
+        _search_candidates(calibration), _searches(calibration), strict=True
+    ):
+        method = calibration.method_for(phase)[0]
+        if (
+            len(names) == 1
+            and not engine_traits(method).needs_signed_residual
+            and _roots_of_the_search(calibration, phase) == 2
+            and any(_publishes_a_signed_residual(metric) for metric in search[3])
+        ):
+            findings.append(
+                PreflightFinding(
+                    "error",
+                    where,
+                    f"{method!r} would return the lowest weighted cost over two bounds, where "
+                    "a root search returns the mean of two roots, so the value would depend "
+                    "on the method. Search with bisection on distance_gap, or weigh one bound "
+                    "zero in map.calibrate_on.",
+                )
+            )
+    return findings
+
+
+def _check_the_balanced_phases(calibration: Any) -> list[PreflightFinding]:
+    """Refuse a balanced phase with no root to close or nothing its roots can compare."""
+    from hydromodpy.calibration.optim.adapters.bisection_adapter import (
+        DEFAULT_REL_TOL,
+        root_search_budget,
+    )
+    from hydromodpy.calibration.optim.stopping import AUTO_BUDGET, UNCOUNTED_BUDGET
+    from hydromodpy.calibration.runners.prepared_model import balanced_roots
+
+    findings: list[PreflightFinding] = []
+    for phase, search in zip(calibration.phases or [], _searches(calibration), strict=False):
+        where, method, names, metrics, _ = search
+        outputs = _outputs_scored_by_search(calibration, phase).values()
+        if phase.balanced_evaluation and (
+            len(balanced_roots(calibration, names)) != 1
+            or len(names) < 2
+            or not any(output.support == "network" for output in outputs)
+            or any(_publishes_a_signed_residual(metric) for metric in metrics)
+        ):
+            findings.append(
+                PreflightFinding(
+                    "error",
+                    where,
+                    "a balanced evaluation moves one conductivity in log space and at least "
+                    "one other parameter, and scores distance_mean on a network output, since "
+                    f"|J| is about zero at every root. This phase moves {', '.join(names)} and "
+                    f"scores {', '.join(sorted(metrics))}.",
+                )
+            )
+        elif (
+            phase.balanced_evaluation
+            and calibration.max_trials_for(phase) == AUTO_BUDGET
+            and _counted_budget(
+                calibration,
+                phase,
+                method,
+                _names_its_method_walks(calibration, phase),
+                calibration.precision_for(phase),
+                calibration.method_options_for(phase),
+            )
+            is None
+        ):
+            [root] = balanced_roots(calibration, names)
+            low, high = calibration.parameters[root].bounds
+            solves = root_search_budget(
+                float(low), float(high), rel_tol=calibration.precision_for(phase) or DEFAULT_REL_TOL
+            ).nominal
+            findings.append(
+                PreflightFinding(
+                    "error",
+                    where,
+                    f'{method!r} cannot count its points, so max_trials = "auto" gives '
+                    f"{UNCOUNTED_BUDGET} points of {solves} solves each, about "
+                    f"{UNCOUNTED_BUDGET * solves} solves. Write max_trials for this phase.",
+                )
+            )
     return findings
 
 

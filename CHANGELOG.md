@@ -53,6 +53,9 @@ Each release section includes the following standard categories:
 - `hmp doctor --fix-config` keeps the share of each map when a child file adds an extent or weights under a parent it already rewrote. It used to drop the weights and score the permanent map alone.
 - `hmp doctor --fix-config` says what to do when a file gives `map.calibrate_on` and old `extent.weights` that differ, and no longer drops the weights.
 - `hmp doctor --fix-config` refuses a network output written with dotted keys under a parent table, with a line that asks for a `[calibration.outputs.<name>]` table. It used to stop on a raw error, or to write the new tables outside `[calibration]`.
+- The warning for two roots more than half a decade apart now fires when the maximal root lies below the minimal one, as on the Nancon.
+- A minimiser on one parameter and two bounds is refused only when a metric is a signed residual, so scoring `distance_mean` is no longer sent to a root search that cannot run it.
+- The warning about `distance_gap` beside another parameter no longer points to `balanced_evaluation`.
 
 ### Changed
 
@@ -67,6 +70,12 @@ Each release section includes the following standard categories:
 - The seepage threshold is described as a fraction of the mean basin recharge over the cell's own area, in the field, the protocol deviation and the docs. No value changes.
 - The example calibration files of 04, 10, 12 and 21 use the new `map`, `model` and `verdict` tables.
 Numbers: none.
+- The preflight refuses a minimiser on one parameter scored on two network bounds of positive weights, because the value returned would depend on the method. Search it with `bisection` on `distance_gap`, or weigh one bound zero.
+- The preflight warns when `distance_gap` enters a cost beside another parameter or another metric, because that cost can fall by trading excess for missing stream.
+- A root search warns when its two roots lie more than half a decade apart, because the value returned between them satisfies neither map.
+- A root search (bisection) now refuses a set of objective blocks unless every block publishes a signed residual. Before, one residual block was enough.
+- The composite example of example 04 scores its network block on `distance_mean` instead of `distance_gap`.
+- The `balanced_evaluation` description says that its report keeps no roots record and no Delta.
 
 ### Numbers
 
@@ -76,6 +85,8 @@ Numbers: none.
 - The cost of a document without `validation_window` does not move, bit for bit, and its cache key does not move. A test holds this.
 - `run_calibration_api_daily.toml` ranks its five K on 2016-2018 instead of 2016-2020. This was not run, so the size of the
   change in its costs is not measured.
+- None moves. The option is off by default, and the new messages change no result.
+- The composite example changes its network cost; no stored result or golden depends on it.
 
 ### Removed
 
@@ -91,6 +102,8 @@ Numbers: none.
   transient stage of the network protocol. A phase that writes only a start is closed by it too.
 - A validation window that overlaps a calibration window, covers all of `[metrics] window`, falls outside it, leaves a bound
   open or has no dated record to score is refused by name. So is one beside a metric function or another evaluator.
+- A phase can set `balanced_evaluation = true`: every point of its search closes the root of J on K with its own root search, and is scored there. It is meant for comparing structures such as a thickness or a K(z) profile. `max_trials` counts the points, and each point costs about fifteen solves. Off by default, and not yet measured on the synthetic twin.
+- A balanced phase whose outer method cannot count its points and runs with `max_trials = "auto"` is refused, naming the points times the solves of each.
 
 ## [v2.0.0rc1] - 2026-11-03
 

@@ -38,10 +38,10 @@ complete = "nancon_stream_network.gpkg"
 support = "point"
 variable = "discharge"
 
-# The gap divided by the validity length (150 m here), so it adds to an NSE.
+# The mean distance divided by the validity length (150 m here), so it adds to an NSE.
 [[calibration.objective_blocks]]
 name = "network"
-metric = "distance_gap"
+metric = "distance_mean"
 uses_outputs = ["seepage_network"]
 normalize_cost = true
 

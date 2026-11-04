@@ -14,6 +14,7 @@ import pytest
 
 from hydromodpy.calibration.optim.adapters.bisection_adapter import (
     LOG10_ONE_PERCENT,
+    BalancedSearch,
     BisectionAdapter,
     root_search_budget,
     roots_scored,
@@ -22,6 +23,7 @@ from hydromodpy.calibration.optim.adapters.bisection_adapter import (
 from hydromodpy.calibration.optim.engine import CalibrationEngine
 from hydromodpy.calibration.optim.method_config import validate_method_kwargs
 from hydromodpy.calibration.optim.optimizer import (
+    FAILED_EVAL_COST,
     EvaluationResult,
     ParamSuggestion,
     available_optimizers,
@@ -29,7 +31,7 @@ from hydromodpy.calibration.optim.optimizer import (
     engine_traits,
 )
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
-from hydromodpy.calibration.optim.stopping import AUTO_BUDGET
+from hydromodpy.calibration.optim.stopping import AUTO_BUDGET, stopping_rule
 from hydromodpy.calibration.preflight import _check_the_budgets
 from hydromodpy.calibration.runners.cli_runner import (
     _closes_two_roots,
@@ -1463,3 +1465,117 @@ def test_the_preflight_counts_the_points_asked_at_once(
     assert [finding.severity for finding in findings] == [severity]
     if severity == "error":
         assert "below the 26 evaluations" in findings[0].detail
+
+
+# The balanced evaluation: a root search at every point of an outer search
+# --------------------------------------------------------------------------- #
+BALANCED_SPACE = make_space(("b", 1.0, 3.0, "identity"), ("K", 1.0, 1.0e5, "log"))
+
+
+def _balanced(points: int = 3, **options) -> BalancedSearch:
+    """An outer grid on b around a root search on K."""
+    outer = build_optimizer(
+        "grid", make_space(("b", 1.0, 3.0, "identity")), seed=0, points_per_dim=points
+    )
+    return BalancedSearch(
+        outer, _space(*NANCON_BOUNDS) if "roots" in options else _space(), **options
+    )
+
+
+def _structure(roots: dict[float, float], seen: dict[int, dict]):
+    """J crosses zero at ``roots[b]``, and the lowest cost lies far from that root."""
+
+    def evaluate(sugg: ParamSuggestion) -> EvaluationResult:
+        b, k = sugg.values["b"], sugg.values["K"]
+        seen[sugg.trial_id] = dict(sugg.values)
+        residual = staircase(roots[b], k)
+        return result_of(sugg, (b - 2.0) ** 2 + 1.0 / k, components={"net.J_signed": residual})
+
+    return evaluate
+
+
+def test_each_point_is_scored_at_its_root_and_the_answer_is_the_lowest_root() -> None:
+    search, seen = _balanced(), {}
+    roots = {1.0: 100.0, 2.0: 200.0, 3.0: 300.0}
+    session = run_engine(BALANCED_SPACE, search, _structure(roots, seen), 3)
+
+    assert session.converged
+    assert stopping_rule(search) == "every grid point"
+    assert len(session.history) == len(seen) == 3 * search.solves_per_point == 45
+    found = [seen[answer.trial_id] for answer in search.answers]
+    assert [point["b"] for point in found] == [1.0, 2.0, 3.0]
+    assert [point["K"] for point in found] == pytest.approx([100.0, 200.0, 300.0], rel=0.02)
+    # The solve of lowest cost is at the top of the sweep, and it is not a root.
+    assert min(session.history, key=lambda r: r.cost) not in search.answers
+    assert session.best is search.answers[1]
+    assert search.ask() == [], "the outer plan is spent"
+
+
+def test_a_point_with_no_root_fails_and_the_search_goes_on(caplog) -> None:
+    search, seen = _balanced(), {}
+    roots = {1.0: 100.0, 2.0: 1.0e12, 3.0: 300.0}
+    with caplog.at_level(logging.WARNING):
+        session = run_engine(BALANCED_SPACE, search, _structure(roots, seen), 3)
+
+    assert [seen[answer.trial_id]["b"] for answer in search.answers] == [1.0, 3.0]
+    # Both cost one, plus 1 / K*: 1.0033 at the higher root against 1.01.
+    assert seen[session.best.trial_id]["b"] == 3.0
+    assert "'b': 2.0" in caplog.text
+    assert "keeps the same sign" in caplog.text
+
+
+def test_the_outer_search_is_told_the_root_of_a_point_and_a_failure_under_its_own_id() -> None:
+    told = []
+
+    class Outer:
+        name = "scipy_nelder_mead"
+        ids = iter([7, 9])
+
+        def ask(self, n):
+            if len(told) == 2:
+                return []
+            return [ParamSuggestion(next(self.ids), {"b": float(len(told) + 1)}, "fake")]
+
+        def tell(self, results):
+            told.extend((r.trial_id, r.cost, r.status) for r in results)
+
+        def converged(self):
+            return len(told) == 2
+
+    search, seen = BalancedSearch(Outer(), _space()), {}
+    evaluate = _structure({1.0: 100.0, 2.0: 1.0e12}, seen)
+    while suggestions := search.ask():
+        search.tell([evaluate(sugg) for sugg in suggestions])
+
+    assert [(trial_id, status) for trial_id, _, status in told] == [
+        (7, "completed"),
+        (9, "infeasible"),
+    ]
+    assert told[0][1] == pytest.approx(1.0 + 1.0 / 100.0, rel=0.02)
+    assert told[1][1] == FAILED_EVAL_COST
+
+
+def test_two_roots_answer_with_the_combined_value_and_a_failed_one_with_nothing() -> None:
+    search = _balanced(points=2, roots=2)
+    scored = _two_bounds(fail={24})
+    session = run_engine(
+        BALANCED_SPACE,
+        search,
+        lambda sugg: scored(ParamSuggestion(sugg.trial_id, {"K": sugg.values["K"]})),
+        2,
+    )
+
+    # The first point loses its 24th solve, the combined value. The second answers.
+    assert len(session.history) == 48
+    assert [answer.trial_id for answer in search.answers] == [48]
+    assert session.best.trial_id == 48
+
+
+def test_a_root_search_keeps_its_width_when_the_outer_budget_runs_low() -> None:
+    search = _balanced(batch=2)
+
+    assert [sugg.trial_id for sugg in search.ask(1)] == [1, 2]
+    assert search.suggest_next().trial_id == 3
+    assert (search.name, search.counted_budget.nominal, search.best()) == ("grid", 3, None)
+    assert not search.converged()
+    search.close()

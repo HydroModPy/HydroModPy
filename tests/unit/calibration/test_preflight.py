@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 import textwrap
@@ -388,6 +389,22 @@ class TestWhatPreflightCatches:
                 id="a_metric_with_no_residual",
             ),
             pytest.param(
+                # One block publishes the residual, the other does not: every block must.
+                """
+                [calibration]
+                method = "bisection"
+                @KB
+                @NETROOT
+                @GAP
+                [[calibration.objective_blocks]]
+                name = "level"
+                metric = "distance_mean"
+                uses_outputs = ["net"]
+                """,
+                ["signed residual", "distance_mean"],
+                id="a_residual_block_beside_a_metric_without_one",
+            ),
+            pytest.param(
                 # The only search space written in this file: the field declares 'log', so
                 # a linear parameter has to say so, and what the file states wins.
                 """
@@ -433,6 +450,20 @@ class TestWhatPreflightCatches:
         [
             pytest.param(_WORKERS_ON_A_ROOT_SEARCH, id="takes_workers"),
             pytest.param('[calibration]\nmethod = "bisection"\n@KB\n@NETROOT\n@GAP', id="sound"),
+            pytest.param(
+                """
+                [calibration]
+                method = "bisection"
+                @KB
+                @NETROOT
+                @GAP
+                [[calibration.objective_blocks]]
+                name = "gap_again"
+                metric = "distance_gap"
+                uses_outputs = ["net"]
+                """,
+                id="two_residual_blocks",
+            ),
         ],
     )
     def test_a_sound_root_search_passes(self, tmp_path, doc) -> None:
@@ -1208,6 +1239,98 @@ class TestTheNetworkCriterionIsNotAskedToPickARidge:
     )
     def test_a_well_posed_search_is_not_warned(self, tmp_path, doc: str) -> None:
         assert "ridge" not in messages(preflight_of(tmp_path, doc))
+
+
+_MEAN = """
+[[calibration.objective_blocks]]
+name = "mean"
+metric = "distance_mean"
+uses_outputs = ["net"]
+"""
+_ON_THE_NETWORK = f"@NETROOT\n@GAP\n{_MEAN}"
+_ON_A_GAUGE = "@GAUGE\n" + _MEAN.replace("mean", "q").replace('"net"', '"gauge"').replace(
+    "distance_q", "rmse"
+)
+_KV = """
+[calibration.parameters.Kv]
+bounds = [1e-7, 1e-3]
+search_space = "log"
+path = "flow.param.Kv.field.value"
+"""
+_REFUSED_BALANCE = "a balanced evaluation"
+_TRADING = "trading excess"
+_TWO_METHODS = "depend on the method"
+_UNCOUNTED = "cannot count its points"
+
+
+def _balanced(
+    parameters: str,
+    block: str,
+    scored: str = _ON_THE_NETWORK,
+    method: str = "grid",
+    trials: int | str = 3,
+) -> str:
+    """A grid of three points is enough, since it walks the structure alone."""
+    options = "method_options = { points_per_dim = 3 }\n" if method == "grid" else ""
+    return (
+        f"@GRID\n@K\n@SY\n{scored}\n[[calibration.phases]]\n"
+        f'name = "s"\nmethod = "{method}"\nmax_trials = {json.dumps(trials)}\n{options}'
+        f'parameters = {parameters}\nobjective_blocks = ["{block}"]\nbalanced_evaluation = true\n'
+    )
+
+
+def _two_bounds(tmp_path: Path, method: str, moved: str, weights: str = "0.5") -> str:
+    return (
+        f'[calibration]\nmethod = "{method}"\nobjective = "distance_gap"\nvariable = "net"\n'
+        + moved
+        + _outputs(tmp_path).replace("permanent = 0.5", f"permanent = {weights}")
+    )
+
+
+@pytest.mark.parametrize(
+    ("doc", "severity", "said"),
+    [
+        ("@GRID\n@K\n@SY\n@NET\n@GAP", "warning", _TRADING),
+        (f"@GRID\n@K\n@NET\n@GAP\n{_MEAN}", "warning", _TRADING),
+        ("@GRID\n@K\n@NET\n@GAP", None, _TRADING),
+        (f"@GRID\n@K\n@SY\n@NET\n{_MEAN}", None, _TRADING),
+        (lambda p: _two_bounds(p, "scipy_nelder_mead", "@KLOG"), "error", _TWO_METHODS),
+        (lambda p: _two_bounds(p, "optuna", "@KLOG\n@SY"), None, _TWO_METHODS),
+        (lambda p: _two_bounds(p, "scipy_nelder_mead", "@KLOG", "0.0"), None, _TWO_METHODS),
+        (lambda p: _two_bounds(p, "bisection", "@KLOG"), None, _TWO_METHODS),
+        (
+            lambda p: _two_bounds(p, "scipy_nelder_mead", "@KLOG").replace(
+                'objective = "distance_gap"', 'objective = "distance_mean"'
+            ),
+            None,
+            _TWO_METHODS,
+        ),
+        (_balanced('["K", "Sy"]', "mean"), None, _REFUSED_BALANCE),
+        (_balanced('["K"]', "mean"), "error", _REFUSED_BALANCE),
+        (_balanced('["Sy"]', "mean"), "error", _REFUSED_BALANCE),
+        (_balanced('["K", "Kv"]', "mean", _ON_THE_NETWORK + _KV), "error", _REFUSED_BALANCE),
+        (_balanced('["K", "Sy"]', "gap"), "error", _REFUSED_BALANCE),
+        (_balanced('["K", "Sy"]', "q", _ON_A_GAUGE), "error", _REFUSED_BALANCE),
+        (_balanced('["K", "Sy"]', "mean", method="grid", trials="auto"), None, _UNCOUNTED),
+        (
+            _balanced('["K", "Sy"]', "mean", method="scipy_nelder_mead", trials="auto"),
+            "error",
+            _UNCOUNTED,
+        ),
+        (_balanced('["K", "Sy"]', "mean", method="scipy_nelder_mead", trials=5), None, _UNCOUNTED),
+    ],
+)
+def test_what_a_search_of_the_network_may_not_do(tmp_path, doc, severity, said) -> None:
+    findings = preflight_of(tmp_path, doc(tmp_path) if callable(doc) else doc)
+
+    named = [finding.severity for finding in findings if said in finding.detail]
+    assert named == ([severity] if severity else [])
+
+
+def test_a_balanced_grid_counts_its_points_on_the_structure_alone(tmp_path) -> None:
+    findings = preflight_of(tmp_path, _balanced('["K", "Sy"]', "mean"))
+
+    assert [finding for finding in findings if finding.severity == "error"] == []
 
 
 class TestTheNetworkSearchCanTrustItsReleasePackages:

@@ -79,6 +79,7 @@ calibration.parameters.units	str | None	None	experimental
 calibration.persist_iteration_detail	Literal['none', 'summary', 'full']	'summary'	experimental
 calibration.persist_trial_series	bool	False	experimental
 calibration.phases	list[table] | None	None	experimental
+calibration.phases.balanced_evaluation	bool	False	experimental
 calibration.phases.batch_size	int | None	None	experimental
 calibration.phases.bounds	dict[str, list[float]] | None	None	experimental
 calibration.phases.depends_on	str | None	None	experimental
