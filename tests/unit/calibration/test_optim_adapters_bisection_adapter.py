@@ -15,7 +15,6 @@ import pytest
 from hydromodpy.calibration.optim.adapters.bisection_adapter import (
     BOUNDS_COMPONENT,
     LOG10_ONE_PERCENT,
-    BalancedSearch,
     BisectionAdapter,
     RootTarget,
     root_search_budget,
@@ -25,7 +24,6 @@ from hydromodpy.calibration.optim.adapters.bisection_adapter import (
 from hydromodpy.calibration.optim.engine import CalibrationEngine
 from hydromodpy.calibration.optim.method_config import validate_method_kwargs
 from hydromodpy.calibration.optim.optimizer import (
-    FAILED_EVAL_COST,
     EvaluationResult,
     ParamSuggestion,
     available_optimizers,
@@ -33,7 +31,7 @@ from hydromodpy.calibration.optim.optimizer import (
     engine_traits,
 )
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
-from hydromodpy.calibration.optim.stopping import AUTO_BUDGET, stopping_rule
+from hydromodpy.calibration.optim.stopping import AUTO_BUDGET
 from hydromodpy.calibration.preflight import _check_the_budgets
 from hydromodpy.calibration.runners.cli_runner import (
     _closes_two_roots,
@@ -41,7 +39,6 @@ from hydromodpy.calibration.runners.cli_runner import (
     _r_optim_verdict_extra,
     _search_outcome_extra,
     load_toml_calibration,
-    search_status,
 )
 from hydromodpy.calibration.runners.staged_runner import _phase_config
 from hydromodpy.core.exceptions import ObjectiveError, OptimizerError
@@ -327,7 +324,7 @@ def test_nothing_evaluated_means_nothing_to_report() -> None:
 def test_the_width_of_a_root_stops_at_a_trial_that_did_not_solve() -> None:
     # J = log10(K) - 2.5, and the top of the sweep at K = 1e4 does not solve.
     adapter = BisectionAdapter(_space(1.0, 1.0e4), sweep_points=5)
-    while not adapter.done:
+    while not adapter._done:
         (sugg,) = adapter.ask(1)
         residual = math.log10(float(sugg.values["K"])) - 2.5
         status = "infeasible" if residual > 1.0 else "completed"
@@ -1527,147 +1524,6 @@ def test_the_preflight_counts_the_points_asked_at_once(
         assert "below the 26 evaluations" in findings[0].detail
 
 
-# The balanced evaluation: a root search at every point of an outer search
-# --------------------------------------------------------------------------- #
-BALANCED_SPACE = make_space(("b", 1.0, 3.0, "identity"), ("K", 1.0, 1.0e5, "log"))
-
-
-def _balanced(points: int = 3, **options) -> BalancedSearch:
-    """An outer grid on b around a root search on K."""
-    outer = build_optimizer(
-        "grid", make_space(("b", 1.0, 3.0, "identity")), seed=0, points_per_dim=points
-    )
-    return BalancedSearch(
-        outer, _space(*NANCON_BOUNDS) if "roots" in options else _space(), **options
-    )
-
-
-def _structure(roots: dict[float, float], seen: dict[int, dict]):
-    """J crosses zero at ``roots[b]``, and the lowest cost lies far from that root."""
-
-    def evaluate(sugg: ParamSuggestion) -> EvaluationResult:
-        b, k = sugg.values["b"], sugg.values["K"]
-        seen[sugg.trial_id] = dict(sugg.values)
-        residual = staircase(roots[b], k)
-        return result_of(sugg, (b - 2.0) ** 2 + 1.0 / k, components={"net.J_signed": residual})
-
-    return evaluate
-
-
-def test_each_point_is_scored_at_its_root_and_the_answer_is_the_lowest_root() -> None:
-    search, seen = _balanced(), {}
-    roots = {1.0: 100.0, 2.0: 200.0, 3.0: 300.0}
-    session = run_engine(BALANCED_SPACE, search, _structure(roots, seen), 3)
-
-    assert session.converged
-    assert stopping_rule(search) == "every grid point"
-    assert len(session.history) == len(seen) == 3 * search.solves_per_point == 45
-    found = [seen[answer.trial_id] for answer in search.answers]
-    assert [point["b"] for point in found] == [1.0, 2.0, 3.0]
-    assert [point["K"] for point in found] == pytest.approx([100.0, 200.0, 300.0], rel=0.02)
-    # The solve of lowest cost is at the top of the sweep, and it is not a root.
-    assert min(session.history, key=lambda r: r.cost) not in search.answers
-    assert session.best is search.answers[1]
-    assert search.ask() == [], "the outer plan is spent"
-    assert search.root_outside_bounds() is None
-
-
-def test_a_balanced_point_answers_with_the_trial_nearest_its_root() -> None:
-    """J steps from +8 to -0.8 at K = 200, and D_optim is lower on the far side of the step."""
-    search = _balanced()
-
-    def evaluate(sugg: ParamSuggestion) -> EvaluationResult:
-        below = sugg.values["K"] < 200.0
-        return result_of(
-            sugg, 102.97 if below else 104.07, components={"net.J_signed": 8.0 if below else -0.8}
-        )
-
-    run_engine(BALANCED_SPACE, search, evaluate, 3)
-
-    assert [answer.cost for answer in search.answers] == [104.07] * 3
-    assert [answer.components["net.J_signed"] for answer in search.answers] == [-0.8] * 3
-
-
-def test_a_balanced_root_outside_the_bounds_is_named() -> None:
-    search, seen = _balanced(points=2), {}
-    session = run_engine(BALANCED_SPACE, search, _structure({1.0: 100.0, 3.0: 5.0e5}, seen), 2)
-
-    assert search_status(session) == "partial"
-
-    assert search.root_outside_bounds().startswith("the root of ")
-    assert search.root_outside_bounds().count("OUTSIDE the declared bounds of K") == 1
-
-
-def test_a_point_with_no_root_fails_and_the_search_goes_on(caplog) -> None:
-    search, seen = _balanced(), {}
-    roots = {1.0: 100.0, 2.0: 1.0e12, 3.0: 300.0}
-    with caplog.at_level(logging.WARNING):
-        session = run_engine(BALANCED_SPACE, search, _structure(roots, seen), 3)
-
-    assert [seen[answer.trial_id]["b"] for answer in search.answers] == [1.0, 3.0]
-    # Both cost one, plus 1 / K*: 1.0033 at the higher root against 1.01.
-    assert seen[session.best.trial_id]["b"] == 3.0
-    assert "'b': 2.0" in caplog.text
-    assert "keeps the same sign" in caplog.text
-
-
-def test_the_outer_search_is_told_the_root_of_a_point_and_a_failure_under_its_own_id() -> None:
-    told = []
-
-    class Outer:
-        name = "scipy_nelder_mead"
-        ids = iter([7, 9])
-
-        def ask(self, n):
-            if len(told) == 2:
-                return []
-            return [ParamSuggestion(next(self.ids), {"b": float(len(told) + 1)}, "fake")]
-
-        def tell(self, results):
-            told.extend((r.trial_id, r.cost, r.status) for r in results)
-
-        def converged(self):
-            return len(told) == 2
-
-    search, seen = BalancedSearch(Outer(), _space()), {}
-    evaluate = _structure({1.0: 100.0, 2.0: 1.0e12}, seen)
-    while suggestions := search.ask():
-        search.tell([evaluate(sugg) for sugg in suggestions])
-
-    assert [(trial_id, status) for trial_id, _, status in told] == [
-        (7, "completed"),
-        (9, "infeasible"),
-    ]
-    assert told[0][1] == pytest.approx(1.0 + 1.0 / 100.0, rel=0.02)
-    assert told[1][1] == FAILED_EVAL_COST
-
-
-def test_two_roots_answer_with_the_combined_value_and_a_failed_one_with_nothing() -> None:
-    search = _balanced(points=2, roots=2)
-    scored = _two_bounds(fail={24})
-    session = run_engine(
-        BALANCED_SPACE,
-        search,
-        lambda sugg: scored(ParamSuggestion(sugg.trial_id, {"K": sugg.values["K"]})),
-        2,
-    )
-
-    # The first point loses its 24th solve, the combined value. The second answers.
-    assert len(session.history) == 48
-    assert [answer.trial_id for answer in search.answers] == [48]
-    assert session.best.trial_id == 48
-
-
-def test_a_root_search_keeps_its_width_when_the_outer_budget_runs_low() -> None:
-    search = _balanced(batch=2)
-
-    assert [(sugg.trial_id, sugg.source) for sugg in search.ask(1)] == [(1, "sweep"), (2, "sweep")]
-    assert search.suggest_next().trial_id == 3
-    assert (search.name, search.counted_budget.nominal, search.best()) == ("grid", 3, None)
-    assert not search.converged()
-    search.close()
-
-
 # --------------------------------------------------------------------------- #
 # What the adapter refuses, and what it says before it has a root
 # --------------------------------------------------------------------------- #
@@ -1759,25 +1615,6 @@ def test_the_cuts_of_a_round_are_placed_once_and_the_first_ask_takes_one_point()
 
     assert cut.source == "bisect"
     assert adapter.ask(1) == []
-
-
-def test_a_balanced_search_wraps_its_outer_search() -> None:
-    closed: list[int] = []
-
-    class Outer:
-        name = "grid"
-
-        def close(self) -> None:
-            closed.append(1)
-
-    search = BalancedSearch(Outer(), _space(), batch=2)
-    search.close()
-
-    assert closed == [1]
-    assert search.counted([]) == 0
-    assert search.traits == engine_traits("grid")
-    assert search.solves_per_point > BalancedSearch(Outer(), _space()).solves_per_point
-    assert BalancedSearch(SimpleNamespace(name="grid"), _space()).close() is None
 
 
 @pytest.mark.parametrize(

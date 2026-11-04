@@ -59,7 +59,6 @@ Each release section includes the following standard categories:
 - `hmp doctor --fix-config` refuses a network output written with dotted keys under a parent table, with a line that asks for a `[calibration.outputs.<name>]` table. It used to stop on a raw error, or to write the new tables outside `[calibration]`.
 - The warning for two roots more than half a decade apart now fires when the maximal root lies below the minimal one, as on the Nancon.
 - A minimiser on one parameter and two bounds is refused only when a metric is a signed residual, so scoring `distance_mean` is no longer sent to a root search that cannot run it.
-- The warning about `distance_gap` beside another parameter no longer points to `balanced_evaluation`.
 - A run resumed at its derive step says in a warning that no station series is written.
 - One failing observing output no longer drops the series of the others.
 - Two parameters on one path, `path` with `target`, and `mode = "scale"` on a zero or unset value are refused at load instead of silently doing nothing.
@@ -69,7 +68,6 @@ Each release section includes the following standard categories:
 - A worker that dies marks its trial `crashed`, and the search goes on with a new worker. A stuck `mf6` is killed with its worker.
 - A stop (Ctrl-C, SIGTERM) of a search at `parallel` above 1 now ends the solves in flight at once. Without it, the workers of the previous change, which have their own session, made the stop wait for the longest trial.
 - The runs of a linearized width no longer enter the retention of the solves a promotion may keep. They were ranked with the trials at cost 0.0, so one could push the Nth best trial out of a `save_runs = "best_n"` search.
-- A balanced evaluation now answers each point with the trial nearest the root of J. It took the end of the final bracket with the lowest `distance_mean`, which could sit on the far side of a step of J.
 - The warning and the recap say that a value reached a search bound only when the value is on it. A value inside its bounds whose range of equal costs reaches one now says so in those words.
 - `--optimizer scipy_de` of the `groundwater_1d`, `recession_brutsaert` and `reservoir` validation cases runs again.
 - The `calibration_progress` figure of a staged calibration now shows the value a phase froze for a parameter it did not sample, so the run marked best reads `K = 7.96e-05 m/s` instead of `K = nan`, the K panel carries the frozen value, and the K-Sy plane draws the runs of the phase that sampled Sy. It was empty at the base commit too.
@@ -94,7 +92,6 @@ Numbers: none.
 - A root search warns when its two roots lie more than half a decade apart, because the value returned between them satisfies neither map.
 - A root search (bisection) now refuses a set of objective blocks unless every block publishes a signed residual. Before, one residual block was enough.
 - The composite example of example 04 scores its network block on `distance_mean` instead of `distance_gap`.
-- The `balanced_evaluation` description says that its report keeps no roots record and no Delta.
 - A run stores the series it simulates at each observed station under the id of the station, all in one write. A gauge the mesh cannot place is no longer stored under its own name with the outlet series: it is listed as unscored and a warning names it.
 - A promoted run reads the stations with the outputs of the phase it comes from.
 - `hmp.read(run, "head")` or a lake stage with several stations needs `station=`.
@@ -141,7 +138,6 @@ None. No metric value changes.
 - At `parallel = 1` nothing moves, to the last digit: the candidates and costs of `scipy_de` and the Jacobian are equal to those of the previous build (checked on a toy cost).
 - `scipy_de` at a width of 4 against a width of 1, 30 seeds, population 10 times the number of parameters, median of the best cost at the same number of evaluations. 4 parameters on a narrow ridge: 0.0057 against 0.0041 at 400 evaluations, 5.5e-5 against 1.2e-5 at 1200. Rosenbrock on 3 parameters: 0.38 against 0.43 at 400, 4.7e-4 against 7.9e-5 at 1200. So the side by side path costs up to 1.5 to 5 times more evaluations to reach the same late precision, and wins when the solves dominate and `parallel` is 2 or more.
 - Optuna `tpe` with `constant_liar`, 40 seeds, 64 evaluations, batches of the width, median of the best cost. 4 parameters on a ridge: 0.052 against 0.040 at width 2 (22 wins of 40 for the lie), 0.081 against 0.060 at width 4 (23 of 40), 0.095 against 0.051 at width 8 (26 of 40). Rosenbrock on 3 parameters: 3.7 against 3.8 at width 2 (23 of 40), 4.8 against 3.0 at width 4 (27 of 40), 5.7 against 3.6 at width 8 (29 of 40). Neutral at a width of 2, better from 4.
-- Balanced evaluation on the thickness of the Nancon, `D_optim` told at 10, 17.3, 30, 52 and 90 m: 136.96, 137.20, 102.97, 108.30, 111.38 m before, 141.76, 171.29, 104.07, 109.50, 111.38 m after. The best stays 30 m, with K from 7.891e-5 to 7.966e-5 m/s. A plain bisection does not move, K and cost equal to the last digit.
 - The Nancon on two bounds, BD Topage. At a visible flow of 0.5, 1 and 2 L/s, K = 1.19e-5, 7.68e-6 and 3.98e-6 m/s, roots 1.21, 1.47 and 1.87 decades apart.
 - K and Sy together on two maps: a twin finds K to a few per cent and not Sy, and on the Nancon the roots meet at K = 5.0e-6 m/s and Sy = 0.0033, with NSE at 0.64 against 0.93.
 - The 12.9 per cent of D4 on the Nancon comes from one seepage cell that dries between K = 6.895e-5 and 6.910e-5 m/s, and with it a reach of 37 cells absent from the map.
@@ -162,8 +158,6 @@ None. No metric value changes.
   transient stage of the network protocol. A phase that writes only a start is closed by it too.
 - A validation window that overlaps a calibration window, covers all of `[metrics] window`, falls outside it, leaves a bound
   open or has no dated record to score is refused by name. So is one beside a metric function or another evaluator.
-- A phase can set `balanced_evaluation = true`: every point of its search closes the root of J on K with its own root search, and is scored there. It is meant for comparing structures such as a thickness or a K(z) profile. `max_trials` counts the points, and each point costs about fifteen solves. Off by default, and not yet measured on the synthetic twin.
-- A balanced phase whose outer method cannot count its points and runs with `max_trials = "auto"` is refused, naming the points times the solves of each.
 - `Project.calibrate()` takes `protocol`, `case`, `resume`, `dry_run`, `workspace`, `project`, `project_label`, `metric_fn` and `objective` by name, on every route. `dry_run=True` returns the plan.
 - `hmp campaign promote CASE` without `--trial` lists the five best completed trials.
 - `hmp config targets` shows the search space, the draw and the default bounds of each target. Names with a dot are written between quotes, as TOML needs.

@@ -2113,15 +2113,6 @@ class CalibPhaseDecl(HydroModelBase):
         "phase freezes its values and its search stops on its budget before a rule of its "
         "own, this phase is refused rather than run on the values of the file.",
     )
-    balanced_evaluation: Annotated[bool, Profile.USER] = Field(
-        default=False,
-        description="Close the root of J on K at every point of this phase's search and "
-        "score the point there. The phase moves one conductivity in log space, walked by a "
-        "root search at the precision of the phase, and at least one other parameter, "
-        "walked by its method, and it scores distance_mean. max_trials counts the points "
-        "of that method, and each one costs a whole root search, about 24 solves. The "
-        "report of a balanced search keeps no roots record and no Delta.",
-    )
     freeze_on_success: Annotated[bool, Profile.USER] = Field(
         default=True,
         description="Pass the values this phase found to the phases after it. A later "

@@ -116,18 +116,6 @@ def moves_a_hydraulic_conductivity(paths: Iterable[str | None]) -> bool:
     return False
 
 
-def balanced_roots(cfg: Any, names: Iterable[str]) -> list[str]:
-    """Return which of ``names`` a root search can walk: a conductivity searched in log space."""
-    declared = cfg.parameters or {}
-    return [
-        name
-        for name in names
-        if name in declared
-        and str(declared[name].search_space) == "log"
-        and moves_a_hydraulic_conductivity([declared[name].resolve_target()])
-    ]
-
-
 def network_outputs_scored(
     outputs: Mapping[str, Any],
     *,
@@ -382,7 +370,6 @@ def _assert_the_scored_catchment_is_the_delineated_one(
 
 
 __all__ = [
-    "balanced_roots",
     "check_the_prepared_model",
     "moves_a_hydraulic_conductivity",
     "network_outputs_of",

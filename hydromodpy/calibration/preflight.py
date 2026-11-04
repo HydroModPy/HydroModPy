@@ -88,7 +88,6 @@ def preflight_calibration(config: Any, *, source: str | Path) -> list[PreflightF
         _check_the_network_criterion_is_not_asked_to_pick_a_ridge(calibration, searched)
     )
     findings.extend(_check_a_minimiser_on_two_bounds(calibration))
-    findings.extend(_check_the_balanced_phases(calibration))
     findings.extend(_check_the_network_search_can_trust_its_release_packages(calibration, searched))
     findings.extend(_check_an_extent_is_scored_on_a_transient_run(calibration, searched))
     findings.extend(_check_the_extent_durations_fit_the_timestep(calibration, searched))
@@ -1106,14 +1105,6 @@ def _roots_of_the_search(calibration: Any, phase: Any | None) -> int:
     )
 
 
-def _names_its_method_walks(calibration: Any, phase: Any) -> list[str]:
-    """Return what the method of a phase walks: all it moves but the root of a balanced one."""
-    from hydromodpy.calibration.runners.prepared_model import balanced_roots
-
-    roots = balanced_roots(calibration, phase.parameters) if phase.balanced_evaluation else []
-    return [name for name in phase.parameters if name not in roots]
-
-
 def _budgets(calibration: Any) -> list[tuple[str, str, list[str], Any, float | None, dict]]:
     """Return one entry per search: where its budget is written, its engine and its options."""
     if not calibration.phases:
@@ -1131,7 +1122,7 @@ def _budgets(calibration: Any) -> list[tuple[str, str, list[str], Any, float | N
         (
             f"[[calibration.phases]] {phase.name!r}",
             calibration.method_for(phase)[0],
-            _names_its_method_walks(calibration, phase),
+            list(phase.parameters),
             calibration.max_trials_for(phase),
             calibration.precision_for(phase),
             calibration.method_options_for(phase),
@@ -1469,65 +1460,6 @@ def _check_a_minimiser_on_two_bounds(calibration: Any) -> list[PreflightFinding]
                     "a root search returns the mean of two roots, so the value would depend "
                     "on the method. Search with bisection on distance_gap, or weigh one bound "
                     "zero in map.calibrate_on.",
-                )
-            )
-    return findings
-
-
-def _check_the_balanced_phases(calibration: Any) -> list[PreflightFinding]:
-    """Refuse a balanced phase with no root to close or nothing its roots can compare."""
-    from hydromodpy.calibration.optim.adapters.bisection_adapter import (
-        DEFAULT_REL_TOL,
-        root_search_budget,
-    )
-    from hydromodpy.calibration.optim.stopping import AUTO_BUDGET, UNCOUNTED_BUDGET
-    from hydromodpy.calibration.runners.prepared_model import balanced_roots
-
-    findings: list[PreflightFinding] = []
-    for phase, search in zip(calibration.phases or [], _searches(calibration), strict=False):
-        where, method, names, metrics, _ = search
-        outputs = _outputs_scored_by_search(calibration, phase).values()
-        if phase.balanced_evaluation and (
-            len(balanced_roots(calibration, names)) != 1
-            or len(names) < 2
-            or not any(output.support == "network" for output in outputs)
-            or any(_publishes_a_signed_residual(metric) for metric in metrics)
-        ):
-            findings.append(
-                PreflightFinding(
-                    "error",
-                    where,
-                    "a balanced evaluation moves one conductivity in log space and at least "
-                    "one other parameter, and scores distance_mean on a network output, since "
-                    f"|J| is about zero at every root. This phase moves {', '.join(names)} and "
-                    f"scores {', '.join(sorted(metrics))}.",
-                )
-            )
-        elif (
-            phase.balanced_evaluation
-            and calibration.max_trials_for(phase) == AUTO_BUDGET
-            and _counted_budget(
-                calibration,
-                phase,
-                method,
-                _names_its_method_walks(calibration, phase),
-                calibration.precision_for(phase),
-                calibration.method_options_for(phase),
-            )
-            is None
-        ):
-            [root] = balanced_roots(calibration, names)
-            low, high = calibration.parameters[root].bounds
-            solves = root_search_budget(
-                float(low), float(high), rel_tol=calibration.precision_for(phase) or DEFAULT_REL_TOL
-            ).nominal
-            findings.append(
-                PreflightFinding(
-                    "error",
-                    where,
-                    f'{method!r} cannot count its points, so max_trials = "auto" gives '
-                    f"{UNCOUNTED_BUDGET} points of {solves} solves each, about "
-                    f"{UNCOUNTED_BUDGET * solves} solves. Write max_trials for this phase.",
                 )
             )
     return findings

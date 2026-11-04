@@ -267,7 +267,6 @@ class FakeRunner:
         phase=None,
         start_at=None,
         interval_width=None,
-        balanced=False,
         pool_for=None,
     ) -> CalibrationReport:
         self.calls.append(

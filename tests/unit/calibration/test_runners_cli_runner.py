@@ -3948,43 +3948,6 @@ def test_an_interval_log_names_its_parameter(caplog) -> None:
     assert "Sy = 0.005: " in caplog.text
 
 
-def test_a_balanced_search_starts_its_outer_search_on_the_structure() -> None:
-    k = {"bounds": [1e-7, 1e-3], "search_space": "log", "path": cli_runner.CONDUCTIVITY_PATH}
-    sy = {"bounds": [0.01, 0.3], "search_space": "identity"}
-    cfg = CalibrationConfig.model_validate(
-        {"method": "scipy_nelder_mead", "precision": 0.1, "parameters": {"K": k, "Sy": sy}}
-    )
-
-    search = cli_runner._balanced_search(
-        cfg, cli_runner.space_from_config(cfg), start_at=np.array([-5.0, 0.2])
-    )
-    first = search.ask()[0]
-    search.close()
-
-    assert first.values["Sy"] == pytest.approx(0.2)
-    # Seven sweep points, then 2/3 of a decade halved to log10(1.1): five more.
-    assert search.solves_per_point == 12
-
-
-def test_a_balanced_search_gives_its_seed_to_the_outer_search(monkeypatch) -> None:
-    seen = {}
-    real = cli_runner.build_optimizer
-
-    def spy(method, structure, **kwargs):
-        seen.update(kwargs)
-        return real(method, structure, **kwargs)
-
-    monkeypatch.setattr(cli_runner, "build_optimizer", spy)
-    k = {"bounds": [1e-7, 1e-3], "search_space": "log", "path": cli_runner.CONDUCTIVITY_PATH}
-    sy = {"bounds": [0.01, 0.3], "search_space": "identity"}
-    cfg = CalibrationConfig.model_validate(
-        {"method": "scipy_nelder_mead", "seed": 5, "parameters": {"K": k, "Sy": sy}}
-    )
-    cli_runner._balanced_search(cfg, cli_runner.space_from_config(cfg), start_at=None).close()
-
-    assert seen["seed"] == 5
-
-
 def test_a_width_keeps_the_pairs_it_belongs_to_and_the_restarts_it_spans() -> None:
     report = SimpleNamespace(
         best_parameters={"K": 1e-5, "Sy": 0.1, "R": 0.3},
