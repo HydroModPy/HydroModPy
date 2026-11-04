@@ -45,7 +45,7 @@ import uuid
 from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from contextvars import copy_context
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Protocol
 
 from hydromodpy.calibration.optim.cache import ParamsHashCache, params_hash
@@ -400,16 +400,7 @@ class CalibrationEngine:
         meta = dict(result.metadata or {})
         meta.setdefault("params_hash", key)
         meta.setdefault("parameters", self.space.describe_values(sugg.values))
-        return EvaluationResult(
-            trial_id=result.trial_id,
-            sim_id=result.sim_id,
-            cost=result.cost,
-            status=result.status,
-            duration_s=result.duration_s,
-            components=result.components,
-            from_cache=result.from_cache,
-            metadata=meta,
-        )
+        return replace(result, metadata=meta)
 
     def _with_parameter_metadata(
         self,
@@ -422,16 +413,7 @@ class CalibrationEngine:
         # that one cost scored every trial of its journal.
         if self.cache_context is not None:
             meta.setdefault("params_hash", params_hash(sugg.values, context=self.cache_context))
-        return EvaluationResult(
-            trial_id=result.trial_id,
-            sim_id=result.sim_id,
-            cost=result.cost,
-            status=result.status,
-            duration_s=result.duration_s,
-            components=result.components,
-            from_cache=result.from_cache,
-            metadata=meta,
-        )
+        return replace(result, metadata=meta)
 
 
 __all__ = [

@@ -26,6 +26,7 @@ from hydromodpy.calibration.optim.optimizer import (
     EngineTraits,
     EvaluationResult,
     ParamSuggestion,
+    best_completed,
     register_optimizer,
 )
 from hydromodpy.calibration.optim.parameters import ParameterSpace
@@ -232,10 +233,7 @@ class GPMappingOptimizer:
             self._y_history.append(float(value))
 
     def best(self) -> EvaluationResult | None:
-        valid = [r for r in self._results if r.status == "completed"]
-        if not valid:
-            return None
-        return min(valid, key=lambda r: r.cost)
+        return best_completed(self._results)
 
     def converged(self) -> bool:
         if self._exhausted:

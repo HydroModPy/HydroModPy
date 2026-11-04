@@ -142,7 +142,7 @@ INLINE_ROWS: frozenset[str] = frozenset(
         "mesh_characterization_net__probe_cell_center_offset_absolute_floor",
         # Mesh engine conformance suite, tests/contract/test_mesh_engine_contract.py.
         # Session cost against the score of its run (decision m01), asserted in
-        # tests/unit/calibration/test_the_session_cost_is_the_score_of_its_run.py.
+        # tests/unit/calibration/test_criteria_series.py.
         "session_cost_against_run_score__gap_of_1_cost_to_the_run_nse",
         "mesh_engine_conformance__sum_of_the_cell_areas_against_the_area_to_cover_relative",
         "mesh_engine_conformance__exact_faces_to_their_source_lines_hausdorff_distance_as_a_share_of_the_extent",

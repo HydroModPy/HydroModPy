@@ -186,34 +186,6 @@ def refuse_window_without_dates(
         )
 
 
-def network_state_period(time: Any, boundaries: Sequence[Any] | None, *, n_periods: int) -> int:
-    """Return the index of the period a one-state network output reads.
-
-    ``time`` is the output's ``"first"``, ``"last"`` or ISO date, resolved as
-    :func:`hydromodpy.core.time.selection.resolve_instant` does: a date reads
-    the period ``(s, e]`` that holds it. A steady phase runs one period over
-    its window, so every date of that window reads its one state. A run of one
-    period with no dates serves that state to any selector: nothing is there to
-    tell a date from another. ``boundaries`` are the run's ``n_periods + 1``
-    time-grid bounds, or ``None``. The rule is
-    :func:`hydromodpy.core.time.selection.resolve_state`, which the results
-    layer reads a promoted run's state by too.
-    """
-    return resolve_state(time, boundaries, n_periods=n_periods)
-
-
-def network_state_stamp(time: Any, boundaries: Sequence[Any] | None) -> pd.Timestamp | None:
-    """Return the stamp of the state a one-state network output reads, or ``None``.
-
-    The stamp closes its period, as every state of the run is stamped. ``None``
-    when the run carries no time grid to date it with.
-    """
-    if boundaries is None or len(boundaries) < 2:
-        return None
-    index = network_state_period(time, boundaries, n_periods=len(boundaries) - 1)
-    return _naive_utc(boundaries[index + 1])
-
-
 def refuse_a_network_state_outside_the_window(
     outputs: Mapping[str, CalibOutputDecl],
     objective_blocks: list[CalibObjectiveBlockDecl],
@@ -235,7 +207,7 @@ def refuse_a_network_state_outside_the_window(
         return
     if boundaries is None or len(boundaries) < 2:
         return
-    start, end = (_naive_utc(bound) for bound in scoring_window)
+    start, end = (naive_utc(bound) for bound in scoring_window)
     read = {str(name) for block in objective_blocks for name in block.uses_outputs}
     for name in sorted(read):
         output = outputs.get(name)
@@ -245,10 +217,10 @@ def refuse_a_network_state_outside_the_window(
             continue
         time = getattr(output, "time", "last")
         try:
-            index = network_state_period(time, boundaries, n_periods=len(boundaries) - 1)
+            index = resolve_state(time, boundaries, n_periods=len(boundaries) - 1)
         except TimeSelectionError as exc:
             raise ValueError(f"network output {name!r} has time = {time!r}: {exc}") from exc
-        stamp = _naive_utc(boundaries[index + 1])
+        stamp = naive_utc(boundaries[index + 1])
         if periods_in_window([stamp], method="point", start=start, end=end)[0]:
             continue
         raise ValueError(
@@ -290,7 +262,7 @@ def network_distance_scales(
     return scales
 
 
-def _naive_utc(value: Any) -> pd.Timestamp | None:
+def naive_utc(value: Any) -> pd.Timestamp | None:
     """Return an instant as a naive UTC timestamp, ``None`` when unset."""
     if value is None:
         return None
@@ -684,11 +656,6 @@ class StationBlockScorer:
     def stations(self) -> list[ObservedSeries]:
         """The records a producer is asked to answer for, in scoring order."""
         return list(self._records)
-
-    @property
-    def target_station_id(self) -> str | None:
-        """The discharge gauge the search follows, or ``None`` when stations are averaged."""
-        return None if self._target is None else self._target.station_id
 
     def _scorer_for(self, served: frozenset[str]) -> ObservableScorer:
         scorer = self._scorers.get(served)

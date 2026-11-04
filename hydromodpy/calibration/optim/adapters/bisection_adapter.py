@@ -856,15 +856,9 @@ class BisectionAdapter:
         self._warn_if_outside_the_declared_bounds(winner)
         return winner
 
-    def _single_bracket(self) -> tuple[float, float] | None:
-        """The bracket of a one-root search, None before it is found or with two roots."""
-        if self._targets is None or len(self._targets) != 1:
-            return None
-        return self._brackets.get(self._targets[0].component)
-
     def _pick(self, valid: list[EvaluationResult]) -> EvaluationResult:
         """Choose among completed trials, preferring those inside the bracket."""
-        bracket = self._single_bracket()
+        bracket = self.bracket
         inside = [result for result in valid if self._inside(result.trial_id, bracket)]
         pool = inside or valid
         lowest = min(result.cost for result in pool)
@@ -1069,7 +1063,9 @@ class BisectionAdapter:
         :meth:`converged` says whether it reached the tolerance. None with two
         roots, whose brackets are :attr:`brackets`.
         """
-        return self._single_bracket()
+        if self._targets is None or len(self._targets) != 1:
+            return None
+        return self._brackets.get(self._targets[0].component)
 
     @property
     def brackets(self) -> dict[str, tuple[float, float]]:
@@ -1136,7 +1132,7 @@ class BisectionAdapter:
         interval on the trials does not. None for a two-root search, whose
         record is :meth:`roots_record`.
         """
-        bracket = self._single_bracket()
+        bracket = self.bracket
         if bracket is None:
             return None
         return {

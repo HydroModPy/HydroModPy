@@ -14,7 +14,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from hydromodpy.calibration.runners.cli_runner import _release_session_scratch
+from hydromodpy.calibration.runners.cli_runner import release_session_scratch
 from hydromodpy.spatial.geographic.preprocessing_cleanup import cleanup_stable_folder
 from hydromodpy.workflow.steps.export import step_cleanup_preprocessing
 
@@ -125,7 +125,7 @@ def test_the_export_step_reads_keep_preprocessing_from_the_state(preprocessing_t
 def test_a_session_that_promotes_nothing_still_drops_the_tree(preprocessing_tree) -> None:
     stable, geographic = preprocessing_tree
 
-    _release_session_scratch(_trial_ctx(geographic))
+    release_session_scratch(_trial_ctx(geographic))
 
     assert not stable.exists()
 
@@ -134,7 +134,7 @@ def test_a_session_keeps_the_tree_on_request(monkeypatch, preprocessing_tree) ->
     stable, geographic = preprocessing_tree
     monkeypatch.setenv("HMP_KEEP_TRIAL_SCRATCH", "1")
 
-    _release_session_scratch(_trial_ctx(geographic))
+    release_session_scratch(_trial_ctx(geographic))
 
     assert stable.is_dir()
 
@@ -149,11 +149,11 @@ def test_a_session_cleanup_failure_never_propagates(monkeypatch, preprocessing_t
     monkeypatch.setattr(
         "hydromodpy.spatial.geographic.preprocessing_cleanup.cleanup_stable_folder", boom
     )
-    _release_session_scratch(_trial_ctx(geographic))
+    release_session_scratch(_trial_ctx(geographic))
 
 
 def test_a_session_without_geographic_does_nothing() -> None:
-    _release_session_scratch(_trial_ctx(None))
+    release_session_scratch(_trial_ctx(None))
 
 
 def test_the_tree_outlives_a_single_trial(preprocessing_tree) -> None:

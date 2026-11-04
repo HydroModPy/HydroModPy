@@ -39,6 +39,24 @@ Each release section includes the following standard categories:
 - A sealed run config with `roptim_max` other than 2 now reads and replays. The key is dropped. A live file with such a value is still refused.
 - `Project.calibrate()` refuses `method`, `max_trials`, `save_runs`, `seed`, `outputs`, `objective_blocks` and `phases` when the calibration comes from a file or the project config, and unknown options on the config route, instead of ignoring them.
 - `Project.calibrate(resume=True)` now resumes on the programmatic routes.
+- `Project.calibrate` without phases now honours `uncertainty.method = "linearized"`. The width was computed for
+  `hmp calibrate` and for staged calibrations, but a Python call without phases skipped it and returned no
+  `parameter_uncertainty`. An evaluator that runs no HydroModPy model now gets the same refusal on this route as on the
+  command line.
+
+### Changed
+
+- `hydromodpy.calibration.evaluation.registry` and `forward_registry` now share one engine. Their functions keep their names, and their first parameter is now called `name`. A plugin that passed it by keyword (`get(evaluator_id=...)`) passes it by position.
+
+### Numbers
+
+- A Python calibration without phases that asks for a `linearized` width now carries `parameter_uncertainty` and pays for
+  the model runs of that width, one per calibrated parameter plus one at the optimum. Search results, costs and every
+  other route are unchanged.
+
+### Removed
+
+- The B0 network and transient discharge case left the `hydromodpy` package for `validation_cases/calibration/network_transient_b0/`. The wheel no longer ships its page. `hydromodpy.calibration.reporting`, `hydromodpy.calibration.observations.natural_observations`, `network_cost`, `network_transient_truth` and `hydromodpy.calibration.optim.objective_mapping` are gone, and `step_render_network_transient_calibration_html` is no longer in `hydromodpy.workflow.steps.calibration`.
 
 ## [v2.0.0rc1] - 2026-11-03
 

@@ -210,11 +210,6 @@ class CompositeObjective:
         return tuple((obj, norm_w) for obj, _raw, norm_w in self._blocks)
 
     @property
-    def raw_weights(self) -> tuple[float, ...]:
-        """Return weights as supplied (before normalization)."""
-        return tuple(raw_w for _obj, raw_w, _norm in self._blocks)
-
-    @property
     def cost_transform(self) -> str:
         return self._transform_name
 

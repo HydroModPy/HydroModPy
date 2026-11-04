@@ -240,95 +240,6 @@ def _raw_document(config: Any, source: Path) -> Mapping[str, Any]:
     return config.model_dump(mode="json", exclude_none=True)
 
 
-@dataclass(frozen=True)
-class CalibrationCheck:
-    """What ``hmp config check`` says of a calibration file.
-
-    ``findings`` is what has to change; ``lines`` is what the reader is told
-    beside them: the published method the file runs and where it departs from
-    it, and what each phase compares with what. ``verbose_lines`` adds the
-    stages, the references and every reading of the paper.
-    """
-
-    findings: list[PreflightFinding]
-    lines: list[str]
-    verbose_lines: list[str]
-
-    @property
-    def errors(self) -> int:
-        """Number of findings that stop the run."""
-        return sum(1 for finding in self.findings if finding.severity == "error")
-
-
-def check_calibration_file(target: Path) -> CalibrationCheck:
-    """Report everything wrong with the calibration in ``target``, solving nothing.
-
-    Every check runs, so a file with three mistakes takes one pass to fix
-    rather than three overnight runs. A warning raised while the file loads, a
-    renamed key for instance, is one more finding: it is what the file has to
-    change. A file that will not load has nothing else to check.
-    """
-    import warnings
-
-    from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning, forget_old_forms_told
-    from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
-
-    target = Path(target).expanduser().resolve()
-    forget_old_forms_told()
-    with warnings.catch_warnings(record=True) as caught:
-        # Only the categories a file's author acts on are forced through; the
-        # others keep the filters they had, so nothing ignored today is printed.
-        warnings.simplefilter("always", ConfigKeyRenamedWarning)
-        warnings.simplefilter("always", UserWarning)
-        try:
-            cfg = get_root_config_provider().from_toml(target)
-        except Exception as exc:
-            cfg = None
-            refused = PreflightFinding("error", target.name, f"the file does not load: {exc}")
-    findings = _findings_from_load_warnings(caught, target.name)
-    lines: list[str] = []
-    verbose: list[str] = []
-    if cfg is None:
-        findings.append(refused)
-    else:
-        normal, detailed = protocol_lines(cfg)
-        lines.extend(normal)
-        verbose.extend(detailed)
-        lines.extend(comparison_lines(cfg, target))
-        findings.extend(preflight_calibration(cfg, source=target))
-    return CalibrationCheck(findings=findings, lines=lines, verbose_lines=verbose)
-
-
-def _findings_from_load_warnings(caught: list[Any], where: str) -> list[PreflightFinding]:
-    """Turn the warnings this package raised while loading into findings.
-
-    A renamed key warns from a validator, and the console routing would print it
-    as a raw warning line, or not at all. Here it is a finding among the others,
-    counted in the verdict. A warning a dependency raised is handed back to the
-    usual routing, untouched.
-    """
-    import warnings
-
-    from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning
-
-    package = Path(__file__).resolve().parents[1]
-    findings: list[PreflightFinding] = []
-    seen: set[str] = set()
-    for item in caught:
-        ours = issubclass(item.category, ConfigKeyRenamedWarning) or Path(
-            item.filename
-        ).resolve().is_relative_to(package)
-        if not ours:
-            warnings.showwarning(item.message, item.category, item.filename, item.lineno)
-            continue
-        text = str(item.message)
-        if text in seen:
-            continue
-        seen.add(text)
-        findings.append(PreflightFinding("warning", where, text))
-    return findings
-
-
 def protocol_lines(cfg: Any) -> tuple[list[str], list[str]]:
     """Say which published method a file runs, and where this run leaves it.
 
@@ -1747,11 +1658,10 @@ def _check_the_scoring_windows_hold_what_they_score(
     import pandas as pd
 
     from hydromodpy.calibration.metrics.observable_scoring import (
-        network_state_period,
         refuse_window_without_dates,
     )
     from hydromodpy.calibration.metrics.observed_pairing import observing_outputs
-    from hydromodpy.core.time.selection import TimeSelectionError
+    from hydromodpy.core.time.selection import TimeSelectionError, resolve_state
 
     findings: list[PreflightFinding] = []
     document: list[Mapping[str, Any] | None] = []
@@ -1786,7 +1696,7 @@ def _check_the_scoring_windows_hold_what_they_score(
             if edges is None or output.time in ("first", "last"):
                 continue
             try:
-                network_state_period(output.time, edges, n_periods=len(edges) - 1)
+                resolve_state(output.time, edges, n_periods=len(edges) - 1)
             except TimeSelectionError as exc:
                 findings.append(
                     PreflightFinding(

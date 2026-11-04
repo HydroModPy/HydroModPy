@@ -63,10 +63,6 @@ class PairedOutputs:
     """Periods of the window per output that the record covers and the
     simulated value leaves NaN, dropped from the pairs."""
 
-    def dates_scored(self) -> int:
-        """Return the smallest number of samples any output contributed."""
-        return min(self.n_paired.values(), default=0)
-
 
 def observing_outputs(outputs: Mapping[str, CalibOutputDecl]) -> dict[str, str]:
     """Return, per output name, the station it is scored against."""

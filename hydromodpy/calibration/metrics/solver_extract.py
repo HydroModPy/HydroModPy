@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import pandas as pd
 
+from hydromodpy.calibration.evaluation.forward import time_selector_of
 from hydromodpy.calibration.metrics.downslope_network import (
     DISTANCE_METHOD,
     MAXIMAL_SUFFIX,
@@ -27,7 +28,7 @@ from hydromodpy.calibration.metrics.downslope_network import (
 from hydromodpy.calibration.metrics.gauge_snap import GaugeSnapError, snap_to_most_accumulated
 from hydromodpy.calibration.metrics.observable_scoring import (
     dated_series,
-    network_state_period,
+    naive_utc,
     select_observable_times,
     slice_time,
 )
@@ -46,7 +47,6 @@ from hydromodpy.calibration.observations.network_geometry import (
 from hydromodpy.core.contracts.observables import (
     ObservableRequest,
     ObservableResult,
-    TimeSelector,
 )
 from hydromodpy.core.exceptions import ObjectiveError, ObservableNotAvailableError
 from hydromodpy.core.logging import get_logger
@@ -65,7 +65,7 @@ from hydromodpy.core.stream_extent import (
 from hydromodpy.core.stream_network import build_simulated_network
 from hydromodpy.core.time import nominal_step_days
 from hydromodpy.core.time.period_aggregation import period_edges
-from hydromodpy.core.time.selection import TimeSelectionError
+from hydromodpy.core.time.selection import TimeSelectionError, resolve_state
 from hydromodpy.core.units.volumetric_flow import normalize_m3_per_s_unit
 from hydromodpy.simulation.planning.plan import RunContext
 from hydromodpy.solver.base.registry import get_solver_adapter
@@ -155,15 +155,6 @@ def point_xy_from_output(output: CalibOutputPoint) -> tuple[float, float] | None
     return float(coords[0]), float(coords[1])
 
 
-def _request_times(time: Any) -> TimeSelector:
-    """Map an output declaration's time selector onto the observable contract.
-
-    A series output reads ``"all"``, ``"first"`` or ``"last"``; any other value,
-    a network output's date, asks the adapter for the whole run.
-    """
-    return time if time in ("all", "first", "last") else "all"
-
-
 def observable_request_for_output(
     name: str,
     output: CalibOutputDecl,
@@ -175,7 +166,7 @@ def observable_request_for_output(
     one. An unknown support raises here instead of silently falling through to
     a cell request, which is what used to happen.
     """
-    times = _request_times(output.time)
+    times = time_selector_of(output.time)
     support = output.support
     snap_m = _snap_radius_m(output)
     if support == "point":
@@ -484,7 +475,7 @@ def network_state_row(
     """Return the one state a network output reads, as a single row.
 
     ``time`` names it: ``"last"``, ``"first"`` or a date, whose period
-    ``(s, e]`` holds it (:func:`network_state_period`). A backend serves one
+    ``(s, e]`` holds it (:func:`~hydromodpy.core.time.selection.resolve_state`). A backend serves one
     row for ``"first"`` and ``"last"`` and the whole stack for a date, so the
     row is picked here, and ``build_simulated_network`` is served that row
     alone. The index returned is the row picked in the stack served, ``None``
@@ -495,7 +486,7 @@ def network_state_row(
     n_times = int(stack.shape[0]) if stack.ndim == 2 else 1
     edges = _stack_edges(result, n_times, time_bounds)
     try:
-        index = network_state_period(output.time, edges, n_periods=n_times)
+        index = resolve_state(output.time, edges, n_periods=n_times)
     except TimeSelectionError as exc:
         raise ObjectiveError(
             f"Output {name!r}: time = {output.time!r} names no state of this run: {exc}"
@@ -702,16 +693,6 @@ def _timestep_edges(
     return stamps.to_numpy(dtype="datetime64[ns]")
 
 
-def _naive_utc(bound: Any) -> pd.Timestamp | None:
-    """Return a window bound as a naive UTC timestamp, the clock of the timestep edges."""
-    if bound is None:
-        return None
-    stamp = pd.Timestamp(bound)
-    if stamp.tz is not None:
-        stamp = stamp.tz_convert("UTC").tz_localize(None)
-    return stamp
-
-
 def _scored_years(
     name: str,
     edges: np.ndarray,
@@ -730,7 +711,7 @@ def _scored_years(
     window = (
         None
         if scoring_window is None or all(bound is None for bound in scoring_window)
-        else (_naive_utc(scoring_window[0]), _naive_utc(scoring_window[1]))
+        else (naive_utc(scoring_window[0]), naive_utc(scoring_window[1]))
     )
     years = calendar_years(edges, window=window)
     if years.years:
@@ -1051,7 +1032,7 @@ def _saturated_thickness_or_none(
         id=f"_saturated_thickness:{name}",
         name="saturated_thickness",
         support="cells",
-        times=_request_times(output.time),
+        times=time_selector_of(output.time),
     )
     try:
         served = adapter.extract_observables(run_ctx, None, [request], time_index=time_index)

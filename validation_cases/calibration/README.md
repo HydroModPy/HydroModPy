@@ -39,6 +39,9 @@ Reference used by the documentation:
   forward model of a few lines and a command line.
 - `unconfined_interface_1d/` and `recession_hillslope_aquifer/`: two analytical cases driven
   from Python, a two-material unconfined aquifer and the recession of a hillslope aquifer.
+- `network_transient_b0/`: the B0 case, a natural drainage network and a transient discharge, with
+  its observations, costs, HTML page and two scripts.
+- `objective_mapping.py`: the objective mapping used by `plotting.py`.
 
 ## Solver columns
 

@@ -55,36 +55,6 @@ def step_render_calibration_report(
     return written[-1]
 
 
-def step_render_network_transient_calibration_html(
-    *,
-    real_root: Path,
-    web_root: Path | None = None,
-    source_transient_config: Path | None = None,
-    path_base: Path | None = None,
-    page_title: str = "Diagnostic calibration reseau + debit transitoire",
-    reference_run_root: Path | None = None,
-    steady_summary_csv: Path | None = None,
-    truth_packages: Iterable[Path] | None = None,
-    score_tables: Iterable[Path] | None = None,
-) -> Path:
-    """Render the reusable network/transient calibration diagnostic HTML page."""
-
-    from hydromodpy.calibration.reporting import build_network_transient_html
-    from hydromodpy.calibration.reporting.network_transient_html import SOURCE_TRANSIENT_CONFIG
-
-    return build_network_transient_html(
-        real_root=real_root,
-        web_root=web_root,
-        source_transient_config=source_transient_config or SOURCE_TRANSIENT_CONFIG,
-        path_base=path_base,
-        page_title=page_title,
-        reference_run_root=reference_run_root,
-        steady_summary_csv=steady_summary_csv,
-        truth_packages=truth_packages,
-        score_tables=score_tables,
-    )
-
-
 # ---------------------------------------------------------------------------
 # Calibration trial pipeline provider
 # ---------------------------------------------------------------------------
@@ -148,5 +118,4 @@ __all__ = [
     "WorkflowTrialPipelineProvider",
     "register_default_trial_pipeline_provider",
     "step_render_calibration_report",
-    "step_render_network_transient_calibration_html",
 ]

@@ -89,18 +89,18 @@ from hydromodpy.calibration.report import (
 )
 from hydromodpy.calibration.runners.cli_runner import (
     SessionScope,
-    _keep_trial_solves,
-    _release_session_scratch,
-    _release_trial_solves,
+    answered_best,
     attach_a_linearized_width,
     closing_session,
     declared_window_text,
-    load_toml_calibration,
+    keep_trial_solves,
+    load_calibration_document,
     open_calibration_session,
     promote_and_close,
     refuse_a_phase_another_cost_scored,
     refuse_an_objective_that_is_not_an_entry_point,
-    run_calibration_core,
+    release_session_scratch,
+    release_trial_solves,
     run_one_search,
     session_cost_name,
     session_status_of,
@@ -108,7 +108,7 @@ from hydromodpy.calibration.runners.cli_runner import (
 from hydromodpy.calibration.runners.phase_regime import phase_overrides, regime_overrides
 from hydromodpy.calibration.runners.prepared_model import check_the_prepared_model
 from hydromodpy.calibration.runners.promotion import promote_phase_best, promotion_name_check
-from hydromodpy.calibration.runners.recap import cost_metric_label, scored_samples, write_methods
+from hydromodpy.calibration.runners.recap import cost_metric_label, write_methods
 from hydromodpy.calibration.runners.restarts import RestartSpread
 from hydromodpy.calibration.runners.resume import (
     best_parameters_of,
@@ -117,7 +117,6 @@ from hydromodpy.calibration.runners.resume import (
     reusable_stage,
 )
 from hydromodpy.calibration.runners.session import (
-    calibration_case_name,
     latest_session_dir,
     project_root_for,
     search_windows,
@@ -146,18 +145,6 @@ logger = get_logger(__name__)
 # ---------------------------------------------------------------------------
 # Phase configuration
 # ---------------------------------------------------------------------------
-
-
-def _seed_of(cfg: CalibrationConfig) -> int:
-    return 0 if cfg.seed is None else int(cfg.seed)
-
-
-def _declared_restarts(cfg: CalibrationConfig) -> int | None:
-    """Return how many times a phase repeats its search, or None for one pass."""
-    uncertainty = getattr(cfg, "uncertainty", None)
-    if uncertainty is None or getattr(uncertainty, "method", None) != "multistart":
-        return None
-    return int(uncertainty.restarts)
 
 
 def _phase_config(cfg: CalibrationConfig, decl: CalibPhaseDecl) -> CalibrationConfig:
@@ -1240,14 +1227,12 @@ def run_staged_calibration(
         Reopen the latest session of the case. A phase that completed there
         with the same fingerprint is read back instead of solved; the cut
         phase is solved again with its trials preloading the cache.
+
+    ``objective`` is refused by the decorator, before the reuse branch and not
+    inside the search: a run that reuses every phase from disk never reaches the
+    consumer, and the value travels into the reuse fingerprint either way.
     """
-    # Before the reuse branch, not inside the search: a run that reuses every
-    # phase from disk never reaches the consumer, and the value travels into
-    # the reuse fingerprint either way.
-    refuse_an_objective_that_is_not_an_entry_point(objective)
-    cfg_path = Path(config_path).expanduser().resolve()
-    project_root = project_root_for(cfg_path, workspace)
-    cfg, raw = load_toml_calibration(cfg_path)
+    cfg_path, project_root, cfg, raw, case = load_calibration_document(config_path, workspace)
     if not evaluation_registry.needs_prepared_model(cfg.evaluator):
         # A staged calibration freezes a phase's result into the configuration
         # the next phase runs with, and that configuration is the pipeline's.
@@ -1263,7 +1248,6 @@ def run_staged_calibration(
         )
     plans = _phase_plans(cfg, _phases_to_run(cfg, phase), raw)
     declared = space_from_config(cfg)
-    case = calibration_case_name(cfg_path)
     promotion_name_check(case)
     reopen = resume or phase is not None
     persistence: CalibrationPersistence | None = None
@@ -1415,7 +1399,7 @@ def run_staged_calibration(
                     list(decl.parameters),
                 )
                 passed_start = _passed_start(decl.name, phase_cfg.method, space, reopened_values)
-                _keep_trial_solves(phase_cfg, trial_ctx)
+                keep_trial_solves(phase_cfg, trial_ctx)
                 report, spread = run_one_search(
                     phase_cfg,
                     trial_ctx,
@@ -1428,7 +1412,6 @@ def run_staged_calibration(
                     phase=context,
                     passed_start=passed_start,
                     interval_width=plan.width,
-                    core=run_calibration_core,
                 )
                 restart_spreads.extend(spread)
                 report = _attach_linearized_width(
@@ -1443,22 +1426,13 @@ def run_staged_calibration(
                 stop_note = FROZE_BUDGET_ONLY if froze and _froze_budget_only(report) else None
                 status = str(report.extra.get("search_status", "completed"))
                 search = report.extra.get("search") or {}
-                # What the search answered with is what the phase passes on, which a
-                # tie on the cost can set apart from the lowest cost of the journal.
-                best_line = persistence.answered_trial(
-                    report.best_trial, decl.name
-                ) or persistence.best_trial(decl.name)
-                pointer = persistence.best_pointer(best_line)
+                # What the search answered with is what the phase passes on.
+                pointer, scored = answered_best(persistence, report, decl.name)
                 closed = persistence.finish_phase(
                     decl.name,
                     status=status,
                     best=pointer,
-                    scored=scored_samples(
-                        None
-                        if best_line is None
-                        else best_line.cases[persistence.case_id].components,
-                        case_id=persistence.case_id,
-                    ),
+                    scored=scored,
                     stop_state=search.get("stop_state"),
                     stopping_rule=search.get("stopping_rule"),
                     stop_note=stop_note,
@@ -1478,8 +1452,8 @@ def run_staged_calibration(
                         override_paths=resolve_override_paths(phase_cfg),
                     )
                 if position < len(plans) - 1:
-                    _release_trial_solves(trial_ctx)
-                    _release_session_scratch(trial_ctx)
+                    release_trial_solves(trial_ctx)
+                    release_session_scratch(trial_ctx)
 
             _require_result_for_dependents(decl, report, plans[position + 1 :])
             frozen.extend(froze)
@@ -1526,11 +1500,6 @@ def run_staged_calibration(
             report=last_report,
             phase=last_decl.name,
             status=session_status,
-            root_search={
-                key: last_report.extra[key]
-                for key in ("bracket", "roots")
-                if key in last_report.extra
-            },
             stop_note="; ".join(
                 f"phase {run.name} {run.stop_note}" for run in runs if run.stop_note
             )

@@ -12,6 +12,7 @@ from hydromodpy.calibration.optim.optimizer import (
     EngineTraits,
     EvaluationResult,
     ParamSuggestion,
+    best_completed,
     register_optimizer,
 )
 from hydromodpy.calibration.optim.parameters import ParameterSpace
@@ -97,10 +98,7 @@ class GridAdapter:
         self._history.extend(results)
 
     def best(self) -> EvaluationResult | None:
-        valid = [r for r in self._history if r.status == "completed"]
-        if not valid:
-            return None
-        return min(valid, key=lambda r: r.cost)
+        return best_completed(self._history)
 
     def converged(self) -> bool:
         """Whether every point of the grid was handed out."""

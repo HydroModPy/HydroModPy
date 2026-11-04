@@ -123,7 +123,7 @@ MetricKind = Literal[
 """Metric names a TOML may select.
 
 Kept equal to the keys of ``calibration.criteria.series.METRICS`` by
-``tests/unit/calibration/test_metric_kind_matches_the_registry.py``: the engine
+``tests/unit/calibration/test_criteria_series.py``: the engine
 computed metrics this list did not offer, so they ran in Python and were refused
 by validation.
 """
@@ -442,7 +442,7 @@ CalibrationProtocolDecl: TypeAlias = MatchingHydrographicNetworkOptions
 One registered protocol today, so the alias names it directly. A second one
 turns this into a union discriminated on ``name``; the registry and this alias
 are kept in step by
-``tests/unit/calibration/test_calibration_protocols.py``.
+``tests/unit/calibration/test_runners_phase_regime.py``.
 """
 
 
@@ -1645,7 +1645,7 @@ PHASE_REGIME_PATHS: dict[str, tuple[str, ...]] = {
 ``runners/phase_regime.py`` writes them. They are listed here because a phase
 that also writes one of them in ``overrides`` is refused when the file is read,
 and ``config`` does not import ``runners``.
-``tests/unit/calibration/test_phase_regime.py`` keeps the two equal.
+``tests/unit/calibration/test_runners_phase_regime.py`` keeps the two equal.
 """
 
 

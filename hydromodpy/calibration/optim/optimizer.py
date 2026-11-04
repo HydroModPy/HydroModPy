@@ -74,6 +74,15 @@ class Optimizer(Protocol):
     def converged(self) -> bool: ...
 
 
+def best_completed(history: Iterable[EvaluationResult]) -> EvaluationResult | None:
+    """Return the completed result of lowest cost, or ``None`` when none completed."""
+    return min(
+        (result for result in history if result.status == "completed"),
+        key=lambda result: result.cost,
+        default=None,
+    )
+
+
 _BUILTIN: dict[str, Callable[..., Optimizer]] = {}
 
 

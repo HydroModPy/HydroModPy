@@ -40,7 +40,6 @@ allowed:
       protocols,
       report,
     ]
-  reporting: [observations]
   # criteria, metrics, observations, optim, parameter_resolution, protocols,
   # runners and targets only from inside one of its checks, never at module
   # level (test_preflight_reads_the_other_parts_only_inside_its_checks).
@@ -65,7 +64,7 @@ solver_access:
   - hydromodpy.solver.base.*
 
 # Rule 2: what another layer of hydromodpy may import from
-# hydromodpy/calibration. None of these fourteen names a subtree: each is one
+# hydromodpy/calibration. None of these twelve names a subtree: each is one
 # module, exactly as calibration-README-cible.md "What other layers import"
 # lists it. Everything else is private to hydromodpy/calibration.
 public:
@@ -76,8 +75,6 @@ public:
   - hydromodpy.calibration.preflight
   - hydromodpy.calibration.protocols
   - hydromodpy.calibration.report
-  - hydromodpy.calibration.reporting
-  - hydromodpy.calibration.reporting.network_transient_html
   - hydromodpy.calibration.optim.parameters
   - hydromodpy.calibration.runners.cli_runner
   - hydromodpy.calibration.runners.staged_runner

@@ -465,18 +465,23 @@ def built_model(trial_ctx: TrialContext, values: Mapping[str, float]) -> Iterato
         steps = provider.with_solver_launcher(
             forked.downstream_steps[forked.earliest : through_the_launcher], _FlowBuildLauncher()
         )
-        state = provider.make_state(
-            "calibration-prepared-model",
-            {
-                "cfg": forked.ctx.cfg,
-                "config_path": forked.cfg_path,
-                "raw_toml": dict(forked.raw_toml),
-                "ctx": forked.ctx,
-                "skip_display": True,
-            },
-        )
+        state = _trial_state(provider, forked, "calibration-prepared-model")
         provider.make_pipeline(steps).run(state)
         yield forked.ctx
+
+
+def _trial_state(provider: Any, forked: Any, run_id: str) -> Any:
+    """Return the pipeline state of one forked trial context, display skipped."""
+    return provider.make_state(
+        run_id,
+        {
+            "cfg": forked.ctx.cfg,
+            "config_path": forked.cfg_path,
+            "raw_toml": dict(forked.raw_toml),
+            "ctx": forked.ctx,
+            "skip_display": True,
+        },
+    )
 
 
 def run_trial_light(
@@ -574,16 +579,7 @@ def run_trial_light(
         downstream_slice = forked.downstream_steps[forked.earliest : 9]
         if recorder is not None:
             downstream_slice = provider.with_solver_launcher(downstream_slice, recorder)
-        state = provider.make_state(
-            "calibration-trial",
-            {
-                "cfg": forked.ctx.cfg,
-                "config_path": forked.cfg_path,
-                "raw_toml": dict(forked.raw_toml),
-                "ctx": forked.ctx,
-                "skip_display": True,
-            },
-        )
+        state = _trial_state(provider, forked, "calibration-trial")
 
         try:
             if downstream_slice:

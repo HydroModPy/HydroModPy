@@ -22,24 +22,12 @@ from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from hydromodpy.calibration.config import CalibrationConfig, apply_project_defaults
-from hydromodpy.calibration.evaluation import registry as evaluation_registry
-from hydromodpy.calibration.persistence import DEFAULT_PHASE, PhaseContext
 from hydromodpy.calibration.runners.cli_runner import (
-    SessionScope,
-    _keep_trial_solves,
-    closing_session,
-    open_calibration_session,
-    promote_and_close,
     refuse_an_objective_that_is_not_an_entry_point,
-    run_one_search,
-)
-from hydromodpy.calibration.runners.prepared_model import check_the_prepared_model
-from hydromodpy.calibration.runners.promotion import promotion_name_check
-from hydromodpy.calibration.runners.state import (
-    override_paths as resolve_override_paths,
+    run_single_search,
 )
 from hydromodpy.calibration.runners.state import space_from_config
-from hydromodpy.calibration.runners.trial import TrialMetricFn, prepare_trials
+from hydromodpy.calibration.runners.trial import TrialMetricFn
 from hydromodpy.core.state.paths import sessions_dir_for
 from hydromodpy.core.workspace.path_registry import in_run_scratch
 
@@ -176,8 +164,6 @@ def run_calibration_programmatic(
     and ``phase`` selects one of its phases the same way it does on a TOML
     calibration.
     """
-    refuse_an_objective_that_is_not_an_entry_point(objective)
-
     ws_root = _project_root(project, workspace)
     src_path = getattr(project, "_config_path", None)
     cfg = with_project_defaults(cfg, project)
@@ -203,7 +189,6 @@ def run_calibration_programmatic(
         )
 
     space = space_from_config(cfg)
-    paths = resolve_override_paths(cfg)
 
     if src_path is None:
         from hydromodpy.calibration.runners.materialize import write_overlay_toml
@@ -214,57 +199,20 @@ def run_calibration_programmatic(
     else:
         cfg_path = Path(src_path).expanduser().resolve()
 
-    # Same question as the CLI route asks, from the name alone: an evaluator that
-    # replaces the model has no use for the model's setup prefix.
-    trial_ctx = (
-        prepare_trials(cfg_path, override_paths=paths, parameter_space=space)
-        if evaluation_registry.needs_prepared_model(cfg.evaluator)
-        else None
-    )
-    check_the_prepared_model(cfg, trial_ctx, space)
-    case = _case_name(project, cfg_path)
-    promotion_name_check(case)
     raw = _document_of(project, cfg_path)
     raw["calibration"] = cfg.model_dump(mode="json", exclude_none=True, exclude_unset=True)
-    persistence, _reopened = open_calibration_session(
-        ws_root,
-        case,
-        resume=resume,
-        raw=raw,
-        cfg=cfg,
+    report, _spread = run_single_search(
+        cfg,
         space=space,
-        trial_ctx=trial_ctx,
+        cfg_path=cfg_path,
+        case=_case_name(project, cfg_path),
+        raw=raw,
+        project_root=ws_root,
         project=project_label,
+        metric_fn=metric_fn,
         objective=objective,
+        resume=resume,
     )
-    _keep_trial_solves(cfg, trial_ctx)
-    scope = SessionScope(
-        cfg=cfg, project_root=ws_root, persistence=persistence, trial_ctx=trial_ctx
-    )
-    with closing_session(scope):
-        report, _spread = run_one_search(
-            cfg,
-            trial_ctx,
-            persistence=persistence,
-            space=space,
-            project_root=ws_root,
-            cfg_path=cfg_path,
-            metric_fn=metric_fn,
-            objective=objective,
-            phase=PhaseContext(DEFAULT_PHASE, 0, 0),
-        )
-        report = promote_and_close(
-            cfg=cfg,
-            trial_ctx=trial_ctx,
-            persistence=persistence,
-            project_root=ws_root,
-            report=report,
-            phase=DEFAULT_PHASE,
-            status=str(report.extra.get("search_status", "completed")),
-            root_search={
-                key: report.extra[key] for key in ("bracket", "roots") if key in report.extra
-            },
-        )
     return report
 
 

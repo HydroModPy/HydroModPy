@@ -10,7 +10,7 @@ The consumers that read the basin from a store or a sidecar rather than from the
 model have their own "descent_basin raises" spies beside their other cases: the
 budget zone in ``test_the_catchment_budget_zone_reads_the_basin_of_the_build``,
 the ``catchment`` series and their runoff area in ``test_catchment_aggregation``,
-the calibration readers in ``test_the_criterion_reads_the_basin_of_d``.
+the calibration readers in ``test_observations_observed_network``.
 """
 
 from __future__ import annotations

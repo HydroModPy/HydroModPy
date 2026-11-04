@@ -38,7 +38,6 @@ from hydromodpy.physics.hydrology.soil_reservoir.config import soil_reservoir_of
 __all__ = [
     "RECHARGE_VALUES_PATH",
     "UnresolvedParameterName",
-    "parameters_awaiting_resolution",
     "replaced_recharge_rate",
     "resolve_parameter_targets",
     "unresolved_parameter_names",
@@ -55,12 +54,6 @@ class UnresolvedParameterName(ConfigError):
     data is absent from the machine, and never a file that names something the
     model does not have.
     """
-
-
-def parameters_awaiting_resolution(calibration: Any) -> list[str]:
-    """Return the parameters that named a quantity instead of a path."""
-    parameters = getattr(calibration, "parameters", None) or {}
-    return [name for name, decl in parameters.items() if not decl.resolve_target()]
 
 
 def unresolved_parameter_names(calibration: Any, project_config: Any) -> dict[str, str]:

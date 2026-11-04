@@ -2,7 +2,7 @@
 
 No existing calibration test in the suite runs a few trials through a real
 solver quickly: the calibration unit tests fake the solver entirely (the
-scorer is exercised directly, as in ``test_persist_trial_series.py``), and the
+scorer is exercised directly, as in ``test_metrics_trial_series_capture.py``), and the
 only calibration test that runs real MODFLOW 6 end to end is the ``e2e`` /
 ``slow`` byte-identical promotion test on the full example 04 catchment. This
 is the small, synthetic replacement: a six-cell steady hillslope (recharge in,
@@ -10,7 +10,7 @@ drainage out, the same well-posed pair ``test_twin_matching_stream_network_
 modflow6.py`` uses), a grid search of two points on K, and a head output that
 observes one station. The observed record and its cell are the two things a
 synthetic project has no loader for, so they are monkeypatched exactly where
-``test_observable_scoring.py`` already patches them for a unit test.
+``test_metrics_observable_scoring.py`` already patches them for a unit test.
 
 What this proves that the unit tests of the capture logic do not: the real
 wiring, through ``run_calibration_core`` and the shared ``evaluator`` object,

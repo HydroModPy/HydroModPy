@@ -25,10 +25,9 @@ root of the package.
 | `evaluation/` | what one trial must answer: the evaluator port and the forward-model port, their registries, and the two evaluators that need nothing from the calibration document |
 | `config.py` | what the modeller wrote: every `[calibration.*]` table, protocol options included |
 | `protocols/` | which published recipe a calibration follows, and how it expands into phases and objective blocks |
-| `observations/` | what is observed: the observed stream network, its geometry, network truth files and their cost |
+| `observations/` | what is observed: the observed stream network and its geometry |
 | `metrics/` | how the outputs of one trial are extracted and paired with observations, and the evaluator that scores a forward model |
 | `runners/` | how a calibration runs: the three entry points, the phases and what they hand to each other, the trial primitive, the default evaluator, restarts, resume, promotion of the best trials |
-| `reporting/` | the diagnostic page of the B0 network validation case |
 | `preflight.py` | every check of a calibration before anything is prepared, run at the start of every launch and printed by `hmp config check` |
 
 The two analytical demonstrators that the regression tests drive from Python live outside the
@@ -55,7 +54,6 @@ cycle. Every part may import the layers `layer_matrix.yaml` gives calibration.
 | `protocols`, `observations` | `config` |
 | `metrics` | `config`, `criteria`, `evaluation`, `observations`, `optim` |
 | `runners` | `config`, `criteria`, `evaluation`, `metrics`, `optim`, `parameter_resolution`, `persistence`, `protocols`, `report` |
-| `reporting` | `observations` |
 | `preflight` | inside its checks: `criteria`, `metrics`, `observations`, `optim`, `parameter_resolution`, `protocols`, `runners`, `targets` |
 | `__init__.py` | `config`, `optim`, `report`, `runners` |
 
@@ -90,13 +88,12 @@ hydromodpy/calibration/
   optim/        parameters.py (ParameterSpace, set_by_path)  sampling.py
                 objective.py  optimizer.py (protocol, EngineTraits, registry, choose_method)
                 method_config.py  engine.py  stopping.py  cache.py  progress_reporter.py
-                fosm.py  cost_margin.py  diagnostics.py  objective_mapping.py (trace parser for plots)
+                fosm.py  cost_margin.py  diagnostics.py
     adapters/   one module per search method
-  evaluation/   port.py  forward.py  registry.py  forward_registry.py
+  evaluation/   port.py  forward.py  plugin_registry.py (one engine)  registry.py  forward_registry.py
                 analytic_bowl.py  linear_reservoir.py
   protocols/    base.py  registry.py  boilerplate.py  matching_hydrographic_network.py
-  observations/ network_source.py  observed_network.py  network_geometry.py  network_cost.py
-                natural_observations.py  network_transient_truth.py  record.py
+  observations/ network_source.py  observed_network.py  network_geometry.py
   metrics/      solver_extract.py  composite.py  observed_pairing.py  observable_scoring.py
                 scalar.py  series.py (observed series by role)  gauge_snap.py
                 downslope_network.py  scored_forward.py
@@ -108,7 +105,6 @@ hydromodpy/calibration/
                 state.py (params-hash context, cache preload)  failure_watch.py
                 kept_solves.py (trial solves kept on disk for their promotion)
                 prepared_model.py (the checks that need the prepared model)
-  reporting/    network_transient_html.py  network_transient/
 ```
 
 ## Template of a search method
@@ -513,12 +509,12 @@ declared share when the blocks have different units.
 1. **A search method.** A module in `optim/adapters/` on the template above,
    plus its options model in `optim/method_config.py` added to the
    `CalibrationMethodConfig` union. Test it in
-   `tests/unit/calibration/test_<method>_adapter.py`.
+   `tests/unit/calibration/test_optim_adapters_<method>_adapter.py`.
 2. **A criterion a TOML can name.** The kernel `(sim, obs) -> float` in
    `criteria/series.py`, its name in `METRICS`, its direction in `METRIC_SENSE`
    (`results/catalog/constants.py`, which turns a score into a cost with
    `cost_of`), and its name in `LOG_METRICS` or `DIMENSIONLESS` when that applies. Add the name to
-   `MetricKind` in `config.py`: `test_metric_kind_matches_the_registry.py`
+   `MetricKind` in `config.py`: `test_criteria_series.py`
    keeps the two equal. `criteria/registry.py` builds from `METRICS`, with no
    second list.
 3. **An evaluator.** A class with `evaluator_id`, `needs_prepared_model` and
@@ -584,8 +580,7 @@ provider of `runners/contracts.py`, which the bootstrap fills.
 
 Only these modules, listed under `public` in `calibration_layout.yaml`:
 `hydromodpy.calibration`, `config`, `targets`, `parameter_resolution`,
-`preflight`, `protocols`, `report`, `reporting`,
-`reporting.network_transient_html`, `optim.parameters`,
+`preflight`, `protocols`, `report`, `optim.parameters`,
 `runners.cli_runner`, `runners.staged_runner`,
 `runners.programmatic_runner`, `runners.contracts`.
 

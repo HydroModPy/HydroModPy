@@ -29,7 +29,7 @@ from __future__ import annotations
 import math
 import time
 import uuid
-from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -100,7 +100,7 @@ from hydromodpy.calibration.runners.recap import (
     parameter_units,
     scored_samples,
 )
-from hydromodpy.calibration.runners.restarts import run_restarts
+from hydromodpy.calibration.runners.restarts import RestartSpread, run_restarts
 from hydromodpy.calibration.runners.resume import trials_another_cost_scored
 from hydromodpy.calibration.runners.sandbox import keep_trial_scratch
 from hydromodpy.calibration.runners.session import (
@@ -137,7 +137,9 @@ from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
 from hydromodpy.core.workspace.path_registry import in_run_scratch
 from hydromodpy.results.checks import CalibrationSessionStatus, StopState
 from hydromodpy.results.session.descriptor import (
+    BestTrial,
     ProtocolDeparture,
+    ScoredSamples,
     SessionProtocol,
     SessionStatus,
 )
@@ -356,7 +358,7 @@ def declared_window_text(cfg: CalibrationConfig, phase: CalibPhaseDecl | None = 
     return "no window, all of the run"
 
 
-def _keep_trial_solves(cfg: CalibrationConfig, trial_ctx: TrialContext | None) -> None:
+def keep_trial_solves(cfg: CalibrationConfig, trial_ctx: TrialContext | None) -> None:
     """Give the session a retention of trial solves when it promotes any.
 
     A promoted trial then reads the solve its trial left on disk instead of
@@ -369,10 +371,10 @@ def _keep_trial_solves(cfg: CalibrationConfig, trial_ctx: TrialContext | None) -
     trial_ctx.kept_solves = retention if retention.keeps_any else None
 
 
-def _release_trial_solves(trial_ctx: TrialContext | None) -> None:
+def release_trial_solves(trial_ctx: TrialContext | None) -> None:
     """Delete the trial solves the session still keeps, and detach the retention.
 
-    Runs on every exit path, beside :func:`_release_session_scratch`, and never
+    Runs on every exit path, beside :func:`release_session_scratch`, and never
     raises: a folder that cannot be removed is left to the run scratch sweep.
     """
     if trial_ctx is None or trial_ctx.kept_solves is None:
@@ -381,7 +383,7 @@ def _release_trial_solves(trial_ctx: TrialContext | None) -> None:
     retention.release()
 
 
-def _release_session_scratch(trial_ctx: TrialContext | None) -> None:
+def release_session_scratch(trial_ctx: TrialContext | None) -> None:
     """Drop the preprocessing tree the session shared across its trials.
 
     Trials skip the setup steps and read the tree built once for the session,
@@ -903,27 +905,6 @@ def _log_the_two_roots(roots: Mapping[str, Any]) -> None:
     )
 
 
-def _status_of_the_search(
-    session: CalibrationSession, status: str, error: str | None
-) -> tuple[str, str | None]:
-    """Return the session status to persist, ``partial`` when the search did not settle.
-
-    ``extra["search"]`` lives on the in-memory report only. A resumed staged
-    chain reads the catalog instead, and reuses a phase whose session closed as
-    ``completed``. A search that spent its budget before its stopping rule was
-    met must not close as ``completed``, or a resume would freeze the value the
-    live run refused to freeze. ``partial`` already means "trials ran, the stage
-    did not finish", which is what the resume reader skips. A search with no
-    rule of its own that spent its budget settled, and stays ``completed``.
-    """
-    if status != "completed" or session.settled:
-        return status, error
-    return "partial", (
-        f"stopping rule ({session.stopping_rule}) not met after {len(session.history)} "
-        f"evaluations (max_trials = {session.max_trials}, extension = {session.extension})"
-    )
-
-
 def _phase_cost_block_fractions(
     cfg: CalibrationConfig,
     history: list[EvaluationResult],
@@ -1102,7 +1083,7 @@ def _engine_kwargs(cfg: CalibrationConfig, space: ParameterSpace, *, start_at: A
     return kwargs
 
 
-def _with_its_method(cfg: CalibrationConfig) -> CalibrationConfig:
+def with_its_method(cfg: CalibrationConfig) -> CalibrationConfig:
     """Return ``cfg`` with the method it runs written in.
 
     Itself when the file names one. Otherwise a copy carrying the method its
@@ -1189,7 +1170,7 @@ def run_calibration_core(
 
     if cfg_path is not None:
         resolve_stream_geometry_paths(cfg, cfg_path)
-    cfg = _with_its_method(cfg)
+    cfg = with_its_method(cfg)
     # Same refusal for a mono-phase run as for a staged one: an optimizer_kwarg
     # foreign to the declared method used to die as a bare TypeError inside the
     # adapter constructor, after the first solve.
@@ -1510,6 +1491,19 @@ def calibrated_status(status: SessionStatus) -> CalibrationSessionStatus:
     return "aborted" if status in ("aborted", "failed") else status
 
 
+def answered_best(
+    persistence: CalibrationPersistence, report: CalibrationReport, phase: str
+) -> tuple[BestTrial | None, list[ScoredSamples]]:
+    """Return the pointer and the scored samples of the trial the search answered with.
+
+    A tie on the cost can set that trial apart from the lowest cost of the journal.
+    """
+    line = persistence.answered_trial(report.best_trial, phase) or persistence.best_trial(phase)
+    case_id = persistence.case_id
+    components = None if line is None else line.cases[case_id].components
+    return persistence.best_pointer(line), scored_samples(components, case_id=case_id)
+
+
 def promote_and_close(
     *,
     cfg: CalibrationConfig,
@@ -1519,7 +1513,6 @@ def promote_and_close(
     report: CalibrationReport,
     phase: str,
     status: SessionStatus,
-    root_search: Mapping[str, Any] | None = None,
     stop_note: str | None = None,
 ) -> CalibrationReport:
     """Promote the trials of ``phase`` and close the session; return the final report.
@@ -1561,21 +1554,13 @@ def promote_and_close(
         failed = _failed_trials(persistence)
         error = f"no trial completed; {failed}" if failed else "no trial completed"
     persistence.refresh_phase_best(phase)
-    # What the search answered with, which a tie on the cost can set apart from
-    # the lowest cost of the journal.
-    best_line = persistence.answered_trial(report.best_trial, phase) or persistence.best_trial(
-        phase
-    )
-    pointer = persistence.best_pointer(best_line)
-    case_id = persistence.case_id
+    pointer, scored = answered_best(persistence, report, phase)
     descriptor = persistence.finalize_session(
         status=final_status,
         best=pointer,
         error=error,
-        root_search=root_search,
-        scored=scored_samples(
-            None if best_line is None else best_line.cases[case_id].components, case_id=case_id
-        ),
+        root_search={key: report.extra[key] for key in ("bracket", "roots") if key in report.extra},
+        scored=scored,
         stop_state=stop_state,
         stopping_rule=stopping_rule,
         stop_note=stop_note,
@@ -1728,8 +1713,8 @@ def closing_session(scope: SessionScope) -> Iterator[SessionScope]:
     finally:
         if scope.persistence is not None:
             scope.persistence.stop_pulse()
-        _release_trial_solves(scope.trial_ctx)
-        _release_session_scratch(scope.trial_ctx)
+        release_trial_solves(scope.trial_ctx)
+        release_session_scratch(scope.trial_ctx)
 
 
 def abort_and_promote(scope: SessionScope, *, error: str) -> PromotionOutcome:
@@ -1776,17 +1761,11 @@ def run_one_search(
     phase: PhaseContext,
     passed_start: Any | None = None,
     interval_width: IntervalWidth | None = None,
-    core: Callable[..., CalibrationReport] | None = None,
 ) -> tuple[CalibrationReport, tuple[Any, ...]]:
-    """Run one phase, restarts included, and return its report and the restart spread.
-
-    ``core`` is the search loop, :func:`run_calibration_core` unless a caller
-    hands another one in.
-    """
-    search = core if core is not None else run_calibration_core
+    """Run one phase, restarts included, and return its report and the restart spread."""
 
     def _one_search(restart_seed: int, start_at: Any, restart: int = 0) -> CalibrationReport:
-        return search(
+        return run_calibration_core(
             cfg
             if restart_seed == (cfg.seed or 0)
             else cfg.model_copy(update={"seed": restart_seed}),
@@ -1849,6 +1828,99 @@ def _with_linearized_width(
         space=space,
         perturbation=float(uncertainty.perturbation),
     )
+
+
+def load_calibration_document(
+    config_path: Path | str, workspace: Path | str | None
+) -> tuple[Path, Path, CalibrationConfig, dict, str]:
+    """Return the file, the project root, the section, the raw TOML and the case of a document."""
+    cfg_path = Path(config_path).expanduser().resolve()
+    project_root = project_root_for(cfg_path, workspace)
+    cfg, raw = load_toml_calibration(cfg_path)
+    return cfg_path, project_root, cfg, raw, calibration_case_name(cfg_path)
+
+
+def run_single_search(
+    cfg: CalibrationConfig,
+    *,
+    space: ParameterSpace,
+    cfg_path: Path,
+    case: str,
+    raw: dict,
+    project_root: Path,
+    project: str | None,
+    metric_fn: TrialMetricFn | None,
+    objective: str | None,
+    resume: bool,
+) -> tuple[CalibrationReport, tuple[RestartSpread, ...]]:
+    """Check the name, prepare, open the session, search, attach the width, promote and close.
+
+    The sequence of a calibration without phases, from a TOML or from Python.
+    """
+    promotion_name_check(case)
+    paths = resolve_override_paths(cfg)
+    # Asked of the class, before anything is built: preparing trials runs the
+    # whole geographic, mesh and data prefix of the pipeline, and an evaluator
+    # that replaces the model has no use for the model's setup.
+    trial_ctx = (
+        prepare_trials(cfg_path, override_paths=paths, parameter_space=space)
+        if evaluation_registry.needs_prepared_model(cfg.evaluator)
+        else None
+    )
+    check_the_prepared_model(cfg, trial_ctx, space)
+    persistence, _reopened = open_calibration_session(
+        project_root,
+        case,
+        resume=resume,
+        raw=raw,
+        cfg=cfg,
+        space=space,
+        trial_ctx=trial_ctx,
+        project=project,
+        objective=objective,
+    )
+    keep_trial_solves(cfg, trial_ctx)
+    scope = SessionScope(
+        cfg=cfg, project_root=project_root, persistence=persistence, trial_ctx=trial_ctx
+    )
+    with closing_session(scope):
+        report, spread = run_one_search(
+            cfg,
+            trial_ctx,
+            persistence=persistence,
+            space=space,
+            project_root=project_root,
+            cfg_path=cfg_path,
+            metric_fn=metric_fn,
+            objective=objective,
+            phase=PhaseContext(DEFAULT_PHASE, 0, 0),
+        )
+        report = _with_linearized_width(report, cfg, trial_ctx, space)
+        report = promote_and_close(
+            cfg=cfg,
+            trial_ctx=trial_ctx,
+            persistence=persistence,
+            project_root=project_root,
+            report=report,
+            phase=DEFAULT_PHASE,
+            status=str(report.extra.get("search_status", "completed")),
+        )
+    return report, spread
+
+
+def _log_restart_spread(spread: Sequence[RestartSpread]) -> None:
+    for item in spread:
+        logger.info(
+            "%s: best %.4g, restarts spanned %.4g to %.4g over %d searches%s.",
+            item.parameter,
+            item.best,
+            item.lowest,
+            item.highest,
+            len(item.values),
+            " - more than a factor ten, so this calibration did not identify it"
+            if item.spans_a_decade
+            else "",
+        )
 
 
 def describe_dry_run(
@@ -1935,78 +2007,21 @@ def run_calibration_cli(
         Reopen the latest session of the case instead of starting a new one;
         the trials already journaled preload the cache.
     """
-    refuse_an_objective_that_is_not_an_entry_point(objective)
-    cfg_path = Path(config_path).expanduser().resolve()
-    project_root = project_root_for(cfg_path, workspace)
-    cfg, raw = load_toml_calibration(cfg_path)
-    cfg = _with_its_method(cfg)
-    space = space_from_config(cfg)
-    paths = resolve_override_paths(cfg)
-    case = calibration_case_name(cfg_path)
-    promotion_name_check(case)
-
-    # Asked of the class, before anything is built: preparing trials runs the
-    # whole geographic, mesh and data prefix of the pipeline, and an evaluator
-    # that replaces the model has no use for the model's setup.
-    trial_ctx = (
-        prepare_trials(cfg_path, override_paths=paths, parameter_space=space)
-        if evaluation_registry.needs_prepared_model(cfg.evaluator)
-        else None
-    )
-    check_the_prepared_model(cfg, trial_ctx, space)
-    persistence, _reopened = open_calibration_session(
-        project_root,
-        case,
-        resume=resume,
+    cfg_path, project_root, cfg, raw, case = load_calibration_document(config_path, workspace)
+    cfg = with_its_method(cfg)
+    report, spread = run_single_search(
+        cfg,
+        space=space_from_config(cfg),
+        cfg_path=cfg_path,
+        case=case,
         raw=raw,
-        cfg=cfg,
-        space=space,
-        trial_ctx=trial_ctx,
+        project_root=project_root,
         project=project,
+        metric_fn=metric_fn,
         objective=objective,
+        resume=resume,
     )
-    phase = PhaseContext(DEFAULT_PHASE, 0, 0)
-    _keep_trial_solves(cfg, trial_ctx)
-    scope = SessionScope(
-        cfg=cfg, project_root=project_root, persistence=persistence, trial_ctx=trial_ctx
-    )
-    with closing_session(scope):
-        report, spread = run_one_search(
-            cfg,
-            trial_ctx,
-            persistence=persistence,
-            space=space,
-            project_root=project_root,
-            cfg_path=cfg_path,
-            metric_fn=metric_fn,
-            objective=objective,
-            phase=phase,
-        )
-        for item in spread:
-            logger.info(
-                "%s: best %.4g, restarts spanned %.4g to %.4g over %d searches%s.",
-                item.parameter,
-                item.best,
-                item.lowest,
-                item.highest,
-                len(item.values),
-                " - more than a factor ten, so this calibration did not identify it"
-                if item.spans_a_decade
-                else "",
-            )
-        report = _with_linearized_width(report, cfg, trial_ctx, space)
-        report = promote_and_close(
-            cfg=cfg,
-            trial_ctx=trial_ctx,
-            persistence=persistence,
-            project_root=project_root,
-            report=report,
-            phase=DEFAULT_PHASE,
-            status=str(report.extra.get("search_status", "completed")),
-            root_search={
-                key: report.extra[key] for key in ("bracket", "roots") if key in report.extra
-            },
-        )
+    _log_restart_spread(spread)
     return report
 
 

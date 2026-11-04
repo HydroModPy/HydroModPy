@@ -292,7 +292,7 @@ def _target(item: _Found, name: str) -> CalibrationTarget:
     """Return the target of one leaf the walk kept, under its settled name."""
     instance = item.instances[0] if item.instances else None
     leaf = item.path.rsplit(".", 1)[-1]
-    leaf_first = not _is_the_value_of_its_instance(item.calibrable)
+    leaf_first = item.calibrable is None or not item.calibrable.is_the_value_of_its_instance
     bounds = _physical_bounds_for(
         item.path, instance, leaf, leaf_first=leaf_first, units=_units_of(item)
     )
@@ -356,10 +356,6 @@ def _unit_the_leaf_is_read_in(node: BaseModel, declared: Calibrable | None) -> s
         if isinstance(named, str) and named.strip():
             return named.strip()
     return declared.units
-
-
-def _is_the_value_of_its_instance(calibrable: Calibrable | None) -> bool:
-    return bool(calibrable is not None and calibrable.is_the_value_of_its_instance)
 
 
 def _registry_id_for(
