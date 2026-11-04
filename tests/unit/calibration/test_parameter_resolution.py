@@ -326,14 +326,14 @@ class TestWhatItRefuses:
                     "K": {"bounds": [1e-7, 1e-3]},
                     "K2": {"bounds": [1e-7, 1e-3], "path": "flow.param.K.field.value"},
                 },
-                "both move 'flow.param.K.field.value'",
+                r"parameters.K2] and [calibration.parameters.K] both move 'flow.param.K.field.value'",
             ),
             (
                 {
                     "a": {"bounds": [1e-7, 1e-3], "path": "flow.param.K.field.value"},
                     "b": {"bounds": [1e-7, 1e-3], "path": "flow.param.K.field.value"},
                 },
-                "both move 'flow.param.K.field.value'",
+                r"parameters.b] and [calibration.parameters.a] both move 'flow.param.K.field.value'",
             ),
             (
                 {
@@ -381,10 +381,23 @@ class TestWhatItRefuses:
             resolve_parameter_targets(calibration, _project__parameter_names())
 
     def test_a_path_outside_the_catalogue_warns_that_its_sample_is_written_as_drawn(self) -> None:
-        calibration = _calibration(x={"bounds": [1.0, 2.0], "path": "flow.nowhere.value"})
+        calibration = _calibration(
+            x={"bounds": [1.0, 2.0], "path": "flow.nowhere.value"}, K={"bounds": [1e-7, 1e-3]}
+        )
 
-        with pytest.warns(UserWarning, match="unit is unknown"):
+        with pytest.warns(UserWarning, match="unit is unknown") as caught:
             resolve_parameter_targets(calibration, _project__parameter_names())
+
+        assert caught[0].filename == __file__
+        assert calibration.parameters["K"].search_space == "log"
+
+    def test_a_calibration_without_parameters_or_phases_reads_as_empty(self) -> None:
+        resolve_parameter_targets(SimpleNamespace(), _project__parameter_names())
+        bare = SimpleNamespace(parameters=_calibration(K={"bounds": [1e-7, 1e-3]}).parameters)
+
+        resolve_parameter_targets(bare, _project__parameter_names())
+
+        assert bare.parameters["K"].search_space == "log"
 
     def test_a_name_the_catalogue_ignores_is_only_a_label(self) -> None:
         """A file may keep its own vocabulary, as long as it says where to write."""
@@ -623,7 +636,7 @@ def test_converting_twice_changes_nothing() -> None:
 
 
 def test_a_unit_of_another_dimension_is_refused_naming_both() -> None:
-    with pytest.raises(ConfigError, match=r"'m'.*'m/day'"):
+    with pytest.raises(ConfigError, match=r"parameters\.K\] writes its bounds in 'm'.*'m/day'"):
         _resolved(_project__bounds_another("m/day", 0.5), bounds=[1.0, 10.0], units="m")
 
 
@@ -920,7 +933,7 @@ class TestTheNameResolves:
     def test_a_thickness_bound_past_the_registry_is_refused(self) -> None:
         calibration = _calibration(thickness={"bounds": [5.0, 20_000.0]})
 
-        with pytest.raises(ConfigError, match="20000"):
+        with pytest.raises(ConfigError, match=r"parameters\.thickness\] upper bound 20000"):
             resolve_parameter_targets(
                 calibration,
                 _Config__aquifer_geometry(ConstantThicknessDepthModel(thickness="30 m")),
@@ -929,7 +942,9 @@ class TestTheNameResolves:
     def test_an_elevation_bound_past_the_registry_is_refused(self) -> None:
         calibration = _calibration(substratum_elevation={"bounds": [-900.0, 10.0]})
 
-        with pytest.raises(ConfigError, match="-900"):
+        with pytest.raises(
+            ConfigError, match=r"parameters\.substratum_elevation\] lower bound -900"
+        ):
             resolve_parameter_targets(
                 calibration,
                 _Config__aquifer_geometry(FlatSubstratumDepthModel(substratum_elevation="0 m")),
@@ -965,7 +980,9 @@ class TestWhatIsNotSearchableIsRefusedByItsKind:
             shift={"bounds": [-5.0, 5.0], "path": "domain.depth_model.offset"}
         )
 
-        with pytest.raises(UnresolvedParameterName, match="raster_substratum"):
+        with pytest.raises(
+            UnresolvedParameterName, match=r"parameters\.shift\] path = .*raster_substratum"
+        ):
             resolve_parameter_targets(
                 calibration, _Config__aquifer_geometry(RasterSubstratumDepthModel()), strict=False
             )
@@ -975,7 +992,9 @@ class TestWhatIsNotSearchableIsRefusedByItsKind:
             h={"bounds": [5.0, 300.0], "path": "domain.depth_model.thickness"}
         )
 
-        with pytest.raises(UnresolvedParameterName, match="flat_substratum"):
+        with pytest.raises(
+            UnresolvedParameterName, match=r"parameters\.h\] path = .*flat_substratum"
+        ):
             resolve_parameter_targets(
                 calibration,
                 _Config__aquifer_geometry(FlatSubstratumDepthModel(substratum_elevation="0 m")),

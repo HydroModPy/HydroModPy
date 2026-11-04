@@ -16,7 +16,7 @@ import pyarrow as pa
 import pytest
 
 from hydromodpy.core import metrics as kernels
-from hydromodpy.results.fit_metrics import fit_metrics, score_timeseries
+from hydromodpy.results.fit_metrics import UnscoredObservation, fit_metrics, score_timeseries
 from hydromodpy.results.metric_rule import METRIC_NAMES, DateWindow, MetricRule
 from hydromodpy.results.storage.parquet_io import write_table_atomic
 from hydromodpy.results.storage.parquet_schemas import PARQUET_SCHEMA_VERSION
@@ -175,7 +175,7 @@ def test_a_lake_level_is_read_at_its_stamp() -> None:
     assert (scores.score.variable, scores.score.n_samples) == ("lake_level", 10)
 
 
-def test_an_observed_station_meets_the_simulated_series_of_the_same_station() -> None:
+def test_an_observed_station_meets_the_simulated_series_of_the_same_station(caplog) -> None:
     days = pd.date_range("2001-01-01", "2001-12-31", freq="D", tz="UTC")
     heads = np.linspace(10.0, 12.0, len(days))
     frame = pd.DataFrame(
@@ -185,11 +185,36 @@ def test_an_observed_station_meets_the_simulated_series_of_the_same_station() ->
         + _rows("P3", "head", days, heads, source="observed")
     )
 
-    scores = score_timeseries(frame, rule=MetricRule(window=YEAR_2001))
+    with caplog.at_level("WARNING"):
+        scores = score_timeseries(frame, rule=MetricRule(window=YEAR_2001))
 
     rmse = {row.station: row.value for row in scores.rows if row.metric == "rmse"}
+    assert caplog.messages == [UnscoredObservation("P3", "head", ("P1", "P2")).sentence() + "."]
     # P3 is simulated nowhere and two head stations exist: no guess is made.
     assert rmse == {"P1": pytest.approx(0.0)}
+    assert scores.unscored == (UnscoredObservation("P3", "head", ("P1", "P2")),)
+
+
+def test_a_variable_the_run_does_not_simulate_is_skipped_station_by_station(caplog) -> None:
+    days = pd.date_range("2001-01-01", "2001-12-31", freq="D", tz="UTC")
+    heads = np.linspace(10.0, 12.0, len(days))
+    frame = pd.DataFrame(
+        _rows(7, "head", days, heads)
+        + _rows(7, "head", days, heads, source="observed")
+        + _rows(8, "lake_level", days, heads, source="observed")
+        + _rows(9, "lake_level", days, heads, source="observed")
+    )
+
+    with caplog.at_level("DEBUG"):
+        scores = score_timeseries(frame, rule=MetricRule(window=YEAR_2001))
+
+    # Station ids are read as text, as a table of strings gives them.
+    assert {row.station for row in scores.rows} == {"7"}
+    assert scores.unscored == ()
+    skipped = [r.getMessage() for r in caplog.records if r.levelname == "DEBUG"]
+    assert [m for m in skipped if m.startswith("Not scoring")] == [
+        f"Not scoring lake_level at {station}: the run does not simulate it." for station in "89"
+    ]
 
 
 def test_series_that_never_meet_the_window_leave_no_row() -> None:

@@ -20,7 +20,7 @@ from pydantic import ValidationError
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.physics.flow.flow import Flow
-from hydromodpy.physics.flow.sinks_sources.recharge import FlowRechargeConfig
+from hydromodpy.physics.flow.sinks_sources.recharge import FlowRechargeConfig, recharge_factor_of
 from hydromodpy.physics.flow.structure_binders import apply_recharge_load_result_to_flow
 from hydromodpy.physics.hydrology.soil_reservoir.config import SoilReservoirConfig
 from tests.unit.workflow.test_persist_watershed_forcing import _runoff_field_record
@@ -143,5 +143,28 @@ def test_what_the_factor_refuses(written, said) -> None:
         FlowRechargeConfig(**written)
 
 
-def test_the_peak_rate_counts_the_factor() -> None:
-    assert FlowRechargeConfig(factor=3.0, values=2.0).peak_rate_mm_day() == pytest.approx(6.0)
+@pytest.mark.parametrize(
+    ("written", "peak"),
+    [
+        ({"factor": 3.0, "values": 2.0}, 6.0),
+        ({"factor": 2.0, "values": {0: 1e-8, 1: -3e-8}, "units": "m/s"}, 6e-8 * 86400e3),
+    ],
+)
+def test_the_peak_rate_counts_the_factor_and_the_unit(written, peak) -> None:
+    assert FlowRechargeConfig(**written).peak_rate_mm_day() == pytest.approx(peak)
+
+
+@pytest.mark.parametrize(
+    ("flow_config", "factor"),
+    [
+        (
+            SimpleNamespace(sinks_sources=SimpleNamespace(recharge=FlowRechargeConfig(factor=2.5))),
+            2.5,
+        ),
+        (SimpleNamespace(sinks_sources=SimpleNamespace(recharge=None)), 1.0),
+        (SimpleNamespace(sinks_sources=None), 1.0),
+        (SimpleNamespace(), 1.0),
+    ],
+)
+def test_the_factor_of_a_flow_config_defaults_to_one(flow_config, factor) -> None:
+    assert recharge_factor_of(flow_config) == factor

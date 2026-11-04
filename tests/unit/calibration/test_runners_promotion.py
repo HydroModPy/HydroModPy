@@ -9,6 +9,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+import pandas as pd
 import pytest
 
 from hydromodpy.calibration.config import CalibrationConfig
@@ -984,20 +985,32 @@ def test_the_best_n_promote_the_trial_the_session_reports_first(
 
 
 def test_the_best_trials_are_listed_per_phase(monkeypatch, tmp_path: Path) -> None:
-    lines = [
-        SimpleNamespace(
-            trial=n, phase=phase, cost=cost, status="completed", speculative_unused=False
+    def line(trial, phase, cost, status="completed", unused=False):
+        return SimpleNamespace(
+            trial=trial, phase=phase, cost=cost, status=status, speculative_unused=unused
         )
-        for n, (phase, cost) in enumerate(
-            [("a", 0.1), ("a", 0.2), ("a", 0.3), ("b", 5.0), ("b", 6.0)]
-        )
+
+    lines = [line(n, "a", 0.1 * (n + 1)) for n in range(6)]
+    lines += [line(10, "b", 5.0), line(11, "b", 6.0)]
+    lines += [
+        line(20, "a", 0.01, status="failed"),
+        line(21, "a", None),
+        line(22, "a", 0.02, unused=True),
     ]
-    monkeypatch.setattr(promotion_module, "resolve_session_dir", lambda *_: tmp_path)
+    sessions = tmp_path / "s"
     monkeypatch.setattr(
-        promotion_module, "CalibrationPersistence", lambda _: SimpleNamespace(trials=lambda: lines)
+        promotion_module,
+        "resolve_session_dir",
+        lambda root, case: sessions if (root, case) == (tmp_path, "c") else pytest.fail(case),
+    )
+    monkeypatch.setattr(
+        promotion_module,
+        "CalibrationPersistence",
+        lambda directory: SimpleNamespace(trials=lambda: lines if directory == sessions else []),
     )
 
-    assert [t.trial for t in promotion_module.best_trials(tmp_path, "c", limit=2)] == [0, 1, 3, 4]
+    assert [t.trial for t in promotion_module.best_trials(tmp_path, "c", limit=2)] == [0, 1, 10, 11]
+    assert [t.trial for t in promotion_module.best_trials(tmp_path, "c")] == [0, 1, 2, 3, 4, 10, 11]
 
 
 def test_keeping_every_trial_still_promotes_the_reported_best_first(
@@ -1090,6 +1103,36 @@ def test_the_series_are_read_for_the_outputs_it_is_given(monkeypatch) -> None:
     promotion_module.write_station_series(SimpleNamespace(), store=store, outputs={"q": "output"})
 
     assert seen == [{"q": "output"}]
+
+
+def test_the_station_series_are_written_in_utc_and_a_gauge_off_the_mesh_is_skipped(
+    monkeypatch,
+) -> None:
+    def result(request_id, times, values):
+        return SimpleNamespace(request_id=request_id, times=times, values=values, units="m")
+
+    naive = pd.date_range("2020-01-01", periods=2)
+    answers = {
+        ("P1", "head"): result("cell", naive, [1.0, 2.0]),
+        ("P2", "head"): result("cell", naive.tz_localize("UTC"), [3.0, 4.0]),
+        ("Q", "discharge"): result(promotion_module.CATCHMENT, naive, [5.0, 6.0]),
+    }
+    monkeypatch.setattr(promotion_module, "series_at_the_stations", lambda *_: answers)
+    written = []
+    store = SimpleNamespace(
+        sim_id="s", write_timeseries_columns=lambda sim_id, columns: written.append(columns)
+    )
+    ctx = SimpleNamespace(cfg=SimpleNamespace(site=SimpleNamespace()))
+
+    promotion_module.write_station_series(ctx, store=store, outputs={})
+
+    (columns,) = written
+    assert list(columns["station_id"]) == ["P1", "P1", "P2", "P2"]
+    assert list(columns["timestep"]) == [0, 1, 0, 1]
+    assert list(columns["value"]) == [1.0, 2.0, 3.0, 4.0]
+    assert list(columns["unit"]) == ["m"] * 4
+    expected = pd.DatetimeIndex(list(naive) * 2).tz_localize("UTC")
+    assert columns["time"].equals(expected)
 
 
 @pytest.mark.parametrize(

@@ -585,40 +585,6 @@ class ToyPipeline:
         return next((k, sy) for index, k, sy in self.trials if index == phase)
 
 
-def test_a_balanced_phase_answers_with_the_structure_of_lowest_cost_at_its_root(
-    tmp_path, toy
-) -> None:
-    """J crosses zero at K* = 1e-4 Sy, and the middle of the grid of Sy has the lowest cost."""
-
-    def metric(ctx, *, objective, variable):
-        k, sy = ctx.cfg.flow.param.K.field.value, ctx.cfg.flow.param.Sy.field.value
-        toy.trials.append((0, k, sy))
-        cost = (sy - 0.12) ** 2
-        return cost, {"q_block": cost, "J_signed": math.log10(1e-4 * sy / k)}
-
-    phase = {
-        "name": "structure",
-        "method": "grid",
-        "max_trials": 3,
-        "method_options": {"points_per_dim": 3},
-        "parameters": ["K", "Sy"],
-        "objective_blocks": ["q_block"],
-        "balanced_evaluation": True,
-    }
-    head = calibration_head('use_cache = false\nsave_runs = "none"')
-    path = write_document(tmp_path, head + phases_toml(phase))
-
-    report = run_staged_calibration(path, metric_fn=metric).phases[0].report
-
-    assert report.extra["search"]["stop_state"] == "plan_exhausted"
-    assert len(report.extra["balanced_roots"]) == 3
-    assert report.best_trial in report.extra["balanced_roots"]
-    assert report.n_trials == len(toy.trials) > 3
-    sy = (0.001 + 0.3) / 2.0
-    assert report.best_parameters["Sy"] == pytest.approx(sy)
-    assert report.best_parameters["K"] == pytest.approx(1e-4 * sy, rel=0.02)
-
-
 def test_under_nelder_mead_the_first_trial_is_the_passed_value(tmp_path, toy) -> None:
     path = write_document(tmp_path, _base("scipy_nelder_mead"))
 

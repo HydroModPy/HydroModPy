@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import re
 import textwrap
@@ -1280,36 +1279,11 @@ name = "mean"
 metric = "distance_mean"
 uses_outputs = ["net"]
 """
-_ON_THE_NETWORK = f"@NETROOT\n@GAP\n{_MEAN}"
 _ON_A_GAUGE = "@GAUGE\n" + _MEAN.replace("mean", "q").replace('"net"', '"gauge"').replace(
     "distance_q", "rmse"
 )
-_KV = """
-[calibration.parameters.Kv]
-bounds = [1e-7, 1e-3]
-search_space = "log"
-path = "flow.param.Kv.field.value"
-"""
-_REFUSED_BALANCE = "a balanced evaluation"
 _TRADING = "trading excess"
 _TWO_METHODS = "depend on the method"
-_UNCOUNTED = "cannot count its points"
-
-
-def _balanced(
-    parameters: str,
-    block: str,
-    scored: str = _ON_THE_NETWORK,
-    method: str = "grid",
-    trials: int | str = 3,
-) -> str:
-    """A grid of three points is enough, since it walks the structure alone."""
-    options = "method_options = { points_per_dim = 3 }\n" if method == "grid" else ""
-    return (
-        f"@GRID\n@K\n@SY\n{scored}\n[[calibration.phases]]\n"
-        f'name = "s"\nmethod = "{method}"\nmax_trials = {json.dumps(trials)}\n{options}'
-        f'parameters = {parameters}\nobjective_blocks = ["{block}"]\nbalanced_evaluation = true\n'
-    )
 
 
 _RIDGE = "form a ridge"
@@ -1372,19 +1346,6 @@ def _two_bounds(tmp_path: Path, method: str, moved: str, weights: str = "0.5") -
             None,
             _TWO_METHODS,
         ),
-        (_balanced('["K", "Sy"]', "mean"), None, _REFUSED_BALANCE),
-        (_balanced('["K"]', "mean"), "error", _REFUSED_BALANCE),
-        (_balanced('["Sy"]', "mean"), "error", _REFUSED_BALANCE),
-        (_balanced('["K", "Kv"]', "mean", _ON_THE_NETWORK + _KV), "error", _REFUSED_BALANCE),
-        (_balanced('["K", "Sy"]', "gap"), "error", _REFUSED_BALANCE),
-        (_balanced('["K", "Sy"]', "q", _ON_A_GAUGE), "error", _REFUSED_BALANCE),
-        (_balanced('["K", "Sy"]', "mean", method="grid", trials="auto"), None, _UNCOUNTED),
-        (
-            _balanced('["K", "Sy"]', "mean", method="scipy_nelder_mead", trials="auto"),
-            "error",
-            _UNCOUNTED,
-        ),
-        (_balanced('["K", "Sy"]', "mean", method="scipy_nelder_mead", trials=5), None, _UNCOUNTED),
         (_factor_beside("steady", "@K\n"), "error", _RIDGE),
         (_factor_beside("transient", "@K\n"), "warning", _RIDGE),
         (_factor_beside("steady", ""), None, _RIDGE),
@@ -1396,12 +1357,6 @@ def test_what_a_search_of_the_network_may_not_do(tmp_path, doc, severity, said) 
 
     named = [finding.severity for finding in findings if said in finding.detail]
     assert named == ([severity] if severity else [])
-
-
-def test_a_balanced_grid_counts_its_points_on_the_structure_alone(tmp_path) -> None:
-    findings = preflight_of(tmp_path, _balanced('["K", "Sy"]', "mean"))
-
-    assert [finding for finding in findings if finding.severity == "error"] == []
 
 
 class TestTheNetworkSearchCanTrustItsReleasePackages:
@@ -2449,3 +2404,112 @@ def test_a_steady_phase_that_cannot_be_dated_and_a_grid_that_cannot_be_read_date
 
 def test_two_parameters_that_move_no_declared_output_form_no_ridge(tmp_path: Path) -> None:
     assert preflight_of(tmp_path, "@GRID\n@KLOG\n@SY") == []
+
+
+_MONO, _PHASE_S = "[calibration]", "[[calibration.phases]] 's'"
+
+
+@pytest.mark.parametrize(
+    ("doc", "severity", "where", "said"),
+    [
+        ('[calibration]\nmethod = "bisection"\n' + _TWO_LOG_PARAMS, "error", _MONO, "moves 1"),
+        ('[calibration]\nmethod = "nope"\n@KB', "error", _MONO, "'nope' is not registered"),
+        (
+            '[calibration]\nmethod = "lhs"\n@KB\nsampling = "normal"',
+            "error",
+            _MONO,
+            "lhs cannot draw",
+        ),
+        (
+            '[calibration]\nmethod = "bisection"\n'
+            + _TWO_LOG_PARAMS
+            + '[[calibration.phases]]\nname = "a"\nmethod = "nope"\nparameters = ["K"]\n'
+            'objective_blocks = ["gap"]\n[[calibration.phases]]\nname = "b"\n'
+            'method = "bisection"\nparameters = ["K", "Sy"]\nobjective_blocks = ["gap"]\n',
+            "error",
+            "[[calibration.phases]] 'b'",
+            "moves 1 parameter(s)",
+        ),
+        (
+            '[calibration]\nmethod = "bisection"\n[calibration.parameters.K]\n'
+            'bounds = [1e-7, 1e-3]\nsearch_space = "identity"\n@NETROOT\n@GAP',
+            "error",
+            _MONO,
+            "K declare(s) another search space",
+        ),
+        (
+            '[calibration]\nmethod = "bisection"\nvariable = "discharge"\nobjective = "nse_log"\n@KB',
+            "error",
+            _MONO,
+            "scored on nse_log. Score it on",
+        ),
+        (
+            '[calibration]\nmethod = "da_mh_gp"\nvariable = "discharge"\nobjective = "nse_log"\n@KB',
+            "warning",
+            _MONO,
+            "this search is scored on nse_log. The chain",
+        ),
+    ],
+)
+def test_an_engine_finding_names_its_severity_and_its_search(
+    tmp_path, doc, severity, where, said
+) -> None:
+    found = [f for f in preflight_of(tmp_path, doc) if said in f.detail]
+
+    assert [(f.severity, f.where) for f in found] == [(severity, where)]
+
+
+def test_an_engine_refuses_the_options_of_its_own_search() -> None:
+    config = CalibrationConfig.model_validate(
+        {"method": "grid", "parameters": {"K": {"bounds": [1e-7, 1e-3]}}}
+    ).model_copy(update={"method_options": {"bogus": 1}})
+
+    found = [f for f in preflight._check_engines(config) if "method_options:" in f.detail]
+
+    assert [(f.severity, f.where) for f in found] == [("error", "[calibration]")]
+
+
+def test_a_serial_engine_asked_for_two_workers_can_use_one(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(
+        BisectionAdapter, "traits", replace(BisectionAdapter.traits, supports_parallel=False)
+    )
+    doc = _WORKERS_ON_A_ROOT_SEARCH.replace("parallel = 4", "parallel = 2")
+
+    found = [f for f in preflight_of(tmp_path, doc) if "buys nothing" in f.detail]
+
+    assert [(f.severity, f.where) for f in found] == [("warning", _MONO)]
+    assert "can use 1 solves at once, so parallel = 2" in found[0].detail
+
+
+def test_a_minimiser_phase_on_two_bounds_is_refused_by_its_own_method(tmp_path) -> None:
+    # The file's method is a root search, the phase's is a minimiser: only the phase's counts.
+    phase = (
+        '\n[[calibration.phases]]\nname = "s"\nmethod = "scipy_nelder_mead"\nparameters = ["K"]\n'
+        'variable = "net"\nobjective = "distance_gap"\n'
+    )
+    doc = _two_bounds(tmp_path, "bisection", "@KLOG") + phase
+
+    found = [f for f in preflight_of(tmp_path, doc) if _TWO_METHODS in f.detail]
+
+    assert [(f.severity, f.where) for f in found] == [("error", _PHASE_S)]
+    assert "'scipy_nelder_mead' would return" in found[0].detail
+
+
+def test_a_phase_that_scores_the_gauge_alone_closes_one_root_whatever_the_file_declares(
+    tmp_path,
+) -> None:
+    phase = (
+        '[[calibration.phases]]\nname = "s"\nmethod = "scipy_nelder_mead"\nparameters = ["K"]\n'
+        'objective_blocks = ["gap", "q"]\noutputs = ["gauge"]\n'
+    )
+    doc = (
+        '[calibration]\nmethod = "bisection"\n@KLOG\n@GAUGE\n@GAP\nnormalize_cost = true\n'
+        + _outputs(tmp_path)
+        + _ON_A_GAUGE.removeprefix("@GAUGE\n")
+        + "normalize_cost = true\n"
+        + phase
+    )
+
+    found = [f.detail for f in preflight_of(tmp_path, doc)]
+
+    assert [text for text in found if _TWO_METHODS in text or "does not load" in text] == []

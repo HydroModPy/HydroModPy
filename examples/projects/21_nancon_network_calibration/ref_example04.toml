@@ -267,7 +267,7 @@ time = "last"
 # seulement), puis a 1.2 (MNT rempli par defaut, annee d'amorce ecartee de la
 # phase transitoire, Eq. 4 en meters) : un pin sur une version anterieure est
 # refuse. `model.neighbours = "D4"`, `dem_correc_type = "breach"` et la
-# `scoring_window` ci-dessous tiennent les differences de comportement qui
+# `window` ci-dessous tiennent les differences de comportement qui
 # comptaient pour ce montage.
 
 [calibration.outputs.seepage_network.map]

@@ -62,13 +62,18 @@ def test_a_trace_too_short_to_judge_says_nothing() -> None:
     ("under", "expected"), [(6, [("K", "Sy", 1.0)]), (5, [])], ids=["ridge", "too_few_trials"]
 )
 def test_the_coefficient_reads_the_trials_under_the_cost(under, expected) -> None:
-    ridge = [{"K": x, "Sy": 2.0 * x, "cost": 1.0} for x in (1.0, 2.0, 3.0, 4.0, 5.0, 6.0)[:under]]
-    # The trials far from the best run against the ridge, and one has no cost.
+    # The ridge sits exactly at the limit, which is kept. Costs and values that read as
+    # text are no number, and the trials that carry them are left out.
+    ridge = [{"K": x, "Sy": 2.0 * x, "cost": 2.0} for x in (1.0, 2.0, 3.0, 4.0, 5.0, 6.0)[:under]]
     elsewhere = [{"K": x, "Sy": -5.0 * x, "cost": 9.0} for x in (7.0, 8.0, 9.0)]
-    trace = [*ridge, *elsewhere, {"K": 10.0, "Sy": 0.0, "cost": None}]
+    unread = [{"K": 11.0, "Sy": 1.0, "cost": "n/a"}, {"K": "n/a", "Sy": 1.0, "cost": 9.0}]
+    trace = [*ridge, *elsewhere, {"K": 10.0, "Sy": 0.0, "cost": None}, *unread]
 
     assert correlated_parameter_pairs(trace, ["K", "Sy"], below_cost=2.0) == expected
     assert parameter_correlation(trace, ["K", "Sy"]).at["K", "Sy"] < 0.0
+    matrix = parameter_correlation(trace, ["K", "Sy"], below_cost=2.0)
+    assert matrix.dtypes.eq(float).all()
+    assert bool(matrix.isna().all(axis=None)) is (not expected)
 
 
 def test_a_constant_column_forms_no_pair() -> None:

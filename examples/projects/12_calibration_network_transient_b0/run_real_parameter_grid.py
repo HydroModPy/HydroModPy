@@ -24,7 +24,10 @@ if str(REPO_ROOT) not in sys.path:
 
 from hydromodpy.results.catalog import Catalog  # noqa: E402
 
-from score_candidate_table import load_candidate_specs, score_candidate_specs  # noqa: E402
+from validation_cases.calibration.network_transient_b0.score_candidate_table import (  # noqa: E402
+    load_candidate_specs,
+    score_candidate_specs,
+)
 
 
 ROOT = Path(__file__).resolve().parent
@@ -241,7 +244,6 @@ def _write_steady_overlay(mk: float) -> Path:
             [
                 "[simulation]",
                 f'name = "b0_{tag}_steady_mf6"',
-                f'run_id = "b0_{tag}_steady_mf6"',
                 "",
                 "[simulation.time]",
                 'start_datetime = "2000-09-01"',
@@ -262,11 +264,13 @@ def _write_steady_overlay(mk: float) -> Path:
                 "",
                 "[flow]",
                 'flow_regime = "steady"',
-                'active_sinks_sources = ["recharge"]',
-                'active_bc = ["drainage"]',
                 "",
                 "[flow.ic]",
-                'type = "top"',
+                'kind = "top"',
+                "",
+                "[flow.bc.drainage]",
+                "",
+                "[flow.sinks_sources.recharge]",
                 "",
                 "[flow.param.K.field]",
                 f'values_csv_file = "{k_csv.as_posix()}"',
@@ -290,7 +294,6 @@ def _write_transient_overlay(mk: float, sy: float) -> Path:
             [
                 "[simulation]",
                 f'name = "b0_{tag}_transient_mf6"',
-                f'run_id = "b0_{tag}_transient_mf6"',
                 "",
                 "[flow.param.K.field]",
                 f'values_csv_file = "{k_csv.as_posix()}"',

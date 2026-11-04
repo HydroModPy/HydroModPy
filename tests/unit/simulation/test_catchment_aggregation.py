@@ -127,10 +127,10 @@ class _FakeRunoffGroup:
         self._stations = stations
 
     def array_keys(self):
-        return []
+        return [key for key, node in self._stations.items() if isinstance(node, _FakeArray)]
 
     def group_keys(self):
-        return list(self._stations.keys())
+        return [key for key, node in self._stations.items() if isinstance(node, _FakeNode)]
 
     def __getitem__(self, key):
         return self._stations[key]
@@ -270,16 +270,57 @@ class TestAddRunoffToDischarge:
         # 1 mm/day -> 2.0 m3/s, 3 mm/day -> 6.0 m3/s (area doubled).
         np.testing.assert_allclose(out.values, [2.0, 6.0])
 
-    def test_zero_area_skips_runoff_addition(self, monkeypatch):
-        _patch_area(monkeypatch, 0.0)
+    @pytest.mark.parametrize(
+        ("area_m2", "expected"),
+        [(0.0, [5.0, 7.0]), (0.5, [5.0 + 10.0e-3 * 0.5 / 86400.0, 7.0 + 10.0e-3 * 0.5 / 86400.0])],
+    )
+    def test_zero_area_skips_runoff_addition(self, monkeypatch, caplog, area_m2, expected):
+        _patch_area(monkeypatch, area_m2)
 
         idx = pd.date_range("2020-01-01", periods=2, freq="D")
         discharge = pd.Series([5.0, 7.0], index=idx, name="discharge")
-        grp = _make_grp_with_runoff(values=[10.0, 10.0], timestamps=idx.values)
+        grp = _make_grp_with_runoff(
+            values=[10.0, 10.0], timestamps=idx.values - np.timedelta64(1, "D")
+        )
 
-        out = _add_runoff_to_discharge_series(discharge, str(uuid4()), store=None, grp=grp)
+        with caplog.at_level("WARNING"):
+            out = _add_runoff_to_discharge_series(discharge, "sim-0", store=None, grp=grp)
+
+        np.testing.assert_allclose(out.to_numpy(), expected, rtol=1e-12)
+        said = "catchment discharge: catchment area unavailable for sim sim-0 — skipping runoff addition."
+        assert (said in caplog.text) is (area_m2 == 0.0)
+
+    def test_a_forcing_without_runoff_leaves_the_baseflow_alone(self):
+        idx = pd.date_range("2020-01-01", periods=2, freq="D")
+        discharge = pd.Series([5.0, 7.0], index=idx, name="discharge")
+        grp = _FakeRootGroup(forcing=_FakeNode({"temperature": None}))
+
+        out = _add_runoff_to_discharge_series(
+            discharge, "sim-0", store=_SeriesStore(gauged=False), grp=grp
+        )
 
         pd.testing.assert_series_equal(out, discharge)
+
+    def test_a_station_that_cannot_be_read_is_skipped_and_the_next_one_is_kept(self, monkeypatch):
+        _patch_area(monkeypatch, 86_400_000.0)
+        day = np.array(["2019-12-31"], dtype="datetime64[ns]")
+
+        def station(values, stamps):
+            return _FakeNode({"values": _FakeArray(values), "timestamps": _FakeArray(stamps)})
+
+        stations = {
+            "flat": _FakeArray([9.0]),
+            "bare": _FakeNode({"values": _FakeArray([9.0])}),
+            "empty": station(np.empty(0), np.empty(0, dtype="datetime64[ns]")),
+            "good": station([4.0], day),
+        }
+        grp = _FakeRootGroup(_FakeNode({"runoff": _FakeRunoffGroup(stations)}))
+        idx = pd.date_range("2020-01-01", periods=1, freq="D")
+        discharge = pd.Series([1.0], index=idx, name="discharge")
+
+        out = _add_runoff_to_discharge_series(discharge, "sim-0", store=None, grp=grp)
+
+        np.testing.assert_allclose(out.to_numpy(), [5.0])
 
     def test_the_runoff_is_scaled_by_the_area_of_the_stored_basin(self, monkeypatch):
         # catch_area would give 1 m3/s per mm/day; the basin is twice as large.

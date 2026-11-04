@@ -70,7 +70,7 @@ method = "scipy_nelder_mead"
 max_trials = 30
 precision = 0.05
 depends_on = "steady_conductivity"
-# No scoring_window: the phase scores [metrics] window of project.toml,
+# No window: the phase scores [metrics] window of project.toml,
 # 2001-2002, as the protocol writes it. 2000 is spin-up.
 
 # The figures and the exports of project.toml, for the best run of each

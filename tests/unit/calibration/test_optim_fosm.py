@@ -93,6 +93,14 @@ class TestTheJacobian:
         forward_difference_jacobian(("K",), {"K": 0.0}, _record, relative_step=0.01)
         assert seen[0] == pytest.approx(0.01)
 
+    def test_a_run_missing_from_the_answer_is_refused_and_no_parameter_gives_no_column(
+        self,
+    ) -> None:
+        with pytest.raises(ValueError):
+            forward_difference_jacobian(("K",), {"K": 1.0}, lambda runs: [np.zeros(3)])
+
+        assert forward_difference_jacobian((), {}, lambda runs: [np.zeros(3)]).shape == (3, 0)
+
     def test_a_step_that_is_not_positive_is_refused(self) -> None:
         with pytest.raises(ValueError, match="has to be positive, got -0.5"):
             forward_difference_jacobian(("K",), {"K": 1.0}, lambda runs: [], relative_step=-0.5)

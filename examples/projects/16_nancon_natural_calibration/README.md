@@ -1,9 +1,11 @@
 # 16 - Natural network and discharge calibration
 
+The scripts import the B0 case as `validation_cases`, which the wheel does not install, so they run from a clone of the repository.
+
 Scoring building blocks for calibrating against a natural target on the
 Nancon catchment (EPSG:2154): compare a permanent drainage network against an
 observed hydrographic network, and a simulated discharge series against an
-observed one. `hydromodpy.calibration.observations.natural_observations`
+observed one. `validation_cases/calibration/network_transient_b0/natural_observations.py`
 provides the cost functions and the observation package writer; there is no
 candidate-generation or optimizer loop yet, only scoring and reporting.
 
@@ -18,10 +20,10 @@ recommended objective.
 
 ```bash
 # unit tests for the scoring module
-python -m pytest -o addopts="" tests/unit/calibration/test_natural_observations.py -q
+python -m pytest -o addopts="" tests/unit/validation_cases/test_network_transient_b0.py -k natural -q
 
 # HTML report reading a natural observation package
-python -m pytest -o addopts="" tests/unit/calibration/test_network_transient_html_reporting.py::test_network_transient_html_uses_truth_mesh_when_reference_run_is_empty -q
+python -m pytest -o addopts="" tests/unit/validation_cases/test_network_transient_b0.py::test_network_transient_html_uses_truth_mesh_when_reference_run_is_empty -q
 
 # synthetic smoke test: 4 candidates, one HTML report, no real data needed
 python examples/projects/16_nancon_natural_calibration/run_synthetic_natural_smoke.py --output-dir /tmp/hmp_nancon_natural_smoke

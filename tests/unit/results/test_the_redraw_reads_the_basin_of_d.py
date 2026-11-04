@@ -20,7 +20,11 @@ import numpy as np
 import pytest
 from shapely.geometry import box
 
-from hydromodpy.results.derive.stream_network import network_comparison_from_run
+from hydromodpy.results.derive.stream_network import (
+    _delineated_catchment,
+    _watershed_catchment,
+    network_comparison_from_run,
+)
 from hydromodpy.results.run.descent import RunDescent
 from tests.unit.display._network_comparison_run import (
     CELL_M,
@@ -39,7 +43,12 @@ def _run(*, basin: np.ndarray | None, rule: str = "near_point"):
     narrow = gpd.GeoDataFrame(
         geometry=[box(1 * CELL_M, -0.1 * CELL_M, 4 * CELL_M, (NY + 0.1) * CELL_M)], crs=run.mesh.crs
     )
-    run.geographic = lambda feature: narrow
+
+    def geographic(feature):
+        assert feature == "watershed"
+        return narrow
+
+    run.geographic = geographic
     mesh = run.mesh
     attrs = {} if basin is None else {"basin_rule": rule}
     run.descent = RunDescent(
@@ -82,7 +91,12 @@ def test_a_stored_basin_without_a_watershed_measures_against_the_basin(caplog) -
 
     with caplog.at_level(logging.WARNING):
         assert _mismatch(run) == pytest.approx(0.0)
-    assert "carries no delineated watershed (FileNotFoundError)" in caplog.text
+    assert (
+        "Stream comparison: run sim-network carries no delineated watershed (FileNotFoundError), "
+        "so catchment_mismatch has no outline to read, and a run without a basin of D "
+        "re-derives its catchment by descending the model top to its own largest basin. "
+        "On a real surface that basin is an internal depression."
+    ) in caplog.text
 
 
 def test_a_synthetic_domain_has_no_outline_as_in_a_trial() -> None:
@@ -129,3 +143,21 @@ def test_a_run_sealed_without_d_is_not_rebuilt_to_learn_it_has_no_basin(caplog) 
 
     assert mismatch == pytest.approx(6 / 9)
     assert NO_BASIN_WARNING in caplog.text
+
+
+def test_a_stored_basin_comes_back_as_booleans_of_its_first_member() -> None:
+    stored = (np.array([1, 0, 1], dtype=np.int8), {"basin_rule": "near_point"})
+    sim = SimpleNamespace(descent=SimpleNamespace(stored_basin=lambda: stored))
+
+    catchment = _delineated_catchment(sim, None)
+
+    assert catchment.dtype == bool
+    assert catchment.tolist() == [True, False, True]
+
+
+@pytest.mark.parametrize("watershed", [None, gpd.GeoDataFrame(geometry=[], crs="EPSG:2154")])
+def test_a_watershed_with_nothing_in_it_gives_no_outline(watershed) -> None:
+    run = _run(basin=None)
+    run.geographic = lambda feature: watershed
+
+    assert _watershed_catchment(run, np.empty((0, 4)), "EPSG:2154") is None

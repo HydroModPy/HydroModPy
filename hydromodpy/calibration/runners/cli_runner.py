@@ -46,9 +46,7 @@ from hydromodpy.calibration.evaluation import registry as evaluation_registry
 from hydromodpy.calibration.metrics.trial_series_capture import TrialSeriesSink
 from hydromodpy.calibration.optim.adapters.bisection_adapter import (
     BOUNDS_COMPONENT,
-    DEFAULT_REL_TOL,
     ROOT_BOUNDS,
-    BalancedSearch,
     BisectionAdapter,
     roots_scored,
 )
@@ -77,7 +75,6 @@ from hydromodpy.calibration.optim.optimizer import (
     build_optimizer,
     engine_traits,
 )
-from hydromodpy.calibration.optim.parameters import ParameterSpace
 from hydromodpy.calibration.optim.progress_reporter import ConsoleProgressReporter
 from hydromodpy.calibration.optim.stopping import (
     budget_kwargs,
@@ -103,7 +100,6 @@ from hydromodpy.calibration.report import (
 from hydromodpy.calibration.runners.failure_watch import INFEASIBLE_PREFIX, ConsecutiveFailureWatch
 from hydromodpy.calibration.runners.kept_solves import TrialSolveRetention, retention_capacity
 from hydromodpy.calibration.runners.prepared_model import (
-    balanced_roots,
     check_the_prepared_model,
     network_outputs_of,
 )
@@ -173,7 +169,7 @@ from hydromodpy.results.session.descriptor import (
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.optim.engine import CalibrationSession
-    from hydromodpy.calibration.optim.parameters import CalibParameter
+    from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
     from hydromodpy.calibration.report import CalibrationReport
     from hydromodpy.calibration.runners.trial import TrialContext
 
@@ -855,19 +851,17 @@ def _root_search_record(session: CalibrationSession | None) -> dict[str, Any] | 
     """Return the root search's ``bracket`` or ``roots``, None for any other search.
 
     The session journal keeps this record, so a report read back later shows
-    what the live run printed. A balanced search has no single bracket, so it
-    gives only the roots it closed outside the bounds.
+    what the live run printed.
     """
-    if session is None or not isinstance(session.optimizer, BisectionAdapter | BalancedSearch):
+    if session is None or not isinstance(session.optimizer, BisectionAdapter):
         return None
     record: dict[str, Any] = {}
-    if isinstance(session.optimizer, BisectionAdapter):
-        bracket = session.optimizer.bracket_record()
-        if bracket is not None:
-            record["bracket"] = bracket
-        roots = session.optimizer.roots_record()
-        if roots is not None:
-            record["roots"] = roots
+    bracket = session.optimizer.bracket_record()
+    if bracket is not None:
+        record["bracket"] = bracket
+    roots = session.optimizer.roots_record()
+    if roots is not None:
+        record["roots"] = roots
     outside = session.optimizer.root_outside_bounds()
     if outside is not None:
         record["root_outside_bounds"] = outside
@@ -1147,41 +1141,14 @@ def _engine_kwargs(cfg: CalibrationConfig, space: ParameterSpace, *, start_at: A
     if traits.takes_width:
         kwargs["width"] = cfg.parallel
     if cfg.method == BisectionAdapter.name:
-        kwargs.update(_root_search_options(cfg))
+        declared = cfg.outputs or {}
+        kwargs["roots"] = roots_scored(
+            declared[name] for name in network_outputs_of(cfg) if name in declared
+        )
+        # The width the engine asks for, so the counted budget, and "auto"
+        # sized from it, count the bracket cut into that many parts.
+        kwargs["batch"] = max(cfg.batch_size, cfg.parallel)
     return kwargs
-
-
-def _root_search_options(cfg: CalibrationConfig) -> dict[str, int]:
-    """Return how many roots the network outputs score, and the width the engine asks for.
-
-    The width is there so the counted budget, and "auto" sized from it, count the
-    bracket cut into that many parts.
-    """
-    declared = cfg.outputs or {}
-    roots = roots_scored(declared[name] for name in network_outputs_of(cfg) if name in declared)
-    return {"roots": roots, "batch": max(cfg.batch_size, cfg.parallel)}
-
-
-def _balanced_search(
-    cfg: CalibrationConfig, space: ParameterSpace, *, start_at: Any
-) -> BalancedSearch:
-    """Return the search of a balanced phase: its method on the structure, a root search on K.
-
-    The preflight has checked that one conductivity is searched in log space. A
-    start point has one coordinate per parameter of ``space``, so K's is dropped.
-    """
-    import numpy as np
-
-    [root] = balanced_roots(cfg, space.names)
-    structure = ParameterSpace(param for param in space if param.name != root)
-    if start_at is not None:
-        start_at = np.delete(start_at, space.names.index(root))
-    kwargs = _engine_kwargs(cfg, structure, start_at=start_at)
-    outer = build_optimizer(cfg.method, structure, seed=cfg.seed, **kwargs)
-    rel_tol = DEFAULT_REL_TOL if cfg.precision is None else cfg.precision
-    return BalancedSearch(
-        outer, ParameterSpace([space[root]]), rel_tol=rel_tol, **_root_search_options(cfg)
-    )
 
 
 def with_its_method(cfg: CalibrationConfig) -> CalibrationConfig:
@@ -1241,7 +1208,6 @@ def run_calibration_core(
     phase: PhaseContext | None = None,
     start_at: Any | None = None,
     interval_width: IntervalWidth | None = None,
-    balanced: bool = False,
     pool_for: Callable[..., TrialWorkerPool] | None = None,
 ) -> CalibrationReport:
     """Heart of the calibration loop: one search, journaled as it goes.
@@ -1262,9 +1228,6 @@ def run_calibration_core(
 
     ``phase`` names the phase and the restart the trials of this search belong
     to; unset, the one phase of a calibration without phases.
-
-    ``balanced`` closes a root of J on K at every point of the search
-    (:class:`~hydromodpy.calibration.optim.adapters.bisection_adapter.BalancedSearch`).
 
     ``pool_for(evaluator_class, options, width=...)`` gives the pool of workers
     that serves a search at ``parallel > 1``, and its caller closes it. It is
@@ -1330,11 +1293,12 @@ def run_calibration_core(
     if cfg.parallel > 1 and trial_ctx is not None:
         evaluator = pool_for(type(evaluator), evaluator_options, width=cfg.parallel)
 
-    if balanced:
-        optimizer = _balanced_search(cfg, space, start_at=start_at)
-    else:
-        kwargs = _engine_kwargs(cfg, space, start_at=start_at)
-        optimizer = build_optimizer(cfg.method, space, seed=cfg.seed, **kwargs)
+    optimizer = build_optimizer(
+        cfg.method,
+        space,
+        seed=cfg.seed,
+        **_engine_kwargs(cfg, space, start_at=start_at),
+    )
     cache_context = build_cache_context(
         cfg=cfg,
         trial_ctx=trial_ctx,
@@ -1468,7 +1432,7 @@ def run_calibration_core(
         cache_context=cache_context,
         progress=ConsoleProgressReporter(
             cfg.method,
-            budget * getattr(optimizer, "solves_per_point", 1),
+            budget,
             label=getattr(optimizer, "progress_label", None),
         ),
         session_id=persistence.descriptor.session_id,
@@ -1485,10 +1449,7 @@ def run_calibration_core(
     # were never told apart by the data: the search stopped on a ridge and reported
     # that point as a minimum. Read off the trace the session already holds, so it
     # costs nothing. With no margin to read, no correlation is reported either.
-    # A balanced search answers with its roots: a solve on the way to one says
-    # nothing about the structure.
-    answers = optimizer.answers if balanced else session.history
-    trace = calibration_trace(answers, values_by_trial)
+    trace = calibration_trace(session.history, values_by_trial)
     names = [param.name for param in space]
     width = _width_read_off_the_trials(
         interval_width if interval_width is not None else cfg.interval_width_for(),
@@ -1522,8 +1483,6 @@ def run_calibration_core(
         _log_parameter_interval(interval, best)
 
     extra: dict[str, Any] = {"interval_width": width.to_dict()}
-    if balanced:
-        extra["balanced_roots"] = [persistence.trial_number(r.trial_id, context) for r in answers]
     if correlated:
         extra["correlated_parameters"] = correlated
     if pairs:
@@ -1910,7 +1869,6 @@ def run_one_search(
     phase: PhaseContext,
     passed_start: Any | None = None,
     interval_width: IntervalWidth | None = None,
-    balanced: bool = False,
 ) -> tuple[CalibrationReport, tuple[Any, ...]]:
     """Run one phase, restarts included, and return its report and the restart spread.
 
@@ -1946,7 +1904,6 @@ def run_one_search(
             phase=replace(phase, restart=phase.restart + restart),
             start_at=passed_start if start_at is None else start_at,
             interval_width=interval_width,
-            balanced=balanced,
             pool_for=shared_pool,
         )
 

@@ -60,13 +60,16 @@ def render_schema(model: type[BaseModel]) -> str:
 
 
 def _open_to_additions(node: Any) -> Any:
-    """Return *node* with every ``additionalProperties: false`` made ``true``."""
+    """Return *node* with ``additionalProperties: true`` written on every object.
+
+    Written whatever pydantic says, because its versions differ on a stdlib dataclass.
+    """
     if isinstance(node, list):
         return [_open_to_additions(item) for item in node]
     if not isinstance(node, dict):
         return node
     opened = {key: _open_to_additions(value) for key, value in node.items()}
-    if opened.get("additionalProperties") is False:
+    if "properties" in opened:
         opened["additionalProperties"] = True
     return opened
 

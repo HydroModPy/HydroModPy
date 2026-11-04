@@ -72,12 +72,12 @@ def test_the_committed_file_is_what_the_model_generates(schema_id: str) -> None:
 
 
 def _closed_objects(node: Any) -> list[Any]:
-    """Return every object of a schema that refuses additional properties."""
+    """Return every object of a schema that does not say it takes additional properties."""
     if isinstance(node, list):
         return [found for item in node for found in _closed_objects(item)]
     if not isinstance(node, dict):
         return []
-    own = [node] if node.get("additionalProperties") is False else []
+    own = [node] if "properties" in node and node.get("additionalProperties") is not True else []
     return own + [found for value in node.values() for found in _closed_objects(value)]
 
 

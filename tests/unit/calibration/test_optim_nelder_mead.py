@@ -332,6 +332,142 @@ def test_a_value_is_given_back_once_for_a_proposed_point() -> None:
         simplex_run.receive(proposal.key, 1.0)
 
 
+def _finish(run: SpeculativeNelderMead, f: Callable) -> SpeculativeNelderMead:
+    while batch := run.propose(1):
+        run.receive(batch[0].key, f(batch[0].point))
+    return run
+
+
+@pytest.mark.parametrize(
+    ("x0", "simplex", "dtype"),
+    [
+        (np.array([1, 2]), None, np.float64),
+        (np.array([1, 2], dtype=np.float32), None, np.float32),
+        (np.array([0.5, 0.5]), np.array([[0, 0], [1, 0], [0, 1]]), np.float64),
+        (np.array([0.5, 0.5]), np.array([[0, 0], [1, 0], [0, 1]], dtype=np.float32), np.float32),
+    ],
+    ids=["int_start", "float32_start", "int_simplex", "float32_simplex"],
+)
+def test_the_simplex_keeps_a_float_type_and_hands_out_copies(x0, simplex, dtype) -> None:
+    run = _finish(
+        SpeculativeNelderMead(x0, initial_simplex=simplex, maxfev=6), lambda x: float(np.sum(x**2))
+    )
+
+    result = run.result
+    assert result.x.dtype == result.final_simplex[0].dtype == dtype
+    assert not np.shares_memory(result.x, result.final_simplex[0])
+
+
+@pytest.mark.parametrize(
+    ("options", "nfev", "nit"),
+    [({}, 400, 200), ({"maxfev": np.inf}, 799, 400), ({"maxiter": np.inf}, 400, 200)],
+    ids=["both_unset", "maxfev_inf", "maxiter_inf"],
+)
+def test_the_default_limit_is_two_hundred_calls_per_dimension(options, nfev, nit) -> None:
+    # A function that falls forever never meets a tolerance: only the limits stop it.
+    run = SpeculativeNelderMead(np.zeros(2), **options)
+
+    _finish(run, lambda x: -float(np.sum(x)))
+
+    assert (run.result.nfev, run.result.nit) == (nfev, nit)
+    assert not run.result.success
+
+
+@pytest.mark.parametrize(
+    ("xatol", "fatol", "fatol_rel", "stops_at_once"),
+    [
+        (1.0, 1e9, 0.0, True),
+        (10.0, 5.0, 0.0, True),
+        (10.0, 4.5, 0.0, False),
+        (10.0, 0.0, 10.0, False),
+    ],
+    ids=[
+        "xatol_met_exactly",
+        "fatol_met_exactly",
+        "fatol_from_the_best",
+        "fatol_rel_from_the_best",
+    ],
+)
+def test_the_tolerances_read_the_best_vertex_and_stop_when_met(
+    xatol, fatol, fatol_rel, stops_at_once
+) -> None:
+    # Costs 0, 1 and 5: the widest step is 1 and the widest cost gap from the best is 5.
+    costs = {(0.0, 0.0): 0.0, (1.0, 0.0): 1.0, (0.0, 1.0): 5.0}
+    simplex = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    run = SpeculativeNelderMead(
+        np.zeros(2),
+        initial_simplex=simplex,
+        xatol=xatol,
+        fatol=fatol,
+        fatol_rel=fatol_rel,
+        maxfev=6,
+    )
+
+    _finish(run, lambda x: costs.get(tuple(x), 9.0))
+
+    assert (run.result.nfev == 3) is stops_at_once
+
+
+def test_a_failed_outside_contraction_shrinks_the_simplex_towards_the_best_vertex() -> None:
+    # In one dimension, reflection costs 5 and the outside contraction 7, both under the worst.
+    costs = {0.0: 0.0, 1.0: 10.0, -1.0: 5.0, -0.5: 7.0}
+    f = lambda x: costs.get(float(x[0]), 20.0)  # noqa: E731
+    simplex = np.array([[0.0], [1.0]])
+    options = {"maxfev": 6, "adaptive": False}
+    result, calls = _scipy(f, np.full(1, -9.0), np.full(1, 9.0), np.zeros(1), simplex, options)
+
+    run, _ = _speculative(f, np.full(1, -9.0), np.full(1, 9.0), np.zeros(1), simplex, options, 1)
+
+    assert [round(float(p[0]), 3) for p, _ in calls[:5]] == [0.0, 1.0, -1.0, -0.5, 0.5]
+    _assert_same_run(run, result, calls)
+
+
+def test_the_first_step_proposes_the_vertices_a_call_is_left_for() -> None:
+    run = SpeculativeNelderMead(np.zeros(2), maxfev=2)
+
+    assert [p.key[2] for p in run.propose(10)] == [0, 1]
+
+
+def _roles_proposed_after_the_vertices(simplex, costs, width=10, fxr=None, **options):
+    """Give the vertex costs, then the reflection cost, and list what is proposed next."""
+    run = SpeculativeNelderMead(simplex[0], initial_simplex=np.array(simplex), **options)
+    for cost in costs:
+        run.receive(run.propose(1)[0].key, cost)
+    if fxr is not None:
+        run.receive(run.propose(1)[0].key, fxr)
+    return [p.key[1] for p in run.propose(width)]
+
+
+@pytest.mark.parametrize(
+    ("maxfev", "roles"),
+    [
+        (3, ["reflection"]),
+        (4, ["reflection", "inside_contraction", "expansion", "outside_contraction"]),
+        (5, ["reflection", "inside_contraction", "expansion", "outside_contraction", "shrink"]),
+    ],
+)
+def test_a_candidate_whose_call_the_budget_would_refuse_is_not_proposed(maxfev, roles) -> None:
+    # One dimension, two calls spent: the reflection needs 1 call, the contractions and the
+    # expansion 2, the shrink point 3.
+    assert _roles_proposed_after_the_vertices([[0.0], [1.0]], [0.0, 10.0], maxfev=maxfev) == roles
+
+
+@pytest.mark.parametrize(
+    ("fxr", "roles"),
+    [
+        (-1.0, ["expansion"]),
+        (2.0, ["outside_contraction", "shrink", "shrink"]),
+        (7.0, ["inside_contraction", "shrink", "shrink"]),
+    ],
+    ids=["beats_the_best", "outside_contraction", "inside_contraction"],
+)
+def test_the_reflection_value_rules_out_the_candidates_it_makes_useless(fxr, roles) -> None:
+    # Vertex costs 0, 1 and 5: the reflection beats the best under 0, is an outside
+    # contraction case from 1 to 5, and an inside one from 5.
+    simplex = [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]]
+    assert _roles_proposed_after_the_vertices(simplex, [0.0, 1.0, 5.0], fxr=fxr) == roles
+
+
 # --------------------------------------------------------------------------- #
 # The adapter against SciPy
 # --------------------------------------------------------------------------- #

@@ -29,6 +29,8 @@ HMP_COMMAND = re.compile(
 FLOOR = 200
 # The one file that names commands that left, so that each is refused by name.
 RETIRED_FORMS = REPO_ROOT / "hydromodpy" / "cli" / "conventions.py"
+# The history of the alphas records commands that existed then and left since.
+HISTORY_PAGE = REPO_ROOT / "docs" / "source" / "about" / "changes-during-the-alphas.md"
 
 requires_git = pytest.mark.skipif(
     not (REPO_ROOT / ".git").exists(),
@@ -69,7 +71,7 @@ def test_every_hmp_literal_names_a_registered_command() -> None:
     literals = [
         (path.relative_to(REPO_ROOT).as_posix(), match.group(1), match.group(2))
         for path in _tracked_files()
-        if path != RETIRED_FORMS
+        if path not in (RETIRED_FORMS, HISTORY_PAGE)
         for match in HMP_COMMAND.finditer(path.read_text(encoding="utf-8", errors="ignore"))
     ]
     assert len(literals) >= FLOOR, f"the scan matched only {len(literals)} hmp literals"

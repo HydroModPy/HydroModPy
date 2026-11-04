@@ -599,6 +599,9 @@ _BOWL = ((0.0, 10.0), (1.0, 4.0), (2.0, 1.0), (3.0, 2.0), (4.0, 9.0))
 _TWO_BASINS = ((1.0, 1.0), (2.0, 9.0), (3.0, 1.0))
 _ROOT_AT_THE_BOUND = ((0.0, 1.0), (1.0, 2.0), (2.0, 9.0))
 _UNSOLVED_BESIDE_THE_ROOT = ((0.0, 10.0), (1.0, None), (2.0, 1.0), (3.0, 2.0), (4.0, 9.0))
+# A cost equal to the threshold is not a crossing, and two trials may share one x.
+_ON_THE_THRESHOLD = ((0.0, 9.0), (1.0, 1.0), (2.0, 3.0))
+_SAME_X = ((1.0, 1.0), (2.0, 1.0), (2.0, 9.0))
 _SCALES = {"log": lambda x: 10.0**x, "identity": lambda x: x}
 
 
@@ -630,6 +633,16 @@ _SCALES = {"log": lambda x: 10.0**x, "identity": lambda x: x}
             ("open", "crossed"),
             (2.0, 22 / 7, 3.0, 2, 4),
         ),
+        (
+            _ON_THE_THRESHOLD,
+            1,
+            2.0,
+            "absolute",
+            "identity",
+            ("crossed", "bound"),
+            (0.75, 2.0, 3.0, 2, 3),
+        ),
+        (_SAME_X, 1, 2.0, "absolute", "identity", ("open", "bound"), (1.0, 2.0, 3.0, 3, 3)),
     ],
 )
 def test_the_root_interval_walks_the_curve(
@@ -648,6 +661,18 @@ def test_the_root_interval_walks_the_curve(
     )
     assert [found["threshold"], found["n_within"], found["n_trials"]] == counts
     assert found["reaches_upper_bound"] is (ends[1] == "bound")
+    assert (found["margin"], found["kind"]) == (margin, kind)
+
+
+def test_a_crossing_past_the_declared_bound_is_still_a_crossing() -> None:
+    parameter = SimpleNamespace(name="K", to_physical=_SCALES["identity"])
+
+    found = root_interval(
+        ((0.0, 1.0), (1.0, 9.0)), (0.0, 1.0), 1.0, "absolute", parameter, (-1.0, 0.1)
+    )
+
+    assert found.upper == pytest.approx(0.125)
+    assert (found.upper_crossed, found.reaches_upper_bound) == (True, False)
 
 
 # From test_margin_intervals.py
@@ -780,3 +805,27 @@ def test_each_calibrated_parameter_gets_its_own_interval() -> None:
     assert set(intervals) == {"K", "Sy"}
     assert intervals["Sy"].lower == 0.2
     assert intervals["Sy"].upper == 0.3
+
+
+@pytest.mark.parametrize(
+    ("flags", "best", "on_a_bound"),
+    [
+        ((True, False), 1.0, True),
+        ((False, False), 1.0, False),
+        ((False, True), 4.0, True),
+    ],
+)
+def test_the_value_sits_on_a_bound_only_when_the_range_reaches_it_and_the_value_is_at_it(
+    flags, best, on_a_bound
+) -> None:
+    from hydromodpy.calibration.report import interval_best_is_on_a_bound
+
+    interval = {
+        "lower": 1.0,
+        "upper": 4.0,
+        "best": best,
+        "reaches_lower_bound": flags[0],
+        "reaches_upper_bound": flags[1],
+    }
+
+    assert interval_best_is_on_a_bound(interval) is on_a_bound

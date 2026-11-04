@@ -112,7 +112,6 @@ source = "brgm_1m" # Discriminator tag selecting the BRGM 1:1M geology provider.
 source = "custom" # Data provider.
 path = "/home/bb/Documents/01_Git_Repository/03-HydroModPy-lakeres/examples/data/hydrography/nancon_stream_network.gpkg" # Path to a vector file (SHP/GPKG/GeoJSON), raster (TIF/TIFF), or directory containing one.
 rasterize_field = "FID" # Attribute field used when rasterizing the vector layer.
-typename = "sa:CoursEau_FXX_Topage2025" # WFS typename for BD Topage.
 page_size = 2000 # WFS pagination page size (BD Topage).
 group_name = "River_Net_lines" # MapServer group name for EU-Hydro layer discovery.
 euhydro_page_size = 1000 # Pagination page size for EU-Hydro REST queries.

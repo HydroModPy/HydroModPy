@@ -93,19 +93,14 @@ from __future__ import annotations
 
 import math
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass, replace
-from functools import partial
+from dataclasses import dataclass
 from typing import Any
 
 from hydromodpy.calibration.optim.cost_margin import ParameterInterval, root_interval
 from hydromodpy.calibration.optim.optimizer import (
-    FAILED_EVAL_COST,
     EngineTraits,
     EvaluationResult,
-    Optimizer,
     ParamSuggestion,
-    best_completed,
-    engine_traits,
     register_optimizer,
 )
 from hydromodpy.calibration.optim.parameters import ParameterSpace
@@ -837,17 +832,18 @@ class BisectionAdapter:
     def best(self) -> EvaluationResult | None:
         """Return the evaluated trial the search answers with.
 
-        One root: the trial closest to the root, inside the bracket, read on the
-        residual and not on the cost. What is returned is a point that was really
-        evaluated, never the middle of the last interval: every quantity the method
-        publishes beside the value has to come from a real solve.
+        One root: the trial closest to the root, inside the bracket. The cost
+        carries ``abs`` of the residual, so the lowest cost is the trial nearest
+        zero. What is returned is a point that was really evaluated, never the
+        middle of the last interval: every quantity the method publishes beside
+        the value has to come from a real solve.
 
         The bracket is where the root is, so the answer is taken inside it.
         The residual steps rather than slides, so two trials often share one
         ``abs(J)`` to the last digit, and ``min`` then returned the first one
         evaluated, which can sit outside the final bracket: on the Nancon,
         trial 13 tied with trial 15 and was returned 0.6 % outside
-        [2.0783e-4, 2.0908e-4]. Among trials inside the bracket the lowest ``abs(J)``
+        [2.0783e-4, 2.0908e-4]. Among trials inside the bracket the lowest cost
         wins, and a tie goes to the trial nearest its middle, the best estimate
         of the root the search holds. A trial outside is returned only when no
         completed trial lies inside, which happens when a rejected trial set an
@@ -874,8 +870,8 @@ class BisectionAdapter:
         bracket = self.bracket
         inside = [result for result in valid if self._inside(result.trial_id, bracket)]
         pool = inside or valid
-        lowest = min(self._gap_to_the_root(result) for result in pool)
-        tied = [result for result in pool if _same_cost(self._gap_to_the_root(result), lowest)]
+        lowest = min(result.cost for result in pool)
+        tied = [result for result in pool if _same_cost(result.cost, lowest)]
         if bracket is None:
             return tied[0]
         middle = 0.5 * (bracket[0] + bracket[1])
@@ -893,11 +889,6 @@ class BisectionAdapter:
                 winner.trial_id,
             )
         return winner
-
-    def _gap_to_the_root(self, result: EvaluationResult) -> float:
-        """Return ``abs`` of the residual: a balanced search costs D_optim, lowest off the root."""
-        residuals = self._residuals.get(result.trial_id)
-        return abs(next(iter(residuals.values()))) if residuals else result.cost
 
     def _inside(self, trial_id: int, bracket: tuple[float, float] | None) -> bool:
         """Whether a trial was evaluated inside *bracket*, ends included."""
@@ -1106,16 +1097,6 @@ class BisectionAdapter:
         }
 
     @property
-    def done(self) -> bool:
-        """Whether the search has stopped, closed or refused."""
-        return self._done
-
-    @property
-    def solves(self) -> int:
-        """The solves the search has asked so far."""
-        return self._trial_id
-
-    @property
     def roots(self) -> int:
         """The roots the search closes: those the outputs score, else those declared."""
         return len(self._targets) if self._targets is not None else self._declared_roots
@@ -1230,100 +1211,6 @@ class BisectionAdapter:
         return record
 
 
-class BalancedSearch:
-    """Close the root of J on one parameter at every point of another search.
-
-    The balanced evaluation of the WRR article: the outer search moves the
-    structure (a thickness, a K(z) profile), and each of its points is answered
-    only once a whole root search has closed the balance on K there. The outer
-    search reads the cost of that root, so two structures compare at equal
-    balance. Each solve is an ordinary trial of the engine, so the journal, the
-    cache and the promotion see nothing new.
-
-    ``max_trials`` counts the outer points: :meth:`counted` spends the budget only
-    when a root closes. A point with no root in reach is told to the outer search
-    as a failed trial, and the search goes on with the next structure.
-    """
-
-    def __init__(
-        self, outer: Optimizer, root_space: ParameterSpace, *, batch: int = 1, **options: Any
-    ) -> None:
-        self._outer = outer
-        self._new_root_search = partial(BisectionAdapter, root_space, batch=batch, **options)
-        self._batch = batch
-        self._root_search: BisectionAdapter | None = None
-        self._point: ParamSuggestion | None = None
-        # Each root search numbers its trials from one, after those of the last ones.
-        self._offset = 0
-        self._closed = 0
-        self.answers: list[EvaluationResult] = []
-        self._outside: list[str] = []
-        self.name = outer.name
-        self.traits = engine_traits(outer.name)
-        self.counted_budget = getattr(outer, "counted_budget", None)
-        self.solves_per_point = self._new_root_search().counted_budget.nominal
-        self.close = getattr(outer, "close", lambda: None)
-
-    def ask(self, n: int = 1) -> list[ParamSuggestion]:
-        """Return the next solves of the open root search, opening one when none is.
-
-        ``n`` shrinks with the outer budget left, and the last point needs the same
-        width as the others, so the root search takes the batch instead.
-        """
-        if self._root_search is None:
-            points = self._outer.ask(1)
-            if not points:
-                return []
-            self._point, self._root_search = points[0], self._new_root_search()
-        return [
-            ParamSuggestion(
-                sugg.trial_id + self._offset, {**self._point.values, **sugg.values}, sugg.source
-            )
-            for sugg in self._root_search.ask(self._batch)
-        ]
-
-    def suggest_next(self) -> ParamSuggestion:
-        return self.ask()[0]
-
-    def tell(self, results: Sequence[EvaluationResult]) -> None:
-        """Hand the solves to the root search, and its answer to the outer search once closed."""
-        self._closed = 0
-        search, point = self._root_search, self._point
-        try:
-            search.tell([replace(r, trial_id=r.trial_id - self._offset) for r in results])
-        except OptimizerError as exc:
-            logger.warning("Balanced evaluation at %s: %s", dict(point.values), exc)
-        if not search.done:
-            return
-        answer = search.best() if search.converged() else None
-        if answer is None:
-            told = EvaluationResult(point.trial_id, None, FAILED_EVAL_COST, status="infeasible")
-        else:
-            told = replace(answer, trial_id=point.trial_id)
-            if (outside := search.root_outside_bounds()) is not None:
-                self._outside.append(outside)
-            self.answers.append(replace(answer, trial_id=answer.trial_id + self._offset))
-        self._outer.tell([told])
-        self._offset += search.solves
-        self._root_search = None
-        self._closed = 1
-
-    def counted(self, results: Sequence[EvaluationResult]) -> int:
-        """Return the outer points closed by the results just told: one or none."""
-        return self._closed
-
-    def root_outside_bounds(self) -> str | None:
-        """Join what each closed root search says of a root outside the declared bounds."""
-        return "; ".join(self._outside) or None
-
-    def best(self) -> EvaluationResult | None:
-        """Return the root of lowest cost: the structure the search answers with."""
-        return best_completed(self.answers)
-
-    def converged(self) -> bool:
-        return self._root_search is None and bool(self._outer.converged())
-
-
 __all__ = [
     "BOUNDS_COMPONENT",
     "DEFAULT_BRACKET_EXPAND",
@@ -1331,7 +1218,6 @@ __all__ = [
     "DEFAULT_SWEEP_POINTS",
     "LOG10_ONE_PERCENT",
     "ROOT_BOUNDS",
-    "BalancedSearch",
     "BisectionAdapter",
     "RootTarget",
     "root_search_budget",

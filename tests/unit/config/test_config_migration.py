@@ -1788,7 +1788,8 @@ def test_the_doctor_writes_a_network_output_in_its_tables(
         (
             'observed_network = "geographic.river_network"\n',
             "observed_network",
-            "a network the DEM derives is no observation",
+            "a network the DEM derives is no observation; write "
+            "map.complete = 'data.hydrography' or the path of a vector file",
         ),
         ('diagonal_neighbors = "yes"\n', "diagonal_neighbors", "'yes' is neither true nor false"),
         (
@@ -1864,7 +1865,24 @@ _ADDS_WEIGHTS = "[calibration.outputs.net.extent.weights]\nminimal = 0.25\nmaxim
 _ADDS_THE_PERMANENT_MAP = '[calibration.outputs.net]\nminimal_stream_geometry_path = "q.gpkg"\n'
 _ONE_STATE = 'calibrate_on = "permanent"\n'
 _SHARED = "calibrate_on = { permanent = 0.25, complete = 0.75 }\n[calibration.outputs.net.model.extent]\nyear_quorum = 1.0\n"
+_MAP_AND_SHARE = _FLAT + '[calibration.outputs.net.map]\nMAP = "x.gpkg"\n' + _SHARED
+_ADDS_THE_COMPLETE_MAP = '[calibration.outputs.net]\nstream_geometry_path = "s.gpkg"\n'
 _CHAINS = {
+    "a parent with its complete map and its share, a child adds the permanent map": (
+        _MAP_AND_SHARE.replace("MAP", "complete"),
+        _ADDS_THE_PERMANENT_MAP,
+        (0.25, 0.75),
+    ),
+    "a parent with its permanent map and its share, a child adds the complete map": (
+        _MAP_AND_SHARE.replace("MAP", "permanent"),
+        _ADDS_THE_COMPLETE_MAP,
+        (0.25, 0.75),
+    ),
+    "a parent unwritten with an extent, a child adds the permanent map": (
+        _FLAT + 'stream_geometry_path = "s.gpkg"\n' + _ADDS_AN_EXTENT,
+        _ADDS_THE_PERMANENT_MAP,
+        (0.5, 0.5),
+    ),
     "a sibling with weights keeps them": (
         _REWRITTEN_MAPS + _ONE_STATE,
         _ADDS_WEIGHTS,
@@ -1939,3 +1957,54 @@ def test_the_doctor_refuses_an_output_held_by_dotted_keys(tmp_path: Path, dotted
         f"{CANNOT_REWRITE}write the output as a table [calibration.outputs.net]"
     ]
     assert path.read_text() == text
+
+
+def test_a_refused_or_untouched_output_does_not_stop_the_next_one(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path,
+        '[calibration]\noutputs.a.support = "network"\noutputs.a.stream_geometry_path = "s.gpkg"\n'
+        'outputs.b.support = "network"\noutputs.p.support = "point"\n'
+        '[calibration.outputs.net]\nsupport = "network"\nstream_geometry_path = "s.gpkg"\n',
+    )
+
+    assert fix_config_file(path) == [
+        "calibration.outputs.a"
+        + CANNOT_REWRITE
+        + "write the output as a table [calibration.outputs.a]",
+        "calibration.outputs.net.stream_geometry_path -> map.complete",
+    ]
+
+
+def test_a_sealed_network_output_says_what_it_drops() -> None:
+    output = {
+        "support": "network",
+        "observed_network": "geographic.river_network",
+        "observed_rasterization": "crossing",
+        "heads_snap_radius": 80.0,
+        "observed_position_accuracy": 50.0,
+        "validity_length": "150 m",
+    }
+    doc = {"calibration": {"outputs": {"p": {"support": "point"}, "net": output}}}
+    label = "calibration.outputs.net"
+
+    assert migrate_sealed_config_doc(doc) == [
+        f"{label}.observed_network dropped (sealed)",
+        f"{label}.observed_rasterization -> map.drawn_by",
+        f"{label}.heads_snap_radius dropped (drawn by 'crossing', which never read it)",
+        f"{label}.observed_position_accuracy dropped (validity_length is a length, it was never read)",
+        f"{label}.validity_length -> verdict.validity_length",
+    ]
+    assert output == {
+        "support": "network",
+        "map": {"drawn_by": "crossing"},
+        "verdict": {"validity_length": "150 m"},
+    }
+
+
+def test_the_permanent_map_alone_is_moved_with_no_role(tmp_path: Path) -> None:
+    path = _write(tmp_path, _FLAT + 'minimal_stream_geometry_path = "p.gpkg"\n')
+
+    fix_config_file(path)
+
+    output = tomllib.loads(path.read_text())["calibration"]["outputs"]["net"]
+    assert output == {"support": "network", "map": {"permanent": "p.gpkg"}}

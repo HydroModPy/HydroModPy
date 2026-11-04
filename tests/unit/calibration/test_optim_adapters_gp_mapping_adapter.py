@@ -42,6 +42,10 @@ def _quadratic_space() -> ParameterSpace:
     )
 
 
+def _space_of(lower: float, upper: float) -> ParameterSpace:
+    return ParameterSpace([CalibParameter(name="x", lower=lower, upper=upper)])
+
+
 def _quadratic(values: dict) -> float:
     """Simple convex quadratic with unique minimum at the origin."""
     x = float(values["x"])
@@ -169,22 +173,86 @@ class TestGPMappingFailuresAndBatches:
     def test_a_result_for_a_trial_nobody_asked_is_ignored(self):
         opt = build_optimizer("gp_mapping", _quadratic_space(), seed=3, n_init=2)
 
-        opt.tell([EvaluationResult(trial_id=99, sim_id=None, cost=1.0, status="completed")])
+        (asked,) = opt.ask(n=1)
+        stray = EvaluationResult(trial_id=99, sim_id=None, cost=1.0, status="completed")
+        opt.tell([stray, result_of(asked, 2.0)])
 
-        assert opt.best() is None
+        assert opt.best().cost == 2.0
 
-    def test_a_batch_is_served_from_one_fit(self):
+    def test_the_budget_counts_the_pending_points_and_serves_the_ids_in_order(self):
+        space = ParameterSpace([CalibParameter(name="x", lower=-2.0, upper=2.0)])
+        opt = build_optimizer("gp_mapping", space, seed=3, n_init=2, max_trials=2)
+
+        got = opt.ask(n=3)
+
+        assert [(s.trial_id, s.source) for s in got] == [(1, "ask"), (2, "ask")]
+        assert opt._exhausted is True
+        assert len(build_optimizer("gp_mapping", space, seed=3, n_init=2).ask()) == 1
+
+    def test_two_points_a_thousandth_of_the_span_apart_are_one_point(self):
+        opt = build_optimizer("gp_mapping", _quadratic_space(), seed=3)
+        origin = np.zeros(2)
+
+        assert not opt._distinct(np.array([0.004, 0.0]), [origin])
+        assert opt._distinct(np.array([0.0, 0.008]), [origin])
+        # Below one unit the span is the bounds' own, here a hundredth.
+        narrow = build_optimizer("gp_mapping", _space_of(0.0, 0.01), seed=3)
+        assert narrow._distinct(np.array([0.0005]), [np.zeros(1)])
+
+    def test_a_search_with_no_completed_trial_fits_nothing_and_draws_inside_the_bounds(self):
+        space = ParameterSpace([CalibParameter(name="x", lower=5.0, upper=10.0)])
+        opt = build_optimizer("gp_mapping", space, seed=3, n_init=2, max_trials=6)
+        opt.tell([result_of(s, np.nan, status="failed") for s in opt.ask(n=2)])
+        fitted = []
+        opt._fit_gp = lambda x, y: fitted.append(x.size)
+
+        (x,) = opt._propose_next()
+
+        assert fitted == [0]
+        assert 5.0 <= x < 10.0
+
+    @pytest.mark.parametrize(
+        ("kappa", "scores", "last_ei", "streak"),
+        [
+            (0.0, [0.5], 0.5, 0),
+            (0.0, [0.1, 0.2], 0.2, 2),
+            (0.0, [0.1, 0.2, 0.3], 0.3, 0),
+            (0.0, [0.25], 0.25, 0),
+            (0.0, [-3.0], 0.0, 1),
+            (1.5, [0.5], 1.5, 0),
+        ],
+    )
+    def test_the_improvement_a_proposal_promises_counts_a_low_streak(
+        self, monkeypatch, kappa, scores, last_ei, streak
+    ):
+        # Costs 1 and 2 make y_best 1, and the tolerance 0.25 separates 0.2 from 0.3.
         opt = build_optimizer(
-            "gp_mapping", _quadratic_space(), seed=3, n_init=4, batch_size=3, max_trials=12
+            "gp_mapping", _quadratic_space(), seed=3, n_init=2, kappa=kappa, ei_tol=0.25
+        )
+        opt.tell([result_of(s, c) for s, c in zip(opt.ask(n=2), (1.0, 2.0), strict=True)])
+        queue = [[(np.zeros(2), score)] for score in scores]
+        monkeypatch.setattr(opt, "_fit_gp", lambda x, y: object())
+        monkeypatch.setattr(opt, "_maximise_acquisition", lambda gp, y_best: queue.pop(0))
+
+        for _ in scores:
+            opt._propose_next()
+
+        assert (opt._last_ei, opt._low_ei_streak) == (pytest.approx(last_ei), streak)
+
+    @pytest.mark.parametrize(("batch_size", "queued"), [(3, 2), (2, 1)])
+    def test_a_batch_is_served_from_one_fit(self, batch_size, queued):
+        opt = build_optimizer(
+            "gp_mapping", _quadratic_space(), seed=3, n_init=4, batch_size=batch_size, max_trials=12
         )
         opt.tell([result_of(s, _quadratic(s.values)) for s in opt.ask(n=4)])
 
         first = opt.ask(n=1)[0]
-        queued = len(opt._batch_queue)
+        assert len(opt._batch_queue) == queued
+        head = opt._batch_queue[0].copy()
         second = opt.ask(n=1)[0]
 
-        assert queued == 2
-        assert len(opt._batch_queue) == 1
+        assert len(opt._batch_queue) == queued - 1
+        assert np.array_equal(opt._pending[second.trial_id], head)
         assert first.values != second.values
 
     @pytest.mark.parametrize("broken", ["fit", "minimize"])

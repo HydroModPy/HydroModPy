@@ -58,7 +58,8 @@ dependencies = [
     # Stays below 3: the stored-session read-back returns NaN where it returned
     # None (tests/regression/frozen_runs), measured on pandas 3.1.0 on 2026-11-03.
     "pandas>=2.3.3,<3",
-    "Pillow>=12.0.0,<14",
+    # 13.0.0 is the first version with the 2026 security fixes.
+    "Pillow>=13.0.0,<14",
     "optuna>=4.8.0,<6",
     "plotly>=6.7.0,<8",
     "pint>=0.25.3,<1",

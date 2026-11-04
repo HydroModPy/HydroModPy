@@ -537,6 +537,22 @@ def test_a_need_beyond_half_the_budget_is_not_granted(caplog) -> None:
     assert "nothing is granted" in caplog.text
 
 
+class _DryAfterTwo(_FarFromItsRule):
+    """A judged engine that runs out of points after two, still saying it needs three."""
+
+    evaluations_remaining = 3
+
+    def ask(self, n: int = 1) -> list[ParamSuggestion]:
+        return super().ask(n) if self._trial < 2 else []
+
+
+def test_an_engine_that_ran_out_of_points_is_granted_no_extension() -> None:
+    session = run_engine(_log_space(), _DryAfterTwo(), _root_at(50.0), 10)
+
+    assert session.extension == 0
+    assert len(session.history) == 2
+
+
 def test_an_engine_with_a_rule_names_it_and_a_budget_engine_does_not() -> None:
     assert stopping_rule(_nancon()) == "rel_tol"
     assert stopping_rule(build_optimizer("random_search", _log_space(), seed=1)) == BUDGET_RULE
@@ -1003,9 +1019,10 @@ def test_an_engine_that_stops_on_its_budget_refuses_a_precision() -> None:
         stopping_kwargs("grid", ParameterSpace([K]), precision=0.10)
 
 
-def test_a_precision_that_is_not_positive_is_refused() -> None:
-    with pytest.raises(ValueError, match="strictly positive, got -0.1"):
-        stopping_kwargs("scipy_nelder_mead", ParameterSpace([K]), precision=-0.1)
+@pytest.mark.parametrize("precision", [-0.1, 0.0])
+def test_a_precision_that_is_not_positive_is_refused(precision: float) -> None:
+    with pytest.raises(ValueError, match=f"strictly positive, got {precision}"):
+        stopping_kwargs("scipy_nelder_mead", ParameterSpace([K]), precision=precision)
 
 
 def test_a_precision_on_a_space_without_parameters_is_refused() -> None:

@@ -15,11 +15,13 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from hydromodpy.calibration.observations.natural_observations import (  # noqa: E402
+from validation_cases.calibration.network_transient_b0.natural_observations import (  # noqa: E402
     score_natural_network_transient_candidate,
     write_natural_observation_package,
 )
-from hydromodpy.calibration.reporting import build_network_transient_html  # noqa: E402
+from validation_cases.calibration.network_transient_b0.network_transient_html import (
+    build_network_transient_html,
+)  # noqa: E402
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_OUTPUT_DIR = SCRIPT_DIR / "outputs" / "synthetic_smoke"
@@ -130,9 +132,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _line_geometry(n_cells: int = 10) -> tuple[np.ndarray, np.ndarray]:
-    centroids = np.column_stack(
-        [np.arange(n_cells, dtype=float), np.zeros(n_cells, dtype=float)]
-    )
+    centroids = np.column_stack([np.arange(n_cells, dtype=float), np.zeros(n_cells, dtype=float)])
     area = np.ones(n_cells, dtype=float)
     return centroids, area
 

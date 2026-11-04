@@ -418,7 +418,7 @@ visible flow
   Minimum flow that a cell must carry to count as "flowing" on the persistence maps: 1 L/s by
   default. It is a convention.
 
-  *In the file:* {toml}`calibration.outputs.<name>.extent.visible_flow`.
+  *In the file:* {toml}`calibration.outputs.<name>.model.extent.visible_flow`.
 
 water budget
   What enters the aquifer (recharge), what leaves it (drainage) and the change in storage. Its

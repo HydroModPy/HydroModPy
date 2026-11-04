@@ -1,5 +1,7 @@
 # B0 network and transient-discharge calibration prototype
 
+The B0 case code lives in `validation_cases/calibration/network_transient_b0/`, with `run_synthetic_smoke.py` and `score_candidate_table.py`. The scripts here import it as `validation_cases`, which the wheel does not install, so they run from a clone of the repository.
+
 This example is intentionally separate from the existing comparison testbeds.
 Its purpose is to develop the joint calibration contract without changing the
 general calibration API too early.
@@ -27,7 +29,7 @@ It should not modify:
 - existing Boussinesq/MODFLOW comparison examples.
 
 The first implementation should instead use a dedicated Python metric function
-that calls pure helpers from `hydromodpy.calibration.network_metrics`.
+that calls pure helpers from `validation_cases/calibration/network_transient_b0/network_cost.py`.
 
 ## Planned layout
 
@@ -36,9 +38,7 @@ examples/projects/12_calibration_network_transient_b0/
   README.md
   candidates_template.csv
   build_truth_package.py
-  run_synthetic_smoke.py
   score_candidate.py
-  score_candidate_table.py
   configs/
     truth_steady_network.toml
     truth_transient_discharge.toml
@@ -94,7 +94,7 @@ Before launching MODFLOW 6 grids, the full B0 scoring contract can be exercised
 on deterministic arrays:
 
 ```bash
-python examples/projects/12_calibration_network_transient_b0/run_synthetic_smoke.py
+python validation_cases/calibration/network_transient_b0/run_synthetic_smoke.py
 ```
 
 The script writes:
@@ -155,7 +155,7 @@ For a first `{mK, Sy}` exploration, create a CSV following
 candidate runs. Then run:
 
 ```bash
-python examples/projects/12_calibration_network_transient_b0/score_candidate_table.py \
+python validation_cases/calibration/network_transient_b0/score_candidate_table.py \
   --truth-dir examples/projects/12_calibration_network_transient_b0/truth \
   --candidates-csv examples/projects/12_calibration_network_transient_b0/candidates.csv \
   --output-csv examples/projects/12_calibration_network_transient_b0/outputs/candidate_scores.csv

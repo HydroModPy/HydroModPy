@@ -250,7 +250,7 @@ harmonic mean `length_f1_ratio` and the Hausdorff distance of the two networks
 ```{hmp-params}
 simulation.results.keep_per_cell_budget
 calibration.outputs.<name>.model.seepage_threshold
-calibration.outputs.<name>.extent.visible_flow
+calibration.outputs.<name>.model.extent.visible_flow
 ```
 
 ## Checked by
