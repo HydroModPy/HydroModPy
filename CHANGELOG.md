@@ -33,6 +33,10 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
+### Security
+
+- `Pillow` now starts at 13.0.0, the first version with the 2026 security fixes.
+
 ### Fixed
 
 - `hmp doctor --fix-config` now moves a `maxfev`-style option of a calibration phase into `max_trials` when the phase takes its method from `[calibration]`, and keeps the section's budget as a bound.
