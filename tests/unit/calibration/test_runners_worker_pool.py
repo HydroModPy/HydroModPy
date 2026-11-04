@@ -327,6 +327,33 @@ def test_a_worker_sends_the_outcome_the_rows_and_the_solve_it_kept(
         assert (kept.trial_id, kept.folders) == (5, (_folder(trial_ctx, 5),))
 
 
+class _Sinkless(_Scripted):
+    evaluator_id: ClassVar[str] = "sinkless_for_the_pool"
+
+    def __init__(self, *, trial_ctx: TrialContext) -> None:
+        pass
+
+    def evaluate(self, request: TrialRequest) -> TrialOutcome:
+        return TrialOutcome(cost=1.0, status="completed", duration_s=0.0)
+
+
+def test_a_worker_whose_evaluator_has_no_series_sink_sends_no_rows(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setattr(registry._ENGINE, "classes", {})
+    state = pickle.dumps(
+        (_Sinkless, {"trial_ctx": _trial_ctx(tmp_path)}, False, current_verbosity())
+    )
+    conn = Mock(
+        recv_bytes=Mock(return_value=state),
+        recv=Mock(side_effect=[TrialRequest(trial_id=1, values={}), EOFError()]),
+    )
+
+    _serve(conn)
+
+    assert conn.send.call_args.args[0][1:] == ([], None)
+
+
 def test_a_worker_leaves_its_group_silences_fd_one_and_serves(monkeypatch) -> None:
     calls = []
     monkeypatch.setattr(worker_pool.os, "setsid", lambda: calls.append("setsid"))

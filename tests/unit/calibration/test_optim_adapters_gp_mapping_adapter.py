@@ -42,6 +42,10 @@ def _quadratic_space() -> ParameterSpace:
     )
 
 
+def _space_of(lower: float, upper: float) -> ParameterSpace:
+    return ParameterSpace([CalibParameter(name="x", lower=lower, upper=upper)])
+
+
 def _quadratic(values: dict) -> float:
     """Simple convex quadratic with unique minimum at the origin."""
     x = float(values["x"])
@@ -191,6 +195,9 @@ class TestGPMappingFailuresAndBatches:
 
         assert not opt._distinct(np.array([0.004, 0.0]), [origin])
         assert opt._distinct(np.array([0.0, 0.008]), [origin])
+        # Below one unit the span is the bounds' own, here a hundredth.
+        narrow = build_optimizer("gp_mapping", _space_of(0.0, 0.01), seed=3)
+        assert narrow._distinct(np.array([0.0005]), [np.zeros(1)])
 
     def test_a_search_with_no_completed_trial_fits_nothing_and_draws_inside_the_bounds(self):
         space = ParameterSpace([CalibParameter(name="x", lower=5.0, upper=10.0)])
@@ -232,19 +239,19 @@ class TestGPMappingFailuresAndBatches:
 
         assert (opt._last_ei, opt._low_ei_streak) == (pytest.approx(last_ei), streak)
 
-    def test_a_batch_is_served_from_one_fit(self):
+    @pytest.mark.parametrize(("batch_size", "queued"), [(3, 2), (2, 1)])
+    def test_a_batch_is_served_from_one_fit(self, batch_size, queued):
         opt = build_optimizer(
-            "gp_mapping", _quadratic_space(), seed=3, n_init=4, batch_size=3, max_trials=12
+            "gp_mapping", _quadratic_space(), seed=3, n_init=4, batch_size=batch_size, max_trials=12
         )
         opt.tell([result_of(s, _quadratic(s.values)) for s in opt.ask(n=4)])
 
         first = opt.ask(n=1)[0]
-        queued = len(opt._batch_queue)
+        assert len(opt._batch_queue) == queued
         head = opt._batch_queue[0].copy()
         second = opt.ask(n=1)[0]
 
-        assert queued == 2
-        assert len(opt._batch_queue) == 1
+        assert len(opt._batch_queue) == queued - 1
         assert np.array_equal(opt._pending[second.trial_id], head)
         assert first.values != second.values
 

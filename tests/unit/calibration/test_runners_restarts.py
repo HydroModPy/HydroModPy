@@ -200,22 +200,21 @@ class TestSideBySide:
         assert best.best_cost == pytest.approx(1.0)
 
     def test_the_width_caps_the_restarts_running_at_once(self) -> None:
-        meeting = threading.Barrier(2, timeout=2.0)
-        lock = threading.Lock()
-        running = peak = 0
+        meeting, leaving = threading.Barrier(2, timeout=2.0), threading.Barrier(2, timeout=2.0)
+        third_started = threading.Event()
 
-        def run_one(_seed, _start, _index):
-            nonlocal running, peak
-            with lock:
-                running += 1
-                peak = max(peak, running)
-            meeting.wait()
-            with lock:
-                running -= 1
+        def run_one(_seed, _start, index):
+            if index >= 2:
+                third_started.set()
+            else:
+                meeting.wait()
+                # Both places are taken, so no third restart can have begun.
+                assert not third_started.wait(timeout=0.05)
+                leaving.wait()
             return _report(1.0, K=1e-5, Sy=0.01)
 
         run_restarts(run_one, method="scipy_nelder_mead", space=SPACE, restarts=4, seed=0, width=2)
-        assert peak == 2
+        assert third_started.is_set()
 
     def test_a_failure_of_a_restart_calls_the_stop_hook(self) -> None:
         stopped = []

@@ -341,7 +341,8 @@ class TestOptunaAdapter:
 
     @pytest.mark.parametrize(
         ("sampler", "width", "counts_the_trials_in_flight"),
-        [("tpe", 1, False), ("tpe", 2, True), ("tpe", 8, True), ("random", 8, False)],
+        [("tpe", {}, False), ("tpe", {"width": 1}, False), ("tpe", {"width": 2}, True)]
+        + [("tpe", {"width": 8}, True), ("random", {"width": 8}, False)],
     )
     def test_tpe_counts_the_trials_in_flight_from_a_width_of_two(
         self, sampler, width, counts_the_trials_in_flight
@@ -349,7 +350,7 @@ class TestOptunaAdapter:
         with warnings.catch_warnings():
             # The option is experimental in Optuna, and the user is not told so.
             warnings.simplefilter("error")
-            opt = build_optimizer("optuna", _space_2d(), sampler=sampler, seed=0, width=width)
+            opt = build_optimizer("optuna", _space_2d(), sampler=sampler, seed=0, **width)
         assert getattr(opt._study.sampler, "_constant_liar", False) is counts_the_trials_in_flight
 
 
@@ -696,7 +697,12 @@ def test_a_parallel_batch_is_journaled_as_each_trial_ends_unless_the_engine_mark
     if marks_after_reading:
         optimizer.marks_unread = True
     main = threading.get_ident()
-    seen: list[tuple[int, bool]] = []
+    seen: list[tuple[int, bool, float]] = []
+    updates: list[tuple[int, float]] = []
+    reporter = SimpleNamespace(
+        update=lambda trial_id, result: updates.append((trial_id, result.cost)),
+        close=lambda: None,
+    )
 
     run_engine(
         unit_space(),
@@ -705,10 +711,14 @@ def test_a_parallel_batch_is_journaled_as_each_trial_ends_unless_the_engine_mark
         2,
         batch_size=2,
         parallel=2,
-        on_iteration=lambda *_: seen.append((len(optimizer._told), threading.get_ident() == main)),
+        progress=reporter,
+        on_iteration=lambda sugg, result: seen.append(
+            (len(optimizer._told), threading.get_ident() == main, result.cost)
+        ),
     )
 
-    assert seen == [(told_at_journal, True)] * 2
+    assert sorted(seen) == [(told_at_journal, True, 0.1), (told_at_journal, True, 0.2)]
+    assert sorted(updates) == [(1, 0.1), (2, 0.2)]
 
 
 @pytest.mark.parametrize(

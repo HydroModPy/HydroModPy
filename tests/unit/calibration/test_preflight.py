@@ -1307,7 +1307,8 @@ def _balanced(
     trials: int | str = 3,
 ) -> str:
     """A grid of three points is enough, since it walks the structure alone."""
-    options = "method_options = { points_per_dim = 3 }\n" if method == "grid" else ""
+    counts = {"grid": "points_per_dim = 3", "lhs": "n_samples = 5"}
+    options = f"method_options = {{ {counts[method]} }}\n" if method in counts else ""
     return (
         f"@GRID\n@K\n@SY\n{scored}\n[[calibration.phases]]\n"
         f'name = "s"\nmethod = "{method}"\nmax_trials = {json.dumps(trials)}\n{options}'
@@ -1388,6 +1389,10 @@ def _two_bounds(tmp_path: Path, method: str, moved: str, weights: str = "0.5") -
             _UNCOUNTED,
         ),
         (_balanced('["K", "Sy"]', "mean", method="scipy_nelder_mead", trials=5), None, _UNCOUNTED),
+        (_balanced('["K", "Sy"]', "mean", method="lhs", trials="auto"), None, _UNCOUNTED),
+        (_balanced('["K", "Sy"]', "mean", method="bisection", trials="auto"), None, _UNCOUNTED),
+        # The phase scores the gauge alone, though the file declares a block on the network.
+        (_balanced('["K", "Sy"]', "q", _ON_THE_NETWORK + _ON_A_GAUGE), "error", _REFUSED_BALANCE),
         (_factor_beside("steady", "@K\n"), "error", _RIDGE),
         (_factor_beside("transient", "@K\n"), "warning", _RIDGE),
         (_factor_beside("steady", ""), None, _RIDGE),
@@ -2469,6 +2474,16 @@ _MONO, _PHASE_S = "[calibration]", "[[calibration.phases]] 's'"
             "lhs cannot draw",
         ),
         (
+            '[calibration]\nmethod = "bisection"\n'
+            + _TWO_LOG_PARAMS
+            + '[[calibration.phases]]\nname = "a"\nmethod = "nope"\nparameters = ["K"]\n'
+            'objective_blocks = ["gap"]\n[[calibration.phases]]\nname = "b"\n'
+            'method = "bisection"\nparameters = ["K", "Sy"]\nobjective_blocks = ["gap"]\n',
+            "error",
+            "[[calibration.phases]] 'b'",
+            "moves 1 parameter(s)",
+        ),
+        (
             '[calibration]\nmethod = "bisection"\n[calibration.parameters.K]\n'
             'bounds = [1e-7, 1e-3]\nsearch_space = "identity"\n@NETROOT\n@GAP',
             "error",
@@ -2531,6 +2546,26 @@ def test_a_minimiser_phase_on_two_bounds_is_refused_by_its_own_method(tmp_path) 
 
     assert [(f.severity, f.where) for f in found] == [("error", _PHASE_S)]
     assert "'scipy_nelder_mead' would return" in found[0].detail
+
+
+def test_a_phase_that_scores_the_gauge_alone_closes_one_root_whatever_the_file_declares(
+    tmp_path,
+) -> None:
+    phase = (
+        '[[calibration.phases]]\nname = "s"\nmethod = "scipy_nelder_mead"\nparameters = ["K"]\n'
+        'objective_blocks = ["gap", "q"]\noutputs = ["gauge"]\n'
+    )
+    doc = (
+        '[calibration]\nmethod = "bisection"\n@KLOG\n@GAUGE\n@GAP\nnormalize_cost = true\n'
+        + _outputs(tmp_path)
+        + _ON_A_GAUGE.removeprefix("@GAUGE\n")
+        + "normalize_cost = true\n"
+        + phase
+    )
+
+    found = [f.detail for f in preflight_of(tmp_path, doc)]
+
+    assert [text for text in found if _TWO_METHODS in text or "does not load" in text] == []
 
 
 def test_a_balanced_phase_finding_names_its_phase_and_its_precision(tmp_path) -> None:

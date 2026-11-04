@@ -356,6 +356,16 @@ def test_a_result_naming_no_pending_trial_answers_the_oldest_one() -> None:
     assert first.trial_id == 1
 
 
+@pytest.mark.parametrize(("status", "cost"), [("failed", 5.0), ("completed", math.nan)])
+def test_a_simplex_reads_a_result_with_no_usable_cost_as_the_failure_cost(status, cost) -> None:
+    adapter = ScipyNelderMead(_space())
+    (first, *_) = adapter.ask(2)
+
+    adapter.tell([EvaluationResult(trial_id=first.trial_id, sim_id=None, cost=cost, status=status)])
+
+    assert adapter._simplex.used[0].value == FAILED_EVAL_COST
+
+
 def test_a_result_with_nothing_pending_is_dropped() -> None:
     adapter = ScipyNelderMead(_space(), maxfev=1)
     (only,) = adapter.ask(1)

@@ -13,9 +13,11 @@ from types import SimpleNamespace
 import pytest
 
 from hydromodpy.calibration.optim.adapters.bisection_adapter import (
+    BOUNDS_COMPONENT,
     LOG10_ONE_PERCENT,
     BalancedSearch,
     BisectionAdapter,
+    RootTarget,
     root_search_budget,
     roots_scored,
     signed_residual,
@@ -204,6 +206,24 @@ class TestRefusal:
         blind = result_of(suggestion, 1.0, components={"rmse": 1.0})
         with pytest.raises(ObjectiveError, match="published no 'J_signed'"):
             adapter.tell([blind])
+
+    def test_the_targets_are_decided_once_by_the_first_trial_that_scored(self) -> None:
+        adapter = BisectionAdapter(_space(), sweep_points=3)
+        scored_at, lost_at, later_at = adapter.ask(n=3)
+        lost = result_of(lost_at, math.nan, status="failed")
+        scored = result_of(scored_at, 1.0, components={"J_signed": 1.0})
+        # Two bounds only now: the targets fixed by the trial before stay.
+        later = {
+            "J_signed": -1.0,
+            BOUNDS_COMPONENT: 2.0,
+            "weight_minimal": 1.0,
+            "weight_maximal": 1.0,
+        }
+
+        adapter.tell([lost, scored, result_of(later_at, 1.0, components=later)])
+
+        assert adapter._targets == (RootTarget("J_signed"),)
+        assert sorted(adapter._residuals) == [1, 3]
 
 
 class TestSignedComponentLookup:

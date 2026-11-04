@@ -537,6 +537,22 @@ def test_a_need_beyond_half_the_budget_is_not_granted(caplog) -> None:
     assert "nothing is granted" in caplog.text
 
 
+class _DryAfterTwo(_FarFromItsRule):
+    """A judged engine that runs out of points after two, still saying it needs three."""
+
+    evaluations_remaining = 3
+
+    def ask(self, n: int = 1) -> list[ParamSuggestion]:
+        return super().ask(n) if self._trial < 2 else []
+
+
+def test_an_engine_that_ran_out_of_points_is_granted_no_extension() -> None:
+    session = run_engine(_log_space(), _DryAfterTwo(), _root_at(50.0), 10)
+
+    assert session.extension == 0
+    assert len(session.history) == 2
+
+
 def test_an_engine_with_a_rule_names_it_and_a_budget_engine_does_not() -> None:
     assert stopping_rule(_nancon()) == "rel_tol"
     assert stopping_rule(build_optimizer("random_search", _log_space(), seed=1)) == BUDGET_RULE

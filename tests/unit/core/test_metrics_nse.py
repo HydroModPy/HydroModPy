@@ -64,7 +64,7 @@ def test_log_nse_perfect_match():
 
 def _cycle(t: np.ndarray) -> np.ndarray:
     angle = 2.0 * np.pi * t / 365.0
-    return 10.0 + 2.0 * np.cos(angle) + 0.5 * np.sin(2.0 * angle)
+    return 10.0 + 2.0 * np.cos(angle) + 0.5 * np.sin(2.0 * angle) + 0.3 * np.cos(2.0 * angle)
 
 
 def test_nse_seasonal_by_hand_on_exactly_two_cycles() -> None:
