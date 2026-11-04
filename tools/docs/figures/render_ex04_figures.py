@@ -17,7 +17,8 @@ Stages (``--stage``), each one idempotent:
     Steps 3 and 6 and the calibration need the network on their first run.
 ``figures``
     Redraw the figures from the stored runs (Understand, staircase, solvers,
-    catalog) and write the manifest.
+    calibrate, catalog) and write the manifest. The group ``targets`` writes the
+    output of ``hmp config targets`` that the calibration guide quotes.
 
 The ``solvers`` group compares the two solvers on the same file: two copies of
 the reference, one solved by MODFLOW 6 and one by MODFLOW-NWT, both storing
@@ -114,11 +115,8 @@ CALIBRATION = RunSpec(
     needs_network=False,
     note="two stages, K on the mapped network then Sy on the gauge",
 )
-# The promoted run of the second stage: the one the Understand pages describe.
-CALIBRATED_RUNS = (
-    "nancon_intermittence_mf6_calibrated_transient_storage",
-    "nancon_intermittence_mf6_calibrated_steady_conductivity",
-)
+# The run the calibration promotes: the one the Understand pages describe.
+CALIBRATED_RUNS = ("nancon_intermittence_mf6_calibrated",)
 
 
 # -- what is drawn -------------------------------------------------------------
@@ -143,6 +141,10 @@ STEP_KEY_FIGURE = {
     5: "watertable_depth_map",
     6: "flux_timeseries",
 }
+
+# The calibrate group: the figures of the calibration guide, drawn from the promoted run.
+CALIBRATE_FIGURES = ("matching_hydrographic_network_card",)
+TARGETS_TXT = OUT_ROOT / "calibrate" / "targets.txt"
 
 # The solvers group: each solver copy on its own, then the NWT copy against the MF6 one.
 SOLVER_PAGE = "theory/validation.md"
@@ -227,7 +229,7 @@ def _existing_runs(project: Path) -> set[str]:
     from hydromodpy.results.catalog import Catalog
 
     try:
-        with Catalog(project, read_only=True) as catalog:
+        with Catalog(project) as catalog:
             frame = catalog.list_simulations()
     except Exception:  # no index yet: nothing ran
         return set()
@@ -289,12 +291,7 @@ def stage_runs(workspace: Path, cores: int, only: set[str]) -> None:
             continue
         if spec in SOLVER_RUNS:
             solver_variant(project, spec)
-        # A calibration writes several runs; its first stage name is enough to tell.
-        probe = (
-            "nancon_intermittence_mf6_calibrated_transient_storage"
-            if spec is CALIBRATION
-            else spec.run
-        )
+        probe = spec.run
         if probe in done:
             print(f"= {spec.toml}: run {probe} exists", flush=True)
             continue
@@ -364,7 +361,7 @@ class Drawer:
     def __init__(self, project: Path) -> None:
         from hydromodpy.results.catalog import Catalog
 
-        self.catalog = Catalog(project, read_only=True)
+        self.catalog = Catalog(project)
         self.project = project
         self._runs: dict[str, Any] = {}
         self.leftovers: list[tuple[str, str]] = []
@@ -578,6 +575,23 @@ def stage_figures(workspace: Path, only: set[str]) -> list[Entry]:
                         pages=[page, "get-started/staircase/index.md"] if is_key else [page],
                     )
 
+    if wanted("calibrate"):
+        print("calibrate", flush=True)
+        for figure in CALIBRATE_FIGURES:
+            run = next((n for n in CALIBRATED_RUNS if drawer.can_draw(n, figure) is None), None)
+            if run is None:
+                print(f"  {figure}: no calibrated run can draw it, skipped", flush=True)
+                continue
+            for dark in (False, True):
+                emit(
+                    "calibrate",
+                    figure,
+                    run,
+                    f"calibrate/{figure}",
+                    dark=dark,
+                    pages=["get-started/calibrate-k.md"],
+                )
+
     if wanted("solvers"):
         print("solvers", flush=True)
         jobs = [(figure, spec.run, None) for spec in SOLVER_RUNS for figure in SOLVER_EACH]
@@ -603,6 +617,17 @@ def stage_figures(workspace: Path, only: set[str]) -> list[Entry]:
     if drawer.leftovers:
         print("run name still in a figure text:", drawer.leftovers, flush=True)
     return entries
+
+
+def stage_targets(workspace: Path) -> None:
+    """Write what ``hmp config targets`` prints for the calibration file of the example."""
+    project = workspace / "projects" / EXAMPLE_DIR
+    command = [sys.executable, "-m", "hydromodpy", "config", "targets", CALIBRATION.toml]
+    done = subprocess.run(
+        command, cwd=project, env=_env(1), capture_output=True, text=True, check=True
+    )
+    write(TARGETS_TXT, done.stdout.encode())
+    print(f"  {TARGETS_TXT.relative_to(ROOT)}", flush=True)
 
 
 def stage_catalog(workspace: Path) -> list[Entry]:
@@ -723,7 +748,7 @@ def write_manifest(entries: list[Entry]) -> None:
         f"thumbnail_width = {THUMB_WIDTH}",
         "",
     ]
-    order = {"understand": 0, "staircase": 1, "solvers": 2, "catalog": 3}
+    order = {"understand": 0, "staircase": 1, "solvers": 2, "calibrate": 3, "catalog": 4}
     for row in sorted(rows.values(), key=lambda r: (order[r["kind"]], r.get("step", 0), r["path"])):
         lines.append("[[figure]]")
         lines += [f"{key} = {_toml_value(value)}" for key, value in row.items()]
@@ -748,7 +773,7 @@ def main(argv: list[str] | None = None) -> int:
         default="",
         help=(
             "comma list: runs (step1..step6, reference, solver_mf6, solver_nwt, calibrated, demo); "
-            "figures (understand, staircase, solvers, catalog)"
+            "figures (understand, staircase, solvers, calibrate, targets, catalog)"
         ),
     )
     args = parser.parse_args(argv)
@@ -762,6 +787,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.stage in ("figures", "all"):
         os.environ.setdefault("MPLBACKEND", "Agg")
         entries = stage_figures(workspace, only)
+        if not only or "targets" in only:
+            stage_targets(workspace)
         if not only or "catalog" in only:
             entries += stage_catalog(workspace)
         write_manifest(entries)

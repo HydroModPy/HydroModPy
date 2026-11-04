@@ -479,6 +479,9 @@ def calibrate(
     To read what a file declares without running anything, use
     :func:`calibration_phases`.
 
+    A script that calibrates with ``parallel`` above 1 needs the
+    ``if __name__ == "__main__":`` guard, because the workers start in spawn.
+
     Parameters
     ----------
     config
