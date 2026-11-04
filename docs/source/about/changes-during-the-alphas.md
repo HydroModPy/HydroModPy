@@ -509,7 +509,7 @@ This page keeps, as written, the development notes of `[Unreleased]` and of the 
 - Documentation: `get-started/concepts.md` on the six words of the target, the pages
   `many-catchments` and `cluster`, the glossary entries attempt, case, gauge, plan, recipe, run,
   run label, session, site, summary; the generated reference marks a `site_scoped` field as
-  « varies by site »; the site selection file has its own parameter page.
+  "varies by site"; the site selection file has its own parameter page.
 - The run writes itself without the index (`hydromodpy/results/storage/`): `RunStore(run_dir)` holds
   the Zarr and Parquet writers of the former Catalog, its facts in `<run>/.hmp/checkpoints/facts.json`
   and the identity and licence in every Parquet footer; `claim_run_directory()` claims `runs/<name>`

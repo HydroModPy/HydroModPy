@@ -29,10 +29,11 @@ import pandas as pd
 
 HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parents[2]
-if str(HERE) not in sys.path:
-    sys.path.insert(0, str(HERE))
+for path in (HERE, REPO_ROOT):
+    if str(path) not in sys.path:
+        sys.path.insert(0, str(path))
 
-from hydromodpy.calibration.observations.network_transient_truth import (  # noqa: E402
+from validation_cases.calibration.network_transient_b0.network_transient_truth import (  # noqa: E402
     q_total_release_from_drain_by_cell,
     score_network_transient_candidate,
 )
@@ -457,7 +458,6 @@ def _write_steady_light_base_config() -> Path:
     recharge_values = _source_recharge_values_mm_per_day(payload)
     steady_recharge = float(np.mean(recharge_values)) if recharge_values.size else 0.0
     payload["simulation"]["name"] = "b0_light_steady_mf6"
-    payload["simulation"]["run_id"] = "b0_light_steady_mf6"
     payload["workspace"]["project_root"] = str((LIGHT_ROOT / "steady_workspace").resolve())
     payload["simulation"]["time"] = {
         "start_datetime": "2000-09-01T00:00:00",
@@ -479,10 +479,12 @@ def _write_steady_light_base_config() -> Path:
         ],
     }
     payload["flow"]["flow_regime"] = "steady"
-    payload["flow"]["active_sinks_sources"] = ["recharge"]
-    payload["flow"]["active_bc"] = ["drainage"]
     payload["flow"]["ic"] = _steady_ic_payload()
     _set_payload_recharge_values(payload, steady_recharge)
+    # The steady run keeps the recharge and the drainage only.
+    flow = payload["flow"]
+    flow["sinks_sources"] = {"recharge": flow["sinks_sources"]["recharge"]}
+    flow["bc"] = {"drainage": flow.get("bc", {}).get("drainage", {})}
     _set_payload_k_field(payload)
     payload["flow"]["param"]["Sy"]["field"]["value"] = "0.05 -"
     mesh_hydraulic = payload.get("mesh_catchment", {}).get("hydraulic_properties", {})
@@ -502,8 +504,8 @@ def _write_steady_light_base_config() -> Path:
 
 def _steady_ic_payload() -> dict[str, str]:
     if STEADY_IC_TYPE == "top_offset":
-        return {"type": "top_offset", "value": f"{STEADY_IC_OFFSET_M:.16g} m"}
-    return {"type": STEADY_IC_TYPE}
+        return {"kind": "top_offset", "value": f"{STEADY_IC_OFFSET_M:.16g} m"}
+    return {"kind": STEADY_IC_TYPE}
 
 
 def _write_transient_light_base_config() -> Path:
@@ -511,7 +513,6 @@ def _write_transient_light_base_config() -> Path:
     payload = cfg.model_dump(mode="json", exclude_none=True)
     recharge_values = _source_recharge_values_mm_per_day(payload)
     payload["simulation"]["name"] = "b0_light_transient_mf6"
-    payload["simulation"]["run_id"] = "b0_light_transient_mf6"
     payload["workspace"]["project_root"] = str((LIGHT_ROOT / "workspace").resolve())
     payload.setdefault("display", {})["enabled"] = False
     if recharge_values.size:
@@ -547,9 +548,6 @@ def _source_recharge_values_mm_per_day(payload: dict[str, Any]) -> np.ndarray:
 
 def _set_payload_recharge_values(payload: dict[str, Any], values: float | list[float]) -> None:
     flow = payload.setdefault("flow", {})
-    flow.setdefault("active_sinks_sources", ["recharge"])
-    if "recharge" not in flow["active_sinks_sources"]:
-        flow["active_sinks_sources"].append("recharge")
     sinks_sources = flow.setdefault("sinks_sources", {})
     recharge = sinks_sources.setdefault("recharge", {})
     recharge["values"] = values

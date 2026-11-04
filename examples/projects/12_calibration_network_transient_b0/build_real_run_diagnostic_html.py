@@ -9,7 +9,7 @@ if str(REPO_ROOT) not in sys.path:
 
 
 def main() -> None:
-    from hydromodpy.calibration.reporting.network_transient_html import (
+    from validation_cases.calibration.network_transient_b0.network_transient_html import (
         main as report_main,
     )
 

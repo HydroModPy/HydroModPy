@@ -2003,6 +2003,7 @@
       "type": "object"
     },
     "Validity": {
+      "additionalProperties": true,
       "description": "One check that qualifies a result without penalizing it.\n\n``passed`` is the verdict, ``message`` the sentence a reader who is not a\nhydrogeologist needs. ``fatal`` is true for the few checks whose failure\nmakes the number a fiction rather than coarse.",
       "properties": {
         "fatal": {

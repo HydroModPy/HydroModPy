@@ -73,6 +73,9 @@ Each release section includes the following standard categories:
 - The `calibration_progress` figure of a staged calibration now shows the value a phase froze for a parameter it did not sample, so the run marked best reads `K = 7.96e-05 m/s` instead of `K = nan`, the K panel carries the frozen value, and the K-Sy plane draws the runs of the phase that sampled Sy. It was empty at the base commit too.
 - A TOML written without the keys that hold their default (`exclude_defaults`) no longer gets those keys back as written lines. The template writer now leaves them as comments, so `objective` is not written beside `[[calibration.objective_blocks]]` and the file reloads.
 - The JSON schema of the `data-request` process was regenerated, since a description now says "meters".
+- The result schemas are written the same under every pydantic version. A schema now says `additionalProperties: true` on every object, which pydantic 2.14 did on a dataclass and 2.13 did not.
+- The scripts of examples 12 and 16 import the network and transient case from `validation_cases/calibration/network_transient_b0/`, and run from a clone of the repository.
+- The docs checks of live paths and commands skip the history page `about/changes-during-the-alphas.md`, which records what was true then.
 
 ### Changed
 

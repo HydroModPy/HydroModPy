@@ -15,7 +15,7 @@ of reference are checked, in every file git tracks:
 A path that a build writes (the generated reference, the data of the build, the
 build folder itself) is not in the tree: ``GENERATED`` lists those prefixes.
 With ``--site``, a link must also exist in the built HTML, which covers the
-generated pages. CHANGELOG.md is history and is not read. Exit code 1 when a
+generated pages. CHANGELOG.md and the alphas history page are not read. Exit code 1 when a
 reference is dead.
 """
 
@@ -30,9 +30,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 SUFFIXES = (".md", ".rst", ".py", ".toml", ".yml", ".yaml", ".txt", ".cff", ".cfg", ".ini", ".html")
 # History, this file (it lists the paths it accepts) and the test that writes
-# dead paths on purpose.
+# dead paths on purpose. The alphas page records paths that were true then.
 SKIP_FILES = (
     "CHANGELOG.md",
+    "docs/source/about/changes-during-the-alphas.md",
     "tools/docs/check_refs.py",
     "tests/unit/docs/test_check_refs.py",
 )
