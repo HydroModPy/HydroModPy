@@ -58,6 +58,10 @@ Each release section includes the following standard categories:
 - The warning about `distance_gap` beside another parameter no longer points to `balanced_evaluation`.
 - A run resumed at its derive step says in a warning that no station series is written.
 - One failing observing output no longer drops the series of the others.
+- Two parameters on one path, `path` with `target`, and `mode = "scale"` on a zero or unset value are refused at load instead of silently doing nothing.
+- The registry label of `vka` said Kv/Kh, and the key is Kh/Kv.
+- A calibration that scores different blocks in different phases is no longer refused as a sum of costs of different units.
+- A phased calibration run from a project held in memory no longer fails with a frozen-configuration error when a phase overrides the regime.
 
 ### Changed
 
@@ -81,6 +85,19 @@ Numbers: none.
 - A run stores the series it simulates at each observed station under the id of the station, all in one write. A gauge the mesh cannot place is no longer stored under its own name with the outlet series: it is listed as unscored and a warning names it.
 - A promoted run reads the stations with the outputs of the phase it comes from.
 - `hmp.read(run, "head")` or a lake stage with several stations needs `station=`.
+- `hmp run` ends a calibration with the same lines as `hmp calibrate`. `hmp calibrate` prints the unit after each value.
+- `Project.calibrate()` refuses an unknown argument by its name, and no longer merges extra keywords into the configuration.
+- `sampling = "normal"` is refused by the Optuna engine instead of being drawn as uniform.
+- A raw residual cost in a unit (such as an RMSE in m3/s) beside pure-number costs is refused unless `normalize_cost = true`.
+- The `path` description says it inherits the field's space and draw when the catalogue carries the path.
+- Comments and docstrings cite `hmp config check` instead of `hmp calibrate --check`.
+- The rate of a well now has a physical range, from -1 to 1 m3/s in the unit of the well, whatever its sign. Calibration bounds outside it are refused.
+- A steady search scored on the network alone that moves K and the recharge factor is now refused, because that state reads K/R and nothing else. The same search with other parameters still warns.
+- `factor` is refused beside `[flow.sinks_sources.recharge.soil]`, written in the file or calibrated, because the soil reservoir computes that recharge.
+- `hmp.calibrate("file.toml", ...)` goes through `Project.calibrate(config_path=...)`, so `dry_run`, `case`, `protocol` and `resume` are accepted and an unknown option is a `TypeError` that names it.
+- `hmp campaign promote` lists the five best trials of each phase, because the costs of two phases cannot be compared.
+- Two parameters may write one path when no phase moves both.
+- The `kge` score says why it is NaN when the simulation is constant.
 
 ### Numbers
 
@@ -92,6 +109,9 @@ Numbers: none.
   change in its costs is not measured.
 - None moves. The option is off by default, and the new messages change no result.
 - The composite example changes its network cost; no stored result or golden depends on it.
+- None.
+None. No metric value changes.
+- No number moves at factor 1. No run was replayed for this change.
 
 ### Removed
 
@@ -110,6 +130,17 @@ Numbers: none.
   open or has no dated record to score is refused by name. So is one beside a metric function or another evaluator.
 - A phase can set `balanced_evaluation = true`: every point of its search closes the root of J on K with its own root search, and is scored there. It is meant for comparing structures such as a thickness or a K(z) profile. `max_trials` counts the points, and each point costs about fifteen solves. Off by default, and not yet measured on the synthetic twin.
 - A balanced phase whose outer method cannot count its points and runs with `max_trials = "auto"` is refused, naming the points times the solves of each.
+- `Project.calibrate()` takes `protocol`, `case`, `resume`, `dry_run`, `workspace`, `project`, `project_label`, `metric_fn` and `objective` by name, on every route. `dry_run=True` returns the plan.
+- `hmp campaign promote CASE` without `--trial` lists the five best completed trials.
+- `hmp config targets` shows the search space, the draw and the default bounds of each target. Names with a dot are written between quotes, as TOML needs.
+- The session README gives the best values with their unit and interval, what the cost means and the pairs it was scored on.
+- A parameter on a path the catalogue does not carry now warns that its unit is unknown and the sample is written as drawn.
+- `kge` and `nse_seasonal` say why they return NaN (too few pairs, constant observations, observations summing to zero, fewer than two cycles).
+- `flow.sinks_sources.recharge.factor` multiplies the recharge in force, from `values` or from `[data.recharge]`, gridded or by station. Its default of 1 changes no number. A calibration reaches it as `recharge.factor`, searched in log space between 0.5 and 2 unless the file says otherwise. The run keeps the multiplied recharge in `forcing/` and seals the factor in its config.
+- `vka` can be calibrated under MODFLOW 6 as `[calibration.parameters.vka]`, in log space, with bounds the file states. It is not offered when the project declares `Kv`.
+- `Project.calibrate(protocol=...)` now builds on the parameters and outputs of the project's own `[calibration]` section, and writes the phases on top of them.
+- `hmp config check` refuses the `normal` sampling on the `lhs` and `optuna` methods before anything is prepared.
+- `hmp config check` refuses a calibrated recharge factor when the run carries no recharge rate to multiply, and when `recharge.values` is calibrated beside it.
 
 ## [v2.0.0rc1] - 2026-11-03
 

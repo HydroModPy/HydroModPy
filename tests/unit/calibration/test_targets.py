@@ -12,6 +12,7 @@ from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.optim.parameters import ParameterSpace
 from hydromodpy.calibration.parameter_resolution import resolve_parameter_targets
 from hydromodpy.calibration.targets import (
+    VKA_PATH,
     calibration_targets,
     declared_calibrable,
     targets_by_name,
@@ -28,9 +29,11 @@ from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.physics.flow.sinks_sources.container import FlowSinksSourcesConfig
 from hydromodpy.physics.flow.sinks_sources.recharge import FlowRechargeConfig
 from hydromodpy.physics.hydrology.soil_reservoir.config import SoilReservoirConfig
+from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.spatial.field.field_param_sections import FieldHomogeneousSection
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from tests.unit.calibration._factories import _Project
+from tests.unit.calibration._factories_config import sinks_project
 
 # From test_a_field_declares_itself_calibrable.py
 # The annotation had no reachable field to sit on, so it annotated nothing.
@@ -556,3 +559,58 @@ def test_a_bound_past_the_ceiling_is_refused_not_faced_with_k() -> None:
         resolve_parameter_targets(
             calibration, _project__vertical_profile(kind="exponential", characteristic_depth=30.0)
         )
+
+
+# The recharge factor, the rate of a well and the vertical anisotropy.
+def _well(units: str) -> dict:
+    return {"location": {"kind": "cell", "cell": [0, 0, 0]}, "flux": -0.01, "units": units}
+
+
+@pytest.mark.parametrize(
+    ("name", "units", "physical", "bounds"),
+    [
+        ("recharge.factor", "-", None, (0.5, 2.0)),
+        ("pump.flux", "m3/s", (-1.0, 1.0), None),
+        ("day.flux", "m3/day", (-86400.0, 86400.0), None),
+    ],
+)
+def test_the_factor_and_a_well_read_their_range(name, units, physical, bounds) -> None:
+    wells = {"pump": _well("m3/s"), "day": _well("m3/day")}
+    project = sinks_project(recharge=FlowRechargeConfig(), wells=wells)
+
+    target = targets_by_name(calibration_targets(project))[name]
+
+    assert (target.units, target.physical_bounds, target.calibrable.bounds) == (
+        units,
+        physical,
+        bounds,
+    )
+
+
+@pytest.mark.parametrize(
+    ("param", "backend", "offered"),
+    [
+        (("K",), "modflow6", True),
+        (("K", "Kv"), "modflow6", False),
+        (("K",), "modflow_nwt", False),
+    ],
+)
+def test_vka_is_offered_where_it_is_read(tmp_path, param, backend, offered) -> None:
+    fields = {"kind": "homogeneous", "unit": "m/s", "value": 1e-5}
+    declared = {name: {"field": {"id": name, **fields}} for name in param}
+    cfg = _config(tmp_path, param=declared).model_copy(
+        update={"solver": SolverConfig(backend={"kind": backend})}
+    )
+
+    target = targets_by_name(calibration_targets(cfg)).get("vka")
+
+    assert (target is not None) is offered
+    calibration = CalibrationConfig.model_validate({"parameters": {"vka": {"bounds": [1, 10]}}})
+    if offered:
+        resolve_parameter_targets(calibration, cfg)
+        assert calibration.parameters["vka"].path == VKA_PATH
+        assert calibration.parameters["vka"].search_space == "log"
+        assert (target.current, target.units, target.physical_bounds) == (1.0, "-", (1e-3, 1e2))
+    else:
+        with pytest.raises(ConfigError, match="names nothing this project carries"):
+            resolve_parameter_targets(calibration, cfg)

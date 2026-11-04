@@ -46,12 +46,12 @@ from hydromodpy.calibration.runners.cli_runner import (
     load_toml_calibration,
     search_status,
 )
+from hydromodpy.calibration.runners.recap import search_line
 from hydromodpy.calibration.runners.staged_runner import (
     _frozen_by,
     _require_result_for_dependents,
     _settled,
 )
-from hydromodpy.cli.commands.calibrate import _search_line
 from hydromodpy.core.exceptions import CalibrationError, OptimizerError
 from hydromodpy.results.checks import BUDGET_RULE, CalibratedBy, stop_text
 from hydromodpy.results.session.descriptor import SessionDescriptor
@@ -216,7 +216,7 @@ def test_the_three_states_read_plainly() -> None:
 
 
 def test_the_console_says_why_the_search_stopped() -> None:
-    line = _search_line(
+    line = search_line(
         {
             "converged": False,
             "stop_state": "budget_spent",

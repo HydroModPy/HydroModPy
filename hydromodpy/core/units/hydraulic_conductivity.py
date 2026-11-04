@@ -140,9 +140,10 @@ def convert_payload_to_m_per_s(
     *,
     unit: str,
     label: str = "value",
+    scale: float = 1.0,
 ) -> object:
-    """Convert one scalar/sequence/mapping payload from ``unit`` to ``m/s``."""
-    factor = factor_to_m_per_s(unit)
+    """Convert one scalar/sequence/mapping payload from ``unit`` to ``m/s``, times ``scale``."""
+    factor = factor_to_m_per_s(unit) * scale
     if value is None:
         return None
     if isinstance(value, bool):
@@ -155,6 +156,7 @@ def convert_payload_to_m_per_s(
                 item,
                 unit=unit,
                 label=f"{label}[{key!r}]",
+                scale=scale,
             )
             for key, item in value.items()
         }
@@ -164,6 +166,7 @@ def convert_payload_to_m_per_s(
                 item,
                 unit=unit,
                 label=f"{label}[{index}]",
+                scale=scale,
             )
             for index, item in enumerate(value)
         ]

@@ -11,12 +11,13 @@ from typing import Literal
 import optuna
 
 from hydromodpy.calibration.optim.optimizer import (
+    EngineTraits,
     EvaluationResult,
     ParamSuggestion,
     best_completed,
     register_optimizer,
 )
-from hydromodpy.calibration.optim.parameters import ParameterSpace
+from hydromodpy.calibration.optim.parameters import ParameterSpace, refuse_normal_sampling
 
 _SAMPLERS = {
     "tpe": optuna.samplers.TPESampler,
@@ -31,6 +32,7 @@ class OptunaAdapter:
     """Drive an Optuna study via ask/tell."""
 
     name = "optuna"
+    traits = EngineTraits(draws_a_normal=False)
 
     def __init__(
         self,
@@ -42,6 +44,8 @@ class OptunaAdapter:
     ):
         if sampler not in _SAMPLERS:
             raise ValueError(f"Unknown Optuna sampler {sampler!r}. Choices: {sorted(_SAMPLERS)}")
+        for param in space.parameters:
+            refuse_normal_sampling("optuna", param.name, param.sampling)
         self.space = space
         sampler_cls = _SAMPLERS[sampler]
         sampler_kwargs = {"seed": seed} if seed is not None else {}

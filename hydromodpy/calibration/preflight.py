@@ -84,7 +84,9 @@ def preflight_calibration(config: Any, *, source: str | Path) -> list[PreflightF
     findings.extend(_check_the_budgets(calibration))
     findings.extend(_check_the_interval_widths(calibration))
     findings.extend(_check_the_backend_can_serve_the_outputs(calibration, searched))
-    findings.extend(_check_the_network_criterion_is_not_asked_to_pick_a_ridge(calibration))
+    findings.extend(
+        _check_the_network_criterion_is_not_asked_to_pick_a_ridge(calibration, searched)
+    )
     findings.extend(_check_a_minimiser_on_two_bounds(calibration))
     findings.extend(_check_the_balanced_phases(calibration))
     findings.extend(_check_the_network_search_can_trust_its_release_packages(calibration, searched))
@@ -186,6 +188,7 @@ def _search_configs(
         return {None: config}, []
     from hydromodpy.calibration.optim.parameters import set_by_path
     from hydromodpy.calibration.runners.phase_regime import phase_overrides
+    from hydromodpy.core.config_kit.base import thawed_copy
 
     document: Mapping[str, Any] = {}
     if any(getattr(phase, "regime", None) is not None for phase in phases):
@@ -205,7 +208,8 @@ def _search_configs(
         if not overrides:
             configs[phase.name] = config
             continue
-        written = copy.deepcopy(config)
+        # The configuration of a project is a frozen copy, and the override must land.
+        written = thawed_copy(copy.deepcopy(config))
         try:
             for dotted, value in overrides.items():
                 set_by_path(written, str(dotted), value)
@@ -390,6 +394,8 @@ def comparison_line(row: Mapping[str, Any]) -> str:
     only, formatting shortens it when it sits under the working directory, so
     the line does not carry one checkout's full path.
     """
+    from hydromodpy.calibration.runners.recap import percent
+
     label = row["block"] or "single metric"
     source = _shortened_if_under_cwd(row["source"])
     return (
@@ -405,33 +411,6 @@ def _shortened_if_under_cwd(text: str) -> str:
         return text
     shown = display_path(text)
     return text if Path(shown).is_absolute() else shown
-
-
-def percent(share: float) -> str:
-    """Return a share of the cost as a percentage a reader cannot misread.
-
-    Whole per cents, except near the ends: a share below 1 % keeps one
-    significant digit, so a block weighted 1000 to 1 reads 0.1 % and not 0 %,
-    which would say it is off. A share above 99 % keeps as many decimals as its
-    complement, so the two blocks of that pair still add up to 100 %.
-    """
-    value = float(share) * 100.0
-    if 0.0 < value < 1.0:
-        rounded, decimals = _one_significant_digit(value)
-        return f"{rounded:.{decimals}f}%"
-    if 99.0 < value < 100.0:
-        rounded, decimals = _one_significant_digit(100.0 - value)
-        return f"{100.0 - rounded:.{decimals}f}%"
-    return f"{value:.0f}%"
-
-
-def _one_significant_digit(value: float) -> tuple[float, int]:
-    """Return ``value`` rounded to one significant digit, and its decimals in plain notation."""
-    import math
-
-    decimals = max(0, -math.floor(math.log10(value)))
-    rounded = round(value, decimals)
-    return rounded, max(0, -math.floor(math.log10(rounded)))
 
 
 _DATA_SECTION_BY_FAMILY: Mapping[str, str] = {
@@ -485,12 +464,21 @@ def _check_the_observed_stations_are_loaded(
 
 def _check_parameters(cfg: Any, calibration: Any) -> list[PreflightFinding]:
     """Check every declared parameter against the configuration it will write into."""
-    from hydromodpy.calibration.parameter_resolution import unresolved_parameter_names
+    from hydromodpy.calibration.parameter_resolution import (
+        RECHARGE_FACTOR_PATH,
+        RECHARGE_VALUES_PATH,
+        unresolved_parameter_names,
+    )
     from hydromodpy.calibration.targets import calibration_targets, targets_by_path
+    from hydromodpy.physics.hydrology.soil_reservoir.config import soil_reservoir_of
 
     findings: list[PreflightFinding] = []
     reachable = targets_by_path(calibration_targets(cfg))
     refused_names = unresolved_parameter_names(calibration, cfg)
+    recharge = getattr(getattr(getattr(cfg, "flow", None), "sinks_sources", None), "recharge", None)
+    loaded = getattr(getattr(cfg, "data", None), "types", None) or ()
+    has_a_rate = "recharge" in loaded or (recharge is not None and recharge.peak_rate_mm_day() > 0)
+    targets = {decl.resolve_target() for decl in (calibration.parameters or {}).values()}
     for name, decl in (calibration.parameters or {}).items():
         where = f"[calibration.parameters.{name}]"
         bounds = list(getattr(decl, "bounds", ()) or ())
@@ -513,6 +501,26 @@ def _check_parameters(cfg: Any, calibration: Any) -> list[PreflightFinding]:
                     refused_names.get(name, "").replace(f"{where} ", "", 1)
                     or "names nothing this project carries, and writes no 'path' either.",
                 )
+            )
+            continue
+        if target == RECHARGE_FACTOR_PATH and soil_reservoir_of(cfg.flow) is not None:
+            findings.append(
+                PreflightFinding(
+                    "error",
+                    where,
+                    "moves the recharge factor, and the soil reservoir computes this recharge: "
+                    "there is no rate to multiply. Calibrate ru instead, with its bounds in mm.",
+                )
+            )
+            continue
+        if target == RECHARGE_FACTOR_PATH and (not has_a_rate or RECHARGE_VALUES_PATH in targets):
+            reason = (
+                "the cost sees the product of the two, an exact ridge, so calibrate one"
+                if has_a_rate
+                else "there is no rate to multiply: write recharge values or load [data.recharge]"
+            )
+            findings.append(
+                PreflightFinding("error", where, f"moves the recharge factor, and {reason}.")
             )
             continue
         if target not in reachable:
@@ -780,6 +788,7 @@ def _check_engines(calibration: Any) -> list[PreflightFinding]:
         available_optimizers,
         engine_traits,
     )
+    from hydromodpy.calibration.optim.parameters import refuse_normal_sampling
 
     known = set(available_optimizers())
     options_of = {entry[0]: entry[3] for entry in _declared_precisions(calibration)}
@@ -832,6 +841,12 @@ def _check_engines(calibration: Any) -> list[PreflightFinding]:
                         f"declare(s) another search space.",
                     )
                 )
+        for name in names:
+            try:
+                if not traits.draws_a_normal:
+                    refuse_normal_sampling(method, name, calibration.parameters[name].sampling)
+            except ValueError as refusal:
+                findings.append(PreflightFinding("error", where, str(refusal)))
         if traits.needs_signed_residual and not all(
             _publishes_a_signed_residual(metric) for metric in metrics
         ):
@@ -905,7 +920,7 @@ def _check_the_precision_can_be_honoured(calibration: Any) -> list[PreflightFind
     linearized = _linearized_scored_outputs(calibration)
     if linearized:
         # Same reason as the precision below: the width is built after the
-        # last solve, so `hmp calibrate --check` is where a document that can
+        # last solve, so `hmp config check` is where a document that can
         # never carry one is named, before any of it is paid for. A phased
         # document gets one width per phase (D234), built from what THAT
         # PHASE scores, so each phase is checked on its own selection rather
@@ -1392,7 +1407,7 @@ def _resolved_paths(calibration: Any, names: Iterable[str]) -> list[str | None]:
 
 
 def _check_the_network_criterion_is_not_asked_to_pick_a_ridge(
-    calibration: Any,
+    calibration: Any, searched: Mapping[str | None, Any]
 ) -> list[PreflightFinding]:
     """Warn when an objective scored only on network output(s) moves more than one parameter.
 
@@ -1401,7 +1416,13 @@ def _check_the_network_criterion_is_not_asked_to_pick_a_ridge(
     instance -- form a ridge in that cost, and the search returns one point of
     the ridge rather than an identifiable pair. Not an error: a staged
     protocol may freeze every other parameter first and mean exactly this.
+
+    K beside the recharge factor in a steady search is an error: that state reads
+    K/R and nothing else, so the ridge is exact.
     """
+    from hydromodpy.calibration.parameter_resolution import RECHARGE_FACTOR_PATH
+    from hydromodpy.calibration.runners.prepared_model import moves_a_hydraulic_conductivity
+
     findings: list[PreflightFinding] = []
     for phase, where, names in _search_candidates(calibration):
         if len(names) <= 1:
@@ -1411,9 +1432,15 @@ def _check_the_network_criterion_is_not_asked_to_pick_a_ridge(
             continue
         if not all(output.support == "network" for output in outputs.values()):
             continue
+        moved = _resolved_paths(calibration, names)
+        exact_ridge = (
+            RECHARGE_FACTOR_PATH in moved
+            and moves_a_hydraulic_conductivity(moved)
+            and _search_regime(_config_of(searched, phase), phase) == "steady"
+        )
         findings.append(
             PreflightFinding(
-                "warning",
+                "error" if exact_ridge else "warning",
                 where,
                 f"scores only network output(s) {', '.join(sorted(outputs))} and moves "
                 f"{len(names)} parameters at once ({', '.join(names)}). The network "

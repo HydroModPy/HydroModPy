@@ -379,7 +379,7 @@ class TestProjectCalibratePythonModeDispatch:
         proj = SimpleNamespace(
             _cfg=SimpleNamespace(calibration=SimpleNamespace()), _config_path=None
         )
-        with pytest.raises(ConfigError, match="resum"):
+        with pytest.raises(TypeError, match="'resum'"):
             Project.calibrate(proj, resum=True)
 
     def test_python_mode_requires_parameters(self, project_toml, tmp_path):

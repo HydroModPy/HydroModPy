@@ -28,6 +28,8 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.core.state.paths import encode_workspace_path
 from hydromodpy.data.contracts.spatial_field import INPUT_FILES_KEY
+from hydromodpy.physics.flow.sinks_sources.recharge import recharge_factor_of
+from hydromodpy.physics.forcing.forcing_bridge import scaled_load_result
 from hydromodpy.results.manifest import InputEntry
 from hydromodpy.results.storage.attempt import is_run_product
 from hydromodpy.results.storage.digests import path_size_bytes
@@ -423,6 +425,10 @@ def step_persist_forcings(ctx: WorkflowContext, *, store: SimulationStore) -> No
         for name, obj in sources:
             if obj is None:
                 continue
+            if name == "recharge":
+                # The run keeps the recharge it solved, not the one the source holds.
+                flow_config = getattr(getattr(ctx, "cfg", None), "flow", None)
+                obj = scaled_load_result(obj, recharge_factor_of(flow_config))
 
             if hasattr(obj, "encoded_codes") and hasattr(obj, "encoded_to_zone"):
                 try:

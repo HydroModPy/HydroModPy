@@ -72,7 +72,7 @@ PHYSICAL_BOUNDS: dict[str, PhysicalBound] = {
     "k": PhysicalBound("m/s", 1e-14, 1e2, "hydraulic conductivity"),
     "kh": PhysicalBound("m/s", 1e-14, 1e2, "horizontal hydraulic conductivity"),
     "kv": PhysicalBound("m/s", 1e-14, 1e2, "vertical hydraulic conductivity"),
-    "vka": PhysicalBound("-", 1e-3, 1e2, "vertical anisotropy Kv/Kh"),
+    "vka": PhysicalBound("-", 1e-3, 1e2, "vertical anisotropy Kh/Kv"),
     "k22": PhysicalBound("m/s", 1e-14, 1e2, "hydraulic conductivity along the second axis"),
     # The three angles of the K tensor, in degrees, as MODFLOW 6 NPF reads them.
     # angle1 turns the first axis from east towards north, so it is not a compass
@@ -118,6 +118,9 @@ PHYSICAL_BOUNDS: dict[str, PhysicalBound] = {
     "thickness": PhysicalBound("m", 0.0, 10_000.0, "aquifer thickness"),
     # ---- Fluxes --------------------------------------------------------
     "recharge": PhysicalBound("mm/day", -5000.0, 5000.0, "recharge flux"),
+    # 86 400 m3/day. A well of a regional aquifer pumps below 0.5 m3/s. The sign is
+    # the one of MODFLOW: negative when the well pumps.
+    "flux": PhysicalBound("m3/s", -1.0, 1.0, "well rate"),
     # ---- Soil reservoir ---
     "soil_ru": PhysicalBound("mm", 0.0, 1000.0, "soil available water capacity"),
     "soil_alpha": PhysicalBound("-", 0.01, 1.0, "share of ru below which ETR falls"),

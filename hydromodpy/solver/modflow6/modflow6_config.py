@@ -9,6 +9,7 @@ from typing import Annotated, Literal
 from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.calibrable import Calibrable
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import PositiveFloat, PositiveInt
@@ -271,7 +272,10 @@ class Modflow6ProcessSpecificConfig(HydroModelBase):
             "parameters 'K22', 'angle1', 'angle2' and 'angle3'; a tilt, or a K22 off the "
             "grid axes, turns XT3D on."
         ),
-        json_schema_extra=field_metadata(unit="-"),
+        json_schema_extra=field_metadata(
+            calibrable=Calibrable(search_space="log", sampling="log_uniform", units="-"),
+            unit="-",
+        ),
     )
     evt_extinction_depth: Annotated[PositiveFloat, Profile.EXPERT] = Field(
         default=1.0,

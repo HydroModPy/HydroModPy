@@ -344,6 +344,15 @@ class TestWhatIsRefused:
         assert "heads" in message and "flows" in message
         assert "normalize_cost" in message
 
+    def test_one_raw_residual_beside_dimensionless_scores_is_refused(self) -> None:
+        blocks = [_rmse("heads", "head"), {"name": "flows", "metric": "nse", "uses_outputs": ["q"]}]
+        with pytest.raises(ValueError, match="pure numbers: 'heads' on head"):
+            CalibrationConfig.model_validate(_config(blocks))
+
+    def test_a_parameter_cannot_write_both_path_and_target(self) -> None:
+        with pytest.raises(ValueError, match="two names for one address"):
+            CalibParameterDecl.model_validate({"path": "a.b", "target": "a.c"})
+
 
 class TestWhatIsAccepted:
     def test_normalising_every_dimensionful_member_makes_it_legitimate(self) -> None:
@@ -381,6 +390,20 @@ class TestWhatIsAccepted:
         )
 
         assert len(cfg.objective_blocks) == 2
+
+    def test_blocks_scored_by_different_phases_are_never_added(self) -> None:
+        document = _config(
+            [_rmse("heads", "head"), {"name": "flows", "metric": "nse", "uses_outputs": ["q"]}]
+        )
+        document["parameters"]["R"] = {"bounds": [1e-9, 1e-6]}
+        document["phases"] = [
+            {"name": "p1", "parameters": ["K"], "objective_blocks": ["heads"]},
+            {"name": "p2", "parameters": ["R"], "objective_blocks": ["flows"]},
+        ]
+        assert len(CalibrationConfig.model_validate(document).phases) == 2
+        document["phases"][1]["objective_blocks"] = ["flows", "heads"]
+        with pytest.raises(ValueError, match="pure numbers: 'heads' on head"):
+            CalibrationConfig.model_validate(document)
 
     def test_a_single_block_is_never_a_mix(self) -> None:
         cfg = CalibrationConfig.model_validate(_config([_rmse("heads", "head")]))
@@ -733,10 +756,8 @@ class TestCalibParameterDeclExtensions:
         assert decl.target is None
         assert decl.mode == "replace"
 
-    def test_target_alias_wins_over_path(self):
-        decl = CalibParameterDecl.model_validate(
-            {"path": "flow.properties.k_aquifer", "target": "flow.param.K.field.value"}
-        )
+    def test_target_alias_resolves_when_path_is_absent(self):
+        decl = CalibParameterDecl.model_validate({"target": "flow.param.K.field.value"})
         assert decl.resolve_target() == "flow.param.K.field.value"
 
     def test_path_used_when_target_absent(self):

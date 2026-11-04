@@ -617,12 +617,13 @@ class CalibParameterDecl(HydroModelBase):
         "rather than the way in: when omitted, the section name is resolved against "
         "the project catalogue ('hmp config targets' lists it). Write one to reach a "
         "value the catalogue does not carry, or to settle a name two targets answer "
-        "to. A path written here wins without a lookup, and a parameter that writes "
-        "one inherits nothing from the field it points at.",
+        "to. A path written here wins without a lookup. When the catalogue carries it, "
+        "the parameter inherits the field's space and draw like a named one; when it "
+        "does not, nothing is inherited and the sample is written as it is drawn.",
     )
     target: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description="Readable alias for 'path'. When both are set, 'target' wins.",
+        description="Readable alias for 'path'. Setting both is refused.",
     )
     mode: Annotated[ParameterMode, Profile.USER] = Field(
         default="replace",
@@ -643,6 +644,15 @@ class CalibParameterDecl(HydroModelBase):
         ),
         examples=["m/s"],
     )
+
+    @model_validator(mode="after")
+    def _check_one_address(self) -> CalibParameterDecl:
+        if self.path is not None and self.target is not None:
+            raise ValueError(
+                f"a parameter writes both path={self.path!r} and target={self.target!r}, "
+                "two names for one address. Keep one of them."
+            )
+        return self
 
     def resolve_target(self) -> str | None:
         """Return ``target`` when set, else ``path`` (read-only helper)."""
@@ -2740,44 +2750,51 @@ class CalibrationConfig(HydroModelBase):
         """
         from hydromodpy.calibration.criteria import criterion_for
 
-        if len(self.objective_blocks) < 2:
-            return self
-        raw: dict[str, tuple[str, ...]] = {}
-        for block in self.objective_blocks:
-            if block.normalize_cost:
+        # Each phase adds the blocks it scores, so one is judged with those.
+        for blocks in [self._blocks_scored_by(phase) for phase in self.phases or [None]]:
+            if len(blocks) < 2:
                 continue
-            try:
-                needs = criterion_for(str(block.metric)).requirements()
-            except ValueError:
-                continue
-            if needs.cost_is_dimensionless:
-                continue
-            if not needs.needs_observations and "network" in needs.reads_supports:
-                raw[str(block.name)] = (f"network distance in {needs.cost_unit or 'm'}",)
-                continue
-            families = tuple(
-                sorted(
-                    {
-                        str(getattr(self.outputs[name], "variable", ""))
-                        for name in block.uses_outputs
-                        if name in self.outputs
-                    }
+            raw: dict[str, tuple[str, ...]] = {}
+            residuals: set[str] = set()
+            for block in blocks:
+                if block.normalize_cost:
+                    continue
+                try:
+                    needs = criterion_for(str(block.metric)).requirements()
+                except ValueError:
+                    continue
+                if needs.cost_is_dimensionless:
+                    continue
+                if not needs.needs_observations and "network" in needs.reads_supports:
+                    raw[str(block.name)] = (f"network distance in {needs.cost_unit or 'm'}",)
+                    continue
+                families = tuple(
+                    sorted(
+                        {
+                            str(getattr(self.outputs[name], "variable", ""))
+                            for name in block.uses_outputs
+                            if name in self.outputs
+                        }
+                    )
                 )
-            )
-            raw[str(block.name)] = families
-        distinct = {families for families in raw.values() if families}
-        if len(distinct) > 1:
-            listed = "; ".join(
-                f"{name!r} on {', '.join(families)}" for name, families in sorted(raw.items())
-            )
-            raise ValueError(
-                f"these blocks add costs that carry different units: {listed}. The sum "
-                "would let the unit set the weighting instead of 'weight'. Declare "
-                "normalize_cost = true on each of them (a network distance is then "
-                "counted in validity lengths, a residual in the spread of its "
-                "observations), or score them on a metric whose cost is already a pure "
-                "number."
-            )
+                raw[str(block.name)] = families
+                residuals.add(str(block.name))
+            distinct = {families for families in raw.values() if families}
+            # A network distance is meant to sit beside pure numbers, a residual is not.
+            beside_pure_numbers = bool(residuals) and len(raw) < len(blocks)
+            if len(distinct) > 1 or beside_pure_numbers:
+                listed = "; ".join(
+                    f"{name!r} on {', '.join(families)}" for name, families in sorted(raw.items())
+                )
+                raise ValueError(
+                    f"these blocks add a cost that carries a unit to a cost of another unit or "
+                    f"to pure numbers: {listed}. The sum "
+                    "would let the unit set the weighting instead of 'weight'. Declare "
+                    "normalize_cost = true on each of them (a network distance is then "
+                    "counted in validity lengths, a residual in the spread of its "
+                    "observations), or score them on a metric whose cost is already a pure "
+                    "number."
+                )
         return self
 
     @model_validator(mode="after")
@@ -3043,7 +3060,7 @@ class CalibrationConfig(HydroModelBase):
         way :class:`optim.objective.CompositeObjective` takes its own weights
         before dividing by their sum. Empty for a single-metric route
         (:attr:`CalibPhaseDecl.is_single_metric`, or the section route when it
-        declares no block). ``hmp calibrate --list-phases`` and ``--check``
+        declares no block). ``hmp calibrate --list-phases`` and ``hmp config check``
         read this to say what each block compares with what.
         """
         blocks = self._blocks_scored_by(phase)

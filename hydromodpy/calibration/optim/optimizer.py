@@ -141,6 +141,12 @@ class EngineTraits:
     search that always begins at the same point returns the same answer, so the
     spread it would report would be zero by construction."""
 
+    draws_a_normal: bool = True
+    """Whether the engine can draw a parameter declared with the ``normal`` sampling.
+
+    An engine that cannot refuses it in its constructor, and the preflight reads
+    this to refuse it before anything is prepared."""
+
     restarts_explore_differently: bool = True
     """Whether repeating this engine can land anywhere else.
 
@@ -213,7 +219,7 @@ def choose_method(search_spaces: Mapping[str, str], criteria: Iterable[str]) -> 
     ``criteria`` names the criterion of each objective block it scores.
 
     Each engine of :data:`CHOSEN_FROM` is faced with its ``EngineTraits``, as
-    ``hmp calibrate --check`` faces a written method. The root search needs
+    ``hmp config check`` faces a written method. The root search needs
     ``max_parameters`` at most, each in ``required_search_space``, and, since it
     ``needs_signed_residual``, a signed criterion on every block
     (``CriterionRequirements.signed``): only then is the cost the absolute value

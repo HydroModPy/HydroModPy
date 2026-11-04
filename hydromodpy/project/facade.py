@@ -132,10 +132,56 @@ def resolve_config(config: str | Path | object | dict) -> object:
     return config
 
 
-# Options of ``Project.calibrate`` that go to the programmatic runner, not to the config.
-_PROGRAMMATIC_KWARGS = frozenset(
-    {"workspace", "project", "project_label", "metric_fn", "objective", "resume"}
-)
+def calibrate_a_file(
+    config_path: str | Path,
+    *,
+    phase: str | None = None,
+    dry_run: bool = False,
+    workspace: str | Path | None = None,
+    project: str | None = None,
+    metric_fn: Any = None,
+    objective: str | None = None,
+    resume: bool = False,
+):
+    """Run the calibration a TOML file declares. It needs no :class:`Project`."""
+    from hydromodpy.calibration.preflight import preflight_launch
+    from hydromodpy.calibration.runners.cli_runner import (
+        describe_dry_run,
+        load_toml_calibration,
+        run_calibration_cli,
+    )
+    from hydromodpy.calibration.runners.staged_runner import run_staged_calibration
+    from hydromodpy.core.exceptions import CalibrationError
+    from hydromodpy.project.dispatch.workflow import (
+        calibration_phases_or_raise,
+        declared_calibration_phases,
+        no_such_phase,
+    )
+
+    target = Path(config_path).expanduser().resolve()
+    # Routing alone tolerates an unreadable file: the runner that reads it next
+    # reports the failure with its own context. Selecting a phase by name reaches
+    # no runner, so the failure has to surface here, or the user is sent looking
+    # at a phases block that is present and correct.
+    if phase is not None:
+        declared_phases = calibration_phases_or_raise(target)
+    else:
+        declared_phases = declared_calibration_phases(target)
+    if phase is not None and not declared_phases:
+        raise CalibrationError(no_such_phase(target.name, phase))
+    preflight_launch(target)
+    if dry_run:
+        return describe_dry_run(load_toml_calibration(target)[0], target, workspace=workspace)
+    options = {
+        "workspace": workspace,
+        "project": project,
+        "metric_fn": metric_fn,
+        "objective": objective,
+        "resume": resume,
+    }
+    if declared_phases:
+        return run_staged_calibration(target, phase=phase, **options)
+    return run_calibration_cli(target, **options)
 
 
 class Project:
@@ -801,20 +847,27 @@ class Project:
         outputs: dict[str, dict] | None = None,
         objective_blocks: list[dict] | None = None,
         phases: list[dict] | None = None,
+        protocol: str | dict | None = None,
         method: str | None = None,
         max_trials: int | None = None,
         save_runs: str | None = None,
         seed: int | None = None,
         phase: str | None = None,
-        **kwargs,
+        case: str | None = None,
+        resume: bool = False,
+        dry_run: bool = False,
+        workspace: str | Path | None = None,
+        project: str | None = None,
+        project_label: str | None = None,
+        metric_fn: Any = None,
+        objective: str | None = None,
     ):
         """Run a calibration campaign on this project.
 
         Three modes are supported:
 
         * TOML mode (``config_path`` supplied): delegate to
-          ``run_calibration_cli`` with the given TOML path. Extra keyword
-          arguments are forwarded.
+          ``run_calibration_cli`` with the given TOML path.
         * Python mode (``parameters`` supplied): build a
           :class:`CalibrationConfig` in memory from the declarations and
           run the same loop.
@@ -859,13 +912,31 @@ class Project:
             Optional optimizer seed.
         phase
             Run only the named phase of a staged calibration.
-        kwargs
-            Extra options forwarded to the calibration runner.
+        protocol
+            Name of a calibration protocol, or a table naming one. It is laid over
+            this project's own ``[calibration]`` section, which keeps the parameters
+            and outputs the protocol reads, so it excludes ``config_path`` and
+            ``parameters``.
+        case
+            Name of the case, so of the session, of an in-memory calibration. A file
+            names its case with ``[simulation] name``.
+        resume
+            Reopen the latest session of the case; the trials already journaled
+            preload the cache.
+        dry_run
+            Return the plan a launch would follow, a ``dict``, after the checks of
+            ``hmp config check``, and run nothing. A calibration held in memory needs
+            a project built from a file to name its case.
+        workspace, project, project_label, metric_fn, objective
+            Runner options: the project root, the project name written in the session
+            (``project_label`` wins), a metric extractor, and ``"module:callable"``
+            naming one.
 
         Returns
         -------
         CalibrationReport
             What the calibration found, with or without phases, in every mode.
+            With ``dry_run``, the plan.
 
         Raises
         ------
@@ -880,14 +951,16 @@ class Project:
             Raised when ``[[calibration.phases]]`` cannot be run as declared,
             and when ``phase`` names a phase no configuration declares.
         """
+        from hydromodpy.calibration.runners.cli_runner import (
+            describe_dry_run,
+            load_toml_calibration,
+        )
         from hydromodpy.core.exceptions import (
             CalibrationError,
             ConfigError,
             ConfigMissingError,
         )
         from hydromodpy.project.dispatch.workflow import (
-            calibration_phases_or_raise,
-            declared_calibration_phases,
             no_such_phase,
         )
 
@@ -913,36 +986,67 @@ class Project:
                     "comes from config_path= or from the project config. Write them in the "
                     "[calibration] section, or pass parameters= to declare the search in Python."
                 )
+        if protocol is not None and (config_path is not None or parameters):
+            raise ConfigError(
+                "Project.calibrate() takes protocol= alone: it builds on the parameters and "
+                "outputs of this project's own [calibration] section and writes the phases. "
+                "Drop config_path= and parameters=."
+            )
+
+        label = project_label if project_label is not None else project
+        options = {
+            "workspace": workspace,
+            "metric_fn": metric_fn,
+            "objective": objective,
+            "resume": resume,
+        }
+
+        def plan_of(path: Path) -> dict:
+            return describe_dry_run(load_toml_calibration(path)[0], path, workspace=workspace)
+
+        from_file = (
+            "case= names the session of a calibration held in memory; a file names its "
+            "case with [simulation] name."
+        )
 
         if config_path is not None:
-            from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
-
-            target = Path(config_path).expanduser().resolve()
-            # Routing alone tolerates an unreadable file: the runner that reads
-            # it next reports the failure with its own context. Selecting a
-            # phase by name reaches no runner, so the failure has to surface
-            # here, or the user is sent looking at a phases block that is
-            # present and correct.
-            if phase is not None:
-                declared_phases = calibration_phases_or_raise(target)
-            else:
-                declared_phases = declared_calibration_phases(target)
-            if phase is not None and not declared_phases:
-                raise CalibrationError(no_such_phase(target.name, phase))
-            from hydromodpy.calibration.preflight import preflight_launch
-
-            preflight_launch(target)
-            if declared_phases:
-                from hydromodpy.calibration.runners.staged_runner import run_staged_calibration
-
-                return run_staged_calibration(target, phase=phase, **kwargs)
-            return run_calibration_cli(target, **kwargs)
+            if case is not None:
+                raise ConfigError(from_file)
+            return calibrate_a_file(
+                config_path, phase=phase, dry_run=dry_run, project=label, **options
+            )
 
         from hydromodpy.calibration.config import CalibrationConfig
         from hydromodpy.calibration.runners.programmatic_runner import (
             project_defaults_on,
             run_calibration_programmatic,
         )
+
+        def run(cfg: CalibrationConfig):
+            _preflight_in_memory(self, cfg)
+            if dry_run:
+                if self._config_path is None:
+                    raise ConfigError(
+                        "Project.calibrate(dry_run=True) needs a project built from a file."
+                    )
+                return describe_dry_run(cfg, Path(self._config_path).resolve(), workspace=workspace)
+            return run_calibration_programmatic(
+                cfg, project=self, project_label=label, phase=phase, case=case, **options
+            )
+
+        if protocol is not None:
+            from hydromodpy.calibration.protocols import expand_calibration_protocol
+
+            document = self.config.model_dump(mode="json", exclude_none=True, exclude_unset=True)
+            document = expand_calibration_protocol(
+                {
+                    **document,
+                    "calibration": {**document.get("calibration", {}), "protocol": protocol},
+                }
+            )
+            return run(
+                CalibrationConfig.model_validate(project_defaults_on(document["calibration"], self))
+            )
 
         if not parameters:
             # Fall back to the [calibration] section carried by this project's
@@ -958,31 +1062,20 @@ class Project:
                         run_staged_calibration,
                     )
 
+                    if case is not None:
+                        raise ConfigError(from_file)
                     preflight_launch(Path(source).resolve())
-                    return run_staged_calibration(Path(source).resolve(), phase=phase, **kwargs)
+                    if dry_run:
+                        return plan_of(Path(source).resolve())
+                    return run_staged_calibration(
+                        Path(source).resolve(), phase=phase, project=label, **options
+                    )
                 if not declared and phase is not None:
                     raise CalibrationError(no_such_phase("this configuration", phase))
-                stray = set(kwargs) - _PROGRAMMATIC_KWARGS
-                if stray:
-                    raise ConfigError(
-                        f"Project.calibrate() got unexpected options {sorted(stray)} for a "
-                        f"calibration read from the project config; it accepts "
-                        f"{sorted(_PROGRAMMATIC_KWARGS)}."
-                    )
-                _preflight_in_memory(self, embedded)
                 # A declaration on a project built in memory has no file to fork
                 # each phase from: run_calibration_programmatic writes one next
                 # to this project's sessions/ and runs the staged runner on it.
-                return run_calibration_programmatic(
-                    embedded,
-                    project=self,
-                    workspace=kwargs.get("workspace"),
-                    project_label=kwargs.get("project_label", kwargs.get("project")),
-                    metric_fn=kwargs.get("metric_fn"),
-                    objective=kwargs.get("objective"),
-                    phase=phase,
-                    resume=kwargs.get("resume", False),
-                )
+                return run(embedded)
             raise ConfigMissingError(
                 "Project.calibrate() requires either config_path=, parameters= "
                 "(Python-mode declaration), or a [calibration] section in the "
@@ -992,25 +1085,18 @@ class Project:
         if phase is not None and not phases:
             raise CalibrationError(no_such_phase("this parameters= declaration", phase))
 
-        payload: dict[str, object] = {}
-        if method is not None:
-            payload["method"] = method
-        if max_trials is not None:
-            payload["max_trials"] = max_trials
-        if save_runs is not None:
-            payload["save_runs"] = save_runs
-        if seed is not None:
-            payload["seed"] = seed
-        payload["parameters"] = dict(parameters)
-        if outputs is not None:
-            payload["outputs"] = dict(outputs)
-        if objective_blocks is not None:
-            payload["objective_blocks"] = list(objective_blocks)
-        if phases is not None:
-            payload["phases"] = list(phases)
-        payload.update(
-            {key: value for key, value in kwargs.items() if key not in _PROGRAMMATIC_KWARGS}
-        )
+        payload: dict[str, object] = {"parameters": dict(parameters)}
+        for key, value in {
+            "method": method,
+            "max_trials": max_trials,
+            "save_runs": save_runs,
+            "seed": seed,
+            "outputs": outputs,
+            "objective_blocks": objective_blocks,
+            "phases": phases,
+        }.items():
+            if value is not None:
+                payload[key] = value
 
         # The project defaults go in first: a validation window needs the calibration
         # window [metrics] window leaves it.
@@ -1023,17 +1109,7 @@ class Project:
             from hydromodpy.calibration.parameter_resolution import resolve_parameter_targets
 
             resolve_parameter_targets(cfg, project_config)
-        _preflight_in_memory(self, cfg)
-        return run_calibration_programmatic(
-            cfg,
-            project=self,
-            workspace=kwargs.get("workspace"),
-            project_label=kwargs.get("project_label", kwargs.get("project")),
-            metric_fn=kwargs.get("metric_fn"),
-            objective=kwargs.get("objective"),
-            phase=phase,
-            resume=kwargs.get("resume", False),
-        )
+        return run(cfg)
 
     def spinup(
         self,

@@ -25,6 +25,7 @@ from hydromodpy.physics.flow.sinks_sources import (
     FlowRechargeConfig,
     FlowSinksSourcesConfig,
 )
+from hydromodpy.physics.flow.sinks_sources.recharge import recharge_factor_of
 from hydromodpy.physics.flow.time_forcing import (
     aggregate_forcing_series,
     resolve_period_values_from_forcing,
@@ -96,7 +97,7 @@ def apply_recharge_load_result_to_flow(
         return False
 
     from hydromodpy.core.units.hydraulic_conductivity import factor_to_m_per_s
-    from hydromodpy.physics.forcing.forcing_bridge import resolve_forcing
+    from hydromodpy.physics.forcing.forcing_bridge import resolve_forcing, scaled_load_result
 
     if "recharge" not in (getattr(flow, "active_sinks_sources", None) or []):
         logger.warning(
@@ -105,6 +106,9 @@ def apply_recharge_load_result_to_flow(
             "remove it from data.types."
         )
 
+    # Read from the declared section: the payload of the flow already applied its factor.
+    factor = recharge_factor_of(getattr(flow, "config", None))
+    recharge_result = scaled_load_result(recharge_result, factor)
     sinks_sources = getattr(flow, "sinks_sources", {})
     recharge_cfg = sinks_sources.get("recharge") if isinstance(sinks_sources, dict) else None
 

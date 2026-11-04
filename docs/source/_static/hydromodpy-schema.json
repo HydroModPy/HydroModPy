@@ -2026,7 +2026,7 @@
             }
           ],
           "default": null,
-          "description": "Dotted TOML path of the value to move, such as 'flow.param.K.field.value'. Optional, and the way out rather than the way in: when omitted, the section name is resolved against the project catalogue ('hmp config targets' lists it). Write one to reach a value the catalogue does not carry, or to settle a name two targets answer to. A path written here wins without a lookup, and a parameter that writes one inherits nothing from the field it points at.",
+          "description": "Dotted TOML path of the value to move, such as 'flow.param.K.field.value'. Optional, and the way out rather than the way in: when omitted, the section name is resolved against the project catalogue ('hmp config targets' lists it). Write one to reach a value the catalogue does not carry, or to settle a name two targets answer to. A path written here wins without a lookup. When the catalogue carries it, the parameter inherits the field's space and draw like a named one; when it does not, nothing is inherited and the sample is written as it is drawn.",
           "title": "Path",
           "x-hmp-profile": "user"
         },
@@ -2040,7 +2040,7 @@
             }
           ],
           "default": null,
-          "description": "Readable alias for 'path'. When both are set, 'target' wins.",
+          "description": "Readable alias for 'path'. Setting both is refused.",
           "title": "Target",
           "x-hmp-profile": "user"
         },
@@ -10983,6 +10983,29 @@
           "unit": "mm/day",
           "x-hmp-profile": "user"
         },
+        "factor": {
+          "calibrable": {
+            "bounds": [
+              0.5,
+              2.0
+            ],
+            "description": "",
+            "is_the_value_of_its_instance": false,
+            "sampling": "log_uniform",
+            "search_space": "log",
+            "unit_field": null,
+            "units": "-"
+          },
+          "default": 1.0,
+          "description": "Number that multiplies the recharge in force, from 'values' or from [data.recharge], a deficit and a numeric first_clim included. 1 changes nothing. Do not write it beside the soil section, whose recharge is an output.",
+          "examples": [
+            1.0
+          ],
+          "exclusiveMinimum": 0.0,
+          "title": "Factor",
+          "type": "number",
+          "x-hmp-profile": "user"
+        },
         "soil": {
           "anyOf": [
             {
@@ -16199,6 +16222,15 @@
       "description": "Process-specific parameters used by selected MODFLOW 6 packages.",
       "properties": {
         "vka": {
+          "calibrable": {
+            "bounds": null,
+            "description": "",
+            "is_the_value_of_its_instance": false,
+            "sampling": "log_uniform",
+            "search_space": "log",
+            "unit_field": null,
+            "units": "-"
+          },
           "default": 1.0,
           "description": "Uniform vertical anisotropy ratio kh/kv (dimensionless, > 0); k33 = k / vka. Default 1.0 is vertically isotropic. For spatial control declare a per-cell 'Kv' flow parameter instead, which is mutually exclusive with a non-unit vka and is a direct conductivity, never a mode-switched value. Vertical anisotropy is grid-aligned and needs no XT3D. The rest of the tensor is set by the flow parameters 'K22', 'angle1', 'angle2' and 'angle3'; a tilt, or a K22 off the grid axes, turns XT3D on.",
           "examples": [

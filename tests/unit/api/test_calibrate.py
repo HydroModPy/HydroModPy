@@ -20,7 +20,7 @@ def _write_toml(path: Path, content: str) -> Path:
 
 
 def test_calibrate_with_path_routes_to_run_calibration_cli(monkeypatch, tmp_path: Path) -> None:
-    """A TOML path calls ``run_calibration_cli`` directly (no Project detour)."""
+    """A TOML path reaches ``run_calibration_cli`` through the facade, which names its options."""
     config = _write_toml(
         tmp_path / "calib.toml",
         '[workflow]\nmode = "calibration"\n[calibration]\nmethod = "scipy"\n',
@@ -37,7 +37,13 @@ def test_calibrate_with_path_routes_to_run_calibration_cli(monkeypatch, tmp_path
     result = hmp.calibrate(config, project="my_label")
     assert result == {"report": "ok"}
     assert captured["config_path"] == config.resolve()
-    assert captured["kwargs"] == {"project": "my_label"}
+    assert captured["kwargs"] == {
+        "project": "my_label",
+        "workspace": None,
+        "metric_fn": None,
+        "objective": None,
+        "resume": False,
+    }
 
 
 def test_calibrate_with_path_drops_headless_kwarg(monkeypatch, tmp_path: Path) -> None:
@@ -269,6 +275,7 @@ def _patch_runners(monkeypatch, calls: dict) -> None:
     def fake_staged(config_path, *, phase=None, **kwargs):
         calls["staged_path"] = Path(config_path)
         calls["staged_phase"] = phase
+        calls["staged_kwargs"] = kwargs
         return _FakeStagedReport()
 
     def fake_cli(config_path, **kwargs):
@@ -949,3 +956,150 @@ def test_calibration_phases_expand_round_trips_through_a_hand_written_file(tmp_p
 
     assert round_tripped["protocol"] is None
     assert round_tripped["calibration"] == expanded["calibration"]
+
+
+def test_project_calibrate_forwards_resume_and_the_label_on_the_file_routes(
+    monkeypatch, tmp_path: Path
+) -> None:
+    from hydromodpy.project import Project
+
+    config = _write_toml(tmp_path / "staged.toml", STAGED_TOML)
+    calls: dict = {}
+    _patch_runners(monkeypatch, calls)
+    project = SimpleNamespace(_cfg=None, _config_path=None)
+
+    Project.calibrate(project, config_path=config, resume=True, project="mine")
+
+    assert calls["staged_kwargs"] == {
+        "project": "mine",
+        "workspace": None,
+        "metric_fn": None,
+        "objective": None,
+        "resume": True,
+    }
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"case": "other"}, "case= names the session"),
+        ({"protocol": "matching_hydrographic_network"}, "protocol= alone"),
+    ],
+)
+def test_project_calibrate_refuses_what_a_file_cannot_take(
+    monkeypatch, tmp_path: Path, kwargs: dict, message: str
+) -> None:
+    from hydromodpy.core.exceptions import ConfigError
+    from hydromodpy.project import Project
+
+    config = _write_toml(tmp_path / "staged.toml", STAGED_TOML)
+    _patch_runners(monkeypatch, {})
+
+    with pytest.raises(ConfigError, match=message):
+        Project.calibrate(
+            SimpleNamespace(_cfg=None, _config_path=None), config_path=config, **kwargs
+        )
+
+
+def test_project_calibrate_names_an_unknown_argument() -> None:
+    from hydromodpy.project import Project
+
+    with pytest.raises(TypeError, match="'stagnation'"):
+        Project.calibrate(SimpleNamespace(), parameters={"K": {}}, stagnation=3)
+
+
+@pytest.mark.parametrize("verb", ["facade", "hmp"])
+def test_project_calibrate_dry_run_returns_the_plan_of_the_file(
+    monkeypatch, tmp_path: Path, verb: str
+) -> None:
+    from hydromodpy.project import Project
+
+    config = _write_toml(tmp_path / "staged.toml", STAGED_TOML)
+    calls: dict = {}
+    _patch_runners(monkeypatch, calls)
+    monkeypatch.setattr(
+        "hydromodpy.calibration.runners.cli_runner.describe_dry_run",
+        lambda cfg, path, **kw: {"case": path.stem},
+    )
+
+    if verb == "hmp":
+        plan = hmp.calibrate(config, dry_run=True)
+    else:
+        plan = Project.calibrate(SimpleNamespace(), config_path=config, dry_run=True)
+
+    assert plan == {"case": "staged"}
+    assert "staged_path" not in calls
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"), [(None, "needs a project built"), ("a.toml", "plan")]
+)
+def test_project_calibrate_dry_run_in_memory_needs_a_file(
+    monkeypatch, tmp_path: Path, source: str | None, expected: str
+) -> None:
+    from hydromodpy.core.exceptions import ConfigError
+    from hydromodpy.project import Project
+
+    monkeypatch.setattr("hydromodpy.project.facade._preflight_in_memory", lambda *a: None)
+    monkeypatch.setattr(
+        "hydromodpy.calibration.runners.cli_runner.describe_dry_run", lambda *a, **kw: "plan"
+    )
+    embedded = SimpleNamespace(
+        _cfg=SimpleNamespace(calibration=SimpleNamespace(phases=None)),
+        _config_path=None if source is None else tmp_path / source,
+    )
+    if source is None:
+        with pytest.raises(ConfigError, match=expected):
+            Project.calibrate(embedded, dry_run=True)
+    else:
+        assert Project.calibrate(embedded, dry_run=True) == expected
+
+
+def test_project_calibrate_hands_case_resume_and_label_to_the_programmatic_runner(
+    monkeypatch,
+) -> None:
+    from hydromodpy.project import Project
+
+    seen: dict = {}
+    monkeypatch.setattr("hydromodpy.project.facade._preflight_in_memory", lambda *a: None)
+    monkeypatch.setattr(
+        "hydromodpy.calibration.runners.programmatic_runner.run_calibration_programmatic",
+        lambda cfg, **kw: seen.update(kw) or "report",
+    )
+    embedded = SimpleNamespace(
+        _cfg=SimpleNamespace(calibration=SimpleNamespace(phases=None)), _config_path=None
+    )
+
+    assert Project.calibrate(embedded, case="c1", resume=True, project_label="L") == "report"
+
+    assert (seen["case"], seen["resume"], seen["project_label"]) == ("c1", True, "L")
+
+
+def test_project_calibrate_protocol_builds_on_the_projects_own_calibration(tmp_path: Path) -> None:
+    """K and Sy are the project's, the protocol lays its two phases over them."""
+    from hydromodpy.project import Project
+
+    text = (
+        MINIMAL_REAL_PROJECT_TOML.split("[calibration.outputs.seepage_network]")[0]
+        .replace("seed = 7", 'protocol = "matching_hydrographic_network"')
+        .replace('param_list = ["K"]', 'param_list = ["K", "Sy"]')
+        .replace(
+            'name = "minimal"',
+            'name = "minimal"\n[simulation.time]\nstart_datetime = "2000-01-01"\nend_datetime = "2000-12-31"',
+        )
+    )
+    text += (
+        '\n[calibration.outputs.streams]\nsupport = "network"\nmap.complete = "a.gpkg"\n'
+        '\n[flow.param.Sy.field]\nid = "Sy"\nkind = "homogeneous"\nunit = "-"\nvalue = 0.1\n'
+        '\n[[data.hydrometry.sources]]\nstation_ids = ["G1"]\n'
+    )
+    (tmp_path / "project.toml").write_text(text, encoding="utf-8")
+    (tmp_path / "a.gpkg").write_bytes(b"")
+
+    with Project(tmp_path / "project.toml", headless=True) as project:
+        plan = project.calibrate(protocol="matching_hydrographic_network", dry_run=True)
+
+    assert [(p["name"], p["parameters"]) for p in plan["phases"]] == [
+        ("steady_conductivity", ["K"]),
+        ("transient_storage", ["Sy"]),
+    ]

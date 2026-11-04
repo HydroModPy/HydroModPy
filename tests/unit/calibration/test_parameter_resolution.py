@@ -312,6 +312,74 @@ class TestWhatItRefuses:
         assert "flow.param.K.field.value" in message
         assert "cheze.bedleak" in message
 
+    @pytest.mark.parametrize(
+        ("parameters", "message"),
+        [
+            (
+                {
+                    "K": {"bounds": [1e-7, 1e-3]},
+                    "K2": {"bounds": [1e-7, 1e-3], "path": "flow.param.K.field.value"},
+                },
+                "both move 'flow.param.K.field.value'",
+            ),
+            (
+                {
+                    "a": {"bounds": [1e-7, 1e-3], "path": "flow.param.K.field.value"},
+                    "b": {"bounds": [1e-7, 1e-3], "path": "flow.param.K.field.value"},
+                },
+                "both move 'flow.param.K.field.value'",
+            ),
+            (
+                {
+                    "x": {
+                        "bounds": [0.5, 2.0],
+                        "mode": "scale",
+                        "path": "flow.sinks_sources.recharge_value",
+                    }
+                },
+                "every factor gives the same value",
+            ),
+        ],
+        ids=["name-then-path", "path-twice", "scale-on-zero"],
+    )
+    def test_a_parameter_that_cannot_move_anything_is_refused(self, parameters, message) -> None:
+        project = _project__parameter_names()
+        project.flow.sinks_sources.recharge_value = 0.0
+
+        with pytest.raises(ConfigError, match=message.replace("[", r"\[")):
+            resolve_parameter_targets(_calibration(**parameters), project)
+
+    @pytest.mark.parametrize(("first", "refused"), [(["a", "b"], True), (["a"], False)])
+    def test_two_names_on_one_path_clash_only_in_a_phase_that_moves_both(
+        self, first: list[str], refused: bool
+    ) -> None:
+        path = "flow.param.K.field.value"
+        phase = {"variable": "discharge", "objective": "nse"}
+        calibration = CalibrationConfig.model_validate(
+            {
+                "parameters": {
+                    "a": {"bounds": [1e-7, 1e-3], "path": path},
+                    "b": {"bounds": [1e-7, 1e-3], "path": path},
+                },
+                "phases": [
+                    {"name": "p1", "parameters": first, **phase},
+                    {"name": "p2", "parameters": ["b"], **phase},
+                ],
+            }
+        )
+
+        if refused:
+            with pytest.raises(ConfigError, match="both move"):
+                resolve_parameter_targets(calibration, _project__parameter_names())
+        else:
+            resolve_parameter_targets(calibration, _project__parameter_names())
+
+    def test_a_path_outside_the_catalogue_warns_that_its_sample_is_written_as_drawn(self) -> None:
+        calibration = _calibration(x={"bounds": [1.0, 2.0], "path": "flow.nowhere.value"})
+
+        with pytest.warns(UserWarning, match="unit is unknown"):
+            resolve_parameter_targets(calibration, _project__parameter_names())
+
     def test_a_name_the_catalogue_ignores_is_only_a_label(self) -> None:
         """A file may keep its own vocabulary, as long as it says where to write."""
         calibration = _calibration(

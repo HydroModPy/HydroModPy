@@ -15,10 +15,7 @@ import pytest
 
 from hydromodpy.calibration.optim.fosm import ParameterUncertainty
 from hydromodpy.calibration.report import CalibrationReport
-from hydromodpy.cli.commands.calibrate import (
-    _format_calibration_result,
-    _format_staged_calibration_result,
-)
+from hydromodpy.calibration.runners.recap import result_lines, staged_result_lines
 from hydromodpy.cli.helpers import EXIT_CALIBRATION, exit_if_session_unfinished
 
 
@@ -39,7 +36,7 @@ def _report(**overrides: object) -> CalibrationReport:
 def test_the_calibrated_value_and_cost_are_printed() -> None:
     report = _report(best_parameters={"K": 6.4e-5})
 
-    lines = "\n".join(_format_calibration_result(report))
+    lines = "\n".join(result_lines(report))
 
     assert "K = 6.4e-05" in lines
     assert "cost: 0.1234" in lines
@@ -55,7 +52,7 @@ def test_k_over_r_from_extra_is_printed_with_its_note() -> None:
         },
     )
 
-    lines = "\n".join(_format_calibration_result(report))
+    lines = "\n".join(result_lines(report))
 
     assert "k_over_r = 3.2" in lines
     assert "not a conductivity" in lines
@@ -83,7 +80,7 @@ def test_the_tolerance_interval_is_shown_beside_its_value() -> None:
         },
     )
 
-    lines = "\n".join(_format_calibration_result(report))
+    lines = "\n".join(result_lines(report))
 
     assert "[5e-05, 7e-05]" in lines
 
@@ -110,7 +107,7 @@ def test_a_value_stuck_on_a_search_bound_is_flagged() -> None:
         },
     )
 
-    lines = "\n".join(_format_calibration_result(report))
+    lines = "\n".join(result_lines(report))
 
     assert "reached the search bound" in lines
 
@@ -121,7 +118,7 @@ def test_two_parameters_moving_together_are_flagged_as_a_caution() -> None:
         extra={"correlated_parameters": [("K", "Sy", 0.97)]},
     )
 
-    lines = "\n".join(_format_calibration_result(report))
+    lines = "\n".join(result_lines(report))
 
     assert "K and Sy" in lines
     assert "not identified separately" in lines
@@ -152,7 +149,7 @@ def test_a_fosm_width_is_shown_and_wins_over_a_tolerance_interval() -> None:
         },
     )
 
-    lines = "\n".join(_format_calibration_result(report))
+    lines = "\n".join(result_lines(report))
 
     assert "sigma 2e-06" in lines
     assert "[5e-05, 7e-05]" not in lines
@@ -172,7 +169,7 @@ def test_a_fosm_tradeoff_is_flagged_instead_of_the_trace_correlation() -> None:
         extra={"correlated_parameters": [("K", "Sy", 0.5)]},
     )
 
-    lines = "\n".join(_format_calibration_result(report))
+    lines = "\n".join(result_lines(report))
 
     assert "trade off (r = +0.95)" in lines
     assert "moved together (r = +0.50)" not in lines
@@ -181,7 +178,7 @@ def test_a_fosm_tradeoff_is_flagged_instead_of_the_trace_correlation() -> None:
 def test_a_report_with_no_optional_part_prints_the_bare_minimum() -> None:
     report = _report(best_parameters={"K": 6.4e-5})
 
-    lines = _format_calibration_result(report)
+    lines = result_lines(report)
 
     assert lines == ["  K = 6.4e-05", "  cost: 0.1234"]
 
@@ -189,11 +186,11 @@ def test_a_report_with_no_optional_part_prints_the_bare_minimum() -> None:
 def test_a_report_with_no_candidate_evaluated_prints_nothing_and_does_not_crash() -> None:
     report = _report(best_cost=None, best_parameters=None)
 
-    assert _format_calibration_result(report) == []
+    assert result_lines(report) == []
 
 
 def test_a_bare_object_with_no_calibration_fields_does_not_crash() -> None:
-    assert _format_calibration_result(object()) == []
+    assert result_lines(object()) == []
 
 
 def test_the_mean_and_best_cost_share_are_printed_for_two_or_more_blocks() -> None:
@@ -206,7 +203,7 @@ def test_the_mean_and_best_cost_share_are_printed_for_two_or_more_blocks() -> No
         },
     )
 
-    lines = "\n".join(_format_calibration_result(report))
+    lines = "\n".join(result_lines(report))
 
     assert "cost share (mean over 14 finished trials): hydrograph 56%, network 44%" in lines
     assert "cost share (best trial): hydrograph 75%, network 25%" in lines
@@ -218,7 +215,7 @@ def test_the_mean_share_falls_back_to_a_plain_label_without_a_trial_count() -> N
         cost_block_fractions={"mean": {"hydrograph": 0.6, "network": 0.4}},
     )
 
-    lines = "\n".join(_format_calibration_result(report))
+    lines = "\n".join(result_lines(report))
 
     assert "cost share (mean over the finished trials): hydrograph 60%, network 40%" in lines
 
@@ -236,7 +233,7 @@ def test_a_reused_phase_that_could_not_recompute_its_share_says_so() -> None:
         },
     )
 
-    lines = "\n".join(_format_calibration_result(report))
+    lines = "\n".join(result_lines(report))
 
     assert "cost share: reused from a previous run" in lines
     assert "not recomputed" in lines
@@ -248,7 +245,7 @@ def test_a_single_block_share_is_not_printed() -> None:
         cost_block_fractions={"mean": {"hydrograph": 1.0}, "best": {"hydrograph": 1.0}},
     )
 
-    lines = "\n".join(_format_calibration_result(report))
+    lines = "\n".join(result_lines(report))
 
     assert "cost share" not in lines
 
@@ -256,7 +253,7 @@ def test_a_single_block_share_is_not_printed() -> None:
 def test_a_report_with_no_computable_share_prints_nothing_about_it() -> None:
     report = _report(best_parameters={"K": 6.4e-5}, cost_block_fractions=None)
 
-    lines = "\n".join(_format_calibration_result(report))
+    lines = "\n".join(result_lines(report))
 
     assert "cost share" not in lines
 
@@ -280,7 +277,7 @@ def test_a_staged_result_prints_each_phase_with_its_own_share() -> None:
     )
     staged = SimpleNamespace(phases=[phase_a, phase_b])
 
-    lines = "\n".join(_format_staged_calibration_result(staged))
+    lines = "\n".join(staged_result_lines(staged))
 
     assert "phase k_steady:" in lines
     assert "phase sy_transient:" in lines
@@ -292,7 +289,7 @@ def test_a_staged_result_with_no_evaluated_phase_prints_nothing() -> None:
     phase = SimpleNamespace(name="empty", report=_report(best_parameters=None))
     staged = SimpleNamespace(phases=[phase])
 
-    assert _format_staged_calibration_result(staged) == []
+    assert staged_result_lines(staged) == []
 
 
 def test_the_eq4_verdict_the_bracket_and_the_search_are_printed() -> None:
@@ -328,7 +325,7 @@ def test_the_eq4_verdict_the_bracket_and_the_search_are_printed() -> None:
         },
     )
 
-    lines = _format_calibration_result(report)
+    lines = result_lines(report)
 
     assert "  r_optim (net) = 0.42, D_optim = 31.5 m <= 150 m (auto), Eq. 4 holds" in lines
     assert "  bracket on K: [6.3e-05, 6.36e-05], width 0.95% (closed)" in lines
@@ -379,7 +376,7 @@ def test_a_failed_verdict_an_open_bracket_and_an_unconverged_search_say_so() -> 
         },
     )
 
-    text = "\n".join(_format_calibration_result(report))
+    text = "\n".join(result_lines(report))
 
     assert "r_optim (net) = 3.1, D_optim = 232.5 m > 150 m (auto), Eq. 4 fails" in text
     assert "r_optim (empty): not a number" in text
@@ -392,7 +389,7 @@ def test_a_failed_verdict_an_open_bracket_and_an_unconverged_search_say_so() -> 
 
 
 def test_a_report_without_these_records_prints_none_of_them() -> None:
-    text = "\n".join(_format_calibration_result(_report(best_parameters={"K": 6.4e-5})))
+    text = "\n".join(result_lines(_report(best_parameters={"K": 6.4e-5})))
 
     assert "r_optim" not in text
     assert "bracket" not in text
@@ -433,7 +430,7 @@ def test_two_closed_roots_print_a_line_each_then_the_spread_and_the_value() -> N
         },
     )
 
-    lines = _format_calibration_result(report)
+    lines = result_lines(report)
 
     assert "  K*_minimal = 6.3e-05, bracket [6.28e-05, 6.32e-05], width 0.64% (closed)" in lines
     assert "  K*_maximal = 6.42e-05, bracket [6.4e-05, 6.44e-05], width 0.63% (closed)" in lines
@@ -475,7 +472,7 @@ def test_an_open_root_and_an_unsolved_combined_value_say_so() -> None:
         },
     )
 
-    text = "\n".join(_format_calibration_result(report))
+    text = "\n".join(result_lines(report))
 
     assert "K*_minimal = 6.3e-05, bracket [5e-05, 8e-05], width 60.00% " in text
     assert "(open, the budget ran out first)" in text
@@ -497,7 +494,7 @@ def test_a_bracket_prints_no_roots_line() -> None:
         },
     )
 
-    text = "\n".join(_format_calibration_result(report))
+    text = "\n".join(result_lines(report))
 
     assert "K*_minimal" not in text
     assert "Delta = " not in text
@@ -525,7 +522,7 @@ def test_an_interval_holding_the_best_trial_alone_says_so() -> None:
         },
     )
 
-    lines = "\n".join(_format_calibration_result(report))
+    lines = "\n".join(result_lines(report))
 
     assert "no other trial within the cost margin" in lines
     assert "[3.909e-05, 3.909e-05]" not in lines
@@ -546,3 +543,10 @@ def test_a_failed_promotion_exits_with_the_calibration_code(capsys) -> None:
 
 def test_a_report_whose_promotions_succeeded_does_not_exit() -> None:
     exit_if_session_unfinished(_report(best_parameters={"K": 3.909e-05}))
+
+
+@pytest.mark.parametrize(("unit", "line"), [("m/s", "  K = 6.4e-05 m/s"), ("-", "  K = 6.4e-05")])
+def test_a_value_is_printed_with_its_unit_when_it_has_one(unit: str, line: str) -> None:
+    report = _report(best_parameters={"K": 6.4e-5}, extra={"parameter_units": {"K": unit}})
+
+    assert result_lines(report)[0] == line

@@ -82,12 +82,13 @@ class TestStratification:
             assert 0.0 <= p.values["x"] <= 1.0
             assert -2.0 <= p.values["y"] <= 2.0
 
-    def test_normal_prior_is_refused_naming_the_parameter(self) -> None:
+    @pytest.mark.parametrize(("engine", "options"), [("lhs", {"n_samples": 5}), ("optuna", {})])
+    def test_normal_prior_is_refused_naming_the_parameter(self, engine: str, options: dict) -> None:
         space = ParameterSpace(
             [CalibParameter(name="theta", lower=0.0, upper=1.0, sampling="normal")]
         )
-        with pytest.raises(ValueError, match="theta"):
-            build_optimizer("lhs", space, n_samples=5, seed=0)
+        with pytest.raises(ValueError, match=f"{engine} cannot draw.*theta"):
+            build_optimizer(engine, space, seed=0, **options)
 
     def test_random_cd_optimization_keeps_the_stratification_guarantee(self) -> None:
         n = 12

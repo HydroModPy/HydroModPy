@@ -23,6 +23,7 @@ searched in two different spaces depending on how it was spelled.
 
 from __future__ import annotations
 
+import warnings
 from typing import Any
 
 from hydromodpy.calibration.targets import (
@@ -36,6 +37,7 @@ from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.physics.hydrology.soil_reservoir.config import soil_reservoir_of
 
 __all__ = [
+    "RECHARGE_FACTOR_PATH",
     "RECHARGE_VALUES_PATH",
     "UnresolvedParameterName",
     "replaced_recharge_rate",
@@ -44,6 +46,7 @@ __all__ = [
 ]
 
 RECHARGE_VALUES_PATH = "flow.sinks_sources.recharge.values"
+RECHARGE_FACTOR_PATH = "flow.sinks_sources.recharge.factor"
 
 
 class UnresolvedParameterName(ConfigError):
@@ -105,7 +108,11 @@ def resolve_parameter_targets(
     catalogue = calibration_targets(project_config)
     by_name = targets_by_name(catalogue)
     by_path = targets_by_path(catalogue)
+    named_at: dict[tuple[str, str | None], str] = {}
+    phases = list(getattr(calibration, "phases", None) or ())
     for name, decl in parameters.items():
+        # Two names on one path only clash in a search that moves both.
+        searched_in = {phase.name for phase in phases if name in phase.parameters} or {None}
         path = decl.resolve_target()
         if path is None:
             try:
@@ -117,18 +124,50 @@ def resolve_parameter_targets(
                 # whatever else is wrong with the file rather than instead of it.
                 continue
             decl.path = target.path
+            _refuse_a_path_named_twice(name, decl.path, searched_in, named_at)
         else:
+            _refuse_a_path_named_twice(name, path, searched_in, named_at)
             _refuse_a_name_that_contradicts_its_path(name, path, by_name)
             target = by_path.get(path)
             if target is None:
                 _refuse_a_depth_model_path_the_catalogue_does_not_carry(name, path, project_config)
                 # A path the catalog does not carry is the documented way out,
                 # and the space and the preflight judge it on their own terms.
+                if decl.mode == "replace":
+                    warnings.warn(
+                        f"[calibration.parameters.{name}] writes {path!r}, which the catalogue "
+                        "does not carry, so its unit is unknown and the sample is written as drawn.",
+                        UserWarning,
+                        stacklevel=2,
+                    )
                 continue
+        if decl.mode == "scale" and not target.current:
+            raise ConfigError(
+                f"[calibration.parameters.{name}] scales {target.path!r}, which holds "
+                f"{target.current!r}, so every factor gives the same value. Use "
+                'mode = "replace", or give the value a base first.'
+            )
         _refuse_a_replaced_recharge_rate(name, target, project_config)
         _convert_bounds_into_the_unit_of_the_target(name, decl, target)
         _fill_what_the_file_left_unsaid(decl, target)
         _refuse_bounds_the_registry_rules_out(name, decl, target)
+
+
+def _refuse_a_path_named_twice(
+    name: str,
+    path: str,
+    searched_in: set[str | None],
+    named_at: dict[tuple[str, str | None], str],
+) -> None:
+    """Refuse two parameters of one search that move one value, because the later write wins."""
+    for phase in searched_in:
+        if (path, phase) in named_at:
+            raise ConfigError(
+                f"[calibration.parameters.{name}] and "
+                f"[calibration.parameters.{named_at[path, phase]}] "
+                f"both move {path!r}, and the second write would hide the first. Keep one."
+            )
+        named_at[path, phase] = name
 
 
 def _refuse_a_name_that_contradicts_its_path(

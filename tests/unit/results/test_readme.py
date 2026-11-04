@@ -17,7 +17,12 @@ from hydromodpy.results.readme import (
     render_unsealed_run_readme,
     write_readme,
 )
-from hydromodpy.results.session.descriptor import ParameterBound
+from hydromodpy.results.session.descriptor import (
+    CostInterval,
+    ParameterBound,
+    ParameterWidth,
+    ScoredSamples,
+)
 from hydromodpy.results.session.phase import FrozenValue, PhaseDescriptor
 from hydromodpy.results.validity_rules import LabelResult, label_for, run_quantities
 from tests._helpers.session_documents import best_trial, session_descriptor, trial_line
@@ -107,8 +112,16 @@ def test_the_session_readme_names_the_method_phases_best_trial_and_promoted_run(
         method="tpe",
         cost_name="nse_log",
         bounds={"K": ParameterBound(lower=1e-7, upper=1e-4, search_space="log", units="m/s")},
+        cost_label="1 - nse_log",
+        widths={"K": ParameterWidth(interval=CostInterval(lower=2e-5, upper=9e-5))},
+        scored=[ScoredSamples(window="calibration", case_id="c", output="hydrograph", n=1828)],
         best=best_trial(
-            7, cost=-0.84, case="J0014010-calage", sim_id="9a4f" * 8, rel_dir="runs/J0014010-calage"
+            7,
+            cost=-0.84,
+            parameters={"K": 6.4e-5},
+            case="J0014010-calage",
+            sim_id="9a4f" * 8,
+            rel_dir="runs/J0014010-calage",
         ),
         status="completed",
         ended_at=NOW,
@@ -139,7 +152,9 @@ def test_the_session_readme_names_the_method_phases_best_trial_and_promoted_run(
     assert "7 trials in `trials.jsonl`" in text
     assert "| steady_k | completed | 0 | none | 3 | not recorded |" in text
     assert "K = 6.1e-06 (steady_k)" in text
-    assert "trial 7, cost -0.84" in text
+    assert "- trial 7, cost -0.84 (1 - nse_log)\n" in text
+    assert "- `K` = 6.4e-05 m/s, interval 2e-05 to 9e-05\n" in text
+    assert "- scored on hydrograph 1828 pair(s)\n" in text
     assert "calibrated run of `J0014010-calage`: `runs/J0014010-calage` (sim_id `" in text
     assert text.rstrip().endswith(f"sha256(manifest.json) = {'ab' * 32}")
 

@@ -556,15 +556,18 @@ class Flow(ProcessSpatial):
             getattr(recharge, "values", 0.0),
             unit=canonical_units,
             label=f"{location_prefix}.values",
+            scale=recharge.factor,
         )
-        return recharge.model_copy(
-            update=_flux_payload_update(
-                recharge,
-                values_si=values_si,
-                canonical_units=canonical_units,
-                location_prefix=location_prefix,
-            )
+        update = _flux_payload_update(
+            recharge,
+            values_si=values_si,
+            canonical_units=canonical_units,
+            location_prefix=location_prefix,
         )
+        if "first_clim" in update:
+            update["first_clim"] *= recharge.factor
+        # The payload now holds the scaled rate, so normalizing it again moves nothing.
+        return recharge.model_copy(update={**update, "factor": 1.0})
 
     def set_recharge(self, recharge: FlowRechargeConfig | None) -> None:
         """

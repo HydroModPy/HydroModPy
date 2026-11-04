@@ -45,6 +45,7 @@ from hydromodpy.core.stream_extent import dry_steps, flowing_steps, parse_extent
 from hydromodpy.core.time import nominal_step_days
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.figures.network_extent_bounds_map import extents_from_run
+from hydromodpy.physics.flow.sinks_sources.recharge import FlowRechargeConfig
 from hydromodpy.project import Project
 from hydromodpy.results.derive.network_criterion_settings import network_criterion_settings
 from hydromodpy.results.derive.stream_extent import network_extents_from_run, run_step_days
@@ -57,6 +58,8 @@ from tests.unit.calibration._factories_config import (
     messages,
     preflight_of,
     run_preflight,
+    sinks_project,
+    soil_project,
     toml_doc,
     write_calibration,
 )
@@ -423,6 +426,11 @@ class TestWhatPreflightCatches:
                 '[calibration]\nmethod = "gradient_descent_by_hand"\n@KB',
                 ["not registered"],
                 id="a_method_nobody_registered",
+            ),
+            pytest.param(
+                '[calibration]\nmethod = "lhs"\n@KB\nsampling = "normal"',
+                ["lhs cannot draw", "'K'"],
+                id="a_normal_sampling_the_design_cannot_stratify",
             ),
         ],
     )
@@ -1279,6 +1287,40 @@ def _balanced(
     )
 
 
+_RIDGE = "form a ridge"
+_FACTOR = """
+[calibration.parameters."recharge.factor"]
+bounds = [0.5, 2.0]
+path = "flow.sinks_sources.recharge.factor"
+"""
+
+
+def _factor_beside(regime: str, moved: str, scored: str = "@NETROOT\n@GAP") -> str:
+    head = f'[flow]\nflow_regime = "{regime}"\n[flow.sinks_sources.recharge]\nvalues = 1.0\n'
+    return f"{head}@GRID\n{moved}{_FACTOR}{scored}\n"
+
+
+@pytest.mark.parametrize(
+    ("project", "values", "said"),
+    [
+        (soil_project(), False, "there is no rate to multiply"),
+        (sinks_project(recharge=FlowRechargeConfig()), False, "there is no rate to multiply"),
+        (sinks_project(recharge=FlowRechargeConfig(values=1.0)), True, "an exact ridge"),
+        (sinks_project(recharge=FlowRechargeConfig(values=1.0)), False, None),
+    ],
+)
+def test_the_recharge_factor_needs_a_rate_that_nothing_else_moves(project, values, said) -> None:
+    parameters = {"recharge.factor": {"path": "flow.sinks_sources.recharge.factor"}}
+    if values:
+        parameters["recharge.values"] = {"path": "flow.sinks_sources.recharge.values"}
+    calibration = CalibrationConfig.model_validate({"parameters": parameters})
+
+    findings = preflight._check_parameters(project, calibration)
+
+    assert [item.severity for item in findings] == (["error"] if said else [])
+    assert said is None or said in findings[0].detail
+
+
 def _two_bounds(tmp_path: Path, method: str, moved: str, weights: str = "0.5") -> str:
     return (
         f'[calibration]\nmethod = "{method}"\nobjective = "distance_gap"\nvariable = "net"\n'
@@ -1318,6 +1360,10 @@ def _two_bounds(tmp_path: Path, method: str, moved: str, weights: str = "0.5") -
             _UNCOUNTED,
         ),
         (_balanced('["K", "Sy"]', "mean", method="scipy_nelder_mead", trials=5), None, _UNCOUNTED),
+        (_factor_beside("steady", "@K\n"), "error", _RIDGE),
+        (_factor_beside("transient", "@K\n"), "warning", _RIDGE),
+        (_factor_beside("steady", ""), None, _RIDGE),
+        (_factor_beside("steady", "@K\n", "@GAUGE\n@NETROOT\n@GAP"), None, _RIDGE),
     ],
 )
 def test_what_a_search_of_the_network_may_not_do(tmp_path, doc, severity, said) -> None:

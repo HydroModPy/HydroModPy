@@ -36,7 +36,11 @@ from hydromodpy.results.manifest import ManifestSite
 from hydromodpy.results.metric_rule import DateWindow
 from hydromodpy.results.outcome import Outcome
 from hydromodpy.results.record import RunRecord
-from hydromodpy.results.session.descriptor import ParameterBound, SessionDescriptor
+from hydromodpy.results.session.descriptor import (
+    ParameterBound,
+    SessionDescriptor,
+    scored_samples_text,
+)
 from hydromodpy.results.session.journal import TrialLine
 from hydromodpy.results.session.phase import PhaseDescriptor
 from hydromodpy.results.storage.contract import (
@@ -225,7 +229,17 @@ def render_session_readme(
     if best is None:
         lines.append("No trial retained.")
     else:
-        lines.append(f"- trial {best.trial}, cost {_number(best.cost)}")
+        meaning = f" ({descriptor.cost_label})" if descriptor.cost_label else ""
+        lines.append(f"- trial {best.trial}, cost {_number(best.cost)}{meaning}")
+        for name, value in best.parameters.items():
+            bound = descriptor.bounds.get(name)
+            unit = f" {bound.units}" if bound is not None and bound.units else ""
+            interval = descriptor.widths[name].interval if name in descriptor.widths else None
+            if interval is not None and None not in (interval.lower, interval.upper):
+                unit += f", interval {_number(interval.lower)} to {_number(interval.upper)}"
+            lines.append(f"- `{name}` = {_number(value)}{unit}")
+        if descriptor.scored:
+            lines.append(f"- scored on {scored_samples_text(descriptor.scored)}")
         for case_id, case in best.cases.items():
             if case.rel_dir or case.sim_id:
                 lines.append(

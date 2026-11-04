@@ -966,6 +966,23 @@ def test_the_best_n_promote_the_trial_the_session_reports_first(
     assert [row["trial"] for row in rows] == [3, 1]
 
 
+def test_the_best_trials_are_listed_per_phase(monkeypatch, tmp_path: Path) -> None:
+    lines = [
+        SimpleNamespace(
+            trial=n, phase=phase, cost=cost, status="completed", speculative_unused=False
+        )
+        for n, (phase, cost) in enumerate(
+            [("a", 0.1), ("a", 0.2), ("a", 0.3), ("b", 5.0), ("b", 6.0)]
+        )
+    ]
+    monkeypatch.setattr(promotion_module, "resolve_session_dir", lambda *_: tmp_path)
+    monkeypatch.setattr(
+        promotion_module, "CalibrationPersistence", lambda _: SimpleNamespace(trials=lambda: lines)
+    )
+
+    assert [t.trial for t in promotion_module.best_trials(tmp_path, "c", limit=2)] == [0, 1, 3, 4]
+
+
 def test_keeping_every_trial_still_promotes_the_reported_best_first(
     persistence__promoted_trial,
 ) -> None:

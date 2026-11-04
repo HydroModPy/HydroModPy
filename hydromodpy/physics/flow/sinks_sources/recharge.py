@@ -83,6 +83,20 @@ class FlowRechargeConfig(HydroModelBase):
         # this field, so the unit is the one 'units' declares, whatever it is.
         json_schema_extra=field_metadata(calibrable=Calibrable(), unit="mm/day"),
     )
+    factor: Annotated[float, Profile.USER] = Field(
+        default=1.0,
+        gt=0.0,
+        description=(
+            "Number that multiplies the recharge in force, from 'values' or from [data.recharge], "
+            "a deficit and a numeric first_clim included. 1 changes nothing. Do not write it "
+            "beside the soil section, whose recharge is an output."
+        ),
+        json_schema_extra=field_metadata(
+            calibrable=Calibrable(
+                bounds=(0.5, 2.0), search_space="log", sampling="log_uniform", units="-"
+            )
+        ),
+    )
     soil: Annotated[SoilReservoirConfig | None, Profile.USER] = Field(
         default=None,
         description=(
@@ -161,9 +175,8 @@ class FlowRechargeConfig(HydroModelBase):
         if isinstance(payload, Mapping):
             payload = list(payload.values())
         array = numeric_payload_array(payload, label="flow.sinks_sources.recharge.values")
-        return float(np.max(np.abs(array))) * (
-            factor_to_m_per_s(self.units) / factor_to_m_per_s("mm/day")
-        )
+        peak = float(np.max(np.abs(array))) * self.factor
+        return peak * (factor_to_m_per_s(self.units) / factor_to_m_per_s("mm/day"))
 
     @field_validator("first_clim", mode="before")
     @classmethod
@@ -201,4 +214,15 @@ class FlowRechargeConfig(HydroModelBase):
                 "when [flow.sinks_sources.recharge.soil] computes the recharge: "
                 "remove values, or remove the soil section to impose this rate."
             )
+        if self.soil is not None and self.factor != 1.0:
+            raise ValueError(
+                f"flow.sinks_sources.recharge.factor = {self.factor!r} has no rate to multiply "
+                "beside [flow.sinks_sources.recharge.soil]: remove one of them."
+            )
         return self
+
+
+def recharge_factor_of(flow_config: object) -> float:
+    """Return the factor a [flow] config declares on its recharge, 1 when it declares none."""
+    sinks_sources = getattr(flow_config, "sinks_sources", None)
+    return float(getattr(getattr(sinks_sources, "recharge", None), "factor", 1.0))

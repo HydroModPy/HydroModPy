@@ -177,3 +177,20 @@ def test_a_name_that_resolves_only_by_suffix_is_named_with_its_canonical_spellin
     err = capsys.readouterr().err
     assert "calibration.parameters.bedleak" in err
     assert "mylake.bedleak" in err
+
+
+def test_it_shows_the_space_the_draw_and_the_default_bounds(project, capsys) -> None:
+    out = _run(project, capsys).splitlines()
+
+    assert "space" in out[0] and "draw" in out[0] and "default bounds" in out[0]
+    row = next(line for line in out if line.startswith("K "))
+    assert "log" in row.split() and "log_uniform" in row.split()
+    assert "1e-07 .. 0.01" in row or ".." in row.split("log_uniform")[1]
+
+
+@pytest.mark.parametrize(
+    ("name", "key"),
+    [("K", "K"), ("my_lake.bedleak", '"my_lake.bedleak"'), ("well[1].flux", '"well[1].flux"')],
+)
+def test_a_dotted_name_is_written_as_a_quoted_toml_key(name: str, key: str) -> None:
+    assert config_cmd._toml_key(name) == key

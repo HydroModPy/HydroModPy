@@ -1001,6 +1001,7 @@ flow.sinks_sources.lakes.withdrawal.value	float | str	<required>	stable
 flow.sinks_sources.lakes.withdrawal.value_column	str	'value'	stable
 flow.sinks_sources.recharge	table | None	None	stable
 flow.sinks_sources.recharge.enabled	bool	True	stable
+flow.sinks_sources.recharge.factor	float	1.0	stable
 flow.sinks_sources.recharge.first_clim	str | float	'mean'	stable
 flow.sinks_sources.recharge.heterogeneous_source	Any	None	stable
 flow.sinks_sources.recharge.interpolation_method	Literal['nearest', 'linear', 'idw', 'area']	'nearest'	stable

@@ -1075,7 +1075,7 @@ def objective_comparison_table(
 
     Reads declarations only, no project data: this is what lets
     ``--list-phases`` build it without the data on disk, and is why
-    ``--check`` can show it for a plain calibration's one search, which
+    ``hmp config check`` can show it for a plain calibration's one search, which
     ``--list-phases`` has no phase to attach it to.
     """
     single_metric = phase.is_single_metric if phase is not None else not cfg.objective_blocks

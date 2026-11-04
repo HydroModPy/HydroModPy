@@ -12,8 +12,7 @@ from hydromodpy.calibration.evaluation import registry as evaluation_registry
 from hydromodpy.calibration.evaluation.port import TrialOutcome, TrialRequest
 from hydromodpy.calibration.report import CalibrationReport, load_session_report_data
 from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
-from hydromodpy.cli.commands import run as run_command
-from hydromodpy.cli.commands.calibrate import _format_calibration_result
+from hydromodpy.calibration.runners.recap import result_lines
 from hydromodpy.reporting.calibration_report import _render_html
 from hydromodpy.results.session.descriptor import ScoredSamples, read_session
 from tests._helpers.session_documents import calibration_window
@@ -201,7 +200,7 @@ SCORED = {
 
 
 def test_hmp_calibrate_prints_the_pairs_beside_the_cost() -> None:
-    lines = _format_calibration_result(_report(SCORED))
+    lines = result_lines(_report(SCORED))
 
     cost = lines.index("  cost: 0.334115 (1 - nse_log)")
     assert lines[cost + 1] == (
@@ -213,26 +212,9 @@ def test_hmp_calibrate_prints_the_pairs_beside_the_cost() -> None:
 def test_hmp_calibrate_prints_the_declared_window_when_no_pair_was_counted() -> None:
     extra = {"cost_metric": "1 - nse_log", "cost_window": "window 2016-01-01 to 2020-12-31"}
 
-    lines = _format_calibration_result(_report(extra))
+    lines = result_lines(_report(extra))
 
     assert "  scored on: window 2016-01-01 to 2020-12-31, pairs not counted" in lines
-
-
-def test_the_hmp_run_recap_prints_the_pairs_beside_the_cost(tmp_path, capsys) -> None:
-    summary = {
-        "method": "grid",
-        "n_trials": 4,
-        "best_cost": 0.334115,
-        "best_parameters": {"Sy": 0.045},
-        "extra": SCORED,
-    }
-
-    run_command._print_calibration_recap(summary, Path("calibrate.toml"))
-
-    line = capsys.readouterr().err.splitlines()[1]
-    assert line.endswith(
-        "cost 0.3341 (1 - nse_log) on hydrograph 1828 pair(s), period ends 2016-01-01 to 2021-01-01"
-    )
 
 
 # From test_the_session_records_the_pairs_its_cost_was_scored_on.py

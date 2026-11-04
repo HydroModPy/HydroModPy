@@ -14,7 +14,7 @@ adapters consume without knowing which variable it came from.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
 import pandas as pd
@@ -143,6 +143,27 @@ def has_located_points(load_result: LoadResultProto) -> bool:
         if loc is not None and hasattr(loc, "x") and hasattr(loc, "y"):
             return True
     return False
+
+
+def scaled_load_result(load_result: LoadResultProto, factor: float) -> LoadResultProto:
+    """Return ``load_result`` with every rate times ``factor``.
+
+    Factor 1 returns the same object, so no number moves. Otherwise the records
+    are copied, because the trials of a calibration share the loaded data.
+    """
+    if factor == 1.0:
+        return load_result
+    return replace(
+        load_result,
+        points=[
+            replace(record, data=record.data.assign(value=record.data["value"] * factor))
+            for record in load_result.points
+        ],
+        fields=[
+            replace(record, data=record.dataset.map(lambda v: v * factor, keep_attrs=True))
+            for record in load_result.fields
+        ],
+    )
 
 
 def resolve_forcing(

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -245,29 +246,46 @@ def _cmd_config_targets(args: argparse.Namespace) -> None:
         if not targets:
             print(f"{path.name} declares nothing a calibration could move.", file=sys.stderr)
             return
-        name_width = max(len(target.name) for target in targets)
+        names = [_toml_key(target.name) for target in targets]
+        name_width = max(len(name) for name in names)
         print(
-            f"{'name'.ljust(name_width)}  {'current':>12}  {'unit':>9}  {'physical range':<24}  path"
+            f"{'name'.ljust(name_width)}  {'current':>12}  {'unit':>9}  {'space':<8}  "
+            f"{'draw':<11}  {'default bounds':<24}  {'physical range':<24}  path"
         )
-        for target in targets:
-            bounds = (
-                f"{target.physical_bounds[0]:g} .. {target.physical_bounds[1]:g}"
-                if target.physical_bounds
-                else "-"
-            )
+        for name, target in zip(names, targets, strict=True):
             current = "-" if target.current is None else f"{target.current:g}"
+            space, draw, default = (
+                ("-", "-", None)
+                if target.calibrable is None
+                else (
+                    target.calibrable.search_space,
+                    target.calibrable.sampling,
+                    target.calibrable.bounds,
+                )
+            )
             print(
-                f"{target.name.ljust(name_width)}  {current:>12}  "
-                f"{(target.units or '-'):>9}  {bounds:<24}  {target.path}"
+                f"{name.ljust(name_width)}  {current:>12}  {(target.units or '-'):>9}  "
+                f"{space:<8}  {draw:<11}  {_range_text(default):<24}  "
+                f"{_range_text(target.physical_bounds):<24}  {target.path}"
             )
         print(
-            f"\nWrite one as [calibration.parameters.{targets[0].name}] with a bounds pair. "
+            f"\nWrite one as [calibration.parameters.{names[0]}] with a bounds pair. "
             "The path is resolved from the name; write it yourself only to reach "
             "something this catalogue does not list.",
             file=sys.stderr,
         )
 
     emit(args, "config targets", [target.to_dict() for target in targets], table=table)
+
+
+def _toml_key(name: str) -> str:
+    """Return ``name`` as a TOML key: quoted when it holds a dot or any other non-bare character."""
+    return name if re.fullmatch(r"[A-Za-z0-9_-]+", name) else f'"{name}"'
+
+
+def _range_text(bounds: tuple[float, float] | None) -> str:
+    """Return a pair of bounds as ``low .. high``, or ``-`` for none."""
+    return "-" if bounds is None else f"{bounds[0]:g} .. {bounds[1]:g}"
 
 
 def _warn_about_suffix_only_parameters(path: Path, targets: list[CalibrationTarget]) -> None:

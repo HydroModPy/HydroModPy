@@ -64,7 +64,7 @@ solver_access:
   - hydromodpy.solver.base.*
 
 # Rule 2: what another layer of hydromodpy may import from
-# hydromodpy/calibration. None of these twelve names a subtree: each is one
+# hydromodpy/calibration. None of these names a subtree: each is one
 # module, exactly as calibration-README-cible.md "What other layers import"
 # lists it. Everything else is private to hydromodpy/calibration.
 public:
@@ -81,3 +81,4 @@ public:
   - hydromodpy.calibration.runners.programmatic_runner
   - hydromodpy.calibration.runners.contracts
   - hydromodpy.calibration.runners.promotion
+  - hydromodpy.calibration.runners.recap

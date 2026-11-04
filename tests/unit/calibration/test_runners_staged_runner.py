@@ -37,6 +37,7 @@ from hydromodpy.calibration.runners import cli_runner, staged_runner
 from hydromodpy.calibration.runners import promotion as promotion_module
 from hydromodpy.calibration.runners import trial as trial_module
 from hydromodpy.calibration.runners.cli_runner import _engine_kwargs, load_toml_calibration
+from hydromodpy.calibration.runners.recap import staged_result_lines
 from hydromodpy.calibration.runners.resume import best_parameters_of, reusable_stage
 from hydromodpy.calibration.runners.session import open_session_dir
 from hydromodpy.calibration.runners.staged_runner import (
@@ -54,7 +55,7 @@ from hydromodpy.calibration.runners.staged_runner import (
 from hydromodpy.calibration.runners.state import preload_hash_cache
 from hydromodpy.calibration.runners.trial import TrialContext
 from hydromodpy.cli.commands import calibrate as calibrate_cmd
-from hydromodpy.cli.commands.calibrate import _format_staged_calibration_result, _phase_line
+from hydromodpy.cli.commands.calibrate import _phase_line
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.exceptions import CalibrationError, ConfigError, ConfigValidationError
 from hydromodpy.core.interrupts import TerminationRequested
@@ -148,7 +149,7 @@ def test_a_random_search_first_phase_feeds_the_second_and_says_so(
     assert descriptor.stop_state == "plan_exhausted"
     assert descriptor.stop_note == f"phase coarse {FROZE_BUDGET_ONLY}"
 
-    lines = _format_staged_calibration_result(report)
+    lines = staged_result_lines(report)
     assert f"  {FROZE_BUDGET_ONLY}" in lines
     assert lines.index(f"  {FROZE_BUDGET_ONLY}") < lines.index("phase storage:")
 

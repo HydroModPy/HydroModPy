@@ -6,7 +6,7 @@ import copy
 import copy as _copy
 import json
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, ClassVar
@@ -32,10 +32,12 @@ from hydromodpy.calibration.runners.trial import (
 from hydromodpy.calibration.targets import calibration_targets, targets_by_name
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.budget_terms import POLICY_ALL, POLICY_CONSUMERS, BudgetKeep
+from hydromodpy.core.config_kit.written import written_payload
 from hydromodpy.core.exceptions import ConfigError, StepError
 from hydromodpy.core.state.execution import ExecutionRegistry
 from hydromodpy.core.state.paths import INTERNAL_DIRNAME
 from hydromodpy.core.units.physical_bounds import validate_physical_value
+from hydromodpy.physics.flow.flow import Flow
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.storage.attempt import claim_reserved_directory
 from hydromodpy.results.storage.contract import RUN_MANIFEST_FILENAME
@@ -59,6 +61,7 @@ from hydromodpy.workflow.steps.planning import step_configure_results
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 from tests.unit.calibration._factories import Setup
 from tests.unit.calibration._factories_runners import make_session
+from tests.unit.calibration.test_targets import _config
 
 # From test_a_parameter_must_reach_a_step.py
 # A calibrated parameter that re-runs nothing is a search over a constant.
@@ -1243,3 +1246,19 @@ def _snapshot_files(root: Path) -> set[str]:
         for name in filenames:
             out.add(str(Path(dirpath, name).relative_to(root)))
     return out
+
+
+@pytest.mark.usefixtures("_ensure_bootstrap")
+def test_a_calibrated_factor_reaches_the_fork_the_frozen_file_and_the_replay(tmp_path) -> None:
+    cfg = _config(tmp_path, sinks_sources={"recharge": {"values": 2.0}})
+    stub, _ = _make_trial_context(tmp_path, earliest=6)
+    paths = {"recharge.factor": "flow.sinks_sources.recharge.factor"}
+    base = replace(stub, base_cfg=cfg, override_paths=paths)
+
+    forked = base.fork({"recharge.factor": 1.5}).ctx.cfg
+
+    assert cfg.flow.sinks_sources.recharge.factor == 1.0
+    frozen = HydroModPyConfig.model_validate(written_payload(forked))
+    assert frozen.flow.sinks_sources.recharge.factor == 1.5
+    assert Flow(frozen.flow).sinks_sources["recharge"].values == pytest.approx(3e-3 / 86400.0)
+    assert _trial_owns_its_recharge(base)

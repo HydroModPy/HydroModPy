@@ -9,8 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.calibration.preflight import percent
-from hydromodpy.cli.commands.calibrate import _shares_text
+from hydromodpy.calibration.runners.recap import percent, shares_text
 
 
 @pytest.mark.parametrize(
@@ -33,6 +32,6 @@ def test_a_share_prints_as_a_reader_reads_it(share: float, printed: str) -> None
 
 
 def test_a_small_block_of_a_result_is_not_printed_as_zero() -> None:
-    assert _shares_text({"hydrograph": 1000 / 1001, "network": 1 / 1001}) == (
+    assert shares_text({"hydrograph": 1000 / 1001, "network": 1 / 1001}) == (
         "hydrograph 99.9%, network 0.1%"
     )

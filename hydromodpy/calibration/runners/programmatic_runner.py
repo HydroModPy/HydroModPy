@@ -149,6 +149,7 @@ def run_calibration_programmatic(
     metric_fn: TrialMetricFn | None = None,
     objective: str | None = None,
     phase: str | None = None,
+    case: str | None = None,
     resume: bool = False,
 ) -> CalibrationReport:
     """Run calibration without a stand-alone calibration TOML.
@@ -175,7 +176,7 @@ def run_calibration_programmatic(
         else ws_root / ".hydromodpy" / "calibration_base.toml"
     )
     raw = _document_of(project, cfg_path)
-    case = (
+    case = case or (
         calibration_case_name(cfg_path)
         if src_path is not None
         else case_named_by(raw, cfg_path.stem)

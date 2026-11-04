@@ -465,9 +465,9 @@ def calibrate(
 ) -> CalibrationReport:
     """Run a calibration workflow from a TOML file or config object.
 
-    Paths route directly to :func:`run_calibration_cli`; in-memory config
-    objects open a lazy :class:`Project` so :func:`run_calibration_programmatic`
-    has the project context it requires.
+    A path builds no project and goes to ``calibrate_a_file``; in-memory config objects open a lazy
+    :class:`Project` so :func:`run_calibration_programmatic` has the project
+    context it requires.
 
     A TOML declaring ``[[calibration.phases]]`` **routes** to
     :func:`~hydromodpy.calibration.runners.staged_runner.run_staged_calibration`:
@@ -489,7 +489,9 @@ def calibrate(
         froze, so a phase whose dependency has not run is refused rather than
         calibrated against un-frozen values.
     kwargs
-        Options forwarded to the underlying calibration runner. The
+        Options of the route: for a path ``dry_run``, ``workspace``, ``project``,
+        ``metric_fn``, ``objective``, ``resume``, for a config object those of
+        :meth:`~hydromodpy.project.Project.calibrate`. The
         ``headless`` keyword controls the project initialization for the
         in-memory config branch and is ignored for the TOML branch (which
         builds no project).
@@ -536,45 +538,19 @@ def calibrate(
     hydromodpy.calibration.CalibrationReport
         Structured calibration result.
     """
-    from hydromodpy.core.exceptions import CalibrationError, ConfigError
+    from hydromodpy.core.exceptions import CalibrationError
+    from hydromodpy.project import Project
     from hydromodpy.project.dispatch.workflow import no_such_phase
+    from hydromodpy.project.facade import calibrate_a_file
 
     if isinstance(config, (str, Path)):
-        target = Path(config).expanduser().resolve()
-
-        from hydromodpy.calibration.preflight import preflight_launch
-        from hydromodpy.calibration.runners.cli_runner import (
-            load_toml_calibration,
-            run_calibration_cli,
-        )
-        from hydromodpy.calibration.runners.staged_runner import run_staged_calibration
-
         kwargs.pop("headless", None)
-        # Probe the file to decide staged or not. When that decision is all
-        # that hangs on the read, a failure is left to the runner, which
-        # reports it with its own context. When the answer itself is what the
-        # file says, no runner is reached, so the read failure surfaces here.
-        try:
-            cfg, _raw = load_toml_calibration(target)
-        except Exception as exc:
-            if phase is not None:
-                raise ConfigError(f"{target} cannot be read: {exc}") from exc
-            return run_calibration_cli(target, **kwargs)
-        # The gate of every launch: what `hmp config check` refuses stops here,
-        # before anything is prepared.
-        preflight_launch(target)
-        if cfg.phases:
-            return run_staged_calibration(target, phase=phase, **kwargs)
-        if phase is not None:
-            raise CalibrationError(no_such_phase(target.name, phase))
-        return run_calibration_cli(target, **kwargs)
+        return calibrate_a_file(config, phase=phase, **kwargs)
 
     calibration = getattr(config, "calibration", None)
     declared = getattr(calibration, "phases", None)
     if not declared and phase is not None:
         raise CalibrationError(no_such_phase("this configuration", phase))
-
-    from hydromodpy.project import Project
 
     headless = bool(kwargs.pop("headless", True))
     if phase is not None:

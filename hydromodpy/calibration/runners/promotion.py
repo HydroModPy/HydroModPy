@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import os
 import uuid
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -663,6 +664,30 @@ def _promote_one(
 # ---------------------------------------------------------------------------
 
 
+def best_trials(project_root: Path, case: str, limit: int = 5) -> list[TrialLine]:
+    """Return the ``limit`` completed trials of lowest cost of each phase, best first.
+
+    The costs of two phases are not comparable, so each phase keeps its own best and none hides
+    another. A trial a speculative engine solved and did not read is left out, as in the ranking.
+    """
+    trials = CalibrationPersistence(resolve_session_dir(project_root, case)).trials()
+    ranked = sorted(
+        (
+            t
+            for t in trials
+            if t.status == "completed" and t.cost is not None and not t.speculative_unused
+        ),
+        key=lambda t: t.cost,
+    )
+    kept: Counter[str] = Counter()
+    best = []
+    for trial in ranked:
+        if kept[trial.phase] < limit:
+            kept[trial.phase] += 1
+            best.append(trial)
+    return best
+
+
 def promote_trial_from_session(
     project_root: Path,
     case: str,
@@ -873,6 +898,7 @@ def prune_session(
 __all__ = [
     "PHASE_BEST_DIRNAME",
     "PromotionOutcome",
+    "best_trials",
     "calibrated_by_of",
     "promote_best_after_abort",
     "promote_phase_best",
