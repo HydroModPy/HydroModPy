@@ -38,13 +38,13 @@ jobs:
 
     steps:
       - name: Check out target branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ matrix.target_branch }}
           fetch-depth: 0
 
       - name: Set up Miniforge
-        uses: conda-incubator/setup-miniconda@v3
+        uses: conda-incubator/setup-miniconda@v4
         with:
           miniforge-version: latest
           activate-environment: hydromodpy-docs

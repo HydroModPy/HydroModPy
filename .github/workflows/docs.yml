@@ -46,11 +46,11 @@ jobs:
     steps:
       # sphinx-last-updated-by-git needs the full history: on a shallow
       # clone it warns once per page, and -W turns that into 465 errors.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
           cache: pip
@@ -79,7 +79,7 @@ jobs:
 
       - name: Upload built HTML
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: docs-html
           path: docs/build/html
@@ -95,11 +95,11 @@ jobs:
     # for a long time, but nothing ever ran it: renaming or deleting a page
     # broke its published URL silently. This job makes that a red check.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
           cache: pip
