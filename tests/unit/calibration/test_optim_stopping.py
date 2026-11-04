@@ -944,9 +944,16 @@ def test_a_linear_parameter_reads_it_as_a_fraction_of_its_interval() -> None:
     assert search_width(POROSITY, 0.05) == pytest.approx(0.05 * 0.4)
 
 
-def test_nelder_mead_gets_the_precision_as_an_absolute_width() -> None:
+def test_nelder_mead_gets_the_precision_as_an_absolute_width_and_a_relative_cost_spread() -> None:
     kwargs = stopping_kwargs("scipy_nelder_mead", ParameterSpace([K]), precision=0.10)
-    assert kwargs == {"xatol": pytest.approx(math.log10(1.1))}
+    assert kwargs == {"xatol": pytest.approx(math.log10(1.1)), "fatol": 0.0, "fatol_rel": 0.10}
+
+
+def test_a_declared_fatol_keeps_the_cost_spread_as_written() -> None:
+    kwargs = stopping_kwargs(
+        "scipy_nelder_mead", ParameterSpace([K]), precision=0.10, declared={"fatol": 1e-6}
+    )
+    assert kwargs == {"xatol": pytest.approx(math.log10(1.1)), "fatol": 1e-6}
 
 
 def test_the_strictest_parameter_sets_the_width() -> None:

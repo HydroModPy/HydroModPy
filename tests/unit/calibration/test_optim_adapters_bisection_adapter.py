@@ -39,6 +39,7 @@ from hydromodpy.calibration.runners.cli_runner import (
     _r_optim_verdict_extra,
     _search_outcome_extra,
     load_toml_calibration,
+    search_status,
 )
 from hydromodpy.calibration.runners.staged_runner import _phase_config
 from hydromodpy.core.exceptions import ObjectiveError, OptimizerError
@@ -267,13 +268,15 @@ class TestTransform:
 # value that means nothing while r_optim reports 1.5, inside its validity bound.
 
 
-def test_a_root_inside_the_bounds_says_nothing(caplog) -> None:
-    adapter = BisectionAdapter(_space(upper=1.0e3), sweep_points=5, bracket_expand=4)
+@pytest.mark.parametrize("bracket_expand", [4, 0], ids=["may_expand", "never_expands"])
+def test_a_root_inside_the_bounds_says_nothing(caplog, bracket_expand) -> None:
+    adapter = BisectionAdapter(_space(upper=1.0e3), sweep_points=5, bracket_expand=bracket_expand)
     _run(adapter, max_trials=60, root=50.0)
     with caplog.at_level(logging.WARNING):
         adapter.best()
 
     assert "OUTSIDE the declared bounds" not in caplog.text
+    assert adapter.root_outside_bounds() is None
 
 
 def test_a_root_above_the_declared_interval_is_reported(caplog) -> None:
@@ -288,20 +291,57 @@ def test_a_root_above_the_declared_interval_is_reported(caplog) -> None:
     assert "OUTSIDE the declared bounds" in caplog.text
     assert "does not respond to this parameter" in caplog.text
     assert "n_excess" in caplog.text
-
-
-def test_a_bracket_that_never_expanded_is_never_reported(caplog) -> None:
-    adapter = BisectionAdapter(_space(upper=1.0e3), sweep_points=5, bracket_expand=0)
-    _run(adapter, max_trials=60, root=50.0)
-    with caplog.at_level(logging.WARNING):
-        adapter.best()
-
-    assert "OUTSIDE the declared bounds" not in caplog.text
+    reason = adapter.root_outside_bounds()
+    assert reason.startswith("the root of J_signed at ")
+    assert reason.endswith(
+        "OUTSIDE the declared bounds of K, [1, 1000], after 3 bracket expansion(s)"
+    )
 
 
 def test_nothing_evaluated_means_nothing_to_report() -> None:
     adapter = BisectionAdapter(_space(upper=1.0e3), sweep_points=3, bracket_expand=0)
     assert adapter.best() is None
+    assert adapter.root_interval(margin=1.0, kind="absolute") is None
+
+
+def test_the_width_of_a_root_stops_at_a_trial_that_did_not_solve() -> None:
+    # J = log10(K) - 2.5, and the top of the sweep at K = 1e4 does not solve.
+    adapter = BisectionAdapter(_space(1.0, 1.0e4), sweep_points=5)
+    while not adapter.done:
+        (sugg,) = adapter.ask(1)
+        residual = math.log10(float(sugg.values["K"])) - 2.5
+        status = "infeasible" if residual > 1.0 else "completed"
+        adapter.tell(
+            [result_of(sugg, abs(residual), components={"net.J_signed": residual}, status=status)]
+        )
+
+    interval = adapter.root_interval(margin=1.0, kind="absolute")
+
+    assert interval.lower == pytest.approx(10.0**1.5, rel=0.02)
+    assert interval.upper == pytest.approx(1.0e3)
+    assert (interval.lower_crossed, interval.upper_crossed) == (True, False)
+    # K = 1 and K = 10 solved above the margin; K = 1e4 did not solve.
+    assert interval.n_trials == interval.n_within + 2
+
+
+def test_a_refusal_on_an_infeasible_end_says_that_word() -> None:
+    adapter = BisectionAdapter(_space(1.0, 100.0), sweep_points=3, bracket_expand=4)
+    statuses = iter(("completed", "completed", "infeasible"))
+    with pytest.raises(
+        OptimizerError, match=r"a bracket end is infeasible, K = 100 \(infeasible\)"
+    ):
+        for status in statuses:
+            (sugg,) = adapter.ask(1)
+            adapter.tell([result_of(sugg, 5.0, components={"net.J_signed": 5.0}, status=status)])
+
+
+def test_a_root_of_two_outside_the_bounds_is_the_one_named() -> None:
+    adapter = _two_root_adapter()
+    _run__root_search_closes(adapter, _two_bounds(root_max=5.0e-3))
+
+    reason = adapter.root_outside_bounds()
+    assert reason.startswith("the root of maximal bound (J_signed_maximal) at ")
+    assert "minimal" not in reason
 
 
 # From test_the_root_search_answers_inside_its_bracket.py
@@ -1509,6 +1549,17 @@ def test_each_point_is_scored_at_its_root_and_the_answer_is_the_lowest_root() ->
     assert min(session.history, key=lambda r: r.cost) not in search.answers
     assert session.best is search.answers[1]
     assert search.ask() == [], "the outer plan is spent"
+    assert search.root_outside_bounds() is None
+
+
+def test_a_balanced_root_outside_the_bounds_is_named() -> None:
+    search, seen = _balanced(points=2), {}
+    session = run_engine(BALANCED_SPACE, search, _structure({1.0: 100.0, 3.0: 5.0e5}, seen), 2)
+
+    assert search_status(session) == "partial"
+
+    assert search.root_outside_bounds().startswith("the root of ")
+    assert search.root_outside_bounds().count("OUTSIDE the declared bounds of K") == 1
 
 
 def test_a_point_with_no_root_fails_and_the_search_goes_on(caplog) -> None:

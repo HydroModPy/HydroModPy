@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 import numpy as np
 import pytest
 
@@ -14,6 +12,7 @@ from hydromodpy.calibration.runners.restarts import (
     run_restarts,
     start_points,
 )
+from tests.unit.calibration._factories_runners import make_report
 
 # From test_restarts_report_a_spread_not_a_new_answer.py
 # Repeating a search says how far apart its answers land, and changes none of them.
@@ -35,8 +34,15 @@ SY = CalibParameter(name="Sy", lower=1e-4, upper=0.5, search_space="log")
 SPACE = ParameterSpace([K, SY])
 
 
-def _report(objective, **values):
-    return SimpleNamespace(best_cost=objective, best_parameters=values or None)
+def _report(objective, *, settled=True, **values):
+    state, status = ("rule_met", "completed") if settled else ("budget_spent", "partial")
+    search = {"stop_state": state, "stopping_rule": "xatol"}
+    return make_report(
+        best_cost=objective,
+        best_parameters=values or None,
+        status=status,
+        extra={"search": search, "search_status": status},
+    )
 
 
 class TestTheRefusals:
@@ -103,6 +109,27 @@ class TestTheLoop:
         k_spread = next(item for item in spread if item.parameter == "K")
         assert k_spread.best == pytest.approx(4e-6)
         assert (k_spread.lowest, k_spread.highest) == (pytest.approx(4e-6), pytest.approx(2e-5))
+
+    @pytest.mark.parametrize(
+        ("settled", "costs", "expected_cost", "expected_status"),
+        [
+            ((False, True, True), (0.3, 0.9, 0.7), 0.7, "completed"),
+            ((False, False, False), (0.3, 0.9, 0.7), 0.3, "partial"),
+            ((True, True, True), (0.5, None, 0.8), 0.5, "partial"),
+        ],
+        ids=["the best that settled", "none settled, the best of all", "one found nothing"],
+    )
+    def test_the_answer_is_the_best_restart_that_settled(
+        self, settled, costs, expected_cost, expected_status
+    ) -> None:
+        def run_one(seed, _start):
+            return _report(costs[seed], settled=settled[seed], K=1e-5, Sy=0.01)
+
+        best, _spread = run_restarts(
+            run_one, method="scipy_nelder_mead", space=SPACE, restarts=3, seed=0
+        )
+        assert best.best_cost == pytest.approx(expected_cost)
+        assert (best.status, best.extra["search_status"]) == (expected_status,) * 2
 
     def test_a_restart_that_found_nothing_is_left_out_of_the_spread(self) -> None:
         # A search that failed did not find a different optimum; it found none.

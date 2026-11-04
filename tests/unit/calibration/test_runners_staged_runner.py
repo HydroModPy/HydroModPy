@@ -2218,8 +2218,51 @@ def test_each_restart_carries_its_own_seed(tmp_path, runner) -> None:
     assert len({call.seed for call in runner.calls}) == 3
 
 
-def test_the_report_publishes_the_spread_beside_the_value(tmp_path, runner) -> None:
-    report = run_staged_calibration(_write_multistart(tmp_path))
+ROOT_OUTSIDE = "root K = 1 closed OUTSIDE the declared bounds [1e-07, 0.001]"
+
+
+def _closes_the_first_phase_outside(runner, monkeypatch) -> None:
+    search = runner.run_calibration_core
+
+    def outside_on_the_first_phase(cfg, *args, **kwargs):
+        report = search(cfg, *args, **kwargs)
+        if "K" not in cfg.parameters:
+            return report
+        extra = {**report.extra, "root_outside_bounds": ROOT_OUTSIDE, "search_status": "partial"}
+        return replace(report, extra=extra)
+
+    monkeypatch.setattr(cli_runner, "run_calibration_core", outside_on_the_first_phase)
+
+
+def test_a_root_outside_its_bounds_closes_the_phase_partial_and_freezes_nothing(
+    tmp_path, runner, monkeypatch
+) -> None:
+    _closes_the_first_phase_outside(runner, monkeypatch)
+
+    report = run_staged_calibration(_write_staged(tmp_path, INDEPENDENT))
+
+    steady = read_phase(report.session_dir, "steady_k")
+    assert (steady.status, steady.stop_note) == ("partial", ROOT_OUTSIDE)
+    assert read_phase(report.session_dir, "transient_sy").frozen == {}
+    descriptor = read_session(report.session_dir)
+    assert descriptor.status == "partial"
+    assert descriptor.stop_note == f"phase steady_k {ROOT_OUTSIDE}"
+    assert f"phase steady_k {ROOT_OUTSIDE}" in descriptor.error_message
+    assert descriptor.widths == {}
+
+
+def test_a_phase_built_on_a_root_outside_its_bounds_is_refused(
+    tmp_path, runner, monkeypatch
+) -> None:
+    _closes_the_first_phase_outside(runner, monkeypatch)
+
+    with pytest.raises(CalibrationError, match="not a solved value, so it is not passed on"):
+        run_staged_calibration(_write_staged(tmp_path))
+
+
+def test_the_report_publishes_the_spread_beside_the_value(tmp_path, runner, caplog) -> None:
+    with caplog.at_level(logging.INFO):
+        report = run_staged_calibration(_write_multistart(tmp_path))
 
     spread = {item.parameter: item for item in report.restart_spreads}
     assert "K" in spread
@@ -2228,6 +2271,12 @@ def test_the_report_publishes_the_spread_beside_the_value(tmp_path, runner) -> N
     assert spread["K"].lowest == pytest.approx(spread["K"].highest)
     assert spread["K"].best == pytest.approx(spread["K"].lowest)
     assert report.to_dict()["restart_spreads"][0]["n_restarts"] == 3
+    # The phase prints the extent and writes it, and the session takes it from the phase.
+    assert "restarts spanned" in caplog.text
+    landed = read_phase(report.session_dir, "steady_k").widths["K"].restarts
+    assert (landed.lowest, landed.highest) == (K_CALIBRATED, K_CALIBRATED)
+    assert landed.values == [K_CALIBRATED] * 3
+    assert read_session(report.session_dir).widths["K"].restarts == landed
 
 
 def test_restarts_on_an_exhaustive_sweep_are_refused(tmp_path, runner) -> None:
@@ -2292,7 +2341,7 @@ def width(monkeypatch) -> list[SimpleNamespace]:
 
     def attach(report, *, cfg, trial_ctx, space, perturbation):
         calls.append(SimpleNamespace(cfg=cfg))
-        widened = SimpleNamespace(name=next(iter(cfg.parameters)))
+        widened = SimpleNamespace(parameter=next(iter(cfg.parameters)), sigma=0.1)
         return replace(report, parameter_uncertainty=(widened,))
 
     monkeypatch.setattr(staged_runner, "attach_a_linearized_width", attach)
@@ -2307,6 +2356,8 @@ def linearized(tmp_path, runner, width) -> CalibrationReport:
 def test_linearized_uncertainty_attaches_a_width_to_each_phase(linearized, width) -> None:
     assert len(width) == 2
     assert all(phase.report.parameter_uncertainty for phase in linearized.phases)
+    assert read_phase(linearized.session_dir, "steady_k").widths["K"].sigma == 0.1
+    assert read_session(linearized.session_dir).widths["Sy"].sigma == 0.1
 
 
 def test_linearized_uncertainty_reads_the_phase_that_scored_it(linearized, width) -> None:

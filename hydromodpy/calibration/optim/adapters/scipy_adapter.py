@@ -14,6 +14,7 @@ Supported methods:
 
 from __future__ import annotations
 
+import math
 import queue
 import threading
 from collections.abc import Callable, MutableMapping
@@ -195,17 +196,18 @@ class ScipyDE(_ScipyAdapterBase):
     """scipy.optimize.differential_evolution adapter."""
 
     name = "scipy_de"
+    traits = EngineTraits(supports_parallel=False, takes_max_trials=True)
 
     def __init__(
         self,
         space: ParameterSpace,
         *,
         seed: int | None = None,
-        maxiter: int = 100,
+        max_trials: int = 100,
         popsize: int = 15,
         tol: float = 0.01,
     ):
-        self._maxiter = maxiter
+        self._max_trials = int(max_trials)
         self._popsize = popsize
         self._tol = tol
         super().__init__(space, seed=seed)
@@ -221,12 +223,16 @@ class ScipyDE(_ScipyAdapterBase):
             max(5, self._popsize * max(1, self.space.dim)),
         )
 
+        # The initial population takes one generation of evaluations, so the budget
+        # covers that many generations less one.
+        maxiter = max(1, math.ceil(self._max_trials / len(init)) - 1)
+
         def run(obj: Callable[[np.ndarray], float]) -> object:
             return differential_evolution(
                 obj,
                 bounds=bounds,
                 seed=self._seed,
-                maxiter=self._maxiter,
+                maxiter=maxiter,
                 popsize=self._popsize,
                 tol=self._tol,
                 polish=False,
@@ -263,6 +269,8 @@ class ScipyNelderMead:
     )
 
     name = "scipy_nelder_mead"
+    marks_unread = True
+    """It marks the speculative results it did not read once the batch is told."""
 
     def __init__(
         self,
@@ -273,6 +281,7 @@ class ScipyNelderMead:
         maxfev: int | None = None,
         xatol: float | None = None,
         fatol: float | None = None,
+        fatol_rel: float | None = None,
         start_at: Any | None = None,
     ):
         self.space = space
@@ -283,6 +292,7 @@ class ScipyNelderMead:
         self._maxfev: float = self._maxiter if maxfev is None else int(maxfev)
         self._xatol = None if xatol is None else float(xatol)
         self._fatol = None if fatol is None else float(fatol)
+        self._fatol_rel = None if fatol_rel is None else float(fatol_rel)
         self._start_at = None if start_at is None else np.asarray(start_at, dtype=float).ravel()
         bounds = [(p.lower_transformed, p.upper_transformed) for p in space.parameters]
         self._lower = np.array([b[0] for b in bounds], dtype=float)
@@ -332,6 +342,8 @@ class ScipyNelderMead:
             tolerances["xatol"] = self._xatol
         if self._fatol is not None:
             tolerances["fatol"] = self._fatol
+        if self._fatol_rel is not None:
+            tolerances["fatol_rel"] = self._fatol_rel
         return SpeculativeNelderMead(
             x0,
             initial_simplex=initial_simplex,

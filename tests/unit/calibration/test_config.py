@@ -32,7 +32,7 @@ from hydromodpy.calibration.config import (
     apply_project_defaults,
     validate_calib_output,
 )
-from hydromodpy.calibration.optim.optimizer import available_optimizers
+from hydromodpy.calibration.optim.optimizer import announced_optimizers, available_optimizers
 from hydromodpy.calibration.protocols import options_the_recipe_already_runs
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.config.config_migration import fix_config_file, migrate_sealed_config_doc
@@ -1082,18 +1082,14 @@ def _description(model: type, field_name: str) -> str:
     return model.model_fields[field_name].description or ""
 
 
-def test_the_section_method_names_every_registered_optimizer() -> None:
-    text = _description(CalibrationConfig, "method")
+@pytest.mark.parametrize("model", [CalibrationConfig, CalibPhaseDecl])
+def test_the_method_description_names_the_announced_optimizers_and_no_other(model: type) -> None:
+    text = _description(model, "method")
 
-    missing = [name for name in available_optimizers() if f"'{name}'" not in text]
-    assert missing == []
-
-
-def test_the_phase_method_names_every_registered_optimizer() -> None:
-    text = _description(CalibPhaseDecl, "method")
-
-    missing = [name for name in available_optimizers() if f"'{name}'" not in text]
-    assert missing == []
+    named = [name for name in available_optimizers() if f"'{name}'" in text]
+    assert named == list(announced_optimizers())
+    assert "da_mh_gp" in available_optimizers()
+    assert "da_mh_gp" not in named
 
 
 def test_the_stream_network_stage_is_findable() -> None:
@@ -1911,8 +1907,12 @@ class TestCalibrationConfigMethodLiteral:
     @pytest.mark.parametrize("method", ["bayesian", "genetic", "GRID"])
     def test_rejects_unsupported_method(self, method: str):
         cfg = CalibrationConfig.model_validate({"method": method})
-        with pytest.raises(ValueError, match="Unknown calibration method"):
+        with pytest.raises(ValueError, match="Unknown calibration method") as refused:
             cfg.validate_registry()
+        assert str(announced_optimizers()) in str(refused.value)
+
+    def test_an_unannounced_method_still_validates(self):
+        CalibrationConfig.model_validate({"method": "da_mh_gp"}).validate_registry()
 
 
 class TestCalibrationConfigNumericBounds:

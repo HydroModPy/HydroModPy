@@ -43,7 +43,7 @@ import math
 import time
 import uuid
 from collections.abc import Callable, Mapping
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextvars import copy_context
 from dataclasses import dataclass, field, replace
 from typing import Any, Protocol
@@ -166,6 +166,10 @@ class CalibrationEngine:
     Takes the suggestion alongside its result: a cache hit never reaches the
     evaluator, so the caller has no other way to know which parameters the
     iteration carried, and the row it persists would be dropped.
+
+    It always runs in the caller thread. In a parallel batch it runs as each trial
+    ends, so a stop keeps the trials already finished. An engine that marks results
+    after reading them (``marks_unread``) is called for the whole batch once it is told.
     """
     before_batch: Callable[[list[ParamSuggestion]], None] | None = None
     """Called with each batch, in the caller thread, before any trial of it runs.
@@ -174,6 +178,8 @@ class CalibrationEngine:
     numbers trials does it here, so the numbers follow that order and not the
     order in which parallel workers happen to start.
     """
+    _journaled: bool = field(default=False, init=False, repr=False)
+    """Whether the last batch was journaled trial by trial, as each one ended."""
 
     def run(self) -> CalibrationSession:
         sid = self.session_id or uuid.uuid4().hex
@@ -295,7 +301,7 @@ class CalibrationEngine:
                 session.history.append(result)
                 if not _speculative_unused(result):
                     reporter.update(sugg.trial_id, result)
-                if self.on_iteration is not None:
+                if self.on_iteration is not None and not self._journaled:
                     self.on_iteration(sugg, result)
             # A method that labels its own progress knows the batch only now.
             refresh = getattr(reporter, "refresh", None)
@@ -353,6 +359,7 @@ class CalibrationEngine:
         """
         if self.before_batch is not None:
             self.before_batch(suggestions)
+        self._journaled = False
         if self.parallel <= 1 or len(suggestions) <= 1:
             return [self._evaluate_with_cache(sugg) for sugg in suggestions]
         workers = min(self.parallel, len(suggestions))
@@ -367,8 +374,26 @@ class CalibrationEngine:
             ctx, sugg = item
             return ctx.run(self._evaluate_with_cache, sugg)
 
+        # An engine that marks the results it did not read, after the batch is told,
+        # journals then: a line written before that mark would count a trial the
+        # search never read.
+        self._journaled = self.on_iteration is not None and not getattr(
+            self.optimizer, "marks_unread", False
+        )
+        results: list[EvaluationResult | None] = [None] * len(suggestions)
         with ThreadPoolExecutor(max_workers=workers) as pool:
-            return list(pool.map(_run_in_context, tasks))
+            futures = {pool.submit(_run_in_context, task): i for i, task in enumerate(tasks)}
+            try:
+                for future in as_completed(futures):
+                    i = futures[future]
+                    results[i] = future.result()
+                    if self._journaled:
+                        self.on_iteration(suggestions[i], results[i])
+            except BaseException:
+                # A stop must not wait for the queued trials, nor start them.
+                pool.shutdown(wait=True, cancel_futures=True)
+                raise
+        return results
 
     def _evaluate_with_cache(self, sugg: ParamSuggestion) -> EvaluationResult:
         if self.cache is None:

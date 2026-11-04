@@ -1,4 +1,4 @@
-"""Marginal posterior histograms from calibration iterations."""
+"""Distribution of the trials of a calibration, one histogram per parameter."""
 
 from __future__ import annotations
 
@@ -17,12 +17,12 @@ if TYPE_CHECKING:
 
 
 @register
-class CalibrationPosteriorFigure(BaseFigure):
+class CalibrationTrialDistributionFigure(BaseFigure):
     """One histogram per parameter, shaded by mean objective when available."""
 
     spec = FigureSpec(
-        name="calibration_posterior",
-        title="Calibration parameter posteriors",
+        name="calibration_trial_distribution",
+        title="Calibration trial distribution",
         kind="comparison",
         required_tables=("calibration_iterations",),
         default_figsize=(8.0, 6.0),
@@ -34,13 +34,13 @@ class CalibrationPosteriorFigure(BaseFigure):
         ax: Axes,
         **_,
     ) -> Axes:
-        # render() is a no-op: the posterior figure needs its own grid,
+        # render() is a no-op: the distribution figure needs its own grid,
         # so plot() is overridden below.
         ax.set_axis_off()
         ax.text(
             0.5,
             0.5,
-            "calibration_posterior has its own plot()",
+            "calibration_trial_distribution has its own plot()",
             ha="center",
             va="center",
         )
@@ -71,7 +71,7 @@ class CalibrationPosteriorFigure(BaseFigure):
         names = list(parameters) if parameters is not None else list(table.parameters)
         if not names:
             raise ValueError(
-                "calibration_posterior: no parameter columns found; the session recorded "
+                "calibration_trial_distribution: no parameter columns found; the session recorded "
                 f"{', '.join(sorted(table.frame.columns))}"
             )
         sampled = [table.parameter_values(name) for name in names]
@@ -119,7 +119,7 @@ class CalibrationPosteriorFigure(BaseFigure):
                 label=f"mean {cost_name}",
                 shrink=0.7,
             )
-        fig.suptitle(f"Parameter posteriors{run_suffix(sim)}")
+        fig.suptitle(f"Parameter distribution{run_suffix(sim)}")
         if save_path is not None:
             from pathlib import Path
 

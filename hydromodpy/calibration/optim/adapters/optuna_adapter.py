@@ -6,6 +6,8 @@ sampler state natively via its ``ask()`` / ``tell()`` API.
 
 from __future__ import annotations
 
+from typing import Literal
+
 import optuna
 
 from hydromodpy.calibration.optim.optimizer import (
@@ -36,7 +38,7 @@ class OptunaAdapter:
         *,
         sampler: str = "tpe",
         seed: int | None = None,
-        direction: str = "minimize",
+        direction: Literal["minimize"] = "minimize",
     ):
         if sampler not in _SAMPLERS:
             raise ValueError(f"Unknown Optuna sampler {sampler!r}. Choices: {sorted(_SAMPLERS)}")

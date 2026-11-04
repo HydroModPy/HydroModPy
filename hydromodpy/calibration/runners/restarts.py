@@ -16,14 +16,19 @@ restarts of a hundred-evaluation phase is eight hundred model runs.
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from dataclasses import dataclass, field
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field, replace
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from hydromodpy.calibration.optim.optimizer import engine_traits
 from hydromodpy.calibration.optim.parameters import ParameterSpace
 from hydromodpy.calibration.optim.sampling import search_space_samples
+from hydromodpy.calibration.optim.stopping import settled
+
+if TYPE_CHECKING:
+    from hydromodpy.calibration.report import CalibrationReport
 
 
 @dataclass(frozen=True)
@@ -105,7 +110,10 @@ def run_restarts(
 
     ``run_one(seed, start_at)`` performs one whole search. A restart that returns
     no best parameters is kept out of the spread rather than counted as a zero: a
-    search that failed did not find a different optimum, it found none.
+    search that failed did not find a different optimum, it found none. The answer
+    is the lowest cost among the restarts that settled, or among all of them when
+    none did. When a restart found nothing, the others stand and the phase closes
+    ``partial``.
     """
     assert_restarts_can_explore(method, restarts)
     base = 0 if seed is None else int(seed)
@@ -116,7 +124,9 @@ def run_restarts(
     scored = [r for r in reports if r is not None and _objective_of(r) is not None]
     if not scored:
         return reports[0], ()
-    best = min(scored, key=_objective_of)
+    best = min([r for r in scored if unsettled_search(r) is None] or scored, key=_objective_of)
+    if len(scored) < len(reports) and best.extra.get("search_status") == "completed":
+        best = replace(best, status="partial", extra={**best.extra, "search_status": "partial"})
     return best, spread_of(scored, best=best, names=list(space.names))
 
 
@@ -144,6 +154,19 @@ def spread_of(reports: list, *, best: object, names: list[str]) -> tuple[Restart
     return tuple(out)
 
 
+def unsettled_search(report: CalibrationReport) -> Mapping[str, Any] | None:
+    """Return the report's search record when it says the search did not settle, else None.
+
+    The record is ``extra["search"]``, written by the runner that solved the
+    phase. A report without one (a phase reused from disk) is judged on its
+    best candidate alone.
+    """
+    search = report.extra.get("search")
+    if isinstance(search, Mapping) and not settled(search["stop_state"], search["stopping_rule"]):
+        return search
+    return None
+
+
 def _objective_of(report: object) -> float | None:
     value = getattr(report, "best_cost", None)
     if value is None:
@@ -158,4 +181,5 @@ __all__ = [
     "run_restarts",
     "spread_of",
     "start_points",
+    "unsettled_search",
 ]

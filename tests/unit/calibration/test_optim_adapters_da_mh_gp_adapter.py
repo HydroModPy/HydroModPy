@@ -125,6 +125,21 @@ class TestDaMhGpBest:
 
 
 class TestDaMhGpChain:
+    def test_a_failed_trial_is_no_likelihood_value(self):
+        """A failed trial is rejected by the chain and never trains the surrogate."""
+        evaluate = _make_quadratic_evaluator()
+
+        def _eval(sugg):
+            if sugg.trial_id == 1:
+                return EvaluationResult(trial_id=1, sim_id=None, cost=float("nan"), status="failed")
+            return evaluate(sugg)
+
+        opt, session = _fit(_eval, max_trials=30, chain_length=10, n_init=4, burn_in=2, seed=1)
+        completed = [r for r in session.history if r.status == "completed"]
+        assert len(completed) < len(session.history)
+        assert len(opt._y_train) == len(completed) >= 3
+        assert np.isfinite(opt._y_train).all()
+
     def test_chain_length_matches_the_option(self):
         """Full chain length should equal the requested ``chain_length`` MCMC budget."""
         opt, _ = _fit(chain_length=25, n_init=4, burn_in=5, seed=7)

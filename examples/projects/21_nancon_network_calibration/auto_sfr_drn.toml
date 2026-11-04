@@ -493,5 +493,5 @@ figures = [
     "parameter_cost_profile",
     "calibration_convergence",
     "calibration_trace",
-    "calibration_posterior",
+    "calibration_trial_distribution",
 ]

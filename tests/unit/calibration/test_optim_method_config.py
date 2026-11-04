@@ -489,6 +489,12 @@ def test_optuna_method_with_sampler_validates() -> None:
     assert cfg.direction == "minimize"
 
 
+def test_optuna_refuses_to_maximize() -> None:
+    # The calibration cost is minimised and best() takes the lowest: "maximize" would invert one only.
+    with pytest.raises(ValidationError, match="direction"):
+        validate_method_kwargs("optuna", {"direction": "maximize"})
+
+
 def test_cma_es_method_rejects_optuna_kwarg() -> None:
     """Mixing ``method='cma_es'`` with the Optuna ``sampler`` kwarg must fail eagerly."""
     with pytest.raises(ValidationError) as excinfo:

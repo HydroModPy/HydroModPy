@@ -1958,8 +1958,8 @@ class CalibPhaseDecl(HydroModelBase):
             "method_options.points_per_dim), 'lhs' (stratified Latin hypercube, "
             "sized by method_options.n_samples), 'random_search', 'bisection' (root of "
             "a signed criterion on one parameter, the stream-network stage), 'optuna' "
-            "(TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', "
-            "'da_mh_gp'. An unknown name is refused when the optimizer is built, "
+            "(TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead' and 'gp_mapping'. "
+            "An unknown name is refused when the optimizer is built, "
             "with the list installed here."
         ),
     )
@@ -2417,9 +2417,9 @@ class CalibrationConfig(HydroModelBase):
             "method_options.points_per_dim), 'lhs' (stratified Latin hypercube, "
             "sized by method_options.n_samples), 'random_search', 'bisection' (root of "
             "a signed criterion on one parameter, the stream-network stage), 'optuna' "
-            "(TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', "
-            "'da_mh_gp'. An unknown name is refused when the optimizer is built, "
-            "with the list installed here."
+            "(TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead' and 'gp_mapping'. "
+            "An unknown name is refused when the optimizer is built, "
+            "with the list installed here. "
             "Optuna is installed by default; install the calibration extra for "
             "cma_es and Optuna's cmaes sampler."
         ),
@@ -2820,13 +2820,16 @@ class CalibrationConfig(HydroModelBase):
         chooses it.
         """
         from hydromodpy.calibration.optim.method_config import validate_method_kwargs
-        from hydromodpy.calibration.optim.optimizer import available_optimizers
+        from hydromodpy.calibration.optim.optimizer import (
+            announced_optimizers,
+            available_optimizers,
+        )
 
         method, _reason = self.method_for()
-        available = available_optimizers()
-        if method not in available:
+        if method not in available_optimizers():
             raise ValueError(
-                f"Unknown calibration method {method!r}. Available methods: {available}"
+                f"Unknown calibration method {method!r}. "
+                f"Available methods: {announced_optimizers()}"
             )
         validate_method_kwargs(method, self.method_options)
 

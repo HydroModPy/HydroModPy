@@ -25,11 +25,18 @@ divided by. On a mesh refined along the streams it is the fine cell the
 distances start from, not the median cell of the catchment; on a regular grid
 it is the cell size. The criterion measures it and publishes it per trial as
 ``<output>.cell_spacing_m``.
+
+A root search answers with one value on one parameter, and its trials pile up
+around the root, so their envelope only gives the neighbor of the sweep or the
+bracket. There the cost against the search variable is a curve, and
+:func:`root_interval` interpolates where it crosses the margin. Each end of an
+interval says what it is: ``crossed`` when the cost was seen to cross the margin,
+``bound`` when the search ran out of room, ``open`` when nothing says.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from typing import Any, Literal
 
@@ -121,6 +128,8 @@ class ParameterInterval:
     n_trials: int
     reaches_lower_bound: bool
     reaches_upper_bound: bool
+    lower_crossed: bool = False
+    upper_crossed: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-friendly record for a report or a session row."""
@@ -136,7 +145,28 @@ class ParameterInterval:
             "n_trials": self.n_trials,
             "reaches_lower_bound": self.reaches_lower_bound,
             "reaches_upper_bound": self.reaches_upper_bound,
+            "lower_end": _end(self.lower_crossed, self.reaches_lower_bound),
+            "upper_end": _end(self.upper_crossed, self.reaches_upper_bound),
         }
+
+
+def _end(crossed: bool, reached: bool) -> str:
+    return "crossed" if crossed else "bound" if reached else "open"
+
+
+def _cost_threshold(best_cost: float, margin: float, kind: MarginKind) -> float:
+    """Return the cost a margin allows above the best one."""
+    if kind == "relative":
+        if best_cost <= 0.0:
+            raise ValueError(
+                f"a share of the best cost has nothing to take a fraction of when the "
+                f"best cost is {best_cost:g}. State the margin in the unit of the cost "
+                "instead, as a length such as '25 m'."
+            )
+        return best_cost * (1.0 + margin)
+    if kind == "absolute":
+        return best_cost + margin
+    raise ValueError(f"kind must be 'relative' or 'absolute', got {kind!r}")
 
 
 def margin_intervals(
@@ -183,18 +213,7 @@ def margin_intervals(
         return []
 
     best_cost = float(np.min(costs[finite]))
-    if kind == "relative":
-        if best_cost <= 0.0:
-            raise ValueError(
-                f"a share of the best cost has nothing to take a fraction of when the "
-                f"best cost is {best_cost:g}. State the margin in the unit of the cost "
-                "instead, as a length such as '25 m'."
-            )
-        threshold = best_cost * (1.0 + margin)
-    elif kind == "absolute":
-        threshold = best_cost + margin
-    else:
-        raise ValueError(f"kind must be 'relative' or 'absolute', got {kind!r}")
+    threshold = _cost_threshold(best_cost, margin, kind)
 
     names = (
         [str(name) for name in parameters]
@@ -233,6 +252,64 @@ def margin_intervals(
     return intervals
 
 
+def _walk_the_curve(
+    side: Iterable[tuple[float, float | None]], x: float, cost: float, threshold: float
+) -> tuple[float, bool]:
+    """Follow one side of a curve to the first crossing of ``threshold``: its place, and if any.
+
+    A trial with no cost stops the walk: a line drawn to it would claim a crossing
+    no solve showed.
+    """
+    for next_x, next_cost in side:
+        if next_cost is None or not np.isfinite(next_cost):
+            return x, False
+        if next_cost > threshold:
+            return x + (next_x - x) * (threshold - cost) / (next_cost - cost), True
+        x, cost = next_x, next_cost
+    return x, False
+
+
+def root_interval(
+    curve: Sequence[tuple[float, float | None]],
+    root: tuple[float, float],
+    margin: float,
+    kind: MarginKind,
+    parameter: Any,
+    declared: tuple[float, float],
+) -> ParameterInterval:
+    """Return the interval around a root, read on the curve the trials trace.
+
+    ``curve`` holds ``(x, cost)`` per trial in the search variable, the cost None
+    on a trial that did not solve, and ``declared`` is the search interval in that
+    variable. ``root`` is the answer of the search. The margin is read from its
+    cost, since the lowest cost may be a trial elsewhere. From the root the cost is
+    followed on each side up to its first crossing of the margin, by a straight
+    line between two trials, so no solve is added.
+    """
+    root_x, root_cost = root
+    threshold = _cost_threshold(root_cost, margin, kind)
+    below = sorted((point for point in curve if point[0] < root_x), reverse=True)
+    above = sorted(point for point in curve if point[0] > root_x)
+    lower, lower_crossed = _walk_the_curve(below, root_x, root_cost, threshold)
+    upper, upper_crossed = _walk_the_curve(above, root_x, root_cost, threshold)
+    solved = [(x, cost) for x, cost in curve if cost is not None and np.isfinite(cost)]
+    return ParameterInterval(
+        name=parameter.name,
+        best=float(parameter.to_physical(root_x)),
+        lower=float(parameter.to_physical(lower)),
+        upper=float(parameter.to_physical(upper)),
+        margin=float(margin),
+        kind=kind,
+        threshold=float(threshold),
+        n_within=sum(1 for x, _ in solved if lower <= x <= upper),
+        n_trials=len(solved),
+        reaches_lower_bound=not lower_crossed and lower <= declared[0],
+        reaches_upper_bound=not upper_crossed and upper >= declared[1],
+        lower_crossed=lower_crossed,
+        upper_crossed=upper_crossed,
+    )
+
+
 __all__ = [
     "DEFAULT_MARGIN",
     "FIVE_PER_CENT",
@@ -242,4 +319,5 @@ __all__ = [
     "WidthSource",
     "choose_interval_width",
     "margin_intervals",
+    "root_interval",
 ]

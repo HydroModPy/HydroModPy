@@ -60,7 +60,10 @@ from hydromodpy.calibration.optim.cost_margin import (
     ParameterInterval,
     margin_intervals,
 )
-from hydromodpy.calibration.optim.diagnostics import correlated_parameter_pairs
+from hydromodpy.calibration.optim.diagnostics import (
+    DEFAULT_CORRELATION_THRESHOLD,
+    correlated_parameter_pairs,
+)
 from hydromodpy.calibration.optim.engine import CalibrationEngine
 from hydromodpy.calibration.optim.objective import (
     cost_block_fractions,
@@ -148,7 +151,10 @@ from hydromodpy.core.workspace.path_registry import in_run_scratch
 from hydromodpy.results.checks import CalibrationSessionStatus, StopState
 from hydromodpy.results.session.descriptor import (
     BestTrial,
+    CostInterval,
+    ParameterWidth,
     ProtocolDeparture,
+    RestartRange,
     ScoredSamples,
     SessionProtocol,
     SessionStatus,
@@ -431,8 +437,12 @@ def _margin_intervals_or_none(
     names: list[str],
     space: ParameterSpace,
     width: IntervalWidth,
+    optimizer: Any = None,
 ) -> list[ParameterInterval]:
     """Return the interval around each calibrated value, or nothing.
+
+    A root search reads its answer's interval on the curve of its trials
+    (:meth:`BisectionAdapter.root_interval`), any other search on their envelope.
 
     A criterion solved at zero, such as the stream-network gap, has no fraction
     of itself to take, so a share of the best cost means nothing there. Reporting
@@ -457,6 +467,9 @@ def _margin_intervals_or_none(
         return []
     bounds = {param.name: (param.lower, param.upper) for param in space}
     try:
+        if isinstance(optimizer, BisectionAdapter):
+            root = optimizer.root_interval(margin=float(width.margin), kind=width.kind)
+            return [] if root is None else [root]
         return margin_intervals(
             trace,
             names,
@@ -835,17 +848,22 @@ def _root_search_record(session: CalibrationSession | None) -> dict[str, Any] | 
     """Return the root search's ``bracket`` or ``roots``, None for any other search.
 
     The session journal keeps this record, so a report read back later shows
-    what the live run printed.
+    what the live run printed. A balanced search has no single bracket, so it
+    gives only the roots it closed outside the bounds.
     """
-    if session is None or not isinstance(session.optimizer, BisectionAdapter):
+    if session is None or not isinstance(session.optimizer, BisectionAdapter | BalancedSearch):
         return None
     record: dict[str, Any] = {}
-    bracket = session.optimizer.bracket_record()
-    if bracket is not None:
-        record["bracket"] = bracket
-    roots = session.optimizer.roots_record()
-    if roots is not None:
-        record["roots"] = roots
+    if isinstance(session.optimizer, BisectionAdapter):
+        bracket = session.optimizer.bracket_record()
+        if bracket is not None:
+            record["bracket"] = bracket
+        roots = session.optimizer.roots_record()
+        if roots is not None:
+            record["roots"] = roots
+    outside = session.optimizer.root_outside_bounds()
+    if outside is not None:
+        record["root_outside_bounds"] = outside
     return record or None
 
 
@@ -1396,32 +1414,42 @@ def run_calibration_core(
     elapsed = time.perf_counter() - t0
     best = session.best
 
-    # Two parameters that moved together across the whole search were never told
-    # apart by the data: the search stopped on a ridge and reported that point as
-    # a minimum. Read off the trace the session already holds, so it costs nothing.
+    # Two parameters that move together among the trials under the cost margin
+    # were never told apart by the data: the search stopped on a ridge and reported
+    # that point as a minimum. Read off the trace the session already holds, so it
+    # costs nothing. With no margin to read, no correlation is reported either.
     # A balanced search answers with its roots: a solve on the way to one says
     # nothing about the structure.
     answers = optimizer.answers if balanced else session.history
     trace = calibration_trace(answers, values_by_trial)
     names = [param.name for param in space]
-    correlated = correlated_parameter_pairs(trace, names)
     width = _width_read_off_the_trials(
         interval_width if interval_width is not None else cfg.interval_width_for(),
         best,
         session.history,
     )
     intervals = (
-        [] if _closes_two_roots(session) else _margin_intervals_or_none(trace, names, space, width)
+        []
+        if _closes_two_roots(session)
+        else _margin_intervals_or_none(trace, names, space, width, session.optimizer)
     )
-    if correlated:
-        for first, second, coefficient in correlated:
-            logger.warning(
-                "Calibration parameters %s and %s moved together (r = %+.2f): the trace "
-                "does not tell them apart, so the reported pair is one point on a ridge.",
-                first,
-                second,
-                coefficient,
-            )
+    pairs = (
+        correlated_parameter_pairs(trace, names, threshold=0.0, below_cost=intervals[0].threshold)
+        if intervals
+        else []
+    )
+    correlated = [pair for pair in pairs if abs(pair[2]) >= DEFAULT_CORRELATION_THRESHOLD]
+    for first, second, coefficient in pairs:
+        logger.info("Under the cost margin, %s and %s: r = %+.2f.", first, second, coefficient)
+    for first, second, coefficient in correlated:
+        logger.warning(
+            "Calibration parameters %s and %s moved together (r = %+.2f): the trials under "
+            "the cost margin do not tell them apart, so the reported pair is one point on a "
+            "ridge.",
+            first,
+            second,
+            coefficient,
+        )
 
     for interval in intervals:
         _log_parameter_interval(interval, best)
@@ -1431,6 +1459,8 @@ def run_calibration_core(
         extra["balanced_roots"] = [persistence.trial_number(r.trial_id, context) for r in answers]
     if correlated:
         extra["correlated_parameters"] = correlated
+    if pairs:
+        extra["parameter_correlations"] = pairs
     if intervals:
         extra["parameter_intervals"] = [interval.to_dict() for interval in intervals]
     pairing = _first_trial_pairing(session.history)
@@ -1496,14 +1526,19 @@ def search_status(session: CalibrationSession) -> SessionStatus:
 
     ``completed`` when every trial ran and the search settled (its rule met,
     its plan exhausted, or the budget of a search with no rule of its own
-    spent); ``partial`` when trials ran but some failed or the budget ended
-    before a rule the engine has; ``failed`` when nothing completed.
+    spent); ``partial`` when trials ran but some failed, the budget ended
+    before a rule the engine has, or a root closed outside the declared bounds;
+    ``failed`` when nothing completed.
     """
     n_total = len(session.history)
     n_ok = sum(1 for item in session.history if item.status in ("completed", "cached"))
     if n_total == 0 or n_ok == 0:
         return "failed"
-    if n_ok < n_total or not session.settled:
+    if (
+        n_ok < n_total
+        or not session.settled
+        or "root_outside_bounds" in (_root_search_record(session) or {})
+    ):
         return "partial"
     return "completed"
 
@@ -1546,11 +1581,13 @@ def promote_and_close(
     phase: str,
     status: SessionStatus,
     stop_note: str | None = None,
+    widths: Mapping[str, ParameterWidth] | None = None,
 ) -> CalibrationReport:
     """Promote the trials of ``phase`` and close the session; return the final report.
 
     ``stop_note`` names the phases of a staged session that froze the best of
-    a budget-only search, written in ``session.json``.
+    a budget-only search or closed a root outside its bounds, written in
+    ``session.json``. ``widths`` is the width of each calibrated value.
     """
     stop_state, stopping_rule = search_stop(report, persistence, phase)
     promotion = PromotionOutcome()
@@ -1581,7 +1618,7 @@ def promote_and_close(
             persistence.directory.name,
         )
     elif final_status == "partial":
-        error = _why_partial(persistence, report)
+        error = _why_partial(persistence, report, stop_note)
     elif final_status == "failed":
         failed = _failed_trials(persistence)
         error = f"no trial completed; {failed}" if failed else "no trial completed"
@@ -1596,6 +1633,7 @@ def promote_and_close(
         stop_state=stop_state,
         stopping_rule=stopping_rule,
         stop_note=stop_note,
+        widths=widths,
     )
     write_session_readme(persistence)
     extra = dict(report.extra)
@@ -1632,8 +1670,10 @@ def search_stop(
     return None, None
 
 
-def _why_partial(persistence: CalibrationPersistence, report: CalibrationReport) -> str:
-    """Say why a search closed ``partial``: the trials that failed, the rule not met.
+def _why_partial(
+    persistence: CalibrationPersistence, report: CalibrationReport, note: str | None = None
+) -> str:
+    """Say why a search closed ``partial``: failed trials, rule not met, what ``note`` says.
 
     A search can meet its stopping rule and still close ``partial`` because a
     trial failed; the message then names the trials, not the rule.
@@ -1643,6 +1683,8 @@ def _why_partial(persistence: CalibrationPersistence, report: CalibrationReport)
     search = report.extra.get("search") or {}
     if search and not settled(search["stop_state"], search["stopping_rule"]):
         reasons.append(f"stopping rule ({search.get('stopping_rule')}) not met")
+    if note:
+        reasons.append(note)
     return "; ".join(reasons) or "stopping rule not met"
 
 
@@ -1689,6 +1731,7 @@ def abort_session(persistence: CalibrationPersistence, *, phase: str, error: str
         status="aborted",
         best=persistence.best_pointer(persistence.held_trial(pointed)),
         error=error,
+        widths=persistence.phase_widths(),
     )
     return pointed
 
@@ -1699,6 +1742,7 @@ def fail_session(persistence: CalibrationPersistence, *, phase: str, error: str)
         status="failed",
         best=persistence.best_pointer(persistence.held_trial(pointer_phase(persistence, phase))),
         error=error,
+        widths=persistence.phase_widths(),
     )
 
 
@@ -1828,14 +1872,49 @@ def run_one_search(
             counter["restart"] += 1
             return _one_search(restart_seed, start_at, counter["restart"])
 
-        return run_restarts(
+        best, spread = run_restarts(
             _restart,
             method=cfg.method,
             space=space,
             restarts=int(uncertainty.restarts),
             seed=cfg.seed,
         )
+        _log_restart_spread(spread)
+        return best, spread
     return _one_search(cfg.seed or 0, None), ()
+
+
+def parameter_widths(
+    report: CalibrationReport, spread: Sequence[RestartSpread] = ()
+) -> dict[str, ParameterWidth]:
+    """Return what the report and the restarts say of the width of each value.
+
+    A value nothing was read for is left out. ``correlated`` holds the
+    coefficients over the trials under the cost margin, not those of a linearized
+    width, which stay in the report beside its sigma. A value combined from two
+    roots has no interval: its width is the spread in ``root_search``.
+    """
+    intervals = {item["name"]: item for item in report.extra.get("parameter_intervals", ())}
+    sigmas = {item.parameter: item.sigma for item in report.parameter_uncertainty or ()}
+    restarts = {item.parameter: item for item in spread}
+    pairs = report.extra.get("parameter_correlations", ())
+    widths: dict[str, ParameterWidth] = {}
+    for name in report.best_parameters or ():
+        width = ParameterWidth(sigma=sigmas.get(name))
+        if name in intervals:
+            fields = {key: intervals[name][key] for key in CostInterval.model_fields}
+            width.interval = CostInterval(**fields)
+        if name in restarts:
+            item = restarts[name]
+            width.restarts = RestartRange(
+                lowest=item.lowest, highest=item.highest, values=list(item.values)
+            )
+        for first, second, coefficient in pairs:
+            if name in (first, second):
+                width.correlated[second if name == first else first] = coefficient
+        if width != ParameterWidth():
+            widths[name] = width
+    return widths
 
 
 def _with_linearized_width(
@@ -1938,6 +2017,8 @@ def run_single_search(
             report=report,
             phase=DEFAULT_PHASE,
             status=str(report.extra.get("search_status", "completed")),
+            stop_note=report.extra.get("root_outside_bounds"),
+            widths=parameter_widths(report, spread),
         )
     return report, spread
 
@@ -2043,7 +2124,7 @@ def run_calibration_cli(
     """
     cfg_path, project_root, cfg, raw, case = load_calibration_document(config_path, workspace)
     cfg = with_its_method(cfg)
-    report, spread = run_single_search(
+    report, _spread = run_single_search(
         cfg,
         space=space_from_config(cfg),
         cfg_path=cfg_path,
@@ -2055,7 +2136,6 @@ def run_calibration_cli(
         objective=objective,
         resume=resume,
     )
-    _log_restart_spread(spread)
     return report
 
 
@@ -2237,6 +2317,7 @@ __all__ = [
     "fail_session",
     "load_toml_calibration",
     "open_calibration_session",
+    "parameter_widths",
     "refuse_a_changed_cost",
     "pointer_phase",
     "promote_and_close",

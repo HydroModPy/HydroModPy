@@ -137,7 +137,8 @@ otherwise.
 ## The score of `da_mh_gp`
 
 `da_mh_gp` is a sequential search: a Metropolis-Hastings chain that spends its runs around the
-low-cost region. It reads the cost of each trial as an $\mathrm{RMSE}$ and builds the log-score
+low-cost region. It is not in the list of methods above, because its chain is neither stored
+nor diagnosed, but it runs when a file names it. It reads the cost of each trial as an $\mathrm{RMSE}$ and builds the log-score
 
 $$
 \ln \pi(y) = -\frac{1}{2}\left(\frac{\mathrm{RMSE}(\theta)}{\sigma_n}\right)^2 + \ln p(y) + \text{const},

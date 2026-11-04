@@ -14,6 +14,8 @@ Rewrites legacy ``[simulation]`` keys in place, preserving comments and layout:
   format off wrote nothing and is dropped without a word
 - ``[display.overrides.<figure>] timestep`` -> ``time``, a row of
   :data:`RENAMED_KEYS`
+- the figure ``calibration_posterior`` -> ``calibration_trial_distribution``, in
+  ``[display] figures`` and as a key of ``[display.overrides]`` (:data:`RENAMED_FIGURES`)
 - ``[modflow6.tgrid]`` and ``[modflownwt.tgrid]`` dropped: neither backend
   read them
 - ``solver_scratch`` and ``persistence.save_lock`` dropped: both drove
@@ -433,6 +435,7 @@ def _file_rules(doc: Any, *, context: Any, sealed: bool) -> list[str]:
     changes.extend(_rename_export_times(doc))
     changes.extend(_rename_keys(doc, sealed=sealed, context=context))
     changes.extend(_rename_field_values(doc))
+    changes.extend(_rename_figures(doc))
     changes.extend(_rename_the_drain_kinds(doc))
     changes.extend(_write_out_the_bare_buffer(doc))
     changes.extend(_rename_the_property_ids(doc))
@@ -474,6 +477,29 @@ def _rename_field_values(doc: Any) -> list[str]:
             changes.append(
                 f"display.overrides.{figure}.variable: {written} -> {options['variable']}"
             )
+    return changes
+
+
+RENAMED_FIGURES: dict[str, str] = {"calibration_posterior": "calibration_trial_distribution"}
+"""Figures that took another name, in ``[display] figures`` and as a key of ``[display.overrides]``."""
+
+
+def _rename_figures(doc: Any) -> list[str]:
+    """Rewrite a retired figure name in the list of figures and in their overrides."""
+    display = doc.get("display")
+    if not isinstance(display, Mapping):
+        return []
+    changes: list[str] = []
+    figures = display.get("figures")
+    for index, name in enumerate(figures if isinstance(figures, list) else []):
+        if name in RENAMED_FIGURES:
+            figures[index] = RENAMED_FIGURES[name]
+            changes.append(f"display.figures: {name} -> {RENAMED_FIGURES[name]}")
+    overrides = display.get("overrides")
+    for name, new in RENAMED_FIGURES.items():
+        if isinstance(overrides, Mapping) and name in overrides and new not in overrides:
+            _move_key(overrides, name, new, overrides[name])
+            changes.append(f"display.overrides.{name} -> {new}")
     return changes
 
 
@@ -1098,6 +1124,7 @@ def migrate_sealed_config_doc(doc: Any) -> list[str]:
     contradiction of the protocol that wrote it.
     """
     changes = _rename_keys(doc, sealed=True)
+    changes.extend(_rename_figures(doc))
     changes.extend(_rewrite_search_options(doc, sealed=True))
     changes.extend(_rewrite_cost_margin(doc, sealed=True))
     changes.extend(_migrate_refused_scope(doc, where=""))

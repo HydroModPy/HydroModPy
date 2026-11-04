@@ -8,8 +8,10 @@ ingests the result. Optimizers are plugged through *adapters* under
 
 Each module of the folder registers one method under a name: ``grid``, ``lhs``,
 ``random_search``, ``scipy_nelder_mead``, ``scipy_de``, ``optuna``, ``cma_es``,
-``bisection``, ``gp_mapping`` and ``da_mh_gp`` at the time of writing.
-``available_optimizers()`` in ``optim/optimizer.py`` prints the live list.
+``bisection`` and ``gp_mapping`` at the time of writing, and ``da_mh_gp``, which still runs
+when a file names it but is left out of the list the docs and the refusals print.
+``announced_optimizers()`` in ``optim/optimizer.py`` prints the live list, and
+``available_optimizers()`` adds the methods that declare ``announced=False``.
 
 Contract
 --------
@@ -154,6 +156,7 @@ before anything solves.
            takes_max_trials=True,       # built knowing the budget of the search
            precision_option="rel_tol",       # this engine's own stopping option
            precision_reads="relative_value",  # how that option reads its number
+           announced=False,             # runs when named, but not in the printed list
        )
 
 The last two are what lets a file state its precision once. ``calibration.precision``
@@ -289,7 +292,8 @@ Distribution-valued methods
 ---------------------------
 
 Methods that keep a chain of visited states (``da_mh_gp``, ``gp_mapping``)
-expose the samples through the ``calibration_posterior`` figure. Make sure
+expose the samples through the ``calibration_trial_distribution`` figure, a histogram
+of the trials the search ran, not a posterior. Make sure
 your adapter writes the per-iteration trace through ``tell`` so the
 post-loop figure registry can plot it.
 

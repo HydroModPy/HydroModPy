@@ -639,3 +639,85 @@ def test_calibration_engine_parallel_one_is_sequential() -> None:
     optimizer = _BatchedStubOptimizer(suggestions=[{"x": 0.1}, {"x": 0.2}, {"x": 0.3}, {"x": 0.4}])
     run_engine(unit_space(), optimizer, _evaluator, 4, batch_size=4, parallel=1)
     assert all(tid == main_thread for tid in seen)
+
+
+@pytest.mark.parametrize(
+    ("marks_after_reading", "told_at_journal"),
+    [(False, 0), (True, 2)],
+    ids=["as_trials_end", "after_the_batch_is_told"],
+)
+def test_a_parallel_batch_is_journaled_as_each_trial_ends_unless_the_engine_marks_after_reading(
+    marks_after_reading: bool, told_at_journal: int
+) -> None:
+    optimizer = _BatchedStubOptimizer([{"x": 0.1}, {"x": 0.2}])
+    if marks_after_reading:
+        optimizer.marks_unread = True
+    main = threading.get_ident()
+    seen: list[tuple[int, bool]] = []
+
+    run_engine(
+        unit_space(),
+        optimizer,
+        _constant_evaluator(0.0),
+        2,
+        batch_size=2,
+        parallel=2,
+        on_iteration=lambda *_: seen.append((len(optimizer._told), threading.get_ident() == main)),
+    )
+
+    assert seen == [(told_at_journal, True)] * 2
+
+
+def test_a_stop_in_the_caller_thread_runs_no_queued_trial_and_keeps_the_journal() -> None:
+    ran: list[int] = []
+    journaled: list[int] = []
+    release = threading.Event()
+
+    def evaluator(sugg: ParamSuggestion) -> EvaluationResult:
+        ran.append(sugg.trial_id)
+        if sugg.trial_id > 1:
+            assert release.wait(timeout=2.0)
+        return _constant_evaluator(0.0)(sugg)
+
+    def stop_after_the_first(sugg: ParamSuggestion, _result: EvaluationResult) -> None:
+        journaled.append(sugg.trial_id)
+        # The interrupt of the main thread, with the other worker still busy.
+        threading.Timer(0.3, release.set).start()
+        raise KeyboardInterrupt
+
+    optimizer = _BatchedStubOptimizer([{"x": 0.1}, {"x": 0.2}, {"x": 0.3}, {"x": 0.4}])
+    with pytest.raises(KeyboardInterrupt):
+        run_engine(
+            unit_space(),
+            optimizer,
+            evaluator,
+            4,
+            batch_size=4,
+            parallel=2,
+            on_iteration=stop_after_the_first,
+        )
+
+    assert journaled == [1]
+    assert 4 not in ran
+
+
+def test_a_parallel_batch_returns_its_results_in_order_and_journals_them_as_they_end() -> None:
+    first_may_end = threading.Event()
+    journaled: list[int] = []
+
+    def evaluator(sugg: ParamSuggestion) -> EvaluationResult:
+        if sugg.trial_id == 1:
+            assert first_may_end.wait(timeout=2.0)
+        return _constant_evaluator(0.0)(sugg)
+
+    def journal(sugg: ParamSuggestion, _result: EvaluationResult) -> None:
+        journaled.append(sugg.trial_id)
+        first_may_end.set()
+
+    optimizer = _BatchedStubOptimizer([{"x": 0.1}, {"x": 0.2}])
+    session = run_engine(
+        unit_space(), optimizer, evaluator, 2, batch_size=2, parallel=2, on_iteration=journal
+    )
+
+    assert journaled == [2, 1]
+    assert [result.trial_id for result in session.history] == [1, 2]

@@ -85,7 +85,12 @@ from hydromodpy.project import Project
 from hydromodpy.results.heartbeat import read_heartbeat
 from hydromodpy.results.metric_rule import PeriodWindow
 from hydromodpy.results.outcome import effective_status, outcome_path, read_outcome, write_outcome
-from hydromodpy.results.session.descriptor import list_session_dirs, read_session, write_session
+from hydromodpy.results.session.descriptor import (
+    ParameterWidth,
+    list_session_dirs,
+    read_session,
+    write_session,
+)
 from hydromodpy.results.session.journal import read_trials, trials_path
 from hydromodpy.results.session.phase import FrozenValue, read_phase
 from hydromodpy.simulation.planning.config import SimulationTimeConfig
@@ -1446,7 +1451,9 @@ class TestSessionLifecycle:
             for trial_id in range(300):
                 journal_trial(persistence, trial_id, float(trial_id), k=1e-5, phase=context)
             if index < 2:
-                persistence.finish_phase(name, status="completed", best=None)
+                persistence.finish_phase(
+                    name, status="completed", best=None, widths={name: ParameterWidth(sigma=1.5)}
+                )
 
         started = time.perf_counter()
         pointed = abort_session(persistence, phase="transient_n", error="SIGTERM")
@@ -1459,6 +1466,11 @@ class TestSessionLifecycle:
         assert descriptor.best is not None and descriptor.best.trial == 301
         assert read_phase(persistence.directory, "transient_n").status == "aborted"
         assert read_phase(persistence.directory, "transient_sy").status == "completed"
+        # The closed phases keep their widths in the session that the abort rewrites.
+        assert descriptor.widths == {
+            "steady_k": ParameterWidth(sigma=1.5),
+            "transient_sy": ParameterWidth(sigma=1.5),
+        }
 
     def test_all_iterations_crashed_stops_and_marks_failed(self, calib_toml, fake_pipeline):
         """A search that cannot score anything is refused, not run to its budget."""

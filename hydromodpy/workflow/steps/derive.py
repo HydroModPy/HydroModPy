@@ -95,7 +95,7 @@ class DeriveStep:
     """Write the catchment aggregates, observation samples and the scores of the run."""
 
     name = "derive"
-    reads: ClassVar[tuple[str, ...]] = ("ctx",)
+    reads: ClassVar[tuple[str, ...]] = ("ctx", "station_outputs")
     writes: ClassVar[tuple[str, ...]] = ("ctx",)
     config_sections: ClassVar[tuple[str, ...]] = ("postprocess",)
 

@@ -18,7 +18,7 @@ import pytest
 from hydromodpy.calibration.criteria.formulas import METRIC_FORMULAS
 from hydromodpy.calibration.criteria.series import HIGHER_IS_BETTER, METRICS
 from hydromodpy.calibration.optim.method_config import CalibrationMethodConfig
-from hydromodpy.calibration.optim.optimizer import CHOSEN_FROM, available_optimizers
+from hydromodpy.calibration.optim.optimizer import CHOSEN_FROM, announced_optimizers
 from tools.docs import calibration_catalog
 
 EXT = Path(__file__).resolve().parents[3] / "docs" / "source" / "_ext"
@@ -34,9 +34,9 @@ def _models() -> dict[str, type]:
     return {member.model_fields["method"].default: member for member in members}
 
 
-def test_every_registered_method_is_in_the_catalog(payload: dict) -> None:
+def test_every_announced_method_is_in_the_catalog(payload: dict) -> None:
     names = {row["name"] for row in payload["methods"]}
-    assert set(available_optimizers()) <= names
+    assert names == set(announced_optimizers())
     assert all(row["registered"] for row in payload["methods"])
 
 
@@ -79,7 +79,7 @@ def test_the_traits_come_from_the_adapters(payload: dict) -> None:
     assert rows["bisection"]["counts_its_budget"] is True
     assert rows["scipy_de"]["supports_parallel"] is False
     assert rows["grid"]["restarts_explore_differently"] is False
-    assert rows["da_mh_gp"]["reads_cost_as"] == "rmse"
+    assert "da_mh_gp" not in rows
     assert [name for name, row in rows.items() if row["chosen_rank"] is not None] == sorted(
         CHOSEN_FROM
     )

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import math
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -18,6 +19,7 @@ from hydromodpy.calibration.optim.cost_margin import (
     FIVE_PER_CENT,
     ONE_MESH_CELL,
     margin_intervals,
+    root_interval,
 )
 from hydromodpy.calibration.preflight import preflight_calibration
 from hydromodpy.calibration.runners.cli_runner import load_toml_calibration, run_calibration_cli
@@ -26,6 +28,7 @@ from hydromodpy.calibration.runners.state import build_cache_context, space_from
 from hydromodpy.cli.commands import calibrate as calibrate_cmd
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.stream_geometry import neighbour_spacing_m
+from hydromodpy.results.session.descriptor import read_session
 from tests.unit.calibration._factories_runners import write_document
 
 # From test_each_phase_states_how_wide_its_answer_is.py
@@ -437,15 +440,19 @@ def test_list_phases_says_where_each_width_comes_from(tmp_path, capsys) -> None:
 
 # -- the run reads the cell off its trials and reports the width it used ----
 class _GapInMetres:
-    """A network gap in meters, zero at K = 1e-5, measured on 60 m cells."""
+    """A network gap in meters, zero at K = 10 ** root, measured on 60 m cells."""
 
     evaluator_id = "test_gap_in_metres"
     needs_prepared_model = False
+    root = -5.0
 
     def evaluate(self, request: TrialRequest) -> TrialOutcome:
-        gap = abs(math.log10(float(request.values["K"])) + 5.0) * 100.0
+        signed = (math.log10(float(request.values["K"])) - self.root) * 100.0
         return TrialOutcome(
-            cost=gap, status="completed", duration_s=0.0, components={"net.cell_spacing_m": 60.0}
+            cost=abs(signed),
+            status="completed",
+            duration_s=0.0,
+            components={"net.cell_spacing_m": 60.0, "net.J_signed": signed},
         )
 
 
@@ -498,6 +505,10 @@ def test_the_run_reads_one_mesh_cell_off_the_trials(tmp_path, gap_in_metres) -> 
     (interval,) = report.extra["parameter_intervals"]
     assert interval["threshold"] == pytest.approx(report.best_cost + 60.0)
     assert interval["kind"] == "absolute"
+    kept = read_session(report.session_dir).widths["K"].interval
+    assert (kept.lower, kept.upper) == pytest.approx((10.0**-5.5, 10.0**-4.5))
+    assert (kept.margin, kept.threshold, kept.n_within, kept.n_trials) == (60.0, 60.0, 3, 9)
+    assert (kept.kind, kept.lower_end, kept.upper_end) == ("absolute", "open", "open")
 
 
 @pytest.mark.fast
@@ -508,6 +519,135 @@ def test_the_run_reports_a_written_width_and_where_it_was_written(tmp_path, gap_
     assert (width["margin"], width["source"]) == (120.0, "section")
     (interval,) = report.extra["parameter_intervals"]
     assert interval["threshold"] == pytest.approx(report.best_cost + 120.0)
+
+
+@pytest.mark.parametrize(
+    ("root", "status", "note"),
+    [
+        (-5.1, "completed", None),
+        (-2.5, "partial", "OUTSIDE the declared bounds of K, [1e-07, 0.001]"),
+    ],
+    ids=["inside", "outside"],
+)
+def test_a_root_search_reads_its_width_on_its_curve(
+    tmp_path, gap_in_metres, monkeypatch, root, status, note
+) -> None:
+    monkeypatch.setattr(_GapInMetres, "root", root)
+    text = (
+        SINGLE_SEARCH.format(uncertainty="")
+        .replace('"grid"', '"bisection"')
+        .replace("points_per_dim = 9", "sweep_points = 5")
+        .replace("max_trials = 9", "max_trials = 40")
+    )
+    report = run_calibration_cli(write_document(tmp_path, text), workspace=tmp_path)
+
+    descriptor = read_session(report.session_dir)
+    assert (report.status, descriptor.status) == (status, status)
+    if note is not None:
+        assert note in descriptor.error_message
+        assert note in descriptor.stop_note
+        return
+    interval = descriptor.widths["K"].interval
+    assert (interval.lower_end, interval.upper_end) == ("crossed", "crossed")
+    # A slope of 100 m a decade and a cell of 60 m: 0.6 decade on each side.
+    assert interval.lower == pytest.approx(10.0**-5.7, rel=0.02)
+    assert interval.upper == pytest.approx(10.0**-4.5, rel=0.02)
+
+
+class _OnARidge:
+    """A cost that only sees ``a - b``, so its low trials lie on a line."""
+
+    evaluator_id = "test_on_a_ridge"
+    needs_prepared_model = False
+
+    def evaluate(self, request: TrialRequest) -> TrialOutcome:
+        cost = 1.0 + abs(float(request.values["a"]) - float(request.values["b"]))
+        return TrialOutcome(cost=cost, status="completed", duration_s=0.0)
+
+
+RIDGE = """
+[calibration]
+method = "grid"
+max_trials = 36
+evaluator = "test_on_a_ridge"
+method_options = { points_per_dim = 6 }
+
+[calibration.parameters.a]
+bounds = [0.0, 4.0]
+path = "flow.param.K.field.value"
+
+[calibration.parameters.b]
+bounds = [0.0, 4.0]
+path = "flow.param.Sy.field.value"
+"""
+
+
+def test_a_ridge_shows_under_the_margin_on_a_grid_that_hides_it(tmp_path) -> None:
+    evaluation_registry.register(_OnARidge, replace=True)
+    try:
+        report = run_calibration_cli(write_document(tmp_path, RIDGE), workspace=tmp_path)
+    finally:
+        evaluation_registry.unregister(_OnARidge.evaluator_id)
+
+    assert report.extra["correlated_parameters"] == [("a", "b", pytest.approx(1.0))]
+    widths = read_session(report.session_dir).widths
+    assert widths["a"].correlated == {"b": pytest.approx(1.0)}
+    assert widths["b"].correlated == {"a": pytest.approx(1.0)}
+
+
+_BOWL = ((0.0, 10.0), (1.0, 4.0), (2.0, 1.0), (3.0, 2.0), (4.0, 9.0))
+_TWO_BASINS = ((1.0, 1.0), (2.0, 9.0), (3.0, 1.0))
+_ROOT_AT_THE_BOUND = ((0.0, 1.0), (1.0, 2.0), (2.0, 9.0))
+_UNSOLVED_BESIDE_THE_ROOT = ((0.0, 10.0), (1.0, None), (2.0, 1.0), (3.0, 2.0), (4.0, 9.0))
+_SCALES = {"log": lambda x: 10.0**x, "identity": lambda x: x}
+
+
+@pytest.mark.parametrize(
+    ("curve", "root", "margin", "kind", "scale", "ends", "expected"),
+    [
+        # Each crossing is interpolated between the two trials around it.
+        (_BOWL, 2, 2.0, "absolute", "log", ("crossed", "crossed"), (4 / 3, 22 / 7, 3.0, 2, 5)),
+        (_BOWL, 2, 0.5, "relative", "log", ("crossed", "crossed"), (11 / 6, 2.5, 1.5, 1, 5)),
+        # A second basin past the crossing stays out, where an envelope would take it.
+        (_TWO_BASINS, 2, 1.0, "absolute", "log", ("crossed", "bound"), (2.875, 3.0, 2.0, 1, 3)),
+        # A root on the declared bound has no lower side to walk, in a linear variable.
+        (
+            _ROOT_AT_THE_BOUND,
+            0,
+            2.0,
+            "absolute",
+            "identity",
+            ("bound", "crossed"),
+            (0.0, 8 / 7, 3.0, 2, 3),
+        ),
+        # A trial that did not solve stops the walk where it stands.
+        (
+            _UNSOLVED_BESIDE_THE_ROOT,
+            2,
+            2.0,
+            "absolute",
+            "log",
+            ("open", "crossed"),
+            (2.0, 22 / 7, 3.0, 2, 4),
+        ),
+    ],
+)
+def test_the_root_interval_walks_the_curve(
+    curve, root, margin, kind, scale, ends, expected
+) -> None:
+    parameter = SimpleNamespace(name="K", to_physical=_SCALES[scale])
+    declared = (0.0, curve[-1][0])
+
+    found = root_interval(curve, curve[root], margin, kind, parameter, declared).to_dict()
+
+    lower, upper, *counts = expected
+    assert (found["name"], found["lower_end"], found["upper_end"]) == ("K", *ends)
+    assert found["best"] == pytest.approx(_SCALES[scale](curve[root][0]))
+    assert (found["lower"], found["upper"]) == pytest.approx(
+        (_SCALES[scale](lower), _SCALES[scale](upper))
+    )
+    assert [found["threshold"], found["n_within"], found["n_trials"]] == counts
+    assert found["reaches_upper_bound"] is (ends[1] == "bound")
 
 
 # From test_margin_intervals.py

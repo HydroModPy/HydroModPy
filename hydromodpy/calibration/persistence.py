@@ -44,6 +44,7 @@ from hydromodpy.results.session.descriptor import (
     BestCase,
     BestTrial,
     ParameterBound,
+    ParameterWidth,
     ScoredSamples,
     SessionCase,
     SessionDescriptor,
@@ -261,6 +262,7 @@ class CalibrationPersistence:
         stop_state: StopState | None = None,
         stopping_rule: str | None = None,
         stop_note: str | None = None,
+        widths: Mapping[str, ParameterWidth] | None = None,
     ) -> SessionDescriptor:
         """Close the session: descriptor, then outcome.
 
@@ -268,7 +270,8 @@ class CalibrationPersistence:
         declared ``windows``. ``stop_state`` and
         ``stopping_rule`` say why the search whose best the session holds
         stopped; an interrupted session records none. ``stop_note`` names the
-        phases that froze the best of a budget-only search.
+        phases that froze the best of a budget-only search or closed a root
+        outside its bounds. ``widths`` is the width of each calibrated value, the session's own when omitted.
         """
         now = datetime.now(UTC)
         current = read_session(self._directory)
@@ -284,6 +287,7 @@ class CalibrationPersistence:
                 "stop_state": stop_state,
                 "stopping_rule": stopping_rule,
                 "stop_note": stop_note,
+                **({} if widths is None else {"widths": dict(widths)}),
             }
         )
         write_session(self._directory, descriptor)
@@ -415,8 +419,9 @@ class CalibrationPersistence:
         stop_state: StopState | None = None,
         stopping_rule: str | None = None,
         stop_note: str | None = None,
+        widths: Mapping[str, ParameterWidth] | None = None,
     ) -> PhaseDescriptor:
-        """Close a phase with its status, its best trial, the restarts it ran and why it stopped."""
+        """Close a phase with its status, best trial, restarts, why it stopped and its widths."""
         restarts = max((line.restart for line in self.trials(name)), default=0)
         descriptor = read_phase(self._directory, name).model_copy(
             update={
@@ -427,6 +432,7 @@ class CalibrationPersistence:
                 "stop_state": stop_state,
                 "stopping_rule": stopping_rule,
                 "stop_note": stop_note,
+                **({} if widths is None else {"widths": dict(widths)}),
             }
         )
         write_phase(self._directory, descriptor)
@@ -441,6 +447,10 @@ class CalibrationPersistence:
     def phases(self) -> list[PhaseDescriptor]:
         """Return every phase of the session, by index."""
         return list_phases(self._directory)
+
+    def phase_widths(self) -> dict[str, ParameterWidth]:
+        """Return the width of each calibrated value over the phases, a later phase winning."""
+        return {name: width for phase in self.phases() for name, width in phase.widths.items()}
 
     # -- trials -----------------------------------------------------------------
 

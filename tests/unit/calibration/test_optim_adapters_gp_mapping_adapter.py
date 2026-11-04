@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import itertools
+
+import numpy as np
 import pytest
 import sklearn  # noqa: F401
 
@@ -106,6 +109,35 @@ class TestGPMappingAdapter:
         # Since the evaluator deterministically mirrors x, y, the minimum
         # cost is bounded by the distance-to-origin squared.
         assert best.cost < 0.1
+
+
+class TestGPMappingFailuresAndBatches:
+    def test_a_failed_trial_is_fitted_at_the_worst_cost_and_counts_as_served(self):
+        opt = build_optimizer("gp_mapping", _quadratic_space(), seed=3, n_init=4, max_trials=8)
+        costs = [(1.0, "completed"), (np.nan, "failed"), (2.0, "completed"), (np.inf, "completed")]
+        design = opt.ask(n=4)
+        opt.tell([result_of(s, c, status=st) for s, (c, st) in zip(design, costs, strict=True)])
+        assert opt._y_history == [1.0, 2.0]
+        assert len(opt._failed_x) == 2
+        fitted = []
+        fit = opt._fit_gp
+        opt._fit_gp = lambda x, y: fitted.append((x, y)) or fit(x, y)
+        # Four are served, so the design is done and the GP proposes the next point.
+        assert len(opt.ask(n=1)) == 1
+        assert np.isfinite(opt._last_ei)
+        assert fitted[0][0].shape[0] == 4
+        assert fitted[0][1].tolist() == [1.0, 2.0, 2.0, 2.0]
+
+    def test_a_batch_names_no_point_twice(self):
+        space = ParameterSpace([CalibParameter(name="x", lower=-2.0, upper=2.0)])
+        opt = build_optimizer("gp_mapping", space, seed=3, n_init=4, max_trials=12)
+        design = opt.ask(n=4)
+        opt.tell([result_of(s, s.values["x"] ** 2) for s in design])
+
+        xs = [s.values["x"] for s in opt.ask(n=3)]
+
+        assert xs
+        assert all(abs(a - b) > 4.0e-3 for a, b in itertools.combinations(xs, 2))
 
 
 class TestGPMappingAdvancedKwargs:

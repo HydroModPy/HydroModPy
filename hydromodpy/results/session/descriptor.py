@@ -28,7 +28,8 @@ A session whose search completed is never written ``failed`` for what
 happened after it. ``stop_state`` says which of the three ways the search
 of the phase whose best the session holds stopped
 (:data:`~hydromodpy.results.checks.StopState`), and ``stop_note`` names the
-phases of a staged session that froze the best of a budget-only search.
+phases of a staged session that froze the best of a budget-only search or
+closed a root outside its declared bounds.
 
 A check across fields runs at writing only: a read keeps what a later 2.x wrote.
 """
@@ -292,8 +293,8 @@ class SessionDescriptor(HydroModelBase):
     )
     stop_note: str | None = Field(
         default=None,
-        description="The phases that froze the best of a budget-only search, in words; "
-        "none when no phase did",
+        description="The phases that froze the best of a budget-only search or closed a root "
+        "outside the declared bounds, in words; none when no phase did",
     )
 
     @model_validator(mode="after")

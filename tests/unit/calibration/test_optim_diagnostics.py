@@ -35,7 +35,7 @@ def _trace(pairs: list[tuple[float, float]]) -> list[dict[str, float]]:
 
 def test_a_ridge_is_named_with_its_coefficient() -> None:
     """A perfect trade-off between two parameters is reported."""
-    trace = _trace([(1.0, 10.0), (2.0, 9.0), (3.0, 8.0), (4.0, 7.0), (5.0, 6.0)])
+    trace = _trace([(1.0, 10.0), (2.0, 9.0), (3.0, 8.0), (4.0, 7.0), (5.0, 6.0), (6.0, 5.0)])
 
     pairs = correlated_parameter_pairs(trace, threshold=0.8)
 
@@ -57,6 +57,27 @@ def test_a_trace_too_short_to_judge_says_nothing() -> None:
     assert correlated_parameter_pairs(_trace([(1.0, 2.0)]), threshold=0.8) == []
 
 
+@pytest.mark.parametrize(
+    ("under", "expected"), [(6, [("K", "Sy", 1.0)]), (5, [])], ids=["ridge", "too_few_trials"]
+)
+def test_the_coefficient_reads_the_trials_under_the_cost(under, expected) -> None:
+    ridge = [{"K": x, "Sy": 2.0 * x, "cost": 1.0} for x in (1.0, 2.0, 3.0, 4.0, 5.0, 6.0)[:under]]
+    # The trials far from the best run against the ridge, and one has no cost.
+    elsewhere = [{"K": x, "Sy": -5.0 * x, "cost": 9.0} for x in (7.0, 8.0, 9.0)]
+    trace = [*ridge, *elsewhere, {"K": 10.0, "Sy": 0.0, "cost": None}]
+
+    assert correlated_parameter_pairs(trace, ["K", "Sy"], below_cost=2.0) == expected
+    assert parameter_correlation(trace, ["K", "Sy"]).at["K", "Sy"] < 0.0
+
+
+def test_a_constant_column_forms_no_pair() -> None:
+    trace = [{"K": x, "Sy": 0.2, "n": 3.0 * x, "cost": 1.0} for x in (1.0, 2.0, 3.0, 4.0, 5.0, 6.0)]
+
+    pairs = correlated_parameter_pairs(trace, ["K", "Sy", "n"], threshold=0.0)
+
+    assert [(first, second) for first, second, _ in pairs] == [("K", "n")]
+
+
 def test_the_worst_pair_comes_first() -> None:
     """A reader with three parameters reads the tightest trade-off first."""
     trace = [
@@ -67,6 +88,7 @@ def test_the_worst_pair_comes_first() -> None:
             (3.0, 8.0, 2.0),
             (4.0, 7.0, 5.0),
             (5.0, 6.0, 4.0),
+            (6.0, 5.0, 6.0),
         ]
     ]
 
@@ -236,7 +258,7 @@ def test_naming_the_parameters_keeps_the_answer_the_same() -> None:
 def test_two_parameters_moving_together_are_still_reported() -> None:
     trace = [
         {"iter": i, "parameters": {"K": float(i), "Sy": float(i) * 2.0}, "cost": 1.0}
-        for i in range(5)
+        for i in range(6)
     ]
 
     (pair,) = correlated_parameter_pairs(trace)
@@ -251,6 +273,7 @@ def test_the_interval_qualifies_the_reported_value() -> None:
     assert interval.lower == 3.0
     assert interval.upper == 4.0
     assert interval.reaches_upper_bound is True
+    assert (interval.to_dict()["lower_end"], interval.to_dict()["upper_end"]) == ("open", "bound")
 
 
 class _Item:

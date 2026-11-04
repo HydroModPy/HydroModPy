@@ -893,12 +893,14 @@ def test_the_doctor_follows_a_directive_of_a_renamed_key_and_a_list_a_child_adds
     }
 
 
-def test_a_renamed_field_is_rewritten_where_a_table_names_it(tmp_path: Path) -> None:
+def test_a_renamed_field_or_figure_is_rewritten_where_a_table_names_it(tmp_path: Path) -> None:
     config = tmp_path / "run.toml"
     config.write_text(
         '[[export]]\nvariables = ["head", "accumulation_flux"]\nformat = "netcdf"\n\n'
         '[[export]]\nvariables = "fluxes_from_budget"\nformat = "netcdf"\n\n'
-        '[display.overrides.simulated_active_network_map]\nvariable = "accumulation_flux"\n',
+        '[display]\nfigures = ["calibration_posterior"]\n\n'
+        '[display.overrides.simulated_active_network_map]\nvariable = "accumulation_flux"\n\n'
+        "[display.overrides.calibration_posterior]\nbins = 5\n",
         encoding="utf-8",
     )
 
@@ -908,7 +910,9 @@ def test_a_renamed_field_is_rewritten_where_a_table_names_it(tmp_path: Path) -> 
     assert "drain_accumulation_flux" in text
     assert "budget_flux_per_area" in text
     assert '"accumulation_flux"' not in text
-    assert len(changes) == 3
+    assert "calibration_posterior" not in text
+    assert text.count("calibration_trial_distribution") == 2
+    assert len(changes) == 5
 
 
 _ONE_DRAIN_AND_A_RATE = """
@@ -1619,6 +1623,14 @@ def test_a_sealed_scoring_window_reads_as_window() -> None:
             "protocol": {"name": "m", "window": window},
         }
     }
+
+
+def test_a_sealed_config_reads_a_renamed_figure() -> None:
+    doc = {"display": {"figures": ["calibration_posterior"]}}
+
+    migrate_sealed_config_doc(doc)
+
+    assert doc == {"display": {"figures": ["calibration_trial_distribution"]}}
 
 
 def test_a_sealed_config_drops_what_a_replay_never_reads() -> None:

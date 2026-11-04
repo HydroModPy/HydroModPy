@@ -211,6 +211,22 @@ def _assert_same_run(simplex_run, result, calls) -> None:
     assert mine.success == result.success
 
 
+@pytest.mark.parametrize("scale", [1e-6, 1e6])
+def test_a_relative_cost_tolerance_ignores_the_scale_of_the_cost(scale: float) -> None:
+    # Only the cost test can stop this run: the simplex is narrower than xatol from the start.
+    f, lower, upper, x0, simplex, _ = _setup("bowl_2d")
+    options = {"xatol": 1.0, "fatol": 0.0, "fatol_rel": 1e-3, "maxiter": 300, "maxfev": 300}
+
+    def nfev(factor: float) -> int:
+        run, _ = _speculative(
+            lambda x: factor * (1.0 + f(x)), lower, upper, x0, simplex, options, 1
+        )
+        assert run.result.status == 0
+        return run.result.nfev
+
+    assert nfev(scale) == nfev(1.0)
+
+
 # --------------------------------------------------------------------------- #
 # The port against SciPy
 # --------------------------------------------------------------------------- #

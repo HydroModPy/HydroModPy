@@ -256,6 +256,10 @@ def stopping_kwargs(
             "call verbatim."
         )
     kwargs[option] = engine_stopping_value(method, space, precision=value)
+    if option == "xatol" and "fatol" not in kwargs:
+        # The simplex also stops on the spread of its costs. Left at an absolute
+        # 1e-4 it depends on the units of the cost, so it follows the precision.
+        kwargs.update(fatol=0.0, fatol_rel=value)
     return kwargs
 
 

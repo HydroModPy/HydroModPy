@@ -17,6 +17,7 @@ from hydromodpy.calibration import CalibrationReport
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.evaluation import TrialOutcome
 from hydromodpy.calibration.evaluation import registry as evaluation_registry
+from hydromodpy.calibration.optim.fosm import ParameterUncertainty
 from hydromodpy.calibration.runners import cli_runner as cli_runner_module
 from hydromodpy.calibration.runners import promotion as promotion_module
 from hydromodpy.calibration.runners.programmatic_runner import run_calibration_programmatic
@@ -142,10 +143,11 @@ class TestALinearizedWidthWithoutPhases:
         widths = []
         handed = []
         close = cli_runner_module.promote_and_close
+        width_of_k = (ParameterUncertainty("K", 2.0e-5, 4.0e-6, {"K": 1.0}),)
 
         def _width(report, *, cfg, trial_ctx, space, perturbation):
             widths.append((list(space.names), perturbation, trial_ctx is not None))
-            return replace(report, parameter_uncertainty=("width of K",))
+            return replace(report, parameter_uncertainty=width_of_k)
 
         def _close(**kwargs):
             handed.append(kwargs["report"].parameter_uncertainty)
@@ -158,8 +160,8 @@ class TestALinearizedWidthWithoutPhases:
         )
 
         assert widths == [(["K"], 0.01, True)]
-        assert handed == [("width of K",)]
-        assert report.parameter_uncertainty == ("width of K",)
+        assert handed == [width_of_k]
+        assert report.parameter_uncertainty == width_of_k
 
     def test_an_evaluator_with_no_model_is_refused_the_width(self, fake_project):
         evaluation_registry.register(_NoModel, replace=True)

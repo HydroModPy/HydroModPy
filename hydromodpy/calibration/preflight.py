@@ -775,7 +775,11 @@ def _check_engines(calibration: Any) -> list[PreflightFinding]:
     without that refusal, and the finding names the phase either way.
     """
     from hydromodpy.calibration.optim.method_config import method_options_problem
-    from hydromodpy.calibration.optim.optimizer import available_optimizers, engine_traits
+    from hydromodpy.calibration.optim.optimizer import (
+        announced_optimizers,
+        available_optimizers,
+        engine_traits,
+    )
 
     known = set(available_optimizers())
     options_of = {entry[0]: entry[3] for entry in _declared_precisions(calibration)}
@@ -786,7 +790,8 @@ def _check_engines(calibration: Any) -> list[PreflightFinding]:
                 PreflightFinding(
                     "error",
                     where,
-                    f"method {method!r} is not registered. Available: {', '.join(sorted(known))}.",
+                    f"method {method!r} is not registered. "
+                    f"Available: {', '.join(announced_optimizers())}.",
                 )
             )
             continue

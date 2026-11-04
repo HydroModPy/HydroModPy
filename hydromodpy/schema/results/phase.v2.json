@@ -697,7 +697,7 @@
         }
       ],
       "default": null,
-      "description": "'froze the best of a budget-only search' when the phase passed on the best trial of a search with no rule of its own; none otherwise",
+      "description": "'froze the best of a budget-only search' when the phase passed on the best trial of a search with no rule of its own, the reason when a root closed outside the declared bounds; none otherwise",
       "title": "Stop Note",
       "x-hmp-profile": "user"
     },

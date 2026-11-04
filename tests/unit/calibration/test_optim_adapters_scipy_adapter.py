@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import math
 
+import pytest
+
 from hydromodpy.calibration.optim.adapters.scipy_adapter import ScipyDE, ScipyNelderMead
 from hydromodpy.calibration.optim.engine import CalibrationEngine
 from hydromodpy.calibration.optim.optimizer import (
@@ -119,7 +121,7 @@ def _drive(opt, cost_fn=_quadratic_cost, ask_n: int = 1, guard: int = 20000):
 # Deadlock regression: batched ask on a sequential adapter
 # ---------------------------------------------------------------------------
 def test_de_ask_batch_returns_available_without_blocking() -> None:
-    opt = ScipyDE(two_dim_space(), seed=0, maxiter=10, popsize=5)
+    opt = ScipyDE(two_dim_space(), seed=0, max_trials=110, popsize=5)
     try:
         # The previous implementation blocked forever here: a sequential DE
         # (workers=1) produces the next point only after the current one is
@@ -152,7 +154,7 @@ def test_nelder_mead_ask_batch_returns_available_without_blocking() -> None:
 def test_close_is_cancel_safe_after_early_exit() -> None:
     """Exiting the loop before convergence and closing must not leave a worker
     blocked on the next ``tell``."""
-    opt = ScipyDE(two_dim_space(), seed=0, maxiter=100, popsize=15, tol=1e-9)
+    opt = ScipyDE(two_dim_space(), seed=0, max_trials=3030, popsize=15, tol=1e-9)
     for _ in range(5):
         batch = opt.ask(1)
         assert batch
@@ -166,10 +168,25 @@ def test_close_is_cancel_safe_after_early_exit() -> None:
 
 
 # ---------------------------------------------------------------------------
+# The budget sets the generations
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize(("max_trials", "evaluations"), [(60, 60), (65, 70), (5, 20)])
+def test_de_runs_the_generations_its_budget_covers(max_trials: int, evaluations: int) -> None:
+    # Two parameters and popsize 5 give 10 evaluations a generation, the first of
+    # them the initial population. A budget of 65 needs 7 of them, and a budget
+    # under two generations still runs one after the initial population.
+    opt = ScipyDE(two_dim_space(), seed=0, max_trials=max_trials, popsize=5, tol=0.0)
+    try:
+        assert len(_drive(opt, ask_n=1, cost_fn=_quadratic_cost)) == evaluations
+    finally:
+        opt.close()
+
+
+# ---------------------------------------------------------------------------
 # Convergence on a convex quadratic
 # ---------------------------------------------------------------------------
 def test_de_converges_to_known_minimum() -> None:
-    opt = ScipyDE(two_dim_space(), seed=1, maxiter=60, popsize=10, tol=1e-7)
+    opt = ScipyDE(two_dim_space(), seed=1, max_trials=1220, popsize=10, tol=1e-7)
     try:
         curve = _drive(opt, ask_n=4)
         assert curve  # at least one generation ran
@@ -195,7 +212,7 @@ def test_nelder_mead_converges_to_known_minimum() -> None:
 def test_de_seed_is_reproducible() -> None:
     runs = []
     for _ in range(2):
-        opt = ScipyDE(two_dim_space(), seed=7, maxiter=40, popsize=8, tol=1e-7)
+        opt = ScipyDE(two_dim_space(), seed=7, max_trials=656, popsize=8, tol=1e-7)
         try:
             _drive(opt, ask_n=1)
             runs.append(opt.best().cost)
@@ -208,7 +225,7 @@ def test_de_seed_is_reproducible() -> None:
 # tell semantics
 # ---------------------------------------------------------------------------
 def test_best_is_none_before_any_completed_eval() -> None:
-    opt = ScipyDE(two_dim_space(), seed=0, maxiter=5, popsize=5)
+    opt = ScipyDE(two_dim_space(), seed=0, max_trials=60, popsize=5)
     try:
         assert opt.best() is None
     finally:
@@ -216,7 +233,7 @@ def test_best_is_none_before_any_completed_eval() -> None:
 
 
 def test_failed_eval_maps_to_failed_cost_and_is_excluded_from_best() -> None:
-    opt = ScipyDE(two_dim_space(), seed=0, maxiter=20, popsize=6, tol=1e-9)
+    opt = ScipyDE(two_dim_space(), seed=0, max_trials=252, popsize=6, tol=1e-9)
     try:
         first = True
         for _ in range(12):

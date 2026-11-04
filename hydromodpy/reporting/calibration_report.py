@@ -94,7 +94,7 @@ _DEFAULT_FIGURE_NAMES: tuple[str, ...] = (
     "calibration_convergence",
     "calibration_trace",
     "calibration_landscape",
-    "calibration_posterior",
+    "calibration_trial_distribution",
     "calibration_objective_surface",
     "calibration_pairplot",
 )

@@ -97,6 +97,7 @@ from dataclasses import dataclass, replace
 from functools import partial
 from typing import Any
 
+from hydromodpy.calibration.optim.cost_margin import ParameterInterval, root_interval
 from hydromodpy.calibration.optim.optimizer import (
     FAILED_EVAL_COST,
     EngineTraits,
@@ -109,6 +110,7 @@ from hydromodpy.calibration.optim.optimizer import (
 )
 from hydromodpy.calibration.optim.parameters import ParameterSpace
 from hydromodpy.calibration.optim.stopping import CountedBudget
+from hydromodpy.core.cost_margin import MarginKind
 from hydromodpy.core.exceptions import ObjectiveError, OptimizerError
 from hydromodpy.core.logging import get_logger
 
@@ -644,11 +646,20 @@ class BisectionAdapter:
         pairs = self._evaluated(target.component) if target is not None else []
         if not pairs:
             raise OptimizerError(
-                "the bisection adapter has no usable residual: every evaluation failed. "
+                "the bisection adapter has no usable residual: every evaluation failed or "
+                "was infeasible. "
                 f"Check that the outputs publish a {self._signed_component!r} component."
             )
         (x_low, r_low), (x_high, r_high) = pairs[0], pairs[-1]
         name = self._parameter.name
+        unsolved = ", ".join(
+            f"{name} = {self._physical_of(result.trial_id):.4g} ({result.status})"
+            for result in self._history
+            if result.status != "completed"
+        )
+        infeasible = (
+            f" It does not widen: a bracket end is infeasible, {unsolved}." if unsolved else ""
+        )
         which = "" if target.bound is None else f" of the {target.bound} bound"
         raise OptimizerError(
             f"the residual{which} keeps the same sign over the whole bracket: "
@@ -656,7 +667,7 @@ class BisectionAdapter:
             f"{self._parameter.to_physical(x_low):.4g}, and {r_high:+.4g} at {name} = "
             f"{self._parameter.to_physical(x_high):.4g}. There is no root to close here. "
             "Returning the better of the two ends would be a minimised mean distance in "
-            "disguise, so the search stops instead."
+            f"disguise, so the search stops instead.{infeasible}"
         )
 
     def _plan_after_batch(self) -> None:
@@ -857,7 +868,7 @@ class BisectionAdapter:
                 winner = min(valid, key=lambda result: result.cost)
         else:
             winner = self._pick(valid)
-        self._warn_if_outside_the_declared_bounds(winner)
+        self._warn_if_outside_the_declared_bounds()
         return winner
 
     def _pick(self, valid: list[EvaluationResult]) -> EvaluationResult:
@@ -961,7 +972,25 @@ class BisectionAdapter:
             return float("nan")
         return float(self._parameter.to_physical(self._points[trial_id]))
 
-    def _warn_if_outside_the_declared_bounds(self, winner: EvaluationResult) -> None:
+    def root_outside_bounds(self) -> str | None:
+        """Name the roots whose bracket lies outside the declared bounds, or None."""
+        low, high = self._declared
+        to_physical = self._parameter.to_physical
+        outside = []
+        for target in self._targets or ():
+            bracket = self._brackets.get(target.component)
+            middle = None if bracket is None else 0.5 * (bracket[0] + bracket[1])
+            if middle is not None and not low <= middle <= high:
+                outside.append(f"the root of {target.label} at {to_physical(middle):.4g}")
+        if not outside:
+            return None
+        return (
+            f"{' and '.join(outside)} closed OUTSIDE the declared bounds of "
+            f"{self._parameter.name}, [{to_physical(low):.4g}, {to_physical(high):.4g}], "
+            f"after {self._expansions} bracket expansion(s)"
+        )
+
+    def _warn_if_outside_the_declared_bounds(self) -> None:
         """Say it when the root only exists outside the interval that was declared.
 
         The search widens its bracket by a decade at a time, which is what lets
@@ -973,29 +1002,16 @@ class BisectionAdapter:
         positive across the whole declared interval, and the search closes on a
         value three decades above it that means nothing.
         """
-        if self._expansions == 0:
+        reason = self.root_outside_bounds()
+        if reason is None:
             return
-        transformed = self._points.get(winner.trial_id)
-        if transformed is None:
-            return
-        low, high = self._declared
-        if low <= float(transformed) <= high:
-            return
-        value = self._parameter.to_physical(float(transformed))
-        lower = self._parameter.to_physical(low)
-        upper = self._parameter.to_physical(high)
         logger.warning(
-            "The root closed on %s = %.4g, OUTSIDE the declared bounds [%.4g, %.4g], after "
-            "%d bracket expansion(s). Either the prior was too narrow, or the residual does "
+            "%s. Either the prior was too narrow, or the residual does "
             "not respond to this parameter over the declared range: a simulated network "
             "holding cells that are prescribed rather than computed never retracts, and the "
             "search then balances against that fixed skeleton. Check n_excess at the low end "
             "of the sweep: it should collapse as the parameter rises.",
-            self._parameter.name,
-            float(value),
-            lower,
-            upper,
-            self._expansions,
+            reason,
         )
 
     def converged(self) -> bool:
@@ -1154,6 +1170,19 @@ class BisectionAdapter:
             **self._bracket_entry(bracket, closed=self.converged()),
         }
 
+    def root_interval(self, *, margin: float, kind: MarginKind) -> ParameterInterval | None:
+        """Return the width of the answer on the cost curve, None before a trial solved."""
+        best = self.best()
+        if best is None:
+            return None
+        curve = [
+            (self._points[result.trial_id], result.cost if result.status == "completed" else None)
+            for result in self._history
+            if result.trial_id in self._points
+        ]
+        root = (self._points[best.trial_id], best.cost)
+        return root_interval(curve, root, margin, kind, self._parameter, self._declared)
+
     def roots_record(self) -> dict[str, Any] | None:
         """Return the two roots, their spread and the combined value, or None.
 
@@ -1225,6 +1254,7 @@ class BalancedSearch:
         self._offset = 0
         self._closed = 0
         self.answers: list[EvaluationResult] = []
+        self._outside: list[str] = []
         self.name = outer.name
         self.traits = engine_traits(outer.name)
         self.counted_budget = getattr(outer, "counted_budget", None)
@@ -1267,6 +1297,8 @@ class BalancedSearch:
             told = EvaluationResult(point.trial_id, None, FAILED_EVAL_COST, status="infeasible")
         else:
             told = replace(answer, trial_id=point.trial_id)
+            if (outside := search.root_outside_bounds()) is not None:
+                self._outside.append(outside)
             self.answers.append(replace(answer, trial_id=answer.trial_id + self._offset))
         self._outer.tell([told])
         self._offset += search.solves
@@ -1276,6 +1308,10 @@ class BalancedSearch:
     def counted(self, results: Sequence[EvaluationResult]) -> int:
         """Return the outer points closed by the results just told: one or none."""
         return self._closed
+
+    def root_outside_bounds(self) -> str | None:
+        """Join what each closed root search says of a root outside the declared bounds."""
+        return "; ".join(self._outside) or None
 
     def best(self) -> EvaluationResult | None:
         """Return the root of lowest cost: the structure the search answers with."""

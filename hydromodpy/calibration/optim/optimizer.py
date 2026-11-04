@@ -170,6 +170,13 @@ class EngineTraits:
     cost into a likelihood declares the metric that likelihood is written for,
     and a search scored on another one is warned before it runs."""
 
+    announced: bool = True
+    """Whether the method is in the list the docs and the refusals print.
+
+    ``False`` for a method that still runs when a file names it, but that
+    the project does not offer yet. The default says nothing, like every trait
+    here."""
+
 
 DEFAULT_ENGINE_TRAITS = EngineTraits()
 
@@ -277,13 +284,18 @@ def build_optimizer(name: str, space, **kwargs) -> Optimizer:
     _ensure_builtins_loaded()
     if name in _BUILTIN:
         return _BUILTIN[name](space, **kwargs)
-    raise KeyError(f"Unknown optimizer: {name!r}. Available built-ins: {sorted(_BUILTIN)}")
+    raise KeyError(f"Unknown optimizer: {name!r}. Available built-ins: {announced_optimizers()}")
 
 
 def available_optimizers() -> tuple[str, ...]:
     """Return the names of the built-in optimizers."""
     _ensure_builtins_loaded()
     return tuple(sorted(_BUILTIN))
+
+
+def announced_optimizers() -> tuple[str, ...]:
+    """Return the built-in optimizers the project offers, those that declare ``announced``."""
+    return tuple(name for name in available_optimizers() if engine_traits(name).announced)
 
 
 _LOADED = False

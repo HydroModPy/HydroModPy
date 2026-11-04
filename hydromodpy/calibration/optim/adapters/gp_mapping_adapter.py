@@ -18,7 +18,7 @@ improvement that bound still promises, ``y_best - min LCB``.
 from __future__ import annotations
 
 import warnings
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 
 import numpy as np
 
@@ -184,6 +184,7 @@ class GPMappingOptimizer:
         self._pending: dict[int, np.ndarray] = {}  # trial_id -> transformed x
         self._x_history: list[np.ndarray] = []  # transformed x
         self._y_history: list[float] = []  # objective values
+        self._failed_x: list[np.ndarray] = []  # transformed x of trials with no usable cost
         self._results: list[EvaluationResult] = []
         self._last_ei: float = float("inf")
         self._low_ei_streak: int = 0
@@ -199,12 +200,16 @@ class GPMappingOptimizer:
         for _ in range(n):
             if self._exhausted:
                 break
-            if len(self._x_history) + len(self._pending) >= self._max_trials:
+            if len(self._results) + len(self._pending) >= self._max_trials:
                 self._exhausted = True
                 break
             x_t = self._propose_next()
             if x_t is None:
                 self._exhausted = True
+                break
+            if out and not self._distinct(x_t, self._pending.values()):
+                # The GP is refitted on the same data inside one batch, so it can
+                # name a point already pending. A short batch beats a repeated solve.
                 break
             self._trial_id += 1
             self._pending[self._trial_id] = x_t
@@ -226,11 +231,14 @@ class GPMappingOptimizer:
             if x_t is None:
                 continue
             self._results.append(r)
-            value = r.cost
-            if r.status != "completed" or not np.isfinite(value):
-                value = 1e12
-            self._x_history.append(np.asarray(x_t, dtype=float))
-            self._y_history.append(float(value))
+            # A failed trial still counts as served, so the budget and the design stay
+            # whole. It has no cost, and the fit gives it the worst one seen, so the GP
+            # leaves that region without a sentinel that would flatten the rest.
+            if r.status == "completed" and np.isfinite(r.cost):
+                self._x_history.append(np.asarray(x_t, dtype=float))
+                self._y_history.append(float(r.cost))
+            else:
+                self._failed_x.append(np.asarray(x_t, dtype=float))
 
     def best(self) -> EvaluationResult | None:
         return best_completed(self._results)
@@ -238,7 +246,7 @@ class GPMappingOptimizer:
     def converged(self) -> bool:
         if self._exhausted:
             return True
-        if len(self._x_history) < self._n_init:
+        if len(self._results) < self._n_init:
             return False
         # EI alone is not a robust stopping signal - the GP often reports
         # vanishingly small EI once it becomes confident. Require a run of
@@ -252,7 +260,7 @@ class GPMappingOptimizer:
     def _propose_next(self) -> np.ndarray | None:
         """Return the next transformed parameter vector to evaluate."""
         # During the initial design we simply serve the pre-sampled points.
-        n_served = len(self._x_history) + len(self._pending)
+        n_served = len(self._results) + len(self._pending)
         if n_served < self._n_init:
             return self._initial_points[n_served]
 
@@ -262,8 +270,10 @@ class GPMappingOptimizer:
             return self._batch_queue.pop(0)
 
         # Fit the GP on observed (x, y) pairs, then maximize the acquisition.
-        x_train = np.asarray(self._x_history, dtype=float)
-        y_train = np.asarray(self._y_history, dtype=float)
+        failed = self._failed_x if self._y_history else []
+        x_train = np.asarray([*self._x_history, *failed], dtype=float)
+        y_worst = [max(self._y_history, default=0.0)] * len(failed)
+        y_train = np.asarray([*self._y_history, *y_worst], dtype=float)
         gp = self._fit_gp(x_train, y_train)
         if gp is None:
             # Fallback: uniform random draw in the transformed bounds.
@@ -286,6 +296,11 @@ class GPMappingOptimizer:
         if self._batch_size > 1:
             self._batch_queue = [c[0] for c in candidates[1 : self._batch_size]]
         return x_next
+
+    def _distinct(self, x: np.ndarray, others: Iterable[np.ndarray]) -> bool:
+        """Whether *x* is farther than a thousandth of the bounds span from every other point."""
+        span = np.maximum(self._bounds_t[:, 1] - self._bounds_t[:, 0], 1e-12)
+        return all(np.linalg.norm((x - other) / span) > 1e-3 for other in others)
 
     def _fit_gp(
         self,
@@ -371,12 +386,10 @@ class GPMappingOptimizer:
             return [(np.clip(starts[i], lower, upper), float(scores[i])) for i in order]
 
         candidates.sort(key=lambda pair: pair[1], reverse=True)
-        # Deduplicate near-identical optima so batch_size > 1 actually serves
-        # diverse points; tolerance is a fraction of the bounds span.
-        span = np.maximum(upper - lower, 1e-12)
+        # Deduplicate near-identical optima so batch_size > 1 actually serves diverse points.
         deduped: list[tuple[np.ndarray, float]] = []
         for x, score in candidates:
-            if all(np.linalg.norm((x - d[0]) / span) > 1e-3 for d in deduped):
+            if self._distinct(x, [d[0] for d in deduped]):
                 deduped.append((x, score))
         return deduped or candidates
 

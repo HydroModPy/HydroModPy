@@ -112,7 +112,7 @@ class PhaseRun:
     status: str = "completed"
     """What the phase descriptor says of the search: completed, partial or failed."""
     stop_note: str | None = None
-    """``FROZE_BUDGET_ONLY`` when the phase passed on the best of a budget-only search."""
+    """``FROZE_BUDGET_ONLY`` for the best of a budget-only search, or a root out of bounds."""
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-friendly view of the phase, report included."""

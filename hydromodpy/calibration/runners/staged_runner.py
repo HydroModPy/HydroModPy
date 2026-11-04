@@ -70,7 +70,6 @@ from hydromodpy.calibration.optim.parameters import (
     apply_parameter_to_config,
 )
 from hydromodpy.calibration.optim.sampling import search_space_center
-from hydromodpy.calibration.optim.stopping import settled
 from hydromodpy.calibration.persistence import (
     CalibrationPersistence,
     PhaseContext,
@@ -96,6 +95,7 @@ from hydromodpy.calibration.runners.cli_runner import (
     keep_trial_solves,
     load_calibration_document,
     open_calibration_session,
+    parameter_widths,
     promote_and_close,
     refuse_a_phase_another_cost_scored,
     refuse_an_objective_that_is_not_an_entry_point,
@@ -109,7 +109,7 @@ from hydromodpy.calibration.runners.phase_regime import phase_overrides, regime_
 from hydromodpy.calibration.runners.prepared_model import check_the_prepared_model
 from hydromodpy.calibration.runners.promotion import promote_phase_best, promotion_name_check
 from hydromodpy.calibration.runners.recap import cost_metric_label, write_methods
-from hydromodpy.calibration.runners.restarts import RestartSpread
+from hydromodpy.calibration.runners.restarts import RestartSpread, unsettled_search
 from hydromodpy.calibration.runners.resume import (
     best_parameters_of,
     completed_phases,
@@ -441,8 +441,9 @@ def _settled(report: CalibrationReport) -> bool:
 
     Settled, not quality: a coarse agreement still returns a number. What
     disqualifies a phase is having no best candidate at all, a best cost that
-    is the failed-evaluation sentinel, or a search that spent its budget before
-    a stopping rule of its own was met
+    is the failed-evaluation sentinel, a root closed outside the declared bounds
+    (a bound is not a solved value, as for ``resume.completed_phases``), or a
+    search that spent its budget before a stopping rule of its own was met
     (:func:`~hydromodpy.calibration.optim.stopping.settled`). A root search may
     have been granted, once, the exact halvings it still needed; no other
     engine gets an extension. That last candidate is wherever the budget ended,
@@ -452,7 +453,7 @@ def _settled(report: CalibrationReport) -> bool:
     """
     if report.best_parameters is None or report.best_cost is None:
         return False
-    if _unsettled_search(report) is not None:
+    if "root_outside_bounds" in report.extra or unsettled_search(report) is not None:
         return False
     return math.isfinite(report.best_cost) and report.best_cost < FAILED_EVAL_COST
 
@@ -463,22 +464,15 @@ def _froze_budget_only(report: CalibrationReport) -> bool:
     return isinstance(search, Mapping) and search.get("stop_state") == "budget_spent"
 
 
-def _unsettled_search(report: CalibrationReport) -> Mapping[str, Any] | None:
-    """Return the report's search record when it says the search did not settle, else None.
-
-    The record is ``extra["search"]``, written by the runner that solved the
-    phase. A report without one (a phase reused from disk) is judged on its
-    best candidate alone.
-    """
-    search = report.extra.get("search")
-    if isinstance(search, Mapping) and not settled(search["stop_state"], search["stopping_rule"]):
-        return search
-    return None
-
-
 def _why_unsettled(report: CalibrationReport) -> str:
     """Say why a phase produced nothing to freeze, in the terms a user can act on."""
-    search = _unsettled_search(report)
+    if outside := report.extra.get("root_outside_bounds"):
+        return (
+            f"{outside}. The value is where the search stopped, not a solved value, so "
+            "it is not passed on. Widen the declared bounds, or check that the residual "
+            "responds to the parameter"
+        )
+    search = unsettled_search(report)
     if search is None:
         return (
             f"its session {report.session_id} produced no result over {report.n_trials} "
@@ -1419,7 +1413,9 @@ def run_staged_calibration(
                     frozen=held,
                 )
                 froze = _frozen_by(decl, report, declared)
-                stop_note = FROZE_BUDGET_ONLY if froze and _froze_budget_only(report) else None
+                stop_note = report.extra.get("root_outside_bounds") or (
+                    FROZE_BUDGET_ONLY if froze and _froze_budget_only(report) else None
+                )
                 status = str(report.extra.get("search_status", "completed"))
                 search = report.extra.get("search") or {}
                 # What the search answered with is what the phase passes on.
@@ -1432,6 +1428,7 @@ def run_staged_calibration(
                     stop_state=search.get("stop_state"),
                     stopping_rule=search.get("stopping_rule"),
                     stop_note=stop_note,
+                    widths=parameter_widths(report, spread),
                 )
                 report = replace(
                     report,
@@ -1446,6 +1443,7 @@ def run_staged_calibration(
                         persistence=persistence,
                         phase=decl.name,
                         override_paths=resolve_override_paths(phase_cfg),
+                        outputs=phase_cfg.outputs,
                     )
                 if position < len(plans) - 1:
                     release_trial_solves(trial_ctx)
@@ -1500,6 +1498,8 @@ def run_staged_calibration(
                 f"phase {run.name} {run.stop_note}" for run in runs if run.stop_note
             )
             or None,
+            # A later phase wins for a value two phases calibrated.
+            widths=persistence.phase_widths(),
         )
         runs[-1] = replace(runs[-1], report=final)
         if final.extra.get("promotion_failures"):

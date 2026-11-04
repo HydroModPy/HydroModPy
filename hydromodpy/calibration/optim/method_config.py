@@ -221,10 +221,9 @@ class OptunaMethodConfig(BaseModel):
         description="Optuna sampler. 'tpe', 'random' and 'nsga' come with the base "
         "install; 'cmaes' needs the calibration extra.",
     )
-    direction: Literal["minimize", "maximize"] = Field(
+    direction: Literal["minimize"] = Field(
         default="minimize",
-        description="Direction of the study. The calibration cost is always "
-        "minimised, so leave it.",
+        description="Direction of the study. The calibration cost is always minimised.",
     )
 
 

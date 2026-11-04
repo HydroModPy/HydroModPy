@@ -986,7 +986,7 @@
         }
       ],
       "default": null,
-      "description": "The phases that froze the best of a budget-only search, in words; none when no phase did",
+      "description": "The phases that froze the best of a budget-only search or closed a root outside the declared bounds, in words; none when no phase did",
       "title": "Stop Note",
       "x-hmp-profile": "user"
     },
