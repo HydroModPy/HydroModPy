@@ -14,7 +14,7 @@ rules, how a run reaches a backend, and where to add what.
 
 | part | answers |
 |---|---|
-| `base/` | what every backend shares: the `SolverAdapter` Protocol (`adapter_protocol.py`), the registry of adapters and extractors with its entry-point groups (`registry.py`), `SolverConfig` (`solver_config.py`, the `[solver]` table), the observable contracts (`observables.py`, `observable_support.py`), cell lookup by coordinates, the child-process switch (`api_isolation.py`), scratch cleanup |
+| `base/` | what every backend shares: the `SolverAdapter` Protocol (`adapter_protocol.py`), the registry of adapters and extractors with its entry-point groups (`registry.py`), `SolverConfig` (`solver_config.py`, the `[solver]` table), the observable contracts (`observables.py`, `observable_support.py`), cell lookup by coordinates, scratch cleanup |
 | `contracts.py` | the public import path of `SolverAdapter`, `RunResult`, `SolverConfig` and `registry` |
 | `field_property_mapping.py`, `initial_conditions.py`, `steady_initial_conditions.py` | helpers all backends use: field-based property mapping, head initial conditions, same-solver steady-state initial conditions |
 | `modflow_grid/` | the grid description the MODFLOW family reads: `SolverMesh` for structured and unstructured meshes and its DISV arguments, `SolverGridContext`, spatial and temporal discretization builders, the `sgrid` table of the top sampling (`sgrid_config.py`) |

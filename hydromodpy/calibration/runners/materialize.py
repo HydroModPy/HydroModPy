@@ -43,10 +43,6 @@ def _sanitize_label(label: str) -> str:
     return re.sub(r"[^a-z0-9_.-]+", "_", text)
 
 
-def _split_target_path(target: str) -> tuple[str, ...]:
-    return tuple(part for part in str(target).strip().split(".") if part)
-
-
 def _lookup_nested(payload: Mapping[str, Any], dotted: Sequence[str]) -> Any:
     cursor: Any = payload
     for part in dotted:
@@ -300,7 +296,7 @@ def materialize_candidate(
             continue
         if param.name not in params:
             raise ValueError(f"Parameter {param.name!r} missing from candidate params mapping")
-        dotted = _split_target_path(target)
+        dotted = tuple(part for part in str(target).strip().split(".") if part)
         overlay_dotted = _resolve_overlay_target_path(base_raw, dotted)
         base_value = _lookup_nested(base_raw, overlay_dotted)
         resolved = _apply_parameter_mode(

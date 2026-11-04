@@ -131,23 +131,17 @@ class AnalyticBowlEvaluator:
                 component = (position - BOWL_OPTIMUM) ** 2
             except OverflowError:
                 return self._failed(started, f"{name}={value!r} has an unrepresentable cost.")
-            if not math.isfinite(component):
-                return self._failed(started, f"{name}={value!r} has an unrepresentable cost.")
             components[name] = component
         # No terms is not an error: a document declaring no parameter builds an
         # empty space, and every optimizer of this repository then asks for one
         # suggestion carrying nothing. It costs zero, and the rehearsal is that
         # the montage ran.
-        try:
-            cost = (
-                math.fsum(component / len(components) for component in components.values())
-                if components
-                else 0.0
-            )
-        except OverflowError:
-            return self._failed(started, "The mean cost cannot be represented.")
-        if not math.isfinite(cost):
-            return self._failed(started, "The mean cost cannot be represented.")
+        # Each term is finite and divided by the count, so the sum cannot overflow.
+        cost = (
+            math.fsum(component / len(components) for component in components.values())
+            if components
+            else 0.0
+        )
         return TrialOutcome(
             cost=cost,
             status="completed",

@@ -88,7 +88,9 @@ class SpeculativeNelderMead:
     adds candidates of the same step that may turn out unused.
 
     The options are those of ``scipy.optimize.minimize(method="Nelder-Mead")``
-    with the same defaults.
+    with the same defaults, and one more, ``fatol_rel``. It adds a share of the
+    best cost to ``fatol``, so the cost test can be written without knowing the
+    cost scale. At its default of zero the run is SciPy's.
     """
 
     def __init__(
@@ -100,6 +102,7 @@ class SpeculativeNelderMead:
         maxfev: float | None = None,
         xatol: float = 1e-4,
         fatol: float = 1e-4,
+        fatol_rel: float = 0.0,
         adaptive: bool = False,
     ) -> None:
         self._ncalls = 0
@@ -122,6 +125,7 @@ class SpeculativeNelderMead:
             maxfev=maxfev,
             xatol=xatol,
             fatol=fatol,
+            fatol_rel=fatol_rel,
             adaptive=adaptive,
         )
         try:
@@ -254,6 +258,7 @@ class SpeculativeNelderMead:
         maxfev: float | None,
         xatol: float,
         fatol: float,
+        fatol_rel: float,
         adaptive: bool,
     ) -> Generator[CandidateKey, float, None]:
         """SciPy 1.18.1 ``_minimize_neldermead``, each call a ``yield``.
@@ -346,10 +351,9 @@ class SpeculativeNelderMead:
 
         while self._ncalls < maxfun and iterations < maxiter:
             try:
-                if (
-                    np.max(np.ravel(np.abs(sim[1:] - sim[0]))) <= xatol
-                    and np.max(np.abs(fsim[0] - fsim[1:])) <= fatol
-                ):
+                if np.max(np.ravel(np.abs(sim[1:] - sim[0]))) <= xatol and np.max(
+                    np.abs(fsim[0] - fsim[1:])
+                ) <= fatol + fatol_rel * abs(fsim[0]):
                     break
 
                 xbar = np.add.reduce(sim[:-1], 0) / N

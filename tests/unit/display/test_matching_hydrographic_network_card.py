@@ -1001,6 +1001,28 @@ def test_a_validation_map_is_drawn_beside_the_scored_map(mpl) -> None:
         mpl.close(fig)
 
 
+def test_a_permanent_validation_is_drawn_beside_the_complete_map_in_the_cost(mpl) -> None:
+    diagnostics = {
+        **PUBLISHED,
+        **{f"{key}_maximal": value for key, value in PUBLISHED.items()},
+        **{f"{key}_minimal_validation": value for key, value in VALIDATION.items()},
+    }
+    fig = MatchingHydrographicNetworkCard().plot(_staged_run(diagnostics=diagnostics))
+
+    try:
+        ax = _panel(fig, "Validity")
+        assert _patch(ax, "D_optim maximal").get_width() == pytest.approx(217.5)
+        assert _patch(ax, "D_optim minimal").get_width() == pytest.approx(640.0)
+        note = _texts(ax)
+        assert "maximal (in the cost): D_optim = 217.5 m <= 500 m, Eq. 4 holds" in note
+        assert (
+            "minimal (validation outside the cost): D_optim = 640 m > 500 m, "
+            "beyond the bound, no verdict" in note
+        )
+    finally:
+        mpl.close(fig)
+
+
 def test_one_map_with_its_bound_suffix_reads_as_one_map(mpl) -> None:
     # A one-state output on the maximal map alone publishes its set twice,
     # unsuffixed and _maximal: that is one map, not two.

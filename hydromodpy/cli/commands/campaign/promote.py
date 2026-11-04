@@ -5,12 +5,15 @@ Thin wrapper over
 a trial kept under ``sessions/<case>/trials/<n>/`` is moved, any other trial
 is replayed from the frozen session configuration after its fingerprint is
 checked. The run lands in ``runs/<case>`` paired with the session when that
-name is free, else in the next version, or under ``--name``.
+name is free, else in the next version, or under ``--name``. Without
+``--trial``, the five completed trials of lowest cost of each phase are listed to choose from.
 """
 
 from __future__ import annotations
 
 import argparse
+import sys
+from pathlib import Path
 
 from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
 from hydromodpy.cli.helpers import apply_verbosity, resolve_project
@@ -29,6 +32,7 @@ def register(subparsers) -> argparse.ArgumentParser:
             "The case names the session: sessions/<case>[.vN].\n"
             "\n"
             "Examples:\n"
+            "  hmp campaign promote calibration\n"
             "  hmp campaign promote calibration --trial 12\n"
             "  hmp campaign promote J0014010-calage --trial 4 --name k_high -w projects/bretagne"
         ),
@@ -38,9 +42,9 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument(
         "--trial",
         type=int,
-        required=True,
+        default=None,
         metavar="N",
-        help="Trial number, as trials.jsonl of the session lists it",
+        help="Trial number, as trials.jsonl of the session lists it (default: list the best)",
     )
     parser.add_argument(
         "--name",
@@ -58,6 +62,9 @@ def run(args: argparse.Namespace) -> None:
     from hydromodpy.core.state.paths import catalog_path_for, run_dir_rel
 
     project_root = resolve_project(args.workspace)
+    if args.trial is None:
+        _list_best_trials(args, project_root)
+        return
     run_dir = promote_trial_from_session(project_root, args.case, args.trial, as_name=args.name)
     if catalog_path_for(project_root).is_file():
         from hydromodpy.results.catalog.indexer import index_new_runs
@@ -75,3 +82,28 @@ def run(args: argparse.Namespace) -> None:
         {"case": args.case, "trial": args.trial, "rel_dir": rel_dir},
         table=table,
     )
+
+
+def _list_best_trials(args: argparse.Namespace, project_root: Path) -> None:
+    """List the five completed trials of lowest cost of each phase, with the values each tried."""
+    from hydromodpy.calibration.runners.promotion import best_trials
+    from hydromodpy.results.session.journal import physical_parameters
+
+    best = best_trials(project_root, args.case)
+    rows = [
+        {
+            "trial": t.trial,
+            "phase": t.phase,
+            "cost": t.cost,
+            "values": physical_parameters(t),
+        }
+        for t in best
+    ]
+
+    def table() -> None:
+        for row in rows:
+            values = ", ".join(f"{name} = {value:.4g}" for name, value in row["values"].items())
+            print(f"trial {row['trial']} ({row['phase']}): cost {row['cost']:.4g}, {values}")
+        print(f"next: hmp campaign promote {args.case} --trial N", file=sys.stderr)
+
+    emit(args, "campaign promote", rows, table=table)

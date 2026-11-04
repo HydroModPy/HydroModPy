@@ -27,21 +27,31 @@ scope (:func:`closing_session`).
 from __future__ import annotations
 
 import math
+import threading
 import time
 import uuid
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from hydromodpy.calibration.config import (
     CalibPhaseDecl,
     CalibrationConfig,
-    scoring_window_bounds,
+    window_bounds,
 )
-from hydromodpy.calibration.evaluation import TrialRequest
+from hydromodpy.calibration.evaluation import TrialOutcome, TrialRequest
 from hydromodpy.calibration.evaluation import registry as evaluation_registry
+from hydromodpy.calibration.metrics.trial_series_capture import TrialSeriesSink
+from hydromodpy.calibration.optim.adapters.bisection_adapter import (
+    BOUNDS_COMPONENT,
+    DEFAULT_REL_TOL,
+    ROOT_BOUNDS,
+    BalancedSearch,
+    BisectionAdapter,
+    roots_scored,
+)
 from hydromodpy.calibration.optim.cache import (
     ParamsHashCache,
     context_fingerprints,
@@ -52,7 +62,10 @@ from hydromodpy.calibration.optim.cost_margin import (
     ParameterInterval,
     margin_intervals,
 )
-from hydromodpy.calibration.optim.diagnostics import correlated_parameter_pairs
+from hydromodpy.calibration.optim.diagnostics import (
+    DEFAULT_CORRELATION_THRESHOLD,
+    correlated_parameter_pairs,
+)
 from hydromodpy.calibration.optim.engine import CalibrationEngine
 from hydromodpy.calibration.optim.objective import (
     cost_block_fractions,
@@ -64,6 +77,7 @@ from hydromodpy.calibration.optim.optimizer import (
     build_optimizer,
     engine_traits,
 )
+from hydromodpy.calibration.optim.parameters import ParameterSpace
 from hydromodpy.calibration.optim.progress_reporter import ConsoleProgressReporter
 from hydromodpy.calibration.optim.stopping import (
     budget_kwargs,
@@ -81,10 +95,15 @@ from hydromodpy.calibration.protocols import (
     expand_calibration_protocol,
     get_protocol,
 )
-from hydromodpy.calibration.report import NO_OTHER_TRIAL, interval_is_degenerate
+from hydromodpy.calibration.report import (
+    NO_OTHER_TRIAL,
+    interval_best_is_on_a_bound,
+    interval_is_degenerate,
+)
 from hydromodpy.calibration.runners.failure_watch import INFEASIBLE_PREFIX, ConsecutiveFailureWatch
 from hydromodpy.calibration.runners.kept_solves import TrialSolveRetention, retention_capacity
 from hydromodpy.calibration.runners.prepared_model import (
+    balanced_roots,
     check_the_prepared_model,
     network_outputs_of,
 )
@@ -100,7 +119,11 @@ from hydromodpy.calibration.runners.recap import (
     parameter_units,
     scored_samples,
 )
-from hydromodpy.calibration.runners.restarts import run_restarts
+from hydromodpy.calibration.runners.restarts import (
+    RestartSpread,
+    run_restarts,
+    run_side_by_side,
+)
 from hydromodpy.calibration.runners.resume import trials_another_cost_scored
 from hydromodpy.calibration.runners.sandbox import keep_trial_scratch
 from hydromodpy.calibration.runners.session import (
@@ -125,6 +148,7 @@ from hydromodpy.calibration.runners.trial import (
     TrialMetricFn,
     prepare_trials,
 )
+from hydromodpy.calibration.runners.worker_pool import TrialWorkerPool
 from hydromodpy.core.exceptions import (
     CalibrationError,
     UncertaintyNotAvailableError,
@@ -137,19 +161,23 @@ from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
 from hydromodpy.core.workspace.path_registry import in_run_scratch
 from hydromodpy.results.checks import CalibrationSessionStatus, StopState
 from hydromodpy.results.session.descriptor import (
+    BestTrial,
+    CostInterval,
+    ParameterWidth,
     ProtocolDeparture,
+    RestartRange,
+    ScoredSamples,
     SessionProtocol,
     SessionStatus,
 )
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.optim.engine import CalibrationSession
-    from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
+    from hydromodpy.calibration.optim.parameters import CalibParameter
     from hydromodpy.calibration.report import CalibrationReport
     from hydromodpy.calibration.runners.trial import TrialContext
 
 logger = get_logger(__name__)
-
 
 # ---------------------------------------------------------------------------
 # TOML loader
@@ -249,10 +277,9 @@ def _resolve_parameter_names(cfg: CalibrationConfig, config_path: Path) -> None:
 
 
 def resolve_stream_geometry_paths(cfg: CalibrationConfig, config_path: Path) -> None:
-    """Anchor every relative geometry path of an output to the file that declares it.
+    """Anchor every relative map path of an output to the file that declares it.
 
-    Both maps are anchored: ``stream_geometry_path``, the maximal one, and
-    ``minimal_stream_geometry_path``, the minimal one.
+    Both maps are anchored: ``map.complete`` and ``map.permanent``.
 
     A path in a TOML is relative to that TOML, the way ``base_config`` is, and a
     bare filename falls back to ``<project>/data/hydrography/`` like every other
@@ -270,45 +297,20 @@ def resolve_stream_geometry_paths(cfg: CalibrationConfig, config_path: Path) -> 
     the file it could not read.
     """
     base = config_path.expanduser().resolve().parent
-    for output in cfg.outputs.values():
-        # The minimal map is anchored the same way as the maximal one: both are
-        # files the same TOML names.
-        for field in ("stream_geometry_path", "minimal_stream_geometry_path"):
-            # An output that names its source carries no path, the model refusing
-            # both at once, so the check below already skips it. It also skips
-            # every output that has no such field at all, which is every support
-            # but 'network'.
-            declared = getattr(output, field, None)
-            if not declared or Path(declared).is_absolute():
-                continue
-            candidate = Path(declared)
-            found = next(
-                (
-                    trial
-                    for root in (base, base.parent, base.parent.parent)
-                    for trial in (root / candidate, root / "data" / "hydrography" / candidate.name)
-                    if trial.exists()
-                ),
-                None,
-            )
-            if found is not None:
-                setattr(output, field, str(found.resolve()))
-
-
-def _api_isolation_needed(parallel: int) -> bool:
-    """Whether api solves must be isolated in a child process this session.
-
-    True for any PARALLEL session. The decision is on parallelism alone, NOT the
-    declared ``mf6_runner``: the effective runner is resolved at build time and an
-    exposed-band (marnage) coupling forces the ``api`` runner even when the config
-    leaves ``mf6_runner`` at its ``subprocess`` default. ``_run_via_api`` is
-    reached ONLY for that effective api runner, so isolating whenever trials run
-    concurrently is correct (and a no-op for subprocess solves, which never reach
-    it). A serial session keeps the in-process api path (live progress bar, no
-    spawn). Isolating gives each concurrent libmf6 its own process, so the global
-    Fortran INPUT state never collides across threads.
-    """
-    return parallel > 1
+    for name, role, candidate in cfg.map_files():
+        if candidate.is_absolute():
+            continue
+        found = next(
+            (
+                trial
+                for root in (base, base.parent, base.parent.parent)
+                for trial in (root / candidate, root / "data" / "hydrography" / candidate.name)
+                if trial.exists()
+            ),
+            None,
+        )
+        if found is not None:
+            setattr(cfg.outputs[name].map, role, found.resolve())
 
 
 def session_cost_name(cfg: CalibrationConfig, phase: CalibPhaseDecl | None = None) -> str:
@@ -337,26 +339,22 @@ def declared_window_text(cfg: CalibrationConfig, phase: CalibPhaseDecl | None = 
     """Say the window a search scores on, as the file declares it.
 
     ``cfg`` is the ``[calibration]`` section and ``phase`` one of its phases,
-    ``None`` for the section's own search. The phase's ``scoring_window``,
+    ``None`` for the section's own search. The phase's ``window``,
     else the section's; a transient phase carries ``[metrics] window`` there
     once the project defaults are applied. A bound left open reads as the
-    first or last paired sample. Without a window, the whole run is scored,
-    less the first ``warmup_periods`` paired samples.
+    first or last paired sample. Without a window, the whole run is scored.
     """
-    window = getattr(cfg, "scoring_window", None)
-    if phase is not None and phase.scoring_window is not None:
-        window = phase.scoring_window
+    window = getattr(cfg, "window", None)
+    if phase is not None and phase.window is not None:
+        window = phase.window
     if window is not None and (window.start or window.end):
         start = window.start or "the first paired sample"
         end = window.end or "the last paired sample"
         return f"window {start} to {end}"
-    warmup = getattr(cfg, "warmup_periods", None)
-    if warmup:
-        return f"no window, all of the run less the first {int(warmup)} paired sample(s)"
     return "no window, all of the run"
 
 
-def _keep_trial_solves(cfg: CalibrationConfig, trial_ctx: TrialContext | None) -> None:
+def keep_trial_solves(cfg: CalibrationConfig, trial_ctx: TrialContext | None) -> None:
     """Give the session a retention of trial solves when it promotes any.
 
     A promoted trial then reads the solve its trial left on disk instead of
@@ -369,10 +367,10 @@ def _keep_trial_solves(cfg: CalibrationConfig, trial_ctx: TrialContext | None) -
     trial_ctx.kept_solves = retention if retention.keeps_any else None
 
 
-def _release_trial_solves(trial_ctx: TrialContext | None) -> None:
+def release_trial_solves(trial_ctx: TrialContext | None) -> None:
     """Delete the trial solves the session still keeps, and detach the retention.
 
-    Runs on every exit path, beside :func:`_release_session_scratch`, and never
+    Runs on every exit path, beside :func:`release_session_scratch`, and never
     raises: a folder that cannot be removed is left to the run scratch sweep.
     """
     if trial_ctx is None or trial_ctx.kept_solves is None:
@@ -381,7 +379,7 @@ def _release_trial_solves(trial_ctx: TrialContext | None) -> None:
     retention.release()
 
 
-def _release_session_scratch(trial_ctx: TrialContext | None) -> None:
+def release_session_scratch(trial_ctx: TrialContext | None) -> None:
     """Drop the preprocessing tree the session shared across its trials.
 
     Trials skip the setup steps and read the tree built once for the session,
@@ -434,8 +432,12 @@ def _margin_intervals_or_none(
     names: list[str],
     space: ParameterSpace,
     width: IntervalWidth,
+    optimizer: Any = None,
 ) -> list[ParameterInterval]:
     """Return the interval around each calibrated value, or nothing.
+
+    A root search reads its answer's interval on the curve of its trials
+    (:meth:`BisectionAdapter.root_interval`), any other search on their envelope.
 
     A criterion solved at zero, such as the stream-network gap, has no fraction
     of itself to take, so a share of the best cost means nothing there. Reporting
@@ -460,6 +462,9 @@ def _margin_intervals_or_none(
         return []
     bounds = {param.name: (param.lower, param.upper) for param in space}
     try:
+        if isinstance(optimizer, BisectionAdapter):
+            root = optimizer.root_interval(margin=float(width.margin), kind=width.kind)
+            return [] if root is None else [root]
         return margin_intervals(
             trace,
             names,
@@ -519,6 +524,8 @@ def _log_parameter_interval(interval: ParameterInterval, best: EvaluationResult 
     A value that reaches a search bound is the best point of a search that was
     forbidden to look further, not a value the trials converged onto: that is
     a warning, not an informational line, and it names the cost it was reached at.
+    A value inside its bounds whose range reaches one is another statement: the
+    trials do not close it on that side.
     """
     reach = [
         side
@@ -528,6 +535,16 @@ def _log_parameter_interval(interval: ParameterInterval, best: EvaluationResult 
         )
         if hit
     ]
+    if reach and not interval_best_is_on_a_bound(interval.to_dict()):
+        logger.warning(
+            "%s = %.4g: the trials within %.3g of the best run to the %s search bound, so "
+            "they do not close it on that side.",
+            interval.name,
+            interval.best,
+            interval.threshold,
+            " and ".join(reach),
+        )
+        return
     if reach:
         logger.warning(
             "%s = %.4g reached the %s search bound, at a cost of %.4g: this is the best "
@@ -607,7 +624,7 @@ def _r_optim_verdict_extra(
     network output published a ``r_optim``. ``causes`` lists what failed:
     ``"doptim"`` (D_optim above the length) and ``"empty"`` (no simulated
     network at the returned trial, so nothing to qualify). A failure warns
-    once. With ``on_roptim_violation = "error"`` it
+    once. With ``verdict.on_invalid = "error"`` it
     raises :class:`CalibrationError`; the caller has already saved the
     session, and a staged calibration stops there, before freezing anything.
 
@@ -631,7 +648,7 @@ def _r_optim_verdict_extra(
             continue
         message = _eq4_violation_message(key, verdict)
         logger.warning(message)
-        if output.on_roptim_violation == "error":
+        if output.verdict.on_invalid == "error":
             fatal.append(message)
     if fatal:
         raise CalibrationError(" ".join(fatal))
@@ -697,11 +714,6 @@ def _r_optim_reads(name: str, found: Mapping[str, float]) -> list[tuple[str, str
     The maximal map of a one-state output with both maps is a validation
     outside the cost, and is not read here.
     """
-    from hydromodpy.calibration.optim.adapters.bisection_adapter import (
-        BOUNDS_COMPONENT,
-        ROOT_BOUNDS,
-    )
-
     if f"{name}.r_optim" in found:
         return [(name, "")]
     if float(found.get(f"{name}.{BOUNDS_COMPONENT}", 1.0)) < 2.0:
@@ -843,19 +855,22 @@ def _root_search_record(session: CalibrationSession | None) -> dict[str, Any] | 
     """Return the root search's ``bracket`` or ``roots``, None for any other search.
 
     The session journal keeps this record, so a report read back later shows
-    what the live run printed.
+    what the live run printed. A balanced search has no single bracket, so it
+    gives only the roots it closed outside the bounds.
     """
-    from hydromodpy.calibration.optim.adapters.bisection_adapter import BisectionAdapter
-
-    if session is None or not isinstance(session.optimizer, BisectionAdapter):
+    if session is None or not isinstance(session.optimizer, BisectionAdapter | BalancedSearch):
         return None
     record: dict[str, Any] = {}
-    bracket = session.optimizer.bracket_record()
-    if bracket is not None:
-        record["bracket"] = bracket
-    roots = session.optimizer.roots_record()
-    if roots is not None:
-        record["roots"] = roots
+    if isinstance(session.optimizer, BisectionAdapter):
+        bracket = session.optimizer.bracket_record()
+        if bracket is not None:
+            record["bracket"] = bracket
+        roots = session.optimizer.roots_record()
+        if roots is not None:
+            record["roots"] = roots
+    outside = session.optimizer.root_outside_bounds()
+    if outside is not None:
+        record["root_outside_bounds"] = outside
     return record or None
 
 
@@ -867,8 +882,6 @@ def _closes_two_roots(session: CalibrationSession) -> bool:
     sit around one of the roots and not around the value. The width of such an
     answer is the spread of its roots, published under ``roots``.
     """
-    from hydromodpy.calibration.optim.adapters.bisection_adapter import BisectionAdapter
-
     optimizer = session.optimizer
     if not isinstance(optimizer, BisectionAdapter) or optimizer.roots != 2:
         return False
@@ -901,27 +914,13 @@ def _log_the_two_roots(roots: Mapping[str, Any]) -> None:
         minimal["weight"],
         maximal["weight"],
     )
-
-
-def _status_of_the_search(
-    session: CalibrationSession, status: str, error: str | None
-) -> tuple[str, str | None]:
-    """Return the session status to persist, ``partial`` when the search did not settle.
-
-    ``extra["search"]`` lives on the in-memory report only. A resumed staged
-    chain reads the catalog instead, and reuses a phase whose session closed as
-    ``completed``. A search that spent its budget before its stopping rule was
-    met must not close as ``completed``, or a resume would freeze the value the
-    live run refused to freeze. ``partial`` already means "trials ran, the stage
-    did not finish", which is what the resume reader skips. A search with no
-    rule of its own that spent its budget settled, and stays ``completed``.
-    """
-    if status != "completed" or session.settled:
-        return status, error
-    return "partial", (
-        f"stopping rule ({session.stopping_rule}) not met after {len(session.history)} "
-        f"evaluations (max_trials = {session.max_trials}, extension = {session.extension})"
-    )
+    # On the Nancon the spread reached 1.28 decades, and the mean met neither map.
+    if delta is not None and abs(delta) > 0.5:
+        logger.warning(
+            "The two roots lie %.3g decades apart, more than half a decade: the value returned "
+            "between them satisfies neither map. Read each root on its own.",
+            abs(delta),
+        )
 
 
 def _phase_cost_block_fractions(
@@ -971,6 +970,58 @@ def _first_trial_pairing(history: list[EvaluationResult]) -> dict[str, dict[str,
     return cost_samples(history[0].components) or None
 
 
+class _DerivativeEvaluator:
+    """Run the model at one parameter set and hand back the vectors a width is read from.
+
+    A class at module level so that a worker process can build it, like any
+    evaluator of a pool. The simulated and the observed vector travel as the one
+    row of ``trial_series_sink``, which a pool already returns.
+    """
+
+    evaluator_id: ClassVar[str] = "linearized_width"
+    needs_prepared_model: ClassVar[bool] = True
+
+    def __init__(self, *, cfg: CalibrationConfig, trial_ctx: TrialContext) -> None:
+        from hydromodpy.calibration.metrics.composite import build_paired_vector_capture
+
+        self._cfg = cfg
+        self._trial_ctx = trial_ctx
+        self.trial_series_sink = TrialSeriesSink()
+        self._capture, self._captured = build_paired_vector_capture(
+            cfg.outputs or {},
+            ctx=trial_ctx.ctx,
+            objective_blocks=list(cfg.objective_blocks or []),
+            window=window_bounds(cfg.window),
+            min_samples=int(cfg.aggregate.min_samples),
+        )
+
+    def evaluate(self, request: TrialRequest) -> TrialOutcome:
+        from hydromodpy.calibration.runners.trial import run_trial_light
+
+        self._captured.clear()
+        result = run_trial_light(
+            self._trial_ctx,
+            dict(request.values),
+            objective=self._cfg.objective,
+            variable=self._cfg.variable,
+            metric_fn=self._capture,
+            trial_id=request.trial_id,
+            reject_water_budget_above=self._cfg.reject_water_budget_above,
+        )
+        # A run a water-budget rejection marks failed leaves no vector to reuse.
+        captured = result.status == "completed" and "simulated" in self._captured
+        if captured:
+            self.trial_series_sink.rows = [
+                {key: self._captured[key] for key in ("simulated", "observed")}
+            ]
+        return TrialOutcome(
+            cost=result.primary_metric,
+            status="completed" if captured else "failed",
+            duration_s=result.duration_s,
+            error=result.error,
+        )
+
+
 def attach_a_linearized_width(
     report: CalibrationReport,
     *,
@@ -982,20 +1033,20 @@ def attach_a_linearized_width(
     """Attach a first-order width to the answer the search returned.
 
     One model run per parameter around the optimum, then the optimum itself, last,
-    so the residuals read are the fit's. A calibration whose parameters the data
-    cannot separate is refused a width rather than given a fabricated one, and the
-    failure says which. A run that fails, or that a water-budget rejection marks
-    failed, leaves no width either: its vector is never reused for another one.
+    so the residuals read are the fit's. The runs go side by side when the search
+    does, in worker processes that last for these runs only. A calibration whose
+    parameters the data cannot separate is refused a width rather than given a
+    fabricated one, and the failure says which. A run that fails, or that a
+    water-budget rejection marks failed, leaves no width either: its vector is
+    never reused for another one.
     """
     import numpy as np
 
-    from hydromodpy.calibration.metrics.composite import build_paired_vector_capture
     from hydromodpy.calibration.optim.fosm import (
         forward_difference_jacobian,
         linearized_covariance,
         uncertainty_from_covariance,
     )
-    from hydromodpy.calibration.runners.trial import run_trial_light
 
     if not report.best_parameters:
         logger.warning("No candidate was scored, so there is no answer to put a width beside.")
@@ -1006,40 +1057,45 @@ def attach_a_linearized_width(
     # and a search already paid for is too expensive to throw away over a
     # declaration. A record that failed to load, or an output naming no
     # station, still leaves loudly the way it always did.
+    # These runs keep no solve: they are not trials, and retention ranks by cost.
+    options = {"cfg": cfg, "trial_ctx": replace(trial_ctx, kept_solves=None)}
     try:
-        capture_fn, captured = build_paired_vector_capture(
-            cfg.outputs or {},
-            ctx=trial_ctx.ctx,
-            objective_blocks=list(cfg.objective_blocks or []),
-            warmup_periods=int(cfg.warmup_periods or 0),
-            scoring_window=scoring_window_bounds(cfg.scoring_window),
-            min_samples=int(cfg.aggregate.min_samples),
-        )
+        evaluator = _DerivativeEvaluator(**options)
     except UncertaintyNotAvailableError as exc:
         logger.warning("No width is reported: %s", exc)
         return report
 
-    def _simulate(values):
-        captured.clear()
-        result = run_trial_light(
-            trial_ctx,
-            dict(values),
-            objective=cfg.objective,
-            variable=cfg.variable,
-            metric_fn=capture_fn,
-            trial_id=-1,
-            reject_water_budget_above=cfg.reject_water_budget_above,
-        )
-        if result.status != "completed" or "simulated" not in captured:
-            moved = ", ".join(f"{name} = {float(value):.4g}" for name, value in values.items())
-            reason = f": {result.error}" if result.error else ""
+    names = [name for name in space.names if name in report.best_parameters]
+    width = min(cfg.parallel, len(names) + 1)
+    pool = TrialWorkerPool(_DerivativeEvaluator, options, width=width) if width > 1 else None
+    runner = pool or evaluator
+    fit: dict[str, Any] = {}
+
+    def _run(request: TrialRequest) -> Mapping[str, Any]:
+        outcome = runner.evaluate(request)
+        if outcome.status != "completed":
+            moved = ", ".join(
+                f"{name} = {float(value):.4g}" for name, value in request.values.items()
+            )
+            reason = f": {outcome.error}" if outcome.error else ""
             raise UncertaintyNotAvailableError(
-                f"the run at {moved} ended {result.status}{reason}, so no derivative is "
+                f"the run at {moved} ended {outcome.status}{reason}, so no derivative is "
                 "taken there."
             )
-        return np.asarray(captured["simulated"], dtype=float)
+        [row] = runner.trial_series_sink.drain()
+        return row
 
-    names = [name for name in space.names if name in report.best_parameters]
+    def _simulate_all(runs):
+        # One id per run, since they may run side by side.
+        requests = [TrialRequest(-index, dict(run)) for index, run in enumerate(runs, start=1)]
+        if pool is None:
+            rows = [_run(request) for request in requests]
+        else:
+            rows = run_side_by_side(_run, requests, width=len(requests), on_stop=pool.close)
+        # The reference ran last, so the vectors kept are the fit's.
+        fit.update(rows[-1])
+        return [row["simulated"] for row in rows]
+
     logger.info(
         "Taking %d derivative(s) around the answer at a %.3g relative step; the calibrated "
         "values do not move.",
@@ -1048,14 +1104,15 @@ def attach_a_linearized_width(
     )
     try:
         jacobian = forward_difference_jacobian(
-            names, report.best_parameters, _simulate, relative_step=perturbation
+            names, report.best_parameters, _simulate_all, relative_step=perturbation
         )
     except UncertaintyNotAvailableError as exc:
         logger.warning("No width is reported: %s", exc)
         return report
-    residuals = np.asarray(captured["simulated"], dtype=float) - np.asarray(
-        captured["observed"], dtype=float
-    )
+    finally:
+        if pool is not None:
+            pool.close()
+    residuals = np.asarray(fit["simulated"], dtype=float) - np.asarray(fit["observed"], dtype=float)
     try:
         covariance = linearized_covariance(jacobian, residuals)
     except ValueError as exc:
@@ -1080,29 +1137,54 @@ def _engine_kwargs(cfg: CalibrationConfig, space: ParameterSpace, *, start_at: A
     A root search is also told how many roots its network outputs score, so
     its budget counts both when an output is scored on two bounds.
     """
-    from hydromodpy.calibration.optim.adapters.bisection_adapter import (
-        BisectionAdapter,
-        roots_scored,
-    )
-
     kwargs = stopping_kwargs(
         cfg.method, space, precision=cfg.precision, declared=cfg.method_options
     )
     kwargs.update(budget_kwargs(cfg.method, cfg.max_trials))
-    if start_at is not None and engine_traits(cfg.method).accepts_a_start_point:
+    traits = engine_traits(cfg.method)
+    if start_at is not None and traits.accepts_a_start_point:
         kwargs["start_at"] = start_at
+    if traits.takes_width:
+        kwargs["width"] = cfg.parallel
     if cfg.method == BisectionAdapter.name:
-        declared = cfg.outputs or {}
-        kwargs["roots"] = roots_scored(
-            declared[name] for name in network_outputs_of(cfg) if name in declared
-        )
-        # The width the engine asks for, so the counted budget, and "auto"
-        # sized from it, count the bracket cut into that many parts.
-        kwargs["batch"] = max(cfg.batch_size, cfg.parallel)
+        kwargs.update(_root_search_options(cfg))
     return kwargs
 
 
-def _with_its_method(cfg: CalibrationConfig) -> CalibrationConfig:
+def _root_search_options(cfg: CalibrationConfig) -> dict[str, int]:
+    """Return how many roots the network outputs score, and the width the engine asks for.
+
+    The width is there so the counted budget, and "auto" sized from it, count the
+    bracket cut into that many parts.
+    """
+    declared = cfg.outputs or {}
+    roots = roots_scored(declared[name] for name in network_outputs_of(cfg) if name in declared)
+    return {"roots": roots, "batch": max(cfg.batch_size, cfg.parallel)}
+
+
+def _balanced_search(
+    cfg: CalibrationConfig, space: ParameterSpace, *, start_at: Any
+) -> BalancedSearch:
+    """Return the search of a balanced phase: its method on the structure, a root search on K.
+
+    The preflight has checked that one conductivity is searched in log space. A
+    start point has one coordinate per parameter of ``space``, so K's is dropped.
+    """
+    import numpy as np
+
+    [root] = balanced_roots(cfg, space.names)
+    structure = ParameterSpace(param for param in space if param.name != root)
+    if start_at is not None:
+        start_at = np.delete(start_at, space.names.index(root))
+    kwargs = _engine_kwargs(cfg, structure, start_at=start_at)
+    outer = build_optimizer(cfg.method, structure, seed=cfg.seed, **kwargs)
+    rel_tol = DEFAULT_REL_TOL if cfg.precision is None else cfg.precision
+    return BalancedSearch(
+        outer, ParameterSpace([space[root]]), rel_tol=rel_tol, **_root_search_options(cfg)
+    )
+
+
+def with_its_method(cfg: CalibrationConfig) -> CalibrationConfig:
     """Return ``cfg`` with the method it runs written in.
 
     Itself when the file names one. Otherwise a copy carrying the method its
@@ -1159,6 +1241,8 @@ def run_calibration_core(
     phase: PhaseContext | None = None,
     start_at: Any | None = None,
     interval_width: IntervalWidth | None = None,
+    balanced: bool = False,
+    pool_for: Callable[..., TrialWorkerPool] | None = None,
 ) -> CalibrationReport:
     """Heart of the calibration loop: one search, journaled as it goes.
 
@@ -1179,17 +1263,25 @@ def run_calibration_core(
     ``phase`` names the phase and the restart the trials of this search belong
     to; unset, the one phase of a calibration without phases.
 
+    ``balanced`` closes a root of J on K at every point of the search
+    (:class:`~hydromodpy.calibration.optim.adapters.bisection_adapter.BalancedSearch`).
+
+    ``pool_for(evaluator_class, options, width=...)`` gives the pool of workers
+    that serves a search at ``parallel > 1``, and its caller closes it. It is
+    required there. Restarts side by side share one, so that together they run
+    ``parallel`` trials at once and no more.
+
     The caller is responsible for building a :class:`TrialContext` when the
     named evaluator declares it needs one, and passing ``None`` when it does
     not, and for the :class:`ParameterSpace`. ``cfg_path`` is what a declared
-    ``stream_geometry_path`` is anchored on, and where candidates are
+    the map paths are anchored on, and where candidates are
     materialized from.
     """
     from hydromodpy.calibration.report import CalibrationReport
 
     if cfg_path is not None:
         resolve_stream_geometry_paths(cfg, cfg_path)
-    cfg = _with_its_method(cfg)
+    cfg = with_its_method(cfg)
     # Same refusal for a mono-phase run as for a staged one: an optimizer_kwarg
     # foreign to the declared method used to die as a bare TypeError inside the
     # adapter constructor, after the first solve.
@@ -1206,12 +1298,18 @@ def run_calibration_core(
     if metric_fn is None and objective and ":" in objective:
         metric_fn = load_metric_fn_entry_point(objective)
 
-    use_api_isolation = _api_isolation_needed(cfg.parallel)
+    if cfg.validation_window is not None and (
+        metric_fn is not None
+        or evaluation_registry.resolve_id(cfg.evaluator) != evaluation_registry.DEFAULT_EVALUATOR_ID
+    ):
+        raise CalibrationError(
+            "validation_window is scored by the blocks of the HydroModPy pipeline, and a metric "
+            "function or another evaluator returns only its cost: remove validation_window."
+        )
 
     # The evaluator is resolved by the name the document wrote, and built with
     # only the options its class names.
-    evaluator = evaluation_registry.create(
-        cfg.evaluator,
+    evaluator_options = dict(
         cfg=cfg,
         trial_ctx=trial_ctx,
         space=space,
@@ -1219,6 +1317,7 @@ def run_calibration_core(
         cfg_path=cfg_path,
         metric_fn=metric_fn,
     )
+    evaluator = evaluation_registry.create(cfg.evaluator, **evaluator_options)
     if trial_ctx is None and cfg.save_runs != "none" and "save_runs" in cfg.model_fields_set:
         raise CalibrationError(
             f"calibration.evaluator names {getattr(evaluator, 'evaluator_id', cfg.evaluator)!r}, "
@@ -1226,13 +1325,16 @@ def run_calibration_core(
             "replayed through the pipeline and written as runs. There is no pipeline to "
             "replay them through: write save_runs = 'none'."
         )
+    # Only a model has the Python work threads cannot share. Each worker builds its
+    # own evaluator: the one above has checked the document, and leaves here.
+    if cfg.parallel > 1 and trial_ctx is not None:
+        evaluator = pool_for(type(evaluator), evaluator_options, width=cfg.parallel)
 
-    optimizer = build_optimizer(
-        cfg.method,
-        space,
-        seed=cfg.seed,
-        **_engine_kwargs(cfg, space, start_at=start_at),
-    )
+    if balanced:
+        optimizer = _balanced_search(cfg, space, start_at=start_at)
+    else:
+        kwargs = _engine_kwargs(cfg, space, start_at=start_at)
+        optimizer = build_optimizer(cfg.method, space, seed=cfg.seed, **kwargs)
     cache_context = build_cache_context(
         cfg=cfg,
         trial_ctx=trial_ctx,
@@ -1365,59 +1467,67 @@ def run_calibration_core(
         cache=engine_cache,
         cache_context=cache_context,
         progress=ConsoleProgressReporter(
-            cfg.method, budget, label=getattr(optimizer, "progress_label", None)
+            cfg.method,
+            budget * getattr(optimizer, "solves_per_point", 1),
+            label=getattr(optimizer, "progress_label", None),
         ),
         session_id=persistence.descriptor.session_id,
         on_iteration=on_iteration,
+        on_stop=evaluator.close if isinstance(evaluator, TrialWorkerPool) else None,
     )
 
     t0 = time.perf_counter()
-    from hydromodpy.solver.base.api_isolation import api_isolation_context
-
-    # Isolate each api solve in its own process for the PARALLEL trial loop
-    # only; promotion replays a single run and stays in-process. The switch is
-    # backend-neutral on purpose: this path runs for every solver, so importing
-    # it must not cost a backend.
-    #
-    # A calibration is hours long, so what ends it is often not a keyboard: a
-    # scheduler time limit, a container stop, a plain kill. All of those are
-    # SIGTERM, which by default ends the process where it stands and would
-    # leave this session running on disk for good.
-    with terminate_as_interrupt(), api_isolation_context(use_api_isolation):
-        session = engine.run()
+    session = engine.run()
     elapsed = time.perf_counter() - t0
     best = session.best
 
-    # Two parameters that moved together across the whole search were never told
-    # apart by the data: the search stopped on a ridge and reported that point as
-    # a minimum. Read off the trace the session already holds, so it costs nothing.
-    trace = calibration_trace(session.history, values_by_trial)
+    # Two parameters that move together among the trials under the cost margin
+    # were never told apart by the data: the search stopped on a ridge and reported
+    # that point as a minimum. Read off the trace the session already holds, so it
+    # costs nothing. With no margin to read, no correlation is reported either.
+    # A balanced search answers with its roots: a solve on the way to one says
+    # nothing about the structure.
+    answers = optimizer.answers if balanced else session.history
+    trace = calibration_trace(answers, values_by_trial)
     names = [param.name for param in space]
-    correlated = correlated_parameter_pairs(trace, names)
     width = _width_read_off_the_trials(
         interval_width if interval_width is not None else cfg.interval_width_for(),
         best,
         session.history,
     )
     intervals = (
-        [] if _closes_two_roots(session) else _margin_intervals_or_none(trace, names, space, width)
+        []
+        if _closes_two_roots(session)
+        else _margin_intervals_or_none(trace, names, space, width, session.optimizer)
     )
-    if correlated:
-        for first, second, coefficient in correlated:
-            logger.warning(
-                "Calibration parameters %s and %s moved together (r = %+.2f): the trace "
-                "does not tell them apart, so the reported pair is one point on a ridge.",
-                first,
-                second,
-                coefficient,
-            )
+    pairs = (
+        correlated_parameter_pairs(trace, names, threshold=0.0, below_cost=intervals[0].threshold)
+        if intervals
+        else []
+    )
+    correlated = [pair for pair in pairs if abs(pair[2]) >= DEFAULT_CORRELATION_THRESHOLD]
+    for first, second, coefficient in pairs:
+        logger.info("Under the cost margin, %s and %s: r = %+.2f.", first, second, coefficient)
+    for first, second, coefficient in correlated:
+        logger.warning(
+            "Calibration parameters %s and %s moved together (r = %+.2f): the trials under "
+            "the cost margin do not tell them apart, so the reported pair is one point on a "
+            "ridge.",
+            first,
+            second,
+            coefficient,
+        )
 
     for interval in intervals:
         _log_parameter_interval(interval, best)
 
     extra: dict[str, Any] = {"interval_width": width.to_dict()}
+    if balanced:
+        extra["balanced_roots"] = [persistence.trial_number(r.trial_id, context) for r in answers]
     if correlated:
         extra["correlated_parameters"] = correlated
+    if pairs:
+        extra["parameter_correlations"] = pairs
     if intervals:
         extra["parameter_intervals"] = [interval.to_dict() for interval in intervals]
     pairing = _first_trial_pairing(session.history)
@@ -1483,14 +1593,19 @@ def search_status(session: CalibrationSession) -> SessionStatus:
 
     ``completed`` when every trial ran and the search settled (its rule met,
     its plan exhausted, or the budget of a search with no rule of its own
-    spent); ``partial`` when trials ran but some failed or the budget ended
-    before a rule the engine has; ``failed`` when nothing completed.
+    spent); ``partial`` when trials ran but some failed, the budget ended
+    before a rule the engine has, or a root closed outside the declared bounds;
+    ``failed`` when nothing completed.
     """
     n_total = len(session.history)
     n_ok = sum(1 for item in session.history if item.status in ("completed", "cached"))
     if n_total == 0 or n_ok == 0:
         return "failed"
-    if n_ok < n_total or not session.settled:
+    if (
+        n_ok < n_total
+        or not session.settled
+        or "root_outside_bounds" in (_root_search_record(session) or {})
+    ):
         return "partial"
     return "completed"
 
@@ -1510,6 +1625,19 @@ def calibrated_status(status: SessionStatus) -> CalibrationSessionStatus:
     return "aborted" if status in ("aborted", "failed") else status
 
 
+def answered_best(
+    persistence: CalibrationPersistence, report: CalibrationReport, phase: str
+) -> tuple[BestTrial | None, list[ScoredSamples]]:
+    """Return the pointer and the scored samples of the trial the search answered with.
+
+    A tie on the cost can set that trial apart from the lowest cost of the journal.
+    """
+    line = persistence.answered_trial(report.best_trial, phase) or persistence.best_trial(phase)
+    case_id = persistence.case_id
+    components = None if line is None else line.cases[case_id].components
+    return persistence.best_pointer(line), scored_samples(components, case_id=case_id)
+
+
 def promote_and_close(
     *,
     cfg: CalibrationConfig,
@@ -1519,13 +1647,14 @@ def promote_and_close(
     report: CalibrationReport,
     phase: str,
     status: SessionStatus,
-    root_search: Mapping[str, Any] | None = None,
     stop_note: str | None = None,
+    widths: Mapping[str, ParameterWidth] | None = None,
 ) -> CalibrationReport:
     """Promote the trials of ``phase`` and close the session; return the final report.
 
     ``stop_note`` names the phases of a staged session that froze the best of
-    a budget-only search, written in ``session.json``.
+    a budget-only search or closed a root outside its bounds, written in
+    ``session.json``. ``widths`` is the width of each calibrated value.
     """
     stop_state, stopping_rule = search_stop(report, persistence, phase)
     promotion = PromotionOutcome()
@@ -1556,29 +1685,22 @@ def promote_and_close(
             persistence.directory.name,
         )
     elif final_status == "partial":
-        error = _why_partial(persistence, report)
+        error = _why_partial(persistence, report, stop_note)
     elif final_status == "failed":
         failed = _failed_trials(persistence)
         error = f"no trial completed; {failed}" if failed else "no trial completed"
     persistence.refresh_phase_best(phase)
-    # What the search answered with, which a tie on the cost can set apart from
-    # the lowest cost of the journal.
-    best_line = persistence.answered_trial(report.best_trial, phase) or persistence.best_trial(
-        phase
-    )
-    pointer = persistence.best_pointer(best_line)
-    case_id = persistence.case_id
+    pointer, scored = answered_best(persistence, report, phase)
     descriptor = persistence.finalize_session(
         status=final_status,
         best=pointer,
         error=error,
-        root_search=root_search,
-        scored=scored_samples(
-            None if best_line is None else best_line.cases[case_id].components, case_id=case_id
-        ),
+        root_search={key: report.extra[key] for key in ("bracket", "roots") if key in report.extra},
+        scored=scored,
         stop_state=stop_state,
         stopping_rule=stopping_rule,
         stop_note=stop_note,
+        widths=widths,
     )
     write_session_readme(persistence)
     extra = dict(report.extra)
@@ -1615,8 +1737,10 @@ def search_stop(
     return None, None
 
 
-def _why_partial(persistence: CalibrationPersistence, report: CalibrationReport) -> str:
-    """Say why a search closed ``partial``: the trials that failed, the rule not met.
+def _why_partial(
+    persistence: CalibrationPersistence, report: CalibrationReport, note: str | None = None
+) -> str:
+    """Say why a search closed ``partial``: failed trials, rule not met, what ``note`` says.
 
     A search can meet its stopping rule and still close ``partial`` because a
     trial failed; the message then names the trials, not the rule.
@@ -1626,6 +1750,8 @@ def _why_partial(persistence: CalibrationPersistence, report: CalibrationReport)
     search = report.extra.get("search") or {}
     if search and not settled(search["stop_state"], search["stopping_rule"]):
         reasons.append(f"stopping rule ({search.get('stopping_rule')}) not met")
+    if note:
+        reasons.append(note)
     return "; ".join(reasons) or "stopping rule not met"
 
 
@@ -1672,6 +1798,7 @@ def abort_session(persistence: CalibrationPersistence, *, phase: str, error: str
         status="aborted",
         best=persistence.best_pointer(persistence.held_trial(pointed)),
         error=error,
+        widths=persistence.phase_widths(),
     )
     return pointed
 
@@ -1682,6 +1809,7 @@ def fail_session(persistence: CalibrationPersistence, *, phase: str, error: str)
         status="failed",
         best=persistence.best_pointer(persistence.held_trial(pointer_phase(persistence, phase))),
         error=error,
+        widths=persistence.phase_widths(),
     )
 
 
@@ -1713,7 +1841,13 @@ def closing_session(scope: SessionScope) -> Iterator[SessionScope]:
     are released last, after the promotion that reads them.
     """
     try:
-        yield scope
+        # A calibration is hours long, so what ends it is often not a keyboard: a
+        # scheduler time limit, a container stop, a plain kill. All of those are
+        # SIGTERM, which by default ends the process where it stands and would
+        # leave this session running on disk for good. Here, and not in the search,
+        # because restarts side by side run it off the main thread.
+        with terminate_as_interrupt():
+            yield scope
     except KeyboardInterrupt as exc:
         # TerminationRequested is a KeyboardInterrupt: SIGTERM and SIGINT alike.
         if scope.persistence is not None:
@@ -1728,8 +1862,8 @@ def closing_session(scope: SessionScope) -> Iterator[SessionScope]:
     finally:
         if scope.persistence is not None:
             scope.persistence.stop_pulse()
-        _release_trial_solves(scope.trial_ctx)
-        _release_session_scratch(scope.trial_ctx)
+        release_trial_solves(scope.trial_ctx)
+        release_session_scratch(scope.trial_ctx)
 
 
 def abort_and_promote(scope: SessionScope, *, error: str) -> PromotionOutcome:
@@ -1776,17 +1910,29 @@ def run_one_search(
     phase: PhaseContext,
     passed_start: Any | None = None,
     interval_width: IntervalWidth | None = None,
-    core: Callable[..., CalibrationReport] | None = None,
+    balanced: bool = False,
 ) -> tuple[CalibrationReport, tuple[Any, ...]]:
     """Run one phase, restarts included, and return its report and the restart spread.
 
-    ``core`` is the search loop, :func:`run_calibration_core` unless a caller
-    hands another one in.
+    Restarts run side by side, ``parallel`` of them at most, on one pool of
+    ``parallel`` workers: a search that holds a prepared model, which is the only one
+    that has a pool. The restarts share it, so the budget of the search is the width.
     """
-    search = core if core is not None else run_calibration_core
+    pools: list[TrialWorkerPool] = []
+    guard = threading.Lock()
+
+    def shared_pool(evaluator_class, options, *, width):
+        with guard:
+            if not pools:
+                pools.append(TrialWorkerPool(evaluator_class, options, width=width))
+            return pools[0]
+
+    def close_pools() -> None:
+        for pool in pools:
+            pool.close()
 
     def _one_search(restart_seed: int, start_at: Any, restart: int = 0) -> CalibrationReport:
-        return search(
+        return run_calibration_core(
             cfg
             if restart_seed == (cfg.seed or 0)
             else cfg.model_copy(update={"seed": restart_seed}),
@@ -1800,29 +1946,65 @@ def run_one_search(
             phase=replace(phase, restart=phase.restart + restart),
             start_at=passed_start if start_at is None else start_at,
             interval_width=interval_width,
+            balanced=balanced,
+            pool_for=shared_pool,
         )
 
-    uncertainty = getattr(cfg, "uncertainty", None)
-    if getattr(uncertainty, "method", None) == "multistart":
-        logger.info(
-            "Running %d restarts: the answer is the best of them, the spread is reported "
-            "beside it, and each restart is a full search.",
-            int(uncertainty.restarts),
-        )
-        counter = {"restart": -1}
+    try:
+        uncertainty = getattr(cfg, "uncertainty", None)
+        if getattr(uncertainty, "method", None) == "multistart":
+            logger.info(
+                "Running %d restarts: the answer is the best of them, the spread is reported "
+                "beside it, and each restart is a full search.",
+                int(uncertainty.restarts),
+            )
+            best, spread = run_restarts(
+                _one_search,
+                method=cfg.method,
+                space=space,
+                restarts=int(uncertainty.restarts),
+                seed=cfg.seed,
+                width=cfg.parallel if trial_ctx is not None else 1,
+                on_stop=close_pools,
+            )
+            _log_restart_spread(spread)
+            return best, spread
+        return _one_search(cfg.seed or 0, None), ()
+    finally:
+        close_pools()
 
-        def _restart(restart_seed: int, start_at: Any) -> CalibrationReport:
-            counter["restart"] += 1
-            return _one_search(restart_seed, start_at, counter["restart"])
 
-        return run_restarts(
-            _restart,
-            method=cfg.method,
-            space=space,
-            restarts=int(uncertainty.restarts),
-            seed=cfg.seed,
-        )
-    return _one_search(cfg.seed or 0, None), ()
+def parameter_widths(
+    report: CalibrationReport, spread: Sequence[RestartSpread] = ()
+) -> dict[str, ParameterWidth]:
+    """Return what the report and the restarts say of the width of each value.
+
+    A value nothing was read for is left out. ``correlated`` holds the
+    coefficients over the trials under the cost margin, not those of a linearized
+    width, which stay in the report beside its sigma. A value combined from two
+    roots has no interval: its width is the spread in ``root_search``.
+    """
+    intervals = {item["name"]: item for item in report.extra.get("parameter_intervals", ())}
+    sigmas = {item.parameter: item.sigma for item in report.parameter_uncertainty or ()}
+    restarts = {item.parameter: item for item in spread}
+    pairs = report.extra.get("parameter_correlations", ())
+    widths: dict[str, ParameterWidth] = {}
+    for name in report.best_parameters or ():
+        width = ParameterWidth(sigma=sigmas.get(name))
+        if name in intervals:
+            fields = {key: intervals[name][key] for key in CostInterval.model_fields}
+            width.interval = CostInterval(**fields)
+        if name in restarts:
+            item = restarts[name]
+            width.restarts = RestartRange(
+                lowest=item.lowest, highest=item.highest, values=list(item.values)
+            )
+        for first, second, coefficient in pairs:
+            if name in (first, second):
+                width.correlated[second if name == first else first] = coefficient
+        if width != ParameterWidth():
+            widths[name] = width
+    return widths
 
 
 def _with_linearized_width(
@@ -1851,6 +2033,101 @@ def _with_linearized_width(
     )
 
 
+def load_calibration_document(
+    config_path: Path | str, workspace: Path | str | None
+) -> tuple[Path, Path, CalibrationConfig, dict, str]:
+    """Return the file, the project root, the section, the raw TOML and the case of a document."""
+    cfg_path = Path(config_path).expanduser().resolve()
+    project_root = project_root_for(cfg_path, workspace)
+    cfg, raw = load_toml_calibration(cfg_path)
+    return cfg_path, project_root, cfg, raw, calibration_case_name(cfg_path)
+
+
+def run_single_search(
+    cfg: CalibrationConfig,
+    *,
+    space: ParameterSpace,
+    cfg_path: Path,
+    case: str,
+    raw: dict,
+    project_root: Path,
+    project: str | None,
+    metric_fn: TrialMetricFn | None,
+    objective: str | None,
+    resume: bool,
+) -> tuple[CalibrationReport, tuple[RestartSpread, ...]]:
+    """Check the name, prepare, open the session, search, attach the width, promote and close.
+
+    The sequence of a calibration without phases, from a TOML or from Python.
+    """
+    promotion_name_check(case)
+    paths = resolve_override_paths(cfg)
+    # Asked of the class, before anything is built: preparing trials runs the
+    # whole geographic, mesh and data prefix of the pipeline, and an evaluator
+    # that replaces the model has no use for the model's setup.
+    trial_ctx = (
+        prepare_trials(cfg_path, override_paths=paths, parameter_space=space)
+        if evaluation_registry.needs_prepared_model(cfg.evaluator)
+        else None
+    )
+    check_the_prepared_model(cfg, trial_ctx, space)
+    persistence, _reopened = open_calibration_session(
+        project_root,
+        case,
+        resume=resume,
+        raw=raw,
+        cfg=cfg,
+        space=space,
+        trial_ctx=trial_ctx,
+        project=project,
+        objective=objective,
+    )
+    keep_trial_solves(cfg, trial_ctx)
+    scope = SessionScope(
+        cfg=cfg, project_root=project_root, persistence=persistence, trial_ctx=trial_ctx
+    )
+    with closing_session(scope):
+        report, spread = run_one_search(
+            cfg,
+            trial_ctx,
+            persistence=persistence,
+            space=space,
+            project_root=project_root,
+            cfg_path=cfg_path,
+            metric_fn=metric_fn,
+            objective=objective,
+            phase=PhaseContext(DEFAULT_PHASE, 0, 0),
+        )
+        report = _with_linearized_width(report, cfg, trial_ctx, space)
+        report = promote_and_close(
+            cfg=cfg,
+            trial_ctx=trial_ctx,
+            persistence=persistence,
+            project_root=project_root,
+            report=report,
+            phase=DEFAULT_PHASE,
+            status=str(report.extra.get("search_status", "completed")),
+            stop_note=report.extra.get("root_outside_bounds"),
+            widths=parameter_widths(report, spread),
+        )
+    return report, spread
+
+
+def _log_restart_spread(spread: Sequence[RestartSpread]) -> None:
+    for item in spread:
+        logger.info(
+            "%s: best %.4g, restarts spanned %.4g to %.4g over %d searches%s.",
+            item.parameter,
+            item.best,
+            item.lowest,
+            item.highest,
+            len(item.values),
+            " - more than a factor ten, so this calibration did not identify it"
+            if item.spans_a_decade
+            else "",
+        )
+
+
 def describe_dry_run(
     cfg: CalibrationConfig, cfg_path: Path, *, workspace: Path | str | None = None
 ) -> dict[str, Any]:
@@ -1870,7 +2147,7 @@ def describe_dry_run(
             "name": decl.name,
             "parameters": list(decl.parameters),
             "max_trials": cfg.max_trials_for(decl),
-            "scoring_window": declared_window_text(cfg, decl),
+            "window": declared_window_text(cfg, decl),
         }
         for decl in cfg.phases or ()
     ] or [
@@ -1878,7 +2155,7 @@ def describe_dry_run(
             "name": DEFAULT_PHASE,
             "parameters": list(cfg.parameters),
             "max_trials": cfg.max_trials,
-            "scoring_window": declared_window_text(cfg),
+            "window": declared_window_text(cfg),
         }
     ]
     return {
@@ -1888,7 +2165,9 @@ def describe_dry_run(
         "run_dir": run_dir_rel(dirname),
         "version": dirname,
         "phases": phases,
-        "solves_in_parallel": int(cfg.parallel),
+        "solves_in_parallel": max(
+            [cfg.parallel_for(decl) for decl in cfg.phases or ()] or [cfg.parallel]
+        ),
         "save_runs": cfg.save_runs,
     }
 
@@ -1935,78 +2214,20 @@ def run_calibration_cli(
         Reopen the latest session of the case instead of starting a new one;
         the trials already journaled preload the cache.
     """
-    refuse_an_objective_that_is_not_an_entry_point(objective)
-    cfg_path = Path(config_path).expanduser().resolve()
-    project_root = project_root_for(cfg_path, workspace)
-    cfg, raw = load_toml_calibration(cfg_path)
-    cfg = _with_its_method(cfg)
-    space = space_from_config(cfg)
-    paths = resolve_override_paths(cfg)
-    case = calibration_case_name(cfg_path)
-    promotion_name_check(case)
-
-    # Asked of the class, before anything is built: preparing trials runs the
-    # whole geographic, mesh and data prefix of the pipeline, and an evaluator
-    # that replaces the model has no use for the model's setup.
-    trial_ctx = (
-        prepare_trials(cfg_path, override_paths=paths, parameter_space=space)
-        if evaluation_registry.needs_prepared_model(cfg.evaluator)
-        else None
-    )
-    check_the_prepared_model(cfg, trial_ctx, space)
-    persistence, _reopened = open_calibration_session(
-        project_root,
-        case,
-        resume=resume,
+    cfg_path, project_root, cfg, raw, case = load_calibration_document(config_path, workspace)
+    cfg = with_its_method(cfg)
+    report, _spread = run_single_search(
+        cfg,
+        space=space_from_config(cfg),
+        cfg_path=cfg_path,
+        case=case,
         raw=raw,
-        cfg=cfg,
-        space=space,
-        trial_ctx=trial_ctx,
+        project_root=project_root,
         project=project,
+        metric_fn=metric_fn,
         objective=objective,
+        resume=resume,
     )
-    phase = PhaseContext(DEFAULT_PHASE, 0, 0)
-    _keep_trial_solves(cfg, trial_ctx)
-    scope = SessionScope(
-        cfg=cfg, project_root=project_root, persistence=persistence, trial_ctx=trial_ctx
-    )
-    with closing_session(scope):
-        report, spread = run_one_search(
-            cfg,
-            trial_ctx,
-            persistence=persistence,
-            space=space,
-            project_root=project_root,
-            cfg_path=cfg_path,
-            metric_fn=metric_fn,
-            objective=objective,
-            phase=phase,
-        )
-        for item in spread:
-            logger.info(
-                "%s: best %.4g, restarts spanned %.4g to %.4g over %d searches%s.",
-                item.parameter,
-                item.best,
-                item.lowest,
-                item.highest,
-                len(item.values),
-                " - more than a factor ten, so this calibration did not identify it"
-                if item.spans_a_decade
-                else "",
-            )
-        report = _with_linearized_width(report, cfg, trial_ctx, space)
-        report = promote_and_close(
-            cfg=cfg,
-            trial_ctx=trial_ctx,
-            persistence=persistence,
-            project_root=project_root,
-            report=report,
-            phase=DEFAULT_PHASE,
-            status=str(report.extra.get("search_status", "completed")),
-            root_search={
-                key: report.extra[key] for key in ("bracket", "roots") if key in report.extra
-            },
-        )
     return report
 
 
@@ -2188,6 +2409,7 @@ __all__ = [
     "fail_session",
     "load_toml_calibration",
     "open_calibration_session",
+    "parameter_widths",
     "refuse_a_changed_cost",
     "pointer_phase",
     "promote_and_close",

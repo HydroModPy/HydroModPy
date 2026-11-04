@@ -1,17 +1,19 @@
-"""The redraw measures its catchment mismatch against the basin of D the run stores.
+"""The redraw measures its two mismatches on what the trials of the run measured them.
 
-The trials of a run compared the catchment their graph closed with the basin of
-D the build kept on the model. A redraw from the store reads that same basin, so
-the number it prints is the one the trials scored. A run sealed before the basin
-was stored keeps the delineated polygon and says so. The grid is the 5 x 3
-valley of ``tests.unit.display._network_comparison_run``, whose graph catchment
-is the whole grid.
+A trial compares the catchment its graph closed with the outline the geographic
+step delineated (``catchment_mismatch``) and with the basin of D the build kept
+on the model (``basin_mismatch``). A redraw from the store reads the same two, so
+the numbers it prints are the ones the trials scored. A run sealed before the
+basin was stored keeps the delineated polygon for both and says so. The grid is
+the 5 x 3 valley of ``tests.unit.display._network_comparison_run``, whose graph
+catchment is the whole grid.
 """
 
 from __future__ import annotations
 
 import logging
 from dataclasses import replace
+from types import SimpleNamespace
 
 import geopandas as gpd
 import numpy as np
@@ -50,31 +52,47 @@ def _run(*, basin: np.ndarray | None, rule: str = "near_point"):
     return run
 
 
+def _geometry(run):
+    return network_comparison_from_run(run, observed_rasterization="crossing").geometry
+
+
 def _mismatch(run) -> float:
-    return network_comparison_from_run(
-        run, observed_rasterization="crossing"
-    ).geometry.catchment_mismatch
+    return _geometry(run).catchment_mismatch
 
 
-def test_a_stored_basin_is_the_reference_of_the_mismatch(caplog) -> None:
+def test_the_outline_and_the_stored_basin_each_have_their_mismatch(caplog) -> None:
     whole_grid = np.ones(NX * NY, dtype=bool)
 
     with caplog.at_level(logging.WARNING):
-        mismatch = _mismatch(_run(basin=whole_grid))
+        geometry = _geometry(_run(basin=whole_grid))
 
-    assert mismatch == pytest.approx(0.0)
+    # The polygon spans 9 of the 15 cells the graph closes, and the basin all of them.
+    assert geometry.catchment_mismatch == pytest.approx(6 / 9)
+    assert geometry.basin_mismatch == pytest.approx(0.0)
     assert NO_BASIN_WARNING not in caplog.text
 
 
-def test_a_stored_basin_replaces_the_polygon_without_reading_it() -> None:
+def test_a_stored_basin_without_a_watershed_measures_against_the_basin(caplog) -> None:
     run = _run(basin=np.ones(NX * NY, dtype=bool))
 
-    def refuse(feature):
-        raise AssertionError("the polygon is not read when the run stores a basin")
+    def missing(feature):
+        raise FileNotFoundError(feature)
 
-    run.geographic = refuse
+    run.geographic = missing
 
-    assert _mismatch(run) == pytest.approx(0.0)
+    with caplog.at_level(logging.WARNING):
+        assert _mismatch(run) == pytest.approx(0.0)
+    assert "carries no delineated watershed (FileNotFoundError)" in caplog.text
+
+
+def test_a_synthetic_domain_has_no_outline_as_in_a_trial() -> None:
+    run = _run(basin=np.ones(NX * NY, dtype=bool), rule="largest_basin")
+    run._catalog = SimpleNamespace(read_geographic_metadata=lambda _sim: {"catch_def": "synthetic"})
+
+    geometry = _geometry(run)
+
+    assert np.isnan(geometry.catchment_mismatch)
+    assert np.isnan(geometry.basin_mismatch)
 
 
 def test_a_run_without_a_stored_basin_keeps_the_polygon_and_says_so(caplog) -> None:

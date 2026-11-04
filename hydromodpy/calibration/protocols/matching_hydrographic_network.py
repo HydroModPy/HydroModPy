@@ -37,7 +37,7 @@ from pydantic import ValidationError
 from hydromodpy.calibration.config import (
     MatchingHydrographicNetworkOptions,
     outputs_agree,
-    scoring_window_of_the_run,
+    window_of_the_run,
 )
 from hydromodpy.calibration.protocols.base import Deviation, Reference
 from hydromodpy.core.logging import get_logger
@@ -50,28 +50,22 @@ NETWORK_BLOCK = "network_extension"
 HYDROGRAPH_OUTPUT = "hydrograph"
 HYDROGRAPH_BLOCK = "hydrograph"
 
-_VERDICT = "verdict"
-_HEADS_ONLY = ("heads_snap_radius", "heads_min_drained_area_km2")
-
 _DEFAULTS_1_2: Mapping[str, Any] = {
-    "tau_specific_ratio": 1.0e-4,
-    "weighting": "cell",
-    "diagonal_neighbors": True,
-    "observed_rasterization": "crossing",
-    "clip_map_to_catchment": False,
-    "heads_snap_radius": 100.0,
-    "heads_min_drained_area_km2": 0.02,
-    "validity_length": "auto",
-    _VERDICT: {"max_catchment_mismatch": False},
+    "model": {"seepage_threshold": 1.0e-4, "weighting": "cell", "neighbours": "D8"},
+    "map": {
+        "drawn_by": "crossing",
+        "clip_to_catchment": False,
+        "heads": {"radius": 100.0, "min_drained_area": 0.02},
+    },
+    "verdict": {"validity_length": "auto", "max_catchment_mismatch": False},
 }
 
 DEFAULTS_BY_VERSION: Mapping[str, Mapping[str, Any]] = {
     "1.2": _DEFAULTS_1_2,
     "1.3": {
-        **_DEFAULTS_1_2,
-        "observed_rasterization": "heads",
-        "clip_map_to_catchment": True,
-        _VERDICT: {"max_catchment_mismatch": 0.05},
+        "model": _DEFAULTS_1_2["model"],
+        "map": {**_DEFAULTS_1_2["map"], "drawn_by": "heads", "clip_to_catchment": True},
+        "verdict": {**_DEFAULTS_1_2["verdict"], "max_catchment_mismatch": 0.05},
     },
 }
 """What each version of the protocol writes in the network output, one line per version.
@@ -105,7 +99,7 @@ class MatchingHydrographicNetwork:
     Bumped from 1.1 to 1.2, 1.1 being what v2.0.0a1 released: the DEM is filled
     rather than breached before the catchment is cut ([geographic].dem_correc_type),
     the transient stage leaves the first year of the run out as spin-up, and the
-    bound of Eq. 4 is a length in meters (validity_length = 'auto') where it was
+    bound of Eq. 4 is a length in meters (verdict.validity_length = 'auto') where it was
     roptim_max = 2 on a ratio to the cell size.
 
     Bumped from 1.0 to 1.1: the descent used to build the criterion defaulted
@@ -179,9 +173,9 @@ class MatchingHydrographicNetwork:
 
     deviations = (
         Deviation(
-            key="tau_specific_ratio",
+            key="model.seepage_threshold",
             paper="zero: a cell is a seepage face on the purely geometric test",
-            here="1e-4 of the cell's own recharge by default; 0 reproduces the paper",
+            here="1e-4 of the mean basin recharge by default; 0 reproduces the paper",
             why=(
                 "a strictly geometric test counts a cell releasing a negligible "
                 "trickle, which on a fine mesh inflates the simulated network; the "
@@ -190,7 +184,7 @@ class MatchingHydrographicNetwork:
             paper_value=0.0,
         ),
         Deviation(
-            key="observed_position_accuracy",
+            key="map.position_accuracy",
             paper="the validity length is the DEM resolution and nothing else",
             here="unset, so the paper's reading holds unless a file states it; declared, "
             "it raises the cell size h of the automatic validity length to "
@@ -203,12 +197,12 @@ class MatchingHydrographicNetwork:
             paper_value=None,
         ),
         Deviation(
-            key="validity_length",
+            key="verdict.validity_length",
             paper="Eq. 4, r_optim = D_optim / DEMres <= 2: two pixels of the DEM, one of "
             "them budgeted for the error of the mapped network (HESS p. 3224)",
             here="'auto', a length in metres: 2 h, h being h_obs, the cell size on the "
             "mapped network (the DEM pixel on a regular grid, so the paper's bound "
-            "there), raised to observed_position_accuracy when declared. A declared "
+            "there), raised to map.position_accuracy when declared. A declared "
             "length replaces it. r_optim is still published as D_optim / h_obs, the "
             "paper's Eq. 3",
             why=(
@@ -220,10 +214,10 @@ class MatchingHydrographicNetwork:
             paper_value="auto",
         ),
         Deviation(
-            key="diagonal_neighbors",
+            key="model.neighbours",
             paper="the descent follows a D8 flowpath, which is what "
             "wbt.downslope_distance_to_stream traces",
-            here="true by default, matching the paper; false departs to a D4 descent "
+            here="'D8' by default, matching the paper; 'D4' departs to a descent "
             "over shared edges only",
             why=(
                 "a D4 descent cannot follow a talweg that runs diagonally across a "
@@ -233,13 +227,13 @@ class MatchingHydrographicNetwork:
                 "most accumulated cell collects 6.6 per cent of the domain under shared "
                 "edges and 100 per cent under shared nodes; measured on Nancon, the cell "
                 "at the basin outlet drains 0.107 of 64.631 km2 under shared edges. "
-                "Setting it false returns to that D4 approximation and every result "
+                "Setting it to 'D4' returns to that approximation and every result "
                 "obtained under the old default."
             ),
-            paper_value=True,
+            paper_value="D8",
         ),
         Deviation(
-            key="weighting",
+            key="model.weighting",
             paper="one cell one vote",
             here="'cell' by default, the paper's value; 'area' is offered and departs",
             why=(
@@ -279,7 +273,7 @@ class MatchingHydrographicNetwork:
             always=True,
         ),
         Deviation(
-            key="max_catchment_mismatch",
+            key="verdict.max_catchment_mismatch",
             paper="no bound: the paper scores the pixels of the delineated catchment, so "
             "the question does not arise on its raster",
             here="the search is refused before its first solve when the catchment read on "
@@ -380,7 +374,7 @@ class MatchingHydrographicNetwork:
             paper_value="fill",
         ),
         Deviation(
-            key="observed_rasterization",
+            key="map.drawn_by",
             paper="the mapped network is rasterised onto the model grid by "
             "WhiteboxTools' VectorLinesToRaster, whose own assignment rule is not "
             "restated in the text",
@@ -413,7 +407,7 @@ class MatchingHydrographicNetwork:
             paper_value="crossing",
         ),
         Deviation(
-            key="heads_snap_radius",
+            key="map.heads.radius",
             paper="not addressed: the paper has no heads rule",
             here="under the heads rule, a mapped stream head lands on a cell within this "
             "distance of it, and a head with no such cell is lost; the value in force is "
@@ -424,10 +418,9 @@ class MatchingHydrographicNetwork:
                 "declared with its value."
             ),
             paper_value=None,
-            only_when=("observed_rasterization", "heads"),
         ),
         Deviation(
-            key="heads_min_drained_area_km2",
+            key="map.heads.min_drained_area",
             paper="not addressed: the paper has no heads rule",
             here="under the heads rule, a head lands only on a cell that drains at least this "
             "area in km2; the value in force is printed",
@@ -437,10 +430,9 @@ class MatchingHydrographicNetwork:
                 "it is declared with its value."
             ),
             paper_value=None,
-            only_when=("observed_rasterization", "heads"),
         ),
         Deviation(
-            key="clip_map_to_catchment",
+            key="map.clip_to_catchment",
             paper="the text scores the mapped pixels of the catchment and says nothing of a "
             "line that leaves it",
             here="the map is cut to the delineated catchment before it is drawn, with the "
@@ -458,8 +450,8 @@ class MatchingHydrographicNetwork:
             paper="stage two simulates 2020 to 2023 and scores June to October of the "
             "drought year 2022 alone (WRR 2025, Fig. 5): the years before are simulated "
             "and not scored",
-            here="with no scoring_window on the protocol or on [calibration], no "
-            "warmup_periods and no [metrics] window, stage two leaves the first year of "
+            here="with no window on the protocol or on [calibration], no "
+            "[metrics] window, stage two leaves the first year of "
             "[simulation.time] out: "
             "it scores from one year after start_datetime to the end of the run, every "
             "block it scores alike. A declared window replaces it. A run of one year "
@@ -495,8 +487,7 @@ class MatchingHydrographicNetwork:
             "transient_precision",
             "transient_method_options",
             "discharge_variable",
-            "observed_station_id",
-            "scoring_window",
+            "window",
         }
     )
     """Everything the options model exposes. Changing one keeps the method; the
@@ -548,7 +539,7 @@ class MatchingHydrographicNetwork:
                 "uses_outputs": [network_output],
             }
         ]
-        station = _resolve_observed_station(document, opts) if opts.storage else None
+        station = _resolve_observed_station(document) if opts.storage else None
         if station is not None:
             _write_hydrograph_output(outputs, opts, station)
             objective_blocks.append(
@@ -580,9 +571,9 @@ def _tell_what_a_pin_on_1_2_runs() -> None:
     """
     text = (
         "[calibration.protocol] pins version 1.2, which this release runs with "
-        "observed_rasterization = 'crossing', whole map and no veto. v2.0.0a5 ran its "
+        "map.drawn_by = 'crossing', whole map and no veto. v2.0.0a5 ran its "
         "version 1.2 under 'heads', and K differs between the two: write "
-        "observed_rasterization = 'heads' in the network output to bring that back."
+        "map.drawn_by = 'heads' in the network output to bring that back."
     )
     if text not in _TOLD:
         _TOLD.add(text)
@@ -593,37 +584,42 @@ def _scores_the_spin_up_year(calibration: Any, metrics_window: Any) -> bool:
     """Say whether stage two runs on the spin-up default, the first year left out.
 
     That default is what a file leaves when it writes no scoring window on the
-    protocol or on [calibration], no warm-up and no [metrics] window.
+    protocol or on [calibration] and no [metrics] window.
     """
-    if getattr(getattr(calibration, "protocol", None), "scoring_window", None) is not None:
+    if getattr(getattr(calibration, "protocol", None), "window", None) is not None:
         return False
-    if getattr(calibration, "scoring_window", None) is not None:
+    if getattr(calibration, "window", None) is not None:
         return False
-    if getattr(calibration, "warmup_periods", None):
-        return False
-    return scoring_window_of_the_run(_raw_window(metrics_window)) is None
+    return window_of_the_run(_raw_window(metrics_window)) is None
 
 
 def _with_the_defaults_of(version: str, output: Any) -> Any:
     """Return a network output with the values of ``version`` for each key it leaves empty.
 
-    A key the file writes wins, table by table. The ``heads_`` keys are written only
-    under the heads rule, the only one that reads them. An output that is not a table
+    A key the file writes wins, table by table at every depth. ``map.heads`` is written
+    only under the heads rule, the only one that reads it. An output that is not a table
     is left to the validation of the section, which names what is wrong with it.
     """
     if not isinstance(output, Mapping):
         return output
-    written = dict(output)
-    defaults = DEFAULTS_BY_VERSION[version]
-    rule = written.get("observed_rasterization", defaults["observed_rasterization"])
-    for key, value in defaults.items():
-        if key in _HEADS_ONLY and rule != "heads":
-            continue
-        if isinstance(value, Mapping) and isinstance(written.get(key, {}), Mapping):
-            written[key] = {**value, **written.get(key, {})}
-        else:
-            written.setdefault(key, value)
-    return written
+    row = DEFAULTS_BY_VERSION[version]
+    drawn = output.get("map")
+    rule = row["map"]["drawn_by"]
+    if isinstance(drawn, Mapping):
+        rule = drawn.get("drawn_by", rule)
+    if rule != "heads":
+        row = {**row, "map": {key: value for key, value in row["map"].items() if key != "heads"}}
+    return _under(row, output)
+
+
+def _under(defaults: Mapping[str, Any], written: Mapping[str, Any]) -> dict[str, Any]:
+    """Return ``written`` over ``defaults``, a table that both hold merged key by key."""
+    merged = dict(defaults)
+    for key, value in written.items():
+        held = merged.get(key)
+        both = isinstance(held, Mapping) and isinstance(value, Mapping)
+        merged[key] = _under(held, value) if both else value
+    return merged
 
 
 def _require_parameter(parameters: Mapping[str, Any], name: str, role: str) -> None:
@@ -670,14 +666,11 @@ def _resolve_network_output(
     return candidates[0]
 
 
-def _resolve_observed_station(
-    document: Mapping[str, Any], opts: MatchingHydrographicNetworkOptions
-) -> str | None:
+def _resolve_observed_station(document: Mapping[str, Any]) -> str | None:
     """Return the one gauging station to observe, or ``None`` when it is not known here.
 
-    Named explicitly, ``observed_station_id`` always answers, then ``[site]
-    gauge``: the gauge is the station of the catchment. Otherwise the
-    station is read statically, from the file's own
+    ``[site] gauge`` answers: the gauge is the station of the catchment.
+    Otherwise the station is read statically, from the file's own
     ``[[data.hydrometry.sources]]``: the protocol writes the output before any
     data is loaded, unlike ``discharge_target``, which resolves the same
     question at run time from what actually got loaded.
@@ -689,8 +682,6 @@ def _resolve_observed_station(
     fitted to the wrong gauge and never say so; the caller falls back to the
     single-metric route instead, which keeps resolving it as it always has.
     """
-    if opts.observed_station_id is not None:
-        return opts.observed_station_id
     site = document.get("site")
     gauge = site.get("gauge") if isinstance(site, Mapping) else None
     if gauge:
@@ -764,15 +755,14 @@ def _transient_window_by_default(
 ) -> dict[str, str] | None:
     """Return the window the transient stage scores by default, or ``None``.
 
-    ``[metrics] window``, the window the run is scored on (H45), when it
-    writes both bounds. Otherwise the stage runs the project's own time grid,
+    ``[metrics] window``, the window the run is scored on (H45), less
+    ``validation_window``, when it writes both bounds. Otherwise the stage runs the project's own time grid,
     whose first year starts from an initial condition the run did not
     produce. Left unwindowed, the hydrograph would read it. So the window then
     opens one year after ``[simulation.time].start_datetime``, with no end.
 
     ``None`` when a declaration already says what the phase scores, and wins:
-    ``scoring_window`` on the protocol, ``scoring_window`` or
-    ``warmup_periods`` on ``[calibration]``. ``None`` too for a document
+    ``window`` on the protocol or on ``[calibration]``. ``None`` too for a document
     already carrying a transient stage without a window: a run sealed before
     the spin-up default replays the window it ran with. A stage carrying the
     spin-up window keeps it, for a run sealed before ``[metrics] window``
@@ -784,11 +774,11 @@ def _transient_window_by_default(
     refusing the file here would also refuse the steady stage, which reads the
     same record and needs no spin-up.
     """
-    if opts.scoring_window is not None:
+    if opts.window is not None:
         return None
     calibration = document.get("calibration")
     calibration = calibration if isinstance(calibration, Mapping) else {}
-    if calibration.get("scoring_window") is not None or calibration.get("warmup_periods"):
+    if calibration.get("window") is not None:
         return None
     simulation = document.get("simulation")
     time = simulation.get("time") if isinstance(simulation, Mapping) else None
@@ -797,26 +787,27 @@ def _transient_window_by_default(
     spin_up = {"start": scored_from} if scored_from is not None else None
     for phase in calibration.get("phases") or ():
         if isinstance(phase, Mapping) and phase.get("name") == TRANSIENT_STAGE:
-            written = phase.get("scoring_window")
+            written = phase.get("window")
             if written is None:
                 return None
             if spin_up is not None and _is_window(written, spin_up):
                 return spin_up
             break
     metrics = document.get("metrics")
-    window = scoring_window_of_the_run(
-        metrics.get("window") if isinstance(metrics, Mapping) else None
+    window = window_of_the_run(
+        metrics.get("window") if isinstance(metrics, Mapping) else None,
+        calibration.get("validation_window"),
     )
     return window if window is not None else spin_up
 
 
 def _is_window(written: Any, window: Mapping[str, str]) -> bool:
-    """Say whether a raw ``scoring_window`` bounds the same instants as *window*."""
+    """Say whether a raw ``window`` bounds the same instants as *window*."""
     if not isinstance(written, Mapping):
         return False
     for bound in ("start", "end"):
-        here = _instant(written.get(bound), f"scoring_window.{bound}")
-        there = _instant(window.get(bound), f"scoring_window.{bound}")
+        here = _instant(written.get(bound), f"window.{bound}")
+        there = _instant(window.get(bound), f"window.{bound}")
         if here != there:
             return False
     return True
@@ -852,18 +843,18 @@ def why_the_spin_up_year_is_scored(calibration: Any, time: Any) -> str | None:
     ``time`` is ``[simulation.time]``. ``None`` when the window reached the
     stage, when a window or a warm-up the file declares replaces it, when the
     protocol writes no transient stage, or when no start date is written.
-    The expansion drops the window without a word, so ``hmp calibrate
-    --check`` prints what this returns.
+    The expansion drops the window without a word, so ``hmp config
+    check`` prints what this returns.
     """
     declared = getattr(calibration, "protocol", None)
     if getattr(declared, "name", None) != MatchingHydrographicNetwork.name:
         return None
-    if not declared.storage or declared.scoring_window is not None:
+    if not declared.storage or declared.window is not None:
         return None
-    if calibration.scoring_window is not None or calibration.warmup_periods:
+    if calibration.window is not None:
         return None
     phase = next((p for p in calibration.phases or () if p.name == TRANSIENT_STAGE), None)
-    if phase is None or phase.scoring_window is not None:
+    if phase is None or phase.window is not None:
         return None
     start = getattr(time, "start_datetime", None)
     if start is None:
@@ -873,11 +864,11 @@ def why_the_spin_up_year_is_scored(calibration: Any, time: Any) -> str | None:
         return (
             f"[simulation.time] ends on {pd.Timestamp(end):%Y-%m-%d}, within one year of "
             f"its start {pd.Timestamp(start):%Y-%m-%d}, so nothing lies past the spin-up "
-            "to score. Lengthen the run, or write [calibration.protocol].scoring_window "
+            "to score. Lengthen the run, or write [calibration.protocol].window "
             "to say what it scores."
         )
     return (
-        f"the {TRANSIENT_STAGE} phase this file writes has no scoring_window, so the "
+        f"the {TRANSIENT_STAGE} phase this file writes has no window, so the "
         "default window, one year after start_datetime, does not apply."
     )
 
@@ -944,7 +935,7 @@ def _phases(
     # only block it leaves the spin-up year out of: stage one is steady, which an
     # extent table is refused on (the two-bound mode is outside the protocol).
     scored = ""
-    if opts.scoring_window is None and default_window is not None:
+    if opts.window is None and default_window is not None:
         if default_window.get("end") is None:
             scored = (
                 f", scored from {default_window['start']} on, the first year of the run "
@@ -970,20 +961,20 @@ def _phases(
     if scores_a_known_station:
         transient["objective_blocks"] = [HYDROGRAPH_BLOCK]
     else:
-        # observed_station_id is unset here: a set one always resolves a
-        # station (see _resolve_observed_station), so this route is only
-        # reached with several stations loaded, or a source that discovers
-        # its own at load time; discharge_target refuses the former by name.
+        # No station resolves here (see _resolve_observed_station), so this route
+        # is only reached with several stations loaded, or a source that
+        # discovers its own at load time; discharge_target refuses the former
+        # by name.
         transient["variable"] = opts.discharge_variable
         transient["objective"] = opts.transient_metric
     if opts.transient_precision is not None:
         transient["precision"] = float(opts.transient_precision)
     if opts.transient_method_options:
         transient["method_options"] = dict(opts.transient_method_options)
-    if opts.scoring_window is not None:
-        transient["scoring_window"] = dict(opts.scoring_window)
+    if opts.window is not None:
+        transient["window"] = opts.window.model_dump(exclude_none=True)
     elif default_window is not None:
-        transient["scoring_window"] = dict(default_window)
+        transient["window"] = dict(default_window)
     return [steady, transient]
 
 
@@ -1000,15 +991,15 @@ def options_the_recipe_already_runs(
     and its scoring window to ``[metrics] window``, or to the run's first year
     without one. A file that writes the same thing out, ``sweep_points = 7``
     beside a bisection whose default is seven, has not moved off the recipe, and
-    ``hmp calibrate --check`` must not say it has. ``calibration`` is the
+    ``hmp config check`` must not say it has. ``calibration`` is the
     validated ``[calibration]`` section, ``time`` ``[simulation.time]`` and
     ``metrics_window`` ``[metrics] window``, a mapping or the validated model.
     """
     same = set(opts.stage_options_run_as_their_method_does())
-    if opts.scoring_window is not None and _is_the_default_window(
-        opts.scoring_window, calibration, time, metrics_window
+    if opts.window is not None and _is_the_default_window(
+        opts.window.model_dump(exclude_none=True), calibration, time, metrics_window
     ):
-        same.add("scoring_window")
+        same.add("window")
     return frozenset(same)
 
 
@@ -1017,16 +1008,16 @@ def _is_the_default_window(
 ) -> bool:
     """Say whether a declared window scores what the recipe's own window scores.
 
-    The recipe's window is ``[metrics] window`` when it writes both bounds
-    (:func:`_transient_window_by_default`), else one year after the run starts
+    The recipe's window is ``[metrics] window``, less ``validation_window``, when it
+    writes both bounds (:func:`_transient_window_by_default`), else one year after the run starts
     to its end. It is only the recipe's when nothing on ``[calibration]``
     bounds the scoring.
     """
-    if getattr(calibration, "scoring_window", None) is not None:
+    if getattr(calibration, "window", None) is not None:
         return False
-    if getattr(calibration, "warmup_periods", None):
-        return False
-    run_window = scoring_window_of_the_run(_raw_window(metrics_window))
+    run_window = window_of_the_run(
+        _raw_window(metrics_window), getattr(calibration, "validation_window", None)
+    )
     if run_window is not None:
         return _is_window(window, run_window)
     start = getattr(time, "start_datetime", None)

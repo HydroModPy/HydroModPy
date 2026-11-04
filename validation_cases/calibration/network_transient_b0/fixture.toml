@@ -1,11 +1,11 @@
 # Validation fixture: B0 transient network calibration paths.
 #
 # Promoted from the hardcoded constants in
-# hydromodpy/calibration/reporting/network_transient_html.py. This versioned
-# fixture is the source of truth for the default paths used by
+# validation_cases/calibration/network_transient_b0/network_transient_html.py.
+# This versioned fixture is the source of truth for the default paths used by
 # build_network_transient_html when run without --root override. The HTML
 # builder consumes this file via
-# hydromodpy.calibration.reporting.network_transient.fixtures.load_b0_fixture
+# validation_cases/calibration/network_transient_b0/reporting/state.py
 # at module import time.
 
 schema = "hydromodpy.validation.calibration.network_transient_b0.v1"

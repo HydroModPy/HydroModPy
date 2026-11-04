@@ -14,7 +14,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.core.metrics import SPREAD_FLOOR, log_nse, nse, nse_delta, nse_seasonal
+from hydromodpy.core.metrics import SPREAD_FLOOR, kge, log_nse, nse, nse_delta, nse_seasonal
 
 pytestmark = pytest.mark.unit
 
@@ -54,3 +54,23 @@ def test_a_small_real_spread_is_still_scored() -> None:
     assert np.isfinite(nse(sim, obs))
     assert np.isfinite(nse_delta(sim, obs))
     assert np.isfinite(nse_seasonal(sim, obs))
+
+
+@pytest.mark.parametrize(
+    ("sim", "obs", "reason"),
+    [
+        ([1.0], [1.0], "fewer than 2"),
+        ([1.0, 2.0, 3.0], [2.0, 2.0, 2.0], "constant"),
+        ([1.0, 2.0, 3.0], [-1.0, 0.0, 1.0], "sum to zero"),
+        ([1.0, 1.0, 1.0], [1.0, 2.0, 3.0], "simulation is constant"),
+    ],
+)
+def test_kge_says_why_it_is_nan(sim: list[float], obs: list[float], reason: str) -> None:
+    with pytest.warns(UserWarning, match=reason):
+        assert np.isnan(kge(np.array(sim), np.array(obs))["kge"])
+
+
+def test_nse_seasonal_says_how_many_samples_it_needs() -> None:
+    obs = np.arange(100.0)
+    with pytest.warns(UserWarning, match="730 samples, and the series holds 100"):
+        assert np.isnan(nse_seasonal(obs, obs))

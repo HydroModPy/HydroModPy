@@ -344,7 +344,11 @@ for two minor versions. In one change:
    the directives ``<old>__append``, ``<old>__merge`` and ``<old>__delete``. A figure
    option is a row with the scope ``display.overrides.{*}``.
 2. List the old key in the ``model_refused_keys`` of the model, with ``renamed_to``, so
-   a config built in Python is told what to write.
+   a config built in Python is told what to write. A plain rename of ``[calibration]`` is
+   one row of ``CALIBRATION_RENAMES`` in ``hydromodpy/calibration/config.py`` instead, which
+   fills both tables. Any row under ``[calibration]`` has no delay, because the section is
+   experimental: a load refuses the file with the new name, the doctor rewrites it, and a
+   sealed run still reads it.
 3. Name the old path in ``renamed_from`` on the new field, so the changes page lists
    the rename.
 4. Run ``python -m tools.surface_snapshot``. It refuses a stable key that has no row in

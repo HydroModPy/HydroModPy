@@ -177,26 +177,24 @@ def _as_the_load_reads_it(
 ) -> Any:
     """Return one section of *calibration* with the project defaults the load writes.
 
-    The load expands the protocol first, then writes ``[site] gauge`` into
-    each stage's ``observed_station_id`` and ``[metrics] window`` into a
+    The load expands the protocol first, then writes ``[metrics] window`` into a
     transient stage that writes no window
     (:func:`~hydromodpy.calibration.config.apply_project_defaults`). A
     dumped stage carries what that step wrote and the fresh expansion does
-    not, so both sides take it here. A station other than the gauge is
-    refused by it, and a value the step would not write still differs.
+    not, so both sides take it here.
     """
     value = calibration.get(section)
     if section != "phases":
         return value
-    site, metrics = document.get("site"), document.get("metrics")
+    metrics = document.get("metrics")
     stages = {
         "phases": value,
-        "scoring_window": calibration.get("scoring_window"),
-        "warmup_periods": calibration.get("warmup_periods"),
+        "window": calibration.get("window"),
+        "validation_window": calibration.get("validation_window"),
     }
     return apply_project_defaults(
         stages,
-        site_gauge=site.get("gauge") if isinstance(site, Mapping) else None,
+        site_gauge=None,
         metrics_window=metrics.get("window") if isinstance(metrics, Mapping) else None,
     )["phases"]
 
@@ -300,7 +298,6 @@ def _fold_a_legacy_single_metric_stage(
     folded["objective_blocks"] = [name]
     folded["variable"] = None
     folded["objective"] = None
-    folded["observed_station_id"] = None
     return folded, name
 
 
@@ -316,12 +313,15 @@ def protocol_options_away_from_the_recipe(
     """
     protocol = get_protocol(name)
     recipe = type(declared).model_validate({"name": protocol.name})
+    # Plain values, since the session stores this record as JSON.
+    written = declared.model_dump(exclude_none=True)
+    default = recipe.model_dump(exclude_none=True)
     changed: list[dict[str, Any]] = []
     for key in sorted(protocol.adjustable):
         if not hasattr(recipe, key):
             continue
-        here = getattr(declared, key)
-        published = getattr(recipe, key)
+        here = written.get(key)
+        published = default.get(key)
         if here == published:
             continue
         changed.append({"key": key, "here": here, "recipe": published})
@@ -403,24 +403,34 @@ def _network_outputs_read(calibration: Any) -> list[Any]:
 def _places_deviations_are_set(calibration: Any, geographic: Any) -> list[Any]:
     """Return the models that hold the keys a protocol departs on.
 
-    The network outputs with their verdict tables, then ``[geographic]`` for
-    ``dem_correc_type``. A gauge is not the criterion the deviations describe.
+    The network outputs, then ``[geographic]`` for ``dem_correc_type``. A gauge is
+    not the criterion the deviations describe.
     """
-    places: list[Any] = []
-    for output in _network_outputs_read(calibration):
-        places.append(output)
-        if getattr(output, "verdict", None) is not None:
-            places.append(output.verdict)
+    places = _network_outputs_read(calibration)
     if geographic is not None:
         places.append(geographic)
     return places
 
 
+def _holder_of(place: Any, key: str) -> Any:
+    """Return the model that holds the last name of the dotted ``key`` under ``place``, or None.
+
+    None when a table on the way is left out (``map.heads`` under another rule)
+    or when no model on the way holds the name.
+    """
+    *tables, name = key.split(".")
+    for table in tables:
+        place = getattr(place, table, None)
+    return place if name in getattr(type(place), "model_fields", ()) else None
+
+
 def _version_writes(row: Mapping[str, Any], key: str, value: object) -> bool:
-    """Say whether the version's line writes ``value`` for ``key``, in a table of it or not."""
-    held = [row[key]] if key in row else []
-    held.extend(table[key] for table in row.values() if isinstance(table, Mapping) and key in table)
-    return any(item == value for item in held)
+    """Say whether the version's line writes ``value`` at the dotted ``key``."""
+    for step in key.split("."):
+        if not isinstance(row, Mapping) or step not in row:
+            return False
+        row = row[step]
+    return row == value
 
 
 def _departs(deviation: Any, value: object) -> bool:
@@ -460,17 +470,12 @@ def deviations_in_force(
     places = _places_deviations_are_set(calibration, geographic)
     found: list[DeviationInForce] = []
     for deviation in protocol.deviations:
-        holder = next(
-            (place for place in places if deviation.key in type(place).model_fields), None
-        )
-        value = None if holder is None else getattr(holder, deviation.key)
-        if holder is not None and deviation.only_when is not None:
-            gate, wanted = deviation.only_when
-            if getattr(holder, gate, wanted) != wanted:
-                value = None
+        name = deviation.key.rsplit(".", 1)[-1]
+        holder = next(filter(None, (_holder_of(place, deviation.key) for place in places)), None)
+        value = None if holder is None else getattr(holder, name)
         written = (
             holder is not None
-            and deviation.key in holder.model_fields_set
+            and name in holder.model_fields_set
             and not _version_writes(row, deviation.key, value)
         )
         if deviation.always:

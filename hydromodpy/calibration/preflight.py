@@ -84,9 +84,12 @@ def preflight_calibration(config: Any, *, source: str | Path) -> list[PreflightF
     findings.extend(_check_the_budgets(calibration))
     findings.extend(_check_the_interval_widths(calibration))
     findings.extend(_check_the_backend_can_serve_the_outputs(calibration, searched))
-    findings.extend(_check_the_network_criterion_is_not_asked_to_pick_a_ridge(calibration))
+    findings.extend(
+        _check_the_network_criterion_is_not_asked_to_pick_a_ridge(calibration, searched)
+    )
+    findings.extend(_check_a_minimiser_on_two_bounds(calibration))
+    findings.extend(_check_the_balanced_phases(calibration))
     findings.extend(_check_the_network_search_can_trust_its_release_packages(calibration, searched))
-    findings.extend(_check_the_minimal_maps_are_there(calibration, where_from))
     findings.extend(_check_an_extent_is_scored_on_a_transient_run(calibration, searched))
     findings.extend(_check_the_extent_durations_fit_the_timestep(calibration, searched))
     findings.extend(_check_a_network_estimator_names_its_network_output(calibration))
@@ -185,6 +188,7 @@ def _search_configs(
         return {None: config}, []
     from hydromodpy.calibration.optim.parameters import set_by_path
     from hydromodpy.calibration.runners.phase_regime import phase_overrides
+    from hydromodpy.core.config_kit.base import thawed_copy
 
     document: Mapping[str, Any] = {}
     if any(getattr(phase, "regime", None) is not None for phase in phases):
@@ -204,7 +208,8 @@ def _search_configs(
         if not overrides:
             configs[phase.name] = config
             continue
-        written = copy.deepcopy(config)
+        # The configuration of a project is a frozen copy, and the override must land.
+        written = thawed_copy(copy.deepcopy(config))
         try:
             for dotted, value in overrides.items():
                 set_by_path(written, str(dotted), value)
@@ -238,95 +243,6 @@ def _raw_document(config: Any, source: Path) -> Mapping[str, Any]:
     if source.is_file() or not hasattr(config, "model_dump"):
         return load_toml_with_base_config(source)
     return config.model_dump(mode="json", exclude_none=True)
-
-
-@dataclass(frozen=True)
-class CalibrationCheck:
-    """What ``hmp config check`` says of a calibration file.
-
-    ``findings`` is what has to change; ``lines`` is what the reader is told
-    beside them: the published method the file runs and where it departs from
-    it, and what each phase compares with what. ``verbose_lines`` adds the
-    stages, the references and every reading of the paper.
-    """
-
-    findings: list[PreflightFinding]
-    lines: list[str]
-    verbose_lines: list[str]
-
-    @property
-    def errors(self) -> int:
-        """Number of findings that stop the run."""
-        return sum(1 for finding in self.findings if finding.severity == "error")
-
-
-def check_calibration_file(target: Path) -> CalibrationCheck:
-    """Report everything wrong with the calibration in ``target``, solving nothing.
-
-    Every check runs, so a file with three mistakes takes one pass to fix
-    rather than three overnight runs. A warning raised while the file loads, a
-    renamed key for instance, is one more finding: it is what the file has to
-    change. A file that will not load has nothing else to check.
-    """
-    import warnings
-
-    from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning, forget_old_forms_told
-    from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
-
-    target = Path(target).expanduser().resolve()
-    forget_old_forms_told()
-    with warnings.catch_warnings(record=True) as caught:
-        # Only the categories a file's author acts on are forced through; the
-        # others keep the filters they had, so nothing ignored today is printed.
-        warnings.simplefilter("always", ConfigKeyRenamedWarning)
-        warnings.simplefilter("always", UserWarning)
-        try:
-            cfg = get_root_config_provider().from_toml(target)
-        except Exception as exc:
-            cfg = None
-            refused = PreflightFinding("error", target.name, f"the file does not load: {exc}")
-    findings = _findings_from_load_warnings(caught, target.name)
-    lines: list[str] = []
-    verbose: list[str] = []
-    if cfg is None:
-        findings.append(refused)
-    else:
-        normal, detailed = protocol_lines(cfg)
-        lines.extend(normal)
-        verbose.extend(detailed)
-        lines.extend(comparison_lines(cfg, target))
-        findings.extend(preflight_calibration(cfg, source=target))
-    return CalibrationCheck(findings=findings, lines=lines, verbose_lines=verbose)
-
-
-def _findings_from_load_warnings(caught: list[Any], where: str) -> list[PreflightFinding]:
-    """Turn the warnings this package raised while loading into findings.
-
-    A renamed key warns from a validator, and the console routing would print it
-    as a raw warning line, or not at all. Here it is a finding among the others,
-    counted in the verdict. A warning a dependency raised is handed back to the
-    usual routing, untouched.
-    """
-    import warnings
-
-    from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning
-
-    package = Path(__file__).resolve().parents[1]
-    findings: list[PreflightFinding] = []
-    seen: set[str] = set()
-    for item in caught:
-        ours = issubclass(item.category, ConfigKeyRenamedWarning) or Path(
-            item.filename
-        ).resolve().is_relative_to(package)
-        if not ours:
-            warnings.showwarning(item.message, item.category, item.filename, item.lineno)
-            continue
-        text = str(item.message)
-        if text in seen:
-            continue
-        seen.add(text)
-        findings.append(PreflightFinding("warning", where, text))
-    return findings
 
 
 def protocol_lines(cfg: Any) -> tuple[list[str], list[str]]:
@@ -437,7 +353,7 @@ def comparison_lines(cfg: Any, source: Path) -> list[str]:
     it is compared against, and the window the phase scores on. A plain calibration with no
     ``[[calibration.phases]]`` still runs one search, so it gets one table
     under ``[calibration]``. ``source`` anchors a relative
-    ``stream_geometry_path`` the same way the run would.
+    ``map.complete`` the same way the run would.
     """
     from hydromodpy.calibration.runners.cli_runner import (
         declared_window_text,
@@ -478,6 +394,8 @@ def comparison_line(row: Mapping[str, Any]) -> str:
     only, formatting shortens it when it sits under the working directory, so
     the line does not carry one checkout's full path.
     """
+    from hydromodpy.calibration.runners.recap import percent
+
     label = row["block"] or "single metric"
     source = _shortened_if_under_cwd(row["source"])
     return (
@@ -493,33 +411,6 @@ def _shortened_if_under_cwd(text: str) -> str:
         return text
     shown = display_path(text)
     return text if Path(shown).is_absolute() else shown
-
-
-def percent(share: float) -> str:
-    """Return a share of the cost as a percentage a reader cannot misread.
-
-    Whole per cents, except near the ends: a share below 1 % keeps one
-    significant digit, so a block weighted 1000 to 1 reads 0.1 % and not 0 %,
-    which would say it is off. A share above 99 % keeps as many decimals as its
-    complement, so the two blocks of that pair still add up to 100 %.
-    """
-    value = float(share) * 100.0
-    if 0.0 < value < 1.0:
-        rounded, decimals = _one_significant_digit(value)
-        return f"{rounded:.{decimals}f}%"
-    if 99.0 < value < 100.0:
-        rounded, decimals = _one_significant_digit(100.0 - value)
-        return f"{100.0 - rounded:.{decimals}f}%"
-    return f"{value:.0f}%"
-
-
-def _one_significant_digit(value: float) -> tuple[float, int]:
-    """Return ``value`` rounded to one significant digit, and its decimals in plain notation."""
-    import math
-
-    decimals = max(0, -math.floor(math.log10(value)))
-    rounded = round(value, decimals)
-    return rounded, max(0, -math.floor(math.log10(rounded)))
 
 
 _DATA_SECTION_BY_FAMILY: Mapping[str, str] = {
@@ -573,12 +464,21 @@ def _check_the_observed_stations_are_loaded(
 
 def _check_parameters(cfg: Any, calibration: Any) -> list[PreflightFinding]:
     """Check every declared parameter against the configuration it will write into."""
-    from hydromodpy.calibration.parameter_resolution import unresolved_parameter_names
+    from hydromodpy.calibration.parameter_resolution import (
+        RECHARGE_FACTOR_PATH,
+        RECHARGE_VALUES_PATH,
+        unresolved_parameter_names,
+    )
     from hydromodpy.calibration.targets import calibration_targets, targets_by_path
+    from hydromodpy.physics.hydrology.soil_reservoir.config import soil_reservoir_of
 
     findings: list[PreflightFinding] = []
     reachable = targets_by_path(calibration_targets(cfg))
     refused_names = unresolved_parameter_names(calibration, cfg)
+    recharge = getattr(getattr(getattr(cfg, "flow", None), "sinks_sources", None), "recharge", None)
+    loaded = getattr(getattr(cfg, "data", None), "types", None) or ()
+    has_a_rate = "recharge" in loaded or (recharge is not None and recharge.peak_rate_mm_day() > 0)
+    targets = {decl.resolve_target() for decl in (calibration.parameters or {}).values()}
     for name, decl in (calibration.parameters or {}).items():
         where = f"[calibration.parameters.{name}]"
         bounds = list(getattr(decl, "bounds", ()) or ())
@@ -601,6 +501,26 @@ def _check_parameters(cfg: Any, calibration: Any) -> list[PreflightFinding]:
                     refused_names.get(name, "").replace(f"{where} ", "", 1)
                     or "names nothing this project carries, and writes no 'path' either.",
                 )
+            )
+            continue
+        if target == RECHARGE_FACTOR_PATH and soil_reservoir_of(cfg.flow) is not None:
+            findings.append(
+                PreflightFinding(
+                    "error",
+                    where,
+                    "moves the recharge factor, and the soil reservoir computes this recharge: "
+                    "there is no rate to multiply. Calibrate ru instead, with its bounds in mm.",
+                )
+            )
+            continue
+        if target == RECHARGE_FACTOR_PATH and (not has_a_rate or RECHARGE_VALUES_PATH in targets):
+            reason = (
+                "the cost sees the product of the two, an exact ridge, so calibrate one"
+                if has_a_rate
+                else "there is no rate to multiply: write recharge values or load [data.recharge]"
+            )
+            findings.append(
+                PreflightFinding("error", where, f"moves the recharge factor, and {reason}.")
             )
             continue
         if target not in reachable:
@@ -686,7 +606,7 @@ def _check_outputs(calibration: Any, source: Path, project_config: Any) -> list[
 
     The geometry is looked for exactly where the run looks for it, so a file
     preflight calls missing is one the run would call missing too. A declared
-    ``observed_network`` or ``minimal_observed_network`` is faced with the
+    ``map.complete`` or ``map.permanent`` is faced with the
     project the same way a parameter's name is faced with the catalog:
     refused here beside whatever else is wrong, rather than at the first trial.
     """
@@ -697,40 +617,30 @@ def _check_outputs(calibration: Any, source: Path, project_config: Any) -> list[
     from hydromodpy.calibration.runners.cli_runner import resolve_stream_geometry_paths
 
     resolve_stream_geometry_paths(calibration, source)
-    refused_networks = unresolved_observed_networks(calibration, project_config)
-    refused_minimal_networks = unresolved_minimal_observed_networks(calibration, project_config)
+    refused = (
+        unresolved_observed_networks(calibration, project_config),
+        unresolved_minimal_observed_networks(calibration, project_config),
+    )
     findings: list[PreflightFinding] = []
-    for name, decl in (calibration.outputs or {}).items():
+    for name in calibration.outputs or {}:
         where = f"[calibration.outputs.{name}]"
-        if name in refused_networks:
-            findings.append(
-                PreflightFinding(
-                    "error",
-                    where,
-                    # The finding already names the section in its 'where' column.
-                    refused_networks[name].replace(f"{where} ", "", 1),
-                )
-            )
-        if name in refused_minimal_networks:
-            findings.append(
-                PreflightFinding(
-                    "error",
-                    where,
-                    # The finding already names the section in its 'where' column.
-                    refused_minimal_networks[name].replace(f"{where} ", "", 1),
-                )
-            )
-        geometry = getattr(decl, "stream_geometry_path", None)
-        if geometry and not Path(str(geometry)).exists():
-            findings.append(
-                PreflightFinding(
-                    "error",
-                    where,
-                    f"stream_geometry_path {str(geometry)!r} is not there, and none of the "
-                    "places the run looks holds it. The criterion resolves no geometry "
-                    "of its own, so the run would stop at the first trial.",
-                )
-            )
+        findings.extend(
+            # The finding already names the section in its 'where' column.
+            PreflightFinding("error", where, reasons[name].replace(f"{where} ", "", 1))
+            for reasons in refused
+            if name in reasons
+        )
+    findings.extend(
+        PreflightFinding(
+            "error",
+            f"[calibration.outputs.{name}]",
+            f"map.{role} {str(path)!r} is not there, and none of the places the run looks "
+            "holds it. The criterion resolves no map of its own, so the run would stop at "
+            "the first trial.",
+        )
+        for name, role, path in calibration.map_files()
+        if not path.exists()
+    )
     return findings
 
 
@@ -757,13 +667,9 @@ def _check_phases(calibration: Any) -> list[PreflightFinding]:
     parameters = set(calibration.parameters or {})
     outputs = set(calibration.outputs or {})
     blocks = {block.name for block in calibration.objective_blocks or []}
-    names = [phase.name for phase in phases]
-    ran: set[str] = set()
 
     for phase in phases:
         where = f"[[calibration.phases]] {phase.name!r}"
-        if names.count(phase.name) > 1:
-            findings.append(PreflightFinding("error", where, "two phases share this name."))
         findings.extend(
             _missing(where, "parameters", phase.parameters, parameters, "[calibration.parameters]")
         )
@@ -781,17 +687,6 @@ def _check_phases(calibration: Any) -> list[PreflightFinding]:
             PreflightFinding("error", f"{where} bounds", problem)
             for problem in calibration.phase_bounds_problems(phase)
         )
-        if phase.depends_on is not None and phase.depends_on not in ran:
-            known = ", ".join(names) or "nothing"
-            findings.append(
-                PreflightFinding(
-                    "error",
-                    where,
-                    f"depends_on names {phase.depends_on!r}, which no earlier phase "
-                    f"declares. Phases run in the order written: {known}.",
-                )
-            )
-        ran.add(phase.name)
     return findings
 
 
@@ -848,11 +743,7 @@ def _publishes_a_signed_residual(metric: str) -> bool:
     """
     from hydromodpy.calibration.criteria import criterion_for
 
-    try:
-        return criterion_for(metric).requirements().signed
-    except ValueError:
-        # An unknown metric is refused elsewhere, by name; nothing to add here.
-        return False
+    return criterion_for(metric).requirements().signed
 
 
 def _signed_residual_metrics() -> list[str]:
@@ -873,7 +764,12 @@ def _check_engines(calibration: Any) -> list[PreflightFinding]:
     without that refusal, and the finding names the phase either way.
     """
     from hydromodpy.calibration.optim.method_config import method_options_problem
-    from hydromodpy.calibration.optim.optimizer import available_optimizers, engine_traits
+    from hydromodpy.calibration.optim.optimizer import (
+        announced_optimizers,
+        available_optimizers,
+        engine_traits,
+    )
+    from hydromodpy.calibration.optim.parameters import refuse_normal_sampling
 
     known = set(available_optimizers())
     options_of = {entry[0]: entry[3] for entry in _declared_precisions(calibration)}
@@ -884,7 +780,8 @@ def _check_engines(calibration: Any) -> list[PreflightFinding]:
                 PreflightFinding(
                     "error",
                     where,
-                    f"method {method!r} is not registered. Available: {', '.join(sorted(known))}.",
+                    f"method {method!r} is not registered. "
+                    f"Available: {', '.join(announced_optimizers())}.",
                 )
             )
             continue
@@ -925,7 +822,13 @@ def _check_engines(calibration: Any) -> list[PreflightFinding]:
                         f"declare(s) another search space.",
                     )
                 )
-        if traits.needs_signed_residual and not any(
+        for name in names:
+            try:
+                if not traits.draws_a_normal:
+                    refuse_normal_sampling(method, name, calibration.parameters[name].sampling)
+            except ValueError as refusal:
+                findings.append(PreflightFinding("error", where, str(refusal)))
+        if traits.needs_signed_residual and not all(
             _publishes_a_signed_residual(metric) for metric in metrics
         ):
             named = ", ".join(sorted(metrics)) or "nothing"
@@ -952,13 +855,32 @@ def _check_engines(calibration: Any) -> list[PreflightFinding]:
                     f"Score it on {traits.reads_cost_as}.",
                 )
             )
-        if parallel > 1 and not traits.supports_parallel:
+        # J measures a balance: with anything else to move, |J| falls by trading excess
+        # for missing stream, the two networks no closer.
+        if any(_publishes_a_signed_residual(metric) for metric in metrics) and (
+            len(names) > 1 or len(metrics) > 1
+        ):
             findings.append(
                 PreflightFinding(
                     "warning",
                     where,
-                    f"{method!r} returns one point at a time, so parallel = {parallel} "
-                    "buys nothing.",
+                    "distance_gap enters a cost beside another parameter or metric, and can "
+                    "fall by trading excess for missing stream. Score distance_mean.",
+                )
+            )
+        reach = None
+        if not traits.supports_parallel:
+            reach = 1
+        elif traits.reach is not None:
+            reach = traits.reach(options_of.get(where) or {}, len(names))
+        if parallel > 1 and reach is not None and parallel > reach:
+            findings.append(
+                PreflightFinding(
+                    "warning",
+                    where,
+                    f"{method!r} can use {reach} solves at once, so parallel = {parallel} "
+                    f"buys nothing beyond {reach}. Each worker takes about 0.5 GiB and 3.3 s "
+                    "to start.",
                 )
             )
     return findings
@@ -985,17 +907,12 @@ def _check_the_precision_can_be_honoured(calibration: Any) -> list[PreflightFind
     linearized = _linearized_scored_outputs(calibration)
     if linearized:
         # Same reason as the precision below: the width is built after the
-        # last solve, so `hmp calibrate --check` is where a document that can
+        # last solve, so `hmp config check` is where a document that can
         # never carry one is named, before any of it is paid for. A phased
         # document gets one width per phase (D234), built from what THAT
         # PHASE scores, so each phase is checked on its own selection rather
         # than on the whole file's.
-        from hydromodpy.calibration.metrics.composite import (
-            refuse_a_burn_in_the_residuals_cannot_honour,
-        )
-        from hydromodpy.core.exceptions import UncertaintyNotAvailableError
-
-        for where, outputs, blocks, single_metric in linearized:
+        for where, outputs, single_metric in linearized:
             observing = [
                 name
                 for name, decl in outputs.items()
@@ -1022,12 +939,6 @@ def _check_the_precision_can_be_honoured(calibration: Any) -> list[PreflightFind
                     )
                 findings.append(PreflightFinding("error", where, detail))
                 continue
-            try:
-                refuse_a_burn_in_the_residuals_cannot_honour(
-                    outputs, blocks, int(calibration.warmup_periods or 0)
-                )
-            except UncertaintyNotAvailableError as exc:
-                findings.append(PreflightFinding("error", where, str(exc)))
     for where, method, precision, kwargs, restarts in _declared_precisions(calibration):
         if restarts is not None and method in known:
             from hydromodpy.calibration.runners.restarts import assert_restarts_can_explore
@@ -1195,6 +1106,14 @@ def _roots_of_the_search(calibration: Any, phase: Any | None) -> int:
     )
 
 
+def _names_its_method_walks(calibration: Any, phase: Any) -> list[str]:
+    """Return what the method of a phase walks: all it moves but the root of a balanced one."""
+    from hydromodpy.calibration.runners.prepared_model import balanced_roots
+
+    roots = balanced_roots(calibration, phase.parameters) if phase.balanced_evaluation else []
+    return [name for name in phase.parameters if name not in roots]
+
+
 def _budgets(calibration: Any) -> list[tuple[str, str, list[str], Any, float | None, dict]]:
     """Return one entry per search: where its budget is written, its engine and its options."""
     if not calibration.phases:
@@ -1212,7 +1131,7 @@ def _budgets(calibration: Any) -> list[tuple[str, str, list[str], Any, float | N
         (
             f"[[calibration.phases]] {phase.name!r}",
             calibration.method_for(phase)[0],
-            list(phase.parameters),
+            _names_its_method_walks(calibration, phase),
             calibration.max_trials_for(phase),
             calibration.precision_for(phase),
             calibration.method_options_for(phase),
@@ -1365,8 +1284,8 @@ def _phase_named_blocks(calibration: Any, names: list[str]) -> list[Any]:
 
 def _linearized_scored_outputs(
     calibration: Any,
-) -> list[tuple[str, Mapping[str, Any], list[Any], bool]]:
-    """Return, per search whose width is linearized, its label, what it scores, and more.
+) -> list[tuple[str, Mapping[str, Any], bool]]:
+    """Return, per search whose width is linearized, its label, the outputs it scores, and more.
 
     The last item says whether the search is single-metric. A search reads the
     method of its phase over the section's, so only the phases that end up
@@ -1393,17 +1312,16 @@ def _linearized_scored_outputs(
             (
                 "[calibration.uncertainty]",
                 calibration.outputs or {},
-                list(calibration.objective_blocks or []),
                 False,
             )
         ]
-    result: list[tuple[str, Mapping[str, Any], list[Any], bool]] = []
+    result: list[tuple[str, Mapping[str, Any], bool]] = []
     for phase in calibration.phases:
         if calibration.uncertainty_for(phase).method != "linearized":
             continue
         where = f"[[calibration.phases]] {phase.name!r}"
         if phase.is_single_metric:
-            result.append((where, {}, [], True))
+            result.append((where, {}, True))
             continue
         outputs = dict(calibration.outputs or {})
         blocks = _phase_named_blocks(calibration, list(phase.objective_blocks))
@@ -1412,7 +1330,7 @@ def _linearized_scored_outputs(
         elif phase.objective_blocks:
             read = {name for block in blocks for name in block.uses_outputs}
             outputs = {name: value for name, value in outputs.items() if name in read}
-        result.append((where, outputs, blocks, False))
+        result.append((where, outputs, False))
     return result
 
 
@@ -1476,7 +1394,7 @@ def _resolved_paths(calibration: Any, names: Iterable[str]) -> list[str | None]:
 
 
 def _check_the_network_criterion_is_not_asked_to_pick_a_ridge(
-    calibration: Any,
+    calibration: Any, searched: Mapping[str | None, Any]
 ) -> list[PreflightFinding]:
     """Warn when an objective scored only on network output(s) moves more than one parameter.
 
@@ -1485,7 +1403,13 @@ def _check_the_network_criterion_is_not_asked_to_pick_a_ridge(
     instance -- form a ridge in that cost, and the search returns one point of
     the ridge rather than an identifiable pair. Not an error: a staged
     protocol may freeze every other parameter first and mean exactly this.
+
+    K beside the recharge factor in a steady search is an error: that state reads
+    K/R and nothing else, so the ridge is exact.
     """
+    from hydromodpy.calibration.parameter_resolution import RECHARGE_FACTOR_PATH
+    from hydromodpy.calibration.runners.prepared_model import moves_a_hydraulic_conductivity
+
     findings: list[PreflightFinding] = []
     for phase, where, names in _search_candidates(calibration):
         if len(names) <= 1:
@@ -1495,9 +1419,15 @@ def _check_the_network_criterion_is_not_asked_to_pick_a_ridge(
             continue
         if not all(output.support == "network" for output in outputs.values()):
             continue
+        moved = _resolved_paths(calibration, names)
+        exact_ridge = (
+            RECHARGE_FACTOR_PATH in moved
+            and moves_a_hydraulic_conductivity(moved)
+            and _search_regime(_config_of(searched, phase), phase) == "steady"
+        )
         findings.append(
             PreflightFinding(
-                "warning",
+                "error" if exact_ridge else "warning",
                 where,
                 f"scores only network output(s) {', '.join(sorted(outputs))} and moves "
                 f"{len(names)} parameters at once ({', '.join(names)}). The network "
@@ -1507,6 +1437,99 @@ def _check_the_network_criterion_is_not_asked_to_pick_a_ridge(
                 "but one, or score an output this search does not share the ridge on.",
             )
         )
+    return findings
+
+
+def _check_a_minimiser_on_two_bounds(calibration: Any) -> list[PreflightFinding]:
+    """Refuse a minimiser on one parameter and two weighted bounds.
+
+    A root search combines two roots and a minimiser returns the lowest weighted
+    cost, so the value would depend on the method. Several parameters leave no root
+    search to differ from: K and the porosity together on the two maps stay open
+    for the twin to measure.
+    """
+    from hydromodpy.calibration.optim.optimizer import engine_traits
+
+    findings: list[PreflightFinding] = []
+    for (phase, where, names), search in zip(
+        _search_candidates(calibration), _searches(calibration), strict=True
+    ):
+        method = calibration.method_for(phase)[0]
+        if (
+            len(names) == 1
+            and not engine_traits(method).needs_signed_residual
+            and _roots_of_the_search(calibration, phase) == 2
+            and any(_publishes_a_signed_residual(metric) for metric in search[3])
+        ):
+            findings.append(
+                PreflightFinding(
+                    "error",
+                    where,
+                    f"{method!r} would return the lowest weighted cost over two bounds, where "
+                    "a root search returns the mean of two roots, so the value would depend "
+                    "on the method. Search with bisection on distance_gap, or weigh one bound "
+                    "zero in map.calibrate_on.",
+                )
+            )
+    return findings
+
+
+def _check_the_balanced_phases(calibration: Any) -> list[PreflightFinding]:
+    """Refuse a balanced phase with no root to close or nothing its roots can compare."""
+    from hydromodpy.calibration.optim.adapters.bisection_adapter import (
+        DEFAULT_REL_TOL,
+        root_search_budget,
+    )
+    from hydromodpy.calibration.optim.stopping import AUTO_BUDGET, UNCOUNTED_BUDGET
+    from hydromodpy.calibration.runners.prepared_model import balanced_roots
+
+    findings: list[PreflightFinding] = []
+    for phase, search in zip(calibration.phases or [], _searches(calibration), strict=False):
+        where, method, names, metrics, _ = search
+        outputs = _outputs_scored_by_search(calibration, phase).values()
+        if phase.balanced_evaluation and (
+            len(balanced_roots(calibration, names)) != 1
+            or len(names) < 2
+            or not any(output.support == "network" for output in outputs)
+            or any(_publishes_a_signed_residual(metric) for metric in metrics)
+        ):
+            findings.append(
+                PreflightFinding(
+                    "error",
+                    where,
+                    "a balanced evaluation moves one conductivity in log space and at least "
+                    "one other parameter, and scores distance_mean on a network output, since "
+                    f"|J| is about zero at every root. This phase moves {', '.join(names)} and "
+                    f"scores {', '.join(sorted(metrics))}.",
+                )
+            )
+        elif (
+            phase.balanced_evaluation
+            and calibration.max_trials_for(phase) == AUTO_BUDGET
+            and _counted_budget(
+                calibration,
+                phase,
+                method,
+                _names_its_method_walks(calibration, phase),
+                calibration.precision_for(phase),
+                calibration.method_options_for(phase),
+            )
+            is None
+        ):
+            [root] = balanced_roots(calibration, names)
+            low, high = calibration.parameters[root].bounds
+            solves = root_search_budget(
+                float(low), float(high), rel_tol=calibration.precision_for(phase) or DEFAULT_REL_TOL
+            ).nominal
+            findings.append(
+                PreflightFinding(
+                    "error",
+                    where,
+                    f'{method!r} cannot count its points, so max_trials = "auto" gives '
+                    f"{UNCOUNTED_BUDGET} points of {solves} solves each, about "
+                    f"{UNCOUNTED_BUDGET * solves} solves. Write max_trials for this phase.",
+                )
+            )
     return findings
 
 
@@ -1549,31 +1572,6 @@ def _check_the_network_search_can_trust_its_release_packages(
     return findings
 
 
-def _check_the_minimal_maps_are_there(calibration: Any, source: Path) -> list[PreflightFinding]:
-    """Refuse a ``minimal_stream_geometry_path`` that is not there.
-
-    Looked for where the run looks, anchored on the file that declares it, as
-    ``stream_geometry_path`` is. The run would read it at the first trial.
-    """
-    from hydromodpy.calibration.runners.cli_runner import resolve_stream_geometry_paths
-
-    resolve_stream_geometry_paths(calibration, source)
-    findings: list[PreflightFinding] = []
-    for name, decl in (calibration.outputs or {}).items():
-        geometry = getattr(decl, "minimal_stream_geometry_path", None)
-        if geometry and not Path(str(geometry)).exists():
-            findings.append(
-                PreflightFinding(
-                    "error",
-                    f"[calibration.outputs.{name}]",
-                    f"minimal_stream_geometry_path {str(geometry)!r} is not there, and none of "
-                    "the places the run looks holds it. The minimal map is read at the "
-                    "first trial, so the run would stop there.",
-                )
-            )
-    return findings
-
-
 def _search_regime(project_config: Any, phase: Any | None) -> str | None:
     """Return the flow regime one search runs, or ``None`` when nothing says.
 
@@ -1590,6 +1588,15 @@ def _search_regime(project_config: Any, phase: Any | None) -> str | None:
     return str(getattr(written, "value", written)).strip().lower()
 
 
+def _extents_scored_by(calibration: Any, phase: Any | None) -> list[tuple[str, Any]]:
+    """Return ``(name, model.extent)`` of each network output a search scores with an extent."""
+    return [
+        (name, output.model.extent)
+        for name, output in sorted(_outputs_scored_by_search(calibration, phase).items())
+        if output.support == "network" and output.model.extent is not None
+    ]
+
+
 def _check_an_extent_is_scored_on_a_transient_run(
     calibration: Any, searched: Mapping[str | None, Any]
 ) -> list[PreflightFinding]:
@@ -1604,10 +1611,7 @@ def _check_an_extent_is_scored_on_a_transient_run(
         config = _config_of(searched, phase)
         if config is None or _search_regime(config, phase) != "steady":
             continue
-        outputs = _outputs_scored_by_search(calibration, phase)
-        for name, output in sorted(outputs.items()):
-            if getattr(output, "extent", None) is None:
-                continue
+        for name, _extent in _extents_scored_by(calibration, phase):
             ran_by = "[flow] flow_regime" if phase is None else where
             findings.append(
                 PreflightFinding(
@@ -1652,15 +1656,10 @@ def _check_the_extent_durations_fit_the_timestep(
         if value is None or unit is None:
             continue
         step_days = nominal_step_days(value, unit)
-        for name, output in sorted(_outputs_scored_by_search(calibration, phase).items()):
-            extent = getattr(output, "extent", None)
-            if extent is None:
-                continue
+        for name, extent in _extents_scored_by(calibration, phase):
             try:
-                maximal = flowing_steps(
-                    parse_extent_duration(extent.maximal_flowing_duration), step_days
-                )
-                dry = dry_steps(parse_extent_duration(extent.minimal_dry_duration), step_days)
+                maximal = flowing_steps(parse_extent_duration(extent.flowing_at_least), step_days)
+                dry = dry_steps(parse_extent_duration(extent.dry_at_most), step_days)
             except ValueError:
                 continue
             problems = extent_step_problems(
@@ -1672,9 +1671,9 @@ def _check_the_extent_durations_fit_the_timestep(
                 findings.append(
                     PreflightFinding(
                         "error",
-                        f"[calibration.outputs.{name}.extent]",
-                        f"maximal_flowing_duration = {extent.maximal_flowing_duration!r} and "
-                        f"minimal_dry_duration = {extent.minimal_dry_duration!r} cannot be "
+                        f"[calibration.outputs.{name}.model.extent]",
+                        f"flowing_at_least = {extent.flowing_at_least!r} and "
+                        f"dry_at_most = {extent.dry_at_most!r} cannot be "
                         f"read on a timestep of {step_days:g} days: " + "; ".join(problems) + ".",
                     )
                 )
@@ -1747,11 +1746,10 @@ def _check_the_scoring_windows_hold_what_they_score(
     import pandas as pd
 
     from hydromodpy.calibration.metrics.observable_scoring import (
-        network_state_period,
         refuse_window_without_dates,
     )
     from hydromodpy.calibration.metrics.observed_pairing import observing_outputs
-    from hydromodpy.core.time.selection import TimeSelectionError
+    from hydromodpy.core.time.selection import TimeSelectionError, resolve_state
 
     findings: list[PreflightFinding] = []
     document: list[Mapping[str, Any] | None] = []
@@ -1768,7 +1766,7 @@ def _check_the_scoring_windows_hold_what_they_score(
         outputs = _outputs_scored_by_search(calibration, phase)
         config = _config_of(searched, phase)
         edges = None if config is None else _search_edges(config, phase, source, document)
-        declared = getattr(phase, "scoring_window", None) or calibration.scoring_window
+        declared = getattr(phase, "window", None) or calibration.window
         # Validated when the file was read, so both bounds parse.
         window = (
             None
@@ -1781,12 +1779,12 @@ def _check_the_scoring_windows_hold_what_they_score(
         read = {str(name) for block in blocks for name in block.uses_outputs}
         for name in sorted(read & set(outputs)):
             output = outputs[name]
-            if output.support != "network" or getattr(output, "extent", None) is not None:
+            if output.support != "network" or output.model.extent is not None:
                 continue
             if edges is None or output.time in ("first", "last"):
                 continue
             try:
-                network_state_period(output.time, edges, n_periods=len(edges) - 1)
+                resolve_state(output.time, edges, n_periods=len(edges) - 1)
             except TimeSelectionError as exc:
                 findings.append(
                     PreflightFinding(
@@ -1805,7 +1803,7 @@ def _check_the_scoring_windows_hold_what_they_score(
                     PreflightFinding(
                         "error",
                         where,
-                        f"scoring_window {_day(start)} to {_day(end)} holds no date of the "
+                        f"window {_day(start)} to {_day(end)} holds no date of the "
                         f"run, which runs from {_day(first)} to {_day(last)}. Move the "
                         "window inside the run.",
                     )

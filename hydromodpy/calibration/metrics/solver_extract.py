@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import pandas as pd
 
+from hydromodpy.calibration.evaluation.forward import time_selector_of
 from hydromodpy.calibration.metrics.downslope_network import (
     DISTANCE_METHOD,
     MAXIMAL_SUFFIX,
@@ -27,7 +28,7 @@ from hydromodpy.calibration.metrics.downslope_network import (
 from hydromodpy.calibration.metrics.gauge_snap import GaugeSnapError, snap_to_most_accumulated
 from hydromodpy.calibration.metrics.observable_scoring import (
     dated_series,
-    network_state_period,
+    naive_utc,
     select_observable_times,
     slice_time,
 )
@@ -46,7 +47,6 @@ from hydromodpy.calibration.observations.network_geometry import (
 from hydromodpy.core.contracts.observables import (
     ObservableRequest,
     ObservableResult,
-    TimeSelector,
 )
 from hydromodpy.core.exceptions import ObjectiveError, ObservableNotAvailableError
 from hydromodpy.core.logging import get_logger
@@ -65,7 +65,7 @@ from hydromodpy.core.stream_extent import (
 from hydromodpy.core.stream_network import build_simulated_network
 from hydromodpy.core.time import nominal_step_days
 from hydromodpy.core.time.period_aggregation import period_edges
-from hydromodpy.core.time.selection import TimeSelectionError
+from hydromodpy.core.time.selection import TimeSelectionError, resolve_state
 from hydromodpy.core.units.volumetric_flow import normalize_m3_per_s_unit
 from hydromodpy.simulation.planning.plan import RunContext
 from hydromodpy.solver.base.registry import get_solver_adapter
@@ -155,15 +155,6 @@ def point_xy_from_output(output: CalibOutputPoint) -> tuple[float, float] | None
     return float(coords[0]), float(coords[1])
 
 
-def _request_times(time: Any) -> TimeSelector:
-    """Map an output declaration's time selector onto the observable contract.
-
-    A series output reads ``"all"``, ``"first"`` or ``"last"``; any other value,
-    a network output's date, asks the adapter for the whole run.
-    """
-    return time if time in ("all", "first", "last") else "all"
-
-
 def observable_request_for_output(
     name: str,
     output: CalibOutputDecl,
@@ -175,7 +166,7 @@ def observable_request_for_output(
     one. An unknown support raises here instead of silently falling through to
     a cell request, which is what used to happen.
     """
-    times = _request_times(output.time)
+    times = time_selector_of(output.time)
     support = output.support
     snap_m = _snap_radius_m(output)
     if support == "point":
@@ -273,7 +264,7 @@ def observable_request_for_output(
         # The whole per-cell release field, read at the declared timesteps. The
         # backend decides which of its packages count as a resurgence; this
         # layer never names one. The two-bound mode reads every timestep.
-        if getattr(output, "extent", None) is not None:
+        if output.model.extent is not None:
             times = "all"
         return ObservableRequest(id=name, name=str(output.variable), support="cells", times=times)
     if support == "cell":
@@ -484,7 +475,7 @@ def network_state_row(
     """Return the one state a network output reads, as a single row.
 
     ``time`` names it: ``"last"``, ``"first"`` or a date, whose period
-    ``(s, e]`` holds it (:func:`network_state_period`). A backend serves one
+    ``(s, e]`` holds it (:func:`~hydromodpy.core.time.selection.resolve_state`). A backend serves one
     row for ``"first"`` and ``"last"`` and the whole stack for a date, so the
     row is picked here, and ``build_simulated_network`` is served that row
     alone. The index returned is the row picked in the stack served, ``None``
@@ -495,7 +486,7 @@ def network_state_row(
     n_times = int(stack.shape[0]) if stack.ndim == 2 else 1
     edges = _stack_edges(result, n_times, time_bounds)
     try:
-        index = network_state_period(output.time, edges, n_periods=n_times)
+        index = resolve_state(output.time, edges, n_periods=n_times)
     except TimeSelectionError as exc:
         raise ObjectiveError(
             f"Output {name!r}: time = {output.time!r} names no state of this run: {exc}"
@@ -623,8 +614,7 @@ def _map_components(
         },
         # What qualifies the geometry the trial was scored against, not the trial.
         "observed_network_clipped": 1.0 if source.clipped else 0.0,
-        "observed_network_is_dem_derived": 1.0 if source.dem_derived else 0.0,
-        # What the output's observed_rasterization drew: every cell the map
+        # What the output's map.drawn_by drew: every cell the map
         # holds on the mesh, and the reaches kept at their midpoint cell.
         "n_observed_cells": float(int(projection.mask.sum())),
         "n_observed_features_fallback": float(projection.n_fallback_parts),
@@ -636,10 +626,10 @@ def _score_one_state(
 ) -> tuple[list[float], dict[str, float]]:
     """Score the one state a steady run holds, as the papers do.
 
-    Without a minimal map the state is compared to the maximal map, the only
-    one. With both, it is compared to the minimal (permanent) map, as
-    Abherve et al. (2025) calibrate, and the maximal map is scored at the same
-    state as a validation that never reaches the cost.
+    Without a permanent map the state is compared to the complete map, the only
+    one. With both, ``map.calibrate_on`` names the map in the cost. The default
+    of the papers is the permanent one (Abherve et al. 2025). The other map is
+    scored at the same state as a validation that never reaches the cost.
     """
     geometry = maps.maximal
     simulated = build_simulated_network(
@@ -653,14 +643,20 @@ def _score_one_state(
         bound = _map_components(scored, geometry, maps.maximal_source, maps.maximal_projection)
         return weighted_pair(scored), {**bound, **with_suffix(bound, MAXIMAL_SUFFIX)}
 
-    scored = score_on_geometry(simulated, maps.minimal, **options)
-    bound = _map_components(scored, maps.minimal, maps.minimal_source, maps.minimal_projection)
-    validation = score_on_geometry(simulated, geometry, **options)
-    checked = _map_components(validation, geometry, maps.maximal_source, maps.maximal_projection)
+    permanent = (maps.minimal, maps.minimal_source, maps.minimal_projection)
+    complete = (geometry, maps.maximal_source, maps.maximal_projection)
+    cost, checked, cost_suffix, checked_suffix = (
+        (complete, permanent, MAXIMAL_SUFFIX, MINIMAL_SUFFIX)
+        if output.map.calibrate_on == "complete"
+        else (permanent, complete, MINIMAL_SUFFIX, MAXIMAL_SUFFIX)
+    )
+    scored = score_on_geometry(simulated, cost[0], **options)
+    bound = _map_components(scored, *cost)
+    validation = _map_components(score_on_geometry(simulated, checked[0], **options), *checked)
     return weighted_pair(scored), {
         **bound,
-        **with_suffix(bound, MINIMAL_SUFFIX),
-        **with_suffix(checked, VALIDATION_SUFFIX),
+        **with_suffix(bound, cost_suffix),
+        **with_suffix(validation, f"{checked_suffix}{VALIDATION_SUFFIX}"),
     }
 
 
@@ -670,9 +666,9 @@ def _scoring_options(output: CalibOutputNetwork) -> dict[str, Any]:
     ``validity_length_m`` is None for ``"auto"``: each map then resolves its
     own length, and publishes it with its provenance on every trial.
     """
-    declared = output.validity_length
+    declared = output.verdict.validity_length
     return {
-        "weighting": output.weighting,
+        "weighting": output.model.weighting,
         "validity_length_m": None if declared == "auto" else _coerce_length_to_m(declared),
     }
 
@@ -702,44 +698,34 @@ def _timestep_edges(
     return stamps.to_numpy(dtype="datetime64[ns]")
 
 
-def _naive_utc(bound: Any) -> pd.Timestamp | None:
-    """Return a window bound as a naive UTC timestamp, the clock of the timestep edges."""
-    if bound is None:
-        return None
-    stamp = pd.Timestamp(bound)
-    if stamp.tz is not None:
-        stamp = stamp.tz_convert("UTC").tz_localize(None)
-    return stamp
-
-
 def _scored_years(
     name: str,
     edges: np.ndarray,
-    scoring_window: tuple[Any, Any] | None,
+    window: tuple[Any, Any] | None,
 ) -> CalendarYears:
     """Return the complete calendar years the two-bound mode scores.
 
     Every complete year of the run, or, when the phase declares a
-    ``scoring_window``, only the complete years the window holds from
+    ``window``, only the complete years the window holds from
     1 January to 31 December. The window is how a spin-up year leaves the
     score: without one, a first year whose first step is steady, or starts
     from an arbitrary initial condition, is scored like the others. Refused by
     name when no complete year is left, saying which years the run touches
     and which the window left out.
     """
-    window = (
+    bounds = (
         None
-        if scoring_window is None or all(bound is None for bound in scoring_window)
-        else (_naive_utc(scoring_window[0]), _naive_utc(scoring_window[1]))
+        if window is None or all(bound is None for bound in window)
+        else (naive_utc(window[0]), naive_utc(window[1]))
     )
-    years = calendar_years(edges, window=window)
+    years = calendar_years(edges, window=bounds)
     if years.years:
         return years
     touched = ", ".join(map(str, years.incomplete)) or "none"
     if years.outside_window:
-        start, end = window if window is not None else (None, None)
+        start, end = bounds if bounds is not None else (None, None)
         raise ObjectiveError(
-            f"Output {name!r} declares an extent table and its scoring_window "
+            f"Output {name!r} declares an extent table and its window "
             f"{start or 'open'} to {end or 'open'} holds no complete calendar year of the "
             f"run: it leaves out {', '.join(map(str, years.outside_window))}"
             + (f", and the run only touches {touched}" if years.incomplete else "")
@@ -760,13 +746,13 @@ def _score_two_bounds(
     result: ObservableResult,
     maps: NetworkMaps,
     time_bounds: Sequence[Any] | None,
-    scoring_window: tuple[Any, Any] | None = None,
+    window: tuple[Any, Any] | None = None,
     step_days: float | None = None,
 ) -> tuple[list[float], dict[str, float]]:
     """Score the yearly extent masks of a transient run against one or two maps.
 
     The years scored are the complete calendar years of the run, cut to the
-    ``scoring_window`` of the phase when one is declared
+    ``window`` of the phase when one is declared
     (:func:`_scored_years`). They are published: ``n_years_scored``,
     ``first_year_scored``, ``last_year_scored``, and ``year_scored_y<year>``
     for every year the run touches, 1 when scored and 0 when left out,
@@ -791,23 +777,23 @@ def _score_two_bounds(
             "steady phase. The two-bound mode reads the timesteps of a transient run; score "
             "a steady phase in one state, without the extent table."
         )
-    years = _scored_years(name, _timestep_edges(name, result, n_times, time_bounds), scoring_window)
+    years = _scored_years(name, _timestep_edges(name, result, n_times, time_bounds), window)
     if step_days is None:
         raise ObjectiveError(
             f"Output {name!r}: the extent rules are durations, counted in the timesteps of "
             "the run, and the run carries no time window to read its timestep from "
             "(simulation.time.step_value)."
         )
-    maximal_steps = flowing_steps(parse_extent_duration(extent.maximal_flowing_duration), step_days)
-    dry = dry_steps(parse_extent_duration(extent.minimal_dry_duration), step_days)
+    maximal_steps = flowing_steps(parse_extent_duration(extent.flowing_at_least), step_days)
+    dry = dry_steps(parse_extent_duration(extent.dry_at_most), step_days)
     problems = extent_step_problems(
         years.n_steps, maximal_flowing_steps=maximal_steps, minimal_dry_steps=dry
     )
     if problems:
         raise ObjectiveError(
             f"Output {name!r}: the extent table cannot be read on this run: "
-            f"maximal_flowing_duration = {extent.maximal_flowing_duration!r} and "
-            f"minimal_dry_duration = {extent.minimal_dry_duration!r} on a timestep of "
+            f"flowing_at_least = {extent.flowing_at_least!r} and "
+            f"dry_at_most = {extent.dry_at_most!r} on a timestep of "
             f"{step_days:g} days: " + "; ".join(problems) + "."
         )
     visible = parse_visible_flow(extent.visible_flow)
@@ -826,6 +812,7 @@ def _score_two_bounds(
         year_quorum=extent.year_quorum,
     )
     options = _scoring_options(output)
+    weights = output.map.bound_weights
     bounds: list[tuple[Bound, Any, Any, Any, str, float]] = [
         (
             "maximal",
@@ -833,7 +820,7 @@ def _score_two_bounds(
             maps.maximal_source,
             maps.maximal_projection,
             MAXIMAL_SUFFIX,
-            float(extent.weights.maximal),
+            float(weights.complete),
         )
     ]
     if maps.minimal is not None:
@@ -845,7 +832,7 @@ def _score_two_bounds(
                 maps.minimal_source,
                 maps.minimal_projection,
                 MINIMAL_SUFFIX,
-                float(extent.weights.minimal),
+                float(weights.permanent),
             ),
         )
     threshold = geometry.threshold_m3_s
@@ -898,7 +885,7 @@ def _score_two_bounds(
         len(masks.years),
         ", ".join(map(str, masks.years)),
         (
-            f" (outside the scoring_window: {', '.join(map(str, years.outside_window))})"
+            f" (outside the window: {', '.join(map(str, years.outside_window))})"
             if years.outside_window
             else ""
         ),
@@ -918,7 +905,7 @@ def score_network_output(
     *,
     saturated_thickness: ObservableResult | None = None,
     time_bounds: Sequence[Any] | None = None,
-    scoring_window: tuple[Any, Any] | None = None,
+    window: tuple[Any, Any] | None = None,
     step_days: float | None = None,
 ) -> tuple[list[float], dict[str, float]]:
     """Turn one per-cell release field into the distances a block scores.
@@ -936,8 +923,9 @@ def score_network_output(
       ``_maximal`` for the bound it is.
     - two bounds: only the suffixed sets (``J_signed_minimal``,
       ``J_signed_maximal``, ...), and ``weight_minimal``, ``weight_maximal``.
-    - one state with both maps: the maximal map suffixed
-      ``_maximal_validation``, outside the cost.
+    - one state with both maps: the map outside the cost suffixed
+      ``_maximal_validation``, or ``_minimal_validation`` when
+      ``map.calibrate_on = "complete"``.
     - the two-bound mode: ``J_signed_<bound>_y<year>`` per scored year,
       ``year_scored_y<year>`` (1 scored, 0 left out) per year the run
       touches, ``n_years_scored`` and the rules it applied, as timesteps
@@ -952,7 +940,7 @@ def score_network_output(
     at the same state as the release flux.
     ``time_bounds`` are the run's time-grid bounds, which date the timesteps
     of the two-bound mode and the state one state reads, named by the
-    output's ``time`` (:func:`network_state_row`). ``scoring_window`` is the
+    output's ``time`` (:func:`network_state_row`). ``window`` is the
     phase's ``(start, end)``; the two-bound mode scores only the complete
     years it holds, which is how a spin-up year leaves the score. The scorer
     checks that it holds the one state
@@ -968,7 +956,7 @@ def score_network_output(
     """
     require_release_flux_unit(result.units, name=name)
     maps = network_maps_from_run(run_ctx, output)
-    if output.extent is None:
+    if output.model.extent is None:
         served = np.asarray(result.values)
         n_times = int(served.shape[0]) if served.ndim == 2 else 1
         result, index = network_state_row(name, output, result, time_bounds)
@@ -977,7 +965,7 @@ def score_network_output(
         n_bounds = 1
     else:
         pair, scored = _score_two_bounds(
-            name, output, output.extent, result, maps, time_bounds, scoring_window, step_days
+            name, output, output.model.extent, result, maps, time_bounds, window, step_days
         )
         n_bounds = len(pair) // 2
 
@@ -1051,7 +1039,7 @@ def _saturated_thickness_or_none(
         id=f"_saturated_thickness:{name}",
         name="saturated_thickness",
         support="cells",
-        times=_request_times(output.time),
+        times=time_selector_of(output.time),
     )
     try:
         served = adapter.extract_observables(run_ctx, None, [request], time_index=time_index)
@@ -1065,7 +1053,7 @@ def extract_outputs(
     ctx: Any,
     outputs: Mapping[str, CalibOutputDecl],
     *,
-    scoring_window: tuple[Any, Any] | None = None,
+    window: tuple[Any, Any] | None = None,
 ) -> ExtractedOutputs:
     """Ask the flow adapter for every declared output, in one batch.
 
@@ -1076,7 +1064,7 @@ def extract_outputs(
 
     Returns the scored values per output and, beside them, the diagnostics the
     network criterion produces, which the caller merges into the components of
-    the trial. ``scoring_window`` is the phase's ``(start, end)``. Only a
+    the trial. ``window`` is the phase's ``(start, end)``. Only a
     network output in the two-bound mode reads it here, to score the complete
     years it holds; every other output is cut to it where it is paired with
     its record.
@@ -1158,7 +1146,7 @@ def extract_outputs(
                 result,
                 saturated_thickness=thickness,
                 time_bounds=time_grid_boundaries(ctx),
-                scoring_window=scoring_window,
+                window=window,
                 step_days=context_step_days(ctx),
             )
             diagnostics.update(scored)

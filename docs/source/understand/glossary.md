@@ -312,10 +312,13 @@ scoring window
   Period over which simulated and measured flow are compared. In example 04, 2001 and 2002;
   the year 2000 is used as {term}`spin-up`. The window of a run's scores is also the default
   window of a calibration, which may narrow it. Under the network protocol with no window
-  written, the second stage scores from one year after the start of the run.
+  written, the second stage scores from one year after the start of the run. A validation
+  window is taken out of that default: the search never reads its dates, and each trial is
+  scored on them beside its cost.
 
-  *In the file:* {toml}`metrics.window`, {toml}`calibration.scoring_window`, and for the network
-  protocol {toml}`calibration.protocol.scoring_window`.
+  *In the file:* {toml}`metrics.window`, {toml}`calibration.window`,
+  {toml}`calibration.validation_window`, and for the network protocol
+  {toml}`calibration.protocol.window`.
 
 seepage
   Cell where the {term}`water table` reaches the ground surface and where water leaves the
@@ -325,10 +328,10 @@ seepage
   Boussinesq run); nothing to set.
 
 seepage threshold
-  Fraction of its own recharge that a cell must give back to count as seepage: 0.01 % by
+  Fraction of the mean basin recharge, over its own area, that a cell must give back to count as seepage: 0.01 % by
   default. Another threshold changes the network maps.
 
-  *In the file:* {toml}`calibration.outputs.<name>.tau_specific_ratio`.
+  *In the file:* {toml}`calibration.outputs.<name>.model.seepage_threshold`.
 
 SIM2
   Météo-France reanalysis on an 8 km grid, which supplies rainfall and potential
@@ -357,8 +360,7 @@ spin-up
   In example 04, the year 2000. The second stage of the network protocol leaves the first year
   out when no window is written.
 
-  *In the file:* {toml}`calibration.warmup_periods`, or a {term}`scoring window` that starts
-  after it.
+  *In the file:* a {term}`scoring window` that starts after it.
 
 spring
   A place where groundwater comes out of the ground. A {term}`seepage` cell is a spring of

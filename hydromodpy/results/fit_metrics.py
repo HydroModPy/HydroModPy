@@ -14,10 +14,9 @@ What is paired
 --------------
 An observed series is stored with ``source = observed`` (``discharge`` at gauge
 ``J0014010``). It meets the simulated series of the same variable at the same
-station. When the simulated variable sits at one station only (the
-catchment discharge), it also meets the observations of the rule station, and
-of that station alone: an upstream gauge is never scored against the outlet.
-An observed gauge that meets no simulated series is listed in
+station, and no other: the derive step writes each station's own series
+(:func:`~hydromodpy.calibration.runners.promotion.write_station_series`), so a gauge is
+never scored against the outlet. An observed gauge that meets no simulated series is listed in
 :attr:`RunScores.unscored`, logged as a warning and sealed as the failed,
 non-fatal check :data:`UNSCORED_OBSERVATIONS_CHECK`, which the README of the
 run prints.
@@ -154,7 +153,7 @@ def score_timeseries(
     *timeseries* has the columns ``station_id``, ``variable``, ``source``,
     ``time`` and ``value``, simulated and observed rows together.
     """
-    pairs, unscored = _pairs(timeseries, rule.station)
+    pairs, unscored = _pairs(timeseries)
     rows: list[MetricRow] = []
     at_station: dict[str, MetricScore] = {}
     for station, variable, simulated, observed in pairs:
@@ -177,7 +176,7 @@ def score_timeseries(
 
 
 def _pairs(
-    timeseries: pd.DataFrame, rule_station: str | None
+    timeseries: pd.DataFrame,
 ) -> tuple[list[tuple[str, str, pd.Series, pd.Series]], list[UnscoredObservation]]:
     """Return ``(station, variable, simulated, observed)`` for every observed series that meets one.
 
@@ -198,21 +197,17 @@ def _pairs(
         sim_stations = sorted(simulated_rows["station_id"].unique())
         observed_rows = measured[measured["variable"] == variable]
         for station in sorted(observed_rows["station_id"].unique()):
-            if station in sim_stations:
-                sim_station = station
-            elif len(sim_stations) == 1 and station == rule_station:
-                sim_station = sim_stations[0]
-            elif not sim_stations:
+            if not sim_stations:
                 logger.debug(
                     "Not scoring %s at %s: the run does not simulate it.", variable, station
                 )
                 continue
-            else:
+            if station not in sim_stations:
                 missed = UnscoredObservation(station, variable, tuple(sim_stations))
                 logger.warning("%s.", missed.sentence())
                 unscored.append(missed)
                 continue
-            simulated = _series(simulated_rows[simulated_rows["station_id"] == sim_station])
+            simulated = _series(simulated_rows[simulated_rows["station_id"] == station])
             observed = _series(observed_rows[observed_rows["station_id"] == station])
             pairs.append((station, variable, simulated, observed))
     return pairs, unscored

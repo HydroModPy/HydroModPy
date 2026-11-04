@@ -198,19 +198,6 @@ HIGHER_IS_BETTER: frozenset[str] = frozenset(
 )
 
 
-def clip_negatives_for_log_metric(
-    simulated: np.ndarray,
-    observed: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray, int]:
-    """Clip negatives to zero for a log metric and count what was clipped.
-
-    The rule is :func:`hydromodpy.core.metrics.clip_negatives`, the one the
-    score of a run follows too. Returning the count is what stops the clipping
-    from passing unnoticed, which would hide a sign error in a reconstruction.
-    """
-    return clip_negatives(simulated, observed)
-
-
 class SeriesCriterion:
     """One scoring kernel of the registry, with its conventions declared."""
 
@@ -262,7 +249,7 @@ class SeriesCriterion:
             )
         n_clipped = 0
         if self._takes_log:
-            sim, obs, n_clipped = clip_negatives_for_log_metric(sim, obs)
+            sim, obs, n_clipped = clip_negatives(sim, obs)
         if self.name in SAMPLED_BY_DATE and (sample_days is not None or times_days is not None):
             raw = float(self._kernel(sim, obs, sample_days=sample_days, times_days=times_days))
         else:
@@ -283,5 +270,4 @@ __all__ = [
     "RESERVOIR_INCREMENT_DAYS",
     "SAMPLED_BY_DATE",
     "SeriesCriterion",
-    "clip_negatives_for_log_metric",
 ]

@@ -1,0 +1,8 @@
+name                    current       unit  space     draw         default bounds            physical range            path
+thickness                    30          m  log       log_uniform  -                         0 .. 10000                domain.depth_model.thickness
+drainage                      0       m2/s  log       log_uniform  -                         -                         flow.bc.drainage.value
+K                         5e-05        m/s  log       log_uniform  -                         1e-14 .. 100              flow.param.K.field.value
+Ss                        1e-05        m-1  log       log_uniform  -                         1e-12 .. 0.001            flow.param.Ss.field.value
+Sy                         0.05          -  log       log_uniform  -                         0.0001 .. 0.5             flow.param.Sy.field.value
+"recharge.factor"             1          -  log       log_uniform  0.5 .. 2                  -                         flow.sinks_sources.recharge.factor
+vka                           1          -  log       log_uniform  -                         0.001 .. 100              modflow6.process_specific.vka

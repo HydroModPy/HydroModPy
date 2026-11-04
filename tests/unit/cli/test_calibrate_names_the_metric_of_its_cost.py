@@ -9,7 +9,7 @@ phase recap of ``hmp run`` already printed it.
 from __future__ import annotations
 
 from hydromodpy.calibration.report import CalibrationReport
-from hydromodpy.cli.commands.calibrate import _format_calibration_result
+from hydromodpy.calibration.runners.recap import result_lines
 
 
 def _report(extra: dict) -> CalibrationReport:
@@ -27,12 +27,12 @@ def _report(extra: dict) -> CalibrationReport:
 
 
 def test_the_cost_line_names_its_metric() -> None:
-    lines = _format_calibration_result(_report({"cost_metric": "1 - nse_log"}))
+    lines = result_lines(_report({"cost_metric": "1 - nse_log"}))
 
     assert "  cost: 0.1234 (1 - nse_log)" in lines
 
 
 def test_a_report_without_the_metric_prints_the_cost_alone() -> None:
-    lines = _format_calibration_result(_report({}))
+    lines = result_lines(_report({}))
 
     assert "  cost: 0.1234" in lines

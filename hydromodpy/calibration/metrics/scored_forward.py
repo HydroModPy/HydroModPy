@@ -61,10 +61,11 @@ from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import hydromodpy.calibration.evaluation.forward_registry as forward_registry
-from hydromodpy.calibration.config import scoring_window_bounds
+from hydromodpy.calibration.config import window_bounds
 from hydromodpy.calibration.evaluation.forward import (
     ForwardRequest,
     refuse_answers_nobody_asked_for,
+    time_selector_of,
 )
 from hydromodpy.calibration.evaluation.port import TrialOutcome, TrialRequest
 from hydromodpy.calibration.metrics.observable_scoring import (
@@ -76,7 +77,6 @@ from hydromodpy.calibration.metrics.observed_pairing import observing_outputs
 from hydromodpy.core.contracts.observables import (
     ObservableRequest,
     ObservableResult,
-    TimeSelector,
     require_unique_request_ids,
 )
 from hydromodpy.core.exceptions import CalibrationError
@@ -133,8 +133,7 @@ class ScoredForwardEvaluator:
                 outputs,
                 blocks,
                 observed_records=None,
-                warmup_periods=int(getattr(cfg, "warmup_periods", 0) or 0),
-                scoring_window=scoring_window_bounds(getattr(cfg, "scoring_window", None)),
+                window=window_bounds(getattr(cfg, "window", None)),
                 min_samples=int(getattr(getattr(cfg, "aggregate", None), "min_samples", 1) or 1),
             )
         # A window with no dated output is the fifth refusal of this route, and
@@ -256,7 +255,7 @@ def requests_for_outputs(
                 support=support,  # type: ignore[arg-type]  # refused above unless mappable
                 key=None if key is None else str(key),
                 cell=cell,
-                times=_time_selector(getattr(output, "time", "all")),
+                times=time_selector_of(getattr(output, "time", "all")),
             )
         )
     require_unique_request_ids(requests)
@@ -329,17 +328,6 @@ def refuse_a_shape_the_document_cannot_score(
             "concatenates its outputs before it scores them, where two wrong lengths adding up "
             "to the right total pair values across the boundary between two outputs."
         )
-
-
-def _time_selector(time: Any) -> TimeSelector:
-    """Return the selector a request carries for a declared ``time``.
-
-    A list of explicit dates comes back as ``"all"``, which is what the historical
-    path does with it as well (D224): the selection then happens on values, and an
-    undated answer has no timestamp to match a date against. Kept identical rather
-    than fixed here, because fixing it changes numbers that already exist.
-    """
-    return time if time in ("all", "first", "last") else "all"
 
 
 __all__ = [

@@ -51,9 +51,9 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import ClassVar, Protocol, runtime_checkable
+from typing import Any, ClassVar, Protocol, runtime_checkable
 
-from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
+from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult, TimeSelector
 
 
 @dataclass(frozen=True, slots=True)
@@ -182,10 +182,24 @@ def refuse_answers_nobody_asked_for(
         )
 
 
+def time_selector_of(time: Any) -> TimeSelector:
+    """Return the selector an observable request carries for a declared ``time``.
+
+    A series output reads ``"all"``, ``"first"`` or ``"last"``. Any other value,
+    a network output's date or a list of explicit dates, comes back as ``"all"``:
+    the adapter then serves the whole run and the selection happens on values,
+    because an undated answer has no timestamp to match a date against (D224).
+    Kept identical rather than fixed, because fixing it changes numbers that
+    already exist.
+    """
+    return time if time in ("all", "first", "last") else "all"
+
+
 __all__ = [
     "ForwardModel",
     "ForwardOutcome",
     "ForwardRequest",
     "forward_model_members",
     "refuse_answers_nobody_asked_for",
+    "time_selector_of",
 ]

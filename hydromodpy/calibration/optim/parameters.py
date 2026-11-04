@@ -350,6 +350,17 @@ def apply_parameter_to_config(
         raise ValueError(f"[calibration.parameters.{param.name}] {exc}") from None
 
 
+def refuse_normal_sampling(engine: str, name: str, sampling: str) -> None:
+    """Refuse the 'normal' sampling on an engine that would draw something else."""
+    if sampling == "normal":
+        raise ValueError(
+            f"{engine} cannot draw the 'normal' sampling declared on parameter "
+            f"{name!r}: it would sample uniformly instead, and a Latin hypercube "
+            "cannot stratify a normal clipped to bounds. Use 'uniform' or 'log_uniform' "
+            "on this parameter, or pick an engine that draws a normal."
+        )
+
+
 def _assert_candidate_is_physical(param: CalibParameter, written: float) -> None:
     """Face the value about to be written with the registry's ceiling.
 

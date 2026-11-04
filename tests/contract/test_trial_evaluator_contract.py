@@ -528,5 +528,12 @@ def test_the_runner_binds_exactly_the_options_the_registry_publishes() -> None:
     ]
 
     assert len(calls) == 1, f"{len(calls)} evaluator constructions in the runner, expected one"
-    bound = sorted(keyword.arg for keyword in calls[0].keywords if keyword.arg is not None)
+    assert [keyword.value.id for keyword in calls[0].keywords] == ["evaluator_options"]
+    options = next(
+        node.value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Assign)
+        and getattr(node.targets[0], "id", "") == "evaluator_options"
+    )
+    bound = sorted(keyword.arg for keyword in options.keywords)
     assert bound == sorted(evaluation_registry.CONSTRUCTION_OPTIONS)

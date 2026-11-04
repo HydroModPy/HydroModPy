@@ -43,7 +43,7 @@ def test_a_lost_head_warns_once_with_what_to_check(
     ]
     assert len(warned) == 1
     assert "1 of 2 head(s)" in warned[0]
-    assert "heads_snap_radius" in warned[0]
+    assert "map.heads.radius" in warned[0]
 
 
 def test_a_head_lands_on_the_nearest_cell_draining_enough() -> None:

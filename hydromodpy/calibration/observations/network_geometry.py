@@ -153,10 +153,10 @@ def network_maps_from_run(run_ctx: RunContext, output: CalibOutputNetwork) -> Ne
     geometries because their provenance (clipped, DEM-derived) is a trial
     diagnostic that ``NetworkGeometry`` itself does not carry. The projections
     are returned for the same reason: how many cells the output's
-    ``observed_rasterization`` drew, and how many reaches it kept at their
+    ``map.drawn_by`` drew, and how many reaches it kept at their
     midpoint cell.
 
-    Under ``observed_rasterization = "heads"`` no cell is projected: each map
+    Under ``map.drawn_by = "heads"`` no cell is projected: each map
     gives its free ends, the minimal map is traced from its own heads and the
     maximal one from the heads of both, so it contains the minimal trace. The
     projection returned is then the trace itself.
@@ -245,20 +245,20 @@ def network_maps_from_run(run_ctx: RunContext, output: CalibOutputNetwork) -> Ne
             cell_area_m2=areas,
             cell_centroids=centres,
             mean_recharge_m_s=recharge,
-            tau_specific_ratio=float(output.tau_specific_ratio),
+            tau_specific_ratio=float(output.model.seepage_threshold),
             inactive_mask=inactive,
             excluded=excluded,
             delineated_catchment=polygon,
             catchment_outline=outline,
             delineated_outlet_xy=outlet_xy,
-            diagonal_neighbors=bool(output.diagonal_neighbors),
+            diagonal_neighbors=output.model.neighbours == "D8",
             observed_position_accuracy_m=_accuracy_in_m(output),
-            alpha_warning_threshold=float(output.alpha_warning_threshold),
-            clipping_warning_share=float(output.clipping_warning_share),
-            clipping_warning_gap=float(output.clipping_warning_gap),
+            alpha_warning_threshold=float(output.verdict.alpha_warning_threshold),
+            clipping_warning_share=float(output.verdict.clipping_warning_share),
+            clipping_warning_gap=float(output.verdict.clipping_warning_gap),
         )
 
-    if output.observed_rasterization == "heads":
+    if output.map.drawn_by == "heads":
         return _heads_maps(
             run_ctx, output, resolved, minimal_source, on_map=on_map, cell_area_m2=areas
         )
@@ -268,7 +268,7 @@ def network_maps_from_run(run_ctx: RunContext, output: CalibOutputNetwork) -> Ne
         resolved,
         planar_mesh,
         connectivity,
-        rasterization=output.observed_rasterization,
+        rasterization=output.map.drawn_by,
         cell_centres=centres,
     )
     minimal_projection = (
@@ -279,7 +279,7 @@ def network_maps_from_run(run_ctx: RunContext, output: CalibOutputNetwork) -> Ne
             minimal_source,
             planar_mesh,
             connectivity,
-            rasterization=output.observed_rasterization,
+            rasterization=output.map.drawn_by,
             cell_centres=centres,
         )
     )
@@ -318,8 +318,8 @@ def network_maps_from_run(run_ctx: RunContext, output: CalibOutputNetwork) -> Ne
 def heads_settings(output: CalibOutputNetwork) -> HeadsSettings:
     """Return where a head of this output may land, in meters and square meters."""
     return HeadsSettings(
-        snap_radius_m=float(_length_in_m(output.heads_snap_radius)),
-        min_drained_area_m2=float(output.heads_min_drained_area_km2) * 1.0e6,
+        snap_radius_m=float(_length_in_m(output.map.heads.radius)),
+        min_drained_area_m2=float(output.map.heads.min_drained_area) * 1.0e6,
     )
 
 
@@ -401,7 +401,7 @@ def _length_in_m(value: Any) -> float:
 
 def _accuracy_in_m(output: CalibOutputNetwork) -> float | None:
     """Return the declared positional accuracy in meters, or None."""
-    accuracy = getattr(output, "observed_position_accuracy", None)
+    accuracy = output.map.position_accuracy
     return None if accuracy is None else _length_in_m(accuracy)
 
 

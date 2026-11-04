@@ -30,6 +30,9 @@ NO_SITE = "no [site] names it"
 PROJECT_ROOT = "[workspace] project_root is not a key of a file"
 """The loader refuses it with the line to delete, and the doctor deletes the line."""
 
+OLD_CALIBRATION_FORM = "This old form is refused"
+"""A key of ``[calibration]`` has no delay: the loader names it, and the doctor rewrites it."""
+
 REASONS = {
     "the drains replaced stream enforcement": "'enforce_streams' is not accepted any more",
     "the figure takes its window from the run": "has no option 'scoring_window'",
@@ -104,7 +107,7 @@ def test_a_file_is_refused_only_for_a_named_reason_before_the_doctor(
     relative: Path, tmp_path: Path
 ) -> None:
     reason = _expected_reason(relative)
-    named = (PROJECT_ROOT, *(() if reason is None else (REASONS[reason],)))
+    named = (PROJECT_ROOT, OLD_CALIBRATION_FORM, *(() if reason is None else (REASONS[reason],)))
 
     errors = _errors_of(_copy_of(relative, tmp_path))
 

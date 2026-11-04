@@ -96,23 +96,37 @@ def convergence_rate(
     }
 
 
+MIN_TRIALS_FOR_A_CORRELATION = 6
+"""Below six points, independent values reach ``|r| >= 0.8`` more than one time in ten.
+
+Two points always give ``+1`` or ``-1``, and a margin can leave that few."""
+
+
 def parameter_correlation(
     iterations: Iterable[Mapping[str, Any]] | pd.DataFrame,
     parameters: Iterable[str] | None = None,
+    *,
+    below_cost: float | None = None,
 ) -> pd.DataFrame:
     """Pearson correlation matrix over calibrated parameter columns.
 
     When ``parameters`` is ``None``, all non-meta columns are used.
-    Traces with <2 rows yield an all-NaN square frame.
+    ``below_cost`` keeps the trials whose ``cost`` is at or under it. Over all
+    trials a coefficient describes the placement of the search, and it is zero by
+    construction on a grid. Over the trials that nearly match the best, it shows
+    a ridge. Too few trials (:data:`MIN_TRIALS_FOR_A_CORRELATION`) yield an
+    all-NaN square frame.
     """
     df = iterations_to_dataframe(iterations)
+    if below_cost is not None:
+        df = df[pd.to_numeric(df["cost"], errors="coerce") <= below_cost]
     if parameters is None:
         parameters = [c for c in df.columns if c not in _META_COLUMNS]
     names = [str(n) for n in parameters]
     if not names:
         return pd.DataFrame()
     sub = df.reindex(columns=names).apply(pd.to_numeric, errors="coerce")
-    if len(sub) < 2:
+    if len(sub) < MIN_TRIALS_FOR_A_CORRELATION:
         return pd.DataFrame(np.full((len(names), len(names)), np.nan), index=names, columns=names)
     return sub.corr(method="pearson")
 
@@ -125,6 +139,7 @@ def correlated_parameter_pairs(
     parameters: Iterable[str] | None = None,
     *,
     threshold: float = DEFAULT_CORRELATION_THRESHOLD,
+    below_cost: float | None = None,
 ) -> list[tuple[str, str, float]]:
     """Pairs whose correlation over the trace exceeds ``threshold``, worst first.
 
@@ -132,9 +147,10 @@ def correlated_parameter_pairs(
     about whether the data could tell two of them apart. A pair that moved
     together across the whole search to hold the same cost was not identified:
     the search stopped on a ridge and reported that point as a minimum. The sign
-    is kept because it says which way the trade-off went.
+    is kept because it says which way the trade-off went. ``below_cost`` is read
+    as in :func:`parameter_correlation`.
     """
-    matrix = parameter_correlation(iterations, parameters)
+    matrix = parameter_correlation(iterations, parameters, below_cost=below_cost)
     if matrix.empty:
         return []
     names = [str(n) for n in matrix.columns]

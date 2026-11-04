@@ -127,4 +127,12 @@ class TrialSandbox:
         return False
 
 
-__all__ = ["KEEP_ENV_VAR", "TrialSandbox", "keep_trial_scratch"]
+def sandbox_of(trial_ctx: Any, trial_id: int) -> TrialSandbox:
+    """Return the sandbox of one trial of a prepared context, whichever process asks."""
+    setup = getattr(getattr(trial_ctx, "ctx", None), "setup", None)
+    base_model_name = str(getattr(setup, "run_id", "") or "trial")
+    scratch_root = getattr(getattr(setup, "workspace", None), "solver_scratch_folder", None)
+    return TrialSandbox(base_model_name, trial_id, scratch_root=scratch_root)
+
+
+__all__ = ["KEEP_ENV_VAR", "TrialSandbox", "keep_trial_scratch", "sandbox_of"]

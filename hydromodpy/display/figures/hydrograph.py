@@ -9,7 +9,7 @@ from hydromodpy.core.units.labels import axis_label, station_label
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import LogY, Station, Variable
 from hydromodpy.display.figure_registry import register
-from hydromodpy.display.figures._scoring_window import shade_before_window
+from hydromodpy.display.figures._window import shade_before_window
 from hydromodpy.display.maps.axes import style_date_axis
 
 if TYPE_CHECKING:

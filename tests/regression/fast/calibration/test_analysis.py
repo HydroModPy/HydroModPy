@@ -9,7 +9,7 @@ for each runnable method, builds a synthetic iteration trace matching the
 2. :func:`hydromodpy.calibration.optim.diagnostics.convergence_rate` yields a finite
    improvement rate.
 3. Each of the five registered calibration figures (``calibration_convergence``,
-   ``calibration_trace``, ``calibration_landscape``, ``calibration_posterior``,
+   ``calibration_trace``, ``calibration_landscape``, ``calibration_trial_distribution``,
    ``calibration_pairplot``, ``calibration_objective_surface``) renders a PNG
    via its public ``plot()`` when given a ``Run``-shaped stub.
 """
@@ -52,7 +52,7 @@ FIGURE_NAMES = (
     "calibration_convergence",
     "calibration_trace",
     "calibration_landscape",
-    "calibration_posterior",
+    "calibration_trial_distribution",
     "calibration_pairplot",
     "calibration_objective_surface",
 )
@@ -231,7 +231,7 @@ def _check_landscape_figure(fig, arrays: dict[str, np.ndarray]) -> None:
 
 
 def _check_posterior_figure(fig, arrays: dict[str, np.ndarray]) -> None:
-    """calibration_posterior: one histogram per parameter, spanning its values."""
+    """calibration_trial_distribution: one histogram per parameter, spanning its values."""
     checked = 0
     for ax in fig.axes:
         key = ax.get_xlabel()
@@ -283,7 +283,7 @@ _FIGURE_CHECKS = {
     "calibration_convergence": _check_convergence_figure,
     "calibration_trace": _check_trace_figure,
     "calibration_landscape": _check_landscape_figure,
-    "calibration_posterior": _check_posterior_figure,
+    "calibration_trial_distribution": _check_posterior_figure,
     "calibration_pairplot": _check_pairplot_figure,
     "calibration_objective_surface": _check_objective_surface_figure,
 }

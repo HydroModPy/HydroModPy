@@ -23,13 +23,9 @@ as published.
 """
 
 
-def _kernels() -> dict[str, object]:
-    return dict(METRICS)
-
-
 def available_criteria() -> tuple[str, ...]:
     """Return every criterion name a TOML may write, sorted."""
-    return tuple(sorted(_kernels()))
+    return tuple(sorted(METRICS))
 
 
 def criterion_for(name: str) -> Criterion:
@@ -42,10 +38,9 @@ def criterion_for(name: str) -> Criterion:
     key = str(name).strip().lower()
     if key in NETWORK_ESTIMATORS:
         return HydrographicNetworkDistance(key)  # type: ignore[arg-type]
-    kernels = _kernels()
-    kernel = kernels.get(key)
+    kernel = METRICS.get(key)
     if kernel is None:
-        joined = ", ".join(sorted(kernels))
+        joined = ", ".join(sorted(METRICS))
         raise ValueError(f"Unknown criterion {name!r}. Registered: {joined}.")
     return SeriesCriterion(key, kernel)
 

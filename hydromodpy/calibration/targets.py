@@ -50,7 +50,9 @@ it is a map, not one number. Transport joins this list the day its solutes are
 calibrated the same way.
 """
 
-NAMED_BY_THEIR_FIELD: tuple[str, ...] = ("domain.depth_model",)
+VKA_PATH = "modflow6.process_specific.vka"
+
+NAMED_BY_THEIR_FIELD: tuple[str, ...] = ("domain.depth_model", "modflow6.process_specific")
 """Sections whose targets are named by their field alone.
 
 A project has one depth model, and its fields already say the quantity:
@@ -134,6 +136,9 @@ class CalibrationTarget:
             "instance": self.instance,
             "current": self.current,
             "units": self.units,
+            "search_space": None if self.calibrable is None else self.calibrable.search_space,
+            "sampling": None if self.calibrable is None else self.calibrable.sampling,
+            "default_bounds": None if self.calibrable is None else self.calibrable.bounds,
             "physical_bounds": list(self.physical_bounds) if self.physical_bounds else None,
             "registry_id": self.registry_id,
         }
@@ -147,6 +152,15 @@ def calibration_targets(config: Any) -> list[CalibrationTarget]:
         if node is None:
             continue
         _walk(node, prefix=section, instances=(), units=None, found=found)
+    # The one row the walk does not reach: an expert key of the solver section, yet a
+    # property of the aquifer. Only MODFLOW 6 reads it here, and a declared Kv sets the
+    # same conductivity, which the build refuses beside a non-unit ratio.
+    process = _section(config, VKA_PATH.rpartition(".")[0])
+    engine = getattr(getattr(config, "solver", None), "backend_name", None)
+    params = getattr(getattr(config, "flow", None), "param", None) or {}
+    if process is not None and engine == "modflow6" and "Kv" not in params:
+        annotation = declared_calibrable(type(process).model_fields["vka"])
+        found.append(_Found(VKA_PATH, (), float(process.vka), "-", annotation))
     found.sort(key=lambda item: item.path)
     return _named(found)
 
@@ -292,7 +306,7 @@ def _target(item: _Found, name: str) -> CalibrationTarget:
     """Return the target of one leaf the walk kept, under its settled name."""
     instance = item.instances[0] if item.instances else None
     leaf = item.path.rsplit(".", 1)[-1]
-    leaf_first = not _is_the_value_of_its_instance(item.calibrable)
+    leaf_first = item.calibrable is None or not item.calibrable.is_the_value_of_its_instance
     bounds = _physical_bounds_for(
         item.path, instance, leaf, leaf_first=leaf_first, units=_units_of(item)
     )
@@ -356,10 +370,6 @@ def _unit_the_leaf_is_read_in(node: BaseModel, declared: Calibrable | None) -> s
         if isinstance(named, str) and named.strip():
             return named.strip()
     return declared.units
-
-
-def _is_the_value_of_its_instance(calibrable: Calibrable | None) -> bool:
-    return bool(calibrable is not None and calibrable.is_the_value_of_its_instance)
 
 
 def _registry_id_for(

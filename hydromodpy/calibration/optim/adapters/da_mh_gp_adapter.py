@@ -21,7 +21,6 @@ from collections.abc import Sequence
 import numpy as np
 
 from hydromodpy.calibration.optim.optimizer import (
-    FAILED_EVAL_COST,
     EngineTraits,
     EvaluationResult,
     ParamSuggestion,
@@ -118,8 +117,9 @@ class DaMhGpOptimizer:
 
     # The log-likelihood is written for an RMSE: -0.5 * (cost / sigma_noise)**2.
     # The chain proposes its next point once the previous one is told, so a
-    # batch holds one trial.
-    traits = EngineTraits(reads_cost_as="rmse", supports_parallel=False)
+    # batch holds one trial. It samples a posterior, but its chain is neither
+    # persisted nor diagnosed, so the list of methods leaves it out.
+    traits = EngineTraits(reads_cost_as="rmse", supports_parallel=False, announced=False)
 
     def __init__(
         self,
@@ -386,10 +386,9 @@ class DaMhGpOptimizer:
                 continue
             self._trial_points[r.trial_id] = self._pending.pop(r.trial_id)
             self._results.append(r)
-            value = r.cost
-            if r.status != "completed" or not np.isfinite(value):
-                value = FAILED_EVAL_COST
-            self._bridge.feed(float(value))
+            # A failed trial is no likelihood value: NaN makes its log-score -inf, so
+            # the chain rejects the point and the surrogate never trains on it.
+            self._bridge.feed(r.cost if r.status == "completed" else float("nan"))
 
     def best(self) -> EvaluationResult | None:
         """Return the best state of the chain as an EvaluationResult.

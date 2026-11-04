@@ -67,14 +67,14 @@ def test_the_composite_file_shows_one_phase_with_two_shares(capsys) -> None:
     assert lines[0].startswith("0\tconductivity_and_storage\toptuna\t")
     # A share table {hydrograph = 0.7, network = 0.3}, the network gap normalized.
     assert lines[1] == (
-        f"    network\tdistance_gap\tshare 30%\trelease_flux (network)\tvs {GEOMETRY}"
+        f"    network\tdistance_mean\tshare 30%\trelease_flux (network)\tvs {GEOMETRY}"
     )
     assert lines[2] == (
         "    hydrograph\tnse_log\tshare 70%\tdischarge, station NANCON (whole-catchment "
         "series)\tvs station NANCON ([data.hydrometry])"
     )
-    # The file writes only the start: the window runs to the last paired sample.
-    assert lines[3] == "    scores on: window 2001-01-01 to the last paired sample"
+    # The file writes only the start: the end comes from the project's [metrics] window.
+    assert lines[3] == "    scores on: window 2001-01-01 to 2002-12-31"
     assert len(lines) == 4
 
 

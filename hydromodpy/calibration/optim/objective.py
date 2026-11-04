@@ -73,12 +73,6 @@ class Objective(Protocol):
 # Supports and return-type normalization
 # ---------------------------------------------------------------------------
 
-# Output supports whose values carry no time axis. A ``network`` output produces the
-# pair (D_so, D_os), two distances in meters, so nothing in it can be read as "the
-# first periods of the run". Compared as strings because this layer must not import
-# the config layer.
-TIMELESS_SUPPORTS: frozenset[str] = frozenset({"network"})
-
 
 def evaluate_objective(obj: Objective, sim: SimulationOutput) -> ObjectiveValue:
     """Normalize return types from user-defined Objective implementations."""
@@ -191,10 +185,7 @@ class CompositeObjective:
             raise ValueError("CompositeObjective requires at least one block")
 
         raw = np.asarray([w for _, w in parsed], dtype=float)
-        total_w = float(raw.sum())
-        if total_w <= 0.0:
-            raise ValueError("CompositeObjective requires a strictly positive total weight")
-        normalized = raw / total_w
+        normalized = raw / float(raw.sum())
 
         self.name = str(name)
         self._blocks: tuple[tuple[Objective, float, float], ...] = tuple(
@@ -208,11 +199,6 @@ class CompositeObjective:
     def blocks(self) -> tuple[tuple[Objective, float], ...]:
         """Return blocks with their *normalized* weights (sum to 1.0)."""
         return tuple((obj, norm_w) for obj, _raw, norm_w in self._blocks)
-
-    @property
-    def raw_weights(self) -> tuple[float, ...]:
-        """Return weights as supplied (before normalization)."""
-        return tuple(raw_w for _obj, raw_w, _norm in self._blocks)
 
     @property
     def cost_transform(self) -> str:
@@ -396,9 +382,6 @@ class ConfigBlockObjective:
     (``Mapping[output_name, Sequence[float]]``), computes the block metric
     and applies the configured normalization and cost transform.
 
-    ``timeless_outputs`` names the outputs whose values carry no time axis, on
-    which a burn-in in samples is refused rather than applied.
-
     ``distance_scales`` gives, per network output, the validity length of each
     distance it produces. A block that normalizes a network distance divides
     each distance by its own length before the criterion reads them, so the
@@ -414,8 +397,6 @@ class ConfigBlockObjective:
         observed_by_output: Mapping[str, Iterable[float]],
         normalize_cost: bool = False,
         cost_transform: str = "identity",
-        warmup: int = 0,
-        timeless_outputs: Iterable[str] = (),
         distance_scales: Mapping[str, Sequence[float]] | None = None,
     ) -> None:
         from hydromodpy.calibration.criteria import criterion_for
@@ -452,20 +433,6 @@ class ConfigBlockObjective:
         self._outputs = outputs
         self._observed = observed
         self._observed_parts = observed_parts
-        self._warmup = max(0, int(warmup))
-        # A burn-in counts samples along a time axis. A network output carries none:
-        # it produces the pair (D_so, D_os), two distances in meters. Truncating it
-        # empties the pair and the block returns inf, which a staged run only ever
-        # shows as a phase that did not converge. Refusing here, at build time and by
-        # name, is the one behavior that cannot return a wrong number: skipping the
-        # truncation in silence would score a block the user believes is burnt in.
-        timeless = sorted(set(outputs) & {str(item) for item in timeless_outputs})
-        if self._warmup > 0 and timeless:
-            raise ValueError(
-                f"Block {self.name!r}: warmup={self._warmup} cannot be dropped from "
-                f"output(s) {timeless}, which carry no time axis. Declare warmup = 0 on "
-                "this block to keep the calibration-wide burn-in for the others."
-            )
         if normalize_cost:
             refuse_a_normalisation_that_means_nothing(self.name, metric_key)
         self._normalize_cost = bool(normalize_cost)
@@ -607,22 +574,10 @@ class ConfigBlockObjective:
                     components={f"{self.name}.missing": 1.0},
                 )
             simulated_parts.append(np.asarray(list(part), dtype=float).ravel())
-        # Burn-in: drop the first _warmup periods of EACH output before concatenation, so the
-        # spin-up window (state still depending on the initial condition) does not enter the
-        # metric. Slicing per output keeps every series' own leading periods aligned. Outputs
-        # with no time axis never reach here with a burn-in: __init__ refuses that pairing.
-        if self._warmup > 0:
-            scored_parts = [part[self._warmup :] for part in simulated_parts]
-            observed_parts = [part[self._warmup :] for part in self._observed_parts]
-            if times_parts is not None:
-                times_parts = [part[self._warmup :] for part in times_parts]
-            simulated = np.concatenate(scored_parts)
-            observed = np.concatenate(observed_parts)
-        else:
-            scored_parts = simulated_parts
-            observed_parts = list(self._observed_parts)
-            simulated = np.concatenate(simulated_parts) if simulated_parts else np.empty(0)
-            observed = self._observed
+        scored_parts = simulated_parts
+        observed_parts = list(self._observed_parts)
+        simulated = np.concatenate(simulated_parts) if simulated_parts else np.empty(0)
+        observed = self._observed
         if simulated.size == 0:
             return ObjectiveValue(total=float("inf"), components={})
         if self._scores_a_criterion:
@@ -637,20 +592,18 @@ class ConfigBlockObjective:
             # while the metric scores the second output's first ten values
             # against the first one's last ten.
             #
-            # Placed here, and on the post-burn-in lengths, for two reasons:
-            # these are the vectors the metric actually receives, and the two
-            # early returns above keep the trials they used to reject softly.
-            # A trial the optimizer steps over must not become an exception:
-            # its only production caller turns one into an aborted run.
+            # Placed here, after the two early returns above, which keep the
+            # trials they used to reject softly. A trial the optimizer steps
+            # over must not become an exception: its only production caller
+            # turns one into an aborted run.
             for name, scored_part, observed_part in zip(
                 self._outputs, scored_parts, observed_parts, strict=True
             ):
                 if scored_part.size != observed_part.size:
-                    burn_in = f", after a burn-in of {self._warmup}" if self._warmup else ""
                     raise ValueError(
                         f"Block {self.name!r}: output {name!r}: simulated length "
                         f"{scored_part.size} does not match observed length "
-                        f"{observed_part.size}{burn_in}"
+                        f"{observed_part.size}"
                     )
             if self._metric in SAMPLED_BY_DATE:
                 times_days = None
@@ -728,20 +681,12 @@ def build_objective_from_config(
             "or populate cfg.outputs so the implicit block can be synthesised."
         )
     declared_observed: dict[str, tuple[float, ...]] = {}
-    timeless_outputs: set[str] = set()
     for output_name, decl in outputs.items():
         values = getattr(decl, "observed_values", None)
         if values is not None:
             declared_observed[str(output_name)] = tuple(float(v) for v in values)
-        if getattr(decl, "support", None) in TIMELESS_SUPPORTS:
-            timeless_outputs.add(str(output_name))
     for output_name, values in (observed_by_output or {}).items():
         declared_observed[str(output_name)] = tuple(float(v) for v in values)
-    # Burn-in periods excluded from every block's metric (spin-up window). A block
-    # overrides the calibration-wide default with its own ``warmup``; the test is on
-    # ``is None`` and not on truthiness, otherwise ``warmup = 0`` would fall back to
-    # the default and a block could never switch the burn-in off.
-    default_warmup = int(getattr(cfg, "warmup_periods", 0) or 0)
     block_objectives: list[Objective] = []
     for block in blocks:
         name = str(block.name)
@@ -749,8 +694,6 @@ def build_objective_from_config(
         metric = str(getattr(block, "metric", "rmse"))
         normalize_cost = bool(getattr(block, "normalize_cost", False))
         cost_transform = str(getattr(block, "cost_transform", "identity"))
-        block_warmup = getattr(block, "warmup", None)
-        warmup = default_warmup if block_warmup is None else int(block_warmup)
         block_objectives.append(
             ConfigBlockObjective(
                 name=name,
@@ -759,8 +702,6 @@ def build_objective_from_config(
                 observed_by_output=declared_observed,
                 normalize_cost=normalize_cost,
                 cost_transform=cost_transform,
-                warmup=warmup,
-                timeless_outputs=timeless_outputs,
                 distance_scales=distance_scales,
             )
         )
@@ -781,7 +722,6 @@ __all__ = [
     "CompositeObjective",
     "ConfigBlockObjective",
     "build_objective_from_config",
-    "TIMELESS_SUPPORTS",
     "refuse_a_normalisation_that_means_nothing",
     "non_finite_diagnosis",
     "evaluate_objective",

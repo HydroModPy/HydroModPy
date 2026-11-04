@@ -22,6 +22,7 @@ from tests._helpers.run_stores import open_run_store
 class _Loaded:
     runoff: object | None = None
     precipitation: object | None = None
+    recharge: object | None = None
 
 
 def _runoff_field_record(
@@ -131,3 +132,25 @@ def test_a_refused_reduction_stops_the_persist_step(tmp_path):
     with open_run_store(tmp_path / "ws", n_cells=4, n_timesteps=3) as catalog:
         with pytest.raises(DataContractViolation, match="no valid pixel in time step 1"):
             step_persist_forcings(_ctx(catalog.sim_id, loaded), store=catalog)
+
+
+@pytest.mark.parametrize(("factor", "means"), [(1.0, [1.5, 5.5, 9.5]), (2.0, [3.0, 11.0, 19.0])])
+def test_the_run_keeps_the_recharge_it_solved(tmp_path, factor, means):
+    times = pd.date_range("2020-01-01", periods=3, freq="D")
+    frames = np.arange(12, dtype="float64").reshape(3, 2, 2)
+    record = _runoff_field_record(frames, times, variable="recharge")
+    loaded = _Loaded(recharge=LoadResult(fields=[record]))
+    declared = SimpleNamespace(recharge=SimpleNamespace(factor=factor))
+    cfg = SimpleNamespace(flow=SimpleNamespace(sinks_sources=declared))
+
+    with open_run_store(tmp_path / "ws", n_cells=4, n_timesteps=3) as catalog:
+        sid = catalog.sim_id
+        ctx = SimpleNamespace(sim_id=sid, loaded_data=loaded, cfg=cfg)
+        step_persist_forcings(ctx, store=catalog)
+
+        sz = catalog.open_zarr(sid)
+        try:
+            station = sz.root["forcing"]["recharge"]["catchment"]
+            np.testing.assert_allclose(station["values"][:], means)
+        finally:
+            sz.close()

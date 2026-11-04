@@ -109,6 +109,8 @@ INLINE_ROWS: frozenset[str] = frozenset(
         "k_k_true_k_true_at_the_returned_trial",
         "twin_stream_network_calibration_under_heads_mf6__d_optim_at_the_returned_trial",
         "twin_stream_network_calibration_under_heads_mf6__d_sat_m_of_the_returned_trial_over_the_truth_run",
+        "twin_k_and_sy_on_two_maps_mf6_comb_basin_monthly_recharge_truth_k_6e_6_and_sy_0_05__"
+        "j_on_each_map_at_the_true_k_for_sy_from_0_025_to_0_1",
         "twin_stream_network_calibration_mf6__k_optim_m_s_k_over_r_t_over_r_m_t_optim_m2_s_"
         "against_k_r_mean_m_s_and_d_sat_m_of_the_returned_trial",
         # Soil reservoir kernel, asserted in tests/unit/physics/.
@@ -142,7 +144,7 @@ INLINE_ROWS: frozenset[str] = frozenset(
         "mesh_characterization_net__probe_cell_center_offset_absolute_floor",
         # Mesh engine conformance suite, tests/contract/test_mesh_engine_contract.py.
         # Session cost against the score of its run (decision m01), asserted in
-        # tests/unit/calibration/test_the_session_cost_is_the_score_of_its_run.py.
+        # tests/unit/calibration/test_criteria_series.py.
         "session_cost_against_run_score__gap_of_1_cost_to_the_run_nse",
         "mesh_engine_conformance__sum_of_the_cell_areas_against_the_area_to_cover_relative",
         "mesh_engine_conformance__exact_faces_to_their_source_lines_hausdorff_distance_as_a_share_of_the_extent",
@@ -259,7 +261,7 @@ def test_classification_partitions_all_loadable_rows() -> None:
     """INLINE, CASE_TOML and UNUSED partition exactly the loadable rows."""
     classified = INLINE_ROWS | CASE_TOML_ROWS | UNUSED_ROWS
     loadable = set(TOLERANCES)
-    assert len(loadable) == 85, sorted(loadable)
+    assert len(loadable) == 86, sorted(loadable)
     missing = loadable - classified
     extra = classified - loadable
     assert not missing, f"loadable rows with no classification: {sorted(missing)}"

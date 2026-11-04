@@ -4,8 +4,8 @@
 # A dark image is the same figure drawn with [display] preset = "dark".
 
 [meta]
-generated = "2026-10-09"
-hydromodpy = "2.0.0a4"
+generated = "2026-11-04"
+hydromodpy = "2.0.0rc1"
 example = "04"
 script = "tools/docs/figures/render_ex04_figures.py"
 budget_bytes = 153600
@@ -1082,6 +1082,34 @@ options = { time = "2002-10-15" }
 width = 1665
 height = 767
 bytes = 60978
+
+[[figure]]
+name = "matching_hydrographic_network_card"
+path = "docs/source/_static/figures/calibrate/matching_hydrographic_network_card-dark.webp"
+kind = "calibrate"
+theme = "dark"
+run = "nancon_intermittence_mf6_calibrated"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml --set display.preset=dark"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated matching_hydrographic_network_card --opt show_run_name=false"
+pages = ["get-started/calibrate-k.md"]
+width = 1742
+height = 1142
+bytes = 54166
+
+[[figure]]
+name = "matching_hydrographic_network_card"
+path = "docs/source/_static/figures/calibrate/matching_hydrographic_network_card.webp"
+kind = "calibrate"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated matching_hydrographic_network_card --opt show_run_name=false"
+pages = ["get-started/calibrate-k.md"]
+width = 1742
+height = 1142
+bytes = 56420
 
 [[figure]]
 name = "conditioning_impact_map"

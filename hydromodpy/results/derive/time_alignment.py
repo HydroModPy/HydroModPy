@@ -146,7 +146,7 @@ def observed_on_simulation_index(
 
     A caller aligning a FORCING rather than an observation chronicle should
     call ``period_mean_on_index`` itself, the way
-    :func:`hydromodpy.calibration.metrics.series.add_runoff_to_discharge` does:
+    :func:`hydromodpy.core.time.period_aggregation.runoff_m3_s_on_index` does:
     a forcing that misses a period is a gap, not the previous value.
     """
     obs = normalize_datetime_series(observed).dropna()

@@ -6,14 +6,19 @@ sampler state natively via its ``ask()`` / ``tell()`` API.
 
 from __future__ import annotations
 
+import warnings
+from typing import Literal
+
 import optuna
 
 from hydromodpy.calibration.optim.optimizer import (
+    EngineTraits,
     EvaluationResult,
     ParamSuggestion,
+    best_completed,
     register_optimizer,
 )
-from hydromodpy.calibration.optim.parameters import ParameterSpace
+from hydromodpy.calibration.optim.parameters import ParameterSpace, refuse_normal_sampling
 
 _SAMPLERS = {
     "tpe": optuna.samplers.TPESampler,
@@ -28,6 +33,7 @@ class OptunaAdapter:
     """Drive an Optuna study via ask/tell."""
 
     name = "optuna"
+    traits = EngineTraits(draws_a_normal=False, takes_width=True)
 
     def __init__(
         self,
@@ -35,17 +41,24 @@ class OptunaAdapter:
         *,
         sampler: str = "tpe",
         seed: int | None = None,
-        direction: str = "minimize",
+        direction: Literal["minimize"] = "minimize",
+        width: int = 1,
     ):
         if sampler not in _SAMPLERS:
             raise ValueError(f"Unknown Optuna sampler {sampler!r}. Choices: {sorted(_SAMPLERS)}")
+        for param in space.parameters:
+            refuse_normal_sampling("optuna", param.name, param.sampling)
         self.space = space
         sampler_cls = _SAMPLERS[sampler]
         sampler_kwargs = {"seed": seed} if seed is not None else {}
-        try:
+        if sampler == "tpe" and width > 1:
+            # The trials of a batch are asked before any is told. Counting the ones in
+            # flight as the worst so far keeps the next points from landing on them.
+            # Measured on analytic costs: neutral at a width of 2, better from 4.
+            sampler_kwargs["constant_liar"] = True
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", optuna.exceptions.ExperimentalWarning)
             sampler_obj = sampler_cls(**sampler_kwargs)
-        except TypeError:
-            sampler_obj = sampler_cls()
         # Silence optuna's INFO chatter unless user overrides externally.
         optuna.logging.set_verbosity(optuna.logging.WARNING)
         self._study = optuna.create_study(sampler=sampler_obj, direction=direction)
@@ -86,10 +99,7 @@ class OptunaAdapter:
             self._history.append(r)
 
     def best(self) -> EvaluationResult | None:
-        valid = [r for r in self._history if r.status == "completed"]
-        if not valid:
-            return None
-        return min(valid, key=lambda r: r.cost)
+        return best_completed(self._history)
 
     def converged(self) -> bool:
         # Optuna has no natural convergence - budget is driven by the engine.

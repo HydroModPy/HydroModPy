@@ -65,7 +65,7 @@ la racine du dépôt.
 
 **Le burn du linéaire a été retiré le 5 octobre 2026.** Le linéaire n'entre plus
 dans la surface de routage : le critère le prend par ses têtes
-(`observed_rasterization = "heads"`, le défaut) et le désaccord entre le MNT et
+(`map.drawn_by = "heads"`, le défaut) et le désaccord entre le MNT et
 la carte se lit sur alpha, un diagnostic de l'étape géographique. Le bassin et
 le réseau SFR changent donc légèrement, et il faut recaler aussi après cette
 suppression. `calibrated_best.toml` a été fait sur le MNT burné : il ne rejoue
@@ -74,7 +74,7 @@ plus ce calage.
 Trois écarts connus avec la méthode publiée, à traiter ensuite :
 
 - `r_optim` vaut 3,93 à 12,01 pour une borne de 2 dans le papier, et la config
-  pose `on_roptim_violation = "warn"` : l'étage 1 rend un nombre hors de son
+  pose `verdict.on_invalid = "warn"` : l'étage 1 rend un nombre hors de son
   domaine de validité ;
 - le modèle tourne à **une couche**, le papier en utilize six ;
 - la cible de densité de drainage est 2,1 fois plus lâche que celle du papier

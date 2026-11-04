@@ -73,8 +73,10 @@ and a row or a column outside the grid is refused with the name of the output. A
 file is used as it is.
 
 Only the dated pairs inside the scoring window enter $c_b$.
-{toml}`calibration.scoring_window` names the first and last dates that count, so the
+{toml}`calibration.window` names the first and last dates that count, so the
 spin-up of the model stays out of the cost at any time step.
+{toml}`calibration.validation_window` keeps other dates apart. Each trial is scored on them
+with the same blocks, on the series it has already simulated, and $c_b$ never reads them.
 
 ## The metrics
 
@@ -114,8 +116,8 @@ $$
 \qquad w_{\min} + w_{\max} = 1,
 $$
 
-with the weights {toml}`calibration.outputs.<name>.extent.weights.minimal` and
-{toml}`calibration.outputs.<name>.extent.weights.maximal`.
+with the weights $w_{\min}$ and $w_{\max}$ of the permanent and the complete map, written in
+{toml}`calibration.outputs.<name>.map.calibrate_on`.
 
 What the root identifies is the ratio of the conductivity to the recharge, not $K$ alone,
 as long as the drains take their conductance from $K$. The argument is in
@@ -135,7 +137,8 @@ otherwise.
 ## The score of `da_mh_gp`
 
 `da_mh_gp` is a sequential search: a Metropolis-Hastings chain that spends its runs around the
-low-cost region. It reads the cost of each trial as an $\mathrm{RMSE}$ and builds the log-score
+low-cost region. It is not in the list of methods above, because its chain is neither stored
+nor diagnosed, but it runs when a file names it. It reads the cost of each trial as an $\mathrm{RMSE}$ and builds the log-score
 
 $$
 \ln \pi(y) = -\frac{1}{2}\left(\frac{\mathrm{RMSE}(\theta)}{\sigma_n}\right)^2 + \ln p(y) + \text{const},

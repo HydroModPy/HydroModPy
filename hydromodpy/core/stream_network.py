@@ -67,8 +67,8 @@ def specific_seepage_threshold(
     The threshold is a *specific* flux, not a discharge: on a mesh with cells
     of different sizes a fixed m3/s cut would be nine times harsher on a cell
     three times smaller, and the network would follow the refinement rather
-    than the physics. Reading: a cell releasing less than ``ratio`` of its own
-    recharge is not a seepage face. ``ratio = 0`` reproduces the purely
+    than the physics. Reading: a cell releasing less than ``ratio`` times the mean basin
+    recharge over its own area is not a seepage face. ``ratio = 0`` reproduces the purely
     geometric criterion of the paper, which gives no threshold at all.
     """
     area = np.asarray(cell_area_m2, dtype=float).reshape(-1)

@@ -14,6 +14,8 @@ References
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 
 LOG_FLOOR_FRACTION = 0.01
@@ -151,11 +153,20 @@ def kge(sim, obs) -> dict[str, float]:
     """
     s, o = align(sim, obs)
     nan = float("nan")
+    reason = None
     if s.size < 2:
-        return {"kge": nan, "r": nan, "alpha": nan, "beta": nan}
-    std_o = float(np.std(o, ddof=0))
-    sum_o = float(np.sum(o))
-    if std_o == 0 or sum_o == 0:
+        reason = "fewer than 2 paired samples"
+    else:
+        std_o = float(np.std(o, ddof=0))
+        sum_o = float(np.sum(o))
+        if std_o == 0:
+            reason = "the observations are constant, so alpha divides by zero"
+        elif sum_o == 0:
+            reason = "the observations sum to zero, so beta divides by zero"
+        elif float(np.std(s, ddof=0)) == 0:
+            reason = "the simulation is constant, so r is undefined"
+    if reason is not None:
+        warnings.warn(f"kge is NaN: {reason}.", UserWarning, stacklevel=2)
         return {"kge": nan, "r": nan, "alpha": nan, "beta": nan}
     r = float(np.corrcoef(s, o)[0, 1])
     alpha = float(np.std(s, ddof=0) / std_o)
@@ -322,7 +333,15 @@ def nse_seasonal(sim: np.ndarray, obs: np.ndarray, *, period: float = 365, times
     are fitted out of phase past the gap.
     """
     sim, obs, t = _align_on_time(sim, obs, times)
-    if sim.size == 0 or sim.size < 2 * int(period):
+    if sim.size == 0:
+        return float("nan")
+    if sim.size < 2 * int(period):
+        warnings.warn(
+            f"nse_seasonal is NaN: it fits two harmonics and needs two cycles, "
+            f"{2 * int(period)} samples, and the series holds {sim.size}.",
+            UserWarning,
+            stacklevel=2,
+        )
         return float("nan")
     angle = 2.0 * np.pi * (t - t[0]) / float(period)
     design = np.column_stack(

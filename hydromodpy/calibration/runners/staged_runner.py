@@ -70,7 +70,6 @@ from hydromodpy.calibration.optim.parameters import (
     apply_parameter_to_config,
 )
 from hydromodpy.calibration.optim.sampling import search_space_center
-from hydromodpy.calibration.optim.stopping import settled
 from hydromodpy.calibration.persistence import (
     CalibrationPersistence,
     PhaseContext,
@@ -89,18 +88,19 @@ from hydromodpy.calibration.report import (
 )
 from hydromodpy.calibration.runners.cli_runner import (
     SessionScope,
-    _keep_trial_solves,
-    _release_session_scratch,
-    _release_trial_solves,
+    answered_best,
     attach_a_linearized_width,
     closing_session,
     declared_window_text,
-    load_toml_calibration,
+    keep_trial_solves,
+    load_calibration_document,
     open_calibration_session,
+    parameter_widths,
     promote_and_close,
     refuse_a_phase_another_cost_scored,
     refuse_an_objective_that_is_not_an_entry_point,
-    run_calibration_core,
+    release_session_scratch,
+    release_trial_solves,
     run_one_search,
     session_cost_name,
     session_status_of,
@@ -108,8 +108,8 @@ from hydromodpy.calibration.runners.cli_runner import (
 from hydromodpy.calibration.runners.phase_regime import phase_overrides, regime_overrides
 from hydromodpy.calibration.runners.prepared_model import check_the_prepared_model
 from hydromodpy.calibration.runners.promotion import promote_phase_best, promotion_name_check
-from hydromodpy.calibration.runners.recap import cost_metric_label, scored_samples, write_methods
-from hydromodpy.calibration.runners.restarts import RestartSpread
+from hydromodpy.calibration.runners.recap import cost_metric_label, write_methods
+from hydromodpy.calibration.runners.restarts import RestartSpread, unsettled_search
 from hydromodpy.calibration.runners.resume import (
     best_parameters_of,
     completed_phases,
@@ -117,7 +117,6 @@ from hydromodpy.calibration.runners.resume import (
     reusable_stage,
 )
 from hydromodpy.calibration.runners.session import (
-    calibration_case_name,
     latest_session_dir,
     project_root_for,
     search_windows,
@@ -146,18 +145,6 @@ logger = get_logger(__name__)
 # ---------------------------------------------------------------------------
 # Phase configuration
 # ---------------------------------------------------------------------------
-
-
-def _seed_of(cfg: CalibrationConfig) -> int:
-    return 0 if cfg.seed is None else int(cfg.seed)
-
-
-def _declared_restarts(cfg: CalibrationConfig) -> int | None:
-    """Return how many times a phase repeats its search, or None for one pass."""
-    uncertainty = getattr(cfg, "uncertainty", None)
-    if uncertainty is None or getattr(uncertainty, "method", None) != "multistart":
-        return None
-    return int(uncertainty.restarts)
 
 
 def _phase_config(cfg: CalibrationConfig, decl: CalibPhaseDecl) -> CalibrationConfig:
@@ -204,10 +191,10 @@ def _phase_config(cfg: CalibrationConfig, decl: CalibPhaseDecl) -> CalibrationCo
         payload["variable"] = decl.variable
     if decl.objective is not None:
         payload["objective"] = decl.objective
-    if decl.observed_station_id is not None:
-        payload["observed_station_id"] = decl.observed_station_id
-    if decl.scoring_window is not None:
-        payload["scoring_window"] = decl.scoring_window.model_dump()
+    if decl.window is not None:
+        payload["window"] = decl.window.model_dump()
+    if not cfg.validation_scored_by(decl):
+        payload.pop("validation_window", None)
     problems = cfg.phase_bounds_problems(decl)
     if problems:
         raise ConfigValidationError(problems[0])
@@ -454,8 +441,9 @@ def _settled(report: CalibrationReport) -> bool:
 
     Settled, not quality: a coarse agreement still returns a number. What
     disqualifies a phase is having no best candidate at all, a best cost that
-    is the failed-evaluation sentinel, or a search that spent its budget before
-    a stopping rule of its own was met
+    is the failed-evaluation sentinel, a root closed outside the declared bounds
+    (a bound is not a solved value, as for ``resume.completed_phases``), or a
+    search that spent its budget before a stopping rule of its own was met
     (:func:`~hydromodpy.calibration.optim.stopping.settled`). A root search may
     have been granted, once, the exact halvings it still needed; no other
     engine gets an extension. That last candidate is wherever the budget ended,
@@ -465,7 +453,7 @@ def _settled(report: CalibrationReport) -> bool:
     """
     if report.best_parameters is None or report.best_cost is None:
         return False
-    if _unsettled_search(report) is not None:
+    if "root_outside_bounds" in report.extra or unsettled_search(report) is not None:
         return False
     return math.isfinite(report.best_cost) and report.best_cost < FAILED_EVAL_COST
 
@@ -476,22 +464,15 @@ def _froze_budget_only(report: CalibrationReport) -> bool:
     return isinstance(search, Mapping) and search.get("stop_state") == "budget_spent"
 
 
-def _unsettled_search(report: CalibrationReport) -> Mapping[str, Any] | None:
-    """Return the report's search record when it says the search did not settle, else None.
-
-    The record is ``extra["search"]``, written by the runner that solved the
-    phase. A report without one (a phase reused from disk) is judged on its
-    best candidate alone.
-    """
-    search = report.extra.get("search")
-    if isinstance(search, Mapping) and not settled(search["stop_state"], search["stopping_rule"]):
-        return search
-    return None
-
-
 def _why_unsettled(report: CalibrationReport) -> str:
     """Say why a phase produced nothing to freeze, in the terms a user can act on."""
-    search = _unsettled_search(report)
+    if outside := report.extra.get("root_outside_bounds"):
+        return (
+            f"{outside}. The value is where the search stopped, not a solved value, so "
+            "it is not passed on. Widen the declared bounds, or check that the residual "
+            "responds to the parameter"
+        )
+    search = unsettled_search(report)
     if search is None:
         return (
             f"its session {report.session_id} produced no result over {report.n_trials} "
@@ -1041,11 +1022,7 @@ def _observed_source(output: CalibOutputDecl) -> str:
         section = DATA_FAMILY_SECTION.get(family) if family else None
         return f"station {observes} ([data.{section}])" if section else f"station {observes}"
     if str(getattr(output, "support", "")) == "network":
-        geometry = getattr(output, "stream_geometry_path", None)
-        if geometry is not None:
-            return str(geometry)
-        network = getattr(output, "observed_network", None)
-        return str(network) if network is not None else "no source declared"
+        return str(output.map.complete)
     values = getattr(output, "observed_values", None)
     if values is not None:
         return f"{len(values)} value(s) written in the file"
@@ -1070,11 +1047,10 @@ def _single_metric_row(cfg: CalibrationConfig, phase: CalibPhaseDecl | None) -> 
     """Return the one row of the single-metric route: 'variable' scored by 'objective'."""
     variable = str((phase.variable if phase is not None else None) or cfg.variable)
     objective = str((phase.objective if phase is not None else None) or cfg.objective)
-    station = (phase.observed_station_id if phase is not None else None) or cfg.observed_station_id
     family = OBSERVED_FAMILY_BY_VARIABLE.get(variable)
     section = DATA_FAMILY_SECTION.get(family) if family else None
     where = f"[data.{section}]" if section else "the loaded records"
-    source = f"station {station} ({where})" if station else f"every loaded station ({where})"
+    source = f"the station [site] gauge names, else every loaded station ({where})"
     return {
         "block": None,
         "metric": objective,
@@ -1099,7 +1075,7 @@ def objective_comparison_table(
 
     Reads declarations only, no project data: this is what lets
     ``--list-phases`` build it without the data on disk, and is why
-    ``--check`` can show it for a plain calibration's one search, which
+    ``hmp config check`` can show it for a plain calibration's one search, which
     ``--list-phases`` has no phase to attach it to.
     """
     single_metric = phase.is_single_metric if phase is not None else not cfg.objective_blocks
@@ -1155,7 +1131,7 @@ def phase_summaries(cfg: CalibrationConfig | None) -> list[dict[str, Any]]:
 
     ``comparisons`` is :func:`objective_comparison_table` for that phase: what
     each of its blocks, or its single metric, compares with what.
-    ``scoring_window`` says in words the window the phase scores on.
+    ``window`` says in words the window the phase scores on.
     """
     rows: list[dict[str, Any]] = []
     passed_by: dict[str, str] = {}
@@ -1189,7 +1165,7 @@ def phase_summaries(cfg: CalibrationConfig | None) -> list[dict[str, Any]]:
         row["search"] = _search_rows(cfg, decl, method)
         row["interval_width"] = cfg.interval_width_for(decl).to_dict()
         row["comparisons"] = objective_comparison_table(cfg, decl)
-        row["scoring_window"] = declared_window_text(cfg, decl)
+        row["window"] = declared_window_text(cfg, decl)
         rows.append(row)
         if decl.freeze_on_success:
             passed_by.update({written_at(name): decl.name for name in decl.parameters})
@@ -1240,14 +1216,12 @@ def run_staged_calibration(
         Reopen the latest session of the case. A phase that completed there
         with the same fingerprint is read back instead of solved; the cut
         phase is solved again with its trials preloading the cache.
+
+    ``objective`` is refused by the decorator, before the reuse branch and not
+    inside the search: a run that reuses every phase from disk never reaches the
+    consumer, and the value travels into the reuse fingerprint either way.
     """
-    # Before the reuse branch, not inside the search: a run that reuses every
-    # phase from disk never reaches the consumer, and the value travels into
-    # the reuse fingerprint either way.
-    refuse_an_objective_that_is_not_an_entry_point(objective)
-    cfg_path = Path(config_path).expanduser().resolve()
-    project_root = project_root_for(cfg_path, workspace)
-    cfg, raw = load_toml_calibration(cfg_path)
+    cfg_path, project_root, cfg, raw, case = load_calibration_document(config_path, workspace)
     if not evaluation_registry.needs_prepared_model(cfg.evaluator):
         # A staged calibration freezes a phase's result into the configuration
         # the next phase runs with, and that configuration is the pipeline's.
@@ -1263,7 +1237,6 @@ def run_staged_calibration(
         )
     plans = _phase_plans(cfg, _phases_to_run(cfg, phase), raw)
     declared = space_from_config(cfg)
-    case = calibration_case_name(cfg_path)
     promotion_name_check(case)
     reopen = resume or phase is not None
     persistence: CalibrationPersistence | None = None
@@ -1415,7 +1388,7 @@ def run_staged_calibration(
                     list(decl.parameters),
                 )
                 passed_start = _passed_start(decl.name, phase_cfg.method, space, reopened_values)
-                _keep_trial_solves(phase_cfg, trial_ctx)
+                keep_trial_solves(phase_cfg, trial_ctx)
                 report, spread = run_one_search(
                     phase_cfg,
                     trial_ctx,
@@ -1428,7 +1401,7 @@ def run_staged_calibration(
                     phase=context,
                     passed_start=passed_start,
                     interval_width=plan.width,
-                    core=run_calibration_core,
+                    balanced=decl.balanced_evaluation,
                 )
                 restart_spreads.extend(spread)
                 report = _attach_linearized_width(
@@ -1440,28 +1413,22 @@ def run_staged_calibration(
                     frozen=held,
                 )
                 froze = _frozen_by(decl, report, declared)
-                stop_note = FROZE_BUDGET_ONLY if froze and _froze_budget_only(report) else None
+                stop_note = report.extra.get("root_outside_bounds") or (
+                    FROZE_BUDGET_ONLY if froze and _froze_budget_only(report) else None
+                )
                 status = str(report.extra.get("search_status", "completed"))
                 search = report.extra.get("search") or {}
-                # What the search answered with is what the phase passes on, which a
-                # tie on the cost can set apart from the lowest cost of the journal.
-                best_line = persistence.answered_trial(
-                    report.best_trial, decl.name
-                ) or persistence.best_trial(decl.name)
-                pointer = persistence.best_pointer(best_line)
+                # What the search answered with is what the phase passes on.
+                pointer, scored = answered_best(persistence, report, decl.name)
                 closed = persistence.finish_phase(
                     decl.name,
                     status=status,
                     best=pointer,
-                    scored=scored_samples(
-                        None
-                        if best_line is None
-                        else best_line.cases[persistence.case_id].components,
-                        case_id=persistence.case_id,
-                    ),
+                    scored=scored,
                     stop_state=search.get("stop_state"),
                     stopping_rule=search.get("stopping_rule"),
                     stop_note=stop_note,
+                    widths=parameter_widths(report, spread),
                 )
                 report = replace(
                     report,
@@ -1476,10 +1443,11 @@ def run_staged_calibration(
                         persistence=persistence,
                         phase=decl.name,
                         override_paths=resolve_override_paths(phase_cfg),
+                        outputs=phase_cfg.outputs,
                     )
                 if position < len(plans) - 1:
-                    _release_trial_solves(trial_ctx)
-                    _release_session_scratch(trial_ctx)
+                    release_trial_solves(trial_ctx)
+                    release_session_scratch(trial_ctx)
 
             _require_result_for_dependents(decl, report, plans[position + 1 :])
             frozen.extend(froze)
@@ -1526,15 +1494,12 @@ def run_staged_calibration(
             report=last_report,
             phase=last_decl.name,
             status=session_status,
-            root_search={
-                key: last_report.extra[key]
-                for key in ("bracket", "roots")
-                if key in last_report.extra
-            },
             stop_note="; ".join(
                 f"phase {run.name} {run.stop_note}" for run in runs if run.stop_note
             )
             or None,
+            # A later phase wins for a value two phases calibrated.
+            widths=persistence.phase_widths(),
         )
         runs[-1] = replace(runs[-1], report=final)
         if final.extra.get("promotion_failures"):

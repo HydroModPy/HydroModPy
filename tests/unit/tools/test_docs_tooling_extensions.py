@@ -76,9 +76,10 @@ def renamed_nodes() -> dict:
 
 def test_every_rename_the_loader_still_reads_is_classified(renamed_nodes: dict) -> None:
     accepted = legacy_keys.accepted_old_names(renamed_nodes)
-    assert accepted["calibration.optimizer_kwargs"] == legacy_keys.WARNS
-    assert accepted["calibration.phases.optimizer_kwargs"] == legacy_keys.WARNS
-    assert accepted["calibration.protocol.steady_engine_options"] == legacy_keys.WARNS
+    assert accepted["flow.ic.type"] == legacy_keys.MIGRATES
+    assert "calibration.optimizer_kwargs" not in accepted
+    assert "calibration.phases.optimizer_kwargs" not in accepted
+    assert "calibration.protocol.steady_engine_options" not in accepted
     assert accepted["export.netcdf"] == legacy_keys.MIGRATES
     assert accepted["export.artifacts"] == legacy_keys.MIGRATES
 
@@ -100,15 +101,6 @@ def test_a_rename_the_loader_does_not_read_is_left_out(renamed_nodes: dict) -> N
         **renamed_nodes,
     }
     assert "flow.never_read_key" not in legacy_keys.accepted_old_names(nodes)
-
-
-def test_the_old_calibration_name_loads_with_a_rename_warning() -> None:
-    from hydromodpy.calibration.config import CalibPhaseDecl
-    from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning
-
-    assert CalibPhaseDecl.model_legacy_keys["optimizer_kwargs"] == "method_options"
-    with pytest.warns(ConfigKeyRenamedWarning):
-        CalibPhaseDecl(name="p", parameters=["K"], optimizer_kwargs={})
 
 
 def _removed_block(hmp_params, monkeypatch: pytest.MonkeyPatch, removed: list[str]) -> str:

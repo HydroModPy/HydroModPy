@@ -14,8 +14,10 @@ from hydromodpy.display.figures.calibration_objective_surface import (
     CalibrationObjectiveSurfaceFigure,
 )
 from hydromodpy.display.figures.calibration_pairplot import CalibrationPairplotFigure
-from hydromodpy.display.figures.calibration_posterior import CalibrationPosteriorFigure
 from hydromodpy.display.figures.calibration_trace import CalibrationTraceFigure
+from hydromodpy.display.figures.calibration_trial_distribution import (
+    CalibrationTrialDistributionFigure,
+)
 
 
 @pytest.fixture
@@ -231,14 +233,14 @@ def _calibration_run(name="calibration-c", session_col=False, status_col=True):
 
 
 # --------------------------------------------------------------------------- #
-# calibration_posterior
+# calibration_trial_distribution
 # --------------------------------------------------------------------------- #
 
 
-def test_calibration_posterior_builds_one_histogram_per_parameter(mpl) -> None:
+def test_calibration_trial_distribution_builds_one_histogram_per_parameter(mpl) -> None:
     run = _calibration_run()
 
-    fig = CalibrationPosteriorFigure().plot(run, bins=4, dpi=80)
+    fig = CalibrationTrialDistributionFigure().plot(run, bins=4, dpi=80)
 
     try:
         # Two parameter columns -> two used axes plus a colorbar axis.
@@ -251,15 +253,15 @@ def test_calibration_posterior_builds_one_histogram_per_parameter(mpl) -> None:
         # bins=4 requested; every sample must fall in exactly one bar.
         assert len(bars) == 4
         assert sum(int(round(b.get_height())) for b in bars) == 6
-        assert f"posteriors - {run.name}" in fig._suptitle.get_text()
+        assert f"distribution - {run.name}" in fig._suptitle.get_text()
     finally:
         mpl.close(fig)
 
 
-def test_calibration_posterior_colors_bins_by_mean_objective(mpl) -> None:
+def test_calibration_trial_distribution_colors_bins_by_mean_objective(mpl) -> None:
     run = _calibration_run()
 
-    fig = CalibrationPosteriorFigure().plot(run, bins=4, cmap="viridis", dpi=80)
+    fig = CalibrationTrialDistributionFigure().plot(run, bins=4, cmap="viridis", dpi=80)
 
     try:
         # A colorbar axis appears only when the objective is finite.
@@ -277,10 +279,10 @@ def test_calibration_posterior_colors_bins_by_mean_objective(mpl) -> None:
         mpl.close(fig)
 
 
-def test_calibration_posterior_respects_explicit_parameter_list(mpl) -> None:
+def test_calibration_trial_distribution_respects_explicit_parameter_list(mpl) -> None:
     run = _calibration_run()
 
-    fig = CalibrationPosteriorFigure().plot(run, parameters=["sy"], bins=3, dpi=80)
+    fig = CalibrationTrialDistributionFigure().plot(run, parameters=["sy"], bins=3, dpi=80)
 
     try:
         labels = {ax.get_xlabel() for ax in fig.axes if ax.get_xlabel()}
@@ -290,14 +292,14 @@ def test_calibration_posterior_respects_explicit_parameter_list(mpl) -> None:
         mpl.close(fig)
 
 
-def test_calibration_posterior_rejects_missing_and_empty_tables() -> None:
+def test_calibration_trial_distribution_rejects_missing_and_empty_tables() -> None:
     no_table = SimpleNamespace(sim_id="sim-c", name=None, calibration_iterations=None)
     with pytest.raises(ValueError, match="no calibration_iterations"):
-        CalibrationPosteriorFigure().plot(no_table)
+        CalibrationTrialDistributionFigure().plot(no_table)
 
     empty_session = _calibration_run(session_col=True)
     with pytest.raises(ValueError, match="no trial recorded for session 'missing'"):
-        CalibrationPosteriorFigure().plot(empty_session, session_id="missing")
+        CalibrationTrialDistributionFigure().plot(empty_session, session_id="missing")
 
     no_params = SimpleNamespace(
         sim_id="sim-c",
@@ -305,10 +307,10 @@ def test_calibration_posterior_rejects_missing_and_empty_tables() -> None:
         calibration_iterations=pd.DataFrame({"iter": [0], "objective": [1.0]}),
     )
     with pytest.raises(ValueError, match="no parameter columns found"):
-        CalibrationPosteriorFigure().plot(no_params)
+        CalibrationTrialDistributionFigure().plot(no_params)
 
 
-def test_calibration_posterior_pads_grid_and_saves_png(tmp_path, mpl) -> None:
+def test_calibration_trial_distribution_pads_grid_and_saves_png(tmp_path, mpl) -> None:
     # Four parameters with ncols=3 -> a 2x3 grid, so two trailing cells stay
     # empty (axis off). Exercises both the padding loop and the save path.
     df = pd.DataFrame(
@@ -324,7 +326,7 @@ def test_calibration_posterior_pads_grid_and_saves_png(tmp_path, mpl) -> None:
     run = SimpleNamespace(sim_id="sim-e", name="cal-4p", calibration_iterations=df)
     out = tmp_path / "posterior.png"
 
-    fig = CalibrationPosteriorFigure().plot(run, bins=3, save_path=out, dpi=80)
+    fig = CalibrationTrialDistributionFigure().plot(run, bins=3, save_path=out, dpi=80)
 
     try:
         assert out.exists() and out.stat().st_size > 0
@@ -530,11 +532,11 @@ def test_calibration_landscape_saves_png(tmp_path, mpl) -> None:
         mpl.close(fig)
 
 
-def test_calibration_posterior_and_pairplot_render_is_placeholder(mpl) -> None:
+def test_calibration_trial_distribution_and_pairplot_render_is_placeholder(mpl) -> None:
     # The grid figures override plot(); render() is a documented no-op that
     # only draws a placeholder note onto a single axis.
     for figure_cls in (
-        CalibrationPosteriorFigure,
+        CalibrationTrialDistributionFigure,
         CalibrationPairplotFigure,
         CalibrationLandscapeFigure,
     ):
@@ -600,8 +602,8 @@ def test_calibration_trace_traces_the_sampled_parameters_not_the_cost(mpl) -> No
         mpl.close(fig)
 
 
-def test_calibration_posterior_histograms_the_parameters_not_the_cost(mpl) -> None:
-    fig = CalibrationPosteriorFigure().plot(_catalog_run(), bins=3, dpi=80)
+def test_calibration_trial_distribution_histograms_the_parameters_not_the_cost(mpl) -> None:
+    fig = CalibrationTrialDistributionFigure().plot(_catalog_run(), bins=3, dpi=80)
 
     try:
         assert {ax.get_xlabel() for ax in fig.axes if ax.get_xlabel()} == {"kh", "sy"}
@@ -684,7 +686,7 @@ def test_a_calibration_that_sampled_nothing_is_refused_by_every_grid_figure() ->
     with pytest.raises(ValueError, match="no parameter columns found"):
         CalibrationTraceFigure().plot(costs_only)
     with pytest.raises(ValueError, match="no parameter columns found"):
-        CalibrationPosteriorFigure().plot(costs_only)
+        CalibrationTrialDistributionFigure().plot(costs_only)
     with pytest.raises(ValueError, match="at least two parameter columns"):
         CalibrationLandscapeFigure().plot(costs_only)
     with pytest.raises(ValueError, match="at least two parameter columns"):

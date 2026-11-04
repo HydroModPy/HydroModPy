@@ -246,6 +246,21 @@ def test_promote_moves_a_kept_trial_to_runs(capsys, tmp_path) -> None:
     assert "runs/k_low" in capsys.readouterr().out
 
 
+def test_promote_without_a_trial_lists_the_best_ones(capsys, tmp_path) -> None:
+    project = _calibrated_project(tmp_path, kept=())
+
+    code = _run_action(promote, ["promote", "calibration", "-w", str(project)])
+
+    assert code == 0
+    out = capsys.readouterr().out.splitlines()
+    assert out == [
+        "trial 3 (steady_k): cost -0.8, K = 3e-05",
+        "trial 2 (steady_k): cost -0.7, K = 2e-05",
+        "trial 1 (steady_k): cost -0.6, K = 1e-05",
+    ]
+    assert not (project / "runs").exists()
+
+
 def test_promote_from_inside_the_project(monkeypatch, tmp_path) -> None:
     project = _calibrated_project(tmp_path, kept=(1,))
     monkeypatch.chdir(project / "sessions")
@@ -273,11 +288,6 @@ def test_promote_an_unknown_case_names_the_sessions(capsys, tmp_path) -> None:
 
     assert code == 14
     assert "calibration" in capsys.readouterr().err
-
-
-def test_promote_needs_the_trial_number(capsys, tmp_path) -> None:
-    project = _calibrated_project(tmp_path, kept=())
-    assert _run_action(promote, ["promote", "calibration", "-w", str(project)]) == 2
 
 
 def test_promote_outside_a_project_exits_not_found(capsys, outside) -> None:

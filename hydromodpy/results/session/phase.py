@@ -15,7 +15,7 @@ parameter to a :class:`FrozenValue`, its value and the phase it came from.
 ``cost_name``, ``windows`` and ``scored`` say what this phase minimized and on
 which pairs. ``stop_state`` and ``stopping_rule`` say why the search of the phase
 stopped, and ``stop_note`` says when the phase froze the best of a budget-only
-search.
+search or closed a root outside its declared bounds.
 """
 
 from __future__ import annotations
@@ -98,7 +98,8 @@ class PhaseDescriptor(HydroModelBase):
     stop_note: str | None = Field(
         default=None,
         description="'froze the best of a budget-only search' when the phase passed on "
-        "the best trial of a search with no rule of its own; none otherwise",
+        "the best trial of a search with no rule of its own, the reason when a root closed "
+        "outside the declared bounds; none otherwise",
     )
 
 

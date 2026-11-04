@@ -78,7 +78,7 @@ class TestTheExtents:
 
     def test_a_scoring_window_leaves_the_spin_up_year_out(self) -> None:
         extents = network_extents_from_run(
-            transient_run(), scoring_window=(pd.Timestamp("2002-01-01"), None)
+            transient_run(), window=(pd.Timestamp("2002-01-01"), None)
         )
 
         assert extents.years.years == (2002,)
@@ -89,12 +89,12 @@ class TestTheExtents:
     def test_a_window_holding_no_complete_year_is_refused_by_name(self) -> None:
         window = (pd.Timestamp("2001-03-01"), pd.Timestamp("2002-06-30"))
 
-        reason = unavailable_reason_for_extents(transient_run(), scoring_window=window)
+        reason = unavailable_reason_for_extents(transient_run(), window=window)
 
         assert reason is not None
         assert "leaves out 2001, 2002" in reason
         with pytest.raises(ValueError, match="scoring window holds no complete"):
-            network_extents_from_run(transient_run(), scoring_window=window)
+            network_extents_from_run(transient_run(), window=window)
 
     def test_each_cell_flows_the_timesteps_its_releases_reach_it(self) -> None:
         counts = network_extents_from_run(transient_run()).counts.flowing

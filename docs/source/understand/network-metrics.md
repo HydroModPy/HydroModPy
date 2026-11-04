@@ -94,7 +94,7 @@ further apart than the map can be trusted to place them, and the score says litt
 hydrogeology. By default the length is two cells, widened by the positional accuracy you declare
 for the map. A violation is a warning
 unless you ask for an error with
-{toml}`on_roptim_violation|calibration.outputs.<name>.on_roptim_violation`.
+{toml}`on_invalid|calibration.outputs.<name>.verdict.on_invalid`.
 
 ## Diagnostic or criterion
 
@@ -130,11 +130,11 @@ structures that are both balanced, and the gap to find the parameter inside one 
 
 Before you compare two scores, check that they were computed the same way.
 
-- **The seepage threshold.** A cell counts as seepage only above a share of its own recharge
+- **The seepage threshold.** A cell counts as seepage only above a share of the mean basin recharge over its own area
   ({term}`seepage threshold`). Another threshold changes the simulated network, and so every
   score.
 - **The way the map is drawn on the grid.** The rule for the mapped network
-  ({toml}`calibration.outputs.<name>.observed_rasterization`) moves the number of mapped cells
+  ({toml}`calibration.outputs.<name>.map.drawn_by`) moves the number of mapped cells
   and where they sit. A one-cell gap can come from this rule and not from the model.
 - **The cell size.** Distances are in meters, but they are measured from cell to cell. A coarse
   grid cannot place a stream closer than about a cell.

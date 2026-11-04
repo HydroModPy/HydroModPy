@@ -16,14 +16,20 @@ restarts of a hundred-evaluation phase is eight hundred model runs.
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from dataclasses import dataclass, field
+from collections.abc import Callable, Iterable, Mapping
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass, field, replace
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from hydromodpy.calibration.optim.optimizer import engine_traits
 from hydromodpy.calibration.optim.parameters import ParameterSpace
 from hydromodpy.calibration.optim.sampling import search_space_samples
+from hydromodpy.calibration.optim.stopping import settled
+
+if TYPE_CHECKING:
+    from hydromodpy.calibration.report import CalibrationReport
 
 
 @dataclass(frozen=True)
@@ -93,30 +99,69 @@ def start_points(space: ParameterSpace, *, restarts: int, seed: int | None) -> l
     return [None, *[np.asarray(row, dtype=float) for row in drawn]]
 
 
+def run_side_by_side(
+    function: Callable[[Any], Any],
+    items: Iterable[Any],
+    *,
+    width: int,
+    on_stop: Callable[[], None] | None = None,
+) -> list[Any]:
+    """Return ``function(item)`` for each item, ``width`` at a time, in the order of the items.
+
+    The threads only wait on the workers of a pool. A failure, or an interrupt of
+    the caller, calls ``on_stop`` and starts no item that is still queued, so
+    nothing waits on a solve no one will read.
+    """
+    with ThreadPoolExecutor(width) as pool:
+        futures = [pool.submit(function, item) for item in items]
+        try:
+            for future in as_completed(futures):
+                future.result()
+        except BaseException:
+            pool.shutdown(wait=False, cancel_futures=True)
+            if on_stop is not None:
+                on_stop()
+            raise
+    return [future.result() for future in futures]
+
+
 def run_restarts(
-    run_one: Callable[[int, np.ndarray | None], object],
+    run_one: Callable[[int, np.ndarray | None, int], object],
     *,
     method: str,
     space: ParameterSpace,
     restarts: int,
     seed: int | None,
+    width: int = 1,
+    on_stop: Callable[[], None] | None = None,
 ) -> tuple[object, tuple[RestartSpread, ...]]:
     """Run the search ``restarts`` times and return the best report and the spread.
 
-    ``run_one(seed, start_at)`` performs one whole search. A restart that returns
+    ``run_one(seed, start_at, index)`` performs one whole search. At a ``width``
+    above one the restarts run side by side, ``width`` at a time, and ``on_stop``
+    is called when one fails or the caller is interrupted. A restart that returns
     no best parameters is kept out of the spread rather than counted as a zero: a
-    search that failed did not find a different optimum, it found none.
+    search that failed did not find a different optimum, it found none. The answer
+    is the lowest cost among the restarts that settled, or among all of them when
+    none did. When a restart found nothing, the others stand and the phase closes
+    ``partial``.
     """
     assert_restarts_can_explore(method, restarts)
     base = 0 if seed is None else int(seed)
-    reports = [
-        run_one(base + index, start)
-        for index, start in enumerate(start_points(space, restarts=restarts, seed=seed))
-    ]
+    starts = start_points(space, restarts=restarts, seed=seed)
+    runs = [(base + index, start, index) for index, start in enumerate(starts)]
+    if width <= 1:
+        reports = [run_one(*run) for run in runs]
+    else:
+        reports = run_side_by_side(
+            lambda run: run_one(*run), runs, width=min(width, restarts), on_stop=on_stop
+        )
     scored = [r for r in reports if r is not None and _objective_of(r) is not None]
     if not scored:
         return reports[0], ()
-    best = min(scored, key=_objective_of)
+    best = min([r for r in scored if unsettled_search(r) is None] or scored, key=_objective_of)
+    if len(scored) < len(reports) and best.extra.get("search_status") == "completed":
+        best = replace(best, status="partial", extra={**best.extra, "search_status": "partial"})
     return best, spread_of(scored, best=best, names=list(space.names))
 
 
@@ -144,6 +189,19 @@ def spread_of(reports: list, *, best: object, names: list[str]) -> tuple[Restart
     return tuple(out)
 
 
+def unsettled_search(report: CalibrationReport) -> Mapping[str, Any] | None:
+    """Return the report's search record when it says the search did not settle, else None.
+
+    The record is ``extra["search"]``, written by the runner that solved the
+    phase. A report without one (a phase reused from disk) is judged on its
+    best candidate alone.
+    """
+    search = report.extra.get("search")
+    if isinstance(search, Mapping) and not settled(search["stop_state"], search["stopping_rule"]):
+        return search
+    return None
+
+
 def _objective_of(report: object) -> float | None:
     value = getattr(report, "best_cost", None)
     if value is None:
@@ -156,6 +214,8 @@ __all__ = [
     "RestartSpread",
     "assert_restarts_can_explore",
     "run_restarts",
+    "run_side_by_side",
     "spread_of",
     "start_points",
+    "unsettled_search",
 ]

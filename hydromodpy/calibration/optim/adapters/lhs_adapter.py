@@ -32,22 +32,20 @@ from hydromodpy.calibration.optim.optimizer import (
     EngineTraits,
     EvaluationResult,
     ParamSuggestion,
+    best_completed,
     register_optimizer,
 )
-from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
+from hydromodpy.calibration.optim.parameters import (
+    CalibParameter,
+    ParameterSpace,
+    refuse_normal_sampling,
+)
 from hydromodpy.calibration.optim.stopping import CountedBudget
 
 
 def _stratified_column(param: CalibParameter, unit_column: np.ndarray) -> np.ndarray:
     """Map one stratified unit-interval column into *param*'s search space."""
-    if param.sampling == "normal":
-        raise ValueError(
-            f"lhs cannot stratify the 'normal' sampling declared on parameter "
-            f"{param.name!r}: a Latin hypercube design assumes a quantile function "
-            "with a closed form over the unit interval, and clipping a normal to "
-            "bounds breaks the one-point-per-stratum guarantee. Use 'uniform' or "
-            "'log_uniform' on this parameter, or pick another method."
-        )
+    refuse_normal_sampling("lhs", param.name, param.sampling)
     if param.sampling == "log_uniform":
         physical = loguniform.ppf(unit_column, float(param.lower), float(param.upper))
         return np.asarray([param.to_transformed(float(v)) for v in physical], dtype=float)
@@ -67,7 +65,7 @@ class LhsAdapter:
     # The design is exhausted after one draw: repeating it with a different
     # seed gives a different design, but the same seed is the same computation
     # twice.
-    traits = EngineTraits(restarts_explore_differently=True)
+    traits = EngineTraits(draws_a_normal=False, restarts_explore_differently=True, fixed_plan=True)
 
     name = "lhs"
 
@@ -122,10 +120,7 @@ class LhsAdapter:
         self._history.extend(results)
 
     def best(self) -> EvaluationResult | None:
-        valid = [r for r in self._history if r.status == "completed"]
-        if not valid:
-            return None
-        return min(valid, key=lambda r: r.cost)
+        return best_completed(self._history)
 
     def converged(self) -> bool:
         return self._cursor >= self.n_samples

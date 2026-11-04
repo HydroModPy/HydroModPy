@@ -9,6 +9,7 @@ import math
 
 import pytest
 
+from tests.validation.calibration.helpers import best_values
 from tests.validation.helpers import assert_metric_below
 from validation_cases.calibration.groundwater_1d.experiment import (
     GROUNDWATER_1D_CASE,
@@ -20,27 +21,21 @@ NOT_APPLICABLE = {
 }
 
 
-def _best_values(session) -> dict[str, float]:
-    completed = [r for r in session.history if r.status == "completed"]
-    assert completed, "calibration produced no completed trials"
-    best = min(completed, key=lambda r: r.cost)
-    values = best.metadata.get("values") if best.metadata else None
-    assert values, "evaluator did not stash values in metadata"
-    return dict(values)
-
-
 @pytest.mark.validation
 @pytest.mark.transient
 @pytest.mark.fast
-def test_groundwater_1d_nelder_mead_recovers_truth() -> None:
+@pytest.mark.parametrize(
+    ("optimizer_name", "max_trials"), [("scipy_nelder_mead", 60), ("scipy_de", 150)]
+)
+def test_groundwater_1d_recovers_truth(optimizer_name: str, max_trials: int) -> None:
     engine, _ = build_calibration(
         case=GROUNDWATER_1D_CASE,
-        optimizer_name="scipy_nelder_mead",
-        max_trials=60,
+        optimizer_name=optimizer_name,
+        max_trials=max_trials,
     )
     session = engine.run()
 
-    best = _best_values(session)
+    best = best_values(session)
     truth = GROUNDWATER_1D_CASE.truth
     assert math.isfinite(session.best.cost)
     assert_metric_below(

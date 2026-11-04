@@ -47,6 +47,7 @@ from __future__ import annotations
 
 import datetime
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Annotated, Any, ClassVar, Literal, TypeAlias
 
 from pydantic import (
@@ -73,6 +74,7 @@ from hydromodpy.core.config_kit.types import (
 )
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
 from hydromodpy.core.cost_margin import parse_cost_margin
+from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.core.stream_criterion_defaults import (
     STREAM_CRITERION_DEFAULTS,
     ObservedRasterization,
@@ -93,6 +95,85 @@ def renamed_to(new: str, meaning: str) -> str:
     the file (``hydromodpy.config.config_migration.RENAMED_KEYS``).
     """
     return f"renamed to {new!r} ({meaning}); hmp doctor --fix-config <file> rewrites it"
+
+
+CALIBRATION_RENAMES: Mapping[str, Mapping[str, tuple[str, str]]] = {
+    "calibration": {
+        "scoring_window": ("window", "the dates every metric is scored on"),
+        "optimizer_kwargs": ("method_options", "options of the method"),
+        "max_iter": ("max_trials", "the evaluations the search may run"),
+        "tolerance": ("precision", "how finely the search pins a parameter"),
+    },
+    "calibration.phases[*]": {
+        "scoring_window": ("window", "the dates this phase scores"),
+        "optimizer_kwargs": ("method_options", "options of this phase's method"),
+        "max_iter": ("max_trials", "evaluations this phase may run"),
+        "tolerance": ("precision", "how finely this phase pins its parameters"),
+    },
+    "calibration.protocol": {
+        "scoring_window": ("window", "the dates stage two scores"),
+        "steady_engine_options": ("steady_method_options", "options of the stage-one method"),
+        "transient_engine_options": ("transient_method_options", "options of the stage-two method"),
+        "steady_max_iter": ("steady_max_trials", "evaluations stage one may run"),
+        "transient_max_iter": ("transient_max_trials", "evaluations stage two may run"),
+        "steady_tolerance": ("steady_precision", "how finely stage one pins the conductivity"),
+        "transient_tolerance": ("transient_precision", "how finely stage two pins the storage"),
+    },
+    "calibration.parameters.{*}": {
+        "transform": ("search_space", "the space the search walks the parameter in"),
+        "prior": ("sampling", "the law that starting points and random draws follow"),
+    },
+    "calibration.objective_blocks[*]": {
+        "transform": ("cost_transform", "the function applied to the cost of this block"),
+    },
+    "calibration.outputs.{*}": {
+        "stream_geometry_path": ("map.complete", "the file of every mapped reach"),
+        "observed_network": ("map.complete", "where every mapped reach comes from"),
+        "minimal_stream_geometry_path": ("map.permanent", "the file of the permanent reaches"),
+        "minimal_observed_network": ("map.permanent", "where the permanent reaches come from"),
+        "observed_rasterization": ("map.drawn_by", "how the map is drawn on the cells"),
+        "clip_map_to_catchment": ("map.clip_to_catchment", "whether the map is cut first"),
+        "heads_snap_radius": ("map.heads.radius", "how far from its cell a head may land"),
+        "heads_min_drained_area_km2": ("map.heads.min_drained_area", "the area a head needs, km2"),
+        "observed_position_accuracy": ("map.position_accuracy", "how well the map is placed"),
+        "tau_specific_ratio": ("model.seepage_threshold", "what makes a cell a seepage face"),
+        "diagonal_neighbors": ("model.neighbours", "the graph the descent walks, 'D8' or 'D4'"),
+        "weighting": ("model.weighting", "how the cells count in the average"),
+        "extent": ("model.extent", "the transient two-bound mode"),
+        "validity_length": ("verdict.validity_length", "the validity bound of Eq. 4"),
+        "on_roptim_violation": ("verdict.on_invalid", "what a violation of Eq. 4 does"),
+        "alpha_warning_threshold": ("verdict.alpha_warning_threshold", "when alpha warns"),
+        "clipping_warning_share": ("verdict.clipping_warning_share", "when clipping is reported"),
+        "clipping_warning_gap": ("verdict.clipping_warning_gap", "when clipping is reported"),
+    },
+    "calibration.outputs.{*}.extent": {
+        "maximal_flowing_duration": ("model.extent.flowing_at_least", "how long a cell must flow"),
+        "minimal_dry_duration": (
+            "model.extent.dry_at_most",
+            "how long a cell may be dry in a year",
+        ),
+        "weights": ("map.calibrate_on", "the role of each map"),
+    },
+}
+"""Every plain rename of ``[calibration]``, by scope: old key, then new key and what it is.
+
+This one list feeds the refusal of the models here and ``RENAMED_KEYS`` of the doctor. A
+new key with a dot goes to another table of the network output, which ``RENAMED_KEYS``
+cannot do, so the two scopes of that output feed the rewrite of the doctor instead.
+"""
+
+
+def _renames_under(scope: str) -> dict[str, str]:
+    """Return the refusals of the renames of *scope*, for ``model_refused_keys``."""
+    renames = CALIBRATION_RENAMES[scope].items()
+    return {old: renamed_to(new, meaning) for old, (new, meaning) in renames}
+
+
+_DROPPED_ADVICE = "it was never read; hmp doctor --fix-config <file> deletes it"
+_GAUGE_ADVICE = (
+    "the station is [site] gauge, and a point output names its own with 'observes'; "
+    "hmp doctor --fix-config <file> moves it"
+)
 
 
 SaveRunsMode = Literal["none", "best_n", "all"]
@@ -123,7 +204,7 @@ MetricKind = Literal[
 """Metric names a TOML may select.
 
 Kept equal to the keys of ``calibration.criteria.series.METRICS`` by
-``tests/unit/calibration/test_metric_kind_matches_the_registry.py``: the engine
+``tests/unit/calibration/test_criteria_series.py``: the engine
 computed metrics this list did not offer, so they ran in Python and were refused
 by validation.
 """
@@ -161,7 +242,7 @@ def _no_list_of_dates(value: Any) -> Any:
     if isinstance(value, list):
         raise ValueError(
             "time = [dates] selects nothing: the output would be read at every step, as "
-            "with 'all'. Bound what is scored with [metrics] window or scoring_window, or "
+            "with 'all'. Bound what is scored with [metrics] window or window, or "
             "write 'first' or 'last'."
         )
     return value
@@ -170,31 +251,63 @@ def _no_list_of_dates(value: Any) -> Any:
 OutputTime = Annotated[Literal["all", "last", "first"], BeforeValidator(_no_list_of_dates)]
 
 
-def _a_window_of_dates(window: dict[str, str]) -> dict[str, str]:
-    """Read a ``{start, end}`` table as a :class:`CalibScoringWindow`.
+class CalibWindow(HydroModelBase):
+    """Dates bounding the samples a metric is computed on.
 
-    The value stays a table: the protocol copies it into the phase it writes,
-    and its record prints it. Reading it here makes a bad date fail when the
-    file is loaded, not when the stage it bounds starts.
+    A window in dates rather than in sample counts: it says the same thing
+    whatever the output frequency.
     """
-    CalibScoringWindow.model_validate(window)
-    return dict(window)
+
+    start: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="First date scored, ISO 8601. Unset means from the first sample.",
+    )
+    end: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Last date scored, ISO 8601. Unset means up to the last sample.",
+    )
+
+    @model_validator(mode="after")
+    def _check_bounds(self) -> CalibWindow:
+        bounds = _parsed_bounds(self)
+        if bounds[0] is not None and bounds[1] is not None and bounds[0] > bounds[1]:
+            raise ValueError(f"window start {self.start!r} is after end {self.end!r}.")
+        return self
+
+
+def _parsed_bounds(window: CalibWindow) -> tuple[Any, Any]:
+    """Parse the window bounds into timestamps, raising on a bad date."""
+    import pandas as pd
+
+    parsed = []
+    for label, raw in (("start", window.start), ("end", window.end)):
+        if raw is None:
+            parsed.append(None)
+            continue
+        try:
+            parsed.append(pd.Timestamp(raw))
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"window {label}={raw!r} is not a date.") from exc
+    return parsed[0], parsed[1]
+
+
+def window_bounds(window: CalibWindow | None) -> tuple[Any, Any] | None:
+    """Return the parsed ``(start, end)`` of a window, or None when unset."""
+    if window is None:
+        return None
+    return _parsed_bounds(window)
 
 
 def _a_steady_span(window: dict[str, str]) -> dict[str, str]:
-    """Read a steady span, which needs both of its bounds."""
+    """Read a steady span, a window that needs both of its bounds."""
     missing = [key for key in ("start", "end") if not window.get(key)]
     if missing:
         raise ValueError(
             f"steady_window needs both 'start' and 'end'; missing {', '.join(missing)}."
         )
-    return _a_window_of_dates(window)
+    CalibWindow.model_validate(window)
+    return dict(window)
 
-
-ProtocolScoringWindow: TypeAlias = Annotated[
-    dict[Literal["start", "end"], str], AfterValidator(_a_window_of_dates)
-]
-"""A ``{start, end}`` table of ISO dates, either bound optional."""
 
 ProtocolSteadySpan: TypeAlias = Annotated[
     dict[Literal["start", "end"], str], AfterValidator(_a_steady_span)
@@ -211,19 +324,9 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
     pair of criteria and the order they run in, not the optimizer that walks them.
     """
 
-    model_legacy_keys = {
-        "steady_engine_options": "steady_method_options",
-        "transient_engine_options": "transient_method_options",
-    }
     model_refused_keys: ClassVar[Mapping[str, str]] = {
-        "steady_max_iter": renamed_to("steady_max_trials", "evaluations stage one may run"),
-        "transient_max_iter": renamed_to("transient_max_trials", "evaluations stage two may run"),
-        "steady_tolerance": renamed_to(
-            "steady_precision", "how finely stage one pins the conductivity"
-        ),
-        "transient_tolerance": renamed_to(
-            "transient_precision", "how finely stage two pins the storage"
-        ),
+        **_renames_under("calibration.protocol"),
+        "observed_station_id": _GAUGE_ADVICE,
     }
 
     name: Annotated[Literal["matching_hydrographic_network"], Profile.USER] = Field(
@@ -357,21 +460,17 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
         default="discharge",
         description="Observed variable stage two is scored on.",
     )
-    observed_station_id: Annotated[StationName | None, Profile.USER] = Field(
-        default=None,
-        description="Gauge whose cost drives stage two. Required with several stations loaded.",
-        json_schema_extra=field_metadata(site_scoped=True),
-    )
-    scoring_window: Annotated[ProtocolScoringWindow | None, Profile.USER] = Field(
+    window: Annotated[CalibWindow | None, Profile.USER] = Field(
         default=None,
         description="Dates bounding the samples stage two scores on, as {start, end} in "
         "ISO 8601, either one optional. A date that does not parse is refused when the "
         "file is read. Unset, "
         "stage two scores the window of [metrics] when the file writes one, and "
         "otherwise from one year after [simulation.time].start_datetime: the first "
-        "year is spin-up. A scoring_window or warmup_periods on [calibration] replaces "
+        "year is spin-up. A window on [calibration] replaces "
         "both. A run of one year or less is scored whole. Write start = the run's own "
         "start to score the spin-up year too.",
+        json_schema_extra=field_metadata(renamed_from=["calibration.protocol.scoring_window"]),
     )
 
     @model_validator(mode="before")
@@ -442,7 +541,7 @@ CalibrationProtocolDecl: TypeAlias = MatchingHydrographicNetworkOptions
 One registered protocol today, so the alias names it directly. A second one
 turns this into a union discriminated on ``name``; the registry and this alias
 are kept in step by
-``tests/unit/calibration/test_calibration_protocols.py``.
+``tests/unit/calibration/test_runners_phase_regime.py``.
 """
 
 
@@ -460,8 +559,7 @@ class CalibParameterDecl(HydroModelBase):
     """
 
     model_refused_keys: ClassVar[Mapping[str, str]] = {
-        "transform": renamed_to("search_space", "the space the search walks the parameter in"),
-        "prior": renamed_to("sampling", "the law that starting points and random draws follow"),
+        **_renames_under("calibration.parameters.{*}"),
     }
 
     bounds: Annotated[list[float] | None, Profile.USER] = Field(
@@ -519,12 +617,13 @@ class CalibParameterDecl(HydroModelBase):
         "rather than the way in: when omitted, the section name is resolved against "
         "the project catalogue ('hmp config targets' lists it). Write one to reach a "
         "value the catalogue does not carry, or to settle a name two targets answer "
-        "to. A path written here wins without a lookup, and a parameter that writes "
-        "one inherits nothing from the field it points at.",
+        "to. A path written here wins without a lookup. When the catalogue carries it, "
+        "the parameter inherits the field's space and draw like a named one; when it "
+        "does not, nothing is inherited and the sample is written as it is drawn.",
     )
     target: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description="Readable alias for 'path'. When both are set, 'target' wins.",
+        description="Readable alias for 'path'. Setting both is refused.",
     )
     mode: Annotated[ParameterMode, Profile.USER] = Field(
         default="replace",
@@ -545,6 +644,15 @@ class CalibParameterDecl(HydroModelBase):
         ),
         examples=["m/s"],
     )
+
+    @model_validator(mode="after")
+    def _check_one_address(self) -> CalibParameterDecl:
+        if self.path is not None and self.target is not None:
+            raise ValueError(
+                f"a parameter writes both path={self.path!r} and target={self.target!r}, "
+                "two names for one address. Keep one of them."
+            )
+        return self
 
     def resolve_target(self) -> str | None:
         """Return ``target`` when set, else ``path`` (read-only helper)."""
@@ -871,43 +979,213 @@ class CalibOutputLake(ScoresAnObservedRecord, HydroModelBase):
     )
 
 
-class CalibNetworkBoundWeights(HydroModelBase):
-    """How the two bounds of a network output share one calibrated value.
+def _moved_from(*keys: str, **metadata: Any) -> dict[str, Any]:
+    """Return the metadata of a network field that holds these old keys of its output."""
+    return field_metadata(renamed_from=[f"calibration.outputs.{key}" for key in keys], **metadata)
 
-    A root search closes one root per bound and returns the weighted geometric
-    mean, ``log K = minimal * log K*_minimal + maximal * log K*_maximal``. A
-    minimiser has no root to combine and minimizes
-    ``minimal * |J_minimal| + maximal * |J_maximal|`` instead, which tends to
-    land on one of the two roots rather than between them.
+
+class CalibNetworkBoundWeights(HydroModelBase):
+    """How the two maps of a network output share one calibrated value.
+
+    A root search closes one root per map and returns the weighted geometric
+    mean, ``log K = permanent * log K*_permanent + complete * log K*_complete``.
+    A minimiser has no root to combine and minimizes
+    ``permanent * |J_permanent| + complete * |J_complete|`` instead, which tends
+    to land on one of the two roots rather than between them.
     """
 
-    minimal: Annotated[float, Profile.USER] = Field(
+    permanent: Annotated[float, Profile.USER] = Field(
         default=0.5,
         ge=0.0,
         le=1.0,
-        description="Weight of the minimal (permanent) bound. 1 with maximal = 0 "
-        "calibrates on the permanent map alone, the practice of Abherve et al. (2025).",
+        description="Weight of the permanent map, scored against the minimal mask.",
         json_schema_extra={"unit": "-"},
     )
-    maximal: Annotated[float, Profile.USER] = Field(
+    complete: Annotated[float, Profile.USER] = Field(
         default=0.5,
         ge=0.0,
         le=1.0,
-        description="Weight of the maximal (complete) bound.",
+        description="Weight of the complete map, scored against the maximal mask.",
         json_schema_extra={"unit": "-"},
     )
 
     @model_validator(mode="after")
     def _sum_to_one(self) -> CalibNetworkBoundWeights:
         """Refuse weights that do not sum to one: they interpolate between two roots."""
-        total = float(self.minimal) + float(self.maximal)
+        total = float(self.permanent) + float(self.complete)
         if abs(total - 1.0) > 1e-9:
             raise ValueError(
-                f"the bound weights sum to {total:g} (minimal = {self.minimal:g}, maximal = "
-                f"{self.maximal:g}). They place the returned value between the two roots in "
-                "log space, so they must sum to one."
+                f"calibrate_on sums to {total:g} (permanent = {self.permanent:g}, complete = "
+                f"{self.complete:g}). The two weights place the returned value between the two "
+                "roots in log space, so they must sum to one."
             )
         return self
+
+
+class CalibNetworkHeads(HydroModelBase):
+    """Where a mapped stream head may land, read only under ``drawn_by = 'heads'``."""
+
+    radius: Annotated[Length, Profile.USER] = Field(
+        default=STREAM_CRITERION_DEFAULTS.heads_snap_radius_m,
+        description="The largest distance, a length (a bare number is in metres), between a "
+        "mapped stream head and the centre of the cell it lands on. A head with no landing "
+        "cell that close is lost, draws nothing and is counted in n_heads_lost.",
+        json_schema_extra=_moved_from("heads_snap_radius"),
+    )
+    min_drained_area: Annotated[float, Profile.USER] = Field(
+        default=STREAM_CRITERION_DEFAULTS.heads_min_drained_area_km2,
+        ge=0.0,
+        description="The drained area a cell needs before a head may land on it, so a head "
+        "next to its valley lands in the valley and not on the ridge cell beside it.",
+        json_schema_extra=_moved_from("heads_min_drained_area_km2", unit="km2"),
+    )
+
+    @field_validator("radius")
+    @classmethod
+    def _positive_radius(cls, value: object) -> object:
+        """Refuse a snap radius that is zero or negative."""
+        magnitude = float(value.to("m").magnitude)  # type: ignore[union-attr]
+        if not magnitude > 0.0:
+            raise ValueError(f"radius = {magnitude:g} m: a snap radius is a positive distance.")
+        return value
+
+
+class CalibNetworkMap(HydroModelBase):
+    """What is observed: the mapped network, its role in the cost and how it is drawn."""
+
+    complete: Annotated[Literal["data.hydrography"] | OptionalPath, Profile.USER] = Field(
+        default=None,
+        description="The complete map, every mapped reach: a vector file, read only from "
+        "here, or 'data.hydrography', the network the hydrography data family loaded (a "
+        "local file or an osm / bdtopage / euhydro download), clipped to the delineated "
+        "catchment.",
+        json_schema_extra=_moved_from("stream_geometry_path", "observed_network", site_scoped=True),
+    )
+    permanent: Annotated[Literal["data.hydrography"] | OptionalPath, Profile.USER] = Field(
+        default=None,
+        description="The permanent map, the reaches that flow all year, which the complete "
+        "map contains: a vector file, read as it is and never filtered by attribute, or "
+        "'data.hydrography', the permanent reaches the hydrography data family wrote beside "
+        "its network. A source that does not say which reaches flow all year gives none. "
+        "The complete map scored is the union of the two, and the share of this map outside "
+        "the complete one is published.",
+        json_schema_extra=_moved_from("minimal_stream_geometry_path", "minimal_observed_network"),
+    )
+    calibrate_on: Annotated[
+        Literal["permanent", "complete"] | CalibNetworkBoundWeights | None, Profile.USER
+    ] = Field(
+        default=None,
+        description="The role of each map, required when both are declared and refused "
+        "otherwise. 'permanent' or 'complete' names the map in the cost. In one state, the "
+        "other map is scored at the same state as a validation outside the cost, and "
+        "'permanent' is how Abherve et al. (2025) calibrate. With 'model.extent', the named "
+        "map has all the weight. A table {permanent = 0.5, complete = 0.5} shares the value "
+        "between both bounds, and only 'model.extent' scores two bounds.",
+        json_schema_extra=_moved_from("extent.weights"),
+    )
+    drawn_by: Annotated[ObservedRasterization, Profile.USER] = Field(
+        default=STREAM_CRITERION_DEFAULTS.observed_rasterization,
+        description="How the map is drawn on the mesh cells. 'crossing' "
+        "keeps the cell holding each point where a line crosses the segment joining two "
+        "edge-sharing cell centres. On a structured grid it reproduces WhiteboxTools "
+        "VectorLinesToRaster, the paper's tool, and draws the map one cell wide like "
+        "the simulated network, so a model that matches the map scores J = 0. 'touch' "
+        "keeps every cell the line touches, corners included, and replays a session "
+        "made before 2026-09; it thickens every diagonal step of the map and departs "
+        "from the paper. 'heads' keeps only the free ends of the map whose largest "
+        "drained area within 'heads.radius' does not exceed that of the other end of "
+        "their reach, lands each on a nearby cell and draws the "
+        "rest down the criterion's own descent: the field ditches and rectified reaches "
+        "below a head stop counting as model error, and the drawn map reaches the "
+        "outlet. Keep 'crossing' for a map that is not a tree: canals, braids, polders, "
+        "karst.",
+        json_schema_extra=_moved_from("observed_rasterization"),
+    )
+    heads: Annotated[CalibNetworkHeads | None, Profile.USER] = Field(
+        default=None,
+        description="Where a head may land, read only under drawn_by = 'heads' and refused "
+        "under another rule. Left out under 'heads', the defaults of its keys.",
+    )
+    clip_to_catchment: Annotated[bool, Profile.USER] = Field(
+        default=STREAM_CRITERION_DEFAULTS.clip_map_to_catchment,
+        description="Cut the map to the delineated catchment before drawing it, with the "
+        "shape the hydrography data family clips what it loads to, so a file and "
+        "'data.hydrography' draw the same map from the same data. Under 'heads' an end the "
+        "cut made is no stream head. false reads a file whole and takes every free end as a "
+        "candidate head.",
+        json_schema_extra=_moved_from("clip_map_to_catchment"),
+    )
+    position_accuracy: Annotated[Length | None, Profile.USER] = Field(
+        default=None,
+        description="Positional accuracy of the map. It enters the automatic validity length "
+        "only, so it is refused beside a 'verdict.validity_length' written as a length: the "
+        "cell size h there is max(h_obs, this), because a map is not placed better when the "
+        "mesh is refined. r_optim stays D_optim / h_obs, the paper's Eq. 3. Unset is the "
+        "literal reading of the paper.",
+        json_schema_extra=_moved_from("observed_position_accuracy"),
+    )
+
+    @field_validator("heads")
+    @classmethod
+    def _heads_under_their_rule(
+        cls, value: CalibNetworkHeads | None, info: ValidationInfo
+    ) -> CalibNetworkHeads | None:
+        """Fill the heads settings under the heads rule, and refuse them under another."""
+        rule = info.data.get("drawn_by")
+        if rule == "heads":
+            return value or CalibNetworkHeads()
+        if value is not None:
+            raise ValueError(
+                f"map.heads is read only under drawn_by = 'heads', and drawn_by = {rule!r} "
+                "never reads it. Drop it, or write drawn_by = 'heads'."
+            )
+        return value
+
+    @model_validator(mode="after")
+    def _say_the_role_of_each_map(self, info: ValidationInfo) -> CalibNetworkMap:
+        """Refuse a network with no source, and two maps without their role.
+
+        A sealed run may hold no map: it was scored on a network the DEM derived (no longer offered),
+        which is no observation any more, and a replay reads its stored scores.
+        """
+        if self.complete is None:
+            context = info.context if isinstance(info.context, Mapping) else {}
+            if context.get("validation_context") == "snapshot":
+                return self
+            raise ValueError(
+                "the network output has no complete map. Write map.complete = "
+                "'data.hydrography' or the path of a vector file."
+            )
+        if self.permanent is not None and self.calibrate_on is None:
+            raise ValueError(
+                "the network output declares both maps and does not say what it calibrates on. "
+                "Write map.calibrate_on = 'permanent', 'complete' or, with model.extent, "
+                "{permanent = 0.5, complete = 0.5}."
+            )
+        if self.permanent is None and self.calibrate_on is not None:
+            raise ValueError(
+                "map.calibrate_on gives a role to two maps and only the complete map is "
+                "declared. Declare map.permanent or drop map.calibrate_on."
+            )
+        return self
+
+    def files(self) -> dict[str, Path]:
+        """Return the maps named by a file, by field: what a caller anchors or hashes."""
+        written = {"complete": self.complete, "permanent": self.permanent}
+        return {
+            role: Path(value)
+            for role, value in written.items()
+            if value not in (None, "data.hydrography")
+        }
+
+    @property
+    def bound_weights(self) -> CalibNetworkBoundWeights:
+        """Return the share of each map in the value. With one map it has all of it."""
+        if isinstance(self.calibrate_on, CalibNetworkBoundWeights):
+            return self.calibrate_on
+        if self.calibrate_on == "permanent":
+            return CalibNetworkBoundWeights(permanent=1.0, complete=0.0)
+        return CalibNetworkBoundWeights(permanent=0.0, complete=1.0)
 
 
 class CalibNetworkExtent(HydroModelBase):
@@ -915,38 +1193,38 @@ class CalibNetworkExtent(HydroModelBase):
 
     Declared, the output stops reading one state. For every complete calendar
     year of the run, the maximal simulated mask holds the cells flowing for at
-    least ``maximal_flowing_duration``, and the minimal one the cells flowing at
-    every timestep but for at most ``minimal_dry_duration``. A cell enters
-    the mask scored when it meets the rule in at least ``year_quorum`` of the
-    scored years. Each bound is scored once by the distance criterion: the
-    maximal mask against the maximal map, the minimal mask against the minimal
-    map when one is declared. Both durations are converted to whole timesteps
-    with the run's step, so the same file means the same on a daily and a
-    monthly run.
+    least ``flowing_at_least``, and the minimal one the cells flowing at every
+    timestep but for at most ``dry_at_most``. A cell enters the mask scored when
+    it meets the rule in at least ``year_quorum`` of the scored years. Each bound
+    is scored once by the distance criterion: the maximal mask against the
+    complete map, the minimal mask against the permanent map when one is declared.
+    Both durations are converted to whole timesteps with the run's step, so the
+    same file means the same on a daily and a monthly run.
     """
 
     model_refused_keys: ClassVar[Mapping[str, str]] = {
         "maximal_flowing_steps": renamed_to(
-            "maximal_flowing_duration",
+            "flowing_at_least",
             "how long a cell has to flow in a year, with its unit, such as '1 month'",
         ),
         "minimal_dry_steps": renamed_to(
-            "minimal_dry_duration",
+            "dry_at_most",
             "how long a cell may be dry in a year, with its unit, such as '1 month'",
         ),
+        **_renames_under("calibration.outputs.{*}.extent"),
     }
 
-    maximal_flowing_duration: Annotated[str | None, Profile.USER] = Field(
+    flowing_at_least: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description="How long a cell has to flow in a year to enter the maximal mask, "
         "with its unit: '30 d', '1 month'. Converted by the run's timestep, rounded up to "
         "whole timesteps and never below one. Left out, one timestep, whatever the step. "
         "At most the shortest complete year, checked on the run.",
-        json_schema_extra=field_metadata(
-            renamed_from=["calibration.outputs.extent.maximal_flowing_steps"]
+        json_schema_extra=_moved_from(
+            "extent.maximal_flowing_steps", "extent.maximal_flowing_duration"
         ),
     )
-    minimal_dry_duration: Annotated[str | None, Profile.USER] = Field(
+    dry_at_most: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description="How long a cell may be dry in a year and stay in the minimal mask, "
         "with its unit: '1 d', '1 month'. Converted by the run's timestep and rounded "
@@ -955,9 +1233,7 @@ class CalibNetworkExtent(HydroModelBase):
         "year's timesteps minus these have to stay at least the flowing timesteps of "
         "the maximal rule, checked on the run, so the minimal mask sits inside the "
         "maximal one.",
-        json_schema_extra=field_metadata(
-            renamed_from=["calibration.outputs.extent.minimal_dry_steps"]
-        ),
+        json_schema_extra=_moved_from("extent.minimal_dry_steps", "extent.minimal_dry_duration"),
     )
     year_quorum: Annotated[float, Profile.USER] = Field(
         default=0.5,
@@ -977,19 +1253,14 @@ class CalibNetworkExtent(HydroModelBase):
         "scores the closure alone. No value is agreed: Zanetti et al. (2024) threshold a "
         "simulated discharge at 10 L/s, field zero-flow thresholds of 1 to 3 L/s are in use.",
     )
-    weights: Annotated[CalibNetworkBoundWeights, Profile.USER] = Field(
-        default_factory=CalibNetworkBoundWeights,
-        description="Share of each bound in the value returned when both maps are "
-        "declared. Only the maximal bound is scored without a minimal map.",
-    )
 
-    @field_validator("maximal_flowing_duration", "minimal_dry_duration", mode="before")
+    @field_validator("flowing_at_least", "dry_at_most", mode="before")
     @classmethod
     def _readable_duration(cls, value: Any, info: ValidationInfo) -> Any:
         """Refuse a duration the criterion could not read at the first trial."""
         days = parse_extent_duration(value, location=str(info.field_name))
-        if days is not None and info.field_name == "maximal_flowing_duration" and not days > 0.0:
-            raise ValueError("maximal_flowing_duration must be longer than zero.")
+        if days is not None and info.field_name == "flowing_at_least" and not days > 0.0:
+            raise ValueError("flowing_at_least must be longer than zero.")
         return value
 
     @field_validator("visible_flow")
@@ -1000,8 +1271,57 @@ class CalibNetworkExtent(HydroModelBase):
         return value
 
 
+class CalibNetworkModel(HydroModelBase):
+    """How the model draws its own stream network."""
+
+    seepage_threshold: Annotated[float, Profile.USER] = Field(
+        default=STREAM_CRITERION_DEFAULTS.tau_specific_ratio,
+        ge=0.0,
+        description="A cell releasing less than this fraction of the mean basin recharge, taken "
+        "over its own area, is not a seepage face. Zero reproduces the purely geometric criterion of the "
+        "paper. Frozen over the whole search: a threshold moving with the trial would "
+        "cost the criterion its monotonicity.",
+        json_schema_extra=_moved_from("tau_specific_ratio", unit="-"),
+    )
+    neighbours: Annotated[Literal["D8", "D4"], Profile.USER] = Field(
+        default="D8" if STREAM_CRITERION_DEFAULTS.diagonal_neighbors else "D4",
+        description="The graph the descent walks. 'D8' descends over shared nodes, the eight "
+        "neighbours of a quad mesh, and is the paper: its distances are traced by "
+        "WhiteboxTools on a D8 pointer, and the delineation that produced the catchment uses "
+        "one too. 'D4' descends over shared edges only and departs from the paper. It is "
+        "not a second-decimal choice: on a synthetic valley whose talweg runs along the "
+        "grid diagonal, the most accumulated cell collects 100 per cent of the domain "
+        "over shared nodes and 6.6 per cent over shared edges. On a mesh whose faces are "
+        "not all quadrilaterals no cell has a diagonal and the descent walks shared "
+        "edges either way; on a Voronoi mesh the two graphs are the same one.",
+        json_schema_extra=_moved_from("diagonal_neighbors"),
+    )
+    weighting: Annotated[Literal["cell", "area"], Profile.USER] = Field(
+        default="cell",
+        description="Average one cell one vote (the paper) or weighted by cell area. "
+        "Both values are always reported; use 'area' on a mesh refined along the "
+        "streams, where cell density is highest exactly where distances are smallest.",
+        json_schema_extra={
+            **_moved_from("weighting"),
+            "value_docs": {
+                "cell": "Every cell counts once in the average, as in the paper.",
+                "area": "Every cell counts in proportion to its area.",
+            },
+        },
+    )
+    extent: Annotated[CalibNetworkExtent | None, Profile.USER] = Field(
+        default=None,
+        description="The transient two-bound mode. Unset, the output reads one state, the "
+        "method of the papers. Set, it reads every timestep of a transient run and scores "
+        "the maximal simulated mask against the complete map and, when 'map.permanent' is "
+        "declared, the minimal mask against the permanent map. Refused on a run with a "
+        "single period or no complete calendar year.",
+        json_schema_extra=_moved_from("extent"),
+    )
+
+
 class CalibNetworkVerdict(HydroModelBase):
-    """When the result of a network output is refused rather than qualified."""
+    """When the result of a network output is qualified or refused."""
 
     max_catchment_mismatch: Annotated[
         Annotated[float, Field(ge=0.0)] | Literal[False], Profile.USER
@@ -1016,6 +1336,59 @@ class CalibNetworkVerdict(HydroModelBase):
         "every trial. A synthetic domain has no delineated catchment and is never refused.",
         json_schema_extra={"unit": "-"},
     )
+    validity_length: Annotated[Literal["auto"] | Length, Profile.USER] = Field(
+        default="auto",
+        description="Validity bound of Eq. 4, a length: the calibration is valid when "
+        "D_optim <= this. 'auto' is 2 h, the paper's two cells, where h is h_obs, the cell "
+        "size on the mapped network, raised to 'map.position_accuracy' if that is "
+        "declared. A length such as '150 m' is used as it is. The bound qualifies the "
+        "result and never penalises the cost.",
+        json_schema_extra=_moved_from("validity_length"),
+    )
+    on_invalid: Annotated[Literal["warn", "error"], Profile.USER] = Field(
+        default="warn",
+        description="What a violation of Eq. 4 does: D_optim above 'validity_length'. The "
+        "bound is read once, on the trial the search returns, as the paper reads it at the "
+        "optimum, and on each bound in the cost of the two-bound mode; every trial still "
+        "records 'r_optim', 'r_optim_valid' and 'validity_length_m'. 'warn' logs it and "
+        "returns the value, because a calibration is asked for a number. 'error' raises "
+        "after the session is saved, so a staged calibration freezes nothing and runs no "
+        "phase that depends on this one.",
+        json_schema_extra=_moved_from("on_roptim_violation"),
+    )
+    alpha_warning_threshold: Annotated[float, Profile.EXPERT] = Field(
+        default=STREAM_CRITERION_DEFAULTS.alpha_warning_threshold,
+        gt=0.0,
+        le=1.0,
+        description="Below this value of 'alpha_obs_closure_catchment' the run warns "
+        "that its distances carry a top-versus-map disagreement on top of the "
+        "hydrogeology. alpha is the share of the downstream closure of the mapped "
+        "network the network itself covers, measured on the MODEL TOP and on the "
+        "catchment. It changes nothing that is computed: the criterion is scored the "
+        "same way above and below it.",
+        json_schema_extra=_moved_from("alpha_warning_threshold"),
+    )
+    clipping_warning_share: Annotated[float, Profile.EXPERT] = Field(
+        default=STREAM_CRITERION_DEFAULTS.clipping_warning_share,
+        ge=0.0,
+        le=1.0,
+        description="Share of the mapped stream cells lying outside the delineated "
+        "catchment above which the whole-mesh alpha is reported as unreadable. Those "
+        "reaches trace through the buffer, where no cell is required to descend into "
+        "the network, so they inflate the closure without adding to the numerator. "
+        "Reported together with clipping_warning_gap, never alone.",
+        json_schema_extra=_moved_from("clipping_warning_share", unit="-"),
+    )
+    clipping_warning_gap: Annotated[float, Profile.EXPERT] = Field(
+        default=STREAM_CRITERION_DEFAULTS.clipping_warning_gap,
+        ge=0.0,
+        le=1.0,
+        description="Minimum absolute gap between the whole-mesh and the catchment "
+        "alpha for the clipping report to fire. A linework spilling out of the "
+        "catchment over ground that routes the same way leaves the two ratios equal, "
+        "and reporting it there would be noise on every ordinary project.",
+        json_schema_extra=_moved_from("clipping_warning_gap"),
+    )
 
     @field_validator("max_catchment_mismatch", mode="before")
     @classmethod
@@ -1029,6 +1402,20 @@ class CalibNetworkVerdict(HydroModelBase):
         if isinstance(value, int) and not isinstance(value, bool) and value == 0:
             # The union would read the integer 0 as false and switch the veto off.
             return 0.0
+        return value
+
+    @field_validator("validity_length")
+    @classmethod
+    def _positive_validity_length(cls, value: object) -> object:
+        """Refuse a validity length that is zero or negative."""
+        if value == "auto":
+            return value
+        magnitude = float(value.to("m").magnitude)  # type: ignore[union-attr]
+        if not magnitude > 0.0:
+            raise ValueError(
+                f"validity_length = {magnitude:g} m: a validity length is a positive "
+                "distance, or 'auto'."
+            )
         return value
 
 
@@ -1050,14 +1437,8 @@ class CalibOutputNetwork(HydroModelBase):
     There is no ``observed_values`` here and there cannot be: the criterion
     balances two simulated quantities against each other, so nothing in it is
     fitted to a record. The mapped network enters as a geometry, not as a
-    series, and exactly one of ``observed_network`` and
-    ``stream_geometry_path`` names where it comes from.
-
-    That map is the maximal one, every mapped reach. A minimal map, the
-    permanent reaches, may be declared beside it. In one state the state is
-    then scored on the minimal map and the maximal map is a validation. With
-    ``extent``, a transient run is scored on two bounds, the yearly maximal
-    mask against the maximal map and the minimal mask against the minimal map.
+    series. Three tables hold the rest: ``map`` is what is observed, ``model``
+    how the model draws its network and ``verdict`` when the result holds.
     """
 
     model_refused_keys: ClassVar[Mapping[str, str]] = {
@@ -1068,6 +1449,7 @@ class CalibOutputNetwork(HydroModelBase):
             "[calibration.outputs.<name>.verdict] max_catchment_mismatch refuses that, 0.05 "
             "by default."
         ),
+        **_renames_under("calibration.outputs.{*}"),
     }
 
     variable: Annotated[str, Profile.USER] = Field(
@@ -1079,274 +1461,23 @@ class CalibOutputNetwork(HydroModelBase):
         default="network",
         description="Discriminator: compare a simulated stream network to a mapped one.",
     )
-    observed_network: Annotated[
-        Literal["data.hydrography", "geographic.river_network"] | None, Profile.USER
-    ] = Field(
-        default=None,
-        description="Where the mapped network comes from when it is not an explicit "
-        "file. Exactly one of this and 'stream_geometry_path' must be set.",
-        json_schema_extra={
-            "value_docs": {
-                "data.hydrography": "Reuses the network the hydrography data family "
-                "already loaded (a local file or an osm / bdtopage / euhydro "
-                "download), clipped to the delineated catchment. Costs nothing new "
-                "to configure but ties the criterion to whatever that section "
-                "resolved.",
-                "geographic.river_network": "Derives the network from the DEM by a "
-                "drainage-area threshold. K/R shapes both where the water table "
-                "reaches the surface and the accumulation the threshold is cut on, so "
-                "the criterion partly fits a seepage density onto a geomorphological "
-                "one; warned once and recorded on every run that uses it.",
-            }
-        },
+    map: Annotated[CalibNetworkMap, Profile.USER] = Field(
+        description="What is observed: the mapped network, its role and how it is drawn.",
     )
-    stream_geometry_path: Annotated[OptionalPath, Profile.USER] = Field(
-        default=None,
-        description="Vector file holding the mapped stream network, read only from "
-        "here: the criterion resolves no geometry of its own and does not reuse the "
-        "one the hydrography data family loaded. The way out of 'observed_network' "
-        "when neither of its two sources is the one you want scored.",
-        json_schema_extra=field_metadata(site_scoped=True),
+    model: Annotated[CalibNetworkModel, Profile.USER] = Field(
+        default_factory=CalibNetworkModel,
+        description="How the model draws its own stream network.",
     )
-    minimal_stream_geometry_path: Annotated[OptionalPath, Profile.USER] = Field(
-        default=None,
-        description="Vector file holding the minimal map: the permanent network, which "
-        "the map named by 'observed_network' or 'stream_geometry_path' (the maximal map, "
-        "every mapped reach) contains. Read as it is, never filtered by attribute. The "
-        "maximal map scored is the union of the two, and the share of the minimal map "
-        "outside the maximal one is published. In one state, the state is compared to "
-        "this map and the maximal map is scored beside it as a validation outside the "
-        "cost, as Abherve et al. (2025) do; with 'extent', it is the minimal bound. At "
-        "most one of this and 'minimal_observed_network'.",
-    )
-    minimal_observed_network: Annotated[Literal["data.hydrography"] | None, Profile.USER] = Field(
-        default=None,
-        description="Where the minimal map comes from when it is not an explicit file. "
-        "'data.hydrography' reads the permanent reaches the hydrography data family "
-        "wrote beside its network, which it does only when its source says which "
-        "reaches flow all year. Same role as 'minimal_stream_geometry_path'; at most "
-        "one of the two.",
-    )
-
-    @property
-    def has_minimal_map(self) -> bool:
-        """Whether a minimal (permanent) map is declared, by either route."""
-        return self.minimal_stream_geometry_path is not None or (
-            self.minimal_observed_network is not None
-        )
-
-    @model_validator(mode="after")
-    def _one_minimal_map_at_most(self) -> CalibOutputNetwork:
-        """Refuse two sources for the minimal map: one would be scored, the other named."""
-        if self.minimal_stream_geometry_path is not None and self.minimal_observed_network:
-            raise ValueError(
-                "calibration output declares both 'minimal_observed_network' "
-                f"({self.minimal_observed_network!r}) and 'minimal_stream_geometry_path' "
-                f"({self.minimal_stream_geometry_path!r}). Declare at most one."
-            )
-        return self
-
-    @model_validator(mode="after")
-    def _validate_observed_network_source(self) -> CalibOutputNetwork:
-        """Exactly one of the two observation routes must be declared.
-
-        Keyed on the values and not on ``model_fields_set``: both fields default
-        to ``None``, so a value says everything a declaration would, and a
-        configuration that has been through ``model_dump`` still validates. A
-        dump writes every field, defaults included, and re-validating one marks
-        them all as declared; keying on that would refuse a session record, a
-        frozen run config and every test that round-trips an output.
-
-        TOML carries no null, so "declared and null" is not a case a file can
-        reach.
-        """
-        declared_network = self.observed_network is not None
-        declared_path = self.stream_geometry_path is not None
-        if declared_network and declared_path:
-            raise ValueError(
-                "calibration output declares both 'observed_network' "
-                f"({self.observed_network!r}) and 'stream_geometry_path' "
-                f"({self.stream_geometry_path!r}): the criterion would score one "
-                "and the report would name the other. Declare exactly one."
-            )
-        if not declared_network and not declared_path:
-            raise ValueError(
-                "calibration output declares neither 'observed_network' nor "
-                "'stream_geometry_path': the mapped network has no source. Pick "
-                "one of 'data.hydrography', 'geographic.river_network', or set "
-                "'stream_geometry_path' to an explicit file."
-            )
-        return self
-
-    tau_specific_ratio: Annotated[float, Profile.USER] = Field(
-        default=STREAM_CRITERION_DEFAULTS.tau_specific_ratio,
-        ge=0.0,
-        description="A cell releasing less than this fraction of its own recharge is "
-        "not a seepage face. Zero reproduces the purely geometric criterion of the "
-        "paper. Frozen over the whole search: a threshold moving with the trial would "
-        "cost the criterion its monotonicity.",
-        json_schema_extra={"unit": "-"},
-    )
-    weighting: Annotated[Literal["cell", "area"], Profile.USER] = Field(
-        default="cell",
-        description="Average one cell one vote (the paper) or weighted by cell area. "
-        "Both values are always reported; use 'area' on a mesh refined along the "
-        "streams, where cell density is highest exactly where distances are smallest.",
-        json_schema_extra={
-            "value_docs": {
-                "cell": "Every cell counts once in the average, as in the paper.",
-                "area": "Every cell counts in proportion to its area.",
-            }
-        },
-    )
-    diagonal_neighbors: Annotated[bool, Profile.USER] = Field(
-        default=STREAM_CRITERION_DEFAULTS.diagonal_neighbors,
-        description="Descend over shared nodes, the eight D8 neighbors of a quad mesh. "
-        "True is the paper: its distances are traced by WhiteboxTools on a D8 pointer, "
-        "and the delineation that produced the catchment uses one too. False descends "
-        "over shared edges only, four neighbours (D4), and departs from the paper. It is "
-        "not a second-decimal choice: on a synthetic valley whose talweg runs along the "
-        "grid diagonal, the most accumulated cell collects 100 per cent of the domain "
-        "over shared nodes and 6.6 per cent over shared edges. On a mesh whose faces are "
-        "not all quadrilaterals no cell has a diagonal and the descent walks shared "
-        "edges either way; on a Voronoi mesh the two graphs are the same one.",
-    )
-    observed_rasterization: Annotated[ObservedRasterization, Profile.USER] = Field(
-        default=STREAM_CRITERION_DEFAULTS.observed_rasterization,
-        description="How the mapped network is drawn on the mesh cells. 'crossing' "
-        "keeps the cell holding each point where a line crosses the segment joining two "
-        "edge-sharing cell centres. On a structured grid it reproduces WhiteboxTools "
-        "VectorLinesToRaster, the paper's tool, and draws the map one cell wide like "
-        "the simulated network, so a model that matches the map scores J = 0. 'touch' "
-        "keeps every cell the line touches, corners included, and replays a session "
-        "made before 2026-09; it thickens every diagonal step of the map and departs "
-        "from the paper. 'heads' keeps only the free ends of the map whose largest "
-        "drained area within heads_snap_radius does not exceed that of the other end of "
-        "their reach, lands each on a nearby cell and draws the "
-        "rest down the criterion's own descent: the field ditches and rectified reaches "
-        "below a head stop counting as model error, and the drawn map reaches the "
-        "outlet. Keep 'crossing' for a map that is not a tree: canals, braids, polders, "
-        "karst.",
-    )
-    clip_map_to_catchment: Annotated[bool, Profile.USER] = Field(
-        default=STREAM_CRITERION_DEFAULTS.clip_map_to_catchment,
-        description="Cut the mapped network to the delineated catchment before drawing it, "
-        "with the shape the hydrography data family clips what it loads to, so "
-        "'stream_geometry_path' and observed_network = 'data.hydrography' draw the same map "
-        "from the same file. Under 'heads' an end the cut made is no stream head. false "
-        "reads a file whole and takes every free end as a candidate head.",
-    )
-    heads_snap_radius: Annotated[
-        Length, Profile.USER, VisibleWhen("observed_rasterization", "heads")
-    ] = Field(
-        default=STREAM_CRITERION_DEFAULTS.heads_snap_radius_m,
-        description="Under observed_rasterization = 'heads', the largest distance, a "
-        "length (a bare number is in metres), between a mapped stream head and the centre "
-        "of the cell it lands on. A head with no landing cell that close is lost, draws "
-        "nothing and is counted in n_heads_lost. Read only under 'heads'.",
-    )
-    heads_min_drained_area_km2: Annotated[
-        float, Profile.USER, VisibleWhen("observed_rasterization", "heads")
-    ] = Field(
-        default=STREAM_CRITERION_DEFAULTS.heads_min_drained_area_km2,
-        ge=0.0,
-        description="Under observed_rasterization = 'heads', the drained area in km2 a "
-        "cell needs before a head may land on it, so a head next to its valley lands in "
-        "the valley and not on the ridge cell beside it. Read only under 'heads'.",
-    )
-
-    @field_validator("heads_snap_radius")
-    @classmethod
-    def _positive_heads_snap_radius(cls, value: object) -> object:
-        """Refuse a snap radius that is zero or negative."""
-        magnitude = float(value.to("m").magnitude)  # type: ignore[union-attr]
-        if not magnitude > 0.0:
-            raise ValueError(
-                f"heads_snap_radius = {magnitude:g} m: a snap radius is a positive distance."
-            )
-        return value
-
-    observed_position_accuracy: Annotated[Length | None, Profile.USER] = Field(
-        default=None,
-        description="Positional accuracy of the mapped network. It enters the automatic "
-        "validity length only: the cell size h there is max(h_obs, this), because a map "
-        "is not placed better when the mesh is refined. r_optim stays D_optim / h_obs, the "
-        "paper's Eq. 3. Unset is the literal reading of the paper.",
-    )
-    validity_length: Annotated[Literal["auto"] | Length, Profile.USER] = Field(
-        default="auto",
-        description="Validity bound of Eq. 4, a length: the calibration is valid when "
-        "D_optim <= this. 'auto' is 2 h, the paper's two cells, where h is h_obs, the cell "
-        "size on the mapped network, raised to 'observed_position_accuracy' when one is "
-        "declared. A length such as '150 m' is used as it is. The bound qualifies the "
-        "result and never penalises the cost.",
-    )
-    on_roptim_violation: Annotated[Literal["warn", "error"], Profile.USER] = Field(
-        default="warn",
-        description="What a violation of Eq. 4 does: D_optim above 'validity_length'. The "
-        "bound is read once, on the trial the search returns, as the paper reads it at the "
-        "optimum, and on each bound in the cost of the two-bound mode; every trial still "
-        "records 'r_optim', 'r_optim_valid' and 'validity_length_m'. 'warn' logs it and "
-        "returns the value, because a calibration is asked for a number. 'error' raises "
-        "after the session is saved, so a staged calibration freezes nothing and runs no "
-        "phase that depends on this one.",
-    )
-
-    @field_validator("validity_length")
-    @classmethod
-    def _positive_validity_length(cls, value: object) -> object:
-        """Refuse a validity length that is zero or negative."""
-        if value == "auto":
-            return value
-        magnitude = float(value.to("m").magnitude)  # type: ignore[union-attr]
-        if not magnitude > 0.0:
-            raise ValueError(
-                f"validity_length = {magnitude:g} m: a validity length is a positive "
-                "distance, or 'auto'."
-            )
-        return value
-
     verdict: Annotated[CalibNetworkVerdict, Profile.USER] = Field(
         default_factory=CalibNetworkVerdict,
-        description="When the result of this output is refused rather than qualified.",
-    )
-    alpha_warning_threshold: Annotated[float, Profile.EXPERT] = Field(
-        default=STREAM_CRITERION_DEFAULTS.alpha_warning_threshold,
-        gt=0.0,
-        le=1.0,
-        description="Below this value of 'alpha_obs_closure_catchment' the run warns "
-        "that its distances carry a top-versus-map disagreement on top of the "
-        "hydrogeology. alpha is the share of the downstream closure of the mapped "
-        "network the network itself covers, measured on the MODEL TOP and on the "
-        "catchment. It changes nothing that is computed: the criterion is scored the "
-        "same way above and below it.",
-    )
-    clipping_warning_share: Annotated[float, Profile.EXPERT] = Field(
-        default=STREAM_CRITERION_DEFAULTS.clipping_warning_share,
-        ge=0.0,
-        le=1.0,
-        description="Share of the mapped stream cells lying outside the delineated "
-        "catchment above which the whole-mesh alpha is reported as unreadable. Those "
-        "reaches trace through the buffer, where no cell is required to descend into "
-        "the network, so they inflate the closure without adding to the numerator. "
-        "Reported together with clipping_warning_gap, never alone.",
-        json_schema_extra=field_metadata(unit="-"),
-    )
-    clipping_warning_gap: Annotated[float, Profile.EXPERT] = Field(
-        default=STREAM_CRITERION_DEFAULTS.clipping_warning_gap,
-        ge=0.0,
-        le=1.0,
-        description="Minimum absolute gap between the whole-mesh and the catchment "
-        "alpha for the clipping report to fire. A linework spilling out of the "
-        "catchment over ground that routes the same way leaves the two ratios equal, "
-        "and reporting it there would be noise on every ordinary project.",
+        description="When the result of this output is qualified or refused.",
     )
     time: Annotated[Literal["last", "first"] | str, Profile.USER] = Field(
         default="last",
         description="Which single state the release flux is read at: 'last' (default), "
         "'first', or an ISO date such as '2002-10-15', which reads the state of the "
         "period that holds it, (start, end]. That state is dated at its period's end, "
-        "which is the date a scoring_window is compared with. A steady phase runs one "
+        "which is the date a window is compared with. A steady phase runs one "
         "period over its window, so every date of that window reads its one state and "
         "one output serves both regimes. 'all' and a list of dates are refused: a "
         "network output reads one state.",
@@ -1371,7 +1502,7 @@ class CalibOutputNetwork(HydroModelBase):
                 f"calibration output for the stream network has time={value!r}: a "
                 "network output reads exactly one state, 'last', 'first' or one date. A "
                 "transient comparison of the minimal and maximal extents is the "
-                "'extent' table of the output, not this field."
+                "'model.extent' table of the output, not this field."
             )
         if isinstance(value, datetime.date):
             value = value.isoformat()
@@ -1386,37 +1517,30 @@ class CalibOutputNetwork(HydroModelBase):
             return value.strip()
         return value
 
-    extent: Annotated[CalibNetworkExtent | None, Profile.USER] = Field(
-        default=None,
-        description="The transient two-bound mode. Unset, the output reads one state, the "
-        "method of the papers. Set, it reads every timestep of a transient run and scores "
-        "the maximal simulated mask against the maximal map and, when "
-        "'minimal_stream_geometry_path' is declared, the minimal mask against the minimal "
-        "map. Refused on a run with a single period or no complete calendar year.",
-    )
-
     @model_validator(mode="after")
-    def _say_the_extent_once(self) -> CalibOutputNetwork:
-        """Refuse an extent table that contradicts the rest of the output.
+    def _say_each_thing_once(self) -> CalibOutputNetwork:
+        """Refuse what contradicts the rest of the output across its tables.
 
         ``time`` names one state, and the two-bound mode reads them all, so only
-        its default may stand beside it. Weights other than the default without
-        a minimal map would weigh a bound that is never scored.
+        its default may stand beside it. A share of two bounds needs the mode that
+        scores two. An accuracy only enters the automatic validity length.
         """
-        if self.extent is None:
-            return self
-        if self.time != "last":
+        if self.model.extent is not None and self.time != "last":
             raise ValueError(
-                f"the network output declares an extent table and time = {self.time!r}. "
+                f"the network output declares model.extent and time = {self.time!r}. "
                 "The two-bound mode reads every timestep of the run; drop 'time'."
             )
-        weights = self.extent.weights
-        if not self.has_minimal_map and (weights.minimal != 0.5 or weights.maximal != 0.5):
+        if self.model.extent is None and isinstance(
+            self.map.calibrate_on, CalibNetworkBoundWeights
+        ):
             raise ValueError(
-                f"the extent table weighs the bounds (minimal = {weights.minimal:g}, maximal "
-                f"= {weights.maximal:g}) and no minimal map is declared, so only the maximal "
-                "bound is scored. Declare 'minimal_stream_geometry_path' or "
-                "'minimal_observed_network', or drop the weights."
+                "map.calibrate_on shares the value between two bounds and one state has one "
+                "cost. Name one map, 'permanent' or 'complete', or declare model.extent."
+            )
+        if self.map.position_accuracy is not None and self.verdict.validity_length != "auto":
+            raise ValueError(
+                "map.position_accuracy enters the automatic validity length only, and "
+                "verdict.validity_length is written as a length, so nothing reads it. Drop one."
             )
         return self
 
@@ -1466,56 +1590,6 @@ def outputs_agree(here: Any, there: Any) -> bool:
     return dumped_here == dumped_there
 
 
-class CalibScoringWindow(HydroModelBase):
-    """Dates bounding the samples a metric is computed on.
-
-    A window in dates rather than in sample counts: it says the same thing
-    whatever the output frequency, whereas ``warmup_periods`` counts samples
-    after alignment and therefore means a different span at daily and at weekly
-    resolution. The two are mutually exclusive, which
-    :class:`CalibrationConfig` enforces.
-    """
-
-    start: Annotated[str | None, Profile.USER] = Field(
-        default=None,
-        description="First date scored, ISO 8601. Unset means from the first sample.",
-    )
-    end: Annotated[str | None, Profile.USER] = Field(
-        default=None,
-        description="Last date scored, ISO 8601. Unset means up to the last sample.",
-    )
-
-    @model_validator(mode="after")
-    def _check_bounds(self) -> CalibScoringWindow:
-        bounds = _parsed_scoring_bounds(self)
-        if bounds[0] is not None and bounds[1] is not None and bounds[0] > bounds[1]:
-            raise ValueError(f"scoring_window start {self.start!r} is after end {self.end!r}.")
-        return self
-
-
-def _parsed_scoring_bounds(window: CalibScoringWindow) -> tuple[Any, Any]:
-    """Parse the window bounds into timestamps, raising on a bad date."""
-    import pandas as pd
-
-    parsed = []
-    for label, raw in (("start", window.start), ("end", window.end)):
-        if raw is None:
-            parsed.append(None)
-            continue
-        try:
-            parsed.append(pd.Timestamp(raw))
-        except (TypeError, ValueError) as exc:
-            raise ValueError(f"scoring_window {label}={raw!r} is not a date.") from exc
-    return parsed[0], parsed[1]
-
-
-def scoring_window_bounds(window: CalibScoringWindow | None) -> tuple[Any, Any] | None:
-    """Return the parsed ``(start, end)`` of a window, or None when unset."""
-    if window is None:
-        return None
-    return _parsed_scoring_bounds(window)
-
-
 class CalibObjectiveBlockDecl(HydroModelBase):
     """Weighted metric block used by a composite objective.
 
@@ -1526,14 +1600,16 @@ class CalibObjectiveBlockDecl(HydroModelBase):
     """
 
     model_refused_keys: ClassVar[Mapping[str, str]] = {
-        "transform": renamed_to("cost_transform", "the function applied to the cost of this block"),
+        **_renames_under("calibration.objective_blocks[*]"),
+        "warmup": (
+            "a window bounds every block: write window = {start = <date>} on [calibration] instead"
+        ),
     }
 
     name: Annotated[str, Profile.USER] = Field(
         description="Unique block identifier used in logs and persistence.",
     )
     metric: Annotated[MetricKind, Profile.USER] = Field(
-        default="rmse",
         description="Metric that scores this block against its observations.",
         json_schema_extra={"value_docs": _METRIC_VALUE_DOCS},
     )
@@ -1579,17 +1655,6 @@ class CalibObjectiveBlockDecl(HydroModelBase):
                 "a cost of zero.",
             },
         ),
-    )
-    warmup: Annotated[NonNegativeInt | None, Profile.EXPERT] = Field(
-        default=None,
-        description=(
-            "Burn-in samples dropped from this block only, overriding "
-            "[calibration].warmup_periods. A count of samples, so twelve means a year "
-            "at a monthly step and twelve days at a daily one. Write "
-            "scoring_window.start instead, a date that means the same span at any step "
-            "and bounds a network state too. Kept so older files load unchanged."
-        ),
-        json_schema_extra=field_metadata(unit="-"),
     )
 
     @model_validator(mode="after")
@@ -1645,7 +1710,7 @@ PHASE_REGIME_PATHS: dict[str, tuple[str, ...]] = {
 ``runners/phase_regime.py`` writes them. They are listed here because a phase
 that also writes one of them in ``overrides`` is refused when the file is read,
 and ``config`` does not import ``runners``.
-``tests/unit/calibration/test_phase_regime.py`` keeps the two equal.
+``tests/unit/calibration/test_runners_phase_regime.py`` keeps the two equal.
 """
 
 
@@ -1875,10 +1940,9 @@ class CalibPhaseDecl(HydroModelBase):
     all the way out.
     """
 
-    model_legacy_keys = {"optimizer_kwargs": "method_options"}
     model_refused_keys: ClassVar[Mapping[str, str]] = {
-        "max_iter": renamed_to("max_trials", "evaluations this phase may run"),
-        "tolerance": renamed_to("precision", "how finely this phase pins its parameters"),
+        **_renames_under("calibration.phases[*]"),
+        "observed_station_id": _GAUGE_ADVICE,
     }
 
     name: Annotated[NonEmptyStr, Profile.USER] = Field(
@@ -1904,8 +1968,8 @@ class CalibPhaseDecl(HydroModelBase):
             "method_options.points_per_dim), 'lhs' (stratified Latin hypercube, "
             "sized by method_options.n_samples), 'random_search', 'bisection' (root of "
             "a signed criterion on one parameter, the stream-network stage), 'optuna' "
-            "(TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', "
-            "'da_mh_gp'. An unknown name is refused when the optimizer is built, "
+            "(TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead' and 'gp_mapping'. "
+            "An unknown name is refused when the optimizer is built, "
             "with the list installed here."
         ),
     )
@@ -1995,11 +2059,6 @@ class CalibPhaseDecl(HydroModelBase):
         "phase does not use objective blocks. Same vocabulary as a block's 'metric'.",
         json_schema_extra={"value_docs": _METRIC_VALUE_DOCS},
     )
-    observed_station_id: Annotated[StationName | None, Profile.USER] = Field(
-        default=None,
-        description="Discharge station whose record a discharge calibration fits, scored at its own mesh cell on the discharge routed to that cell. The other loaded gauges are not scored. Required with several discharge stations loaded, optional with one. Overrides the calibration-level value for this phase.",
-        json_schema_extra=field_metadata(site_scoped=True),
-    )
     method_options: Annotated[dict[str, Any] | None, Profile.USER] = Field(
         default=None,
         description="Options of this phase's method, named as that method names "
@@ -2039,12 +2098,13 @@ class CalibPhaseDecl(HydroModelBase):
         "the project configuration. A phase that gives regime may not write here a "
         "path regime writes: that would say the same thing twice.",
     )
-    scoring_window: Annotated[CalibScoringWindow | None, Profile.USER] = Field(
+    window: Annotated[CalibWindow | None, Profile.USER] = Field(
         default=None,
         description="Dates bounding the samples this phase scores on, replacing "
-        "[calibration].scoring_window. start = the first date scored leaves a spin-up "
+        "[calibration].window. start = the first date scored leaves a spin-up "
         "out of every block alike. A network output read in one state is dated at the "
         "stamp of that state, which has to lie inside the window.",
+        json_schema_extra=field_metadata(renamed_from=["calibration.phases.scoring_window"]),
     )
     depends_on: Annotated[str | None, Profile.USER] = Field(
         default=None,
@@ -2052,6 +2112,15 @@ class CalibPhaseDecl(HydroModelBase):
         "enter this one fixed, except those this phase lists and moves again. When that "
         "phase freezes its values and its search stops on its budget before a rule of its "
         "own, this phase is refused rather than run on the values of the file.",
+    )
+    balanced_evaluation: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description="Close the root of J on K at every point of this phase's search and "
+        "score the point there. The phase moves one conductivity in log space, walked by a "
+        "root search at the precision of the phase, and at least one other parameter, "
+        "walked by its method, and it scores distance_mean. max_trials counts the points "
+        "of that method, and each one costs a whole root search, about 24 solves. The "
+        "report of a balanced search keeps no roots record and no Delta.",
     )
     freeze_on_success: Annotated[bool, Profile.USER] = Field(
         default=True,
@@ -2148,13 +2217,14 @@ class CalibAggregateDecl(HydroModelBase):
 
     ``weighting``, ``nested_gauges`` and ``on_member_failure`` were declared
     here and never read: a file that wrote them got the same cost. They are
-    retired, accepted and ignored with a warning, so a sealed run that wrote
-    them out keeps replaying.
+    refused, and ``hmp doctor --fix-config`` deletes them.
     """
 
-    model_retired_keys: ClassVar[frozenset[str]] = frozenset(
-        {"weighting", "nested_gauges", "on_member_failure"}
-    )
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "weighting": _DROPPED_ADVICE,
+        "nested_gauges": _DROPPED_ADVICE,
+        "on_member_failure": _DROPPED_ADVICE,
+    }
 
     min_samples: Annotated[int, Profile.USER] = Field(
         default=1,
@@ -2304,14 +2374,19 @@ class CalibrationConfig(HydroModelBase):
     from ``objective`` and ``variable`` if the matching output exists.
     """
 
-    model_legacy_keys = {"optimizer_kwargs": "method_options"}
-    # Declared and never read. Retired rather than refused: a run sealed while
-    # the frozen configuration spelled out every default carries them. The
-    # promoted run follows [simulation.results.persistence], never this table.
-    model_retired_keys: ClassVar[frozenset[str]] = frozenset(
-        {"lightweight_extraction", "persist_model_distribution", "persistence"}
-    )
     model_refused_keys: ClassVar[Mapping[str, str]] = {
+        **_renames_under("calibration"),
+        "observed_station_id": _GAUGE_ADVICE,
+        "warmup_periods": (
+            "write window = {start = <date>} instead, with [simulation.time] "
+            "start_datetime plus that many steps as the date; hmp doctor --fix-config "
+            "<file> writes it when the step is known"
+        ),
+        # Declared and never read. The promoted run follows
+        # [simulation.results.persistence], never these.
+        "lightweight_extraction": _DROPPED_ADVICE,
+        "persist_model_distribution": _DROPPED_ADVICE,
+        "persistence": _DROPPED_ADVICE,
         "rerun_best_with_outputs": (
             "the best trial is promoted by default: save_runs = 'best_n' with "
             "save_best_n = 1 writes it under runs/<case>/."
@@ -2324,8 +2399,6 @@ class CalibrationConfig(HydroModelBase):
             "hmp calibrate --resume reuses the completed phases of the session of the "
             "case; nothing in the file says so."
         ),
-        "max_iter": renamed_to("max_trials", "the evaluations the search may run"),
-        "tolerance": renamed_to("precision", "how finely the search pins a parameter"),
     }
 
     protocol: Annotated[CalibrationProtocolDecl | None, Profile.USER] = Field(
@@ -2354,9 +2427,9 @@ class CalibrationConfig(HydroModelBase):
             "method_options.points_per_dim), 'lhs' (stratified Latin hypercube, "
             "sized by method_options.n_samples), 'random_search', 'bisection' (root of "
             "a signed criterion on one parameter, the stream-network stage), 'optuna' "
-            "(TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', "
-            "'da_mh_gp'. An unknown name is refused when the optimizer is built, "
-            "with the list installed here."
+            "(TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead' and 'gp_mapping'. "
+            "An unknown name is refused when the optimizer is built, "
+            "with the list installed here. "
             "Optuna is installed by default; install the calibration extra for "
             "cma_es and Optuna's cmaes sampler."
         ),
@@ -2446,8 +2519,10 @@ class CalibrationConfig(HydroModelBase):
             "sets none of its own. A grid or a random search evaluates its points "
             "together; a root search cuts its bracket into parallel + 1 parts; a "
             "simplex evaluates the candidates of one step together and keeps the "
-            "sequential answer. Each trial holds its own model in memory; 1 solves "
-            "them one after the other."
+            "sequential answer, so a width above 4 buys it nothing, and CMA-ES and "
+            "differential evolution stop at their population. A width above 1 gives each worker process its own copy of "
+            "the model (about 0.5 GiB, 3 s to start); 1 solves the trials one after the "
+            "other in this process."
         ),
         json_schema_extra={"unit": "-"},
     )
@@ -2469,27 +2544,23 @@ class CalibrationConfig(HydroModelBase):
         ),
         json_schema_extra={"unit": "%"},
     )
-    warmup_periods: Annotated[int, Profile.EXPERT] = Field(
-        default=0,
-        ge=0,
-        description=(
-            "Spin-up samples dropped from the start of every series before its metric. "
-            "A count of samples, so its span follows the time step. Write "
-            "scoring_window.start instead, a date that means the same span at any step "
-            "and bounds a network state too. Kept so older files load unchanged. "
-            "Default 0 (no exclusion)."
-        ),
-        json_schema_extra=field_metadata(unit="-"),
-    )
-    scoring_window: Annotated[CalibScoringWindow | None, Profile.USER] = Field(
+    window: Annotated[CalibWindow | None, Profile.USER] = Field(
         default=None,
         description=(
             "Dates bounding the samples every metric is computed on: the way to leave a "
             "spin-up out, with start = the first date scored. A series keeps its stamps "
             "inside the window; a network output read in one state is dated at the stamp "
             "of that state, which has to lie inside it. A phase's own window replaces "
-            "this one. Mutually exclusive with warmup_periods."
+            "this one."
         ),
+        json_schema_extra=field_metadata(renamed_from=["calibration.scoring_window"]),
+    )
+    validation_window: Annotated[CalibWindow | None, Profile.USER] = Field(
+        default=None,
+        description="Dates kept apart from the search, with both bounds. Every trial is scored "
+        "on them beside its cost, by the blocks that compare a dated record, and the cost never "
+        "reads them. [metrics] window minus these dates is the default of window. Declared once "
+        "for the session, and a steady phase is not scored on it.",
     )
     phases: Annotated[list[CalibPhaseDecl] | None, Profile.USER] = Field(
         default=None,
@@ -2554,11 +2625,6 @@ class CalibrationConfig(HydroModelBase):
             "Name of the simulated variable, or of a [calibration.outputs] entry, that "
             "objective scores when no objective block is declared."
         ),
-    )
-    observed_station_id: Annotated[StationName | None, Profile.USER] = Field(
-        default=None,
-        description="Discharge station whose record a discharge calibration fits, scored at its own mesh cell on the discharge routed to that cell. The other loaded gauges are not scored. Required with several discharge stations loaded, optional with one.",
-        json_schema_extra=field_metadata(site_scoped=True),
     )
     method_options: Annotated[dict[str, Any], Profile.USER] = Field(
         default_factory=dict,
@@ -2686,44 +2752,48 @@ class CalibrationConfig(HydroModelBase):
         """
         from hydromodpy.calibration.criteria import criterion_for
 
-        if len(self.objective_blocks) < 2:
-            return self
-        raw: dict[str, tuple[str, ...]] = {}
-        for block in self.objective_blocks:
-            if block.normalize_cost:
+        # Each phase adds the blocks it scores, so one is judged with those.
+        for blocks in [self._blocks_scored_by(phase) for phase in self.phases or [None]]:
+            if len(blocks) < 2:
                 continue
-            try:
+            raw: dict[str, tuple[str, ...]] = {}
+            residuals: set[str] = set()
+            for block in blocks:
+                if block.normalize_cost:
+                    continue
                 needs = criterion_for(str(block.metric)).requirements()
-            except ValueError:
-                continue
-            if needs.cost_is_dimensionless:
-                continue
-            if not needs.needs_observations and "network" in needs.reads_supports:
-                raw[str(block.name)] = (f"network distance in {needs.cost_unit or 'm'}",)
-                continue
-            families = tuple(
-                sorted(
-                    {
-                        str(getattr(self.outputs[name], "variable", ""))
-                        for name in block.uses_outputs
-                        if name in self.outputs
-                    }
+                if needs.cost_is_dimensionless:
+                    continue
+                if not needs.needs_observations and "network" in needs.reads_supports:
+                    raw[str(block.name)] = (f"network distance in {needs.cost_unit or 'm'}",)
+                    continue
+                families = tuple(
+                    sorted(
+                        {
+                            str(getattr(self.outputs[name], "variable", ""))
+                            for name in block.uses_outputs
+                            if name in self.outputs
+                        }
+                    )
                 )
-            )
-            raw[str(block.name)] = families
-        distinct = {families for families in raw.values() if families}
-        if len(distinct) > 1:
-            listed = "; ".join(
-                f"{name!r} on {', '.join(families)}" for name, families in sorted(raw.items())
-            )
-            raise ValueError(
-                f"these blocks add costs that carry different units: {listed}. The sum "
-                "would let the unit set the weighting instead of 'weight'. Declare "
-                "normalize_cost = true on each of them (a network distance is then "
-                "counted in validity lengths, a residual in the spread of its "
-                "observations), or score them on a metric whose cost is already a pure "
-                "number."
-            )
+                raw[str(block.name)] = families
+                residuals.add(str(block.name))
+            distinct = {families for families in raw.values() if families}
+            # A network distance is meant to sit beside pure numbers, a residual is not.
+            beside_pure_numbers = bool(residuals) and len(raw) < len(blocks)
+            if len(distinct) > 1 or beside_pure_numbers:
+                listed = "; ".join(
+                    f"{name!r} on {', '.join(families)}" for name, families in sorted(raw.items())
+                )
+                raise ValueError(
+                    f"these blocks add a cost that carries a unit to a cost of another unit or "
+                    f"to pure numbers: {listed}. The sum "
+                    "would let the unit set the weighting instead of 'weight'. Declare "
+                    "normalize_cost = true on each of them (a network distance is then "
+                    "counted in validity lengths, a residual in the spread of its "
+                    "observations), or score them on a metric whose cost is already a pure "
+                    "number."
+                )
         return self
 
     @model_validator(mode="after")
@@ -2766,15 +2836,31 @@ class CalibrationConfig(HydroModelBase):
         chooses it.
         """
         from hydromodpy.calibration.optim.method_config import validate_method_kwargs
-        from hydromodpy.calibration.optim.optimizer import available_optimizers
+        from hydromodpy.calibration.optim.optimizer import (
+            announced_optimizers,
+            available_optimizers,
+        )
 
         method, _reason = self.method_for()
-        available = available_optimizers()
-        if method not in available:
+        if method not in available_optimizers():
             raise ValueError(
-                f"Unknown calibration method {method!r}. Available methods: {available}"
+                f"Unknown calibration method {method!r}. "
+                f"Available methods: {announced_optimizers()}"
             )
         validate_method_kwargs(method, self.method_options)
+
+    def map_files(self) -> list[tuple[str, str, Path]]:
+        """Return ``(output, map, path)`` for every map of a network output named by a file.
+
+        The one list that anchors the paths on their document, hashes the files,
+        freezes them in a session and checks that they are there.
+        """
+        return [
+            (name, role, path)
+            for name, output in self.outputs.items()
+            if output.support == "network"
+            for role, path in output.map.files().items()
+        ]
 
     def phase_bounds_problems(self, phase: CalibPhaseDecl) -> list[str]:
         """Return why the bounds a phase writes cannot hold, or nothing.
@@ -2973,7 +3059,7 @@ class CalibrationConfig(HydroModelBase):
         way :class:`optim.objective.CompositeObjective` takes its own weights
         before dividing by their sum. Empty for a single-metric route
         (:attr:`CalibPhaseDecl.is_single_metric`, or the section route when it
-        declares no block). ``hmp calibrate --list-phases`` and ``--check``
+        declares no block). ``hmp calibrate --list-phases`` and ``hmp config check``
         read this to say what each block compares with what.
         """
         blocks = self._blocks_scored_by(phase)
@@ -2993,6 +3079,27 @@ class CalibrationConfig(HydroModelBase):
         if phase is not None and phase.objective_blocks:
             blocks = [block for block in blocks if block.name in phase.objective_blocks]
         return list(blocks)
+
+    def _compares_a_record(self, phase: CalibPhaseDecl | None) -> bool:
+        """Whether a search compares a dated record: a single metric, or a block on a station."""
+        blocks = self._blocks_scored_by(phase)
+        if not blocks:
+            return True
+        return any(
+            getattr(self.outputs.get(str(name)), "observes", None)
+            for block in blocks
+            for name in block.uses_outputs
+        )
+
+    def validation_scored_by(self, phase: CalibPhaseDecl | None) -> bool:
+        """Whether a search is scored on the validation window.
+
+        A steady phase is not: its one state spans the steady window, not those dates. Nor
+        is a search on a network or on typed values, which has no dated record to compare.
+        """
+        if self.validation_window is None or (phase is not None and phase.regime == "steady"):
+            return False
+        return self._compares_a_record(phase)
 
     def _criteria_scored_by(self, phase: CalibPhaseDecl | None) -> list[str]:
         """Return the criterion of each block a search scores.
@@ -3091,11 +3198,6 @@ class CalibrationConfig(HydroModelBase):
                         f"phase {phase.name!r} depends on {phase.depends_on!r}, which is "
                         "not declared before it."
                     )
-            if phase.scoring_window is not None and self.warmup_periods:
-                raise ValueError(
-                    f"phase {phase.name!r} declares a scoring_window while the "
-                    "calibration declares warmup_periods; pick one convention."
-                )
             for path in phase.overrides:
                 if not path or path.startswith(".") or path.endswith("."):
                     raise ValueError(
@@ -3140,11 +3242,8 @@ class CalibrationConfig(HydroModelBase):
         A length bounds a cost that is itself a length. A phase that writes one
         and scores something else is refused; one that only inherits it from the
         section reads the default instead (:meth:`uncertainty_for`), and the
-        section's own is refused when no search it covers scores distances. A
-        protocol not yet expanded has no stage to read.
+        section's own is refused when no search it covers scores distances.
         """
-        if self.protocol is not None and not self.phases:
-            return self
         searches: list[tuple[str, CalibPhaseDecl | None]] = [("[calibration.uncertainty]", None)]
         if self.phases:
             searches = [
@@ -3198,16 +3297,20 @@ class CalibrationConfig(HydroModelBase):
         return self
 
     @model_validator(mode="after")
-    def _refuse_two_burn_in_conventions(self) -> CalibrationConfig:
-        """A window in dates and a count of samples must not both be declared.
+    def _refuse_an_objective_beside_blocks(self) -> CalibrationConfig:
+        """Refuse a section ``objective`` written beside blocks, which score by their own metric.
 
-        They say the same thing in two units, and the count means a different
-        span at every output frequency, so honoring both would make the scored
-        span depend on which one the reader noticed.
+        The block built from ``objective`` and ``variable`` is not a block the
+        file wrote, so it passes.
         """
-        if self.scoring_window is not None and self.warmup_periods:
+        implicit = [f"{self.objective}_{self.variable}"]
+        if "objective" in self.model_fields_set and [b.name for b in self.objective_blocks] not in (
+            [],
+            implicit,
+        ):
             raise ValueError(
-                "declare either scoring_window (dates) or warmup_periods (samples), not both."
+                "objective is written beside [[calibration.objective_blocks]], which score "
+                "by their own 'metric'; delete it, or delete the blocks to score one series."
             )
         return self
 
@@ -3242,10 +3345,7 @@ class CalibrationConfig(HydroModelBase):
         from hydromodpy.calibration.criteria import criterion_for
 
         for block in self.objective_blocks:
-            try:
-                needs = criterion_for(str(block.metric)).requirements()
-            except ValueError:
-                continue
+            needs = criterion_for(str(block.metric)).requirements()
             readable = set(needs.reads_supports)
             wrong = sorted(
                 (name, str(self.outputs[name].support))
@@ -3290,12 +3390,7 @@ class CalibrationConfig(HydroModelBase):
         declared = [str(block.metric) for block in self.objective_blocks] or [str(self.objective)]
         readable: set[str] = set()
         for metric in declared:
-            try:
-                readable.update(criterion_for(metric).requirements().reads_supports)
-            except ValueError:
-                continue
-        if not readable:
-            return self
+            readable.update(criterion_for(metric).requirements().reads_supports)
         stranded = {
             name: str(output.support)
             for name, output in self.outputs.items()
@@ -3349,6 +3444,40 @@ class CalibrationConfig(HydroModelBase):
             "project loads. Write variable = '<output>' to score one of them, or declare "
             "[[calibration.objective_blocks]] that read them."
         )
+
+    @model_validator(mode="after")
+    def _check_the_validation_window(self) -> CalibrationConfig:
+        """Refuse a validation window a cost could read, or that nothing would score.
+
+        An open bound of a calibration window runs on to the end of the record, so it
+        overlaps. A steady phase with no window of its own reads the record over its steady
+        window, by default the whole run, when it compares a dated record.
+        """
+        if self.validation_window is None:
+            return self
+        first_day, last_day = window_bounds(self.validation_window)
+        named = f"validation_window {first_day} to {last_day}"
+        if first_day is None or last_day is None:
+            raise ValueError(f"{named} leaves a bound open: write both start and end.")
+        searches = self.phases or [None]
+        if not any(self.validation_scored_by(search) for search in searches):
+            raise ValueError(
+                f"{named} has nothing to score: no transient search has a dated record."
+            )
+        for search in searches:
+            window = getattr(search, "window", None) or self.window
+            if window is None and getattr(search, "regime", None) == "steady":
+                if not self._compares_a_record(search):
+                    continue
+                window = CalibWindow.model_validate(search.steady_window or {})
+            start, end = window_bounds(window) or (None, None)
+            if (start is None or start <= last_day) and (end is None or end >= first_day):
+                raise ValueError(
+                    f"{named} overlaps the window {start} to {end} of "
+                    f"{getattr(search, 'name', '[calibration]')}, so a cost would read those "
+                    "dates. Write a window that ends before it or starts after it."
+                )
+        return self
 
     @model_validator(mode="after")
     def _check_uses_outputs_reference_declared(self) -> CalibrationConfig:
@@ -3414,15 +3543,15 @@ def apply_project_defaults(
 ) -> dict[str, Any]:
     """Return the raw ``[calibration]`` table with the project-level defaults written in.
 
-    ``[site] gauge`` is the station of the catchment: ``observed_station_id``
-    (on the section, on a phase) and ``observes`` (on a point output) take it
-    when they are left unwritten, and a written value that names another
-    station is refused with both keys. A point output that writes its own
+    ``[site] gauge`` is the station of the catchment: ``observes`` (on a point
+    output) takes it when it is left unwritten, and a written value that names
+    another station is refused with both keys. A point output that writes its own
     position (``x`` and ``y``, or ``geometry``) or its own ``observed_values``
     is left as written: the gauge neither locates it nor scores it.
-    ``[metrics] window`` is the default of ``scoring_window`` when the section
-    writes neither a window nor ``warmup_periods``. In a calibration with
-    phases it goes on each phase that writes no window and is not steady,
+    ``[metrics] window``, less ``validation_window``, is the default of ``window`` when the
+    section writes no window. In a calibration with
+    phases it goes on each phase that writes no window and is not steady, and it
+    closes the end of a phase window that writes only a start,
     never on the section: a steady phase reads one state, stamped at the end
     of its steady window, which a window of dates over the record would leave
     out. Applied before validation, so a point output that names no station
@@ -3432,11 +3561,6 @@ def apply_project_defaults(
 
     site = _site_of(site_gauge)
     payload: dict[str, Any] = dict(section)
-    station = resolve_gauge(
-        site, payload.get("observed_station_id"), field="calibration.observed_station_id"
-    )
-    if station is not None:
-        payload["observed_station_id"] = station
     outputs = payload.get("outputs")
     if isinstance(outputs, Mapping):
         resolved_outputs: dict[str, Any] = {}
@@ -3449,37 +3573,18 @@ def apply_project_defaults(
                     output = {**output, "observes": observes}
             resolved_outputs[name] = output
         payload["outputs"] = resolved_outputs
-    phases = payload.get("phases")
-    if isinstance(phases, list):
-        resolved_phases = []
-        for phase in phases:
-            if isinstance(phase, Mapping):
-                label = phase.get("name", "?")
-                station = resolve_gauge(
-                    site,
-                    phase.get("observed_station_id"),
-                    field=f"calibration.phases.{label}.observed_station_id",
-                )
-                if station is not None:
-                    phase = {**phase, "observed_station_id": station}
-            resolved_phases.append(phase)
-        payload["phases"] = resolved_phases
-    window = scoring_window_of_the_run(metrics_window)
-    if (
-        payload.get("scoring_window") is None
-        and not payload.get("warmup_periods")
-        and window is not None
-    ):
+    window = window_of_the_run(metrics_window, payload.get("validation_window"))
+    if payload.get("window") is None and window is not None:
         phases = payload.get("phases")
         if isinstance(phases, list) and phases:
             payload["phases"] = [_with_window(phase, window) for phase in phases]
         else:
-            payload["scoring_window"] = window
+            payload["window"] = window
     return payload
 
 
-def scoring_window_of_the_run(metrics_window: Any) -> dict[str, str] | None:
-    """Return a raw ``[metrics] window`` as a raw ``scoring_window``.
+def window_of_the_run(metrics_window: Any, validation: Any = None) -> dict[str, str] | None:
+    """Return a raw ``[metrics] window``, less a raw *validation* window, as a raw ``window``.
 
     ``None`` unless both bounds are written: a calibration window takes the
     run's only when the run is scored on a closed window.
@@ -3489,16 +3594,56 @@ def scoring_window_of_the_run(metrics_window: Any) -> dict[str, str] | None:
     start, end = metrics_window.get("start"), metrics_window.get("end")
     if start is None or end is None:
         return None
-    return {"start": str(start), "end": str(end)}
+    window = {"start": str(start), "end": str(end)}
+    return window if validation is None else _metrics_window_minus_validation(window, validation)
+
+
+def _metrics_window_minus_validation(
+    window: dict[str, str], validation: Any
+) -> dict[str, str] | None:
+    """Return a raw ``[metrics] window`` without its validation days, and refuse what cannot be.
+
+    ``None`` when the validation window lies inside it with days on both sides: one window
+    cannot say two spans, so nothing is written and the check on the section asks for one.
+    A validation window that does not parse or leaves a bound open is left to that check too.
+    """
+    import pandas as pd
+
+    try:
+        first_day, last_day = window_bounds(CalibWindow.model_validate(validation))
+    except ValidationError:
+        return window
+    if first_day is None or last_day is None:
+        return window
+    start, end = pd.Timestamp(window["start"]), pd.Timestamp(window["end"])
+    if first_day < start or last_day > end or (first_day == start and last_day == end):
+        raise ConfigValidationError(
+            f"validation_window {first_day.date()} to {last_day.date()} has to lie inside "
+            f"[metrics] window {start.date()} to {end.date()} and leave days to calibrate on."
+        )
+    one_day = pd.Timedelta(1, unit="D")
+    if first_day == start:
+        return {"start": (last_day + one_day).date().isoformat(), "end": window["end"]}
+    if last_day == end:
+        return {"start": window["start"], "end": (first_day - one_day).date().isoformat()}
+    return None
 
 
 def _with_window(phase: Any, window: dict[str, str]) -> Any:
-    """Return a raw phase with *window* written in, unless it is steady or writes one."""
-    if not isinstance(phase, Mapping):
+    """Return a raw phase with *window* written in, unless it is steady.
+
+    A phase with no window takes it whole. A window that writes only ``start`` is
+    closed by the end of *window*, since a bound left open would otherwise end
+    with ``[simulation.time]`` instead of ``[metrics] window``.
+    """
+    if not isinstance(phase, Mapping) or phase.get("regime") == "steady":
         return phase
-    if phase.get("scoring_window") is not None or phase.get("regime") == "steady":
-        return phase
-    return {**phase, "scoring_window": dict(window)}
+    written = phase.get("window")
+    if written is None:
+        return {**phase, "window": dict(window)}
+    if isinstance(written, Mapping) and written.get("end") is None:
+        return {**phase, "window": {**written, "end": window["end"]}}
+    return phase
 
 
 def _point_output_located_by_a_station(output: Any) -> bool:
@@ -3530,6 +3675,7 @@ def _site_of(gauge: str | None) -> Any:
 
 
 __all__ = [
+    "CALIBRATION_RENAMES",
     "CalibrationConfig",
     "apply_project_defaults",
     "implicit_station_scoring",
@@ -3552,6 +3698,6 @@ __all__ = [
     "PersistIterationDetail",
     "CalibrationMethod",
     "MetricKind",
-    "scoring_window_of_the_run",
+    "window_of_the_run",
     "validate_calib_output",
 ]

@@ -800,8 +800,8 @@ def _log_heads(trace: HeadTrace) -> None:
         logger.warning(
             "Network criterion: %d of %d head(s) of the map landed on no cell draining at "
             "least %.3g km2 within %.0f m. The reaches under them are not drawn, so K reads "
-            "higher than this map says. Check the CRS of the map, or widen heads_snap_radius, "
-            "or lower heads_min_drained_area_km2.",
+            "higher than this map says. Check the CRS of the map, or widen map.heads.radius, "
+            "or lower map.heads.min_drained_area.",
             trace.n_lost,
             int(indices["n_heads"]),
             trace.settings.min_drained_area_m2 / 1.0e6,

@@ -130,9 +130,9 @@ field. A steady phase reads one state of the run.
 
 **The mapped network** $\mathcal{O}$ is a set of lines, drawn on the cells by
 one of three rules chosen by
-{toml}`observed_rasterization|calibration.outputs.<name>.observed_rasterization`.
+{toml}`drawn_by|calibration.outputs.<name>.map.drawn_by`.
 It is first cut to the delineated catchment
-({toml}`clip_map_to_catchment|calibration.outputs.<name>.clip_map_to_catchment`),
+({toml}`clip_to_catchment|calibration.outputs.<name>.map.clip_to_catchment`),
 with the shape {toml}`data.hydrography` clips what it loads to, so a file and that
 section draw the same map, and so does a figure redrawn from the run.
 
@@ -227,7 +227,7 @@ $$ (eq-means)
 With $\mu = 1$, each cell has one vote, as in the paper; with $\mu = a_n$ the
 mean is weighted by area, which matters on a mesh refined along the streams.
 Both pairs are reported at every trial, and
-{toml}`weighting|calibration.outputs.<name>.weighting` selects the one the
+{toml}`weighting|calibration.outputs.<name>.model.weighting` selects the one the
 criterion reads.
 
 $D_{so}$ large means a simulated network spilling far from the mapped one, an
@@ -236,8 +236,8 @@ one, a deficit. At a balanced point most distances are zero, so the means are
 carried by a few cells: they are tail statistics.
 
 The unreachable shares $f_{so}$ and $f_{os}$ are reported on both sides, and neither
-refuses a trial. $f_{so}$ is zero by construction: the outlet is in the target of
-$D_{so}$, and every cell of the catchment reaches the outlet. The target of $f_{os}$
+refuses a trial. $f_{so}$ is zero by construction: the target of $D_{so}$
+holds the outlet, and every cell of the catchment reaches the outlet. The target of $f_{os}$
 is the simulated network the calibration moves: at a high conductivity it retracts
 into the talwegs, and mapped cells legitimately have nothing left to descend into.
 `frac_outlet_terminated` is the share of the simulated support whose descent meets
@@ -314,11 +314,11 @@ $$ (eq-validity)
 With no declared accuracy, $V = 2 h_{obs}$, the bound of the paper. A declared
 accuracy $\sigma_o$ above $h_{obs}$ widens $V$ and leaves $r_{optim}$ comparable
 with the paper. A declared
-{toml}`validity_length|calibration.outputs.<name>.validity_length` replaces the
+{toml}`validity_length|calibration.outputs.<name>.verdict.validity_length` replaces the
 computation. The bound is read on the trial the search returns, and qualifies the
 value without replacing it: a violation logs a warning, or is refused after the
 session is saved when
-{toml}`on_roptim_violation|calibration.outputs.<name>.on_roptim_violation` is
+{toml}`on_invalid|calibration.outputs.<name>.verdict.on_invalid` is
 `"error"`. Each trial publishes `r_optim` and `r_optim_valid`.
 
 **The map against the surface.** Wherever the mapped lines do not sit in the
@@ -331,7 +331,7 @@ $$
 $$ (eq-alpha)
 
 as `alpha_obs_closure_catchment`. A value below
-{toml}`alpha_warning_threshold|calibration.outputs.<name>.alpha_warning_threshold`
+{toml}`alpha_warning_threshold|calibration.outputs.<name>.verdict.alpha_warning_threshold`
 logs a warning, once per process.
 
 (downslope-identifies)=
@@ -494,26 +494,35 @@ along the grid axes the two are equal.
 The hydrograph does not decide. NSE moves by 3e-4 over these three values of $K$,
 and `Sy` stays within the 5 per cent the search stops on.
 
+**The visible flow.** In the two-bound mode, $K$ depends on the flow a reach must carry to count as a stream. On the Nançon with the BD Topage maps, the mean of the two roots is 1.19e-5, 7.68e-6 and 3.98e-6 m/s at 0.5, 1 and 2 L/s, a factor of 3. Most of it comes from the root on the complete map, 2.98e-6, 1.42e-6 and 4.64e-7 m/s, because $\lvert J \rvert$ stays under one cell over more than a decade of $K$ there. The root on the permanent map moves less, 4.79e-5, 4.16e-5 and 3.41e-5 m/s, but its $D_{optim}$ is over 220 m, past the bound of 150 m. The two roots lie 1.2 to 1.9 decades apart, so their mean meets neither map. Quote each root with its visible flow.
+
+**K and Sy on two maps.** A twin whose two maps come from a run at a known $K$ and `Sy` finds $K$ to a few per cent. It does not find `Sy`. Over a factor of 16 in `Sy`, $\lvert J \rvert$ stays under one cell on both maps at the true $K$, and two of three search methods return a `Sy` near 80 per cent high. Where the two maps are nearly the same, $K$ lands 32 per cent high and `Sy` 70 per cent low at a cost of zero. On the Nançon only the permanent root follows `Sy`, with a slope of 0.57 in log-log. The two roots meet at $K$ = 5.0e-6 m/s and `Sy` = 0.0033, which is below the usual range. There NSE falls from 0.93 to 0.64 and the NSE on log discharge from 0.92 to -0.17. So the route is allowed, and it is not recommended. A minimiser on one parameter is refused, because the same trials give 1e-7 m/s, the search bound, where the root search gives 7.68e-6.
+
+**The step of D4.** The 12.9 per cent of D4 comes from one cell. It lies on a hillslope at 170 m, and it dries between $K$ = 6.895e-5 and 6.910e-5 m/s. With it go 37 cells of stream under D4 and 27 under D8, all absent from the map. Under D4 this takes $J_{signed}$ from +60 to -1.8 m, so the root falls there. D8 loses the same cell at the same $K$, and $J_{signed}$ stays positive, from 82 to 31 m. A solver closure a hundred times tighter gives the same $J$, so the step belongs to the model and not to the solver. Under D4, $K$ is set by that one cell, and its narrow band is apparent precision.
+
+**A balanced evaluation.** Each point of a balanced search gives the same $K$, the same $D_{optim}$ and the same cost as a plain bisection at that structure, in 24 solves at a width of 8. Thicknesses of 10 to 90 m give $D_{optim}$ of 142, 171, 104, 110 and 111 m, with $K \cdot \bar B$ within 14 per cent from 17 to 90 m, as the ratio $T/\bar N$ predicts. One step of $J$ moves $D_{optim}$ by 34 m, so a smaller gap between two structures says nothing. Scoring $D_{optim}$ without the balance finds 95 m, with a network 48 per cent longer than the map. So two structures are compared at equal balance.
+
+**Triangles.** The twin has no triangle column. With XT3D and Newton, MODFLOW 6 keeps cycling by 2 to 5 cm on one border triangle, whatever the under-relaxation. Without Newton it closes, and the side triangles then seep beside the talweg. The network is wider than one cell, so no map of lines can equal it. The Voronoi column, whose cells follow the talwegs, passes.
+
 ## Parameters of this page
 
 ```{hmp-params}
 calibration.objective_blocks.metric
 calibration.outputs.<name>.variable
-calibration.outputs.<name>.observed_network
-calibration.outputs.<name>.stream_geometry_path
-calibration.outputs.<name>.minimal_stream_geometry_path
-calibration.outputs.<name>.tau_specific_ratio
-calibration.outputs.<name>.weighting
-calibration.outputs.<name>.diagonal_neighbors
-calibration.outputs.<name>.observed_rasterization
-calibration.outputs.<name>.clip_map_to_catchment
-calibration.outputs.<name>.heads_snap_radius
-calibration.outputs.<name>.heads_min_drained_area_km2
-calibration.outputs.<name>.observed_position_accuracy
-calibration.outputs.<name>.validity_length
-calibration.outputs.<name>.on_roptim_violation
+calibration.outputs.<name>.map.complete
+calibration.outputs.<name>.map.permanent
+calibration.outputs.<name>.model.seepage_threshold
+calibration.outputs.<name>.model.weighting
+calibration.outputs.<name>.model.neighbours
+calibration.outputs.<name>.map.drawn_by
+calibration.outputs.<name>.map.clip_to_catchment
+calibration.outputs.<name>.map.heads.radius
+calibration.outputs.<name>.map.heads.min_drained_area
+calibration.outputs.<name>.map.position_accuracy
+calibration.outputs.<name>.verdict.validity_length
+calibration.outputs.<name>.verdict.on_invalid
 calibration.outputs.<name>.verdict.max_catchment_mismatch
-calibration.outputs.<name>.alpha_warning_threshold
+calibration.outputs.<name>.verdict.alpha_warning_threshold
 calibration.method_options
 geographic.dem_correc_type
 solver.drain_bed_thickness_m

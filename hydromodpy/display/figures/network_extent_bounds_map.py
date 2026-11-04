@@ -107,7 +107,7 @@ class NetworkExtentBoundsMap(BaseFigure):
 
     The rasterization of the maps and the positional accuracy always come
     from the run's sealed network output, and the years counted from
-    ``[calibration] scoring_window``.
+    ``[calibration] window``.
     """
 
     spec = FigureSpec(
@@ -130,7 +130,7 @@ class NetworkExtentBoundsMap(BaseFigure):
         return unavailable_reason_for_extents(
             sim,
             tau_specific_ratio=settings.tau_specific_ratio,
-            scoring_window=settings.scoring_window,
+            window=settings.window,
         )
 
     def render(
@@ -201,9 +201,7 @@ class NetworkExtentBoundsMap(BaseFigure):
         tau = float(
             settings.tau_specific_ratio if tau_specific_ratio is None else tau_specific_ratio
         )
-        reason = unavailable_reason_for_extents(
-            sim, tau_specific_ratio=tau, scoring_window=settings.scoring_window
-        )
+        reason = unavailable_reason_for_extents(sim, tau_specific_ratio=tau, window=settings.window)
         if reason is not None:
             raise ValueError(f"{self.spec.name} unavailable for {sim.sim_id}: {reason}")
         extents = extents_from_run(
@@ -277,7 +275,7 @@ def extents_from_run(
         "observed_position_accuracy_m": settings.observed_position_accuracy_m,
         "heads_snap_radius_m": settings.heads_snap_radius_m,
         "heads_min_drained_area_km2": settings.heads_min_drained_area_km2,
-        "scoring_window": settings.scoring_window,
+        "window": settings.window,
     }
     return _EXTENTS_MEMO.get_or_build(
         sim,

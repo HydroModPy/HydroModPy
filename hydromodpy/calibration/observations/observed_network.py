@@ -86,8 +86,8 @@ def observed_network_mask(
 ) -> ObservedNetworkMask:
     """Project the resolved stream geometry onto the mesh cells.
 
-    ``observed`` is a fully resolved :class:`ObservedNetwork`, from any of the
-    three sources ``resolve_observed_network`` accepts: this function never
+    ``observed`` is a fully resolved :class:`ObservedNetwork`, from the
+    source ``resolve_observed_network`` reads: this function never
     reads a path itself and never re-derives a geometry. Both CRS are still
     required and the failure is loud: a silent mismatch produces a mask that
     is empty or plausible-but-wrong, and every distance downstream is reported
@@ -102,14 +102,12 @@ def observed_network_mask(
     """
     if rasterization == "heads":
         raise ValueError(
-            "observed_rasterization 'heads' draws the map on the criterion graph, from "
+            "map.drawn_by 'heads' draws the map on the criterion graph, from "
             "the free ends of the lines, so it has no cell projection here: build the "
             "network geometry with the head candidates of observed_head_candidates."
         )
     if rasterization not in ("crossing", "touch"):
-        raise ValueError(
-            f"observed_rasterization must be 'crossing' or 'touch', got {rasterization!r}."
-        )
+        raise ValueError(f"map.drawn_by must be 'crossing' or 'touch', got {rasterization!r}.")
     frame, mesh_crs = _placeable(run_ctx, observed)
 
     vertices = np.asarray(planar_mesh.vertices, dtype=float)
@@ -389,29 +387,28 @@ def resolve_minimal_network(run_ctx: RunContext, output: Any) -> ObservedNetwork
         resolve_network_role,
     )
 
-    choice = getattr(output, "minimal_observed_network", None)
-    path = getattr(output, "minimal_stream_geometry_path", None)
+    choice = output.map.permanent
     if choice == "data.hydrography":
         resolved = resolve_network_role(
             run_ctx,
             "reference_permanent",
             canonical_source="data.hydrography",
-            message_source="minimal_observed_network = 'data.hydrography'",
+            message_source="map.permanent = 'data.hydrography'",
             empty_reason="the permanent part of the loaded network carries no feature",
         )
         if resolved is None:
             raise UnresolvedObservedNetwork(
-                "minimal_observed_network = 'data.hydrography' names the permanent reaches of "
+                "map.permanent = 'data.hydrography' names the permanent reaches of "
                 "the hydrography network, and this project holds none: the loader writes them "
                 "only when its source says which reaches flow all year. Give the permanent "
-                "map as a file in 'minimal_stream_geometry_path'."
+                "map as a file in 'map.permanent'."
             )
         return resolved
-    if not path:
+    if not choice:
         return None
     return resolve_network_file(
-        path,
-        message_source=f"minimal_stream_geometry_path = {str(path)!r}",
+        choice,
+        message_source=f"map.permanent = {str(choice)!r}",
         empty_reason="the file carries no feature",
     )
 

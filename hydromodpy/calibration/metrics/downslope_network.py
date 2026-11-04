@@ -377,11 +377,11 @@ MINIMAL_SUFFIX = "_minimal"
 MAXIMAL_SUFFIX = "_maximal"
 """Suffix of every component of the maximal (complete) bound."""
 
-VALIDATION_SUFFIX = "_maximal_validation"
-"""Suffix of the maximal map scored beside a one-state cost on the minimal map.
+VALIDATION_SUFFIX = "_validation"
+"""Appended to the bound suffix of the map scored beside a one-state cost.
 
 A distinct name on purpose: a search that finds ``J_signed_maximal`` reads a
-bound in the cost, and this one never is."""
+bound in the cost, and ``J_signed_maximal_validation`` never is."""
 
 
 def score_on_geometry(

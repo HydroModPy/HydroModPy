@@ -16,7 +16,7 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
-from hydromodpy.calibration.metrics.observable_scoring import network_state_period
+from hydromodpy.core.time.selection import resolve_state
 from hydromodpy.display.figures._stream_comparison import compared_timestep, dated_title
 from hydromodpy.results.derive.network_criterion_settings import network_criterion_settings
 from tests._helpers.sealed_runs import sealed_search
@@ -60,7 +60,7 @@ def test_the_stamp_of_a_period_reads_the_state_it_closes() -> None:
 
 def test_the_redraw_reads_the_state_the_trials_scored() -> None:
     for time in ("2000-01-01", "2001-06-30", "2002-10-15", "2003-01-01"):
-        scored = network_state_period(time, MONTHS, n_periods=len(MONTHS) - 1)
+        scored = resolve_state(time, MONTHS, n_periods=len(MONTHS) - 1)
         assert network_criterion_settings(_run(time)).timestep == scored
 
 

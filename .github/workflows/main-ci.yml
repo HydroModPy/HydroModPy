@@ -409,7 +409,6 @@ jobs:
           coverage report --include='hydromodpy/calibration/observations/*' --precision=2 --fail-under=80.5
           coverage report --include='hydromodpy/calibration/optim/*' --precision=2 --fail-under=91.0
           coverage report --include='hydromodpy/calibration/protocols/*' --precision=2 --fail-under=93.5
-          coverage report --include='hydromodpy/calibration/reporting/*' --precision=2 --fail-under=73.5
           coverage report --include='hydromodpy/calibration/runners/*' --precision=2 --fail-under=92.5
           coverage report --include='hydromodpy/calibration/*.py' --omit='hydromodpy/calibration/*/*' --precision=2 --fail-under=90.0
 

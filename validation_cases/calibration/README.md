@@ -36,9 +36,13 @@ Reference used by the documentation:
 - `twin/`: standardized same-solver twin-experiment cases.
 - `run_benchmarks.py`: run one or several twin benchmarks outside pytest.
 - `groundwater_1d/`, `recession_brutsaert/` and `reservoir/`: standalone experiments with a
-  forward model of a few lines and a command line.
+  forward model of a few lines and a command line, both written once in
+  `shared/standalone.py`.
 - `unconfined_interface_1d/` and `recession_hillslope_aquifer/`: two analytical cases driven
   from Python, a two-material unconfined aquifer and the recession of a hillslope aquifer.
+- `network_transient_b0/`: the B0 case, a natural drainage network and a transient discharge, with
+  its observations, costs, HTML page and two scripts.
+- `objective_mapping.py`: the objective mapping used by `plotting.py`.
 
 ## Solver columns
 

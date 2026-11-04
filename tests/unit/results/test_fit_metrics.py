@@ -40,7 +40,7 @@ def _rows(station: str, variable: str, times, values, source: str = "simulated")
 
 def _frame(sim_times, sim_values, obs_times, obs_values, *, gauge: str = GAUGE) -> pd.DataFrame:
     return pd.DataFrame(
-        _rows("catchment", "discharge", sim_times, sim_values)
+        _rows(gauge, "discharge", sim_times, sim_values)
         + _rows(gauge, "discharge", obs_times, obs_values, source="observed")
     )
 

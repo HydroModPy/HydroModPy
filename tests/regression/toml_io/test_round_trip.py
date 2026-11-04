@@ -56,7 +56,7 @@ def test_example_project_toml_round_trip_across_dumpers(tmp_path: Path) -> None:
         expected = _json_payload(cfg)
 
         commented_path = tmp_path / f"{source.parent.name}_commented.toml"
-        dump_toml_with_comments(cfg, commented_path, profile="expert")
+        dump_toml_with_comments(cfg, commented_path, profile="expert", written_only=True)
         commented_cfg = HydroModPyConfig.from_toml(commented_path)
         assert _json_payload(commented_cfg) == expected
 
@@ -65,6 +65,7 @@ def test_example_project_toml_round_trip_across_dumpers(tmp_path: Path) -> None:
             _root_instances(cfg),
             output_path=generated_path,
             profile="expert",
+            exclude_defaults=True,
             exclude_none=True,
         )
         generated_cfg = HydroModPyConfig.from_toml(generated_path)

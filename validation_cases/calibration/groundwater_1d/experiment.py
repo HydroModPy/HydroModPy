@@ -30,14 +30,10 @@ from hydromodpy.calibration import (
     CalibParameter,
     CalibrationEngine,
     CompositeObjective,
-    ConfigBlockObjective,
-    EvaluationResult,
     ParameterSpace,
-    ParamSuggestion,
     SimulationOutput,
-    build_optimizer,
 )
-from hydromodpy.calibration.optim.objective import evaluate_objective
+from validation_cases.calibration.shared.standalone import build_standalone_calibration
 
 # ---------------------------------------------------------------------------
 # Forward model
@@ -165,11 +161,6 @@ GROUNDWATER_1D_CASE = Groundwater1DCase(
 )
 
 
-# ---------------------------------------------------------------------------
-# Calibration driver
-# ---------------------------------------------------------------------------
-
-
 def build_calibration(
     case: Groundwater1DCase = GROUNDWATER_1D_CASE,
     *,
@@ -179,54 +170,14 @@ def build_calibration(
     metric: str = "rmse",
 ) -> tuple[CalibrationEngine, CompositeObjective]:
     """Assemble a ready-to-run CalibrationEngine for this case."""
-    space = case.parameter_space()
-    observations = case.synthetic_observations()
-    # One block per station, equal weights: the mean of the station costs.
-    objective = CompositeObjective(
-        [
-            (
-                ConfigBlockObjective(
-                    name=f"{metric}@{station}",
-                    metric=metric,
-                    uses_outputs=[station],
-                    observed_by_output={station: observed},
-                ),
-                1.0,
-            )
-            for station, observed in observations.items()
-        ],
-        name=metric,
-    )
-
-    optimizer_kwargs: dict[str, object] = {"seed": seed}
-    if optimizer_name == "scipy_nelder_mead":
-        optimizer_kwargs["maxiter"] = max_trials
-    elif optimizer_name == "scipy_de":
-        optimizer_kwargs.update({"maxiter": 15, "popsize": 8, "tol": 1e-4})
-    elif optimizer_name == "grid":
-        # The finest regular grid the budget covers: a grid cut short is refused.
-        optimizer_kwargs["points_per_dim"] = max(2, int(max_trials ** (1 / space.dim) + 1e-9))
-    optimizer = build_optimizer(optimizer_name, space, **optimizer_kwargs)
-
-    def evaluator(sugg: ParamSuggestion) -> EvaluationResult:
-        sim = case.simulate(sugg.values)
-        obj = evaluate_objective(objective, sim)
-        return EvaluationResult(
-            trial_id=sugg.trial_id,
-            sim_id=sim.sim_id,
-            cost=obj.total,
-            components=dict(obj.components),
-            status="completed",
-            metadata={"values": dict(sugg.values)},
-        )
-
-    engine = CalibrationEngine(
-        space=space,
-        optimizer=optimizer,
-        evaluator=evaluator,
+    return build_standalone_calibration(
+        case,
+        optimizer_name=optimizer_name,
         max_trials=max_trials,
+        seed=seed,
+        metric=metric,
+        popsize=8,
     )
-    return engine, objective
 
 
 __all__ = [

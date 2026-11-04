@@ -28,7 +28,8 @@ def _ctx(*, catalogued: bool, plan: SimulationPlan | None) -> SimpleNamespace:
     execution.models_by_run_id["flow_main::modflow6"] = object()
     return SimpleNamespace(
         sim_id="sim-1",
-        cfg=SimpleNamespace(simulation=SimpleNamespace(results=results)),
+        cfg=SimpleNamespace(simulation=SimpleNamespace(results=results), calibration=None),
+        loaded_data=SimpleNamespace(),
         setup=SimpleNamespace(workspace=object()),
         execution=execution,
     )
@@ -65,8 +66,20 @@ def test_derive_step_runs_the_post_run_derivation_once_per_solver_run(monkeypatc
         lambda ctx, *, store: scored.append((ctx, store)),
     )
     ctx = _ctx(catalogued=True, plan=_plan())
+    series: list[tuple] = []
+    monkeypatch.setattr(
+        "hydromodpy.calibration.runners.promotion.write_station_series",
+        lambda ctx, *, store, outputs: series.append(
+            (store, outputs, list(ctx.execution.models_by_run_id))
+        ),
+    )
 
-    out = DeriveStep().run(PipelineState(run_id="r", data={"ctx": ctx}))
+    out = DeriveStep().run(
+        PipelineState(run_id="r", data={"ctx": ctx, "station_outputs": {"up": "decl"}})
+    )
+
+    # The models are still there when the series is written, and gone after.
+    assert series == [("store", {"up": "decl"}, ["flow_main::modflow6"])]
 
     assert [call["ctx"].run.id for call in calls] == ["flow_main::modflow6"]
     assert set(calls[0]) == {"ctx", "sim_id", "results_config", "store"}

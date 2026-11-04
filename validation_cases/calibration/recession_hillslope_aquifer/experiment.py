@@ -38,6 +38,7 @@ from hydromodpy.core.metrics import log_nse as _log_nse_metric
 from hydromodpy.core.metrics import nse as _nse_metric
 from hydromodpy.core.metrics import rmse as _rmse_metric
 from hydromodpy.results.catalog.constants import cost_of
+from validation_cases.calibration.recession_brutsaert.experiment import recession_discharge
 
 # ---------------------------------------------------------------------------
 # Fixed physical context
@@ -79,9 +80,7 @@ def _resolve_area_length(A: float | None, L: float | None) -> tuple[float, float
     return float(A), float(L)
 
 
-def _simulate_baseflow(
-    t: np.ndarray,
-    Q0: float,
+def _recession_law(
     K: float,
     Sy: float,
     *,
@@ -91,48 +90,32 @@ def _simulate_baseflow(
     L: float | None = None,
     ag: float = 0.7,
     p: float = 0.346,
-) -> np.ndarray:
+) -> tuple[float, float]:
+    """Return ``(a, n)`` of the law ``dQ/dt = -a Q^n`` this aquifer follows."""
+    A_val, L_val = _resolve_area_length(A, L)
+    if solution == "exponential":
+        if b is None:
+            raise ValueError("Aquifer thickness b required for exponential solution")
+        return np.pi**2 * K * p * b * L_val**2 / (Sy * (ag * A_val) ** 2), 1.0
+    if solution == "boussinesq":
+        return 4.8038 * np.sqrt(K) * L_val / (Sy * (ag * A_val) ** 1.5), 1.5
+    raise ValueError(f"invalid solution: {solution!r}")
+
+
+def _simulate_baseflow(t: np.ndarray, Q0: float, K: float, Sy: float, **context: Any) -> np.ndarray:
     """Evaluate analytical baseflow discharge ``Q(t)``.
 
     Supports the ``"exponential"`` and ``"boussinesq"`` solutions of the
     Brutsaert recession equation.
     """
-    t = np.asarray(t, dtype=float)
-    A_val, L_val = _resolve_area_length(A, L)
-    if solution == "exponential":
-        if b is None:
-            raise ValueError("Aquifer thickness b required for exponential solution")
-        return Q0 * np.exp(-(np.pi**2 * K * p * b * L_val**2) / (Sy * (ag * A_val) ** 2) * t)
-    if solution == "boussinesq":
-        return (
-            Q0 ** (-0.5) + (4.8038 / 2.0) * np.sqrt(K) * L_val / (Sy * (ag * A_val) ** 1.5) * t
-        ) ** (-2)
-    raise ValueError(f"invalid solution: {solution!r}")
+    a, n = _recession_law(K, Sy, **context)
+    return recession_discharge(a=a, b=n, Q0=Q0, times=np.asarray(t, dtype=float))
 
 
-def _compute_characteristic_time(
-    Q0: float,
-    K: float,
-    Sy: float,
-    *,
-    solution: str = "boussinesq",
-    b: float | None = None,
-    A: float | None = None,
-    L: float | None = None,
-    ag: float = 0.7,
-    p: float = 0.346,
-) -> float:
+def _compute_characteristic_time(Q0: float, K: float, Sy: float, **context: Any) -> float:
     """Return the characteristic recession time scale ``tc`` [s]."""
-    A_val, L_val = _resolve_area_length(A, L)
-    if solution == "exponential":
-        if b is None:
-            raise ValueError("Aquifer thickness b required for exponential solution")
-        a = np.pi**2 * K * p * b * L_val**2 / (Sy * (ag * A_val) ** 2)
-        return 1.0 / a
-    if solution == "boussinesq":
-        beta = (4.8038 / 2.0) * np.sqrt(K) * L_val / (Sy * (ag * A_val) ** 1.5)
-        return 1.0 / (beta * np.sqrt(Q0))
-    raise ValueError(f"invalid solution: {solution!r}")
+    a, n = _recession_law(K, Sy, **context)
+    return 1.0 / a if n == 1.0 else 2.0 / (a * np.sqrt(Q0))
 
 
 # ---------------------------------------------------------------------------

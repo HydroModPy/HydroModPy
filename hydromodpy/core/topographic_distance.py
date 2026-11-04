@@ -142,7 +142,7 @@ def resolve_diagonal_neighbors(
     if faces_are_all_quadrilaterals(face_node_connectivity, n_cells=n_cells):
         return True
     logger.info(
-        "diagonal_neighbors = true asks for a D8 descent, but the mesh has faces that are "
+        "model.neighbours = 'D8' asks for a D8 descent, but the mesh has faces that are "
         "not quadrilaterals, where no cell has a diagonal. The descent walks shared "
         "edges, which on a Voronoi dual is the same graph."
     )

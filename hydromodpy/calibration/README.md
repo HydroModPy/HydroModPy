@@ -25,10 +25,9 @@ root of the package.
 | `evaluation/` | what one trial must answer: the evaluator port and the forward-model port, their registries, and the two evaluators that need nothing from the calibration document |
 | `config.py` | what the modeller wrote: every `[calibration.*]` table, protocol options included |
 | `protocols/` | which published recipe a calibration follows, and how it expands into phases and objective blocks |
-| `observations/` | what is observed: the observed stream network, its geometry, network truth files and their cost |
+| `observations/` | what is observed: the observed stream network and its geometry |
 | `metrics/` | how the outputs of one trial are extracted and paired with observations, and the evaluator that scores a forward model |
 | `runners/` | how a calibration runs: the three entry points, the phases and what they hand to each other, the trial primitive, the default evaluator, restarts, resume, promotion of the best trials |
-| `reporting/` | the diagnostic page of the B0 network validation case |
 | `preflight.py` | every check of a calibration before anything is prepared, run at the start of every launch and printed by `hmp config check` |
 
 The two analytical demonstrators that the regression tests drive from Python live outside the
@@ -55,7 +54,6 @@ cycle. Every part may import the layers `layer_matrix.yaml` gives calibration.
 | `protocols`, `observations` | `config` |
 | `metrics` | `config`, `criteria`, `evaluation`, `observations`, `optim` |
 | `runners` | `config`, `criteria`, `evaluation`, `metrics`, `optim`, `parameter_resolution`, `persistence`, `protocols`, `report` |
-| `reporting` | `observations` |
 | `preflight` | inside its checks: `criteria`, `metrics`, `observations`, `optim`, `parameter_resolution`, `protocols`, `runners`, `targets` |
 | `__init__.py` | `config`, `optim`, `report`, `runners` |
 
@@ -90,13 +88,12 @@ hydromodpy/calibration/
   optim/        parameters.py (ParameterSpace, set_by_path)  sampling.py
                 objective.py  optimizer.py (protocol, EngineTraits, registry, choose_method)
                 method_config.py  engine.py  stopping.py  cache.py  progress_reporter.py
-                fosm.py  cost_margin.py  diagnostics.py  objective_mapping.py (trace parser for plots)
+                fosm.py  cost_margin.py  diagnostics.py
     adapters/   one module per search method
-  evaluation/   port.py  forward.py  registry.py  forward_registry.py
+  evaluation/   port.py  forward.py  plugin_registry.py (one engine)  registry.py  forward_registry.py
                 analytic_bowl.py  linear_reservoir.py
   protocols/    base.py  registry.py  boilerplate.py  matching_hydrographic_network.py
-  observations/ network_source.py  observed_network.py  network_geometry.py  network_cost.py
-                natural_observations.py  network_transient_truth.py  record.py
+  observations/ network_source.py  observed_network.py  network_geometry.py
   metrics/      solver_extract.py  composite.py  observed_pairing.py  observable_scoring.py
                 scalar.py  series.py (observed series by role)  gauge_snap.py
                 downslope_network.py  scored_forward.py
@@ -107,8 +104,8 @@ hydromodpy/calibration/
                 session.py (case name, session directory, frozen config)
                 state.py (params-hash context, cache preload)  failure_watch.py
                 kept_solves.py (trial solves kept on disk for their promotion)
+                worker_pool.py (the trials of parallel > 1 in worker processes)
                 prepared_model.py (the checks that need the prepared model)
-  reporting/    network_transient_html.py  network_transient/
 ```
 
 ## Template of a search method
@@ -295,15 +292,24 @@ each distance is then divided by the output's `validity_length` (Eq. 4,
 NSE of 0. `normalize_cost` stays refused on the efficiency, already a pure
 number.
 
-A spin-up is left out by dates: `scoring_window.start` on the phase (or on
+A spin-up is left out by dates: `window.start` on the phase (or on
 `[calibration]`) is the first date scored, for every block alike. A series
 keeps its stamps inside the window. A network output reads one state, dated
 at the stamp that closes its period: `time = "last"` (the default),
 `"first"`, or a date such as `"2002-10-15"`, which reads the period that
 holds it. The window has to hold that stamp, and `hmp config check` says so
-before any solve when it does not. `warmup` and `warmup_periods` count
-samples, so their span follows the time step; they still load, for older
-files.
+before any solve when it does not. The old `warmup` and `warmup_periods`
+counted samples, so their span followed the time step; `hmp doctor
+--fix-config` turns `warmup_periods` into the start date of the window.
+
+Dates can be kept apart from the search with `validation_window = {start, end}`
+on `[calibration]`, once for the session. `[metrics] window` minus those dates
+is then the default `window`. Each trial is scored on them from the series it
+has already simulated, as the `validation.cost` component, and the promoted run
+stores it as `checks.calibrated_by.validation_cost` with its period in `windows`.
+The cost never reads them. The score uses the blocks that compare a dated record,
+so a network block and a steady phase are left out of it. A window that overlaps
+a calibration window, leaves no data or falls outside `[metrics] window` is refused.
 
 The declarations the hand-written examples below share (the published
 method writes its own objective blocks):
@@ -317,8 +323,12 @@ bounds = [5e-3, 0.35]
 
 [calibration.outputs.streams]
 support = "network"
-stream_geometry_path = "nancon_stream_network.gpkg"
-diagonal_neighbors = true
+
+[calibration.outputs.streams.map]
+complete = "nancon_stream_network.gpkg"
+
+[calibration.outputs.streams.model]
+neighbours = "D8"
 
 [calibration.outputs.gauge]
 support = "point"
@@ -362,7 +372,7 @@ regime = "transient"
 objective_blocks = { hydrograph = 0.8, network_share = 0.2 }   # two pure numbers
 max_trials = 30
 
-[calibration.phases.scoring_window]
+[calibration.phases.window]
 start = "2001-01-01"           # the network state read, December 2002, lies inside
 ```
 
@@ -421,16 +431,16 @@ transient_max_trials = 30
 The transient stage scores itself through an objective block that reads a
 `support = "point"` output observing the gauging station, added to
 `[calibration.outputs]`, when that station is known from the file alone (one
-source, named by `station_ids` or `observed_station_id`). `--expand` then
+source, named by `station_ids`, or `[site] gauge`). `--expand` then
 shows that output beside the two stages. A file that loads several stations,
 or one whose source only discovers its station once the data step runs, keeps
 the protocol's older form instead: `variable` and `objective` written on the
 phase, naming no output.
 
 **From Python.** The same keys, as dictionaries. A call with phases writes
-the document it ran into the project's `sessions/` (named
-`python-<timestamp>-<hex>.toml`), so a Python run can be replayed from a file;
-the case takes the `[simulation] name` of the project.
+the document it ran into the project's `sessions/` as `<case>.toml`, so a
+Python run can be replayed from a file; the case takes the `[simulation] name`
+of the project, else the stem of its file, as on the command line.
 
 ```python
 import hydromodpy as hmp
@@ -441,8 +451,8 @@ report = project.calibrate(
     outputs={
         "streams": {
             "support": "network",
-            "stream_geometry_path": "nancon_stream_network.gpkg",
-            "diagonal_neighbors": True,
+            "map": {"complete": "nancon_stream_network.gpkg"},
+            "model": {"neighbours": "D8"},
         },
         "gauge": {"support": "point", "variable": "discharge", "observes": "NANCON"},
     },
@@ -470,7 +480,7 @@ report = project.calibrate(
             "regime": "transient",
             "objective_blocks": {"hydrograph": 0.8, "network_share": 0.2},
             "max_trials": 30,
-            "scoring_window": {"start": "2001-01-01"},
+            "window": {"start": "2001-01-01"},
         },
     ],
 )
@@ -513,12 +523,12 @@ declared share when the blocks have different units.
 1. **A search method.** A module in `optim/adapters/` on the template above,
    plus its options model in `optim/method_config.py` added to the
    `CalibrationMethodConfig` union. Test it in
-   `tests/unit/calibration/test_<method>_adapter.py`.
+   `tests/unit/calibration/test_optim_adapters_<method>_adapter.py`.
 2. **A criterion a TOML can name.** The kernel `(sim, obs) -> float` in
    `criteria/series.py`, its name in `METRICS`, its direction in `METRIC_SENSE`
    (`results/catalog/constants.py`, which turns a score into a cost with
    `cost_of`), and its name in `LOG_METRICS` or `DIMENSIONLESS` when that applies. Add the name to
-   `MetricKind` in `config.py`: `test_metric_kind_matches_the_registry.py`
+   `MetricKind` in `config.py`: `test_criteria_series.py`
    keeps the two equal. `criteria/registry.py` builds from `METRICS`, with no
    second list.
 3. **An evaluator.** A class with `evaluator_id`, `needs_prepared_model` and
@@ -584,8 +594,7 @@ provider of `runners/contracts.py`, which the bootstrap fills.
 
 Only these modules, listed under `public` in `calibration_layout.yaml`:
 `hydromodpy.calibration`, `config`, `targets`, `parameter_resolution`,
-`preflight`, `protocols`, `report`, `reporting`,
-`reporting.network_transient_html`, `optim.parameters`,
+`preflight`, `protocols`, `report`, `optim.parameters`,
 `runners.cli_runner`, `runners.staged_runner`,
 `runners.programmatic_runner`, `runners.contracts`.
 

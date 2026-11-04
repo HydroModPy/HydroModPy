@@ -53,7 +53,7 @@ class StreamCriterionDefaults(HydroModelBase):
         default=1.0e-4,
         ge=0.0,
         description=(
-            "Fraction of its own recharge below which a releasing cell is not a "
+            "Fraction of the mean basin recharge, over its own area, below which a releasing cell is not a "
             "stream. A SPECIFIC flux, not a discharge: on a mesh of uneven cells a "
             "fixed m3/s cut would be nine times harsher on a cell three times "
             "smaller and the network would follow the refinement rather than the "

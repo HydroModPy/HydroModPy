@@ -283,7 +283,8 @@ periods, and a joint calibration or a validation period adds keys, not meanings.
 - A period of ``windows`` has a ``role``: ``calibration`` is what the search scores, ``validation`` is
   kept apart from it and scored beside it, ``evaluation`` is ``[metrics] window`` of a run. Another
   word reads as it is, and no computation counts it as calibration. ``by_case`` gives the window of
-  each case when they differ.
+  each case when they differ. A promoted run stores the score of its trial on the validation period
+  as ``checks.calibrated_by.validation_cost``.
 - ``best`` holds one trial, one ``cost`` and one set of ``parameters``, those a phase froze included,
   and ``cases`` holds the run and the cost of that trial in each case. ``cost`` is null when a search
   keeps no single cost, and ``best`` is null when it keeps no single best.
@@ -857,7 +858,9 @@ the TOML does),
 ``mesh_cell_families`` and ``mesh_face_families`` (the line families of the mesh, see the cell
 mesh above), ``provenance`` and the GeoParquet 1.1 layers ``geographic_*``. Their columns are generated in
 :doc:`generated/storage-tree`. ``timeseries`` keys a series on its ``source``, ``simulated`` or
-``observed``, so a series and its gauge carry one variable name. A table says ``catchment`` for the
+``observed``, so a series and its gauge carry one variable name. A run also stores the series it
+simulates at each observed gauge, piezometer or lake, under the id of the station. A read with no
+station means ``catchment`` when it has the variable. A table says ``catchment`` for the
 whole catchment and ``domain`` for the whole model (:doc:`/understand/conventions`), and writes every
 ``unit`` in udunits spelling.
 

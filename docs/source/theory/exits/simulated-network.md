@@ -125,7 +125,7 @@ threshold of $F$. It is built from the release flux on the graph of the stream
 criterion ({ref}`routing-criterion-graph`), in two steps.
 
 **The sources.** A cell is a source in period $t$ when its release exceeds a
-share of its own recharge, strictly:
+share of the mean basin recharge over its own area, strictly:
 
 $$
 \Sigma(t) = \{\, n : q^\mathrm{rel}_n(t) > \tau_\mathrm{s}\,\bar N\,a_n \,\} .
@@ -249,7 +249,7 @@ harmonic mean `length_f1_ratio` and the Hausdorff distance of the two networks
 
 ```{hmp-params}
 simulation.results.keep_per_cell_budget
-calibration.outputs.<name>.tau_specific_ratio
+calibration.outputs.<name>.model.seepage_threshold
 calibration.outputs.<name>.extent.visible_flow
 ```
 

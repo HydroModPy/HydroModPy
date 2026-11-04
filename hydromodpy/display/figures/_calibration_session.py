@@ -40,6 +40,7 @@ from hydromodpy.results.calibration_trials import (
 )
 from hydromodpy.results.catalog.constants import METRIC_SENSE
 from hydromodpy.results.session.descriptor import read_session
+from hydromodpy.results.session.phase import list_phases
 from hydromodpy.results.storage.json_io import readable
 
 if TYPE_CHECKING:
@@ -146,6 +147,22 @@ def journal_descriptor(sim: Run, session_id: Any) -> dict[str, Any]:
     run = descriptor.only_run
     payload["best_sim_id"] = None if run is None else run.sim_id
     return payload
+
+
+def frozen_values(sim: Run, session_id: Any) -> dict[str, dict[str, float]]:
+    """Return the values each phase carried from earlier ones, by phase then parameter.
+
+    A phase journals only the parameters it samples, so a figure reads the
+    others from here.
+    """
+    directory = None if session_id is None else session_dir_of(sim, session_id=str(session_id))
+    if directory is None:
+        return {}
+    phases = readable(list_phases, directory) or []
+    return {
+        phase.name: {name: float(frozen.value) for name, frozen in phase.frozen.items()}
+        for phase in phases
+    }
 
 
 def session_config(descriptor: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -494,6 +511,7 @@ def text(value: Any) -> str | None:
 
 
 __all__ = [
+    "frozen_values",
     "DEFAULT_TOLERANCE",
     "NETWORK_COSTS",
     "METRIC_LABELS",

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from hydromodpy.calibration.config import scoring_window_bounds
+from hydromodpy.calibration.config import window_bounds
 from hydromodpy.calibration.evaluation.port import TrialOutcome, TrialRequest
 from hydromodpy.calibration.metrics.composite import build_metric_extractor
 from hydromodpy.calibration.metrics.trial_series_capture import TrialSeriesSink
@@ -96,15 +96,16 @@ def _extractor_for(
     rather than inlined so the long argument list stays out of the
     constructor and reads as one thing.
     """
+    site = trial_ctx.base_cfg.site
     return build_metric_extractor(
         cfg.variable,
         cfg.objective,
         trial_ctx.ctx,
         outputs=cfg.outputs or None,
         objective_blocks=cfg.objective_blocks or None,
-        warmup_periods=int(cfg.warmup_periods),
-        scoring_window=scoring_window_bounds(cfg.scoring_window),
-        observed_station_id=cfg.observed_station_id,
+        window=window_bounds(cfg.window),
+        validation_window=window_bounds(cfg.validation_window),
+        gauge=site.gauge if site is not None else None,
         min_samples=int(cfg.aggregate.min_samples),
         series_sink=series_sink,
     )

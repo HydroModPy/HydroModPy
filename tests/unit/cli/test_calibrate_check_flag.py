@@ -129,7 +129,7 @@ _PROTOCOL = textwrap.dedent(
 
     [calibration.outputs.seepage_network]
     support = "network"
-    stream_geometry_path = "streams.gpkg"
+    map.complete = "streams.gpkg"
 
     [[data.hydrometry.sources]]
     station_ids = ["G1"]
@@ -223,12 +223,12 @@ def test_only_the_departures_print_at_the_normal_verbosity(tmp_path) -> None:
     # The four above, the two heads keys with the value in force, and the two
     # departures that hold while the file writes no steady_window and no scoring window.
     assert len(departures) == 8
-    assert any("on heads_snap_radius" in line and "value in force" in line for line in departures)
-    tau_line = next(line for line in departures if "on tau_specific_ratio" in line)
+    assert any("on map.heads.radius" in line and "value in force" in line for line in departures)
+    tau_line = next(line for line in departures if "on model.seepage_threshold" in line)
     assert "this file sets" not in tau_line
-    assert any("on observed_rasterization" in line for line in departures)
-    assert any("on clip_map_to_catchment" in line for line in departures)
-    assert any("on max_catchment_mismatch" in line for line in departures)
+    assert any("on map.drawn_by" in line for line in departures)
+    assert any("on map.clip_to_catchment" in line for line in departures)
+    assert any("on verdict.max_catchment_mismatch" in line for line in departures)
     assert "dem_correc_type" not in printed
 
 
@@ -257,18 +257,18 @@ def test_a_launch_says_where_it_departs_before_anything_is_solved(tmp_path, capl
         refuse_what_the_preflight_refuses(config, source=path)
 
     assert "protocol: matching_hydrographic_network@1.3" in caplog.text
-    assert "differs from the paper on observed_rasterization" in caplog.text
+    assert "differs from the paper on map.drawn_by" in caplog.text
     assert "always differs from the paper on:" in caplog.text
 
 
 def test_a_value_written_equal_to_the_paper_is_not_a_departure(tmp_path) -> None:
     path = _protocol_file(tmp_path, end="2002-12-31")
     text = path.read_text(encoding="utf-8").replace(
-        'stream_geometry_path = "streams.gpkg"',
-        'stream_geometry_path = "streams.gpkg"\ntau_specific_ratio = 0.0\n'
-        'observed_rasterization = "crossing"\n'
-        "diagonal_neighbors = true\n"
-        "clip_map_to_catchment = false\n"
+        'map.complete = "streams.gpkg"',
+        'map.complete = "streams.gpkg"\nmodel.seepage_threshold = 0.0\n'
+        'map.drawn_by = "crossing"\n'
+        'model.neighbours = "D8"\n'
+        "map.clip_to_catchment = false\n"
         "[calibration.outputs.seepage_network.verdict]\n"
         "max_catchment_mismatch = false",
     )
@@ -282,7 +282,7 @@ def test_a_value_written_equal_to_the_paper_is_not_a_departure(tmp_path) -> None
         "steady_recharge_window",
         "spin_up_year",
     }
-    assert "as the paper on diagonal_neighbors" in verbose
+    assert "as the paper on model.neighbours" in verbose
     assert "this file sets 0.0" in verbose
 
 
@@ -293,7 +293,7 @@ def test_options_written_as_the_recipe_runs_them_are_not_away_from_it(tmp_path) 
         'protocol = "matching_hydrographic_network"',
         'protocol = { name = "matching_hydrographic_network", steady_precision = 0.01, '
         "transient_max_trials = 30, steady_method_options = { sweep_points = 7 }, "
-        'scoring_window = { start = "2001-01-01", end = "2002-12-31" } }',
+        'window = { start = "2001-01-01", end = "2002-12-31" } }',
     )
     path.write_text(text, encoding="utf-8")
 
@@ -304,10 +304,10 @@ def test_options_written_as_the_recipe_runs_them_are_not_away_from_it(tmp_path) 
     assert away == ["  option away from the recipe: transient_max_trials = 30 (recipe: 120)"]
     assert "option written as the recipe runs it: steady_method_options" in verbose
     assert "option written as the recipe runs it: steady_precision = 0.01" in verbose
-    assert "option written as the recipe runs it: scoring_window" in verbose
+    assert "option written as the recipe runs it: window" in verbose
 
 
-def test_an_old_key_is_a_warning_and_the_file_still_passes(tmp_path) -> None:
+def test_an_old_key_is_refused_with_its_new_name(tmp_path) -> None:
     path = _protocol_file(tmp_path, end="2002-12-31")
     text = path.read_text(encoding="utf-8").replace(
         'protocol = "matching_hydrographic_network"',
@@ -318,9 +318,8 @@ def test_an_old_key_is_a_warning_and_the_file_still_passes(tmp_path) -> None:
 
     result = _check(path)
 
-    assert result.exit_code == 0, result.stderr
-    warnings = [line for line in result.stderr.splitlines() if "warning:" in line]
-    assert any("steady_engine_options -> steady_method_options" in line for line in warnings)
+    assert result.exit_code == EXIT_CONFIG, result.stderr
+    assert "steady_engine_options -> steady_method_options" in result.stderr
 
 
 def test_a_phase_two_option_its_method_refuses_is_named_before_phase_one_runs(

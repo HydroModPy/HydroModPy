@@ -49,7 +49,7 @@ buff_area = "10%"
 # Le reseau observe et la surface de routage
 # ----------------------------------------------------------------------
 # Le reseau observe n'entre jamais dans la surface de routage : le critere
-# le prend par ses tetes (`observed_rasterization = "heads"`, le defaut) et
+# le prend par ses tetes (`map.drawn_by = "heads"`, le defaut) et
 # le desaccord entre le MNT et la carte se lit sur alpha. L'etape
 # geographique le mesure sur la source `custom` de `[[data.hydrography.sources]]`
 # ci-dessous (`stream_dem_agreement.json`) ; chaque run publie aussi

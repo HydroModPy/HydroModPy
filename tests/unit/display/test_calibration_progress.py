@@ -13,13 +13,14 @@ import json
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
 import pytest
 
 from hydromodpy.display.figure_registry import get, names
-from hydromodpy.display.figures.calibration_progress import CalibrationProgressFigure
+from hydromodpy.display.figures.calibration_progress import CalibrationProgressFigure, _with_frozen
 
 K_ROOT = 8.0e-5
 SY_BEST = 0.06
@@ -408,3 +409,31 @@ def test_a_value_combined_from_two_roots_is_marked_and_gets_no_interval(mpl, tmp
     assert "returned: 185.4 at run 24" in text
     assert "within tolerance" not in text
     assert "No interval of trials around a value combined from two roots" in " ".join(text.split())
+
+
+@pytest.mark.parametrize(
+    ("phases", "values", "expected"),
+    [
+        (["a", "b", "b"], [1.0, np.nan, np.nan], [1.0, 8e-5, 8e-5]),
+        (["a", "a", "c"], [1.0, 2.0, np.nan], [1.0, 2.0, np.nan]),
+    ],
+)
+def test_a_run_of_a_phase_that_froze_a_parameter_reads_the_frozen_value(
+    phases: list[str], values: list[float], expected: list[float]
+) -> None:
+    table = SimpleNamespace(frame=pd.DataFrame({"phase": phases}))
+    filled = _with_frozen(np.array(values), table, {"b": {"K": 8e-5}}, "K")
+    np.testing.assert_array_equal(filled, np.array(expected))
+
+
+def test_the_frozen_values_are_read_from_the_phase_journals(monkeypatch, tmp_path: Path) -> None:
+    from hydromodpy.display.figures import _calibration_session as session
+    from hydromodpy.results.session.phase import FrozenValue, PhaseDescriptor, write_phase
+
+    frozen = FrozenValue(value=8e-5, mode="replace", from_phase="a")
+    write_phase(tmp_path, PhaseDescriptor(phase_id="p0", name="a", index=0))
+    write_phase(tmp_path, PhaseDescriptor(phase_id="p1", name="b", index=1, frozen={"K": frozen}))
+    monkeypatch.setattr(session, "session_dir_of", lambda sim, session_id: tmp_path)
+
+    assert session.frozen_values(None, "s") == {"a": {}, "b": {"K": 8e-5}}
+    assert session.frozen_values(None, None) == {}

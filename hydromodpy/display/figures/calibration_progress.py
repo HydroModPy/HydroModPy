@@ -35,6 +35,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import pandas as pd
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_options import OutputName, SessionId
@@ -48,6 +49,7 @@ from hydromodpy.display.figures._calibration_session import (
     cost_blocks,
     cost_label,
     float_or,
+    frozen_values,
     metric_cost,
     metric_unit,
     parameter_declaration,
@@ -315,7 +317,7 @@ def _read_search(sim: Run, *, session_id: str | None, output: str | None) -> _Se
     search = _Search(
         runs=table.iterations(),
         cost=cost,
-        parameters=_parameters(table, descriptor),
+        parameters=_parameters(table, descriptor, frozen_values(sim, chosen)),
         blocks=blocks,
         network=_network(table, config, output),
         method=str(descriptor.get("method") or config.get("method") or ""),
@@ -329,8 +331,14 @@ def _read_search(sim: Run, *, session_id: str | None, output: str | None) -> _Se
     return search
 
 
-def _parameters(table: TrialTable, descriptor: Mapping[str, Any]) -> list[_Parameter]:
-    """Return the calibrated parameters in the order the session declared them."""
+def _parameters(
+    table: TrialTable, descriptor: Mapping[str, Any], frozen: Mapping[str, Mapping[str, float]]
+) -> list[_Parameter]:
+    """Return the calibrated parameters in the order the session declared them.
+
+    A run of a phase that did not sample a parameter takes the value that phase
+    froze, so the run marked best carries every parameter.
+    """
     declared = as_mapping(session_config(descriptor).get("parameters"))
     names = [name for name in declared if name in table.parameters]
     names += [name for name in table.parameters if name not in names]
@@ -339,6 +347,7 @@ def _parameters(table: TrialTable, descriptor: Mapping[str, Any]) -> list[_Param
     parameters = []
     for name in names:
         _, values = table.parameter_values(name)
+        values = _with_frozen(values, table, frozen, name)
         info = parameter_declaration(table, descriptor, name)
         bounds = _bounds(info.get("bounds"))
         positive = bool(np.all(values[np.isfinite(values)] > 0.0))
@@ -354,6 +363,19 @@ def _parameters(table: TrialTable, descriptor: Mapping[str, Any]) -> list[_Param
             )
         )
     return parameters
+
+
+def _with_frozen(
+    values: np.ndarray,
+    table: TrialTable,
+    frozen: Mapping[str, Mapping[str, float]],
+    name: str,
+) -> np.ndarray:
+    """Return ``values`` with the runs that did not sample ``name`` set to the frozen value."""
+    if "phase" not in table.frame.columns:
+        return values
+    carried = table.frame["phase"].map(lambda phase: frozen.get(str(phase), {}).get(name))
+    return np.where(np.isfinite(values), values, pd.to_numeric(carried).to_numpy(dtype=float))
 
 
 def _network(table: TrialTable, config: Mapping[str, Any], output: str | None) -> _Network | None:
@@ -1128,6 +1150,8 @@ def _draw_plane(sub: SubFigure, ax: Axes, search: _Search) -> None:
         if np.isfinite(best_so_far[row])
         and (not np.isfinite(best_so_far[row - 1]) or best_so_far[row] < best_so_far[row - 1])
     ]
+    # A run that did not sample both parameters has no point in the plane.
+    improved = [row for row in improved if done[row]]
     if len(improved) > 1:
         ax.plot(
             x[improved], y[improved], color=_RED, lw=2.0, zorder=4, label="each new best, in order"

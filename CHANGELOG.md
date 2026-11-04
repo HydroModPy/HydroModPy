@@ -33,6 +33,145 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
+### Fixed
+
+- `hmp doctor --fix-config` now moves a `maxfev`-style option of a calibration phase into `max_trials` when the phase takes its method from `[calibration]`, and keeps the section's budget as a bound.
+- A sealed run config with `roptim_max` other than 2 now reads and replays. The key is dropped. A live file with such a value is still refused.
+- `Project.calibrate()` refuses `method`, `max_trials`, `save_runs`, `seed`, `outputs`, `objective_blocks` and `phases` when the calibration comes from a file or the project config, and unknown options on the config route, instead of ignoring them.
+- `Project.calibrate(resume=True)` now resumes on the programmatic routes.
+- `Project.calibrate` without phases now honours `uncertainty.method = "linearized"`. The width was computed for
+  `hmp calibrate` and for staged calibrations, but a Python call without phases skipped it and returned no
+  `parameter_uncertainty`. An evaluator that runs no HydroModPy model now gets the same refusal on this route as on the
+  command line.
+- `Project.calibrate(phases=...)` with `resume=True` reopens the session of an earlier call. The document it writes is now
+  named after the case (`sessions/<case>.toml`) instead of a timestamp, so the staged run names the same case each time.
+- A calibration run from Python names its case by one rule, the same as the command line: `[simulation] name`, else
+  the stem of the project file.
+- `hmp doctor --fix-config` now reads the files a file inherits for the timestep, `start_datetime` and `[site] gauge`. It no longer leaves `warmup_periods` with a false reason, and no longer writes a second gauge over the parent's.
+- The doctor always writes a date without a time when it rewrites `warmup_periods`, and its change line says the date counts from `start_datetime`. The old count ran from the first aligned sample, so the two agree only when the record starts at `start_datetime`.
+- `hmp config check` now takes off `validation_window` when it decides whether a protocol `window` equals the recipe's default.
+- `hmp doctor --fix-config` keeps the share of each map when a child file adds an extent or weights under a parent it already rewrote. It used to drop the weights and score the permanent map alone.
+- `hmp doctor --fix-config` says what to do when a file gives `map.calibrate_on` and old `extent.weights` that differ, and no longer drops the weights.
+- `hmp doctor --fix-config` refuses a network output written with dotted keys under a parent table, with a line that asks for a `[calibration.outputs.<name>]` table. It used to stop on a raw error, or to write the new tables outside `[calibration]`.
+- The warning for two roots more than half a decade apart now fires when the maximal root lies below the minimal one, as on the Nancon.
+- A minimiser on one parameter and two bounds is refused only when a metric is a signed residual, so scoring `distance_mean` is no longer sent to a root search that cannot run it.
+- The warning about `distance_gap` beside another parameter no longer points to `balanced_evaluation`.
+- A run resumed at its derive step says in a warning that no station series is written.
+- One failing observing output no longer drops the series of the others.
+- Two parameters on one path, `path` with `target`, and `mode = "scale"` on a zero or unset value are refused at load instead of silently doing nothing.
+- The registry label of `vka` said Kv/Kh, and the key is Kh/Kv.
+- A calibration that scores different blocks in different phases is no longer refused as a sum of costs of different units.
+- A phased calibration run from a project held in memory no longer fails with a frozen-configuration error when a phase overrides the regime.
+- A worker that dies marks its trial `crashed`, and the search goes on with a new worker. A stuck `mf6` is killed with its worker.
+- A stop (Ctrl-C, SIGTERM) of a search at `parallel` above 1 now ends the solves in flight at once. Without it, the workers of the previous change, which have their own session, made the stop wait for the longest trial.
+- The runs of a linearized width no longer enter the retention of the solves a promotion may keep. They were ranked with the trials at cost 0.0, so one could push the Nth best trial out of a `save_runs = "best_n"` search.
+- A balanced evaluation now answers each point with the trial nearest the root of J. It took the end of the final bracket with the lowest `distance_mean`, which could sit on the far side of a step of J.
+- The warning and the recap say that a value reached a search bound only when the value is on it. A value inside its bounds whose range of equal costs reaches one now says so in those words.
+- `--optimizer scipy_de` of the `groundwater_1d`, `recession_brutsaert` and `reservoir` validation cases runs again.
+- The `calibration_progress` figure of a staged calibration now shows the value a phase froze for a parameter it did not sample, so the run marked best reads `K = 7.96e-05 m/s` instead of `K = nan`, the K panel carries the frozen value, and the K-Sy plane draws the runs of the phase that sampled Sy. It was empty at the base commit too.
+- A TOML written without the keys that hold their default (`exclude_defaults`) no longer gets those keys back as written lines. The template writer now leaves them as comments, so `objective` is not written beside `[[calibration.objective_blocks]]` and the file reloads.
+- The JSON schema of the `data-request` process was regenerated, since a description now says "meters".
+
+### Changed
+
+- `hydromodpy.calibration.evaluation.registry` and `forward_registry` now share one engine. Their functions keep their names, and their first parameter is now called `name`. A plugin that passed it by keyword (`get(evaluator_id=...)`) passes it by position.
+- The calibration TOML written by a Python call with phases is `sessions/<case>.toml`, overwritten by the next call of
+  the case. It no longer piles up as `python-<date>-<id>.toml`.
+- Example 04 `run_calibration_api_daily.toml` calibrates on 2016-2018 and validates on 2019-2020.
+- Changing the validation window starts a new cache scope and a new session, as a changed scoring window does. A document
+  without the key keeps its cache keys.
+- A file that writes an old key of `[calibration]` is now refused with the new name, and `hmp doctor --fix-config` rewrites it. This covers `scoring_window`, `optimizer_kwargs`, `steady_engine_options`, `transient_engine_options`, `max_iter`, `tolerance` and their stage forms, `transform` and `prior`, the two extent step counts, `tolerance` and `mode` of `[calibration.uncertainty]`, the evaluation counts in method options and `roptim_max`. These keys used to load with a warning. The section is experimental, so it takes no delay. A sealed `config.toml` is still read. Other sections keep their delay.
+- `Project.calibrate` on a project read from a file now names its case as `hmp calibrate` does, so the two share one session and `resume` finds it. The case no longer comes from a name the file inherits.
+- The seepage threshold is described as a fraction of the mean basin recharge over the cell's own area, in the field, the protocol deviation and the docs. No value changes.
+- The example calibration files of 04, 10, 12 and 21 use the new `map`, `model` and `verdict` tables.
+Numbers: none.
+- The preflight refuses a minimiser on one parameter scored on two network bounds of positive weights, because the value returned would depend on the method. Search it with `bisection` on `distance_gap`, or weigh one bound zero.
+- The preflight warns when `distance_gap` enters a cost beside another parameter or another metric, because that cost can fall by trading excess for missing stream.
+- A root search warns when its two roots lie more than half a decade apart, because the value returned between them satisfies neither map.
+- A root search (bisection) now refuses a set of objective blocks unless every block publishes a signed residual. Before, one residual block was enough.
+- The composite example of example 04 scores its network block on `distance_mean` instead of `distance_gap`.
+- The `balanced_evaluation` description says that its report keeps no roots record and no Delta.
+- A run stores the series it simulates at each observed station under the id of the station, all in one write. A gauge the mesh cannot place is no longer stored under its own name with the outlet series: it is listed as unscored and a warning names it.
+- A promoted run reads the stations with the outputs of the phase it comes from.
+- `hmp.read(run, "head")` or a lake stage with several stations needs `station=`.
+- `hmp run` ends a calibration with the same lines as `hmp calibrate`. `hmp calibrate` prints the unit after each value.
+- `Project.calibrate()` refuses an unknown argument by its name, and no longer merges extra keywords into the configuration.
+- `sampling = "normal"` is refused by the Optuna engine instead of being drawn as uniform.
+- A raw residual cost in a unit (such as an RMSE in m3/s) beside pure-number costs is refused unless `normalize_cost = true`.
+- The `path` description says it inherits the field's space and draw when the catalogue carries the path.
+- Comments and docstrings cite `hmp config check` instead of `hmp calibrate --check`.
+- The rate of a well now has a physical range, from -1 to 1 m3/s in the unit of the well, whatever its sign. Calibration bounds outside it are refused.
+- A steady search scored on the network alone that moves K and the recharge factor is now refused, because that state reads K/R and nothing else. The same search with other parameters still warns.
+- `factor` is refused beside `[flow.sinks_sources.recharge.soil]`, written in the file or calibrated, because the soil reservoir computes that recharge.
+- `hmp.calibrate("file.toml", ...)` goes through `Project.calibrate(config_path=...)`, so `dry_run`, `case`, `protocol` and `resume` are accepted and an unknown option is a `TypeError` that names it.
+- `hmp campaign promote` lists the five best trials of each phase, because the costs of two phases cannot be compared.
+- Two parameters may write one path when no phase moves both.
+- The `kge` score says why it is NaN when the simulation is constant.
+- With `parallel` above 1, the trials of a search that runs the HydroModPy pipeline now run in worker processes that last, instead of threads. The parent keeps the engine, the journal, the cache and the catalog. Costs do not change.
+- A Python script that calibrates with `parallel` above 1 needs the `if __name__ == "__main__":` guard, because each worker imports the script again.
+- A `metric_fn` for a search with `parallel` above 1 must be defined at the top level of a module. A lambda or a closure is refused before the first solve, and the message says so.
+- `[modflow6.runtime] mf6_api_timeout_s` now limits one whole trial of a parallel search, whichever runner solves it. The default stays 2400 s, so a trial longer than that, which used to finish under the `subprocess` runner, now ends `crashed`. The message says how to raise it. A serial search has no limit, as before.
+- `hmp calibrate --dry-run` shows the widest `parallel` of the phases under `solves in parallel`, not the one of `[calibration]` alone.
+- With `parallel` above 1, a grid, a Latin hypercube and a random search feed one queue of `parallel` workers. A free worker takes the next point at once, and no batch waits for its slowest trial. The points and the costs are the same as before.
+- With `parallel` above 1, the progress bar moves as each trial ends, not when its whole batch has.
+- With `parallel` above 1, the restarts of `uncertainty.method = "multistart"` run side by side on one shared set of workers, so together they run `parallel` trials at once and no more. They no longer run one after the other. A restart no longer finds the trials the restarts before it solved in the cache.
+- With `parallel` above 1, the derivatives of `uncertainty.method = "linearized"` (one run per parameter, plus the reference) run side by side in workers that last for these runs only.
+- `scipy_de` now accepts `parallel` above 1 and `hmp calibrate --dry-run` no longer says it proposes one trial at a time. From a width of 2 it scores a whole generation from the one before it (`updating = "deferred"`). Its path differs from the one it follows at `parallel = 1`, which is unchanged. For the same number of evaluations it reaches a higher cost (see Numbers), and it runs the trials of a generation side by side.
+- With `parallel` above 1, Optuna's `tpe` sampler counts the trials in flight as the worst cost so far (`constant_liar`), so the points of one batch do not land on each other.
+- `validation_cases/calibration/shared/standalone.py` holds the driver and the command line of the three standalone calibration cases, and the hillslope recession case calls the recession law of `recession_brutsaert`. Their results do not change.
+
+### Numbers
+
+- A Python calibration without phases that asks for a `linearized` width now carries `parameter_uncertainty` and pays for
+  the model runs of that width, one per calibrated parameter plus one at the optimum. Search results, costs and every
+  other route are unchanged.
+- The cost of a document without `validation_window` does not move, bit for bit, and its cache key does not move. A test holds this.
+- `run_calibration_api_daily.toml` ranks its five K on 2016-2018 instead of 2016-2020. This was not run, so the size of the
+  change in its costs is not measured.
+- None moves. The option is off by default, and the new messages change no result.
+- The composite example changes its network cost; no stored result or golden depends on it.
+- None.
+None. No metric value changes.
+- No number moves at factor 1. No run was replayed for this change.
+- No number moves. One real solve of each trial of the cut example 04 (30 x 30, monthly, one year, K on two values): costs at `parallel = 2` equal to those at `parallel = 1` to the last digit, 0.5363546813031831 and 0.5756840896779987.
+- At `parallel = 1` nothing moves, to the last digit: the candidates and costs of `scipy_de` and the Jacobian are equal to those of the previous build (checked on a toy cost).
+- `scipy_de` at a width of 4 against a width of 1, 30 seeds, population 10 times the number of parameters, median of the best cost at the same number of evaluations. 4 parameters on a narrow ridge: 0.0057 against 0.0041 at 400 evaluations, 5.5e-5 against 1.2e-5 at 1200. Rosenbrock on 3 parameters: 0.38 against 0.43 at 400, 4.7e-4 against 7.9e-5 at 1200. So the side by side path costs up to 1.5 to 5 times more evaluations to reach the same late precision, and wins when the solves dominate and `parallel` is 2 or more.
+- Optuna `tpe` with `constant_liar`, 40 seeds, 64 evaluations, batches of the width, median of the best cost. 4 parameters on a ridge: 0.052 against 0.040 at width 2 (22 wins of 40 for the lie), 0.081 against 0.060 at width 4 (23 of 40), 0.095 against 0.051 at width 8 (26 of 40). Rosenbrock on 3 parameters: 3.7 against 3.8 at width 2 (23 of 40), 4.8 against 3.0 at width 4 (27 of 40), 5.7 against 3.6 at width 8 (29 of 40). Neutral at a width of 2, better from 4.
+- Balanced evaluation on the thickness of the Nancon, `D_optim` told at 10, 17.3, 30, 52 and 90 m: 136.96, 137.20, 102.97, 108.30, 111.38 m before, 141.76, 171.29, 104.07, 109.50, 111.38 m after. The best stays 30 m, with K from 7.891e-5 to 7.966e-5 m/s. A plain bisection does not move, K and cost equal to the last digit.
+- The Nancon on two bounds, BD Topage. At a visible flow of 0.5, 1 and 2 L/s, K = 1.19e-5, 7.68e-6 and 3.98e-6 m/s, roots 1.21, 1.47 and 1.87 decades apart.
+- K and Sy together on two maps: a twin finds K to a few per cent and not Sy, and on the Nancon the roots meet at K = 5.0e-6 m/s and Sy = 0.0033, with NSE at 0.64 against 0.93.
+- The 12.9 per cent of D4 on the Nancon comes from one seepage cell that dries between K = 6.895e-5 and 6.910e-5 m/s, and with it a reach of 37 cells absent from the map.
+- Example 04, the calibrated Sy goes from 0.04411 to 0.04296 and `1 - nse_log` from 0.083976 to 0.083988, with two solves less. K does not move, to the last digit. `calibration.precision` now writes a relative `fatol`, so Nelder-Mead stops on the same simplex two trials earlier. Both values are inside the 5 % asked and inside the printed range of equal costs, 0.0376 to 0.0465.
+
+### Removed
+
+- The B0 network and transient discharge case left the `hydromodpy` package for `validation_cases/calibration/network_transient_b0/`. The wheel no longer ships its page. `hydromodpy.calibration.reporting`, `hydromodpy.calibration.observations.natural_observations`, `network_cost`, `network_transient_truth` and `hydromodpy.calibration.optim.objective_mapping` are gone, and `step_render_network_transient_calibration_html` is no longer in `hydromodpy.workflow.steps.calibration`.
+- A network output can no longer score against `geographic.river_network`. The DEM-derived network is no observation. `hmp doctor --fix-config` says to write `map.complete = "data.hydrography"` or a vector file, and a sealed run simply drops the key. The `observed_network_is_dem_derived` trial diagnostic is gone with it.
+- The unused `area_m2` argument of `_add_runoff_to_discharge_series`.
+
+### Added
+
+- `[calibration] validation_window = {start, end}` keeps dates apart from a search. Every trial is scored on them beside its
+  cost, from the series it has already simulated, under the component `validation.cost`. The promoted run stores the period
+  in `checks.calibrated_by.windows` (role `validation`) and the score of its trial in `checks.calibrated_by.validation_cost`.
+- `[metrics] window` minus the validation window is the default calibration window, on the section, on a phase and on the
+  transient stage of the network protocol. A phase that writes only a start is closed by it too.
+- A validation window that overlaps a calibration window, covers all of `[metrics] window`, falls outside it, leaves a bound
+  open or has no dated record to score is refused by name. So is one beside a metric function or another evaluator.
+- A phase can set `balanced_evaluation = true`: every point of its search closes the root of J on K with its own root search, and is scored there. It is meant for comparing structures such as a thickness or a K(z) profile. `max_trials` counts the points, and each point costs about fifteen solves. Off by default, and not yet measured on the synthetic twin.
+- A balanced phase whose outer method cannot count its points and runs with `max_trials = "auto"` is refused, naming the points times the solves of each.
+- `Project.calibrate()` takes `protocol`, `case`, `resume`, `dry_run`, `workspace`, `project`, `project_label`, `metric_fn` and `objective` by name, on every route. `dry_run=True` returns the plan.
+- `hmp campaign promote CASE` without `--trial` lists the five best completed trials.
+- `hmp config targets` shows the search space, the draw and the default bounds of each target. Names with a dot are written between quotes, as TOML needs.
+- The session README gives the best values with their unit and interval, what the cost means and the pairs it was scored on.
+- A parameter on a path the catalogue does not carry now warns that its unit is unknown and the sample is written as drawn.
+- `kge` and `nse_seasonal` say why they return NaN (too few pairs, constant observations, observations summing to zero, fewer than two cycles).
+- `flow.sinks_sources.recharge.factor` multiplies the recharge in force, from `values` or from `[data.recharge]`, gridded or by station. Its default of 1 changes no number. A calibration reaches it as `recharge.factor`, searched in log space between 0.5 and 2 unless the file says otherwise. The run keeps the multiplied recharge in `forcing/` and seals the factor in its config.
+- `vka` can be calibrated under MODFLOW 6 as `[calibration.parameters.vka]`, in log space, with bounds the file states. It is not offered when the project declares `Kv`.
+- `Project.calibrate(protocol=...)` now builds on the parameters and outputs of the project's own `[calibration]` section, and writes the phases on top of them.
+- `hmp config check` refuses the `normal` sampling on the `lhs` and `optuna` methods before anything is prepared.
+- `hmp config check` refuses a calibrated recharge factor when the run carries no recharge rate to multiply, and when `recharge.values` is calibrated beside it.
+
 ## [v2.0.0rc1] - 2026-11-03
 
 This is the first release candidate of 2.0.0. The notes below are for a reader who comes from

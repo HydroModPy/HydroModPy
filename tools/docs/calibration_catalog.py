@@ -95,7 +95,11 @@ def methods() -> list[dict[str, Any]]:
     )
     from hydromodpy.calibration.optim.stopping import UNCOUNTED_BUDGET
 
-    names = sorted(set(available_optimizers()) | set(method_config.typed_methods()))
+    names = sorted(
+        name
+        for name in set(available_optimizers()) | set(method_config.typed_methods())
+        if engine_traits(name).announced
+    )
     rows = []
     for name in names:
         model = method_config._MODELS_BY_METHOD.get(name)

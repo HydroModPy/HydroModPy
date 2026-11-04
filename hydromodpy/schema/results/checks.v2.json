@@ -112,6 +112,20 @@
           "type": "integer",
           "x-hmp-profile": "user"
         },
+        "validation_cost": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Score of that trial on the validation period, in the sense of the cost; null when it has none",
+          "title": "Validation Cost",
+          "x-hmp-profile": "user"
+        },
         "windows": {
           "additionalProperties": {
             "$ref": "#/$defs/PeriodWindow"
@@ -207,7 +221,7 @@
       "type": "object"
     },
     "Validity": {
-      "description": "One check that qualifies a result without penalising it.\n\n``passed`` is the verdict, ``message`` the sentence a reader who is not a\nhydrogeologist needs. ``fatal`` is true for the few checks whose failure\nmakes the number a fiction rather than coarse.",
+      "description": "One check that qualifies a result without penalizing it.\n\n``passed`` is the verdict, ``message`` the sentence a reader who is not a\nhydrogeologist needs. ``fatal`` is true for the few checks whose failure\nmakes the number a fiction rather than coarse.",
       "properties": {
         "fatal": {
           "default": false,

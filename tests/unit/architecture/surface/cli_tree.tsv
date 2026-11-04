@@ -56,7 +56,7 @@ hmp campaign promote --debug	nargs=0
 hmp campaign promote --format	choices=['csv', 'json', 'table'] default='table'
 hmp campaign promote --name	
 hmp campaign promote --quiet,-q	nargs=0
-hmp campaign promote --trial	required
+hmp campaign promote --trial	
 hmp campaign promote --verbose,-v	nargs=0
 hmp campaign promote --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
 hmp campaign promote --workspace,-w	

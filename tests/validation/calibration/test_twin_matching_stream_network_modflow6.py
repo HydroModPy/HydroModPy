@@ -24,7 +24,7 @@ the downstream closure of the seepage cells, built by the same functions the
 criterion calls, and its round trip through the GPKG back onto the mesh is
 checked cell for cell before any calibration runs. The round trip goes through
 the resolver and ``observed_network_mask`` under the crossing rule, the route a
-``stream_geometry_path`` takes in a calibration trial. The calibration sets that
+``map.complete`` takes in a calibration trial. The calibration sets that
 rule: the default, ``heads``, needs a drained area this hillslope never reaches, and
 ``test_twin_matching_stream_heads_modflow6.py`` runs that default on a basin that does.
 
@@ -263,10 +263,10 @@ bounds = [{k_low!r}, {k_high!r}]
 
 [calibration.outputs.{output}]
 support = "network"
-stream_geometry_path = "{mapped}"
+map.complete = "{mapped}"
 # The twin checks the crossing rule. Under the heads rule the one head of the
 # map needs 0.02 km2 drained; the whole hillslope drains 0.0016 km2.
-observed_rasterization = "crossing"
+map.drawn_by = "crossing"
 
 [[calibration.objective_blocks]]
 name = "network"
@@ -409,7 +409,7 @@ def _project_as_the_criterion_does(
     from hydromodpy.calibration.observations.network_source import resolve_observed_network
     from hydromodpy.calibration.observations.observed_network import observed_network_mask
 
-    output = CalibOutputNetwork(support="network", stream_geometry_path=mapped_path.as_posix())
+    output = CalibOutputNetwork(support="network", map={"complete": mapped_path.as_posix()})
     run_ctx = SimpleNamespace(
         state=SimpleNamespace(setup=SimpleNamespace(geographic=SimpleNamespace(crs_project=CRS)))
     )

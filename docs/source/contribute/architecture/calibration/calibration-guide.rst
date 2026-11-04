@@ -218,7 +218,9 @@ Every ``CalibrationReport`` carries two records in ``extra``:
    ``{parameter, low, high, relative_width, closed}``, in physical units, once
    a bisection has found a sign change. It is what the search proved about the
    root. It differs from ``parameter_intervals``, which reads a ``cost_margin`` on
-   the trials after the fact.
+   the trials after the fact: for a root, where the cost against the log of the
+   value crosses the margin, by a straight line between two trials. Each end says
+   ``crossed``, ``bound`` or ``open``, and ``widths`` in ``session.json`` keeps it.
 
 The trial a bisection returns is the lowest-cost completed trial inside the
 final bracket, ends included. A rejected trial that set an end of the bracket

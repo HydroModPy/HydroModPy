@@ -83,12 +83,15 @@ def _references(document: dict, data_root: Path, config: Path) -> set[Path]:
                 resolved.update(_source_files(variable, source, document, data_root, config))
 
     # Two keys name a file outside [data]: the regional DEM the catchment is cut
-    # out of, and the mapped network the network criterion is scored against.
+    # out of, and the mapped networks the network criterion is scored against.
     # Neither says which variable folder it lives in, so they are located by
     # name, and an ambiguous name is an error rather than a pick.
     for path in _loose_paths(document):
         resolved.add(_locate_by_name(path, data_root, config))
     return resolved
+
+
+_OLD_MAP_KEYS = {"stream_geometry_path", "minimal_stream_geometry_path"}
 
 
 def _loose_paths(document: dict) -> list[str]:
@@ -99,8 +102,16 @@ def _loose_paths(document: dict) -> list[str]:
     outputs = document.get("calibration", {}).get("outputs", {})
     if isinstance(outputs, dict):
         for output in outputs.values():
-            if isinstance(output, dict) and output.get("stream_geometry_path"):
-                names.append(str(output["stream_geometry_path"]))
+            if isinstance(output, dict) and _OLD_MAP_KEYS & output.keys():
+                raise ConfigError(
+                    "a network output names its map with an old key, so no file would ship. "
+                    "Run 'hmp doctor --fix-config' to write it as map.complete."
+                )
+            maps = output.get("map") if isinstance(output, dict) else None
+            for role in ("complete", "permanent"):
+                named = maps.get(role) if isinstance(maps, dict) else None
+                if named and named != "data.hydrography":
+                    names.append(str(named))
     return names
 
 

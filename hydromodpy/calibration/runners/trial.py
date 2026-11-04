@@ -33,7 +33,6 @@ from __future__ import annotations
 
 import copy as _copy
 import math
-import threading
 import time
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager, nullcontext
@@ -55,7 +54,7 @@ from hydromodpy.calibration.runners.kept_solves import (
     RecordingLauncher,
     TrialSolveRetention,
 )
-from hydromodpy.calibration.runners.sandbox import TrialSandbox
+from hydromodpy.calibration.runners.sandbox import sandbox_of
 from hydromodpy.calibration.runners.verdict import water_budget_verdict
 from hydromodpy.core import progress
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
@@ -81,14 +80,6 @@ if TYPE_CHECKING:
 
 
 logger = get_logger(__name__)
-
-# Structural binding (geology -> domain, lake-geometry parquet reads, flow
-# rebuild) runs per trial but operates on the prep state shared by reference
-# across concurrent trials (domain, loaded_data) and uses GDAL/geopandas reads
-# that are not thread-safe. Serializing only this phase keeps it correct while
-# the expensive mf6 solves still run in parallel.
-_STRUCTURAL_BIND_LOCK = threading.Lock()
-
 
 # ---------------------------------------------------------------------------
 # Results
@@ -447,36 +438,35 @@ def built_model(trial_ctx: TrialContext, values: Mapping[str, float]) -> Iterato
     model before the first solve reads it here, with what a trial reads.
     """
     provider = get_trial_pipeline_provider()
-    setup = trial_ctx.ctx.setup
-    sandbox = TrialSandbox(
-        str(getattr(setup, "run_id", "") or "trial"),
-        0,
-        scratch_root=getattr(getattr(setup, "workspace", None), "solver_scratch_folder", None),
-    )
+    sandbox = sandbox_of(trial_ctx, 0)
     overrides = {**sandbox.flow_overrides, STOP_BEFORE_THE_SOLVE: True}
     if _trial_owns_its_recharge(trial_ctx):
         overrides["trial_owns_its_recharge"] = True
     with progress.suppressed(), sandbox:
-        with _STRUCTURAL_BIND_LOCK:
-            forked = trial_ctx.fork(values, flow_runtime_overrides=overrides)
-            sandbox.track(forked.ctx.execution)
+        forked = trial_ctx.fork(values, flow_runtime_overrides=overrides)
+        sandbox.track(forked.ctx.execution)
         names = [step.name for step in forked.downstream_steps]
         through_the_launcher = names.index("run_solver") + 1
         steps = provider.with_solver_launcher(
             forked.downstream_steps[forked.earliest : through_the_launcher], _FlowBuildLauncher()
         )
-        state = provider.make_state(
-            "calibration-prepared-model",
-            {
-                "cfg": forked.ctx.cfg,
-                "config_path": forked.cfg_path,
-                "raw_toml": dict(forked.raw_toml),
-                "ctx": forked.ctx,
-                "skip_display": True,
-            },
-        )
+        state = _trial_state(provider, forked, "calibration-prepared-model")
         provider.make_pipeline(steps).run(state)
         yield forked.ctx
+
+
+def _trial_state(provider: Any, forked: Any, run_id: str) -> Any:
+    """Return the pipeline state of one forked trial context, display skipped."""
+    return provider.make_state(
+        run_id,
+        {
+            "cfg": forked.ctx.cfg,
+            "config_path": forked.cfg_path,
+            "raw_toml": dict(forked.raw_toml),
+            "ctx": forked.ctx,
+            "skip_display": True,
+        },
+    )
 
 
 def run_trial_light(
@@ -527,14 +517,7 @@ def run_trial_light(
         retention (``trial_ctx.kept_solves``) keeps it for a promotion.
     """
     provider = get_trial_pipeline_provider()
-    base_setup = getattr(getattr(trial_ctx, "ctx", None), "setup", None)
-    base_model_name = str(getattr(base_setup, "run_id", "") or "trial") or "trial"
-    scratch_root = getattr(getattr(base_setup, "workspace", None), "solver_scratch_folder", None)
-    sandbox = (
-        TrialSandbox(base_model_name, trial_id, scratch_root=scratch_root)
-        if trial_id is not None
-        else None
-    )
+    sandbox = sandbox_of(trial_ctx, trial_id) if trial_id is not None else None
     flow_overrides = sandbox.flow_overrides if sandbox is not None else None
     if flow_overrides is not None and _trial_owns_its_recharge(trial_ctx):
         # Same string as solver.modflow6.builders.recharge.PRIVATE_TRIAL_RECHARGE_KEY,
@@ -553,10 +536,9 @@ def run_trial_light(
     t0 = time.monotonic()
     with progress.suppressed(), sandbox or nullcontext():
         try:
-            with _STRUCTURAL_BIND_LOCK:
-                forked = trial_ctx.fork(values, flow_runtime_overrides=flow_overrides)
-                if sandbox is not None:
-                    sandbox.track(forked.ctx.execution)
+            forked = trial_ctx.fork(values, flow_runtime_overrides=flow_overrides)
+            if sandbox is not None:
+                sandbox.track(forked.ctx.execution)
         except Exception as exc:
             return TrialResult(
                 values=dict(values),
@@ -574,16 +556,7 @@ def run_trial_light(
         downstream_slice = forked.downstream_steps[forked.earliest : 9]
         if recorder is not None:
             downstream_slice = provider.with_solver_launcher(downstream_slice, recorder)
-        state = provider.make_state(
-            "calibration-trial",
-            {
-                "cfg": forked.ctx.cfg,
-                "config_path": forked.cfg_path,
-                "raw_toml": dict(forked.raw_toml),
-                "ctx": forked.ctx,
-                "skip_display": True,
-            },
-        )
+        state = _trial_state(provider, forked, "calibration-trial")
 
         try:
             if downstream_slice:
@@ -768,6 +741,7 @@ def promote_prepared_trial(
     kept: KeptSolve | None = None,
     spared: Sequence[Path] = (),
     keep_per_cell_budget: bool | None = None,
+    outputs: Mapping[str, Any] | None = None,
 ) -> str:
     """Run a full promoted simulation from an already prepared trial context.
 
@@ -795,6 +769,10 @@ def promote_prepared_trial(
 
     ``spared`` names the solver folders of other kept trials, which the export
     step of this run must leave in the run scratch for their own promotion.
+
+    ``outputs`` are the calibration outputs of the phase the run is promoted from,
+    which the derive step reads the series of the stations with. Left ``None``, it
+    reads those of the calibration of the run.
 
     ``keep_per_cell_budget`` overrides ``[simulation.results] keep_per_cell_budget``
     for this run only. ``None`` leaves what the project file says. The override is
@@ -826,6 +804,7 @@ def promote_prepared_trial(
             "lineage": lineage,
             "calibrated_by": calibrated_by,
             "promotion": promotion,
+            "station_outputs": outputs,
             # The geographic preprocessing tree is shared by every promotion of
             # the session. Dropped by the export step of the first one, it left
             # the next ones with no watershed to ingest, so their catchment

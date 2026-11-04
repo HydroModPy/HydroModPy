@@ -409,7 +409,7 @@ def test_the_window_and_the_score_are_no_options() -> None:
     """Typed beside the figure, they disagreed with the score the run is ranked on."""
     options = option_names_of(HydrographLogNseFigure)
 
-    assert "scoring_window" not in options
+    assert "window" not in options
     assert "nse_log" not in options
 
 

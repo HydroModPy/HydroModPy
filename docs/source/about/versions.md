@@ -74,7 +74,9 @@ and records them in the lineage of the new run.
 
 ### Experimental
 
-Anything marked experimental may change in any minor version, without the delay above.
+Anything marked experimental may change in any minor version, without the delay above. A file
+that writes an old key of `[calibration]` is refused with the new name, and
+`hmp doctor --fix-config` rewrites it.
 
 - In a TOML file: the whole `[calibration]` section, the VI and TS runtimes of Boussinesq with
   their settings, `partition_release_depth_m`, `transport.modflow6prt`, the MODPATH block, the

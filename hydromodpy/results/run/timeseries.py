@@ -122,8 +122,11 @@ class RunTimeseriesMixin:
         variable
             Catalog variable name, such as ``"discharge"`` or ``"head"``.
         station
-            Station id stored in the timeseries table. When the variable has
-            a single station, this can be left ``None``.
+            Station id stored in the timeseries table. Left ``None``, it is the
+            only station of the variable, or the whole catchment when it has one.
+            A run with several observed piezometers or lakes stores a series for each,
+            and the catchment has none for a head or a stage, so those reads need
+            ``station``; the error lists the ids.
         period
             Optional window, ``(start, end)`` or a year as text (``"2002"``). It
             keeps the stress periods it overlaps, as a field or a CSV export
@@ -155,6 +158,9 @@ class RunTimeseriesMixin:
             stations = self.stations(variable, source=source)
             if not stations:
                 raise KeyError(f"No timeseries for sim={self._sim_id}, var={variable}")
+            if CATCHMENT in stations:
+                # A gauge series sits beside it: no station asked means the whole catchment.
+                stations = [CATCHMENT]
             if len(stations) > 1:
                 raise KeyError(
                     f"Variable '{variable}' has multiple stations ({', '.join(stations)}); "

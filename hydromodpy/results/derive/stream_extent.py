@@ -139,12 +139,12 @@ def unavailable_reason_for_extents(
     *,
     tau_specific_ratio: float = STREAM_CRITERION_DEFAULTS.tau_specific_ratio,
     require_minimal: bool = True,
-    scoring_window: tuple[Any, Any] | None = None,
+    window: tuple[Any, Any] | None = None,
 ) -> str | None:
     """Return why the two extents of this run cannot be drawn, or None.
 
     The extents are read over the complete calendar years of a transient run
-    that ``scoring_window`` holds, against the maximal map (``reference``) and,
+    that ``window`` holds, against the maximal map (``reference``) and,
     with ``require_minimal``, the minimal map (``reference_permanent``) the run
     stored beside it.
     """
@@ -173,7 +173,7 @@ def unavailable_reason_for_extents(
             "run sealed no timestep (simulation.time.step_value), so a duration cannot be "
             "counted in its timesteps"
         )
-    years = calendar_years(edges, window=scoring_window)
+    years = calendar_years(edges, window=window)
     if not years.years:
         touched = ", ".join(str(year) for year in years.incomplete) or "none"
         if years.outside_window:
@@ -468,7 +468,7 @@ def network_extents_from_run(
     observed_position_accuracy_m: float | None = None,
     heads_snap_radius_m: float = STREAM_CRITERION_DEFAULTS.heads_snap_radius_m,
     heads_min_drained_area_km2: float = STREAM_CRITERION_DEFAULTS.heads_min_drained_area_km2,
-    scoring_window: tuple[Any, Any] | None = None,
+    window: tuple[Any, Any] | None = None,
     chunk_elements: int = CHUNK_ELEMENTS,
 ) -> NetworkExtents:
     """Rebuild the maximal and minimal extents of a transient run.
@@ -485,7 +485,7 @@ def network_extents_from_run(
     ``observed_rasterization``, the two ``heads_`` settings,
     ``observed_position_accuracy_m``) build both maps and the graph, with the
     criterion's defaults.
-    ``scoring_window`` is the ``(start, end)`` of the calibration's window,
+    ``window`` is the ``(start, end)`` of the calibration's window,
     naive, either bound None when open: only the complete years it holds are
     counted, as the trial counts them, and a spin-up year outside it is left
     out of the extents and of the quorum.
@@ -501,14 +501,14 @@ def network_extents_from_run(
         sim,
         tau_specific_ratio=tau_specific_ratio,
         require_minimal=False,
-        scoring_window=scoring_window,
+        window=window,
     )
     if reason is not None:
         raise ValueError(f"network extents unavailable for {sim.sim_id}: {reason}")
     edges = run_step_edges(sim)
     if edges is None:
         raise ValueError(f"network extents unavailable for {sim.sim_id}: run has no time axis.")
-    years = calendar_years(edges, window=scoring_window)
+    years = calendar_years(edges, window=window)
     step_days = run_step_days(sim)
     if step_days is None:
         raise ValueError(

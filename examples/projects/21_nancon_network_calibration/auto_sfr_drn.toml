@@ -313,13 +313,18 @@ bounds = [5e-3, 0.0766]
 
 [calibration.outputs.seepage_network]
 support = "network"
-stream_geometry_path = "nancon_stream_network.gpkg"
-weighting = "area"
-tau_specific_ratio = 1.0e-4
-validity_length = "auto"
 time = "last"
-observed_position_accuracy = "50 m"
 
+[calibration.outputs.seepage_network.map]
+complete = "nancon_stream_network.gpkg"
+position_accuracy = "50 m"
+
+[calibration.outputs.seepage_network.model]
+seepage_threshold = 0.0001
+weighting = "area"
+
+[calibration.outputs.seepage_network.verdict]
+validity_length = "auto"
 [[calibration.objective_blocks]]
 name = "abherve_gap"
 metric = "distance_gap"
@@ -396,7 +401,7 @@ xatol = 0.02
 # distingue donc largement, sans depenser des essais pour rien.
 fatol = 0.002
 
-[calibration.phases.scoring_window]
+[calibration.phases.window]
 start = "2001-01-01"
 end = "2001-12-31"
 
@@ -488,5 +493,5 @@ figures = [
     "parameter_cost_profile",
     "calibration_convergence",
     "calibration_trace",
-    "calibration_posterior",
+    "calibration_trial_distribution",
 ]

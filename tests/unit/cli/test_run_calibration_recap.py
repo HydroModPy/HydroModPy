@@ -18,6 +18,16 @@ from hydromodpy.cli.commands import run as run_command
 from hydromodpy.core.logging import set_verbosity
 
 
+def _interval(name: str, lower: float, upper: float) -> dict:
+    return {
+        "name": name,
+        "lower": lower,
+        "upper": upper,
+        "reaches_lower_bound": False,
+        "reaches_upper_bound": False,
+    }
+
+
 def _phase(
     tmp_path: Path,
     *,
@@ -48,9 +58,7 @@ def _phase(
             "extra": {
                 "parameter_units": {parameter: unit},
                 "cost_metric": metric,
-                "parameter_intervals": [
-                    {"name": parameter, "lower": interval[0], "upper": interval[1]}
-                ],
+                "parameter_intervals": [_interval(parameter, *interval)],
             },
         },
     }
@@ -108,10 +116,14 @@ def test_the_recap_names_the_file_the_phases_and_where_to_read_on(
 
     assert capsys.readouterr().err.splitlines() == [
         "Calibration run_calibration.toml done: protocol matching_hydrographic_network 1.2",
-        "  1 steady_conductivity: bisection, 15 runs, K = 8.107e-05 m/s in [7.499e-05, 0.0001], "
-        "cost 1.965 (distance_gap)",
-        "  2 transient_storage: scipy_nelder_mead, 6 runs, Sy = 0.0453 in [0.04183, 0.05173], "
-        "cost 0.07444 (1 - nse_log)",
+        "  1 steady_conductivity: bisection, 15 runs",
+        "    K = 8.10689e-05 m/s  [7.49894e-05, 0.0001]",
+        "    cost: 1.96457 (distance_gap)",
+        "    calibrated run: runs/nancon_calibrated_steady_conductivity",
+        "  2 transient_storage: scipy_nelder_mead, 6 runs",
+        "    Sy = 0.0453017  [0.041833, 0.0517337]",
+        "    cost: 0.0744449 (1 - nse_log)",
+        "    calibrated run: runs/nancon_calibrated_transient_storage",
         "  Best runs: runs/nancon_calibrated_steady_conductivity/figures, "
         "runs/nancon_calibrated_transient_storage/figures",
         "  Sessions: sessions/20260928-033825-bisection-099012a0, "
@@ -129,10 +141,11 @@ def test_a_calibration_of_one_phase_reads_as_one_phase(tmp_path, monkeypatch, ca
 
     lines = capsys.readouterr().err.splitlines()
     assert lines[0] == "Calibration calibrate_k.toml done"
-    assert lines[1].startswith("  1: bisection, 15 runs, K = 8.107e-05 m/s")
-    assert lines[2] == "  Best runs: runs/nancon_calibrated_steady_conductivity/figures"
-    assert lines[3] == "  Session:  sessions/20260928-033825-bisection-099012a0"
-    assert len(lines) == 4
+    assert lines[1] == "  1: bisection, 15 runs"
+    assert lines[2] == "    K = 8.10689e-05 m/s  [7.49894e-05, 0.0001]"
+    assert lines[-2] == "  Best runs: runs/nancon_calibrated_steady_conductivity/figures"
+    assert lines[-1] == "  Session:  sessions/20260928-033825-bisection-099012a0"
+    assert len(lines) == 7
 
 
 def _dispatches(monkeypatch, summary: dict) -> None:
@@ -224,11 +237,10 @@ def test_an_interval_holding_the_best_trial_alone_is_not_printed_as_zero_width(
     monkeypatch.chdir(tmp_path)
     report = _staged_summary(tmp_path)["phases"][0]["report"]
     report["extra"]["parameter_intervals"] = [
-        {"name": "K", "lower": 8.106887879884017e-05, "upper": 8.106887879884017e-05}
+        _interval("K", 8.106887879884017e-05, 8.106887879884017e-05)
     ]
 
     run_command._print_calibration_recap(report, Path("calibrate_k.toml"))
 
-    line = capsys.readouterr().err.splitlines()[1]
-    assert "K = 8.107e-05 m/s (no other trial within the cost margin)" in line
-    assert " in [" not in line
+    line = capsys.readouterr().err.splitlines()[2]
+    assert line == "    K = 8.10689e-05 m/s  (no other trial within the cost margin)"

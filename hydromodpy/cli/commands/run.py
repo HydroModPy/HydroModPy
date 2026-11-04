@@ -27,6 +27,7 @@ import os
 import sys
 from collections.abc import Iterable, Mapping
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 from pydantic import ValidationError
@@ -694,14 +695,12 @@ def _print_overview_recap(summary: Mapping[str, Any]) -> None:
 
 
 def _print_calibration_recap(summary: Mapping[str, Any], config_path: Path) -> None:
-    """Name the file and its protocol, one line per phase, then where to read on.
+    """Name the file and its protocol, then each phase as ``hmp calibrate`` prints it.
 
-    A phase line gives its method, its number of runs, each best value with its
-    unit and interval, and the best cost with the metric it is and the pairs it
-    was scored on (the declared window when no pair was counted). A single-phase
-    summary is read as one phase.
+    A single-phase summary is read as one phase. The lines of a phase are the
+    ones of :func:`~hydromodpy.calibration.runners.recap.result_lines`.
     """
-    from hydromodpy.calibration.report import NO_OTHER_TRIAL, interval_is_degenerate, samples_text
+    from hydromodpy.calibration.runners.recap import result_lines
     from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME
 
     phases = summary.get("phases")
@@ -718,42 +717,19 @@ def _print_calibration_recap(summary: Mapping[str, Any], config_path: Path) -> N
     for position, phase in enumerate(phases):
         report = phase.get("report") or {}
         extra = report.get("extra") or {}
-        units = extra.get("parameter_units") or {}
-        intervals = {
-            str(item.get("name")): item
-            for item in extra.get("parameter_intervals") or ()
-            if isinstance(item, Mapping)
-        }
-        values = []
-        for name, value in (report.get("best_parameters") or {}).items():
-            unit = units.get(name) or "-"
-            text = f"{name} = {float(value):.4g}" + ("" if unit == "-" else f" {unit}")
-            if name in intervals:
-                bounds = intervals[name]
-                if interval_is_degenerate(bounds):
-                    text += f" ({NO_OTHER_TRIAL})"
-                else:
-                    text += f" in [{float(bounds['lower']):.4g}, {float(bounds['upper']):.4g}]"
-            values.append(text)
+        title = f"{int(phase.get('index', position)) + 1}"
+        if phase.get("phase"):
+            title += f" {phase['phase']}"
         parts = [f"{report.get('method')}, {int(report.get('n_trials') or 0)} runs"]
-        parts.append(", ".join(values) if values else "no best value")
-        best = report.get("best_cost")
-        if best is not None:
-            metric = extra.get("cost_metric")
-            cost = f"cost {float(best):.4g}" + (f" ({metric})" if metric else "")
-            if extra.get("cost_samples"):
-                cost += f" on {samples_text(extra['cost_samples'])}"
-            elif extra.get("cost_window"):
-                cost += f" on {extra['cost_window']}"
-            parts.append(cost)
         if extra.get("reused_from_disk"):
             parts.append("reused from a previous session")
         if extra.get("promotion_failures"):
             parts.append("promotion failed")
-        label = f"{int(phase.get('index', position)) + 1}"
-        if phase.get("phase"):
-            label += f" {phase['phase']}"
-        print(f"  {label}: " + ", ".join(parts), file=sys.stderr)
+        print(f"  {title}: " + ", ".join(parts), file=sys.stderr)
+        # The dict form of the uncertainty has no methods, the intervals in extra say the same.
+        fields = {key: value for key, value in report.items() if key != "parameter_uncertainty"}
+        for line in result_lines(SimpleNamespace(**fields)):
+            print(f"  {line}", file=sys.stderr)
         workspace = report.get("workspace")
         if report.get("best_rel_dir") and workspace:
             run_dir = Path(workspace) / report["best_rel_dir"]

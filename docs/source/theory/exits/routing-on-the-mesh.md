@@ -142,7 +142,7 @@ these ways.
 | Lakes | crossed, flooded to their spill level | part of the graph, removed from the supports of the means |
 | Channel | pinned to the generated network | free |
 | Raised cells | below the flood level, or within $\eta$ above it | below the flood level |
-| Neighbors | D8 on a quad mesh | D8 on a quad mesh unless {toml}`diagonal_neighbors\|calibration.outputs.<name>.diagonal_neighbors` is false |
+| Neighbors | D8 on a quad mesh | D8 on a quad mesh unless {toml}`neighbours\|calibration.outputs.<name>.model.neighbours` is "D4" |
 
 Both use the step $\epsilon$ of 1 mm off a channel. The flood and the receivers
 always read the same neighbor graph: a flood that walked eight neighbors while
@@ -166,7 +166,7 @@ receivers cannot take.
 
 ```{hmp-params}
 geographic.river_network.enabled
-calibration.outputs.<name>.diagonal_neighbors
+calibration.outputs.<name>.model.neighbours
 ```
 
 ## Checked by

@@ -174,19 +174,20 @@ _COST_KEYS = (
     "objective_blocks",
     "objective",
     "variable",
-    "scoring_window",
-    "warmup_periods",
+    "window",
+    "validation_window",
     "aggregate",
     "reject_water_budget_above",
     "forward_model",
-    "observed_station_id",
 )
 """The keys of ``[calibration]`` that change the cost of a trial at given values.
 
 What a trial is scored on (the outputs, the blocks, the single series), over
 which samples (the window, the warm-up, the fewest paired samples), what makes
 it count (the water-balance rejection) and what produces the series (the forward
-model). The evaluator is added on its own, resolved, when it is not the default."""
+model). The validation window moves no cost and is here all the same: a trial cached
+under another one carries the score of those other dates. The evaluator is added on its
+own, resolved, when it is not the default."""
 
 
 def build_cache_context(
@@ -318,16 +319,10 @@ _SHAPEFILE_PARTS = (".shp", ".shx", ".dbf", ".prj", ".cpg")
 def _observed_map_digests(cfg: CalibrationConfig) -> dict[str, str]:
     """Return the content digest of each map file an output scores against.
 
-    Keyed by ``<output>.<field>``. The paths are the ones the run reads, already
+    Keyed by ``<output>.map.<role>``. The paths are the ones the run reads, already
     anchored on the file that declares them.
     """
-    digests: dict[str, str] = {}
-    for name, output in sorted((cfg.outputs or {}).items()):
-        for field in ("stream_geometry_path", "minimal_stream_geometry_path"):
-            declared = getattr(output, field, None)
-            if declared:
-                digests[f"{name}.{field}"] = _map_digest(Path(declared))
-    return digests
+    return {f"{name}.map.{role}": _map_digest(path) for name, role, path in sorted(cfg.map_files())}
 
 
 def _map_digest(path: Path) -> str:

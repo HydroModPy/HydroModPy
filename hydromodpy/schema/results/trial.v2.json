@@ -294,7 +294,7 @@
         }
       ],
       "default": null,
-      "description": "The number the search minimised, null for a failed trial or when the search keeps no single cost",
+      "description": "The number the search minimized, null for a failed trial or when the search keeps no single cost",
       "title": "Cost",
       "x-hmp-profile": "user"
     },

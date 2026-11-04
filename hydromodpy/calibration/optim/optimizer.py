@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
-from typing import Literal, Protocol, runtime_checkable
+from typing import Any, Literal, Protocol, runtime_checkable
 
 FAILED_EVAL_COST: float = 1e12
 """Sentinel cost used when an evaluation fails or returns NaN.
@@ -74,6 +74,15 @@ class Optimizer(Protocol):
     def converged(self) -> bool: ...
 
 
+def best_completed(history: Iterable[EvaluationResult]) -> EvaluationResult | None:
+    """Return the completed result of lowest cost, or ``None`` when none completed."""
+    return min(
+        (result for result in history if result.status == "completed"),
+        key=lambda result: result.cost,
+        default=None,
+    )
+
+
 _BUILTIN: dict[str, Callable[..., Optimizer]] = {}
 
 
@@ -117,6 +126,10 @@ class EngineTraits:
     supports_parallel: bool = True
     """Whether several trials of one batch can be evaluated at once."""
 
+    reach: Callable[[Mapping[str, Any], int], int] | None = None
+    """How many solves the engine can use at once, from its method options and the number
+    of parameters. ``None`` says no limit. An engine without ``supports_parallel`` reads as 1."""
+
     precision_option: str | None = None
     """Name of this engine's own option that a user-level precision writes.
 
@@ -131,6 +144,12 @@ class EngineTraits:
     Only two do, and it is what a restart-based uncertainty needs: repeating a
     search that always begins at the same point returns the same answer, so the
     spread it would report would be zero by construction."""
+
+    draws_a_normal: bool = True
+    """Whether the engine can draw a parameter declared with the ``normal`` sampling.
+
+    An engine that cannot refuses it in its constructor, and the preflight reads
+    this to refuse it before anything is prepared."""
 
     restarts_explore_differently: bool = True
     """Whether repeating this engine can land anywhere else.
@@ -160,6 +179,21 @@ class EngineTraits:
     ``None`` for an engine that only compares costs. The sampler that turns the
     cost into a likelihood declares the metric that likelihood is written for,
     and a search scored on another one is warned before it runs."""
+
+    fixed_plan: bool = False
+    """Whether the engine can be asked for all that is left and hands out what is ready.
+
+    One queue then takes the points, so no point waits for the result of another."""
+
+    takes_width: bool = False
+    """Whether the engine is built knowing the ``parallel`` of the search, as ``width``."""
+
+    announced: bool = True
+    """Whether the method is in the list the docs and the refusals print.
+
+    ``False`` for a method that still runs when a file names it, but that
+    the project does not offer yet. The default says nothing, like every trait
+    here."""
 
 
 DEFAULT_ENGINE_TRAITS = EngineTraits()
@@ -197,7 +231,7 @@ def choose_method(search_spaces: Mapping[str, str], criteria: Iterable[str]) -> 
     ``criteria`` names the criterion of each objective block it scores.
 
     Each engine of :data:`CHOSEN_FROM` is faced with its ``EngineTraits``, as
-    ``hmp calibrate --check`` faces a written method. The root search needs
+    ``hmp config check`` faces a written method. The root search needs
     ``max_parameters`` at most, each in ``required_search_space``, and, since it
     ``needs_signed_residual``, a signed criterion on every block
     (``CriterionRequirements.signed``): only then is the cost the absolute value
@@ -268,13 +302,18 @@ def build_optimizer(name: str, space, **kwargs) -> Optimizer:
     _ensure_builtins_loaded()
     if name in _BUILTIN:
         return _BUILTIN[name](space, **kwargs)
-    raise KeyError(f"Unknown optimizer: {name!r}. Available built-ins: {sorted(_BUILTIN)}")
+    raise KeyError(f"Unknown optimizer: {name!r}. Available built-ins: {announced_optimizers()}")
 
 
 def available_optimizers() -> tuple[str, ...]:
     """Return the names of the built-in optimizers."""
     _ensure_builtins_loaded()
     return tuple(sorted(_BUILTIN))
+
+
+def announced_optimizers() -> tuple[str, ...]:
+    """Return the built-in optimizers the project offers, those that declare ``announced``."""
+    return tuple(name for name in available_optimizers() if engine_traits(name).announced)
 
 
 _LOADED = False

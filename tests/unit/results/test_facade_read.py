@@ -156,6 +156,20 @@ def test_read_timeseries_single_station_infers_station(run_with_series):
     assert len(ts) == 3
 
 
+def test_read_without_a_station_means_the_whole_catchment_beside_a_gauge(tmp_path):
+    """A run writes a gauge series beside the catchment one, and a plain read keeps its answer."""
+    from tests._helpers.run_stores import open_run_store
+
+    index = pd.date_range("2020-01-02", periods=2, freq="D")
+    with open_run_store(tmp_path / "demo", "two", n_cells=4, n_timesteps=2) as store:
+        store.write_timeseries(store.sim_id, "catchment", "discharge", pd.Series([1.0, 2.0], index))
+        store.write_timeseries(store.sim_id, "J001", "discharge", pd.Series([0.1, 0.2], index))
+        run = Run(store.sim_id, store)
+
+        assert hmp.read(run, "discharge").tolist() == [1.0, 2.0]
+        assert hmp.read(run, "discharge", sel={"station": "J001"}).tolist() == [0.1, 0.2]
+
+
 def test_read_geographic_feature_returns_geodataframe(tmp_path):
     """A persisted geographic feature dispatches to ``gpd.GeoDataFrame``."""
     with _sealed(tmp_path / "workspace", feature=True) as run:

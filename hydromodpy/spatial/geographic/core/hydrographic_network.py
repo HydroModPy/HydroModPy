@@ -19,7 +19,6 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal
 
 import numpy as np
@@ -71,12 +70,6 @@ _ROLE_TO_VECTOR_FILENAME: dict[str, str] = {
     "reference_permanent": HYDROGRAPHIC_NETWORK_REFERENCE_PERMANENT_VECTOR_FILENAME,
     "generated": HYDROGRAPHIC_NETWORK_GENERATED_VECTOR_FILENAME,
 }
-
-
-def _freeze_mapping(
-    mapping: Mapping[str, object] | None,
-) -> Mapping[str, object]:
-    return MappingProxyType(dict(mapping or {}))
 
 
 def _string_path(path: str | Path | None) -> str | None:
@@ -250,8 +243,8 @@ class HydrographicNetwork:
         object.__setattr__(self, "raster_path", _string_path(self.raster_path))
         object.__setattr__(self, "crs", _string_path(self.crs))
         object.__setattr__(self, "watershed_shp", _string_path(self.watershed_shp))
-        object.__setattr__(self, "metrics", _freeze_mapping(self.metrics))
-        object.__setattr__(self, "metadata", _freeze_mapping(self.metadata))
+        object.__setattr__(self, "metrics", dict(self.metrics or {}))
+        object.__setattr__(self, "metadata", dict(self.metadata or {}))
 
     @property
     def has_vector(self) -> bool:
