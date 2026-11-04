@@ -403,24 +403,34 @@ def _network_outputs_read(calibration: Any) -> list[Any]:
 def _places_deviations_are_set(calibration: Any, geographic: Any) -> list[Any]:
     """Return the models that hold the keys a protocol departs on.
 
-    The network outputs with their verdict tables, then ``[geographic]`` for
-    ``dem_correc_type``. A gauge is not the criterion the deviations describe.
+    The network outputs, then ``[geographic]`` for ``dem_correc_type``. A gauge is
+    not the criterion the deviations describe.
     """
-    places: list[Any] = []
-    for output in _network_outputs_read(calibration):
-        places.append(output)
-        if getattr(output, "verdict", None) is not None:
-            places.append(output.verdict)
+    places = _network_outputs_read(calibration)
     if geographic is not None:
         places.append(geographic)
     return places
 
 
+def _holder_of(place: Any, key: str) -> Any:
+    """Return the model that holds the last name of the dotted ``key`` under ``place``, or None.
+
+    None when a table on the way is left out (``map.heads`` under another rule)
+    or when no model on the way holds the name.
+    """
+    *tables, name = key.split(".")
+    for table in tables:
+        place = getattr(place, table, None)
+    return place if name in getattr(type(place), "model_fields", ()) else None
+
+
 def _version_writes(row: Mapping[str, Any], key: str, value: object) -> bool:
-    """Say whether the version's line writes ``value`` for ``key``, in a table of it or not."""
-    held = [row[key]] if key in row else []
-    held.extend(table[key] for table in row.values() if isinstance(table, Mapping) and key in table)
-    return any(item == value for item in held)
+    """Say whether the version's line writes ``value`` at the dotted ``key``."""
+    for step in key.split("."):
+        if not isinstance(row, Mapping) or step not in row:
+            return False
+        row = row[step]
+    return row == value
 
 
 def _departs(deviation: Any, value: object) -> bool:
@@ -460,17 +470,12 @@ def deviations_in_force(
     places = _places_deviations_are_set(calibration, geographic)
     found: list[DeviationInForce] = []
     for deviation in protocol.deviations:
-        holder = next(
-            (place for place in places if deviation.key in type(place).model_fields), None
-        )
-        value = None if holder is None else getattr(holder, deviation.key)
-        if holder is not None and deviation.only_when is not None:
-            gate, wanted = deviation.only_when
-            if getattr(holder, gate, wanted) != wanted:
-                value = None
+        name = deviation.key.rsplit(".", 1)[-1]
+        holder = next(filter(None, (_holder_of(place, deviation.key) for place in places)), None)
+        value = None if holder is None else getattr(holder, name)
         written = (
             holder is not None
-            and deviation.key in holder.model_fields_set
+            and name in holder.model_fields_set
             and not _version_writes(row, deviation.key, value)
         )
         if deviation.always:

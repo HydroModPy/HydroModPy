@@ -129,7 +129,7 @@ _PROTOCOL = textwrap.dedent(
 
     [calibration.outputs.seepage_network]
     support = "network"
-    stream_geometry_path = "streams.gpkg"
+    map.complete = "streams.gpkg"
 
     [[data.hydrometry.sources]]
     station_ids = ["G1"]
@@ -223,12 +223,12 @@ def test_only_the_departures_print_at_the_normal_verbosity(tmp_path) -> None:
     # The four above, the two heads keys with the value in force, and the two
     # departures that hold while the file writes no steady_window and no scoring window.
     assert len(departures) == 8
-    assert any("on heads_snap_radius" in line and "value in force" in line for line in departures)
-    tau_line = next(line for line in departures if "on tau_specific_ratio" in line)
+    assert any("on map.heads.radius" in line and "value in force" in line for line in departures)
+    tau_line = next(line for line in departures if "on model.seepage_threshold" in line)
     assert "this file sets" not in tau_line
-    assert any("on observed_rasterization" in line for line in departures)
-    assert any("on clip_map_to_catchment" in line for line in departures)
-    assert any("on max_catchment_mismatch" in line for line in departures)
+    assert any("on map.drawn_by" in line for line in departures)
+    assert any("on map.clip_to_catchment" in line for line in departures)
+    assert any("on verdict.max_catchment_mismatch" in line for line in departures)
     assert "dem_correc_type" not in printed
 
 
@@ -257,18 +257,18 @@ def test_a_launch_says_where_it_departs_before_anything_is_solved(tmp_path, capl
         refuse_what_the_preflight_refuses(config, source=path)
 
     assert "protocol: matching_hydrographic_network@1.3" in caplog.text
-    assert "differs from the paper on observed_rasterization" in caplog.text
+    assert "differs from the paper on map.drawn_by" in caplog.text
     assert "always differs from the paper on:" in caplog.text
 
 
 def test_a_value_written_equal_to_the_paper_is_not_a_departure(tmp_path) -> None:
     path = _protocol_file(tmp_path, end="2002-12-31")
     text = path.read_text(encoding="utf-8").replace(
-        'stream_geometry_path = "streams.gpkg"',
-        'stream_geometry_path = "streams.gpkg"\ntau_specific_ratio = 0.0\n'
-        'observed_rasterization = "crossing"\n'
-        "diagonal_neighbors = true\n"
-        "clip_map_to_catchment = false\n"
+        'map.complete = "streams.gpkg"',
+        'map.complete = "streams.gpkg"\nmodel.seepage_threshold = 0.0\n'
+        'map.drawn_by = "crossing"\n'
+        'model.neighbours = "D8"\n'
+        "map.clip_to_catchment = false\n"
         "[calibration.outputs.seepage_network.verdict]\n"
         "max_catchment_mismatch = false",
     )
@@ -282,7 +282,7 @@ def test_a_value_written_equal_to_the_paper_is_not_a_departure(tmp_path) -> None
         "steady_recharge_window",
         "spin_up_year",
     }
-    assert "as the paper on diagonal_neighbors" in verbose
+    assert "as the paper on model.neighbours" in verbose
     assert "this file sets 0.0" in verbose
 
 

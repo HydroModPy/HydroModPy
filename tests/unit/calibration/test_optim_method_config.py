@@ -593,7 +593,7 @@ def test_the_protocol_writes_its_stage_options_as_method_options() -> None:
         "calibration": {
             "protocol": {"name": PROTOCOL, "steady_method_options": {"sweep_points": 5}},
             "parameters": {"K": {}, "Sy": {}},
-            "outputs": {"streams": {"support": "network", "stream_geometry_path": "streams.gpkg"}},
+            "outputs": {"streams": {"support": "network", "map": {"complete": "streams.gpkg"}}},
         },
     }
 

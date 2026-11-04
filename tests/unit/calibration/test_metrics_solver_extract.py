@@ -719,10 +719,8 @@ def _heads_output():
     return validate_calib_output(
         {
             "support": "network",
-            "observed_network": "data.hydrography",
-            "diagonal_neighbors": True,
-            "tau_specific_ratio": 0.0,
-            "observed_rasterization": "heads",
+            "map": {"complete": "data.hydrography", "drawn_by": "heads"},
+            "model": {"neighbours": "D8", "seepage_threshold": 0.0},
         }
     )
 
@@ -793,20 +791,20 @@ def _scored(monkeypatch, bench, stream_file, stack, bounds, time):
 class TestTheDeclaration:
     def test_a_date_is_accepted_beside_first_and_last(self) -> None:
         for time in ("last", "first", "2002-10-15"):
-            assert CalibOutputNetwork(stream_geometry_path="n.gpkg", time=time).time == time
+            assert CalibOutputNetwork(map={"complete": "n.gpkg"}, time=time).time == time
 
     def test_a_bare_toml_date_is_kept_as_its_iso_spelling(self) -> None:
-        output = CalibOutputNetwork(stream_geometry_path="n.gpkg", time=datetime.date(2002, 10, 15))
+        output = CalibOutputNetwork(map={"complete": "n.gpkg"}, time=datetime.date(2002, 10, 15))
         assert output.time == "2002-10-15"
 
     @pytest.mark.parametrize("time", ["all", ["2002-01-01"], "October"])
     def test_what_names_no_single_state_is_refused(self, time) -> None:
         with pytest.raises(ValidationError, match="network"):
-            CalibOutputNetwork(stream_geometry_path="n.gpkg", time=time)
+            CalibOutputNetwork(map={"complete": "n.gpkg"}, time=time)
 
     def test_the_extent_table_still_takes_no_time(self) -> None:
         with pytest.raises(ValidationError, match="extent"):
-            CalibOutputNetwork(stream_geometry_path="n.gpkg", time="2002-10-15", extent={})
+            CalibOutputNetwork(map={"complete": "n.gpkg"}, model={"extent": {}}, time="2002-10-15")
 
 
 class TestWhichPeriodADateReads:
@@ -838,27 +836,27 @@ class TestTheRowServed:
         return adapter_result("net", values, "m3 s-1", times=MONTHS[1:])
 
     def test_a_date_is_served_its_own_row(self) -> None:
-        output = CalibOutputNetwork(stream_geometry_path="n.gpkg", time="2002-10-15")
+        output = CalibOutputNetwork(map={"complete": "n.gpkg"}, time="2002-10-15")
         row, index = network_state_row("net", output, self.release_stack(), tuple(MONTHS))
         assert index == 33
         assert np.asarray(row.values).tolist() == [[33.0] * 4]
         assert pd.DatetimeIndex(row.times).tolist() == [pd.Timestamp("2002-11-01")]
 
     def test_the_stamps_date_the_stack_when_the_grid_does_not(self) -> None:
-        output = CalibOutputNetwork(stream_geometry_path="n.gpkg", time="2001-03-31")
+        output = CalibOutputNetwork(map={"complete": "n.gpkg"}, time="2001-03-31")
         row, index = network_state_row("net", output, self.release_stack(), None)
         assert index == 14
         assert np.asarray(row.values)[0, 0] == 14.0
 
     def test_one_state_is_served_as_it_came(self) -> None:
-        output = CalibOutputNetwork(stream_geometry_path="n.gpkg", time="2002-10-15")
+        output = CalibOutputNetwork(map={"complete": "n.gpkg"}, time="2002-10-15")
         one = adapter_result("net", np.ones(4), "m3 s-1")
         row, index = network_state_row("net", output, one, None)
         assert row is one
         assert index is None
 
     def test_a_date_on_an_undated_stack_is_refused_by_name(self) -> None:
-        output = CalibOutputNetwork(stream_geometry_path="n.gpkg", time="2002-10-15")
+        output = CalibOutputNetwork(map={"complete": "n.gpkg"}, time="2002-10-15")
         undated = adapter_result("net", np.ones((3, 4)), "m3 s-1")
         with pytest.raises(ObjectiveError, match="Output 'net': time = '2002-10-15'"):
             network_state_row("net", output, undated, None)
@@ -1935,8 +1933,7 @@ class TestEndToEnd:
             bench,
             stream_file,
             200.0,
-            validity_length="1 mm",
-            on_roptim_violation="error",
+            verdict={"validity_length": "1 mm", "on_invalid": "error"},
         )
         assert np.isfinite(simulated["net"][0])
         assert "r_optim" not in caplog.text
@@ -1949,8 +1946,8 @@ class TestEndToEnd:
             bench,
             stream_file,
             200.0,
-            validity_length="1 mm",
-            observed_rasterization="crossing",
+            verdict={"validity_length": "1 mm"},
+            map={"drawn_by": "crossing"},
         )
         assert diagnostics["net.D_optim"] > 1e-3
         assert diagnostics["net.r_optim_valid"] == 0.0
@@ -1976,7 +1973,7 @@ class TestEndToEnd:
             bench,
             stream_file,
             200.0,
-            observed_rasterization="crossing",
+            map={"drawn_by": "crossing"},
         )
         for key in (
             "net.D_so_over_D_os",
@@ -2050,7 +2047,7 @@ class TestTheUnitTheReleaseFieldArrivesIn:
 class TestTheGuardOnAnUnpairedNetworkOutput:
     """A declared network output that nothing scores is a silent wrong answer.
 
-    The single-metric route reads neither ``stream_geometry_path`` nor the
+    The single-metric route reads neither ``map.complete`` nor the
     thresholds, so a configuration slipping through it reports a head/NSE
     number while the user believes the stream network was calibrated on.
     """
@@ -2108,7 +2105,7 @@ class TestTheGuardOnAnUnpairedNetworkOutput:
 class TestTheMappedNetworkIsRequired:
     def test_a_network_output_without_a_geometry_is_refused(self) -> None:
         # observations/observed_network.py has no fallback: it raises.
-        with pytest.raises(ValueError, match="stream_geometry_path"):
+        with pytest.raises(ValueError, match="map"):
             validate_calib_output({"support": "network"})
 
 
@@ -2125,7 +2122,7 @@ class TestADeletedFieldIsRefusedInATomlToo:
             "method = 'grid'\n"
             "[outputs.net]\n"
             "support = 'network'\n"
-            f"stream_geometry_path = {str(stream_file)!r}\n"
+            f"map.complete = {str(stream_file)!r}\n"
             f"{extra_line}\n"
             "[[objective_blocks]]\n"
             "name = 'abherve'\n"
@@ -2140,7 +2137,7 @@ class TestADeletedFieldIsRefusedInATomlToo:
 
     def test_the_same_toml_without_it_is_accepted(self, stream_file) -> None:
         # The control: only the deleted key separates the two cases.
-        cfg = self._config_from_toml(stream_file, "weighting = 'cell'")
+        cfg = self._config_from_toml(stream_file, "model.weighting = 'cell'")
         assert cfg.outputs["net"].support == "network"
 
 
@@ -2174,66 +2171,46 @@ def _extract__network_two(monkeypatch, bench, output, stack, bounds):
 
 class TestTheSchema:
     def test_the_extent_table_takes_its_defaults(self, maps) -> None:
-        extent = network_output(maps.maximal, extent={}).extent
-        assert (extent.maximal_flowing_duration, extent.minimal_dry_duration) == (None, None)
+        extent = network_output(maps.maximal, model={"extent": {}}).model.extent
+        assert (extent.flowing_at_least, extent.dry_at_most) == (None, None)
         assert extent.year_quorum == 0.5
         assert extent.visible_flow == "1 L/s"
-        assert (extent.weights.minimal, extent.weights.maximal) == (0.5, 0.5)
 
     def test_without_it_the_output_reads_one_state(self, maps) -> None:
         output = network_output(maps.maximal)
-        assert output.extent is None
+        assert output.model.extent is None
         assert observable_request_for_output("net", output, None).times == "last"
 
     def test_with_it_every_timestep_is_requested(self, maps) -> None:
-        output = network_output(maps.maximal, extent={})
+        output = network_output(maps.maximal, model={"extent": {}})
         assert observable_request_for_output("net", output, None).times == "all"
 
     def test_a_single_state_named_beside_it_is_refused(self, maps) -> None:
         with pytest.raises(ValidationError, match="drop 'time'"):
-            network_output(maps.maximal, extent={}, time="first")
-
-    def test_weights_without_a_minimal_map_are_refused(self, maps) -> None:
-        with pytest.raises(ValidationError, match="only the maximal bound"):
-            network_output(maps.maximal, extent={"weights": {"minimal": 1.0, "maximal": 0.0}})
-
-    def test_weights_must_sum_to_one(self, maps) -> None:
-        with pytest.raises(ValidationError, match="sum to one"):
-            network_output(
-                maps.maximal,
-                minimal_stream_geometry_path=str(maps.minimal),
-                extent={"weights": {"minimal": 0.5, "maximal": 0.7}},
-            )
+            network_output(maps.maximal, model={"extent": {}}, time="first")
 
     def test_an_unreadable_visible_flow_is_refused_at_load(self, maps) -> None:
         with pytest.raises(ValidationError, match="no unit"):
-            network_output(maps.maximal, extent={"visible_flow": "2"})
+            network_output(maps.maximal, model={"extent": {"visible_flow": "2"}})
 
     @pytest.mark.parametrize(
         "extent",
         [
-            {"maximal_flowing_duration": "0 d"},
-            {"minimal_dry_duration": "-1 d"},
+            {"flowing_at_least": "0 d"},
+            {"dry_at_most": "-1 d"},
             {"year_quorum": 0.0},
         ],
     )
     def test_rules_out_of_range_are_refused_at_load(self, maps, extent) -> None:
         with pytest.raises(ValidationError):
-            network_output(maps.maximal, extent=extent)
-
-    def test_two_sources_for_the_minimal_map_are_refused(self, maps) -> None:
-        with pytest.raises(ValidationError, match="at most one"):
-            network_output(
-                maps.maximal,
-                minimal_stream_geometry_path=str(maps.minimal),
-                minimal_observed_network="data.hydrography",
-            )
+            network_output(maps.maximal, model={"extent": extent})
 
     def test_a_config_round_trips_through_its_dump(self, maps) -> None:
         output = network_output(
             maps.maximal,
-            minimal_stream_geometry_path=str(maps.minimal),
-            extent={"visible_flow": "1%", "weights": {"minimal": 1.0, "maximal": 0.0}},
+            permanent=maps.minimal,
+            calibrate_on={"permanent": 1.0, "complete": 0.0},
+            model={"extent": {"visible_flow": "1%"}},
         )
         cfg = CalibrationConfig.model_validate(
             {
@@ -2244,7 +2221,7 @@ class TestTheSchema:
                 ],
             }
         )
-        assert cfg.outputs["net"].extent.weights.minimal == 1.0
+        assert cfg.outputs["net"].map.bound_weights.permanent == 1.0
 
 
 class TestOneState:
@@ -2263,12 +2240,12 @@ class TestOneState:
         self, monkeypatch, bench, maps
     ) -> None:
         stack = release_stack(bench, [200.0])
-        output = network_output(maps.maximal, minimal_stream_geometry_path=str(maps.minimal))
+        output = network_output(maps.maximal, permanent=maps.minimal)
         pair, diagnostics, _ = _extract__network_two(monkeypatch, bench, output, stack, None)
         _, alone, _ = _extract__network_two(
             monkeypatch,
             bench,
-            network_output(maps.maximal, stream_geometry_path=str(maps.minimal)),
+            network_output(maps.maximal, map={"complete": str(maps.minimal)}),
             stack,
             None,
         )
@@ -2282,20 +2259,46 @@ class TestOneState:
         assert diagnostics["net.J_signed_maximal_validation"] != diagnostics["net.J_signed"]
         assert diagnostics["net.frac_minimal_outside_maximal"] == 0.0
 
+    def test_calibrating_on_the_complete_map_swaps_the_two_roles(
+        self, monkeypatch, bench, maps
+    ) -> None:
+        stack = release_stack(bench, [200.0])
+        runs = {
+            role: _extract__network_two(
+                monkeypatch,
+                bench,
+                network_output(maps.maximal, permanent=maps.minimal, calibrate_on=role),
+                stack,
+                None,
+            )
+            for role in ("permanent", "complete")
+        }
+        (_, permanent, _), (pair, complete, _) = runs["permanent"], runs["complete"]
+
+        assert complete["net.J_signed"] == pytest.approx(
+            permanent["net.J_signed_maximal_validation"]
+        )
+        assert complete["net.J_signed_maximal"] == complete["net.J_signed"]
+        assert complete["net.J_signed_minimal_validation"] == pytest.approx(
+            permanent["net.J_signed"]
+        )
+        assert pair[0] - pair[1] == pytest.approx(complete["net.J_signed"])
+        assert "net.J_signed_minimal" not in complete
+
     def test_a_minimal_map_outside_the_maximal_one_is_scored_on_their_union(
         self, monkeypatch, bench, maps
     ) -> None:
         stack = release_stack(bench, [200.0])
         output = network_output(
             maps.maximal,
-            minimal_stream_geometry_path=str(maps.straying),
-            observed_rasterization="crossing",
+            permanent=maps.straying,
+            map={"drawn_by": "crossing"},
         )
         _, diagnostics, _ = _extract__network_two(monkeypatch, bench, output, stack, None)
         _, alone, _ = _extract__network_two(
             monkeypatch,
             bench,
-            network_output(maps.maximal, observed_rasterization="crossing"),
+            network_output(maps.maximal, map={"drawn_by": "crossing"}),
             stack,
             None,
         )
@@ -2326,7 +2329,7 @@ class TestTwoBounds:
     def test_the_maximal_map_alone_is_one_bound_under_the_usual_names(
         self, monkeypatch, bench, maps
     ) -> None:
-        output = network_output(maps.maximal, extent={"visible_flow": "0 L/s"})
+        output = network_output(maps.maximal, model={"extent": {"visible_flow": "0 L/s"}})
         pair, diagnostics, adapter = self._run(monkeypatch, bench, output)
 
         assert [request.times for request in adapter.requests][0] == "all"
@@ -2343,8 +2346,9 @@ class TestTwoBounds:
     def test_two_maps_are_two_bounds_and_no_single_residual(self, monkeypatch, bench, maps) -> None:
         output = network_output(
             maps.maximal,
-            minimal_stream_geometry_path=str(maps.minimal),
-            extent={"visible_flow": "0 L/s", "weights": {"minimal": 0.25, "maximal": 0.75}},
+            permanent=maps.minimal,
+            calibrate_on={"permanent": 0.25, "complete": 0.75},
+            model={"extent": {"visible_flow": "0 L/s"}},
         )
         pair, diagnostics, _ = self._run(monkeypatch, bench, output)
 
@@ -2378,8 +2382,9 @@ class TestTwoBounds:
     ) -> None:
         output = network_output(
             maps.maximal,
-            minimal_stream_geometry_path=str(maps.minimal),
-            extent={"visible_flow": "0 L/s", "weights": {"minimal": 0.25, "maximal": 0.75}},
+            permanent=maps.minimal,
+            calibrate_on={"permanent": 0.25, "complete": 0.75},
+            model={"extent": {"visible_flow": "0 L/s"}},
         )
         pair, diagnostics, _ = self._run(monkeypatch, bench, output)
         scored = criterion_for("distance_gap").score(pair)
@@ -2392,8 +2397,9 @@ class TestTwoBounds:
         constant = np.full(36, 200.0)
         output = network_output(
             maps.maximal,
-            minimal_stream_geometry_path=str(maps.maximal),
-            extent={"visible_flow": "0 L/s"},
+            permanent=maps.maximal,
+            calibrate_on={"permanent": 0.5, "complete": 0.5},
+            model={"extent": {"visible_flow": "0 L/s"}},
         )
         _, diagnostics, _ = self._run(monkeypatch, bench, output, thresholds=constant)
         _, state, _ = _extract__network_two(
@@ -2408,29 +2414,29 @@ class TestTwoBounds:
         assert diagnostics["net.J_signed_maximal"] == pytest.approx(state["net.J_signed"])
 
     def test_a_visible_flow_shrinks_both_masks(self, monkeypatch, bench, maps) -> None:
-        fields = {"minimal_stream_geometry_path": str(maps.minimal)}
+        fields = {"permanent": maps.minimal, "calibrate_on": {"permanent": 0.5, "complete": 0.5}}
         _, geometric, _ = self._run(
             monkeypatch,
             bench,
-            network_output(maps.maximal, **fields, extent={"visible_flow": "0 L/s"}),
+            network_output(maps.maximal, **fields, model={"extent": {"visible_flow": "0 L/s"}}),
         )
         _, visible, _ = self._run(
             monkeypatch,
             bench,
-            network_output(maps.maximal, **fields, extent={"visible_flow": "0.02 L/s"}),
+            network_output(maps.maximal, **fields, model={"extent": {"visible_flow": "0.02 L/s"}}),
         )
         for bound in ("minimal", "maximal"):
             assert visible[f"net.n_network_sim_{bound}"] < geometric[f"net.n_network_sim_{bound}"]
         assert visible["net.visible_flow_m3_s"] == pytest.approx(2.0e-5)
 
     def test_a_steady_run_is_refused(self, monkeypatch, bench, maps) -> None:
-        output = network_output(maps.maximal, extent={})
+        output = network_output(maps.maximal, model={"extent": {}})
         with pytest.raises(ObjectiveError, match="single period"):
             _extract__network_two(monkeypatch, bench, output, release_stack(bench, [200.0]), None)
 
     def test_a_run_with_no_complete_year_is_refused(self, monkeypatch, bench, maps) -> None:
         bounds = list(pd.date_range("2001-03-01", periods=7, freq="MS"))
-        output = network_output(maps.maximal, extent={})
+        output = network_output(maps.maximal, model={"extent": {}})
         with pytest.raises(ObjectiveError, match="no complete"):
             _extract__network_two(
                 monkeypatch,
@@ -2441,8 +2447,8 @@ class TestTwoBounds:
             )
 
     def test_a_rule_longer_than_the_year_is_refused(self, monkeypatch, bench, maps) -> None:
-        output = network_output(maps.maximal, extent={"maximal_flowing_duration": "30 months"})
-        with pytest.raises(ObjectiveError, match="maximal_flowing_duration = '30 months'"):
+        output = network_output(maps.maximal, model={"extent": {"flowing_at_least": "30 months"}})
+        with pytest.raises(ObjectiveError, match="flowing_at_least = '30 months'"):
             self._run(monkeypatch, bench, output)
 
     @pytest.mark.parametrize(
@@ -2458,7 +2464,7 @@ class TestTwoBounds:
         self, monkeypatch, bench, maps, flowing, dry, steps
     ) -> None:
         output = network_output(
-            maps.maximal, extent={"maximal_flowing_duration": flowing, "minimal_dry_duration": dry}
+            maps.maximal, model={"extent": {"flowing_at_least": flowing, "dry_at_most": dry}}
         )
         _, diagnostics, _ = self._run(monkeypatch, bench, output)
 
@@ -2477,7 +2483,7 @@ class TestTwoBounds:
         monkeypatch.setattr(_solver_extract, "resolve_flow_adapter", lambda _ctx: (adapter, ctx))
 
         diagnostics = extract_outputs(
-            ctx, {"net": network_output(maps.maximal, extent={})}
+            ctx, {"net": network_output(maps.maximal, model={"extent": {}})}
         ).diagnostics
 
         assert diagnostics["net.maximal_flowing_steps"] == 1
@@ -2490,10 +2496,10 @@ class TestTwoBounds:
         monkeypatch.setattr(_solver_extract, "resolve_flow_adapter", lambda _ctx: (adapter, ctx))
 
         with pytest.raises(ObjectiveError, match="no time window"):
-            extract_outputs(ctx, {"net": network_output(maps.maximal, extent={})})
+            extract_outputs(ctx, {"net": network_output(maps.maximal, model={"extent": {}})})
 
     def test_an_undated_stack_is_refused(self, monkeypatch, bench, maps) -> None:
-        output = network_output(maps.maximal, extent={})
+        output = network_output(maps.maximal, model={"extent": {}})
         with pytest.raises(ObjectiveError, match="carry no date"):
             _extract__network_two(
                 monkeypatch,
@@ -2522,12 +2528,12 @@ class TestTheMinimalMapFromTheDataLayer:
         ctx = self._ctx(bench, permanent)
         adapter = StackAdapter(release_stack(bench, [200.0]))
         monkeypatch.setattr(_solver_extract, "resolve_flow_adapter", lambda _ctx: (adapter, ctx))
-        output = network_output(maps.maximal, minimal_observed_network="data.hydrography")
+        output = network_output(maps.maximal, permanent="data.hydrography")
         from_layer = extract_outputs(ctx, {"net": output}).diagnostics
         _, from_file, _ = _extract__network_two(
             monkeypatch,
             bench,
-            network_output(maps.maximal, minimal_stream_geometry_path=str(maps.minimal)),
+            network_output(maps.maximal, permanent=maps.minimal),
             release_stack(bench, [200.0]),
             None,
         )
@@ -2538,8 +2544,8 @@ class TestTheMinimalMapFromTheDataLayer:
         ctx = self._ctx(bench, None)
         adapter = StackAdapter(release_stack(bench, [200.0]))
         monkeypatch.setattr(_solver_extract, "resolve_flow_adapter", lambda _ctx: (adapter, ctx))
-        output = network_output(maps.maximal, minimal_observed_network="data.hydrography")
-        with pytest.raises(UnresolvedObservedNetwork, match="minimal_stream_geometry_path"):
+        output = network_output(maps.maximal, permanent="data.hydrography")
+        with pytest.raises(UnresolvedObservedNetwork, match="map.permanent"):
             extract_outputs(ctx, {"net": output})
 
 
@@ -2688,7 +2694,7 @@ def test_the_request_reads_the_same_times_as_the_network() -> None:
 
 
 def _score__two_bound(monkeypatch, bench, stream_file, stack, bounds, window=None):
-    output = network_output(stream_file, extent={"visible_flow": "0 L/s"})
+    output = network_output(stream_file, model={"extent": {"visible_flow": "0 L/s"}})
     extracted, _ = run_extraction(monkeypatch, bench, {"net": output}, stack, bounds, window=window)
     return extracted.diagnostics
 

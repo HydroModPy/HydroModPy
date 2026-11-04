@@ -50,9 +50,8 @@ def output(tmp_path_factory):
     return validate_calib_output(
         {
             "support": "network",
-            "stream_geometry_path": str(path),
-            "diagonal_neighbors": True,
-            "tau_specific_ratio": 0.0,
+            "map": {"complete": str(path)},
+            "model": {"neighbours": "D8", "seepage_threshold": 0.0},
         }
     )
 
@@ -130,15 +129,17 @@ def _axis_network(first_row: int):
     )
 
 
-def _output(**extra):
+def _output(map=None, **extra):
     return validate_calib_output(
         {
             "support": "network",
-            "observed_network": "data.hydrography",
-            "diagonal_neighbors": True,
-            "tau_specific_ratio": 0.0,
-            "observed_rasterization": "heads",
-            "heads_min_drained_area_km2": 0.0,
+            "map": {
+                "complete": "data.hydrography",
+                "drawn_by": "heads",
+                "heads": {"min_drained_area": 0.0},
+                **(map or {}),
+            },
+            "model": {"neighbours": "D8", "seepage_threshold": 0.0},
             **extra,
         }
     )
@@ -173,7 +174,7 @@ def test_the_maximal_map_is_traced_from_the_dam_foot_of_the_model() -> None:
 def test_the_minimal_map_receives_it_too_and_the_maximal_trace_still_contains_it() -> None:
     maps = network_maps_from_run(
         _run_ctx__heads_maps(build_bench(), dam_foot_cells={"reservoir": DAM_FOOT}),
-        _output(minimal_observed_network="data.hydrography"),
+        _output(map={"permanent": "data.hydrography", "calibrate_on": "permanent"}),
     )
 
     assert maps.minimal is not None and maps.minimal.heads is not None
@@ -210,12 +211,14 @@ def test_the_maximal_heads_map_contains_the_minimal_trace() -> None:
     output = validate_calib_output(
         {
             "support": "network",
-            "observed_network": "data.hydrography",
-            "minimal_observed_network": "data.hydrography",
-            "diagonal_neighbors": True,
-            "tau_specific_ratio": 0.0,
-            "observed_rasterization": "heads",
-            "heads_min_drained_area_km2": 0.0,
+            "map": {
+                "complete": "data.hydrography",
+                "permanent": "data.hydrography",
+                "drawn_by": "heads",
+                "heads": {"min_drained_area": 0.0},
+                "calibrate_on": "permanent",
+            },
+            "model": {"neighbours": "D8", "seepage_threshold": 0.0},
         }
     )
 

@@ -130,9 +130,9 @@ field. A steady phase reads one state of the run.
 
 **The mapped network** $\mathcal{O}$ is a set of lines, drawn on the cells by
 one of three rules chosen by
-{toml}`observed_rasterization|calibration.outputs.<name>.observed_rasterization`.
+{toml}`drawn_by|calibration.outputs.<name>.map.drawn_by`.
 It is first cut to the delineated catchment
-({toml}`clip_map_to_catchment|calibration.outputs.<name>.clip_map_to_catchment`),
+({toml}`clip_to_catchment|calibration.outputs.<name>.map.clip_to_catchment`),
 with the shape {toml}`data.hydrography` clips what it loads to, so a file and that
 section draw the same map, and so does a figure redrawn from the run.
 
@@ -227,7 +227,7 @@ $$ (eq-means)
 With $\mu = 1$, each cell has one vote, as in the paper; with $\mu = a_n$ the
 mean is weighted by area, which matters on a mesh refined along the streams.
 Both pairs are reported at every trial, and
-{toml}`weighting|calibration.outputs.<name>.weighting` selects the one the
+{toml}`weighting|calibration.outputs.<name>.model.weighting` selects the one the
 criterion reads.
 
 $D_{so}$ large means a simulated network spilling far from the mapped one, an
@@ -314,11 +314,11 @@ $$ (eq-validity)
 With no declared accuracy, $V = 2 h_{obs}$, the bound of the paper. A declared
 accuracy $\sigma_o$ above $h_{obs}$ widens $V$ and leaves $r_{optim}$ comparable
 with the paper. A declared
-{toml}`validity_length|calibration.outputs.<name>.validity_length` replaces the
+{toml}`validity_length|calibration.outputs.<name>.verdict.validity_length` replaces the
 computation. The bound is read on the trial the search returns, and qualifies the
 value without replacing it: a violation logs a warning, or is refused after the
 session is saved when
-{toml}`on_roptim_violation|calibration.outputs.<name>.on_roptim_violation` is
+{toml}`on_invalid|calibration.outputs.<name>.verdict.on_invalid` is
 `"error"`. Each trial publishes `r_optim` and `r_optim_valid`.
 
 **The map against the surface.** Wherever the mapped lines do not sit in the
@@ -331,7 +331,7 @@ $$
 $$ (eq-alpha)
 
 as `alpha_obs_closure_catchment`. A value below
-{toml}`alpha_warning_threshold|calibration.outputs.<name>.alpha_warning_threshold`
+{toml}`alpha_warning_threshold|calibration.outputs.<name>.verdict.alpha_warning_threshold`
 logs a warning, once per process.
 
 (downslope-identifies)=
@@ -499,21 +499,20 @@ and `Sy` stays within the 5 per cent the search stops on.
 ```{hmp-params}
 calibration.objective_blocks.metric
 calibration.outputs.<name>.variable
-calibration.outputs.<name>.observed_network
-calibration.outputs.<name>.stream_geometry_path
-calibration.outputs.<name>.minimal_stream_geometry_path
-calibration.outputs.<name>.tau_specific_ratio
-calibration.outputs.<name>.weighting
-calibration.outputs.<name>.diagonal_neighbors
-calibration.outputs.<name>.observed_rasterization
-calibration.outputs.<name>.clip_map_to_catchment
-calibration.outputs.<name>.heads_snap_radius
-calibration.outputs.<name>.heads_min_drained_area_km2
-calibration.outputs.<name>.observed_position_accuracy
-calibration.outputs.<name>.validity_length
-calibration.outputs.<name>.on_roptim_violation
+calibration.outputs.<name>.map.complete
+calibration.outputs.<name>.map.permanent
+calibration.outputs.<name>.model.seepage_threshold
+calibration.outputs.<name>.model.weighting
+calibration.outputs.<name>.model.neighbours
+calibration.outputs.<name>.map.drawn_by
+calibration.outputs.<name>.map.clip_to_catchment
+calibration.outputs.<name>.map.heads.radius
+calibration.outputs.<name>.map.heads.min_drained_area
+calibration.outputs.<name>.map.position_accuracy
+calibration.outputs.<name>.verdict.validity_length
+calibration.outputs.<name>.verdict.on_invalid
 calibration.outputs.<name>.verdict.max_catchment_mismatch
-calibration.outputs.<name>.alpha_warning_threshold
+calibration.outputs.<name>.verdict.alpha_warning_threshold
 calibration.method_options
 geographic.dem_correc_type
 solver.drain_bed_thickness_m

@@ -174,7 +174,7 @@ target = "flow.param.Sy.field.value"
 
 [calibration.outputs.net]
 support = "network"
-stream_geometry_path = "streams.gpkg"
+map.complete = "streams.gpkg"
 
 [calibration.outputs.q]
 variable = "discharge"
@@ -420,7 +420,7 @@ def test_python_mode_resolves_a_bare_name_and_chooses_as_the_toml_does(tmp_path)
         Project.calibrate(
             _Project(),
             parameters={"K": {"bounds": [1e-7, 1e-3]}},
-            outputs={"net": {"support": "network", "stream_geometry_path": "streams.gpkg"}},
+            outputs={"net": {"support": "network", "map": {"complete": "streams.gpkg"}}},
             objective_blocks=[
                 {"name": "network", "metric": "distance_gap", "uses_outputs": ["net"]}
             ],
@@ -876,7 +876,7 @@ target = "flow.param.K.field.value"
 
 [calibration.outputs.net]
 support = "network"
-stream_geometry_path = "net.gpkg"
+map.complete = "net.gpkg"
 
 [[calibration.objective_blocks]]
 name = "network"
@@ -906,9 +906,9 @@ def test_the_frozen_document_finds_the_map_the_search_read(tmp_path) -> None:
     frozen = freeze_session_config(session_dir, raw, cfg)
     again, _ = load_toml_calibration(frozen)
 
-    read = str(cfg.outputs["net"].stream_geometry_path)
+    read = str(cfg.outputs["net"].map.complete)
     assert read == str((tmp_path / "workspace" / "data" / "hydrography" / "net.gpkg").resolve())
-    assert str(again.outputs["net"].stream_geometry_path) == read
+    assert str(again.outputs["net"].map.complete) == read
     assert str(tmp_path) not in frozen.read_text(encoding="utf-8")
 
 
@@ -930,7 +930,7 @@ def test_no_window_is_the_whole_declared_period(tmp_path) -> None:
 
 def test_the_validation_window_comes_second_on_a_search_it_is_scored_on(tmp_path) -> None:
     dated = CASE.replace(
-        'support = "network"\nstream_geometry_path = "net.gpkg"\n',
+        'support = "network"\nmap.complete = "net.gpkg"\n',
         'support = "point"\nvariable = "discharge"\nobserves = "J1"\n',
     ).replace('metric = "distance_gap"', 'metric = "rmse"')
     dated = dated.replace(
@@ -1005,7 +1005,7 @@ _PARAMETERS = {
     "Sy": {"bounds": [0.01, 0.3], "path": "flow.param.Sy.field.value"},
 }
 _OUTPUTS = {
-    "net": {"support": "network", "stream_geometry_path": "streams.gpkg"},
+    "net": {"support": "network", "map": {"complete": "streams.gpkg"}},
     "gauge": {"support": "point", "observes": "J0014", "variable": "discharge"},
 }
 _BLOCKS = [
@@ -1527,7 +1527,7 @@ class TestWhatTheSessionSays:
             pytest.param(
                 {
                     "outputs": {
-                        "net": {"support": "network", "stream_geometry_path": "streams.gpkg"},
+                        "net": {"support": "network", "map": {"complete": "streams.gpkg"}},
                         "gauge": {"support": "point", "observes": "J0014", "variable": "discharge"},
                     },
                     "objective_blocks": [
@@ -1959,7 +1959,7 @@ def test_the_dry_run_names_the_window_of_each_phase(tmp_path: Path, capsys) -> N
 
 def _network(**overrides):
     return validate_calib_output(
-        {"support": "network", "stream_geometry_path": "streams.gpkg", **overrides}
+        {"support": "network", "map": {"complete": "streams.gpkg"}, **overrides}
     )
 
 
@@ -2026,14 +2026,14 @@ def test_the_verdict_reads_the_length_the_trial_published_not_a_ratio() -> None:
 
 
 def test_strict_mode_raises_a_calibration_error_on_the_returned_trial() -> None:
-    output = _network(on_roptim_violation="error")
+    output = _network(verdict={"on_invalid": "error"})
 
     with pytest.raises(CalibrationError, match="exceeds the validity length 150 m"):
         _r_optim_verdict_extra({"net": output}, _components(5.31))
 
 
 def test_strict_mode_accepts_a_returned_trial_inside_the_bound() -> None:
-    output = _network(on_roptim_violation="error", validity_length="225 m")
+    output = _network(verdict={"on_invalid": "error", "validity_length": "225 m"})
 
     extra = _r_optim_verdict_extra(
         {"net": output}, _components(2.5, length=225.0, provenance="user")
@@ -2051,7 +2051,7 @@ def test_an_empty_network_at_the_returned_trial_is_not_qualified() -> None:
     assert verdict["causes"] == ["empty"]
     with pytest.raises(CalibrationError, match="not a number"):
         _r_optim_verdict_extra(
-            {"net": _network(on_roptim_violation="error")}, _components(math.nan)
+            {"net": _network(verdict={"on_invalid": "error"})}, _components(math.nan)
         )
 
 
@@ -2064,7 +2064,7 @@ def test_a_trial_without_a_published_length_is_not_qualified() -> None:
 
 
 def test_each_network_output_gets_its_own_verdict() -> None:
-    outputs = {"a": _network(), "b": _network(validity_length="750 m")}
+    outputs = {"a": _network(), "b": _network(verdict={"validity_length": "750 m"})}
     components = {
         **_components(3.0, name="a"),
         **_components(3.0, name="b", length=750.0, provenance="user"),
@@ -2645,7 +2645,7 @@ _TOML__protocol_reaches = textwrap.dedent(
 
     [calibration.outputs.seepage_network]
     support = "network"
-    stream_geometry_path = "network.gpkg"
+    map.complete = "network.gpkg"
 
     [[data.hydrometry.sources]]
     station_ids = ["G1"]
@@ -2817,7 +2817,7 @@ search_space = "log"
 
 [calibration.outputs.net]
 support = "network"
-stream_geometry_path = "{declared}"
+map.complete = "{declared}"
 
 [[calibration.objective_blocks]]
 name = "gap"
@@ -2842,7 +2842,7 @@ def _load(project__stream_geometry: Path, declared: str, *, at: str = "configs")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(TOML.format(declared=declared), encoding="utf-8")
     cfg, _raw = load_toml_calibration(path)
-    resolved = cfg.outputs["net"].stream_geometry_path
+    resolved = cfg.outputs["net"].map.complete
     return None if resolved is None else str(resolved)
 
 
@@ -2912,21 +2912,19 @@ NAMED_SOURCE_TOML = toml_doc(
     @KB
     [calibration.outputs.net]
     support = "network"
-    observed_network = "data.hydrography"
+    map.complete = "data.hydrography"
     @GAP
     """
 )
 
 
 def test_an_output_naming_its_source_has_no_path_to_anchor(project__stream_geometry: Path) -> None:
-    # An output resolved from data.hydrography or geographic.river_network carries
-    # no stream_geometry_path to anchor; writing to it would trip the
-    # both-declared refusal that HydroModelBase's validate_assignment raises.
+    # An output resolved from data.hydrography names no file to anchor.
     path = project__stream_geometry / "configs" / "calibration.toml"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(NAMED_SOURCE_TOML, encoding="utf-8")
     cfg, _raw = load_toml_calibration(path)
-    assert cfg.outputs["net"].stream_geometry_path is None
+    assert cfg.map_files() == []
 
 
 class _Halt(Exception):
@@ -2949,7 +2947,7 @@ def _in_memory_config(declared: str) -> CalibrationConfig:
                     "path": "flow.param.K.field.value",
                 }
             },
-            "outputs": {"net": {"support": "network", "stream_geometry_path": declared}},
+            "outputs": {"net": {"support": "network", "map": {"complete": declared}}},
             "objective_blocks": [
                 {"name": "gap", "metric": "distance_gap", "uses_outputs": ["net"]}
             ],
@@ -2981,7 +2979,7 @@ def test_a_route_that_never_reads_a_toml_still_anchors_the_network(
             cfg_path=project__stream_geometry / "project.toml",
         )
 
-    assert Path(cfg.outputs["net"].stream_geometry_path).read_bytes() == _PROJECT_NETWORK
+    assert Path(cfg.outputs["net"].map.complete).read_bytes() == _PROJECT_NETWORK
 
 
 # From test_the_minimal_map_and_the_extent_are_checked_before_the_run.py
@@ -2997,8 +2995,9 @@ def test_a_route_that_never_reads_a_toml_still_anchors_the_network(
 _MAPS = """
 [calibration.outputs.net]
 support = "network"
-stream_geometry_path = "{maximal}"
-minimal_stream_geometry_path = "{minimal}"
+map.complete = "{maximal}"
+map.permanent = "{minimal}"
+map.calibrate_on = {calibrate_on}
 {extent}
 """
 
@@ -3047,8 +3046,9 @@ def _maps(tmp_path: Path) -> tuple[Path, Path]:
 
 
 def _outputs(maximal: str, minimal: str, *, extent: bool) -> str:
-    table = "[calibration.outputs.net.extent]" if extent else ""
-    return _MAPS.format(maximal=maximal, minimal=minimal, extent=table)
+    table = "[calibration.outputs.net.model.extent]" if extent else ""
+    role = "{ permanent = 0.5, complete = 0.5 }" if extent else '"permanent"'
+    return _MAPS.format(maximal=maximal, minimal=minimal, calibrate_on=role, extent=table)
 
 
 class TestTheMinimalMap:
@@ -3064,7 +3064,7 @@ class TestTheMinimalMap:
         assert len(named) == 1
         assert named[0].severity == "error"
         assert named[0].where == "[calibration.outputs.net]"
-        assert "minimal_stream_geometry_path" in named[0].detail
+        assert "map.permanent" in named[0].detail
 
     @pytest.mark.parametrize(
         "declared", ["permanent.gpkg", "data/hydrography/permanent.gpkg", "absolute"]
@@ -3102,9 +3102,9 @@ class TestTheMinimalMap:
 
         output = cfg.outputs["net"]
         expected = Path(declared) if resolved is None else (tmp_path / resolved).resolve()
-        assert Path(output.minimal_stream_geometry_path) == expected
+        assert Path(output.map.permanent) == expected
         assert (
-            Path(output.stream_geometry_path)
+            Path(output.map.complete)
             == (tmp_path / "data" / "hydrography" / "streams.gpkg").resolve()
         )
 
@@ -3190,8 +3190,11 @@ class TestTheExtentTable:
         assert "'sy_network'" in refused[0].detail
 
 
+_PERMANENT_SOURCE = 'map.permanent = "data.hydrography"\nmap.calibrate_on = "permanent"'
+
+
 class TestTheMinimalObservedNetworkSource:
-    """``minimal_observed_network = "data.hydrography"`` is checked as statically as the
+    """``map.permanent = "data.hydrography"`` is checked as statically as the
     maximal map: a project declaring it with no ``[[data.hydrography.sources]]``
     at all is refused at preflight, not at the first trial's
     ``resolve_minimal_network`` call.
@@ -3204,7 +3207,7 @@ class TestTheMinimalObservedNetworkSource:
         @K
         [calibration.outputs.net]
         support = "network"
-        stream_geometry_path = "MAXIMAL"
+        map.complete = "MAXIMAL"
         MINIMAL
         @GAP
         """
@@ -3216,11 +3219,11 @@ class TestTheMinimalObservedNetworkSource:
         return self._DOC.replace("MAXIMAL", maximal.as_posix()).replace("MINIMAL", minimal)
 
     def test_a_minimal_source_with_no_hydrography_section_is_named(self, tmp_path) -> None:
-        doc = self._doc(tmp_path, minimal='minimal_observed_network = "data.hydrography"')
+        doc = self._doc(tmp_path, minimal=_PERMANENT_SOURCE)
 
         findings = preflight_of(tmp_path, doc)
 
-        named = [item for item in findings if "minimal_observed_network" in item.detail]
+        named = [item for item in findings if "map.permanent" in item.detail]
         assert len(named) == 1
         assert named[0].severity == "error"
         assert named[0].where == "[calibration.outputs.net]"
@@ -3228,7 +3231,7 @@ class TestTheMinimalObservedNetworkSource:
 
     def test_a_minimal_source_with_a_hydrography_section_is_no_finding(self, tmp_path) -> None:
         doc = (
-            self._doc(tmp_path, minimal='minimal_observed_network = "data.hydrography"')
+            self._doc(tmp_path, minimal=_PERMANENT_SOURCE)
             + '\n[[data.hydrography.sources]]\nsource = "bdtopage"\n'
         )
 
@@ -3328,7 +3331,7 @@ def test_a_search_from_python_is_refused_before_its_session(tmp_path, prepared) 
         with pytest.raises(ObjectiveError, match=r"flow\.bc\.drainage\.value"):
             project.calibrate(
                 parameters={"K": {"bounds": [1e-7, 1e-3]}},
-                outputs={"net": {"support": "network", "stream_geometry_path": "streams.gpkg"}},
+                outputs={"net": {"support": "network", "map": {"complete": "streams.gpkg"}}},
                 objective_blocks=[
                     {"name": "gap", "metric": "distance_gap", "uses_outputs": ["net"]}
                 ],
@@ -3609,28 +3612,28 @@ class TestWhatTheRunReports:
 
 
 # From test_validity_length_is_declared_in_metres.py
-# ``validity_length`` on a network output: "auto" or a positive length.
+# ``verdict.validity_length`` on a network output: "auto" or a positive length.
 #
 # ``roptim_max`` is gone from the schema: a file that still carries it loads
 # through the config migration, never through the model.
 
 
 def test_auto_is_the_default() -> None:
-    assert _network().validity_length == "auto"
+    assert _network().verdict.validity_length == "auto"
 
 
 @pytest.mark.parametrize(("declared", "metres"), [("150 m", 150.0), ("0.3 km", 300.0), (75, 75.0)])
 def test_a_length_is_read_in_metres(declared: object, metres: float) -> None:
-    output = _network(validity_length=declared)
+    output = _network(verdict={"validity_length": declared})
 
-    assert float(output.validity_length.to("m").magnitude) == pytest.approx(metres)
-    assert output.model_dump()["validity_length"] == pytest.approx(metres)
+    assert float(output.verdict.validity_length.to("m").magnitude) == pytest.approx(metres)
+    assert output.model_dump()["verdict"]["validity_length"] == pytest.approx(metres)
 
 
 @pytest.mark.parametrize("declared", ["0 m", "-10 m", "2 s", "two cells"])
 def test_a_length_that_is_not_one_is_refused(declared: str) -> None:
     with pytest.raises(ValidationError):
-        _network(validity_length=declared)
+        _network(verdict={"validity_length": declared})
 
 
 def test_the_ratio_bound_is_no_longer_a_field() -> None:
@@ -3640,7 +3643,10 @@ def test_the_ratio_bound_is_no_longer_a_field() -> None:
 
 def test_a_declared_length_reaches_the_scoring_options() -> None:
     assert _scoring_options(_network())["validity_length_m"] is None
-    assert _scoring_options(_network(validity_length="300 m"))["validity_length_m"] == 300.0
+    assert (
+        _scoring_options(_network(verdict={"validity_length": "300 m"}))["validity_length_m"]
+        == 300.0
+    )
 
 
 _CALIBRATION = toml_doc(
@@ -3651,7 +3657,7 @@ _CALIBRATION = toml_doc(
     @GAP
     [calibration.outputs.net]
     support = "network"
-    stream_geometry_path = "streams.gpkg"
+    map.complete = "streams.gpkg"
     roptim_max = VALUE
     """
 )

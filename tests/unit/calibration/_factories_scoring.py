@@ -128,14 +128,18 @@ class StackAdapter:
         return served
 
 
-def network_output(path, **fields):
-    """A validated network output reading the stream map at `path`."""
+def network_output(
+    path, *, permanent=None, calibrate_on="permanent", map=None, model=None, **fields
+):
+    """A validated network output reading the stream map at `path`, and `permanent` when given."""
+    maps = {"complete": str(path), **(map or {})}
+    if permanent is not None:
+        maps |= {"permanent": str(permanent), "calibrate_on": calibrate_on}
     return validate_calib_output(
         {
             "support": "network",
-            "stream_geometry_path": str(path),
-            "diagonal_neighbors": True,
-            "tau_specific_ratio": 0.0,
+            "map": maps,
+            "model": {"neighbours": "D8", "seepage_threshold": 0.0, **(model or {})},
             **fields,
         }
     )
@@ -284,7 +288,7 @@ def make_document(
                 "K": {"bounds": [1e-8, 1e-2], "search_space": "log"},
                 "Sy": {"bounds": [1e-4, 0.5], "search_space": "log"},
             },
-            "outputs": {"seepage_network": {"support": "network", "stream_geometry_path": stream}},
+            "outputs": {"seepage_network": {"support": "network", "map": {"complete": stream}}},
             **calibration,
         },
     }

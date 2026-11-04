@@ -76,7 +76,7 @@ WindowBounds = tuple[pd.Timestamp | None, pd.Timestamp | None]
 
 @dataclass(frozen=True, slots=True)
 class NetworkExtentRules:
-    """The rules of ``[calibration.outputs.<n>.extent]``, with its defaults."""
+    """The rules of ``[calibration.outputs.<n>.model.extent]``, with its defaults."""
 
     maximal_flowing_duration: str | None = None
     minimal_dry_duration: str | None = None
@@ -310,37 +310,37 @@ def _settings_of_output(
     """Read one sealed network output, with the defaults for an absent key."""
     where = f"calibration output {name!r}"
     defaults = DEFAULT_CRITERION_SETTINGS
-    tau = float(payload.get("tau_specific_ratio", defaults.tau_specific_ratio))
+    model = payload.get("model") or {}
+    drawn = payload.get("map") or {}
+    heads = drawn.get("heads") or {}
+    tau = float(model.get("seepage_threshold", defaults.tau_specific_ratio))
     if not tau >= 0.0:
-        raise ValueError(f"{where}: tau_specific_ratio must be positive, got {tau!r}.")
-    rasterization = payload.get("observed_rasterization", defaults.observed_rasterization)
+        raise ValueError(f"{where}: model.seepage_threshold must be positive, got {tau!r}.")
+    rasterization = drawn.get("drawn_by", defaults.observed_rasterization)
     if rasterization not in _RASTERIZATIONS:
-        raise ValueError(f"{where}: unknown observed_rasterization {rasterization!r}.")
+        raise ValueError(f"{where}: unknown map.drawn_by {rasterization!r}.")
     timestep = _timestep_of_time(sim, payload.get("time", "last"), where=where)
-    radius = payload.get("heads_snap_radius", defaults.heads_snap_radius_m)
-    radius_m, _ = parse_to_m(radius, location=f"{where}.heads_snap_radius")
+    radius = heads.get("radius", defaults.heads_snap_radius_m)
+    radius_m, _ = parse_to_m(radius, location=f"{where}.map.heads.radius")
     if not float(radius_m) > 0.0:
-        raise ValueError(f"{where}: heads_snap_radius must be positive, got {radius!r}.")
-    area_km2 = float(payload.get("heads_min_drained_area_km2", defaults.heads_min_drained_area_km2))
+        raise ValueError(f"{where}: map.heads.radius must be positive, got {radius!r}.")
+    area_km2 = float(heads.get("min_drained_area", defaults.heads_min_drained_area_km2))
     if not area_km2 >= 0.0:
         raise ValueError(
-            f"{where}: heads_min_drained_area_km2 must not be negative, got {area_km2!r}."
+            f"{where}: map.heads.min_drained_area must not be negative, got {area_km2!r}."
         )
+    neighbours = model.get("neighbours", "D8" if defaults.diagonal_neighbors else "D4")
     return NetworkCriterionSettings(
         output=name,
         tau_specific_ratio=tau,
-        diagonal_neighbors=bool(payload.get("diagonal_neighbors", defaults.diagonal_neighbors)),
+        diagonal_neighbors=neighbours == "D8",
         observed_rasterization=rasterization,
-        observed_position_accuracy_m=_accuracy_m(
-            payload.get("observed_position_accuracy"), where=where
-        ),
+        observed_position_accuracy_m=_accuracy_m(drawn.get("position_accuracy"), where=where),
         heads_snap_radius_m=float(radius_m),
         heads_min_drained_area_km2=area_km2,
-        clip_map_to_catchment=bool(
-            payload.get("clip_map_to_catchment", defaults.clip_map_to_catchment)
-        ),
+        clip_map_to_catchment=bool(drawn.get("clip_to_catchment", defaults.clip_map_to_catchment)),
         timestep=timestep,
-        extent=_extent_rules(payload.get("extent"), where=where),
+        extent=_extent_rules(model.get("extent"), where=where),
         n_network_outputs=n_outputs,
         window=window,
         window_phase=None if window is None else window_phase,
@@ -408,7 +408,7 @@ def _accuracy_m(value: Any, *, where: str) -> float | None:
     """
     if value is None:
         return None
-    metres, _ = parse_to_m(value, location=f"{where}.observed_position_accuracy")
+    metres, _ = parse_to_m(value, location=f"{where}.map.position_accuracy")
     return float(metres)
 
 
@@ -417,14 +417,14 @@ def _extent_rules(payload: Any, *, where: str) -> NetworkExtentRules | None:
     if payload is None:
         return None
     if not isinstance(payload, Mapping):
-        raise ValueError(f"{where}: the extent table is not a mapping, got {payload!r}.")
+        raise ValueError(f"{where}: model.extent is not a mapping, got {payload!r}.")
     defaults = DEFAULT_EXTENT_RULES
     visible = str(payload.get("visible_flow", defaults.visible_flow))
     parse_visible_flow(visible)
-    maximal = payload.get("maximal_flowing_duration", defaults.maximal_flowing_duration)
-    parse_extent_duration(maximal, location=f"{where}.extent.maximal_flowing_duration")
-    minimal = payload.get("minimal_dry_duration", defaults.minimal_dry_duration)
-    parse_extent_duration(minimal, location=f"{where}.extent.minimal_dry_duration")
+    maximal = payload.get("flowing_at_least", defaults.maximal_flowing_duration)
+    parse_extent_duration(maximal, location=f"{where}.model.extent.flowing_at_least")
+    minimal = payload.get("dry_at_most", defaults.minimal_dry_duration)
+    parse_extent_duration(minimal, location=f"{where}.model.extent.dry_at_most")
     return NetworkExtentRules(
         maximal_flowing_duration=maximal,
         minimal_dry_duration=minimal,

@@ -125,7 +125,7 @@ def test_the_composite_route_records_the_series_keyed_by_output_and_station() ->
 
 def test_a_network_output_never_reaches_the_sink() -> None:
     sink = TrialSeriesSink()
-    output = validate_calib_output({"support": "network", "observed_network": "data.hydrography"})
+    output = validate_calib_output({"support": "network", "map": {"complete": "data.hydrography"}})
     block = objective_block("net", "distance_gap", ["net"])
     scorer = ObservableScorer({"net": output}, [block], series_sink=sink)
 

@@ -89,7 +89,7 @@ class TestTheDeclaration:
             validate_calib_output(
                 {
                     "support": "network",
-                    "stream_geometry_path": "streams.gpkg",
+                    "map": {"complete": "streams.gpkg"},
                     "observes": "J7branch",
                 }
             )
@@ -383,7 +383,7 @@ BLOCKS = [objective_block("network", "distance_gap", ["net"])]
 
 
 def _two_bound_output(path):
-    return network_output(path, extent={"visible_flow": "0 L/s"})
+    return network_output(path, model={"extent": {"visible_flow": "0 L/s"}})
 
 
 def _components(monkeypatch, bench, output, window):
@@ -1035,7 +1035,7 @@ def _protocol_window(start: str, end: str, **protocol: object):
         "calibration": {
             "protocol": {"name": "matching_hydrographic_network", **protocol},
             "parameters": {"K": {"bounds": [1e-8, 1e-2]}, "Sy": {"bounds": [1e-4, 0.5]}},
-            "outputs": {"net": {"support": "network", "stream_geometry_path": "map.gpkg"}},
+            "outputs": {"net": {"support": "network", "map": {"complete": "map.gpkg"}}},
         },
     }
     transient = expand_calibration_protocol(document)["calibration"]["phases"][1]

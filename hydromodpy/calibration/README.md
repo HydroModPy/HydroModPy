@@ -322,8 +322,12 @@ bounds = [5e-3, 0.35]
 
 [calibration.outputs.streams]
 support = "network"
-stream_geometry_path = "nancon_stream_network.gpkg"
-diagonal_neighbors = true
+
+[calibration.outputs.streams.map]
+complete = "nancon_stream_network.gpkg"
+
+[calibration.outputs.streams.model]
+neighbours = "D8"
 
 [calibration.outputs.gauge]
 support = "point"
@@ -446,8 +450,8 @@ report = project.calibrate(
     outputs={
         "streams": {
             "support": "network",
-            "stream_geometry_path": "nancon_stream_network.gpkg",
-            "diagonal_neighbors": True,
+            "map": {"complete": "nancon_stream_network.gpkg"},
+            "model": {"neighbours": "D8"},
         },
         "gauge": {"support": "point", "variable": "discharge", "observes": "NANCON"},
     },

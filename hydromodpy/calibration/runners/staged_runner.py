@@ -1028,11 +1028,7 @@ def _observed_source(output: CalibOutputDecl) -> str:
         section = DATA_FAMILY_SECTION.get(family) if family else None
         return f"station {observes} ([data.{section}])" if section else f"station {observes}"
     if str(getattr(output, "support", "")) == "network":
-        geometry = getattr(output, "stream_geometry_path", None)
-        if geometry is not None:
-            return str(geometry)
-        network = getattr(output, "observed_network", None)
-        return str(network) if network is not None else "no source declared"
+        return str(output.map.complete)
     values = getattr(output, "observed_values", None)
     if values is not None:
         return f"{len(values)} value(s) written in the file"

@@ -253,7 +253,7 @@ def _redraw_note(view: NetworkHeadsView) -> list[str]:
     """Return the note saying the run was redrawn under another rule, or nothing."""
     if not view.redrawn_as_heads:
         return []
-    return ["redrawn under observed_rasterization = 'heads' with its default radius and area"]
+    return ["redrawn under map.drawn_by = 'heads' with its default radius and area"]
 
 
 def _handles(view: NetworkHeadsView, traced: np.ndarray) -> list:

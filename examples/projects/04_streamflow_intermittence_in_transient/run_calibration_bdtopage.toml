@@ -40,22 +40,24 @@ bounds = [5e-3, 0.35]
 # permanent reaches it wrote beside them.
 [calibration.outputs.seepage_network]
 support = "network"
-observed_network = "data.hydrography"
-minimal_observed_network = "data.hydrography"
+
+[calibration.outputs.seepage_network.map]
+complete = "data.hydrography"
+permanent = "data.hydrography"
+
+# Equal shares: log K returned halfway between the two roots.
+[calibration.outputs.seepage_network.map.calibrate_on]
+permanent = 0.5
+complete = 0.5
 
 # Two bounds over the scored years instead of one state. The maximal extent
 # flows at least one month of a year, the minimal one is dry at most one month.
 # Two scored years, so a cell has to meet the rule in both.
-[calibration.outputs.seepage_network.extent]
-maximal_flowing_duration = "1 month"
-minimal_dry_duration = "1 month"
+[calibration.outputs.seepage_network.model.extent]
+flowing_at_least = "1 month"
+dry_at_most = "1 month"
 year_quorum = 1.0
 visible_flow = "1 L/s"
-
-# Equal shares: log K returned halfway between the two roots.
-[calibration.outputs.seepage_network.extent.weights]
-minimal = 0.5
-maximal = 0.5
 
 # The record of the gauge of [site], on the simulated months: a point output
 # that names no station observes the gauge.

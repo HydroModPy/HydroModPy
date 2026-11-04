@@ -66,7 +66,7 @@ path = "flow.param.K.field.value"
 
 [calibration.outputs.net]
 support = "network"
-stream_geometry_path = "streams.gpkg"
+map.complete = "streams.gpkg"
 
 [[calibration.objective_blocks]]
 name = "network"

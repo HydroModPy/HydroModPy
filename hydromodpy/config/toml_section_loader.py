@@ -118,6 +118,7 @@ def load_standard_section(
     base: Path,
     *,
     workspace_data_dir: Path | None = None,
+    context: Mapping[str, Any] | None = None,
 ) -> ModelT:
     """Load one regular section by validating against a Pydantic model class."""
     if section_data is None:
@@ -127,7 +128,7 @@ def load_standard_section(
 
     payload = dict(section_data)
     _resolve_section_paths(payload, model_cls, base, workspace_data_dir=workspace_data_dir)
-    return model_cls.model_validate(payload)
+    return model_cls.model_validate(payload, context=context)
 
 
 def _raw_declares_dem_source(section_data: Any) -> bool:
@@ -264,11 +265,14 @@ def _load_optional_mesh_section(
 def _load_optional_calibration_section(
     section_data: Any,
     base: Path,
+    *,
+    sealed: bool = False,
 ) -> CalibrationConfig | None:
-    """Load the optional ``[calibration]`` section."""
+    """Load the optional ``[calibration]`` section, which a sealed run reads more widely."""
     if section_data is None:
         return None
-    return load_standard_section(section_data, CalibrationConfig, base)
+    context = {"validation_context": "snapshot"} if sealed else None
+    return load_standard_section(section_data, CalibrationConfig, base, context=context)
 
 
 def _load_optional_spinup_section(

@@ -64,7 +64,7 @@ def test_a_run_scored_under_heads_redraws_with_its_sealed_radius(mpl) -> None:
         "landing cell centre",
     ]
     note = legend_note(ax)
-    assert "redrawn under observed_rasterization" not in note
+    assert "redrawn under map.drawn_by" not in note
     assert "criterion settings: calibration output 'streams'" in note
 
 
@@ -75,7 +75,7 @@ def test_a_run_scored_under_crossing_is_redrawn_under_heads_anyway(mpl) -> None:
     ObservedNetworkHeadsMap().render(run, ax)
 
     note = legend_note(ax)
-    assert "redrawn under observed_rasterization = 'heads'" in note
+    assert "redrawn under map.drawn_by = 'heads'" in note
     assert legend_labels(ax) == [
         "traced (3 cells)",
         "mapped network",

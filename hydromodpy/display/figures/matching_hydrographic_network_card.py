@@ -108,8 +108,8 @@ Each bound suffixes its components ``_<bound>``. Spelled out for the same
 reason as :data:`RECHARGE_KEY`, and held to the criterion by the tests.
 """
 
-VALIDATION_SUFFIX: str = "_maximal_validation"
-"""The suffix of the maximal map a one-state output scores outside its cost."""
+VALIDATION_SUFFIX: str = "_validation"
+"""Appended to the bound suffix of the map a one-state output scores outside its cost."""
 
 H_OBS_KEY: str = "h_obs"
 """The key the criterion publishes ``h_obs`` under, the cell size on the map.
@@ -1060,21 +1060,23 @@ def _one_state_views(table: TrialTable, *, output: str | None) -> tuple[_MapView
     """Return the maps of an output with one bound in the cost.
 
     One map reads the unsuffixed keys, exactly as before two maps existed.
-    With both maps the unsuffixed keys carry the minimal map, the one in the
-    cost, and the maximal map sits under ``_maximal_validation`` beside it.
+    With both maps the unsuffixed keys carry the map in the cost, and the
+    other map sits under ``<bound>_validation`` beside it.
     """
-    if not table.has_diagnostic(f"D_optim{VALIDATION_SUFFIX}", output=output):
-        return (_MapView(label="", suffix="", bound="maximal"),)
-    return (
-        _MapView(label="minimal", suffix="", bound="minimal", note="in the cost"),
-        _MapView(
-            label="maximal",
-            suffix=VALIDATION_SUFFIX,
-            bound="maximal",
-            note="validation outside the cost",
-            in_verdict=False,
-        ),
-    )
+    for cost, checked in (("minimal", "maximal"), ("maximal", "minimal")):
+        suffix = f"_{checked}{VALIDATION_SUFFIX}"
+        if table.has_diagnostic(f"D_optim{suffix}", output=output):
+            return (
+                _MapView(label=cost, suffix="", bound=cost, note="in the cost"),
+                _MapView(
+                    label=checked,
+                    suffix=suffix,
+                    bound=checked,
+                    note="validation outside the cost",
+                    in_verdict=False,
+                ),
+            )
+    return (_MapView(label="", suffix="", bound="maximal"),)
 
 
 def _two_bound_reading(

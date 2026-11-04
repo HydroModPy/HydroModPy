@@ -97,7 +97,7 @@ bounds = [5e-3, 0.35]
 
 [calibration.outputs.seepage_network]
 support = "network"
-stream_geometry_path = "nancon_stream_network.gpkg"
+map.complete = "nancon_stream_network.gpkg"
 
 [calibration.protocol]
 name = "matching_hydrographic_network"

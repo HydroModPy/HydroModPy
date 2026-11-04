@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+import copy
 import importlib
 import tomllib
 import warnings
 from pathlib import Path
 
 import pytest
+import tomlkit
 from packaging.version import Version
 
+from hydromodpy.calibration.config import validate_calib_output
 from hydromodpy.config.config_migration import (
     ALPHA_FORM,
     DEPRECATION_DELAY_MINORS,
@@ -17,12 +20,14 @@ from hydromodpy.config.config_migration import (
     OLD_VALUES,
     RENAMED_KEYS,
     OldForm,
+    _value_at,
     document_path,
     fix_config_chain,
     fix_config_file,
     migrate_config_doc,
     migrate_config_doc_on_load,
     migrate_merged_doc,
+    migrate_sealed_config_doc,
     old_forms,
     outlived_forms,
     rewrite_dotted_path,
@@ -649,14 +654,14 @@ def test_the_paper_ratio_bound_is_dropped_and_auto_replaces_it(tmp_path: Path) -
 
     changes = fix_config_file(path)
 
-    assert changes == [
+    assert changes[0] == (
         "calibration.outputs.seepage_network.roptim_max dropped "
         "(2 cells is validity_length = 'auto', the default)"
-    ]
+    )
     output = tomllib.loads(path.read_text())["calibration"]["outputs"]["seepage_network"]
     assert "roptim_max" not in output
-    assert output["observed_position_accuracy"] == "50 m"
-    assert validate_calib_output(output).validity_length == "auto"
+    assert output["map"]["position_accuracy"] == "50 m"
+    assert validate_calib_output(output).verdict.validity_length == "auto"
 
 
 def test_an_integer_two_is_the_paper_bound_too() -> None:
@@ -1646,3 +1651,279 @@ def test_a_sealed_config_drops_what_a_replay_never_reads() -> None:
         },
     }
     assert len(changes) == 10
+
+
+# The flat keys of a network output move to the tables map, model and verdict.
+
+_FLAT = '[calibration.outputs.net]\nsupport = "network"\n'
+_ONE_MAP = {"complete": "s.gpkg"}
+_TWO_MAPS = {"complete": "data.hydrography", "permanent": "p.gpkg"}
+
+_OLD_EXTENT = {"maximal_flowing_duration": "1 month", "weights": {"minimal": 0.25, "maximal": 0.75}}
+_NEW_EXTENT = {
+    "flowing_at_least": "1 month",
+    "dry_at_most": None,
+    "year_quorum": 0.5,
+    "visible_flow": "1 L/s",
+}
+_EVERY_MOVE = [
+    ("observed_network", "data.hydrography", "map.complete", "data.hydrography"),
+    ("minimal_stream_geometry_path", "p.gpkg", "map.permanent", "p.gpkg"),
+    ("observed_rasterization", "heads", "map.drawn_by", "heads"),
+    ("clip_map_to_catchment", False, "map.clip_to_catchment", False),
+    ("heads_snap_radius", 80.0, "map.heads.radius", 80.0),
+    ("heads_min_drained_area_km2", 0.1, "map.heads.min_drained_area", 0.1),
+    ("observed_position_accuracy", 50.0, "map.position_accuracy", 50.0),
+    ("tau_specific_ratio", 0.002, "model.seepage_threshold", 0.002),
+    ("diagonal_neighbors", True, "model.neighbours", "D8"),
+    ("weighting", "area", "model.weighting", "area"),
+    ("validity_length", "auto", "verdict.validity_length", "auto"),
+    ("on_roptim_violation", "error", "verdict.on_invalid", "error"),
+    ("alpha_warning_threshold", 0.8, "verdict.alpha_warning_threshold", 0.8),
+    ("clipping_warning_share", 0.2, "verdict.clipping_warning_share", 0.2),
+    ("clipping_warning_gap", 0.1, "verdict.clipping_warning_gap", 0.1),
+    ("extent", _OLD_EXTENT, "model.extent", _NEW_EXTENT),
+]
+
+
+@pytest.mark.parametrize("reading", ["the doctor", "a snapshot", "a sealed file"])
+def test_a_network_output_written_flat_reads_back_with_the_same_values(
+    tmp_path: Path, reading: str
+) -> None:
+    flat = {"support": "network", **{row[0]: row[1] for row in _EVERY_MOVE}}
+    doc = {"calibration": {"outputs": {"net": copy.deepcopy(flat)}}}
+    if reading == "the doctor":
+        path = _write(tmp_path, tomlkit.dumps(doc))
+        fix_config_file(path)
+        doc = tomllib.loads(path.read_text())
+    elif reading == "a snapshot":
+        migrate_sealed_config_doc(doc)
+    else:
+        migrate_config_doc_on_load(doc, source=tmp_path / "runs" / "n" / "config.toml")
+
+    read = validate_calib_output(doc["calibration"]["outputs"]["net"]).model_dump(mode="json")
+    moved = {new: _value_at(read, new) for _old, _value, new, _today in _EVERY_MOVE}
+    assert moved == {new: today for _old, _value, new, today in _EVERY_MOVE}
+    assert read["map"]["calibrate_on"] == {"permanent": 0.25, "complete": 0.75}
+
+
+_NETWORK_REWRITES = {
+    "two maps in one state, the four neighbours": (
+        'observed_network = "data.hydrography"\nminimal_stream_geometry_path = "p.gpkg"\n'
+        "diagonal_neighbors = false\n",
+        {"map": {**_TWO_MAPS, "calibrate_on": "permanent"}, "model": {"neighbours": "D4"}},
+    ),
+    "two maps whose role is already written": (
+        'observed_network = "data.hydrography"\nminimal_stream_geometry_path = "p.gpkg"\n'
+        '[calibration.outputs.net.map]\ncalibrate_on = "complete"\n',
+        {"map": {**_TWO_MAPS, "calibrate_on": "complete"}},
+    ),
+    "two maps and an extent": (
+        'observed_network = "data.hydrography"\nminimal_stream_geometry_path = "p.gpkg"\n'
+        "[calibration.outputs.net.extent]\nyear_quorum = 1.0\n",
+        {
+            "map": {**_TWO_MAPS, "calibrate_on": {"permanent": 0.5, "complete": 0.5}},
+            "model": {"extent": {"year_quorum": 1.0}},
+        },
+    ),
+    "two maps whose role says what the old weights say": (
+        'observed_network = "data.hydrography"\nminimal_stream_geometry_path = "p.gpkg"\n'
+        "[calibration.outputs.net.map]\ncalibrate_on = { permanent = 0.25, complete = 0.75 }\n"
+        "[calibration.outputs.net.extent]\nyear_quorum = 1.0\n"
+        "[calibration.outputs.net.extent.weights]\nminimal = 0.25\nmaximal = 0.75\n",
+        {
+            "map": {**_TWO_MAPS, "calibrate_on": {"permanent": 0.25, "complete": 0.75}},
+            "model": {"extent": {"year_quorum": 1.0}},
+        },
+    ),
+    "one map, its weights go, the steps rule runs first": (
+        'stream_geometry_path = "s.gpkg"\n[calibration.outputs.net.extent]\n'
+        "maximal_flowing_steps = 2\n[calibration.outputs.net.extent.weights]\nminimal = 0.5\n"
+        "maximal = 0.5\n" + _MONTHLY,
+        {"map": _ONE_MAP, "model": {"extent": {"flowing_at_least": "2 months"}}},
+    ),
+    "settings no rule reads, a verdict already written": (
+        'stream_geometry_path = "s.gpkg"\nobserved_rasterization = "crossing"\n'
+        'heads_snap_radius = "80 m"\nobserved_position_accuracy = "50 m"\n'
+        'validity_length = "150 m"\n'
+        "[calibration.outputs.net.verdict]\nmax_catchment_mismatch = false\n",
+        {
+            "map": {**_ONE_MAP, "drawn_by": "crossing"},
+            "verdict": {"validity_length": "150 m", "max_catchment_mismatch": False},
+        },
+    ),
+}
+
+
+@pytest.mark.parametrize(
+    ("flat", "tables"), _NETWORK_REWRITES.values(), ids=_NETWORK_REWRITES.keys()
+)
+def test_the_doctor_writes_a_network_output_in_its_tables(
+    tmp_path: Path, flat: str, tables: dict
+) -> None:
+    path = _write(tmp_path, _FLAT + flat)
+
+    assert fix_config_file(path)
+    output = tomllib.loads(path.read_text())["calibration"]["outputs"]["net"]
+    assert output == {"support": "network", **tables}
+    assert validate_calib_output(output).support == "network"
+    assert fix_config_file(path) == []
+
+
+@pytest.mark.parametrize(
+    ("flat", "old", "left"),
+    [
+        (
+            'observed_network = "geographic.river_network"\n',
+            "observed_network",
+            "a network the DEM derives is no observation",
+        ),
+        ('diagonal_neighbors = "yes"\n', "diagonal_neighbors", "'yes' is neither true nor false"),
+        (
+            'stream_geometry_path = "s.gpkg"\n[calibration.outputs.net.map]\ncomplete = "t"\n',
+            "stream_geometry_path",
+            "'map.complete' is given too, keep one",
+        ),
+        (
+            '[calibration.outputs.net.map]\ncomplete = "s.gpkg"\npermanent = "p.gpkg"\n'
+            'calibrate_on = "permanent"\n'
+            "[calibration.outputs.net.extent.weights]\nminimal = 0.25\nmaximal = 0.75\n",
+            "extent",
+            "its weights say {'permanent': 0.25, 'complete': 0.75} and map.calibrate_on says "
+            "'permanent', keep one",
+        ),
+    ],
+    ids=["a_network_from_the_dem", "no_boolean", "given_twice", "a_role_against_old_weights"],
+)
+def test_what_the_doctor_cannot_write_stays_with_its_reason(
+    tmp_path: Path, flat: str, old: str, left: str
+) -> None:
+    path = _write(tmp_path, _FLAT + flat)
+
+    changes = fix_config_file(path)
+
+    assert changes[0].startswith(f"calibration.outputs.net.{old}{CANNOT_REWRITE}{left}")
+    assert old in tomllib.loads(path.read_text())["calibration"]["outputs"]["net"]
+
+
+def test_the_doctor_writes_an_inline_output_inline_and_keeps_a_comment(tmp_path: Path) -> None:
+    inline = _write(
+        tmp_path,
+        '[calibration.outputs]\nnet = {support = "network", stream_geometry_path = "s.gpkg"}\n',
+    )
+    fix_config_file(inline)
+    written = tomllib.loads(inline.read_text())["calibration"]["outputs"]["net"]
+    assert written == {"support": "network", "map": _ONE_MAP}
+
+    commented = _write(tmp_path, _FLAT + 'stream_geometry_path = "s.gpkg" # the file\n')
+    fix_config_file(commented)
+    assert 'complete = "s.gpkg" # the file' in commented.read_text()
+
+
+def test_a_child_that_adds_the_permanent_map_writes_the_role(tmp_path: Path) -> None:
+    base = tmp_path / "base.toml"
+    base.write_text(_FLAT + 'stream_geometry_path = "s.gpkg"\n', encoding="utf-8")
+    leaf = tmp_path / "leaf.toml"
+    leaf.write_text(
+        'base_config = "base.toml"\n[calibration.outputs.net]\n'
+        'minimal_stream_geometry_path = "p.gpkg"\n',
+        encoding="utf-8",
+    )
+
+    fix_config_chain(leaf)
+
+    assert tomllib.loads(leaf.read_text())["calibration"]["outputs"]["net"] == {
+        "map": {"permanent": "p.gpkg", "calibrate_on": "permanent"}
+    }
+    assert tomllib.loads(base.read_text())["calibration"]["outputs"]["net"] == {
+        "support": "network",
+        "map": _ONE_MAP,
+    }
+
+
+_REWRITTEN_MAPS = (
+    _FLAT + '[calibration.outputs.net.map]\ncomplete = "s.gpkg"\npermanent = "p.gpkg"\n'
+)
+_OLD_MAPS = (
+    _FLAT + 'observed_network = "data.hydrography"\nminimal_stream_geometry_path = "p.gpkg"\n'
+)
+_ADDS_AN_EXTENT = "[calibration.outputs.net.extent]\nyear_quorum = 1.0\n"
+_ADDS_WEIGHTS = "[calibration.outputs.net.extent.weights]\nminimal = 0.25\nmaximal = 0.75\n"
+_ADDS_THE_PERMANENT_MAP = '[calibration.outputs.net]\nminimal_stream_geometry_path = "q.gpkg"\n'
+_ONE_STATE = 'calibrate_on = "permanent"\n'
+_SHARED = "calibrate_on = { permanent = 0.25, complete = 0.75 }\n[calibration.outputs.net.model.extent]\nyear_quorum = 1.0\n"
+_CHAINS = {
+    "a sibling with weights keeps them": (
+        _REWRITTEN_MAPS + _ONE_STATE,
+        _ADDS_WEIGHTS,
+        (0.25, 0.75),
+    ),
+    "a sibling with an extent and no weights keeps half and half": (
+        _REWRITTEN_MAPS + _ONE_STATE,
+        _ADDS_AN_EXTENT,
+        (0.5, 0.5),
+    ),
+    "a parent unwritten with both maps and a child with an extent": (
+        _OLD_MAPS,
+        _ADDS_AN_EXTENT,
+        (0.5, 0.5),
+    ),
+    "a rewritten parent that shares the value keeps its share": (
+        _REWRITTEN_MAPS + _SHARED,
+        _ADDS_AN_EXTENT,
+        (0.25, 0.75),
+    ),
+    "a rewritten parent with one map and an extent, a child adds the other map": (
+        _FLAT
+        + '[calibration.outputs.net.map]\ncomplete = "s.gpkg"\n'
+        + _ADDS_AN_EXTENT.replace("net.extent", "net.model.extent"),
+        _ADDS_THE_PERMANENT_MAP,
+        (0.5, 0.5),
+    ),
+    "a rewritten role of one state stands under a new permanent map": (
+        _REWRITTEN_MAPS + 'calibrate_on = "complete"\n',
+        _ADDS_THE_PERMANENT_MAP,
+        (0.0, 1.0),
+    ),
+    "a rewritten role of one state stands beside an inherited extent": (
+        _REWRITTEN_MAPS + _ONE_STATE + _ADDS_AN_EXTENT.replace("net.extent", "net.model.extent"),
+        _ADDS_THE_PERMANENT_MAP,
+        (1.0, 0.0),
+    ),
+}
+
+
+@pytest.mark.parametrize(("parent", "child", "shares"), _CHAINS.values(), ids=_CHAINS.keys())
+def test_a_child_reads_the_share_its_old_form_scored(
+    tmp_path: Path, parent: str, child: str, shares: tuple[float, float]
+) -> None:
+    """Two passes: a parent left for its child is rewritten once the child says its role."""
+    _, leaf = _chain(tmp_path, parent, child)
+
+    fix_config_chain(leaf)
+    fix_config_chain(leaf)
+
+    read = load_toml_with_base_config(leaf)["calibration"]["outputs"]["net"]
+    weights = validate_calib_output(read).map.bound_weights
+    assert (weights.permanent, weights.complete) == shares
+    assert fix_config_chain(leaf) == {tmp_path / "parent.toml": [], leaf: []}
+
+
+@pytest.mark.parametrize(
+    "dotted",
+    [
+        'outputs.net.stream_geometry_path = "s.gpkg"\n',
+        'outputs.net.observed_rasterization = "crossing"\noutputs.net.heads_snap_radius = 80.0\n',
+        "outputs.net.extent.weights.minimal = 0.5\n",
+    ],
+    ids=["a_table_would_land_at_the_root", "a_key_it_cannot_remove", "an_old_extent"],
+)
+def test_the_doctor_refuses_an_output_held_by_dotted_keys(tmp_path: Path, dotted: str) -> None:
+    text = f'[calibration]\noutputs.net.support = "network"\n{dotted}'
+    path = _write(tmp_path, text)
+
+    assert fix_config_file(path) == [
+        "calibration.outputs.net"
+        f"{CANNOT_REWRITE}write the output as a table [calibration.outputs.net]"
+    ]
+    assert path.read_text() == text

@@ -84,7 +84,7 @@ def _doc(**calibration: object) -> dict[str, object]:
             "outputs": {
                 "seepage_network": {
                     "support": "network",
-                    "stream_geometry_path": "nancon.gpkg",
+                    "map": {"complete": "nancon.gpkg"},
                 }
             },
             **calibration,
@@ -308,7 +308,7 @@ class TestWhatItRefuses:
         doc = _doc()
         doc["calibration"]["outputs"]["other_network"] = {
             "support": "network",
-            "stream_geometry_path": "other.gpkg",
+            "map": {"complete": "other.gpkg"},
         }
 
         with pytest.raises(ValueError, match="network_output"):

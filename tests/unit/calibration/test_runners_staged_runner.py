@@ -844,9 +844,12 @@ def test_list_phases_prints_the_bounds_of_a_phase() -> None:
 
 NETWORK = {
     "support": "network",
-    "stream_geometry_path": "streams.gpkg",
-    "minimal_stream_geometry_path": "permanent.gpkg",
-    "extent": {},
+    "map": {
+        "complete": "streams.gpkg",
+        "permanent": "permanent.gpkg",
+        "calibrate_on": {"permanent": 0.5, "complete": 0.5},
+    },
+    "model": {"extent": {}},
 }
 POINT = {
     "support": "point",
@@ -890,8 +893,8 @@ def test_the_network_output_the_variable_names_is_kept(phase, section) -> None:
     phase_cfg = _phase_config(cfg, cfg.phases[0])
 
     assert set(phase_cfg.outputs) == {"net"}
-    assert phase_cfg.outputs["net"].extent is not None
-    assert str(phase_cfg.outputs["net"].minimal_stream_geometry_path) == "permanent.gpkg"
+    assert phase_cfg.outputs["net"].model.extent is not None
+    assert str(phase_cfg.outputs["net"].map.permanent) == "permanent.gpkg"
     # The one block the whole-file (objective, variable) route builds, no other.
     [block] = phase_cfg.objective_blocks
     assert (str(block.metric), list(block.uses_outputs)) == ("distance_gap", ["net"])
@@ -1040,7 +1043,7 @@ target = "flow.param.Sy.field.value"
 
 [calibration.outputs.net]
 support = "network"
-stream_geometry_path = "streams.gpkg"
+map.complete = "streams.gpkg"
 
 [calibration.outputs.gauge]
 variable = "discharge"
@@ -1173,9 +1176,7 @@ def test_list_phases_still_works_without_the_project_data_on_disk(tmp_path: Path
 
 @pytest.mark.fast
 def test_a_network_output_mapped_from_the_project_names_its_source(tmp_path: Path) -> None:
-    text = SECTION.replace(
-        'stream_geometry_path = "streams.gpkg"', 'observed_network = "data.hydrography"'
-    )
+    text = SECTION.replace('map.complete = "streams.gpkg"', 'map.complete = "data.hydrography"')
     cfg = _config__objective_comparison(tmp_path, text + PHASES)
 
     rows = _rows_by_phase(cfg)["k_network"]
@@ -1236,7 +1237,7 @@ def _config__phase_metric(phases: list[dict]) -> CalibrationConfig:
     return _cfg(
         *phases,
         method="grid",
-        outputs={"net": {"support": "network", "stream_geometry_path": "streams.gpkg"}},
+        outputs={"net": {"support": "network", "map": {"complete": "streams.gpkg"}}},
         objective_blocks=[
             {"name": "abherve_gap", "metric": "distance_gap", "uses_outputs": ["net"]}
         ],
@@ -1336,7 +1337,7 @@ def _config__phase_objective(phases: list[dict]) -> CalibrationConfig:
         *phases,
         method="grid",
         outputs={
-            "net": {"support": "network", "stream_geometry_path": "streams.gpkg"},
+            "net": {"support": "network", "map": {"complete": "streams.gpkg"}},
             "q": {**q_output, "observed_values": [1.0, 2.0, 3.0]},
         },
         objective_blocks=[NETWORK_BLOCK, HYDROGRAPH_BLOCK],
@@ -2373,7 +2374,7 @@ def test_a_phase_scoring_only_a_network_output_keeps_its_report(
     network = """
 [calibration.outputs.net]
 support = "network"
-observed_network = "data.hydrography"
+map.complete = "data.hydrography"
 
 [calibration.outputs.net.verdict]
 max_catchment_mismatch = false
@@ -2604,7 +2605,7 @@ def _run(name: str, extra: dict) -> SimpleNamespace:
 
 
 def _paragraph() -> str:
-    net = validate_calib_output({"support": "network", "stream_geometry_path": "map.gpkg"})
+    net = validate_calib_output({"support": "network", "map": {"complete": "map.gpkg"}})
     cfg = SimpleNamespace(
         protocol=MatchingHydrographicNetworkOptions(name=NAME, storage="Sy"),
         outputs={"net": net},

@@ -86,7 +86,6 @@ def preflight_calibration(config: Any, *, source: str | Path) -> list[PreflightF
     findings.extend(_check_the_backend_can_serve_the_outputs(calibration, searched))
     findings.extend(_check_the_network_criterion_is_not_asked_to_pick_a_ridge(calibration))
     findings.extend(_check_the_network_search_can_trust_its_release_packages(calibration, searched))
-    findings.extend(_check_the_minimal_maps_are_there(calibration, where_from))
     findings.extend(_check_an_extent_is_scored_on_a_transient_run(calibration, searched))
     findings.extend(_check_the_extent_durations_fit_the_timestep(calibration, searched))
     findings.extend(_check_a_network_estimator_names_its_network_output(calibration))
@@ -348,7 +347,7 @@ def comparison_lines(cfg: Any, source: Path) -> list[str]:
     it is compared against, and the window the phase scores on. A plain calibration with no
     ``[[calibration.phases]]`` still runs one search, so it gets one table
     under ``[calibration]``. ``source`` anchors a relative
-    ``stream_geometry_path`` the same way the run would.
+    ``map.complete`` the same way the run would.
     """
     from hydromodpy.calibration.runners.cli_runner import (
         declared_window_text,
@@ -597,7 +596,7 @@ def _check_outputs(calibration: Any, source: Path, project_config: Any) -> list[
 
     The geometry is looked for exactly where the run looks for it, so a file
     preflight calls missing is one the run would call missing too. A declared
-    ``observed_network`` or ``minimal_observed_network`` is faced with the
+    ``map.complete`` or ``map.permanent`` is faced with the
     project the same way a parameter's name is faced with the catalog:
     refused here beside whatever else is wrong, rather than at the first trial.
     """
@@ -608,40 +607,30 @@ def _check_outputs(calibration: Any, source: Path, project_config: Any) -> list[
     from hydromodpy.calibration.runners.cli_runner import resolve_stream_geometry_paths
 
     resolve_stream_geometry_paths(calibration, source)
-    refused_networks = unresolved_observed_networks(calibration, project_config)
-    refused_minimal_networks = unresolved_minimal_observed_networks(calibration, project_config)
+    refused = (
+        unresolved_observed_networks(calibration, project_config),
+        unresolved_minimal_observed_networks(calibration, project_config),
+    )
     findings: list[PreflightFinding] = []
-    for name, decl in (calibration.outputs or {}).items():
+    for name in calibration.outputs or {}:
         where = f"[calibration.outputs.{name}]"
-        if name in refused_networks:
-            findings.append(
-                PreflightFinding(
-                    "error",
-                    where,
-                    # The finding already names the section in its 'where' column.
-                    refused_networks[name].replace(f"{where} ", "", 1),
-                )
-            )
-        if name in refused_minimal_networks:
-            findings.append(
-                PreflightFinding(
-                    "error",
-                    where,
-                    # The finding already names the section in its 'where' column.
-                    refused_minimal_networks[name].replace(f"{where} ", "", 1),
-                )
-            )
-        geometry = getattr(decl, "stream_geometry_path", None)
-        if geometry and not Path(str(geometry)).exists():
-            findings.append(
-                PreflightFinding(
-                    "error",
-                    where,
-                    f"stream_geometry_path {str(geometry)!r} is not there, and none of the "
-                    "places the run looks holds it. The criterion resolves no geometry "
-                    "of its own, so the run would stop at the first trial.",
-                )
-            )
+        findings.extend(
+            # The finding already names the section in its 'where' column.
+            PreflightFinding("error", where, reasons[name].replace(f"{where} ", "", 1))
+            for reasons in refused
+            if name in reasons
+        )
+    findings.extend(
+        PreflightFinding(
+            "error",
+            f"[calibration.outputs.{name}]",
+            f"map.{role} {str(path)!r} is not there, and none of the places the run looks "
+            "holds it. The criterion resolves no map of its own, so the run would stop at "
+            "the first trial.",
+        )
+        for name, role, path in calibration.map_files()
+        if not path.exists()
+    )
     return findings
 
 
@@ -1448,31 +1437,6 @@ def _check_the_network_search_can_trust_its_release_packages(
     return findings
 
 
-def _check_the_minimal_maps_are_there(calibration: Any, source: Path) -> list[PreflightFinding]:
-    """Refuse a ``minimal_stream_geometry_path`` that is not there.
-
-    Looked for where the run looks, anchored on the file that declares it, as
-    ``stream_geometry_path`` is. The run would read it at the first trial.
-    """
-    from hydromodpy.calibration.runners.cli_runner import resolve_stream_geometry_paths
-
-    resolve_stream_geometry_paths(calibration, source)
-    findings: list[PreflightFinding] = []
-    for name, decl in (calibration.outputs or {}).items():
-        geometry = getattr(decl, "minimal_stream_geometry_path", None)
-        if geometry and not Path(str(geometry)).exists():
-            findings.append(
-                PreflightFinding(
-                    "error",
-                    f"[calibration.outputs.{name}]",
-                    f"minimal_stream_geometry_path {str(geometry)!r} is not there, and none of "
-                    "the places the run looks holds it. The minimal map is read at the "
-                    "first trial, so the run would stop there.",
-                )
-            )
-    return findings
-
-
 def _search_regime(project_config: Any, phase: Any | None) -> str | None:
     """Return the flow regime one search runs, or ``None`` when nothing says.
 
@@ -1489,6 +1453,15 @@ def _search_regime(project_config: Any, phase: Any | None) -> str | None:
     return str(getattr(written, "value", written)).strip().lower()
 
 
+def _extents_scored_by(calibration: Any, phase: Any | None) -> list[tuple[str, Any]]:
+    """Return ``(name, model.extent)`` of each network output a search scores with an extent."""
+    return [
+        (name, output.model.extent)
+        for name, output in sorted(_outputs_scored_by_search(calibration, phase).items())
+        if output.support == "network" and output.model.extent is not None
+    ]
+
+
 def _check_an_extent_is_scored_on_a_transient_run(
     calibration: Any, searched: Mapping[str | None, Any]
 ) -> list[PreflightFinding]:
@@ -1503,10 +1476,7 @@ def _check_an_extent_is_scored_on_a_transient_run(
         config = _config_of(searched, phase)
         if config is None or _search_regime(config, phase) != "steady":
             continue
-        outputs = _outputs_scored_by_search(calibration, phase)
-        for name, output in sorted(outputs.items()):
-            if getattr(output, "extent", None) is None:
-                continue
+        for name, _extent in _extents_scored_by(calibration, phase):
             ran_by = "[flow] flow_regime" if phase is None else where
             findings.append(
                 PreflightFinding(
@@ -1551,15 +1521,10 @@ def _check_the_extent_durations_fit_the_timestep(
         if value is None or unit is None:
             continue
         step_days = nominal_step_days(value, unit)
-        for name, output in sorted(_outputs_scored_by_search(calibration, phase).items()):
-            extent = getattr(output, "extent", None)
-            if extent is None:
-                continue
+        for name, extent in _extents_scored_by(calibration, phase):
             try:
-                maximal = flowing_steps(
-                    parse_extent_duration(extent.maximal_flowing_duration), step_days
-                )
-                dry = dry_steps(parse_extent_duration(extent.minimal_dry_duration), step_days)
+                maximal = flowing_steps(parse_extent_duration(extent.flowing_at_least), step_days)
+                dry = dry_steps(parse_extent_duration(extent.dry_at_most), step_days)
             except ValueError:
                 continue
             problems = extent_step_problems(
@@ -1571,9 +1536,9 @@ def _check_the_extent_durations_fit_the_timestep(
                 findings.append(
                     PreflightFinding(
                         "error",
-                        f"[calibration.outputs.{name}.extent]",
-                        f"maximal_flowing_duration = {extent.maximal_flowing_duration!r} and "
-                        f"minimal_dry_duration = {extent.minimal_dry_duration!r} cannot be "
+                        f"[calibration.outputs.{name}.model.extent]",
+                        f"flowing_at_least = {extent.flowing_at_least!r} and "
+                        f"dry_at_most = {extent.dry_at_most!r} cannot be "
                         f"read on a timestep of {step_days:g} days: " + "; ".join(problems) + ".",
                     )
                 )
@@ -1679,7 +1644,7 @@ def _check_the_scoring_windows_hold_what_they_score(
         read = {str(name) for block in blocks for name in block.uses_outputs}
         for name in sorted(read & set(outputs)):
             output = outputs[name]
-            if output.support != "network" or getattr(output, "extent", None) is not None:
+            if output.support != "network" or output.model.extent is not None:
                 continue
             if edges is None or output.time in ("first", "last"):
                 continue

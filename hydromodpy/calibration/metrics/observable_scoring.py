@@ -212,7 +212,7 @@ def refuse_a_network_state_outside_the_window(
         output = outputs.get(name)
         if output is None or output.support != "network":
             continue
-        if getattr(output, "extent", None) is not None:
+        if output.model.extent is not None:
             continue
         time = getattr(output, "time", "last")
         try:

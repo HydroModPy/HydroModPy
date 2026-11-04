@@ -8,6 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 from hydromodpy.calibration.config import (
+    CalibNetworkModel,
     CalibOutputNetwork,
     CalibOutputPoint,
     CalibrationProtocolDecl,
@@ -75,7 +76,7 @@ def test_fill_is_not_read_as_a_departure() -> None:
 
 def _paragraph(document: dict) -> str:
 
-    net = validate_calib_output({"support": "network", "stream_geometry_path": "map.gpkg"})
+    net = validate_calib_output({"support": "network", "map": {"complete": "map.gpkg"}})
     cfg = SimpleNamespace(
         protocol=MatchingHydrographicNetworkOptions(name=NAME), outputs={"net": net}
     )
@@ -267,13 +268,12 @@ def test_the_descent_rule_is_declared_as_an_offered_departure() -> None:
     """
     record = protocol_record(NAME)
     deviations = {item["key"]: item for item in record["deviations"]}
-    assert "diagonal_neighbors" in deviations
-    assert "D8" in deviations["diagonal_neighbors"]["paper"]
-    assert "true by default" in deviations["diagonal_neighbors"]["here"]
-    assert "D4" in deviations["diagonal_neighbors"]["here"]
-    assert deviations["diagonal_neighbors"]["paper_value"] is True
+    assert "D8" in deviations["model.neighbours"]["paper"]
+    assert "'D8' by default" in deviations["model.neighbours"]["here"]
+    assert "'D4'" in deviations["model.neighbours"]["here"]
+    assert deviations["model.neighbours"]["paper_value"] == "D8"
     # The why carries both measurements, so a reader does not have to find them.
-    why = deviations["diagonal_neighbors"]["why"]
+    why = deviations["model.neighbours"]["why"]
     assert "6.6 per cent" in why
     assert "64.631" in why
 
@@ -288,7 +288,7 @@ def test_the_rasterisation_deviation_names_heads_as_the_new_default() -> None:
     """
     record = protocol_record(NAME)
     deviations = {item["key"]: item for item in record["deviations"]}
-    entry = deviations["observed_rasterization"]
+    entry = deviations["map.drawn_by"]
     assert "'heads' from version 1.3" in entry["here"]
     assert "it departs from the paper" in entry["here"]
     assert "'crossing' is offered and matches the paper" in entry["here"]
@@ -296,34 +296,36 @@ def test_the_rasterisation_deviation_names_heads_as_the_new_default() -> None:
     assert entry["paper_value"] == "crossing"
 
 
+def _model(neighbours: str) -> CalibNetworkModel:
+    return CalibNetworkModel.model_construct(_fields_set={"neighbours"}, neighbours=neighbours)
+
+
 def _diagonal_item(*outputs_named: tuple[str, object]):
     calibration = SimpleNamespace(outputs=dict(outputs_named), protocol=_declared())
-    return next(
-        item for item in deviations_in_force(calibration) if item.key == "diagonal_neighbors"
-    )
+    return next(item for item in deviations_in_force(calibration) if item.key == "model.neighbours")
 
 
 def test_the_value_a_file_actually_set_is_reported_even_when_it_is_false() -> None:
     # A boolean default is the case a "skip what is None" reader gets wrong, and it
     # is the one that matters here: false IS the departure.
     item = _diagonal_item(
-        ("net", CalibOutputNetwork.model_construct(support="network", diagonal_neighbors=False))
+        ("net", CalibOutputNetwork.model_construct(support="network", model=_model("D4")))
     )
 
     assert item.written is True
-    assert item.value is False
+    assert item.value == "D4"
     assert item.state == "departs"
 
 
-def test_a_gauge_s_own_diagonal_neighbors_is_not_read_as_the_network_s() -> None:
-    # Only the network output carries the criterion's diagonal_neighbors: a
+def test_a_gauge_s_own_neighbours_are_not_read_as_the_network_s() -> None:
+    # Only the network output carries the criterion's model.neighbours: a
     # value found on a gauge would report a departure the criterion never made.
     item = _diagonal_item(
-        ("gauge", CalibOutputPoint.model_construct(support="point", diagonal_neighbors=False)),
-        ("net", CalibOutputNetwork.model_construct(support="network", diagonal_neighbors=True)),
+        ("gauge", CalibOutputPoint.model_construct(support="point", model=_model("D4"))),
+        ("net", CalibOutputNetwork.model_construct(support="network", model=_model("D8"))),
     )
 
-    assert item.value is True
+    assert item.value == "D8"
     assert item.state == "as_paper"
 
 
@@ -333,14 +335,14 @@ def test_a_default_the_file_left_unwritten_is_not_claimed_by_it() -> None:
     item = _diagonal_item(("net", CalibOutputNetwork.model_construct(support="network")))
 
     assert item.written is False
-    assert item.value is True
+    assert item.value == "D8"
 
 
 def test_a_value_the_version_writes_is_not_claimed_by_the_file() -> None:
     # The expansion writes the values of the version into the output, so a value
     # that is merely the version's is set on the model and chosen by nobody.
     item = _diagonal_item(
-        ("net", CalibOutputNetwork.model_construct(support="network", diagonal_neighbors=True))
+        ("net", CalibOutputNetwork.model_construct(support="network", model=_model("D8")))
     )
 
     assert item.written is False
@@ -459,11 +461,11 @@ class TestItReportsTheDepartures:
         text = methods_paragraph(
             NAME,
             stages_that_ran=["steady_conductivity"],
-            chosen={"weighting": "area"},
+            chosen={"model.weighting": "area"},
         )
 
         assert "departs from the published method" in text
-        assert "weighting" in text
+        assert "model.weighting" in text
         assert "one cell one vote" in text
 
     def test_a_run_on_the_paper_s_settings_claims_no_departure(self) -> None:
@@ -478,34 +480,34 @@ class TestItReportsTheDepartures:
         text = methods_paragraph(
             NAME,
             stages_that_ran=["steady_conductivity"],
-            chosen={"weighting": "cell", "diagonal_neighbors": True},
+            chosen={"model.weighting": "cell", "model.neighbours": "D8"},
         )
 
         assert "departs from the published method" not in text
 
-    def test_diagonal_neighbors_false_is_the_one_that_departs(self) -> None:
+    def test_a_d4_descent_is_the_one_that_departs(self) -> None:
         text = methods_paragraph(
             NAME,
             stages_that_ran=["steady_conductivity"],
-            chosen={"diagonal_neighbors": False},
+            chosen={"model.neighbours": "D4"},
         )
 
         assert "departs from the published method" in text
-        assert "diagonal_neighbors" in text
+        assert "model.neighbours" in text
 
     def test_the_touch_rasterisation_departs_and_crossing_does_not(self) -> None:
         touch = methods_paragraph(
             NAME,
             stages_that_ran=["steady_conductivity"],
-            chosen={"observed_rasterization": "touch"},
+            chosen={"map.drawn_by": "touch"},
         )
         crossing = methods_paragraph(
             NAME,
             stages_that_ran=["steady_conductivity"],
-            chosen={"observed_rasterization": "crossing"},
+            chosen={"map.drawn_by": "crossing"},
         )
 
-        assert "observed_rasterization was set to 'touch'" in touch
+        assert "map.drawn_by was set to 'touch'" in touch
         assert "departs from the published method" not in crossing
 
     def test_the_run_reads_the_network_output_and_not_a_gauge(self) -> None:
@@ -519,8 +521,7 @@ class TestItReportsTheDepartures:
             "net": validate_calib_output(
                 {
                     "support": "network",
-                    "stream_geometry_path": "map.gpkg",
-                    "observed_rasterization": "touch",
+                    "map": {"complete": "map.gpkg", "drawn_by": "touch"},
                 }
             ),
         }
@@ -536,14 +537,14 @@ class TestItReportsTheDepartures:
         text = _methods_paragraph_for(cfg, [steady], [])
 
         assert text is not None
-        assert "observed_rasterization was set to 'touch'" in text
-        assert "diagonal_neighbors" not in text
+        assert "map.drawn_by was set to 'touch'" in text
+        assert "model.neighbours" not in text
 
     def test_a_declared_validity_length_departs_in_metres_and_auto_does_not(self) -> None:
 
         def paragraph(**declared: object) -> str:
             net = validate_calib_output(
-                {"support": "network", "stream_geometry_path": "map.gpkg", **declared}
+                {"support": "network", "map": {"complete": "map.gpkg"}, **declared}
             )
             cfg = SimpleNamespace(
                 protocol=MatchingHydrographicNetworkOptions(name=NAME), outputs={"net": net}
@@ -556,9 +557,9 @@ class TestItReportsTheDepartures:
             assert text is not None
             return text
 
-        declared = paragraph(validity_length="300 m")
+        declared = paragraph(verdict={"validity_length": "300 m"})
 
-        assert "validity_length was set to '300 m'" in declared
+        assert "verdict.validity_length was set to '300 m'" in declared
         assert "r_optim = D_optim / DEMres <= 2" in declared
         assert "validity_length" not in paragraph()
 

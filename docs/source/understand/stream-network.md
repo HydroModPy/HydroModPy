@@ -56,7 +56,7 @@ gives back more than a small share of the mean {term}`recharge` over its area
 (the {term}`seepage threshold`). The test is
 made on the flux because the water budget fixes the flux, while "the head touches the ground"
 is a geometric condition that changes a lot when the drain conductance moves. The setting
-is {toml}`tau_specific_ratio|calibration.outputs.<name>.tau_specific_ratio`.
+is {toml}`seepage_threshold|calibration.outputs.<name>.model.seepage_threshold`.
 
 ## Seepage cells draw the network
 
@@ -177,7 +177,7 @@ read afterwards, to score and to draw ({doc}`reading-results`). You declare it a
 To compare the two networks, the lines of the map are first placed on the model cells.
 By default HydroModPy keeps only the places where the map says a stream starts, and lets the
 slope of the model draw the path below them
-({toml}`observed_rasterization|calibration.outputs.<name>.observed_rasterization`). Field ditches and rectified
+({toml}`drawn_by|calibration.outputs.<name>.map.drawn_by`). Field ditches and rectified
 reaches follow paths that a model on a digital elevation model cannot reproduce, and drawn
 cell by cell they would count as errors of the model.
 

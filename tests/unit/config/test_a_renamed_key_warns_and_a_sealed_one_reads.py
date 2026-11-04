@@ -94,7 +94,9 @@ bounds = [5e-3, 0.35]
 
 [calibration.outputs.seepage_network]
 support = "network"
-stream_geometry_path = "nancon_stream_network.gpkg"
+
+[calibration.outputs.seepage_network.map]
+complete = "nancon_stream_network.gpkg"
 
 [calibration.protocol]
 name = "matching_hydrographic_network"
@@ -629,3 +631,29 @@ def test_a_value_that_changes_form_cannot_follow_a_path_alone() -> None:
     assert any("a bind line holds a column" in change for change in changes)
     assert any("a search cannot move it" in change for change in changes)
     assert "minimal_dry_steps" in str(doc["sites"]["bind"])
+
+
+def test_a_run_sealed_on_a_network_from_the_dem_still_reads(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    old = (
+        PROJECT.replace("[calibration.protocol]\n", "[[calibration.objective_blocks]]\n")
+        .replace(
+            'name = "matching_hydrographic_network"\n',
+            'name = "network"\nmetric = "distance_gap"\nuses_outputs = ["seepage_network"]\n',
+        )
+        .replace(
+            '[calibration.outputs.seepage_network.map]\ncomplete = "nancon_stream_network.gpkg"\n',
+            'observed_network = "geographic.river_network"\nheads_snap_radius = 80.0\n',
+        )
+    )
+    (project / "project.toml").write_text(old, encoding="utf-8")
+    sealed = project / "runs" / "nancon" / "config.toml"
+    sealed.parent.mkdir(parents=True)
+    sealed.write_text(old, encoding="utf-8")
+
+    output = HydroModPyConfig.from_toml(sealed).calibration.outputs["seepage_network"]
+
+    assert output.map.complete is None
+    assert output.map.heads.radius.to("m").magnitude == 80.0
+    with pytest.raises(ConfigValidationError, match="renamed to 'map.complete'"):
+        HydroModPyConfig.from_toml(project / "project.toml")

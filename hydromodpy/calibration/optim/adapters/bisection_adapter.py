@@ -300,17 +300,16 @@ def _residual_near(pairs: Sequence[tuple[float, float]], x: float) -> float | No
 def roots_scored(outputs: Iterable[Any]) -> int:
     """Return how many roots a root search on these network outputs closes: 1 or 2.
 
-    Two when an output declares both an extent table and a minimal map, and
-    weighs both bounds above zero: the criterion then publishes one residual
+    Two when an output declares both a ``model.extent`` table and a permanent map,
+    and weighs both bounds above zero: the criterion then publishes one residual
     per bound. One otherwise, which is the paper's search. Read off the
     declarations, before any solve, so the budget can count both roots.
     """
     for output in outputs:
-        extent = getattr(output, "extent", None)
-        if extent is None or not getattr(output, "has_minimal_map", False):
+        if output.model.extent is None or output.map.permanent is None:
             continue
-        weights = extent.weights
-        if float(weights.minimal) > 0.0 and float(weights.maximal) > 0.0:
+        weights = output.map.bound_weights
+        if float(weights.permanent) > 0.0 and float(weights.complete) > 0.0:
             return 2
     return 1
 

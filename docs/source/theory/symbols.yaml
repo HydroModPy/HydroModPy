@@ -1118,7 +1118,7 @@ symbols:
     symbol: \mathcal{N}_D(n)
     meaning: "neighbours a cell may drain to: the cells sharing a node on a quad mesh, a face on any other"
     unit: "-"
-    set_by: ":toml:`diagonal_neighbors|calibration.outputs.<name>.diagonal_neighbors` for the criterion"
+    set_by: ":toml:`neighbours|calibration.outputs.<name>.model.neighbours` for the criterion"
     group: exits
     pages: [exits/routing-on-the-mesh, downslope-distance]
   - id: drain-conductance
@@ -1277,9 +1277,9 @@ symbols:
     pages: [exits/simulated-network]
   - id: seep-ratio
     symbol: \tau_\mathrm{s}
-    meaning: "share of its own recharge a cell must release to count as a source"
+    meaning: "share of the mean basin recharge, over its own area, a cell must release to count as a source"
     unit: "-"
-    set_by: ":toml:`tau_specific_ratio|calibration.outputs.<name>.tau_specific_ratio`"
+    set_by: ":toml:`seepage_threshold|calibration.outputs.<name>.model.seepage_threshold`"
     group: exits
     pages: [exits/simulated-network, downslope-distance]
   - id: routed-discharge
@@ -1293,7 +1293,7 @@ symbols:
     symbol: \Phi_\mathrm{vis}
     meaning: "routed discharge a cell must carry to flow"
     unit: "m³/s"
-    set_by: ":toml:`visible_flow|calibration.outputs.<name>.extent.visible_flow`"
+    set_by: ":toml:`visible_flow|calibration.outputs.<name>.model.extent.visible_flow`"
     group: exits
     pages: [exits/simulated-network]
   - id: sources
@@ -1371,7 +1371,7 @@ symbols:
     symbol: V
     meaning: the length :math:`D_{optim}` must stay under for the result to be valid (``validity_length_m``)
     unit: m
-    set_by: ":toml:`validity_length|calibration.outputs.<name>.validity_length`, :toml:`observed_position_accuracy|calibration.outputs.<name>.observed_position_accuracy`"
+    set_by: ":toml:`validity_length|calibration.outputs.<name>.verdict.validity_length`, :toml:`position_accuracy|calibration.outputs.<name>.map.position_accuracy`"
     group: descent
     pages: [notation, downslope-distance]
   - id: lcap
@@ -1385,7 +1385,7 @@ symbols:
     symbol: \alpha_o
     meaning: share of the mapped network in its own downslope closure, inside the catchment (``alpha_obs_closure_catchment``). A low value means the map and the model top disagree.
     unit: "-"
-    set_by: "warning level: :toml:`alpha_warning_threshold|calibration.outputs.<name>.alpha_warning_threshold`"
+    set_by: "warning level: :toml:`alpha_warning_threshold|calibration.outputs.<name>.verdict.alpha_warning_threshold`"
     group: descent
     pages: [notation, downslope-distance]
   - id: k-over-r
@@ -1406,7 +1406,7 @@ symbols:
     symbol: \mathcal{O}
     meaning: "the mapped network, drawn on the cells"
     unit: "-"
-    set_by: ":toml:`observed_rasterization|calibration.outputs.<name>.observed_rasterization`"
+    set_by: ":toml:`drawn_by|calibration.outputs.<name>.map.drawn_by`"
     group: descent
     pages: [downslope-distance]
   - id: distance-to-set
@@ -1455,7 +1455,7 @@ symbols:
     symbol: \mu(n)
     meaning: "weight of a cell in a mean: 1, or its area"
     unit: "1 or m²"
-    set_by: ":toml:`weighting|calibration.outputs.<name>.weighting`"
+    set_by: ":toml:`weighting|calibration.outputs.<name>.model.weighting`"
     group: descent
     pages: [downslope-distance]
   - id: unreachable
@@ -1469,21 +1469,21 @@ symbols:
     symbol: \sigma_o
     meaning: "positional accuracy of the mapped network"
     unit: "m"
-    set_by: ":toml:`observed_position_accuracy|calibration.outputs.<name>.observed_position_accuracy`"
+    set_by: ":toml:`position_accuracy|calibration.outputs.<name>.map.position_accuracy`"
     group: descent
     pages: [downslope-distance]
   - id: snap-radius
     symbol: r_s
     meaning: "largest distance between a stream head and the cell it lands on"
     unit: "m"
-    set_by: ":toml:`heads_snap_radius|calibration.outputs.<name>.heads_snap_radius`"
+    set_by: ":toml:`heads.radius|calibration.outputs.<name>.map.heads.radius`"
     group: descent
     pages: [downslope-distance]
   - id: head-area
     symbol: A_{d,\min}
     meaning: "drained area a cell needs before a head may land on it"
     unit: "km²"
-    set_by: ":toml:`heads_min_drained_area_km2|calibration.outputs.<name>.heads_min_drained_area_km2`"
+    set_by: ":toml:`heads.min_drained_area|calibration.outputs.<name>.map.heads.min_drained_area`"
     group: descent
     pages: [downslope-distance]
 

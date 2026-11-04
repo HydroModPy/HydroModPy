@@ -495,8 +495,8 @@ bounds = [5e-3, 0.35]
 
 [calibration.outputs.seepage_network]
 support = "network"
-stream_geometry_path = "a_stream_network.gpkg"
-diagonal_neighbors = true
+map.complete = "a_stream_network.gpkg"
+model.neighbours = "D8"
 
 [[calibration.objective_blocks]]
 name = "network"
@@ -549,7 +549,7 @@ def test_file_backed_python_phases_document_keeps_the_projects_own_paths(
     from hydromodpy.project import Project
 
     config_path = _write_real_project(tmp_path)
-    # Where the project resolves a bare relative stream_geometry_path: same
+    # Where the project resolves a bare relative map.complete: same
     # directory as project.toml. Content is never read, only existence.
     (tmp_path / "k_python_stream_network.gpkg").write_bytes(b"")
 
@@ -566,8 +566,8 @@ def test_file_backed_python_phases_document_keeps_the_projects_own_paths(
             outputs={
                 "streams": {
                     "support": "network",
-                    "stream_geometry_path": "k_python_stream_network.gpkg",
-                    "diagonal_neighbors": True,
+                    "map": {"complete": "k_python_stream_network.gpkg"},
+                    "model": {"neighbours": "D8"},
                 }
             },
             objective_blocks=[
@@ -591,10 +591,10 @@ def test_file_backed_python_phases_document_keeps_the_projects_own_paths(
     assert written.workspace.project_root == expected.workspace.project_root
     assert written.geographic.catchment.dem_init_path == expected.geographic.catchment.dem_init_path
 
-    # The relative stream_geometry_path is meant relative to the project, as
+    # The relative map.complete is meant relative to the project, as
     # in TOML mode: the document must carry it resolved, not relative to
     # sessions/, one level short of where the project keeps it.
-    assert written.calibration.outputs["streams"].stream_geometry_path == (
+    assert written.calibration.outputs["streams"].map.complete == (
         (tmp_path / "k_python_stream_network.gpkg").resolve()
     )
 
@@ -816,7 +816,7 @@ protocol = "matching_hydrographic_network"
 
 [calibration.outputs.streams]
 support = "network"
-stream_geometry_path = "streams.gpkg"
+map.complete = "streams.gpkg"
 
 [[data.hydrometry.sources]]
 station_ids = ["G1"]
@@ -862,7 +862,7 @@ protocol = "matching_hydrographic_network"
 
 [calibration.outputs.streams]
 support = "network"
-stream_geometry_path = "streams.gpkg"
+map.complete = "streams.gpkg"
 
 [calibration.outputs.hydrograph]
 variable = "discharge"

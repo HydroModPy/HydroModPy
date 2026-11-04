@@ -17,53 +17,54 @@ calibration.objective_blocks.normalize_cost	bool	False	experimental
 calibration.objective_blocks.uses_outputs	list[str]	<required>	experimental
 calibration.objective_blocks.weight	float	1.0	experimental
 calibration.outputs	dict[str, table]	{}	experimental
-calibration.outputs.alpha_warning_threshold	float	0.9	experimental
 calibration.outputs.boundary_id	str	<required>	experimental
-calibration.outputs.clip_map_to_catchment	bool	True	experimental
-calibration.outputs.clipping_warning_gap	float	0.05	experimental
-calibration.outputs.clipping_warning_share	float	0.1	experimental
 calibration.outputs.col	int	<required>	experimental
-calibration.outputs.diagonal_neighbors	bool	True	experimental
-calibration.outputs.extent	table | None	None	experimental
-calibration.outputs.extent.maximal_flowing_duration	str | None	None	experimental
-calibration.outputs.extent.minimal_dry_duration	str | None	None	experimental
-calibration.outputs.extent.visible_flow	str	'1 L/s'	experimental
-calibration.outputs.extent.weights	table	<table>	experimental
-calibration.outputs.extent.weights.maximal	float	0.5	experimental
-calibration.outputs.extent.weights.minimal	float	0.5	experimental
-calibration.outputs.extent.year_quorum	float	0.5	experimental
 calibration.outputs.geometry	dict[str, Any] | None	None	experimental
-calibration.outputs.heads_min_drained_area_km2	float	0.02	experimental
-calibration.outputs.heads_snap_radius	Any	100.0	experimental
 calibration.outputs.lake_id	str	<required>	experimental
 calibration.outputs.layer	int | None	None	experimental
-calibration.outputs.minimal_observed_network	Literal['data.hydrography'] | None	None	experimental
-calibration.outputs.minimal_stream_geometry_path	Path | None	None	experimental
-calibration.outputs.observed_network	Literal['data.hydrography', 'geographic.river_network'] | None	None	experimental
-calibration.outputs.observed_position_accuracy	Any | None	None	experimental
-calibration.outputs.observed_rasterization	Literal['heads', 'crossing', 'touch']	'heads'	experimental
+calibration.outputs.map	table	<required>	experimental
+calibration.outputs.map.calibrate_on	Literal['permanent', 'complete'] | table | None	None	experimental
+calibration.outputs.map.calibrate_on.complete	float	0.5	experimental
+calibration.outputs.map.calibrate_on.permanent	float	0.5	experimental
+calibration.outputs.map.clip_to_catchment	bool	True	experimental
+calibration.outputs.map.complete	Literal['data.hydrography'] | Path | None	None	experimental
+calibration.outputs.map.drawn_by	Literal['heads', 'crossing', 'touch']	'heads'	experimental
+calibration.outputs.map.heads	table | None	None	experimental
+calibration.outputs.map.heads.min_drained_area	float	0.02	experimental
+calibration.outputs.map.heads.radius	Any	100.0	experimental
+calibration.outputs.map.permanent	Literal['data.hydrography'] | Path | None	None	experimental
+calibration.outputs.map.position_accuracy	Any | None	None	experimental
+calibration.outputs.model	table	<table>	experimental
+calibration.outputs.model.extent	table | None	None	experimental
+calibration.outputs.model.extent.dry_at_most	str | None	None	experimental
+calibration.outputs.model.extent.flowing_at_least	str | None	None	experimental
+calibration.outputs.model.extent.visible_flow	str	'1 L/s'	experimental
+calibration.outputs.model.extent.year_quorum	float	0.5	experimental
+calibration.outputs.model.neighbours	Literal['D8', 'D4']	'D8'	experimental
+calibration.outputs.model.seepage_threshold	float	0.0001	experimental
+calibration.outputs.model.weighting	Literal['cell', 'area']	'cell'	experimental
 calibration.outputs.observed_values	list[float] | None	None	experimental
 calibration.outputs.observes	str | None	None	experimental
-calibration.outputs.on_roptim_violation	Literal['warn', 'error']	'warn'	experimental
 calibration.outputs.reducer	Literal['mean', 'sum', 'last', 'none']	'none'	experimental
 calibration.outputs.row	int	<required>	experimental
 calibration.outputs.snap_radius	Any | None	None	experimental
-calibration.outputs.stream_geometry_path	Path | None	None	experimental
 calibration.outputs.support	Literal['boundary']	'boundary'	experimental
 calibration.outputs.support	Literal['cell']	'cell'	experimental
 calibration.outputs.support	Literal['lake']	'lake'	experimental
 calibration.outputs.support	Literal['network']	'network'	experimental
 calibration.outputs.support	Literal['point']	'point'	experimental
-calibration.outputs.tau_specific_ratio	float	0.0001	experimental
 calibration.outputs.time	Literal['all', 'last', 'first']	'all'	experimental
 calibration.outputs.time	Literal['last', 'first'] | str	'last'	experimental
-calibration.outputs.validity_length	Literal['auto'] | Any	'auto'	experimental
 calibration.outputs.variable	Literal['stage', 'volume', 'surface_area']	'stage'	experimental
 calibration.outputs.variable	str	'release_flux'	experimental
 calibration.outputs.variable	str	<required>	experimental
 calibration.outputs.verdict	table	<table>	experimental
+calibration.outputs.verdict.alpha_warning_threshold	float	0.9	experimental
+calibration.outputs.verdict.clipping_warning_gap	float	0.05	experimental
+calibration.outputs.verdict.clipping_warning_share	float	0.1	experimental
 calibration.outputs.verdict.max_catchment_mismatch	float | Literal[False]	0.05	experimental
-calibration.outputs.weighting	Literal['cell', 'area']	'cell'	experimental
+calibration.outputs.verdict.on_invalid	Literal['warn', 'error']	'warn'	experimental
+calibration.outputs.verdict.validity_length	Literal['auto'] | Any	'auto'	experimental
 calibration.outputs.x	Any | None	None	experimental
 calibration.outputs.y	Any | None	None	experimental
 calibration.parallel	int	1	experimental

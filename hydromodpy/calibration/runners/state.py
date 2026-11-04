@@ -319,16 +319,10 @@ _SHAPEFILE_PARTS = (".shp", ".shx", ".dbf", ".prj", ".cpg")
 def _observed_map_digests(cfg: CalibrationConfig) -> dict[str, str]:
     """Return the content digest of each map file an output scores against.
 
-    Keyed by ``<output>.<field>``. The paths are the ones the run reads, already
+    Keyed by ``<output>.map.<role>``. The paths are the ones the run reads, already
     anchored on the file that declares them.
     """
-    digests: dict[str, str] = {}
-    for name, output in sorted((cfg.outputs or {}).items()):
-        for field in ("stream_geometry_path", "minimal_stream_geometry_path"):
-            declared = getattr(output, field, None)
-            if declared:
-                digests[f"{name}.{field}"] = _map_digest(Path(declared))
-    return digests
+    return {f"{name}.map.{role}": _map_digest(path) for name, role, path in sorted(cfg.map_files())}
 
 
 def _map_digest(path: Path) -> str:

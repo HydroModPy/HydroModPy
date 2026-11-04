@@ -29,7 +29,7 @@ _PROTOCOL = textwrap.dedent(
 
     [calibration.outputs.streams]
     support = "network"
-    stream_geometry_path = "streams.gpkg"
+    map.complete = "streams.gpkg"
 
     [[data.hydrometry.sources]]
     station_ids = ["G1"]

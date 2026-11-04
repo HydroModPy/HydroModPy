@@ -116,8 +116,8 @@ $$
 \qquad w_{\min} + w_{\max} = 1,
 $$
 
-with the weights {toml}`calibration.outputs.<name>.extent.weights.minimal` and
-{toml}`calibration.outputs.<name>.extent.weights.maximal`.
+with the weights $w_{\min}$ and $w_{\max}$ of the permanent and the complete map, written in
+{toml}`calibration.outputs.<name>.map.calibrate_on`.
 
 What the root identifies is the ratio of the conductivity to the recharge, not $K$ alone,
 as long as the drains take their conductance from $K$. The argument is in

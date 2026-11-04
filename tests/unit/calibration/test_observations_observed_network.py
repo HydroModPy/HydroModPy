@@ -218,9 +218,8 @@ def output(tmp_path_factory):
     return validate_calib_output(
         {
             "support": "network",
-            "stream_geometry_path": str(path),
-            "diagonal_neighbors": True,
-            "tau_specific_ratio": 0.0,
+            "map": {"complete": str(path)},
+            "model": {"neighbours": "D8", "seepage_threshold": 0.0},
         }
     )
 
@@ -307,7 +306,6 @@ def _diagonal() -> ObservedNetwork:
         geometry=gpd.GeoDataFrame(geometry=[line], crs=CRS),
         crs=CRS,
         clipped=False,
-        dem_derived=False,
         path="map.gpkg",
     )
 
@@ -335,7 +333,7 @@ def test_touch_is_accepted_and_adds_the_corner_pairs() -> None:
 
 @pytest.mark.usefixtures("_fresh_unplaced_reports")
 def test_an_unknown_rule_is_refused() -> None:
-    with pytest.raises(ValueError, match="observed_rasterization"):
+    with pytest.raises(ValueError, match="map.drawn_by"):
         _mask(_run_ctx(), rasterization="centroid")
 
 
@@ -374,7 +372,6 @@ def test_a_reach_off_the_mesh_is_reported_as_left_out(caplog) -> None:
         ),
         crs=CRS,
         clipped=True,
-        dem_derived=False,
         path="map.gpkg",
     )
     vertices, connectivity = quad_mesh(N, N, cell_size=CELL)
@@ -398,7 +395,6 @@ def _unclipped(*extra: LineString) -> ObservedNetwork:
         ),
         crs=CRS,
         clipped=False,
-        dem_derived=False,
         path="map.gpkg",
     )
 
@@ -549,9 +545,9 @@ def test_a_new_placement_is_measured_again(tmp_path, caplog) -> None:
 # maximal map.
 
 
-def _output(**overrides):
+def _output(map=None, **overrides):
     return validate_calib_output(
-        {"support": "network", "observed_network": "data.hydrography", **overrides}
+        {"support": "network", "map": {"complete": "data.hydrography", **(map or {})}, **overrides}
     )
 
 
@@ -572,14 +568,13 @@ def _run_ctx__minimal_map(*, reference_permanent=None):
 class TestAReferencePermanentNetworkIsScored:
     def test_the_run_s_reference_permanent_network_resolves_the_minimal_map(self) -> None:
         run_ctx = _run_ctx__minimal_map(reference_permanent=_permanent_network())
-        output = _output(minimal_observed_network="data.hydrography")
+        output = _output(map={"permanent": "data.hydrography", "calibrate_on": "permanent"})
 
         resolved = resolve_minimal_network(run_ctx, output)
 
         assert resolved is not None
         assert resolved.source == "data.hydrography"
         assert resolved.clipped is True
-        assert resolved.dem_derived is False
         assert resolved.path == "/data/streams_permanent.shp"
         assert resolved.crs == CRS
         assert len(resolved.geometry) == 2
@@ -599,7 +594,7 @@ class TestAReferencePermanentNetworkIsScored:
                 )
             )
         )
-        output = _output(minimal_observed_network="data.hydrography")
+        output = _output(map={"permanent": "data.hydrography", "calibrate_on": "permanent"})
 
         with pytest.raises(UnresolvedObservedNetwork):
             resolve_minimal_network(run_ctx, output)
@@ -608,14 +603,13 @@ class TestAReferencePermanentNetworkIsScored:
 class TestARunWithoutAPermanentNetworkIsRefusedByName:
     def test_a_run_without_reference_permanent_is_refused_by_name(self) -> None:
         run_ctx = _run_ctx__minimal_map(reference_permanent=None)
-        output = _output(minimal_observed_network="data.hydrography")
+        output = _output(map={"permanent": "data.hydrography", "calibrate_on": "permanent"})
 
         with pytest.raises(UnresolvedObservedNetwork) as excinfo:
             resolve_minimal_network(run_ctx, output)
         message = str(excinfo.value)
-        assert "minimal_observed_network" in message
-        assert "data.hydrography" in message
-        assert "minimal_stream_geometry_path" in message
+        assert "map.permanent = 'data.hydrography'" in message
+        assert "as a file in 'map.permanent'" in message
 
     def test_no_minimal_source_declared_resolves_to_none(self) -> None:
         run_ctx = _run_ctx__minimal_map(reference_permanent=_permanent_network())
@@ -633,7 +627,7 @@ class TestTheExplicitFileStillResolves:
             path, driver="GPKG"
         )
         run_ctx = _run_ctx__minimal_map(reference_permanent=None)
-        output = _output(minimal_stream_geometry_path=str(path))
+        output = _output(map={"permanent": str(path), "calibrate_on": "permanent"})
 
         resolved = resolve_minimal_network(run_ctx, output)
 

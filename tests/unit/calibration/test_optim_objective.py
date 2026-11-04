@@ -85,7 +85,7 @@ from tests.unit.config.test_a_renamed_key_warns_and_a_sealed_one_reads import PR
 
 
 def _network_output() -> CalibOutputNetwork:
-    return validate_calib_output({"support": "network", "stream_geometry_path": "streams.gpkg"})
+    return validate_calib_output({"support": "network", "map": {"complete": "streams.gpkg"}})
 
 
 class TestTheDeclaration:
@@ -97,7 +97,7 @@ class TestTheDeclaration:
             validate_calib_output(
                 {
                     "support": "network",
-                    "stream_geometry_path": "streams.gpkg",
+                    "map": {"complete": "streams.gpkg"},
                     "observed_values": [0.0, 0.0],
                 }
             )
@@ -939,7 +939,7 @@ class TestDistanceBlock:
         return CalibrationConfig.model_validate(
             {
                 "method": "grid",
-                "outputs": {"net": {"support": "network", "stream_geometry_path": "streams.gpkg"}},
+                "outputs": {"net": {"support": "network", "map": {"complete": "streams.gpkg"}}},
                 "objective_blocks": [{"name": "gap", "metric": metric, "uses_outputs": ["net"]}],
                 **calibration,
             }

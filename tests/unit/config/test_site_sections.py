@@ -107,7 +107,7 @@ def test_the_site_scoped_fields_are_listed() -> None:
         "data.runoff.sources[].station_ids",
         "data.dem.sources[].mask_path",
         "calibration.outputs.*.observes",
-        "calibration.outputs.*.stream_geometry_path",
+        "calibration.outputs.*.map.complete",
     }
     assert expected <= paths
     # A regional input is shared by every site: not site scoped.

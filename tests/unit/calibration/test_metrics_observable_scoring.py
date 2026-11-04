@@ -235,7 +235,7 @@ class TestTheCost:
 
 
 class TestTheLengthsATrialPublishes:
-    NETWORK = validate_calib_output({"support": "network", "stream_geometry_path": "n.gpkg"})
+    NETWORK = validate_calib_output({"support": "network", "map": {"complete": "n.gpkg"}})
 
     def test_one_bound_reads_its_unsuffixed_length(self) -> None:
         found = network_distance_scales(
@@ -264,7 +264,7 @@ class TestAShareIsAShare:
 
     def _scorer(self) -> ObservableScorer:
         outputs = {
-            "net": validate_calib_output({"support": "network", "stream_geometry_path": "n.gpkg"}),
+            "net": validate_calib_output({"support": "network", "map": {"complete": "n.gpkg"}}),
             "q": boundary_output(observed_values=[1.0, 2.0, 3.0, 4.0]),
         }
         blocks = [
@@ -295,7 +295,7 @@ class TestTheUnitsOfASum:
         return {
             "parameters": {"K": {"bounds": [1e-8, 1e-2]}},
             "outputs": {
-                "net": {"support": "network", "stream_geometry_path": "n.gpkg"},
+                "net": {"support": "network", "map": {"complete": "n.gpkg"}},
                 "head": {
                     "variable": "head",
                     "support": "cell",
@@ -350,7 +350,7 @@ class TestTheIntervalOfANormalisedDistance:
         return CalibrationConfig.model_validate(
             {
                 "parameters": {"K": {"bounds": [1e-8, 1e-2]}},
-                "outputs": {"net": {"support": "network", "stream_geometry_path": "n.gpkg"}},
+                "outputs": {"net": {"support": "network", "map": {"complete": "n.gpkg"}}},
                 "objective_blocks": [
                     {
                         "name": "network",
@@ -554,7 +554,7 @@ BLOCKS = [objective_block("network", "distance_gap", ["net"])]
 def _network(time: str = "last") -> dict[str, object]:
     return {
         "net": validate_calib_output(
-            {"support": "network", "stream_geometry_path": "n.gpkg", "time": time}
+            {"support": "network", "map": {"complete": "n.gpkg"}, "time": time}
         )
     }
 
@@ -616,7 +616,7 @@ units = "m/s"
 
 [calibration.outputs.net]
 support = "network"
-stream_geometry_path = "{geometry}"
+map.complete = "{geometry}"
 time = "{time}"
 
 [[calibration.objective_blocks]]
@@ -967,7 +967,7 @@ def test_a_dates_window_is_identical_for_both_producers(
 
 def test_network_distances_and_diagnostics_do_not_masquerade_as_a_release_field() -> None:
     outputs = {
-        "net": validate_calib_output(dict(support="network", observed_network="data.hydrography"))
+        "net": validate_calib_output(dict(support="network", map={"complete": "data.hydrography"}))
     }
     blocks = [objective_block("network", "distance_gap", ["net"])]
     scorer = ObservableScorer(outputs, blocks)

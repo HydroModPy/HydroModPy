@@ -578,9 +578,7 @@ def test_the_protocol_writes_auto_for_its_steady_stage() -> None:
                 "K": {"bounds": list(NANCON_BOUNDS), "search_space": "log"},
                 "Sy": {"bounds": [1e-4, 0.5], "search_space": "log"},
             },
-            "outputs": {
-                "seepage_network": {"support": "network", "stream_geometry_path": "n.gpkg"}
-            },
+            "outputs": {"seepage_network": {"support": "network", "map": {"complete": "n.gpkg"}}},
         },
     }
 
@@ -628,7 +626,7 @@ units = "-"
 
 [calibration.outputs.seepage_network]
 support = "network"
-stream_geometry_path = "network.gpkg"
+map.complete = "network.gpkg"
 """
 
 

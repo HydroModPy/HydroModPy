@@ -59,7 +59,7 @@ def _write_python_mode_document(
     ``[calibration]`` (if any) carries over. Written beside ``sessions/``,
     under the project root the source file resolves to.
 
-    A relative ``stream_geometry_path`` in ``cfg`` is meant relative to the
+    A relative ``map.complete`` or ``map.permanent`` in ``cfg`` is meant relative to the
     project, the same as in TOML mode: :func:`resolve_stream_geometry_paths`
     is called here, anchored on the project's own file, before ``cfg`` is
     dumped, so the document carries an absolute path like the rest of the

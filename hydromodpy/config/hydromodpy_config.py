@@ -28,6 +28,7 @@ import json
 import os
 import re
 from collections.abc import Callable, Mapping, Sequence
+from functools import partial
 from pathlib import Path
 from typing import Annotated, Any, ClassVar, Literal
 
@@ -69,7 +70,7 @@ from hydromodpy.core.exceptions import (
 )
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.site import SiteConfig
-from hydromodpy.core.state.paths import resolve_project_root
+from hydromodpy.core.state.paths import is_sealed_run_config, resolve_project_root
 from hydromodpy.core.time.window import (
     build_simulation_time_boundaries,
     resolve_simulation_time_window,
@@ -1742,6 +1743,9 @@ class HydroModPyConfig(HydroModelBase):
             and _raw_declares_dem_source(raw.get("data", {}))
         )
 
+        sealed = context == "snapshot" or (
+            source_path is not None and is_sealed_run_config(source_path)
+        )
         section_loaders: dict[str, tuple[Any, Callable[[Any, Path], Any]]] = {
             "geographic": (
                 geographic_section,
@@ -1771,7 +1775,7 @@ class HydroModPyConfig(HydroModelBase):
             "observation": ({}, _std(ObservationConfig)),
             "overview": (None, _load_optional_overview_section),
             "mesh": (None, _load_optional_mesh_section),
-            "calibration": (None, _load_optional_calibration_section),
+            "calibration": (None, partial(_load_optional_calibration_section, sealed=sealed)),
             "spinup": (None, _load_optional_spinup_section),
             "site": (None, _optional_model(SiteConfig)),
             "sites": (None, _optional_model(SitesConfig)),

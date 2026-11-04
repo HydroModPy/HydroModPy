@@ -123,7 +123,7 @@ def _network_cfg() -> CalibrationConfig:
     return CalibrationConfig.model_validate(
         {
             "method": "grid",
-            "outputs": {"net": {"support": "network", "stream_geometry_path": "streams.gpkg"}},
+            "outputs": {"net": {"support": "network", "map": {"complete": "streams.gpkg"}}},
             "objective_blocks": [
                 {"name": "abherve", "metric": "distance_gap", "uses_outputs": ["net"]}
             ],
@@ -286,7 +286,7 @@ class TestReleasePackagesFollowK:
 # sealed into the target of ``D_so``, so every cell of the catchment reaches it.
 
 
-MAP = {"support": "network", "stream_geometry_path": "map.gpkg"}
+MAP = {"support": "network", "map": {"complete": "map.gpkg"}}
 
 
 def _cfg(**output) -> CalibrationConfig:
@@ -406,23 +406,23 @@ class TestTheVeto:
 class TestTheKeys:
     def test_the_old_bound_is_refused_with_the_key_that_replaces_it(self) -> None:
         with pytest.raises(ValidationError, match=r"verdict\] max_catchment_mismatch"):
-            CalibOutputNetwork(stream_geometry_path="map.gpkg", max_unreachable_fraction=0.05)
+            CalibOutputNetwork(map={"complete": "map.gpkg"}, max_unreachable_fraction=0.05)
 
     def test_true_is_refused(self) -> None:
         with pytest.raises(ValidationError, match="write a share"):
             CalibOutputNetwork(
-                stream_geometry_path="map.gpkg", verdict={"max_catchment_mismatch": True}
+                map={"complete": "map.gpkg"}, verdict={"max_catchment_mismatch": True}
             )
 
     def test_a_negative_share_is_refused(self) -> None:
         with pytest.raises(ValidationError):
             CalibOutputNetwork(
-                stream_geometry_path="map.gpkg", verdict={"max_catchment_mismatch": -0.1}
+                map={"complete": "map.gpkg"}, verdict={"max_catchment_mismatch": -0.1}
             )
 
     def test_false_survives_a_dump(self) -> None:
         output = CalibOutputNetwork(
-            stream_geometry_path="map.gpkg", verdict={"max_catchment_mismatch": False}
+            map={"complete": "map.gpkg"}, verdict={"max_catchment_mismatch": False}
         )
 
         reloaded = CalibOutputNetwork.model_validate(output.model_dump(mode="json"))

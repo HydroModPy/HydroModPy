@@ -15,14 +15,14 @@
 # Trois options ci-dessous n'ont PAS d'equivalent dans le script et ne sont
 # donc PAS des replicas ; ce sont des choix propres a ce fichier, a ne pas lire
 # comme "ce que fait le script" :
-#   - `weighting = "area"` : le script moyenne un point par pixel
+#   - `model.weighting = "area"` : le script moyenne un point par pixel
 #     (`mean_simf_to_obsf`, `mean_obsf_to_simf`, example_04_calibration.py
 #     1108-1109), donc une voix par maille, ce que HydroModPy nomme
-#     `weighting = "cell"`. Ce fichier pese par aire a la place ; cela ne
+#     `model.weighting = "cell"`. Ce fichier pese par aire a la place ; cela ne
 #     reproduit rien du script.
-#   - `tau_specific_ratio = 1e-4` : le script teste une condition purement
+#   - `model.seepage_threshold = 1e-4` : le script teste une condition purement
 #     geometrique, `dem - head < 0`, sans seuil (equivalent `tau = 0`).
-#   - `observed_position_accuracy = "50 m"` : sans equivalent, le script
+#   - `map.position_accuracy = "50 m"` : sans equivalent, le script
 #     n'a pas de `roptim` et code en dur `GRID_RES = 75` sans jamais
 #     l'utiliser pour plancher quoi que ce soit.
 #
@@ -56,15 +56,15 @@
 #
 #   5. DESCENTE D4 CONTRE D8. La reference calcule ses distances avec
 #      `wbt.downslope_distance_to_stream` sur le MNT rempli (lignes 928, 932,
-#      954, 957 du script), donc le long de chemins D8. `diagonal_neighbors`
-#      valait false par defaut quand les neuf essais et le `best_objective
+#      954, 957 du script), donc le long de chemins D8.
+#      `diagonal_neighbors` valait false par defaut quand les neuf essais et le `best_objective
 #      185.7234104098768` ci-dessus ont ete mesures, donc D4, les aretes
 #      partagees seulement : un ecart au script, non corrige alors pour ne
 #      pas changer les nombres mesures en silence.
 #
 #      Depuis la version 1.1 du protocole, le defaut est passe a true (D8),
 #      qui EST maintenant la lecture du papier et du script. Ce fichier fixe
-#      `diagonal_neighbors = false` explicitement ci-dessous pour que les
+#      `model.neighbours = "D4"` explicitement ci-dessous pour que les
 #      neuf essais et le `best_objective` mesures restent reproductibles ;
 #      sans cette ligne le defaut aurait silencieusement bascule le montage
 #      en D8 et change ces nombres. L'ecart au script reste donc entier, mais
@@ -91,7 +91,7 @@ source_mode = "standard"
 crs_project = "EPSG:2154"
 # La reference remplit le MNT (FillDepressions), et "fill" est le defaut
 # depuis la version 1.2 du protocole. "breach" est garde explicite, comme
-# `diagonal_neighbors = false`, pour que les neuf essais et le
+# `model.neighbours = "D4"`, pour que les neuf essais et le
 # `best_objective` mesures restent reproductibles ; la sortie Methods et
 # `hmp config check` le nomment comme un ecart au papier.
 dem_correc_type = "breach"
@@ -248,16 +248,10 @@ bounds = [1e-4, 0.5]
 
 [calibration.outputs.seepage_network]
 support = "network"
-stream_geometry_path = "nancon_stream_network.gpkg"
-weighting = "area"
-tau_specific_ratio = 1.0e-4
-validity_length = "auto"
 time = "last"
-observed_position_accuracy = "50 m"
 # Explicite depuis la version 1.1 du protocole (le defaut est passe a true) :
 # voir l'ecart 5 ci-dessus. Preserve les neuf essais et le `best_objective`
 # mesures en D4.
-diagonal_neighbors = false
 
 # Le protocole ecrit les deux etages, leur bloc d'objectif et les regimes
 # qu'ils imposent : permanent sur une periode unique de 9497 jours a recharge
@@ -272,9 +266,21 @@ diagonal_neighbors = false
 # n'en est plus un. Passee a 1.1 (D8 par defaut, Eq. 4 lue au point rendu
 # seulement), puis a 1.2 (MNT rempli par defaut, annee d'amorce ecartee de la
 # phase transitoire, Eq. 4 en meters) : un pin sur une version anterieure est
-# refuse. `diagonal_neighbors = false`, `dem_correc_type = "breach"` et la
+# refuse. `model.neighbours = "D4"`, `dem_correc_type = "breach"` et la
 # `scoring_window` ci-dessous tiennent les differences de comportement qui
 # comptaient pour ce montage.
+
+[calibration.outputs.seepage_network.map]
+complete = "nancon_stream_network.gpkg"
+position_accuracy = "50 m"
+
+[calibration.outputs.seepage_network.model]
+seepage_threshold = 0.0001
+neighbours = "D4"
+weighting = "area"
+
+[calibration.outputs.seepage_network.verdict]
+validity_length = "auto"
 [calibration.protocol]
 name = "matching_hydrographic_network"
 version = "1.2"

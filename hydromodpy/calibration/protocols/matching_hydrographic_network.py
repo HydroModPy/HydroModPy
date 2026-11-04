@@ -50,28 +50,22 @@ NETWORK_BLOCK = "network_extension"
 HYDROGRAPH_OUTPUT = "hydrograph"
 HYDROGRAPH_BLOCK = "hydrograph"
 
-_VERDICT = "verdict"
-_HEADS_ONLY = ("heads_snap_radius", "heads_min_drained_area_km2")
-
 _DEFAULTS_1_2: Mapping[str, Any] = {
-    "tau_specific_ratio": 1.0e-4,
-    "weighting": "cell",
-    "diagonal_neighbors": True,
-    "observed_rasterization": "crossing",
-    "clip_map_to_catchment": False,
-    "heads_snap_radius": 100.0,
-    "heads_min_drained_area_km2": 0.02,
-    "validity_length": "auto",
-    _VERDICT: {"max_catchment_mismatch": False},
+    "model": {"seepage_threshold": 1.0e-4, "weighting": "cell", "neighbours": "D8"},
+    "map": {
+        "drawn_by": "crossing",
+        "clip_to_catchment": False,
+        "heads": {"radius": 100.0, "min_drained_area": 0.02},
+    },
+    "verdict": {"validity_length": "auto", "max_catchment_mismatch": False},
 }
 
 DEFAULTS_BY_VERSION: Mapping[str, Mapping[str, Any]] = {
     "1.2": _DEFAULTS_1_2,
     "1.3": {
-        **_DEFAULTS_1_2,
-        "observed_rasterization": "heads",
-        "clip_map_to_catchment": True,
-        _VERDICT: {"max_catchment_mismatch": 0.05},
+        "model": _DEFAULTS_1_2["model"],
+        "map": {**_DEFAULTS_1_2["map"], "drawn_by": "heads", "clip_to_catchment": True},
+        "verdict": {**_DEFAULTS_1_2["verdict"], "max_catchment_mismatch": 0.05},
     },
 }
 """What each version of the protocol writes in the network output, one line per version.
@@ -105,7 +99,7 @@ class MatchingHydrographicNetwork:
     Bumped from 1.1 to 1.2, 1.1 being what v2.0.0a1 released: the DEM is filled
     rather than breached before the catchment is cut ([geographic].dem_correc_type),
     the transient stage leaves the first year of the run out as spin-up, and the
-    bound of Eq. 4 is a length in meters (validity_length = 'auto') where it was
+    bound of Eq. 4 is a length in meters (verdict.validity_length = 'auto') where it was
     roptim_max = 2 on a ratio to the cell size.
 
     Bumped from 1.0 to 1.1: the descent used to build the criterion defaulted
@@ -179,9 +173,9 @@ class MatchingHydrographicNetwork:
 
     deviations = (
         Deviation(
-            key="tau_specific_ratio",
+            key="model.seepage_threshold",
             paper="zero: a cell is a seepage face on the purely geometric test",
-            here="1e-4 of the cell's own recharge by default; 0 reproduces the paper",
+            here="1e-4 of the mean basin recharge by default; 0 reproduces the paper",
             why=(
                 "a strictly geometric test counts a cell releasing a negligible "
                 "trickle, which on a fine mesh inflates the simulated network; the "
@@ -190,7 +184,7 @@ class MatchingHydrographicNetwork:
             paper_value=0.0,
         ),
         Deviation(
-            key="observed_position_accuracy",
+            key="map.position_accuracy",
             paper="the validity length is the DEM resolution and nothing else",
             here="unset, so the paper's reading holds unless a file states it; declared, "
             "it raises the cell size h of the automatic validity length to "
@@ -203,12 +197,12 @@ class MatchingHydrographicNetwork:
             paper_value=None,
         ),
         Deviation(
-            key="validity_length",
+            key="verdict.validity_length",
             paper="Eq. 4, r_optim = D_optim / DEMres <= 2: two pixels of the DEM, one of "
             "them budgeted for the error of the mapped network (HESS p. 3224)",
             here="'auto', a length in metres: 2 h, h being h_obs, the cell size on the "
             "mapped network (the DEM pixel on a regular grid, so the paper's bound "
-            "there), raised to observed_position_accuracy when declared. A declared "
+            "there), raised to map.position_accuracy when declared. A declared "
             "length replaces it. r_optim is still published as D_optim / h_obs, the "
             "paper's Eq. 3",
             why=(
@@ -220,10 +214,10 @@ class MatchingHydrographicNetwork:
             paper_value="auto",
         ),
         Deviation(
-            key="diagonal_neighbors",
+            key="model.neighbours",
             paper="the descent follows a D8 flowpath, which is what "
             "wbt.downslope_distance_to_stream traces",
-            here="true by default, matching the paper; false departs to a D4 descent "
+            here="'D8' by default, matching the paper; 'D4' departs to a descent "
             "over shared edges only",
             why=(
                 "a D4 descent cannot follow a talweg that runs diagonally across a "
@@ -233,13 +227,13 @@ class MatchingHydrographicNetwork:
                 "most accumulated cell collects 6.6 per cent of the domain under shared "
                 "edges and 100 per cent under shared nodes; measured on Nancon, the cell "
                 "at the basin outlet drains 0.107 of 64.631 km2 under shared edges. "
-                "Setting it false returns to that D4 approximation and every result "
+                "Setting it to 'D4' returns to that approximation and every result "
                 "obtained under the old default."
             ),
-            paper_value=True,
+            paper_value="D8",
         ),
         Deviation(
-            key="weighting",
+            key="model.weighting",
             paper="one cell one vote",
             here="'cell' by default, the paper's value; 'area' is offered and departs",
             why=(
@@ -279,7 +273,7 @@ class MatchingHydrographicNetwork:
             always=True,
         ),
         Deviation(
-            key="max_catchment_mismatch",
+            key="verdict.max_catchment_mismatch",
             paper="no bound: the paper scores the pixels of the delineated catchment, so "
             "the question does not arise on its raster",
             here="the search is refused before its first solve when the catchment read on "
@@ -380,7 +374,7 @@ class MatchingHydrographicNetwork:
             paper_value="fill",
         ),
         Deviation(
-            key="observed_rasterization",
+            key="map.drawn_by",
             paper="the mapped network is rasterised onto the model grid by "
             "WhiteboxTools' VectorLinesToRaster, whose own assignment rule is not "
             "restated in the text",
@@ -413,7 +407,7 @@ class MatchingHydrographicNetwork:
             paper_value="crossing",
         ),
         Deviation(
-            key="heads_snap_radius",
+            key="map.heads.radius",
             paper="not addressed: the paper has no heads rule",
             here="under the heads rule, a mapped stream head lands on a cell within this "
             "distance of it, and a head with no such cell is lost; the value in force is "
@@ -424,10 +418,9 @@ class MatchingHydrographicNetwork:
                 "declared with its value."
             ),
             paper_value=None,
-            only_when=("observed_rasterization", "heads"),
         ),
         Deviation(
-            key="heads_min_drained_area_km2",
+            key="map.heads.min_drained_area",
             paper="not addressed: the paper has no heads rule",
             here="under the heads rule, a head lands only on a cell that drains at least this "
             "area in km2; the value in force is printed",
@@ -437,10 +430,9 @@ class MatchingHydrographicNetwork:
                 "it is declared with its value."
             ),
             paper_value=None,
-            only_when=("observed_rasterization", "heads"),
         ),
         Deviation(
-            key="clip_map_to_catchment",
+            key="map.clip_to_catchment",
             paper="the text scores the mapped pixels of the catchment and says nothing of a "
             "line that leaves it",
             here="the map is cut to the delineated catchment before it is drawn, with the "
@@ -579,9 +571,9 @@ def _tell_what_a_pin_on_1_2_runs() -> None:
     """
     text = (
         "[calibration.protocol] pins version 1.2, which this release runs with "
-        "observed_rasterization = 'crossing', whole map and no veto. v2.0.0a5 ran its "
+        "map.drawn_by = 'crossing', whole map and no veto. v2.0.0a5 ran its "
         "version 1.2 under 'heads', and K differs between the two: write "
-        "observed_rasterization = 'heads' in the network output to bring that back."
+        "map.drawn_by = 'heads' in the network output to bring that back."
     )
     if text not in _TOLD:
         _TOLD.add(text)
@@ -604,23 +596,30 @@ def _scores_the_spin_up_year(calibration: Any, metrics_window: Any) -> bool:
 def _with_the_defaults_of(version: str, output: Any) -> Any:
     """Return a network output with the values of ``version`` for each key it leaves empty.
 
-    A key the file writes wins, table by table. The ``heads_`` keys are written only
-    under the heads rule, the only one that reads them. An output that is not a table
+    A key the file writes wins, table by table at every depth. ``map.heads`` is written
+    only under the heads rule, the only one that reads it. An output that is not a table
     is left to the validation of the section, which names what is wrong with it.
     """
     if not isinstance(output, Mapping):
         return output
-    written = dict(output)
-    defaults = DEFAULTS_BY_VERSION[version]
-    rule = written.get("observed_rasterization", defaults["observed_rasterization"])
-    for key, value in defaults.items():
-        if key in _HEADS_ONLY and rule != "heads":
-            continue
-        if isinstance(value, Mapping) and isinstance(written.get(key, {}), Mapping):
-            written[key] = {**value, **written.get(key, {})}
-        else:
-            written.setdefault(key, value)
-    return written
+    row = DEFAULTS_BY_VERSION[version]
+    drawn = output.get("map")
+    rule = row["map"]["drawn_by"]
+    if isinstance(drawn, Mapping):
+        rule = drawn.get("drawn_by", rule)
+    if rule != "heads":
+        row = {**row, "map": {key: value for key, value in row["map"].items() if key != "heads"}}
+    return _under(row, output)
+
+
+def _under(defaults: Mapping[str, Any], written: Mapping[str, Any]) -> dict[str, Any]:
+    """Return ``written`` over ``defaults``, a table that both hold merged key by key."""
+    merged = dict(defaults)
+    for key, value in written.items():
+        held = merged.get(key)
+        both = isinstance(held, Mapping) and isinstance(value, Mapping)
+        merged[key] = _under(held, value) if both else value
+    return merged
 
 
 def _require_parameter(parameters: Mapping[str, Any], name: str, role: str) -> None:

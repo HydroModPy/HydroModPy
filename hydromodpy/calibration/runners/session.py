@@ -117,10 +117,6 @@ def open_session_dir(project_root: Path, case: str, *, resume: bool) -> tuple[Pa
     return reserve_version_dirname(project_root, "session", case), False
 
 
-GEOMETRY_PATH_FIELDS = ("stream_geometry_path", "minimal_stream_geometry_path")
-"""The output fields that name a file, anchored to the document that declares them."""
-
-
 def freeze_session_config(
     session_dir: Path, raw: Mapping[str, Any], cfg: CalibrationConfig | None = None
 ) -> Path:
@@ -152,14 +148,10 @@ def _with_anchored_geometry(
         return payload
     anchored = copy.deepcopy(payload)
     base = session_dir.expanduser().resolve()
-    for name, declared in cfg.outputs.items():
-        written = anchored["calibration"]["outputs"].get(name)
-        if not isinstance(written, dict):
-            continue
-        for field in GEOMETRY_PATH_FIELDS:
-            resolved = getattr(declared, field, None)
-            if resolved and field in written and Path(resolved).is_absolute():
-                written[field] = os.path.relpath(resolved, base)
+    for name, role, resolved in cfg.map_files():
+        written = anchored["calibration"]["outputs"].get(name, {}).get("map")
+        if isinstance(written, dict) and role in written and resolved.is_absolute():
+            written[role] = os.path.relpath(resolved, base)
     return anchored
 
 

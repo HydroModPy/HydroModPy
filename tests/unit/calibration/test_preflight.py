@@ -80,9 +80,10 @@ _PARAMETERS = """
 _NETWORK = """
 [calibration.outputs.net]
 support = "network"
-stream_geometry_path = "{maximal}"
-minimal_stream_geometry_path = "{minimal}"
-[calibration.outputs.net.extent]
+map.complete = "{maximal}"
+map.permanent = "{minimal}"
+map.calibrate_on = {{ permanent = 0.5, complete = 0.5 }}
+[calibration.outputs.net.model.extent]
 """
 
 
@@ -464,7 +465,7 @@ def test_a_root_search_on_the_mean_distance_is_refused(tmp_path) -> None:
 #
 # ``maximal_flowing_steps`` and ``minimal_dry_steps`` counted timesteps, so the
 # same file meant a day on a daily run and a month on a monthly one. Now the
-# output writes ``maximal_flowing_duration`` and ``minimal_dry_duration`` ("30 d",
+# output writes ``flowing_at_least`` and ``dry_at_most`` ("30 d",
 # "1 month") and the run counts its own timesteps: a flowing duration is rounded
 # up to whole steps (at least one), a dry one down (at least none). A key renamed
 # is refused with the new name, the doctor rewrites the file as ``N`` times the
@@ -483,25 +484,25 @@ def _days(text: str) -> float:
 def test_the_extent_names_two_durations_left_unwritten_by_default() -> None:
     extent = CalibNetworkExtent()
 
-    assert (extent.maximal_flowing_duration, extent.minimal_dry_duration) == (None, None)
+    assert (extent.flowing_at_least, extent.dry_at_most) == (None, None)
     assert "maximal_flowing_steps" not in CalibNetworkExtent.model_fields
     assert "minimal_dry_steps" not in CalibNetworkExtent.model_fields
 
 
 def test_a_duration_is_read_with_its_unit() -> None:
-    extent = CalibNetworkExtent(maximal_flowing_duration="1 month", minimal_dry_duration="0 d")
+    extent = CalibNetworkExtent(flowing_at_least="1 month", dry_at_most="0 d")
 
-    assert (extent.maximal_flowing_duration, extent.minimal_dry_duration) == ("1 month", "0 d")
+    assert (extent.flowing_at_least, extent.dry_at_most) == ("1 month", "0 d")
 
 
 @pytest.mark.parametrize(
     ("field", "value", "reason"),
     [
-        ("maximal_flowing_duration", "30", "carries no unit"),
-        ("maximal_flowing_duration", 30, "is not a duration"),
-        ("maximal_flowing_duration", "0 d", "longer than zero"),
-        ("minimal_dry_duration", "-1 d", "must not be negative"),
-        ("minimal_dry_duration", "2 m", "not compatible"),
+        ("flowing_at_least", "30", "carries no unit"),
+        ("flowing_at_least", 30, "is not a duration"),
+        ("flowing_at_least", "0 d", "longer than zero"),
+        ("dry_at_most", "-1 d", "must not be negative"),
+        ("dry_at_most", "2 m", "not compatible"),
     ],
 )
 def test_a_duration_without_a_unit_or_out_of_range_is_refused(field, value, reason) -> None:
@@ -512,8 +513,8 @@ def test_a_duration_without_a_unit_or_out_of_range_is_refused(field, value, reas
 @pytest.mark.parametrize(
     ("old", "new"),
     [
-        ("maximal_flowing_steps", "'maximal_flowing_duration'"),
-        ("minimal_dry_steps", "'minimal_dry_duration'"),
+        ("maximal_flowing_steps", "'flowing_at_least'"),
+        ("minimal_dry_steps", "'dry_at_most'"),
     ],
 )
 def test_the_old_key_is_refused_with_the_name_that_replaces_it(old: str, new: str) -> None:
@@ -654,10 +655,10 @@ def test_the_doctor_writes_the_count_as_that_many_steps_of_the_time_window(tmp_p
 
     written = path.read_text(encoding="utf-8")
     document = tomllib.loads(written)
-    extent = document["calibration"]["outputs"]["seepage_network"]["extent"]
+    extent = document["calibration"]["outputs"]["seepage_network"]["model"]["extent"]
     assert extent == {
-        "maximal_flowing_duration": "2 months",
-        "minimal_dry_duration": "1 month",
+        "flowing_at_least": "2 months",
+        "dry_at_most": "1 month",
         "year_quorum": 1.0,
     }
     assert document["display"]["overrides"]["network_extent_bounds_map"] == {
@@ -669,7 +670,7 @@ def test_the_doctor_writes_the_count_as_that_many_steps_of_the_time_window(tmp_p
     }
     assert "# two months at least" in written
     assert not re.search(r"_steps\b", written)
-    assert len(changes) == 4
+    assert len(changes) == 8
     assert fix_config_file(path) == []
 
 
@@ -754,8 +755,8 @@ def test_a_sealed_document_reads_the_old_counts_as_durations() -> None:
 
     migrate_sealed_config_doc(doc)
 
-    assert doc["calibration"]["outputs"]["net"]["extent"] == {
-        "maximal_flowing_duration": "2 months"
+    assert doc["calibration"]["outputs"]["net"]["model"]["extent"] == {
+        "flowing_at_least": "2 months"
     }
     assert doc["display"]["overrides"]["network_extent_bounds_map"] == {
         "minimal_dry_duration": "1 month"
@@ -771,7 +772,7 @@ def test_a_sealed_count_with_no_timestep_is_dropped_so_the_run_still_reads() -> 
 
     changes = migrate_sealed_config_doc(doc)
 
-    assert doc["calibration"]["outputs"]["net"]["extent"] == {}
+    assert doc["calibration"]["outputs"]["net"]["model"]["extent"] == {}
     assert any("minimal_dry_steps dropped (sealed)" in change for change in changes)
 
 
@@ -780,10 +781,10 @@ def test_a_frozen_run_with_the_old_counts_reads_back(tmp_path: Path) -> None:
     toml = project / "project.toml"
     toml.write_text(
         PROJECT.replace(
-            'stream_geometry_path = "nancon_stream_network.gpkg"\n',
-            'stream_geometry_path = "nancon_stream_network.gpkg"\n'
-            "[calibration.outputs.seepage_network.extent]\n"
-            'maximal_flowing_duration = "2 months"\nminimal_dry_duration = "1 month"\n',
+            'complete = "nancon_stream_network.gpkg"\n',
+            'complete = "nancon_stream_network.gpkg"\n'
+            "[calibration.outputs.seepage_network.model.extent]\n"
+            'flowing_at_least = "2 months"\ndry_at_most = "1 month"\n',
         ),
         encoding="utf-8",
     )
@@ -791,19 +792,18 @@ def test_a_frozen_run_with_the_old_counts_reads_back(tmp_path: Path) -> None:
     run_dir = project / "runs" / "nancon"
     run_dir.mkdir(parents=True)
     frozen = portable_config_document(cfg, run_dir, project)
-    old = re.sub(
-        r"^maximal_flowing_duration = .*$", "maximal_flowing_steps = 2", frozen, flags=re.M
-    )
-    old = re.sub(r"^minimal_dry_duration = .*$", "minimal_dry_steps = 1", old, flags=re.M)
+    old = re.sub(r"^flowing_at_least = .*$", "maximal_flowing_steps = 2", frozen, flags=re.M)
+    old = re.sub(r"^dry_at_most = .*$", "minimal_dry_steps = 1", old, flags=re.M)
+    old = old.replace("seepage_network.model.extent]", "seepage_network.extent]")
     assert old != frozen
-    assert "_duration" not in old
+    assert "flowing_at_least" not in old
     sealed = run_dir / "config.toml"
     sealed.write_text(old, encoding="utf-8")
 
     replayed = HydroModPyConfig.from_toml(sealed)
 
-    extent = replayed.calibration.outputs["seepage_network"].extent
-    assert (extent.maximal_flowing_duration, extent.minimal_dry_duration) == ("2 months", "1 month")
+    extent = replayed.calibration.outputs["seepage_network"].model.extent
+    assert (extent.flowing_at_least, extent.dry_at_most) == ("2 months", "1 month")
 
 
 # -- the figure --------------------------------------------------------------
@@ -838,19 +838,21 @@ def test_the_preflight_refuses_a_duration_the_timestep_cannot_read(monkeypatch) 
     config = SimpleNamespace(
         simulation=SimpleNamespace(time=SimpleNamespace(step_value=1, step_unit="day"))
     )
-    extent = SimpleNamespace(maximal_flowing_duration="2 years", minimal_dry_duration=None)
+    extent = SimpleNamespace(flowing_at_least="2 years", dry_at_most=None)
     monkeypatch.setattr(preflight, "_search_candidates", lambda _c: [(None, "w", [])])
     monkeypatch.setattr(preflight, "_config_of", lambda _s, _p: config)
     monkeypatch.setattr(
         preflight,
         "_outputs_scored_by_search",
-        lambda _c, _p: {"net": SimpleNamespace(extent=extent)},
+        lambda _c, _p: {
+            "net": SimpleNamespace(support="network", model=SimpleNamespace(extent=extent))
+        },
     )
 
     findings = preflight._check_the_extent_durations_fit_the_timestep(object(), {})
     assert len(findings) == 1 and "exceeds" in findings[0].detail
 
-    extent.maximal_flowing_duration = "30 d"
+    extent.flowing_at_least = "30 d"
     assert preflight._check_the_extent_durations_fit_the_timestep(object(), {}) == []
 
 
@@ -918,7 +920,7 @@ depends_on = "{depends}"
         ),
         pytest.param(
             '@GRID\n@K\n[calibration.outputs.net]\nsupport = "network"\n'
-            'stream_geometry_path = "nowhere.gpkg"\n@GAP',
+            'map.complete = "nowhere.gpkg"\n@GAP',
             ["nowhere.gpkg"],
             id="a_stream_geometry_that_is_not_there",
         ),
@@ -926,7 +928,7 @@ depends_on = "{depends}"
             # Paired with an unrelated fault: neither may crowd out the other.
             "@GRID\n[calibration.parameters.K]\nbounds = [1e-3, 1e-7]\n"
             'path = "flow.param.K.field.value"\n[calibration.outputs.net]\n'
-            'support = "network"\nobserved_network = "geographic.river_network"\n@GAP',
+            'support = "network"\nmap.complete = "geographic.river_network"\n@GAP',
             ["geographic.river_network", "bounds"],
             id="an_observed_network_source_the_project_does_not_carry",
         ),
@@ -1554,7 +1556,7 @@ units = "-"
 _NETWORK_OUTPUT = """
 [calibration.outputs.seepage_network]
 support = "network"
-stream_geometry_path = "network.gpkg"
+map.complete = "network.gpkg"
 """
 
 
@@ -1713,7 +1715,7 @@ path = "flow.param.Sy.field.value"
 units = "-"
 [calibration.outputs.net]
 support = "network"
-stream_geometry_path = "here.gpkg"
+map.complete = "here.gpkg"
 @GAP
 """
 
@@ -1835,7 +1837,7 @@ class TestTheEffectiveDocument:
                 "calibrate",
                 str(path),
                 "--set",
-                'calibration.outputs.net.stream_geometry_path="nowhere.gpkg"',
+                'calibration.outputs.net.map.complete="nowhere.gpkg"',
             ]
         )
 
@@ -1847,9 +1849,7 @@ class TestTheEffectiveDocument:
         path = _write__preflight_runs(
             tmp_path, _PARAMETERS__preflight_runs, _NETWORK__preflight_runs
         )
-        monkeypatch.setenv(
-            "HMP_SET_calibration__outputs__net__stream_geometry_path", "nowhere.gpkg"
-        )
+        monkeypatch.setenv("HMP_SET_calibration__outputs__net__map__complete", "nowhere.gpkg")
 
         result = CliRunner().invoke(["calibrate", str(path), "--dry-run"])
 
@@ -1862,7 +1862,7 @@ class TestTheEffectiveDocument:
         )
         overlay = tmp_path / "broken.toml"
         overlay.write_text(
-            '[calibration.outputs.net]\nstream_geometry_path = "nowhere.gpkg"\n', encoding="utf-8"
+            '[calibration.outputs.net]\nmap.complete = "nowhere.gpkg"\n', encoding="utf-8"
         )
 
         result = CliRunner().invoke(["run", str(path), "--overlay", str(overlay)])

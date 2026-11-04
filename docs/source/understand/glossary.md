@@ -328,10 +328,10 @@ seepage
   Boussinesq run); nothing to set.
 
 seepage threshold
-  Fraction of its own recharge that a cell must give back to count as seepage: 0.01 % by
+  Fraction of the mean basin recharge, over its own area, that a cell must give back to count as seepage: 0.01 % by
   default. Another threshold changes the network maps.
 
-  *In the file:* {toml}`calibration.outputs.<name>.tau_specific_ratio`.
+  *In the file:* {toml}`calibration.outputs.<name>.model.seepage_threshold`.
 
 SIM2
   Météo-France reanalysis on an 8 km grid, which supplies rainfall and potential

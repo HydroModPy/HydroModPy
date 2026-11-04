@@ -93,9 +93,10 @@ bounds = [1e-7, 1e-3]
 # No minimal map: in one state it would be the one scored.
 [calibration.outputs.seepage_network]
 support = "network"
-observed_network = "data.hydrography"
-observed_rasterization = "crossing"
 
+[calibration.outputs.seepage_network.map]
+complete = "data.hydrography"
+drawn_by = "crossing"
 [[calibration.objective_blocks]]
 name = "network_extent"
 metric = "distance_gap"

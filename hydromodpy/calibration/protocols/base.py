@@ -55,6 +55,9 @@ class Deviation:
     key: str
     """The configuration key that carries the departure, when one exists.
 
+    A key of the network output is a dotted path under it, ``map.drawn_by``. A key
+    the output does not hold, such as ``dem_correc_type``, is a bare name.
+
     Some departures have no adjustable knob at all (a hardcoded default such as
     sealing the outlet into a target): the key then names the concept for a
     reader, and no file value is ever compared against it.
@@ -94,13 +97,6 @@ class Deviation:
     (a mapping, its model or ``None``). True when this run leaves the publication
     on this point, false when the file's declarations bring it back. Not combined
     with ``always``.
-    """
-
-    only_when: tuple[str, Any] | None = None
-    """For an option read only under another one: ``(key, value)`` on the same table.
-
-    Where that key holds another value, the option is not read and is reported as
-    unset, so a default nobody uses is not told as a departure.
     """
 
 

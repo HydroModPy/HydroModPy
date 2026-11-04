@@ -139,7 +139,7 @@ def test_an_output_the_run_did_not_seal_is_refused() -> None:
 
 
 def test_a_sealed_value_no_trial_could_read_is_refused() -> None:
-    with pytest.raises(ValueError, match="unknown observed_rasterization"):
+    with pytest.raises(ValueError, match="unknown map.drawn_by"):
         network_criterion_settings(_run({"streams": _network(observed_rasterization="all")}))
     with pytest.raises(ValueError, match="carries no unit"):
         network_criterion_settings(_run({"streams": _network(extent={"visible_flow": "1"})}))

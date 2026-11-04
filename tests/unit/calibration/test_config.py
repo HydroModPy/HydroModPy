@@ -16,7 +16,10 @@ import pytest
 from pydantic import ValidationError
 
 from hydromodpy.calibration.config import (
+    CALIBRATION_RENAMES,
     CalibNetworkExtent,
+    CalibNetworkMap,
+    CalibNetworkModel,
     CalibObjectiveBlockDecl,
     CalibOutputCell,
     CalibOutputNetwork,
@@ -103,7 +106,7 @@ class TestThePointOutputs:
             _defaults({"outputs": {"q": {"support": "point", "observes": "J9"}}})
 
     def test_a_network_output_is_not_a_point(self) -> None:
-        output = {"support": "network", "stream_geometry_path": "streams.gpkg"}
+        output = {"support": "network", "map": {"complete": "streams.gpkg"}}
 
         assert _defaults({"outputs": {"net": output}})["outputs"]["net"] == output
 
@@ -187,7 +190,7 @@ def _validated(*phases, outputs=("q", "net"), **fields) -> CalibrationConfig:
     """A section on a dated record and a network, its validation window in 2002."""
     declared = {
         "q": {"support": "point", "variable": "discharge", "observes": "J1"},
-        "net": {"support": "network", "stream_geometry_path": "n.gpkg"},
+        "net": {"support": "network", "map": {"complete": "n.gpkg"}},
     }
     metric = {"q": "rmse", "net": "distance_gap"}
     return CalibrationConfig.model_validate(
@@ -418,8 +421,8 @@ STEPS = {
 def test_a_rule_left_out_has_no_duration() -> None:
     extent = CalibNetworkExtent()
 
-    assert (extent.maximal_flowing_duration, extent.minimal_dry_duration) == (None, None)
-    assert CalibNetworkExtent(maximal_flowing_duration=None).maximal_flowing_duration is None
+    assert (extent.flowing_at_least, extent.dry_at_most) == (None, None)
+    assert CalibNetworkExtent(flowing_at_least=None).flowing_at_least is None
 
 
 @pytest.mark.parametrize("step", STEPS)
@@ -465,52 +468,114 @@ def test_a_stored_run_that_sealed_a_table_without_the_rules_reads_none() -> None
     assert DEFAULT_EXTENT_RULES.maximal_flowing_duration is None
 
 
-# From test_an_observed_network_names_its_source.py
-# An observed network output must name exactly one source for its geometry.
+# The tables of a network output: what is observed, how the model draws, when it holds.
 
 
-def _kwargs(**overrides: object) -> dict[object, object]:
-    base = {"support": "network"}
-    base.update(overrides)
-    return base
+def _network(**tables: object) -> CalibOutputNetwork:
+    return CalibOutputNetwork(**{"map": ONE_MAP, **tables})
 
 
-def test_observed_network_data_hydrography_validates() -> None:
-    output = CalibOutputNetwork(**_kwargs(observed_network="data.hydrography"))
-    assert output.observed_network == "data.hydrography"
-    assert output.stream_geometry_path is None
+ONE_MAP = {"complete": "c.gpkg"}
+TWO_MAPS = {**ONE_MAP, "permanent": "p.gpkg"}
+EXTENT = {"extent": {"flowing_at_least": "1 month"}}
 
 
-def test_observed_network_geographic_river_network_validates() -> None:
-    output = CalibOutputNetwork(**_kwargs(observed_network="geographic.river_network"))
-    assert output.observed_network == "geographic.river_network"
-    assert output.stream_geometry_path is None
+_SHARES = {"permanent": 0.5, "complete": 0.5}
+_REFUSED_NETWORK_OUTPUTS = {
+    "no map": ({"map": {}}, "no complete map"),
+    "the permanent map alone": ({"map": {"permanent": "p.gpkg"}}, "no complete map"),
+    "two maps and no role": ({"map": TWO_MAPS}, "does not say what it calibrates on"),
+    "a role with one map": ({"map": {**ONE_MAP, "calibrate_on": "complete"}}, "only the complete"),
+    "a share in one state": ({"map": {**TWO_MAPS, "calibrate_on": _SHARES}}, "has one cost"),
+    "shares that do not sum to one": (
+        {"map": {**TWO_MAPS, "calibrate_on": {"permanent": 0.6, "complete": 0.6}}},
+        "calibrate_on sums to 1.2",
+    ),
+    "heads under crossing": (
+        {"map": {**ONE_MAP, "drawn_by": "crossing", "heads": {}}},
+        "map.heads is read only under drawn_by = 'heads', and drawn_by = 'crossing'",
+    ),
+    "a zero radius": ({"map": {**ONE_MAP, "heads": {"radius": "0 m"}}}, "radius = 0 m"),
+    "an accuracy beside a length": (
+        {"map": {**ONE_MAP, "position_accuracy": "50 m"}, "verdict": {"validity_length": "9 m"}},
+        "enters the automatic validity length only",
+    ),
+    "a zero validity": ({"verdict": {"validity_length": "0 m"}}, "validity_length = 0 m"),
+    "a time beside the extent": ({"model": EXTENT, "time": "first"}, "time = 'first'"),
+    "a zero flow": ({"model": {"extent": {"flowing_at_least": "0 d"}}}, "longer than zero"),
+}
 
 
-def test_stream_geometry_path_alone_validates() -> None:
-    """Every file in the repository declares only this field today."""
-    output = CalibOutputNetwork(**_kwargs(stream_geometry_path="streams.gpkg"))
-    assert str(output.stream_geometry_path) == "streams.gpkg"
-    assert output.observed_network is None
+@pytest.mark.parametrize(
+    ("tables", "said"), _REFUSED_NETWORK_OUTPUTS.values(), ids=_REFUSED_NETWORK_OUTPUTS.keys()
+)
+def test_a_network_output_that_contradicts_itself_is_refused(tables: dict, said: str) -> None:
+    with pytest.raises(ValidationError, match=re.escape(said)):
+        _network(**tables)
 
 
-def test_both_declared_refuses_naming_both_values() -> None:
-    with pytest.raises(ValidationError) as excinfo:
-        CalibOutputNetwork(
-            **_kwargs(observed_network="data.hydrography", stream_geometry_path="streams.gpkg")
-        )
-    message = str(excinfo.value)
-    assert "data.hydrography" in message
-    assert "streams.gpkg" in message
+def test_each_old_key_of_a_network_output_is_refused_with_its_new_name() -> None:
+    for scope, builder in (("", CalibOutputNetwork), (".extent", CalibNetworkExtent)):
+        for old, (new, _meaning) in CALIBRATION_RENAMES[
+            f"calibration.outputs.{{*}}{scope}"
+        ].items():
+            with pytest.raises(ValidationError, match=f"renamed to {new!r}"):
+                builder(**{old: "any"})
+    with pytest.raises(ValidationError, match="renamed to 'flowing_at_least'"):
+        CalibNetworkExtent(maximal_flowing_steps=1)
 
 
-def test_neither_declared_refuses_naming_the_three_routes() -> None:
-    with pytest.raises(ValidationError) as excinfo:
-        CalibOutputNetwork(**_kwargs())
-    message = str(excinfo.value)
-    assert "data.hydrography" in message
-    assert "geographic.river_network" in message
-    assert "stream_geometry_path" in message
+def test_the_heads_settings_fill_under_their_rule_and_stay_empty_under_another() -> None:
+    heads = _network().map.heads
+    assert (heads.radius.to("m").magnitude, heads.min_drained_area) == (100.0, 0.02)
+    assert _network(map={**ONE_MAP, "drawn_by": "crossing"}).map.heads is None
+
+
+@pytest.mark.parametrize(
+    ("written", "files"),
+    [
+        ({"complete": "data.hydrography"}, {}),
+        ({"complete": "c.gpkg"}, {"complete": Path("c.gpkg")}),
+        (
+            {**TWO_MAPS, "calibrate_on": "permanent"},
+            {"complete": Path("c.gpkg"), "permanent": Path("p.gpkg")},
+        ),
+    ],
+)
+def test_the_map_lists_what_a_file_names(written: dict, files: dict) -> None:
+    assert CalibNetworkMap(**written).files() == files
+
+
+@pytest.mark.parametrize(
+    ("written", "permanent", "complete"),
+    [
+        ({"complete": "c.gpkg"}, 0.0, 1.0),
+        ({**TWO_MAPS, "calibrate_on": "permanent"}, 1.0, 0.0),
+        ({**TWO_MAPS, "calibrate_on": "complete"}, 0.0, 1.0),
+        ({**TWO_MAPS, "calibrate_on": {"permanent": 0.25, "complete": 0.75}}, 0.25, 0.75),
+    ],
+)
+def test_the_role_of_the_maps_gives_their_shares(written, permanent, complete) -> None:
+    weights = CalibNetworkMap(**written).bound_weights
+
+    assert (weights.permanent, weights.complete) == (permanent, complete)
+
+
+def test_only_a_sealed_read_takes_an_output_with_no_map() -> None:
+    written = {"map": {"permanent": "p.gpkg", "calibrate_on": "permanent"}}
+
+    output = CalibOutputNetwork.model_validate(written, context={"validation_context": "snapshot"})
+
+    assert (output.map.complete, output.map.permanent) == (None, Path("p.gpkg"))
+
+
+def test_a_dumped_network_output_validates_to_the_same_output() -> None:
+    output = _network(
+        map={**TWO_MAPS, "calibrate_on": {"permanent": 0.25, "complete": 0.75}},
+        model={"neighbours": "D4", **EXTENT},
+    )
+
+    assert CalibOutputNetwork(**output.model_dump(mode="json")) == output
 
 
 # From test_an_output_option_nothing_reads_is_refused.py
@@ -1047,7 +1112,7 @@ def test_the_stream_network_stage_is_findable() -> None:
 
 
 def _kwargs__network_output(**overrides: object) -> dict[object, object]:
-    base: dict[object, object] = {"support": "network", "stream_geometry_path": "streams.gpkg"}
+    base: dict[object, object] = {"support": "network", "map": {"complete": "streams.gpkg"}}
     base.update(overrides)
     return base
 
@@ -1062,7 +1127,7 @@ def test_a_network_output_reads_one_state(overrides: dict, time: str) -> None:
 @pytest.mark.parametrize(
     ("time", "said"),
     [
-        ("all", ["one state", "'last', 'first' or one date", "'extent' table"]),
+        ("all", ["one state", "'last', 'first' or one date", "'model.extent' table"]),
         (["2002-08-31"], ["one state", "'last', 'first' or one date"]),
     ],
     ids=["all", "list_of_dates"],
@@ -1270,7 +1335,7 @@ class TestNetworkCriterionPairing:
                 "method": "bisection",
                 "parameters": {"K": {"bounds": [1e-9, 1e-3], "path": "flow.param.K.field.value"}},
                 "outputs": {
-                    "net": {"support": "network", "stream_geometry_path": "streams.gpkg"},
+                    "net": {"support": "network", "map": {"complete": "streams.gpkg"}},
                     "q": {
                         "variable": "discharge",
                         "support": "boundary",
@@ -1466,7 +1531,7 @@ def test_the_width_a_search_reads_follows_the_margin_it_was_given() -> None:
 def test_a_length_margin_of_the_section_is_read_by_the_phases_that_score_distances() -> None:
     cfg = _section(
         outputs={
-            "net": {"support": "network", "stream_geometry_path": "s.gpkg"},
+            "net": {"support": "network", "map": {"complete": "s.gpkg"}},
             "q": {
                 "variable": "discharge",
                 "support": "boundary",
@@ -1993,7 +2058,7 @@ def _default(function) -> object:
 
 def test_the_shared_default_is_the_paper_s_d8() -> None:
     assert STREAM_CRITERION_DEFAULTS.diagonal_neighbors is True
-    assert CalibOutputNetwork.model_fields["diagonal_neighbors"].default is True
+    assert CalibNetworkModel.model_fields["neighbours"].default == "D8"
 
 
 @pytest.mark.parametrize(

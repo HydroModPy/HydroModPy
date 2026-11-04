@@ -109,6 +109,7 @@ the whole major line, and only the live file loses it.
 from __future__ import annotations
 
 import copy
+import tomllib
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -373,8 +374,8 @@ def _under_todays_names(layers: Sequence[Layer], written: Any) -> dict[str, Any]
     merged: dict[str, Any] = {}
     for _, doc in layers:
         own = copy.deepcopy(_plain(doc))
-        _migrate_refused_keys(own, context=written)
         _file_rules(own, context=written, sealed=False)
+        _migrate_refused_keys(own, context=written)
         merged = own if len(layers) == 1 else merge_toml_payloads(merged, own)
     return merged
 
@@ -492,6 +493,9 @@ def _whole_document_rules(doc: Any, *, context: Any, sealed: bool) -> list[str]:
     changes.extend(exploded)
     changes.extend(_refused(_rewrite_search_options(doc, sealed=sealed, context=context)))
     changes.extend(_refused(_rewrite_cost_margin(doc, sealed=sealed, context=context)))
+    if sealed:
+        # A live file is refused on these forms, and only the doctor rewrites them.
+        changes.extend(_migrate_calibration_forms(doc, sealed=True, context=context))
     return changes
 
 
@@ -623,7 +627,7 @@ def _descend(scope: Any, parents: list[str]) -> Any:
 
 
 def _migrate_calibration_forms(doc: Any, *, sealed: bool, context: Any) -> list[str]:
-    """Rewrite the ``[calibration]`` forms a count, a station or a default stood for.
+    """Rewrite the ``[calibration]`` forms a count, a station, a default or a flat table stood for.
 
     A live file is refused on them and the doctor writes the new form. A sealed
     config reads in silence: a replay reads its stored scores and never scores
@@ -634,6 +638,7 @@ def _migrate_calibration_forms(doc: Any, *, sealed: bool, context: Any) -> list[
         *_fold_the_station_into_the_gauge(doc, sealed=sealed, context=context),
         *_write_the_block_metric(doc),
         *_drop_an_objective_beside_blocks(doc, sealed=sealed),
+        *_rewrite_the_network_outputs(doc, sealed=sealed, context=context),
     ]
 
 
@@ -734,6 +739,168 @@ def _drop_an_objective_beside_blocks(doc: Any, *, sealed: bool) -> list[str]:
             ]
     del calibration["objective"]
     return ["calibration.objective dropped (the blocks score by their own metric)"]
+
+
+_OUTPUTS = "calibration.outputs.{*}"
+_OUTPUT_EXTENT = "calibration.outputs.{*}.extent"
+_NETWORK_FORMS = {
+    f"{scope}.{old}": f"{_OUTPUTS}.{new}"
+    for scope in (_OUTPUTS, _OUTPUT_EXTENT)
+    for old, (new, _meaning) in CALIBRATION_RENAMES[scope].items()
+}
+"""Where each flat key of a network output went, in the grammar of the old forms."""
+_RIVER_NETWORK = "geographic.river_network"
+_PERMANENT_KEYS = ("minimal_stream_geometry_path", "minimal_observed_network")
+
+
+def _rewrite_the_network_outputs(doc: Any, *, sealed: bool, context: Any) -> list[str]:
+    """Move the flat keys of a network output to its tables ``map``, ``model`` and ``verdict``.
+
+    Runs after the extent rules, so a duration is already a duration. *context* says
+    what the chain writes, since ``support`` or the other map can sit in another file.
+    The role of two maps is written: one state was scored on the permanent map and two
+    bounds shared the value by the old weights, so no stored number moves.
+    """
+    chain = dict(_tables_at(context, _OUTPUTS))
+    changes: list[str] = []
+    for where, output in _tables_at(doc, _OUTPUTS):
+        seen = _plain(chain.get(where, output))
+        if seen.get("support") != "network":
+            continue
+        if any(old in output for old in CALIBRATION_RENAMES[_OUTPUTS]) and not _is_a_real_table(
+            doc, where
+        ):
+            changes.append(f"{where}{CANNOT_REWRITE}write the output as a table [{where}]")
+            continue
+        role = _role_of_the_maps(output, seen)
+        written_role = _plain(output.get("map", {}).get("calibrate_on"))
+        clash = None not in (written_role, role) and written_role != role
+        rule, length = seen.get("observed_rasterization"), seen.get("validity_length")
+        for old, (new, _meaning) in CALIBRATION_RENAMES[_OUTPUTS].items():
+            if old not in output:
+                continue
+            label, value = f"{where}.{old}", _plain(output[old])
+            if old.startswith("heads_") and rule not in (None, "heads"):
+                del output[old]
+                changes.append(f"{label} dropped (drawn by {rule!r}, which never read it)")
+            elif old == "observed_position_accuracy" and length not in (None, "auto"):
+                del output[old]
+                changes.append(f"{label} dropped (validity_length is a length, it was never read)")
+            elif value == _RIVER_NETWORK and sealed:
+                del output[old]
+                _holder_of(output, ["map"], doc)
+                changes.append(f"{label} dropped (sealed)")
+            elif value == _RIVER_NETWORK:
+                changes.append(
+                    f"{label}{CANNOT_REWRITE}a network the DEM derives is no observation; write "
+                    "map.complete = 'data.hydrography' or the path of a vector file"
+                )
+            elif old == "diagonal_neighbors" and not isinstance(value, bool):
+                changes.append(f"{label}{CANNOT_REWRITE}{value!r} is neither true nor false")
+            elif old == "extent" and "weights" in value and clash:
+                changes.append(
+                    f"{label}{CANNOT_REWRITE}its weights say {role!r} and map.calibrate_on says "
+                    f"{written_role!r}, keep one"
+                )
+            else:
+                if old == "diagonal_neighbors":
+                    value = "D8" if value else "D4"
+                changes.append(_move_across(output, old, new, value, label, doc))
+        changes.extend(_rewrite_the_extent_keys(where, output, role, doc))
+    return changes
+
+
+def _is_a_real_table(doc: Any, where: str) -> bool:
+    """Say whether a table added under *where* is written there.
+
+    tomlkit misplaces it, or fails on a removed key, when dotted keys of a parent table
+    hold the output. So the addition is tried on a copy of the text.
+    """
+    if not isinstance(doc, tomlkit.TOMLDocument):
+        return True
+    trial = tomlkit.parse(tomlkit.dumps(doc))
+    _holder_of(dict(_tables_at(trial, _OUTPUTS))[where], ["trial"], trial)
+    read_back = dict(_tables_at(tomllib.loads(tomlkit.dumps(trial)), _OUTPUTS))
+    return "trial" in read_back[where]
+
+
+def _role_of_the_maps(output: Mapping[str, Any], seen: Mapping[str, Any]) -> Any:
+    """Return the ``calibrate_on`` this layer has to write, or ``None``.
+
+    A layer writes it when it holds the permanent map or an extent, and only when the
+    chain declares both maps, under the old names or in the ``map`` of a parent already
+    rewritten. A chain with one map scored one bound, and its role goes.
+
+    One state scored the permanent map, and an extent shared the value by the old
+    weights, half and half when none is written. A role a rewritten layer writes beside
+    its maps stands, except against old weights or an extent this layer adds under a role
+    of one state, since that old form scored two bounds. A role with no map beside it
+    comes from a child, so it does not change what this layer writes for its siblings.
+    """
+    drawn, model = seen.get("map", {}), seen.get("model", {})
+    complete = any(key in seen for key in ("stream_geometry_path", "observed_network"))
+    permanent = any(key in seen for key in _PERMANENT_KEYS)
+    holds = any(key in output for key in _PERMANENT_KEYS) or "extent" in output
+    if not ((complete or "complete" in drawn) and (permanent or "permanent" in drawn) and holds):
+        return None
+    written = drawn.get("calibrate_on")
+    weights = seen.get("extent", {}).get("weights", {})
+    share = {"permanent": weights.get("minimal", 0.5), "complete": weights.get("maximal", 0.5)}
+    if weights or ("extent" in output and not isinstance(written, Mapping)):
+        return share
+    if written is not None and ("complete" in drawn or "permanent" in drawn):
+        return None
+    if "extent" in seen or ("extent" in model and written is None):
+        return share
+    return "permanent"
+
+
+def _rewrite_the_extent_keys(where: str, output: Any, role: Any, doc: Any) -> list[str]:
+    """Rename what the moved extent table holds, then write the role of the maps."""
+    changes: list[str] = []
+    model = output.get("model")
+    extent = model.get("extent") if isinstance(model, Mapping) else None
+    label = f"{where}.extent"
+    if isinstance(extent, Mapping) and "weights" in extent:
+        del extent["weights"]
+        if role is None:
+            changes.append(f"{label}.weights dropped (one map, nothing to share)")
+    for old, (new, _meaning) in CALIBRATION_RENAMES[_OUTPUT_EXTENT].items():
+        if isinstance(extent, Mapping) and old in extent:
+            rule = KeyRename(_OUTPUT_EXTENT, old, new.rsplit(".", 1)[-1], since=ALPHA_FORM)
+            changes.extend(_rename_one(extent, rule, f"{label}.{old}", context=doc, sealed=False))
+    if role is not None:
+        holder = _holder_of(output, ["map"], doc)
+        if "calibrate_on" not in holder:
+            holder["calibrate_on"] = role
+            changes.append(f"{where}.map.calibrate_on = {role!r} (what the old form scored on)")
+    return changes
+
+
+def _holder_of(table: Any, parents: Sequence[str], doc: Any) -> Any:
+    """Return the table at *parents* under *table*, made on the way when it is missing."""
+    holder = table
+    for part in parents:
+        if part not in holder:
+            inline = isinstance(holder, tomlkit.items.InlineTable)
+            holder[part] = tomlkit.inline_table() if inline else _an_empty_table(doc)
+        holder = holder[part]
+    return holder
+
+
+def _move_across(table: Any, old: str, new: str, value: Any, label: str, doc: Any) -> str:
+    """Move ``old`` of *table* to the dotted ``new``, with the comment of its line, and say so."""
+    *parents, name = new.split(".")
+    holder = _holder_of(table, parents, doc)
+    if name in holder:
+        return f"{label}{CANNOT_REWRITE}{new!r} is given too, keep one"
+    comment = _comment_of(table, old)
+    written = _position(table, old) is not None
+    original = table[old]
+    del table[old]
+    item = (_moved_table(original) or _scalar_item(value, comment)) if written else None
+    holder[name] = value if item is None else item
+    return f"{label} -> {new}"
 
 
 def _start_after_steps(count: Any, doc: Any) -> str:
@@ -870,6 +1037,7 @@ RENAMED_KEYS: tuple[KeyRename, ...] = (
     *(
         KeyRename(scope, old, new, since=ALPHA_FORM)
         for scope, renames in CALIBRATION_RENAMES.items()
+        if not scope.startswith(_OUTPUTS)
         for old, (new, _meaning) in renames.items()
     ),
     KeyRename("display.overrides.{*}", "timestep", "time", since=ALPHA_FORM),
@@ -1527,9 +1695,7 @@ def _move_key(table: Any, old: str, new: str, value: Any) -> None:
     """
     position = _position(table, old)
     original = table.get(old)
-    # A tomlkit table hands out a boolean as a plain bool, which holds no comment.
-    item = table.value.item(old) if position is not None else original
-    comment = getattr(getattr(item, "trivia", None), "comment", "") or ""
+    comment = _comment_of(table, old)
     del table[old]
     item = _moved_table(original) or _scalar_item(value, comment)
     if position is None or item is None:
@@ -1538,6 +1704,13 @@ def _move_key(table: Any, old: str, new: str, value: Any) -> None:
             table[new].comment(comment[1:].strip())
         return
     table.value._insert_at(position, new, item)
+
+
+def _comment_of(table: Any, key: str) -> str:
+    """Return the comment of the line of ``key``, empty for a plain mapping."""
+    # A tomlkit table hands out a boolean as a plain bool, which holds no comment.
+    item = table.value.item(key) if _position(table, key) is not None else table.get(key)
+    return getattr(getattr(item, "trivia", None), "comment", "") or ""
 
 
 def _set_key(table: Any, key: str, value: Any, *, after: str) -> None:
@@ -2664,8 +2837,11 @@ HAND_WRITTEN_FORMS: tuple[OldForm, ...] = (
     *(OldForm(f"{section}.tgrid", None, ALPHA_FORM) for section in _SOLVER_SECTIONS),
     OldForm("geographic.bottom_path", "data.substratum.sources", ALPHA_FORM),
     OldForm(
-        "calibration.outputs.{*}.roptim_max", "calibration.outputs.{*}.validity_length", ALPHA_FORM
+        "calibration.outputs.{*}.roptim_max",
+        "calibration.outputs.{*}.verdict.validity_length",
+        ALPHA_FORM,
     ),
+    *(OldForm(old, new, ALPHA_FORM) for old, new in _NETWORK_FORMS.items()),
     *(
         OldForm(f"flow.bc.{kind}.{{*}}", "flow.bc.{*}", ALPHA_FORM)
         for kind in ("dirichlet", "cauchy", "robin")
@@ -2737,7 +2913,11 @@ def old_forms() -> tuple[OldForm, ...]:
     """Return every old form of the grammar this build still knows, with its ``since``."""
     return (
         *(
-            OldForm(f"{rule.scope}.{rule.old}", f"{rule.scope}.{rule.new}", rule.since)
+            OldForm(
+                f"{rule.scope}.{rule.old}",
+                _NETWORK_FORMS.get(f"{rule.scope}.{rule.new}", f"{rule.scope}.{rule.new}"),
+                rule.since,
+            )
             for rule in RENAMED_KEYS
             if not rule.sealed_only
         ),

@@ -164,11 +164,11 @@ previous map: the two maps do not count exactly the same cells. How the scores a
 - *One month only,* October 2002.
 - *The threshold matters.* A cell is counted as seepage if it returns more than 0.01% of its own
   recharge (the {term}`seepage threshold`, setting
-  {toml}`calibration.outputs.<name>.tau_specific_ratio`). Another threshold moves the three
+  {toml}`calibration.outputs.<name>.model.seepage_threshold`). Another threshold moves the three
   classes.
 - *The mapped network is placed on the 75 m grid* with a transfer rule: a one-cell gap can come
   from the transfer and not from the model. This run uses the default rule
-  ({toml}`calibration.outputs.<name>.observed_rasterization`): it places each stream head of the
+  ({toml}`calibration.outputs.<name>.map.drawn_by`): it places each stream head of the
   map on a nearby cell, within 100 m, and draws the rest of the reach down the slope of the
   model, so that field ditches below a head do not count as model errors
   ({doc}`stream-network`).
@@ -210,7 +210,7 @@ The second map classes each cell over a single calendar year (2002): *perennial*
 
 **How to read it.** A cell "flows" if it is downstream of a seepage cell and carries at least
 1 L/s of water coming from the aquifer (the {term}`visible flow`, setting
-{toml}`calibration.outputs.<name>.extent.visible_flow`). This is not the same meaning as on the seepage map, which counts only
+{toml}`calibration.outputs.<name>.model.extent.visible_flow`). This is not the same meaning as on the seepage map, which counts only
 the exit points.
 
 **Pitfalls.**

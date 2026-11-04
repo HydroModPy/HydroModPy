@@ -350,7 +350,7 @@
     },
     "CalibAggregateDecl": {
       "additionalProperties": false,
-      "description": "How several scored targets become one cost.\n\n``weighting``, ``nested_gauges`` and ``on_member_failure`` were declared\nhere and never read: a file that wrote them got the same cost. They are\nretired, accepted and ignored with a warning, so a sealed run that wrote\nthem out keeps replaying.",
+      "description": "How several scored targets become one cost.\n\n``weighting``, ``nested_gauges`` and ``on_member_failure`` were declared\nhere and never read: a file that wrote them got the same cost. They are\nrefused, and ``hmp doctor --fix-config`` deletes them.",
       "properties": {
         "min_samples": {
           "default": 1,
@@ -376,30 +376,30 @@
     },
     "CalibNetworkBoundWeights": {
       "additionalProperties": false,
-      "description": "How the two bounds of a network output share one calibrated value.\n\nA root search closes one root per bound and returns the weighted geometric\nmean, ``log K = minimal * log K*_minimal + maximal * log K*_maximal``. A\nminimiser has no root to combine and minimizes\n``minimal * |J_minimal| + maximal * |J_maximal|`` instead, which tends to\nland on one of the two roots rather than between them.",
+      "description": "How the two maps of a network output share one calibrated value.\n\nA root search closes one root per map and returns the weighted geometric\nmean, ``log K = permanent * log K*_permanent + complete * log K*_complete``.\nA minimiser has no root to combine and minimizes\n``permanent * |J_permanent| + complete * |J_complete|`` instead, which tends\nto land on one of the two roots rather than between them.",
       "properties": {
-        "minimal": {
+        "permanent": {
           "default": 0.5,
-          "description": "Weight of the minimal (permanent) bound. 1 with maximal = 0 calibrates on the permanent map alone, the practice of Abherve et al. (2025).",
+          "description": "Weight of the permanent map, scored against the minimal mask.",
           "examples": [
             0.5
           ],
           "maximum": 1.0,
           "minimum": 0.0,
-          "title": "Minimal",
+          "title": "Permanent",
           "type": "number",
           "unit": "-",
           "x-hmp-profile": "user"
         },
-        "maximal": {
+        "complete": {
           "default": 0.5,
-          "description": "Weight of the maximal (complete) bound.",
+          "description": "Weight of the complete map, scored against the maximal mask.",
           "examples": [
             0.5
           ],
           "maximum": 1.0,
           "minimum": 0.0,
-          "title": "Maximal",
+          "title": "Complete",
           "type": "number",
           "unit": "-",
           "x-hmp-profile": "user"
@@ -416,9 +416,9 @@
     },
     "CalibNetworkExtent": {
       "additionalProperties": false,
-      "description": "The transient two-bound mode of a network output.\n\nDeclared, the output stops reading one state. For every complete calendar\nyear of the run, the maximal simulated mask holds the cells flowing for at\nleast ``maximal_flowing_duration``, and the minimal one the cells flowing at\nevery timestep but for at most ``minimal_dry_duration``. A cell enters\nthe mask scored when it meets the rule in at least ``year_quorum`` of the\nscored years. Each bound is scored once by the distance criterion: the\nmaximal mask against the maximal map, the minimal mask against the minimal\nmap when one is declared. Both durations are converted to whole timesteps\nwith the run's step, so the same file means the same on a daily and a\nmonthly run.",
+      "description": "The transient two-bound mode of a network output.\n\nDeclared, the output stops reading one state. For every complete calendar\nyear of the run, the maximal simulated mask holds the cells flowing for at\nleast ``flowing_at_least``, and the minimal one the cells flowing at every\ntimestep but for at most ``dry_at_most``. A cell enters the mask scored when\nit meets the rule in at least ``year_quorum`` of the scored years. Each bound\nis scored once by the distance criterion: the maximal mask against the\ncomplete map, the minimal mask against the permanent map when one is declared.\nBoth durations are converted to whole timesteps with the run's step, so the\nsame file means the same on a daily and a monthly run.",
       "properties": {
-        "maximal_flowing_duration": {
+        "flowing_at_least": {
           "anyOf": [
             {
               "type": "string"
@@ -430,12 +430,13 @@
           "default": null,
           "description": "How long a cell has to flow in a year to enter the maximal mask, with its unit: '30 d', '1 month'. Converted by the run's timestep, rounded up to whole timesteps and never below one. Left out, one timestep, whatever the step. At most the shortest complete year, checked on the run.",
           "renamed_from": [
-            "calibration.outputs.extent.maximal_flowing_steps"
+            "calibration.outputs.extent.maximal_flowing_steps",
+            "calibration.outputs.extent.maximal_flowing_duration"
           ],
-          "title": "Maximal Flowing Duration",
+          "title": "Flowing At Least",
           "x-hmp-profile": "user"
         },
-        "minimal_dry_duration": {
+        "dry_at_most": {
           "anyOf": [
             {
               "type": "string"
@@ -447,9 +448,10 @@
           "default": null,
           "description": "How long a cell may be dry in a year and stay in the minimal mask, with its unit: '1 d', '1 month'. Converted by the run's timestep and rounded down to whole timesteps, possibly none: '1 d' is one dry timestep on a daily run, none on a monthly one. Left out, one timestep, whatever the step. The year's timesteps minus these have to stay at least the flowing timesteps of the maximal rule, checked on the run, so the minimal mask sits inside the maximal one.",
           "renamed_from": [
-            "calibration.outputs.extent.minimal_dry_steps"
+            "calibration.outputs.extent.minimal_dry_steps",
+            "calibration.outputs.extent.minimal_dry_duration"
           ],
-          "title": "Minimal Dry Duration",
+          "title": "Dry At Most",
           "x-hmp-profile": "user"
         },
         "year_quorum": {
@@ -474,11 +476,6 @@
           "title": "Visible Flow",
           "type": "string",
           "x-hmp-profile": "user"
-        },
-        "weights": {
-          "$ref": "#/$defs/CalibNetworkBoundWeights",
-          "description": "Share of each bound in the value returned when both maps are declared. Only the maximal bound is scored without a minimal map.",
-          "x-hmp-profile": "user"
         }
       },
       "title": "CalibNetworkExtent",
@@ -490,9 +487,364 @@
         }
       }
     },
+    "CalibNetworkHeads": {
+      "additionalProperties": false,
+      "description": "Where a mapped stream head may land, read only under ``drawn_by = 'heads'``.",
+      "properties": {
+        "radius": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "properties": {
+                    "magnitude": {
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "title": "Magnitude"
+                    },
+                    "units": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {}
+                      ],
+                      "title": "Units"
+                    }
+                  },
+                  "type": "object"
+                }
+              ]
+            },
+            {
+              "type": "number"
+            },
+            {
+              "description": "A quantity as text: a number then a unit, for example '150 m' or '0.36 m/h'.",
+              "pattern": "^\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\s*(?:\\S.*)?$",
+              "type": "string"
+            }
+          ],
+          "default": 100.0,
+          "description": "The largest distance, a length (a bare number is in metres), between a mapped stream head and the centre of the cell it lands on. A head with no landing cell that close is lost, draws nothing and is counted in n_heads_lost.",
+          "examples": [
+            100.0
+          ],
+          "renamed_from": [
+            "calibration.outputs.heads_snap_radius"
+          ],
+          "title": "Radius",
+          "x-hmp-profile": "user"
+        },
+        "min_drained_area": {
+          "default": 0.02,
+          "description": "The drained area a cell needs before a head may land on it, so a head next to its valley lands in the valley and not on the ridge cell beside it.",
+          "examples": [
+            0.02
+          ],
+          "minimum": 0.0,
+          "renamed_from": [
+            "calibration.outputs.heads_min_drained_area_km2"
+          ],
+          "title": "Min Drained Area",
+          "type": "number",
+          "unit": "km2",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "CalibNetworkHeads",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
+    "CalibNetworkMap": {
+      "additionalProperties": false,
+      "description": "What is observed: the mapped network, its role in the cost and how it is drawn.",
+      "properties": {
+        "complete": {
+          "anyOf": [
+            {
+              "const": "data.hydrography",
+              "type": "string"
+            },
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The complete map, every mapped reach: a vector file, read only from here, or 'data.hydrography', the network the hydrography data family loaded (a local file or an osm / bdtopage / euhydro download), clipped to the delineated catchment.",
+          "renamed_from": [
+            "calibration.outputs.stream_geometry_path",
+            "calibration.outputs.observed_network"
+          ],
+          "site_scoped": true,
+          "title": "Complete",
+          "x-hmp-profile": "user"
+        },
+        "permanent": {
+          "anyOf": [
+            {
+              "const": "data.hydrography",
+              "type": "string"
+            },
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The permanent map, the reaches that flow all year, which the complete map contains: a vector file, read as it is and never filtered by attribute, or 'data.hydrography', the permanent reaches the hydrography data family wrote beside its network, which it does only when its source says which reaches flow all year. The complete map scored is the union of the two, and the share of this map outside the complete one is published.",
+          "renamed_from": [
+            "calibration.outputs.minimal_stream_geometry_path",
+            "calibration.outputs.minimal_observed_network"
+          ],
+          "title": "Permanent",
+          "x-hmp-profile": "user"
+        },
+        "calibrate_on": {
+          "anyOf": [
+            {
+              "enum": [
+                "permanent",
+                "complete"
+              ],
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/CalibNetworkBoundWeights"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The role of each map, required when both are declared and refused otherwise. 'permanent' or 'complete' names the map in the cost. In one state, the other map is scored at the same state as a validation outside the cost, and 'permanent' is how Abherve et al. (2025) calibrate. With 'model.extent', the named map has all the weight. A table {permanent = 0.5, complete = 0.5} shares the value between both bounds, and only 'model.extent' scores two bounds.",
+          "renamed_from": [
+            "calibration.outputs.extent.weights"
+          ],
+          "title": "Calibrate On",
+          "x-hmp-profile": "user"
+        },
+        "drawn_by": {
+          "default": "heads",
+          "description": "How the map is drawn on the mesh cells. 'crossing' keeps the cell holding each point where a line crosses the segment joining two edge-sharing cell centres. On a structured grid it reproduces WhiteboxTools VectorLinesToRaster, the paper's tool, and draws the map one cell wide like the simulated network, so a model that matches the map scores J = 0. 'touch' keeps every cell the line touches, corners included, and replays a session made before 2026-09; it thickens every diagonal step of the map and departs from the paper. 'heads' keeps only the free ends of the map whose largest drained area within 'heads.radius' does not exceed that of the other end of their reach, lands each on a nearby cell and draws the rest down the criterion's own descent: the field ditches and rectified reaches below a head stop counting as model error, and the drawn map reaches the outlet. Keep 'crossing' for a map that is not a tree: canals, braids, polders, karst.",
+          "enum": [
+            "heads",
+            "crossing",
+            "touch"
+          ],
+          "examples": [
+            "heads"
+          ],
+          "renamed_from": [
+            "calibration.outputs.observed_rasterization"
+          ],
+          "title": "Drawn By",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "heads": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CalibNetworkHeads"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Where a head may land, read only under drawn_by = 'heads' and refused under another rule. Left out under 'heads', the defaults of its keys.",
+          "x-hmp-profile": "user"
+        },
+        "clip_to_catchment": {
+          "default": true,
+          "description": "Cut the map to the delineated catchment before drawing it, with the shape the hydrography data family clips what it loads to, so a file and 'data.hydrography' draw the same map from the same data. Under 'heads' an end the cut made is no stream head. false reads a file whole and takes every free end as a candidate head.",
+          "examples": [
+            true
+          ],
+          "renamed_from": [
+            "calibration.outputs.clip_map_to_catchment"
+          ],
+          "title": "Clip To Catchment",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "position_accuracy": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "properties": {
+                    "magnitude": {
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "title": "Magnitude"
+                    },
+                    "units": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {}
+                      ],
+                      "title": "Units"
+                    }
+                  },
+                  "type": "object"
+                }
+              ]
+            },
+            {
+              "type": "number"
+            },
+            {
+              "description": "A quantity as text: a number then a unit, for example '150 m' or '0.36 m/h'.",
+              "pattern": "^\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\s*(?:\\S.*)?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Positional accuracy of the map. It enters the automatic validity length only, so it is refused beside a 'verdict.validity_length' written as a length: the cell size h there is max(h_obs, this), because a map is not placed better when the mesh is refined. r_optim stays D_optim / h_obs, the paper's Eq. 3. Unset is the literal reading of the paper.",
+          "renamed_from": [
+            "calibration.outputs.observed_position_accuracy"
+          ],
+          "title": "Position Accuracy",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "CalibNetworkMap",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
+    "CalibNetworkModel": {
+      "additionalProperties": false,
+      "description": "How the model draws its own stream network.",
+      "properties": {
+        "seepage_threshold": {
+          "default": 0.0001,
+          "description": "A cell releasing less than this fraction of the mean basin recharge, taken over its own area, is not a seepage face. Zero reproduces the purely geometric criterion of the paper. Frozen over the whole search: a threshold moving with the trial would cost the criterion its monotonicity.",
+          "examples": [
+            0.0001
+          ],
+          "minimum": 0.0,
+          "renamed_from": [
+            "calibration.outputs.tau_specific_ratio"
+          ],
+          "title": "Seepage Threshold",
+          "type": "number",
+          "unit": "-",
+          "x-hmp-profile": "user"
+        },
+        "neighbours": {
+          "default": "D8",
+          "description": "The graph the descent walks. 'D8' descends over shared nodes, the eight neighbours of a quad mesh, and is the paper: its distances are traced by WhiteboxTools on a D8 pointer, and the delineation that produced the catchment uses one too. 'D4' descends over shared edges only and departs from the paper. It is not a second-decimal choice: on a synthetic valley whose talweg runs along the grid diagonal, the most accumulated cell collects 100 per cent of the domain over shared nodes and 6.6 per cent over shared edges. On a mesh whose faces are not all quadrilaterals no cell has a diagonal and the descent walks shared edges either way; on a Voronoi mesh the two graphs are the same one.",
+          "enum": [
+            "D8",
+            "D4"
+          ],
+          "examples": [
+            "D8"
+          ],
+          "renamed_from": [
+            "calibration.outputs.diagonal_neighbors"
+          ],
+          "title": "Neighbours",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "weighting": {
+          "default": "cell",
+          "description": "Average one cell one vote (the paper) or weighted by cell area. Both values are always reported; use 'area' on a mesh refined along the streams, where cell density is highest exactly where distances are smallest.",
+          "enum": [
+            "cell",
+            "area"
+          ],
+          "examples": [
+            "cell"
+          ],
+          "renamed_from": [
+            "calibration.outputs.weighting"
+          ],
+          "title": "Weighting",
+          "type": "string",
+          "value_docs": {
+            "area": "Every cell counts in proportion to its area.",
+            "cell": "Every cell counts once in the average, as in the paper."
+          },
+          "x-hmp-profile": "user"
+        },
+        "extent": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CalibNetworkExtent"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The transient two-bound mode. Unset, the output reads one state, the method of the papers. Set, it reads every timestep of a transient run and scores the maximal simulated mask against the complete map and, when 'map.permanent' is declared, the minimal mask against the permanent map. Refused on a run with a single period or no complete calendar year.",
+          "renamed_from": [
+            "calibration.outputs.extent"
+          ],
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "CalibNetworkModel",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
     "CalibNetworkVerdict": {
       "additionalProperties": false,
-      "description": "When the result of a network output is refused rather than qualified.",
+      "description": "When the result of a network output is qualified or refused.",
       "properties": {
         "max_catchment_mismatch": {
           "anyOf": [
@@ -513,6 +865,130 @@
           "title": "Max Catchment Mismatch",
           "unit": "-",
           "x-hmp-profile": "user"
+        },
+        "validity_length": {
+          "anyOf": [
+            {
+              "const": "auto",
+              "type": "string"
+            },
+            {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "properties": {
+                    "magnitude": {
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "title": "Magnitude"
+                    },
+                    "units": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {}
+                      ],
+                      "title": "Units"
+                    }
+                  },
+                  "type": "object"
+                }
+              ]
+            },
+            {
+              "type": "number"
+            },
+            {
+              "description": "A quantity as text: a number then a unit, for example '150 m' or '0.36 m/h'.",
+              "pattern": "^\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\s*(?:\\S.*)?$",
+              "type": "string"
+            }
+          ],
+          "default": "auto",
+          "description": "Validity bound of Eq. 4, a length: the calibration is valid when D_optim <= this. 'auto' is 2 h, the paper's two cells, where h is h_obs, the cell size on the mapped network, raised to 'map.position_accuracy' when one is declared. A length such as '150 m' is used as it is. The bound qualifies the result and never penalises the cost.",
+          "examples": [
+            "auto"
+          ],
+          "renamed_from": [
+            "calibration.outputs.validity_length"
+          ],
+          "title": "Validity Length",
+          "x-hmp-profile": "user"
+        },
+        "on_invalid": {
+          "default": "warn",
+          "description": "What a violation of Eq. 4 does: D_optim above 'validity_length'. The bound is read once, on the trial the search returns, as the paper reads it at the optimum, and on each bound in the cost of the two-bound mode; every trial still records 'r_optim', 'r_optim_valid' and 'validity_length_m'. 'warn' logs it and returns the value, because a calibration is asked for a number. 'error' raises after the session is saved, so a staged calibration freezes nothing and runs no phase that depends on this one.",
+          "enum": [
+            "warn",
+            "error"
+          ],
+          "examples": [
+            "warn"
+          ],
+          "renamed_from": [
+            "calibration.outputs.on_roptim_violation"
+          ],
+          "title": "On Invalid",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "alpha_warning_threshold": {
+          "default": 0.9,
+          "description": "Below this value of 'alpha_obs_closure_catchment' the run warns that its distances carry a top-versus-map disagreement on top of the hydrogeology. alpha is the share of the downstream closure of the mapped network the network itself covers, measured on the MODEL TOP and on the catchment. It changes nothing that is computed: the criterion is scored the same way above and below it.",
+          "examples": [
+            0.9
+          ],
+          "exclusiveMinimum": 0.0,
+          "maximum": 1.0,
+          "renamed_from": [
+            "calibration.outputs.alpha_warning_threshold"
+          ],
+          "title": "Alpha Warning Threshold",
+          "type": "number",
+          "x-hmp-profile": "expert"
+        },
+        "clipping_warning_share": {
+          "default": 0.1,
+          "description": "Share of the mapped stream cells lying outside the delineated catchment above which the whole-mesh alpha is reported as unreadable. Those reaches trace through the buffer, where no cell is required to descend into the network, so they inflate the closure without adding to the numerator. Reported together with clipping_warning_gap, never alone.",
+          "examples": [
+            0.1
+          ],
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "renamed_from": [
+            "calibration.outputs.clipping_warning_share"
+          ],
+          "title": "Clipping Warning Share",
+          "type": "number",
+          "unit": "-",
+          "x-hmp-profile": "expert"
+        },
+        "clipping_warning_gap": {
+          "default": 0.05,
+          "description": "Minimum absolute gap between the whole-mesh and the catchment alpha for the clipping report to fire. A linework spilling out of the catchment over ground that routes the same way leaves the two ratios equal, and reporting it there would be noise on every ordinary project.",
+          "examples": [
+            0.05
+          ],
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "renamed_from": [
+            "calibration.outputs.clipping_warning_gap"
+          ],
+          "title": "Clipping Warning Gap",
+          "type": "number",
+          "x-hmp-profile": "expert"
         }
       },
       "title": "CalibNetworkVerdict",
@@ -538,7 +1014,6 @@
           "x-hmp-profile": "user"
         },
         "metric": {
-          "default": "rmse",
           "description": "Metric that scores this block against its observations.",
           "enum": [
             "rmse",
@@ -625,23 +1100,6 @@
             "log": "Takes log10 of the cost plus a small epsilon, compressing large costs before weighting."
           },
           "x-hmp-profile": "user"
-        },
-        "warmup": {
-          "anyOf": [
-            {
-              "description": "Non-negative integer.",
-              "minimum": 0,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Burn-in samples dropped from this block only, overriding [calibration].warmup_periods. A count of samples, so twelve means a year at a monthly step and twelve days at a daily one. Write scoring_window.start instead, a date that means the same span at any step and bounds a network state too. Kept so older files load unchanged.",
-          "title": "Warmup",
-          "unit": "-",
-          "x-hmp-profile": "expert"
         }
       },
       "title": "CalibObjectiveBlockDecl",
@@ -1129,7 +1587,7 @@
     },
     "CalibOutputNetwork": {
       "additionalProperties": false,
-      "description": "The mapped stream network as a calibration target.\n\nThe criterion compares a simulated stream network to a mapped one. For\nevery cell of the simulated network the descent to the mapped network is\nmeasured, and reciprocally. The output produces the pair ``(D_so, D_os)``;\nthe metric on top of it is ``distance_gap``, their signed difference in\nabsolute value, whose zero is the balance between an excess of simulated\nstream and a missing one.\n\nIt can drive any parameter that moves where the water table meets the\nsurface. What it identifies depends on what moves: with the homogeneous\nconductivity alone, at fixed geometry and recharge, it identifies ``K/R``,\nthe ratio of Abherve et al. (2023), and not ``K`` itself.\n\nThere is no ``observed_values`` here and there cannot be: the criterion\nbalances two simulated quantities against each other, so nothing in it is\nfitted to a record. The mapped network enters as a geometry, not as a\nseries, and exactly one of ``observed_network`` and\n``stream_geometry_path`` names where it comes from.\n\nThat map is the maximal one, every mapped reach. A minimal map, the\npermanent reaches, may be declared beside it. In one state the state is\nthen scored on the minimal map and the maximal map is a validation. With\n``extent``, a transient run is scored on two bounds, the yearly maximal\nmask against the maximal map and the minimal mask against the minimal map.",
+      "description": "The mapped stream network as a calibration target.\n\nThe criterion compares a simulated stream network to a mapped one. For\nevery cell of the simulated network the descent to the mapped network is\nmeasured, and reciprocally. The output produces the pair ``(D_so, D_os)``;\nthe metric on top of it is ``distance_gap``, their signed difference in\nabsolute value, whose zero is the balance between an excess of simulated\nstream and a missing one.\n\nIt can drive any parameter that moves where the water table meets the\nsurface. What it identifies depends on what moves: with the homogeneous\nconductivity alone, at fixed geometry and recharge, it identifies ``K/R``,\nthe ratio of Abherve et al. (2023), and not ``K`` itself.\n\nThere is no ``observed_values`` here and there cannot be: the criterion\nbalances two simulated quantities against each other, so nothing in it is\nfitted to a record. The mapped network enters as a geometry, not as a\nseries. Three tables hold the rest: ``map`` is what is observed, ``model``\nhow the model draws its network and ``verdict`` when the result holds.",
       "properties": {
         "variable": {
           "default": "release_flux",
@@ -1152,371 +1610,19 @@
           "type": "string",
           "x-hmp-profile": "user"
         },
-        "observed_network": {
-          "anyOf": [
-            {
-              "enum": [
-                "data.hydrography",
-                "geographic.river_network"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Where the mapped network comes from when it is not an explicit file. Exactly one of this and 'stream_geometry_path' must be set.",
-          "title": "Observed Network",
-          "value_docs": {
-            "data.hydrography": "Reuses the network the hydrography data family already loaded (a local file or an osm / bdtopage / euhydro download), clipped to the delineated catchment. Costs nothing new to configure but ties the criterion to whatever that section resolved.",
-            "geographic.river_network": "Derives the network from the DEM by a drainage-area threshold. K/R shapes both where the water table reaches the surface and the accumulation the threshold is cut on, so the criterion partly fits a seepage density onto a geomorphological one; warned once and recorded on every run that uses it."
-          },
+        "map": {
+          "$ref": "#/$defs/CalibNetworkMap",
+          "description": "What is observed: the mapped network, its role and how it is drawn.",
           "x-hmp-profile": "user"
         },
-        "stream_geometry_path": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Vector file holding the mapped stream network, read only from here: the criterion resolves no geometry of its own and does not reuse the one the hydrography data family loaded. The way out of 'observed_network' when neither of its two sources is the one you want scored.",
-          "site_scoped": true,
-          "title": "Stream Geometry Path",
-          "x-hmp-profile": "user"
-        },
-        "minimal_stream_geometry_path": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Vector file holding the minimal map: the permanent network, which the map named by 'observed_network' or 'stream_geometry_path' (the maximal map, every mapped reach) contains. Read as it is, never filtered by attribute. The maximal map scored is the union of the two, and the share of the minimal map outside the maximal one is published. In one state, the state is compared to this map and the maximal map is scored beside it as a validation outside the cost, as Abherve et al. (2025) do; with 'extent', it is the minimal bound. At most one of this and 'minimal_observed_network'.",
-          "title": "Minimal Stream Geometry Path",
-          "x-hmp-profile": "user"
-        },
-        "minimal_observed_network": {
-          "anyOf": [
-            {
-              "const": "data.hydrography",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Where the minimal map comes from when it is not an explicit file. 'data.hydrography' reads the permanent reaches the hydrography data family wrote beside its network, which it does only when its source says which reaches flow all year. Same role as 'minimal_stream_geometry_path'; at most one of the two.",
-          "title": "Minimal Observed Network",
-          "x-hmp-profile": "user"
-        },
-        "tau_specific_ratio": {
-          "default": 0.0001,
-          "description": "A cell releasing less than this fraction of its own recharge is not a seepage face. Zero reproduces the purely geometric criterion of the paper. Frozen over the whole search: a threshold moving with the trial would cost the criterion its monotonicity.",
-          "examples": [
-            0.0001
-          ],
-          "minimum": 0.0,
-          "title": "Tau Specific Ratio",
-          "type": "number",
-          "unit": "-",
-          "x-hmp-profile": "user"
-        },
-        "weighting": {
-          "default": "cell",
-          "description": "Average one cell one vote (the paper) or weighted by cell area. Both values are always reported; use 'area' on a mesh refined along the streams, where cell density is highest exactly where distances are smallest.",
-          "enum": [
-            "cell",
-            "area"
-          ],
-          "examples": [
-            "cell"
-          ],
-          "title": "Weighting",
-          "type": "string",
-          "value_docs": {
-            "area": "Every cell counts in proportion to its area.",
-            "cell": "Every cell counts once in the average, as in the paper."
-          },
-          "x-hmp-profile": "user"
-        },
-        "diagonal_neighbors": {
-          "default": true,
-          "description": "Descend over shared nodes, the eight D8 neighbors of a quad mesh. True is the paper: its distances are traced by WhiteboxTools on a D8 pointer, and the delineation that produced the catchment uses one too. False descends over shared edges only, four neighbours (D4), and departs from the paper. It is not a second-decimal choice: on a synthetic valley whose talweg runs along the grid diagonal, the most accumulated cell collects 100 per cent of the domain over shared nodes and 6.6 per cent over shared edges. On a mesh whose faces are not all quadrilaterals no cell has a diagonal and the descent walks shared edges either way; on a Voronoi mesh the two graphs are the same one.",
-          "examples": [
-            true
-          ],
-          "title": "Diagonal Neighbors",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "observed_rasterization": {
-          "default": "heads",
-          "description": "How the mapped network is drawn on the mesh cells. 'crossing' keeps the cell holding each point where a line crosses the segment joining two edge-sharing cell centres. On a structured grid it reproduces WhiteboxTools VectorLinesToRaster, the paper's tool, and draws the map one cell wide like the simulated network, so a model that matches the map scores J = 0. 'touch' keeps every cell the line touches, corners included, and replays a session made before 2026-09; it thickens every diagonal step of the map and departs from the paper. 'heads' keeps only the free ends of the map whose largest drained area within heads_snap_radius does not exceed that of the other end of their reach, lands each on a nearby cell and draws the rest down the criterion's own descent: the field ditches and rectified reaches below a head stop counting as model error, and the drawn map reaches the outlet. Keep 'crossing' for a map that is not a tree: canals, braids, polders, karst.",
-          "enum": [
-            "heads",
-            "crossing",
-            "touch"
-          ],
-          "examples": [
-            "heads"
-          ],
-          "title": "Observed Rasterization",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "clip_map_to_catchment": {
-          "default": true,
-          "description": "Cut the mapped network to the delineated catchment before drawing it, with the shape the hydrography data family clips what it loads to, so 'stream_geometry_path' and observed_network = 'data.hydrography' draw the same map from the same file. Under 'heads' an end the cut made is no stream head. false reads a file whole and takes every free end as a candidate head.",
-          "examples": [
-            true
-          ],
-          "title": "Clip Map To Catchment",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "heads_snap_radius": {
-          "anyOf": [
-            {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "properties": {
-                    "magnitude": {
-                      "anyOf": [
-                        {
-                          "type": "integer"
-                        },
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "string"
-                        }
-                      ],
-                      "title": "Magnitude"
-                    },
-                    "units": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {}
-                      ],
-                      "title": "Units"
-                    }
-                  },
-                  "type": "object"
-                }
-              ]
-            },
-            {
-              "type": "number"
-            },
-            {
-              "description": "A quantity as text: a number then a unit, for example '150 m' or '0.36 m/h'.",
-              "pattern": "^\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\s*(?:\\S.*)?$",
-              "type": "string"
-            }
-          ],
-          "default": 100.0,
-          "description": "Under observed_rasterization = 'heads', the largest distance, a length (a bare number is in metres), between a mapped stream head and the centre of the cell it lands on. A head with no landing cell that close is lost, draws nothing and is counted in n_heads_lost. Read only under 'heads'.",
-          "examples": [
-            100.0
-          ],
-          "title": "Heads Snap Radius",
-          "x-hmp-profile": "user"
-        },
-        "heads_min_drained_area_km2": {
-          "default": 0.02,
-          "description": "Under observed_rasterization = 'heads', the drained area in km2 a cell needs before a head may land on it, so a head next to its valley lands in the valley and not on the ridge cell beside it. Read only under 'heads'.",
-          "examples": [
-            0.02
-          ],
-          "minimum": 0.0,
-          "title": "Heads Min Drained Area Km2",
-          "type": "number",
-          "x-hmp-profile": "user"
-        },
-        "observed_position_accuracy": {
-          "anyOf": [
-            {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "properties": {
-                    "magnitude": {
-                      "anyOf": [
-                        {
-                          "type": "integer"
-                        },
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "string"
-                        }
-                      ],
-                      "title": "Magnitude"
-                    },
-                    "units": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {}
-                      ],
-                      "title": "Units"
-                    }
-                  },
-                  "type": "object"
-                }
-              ]
-            },
-            {
-              "type": "number"
-            },
-            {
-              "description": "A quantity as text: a number then a unit, for example '150 m' or '0.36 m/h'.",
-              "pattern": "^\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\s*(?:\\S.*)?$",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Positional accuracy of the mapped network. It enters the automatic validity length only: the cell size h there is max(h_obs, this), because a map is not placed better when the mesh is refined. r_optim stays D_optim / h_obs, the paper's Eq. 3. Unset is the literal reading of the paper.",
-          "title": "Observed Position Accuracy",
-          "x-hmp-profile": "user"
-        },
-        "validity_length": {
-          "anyOf": [
-            {
-              "const": "auto",
-              "type": "string"
-            },
-            {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "properties": {
-                    "magnitude": {
-                      "anyOf": [
-                        {
-                          "type": "integer"
-                        },
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "string"
-                        }
-                      ],
-                      "title": "Magnitude"
-                    },
-                    "units": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {}
-                      ],
-                      "title": "Units"
-                    }
-                  },
-                  "type": "object"
-                }
-              ]
-            },
-            {
-              "type": "number"
-            },
-            {
-              "description": "A quantity as text: a number then a unit, for example '150 m' or '0.36 m/h'.",
-              "pattern": "^\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\s*(?:\\S.*)?$",
-              "type": "string"
-            }
-          ],
-          "default": "auto",
-          "description": "Validity bound of Eq. 4, a length: the calibration is valid when D_optim <= this. 'auto' is 2 h, the paper's two cells, where h is h_obs, the cell size on the mapped network, raised to 'observed_position_accuracy' when one is declared. A length such as '150 m' is used as it is. The bound qualifies the result and never penalises the cost.",
-          "examples": [
-            "auto"
-          ],
-          "title": "Validity Length",
-          "x-hmp-profile": "user"
-        },
-        "on_roptim_violation": {
-          "default": "warn",
-          "description": "What a violation of Eq. 4 does: D_optim above 'validity_length'. The bound is read once, on the trial the search returns, as the paper reads it at the optimum, and on each bound in the cost of the two-bound mode; every trial still records 'r_optim', 'r_optim_valid' and 'validity_length_m'. 'warn' logs it and returns the value, because a calibration is asked for a number. 'error' raises after the session is saved, so a staged calibration freezes nothing and runs no phase that depends on this one.",
-          "enum": [
-            "warn",
-            "error"
-          ],
-          "examples": [
-            "warn"
-          ],
-          "title": "On Roptim Violation",
-          "type": "string",
+        "model": {
+          "$ref": "#/$defs/CalibNetworkModel",
           "x-hmp-profile": "user"
         },
         "verdict": {
           "$ref": "#/$defs/CalibNetworkVerdict",
-          "description": "When the result of this output is refused rather than qualified.",
+          "description": "When the result of this output is qualified or refused.",
           "x-hmp-profile": "user"
-        },
-        "alpha_warning_threshold": {
-          "default": 0.9,
-          "description": "Below this value of 'alpha_obs_closure_catchment' the run warns that its distances carry a top-versus-map disagreement on top of the hydrogeology. alpha is the share of the downstream closure of the mapped network the network itself covers, measured on the MODEL TOP and on the catchment. It changes nothing that is computed: the criterion is scored the same way above and below it.",
-          "examples": [
-            0.9
-          ],
-          "exclusiveMinimum": 0.0,
-          "maximum": 1.0,
-          "title": "Alpha Warning Threshold",
-          "type": "number",
-          "x-hmp-profile": "expert"
-        },
-        "clipping_warning_share": {
-          "default": 0.1,
-          "description": "Share of the mapped stream cells lying outside the delineated catchment above which the whole-mesh alpha is reported as unreadable. Those reaches trace through the buffer, where no cell is required to descend into the network, so they inflate the closure without adding to the numerator. Reported together with clipping_warning_gap, never alone.",
-          "examples": [
-            0.1
-          ],
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "title": "Clipping Warning Share",
-          "type": "number",
-          "unit": "-",
-          "x-hmp-profile": "expert"
-        },
-        "clipping_warning_gap": {
-          "default": 0.05,
-          "description": "Minimum absolute gap between the whole-mesh and the catchment alpha for the clipping report to fire. A linework spilling out of the catchment over ground that routes the same way leaves the two ratios equal, and reporting it there would be noise on every ordinary project.",
-          "examples": [
-            0.05
-          ],
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "title": "Clipping Warning Gap",
-          "type": "number",
-          "x-hmp-profile": "expert"
         },
         "time": {
           "anyOf": [
@@ -1532,24 +1638,11 @@
             }
           ],
           "default": "last",
-          "description": "Which single state the release flux is read at: 'last' (default), 'first', or an ISO date such as '2002-10-15', which reads the state of the period that holds it, (start, end]. That state is dated at its period's end, which is the date a scoring_window is compared with. A steady phase runs one period over its window, so every date of that window reads its one state and one output serves both regimes. 'all' and a list of dates are refused: a network output reads one state.",
+          "description": "Which single state the release flux is read at: 'last' (default), 'first', or an ISO date such as '2002-10-15', which reads the state of the period that holds it, (start, end]. That state is dated at its period's end, which is the date a window is compared with. A steady phase runs one period over its window, so every date of that window reads its one state and one output serves both regimes. 'all' and a list of dates are refused: a network output reads one state.",
           "examples": [
             "last"
           ],
           "title": "Time",
-          "x-hmp-profile": "user"
-        },
-        "extent": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/CalibNetworkExtent"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "The transient two-bound mode. Unset, the output reads one state, the method of the papers. Set, it reads every timestep of a transient run and scores the maximal simulated mask against the maximal map and, when 'minimal_stream_geometry_path' is declared, the minimal mask against the minimal map. Refused on a run with a single period or no complete calendar year.",
           "x-hmp-profile": "user"
         }
       },
@@ -2253,21 +2346,6 @@
           },
           "x-hmp-profile": "user"
         },
-        "observed_station_id": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Discharge station whose record a discharge calibration fits, scored at its own mesh cell on the discharge routed to that cell. The other loaded gauges are not scored. Required with several discharge stations loaded, optional with one. Overrides the calibration-level value for this phase.",
-          "site_scoped": true,
-          "title": "Observed Station Id",
-          "x-hmp-profile": "user"
-        },
         "method_options": {
           "anyOf": [
             {
@@ -2344,17 +2422,20 @@
           "type": "object",
           "x-hmp-profile": "user"
         },
-        "scoring_window": {
+        "window": {
           "anyOf": [
             {
-              "$ref": "#/$defs/CalibScoringWindow"
+              "$ref": "#/$defs/CalibWindow"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "description": "Dates bounding the samples this phase scores on, replacing [calibration].scoring_window. start = the first date scored leaves a spin-up out of every block alike. A network output read in one state is dated at the stamp of that state, which has to lie inside the window.",
+          "description": "Dates bounding the samples this phase scores on, replacing [calibration].window. start = the first date scored leaves a spin-up out of every block alike. A network output read in one state is dated at the stamp of that state, which has to lie inside the window.",
+          "renamed_from": [
+            "calibration.phases.scoring_window"
+          ],
           "x-hmp-profile": "user"
         },
         "depends_on": {
@@ -2530,48 +2611,6 @@
         }
       }
     },
-    "CalibScoringWindow": {
-      "additionalProperties": false,
-      "description": "Dates bounding the samples a metric is computed on.\n\nA window in dates rather than in sample counts: it says the same thing\nwhatever the output frequency, whereas ``warmup_periods`` counts samples\nafter alignment and therefore means a different span at daily and at weekly\nresolution. The two are mutually exclusive, which\n:class:`CalibrationConfig` enforces.",
-      "properties": {
-        "start": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "First date scored, ISO 8601. Unset means from the first sample.",
-          "title": "Start",
-          "x-hmp-profile": "user"
-        },
-        "end": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Last date scored, ISO 8601. Unset means up to the last sample.",
-          "title": "End",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "CalibScoringWindow",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
     "CalibUncertaintyDecl": {
       "additionalProperties": false,
       "description": "How wide the search says its own answer is.\n\nThe calibrated value never moves: this block only decides what is reported\nbeside it. ``cost_profile`` reads the interval off the trials the search\nalready ran, so it costs no extra model run and rests on no error model. It\nsays what the search could not tell apart, which is a statement about the\ntrace and not a posterior.",
@@ -2650,6 +2689,48 @@
         }
       },
       "title": "CalibUncertaintyDecl",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
+    "CalibWindow": {
+      "additionalProperties": false,
+      "description": "Dates bounding the samples a metric is computed on.\n\nA window in dates rather than in sample counts: it says the same thing\nwhatever the output frequency.",
+      "properties": {
+        "start": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "First date scored, ISO 8601. Unset means from the first sample.",
+          "title": "Start",
+          "x-hmp-profile": "user"
+        },
+        "end": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Last date scored, ISO 8601. Unset means up to the last sample.",
+          "title": "End",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "CalibWindow",
       "type": "object",
       "patternProperties": {
         "^.+__delete$": {
@@ -2804,29 +2885,33 @@
           "unit": "%",
           "x-hmp-profile": "user"
         },
-        "warmup_periods": {
-          "default": 0,
-          "description": "Spin-up samples dropped from the start of every series before its metric. A count of samples, so its span follows the time step. Write scoring_window.start instead, a date that means the same span at any step and bounds a network state too. Kept so older files load unchanged. Default 0 (no exclusion).",
-          "examples": [
-            0
-          ],
-          "minimum": 0,
-          "title": "Warmup Periods",
-          "type": "integer",
-          "unit": "-",
-          "x-hmp-profile": "expert"
-        },
-        "scoring_window": {
+        "window": {
           "anyOf": [
             {
-              "$ref": "#/$defs/CalibScoringWindow"
+              "$ref": "#/$defs/CalibWindow"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "description": "Dates bounding the samples every metric is computed on: the way to leave a spin-up out, with start = the first date scored. A series keeps its stamps inside the window; a network output read in one state is dated at the stamp of that state, which has to lie inside it. A phase's own window replaces this one. Mutually exclusive with warmup_periods.",
+          "description": "Dates bounding the samples every metric is computed on: the way to leave a spin-up out, with start = the first date scored. A series keeps its stamps inside the window; a network output read in one state is dated at the stamp of that state, which has to lie inside it. A phase's own window replaces this one.",
+          "renamed_from": [
+            "calibration.scoring_window"
+          ],
+          "x-hmp-profile": "user"
+        },
+        "validation_window": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CalibWindow"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Dates kept apart from the search, with both bounds. Every trial is scored on them beside its cost, by the blocks that compare a dated record, and the cost never reads them. [metrics] window minus these dates is the default of window. Declared once for the session, and a steady phase is not scored on it.",
           "x-hmp-profile": "user"
         },
         "phases": {
@@ -2950,21 +3035,6 @@
           ],
           "title": "Variable",
           "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "observed_station_id": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Discharge station whose record a discharge calibration fits, scored at its own mesh cell on the discharge routed to that cell. The other loaded gauges are not scored. Required with several discharge stations loaded, optional with one.",
-          "site_scoped": true,
-          "title": "Observed Station Id",
           "x-hmp-profile": "user"
         },
         "method_options": {
@@ -15418,54 +15488,20 @@
           "type": "string",
           "x-hmp-profile": "user"
         },
-        "observed_station_id": {
+        "window": {
           "anyOf": [
             {
-              "type": "string"
+              "$ref": "#/$defs/CalibWindow"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "description": "Gauge whose cost drives stage two. Required with several stations loaded.",
-          "site_scoped": true,
-          "title": "Observed Station Id",
-          "x-hmp-profile": "user"
-        },
-        "scoring_window": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "type": "string"
-              },
-              "propertyNames": {
-                "enum": [
-                  "start",
-                  "end"
-                ]
-              },
-              "type": "object",
-              "patternProperties": {
-                "^.+__delete$": {
-                  "const": true,
-                  "description": "Remove the inherited key. Only the literal true is accepted."
-                },
-                "^.+__append$": {
-                  "type": "array"
-                },
-                "^.+__merge$": {
-                  "type": "array"
-                }
-              }
-            },
-            {
-              "type": "null"
-            }
+          "description": "Dates bounding the samples stage two scores on, as {start, end} in ISO 8601, either one optional. A date that does not parse is refused when the file is read. Unset, stage two scores the window of [metrics] when the file writes one, and otherwise from one year after [simulation.time].start_datetime: the first year is spin-up. A window on [calibration] replaces both. A run of one year or less is scored whole. Write start = the run's own start to score the spin-up year too.",
+          "renamed_from": [
+            "calibration.protocol.scoring_window"
           ],
-          "default": null,
-          "description": "Dates bounding the samples stage two scores on, as {start, end} in ISO 8601, either one optional. A date that does not parse is refused when the file is read. Unset, stage two scores the window of [metrics] when the file writes one, and otherwise from one year after [simulation.time].start_datetime: the first year is spin-up. A scoring_window or warmup_periods on [calibration] replaces both. A run of one year or less is scored whole. Write start = the run's own start to score the spin-up year too.",
-          "title": "Scoring Window",
           "x-hmp-profile": "user"
         }
       },
@@ -21379,7 +21415,7 @@
           "default": null,
           "description": "Readable name of the catchment, shown in reports, figure footers and tables. Free text; unset, the name is shown.",
           "examples": [
-            "Le Nançon à Lécousse"
+            "Le Nan\u00e7on \u00e0 L\u00e9cousse"
           ],
           "title": "Label",
           "x-hmp-profile": "user"
@@ -21394,7 +21430,7 @@
             }
           ],
           "default": null,
-          "description": "Station that measures the catchment, written once for every key that names it. A station source of [data.hydrometry], [data.recharge] or [data.runoff] (custom chronicles or hubeau) with no station_ids reads this station; a station_ids that leaves it out is refused by name. calibration.observed_station_id and [metrics] station default to it. Unset, a run that loads exactly one discharge station takes that station as its gauge and writes it in its manifest.",
+          "description": "Station that measures the catchment, written once for every key that names it. A station source of [data.hydrometry], [data.recharge] or [data.runoff] (custom chronicles or hubeau) with no station_ids reads this station; a station_ids that leaves it out is refused by name. [metrics] station and a point output's observes default to it. Unset, a run that loads exactly one discharge station takes that station as its gauge and writes it in its manifest.",
           "examples": [
             "J0014010"
           ],

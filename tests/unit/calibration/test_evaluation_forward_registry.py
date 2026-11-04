@@ -417,7 +417,7 @@ class TestWhatTheRouteRefuses:
             requests_for_outputs(
                 _config(
                     outputs={
-                        "network": {"support": "network", "observed_network": "data.hydrography"}
+                        "network": {"support": "network", "map": {"complete": "data.hydrography"}}
                     }
                 ).outputs
             )

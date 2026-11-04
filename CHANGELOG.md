@@ -50,6 +50,9 @@ Each release section includes the following standard categories:
 - `hmp doctor --fix-config` now reads the files a file inherits for the timestep, `start_datetime` and `[site] gauge`. It no longer leaves `warmup_periods` with a false reason, and no longer writes a second gauge over the parent's.
 - The doctor always writes a date without a time when it rewrites `warmup_periods`, and its change line says the date counts from `start_datetime`. The old count ran from the first aligned sample, so the two agree only when the record starts at `start_datetime`.
 - `hmp config check` now takes off `validation_window` when it decides whether a protocol `window` equals the recipe's default.
+- `hmp doctor --fix-config` keeps the share of each map when a child file adds an extent or weights under a parent it already rewrote. It used to drop the weights and score the permanent map alone.
+- `hmp doctor --fix-config` says what to do when a file gives `map.calibrate_on` and old `extent.weights` that differ, and no longer drops the weights.
+- `hmp doctor --fix-config` refuses a network output written with dotted keys under a parent table, with a line that asks for a `[calibration.outputs.<name>]` table. It used to stop on a raw error, or to write the new tables outside `[calibration]`.
 
 ### Changed
 
@@ -61,6 +64,9 @@ Each release section includes the following standard categories:
   without the key keeps its cache keys.
 - A file that writes an old key of `[calibration]` is now refused with the new name, and `hmp doctor --fix-config` rewrites it. This covers `scoring_window`, `optimizer_kwargs`, `steady_engine_options`, `transient_engine_options`, `max_iter`, `tolerance` and their stage forms, `transform` and `prior`, the two extent step counts, `tolerance` and `mode` of `[calibration.uncertainty]`, the evaluation counts in method options and `roptim_max`. These keys used to load with a warning. The section is experimental, so it takes no delay. A sealed `config.toml` is still read. Other sections keep their delay.
 - `Project.calibrate` on a project read from a file now names its case as `hmp calibrate` does, so the two share one session and `resume` finds it. The case no longer comes from a name the file inherits.
+- The seepage threshold is described as a fraction of the mean basin recharge over the cell's own area, in the field, the protocol deviation and the docs. No value changes.
+- The example calibration files of 04, 10, 12 and 21 use the new `map`, `model` and `verdict` tables.
+Numbers: none.
 
 ### Numbers
 
@@ -74,6 +80,7 @@ Each release section includes the following standard categories:
 ### Removed
 
 - The B0 network and transient discharge case left the `hydromodpy` package for `validation_cases/calibration/network_transient_b0/`. The wheel no longer ships its page. `hydromodpy.calibration.reporting`, `hydromodpy.calibration.observations.natural_observations`, `network_cost`, `network_transient_truth` and `hydromodpy.calibration.optim.objective_mapping` are gone, and `step_render_network_transient_calibration_html` is no longer in `hydromodpy.workflow.steps.calibration`.
+- A network output can no longer score against `geographic.river_network`. The DEM-derived network is no observation. `hmp doctor --fix-config` says to write `map.complete = "data.hydrography"` or a vector file, and a sealed run simply drops the key. The `observed_network_is_dem_derived` trial diagnostic is gone with it.
 
 ### Added
 

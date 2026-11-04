@@ -196,7 +196,7 @@ bounds = {bounds}
 
 [calibration.outputs.seepage_network]
 support = "network"
-stream_geometry_path = "{mapped}"
+map.complete = "{mapped}"
 {keys}
 
 [calibration.protocol]
@@ -463,7 +463,7 @@ def test_the_map_holds_the_known_heads_and_traces_back_to_the_network(
         truth.metric,
         candidates,
         cell_area_m2=truth.areas,
-        settings=heads_settings(CalibOutputNetwork(support="network", stream_geometry_path="a")),
+        settings=heads_settings(CalibOutputNetwork(support="network", map={"complete": "a"})),
     )
     assert trace.n_lost == 0
     assert np.array_equal(np.sort(trace.head_cell), truth.heads)
@@ -503,7 +503,7 @@ def test_a_search_under_the_protocol_recovers_the_conductivity_that_made_the_hea
 
     assert report.protocol["version"] == "1.3"
     sealed = (Path(report.session_dir) / "config.toml").read_text(encoding="utf-8")
-    assert 'observed_rasterization = "heads"' in sealed
+    assert 'drawn_by = "heads"' in sealed
 
     stage = report.phases[0].report
     assert report.phases[0].status == "completed"
@@ -600,9 +600,7 @@ def test_below_its_head_the_path_of_a_line_counts_under_crossing_only(grid_truth
     heads = _calibrate(grid_truth, "wander_heads", lines)
     assert abs(float(heads.best_parameters["K"]) / K_TRUE_M_S - 1.0) <= K_RECOVERY_REL
     assert network_metric(trial_metrics(heads, heads.best_parameters["K"]), "D_optim") == 0.0
-    crossing = _calibrate(
-        grid_truth, "wander_crossing", lines, keys='observed_rasterization = "crossing"'
-    )
+    crossing = _calibrate(grid_truth, "wander_crossing", lines, keys='map.drawn_by = "crossing"')
     assert abs(float(crossing.best_parameters["K"]) / K_TRUE_M_S - 1.0) > K_RECOVERY_REL
 
 

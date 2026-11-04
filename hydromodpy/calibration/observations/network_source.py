@@ -1,20 +1,20 @@
 """Where the mapped stream network of a network criterion comes from.
 
 A ``[calibration.outputs.<name>]`` of ``support = "network"`` names its
-observed network one of three ways: the network the data layer already loaded
-and clipped to the catchment (``observed_network = "data.hydrography"``), the
-network the DEM pipeline derived by a drainage-area threshold
-(``observed_network = "geographic.river_network"``), or an explicit file
-(``stream_geometry_path``). :class:`hydromodpy.calibration.config.CalibOutputNetwork`
-guarantees exactly one of the three is declared; this module turns that
+observed network one of two ways: the network the data layer already loaded
+and clipped to the catchment (``map.complete = "data.hydrography"``), or an
+explicit file (``map.complete`` as a path). A network the DEM derives is no
+observation, so it is not offered.
+:class:`hydromodpy.calibration.config.CalibNetworkMap` holds one field
+for it, so exactly one of the two is declared; this module turns that
 declaration into geometry, or refuses by naming why it cannot.
 
-The two in-memory routes never re-clip and never re-derive: the geographic
+The in-memory route never re-clips and never re-derives: the geographic
 pipeline already built the network once, at
 ``run_ctx.state.setup.geographic_features.hydrographic_networks``, and this
 module only reads the handle it left there. A file arrives whole.
 :func:`cut_to_the_catchment` cuts it with the shape the hydrography data family
-clips to, so the two routes draw the same map from the same file, and names that
+clips to, so both routes draw the same map from the same file, and names that
 shape, so the heads rule can tell an end the cut made from a head.
 """
 
@@ -25,12 +25,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
     from hydromodpy.simulation.planning.plan import RunContext
-
-logger = get_logger(__name__)
 
 __all__ = [
     "ObservedNetwork",
@@ -58,14 +55,12 @@ class UnresolvedObservedNetwork(ConfigError):
 class ObservedNetwork:
     """The resolved geometry a network output is scored against, and its provenance.
 
-    ``clipped`` and ``dem_derived`` are not booleans a caller has to infer from
-    ``source``: they are what a diagnostic or a report needs printed, and
-    keeping them explicit means a fourth source, if one is ever added, cannot
-    silently pass as clipped or as DEM-derived by omission.
+    ``clipped`` is not a boolean a caller has to infer from ``source``: it is
+    what a diagnostic or a report needs printed.
     """
 
     source: str
-    """One of ``"data.hydrography"``, ``"geographic.river_network"``, ``"path"``."""
+    """One of ``"data.hydrography"``, ``"path"``."""
 
     geometry: Any
     """A GeoDataFrame of lines."""
@@ -73,9 +68,6 @@ class ObservedNetwork:
     crs: str | None
     clipped: bool
     """Whether the geometry was already cut to the delineated catchment."""
-
-    dem_derived: bool
-    """Whether the geometry was extracted from the DEM the model top samples."""
 
     path: str | None
     """The file the geometry was read from, when there was one."""
@@ -91,39 +83,9 @@ class ObservedNetwork:
     """The CRS of ``cut_outline``."""
 
 
-_DEM_DERIVED_WARNED = False
-
-
-def _warn_dem_derived_once() -> None:
-    """Warn, at most once per process, that the observed network is circular.
-
-    K/R shapes where the water table meets the surface, which correlates with
-    the drainage area the same DEM accumulation cuts a threshold on: the
-    criterion then partly fits a seepage density onto a geomorphological one.
-    Not refused, since it is a legitimate experiment on a catchment with no
-    mapped network of its own, but worth saying once rather than trusting every
-    reader of a result to have re-derived it.
-    """
-    global _DEM_DERIVED_WARNED
-    if _DEM_DERIVED_WARNED:
-        return
-    _DEM_DERIVED_WARNED = True
-    logger.warning(
-        "observed_network = 'geographic.river_network': the network this output scores "
-        "against is derived from the same DEM the model top is sampled from. The criterion "
-        "partly fits a seepage density onto a geomorphological one, which is a legitimate "
-        "experiment on an uncharted catchment but not the independent check the paper poses."
-    )
-
-
 _MISSING_DATA_HYDROGRAPHY = (
-    "observed_network = 'data.hydrography' names a network this project does not load: "
+    "map.{field} = 'data.hydrography' names a network this project does not load: "
     "declare a source in [[data.hydrography.sources]]."
-)
-_MISSING_RIVER_NETWORK = (
-    "observed_network = 'geographic.river_network' names a network this project does not "
-    "derive: set [geographic.river_network] enabled = true and threshold_area_km2 (or "
-    "threshold_cells)."
 )
 
 
@@ -169,13 +131,11 @@ def resolve_network_role(
     canonical_source: str,
     message_source: str,
     empty_reason: str,
-    dem_derived: bool = False,
 ) -> ObservedNetwork | None:
     """Return the `ObservedNetwork` for one `HydrographicNetworks` role, or None.
 
     Shared by every consumer that reads a network the geographic pipeline
-    already attached to the run: clipped to the catchment, and DEM-derived
-    only when the caller says so. Returns None rather than raising when the
+    already attached to the run: clipped to the catchment. Returns None rather than raising when the
     role carries no network, so a caller composes its own refusal message
     around the missing map.
     """
@@ -188,7 +148,6 @@ def resolve_network_role(
         geometry=geometry,
         crs=network.crs,
         clipped=True,
-        dem_derived=dem_derived,
         path=network.vector_path,
     )
 
@@ -204,7 +163,6 @@ def resolve_network_file(path: str, *, message_source: str, empty_reason: str) -
         geometry=geometry,
         crs=str(raw.crs) if raw.crs is not None else None,
         clipped=False,
-        dem_derived=False,
         path=str(path),
     )
 
@@ -214,61 +172,34 @@ def _from_data_layer(run_ctx: RunContext) -> ObservedNetwork:
         run_ctx,
         "reference",
         canonical_source="data.hydrography",
-        message_source="observed_network = 'data.hydrography'",
+        message_source="map.complete = 'data.hydrography'",
         empty_reason="the network the data layer loaded and clipped to the catchment carries "
         "no feature",
     )
     if resolved is None:
-        raise UnresolvedObservedNetwork(_MISSING_DATA_HYDROGRAPHY)
+        raise UnresolvedObservedNetwork(_MISSING_DATA_HYDROGRAPHY.format(field="complete"))
     return resolved
-
-
-def _from_dem(run_ctx: RunContext) -> ObservedNetwork:
-    resolved = resolve_network_role(
-        run_ctx,
-        "generated",
-        canonical_source="geographic.river_network",
-        message_source="observed_network = 'geographic.river_network'",
-        empty_reason="threshold_area_km2 is high enough that no stream survives the cut "
-        "(spatial/geographic/core/river_network.py returns none silently); lower it",
-        dem_derived=True,
-    )
-    if resolved is None:
-        raise UnresolvedObservedNetwork(_MISSING_RIVER_NETWORK)
-    _warn_dem_derived_once()
-    return resolved
-
-
-def _from_path(output: Any) -> ObservedNetwork:
-    path = getattr(output, "stream_geometry_path", None)
-    if not path:
-        raise UnresolvedObservedNetwork(
-            "calibration output declares neither 'observed_network' nor "
-            "'stream_geometry_path': the mapped network has no source."
-        )
-    return resolve_network_file(
-        path,
-        message_source=f"stream_geometry_path = {str(path)!r}",
-        empty_reason="the file carries no feature",
-    )
 
 
 def resolve_observed_network(run_ctx: RunContext, output: Any) -> ObservedNetwork:
     """Return the network geometry ``output`` names, or refuse by naming why.
 
-    ``output.observed_network`` and ``output.stream_geometry_path`` are
-    mutually exclusive by the time a ``CalibOutputNetwork`` validates, so the
-    three branches below never overlap. Nothing here is written back onto
-    ``output``: with ``validate_assignment=True`` on the model, writing the
-    resolved path into ``stream_geometry_path`` would make the next validation
-    see both fields declared and refuse the output it just resolved.
+    ``output.map.complete`` holds one source, so the two branches below never
+    overlap. Nothing here is written back onto ``output``.
     """
-    choice = getattr(output, "observed_network", None)
+    choice = output.map.complete
+    if choice is None:
+        raise UnresolvedObservedNetwork(
+            "the network output has no complete map. Write map.complete = "
+            "'data.hydrography' or the path of a vector file."
+        )
     if choice == "data.hydrography":
         return _from_data_layer(run_ctx)
-    if choice == "geographic.river_network":
-        return _from_dem(run_ctx)
-    return _from_path(output)
+    return resolve_network_file(
+        choice,
+        message_source=f"map.complete = {str(choice)!r}",
+        empty_reason="the file carries no feature",
+    )
 
 
 def _map_mask_file(run_ctx: RunContext) -> Path | None:
@@ -296,11 +227,11 @@ def cut_to_the_catchment(
     outline, which is what tells an end of the cut from a head
     (:func:`hydromodpy.spatial.geographic.core.network_heads.network_head_candidates`).
 
-    ``clip_map_to_catchment = false`` returns the map as it arrived, and a run with
+    ``map.clip_to_catchment = false`` returns the map as it arrived, and a run with
     no mask has nothing to cut it to. A map with no CRS is left as it is too: the
     projection that follows refuses it by name.
     """
-    if not getattr(output, "clip_map_to_catchment", False):
+    if not output.map.clip_to_catchment:
         return observed
     mask = _map_mask_file(run_ctx)
     if mask is None or observed.geometry.crs is None:
@@ -315,7 +246,7 @@ def cut_to_the_catchment(
     if frame.empty:
         raise UnresolvedObservedNetwork(
             f"the map {observed.path!r} holds no line inside the catchment outlined by "
-            f"{mask}. Check its CRS, or write clip_map_to_catchment = false to read it whole."
+            f"{mask}. Check its CRS, or write map.clip_to_catchment = false to read it whole."
         )
     return replace(
         observed,
@@ -328,31 +259,23 @@ def cut_to_the_catchment(
 
 
 def _refused_declared_source(choice: str, project_config: Any, *, field: str) -> str | None:
-    """Return why a statically declared ``choice``, written under ``field``, cannot resolve."""
+    """Return why a statically declared ``choice``, written as ``map.<field>``, cannot resolve."""
     if choice == "data.hydrography":
         hydrography = getattr(getattr(project_config, "data", None), "hydrography", None)
         if hydrography is None or not getattr(hydrography, "sources", None):
-            return (
-                f"{field} = 'data.hydrography' names a network this project does not load: "
-                "declare a source in [[data.hydrography.sources]]."
-            )
-        return None
-    if choice == "geographic.river_network":
-        river_network = getattr(getattr(project_config, "geographic", None), "river_network", None)
-        if not bool(getattr(river_network, "enabled", False)):
-            return _MISSING_RIVER_NETWORK
+            return _MISSING_DATA_HYDROGRAPHY.format(field=field)
         return None
     return None
 
 
 def _unresolved_networks(calibration: Any, project_config: Any, *, field: str) -> dict[str, str]:
-    """Return, per network output, why its statically declared ``field`` cannot resolve."""
+    """Return, per network output, why its statically declared ``map.<field>`` cannot resolve."""
     outputs = getattr(calibration, "outputs", None) or {}
     refused: dict[str, str] = {}
     for name, decl in outputs.items():
         if getattr(decl, "support", None) != "network":
             continue
-        choice = getattr(decl, field, None)
+        choice = getattr(decl.map, field)
         if choice is None:
             continue
         reason = _refused_declared_source(choice, project_config, field=field)
@@ -365,20 +288,19 @@ def unresolved_observed_networks(calibration: Any, project_config: Any) -> dict[
     """Return, per network output, why its declared source cannot resolve.
 
     The reporting twin of :func:`resolve_observed_network`, read before a run
-    exists: it checks the two configuration sections a run would need
-    populated (``[[data.hydrography.sources]]``, ``[geographic.river_network]``)
-    without touching a run context, so it cannot see a source that resolves at
+    exists: it checks the configuration section a run would need
+    populated (``[[data.hydrography.sources]]``) without touching a run context, so it cannot see a source that resolves at
     the file level but produces an empty or a polygonal geometry only once the
     pipeline actually runs. Empty when every declared source resolves.
     """
-    return _unresolved_networks(calibration, project_config, field="observed_network")
+    return _unresolved_networks(calibration, project_config, field="complete")
 
 
 def unresolved_minimal_observed_networks(calibration: Any, project_config: Any) -> dict[str, str]:
     """Return, per network output, why its declared minimal source cannot resolve.
 
     The minimal-map twin of :func:`unresolved_observed_networks`, checking
-    ``minimal_observed_network`` instead of ``observed_network``. Only
+    ``map.permanent`` instead of ``map.complete``. Only
     ``"data.hydrography"`` is a declared minimal source today, read from the
     same ``[[data.hydrography.sources]]`` section, so it shares
     :func:`_refused_declared_source` unchanged. A missing
@@ -388,4 +310,4 @@ def unresolved_minimal_observed_networks(calibration: Any, project_config: Any) 
     source's permanence coverage is only known once the geographic pipeline
     has read it.
     """
-    return _unresolved_networks(calibration, project_config, field="minimal_observed_network")
+    return _unresolved_networks(calibration, project_config, field="permanent")

@@ -34,9 +34,8 @@ def one_state(mapped, time: str = "last"):  # noqa: F811
     return validate_calib_output(
         {
             "support": "network",
-            "stream_geometry_path": str(mapped),
-            "diagonal_neighbors": True,
-            "tau_specific_ratio": 0.0,
+            "map": {"complete": str(mapped)},
+            "model": {"neighbours": "D8", "seepage_threshold": 0.0},
             "time": time,
         }
     )

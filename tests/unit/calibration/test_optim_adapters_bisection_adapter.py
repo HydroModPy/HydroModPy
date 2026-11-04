@@ -8,6 +8,7 @@ import math
 import textwrap
 from collections.abc import Callable
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -731,7 +732,7 @@ def test_no_interval_of_trials_is_put_around_a_value_between_two_roots() -> None
 
 class _Output:
     support = "network"
-    on_roptim_violation = "warn"
+    verdict = SimpleNamespace(on_invalid="warn")
 
 
 def test_eq4_is_read_on_each_bound_in_the_cost() -> None:
@@ -777,7 +778,7 @@ units = "m/s"
 
 [calibration.outputs.net]
 support = "network"
-stream_geometry_path = "complete.gpkg"
+map.complete = "complete.gpkg"
 {minimal}
 {extent}
 
@@ -787,13 +788,22 @@ metric = "distance_gap"
 uses_outputs = ["net"]
 """
 
-_EXTENT = "[calibration.outputs.net.extent]"
-_MINIMAL = 'minimal_stream_geometry_path = "permanent.gpkg"'
+_EXTENT = "[calibration.outputs.net.model.extent]"
+_SHARES = "{ permanent = 0.5, complete = 0.5 }"
 
 
-def _load(tmp_path: Path, *, max_trials: int = 20, minimal: bool = True, extent: str = _EXTENT):
+def _load(
+    tmp_path: Path,
+    *,
+    max_trials: int = 20,
+    minimal: bool = True,
+    extent: str = _EXTENT,
+    role: str | None = None,
+):
     path = tmp_path / "calibration.toml"
-    text = _TOML.format(max_trials=max_trials, minimal=_MINIMAL if minimal else "", extent=extent)
+    role = role or (_SHARES if extent else '"permanent"')
+    maps = f'map.permanent = "permanent.gpkg"\nmap.calibrate_on = {role}' if minimal else ""
+    text = _TOML.format(max_trials=max_trials, minimal=maps, extent=extent)
     path.write_text(textwrap.dedent(text), encoding="utf-8")
     for name in ("complete.gpkg", "permanent.gpkg"):
         (tmp_path / name).write_bytes(b"")
@@ -817,17 +827,18 @@ def test_the_root_search_is_told_the_width_the_engine_asks(tmp_path: Path) -> No
 
 
 @pytest.mark.parametrize(
-    ("minimal", "extent"),
+    ("minimal", "extent", "role"),
     [
-        (False, _EXTENT),
-        (True, ""),
-        (True, _EXTENT + "\nweights = { minimal = 1.0, maximal = 0.0 }"),
+        (False, _EXTENT, None),
+        (True, "", None),
+        (True, _EXTENT, '"permanent"'),
+        (True, _EXTENT, '"complete"'),
     ],
 )
 def test_anything_short_of_two_weighted_bounds_is_one_root(
-    tmp_path: Path, minimal: bool, extent: str
+    tmp_path: Path, minimal: bool, extent: str, role: str | None
 ) -> None:
-    cfg = _load(tmp_path, minimal=minimal, extent=extent)
+    cfg = _load(tmp_path, minimal=minimal, extent=extent, role=role)
 
     assert _engine_kwargs(cfg, _space(*NANCON_BOUNDS), start_at=None)["roots"] == 1
 
@@ -859,10 +870,11 @@ units = "m/s"
 
 [calibration.outputs.net]
 support = "network"
-stream_geometry_path = "complete.gpkg"
-minimal_stream_geometry_path = "permanent.gpkg"
+map.complete = "complete.gpkg"
+map.permanent = "permanent.gpkg"
+map.calibrate_on = {{ permanent = 0.5, complete = 0.5 }}
 
-[calibration.outputs.net.extent]
+[calibration.outputs.net.model.extent]
 {phase}
 """
 
@@ -1392,10 +1404,11 @@ units = "m/s"
 
 [calibration.outputs.net]
 support = "network"
-stream_geometry_path = "complete.gpkg"
-minimal_stream_geometry_path = "permanent.gpkg"
+map.complete = "complete.gpkg"
+map.permanent = "permanent.gpkg"
+map.calibrate_on = {{ permanent = 0.5, complete = 0.5 }}
 
-[calibration.outputs.net.extent]
+[calibration.outputs.net.model.extent]
 
 [[calibration.objective_blocks]]
 name = "network"

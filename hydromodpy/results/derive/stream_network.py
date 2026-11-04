@@ -197,7 +197,7 @@ def network_comparison_from_run(
     network the DEM itself was thresholded into under
     ``[geographic.river_network]``.
 
-    ``tau_specific_ratio`` is the fraction of its own recharge below which a
+    ``tau_specific_ratio`` is the fraction of the mean basin recharge over its area below which a
     releasing cell is not counted as a stream, the same knob the calibration
     output carries. Zero reproduces the purely geometric criterion of the paper
     and needs no recharge; any other value needs the run to carry its recharge

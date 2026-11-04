@@ -33,12 +33,9 @@ MACROS = {
         "[calibration.parameters.Sy]\nbounds = [1e-3, 0.35]\n"
         'path = "flow.param.Sy.field.value"\nunits = "-"'
     ),
-    "NET": (
-        '[calibration.outputs.net]\nsupport = "network"\nstream_geometry_path = "streams.gpkg"'
-    ),
+    "NET": ('[calibration.outputs.net]\nsupport = "network"\nmap.complete = "streams.gpkg"'),
     "NETROOT": (
-        '[calibration.outputs.net]\nsupport = "network"\n'
-        'stream_geometry_path = "PROJECT_ROOT/net.gpkg"'
+        '[calibration.outputs.net]\nsupport = "network"\nmap.complete = "PROJECT_ROOT/net.gpkg"'
     ),
     "GAP": (
         '[[calibration.objective_blocks]]\nname = "gap"\nmetric = "distance_gap"\n'

@@ -8,6 +8,7 @@ import datetime
 import math
 import textwrap
 import tomllib
+from functools import reduce
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -152,16 +153,35 @@ class TestTheVersion:
         with caplog.at_level("WARNING"):
             expand_calibration_protocol(make_document(protocol={"name": NAME, "version": "1.2"}))
 
-        assert "v2.0.0a5" in caplog.text and "observed_rasterization = 'heads'" in caplog.text
+        assert "v2.0.0a5" in caplog.text and "map.drawn_by = 'heads'" in caplog.text
 
-    def test_the_heads_keys_are_declared_departures_with_their_value(self) -> None:
-        doc = expand_calibration_protocol(make_document(protocol={"name": NAME}))
-        section = CalibrationConfig.model_validate(doc["calibration"])
+    @pytest.mark.parametrize(
+        ("written", "key", "told"),
+        [
+            ({}, "map.heads.min_drained_area", ("departs", 0.02, False)),
+            ({"model": {"neighbours": "D4"}}, "model.neighbours", ("departs", "D4", True)),
+            (
+                {"model": {"seepage_threshold": 0.0}},
+                "model.seepage_threshold",
+                ("as_paper", 0.0, True),
+            ),
+            ({"map": {"drawn_by": "crossing"}}, "map.drawn_by", ("as_paper", "crossing", True)),
+            ({"map": {"drawn_by": "crossing"}}, "map.heads.radius", ("reads_paper", None, False)),
+        ],
+    )
+    def test_a_key_the_file_moves_is_told_under_its_new_name(self, written, key, told) -> None:
+        output = {"support": "network", "map": {"complete": "n.gpkg"}}
+        for table, values in written.items():
+            output[table] = {**output.get(table, {}), **values}
+        document = make_document(protocol={"name": NAME}, outputs={"seepage_network": output})
+        section = CalibrationConfig.model_validate(
+            expand_calibration_protocol(document)["calibration"]
+        )
 
-        told = {item.key: item for item in deviations_in_force(section)}
+        item = {item.key: item for item in deviations_in_force(section)}[key]
 
-        assert told["heads_snap_radius"].state == "departs"
-        assert told["heads_min_drained_area_km2"].value == 0.02
+        value = item.value.to("m").magnitude if hasattr(item.value, "to") else item.value
+        assert (item.state, value, item.written) == told
 
     def test_a_mismatched_pin_is_refused_rather_than_approximated(self) -> None:
         with pytest.raises(ValueError, match="carries 1.2, 1.3.*replayable"):
@@ -188,19 +208,23 @@ def _network_output_of(protocol: object, **written: object) -> dict[str, object]
     return expand_calibration_protocol(doc)["calibration"]["outputs"]["seepage_network"]
 
 
+def _leaves(row: dict, path: tuple[str, ...] = ()):
+    for key, value in row.items():
+        if isinstance(value, dict):
+            yield from _leaves(value, (*path, key))
+        else:
+            yield (*path, key), value
+
+
 class TestTheDefaultsOfAVersion:
     def test_the_last_line_of_the_table_is_what_the_model_defaults_to(self) -> None:
         """A default that moves without a new line here would move a file with no pin."""
         (*_, latest) = DEFAULTS_BY_VERSION.values()
-        model = CalibOutputNetwork(stream_geometry_path="map.gpkg")
+        model = CalibOutputNetwork(map={"complete": "map.gpkg"})
 
-        for key, value in latest.items():
-            if key == "verdict":
-                assert model.verdict.max_catchment_mismatch == value["max_catchment_mismatch"]
-            elif key == "heads_snap_radius":
-                assert float(model.heads_snap_radius.to("m").magnitude) == value
-            else:
-                assert getattr(model, key) == value, key
+        for path, value in _leaves(latest):
+            held = reduce(getattr, path, model)
+            assert (float(held.to("m").magnitude) if path[-1] == "radius" else held) == value, path
         assert latest["verdict"]["max_catchment_mismatch"] == (
             STREAM_CRITERION_DEFAULTS.max_catchment_mismatch
         )
@@ -208,38 +232,40 @@ class TestTheDefaultsOfAVersion:
     def test_1_2_runs_the_crossing_rule_on_the_whole_file_with_no_veto(self) -> None:
         written = _network_output_of({"name": NAME, "version": "1.2"})
 
-        assert written["observed_rasterization"] == "crossing"
-        assert written["clip_map_to_catchment"] is False
-        assert written["verdict"] == {"max_catchment_mismatch": False}
-        assert "heads_snap_radius" not in written
+        assert written["map"] == {
+            "complete": written["map"]["complete"],
+            "drawn_by": "crossing",
+            "clip_to_catchment": False,
+        }
+        assert written["verdict"] == {"validity_length": "auto", "max_catchment_mismatch": False}
 
     @pytest.mark.parametrize("protocol", [NAME, {"name": NAME, "version": "1.3"}])
     def test_1_3_draws_the_heads_of_the_cut_map_under_the_veto(self, protocol) -> None:
         written = _network_output_of(protocol)
 
-        assert written["observed_rasterization"] == "heads"
-        assert written["clip_map_to_catchment"] is True
-        assert written["heads_snap_radius"] == 100.0
-        assert written["verdict"] == {"max_catchment_mismatch": 0.05}
+        assert written["map"]["drawn_by"] == "heads"
+        assert written["map"]["clip_to_catchment"] is True
+        assert written["map"]["heads"]["radius"] == 100.0
+        assert written["verdict"] == {"validity_length": "auto", "max_catchment_mismatch": 0.05}
 
     def test_a_key_the_file_writes_wins_over_its_version(self) -> None:
         written = _network_output_of(
             {"name": NAME, "version": "1.2"},
-            observed_rasterization="heads",
+            map={"complete": "n.gpkg", "drawn_by": "heads"},
             verdict={"max_catchment_mismatch": 0.2},
         )
 
-        assert written["observed_rasterization"] == "heads"
-        assert written["heads_min_drained_area_km2"] == 0.02
-        assert written["verdict"] == {"max_catchment_mismatch": 0.2}
-        assert written["clip_map_to_catchment"] is False
+        assert written["map"]["drawn_by"] == "heads"
+        assert written["map"]["heads"]["min_drained_area"] == 0.02
+        assert written["verdict"] == {"validity_length": "auto", "max_catchment_mismatch": 0.2}
+        assert written["map"]["clip_to_catchment"] is False
 
     def test_the_document_given_is_not_written_into(self) -> None:
         doc = make_document(protocol={"name": NAME, "version": "1.2"})
 
         expand_calibration_protocol(doc)
 
-        assert "observed_rasterization" not in doc["calibration"]["outputs"]["seepage_network"]
+        assert "drawn_by" not in doc["calibration"]["outputs"]["seepage_network"]["map"]
 
     def test_a_dump_of_the_output_reloads_as_it_ran(self) -> None:
         """A sealed run writes every key: the expansion has nothing left to fill."""
@@ -252,7 +278,7 @@ class TestTheDefaultsOfAVersion:
 
         written = expand_calibration_protocol(doc)["calibration"]["outputs"]["seepage_network"]
 
-        assert written["observed_rasterization"] == "crossing"
+        assert written["map"]["drawn_by"] == "crossing"
         assert written["verdict"]["max_catchment_mismatch"] is False
 
 
@@ -267,10 +293,10 @@ class TestTheSessionWritesItsDepartures:
 
         assert record.version == "1.3"
         departures = {item.key: item for item in record.departures}
-        assert departures["observed_rasterization"].value == "heads"
-        assert departures["observed_rasterization"].written is False
-        assert departures["max_catchment_mismatch"].value == "0.05"
-        assert departures["tau_specific_ratio"].always is False
+        assert departures["map.drawn_by"].value == "heads"
+        assert departures["map.drawn_by"].written is False
+        assert departures["verdict.max_catchment_mismatch"].value == "0.05"
+        assert departures["model.seepage_threshold"].always is False
         assert departures["steady_recharge_window"].always is False
         assert "steady_recharge_window" in departures
         assert "dem_correc_type" not in departures
@@ -280,8 +306,8 @@ class TestTheSessionWritesItsDepartures:
 
         assert record.version == "1.2"
         departures = {item.key for item in record.departures}
-        assert "observed_rasterization" not in departures
-        assert "max_catchment_mismatch" not in departures
+        assert "map.drawn_by" not in departures
+        assert "verdict.max_catchment_mismatch" not in departures
 
     def test_a_search_with_no_protocol_writes_none(self) -> None:
         cfg = CalibrationConfig.model_validate(
@@ -321,7 +347,7 @@ class TestTheDeviations:
             item["key"] for item in protocol_record("matching_hydrographic_network")["deviations"]
         }
 
-        assert "tau_specific_ratio" in keys
+        assert "model.seepage_threshold" in keys
 
     def test_each_departure_says_what_the_paper_does_and_why_this_differs(self) -> None:
         for item in protocol_record("matching_hydrographic_network")["deviations"]:
@@ -549,7 +575,7 @@ class TestWhatTheRecordAndExpandSay:
 
                 [calibration.outputs.streams]
                 support = "network"
-                stream_geometry_path = "streams.gpkg"
+                map.complete = "streams.gpkg"
 
                 [[data.hydrometry.sources]]
                 station_ids = ["G1"]

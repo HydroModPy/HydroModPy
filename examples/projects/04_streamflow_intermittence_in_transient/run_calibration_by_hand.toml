@@ -25,10 +25,12 @@ bounds = [5e-3, 0.35]
 # An output is a simulated quantity with its observation.
 [calibration.outputs.seepage_network]
 support = "network"
-stream_geometry_path = "nancon_stream_network.gpkg"
 
 # The record of the gauge of [site], on the simulated months: a point output
 # that names no station observes the gauge.
+
+[calibration.outputs.seepage_network.map]
+complete = "nancon_stream_network.gpkg"
 [calibration.outputs.hydrograph]
 support = "point"
 variable = "discharge"

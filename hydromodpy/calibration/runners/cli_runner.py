@@ -251,10 +251,9 @@ def _resolve_parameter_names(cfg: CalibrationConfig, config_path: Path) -> None:
 
 
 def resolve_stream_geometry_paths(cfg: CalibrationConfig, config_path: Path) -> None:
-    """Anchor every relative geometry path of an output to the file that declares it.
+    """Anchor every relative map path of an output to the file that declares it.
 
-    Both maps are anchored: ``stream_geometry_path``, the maximal one, and
-    ``minimal_stream_geometry_path``, the minimal one.
+    Both maps are anchored: ``map.complete`` and ``map.permanent``.
 
     A path in a TOML is relative to that TOML, the way ``base_config`` is, and a
     bare filename falls back to ``<project>/data/hydrography/`` like every other
@@ -272,29 +271,20 @@ def resolve_stream_geometry_paths(cfg: CalibrationConfig, config_path: Path) -> 
     the file it could not read.
     """
     base = config_path.expanduser().resolve().parent
-    for output in cfg.outputs.values():
-        # The minimal map is anchored the same way as the maximal one: both are
-        # files the same TOML names.
-        for field in ("stream_geometry_path", "minimal_stream_geometry_path"):
-            # An output that names its source carries no path, the model refusing
-            # both at once, so the check below already skips it. It also skips
-            # every output that has no such field at all, which is every support
-            # but 'network'.
-            declared = getattr(output, field, None)
-            if not declared or Path(declared).is_absolute():
-                continue
-            candidate = Path(declared)
-            found = next(
-                (
-                    trial
-                    for root in (base, base.parent, base.parent.parent)
-                    for trial in (root / candidate, root / "data" / "hydrography" / candidate.name)
-                    if trial.exists()
-                ),
-                None,
-            )
-            if found is not None:
-                setattr(output, field, str(found.resolve()))
+    for name, role, candidate in cfg.map_files():
+        if candidate.is_absolute():
+            continue
+        found = next(
+            (
+                trial
+                for root in (base, base.parent, base.parent.parent)
+                for trial in (root / candidate, root / "data" / "hydrography" / candidate.name)
+                if trial.exists()
+            ),
+            None,
+        )
+        if found is not None:
+            setattr(cfg.outputs[name].map, role, found.resolve())
 
 
 def _api_isolation_needed(parallel: int) -> bool:
@@ -605,7 +595,7 @@ def _r_optim_verdict_extra(
     network output published a ``r_optim``. ``causes`` lists what failed:
     ``"doptim"`` (D_optim above the length) and ``"empty"`` (no simulated
     network at the returned trial, so nothing to qualify). A failure warns
-    once. With ``on_roptim_violation = "error"`` it
+    once. With ``verdict.on_invalid = "error"`` it
     raises :class:`CalibrationError`; the caller has already saved the
     session, and a staged calibration stops there, before freezing anything.
 
@@ -629,7 +619,7 @@ def _r_optim_verdict_extra(
             continue
         message = _eq4_violation_message(key, verdict)
         logger.warning(message)
-        if output.on_roptim_violation == "error":
+        if output.verdict.on_invalid == "error":
             fatal.append(message)
     if fatal:
         raise CalibrationError(" ".join(fatal))
@@ -1158,7 +1148,7 @@ def run_calibration_core(
     The caller is responsible for building a :class:`TrialContext` when the
     named evaluator declares it needs one, and passing ``None`` when it does
     not, and for the :class:`ParameterSpace`. ``cfg_path`` is what a declared
-    ``stream_geometry_path`` is anchored on, and where candidates are
+    the map paths are anchored on, and where candidates are
     materialized from.
     """
     from hydromodpy.calibration.report import CalibrationReport

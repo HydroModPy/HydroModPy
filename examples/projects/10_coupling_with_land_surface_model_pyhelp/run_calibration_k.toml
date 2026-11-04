@@ -12,13 +12,13 @@
 # root, K/R at the zero of the signed gap, run by the calibration engine
 # instead of by a hand-written while loop. It is not a bit-for-bit replica,
 # and the settings below depart from it on purpose:
-#   - weighting = "area" is NOT the legacy script's rule. ex10 and the v1
+#   - model.weighting = "area" is NOT the legacy script's rule. ex10 and the v1
 #     `MatchingStreams` class both average one point per pixel (one cell, one
 #     vote); "area" over-weights nothing there and is this file's own choice,
 #     recommended once the mesh is refined along the streams.
-#   - tau_specific_ratio = 1e-4 has no equivalent in ex10, which uses a purely
+#   - model.seepage_threshold = 1e-4 has no equivalent in ex10, which uses a purely
 #     geometric seepage test (dem - head < 0), tau = 0.
-#   - observed_position_accuracy = "50 m" floors L_ref; ex10 hard-codes
+#   - map.position_accuracy = "50 m" floors L_ref; ex10 hard-codes
 #     GRID_RES = 75 m into roptim's Table 1 analogue and never floors it.
 #   - bounds are on K itself, [1e-7, 1e-4] m/s, not on K/R as ex10 declares
 #     them (K/R in [1, 1000], KRmin/KRmax, ex10:643-648): the two are only the
@@ -45,12 +45,7 @@ bounds = [1e-7, 1e-4]
 
 [calibration.outputs.seepage_network]
 support = "network"
-stream_geometry_path = "urse_stream_network.gpkg"
-weighting = "area"
-tau_specific_ratio = 1.0e-4
-validity_length = "auto"
 time = "last"
-observed_position_accuracy = "50 m"
 
 # No bound on the scored catchment. At the 25 m DEM pixel the delineated polygon
 # (6.17 km2) and the catchment read on the descent graph (6.49 km2) differ by
@@ -58,7 +53,15 @@ observed_position_accuracy = "50 m"
 # the divide. The outlet is right, so refusing the search here protects nothing.
 [calibration.outputs.seepage_network.verdict]
 max_catchment_mismatch = false
+validity_length = "auto"
 
+[calibration.outputs.seepage_network.map]
+complete = "urse_stream_network.gpkg"
+position_accuracy = "50 m"
+
+[calibration.outputs.seepage_network.model]
+seepage_threshold = 0.0001
+weighting = "area"
 [[calibration.objective_blocks]]
 name = "abherve_gap"
 metric = "distance_gap"
