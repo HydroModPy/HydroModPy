@@ -37,14 +37,18 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from hydromodpy.calibration.config import CalibrationConfig
-from hydromodpy.calibration.metrics.observable_scoring import VALIDATION_COST
+import pandas as pd
+
+from hydromodpy.calibration.config import CalibOutputDecl, CalibrationConfig
+from hydromodpy.calibration.metrics.composite import series_at_the_stations
+from hydromodpy.calibration.metrics.observable_scoring import VALIDATION_COST, dated_series
 from hydromodpy.calibration.optim.cache import context_fingerprints, differing_members
 from hydromodpy.calibration.persistence import CalibrationPersistence
 from hydromodpy.calibration.runners.trial import promote_prepared_trial
 from hydromodpy.core import progress
 from hydromodpy.core.exceptions import CalibrationError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.core.state.paths import (
     TRIALS_DIRNAME,
     run_dir_rel,
@@ -82,6 +86,56 @@ logger = get_logger(__name__)
 
 PHASE_BEST_DIRNAME = "best"
 """Directory of the promoted best trial of a phase, under ``phases/<phase>/``."""
+
+
+def write_station_series(
+    ctx: Any, *, store: Any, outputs: Mapping[str, CalibOutputDecl] | None = None
+) -> None:
+    """Write what the solve simulates at each observed station, under the name of the station.
+
+    The score of a run pairs a series with its record by station and variable.
+    The derive step calls this while the solver files and the models are still
+    there, on a promoted run as on a plain one, so a station is read as a trial
+    reads it. The series lands in the timeseries table of the run, which is what
+    a later read and the seal see. What cannot be read is logged, and the score of
+    the run then lists the station as unscored.
+
+    ``outputs`` are the outputs of the phase the run was promoted from. Left
+    ``None``, the outputs of the calibration of the run are read, if it has one.
+    A gauge the mesh does not place is answered with the outlet series. A trial
+    may score it so, but the run does not store it under the name of the gauge,
+    where it would be scored as that gauge.
+    """
+    if outputs is None:
+        calibration = ctx.cfg.calibration
+        outputs = {} if calibration is None else calibration.outputs
+    frames = []
+    for (station, variable), result in series_at_the_stations(ctx, outputs).items():
+        if result.request_id == CATCHMENT:
+            logger.warning(
+                "Gauge %s is not placed on the mesh, so no series is written for it.", station
+            )
+            continue
+        series = dated_series(result)
+        if series is not None:
+            index = pd.DatetimeIndex(series.index)
+            frames.append(
+                pd.DataFrame(
+                    {
+                        "station_id": station,
+                        "variable": variable,
+                        "timestep": range(len(series)),
+                        "time": index.tz_localize("UTC") if index.tz is None else index,
+                        "value": series.to_numpy(),
+                        "unit": result.units,
+                    }
+                )
+            )
+    if frames:
+        table = pd.concat(frames)
+        columns = {name: table[name].to_numpy() for name in table}
+        columns["time"] = pd.DatetimeIndex(table["time"])
+        store.write_timeseries_columns(store.sim_id, columns)
 
 
 @dataclass(frozen=True)
@@ -211,6 +265,7 @@ def promote_session(
         phase=phase,
         session_status=session_status,
         override_paths=override_paths,
+        outputs=cfg.outputs,
         stop_state=stop_state,
         stopping_rule=stopping_rule,
     )
@@ -260,6 +315,7 @@ def promote_best_after_abort(
         phase=phase,
         session_status="aborted",
         override_paths=override_paths,
+        outputs=cfg.outputs,
     )
 
 
@@ -272,6 +328,7 @@ def _promote_rows(
     phase: str,
     session_status: CalibrationSessionStatus,
     override_paths: Mapping[str, str],
+    outputs: Mapping[str, CalibOutputDecl],
     stop_state: StopState | None = None,
     stopping_rule: str | None = None,
 ) -> PromotionOutcome:
@@ -338,6 +395,7 @@ def _promote_rows(
             promotion=promotion,
             keep_per_cell_budget=None if is_best else False,
             retention=trial_ctx.kept_solves,
+            outputs=outputs,
             failures=failures,
         )
         if sim_id is None:
@@ -501,8 +559,12 @@ def promote_phase_best(
     persistence: CalibrationPersistence,
     phase: str,
     override_paths: Mapping[str, str],
+    outputs: Mapping[str, CalibOutputDecl] | None = None,
 ) -> str | None:
     """Promote the best trial of an earlier phase under ``phases/<phase>/best/``.
+
+    ``outputs`` are the outputs of that phase, which the series of its stations
+    are read with.
 
     The run keeps the ``consumers`` budget policy: the permanent model of a
     phase is read, not analyzed term by term. Returns its ``sim_id``, or None
@@ -535,6 +597,7 @@ def promote_phase_best(
         promotion=None,
         keep_per_cell_budget=False,
         retention=trial_ctx.kept_solves,
+        outputs=outputs,
         failures=failures,
     )
     if sim_id is not None:
@@ -557,6 +620,7 @@ def _promote_one(
     promotion: PromotionFacts | None,
     keep_per_cell_budget: bool | None,
     retention: Any,
+    outputs: Mapping[str, CalibOutputDecl] | None,
     failures: list[str],
 ) -> str | None:
     """Promote one trial row into ``run_dir``; append to ``failures`` and return None on error."""
@@ -583,6 +647,7 @@ def _promote_one(
                 kept=kept,
                 spared=spared,
                 keep_per_cell_budget=keep_per_cell_budget,
+                outputs=outputs,
             )
     except Exception as exc:
         logger.exception("Promotion failed for trial %d.", number)
@@ -689,6 +754,7 @@ def promote_trial_from_session(
         sim_id=sim_id,
         run_dir=run_dir,
         promotion=promotion_facts(row),
+        outputs=hash_cfg.outputs,
         lineage=Lineage(
             session_id=descriptor.session_id,
             phase=line.phase,

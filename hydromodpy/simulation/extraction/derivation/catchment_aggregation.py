@@ -11,7 +11,7 @@ import pandas as pd
 from hydromodpy.core.exceptions import ExtractError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.scope import CATCHMENT, OBSERVED, SIMULATED
-from hydromodpy.core.time.period_aggregation import period_end_stamps, period_mean_on_index
+from hydromodpy.core.time.period_aggregation import period_end_stamps, runoff_m3_s_on_index
 
 logger = get_logger(__name__)
 
@@ -165,12 +165,13 @@ def aggregate_catchment_timeseries(
             _warn_routed_without_runoff(store, sim_id, grp)
             logger.debug("Catchment discharge for sim %s uses routed SFR/LAK outflow", sim_id)
         elif "discharge" in series_by_var:
+            window = _run_window(store)
             series_by_var["discharge"] = _add_runoff_to_discharge_series(
                 series_by_var["discharge"],
                 sim_id,
                 store,
                 grp,
-                start=_read_period_start(store, sim_id, ts_index),
+                start=None if window is None else window[0],
             )
 
         # One batched write, not one write_timeseries per variable: the latter
@@ -266,18 +267,6 @@ def _network_rows(frame: pd.DataFrame, variable: str) -> pd.DataFrame:
     return frame[(frame["variable"] == variable) & (frame["source"] == SIMULATED)]
 
 
-def _read_period_start(store: Any, sim_id: str, index: pd.DatetimeIndex) -> pd.Timestamp | None:
-    """Return the run window start when it precedes the first stamp, else None."""
-    window = _run_window(store)
-    if window is None or len(index) == 0:
-        return None
-    first_stamp = pd.Timestamp(index.min())
-    if first_stamp.tz is not None:
-        first_stamp = first_stamp.tz_convert("UTC").tz_localize(None)
-    start = window[0]
-    return start if start < first_stamp else None
-
-
 def _warn_routed_without_runoff(store: Any, sim_id: str, grp: Any) -> None:
     """Warn once if runoff forcing exists but was not routed into SFR/LAK.
 
@@ -371,8 +360,8 @@ def _add_runoff_to_discharge_series(
             _RUNOFF_WARNING_EMITTED.add(sim_id)
         return discharge
 
-    catch_area_m2 = _runoff_area_m2(store, sim_id, grp)
-    if catch_area_m2 <= 0.0:
+    area_m2 = _runoff_area_m2(store, sim_id, grp)
+    if area_m2 <= 0.0:
         logger.warning(
             "catchment discharge: catchment area unavailable for sim %s — "
             "skipping runoff addition.",
@@ -398,19 +387,15 @@ def _add_runoff_to_discharge_series(
         return discharge
 
     runoff_mm_per_d = pd.concat(series_list, axis=1).mean(axis=1)
-    target_index = pd.DatetimeIndex(discharge.index)
-    # AVERAGE the daily forcing over each stress period, never sample it.
-    # ``reindex(method="nearest")`` handed a whole period the value of the one
-    # day closest to its stamp: on a yearly steady step the Nancon received the
-    # 1.36 mm of 1 January instead of the 0.33 mm the year averaged, and the
-    # reported discharge came out 67 per cent above what its own water balance
-    # allowed. ``period_mean_on_index`` is the one place that rule is written,
-    # and the calibration metric calls it directly, so what a run is scored on
-    # is what it reports. The window start bounds the first period, which a
-    # single steady stamp cannot tell on its own.
-    aligned = period_mean_on_index(runoff_mm_per_d, target_index, start=start)
-    runoff_m3_per_s = aligned * 1e-3 * catch_area_m2 / 86400.0
-    return discharge.add(runoff_m3_per_s, fill_value=0.0)
+    # ``runoff_m3_s_on_index`` is the one place the runoff becomes a discharge. A
+    # trial adds the same series to what it scores, so a run is scored on what it
+    # reports. Averaging over each period, and never sampling, is written there.
+    # A period the forcing does not cover is a gap, as it is in a trial.
+    return discharge.add(
+        runoff_m3_s_on_index(
+            runoff_mm_per_d, pd.DatetimeIndex(discharge.index), area_m2=area_m2, start=start
+        )
+    )
 
 
 _RUNOFF_WARNING_EMITTED: set[str] = set()

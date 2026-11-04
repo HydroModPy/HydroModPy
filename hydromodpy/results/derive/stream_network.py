@@ -233,6 +233,12 @@ def network_comparison_from_run(
     store can route, and mark the mapped cells, marginally differently from the
     one a trial scored, and its D_so, D_os and J can differ with it. It is exact
     on any mesh whose cells are parallelograms, which every structured grid is.
+
+    ``catchment_mismatch`` reads the stored watershed by the center of the cells,
+    as a trial reads its outline, and ``basin_mismatch`` the stored basin of D. A
+    run stores the delineated polygon and not the outline the planner smoothed, so
+    on a mesh that followed a smoothed outline the two can differ by the cells whose
+    center the smoothing moved across.
     """
     reason = unavailable_reason_for_comparison(sim, role=role)
     if reason is not None:
@@ -307,6 +313,7 @@ def network_comparison_from_run(
             f"got {observed_rasterization!r}."
         )
 
+    outline = _watershed_catchment(sim, polygons, mesh.crs)
     geometry = build_network_geometry(
         topography=topography,
         face_node_connectivity=connectivity,
@@ -316,7 +323,8 @@ def network_comparison_from_run(
         cell_area_m2=areas,
         mean_recharge_m_s=_mean_recharge_m_s(sim, areas, ratio=tau_specific_ratio),
         tau_specific_ratio=float(tau_specific_ratio),
-        delineated_catchment=_delineated_catchment(sim, polygons, mesh.crs),
+        delineated_catchment=_delineated_catchment(sim, outline),
+        catchment_outline=outline,
         delineated_outlet_xy=_delineated_outlet_xy(sim),
         diagonal_neighbors=bool(diagonal_neighbors),
         observed_position_accuracy_m=observed_position_accuracy_m,
@@ -371,40 +379,47 @@ def _cut_of_the_map(sim: Run) -> dict[str, object]:
     return {"cut_outline": watershed.union_all(), "cut_crs": watershed.crs}
 
 
-def _delineated_catchment(sim: Run, polygons: np.ndarray, mesh_crs: str) -> np.ndarray | None:
+def _delineated_catchment(sim: Run, outline: np.ndarray | None) -> np.ndarray | None:
     """Return the catchment of the run on the cells, the basin of D it stores.
 
     That is the reference the trials of the run measured their
-    ``catchment_mismatch`` against. A run sealed before the basin was stored
+    ``basin_mismatch`` against. A run sealed before the basin was stored
     keeps the old reference, the delineated watershed projected by the center
     of the cells, and says so. The largest basin of a synthetic domain is no
-    catchment: the watershed is looked up as before, and a domain without one
-    gives ``None``.
+    catchment: the watershed stands in, and a domain without one gives ``None``.
     """
     stored = sim.descent.stored_basin()
     if stored is not None and stored[1].get("basin_rule") != "largest_basin":
         return np.array(stored[0], dtype=bool)
-    polygon = _watershed_catchment(sim, polygons, mesh_crs)
-    if polygon is not None and stored is None:
+    if outline is not None and stored is None:
         logger.warning(
             "Stream comparison: run %s stores no basin of D, so the catchment mismatch is "
             "measured against the old reference 'polygon_centroid', as its trials were.",
             sim.sim_id,
         )
-    return polygon
+    return outline
 
 
 def _watershed_catchment(sim: Run, polygons: np.ndarray, mesh_crs: str) -> np.ndarray | None:
-    """Project the delineated watershed onto the cells, by their center."""
+    """Project the delineated watershed onto the cells, by their center.
+
+    None for a synthetic domain, whose stored box is the domain and no catchment,
+    as a trial reads it.
+    """
+    from hydromodpy.results.run.geographic import geographic_metadata
+    from hydromodpy.spatial.geographic.synthetic_config import SYNTHETIC_CATCH_DEF
     from hydromodpy.spatial.mesh.cells.in_polygons import vector_cell_mask
 
+    if geographic_metadata(sim).get("catch_def") == SYNTHETIC_CATCH_DEF:
+        return None
     try:
         watershed = sim.geographic("watershed")
     except (KeyError, ValueError, FileNotFoundError) as exc:
         logger.warning(
-            "Stream comparison: run %s carries no delineated watershed (%s), so the "
-            "catchment is re-derived by descending the model top to its own largest "
-            "basin. On a real surface that basin is an internal depression.",
+            "Stream comparison: run %s carries no delineated watershed (%s), so "
+            "catchment_mismatch has no outline to read, and a run without a basin of D "
+            "re-derives its catchment by descending the model top to its own largest basin. "
+            "On a real surface that basin is an internal depression.",
             sim.sim_id,
             type(exc).__name__,
         )

@@ -12,7 +12,7 @@ from typing import Any
 import pandas as pd
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.time.period_aggregation import period_mean_on_index
+from hydromodpy.core.time.period_aggregation import runoff_m3_s_on_index
 from hydromodpy.spatial.forcing.cells import spatial_mean_from_fields
 
 logger = get_logger(__name__)
@@ -117,19 +117,6 @@ def time_grid_boundaries(ctx: Any) -> tuple[Any, ...] | None:
 _RUNOFF_WARNING_EMITTED: set[int] = set()
 
 
-def _window_start(ctx: Any, index: pd.DatetimeIndex) -> pd.Timestamp | None:
-    """Return the first time-grid boundary when it precedes the first stamp."""
-    time_grid = getattr(getattr(ctx, "setup", None), "time_grid", None)
-    boundaries = getattr(time_grid, "boundaries", None)
-    if not boundaries or len(index) == 0:
-        return None
-    start = pd.Timestamp(boundaries[0])
-    first_stamp = pd.Timestamp(index.min())
-    if (start.tz is None) != (first_stamp.tz is None):
-        start = start.tz_localize(first_stamp.tz) if start.tz is None else start.tz_localize(None)
-    return start if start < first_stamp else None
-
-
 def _station_runoff_mm_per_day(points: Any) -> pd.Series | None:
     """Return the mean of the runoff station series, in mm/day, or None."""
     series_list: list[pd.Series] = []
@@ -185,17 +172,14 @@ def add_runoff_to_discharge(
     The runoff data manager exposes one or more station time-series, or
     gridded fields, in ``mm/day``. Stations are averaged; fields are reduced to
     their watershed mean, the series the run persists and the derived catchment
-    discharge reads. That rate is then averaged OVER each stress period by
-    the one rule the derived catchment discharge also uses
-    (``core.time.period_aggregation.period_mean_on_index``), and converted to
-    ``m³/s`` using the catchment area read from the geographic runtime. When no runoff is loaded, a
-    one-shot warning is emitted and the baseflow is returned unchanged.
+    discharge reads. :func:`~hydromodpy.core.time.period_aggregation.runoff_m3_s_on_index`
+    turns that rate into ``m³/s``, by the rule the derived catchment discharge also
+    calls, on the catchment area read from the geographic runtime. When no runoff is
+    loaded, a one-shot warning is emitted and the baseflow is returned unchanged.
 
     ``area_m2`` overrides that catchment area, which is what a gauge away from
     the outlet needs: it sees the runoff of the area it drains, not of the whole
-    basin. The runoff is spatially uniform here, one rate averaged over its
-    stations or its cells, so scaling that rate by the upstream area is the exact
-    generalization of the whole-basin formula and adds no assumption.
+    basin.
     """
     soil = getattr(getattr(ctx, "setup", None), "soil_forcings", None)
     runoff = (
@@ -214,13 +198,7 @@ def add_runoff_to_discharge(
         )
         return simulated
 
-    if area_m2 is not None:
-        catch_area_m2 = float(area_m2)
-        if catch_area_m2 <= 0.0:
-            raise ValueError(
-                f"the upstream area a gauge drains must be positive, got {area_m2} m2."
-            )
-    else:
+    if area_m2 is None:
         geo = getattr(getattr(ctx, "setup", None), "geographic", None)
         catch_area_km2 = float(getattr(geo, "catch_area", 0.0) or 0.0)
         if catch_area_km2 <= 0.0:
@@ -229,7 +207,7 @@ def add_runoff_to_discharge(
                 "skipping runoff addition."
             )
             return simulated
-        catch_area_m2 = catch_area_km2 * 1e6
+        area_m2 = catch_area_km2 * 1e6
 
     # Stations win, as they do when the run persists its forcings.
     if points:
@@ -246,26 +224,16 @@ def add_runoff_to_discharge(
     if runoff_mm_per_d is None:
         return simulated
 
-    target_index = simulated.index
-    runoff_index = runoff_mm_per_d.index
-    if runoff_index.tz is None and target_index.tz is not None:
-        runoff_mm_per_d = runoff_mm_per_d.tz_localize(target_index.tz)
-    elif runoff_index.tz is not None and target_index.tz is None:
-        runoff_mm_per_d = runoff_mm_per_d.tz_localize(None)
-    elif runoff_index.tz is not None and target_index.tz is not None:
-        runoff_mm_per_d = runoff_mm_per_d.tz_convert(target_index.tz)
-    # The canonical rule, called directly and not through the observation
-    # helper: a runoff FORCING is not an observation chronicle, and a period it
-    # misses is a gap, not the previous value. The derived catchment discharge
-    # averages by the same rule, and what a run is scored on has to be what it
-    # reports. The window start bounds the first period, which a single steady
-    # stamp cannot tell on its own.
-    aligned = period_mean_on_index(
+    # A runoff FORCING is not an observation chronicle: a period it misses is a
+    # gap, not the previous value. The window start bounds the first period,
+    # which a single steady stamp cannot tell on its own.
+    boundaries = time_grid_boundaries(ctx)
+    runoff_m3_per_s = runoff_m3_s_on_index(
         runoff_mm_per_d,
-        pd.DatetimeIndex(target_index),
-        start=_window_start(ctx, pd.DatetimeIndex(target_index)),
+        pd.DatetimeIndex(simulated.index),
+        area_m2=area_m2,
+        start=boundaries[0] if boundaries else None,
     )
-    runoff_m3_per_s = aligned * 1e-3 * catch_area_m2 / 86400.0
     # A period without runoff stays a gap: baseflow alone is not a total
     # discharge, and the score drops the pair.
     n_missing = int(runoff_m3_per_s.isna().sum())

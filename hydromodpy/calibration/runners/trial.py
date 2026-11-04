@@ -764,6 +764,7 @@ def promote_prepared_trial(
     kept: KeptSolve | None = None,
     spared: Sequence[Path] = (),
     keep_per_cell_budget: bool | None = None,
+    outputs: Mapping[str, Any] | None = None,
 ) -> str:
     """Run a full promoted simulation from an already prepared trial context.
 
@@ -791,6 +792,10 @@ def promote_prepared_trial(
 
     ``spared`` names the solver folders of other kept trials, which the export
     step of this run must leave in the run scratch for their own promotion.
+
+    ``outputs`` are the calibration outputs of the phase the run is promoted from,
+    which the derive step reads the series of the stations with. Left ``None``, it
+    reads those of the calibration of the run.
 
     ``keep_per_cell_budget`` overrides ``[simulation.results] keep_per_cell_budget``
     for this run only. ``None`` leaves what the project file says. The override is
@@ -822,6 +827,7 @@ def promote_prepared_trial(
             "lineage": lineage,
             "calibrated_by": calibrated_by,
             "promotion": promotion,
+            "station_outputs": outputs,
             # The geographic preprocessing tree is shared by every promotion of
             # the session. Dropped by the export step of the first one, it left
             # the next ones with no watershed to ingest, so their catchment

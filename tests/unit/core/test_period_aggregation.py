@@ -25,6 +25,7 @@ from hydromodpy.core.time.period_aggregation import (
     period_edges,
     period_end_stamps,
     period_mean_on_index,
+    runoff_m3_s_on_index,
 )
 
 
@@ -235,3 +236,39 @@ def test_the_catalog_fallback_of_one_period_is_the_window_end() -> None:
     stamps = period_end_stamps("2000-01-01", "2003-01-01", 1, step_unit="month")
 
     assert list(stamps) == [pd.Timestamp("2003-01-01")]
+
+
+# 1 mm/day over 86.4 km2 is exactly 1 m3/s. The forcing is 2 mm/day for ten days, then 5.
+RUNOFF_AREA_M2 = 86.4e6
+TWO_THEN_FIVE = _daily("2000-01-01", 20, [2.0] * 10 + [5.0] * 10)
+STAMP_11 = pd.Timestamp("2000-01-11")
+STAMP_21 = pd.Timestamp("2000-01-21")
+
+
+@pytest.mark.parametrize(
+    ("index", "start", "expected"),
+    [
+        (pd.DatetimeIndex([STAMP_11, STAMP_21]), None, [2.0, 5.0]),
+        # Aware in UTC, the first stamp is the start once both are read in UTC: it is ignored.
+        (pd.DatetimeIndex([STAMP_11, STAMP_21], tz="UTC"), STAMP_11, [2.0, 5.0]),
+        # The window start bounds the first period.
+        (pd.DatetimeIndex([STAMP_21]), STAMP_11, [5.0]),
+        # A start on the stamp bounds nothing: the mean of the whole forcing.
+        (pd.DatetimeIndex([STAMP_21]), STAMP_21, [3.5]),
+        # A period the forcing misses is a gap.
+        (pd.DatetimeIndex([STAMP_21, "2000-01-31"]), None, [5.0, np.nan]),
+        # Nothing to convert.
+        (pd.DatetimeIndex([]), STAMP_11, []),
+    ],
+)
+def test_a_runoff_becomes_a_discharge_on_the_periods(index, start, expected) -> None:
+    out = runoff_m3_s_on_index(TWO_THEN_FIVE, index, area_m2=RUNOFF_AREA_M2, start=start)
+
+    assert out.index.equals(index)
+    np.testing.assert_array_equal(out.to_numpy(), expected)
+
+
+@pytest.mark.parametrize("area_m2", [0.0, -1.0])
+def test_a_runoff_without_a_positive_area_is_refused(area_m2) -> None:
+    with pytest.raises(ValueError, match=f"must be positive, got {area_m2} m2"):
+        runoff_m3_s_on_index(TWO_THEN_FIVE, [STAMP_11], area_m2=area_m2)

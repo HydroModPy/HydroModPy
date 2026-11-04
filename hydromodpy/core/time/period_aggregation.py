@@ -43,6 +43,7 @@ __all__ = (
     "period_point_on_index",
     "period_value_on_index",
     "periods_in_window",
+    "runoff_m3_s_on_index",
 )
 
 logger = get_logger(__name__)
@@ -255,6 +256,34 @@ def period_mean_on_index(values: Any, index: Any, *, start: Any = None) -> pd.Se
     per_period = pd.Series(np.nan, index=edges[1:], dtype=float)
     per_period.iloc[averaged.index.to_numpy()] = averaged.to_numpy(dtype=float)
     return pd.Series(per_period.reindex(target).to_numpy(dtype=float), index=labels)
+
+
+def runoff_m3_s_on_index(
+    runoff_mm_per_day: Any, index: Any, *, area_m2: float, start: Any = None
+) -> pd.Series:
+    """Return an areal runoff forcing as a discharge on the periods of ``index``, in m3/s.
+
+    The one conversion of a runoff into a discharge. A trial adds it to what it
+    scores and a run to what it reports, so a run is scored on what it reports.
+    The rate is uniform over the area: one mean over the stations or the cells of
+    the forcing. Scaling it by the upstream area of a gauge is therefore the exact
+    generalization of the whole-basin formula and adds no assumption.
+
+    ``runoff_mm_per_day`` is naive in UTC, as the forcing is read on both sides.
+    It is AVERAGED over each period by :func:`period_mean_on_index`, never sampled,
+    and a period holding no sample comes back as ``NaN``. ``start`` is the run
+    window start. It bounds the first period when it precedes the first stamp, and
+    it is ignored otherwise.
+    """
+    if area_m2 <= 0.0:
+        raise ValueError(
+            f"the area a runoff is scaled by, a catchment or the upstream area of a gauge, "
+            f"must be positive, got {area_m2} m2."
+        )
+    stamps = _naive(index)
+    if start is not None and len(stamps) > 0 and _naive_timestamp(start) >= stamps.min():
+        start = None
+    return period_mean_on_index(runoff_mm_per_day, index, start=start) * 1e-3 * area_m2 / 86400.0
 
 
 def _mean_per_period(series: pd.Series, period: np.ndarray, weights: Any) -> pd.Series:

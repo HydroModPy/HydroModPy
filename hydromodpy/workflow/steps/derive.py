@@ -3,7 +3,9 @@
 Every derived field is rebuilt on read, so this step writes none. It runs
 :func:`~hydromodpy.simulation.extraction.post_run.derive_run_outputs` for each
 solver-backed run: the discharge band of the drains and the catchment
-aggregates. It samples the points declared in ``[observation]``
+aggregates. It writes the simulated series of each observed station
+(:func:`~hydromodpy.calibration.runners.promotion.write_station_series`) and
+samples the points declared in ``[observation]``
 (:func:`~hydromodpy.results.run.observation_points.sample_observation_points`).
 Then it scores the run under
 its metric rule (:func:`~hydromodpy.results.fit_metrics.fit_metrics`,
@@ -131,8 +133,13 @@ class DeriveStep:
                 ctx=ctx,
             )
 
-        # Solver models are consumed up to extraction only (provenance backfill,
-        # calibration trial metrics; trials cap the pipeline at extract). Past
+        from hydromodpy.calibration.runners.promotion import write_station_series
+
+        with run_store(ctx) as store:
+            write_station_series(ctx, store=store, outputs=state.get("station_outputs"))
+
+        # Solver models are consumed up to here (provenance backfill, calibration
+        # trial metrics, the station series). Past
         # this point they are dead weight: a transient flopy model carries the
         # full stress-period data, which reaches GBs on multi-thousand-period
         # runs. Release them before the derive phase allocates.

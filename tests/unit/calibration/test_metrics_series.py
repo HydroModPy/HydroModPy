@@ -339,63 +339,6 @@ def _calibration_context(runoff: pd.Series):
     )
 
 
-def test_the_calibration_path_averages_the_forcing_over_each_stress_period() -> None:
-    runoff = _daily_runoff_mm()
-    baseflow = pd.Series(0.0, index=_SIM_INDEX, name="discharge")
-
-    scored = add_runoff_to_discharge(baseflow, _calibration_context(runoff))
-
-    assert list(scored.index) == list(_SIM_INDEX)
-    assert scored.tolist() == pytest.approx(_EXPECTED_M3_PER_S)
-
-
-def test_the_derived_path_averages_the_forcing_over_each_stress_period() -> None:
-    runoff = _daily_runoff_mm()
-    baseflow = pd.Series(0.0, index=_SIM_INDEX, name="discharge")
-    store, grp = _derived_paths_inputs(runoff)
-
-    reported = _add_runoff_to_discharge_series(baseflow, "sim-0", store=store, grp=grp)
-
-    assert list(reported.index) == list(_SIM_INDEX)
-    assert reported.tolist() == pytest.approx(_EXPECTED_M3_PER_S)
-
-
-def test_what_a_run_is_scored_on_is_what_it_reports() -> None:
-    runoff = _daily_runoff_mm()
-    baseflow = pd.Series([0.4, 0.7, 1.1], index=_SIM_INDEX, name="discharge")
-    store, grp = _derived_paths_inputs(runoff)
-
-    scored = add_runoff_to_discharge(baseflow, _calibration_context(runoff))
-    reported = _add_runoff_to_discharge_series(baseflow, "sim-0", store=store, grp=grp)
-
-    assert scored.tolist() == pytest.approx(reported.tolist())
-    assert scored.tolist() == pytest.approx([2.4, 5.7, 10.1])
-
-
-def test_a_single_steady_period_is_the_mean_of_its_whole_forcing_window() -> None:
-    """The index phase one of the Abherve method runs on.
-
-    One steady stress period covering the run, and a daily forcing over it. A
-    single stamp carries no spacing, so without the window start the whole
-    forcing window is the period: (10*2 + 10*5 + 45*9) / 65 mm/day. A rule
-    that picks the sample nearest the stamp answers 9.0 here, which is the
-    failure the whole single-source fix is about, and the one an index with an
-    even spacing cannot expose.
-    """
-    runoff = _daily_runoff_mm()
-    steady = pd.DatetimeIndex(["2000-01-21"])
-    baseflow = pd.Series(0.0, index=steady, name="discharge")
-    store, grp = _derived_paths_inputs(runoff)
-
-    scored = add_runoff_to_discharge(baseflow, _calibration_context(runoff))
-    reported = _add_runoff_to_discharge_series(baseflow, "sim-0", store=store, grp=grp)
-
-    expected = float(runoff.mean())
-    assert expected == pytest.approx(475.0 / 65.0)
-    assert scored.tolist() == pytest.approx([expected])
-    assert scored.tolist() == pytest.approx(reported.tolist())
-
-
 def test_a_steady_period_followed_by_short_ones_is_averaged_on_both_paths() -> None:
     """A median spacing small enough to flip a guard must not flip the rule.
 
@@ -421,29 +364,77 @@ def test_a_steady_period_followed_by_short_ones_is_averaged_on_both_paths() -> N
     assert scored.iloc[-1] == pytest.approx(9.0)
 
 
-def test_a_single_steady_period_with_its_start_averages_its_own_window() -> None:
-    """With the run window start, the steady period is [start, stamp) only.
+# A daily forcing whose period means are not round, so the last digit shows.
+_ROUGH_DAYS = pd.date_range("2000-01-01", "2000-03-05", freq="D")
+_ROUGH_RUNOFF = pd.Series(1.37 + 0.11 * (np.arange(_ROUGH_DAYS.size) % 5), index=_ROUGH_DAYS)
+_STEADY = pd.DatetimeIndex(["2000-01-21"])
+_ROUGH_START = pd.Timestamp("2000-01-03")
 
-    The window [2000-01-11, 2000-01-21) holds the 5 mm/day block alone. Both
-    paths receive the start: the calibration one from the time grid, the
-    derived one from the catalog.
-    """
-    runoff = _daily_runoff_mm()
-    steady = pd.DatetimeIndex(["2000-01-21"])
-    baseflow = pd.Series(0.0, index=steady, name="discharge")
+
+def _both_writings(runoff, index, start, area_m2):
+    """The discharge a trial scores and the one a run reports, on one baseflow."""
+    baseflow = pd.Series([0.4, 0.7, 1.1][: len(index)], index=index, name="discharge")
     store, grp = _derived_paths_inputs(runoff)
     ctx = _calibration_context(runoff)
-    ctx.setup.time_grid = SimpleNamespace(
-        boundaries=(pd.Timestamp("2000-01-11"), pd.Timestamp("2000-01-21"))
-    )
+    if start is not None:
+        ctx.setup.time_grid = SimpleNamespace(boundaries=(start, index[-1]))
+    scored = add_runoff_to_discharge(baseflow, ctx, area_m2=area_m2)
+    # A nested gauge is a trial's business: the run reports the whole catchment.
+    reported = _add_runoff_to_discharge_series(baseflow, "sim-0", store=store, grp=grp, start=start)
+    return scored, reported
 
-    scored = add_runoff_to_discharge(baseflow, ctx)
-    reported = _add_runoff_to_discharge_series(
-        baseflow, "sim-0", store=store, grp=grp, start=pd.Timestamp("2000-01-11")
-    )
 
-    assert scored.tolist() == pytest.approx([5.0])
-    assert reported.tolist() == pytest.approx([5.0])
+@pytest.mark.parametrize(
+    ("runoff", "index", "start", "area_m2", "expected"),
+    [
+        # Values printed by the two separate writings of ad9c089a9, which agreed.
+        (_ROUGH_RUNOFF, _SIM_INDEX, None, None, [1.9900000000000002, 2.29, 2.6900000000000004]),
+        (_ROUGH_RUNOFF, _SIM_INDEX, _ROUGH_START, None, [2.03125, 2.29, 2.6900000000000004]),
+        # A nested gauge: the writing of the trial, the only one that took an area.
+        # The run reports the whole catchment, so the last assertion skips it.
+        (
+            _ROUGH_RUNOFF,
+            _SIM_INDEX,
+            None,
+            3.3e7,
+            [1.0072916666666667, 1.3072916666666667, 1.7072916666666669],
+        ),
+        # Each period is averaged, by hand 2 + 0.4, 5 + 0.7 and 9 + 1.1.
+        (_daily_runoff_mm(), _SIM_INDEX, None, None, [2.4, 5.7, 10.100000000000001]),
+        # One steady period without a start is its whole forcing window, by hand
+        # (10*2 + 10*5 + 45*9) / 65 + 0.4. The sample nearest the stamp would give 9.4.
+        (_daily_runoff_mm(), _STEADY, None, None, [7.707692307692308]),
+        # With the run window start it is that window only: the 5 mm/day block.
+        (_daily_runoff_mm(), _STEADY, pd.Timestamp("2000-01-11"), None, [5.4]),
+    ],
+)
+def test_the_merge_moves_no_number_to_the_last_digit(
+    runoff, index, start, area_m2, expected
+) -> None:
+    scored, reported = _both_writings(runoff, index, start, area_m2)
+
+    assert scored.index.equals(index)
+    np.testing.assert_array_equal(scored.to_numpy(), expected)
+    if area_m2 is None:
+        np.testing.assert_array_equal(reported.to_numpy(), expected)
+
+
+def test_a_period_without_runoff_is_a_gap_in_the_trial_and_in_the_run() -> None:
+    """Baseflow alone is no total discharge, so a run publishes no number a trial would drop."""
+    index = pd.DatetimeIndex(["2000-03-01", "2000-04-01", "2000-05-01"])
+
+    scored, reported = _both_writings(_ROUGH_RUNOFF, index, None, None)
+
+    np.testing.assert_array_equal(scored, reported)
+    assert np.isnan(reported.iloc[2])
+    assert not reported.iloc[:2].isna().any()
+
+
+def test_a_gauge_area_that_is_not_positive_is_refused_not_skipped() -> None:
+    baseflow = pd.Series(0.0, index=_SIM_INDEX)
+
+    with pytest.raises(ValueError, match="must be positive, got 0.0 m2"):
+        add_runoff_to_discharge(baseflow, _calibration_context(_ROUGH_RUNOFF), area_m2=0.0)
 
 
 # From test_the_calibration_discharge_adds_the_soil_runoff.py

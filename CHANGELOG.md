@@ -56,6 +56,8 @@ Each release section includes the following standard categories:
 - The warning for two roots more than half a decade apart now fires when the maximal root lies below the minimal one, as on the Nancon.
 - A minimiser on one parameter and two bounds is refused only when a metric is a signed residual, so scoring `distance_mean` is no longer sent to a root search that cannot run it.
 - The warning about `distance_gap` beside another parameter no longer points to `balanced_evaluation`.
+- A run resumed at its derive step says in a warning that no station series is written.
+- One failing observing output no longer drops the series of the others.
 
 ### Changed
 
@@ -76,6 +78,9 @@ Numbers: none.
 - A root search (bisection) now refuses a set of objective blocks unless every block publishes a signed residual. Before, one residual block was enough.
 - The composite example of example 04 scores its network block on `distance_mean` instead of `distance_gap`.
 - The `balanced_evaluation` description says that its report keeps no roots record and no Delta.
+- A run stores the series it simulates at each observed station under the id of the station, all in one write. A gauge the mesh cannot place is no longer stored under its own name with the outlet series: it is listed as unscored and a warning names it.
+- A promoted run reads the stations with the outputs of the phase it comes from.
+- `hmp.read(run, "head")` or a lake stage with several stations needs `station=`.
 
 ### Numbers
 
@@ -92,6 +97,7 @@ Numbers: none.
 
 - The B0 network and transient discharge case left the `hydromodpy` package for `validation_cases/calibration/network_transient_b0/`. The wheel no longer ships its page. `hydromodpy.calibration.reporting`, `hydromodpy.calibration.observations.natural_observations`, `network_cost`, `network_transient_truth` and `hydromodpy.calibration.optim.objective_mapping` are gone, and `step_render_network_transient_calibration_html` is no longer in `hydromodpy.workflow.steps.calibration`.
 - A network output can no longer score against `geographic.river_network`. The DEM-derived network is no observation. `hmp doctor --fix-config` says to write `map.complete = "data.hydrography"` or a vector file, and a sealed run simply drops the key. The `observed_network_is_dem_derived` trial diagnostic is gone with it.
+- The unused `area_m2` argument of `_add_runoff_to_discharge_series`.
 
 ### Added
 

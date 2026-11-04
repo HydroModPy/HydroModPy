@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import inspect
+from datetime import date
 from types import SimpleNamespace
 
 import numpy as np
@@ -36,10 +37,13 @@ from hydromodpy.calibration.metrics.observed_pairing import (
 from hydromodpy.calibration.metrics.series import ObservedSeries
 from hydromodpy.calibration.metrics.solver_extract import ExtractedOutputs
 from hydromodpy.calibration.protocols import expand_calibration_protocol
+from hydromodpy.calibration.runners import promotion
 from hydromodpy.calibration.runners.recap import scored_samples
 from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
 from hydromodpy.core.exceptions import UncertaintyNotAvailableError
 from hydromodpy.core.time.period_aggregation import period_edges
+from hydromodpy.results.fit_metrics import score_timeseries
+from hydromodpy.results.metric_rule import DateWindow, MetricRule
 from hydromodpy.solver.base.observables import series_observable
 from tests.unit.calibration._factories import one_state
 from tests.unit.calibration._factories_scoring import (
@@ -629,6 +633,170 @@ def test_a_lake_on_a_seasonal_kernel_costs_what_it_cost(monkeypatch, metric, pin
     assert np.isfinite(cost)
     assert cost == PINNED[pin]
     assert _pairs(components)["lake_level@lac0"] == 36
+
+
+# The run promoted from a trial is scored on what the trial read.
+#
+# The derive step writes each station's series through the readers of a trial, and
+# the table goes to the score of the run. Fake series on one served solve, no MODFLOW.
+
+
+def _table_rows(station, variable, times, values, source) -> pd.DataFrame:
+    return pd.DataFrame(
+        {"station_id": station, "variable": variable, "source": source}
+        | {"time": times, "value": values}
+    )
+
+
+def _promoted(ctx, outputs=None) -> list[pd.DataFrame]:
+    """The simulated rows the derive step writes in the table of the run."""
+    written: list[pd.DataFrame] = []
+
+    def write_timeseries_columns(sim_id, columns):
+        assert sim_id == "sim-1"
+        assert set(columns["unit"]) == {"-"}
+        frame = pd.DataFrame(columns)
+        for station, rows in frame.groupby("station_id", sort=False):
+            for variable, chunk in rows.groupby("variable", sort=False):
+                written.append(
+                    _table_rows(
+                        station, variable, chunk["time"], chunk["value"].to_numpy(), "simulated"
+                    )
+                )
+
+    ctx.cfg = SimpleNamespace(calibration=outputs and SimpleNamespace(outputs=outputs))
+    store = SimpleNamespace(sim_id="sim-1", write_timeseries_columns=write_timeseries_columns)
+    promotion.write_station_series(ctx, store=store)
+    return written
+
+
+def _runoff_points() -> SimpleNamespace:
+    days = pd.date_range(FIRST, STAMPS[-1], freq="D")
+    values = 0.8 + 0.3 * np.sin(np.arange(days.size) / 11.0)
+    record = pd.DataFrame({"datetime": days, "value": values})
+    return SimpleNamespace(points=[SimpleNamespace(data=record)])
+
+
+@pytest.mark.parametrize(
+    ("variable", "family", "records", "answers", "station", "unscored"),
+    [
+        (
+            "discharge",
+            "hydrometry",
+            [_gauge("OUTLET", 0.0), SimpleNamespace(**vars(_gauge("UP", 1.0)), cell_ij=(3, 4))],
+            {"catchment": _simulated(0.3), "_cell:UP": _simulated(0.6, 0.4), "_area:UP": [2.0e6]},
+            "UP",
+            ["OUTLET"],
+        ),
+        (
+            "head",
+            "piezometry",
+            [_piezometer("PZ1", 0.0), _piezometer("PZ2", 1.0)],
+            {"PZ1": _state(0.1), "PZ2": _state(0.9)},
+            "PZ2",
+            [],
+        ),
+        ("lake_level", "lake_levels", [_lake("lac0", 0.0)], {"lac0": _state(0.4)}, "lac0", []),
+    ],
+    ids=["nested_gauge_with_its_runoff", "second_piezometer", "lake"],
+)
+def test_one_solve_costs_what_its_promoted_run_scores(
+    monkeypatch, variable, family, records, answers, station, unscored
+) -> None:
+    _serve(monkeypatch, answers)
+    ctx = _ctx__single_metric(family, records)
+    ctx.loaded_data.runoff = _runoff_points()
+    ctx.setup.geographic = SimpleNamespace(catch_area=3.0)
+    window = (pd.Timestamp("2001-01-01"), pd.Timestamp("2002-12-31"))
+
+    _, components = _score(variable, "nse", ctx, gauge=station, window=window)
+
+    rows = _promoted(ctx) + [
+        _table_rows(
+            rec.station_id, rec.variable, rec.data["datetime"], rec.data["value"], "observed"
+        )
+        for rec in records
+    ]
+    rule = MetricRule(
+        station=station, window=DateWindow(start=window[0].date(), end=window[1].date())
+    )
+    scores = score_timeseries(pd.concat(rows), rule=rule, period_start=FIRST)
+    assert scores.score.n_samples == 24
+    # A gauge the mesh does not place is left unscored, not read as the outlet.
+    assert [item.station for item in scores.unscored] == unscored
+    assert 1.0 - components[f"nse@{station}.raw_cost"] == scores.score.value
+
+
+def test_an_output_that_observes_a_station_says_where_it_is_read(monkeypatch) -> None:
+    """A snapped gauge is scored off the cell of its record, and the run writes that series."""
+    snapped = _simulated(0.6, 0.4)
+    _serve(monkeypatch, {"catchment": _simulated(0.3)})
+    result = adapter_result("up", snapped, "-", times=STAMPS)
+    monkeypatch.setattr(
+        composite,
+        "extract_outputs",
+        lambda ctx, outputs: ExtractedOutputs({"up": result}, {}, {}, {}),
+    )
+    ctx = _ctx__single_metric("hydrometry", [_gauge("UP", 0.0)])
+
+    (written,) = _promoted(ctx, {"up": boundary_output(observes="UP")})
+
+    assert set(written["station_id"]) == {"UP"}
+    np.testing.assert_array_equal(written["value"], snapped)
+
+
+@pytest.mark.parametrize(
+    ("outputs", "served", "stations", "said"),
+    [
+        (None, {"PZ1": _state(0.1)}, {"PZ1"}, "no simulated discharge"),
+        (
+            {"up": boundary_output(observes="NEVER")},
+            {"PZ1": _state(0.1), "catchment": _simulated(0.3)},
+            {"PZ1"},
+            "no series for its output 'up'",
+        ),
+        (
+            None,
+            {"PZ1": _state(0.1), "catchment": _simulated(0.3)},
+            {"PZ1"},
+            "Gauge UP is not placed on the mesh",
+        ),
+    ],
+    ids=[
+        "a_family_the_backend_does_not_serve",
+        "an_output_on_a_station_never_loaded",
+        "a_gauge_the_mesh_does_not_place",
+    ],
+)
+def test_what_cannot_be_read_is_logged_and_the_rest_is_written(
+    monkeypatch, caplog, outputs, served, stations, said
+) -> None:
+    _serve(monkeypatch, served)
+    monkeypatch.setattr(
+        composite, "extract_outputs", lambda ctx, outputs: ExtractedOutputs({}, {}, {}, {})
+    )
+    ctx = _ctx__single_metric("piezometry", [_piezometer("PZ1", 0.0)])
+    ctx.loaded_data.hydrometry = SimpleNamespace(points=[_gauge("UP", 0.0)])
+
+    with caplog.at_level("WARNING"):
+        written = _promoted(ctx, outputs)
+
+    assert {frame["station_id"].iloc[0] for frame in written} == stations
+    assert said in caplog.text
+
+
+def test_no_flow_run_or_an_undated_answer_writes_nothing(monkeypatch, caplog) -> None:
+    monkeypatch.setattr(composite, "resolve_flow_adapter", lambda ctx: None)
+    ctx = _ctx__single_metric("piezometry", [_piezometer("PZ1", 0.0)])
+    with caplog.at_level("WARNING"):
+        assert _promoted(ctx) == []
+    assert "resumed at its derive step" in caplog.text
+
+    undated = adapter_result("PZ1", _state(0.1), "-")
+    monkeypatch.setattr(
+        promotion, "series_at_the_stations", lambda ctx, outputs: {("PZ1", "head"): undated}
+    )
+    assert _promoted(ctx) == []
 
 
 # From test_discharge_per_station_series.py

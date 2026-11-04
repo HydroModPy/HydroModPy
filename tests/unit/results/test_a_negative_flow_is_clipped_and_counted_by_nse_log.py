@@ -78,7 +78,7 @@ def test_the_row_of_a_run_carries_n_clipped() -> None:
     def rows(values: pd.Series) -> list[dict]:
         sim = [
             {
-                "station_id": "_c",
+                "station_id": "S",
                 "variable": "discharge",
                 "source": "simulated",
                 "time": t + pd.Timedelta(1, unit="D"),

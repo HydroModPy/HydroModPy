@@ -741,6 +741,7 @@ This page keeps, as written, the development notes of `[Unreleased]` and of the 
   (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
+- A run stores the series it simulates at each observed gauge, piezometer and lake under the id of the station, as a trial reads it. `hmp.read(run, "discharge")` with no station still reads the catchment, but a head or a stage with several stations needs `station=`.
 - The classifier is `Development Status :: 4 - Beta`. Install instructions no longer use `--pre` or a fixed version number.
 - The quick start enters the workspace with `cd ~/hydromodpy` before `hmp example add`.
 - `hmp config schema` no longer requires `workspace`, `workspace.project_root` or `geographic.catchment`, which the loader fills.

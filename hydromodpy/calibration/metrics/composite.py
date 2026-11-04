@@ -33,6 +33,7 @@ from hydromodpy.calibration.metrics.observable_scoring import (
     refuse_window_without_dates,
 )
 from hydromodpy.calibration.metrics.observed_pairing import (
+    OBSERVED_FAMILY_BY_VARIABLE,
     observed_series_for_outputs,
     observing_outputs,
 )
@@ -163,7 +164,8 @@ def _discharge_by_station(
     for obs_rec in observed:
         station_id = obs_rec.station_id
         if station_id not in station_cells:
-            out[station_id] = _corrected(whole, catchment, request_id=station_id)
+            # Named after the catchment, so the run does not write it under a station.
+            out[station_id] = _corrected(whole, catchment, request_id=CATCHMENT)
             continue
         result = results[_cell_id(station_id)]
         series = observable_series(result, name="discharge")
@@ -255,6 +257,52 @@ PRODUCERS: Mapping[str, Callable[..., dict[str, ObservableResult]]] = {
 Keyed on :data:`hydromodpy.calibration.config.STATION_VARIABLES`, so the
 variable a document names is either produced and scored or refused by the
 scorer before a search starts. A test holds the two in step."""
+
+
+def series_at_the_stations(
+    ctx: Any, outputs: Mapping[str, CalibOutputDecl]
+) -> dict[tuple[str, str], ObservableResult]:
+    """Return, per observed station and variable, what the solve simulates there.
+
+    The readers of a trial on the solver files of the run, so a run is scored on
+    the numbers its cost was: the same cell, runoff and upstream area, in float64,
+    where the stored fields are rounded. An output that observes a station replaces
+    the answer of its family, since its declaration (a snap, a support) says where
+    it is read. A family the backend cannot serve is logged and left out, and the
+    score of the run lists its stations as unscored.
+    """
+    resolved = resolve_flow_adapter(ctx)
+    if resolved is None:
+        if any(load_observed(ctx, family) for family in PRODUCERS):
+            logger.warning(
+                "The run holds no solver model, as a run resumed at its derive step: "
+                "no station series is written and its observed stations are left unscored."
+            )
+        return {}
+    answers: dict[tuple[str, str], ObservableResult] = {}
+    variable_of: dict[tuple[str, str], str] = {}
+    for family, producer in PRODUCERS.items():
+        observed = load_observed(ctx, family)
+        try:
+            time_index = resolve_time_index(ctx)
+            produced = producer(*resolved, ctx, observed, time_index=time_index) if observed else {}
+        except Exception:
+            logger.warning("The run has no simulated %s at its stations.", family, exc_info=True)
+            produced = {}
+        for record in observed:
+            variable_of[family, record.station_id] = record.variable
+            if record.station_id in produced:
+                answers[record.station_id, record.variable] = produced[record.station_id]
+    for name in observing_outputs(outputs):
+        output = outputs[name]
+        try:
+            family = OBSERVED_FAMILY_BY_VARIABLE[str(output.variable)]
+            station = str(output.observes)
+            observables = extract_outputs(ctx, {name: output}).observables
+            answers[station, variable_of[family, station]] = observables[name]
+        except Exception:
+            logger.warning("The run has no series for its output %r.", name, exc_info=True)
+    return answers
 
 
 def refuse_a_call_that_renames_the_route(

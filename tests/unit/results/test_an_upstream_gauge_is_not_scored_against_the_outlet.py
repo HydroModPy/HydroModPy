@@ -1,10 +1,10 @@
-"""An observed gauge meets the series of its own name, or the single series at the rule station only.
+"""An observed gauge meets the series of its own name and no other.
 
 A run that simulates discharge at one station (the catchment outlet) used to
 score every observed gauge against that series, an upstream gauge included,
-and wrote rows at its name. The single-station fallback now holds for the
-station of the metric rule alone. Any other gauge without a simulated series
-of its name is not scored, and the log and the sealed README say so.
+and wrote rows at its name. The rule station lost that fallback last, once the
+run wrote a series under its name. A gauge without a simulated series of its
+name is not scored, and the log and the sealed README say so.
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
+import pytest
 
 import hydromodpy.workflow.steps.derive as derive_module
 from hydromodpy.results.fit_metrics import score_timeseries
@@ -41,11 +42,11 @@ def _rows(station: str, variable: str, times, values, source: str = "simulated")
     ]
 
 
-def _outlet_and_upstream() -> pd.DataFrame:
+def _outlet_and_upstream(simulated_at: str = OUTLET) -> pd.DataFrame:
     days = pd.date_range("2001-01-01", "2001-12-31", freq="D", tz="UTC")
     values = np.linspace(1.0, 4.0, len(days))
     return pd.DataFrame(
-        _rows("catchment", "discharge", days.shift(1, freq="D"), values)
+        _rows(simulated_at, "discharge", days.shift(1, freq="D"), values)
         + _rows(OUTLET, "discharge", days, values, source="observed")
         + _rows(UPSTREAM, "discharge", days, values * 0.3, source="observed")
     )
@@ -64,11 +65,16 @@ def test_an_upstream_gauge_gets_no_row_and_the_log_says_why(caplog) -> None:
     assert any(UPSTREAM in message and "not scored" in message for message in warned)
 
 
-def test_without_a_rule_station_no_gauge_borrows_the_single_series() -> None:
-    scores = score_timeseries(_outlet_and_upstream(), rule=MetricRule(window=YEAR_2001))
+@pytest.mark.parametrize("station", [None, OUTLET, UPSTREAM])
+def test_no_gauge_borrows_the_catchment_series(station) -> None:
+    frame = _outlet_and_upstream(simulated_at="catchment")
+
+    scores = score_timeseries(frame, rule=MetricRule(station=station, window=YEAR_2001))
 
     assert scores.rows == ()
+    assert scores.score.value is None
     assert {item.station for item in scores.unscored} == {OUTLET, UPSTREAM}
+    assert {item.simulated_at for item in scores.unscored} == {("catchment",)}
 
 
 def test_the_sealed_readme_names_the_gauge_that_was_not_scored(tmp_path) -> None:
@@ -86,7 +92,7 @@ def test_the_sealed_readme_names_the_gauge_that_was_not_scored(tmp_path) -> None
     with open_run_store(tmp_path / "demo", "upstream", n_cells=4, n_timesteps=10) as store:
         sid = store.sim_id
         store.facts.period_start = pd.Timestamp("2020-01-01", tz="UTC").to_pydatetime()
-        store.write_timeseries(sid, "catchment", "discharge", observed * 1.0)
+        store.write_timeseries(sid, OUTLET, "discharge", observed * 1.0)
         store.write_timeseries(sid, OUTLET, "discharge", observed, source="observed")
         store.write_timeseries(sid, UPSTREAM, "discharge", observed * 0.3, source="observed")
 
