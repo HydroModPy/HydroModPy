@@ -66,11 +66,11 @@ jobs:
           - { os: macos-14, python: '3.11', method: plain }
           - { os: macos-14, python: '3.13', method: editable }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: v1.0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
 
@@ -118,11 +118,11 @@ jobs:
           # macOS ARM: pkg env, newest Python.
           - { os: macos-14, python: '3.13', envfile: env_hydromodpy_pkg.yml }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: v1.0
 
-      - uses: conda-incubator/setup-miniconda@v3
+      - uses: conda-incubator/setup-miniconda@v4
         with:
           miniforge-version: latest
           use-mamba: true
