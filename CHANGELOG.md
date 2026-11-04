@@ -33,6 +33,13 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
+### Fixed
+
+- `hmp doctor --fix-config` now moves a `maxfev`-style option of a calibration phase into `max_trials` when the phase takes its method from `[calibration]`, and keeps the section's budget as a bound.
+- A sealed run config with `roptim_max` other than 2 now reads and replays. The key is dropped. A live file with such a value is still refused.
+- `Project.calibrate()` refuses `method`, `max_trials`, `save_runs`, `seed`, `outputs`, `objective_blocks` and `phases` when the calibration comes from a file or the project config, and unknown options on the config route, instead of ignoring them.
+- `Project.calibrate(resume=True)` now resumes on the programmatic routes.
+
 ## [v2.0.0rc1] - 2026-11-03
 
 This is the first release candidate of 2.0.0. The notes below are for a reader who comes from

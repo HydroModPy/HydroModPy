@@ -479,7 +479,7 @@ def _whole_document_rules(doc: Any, *, context: Any, sealed: bool) -> list[str]:
     method. A ratio is checked on what the files end up saying. A list that activates
     tables hangs on the tables every layer declares.
     """
-    changes = _drop_the_validity_ratio(doc)
+    changes = _drop_the_validity_ratio(doc, sealed=sealed)
     changes.extend(_fold_the_activation_lists(doc, context=context))
     export = _migrate_export_variables(doc)
     exploded = _explode_export_table(doc)
@@ -1267,9 +1267,12 @@ def _rewrite_search_options(doc: Any, *, sealed: bool, context: Any = None) -> l
     """
     changes: list[str] = []
     for search in _SEARCH_SCOPES:
-        read = dict(_tables_at(doc if context is None else context, search.scope))
+        source = doc if context is None else context
+        read = dict(_tables_at(source, search.scope))
+        # A phase that writes no method or budget takes the ones of [calibration].
+        section = source.get("calibration") if search.scope == "calibration.phases[*]" else None
         for where, table in _tables_at(doc, search.scope):
-            inherited = read.get(where, {})
+            inherited = {**(section if isinstance(section, Mapping) else {}), **read.get(where, {})}
             method = (
                 _plain(table.get(search.method))
                 or _plain(inherited.get(search.method))
@@ -1796,13 +1799,14 @@ def _drop_the_solver_time_grids(doc: Any) -> list[str]:
 _PAPER_ROPTIM_MAX = 2.0
 
 
-def _drop_the_validity_ratio(doc: Any) -> list[str]:
+def _drop_the_validity_ratio(doc: Any, *, sealed: bool) -> list[str]:
     """Drop ``roptim_max`` from the network outputs, replaced by ``validity_length``.
 
     The bound of Eq. 4 is a length now. ``roptim_max = 2`` said "two cells",
     which ``validity_length = "auto"``, the default, says too, so the key goes.
     Another ratio has no exact length without the cell size of the run, which
     a TOML file does not hold: it is refused with the length to write instead.
+    A sealed config drops it whatever its value, since a replay never recomputes Eq. 4.
     """
     outputs = (doc.get("calibration") or {}).get("outputs")
     if not isinstance(outputs, Mapping):
@@ -1814,6 +1818,10 @@ def _drop_the_validity_ratio(doc: Any) -> list[str]:
             continue
         value = output["roptim_max"]
         path = f"calibration.outputs.{name}.roptim_max"
+        if sealed:
+            del output["roptim_max"]
+            changes.append(f"{path} dropped (sealed)")
+            continue
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             raise ValueError(f"{path} = {value!r} is not a number; remove it.")
         if float(value) != _PAPER_ROPTIM_MAX:

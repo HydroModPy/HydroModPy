@@ -412,12 +412,43 @@ class TestProjectCalibratePythonModeDispatch:
                 method="grid",
                 max_trials=2,
                 save_runs="none",
+                resume=True,
             )
             assert result is sentinel
             assert mocked.call_count == 1
             kwargs = mocked.call_args.kwargs
             assert kwargs["project"] is proj
+            assert kwargs["resume"] is True
             assert "return_report" not in kwargs
+
+    @pytest.mark.parametrize(
+        ("call", "named"),
+        [
+            ({"config_path": "c.toml", "max_trials": 10, "seed": 1}, "max_trials, seed"),
+            ({"method": "grid", "phases": []}, "phases, method"),
+        ],
+    )
+    def test_arguments_the_mode_ignores_are_refused_by_name(self, call, named):
+        from types import SimpleNamespace
+
+        from hydromodpy.core.exceptions import ConfigError
+        from hydromodpy.project import Project
+
+        proj = SimpleNamespace(_cfg=SimpleNamespace(calibration=SimpleNamespace()))
+        with pytest.raises(ConfigError, match=f"ignores {named} when"):
+            Project.calibrate(proj, **call)
+
+    def test_an_unknown_option_is_refused_on_a_declaration_read_from_the_config(self):
+        from types import SimpleNamespace
+
+        from hydromodpy.core.exceptions import ConfigError
+        from hydromodpy.project import Project
+
+        proj = SimpleNamespace(
+            _cfg=SimpleNamespace(calibration=SimpleNamespace()), _config_path=None
+        )
+        with pytest.raises(ConfigError, match="resum"):
+            Project.calibrate(proj, resum=True)
 
     def test_python_mode_requires_parameters(self, project_toml, tmp_path):
         proj = _FakeProject(project_toml, tmp_path / "ws")

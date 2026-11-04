@@ -22,6 +22,7 @@ from hydromodpy.config.config_migration import (
     fix_config_file,
     migrate_config_doc,
     migrate_config_doc_on_load,
+    migrate_merged_doc,
     old_forms,
     outlived_forms,
     rewrite_dotted_path,
@@ -673,6 +674,16 @@ def test_another_ratio_bound_is_refused_with_the_length_to_write(tmp_path: Path)
 
     assert "roptim_max = 3 has no exact equivalent" in str(raised.value)
     assert path.read_bytes() == before
+
+
+def test_a_sealed_run_drops_any_ratio_bound_and_says_so(tmp_path: Path) -> None:
+    doc = {"calibration": {"outputs": {"net": {"support": "network", "roptim_max": 3.0}}}}
+    sealed = tmp_path / "runs" / "nancon" / "config.toml"
+
+    changes = migrate_merged_doc(doc, [(sealed, doc)])
+
+    assert changes == ["calibration.outputs.net.roptim_max dropped (sealed)"]
+    assert doc["calibration"]["outputs"]["net"] == {"support": "network"}
 
 
 def test_the_ratio_bound_migrates_on_load_and_a_current_file_is_untouched() -> None:

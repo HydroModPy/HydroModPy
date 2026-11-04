@@ -132,6 +132,12 @@ def resolve_config(config: str | Path | object | dict) -> object:
     return config
 
 
+# Options of ``Project.calibrate`` that go to the programmatic runner, not to the config.
+_PROGRAMMATIC_KWARGS = frozenset(
+    {"workspace", "project", "project_label", "metric_fn", "objective", "resume"}
+)
+
+
 class Project:
     """Setup-once, run-many interface for HydroModPy simulations.
 
@@ -874,12 +880,39 @@ class Project:
             Raised when ``[[calibration.phases]]`` cannot be run as declared,
             and when ``phase`` names a phase no configuration declares.
         """
-        from hydromodpy.core.exceptions import CalibrationError, ConfigMissingError
+        from hydromodpy.core.exceptions import (
+            CalibrationError,
+            ConfigError,
+            ConfigMissingError,
+        )
         from hydromodpy.project.dispatch.workflow import (
             calibration_phases_or_raise,
             declared_calibration_phases,
             no_such_phase,
         )
+
+        if config_path is not None or not parameters:
+            # The declaration comes from a file or from the project config, so
+            # the Python-mode arguments have nothing to apply to.
+            ignored = [
+                name
+                for name, value in {
+                    "outputs": outputs,
+                    "objective_blocks": objective_blocks,
+                    "phases": phases,
+                    "method": method,
+                    "max_trials": max_trials,
+                    "save_runs": save_runs,
+                    "seed": seed,
+                }.items()
+                if value is not None
+            ]
+            if ignored:
+                raise ConfigError(
+                    f"Project.calibrate() ignores {', '.join(ignored)} when the calibration "
+                    "comes from config_path= or from the project config. Write them in the "
+                    "[calibration] section, or pass parameters= to declare the search in Python."
+                )
 
         if config_path is not None:
             from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
@@ -926,6 +959,13 @@ class Project:
                     return run_staged_calibration(Path(source).resolve(), phase=phase, **kwargs)
                 if not declared and phase is not None:
                     raise CalibrationError(no_such_phase("this configuration", phase))
+                stray = set(kwargs) - _PROGRAMMATIC_KWARGS
+                if stray:
+                    raise ConfigError(
+                        f"Project.calibrate() got unexpected options {sorted(stray)} for a "
+                        f"calibration read from the project config; it accepts "
+                        f"{sorted(_PROGRAMMATIC_KWARGS)}."
+                    )
                 _preflight_in_memory(self, embedded)
                 # A declaration on a project built in memory has no file to fork
                 # each phase from: run_calibration_programmatic writes one next
@@ -938,6 +978,7 @@ class Project:
                     metric_fn=kwargs.get("metric_fn"),
                     objective=kwargs.get("objective"),
                     phase=phase,
+                    resume=kwargs.get("resume", False),
                 )
             raise ConfigMissingError(
                 "Project.calibrate() requires either config_path=, parameters= "
@@ -965,18 +1006,7 @@ class Project:
         if phases is not None:
             payload["phases"] = list(phases)
         payload.update(
-            {
-                key: value
-                for key, value in kwargs.items()
-                if key
-                not in {
-                    "workspace",
-                    "project",
-                    "project_label",
-                    "metric_fn",
-                    "objective",
-                }
-            }
+            {key: value for key, value in kwargs.items() if key not in _PROGRAMMATIC_KWARGS}
         )
 
         cfg = CalibrationConfig.model_validate(payload)
@@ -997,6 +1027,7 @@ class Project:
             metric_fn=kwargs.get("metric_fn"),
             objective=kwargs.get("objective"),
             phase=phase,
+            resume=kwargs.get("resume", False),
         )
 
     def spinup(

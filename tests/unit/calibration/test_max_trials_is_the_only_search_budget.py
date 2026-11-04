@@ -194,6 +194,22 @@ def test_the_doctor_keeps_the_smaller_of_the_two_budgets(tmp_path: Path) -> None
     assert tomllib.loads(path.read_text(encoding="utf-8"))["calibration"]["max_trials"] == 20
 
 
+def test_a_phase_takes_the_method_and_budget_of_the_section(tmp_path: Path) -> None:
+    path = tmp_path / "calibration.toml"
+    path.write_text(
+        '[calibration]\nmethod = "scipy_nelder_mead"\nmax_trials = 50\n'
+        '[[calibration.phases]]\nname = "a"\nmethod_options = { maxfev = 80 }\n'
+        '[[calibration.phases]]\nname = "b"\nmethod_options = { maxfev = 30 }\n',
+        encoding="utf-8",
+    )
+
+    fix_config_file(path)
+
+    phases = tomllib.loads(path.read_text(encoding="utf-8"))["calibration"]["phases"]
+    assert [phase["max_trials"] for phase in phases] == [50, 30]
+    assert all("method_options" not in phase for phase in phases)
+
+
 def test_a_budget_option_without_a_method_is_left_with_the_reason(tmp_path: Path) -> None:
     path = tmp_path / "calibration.toml"
     path.write_text("[calibration]\nmethod_options = { max_iter = 20 }\n", encoding="utf-8")
