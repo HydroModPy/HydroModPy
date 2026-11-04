@@ -133,3 +133,26 @@ def test_a_method_without_a_label_keeps_the_lowest_cost(handles) -> None:
     reporter.close()
 
     assert handles[0].descriptions[-1] == "Calibrating (grid) - best 0.25"
+
+
+def test_crashed_and_cached_trials_are_counted_in_the_line(handles) -> None:
+    reporter = ConsoleProgressReporter("grid", 2)
+    reporter.update(1, EvaluationResult(trial_id=1, sim_id=None, cost=1.0, status="failed"))
+    reporter.update(
+        2, EvaluationResult(trial_id=2, sim_id=None, cost=0.5, status="completed", from_cache=True)
+    )
+
+    assert handles[0].descriptions[-1] == "Calibrating (grid) - best 0.5, 1 crashed, 1 cached"
+
+
+def test_a_closed_reporter_does_not_redraw(handles) -> None:
+    reporter = ConsoleProgressReporter("grid", 2)
+    reporter.update(1, EvaluationResult(trial_id=1, sim_id=None, cost=0.5, status="completed"))
+    reporter.refresh()
+    reporter.close()
+    reporter.close()
+    drawn = list(handles[0].descriptions)
+    reporter.refresh()
+
+    assert handles[0].descriptions == drawn
+    assert drawn[-1] == "Calibrating (grid) - best 0.5"

@@ -34,13 +34,17 @@ from hydromodpy.calibration.metrics.observed_pairing import (
     observed_series_for_outputs,
     pair_outputs_with_observations,
 )
+from hydromodpy.calibration.metrics.scored_forward import (
+    ScoredForwardEvaluator,
+    refuse_a_shape_the_document_cannot_score,
+)
 from hydromodpy.calibration.metrics.series import ObservedSeries
 from hydromodpy.calibration.metrics.solver_extract import ExtractedOutputs
 from hydromodpy.calibration.protocols import expand_calibration_protocol
 from hydromodpy.calibration.runners import promotion
 from hydromodpy.calibration.runners.recap import scored_samples
 from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
-from hydromodpy.core.exceptions import UncertaintyNotAvailableError
+from hydromodpy.core.exceptions import CalibrationError, UncertaintyNotAvailableError
 from hydromodpy.core.time.period_aggregation import period_edges
 from hydromodpy.results.fit_metrics import score_timeseries
 from hydromodpy.results.metric_rule import DateWindow, MetricRule
@@ -648,7 +652,7 @@ def _table_rows(station, variable, times, values, source) -> pd.DataFrame:
     )
 
 
-def _promoted(ctx, outputs=None) -> list[pd.DataFrame]:
+def _promoted(ctx, outputs=None, gauge=None) -> list[pd.DataFrame]:
     """The simulated rows the derive step writes in the table of the run."""
     written: list[pd.DataFrame] = []
 
@@ -664,7 +668,10 @@ def _promoted(ctx, outputs=None) -> list[pd.DataFrame]:
                     )
                 )
 
-    ctx.cfg = SimpleNamespace(calibration=outputs and SimpleNamespace(outputs=outputs))
+    ctx.cfg = SimpleNamespace(
+        calibration=outputs and SimpleNamespace(outputs=outputs),
+        site=SimpleNamespace(gauge=gauge),
+    )
     store = SimpleNamespace(sim_id="sim-1", write_timeseries_columns=write_timeseries_columns)
     promotion.write_station_series(ctx, store=store)
     return written
@@ -743,6 +750,19 @@ def test_an_output_that_observes_a_station_says_where_it_is_read(monkeypatch) ->
 
     assert set(written["station_id"]) == {"UP"}
     np.testing.assert_array_equal(written["value"], snapped)
+
+
+def test_the_gauge_of_the_site_takes_the_outlet_series_under_its_name(monkeypatch) -> None:
+    outlet = _simulated(0.3)
+    _serve(monkeypatch, {"PZ1": _state(0.1), "catchment": outlet})
+    ctx = _ctx__single_metric("piezometry", [_piezometer("PZ1", 0.0)])
+    ctx.loaded_data.hydrometry = SimpleNamespace(points=[_gauge("UP", 0.0)])
+
+    written = pd.concat(_promoted(ctx, gauge="UP"))
+
+    assert set(written["station_id"]) == {"PZ1", "UP"}
+    up = written[written["station_id"] == "UP"]
+    np.testing.assert_array_equal(up["value"], outlet)
 
 
 @pytest.mark.parametrize(
@@ -1227,3 +1247,70 @@ def test_a_declared_window_still_wins(monkeypatch, bench, stream_file) -> None: 
 
     assert scored["net.year_scored_y2000"] == 1.0
     assert scored["net.n_years_scored"] == 3.0
+
+
+# The refusals of the routes, on the state a run can be in.
+
+
+class _Raises:
+    def extract_observables(self, *_args, **_kwargs):
+        raise RuntimeError("boom")
+
+
+def test_an_outlet_series_the_solver_cannot_serve_is_raised_as_it_is() -> None:
+    with pytest.raises(RuntimeError, match="boom"):
+        _by_station(_Raises(), {}, "UP")
+
+
+@pytest.mark.parametrize(
+    ("ctx", "producer", "error", "message"),
+    [
+        (_Ctx(_Loaded()), None, ValueError, "No observations available"),
+        (_ctx(), RuntimeError("boom"), RuntimeError, "boom"),
+    ],
+)
+def test_the_variable_route_names_what_stops_a_trial(
+    monkeypatch, caplog, ctx, producer, error, message
+) -> None:
+    run_ctx = SimpleNamespace(run=SimpleNamespace(solver="s"))
+    monkeypatch.setattr(composite, "resolve_flow_adapter", lambda _ctx: (object(), run_ctx))
+
+    def failing(*_args, **_kwargs):
+        raise producer
+
+    monkeypatch.setitem(composite.PRODUCERS, "discharge", failing)
+    metric_fn = build_metric_extractor("discharge", "rmse", ctx)
+
+    with caplog.at_level("ERROR"), pytest.raises(error, match=message):
+        metric_fn(ctx, objective="rmse", variable="discharge")
+
+    assert ("Metric extractor failed" in caplog.text) is (producer is not None)
+
+
+def test_a_run_with_no_solver_and_no_station_says_nothing(monkeypatch, caplog) -> None:
+    monkeypatch.setattr(composite, "resolve_flow_adapter", lambda _ctx: None)
+
+    with caplog.at_level("WARNING"):
+        assert composite.series_at_the_stations(_Ctx(_Loaded()), {}) == {}
+
+    assert caplog.text == ""
+
+
+def test_a_covariance_needs_an_output_that_names_a_station() -> None:
+    with pytest.raises(ValueError, match="no calibration output names a station"):
+        build_paired_vector_capture({}, ctx=_Ctx(_Loaded()))
+
+
+@pytest.mark.parametrize("cfg", [None, SimpleNamespace(outputs={}, objective_blocks=[])])
+def test_the_forward_evaluator_is_built_with_outputs_and_blocks(cfg) -> None:
+    with pytest.raises(CalibrationError, match="scored_forward_model"):
+        ScoredForwardEvaluator(cfg=cfg)
+
+
+def test_a_shape_is_checked_only_where_values_are_typed_and_served() -> None:
+    outputs = {
+        "typed": SimpleNamespace(observed_values=None),
+        "q": SimpleNamespace(observed_values=[1.0]),
+    }
+
+    refuse_a_shape_the_document_cannot_score(outputs, {"typed": _answer([1.0])}, model_id="m")

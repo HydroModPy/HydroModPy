@@ -58,10 +58,7 @@ class OptunaAdapter:
             sampler_kwargs["constant_liar"] = True
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", optuna.exceptions.ExperimentalWarning)
-            try:
-                sampler_obj = sampler_cls(**sampler_kwargs)
-            except TypeError:
-                sampler_obj = sampler_cls()
+            sampler_obj = sampler_cls(**sampler_kwargs)
         # Silence optuna's INFO chatter unless user overrides externally.
         optuna.logging.set_verbosity(optuna.logging.WARNING)
         self._study = optuna.create_study(sampler=sampler_obj, direction=direction)

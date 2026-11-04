@@ -19,6 +19,12 @@ from hydromodpy.calibration.optim.parameters import (
 )
 from hydromodpy.calibration.parameter_resolution import (
     UnresolvedParameterName,
+    _convert_bounds_into_the_unit_of_the_target,
+    _fill_what_the_file_left_unsaid,
+    _names_a_depth_model_field,
+    _refuse_a_depth_model_path_the_catalogue_does_not_carry,
+    _target_for,
+    _why_the_depth_model_is_not_searchable,
     resolve_parameter_targets,
     unresolved_parameter_names,
 )
@@ -1247,3 +1253,76 @@ def test_the_rate_stays_calibrable_when_no_recharge_is_loaded() -> None:
     resolve_parameter_targets(calibration, project)
 
     assert calibration.parameters["recharge.values"].path is not None
+
+
+# -- branches that the files above do not reach ------------------------------
+def test_a_calibration_without_parameters_resolves_nothing() -> None:
+    calibration = _calibration()
+
+    resolve_parameter_targets(calibration, sinks_project())
+
+    assert calibration.parameters == {}
+
+
+def test_a_scale_on_a_path_the_catalogue_does_not_carry_is_left_as_written_and_silent(
+    recwarn,
+) -> None:
+    calibration = _calibration(free={"bounds": [0.5, 2.0], "mode": "scale", "path": "flow.nothing"})
+
+    resolve_parameter_targets(calibration, sinks_project())
+
+    assert calibration.parameters["free"].path == "flow.nothing"
+    assert not [item for item in recwarn if item.category is UserWarning]
+
+
+@pytest.mark.parametrize(
+    ("name", "named"), [("K", False), ("kind", True), ("depth_model.kind", True)]
+)
+def test_the_depth_model_fields_are_told_from_the_other_names(name: str, named: bool) -> None:
+    assert _names_a_depth_model_field(name) is named
+
+
+def test_a_depth_model_name_of_a_project_without_one_falls_to_the_generic_refusal() -> None:
+    assert _why_the_depth_model_is_not_searchable(SimpleNamespace()) is None
+    assert (
+        _refuse_a_depth_model_path_the_catalogue_does_not_carry(
+            "T", "domain.depth_model.thickness", SimpleNamespace()
+        )
+        is None
+    )
+    with pytest.raises(UnresolvedParameterName, match="names nothing this project carries"):
+        _target_for("depth_model.kind", {}, [], SimpleNamespace())
+
+
+def test_bounds_in_a_unit_are_kept_when_the_target_reads_no_unit() -> None:
+    decl = _calibration(K={"bounds": [1.0, 2.0], "units": "m/s"}).parameters["K"]
+
+    _convert_bounds_into_the_unit_of_the_target("K", decl, SimpleNamespace(units=None))
+
+    assert (decl.bounds, decl.units) == ([1.0, 2.0], "m/s")
+
+
+def test_a_unit_without_bounds_is_converted_to_the_unit_the_target_reads() -> None:
+    project = _project__bounds_another("m/day", 5.0)
+
+    declared = _resolved(project, units="m/s").parameters["K"]
+
+    assert (declared.units, declared.bounds) == ("m/day", None)
+
+
+@pytest.mark.parametrize(
+    ("calibrable", "search_space", "bounds"),
+    [
+        (None, "identity", None),
+        (Calibrable(bounds=(1.0, 2.0), search_space="log"), "log", [1.0, 2.0]),
+    ],
+)
+def test_what_the_file_left_unsaid_comes_from_the_annotation_when_there_is_one(
+    calibrable, search_space: str, bounds
+) -> None:
+    decl = _calibration(K={"bounds": [3.0, 4.0]}).parameters["K"]
+    decl.bounds = None
+
+    _fill_what_the_file_left_unsaid(decl, SimpleNamespace(calibrable=calibrable, units=None))
+
+    assert (decl.search_space, decl.bounds) == (search_space, bounds)

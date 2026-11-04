@@ -616,7 +616,7 @@
             }
           ],
           "default": null,
-          "description": "The permanent map, the reaches that flow all year, which the complete map contains: a vector file, read as it is and never filtered by attribute, or 'data.hydrography', the permanent reaches the hydrography data family wrote beside its network, which it does only when its source says which reaches flow all year. The complete map scored is the union of the two, and the share of this map outside the complete one is published.",
+          "description": "The permanent map, the reaches that flow all year, which the complete map contains: a vector file, read as it is and never filtered by attribute, or 'data.hydrography', the permanent reaches the hydrography data family wrote beside its network. A source that does not say which reaches flow all year gives none. The complete map scored is the union of the two, and the share of this map outside the complete one is published.",
           "renamed_from": [
             "calibration.outputs.minimal_stream_geometry_path",
             "calibration.outputs.minimal_observed_network"
@@ -917,7 +917,7 @@
             }
           ],
           "default": "auto",
-          "description": "Validity bound of Eq. 4, a length: the calibration is valid when D_optim <= this. 'auto' is 2 h, the paper's two cells, where h is h_obs, the cell size on the mapped network, raised to 'map.position_accuracy' when one is declared. A length such as '150 m' is used as it is. The bound qualifies the result and never penalises the cost.",
+          "description": "Validity bound of Eq. 4, a length: the calibration is valid when D_optim <= this. 'auto' is 2 h, the paper's two cells, where h is h_obs, the cell size on the mapped network, raised to 'map.position_accuracy' if that is declared. A length such as '150 m' is used as it is. The bound qualifies the result and never penalises the cost.",
           "examples": [
             "auto"
           ],

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import Annotated
 
 import pytest
@@ -13,6 +14,9 @@ from hydromodpy.calibration.optim.parameters import ParameterSpace
 from hydromodpy.calibration.parameter_resolution import resolve_parameter_targets
 from hydromodpy.calibration.targets import (
     VKA_PATH,
+    _physical_bounds_for,
+    _searched_as_written_when_signed,
+    _unit_the_leaf_is_read_in,
     calibration_targets,
     declared_calibrable,
     targets_by_name,
@@ -614,3 +618,26 @@ def test_vka_is_offered_where_it_is_read(tmp_path, param, backend, offered) -> N
     else:
         with pytest.raises(ConfigError, match="names nothing this project carries"):
             resolve_parameter_targets(calibration, cfg)
+
+
+def test_a_signed_range_leaves_a_search_that_is_not_logarithmic_as_declared() -> None:
+    plain = Calibrable(bounds=(-1.0, 1.0))
+    log = Calibrable(bounds=(-1.0, 1.0), search_space="log", sampling="log_uniform")
+
+    assert _searched_as_written_when_signed(plain, (-1.0, 1.0)) is plain
+    signed = _searched_as_written_when_signed(log, (-1.0, 1.0))
+    assert (signed.search_space, signed.sampling) == ("identity", "uniform")
+
+
+@pytest.mark.parametrize(("named", "read"), [("1/day", "1/day"), ("  ", "1/s"), (3, "1/s")])
+def test_a_leaf_is_read_in_the_unit_it_names_else_in_the_default_of_its_annotation(
+    named: object, read: str
+) -> None:
+    declared = Calibrable(units="1/s", unit_field="bedleak_unit")
+
+    assert _unit_the_leaf_is_read_in(SimpleNamespace(bedleak_unit=named), declared) == read
+
+
+def test_a_unit_the_registry_cannot_convert_gets_no_range() -> None:
+    assert _physical_bounds_for("a.b", "K", "value", units="m/day") == (8.64e-10, 8640000.0)
+    assert _physical_bounds_for("a.b", "K", "value", units="furlong") is None

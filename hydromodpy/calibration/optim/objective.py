@@ -185,10 +185,7 @@ class CompositeObjective:
             raise ValueError("CompositeObjective requires at least one block")
 
         raw = np.asarray([w for _, w in parsed], dtype=float)
-        total_w = float(raw.sum())
-        if total_w <= 0.0:
-            raise ValueError("CompositeObjective requires a strictly positive total weight")
-        normalized = raw / total_w
+        normalized = raw / float(raw.sum())
 
         self.name = str(name)
         self._blocks: tuple[tuple[Objective, float, float], ...] = tuple(

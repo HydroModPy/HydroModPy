@@ -20,6 +20,7 @@ from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.optim.cache import (
     CachedEvaluation,
     ParamsHashCache,
+    _normalize_context,
     canonical_json,
     context_fingerprints,
     differing_members,
@@ -232,6 +233,22 @@ class TestCanonicalJSON:
         a = canonical_json({"x": 1.23e-6})
         b = canonical_json({"x": 1.24e-6})
         assert a != b
+
+
+class TestContextNormalisation:
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            (float("inf"), float("inf")),
+            (0.0, 0.0),
+            (1.23456, 1.23),
+            ({"b": Path("/data/a.tif"), "a": 1.0}, {"a": 1.0, "b": "/data/a.tif"}),
+            ({3.0, 1.0, 2.0}, [1.0, 2.0, 3.0]),
+            ((1.0, [0.5]), [1.0, [0.5]]),
+        ],
+    )
+    def test_a_context_value_is_rounded_ordered_and_made_plain(self, value, expected) -> None:
+        assert _normalize_context(value, precision=3) == expected
 
 
 class TestParamsHash:

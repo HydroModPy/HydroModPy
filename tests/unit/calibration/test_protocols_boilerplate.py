@@ -16,6 +16,7 @@ from hydromodpy.calibration.config import (
     validate_calib_output,
 )
 from hydromodpy.calibration.protocols import (
+    boilerplate,
     deviations_in_force,
     protocol_options_away_from_the_recipe,
     protocol_record,
@@ -698,3 +699,22 @@ class TestTheReportCarriesIt:
         source = inspect.getsource(staged_runner._methods_paragraph_for)
 
         assert "_settled(run.report)" in source
+
+
+def test_the_paragraph_names_what_the_protocol_it_reads_declares(monkeypatch) -> None:
+    class Quiet(type(boilerplate.get_protocol(NAME))):
+        deviations = ()
+        support = {"modflow6": "expected_untested"}
+
+    monkeypatch.setattr(boilerplate, "get_protocol", lambda _name: Quiet())
+
+    text = methods_paragraph(
+        NAME,
+        stages_that_ran=["steady_conductivity"],
+        steady_window={"start": "2000-01-01", "end": "2000-12-31"},
+        backend="modflow6",
+    )
+
+    assert "over its steady window, 2000-01-01 to 2000-12-31." in text
+    assert "every run" not in text
+    assert "on the modflow6 backend, on which it is expected to work but is not covered" in text

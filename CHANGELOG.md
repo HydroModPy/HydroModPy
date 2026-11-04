@@ -68,6 +68,9 @@ Each release section includes the following standard categories:
 - A balanced evaluation now answers each point with the trial nearest the root of J. It took the end of the final bracket with the lowest `distance_mean`, which could sit on the far side of a step of J.
 - The warning and the recap say that a value reached a search bound only when the value is on it. A value inside its bounds whose range of equal costs reaches one now says so in those words.
 - `--optimizer scipy_de` of the `groundwater_1d`, `recession_brutsaert` and `reservoir` validation cases runs again.
+- The `calibration_progress` figure of a staged calibration now shows the value a phase froze for a parameter it did not sample, so the run marked best reads `K = 7.96e-05 m/s` instead of `K = nan`, the K panel carries the frozen value, and the K-Sy plane draws the runs of the phase that sampled Sy. It was empty at the base commit too.
+- A TOML written without the keys that hold their default (`exclude_defaults`) no longer gets those keys back as written lines. The template writer now leaves them as comments, so `objective` is not written beside `[[calibration.objective_blocks]]` and the file reloads.
+- The JSON schema of the `data-request` process was regenerated, since a description now says "meters".
 
 ### Changed
 
@@ -138,6 +141,7 @@ None. No metric value changes.
 - The Nancon on two bounds, BD Topage. At a visible flow of 0.5, 1 and 2 L/s, K = 1.19e-5, 7.68e-6 and 3.98e-6 m/s, roots 1.21, 1.47 and 1.87 decades apart.
 - K and Sy together on two maps: a twin finds K to a few per cent and not Sy, and on the Nancon the roots meet at K = 5.0e-6 m/s and Sy = 0.0033, with NSE at 0.64 against 0.93.
 - The 12.9 per cent of D4 on the Nancon comes from one seepage cell that dries between K = 6.895e-5 and 6.910e-5 m/s, and with it a reach of 37 cells absent from the map.
+- Example 04, the calibrated Sy goes from 0.04411 to 0.04296 and `1 - nse_log` from 0.083976 to 0.083988, with two solves less. K does not move, to the last digit. `calibration.precision` now writes a relative `fatol`, so Nelder-Mead stops on the same simplex two trials earlier. Both values are inside the 5 % asked and inside the printed range of equal costs, 0.0376 to 0.0465.
 
 ### Removed
 

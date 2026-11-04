@@ -9,6 +9,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+import pandas as pd
 import pytest
 from pydantic import ValidationError
 
@@ -27,7 +28,11 @@ from hydromodpy.calibration.protocols import (
 )
 from hydromodpy.calibration.runners import trial as trial_module
 from hydromodpy.calibration.runners.materialize import write_overlay_toml
-from hydromodpy.calibration.runners.phase_regime import phase_overrides, regime_overrides
+from hydromodpy.calibration.runners.phase_regime import (
+    _declared_lake_names,
+    phase_overrides,
+    regime_overrides,
+)
 from hydromodpy.calibration.runners.staged_runner import _phase_plans
 from hydromodpy.calibration.runners.verdict import water_budget_verdict
 from hydromodpy.config import HydroModPyConfig
@@ -821,6 +826,7 @@ class TestOneSpellingOfAnInstant__phase_regime:
             pytest.param("1995-01-01T00:00:00+02:00", "offset", id="one_offset_and_one_without"),
             # pandas reads an int as nanoseconds since 1970; a config never means that.
             pytest.param(1995, "simulation.time.start_datetime", id="a_bare_number"),
+            pytest.param(pd.NaT, "simulation.time.start_datetime", id="not_a_time"),
         ],
     )
     def test_a_bound_that_is_not_an_instant_is_refused(self, start, match) -> None:
@@ -1134,3 +1140,18 @@ def test_a_steady_phase_cannot_fit_a_lake_parameter(parameter, lake, refused) ->
             regime_overrides(phase, document)
     else:
         assert regime_overrides(phase, document)["flow.flow_regime"] == "steady"
+
+
+@pytest.mark.parametrize(
+    ("lakes", "names"),
+    [
+        ({"a": {}, "b": {}}, ["a", "b"]),
+        ([{"name": "a"}, {"name": ""}, "x"], ["a"]),
+        ([{"size": 1}], ["lake"]),
+        (None, []),
+    ],
+)
+def test_the_lakes_a_document_declares_are_listed_by_name(lakes, names) -> None:
+    document = {"flow": {"sinks_sources": {"lakes": lakes}}}
+
+    assert _declared_lake_names(document) == names

@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.calibration.criteria import criterion_for
+from hydromodpy.calibration.criteria import HydrographicNetworkDistance, criterion_for
 from hydromodpy.calibration.criteria.base import CriterionResult
 from hydromodpy.calibration.criteria.hydrographic_network_distance import (
     distance_gap,
@@ -40,6 +40,10 @@ def test_the_mean_estimator_sums_the_weighted_doptim() -> None:
     assert criterion_for("distance_mean").score([35.0, 25.0, 60.0, 75.0]).signed_residual is None
 
 
+def test_a_negative_distance_makes_the_mean_undefined() -> None:
+    assert np.isnan(distance_mean([-1.0, 5.0]))
+
+
 def test_the_kernels_agree_with_the_criterion() -> None:
     values = [35.0, 25.0, 60.0, 75.0]
     assert distance_gap(values) == pytest.approx(criterion_for("distance_gap").score(values).cost)
@@ -70,3 +74,8 @@ def test_distance_pair_reads_one_pair_and_refuses_any_other_size() -> None:
 )
 def test_a_result_is_fatally_invalid_only_by_a_failed_fatal_check(validity, fatal) -> None:
     assert CriterionResult(cost=1.0, validity=validity).is_fatally_invalid is fatal
+
+
+def test_an_unknown_estimator_is_refused_with_the_two_it_knows() -> None:
+    with pytest.raises(ValueError, match="'distance_gap' .*'distance_mean'"):
+        HydrographicNetworkDistance("distance_median")

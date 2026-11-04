@@ -557,6 +557,98 @@ class TestApplyParameterToConfig:
             apply_parameter_to_config(cfg, param, 2.0)
 
 
+class TestWhatTheSpaceRefuses:
+    @pytest.mark.parametrize("name", ["transform", "inverse"])
+    def test_an_unknown_search_space_is_refused(self, name) -> None:
+        param = CalibParameter(name="x", lower=0.0, upper=1.0, search_space="sqrt")
+
+        with pytest.raises(ValueError, match="Unknown search space: 'sqrt'"):
+            (param.to_transformed if name == "transform" else param.to_physical)(0.5)
+
+    def test_logit_refuses_a_value_outside_the_open_unit_interval(self) -> None:
+        param = CalibParameter(name="s", lower=0.05, upper=0.5, search_space="logit")
+
+        with pytest.raises(ValueError, match="requires 0<x<1, got 1.0"):
+            param.to_transformed(1.0)
+
+    @pytest.mark.parametrize(
+        ("declaration", "match"),
+        [
+            ({"bounds": [2.0, 1.0]}, "lower bound must be < upper"),
+            ({"bounds": [0.0, 1.0], "search_space": "log"}, "log search space requires lower > 0"),
+            ({"bounds": [0.1, 1.0], "search_space": "logit"}, "requires 0 < lower < upper < 1"),
+            ({"bounds": [0.1, 0.5], "sampling": "beta"}, "unknown sampling 'beta'"),
+            ({"bounds": [0.0, 1.0], "sampling": "log_uniform"}, "log_uniform sampling requires"),
+        ],
+    )
+    def test_a_declaration_that_cannot_be_searched_is_refused(self, declaration, match) -> None:
+        with pytest.raises(ValueError, match=match):
+            ParameterSpace.from_toml_mapping({"x": declaration})
+
+    def test_a_normal_sampling_gives_a_prior_and_the_others_give_none(self) -> None:
+        normal = ParameterSpace([CalibParameter(name="x", lower=0.0, upper=6.0, sampling="normal")])
+        uniform = ParameterSpace([CalibParameter(name="x", lower=0.0, upper=6.0)])
+
+        assert normal.default_prior_mean_std() == ([3.0], [1.0])
+        assert uniform.default_prior_mean_std() is None
+
+    def test_the_physical_bounds_and_the_description_keep_the_declared_ones(self) -> None:
+        space = ParameterSpace(
+            [
+                CalibParameter(name="a", lower=0.0, upper=1.0),
+                CalibParameter(name="b", lower=2.0, upper=3.0),
+            ]
+        )
+
+        assert space.physical_bounds() == {"a": (0.0, 1.0), "b": (2.0, 3.0)}
+        assert set(space.describe_values({"b": 2.5})) == {"b"}
+
+
+class TestPathsAreWalkedAndRefused:
+    def test_a_mapping_config_takes_the_value_at_its_leaf(self) -> None:
+        cfg = {"K": {"value": 1.0}}
+
+        set_by_path(cfg, "K.value", 2.0)
+
+        assert cfg == {"K": {"value": 2.0}}
+
+    @pytest.mark.parametrize(
+        ("cfg", "path", "match"),
+        [
+            ({"K": {}}, "K.gone.value", "no 'gone' under K, which holds nothing"),
+            ({"K": {}}, "Q.value", "no 'Q' under the configuration root, which holds K"),
+        ],
+    )
+    def test_a_missing_segment_of_a_mapping_lists_what_is_there(self, cfg, path, match) -> None:
+        with pytest.raises(ValueError, match=match):
+            set_by_path(cfg, path, 1.0)
+
+    def test_a_scale_needs_a_base_value_that_exists(self) -> None:
+        param = CalibParameter(name="K", lower=0.1, upper=2.0, path="K", mode="scale")
+
+        with pytest.raises(ValueError, match="resolved to None"):
+            apply_parameter_to_config({"K": None}, param, 2.0)
+
+    def test_a_mode_nobody_handles_is_refused_when_written(self) -> None:
+        param = CalibParameter(name="K", lower=0.1, upper=2.0, path="K", mode="add")
+
+        with pytest.raises(ValueError, match="unsupported mode 'add'"):
+            apply_parameter_to_config({"K": 1.0}, param, 2.0)
+
+    @pytest.mark.parametrize("cfg", [{"K": 1.0}, _OuterCfg()], ids=["mapping", "object"])
+    def test_a_scale_over_a_missing_path_is_refused(self, cfg) -> None:
+        param = CalibParameter(name="K", lower=0.1, upper=2.0, path="gone", mode="scale")
+
+        with pytest.raises(ValueError, match="Path segment 'gone' not found"):
+            apply_parameter_to_config(cfg, param, 2.0)
+
+    def test_a_scale_over_a_path_that_stops_midway_is_refused(self) -> None:
+        param = CalibParameter(name="K", lower=0.1, upper=2.0, path="K.gone.value", mode="scale")
+
+        with pytest.raises(ValueError, match="Path segment 'gone' not found on dict"):
+            apply_parameter_to_config({"K": {}}, param, 2.0)
+
+
 # From test_parameter_path_errors_name_the_key.py
 # A mistyped calibration path must say which TOML key is wrong.
 #

@@ -278,6 +278,50 @@ def test_the_cases_reach_the_rules_they_are_named_for(name: str) -> None:
         assert simplex_run.result.status == 2
 
 
+@pytest.mark.parametrize(
+    ("x0", "options"),
+    [
+        ((0.0, 0.5), {}),
+        ((0.9, 0.1), {"maxiter": 15}),
+        ((0.9, 0.1), {"maxfev": 15}),
+        ((0.9, 0.1), {"maxfev": np.inf}),
+        ((0.9, 0.1), {"maxiter": np.inf}),
+    ],
+    ids=["zero-component", "maxiter-only", "maxfev-only", "maxfev-inf", "maxiter-inf"],
+)
+def test_the_default_simplex_and_the_default_limits_are_scipys(x0, options) -> None:
+    f, lower, upper = _bowl((0.3, 0.6)), np.zeros(2), np.ones(2)
+    x0 = np.asarray(x0)
+    result, calls = _scipy(f, lower, upper, x0, None, options)
+
+    simplex_run, _ = _speculative(f, lower, upper, x0, None, options, 1)
+
+    _assert_same_run(simplex_run, result, calls)
+    assert simplex_run.finished
+
+
+@pytest.mark.parametrize(
+    ("simplex", "message"),
+    [
+        (np.zeros((3, 3)), r"shape \(N\+1,N\)"),
+        (np.zeros((3, 2)), "not consistent with `x0`"),
+    ],
+)
+def test_an_initial_simplex_of_the_wrong_shape_is_refused(simplex, message) -> None:
+    x0 = np.zeros(2 if message.startswith("shape") else 3)
+
+    with pytest.raises(ValueError, match=message):
+        SpeculativeNelderMead(x0, initial_simplex=simplex)
+
+
+def test_a_run_with_no_call_left_is_finished_at_once() -> None:
+    simplex_run = SpeculativeNelderMead(np.array([0.5, 0.2]), maxfev=0)
+
+    assert simplex_run.finished
+    assert simplex_run.propose(2) == []
+    assert (simplex_run.result.nfev, simplex_run.result.status) == (0, 1)
+
+
 def test_a_value_is_given_back_once_for_a_proposed_point() -> None:
     simplex_run = SpeculativeNelderMead(np.array([0.5]), adaptive=True)
     (proposal,) = simplex_run.propose(1)

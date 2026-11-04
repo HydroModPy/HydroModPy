@@ -11,8 +11,12 @@ from shapely.geometry import LineString
 
 from hydromodpy.calibration.config import validate_calib_output
 from hydromodpy.calibration.observations.network_geometry import (
+    _length_in_m,
+    aquifer_extent,
     dam_foot_cells_of_model,
+    dense_face_connectivity,
     network_maps_from_run,
+    share_outside,
 )
 from hydromodpy.calibration.observations.observed_network import delineated_outlet_xy
 from tests._helpers.v_valley import (
@@ -230,3 +234,60 @@ def test_the_maximal_heads_map_contains_the_minimal_trace() -> None:
     assert maps.frac_minimal_outside_maximal == pytest.approx(
         (FIRST_OBSERVED_ROW - PERMANENT_FIRST_ROW) / (N_ROWS - PERMANENT_FIRST_ROW)
     )
+
+
+# The readers of the mesh and of the model, on what they leave out.
+
+
+def _run_with(*, botm=None, top=(5.0, 6.0, 7.0), mask=None) -> SimpleNamespace:
+    mesh = SimpleNamespace(botm=botm, top=np.array(top))
+    return SimpleNamespace(model=SimpleNamespace(solver_mesh=mesh, inactive_mask=mask))
+
+
+@pytest.mark.parametrize(
+    ("run_ctx", "thickness", "inactive"),
+    [
+        (_run_with(), None, None),
+        (_run_with(botm=np.array([1.0, 2.0, 3.0])), [4.0, 4.0, 4.0], None),
+        (
+            _run_with(botm=np.zeros((2, 3)), mask=[True, False, True]),
+            [5.0, 6.0, 7.0],
+            [True, False, True],
+        ),
+        (_run_with(botm=np.zeros(2), mask=[True, False]), None, None),
+    ],
+    ids=["none_carried", "one_layer_base", "lowest_layer_base", "another_cell_count"],
+)
+def test_the_aquifer_thickness_and_closed_columns_are_read_or_left_out(
+    run_ctx, thickness, inactive
+) -> None:
+    imposed, closed = aquifer_extent(run_ctx, 3)
+
+    assert (imposed if imposed is None else imposed.tolist()) == thickness
+    assert (closed if closed is None else closed.tolist()) == inactive
+
+
+def test_a_mesh_with_no_cell_and_a_model_with_no_mesh_are_refused() -> None:
+    with pytest.raises(ValueError, match="the planar mesh holds no cell"):
+        dense_face_connectivity(SimpleNamespace(flat_connectivity=[], vertices=[]))
+
+    for model, message in [
+        (None, "no model recorded for run 'r'"),
+        (SimpleNamespace(), "exposes no 'solver_mesh'"),
+        (SimpleNamespace(solver_mesh=SimpleNamespace()), "exposes no 'cell_centers'"),
+    ]:
+        with pytest.raises(ValueError, match=message):
+            network_maps_from_run(SimpleNamespace(model=model, run=SimpleNamespace(id="r")), None)
+
+
+def test_the_share_of_a_map_a_second_one_misses_is_nan_without_cells() -> None:
+    inner = np.array([True, True, True, False])
+    outer = np.array([True, False, False, False])
+
+    assert share_outside(inner, outer, np.ones(4)) == pytest.approx(2 / 3)
+    assert np.isnan(share_outside(inner, outer, np.zeros(4)))
+
+
+def test_a_length_is_taken_in_metres_from_a_quantity_or_a_number() -> None:
+    assert _length_in_m(SimpleNamespace(to=lambda unit: SimpleNamespace(magnitude=2.5))) == 2.5
+    assert _length_in_m(3) == 3.0

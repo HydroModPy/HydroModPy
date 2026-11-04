@@ -2772,3 +2772,146 @@ def test_each_stage_runs_the_same_search(calibrations) -> None:
         assert staged_runner._phase_config(protocol, ours).model_dump(
             mode="json"
         ) == staged_runner._phase_config(by_hand, theirs).model_dump(mode="json")
+
+
+# The refusals and the fallbacks of the helpers the staged run is built from.
+
+
+def _staged_cfg(**phase: Any) -> CalibrationConfig:
+    return CalibrationConfig.model_validate(
+        {
+            "parameters": {
+                "K": {
+                    "bounds": [1e-9, 1e-3],
+                    "search_space": "log",
+                    "path": "flow.param.K.field.value",
+                }
+            },
+            "phases": [{"name": "stage", "parameters": ["K"], **phase}],
+        }
+    )
+
+
+@pytest.mark.parametrize(
+    ("target", "message"),
+    [
+        ("phase_overrides", "gives regime = None, which cannot be written: boom"),
+        ("space_from_config", "a parameter space that cannot be built: boom"),
+    ],
+)
+def test_a_phase_that_cannot_be_prepared_is_refused_before_the_first_solve(
+    monkeypatch, target, message
+) -> None:
+    def refuse(*args, **kwargs):
+        raise ValueError("boom")
+
+    monkeypatch.setattr(staged_runner, target, refuse)
+    cfg = _staged_cfg()
+
+    with pytest.raises(ConfigValidationError, match=f"phase 'stage' .*{message}"):
+        staged_runner._phase_plans(cfg, list(enumerate(cfg.phases)), {})
+
+
+def test_a_phase_whose_search_its_optimizer_refuses_is_named(monkeypatch) -> None:
+    def refuse(self):
+        raise ValueError("boom")
+
+    monkeypatch.setattr(CalibrationConfig, "validate_registry", refuse)
+    cfg = _staged_cfg()
+
+    with pytest.raises(
+        ConfigValidationError, match="declares a search its optimizer refuses: boom"
+    ):
+        staged_runner._phase_plans(cfg, list(enumerate(cfg.phases)), {})
+
+
+def test_a_phase_without_a_method_says_which_one_it_runs(caplog) -> None:
+    cfg = _staged_cfg()
+    method, reason = cfg.method_for(cfg.phases[0])
+
+    with caplog.at_level(logging.INFO):
+        staged_runner._phase_plans(cfg, list(enumerate(cfg.phases)), {})
+
+    assert f"Phase stage names no method and runs {method}: {reason}." in caplog.text
+
+
+def test_a_settled_phase_without_its_value_has_nothing_to_freeze(monkeypatch) -> None:
+    monkeypatch.setattr(staged_runner, "_settled", lambda report: True)
+    monkeypatch.setattr(staged_runner, "_froze_budget_only", lambda report: False)
+    decl = CalibPhaseDecl.model_validate({"name": "stage", "parameters": ["K"]})
+
+    with pytest.raises(CalibrationError, match=r"carries no value for \['K'\]"):
+        staged_runner._frozen_by(decl, make_report(best_parameters={"Sy": 0.1}), None)
+
+
+def test_a_phase_the_calibration_does_not_declare_cannot_be_replayed() -> None:
+    cfg = _staged_cfg()
+
+    with pytest.raises(CalibrationError, match="declares no phase 'other'"):
+        staged_runner.replay_phase(cfg, {}, Path("."), "other", {})
+
+
+@pytest.mark.parametrize(
+    ("output", "where"),
+    [
+        (SimpleNamespace(support="point", geometry="g"), "its declared geometry"),
+        (SimpleNamespace(support="cell", row=3, col=4), "cell (row 3, col 4)"),
+        (SimpleNamespace(support="lake", lake_id=7), "lake 7"),
+        (SimpleNamespace(support="boundary", boundary_id="outlet"), "boundary 'outlet'"),
+        (SimpleNamespace(support="network"), ""),
+        (SimpleNamespace(support="point", x=1, y=2.50), "(1, 2.5)"),
+    ],
+)
+def test_an_output_says_where_it_reads_its_simulated_value(output, where) -> None:
+    assert staged_runner._output_where(output) == where
+
+
+def test_a_missing_coordinate_reads_as_unknown() -> None:
+    assert staged_runner._length_text(None) == "?"
+
+
+def test_a_block_less_selection_has_no_comparison_row() -> None:
+    cfg = SimpleNamespace(
+        objective_blocks=["declared"], objective_blocks_for=lambda phase: [], outputs=None
+    )
+
+    assert staged_runner.objective_comparison_table(cfg) == []
+
+
+@pytest.mark.parametrize(
+    ("document", "backend"),
+    [
+        (
+            {
+                "simulation": {
+                    "process": ["text", {"kind": "heat"}, {"kind": "flow", "solvers": ["mf6"]}]
+                }
+            },
+            "mf6",
+        ),
+        ({"simulation": {"process": [{"kind": " FLOW ", "solvers": [" nwt "]}]}}, "nwt"),
+    ],
+)
+def test_the_backend_is_the_first_solver_of_the_first_flow_process(document, backend) -> None:
+    assert staged_runner._backend_name(document) == backend
+
+
+def test_a_calibration_without_a_protocol_has_no_methods_paragraph() -> None:
+    assert staged_runner._methods_paragraph_for(_staged_cfg(), [], []) is None
+
+
+def test_a_stage_that_counted_no_pair_reads_its_declared_window() -> None:
+    def stage(name, **extra):
+        return SimpleNamespace(name=name, report=SimpleNamespace(extra=extra))
+
+    runs = [
+        stage("silent"),
+        stage("a", cost_metric="rmse", cost_window="window 2001-2002"),
+        stage("b", cost_metric="nse", cost_window="calibration"),
+    ]
+
+    assert staged_runner._scoring_sentence(runs) == (
+        "Scoring: stage 2 (a) minimised rmse over the window 2001-2002, pairs not counted; "
+        "stage 3 (b) minimised nse."
+    )
+    assert staged_runner._scoring_sentence(runs[:1]) is None

@@ -57,3 +57,51 @@ def test_a_tie_across_restarts_goes_to_the_lower_restart_whatever_the_arrival(
     best = session.best_trial()
 
     assert (best.restart, best.trial) == (0, 2)
+
+
+def test_a_directory_without_a_descriptor_does_not_exist_as_a_session(tmp_path: Path) -> None:
+    assert not CalibrationPersistence(tmp_path / "none").exists()
+    assert make_session(tmp_path).exists()
+
+
+def test_the_pulse_runs_only_once_the_session_is_open_and_stops_when_asked(
+    tmp_path: Path,
+) -> None:
+    unopened = CalibrationPersistence(tmp_path / "none")
+    unopened.start_pulse()
+    unopened.stop_pulse()
+    assert not (tmp_path / "none" / "logs" / "heartbeat.json").exists()
+
+    session = make_session(tmp_path)
+    session.start_pulse()
+    session.start_pulse()
+    session.stop_pulse()
+    session.stop_pulse()
+
+    assert (session.directory / "logs" / "heartbeat.json").is_file()
+
+
+def test_a_session_closed_by_a_writer_that_never_opened_it_writes_no_outcome(
+    tmp_path: Path,
+) -> None:
+    opened = make_session(tmp_path)
+    outcome = (opened.directory / "outcome.json").read_bytes()
+
+    closed = CalibrationPersistence(opened.directory).finalize_session(status="failed", best=None)
+
+    assert closed.status == "failed"
+    assert (opened.directory / "outcome.json").read_bytes() == outcome
+
+
+@pytest.mark.parametrize(
+    ("detail", "kept"),
+    [("none", {}), ("summary", {"materialized_overlay": "ov.toml"})],
+)
+def test_the_overlay_a_trial_ran_on_is_kept_from_the_summary_up(
+    tmp_path: Path, detail: PersistDetail, kept: dict
+) -> None:
+    session = make_session(tmp_path)
+
+    line = journal_trial(session, 1, detail=detail, metadata={"materialized_overlay": "ov.toml"})
+
+    assert line.cases[session.case_id].detail == kept

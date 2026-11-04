@@ -6,6 +6,7 @@ import tomllib
 from pathlib import Path
 
 import pytest
+from pydantic import BaseModel
 
 from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
@@ -434,3 +435,120 @@ class TestTheOverlayIsWrittenWholeOrNotAtAll:
             "calibration": {"method": "grid"}
         }
         assert [path.name for path in tmp_path.iterdir()] == ["config.toml"]
+
+
+class _Units:
+    def __format__(self, spec: str) -> str:
+        return "m" if spec == "~" else "metre"
+
+
+class _Quantity:
+    magnitude = 2.5
+    units = _Units()
+
+
+@pytest.mark.parametrize(
+    ("value", "coerced"),
+    [
+        (Path("a/b"), "a/b"),
+        (_Quantity(), "2.5 m"),
+        ((1, None, 2), [1, 2]),
+        ({"k": None, 3: (Path("x"),)}, {"3": ["x"]}),
+    ],
+)
+def test_a_value_is_coerced_to_what_the_toml_writer_takes(value, coerced) -> None:
+    assert materialize_module._coerce_for_toml(value) == coerced
+
+
+def test_a_payload_that_is_not_a_mapping_is_refused(tmp_path: Path) -> None:
+    with pytest.raises(TypeError, match="mapping payload"):
+        write_overlay_toml(tmp_path / "o.toml", Path("x"))
+
+
+@pytest.mark.parametrize(
+    ("label", "clean"), [(" My Label! ", "my_label_"), ("a.b-c_d", "a.b-c_d"), ("  ", None)]
+)
+def test_a_label_becomes_a_filesystem_safe_name(label, clean) -> None:
+    if clean is None:
+        with pytest.raises(ValueError, match="cannot be empty"):
+            materialize_module._sanitize_label(label)
+    else:
+        assert materialize_module._sanitize_label(label) == clean
+
+
+@pytest.mark.parametrize(
+    ("base", "dotted", "target"),
+    [
+        ({"flow": {"param": {"K": 5}}}, ("flow", "param", "K", "value"), None),
+        ({"flow": {"param": {"K": {}}}}, ("flow", "param", "K", "value"), None),
+        ({"flow": {"param": {"K": {"field": {}}}}}, ("flow", "param", "K", "value"), "field"),
+        ({"flow": {"param": {"K": {"field": {}}}}}, ("flow", "param", "K", "label"), None),
+        ({}, ("simulation", "name"), None),
+    ],
+)
+def test_a_parameter_path_follows_the_field_grammar_of_the_source(base, dotted, target) -> None:
+    expected = dotted[:3] + ("field",) + dotted[3:] if target else dotted
+
+    assert materialize_module._resolve_overlay_target_path(base, dotted) == expected
+
+
+@pytest.mark.parametrize(
+    ("base", "mode", "message"),
+    [
+        (None, "scale", "requires a numeric base value at the target"),
+        ("wide", "scale", "requires a numeric base value; got 'wide'"),
+        (1.0, "shift", "unsupported mode 'shift'"),
+    ],
+)
+def test_a_mode_that_cannot_apply_says_why(base, mode, message) -> None:
+    with pytest.raises(ValueError, match=message):
+        materialize_module._apply_parameter_mode(
+            base_value=base, candidate_value=2.0, mode=mode, param_name="K"
+        )
+
+
+@pytest.mark.parametrize(
+    ("path", "base_dir", "printed"),
+    [
+        (Path("/a/b"), None, "/a/b"),
+        (Path("/a/b"), Path("/a"), "b"),
+        (Path("/a/b"), Path("/c"), "/a/b"),
+    ],
+)
+def test_a_path_is_written_relative_to_its_base_when_it_can_be(path, base_dir, printed) -> None:
+    assert materialize_module._format_path_for_overlay(path, base_dir) == printed
+
+
+def test_the_workspace_of_the_overlay_is_the_one_asked_for(
+    base_config_path, space_replace, tmp_path
+) -> None:
+    root = tmp_path / "elsewhere"
+    overlay = materialize_candidate(
+        base_config_path, {"K": 2e-4}, space_replace, tmp_path / "c", iteration_index=1,
+        workspace_root=root, base_dir=tmp_path,
+    )  # fmt: skip
+
+    assert tomllib.loads(overlay.read_text())["workspace"]["root"] == "elsewhere"
+
+
+def test_an_in_memory_config_writes_the_base_dir_as_its_workspace_and_skips_free_parameters(
+    tmp_path,
+) -> None:
+    class Base(BaseModel):
+        simulation: dict = {"name": "mem"}
+
+    space = ParameterSpace(
+        [
+            CalibParameter(name="free", lower=0.0, upper=1.0, mode="replace"),
+            CalibParameter(name="K", lower=1e-6, upper=1e-3, target="flow.param.K.value"),
+        ]
+    )
+    overlay = materialize_candidate(
+        Base(), {"free": 0.5, "K": 3e-4}, space, tmp_path / "c", iteration_index=2,
+        base_dir=tmp_path,
+    )  # fmt: skip
+
+    payload = tomllib.loads(overlay.read_text())
+    assert payload["workspace"]["root"] == str(tmp_path.resolve())
+    assert payload["flow"]["param"]["K"]["value"] == pytest.approx(3e-4)
+    assert "free" not in payload

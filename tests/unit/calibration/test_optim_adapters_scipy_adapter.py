@@ -278,3 +278,44 @@ def test_registered_names() -> None:
     assert isinstance(nm, ScipyNelderMead)
     build_optimizer("scipy_de", two_dim_space(), seed=0).close()
     nm.close()
+
+
+def test_a_closed_differential_evolution_says_it_has_finished() -> None:
+    adapter = build_optimizer("scipy_de", _space(), seed=1)
+    adapter.close()
+
+    assert adapter._bridge.finished()
+    while adapter.ask(1):
+        pass
+    with pytest.raises(StopIteration, match="scipy optimizer finished"):
+        adapter.suggest_next()
+
+
+def test_a_simplex_with_no_call_left_has_nothing_to_suggest() -> None:
+    adapter = ScipyNelderMead(_space(), maxfev=1)
+    (only,) = adapter.ask(5)
+    adapter.tell([_bowl(only)])
+
+    with pytest.raises(StopIteration, match="scipy optimizer finished"):
+        adapter.suggest_next()
+
+
+def test_a_result_naming_no_pending_trial_answers_the_oldest_one() -> None:
+    adapter = ScipyNelderMead(_space())
+    first, second = adapter.ask(2)
+
+    adapter.tell([EvaluationResult(trial_id=99, sim_id=None, cost=math.nan, status="failed")])
+    adapter.tell([_bowl(second)])
+
+    assert adapter._simplex.used[0].value == FAILED_EVAL_COST
+    assert first.trial_id == 1
+
+
+def test_a_result_with_nothing_pending_is_dropped() -> None:
+    adapter = ScipyNelderMead(_space(), maxfev=1)
+    (only,) = adapter.ask(1)
+    adapter.tell([_bowl(only)])
+
+    adapter.tell([EvaluationResult(trial_id=7, sim_id=None, cost=1.0, status="completed")])
+
+    assert len(adapter._simplex.used) == 1

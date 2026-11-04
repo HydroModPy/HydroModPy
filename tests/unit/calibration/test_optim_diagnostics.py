@@ -55,6 +55,7 @@ def test_independent_parameters_are_not_reported() -> None:
 def test_a_trace_too_short_to_judge_says_nothing() -> None:
     """One point carries no correlation, and inventing one would be worse."""
     assert correlated_parameter_pairs(_trace([(1.0, 2.0)]), threshold=0.8) == []
+    assert correlated_parameter_pairs([], threshold=0.8) == []
 
 
 @pytest.mark.parametrize(

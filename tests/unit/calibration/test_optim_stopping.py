@@ -12,6 +12,7 @@ from types import SimpleNamespace
 import pytest
 
 from hydromodpy.calibration.config import CalibPhaseDecl, MatchingHydrographicNetworkOptions
+from hydromodpy.calibration.optim import stopping
 from hydromodpy.calibration.optim.adapters.bisection_adapter import (
     BisectionAdapter,
     root_search_budget,
@@ -1002,8 +1003,33 @@ def test_an_engine_that_stops_on_its_budget_refuses_a_precision() -> None:
         stopping_kwargs("grid", ParameterSpace([K]), precision=0.10)
 
 
+def test_a_precision_that_is_not_positive_is_refused() -> None:
+    with pytest.raises(ValueError, match="strictly positive, got -0.1"):
+        stopping_kwargs("scipy_nelder_mead", ParameterSpace([K]), precision=-0.1)
+
+
+def test_a_precision_on_a_space_without_parameters_is_refused() -> None:
+    with pytest.raises(ValueError, match="declares none"):
+        stopping_kwargs("scipy_nelder_mead", ParameterSpace([]), precision=0.1)
+
+
+def test_an_engine_that_does_not_say_how_its_option_reads_is_refused(monkeypatch) -> None:
+    undeclared = EngineTraits(precision_option="xatol", precision_reads=None)
+    monkeypatch.setattr(stopping, "engine_traits", lambda method: undeclared)
+
+    with pytest.raises(ValueError, match="without declaring how that option reads"):
+        stopping_kwargs("scipy_nelder_mead", ParameterSpace([K]), precision=0.1)
+
+
 def test_the_built_optimizers_accept_what_the_translation_produces() -> None:
     space = ParameterSpace([K])
     for method, extra in (("scipy_nelder_mead", {}), ("bisection", {"sweep_points": 0})):
         kwargs = stopping_kwargs(method, space, precision=0.05, declared=extra)
         assert build_optimizer(method, space, **kwargs) is not None
+
+
+@pytest.mark.parametrize(
+    ("method", "expected"), [("cma_es", {"max_trials": 7}), ("scipy_nelder_mead", {})]
+)
+def test_only_an_engine_that_sizes_itself_on_the_budget_is_handed_it(method, expected) -> None:
+    assert stopping.budget_kwargs(method, 7) == expected

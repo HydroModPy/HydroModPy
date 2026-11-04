@@ -32,6 +32,12 @@ def test_normal_prior_samples_stay_within_transformed_bounds() -> None:
     assert np.all(samples <= 1.0)
 
 
+def test_no_sample_asked_gives_an_empty_array() -> None:
+    space = ParameterSpace([CalibParameter(name="x", lower=0.0, upper=1.0)])
+
+    assert search_space_samples(space, np.random.default_rng(7), 0).shape == (0, 1)
+
+
 def test_physical_sample_returns_physical_value() -> None:
     param = CalibParameter(name="k", lower=1e-6, upper=1e-2, search_space="log")
     value = physical_sample(param, np.random.default_rng(3))

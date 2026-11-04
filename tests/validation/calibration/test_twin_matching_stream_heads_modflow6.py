@@ -89,7 +89,7 @@ NOT_APPLICABLE = {
         "The Boussinesq adapter declares release_flux unavailable: extract_observables serves only head and discharge, so the stream-network criterion cannot score a Boussinesq trial."
     ),
     "modflow6_irregular_tri": (
-        "On triangles the network is not the one cell wide network this twin draws. With XT3D and Newton, MODFLOW 6 keeps cycling by 3 cm on one border cell in 1000 outer iterations, whatever the under-relaxation. With XT3D and no Newton, the truth makes 41 heads on generated triangles, where K lands 167 per cent off, and 7 on the squares cut in two, where the solver closes at K = 6e-6 and not at 3e-5. Without XT3D, K lands 5.5 per cent off."
+        "On triangles the network is not the one cell wide network this twin draws. With XT3D and Newton, MODFLOW 6 cycles by 3 cm on one border cell for 1000 outer iterations. With XT3D alone, K lands 167 per cent off on triangles. Without XT3D, K lands 5.5 per cent off."
     ),
 }
 

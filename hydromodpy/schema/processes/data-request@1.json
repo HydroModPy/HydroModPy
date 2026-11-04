@@ -251,7 +251,7 @@
           },
           "CustomCrossingsSource": {
             "additionalProperties": false,
-            "description": "User-provided crossings file (SHP/GPKG/GeoJSON).\n\nThe file needs a ``kind`` column holding one of ``road``, ``railway``,\n``bridge``, ``weir``, ``dam`` or ``other``. ``name`` and ``drop_m`` (the\ndrop of a weir or a dam, in metres) are read when present.",
+            "description": "User-provided crossings file (SHP/GPKG/GeoJSON).\n\nThe file needs a ``kind`` column holding one of ``road``, ``railway``,\n``bridge``, ``weir``, ``dam`` or ``other``. ``name`` and ``drop_m`` (the\ndrop of a weir or a dam, in meters) are read when present.",
             "properties": {
               "source": {
                 "const": "custom",
@@ -647,7 +647,7 @@
           },
           "CustomLayerBaseSource": {
             "additionalProperties": false,
-            "description": "User-provided raster of the base of one layer (GeoTIFF/ASC), elevations in metres.\n\nA layer of ``[domain.layers]`` reads it by its ``name`` through its ``surface``\nkey. The values are elevations in the datum of the DEM.",
+            "description": "User-provided raster of the base of one layer (GeoTIFF/ASC), elevations in meters.\n\nA layer of ``[domain.layers]`` reads it by its ``name`` through its ``surface``\nkey. The values are elevations in the datum of the DEM.",
             "properties": {
               "source": {
                 "const": "custom",
@@ -3948,7 +3948,7 @@
                   }
                 ],
                 "default": null,
-                "description": "Constant mean sea-level value in metres.",
+                "description": "Constant mean sea-level value in meters.",
                 "title": "Value",
                 "unit": "m",
                 "x-hmp-profile": "user"

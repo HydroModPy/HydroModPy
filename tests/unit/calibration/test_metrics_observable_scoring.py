@@ -31,9 +31,15 @@ from hydromodpy.calibration.metrics.observable_scoring import (
     VALIDATION_COST,
     ObservableScorer,
     StationBlockScorer,
+    _day,
+    _one_record_per_station,
+    dated_series,
     discharge_target,
     network_distance_scales,
+    refuse_a_network_state_outside_the_window,
     refuse_window_without_dates,
+    select_observable_times,
+    slice_time,
 )
 from hydromodpy.calibration.metrics.observed_pairing import pair_outputs_with_observations
 from hydromodpy.calibration.metrics.series import ObservedSeries, time_grid_boundaries
@@ -1459,3 +1465,70 @@ def test_the_block_route_and_the_single_metric_route_cost_the_same() -> None:
     # One edge sample does not close a period on this boundary set; both
     # routes read the same alignment function and agree on how many do.
     assert block_components["gauge.n_paired"] == 23.0
+
+
+# The readers of an answer and of a window, on the shapes they leave aside.
+
+
+def test_an_empty_answer_has_nothing_to_slice_or_date() -> None:
+    assert slice_time(np.array([]), "all", "mean") == []
+    assert dated_series(adapter_result("q", np.array([]), "m", times=pd.DatetimeIndex([]))) is None
+
+
+@pytest.mark.parametrize("times", [None, pd.date_range("2000-01-01", periods=2)])
+def test_an_answer_whose_dates_do_not_match_its_values_is_not_a_dated_series(times) -> None:
+    answer = adapter_result("q", np.array([1.0, 2.0, 3.0]), "m", times=times)
+
+    assert dated_series(answer) is None
+    if times is not None:
+        with pytest.raises(ValueError, match="mismatched timestamps"):
+            select_observable_times(answer, "first")
+
+
+@pytest.mark.parametrize(
+    ("window", "boundaries"),
+    [
+        (None, None),
+        ((None, None), None),
+        ((pd.Timestamp("2000-01-05"), None), [pd.Timestamp("2000-01-01")]),
+    ],
+)
+def test_a_window_with_nothing_to_hold_the_states_against_is_not_checked(
+    window, boundaries
+) -> None:
+    refuse_a_network_state_outside_the_window({}, [], window, boundaries)
+
+
+@pytest.mark.parametrize(
+    ("value", "written"),
+    [(None, "open"), ("2000-01-05", "2000-01-05"), ("2000-01-05 06:00", "2000-01-05T06:00:00")],
+)
+def test_a_window_bound_is_written_as_a_reader_writes_it(value, written) -> None:
+    assert _day(value) == written
+
+
+def test_a_station_loaded_twice_is_scored_once_on_its_first_record(caplog) -> None:
+    records = [
+        ObservedSeries("S1", "discharge", pd.Series([1.0])),
+        ObservedSeries("S2", "discharge", pd.Series([2.0])),
+        ObservedSeries("S1", "discharge", pd.Series([3.0])),
+    ]
+
+    with caplog.at_level(logging.WARNING):
+        kept = _one_record_per_station(records)
+
+    assert [(record.station_id, record.series.iloc[0]) for record in kept] == [
+        ("S1", 1.0),
+        ("S2", 2.0),
+    ]
+    assert "'S1' is loaded twice" in caplog.text
+
+
+def test_the_pairing_refuses_an_output_with_no_answer_or_no_dates() -> None:
+    scorer = _scorer()
+
+    for answers in ({}, {"H": adapter_result("H", np.array([1.0]), "m")}):
+        with pytest.raises(
+            ValueError, match="output 'H' observes a station but produced no series"
+        ):
+            scorer.pair(answers)

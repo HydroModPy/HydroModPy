@@ -1133,6 +1133,12 @@ def _section(
                     deferred_skeletons.append((name, field_info))
                 else:
                     lines.append(f"# {name}: entries go under [{section_name}.{name}.<id>]")
+            elif _from_instance and values is not None and name not in values:
+                # The dump left this key out (it holds its default): writing it
+                # would make the reload read it as written.
+                lines.append(
+                    f"# {name} = {_fmt(default)}" if default is not None else f"# {name} ="
+                )
             elif default is not _UNDEFINED and default is not None:
                 lines.append(_line(f"{name} = {_fmt(default)}"))
             elif _factory_value(field_info) is not None:

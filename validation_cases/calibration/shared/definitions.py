@@ -162,7 +162,6 @@ def build_payload(
         "objective_blocks": objective_blocks,
         "method_options": method_kwargs,
         "persist_iteration_detail": "full",
-        "persist_model_distribution": bool(method_profile.persist_model_distribution),
     }
     if seed_value is not None:
         try:

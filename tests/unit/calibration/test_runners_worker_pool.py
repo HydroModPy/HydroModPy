@@ -29,6 +29,7 @@ import hydromodpy
 from hydromodpy.calibration.evaluation import registry
 from hydromodpy.calibration.evaluation.port import TrialOutcome, TrialRequest
 from hydromodpy.calibration.metrics.trial_series_capture import TrialSeriesSink
+from hydromodpy.calibration.runners import worker_pool
 from hydromodpy.calibration.runners.kept_solves import TrialSolveRetention
 from hydromodpy.calibration.runners.pipeline_evaluator import PipelineTrialEvaluator
 from hydromodpy.calibration.runners.trial import TrialContext
@@ -299,12 +300,16 @@ def test_a_state_that_cannot_cross_is_refused_with_what_to_write(tmp_path: Path)
         TrialWorkerPool(_Scripted, options, width=3)
 
 
-@pytest.mark.parametrize("keeps_solves", [False, True])
+@pytest.mark.parametrize(
+    ("keeps_solves", "registered"), [(False, False), (True, False), (False, True)]
+)
 def test_a_worker_sends_the_outcome_the_rows_and_the_solve_it_kept(
-    tmp_path: Path, keeps_solves: bool, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, keeps_solves: bool, registered: bool, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """In this process, because a coverage run does not see a spawned worker."""
     monkeypatch.setattr(registry._ENGINE, "classes", {})
+    if registered:
+        registry.register(_Scripted)
     trial_ctx = _trial_ctx(tmp_path)
     state = pickle.dumps((_Scripted, {"trial_ctx": trial_ctx}, keeps_solves, current_verbosity()))
     request = TrialRequest(trial_id=5, values={"cost": 0.5})
@@ -319,3 +324,43 @@ def test_a_worker_sends_the_outcome_the_rows_and_the_solve_it_kept(
     assert (kept is not None) is keeps_solves
     if keeps_solves:
         assert (kept.trial_id, kept.folders) == (5, (_folder(trial_ctx, 5),))
+
+
+def test_a_worker_leaves_its_group_silences_fd_one_and_serves(monkeypatch) -> None:
+    calls = []
+    monkeypatch.setattr(worker_pool.os, "setsid", lambda: calls.append("setsid"))
+    monkeypatch.setattr(
+        worker_pool.os, "open", lambda path, flags: calls.append(("open", path)) or 7
+    )
+    monkeypatch.setattr(
+        worker_pool.os, "dup2", lambda fd, target: calls.append(("dup2", fd, target))
+    )
+    monkeypatch.setattr(worker_pool, "_serve", lambda conn: calls.append(("serve", conn)))
+    monkeypatch.setattr(
+        worker_pool.threading,
+        "Thread",
+        lambda target, daemon: SimpleNamespace(
+            start=lambda: calls.append(("watch", target, daemon))
+        ),
+    )
+
+    worker_pool._worker_main("conn")
+
+    assert calls == [
+        "setsid",
+        ("watch", worker_pool._die_with_the_parent, True),
+        ("open", os.devnull),
+        ("dup2", 7, 1),
+        ("serve", "conn"),
+    ]
+
+
+def test_a_worker_kills_its_group_when_the_parent_goes(monkeypatch) -> None:
+    kills = []
+    monkeypatch.setattr(worker_pool.mp, "parent_process", lambda: SimpleNamespace(sentinel="s"))
+    monkeypatch.setattr(worker_pool, "wait", lambda sentinels: kills.append(sentinels))
+    monkeypatch.setattr(worker_pool.os, "killpg", lambda group, sig: kills.append((group, sig)))
+
+    worker_pool._die_with_the_parent()
+
+    assert kills == [["s"], (0, signal.SIGKILL)]

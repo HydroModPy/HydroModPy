@@ -29,6 +29,7 @@ from hydromodpy.calibration.criteria.series import (
     METRICS,
     RESERVOIR_INCREMENT_DAYS,
     SeriesCriterion,
+    _positions,
 )
 from hydromodpy.calibration.metrics.observable_scoring import StationBlockScorer, sampling_step_days
 from hydromodpy.calibration.metrics.observed_pairing import pair_outputs_with_observations
@@ -543,6 +544,27 @@ class TestTheSeasonalCycleIsCountedInDays:
 
         assert np.isnan(undated.diagnostics["score"])
         assert np.isfinite(dated.diagnostics["score"])
+
+    @pytest.mark.parametrize(
+        ("times_days", "sample_days", "expected"),
+        [
+            (None, None, None),
+            ([5.0, 35.0, 65.0, 125.0], None, [0.0, 1.0, 2.0, 4.0]),
+            ([5.0, 35.0, 65.0], 15.0, [0.0, 2.0, 4.0]),
+            ([5.0, 5.0], None, None),
+            ([], 1.0, []),
+        ],
+        ids=["no-dates", "median-spacing", "given-step", "no-spacing", "empty"],
+    )
+    def test_dates_become_positions_in_steps_of_the_series(
+        self, times_days, sample_days, expected
+    ) -> None:
+        positions = _positions(times_days, sample_days)
+
+        if expected is None:
+            assert positions is None
+        else:
+            np.testing.assert_allclose(positions, expected)
 
     def test_a_daily_step_keeps_the_daily_score(self) -> None:
         days = np.arange(3 * SEASON, dtype=float)

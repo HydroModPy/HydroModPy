@@ -93,6 +93,10 @@ class TestTheJacobian:
         forward_difference_jacobian(("K",), {"K": 0.0}, _record, relative_step=0.01)
         assert seen[0] == pytest.approx(0.01)
 
+    def test_a_step_that_is_not_positive_is_refused(self) -> None:
+        with pytest.raises(ValueError, match="has to be positive, got -0.5"):
+            forward_difference_jacobian(("K",), {"K": 1.0}, lambda runs: [], relative_step=-0.5)
+
     def test_a_run_that_returns_a_different_number_of_values_is_refused(self) -> None:
         with pytest.raises(ValueError, match="same observations in the same order"):
             forward_difference_jacobian(("K",), {"K": 1.0}, lambda runs: [np.zeros(5), np.zeros(4)])

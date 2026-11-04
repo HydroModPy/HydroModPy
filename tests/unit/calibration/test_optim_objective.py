@@ -1760,3 +1760,145 @@ def test_the_pool_of_both_outputs_is_another_number() -> None:
     ).evaluate(_simulation())
 
     assert pooled.total != pytest.approx(_by_hand({"a": 1.0, "b": 1.0}), abs=0.1)
+
+
+# --------------------------------------------------------------------------- #
+# What the objective layer reads, refuses and names
+# --------------------------------------------------------------------------- #
+class _Returns:
+    def __init__(self, out, name="block") -> None:
+        self.out, self.name = out, name
+
+    def evaluate(self, sim):
+        return self.out
+
+
+@pytest.mark.parametrize(
+    ("out", "total", "components"),
+    [
+        (2, 2.0, {}),
+        ({"total": 3.0, "a": 1}, 3.0, {"a": 1.0}),
+        ({"value": 4.0}, 4.0, {}),
+        ({"a": 1.0}, math.inf, {"a": 1.0}),
+    ],
+    ids=["int", "total", "value", "no-total"],
+)
+def test_a_user_objective_may_answer_with_a_number_or_a_mapping(out, total, components) -> None:
+    value = objective.evaluate_objective(_Returns(out), {})
+
+    assert (value.total, value.components) == (total, components)
+
+
+def test_an_objective_answering_with_anything_else_is_refused() -> None:
+    with pytest.raises(TypeError, match="Unsupported Objective return type"):
+        objective.evaluate_objective(_Returns("fast"), {})
+
+
+@pytest.mark.parametrize(
+    ("transform", "cost", "match"),
+    [("log", -2.0, "cost \\+ epsilon > 0"), ("inverse", -1e-6, "cost \\+ epsilon != 0")],
+)
+def test_a_cost_transform_refuses_a_cost_it_cannot_take(transform, cost, match) -> None:
+    with pytest.raises(ValueError, match=match):
+        objective._TRANSFORMS[transform](cost)
+
+
+def test_a_composite_refuses_a_block_that_cannot_evaluate() -> None:
+    with pytest.raises(TypeError, match="Block 0: first element must implement .evaluate"):
+        CompositeObjective([(object(), 1.0)])
+
+
+def test_two_blocks_of_one_name_keep_their_totals_and_components_apart() -> None:
+    composite = CompositeObjective(
+        [
+            (_Returns({"total": 1.0, "n": 5.0}, name="nse"), 1.0),
+            (_Returns({"total": 3.0, "n": 7.0}, name="nse"), 1.0),
+            (_Returns({"total": 5.0, "n": 9.0}, name="nse"), 2.0),
+        ]
+    )
+
+    value = composite.evaluate({})
+
+    assert value.total == pytest.approx(0.25 * 1.0 + 0.25 * 3.0 + 0.5 * 5.0)
+    assert value.components == {
+        "nse.total": 1.0,
+        "n": 5.0,
+        "nse#1.total": 3.0,
+        "nse.n": 7.0,
+        "nse#2.total": 5.0,
+        "nse#2.n": 9.0,
+    }
+
+
+def test_block_fractions_have_no_answer_when_the_weights_sum_to_zero() -> None:
+    components = {"a.total": 1.0, "b.total": 1.0}
+
+    assert cost_block_fractions(components, [("a", 0.0), ("b", 0.0)]) is None
+
+
+def test_an_empty_record_is_said_to_have_scored_no_sample() -> None:
+    assert non_finite_diagnosis([], []) == "No sample was scored."
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "match"),
+    [
+        ({"metric": "no_such_metric"}, "unknown metric 'no_such_metric'"),
+        ({"uses_outputs": []}, "uses_outputs must not be empty"),
+    ],
+)
+def test_a_block_that_names_no_metric_or_no_output_is_refused(kwargs, match) -> None:
+    arguments = {"name": "b", "metric": "rmse", "uses_outputs": ["q"], "observed_by_output": {}}
+
+    with pytest.raises(ValueError, match=match):
+        ConfigBlockObjective(**{**arguments, **kwargs})
+
+
+def test_a_block_names_its_metric_and_its_outputs() -> None:
+    block = _block(np.array([1.0, 2.0]))
+
+    assert (block.metric, block.uses_outputs) == ("rmse", ("q",))
+
+
+@pytest.mark.parametrize(
+    ("scales", "total", "match"),
+    [
+        ({"net": [100.0, 100.0]}, 2.0, None),
+        ({}, None, "published none"),
+        ({"net": [100.0]}, None, "published 1 for 2 values"),
+        ({"net": [0.0, 100.0]}, None, "divided by a positive length"),
+    ],
+)
+def test_distances_are_divided_by_the_validity_length_the_trial_published(
+    scales, total, match
+) -> None:
+    block = ConfigBlockObjective(
+        name="gap",
+        metric="distance_gap",
+        uses_outputs=["net"],
+        observed_by_output={},
+        normalize_cost=True,
+        distance_scales=scales,
+    )
+
+    if match is None:
+        assert block.evaluate({"net": [300.0, 100.0]}).total == pytest.approx(total)
+    else:
+        with pytest.raises(ValueError, match=match):
+            block.evaluate({"net": [300.0, 100.0]})
+
+
+def test_a_block_with_an_undefined_cost_explains_it_once(caplog) -> None:
+    block = ConfigBlockObjective(
+        name="q",
+        metric="nse",
+        uses_outputs=["q"],
+        observed_by_output={"q": np.ones(4)},
+    )
+
+    with caplog.at_level(logging.WARNING):
+        first = block.evaluate({"q": np.arange(4.0)})
+        block.evaluate({"q": np.arange(4.0)})
+
+    assert first.total == math.inf
+    assert sum("is undefined on this trial" in m for m in caplog.messages) == 1

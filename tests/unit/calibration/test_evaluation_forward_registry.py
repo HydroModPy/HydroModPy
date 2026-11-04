@@ -25,7 +25,7 @@ from hydromodpy.calibration.metrics.scored_forward import (
     ScoredForwardEvaluator,
     requests_for_outputs,
 )
-from hydromodpy.core.contracts.observables import ObservableResult
+from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
 from hydromodpy.core.exceptions import CalibrationError
 
 # From test_a_model_is_scored_by_the_document.py
@@ -366,6 +366,66 @@ class TestThePluginGroup:
 
         assert forward_registry.load_plugins() == 0
         assert not forward_registry.is_registered("acme_half")
+
+    def test_a_plugin_is_found_by_the_first_lookup_without_a_prior_scan(
+        self, isolated_registry: object, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        class _Lazy(_Answers):
+            model_id: ClassVar[str] = "acme_lazy"
+
+        monkeypatch.setattr(
+            plugin_registry,
+            "entry_points",
+            _entry_points_returning(_stub_entry_point("acme_lazy", _Lazy)),
+        )
+
+        assert forward_registry.get("acme_lazy") is _Lazy
+
+    def test_a_second_scan_registers_nothing_unless_forced(
+        self, isolated_registry: object, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        class _Once(_Answers):
+            model_id: ClassVar[str] = "acme_once"
+
+        monkeypatch.setattr(
+            plugin_registry,
+            "entry_points",
+            _entry_points_returning(_stub_entry_point("acme_once", _Once)),
+        )
+        forward_registry.register(_Once)
+
+        assert forward_registry.load_plugins() == 0
+        assert forward_registry.load_plugins() == 0
+        assert forward_registry.load_plugins(force=True) == 1
+
+    def test_a_constructor_taking_a_positional_only_argument_is_refused(
+        self, isolated_registry: object
+    ) -> None:
+        class _Positional(_Answers):
+            model_id: ClassVar[str] = "acme_positional"
+
+            def __init__(self, value, /) -> None:
+                super().__init__(value=value)
+
+        forward_registry.register(_Positional)
+
+        with pytest.raises(CalibrationError, match="takes value positionally only"):
+            forward_registry._ENGINE.create("acme_positional")
+
+    def test_a_declared_class_that_will_not_import_is_an_installation_fault(self) -> None:
+        engine = plugin_registry.PluginRegistry(
+            kind="widget",
+            id_attribute="widget_id",
+            group="acme.widgets",
+            builtin_paths={"ghost": "no_such_module_for_the_registry:Ghost"},
+            members=lambda: (),
+            default_id="ghost",
+        )
+
+        with pytest.raises(
+            CalibrationError, match="ModuleNotFoundError.*repairing the environment"
+        ):
+            engine.get("ghost")
 
 
 class TestTheDocumentNamesTheModel:
@@ -713,6 +773,35 @@ class TestTheReferenceModel:
 
         with pytest.raises(ValueError, match="cannot tell them apart"):
             model.simulate(ForwardRequest(trial_id=1, values={}, observables=requests))
+
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning")
+    @pytest.mark.parametrize(
+        ("values", "observable", "message"),
+        [
+            ({"storage": 1.0}, ("discharge", "boundary", None), "also carries storage"),
+            ({"k": 0.0}, ("discharge", "boundary", None), "has to be positive"),
+            ({"porosity": 1.5}, ("head", "boundary", None), r"has to lie in \(0, 1\]"),
+            ({"k": "fast"}, ("discharge", "boundary", None), "not a number this model can read"),
+            ({"k": math.inf}, ("discharge", "boundary", None), "not a finite number"),
+            (
+                {"k": 1e308},
+                ("discharge", "boundary", None),
+                "recession of 'discharge' is not finite",
+            ),
+            ({}, ("discharge", "domain", None), "placed on support 'domain'"),
+            ({}, ("head", "cell", (1, 0, 0)), r"its only cell is \(0, 0, 0\)"),
+        ],
+    )
+    def test_a_sample_or_a_placement_it_cannot_serve_is_refused_by_name(
+        self, values: dict[str, object], observable: tuple, message: str
+    ) -> None:
+        name, support, cell = observable
+        request = ObservableRequest(id="out", name=name, support=support, key="outlet", cell=cell)
+
+        with pytest.raises(ValueError, match=message):
+            forward_registry.create("linear_reservoir").simulate(
+                ForwardRequest(trial_id=1, values=values, observables=(request,))
+            )
 
     def test_its_recession_is_the_closed_form_it_documents(self) -> None:
         model = forward_registry.create("linear_reservoir")

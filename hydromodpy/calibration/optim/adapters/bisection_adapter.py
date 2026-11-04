@@ -689,7 +689,6 @@ class BisectionAdapter:
         if self._targets is None:
             self._done = True
             self._refuse(None)
-            return
         brackets = {target.component: self._find_bracket(target) for target in self._targets}
         missing = [target for target in self._targets if brackets[target.component] is None]
         if missing:

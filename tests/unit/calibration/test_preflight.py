@@ -2119,3 +2119,333 @@ class TestExample21:
         )
 
         assert "SFR (routed stream reaches) is active" in details
+
+
+# -- the published method a file runs, as the check says it ------------------
+_PROTOCOL_SECTION = """
+[calibration]
+protocol = {{ name = "matching_hydrographic_network"{options} }}
+@KLOG
+@SY
+[calibration.outputs.seepage_network]
+support = "network"
+map.complete = "streams.gpkg"
+"""
+
+
+def _protocol_cfg(tmp_path: Path, options: str = ""):
+    base = PROJECT_BASE.replace("2000-12-31", "2002-12-31")
+    path = write_calibration(tmp_path, _PROTOCOL_SECTION.format(options=options), base=base)
+    return HydroModPyConfig.from_toml(path)
+
+
+def test_a_file_without_protocol_has_nothing_to_say_of_one() -> None:
+    assert preflight.protocol_lines(SimpleNamespace()) == ([], [])
+
+
+def test_the_lines_of_a_method_name_its_departures_and_the_options_moved_off_its_recipe(
+    tmp_path: Path,
+) -> None:
+    window = 'window = { start = "2001-01-01", end = "2002-12-31" }'
+    cfg = _protocol_cfg(tmp_path, f", steady_max_trials = 33, {window}")
+
+    normal, verbose = preflight.protocol_lines(cfg)
+
+    assert (
+        normal[0]
+        == "protocol: matching_hydrographic_network@1.3 - Matching the hydrographic network"
+    )
+    assert "  option away from the recipe: steady_max_trials = 33 (recipe: 'auto')" in normal
+    assert normal[-2].startswith(
+        "  always differs from the paper on: outlet_sealed_into_d_so_target"
+    )
+    assert (
+        "  option written as the recipe runs it: window = {'start': '2001-01-01', 'end': '2002-12-31'}"
+        in verbose
+    )
+    assert "  differs from the paper on map.drawn_by" in {line.split(":")[0] for line in normal}
+    assert {
+        "  stage 1",
+        "  cite",
+        "  reads the paper on map.position_accuracy",
+        "  as the paper on model.weighting",
+        "  always differs from the paper on d_os_support",
+    } <= {line.split(":")[0] for line in verbose}
+
+
+@pytest.mark.parametrize(
+    ("backend", "named"),
+    [
+        ("boussinesq", True),
+        (SimpleNamespace(value="boussinesq"), True),
+        ("modflow6", False),
+        (None, False),
+    ],
+)
+def test_a_backend_the_method_was_never_run_on_is_named(tmp_path: Path, backend, named) -> None:
+    cfg = _protocol_cfg(tmp_path)
+    shown = SimpleNamespace(
+        calibration=cfg.calibration,
+        geographic=cfg.geographic,
+        simulation=cfg.simulation,
+        solver=SimpleNamespace(backend_name=backend),
+    )
+
+    normal, _ = preflight.protocol_lines(shown)
+
+    said = "  on boussinesq: unsupported - no case in this repository runs the protocol on that backend."
+    assert (said in normal) is named
+
+
+def test_a_finding_prints_as_one_line() -> None:
+    assert PreflightFinding("error", "[calibration]", "bad").line() == "ERROR   [calibration]: bad"
+
+
+def test_a_protocol_run_of_a_single_year_says_its_spin_up_year_is_scored(tmp_path: Path) -> None:
+    section = _PROTOCOL_SECTION.format(options="")
+    cfg = HydroModPyConfig.from_toml(write_calibration(tmp_path, section))
+
+    normal, _ = preflight.protocol_lines(cfg)
+
+    assert normal[1].startswith(
+        "  stage 2 scores the whole run, spin-up year included: [simulation.time] ends on "
+        "2000-12-31, within one year of its start 2000-01-01"
+    )
+
+
+def test_the_launch_says_once_what_it_warns_of_and_where_it_leaves_the_paper(
+    tmp_path: Path, monkeypatch, caplog
+) -> None:
+    cfg = _protocol_cfg(tmp_path)
+    warning = PreflightFinding("warning", "[calibration]", "twice written")
+    monkeypatch.setattr(preflight, "preflight_calibration", lambda *_a, **_k: [warning, warning])
+
+    with caplog.at_level(logging.INFO):
+        preflight.refuse_what_the_preflight_refuses(cfg, source=tmp_path / "calib.toml")
+
+    assert caplog.text.count("[calibration]: twice written") == 1
+    assert "protocol: matching_hydrographic_network@1.3" in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("value", "shown"), [(None, "unset"), (3, "3"), ("auto", "'auto'")], ids=str
+)
+def test_an_option_is_shown_as_the_file_wrote_it(value: object, shown: str) -> None:
+    assert preflight._rendered(value) == shown
+
+
+def test_a_file_without_calibration_compares_nothing_and_a_search_without_table_adds_no_block(
+    monkeypatch,
+) -> None:
+    assert preflight.comparison_lines(SimpleNamespace(), Path("calib.toml")) == []
+    monkeypatch.setattr(cli_runner, "resolve_stream_geometry_paths", lambda *_a: None)
+    monkeypatch.setattr(staged_runner, "objective_comparison_table", lambda *_a: [])
+
+    lines = preflight.comparison_lines(
+        SimpleNamespace(calibration=SimpleNamespace(phases=None)), Path("calib.toml")
+    )
+
+    assert lines == ["[metrics] window: unset, the run carries no score"]
+
+
+def test_a_relative_source_is_printed_as_written_and_an_absolute_one_outside_the_cwd_whole(
+    monkeypatch, tmp_path: Path
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    assert preflight._shortened_if_under_cwd("streams.gpkg") == "streams.gpkg"
+    assert preflight._shortened_if_under_cwd("/elsewhere/streams.gpkg") == "/elsewhere/streams.gpkg"
+
+
+@pytest.mark.parametrize(
+    ("config", "path", "said"),
+    [
+        ({"a": {"b": 1}}, "a.b", None),
+        ({"a": {}}, "a.b", None),
+        ({"a": {"x": 1}}, "a.c.d", "no 'c' under a, which holds x"),
+    ],
+)
+def test_a_path_is_walked_through_mappings_and_a_last_key_may_be_new(config, path, said) -> None:
+    assert preflight._no_field_on_the_way(config, path) == said
+
+
+@pytest.mark.parametrize(
+    ("name", "decl", "bounds", "said"),
+    [
+        ("Sy", {"units": "-"}, [-1.0, 0.5], "lower bound -1.0: specific yield"),
+        (
+            "foo",
+            {"units": None, "search_space": "log"},
+            [0.0, 1.0],
+            "needs a lower bound above zero",
+        ),
+        ("foo", {"units": None, "mode": "scale"}, [0.0, 1.0], None),
+    ],
+)
+def test_bounds_are_faced_with_the_physics_and_the_log_space(name, decl, bounds, said) -> None:
+    declared = SimpleNamespace(**{"mode": "replace", "search_space": "identity", **decl})
+
+    found = preflight._check_bounds_against_physics("w", name, declared, bounds)
+
+    assert (found[0].detail if found else None) is None if said is None else said in found[0].detail
+
+
+def test_two_blocks_of_one_name_are_refused(tmp_path: Path) -> None:
+    doc = """
+    @GRID4
+    @KLOG
+    [calibration.outputs.o]
+    variable = "head"
+    support = "point"
+    x = 100.0
+    y = 0.0
+    [[calibration.objective_blocks]]
+    name = "b"
+    metric = "rmse"
+    uses_outputs = ["o"]
+    normalize_cost = true
+    [[calibration.objective_blocks]]
+    name = "b"
+    metric = "nse"
+    uses_outputs = ["o"]
+    """
+
+    assert "two blocks share this name." in messages(preflight_of(tmp_path, doc))
+
+
+def test_a_regime_read_from_a_file_that_cannot_be_read_is_refused_by_name(tmp_path: Path) -> None:
+    phase = SimpleNamespace(name="k", regime="steady")
+    calibration = SimpleNamespace(phases=[phase])
+
+    found = preflight._check_the_regimes(calibration, SimpleNamespace(), tmp_path / "gone.toml")
+
+    assert [(item.where, "gone.toml, which cannot be read" in item.detail) for item in found] == [
+        ("[simulation.time]", True)
+    ]
+
+
+def test_a_phase_regime_that_cannot_be_read_leaves_its_search_on_the_file_as_it_is(
+    tmp_path: Path,
+) -> None:
+    phase = SimpleNamespace(name="k", regime="steady", steady_window=None, overrides=None)
+    config = SimpleNamespace()
+
+    searched, found = preflight._search_configs(
+        config, SimpleNamespace(phases=[phase]), tmp_path / "gone.toml"
+    )
+
+    assert (searched, found) == ({"k": config}, [])
+
+
+def test_a_configuration_held_in_memory_is_its_own_raw_document(tmp_path: Path) -> None:
+    held = SimpleNamespace(model_dump=lambda **_kw: {"flow": {}})
+
+    assert preflight._raw_document(held, tmp_path / "gone.toml") == {"flow": {}}
+
+
+def test_only_the_criteria_that_close_on_a_residual_are_offered_to_a_root_search() -> None:
+    assert preflight._signed_residual_metrics() == ["distance_gap"]
+    assert preflight._publishes_a_signed_residual("distance_gap")
+    assert not preflight._publishes_a_signed_residual("distance_mean")
+
+
+def test_restarts_of_a_search_they_cannot_move_are_refused(tmp_path: Path) -> None:
+    doc = '@GRID4\n@KLOG\n[calibration.uncertainty]\nmethod = "multistart"\nrestarts = 3'
+
+    assert "returns the same answer every time" in messages(preflight_of(tmp_path, doc))
+
+
+_UNOBSERVED = TestALinearizedWidthOnAPhaseThatNamesNeitherOutputsNorBlocks._DOC.replace(
+    "@GAUGE\n", ""
+)
+
+
+@pytest.mark.parametrize(
+    "doc",
+    [_UNOBSERVED.split("[[calibration.phases]]")[0], _UNOBSERVED + 'outputs = ["other"]'],
+    ids=["section", "phase_outputs"],
+)
+def test_a_width_taken_from_outputs_no_station_names_is_refused(tmp_path: Path, doc: str) -> None:
+    assert "no output names a station to be compared" in messages(preflight_of(tmp_path, doc))
+
+
+def test_a_budget_the_counting_cannot_read_is_left_to_the_checks_that_refuse_its_inputs(
+    monkeypatch,
+) -> None:
+    def _unreadable(*_args):
+        raise ValueError("bounds")
+
+    monkeypatch.setattr(preflight, "_counted_budget", _unreadable)
+
+    assert preflight._check_the_budgets(_config("grid", 2, {})) == []
+
+
+def test_a_root_search_on_a_parameter_without_two_bounds_has_no_nominal_count() -> None:
+    calibration = SimpleNamespace(parameters={})
+
+    assert preflight._counted_budget(calibration, None, "bisection", ["K"], None, {}) is None
+
+
+def test_a_backend_that_cannot_serve_an_output_is_named_once(tmp_path: Path, monkeypatch) -> None:
+    cfg = HydroModPyConfig.from_toml(write_calibration(tmp_path, "@GRID4\n@KLOG\n@NETROOT\n@GAP"))
+    unserved = SimpleNamespace(name="release_flux", is_servable_now=False, reason="no flux")
+    adapter = SimpleNamespace(declared_observables=lambda _cfg: [unserved])
+    monkeypatch.setattr(preflight, "_flow_adapter_for", lambda _cfg: adapter)
+    twice = [(None, "", []), (None, "", [])]
+    monkeypatch.setattr(preflight, "_search_candidates", lambda _calibration: twice)
+
+    found = preflight._check_the_backend_can_serve_the_outputs(cfg.calibration, {None: cfg})
+
+    assert [
+        (item.where, item.detail.endswith("serve as configured: no flux")) for item in found
+    ] == [("[calibration.outputs.net]", True)]
+
+
+def test_a_backend_no_adapter_is_registered_for_serves_nothing() -> None:
+    unknown = SimpleNamespace(solver=SimpleNamespace(backend_name="nope"))
+
+    assert preflight._flow_adapter_for(unknown) is None
+
+
+def test_an_extent_the_timestep_cannot_read_is_left_to_the_refusal_of_its_own_check(
+    tmp_path: Path, monkeypatch
+) -> None:
+    cfg = HydroModPyConfig.from_toml(write_calibration(tmp_path, "@GRID4\n@KLOG\n@NETROOT\n@GAP"))
+    odd = SimpleNamespace(flowing_at_least="soon", dry_at_most="1 d")
+    monkeypatch.setattr(preflight, "_extents_scored_by", lambda *_a: [("net", odd)])
+
+    assert (
+        preflight._check_the_extent_durations_fit_the_timestep(cfg.calibration, {None: cfg}) == []
+    )
+
+
+def test_a_steady_phase_that_cannot_be_dated_and_a_grid_that_cannot_be_read_date_nothing(
+    tmp_path: Path, monkeypatch
+) -> None:
+    steady = SimpleNamespace(regime="steady")
+    where = tmp_path / "gone.toml"
+    held: list = []
+
+    assert preflight._search_edges(SimpleNamespace(), steady, where, held) is None
+    assert held == [None]
+
+    from hydromodpy.calibration.runners import phase_regime
+
+    def _refused(*_args):
+        raise ValueError("backwards")
+
+    monkeypatch.setattr(phase_regime, "regime_overrides", _refused)
+    assert preflight._search_edges(SimpleNamespace(), steady, where, [{}]) is None
+    assert preflight._search_edges(SimpleNamespace(), None, where, []) is None
+
+    from hydromodpy.core.time import window
+
+    def _unreadable(_config):
+        raise ValueError("no grid")
+
+    monkeypatch.setattr(window, "resolve_simulation_time_grid", _unreadable)
+    assert preflight._search_edges(SimpleNamespace(), None, where, []) is None
+
+
+def test_two_parameters_that_move_no_declared_output_form_no_ridge(tmp_path: Path) -> None:
+    assert preflight_of(tmp_path, "@GRID\n@KLOG\n@SY") == []

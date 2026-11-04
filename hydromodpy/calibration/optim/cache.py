@@ -35,8 +35,6 @@ def _round_float(value: float, *, precision: int) -> float:
 
 
 def _round_sig(v: float, digits: int) -> float:
-    if v == 0.0:
-        return 0.0
     magnitude = math.floor(math.log10(abs(v)))
     return round(v, digits - 1 - magnitude)
 

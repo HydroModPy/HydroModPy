@@ -12,7 +12,9 @@ from functools import reduce
 from pathlib import Path
 from types import SimpleNamespace
 
+import pandas as pd
 import pytest
+from pydantic import ValidationError
 
 from hydromodpy.calibration.config import (
     CalibOutputNetwork,
@@ -814,3 +816,111 @@ def test_the_two_stage_card_is_asked_for_by_its_current_name() -> None:
     text = REFERENCE.read_text(encoding="utf-8")
     assert "matching_hydrographic_network_card" in text
     assert "abherve_two_stage_card" not in text
+
+
+# The readers of a declaration, on the shapes a file or a sealed run can bring.
+
+
+def _calibration(*, protocol_window=None, window=None, protocol_name=NAME, phase_window=None):
+    declared = SimpleNamespace(name=protocol_name, storage=True, window=protocol_window)
+    phase = SimpleNamespace(name=TRANSIENT_STAGE, window=phase_window)
+    return SimpleNamespace(protocol=declared, window=window, phases=[phase], validation_window=None)
+
+
+@pytest.mark.parametrize(
+    ("calibration", "time"),
+    [
+        (_calibration(protocol_name="other"), SimpleNamespace(start_datetime="2000-01-01")),
+        (
+            _calibration(window={"start": "2000-01-01"}),
+            SimpleNamespace(start_datetime="2000-01-01"),
+        ),
+        (_calibration(), SimpleNamespace(start_datetime=None)),
+    ],
+    ids=["another_protocol", "a_window_on_the_calibration", "no_start_date"],
+)
+def test_the_check_says_nothing_when_the_default_window_cannot_be_the_reason(
+    calibration, time
+) -> None:
+    assert why_the_spin_up_year_is_scored(calibration, time) is None
+
+
+@pytest.mark.parametrize(
+    ("calibration", "metrics_window", "expected"),
+    [
+        (_calibration(protocol_window={"start": "2000-01-01"}), None, False),
+        (_calibration(window={"start": "2000-01-01"}), None, False),
+        (_calibration(), None, True),
+    ],
+)
+def test_the_spin_up_year_is_left_out_only_when_no_window_is_written(
+    calibration, metrics_window, expected
+) -> None:
+    assert module._scores_the_spin_up_year(calibration, metrics_window) is expected
+
+
+def test_a_window_is_the_default_one_only_where_the_run_has_a_start() -> None:
+    window = {"start": "2001-01-01"}
+
+    assert not module._is_the_default_window(window, _calibration(), SimpleNamespace(), None)
+    assert not module._is_window("2001-01-01", window)
+
+
+def test_an_output_takes_the_defaults_of_a_version_under_the_rule_it_draws() -> None:
+    version = next(reversed(DEFAULTS_BY_VERSION))
+    default_rule = DEFAULTS_BY_VERSION[version]["map"]["drawn_by"]
+
+    assert module._with_the_defaults_of(version, "not a table") == "not a table"
+    assert ("heads" in module._with_the_defaults_of(version, {})["map"]) is (
+        default_rule == "heads"
+    )
+    assert "heads" in module._with_the_defaults_of(version, {"map": {"drawn_by": "heads"}})["map"]
+
+
+def test_the_network_output_named_is_the_one_scored_or_the_file_is_refused() -> None:
+    options = MatchingHydrographicNetworkOptions(name=NAME, network_output="net")
+
+    assert module._resolve_network_output({"net": {}}, options) == "net"
+    with pytest.raises(ValueError, match="names 'net', but .* declares nothing"):
+        module._resolve_network_output({}, options)
+
+
+@pytest.mark.parametrize(
+    "sources",
+    [
+        ["NANCON"],
+        [{"station_ids": ["A"]}, {"mask_path": "m.shp"}],
+        [{"station_ids": ["A"]}, {"station_ids": ["B"]}],
+    ],
+)
+def test_no_station_is_read_from_sources_that_do_not_name_exactly_one(sources) -> None:
+    document = {"data": {"hydrometry": {"sources": sources}}}
+
+    assert module._resolve_observed_station(document) is None
+
+
+def test_an_output_that_fails_to_validate_for_another_reason_raises_its_own_error() -> None:
+    outputs = {HYDROGRAPH_OUTPUT: {"variable": "discharge", "support": "point", "observes": 3.5}}
+
+    with pytest.raises(ValidationError):
+        _write_hydrograph_output(outputs, MatchingHydrographicNetworkOptions(name=NAME), "NANCON")
+
+
+@pytest.mark.parametrize("value", ["not a date", "NaT"])
+def test_a_bound_that_is_not_a_date_is_refused_with_its_source(value) -> None:
+    with pytest.raises(ValueError, match=r"window.start is not a date"):
+        module._instant(value, "window.start")
+
+
+@pytest.mark.parametrize(
+    ("stamp", "spelled"),
+    [
+        ("2000-01-05", "2000-01-05"),
+        ("2000-01-05 06:00", "2000-01-05T06:00:00"),
+        ("2000-01-05", "2000-01-05T00:00:00+01:00"),
+    ],
+)
+def test_an_instant_is_spelled_as_a_date_only_at_naive_midnight(stamp, spelled) -> None:
+    tz = "Europe/Paris" if "+" in spelled else None
+
+    assert module._spelled(pd.Timestamp(stamp, tz=tz)) == spelled

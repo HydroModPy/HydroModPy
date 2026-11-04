@@ -9,8 +9,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from hydromodpy.calibration.config import apply_project_defaults
-from hydromodpy.calibration.protocols import expand_calibration_protocol
+from hydromodpy.calibration.config import MatchingHydrographicNetworkOptions, apply_project_defaults
+from hydromodpy.calibration.protocols import expand_calibration_protocol, registry
 from hydromodpy.calibration.protocols.registry import _as_the_load_reads_it
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigValidationError
@@ -301,3 +301,85 @@ def test_a_stage_sealed_with_the_metrics_window_reads_back() -> None:
     again = expand_calibration_protocol(sealed)["calibration"]["phases"]
 
     assert again == sealed["calibration"]["phases"]
+
+
+# The readers of a declaration, on the shapes a file or a plugin can bring.
+
+
+@pytest.mark.parametrize(
+    ("declaration", "message"),
+    [({"version": "1"}, "needs a 'name'"), (5, "protocol name or a table carrying one, got int")],
+)
+def test_a_declaration_with_no_name_or_no_table_is_refused(declaration, message) -> None:
+    with pytest.raises(ValueError, match=message):
+        expand_calibration_protocol({"calibration": {"protocol": declaration}})
+
+
+def test_a_stage_sealed_with_the_old_single_metric_spelling_declares_its_block_once() -> None:
+    legacy = {"variable": "discharge", "objective": "rmse"}
+    block = {"name": "b", "metric": "rmse"}
+    produced = {"phases": [{"objective_blocks": ["b"]}] * 3, "objective_blocks": [block]}
+    sealed = {"phases": ["kept as it is", legacy, legacy], "objective_blocks": []}
+
+    read = registry._read_legacy_declaration(sealed, produced)
+
+    assert read["objective_blocks"] == [block]
+    assert read["phases"] == [
+        "kept as it is",
+        {"variable": None, "objective": None, "objective_blocks": ["b"]},
+        {"variable": None, "objective": None, "objective_blocks": ["b"]},
+    ]
+
+
+@pytest.mark.parametrize(
+    ("phase", "fresh"),
+    [
+        ({}, {"objective_blocks": ["b"]}),
+        ({"objective": "rmse", "objective_blocks": ["b"]}, {"objective_blocks": ["b"]}),
+        ({"objective": "rmse"}, {"objective_blocks": "b"}),
+        ({"objective": "rmse"}, {"objective_blocks": ["b", "c"]}),
+        ({"objective": "mae"}, {"objective_blocks": ["b"]}),
+    ],
+    ids=["no_old_spelling", "already_a_block", "not_a_list", "two_blocks", "another_metric"],
+)
+def test_a_stage_is_not_read_as_the_old_spelling_unless_it_pairs_with_one_block(
+    phase, fresh
+) -> None:
+    blocks = {"b": {"name": "b", "metric": "rmse"}}
+
+    assert registry._fold_a_legacy_single_metric_stage(phase, fresh, blocks) == (None, None)
+
+
+class _Incomparable:
+    def __ne__(self, _other):
+        raise TypeError("no order")
+
+
+def test_a_value_that_cannot_be_compared_to_the_publication_departs_from_it() -> None:
+    assert registry._departs(SimpleNamespace(paper_value=1.0), _Incomparable())
+    assert not registry._departs(SimpleNamespace(paper_value=1.0), 1.0)
+
+
+def test_the_network_read_is_the_one_named_else_every_network_output() -> None:
+    first, second, gauge = (
+        SimpleNamespace(support=kind) for kind in ("network", "network", "point")
+    )
+    outputs = {"a": first, "b": second, "g": gauge}
+
+    named = SimpleNamespace(outputs=outputs, protocol=SimpleNamespace(network_output="b"))
+    unnamed = SimpleNamespace(outputs=outputs, protocol=SimpleNamespace(network_output=None))
+
+    assert registry._network_outputs_read(named) == [second]
+    assert registry._network_outputs_read(unnamed) == [first, second]
+    assert registry.deviations_in_force(SimpleNamespace(protocol=None)) == ()
+
+
+def test_an_adjustable_key_the_options_do_not_carry_is_never_reported_as_moved(monkeypatch) -> None:
+    real = registry.get_protocol("matching_hydrographic_network")
+    stub = SimpleNamespace(name=real.name, adjustable=frozenset({"ghost", "storage"}))
+    monkeypatch.setattr(registry, "get_protocol", lambda _name: stub)
+    declared = MatchingHydrographicNetworkOptions(name=real.name, storage=False)
+
+    assert registry.protocol_options_away_from_the_recipe(real.name, declared) == (
+        {"key": "storage", "here": False, "recipe": "Sy"},
+    )

@@ -3,22 +3,28 @@
 from __future__ import annotations
 
 import math
+import pkgutil
 import threading
 import time
 import warnings
 from collections.abc import Mapping
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
 import sklearn  # noqa: F401
 
+from hydromodpy.calibration.optim import optimizer as optimizer_module
 from hydromodpy.calibration.optim.engine import CalibrationEngine
 from hydromodpy.calibration.optim.optimizer import (
+    EngineTraits,
     EvaluationResult,
     ParamSuggestion,
     build_optimizer,
+    choose_method,
 )
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
+from hydromodpy.core.exceptions import OptimizerError
 from tests.unit.calibration._factories import two_dim_space, unit_space
 from tests.unit.calibration._factories_search import make_space, result_of, run_engine
 
@@ -850,3 +856,106 @@ def test_a_parallel_batch_returns_its_results_in_order_and_journals_them_as_they
     # The bar moves as the trials end, not when the whole batch has.
     assert ticks.trials == [2, 1]
     assert [result.trial_id for result in session.history] == [1, 2]
+
+
+# --------------------------------------------------------------------------- #
+# suggest_next, the one-point form of the ask/tell protocol
+# --------------------------------------------------------------------------- #
+_LOG_K = ParameterSpace([CalibParameter(name="K", lower=1e-6, upper=1e-2, sampling="log_uniform")])
+
+
+@pytest.mark.parametrize(
+    ("name", "options"),
+    [
+        ("grid", {"points_per_dim": 2}),
+        ("lhs", {"n_samples": 2, "seed": 1}),
+        ("random_search", {"seed": 1}),
+        ("optuna", {"seed": 1}),
+        ("scipy_nelder_mead", {}),
+        ("scipy_de", {"seed": 1}),
+        ("cma_es", {"seed": 1}),
+        ("gp_mapping", {"seed": 1, "n_init": 2}),
+        ("da_mh_gp", {"seed": 1}),
+    ],
+)
+def test_suggest_next_hands_out_the_first_point_of_the_search(name, options) -> None:
+    adapter = build_optimizer(name, _LOG_K, **options)
+
+    suggestion = adapter.suggest_next()
+
+    assert suggestion.trial_id == 1
+    assert list(suggestion.values) == ["K"]
+    assert 1e-6 <= suggestion.values["K"] <= 1e-2
+
+
+@pytest.mark.parametrize(
+    ("name", "options"), [("grid", {"points_per_dim": 2}), ("lhs", {"n_samples": 2, "seed": 1})]
+)
+def test_suggest_next_says_when_a_fixed_design_is_spent(name, options) -> None:
+    adapter = build_optimizer(name, _LOG_K, **options)
+    adapter.suggest_next()
+    adapter.suggest_next()
+
+    with pytest.raises(StopIteration, match="exhausted"):
+        adapter.suggest_next()
+
+
+@pytest.mark.parametrize(
+    ("name", "options", "match"),
+    [
+        ("grid", {"points_per_dim": [2, 3]}, "length must match"),
+        ("lhs", {"n_samples": 0}, "must be positive, got 0"),
+    ],
+)
+def test_a_design_that_does_not_fit_the_space_is_refused(name, options, match) -> None:
+    with pytest.raises(ValueError, match=match):
+        build_optimizer(name, _LOG_K, **options)
+
+
+def test_a_signed_search_off_the_log_space_says_which_parameter_is_the_obstacle() -> None:
+    choice = choose_method({"K": "identity"}, ["distance_gap"])
+
+    assert (choice.method, choice.reason) == (
+        "scipy_nelder_mead",
+        "signed criterion, K not in log space, cost to minimise",
+    )
+
+
+def test_a_result_for_a_trial_optuna_never_asked_is_ignored() -> None:
+    opt = build_optimizer("optuna", _LOG_K, seed=1)
+
+    opt.tell([EvaluationResult(trial_id=9, sim_id=None, cost=1.0, status="completed")])
+
+    assert opt.best() is None
+
+
+def test_a_metric_nobody_registered_counts_as_unsigned() -> None:
+    choice = choose_method({"K": "log"}, ["no_such_metric"])
+
+    assert (choice.method, choice.reason) == ("scipy_nelder_mead", "cost to minimise")
+
+
+def test_the_last_engine_answers_a_search_that_every_engine_refuses(monkeypatch) -> None:
+    monkeypatch.setattr(
+        optimizer_module, "engine_traits", lambda method: EngineTraits(max_parameters=1)
+    )
+
+    choice = choose_method({"K": "log", "Sy": "identity"}, ["rmse"])
+
+    assert choice.method == "scipy_nelder_mead"
+    assert choice.reason == "criterion on 2 parameters, cost to minimise"
+
+
+def test_a_start_point_of_the_wrong_size_is_refused() -> None:
+    with pytest.raises(OptimizerError, match="carries 2 value.*declares 1"):
+        build_optimizer("scipy_nelder_mead", _LOG_K, start_at=[0.0, 1.0])
+
+
+def test_an_adapter_module_that_will_not_import_stays_unregistered(monkeypatch) -> None:
+    modules = [SimpleNamespace(name="_private"), SimpleNamespace(name="ghost_adapter")]
+    monkeypatch.setattr(optimizer_module, "_LOADED", False)
+    monkeypatch.setattr(pkgutil, "iter_modules", lambda path: modules)
+
+    optimizer_module._ensure_builtins_loaded()
+
+    assert optimizer_module._LOADED

@@ -1066,7 +1066,7 @@ class CalibNetworkMap(HydroModelBase):
         description="The permanent map, the reaches that flow all year, which the complete "
         "map contains: a vector file, read as it is and never filtered by attribute, or "
         "'data.hydrography', the permanent reaches the hydrography data family wrote beside "
-        "its network, which it does only when its source says which reaches flow all year. "
+        "its network. A source that does not say which reaches flow all year gives none. "
         "The complete map scored is the union of the two, and the share of this map outside "
         "the complete one is published.",
         json_schema_extra=_moved_from("minimal_stream_geometry_path", "minimal_observed_network"),
@@ -1340,7 +1340,7 @@ class CalibNetworkVerdict(HydroModelBase):
         default="auto",
         description="Validity bound of Eq. 4, a length: the calibration is valid when "
         "D_optim <= this. 'auto' is 2 h, the paper's two cells, where h is h_obs, the cell "
-        "size on the mapped network, raised to 'map.position_accuracy' when one is "
+        "size on the mapped network, raised to 'map.position_accuracy' if that is "
         "declared. A length such as '150 m' is used as it is. The bound qualifies the "
         "result and never penalises the cost.",
         json_schema_extra=_moved_from("validity_length"),
@@ -2761,10 +2761,7 @@ class CalibrationConfig(HydroModelBase):
             for block in blocks:
                 if block.normalize_cost:
                     continue
-                try:
-                    needs = criterion_for(str(block.metric)).requirements()
-                except ValueError:
-                    continue
+                needs = criterion_for(str(block.metric)).requirements()
                 if needs.cost_is_dimensionless:
                     continue
                 if not needs.needs_observations and "network" in needs.reads_supports:
@@ -3245,11 +3242,8 @@ class CalibrationConfig(HydroModelBase):
         A length bounds a cost that is itself a length. A phase that writes one
         and scores something else is refused; one that only inherits it from the
         section reads the default instead (:meth:`uncertainty_for`), and the
-        section's own is refused when no search it covers scores distances. A
-        protocol not yet expanded has no stage to read.
+        section's own is refused when no search it covers scores distances.
         """
-        if self.protocol is not None and not self.phases:
-            return self
         searches: list[tuple[str, CalibPhaseDecl | None]] = [("[calibration.uncertainty]", None)]
         if self.phases:
             searches = [
@@ -3351,10 +3345,7 @@ class CalibrationConfig(HydroModelBase):
         from hydromodpy.calibration.criteria import criterion_for
 
         for block in self.objective_blocks:
-            try:
-                needs = criterion_for(str(block.metric)).requirements()
-            except ValueError:
-                continue
+            needs = criterion_for(str(block.metric)).requirements()
             readable = set(needs.reads_supports)
             wrong = sorted(
                 (name, str(self.outputs[name].support))
@@ -3399,12 +3390,7 @@ class CalibrationConfig(HydroModelBase):
         declared = [str(block.metric) for block in self.objective_blocks] or [str(self.objective)]
         readable: set[str] = set()
         for metric in declared:
-            try:
-                readable.update(criterion_for(metric).requirements().reads_supports)
-            except ValueError:
-                continue
-        if not readable:
-            return self
+            readable.update(criterion_for(metric).requirements().reads_supports)
         stranded = {
             name: str(output.support)
             for name, output in self.outputs.items()

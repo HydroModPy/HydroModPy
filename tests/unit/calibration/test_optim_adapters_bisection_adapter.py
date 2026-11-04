@@ -1646,3 +1646,74 @@ def test_a_root_search_keeps_its_width_when_the_outer_budget_runs_low() -> None:
     assert (search.name, search.counted_budget.nominal, search.best()) == ("grid", 3, None)
     assert not search.converged()
     search.close()
+
+
+# --------------------------------------------------------------------------- #
+# What the adapter refuses, and what it says before it has a root
+# --------------------------------------------------------------------------- #
+@pytest.mark.parametrize(
+    ("kwargs", "match"),
+    [
+        ({"rel_tol": 0.0}, "rel_tol must be strictly positive, got 0.0"),
+        ({"sweep_points": -1}, "sweep_points must be positive or zero, got -1"),
+    ],
+)
+def test_a_tolerance_or_a_sweep_that_cannot_be_walked_is_refused(kwargs, match) -> None:
+    with pytest.raises(OptimizerError, match=match):
+        BisectionAdapter(_space(), **kwargs)
+
+
+@pytest.mark.parametrize(
+    ("components", "match"),
+    [
+        ({"net.n_bounds_scored": 2.0}, "publishes no 'weight_minimal'"),
+        (
+            {"net.n_bounds_scored": 2.0, "net.weight_minimal": 0.0, "net.weight_maximal": 0.0},
+            "weighs both of its bounds zero",
+        ),
+        ({}, "published no 'J_signed' component"),
+    ],
+)
+def test_a_first_trial_that_cannot_say_which_roots_to_close_is_refused(components, match) -> None:
+    adapter = _two_root_adapter()
+    (first,) = adapter.ask(1)
+
+    with pytest.raises(ObjectiveError, match=match):
+        adapter.tell([result_of(first, 1.0, components=components)])
+
+
+def test_a_first_batch_that_failed_without_a_residual_ends_in_a_refusal() -> None:
+    adapter = _two_root_adapter()
+    failed = [
+        EvaluationResult(trial_id=s.trial_id, sim_id=None, cost=1e9, status="failed")
+        for s in adapter.ask(100)
+    ]
+
+    with pytest.raises(OptimizerError, match="no usable residual"):
+        adapter.tell(failed)
+
+
+def test_before_any_root_the_adapter_has_no_bracket_no_record_and_no_place_for_a_trial() -> None:
+    adapter = _two_root_adapter()
+    (first,) = adapter.ask(1)
+    adapter.tell([_two_bounds()(first)])
+
+    assert adapter.brackets == {}
+    assert adapter.roots_record() is None
+    assert math.isnan(adapter._physical_of(None))
+    assert not adapter._inside(999, (0.0, 1.0))
+
+
+def test_a_spent_search_has_nothing_to_suggest() -> None:
+    adapter = BisectionAdapter(_space(), sweep_points=0)
+    adapter._done = True
+
+    with pytest.raises(OptimizerError, match="nothing left to suggest"):
+        adapter.suggest_next()
+
+
+def test_the_first_suggestion_is_the_first_point_of_the_sweep() -> None:
+    suggestion = BisectionAdapter(_space(), sweep_points=3).suggest_next()
+
+    assert suggestion.trial_id == 1
+    assert suggestion.values["K"] == pytest.approx(1.0)

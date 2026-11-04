@@ -615,3 +615,100 @@ def test_two_trials_get_different_scored_discharge_by_runoff_lag() -> None:
     lagged_discharge = scored_discharge(_lagged(3.0))
 
     assert not np.allclose(unlagged_discharge.to_numpy(), lagged_discharge.to_numpy())
+
+
+# The readers of the loaded data and of the time grid, on the records they skip.
+
+
+def _station(values, *, tz=None, name="S1") -> SimpleNamespace:
+    stamps = pd.date_range("2000-01-01", periods=len(values), freq="D", tz=tz)
+    data = pd.DataFrame({"datetime": stamps, "value": values})
+    return SimpleNamespace(station_id=name, variable="discharge", data=data)
+
+
+def test_load_observed_keeps_the_dated_records_and_skips_the_others() -> None:
+    skipped = [
+        SimpleNamespace(station_id="none", variable="discharge", data=None),
+        SimpleNamespace(station_id="empty", variable="discharge", data=pd.DataFrame()),
+        SimpleNamespace(station_id="broken", variable="discharge", data=pd.DataFrame({"x": [1]})),
+    ]
+    ctx = SimpleNamespace(
+        loaded_data=SimpleNamespace(
+            hydrometry=SimpleNamespace(points=[*skipped, _station([1.0, 2.0], tz="UTC")])
+        )
+    )
+
+    (kept,) = series_module.load_observed(ctx, "discharge")
+
+    assert kept.station_id == "S1"
+    assert kept.series.index.tolist() == [pd.Timestamp("2000-01-01"), pd.Timestamp("2000-01-02")]
+    assert kept.series.tolist() == [1.0, 2.0]
+
+
+@pytest.mark.parametrize(
+    ("setup", "n_timesteps", "expected"),
+    [
+        (None, 0, None),
+        (SimpleNamespace(time_grid=SimpleNamespace(boundaries=["2000-01-01"])), 0, None),
+        (SimpleNamespace(time_grid=SimpleNamespace(boundaries=["a", "b"])), 0, None),
+        (
+            SimpleNamespace(
+                time_grid=SimpleNamespace(boundaries=["2000-01-01", "2000-01-11", "2000-01-21"])
+            ),
+            1,
+            ["2000-01-11"],
+        ),
+    ],
+)
+def test_the_time_index_is_the_stamps_that_close_the_periods(setup, n_timesteps, expected) -> None:
+    index = series_module.resolve_time_index(SimpleNamespace(setup=setup), n_timesteps)
+
+    assert (index if index is None else index.strftime("%Y-%m-%d").tolist()) == expected
+
+
+def test_the_station_runoff_is_the_mean_of_the_dated_stations() -> None:
+    points = [
+        SimpleNamespace(data=None),
+        SimpleNamespace(data=pd.DataFrame()),
+        _station([2.0, 4.0], tz="UTC"),
+        _station([4.0, 8.0]),
+    ]
+
+    mean = series_module._station_runoff_mm_per_day(points)
+
+    assert mean.tolist() == [3.0, 6.0]
+    assert series_module._station_runoff_mm_per_day(points[:2]) is None
+
+
+@pytest.mark.parametrize(
+    ("reduced", "expected"),
+    [(None, None), (pd.Series(dtype=float), None), ("utc", [1.0, 2.0])],
+)
+def test_the_gridded_runoff_is_a_naive_utc_series_or_nothing(
+    monkeypatch, reduced, expected
+) -> None:
+    if isinstance(reduced, str):
+        reduced = pd.Series([1.0, 2.0], index=pd.date_range("2000-01-01", periods=2, tz="UTC"))
+    monkeypatch.setattr(series_module, "spatial_mean_from_fields", lambda _runoff: reduced)
+
+    result = series_module._gridded_runoff_mm_per_day(object())
+
+    assert result is None if expected is None else result.tolist() == expected
+    if expected:
+        assert result.index.tz is None
+
+
+def test_a_baseflow_is_returned_alone_when_the_runoff_cannot_be_added(monkeypatch) -> None:
+    simulated = pd.Series([1.0], index=pd.DatetimeIndex(["2000-01-02"]))
+    no_area = SimpleNamespace(
+        loaded_data=SimpleNamespace(runoff=SimpleNamespace(points=[_station([5.0])], fields=None)),
+        setup=SimpleNamespace(geographic=SimpleNamespace(catch_area=0.0)),
+    )
+    ungridded = SimpleNamespace(
+        loaded_data=SimpleNamespace(runoff=SimpleNamespace(points=None, fields=[object()])),
+        setup=SimpleNamespace(geographic=SimpleNamespace(catch_area=1.0)),
+    )
+    monkeypatch.setattr(series_module, "spatial_mean_from_fields", lambda _runoff: None)
+
+    assert add_runoff_to_discharge(simulated, no_area) is simulated
+    assert add_runoff_to_discharge(simulated, ungridded) is simulated

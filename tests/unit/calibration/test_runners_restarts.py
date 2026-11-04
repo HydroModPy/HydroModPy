@@ -13,6 +13,7 @@ from hydromodpy.calibration.runners.restarts import (
     assert_restarts_can_explore,
     run_restarts,
     run_side_by_side,
+    spread_of,
     start_points,
 )
 from tests.unit.calibration._factories_runners import make_report
@@ -186,6 +187,13 @@ class TestSideBySide:
             run_side_by_side(work, [0, 1], width=2, on_stop=stopped.set)
         assert stopped.is_set()
 
+    def test_a_failure_without_a_stop_hook_still_raises(self) -> None:
+        def work(item):
+            raise RuntimeError("it failed")
+
+        with pytest.raises(RuntimeError, match="it failed"):
+            run_side_by_side(work, [0], width=1)
+
 
 class TestWhatTheSpreadSays:
     def test_optima_a_factor_twenty_apart_are_flagged(self) -> None:
@@ -196,6 +204,11 @@ class TestWhatTheSpreadSays:
         spread = RestartSpread(parameter="K", best=1e-5, lowest=8e-6, highest=1.4e-5)
         assert spread.spans_a_decade is False
 
+    def test_optima_of_mixed_sign_are_flagged_unless_equal(self) -> None:
+        mixed = RestartSpread(parameter="K", best=0.0, lowest=-1.0, highest=2.0)
+        same = RestartSpread(parameter="K", best=0.0, lowest=0.0, highest=0.0)
+        assert (mixed.spans_a_decade, same.spans_a_decade) == (True, False)
+
     def test_the_dict_keeps_the_value_and_the_count(self) -> None:
         spread = RestartSpread(
             parameter="K", best=1e-5, lowest=8e-6, highest=1.4e-5, values=(1.0,) * 5
@@ -204,3 +217,13 @@ class TestWhatTheSpreadSays:
         assert payload["best"] == pytest.approx(1e-5)
         assert payload["n_restarts"] == 5
         assert payload["spans_a_decade"] is False
+
+
+def test_a_parameter_no_restart_scored_has_no_spread() -> None:
+    reports = [make_report(best_parameters={"K": 2e-5}), make_report(best_parameters={"K": 5e-5})]
+
+    spread = spread_of(reports, best=reports[0], names=["Sy", "K"])
+
+    assert [(item.parameter, item.best, item.lowest, item.highest) for item in spread] == [
+        ("K", 2e-5, 2e-5, 5e-5)
+    ]

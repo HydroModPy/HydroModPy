@@ -667,13 +667,9 @@ def _check_phases(calibration: Any) -> list[PreflightFinding]:
     parameters = set(calibration.parameters or {})
     outputs = set(calibration.outputs or {})
     blocks = {block.name for block in calibration.objective_blocks or []}
-    names = [phase.name for phase in phases]
-    ran: set[str] = set()
 
     for phase in phases:
         where = f"[[calibration.phases]] {phase.name!r}"
-        if names.count(phase.name) > 1:
-            findings.append(PreflightFinding("error", where, "two phases share this name."))
         findings.extend(
             _missing(where, "parameters", phase.parameters, parameters, "[calibration.parameters]")
         )
@@ -691,17 +687,6 @@ def _check_phases(calibration: Any) -> list[PreflightFinding]:
             PreflightFinding("error", f"{where} bounds", problem)
             for problem in calibration.phase_bounds_problems(phase)
         )
-        if phase.depends_on is not None and phase.depends_on not in ran:
-            known = ", ".join(names) or "nothing"
-            findings.append(
-                PreflightFinding(
-                    "error",
-                    where,
-                    f"depends_on names {phase.depends_on!r}, which no earlier phase "
-                    f"declares. Phases run in the order written: {known}.",
-                )
-            )
-        ran.add(phase.name)
     return findings
 
 
@@ -758,11 +743,7 @@ def _publishes_a_signed_residual(metric: str) -> bool:
     """
     from hydromodpy.calibration.criteria import criterion_for
 
-    try:
-        return criterion_for(metric).requirements().signed
-    except ValueError:
-        # An unknown metric is refused elsewhere, by name; nothing to add here.
-        return False
+    return criterion_for(metric).requirements().signed
 
 
 def _signed_residual_metrics() -> list[str]:

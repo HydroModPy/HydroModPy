@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from types import SimpleNamespace
 
 import pytest
 
@@ -377,6 +378,37 @@ class TestBudgetExhaustion:
         assert opt.converged() is True
         with pytest.raises(StopIteration):
             opt.suggest_next()
+
+    def test_no_restart_is_left_once_the_budget_is_spent(self) -> None:
+        opt = build_optimizer(
+            "cma_es", two_dim_space(), popsize=4, max_trials=4, seed=1, restarts=2
+        )
+        opt._n_eval = 4
+
+        assert opt._try_restart() is False
+
+    def test_a_search_whose_budget_is_spent_before_a_draw_ends_there(self) -> None:
+        opt = build_optimizer("cma_es", two_dim_space(), popsize=4, max_trials=4, seed=1)
+        opt._n_eval = 4
+
+        assert opt.ask(n=1) == []
+        assert opt.converged()
+
+    def test_a_strategy_that_stops_ends_the_search_when_no_restart_is_left(self) -> None:
+        opt = build_optimizer("cma_es", two_dim_space(), popsize=4, max_trials=40, seed=1)
+        opt._es = SimpleNamespace(stop=lambda: True)
+
+        assert opt.ask(n=1) == []
+        assert opt.converged()
+
+    def test_a_strategy_that_stops_after_a_tell_ends_the_search(self) -> None:
+        opt = build_optimizer("cma_es", two_dim_space(), popsize=4, max_trials=40, seed=1)
+        batch = opt.ask(n=4)
+        opt._es = SimpleNamespace(tell=lambda xs, costs: None, stop=lambda: True)
+
+        opt.tell([result_of(s, _quadratic_cost(s.values)) for s in batch])
+
+        assert opt.converged()
 
 
 # ---------------------------------------------------------------------------

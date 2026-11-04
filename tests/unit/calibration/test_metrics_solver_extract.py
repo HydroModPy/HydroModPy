@@ -2930,3 +2930,284 @@ def test_the_two_costs_stay_separate_in_the_components(wired__two_nested) -> Non
     _total, components = scorer.score(extracted.observables, diagnostics=extracted.diagnostics)
     assert components["down_block.raw_cost"] == pytest.approx(0.0, abs=1e-9)
     assert components["up_block.raw_cost"] == pytest.approx(0.1)
+
+
+# --- the lookups and the refusals a run leaves unreached --------------------
+def _execution(models, plan) -> SimpleNamespace:
+    return SimpleNamespace(execution=SimpleNamespace(models_by_run_id=models, simulation_plan=plan))
+
+
+@pytest.mark.parametrize(
+    "ctx",
+    [
+        SimpleNamespace(),
+        _execution({}, None),
+        _execution({"f": object()}, None),
+        _execution(
+            {"f": object()},
+            SimpleNamespace(runs=[SimpleNamespace(process_type="transport", id="f")]),
+        ),
+        _execution(
+            {"f": object()},
+            SimpleNamespace(runs=[SimpleNamespace(process_type="flow", id="f", solver="nowhere")]),
+        ),
+    ],
+    ids=["no_execution", "no_model", "no_plan", "no_flow_run", "unknown_solver"],
+)
+def test_a_trial_with_no_flow_solver_to_ask_resolves_to_nothing(ctx) -> None:
+    assert solver_extract.resolve_flow_adapter(ctx) is None
+
+
+class _Length:
+    def __init__(self, metres: float, *, fails: bool = False) -> None:
+        self.metres, self.fails = metres, fails
+
+    def to(self, unit: str):
+        if self.fails:
+            raise ValueError(unit)
+        return SimpleNamespace(magnitude=self.metres)
+
+    def __float__(self) -> float:
+        return self.metres + 1.0
+
+
+@pytest.mark.parametrize(
+    ("output", "expected"),
+    [
+        (SimpleNamespace(x=_Length(3.0), y=4, geometry=None), (3.0, 4.0)),
+        (SimpleNamespace(x=None, y=None, geometry=None), None),
+        (
+            SimpleNamespace(x=None, y=None, geometry={"type": "Point", "coordinates": [5, 6, 7]}),
+            (5.0, 6.0),
+        ),
+    ],
+)
+def test_a_point_is_read_from_its_coordinates_or_its_geometry(output, expected) -> None:
+    assert solver_extract.point_xy_from_output(output) == expected
+    assert _coerce_length_to_m(_Length(2.0, fails=True)) == 3.0
+
+
+@pytest.mark.parametrize(
+    ("geometry", "message"),
+    [
+        ({"type": "Polygon"}, "must be a GeoJSON Point"),
+        ({"type": "Point", "coordinates": [1]}, "two coordinates"),
+    ],
+)
+def test_a_geometry_that_is_not_a_point_is_refused(geometry, message) -> None:
+    output = SimpleNamespace(x=None, y=None, geometry=geometry)
+
+    with pytest.raises(ValueError, match=message):
+        solver_extract.point_xy_from_output(output)
+
+
+@pytest.mark.parametrize(
+    ("attributes", "expected"),
+    [
+        ({"cell_ij": (2, 3)}, (0, 2, 3)),
+        ({"cell_ij": (2, 3, 1)}, (1, 2, 3)),
+        ({"cell_ij": 5}, None),
+        ({"cell_ij": (2,)}, None),
+        ({"cell": {"k": 1, "i": 2, "j": 3}}, (1, 2, 3)),
+        ({"cell": {"i": 2}}, None),
+        ({"cell": (4, 5)}, (0, 4, 5)),
+        ({"station_cell": (4, 5, 6)}, (4, 5, 6)),
+        ({"cell": 7}, None),
+        ({"cell": (7,)}, None),
+        ({}, None),
+    ],
+)
+def test_a_station_is_placed_on_the_cell_its_record_carries(attributes, expected) -> None:
+    ctx = SimpleNamespace(
+        loaded_data=SimpleNamespace(
+            piezometry=SimpleNamespace(points=[SimpleNamespace(station_id="S", **attributes)])
+        )
+    )
+
+    assert cell_for_station(ctx, "S", variable="head") == expected
+    assert cell_for_station(ctx, "other", variable="head") is None
+    assert cell_for_station(ctx, "S", variable="lake_level") is None
+    assert resolve_station_cells(ctx, [], variable="lake_level") == {}
+
+
+@pytest.mark.parametrize(
+    ("attributes", "expected"),
+    [
+        ({"location": SimpleNamespace(x=1, y=2)}, (1.0, 2.0)),
+        ({"easting": 3, "northing": 4}, (3.0, 4.0)),
+        ({"geometry": SimpleNamespace(x=5, y=6)}, (5.0, 6.0)),
+        ({"location": SimpleNamespace(x=None, y=None)}, None),
+    ],
+)
+def test_the_coordinate_of_a_station_is_read_wherever_its_loader_put_it(
+    attributes, expected
+) -> None:
+    ctx = SimpleNamespace(
+        loaded_data=SimpleNamespace(
+            hydrometry=SimpleNamespace(points=[SimpleNamespace(station_id="S", **attributes)])
+        )
+    )
+
+    assert solver_extract.station_xy(ctx, "S", variable="discharge") == expected
+    assert solver_extract.station_xy(ctx, "other", variable="discharge") is None
+    assert solver_extract.station_xy(SimpleNamespace(), "S", variable="discharge") is None
+
+
+def test_a_cell_is_asked_of_the_solver_only_when_it_can_locate_one(monkeypatch) -> None:
+    run_ctx = object()
+    adapter = SimpleNamespace(locate_cell=lambda ctx, x, y: (ctx is run_ctx, x, y))
+    monkeypatch.setattr(solver_extract, "resolve_flow_adapter", lambda _ctx: None)
+    assert solver_extract.find_cell_at_point(SimpleNamespace(), 1.0, 2.0) is None
+
+    monkeypatch.setattr(solver_extract, "resolve_flow_adapter", lambda _ctx: (adapter, run_ctx))
+    assert solver_extract.find_cell_at_point(SimpleNamespace(), 1.0, 2.0) == (True, 1.0, 2.0)
+
+    monkeypatch.setattr(solver_extract, "resolve_flow_adapter", lambda _ctx: (object(), run_ctx))
+    assert solver_extract.find_cell_at_point(SimpleNamespace(), 1.0, 2.0) is None
+
+
+def test_an_unknown_support_and_a_point_with_no_position_are_refused() -> None:
+    declared = {"time": "all", "snap_radius": None, "observes": None, "variable": "head"}
+
+    with pytest.raises(ValueError, match="Unknown calibration output support 'weird'"):
+        observable_request_for_output("n", SimpleNamespace(support="weird", **declared), None)
+    with pytest.raises(ValueError, match="requires x/y or geometry"):
+        point = SimpleNamespace(support="point", x=None, y=None, geometry=None, **declared)
+        observable_request_for_output("n", point, None)
+
+
+@pytest.mark.parametrize(
+    ("field", "n_times", "kept"),
+    [
+        (np.ones(4), 2, None),
+        (np.ones((3, 4)), 2, None),
+        (np.arange(8.0).reshape(2, 4), 2, [4.0, 5.0, 6.0, 7.0]),
+    ],
+)
+def test_the_thickness_is_read_at_the_state_scored_or_left_out(
+    field, n_times, kept, caplog
+) -> None:
+    thickness = adapter_result("d", field, "m")
+
+    with caplog.at_level(logging.WARNING):
+        result = solver_extract._thickness_at("net", thickness, 1, n_times)
+
+    assert (result if result is None else result.values.ravel().tolist()) == kept
+    assert ("No d_sat_m for output net" in caplog.text) is (kept is None)
+
+
+@pytest.mark.parametrize(
+    ("times", "bounds", "expected"),
+    [
+        (None, pd.date_range("2000-01-01", periods=4, tz="Europe/Paris"), "1999-12-31T23"),
+        (pd.date_range("2000-01-11", periods=3, freq="10D"), None, "2000-01-01T00"),
+    ],
+)
+def test_the_edges_of_the_timesteps_are_naive_utc_and_dated(times, bounds, expected) -> None:
+    result = adapter_result("r", np.ones(3), "m3 s-1", times=times)
+
+    edges = solver_extract._timestep_edges("net", result, 3, bounds)
+
+    assert str(edges[0])[:13] == expected
+    assert edges.size == 4
+    with pytest.raises(ObjectiveError, match="carry no date"):
+        solver_extract._timestep_edges("net", adapter_result("r", np.ones(3), "m"), 3, None)
+
+
+def test_the_mismatch_of_the_complete_map_is_scored_alone(monkeypatch) -> None:
+    maps = SimpleNamespace(maximal=SimpleNamespace(catchment_mismatch=np.float32(0.25)))
+    monkeypatch.setattr(solver_extract, "network_maps_from_run", lambda _run_ctx, _output: maps)
+
+    assert solver_extract.scored_catchment_mismatch(None, None) == 0.25
+
+
+def test_a_gauge_the_solver_cannot_snap_is_refused_by_name(
+    adapter__gauge_snaps, monkeypatch
+) -> None:
+    def no_field(*_args, **_kwargs):
+        raise KeyError("upstream_area")
+
+    monkeypatch.setattr(adapter__gauge_snaps, "extract_observables", no_field)
+
+    with pytest.raises(NotImplementedError, match="serves no drained area or cell centres"):
+        observable_request_for_output("gauge", _point(snap_radius=120.0), SimpleNamespace())
+
+
+def test_a_gauge_on_the_talweg_is_not_moved_and_one_the_solver_cannot_place_is_refused(
+    adapter__gauge_snaps, monkeypatch, caplog
+) -> None:
+    on_the_talweg = _point(x=250.0, y=50.0, snap_radius=150.0)
+    with caplog.at_level(logging.INFO):
+        request = observable_request_for_output("gauge", on_the_talweg, SimpleNamespace())
+
+    assert request.cell == (0, 0, 4 * N + 2)
+    assert "already sits on the most accumulated cell within 150 m" in caplog.text
+
+    locate = adapter__gauge_snaps.locate_cell
+    located = iter([locate(SimpleNamespace(model=adapter__gauge_snaps.model), *GAUGE_XY)])
+    monkeypatch.setattr(adapter__gauge_snaps, "locate_cell", lambda *_args: next(located, None))
+    with pytest.raises(NotImplementedError, match="did not locate the snapped cell"):
+        observable_request_for_output("gauge", _point(snap_radius=120.0), SimpleNamespace())
+
+
+def test_a_station_without_a_position_of_its_own_snaps_from_the_output_coordinate(
+    adapter__gauge_snaps,
+) -> None:
+    ctx = SimpleNamespace(
+        loaded_data=SimpleNamespace(
+            hydrometry=SimpleNamespace(points=[SimpleNamespace(station_id="J0000000")])
+        )
+    )
+
+    request = observable_request_for_output(
+        "gauge", _point(observes="J0000000", snap_radius=120.0), ctx
+    )
+
+    assert request.cell == (0, 0, 2 * N + 2)
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"radius_m": 0.0}, "radius must be > 0"),
+        ({"start_index": 99}, "start cell 99 is outside the 25 cells"),
+        ({"accumulation": np.ones(3)}, "25 cell centres and the accumulation 3"),
+    ],
+)
+def test_a_snap_that_cannot_be_computed_is_refused(kwargs, message) -> None:
+    call = {
+        "centroids": _grid_centres(),
+        "accumulation": _grid_accumulation(),
+        "x": 140.0,
+        "y": 250.0,
+        "radius_m": 120.0,
+        "start_index": 11,
+        **kwargs,
+    }
+
+    with pytest.raises(ValueError, match=message):
+        snap_to_most_accumulated(**call)
+
+
+def test_a_model_with_no_base_publishes_no_aquifer_thickness() -> None:
+    mesh = SimpleNamespace(botm=None, top=np.array([100.0, 100.0]))
+    run_ctx = SimpleNamespace(model=SimpleNamespace(solver_mesh=mesh))
+    thickness = SimpleNamespace(values=np.array([10.0, 20.0]))
+
+    out = catchment_saturation(run_ctx, _geometry([True, True], [1.0, 1.0]), thickness)
+
+    assert out == {"d_sat_m": 15.0, "d_sat_unset_fraction": 0.0}
+
+
+def test_a_snap_with_no_position_anywhere_is_refused(adapter__gauge_snaps) -> None:
+    ctx = SimpleNamespace(
+        loaded_data=SimpleNamespace(
+            hydrometry=SimpleNamespace(points=[SimpleNamespace(station_id="J0000000")])
+        )
+    )
+    output = CalibOutputPoint.model_validate(
+        {"variable": "discharge", "observes": "J0000000", "snap_radius": 120.0}
+    )
+
+    with pytest.raises(NotImplementedError, match="no cell could be resolved to snap from"):
+        observable_request_for_output("gauge", output, ctx)

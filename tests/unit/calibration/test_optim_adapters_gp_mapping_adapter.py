@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 import sklearn  # noqa: F401
 
+from hydromodpy.calibration.optim.adapters import gp_mapping_adapter as gp_module
 from hydromodpy.calibration.optim.optimizer import (
     EvaluationResult,
     ParamSuggestion,
@@ -138,6 +139,75 @@ class TestGPMappingFailuresAndBatches:
 
         assert xs
         assert all(abs(a - b) > 4.0e-3 for a, b in itertools.combinations(xs, 2))
+
+    def test_a_batch_stops_at_a_point_already_pending(self, monkeypatch):
+        space = ParameterSpace([CalibParameter(name="x", lower=-2.0, upper=2.0)])
+        opt = build_optimizer("gp_mapping", space, seed=3, n_init=2, max_trials=12)
+        opt.tell([result_of(s, s.values["x"] ** 2) for s in opt.ask(n=2)])
+        monkeypatch.setattr(opt, "_propose_next", lambda: np.array([0.5]))
+
+        batch = opt.ask(n=3)
+
+        assert [s.values["x"] for s in batch] == [0.5]
+
+    def test_a_search_with_no_proposal_or_no_budget_left_stays_exhausted(self, monkeypatch):
+        space = ParameterSpace([CalibParameter(name="x", lower=-2.0, upper=2.0)])
+        opt = build_optimizer("gp_mapping", space, seed=3, n_init=2, max_trials=2)
+        opt.tell([result_of(s, s.values["x"] ** 2) for s in opt.ask(n=2)])
+        assert opt.ask(n=1) == []
+
+        fresh = build_optimizer("gp_mapping", space, seed=3, n_init=2, max_trials=9)
+        fresh.tell([result_of(s, s.values["x"] ** 2) for s in fresh.ask(n=2)])
+        monkeypatch.setattr(fresh, "_propose_next", lambda: None)
+
+        assert fresh.ask(n=2) == []
+        assert fresh.ask(n=1) == []
+        assert fresh.converged()
+        with pytest.raises(StopIteration, match="gp_mapping exhausted"):
+            fresh.suggest_next()
+
+    def test_a_result_for_a_trial_nobody_asked_is_ignored(self):
+        opt = build_optimizer("gp_mapping", _quadratic_space(), seed=3, n_init=2)
+
+        opt.tell([EvaluationResult(trial_id=99, sim_id=None, cost=1.0, status="completed")])
+
+        assert opt.best() is None
+
+    def test_a_batch_is_served_from_one_fit(self):
+        opt = build_optimizer(
+            "gp_mapping", _quadratic_space(), seed=3, n_init=4, batch_size=3, max_trials=12
+        )
+        opt.tell([result_of(s, _quadratic(s.values)) for s in opt.ask(n=4)])
+
+        first = opt.ask(n=1)[0]
+        queued = len(opt._batch_queue)
+        second = opt.ask(n=1)[0]
+
+        assert queued == 2
+        assert len(opt._batch_queue) == 1
+        assert first.values != second.values
+
+    @pytest.mark.parametrize("broken", ["fit", "minimize"])
+    def test_a_search_goes_on_when_the_surrogate_or_its_maximiser_breaks(self, monkeypatch, broken):
+        def explode(*args, **kwargs):
+            raise RuntimeError("broken")
+
+        if broken == "fit":
+            monkeypatch.setattr(gp_module.GaussianProcessRegressor, "fit", explode)
+        else:
+            monkeypatch.setattr(gp_module, "_scipy_minimize", explode)
+        opt = build_optimizer("gp_mapping", _quadratic_space(), seed=3, n_init=3, max_trials=8)
+        opt.tell([result_of(s, _quadratic(s.values)) for s in opt.ask(n=3)])
+
+        (proposal,) = opt.ask(n=1)
+
+        assert set(proposal.values) == {"x", "y"}
+
+    def test_it_says_when_scikit_learn_is_missing(self, monkeypatch):
+        monkeypatch.setattr(gp_module, "_SKLEARN_AVAILABLE", False)
+
+        with pytest.raises(ImportError, match="scikit-learn is required"):
+            build_optimizer("gp_mapping", _quadratic_space())
 
 
 class TestGPMappingAdvancedKwargs:

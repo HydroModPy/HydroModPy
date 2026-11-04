@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import geopandas as gpd
 import numpy as np
 import pytest
-from shapely.geometry import LineString, MultiLineString, box
+from shapely.geometry import GeometryCollection, LineString, MultiLineString, Point, box
 
 from hydromodpy.calibration.config import validate_calib_output
 from hydromodpy.calibration.metrics.solver_extract import catchment_area_the_discharge_sums
@@ -20,6 +20,7 @@ from hydromodpy.calibration.observations.network_source import (
     UnresolvedObservedNetwork,
 )
 from hydromodpy.calibration.observations.observed_network import (
+    catchment_outline_mask,
     delineated_catchment_mask,
     observed_network_mask,
     resolve_minimal_network,
@@ -635,3 +636,60 @@ class TestTheExplicitFileStillResolves:
         assert resolved.source == "path"
         assert resolved.clipped is False
         assert resolved.path == str(path)
+
+
+# The refusals and the readers of the placement, on the shapes a trial leaves aside.
+
+
+def test_a_map_cannot_be_placed_on_a_run_with_no_projected_crs() -> None:
+    run_ctx = _run_ctx()
+    run_ctx.state.setup.geographic = SimpleNamespace()
+
+    with pytest.raises(ValueError, match="declares no projected CRS"):
+        observed_module._placeable(run_ctx, _diagonal())
+
+
+@pytest.mark.usefixtures("_fresh_unplaced_reports")
+def test_the_placement_memory_is_emptied_when_it_is_full(monkeypatch) -> None:
+    observed_module._UNPLACED_REPORTS["old"] = (0, 0, 0.0)
+    monkeypatch.setattr(observed_module, "_UNPLACED_REPORTS_MAX", 1)
+
+    vertices, connectivity = quad_mesh(N, N, cell_size=CELL)
+    network = _unclipped(LineString([(300.0, -30.0), (310.0, -30.0)]))
+    observed_network_mask(_run_ctx(), network, SimpleNamespace(vertices=vertices), connectivity)
+
+    assert "old" not in observed_module._UNPLACED_REPORTS
+    assert len(observed_module._UNPLACED_REPORTS) == 1
+
+
+def test_the_parts_no_cell_touches_are_every_line_of_a_nested_collection() -> None:
+    nested = GeometryCollection(
+        [Point(0, 0), MultiLineString([[(0, 0), (1, 0)], [(0, 1), (1, 1)]])]
+    )
+    observed = SimpleNamespace(crs=CRS, geometry=gpd.GeoDataFrame(geometry=[nested], crs=CRS))
+
+    parts = observed_module._unplaced_parts(observed, np.array([None]), CRS)
+
+    assert [part.wkt for part in parts] == ["LINESTRING (0 0, 1 0)", "LINESTRING (0 1, 1 1)"]
+
+
+def test_a_domain_outline_needs_a_file_with_a_crs(tmp_path) -> None:
+    shp = tmp_path / "outline.gpkg"
+    gpd.GeoDataFrame(geometry=[box(0, 0, 1, 1)]).to_file(shp)
+    run_ctx = SimpleNamespace(
+        state=SimpleNamespace(setup=SimpleNamespace(geographic=SimpleNamespace(watershed_shp=shp)))
+    )
+
+    assert observed_module._domain_outline(run_ctx, CRS) is None
+
+
+def test_the_catchment_outline_marks_the_cells_whose_centre_it_holds(tmp_path) -> None:
+    vertices, connectivity = quad_mesh(N, N, cell_size=CELL)
+    planar_mesh = SimpleNamespace(vertices=vertices)
+    delineated = _run_ctx_with_catchment(tmp_path, margin=0.0)
+    no_crs = _run_ctx_with_catchment(tmp_path, margin=0.0)
+    no_crs.state.setup.geographic.crs_project = None
+
+    assert catchment_outline_mask(delineated, planar_mesh, connectivity).all()
+    assert catchment_outline_mask(no_crs, planar_mesh, connectivity) is None
+    assert catchment_outline_mask(_run_ctx(), planar_mesh, connectivity) is None

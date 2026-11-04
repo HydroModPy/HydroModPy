@@ -103,16 +103,16 @@ def write_station_series(
 
     ``outputs`` are the outputs of the phase the run was promoted from. Left
     ``None``, the outputs of the calibration of the run are read, if it has one.
-    A gauge the mesh does not place is answered with the outlet series. A trial
-    may score it so, but the run does not store it under the name of the gauge,
-    where it would be scored as that gauge.
+    A gauge the mesh does not place is answered with the outlet series. That is
+    the series of ``[site] gauge``, the station of the catchment. Any other such
+    gauge is not stored under its name, where it would be scored as that gauge.
     """
     if outputs is None:
         calibration = ctx.cfg.calibration
         outputs = {} if calibration is None else calibration.outputs
     frames = []
     for (station, variable), result in series_at_the_stations(ctx, outputs).items():
-        if result.request_id == CATCHMENT:
+        if result.request_id == CATCHMENT and station != getattr(ctx.cfg.site, "gauge", None):
             logger.warning(
                 "Gauge %s is not placed on the mesh, so no series is written for it.", station
             )

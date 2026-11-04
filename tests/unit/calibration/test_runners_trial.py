@@ -1262,3 +1262,35 @@ def test_a_calibrated_factor_reaches_the_fork_the_frozen_file_and_the_replay(tmp
     assert frozen.flow.sinks_sources.recharge.factor == 1.5
     assert Flow(frozen.flow).sinks_sources["recharge"].values == pytest.approx(3e-3 / 86400.0)
     assert _trial_owns_its_recharge(base)
+
+
+@pytest.mark.usefixtures("_provider")
+def test_a_promotion_that_takes_another_id_than_the_reserved_one_is_refused(tmp_path) -> None:
+    def _other_id(state: PipelineState) -> None:
+        state.get("ctx").sim_id = "b" * 32
+
+    trial_ctx = _trial_ctx(tmp_path, [_Step("export", _other_id)])
+
+    with pytest.raises(RuntimeError, match=f"took the id {'b' * 32} instead of the reserved"):
+        promote_prepared_trial(trial_ctx, {"K": 2.0}, name="calage", sim_id="a" * 32)
+
+
+@pytest.mark.usefixtures("_provider")
+def test_an_attempt_that_cannot_be_closed_still_raises_the_error_of_the_pipeline(
+    tmp_path, monkeypatch, caplog
+) -> None:
+    def _boom(state: PipelineState) -> None:
+        raise RuntimeError("the solver did not converge")
+
+    def _cannot_write(run_dir, **kwargs) -> None:
+        raise OSError("disk full")
+
+    monkeypatch.setattr(trial_module, "finish_attempt", _cannot_write)
+    trial_ctx = _trial_ctx(tmp_path, [_Step("prepare_solver", _claim), _Step("export", _boom)])
+
+    with pytest.raises(StepError, match="did not converge"):
+        promote_prepared_trial(
+            trial_ctx, {"K": 2.0}, name="calage", sim_id="a" * 32, run_dir=_run_dir(tmp_path)
+        )
+
+    assert "Could not write the outcome of" in caplog.text

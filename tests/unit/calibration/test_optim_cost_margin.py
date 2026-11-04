@@ -733,6 +733,21 @@ def test_a_cost_that_reaches_zero_refuses_a_relative_margin() -> None:
         margin_intervals(trace)
 
 
+@pytest.mark.parametrize(
+    ("kwargs", "match"),
+    [({"margin": -0.1}, "must not be negative"), ({"kind": "ratio"}, "'relative' or 'absolute'")],
+)
+def test_a_margin_it_cannot_read_is_refused(kwargs, match) -> None:
+    with pytest.raises(ValueError, match=match):
+        margin_intervals(_SHARP, **kwargs)
+
+
+def test_a_parameter_with_no_finite_value_in_the_margin_has_no_interval() -> None:
+    trace = _trace([(float("nan"), 1.0), (5.0, 10.0)])
+
+    assert margin_intervals(trace, parameters=["K", "absent"]) == []
+
+
 def test_failed_trials_are_left_out() -> None:
     trace = _SHARP + _trace([(9.0, float("nan")), (10.0, float("inf"))])
 

@@ -7,7 +7,7 @@ import inspect
 import pytest
 
 from hydromodpy.calibration.config import CalibrationConfig
-from hydromodpy.calibration.runners import trial
+from hydromodpy.calibration.runners import contracts, trial
 from hydromodpy.calibration.runners.pipeline_evaluator import PipelineTrialEvaluator
 from hydromodpy.calibration.runners.verdict import water_budget_verdict
 from hydromodpy.simulation.planning.plan import WATER_BUDGET_METRIC
@@ -120,3 +120,15 @@ class TestTheTrialActsOnIt:
         assert "metrics=dict(metrics)" in rejected
         assert 'status="failed"' in rejected
         assert "error=verdict.message" in rejected
+
+
+def test_a_model_evaluator_is_refused_a_search_that_prepared_no_model() -> None:
+    with pytest.raises(ValueError, match="needs_prepared_model"):
+        PipelineTrialEvaluator(cfg=CalibrationConfig(), trial_ctx=None)
+
+
+def test_a_pipeline_provider_must_be_registered_before_it_is_asked_for(monkeypatch) -> None:
+    monkeypatch.setattr(contracts, "_provider", None)
+
+    with pytest.raises(RuntimeError, match="TrialPipelineProvider is not registered"):
+        contracts.get_trial_pipeline_provider()

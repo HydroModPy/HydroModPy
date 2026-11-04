@@ -6,8 +6,10 @@ import numpy as np
 import pytest
 import sklearn  # noqa: F401
 
+from hydromodpy.calibration.optim.adapters import da_mh_gp_adapter as da_module
 from hydromodpy.calibration.optim.engine import CalibrationEngine
 from hydromodpy.calibration.optim.optimizer import EvaluationResult, build_optimizer
+from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 from tests.unit.calibration._factories_search import make_space, result_of
 
 # From test_da_mh_gp_adapter.py
@@ -164,8 +166,11 @@ class TestDaMhGpChain:
         ({"sigma_noise": 0.0}, "sigma_noise must be > 0"),
         ({"full_mh_prob": 1.5}, "full_mh_prob"),
         ({"proposal_sigma": 0.0}, "proposal_sigma"),
+        ({"proposal_sigma": [1.0, 2.0, 3.0]}, "proposal_sigma must have length 2"),
+        ({"gp_alpha": 0.0}, "gp_alpha must be > 0"),
+        ({"prior_mean": [0.0, 0.0]}, "must both be set or both None"),
     ],
-    ids=["sigma_noise", "full_mh_prob", "proposal_sigma"],
+    ids=["sigma_noise", "full_mh_prob", "proposal_sigma", "sigma_length", "gp_alpha", "prior"],
 )
 def test_the_sampler_refuses_an_out_of_range_option(options, match):
     with pytest.raises(ValueError, match=match):
@@ -212,3 +217,90 @@ class TestDaMhGpAdvancedKwargs:
         opt._eval_cache[opt._cache_key(x)] = -1.234
         cached = opt._eval_cache[opt._cache_key(x + 1e-6)]
         assert cached == pytest.approx(-1.234)
+
+
+class TestDaMhGpInternals:
+    def test_a_normal_parameter_brings_its_prior_and_its_log_density(self):
+        space = ParameterSpace(
+            [CalibParameter(name=n, lower=-4.0, upper=4.0, sampling="normal") for n in "xy"]
+        )
+        opt = build_optimizer("da_mh_gp", space, seed=1)
+
+        # Mean 0 and std (8 / 6) on each axis, so x = 8 / 6 is one sigma away.
+        assert opt._log_prior(np.array([8.0 / 6.0, 0.0])) == pytest.approx(-0.5)
+
+    def test_a_fresh_sampler_has_no_surrogate_chain_or_best(self):
+        opt = build_optimizer("da_mh_gp", _quadratic_space(), seed=1)
+
+        assert opt._fit_gp() is None
+        assert opt._gp_mean(None, np.zeros(2)) == 0.0
+        assert opt.chain.shape == (0, 2)
+        assert opt.posterior_samples.size == 0
+        assert opt.best() is None
+
+    def test_a_point_outside_the_bounds_scores_minus_infinity_and_a_repeat_is_cached(self):
+        opt = build_optimizer("da_mh_gp", _quadratic_space(), seed=1, cache_decimals=3)
+        inside = np.array([0.5, 0.5])
+        opt._eval_cache[opt._cache_key(inside)] = -2.0
+
+        assert opt._evaluate_true(np.array([9.0, 0.0])) == -np.inf
+        assert opt._evaluate_true(inside) == -2.0
+
+    def test_the_bridge_refuses_a_submission_once_the_engine_aborted(self):
+        bridge = da_module._EngineBridge()
+        bridge.terminate()
+
+        with pytest.raises(RuntimeError, match="sampler aborted by engine"):
+            bridge.submit(np.zeros(2))
+
+    def test_it_says_when_scikit_learn_is_missing(self, monkeypatch):
+        monkeypatch.setattr(da_module, "_SKLEARN_AVAILABLE", False)
+
+        with pytest.raises(ImportError, match="scikit-learn is required"):
+            build_optimizer("da_mh_gp", _quadratic_space())
+
+    def test_a_chain_with_wide_proposals_stays_in_bounds_and_fills_its_length(self):
+        opt, _ = _fit(
+            chain_length=40,
+            n_init=4,
+            burn_in=0,
+            seed=3,
+            proposal_sigma=6.0,
+            full_mh_prob=0.5,
+            cache_decimals=4,
+        )
+
+        assert opt.chain.shape == (40, 2)
+        assert np.all(np.abs(opt.chain) <= 4.0)
+        assert opt._eval_cache
+        assert opt.best().metadata["posterior_mode"].keys() == {"x", "y"}
+        with pytest.raises(StopIteration, match="da_mh_gp exhausted"):
+            opt.suggest_next()
+
+    def test_a_run_whose_design_scores_nothing_ends_without_a_chain(self):
+        opt, _ = _fit(evaluator=lambda sugg: result_of(sugg, float("nan")), n_init=3, seed=0)
+
+        assert opt.chain.shape == (0, 2)
+        assert opt.converged()
+
+    def test_a_result_for_a_trial_nobody_asked_is_ignored(self):
+        opt, _ = _fit(chain_length=10, n_init=3, burn_in=0, seed=0)
+        stranger = EvaluationResult(trial_id=999, sim_id=None, cost=0.0, status="completed")
+        before = len(opt._results)
+
+        opt.tell([stranger])
+        opt._results.append(stranger)
+
+        assert len(opt._results) == before + 1
+        assert opt.best().trial_id != 999
+
+
+def test_without_a_chain_the_best_trial_is_the_cheapest_completed_one():
+    opt = build_optimizer("da_mh_gp", _quadratic_space(), seed=1)
+    opt._results = [
+        EvaluationResult(trial_id=1, sim_id=None, cost=3.0, status="completed"),
+        EvaluationResult(trial_id=2, sim_id=None, cost=2.0, status="completed"),
+        EvaluationResult(trial_id=3, sim_id=None, cost=0.1, status="failed"),
+    ]
+
+    assert opt.best().trial_id == 2

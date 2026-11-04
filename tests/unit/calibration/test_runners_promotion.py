@@ -35,6 +35,8 @@ from hydromodpy.calibration.runners.promotion import (
     promotion_name_check,
     prune_session,
     select_trials_to_promote,
+    stored_parameter_value,
+    trials_to_prune,
 )
 from hydromodpy.calibration.runners.session import calibration_case_name
 from hydromodpy.calibration.runners.trial import TrialContext
@@ -689,6 +691,21 @@ class TestAfterTheFact:
         with pytest.raises(CalibrationError, match="journals no trial 7"):
             promote_trial_from_session(tmp_path, "calage", 7)
 
+    def test_a_trial_that_did_not_complete_is_refused(self, tmp_path, recorder) -> None:
+        persistence = _session(tmp_path, costs={1: 0.9})
+        journal_trial(persistence, 2, status="crashed")
+        persistence.finalize_session(status="completed", best=None)
+
+        with pytest.raises(CalibrationError, match="trial 2 of calage is crashed, not completed"):
+            promote_trial_from_session(tmp_path, "calage", 2)
+
+    def test_a_session_that_kept_no_trial_has_nothing_to_prune(self, tmp_path) -> None:
+        make_session(tmp_path)
+
+        assert trials_to_prune(tmp_path, "calage") == []
+        with pytest.raises(CalibrationError, match="keep='all': the only policy is 'best'"):
+            trials_to_prune(tmp_path, "calage", keep="all")
+
     def test_a_kept_trial_takes_the_paired_run_when_it_is_free(self, tmp_path, recorder) -> None:
         persistence = _session(tmp_path, costs={1: 0.9, 2: 0.1})
         _promote(tmp_path, persistence, cfg=_cfg(save_runs="none"))
@@ -1059,3 +1076,69 @@ class TestATieOnTheCost:
         _point_best_if_better(tied, linked)
 
         assert tied.descriptor.best.cases[tied.case_id].sim_id == "s4"
+
+
+def test_the_series_are_read_for_the_outputs_it_is_given(monkeypatch) -> None:
+    seen = []
+    monkeypatch.setattr(
+        promotion_module,
+        "series_at_the_stations",
+        lambda ctx, outputs: seen.append(outputs) or {},
+    )
+    store = SimpleNamespace(write_timeseries_columns=lambda *args: pytest.fail("nothing to write"))
+
+    promotion_module.write_station_series(SimpleNamespace(), store=store, outputs={"q": "output"})
+
+    assert seen == [{"q": "output"}]
+
+
+@pytest.mark.parametrize(
+    ("raw", "value"),
+    [
+        ({"candidate_value": 2}, 2.0),
+        ({"value": 1, "transformed_value": 5}, 1.0),
+        ("3.5", 3.5),
+        (4, 4.0),
+    ],
+)
+def test_a_journaled_parameter_reads_as_its_physical_value(raw, value) -> None:
+    assert stored_parameter_value(raw) == value
+
+
+def test_a_journaled_parameter_without_a_value_is_refused() -> None:
+    with pytest.raises(KeyError, match="no value"):
+        stored_parameter_value({"targets": {}})
+
+
+@pytest.mark.parametrize(
+    ("payload", "parameter"),
+    [
+        (None, promotion_module.CalibratedParameter(name="K")),
+        (
+            {"targets": {"c": "flow.param.K.field.value"}},
+            promotion_module.CalibratedParameter(name="K"),
+        ),
+        (
+            {"targets": {"c": "flow.param.K.values_by_key.zone1.value"}},
+            promotion_module.CalibratedParameter(name="K", zone="zone1"),
+        ),
+        (
+            {"targets": {"c": "flow.param.K.values_by_key"}},
+            promotion_module.CalibratedParameter(name="K"),
+        ),
+        ({"targets": {"c": "transport.alpha"}}, promotion_module.CalibratedParameter(name="alpha")),
+    ],
+)
+def test_a_target_names_the_rows_a_parameter_sets(payload, parameter) -> None:
+    assert promotion_module._calibrated_parameter("K", payload) == parameter
+
+
+def test_a_phase_that_scored_nothing_promotes_nothing() -> None:
+    persistence = SimpleNamespace(held_trial=lambda phase: None)
+
+    assert (
+        promote_phase_best(
+            trial_ctx=None, persistence=persistence, phase="flow", override_paths={}, outputs=None
+        )
+        is None
+    )

@@ -20,6 +20,7 @@ from hydromodpy.calibration.config import (
     CalibNetworkExtent,
     CalibNetworkMap,
     CalibNetworkModel,
+    CalibNetworkVerdict,
     CalibObjectiveBlockDecl,
     CalibOutputCell,
     CalibOutputNetwork,
@@ -29,6 +30,7 @@ from hydromodpy.calibration.config import (
     CalibrationConfig,
     CalibrationProtocolDecl,
     CalibUncertaintyDecl,
+    _same_instant,
     apply_project_defaults,
     validate_calib_output,
 )
@@ -2250,3 +2252,50 @@ def test_the_window_of_the_recipe_leaves_out_the_validation_days(
 
 def test_without_a_run_window_the_spin_up_year_is_still_the_recipe_s() -> None:
     assert _same({"start": "2001-01-01"}, metrics_window=None) == {"window"}
+
+
+# -- branches of the validators that no other table reaches ------------------
+@pytest.mark.parametrize(
+    ("uncertainty", "said"),
+    [
+        ({"method": "multistart"}, "needs 'restarts'"),
+        ({"method": "linearized"}, "needs 'perturbation'"),
+        ({"method": "cost_profile", "perturbation": 0.01}, "only read by method='linearized'"),
+        ({"method": "cost_profile", "restarts": 2}, "only read by method='multistart'"),
+    ],
+)
+def test_an_uncertainty_option_goes_with_the_method_that_reads_it(uncertainty, said) -> None:
+    with pytest.raises(ValidationError, match=said):
+        CalibUncertaintyDecl.model_validate(uncertainty)
+
+
+def test_a_mismatch_of_integer_zero_stays_a_share_and_not_the_switch_off() -> None:
+    verdict = CalibNetworkVerdict.model_validate({"max_catchment_mismatch": 0})
+
+    assert repr(verdict.max_catchment_mismatch) == "0.0"
+
+
+def test_a_length_margin_of_the_section_is_refused_when_no_phase_scores_distances() -> None:
+    phases = [{"name": "sy", "parameters": ["K"]}]
+
+    with pytest.raises(ValidationError, match="network distance"):
+        _section(phases=phases, uncertainty={"cost_margin": "75 m"})
+    assert _section(phases=phases, uncertainty={"cost_margin": "5%"})
+
+
+def test_the_section_options_answer_for_a_search_without_phase() -> None:
+    cfg = _section(precision=0.02, method="nelder_mead", method_options={"xatol": 1e-3})
+
+    assert cfg.precision_for(None) == 0.02
+    assert cfg.method_options_for(None) == {"xatol": 1e-3}
+
+
+def test_a_date_that_no_calendar_reads_is_not_the_same_instant_as_any() -> None:
+    assert _same_instant("2000-01-01", "2000-01-01T00:00")
+    assert not _same_instant("2000-01-01", "not a date")
+
+
+def test_a_point_output_keeps_its_form_when_neither_it_nor_the_site_names_a_station() -> None:
+    output = {"support": "point", "variable": "discharge"}
+
+    assert _defaults({"outputs": {"q": output}}, gauge=None)["outputs"]["q"] == output

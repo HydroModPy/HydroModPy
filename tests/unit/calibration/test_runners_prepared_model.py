@@ -498,8 +498,13 @@ class TestTheModelIsBuiltAndNotSolved:
         assert calls == ["pre"]
         assert result.primary_model is model
 
+    @pytest.mark.parametrize(
+        "override_paths",
+        [{"K": "flow.param.K.field.value"}, ["flow.param.K.field.value"]],
+        ids=["by_name", "by_path"],
+    )
     def test_a_real_preparation_builds_the_model_and_sweeps_its_folder(
-        self, tmp_path, monkeypatch
+        self, tmp_path, monkeypatch, override_paths
     ) -> None:
         def no_solve(self, *args, **kwargs):
             raise AssertionError("the model was to be built, not solved")
@@ -509,7 +514,7 @@ class TestTheModelIsBuiltAndNotSolved:
         path.write_text(PROJECT_TOML, encoding="utf-8")
         monkeypatch.chdir(tmp_path)
         trial_ctx = prepare_trials(
-            path, override_paths={"K": "flow.param.K.field.value"}, parameter_space=_space()
+            path, override_paths=override_paths, parameter_space=_space()
         )
 
         with built_model(trial_ctx, {"K": 1e-5}) as ctx:

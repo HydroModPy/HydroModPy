@@ -198,6 +198,14 @@ class TestWhatItRefusesToInvent:
         assert outcome.status == "failed"
         assert math.isnan(outcome.cost)
 
+    def test_a_position_beyond_the_float_range_fails(self) -> None:
+        sliver = CalibParameter(name="sliver", lower=0.0, upper=1e-320)
+
+        outcome = _ask(_bowl(sliver), {"sliver": 1.0})
+
+        assert outcome.status == "failed"
+        assert "does not land anywhere" in str(outcome.error)
+
     def test_a_mean_uses_finite_terms_without_overflowing_the_sum(self) -> None:
         first = CalibParameter(name="first", lower=0.0, upper=1e-154)
         second = CalibParameter(name="second", lower=0.0, upper=1e-154)

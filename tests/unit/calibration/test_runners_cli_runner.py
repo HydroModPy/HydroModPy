@@ -17,7 +17,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, NoReturn
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import numpy as np
 import pytest
@@ -31,9 +31,10 @@ from hydromodpy.calibration.evaluation.port import TrialOutcome, TrialRequest
 from hydromodpy.calibration.metrics import composite
 from hydromodpy.calibration.metrics.solver_extract import _scoring_options
 from hydromodpy.calibration.optim import engine as engine_mod
+from hydromodpy.calibration.optim.adapters.bisection_adapter import BisectionAdapter
 from hydromodpy.calibration.optim.cache import ParamsHashCache, context_fingerprints
 from hydromodpy.calibration.optim.cache import params_hash as params_hash__resumed_session
-from hydromodpy.calibration.optim.cost_margin import ParameterInterval
+from hydromodpy.calibration.optim.cost_margin import IntervalWidth, ParameterInterval
 from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 from hydromodpy.calibration.persistence import DEFAULT_PHASE, CalibrationPersistence, PhaseContext
@@ -54,6 +55,7 @@ from hydromodpy.calibration.runners.cli_runner import (
     attach_a_linearized_width,
     describe_dry_run,
     load_toml_calibration,
+    parameter_widths,
     promote_and_close,
     refuse_a_phase_another_cost_scored,
     run_calibration_cli,
@@ -63,6 +65,7 @@ from hydromodpy.calibration.runners.cli_runner import (
 )
 from hydromodpy.calibration.runners.failure_watch import EveryTrialFailedError
 from hydromodpy.calibration.runners.kept_solves import KeptSolve, TrialSolveRetention
+from hydromodpy.calibration.runners.restarts import RestartSpread
 from hydromodpy.calibration.runners.session import freeze_session_config, search_windows
 from hydromodpy.calibration.runners.staged_runner import (
     _phase_config,
@@ -89,6 +92,7 @@ from hydromodpy.results.metric_rule import PeriodWindow
 from hydromodpy.results.outcome import effective_status, outcome_path, read_outcome, write_outcome
 from hydromodpy.results.session.descriptor import (
     ParameterWidth,
+    RestartRange,
     list_session_dirs,
     read_session,
     write_session,
@@ -3821,3 +3825,338 @@ def test_a_balanced_search_starts_its_outer_search_on_the_structure() -> None:
     assert first.values["Sy"] == pytest.approx(0.2)
     # Seven sweep points, then 2/3 of a decade halved to log10(1.1): five more.
     assert search.solves_per_point == 12
+
+
+def test_a_width_keeps_the_pairs_it_belongs_to_and_the_restarts_it_spans() -> None:
+    report = SimpleNamespace(
+        best_parameters={"K": 1e-5, "Sy": 0.1, "R": 0.3},
+        parameter_uncertainty=[SimpleNamespace(parameter="K", sigma=2e-6)],
+        extra={"parameter_correlations": [("K", "Sy", 0.9), ("Sy", "R", -0.4)]},
+    )
+    spread = [
+        RestartSpread(parameter="Sy", best=0.1, lowest=0.08, highest=0.12, values=(0.08, 0.12))
+    ]
+
+    assert parameter_widths(report, spread) == {
+        "K": ParameterWidth(sigma=2e-6, correlated={"Sy": 0.9}),
+        "Sy": ParameterWidth(
+            restarts=RestartRange(lowest=0.08, highest=0.12, values=[0.08, 0.12]),
+            correlated={"K": 0.9, "R": -0.4},
+        ),
+        "R": ParameterWidth(correlated={"Sy": -0.4}),
+    }
+
+
+def _width(margin, kind="absolute", on_distances=False) -> IntervalWidth:
+    return IntervalWidth(margin=margin, kind=kind, source="section", on_distances=on_distances)
+
+
+@pytest.mark.parametrize(
+    ("width", "trace", "message"),
+    [
+        (_width(None), _SHARP, "no trial measured the mesh"),
+        (_width(0.05, "relative", on_distances=True), _SHARP, "a fraction has no meaning"),
+        (_width(-1.0), _SHARP, "margin must not be negative"),
+    ],
+)
+def test_a_width_that_cannot_be_read_gives_no_interval_and_says_why(
+    width, trace, message, caplog
+) -> None:
+    with caplog.at_level("WARNING"):
+        assert _margin_intervals_or_none(trace, ["K"], _SPACE, width) == []
+
+    assert message in caplog.text
+
+
+@pytest.mark.parametrize(("root", "expected"), [(None, []), ("interval", ["interval"])])
+def test_a_root_search_reads_its_interval_on_its_own_curve(root, expected) -> None:
+    search = Mock(spec=BisectionAdapter)
+    search.root_interval.return_value = root
+
+    found = _margin_intervals_or_none(_SHARP, ["K"], _SPACE, _width(25.0), search)
+
+    assert found == expected
+    search.root_interval.assert_called_once_with(margin=25.0, kind="absolute")
+
+
+def test_the_mesh_cell_is_the_first_finite_one_a_trial_measured() -> None:
+    def trial(components):
+        return EvaluationResult(trial_id=1, sim_id=None, cost=1.0, components=components)
+
+    results = [
+        None,
+        trial({"q.cost": 1.0}),
+        trial({"net.cell_spacing_m": float("nan")}),
+        trial({"net.cell_spacing_m": 30.0}),
+        trial({"net.cell_spacing_m": 50.0}),
+    ]
+    measured = cli_runner._width_read_off_the_trials(_width(None), results[3], results)
+
+    assert cli_runner._cell_measured_by_the_criterion(results[:3]) is None
+    assert cli_runner._cell_measured_by_the_criterion(results) == 30.0
+    assert measured.margin == 30.0
+
+
+@pytest.mark.parametrize(
+    ("found", "reads"),
+    [
+        ({"q.r_optim": 1.0}, [("q", "")]),
+        ({"q.n_bounds_scored": 1.0}, []),
+        (
+            {
+                "q.n_bounds_scored": 2.0,
+                "q.r_optim_minimal": 1.0,
+                "q.r_optim_maximal": 1.0,
+                "q.weight_maximal": 0.0,
+            },
+            [("q_minimal", "_minimal")],
+        ),
+    ],
+)
+def test_the_r_optim_an_output_reads_follows_its_bounds(found, reads) -> None:
+    assert cli_runner._r_optim_reads("q", found) == reads
+
+
+def _line_capture(observed):
+    """Return a capture whose simulation is ``K + j * Sy`` at the j-th observation."""
+
+    def capture(*args, **kwargs):
+        captured: dict = {}
+
+        def metric_fn(trial_ctx, *, objective=None, variable=None):
+            lever = np.arange(len(observed))
+            captured["simulated"] = trial_ctx["K"] + lever * trial_ctx["Sy"]
+            captured["observed"] = np.array(observed)
+            return 0.0, {}
+
+        return metric_fn, captured
+
+    return capture
+
+
+class _InProcessPool:
+    """A pool whose workers are this process, so the patched trial runner is the one they use."""
+
+    def __init__(self, evaluator_class, options, *, width):
+        self.evaluator = evaluator_class(**options)
+        self.trial_series_sink = self.evaluator.trial_series_sink
+        self.evaluate = self.evaluator.evaluate
+        self.closed = False
+
+    def close(self):
+        self.closed = True
+
+
+def _attach(report, parallel=1, observed=(2.1, 2.4, 2.9)):
+    return attach_a_linearized_width(
+        report,
+        cfg=SimpleNamespace(**{**vars(CFG), "parallel": parallel}),
+        trial_ctx=bare_trial_ctx(),
+        space=SimpleNamespace(names=("K", "Sy")),
+        perturbation=0.01,
+    )
+
+
+@pytest.mark.parametrize("parallel", [1, 3])
+def test_the_width_of_a_line_fit_is_its_first_order_covariance(monkeypatch, parallel) -> None:
+    monkeypatch.setattr(composite, "build_paired_vector_capture", _line_capture((2.1, 2.4, 2.9)))
+    monkeypatch.setattr(
+        trial, "run_trial_light", _runs(lambda values: False, scores_before_failing=False)
+    )
+    monkeypatch.setattr(cli_runner, "TrialWorkerPool", _InProcessPool)
+    report = SimpleNamespace(best_parameters=dict(ANSWER), parameter_uncertainty=None)
+    with patch.object(
+        cli_runner, "replace", lambda item, **kw: SimpleNamespace(**{**vars(item), **kw})
+    ):
+        widths = _attach(report, parallel).parameter_uncertainty
+
+    # J = [[1, 0], [1, 1], [1, 2]], residuals (-0.1, 0.1, 0.1): s2 = 0.03, (J'J)^-1 = [[5, -3], [-3, 3]] / 6.
+    assert [item.parameter for item in widths] == ["K", "Sy"]
+    assert [item.sigma for item in widths] == pytest.approx(
+        [math.sqrt(0.025), math.sqrt(0.015)], rel=1e-4
+    )
+    assert widths[0].correlations["Sy"] == pytest.approx(-3 / math.sqrt(15), rel=1e-4)
+
+
+@pytest.mark.parametrize(
+    ("observed", "answer", "message"),
+    [
+        ((2.1, 2.4), ANSWER, "degree(s) of freedom|leave 0"),
+        ((2.1, 2.4, 2.9), {}, "No candidate was scored"),
+    ],
+)
+def test_a_fit_without_freedom_or_without_an_answer_keeps_the_report(
+    monkeypatch, caplog, observed, answer, message
+) -> None:
+    monkeypatch.setattr(composite, "build_paired_vector_capture", _line_capture(observed))
+    monkeypatch.setattr(
+        trial, "run_trial_light", _runs(lambda values: False, scores_before_failing=False)
+    )
+    report = SimpleNamespace(best_parameters=dict(answer), parameter_uncertainty=None)
+
+    with caplog.at_level(logging.WARNING):
+        assert _attach(report) is report
+
+    assert __import__("re").search(message, caplog.text)
+
+
+def test_a_document_that_cannot_carry_a_width_keeps_the_report(monkeypatch, caplog) -> None:
+    def refuse(**options):
+        raise cli_runner.UncertaintyNotAvailableError("the outputs name no station")
+
+    monkeypatch.setattr(cli_runner, "_DerivativeEvaluator", refuse)
+    report = SimpleNamespace(best_parameters=dict(ANSWER), parameter_uncertainty=None)
+
+    with caplog.at_level(logging.WARNING):
+        assert _attach(report) is report
+
+    assert "No width is reported: the outputs name no station" in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("raw", "window"),
+    [(None, None), ({"metrics": "x"}, None), ({"metrics": {"window": "w"}}, "w")],
+)
+def test_the_metrics_window_is_read_off_the_document(raw, window) -> None:
+    assert cli_runner._metrics_window_of(raw) == window
+
+
+def test_a_search_that_scored_nothing_has_failed() -> None:
+    assert cli_runner.search_status(SimpleNamespace(history=[])) == "failed"
+
+
+def _bisection(**records) -> Mock:
+    search = Mock(spec=BisectionAdapter)
+    search.roots = records.pop("roots", 1)
+    search.bracket_record.return_value = records.get("bracket")
+    search.roots_record.return_value = records.get("roots_record")
+    search.root_outside_bounds.return_value = records.get("outside")
+    return search
+
+
+@pytest.mark.parametrize(
+    ("records", "expected"),
+    [
+        ({}, None),
+        ({"bracket": {"low": 1}}, {"bracket": {"low": 1}}),
+        (
+            {"roots_record": {"value": 2}, "outside": "K*_maximal"},
+            {"roots": {"value": 2}, "root_outside_bounds": "K*_maximal"},
+        ),
+    ],
+)
+def test_a_root_search_records_what_it_proved(records, expected) -> None:
+    session = SimpleNamespace(optimizer=_bisection(**records))
+
+    assert cli_runner._root_search_record(session) == expected
+    assert cli_runner._root_search_record(SimpleNamespace(optimizer=object())) is None
+
+
+def test_a_search_that_closed_two_roots_says_it_reports_no_interval(caplog) -> None:
+    two, one = (
+        SimpleNamespace(optimizer=_bisection(roots=2)),
+        SimpleNamespace(optimizer=_bisection()),
+    )
+
+    with caplog.at_level("INFO"):
+        assert (cli_runner._closes_two_roots(one), cli_runner._closes_two_roots(two)) == (
+            False,
+            True,
+        )
+
+    assert caplog.text.count("No interval of trials is reported") == 1
+
+
+def test_the_search_outcome_logs_the_two_roots_it_closed(monkeypatch) -> None:
+    seen = []
+    monkeypatch.setattr(cli_runner, "_log_the_two_roots", seen.append)
+    session = SimpleNamespace(
+        optimizer=_bisection(roots_record={"delta_log10": 0.1}),
+        stop_state="rule_met",
+        converged=True,
+        stopping_rule="tol",
+        max_trials=9,
+        extension=0,
+        history=[],
+    )
+
+    extra = cli_runner._search_outcome_extra(session)
+
+    assert extra["roots"] == {"delta_log10": 0.1}
+    assert seen == [{"delta_log10": 0.1}]
+
+
+def test_the_scratch_of_a_session_is_kept_on_demand_and_a_failed_cleanup_is_only_logged(
+    monkeypatch, caplog
+) -> None:
+    from hydromodpy.spatial.geographic import preprocessing_cleanup
+
+    calls = []
+
+    def cleanup(geographic, *, keep):
+        calls.append((geographic, keep))
+        if len(calls) == 2:
+            raise OSError("busy")
+
+    monkeypatch.setattr(preprocessing_cleanup, "cleanup_stable_folder", cleanup)
+    monkeypatch.setattr(cli_runner, "keep_trial_scratch", lambda: False)
+
+    def trial_ctx(write):
+        setup = SimpleNamespace(geographic="geo")
+        cfg = SimpleNamespace(geographic=SimpleNamespace(write_intermediates=write))
+        return SimpleNamespace(ctx=SimpleNamespace(setup=setup), base_cfg=cfg)
+
+    cli_runner.release_session_scratch(trial_ctx(True))
+    with caplog.at_level("WARNING"):
+        cli_runner.release_session_scratch(trial_ctx(False))
+
+    assert calls == [("geo", True), ("geo", False)]
+    assert "Could not remove the calibration session scratch" in caplog.text
+
+
+def test_a_phase_whose_trials_carry_no_block_cost_has_no_fractions() -> None:
+    blocks = [SimpleNamespace(name="a", weight=1.0), SimpleNamespace(name="b", weight=1.0)]
+    cfg = SimpleNamespace(objective_blocks=blocks)
+    done = EvaluationResult(trial_id=1, sim_id=None, cost=1.0, components={})
+
+    assert cli_runner._phase_cost_block_fractions(cfg, [done], done) is None
+
+
+def test_a_default_the_project_refuses_is_reported_with_the_file(monkeypatch, tmp_path) -> None:
+    def refuse(table, **kwargs):
+        raise ConfigError("the gauge is unknown")
+
+    monkeypatch.setattr("hydromodpy.calibration.config.apply_project_defaults", refuse)
+    path = tmp_path / "calib.toml"
+
+    with pytest.raises(ConfigError, match=f"^{path}: the gauge is unknown"):
+        cli_runner._with_project_defaults({"calibration": {}}, path)
+
+
+def test_a_name_the_project_does_not_carry_stops_the_load_and_any_other_failure_does_not(
+    monkeypatch, tmp_path
+) -> None:
+    from hydromodpy.calibration.parameter_resolution import UnresolvedParameterName
+    from hydromodpy.core.config_kit import root_config_protocol
+
+    class Provider:
+        def __init__(self, error):
+            self.error = error
+
+        def from_toml(self, path):
+            raise self.error
+
+    cfg = SimpleNamespace(parameters={"K": object()})
+    cli_runner._resolve_parameter_names(SimpleNamespace(parameters={}), tmp_path)
+    monkeypatch.setattr(
+        root_config_protocol, "get_root_config_provider", lambda: Provider(OSError("no data"))
+    )
+    cli_runner._resolve_parameter_names(cfg, tmp_path)
+    monkeypatch.setattr(
+        root_config_protocol,
+        "get_root_config_provider",
+        lambda: Provider(UnresolvedParameterName("no such name")),
+    )
+
+    with pytest.raises(UnresolvedParameterName, match="no such name"):
+        cli_runner._resolve_parameter_names(cfg, tmp_path)
