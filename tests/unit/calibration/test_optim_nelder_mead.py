@@ -428,6 +428,46 @@ def test_the_first_step_proposes_the_vertices_a_call_is_left_for() -> None:
     assert [p.key[2] for p in run.propose(10)] == [0, 1]
 
 
+def _roles_proposed_after_the_vertices(simplex, costs, width=10, fxr=None, **options):
+    """Give the vertex costs, then the reflection cost, and list what is proposed next."""
+    run = SpeculativeNelderMead(simplex[0], initial_simplex=np.array(simplex), **options)
+    for cost in costs:
+        run.receive(run.propose(1)[0].key, cost)
+    if fxr is not None:
+        run.receive(run.propose(1)[0].key, fxr)
+    return [p.key[1] for p in run.propose(width)]
+
+
+@pytest.mark.parametrize(
+    ("maxfev", "roles"),
+    [
+        (3, ["reflection"]),
+        (4, ["reflection", "inside_contraction", "expansion", "outside_contraction"]),
+        (5, ["reflection", "inside_contraction", "expansion", "outside_contraction", "shrink"]),
+    ],
+)
+def test_a_candidate_whose_call_the_budget_would_refuse_is_not_proposed(maxfev, roles) -> None:
+    # One dimension, two calls spent: the reflection needs 1 call, the contractions and the
+    # expansion 2, the shrink point 3.
+    assert _roles_proposed_after_the_vertices([[0.0], [1.0]], [0.0, 10.0], maxfev=maxfev) == roles
+
+
+@pytest.mark.parametrize(
+    ("fxr", "roles"),
+    [
+        (-1.0, ["expansion"]),
+        (2.0, ["outside_contraction", "shrink", "shrink"]),
+        (7.0, ["inside_contraction", "shrink", "shrink"]),
+    ],
+    ids=["beats_the_best", "outside_contraction", "inside_contraction"],
+)
+def test_the_reflection_value_rules_out_the_candidates_it_makes_useless(fxr, roles) -> None:
+    # Vertex costs 0, 1 and 5: the reflection beats the best under 0, is an outside
+    # contraction case from 1 to 5, and an inside one from 5.
+    simplex = [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]]
+    assert _roles_proposed_after_the_vertices(simplex, [0.0, 1.0, 5.0], fxr=fxr) == roles
+
+
 # --------------------------------------------------------------------------- #
 # The adapter against SciPy
 # --------------------------------------------------------------------------- #
