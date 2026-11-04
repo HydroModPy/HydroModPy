@@ -2119,7 +2119,7 @@ class CalibPhaseDecl(HydroModelBase):
         "score the point there. The phase moves one conductivity in log space, walked by a "
         "root search at the precision of the phase, and at least one other parameter, "
         "walked by its method, and it scores distance_mean. max_trials counts the points "
-        "of that method, and each one costs a whole root search, about fifteen solves. The "
+        "of that method, and each one costs a whole root search, about 24 solves. The "
         "report of a balanced search keeps no roots record and no Delta.",
     )
     freeze_on_success: Annotated[bool, Profile.USER] = Field(

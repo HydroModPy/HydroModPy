@@ -65,6 +65,9 @@ Each release section includes the following standard categories:
 - A worker that dies marks its trial `crashed`, and the search goes on with a new worker. A stuck `mf6` is killed with its worker.
 - A stop (Ctrl-C, SIGTERM) of a search at `parallel` above 1 now ends the solves in flight at once. Without it, the workers of the previous change, which have their own session, made the stop wait for the longest trial.
 - The runs of a linearized width no longer enter the retention of the solves a promotion may keep. They were ranked with the trials at cost 0.0, so one could push the Nth best trial out of a `save_runs = "best_n"` search.
+- A balanced evaluation now answers each point with the trial nearest the root of J. It took the end of the final bracket with the lowest `distance_mean`, which could sit on the far side of a step of J.
+- The warning and the recap say that a value reached a search bound only when the value is on it. A value inside its bounds whose range of equal costs reaches one now says so in those words.
+- `--optimizer scipy_de` of the `groundwater_1d`, `recession_brutsaert` and `reservoir` validation cases runs again.
 
 ### Changed
 
@@ -112,6 +115,7 @@ Numbers: none.
 - With `parallel` above 1, the derivatives of `uncertainty.method = "linearized"` (one run per parameter, plus the reference) run side by side in workers that last for these runs only.
 - `scipy_de` now accepts `parallel` above 1 and `hmp calibrate --dry-run` no longer says it proposes one trial at a time. From a width of 2 it scores a whole generation from the one before it (`updating = "deferred"`). Its path differs from the one it follows at `parallel = 1`, which is unchanged. For the same number of evaluations it reaches a higher cost (see Numbers), and it runs the trials of a generation side by side.
 - With `parallel` above 1, Optuna's `tpe` sampler counts the trials in flight as the worst cost so far (`constant_liar`), so the points of one batch do not land on each other.
+- `validation_cases/calibration/shared/standalone.py` holds the driver and the command line of the three standalone calibration cases, and the hillslope recession case calls the recession law of `recession_brutsaert`. Their results do not change.
 
 ### Numbers
 
@@ -130,6 +134,10 @@ None. No metric value changes.
 - At `parallel = 1` nothing moves, to the last digit: the candidates and costs of `scipy_de` and the Jacobian are equal to those of the previous build (checked on a toy cost).
 - `scipy_de` at a width of 4 against a width of 1, 30 seeds, population 10 times the number of parameters, median of the best cost at the same number of evaluations. 4 parameters on a narrow ridge: 0.0057 against 0.0041 at 400 evaluations, 5.5e-5 against 1.2e-5 at 1200. Rosenbrock on 3 parameters: 0.38 against 0.43 at 400, 4.7e-4 against 7.9e-5 at 1200. So the side by side path costs up to 1.5 to 5 times more evaluations to reach the same late precision, and wins when the solves dominate and `parallel` is 2 or more.
 - Optuna `tpe` with `constant_liar`, 40 seeds, 64 evaluations, batches of the width, median of the best cost. 4 parameters on a ridge: 0.052 against 0.040 at width 2 (22 wins of 40 for the lie), 0.081 against 0.060 at width 4 (23 of 40), 0.095 against 0.051 at width 8 (26 of 40). Rosenbrock on 3 parameters: 3.7 against 3.8 at width 2 (23 of 40), 4.8 against 3.0 at width 4 (27 of 40), 5.7 against 3.6 at width 8 (29 of 40). Neutral at a width of 2, better from 4.
+- Balanced evaluation on the thickness of the Nancon, `D_optim` told at 10, 17.3, 30, 52 and 90 m: 136.96, 137.20, 102.97, 108.30, 111.38 m before, 141.76, 171.29, 104.07, 109.50, 111.38 m after. The best stays 30 m, with K from 7.891e-5 to 7.966e-5 m/s. A plain bisection does not move, K and cost equal to the last digit.
+- The Nancon on two bounds, BD Topage. At a visible flow of 0.5, 1 and 2 L/s, K = 1.19e-5, 7.68e-6 and 3.98e-6 m/s, roots 1.21, 1.47 and 1.87 decades apart.
+- K and Sy together on two maps: a twin finds K to a few per cent and not Sy, and on the Nancon the roots meet at K = 5.0e-6 m/s and Sy = 0.0033, with NSE at 0.64 against 0.93.
+- The 12.9 per cent of D4 on the Nancon comes from one seepage cell that dries between K = 6.895e-5 and 6.910e-5 m/s, and with it a reach of 37 cells absent from the map.
 
 ### Removed
 

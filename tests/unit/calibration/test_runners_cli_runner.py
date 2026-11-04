@@ -3603,14 +3603,15 @@ class TestBoundWarning:
         assert "lower search bound" in caplog.text
         assert "0.42" in caplog.text
 
-    def test_upper_bound_is_named_too(self, caplog) -> None:
+    def test_a_value_inside_its_bounds_is_not_said_to_have_reached_one(self, caplog) -> None:
         with caplog.at_level(logging.WARNING):
             _log_parameter_interval(
                 _interval(reaches_upper=True),
                 result_of(ParamSuggestion(trial_id=0, values={}), 0.123),
             )
 
-        assert "upper search bound" in caplog.text
+        assert "Sy = 0.005: the trials within 0.1 of the best run to the upper" in caplog.text
+        assert "reached" not in caplog.text
 
     def test_stays_informational_inside_the_interval(self, caplog) -> None:
         with caplog.at_level(logging.INFO):

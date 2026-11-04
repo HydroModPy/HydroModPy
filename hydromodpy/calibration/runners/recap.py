@@ -24,6 +24,7 @@ from hydromodpy.calibration.criteria.registry import NETWORK_ESTIMATORS
 from hydromodpy.calibration.criteria.series import HIGHER_IS_BETTER
 from hydromodpy.calibration.report import (
     NO_OTHER_TRIAL,
+    interval_best_is_on_a_bound,
     interval_is_degenerate,
     samples_text,
     scored_entry,
@@ -201,7 +202,11 @@ def result_lines(result: Any) -> list[str]:
         if interval is not None and (
             interval["reaches_lower_bound"] or interval["reaches_upper_bound"]
         ):
-            line += "  -- reached the search bound"
+            line += (
+                "  -- reached the search bound"
+                if interval_best_is_on_a_bound(interval)
+                else "  -- its range reaches the search bound"
+            )
         lines.append(line)
 
     best_cost = getattr(result, "best_cost", None)

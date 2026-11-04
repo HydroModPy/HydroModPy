@@ -9,6 +9,7 @@ import math
 
 import pytest
 
+from tests.validation.calibration.helpers import best_values
 from tests.validation.helpers import assert_metric_below
 from validation_cases.calibration.recession_brutsaert.experiment import (
     BRUTSAERT_RECESSION_CASE,
@@ -18,15 +19,6 @@ from validation_cases.calibration.recession_brutsaert.experiment import (
 NOT_APPLICABLE = {
     "*": "The forward model is the closed-form Brutsaert-Nieber recession evaluated in NumPy; no HydroModPy groundwater solver runs. The test checks the calibration engine only.",
 }
-
-
-def _best_values(session) -> dict[str, float]:
-    completed = [r for r in session.history if r.status == "completed"]
-    assert completed, "calibration produced no completed trials"
-    best = min(completed, key=lambda r: r.cost)
-    values = best.metadata.get("values") if best.metadata else None
-    assert values, "evaluator did not stash values in metadata"
-    return dict(values)
 
 
 @pytest.mark.validation
@@ -39,7 +31,7 @@ def test_recession_brutsaert_nelder_mead_recovers_truth() -> None:
     )
     session = engine.run()
 
-    best = _best_values(session)
+    best = best_values(session)
     truth = BRUTSAERT_RECESSION_CASE.truth
     assert math.isfinite(session.best.cost)
     # a is log-transformed, b is linear

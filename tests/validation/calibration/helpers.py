@@ -403,6 +403,16 @@ def trial_metrics(report: Any, k_value: float) -> dict[str, float]:
     raise AssertionError(f"no trial at K = {k_value!r} among {len(rows)} trials.")
 
 
+def best_values(session: Any) -> dict[str, float]:
+    """Return the parameters of the best completed trial of a standalone experiment."""
+    completed = [r for r in session.history if r.status == "completed"]
+    assert completed, "calibration produced no completed trials"
+    best = min(completed, key=lambda r: r.cost)
+    values = best.metadata.get("values") if best.metadata else None
+    assert values, "evaluator did not stash values in metadata"
+    return dict(values)
+
+
 def network_metric(metrics: Mapping[str, float], key: str) -> float:
     """Return one component of the network output from what a trial published."""
     return float(metrics[f"{NETWORK_OUTPUT}.{key}"])

@@ -109,6 +109,8 @@ INLINE_ROWS: frozenset[str] = frozenset(
         "k_k_true_k_true_at_the_returned_trial",
         "twin_stream_network_calibration_under_heads_mf6__d_optim_at_the_returned_trial",
         "twin_stream_network_calibration_under_heads_mf6__d_sat_m_of_the_returned_trial_over_the_truth_run",
+        "twin_k_and_sy_on_two_maps_mf6_comb_basin_monthly_recharge_truth_k_6e_6_and_sy_0_05__"
+        "j_on_each_map_at_the_true_k_for_sy_from_0_025_to_0_1",
         "twin_stream_network_calibration_mf6__k_optim_m_s_k_over_r_t_over_r_m_t_optim_m2_s_"
         "against_k_r_mean_m_s_and_d_sat_m_of_the_returned_trial",
         # Soil reservoir kernel, asserted in tests/unit/physics/.
@@ -259,7 +261,7 @@ def test_classification_partitions_all_loadable_rows() -> None:
     """INLINE, CASE_TOML and UNUSED partition exactly the loadable rows."""
     classified = INLINE_ROWS | CASE_TOML_ROWS | UNUSED_ROWS
     loadable = set(TOLERANCES)
-    assert len(loadable) == 85, sorted(loadable)
+    assert len(loadable) == 86, sorted(loadable)
     missing = loadable - classified
     extra = classified - loadable
     assert not missing, f"loadable rows with no classification: {sorted(missing)}"

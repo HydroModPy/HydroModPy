@@ -642,6 +642,15 @@ def interval_is_degenerate(interval: Mapping[str, Any]) -> bool:
     return float(interval["lower"]) == float(interval["upper"])
 
 
+def interval_best_is_on_a_bound(interval: Mapping[str, Any]) -> bool:
+    """Whether the value itself sits on a search bound, not only the range around it."""
+    best = float(interval["best"])
+    return bool(
+        (interval["reaches_lower_bound"] and best <= float(interval["lower"]))
+        or (interval["reaches_upper_bound"] and best >= float(interval["upper"]))
+    )
+
+
 def promotion_failures(result: Any) -> list[str]:
     """Return the promotions a finished calibration could not write, one line each.
 
@@ -691,6 +700,7 @@ __all__ = (
     "FrozenParameter",
     "PhaseRun",
     "SessionReportData",
+    "interval_best_is_on_a_bound",
     "interval_is_degenerate",
     "load_session_report_data",
     "promotion_failures",

@@ -1552,6 +1552,22 @@ def test_each_point_is_scored_at_its_root_and_the_answer_is_the_lowest_root() ->
     assert search.root_outside_bounds() is None
 
 
+def test_a_balanced_point_answers_with_the_trial_nearest_its_root() -> None:
+    """J steps from +8 to -0.8 at K = 200, and D_optim is lower on the far side of the step."""
+    search = _balanced()
+
+    def evaluate(sugg: ParamSuggestion) -> EvaluationResult:
+        below = sugg.values["K"] < 200.0
+        return result_of(
+            sugg, 102.97 if below else 104.07, components={"net.J_signed": 8.0 if below else -0.8}
+        )
+
+    run_engine(BALANCED_SPACE, search, evaluate, 3)
+
+    assert [answer.cost for answer in search.answers] == [104.07] * 3
+    assert [answer.components["net.J_signed"] for answer in search.answers] == [-0.8] * 3
+
+
 def test_a_balanced_root_outside_the_bounds_is_named() -> None:
     search, seen = _balanced(points=2), {}
     session = run_engine(BALANCED_SPACE, search, _structure({1.0: 100.0, 3.0: 5.0e5}, seen), 2)

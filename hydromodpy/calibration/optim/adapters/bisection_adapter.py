@@ -838,18 +838,17 @@ class BisectionAdapter:
     def best(self) -> EvaluationResult | None:
         """Return the evaluated trial the search answers with.
 
-        One root: the trial closest to the root, inside the bracket. The cost
-        carries ``abs`` of the residual, so the lowest cost is the trial nearest
-        zero. What is returned is a point that was really evaluated, never the
-        middle of the last interval: every quantity the method publishes beside
-        the value has to come from a real solve.
+        One root: the trial closest to the root, inside the bracket, read on the
+        residual and not on the cost. What is returned is a point that was really
+        evaluated, never the middle of the last interval: every quantity the method
+        publishes beside the value has to come from a real solve.
 
         The bracket is where the root is, so the answer is taken inside it.
         The residual steps rather than slides, so two trials often share one
         ``abs(J)`` to the last digit, and ``min`` then returned the first one
         evaluated, which can sit outside the final bracket: on the Nancon,
         trial 13 tied with trial 15 and was returned 0.6 % outside
-        [2.0783e-4, 2.0908e-4]. Among trials inside the bracket the lowest cost
+        [2.0783e-4, 2.0908e-4]. Among trials inside the bracket the lowest ``abs(J)``
         wins, and a tie goes to the trial nearest its middle, the best estimate
         of the root the search holds. A trial outside is returned only when no
         completed trial lies inside, which happens when a rejected trial set an
@@ -876,8 +875,8 @@ class BisectionAdapter:
         bracket = self.bracket
         inside = [result for result in valid if self._inside(result.trial_id, bracket)]
         pool = inside or valid
-        lowest = min(result.cost for result in pool)
-        tied = [result for result in pool if _same_cost(result.cost, lowest)]
+        lowest = min(self._gap_to_the_root(result) for result in pool)
+        tied = [result for result in pool if _same_cost(self._gap_to_the_root(result), lowest)]
         if bracket is None:
             return tied[0]
         middle = 0.5 * (bracket[0] + bracket[1])
@@ -895,6 +894,11 @@ class BisectionAdapter:
                 winner.trial_id,
             )
         return winner
+
+    def _gap_to_the_root(self, result: EvaluationResult) -> float:
+        """Return ``abs`` of the residual: a balanced search costs D_optim, lowest off the root."""
+        residuals = self._residuals.get(result.trial_id)
+        return abs(next(iter(residuals.values()))) if residuals else result.cost
 
     def _inside(self, trial_id: int, bracket: tuple[float, float] | None) -> bool:
         """Whether a trial was evaluated inside *bracket*, ends included."""

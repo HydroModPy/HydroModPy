@@ -85,14 +85,18 @@ def test_the_tolerance_interval_is_shown_beside_its_value() -> None:
     assert "[5e-05, 7e-05]" in lines
 
 
-def test_a_value_stuck_on_a_search_bound_is_flagged() -> None:
+@pytest.mark.parametrize(
+    ("best", "flag"),
+    [(1e-3, "-- reached the search bound"), (9.5e-4, "-- its range reaches the search bound")],
+)
+def test_a_value_stuck_on_a_search_bound_is_flagged(best: float, flag: str) -> None:
     report = _report(
-        best_parameters={"K": 1e-3},
+        best_parameters={"K": best},
         extra={
             "parameter_intervals": [
                 {
                     "name": "K",
-                    "best": 1e-3,
+                    "best": best,
                     "lower": 9e-4,
                     "upper": 1e-3,
                     "margin": 0.05,
@@ -109,7 +113,7 @@ def test_a_value_stuck_on_a_search_bound_is_flagged() -> None:
 
     lines = "\n".join(result_lines(report))
 
-    assert "reached the search bound" in lines
+    assert flag in lines
 
 
 def test_two_parameters_moving_together_are_flagged_as_a_caution() -> None:

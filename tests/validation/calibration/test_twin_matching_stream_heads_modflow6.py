@@ -48,6 +48,7 @@ import math
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import numpy as np
@@ -57,6 +58,12 @@ from hydromodpy.calibration.config import CalibOutputNetwork
 from hydromodpy.calibration.observations.network_geometry import heads_settings
 from hydromodpy.core.exceptions import ObjectiveError
 from hydromodpy.core.field_routing import accumulate_on_downhill_graph
+from hydromodpy.core.stream_extent import (
+    calendar_years,
+    extent_masks,
+    parse_visible_flow,
+    yearly_flow_counts,
+)
 from hydromodpy.core.stream_heads import trace_from_heads
 from hydromodpy.physics.flow.history_contract import saturated_thickness_from_head_history
 from hydromodpy.project.facade import Project
@@ -64,6 +71,7 @@ from hydromodpy.spatial.geographic.core.network_heads import network_head_candid
 from tests._helpers.tolerances import tol
 from tests.validation.calibration.helpers import (
     MODFLOW6_RUNTIME_TOML,
+    NETWORK_OUTPUT,
     NETWORK_TWIN_TOML,
     network_metric,
     recharge_read_back_rel,
@@ -81,7 +89,7 @@ NOT_APPLICABLE = {
         "The Boussinesq adapter declares release_flux unavailable: extract_observables serves only head and discharge, so the stream-network criterion cannot score a Boussinesq trial."
     ),
     "modflow6_irregular_tri": (
-        "With XT3D, the rule on triangles, MODFLOW 6 does not converge on this basin, in 500 outer iterations or in five minutes at 2000. Without it, side triangles seep beside the talweg, the trace of a head is thinner than the network, and K lands 5.5 per cent off."
+        "On triangles the network is not the one cell wide network this twin draws. With XT3D and Newton, MODFLOW 6 keeps cycling by 3 cm on one border cell in 1000 outer iterations, whatever the under-relaxation. With XT3D and no Newton, the truth makes 41 heads on generated triangles, where K lands 167 per cent off, and 7 on the squares cut in two, where the solver closes at K = 6e-6 and not at 3e-5. Without XT3D, K lands 5.5 per cent off."
     ),
 }
 
@@ -644,6 +652,130 @@ def test_a_map_whose_every_head_is_lost_is_refused_before_the_first_solve(
             grid_truth,
             "lost",
             _lines(grid_truth, _main_stem_first(grid_truth)),
-            keys="heads_min_drained_area_km2 = 10.0",
+            keys="map.heads.min_drained_area = 10.0",
         )
     assert not (grid_truth.root / "lost" / "runs" / "lost").exists()
+
+
+SEASONS_MM_DAY = (1.8, 1.7, 1.4, 1.0, 0.6, 0.3, 0.1, 0.1, 0.3, 0.6, 1.2, 1.7)
+SY_TRUE = 0.05
+ONE_CELL_M = tol("twin_k_and_sy_on_two_maps")
+"""TOLERANCES.md row 187."""
+
+_TWO_MAPS_TOML = """
+[calibration]
+save_runs = "none"
+parameters = {{ K = {{ bounds = [3.0e-6, 1.2e-5] }}, Sy = {{ bounds = [0.025, 0.1] }} }}
+
+[calibration.outputs.seepage_network]
+support = "network"
+map = {{ complete = "{maximal}", permanent = "{minimal}", heads = {{ min_drained_area = 0.002 }}, calibrate_on = {{ permanent = 0.5, complete = 0.5 }} }}
+model = {{ extent = {{ flowing_at_least = "1 month", dry_at_most = "1 month", year_quorum = 1.0, visible_flow = "0.1 L/s" }} }}
+
+[[calibration.objective_blocks]]
+name = "extent"
+metric = "distance_gap"
+uses_outputs = ["seepage_network"]
+
+[[calibration.phases]]
+name = "both"
+description = "K and Sy on the two maps."
+parameters = ["K", "Sy"]
+regime = "transient"
+objective_blocks = ["extent"]
+method = "grid"
+max_trials = 9
+method_options = {{ points_per_dim = 3 }}
+window = {{ start = "2001-01-01" }}
+"""
+
+
+def _seasonal_toml(mode: str, name: str, k_m_s: float, dem: Path) -> str:
+    """The comb under a monthly recharge over three years, with a storage."""
+    months = ", ".join(str(value) for value in SEASONS_MM_DAY * 3)
+    return (
+        _project_toml(solver="modflow6", mode=mode, name=name, k_m_s=k_m_s, dem=dem)
+        .replace('flow_regime = "steady"\n', "")
+        .replace('param_list = ["K"]', 'param_list = ["K", "Sy", "Ss"]')
+        .replace(
+            "[flow.ic]",
+            f'[flow.param.Sy.field]\nkind = "homogeneous"\nunit = "-"\nvalue = {SY_TRUE}\n\n'
+            '[flow.param.Ss.field]\nkind = "homogeneous"\nunit = "m-1"\nvalue = 1e-5\n\n[flow.ic]',
+        )
+        .replace(
+            f"values = [{RECHARGE_MM_DAY!r}]",
+            f'values = [{months}]\nstart_date = "2000-01-01"\nfreq = "MS"\nperiods = 36',
+        )
+        .replace(
+            "[workspace]",
+            '[simulation.time]\nstart_datetime = "2000-01-01"\nend_datetime = "2002-12-31"\n'
+            'step_value = "1 month"\n\n[workspace]',
+        )
+    )
+
+
+def _two_maps(root: Path, dem: Path) -> tuple[Path, Path]:
+    """Draw the yearly minimal and maximal extents of a run at the true K and Sy."""
+    config = root / "truth.toml"
+    config.write_text(_seasonal_toml("simulation", "truth", K_TRUE_M_S, dem), encoding="utf-8")
+    project = Project(config, no_display=True)
+    try:
+        sim = project.simulate()
+        _, geometry, _, _, centres, _ = simulated_network(sim)
+        release = [sim.field("release_flux", time=step).reshape(-1) for step in range(36)]
+    finally:
+        project.close()
+    months = np.arange(np.datetime64("2000-01"), np.datetime64("2003-01")).astype("datetime64[D]")
+    counts = yearly_flow_counts(
+        np.stack(release),
+        years=calendar_years(months, window=(np.datetime64("2001-01-01"), None)),
+        threshold_m3_s=geometry.threshold_m3_s,
+        metric=geometry.metric,
+        visible_flow=parse_visible_flow("0.1 L/s"),
+        outlet=geometry.outlet,
+    )
+    masks = extent_masks(counts, maximal_flowing_steps=1, minimal_dry_steps=1, year_quorum=1.0)
+    graph = SimpleNamespace(receivers=geometry.metric.graph.downstream, centres=centres)
+    maps = []
+    for bound, mask in (("minimal", masks.minimal), ("maximal", masks.maximal)):
+        heads = _free_ends(mask, graph.receivers).tolist()
+        maps.append(_write_map(root / f"{bound}.gpkg", _lines(graph, heads)))
+    return maps[0], maps[1]
+
+
+@pytest.mark.mf6
+@pytest.mark.slow
+@pytest.mark.xdist_group(name="twin_stream_heads_mf6")
+def test_two_maps_read_k_and_leave_sy_within_one_cell(tmp_path: Path) -> None:
+    """K and Sy together on two maps: K has its sign on both, Sy moves J by less than a cell.
+
+    So this route gives K and no Sy, and the preflight keeps its warning on the pair.
+    """
+    import hydromodpy as hmp
+
+    dem = tmp_path / "basin.tif"
+    _write_dem(dem)
+    minimal, maximal = _two_maps(tmp_path, dem)
+    config = tmp_path / "both.toml"
+    config.write_text(
+        _seasonal_toml("calibration", "both", 1.0e-5, dem)
+        + _TWO_MAPS_TOML.format(minimal=minimal.as_posix(), maximal=maximal.as_posix()),
+        encoding="utf-8",
+    )
+    report = hmp.calibrate(config)
+
+    assert report.best_cost == 0.0
+    assert report.best_parameters["K"] == pytest.approx(K_TRUE_M_S)
+    assert report.best_parameters["Sy"] == pytest.approx(SY_TRUE)
+    for _, row in report.trials.iterrows():
+        gaps = [
+            row["components"][f"{NETWORK_OUTPUT}.J_signed_{bound}"]
+            for bound in ("minimal", "maximal")
+        ]
+        k_ratio = row["parameters"]["K"]["value"] / K_TRUE_M_S
+        if k_ratio < 0.75:
+            assert min(gaps) > 0.0, gaps
+        elif k_ratio > 1.5:
+            assert max(gaps) < 0.0, gaps
+        else:
+            assert max(abs(gap) for gap in gaps) <= ONE_CELL_M, gaps

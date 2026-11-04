@@ -95,7 +95,11 @@ from hydromodpy.calibration.protocols import (
     expand_calibration_protocol,
     get_protocol,
 )
-from hydromodpy.calibration.report import NO_OTHER_TRIAL, interval_is_degenerate
+from hydromodpy.calibration.report import (
+    NO_OTHER_TRIAL,
+    interval_best_is_on_a_bound,
+    interval_is_degenerate,
+)
 from hydromodpy.calibration.runners.failure_watch import INFEASIBLE_PREFIX, ConsecutiveFailureWatch
 from hydromodpy.calibration.runners.kept_solves import TrialSolveRetention, retention_capacity
 from hydromodpy.calibration.runners.prepared_model import (
@@ -520,6 +524,8 @@ def _log_parameter_interval(interval: ParameterInterval, best: EvaluationResult 
     A value that reaches a search bound is the best point of a search that was
     forbidden to look further, not a value the trials converged onto: that is
     a warning, not an informational line, and it names the cost it was reached at.
+    A value inside its bounds whose range reaches one is another statement: the
+    trials do not close it on that side.
     """
     reach = [
         side
@@ -529,6 +535,16 @@ def _log_parameter_interval(interval: ParameterInterval, best: EvaluationResult 
         )
         if hit
     ]
+    if reach and not interval_best_is_on_a_bound(interval.to_dict()):
+        logger.warning(
+            "%s = %.4g: the trials within %.3g of the best run to the %s search bound, so "
+            "they do not close it on that side.",
+            interval.name,
+            interval.best,
+            interval.threshold,
+            " and ".join(reach),
+        )
+        return
     if reach:
         logger.warning(
             "%s = %.4g reached the %s search bound, at a cost of %.4g: this is the best "
