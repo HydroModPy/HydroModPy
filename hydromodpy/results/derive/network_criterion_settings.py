@@ -4,12 +4,12 @@ A figure of the stream network redraws the partition a trial scored. The trial
 cut it by the settings of its ``[calibration.outputs.<n>]`` network output: the
 seepage threshold, the neighbor graph, the rasterization of the map and,
 under the heads rule, where a head may land, the state it read and, in the two-bound mode, the extent rules and
-the years its ``scoring_window`` holds. A figure drawn with the defaults
+the years its ``window`` holds. A figure drawn with the defaults
 instead shows another partition than the one the numbers describe, so this
 module reads those settings from the configuration the run sealed.
 
 The window is the one of the phase the run was scored in, when that phase
-declares one: a phase's ``scoring_window`` replaces the calibration's, and
+declares one: a phase's ``window`` replaces the calibration's, and
 the protocol writes its default spin-up window on its transient stage. The
 phase is the one of the calibration session the run's trial belongs to.
 
@@ -56,7 +56,7 @@ __all__ = (
     "DEFAULT_EXTENT_RULES",
     "NetworkCriterionSettings",
     "NetworkExtentRules",
-    "ScoringWindow",
+    "WindowBounds",
     "network_criterion_settings",
     "network_outputs_of_run",
 )
@@ -70,7 +70,7 @@ _MISSING_SNAPSHOT = (KeyError, ValueError, FileNotFoundError, RuntimeError)
 _NO_TIME_AXIS = (AttributeError, KeyError, ValueError, FileNotFoundError, RuntimeError)
 """What a run without a time axis raises when its periods are asked for."""
 
-ScoringWindow = tuple[pd.Timestamp | None, pd.Timestamp | None]
+WindowBounds = tuple[pd.Timestamp | None, pd.Timestamp | None]
 """The ``(start, end)`` of a scoring window, naive, either bound None when open."""
 
 
@@ -120,7 +120,7 @@ class NetworkCriterionSettings:
     n_network_outputs: int = 0
     """How many network outputs the run sealed: more than one means a choice was made."""
 
-    scoring_window: ScoringWindow | None = None
+    window: WindowBounds | None = None
     """The scoring window the run was scored with, None when it sealed none.
 
     The window of the run's phase when that phase declares one, else the
@@ -129,8 +129,8 @@ class NetworkCriterionSettings:
     quorum.
     """
 
-    scoring_window_phase: str | None = None
-    """The phase whose window :attr:`scoring_window` is, None for the calibration's."""
+    window_phase: str | None = None
+    """The phase whose window :attr:`window` is, None for the calibration's."""
 
     @property
     def extent_rules(self) -> NetworkExtentRules:
@@ -148,11 +148,11 @@ class NetworkCriterionSettings:
             )
         else:
             source = f"criterion settings: calibration output {self.output!r}"
-        if self.scoring_window is not None:
-            start, end = self.scoring_window
-            source += f", scoring_window {_date_or_open(start)} to {_date_or_open(end)}"
-            if self.scoring_window_phase is not None:
-                source += f" of phase {self.scoring_window_phase!r}"
+        if self.window is not None:
+            start, end = self.window
+            source += f", window {_date_or_open(start)} to {_date_or_open(end)}"
+            if self.window_phase is not None:
+                source += f" of phase {self.window_phase!r}"
         return source
 
 
@@ -236,25 +236,25 @@ def network_criterion_settings(sim: Run, *, output: str | None = None) -> Networ
         name,
         outputs[name],
         n_outputs=len(outputs),
-        scoring_window=window,
-        scoring_window_phase=phase,
+        window=window,
+        window_phase=phase,
     )
 
 
-def _window_of_run(sim: Run) -> tuple[ScoringWindow | None, str | None]:
+def _window_of_run(sim: Run) -> tuple[WindowBounds | None, str | None]:
     """Return the scoring window the run was scored with, and its phase.
 
-    A phase declaring a ``scoring_window`` replaces the calibration's for every
+    A phase declaring a ``window`` replaces the calibration's for every
     block it scores, exactly as the staged runner builds that phase. A phase
     declaring none, or a run tied to no phase, reads the calibration's.
     """
     calibration = _calibration_section(sim)
     name = _phase_of_run(sim)
     phase = _sealed_phase(calibration, name) if name is not None else None
-    if phase is not None and phase.get("scoring_window") is not None:
-        where = f"calibration.phases.{name}.scoring_window"
-        return _scoring_window(phase["scoring_window"], where=where), name
-    return _scoring_window(calibration.get("scoring_window")), None
+    if phase is not None and phase.get("window") is not None:
+        where = f"calibration.phases.{name}.window"
+        return _window(phase["window"], where=where), name
+    return _window(calibration.get("window")), None
 
 
 def _sealed_phase(calibration: Mapping[str, Any], name: str) -> Mapping[str, Any] | None:
@@ -304,8 +304,8 @@ def _settings_of_output(
     payload: Mapping[str, Any],
     *,
     n_outputs: int,
-    scoring_window: ScoringWindow | None,
-    scoring_window_phase: str | None,
+    window: WindowBounds | None,
+    window_phase: str | None,
 ) -> NetworkCriterionSettings:
     """Read one sealed network output, with the defaults for an absent key."""
     where = f"calibration output {name!r}"
@@ -342,8 +342,8 @@ def _settings_of_output(
         timestep=timestep,
         extent=_extent_rules(payload.get("extent"), where=where),
         n_network_outputs=n_outputs,
-        scoring_window=scoring_window,
-        scoring_window_phase=None if scoring_window is None else scoring_window_phase,
+        window=window,
+        window_phase=None if window is None else window_phase,
     )
 
 
@@ -433,9 +433,7 @@ def _extent_rules(payload: Any, *, where: str) -> NetworkExtentRules | None:
     )
 
 
-def _scoring_window(
-    payload: Any, *, where: str = "calibration.scoring_window"
-) -> ScoringWindow | None:
+def _window(payload: Any, *, where: str = "calibration.window") -> WindowBounds | None:
     """Return the sealed scoring window as naive timestamps, or None when unset.
 
     A zoned bound keeps its wall clock, the clock

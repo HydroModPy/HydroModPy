@@ -39,7 +39,8 @@ end_datetime = "2020-12-31"
 step_value = "1 day"
 
 # The window every score of a run is read on, 2015 being the spin-up. The
-# window of project.toml, 2001-2002, lies outside this record.
+# window of project.toml, 2001-2002, lies outside this record. The search calibrates
+# on 2016-2018, this window minus [calibration] validation_window.
 [metrics]
 window = { start = "2016-01-01", end = "2020-12-31" }
 
@@ -82,6 +83,8 @@ extent = "watershed"
 [calibration]
 # Every trial becomes a full run and renders the figures of [display].
 save_runs = "all"
+# Kept apart from the search: each trial is scored on it beside its cost.
+validation_window = { start = "2019-01-01", end = "2020-12-31" }
 
 # Log space by default: five points from 1e-6 to 1e-4 are
 # 1e-6, 3.16e-6, 1e-5, 3.16e-5 and 1e-4 m/s. Sy stays at 0.05 (project.toml).
@@ -102,7 +105,7 @@ uses_outputs = ["hydrograph"]
 # One phase, a regular grid instead of a search: five runs, whatever the cost.
 [[calibration.phases]]
 name = "conductivity_grid"
-description = "K on five fixed values, daily transient, ranked on the Hub'Eau discharge from 2016-01-01 on."
+description = "K on five fixed values, daily transient, ranked on the Hub'Eau discharge of 2016-2018."
 parameters = ["K"]
 regime = "transient"
 objective_blocks = ["hydrograph"]
@@ -114,7 +117,7 @@ method_options = { points_per_dim = 5 }
 parallel = 5
 
 # 2015 is spin-up: simulated, not scored.
-[calibration.phases.scoring_window]
+[calibration.phases.window]
 start = "2016-01-01"
 
 # Drawn for each of the five runs. A figure that fails is logged and the run

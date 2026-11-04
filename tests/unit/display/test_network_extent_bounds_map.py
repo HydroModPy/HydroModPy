@@ -187,22 +187,20 @@ def test_the_guard_reads_the_threshold_the_run_was_scored_by() -> None:
 def test_the_years_are_those_of_the_scoring_window_the_run_sealed(mpl) -> None:
     """A trial that left 2001 out as spin-up scored 2002 alone; so does the map."""
     run = transient_run()
-    run.dir = sealed_search({**_sealed(), "scoring_window": {"start": "2002-01-01"}})
+    run.dir = sealed_search({**_sealed(), "window": {"start": "2002-01-01"}})
     fig, ax = mpl.subplots()
     NetworkExtentBoundsMap().render(run, ax)
 
     note = legend_note(ax)
     assert "kept in >= 1 of 1 complete year(s) (2002-2002" in note
     assert "outside the scoring window: 2001" in note
-    assert "scoring_window 2002-01-01 to open" in note
+    assert "window 2002-01-01 to open" in note
     assert "climatological extents over 2002" in ax.get_title()
 
 
 def test_a_scoring_window_holding_no_complete_year_is_told_so() -> None:
     run = transient_run()
-    run.dir = sealed_search(
-        {**_sealed(), "scoring_window": {"start": "2001-03-01", "end": "2002-06-30"}}
-    )
+    run.dir = sealed_search({**_sealed(), "window": {"start": "2001-03-01", "end": "2002-06-30"}})
 
     reason = NetworkExtentBoundsMap().unavailable_reason(run)
 

@@ -23,9 +23,9 @@ from hydromodpy.calibration.config import (
     CalibOutputNetwork,
     CalibParameterDecl,
     CalibrationConfig,
-    CalibScoringWindow,
-    scoring_window_bounds,
+    CalibWindow,
     validate_calib_output,
+    window_bounds,
 )
 from hydromodpy.calibration.criteria.hydrographic_network_distance import (
     distance_gap,
@@ -33,7 +33,7 @@ from hydromodpy.calibration.criteria.hydrographic_network_distance import (
 )
 from hydromodpy.calibration.criteria.registry import NETWORK_ESTIMATORS
 from hydromodpy.calibration.criteria.series import DIMENSIONLESS, HIGHER_IS_BETTER, METRICS
-from hydromodpy.calibration.metrics import build_metric_extractor, composite
+from hydromodpy.calibration.metrics import build_metric_extractor
 from hydromodpy.calibration.metrics.composite import (
     build_metric_extractor as build_metric_extractor__log_nse,
 )
@@ -146,62 +146,29 @@ class TestTheAssembly:
                 objective_blocks=[
                     CalibObjectiveBlockDecl(name="gap", metric="distance_gap", uses_outputs=["net"])
                 ],
-                warmup_periods=0,
             )
         )
 
         assert objective.evaluate({"net": np.array([120.0, 100.0])}).total == pytest.approx(20.0)
 
-    def test_a_burn_in_on_a_criterion_block_is_still_refused(self) -> None:
-        """It carries no time axis to drop the first periods of."""
-        with pytest.raises(ValueError, match="no time axis"):
-            ConfigBlockObjective(
-                name="gap",
-                metric="distance_gap",
-                uses_outputs=["net"],
-                observed_by_output={},
-                warmup=2,
-                timeless_outputs=["net"],
-            )
-
 
 # From test_a_normalised_cost_is_scaled_by_the_scored_sample.py
 # ``normalize_cost`` divides by the spread of what the block scores.
-#
-# The scale was the standard deviation of the observed values as given to the
-# block, before the burn-in. The metric reads the values after it, so a burn-in
-# that cut a high-variance spin-up left the cost divided by a spread the scored
-# sample does not have.
 
-
-# Six wild spin-up values, then six calm ones.
 _OBSERVED = np.array([10.0, 0.5, 9.0, 1.0, 8.0, 2.0, 5.0, 5.2, 4.9, 5.1, 5.0, 5.3])
 
 
-def _block(observed: np.ndarray, **kwargs) -> ConfigBlockObjective:
+def _block(observed: np.ndarray) -> ConfigBlockObjective:
     return ConfigBlockObjective(
         name="q",
         metric="rmse",
         uses_outputs=["q"],
         observed_by_output={"q": observed},
         normalize_cost=True,
-        **kwargs,
     )
 
 
-def test_the_scale_is_the_spread_of_the_values_left_after_the_burn_in() -> None:
-    block = _block(_OBSERVED, warmup=6)
-
-    value = block.evaluate({"q": _OBSERVED + 0.3})
-
-    scored = _OBSERVED[6:]
-    assert value.components["q.reference_scale"] == pytest.approx(float(np.std(scored)))
-    assert value.components["q.normalized_cost"] == pytest.approx(
-        value.components["q.raw_cost"] / float(np.std(scored))
-    )
-
-
-def test_the_scale_is_unchanged_without_a_burn_in() -> None:
+def test_the_scale_is_the_spread_of_the_observed_values() -> None:
     block = _block(_OBSERVED)
 
     value = block.evaluate({"q": _OBSERVED + 0.3})
@@ -437,7 +404,7 @@ class TestErrors:
         cfg = CalibrationConfig.model_validate(
             {
                 "outputs": {"head_A": {"variable": "head", "support": "cell", "row": 0, "col": 0}},
-                "objective_blocks": [{"name": "b", "uses_outputs": ["head_A"]}],
+                "objective_blocks": [{"name": "b", "metric": "rmse", "uses_outputs": ["head_A"]}],
             }
         )
         with pytest.raises(ValueError, match="no observed values"):
@@ -483,7 +450,6 @@ class TestCliWiring:
             {
                 "method": "grid",
                 "variable": "head",
-                "objective": "rmse",
                 "outputs": {
                     "head_A": {
                         "variable": "head",
@@ -548,26 +514,6 @@ class TestCliWiring:
 # weighted sum is computed.
 
 
-def test_config_block_warmup_drops_leading_periods_per_output() -> None:
-    """burn_in slices the first ``warmup`` periods of EACH output, not the concat."""
-    # Leading two periods are wrong in BOTH outputs; the rest match exactly.
-    observed = {"a": [100.0, 100.0, 3.0, 4.0, 5.0], "b": [100.0, 100.0, 30.0, 40.0, 50.0]}
-    sim = {"a": [1.0, 2.0, 3.0, 4.0, 5.0], "b": [10.0, 20.0, 30.0, 40.0, 50.0]}
-
-    warmed = ConfigBlockObjective(
-        name="x", metric="rmse", uses_outputs=["a", "b"], observed_by_output=observed, warmup=2
-    ).evaluate(sim)
-    plain = ConfigBlockObjective(
-        name="x", metric="rmse", uses_outputs=["a", "b"], observed_by_output=observed, warmup=0
-    ).evaluate(sim)
-
-    # Per-output warmup drops the bad leading periods of both series -> perfect fit.
-    # A slice of the concatenated array would keep b's bad leading periods -> nonzero.
-    assert warmed.total == pytest.approx(0.0, abs=1e-9)
-    assert plain.total > 0.1
-    assert warmed.components["x.n_values"] == 6.0  # (5 - 2) periods x 2 outputs
-
-
 def test_config_block_refuses_mismatched_output_lengths_even_when_totals_match() -> None:
     """Two outputs individually wrong on length can still sum to a matching total.
 
@@ -624,16 +570,12 @@ def test_config_block_scores_unequal_but_paired_output_lengths() -> None:
 
 
 @pytest.mark.parametrize(
-    ("observed", "sim", "warmup"),
-    [
-        ({"a": []}, {"a": [1.0, 2.0, 3.0]}, 0),
-        ({"a": [1.0, 2.0, 3.0]}, {"a": []}, 0),
-        ({"a": [1.0, 2.0, 3.0]}, {"a": [1.0, 2.0]}, 5),
-    ],
-    ids=["no observation", "no simulated value", "burn-in empties both sides"],
+    ("observed", "sim"),
+    [({"a": []}, {"a": [1.0, 2.0, 3.0]}), ({"a": [1.0, 2.0, 3.0]}, {"a": []})],
+    ids=["no observation", "no simulated value"],
 )
 def test_a_trial_the_optimizer_used_to_step_over_is_not_turned_into_an_exception(
-    observed, sim, warmup
+    observed, sim
 ) -> None:
     """The length check must not swallow the three soft rejections around it.
 
@@ -643,7 +585,7 @@ def test_a_trial_the_optimizer_used_to_step_over_is_not_turned_into_an_exception
     trial into an aborted run.
     """
     block = ConfigBlockObjective(
-        name="x", metric="rmse", uses_outputs=["a"], observed_by_output=observed, warmup=warmup
+        name="x", metric="rmse", uses_outputs=["a"], observed_by_output=observed
     )
 
     assert block.evaluate(sim).total == float("inf")
@@ -855,7 +797,7 @@ def test_the_blocks_and_their_sum_remain() -> None:
 # The three things phase 2 of the method needs before it can be declared.
 #
 # ``nse_log`` as a registered metric, a scoring window written in dates rather
-# than in samples, and a per-block burn-in that a block can actually switch off.
+# than in samples.
 
 
 class TestNseLogRegistration:
@@ -905,25 +847,25 @@ class TestNegativeDischargeClipping:
         assert components["nse_log@S.n_clipped"] == 1.0
 
 
-class TestScoringWindow:
+class TestWindowBounds:
     def test_bounds_parse_to_timestamps(self) -> None:
-        window = CalibScoringWindow(start="2012-01-01", end="2015-12-31")
-        start, end = scoring_window_bounds(window)
+        window = CalibWindow(start="2012-01-01", end="2015-12-31")
+        start, end = window_bounds(window)
         assert (start, end) == (pd.Timestamp("2012-01-01"), pd.Timestamp("2015-12-31"))
-        assert scoring_window_bounds(None) is None
+        assert window_bounds(None) is None
 
     def test_an_open_bound_stays_open(self) -> None:
-        start, end = scoring_window_bounds(CalibScoringWindow(start="2012-01-01"))
+        start, end = window_bounds(CalibWindow(start="2012-01-01"))
         assert start == pd.Timestamp("2012-01-01")
         assert end is None
 
     def test_a_reversed_window_is_refused(self) -> None:
         with pytest.raises(ValueError, match="is after end"):
-            CalibScoringWindow(start="2015-01-01", end="2012-01-01")
+            CalibWindow(start="2015-01-01", end="2012-01-01")
 
     def test_a_date_that_is_not_a_date_is_refused(self) -> None:
         with pytest.raises(ValueError, match="is not a date"):
-            CalibScoringWindow(start="not-a-date")
+            CalibWindow(start="not-a-date")
 
     def test_score_drops_the_samples_outside_the_window(self) -> None:
         index = pd.date_range("2020-01-01", periods=4, freq="D")
@@ -933,7 +875,7 @@ class TestScoringWindow:
         window = (pd.Timestamp("2020-01-03"), None)
 
         full, _ = _score(observed, simulated, "rmse", variable="head")
-        scored, _ = _score(observed, simulated, "rmse", variable="head", scoring_window=window)
+        scored, _ = _score(observed, simulated, "rmse", variable="head", window=window)
 
         assert scored == pytest.approx(0.0)
         assert full > scored
@@ -947,108 +889,11 @@ class TestScoringWindow:
                 series,
                 "rmse",
                 variable="head",
-                scoring_window=(pd.Timestamp("2030-01-01"), None),
-            )
-
-    def test_dates_and_sample_counts_cannot_both_be_declared(self) -> None:
-        with pytest.raises(ValueError, match="not both"):
-            CalibrationConfig.model_validate(
-                {"method": "grid", "warmup_periods": 5, "scoring_window": {"start": "2012-01-01"}}
+                window=(pd.Timestamp("2030-01-01"), None),
             )
 
 
-class TestBlockWarmup:
-    def _config(self, block: dict) -> CalibrationConfig:
-        return CalibrationConfig.model_validate(
-            {
-                "method": "grid",
-                "warmup_periods": 2,
-                "outputs": {
-                    "q": {
-                        "variable": "discharge",
-                        "support": "boundary",
-                        "boundary_id": "outlet",
-                        "observed_values": [9.0, 9.0, 1.0, 1.0],
-                    }
-                },
-                "objective_blocks": [{"uses_outputs": ["q"], **block}],
-            }
-        )
-
-    def test_a_block_inherits_the_calibration_wide_burn_in(self) -> None:
-        objective = build_objective_from_config(self._config({"name": "b", "metric": "rmse"}))
-        # The first two samples are dropped, so the perfect tail scores zero.
-        assert objective.evaluate({"q": [0.0, 0.0, 1.0, 1.0]}).total == pytest.approx(0.0)
-
-    def test_a_block_can_switch_the_burn_in_off_with_zero(self) -> None:
-        # Reading warmup with `or` made 0 fall back to the default, so a block
-        # could declare 0 and still drop samples.
-        objective = build_objective_from_config(
-            self._config({"name": "b", "metric": "rmse", "warmup": 0})
-        )
-        assert objective.evaluate({"q": [0.0, 0.0, 1.0, 1.0]}).total > 0.0
-
-    def test_a_block_can_raise_its_own_burn_in(self) -> None:
-        objective = build_objective_from_config(
-            self._config({"name": "b", "metric": "rmse", "warmup": 3})
-        )
-        assert objective.evaluate({"q": [0.0, 0.0, 0.0, 1.0]}).total == pytest.approx(0.0)
-
-
-class TestBlockRouteBurnIn:
-    """``[calibration].warmup_periods`` must survive the trip to a block."""
-
-    @staticmethod
-    def _config() -> CalibrationConfig:
-        return _q_cfg(observed=(9.0, 9.0, 1.0, 1.0), metric="rmse", warmup_periods=2)
-
-    def test_the_extractor_forwards_it_to_the_blocks(self, monkeypatch) -> None:
-        # The composite branch used to build its config subset without
-        # warmup_periods, so a declared burn-in silently became zero as soon as
-        # objective_blocks were used and the spin-up was scored anyway.
-        cfg = self._config()
-        monkeypatch.setattr(
-            composite,
-            "extract_outputs",
-            lambda ctx, outputs, scoring_window=None: ExtractedOutputs(
-                observables={"q": ObservableResult("q", np.asarray([0.0, 0.0, 1.0, 1.0]), "m3/s")},
-                values={"q": [0.0, 0.0, 1.0, 1.0]},
-                series={},
-                diagnostics={},
-            ),
-        )
-        metric_fn = build_metric_extractor__log_nse(
-            None,
-            None,
-            None,
-            outputs=cfg.outputs,
-            objective_blocks=cfg.objective_blocks,
-            warmup_periods=cfg.warmup_periods,
-        )
-        total, components = metric_fn(None)
-        assert total == pytest.approx(0.0)
-        assert components["b.n_values"] == 2.0
-
-    def test_without_it_the_spin_up_is_scored(self, monkeypatch) -> None:
-        cfg = self._config()
-        monkeypatch.setattr(
-            composite,
-            "extract_outputs",
-            lambda ctx, outputs, scoring_window=None: ExtractedOutputs(
-                observables={"q": ObservableResult("q", np.asarray([0.0, 0.0, 1.0, 1.0]), "m3/s")},
-                values={"q": [0.0, 0.0, 1.0, 1.0]},
-                series={},
-                diagnostics={},
-            ),
-        )
-        metric_fn = build_metric_extractor__log_nse(
-            None, None, None, outputs=cfg.outputs, objective_blocks=cfg.objective_blocks
-        )
-        total, _ = metric_fn(None)
-        assert total > 0.0
-
-
-class TestBlockRouteScoringWindow:
+class TestBlockRouteWindowBounds:
     """A window in dates has nothing to cut on the block route, and says so."""
 
     @staticmethod
@@ -1062,7 +907,7 @@ class TestBlockRouteScoringWindow:
                 None,
                 None,
                 None,
-                scoring_window=(pd.Timestamp("2012-01-01"), None),
+                window=(pd.Timestamp("2012-01-01"), None),
                 **self._kwargs(),
             )
         assert "'b'" in str(excinfo.value)
@@ -1073,18 +918,16 @@ class TestBlockRouteScoringWindow:
                 None,
                 None,
                 None,
-                scoring_window=(None, pd.Timestamp("2015-12-31")),
+                window=(None, pd.Timestamp("2015-12-31")),
                 **self._kwargs(),
             )
 
     def test_an_absent_window_builds(self) -> None:
-        assert build_metric_extractor__log_nse(
-            None, None, None, scoring_window=None, **self._kwargs()
-        )
+        assert build_metric_extractor__log_nse(None, None, None, window=None, **self._kwargs())
 
     def test_a_window_with_two_open_bounds_cuts_nothing_and_builds(self) -> None:
         assert build_metric_extractor__log_nse(
-            None, None, None, scoring_window=(None, None), **self._kwargs()
+            None, None, None, window=(None, None), **self._kwargs()
         )
 
 
@@ -1126,29 +969,6 @@ class TestDistanceBlock:
         value = build_objective_from_config(self._config("distance_mean")).evaluate(
             {"net": [300.0, 100.0]}
         )
-        assert value.total == pytest.approx(200.0)
-
-    def test_a_burn_in_on_a_network_block_is_refused_by_name(self) -> None:
-        # A burn-in in samples has no meaning on two distances that carry no
-        # time axis. Applied anyway it emptied the pair and returned inf, which
-        # a staged run only ever showed as "phase did not converge".
-        with pytest.raises(ValueError, match="no time axis") as excinfo:
-            build_objective_from_config(self._config(warmup_periods=365))
-        assert "'gap'" in str(excinfo.value)
-        assert "'net'" in str(excinfo.value)
-
-    def test_the_block_can_switch_the_burn_in_off_and_score(self) -> None:
-        cfg = CalibrationConfig.model_validate(
-            {
-                "method": "grid",
-                "warmup_periods": 365,
-                "outputs": {"net": {"support": "network", "stream_geometry_path": "streams.gpkg"}},
-                "objective_blocks": [
-                    {"name": "gap", "metric": "distance_gap", "uses_outputs": ["net"], "warmup": 0}
-                ],
-            }
-        )
-        value = build_objective_from_config(cfg).evaluate({"net": [300.0, 100.0]})
         assert value.total == pytest.approx(200.0)
 
 
@@ -1757,7 +1577,6 @@ def test_the_documentation_catalogue_prints_the_new_words() -> None:
 # -- the doctor --------------------------------------------------------------
 OLD_FILE = """\
 [calibration]
-objective = "distance_gap"
 
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]

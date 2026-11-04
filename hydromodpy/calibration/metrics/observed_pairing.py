@@ -130,7 +130,7 @@ def pair_outputs_with_observations(
     *,
     observed: Mapping[str, pd.Series],
     simulated: Mapping[str, pd.Series],
-    scoring_window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None = None,
+    window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None = None,
     min_samples: int = 1,
     time_methods: Mapping[str, str] | None = None,
     period_starts: Mapping[str, Any] | None = None,
@@ -146,7 +146,7 @@ def pair_outputs_with_observations(
     its own window ``[start, stamp)``. The scorer takes it from the run's time
     grid; an output it does not name infers it from the spacing of its stamps.
 
-    ``scoring_window`` bounds the dates kept. It is applicable here and nowhere
+    ``window`` bounds the dates kept. It is applicable here and nowhere
     else in the block route: these series carry timestamps, which is exactly
     what a window needs to cut on. It is read as the run reads its own
     (:func:`~hydromodpy.core.time.period_aggregation.periods_in_window`): a
@@ -188,13 +188,13 @@ def pair_outputs_with_observations(
         period_start = (period_starts or {}).get(name)
         frame = align_observed_simulated(record, series, method=method, start=period_start)
         dry = simulated_nan_stamps(record, series, method=method, start=period_start)
-        if scoring_window is not None and len(dry):
+        if window is not None and len(dry):
             dry = dry[
                 periods_in_window(
                     dry,
                     method=method,
-                    start=scoring_window[0],
-                    end=scoring_window[1],
+                    start=window[0],
+                    end=window[1],
                     grid=normalize_datetime_series(series).index,
                     period_start=period_start,
                 )
@@ -205,8 +205,8 @@ def pair_outputs_with_observations(
             if len(dry)
             else ""
         )
-        if scoring_window is not None:
-            start, end = scoring_window
+        if window is not None:
+            start, end = window
             frame = frame.loc[
                 periods_in_window(
                     frame.index,
@@ -218,11 +218,11 @@ def pair_outputs_with_observations(
                 )
             ]
         if frame.empty:
-            window = ""
-            if scoring_window is not None and any(bound is not None for bound in scoring_window):
-                window = f" inside {scoring_window[0]} to {scoring_window[1]}"
+            inside = ""
+            if window is not None and any(bound is not None for bound in window):
+                inside = f" inside {window[0]} to {window[1]}"
             raise ValueError(
-                f"output {name!r} and the record it observes share no timestamp{window}"
+                f"output {name!r} and the record it observes share no timestamp{inside}"
                 f"{nan_clause}: the record runs {_span(record)} and the run {_span(series)}."
             )
         if len(frame) < int(min_samples):

@@ -29,7 +29,7 @@ from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Opt
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._instant import run_edges
-from hydromodpy.display.figures._scoring_window import shade_before_window
+from hydromodpy.display.figures._window import shade_before_window
 from hydromodpy.display.maps.axes import style_date_axis
 from hydromodpy.display.maps.mesh_geometry import basin_area_m2, domain_area_m2
 

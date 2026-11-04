@@ -363,7 +363,7 @@
             }
           ],
           "default": null,
-          "description": "Linearised standard deviation, in the unit of the parameter",
+          "description": "Linearized standard deviation, in the unit of the parameter",
           "title": "Sigma",
           "x-hmp-profile": "user"
         }

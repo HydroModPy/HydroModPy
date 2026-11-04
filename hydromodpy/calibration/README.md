@@ -291,15 +291,24 @@ each distance is then divided by the output's `validity_length` (Eq. 4,
 NSE of 0. `normalize_cost` stays refused on the efficiency, already a pure
 number.
 
-A spin-up is left out by dates: `scoring_window.start` on the phase (or on
+A spin-up is left out by dates: `window.start` on the phase (or on
 `[calibration]`) is the first date scored, for every block alike. A series
 keeps its stamps inside the window. A network output reads one state, dated
 at the stamp that closes its period: `time = "last"` (the default),
 `"first"`, or a date such as `"2002-10-15"`, which reads the period that
 holds it. The window has to hold that stamp, and `hmp config check` says so
-before any solve when it does not. `warmup` and `warmup_periods` count
-samples, so their span follows the time step; they still load, for older
-files.
+before any solve when it does not. The old `warmup` and `warmup_periods`
+counted samples, so their span followed the time step; `hmp doctor
+--fix-config` turns `warmup_periods` into the start date of the window.
+
+Dates can be kept apart from the search with `validation_window = {start, end}`
+on `[calibration]`, once for the session. `[metrics] window` minus those dates
+is then the default `window`. Each trial is scored on them from the series it
+has already simulated, as the `validation.cost` component, and the promoted run
+stores it as `checks.calibrated_by.validation_cost` with its period in `windows`.
+The cost never reads them. The score uses the blocks that compare a dated record,
+so a network block and a steady phase are left out of it. A window that overlaps
+a calibration window, leaves no data or falls outside `[metrics] window` is refused.
 
 The declarations the hand-written examples below share (the published
 method writes its own objective blocks):
@@ -358,7 +367,7 @@ regime = "transient"
 objective_blocks = { hydrograph = 0.8, network_share = 0.2 }   # two pure numbers
 max_trials = 30
 
-[calibration.phases.scoring_window]
+[calibration.phases.window]
 start = "2001-01-01"           # the network state read, December 2002, lies inside
 ```
 
@@ -417,16 +426,16 @@ transient_max_trials = 30
 The transient stage scores itself through an objective block that reads a
 `support = "point"` output observing the gauging station, added to
 `[calibration.outputs]`, when that station is known from the file alone (one
-source, named by `station_ids` or `observed_station_id`). `--expand` then
+source, named by `station_ids`, or `[site] gauge`). `--expand` then
 shows that output beside the two stages. A file that loads several stations,
 or one whose source only discovers its station once the data step runs, keeps
 the protocol's older form instead: `variable` and `objective` written on the
 phase, naming no output.
 
 **From Python.** The same keys, as dictionaries. A call with phases writes
-the document it ran into the project's `sessions/` (named
-`python-<timestamp>-<hex>.toml`), so a Python run can be replayed from a file;
-the case takes the `[simulation] name` of the project.
+the document it ran into the project's `sessions/` as `<case>.toml`, so a
+Python run can be replayed from a file; the case takes the `[simulation] name`
+of the project, else the stem of its file, as on the command line.
 
 ```python
 import hydromodpy as hmp
@@ -466,7 +475,7 @@ report = project.calibrate(
             "regime": "transient",
             "objective_blocks": {"hydrograph": 0.8, "network_share": 0.2},
             "max_trials": 30,
-            "scoring_window": {"start": "2001-01-01"},
+            "window": {"start": "2001-01-01"},
         },
     ],
 )

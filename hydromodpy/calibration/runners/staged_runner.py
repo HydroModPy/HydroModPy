@@ -191,10 +191,10 @@ def _phase_config(cfg: CalibrationConfig, decl: CalibPhaseDecl) -> CalibrationCo
         payload["variable"] = decl.variable
     if decl.objective is not None:
         payload["objective"] = decl.objective
-    if decl.observed_station_id is not None:
-        payload["observed_station_id"] = decl.observed_station_id
-    if decl.scoring_window is not None:
-        payload["scoring_window"] = decl.scoring_window.model_dump()
+    if decl.window is not None:
+        payload["window"] = decl.window.model_dump()
+    if not cfg.validation_scored_by(decl):
+        payload.pop("validation_window", None)
     problems = cfg.phase_bounds_problems(decl)
     if problems:
         raise ConfigValidationError(problems[0])
@@ -1057,11 +1057,10 @@ def _single_metric_row(cfg: CalibrationConfig, phase: CalibPhaseDecl | None) -> 
     """Return the one row of the single-metric route: 'variable' scored by 'objective'."""
     variable = str((phase.variable if phase is not None else None) or cfg.variable)
     objective = str((phase.objective if phase is not None else None) or cfg.objective)
-    station = (phase.observed_station_id if phase is not None else None) or cfg.observed_station_id
     family = OBSERVED_FAMILY_BY_VARIABLE.get(variable)
     section = DATA_FAMILY_SECTION.get(family) if family else None
     where = f"[data.{section}]" if section else "the loaded records"
-    source = f"station {station} ({where})" if station else f"every loaded station ({where})"
+    source = f"the station [site] gauge names, else every loaded station ({where})"
     return {
         "block": None,
         "metric": objective,
@@ -1142,7 +1141,7 @@ def phase_summaries(cfg: CalibrationConfig | None) -> list[dict[str, Any]]:
 
     ``comparisons`` is :func:`objective_comparison_table` for that phase: what
     each of its blocks, or its single metric, compares with what.
-    ``scoring_window`` says in words the window the phase scores on.
+    ``window`` says in words the window the phase scores on.
     """
     rows: list[dict[str, Any]] = []
     passed_by: dict[str, str] = {}
@@ -1176,7 +1175,7 @@ def phase_summaries(cfg: CalibrationConfig | None) -> list[dict[str, Any]]:
         row["search"] = _search_rows(cfg, decl, method)
         row["interval_width"] = cfg.interval_width_for(decl).to_dict()
         row["comparisons"] = objective_comparison_table(cfg, decl)
-        row["scoring_window"] = declared_window_text(cfg, decl)
+        row["window"] = declared_window_text(cfg, decl)
         rows.append(row)
         if decl.freeze_on_success:
             passed_by.update({written_at(name): decl.name for name in decl.parameters})

@@ -939,7 +939,10 @@ class Project:
             return run_calibration_cli(target, **kwargs)
 
         from hydromodpy.calibration.config import CalibrationConfig
-        from hydromodpy.calibration.runners.programmatic_runner import run_calibration_programmatic
+        from hydromodpy.calibration.runners.programmatic_runner import (
+            project_defaults_on,
+            run_calibration_programmatic,
+        )
 
         if not parameters:
             # Fall back to the [calibration] section carried by this project's
@@ -1009,7 +1012,9 @@ class Project:
             {key: value for key, value in kwargs.items() if key not in _PROGRAMMATIC_KWARGS}
         )
 
-        cfg = CalibrationConfig.model_validate(payload)
+        # The project defaults go in first: a validation window needs the calibration
+        # window [metrics] window leaves it.
+        cfg = CalibrationConfig.model_validate(project_defaults_on(payload, self))
         # Completed from the target each parameter names, as the TOML route does,
         # so a bare K searches the log space its field declares and gets the
         # same method as the same file would.

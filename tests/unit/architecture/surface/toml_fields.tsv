@@ -11,13 +11,11 @@ calibration.method_options	dict[str, Any]	{}	experimental
 calibration.objective	Literal['rmse', 'nse', 'kge', 'mae', 'nse_log', 'nse_delta', 'nse_seasonal', 'reservoir', 'distance_gap', 'distance_mean']	'nse'	experimental
 calibration.objective_blocks	list[table]	[]	experimental
 calibration.objective_blocks.cost_transform	Literal['identity', 'log', 'inverse']	'identity'	experimental
-calibration.objective_blocks.metric	Literal['rmse', 'nse', 'kge', 'mae', 'nse_log', 'nse_delta', 'nse_seasonal', 'reservoir', 'distance_gap', 'distance_mean']	'rmse'	experimental
+calibration.objective_blocks.metric	Literal['rmse', 'nse', 'kge', 'mae', 'nse_log', 'nse_delta', 'nse_seasonal', 'reservoir', 'distance_gap', 'distance_mean']	<required>	experimental
 calibration.objective_blocks.name	str	<required>	experimental
 calibration.objective_blocks.normalize_cost	bool	False	experimental
 calibration.objective_blocks.uses_outputs	list[str]	<required>	experimental
-calibration.objective_blocks.warmup	int | None	None	experimental
 calibration.objective_blocks.weight	float	1.0	experimental
-calibration.observed_station_id	str | None	None	experimental
 calibration.outputs	dict[str, table]	{}	experimental
 calibration.outputs.alpha_warning_threshold	float	0.9	experimental
 calibration.outputs.boundary_id	str	<required>	experimental
@@ -91,16 +89,12 @@ calibration.phases.method_options	dict[str, Any] | None	None	experimental
 calibration.phases.name	str	<required>	experimental
 calibration.phases.objective	Literal['rmse', 'nse', 'kge', 'mae', 'nse_log', 'nse_delta', 'nse_seasonal', 'reservoir', 'distance_gap', 'distance_mean'] | None	None	experimental
 calibration.phases.objective_blocks	list[str] | dict[str, float]	[]	experimental
-calibration.phases.observed_station_id	str | None	None	experimental
 calibration.phases.outputs	list[str]	[]	experimental
 calibration.phases.overrides	dict[str, Any]	{}	experimental
 calibration.phases.parallel	int | None	None	experimental
 calibration.phases.parameters	list[str]	<required>	experimental
 calibration.phases.precision	float | None	None	experimental
 calibration.phases.regime	Literal['steady', 'transient'] | None	None	experimental
-calibration.phases.scoring_window	table | None	None	experimental
-calibration.phases.scoring_window.end	str | None	None	experimental
-calibration.phases.scoring_window.start	str | None	None	experimental
 calibration.phases.steady_window	dict[str, str] | None	None	experimental
 calibration.phases.uncertainty	table | None	None	experimental
 calibration.phases.uncertainty.cost_margin	str | None	None	experimental
@@ -108,6 +102,9 @@ calibration.phases.uncertainty.method	Literal['cost_profile', 'multistart', 'lin
 calibration.phases.uncertainty.perturbation	float | None	None	experimental
 calibration.phases.uncertainty.restarts	int | None	None	experimental
 calibration.phases.variable	str | None	None	experimental
+calibration.phases.window	table | None	None	experimental
+calibration.phases.window.end	str | None	None	experimental
+calibration.phases.window.start	str | None	None	experimental
 calibration.precision	float | None	None	experimental
 calibration.promote_phases	bool	False	experimental
 calibration.protocol	table | None	None	experimental
@@ -115,8 +112,6 @@ calibration.protocol.conductivity	str	'K'	experimental
 calibration.protocol.discharge_variable	str	'discharge'	experimental
 calibration.protocol.name	Literal['matching_hydrographic_network']	<required>	experimental
 calibration.protocol.network_output	str | None	None	experimental
-calibration.protocol.observed_station_id	str | None	None	experimental
-calibration.protocol.scoring_window	dict[Literal['start', 'end'], str] | None	None	experimental
 calibration.protocol.steady_max_trials	int | Literal['auto']	'auto'	experimental
 calibration.protocol.steady_method	str	'bisection'	experimental
 calibration.protocol.steady_method_options	dict[str, Any]	{}	experimental
@@ -130,12 +125,12 @@ calibration.protocol.transient_method_options	dict[str, Any]	{}	experimental
 calibration.protocol.transient_metric	Literal['rmse', 'nse', 'kge', 'mae', 'nse_log', 'nse_delta', 'nse_seasonal', 'reservoir', 'distance_gap', 'distance_mean']	'nse_log'	experimental
 calibration.protocol.transient_precision	float | None	None	experimental
 calibration.protocol.version	str | None	None	experimental
+calibration.protocol.window	table | None	None	experimental
+calibration.protocol.window.end	str | None	None	experimental
+calibration.protocol.window.start	str | None	None	experimental
 calibration.reject_water_budget_above	float | None	1.0	experimental
 calibration.save_best_n	int	1	experimental
 calibration.save_runs	Literal['none', 'best_n', 'all']	'best_n'	experimental
-calibration.scoring_window	table | None	None	experimental
-calibration.scoring_window.end	str | None	None	experimental
-calibration.scoring_window.start	str | None	None	experimental
 calibration.seed	int | None	None	experimental
 calibration.uncertainty	table	<table>	experimental
 calibration.uncertainty.cost_margin	str | None	None	experimental
@@ -143,8 +138,13 @@ calibration.uncertainty.method	Literal['cost_profile', 'multistart', 'linearized
 calibration.uncertainty.perturbation	float | None	None	experimental
 calibration.uncertainty.restarts	int | None	None	experimental
 calibration.use_cache	bool	True	experimental
+calibration.validation_window	table | None	None	experimental
+calibration.validation_window.end	str | None	None	experimental
+calibration.validation_window.start	str | None	None	experimental
 calibration.variable	str	'head'	experimental
-calibration.warmup_periods	int	0	experimental
+calibration.window	table | None	None	experimental
+calibration.window.end	str | None	None	experimental
+calibration.window.start	str | None	None	experimental
 data	table	<table>	stable
 data.crossings	table | None	None	stable
 data.crossings.mask_path	Path | None	None	stable

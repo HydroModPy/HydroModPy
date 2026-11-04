@@ -1007,104 +1007,9 @@ class TestAFileThatWillNotLoad:
         assert "calibration" in messages(findings)
 
 
-class TestALinearizedWidth:
-    """A width is built after the last solve, so what forbids it is checked first."""
-
-    _LINEARIZED = """
-@GRID4
-variable = "gauge"
-warmup_periods = WARMUP
-@UNC
-@KLOG
-@GAUGE
-"""
-
-    def _findings(self, tmp_path, warmup: int):
-        return preflight_of(tmp_path, self._LINEARIZED.replace("WARMUP", str(warmup)))
-
-    def test_a_burn_in_is_refused_before_the_first_solve(self, tmp_path) -> None:
-        findings = self._findings(tmp_path, 6)
-
-        assert any(item.severity == "error" for item in findings)
-        assert "nse_gauge drops 6 leading sample(s)" in messages(findings)
-
-    def test_without_one_the_width_is_not_refused(self, tmp_path) -> None:
-        # A purely negative assertion (the burn-in message is absent) would
-        # also pass if the whole check disappeared. Assert the document
-        # comes back clean instead, a presence: nothing at all is wrong here.
-        assert self._findings(tmp_path, 0) == []
-
-
-class TestALinearizedWidthOnAPhasedDocument:
-    """A phased document gets one width per phase (D234), checked phase by phase.
-
-    ``p1`` scores ``block1``, which inherits the calibration-wide burn-in and
-    is refused for it; ``p2`` scores ``block2``, which turns its own burn-in
-    off and is clean. A blanket, document-wide check would either refuse both
-    or neither; only a per-phase one tells them apart.
-    """
-
-    _PHASED = """
-@GRID4
-warmup_periods = 6
-@UNC
-@KLOG
-@SY
-[calibration.outputs.gauge1]
-variable = "discharge"
-support = "boundary"
-boundary_id = "outlet"
-observes = "NANCON1"
-[calibration.outputs.gauge2]
-variable = "head"
-support = "point"
-x = 100.0
-y = 0.0
-observes = "NANCON2"
-[[calibration.objective_blocks]]
-name = "block1"
-metric = "rmse"
-uses_outputs = ["gauge1"]
-normalize_cost = true
-[[calibration.objective_blocks]]
-name = "block2"
-metric = "rmse"
-uses_outputs = ["gauge2"]
-normalize_cost = true
-warmup = 0
-[[calibration.phases]]
-name = "p1"
-method = "grid"
-max_trials = 4
-method_options = { points_per_dim = 2 }
-parameters = ["K"]
-outputs = ["gauge1"]
-objective_blocks = ["block1"]
-[[calibration.phases]]
-name = "p2"
-method = "grid"
-max_trials = 4
-method_options = { points_per_dim = 2 }
-parameters = ["Sy"]
-outputs = ["gauge2"]
-objective_blocks = ["block2"]
-depends_on = "p1"
-"""
-
-    def test_the_burn_in_is_refused_on_the_phase_that_carries_it(self, tmp_path) -> None:
-        findings = preflight_of(tmp_path, self._PHASED)
-
-        # block1 declares no warmup of its own, so it inherits the
-        # calibration-wide warmup_periods and the message names the block,
-        # not the [calibration] key -- "block(s) block1 drops N ...".
-        named = [item for item in findings if "block1" in item.detail and "drops" in item.detail]
-        assert len(named) == 1
-        assert named[0].where == "[[calibration.phases]] 'p1'"
-
-    def test_a_phase_whose_own_block_turns_the_burn_in_off_is_not_named(self, tmp_path) -> None:
-        findings = preflight_of(tmp_path, self._PHASED)
-
-        assert "[[calibration.phases]] 'p2'" not in {item.where for item in findings}
+def test_a_linearized_width_on_a_document_that_can_carry_one_is_not_refused(tmp_path) -> None:
+    # A presence: nothing at all is wrong with this document.
+    assert preflight_of(tmp_path, '@GRID4\nvariable = "gauge"\n@UNC\n@KLOG\n@GAUGE\n') == []
 
 
 class TestALinearizedWidthOnAPhaseThatNamesNeitherOutputsNorBlocks:
@@ -1462,9 +1367,9 @@ class TestTheObservedStationIsLoaded:
         assert not any("GAUGE" in item.detail for item in findings)
 
 
-class TestTheScoringWindowHoldsADateOfTheRun:
+class TestTheWindowBoundsHoldsADateOfTheRun:
     def test_a_window_after_the_run_is_named(self, tmp_path) -> None:
-        doc = _GAUGED + '\n[calibration.scoring_window]\nstart = "2010-01-01"\n'
+        doc = _GAUGED + '\n[calibration.window]\nstart = "2010-01-01"\n'
         findings = preflight_of(tmp_path, doc)
 
         named = [item for item in findings if "holds no date of the run" in item.detail]
@@ -1473,7 +1378,7 @@ class TestTheScoringWindowHoldsADateOfTheRun:
         assert "2010-01-01" in named[0].detail
 
     def test_a_window_inside_the_run_passes(self, tmp_path) -> None:
-        doc = _GAUGED + '\n[calibration.scoring_window]\nstart = "2000-03-01"\n'
+        doc = _GAUGED + '\n[calibration.window]\nstart = "2000-03-01"\n'
         findings = preflight_of(tmp_path, doc)
 
         assert not any("holds no date of the run" in item.detail for item in findings)

@@ -36,6 +36,7 @@ from hydromodpy.config.config_migration import fix_config_file, migrate_sealed_c
 from hydromodpy.config.metrics_config import MetricsWindow
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.cost_margin import parse_cost_margin
+from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.core.site.gauge import GaugeConflictError
 from hydromodpy.core.stream_criterion_defaults import STREAM_CRITERION_DEFAULTS
 from hydromodpy.core.stream_extent import dry_steps, flowing_steps, parse_extent_duration
@@ -60,8 +61,7 @@ from tests.unit.results._transient_network_run import transient_run
 # From test_a_calibration_takes_the_gauge_of_the_site.py
 # ``[site] gauge`` is the station a calibration scores at, unless the document says otherwise.
 #
-# ``apply_project_defaults`` writes the gauge into ``observed_station_id`` (on
-# the section, on each phase) and into ``observes`` of a point output that
+# ``apply_project_defaults`` writes the gauge into ``observes`` of a point output that
 # names no station, no position and no observed values. A written station that
 # is not the gauge is refused with both keys. ``[metrics] window`` is the
 # default scoring window.
@@ -72,35 +72,6 @@ GAUGE = "J0014010"
 
 def _defaults(section: dict, *, gauge: str | None = GAUGE, window: dict | None = None) -> dict:
     return apply_project_defaults(section, site_gauge=gauge, metrics_window=window)
-
-
-class TestTheSectionAndThePhases:
-    def test_the_gauge_is_the_station_when_none_is_written(self) -> None:
-        resolved = _defaults({"phases": [{"name": "steady_k"}, {"name": "sy"}]})
-
-        assert resolved["observed_station_id"] == GAUGE
-        assert [phase["observed_station_id"] for phase in resolved["phases"]] == [GAUGE, GAUGE]
-
-    def test_a_phase_that_writes_the_gauge_keeps_it(self) -> None:
-        resolved = _defaults({"phases": [{"name": "sy", "observed_station_id": GAUGE}]})
-
-        assert resolved["phases"][0]["observed_station_id"] == GAUGE
-
-    def test_a_phase_that_names_another_station_is_refused_with_both_keys(self) -> None:
-        with pytest.raises(GaugeConflictError) as caught:
-            _defaults({"phases": [{"name": "sy", "observed_station_id": "J9999999"}]})
-
-        assert "site.gauge = 'J0014010'" in str(caught.value)
-        assert "calibration.phases.sy.observed_station_id = 'J9999999'" in str(caught.value)
-
-    def test_a_section_that_names_another_station_is_refused_with_both_keys(self) -> None:
-        with pytest.raises(GaugeConflictError, match="calibration.observed_station_id"):
-            _defaults({"observed_station_id": "J9999999"})
-
-    def test_without_a_gauge_nothing_is_written(self) -> None:
-        section = {"observed_station_id": "J9999999", "phases": [{"name": "sy"}]}
-
-        assert _defaults(section, gauge=None) == section
 
 
 class TestThePointOutputs:
@@ -137,38 +108,151 @@ class TestThePointOutputs:
         assert _defaults({"outputs": {"net": output}})["outputs"]["net"] == output
 
 
-class TestTheScoringWindow:
+class TestTheWindowBounds:
     WINDOW = {"start": "2001-01-01", "end": "2002-12-31"}
 
     def test_the_metrics_window_is_the_default(self) -> None:
         resolved = _defaults({}, window=self.WINDOW)
 
-        assert resolved["scoring_window"] == {"start": "2001-01-01", "end": "2002-12-31"}
+        assert resolved["window"] == {"start": "2001-01-01", "end": "2002-12-31"}
 
-    def test_a_written_window_or_a_warmup_wins(self) -> None:
+    def test_a_written_window_wins(self) -> None:
         own = {"start": "2010-01-01", "end": "2010-12-31"}
 
-        assert _defaults({"scoring_window": own}, window=self.WINDOW)["scoring_window"] == own
-        assert "scoring_window" not in _defaults({"warmup_periods": 12}, window=self.WINDOW)
+        assert _defaults({"window": own}, window=self.WINDOW)["window"] == own
 
     def test_each_phase_but_a_steady_one_takes_the_metrics_window(self) -> None:
         own = {"start": "2002-01-01", "end": "2002-12-31"}
         phases = [
             {"name": "steady_k", "regime": "steady"},
             {"name": "transient_sy", "regime": "transient"},
-            {"name": "own", "scoring_window": own},
+            {"name": "own", "window": own},
+            {"name": "open", "window": {"start": "2001-07-01"}},
         ]
 
         resolved = _defaults({"phases": phases}, window=self.WINDOW)
 
-        assert "scoring_window" not in resolved
-        steady, transient, written = resolved["phases"]
-        assert "scoring_window" not in steady
-        assert transient["scoring_window"] == {"start": "2001-01-01", "end": "2002-12-31"}
-        assert written["scoring_window"] == own
+        assert "window" not in resolved
+        steady, transient, written, open_right = resolved["phases"]
+        assert "window" not in steady
+        assert transient["window"] == {"start": "2001-01-01", "end": "2002-12-31"}
+        assert written["window"] == own
+        assert open_right["window"] == {"start": "2001-07-01", "end": "2002-12-31"}
 
     def test_a_half_window_is_no_default(self) -> None:
-        assert "scoring_window" not in _defaults({}, window={"start": "2001-01-01", "end": None})
+        assert "window" not in _defaults({}, window={"start": "2001-01-01", "end": None})
+
+    @pytest.mark.parametrize(
+        ("first", "last", "expected"),
+        [
+            ("2002-01-01", "2002-12-31", {"start": "2001-01-01", "end": "2001-12-31"}),
+            ("2001-01-01", "2001-06-30", {"start": "2001-07-01", "end": "2002-12-31"}),
+            ("2001-06-01", "2001-07-31", None),
+            ("2002-01-01", None, WINDOW),
+            ("not a date", "2002-12-31", WINDOW),
+        ],
+    )
+    def test_the_validation_window_is_taken_out_of_the_default(self, first, last, expected) -> None:
+        section = {"validation_window": {"start": first, "end": last}, "phases": [{"name": "t"}]}
+
+        assert _defaults(section, window=self.WINDOW)["phases"][0].get("window") == expected
+        del section["phases"]
+        assert _defaults(section, window=self.WINDOW).get("window") == expected
+
+    @pytest.mark.parametrize(
+        ("first", "last"),
+        [
+            ("2000-12-31", "2001-06-30"),
+            ("2002-01-01", "2003-01-01"),
+            ("2001-01-01", "2002-12-31"),
+        ],
+        ids=["before", "after", "all_of_it"],
+    )
+    def test_a_validation_window_the_metrics_window_cannot_hold_is_refused(
+        self, first, last
+    ) -> None:
+        declared = {"validation_window": {"start": first, "end": last}, "window": self.WINDOW}
+        with pytest.raises(ConfigValidationError, match="leave days to calibrate on"):
+            _defaults(declared, window=self.WINDOW)
+
+
+_LATE = {"start": "2002-01-01", "end": "2002-12-31"}
+_EARLY = {"start": "2001-01-01", "end": "2001-12-31"}
+_ON_Q = {"name": "t", "objective_blocks": ["q"], "window": _EARLY}
+_STEADY = {"name": "s", "objective_blocks": ["q"], "regime": "steady"}
+_STEADY_NET = {"name": "s", "objective_blocks": ["net"], "regime": "steady"}
+
+
+def _validated(*phases, outputs=("q", "net"), **fields) -> CalibrationConfig:
+    """A section on a dated record and a network, its validation window in 2002."""
+    declared = {
+        "q": {"support": "point", "variable": "discharge", "observes": "J1"},
+        "net": {"support": "network", "stream_geometry_path": "n.gpkg"},
+    }
+    metric = {"q": "rmse", "net": "distance_gap"}
+    return CalibrationConfig.model_validate(
+        {
+            "parameters": {"K": {"path": "flow.param.K.field.value", "bounds": [1e-6, 1e-3]}},
+            "outputs": {name: declared[name] for name in outputs},
+            "objective_blocks": [
+                {
+                    "name": name,
+                    "metric": metric[name],
+                    "uses_outputs": [name],
+                    "normalize_cost": True,
+                }
+                for name in outputs
+            ],
+            "phases": [{"parameters": ["K"], **phase} for phase in phases] or None,
+            "validation_window": _LATE,
+            **fields,
+        }
+    )
+
+
+@pytest.mark.parametrize(
+    ("phases", "fields"),
+    [
+        ((), {"window": _EARLY}),
+        ((), {"window": {"start": "2003-01-01"}}),
+        ((_ON_Q,), {}),
+        (({**_STEADY, "steady_window": _EARLY}, _ON_Q), {}),
+        ((_STEADY_NET, _ON_Q), {}),
+    ],
+    ids=["before", "after", "phase", "steady_apart", "steady_on_a_network"],
+)
+def test_a_validation_window_apart_from_every_cost_is_accepted(phases, fields) -> None:
+    assert _validated(*phases, **fields).validation_window.end == "2002-12-31"
+
+
+@pytest.mark.parametrize(
+    ("phases", "fields", "match"),
+    [
+        ((), {"validation_window": {"start": "2002-01-01"}}, "leaves a bound open"),
+        ((), {"window": _EARLY, "outputs": ("net",)}, "nothing to score"),
+        ((_STEADY,), {}, "nothing to score"),
+        ((), {}, r"overlaps the window None to None of \[calibration\]"),
+        ((), {"window": {"start": "2001-01-01"}}, "overlaps"),
+        ((), {"window": {"start": "2002-12-31", "end": "2003-12-31"}}, "overlaps"),
+        ((), {"window": {"start": "2001-01-01", "end": "2002-01-01"}}, "overlaps"),
+        (({"name": "t", "objective_blocks": ["q"]},), {}, "overlaps .* of t"),
+        (({**_ON_Q, "window": _LATE},), {"window": _EARLY}, "overlaps .* of t"),
+        ((_STEADY, _ON_Q), {}, "overlaps .* of s"),
+    ],
+)
+def test_a_validation_window_a_cost_could_read_or_nothing_scores_is_refused(
+    phases, fields, match
+) -> None:
+    with pytest.raises(ValidationError, match=match):
+        _validated(*phases, **fields)
+
+
+def test_which_search_is_scored_on_the_validation_window() -> None:
+    cfg = _validated({**_ON_Q, "name": "n", "objective_blocks": ["net"]}, _STEADY_NET, _ON_Q)
+
+    assert [cfg.validation_scored_by(phase) for phase in cfg.phases] == [False, False, True]
+    assert _validated(window=_EARLY).validation_scored_by(None) is True
+    assert CalibrationConfig().validation_scored_by(None) is False
 
 
 # From test_a_flat_cell_id_is_refused.py
@@ -536,7 +620,7 @@ def test_an_output_beside_a_block_may_feed_the_residuals() -> None:
 # ---------------------------------------------------------------------------
 # Literal fields: the values they accept and the ones they refuse
 # ---------------------------------------------------------------------------
-_BLOCK = {"name": "b", "uses_outputs": ["x"]}
+_BLOCK = {"name": "b", "metric": "rmse", "uses_outputs": ["x"]}
 LITERALS = [
     (CalibParameterDecl, {}, "mode", ["replace", "scale"], ["override", "multiply", "", "REPLACE"]),
     (
@@ -677,7 +761,7 @@ class TestCalibOutputDecl:
 class TestCalibObjectiveBlockDecl:
     def test_minimal_block(self):
         decl = CalibObjectiveBlockDecl.model_validate(
-            {"name": "head_block", "uses_outputs": ["head_A"]}
+            {"name": "head_block", "metric": "rmse", "uses_outputs": ["head_A"]}
         )
         assert decl.metric == "rmse"
         assert decl.weight == 1.0
@@ -687,7 +771,7 @@ class TestCalibObjectiveBlockDecl:
     def test_weight_must_be_positive(self):
         with pytest.raises(ValidationError, match="weight"):
             CalibObjectiveBlockDecl.model_validate(
-                {"name": "b", "weight": 0.0, "uses_outputs": ["x"]}
+                {"name": "b", "metric": "rmse", "weight": 0.0, "uses_outputs": ["x"]}
             )
 
     def test_rejects_extra_keys(self):
@@ -706,7 +790,6 @@ class TestCalibrationConfigEnriched:
             {
                 "method": "cma_es",
                 "max_trials": 80,
-                "objective": "rmse",
                 "variable": "head",
                 "outputs": {
                     "head_A": {
@@ -783,7 +866,6 @@ class TestCalibrationConfigEnriched:
     def test_explicit_blocks_preserved_over_implicit(self):
         cfg = CalibrationConfig.model_validate(
             {
-                "objective": "nse",
                 "variable": "head",
                 "outputs": {"head": {"variable": "head", "support": "cell", "row": 0, "col": 0}},
                 "objective_blocks": [
@@ -810,7 +892,6 @@ class TestEnrichedTomlRoundTrip:
         method   = "cma_es"
         max_trials = 80
         seed     = 42
-        objective = "rmse"
         variable = "head"
         persist_iteration_detail = "full"
         materialize_candidates = true
@@ -1161,12 +1242,6 @@ class TestRefused:
                 {},
                 "undeclared objective block",
                 id="an_undeclared_objective_block",
-            ),
-            pytest.param(
-                [{**STEADY, "scoring_window": {"start": "2012-01-01"}}],
-                {"warmup_periods": 5},
-                "pick one convention",
-                id="a_window_and_a_sample_count_together",
             ),
         ],
     )
@@ -1597,6 +1672,93 @@ def test_a_frozen_protocol_run_with_the_old_names_reads_back(tmp_path: Path) -> 
     assert [phase.precision for phase in replayed.calibration.phases] == [0.02, 0.05]
 
 
+# From the removal of warmup, observed_station_id and the default metric (L0b)
+# A count of skipped samples, a station key and an unwritten metric are refused,
+# each with what to write instead. ``hmp doctor --fix-config`` rewrites them.
+
+_Q_OUTPUT = {
+    "variable": "discharge",
+    "support": "boundary",
+    "boundary_id": "outlet",
+    "observes": "G",
+}
+_Q_BLOCK = {"name": "b", "metric": "rmse", "uses_outputs": ["q"]}
+
+
+@pytest.mark.parametrize(
+    ("model", "document", "match"),
+    [
+        (CalibrationConfig, {"warmup_periods": 12}, r"warmup_periods.*window = \{start"),
+        (CalibrationConfig, {"scoring_window": {}}, r"renamed to 'window'"),
+        (CalibPhaseDecl, {"name": "p", "scoring_window": {}}, r"renamed to 'window'"),
+        (
+            CalibrationProtocolDecl,
+            {"name": "matching_hydrographic_network", "scoring_window": {}},
+            r"renamed to 'window'",
+        ),
+        (CalibrationConfig, {"observed_station_id": "G"}, r"observed_station_id.*\[site\] gauge"),
+        (CalibPhaseDecl, {"name": "p", "observed_station_id": "G"}, r"\[site\] gauge"),
+        (
+            CalibrationProtocolDecl,
+            {"name": "matching_hydrographic_network", "observed_station_id": "G"},
+            r"\[site\] gauge",
+        ),
+        (
+            CalibObjectiveBlockDecl,
+            {**_Q_BLOCK, "warmup": 3},
+            "a window bounds every block",
+        ),
+        (
+            CalibObjectiveBlockDecl,
+            {"name": "b", "uses_outputs": ["q"]},
+            "(?s)metric.*Field required",
+        ),
+        (
+            CalibrationConfig,
+            {"objective": "kge", "outputs": {"q": _Q_OUTPUT}, "objective_blocks": [_Q_BLOCK]},
+            "objective is written beside",
+        ),
+    ],
+    ids=[
+        "a sample count",
+        "a section scoring_window",
+        "a phase scoring_window",
+        "a protocol scoring_window",
+        "a section station",
+        "a phase station",
+        "a protocol station",
+        "a block burn-in",
+        "a block without a metric",
+        "an objective beside blocks",
+    ],
+)
+def test_a_removed_calibration_form_is_refused_with_what_to_write(model, document, match) -> None:
+    with pytest.raises(ValidationError, match=match):
+        model.model_validate(document)
+
+
+def test_the_objective_and_the_variable_still_build_their_implicit_block() -> None:
+    cfg = CalibrationConfig.model_validate(
+        {"objective": "kge", "variable": "q", "outputs": {"q": _Q_OUTPUT}}
+    )
+
+    assert [(block.name, block.metric) for block in cfg.objective_blocks] == [("kge_q", "kge")]
+
+
+@pytest.mark.parametrize(
+    ("station", "refused"), [("NANCON", False), ("OTHER", True)], ids=["the gauge", "another"]
+)
+def test_a_metrics_station_other_than_the_gauge_is_refused(tmp_path, station, refused) -> None:
+    toml = _project(tmp_path) / "project.toml"
+    toml.write_text(PROJECT + f'\n[metrics]\nstation = "{station}"\n', encoding="utf-8")
+
+    if refused:
+        with pytest.raises(ConfigValidationError, match=r"site.gauge = 'NANCON'.*metrics.station"):
+            HydroModPyConfig.from_toml(toml)
+    else:
+        assert HydroModPyConfig.from_toml(toml).metrics.station == "NANCON"
+
+
 # From test_schemas.py
 # Unit tests for ``hydromodpy.calibration.config`` schemas.
 #
@@ -1812,29 +1974,6 @@ class TestTomlRoundTrip:
             CalibrationConfig.model_validate(data["calibration"])
 
 
-# From test_the_calibration_persistence_table_is_retired.py
-# ``[calibration.persistence]`` is retired: nothing ever read it.
-#
-# The run a calibration promotes follows ``[simulation.results.persistence]``,
-# and the session writes its journal whatever the table says. The table loads
-# with a warning, so the configuration frozen by an earlier session, which spells
-# out every default, still reads back, and the schema no longer offers it.
-
-
-SECTION = {"parameters": {"K": {"bounds": [1e-7, 1e-3]}}}
-
-
-def test_the_table_loads_with_a_warning_and_is_dropped() -> None:
-    with pytest.warns(DeprecationWarning, match="persistence"):
-        cfg = CalibrationConfig.model_validate({**SECTION, "persistence": {"save_zarr": False}})
-
-    assert "persistence" not in cfg.model_dump()
-
-
-def test_the_schema_no_longer_offers_it() -> None:
-    assert "persistence" not in CalibrationConfig.model_json_schema()["properties"]
-
-
 # From test_the_criterion_descends_d8_by_default.py
 # The stream criterion descends D8 by default, as the paper does.
 #
@@ -1960,18 +2099,18 @@ def test_a_mesh_without_quadrilaterals_is_scored_on_shared_edges_without_failing
 # Since the protocol writes ``[metrics] window`` on its transient stage
 # (d0390cb68), the first year after the start is the recipe's window only for a
 # file without ``[metrics] window``. ``hmp config check`` still compared a
-# protocol ``scoring_window`` with the spin-up year, and called the spin-up window
+# protocol ``window`` with the spin-up year, and called the spin-up window
 # "written as the recipe runs it" while the recipe now scores the run window.
 
 
 NAME = "matching_hydrographic_network"
 TIME = SimpleNamespace(start_datetime="2000-01-01", end_datetime="2002-12-31")
-PLAIN = SimpleNamespace(scoring_window=None, warmup_periods=None)
+PLAIN = SimpleNamespace(window=None)
 RUN_WINDOW = MetricsWindow.model_validate({"start": "2001-01-01", "end": "2002-06-30"})
 
 
 def _same(window: dict, metrics_window=RUN_WINDOW) -> frozenset[str]:
-    declared = CalibrationProtocolDecl.model_validate({"name": NAME, "scoring_window": window})
+    declared = CalibrationProtocolDecl.model_validate({"name": NAME, "window": window})
     return options_the_recipe_already_runs(declared, PLAIN, TIME, metrics_window=metrics_window)
 
 
@@ -1981,8 +2120,47 @@ def test_the_spin_up_window_is_away_from_a_recipe_that_scores_the_run_window() -
 
 
 def test_the_run_window_written_out_runs_as_the_recipe() -> None:
-    assert _same({"start": "2001-01-01", "end": "2002-06-30"}) == {"scoring_window"}
+    assert _same({"start": "2001-01-01", "end": "2002-06-30"}) == {"window"}
+
+
+@pytest.mark.parametrize(
+    ("validation", "written", "same"),
+    [
+        (
+            {"start": "2002-01-01", "end": "2002-06-30"},
+            {"start": "2001-01-01", "end": "2001-12-31"},
+            {"window"},
+        ),
+        (
+            {"start": "2002-01-01", "end": "2002-06-30"},
+            {"start": "2001-01-01", "end": "2002-06-30"},
+            frozenset(),
+        ),
+        (
+            {"start": "2001-01-01", "end": "2001-06-30"},
+            {"start": "2001-07-01", "end": "2002-06-30"},
+            {"window"},
+        ),
+        ({"start": "2001-06-01", "end": "2001-06-30"}, {"start": "2001-01-01"}, {"window"}),
+    ],
+    ids=[
+        "the run window less a validation at its end",
+        "the whole run window also scores the validation days",
+        "the run window less a validation at its start",
+        "a validation inside leaves the spin-up year",
+    ],
+)
+def test_the_window_of_the_recipe_leaves_out_the_validation_days(
+    validation: dict, written: dict, same: frozenset[str]
+) -> None:
+    calibration = SimpleNamespace(window=None, validation_window=validation)
+    declared = CalibrationProtocolDecl.model_validate({"name": NAME, "window": written})
+
+    assert (
+        options_the_recipe_already_runs(declared, calibration, TIME, metrics_window=RUN_WINDOW)
+        == same
+    )
 
 
 def test_without_a_run_window_the_spin_up_year_is_still_the_recipe_s() -> None:
-    assert _same({"start": "2001-01-01"}, metrics_window=None) == {"scoring_window"}
+    assert _same({"start": "2001-01-01"}, metrics_window=None) == {"window"}

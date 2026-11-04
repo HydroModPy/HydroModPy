@@ -2689,9 +2689,7 @@ def test_the_request_reads_the_same_times_as_the_network() -> None:
 
 def _score__two_bound(monkeypatch, bench, stream_file, stack, bounds, window=None):
     output = network_output(stream_file, extent={"visible_flow": "0 L/s"})
-    extracted, _ = run_extraction(
-        monkeypatch, bench, {"net": output}, stack, bounds, scoring_window=window
-    )
+    extracted, _ = run_extraction(monkeypatch, bench, {"net": output}, stack, bounds, window=window)
     return extracted.diagnostics
 
 
@@ -2774,7 +2772,7 @@ def test_a_time_zone_on_the_window_is_read_in_utc(monkeypatch, bench, stream_fil
 
 def test_a_window_holding_no_whole_year_is_refused_by_name(monkeypatch, bench, stream_file) -> None:
     window = (pd.Timestamp("2001-02-01"), pd.Timestamp("2001-11-30"))
-    with pytest.raises(ObjectiveError, match=r"scoring_window .* leaves out 2000, 2001, 2002"):
+    with pytest.raises(ObjectiveError, match=r"window .* leaves out 2000, 2001, 2002"):
         _score__two_bound(
             monkeypatch,
             bench,
@@ -2789,9 +2787,7 @@ def test_a_window_does_not_touch_one_state(monkeypatch, bench, stream_file) -> N
     outputs = {"net": network_output(stream_file)}
     stack = release_stack(bench, [200.0])
     plain = run_extraction(monkeypatch, bench, outputs, stack)[0].diagnostics
-    windowed = run_extraction(monkeypatch, bench, outputs, stack, scoring_window=WINDOW)[
-        0
-    ].diagnostics
+    windowed = run_extraction(monkeypatch, bench, outputs, stack, window=WINDOW)[0].diagnostics
     assert windowed["net.J_signed"] == plain["net.J_signed"]
 
 

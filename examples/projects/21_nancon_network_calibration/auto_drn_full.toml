@@ -321,7 +321,7 @@ depends_on = "steady_conductivity"
 points_per_dim = 6
 
 # 2000 est l'annee d'amorce, elle n'est pas scoree.
-[calibration.phases.scoring_window]
+[calibration.phases.window]
 start = "2001-01-01"
 end = "2002-12-31"
 

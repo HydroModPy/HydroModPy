@@ -396,7 +396,7 @@ xatol = 0.02
 # distingue donc largement, sans depenser des essais pour rien.
 fatol = 0.002
 
-[calibration.phases.scoring_window]
+[calibration.phases.window]
 start = "2001-01-01"
 end = "2001-12-31"
 

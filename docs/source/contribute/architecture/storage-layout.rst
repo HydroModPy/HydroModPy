@@ -283,7 +283,8 @@ periods, and a joint calibration or a validation period adds keys, not meanings.
 - A period of ``windows`` has a ``role``: ``calibration`` is what the search scores, ``validation`` is
   kept apart from it and scored beside it, ``evaluation`` is ``[metrics] window`` of a run. Another
   word reads as it is, and no computation counts it as calibration. ``by_case`` gives the window of
-  each case when they differ.
+  each case when they differ. A promoted run stores the score of its trial on the validation period
+  as ``checks.calibrated_by.validation_cost``.
 - ``best`` holds one trial, one ``cost`` and one set of ``parameters``, those a phase froze included,
   and ``cases`` holds the run and the cost of that trial in each case. ``cost`` is null when a search
   keeps no single cost, and ``best`` is null when it keeps no single best.

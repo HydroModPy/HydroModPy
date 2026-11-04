@@ -50,7 +50,6 @@ from hydromodpy.calibration.metrics.solver_extract import (
     resolve_station_cells,
 )
 from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
-from hydromodpy.core.exceptions import UncertaintyNotAvailableError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.scope import CATCHMENT
 
@@ -293,9 +292,9 @@ def build_metric_extractor(
     *,
     outputs: Mapping[str, CalibOutputDecl] | None = None,
     objective_blocks: list[CalibObjectiveBlockDecl] | None = None,
-    warmup_periods: int = 0,
-    scoring_window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None = None,
-    observed_station_id: str | None = None,
+    window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None = None,
+    validation_window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None = None,
+    gauge: str | None = None,
     min_samples: int = 1,
     series_sink: TrialSeriesSink | None = None,
 ) -> Callable[..., tuple[float, Mapping[str, float]]]:
@@ -314,11 +313,14 @@ def build_metric_extractor(
     block per scored station (:class:`StationBlockScorer`), and scored by the
     same blocks. Each station is answered by its producer in :data:`PRODUCERS`.
 
-    ``warmup_periods``, ``scoring_window`` and ``min_samples`` reach both.
-    ``scoring_window`` bounds the scored samples in dates. On declared blocks
+    ``window`` and ``min_samples`` reach both. ``gauge`` is ``[site] gauge``, the
+    station a discharge calibration follows when several are loaded.
+    ``window`` bounds the scored samples in dates. On declared blocks
     it cuts the outputs that name a station and picks the years of a two-bound
     network output; a block on any other output carries no time axis to cut
     on, so the window is refused there rather than ignored.
+    ``validation_window`` is scored beside the cost by the scorer of each route,
+    on the series the cost was read from, and never reaches the cost.
 
     ``series_sink``, when given, is handed to the scorer that is built, which
     records every point/series output's scored series into it as a side
@@ -329,8 +331,8 @@ def build_metric_extractor(
             outputs,
             objective_blocks,
             ctx=ctx,
-            warmup_periods=warmup_periods,
-            scoring_window=scoring_window,
+            window=window,
+            validation_window=validation_window,
             min_samples=min_samples,
             series_sink=series_sink,
         )
@@ -347,9 +349,9 @@ def build_metric_extractor(
             route,
             objective,
             observed,
-            observed_station_id=observed_station_id,
-            warmup_periods=warmup_periods,
-            scoring_window=scoring_window,
+            gauge=gauge,
+            window=window,
+            validation_window=validation_window,
             min_samples=min_samples,
             series_sink=series_sink,
         )
@@ -396,21 +398,21 @@ def _build_composite_metric_extractor(
     objective_blocks: list[CalibObjectiveBlockDecl],
     *,
     ctx: Any = None,
-    warmup_periods: int = 0,
-    scoring_window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None = None,
+    window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None = None,
+    validation_window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None = None,
     min_samples: int = 1,
     series_sink: TrialSeriesSink | None = None,
 ) -> Callable[..., tuple[float, Mapping[str, float]]]:
     """Build a metric_fn that routes through ``build_objective_from_config``."""
     observing = observing_outputs(outputs)
-    refuse_window_without_dates(outputs, objective_blocks, scoring_window, observing)
+    refuse_window_without_dates(outputs, objective_blocks, window, observing)
     observed_records = observed_series_for_outputs(outputs, ctx) if observing else {}
     scorer = ObservableScorer(
         outputs,
         objective_blocks,
         observed_records=observed_records,
-        warmup_periods=warmup_periods,
-        scoring_window=scoring_window,
+        window=window,
+        validation_window=validation_window,
         min_samples=min_samples,
         series_sink=series_sink,
     )
@@ -425,7 +427,7 @@ def _build_composite_metric_extractor(
         # NotImplementedError is a RuntimeError, which is why catching the
         # latter to "pass typed errors through" would swallow the former.
         try:
-            extracted = extract_outputs(trial_ctx, outputs, scoring_window=scoring_window)
+            extracted = extract_outputs(trial_ctx, outputs, window=window)
         except Exception:
             logger.exception("Output extraction failed")
             raise
@@ -444,68 +446,12 @@ def _build_composite_metric_extractor(
     return metric_fn
 
 
-def refuse_a_burn_in_the_residuals_cannot_honour(
-    outputs: Mapping[str, CalibOutputDecl],
-    objective_blocks: list[CalibObjectiveBlockDecl],
-    warmup_periods: int,
-) -> None:
-    """Refuse a linearized width on a calibration whose cost drops leading samples.
-
-    A first-order width is read off the residual AT EACH OBSERVATION. A cost is
-    not: leading samples are dropped before it is computed, by a block's own
-    ``warmup`` on the composite route and by ``[calibration].warmup_periods``
-    reaching the implicit blocks of variable + objective. Two blocks may even
-    drop different counts, so there is no single vector that is both aligned once
-    and scored by everything. A covariance built on the untruncated pairing
-    describes the slope of a surface the search never climbed, over a window it
-    was told to ignore.
-
-    What is inspected is the burn-in applied to the outputs a residual is
-    actually taken from, which is exactly the ones that name a station. A block
-    that names none of them truncates nothing this reads, and a document that
-    declares no block at all truncates through the criterion instead, which is
-    the route the calibration-wide setting reaches.
-    """
-    observing = observing_outputs(outputs)
-    if not observing:
-        return
-    default = int(warmup_periods or 0)
-    if not objective_blocks:
-        if default <= 0:
-            return
-        raise UncertaintyNotAvailableError(
-            f"a linearized width is taken from the residual at each observation, and "
-            f"[calibration].warmup_periods drops the first {default} sample(s) before the "
-            "cost is computed. The residuals would then cover a window the search was told "
-            "to ignore. Score the burn-in out with scoring_window, which cuts the record "
-            "itself, or read the width with uncertainty.method = 'cost_profile'."
-        )
-    burnt: dict[str, int] = {}
-    for block in objective_blocks:
-        if not any(str(name) in observing for name in block.uses_outputs):
-            continue
-        declared = getattr(block, "warmup", None)
-        effective = default if declared is None else int(declared)
-        if effective > 0:
-            burnt[str(block.name)] = effective
-    if not burnt:
-        return
-    listed = ", ".join(f"{name} drops {count}" for name, count in sorted(burnt.items()))
-    raise UncertaintyNotAvailableError(
-        f"a linearized width is taken from the residual at each observation, and block(s) "
-        f"{listed} leading sample(s) before scoring. The residuals would then cover a window "
-        "the search was told to ignore. Score the burn-in out with scoring_window, which "
-        "cuts the record itself, or read the width with uncertainty.method = 'cost_profile'."
-    )
-
-
 def build_paired_vector_capture(
     outputs: Mapping[str, CalibOutputDecl],
     *,
     ctx: Any,
     objective_blocks: list[CalibObjectiveBlockDecl] | None = None,
-    warmup_periods: int = 0,
-    scoring_window: tuple[Any, Any] | None = None,
+    window: tuple[Any, Any] | None = None,
     min_samples: int = 1,
 ) -> tuple[Callable[..., tuple[float, dict[str, float]]], dict[str, Any]]:
     """Return a metric function that keeps the paired vectors instead of a cost.
@@ -531,13 +477,11 @@ def build_paired_vector_capture(
             'names a station to be compared against. Declare observes = "<station>" on '
             "the outputs this calibration is fitted to."
         )
-    refuse_a_burn_in_the_residuals_cannot_honour(outputs, blocks, warmup_periods)
     scorer = ObservableScorer(
         outputs,
         blocks,
         observed_records=observed_records,
-        warmup_periods=warmup_periods,
-        scoring_window=scoring_window,
+        window=window,
         min_samples=min_samples,
     )
     captured: dict[str, Any] = {}
@@ -545,7 +489,7 @@ def build_paired_vector_capture(
     def metric_fn(trial_ctx: Any, *, objective: Any = None, variable: Any = None):
         del objective, variable
         paired = scorer.pair(
-            extract_outputs(trial_ctx, outputs, scoring_window=scoring_window).observables,
+            extract_outputs(trial_ctx, outputs, window=window).observables,
             boundaries=time_grid_boundaries(trial_ctx),
         )
         order = sorted(paired.simulated)
@@ -564,5 +508,4 @@ def build_paired_vector_capture(
 __all__ = [
     "build_metric_extractor",
     "build_paired_vector_capture",
-    "refuse_a_burn_in_the_residuals_cannot_honour",
 ]

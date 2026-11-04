@@ -306,7 +306,7 @@ fatol = 1e-5
 # et sans masque saisonnier. Sans fenetre ecrite, le protocole ecarte la
 # premiere annee de la phase transitoire : la fenetre ouvre donc ici au
 # premier jour de `[simulation.time]`.
-[calibration.protocol.scoring_window]
+[calibration.protocol.window]
 start = "1995-01-01"
 
 # La reference ne sort qu'un K et un Sy. `cost_profile` relit la trace des

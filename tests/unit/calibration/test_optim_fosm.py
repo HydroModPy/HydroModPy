@@ -161,17 +161,14 @@ class TestThePassOverAReport:
             *,
             ctx=None,
             objective_blocks=None,
-            warmup_periods=0,
-            scoring_window=None,
+            window=None,
             min_samples=1,
         ):
-            # Recorded, not discarded: the runner is what reads the blocks and
-            # the burn-in off the document, and a stub that shrugs at them would
-            # keep passing if it stopped.
+            # Recorded, not discarded: the runner is what reads the blocks off the
+            # document, and a stub that shrugs at them would keep passing if it stopped.
             state["capture_kwargs"] = {
                 "objective_blocks": objective_blocks,
-                "warmup_periods": warmup_periods,
-                "scoring_window": scoring_window,
+                "window": window,
                 "min_samples": min_samples,
             }
             del ctx
@@ -212,10 +209,9 @@ class TestThePassOverAReport:
         return SimpleNamespace(
             outputs={"gauge": SimpleNamespace(observes="NANCON")},
             objective_blocks=[],
-            warmup_periods=0,
             objective=None,
             variable=None,
-            scoring_window=None,
+            window=None,
             aggregate=SimpleNamespace(min_samples=1),
             reject_water_budget_above=None,
         )
@@ -229,7 +225,6 @@ class TestThePassOverAReport:
         state, _captured = wired
         cfg = self._cfg()
         cfg.objective_blocks = ["a block"]
-        cfg.warmup_periods = 7
         attach_a_linearized_width(
             self._report(),
             cfg=cfg,
@@ -239,7 +234,6 @@ class TestThePassOverAReport:
         )
 
         assert state["capture_kwargs"]["objective_blocks"] == ["a block"]
-        assert state["capture_kwargs"]["warmup_periods"] == 7
         assert state["capture_kwargs"]["min_samples"] == 1
 
     def test_a_document_that_carries_no_width_keeps_its_report(self, monkeypatch) -> None:

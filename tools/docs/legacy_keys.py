@@ -77,7 +77,7 @@ def accepted_old_names(nodes: dict[str, dict[str, Any]]) -> dict[str, str]:
                 if _leaf(old) in config_migration._EXPORT_TABLE_KEYS:
                     accepted[old] = MIGRATES
     for rule in config_migration.RENAMED_KEYS:
-        if not rule.sealed_only:
+        if not (rule.sealed_only or rule.refused_on_load):
             path = config_migration.document_path(f"{rule.scope}.{rule.old}")
             accepted.setdefault(path, MIGRATES)
     for table in config_migration.RETIRED_RESULTS_TABLES:

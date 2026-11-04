@@ -437,6 +437,29 @@ class TestWhatNeedsTheModelIsRefusedNotFaked:
 
         assert "save_runs" in str(excinfo.value)
 
+    @pytest.mark.parametrize(
+        ("options", "metric_fn"),
+        [({"evaluator": "test_quadratic"}, None), ({}, lambda *_, **__: (0.0, {}))],
+        ids=["another_evaluator", "a_metric_function"],
+    )
+    def test_a_validation_window_nothing_would_score_is_refused(
+        self, registered_quadratic, tmp_path, options, metric_fn
+    ) -> None:
+        cfg = _config(
+            window={"end": "2001-12-31"},
+            validation_window={"start": "2002-01-01", "end": "2002-12-31"},
+            **options,
+        )
+        with pytest.raises(CalibrationError, match="validation_window"):
+            run_calibration_core(
+                cfg,
+                None,
+                persistence=_session(tmp_path),
+                space=space_from_config(cfg),
+                project_root=tmp_path,
+                metric_fn=metric_fn,
+            )
+
     def test_a_staged_protocol_is_refused_because_a_freeze_would_reach_nothing(
         self, registered_quadratic, tmp_path
     ) -> None:

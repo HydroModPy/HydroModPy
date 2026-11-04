@@ -64,7 +64,7 @@ def test_optuna_validation_profile_uses_top_level_iteration_budget() -> None:
     assert calibration["method"] == "optuna"
     assert calibration["max_trials"] == 32
     assert calibration["seed"] == 7
-    assert calibration["optimizer_kwargs"] == {"sampler": "tpe"}
+    assert calibration["method_options"] == {"sampler": "tpe"}
 
 
 def test_optuna_validation_profile_accepts_common_evaluation_budget() -> None:
@@ -88,4 +88,4 @@ def test_optuna_validation_profile_accepts_common_evaluation_budget() -> None:
 
     calibration = payload["calibration"]
     assert calibration["max_trials"] == 6
-    assert calibration["optimizer_kwargs"] == {"sampler": "tpe"}
+    assert calibration["method_options"] == {"sampler": "tpe"}

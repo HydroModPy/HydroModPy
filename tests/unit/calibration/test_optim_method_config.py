@@ -501,8 +501,8 @@ def test_cma_es_method_rejects_optuna_kwarg() -> None:
 #
 # They were ``optimizer_kwargs`` on a phase and on ``[calibration]``, and
 # ``steady_engine_options`` / ``transient_engine_options`` on the protocol: Python
-# jargon for one concept under two names. The old spellings keep loading, with a
-# warning naming the new one. An option its method does not take is refused when
+# jargon for one concept under two names. The old spellings are refused, with an
+# error naming the new one. An option its method does not take is refused when
 # the file loads, naming where it was written, instead of when that phase starts,
 # after the phases before it have spent their budget.
 
@@ -549,46 +549,24 @@ def test_a_protocol_stage_option_is_refused_under_the_key_the_file_wrote() -> No
         )
 
 
-def test_a_phase_s_old_key_loads_under_the_new_name_and_says_so() -> None:
-    with pytest.warns(ConfigKeyRenamedWarning, match="'optimizer_kwargs' is now called"):
-        phase = _phase(method="bisection", optimizer_kwargs={"sweep_points": 5})
+@pytest.mark.parametrize(
+    ("model", "old", "new"),
+    [
+        (CalibPhaseDecl, "optimizer_kwargs", "method_options"),
+        (CalibrationConfig, "optimizer_kwargs", "method_options"),
+        (CalibrationProtocolDecl, "steady_engine_options", "steady_method_options"),
+        (CalibrationProtocolDecl, "transient_engine_options", "transient_method_options"),
+    ],
+)
+def test_an_old_name_of_the_method_options_is_refused_with_the_new_one(model, old, new) -> None:
+    document = {"name": PROTOCOL} if model is CalibrationProtocolDecl else {"method": "grid"}
+    if model is CalibPhaseDecl:
+        document["name"] = "sy"
 
-    assert phase.method_options == {"sweep_points": 5}
-
-
-def test_the_section_s_old_key_loads_under_the_new_name() -> None:
-    with pytest.warns(ConfigKeyRenamedWarning, match="method_options"):
-        cfg = CalibrationConfig.model_validate(
-            {"method": "grid", "optimizer_kwargs": {"points_per_dim": 3}}
-        )
-
-    assert cfg.method_options == {"points_per_dim": 3}
-
-
-def test_the_protocol_s_old_keys_load_under_the_new_names() -> None:
-    with pytest.warns(ConfigKeyRenamedWarning) as caught:
-        declared = CalibrationProtocolDecl.model_validate(
-            {
-                "name": PROTOCOL,
-                "steady_engine_options": {"sweep_points": 5},
-                "transient_engine_options": {"xatol": 0.01},
-            }
-        )
-
-    assert declared.steady_method_options == {"sweep_points": 5}
-    assert declared.transient_method_options == {"xatol": 0.01}
-    renamed = " ".join(str(item.message) for item in caught)
-    assert "'steady_engine_options' is now called 'steady_method_options'" in renamed
-    assert "'transient_engine_options' is now called 'transient_method_options'" in renamed
-
-
-def test_both_spellings_in_one_phase_are_refused() -> None:
-    with pytest.raises(ValidationError, match="both 'optimizer_kwargs' and 'method_options'"):
-        _phase(
-            method="bisection",
-            optimizer_kwargs={"sweep_points": 5},
-            method_options={"sweep_points": 7},
-        )
+    with pytest.raises(
+        ValidationError, match=rf"'{old}' is not accepted any more: renamed to '{new}'"
+    ):
+        model.model_validate({**document, old: {"sweep_points": 5}})
 
 
 def test_the_schema_carries_the_new_names_as_user_keys_and_not_the_old_ones() -> None:
@@ -606,15 +584,6 @@ def test_the_schema_carries_the_new_names_as_user_keys_and_not_the_old_ones() ->
     assert "model_legacy_keys" not in str(schema)
     # The old names survive only as the renames the reference lists.
     assert phase["method_options"]["renamed_from"] == ["calibration.phases.optimizer_kwargs"]
-
-
-def test_a_dump_writes_the_new_name_only() -> None:
-    with pytest.warns(ConfigKeyRenamedWarning):
-        phase = _phase(method="bisection", optimizer_kwargs={"sweep_points": 5})
-
-    dumped = phase.model_dump()
-    assert dumped["method_options"] == {"sweep_points": 5}
-    assert "optimizer_kwargs" not in dumped
 
 
 def test_the_protocol_writes_its_stage_options_as_method_options() -> None:
@@ -663,7 +632,7 @@ def test_the_preflight_names_the_phase_whose_options_its_method_refuses() -> Non
 
 NAME = "matching_hydrographic_network"
 TIME = SimpleNamespace(start_datetime="2000-01-01", end_datetime="2002-12-31")
-PLAIN = SimpleNamespace(scoring_window=None, warmup_periods=None)
+PLAIN = SimpleNamespace(window=None)
 
 
 def _same(calibration=PLAIN, **options: object) -> frozenset[str]:
@@ -693,19 +662,19 @@ def test_a_precision_the_simplex_reads_as_a_width_is_always_a_choice() -> None:
 
 
 def test_the_spin_up_window_written_out_runs_as_the_recipe() -> None:
-    assert _same(scoring_window={"start": "2001-01-01"}) == {"scoring_window"}
-    assert _same(scoring_window={"start": "2001-01-01", "end": "2002-12-31"}) == {"scoring_window"}
+    assert _same(window={"start": "2001-01-01"}) == {"window"}
+    assert _same(window={"start": "2001-01-01", "end": "2002-12-31"}) == {"window"}
 
 
 def test_another_window_is_away_from_the_recipe() -> None:
-    assert _same(scoring_window={"start": "2002-06-01"}) == frozenset()
-    assert _same(scoring_window={"start": "2001-01-01", "end": "2002-06-30"}) == frozenset()
+    assert _same(window={"start": "2002-06-01"}) == frozenset()
+    assert _same(window={"start": "2001-01-01", "end": "2002-06-30"}) == frozenset()
 
 
 def test_the_window_is_the_recipe_s_only_when_calibration_bounds_nothing() -> None:
-    bounded = SimpleNamespace(scoring_window={"start": "2000-06-01"}, warmup_periods=None)
+    bounded = SimpleNamespace(window={"start": "2000-06-01"})
 
-    assert _same(bounded, scoring_window={"start": "2001-01-01"}) == frozenset()
+    assert _same(bounded, window={"start": "2001-01-01"}) == frozenset()
 
 
 def test_options_equal_to_the_method_s_defaults_are_recognised() -> None:

@@ -20,7 +20,7 @@ from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from hydromodpy.calibration.config import CalibPhaseDecl, CalibrationConfig, scoring_window_bounds
+from hydromodpy.calibration.config import CalibPhaseDecl, CalibrationConfig, window_bounds
 from hydromodpy.core.state.paths import resolve_project_root
 from hydromodpy.results.catalog.registration import (
     config_identity_hash,
@@ -28,7 +28,7 @@ from hydromodpy.results.catalog.registration import (
     run_identity_hash,
     split_stem_version,
 )
-from hydromodpy.results.metric_rule import CALIBRATION_ROLE, PeriodWindow
+from hydromodpy.results.metric_rule import CALIBRATION_ROLE, VALIDATION_ROLE, PeriodWindow
 from hydromodpy.results.session.descriptor import ParameterBound, list_session_dirs
 from hydromodpy.results.storage.contract import SESSION_CONFIG_FILENAME
 
@@ -45,12 +45,18 @@ def calibration_case_name(cfg_path: Path) -> str:
     writes one; otherwise its stem is the case.
     """
     carrier = _carrier_of_calibration(Path(cfg_path).expanduser().resolve())
-    own = _own_document(carrier)
-    simulation = own.get("simulation")
+    return case_named_by(_own_document(carrier), carrier.stem)
+
+
+def case_named_by(document: Mapping[str, Any], stem: str) -> str:
+    """Return the case a document names: its ``[simulation] name``, else *stem*.
+
+    A file goes through :func:`calibration_case_name`, from the CLI or from a project
+    built on it. Only a project with no file names its case from its configuration.
+    """
+    simulation = document.get("simulation")
     name = simulation.get("name") if isinstance(simulation, Mapping) else None
-    if isinstance(name, str) and name.strip():
-        return name.strip()
-    return carrier.stem
+    return name.strip() if isinstance(name, str) and name.strip() else stem
 
 
 def _own_document(path: Path) -> dict[str, Any]:
@@ -186,24 +192,28 @@ def search_windows(
     ``phase`` the period is the one of that phase, or the section's when the phase
     writes none. A bound left open is the start or the end of the period that
     ``[simulation.time]`` of *document* declares. Empty when a bound stays unknown:
-    a search that skips ``warmup_periods`` samples, no period to close the window
-    with, or a steady phase that writes no window of its own.
+    a steady phase that writes no window of its own. The validation window comes
+    second, on a search it is scored on.
     """
     last = phase if phase is not None else (cfg.phases[-1] if cfg.phases else None)
-    window = cfg.scoring_window
-    if last is not None and last.scoring_window is not None:
-        window = last.scoring_window
+    window = cfg.window
+    if last is not None and last.window is not None:
+        window = last.window
     elif last is not None and last.regime == "steady":
         return {}
-    if window is None and cfg.warmup_periods:
-        return {}
-    bounds = scoring_window_bounds(window) or (None, None)
+    bounds = window_bounds(window) or (None, None)
     period_start, period_end = _declared_period(document)
     start = bounds[0].date() if bounds[0] is not None else period_start
     end = bounds[1].date() if bounds[1] is not None else period_end
     if start is None or end is None:
         return {}
-    return {CALIBRATION_ROLE: PeriodWindow(role=CALIBRATION_ROLE, start=start, end=end)}
+    windows = {CALIBRATION_ROLE: PeriodWindow(role=CALIBRATION_ROLE, start=start, end=end)}
+    if cfg.validation_scored_by(last):
+        first_day, last_day = window_bounds(cfg.validation_window)
+        windows[VALIDATION_ROLE] = PeriodWindow(
+            role=VALIDATION_ROLE, start=first_day.date(), end=last_day.date()
+        )
+    return windows
 
 
 def _declared_period(document: Mapping[str, Any] | None) -> tuple[date | None, date | None]:

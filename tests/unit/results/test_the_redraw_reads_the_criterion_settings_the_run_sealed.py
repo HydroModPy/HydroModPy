@@ -29,10 +29,10 @@ def _network(**fields) -> dict:
     return {"support": "network", "observed_network": "data.hydrography", **fields}
 
 
-def _run(outputs: dict | None = None, *, scoring_window: dict | None = None, **sections):
+def _run(outputs: dict | None = None, *, window: dict | None = None, **sections):
     run = SimpleNamespace(sim_id="sim-x", config_snapshot=dict(sections))
     if outputs is not None:
-        window = {} if scoring_window is None else {"scoring_window": scoring_window}
+        window = {} if window is None else {"window": window}
         run.dir = sealed_search({"outputs": outputs, **window})
     return run
 
@@ -146,23 +146,23 @@ def test_a_sealed_value_no_trial_could_read_is_refused() -> None:
 
 
 def test_the_scoring_window_the_run_sealed_is_read_and_named() -> None:
-    run = _run({"streams": _network()}, scoring_window={"start": "2002-01-01T00:00:00+01:00"})
+    run = _run({"streams": _network()}, window={"start": "2002-01-01T00:00:00+01:00"})
 
     settings = network_criterion_settings(run)
 
-    assert settings.scoring_window == (pd.Timestamp("2002-01-01"), None)
-    assert settings.note().endswith("scoring_window 2002-01-01 to open")
+    assert settings.window == (pd.Timestamp("2002-01-01"), None)
+    assert settings.note().endswith("window 2002-01-01 to open")
 
 
 def test_a_window_with_both_bounds_open_is_no_window() -> None:
-    run = _run({"streams": _network()}, scoring_window={})
+    run = _run({"streams": _network()}, window={})
 
-    assert network_criterion_settings(run).scoring_window is None
-    assert network_criterion_settings(_run({"streams": _network()})).scoring_window is None
+    assert network_criterion_settings(run).window is None
+    assert network_criterion_settings(_run({"streams": _network()})).window is None
 
 
 def test_a_window_bound_that_is_not_a_date_is_refused() -> None:
-    run = _run({"streams": _network()}, scoring_window={"start": "spring"})
+    run = _run({"streams": _network()}, window={"start": "spring"})
 
-    with pytest.raises(ValueError, match="scoring_window.start 'spring' is not a date"):
+    with pytest.raises(ValueError, match="window.start 'spring' is not a date"):
         network_criterion_settings(run)

@@ -110,6 +110,7 @@ class _Flow(BaseModel):
 class _Cfg(BaseModel):
     flow: _Flow = _Flow()
     simulation: SimulationStub = SimulationStub()
+    site: None = None
 
 
 class FakeCtx:

@@ -34,7 +34,7 @@ from hydromodpy.core.config_kit.base import (
     forget_old_forms_told,
     warn_old_form,
 )
-from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.core.exceptions import ConfigError, ConfigValidationError
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.core.version import __version__
 from tools.surface_snapshot import outlived_interface_forms, toml_fields
@@ -123,12 +123,11 @@ def test_drops_the_two_options_that_never_drove_anything(tmp_path: Path) -> None
         '[simulation]\nname = "cheze"\n\n'
         '[simulation.results]\nsolver_scratch = ".hmp/scratch"\nkeep_solver_files = true\n\n'
         "[simulation.results.persistence]\nsave_lock = true\nsave_zarr = true\n\n"
-        "[persistence]\nsave_lock = false\n\n"
-        "[calibration.persistence]\nsave_lock = true\n",
+        "[persistence]\nsave_lock = false\n",
     )
     changes = fix_config_file(path)
     assert any("solver_scratch dropped" in c for c in changes)
-    assert sum("save_lock dropped" in c for c in changes) == 3
+    assert sum("save_lock dropped" in c for c in changes) == 2
 
     parsed = tomllib.loads(path.read_text())
     results = parsed["simulation"]["results"]
@@ -137,7 +136,6 @@ def test_drops_the_two_options_that_never_drove_anything(tmp_path: Path) -> None
     assert "save_lock" not in results["persistence"]
     assert results["persistence"]["save_zarr"] is True
     assert "save_lock" not in parsed["persistence"]
-    assert "save_lock" not in parsed["calibration"]["persistence"]
     assert fix_config_file(path) == []
 
 
@@ -495,15 +493,18 @@ def test_every_rename_a_model_declares_has_its_form() -> None:
         assert undeclared == set(), f"{model.__name__} retires {undeclared} with no old form"
 
 
-def test_a_rewritten_form_is_read_at_load_with_the_new_name_in_the_warning(tmp_path: Path) -> None:
+def test_a_refusal_at_load_names_every_old_calibration_key_of_the_file(tmp_path: Path) -> None:
+    source = tmp_path / "project.toml"
     doc = {"calibration": {"optimizer_kwargs": {"seed": 1}, "max_iter": 5}}
-    with pytest.warns(ConfigKeyRenamedWarning) as told:
-        migrate_config_doc_on_load(doc, source=tmp_path / "project.toml")
 
-    assert doc == {"calibration": {"method_options": {"seed": 1}, "max_trials": 5}}
-    text = " ".join(str(warning.message) for warning in told)
-    assert "optimizer_kwargs -> method_options" in text
-    assert "max_iter -> max_trials" in text
+    with pytest.raises(ConfigValidationError) as refused:
+        migrate_config_doc_on_load(doc, source=source)
+
+    assert str(refused.value) == (
+        f"{source}: calibration.optimizer_kwargs -> method_options; "
+        "calibration.max_iter -> max_trials. This old form is refused; "
+        f"`hmp doctor --fix-config {source}` rewrites the file."
+    )
 
 
 _FROZEN_V1 = Path(__file__).parent / "fixtures" / "frozen_run_config_export_v1.toml"
@@ -690,7 +691,7 @@ def test_the_ratio_bound_migrates_on_load_and_a_current_file_is_untouched() -> N
     doc = {"calibration": {"outputs": {"net": {"support": "network", "roptim_max": 2.0}}}}
     current = {"calibration": {"outputs": {"net": {"validity_length": "150 m"}}}}
 
-    assert migrate_config_doc_on_load(doc, source="calibration.toml")
+    assert migrate_config_doc(doc)
     assert migrate_config_doc(current) == []
     assert current["calibration"]["outputs"]["net"] == {"validity_length": "150 m"}
 
@@ -848,10 +849,8 @@ def test_a_sibling_keeps_its_reading_of_a_parent_the_doctor_left(tmp_path: Path)
     fix_config_chain(child)
 
     assert "max_iter" in holder.read_text()
-    with pytest.warns(ConfigKeyRenamedWarning):
-        read = load_toml_with_base_config(sibling)["calibration"]["protocol"]
-    assert read["transient_method_options"] == {"chain_length": 50}
-    assert "transient_max_trials" not in read
+    with pytest.raises(ConfigValidationError, match=r"transient_method_options.max_iter -> chain"):
+        load_toml_with_base_config(sibling)
 
 
 def test_the_doctor_writes_nothing_when_a_rewrite_would_change_what_the_chain_reads(
@@ -1292,3 +1291,358 @@ def test_every_key_the_tables_write_is_held_by_the_models() -> None:
         and not _a_key_the_models_hold(document_path(form.new), keys)
     ]
     assert lost == []
+
+
+# The calibration forms a count, a station or a default stood for.
+
+_MONTHLY = '[simulation.time]\nstart_datetime = "2000-01-01"\nstep_value = 1\nstep_unit = "month"\n'
+_DAILY = '[simulation.time]\nstart_datetime = "2015-01-01"\nstep_value = "1 day"\n'
+_BLOCK = '[[calibration.objective_blocks]]\nname = "b"\nuses_outputs = ["q"]\n'
+_GAUGE = '[site]\ngauge = "G"\n'
+
+
+@pytest.mark.parametrize(
+    ("text", "kept", "gone", "told"),
+    [
+        (
+            _MONTHLY + "[calibration]\nwarmup_periods = 12\n",
+            "window",
+            "warmup_periods",
+            "2001-01-01",
+        ),
+        (
+            _DAILY + "[calibration]\nwarmup_periods = 30\n",
+            "window",
+            "warmup_periods",
+            "2015-01-31",
+        ),
+        (_DAILY + "[calibration]\nwarmup_periods = 0\n", None, "warmup_periods", "skipped nothing"),
+        ("[calibration]\nwarmup_periods = 12\n", "warmup_periods", None, "[simulation.time]"),
+        (
+            '[simulation.time]\nstep_value = "1 day"\n[calibration]\nwarmup_periods = 3\n',
+            "warmup_periods",
+            None,
+            "start_datetime is not in this file",
+        ),
+        (
+            _DAILY + "[calibration]\nwarmup_periods = 3\nwindow = {start = '2016-01-01'}\n",
+            "warmup_periods",
+            None,
+            "keep one",
+        ),
+        (
+            _DAILY + "[calibration]\n" + _BLOCK + "warmup = 3\n",
+            "warmup",
+            None,
+            "once for all blocks",
+        ),
+        (_DAILY + "[calibration]\n" + _BLOCK + "warmup = 0\n", None, "warmup", "skipped nothing"),
+        (
+            _GAUGE + '[calibration]\nobserved_station_id = "G"\n',
+            None,
+            "observed_station_id",
+            "now [site] gauge",
+        ),
+        (
+            '[calibration]\nobserved_station_id = "G"\n',
+            None,
+            "observed_station_id",
+            "now [site] gauge",
+        ),
+        (
+            _GAUGE + '[calibration]\nobserved_station_id = "H"\n',
+            "observed_station_id",
+            None,
+            "keep one",
+        ),
+        (
+            _GAUGE + '[calibration.protocol]\nname = "p"\nobserved_station_id = "G"\n',
+            None,
+            "observed_station_id",
+            "now [site] gauge",
+        ),
+        (
+            _GAUGE + '[[calibration.phases]]\nname = "k"\nobserved_station_id = "G"\n',
+            None,
+            "observed_station_id",
+            "now [site] gauge",
+        ),
+        ("[calibration]\n" + _BLOCK, "metric", None, "now required"),
+        (
+            "[calibration]\nobjective = 'kge'\n" + _BLOCK + "metric = 'nse'\n",
+            None,
+            "objective",
+            "own metric",
+        ),
+        (
+            "[calibration]\nobjective = 'kge'\n"
+            + _BLOCK
+            + "metric = 'nse'\n[[calibration.phases]]\nname = 'p'\nvariable = 'head'\n",
+            "objective",
+            None,
+            "a phase scores a variable",
+        ),
+        (
+            "[calibration]\npersistence = {save_lock = true}\nlightweight_extraction = true\npersist_model_distribution = false\n",
+            None,
+            "persistence",
+            "no step ever read it",
+        ),
+        (
+            "[calibration.aggregate]\nweighting = 'error'\nnested_gauges = 'x'\non_member_failure = 'drop'\nmin_samples = 2\n",
+            "min_samples",
+            "weighting",
+            "no step ever read it",
+        ),
+    ],
+    ids=[
+        "a count of monthly steps is a date",
+        "a count of daily steps is a date",
+        "zero skipped nothing",
+        "no time grid leaves the count",
+        "no start date leaves the count",
+        "a window beside the count leaves it",
+        "a block burn-in has no date",
+        "a block burn-in of zero goes",
+        "a station equal to the gauge goes",
+        "a station without a gauge becomes the gauge",
+        "a station other than the gauge stays",
+        "a protocol station goes",
+        "a phase station goes",
+        "a block gets the old default metric",
+        "an objective beside blocks goes",
+        "an objective a phase reads stays",
+        "the dead calibration keys go",
+        "the dead aggregate keys go",
+    ],
+)
+def test_the_doctor_rewrites_the_calibration_forms(tmp_path: Path, text, kept, gone, told) -> None:
+    path = _write(tmp_path, text)
+
+    changes = fix_config_file(path)
+
+    flat = path.read_text(encoding="utf-8")
+    assert told in " ".join(changes)
+    assert kept is None or kept in flat
+    assert gone is None or f"{gone} =" not in flat
+    assert fix_config_file(path) == [c for c in changes if CANNOT_REWRITE in c]
+
+
+_WARMUP_MOVED = (
+    "calibration.warmup_periods -> window (start {}, counted from start_datetime; the old count "
+    "ran from the first aligned sample, so the date equals it only when the record starts at "
+    "start_datetime)"
+)
+_J1 = '[site]\ngauge = "J1"\n'
+
+
+@pytest.mark.parametrize(
+    ("parent", "child", "parent_after", "child_after", "parent_told", "child_told"),
+    [
+        (
+            _MONTHLY + _J1,
+            "[calibration]\nwarmup_periods = 2\n",
+            None,
+            {"calibration": {"window": {"start": "2000-03-01"}}},
+            [],
+            [_WARMUP_MOVED.format("2000-03-01")],
+        ),
+        (
+            _J1,
+            '[calibration]\nobserved_station_id = "J1"\n',
+            None,
+            {"calibration": {}},
+            [],
+            ["calibration.observed_station_id dropped (now [site] gauge)"],
+        ),
+        (
+            _J1,
+            '[calibration]\nobserved_station_id = "J9"\n',
+            None,
+            {"calibration": {"observed_station_id": "J9"}},
+            [],
+            [f"calibration.observed_station_id{CANNOT_REWRITE}[site] gauge is 'J1', keep one"],
+        ),
+        (
+            "[simulation]\nname = 'n'\n",
+            '[calibration]\nobserved_station_id = "J9"\n',
+            None,
+            {"calibration": {}, "site": {"gauge": "J9"}},
+            [],
+            ["calibration.observed_station_id dropped (now [site] gauge)"],
+        ),
+    ],
+    ids=[
+        "the step sits in the parent",
+        "the gauge of the parent says the same",
+        "the gauge of the parent says another station",
+        "no file names a gauge",
+    ],
+)
+def test_the_doctor_reads_the_files_above_for_a_step_or_a_gauge(
+    tmp_path: Path, parent, child, parent_after, child_after, parent_told, child_told
+) -> None:
+    base = tmp_path / "base.toml"
+    base.write_text(parent, encoding="utf-8")
+    leaf = tmp_path / "leaf.toml"
+    leaf.write_text(f'base_config = "base.toml"\n{child}', encoding="utf-8")
+    parent_before = tomllib.loads(parent)
+
+    told = fix_config_chain(leaf)
+
+    assert told == {base: parent_told, leaf: child_told}
+    assert tomllib.loads(base.read_text(encoding="utf-8")) == (parent_after or parent_before)
+    assert tomllib.loads(leaf.read_text(encoding="utf-8")) == {
+        "base_config": "base.toml",
+        **child_after,
+    }
+
+
+def test_a_count_in_a_parent_whose_step_a_child_writes_is_left_in_the_parent(
+    tmp_path: Path,
+) -> None:
+    base = tmp_path / "base.toml"
+    base.write_text("[calibration]\nwarmup_periods = 2\n", encoding="utf-8")
+    leaf = tmp_path / "leaf.toml"
+    leaf.write_text(f'base_config = "base.toml"\n{_MONTHLY}', encoding="utf-8")
+
+    told = fix_config_chain(leaf)
+
+    assert told[leaf] == []
+    assert len(told[base]) == 1
+    assert told[base][0].startswith("calibration.warmup_periods -> window (start 2000-03-01")
+    assert CANNOT_REWRITE in told[base][0]
+    assert "warmup_periods = 2" in base.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    ("start", "written"),
+    [("2015-01-01T12:00:00", "2015-01-04"), ("2015-01-01", "2015-01-04")],
+    ids=["a time of day is cut to the day", "a plain date"],
+)
+def test_the_date_a_count_stood_for_is_a_day_and_the_change_says_what_it_counts_from(
+    tmp_path: Path, start: str, written: str
+) -> None:
+    path = _write(
+        tmp_path,
+        f'[simulation.time]\nstart_datetime = "{start}"\nstep_value = "1 day"\n'
+        "[calibration]\nwarmup_periods = 3\n",
+    )
+
+    assert fix_config_file(path) == [_WARMUP_MOVED.format(written)]
+    parsed = tomllib.loads(path.read_text(encoding="utf-8"))
+    assert parsed["calibration"] == {"window": {"start": written}}
+
+
+def test_the_doctor_writes_the_gauge_a_station_stood_for(tmp_path: Path) -> None:
+    path = _write(tmp_path, '[calibration]\nobserved_station_id = "G"\n')
+
+    fix_config_file(path)
+
+    assert tomllib.loads(path.read_text(encoding="utf-8"))["site"] == {"gauge": "G"}
+
+
+def test_the_doctor_writes_the_date_a_count_stood_for(tmp_path: Path) -> None:
+    path = _write(tmp_path, _MONTHLY + "[calibration]\nwarmup_periods = 12\n")
+
+    fix_config_file(path)
+
+    parsed = tomllib.loads(path.read_text(encoding="utf-8"))
+    assert parsed["calibration"] == {"window": {"start": "2001-01-01"}}
+
+
+_OLD_WINDOW = "{start = '2001-01-01'}"
+
+
+@pytest.mark.parametrize(
+    ("body", "where", "value"),
+    [
+        (f"[calibration]\nscoring_window = {_OLD_WINDOW}\n", ("window",), {"start": "2001-01-01"}),
+        (
+            f'[[calibration.phases]]\nname = "p"\nscoring_window = {_OLD_WINDOW}\n',
+            ("phases", 0, "window"),
+            {"start": "2001-01-01"},
+        ),
+        (
+            f'[calibration.protocol]\nname = "m"\nscoring_window = {_OLD_WINDOW}\n',
+            ("protocol", "window"),
+            {"start": "2001-01-01"},
+        ),
+        (
+            '[[calibration.phases]]\nname = "p"\n[calibration.phases.overrides]\n'
+            '"calibration.scoring_window.start" = "2002-01-01"\n',
+            ("phases", 0, "overrides", "calibration.window.start"),
+            "2002-01-01",
+        ),
+        (
+            '[calibration.parameters.k]\npath = "calibration.scoring_window.start"\n',
+            ("parameters", "k", "path"),
+            "calibration.window.start",
+        ),
+    ],
+    ids=["section", "phase", "protocol", "override-key", "parameter-path"],
+)
+def test_scoring_window_is_renamed_window_in_every_form(tmp_path: Path, body, where, value) -> None:
+    path = _write(tmp_path, body)
+
+    assert fix_config_file(path)
+
+    found = tomllib.loads(path.read_text())["calibration"]
+    for step in where:
+        found = found[step]
+    assert found == value
+
+
+def test_a_sealed_scoring_window_reads_as_window() -> None:
+    from hydromodpy.config.config_migration import migrate_sealed_config_doc
+
+    window = {"start": "2001-01-01"}
+    doc = {
+        "calibration": {
+            "scoring_window": window,
+            "phases": [{"name": "p", "scoring_window": window}],
+            "protocol": {"name": "m", "scoring_window": window},
+        }
+    }
+
+    migrate_sealed_config_doc(doc)
+
+    assert doc == {
+        "calibration": {
+            "window": window,
+            "phases": [{"name": "p", "window": window}],
+            "protocol": {"name": "m", "window": window},
+        }
+    }
+
+
+def test_a_sealed_config_drops_what_a_replay_never_reads() -> None:
+    from hydromodpy.config.config_migration import migrate_sealed_config_doc
+
+    doc = {
+        "site": {"gauge": "G"},
+        "calibration": {
+            "warmup_periods": 12,
+            "observed_station_id": "H",
+            "objective": "nse",
+            "persistence": {"save_lock": True},
+            "lightweight_extraction": True,
+            "aggregate": {"weighting": "area", "min_samples": 2},
+            "protocol": {"name": "p", "observed_station_id": "H"},
+            "objective_blocks": [{"name": "b", "uses_outputs": ["q"], "warmup": 3}],
+            "phases": [{"name": "k", "observed_station_id": "H"}],
+        },
+    }
+
+    changes = migrate_sealed_config_doc(doc)
+
+    assert doc == {
+        "site": {"gauge": "G"},
+        "calibration": {
+            "aggregate": {"min_samples": 2},
+            "protocol": {"name": "p"},
+            "objective_blocks": [{"name": "b", "uses_outputs": ["q"], "metric": "rmse"}],
+            "phases": [{"name": "k"}],
+        },
+    }
+    assert len(changes) == 10

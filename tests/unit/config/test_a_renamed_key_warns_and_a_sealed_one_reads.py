@@ -1,4 +1,4 @@
-"""A renamed key loads with a warning, the doctor rewrites it, and a sealed run reads it.
+"""A renamed key warns, or refuses under [calibration], the doctor rewrites it, a sealed run reads it.
 
 The frame is tested with a table of its own, patched in, so it holds whatever
 keys are renamed today: ``RENAMED_KEYS`` is what each rename adds a row to.
@@ -13,8 +13,9 @@ from pathlib import Path
 
 import pytest
 import tomlkit
+from pydantic import ValidationError
 
-from hydromodpy.calibration.config import renamed_to
+from hydromodpy.calibration.config import CalibrationConfig, renamed_to
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.config import config_migration as migration
 from hydromodpy.config.config_migration import (
@@ -24,6 +25,7 @@ from hydromodpy.config.config_migration import (
     fix_config_file,
     migrate_config_doc,
     migrate_config_doc_on_load,
+    migrate_layers,
     migrate_sealed_config_doc,
     moved_paths,
     rewrite_dotted_path,
@@ -31,6 +33,7 @@ from hydromodpy.config.config_migration import (
 from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning
 from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.core.toml_io.loader import read_toml_chain
+from hydromodpy.core.toml_io.overrides import SET_SOURCE
 from hydromodpy.workflow.steps.prepare_solver.dispatch import portable_config_document
 
 PROJECT = """\
@@ -103,6 +106,7 @@ SEED = KeyRename("calibration", "seed_before", "seed", since=SINCE)
 PHASE = KeyRename("calibration.phases[*]", "description_before", "description", since=SINCE)
 PROTOCOL = KeyRename("calibration.protocol", "steady_window_before", "steady_window", since=SINCE)
 PARAMETER = KeyRename("calibration.parameters.{*}", "bounds_before", "bounds", since=SINCE)
+CRS = KeyRename("geographic", "crs_before", "crs_project", since=SINCE)
 
 
 def _only(monkeypatch: pytest.MonkeyPatch, *rules: KeyRename) -> None:
@@ -213,27 +217,141 @@ def test_a_dropped_key_is_dropped_in_a_sealed_read(monkeypatch: pytest.MonkeyPat
 WITH_OLD_SEED = PROJECT.replace(
     "[calibration.parameters.K]", "[calibration]\nseed_before = 7\n\n[calibration.parameters.K]"
 )
+WITH_OLD_CRS = PROJECT.replace("crs_project =", "crs_before =")
 
 
 def test_a_renamed_key_warns_in_a_file_and_reads_in_silence_in_a_sealed_run_config(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, recwarn: pytest.WarningsRecorder
 ) -> None:
-    _only(monkeypatch, SEED)
+    _only(monkeypatch, CRS)
     project = _project(tmp_path)
     user_file = project / "project.toml"
-    user_file.write_text(WITH_OLD_SEED, encoding="utf-8")
+    user_file.write_text(WITH_OLD_CRS, encoding="utf-8")
 
-    with pytest.warns(ConfigKeyRenamedWarning, match="seed_before -> seed") as told:
-        assert HydroModPyConfig.from_toml(user_file).calibration.seed == 7
+    with pytest.warns(ConfigKeyRenamedWarning, match="crs_before -> crs_project") as told:
+        assert HydroModPyConfig.from_toml(user_file).geographic.crs_project == "EPSG:2154"
     assert f"hmp doctor --fix-config {user_file}" in str(told[0].message)
 
     sealed = project / "runs" / "nancon" / "config.toml"
     sealed.parent.mkdir(parents=True)
-    sealed.write_text(WITH_OLD_SEED, encoding="utf-8")
+    sealed.write_text(WITH_OLD_CRS, encoding="utf-8")
     recwarn.clear()
 
-    assert HydroModPyConfig.from_toml(sealed).calibration.seed == 7
+    assert HydroModPyConfig.from_toml(sealed).geographic.crs_project == "EPSG:2154"
     assert not [w for w in recwarn if issubclass(w.category, ConfigKeyRenamedWarning)]
+
+
+_OLD_CALIBRATION_FORMS = {
+    "a section key": (
+        "[calibration]\nscoring_window = {start = '2001-01-01'}\n",
+        "calibration.scoring_window -> window",
+    ),
+    "a directive": (
+        "[calibration]\noptimizer_kwargs__merge = {sigma = 0.5}\n",
+        "calibration.optimizer_kwargs__merge -> method_options__merge",
+    ),
+    "a phase key": (
+        "[[calibration.phases]]\nname = 'p'\noptimizer_kwargs = {sigma = 0.5}\n",
+        "calibration.phases[0].optimizer_kwargs -> method_options",
+    ),
+    "a protocol key": (
+        "[calibration.protocol]\nsteady_engine_options = {sigma = 0.5}\n",
+        "calibration.protocol.steady_engine_options -> steady_method_options",
+    ),
+    "a parameter key": (
+        "[calibration.parameters.K]\nprior = 'uniform'\n",
+        "calibration.parameters.K.prior -> sampling",
+    ),
+    "a block key": (
+        "[[calibration.objective_blocks]]\nname = 'b'\nmetric = 'nse'\ntransform = 'none'\n",
+        "calibration.objective_blocks[0].transform -> cost_transform",
+    ),
+    "a dotted path": (
+        "[[calibration.phases]]\nname = 'p'\n[calibration.phases.overrides]\n"
+        "\"calibration.scoring_window\" = {start = '2001-01-01'}\n",
+        'calibration.phases[0].overrides."calibration.scoring_window" -> "calibration.window"',
+    ),
+    "a bind line": (
+        '[sites.bind]\n"calibration.scoring_window" = "w"\n',
+        'sites.bind."calibration.scoring_window" -> "calibration.window"',
+    ),
+    "a search option": (
+        "[calibration]\nmethod = 'scipy_nelder_mead'\nmethod_options = {maxfev = 10}\n",
+        "calibration.method_options.maxfev -> max_trials = 10",
+    ),
+    "a margin": (
+        "[calibration.uncertainty]\ntolerance = 0.05\nmode = 'relative'\n",
+        "calibration.uncertainty.tolerance -> cost_margin = '5%'",
+    ),
+    "a ratio": (
+        "[calibration.outputs.q]\nroptim_max = 2\n",
+        "calibration.outputs.q.roptim_max dropped (2 cells is validity_length = 'auto', the default)",
+    ),
+}
+
+
+@pytest.mark.parametrize(
+    ("text", "change"), _OLD_CALIBRATION_FORMS.values(), ids=_OLD_CALIBRATION_FORMS.keys()
+)
+def test_an_old_calibration_key_is_refused_with_its_new_name_and_only_the_doctor_rewrites_it(
+    tmp_path: Path, text: str, change: str
+) -> None:
+    user_file = tmp_path / "project.toml"
+    user_file.write_text(text, encoding="utf-8")
+
+    with pytest.raises(ConfigValidationError) as refused:
+        migrate_config_doc_on_load(tomllib.loads(text), source=user_file)
+    assert str(refused.value) == (
+        f"{user_file}: {change}. This old form is refused; "
+        f"`hmp doctor --fix-config {user_file}` rewrites the file."
+    )
+    assert migrate_config_doc_on_load(tomllib.loads(text), source=tmp_path / "runs/n/config.toml")
+
+    assert fix_config_file(user_file) == [change]
+    assert (
+        migrate_config_doc_on_load(
+            tomllib.loads(user_file.read_text(encoding="utf-8")), source=user_file
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    ("source", "where", "advice"),
+    [
+        (SET_SOURCE, SET_SOURCE, "write the new name"),
+        (None, "config", "`hmp doctor --fix-config <file>` rewrites the file"),
+    ],
+    ids=["the command line has no file to rewrite", "a payload from no file"],
+)
+def test_an_old_calibration_key_from_no_file_says_what_to_do(source, where, advice) -> None:
+    with pytest.raises(ConfigValidationError) as refused:
+        migrate_layers([(source, {"calibration": {"scoring_window": {}}})])
+
+    assert str(refused.value) == (
+        f"{where}: calibration.scoring_window -> window. This old form is refused; {advice}."
+    )
+
+
+def test_a_key_the_doctor_cannot_rename_goes_on_to_the_refusal_of_its_model(
+    tmp_path: Path,
+) -> None:
+    doc = {"calibration": {"scoring_window": {}, "window": {}}}
+
+    changes = migrate_config_doc_on_load(doc, source=tmp_path / "project.toml")
+
+    assert changes[0] == "calibration.scoring_window left: 'window' is given too, keep one"
+    with pytest.raises(ValidationError, match="renamed to 'window'"):
+        CalibrationConfig.model_validate(doc["calibration"])
+
+
+def test_a_key_another_section_renamed_keeps_its_delay_in_a_phase_override(tmp_path: Path) -> None:
+    doc = {"calibration": {"phases": [{"overrides": {"display.overrides.map.timestep": 1}}]}}
+
+    with pytest.warns(ConfigKeyRenamedWarning, match="timestep"):
+        migrate_config_doc_on_load(doc, source=tmp_path / "project.toml")
+
+    assert doc["calibration"]["phases"][0]["overrides"] == {"display.overrides.map.time": 1}
 
 
 def test_the_end_of_the_delay_refuses_a_file_and_still_reads_a_sealed_config(
@@ -298,16 +416,16 @@ def test_a_frozen_protocol_stage_with_an_old_key_reads_back(
 def test_a_load_of_a_user_file_does_not_run_the_sealed_rules(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    rule = KeyRename("calibration", "seed_before", "seed", sealed_drop=True, since=SINCE)
+    rule = KeyRename("mesh", "size_before", "cell_size", sealed_drop=True, since=SINCE)
     _only(monkeypatch, rule)
-    doc = {"calibration": {"seed_before": 7}}
+    doc = {"mesh": {"size_before": 7}}
     with pytest.warns(ConfigKeyRenamedWarning):
         migrate_config_doc_on_load(doc, source=tmp_path / "project.toml")
-    assert doc == {"calibration": {"seed": 7}}
+    assert doc == {"mesh": {"cell_size": 7}}
 
-    doc = {"calibration": {"seed_before": 7}}
+    doc = {"mesh": {"size_before": 7}}
     migrate_config_doc_on_load(doc, source=tmp_path / "runs" / "nancon" / "config.toml")
-    assert doc == {"calibration": {}}
+    assert doc == {"mesh": {}}
 
 
 def test_a_renamed_table_keeps_its_place_and_its_comments(tmp_path: Path) -> None:

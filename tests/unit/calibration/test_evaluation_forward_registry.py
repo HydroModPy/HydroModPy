@@ -440,10 +440,8 @@ class TestWhatTheRouteRefuses:
 
     def test_a_window_has_no_date_to_cut_on_and_is_refused_like_the_others(self) -> None:
         """The fourth refusal, and the one that used to leave a generic exit code."""
-        with pytest.raises(CalibrationError, match="scoring_window"):
-            ScoredForwardEvaluator(
-                cfg=_config(scoring_window={"start": "2020-01-01", "end": "2020-12-31"})
-            )
+        with pytest.raises(CalibrationError, match="window"):
+            ScoredForwardEvaluator(cfg=_config(window={"start": "2020-01-01", "end": "2020-12-31"}))
 
     def test_a_record_no_answer_could_ever_match_is_refused_before_the_search(self) -> None:
         """One value is scored and three are declared: every sample fails, so none is run."""

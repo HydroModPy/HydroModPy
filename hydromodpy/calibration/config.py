@@ -73,6 +73,7 @@ from hydromodpy.core.config_kit.types import (
 )
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
 from hydromodpy.core.cost_margin import parse_cost_margin
+from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.core.stream_criterion_defaults import (
     STREAM_CRITERION_DEFAULTS,
     ObservedRasterization,
@@ -93,6 +94,55 @@ def renamed_to(new: str, meaning: str) -> str:
     the file (``hydromodpy.config.config_migration.RENAMED_KEYS``).
     """
     return f"renamed to {new!r} ({meaning}); hmp doctor --fix-config <file> rewrites it"
+
+
+CALIBRATION_RENAMES: Mapping[str, Mapping[str, tuple[str, str]]] = {
+    "calibration": {
+        "scoring_window": ("window", "the dates every metric is scored on"),
+        "optimizer_kwargs": ("method_options", "options of the method"),
+        "max_iter": ("max_trials", "the evaluations the search may run"),
+        "tolerance": ("precision", "how finely the search pins a parameter"),
+    },
+    "calibration.phases[*]": {
+        "scoring_window": ("window", "the dates this phase scores"),
+        "optimizer_kwargs": ("method_options", "options of this phase's method"),
+        "max_iter": ("max_trials", "evaluations this phase may run"),
+        "tolerance": ("precision", "how finely this phase pins its parameters"),
+    },
+    "calibration.protocol": {
+        "scoring_window": ("window", "the dates stage two scores"),
+        "steady_engine_options": ("steady_method_options", "options of the stage-one method"),
+        "transient_engine_options": ("transient_method_options", "options of the stage-two method"),
+        "steady_max_iter": ("steady_max_trials", "evaluations stage one may run"),
+        "transient_max_iter": ("transient_max_trials", "evaluations stage two may run"),
+        "steady_tolerance": ("steady_precision", "how finely stage one pins the conductivity"),
+        "transient_tolerance": ("transient_precision", "how finely stage two pins the storage"),
+    },
+    "calibration.parameters.{*}": {
+        "transform": ("search_space", "the space the search walks the parameter in"),
+        "prior": ("sampling", "the law that starting points and random draws follow"),
+    },
+    "calibration.objective_blocks[*]": {
+        "transform": ("cost_transform", "the function applied to the cost of this block"),
+    },
+}
+"""Every plain rename of ``[calibration]``, by scope: old key, then new key and what it is.
+
+This one list feeds the refusal of the models here and ``RENAMED_KEYS`` of the doctor.
+"""
+
+
+def _renames_under(scope: str) -> dict[str, str]:
+    """Return the refusals of the renames of *scope*, for ``model_refused_keys``."""
+    renames = CALIBRATION_RENAMES[scope].items()
+    return {old: renamed_to(new, meaning) for old, (new, meaning) in renames}
+
+
+_DROPPED_ADVICE = "it was never read; hmp doctor --fix-config <file> deletes it"
+_GAUGE_ADVICE = (
+    "the station is [site] gauge, and a point output names its own with 'observes'; "
+    "hmp doctor --fix-config <file> moves it"
+)
 
 
 SaveRunsMode = Literal["none", "best_n", "all"]
@@ -161,7 +211,7 @@ def _no_list_of_dates(value: Any) -> Any:
     if isinstance(value, list):
         raise ValueError(
             "time = [dates] selects nothing: the output would be read at every step, as "
-            "with 'all'. Bound what is scored with [metrics] window or scoring_window, or "
+            "with 'all'. Bound what is scored with [metrics] window or window, or "
             "write 'first' or 'last'."
         )
     return value
@@ -170,31 +220,63 @@ def _no_list_of_dates(value: Any) -> Any:
 OutputTime = Annotated[Literal["all", "last", "first"], BeforeValidator(_no_list_of_dates)]
 
 
-def _a_window_of_dates(window: dict[str, str]) -> dict[str, str]:
-    """Read a ``{start, end}`` table as a :class:`CalibScoringWindow`.
+class CalibWindow(HydroModelBase):
+    """Dates bounding the samples a metric is computed on.
 
-    The value stays a table: the protocol copies it into the phase it writes,
-    and its record prints it. Reading it here makes a bad date fail when the
-    file is loaded, not when the stage it bounds starts.
+    A window in dates rather than in sample counts: it says the same thing
+    whatever the output frequency.
     """
-    CalibScoringWindow.model_validate(window)
-    return dict(window)
+
+    start: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="First date scored, ISO 8601. Unset means from the first sample.",
+    )
+    end: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Last date scored, ISO 8601. Unset means up to the last sample.",
+    )
+
+    @model_validator(mode="after")
+    def _check_bounds(self) -> CalibWindow:
+        bounds = _parsed_bounds(self)
+        if bounds[0] is not None and bounds[1] is not None and bounds[0] > bounds[1]:
+            raise ValueError(f"window start {self.start!r} is after end {self.end!r}.")
+        return self
+
+
+def _parsed_bounds(window: CalibWindow) -> tuple[Any, Any]:
+    """Parse the window bounds into timestamps, raising on a bad date."""
+    import pandas as pd
+
+    parsed = []
+    for label, raw in (("start", window.start), ("end", window.end)):
+        if raw is None:
+            parsed.append(None)
+            continue
+        try:
+            parsed.append(pd.Timestamp(raw))
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"window {label}={raw!r} is not a date.") from exc
+    return parsed[0], parsed[1]
+
+
+def window_bounds(window: CalibWindow | None) -> tuple[Any, Any] | None:
+    """Return the parsed ``(start, end)`` of a window, or None when unset."""
+    if window is None:
+        return None
+    return _parsed_bounds(window)
 
 
 def _a_steady_span(window: dict[str, str]) -> dict[str, str]:
-    """Read a steady span, which needs both of its bounds."""
+    """Read a steady span, a window that needs both of its bounds."""
     missing = [key for key in ("start", "end") if not window.get(key)]
     if missing:
         raise ValueError(
             f"steady_window needs both 'start' and 'end'; missing {', '.join(missing)}."
         )
-    return _a_window_of_dates(window)
+    CalibWindow.model_validate(window)
+    return dict(window)
 
-
-ProtocolScoringWindow: TypeAlias = Annotated[
-    dict[Literal["start", "end"], str], AfterValidator(_a_window_of_dates)
-]
-"""A ``{start, end}`` table of ISO dates, either bound optional."""
 
 ProtocolSteadySpan: TypeAlias = Annotated[
     dict[Literal["start", "end"], str], AfterValidator(_a_steady_span)
@@ -211,19 +293,9 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
     pair of criteria and the order they run in, not the optimizer that walks them.
     """
 
-    model_legacy_keys = {
-        "steady_engine_options": "steady_method_options",
-        "transient_engine_options": "transient_method_options",
-    }
     model_refused_keys: ClassVar[Mapping[str, str]] = {
-        "steady_max_iter": renamed_to("steady_max_trials", "evaluations stage one may run"),
-        "transient_max_iter": renamed_to("transient_max_trials", "evaluations stage two may run"),
-        "steady_tolerance": renamed_to(
-            "steady_precision", "how finely stage one pins the conductivity"
-        ),
-        "transient_tolerance": renamed_to(
-            "transient_precision", "how finely stage two pins the storage"
-        ),
+        **_renames_under("calibration.protocol"),
+        "observed_station_id": _GAUGE_ADVICE,
     }
 
     name: Annotated[Literal["matching_hydrographic_network"], Profile.USER] = Field(
@@ -357,21 +429,17 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
         default="discharge",
         description="Observed variable stage two is scored on.",
     )
-    observed_station_id: Annotated[StationName | None, Profile.USER] = Field(
-        default=None,
-        description="Gauge whose cost drives stage two. Required with several stations loaded.",
-        json_schema_extra=field_metadata(site_scoped=True),
-    )
-    scoring_window: Annotated[ProtocolScoringWindow | None, Profile.USER] = Field(
+    window: Annotated[CalibWindow | None, Profile.USER] = Field(
         default=None,
         description="Dates bounding the samples stage two scores on, as {start, end} in "
         "ISO 8601, either one optional. A date that does not parse is refused when the "
         "file is read. Unset, "
         "stage two scores the window of [metrics] when the file writes one, and "
         "otherwise from one year after [simulation.time].start_datetime: the first "
-        "year is spin-up. A scoring_window or warmup_periods on [calibration] replaces "
+        "year is spin-up. A window on [calibration] replaces "
         "both. A run of one year or less is scored whole. Write start = the run's own "
         "start to score the spin-up year too.",
+        json_schema_extra=field_metadata(renamed_from=["calibration.protocol.scoring_window"]),
     )
 
     @model_validator(mode="before")
@@ -460,8 +528,7 @@ class CalibParameterDecl(HydroModelBase):
     """
 
     model_refused_keys: ClassVar[Mapping[str, str]] = {
-        "transform": renamed_to("search_space", "the space the search walks the parameter in"),
-        "prior": renamed_to("sampling", "the law that starting points and random draws follow"),
+        **_renames_under("calibration.parameters.{*}"),
     }
 
     bounds: Annotated[list[float] | None, Profile.USER] = Field(
@@ -1346,7 +1413,7 @@ class CalibOutputNetwork(HydroModelBase):
         description="Which single state the release flux is read at: 'last' (default), "
         "'first', or an ISO date such as '2002-10-15', which reads the state of the "
         "period that holds it, (start, end]. That state is dated at its period's end, "
-        "which is the date a scoring_window is compared with. A steady phase runs one "
+        "which is the date a window is compared with. A steady phase runs one "
         "period over its window, so every date of that window reads its one state and "
         "one output serves both regimes. 'all' and a list of dates are refused: a "
         "network output reads one state.",
@@ -1466,56 +1533,6 @@ def outputs_agree(here: Any, there: Any) -> bool:
     return dumped_here == dumped_there
 
 
-class CalibScoringWindow(HydroModelBase):
-    """Dates bounding the samples a metric is computed on.
-
-    A window in dates rather than in sample counts: it says the same thing
-    whatever the output frequency, whereas ``warmup_periods`` counts samples
-    after alignment and therefore means a different span at daily and at weekly
-    resolution. The two are mutually exclusive, which
-    :class:`CalibrationConfig` enforces.
-    """
-
-    start: Annotated[str | None, Profile.USER] = Field(
-        default=None,
-        description="First date scored, ISO 8601. Unset means from the first sample.",
-    )
-    end: Annotated[str | None, Profile.USER] = Field(
-        default=None,
-        description="Last date scored, ISO 8601. Unset means up to the last sample.",
-    )
-
-    @model_validator(mode="after")
-    def _check_bounds(self) -> CalibScoringWindow:
-        bounds = _parsed_scoring_bounds(self)
-        if bounds[0] is not None and bounds[1] is not None and bounds[0] > bounds[1]:
-            raise ValueError(f"scoring_window start {self.start!r} is after end {self.end!r}.")
-        return self
-
-
-def _parsed_scoring_bounds(window: CalibScoringWindow) -> tuple[Any, Any]:
-    """Parse the window bounds into timestamps, raising on a bad date."""
-    import pandas as pd
-
-    parsed = []
-    for label, raw in (("start", window.start), ("end", window.end)):
-        if raw is None:
-            parsed.append(None)
-            continue
-        try:
-            parsed.append(pd.Timestamp(raw))
-        except (TypeError, ValueError) as exc:
-            raise ValueError(f"scoring_window {label}={raw!r} is not a date.") from exc
-    return parsed[0], parsed[1]
-
-
-def scoring_window_bounds(window: CalibScoringWindow | None) -> tuple[Any, Any] | None:
-    """Return the parsed ``(start, end)`` of a window, or None when unset."""
-    if window is None:
-        return None
-    return _parsed_scoring_bounds(window)
-
-
 class CalibObjectiveBlockDecl(HydroModelBase):
     """Weighted metric block used by a composite objective.
 
@@ -1526,14 +1543,16 @@ class CalibObjectiveBlockDecl(HydroModelBase):
     """
 
     model_refused_keys: ClassVar[Mapping[str, str]] = {
-        "transform": renamed_to("cost_transform", "the function applied to the cost of this block"),
+        **_renames_under("calibration.objective_blocks[*]"),
+        "warmup": (
+            "a window bounds every block: write window = {start = <date>} on [calibration] instead"
+        ),
     }
 
     name: Annotated[str, Profile.USER] = Field(
         description="Unique block identifier used in logs and persistence.",
     )
     metric: Annotated[MetricKind, Profile.USER] = Field(
-        default="rmse",
         description="Metric that scores this block against its observations.",
         json_schema_extra={"value_docs": _METRIC_VALUE_DOCS},
     )
@@ -1579,17 +1598,6 @@ class CalibObjectiveBlockDecl(HydroModelBase):
                 "a cost of zero.",
             },
         ),
-    )
-    warmup: Annotated[NonNegativeInt | None, Profile.EXPERT] = Field(
-        default=None,
-        description=(
-            "Burn-in samples dropped from this block only, overriding "
-            "[calibration].warmup_periods. A count of samples, so twelve means a year "
-            "at a monthly step and twelve days at a daily one. Write "
-            "scoring_window.start instead, a date that means the same span at any step "
-            "and bounds a network state too. Kept so older files load unchanged."
-        ),
-        json_schema_extra=field_metadata(unit="-"),
     )
 
     @model_validator(mode="after")
@@ -1875,10 +1883,9 @@ class CalibPhaseDecl(HydroModelBase):
     all the way out.
     """
 
-    model_legacy_keys = {"optimizer_kwargs": "method_options"}
     model_refused_keys: ClassVar[Mapping[str, str]] = {
-        "max_iter": renamed_to("max_trials", "evaluations this phase may run"),
-        "tolerance": renamed_to("precision", "how finely this phase pins its parameters"),
+        **_renames_under("calibration.phases[*]"),
+        "observed_station_id": _GAUGE_ADVICE,
     }
 
     name: Annotated[NonEmptyStr, Profile.USER] = Field(
@@ -1995,11 +2002,6 @@ class CalibPhaseDecl(HydroModelBase):
         "phase does not use objective blocks. Same vocabulary as a block's 'metric'.",
         json_schema_extra={"value_docs": _METRIC_VALUE_DOCS},
     )
-    observed_station_id: Annotated[StationName | None, Profile.USER] = Field(
-        default=None,
-        description="Discharge station whose record a discharge calibration fits, scored at its own mesh cell on the discharge routed to that cell. The other loaded gauges are not scored. Required with several discharge stations loaded, optional with one. Overrides the calibration-level value for this phase.",
-        json_schema_extra=field_metadata(site_scoped=True),
-    )
     method_options: Annotated[dict[str, Any] | None, Profile.USER] = Field(
         default=None,
         description="Options of this phase's method, named as that method names "
@@ -2039,12 +2041,13 @@ class CalibPhaseDecl(HydroModelBase):
         "the project configuration. A phase that gives regime may not write here a "
         "path regime writes: that would say the same thing twice.",
     )
-    scoring_window: Annotated[CalibScoringWindow | None, Profile.USER] = Field(
+    window: Annotated[CalibWindow | None, Profile.USER] = Field(
         default=None,
         description="Dates bounding the samples this phase scores on, replacing "
-        "[calibration].scoring_window. start = the first date scored leaves a spin-up "
+        "[calibration].window. start = the first date scored leaves a spin-up "
         "out of every block alike. A network output read in one state is dated at the "
         "stamp of that state, which has to lie inside the window.",
+        json_schema_extra=field_metadata(renamed_from=["calibration.phases.scoring_window"]),
     )
     depends_on: Annotated[str | None, Profile.USER] = Field(
         default=None,
@@ -2148,13 +2151,14 @@ class CalibAggregateDecl(HydroModelBase):
 
     ``weighting``, ``nested_gauges`` and ``on_member_failure`` were declared
     here and never read: a file that wrote them got the same cost. They are
-    retired, accepted and ignored with a warning, so a sealed run that wrote
-    them out keeps replaying.
+    refused, and ``hmp doctor --fix-config`` deletes them.
     """
 
-    model_retired_keys: ClassVar[frozenset[str]] = frozenset(
-        {"weighting", "nested_gauges", "on_member_failure"}
-    )
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "weighting": _DROPPED_ADVICE,
+        "nested_gauges": _DROPPED_ADVICE,
+        "on_member_failure": _DROPPED_ADVICE,
+    }
 
     min_samples: Annotated[int, Profile.USER] = Field(
         default=1,
@@ -2304,14 +2308,19 @@ class CalibrationConfig(HydroModelBase):
     from ``objective`` and ``variable`` if the matching output exists.
     """
 
-    model_legacy_keys = {"optimizer_kwargs": "method_options"}
-    # Declared and never read. Retired rather than refused: a run sealed while
-    # the frozen configuration spelled out every default carries them. The
-    # promoted run follows [simulation.results.persistence], never this table.
-    model_retired_keys: ClassVar[frozenset[str]] = frozenset(
-        {"lightweight_extraction", "persist_model_distribution", "persistence"}
-    )
     model_refused_keys: ClassVar[Mapping[str, str]] = {
+        **_renames_under("calibration"),
+        "observed_station_id": _GAUGE_ADVICE,
+        "warmup_periods": (
+            "write window = {start = <date>} instead, with [simulation.time] "
+            "start_datetime plus that many steps as the date; hmp doctor --fix-config "
+            "<file> writes it when the step is known"
+        ),
+        # Declared and never read. The promoted run follows
+        # [simulation.results.persistence], never these.
+        "lightweight_extraction": _DROPPED_ADVICE,
+        "persist_model_distribution": _DROPPED_ADVICE,
+        "persistence": _DROPPED_ADVICE,
         "rerun_best_with_outputs": (
             "the best trial is promoted by default: save_runs = 'best_n' with "
             "save_best_n = 1 writes it under runs/<case>/."
@@ -2324,8 +2333,6 @@ class CalibrationConfig(HydroModelBase):
             "hmp calibrate --resume reuses the completed phases of the session of the "
             "case; nothing in the file says so."
         ),
-        "max_iter": renamed_to("max_trials", "the evaluations the search may run"),
-        "tolerance": renamed_to("precision", "how finely the search pins a parameter"),
     }
 
     protocol: Annotated[CalibrationProtocolDecl | None, Profile.USER] = Field(
@@ -2469,27 +2476,23 @@ class CalibrationConfig(HydroModelBase):
         ),
         json_schema_extra={"unit": "%"},
     )
-    warmup_periods: Annotated[int, Profile.EXPERT] = Field(
-        default=0,
-        ge=0,
-        description=(
-            "Spin-up samples dropped from the start of every series before its metric. "
-            "A count of samples, so its span follows the time step. Write "
-            "scoring_window.start instead, a date that means the same span at any step "
-            "and bounds a network state too. Kept so older files load unchanged. "
-            "Default 0 (no exclusion)."
-        ),
-        json_schema_extra=field_metadata(unit="-"),
-    )
-    scoring_window: Annotated[CalibScoringWindow | None, Profile.USER] = Field(
+    window: Annotated[CalibWindow | None, Profile.USER] = Field(
         default=None,
         description=(
             "Dates bounding the samples every metric is computed on: the way to leave a "
             "spin-up out, with start = the first date scored. A series keeps its stamps "
             "inside the window; a network output read in one state is dated at the stamp "
             "of that state, which has to lie inside it. A phase's own window replaces "
-            "this one. Mutually exclusive with warmup_periods."
+            "this one."
         ),
+        json_schema_extra=field_metadata(renamed_from=["calibration.scoring_window"]),
+    )
+    validation_window: Annotated[CalibWindow | None, Profile.USER] = Field(
+        default=None,
+        description="Dates kept apart from the search, with both bounds. Every trial is scored "
+        "on them beside its cost, by the blocks that compare a dated record, and the cost never "
+        "reads them. [metrics] window minus these dates is the default of window. Declared once "
+        "for the session, and a steady phase is not scored on it.",
     )
     phases: Annotated[list[CalibPhaseDecl] | None, Profile.USER] = Field(
         default=None,
@@ -2554,11 +2557,6 @@ class CalibrationConfig(HydroModelBase):
             "Name of the simulated variable, or of a [calibration.outputs] entry, that "
             "objective scores when no objective block is declared."
         ),
-    )
-    observed_station_id: Annotated[StationName | None, Profile.USER] = Field(
-        default=None,
-        description="Discharge station whose record a discharge calibration fits, scored at its own mesh cell on the discharge routed to that cell. The other loaded gauges are not scored. Required with several discharge stations loaded, optional with one.",
-        json_schema_extra=field_metadata(site_scoped=True),
     )
     method_options: Annotated[dict[str, Any], Profile.USER] = Field(
         default_factory=dict,
@@ -2994,6 +2992,27 @@ class CalibrationConfig(HydroModelBase):
             blocks = [block for block in blocks if block.name in phase.objective_blocks]
         return list(blocks)
 
+    def _compares_a_record(self, phase: CalibPhaseDecl | None) -> bool:
+        """Whether a search compares a dated record: a single metric, or a block on a station."""
+        blocks = self._blocks_scored_by(phase)
+        if not blocks:
+            return True
+        return any(
+            getattr(self.outputs.get(str(name)), "observes", None)
+            for block in blocks
+            for name in block.uses_outputs
+        )
+
+    def validation_scored_by(self, phase: CalibPhaseDecl | None) -> bool:
+        """Whether a search is scored on the validation window.
+
+        A steady phase is not: its one state spans the steady window, not those dates. Nor
+        is a search on a network or on typed values, which has no dated record to compare.
+        """
+        if self.validation_window is None or (phase is not None and phase.regime == "steady"):
+            return False
+        return self._compares_a_record(phase)
+
     def _criteria_scored_by(self, phase: CalibPhaseDecl | None) -> list[str]:
         """Return the criterion of each block a search scores.
 
@@ -3091,11 +3110,6 @@ class CalibrationConfig(HydroModelBase):
                         f"phase {phase.name!r} depends on {phase.depends_on!r}, which is "
                         "not declared before it."
                     )
-            if phase.scoring_window is not None and self.warmup_periods:
-                raise ValueError(
-                    f"phase {phase.name!r} declares a scoring_window while the "
-                    "calibration declares warmup_periods; pick one convention."
-                )
             for path in phase.overrides:
                 if not path or path.startswith(".") or path.endswith("."):
                     raise ValueError(
@@ -3198,16 +3212,20 @@ class CalibrationConfig(HydroModelBase):
         return self
 
     @model_validator(mode="after")
-    def _refuse_two_burn_in_conventions(self) -> CalibrationConfig:
-        """A window in dates and a count of samples must not both be declared.
+    def _refuse_an_objective_beside_blocks(self) -> CalibrationConfig:
+        """Refuse a section ``objective`` written beside blocks, which score by their own metric.
 
-        They say the same thing in two units, and the count means a different
-        span at every output frequency, so honoring both would make the scored
-        span depend on which one the reader noticed.
+        The block built from ``objective`` and ``variable`` is not a block the
+        file wrote, so it passes.
         """
-        if self.scoring_window is not None and self.warmup_periods:
+        implicit = [f"{self.objective}_{self.variable}"]
+        if "objective" in self.model_fields_set and [b.name for b in self.objective_blocks] not in (
+            [],
+            implicit,
+        ):
             raise ValueError(
-                "declare either scoring_window (dates) or warmup_periods (samples), not both."
+                "objective is written beside [[calibration.objective_blocks]], which score "
+                "by their own 'metric'; delete it, or delete the blocks to score one series."
             )
         return self
 
@@ -3351,6 +3369,40 @@ class CalibrationConfig(HydroModelBase):
         )
 
     @model_validator(mode="after")
+    def _check_the_validation_window(self) -> CalibrationConfig:
+        """Refuse a validation window a cost could read, or that nothing would score.
+
+        An open bound of a calibration window runs on to the end of the record, so it
+        overlaps. A steady phase with no window of its own reads the record over its steady
+        window, by default the whole run, when it compares a dated record.
+        """
+        if self.validation_window is None:
+            return self
+        first_day, last_day = window_bounds(self.validation_window)
+        named = f"validation_window {first_day} to {last_day}"
+        if first_day is None or last_day is None:
+            raise ValueError(f"{named} leaves a bound open: write both start and end.")
+        searches = self.phases or [None]
+        if not any(self.validation_scored_by(search) for search in searches):
+            raise ValueError(
+                f"{named} has nothing to score: no transient search has a dated record."
+            )
+        for search in searches:
+            window = getattr(search, "window", None) or self.window
+            if window is None and getattr(search, "regime", None) == "steady":
+                if not self._compares_a_record(search):
+                    continue
+                window = CalibWindow.model_validate(search.steady_window or {})
+            start, end = window_bounds(window) or (None, None)
+            if (start is None or start <= last_day) and (end is None or end >= first_day):
+                raise ValueError(
+                    f"{named} overlaps the window {start} to {end} of "
+                    f"{getattr(search, 'name', '[calibration]')}, so a cost would read those "
+                    "dates. Write a window that ends before it or starts after it."
+                )
+        return self
+
+    @model_validator(mode="after")
     def _check_uses_outputs_reference_declared(self) -> CalibrationConfig:
         if not self.objective_blocks:
             return self
@@ -3414,15 +3466,15 @@ def apply_project_defaults(
 ) -> dict[str, Any]:
     """Return the raw ``[calibration]`` table with the project-level defaults written in.
 
-    ``[site] gauge`` is the station of the catchment: ``observed_station_id``
-    (on the section, on a phase) and ``observes`` (on a point output) take it
-    when they are left unwritten, and a written value that names another
-    station is refused with both keys. A point output that writes its own
+    ``[site] gauge`` is the station of the catchment: ``observes`` (on a point
+    output) takes it when it is left unwritten, and a written value that names
+    another station is refused with both keys. A point output that writes its own
     position (``x`` and ``y``, or ``geometry``) or its own ``observed_values``
     is left as written: the gauge neither locates it nor scores it.
-    ``[metrics] window`` is the default of ``scoring_window`` when the section
-    writes neither a window nor ``warmup_periods``. In a calibration with
-    phases it goes on each phase that writes no window and is not steady,
+    ``[metrics] window``, less ``validation_window``, is the default of ``window`` when the
+    section writes no window. In a calibration with
+    phases it goes on each phase that writes no window and is not steady, and it
+    closes the end of a phase window that writes only a start,
     never on the section: a steady phase reads one state, stamped at the end
     of its steady window, which a window of dates over the record would leave
     out. Applied before validation, so a point output that names no station
@@ -3432,11 +3484,6 @@ def apply_project_defaults(
 
     site = _site_of(site_gauge)
     payload: dict[str, Any] = dict(section)
-    station = resolve_gauge(
-        site, payload.get("observed_station_id"), field="calibration.observed_station_id"
-    )
-    if station is not None:
-        payload["observed_station_id"] = station
     outputs = payload.get("outputs")
     if isinstance(outputs, Mapping):
         resolved_outputs: dict[str, Any] = {}
@@ -3449,37 +3496,18 @@ def apply_project_defaults(
                     output = {**output, "observes": observes}
             resolved_outputs[name] = output
         payload["outputs"] = resolved_outputs
-    phases = payload.get("phases")
-    if isinstance(phases, list):
-        resolved_phases = []
-        for phase in phases:
-            if isinstance(phase, Mapping):
-                label = phase.get("name", "?")
-                station = resolve_gauge(
-                    site,
-                    phase.get("observed_station_id"),
-                    field=f"calibration.phases.{label}.observed_station_id",
-                )
-                if station is not None:
-                    phase = {**phase, "observed_station_id": station}
-            resolved_phases.append(phase)
-        payload["phases"] = resolved_phases
-    window = scoring_window_of_the_run(metrics_window)
-    if (
-        payload.get("scoring_window") is None
-        and not payload.get("warmup_periods")
-        and window is not None
-    ):
+    window = window_of_the_run(metrics_window, payload.get("validation_window"))
+    if payload.get("window") is None and window is not None:
         phases = payload.get("phases")
         if isinstance(phases, list) and phases:
             payload["phases"] = [_with_window(phase, window) for phase in phases]
         else:
-            payload["scoring_window"] = window
+            payload["window"] = window
     return payload
 
 
-def scoring_window_of_the_run(metrics_window: Any) -> dict[str, str] | None:
-    """Return a raw ``[metrics] window`` as a raw ``scoring_window``.
+def window_of_the_run(metrics_window: Any, validation: Any = None) -> dict[str, str] | None:
+    """Return a raw ``[metrics] window``, less a raw *validation* window, as a raw ``window``.
 
     ``None`` unless both bounds are written: a calibration window takes the
     run's only when the run is scored on a closed window.
@@ -3489,16 +3517,56 @@ def scoring_window_of_the_run(metrics_window: Any) -> dict[str, str] | None:
     start, end = metrics_window.get("start"), metrics_window.get("end")
     if start is None or end is None:
         return None
-    return {"start": str(start), "end": str(end)}
+    window = {"start": str(start), "end": str(end)}
+    return window if validation is None else _metrics_window_minus_validation(window, validation)
+
+
+def _metrics_window_minus_validation(
+    window: dict[str, str], validation: Any
+) -> dict[str, str] | None:
+    """Return a raw ``[metrics] window`` without its validation days, and refuse what cannot be.
+
+    ``None`` when the validation window lies inside it with days on both sides: one window
+    cannot say two spans, so nothing is written and the check on the section asks for one.
+    A validation window that does not parse or leaves a bound open is left to that check too.
+    """
+    import pandas as pd
+
+    try:
+        first_day, last_day = window_bounds(CalibWindow.model_validate(validation))
+    except ValidationError:
+        return window
+    if first_day is None or last_day is None:
+        return window
+    start, end = pd.Timestamp(window["start"]), pd.Timestamp(window["end"])
+    if first_day < start or last_day > end or (first_day == start and last_day == end):
+        raise ConfigValidationError(
+            f"validation_window {first_day.date()} to {last_day.date()} has to lie inside "
+            f"[metrics] window {start.date()} to {end.date()} and leave days to calibrate on."
+        )
+    one_day = pd.Timedelta(1, unit="D")
+    if first_day == start:
+        return {"start": (last_day + one_day).date().isoformat(), "end": window["end"]}
+    if last_day == end:
+        return {"start": window["start"], "end": (first_day - one_day).date().isoformat()}
+    return None
 
 
 def _with_window(phase: Any, window: dict[str, str]) -> Any:
-    """Return a raw phase with *window* written in, unless it is steady or writes one."""
-    if not isinstance(phase, Mapping):
+    """Return a raw phase with *window* written in, unless it is steady.
+
+    A phase with no window takes it whole. A window that writes only ``start`` is
+    closed by the end of *window*, since a bound left open would otherwise end
+    with ``[simulation.time]`` instead of ``[metrics] window``.
+    """
+    if not isinstance(phase, Mapping) or phase.get("regime") == "steady":
         return phase
-    if phase.get("scoring_window") is not None or phase.get("regime") == "steady":
-        return phase
-    return {**phase, "scoring_window": dict(window)}
+    written = phase.get("window")
+    if written is None:
+        return {**phase, "window": dict(window)}
+    if isinstance(written, Mapping) and written.get("end") is None:
+        return {**phase, "window": {**written, "end": window["end"]}}
+    return phase
 
 
 def _point_output_located_by_a_station(output: Any) -> bool:
@@ -3530,6 +3598,7 @@ def _site_of(gauge: str | None) -> Any:
 
 
 __all__ = [
+    "CALIBRATION_RENAMES",
     "CalibrationConfig",
     "apply_project_defaults",
     "implicit_station_scoring",
@@ -3552,6 +3621,6 @@ __all__ = [
     "PersistIterationDetail",
     "CalibrationMethod",
     "MetricKind",
-    "scoring_window_of_the_run",
+    "window_of_the_run",
     "validate_calib_output",
 ]

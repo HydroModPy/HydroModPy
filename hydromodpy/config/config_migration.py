@@ -94,7 +94,9 @@ reads it for a path given on a command line.
 Deprecation
 -----------
 Every old form says since which version it is old (:data:`DEPRECATION_DELAY_MINORS`
-and :func:`old_forms`). A form keeps loading for two minor versions, the one that
+and :func:`old_forms`). ``[calibration]`` is exempt: a file that writes one of its old
+keys is refused with the new name, the doctor rewrites it, and a sealed config still
+reads it. Any other form keeps loading for two minor versions, the one that
 retired it included, then it leaves this module:
 ``tests/unit/config/test_config_migration.py`` fails when one outlives its delay.
 The policy is ``docs/source/about/versions.md``. A rename from now on is one row of
@@ -115,7 +117,8 @@ from typing import Any
 import tomlkit
 from packaging.version import Version
 
-from hydromodpy.core.config_kit.base import CANNOT_REWRITE, warn_old_form
+from hydromodpy.calibration.config import CALIBRATION_RENAMES
+from hydromodpy.core.config_kit.base import CANNOT_REWRITE, refuse_old_forms, warn_old_form
 from hydromodpy.core.config_kit.export_spec import RUN_FORMATS, format_from_path
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
@@ -257,7 +260,7 @@ def fix_config_chain(
             left.add(file)
             continue
         changes[file] = _every_rule(doc, written=written, current=reading)
-        changes[file].extend(_migrate_refused_keys(doc))
+        changes[file].extend(_migrate_refused_keys(doc, context=written))
     after = _under_todays_names(layers, _reading_context(layers))
     _every_rule(after)
     moved = _different_keys(before, after)
@@ -341,8 +344,10 @@ def _left_for_a_child(
     said_alone = _every_rule(
         alone, written=alone_written, current=_under_todays_names(above, alone_written)
     )
+    said_alone.extend(_migrate_refused_keys(alone, context=alone_written))
     whole = copy.deepcopy(_plain(doc))
     said_whole = _every_rule(whole, written=written, current=current)
+    said_whole.extend(_migrate_refused_keys(whole, context=written))
     if alone == whole:
         return []
     child, name = Path(str(layers[-1][0])).name, Path(str(source)).name
@@ -368,7 +373,7 @@ def _under_todays_names(layers: Sequence[Layer], written: Any) -> dict[str, Any]
     merged: dict[str, Any] = {}
     for _, doc in layers:
         own = copy.deepcopy(_plain(doc))
-        _migrate_refused_keys(own)
+        _migrate_refused_keys(own, context=written)
         _file_rules(own, context=written, sealed=False)
         merged = own if len(layers) == 1 else merge_toml_payloads(merged, own)
     return merged
@@ -479,14 +484,14 @@ def _whole_document_rules(doc: Any, *, context: Any, sealed: bool) -> list[str]:
     method. A ratio is checked on what the files end up saying. A list that activates
     tables hangs on the tables every layer declares.
     """
-    changes = _drop_the_validity_ratio(doc, sealed=sealed)
+    changes = _refused(_drop_the_validity_ratio(doc, sealed=sealed))
     changes.extend(_fold_the_activation_lists(doc, context=context))
     export = _migrate_export_variables(doc)
     exploded = _explode_export_table(doc)
     changes.extend(export)
     changes.extend(exploded)
-    changes.extend(_rewrite_search_options(doc, sealed=sealed, context=context))
-    changes.extend(_rewrite_cost_margin(doc, sealed=sealed, context=context))
+    changes.extend(_refused(_rewrite_search_options(doc, sealed=sealed, context=context)))
+    changes.extend(_refused(_rewrite_cost_margin(doc, sealed=sealed, context=context)))
     return changes
 
 
@@ -537,18 +542,31 @@ _DROPPED_KEYS: dict[str, str] = {
     "calibration.rerun_best_with_outputs": (
         "the best trial is promoted by default (save_runs = 'best_n')"
     ),
+    **{
+        f"calibration.{key}": "no step ever read it"
+        for key in (
+            "lightweight_extraction",
+            "persist_model_distribution",
+            "persistence",
+            "aggregate.weighting",
+            "aggregate.nested_gauges",
+            "aggregate.on_member_failure",
+        )
+    },
 }
 
 
-def _migrate_refused_keys(doc: Any) -> list[str]:
+def _migrate_refused_keys(doc: Any, *, context: Any) -> list[str]:
     """Drop or rewrite the keys the loader refuses, in a file only.
 
     Not part of :func:`migrate_config_doc`: a load keeps refusing these keys,
     with the line to delete, and ``hmp doctor --fix-config`` makes the edit.
     The calibration phases write the same keys as dotted ``overrides``, and
-    those are carried across too.
+    those are carried across too. *context* is what the layers write together,
+    so a step or a gauge can sit in a parent.
     """
     changes = _migrate_refused_scope(doc, where="")
+    changes.extend(_migrate_calibration_forms(doc, sealed=False, context=context))
     for label, phase in _tables_at(doc, _PHASES):
         overrides = phase.get("overrides")
         if isinstance(overrides, Mapping):
@@ -604,6 +622,136 @@ def _descend(scope: Any, parents: list[str]) -> Any:
     return node if isinstance(node, Mapping) else None
 
 
+def _migrate_calibration_forms(doc: Any, *, sealed: bool, context: Any) -> list[str]:
+    """Rewrite the ``[calibration]`` forms a count, a station or a default stood for.
+
+    A live file is refused on them and the doctor writes the new form. A sealed
+    config reads in silence: a replay reads its stored scores and never scores
+    again, so a burn-in or a station it carries is dropped, whatever its value.
+    """
+    return [
+        *_rewrite_the_warmup(doc, sealed=sealed, context=context),
+        *_fold_the_station_into_the_gauge(doc, sealed=sealed, context=context),
+        *_write_the_block_metric(doc),
+        *_drop_an_objective_beside_blocks(doc, sealed=sealed),
+    ]
+
+
+def _rewrite_the_warmup(doc: Any, *, sealed: bool, context: Any) -> list[str]:
+    """Turn ``warmup_periods`` into the ``window`` start it stood for.
+
+    ``N`` samples skipped are ``N`` steps past ``[simulation.time] start_datetime``,
+    which the doctor writes when the chain holds both. The old count ran from the
+    first sample aligned with the record, so the date equals it only when the
+    record starts at ``start_datetime``, and the change says so. A count of zero
+    skipped nothing and goes. The ``warmup`` of one block has no date, since a
+    window bounds every block: it is left, with the reason.
+    """
+    changes: list[str] = []
+    targets = [
+        (where, table, "warmup_periods") for where, table in _tables_at(doc, "calibration")
+    ] + [(where, table, "warmup") for where, table in _tables_at(doc, _BLOCKS)]
+    for where, table, key in targets:
+        if key not in table:
+            continue
+        label, count = f"{where}.{key}", _plain(table[key])
+        if sealed or not count:
+            del table[key]
+            changes.append(f"{label} dropped ({'sealed' if sealed else '0 skipped nothing'})")
+            continue
+        try:
+            if key == "warmup" or "window" in table:
+                raise _CannotRewrite(
+                    "write window = {start = <date>} on [calibration], once for all blocks"
+                    if key == "warmup"
+                    else "window is given too, keep one"
+                )
+            window = tomlkit.inline_table()
+            window["start"] = _start_after_steps(count, context)
+        except _CannotRewrite as reason:
+            changes.append(f"{label}{CANNOT_REWRITE}{reason}")
+            continue
+        _move_key(table, key, "window", window)
+        changes.append(
+            f"{label} -> window (start {window['start']}, counted from start_datetime; the old "
+            "count ran from the first aligned sample, so the date equals it only when the "
+            "record starts at start_datetime)"
+        )
+    return changes
+
+
+def _fold_the_station_into_the_gauge(doc: Any, *, sealed: bool, context: Any) -> list[str]:
+    """Move ``observed_station_id`` to ``[site] gauge``, which names the station of the catchment.
+
+    The key is dropped when the gauge of the chain says the same. It is written to
+    the gauge when the chain has none, and left, with both names, when the gauge differs.
+    """
+    changes: list[str] = []
+    for scope in ("calibration", _PHASES, "calibration.protocol"):
+        for where, table in _tables_at(doc, scope):
+            if "observed_station_id" not in table:
+                continue
+            label, station = f"{where}.observed_station_id", _plain(table["observed_station_id"])
+            gauge = _value_at(doc, "site.gauge")
+            if gauge is None:
+                gauge = _value_at(context, "site.gauge")
+            if gauge not in (None, station) and not sealed:
+                changes.append(f"{label}{CANNOT_REWRITE}[site] gauge is {gauge!r}, keep one")
+                continue
+            if gauge is None and not sealed:
+                _set_at(doc, "site.gauge", station)
+            del table["observed_station_id"]
+            changes.append(f"{label} dropped ({'sealed' if sealed else 'now [site] gauge'})")
+    return changes
+
+
+def _write_the_block_metric(doc: Any) -> list[str]:
+    """Write ``metric = "rmse"``, the old default, on a block that left it out."""
+    changes: list[str] = []
+    for where, block in _tables_at(doc, _BLOCKS):
+        if "metric" not in block:
+            _set_key(block, "metric", "rmse", after="name")
+            changes.append(f"{where}.metric = 'rmse' (the old default, now required)")
+    return changes
+
+
+def _drop_an_objective_beside_blocks(doc: Any, *, sealed: bool) -> list[str]:
+    """Drop the section ``objective`` written beside blocks, which score by their own metric.
+
+    A phase that scores a ``variable`` and writes no ``objective`` reads the
+    section's, so the key stays for it and is left with the reason.
+    """
+    calibration = doc.get("calibration")
+    if not (isinstance(calibration, Mapping) and calibration.get("objective_blocks")):
+        return []
+    if "objective" not in calibration:
+        return []
+    for _, phase in _tables_at(doc, _PHASES):
+        if phase.get("variable") is not None and phase.get("objective") is None and not sealed:
+            return [
+                "calibration.objective"
+                f"{CANNOT_REWRITE}a phase scores a variable and reads it; write it on the phase"
+            ]
+    del calibration["objective"]
+    return ["calibration.objective dropped (the blocks score by their own metric)"]
+
+
+def _start_after_steps(count: Any, doc: Any) -> str:
+    """Return the day *count* steps past ``[simulation.time] start_datetime`` of *doc*."""
+    import pandas as pd
+
+    step, unit = _time_step_of(count, doc, "write the date of the first sample scored")
+    time = doc["simulation"]["time"]
+    if time.get("start_datetime") is None:
+        raise _CannotRewrite(
+            "[simulation.time] start_datetime is not in this file or the files it inherits"
+        )
+    start = pd.Timestamp(_plain(time["start_datetime"])) + pd.DateOffset(
+        **{f"{unit}s": step * count}
+    )
+    return start.date().isoformat()
+
+
 class _CannotRewrite(Exception):
     """A renamed key whose value the doctor cannot carry over; it is left, with the reason."""
 
@@ -643,15 +791,26 @@ class KeyRename:
     since: str = field(kw_only=True)
     sealed_only: bool = False
 
+    @property
+    def refused_on_load(self) -> bool:
+        """Whether a file is refused on this key at once, and only the doctor rewrites it."""
+        return self.scope.split(".", 1)[0] == "calibration"
 
-def _steps_to_duration(value: Any, doc: Any) -> str:
-    """Turn a count of timesteps into the duration it spanned, in the step's own unit.
 
-    The extent rules of a network output were counts of timesteps and are now
-    durations. ``N`` steps of the ``[simulation.time]`` step are written as
-    ``N`` times that step (``2`` monthly steps are ``"2 months"``), which the run
-    converts back to exactly ``N`` steps. *doc* is what the layers say together,
-    so the step can sit in a parent.
+class _Refused(str):
+    """A change the doctor makes and a load refuses: a ``[calibration]`` key has no delay."""
+
+
+def _refused(changes: Sequence[str]) -> list[str]:
+    """Mark *changes* as refused on load. A key left as it is goes on to the refusal of its model."""
+    return [change if CANNOT_REWRITE in change else _Refused(change) for change in changes]
+
+
+def _time_step_of(value: Any, doc: Any, instead: str) -> tuple[int, str]:
+    """Return the ``[simulation.time]`` step of *doc* that a count of timesteps is read on.
+
+    *doc* is what the layers say together, so the step can sit in a parent.
+    *instead* says what to write when the count cannot be converted.
     """
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         raise _CannotRewrite(f"{value!r} is not a count of timesteps")
@@ -660,18 +819,27 @@ def _steps_to_duration(value: Any, doc: Any) -> str:
     if not isinstance(time, Mapping) or time.get("step_value") is None:
         raise _CannotRewrite(
             "the timestep is not in this file or the files it inherits ([simulation.time] "
-            "step_value), so the count cannot be turned into a duration; write the duration, "
-            "such as '1 month'"
+            f"step_value), so the count cannot be converted; {instead}"
         )
     if _a_phase_sets_the_step(doc):
         raise _CannotRewrite(
-            "a phase overrides the timestep, so the count has no single duration; write "
-            "the duration, such as '1 month'"
+            f"a phase overrides the timestep, so the count has no single value; {instead}"
         )
     try:
-        step, unit = parse_step_spec(_plain(time["step_value"]), _plain(time.get("step_unit")))
+        return parse_step_spec(_plain(time["step_value"]), _plain(time.get("step_unit")))
     except ValueError as exc:
         raise _CannotRewrite(f"the timestep cannot be read ({exc})") from exc
+
+
+def _steps_to_duration(value: Any, doc: Any) -> str:
+    """Turn a count of timesteps into the duration it spanned, in the step's own unit.
+
+    The extent rules of a network output were counts of timesteps and are now
+    durations. ``N`` steps of the ``[simulation.time]`` step are written as
+    ``N`` times that step (``2`` monthly steps are ``"2 months"``), which the run
+    converts back to exactly ``N`` steps.
+    """
+    step, unit = _time_step_of(value, doc, "write the duration, such as '1 month'")
     count = value * step
     return f"{count} {unit}{'' if count == 1 else 's'}"
 
@@ -699,33 +867,12 @@ _EXTENT_RULE_KEYS = (
 )
 
 RENAMED_KEYS: tuple[KeyRename, ...] = (
-    KeyRename("calibration", "max_iter", "max_trials", since=ALPHA_FORM),
-    KeyRename("calibration.phases[*]", "max_iter", "max_trials", since=ALPHA_FORM),
-    KeyRename("calibration.protocol", "steady_max_iter", "steady_max_trials", since=ALPHA_FORM),
-    KeyRename(
-        "calibration.protocol", "transient_max_iter", "transient_max_trials", since=ALPHA_FORM
+    *(
+        KeyRename(scope, old, new, since=ALPHA_FORM)
+        for scope, renames in CALIBRATION_RENAMES.items()
+        for old, (new, _meaning) in renames.items()
     ),
-    KeyRename("calibration", "tolerance", "precision", since=ALPHA_FORM),
-    KeyRename("calibration.phases[*]", "tolerance", "precision", since=ALPHA_FORM),
-    KeyRename("calibration.protocol", "steady_tolerance", "steady_precision", since=ALPHA_FORM),
-    KeyRename(
-        "calibration.protocol", "transient_tolerance", "transient_precision", since=ALPHA_FORM
-    ),
-    KeyRename("calibration.parameters.{*}", "transform", "search_space", since=ALPHA_FORM),
-    KeyRename("calibration.parameters.{*}", "prior", "sampling", since=ALPHA_FORM),
-    KeyRename("calibration.objective_blocks[*]", "transform", "cost_transform", since=ALPHA_FORM),
     KeyRename("display.overrides.{*}", "timestep", "time", since=ALPHA_FORM),
-    KeyRename("calibration", "optimizer_kwargs", "method_options", since=ALPHA_FORM),
-    KeyRename("calibration.phases[*]", "optimizer_kwargs", "method_options", since=ALPHA_FORM),
-    KeyRename(
-        "calibration.protocol", "steady_engine_options", "steady_method_options", since=ALPHA_FORM
-    ),
-    KeyRename(
-        "calibration.protocol",
-        "transient_engine_options",
-        "transient_method_options",
-        since=ALPHA_FORM,
-    ),
     *(
         KeyRename(
             scope,
@@ -762,8 +909,9 @@ RENAMED_KEYS: tuple[KeyRename, ...] = (
 """Every key a file wrote under another name, with the name that replaced it.
 
 A load reads the old name under the new one and warns; ``hmp doctor --fix-config``
-rewrites the file. A sealed run config is renamed on read, in silence, so a run on
-disk replays. Each model lists the old key in ``model_refused_keys`` or
+rewrites the file. A row of ``[calibration]`` is refused on load instead
+(:attr:`KeyRename.refused_on_load`). A sealed run config is renamed on read, in silence,
+so a run on disk replays. Each model lists the old key in ``model_refused_keys`` or
 ``model_legacy_keys``, for a config built in Python; its new field declares
 ``renamed_from`` so the generated docs list the rename. The two keys of
 ``[calibration.uncertainty]`` that said how wide an interval is, ``tolerance`` and
@@ -784,6 +932,8 @@ def migrate_sealed_config_doc(doc: Any) -> list[str]:
     changes = _rename_keys(doc, sealed=True)
     changes.extend(_rewrite_search_options(doc, sealed=True))
     changes.extend(_rewrite_cost_margin(doc, sealed=True))
+    changes.extend(_migrate_refused_scope(doc, where=""))
+    changes.extend(_migrate_calibration_forms(doc, sealed=True, context=doc))
     return changes
 
 
@@ -804,9 +954,10 @@ def _rename_tables(doc: Any, *, context: Any, sealed: bool, prefix: str = "") ->
         for where, table in _tables_at(doc, rule.scope):
             base = f"{prefix}{where}"
             label = f"{base}.{rule.old}" if base else rule.old
+            told = _rename_directives(table, rule, label)
             if rule.old in table:
-                changes.extend(_rename_one(table, rule, label, context=context, sealed=sealed))
-            changes.extend(_rename_directives(table, rule, label))
+                told.extend(_rename_one(table, rule, label, context=context, sealed=sealed))
+            changes.extend(_refused(told) if rule.refused_on_load else told)
     return changes
 
 
@@ -885,6 +1036,11 @@ class MovedPath:
         """Whether the value changes form on the way, which a path alone cannot do."""
         return isinstance(self.rule, KeyRename) and self.rule.convert is not None
 
+    @property
+    def refused_on_load(self) -> bool:
+        """Whether a load refuses this path, as :attr:`KeyRename.refused_on_load` says."""
+        return isinstance(self.rule, KeyRename) and self.rule.refused_on_load
+
 
 def moved_paths(*, sealed: bool = False) -> tuple[MovedPath, ...]:
     """Return every dotted path that moved, in the order of the two tables.
@@ -922,6 +1078,7 @@ def rewrite_dotted_path(path: str, *, sealed: bool = False) -> str:
 
 
 _PHASES = "calibration.phases[*]"
+_BLOCKS = "calibration.objective_blocks[*]"
 _PATH_KEYS = ("sites.bind", "sites.recipes.{*}.set")
 """Tables of the document whose keys are dotted paths, besides the overrides of a phase."""
 
@@ -975,9 +1132,10 @@ def _rewrite_path_keys(
                 del table[key]
                 changes.append(f"{label} dropped (sealed)")
             else:
-                changes.extend(
-                    _move_path_key(table, key, renamed, row, label, context, sealed, holds_values)
+                moved = _move_path_key(
+                    table, key, renamed, row, label, context, sealed, holds_values
                 )
+                changes.extend(_refused(moved) if row.refused_on_load else moved)
     return changes
 
 
@@ -1480,11 +1638,15 @@ def _tell(source: str | Path | None, changes: Sequence[str]) -> None:
         if changes:
             _logger.debug("%s: sealed config read as renamed: %s", source, "; ".join(changes))
         return
+    rewritable = source not in COMMAND_LINE_SOURCES
+    refused = [change for change in changes if isinstance(change, _Refused)]
+    if refused:
+        refuse_old_forms(source, refused, rewritable=rewritable)
     for change in changes:
         if change in _QUIET_CHANGES:
             _logger.debug("%s: %s", source or "config", change)
         else:
-            warn_old_form(source, change, rewritable=source not in COMMAND_LINE_SOURCES)
+            warn_old_form(source, change, rewritable=rewritable)
 
 
 def migrate_layers(layers: Sequence[Layer]) -> list[str]:
@@ -2218,7 +2380,6 @@ def _persistence_tables(doc: Any) -> list[tuple[str, Any]]:
     candidates = [
         ("persistence", doc.get("persistence")),
         ("simulation.results.persistence", (results or {}).get("persistence")),
-        ("calibration.persistence", (doc.get("calibration") or {}).get("persistence")),
     ]
     return [(path, table) for path, table in candidates if table is not None]
 
@@ -2479,7 +2640,7 @@ def _promote_export(doc: Any, simulation: Any) -> list[str]:
     return ["simulation.results.export -> [export]"]
 
 
-_PERSISTENCE = "simulation.results.persistence", "persistence", "calibration.persistence"
+_PERSISTENCE = "simulation.results.persistence", "persistence"
 
 HAND_WRITTEN_FORMS: tuple[OldForm, ...] = (
     OldForm("simulation.on_collision", "simulation.if_exists", ALPHA_FORM),
@@ -2487,6 +2648,12 @@ HAND_WRITTEN_FORMS: tuple[OldForm, ...] = (
     OldForm("simulation.results.export", "export", ALPHA_FORM),
     OldForm("simulation.results.solver_scratch", None, ALPHA_FORM),
     *(OldForm(f"{path}.save_lock", None, ALPHA_FORM) for path in _PERSISTENCE),
+    OldForm("calibration.warmup_periods", "calibration.window", ALPHA_FORM),
+    OldForm("calibration.objective_blocks[*].warmup", "calibration.window", ALPHA_FORM),
+    *(
+        OldForm(f"{scope}.observed_station_id", "site.gauge", ALPHA_FORM)
+        for scope in ("calibration", "calibration.phases[*]", "calibration.protocol")
+    ),
     *(OldForm(table, None, ALPHA_FORM) for table in RETIRED_RESULTS_TABLES),
     *(
         OldForm(f"export.{key}", "export", ALPHA_FORM)
@@ -2549,14 +2716,6 @@ REFUSED_OR_RETIRED_FORMS: tuple[OldForm, ...] = (
             "modflow6.sgrid.grid_dual",
             "modflownwt.sgrid.grid_dual",
         )
-    ),
-    *(
-        OldForm(f"calibration.aggregate.{key}", None, ALPHA_FORM, rewritten=False)
-        for key in ("weighting", "nested_gauges", "on_member_failure")
-    ),
-    *(
-        OldForm(f"calibration.{key}", None, ALPHA_FORM, rewritten=False)
-        for key in ("lightweight_extraction", "persist_model_distribution", "persistence")
     ),
     OldForm("data.project_crs", "geographic.crs_project", ALPHA_FORM, rewritten=False),
     OldForm(

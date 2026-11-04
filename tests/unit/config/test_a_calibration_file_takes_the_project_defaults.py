@@ -71,7 +71,7 @@ def test_a_point_output_that_names_no_station_observes_the_gauge(tmp_path) -> No
 def test_the_metrics_window_is_the_scoring_window(tmp_path) -> None:
     cfg = HydroModPyConfig.from_toml(_write(tmp_path))
 
-    window = cfg.calibration.scoring_window
+    window = cfg.calibration.window
     assert (window.start, window.end) == ("2001-01-01", "2002-12-31")
 
 

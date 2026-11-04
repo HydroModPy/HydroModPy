@@ -83,6 +83,7 @@ from hydromodpy.core.stream_geometry import VALIDITY_PROVENANCE_CODE
 from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.project import Project
 from hydromodpy.results.heartbeat import read_heartbeat
+from hydromodpy.results.metric_rule import PeriodWindow
 from hydromodpy.results.outcome import effective_status, outcome_path, read_outcome, write_outcome
 from hydromodpy.results.session.descriptor import list_session_dirs, read_session, write_session
 from hydromodpy.results.session.journal import read_trials, trials_path
@@ -447,8 +448,7 @@ ANSWER = {"K": 2.0, "Sy": 0.5}
 CFG = SimpleNamespace(
     outputs={},
     objective_blocks=[],
-    warmup_periods=0,
-    scoring_window=None,
+    window=None,
     aggregate=SimpleNamespace(min_samples=1),
     objective="nse",
     variable="discharge",
@@ -915,9 +915,7 @@ def test_the_frozen_document_finds_the_map_the_search_read(tmp_path) -> None:
 def test_an_open_end_is_the_end_of_the_declared_period(tmp_path) -> None:
     path = _case(
         tmp_path,
-        CASE.replace(
-            "max_trials = 3\n", 'max_trials = 3\nscoring_window = { start = "2001-01-01" }\n'
-        ),
+        CASE.replace("max_trials = 3\n", 'max_trials = 3\nwindow = { start = "2001-01-01" }\n'),
     )
     cfg, raw = load_toml_calibration(path)
 
@@ -930,13 +928,43 @@ def test_no_window_is_the_whole_declared_period(tmp_path) -> None:
     assert search_windows(cfg, raw) == calibration_window(date(2000, 1, 1), date(2002, 12, 31))
 
 
-def test_a_search_that_skips_samples_names_no_window(tmp_path) -> None:
+def test_the_validation_window_comes_second_on_a_search_it_is_scored_on(tmp_path) -> None:
+    dated = CASE.replace(
+        'support = "network"\nstream_geometry_path = "net.gpkg"\n',
+        'support = "point"\nvariable = "discharge"\nobserves = "J1"\n',
+    ).replace('metric = "distance_gap"', 'metric = "rmse"')
+    dated = dated.replace(
+        "max_trials = 3\n",
+        'max_trials = 3\nvalidation_window = { start = "2002-01-01", end = "2002-12-31" }\n',
+    )
+    dated += '[metrics]\nwindow = { start = "2000-01-01", end = "2002-12-31" }\n'
+    cfg, raw = load_toml_calibration(_case(tmp_path, dated))
+
+    assert search_windows(cfg, raw) == {
+        **calibration_window(date(2000, 1, 1), date(2001, 12, 31)),
+        "validation": PeriodWindow(
+            role="validation", start=date(2002, 1, 1), end=date(2002, 12, 31)
+        ),
+    }
+    steady = CalibPhaseDecl(
+        name="s",
+        parameters=["K"],
+        objective_blocks=["network"],
+        regime="steady",
+        window={"start": "2001-01-01", "end": "2001-06-30"},
+    )
+    assert search_windows(cfg, raw, phase=steady) == calibration_window(
+        date(2001, 1, 1), date(2001, 6, 30)
+    )
+
+
+def test_a_count_of_skipped_samples_is_refused_with_the_window_to_write(tmp_path) -> None:
     path = _case(
         tmp_path, CASE.replace("max_trials = 3\n", "max_trials = 3\nwarmup_periods = 12\n")
     )
-    cfg, raw = load_toml_calibration(path)
 
-    assert search_windows(cfg, raw) == {}
+    with pytest.raises(ConfigError, match=r"warmup_periods.*window = \{start"):
+        load_toml_calibration(path)
 
 
 def test_a_staged_calibration_names_the_window_of_its_last_phase(tmp_path) -> None:
@@ -955,7 +983,7 @@ def test_a_staged_calibration_names_the_window_of_its_last_phase(tmp_path) -> No
         'parameters = ["Sy"]\n'
         'objective_blocks = ["network"]\n'
         'depends_on = "steady_k"\n'
-        "\n[calibration.phases.scoring_window]\n"
+        "\n[calibration.phases.window]\n"
         'start = "2001-06-01"\n'
     )
     cfg, raw = load_toml_calibration(_case(tmp_path, staged))
@@ -1553,15 +1581,13 @@ class TestTheProjectDefaults:
         cfg, _raw = load_toml_calibration(write_document(tmp_path, text, "calage.toml"))
 
         assert cfg.outputs["gauge"].observes == "NANCON"
-        assert cfg.observed_station_id == "NANCON"
-        assert (cfg.scoring_window.start, cfg.scoring_window.end) == ("2001-01-01", "2002-12-31")
+        assert (cfg.window.start, cfg.window.end) == ("2001-01-01", "2002-12-31")
 
-    def test_another_station_than_the_gauge_is_refused_with_both_keys(self, tmp_path):
+    def test_a_station_key_is_refused_for_the_gauge(self, tmp_path):
         text = self._SITE + self._SEARCH.format(extra='observed_station_id = "OTHER"')
 
-        with pytest.raises(ConfigError, match="site.gauge = 'NANCON'") as caught:
+        with pytest.raises(ConfigError, match=r"observed_station_id.*\[site\] gauge"):
             load_toml_calibration(write_document(tmp_path, text, "calage.toml"))
-        assert "calibration.observed_station_id" in str(caught.value)
 
 
 class TestAnIntervalOfOneTrial:
@@ -1665,7 +1691,6 @@ mode = "calibration"
 method = "grid"
 max_trials = 20
 seed = 42
-objective = "rmse"
 variable = "head"
 
 [calibration.parameters.K_aquifer]
@@ -1863,7 +1888,7 @@ def _staged__each_phase() -> CalibrationConfig:
                     "name": "second",
                     "parameters": ["Sy"],
                     "objective_blocks": ["hydrograph"],
-                    "scoring_window": {"start": "2016-01-01", "end": "2020-12-31"},
+                    "window": {"start": "2016-01-01", "end": "2020-12-31"},
                 },
             ],
         }
@@ -1873,7 +1898,7 @@ def _staged__each_phase() -> CalibrationConfig:
 def test_each_phase_summary_carries_its_window() -> None:
     rows = phase_summaries(_staged__each_phase())
 
-    assert [row["scoring_window"] for row in rows] == [
+    assert [row["window"] for row in rows] == [
         "no window, all of the run",
         "window 2016-01-01 to 2020-12-31",
     ]
@@ -3638,16 +3663,15 @@ def _calibration_file(tmp_path, value: str):
     return path
 
 
-def test_the_calibration_loader_migrates_the_paper_ratio(tmp_path) -> None:
-    """``hmp calibrate`` reads the file the doctor would fix, without the doctor."""
+def test_the_calibration_loader_refuses_the_paper_ratio_and_leaves_the_file(tmp_path) -> None:
+    """``hmp calibrate`` names the key the doctor would fix, and never edits the file."""
 
     path = _calibration_file(tmp_path, "2")
     before = path.read_bytes()
 
-    cfg, raw = load_toml_calibration(path)
+    with pytest.raises(ConfigError, match="roptim_max dropped .*hmp doctor --fix-config"):
+        load_toml_calibration(path)
 
-    assert cfg.outputs["net"].validity_length == "auto"
-    assert "roptim_max" not in raw["calibration"]["outputs"]["net"]
     assert path.read_bytes() == before
 
 

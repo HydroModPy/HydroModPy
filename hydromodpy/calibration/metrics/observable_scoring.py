@@ -22,6 +22,7 @@ advertising a shape only HydroModPy can produce.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from types import SimpleNamespace
@@ -136,7 +137,7 @@ def dated_series(result: ObservableResult) -> pd.Series | None:
 def refuse_window_without_dates(
     outputs: Mapping[str, CalibOutputDecl],
     objective_blocks: list[CalibObjectiveBlockDecl],
-    scoring_window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None,
+    window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None,
     observing: Mapping[str, str],
     *,
     boundaries: Sequence[Any] | None = None,
@@ -154,7 +155,7 @@ def refuse_window_without_dates(
     is impossible, and dropping it would report a cost over the whole run under
     the name of a windowed one.
     """
-    if scoring_window is None or not any(bound is not None for bound in scoring_window):
+    if window is None or not any(bound is not None for bound in window):
         return
     dated = set(observing) | {
         str(name) for name, output in outputs.items() if output.support == "network"
@@ -169,27 +170,25 @@ def refuse_window_without_dates(
         if dateless:
             dateless_by_block[str(block.name)] = dateless
     if dateless_by_block:
-        start, end = scoring_window
+        start, end = window
         listed = "; ".join(
             f"block {name!r} on output(s) {outputs_}"
             for name, outputs_ in dateless_by_block.items()
         )
         raise ValueError(
-            f"scoring_window {_day(start)} to {_day(end)} cannot be applied to {listed}: "
+            f"window {_day(start)} to {_day(end)} cannot be applied to {listed}: "
             "those outputs are scored on extracted value vectors, which carry no time axis "
             "to cut on. Point them at a loaded record with 'observes', or score on a single "
             "variable."
         )
     if boundaries is not None:
-        refuse_a_network_state_outside_the_window(
-            outputs, objective_blocks, scoring_window, boundaries
-        )
+        refuse_a_network_state_outside_the_window(outputs, objective_blocks, window, boundaries)
 
 
 def refuse_a_network_state_outside_the_window(
     outputs: Mapping[str, CalibOutputDecl],
     objective_blocks: list[CalibObjectiveBlockDecl],
-    scoring_window: tuple[Any, Any] | None,
+    window: tuple[Any, Any] | None,
     boundaries: Sequence[Any] | None,
 ) -> None:
     """Refuse a network state the window does not hold, naming both.
@@ -203,11 +202,11 @@ def refuse_a_network_state_outside_the_window(
     does not hold is refused here too, by the output that names it. Nothing is
     checked without a time grid: the stamp is unknown there.
     """
-    if scoring_window is None or not any(bound is not None for bound in scoring_window):
+    if window is None or not any(bound is not None for bound in window):
         return
     if boundaries is None or len(boundaries) < 2:
         return
-    start, end = (naive_utc(bound) for bound in scoring_window)
+    start, end = (naive_utc(bound) for bound in window)
     read = {str(name) for block in objective_blocks for name in block.uses_outputs}
     for name in sorted(read):
         output = outputs.get(name)
@@ -224,7 +223,7 @@ def refuse_a_network_state_outside_the_window(
         if periods_in_window([stamp], method="point", start=start, end=end)[0]:
             continue
         raise ValueError(
-            f"scoring_window {_day(start)} to {_day(end)} does not hold the network state "
+            f"window {_day(start)} to {_day(end)} does not hold the network state "
             f"output {name!r} is scored on: time = {time!r} reads the state of "
             f"{period_label(index, boundaries)}, stamped {_day(stamp)} at the end of its "
             "period. Move the window, or set the output's time to a date inside it."
@@ -282,12 +281,20 @@ def _day(value: Any) -> str:
     return stamp.isoformat()
 
 
+VALIDATION_COST = "validation.cost"
+"""The component a trial's score on the validation window travels under, beside the cost."""
+
+
 class ObservableScorer:
     """Score comparable series and separately prepared network distances.
 
     Producers own spatial extraction and runoff corrections. Network values
     are prepared distance pairs, never raw release fields. Observations are
     keyed by output name and are loaded before this scorer is built.
+
+    ``validation_window`` adds one component to what :meth:`score` returns,
+    :data:`VALIDATION_COST`, computed from the series the trial already answered
+    with. The cost and every other component stay what they are without it.
     """
 
     def __init__(
@@ -296,14 +303,12 @@ class ObservableScorer:
         objective_blocks: list[CalibObjectiveBlockDecl],
         *,
         observed_records: Mapping[str, pd.Series] | None = None,
-        warmup_periods: int = 0,
-        scoring_window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None = None,
+        window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None = None,
+        validation_window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None = None,
         min_samples: int = 1,
         series_sink: TrialSeriesSink | None = None,
     ) -> None:
-        refuse_window_without_dates(
-            outputs, objective_blocks, scoring_window, observing_outputs(outputs)
-        )
+        refuse_window_without_dates(outputs, objective_blocks, window, observing_outputs(outputs))
         self._outputs: dict[str, CalibOutputDecl] = dict(outputs)
         self._series_sink = series_sink
         self._stations: dict[str, str] = {
@@ -314,12 +319,9 @@ class ObservableScorer:
         self._cfg: SimpleNamespace = SimpleNamespace(
             outputs=dict(outputs),
             objective_blocks=list(objective_blocks),
-            warmup_periods=int(warmup_periods),
         )
         self._observed: dict[str, pd.Series] = dict(observed_records or {})
-        self._scoring_window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None = (
-            scoring_window
-        )
+        self._window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None = window
         self._min_samples: int = min_samples
         # A discharge is averaged over each period, a head or a lake stage is
         # read at the stamp: fixed by the declared variable, once.
@@ -343,6 +345,10 @@ class ObservableScorer:
         # grid a trial brings: every trial of a search runs the same grid.
         self._states_checked: bool = False
         self._warned_dry: set[str] = set()
+        self._validation: ObservableScorer | None = (
+            None if validation_window is None else self._validation_scorer(validation_window)
+        )
+        self._warned_validation: bool = False
 
     def pair(
         self,
@@ -388,7 +394,7 @@ class ObservableScorer:
         return pair_outputs_with_observations(
             observed=self._observed,
             simulated={name: series[name] for name in self._observed if name in series},
-            scoring_window=self._scoring_window,
+            window=self._window,
             min_samples=self._min_samples,
             time_methods=self._time_methods,
             period_starts=starts,
@@ -413,7 +419,7 @@ class ObservableScorer:
         """
         if not self._states_checked and boundaries is not None and len(boundaries) >= 2:
             refuse_a_network_state_outside_the_window(
-                self._outputs, self._cfg.objective_blocks, self._scoring_window, boundaries
+                self._outputs, self._cfg.objective_blocks, self._window, boundaries
             )
             self._states_checked = True
         simulated: dict[str, Sequence[float]] = {}
@@ -492,7 +498,50 @@ class ObservableScorer:
         for name, (start, end) in paired_dates.items():
             components[f"{name}.date_start"] = float(pd.Timestamp(start).toordinal())
             components[f"{name}.date_end"] = float(pd.Timestamp(end).toordinal())
+        if self._validation is not None:
+            components.update(self._validation_component(observables, boundaries))
         return float(value.total), components
+
+    def _validation_scorer(self, window: tuple[Any, Any]) -> ObservableScorer | None:
+        """Return the scorer of the validation window, or None when no block can be scored on it.
+
+        It keeps the blocks that compare dated records only, with their metric, weight and
+        transform: a network state or a typed vector has no record on those dates. It feeds
+        no series sink, which holds what the cost read.
+        """
+        blocks = [
+            block
+            for block in self._cfg.objective_blocks
+            if set(map(str, block.uses_outputs)) <= set(self._observed)
+        ]
+        names = {str(name) for block in blocks for name in block.uses_outputs}
+        if not blocks:
+            return None
+        return ObservableScorer(
+            {name: self._outputs[name] for name in names},
+            blocks,
+            observed_records={name: self._observed[name] for name in names},
+            window=window,
+            min_samples=self._min_samples,
+        )
+
+    def _validation_component(
+        self, observables: Mapping[str, ObservableResult], boundaries: Sequence[Any] | None
+    ) -> dict[str, float]:
+        """Return the score of this trial on the validation window, empty when it has none.
+
+        A trial with no pair on those dates keeps its cost: the search does not depend on
+        them, so it goes on and the trial carries no score. Said once, as for the dry pairs.
+        """
+        assert self._validation is not None
+        try:
+            cost = self._validation.score(observables, boundaries=boundaries)[0]
+        except (ValueError, RuntimeError) as exc:
+            if not self._warned_validation:
+                self._warned_validation = True
+                logger.warning("A trial has no score on the validation window: %s", exc)
+            return {}
+        return {VALIDATION_COST: cost} if math.isfinite(cost) else {}
 
     def _say_pairs_were_lost(self, lost: Mapping[str, int]) -> None:
         """Warn once per output that a NaN simulated value took pairs out of its cost.
@@ -547,7 +596,7 @@ def selected_period_start(
     return first_period_start(selected.index, bounds)
 
 
-def discharge_target(observed: Sequence[ObservedSeries], declared_station_id: str | None):
+def discharge_target(observed: Sequence[ObservedSeries], gauge: str | None):
     """Return the discharge station the one-line form scores.
 
     The gauge is compared to the simulated discharge AT ITS OWN POSITION, the
@@ -561,11 +610,11 @@ def discharge_target(observed: Sequence[ObservedSeries], declared_station_id: st
     if not observed:
         raise ValueError("No observed discharge station is available for calibration")
     by_id = {rec.station_id: rec for rec in observed}
-    if declared_station_id is not None:
-        target = by_id.get(str(declared_station_id))
+    if gauge is not None:
+        target = by_id.get(str(gauge))
         if target is None:
             raise ValueError(
-                f"calibration.observed_station_id={declared_station_id!r} is not among the "
+                f"[site] gauge={gauge!r} is not among the "
                 f"loaded discharge stations {sorted(by_id)}. Check the id, or the "
                 "station_ids / extent of the hydrometry source that loads it."
             )
@@ -580,8 +629,8 @@ def discharge_target(observed: Sequence[ObservedSeries], declared_station_id: st
         "instead, one per-cell discharge observable per station: declare "
         '[calibration.outputs.<name>] variable = "discharge", support = "cell", its own '
         'row/col/layer, and observes = "<station>", one block per output. Score the gauge '
-        "that sits at the outlet here by naming it in calibration.observed_station_id (or on "
-        "the phase), or load only that one with station_ids on the hydrometry source."
+        "that sits at the outlet here by naming it in [site] gauge, or load only that one "
+        "with station_ids on the hydrometry source."
     )
 
 
@@ -607,9 +656,9 @@ class StationBlockScorer:
         objective: str,
         observed: Sequence[ObservedSeries],
         *,
-        observed_station_id: str | None = None,
-        warmup_periods: int = 0,
-        scoring_window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None = None,
+        gauge: str | None = None,
+        window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None = None,
+        validation_window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None = None,
         min_samples: int = 1,
         series_sink: TrialSeriesSink | None = None,
     ) -> None:
@@ -622,9 +671,7 @@ class StationBlockScorer:
         # Which gauge drives the search is a property of the document, so it is
         # resolved once here and not re-derived for every sample.
         self._target: ObservedSeries | None = (
-            discharge_target(observed, observed_station_id)
-            if self._variable == "discharge"
-            else None
+            discharge_target(observed, gauge) if self._variable == "discharge" else None
         )
         self._records: list[ObservedSeries] = (
             [self._target] if self._target is not None else _one_record_per_station(observed)
@@ -641,8 +688,8 @@ class StationBlockScorer:
             self._output_of[record.station_id]: record.series for record in self._records
         }
         self._options: dict[str, Any] = {
-            "warmup_periods": int(warmup_periods),
-            "scoring_window": scoring_window,
+            "window": window,
+            "validation_window": validation_window,
             "min_samples": int(min_samples),
             "series_sink": series_sink,
         }

@@ -11,6 +11,7 @@ import pytest
 
 from hydromodpy.calibration.config import apply_project_defaults
 from hydromodpy.calibration.protocols import expand_calibration_protocol
+from hydromodpy.calibration.protocols.registry import _as_the_load_reads_it
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.results.catalog.registration import config_identity_hash, solve_identity_hash
@@ -131,11 +132,11 @@ def _phases(cfg: HydroModPyConfig) -> list[dict]:
     return [phase.model_dump(mode="json") for phase in cfg.calibration.phases]
 
 
-def test_the_gauge_written_into_the_stages_reads_back(tmp_path: Path) -> None:
+def test_the_stages_carry_no_station_and_read_back(tmp_path: Path) -> None:
     project = _project(tmp_path, start="2000-01-01", end="2002-12-31")
     frozen = _frozen(project)
     stages = tomllib.loads(frozen.read_text(encoding="utf-8"))["calibration"]["phases"]
-    assert [stage["observed_station_id"] for stage in stages] == ["NANCON", "NANCON"]
+    assert ["observed_station_id" in stage for stage in stages] == [False, False]
 
     replayed = HydroModPyConfig.from_toml(frozen)
 
@@ -149,7 +150,7 @@ def test_the_metrics_window_written_into_the_transient_stage_reads_back(
     project = _project(tmp_path, start="2000-01-01", end="2000-12-31")
     frozen = _frozen(project)
     stages = tomllib.loads(frozen.read_text(encoding="utf-8"))["calibration"]["phases"]
-    assert stages[1]["scoring_window"]["start"] == "2000-01-01"
+    assert stages[1]["window"]["start"] == "2000-01-01"
 
     replayed = HydroModPyConfig.from_toml(frozen)
 
@@ -160,20 +161,22 @@ def test_a_stage_that_names_another_window_is_still_refused(tmp_path: Path) -> N
     project = _project(tmp_path, start="2000-01-01", end="2002-12-31")
     frozen = _frozen(project)
     document = tomllib.loads(frozen.read_text(encoding="utf-8"))
-    document["calibration"]["phases"][1]["scoring_window"] = {"start": "2002-01-01"}
+    document["calibration"]["phases"][1]["window"] = {"start": "2002-01-01"}
 
     with pytest.raises(ConfigValidationError, match="phases"):
         HydroModPyConfig.from_snapshot({**document, "workspace": {"project_root": str(project)}})
 
 
-def test_a_stage_that_names_another_station_is_still_refused(tmp_path: Path) -> None:
+def test_a_station_sealed_in_a_stage_is_dropped_on_read(tmp_path: Path) -> None:
     project = _project(tmp_path, start="2000-01-01", end="2002-12-31")
-    frozen = _frozen(project)
-    document = tomllib.loads(frozen.read_text(encoding="utf-8"))
+    document = tomllib.loads(_frozen(project).read_text(encoding="utf-8"))
     document["calibration"]["phases"][0]["observed_station_id"] = "OTHER"
 
-    with pytest.raises(ConfigValidationError, match="phases"):
-        HydroModPyConfig.from_snapshot({**document, "workspace": {"project_root": str(project)}})
+    replayed = HydroModPyConfig.from_snapshot(
+        {**document, "workspace": {"project_root": str(project)}}
+    )
+
+    assert _phases(replayed) == _phases(HydroModPyConfig.from_toml(project / "project.toml"))
 
 
 def test_a_run_of_a_calibration_seals_its_own_solve(tmp_path: Path) -> None:
@@ -242,14 +245,24 @@ def _loaded_stages(doc: dict) -> list[dict]:
 def test_the_transient_stage_scores_the_metrics_window_with_both_bounds() -> None:
     steady, transient = _loaded_stages(_doc())
 
-    assert transient["scoring_window"] == WINDOW
-    assert "scoring_window" not in steady
+    assert transient["window"] == WINDOW
+    assert "window" not in steady
+
+
+def test_the_transient_stage_scores_the_metrics_window_less_the_validation() -> None:
+    early = {"start": "2001-01-01", "end": "2002-12-31"}
+    doc = _doc(validation_window={"start": "2003-01-01", "end": "2003-12-31"})
+
+    calibration = expand_calibration_protocol(copy.deepcopy(doc))["calibration"]
+
+    assert calibration["phases"][1]["window"] == early
+    assert _as_the_load_reads_it("phases", calibration, doc)[1]["window"] == early
 
 
 def test_the_expansion_itself_writes_the_window() -> None:
     _, transient = expand_calibration_protocol(_doc())["calibration"]["phases"]
 
-    assert transient["scoring_window"] == WINDOW
+    assert transient["window"] == WINDOW
     assert "spin-up" not in transient["description"]
     assert "2003-12-31" in transient["description"]
 
@@ -260,15 +273,15 @@ def test_without_a_metrics_window_the_spin_up_default_stays() -> None:
 
     _, transient = expand_calibration_protocol(doc)["calibration"]["phases"]
 
-    assert transient["scoring_window"] == {"start": "2001-01-01"}
+    assert transient["window"] == {"start": "2001-01-01"}
 
 
 def test_a_window_on_the_protocol_still_wins() -> None:
-    doc = _doc(protocol={"name": NAME, "scoring_window": {"start": "2002-01-01"}})
+    doc = _doc(protocol={"name": NAME, "window": {"start": "2002-01-01"}})
 
     _, transient = _loaded_stages(doc)
 
-    assert transient["scoring_window"] == {"start": "2002-01-01"}
+    assert transient["window"] == {"start": "2002-01-01", "end": "2003-12-31"}
 
 
 def test_a_stage_sealed_with_the_spin_up_window_replays_it() -> None:
@@ -279,7 +292,7 @@ def test_a_stage_sealed_with_the_spin_up_window_replays_it() -> None:
 
     _, transient = expand_calibration_protocol(sealed)["calibration"]["phases"]
 
-    assert transient["scoring_window"] == {"start": "2001-01-01"}
+    assert transient["window"] == {"start": "2001-01-01"}
 
 
 def test_a_stage_sealed_with_the_metrics_window_reads_back() -> None:

@@ -377,7 +377,7 @@
             }
           ],
           "default": null,
-          "description": "Linearised standard deviation, in the unit of the parameter",
+          "description": "Linearized standard deviation, in the unit of the parameter",
           "title": "Sigma",
           "x-hmp-profile": "user"
         }
@@ -837,7 +837,7 @@
       "x-hmp-profile": "user"
     },
     "cost_name": {
-      "description": "Name of the cost the search minimised",
+      "description": "Name of the cost the search minimized",
       "examples": [
         "example"
       ],

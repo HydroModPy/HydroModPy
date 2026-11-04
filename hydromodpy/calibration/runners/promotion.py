@@ -38,6 +38,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from hydromodpy.calibration.config import CalibrationConfig
+from hydromodpy.calibration.metrics.observable_scoring import VALIDATION_COST
 from hydromodpy.calibration.optim.cache import context_fingerprints, differing_members
 from hydromodpy.calibration.persistence import CalibrationPersistence
 from hydromodpy.calibration.runners.trial import promote_prepared_trial
@@ -399,6 +400,7 @@ def calibrated_by_of(
         stopping_rule=stopping_rule,
         metric=phase.cost_name if phase_named else (None if case is None else case.cost_name),
         cost=row["case_cost"],
+        validation_cost=row["components"].get(VALIDATION_COST),
         windows={
             name: PeriodWindow(
                 role=window.role, start=window.of(case_id).start, end=window.of(case_id).end

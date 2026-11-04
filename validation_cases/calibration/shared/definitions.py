@@ -69,7 +69,7 @@ def build_payload(
     - ``[calibration.outputs.<name>]`` injects ``observed_values`` from the
       truth synthesis.
     - ``[calibration.objective_blocks]`` lists the weighted blocks.
-    - ``[calibration.optimizer_kwargs]`` forwards method kwargs.
+    - ``[calibration.method_options]`` forwards method kwargs.
 
     The returned dict is deep-mergeable with a base simulation TOML via
     ``base_config = ...`` so the caller can write it next to the
@@ -141,7 +141,7 @@ def build_payload(
     method_kwargs = dict(method_profile.method_kwargs)
     # Hoist seed to the top-level [calibration].seed knob so build_optimizer
     # receives it once via its dedicated kwarg rather than twice (the CLI
-    # forwards both cfg.seed and **optimizer_kwargs which would clash).
+    # forwards both cfg.seed and **method_options which would clash).
     seed_value = method_kwargs.pop(method_profile.seed_kwarg_name, None)
     n_parameters = max(1, len(parameters))
     max_trials = _resolve_max_trials_from_kwargs(
@@ -160,7 +160,7 @@ def build_payload(
         "parameters": parameters,
         "outputs": outputs,
         "objective_blocks": objective_blocks,
-        "optimizer_kwargs": method_kwargs,
+        "method_options": method_kwargs,
         "persist_iteration_detail": "full",
         "persist_model_distribution": bool(method_profile.persist_model_distribution),
     }

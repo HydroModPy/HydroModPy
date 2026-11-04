@@ -61,7 +61,7 @@ method = "optuna"
 max_trials = 60
 
 # 2000 is spin-up: both criteria are read from 2001 on.
-[calibration.phases.scoring_window]
+[calibration.phases.window]
 start = "2001-01-01"
 
 # Its own figure list: the bisection figures of project.toml read a search on

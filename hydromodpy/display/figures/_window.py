@@ -25,7 +25,7 @@ SPINUP_COLOR = "0.82"
 SPINUP_LABEL = "before the scoring window"
 
 
-def scoring_window_start(run: Run) -> date | None:
+def window_start(run: Run) -> date | None:
     """Return the first day *run* is scored on, or ``None`` when it has no window.
 
     The window of the sealed scores comes first, as it is the one the run was
@@ -59,7 +59,7 @@ def shade_before_window(ax: Axes, run: Run) -> bool:
     whether anything was shaded: not when the run has no window, or when the
     window starts at or before the left edge of the axis.
     """
-    start = scoring_window_start(run)
+    start = window_start(run)
     if start is None:
         return False
     left, right = ax.get_xlim()

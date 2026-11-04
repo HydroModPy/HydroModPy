@@ -142,7 +142,7 @@ max_trials = 3
 evaluator = "test_scored_set_probe"
 use_cache = false
 method_options = { points_per_dim = 3 }
-scoring_window = { start = "2016-01-01", end = "2020-12-31" }
+window = { start = "2016-01-01", end = "2020-12-31" }
 
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]
@@ -291,7 +291,7 @@ evaluator = "test_daily_scored_set_probe"
 use_cache = false
 save_runs = "none"
 method_options = { points_per_dim = 3 }
-scoring_window = { start = "2016-01-01" }
+window = { start = "2016-01-01" }
 
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]

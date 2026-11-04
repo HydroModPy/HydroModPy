@@ -673,7 +673,10 @@ BASE: dict[str, Any] = {
 
 
 def _hash(**changes: Any) -> str:
-    cfg = CalibrationConfig.model_validate({**BASE, **changes})
+    payload = {**BASE, **changes}
+    if "objective_blocks" in changes:
+        del payload["objective"]  # blocks score by their own metric
+    cfg = CalibrationConfig.model_validate(payload)
     return params_hash({"k": 1e-4}, context=_context(cfg))
 
 
@@ -737,7 +740,6 @@ def test_the_model_enters_as_written_and_without_its_workspace() -> None:
         {"persist_trial_series": True},
         {"materialize_candidates": True},
         {"promote_phases": True},
-        {"persistence": {"save_zarr": False}},
         {"uncertainty": {"cost_margin": "10%"}},
         {
             "parameters": {
@@ -761,10 +763,8 @@ def test_what_does_not_change_the_cost_of_a_trial_leaves_the_key_alone(change: d
     [
         {"objective": "kge"},
         {"variable": "head"},
-        {"scoring_window": {"start": "2001-01-01"}},
-        {"warmup_periods": 12},
+        {"window": {"start": "2001-01-01"}},
         {"reject_water_budget_above": 5.0},
-        {"observed_station_id": "B2"},
         {"aggregate": {"min_samples": 30}},
         {"outputs": {"gauge": OUTPUT}, "variable": "gauge"},
         {
@@ -796,6 +796,34 @@ def test_another_objective_block_changes_the_key() -> None:
 
 def test_a_named_evaluator_changes_the_key_and_the_default_does_not() -> None:
     assert _hash(evaluator="hydromodpy_pipeline") == _hash()
+
+
+def test_a_validation_window_keys_the_cache_of_a_search_it_scores_once_written() -> None:
+    span = {"start": "2001-01-01", "end": "2001-12-31"}
+    steady = {"name": "s", "parameters": ["k"], "objective": "nse", "regime": "steady"}
+    phases = [
+        {**steady, "steady_window": span},
+        {**steady, "name": "t", "regime": None, "window": span},
+    ]
+    plain, late, later = (
+        CalibrationConfig.model_validate(
+            {**BASE, "phases": phases, **fields},
+        )
+        for fields in (
+            {},
+            {"validation_window": {"start": "2002-01-01", "end": "2002-12-31"}},
+            {"validation_window": {"start": "2003-01-01", "end": "2003-12-31"}},
+        )
+    )
+    keys = [
+        [_context(_phase_config(cfg, phase)) for phase in cfg.phases]
+        for cfg in (plain, late, later)
+    ]
+
+    assert keys[0][0] == keys[1][0] == keys[2][0]
+    assert _phase_config(late, late.phases[0]).validation_window is None
+    assert keys[0][1] != keys[1][1] != keys[2][1]
+    assert "validation_window" not in str(keys[0][1])
 
 
 def test_a_phase_narrower_than_its_section_reuses_the_trials_of_a_wider_search() -> None:

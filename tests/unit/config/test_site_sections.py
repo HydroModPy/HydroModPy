@@ -106,8 +106,6 @@ def test_the_site_scoped_fields_are_listed() -> None:
         "data.recharge.sources[].path",
         "data.runoff.sources[].station_ids",
         "data.dem.sources[].mask_path",
-        "calibration.observed_station_id",
-        "calibration.phases[].observed_station_id",
         "calibration.outputs.*.observes",
         "calibration.outputs.*.stream_geometry_path",
     }

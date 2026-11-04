@@ -20,6 +20,7 @@ from hydromodpy.calibration.config import (
     CalibObjectiveBlockDecl,
     CalibOutputPoint,
     CalibrationConfig,
+    CalibWindow,
     MatchingHydrographicNetworkOptions,
     validate_calib_output,
 )
@@ -27,6 +28,7 @@ from hydromodpy.calibration.config import CalibObjectiveBlockDecl as Block
 from hydromodpy.calibration.metrics import composite, solver_extract
 from hydromodpy.calibration.metrics.composite import PRODUCERS, build_metric_extractor
 from hydromodpy.calibration.metrics.observable_scoring import (
+    VALIDATION_COST,
     ObservableScorer,
     StationBlockScorer,
     discharge_target,
@@ -39,6 +41,7 @@ from hydromodpy.calibration.metrics.trial_series_capture import TrialSeriesSink
 from hydromodpy.calibration.optim.objective import ConfigBlockObjective
 from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
 from hydromodpy.calibration.persistence import CalibrationPersistence
+from hydromodpy.calibration.runners import pipeline_evaluator
 from hydromodpy.calibration.runners.recap import scored_samples
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.contracts.observables import (
@@ -96,9 +99,7 @@ def _scorer() -> ObservableScorer:
         )
     }
     blocks = [objective_block("fit", "rmse", ["H"])]
-    return ObservableScorer(
-        outputs, blocks, observed_records={"H": _RECORD}, scoring_window=_WINDOW
-    )
+    return ObservableScorer(outputs, blocks, observed_records={"H": _RECORD}, window=_WINDOW)
 
 
 def _answer() -> ObservableResult:
@@ -110,7 +111,7 @@ def test_the_pairing_counts_the_dry_periods_of_the_window() -> None:
     paired = pair_outputs_with_observations(
         observed={"H": _RECORD},
         simulated={"H": _simulated()},
-        scoring_window=_WINDOW,
+        window=_WINDOW,
         time_methods={"H": "point"},
     )
 
@@ -375,7 +376,7 @@ class TestTheIntervalOfANormalisedDistance:
 # From test_a_session_window_open_at_its_end_scores_the_periods_of_the_run.py
 # A session window with a start only scores the periods the run scores.
 #
-# A protocol phase declares ``scoring_window = {start = ...}`` without an end.
+# A protocol phase declares ``window = {start = ...}`` without an end.
 # The session compared that start with the END stamp of each pair, so it kept
 # the period closing on the start day as well: 25 months against the 24 the run
 # scores on example 04 (N1 of the audit of 2026-10-20, RAPPORT §1.3). The
@@ -402,7 +403,7 @@ def test_the_block_route_keeps_the_24_months_of_the_run() -> None:
     paired = pair_outputs_with_observations(
         observed={"hydrograph": observed},
         simulated={"hydrograph": simulated},
-        scoring_window=START_ONLY,
+        window=START_ONLY,
         time_methods={"hydrograph": "mean"},
         period_starts={"hydrograph": FIRST_PERIOD},
     )
@@ -419,7 +420,7 @@ def test_variable_and_objective_keep_the_24_months_of_the_run() -> None:
         "discharge",
         "nse",
         [ObservedSeries("NANCON", "discharge", observed)],
-        scoring_window=START_ONLY,
+        window=START_ONLY,
         series_sink=sink,
     )
 
@@ -442,9 +443,7 @@ def test_the_pairs_session_json_records_are_those_of_the_run() -> None:
         )
     }
     blocks = [objective_block("flow", "nse", ["q"])]
-    scorer = ObservableScorer(
-        outputs, blocks, observed_records={"q": observed}, scoring_window=START_ONLY
-    )
+    scorer = ObservableScorer(outputs, blocks, observed_records={"q": observed}, window=START_ONLY)
     boundaries = [FIRST_PERIOD, *STAMPS]
 
     _, components = scorer.score(
@@ -485,7 +484,7 @@ def test_variable_and_objective_score_a_steady_discharge_on_its_year() -> None:
         "discharge",
         "mae",
         [ObservedSeries("Q", "discharge", _RECORD__steady_stage)],
-        observed_station_id="Q",
+        gauge="Q",
     )
 
     cost, _ = scorer.score({"Q": _answer__steady_stage(3.0)}, boundaries=_BOUNDS__steady_stage)
@@ -500,7 +499,7 @@ def test_the_window_start_moves_the_score_of_a_steady_stage() -> None:
         "discharge",
         "mae",
         [ObservedSeries("Q", "discharge", _RECORD__steady_stage)],
-        observed_station_id="Q",
+        gauge="Q",
     )
     spanning = (pd.Timestamp("1999-01-01"), _BOUNDS__steady_stage[1])
 
@@ -544,7 +543,7 @@ def test_a_steady_head_is_still_read_at_its_stamp() -> None:
 # That output is dated at the stamp of the state it reads, the stamp that closes
 # its period. A window that holds the stamp scores it; one that does not is
 # refused, naming both, at the first trial and by ``hmp config check``
-# before any solve. So ``scoring_window.start`` is the one way to leave a spin-up
+# before any solve. So ``window.start`` is the one way to leave a spin-up
 # out of a composite that scores a hydrograph and a network together.
 
 
@@ -574,7 +573,7 @@ class TestTheRule:
         with pytest.raises(ValueError) as caught:
             refuse_window_without_dates(_network(), BLOCKS, window, {}, boundaries=MONTHS)
         message = str(caught.value)
-        assert "scoring_window 2001-01-01 to 2002-06-30" in message
+        assert "window 2001-01-01 to 2002-06-30" in message
         assert "time = 'last'" in message
         assert "2002-12" in message and "stamped 2003-01-01" in message
 
@@ -641,13 +640,11 @@ def _window_findings(tmp_path, *, time: str, window: str, regime: str = "transie
     findings = preflight_of(
         tmp_path, _PHASE.format(geometry=geometry, time=time, window=window, regime=regime)
     )
-    return messages(
-        item for item in findings if "scoring_window" in item.detail or "time =" in item.detail
-    )
+    return messages(item for item in findings if "window" in item.detail or "time =" in item.detail)
 
 
-_FROM_JULY = '[calibration.phases.scoring_window]\nstart = "2000-07-01"'
-_TO_JUNE = '[calibration.phases.scoring_window]\nend = "2000-06-30"'
+_FROM_JULY = '[calibration.phases.window]\nstart = "2000-07-01"'
+_TO_JUNE = '[calibration.phases.window]\nend = "2000-06-30"'
 
 # The steady span is a day count: a unitless timedelta warns under the pinned NumPy.
 _NO_GENERIC_UNIT = pytest.mark.filterwarnings(
@@ -664,7 +661,7 @@ class TestTheCheckBeforeTheRun:
     def test_a_window_ending_before_it_is_named_with_its_phase(self, tmp_path) -> None:
         found = _window_findings(tmp_path, time="last", window=_TO_JUNE)
         assert "[[calibration.phases]] 'conductivity'" in found
-        assert "scoring_window open to 2000-06-30" in found
+        assert "window open to 2000-06-30" in found
         assert "stamped 2001-01-01" in found
 
     def test_a_dated_state_outside_the_window_is_named(self, tmp_path) -> None:
@@ -691,13 +688,11 @@ class TestTheWindowIsWrittenInDates:
     @pytest.mark.parametrize(
         ("window", "match"),
         [
-            pytest.param(
-                {"scoring_window": {"start": "2001-13-01"}}, "is not a date", id="bad-date"
-            ),
+            pytest.param({"window": {"start": "2001-13-01"}}, "is not a date", id="bad-date"),
             pytest.param(
                 {"steady_window": {"start": "2000-01-01"}}, "missing end", id="steady-span"
             ),
-            pytest.param({"scoring_window": {"begin": "2001-01-01"}}, "start", id="unknown-bound"),
+            pytest.param({"window": {"begin": "2001-01-01"}}, "begin", id="unknown-bound"),
         ],
     )
     def test_a_protocol_window_that_is_not_dates_fails_when_the_file_is_read(
@@ -708,27 +703,11 @@ class TestTheWindowIsWrittenInDates:
                 {"name": "matching_hydrographic_network", **window}
             )
 
-    def test_a_protocol_window_keeps_the_table_it_was_written_as(self) -> None:
+    def test_a_protocol_window_is_read_as_the_window_of_the_section(self) -> None:
         declared = MatchingHydrographicNetworkOptions.model_validate(
-            {"name": "matching_hydrographic_network", "scoring_window": {"start": "2001-01-01"}}
+            {"name": "matching_hydrographic_network", "window": {"start": "2001-01-01"}}
         )
-        assert declared.scoring_window == {"start": "2001-01-01"}
-
-    def test_the_sample_counts_are_expert_keys(self) -> None:
-        def profile(model, field: str) -> object:
-            return next(
-                item for item in model.model_fields[field].metadata if isinstance(item, Profile)
-            )
-
-        assert profile(CalibrationConfig, "warmup_periods") is Profile.EXPERT
-        assert profile(Block, "warmup") is Profile.EXPERT
-        assert profile(CalibrationConfig, "scoring_window") is Profile.USER
-
-    def test_the_sample_counts_still_load(self) -> None:
-        cfg = CalibrationConfig.model_validate(
-            {"parameters": {"K": {"bounds": [1e-8, 1e-2]}}, "warmup_periods": 12}
-        )
-        assert cfg.warmup_periods == 12
+        assert declared.window == CalibWindow(start="2001-01-01")
 
 
 # From test_discharge_target_station.py
@@ -767,7 +746,7 @@ def test_the_refusal_names_the_candidates_and_the_way_out():
 
     message = str(excinfo.value)
     assert "NANCON" in message and "UPSTREAM" in message
-    assert "observed_station_id" in message
+    assert "[site] gauge" in message
     assert "station_ids" in message
 
 
@@ -855,13 +834,13 @@ def test_the_implicit_station_output_honours_the_floor(variable: str) -> None:
     record = [ObservedSeries("G", variable, _RECORD__min_samples)]
 
     refused = StationBlockScorer(
-        variable, "rmse", record, observed_station_id="G", min_samples=len(_STAMPS__min_samples) + 1
+        variable, "rmse", record, gauge="G", min_samples=len(_STAMPS__min_samples) + 1
     )
     with pytest.raises(ValueError, match="min_samples"):
         refused.score({"G": _answer__min_samples("G")}, boundaries=_BOUNDS__min_samples)
 
     kept = StationBlockScorer(
-        variable, "rmse", record, observed_station_id="G", min_samples=len(_STAMPS__min_samples)
+        variable, "rmse", record, gauge="G", min_samples=len(_STAMPS__min_samples)
     )
     cost, _ = kept.score({"G": _answer__min_samples("G")}, boundaries=_BOUNDS__min_samples)
     assert np.isfinite(cost)
@@ -947,7 +926,7 @@ def test_weighted_positional_outputs_keep_reduction_and_components(
     assert pipeline(object()) == (total, components)
 
 
-def test_dates_window_then_warmup_are_identical_for_both_producers(
+def test_a_dates_window_is_identical_for_both_producers(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     times = pd.date_range("2001-01-01", periods=4)
@@ -957,14 +936,14 @@ def test_dates_window_then_warmup_are_identical_for_both_producers(
         )
     }
     blocks = [objective_block("flow", "rmse", ["q"])]
-    results = {"q": ObservableResult("q", np.array([101.0, 102.0, 6.0, 7.0]), "m3/s", times)}
+    results = {"q": ObservableResult("q", np.array([101.0, 5.0, 6.0, 7.0]), "m3/s", times)}
     # Each simulated stamp closes the day observed one day before it.
     observed = {
         "q": pd.Series([1.0, 2.0, 3.0, 4.0, 999.0], index=pd.date_range("2000-12-31", periods=5))
     }
     # The window holds the days 2001-01-01 to 2001-01-04: the stamp 2001-01-01
     # closes 2000-12-31, which it leaves out.
-    options = dict(warmup_periods=1, scoring_window=(times[0], times[-1]), min_samples=3)
+    options = dict(window=(times[0], times[-1]), min_samples=3)
     _wire_pipeline(monkeypatch, results, observed)
     pipeline = composite.build_metric_extractor(
         None, None, object(), outputs=outputs, objective_blocks=blocks, **options
@@ -974,9 +953,9 @@ def test_dates_window_then_warmup_are_identical_for_both_producers(
     total, components = foreign.score(results)
 
     assert total == pytest.approx(3.0)
-    assert components["flow.n_values"] == 2.0
+    assert components["flow.n_values"] == 3.0
     assert components["q.n_paired"] == 3.0
-    # The window and the warmup both bite: only 2001-01-02 to 2001-01-04 remain.
+    # The window leaves out the first stamp: only 2001-01-02 to 2001-01-04 remain.
     assert date.fromordinal(int(components["q.date_start"])) == date(2001, 1, 2)
     assert date.fromordinal(int(components["q.date_end"])) == date(2001, 1, 4)
     assert pipeline(object()) == (total, components)
@@ -1158,14 +1137,6 @@ class TestScoringWithoutAContext:
         assert components["rmse@PZ2.raw_cost"] == pytest.approx(1.5)
         assert cost == pytest.approx(1.0)
 
-    def test_a_burn_in_reaches_the_criterion(self) -> None:
-        plain = _scorer__station_block("head", "PZ1")
-        burnt = _scorer__station_block("head", "PZ1", warmup_periods=2)
-        answer = {"PZ1": _answer__station_block("PZ1", [13.0, 11.0, 12.0])}
-
-        assert plain.score(answer)[0] > 0.0
-        assert burnt.score(answer)[0] == pytest.approx(0.0)
-
 
 class TestWhichStationDrivesTheSearch:
     def test_the_declared_gauge_alone_is_scored(self) -> None:
@@ -1176,7 +1147,7 @@ class TestWhichStationDrivesTheSearch:
                 _observed__station_block("OUTLET", [1.0, 1.0, 1.0], variable="discharge"),
                 _observed__station_block("UP", [1.0, 1.0, 1.0], variable="discharge"),
             ],
-            observed_station_id="UP",
+            gauge="UP",
         )
 
         cost, components = scorer.score(
@@ -1198,7 +1169,7 @@ class TestWhichStationDrivesTheSearch:
                 _observed__station_block("OUTLET", [1.0, 1.0, 1.0], variable="discharge"),
                 _observed__station_block("UP", [1.0, 1.0, 1.0], variable="discharge"),
             ],
-            observed_station_id="UP",
+            gauge="UP",
         )
 
         with pytest.raises(NotImplementedError, match="'UP'"):
@@ -1310,6 +1281,106 @@ class TestThePipelineTakesTheSameRoute:
             metric_fn(SimpleNamespace(), objective="nse", variable="discharge")
 
 
+class TestTheValidationWindow:
+    """A score beside the cost, on the answer of the trial, and the cost never reads it."""
+
+    DAYS = pd.date_range("2000-01-01", periods=6, freq="D")
+    RECORD = pd.Series([10.0, 11.0, 12.0, 13.0, 14.0, 15.0], index=DAYS)
+    FIRST, LATER = (DAYS[0], DAYS[2]), (DAYS[3], DAYS[5])
+    HEAD = {"variable": "head", "support": "cell", "row": 0, "col": 0, "layer": 0, "observes": "P"}
+
+    def _scorer(self, metric="rmse", record=RECORD, **options) -> ObservableScorer:
+        return ObservableScorer(
+            {"h": validate_calib_output(self.HEAD)},
+            [objective_block("fit", metric, ["h"])],
+            observed_records={"h": record},
+            window=self.FIRST,
+            **options,
+        )
+
+    def _answer(self, first: float = 1.0, later: float = 3.0) -> dict[str, ObservableResult]:
+        simulated = self.RECORD.to_numpy() + np.array([first] * 3 + [later] * 3)
+        return {"h": adapter_result("h", simulated, "m", times=self.DAYS)}
+
+    def test_the_cost_stays_bit_identical_and_never_reads_it(self) -> None:
+        sink = TrialSeriesSink()
+        scorer = self._scorer(validation_window=self.LATER, series_sink=sink)
+
+        cost, scored = scorer.score(self._answer())
+        worse = scorer.score(self._answer(later=5.0))
+
+        assert [row["simulated"] for row in sink.drain()[:3]] == [11.0, 12.0, 13.0]
+        assert (cost, worse[0]) == (1.0, 1.0)
+        assert worse[1][VALIDATION_COST] == pytest.approx(5.0)
+        assert scored.pop(VALIDATION_COST) == pytest.approx(3.0)
+        assert (cost, scored) == self._scorer().score(self._answer())
+
+    @pytest.mark.parametrize(
+        ("metric", "record", "window", "said"),
+        [
+            ("rmse", RECORD, (pd.Timestamp("2001-01-01"), pd.Timestamp("2001-12-31")), 1),
+            ("nse", RECORD.where(RECORD < 13.0, 13.0), LATER, 0),
+        ],
+        ids=["no_pair", "undefined_metric"],
+    )
+    def test_a_trial_with_no_score_on_it_keeps_its_cost(
+        self, caplog, metric, record, window, said
+    ) -> None:
+        scorer = self._scorer(metric, record, validation_window=window)
+
+        with caplog.at_level(logging.WARNING):
+            first = scorer.score(self._answer())
+            second = scorer.score(self._answer())
+
+        assert first == second == self._scorer(metric, record).score(self._answer())
+        assert sum("validation window" in r.getMessage() for r in caplog.records) == said
+
+    def test_only_the_blocks_on_a_dated_record_are_scored_on_it(self) -> None:
+        outputs = {"h": validate_calib_output(self.HEAD), **_network()}
+        blocks = [
+            objective_block("fit", "rmse", ["h"], weight=1.0),
+            objective_block("map", "distance_gap", ["net"], weight=3.0),
+        ]
+        distances = {"net": [100.0, 100.0]}
+        options = {"validation_window": self.LATER}
+        both = ObservableScorer(outputs, blocks, observed_records={"h": self.RECORD}, **options)
+        net = ObservableScorer({"net": outputs["net"]}, blocks[1:], **options)
+
+        assert both.score(self._answer(), network_values=distances)[1][VALIDATION_COST] == 3.0
+        assert VALIDATION_COST not in net.score({}, network_values=distances)[1]
+
+    def test_both_routes_of_the_extractor_score_it(self, monkeypatch) -> None:
+        _wire_pipeline(monkeypatch, self._answer(), {"h": self.RECORD})
+        declared = composite.build_metric_extractor(
+            None,
+            None,
+            object(),
+            outputs={"h": validate_calib_output(self.HEAD)},
+            objective_blocks=[objective_block("fit", "rmse", ["h"])],
+            window=self.FIRST,
+            validation_window=self.LATER,
+        )
+        station = _scorer__station_block("head", "P", validation_window=(_INDEX[2], _INDEX[2]))
+        answer = {"P": _answer__station_block("P", [11.0, 12.0, 14.0])}
+
+        assert declared(object())[1][VALIDATION_COST] == pytest.approx(3.0)
+        assert station.score(answer)[1][VALIDATION_COST] == pytest.approx(2.0)
+
+    def test_the_evaluator_hands_over_the_window_of_the_document(self, monkeypatch) -> None:
+        handed = {}
+        monkeypatch.setattr(
+            pipeline_evaluator, "build_metric_extractor", lambda *_, **kw: handed.update(kw)
+        )
+        late = CalibWindow(start="2001-01-01", end="2001-12-31")
+
+        pipeline_evaluator._extractor_for(
+            CalibrationConfig(window=CalibWindow(end="2000-12-31"), validation_window=late),
+            SimpleNamespace(base_cfg=SimpleNamespace(site=None), ctx=None),
+        )
+
+        assert handed["validation_window"][0] == pd.Timestamp("2001-01-01")
+
+
 class TestWhenTheRefusalHappens:
     """A document no sample can score is refused before a session exists."""
 
@@ -1331,9 +1402,7 @@ class TestWhenTheRefusalHappens:
             build_metric_extractor("discharge", "rmse", self._two_gauges())
 
     def test_naming_the_one_that_drives_the_search_builds(self) -> None:
-        extractor = build_metric_extractor(
-            "discharge", "rmse", self._two_gauges(), observed_station_id="UP"
-        )
+        extractor = build_metric_extractor("discharge", "rmse", self._two_gauges(), gauge="UP")
 
         assert callable(extractor)
 

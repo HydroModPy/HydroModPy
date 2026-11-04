@@ -17,7 +17,7 @@ from hydromodpy.core.metrics import bias, kge, nse, rmse
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Opt
 from hydromodpy.display.figure_registry import register
-from hydromodpy.display.figures._scoring_window import shade_before_window
+from hydromodpy.display.figures._window import shade_before_window
 from hydromodpy.display.maps.axes import style_date_axis
 from hydromodpy.results.derive.time_alignment import (
     normalize_datetime_series,

@@ -20,11 +20,12 @@ from hydromodpy.calibration.evaluation import registry as evaluation_registry
 from hydromodpy.calibration.runners import cli_runner as cli_runner_module
 from hydromodpy.calibration.runners import promotion as promotion_module
 from hydromodpy.calibration.runners.programmatic_runner import run_calibration_programmatic
+from hydromodpy.calibration.runners.session import calibration_case_name, open_session_dir
 from hydromodpy.calibration.runners.trial import TrialContext
 from hydromodpy.core.exceptions import CalibrationError, ConfigError, ConfigMissingError
 from hydromodpy.core.state.execution import ExecutionRegistry
 from hydromodpy.project import Project
-from hydromodpy.results.session.descriptor import read_session
+from hydromodpy.results.session.descriptor import read_session, session_descriptor_path
 from hydromodpy.results.session.journal import read_trials
 from tests.unit.calibration._factories_runners import make_report
 
@@ -172,6 +173,52 @@ class TestALinearizedWidthWithoutPhases:
             evaluation_registry.unregister(_NoModel.evaluator_id)
 
 
+def test_a_call_with_phases_resumes_the_session_of_its_case(fake_project, tmp_path, monkeypatch):
+    """The document is named by the case, so the staged runner reopens the earlier session."""
+    opened = []
+
+    def staged(doc_path, *, resume, **_kwargs):
+        _, root, _, _, case = cli_runner_module.load_calibration_document(doc_path, None)
+        session, reopened = open_session_dir(root, case, resume=resume)
+        session_descriptor_path(session).write_text("{}")
+        opened.append((doc_path, session.name, reopened))
+        return make_report()
+
+    monkeypatch.setattr(
+        "hydromodpy.calibration.runners.staged_runner.run_staged_calibration", staged
+    )
+    cfg = _baseline_cfg(phases=[{"name": "k", "parameters": ["K"], "max_trials": 3}])
+    for resume in (False, True):
+        run_calibration_programmatic(cfg, project=fake_project, resume=resume)
+
+    document = tmp_path / "sessions" / "toy.toml"
+    assert opened == [(document, "toy", False), (document, "toy", True)]
+
+
+def test_a_project_on_a_file_names_its_case_as_the_cli_does(tmp_path, monkeypatch):
+    """The name a parent writes is not the case: ``hmp calibrate run.toml`` writes sessions/run."""
+    (tmp_path / "base.toml").write_text('[simulation]\nname = "inherited"\n')
+    run_file = tmp_path / "run.toml"
+    run_file.write_text('base_config = "base.toml"\n[calibration]\nseed = 1\n')
+    seen = []
+
+    def staged(doc_path, **_kwargs):
+        seen.append((doc_path, cli_runner_module.load_calibration_document(doc_path, None)[4]))
+        return make_report()
+
+    monkeypatch.setattr(
+        "hydromodpy.calibration.runners.staged_runner.run_staged_calibration", staged
+    )
+    cfg = _baseline_cfg(phases=[{"name": "k", "parameters": ["K"], "max_trials": 3}])
+
+    run_calibration_programmatic(cfg, project=_fake_project(run_file, tmp_path))
+
+    assert calibration_case_name(run_file) == "run"
+    assert seen == [(tmp_path / "sessions" / "run.toml", "run")]
+    written = tomllib.loads(seen[0][0].read_text(encoding="utf-8"))
+    assert written["simulation"]["name"] == "run"
+
+
 @pytest.fixture
 def run(fake_project, fake_pipeline, quadratic_metric):
     """Run the in-memory calibration on the fake project; *updates* edit the configuration."""
@@ -225,9 +272,9 @@ class TestRunCalibrationProgrammatic:
     def test_iterations_persisted(self, run, tmp_path):
         report = run()
 
-        # The case takes the stem of the project file (the fake project names no
-        # simulation); the session sits at the project root the fake declares.
-        assert report.session_dir == tmp_path / "sessions" / "hydromodpy"
+        # The case takes the simulation name the project file writes; the session
+        # sits at the project root the fake declares.
+        assert report.session_dir == tmp_path / "sessions" / "toy"
         assert read_session(report.session_dir).session_id == report.session_id
         assert len(read_trials(report.session_dir)) == 3
 

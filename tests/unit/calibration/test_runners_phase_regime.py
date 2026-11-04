@@ -222,15 +222,13 @@ class TestWhatItWrites:
         assert "hydrograph" not in (expanded.get("outputs") or {})
         assert len(expanded["objective_blocks"]) == 1
 
-    def test_an_explicit_station_wins_over_the_loaded_one(self) -> None:
+    def test_a_station_on_the_protocol_is_refused_for_the_gauge(self) -> None:
         doc = _doc(
             protocol={"name": "matching_hydrographic_network", "observed_station_id": "OTHER"}
         )
-        doc["data"]["hydrometry"]["sources"][0]["station_ids"] = ["NANCON", "OTHER"]
 
-        expanded = expand_calibration_protocol(doc)["calibration"]
-
-        assert expanded["outputs"]["hydrograph"]["observes"] == "OTHER"
+        with pytest.raises(ValueError, match=r"observed_station_id.*\[site\] gauge"):
+            expand_calibration_protocol(doc)
 
     def test_the_gauge_of_the_site_is_the_station_when_none_is_named(self) -> None:
         """Several stations loaded, none named: the gauge of [site] decides (D6)."""

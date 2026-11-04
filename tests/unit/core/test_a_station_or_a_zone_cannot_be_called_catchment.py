@@ -34,9 +34,6 @@ SINGLE_STATIONS = [
     (MetricsConfig, "station"),
     (SiteConfig, "gauge"),
     (CalibOutputPoint, "observes"),
-    (CalibPhaseDecl, "observed_station_id"),
-    (CalibrationConfig, "observed_station_id"),
-    (MatchingHydrographicNetworkOptions, "observed_station_id"),
 ]
 
 

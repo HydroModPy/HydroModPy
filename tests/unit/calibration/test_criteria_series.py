@@ -963,7 +963,7 @@ def test_the_run_scores_the_window_on_whole_periods() -> None:
 def test_variable_and_objective_score_what_the_run_scores() -> None:
     observed, simulated = _series()
     scorer = StationBlockScorer(
-        "discharge", "nse", [ObservedSeries(GAUGE, "discharge", observed)], scoring_window=_bounds()
+        "discharge", "nse", [ObservedSeries(GAUGE, "discharge", observed)], window=_bounds()
     )
 
     cost, _ = scorer.score(
@@ -980,7 +980,7 @@ def test_the_block_route_scores_what_the_run_scores() -> None:
     paired = pair_outputs_with_observations(
         observed={"hydrograph": observed},
         simulated={"hydrograph": simulated},
-        scoring_window=_bounds(),
+        window=_bounds(),
         time_methods={"hydrograph": "mean"},
         period_starts={"hydrograph": FIRST_PERIOD},
     )

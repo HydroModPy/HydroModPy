@@ -17,8 +17,7 @@ from hydromodpy.calibration.runners import pipeline_evaluator
 # ``weighting``, ``nested_gauges`` and ``on_member_failure`` were declared here
 # and never read, so a file that wrote ``weighting = "error"`` or
 # ``on_member_failure = "drop"`` got the same cost as one that did not. They
-# are retired: accepted and ignored with a warning, so a sealed run that wrote
-# them out keeps replaying, and gone from the schema.
+# are refused, and ``hmp doctor --fix-config`` deletes them.
 
 
 def _config(aggregate: dict[str, object], **over: object) -> dict[str, object]:
@@ -49,23 +48,22 @@ class TestTheDefaults:
         assert cfg.aggregate.min_samples == 1
 
 
-class TestTheRetiredKeys:
+class TestTheRefusedKeys:
     @pytest.mark.parametrize(
         ("key", "value"),
         [("weighting", "error"), ("nested_gauges", "incremental"), ("on_member_failure", "drop")],
     )
-    def test_an_aggregate_key_nothing_read_is_ignored_with_a_warning(
-        self, key: str, value: str
-    ) -> None:
-        with pytest.warns(DeprecationWarning, match=key):
-            cfg = CalibrationConfig.model_validate(_config({key: value}))
+    def test_an_aggregate_key_nothing_read_is_refused(self, key: str, value: str) -> None:
+        with pytest.raises(ValueError, match=rf"'{key}' is not accepted any more.*deletes it"):
+            CalibrationConfig.model_validate(_config({key: value}))
 
         assert key not in CalibAggregateDecl.model_fields
-        assert not hasattr(cfg.aggregate, key)
 
-    @pytest.mark.parametrize("key", ["lightweight_extraction", "persist_model_distribution"])
-    def test_a_section_key_nothing_read_is_ignored_with_a_warning(self, key: str) -> None:
-        with pytest.warns(DeprecationWarning, match=key):
+    @pytest.mark.parametrize(
+        "key", ["lightweight_extraction", "persist_model_distribution", "persistence"]
+    )
+    def test_a_section_key_nothing_read_is_refused(self, key: str) -> None:
+        with pytest.raises(ValueError, match=rf"'{key}' is not accepted any more.*deletes it"):
             CalibrationConfig.model_validate({key: True})
 
         assert key not in CalibrationConfig.model_fields

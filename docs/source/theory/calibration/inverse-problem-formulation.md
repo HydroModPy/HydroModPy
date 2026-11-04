@@ -73,8 +73,10 @@ and a row or a column outside the grid is refused with the name of the output. A
 file is used as it is.
 
 Only the dated pairs inside the scoring window enter $c_b$.
-{toml}`calibration.scoring_window` names the first and last dates that count, so the
+{toml}`calibration.window` names the first and last dates that count, so the
 spin-up of the model stays out of the cost at any time step.
+{toml}`calibration.validation_window` keeps other dates apart. Each trial is scored on them
+with the same blocks, on the series it has already simulated, and $c_b$ never reads them.
 
 ## The metrics
 

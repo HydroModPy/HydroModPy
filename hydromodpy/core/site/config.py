@@ -65,7 +65,7 @@ class SiteConfig(HydroModelBase):
             "names it. A station source of [data.hydrometry], [data.recharge] or "
             "[data.runoff] (custom chronicles or hubeau) with no station_ids reads "
             "this station; a station_ids that leaves it out is refused by name. "
-            "calibration.observed_station_id and [metrics] station default to it. "
+            "[metrics] station and a point output's observes default to it. "
             "Unset, a run that loads exactly one discharge station takes that station "
             "as its gauge and writes it in its manifest."
         ),

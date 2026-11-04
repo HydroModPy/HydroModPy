@@ -901,12 +901,7 @@ def _check_the_precision_can_be_honoured(calibration: Any) -> list[PreflightFind
         # document gets one width per phase (D234), built from what THAT
         # PHASE scores, so each phase is checked on its own selection rather
         # than on the whole file's.
-        from hydromodpy.calibration.metrics.composite import (
-            refuse_a_burn_in_the_residuals_cannot_honour,
-        )
-        from hydromodpy.core.exceptions import UncertaintyNotAvailableError
-
-        for where, outputs, blocks, single_metric in linearized:
+        for where, outputs, single_metric in linearized:
             observing = [
                 name
                 for name, decl in outputs.items()
@@ -933,12 +928,6 @@ def _check_the_precision_can_be_honoured(calibration: Any) -> list[PreflightFind
                     )
                 findings.append(PreflightFinding("error", where, detail))
                 continue
-            try:
-                refuse_a_burn_in_the_residuals_cannot_honour(
-                    outputs, blocks, int(calibration.warmup_periods or 0)
-                )
-            except UncertaintyNotAvailableError as exc:
-                findings.append(PreflightFinding("error", where, str(exc)))
     for where, method, precision, kwargs, restarts in _declared_precisions(calibration):
         if restarts is not None and method in known:
             from hydromodpy.calibration.runners.restarts import assert_restarts_can_explore
@@ -1276,8 +1265,8 @@ def _phase_named_blocks(calibration: Any, names: list[str]) -> list[Any]:
 
 def _linearized_scored_outputs(
     calibration: Any,
-) -> list[tuple[str, Mapping[str, Any], list[Any], bool]]:
-    """Return, per search whose width is linearized, its label, what it scores, and more.
+) -> list[tuple[str, Mapping[str, Any], bool]]:
+    """Return, per search whose width is linearized, its label, the outputs it scores, and more.
 
     The last item says whether the search is single-metric. A search reads the
     method of its phase over the section's, so only the phases that end up
@@ -1304,17 +1293,16 @@ def _linearized_scored_outputs(
             (
                 "[calibration.uncertainty]",
                 calibration.outputs or {},
-                list(calibration.objective_blocks or []),
                 False,
             )
         ]
-    result: list[tuple[str, Mapping[str, Any], list[Any], bool]] = []
+    result: list[tuple[str, Mapping[str, Any], bool]] = []
     for phase in calibration.phases:
         if calibration.uncertainty_for(phase).method != "linearized":
             continue
         where = f"[[calibration.phases]] {phase.name!r}"
         if phase.is_single_metric:
-            result.append((where, {}, [], True))
+            result.append((where, {}, True))
             continue
         outputs = dict(calibration.outputs or {})
         blocks = _phase_named_blocks(calibration, list(phase.objective_blocks))
@@ -1323,7 +1311,7 @@ def _linearized_scored_outputs(
         elif phase.objective_blocks:
             read = {name for block in blocks for name in block.uses_outputs}
             outputs = {name: value for name, value in outputs.items() if name in read}
-        result.append((where, outputs, blocks, False))
+        result.append((where, outputs, False))
     return result
 
 
@@ -1678,7 +1666,7 @@ def _check_the_scoring_windows_hold_what_they_score(
         outputs = _outputs_scored_by_search(calibration, phase)
         config = _config_of(searched, phase)
         edges = None if config is None else _search_edges(config, phase, source, document)
-        declared = getattr(phase, "scoring_window", None) or calibration.scoring_window
+        declared = getattr(phase, "window", None) or calibration.window
         # Validated when the file was read, so both bounds parse.
         window = (
             None
@@ -1715,7 +1703,7 @@ def _check_the_scoring_windows_hold_what_they_score(
                     PreflightFinding(
                         "error",
                         where,
-                        f"scoring_window {_day(start)} to {_day(end)} holds no date of the "
+                        f"window {_day(start)} to {_day(end)} holds no date of the "
                         f"run, which runs from {_day(first)} to {_day(last)}. Move the "
                         "window inside the run.",
                     )

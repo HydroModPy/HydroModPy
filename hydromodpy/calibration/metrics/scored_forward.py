@@ -61,7 +61,7 @@ from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import hydromodpy.calibration.evaluation.forward_registry as forward_registry
-from hydromodpy.calibration.config import scoring_window_bounds
+from hydromodpy.calibration.config import window_bounds
 from hydromodpy.calibration.evaluation.forward import (
     ForwardRequest,
     refuse_answers_nobody_asked_for,
@@ -133,8 +133,7 @@ class ScoredForwardEvaluator:
                 outputs,
                 blocks,
                 observed_records=None,
-                warmup_periods=int(getattr(cfg, "warmup_periods", 0) or 0),
-                scoring_window=scoring_window_bounds(getattr(cfg, "scoring_window", None)),
+                window=window_bounds(getattr(cfg, "window", None)),
                 min_samples=int(getattr(getattr(cfg, "aggregate", None), "min_samples", 1) or 1),
             )
         # A window with no dated output is the fifth refusal of this route, and

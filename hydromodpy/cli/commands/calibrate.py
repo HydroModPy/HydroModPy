@@ -494,7 +494,7 @@ def _print_dry_run(plan: Mapping[str, Any]) -> None:
     for phase in plan["phases"]:
         print(
             f"  phase {phase['name']}: {', '.join(phase['parameters'])}, {phase['max_trials']} "
-            f"trials, scores on {phase['scoring_window']}",
+            f"trials, scores on {phase['window']}",
             file=sys.stderr,
         )
     print(f"solves in parallel: {plan['solves_in_parallel']}", file=sys.stderr)
@@ -630,5 +630,5 @@ def _print_phases(phases: list[dict[str, Any]], target: Path, run_path: Path) ->
         print(_phase_line(index, phase))
         for row in phase.get("comparisons", []):
             print(f"    {comparison_line(row)}")
-        if phase.get("scoring_window"):
-            print(f"    scores on: {phase['scoring_window']}")
+        if phase.get("window"):
+            print(f"    scores on: {phase['window']}")

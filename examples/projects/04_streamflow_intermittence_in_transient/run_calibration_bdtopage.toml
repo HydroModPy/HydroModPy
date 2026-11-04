@@ -87,7 +87,7 @@ objective_blocks = ["network_extent"]
 method = "bisection"
 
 # 2000 is spin-up: simulated, not counted in the extents.
-[calibration.phases.scoring_window]
+[calibration.phases.window]
 start = "2001-01-01"
 
 # Phase two: Sy alone, K from phase one. It does not start if phase one did
@@ -103,7 +103,7 @@ max_trials = 30
 precision = 0.05
 depends_on = "transient_conductivity"
 
-[calibration.phases.scoring_window]
+[calibration.phases.window]
 start = "2001-01-01"
 
 # The two maps first, then the extents each phase scored, the hydrograph and

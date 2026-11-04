@@ -12,6 +12,7 @@ from typing import Any
 import pytest
 
 from hydromodpy.calibration.config import CalibrationConfig
+from hydromodpy.calibration.metrics.observable_scoring import VALIDATION_COST
 from hydromodpy.calibration.optim.cache import params_hash
 from hydromodpy.calibration.optim.engine import CalibrationEngine
 from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
@@ -447,6 +448,16 @@ class TestWhereThePromotedRunsGo:
             "partial",
         )
         assert (by.metric, by.cost, by.windows) == ("nse", 0.1, WINDOW)
+        assert by.validation_cost is None
+
+    def test_the_run_carries_the_validation_score_of_its_trial(self, tmp_path, recorder) -> None:
+        persistence = _session(tmp_path, costs={1: 0.9})
+        journal_trial(persistence, 2, 0.1, k=1e-2, components={VALIDATION_COST: 0.4})
+
+        _promote(tmp_path, persistence, cfg=_cfg(save_best_n=1))
+
+        (call,) = recorder.calls
+        assert (call["calibrated_by"].cost, call["calibrated_by"].validation_cost) == (0.1, 0.4)
 
     def test_the_other_kept_trials_go_under_the_session_with_the_consumers_budget(
         self, tmp_path, recorder

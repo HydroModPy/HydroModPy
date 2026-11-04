@@ -317,6 +317,13 @@ def test_no_field_description_names_a_dead_results_folder() -> None:
             "transient_method_options",
             ["calibration.protocol.transient_engine_options"],
         ),
+        ("calibration.config:CalibrationConfig", "window", ["calibration.scoring_window"]),
+        ("calibration.config:CalibPhaseDecl", "window", ["calibration.phases.scoring_window"]),
+        (
+            "calibration.config:MatchingHydrographicNetworkOptions",
+            "window",
+            ["calibration.protocol.scoring_window"],
+        ),
         ("config.hydromodpy_config:HydroModPyConfig", "export", ["export.geotiff"]),
     ],
 )

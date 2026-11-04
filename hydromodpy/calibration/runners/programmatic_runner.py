@@ -9,23 +9,23 @@ the source declaration.
 A ``cfg`` that declares ``phases`` cannot run through the single-search loop
 below: a staged calibration forks each phase's configuration from a file, and
 Python mode has none. :func:`_write_python_mode_document` writes one next to
-the project's ``sessions/``, and :func:`run_calibration_programmatic` hands it
-to :func:`~hydromodpy.calibration.runners.staged_runner.run_staged_calibration`.
+the project's ``sessions/`` as ``<case>.toml``, and
+:func:`run_calibration_programmatic` hands it to
+:func:`~hydromodpy.calibration.runners.staged_runner.run_staged_calibration`.
 The document is a plain calibration TOML: ``hmp calibrate <path>`` replays it.
 """
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
-from uuid import uuid4
 
 from hydromodpy.calibration.config import CalibrationConfig, apply_project_defaults
 from hydromodpy.calibration.runners.cli_runner import (
     refuse_an_objective_that_is_not_an_entry_point,
     run_single_search,
 )
+from hydromodpy.calibration.runners.session import calibration_case_name, case_named_by
 from hydromodpy.calibration.runners.state import space_from_config
 from hydromodpy.calibration.runners.trial import TrialMetricFn
 from hydromodpy.core.state.paths import sessions_dir_for
@@ -36,15 +36,22 @@ if TYPE_CHECKING:
 
 
 def _write_python_mode_document(
-    cfg: CalibrationConfig, *, project: Any, ws_root: Path, src_path: Path | None
+    cfg: CalibrationConfig,
+    *,
+    document: dict[str, Any],
+    case: str,
+    ws_root: Path,
+    src_path: Path | None,
 ) -> Path:
     """Write the calibration TOML a Python-mode staged run replays from.
 
-    Embeds ``project.config`` (already resolved: every relative path it
-    declared was resolved against the project's own file when ``Project``
-    validated it, eagerly, at construction) rather than pointing at the
+    Embeds *document*, the project configuration (already resolved: every
+    relative path it declared was resolved against the project's own file when
+    ``Project`` validated it, eagerly, at construction) rather than pointing at the
     source file through ``base_config``, so the document means the same
-    thing wherever it is read from.
+    thing wherever it is read from. It is named after *case*, so that the
+    staged runner names the same case and ``resume`` finds the session of an
+    earlier call. A later call of the case overwrites it.
 
     ``[calibration]`` is a plain overwrite, never a merge, on both a
     file-backed and a pure in-memory project: a phases= call declares its
@@ -72,14 +79,14 @@ def _write_python_mode_document(
 
     resolve_stream_geometry_paths(cfg, anchor_path)
 
-    payload: dict[str, Any] = dict(
-        project.config.model_dump(mode="json", exclude_none=True, exclude_unset=True)
-    )
-    payload["workflow"] = {"mode": "calibration"}
-    payload["calibration"] = cfg.model_dump(mode="json", exclude_none=True, exclude_unset=True)
-
-    stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
-    doc_path = sessions_dir_for(sessions_root) / f"python-{stamp}-{uuid4().hex[:8]}.toml"
+    payload = {
+        **document,
+        # The staged runner names the case from this document, whatever the project inherits.
+        "simulation": {**(document.get("simulation") or {}), "name": case},
+        "workflow": {"mode": "calibration"},
+        "calibration": cfg.model_dump(mode="json", exclude_none=True, exclude_unset=True),
+    }
+    doc_path = sessions_dir_for(sessions_root) / f"{case}.toml"
     write_overlay_toml(doc_path, payload)
     return doc_path
 
@@ -100,13 +107,6 @@ def _project_root(project: Any, workspace: Path | str | None) -> Path:
     return Path.cwd()
 
 
-def _case_name(project: Any, cfg_path: Path) -> str:
-    """Return the case a Python-mode calibration names: the simulation name, else the stem."""
-    simulation = getattr(getattr(project, "config", None), "simulation", None)
-    name = str(getattr(simulation, "name", "") or "").strip()
-    return name or cfg_path.stem
-
-
 def _document_of(project: Any, cfg_path: Path) -> dict[str, Any]:
     """Return the resolved document the session freezes: the project config, else the file."""
     config = getattr(project, "config", None)
@@ -117,21 +117,22 @@ def _document_of(project: Any, cfg_path: Path) -> dict[str, Any]:
     return dict(load_toml_with_base_config(cfg_path))
 
 
-def with_project_defaults(cfg: CalibrationConfig, project: Any) -> CalibrationConfig:
-    """Write ``[site] gauge`` and ``[metrics] window`` of the project into ``cfg``."""
+def project_defaults_on(section: dict[str, Any], project: Any) -> dict[str, Any]:
+    """Return a raw ``[calibration]`` with ``[site] gauge`` and ``[metrics] window`` written in."""
     config = getattr(project, "config", None)
-    site = getattr(config, "site", None)
-    metrics = getattr(config, "metrics", None)
-    window = getattr(metrics, "window", None)
-    gauge = getattr(site, "gauge", None)
-    if gauge is None and window is None:
-        return cfg
-    section = apply_project_defaults(
-        cfg.model_dump(mode="json", exclude_none=True, exclude_unset=True),
-        site_gauge=gauge,
+    window = getattr(getattr(config, "metrics", None), "window", None)
+    return apply_project_defaults(
+        section,
+        site_gauge=getattr(getattr(config, "site", None), "gauge", None),
         metrics_window=window.model_dump(mode="json") if window is not None else None,
     )
-    return CalibrationConfig.model_validate(section)
+
+
+def with_project_defaults(cfg: CalibrationConfig, project: Any) -> CalibrationConfig:
+    """Write ``[site] gauge`` and ``[metrics] window`` of the project into ``cfg``."""
+    written = cfg.model_dump(mode="json", exclude_none=True, exclude_unset=True)
+    section = project_defaults_on(written, project)
+    return cfg if section == written else CalibrationConfig.model_validate(section)
 
 
 @in_run_scratch(
@@ -168,11 +169,23 @@ def run_calibration_programmatic(
     src_path = getattr(project, "_config_path", None)
     cfg = with_project_defaults(cfg, project)
 
+    cfg_path = (
+        Path(src_path).expanduser().resolve()
+        if src_path is not None
+        else ws_root / ".hydromodpy" / "calibration_base.toml"
+    )
+    raw = _document_of(project, cfg_path)
+    case = (
+        calibration_case_name(cfg_path)
+        if src_path is not None
+        else case_named_by(raw, cfg_path.stem)
+    )
+
     if cfg.phases:
         from hydromodpy.calibration.runners.staged_runner import run_staged_calibration
 
         doc_path = _write_python_mode_document(
-            cfg, project=project, ws_root=ws_root, src_path=src_path
+            cfg, document=raw, case=case, ws_root=ws_root, src_path=src_path
         )
         # Not ws_root: a caller override still wins, but otherwise the staged
         # runner resolves its own project root from the document it just read,
@@ -193,19 +206,14 @@ def run_calibration_programmatic(
     if src_path is None:
         from hydromodpy.calibration.runners.materialize import write_overlay_toml
 
-        cfg_path = ws_root / ".hydromodpy" / "calibration_base.toml"
-        payload = project.config.model_dump(mode="json", exclude_none=True, exclude_unset=True)
-        write_overlay_toml(cfg_path, payload)
-    else:
-        cfg_path = Path(src_path).expanduser().resolve()
+        write_overlay_toml(cfg_path, raw)
 
-    raw = _document_of(project, cfg_path)
     raw["calibration"] = cfg.model_dump(mode="json", exclude_none=True, exclude_unset=True)
     report, _spread = run_single_search(
         cfg,
         space=space,
         cfg_path=cfg_path,
-        case=_case_name(project, cfg_path),
+        case=case,
         raw=raw,
         project_root=ws_root,
         project=project_label,
@@ -216,4 +224,4 @@ def run_calibration_programmatic(
     return report
 
 
-__all__ = ["run_calibration_programmatic", "with_project_defaults"]
+__all__ = ["project_defaults_on", "run_calibration_programmatic", "with_project_defaults"]

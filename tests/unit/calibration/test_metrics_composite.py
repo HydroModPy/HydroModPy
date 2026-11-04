@@ -13,8 +13,8 @@ from hydromodpy.calibration.config import (
     CalibObjectiveBlockDecl,
     CalibPhaseDecl,
     CalibrationConfig,
-    scoring_window_bounds,
     validate_calib_output,
+    window_bounds,
 )
 from hydromodpy.calibration.metrics import composite
 from hydromodpy.calibration.metrics import solver_extract as _solver_extract
@@ -24,7 +24,6 @@ from hydromodpy.calibration.metrics.composite import (
     _discharge_by_station,
     build_metric_extractor,
     build_paired_vector_capture,
-    refuse_a_burn_in_the_residuals_cannot_honour,
 )
 from hydromodpy.calibration.metrics.observable_scoring import (
     ObservableScorer,
@@ -235,7 +234,7 @@ class TestPairing:
             },
             simulated={"outlet": pd.Series([1.1, 2.2, 3.3], index=times)},
             # The days of the last two records, which the last two stamps close.
-            scoring_window=(pd.Timestamp("2000-01-01"), pd.Timestamp("2000-01-02")),
+            window=(pd.Timestamp("2000-01-01"), pd.Timestamp("2000-01-02")),
         )
 
         assert paired.observed["outlet"] == [2.0, 3.0]
@@ -290,7 +289,7 @@ class TestTheExtractor:
         monkeypatch.setattr(
             composite,
             "extract_outputs",
-            lambda ctx, outputs, scoring_window=None: ExtractedOutputs(
+            lambda ctx, outputs, window=None: ExtractedOutputs(
                 observables={
                     "outlet": ObservableResult("outlet", np.asarray(sim_outlet), "m3/s", times),
                     "piezo": ObservableResult("piezo", np.asarray(sim_piezo), "m", head_times),
@@ -340,7 +339,7 @@ class TestTheExtractor:
             _ctx(),
             outputs=self._outputs(),
             objective_blocks=self._blocks(),
-            scoring_window=(pd.Timestamp("2000-01-02"), None),
+            window=(pd.Timestamp("2000-01-02"), None),
         )
 
         total, components = metric_fn(None)
@@ -365,7 +364,7 @@ class TestTheExtractor:
                 _ctx(),
                 outputs=outputs,
                 objective_blocks=blocks,
-                scoring_window=(pd.Timestamp("2000-01-03"), None),
+                window=(pd.Timestamp("2000-01-03"), None),
             )
 
 
@@ -391,7 +390,7 @@ def _components(monkeypatch, bench, output, window):
     stack = release_stack(bench, seasonal_thresholds(3, wet_first_year=True))
     ctx, _ = wire_stack(monkeypatch, bench, stack, SPIN_UP_RUN)
     metric_fn = build_metric_extractor(
-        None, None, ctx, outputs={"net": output}, objective_blocks=BLOCKS, scoring_window=window
+        None, None, ctx, outputs={"net": output}, objective_blocks=BLOCKS, window=window
     )
     _, components = metric_fn(ctx)
     return components
@@ -432,7 +431,7 @@ def test_a_window_missing_the_state_of_a_network_in_one_state_is_refused(
     with pytest.raises(ValueError) as caught:
         _components(monkeypatch, bench, one_state(stream_file, "2002-10-15"), window)
     message = str(caught.value)
-    assert "scoring_window 2001-01-01 to 2001-12-31" in message
+    assert "window 2001-01-01 to 2001-12-31" in message
     assert "output 'net'" in message
     assert "2002-10" in message
     assert "2002-11-01" in message
@@ -462,7 +461,6 @@ WINDOW__single_metric = (pd.Timestamp("2001-01-01"), None)
 
 PINNED = {
     "discharge_nse_log_window": 0.17866174604070295,
-    "discharge_kge_warmup": 0.18111555222173215,
     "discharge_followed_gauge": 0.7678948602751097,
     "head_rmse_two": 0.3228777051000766,
     "head_nse_three": 0.04659631074723684,
@@ -559,30 +557,18 @@ def test_a_gauge_on_nse_log_and_a_window_costs_what_it_cost(monkeypatch) -> None
     _serve(monkeypatch, {"catchment": _simulated(0.3)})
     ctx = _ctx__single_metric("hydrometry", [_gauge("NANCON", 0.0)])
 
-    cost, components = _score("discharge", "nse_log", ctx, scoring_window=WINDOW__single_metric)
+    cost, components = _score("discharge", "nse_log", ctx, window=WINDOW__single_metric)
 
     assert cost == PINNED["discharge_nse_log_window"]
     assert components["nse_log@NANCON.raw_cost"] == cost
     assert _pairs(components)["discharge@NANCON"] == 24
 
 
-def test_a_burn_in_in_samples_still_applies(monkeypatch) -> None:
-    _serve(monkeypatch, {"catchment": _simulated(0.3)})
-    ctx = _ctx__single_metric("hydrometry", [_gauge("NANCON", 0.0)])
-
-    cost, components = _score("discharge", "kge", ctx, warmup_periods=3)
-
-    assert cost == PINNED["discharge_kge_warmup"]
-    # The pairs are counted before the burn-in, the values after it.
-    assert components["discharge@NANCON.n_paired"] == 36.0
-    assert components["kge@NANCON.n_values"] == 33.0
-
-
 def test_the_followed_gauge_alone_is_scored(monkeypatch) -> None:
     _serve(monkeypatch, {"catchment": _simulated(0.3)})
     ctx = _ctx__single_metric("hydrometry", [_gauge("OUTLET", 0.0), _gauge("UP", 1.0)])
 
-    cost, components = _score("discharge", "nse", ctx, observed_station_id="UP")
+    cost, components = _score("discharge", "nse", ctx, gauge="UP")
 
     assert cost == PINNED["discharge_followed_gauge"]
     assert set(_pairs(components)) == {"discharge@UP"}
@@ -882,7 +868,7 @@ class TestTheCaptureAndTheCostReadTheSamePairing:
         simulated = [1.5, 2.5, 3.5, 4.5]
         extracted = _extracted(simulated)
         monkeypatch.setattr(
-            composite, "extract_outputs", lambda ctx, outputs, scoring_window=None: extracted
+            composite, "extract_outputs", lambda ctx, outputs, window=None: extracted
         )
         capture_fn, captured = build_paired_vector_capture(
             _outputs(), ctx=_ctx__residual_capture(), objective_blocks=[_block()]
@@ -895,7 +881,7 @@ class TestTheCaptureAndTheCostReadTheSamePairing:
         former = pair_outputs_with_observations(
             observed=observed_series_for_outputs(_outputs(), _ctx__residual_capture()),
             simulated={"gauge": extracted.series["gauge"]},
-            scoring_window=None,
+            window=None,
             min_samples=1,
         )
 
@@ -908,7 +894,7 @@ class TestTheCaptureAndTheCostReadTheSamePairing:
         outputs = {"gauge": boundary_output(observes="NANCON", time="last")}
         extracted = _extracted([1.5, 2.5, 3.5, 4.5], time="last")
         monkeypatch.setattr(
-            composite, "extract_outputs", lambda ctx, outputs_, scoring_window=None: extracted
+            composite, "extract_outputs", lambda ctx, outputs_, window=None: extracted
         )
         capture_fn, captured = build_paired_vector_capture(
             outputs, ctx=_ctx__residual_capture(), objective_blocks=[_block()]
@@ -922,7 +908,7 @@ class TestTheCaptureAndTheCostReadTheSamePairing:
         former = pair_outputs_with_observations(
             observed=observed_series_for_outputs(outputs, _ctx__residual_capture()),
             simulated={"gauge": extracted.series["gauge"]},
-            scoring_window=None,
+            window=None,
             min_samples=1,
         )
         assert list(captured["simulated"]) == pytest.approx(former.simulated["gauge"])
@@ -934,7 +920,7 @@ class TestTheCaptureAndTheCostReadTheSamePairing:
         monkeypatch.setattr(
             composite,
             "extract_outputs",
-            lambda ctx, outputs, scoring_window=None: _extracted(simulated),
+            lambda ctx, outputs, window=None: _extracted(simulated),
         )
         capture_fn, captured = build_paired_vector_capture(
             _outputs(), ctx=_ctx__residual_capture(), objective_blocks=[_block()]
@@ -955,14 +941,14 @@ class TestTheCaptureAndTheCostReadTheSamePairing:
         monkeypatch.setattr(
             composite,
             "extract_outputs",
-            lambda ctx, outputs, scoring_window=None: _extracted([1.5, 2.5, 3.5, 4.5]),
+            lambda ctx, outputs, window=None: _extracted([1.5, 2.5, 3.5, 4.5]),
         )
         capture_fn, captured = build_paired_vector_capture(
             _outputs(),
             ctx=_ctx__residual_capture(),
             objective_blocks=[_block()],
             # The days from 2020-01-02 on: the periods the last two stamps close.
-            scoring_window=(pd.Timestamp("2020-01-02"), None),
+            window=(pd.Timestamp("2020-01-02"), None),
         )
 
         capture_fn(None)
@@ -973,7 +959,7 @@ class TestTheCaptureAndTheCostReadTheSamePairing:
         monkeypatch.setattr(
             composite,
             "extract_outputs",
-            lambda ctx, outputs, scoring_window=None: _extracted([1.5, 2.5]),
+            lambda ctx, outputs, window=None: _extracted([1.5, 2.5]),
         )
         capture_fn, _ = build_paired_vector_capture(
             _outputs(), ctx=_ctx__residual_capture(), objective_blocks=[_block()], min_samples=3
@@ -991,80 +977,6 @@ class TestTheScorerRefusesToPairWhatHasNoRecord:
 
         with pytest.raises(ValueError, match="no residual to align"):
             scorer.pair({"typed": _answer([1.0, 2.0])})
-
-
-class TestABurnInHasNoResidualVector:
-    def test_a_single_metric_document_hides_its_burn_in_in_no_block(self) -> None:
-        """No block declares it, and the criterion drops the samples anyway."""
-        with pytest.raises(UncertaintyNotAvailableError, match="warmup_periods drops the first 5"):
-            build_paired_vector_capture(
-                _outputs(), ctx=_ctx__residual_capture(), objective_blocks=[], warmup_periods=5
-            )
-
-    def test_a_block_naming_no_record_truncates_nothing_a_residual_reads(self) -> None:
-        """The burn-in that matters is the one applied to the observing outputs."""
-        outputs = dict(_outputs())
-        outputs["typed"] = boundary_output("other", observed_values=[1.0, 2.0])
-        typed_only = objective_block("typed_only", "rmse", ["typed"])
-
-        # Nothing scores `gauge`, so nothing drops its leading samples, whatever
-        # the calibration-wide burn-in says.
-        refuse_a_burn_in_the_residuals_cannot_honour(outputs, [typed_only], 3)
-
-    def test_a_document_with_no_observing_output_is_left_to_its_sibling(self) -> None:
-        typed = {"typed": boundary_output(observed_values=[1.0, 2.0])}
-
-        refuse_a_burn_in_the_residuals_cannot_honour(typed, [], 5)
-
-    def test_a_block_that_scores_no_record_does_not_shield_the_burn_in(self) -> None:
-        typed_block = objective_block("typed_only", "rmse", ["gauge"], warmup=0)
-        outputs = dict(_outputs())
-        outputs["other"] = boundary_output("other", observed_values=[1.0, 2.0])
-        elsewhere = objective_block("elsewhere", "rmse", ["other"])
-
-        # `typed_only` reads the record and switches the burn-in off, so nothing
-        # truncates what a residual is taken from, whatever the other block does.
-        refuse_a_burn_in_the_residuals_cannot_honour(outputs, [typed_block, elsewhere], 4)
-
-    def test_a_calibration_wide_burn_in_is_refused(self) -> None:
-        with pytest.raises(UncertaintyNotAvailableError, match="leading sample"):
-            build_paired_vector_capture(
-                _outputs(),
-                ctx=_ctx__residual_capture(),
-                objective_blocks=[_block()],
-                warmup_periods=2,
-            )
-
-    def test_a_block_that_switches_it_off_is_not_refused(self, monkeypatch) -> None:
-        monkeypatch.setattr(
-            composite,
-            "extract_outputs",
-            lambda ctx, outputs, scoring_window=None: _extracted([1.5, 2.5, 3.5, 4.5]),
-        )
-        capture_fn, captured = build_paired_vector_capture(
-            _outputs(),
-            ctx=_ctx__residual_capture(),
-            objective_blocks=[_block(warmup=0)],
-            warmup_periods=2,
-        )
-
-        capture_fn(None)
-
-        assert list(captured["observed"]) == pytest.approx([1.0, 2.0, 3.0, 4.0])
-
-    def test_a_block_raising_its_own_burn_in_is_refused_and_named(self) -> None:
-        with pytest.raises(UncertaintyNotAvailableError, match="b drops 3"):
-            refuse_a_burn_in_the_residuals_cannot_honour(_outputs(), [_block(warmup=3)], 0)
-
-    def test_a_burn_in_on_a_block_scoring_no_record_says_nothing(self) -> None:
-        """Only the outputs a residual is taken against are concerned."""
-        outputs = {
-            "gauge": _outputs()["gauge"],
-            "typed": boundary_output("other", observed_values=[1.0, 2.0]),
-        }
-        typed_block = objective_block("typed_only", "rmse", ["typed"], warmup=1)
-
-        refuse_a_burn_in_the_residuals_cannot_honour(outputs, [typed_block, _block()], 0)
 
 
 # From test_routed_discharge_skips_runoff.py
@@ -1127,7 +1039,7 @@ def _protocol_window(start: str, end: str, **protocol: object):
         },
     }
     transient = expand_calibration_protocol(document)["calibration"]["phases"][1]
-    return scoring_window_bounds(CalibPhaseDecl.model_validate(transient).scoring_window)
+    return window_bounds(CalibPhaseDecl.model_validate(transient).window)
 
 
 def test_the_default_window_leaves_the_spin_up_year_out(monkeypatch, bench, stream_file) -> None:  # noqa: F811
@@ -1141,7 +1053,7 @@ def test_the_default_window_leaves_the_spin_up_year_out(monkeypatch, bench, stre
 
 
 def test_a_declared_window_still_wins(monkeypatch, bench, stream_file) -> None:  # noqa: F811
-    window = _protocol_window("2000-01-01", "2002-12-31", scoring_window={"start": "2000-01-01"})
+    window = _protocol_window("2000-01-01", "2002-12-31", window={"start": "2000-01-01"})
 
     scored = _components(monkeypatch, bench, _two_bound_output(stream_file), window)
 

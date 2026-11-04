@@ -112,7 +112,7 @@
         }
       ],
       "default": null,
-      "description": "Name of the cost minimised.",
+      "description": "Name of the cost minimized.",
       "title": "Cost Name"
     },
     "duration_s": {

@@ -1148,22 +1148,6 @@ def test_the_single_metric_route_is_one_row(tmp_path: Path) -> None:
 
 
 @pytest.mark.fast
-def test_a_phase_level_observed_station_id_names_the_station(tmp_path: Path) -> None:
-    text = (
-        SECTION
-        + PHASES
-        + SINGLE_METRIC_PHASE.replace(
-            'objective = "nse_log"', 'objective = "nse_log"\nobserved_station_id = "G1"'
-        )
-    )
-    cfg = _config__objective_comparison(tmp_path, text)
-
-    rows = _rows_by_phase(cfg)["sy_single"]
-
-    assert rows[0]["source"] == "station G1 ([data.hydrometry])"
-
-
-@pytest.mark.fast
 def test_a_phase_less_calibration_still_gets_a_table_for_its_one_search(
     tmp_path: Path,
 ) -> None:

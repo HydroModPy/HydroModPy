@@ -696,31 +696,31 @@ def _timestep_edges(
 def _scored_years(
     name: str,
     edges: np.ndarray,
-    scoring_window: tuple[Any, Any] | None,
+    window: tuple[Any, Any] | None,
 ) -> CalendarYears:
     """Return the complete calendar years the two-bound mode scores.
 
     Every complete year of the run, or, when the phase declares a
-    ``scoring_window``, only the complete years the window holds from
+    ``window``, only the complete years the window holds from
     1 January to 31 December. The window is how a spin-up year leaves the
     score: without one, a first year whose first step is steady, or starts
     from an arbitrary initial condition, is scored like the others. Refused by
     name when no complete year is left, saying which years the run touches
     and which the window left out.
     """
-    window = (
+    bounds = (
         None
-        if scoring_window is None or all(bound is None for bound in scoring_window)
-        else (naive_utc(scoring_window[0]), naive_utc(scoring_window[1]))
+        if window is None or all(bound is None for bound in window)
+        else (naive_utc(window[0]), naive_utc(window[1]))
     )
-    years = calendar_years(edges, window=window)
+    years = calendar_years(edges, window=bounds)
     if years.years:
         return years
     touched = ", ".join(map(str, years.incomplete)) or "none"
     if years.outside_window:
-        start, end = window if window is not None else (None, None)
+        start, end = bounds if bounds is not None else (None, None)
         raise ObjectiveError(
-            f"Output {name!r} declares an extent table and its scoring_window "
+            f"Output {name!r} declares an extent table and its window "
             f"{start or 'open'} to {end or 'open'} holds no complete calendar year of the "
             f"run: it leaves out {', '.join(map(str, years.outside_window))}"
             + (f", and the run only touches {touched}" if years.incomplete else "")
@@ -741,13 +741,13 @@ def _score_two_bounds(
     result: ObservableResult,
     maps: NetworkMaps,
     time_bounds: Sequence[Any] | None,
-    scoring_window: tuple[Any, Any] | None = None,
+    window: tuple[Any, Any] | None = None,
     step_days: float | None = None,
 ) -> tuple[list[float], dict[str, float]]:
     """Score the yearly extent masks of a transient run against one or two maps.
 
     The years scored are the complete calendar years of the run, cut to the
-    ``scoring_window`` of the phase when one is declared
+    ``window`` of the phase when one is declared
     (:func:`_scored_years`). They are published: ``n_years_scored``,
     ``first_year_scored``, ``last_year_scored``, and ``year_scored_y<year>``
     for every year the run touches, 1 when scored and 0 when left out,
@@ -772,7 +772,7 @@ def _score_two_bounds(
             "steady phase. The two-bound mode reads the timesteps of a transient run; score "
             "a steady phase in one state, without the extent table."
         )
-    years = _scored_years(name, _timestep_edges(name, result, n_times, time_bounds), scoring_window)
+    years = _scored_years(name, _timestep_edges(name, result, n_times, time_bounds), window)
     if step_days is None:
         raise ObjectiveError(
             f"Output {name!r}: the extent rules are durations, counted in the timesteps of "
@@ -879,7 +879,7 @@ def _score_two_bounds(
         len(masks.years),
         ", ".join(map(str, masks.years)),
         (
-            f" (outside the scoring_window: {', '.join(map(str, years.outside_window))})"
+            f" (outside the window: {', '.join(map(str, years.outside_window))})"
             if years.outside_window
             else ""
         ),
@@ -899,7 +899,7 @@ def score_network_output(
     *,
     saturated_thickness: ObservableResult | None = None,
     time_bounds: Sequence[Any] | None = None,
-    scoring_window: tuple[Any, Any] | None = None,
+    window: tuple[Any, Any] | None = None,
     step_days: float | None = None,
 ) -> tuple[list[float], dict[str, float]]:
     """Turn one per-cell release field into the distances a block scores.
@@ -933,7 +933,7 @@ def score_network_output(
     at the same state as the release flux.
     ``time_bounds`` are the run's time-grid bounds, which date the timesteps
     of the two-bound mode and the state one state reads, named by the
-    output's ``time`` (:func:`network_state_row`). ``scoring_window`` is the
+    output's ``time`` (:func:`network_state_row`). ``window`` is the
     phase's ``(start, end)``; the two-bound mode scores only the complete
     years it holds, which is how a spin-up year leaves the score. The scorer
     checks that it holds the one state
@@ -958,7 +958,7 @@ def score_network_output(
         n_bounds = 1
     else:
         pair, scored = _score_two_bounds(
-            name, output, output.extent, result, maps, time_bounds, scoring_window, step_days
+            name, output, output.extent, result, maps, time_bounds, window, step_days
         )
         n_bounds = len(pair) // 2
 
@@ -1046,7 +1046,7 @@ def extract_outputs(
     ctx: Any,
     outputs: Mapping[str, CalibOutputDecl],
     *,
-    scoring_window: tuple[Any, Any] | None = None,
+    window: tuple[Any, Any] | None = None,
 ) -> ExtractedOutputs:
     """Ask the flow adapter for every declared output, in one batch.
 
@@ -1057,7 +1057,7 @@ def extract_outputs(
 
     Returns the scored values per output and, beside them, the diagnostics the
     network criterion produces, which the caller merges into the components of
-    the trial. ``scoring_window`` is the phase's ``(start, end)``. Only a
+    the trial. ``window`` is the phase's ``(start, end)``. Only a
     network output in the two-bound mode reads it here, to score the complete
     years it holds; every other output is cut to it where it is paired with
     its record.
@@ -1139,7 +1139,7 @@ def extract_outputs(
                 result,
                 saturated_thickness=thickness,
                 time_bounds=time_grid_boundaries(ctx),
-                scoring_window=scoring_window,
+                window=window,
                 step_days=context_step_days(ctx),
             )
             diagnostics.update(scored)

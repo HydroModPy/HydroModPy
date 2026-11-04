@@ -16,10 +16,10 @@ from __future__ import annotations
 import types as stdlib_types
 import typing
 import warnings
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from enum import Enum
 from pathlib import Path
-from typing import Annotated, Any, ClassVar, Literal, get_args, get_origin
+from typing import Annotated, Any, ClassVar, Literal, NoReturn, get_args, get_origin
 
 from pydantic import BaseModel, ConfigDict, model_validator
 from pydantic_core import PydanticUndefined
@@ -27,7 +27,7 @@ from pydantic_core import PydanticUndefined
 from hydromodpy.core.config_kit.introspect import extract_profile
 from hydromodpy.core.config_kit.profile import ProfileName
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
-from hydromodpy.core.exceptions import FrozenConfigError
+from hydromodpy.core.exceptions import ConfigValidationError, FrozenConfigError
 
 _NONE_TYPE = type(None)
 
@@ -84,6 +84,19 @@ def warn_old_form(source: str | Path | None, change: str, *, rewritable: bool = 
     # stacklevel=1 names this file: the console routing hides a deprecation it
     # reads as a third party's, and the reader of this one is the file's author.
     warnings.warn(message, ConfigKeyRenamedWarning, stacklevel=1)
+
+
+def refuse_old_forms(
+    source: str | Path | None, changes: Sequence[str], *, rewritable: bool
+) -> NoReturn:
+    """Refuse a file on old forms that have no delay. Each of *changes* says the new name.
+
+    *rewritable* is false for a source the doctor has no file to rewrite for, such as ``--set``.
+    """
+    where = "config" if source is None else str(source)
+    target = "<file>" if source is None else where
+    fix = f"`{_FIX_CONFIG} {target}` rewrites the file" if rewritable else "write the new name"
+    raise ConfigValidationError(f"{where}: {'; '.join(changes)}. This old form is refused; {fix}.")
 
 
 def forget_old_forms_told() -> None:

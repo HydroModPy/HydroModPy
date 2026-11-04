@@ -65,10 +65,13 @@ HEADLINE_WINDOW: Final[str] = "metrics"
 CALIBRATION_ROLE: Final[str] = "calibration"
 """Role of a period the search scores: the cost, the best trial and the label read it."""
 
+VALIDATION_ROLE: Final[str] = "validation"
+"""Role of a period kept apart from the search and scored beside it, ``validation_window``."""
+
 EVALUATION_ROLE: Final[str] = "evaluation"
 """Role of the period ``[metrics] window`` of a run, under the name :data:`HEADLINE_WINDOW`."""
 
-WindowRole = Annotated[str, Vocabulary(CALIBRATION_ROLE, "validation", EVALUATION_ROLE)]
+WindowRole = Annotated[str, Vocabulary(CALIBRATION_ROLE, VALIDATION_ROLE, EVALUATION_ROLE)]
 """What a period is for. ``validation`` is kept apart from the search and scored beside it.
 
 Another word reads as it is, and no computation counts it as calibration."""

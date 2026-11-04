@@ -177,26 +177,24 @@ def _as_the_load_reads_it(
 ) -> Any:
     """Return one section of *calibration* with the project defaults the load writes.
 
-    The load expands the protocol first, then writes ``[site] gauge`` into
-    each stage's ``observed_station_id`` and ``[metrics] window`` into a
+    The load expands the protocol first, then writes ``[metrics] window`` into a
     transient stage that writes no window
     (:func:`~hydromodpy.calibration.config.apply_project_defaults`). A
     dumped stage carries what that step wrote and the fresh expansion does
-    not, so both sides take it here. A station other than the gauge is
-    refused by it, and a value the step would not write still differs.
+    not, so both sides take it here.
     """
     value = calibration.get(section)
     if section != "phases":
         return value
-    site, metrics = document.get("site"), document.get("metrics")
+    metrics = document.get("metrics")
     stages = {
         "phases": value,
-        "scoring_window": calibration.get("scoring_window"),
-        "warmup_periods": calibration.get("warmup_periods"),
+        "window": calibration.get("window"),
+        "validation_window": calibration.get("validation_window"),
     }
     return apply_project_defaults(
         stages,
-        site_gauge=site.get("gauge") if isinstance(site, Mapping) else None,
+        site_gauge=None,
         metrics_window=metrics.get("window") if isinstance(metrics, Mapping) else None,
     )["phases"]
 
@@ -300,7 +298,6 @@ def _fold_a_legacy_single_metric_stage(
     folded["objective_blocks"] = [name]
     folded["variable"] = None
     folded["objective"] = None
-    folded["observed_station_id"] = None
     return folded, name
 
 
@@ -316,12 +313,15 @@ def protocol_options_away_from_the_recipe(
     """
     protocol = get_protocol(name)
     recipe = type(declared).model_validate({"name": protocol.name})
+    # Plain values, since the session stores this record as JSON.
+    written = declared.model_dump(exclude_none=True)
+    default = recipe.model_dump(exclude_none=True)
     changed: list[dict[str, Any]] = []
     for key in sorted(protocol.adjustable):
         if not hasattr(recipe, key):
             continue
-        here = getattr(declared, key)
-        published = getattr(recipe, key)
+        here = written.get(key)
+        published = default.get(key)
         if here == published:
             continue
         changed.append({"key": key, "here": here, "recipe": published})

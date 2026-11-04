@@ -38,7 +38,7 @@ from typing import TYPE_CHECKING, Any
 from hydromodpy.calibration.config import (
     CalibPhaseDecl,
     CalibrationConfig,
-    scoring_window_bounds,
+    window_bounds,
 )
 from hydromodpy.calibration.evaluation import TrialRequest
 from hydromodpy.calibration.evaluation import registry as evaluation_registry
@@ -339,22 +339,18 @@ def declared_window_text(cfg: CalibrationConfig, phase: CalibPhaseDecl | None = 
     """Say the window a search scores on, as the file declares it.
 
     ``cfg`` is the ``[calibration]`` section and ``phase`` one of its phases,
-    ``None`` for the section's own search. The phase's ``scoring_window``,
+    ``None`` for the section's own search. The phase's ``window``,
     else the section's; a transient phase carries ``[metrics] window`` there
     once the project defaults are applied. A bound left open reads as the
-    first or last paired sample. Without a window, the whole run is scored,
-    less the first ``warmup_periods`` paired samples.
+    first or last paired sample. Without a window, the whole run is scored.
     """
-    window = getattr(cfg, "scoring_window", None)
-    if phase is not None and phase.scoring_window is not None:
-        window = phase.scoring_window
+    window = getattr(cfg, "window", None)
+    if phase is not None and phase.window is not None:
+        window = phase.window
     if window is not None and (window.start or window.end):
         start = window.start or "the first paired sample"
         end = window.end or "the last paired sample"
         return f"window {start} to {end}"
-    warmup = getattr(cfg, "warmup_periods", None)
-    if warmup:
-        return f"no window, all of the run less the first {int(warmup)} paired sample(s)"
     return "no window, all of the run"
 
 
@@ -992,8 +988,7 @@ def attach_a_linearized_width(
             cfg.outputs or {},
             ctx=trial_ctx.ctx,
             objective_blocks=list(cfg.objective_blocks or []),
-            warmup_periods=int(cfg.warmup_periods or 0),
-            scoring_window=scoring_window_bounds(cfg.scoring_window),
+            window=window_bounds(cfg.window),
             min_samples=int(cfg.aggregate.min_samples),
         )
     except UncertaintyNotAvailableError as exc:
@@ -1187,6 +1182,14 @@ def run_calibration_core(
     if metric_fn is None and objective and ":" in objective:
         metric_fn = load_metric_fn_entry_point(objective)
 
+    if cfg.validation_window is not None and (
+        metric_fn is not None
+        or evaluation_registry.resolve_id(cfg.evaluator) != evaluation_registry.DEFAULT_EVALUATOR_ID
+    ):
+        raise CalibrationError(
+            "validation_window is scored by the blocks of the HydroModPy pipeline, and a metric "
+            "function or another evaluator returns only its cost: remove validation_window."
+        )
     use_api_isolation = _api_isolation_needed(cfg.parallel)
 
     # The evaluator is resolved by the name the document wrote, and built with
@@ -1942,7 +1945,7 @@ def describe_dry_run(
             "name": decl.name,
             "parameters": list(decl.parameters),
             "max_trials": cfg.max_trials_for(decl),
-            "scoring_window": declared_window_text(cfg, decl),
+            "window": declared_window_text(cfg, decl),
         }
         for decl in cfg.phases or ()
     ] or [
@@ -1950,7 +1953,7 @@ def describe_dry_run(
             "name": DEFAULT_PHASE,
             "parameters": list(cfg.parameters),
             "max_trials": cfg.max_trials,
-            "scoring_window": declared_window_text(cfg),
+            "window": declared_window_text(cfg),
         }
     ]
     return {

@@ -43,20 +43,47 @@ Each release section includes the following standard categories:
   `hmp calibrate` and for staged calibrations, but a Python call without phases skipped it and returned no
   `parameter_uncertainty`. An evaluator that runs no HydroModPy model now gets the same refusal on this route as on the
   command line.
+- `Project.calibrate(phases=...)` with `resume=True` reopens the session of an earlier call. The document it writes is now
+  named after the case (`sessions/<case>.toml`) instead of a timestamp, so the staged run names the same case each time.
+- A calibration run from Python names its case by one rule, the same as the command line: `[simulation] name`, else
+  the stem of the project file.
+- `hmp doctor --fix-config` now reads the files a file inherits for the timestep, `start_datetime` and `[site] gauge`. It no longer leaves `warmup_periods` with a false reason, and no longer writes a second gauge over the parent's.
+- The doctor always writes a date without a time when it rewrites `warmup_periods`, and its change line says the date counts from `start_datetime`. The old count ran from the first aligned sample, so the two agree only when the record starts at `start_datetime`.
+- `hmp config check` now takes off `validation_window` when it decides whether a protocol `window` equals the recipe's default.
 
 ### Changed
 
 - `hydromodpy.calibration.evaluation.registry` and `forward_registry` now share one engine. Their functions keep their names, and their first parameter is now called `name`. A plugin that passed it by keyword (`get(evaluator_id=...)`) passes it by position.
+- The calibration TOML written by a Python call with phases is `sessions/<case>.toml`, overwritten by the next call of
+  the case. It no longer piles up as `python-<date>-<id>.toml`.
+- Example 04 `run_calibration_api_daily.toml` calibrates on 2016-2018 and validates on 2019-2020.
+- Changing the validation window starts a new cache scope and a new session, as a changed scoring window does. A document
+  without the key keeps its cache keys.
+- A file that writes an old key of `[calibration]` is now refused with the new name, and `hmp doctor --fix-config` rewrites it. This covers `scoring_window`, `optimizer_kwargs`, `steady_engine_options`, `transient_engine_options`, `max_iter`, `tolerance` and their stage forms, `transform` and `prior`, the two extent step counts, `tolerance` and `mode` of `[calibration.uncertainty]`, the evaluation counts in method options and `roptim_max`. These keys used to load with a warning. The section is experimental, so it takes no delay. A sealed `config.toml` is still read. Other sections keep their delay.
+- `Project.calibrate` on a project read from a file now names its case as `hmp calibrate` does, so the two share one session and `resume` finds it. The case no longer comes from a name the file inherits.
 
 ### Numbers
 
 - A Python calibration without phases that asks for a `linearized` width now carries `parameter_uncertainty` and pays for
   the model runs of that width, one per calibrated parameter plus one at the optimum. Search results, costs and every
   other route are unchanged.
+- The cost of a document without `validation_window` does not move, bit for bit, and its cache key does not move. A test holds this.
+- `run_calibration_api_daily.toml` ranks its five K on 2016-2018 instead of 2016-2020. This was not run, so the size of the
+  change in its costs is not measured.
 
 ### Removed
 
 - The B0 network and transient discharge case left the `hydromodpy` package for `validation_cases/calibration/network_transient_b0/`. The wheel no longer ships its page. `hydromodpy.calibration.reporting`, `hydromodpy.calibration.observations.natural_observations`, `network_cost`, `network_transient_truth` and `hydromodpy.calibration.optim.objective_mapping` are gone, and `step_render_network_transient_calibration_html` is no longer in `hydromodpy.workflow.steps.calibration`.
+
+### Added
+
+- `[calibration] validation_window = {start, end}` keeps dates apart from a search. Every trial is scored on them beside its
+  cost, from the series it has already simulated, under the component `validation.cost`. The promoted run stores the period
+  in `checks.calibrated_by.windows` (role `validation`) and the score of its trial in `checks.calibrated_by.validation_cost`.
+- `[metrics] window` minus the validation window is the default calibration window, on the section, on a phase and on the
+  transient stage of the network protocol. A phase that writes only a start is closed by it too.
+- A validation window that overlaps a calibration window, covers all of `[metrics] window`, falls outside it, leaves a bound
+  open or has no dated record to score is refused by name. So is one beside a metric function or another evaluator.
 
 ## [v2.0.0rc1] - 2026-11-03
 

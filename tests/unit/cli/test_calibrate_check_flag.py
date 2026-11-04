@@ -293,7 +293,7 @@ def test_options_written_as_the_recipe_runs_them_are_not_away_from_it(tmp_path) 
         'protocol = "matching_hydrographic_network"',
         'protocol = { name = "matching_hydrographic_network", steady_precision = 0.01, '
         "transient_max_trials = 30, steady_method_options = { sweep_points = 7 }, "
-        'scoring_window = { start = "2001-01-01", end = "2002-12-31" } }',
+        'window = { start = "2001-01-01", end = "2002-12-31" } }',
     )
     path.write_text(text, encoding="utf-8")
 
@@ -304,10 +304,10 @@ def test_options_written_as_the_recipe_runs_them_are_not_away_from_it(tmp_path) 
     assert away == ["  option away from the recipe: transient_max_trials = 30 (recipe: 120)"]
     assert "option written as the recipe runs it: steady_method_options" in verbose
     assert "option written as the recipe runs it: steady_precision = 0.01" in verbose
-    assert "option written as the recipe runs it: scoring_window" in verbose
+    assert "option written as the recipe runs it: window" in verbose
 
 
-def test_an_old_key_is_a_warning_and_the_file_still_passes(tmp_path) -> None:
+def test_an_old_key_is_refused_with_its_new_name(tmp_path) -> None:
     path = _protocol_file(tmp_path, end="2002-12-31")
     text = path.read_text(encoding="utf-8").replace(
         'protocol = "matching_hydrographic_network"',
@@ -318,9 +318,8 @@ def test_an_old_key_is_a_warning_and_the_file_still_passes(tmp_path) -> None:
 
     result = _check(path)
 
-    assert result.exit_code == 0, result.stderr
-    warnings = [line for line in result.stderr.splitlines() if "warning:" in line]
-    assert any("steady_engine_options -> steady_method_options" in line for line in warnings)
+    assert result.exit_code == EXIT_CONFIG, result.stderr
+    assert "steady_engine_options -> steady_method_options" in result.stderr
 
 
 def test_a_phase_two_option_its_method_refuses_is_named_before_phase_one_runs(

@@ -666,7 +666,7 @@ def test_calibration_phases_of_a_config_object_builds_no_project(monkeypatch) ->
                 "rule": "5 % of the best cost",
             },
             "comparisons": [],
-            "scoring_window": "no window, all of the run",
+            "window": "no window, all of the run",
         }
     ]
 

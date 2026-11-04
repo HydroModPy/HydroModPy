@@ -120,6 +120,11 @@ class CalibratedBy(HydroModelBase):
         description="Cost of the case of this run at that trial, never the total of a joint "
         "search; null when the search keeps no single cost",
     )
+    validation_cost: float | None = Field(
+        default=None,
+        description="Score of that trial on the validation period, in the sense of the cost; "
+        "null when it has none",
+    )
     windows: dict[str, PeriodWindow] = Field(
         default_factory=dict,
         description="Periods of the search as the case of this run read them, by name",

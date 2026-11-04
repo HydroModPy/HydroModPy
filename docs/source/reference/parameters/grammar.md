@@ -296,7 +296,7 @@ it, so the same date names the same month on a monthly or a daily run. The key
 
 A window has two spellings. A two-item list, `["2001-01-01", "2002-12-31"]`, is the form
 of {toml}`export.period`. A table with `start` and `end` is the form of
-{toml}`metrics.window` and {toml}`calibration.scoring_window`. The data tables take a
+{toml}`metrics.window` and {toml}`calibration.window`. The data tables take a
 `date_start` and a `date_end`; left out, they use the simulated window.
 
 ```{hmp-toml}
