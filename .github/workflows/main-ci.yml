@@ -403,13 +403,13 @@ jobs:
       - name: Gate the calibration coverage
         run: |
           coverage combine || true
-          coverage report --include='hydromodpy/calibration/criteria/*' --precision=2 --fail-under=92.5
-          coverage report --include='hydromodpy/calibration/evaluation/*' --precision=2 --fail-under=85.5
-          coverage report --include='hydromodpy/calibration/metrics/*' --precision=2 --fail-under=90.0
-          coverage report --include='hydromodpy/calibration/observations/*' --precision=2 --fail-under=80.5
-          coverage report --include='hydromodpy/calibration/optim/*' --precision=2 --fail-under=91.0
-          coverage report --include='hydromodpy/calibration/protocols/*' --precision=2 --fail-under=93.5
-          coverage report --include='hydromodpy/calibration/runners/*' --precision=2 --fail-under=92.5
+          coverage report --include='hydromodpy/calibration/criteria/*' --precision=2 --fail-under=100.0
+          coverage report --include='hydromodpy/calibration/evaluation/*' --precision=2 --fail-under=100.0
+          coverage report --include='hydromodpy/calibration/metrics/*' --precision=2 --fail-under=99.5
+          coverage report --include='hydromodpy/calibration/observations/*' --precision=2 --fail-under=99.5
+          coverage report --include='hydromodpy/calibration/optim/*' --precision=2 --fail-under=99.0
+          coverage report --include='hydromodpy/calibration/protocols/*' --precision=2 --fail-under=100.0
+          coverage report --include='hydromodpy/calibration/runners/*' --precision=2 --fail-under=98.0
           coverage report --include='hydromodpy/calibration/*.py' --omit='hydromodpy/calibration/*/*' --precision=2 --fail-under=90.0
 
   integration:

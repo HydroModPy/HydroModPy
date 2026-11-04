@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
+from hydromodpy.calibration.optim.stopping import BUDGET_RULE
 from hydromodpy.calibration.runners.restarts import (
     RestartSpread,
     assert_restarts_can_explore,
@@ -15,6 +16,7 @@ from hydromodpy.calibration.runners.restarts import (
     run_side_by_side,
     spread_of,
     start_points,
+    unsettled_search,
 )
 from tests.unit.calibration._factories_runners import make_report
 
@@ -87,15 +89,35 @@ class TestTheStartPoints:
 
 
 class TestTheLoop:
-    def test_every_restart_runs_once_with_its_own_seed(self) -> None:
-        seen: list[int] = []
+    @pytest.mark.parametrize(("seed", "expected"), [(100, [100, 101, 102]), (None, [0, 1, 2])])
+    def test_every_restart_runs_once_in_turn_with_its_own_seed(self, seed, expected) -> None:
+        seen: list[tuple[int, threading.Thread]] = []
 
         def run_one(seed, _start, _index):
-            seen.append(seed)
+            seen.append((seed, threading.current_thread()))
             return _report(1.0, K=1e-5, Sy=0.01)
 
-        run_restarts(run_one, method="scipy_nelder_mead", space=SPACE, restarts=4, seed=100)
-        assert seen == [100, 101, 102, 103]
+        run_restarts(run_one, method="scipy_nelder_mead", space=SPACE, restarts=3, seed=seed)
+
+        assert [item[0] for item in seen] == expected
+        assert {item[1] for item in seen} == {threading.current_thread()}
+
+    def test_the_starts_are_the_ones_the_seed_draws(self) -> None:
+        seen = []
+
+        def run_one(_seed, start, _index):
+            seen.append(start)
+            return _report(1.0, K=1e-5, Sy=0.01)
+
+        run_restarts(run_one, method="scipy_nelder_mead", space=SPACE, restarts=3, seed=100)
+
+        drawn = start_points(SPACE, restarts=3, seed=100)
+        assert seen[0] is None
+        assert all(np.array_equal(a, b) for a, b in zip(seen[1:], drawn[1:], strict=True))
+
+    def test_a_search_that_cannot_explore_is_refused_before_any_run(self) -> None:
+        with pytest.raises(ValueError, match="same answer every time"):
+            run_restarts(lambda *_: None, method="grid", space=SPACE, restarts=2, seed=0)
 
     def test_the_answer_is_the_best_restart_and_nothing_new(self) -> None:
         costs = [0.9, 0.3, 0.7]
@@ -148,11 +170,15 @@ class TestTheLoop:
         k_spread = next(item for item in spread if item.parameter == "K")
         assert k_spread.values == (pytest.approx(1e-5), pytest.approx(1e-5))
 
-    def test_every_restart_failing_still_returns_a_report(self) -> None:
+    def test_every_restart_failing_still_returns_the_first_report(self) -> None:
         best, spread = run_restarts(
-            lambda _s, _p, _i: _report(None), method="optuna", space=SPACE, restarts=2, seed=0
+            lambda seed, _p, _i: _report(None, settled=seed == 1),
+            method="optuna",
+            space=SPACE,
+            restarts=2,
+            seed=0,
         )
-        assert best is not None
+        assert best.status == "partial"
         assert spread == ()
 
 
@@ -172,6 +198,44 @@ class TestSideBySide:
         )
         assert sorted(seen) == [(100, 0), (101, 1)]
         assert best.best_cost == pytest.approx(1.0)
+
+    def test_the_width_caps_the_restarts_running_at_once(self) -> None:
+        meeting = threading.Barrier(2, timeout=2.0)
+        lock = threading.Lock()
+        running = peak = 0
+
+        def run_one(_seed, _start, _index):
+            nonlocal running, peak
+            with lock:
+                running += 1
+                peak = max(peak, running)
+            meeting.wait()
+            with lock:
+                running -= 1
+            return _report(1.0, K=1e-5, Sy=0.01)
+
+        run_restarts(run_one, method="scipy_nelder_mead", space=SPACE, restarts=4, seed=0, width=2)
+        assert peak == 2
+
+    def test_a_failure_of_a_restart_calls_the_stop_hook(self) -> None:
+        stopped = []
+
+        def run_one(seed, _start, _index):
+            if seed == 0:
+                raise RuntimeError("it failed")
+            return _report(1.0, K=1e-5, Sy=0.01)
+
+        with pytest.raises(RuntimeError, match="it failed"):
+            run_restarts(
+                run_one,
+                method="scipy_nelder_mead",
+                space=SPACE,
+                restarts=2,
+                seed=0,
+                width=2,
+                on_stop=lambda: stopped.append(True),
+            )
+        assert stopped == [True]
 
     def test_a_failure_stops_the_others(self) -> None:
         stopped = threading.Event()
@@ -227,3 +291,14 @@ def test_a_parameter_no_restart_scored_has_no_spread() -> None:
     assert [(item.parameter, item.best, item.lowest, item.highest) for item in spread] == [
         ("K", 2e-5, 2e-5, 5e-5)
     ]
+
+
+def test_a_search_that_spent_its_budget_settles_only_under_the_budget_rule() -> None:
+    def search(rule):
+        return make_report(extra={"search": {"stop_state": "budget_spent", "stopping_rule": rule}})
+
+    assert unsettled_search(search("xatol")) == {
+        "stop_state": "budget_spent",
+        "stopping_rule": "xatol",
+    }
+    assert unsettled_search(search(BUDGET_RULE)) is None

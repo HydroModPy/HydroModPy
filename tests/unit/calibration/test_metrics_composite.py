@@ -810,7 +810,10 @@ def test_no_flow_run_or_an_undated_answer_writes_nothing(monkeypatch, caplog) ->
     ctx = _ctx__single_metric("piezometry", [_piezometer("PZ1", 0.0)])
     with caplog.at_level("WARNING"):
         assert _promoted(ctx) == []
-    assert "resumed at its derive step" in caplog.text
+    assert (
+        "The run holds no solver model, as a run resumed at its derive step: "
+        "no station series is written and its observed stations are left unscored."
+    ) in caplog.text
 
     undated = adapter_result("PZ1", _state(0.1), "-")
     monkeypatch.setattr(
@@ -957,15 +960,89 @@ def test_a_station_without_a_cell_falls_back_to_the_catchment_series():
     assert adapter.requested[0] == ["catchment"]
 
 
+class _Recorder(FakeAdapter):
+    """A FakeAdapter that keeps every call whole: run, store, the requests and the time index."""
+
+    def __init__(self, served, **kwargs):
+        super().__init__(served, **kwargs)
+        self.calls = []
+
+    def extract_observables(self, run_ctx, store, requests, *, time_index=None):
+        asked = [(r.id, r.name, r.support, r.cell) for r in requests]
+        self.calls.append((run_ctx, store, asked, time_index))
+        return super().extract_observables(run_ctx, store, requests, time_index=time_index)
+
+
+def test_the_solver_is_asked_for_the_catchment_and_for_the_cell_and_area_of_a_gauge():
+    adapter = _Recorder(_served_up())
+
+    _by_station(adapter, {"UP": (0, 1, 2)}, "UP")
+
+    ((run_ctx, store, asked, time_index),) = adapter.calls
+    assert run_ctx is _RUN_CTX and store is None and time_index is _INDEX
+    cell = asked[1][3]
+    assert asked == [
+        ("catchment", "discharge", "domain", None),
+        (_cell_id("UP"), "discharge", "cell", cell),
+        (_area_id("UP"), "upstream_area", "cell", cell),
+    ]
+    assert cell is not None
+
+
 def test_a_backend_without_per_cell_discharge_falls_back_and_warns(caplog):
     served = {"catchment": _result([9.0, 9.0, 9.0])}
-    adapter = FakeAdapter(served, fail_on_cell=True)
+    adapter = _Recorder(served, fail_on_cell=True)
 
     with caplog.at_level("WARNING"):
         out = _by_station(adapter, {"UP": (0, 1, 2)}, "UP")
 
     assert out["UP"].values == pytest.approx([9.0, 9.0, 9.0])
-    assert "only right for the outlet one" in caplog.text
+    assert (
+        "Per-cell discharge is unavailable on solver 'fake_solver' (this backend serves no "
+        "per-cell discharge); every gauge is scored against the catchment outlet series, "
+        "which is only right for the outlet one."
+    ) in caplog.text
+    (_, _, first, _), (run_ctx, store, second, time_index) = adapter.calls
+    assert len(first) == 3 and second == first[:1]
+    assert run_ctx is _RUN_CTX and store is None and time_index is _INDEX
+
+
+def test_a_catchment_the_solver_does_not_answer_is_named():
+    class _Silent:
+        def extract_observables(self, *_args, **_kwargs):
+            return {}
+
+    with pytest.raises(
+        NotImplementedError, match="returned no discharge observable for 'catchment'"
+    ):
+        _by_station(_Silent(), {}, "UP")
+
+
+def test_the_runoff_is_added_by_the_area_each_series_drains(monkeypatch):
+    added, reported = [], []
+
+    def _add(series, ctx, *, area_m2=None):
+        added.append((series.name, ctx, area_m2))
+        return series
+
+    def _area(run_ctx, trial_ctx):
+        reported.append(("sums", run_ctx, trial_ctx))
+        return 5.0e6
+
+    monkeypatch.setattr(composite, "add_runoff_to_discharge", _add)
+    monkeypatch.setattr(composite, "catchment_area_the_discharge_sums", _area)
+    monkeypatch.setattr(
+        composite,
+        "report_the_area_a_gauge_drains",
+        lambda station, ctx, *, area_m2: reported.append((station, ctx, area_m2)),
+    )
+    served = _served_up() | {_area_id("UP"): _result([1.0e6, 7.0])}
+    ctx = _ctx__discharge_per({"UP": (0, 1, 2)})
+
+    _discharge_by_station(FakeAdapter(served), _RUN_CTX, ctx, _observed("UP"), time_index=_INDEX)
+
+    assert reported == [("sums", _RUN_CTX, ctx), ("UP", ctx, 1.0e6)]
+    assert added == [("discharge", ctx, 5.0e6), ("discharge", ctx, 1.0e6)]
 
 
 def test_an_empty_catchment_series_is_refused():
@@ -1253,13 +1330,18 @@ def test_a_declared_window_still_wins(monkeypatch, bench, stream_file) -> None: 
 
 
 class _Raises:
+    calls = 0
+
     def extract_observables(self, *_args, **_kwargs):
+        self.calls += 1
         raise RuntimeError("boom")
 
 
 def test_an_outlet_series_the_solver_cannot_serve_is_raised_as_it_is() -> None:
+    adapter = _Raises()
     with pytest.raises(RuntimeError, match="boom"):
-        _by_station(_Raises(), {}, "UP")
+        _by_station(adapter, {}, "UP")
+    assert adapter.calls == 1
 
 
 @pytest.mark.parametrize(
@@ -1294,6 +1376,40 @@ def test_a_run_with_no_solver_and_no_station_says_nothing(monkeypatch, caplog) -
         assert composite.series_at_the_stations(_Ctx(_Loaded()), {}) == {}
 
     assert caplog.text == ""
+
+
+def test_each_producer_is_given_the_run_and_its_time_index_and_an_output_replaces_its_answer(
+    monkeypatch,
+) -> None:
+    ctx, pair = object(), ("adapter", "run_ctx")
+    seen = []
+    produced = adapter_result("UP", [1.0], "-")
+    replaced = adapter_result("up", [2.0], "-")
+    output = boundary_output(observes="UP")
+
+    def producer(*args, time_index):
+        seen.append((args, time_index))
+        return {"UP": produced}
+
+    def load(c, family):
+        assert c is ctx
+        return [SimpleNamespace(station_id="UP", variable="discharge")] * (family == "discharge")
+
+    def extract(c, outputs):
+        assert c is ctx and outputs == {"up": output}
+        return ExtractedOutputs({"up": replaced}, {}, {}, {})
+
+    monkeypatch.setattr(composite, "PRODUCERS", {"discharge": producer, "head": producer})
+    monkeypatch.setattr(composite, "load_observed", load)
+    monkeypatch.setattr(composite, "resolve_flow_adapter", lambda c: pair if c is ctx else None)
+    monkeypatch.setattr(composite, "resolve_time_index", lambda c: "T" if c is ctx else None)
+    monkeypatch.setattr(composite, "extract_outputs", extract)
+
+    assert composite.series_at_the_stations(ctx, {}) == {("UP", "discharge"): produced}
+    assert composite.series_at_the_stations(ctx, {"up": output}) == {("UP", "discharge"): replaced}
+    # Only the family with a record is asked, once per call, with the run, the trial and the grid.
+    record = load(ctx, "discharge")
+    assert seen == [(("adapter", "run_ctx", ctx, record), "T")] * 2
 
 
 def test_a_covariance_needs_an_output_that_names_a_station() -> None:

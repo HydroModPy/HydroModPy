@@ -663,6 +663,28 @@ def test_calibration_engine_parallel_one_is_sequential() -> None:
 
 
 @pytest.mark.parametrize(
+    ("parallel", "trials", "threaded"),
+    [(1, 2, False), (2, 1, False), (2, 2, True)],
+    ids=["one_worker", "one_trial", "two_of_each"],
+)
+def test_a_batch_leaves_the_calling_thread_from_two_trials_and_two_workers(
+    parallel: int, trials: int, threaded: bool
+) -> None:
+    main = threading.get_ident()
+    seen: list[int] = []
+
+    def evaluator(sugg: ParamSuggestion) -> EvaluationResult:
+        seen.append(threading.get_ident())
+        return _constant_evaluator(0.0)(sugg)
+
+    optimizer = _BatchedStubOptimizer([{"x": 0.1 * i} for i in range(trials)])
+    run_engine(unit_space(), optimizer, evaluator, trials, batch_size=trials, parallel=parallel)
+
+    assert any(tid != main for tid in seen) is threaded
+    assert all(tid != main for tid in seen) is threaded
+
+
+@pytest.mark.parametrize(
     ("marks_after_reading", "told_at_journal"),
     [(False, 0), (True, 2)],
     ids=["as_trials_end", "after_the_batch_is_told"],
@@ -959,3 +981,41 @@ def test_an_adapter_module_that_will_not_import_stays_unregistered(monkeypatch) 
     optimizer_module._ensure_builtins_loaded()
 
     assert optimizer_module._LOADED
+
+
+def test_the_engine_reports_and_journals_each_result_it_read_and_refreshes() -> None:
+    calls: list[tuple] = []
+    reporter = SimpleNamespace(
+        update=lambda trial_id, result: calls.append(("update", trial_id, result.cost)),
+        refresh=lambda: calls.append(("refresh",)),
+        close=lambda: None,
+    )
+
+    def evaluator(sugg: ParamSuggestion) -> EvaluationResult:
+        return EvaluationResult(
+            sugg.trial_id,
+            None,
+            sugg.values["x"],
+            "completed",
+            metadata={"speculative_unused": sugg.trial_id == 2},
+        )
+
+    run_engine(
+        unit_space(),
+        _BatchedStubOptimizer([{"x": 0.1}, {"x": 0.2}]),
+        evaluator,
+        2,
+        batch_size=2,
+        progress=reporter,
+        before_batch=lambda batch: calls.append(("before", len(batch))),
+        on_iteration=lambda sugg, result: calls.append(("journal", sugg.trial_id, result.cost)),
+    )
+
+    # Trial 2 was solved and not read: journaled, but not counted by the reporter.
+    assert calls == [
+        ("before", 2),
+        ("update", 1, 0.1),
+        ("journal", 1, 0.1),
+        ("journal", 2, 0.2),
+        ("refresh",),
+    ]

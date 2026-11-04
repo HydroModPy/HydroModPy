@@ -127,6 +127,21 @@ class TestDaMhGpBest:
 
 
 class TestDaMhGpChain:
+    def test_a_result_is_fed_to_the_chain_once_and_a_failed_one_as_nan(self):
+        opt = build_optimizer("da_mh_gp", _quadratic_space(), chain_length=10, n_init=3, seed=0)
+        fed: list[float] = []
+        opt._bridge.feed = fed.append
+        try:
+            (first,) = opt.ask()
+            assert first.source == "ask"
+            stray = EvaluationResult(trial_id=99, sim_id=None, cost=1.0)
+            opt.tell([stray, result_of(first, 5.0, status="failed")])
+            # The stray result is passed over and the next one is still read.
+            assert len(fed) == 1 and np.isnan(fed[0])
+            assert not opt._pending
+        finally:
+            opt.close()
+
     def test_a_failed_trial_is_no_likelihood_value(self):
         """A failed trial is rejected by the chain and never trains the surrogate."""
         evaluate = _make_quadratic_evaluator()

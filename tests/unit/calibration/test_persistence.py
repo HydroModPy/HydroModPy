@@ -6,7 +6,15 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.calibration.persistence import CalibrationPersistence, PersistDetail, PhaseContext
+from hydromodpy.calibration.persistence import (
+    DEFAULT_PHASE,
+    CalibrationPersistence,
+    PersistDetail,
+    PhaseContext,
+)
+from hydromodpy.results.outcome import read_outcome
+from hydromodpy.results.session.descriptor import ParameterWidth, ScoredSamples, read_session
+from hydromodpy.results.session.phase import read_phase
 from tests.unit.calibration._factories_runners import journal_trial, make_session
 
 # From test_the_best_trial_is_on_the_path_of_the_search.py
@@ -59,6 +67,16 @@ def test_a_tie_across_restarts_goes_to_the_lower_restart_whatever_the_arrival(
     assert (best.restart, best.trial) == (0, 2)
 
 
+def test_the_best_trial_is_asked_of_one_phase_and_one_restart(tmp_path: Path) -> None:
+    session = make_session(tmp_path)
+    for name, restart, cost in (("a", 0, 0.1), ("b", 0, 0.5), ("b", 1, 0.3)):
+        journal_trial(session, 1, cost, phase=PhaseContext(name, 0, restart))
+
+    assert session.best_trial("b").cost == 0.3
+    assert session.best_trial("b", restart=0).cost == 0.5
+    assert session.best_trial(restart=1).cost == 0.3
+
+
 def test_a_directory_without_a_descriptor_does_not_exist_as_a_session(tmp_path: Path) -> None:
     assert not CalibrationPersistence(tmp_path / "none").exists()
     assert make_session(tmp_path).exists()
@@ -105,3 +123,47 @@ def test_the_overlay_a_trial_ran_on_is_kept_from_the_summary_up(
     line = journal_trial(session, 1, detail=detail, metadata={"materialized_overlay": "ov.toml"})
 
     assert line.cases[session.case_id].detail == kept
+
+
+_SCORED = [ScoredSamples(window="calibration", case_id="calage", output="head", n=3)]
+_WIDTHS = {"K": ParameterWidth(sigma=2.0)}
+
+
+def test_the_closing_of_a_session_and_of_a_phase_keeps_every_field_it_is_given(
+    tmp_path: Path,
+) -> None:
+    session = make_session(tmp_path)
+    context = PhaseContext(DEFAULT_PHASE, 0, 0)
+    session.start_phase(context, frozen={}, cost_name="rmse", cost_label="RMSE")
+    for restart in (0, 2):
+        journal_trial(session, 1, 0.3, phase=PhaseContext(DEFAULT_PHASE, 0, restart))
+    best = session.best_pointer(session.best_trial())
+    fields = {
+        "scored": _SCORED,
+        "stop_state": "rule_met",
+        "stopping_rule": "xtol",
+        "stop_note": "frozen",
+        "widths": _WIDTHS,
+    }
+
+    phase = session.finish_phase(DEFAULT_PHASE, status="completed", best=best, **fields)
+    closed = session.finalize_session(
+        status="failed", best=best, error="boom", root_search={"bracket": 1}, **fields
+    )
+
+    for descriptor in (
+        read_phase(session.directory, DEFAULT_PHASE),
+        read_session(session.directory),
+    ):
+        assert (descriptor.best, descriptor.scored, descriptor.widths) == (best, _SCORED, _WIDTHS)
+        assert (descriptor.stop_state, descriptor.stopping_rule, descriptor.stop_note) == (
+            "rule_met",
+            "xtol",
+            "frozen",
+        )
+    assert (phase.status, phase.restarts) == ("completed", 2)
+    assert (closed.cost_name, closed.error_message) == ("rmse", "boom")
+    assert closed.cases[closed.case_id].cost_name == "rmse"
+    assert closed.root_search == {"bracket": 1}
+    assert closed.ended_at is not None and closed.ended_at.tzinfo is not None
+    assert closed.ended_at == read_outcome(session.directory).ended_at

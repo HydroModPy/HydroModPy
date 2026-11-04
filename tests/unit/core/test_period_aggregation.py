@@ -272,3 +272,9 @@ def test_a_runoff_becomes_a_discharge_on_the_periods(index, start, expected) -> 
 def test_a_runoff_without_a_positive_area_is_refused(area_m2) -> None:
     with pytest.raises(ValueError, match=f"must be positive, got {area_m2} m2"):
         runoff_m3_s_on_index(TWO_THEN_FIVE, [STAMP_11], area_m2=area_m2)
+
+
+def test_a_runoff_over_less_than_a_square_metre_is_still_a_discharge() -> None:
+    out = runoff_m3_s_on_index(TWO_THEN_FIVE, [STAMP_21], area_m2=0.5, start=STAMP_11)
+
+    np.testing.assert_allclose(out.to_numpy(), [5.0 * 1e-3 * 0.5 / 86400.0], rtol=1e-12)

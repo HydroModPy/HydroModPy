@@ -1339,7 +1339,24 @@ class TestTheValidationWindow:
             second = scorer.score(self._answer())
 
         assert first == second == self._scorer(metric, record).score(self._answer())
-        assert sum("validation window" in r.getMessage() for r in caplog.records) == said
+        start = "A trial has no score on the validation window: output "
+        assert sum(r.getMessage().startswith(start) for r in caplog.records) == said
+
+    def test_a_steady_stage_is_scored_on_the_validation_window_from_the_time_grid(self) -> None:
+        scorer = ObservableScorer(
+            {"Q": boundary_output(observes="gauge")},
+            [objective_block("flow", "mae", ["Q"])],
+            observed_records={"Q": _RECORD__steady_stage},
+            window=(pd.Timestamp("2000-01-01"), pd.Timestamp("2001-12-31")),
+            validation_window=(pd.Timestamp("1999-01-01"), pd.Timestamp("2001-12-31")),
+        )
+
+        _, scored = scorer.score(
+            {"Q": _answer__steady_stage(3.0)}, boundaries=_BOUNDS__steady_stage
+        )
+
+        # Year 2000 averages 3.0. Without the grid the stamp meets the record of its day, 5.0.
+        assert scored[VALIDATION_COST] == 0.0
 
     def test_only_the_blocks_on_a_dated_record_are_scored_on_it(self) -> None:
         outputs = {"h": validate_calib_output(self.HEAD), **_network()}

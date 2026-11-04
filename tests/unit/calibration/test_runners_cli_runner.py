@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import importlib
 import json
 import logging
@@ -13,6 +14,7 @@ import socket
 import sys
 import textwrap
 import time
+from contextlib import nullcontext
 from datetime import date, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -3394,6 +3396,110 @@ def prepared(monkeypatch) -> list[str]:
     return reached
 
 
+@pytest.mark.parametrize(
+    ("extra", "status", "note"),
+    [
+        ({}, "completed", None),
+        (
+            {"search_status": "partial", "root_outside_bounds": "K*_maximal"},
+            "partial",
+            "K*_maximal",
+        ),
+    ],
+)
+def test_a_single_search_hands_each_step_what_the_one_before_made(
+    monkeypatch, tmp_path, extra, status, note
+) -> None:
+    """The sequence is read through strict fakes: each step gets exactly what it names."""
+    cfg = SimpleNamespace(evaluator="model")
+    space, trial_ctx, session = object(), object(), object()
+    searched, spread = make_report(extra=extra), ("spread",)
+    widened = make_report(extra=extra, n_trials=7)
+    calls: dict[str, dict] = {}
+
+    def record(name, result=None):
+        def call(*args, **kwargs):
+            calls[name] = {"args": args, "kwargs": kwargs}
+            return result
+
+        monkeypatch.setattr(cli_runner, name, call)
+
+    record("promotion_name_check")
+    record("resolve_override_paths", {"p": "q"})
+    record("prepare_trials", trial_ctx)
+    record("check_the_prepared_model")
+    record("open_calibration_session", (session, False))
+    record("keep_trial_solves")
+    record("run_one_search", (searched, spread))
+    record("_with_linearized_width", widened)
+    record("parameter_widths", {"K": "width"})
+    record("promote_and_close", "closed")
+    monkeypatch.setattr(cli_runner, "closing_session", lambda scope: nullcontext())
+    monkeypatch.setattr(
+        cli_runner.evaluation_registry,
+        "needs_prepared_model",
+        lambda evaluator: evaluator == "model",
+    )
+    path = tmp_path / "c.toml"
+
+    result = cli_runner.run_single_search(
+        cfg,
+        space=space,
+        cfg_path=path,
+        case="c",
+        raw={"r": 1},
+        project_root=tmp_path,
+        project="demo",
+        metric_fn=None,
+        objective="rmse",
+        resume=True,
+    )
+
+    assert result == ("closed", spread)
+    assert calls["prepare_trials"] == {
+        "args": (path,),
+        "kwargs": {"override_paths": {"p": "q"}, "parameter_space": space},
+    }
+    assert calls["open_calibration_session"]["kwargs"] == {
+        "resume": True,
+        "raw": {"r": 1},
+        "cfg": cfg,
+        "space": space,
+        "trial_ctx": trial_ctx,
+        "project": "demo",
+        "objective": "rmse",
+    }
+    assert calls["run_one_search"]["kwargs"]["objective"] == "rmse"
+    assert calls["run_one_search"]["kwargs"]["phase"] == PhaseContext(DEFAULT_PHASE, 0, 0)
+    assert calls["parameter_widths"]["args"] == (widened, spread)
+    closing = calls["promote_and_close"]["kwargs"]
+    assert (closing["status"], closing["stop_note"], closing["widths"]) == (
+        status,
+        note,
+        {"K": "width"},
+    )
+    assert closing["report"] is widened
+
+
+def test_the_answer_of_a_search_is_the_trial_it_names_else_the_best_of_the_journal(
+    tmp_path,
+) -> None:
+    persistence = _open(tmp_path)
+    journal_trial(persistence, 1, 0.5, k=1e-4, components={"q.n_paired": 3})
+    journal_trial(persistence, 2, 0.1, k=2e-4, components={"q.n_paired": 9})
+    answered = SimpleNamespace(best_trial=1)
+
+    named, named_scored = cli_runner.answered_best(persistence, answered, DEFAULT_PHASE)
+    lowest, scored = cli_runner.answered_best(persistence, make_report(), DEFAULT_PHASE)
+    nothing, none_scored = cli_runner.answered_best(
+        _open(tmp_path, "empty"), make_report(), DEFAULT_PHASE
+    )
+
+    assert (named.trial, lowest.trial) == (1, 2)
+    assert ([item.n for item in named_scored], [item.n for item in scored]) == ([3], [9])
+    assert (nothing, none_scored) == (None, [])
+
+
 def _write__prepared_model(tmp_path: Path, *extra: str) -> Path:
     path = tmp_path / "calib.toml"
     path.write_text(_FILE + "".join(textwrap.dedent(item) for item in extra), encoding="utf-8")
@@ -3809,6 +3915,39 @@ def test_two_roots_more_than_half_a_decade_apart_are_warned_about(delta, warned,
     assert ("satisfies neither map" in caplog.text) is warned
 
 
+def test_the_two_roots_line_names_the_parameter_and_the_values(caplog) -> None:
+    with caplog.at_level(logging.INFO):
+        cli_runner._log_the_two_roots(ROOTS)
+    assert "returned K = 2.4e-05" in caplog.text
+    assert "Delta = 1.82 decade(s)" in caplog.text
+    assert "weighted 0.5 / 0.5" in caplog.text
+    caplog.clear()
+    with caplog.at_level(logging.INFO):
+        cli_runner._log_the_two_roots({**ROOTS, "delta_log10": None, "value": None})
+    assert "Delta = unknown" in caplog.text and "returned K = not solved" in caplog.text
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        cli_runner._log_the_two_roots({**ROOTS, "delta_log10": -1.82})
+    assert "lie 1.82 decades apart" in caplog.text
+
+
+def test_a_bound_reached_without_a_best_result_logs_a_nan_cost(caplog) -> None:
+    with caplog.at_level(logging.WARNING):
+        _log_parameter_interval(_interval(reaches_lower=True), None)
+    assert "Sy = 0.005 reached the lower search bound, at a cost of nan" in caplog.text
+
+
+def test_an_interval_log_names_its_parameter(caplog) -> None:
+    with caplog.at_level(logging.INFO):
+        _log_parameter_interval(_interval(), None)
+    assert "Sy = 0.005, and 3 of 20 trials" in caplog.text
+    caplog.clear()
+    degenerate = dataclasses.replace(_interval(), n_within=1)
+    with caplog.at_level(logging.INFO):
+        _log_parameter_interval(degenerate, None)
+    assert "Sy = 0.005: " in caplog.text
+
+
 def test_a_balanced_search_starts_its_outer_search_on_the_structure() -> None:
     k = {"bounds": [1e-7, 1e-3], "search_space": "log", "path": cli_runner.CONDUCTIVITY_PATH}
     sy = {"bounds": [0.01, 0.3], "search_space": "identity"}
@@ -3825,6 +3964,25 @@ def test_a_balanced_search_starts_its_outer_search_on_the_structure() -> None:
     assert first.values["Sy"] == pytest.approx(0.2)
     # Seven sweep points, then 2/3 of a decade halved to log10(1.1): five more.
     assert search.solves_per_point == 12
+
+
+def test_a_balanced_search_gives_its_seed_to_the_outer_search(monkeypatch) -> None:
+    seen = {}
+    real = cli_runner.build_optimizer
+
+    def spy(method, structure, **kwargs):
+        seen.update(kwargs)
+        return real(method, structure, **kwargs)
+
+    monkeypatch.setattr(cli_runner, "build_optimizer", spy)
+    k = {"bounds": [1e-7, 1e-3], "search_space": "log", "path": cli_runner.CONDUCTIVITY_PATH}
+    sy = {"bounds": [0.01, 0.3], "search_space": "identity"}
+    cfg = CalibrationConfig.model_validate(
+        {"method": "scipy_nelder_mead", "seed": 5, "parameters": {"K": k, "Sy": sy}}
+    )
+    cli_runner._balanced_search(cfg, cli_runner.space_from_config(cfg), start_at=None).close()
+
+    assert seen["seed"] == 5
 
 
 def test_a_width_keeps_the_pairs_it_belongs_to_and_the_restarts_it_spans() -> None:

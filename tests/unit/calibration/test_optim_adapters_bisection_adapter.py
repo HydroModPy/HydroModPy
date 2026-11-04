@@ -1641,7 +1641,7 @@ def test_two_roots_answer_with_the_combined_value_and_a_failed_one_with_nothing(
 def test_a_root_search_keeps_its_width_when_the_outer_budget_runs_low() -> None:
     search = _balanced(batch=2)
 
-    assert [sugg.trial_id for sugg in search.ask(1)] == [1, 2]
+    assert [(sugg.trial_id, sugg.source) for sugg in search.ask(1)] == [(1, "sweep"), (2, "sweep")]
     assert search.suggest_next().trial_id == 3
     assert (search.name, search.counted_budget.nominal, search.best()) == ("grid", 3, None)
     assert not search.converged()
@@ -1717,3 +1717,71 @@ def test_the_first_suggestion_is_the_first_point_of_the_sweep() -> None:
 
     assert suggestion.trial_id == 1
     assert suggestion.values["K"] == pytest.approx(1.0)
+
+
+@pytest.mark.parametrize(
+    ("bracket", "outside"), [((-4.0, 4.0), False), ((5.0, 15.0), False), ((11.0, 13.0), True)]
+)
+def test_a_root_on_a_declared_bound_is_inside_it(bracket, outside) -> None:
+    adapter = BisectionAdapter(_space(1.0, 1.0e5))
+    adapter._declared = (0.0, 10.0)
+    adapter._targets = (SimpleNamespace(component="c", label="J"),)
+    adapter._brackets = {"c": bracket}
+
+    assert (adapter.root_outside_bounds() is not None) is outside
+
+
+def test_the_cuts_of_a_round_are_placed_once_and_the_first_ask_takes_one_point() -> None:
+    adapter = BisectionAdapter(_space(1.0, 1.0e3), sweep_points=3)
+    adapter.tell([_evaluate(s, root=50.0) for s in adapter.ask(100)])
+
+    (cut,) = adapter.ask()
+
+    assert cut.source == "bisect"
+    assert adapter.ask(1) == []
+
+
+def test_a_balanced_search_wraps_its_outer_search() -> None:
+    closed: list[int] = []
+
+    class Outer:
+        name = "grid"
+
+        def close(self) -> None:
+            closed.append(1)
+
+    search = BalancedSearch(Outer(), _space(), batch=2)
+    search.close()
+
+    assert closed == [1]
+    assert search.counted([]) == 0
+    assert search.traits == engine_traits("grid")
+    assert search.solves_per_point > BalancedSearch(Outer(), _space()).solves_per_point
+    assert BalancedSearch(SimpleNamespace(name="grid"), _space()).close() is None
+
+
+@pytest.mark.parametrize(
+    ("bracket", "points", "winner", "inside"),
+    [
+        # Tied residual-free trials: the nearest to the middle (5) wins.
+        ((0.0, 10.0), {1: 1.0, 2: 9.0, 3: 6.5}, 3, True),
+        # Every trial lies outside; one has no recorded point and counts as the middle.
+        ((0.0, 1.0), {1: 3.0, 2: 9.0}, 3, False),
+    ],
+)
+def test_a_tie_goes_to_the_trial_nearest_the_middle_of_the_bracket(
+    bracket, points, winner, inside, caplog
+) -> None:
+    adapter = BisectionAdapter(_space())
+    adapter._targets = (SimpleNamespace(component="c"),)
+    adapter._brackets = {"c": bracket}
+    adapter._points = points
+    valid = [
+        EvaluationResult(trial_id=i, sim_id=None, cost=1.0, status="completed") for i in (1, 2, 3)
+    ]
+
+    with caplog.at_level(logging.WARNING):
+        assert adapter._pick(valid).trial_id == winner
+
+    assert ("No completed trial lies inside" in caplog.text) is not inside
+    assert ("of K:" in caplog.text) is not inside

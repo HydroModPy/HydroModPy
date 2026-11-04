@@ -206,6 +206,7 @@ def test_half_an_answer_costs_its_trial_alone(tmp_path: Path) -> None:
 
     assert half.status == "crashed" and math.isnan(half.cost)
     assert half.error == "Trial 1 did not end: its worker process died (exit code 0)."
+    assert 0 <= half.duration_s < 60
     assert (after.status, after.cost) == ("completed", 0.25)
 
 

@@ -133,6 +133,20 @@ def test_a_trial_worse_than_every_kept_one_is_left_to_its_sandbox(tmp_path: Path
     assert folder.is_dir()
 
 
+def test_a_solve_a_worker_left_is_adopted_or_deleted_by_its_cost(tmp_path: Path) -> None:
+    retention = TrialSolveRetention(1, keep_everything=False)
+    solves = []
+    for trial_id, cost in ((7, 1.0), (8, 5.0)):
+        folder = _folder(tmp_path, f"w_trial{trial_id}")
+        solves.append(KeptSolve(trial_id, cost, (folder,), _results(folder)))
+        retention.adopt(solves[-1])
+
+    kept, _ = retention.take(7)
+    assert (kept.trial_id, kept.cost, kept.folders) == (7, 1.0, solves[0].folders)
+    assert kept.results == solves[0].results
+    assert solves[0].folders[0].is_dir() and not solves[1].folders[0].exists()
+
+
 def test_a_tie_keeps_the_earlier_trial(tmp_path: Path) -> None:
     retention = TrialSolveRetention(1, keep_everything=False)
     early = _offer(retention, tmp_path, 1, 1.0)

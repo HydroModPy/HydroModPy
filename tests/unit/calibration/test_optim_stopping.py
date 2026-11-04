@@ -1003,9 +1003,10 @@ def test_an_engine_that_stops_on_its_budget_refuses_a_precision() -> None:
         stopping_kwargs("grid", ParameterSpace([K]), precision=0.10)
 
 
-def test_a_precision_that_is_not_positive_is_refused() -> None:
-    with pytest.raises(ValueError, match="strictly positive, got -0.1"):
-        stopping_kwargs("scipy_nelder_mead", ParameterSpace([K]), precision=-0.1)
+@pytest.mark.parametrize("precision", [-0.1, 0.0])
+def test_a_precision_that_is_not_positive_is_refused(precision: float) -> None:
+    with pytest.raises(ValueError, match=f"strictly positive, got {precision}"):
+        stopping_kwargs("scipy_nelder_mead", ParameterSpace([K]), precision=precision)
 
 
 def test_a_precision_on_a_space_without_parameters_is_refused() -> None:

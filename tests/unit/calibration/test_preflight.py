@@ -19,7 +19,10 @@ import hydromodpy as hmp
 from hydromodpy.calibration import preflight
 from hydromodpy.calibration.config import CalibNetworkExtent, CalibrationConfig
 from hydromodpy.calibration.metrics.solver_extract import context_step_days
-from hydromodpy.calibration.optim.adapters.bisection_adapter import BisectionAdapter
+from hydromodpy.calibration.optim.adapters.bisection_adapter import (
+    BisectionAdapter,
+    root_search_budget,
+)
 from hydromodpy.calibration.optim.adapters.grid_adapter import GridAdapter
 from hydromodpy.calibration.optim.adapters.lhs_adapter import LhsAdapter
 from hydromodpy.calibration.optim.engine import CalibrationEngine
@@ -2449,3 +2452,98 @@ def test_a_steady_phase_that_cannot_be_dated_and_a_grid_that_cannot_be_read_date
 
 def test_two_parameters_that_move_no_declared_output_form_no_ridge(tmp_path: Path) -> None:
     assert preflight_of(tmp_path, "@GRID\n@KLOG\n@SY") == []
+
+
+_MONO, _PHASE_S = "[calibration]", "[[calibration.phases]] 's'"
+
+
+@pytest.mark.parametrize(
+    ("doc", "severity", "where", "said"),
+    [
+        ('[calibration]\nmethod = "bisection"\n' + _TWO_LOG_PARAMS, "error", _MONO, "moves 1"),
+        ('[calibration]\nmethod = "nope"\n@KB', "error", _MONO, "'nope' is not registered"),
+        (
+            '[calibration]\nmethod = "lhs"\n@KB\nsampling = "normal"',
+            "error",
+            _MONO,
+            "lhs cannot draw",
+        ),
+        (
+            '[calibration]\nmethod = "bisection"\n[calibration.parameters.K]\n'
+            'bounds = [1e-7, 1e-3]\nsearch_space = "identity"\n@NETROOT\n@GAP',
+            "error",
+            _MONO,
+            "K declare(s) another search space",
+        ),
+        (
+            '[calibration]\nmethod = "bisection"\nvariable = "discharge"\nobjective = "nse_log"\n@KB',
+            "error",
+            _MONO,
+            "scored on nse_log. Score it on",
+        ),
+        (
+            '[calibration]\nmethod = "da_mh_gp"\nvariable = "discharge"\nobjective = "nse_log"\n@KB',
+            "warning",
+            _MONO,
+            "this search is scored on nse_log. The chain",
+        ),
+    ],
+)
+def test_an_engine_finding_names_its_severity_and_its_search(
+    tmp_path, doc, severity, where, said
+) -> None:
+    found = [f for f in preflight_of(tmp_path, doc) if said in f.detail]
+
+    assert [(f.severity, f.where) for f in found] == [(severity, where)]
+
+
+def test_an_engine_refuses_the_options_of_its_own_search() -> None:
+    config = CalibrationConfig.model_validate(
+        {"method": "grid", "parameters": {"K": {"bounds": [1e-7, 1e-3]}}}
+    ).model_copy(update={"method_options": {"bogus": 1}})
+
+    found = [f for f in preflight._check_engines(config) if "method_options:" in f.detail]
+
+    assert [(f.severity, f.where) for f in found] == [("error", "[calibration]")]
+
+
+def test_a_serial_engine_asked_for_two_workers_can_use_one(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(
+        BisectionAdapter, "traits", replace(BisectionAdapter.traits, supports_parallel=False)
+    )
+    doc = _WORKERS_ON_A_ROOT_SEARCH.replace("parallel = 4", "parallel = 2")
+
+    found = [f for f in preflight_of(tmp_path, doc) if "buys nothing" in f.detail]
+
+    assert [(f.severity, f.where) for f in found] == [("warning", _MONO)]
+    assert "can use 1 solves at once, so parallel = 2" in found[0].detail
+
+
+def test_a_minimiser_phase_on_two_bounds_is_refused_by_its_own_method(tmp_path) -> None:
+    # The file's method is a root search, the phase's is a minimiser: only the phase's counts.
+    phase = (
+        '\n[[calibration.phases]]\nname = "s"\nmethod = "scipy_nelder_mead"\nparameters = ["K"]\n'
+        'variable = "net"\nobjective = "distance_gap"\n'
+    )
+    doc = _two_bounds(tmp_path, "bisection", "@KLOG") + phase
+
+    found = [f for f in preflight_of(tmp_path, doc) if _TWO_METHODS in f.detail]
+
+    assert [(f.severity, f.where) for f in found] == [("error", _PHASE_S)]
+    assert "'scipy_nelder_mead' would return" in found[0].detail
+
+
+def test_a_balanced_phase_finding_names_its_phase_and_its_precision(tmp_path) -> None:
+    refused = preflight_of(tmp_path, _balanced('["K"]', "mean"))
+    doc = _balanced('["K", "Sy"]', "mean", method="scipy_nelder_mead", trials="auto")
+    doc = doc.replace(
+        "balanced_evaluation = true\n", "balanced_evaluation = true\nprecision = 0.05\n"
+    )
+    uncounted = [f for f in preflight_of(tmp_path, doc) if _UNCOUNTED in f.detail]
+    solves = root_search_budget(1e-7, 1e-3, rel_tol=0.05).nominal
+
+    assert [(f.severity, f.where) for f in refused if _REFUSED_BALANCE in f.detail] == [
+        ("error", _PHASE_S)
+    ]
+    assert [(f.severity, f.where) for f in uncounted] == [("error", _PHASE_S)]
+    assert f"points of {solves} solves each" in uncounted[0].detail

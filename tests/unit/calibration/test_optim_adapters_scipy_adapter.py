@@ -138,14 +138,58 @@ def test_de_ask_batch_returns_available_without_blocking() -> None:
         opt.close()
 
 
-@pytest.mark.parametrize(("width", "asked"), [(1, 1), (4, 10)])
+@pytest.mark.parametrize(("width", "asked"), [(1, 1), (2, 10), (4, 10)])
 def test_de_hands_out_a_generation_whole_from_a_width_of_two(width: int, asked: int) -> None:
     # Two parameters and popsize 5 make a generation of 10.
     opt = ScipyDE(two_dim_space(), seed=0, max_trials=110, popsize=5, width=width)
     try:
-        assert len(opt.ask(100)) == asked
+        batch = opt.ask(100)
+        assert [(s.trial_id, s.source) for s in batch] == [(i, "ask") for i in range(1, asked + 1)]
     finally:
         opt.close()
+
+
+def test_de_asks_one_point_unless_told_otherwise() -> None:
+    opt = ScipyDE(two_dim_space(), seed=0, max_trials=110, popsize=5, width=4)
+    try:
+        assert len(opt.ask()) == 1
+    finally:
+        opt.close()
+
+
+@pytest.mark.parametrize(("status", "cost"), [("failed", 5.0), ("completed", math.nan)])
+def test_a_result_with_no_usable_cost_is_fed_as_the_failure_cost(status: str, cost: float) -> None:
+    opt = ScipyDE(two_dim_space(), seed=0, max_trials=110, popsize=5, width=4)
+    fed: list[float] = []
+    opt._bridge.feed = fed.append
+    try:
+        batch = opt.ask(4)
+        opt.tell([result_of(batch[1], cost, status=status), result_of(batch[2], 1.0)])
+        # Each result takes its own pending point out.
+        assert fed == [FAILED_EVAL_COST, 1.0]
+        assert [tid for tid, _ in opt._pending] == [1, 4]
+    finally:
+        opt.close()
+
+
+@pytest.mark.parametrize("target", [-5.0, 5.0])
+def test_nelder_mead_never_suggests_a_point_outside_the_bounds(target: float) -> None:
+    space = ParameterSpace([CalibParameter(name="x", lower=-2.0, upper=2.0)])
+    opt = ScipyNelderMead(space, maxiter=30)
+    xs: list[float] = []
+    for _ in range(30):
+        batch = opt.ask(1)
+        if not batch:
+            break
+        xs.append(batch[0].values["x"])
+        opt.tell([result_of(batch[0], (xs[-1] - target) ** 2)])
+    assert min(xs) >= -2.0 and max(xs) <= 2.0
+    assert (min(xs) if target < 0 else max(xs)) == math.copysign(2.0, target)
+    assert [(s.trial_id, s.source) for s in ScipyNelderMead(space).ask(2)] == [
+        (1, "ask"),
+        (2, "ask"),
+    ]
+    assert len(ScipyNelderMead(space).ask()) == 1
 
 
 def test_nelder_mead_ask_batch_returns_available_without_blocking() -> None:
@@ -285,8 +329,9 @@ def test_a_closed_differential_evolution_says_it_has_finished() -> None:
     adapter.close()
 
     assert adapter._bridge.finished()
-    while adapter.ask(1):
+    while got := adapter.ask(1):
         pass
+    assert got == []
     with pytest.raises(StopIteration, match="scipy optimizer finished"):
         adapter.suggest_next()
 
@@ -319,3 +364,33 @@ def test_a_result_with_nothing_pending_is_dropped() -> None:
     adapter.tell([EvaluationResult(trial_id=7, sim_id=None, cost=1.0, status="completed")])
 
     assert len(adapter._simplex.used) == 1
+
+
+@pytest.mark.parametrize(("popsize", "dim", "size"), [(1, 1, 5), (3, 1, 5), (2, 3, 6)])
+def test_a_de_generation_holds_five_points_at_least(popsize: int, dim: int, size: int) -> None:
+    from hydromodpy.calibration.optim.adapters.scipy_adapter import _population
+
+    assert _population(popsize, dim) == size
+
+
+@pytest.mark.parametrize(("width", "parallel"), [(1, False), (2, True)])
+def test_de_hands_scipy_its_options_and_deferred_updating_from_a_width_of_two(
+    monkeypatch, width: int, parallel: bool
+) -> None:
+    import scipy.optimize
+
+    seen: dict = {}
+    monkeypatch.setattr(
+        scipy.optimize, "differential_evolution", lambda *args, **kw: seen.update(kw)
+    )
+    block = object()
+    opt = ScipyDE.__new__(ScipyDE)
+    opt.__dict__.update(
+        space=two_dim_space(), _seed=0, _max_trials=110, _popsize=5, _tol=0.2, _width=width
+    )
+    opt._make_method()(lambda x: 0.0, block)
+
+    assert (seen["popsize"], seen["tol"], seen["polish"]) == (5, 0.2, False)
+    assert seen["init"].shape == (10, 2)
+    assert seen.get("updating") == ("deferred" if parallel else None)
+    assert seen.get("workers") is (block if parallel else None)
