@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.calibration.persistence import CalibrationPersistence, PersistDetail
-from tests.unit.calibration._factories_runners import make_session
+from hydromodpy.calibration.persistence import CalibrationPersistence, PersistDetail, PhaseContext
+from tests.unit.calibration._factories_runners import journal_trial, make_session
 
 # From test_the_best_trial_is_on_the_path_of_the_search.py
 # The best trial of a session is one the search read.
@@ -44,3 +44,16 @@ def test_the_unread_trial_stays_in_the_journal(tmp_path: Path) -> None:
 
     assert [line.trial for line in trials] == [1, 2, 3]
     assert [line.speculative_unused for line in trials] == [False, True, False]
+
+
+def test_a_tie_across_restarts_goes_to_the_lower_restart_whatever_the_arrival(
+    tmp_path: Path,
+) -> None:
+    """Restarts side by side number their trials as the batches arrive, so numbers cannot break it."""
+    session = make_session(tmp_path)
+    for restart in (1, 0):
+        journal_trial(session, 1, 0.5, phase=PhaseContext(restart=restart))
+
+    best = session.best_trial()
+
+    assert (best.restart, best.trial) == (0, 2)

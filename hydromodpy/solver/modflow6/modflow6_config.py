@@ -82,9 +82,9 @@ class Modflow6RuntimeConfig(HydroModelBase):
     mf6_api_timeout_s: Annotated[PositiveFloat | None, Profile.EXPERT] = Field(
         default=None,
         description=(
-            "Wall-clock budget (seconds) for an isolated libmf6 ('api' runner) solve "
-            "in parallel calibration; the child is killed past it so one stuck trial "
-            "cannot wedge the session. None keeps the built-in default (2400 s)."
+            "Wall-clock budget (seconds) of one trial of a parallel calibration, whichever "
+            "runner solves it; its worker is killed past it so one stuck trial cannot wedge "
+            "the session. None keeps the built-in default (14400 s)."
         ),
     )
     mf6_ims_complexity: Annotated[Literal["SIMPLE", "MODERATE", "COMPLEX"], Profile.EXPERT] = Field(

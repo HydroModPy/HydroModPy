@@ -734,6 +734,7 @@ def test_the_model_enters_as_written_and_without_its_workspace() -> None:
         {"max_trials": 500},
         {"method_options": {"fatol": 1e-3}},
         {"batch_size": 4, "parallel": 4},
+        {"parallel": 2},
         {"save_runs": "best_n", "save_best_n": 3},
         {"use_cache": False},
         {"persist_iteration_detail": "none"},

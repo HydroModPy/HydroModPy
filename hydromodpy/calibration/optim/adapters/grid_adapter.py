@@ -46,7 +46,7 @@ class GridAdapter:
 
     # An exhaustive sweep visits the same points in the same order whatever the
     # seed, so repeating it is the same computation twice.
-    traits = EngineTraits(restarts_explore_differently=False)
+    traits = EngineTraits(restarts_explore_differently=False, fixed_plan=True)
 
     name = "grid"
 

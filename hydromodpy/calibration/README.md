@@ -104,6 +104,7 @@ hydromodpy/calibration/
                 session.py (case name, session directory, frozen config)
                 state.py (params-hash context, cache preload)  failure_watch.py
                 kept_solves.py (trial solves kept on disk for their promotion)
+                worker_pool.py (the trials of parallel > 1 in worker processes)
                 prepared_model.py (the checks that need the prepared model)
 ```
 

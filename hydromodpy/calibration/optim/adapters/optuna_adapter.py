@@ -6,6 +6,7 @@ sampler state natively via its ``ask()`` / ``tell()`` API.
 
 from __future__ import annotations
 
+import warnings
 from typing import Literal
 
 import optuna
@@ -32,7 +33,7 @@ class OptunaAdapter:
     """Drive an Optuna study via ask/tell."""
 
     name = "optuna"
-    traits = EngineTraits(draws_a_normal=False)
+    traits = EngineTraits(draws_a_normal=False, takes_width=True)
 
     def __init__(
         self,
@@ -41,6 +42,7 @@ class OptunaAdapter:
         sampler: str = "tpe",
         seed: int | None = None,
         direction: Literal["minimize"] = "minimize",
+        width: int = 1,
     ):
         if sampler not in _SAMPLERS:
             raise ValueError(f"Unknown Optuna sampler {sampler!r}. Choices: {sorted(_SAMPLERS)}")
@@ -49,10 +51,17 @@ class OptunaAdapter:
         self.space = space
         sampler_cls = _SAMPLERS[sampler]
         sampler_kwargs = {"seed": seed} if seed is not None else {}
-        try:
-            sampler_obj = sampler_cls(**sampler_kwargs)
-        except TypeError:
-            sampler_obj = sampler_cls()
+        if sampler == "tpe" and width > 1:
+            # The trials of a batch are asked before any is told. Counting the ones in
+            # flight as the worst so far keeps the next points from landing on them.
+            # Measured on analytic costs: neutral at a width of 2, better from 4.
+            sampler_kwargs["constant_liar"] = True
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", optuna.exceptions.ExperimentalWarning)
+            try:
+                sampler_obj = sampler_cls(**sampler_kwargs)
+            except TypeError:
+                sampler_obj = sampler_cls()
         # Silence optuna's INFO chatter unless user overrides externally.
         optuna.logging.set_verbosity(optuna.logging.WARNING)
         self._study = optuna.create_study(sampler=sampler_obj, direction=direction)

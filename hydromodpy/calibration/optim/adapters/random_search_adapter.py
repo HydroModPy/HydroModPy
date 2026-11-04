@@ -5,6 +5,7 @@ from __future__ import annotations
 import numpy as np
 
 from hydromodpy.calibration.optim.optimizer import (
+    EngineTraits,
     EvaluationResult,
     ParamSuggestion,
     best_completed,
@@ -17,6 +18,8 @@ from hydromodpy.calibration.optim.sampling import physical_sample
 @register_optimizer("random_search")
 class RandomSearchAdapter:
     """Random sampling using each parameter's sampling declaration."""
+
+    traits = EngineTraits(fixed_plan=True)
 
     name = "random_search"
 

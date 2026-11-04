@@ -454,6 +454,31 @@ class TestWhatPreflightCatches:
         assert "buys nothing" in findings[0].detail
 
     @pytest.mark.parametrize(
+        ("method", "options", "parallel", "said"),
+        [
+            pytest.param("cma_es", "", 8, "beyond 6", id="cma_es_default_population"),
+            pytest.param("cma_es", "popsize = 3", 4, "beyond 3", id="cma_es_own_population"),
+            pytest.param("cma_es", "popsize = 3", 3, None, id="cma_es_width_used_whole"),
+            pytest.param("scipy_nelder_mead", "", 8, "beyond 4", id="nelder_mead_four_points"),
+            pytest.param("scipy_nelder_mead", "", 4, None, id="nelder_mead_width_used_whole"),
+            pytest.param("scipy_de", "", 20, "beyond 15", id="differential_evolution_population"),
+            pytest.param("scipy_de", "popsize = 2", 5, None, id="de_population_of_five_at_least"),
+            pytest.param("bisection", "", 8, None, id="root_search_no_cap"),
+        ],
+    )
+    def test_a_width_beyond_what_the_method_can_use_is_a_warning(
+        self, tmp_path, method, options, parallel, said
+    ) -> None:
+        doc = f'[calibration]\nmethod = "{method}"\nparallel = {parallel}\n@KB\n@NETROOT\n@GAP'
+        if options:
+            doc += f"\n[calibration.method_options]\n{options}"
+        text = messages(preflight_of(tmp_path, doc))
+
+        assert ("buys nothing" in text) is (said is not None)
+        if said is not None:
+            assert said in text and "0.5 GiB and 3.3 s to start" in text
+
+    @pytest.mark.parametrize(
         "doc",
         [
             pytest.param(_WORKERS_ON_A_ROOT_SEARCH, id="takes_workers"),

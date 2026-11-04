@@ -8,34 +8,33 @@ only calibration test that runs real MODFLOW 6 end to end is the ``e2e`` /
 is the small, synthetic replacement: a six-cell steady hillslope (recharge in,
 drainage out, the same well-posed pair ``test_twin_matching_stream_network_
 modflow6.py`` uses), a grid search of two points on K, and a head output that
-observes one station. The observed record and its cell are the two things a
-synthetic project has no loader for, so they are monkeypatched exactly where
-``test_metrics_observable_scoring.py`` already patches them for a unit test.
+observes one station. The station is on disk, as a user writes it, because a
+monkeypatch does not reach a worker process. The same search runs at
+``parallel = 1`` and ``parallel = 2``, and the two must agree to the last digit.
 
 What this proves that the unit tests of the capture logic do not: the real
-wiring, through ``run_calibration_core`` and the shared ``evaluator`` object,
-across the ``ThreadPoolExecutor`` a ``parallel`` run dispatches trials on.
+wiring, through ``run_one_search`` and a worker process that solves. The same
+case also runs three restarts side by side on one pool, and the MODFLOW 6 API
+runner in a worker.
 """
 
 from __future__ import annotations
 
+import importlib.util
 from pathlib import Path
 
 import pandas as pd
 import pytest
 
 from hydromodpy.calibration.config import CalibrationConfig
-from hydromodpy.calibration.metrics import composite
-from hydromodpy.calibration.metrics.series import ObservedSeries
-from hydromodpy.calibration.persistence import CalibrationPersistence
-from hydromodpy.calibration.runners.cli_runner import run_calibration_core
+from hydromodpy.calibration.persistence import CalibrationPersistence, PhaseContext
+from hydromodpy.calibration.runners.cli_runner import run_one_search
 from hydromodpy.calibration.runners.state import override_paths, space_from_config
 from hydromodpy.calibration.runners.trial import prepare_trials
 from hydromodpy.results.storage.contract import SESSION_TRIAL_SERIES_DIRNAME
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 
 STATION = "W1"
-_CELL = (0, 0, 3)
 
 _PROJECT_TOML = """\
 [workflow]
@@ -79,6 +78,9 @@ right_to_left_amplitude = 1.0
 kind = "constant_thickness"
 thickness = "5 m"
 
+[modflow6.runtime]
+mf6_runner = "{runner}"
+
 [flow]
 flow_regime = "steady"
 active_sinks_sources = ["recharge"]
@@ -102,12 +104,19 @@ value = "0.0 m2/s"
 first_clim = "mean"
 
 [data]
-types = ["recharge"]
+types = ["recharge", "piezometry"]
 inference_mode = "warn"
 
 [[data.recharge.sources]]
 source = "synthetic"
 values = [0.8]
+
+[data.piezometry]
+[[data.piezometry.sources]]
+source = "custom"
+path = "{root}/piezometry"
+default_crs = "EPSG:2154"
+source_unit = "m"
 
 [mesh.regular]
 shape = [1, 6]
@@ -120,44 +129,29 @@ enabled = false
 """
 
 
-@pytest.fixture
-def project(tmp_path: Path) -> Path:
+def _project(root: Path, runner: str) -> Path:
+    """Write the synthetic project and its station on disk, the way a user would."""
     import hydromodpy
 
     hydromodpy.bootstrap()
-    config_path = tmp_path / "project.toml"
-    config_path.write_text(_PROJECT_TOML.format(root=tmp_path.as_posix()), encoding="utf-8")
+    station = root / "piezometry"
+    station.mkdir(parents=True)
+    (station / "piezometry_custom_LOC.csv").write_text(f"id,x,y\n{STATION},7.0,1.0\n")
+    days = pd.date_range("2003-01-01", periods=3, freq="D")
+    record = pd.DataFrame({"datetime": days, "value": [5.0, 5.0, 5.0]})
+    record.to_csv(station / f"piezometry_custom_{STATION}_D.csv", index=False)
+    config_path = root / "project.toml"
+    config_path.write_text(
+        _PROJECT_TOML.format(root=root.as_posix(), runner=runner), encoding="utf-8"
+    )
     return config_path
 
 
-def _wire_the_station(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Hand ``variable`` + ``objective`` a station, the way a project's loader would.
-
-    ``load_observed`` and ``resolve_station_cells`` both read
-    ``ctx.loaded_data.piezometry``, which a synthetic project never loads
-    (there is no ``[data.piezometry]`` source here, by design: the run is
-    about the trial loop, not about reading a record off disk). Patched at
-    the name ``composite.py`` imported, the same way ``test_observable_
-    scoring.py`` wires a producer for its own unit tests. The record is dated,
-    as a loaded one always is, and the run has one dated period to pair it on.
-    """
-    record = pd.Series([5.0, 5.0, 5.0], index=pd.date_range("2003-01-01", periods=3, freq="D"))
-    observed = [ObservedSeries(station_id=STATION, variable="head", series=record)]
-    monkeypatch.setattr(composite, "load_observed", lambda ctx, variable: observed)
-    monkeypatch.setattr(
-        composite, "resolve_station_cells", lambda ctx, obs, **kwargs: {STATION: _CELL}
-    )
-
-
-@pytest.mark.mf6
-@pytest.mark.binary
-@pytest.mark.allow_subprocess
-def test_two_trials_on_persist_trial_series_write_two_files(
-    project: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    ensure_solver_binary("mf6")
-    _wire_the_station(monkeypatch)
-
+def _calibrate(
+    root: Path, parallel: int, *, runner: str = "subprocess", **search: object
+) -> tuple[dict, CalibrationPersistence]:
+    """Run a search on K at one width, through the call the CLI makes, and return its answer."""
+    project = _project(root, runner)
     cfg = CalibrationConfig.model_validate(
         {
             "method": "grid",
@@ -166,11 +160,7 @@ def test_two_trials_on_persist_trial_series_write_two_files(
             "objective": "rmse",
             "save_runs": "none",
             "persist_trial_series": True,
-            # Both grid points in one batch, dispatched through the
-            # ThreadPoolExecutor (engine.py, parallel > 1): this is what
-            # actually exercises the thread-local capture under concurrency,
-            # not just the sequential loop.
-            "parallel": 2,
+            "parallel": parallel,
             "parameters": {
                 "K": {
                     "bounds": [1e-6, 1e-4],
@@ -178,48 +168,117 @@ def test_two_trials_on_persist_trial_series_write_two_files(
                     "path": "flow.param.K.field.value",
                 }
             },
+            **search,
         }
     )
     space = space_from_config(cfg)
     trial_ctx = prepare_trials(project, override_paths=override_paths(cfg), parameter_space=space)
-    session_dir = project.parent / "sessions" / "probe"
+    session_dir = root / "sessions" / "probe"
     session_dir.mkdir(parents=True)
     persistence = CalibrationPersistence(session_dir)
     persistence.start_session(
         session_id="a" * 32,
         case_id="probe",
         site=None,
-        project=project.parent.name,
+        project=root.name,
         config_hash="c" * 64,
         hydromodpy_version="2.0.0a5",
-        method="grid",
+        method=cfg.method,
         cost_name="rmse",
         bounds={},
         windows={},
     )
-
-    report = run_calibration_core(
+    report, _ = run_one_search(
         cfg,
         trial_ctx,
         persistence=persistence,
         space=space,
-        project_root=project.parent,
+        project_root=root,
         cfg_path=project,
-    ).to_dict()
+        metric_fn=None,
+        objective=None,
+        phase=PhaseContext(),
+    )
+    return report.to_dict(), persistence
 
-    assert report["n_trials"] == 2
-    series_dir = session_dir / SESSION_TRIAL_SERIES_DIRNAME
+
+def _series(persistence: CalibrationPersistence) -> list[pd.DataFrame]:
+    """Return the two files of the two trials of the grid."""
+    series_dir = persistence.directory / SESSION_TRIAL_SERIES_DIRNAME
     assert sorted(p.name for p in series_dir.iterdir()) == [
         "trial-000001.parquet",
         "trial-000002.parquet",
     ]
-    table_1 = pd.read_parquet(series_dir / "trial-000001.parquet")
-    table_2 = pd.read_parquet(series_dir / "trial-000002.parquet")
-    # Both trials ran on different ThreadPoolExecutor workers and recorded
-    # into their own thread-local sink. Each file holds exactly the one row
-    # its own trial scored, with no row dropped, duplicated or picked up
-    # from the other worker's thread.
-    for table in (table_1, table_2):
-        assert table["station"].tolist() == [STATION]
-        assert table["output"].tolist() == [f"head@{STATION}"]
-    assert table_1["simulated"].iloc[0] != table_2["simulated"].iloc[0]
+    return [pd.read_parquet(series_dir / f"trial-00000{n}.parquet") for n in (1, 2)]
+
+
+def _costs_of_each_restart(persistence: CalibrationPersistence) -> dict[int, list[float]]:
+    """Return the costs the search read, by restart, in the order of its trials."""
+    lines = [line for line in persistence.trials() if not line.speculative_unused]
+    return {
+        restart: [line.cost for line in lines if line.restart == restart]
+        for restart in sorted({line.restart for line in lines})
+    }
+
+
+@pytest.mark.mf6
+@pytest.mark.binary
+@pytest.mark.allow_subprocess
+def test_a_search_in_two_processes_gives_the_digits_of_a_search_in_one(tmp_path: Path) -> None:
+    ensure_solver_binary("mf6")
+    (report_one, session_one), (report_two, session_two) = (
+        _calibrate(tmp_path / "one", 1),
+        _calibrate(tmp_path / "two", 2),
+    )
+    tables_one, tables_two = _series(session_one), _series(session_two)
+
+    assert report_one["n_trials"] == report_two["n_trials"] == 2
+    for tables in (tables_one, tables_two):
+        # Each file holds exactly the one row its own trial scored, with no row
+        # dropped, duplicated or picked up from the other trial.
+        for table in tables:
+            assert table["station"].tolist() == [STATION]
+            assert table["output"].tolist() == [f"head@{STATION}"]
+        assert tables[0]["simulated"].iloc[0] != tables[1]["simulated"].iloc[0]
+    # The same trial solved in this process and in a worker, to the last digit.
+    for one, two in zip(tables_one, tables_two, strict=True):
+        assert one["simulated"].tolist() == two["simulated"].tolist()
+    assert report_one["best_cost"] == report_two["best_cost"]
+
+
+@pytest.mark.mf6
+@pytest.mark.binary
+@pytest.mark.allow_subprocess
+@pytest.mark.parametrize(
+    ("runner", "search"),
+    [
+        pytest.param(
+            "subprocess",
+            {
+                "method": "scipy_nelder_mead",
+                "method_options": {},
+                "max_trials": 4,
+                "seed": 7,
+                "uncertainty": {"method": "multistart", "restarts": 3},
+            },
+            id="three_restarts_on_one_pool",
+        ),
+        pytest.param(
+            "api",
+            {"method_options": {"points_per_dim": 4}},
+            marks=pytest.mark.skipif(
+                importlib.util.find_spec("modflowapi") is None, reason="needs modflowapi"
+            ),
+            id="the_api_runner_in_a_worker",
+        ),
+    ],
+)
+def test_the_costs_of_a_search_in_workers_are_those_of_a_search_in_one(
+    tmp_path: Path, runner: str, search: dict
+) -> None:
+    ensure_solver_binary("mf6")
+    in_one = _calibrate(tmp_path / "one", 1, runner=runner, **search)
+    in_two = _calibrate(tmp_path / "two", 2, runner=runner, **search)
+
+    assert _costs_of_each_restart(in_one[1]) == _costs_of_each_restart(in_two[1])
+    assert in_one[0]["best_cost"] == in_two[0]["best_cost"]

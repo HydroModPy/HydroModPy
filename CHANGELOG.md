@@ -62,6 +62,9 @@ Each release section includes the following standard categories:
 - The registry label of `vka` said Kv/Kh, and the key is Kh/Kv.
 - A calibration that scores different blocks in different phases is no longer refused as a sum of costs of different units.
 - A phased calibration run from a project held in memory no longer fails with a frozen-configuration error when a phase overrides the regime.
+- A worker that dies marks its trial `crashed`, and the search goes on with a new worker. A stuck `mf6` is killed with its worker.
+- A stop (Ctrl-C, SIGTERM) of a search at `parallel` above 1 now ends the solves in flight at once. Without it, the workers of the previous change, which have their own session, made the stop wait for the longest trial.
+- The runs of a linearized width no longer enter the retention of the solves a promotion may keep. They were ranked with the trials at cost 0.0, so one could push the Nth best trial out of a `save_runs = "best_n"` search.
 
 ### Changed
 
@@ -98,6 +101,17 @@ Numbers: none.
 - `hmp campaign promote` lists the five best trials of each phase, because the costs of two phases cannot be compared.
 - Two parameters may write one path when no phase moves both.
 - The `kge` score says why it is NaN when the simulation is constant.
+- With `parallel` above 1, the trials of a search that runs the HydroModPy pipeline now run in worker processes that last, instead of threads. The parent keeps the engine, the journal, the cache and the catalog. Costs do not change.
+- A Python script that calibrates with `parallel` above 1 needs the `if __name__ == "__main__":` guard, because each worker imports the script again.
+- A `metric_fn` for a search with `parallel` above 1 must be defined at the top level of a module. A lambda or a closure is refused before the first solve, and the message says so.
+- `[modflow6.runtime] mf6_api_timeout_s` now limits one whole trial of a parallel search, whichever runner solves it. The default stays 2400 s, so a trial longer than that, which used to finish under the `subprocess` runner, now ends `crashed`. The message says how to raise it. A serial search has no limit, as before.
+- `hmp calibrate --dry-run` shows the widest `parallel` of the phases under `solves in parallel`, not the one of `[calibration]` alone.
+- With `parallel` above 1, a grid, a Latin hypercube and a random search feed one queue of `parallel` workers. A free worker takes the next point at once, and no batch waits for its slowest trial. The points and the costs are the same as before.
+- With `parallel` above 1, the progress bar moves as each trial ends, not when its whole batch has.
+- With `parallel` above 1, the restarts of `uncertainty.method = "multistart"` run side by side on one shared set of workers, so together they run `parallel` trials at once and no more. They no longer run one after the other. A restart no longer finds the trials the restarts before it solved in the cache.
+- With `parallel` above 1, the derivatives of `uncertainty.method = "linearized"` (one run per parameter, plus the reference) run side by side in workers that last for these runs only.
+- `scipy_de` now accepts `parallel` above 1 and `hmp calibrate --dry-run` no longer says it proposes one trial at a time. From a width of 2 it scores a whole generation from the one before it (`updating = "deferred"`). Its path differs from the one it follows at `parallel = 1`, which is unchanged. For the same number of evaluations it reaches a higher cost (see Numbers), and it runs the trials of a generation side by side.
+- With `parallel` above 1, Optuna's `tpe` sampler counts the trials in flight as the worst cost so far (`constant_liar`), so the points of one batch do not land on each other.
 
 ### Numbers
 
@@ -112,6 +126,10 @@ Numbers: none.
 - None.
 None. No metric value changes.
 - No number moves at factor 1. No run was replayed for this change.
+- No number moves. One real solve of each trial of the cut example 04 (30 x 30, monthly, one year, K on two values): costs at `parallel = 2` equal to those at `parallel = 1` to the last digit, 0.5363546813031831 and 0.5756840896779987.
+- At `parallel = 1` nothing moves, to the last digit: the candidates and costs of `scipy_de` and the Jacobian are equal to those of the previous build (checked on a toy cost).
+- `scipy_de` at a width of 4 against a width of 1, 30 seeds, population 10 times the number of parameters, median of the best cost at the same number of evaluations. 4 parameters on a narrow ridge: 0.0057 against 0.0041 at 400 evaluations, 5.5e-5 against 1.2e-5 at 1200. Rosenbrock on 3 parameters: 0.38 against 0.43 at 400, 4.7e-4 against 7.9e-5 at 1200. So the side by side path costs up to 1.5 to 5 times more evaluations to reach the same late precision, and wins when the solves dominate and `parallel` is 2 or more.
+- Optuna `tpe` with `constant_liar`, 40 seeds, 64 evaluations, batches of the width, median of the best cost. 4 parameters on a ridge: 0.052 against 0.040 at width 2 (22 wins of 40 for the lie), 0.081 against 0.060 at width 4 (23 of 40), 0.095 against 0.051 at width 8 (26 of 40). Rosenbrock on 3 parameters: 3.7 against 3.8 at width 2 (23 of 40), 4.8 against 3.0 at width 4 (27 of 40), 5.7 against 3.6 at width 8 (29 of 40). Neutral at a width of 2, better from 4.
 
 ### Removed
 

@@ -153,7 +153,10 @@ before anything solves.
            required_search_space="log",  # the variable the stopping rule is written in
            needs_signed_residual=True,  # the criterion has to publish one
            supports_parallel=False,
+           reach=lambda options, dim: 4,  # solves it can use at once, None for no limit
            takes_max_trials=True,       # built knowing the budget of the search
+           takes_width=True,            # built knowing how many trials run side by side
+           fixed_plan=False,            # True when it can be asked for all that is left
            precision_option="rel_tol",       # this engine's own stopping option
            precision_reads="relative_value",  # how that option reads its number
            announced=False,             # runs when named, but not in the printed list

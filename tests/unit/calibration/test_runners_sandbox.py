@@ -8,7 +8,6 @@ from types import SimpleNamespace
 
 import pytest
 
-from hydromodpy.calibration.runners.cli_runner import _api_isolation_needed
 from hydromodpy.calibration.runners.sandbox import KEEP_ENV_VAR, TrialSandbox
 from hydromodpy.solver.modflow6.builders.recharge import TRIAL_RECHARGE_DIRNAME
 
@@ -143,19 +142,6 @@ class TestOutputCleanup:
 # ---------------------------------------------------------------------------
 # Parallel-safety guard
 # ---------------------------------------------------------------------------
-class TestApiIsolation:
-    def test_parallel_session_isolates_api(self):
-        # Any parallel session isolates api solves. The decision is on
-        # parallelism, not the declared mf6_runner: a marnage (exposed_band)
-        # coupling forces the effective api runner even when mf6_runner stays at
-        # its subprocess default, and _run_via_api is reached only by an api
-        # solve, so concurrent api solves always get their own libmf6 process.
-        assert _api_isolation_needed(4) is True
-        assert _api_isolation_needed(2) is True
-
-    def test_serial_session_keeps_api_in_process(self):
-        # Serial keeps the in-process api path (live progress bar, no spawn).
-        assert _api_isolation_needed(1) is False
 
 
 def test_keep_env_var_name_is_stable():

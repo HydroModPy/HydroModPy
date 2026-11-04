@@ -226,6 +226,11 @@ class TrialSolveRetention:
         self._delete(solve for solve in dropped if solve.trial_id != candidate.trial_id)
         return kept
 
+    def adopt(self, solve: KeptSolve) -> None:
+        """Take a solve a worker process left on disk, or delete it if it may not be promoted."""
+        if not self.offer(solve.trial_id, solve.cost, solve.folders, solve.results):
+            self._delete([solve])
+
     def _trim(self) -> list[KeptSolve]:
         """Drop the solves past the capacity, the most expensive first."""
         if self._capacity is None or len(self._kept) <= self._capacity:

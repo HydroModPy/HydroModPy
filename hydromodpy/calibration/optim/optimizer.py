@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
-from typing import Literal, Protocol, runtime_checkable
+from typing import Any, Literal, Protocol, runtime_checkable
 
 FAILED_EVAL_COST: float = 1e12
 """Sentinel cost used when an evaluation fails or returns NaN.
@@ -126,6 +126,10 @@ class EngineTraits:
     supports_parallel: bool = True
     """Whether several trials of one batch can be evaluated at once."""
 
+    reach: Callable[[Mapping[str, Any], int], int] | None = None
+    """How many solves the engine can use at once, from its method options and the number
+    of parameters. ``None`` says no limit. An engine without ``supports_parallel`` reads as 1."""
+
     precision_option: str | None = None
     """Name of this engine's own option that a user-level precision writes.
 
@@ -175,6 +179,14 @@ class EngineTraits:
     ``None`` for an engine that only compares costs. The sampler that turns the
     cost into a likelihood declares the metric that likelihood is written for,
     and a search scored on another one is warned before it runs."""
+
+    fixed_plan: bool = False
+    """Whether the engine can be asked for all that is left and hands out what is ready.
+
+    One queue then takes the points, so no point waits for the result of another."""
+
+    takes_width: bool = False
+    """Whether the engine is built knowing the ``parallel`` of the search, as ``width``."""
 
     announced: bool = True
     """Whether the method is in the list the docs and the refusals print.

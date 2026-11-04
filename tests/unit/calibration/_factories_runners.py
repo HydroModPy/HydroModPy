@@ -54,6 +54,11 @@ def make_report(**fields: Any) -> CalibrationReport:
     return CalibrationReport(**{**base, **fields})
 
 
+def bare_trial_ctx() -> TrialContext:
+    """A trial context that prepared nothing, for code that reads only ``ctx`` and ``kept_solves``."""
+    return TrialContext(None, None, 0, (), {}, Path("."), Path("."))
+
+
 def journal_trial(
     persistence: CalibrationPersistence,
     trial_id: int,
@@ -263,6 +268,7 @@ class FakeRunner:
         start_at=None,
         interval_width=None,
         balanced=False,
+        pool_for=None,
     ) -> CalibrationReport:
         self.calls.append(
             SimpleNamespace(

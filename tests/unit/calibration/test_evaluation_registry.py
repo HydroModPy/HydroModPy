@@ -494,7 +494,7 @@ LAUNCHERS_ALLOWED_TO_RUN_A_PIPELINE_TRIAL = {
     "calibration/runners/pipeline_evaluator.py:evaluate",
     # Not an evaluator: it perturbs the optimum once per parameter to read a
     # Jacobian off it, and it is refused outright when no model was prepared.
-    "calibration/runners/cli_runner.py:_simulate",
+    "calibration/runners/cli_runner.py:evaluate",
 }
 
 

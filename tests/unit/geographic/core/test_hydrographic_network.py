@@ -6,6 +6,7 @@ without learning which provider said which reach flows all year.
 """
 
 import json
+import pickle
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -191,6 +192,14 @@ def test_each_role_has_its_feature_and_file_names(role, feature, filename) -> No
 def test_a_network_refuses_a_role_or_a_source_it_does_not_know(members, reason) -> None:
     with pytest.raises(ValueError, match=reason):
         HydrographicNetwork(**{"role": "reference", "source_kind": "file", **members})
+
+
+def test_a_network_crosses_to_a_worker_process_whole() -> None:
+    network = HydrographicNetwork(
+        role="reference", source_kind="file", metrics={"length_m": 2.5}, metadata={"a": "b"}
+    )
+
+    assert pickle.loads(pickle.dumps(network)) == network
 
 
 def _frame(geometry, crs):

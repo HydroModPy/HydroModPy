@@ -138,6 +138,16 @@ def test_de_ask_batch_returns_available_without_blocking() -> None:
         opt.close()
 
 
+@pytest.mark.parametrize(("width", "asked"), [(1, 1), (4, 10)])
+def test_de_hands_out_a_generation_whole_from_a_width_of_two(width: int, asked: int) -> None:
+    # Two parameters and popsize 5 make a generation of 10.
+    opt = ScipyDE(two_dim_space(), seed=0, max_trials=110, popsize=5, width=width)
+    try:
+        assert len(opt.ask(100)) == asked
+    finally:
+        opt.close()
+
+
 def test_nelder_mead_ask_batch_returns_available_without_blocking() -> None:
     opt = ScipyNelderMead(two_dim_space(), seed=0, maxiter=10)
     try:
@@ -185,8 +195,9 @@ def test_de_runs_the_generations_its_budget_covers(max_trials: int, evaluations:
 # ---------------------------------------------------------------------------
 # Convergence on a convex quadratic
 # ---------------------------------------------------------------------------
-def test_de_converges_to_known_minimum() -> None:
-    opt = ScipyDE(two_dim_space(), seed=1, max_trials=1220, popsize=10, tol=1e-7)
+@pytest.mark.parametrize("width", [1, 4])
+def test_de_converges_to_known_minimum(width: int) -> None:
+    opt = ScipyDE(two_dim_space(), seed=1, max_trials=1220, popsize=10, tol=1e-7, width=width)
     try:
         curve = _drive(opt, ask_n=4)
         assert curve  # at least one generation ran

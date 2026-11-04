@@ -6,7 +6,9 @@ Supported methods:
     - ``"scipy_de"`` → scipy.optimize.differential_evolution. SciPy's API is
       push-based (it calls the objective), so it runs in a thread behind a
       queue: ``ask()`` pops the next candidate SciPy wants evaluated,
-      ``tell()`` feeds the objective value back.
+      ``tell()`` feeds the objective value back. From a width of two it runs
+      with ``updating="deferred"``: SciPy hands over a whole generation at once,
+      so ``ask(n)`` returns it and the trials run side by side.
     - ``"scipy_nelder_mead"`` → scipy.optimize.minimize(method="Nelder-Mead"),
       reproduced call for call by :mod:`hydromodpy.calibration.optim.nelder_mead`
       so that one step's candidates can be solved side by side.
@@ -38,6 +40,14 @@ from hydromodpy.calibration.optim.sampling import (
 )
 from hydromodpy.core.exceptions import OptimizerError
 
+_DE_POPSIZE = 15
+"""Population size of differential evolution, as a multiple of the number of parameters."""
+
+
+def _population(popsize: int, dim: int) -> int:
+    """Return the points of one generation, which is also the width that buys anything."""
+    return max(5, popsize * max(1, dim))
+
 
 class _BridgeClosed(RuntimeError):
     """Internal signal used to stop a background SciPy worker."""
@@ -55,10 +65,11 @@ class _AskTellBridge:
     calls to ``tell`` push into ``in_q``.
     """
 
-    def __init__(self, method: Callable[[Callable], object]):
+    def __init__(self, method: Callable[[Callable, Callable], object]):
         self._method = method
         self._in_q: queue.Queue[float | object] = queue.Queue()
         self._out_q: queue.Queue[np.ndarray | None] = queue.Queue()
+        self._block = threading.Lock()
         self._done = threading.Event()
         self._thread = threading.Thread(target=self._worker, daemon=True)
         self._result: object | None = None
@@ -68,14 +79,25 @@ class _AskTellBridge:
         if self._done.is_set():
             raise _BridgeClosed
         self._out_q.put(np.array(x, dtype=float))
+        return self._value()
+
+    def _value(self) -> float:
         value = self._in_q.get()
         if value is _SENTINEL:
             raise _BridgeClosed
         return float(value)
 
+    def _map(self, _func: Callable, points: Any) -> list[float]:
+        """Stand in for SciPy's ``workers``: hand over a whole generation, then read its values."""
+        rows = [np.array(point, dtype=float) for point in points]
+        with self._block:
+            for row in rows:
+                self._out_q.put(row)
+        return [self._value() for _ in rows]
+
     def _worker(self) -> None:
         try:
-            self._result = self._method(self._obj)
+            self._result = self._method(self._obj, self._map)
         except _BridgeClosed:
             self._result = None
         finally:
@@ -88,10 +110,12 @@ class _AskTellBridge:
 
     def next_point_nowait(self) -> np.ndarray | None | object:
         """Return a queued point, or ``_BRIDGE_EMPTY`` when none is ready yet."""
-        try:
-            return self._out_q.get_nowait()
-        except queue.Empty:
-            return _BRIDGE_EMPTY
+        # After the whole generation was put, never in the middle of it.
+        with self._block:
+            try:
+                return self._out_q.get_nowait()
+            except queue.Empty:
+                return _BRIDGE_EMPTY
 
     def feed(self, value: float) -> None:
         self._in_q.put(value)
@@ -118,12 +142,6 @@ class _AskTellBridge:
 class _ScipyAdapterBase:
     name = "scipy"
 
-    traits = EngineTraits(supports_parallel=False)
-    """Sequential by construction: SciPy runs with ``workers=1``, so the next
-    point exists only once the current one has been told back. Asking for
-    concurrent trials buys nothing here, and the ``ask`` above says so in its own
-    comment."""
-
     def __init__(self, space: ParameterSpace, *, seed: int | None = None):
         self.space = space
         self._seed = seed
@@ -132,7 +150,7 @@ class _ScipyAdapterBase:
         self._trial_id = 0
         self._bridge = _AskTellBridge(self._make_method())
 
-    def _make_method(self) -> Callable[[Callable], object]:
+    def _make_method(self) -> Callable[[Callable, Callable], object]:
         raise NotImplementedError
 
     def _bounds_transformed(self) -> list[tuple[float, float]]:
@@ -144,10 +162,10 @@ class _ScipyAdapterBase:
             if slot == 0:
                 point = self._bridge.next_point()
             else:
-                # SciPy DE is sequential (workers=1): the next point is only
-                # produced after the current one is told back.
-                # Never block here, or ask(n>1) would deadlock; return only the
-                # points already queued (typically one).
+                # SciPy DE hands over one point, or one generation at a width above
+                # one, and the next only after the values come back. Never block
+                # here, or ask(n>1) would deadlock; return only the points already
+                # queued.
                 point = self._bridge.next_point_nowait()
                 if point is _BRIDGE_EMPTY:
                     break
@@ -196,7 +214,12 @@ class ScipyDE(_ScipyAdapterBase):
     """scipy.optimize.differential_evolution adapter."""
 
     name = "scipy_de"
-    traits = EngineTraits(supports_parallel=False, takes_max_trials=True)
+    traits = EngineTraits(
+        takes_max_trials=True,
+        takes_width=True,
+        fixed_plan=True,
+        reach=lambda options, dim: _population(options.get("popsize", _DE_POPSIZE), dim),
+    )
 
     def __init__(
         self,
@@ -204,30 +227,32 @@ class ScipyDE(_ScipyAdapterBase):
         *,
         seed: int | None = None,
         max_trials: int = 100,
-        popsize: int = 15,
+        popsize: int = _DE_POPSIZE,
         tol: float = 0.01,
+        width: int = 1,
     ):
+        self._width = int(width)
         self._max_trials = int(max_trials)
         self._popsize = popsize
         self._tol = tol
         super().__init__(space, seed=seed)
 
-    def _make_method(self) -> Callable[[Callable], object]:
+    def _make_method(self) -> Callable[[Callable, Callable], object]:
         from scipy.optimize import differential_evolution
 
         bounds = self._bounds_transformed()
         rng = np.random.default_rng(self._seed)
-        init = search_space_samples(
-            self.space,
-            rng,
-            max(5, self._popsize * max(1, self.space.dim)),
-        )
+        init = search_space_samples(self.space, rng, _population(self._popsize, self.space.dim))
 
         # The initial population takes one generation of evaluations, so the budget
         # covers that many generations less one.
         maxiter = max(1, math.ceil(self._max_trials / len(init)) - 1)
 
-        def run(obj: Callable[[np.ndarray], float]) -> object:
+        # Deferred updating scores a generation from the one before it, which is
+        # what lets the trials of a generation run side by side. The path differs
+        # from the immediate one SciPy follows at a width of one.
+        def run(obj: Callable[[np.ndarray], float], block: Callable) -> object:
+            parallel = {"updating": "deferred", "workers": block} if self._width > 1 else {}
             return differential_evolution(
                 obj,
                 bounds=bounds,
@@ -237,6 +262,7 @@ class ScipyDE(_ScipyAdapterBase):
                 tol=self._tol,
                 polish=False,
                 init=init,
+                **parallel,
             )
 
         return run
@@ -262,7 +288,7 @@ class ScipyNelderMead:
     # scipy's xatol is an absolute width in the variable the simplex walks, which
     # is the transformed one here.
     traits = EngineTraits(
-        supports_parallel=True,
+        reach=lambda options, dim: 4,
         accepts_a_start_point=True,
         precision_option="xatol",
         precision_reads="search_width",

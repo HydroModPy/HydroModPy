@@ -12,7 +12,8 @@ there and approximate in proportion to how curved it is. It is not a posterior: 
 carries no prior and states nothing about probability beyond the propagation of a
 residual variance through one derivative.
 
-What it costs: one model run per parameter, forward differences about the optimum.
+What it costs: one model run per parameter, forward differences about the optimum,
+run side by side when the search runs its trials so.
 That is cheaper than restarting the whole search, which is why it exists beside
 ``multistart`` rather than instead of it.
 
@@ -77,39 +78,38 @@ class ParameterUncertainty:
 def forward_difference_jacobian(
     names: Sequence[str],
     reference: Mapping[str, float],
-    simulate: Callable[[Mapping[str, float]], np.ndarray],
+    simulate_all: Callable[[list[dict[str, float]]], Sequence[np.ndarray]],
     *,
     relative_step: float = 0.01,
 ) -> np.ndarray:
     """Return the (n_obs, n_par) derivative of the simulated vector.
 
-    ``simulate`` runs the model at one parameter set and returns its value at each
-    observation, in a fixed order. One run per parameter, plus the reference one,
-    which runs last so the last simulated state is the reference's.
+    ``simulate_all`` takes the list of parameter sets to run, one per parameter
+    plus the reference one, which is last. It returns the simulated value at each
+    observation for each set, in the order of the list and in a fixed order of
+    observations. It is free to run them side by side.
 
     A parameter the simulated vector does not respond to gives a column of zeros,
     which is not an error: it is the statement that this calibration could not see
     that parameter, and the covariance says so by refusing to invert.
     """
-    perturbed_runs = []
-    for name in names:
-        step = _step_for(float(reference[name]), relative_step)
-        moved = dict(reference)
-        moved[name] = float(reference[name]) + step
-        perturbed = np.asarray(simulate(moved), dtype=float).ravel()
-        perturbed_runs.append((name, step, perturbed))
-    # The reference runs last: a caller that keeps the vector of the last run
-    # (the residuals of the fit) then holds the reference's, not a perturbed one.
-    base = np.asarray(simulate(reference), dtype=float).ravel()
+    steps = [_step_for(float(reference[name]), relative_step) for name in names]
+    runs = [
+        {**reference, name: float(reference[name]) + step}
+        for name, step in zip(names, steps, strict=True)
+    ]
+    *perturbed, base = (
+        np.asarray(vector, dtype=float).ravel() for vector in simulate_all([*runs, dict(reference)])
+    )
     columns = []
-    for name, step, perturbed in perturbed_runs:
-        if perturbed.size != base.size:
+    for name, step, vector in zip(names, steps, perturbed, strict=True):
+        if vector.size != base.size:
             raise ValueError(
-                f"perturbing {name!r} returned {perturbed.size} simulated value(s) and the "
+                f"perturbing {name!r} returned {vector.size} simulated value(s) and the "
                 f"reference returned {base.size}; a Jacobian needs the same observations in "
                 "the same order at every run."
             )
-        columns.append((perturbed - base) / step)
+        columns.append((vector - base) / step)
     return np.column_stack(columns) if columns else np.empty((base.size, 0))
 
 

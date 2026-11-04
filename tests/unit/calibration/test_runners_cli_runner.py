@@ -44,6 +44,7 @@ from hydromodpy.calibration.runners import cli_runner, staged_runner, trial
 from hydromodpy.calibration.runners import cli_runner as runner_module
 from hydromodpy.calibration.runners import promotion as promotion_module
 from hydromodpy.calibration.runners.cli_runner import (
+    _engine_kwargs,
     _first_trial_pairing,
     _log_parameter_interval,
     _margin_intervals_or_none,
@@ -57,6 +58,7 @@ from hydromodpy.calibration.runners.cli_runner import (
     refuse_a_phase_another_cost_scored,
     run_calibration_cli,
     run_calibration_core,
+    run_one_search,
     session_cost_name,
 )
 from hydromodpy.calibration.runners.failure_watch import EveryTrialFailedError
@@ -115,6 +117,7 @@ from tests.unit.calibration._factories_runners import (
     STAGED_HEAD,
     TWO_PHASES,
     FakeRunner,
+    bare_trial_ctx,
     journal_trial,
     make_config,
     make_report,
@@ -458,7 +461,11 @@ CFG = SimpleNamespace(
     objective="nse",
     variable="discharge",
     reject_water_budget_above=1.0,
+    parallel=1,
 )
+
+
+ENDED = {"primary_metric": 0.0, "duration_s": 0.0}
 
 
 def _capture(*args, **kwargs):
@@ -478,9 +485,9 @@ def _runs(fail_when, *, scores_before_failing: bool):
         if fail_when(values):
             if scores_before_failing:
                 metric_fn(values)
-            return SimpleNamespace(status="failed", error="water budget 3.2 %")
+            return SimpleNamespace(**ENDED, status="failed", error="water budget 3.2 %")
         metric_fn(values)
-        return SimpleNamespace(status="completed", error=None)
+        return SimpleNamespace(**ENDED, status="completed", error=None)
 
     return run_trial_light
 
@@ -507,7 +514,7 @@ def test_a_failed_perturbed_run_leaves_the_answer_without_width(
         kept = attach_a_linearized_width(
             report,
             cfg=CFG,
-            trial_ctx=SimpleNamespace(ctx=None),
+            trial_ctx=bare_trial_ctx(),
             space=SimpleNamespace(names=("K", "Sy")),
             perturbation=0.01,
         )
@@ -516,6 +523,63 @@ def test_a_failed_perturbed_run_leaves_the_answer_without_width(
     assert kept.parameter_uncertainty is None
     assert "No width is reported" in caplog.text
     assert "ended failed: water budget 3.2 %" in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("method", "parallel", "width"),
+    [("scipy_de", 3, 3), ("optuna", 2, 2), ("scipy_nelder_mead", 3, None)],
+)
+def test_the_width_reaches_the_engines_that_take_it(method, parallel, width) -> None:
+    cfg = make_config(method=method, parallel=parallel)
+
+    kwargs = _engine_kwargs(cfg, space_from_config(cfg), start_at=None)
+
+    assert kwargs.get("width") == width
+
+
+@pytest.mark.parametrize(
+    ("restarts", "indices"), [(None, [0]), (3, [0, 1, 2])], ids=["one_search", "three_restarts"]
+)
+def test_restarts_run_on_one_pool_that_the_search_closes(monkeypatch, restarts, indices) -> None:
+    pools: list = []
+    seen: list = []
+
+    class Pool:
+        def __init__(self, evaluator_class, options, *, width):
+            self.width, self.closed = width, False
+            pools.append(self)
+
+        def close(self):
+            self.closed = True
+
+    def core(cfg, trial_ctx, *, pool_for, phase, **_):
+        pool = pool_for(object, {}, width=cfg.parallel)
+        seen.append((phase.restart, pool))
+        return make_report(best_cost=1.0 + phase.restart, best_parameters={"K": 1e-5})
+
+    monkeypatch.setattr(cli_runner, "TrialWorkerPool", Pool)
+    monkeypatch.setattr(cli_runner, "run_calibration_core", core)
+    uncertainty = (
+        {"uncertainty": {"method": "multistart", "restarts": restarts}} if restarts else {}
+    )
+    cfg = make_config(method="scipy_nelder_mead", parallel=2, **uncertainty)
+
+    run_one_search(
+        cfg,
+        bare_trial_ctx(),
+        persistence=None,
+        space=space_from_config(cfg),
+        project_root=Path("."),
+        cfg_path=Path("."),
+        metric_fn=None,
+        objective=None,
+        phase=PhaseContext(),
+    )
+
+    assert sorted(restart for restart, _ in seen) == indices
+    [pool] = pools
+    assert (pool.width, pool.closed) == (2, True)
+    assert all(shared is pool for _, shared in seen)
 
 
 # From test_a_patch_release_keeps_the_cache.py
@@ -1958,6 +2022,23 @@ def test_the_dry_run_names_the_window_of_each_phase(tmp_path: Path, capsys) -> N
     err = capsys.readouterr().err
     assert "phase transient_storage: Sy, " in err
     assert "trials, scores on window 2001-01-01 to 2002-12-31" in err
+
+
+@pytest.mark.parametrize(
+    ("section", "widths", "shown"),
+    [(1, [5, None], 5), (4, [None, 2], 4), (3, [], 3)],
+)
+def test_the_dry_run_shows_the_widest_search(
+    tmp_path: Path, section: int, widths: list[int | None], shown: int
+) -> None:
+    config = EXAMPLE_04 / "run_calibration.toml"
+    cfg = load_toml_calibration(config)[0]
+    phases = [
+        phase.model_copy(update={"parallel": width}) for phase, width in zip(cfg.phases, widths)
+    ]
+    cfg = cfg.model_copy(update={"parallel": section, "phases": phases})
+
+    assert describe_dry_run(cfg, config, workspace=tmp_path)["solves_in_parallel"] == shown
 
 
 # From test_eq4_is_read_at_the_returned_trial.py

@@ -121,7 +121,7 @@ class TestPreflightActsOnIt:
         (tmp_path / "net.gpkg").write_bytes(b"")
         outputs: dict[str, object] = {
             "target": (
-                {"support": "network", "stream_geometry_path": str(tmp_path / "net.gpkg")}
+                {"support": "network", "map": {"complete": str(tmp_path / "net.gpkg")}}
                 if support == "network"
                 else {"support": "lake", "lake_id": "cheze", "variable": "stage"}
             )

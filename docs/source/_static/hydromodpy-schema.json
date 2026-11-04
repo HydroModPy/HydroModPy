@@ -2866,7 +2866,7 @@
         },
         "parallel": {
           "default": 1,
-          "description": "Trials solved side by side, each in its own folder, for every phase that sets none of its own. A grid or a random search evaluates its points together; a root search cuts its bracket into parallel + 1 parts; a simplex evaluates the candidates of one step together and keeps the sequential answer. Each trial holds its own model in memory; 1 solves them one after the other.",
+          "description": "Trials solved side by side, each in its own folder, for every phase that sets none of its own. A grid or a random search evaluates its points together; a root search cuts its bracket into parallel + 1 parts; a simplex evaluates the candidates of one step together and keeps the sequential answer, so a width above 4 buys it nothing, and CMA-ES and differential evolution stop at their population. A width above 1 gives each worker process its own copy of the model (about 0.5 GiB, 3 s to start); 1 solves the trials one after the other in this process.",
           "examples": [
             1
           ],
@@ -16805,7 +16805,7 @@
             }
           ],
           "default": null,
-          "description": "Wall-clock budget (seconds) for an isolated libmf6 ('api' runner) solve in parallel calibration; the child is killed past it so one stuck trial cannot wedge the session. None keeps the built-in default (2400 s).",
+          "description": "Wall-clock budget (seconds) of one trial of a parallel calibration, whichever runner solves it; its worker is killed past it so one stuck trial cannot wedge the session. None keeps the built-in default (14400 s).",
           "title": "Mf6 Api Timeout S",
           "x-hmp-profile": "expert"
         },

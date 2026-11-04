@@ -50,6 +50,7 @@ from typing import Any, Protocol
 
 from hydromodpy.calibration.optim.cache import ParamsHashCache, params_hash
 from hydromodpy.calibration.optim.optimizer import (
+    DEFAULT_ENGINE_TRAITS,
     EvaluationResult,
     Optimizer,
     ParamSuggestion,
@@ -178,7 +179,13 @@ class CalibrationEngine:
     numbers trials does it here, so the numbers follow that order and not the
     order in which parallel workers happen to start.
     """
-    _journaled: bool = field(default=False, init=False, repr=False)
+    on_stop: Callable[[], None] | None = None
+    """Called first when a parallel batch is stopped, before the engine waits for it.
+
+    The workers of a pool are not on the terminal of the caller, so only this call
+    reaches their solves. Without it a stop waits for the longest trial in flight.
+    """
+    _live: bool = field(default=False, init=False, repr=False)
     """Whether the last batch was journaled trial by trial, as each one ended."""
 
     def run(self) -> CalibrationSession:
@@ -287,21 +294,25 @@ class CalibrationEngine:
         (:meth:`_counted`) spend the budget.
         """
         while n_done < budget:
+            take = budget - n_done
             # A batch holds at least ``parallel`` trials: ``parallel`` alone must
-            # run trials side by side, not wait for a batch_size set beside it.
-            take = min(max(self.batch_size, self.parallel), budget - n_done)
+            # run trials side by side, not wait for a batch_size set beside it. A
+            # fixed plan is one queue instead: no point waits for another's result.
+            traits = getattr(self.optimizer, "traits", DEFAULT_ENGINE_TRAITS)
+            if self.parallel <= 1 or not traits.fixed_plan:
+                take = min(max(self.batch_size, self.parallel), take)
             suggestions = self.optimizer.ask(n=take)
             if not suggestions:
                 return True, n_done
-            results = self._evaluate_batch(suggestions)
+            results = self._evaluate_batch(suggestions, reporter)
             # Told first: a speculative engine marks the results it did not read
             # only then, and the journal row must carry that mark.
             self.optimizer.tell(results)
             for sugg, result in zip(suggestions, results, strict=True):
                 session.history.append(result)
-                if not _speculative_unused(result):
+                if not self._live and not _speculative_unused(result):
                     reporter.update(sugg.trial_id, result)
-                if self.on_iteration is not None and not self._journaled:
+                if self.on_iteration is not None and not self._live:
                     self.on_iteration(sugg, result)
             # A method that labels its own progress knows the batch only now.
             refresh = getattr(reporter, "refresh", None)
@@ -348,26 +359,27 @@ class CalibrationEngine:
     def _evaluate_batch(
         self,
         suggestions: list[ParamSuggestion],
+        reporter: ProgressReporter | _NoopProgress,
     ) -> list[EvaluationResult]:
         """Run every suggestion of one batch and return their results in order.
 
         ``parallel <= 1`` keeps the legacy sequential loop. ``parallel > 1``
-        dispatches trials through a :class:`ThreadPoolExecutor`. Threads
-        are used over processes because evaluators close over a live
-        ``Project`` whose DuckDB connection and Zarr handles are not
-        pickle-safe.
+        dispatches trials through a :class:`ThreadPoolExecutor`, one queue of
+        ``parallel`` threads. With a prepared model the evaluator is a
+        :class:`~hydromodpy.calibration.runners.worker_pool.TrialWorkerPool`, so
+        the threads only wait on worker processes. Any other evaluator computes
+        on them.
         """
         if self.before_batch is not None:
             self.before_batch(suggestions)
-        self._journaled = False
+        self._live = False
         if self.parallel <= 1 or len(suggestions) <= 1:
             return [self._evaluate_with_cache(sugg) for sugg in suggestions]
         workers = min(self.parallel, len(suggestions))
-        # ContextVars (e.g. the api-isolation scope the caller opened) do NOT cross
-        # the thread boundary, so give each worker its own copy of THIS thread's
-        # context. copy_context() runs here, in the caller thread, so every copy
-        # inherits the current bindings; a fresh copy per task avoids entering one
-        # Context object from several threads at once.
+        # ContextVars do NOT cross the thread boundary, so give each worker its own
+        # copy of THIS thread's context. copy_context() runs here, in the caller
+        # thread, so every copy inherits the current bindings; a fresh copy per task
+        # avoids entering one Context object from several threads at once.
         tasks = [(copy_context(), sugg) for sugg in suggestions]
 
         def _run_in_context(item: tuple) -> EvaluationResult:
@@ -375,11 +387,9 @@ class CalibrationEngine:
             return ctx.run(self._evaluate_with_cache, sugg)
 
         # An engine that marks the results it did not read, after the batch is told,
-        # journals then: a line written before that mark would count a trial the
-        # search never read.
-        self._journaled = self.on_iteration is not None and not getattr(
-            self.optimizer, "marks_unread", False
-        )
+        # reports and journals then: a line written before that mark would count a
+        # trial the search never read.
+        self._live = not getattr(self.optimizer, "marks_unread", False)
         results: list[EvaluationResult | None] = [None] * len(suggestions)
         with ThreadPoolExecutor(max_workers=workers) as pool:
             futures = {pool.submit(_run_in_context, task): i for i, task in enumerate(tasks)}
@@ -387,10 +397,15 @@ class CalibrationEngine:
                 for future in as_completed(futures):
                     i = futures[future]
                     results[i] = future.result()
-                    if self._journaled:
-                        self.on_iteration(suggestions[i], results[i])
+                    if self._live:
+                        reporter.update(suggestions[i].trial_id, results[i])
+                        if self.on_iteration is not None:
+                            self.on_iteration(suggestions[i], results[i])
             except BaseException:
-                # A stop must not wait for the queued trials, nor start them.
+                # A stop must not wait for the trials in flight, nor for the queued
+                # ones, nor start them.
+                if self.on_stop is not None:
+                    self.on_stop()
                 pool.shutdown(wait=True, cancel_futures=True)
                 raise
         return results

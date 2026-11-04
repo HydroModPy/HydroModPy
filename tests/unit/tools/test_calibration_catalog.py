@@ -77,7 +77,7 @@ def test_the_traits_come_from_the_adapters(payload: dict) -> None:
     assert rows["bisection"]["max_parameters"] == 1
     assert rows["bisection"]["needs_signed_residual"] is True
     assert rows["bisection"]["counts_its_budget"] is True
-    assert rows["scipy_de"]["supports_parallel"] is False
+    assert rows["scipy_de"]["supports_parallel"] is True
     assert rows["grid"]["restarts_explore_differently"] is False
     assert "da_mh_gp" not in rows
     assert [name for name, row in rows.items() if row["chosen_rank"] is not None] == sorted(

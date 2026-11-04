@@ -2519,8 +2519,10 @@ class CalibrationConfig(HydroModelBase):
             "sets none of its own. A grid or a random search evaluates its points "
             "together; a root search cuts its bracket into parallel + 1 parts; a "
             "simplex evaluates the candidates of one step together and keeps the "
-            "sequential answer. Each trial holds its own model in memory; 1 solves "
-            "them one after the other."
+            "sequential answer, so a width above 4 buys it nothing, and CMA-ES and "
+            "differential evolution stop at their population. A width above 1 gives each worker process its own copy of "
+            "the model (about 0.5 GiB, 3 s to start); 1 solves the trials one after the "
+            "other in this process."
         ),
         json_schema_extra={"unit": "-"},
     )

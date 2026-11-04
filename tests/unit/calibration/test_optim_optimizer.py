@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import math
 import threading
+import time
+import warnings
 from collections.abc import Mapping
 
 import numpy as np
@@ -330,6 +332,19 @@ class TestOptunaAdapter:
     def test_rejects_unknown_sampler(self):
         with pytest.raises(ValueError, match="sampler"):
             build_optimizer("optuna", _space_2d(), sampler="not-a-sampler")
+
+    @pytest.mark.parametrize(
+        ("sampler", "width", "counts_the_trials_in_flight"),
+        [("tpe", 1, False), ("tpe", 2, True), ("tpe", 8, True), ("random", 8, False)],
+    )
+    def test_tpe_counts_the_trials_in_flight_from_a_width_of_two(
+        self, sampler, width, counts_the_trials_in_flight
+    ):
+        with warnings.catch_warnings():
+            # The option is experimental in Optuna, and the user is not told so.
+            warnings.simplefilter("error")
+            opt = build_optimizer("optuna", _space_2d(), sampler=sampler, seed=0, width=width)
+        assert getattr(opt._study.sampler, "_constant_liar", False) is counts_the_trials_in_flight
 
 
 # From test_random_search_adapter.py
@@ -668,6 +683,102 @@ def test_a_parallel_batch_is_journaled_as_each_trial_ends_unless_the_engine_mark
     assert seen == [(told_at_journal, True)] * 2
 
 
+@pytest.mark.parametrize(
+    ("method", "options", "parallel", "asked"),
+    [
+        ("grid", {"points_per_dim": 6}, 1, [1] * 6),
+        ("grid", {"points_per_dim": 6}, 2, [6]),
+        ("optuna", {"sampler": "random", "seed": 0}, 2, [2, 2, 2]),
+        # One generation of five, then the one point the budget still allows.
+        ("scipy_de", {"popsize": 5, "width": 2}, 2, [6, 1]),
+    ],
+    ids=[
+        "grid_in_one_process",
+        "grid_as_one_queue",
+        "a_search_that_reads_results_keeps_batches",
+        "a_generation_as_one_queue",
+    ],
+)
+def test_a_fixed_plan_is_asked_whole_and_any_other_engine_in_batches(
+    method, options, parallel, asked
+) -> None:
+    optimizer = build_optimizer(method, unit_space(), **options)
+    sizes: list[int] = []
+    ask = optimizer.ask
+    optimizer.ask = lambda n=1: sizes.append(n) or ask(n)
+
+    session = run_engine(unit_space(), optimizer, _constant_evaluator(0.0), 6, parallel=parallel)
+
+    if hasattr(optimizer, "close"):
+        optimizer.close()
+
+    assert sizes == asked
+    assert len(session.history) == 6
+
+
+def test_an_idle_worker_takes_the_next_point_of_a_fixed_plan_while_a_slow_one_runs() -> None:
+    third_started = threading.Event()
+
+    def evaluator(sugg: ParamSuggestion) -> EvaluationResult:
+        if sugg.trial_id == 3:
+            third_started.set()
+        if sugg.trial_id == 1:
+            # With a barrier after two trials, the third waits for this one.
+            assert third_started.wait(timeout=2.0)
+        return _constant_evaluator(0.0)(sugg)
+
+    optimizer = build_optimizer("grid", unit_space(), points_per_dim=4)
+    session = run_engine(unit_space(), optimizer, evaluator, 4, parallel=2)
+
+    assert [result.cost for result in session.history] == pytest.approx([0, 1 / 3, 2 / 3, 1])
+
+
+def test_a_tie_does_not_depend_on_which_trial_ends_first() -> None:
+    second_ended = threading.Event()
+
+    def evaluator(sugg: ParamSuggestion) -> EvaluationResult:
+        if sugg.trial_id == 1:
+            assert second_ended.wait(timeout=2.0)
+        else:
+            second_ended.set()
+        return _constant_evaluator(0.0)(sugg)
+
+    optimizer = _BatchedStubOptimizer([{"x": 0.5}, {"x": 0.5}])
+    session = run_engine(unit_space(), optimizer, evaluator, 2, batch_size=2, parallel=2)
+
+    assert [result.trial_id for result in session.history] == [1, 2]
+    assert session.best.trial_id == optimizer.best().trial_id == 1
+
+
+def test_a_stop_reaches_the_solves_in_flight_before_the_engine_waits_for_them() -> None:
+    stopped = threading.Event()
+
+    def evaluator(sugg: ParamSuggestion) -> EvaluationResult:
+        if sugg.trial_id == 2:
+            # A solve in a worker that only the stop can end.
+            assert stopped.wait(timeout=5.0)
+        return _constant_evaluator(0.0)(sugg)
+
+    def interrupt(*_: object) -> None:
+        raise KeyboardInterrupt
+
+    optimizer = _BatchedStubOptimizer([{"x": 0.1}, {"x": 0.2}])
+    started = time.monotonic()
+    with pytest.raises(KeyboardInterrupt):
+        run_engine(
+            unit_space(),
+            optimizer,
+            evaluator,
+            2,
+            batch_size=2,
+            parallel=2,
+            on_iteration=interrupt,
+            on_stop=stopped.set,
+        )
+
+    assert time.monotonic() - started < 1.0
+
+
 def test_a_stop_in_the_caller_thread_runs_no_queued_trial_and_keeps_the_journal() -> None:
     ran: list[int] = []
     journaled: list[int] = []
@@ -714,10 +825,28 @@ def test_a_parallel_batch_returns_its_results_in_order_and_journals_them_as_they
         journaled.append(sugg.trial_id)
         first_may_end.set()
 
+    class Ticks:
+        trials: list[int] = []
+
+        def update(self, trial_id: int, result: EvaluationResult) -> None:
+            self.trials.append(trial_id)
+
+        def close(self) -> None: ...
+
+    ticks = Ticks()
     optimizer = _BatchedStubOptimizer([{"x": 0.1}, {"x": 0.2}])
     session = run_engine(
-        unit_space(), optimizer, evaluator, 2, batch_size=2, parallel=2, on_iteration=journal
+        unit_space(),
+        optimizer,
+        evaluator,
+        2,
+        batch_size=2,
+        parallel=2,
+        on_iteration=journal,
+        progress=ticks,
     )
 
     assert journaled == [2, 1]
+    # The bar moves as the trials end, not when the whole batch has.
+    assert ticks.trials == [2, 1]
     assert [result.trial_id for result in session.history] == [1, 2]

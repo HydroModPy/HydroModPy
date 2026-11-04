@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pickle
 from dataclasses import replace
 from types import SimpleNamespace
 
@@ -17,9 +18,11 @@ from hydromodpy.calibration.optim.fosm import (
     uncertainty_from_covariance,
 )
 from hydromodpy.calibration.report import CalibrationReport
+from hydromodpy.calibration.runners import cli_runner
 from hydromodpy.calibration.runners import trial as _trial
 from hydromodpy.calibration.runners.cli_runner import attach_a_linearized_width
 from hydromodpy.core.exceptions import UncertaintyNotAvailableError
+from tests.unit.calibration._factories_runners import bare_trial_ctx
 
 # From test_a_linearized_width_is_exact_where_the_model_is_linear.py
 # A first-order covariance, confronted where first-order is exact.
@@ -45,18 +48,35 @@ def _simulate(parameters):
     return A @ p
 
 
+def _simulate_all(runs):
+    return [_simulate(run) for run in runs]
+
+
 class TestTheJacobian:
     def test_a_linear_model_reproduces_its_own_matrix(self) -> None:
         # Forward differences are exact on a linear model, to machine precision.
-        J = forward_difference_jacobian(NAMES, TRUTH, _simulate)
+        J = forward_difference_jacobian(NAMES, TRUTH, _simulate_all)
         assert J == pytest.approx(A, abs=1e-9)
+
+    def test_it_is_the_one_a_run_at_a_time_gives_to_the_last_digit(self) -> None:
+        # The columns as one run per parameter, then the reference, would take them.
+        base = _simulate(TRUTH)
+        steps = [0.01 * abs(TRUTH[name]) for name in NAMES]
+        columns = [
+            (_simulate({**TRUTH, name: TRUTH[name] + step}) - base) / step
+            for name, step in zip(NAMES, steps, strict=True)
+        ]
+
+        J = forward_difference_jacobian(NAMES, TRUTH, _simulate_all)
+
+        np.testing.assert_array_equal(J, np.column_stack(columns))
 
     def test_the_step_scales_with_the_value(self) -> None:
         seen: list[float] = []
 
-        def _record(parameters):
-            seen.append(parameters["K"])
-            return _simulate({"K": parameters["K"], "Sy": 0.5})
+        def _record(runs):
+            seen.extend(run["K"] for run in runs)
+            return [np.zeros(2)] * len(runs)
 
         forward_difference_jacobian(("K",), {"K": 100.0}, _record, relative_step=0.01)
         # One perturbed run, a per cent away, then the reference run.
@@ -66,22 +86,16 @@ class TestTheJacobian:
         # Zero has no scale of its own to take a fraction of.
         seen: list[float] = []
 
-        def _record(parameters):
-            seen.append(parameters["K"])
-            return _simulate({"K": parameters["K"], "Sy": 0.0})
+        def _record(runs):
+            seen.extend(run["K"] for run in runs)
+            return [np.zeros(2)] * len(runs)
 
         forward_difference_jacobian(("K",), {"K": 0.0}, _record, relative_step=0.01)
         assert seen[0] == pytest.approx(0.01)
 
     def test_a_run_that_returns_a_different_number_of_values_is_refused(self) -> None:
-        calls = {"n": 0}
-
-        def _ragged(parameters):
-            calls["n"] += 1
-            return np.zeros(5 if calls["n"] == 1 else 4)
-
         with pytest.raises(ValueError, match="same observations in the same order"):
-            forward_difference_jacobian(("K",), {"K": 1.0}, _ragged)
+            forward_difference_jacobian(("K",), {"K": 1.0}, lambda runs: [np.zeros(5), np.zeros(4)])
 
 
 class TestTheCovariance:
@@ -187,7 +201,9 @@ class TestThePassOverAReport:
             state["runs"] = int(state["runs"]) + 1
             # The capture reads the parameter set straight off the "trial context".
             _kwargs["metric_fn"](values)
-            return SimpleNamespace(status="completed", metrics={}, error=None)
+            return SimpleNamespace(
+                status="completed", primary_metric=0.0, duration_s=0.0, error=None
+            )
 
         monkeypatch.setattr(_composite, "build_paired_vector_capture", _capture)
         monkeypatch.setattr(_trial, "run_trial_light", _run_trial_light)
@@ -214,6 +230,7 @@ class TestThePassOverAReport:
             window=None,
             aggregate=SimpleNamespace(min_samples=1),
             reject_water_budget_above=None,
+            parallel=1,
         )
 
     def _space(self):
@@ -228,7 +245,7 @@ class TestThePassOverAReport:
         attach_a_linearized_width(
             self._report(),
             cfg=cfg,
-            trial_ctx=SimpleNamespace(ctx=None),
+            trial_ctx=bare_trial_ctx(),
             space=self._space(),
             perturbation=0.01,
         )
@@ -248,7 +265,7 @@ class TestThePassOverAReport:
         kept = attach_a_linearized_width(
             report,
             cfg=self._cfg(),
-            trial_ctx=SimpleNamespace(ctx=None),
+            trial_ctx=bare_trial_ctx(),
             space=self._space(),
             perturbation=0.01,
         )
@@ -268,7 +285,7 @@ class TestThePassOverAReport:
             attach_a_linearized_width(
                 self._report(),
                 cfg=self._cfg(),
-                trial_ctx=SimpleNamespace(ctx=None),
+                trial_ctx=bare_trial_ctx(),
                 space=self._space(),
                 perturbation=0.01,
             )
@@ -278,17 +295,54 @@ class TestThePassOverAReport:
         attach_a_linearized_width(
             self._report(),
             cfg=self._cfg(),
-            trial_ctx=SimpleNamespace(ctx=None),
+            trial_ctx=bare_trial_ctx(),
             space=self._space(),
             perturbation=0.01,
         )
         assert state["runs"] == 3
 
+    def test_runs_side_by_side_give_the_width_the_runs_one_by_one_give(
+        self, wired, monkeypatch
+    ) -> None:
+        pools = []
+
+        class _Pool:
+            """Runs in this process, and says how it was built and closed."""
+
+            def __init__(self, evaluator_class, options, *, width):
+                # What a real pool sends to its workers has to cross a process.
+                pickle.dumps((evaluator_class, options))
+                self.width, self.options, self.closed = width, options, False
+                self._evaluator = evaluator_class(**options)
+                self.trial_series_sink = self._evaluator.trial_series_sink
+                pools.append(self)
+
+            def evaluate(self, request):
+                return self._evaluator.evaluate(request)
+
+            def close(self):
+                self.closed = True
+
+        monkeypatch.setattr(cli_runner, "TrialWorkerPool", _Pool)
+        cfg, retention = self._cfg(), object()
+        kwargs = {"space": self._space(), "perturbation": 0.01}
+        one_by_one = attach_a_linearized_width(
+            self._report(), cfg=cfg, trial_ctx=bare_trial_ctx(), **kwargs
+        )
+        cfg.parallel = 8
+        ctx = replace(bare_trial_ctx(), kept_solves=retention)
+        side_by_side = attach_a_linearized_width(self._report(), cfg=cfg, trial_ctx=ctx, **kwargs)
+
+        assert side_by_side.parameter_uncertainty == one_by_one.parameter_uncertainty
+        [pool] = pools
+        # One run per parameter and the reference, and no run keeps a solve.
+        assert (pool.width, pool.closed, pool.options["trial_ctx"].kept_solves) == (3, True, None)
+
     def test_the_width_reaches_the_report_and_the_values_do_not_move(self, wired) -> None:
         updated = attach_a_linearized_width(
             self._report(),
             cfg=self._cfg(),
-            trial_ctx=SimpleNamespace(ctx=None),
+            trial_ctx=bare_trial_ctx(),
             space=self._space(),
             perturbation=0.01,
         )
@@ -303,7 +357,7 @@ class TestThePassOverAReport:
             attach_a_linearized_width(
                 empty,
                 cfg=self._cfg(),
-                trial_ctx=SimpleNamespace(ctx=None),
+                trial_ctx=bare_trial_ctx(),
                 space=self._space(),
                 perturbation=0.01,
             )
@@ -349,27 +403,28 @@ def _model(values) -> np.ndarray:
 
 
 def _capturing():
-    captured: dict[str, np.ndarray] = {}
+    asked: list[dict] = []
 
-    def simulate(values):
-        captured["simulated"] = _model(values)
-        return captured["simulated"]
+    def simulate_all(runs):
+        asked.extend(runs)
+        return [_model(run) for run in runs]
 
-    return simulate, captured
+    return simulate_all, asked
 
 
 def test_the_last_run_of_the_jacobian_is_the_reference() -> None:
-    simulate, captured = _capturing()
+    simulate_all, asked = _capturing()
 
-    forward_difference_jacobian(("K", "Sy"), REFERENCE, simulate)
+    forward_difference_jacobian(("K", "Sy"), REFERENCE, simulate_all)
 
-    np.testing.assert_array_equal(captured["simulated"], _model(REFERENCE))
+    assert len(asked) == 3
+    assert asked[-1] == REFERENCE
 
 
 def test_the_derivatives_do_not_depend_on_the_order_of_the_runs() -> None:
-    simulate, _ = _capturing()
+    simulate_all, _ = _capturing()
 
-    jacobian = forward_difference_jacobian(("K", "Sy"), REFERENCE, simulate, relative_step=1e-6)
+    jacobian = forward_difference_jacobian(("K", "Sy"), REFERENCE, simulate_all, relative_step=1e-6)
 
     expected = np.array([[4.0, 0.0], [0.5, 2.0], [0.0, np.exp(0.5)]])
     assert jacobian == pytest.approx(expected, rel=1e-4, abs=1e-5)

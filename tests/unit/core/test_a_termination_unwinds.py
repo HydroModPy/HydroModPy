@@ -13,8 +13,10 @@ signals agree: whatever ends the process, the session is closed and says how.
 
 from __future__ import annotations
 
+import os
 import signal
 import threading
+from pathlib import Path
 
 import pytest
 
@@ -87,15 +89,16 @@ def test_outside_the_main_thread_it_does_nothing_rather_than_failing() -> None:
     assert outcome == ["ran"]
 
 
-def test_the_calibration_loop_installs_it() -> None:
-    """The loop is where trials run for hours, so it is where this belongs."""
-    import inspect
+def test_the_session_scope_installs_it_for_the_whole_run() -> None:
+    """The scope, not the search: restarts side by side run the search off the main thread."""
+    from hydromodpy.calibration.runners.cli_runner import SessionScope, closing_session
 
-    from hydromodpy.calibration.runners import cli_runner
+    before = _current_handler()
+    with pytest.raises(TerminationRequested):
+        with closing_session(SessionScope(cfg=None, project_root=Path("."))):
+            os.kill(os.getpid(), signal.SIGTERM)
 
-    source = inspect.getsource(cli_runner.run_calibration_core)
-
-    assert "terminate_as_interrupt()" in source
+    assert _current_handler() is before
 
 
 def test_a_terminated_session_is_closed_as_aborted() -> None:

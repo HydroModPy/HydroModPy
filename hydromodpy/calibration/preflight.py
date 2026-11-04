@@ -887,13 +887,19 @@ def _check_engines(calibration: Any) -> list[PreflightFinding]:
                     "fall by trading excess for missing stream. Score distance_mean.",
                 )
             )
-        if parallel > 1 and not traits.supports_parallel:
+        reach = None
+        if not traits.supports_parallel:
+            reach = 1
+        elif traits.reach is not None:
+            reach = traits.reach(options_of.get(where) or {}, len(names))
+        if parallel > 1 and reach is not None and parallel > reach:
             findings.append(
                 PreflightFinding(
                     "warning",
                     where,
-                    f"{method!r} returns one point at a time, so parallel = {parallel} "
-                    "buys nothing.",
+                    f"{method!r} can use {reach} solves at once, so parallel = {parallel} "
+                    f"buys nothing beyond {reach}. Each worker takes about 0.5 GiB and 3.3 s "
+                    "to start.",
                 )
             )
     return findings

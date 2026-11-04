@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import threading
+
 import numpy as np
 import pytest
 
@@ -10,6 +12,7 @@ from hydromodpy.calibration.runners.restarts import (
     RestartSpread,
     assert_restarts_can_explore,
     run_restarts,
+    run_side_by_side,
     start_points,
 )
 from tests.unit.calibration._factories_runners import make_report
@@ -86,7 +89,7 @@ class TestTheLoop:
     def test_every_restart_runs_once_with_its_own_seed(self) -> None:
         seen: list[int] = []
 
-        def run_one(seed, _start):
+        def run_one(seed, _start, _index):
             seen.append(seed)
             return _report(1.0, K=1e-5, Sy=0.01)
 
@@ -97,7 +100,7 @@ class TestTheLoop:
         costs = [0.9, 0.3, 0.7]
         values = [1e-5, 4e-6, 2e-5]
 
-        def run_one(seed, _start):
+        def run_one(seed, _start, _index):
             index = seed - 1
             return _report(costs[index], K=values[index], Sy=0.01)
 
@@ -122,7 +125,7 @@ class TestTheLoop:
     def test_the_answer_is_the_best_restart_that_settled(
         self, settled, costs, expected_cost, expected_status
     ) -> None:
-        def run_one(seed, _start):
+        def run_one(seed, _start, _index):
             return _report(costs[seed], settled=settled[seed], K=1e-5, Sy=0.01)
 
         best, _spread = run_restarts(
@@ -133,7 +136,7 @@ class TestTheLoop:
 
     def test_a_restart_that_found_nothing_is_left_out_of_the_spread(self) -> None:
         # A search that failed did not find a different optimum; it found none.
-        def run_one(seed, _start):
+        def run_one(seed, _start, _index):
             if seed == 1:
                 return _report(None)
             return _report(0.5, K=1e-5, Sy=0.01)
@@ -146,10 +149,42 @@ class TestTheLoop:
 
     def test_every_restart_failing_still_returns_a_report(self) -> None:
         best, spread = run_restarts(
-            lambda _s, _p: _report(None), method="optuna", space=SPACE, restarts=2, seed=0
+            lambda _s, _p, _i: _report(None), method="optuna", space=SPACE, restarts=2, seed=0
         )
         assert best is not None
         assert spread == ()
+
+
+class TestSideBySide:
+    def test_restarts_wait_for_each_other_at_a_width_of_two_and_keep_their_order(self) -> None:
+        # Two restarts that meet at a barrier cannot have run one after the other.
+        meeting = threading.Barrier(2, timeout=2.0)
+        seen: list[tuple[int, int]] = []
+
+        def run_one(seed, _start, index):
+            meeting.wait()
+            seen.append((seed, index))
+            return _report(1.0 + index, K=1e-5, Sy=0.01)
+
+        best, _spread = run_restarts(
+            run_one, method="scipy_nelder_mead", space=SPACE, restarts=2, seed=100, width=2
+        )
+        assert sorted(seen) == [(100, 0), (101, 1)]
+        assert best.best_cost == pytest.approx(1.0)
+
+    def test_a_failure_stops_the_others(self) -> None:
+        stopped = threading.Event()
+
+        def work(item):
+            if item == 0:
+                raise RuntimeError("it failed")
+            # Only the stop can end this one, as it ends the solve of a pool.
+            assert stopped.wait(timeout=2.0)
+            return item
+
+        with pytest.raises(RuntimeError, match="it failed"):
+            run_side_by_side(work, [0, 1], width=2, on_stop=stopped.set)
+        assert stopped.is_set()
 
 
 class TestWhatTheSpreadSays:

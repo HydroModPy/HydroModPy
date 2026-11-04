@@ -33,7 +33,6 @@ from __future__ import annotations
 
 import copy as _copy
 import math
-import threading
 import time
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager, nullcontext
@@ -55,7 +54,7 @@ from hydromodpy.calibration.runners.kept_solves import (
     RecordingLauncher,
     TrialSolveRetention,
 )
-from hydromodpy.calibration.runners.sandbox import TrialSandbox
+from hydromodpy.calibration.runners.sandbox import sandbox_of
 from hydromodpy.calibration.runners.verdict import water_budget_verdict
 from hydromodpy.core import progress
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
@@ -81,14 +80,6 @@ if TYPE_CHECKING:
 
 
 logger = get_logger(__name__)
-
-# Structural binding (geology -> domain, lake-geometry parquet reads, flow
-# rebuild) runs per trial but operates on the prep state shared by reference
-# across concurrent trials (domain, loaded_data) and uses GDAL/geopandas reads
-# that are not thread-safe. Serializing only this phase keeps it correct while
-# the expensive mf6 solves still run in parallel.
-_STRUCTURAL_BIND_LOCK = threading.Lock()
-
 
 # ---------------------------------------------------------------------------
 # Results
@@ -447,19 +438,13 @@ def built_model(trial_ctx: TrialContext, values: Mapping[str, float]) -> Iterato
     model before the first solve reads it here, with what a trial reads.
     """
     provider = get_trial_pipeline_provider()
-    setup = trial_ctx.ctx.setup
-    sandbox = TrialSandbox(
-        str(getattr(setup, "run_id", "") or "trial"),
-        0,
-        scratch_root=getattr(getattr(setup, "workspace", None), "solver_scratch_folder", None),
-    )
+    sandbox = sandbox_of(trial_ctx, 0)
     overrides = {**sandbox.flow_overrides, STOP_BEFORE_THE_SOLVE: True}
     if _trial_owns_its_recharge(trial_ctx):
         overrides["trial_owns_its_recharge"] = True
     with progress.suppressed(), sandbox:
-        with _STRUCTURAL_BIND_LOCK:
-            forked = trial_ctx.fork(values, flow_runtime_overrides=overrides)
-            sandbox.track(forked.ctx.execution)
+        forked = trial_ctx.fork(values, flow_runtime_overrides=overrides)
+        sandbox.track(forked.ctx.execution)
         names = [step.name for step in forked.downstream_steps]
         through_the_launcher = names.index("run_solver") + 1
         steps = provider.with_solver_launcher(
@@ -532,14 +517,7 @@ def run_trial_light(
         retention (``trial_ctx.kept_solves``) keeps it for a promotion.
     """
     provider = get_trial_pipeline_provider()
-    base_setup = getattr(getattr(trial_ctx, "ctx", None), "setup", None)
-    base_model_name = str(getattr(base_setup, "run_id", "") or "trial") or "trial"
-    scratch_root = getattr(getattr(base_setup, "workspace", None), "solver_scratch_folder", None)
-    sandbox = (
-        TrialSandbox(base_model_name, trial_id, scratch_root=scratch_root)
-        if trial_id is not None
-        else None
-    )
+    sandbox = sandbox_of(trial_ctx, trial_id) if trial_id is not None else None
     flow_overrides = sandbox.flow_overrides if sandbox is not None else None
     if flow_overrides is not None and _trial_owns_its_recharge(trial_ctx):
         # Same string as solver.modflow6.builders.recharge.PRIVATE_TRIAL_RECHARGE_KEY,
@@ -558,10 +536,9 @@ def run_trial_light(
     t0 = time.monotonic()
     with progress.suppressed(), sandbox or nullcontext():
         try:
-            with _STRUCTURAL_BIND_LOCK:
-                forked = trial_ctx.fork(values, flow_runtime_overrides=flow_overrides)
-                if sandbox is not None:
-                    sandbox.track(forked.ctx.execution)
+            forked = trial_ctx.fork(values, flow_runtime_overrides=flow_overrides)
+            if sandbox is not None:
+                sandbox.track(forked.ctx.execution)
         except Exception as exc:
             return TrialResult(
                 values=dict(values),

@@ -91,9 +91,9 @@ class LhsMethodConfig(BaseModel):
 class ScipyDEMethodConfig(BaseModel):
     """Differential evolution, ``scipy.optimize.differential_evolution``.
 
-    A population search over the whole box. It runs one trial at a time, so
-    ``parallel`` buys nothing. Use it for a robust global search when trials
-    cannot run side by side anyway.
+    A population search over the whole box. It scores a generation at once, so
+    ``parallel`` helps up to the size of the population. It follows another path
+    from the one it follows at a width of one. Use it for a robust global search.
     """
 
     model_config = _MODEL_CONFIG

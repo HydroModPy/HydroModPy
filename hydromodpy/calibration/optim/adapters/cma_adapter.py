@@ -32,6 +32,9 @@ from hydromodpy.calibration.optim.optimizer import (
 from hydromodpy.calibration.optim.parameters import ParameterSpace
 from hydromodpy.calibration.optim.sampling import search_space_center
 
+_POPSIZE = 6
+"""Points per generation when the file names none."""
+
 _SEED_FOR_ZERO = 2**31 - 1
 """The seed that stands for 0, which ``cma`` would draw from the clock."""
 
@@ -68,14 +71,18 @@ class CmaEsAdapter:
 
     name = "cma_es"
 
-    traits = EngineTraits(accepts_a_start_point=True, takes_max_trials=True)
+    traits = EngineTraits(
+        accepts_a_start_point=True,
+        takes_max_trials=True,
+        reach=lambda options, dim: options.get("popsize", _POPSIZE),
+    )
 
     def __init__(
         self,
         space: ParameterSpace,
         *,
         sigma0: float = 0.25,
-        popsize: int = 6,
+        popsize: int = _POPSIZE,
         max_trials: int = 30,
         normalize: bool = True,
         seed: int | None = None,

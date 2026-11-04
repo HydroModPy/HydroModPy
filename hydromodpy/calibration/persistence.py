@@ -500,8 +500,9 @@ class CalibrationPersistence:
 
         Parallel workers start in no fixed order, so a batch is numbered in the
         order the optimizer made it. Two sessions on the same search then give
-        the same trial the same number, and a tie on the objective, broken by
-        the smaller number, names the same trial in both.
+        the same trial the same number. Restarts side by side take their numbers
+        in the order their batches arrive, so a tie on the objective is broken
+        by the restart first, then by the number, and names the same trial in both.
         """
         return [self.assign_trial_number(trial_id, phase) for trial_id in engine_trial_ids]
 
@@ -571,7 +572,7 @@ class CalibrationPersistence:
             and not line.speculative_unused
             and (restart is None or line.restart == restart)
         ]
-        return sorted(candidates, key=lambda line: (line.cost, line.trial))
+        return sorted(candidates, key=lambda line: (line.cost, line.restart, line.trial))
 
     def link_trial(self, trial: int, *, sim_id: str | None, rel_dir: str | None) -> TrialLine:
         """Rewrite the line of a trial with the run it became; the last line wins."""
