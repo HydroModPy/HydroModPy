@@ -107,7 +107,11 @@ shared one, so the cases never compete for it.
 
 {toml}`sites.run.parallel` is the number of solves that run side by side. A calibration
 case that solves five trials at once counts for five, at its widest phase, and a case wider
-than {toml}`sites.run.parallel` is refused without `--force`. {toml}`sites.run.on_error` says
+than {toml}`sites.run.parallel` is refused without `--force`. A campaign that holds a
+calibration is also refused above 8 solves without `--force`. Eight solves held 6.5 GiB on a
+model of 21 000 cells, so about 0.8 GiB each, with no case lost and the same costs at widths 2,
+4 and 8. Scale that memory to your model before you raise the width on a small machine.
+{toml}`sites.run.on_error` says
 whether a failed case stops the launch or lets the others go on.
 
 ## Follow it

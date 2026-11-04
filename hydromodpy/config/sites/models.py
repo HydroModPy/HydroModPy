@@ -112,7 +112,7 @@ class SitesRunConfig(HydroModelBase):
             "[calibration] parallel is 5 takes 5 of it. The default is 8 because the "
             "throughput levelled off from 8 runs side by side on 22 cores, each run "
             "holding up to 1.2 GiB. Above 16 the launcher refuses without --force "
-            "(16 runs held 14 GiB), and above 2 for a campaign that holds a calibration."
+            "(16 runs held 14 GiB), and above 8 for a campaign that holds a calibration."
         ),
         examples=[8],
         json_schema_extra=field_metadata(unit="-"),

@@ -207,11 +207,11 @@ def test_the_budget_of_solves_is_refused_above_the_ceilings_without_force() -> N
     assert effective_parallel(16, simulations, threads_per_case=1, force=False, cores=64) == 16
     with pytest.raises(BudgetError, match="above 16"):
         effective_parallel(17, simulations, threads_per_case=1, force=False, cores=64)
-    assert effective_parallel(2, calibration, threads_per_case=1, force=False, cores=64) == 2
+    assert effective_parallel(8, calibration, threads_per_case=1, force=False, cores=64) == 8
     with pytest.raises(BudgetError, match="parallel = 5 of case a-cal exceeds"):
         effective_parallel(2, wide, threads_per_case=1, force=False, cores=64)
-    with pytest.raises(BudgetError, match="calibration"):
-        effective_parallel(3, calibration, threads_per_case=1, force=False, cores=64)
+    with pytest.raises(BudgetError, match="measured ceiling is 8"):
+        effective_parallel(9, calibration, threads_per_case=1, force=False, cores=64)
     with pytest.raises(BudgetError, match="cores"):
         effective_parallel(4, simulations, threads_per_case=4, force=False, cores=8)
     assert effective_parallel(17, calibration, threads_per_case=4, force=True, cores=2) == 17

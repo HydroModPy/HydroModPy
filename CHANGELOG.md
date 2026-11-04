@@ -123,6 +123,7 @@ Numbers: none.
 - `scipy_de` now accepts `parallel` above 1 and `hmp calibrate --dry-run` no longer says it proposes one trial at a time. From a width of 2 it scores a whole generation from the one before it (`updating = "deferred"`). Its path differs from the one it follows at `parallel = 1`, which is unchanged. For the same number of evaluations it reaches a higher cost (see Numbers), and it runs the trials of a generation side by side.
 - With `parallel` above 1, Optuna's `tpe` sampler counts the trials in flight as the worst cost so far (`constant_liar`), so the points of one batch do not land on each other.
 - `validation_cases/calibration/shared/standalone.py` holds the driver and the command line of the three standalone calibration cases, and the hillslope recession case calls the recession law of `recession_brutsaert`. Their results do not change.
+- A `[sites]` campaign that holds a calibration can now run up to 8 solves side by side without `--force`, up from 2. Trials run in worker processes since this cycle, and the launcher was measured again at 2, 4 and 8. A campaign that leaves `[sites.run] parallel` unset is no longer refused for its default of 8.
 
 ### Numbers
 
@@ -145,6 +146,9 @@ None. No metric value changes.
 - K and Sy together on two maps: a twin finds K to a few per cent and not Sy, and on the Nancon the roots meet at K = 5.0e-6 m/s and Sy = 0.0033, with NSE at 0.64 against 0.93.
 - The 12.9 per cent of D4 on the Nancon comes from one seepage cell that dries between K = 6.895e-5 and 6.910e-5 m/s, and with it a reach of 37 cells absent from the map.
 - Example 04, the calibrated Sy goes from 0.04411 to 0.04296 and `1 - nse_log` from 0.083976 to 0.083988, with two solves less. K does not move, to the last digit. `calibration.precision` now writes a relative `fatol`, so Nelder-Mead stops on the same simplex two trials earlier. Both values are inside the 5 % asked and inside the printed range of equal costs, 0.0376 to 0.0465.
+- Eight cases on the Nançon of example 04 (21 406 cells, monthly, 8 trials of Nelder-Mead on Sy), through `hmp run`, at `[calibration] parallel = 2`: 16.7 cases per hour at width 2, 25.4 at width 4, 33.8 at width 8. At `[calibration] parallel = 1` and width 8: 48.9 cases per hour.
+- No case lost at any width. All 63 trial costs and parameters are equal to the last digit at widths 2, 4 and 8.
+- Peak memory of the solves at width 8: 6.5 GiB, about 0.8 GiB per solve. It follows the size of the model, and the launcher does not check it.
 
 ### Removed
 

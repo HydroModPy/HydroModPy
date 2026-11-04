@@ -7,7 +7,8 @@ the launcher refuses above without ``--force`` are
 :data:`~hydromodpy.config.sites.models.PARALLEL_CEILING`,
 :data:`~hydromodpy.config.sites.models.PREPARE_PARALLEL_CEILING` and
 :data:`CALIBRATION_PARALLEL_CEILING`, measured on 22 cores
-(:func:`hydromodpy.project.launch.local.effective_parallel`). The scratch of
+(:func:`hydromodpy.project.launch.local.effective_parallel`). A solve of a
+campaign of calibrations held 0.8 GiB on 21 000 cells. The scratch of
 a kept solve was measured between 0.6 and 4.8 GiB (audit of 2026-10-14,
 reader R04); the plan announces the range for the solves it keeps.
 """
@@ -23,8 +24,8 @@ from hydromodpy.core.exceptions import ConfigError
 SCRATCH_PER_KEPT_SOLVE_GIB: tuple[float, float] = (0.6, 4.8)
 """Scratch one kept solve takes, low and high, as measured on the example 04."""
 
-CALIBRATION_PARALLEL_CEILING = 2
-"""Budget of a campaign that holds a calibration: two side by side held 2.5 GiB, no loss."""
+CALIBRATION_PARALLEL_CEILING = 8
+"""Budget of a campaign that holds a calibration: 8 solves held 6.5 GiB, no loss, equal costs."""
 
 
 class BudgetError(ConfigError):
