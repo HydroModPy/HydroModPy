@@ -152,14 +152,11 @@ def run_request(
     out_dir: str | Path,
     *,
     store: Any | None = None,
-    refuse_custom: bool = False,
 ) -> RequestReport:
     """Serve *request* into *out_dir* and return the report written beside the files.
 
     *store* is the :class:`~hydromodpy.data.loading.store.DataStore` whose cache
     the managers read and fill; by default one in memory, which writes nothing.
-    *refuse_custom* refuses a ``custom`` source, which a job has no user files
-    for.
     """
     from hydromodpy.data.loading.store import DataStore
 
@@ -174,7 +171,6 @@ def run_request(
         store = store or DataStore()
         for variable, section in request.sections().items():
             try:
-                _refuse_custom_sources(variable, section, refuse=refuse_custom)
                 files.extend(
                     _serve_section(
                         variable,
@@ -286,16 +282,6 @@ def _extent_document(request: DataRequest) -> dict[str, Any]:
     if extent.mask is not None:
         return {"mask": extent.mask.model_dump(mode="json", exclude_none=True)}
     return {"station_ids": list(extent.station_ids)}
-
-
-def _refuse_custom_sources(variable: str, section: Any, *, refuse: bool) -> None:
-    if not refuse:
-        return
-    if any(src.source == CUSTOM_SOURCE for src in getattr(section, "sources", ())):
-        raise DataRequestError(
-            f"[data.{variable}] names a custom source; a job has no user files to read, "
-            "so it serves only the sources that download"
-        )
 
 
 def _with_selector(section: Any, selector: _Selector) -> Any:

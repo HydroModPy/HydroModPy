@@ -8,11 +8,11 @@ handful of columns - ``col_id``, ``col_x``, ``col_y``, ``col_crs``,
 ``col_datetime``, ``col_value``, ``default_crs`` - plus ``station_ids``,
 ``extent`` and ``force_refresh``. The architecture spec
 (``architecture_cible/02_config_pydantic.md`` §3.4) factors these fields
-out into a single :class:`TimeseriesVariableConfig` base.
+out into the mixins below.
 
 Variable-specific configs now only need to declare their extra fields
 (e.g. ``product`` for piezometry, ``components`` for precipitation) and
-inherit the common CSV grammar from this class. Sources remain
+inherit the common CSV grammar from these mixins. Sources remain
 discriminated by variable via the existing ``<Variable>SourceConfig`` classes.
 """
 
@@ -27,7 +27,6 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import StationName
-from hydromodpy.data.managers.base_config import BaseVariableConfig
 
 
 class TimeseriesColumnsMixin(HydroModelBase):
@@ -123,23 +122,8 @@ class SparseStationFallbackMixin(HydroModelBase):
     )
 
 
-class TimeseriesVariableConfig(
-    TimeseriesColumnsMixin,
-    TimeseriesSelectionMixin,
-    BaseVariableConfig,
-):
-    """Factored base for ``[data.<timeseries_variable>]`` TOML sections.
-
-    Subclasses bring their own ``sources: list[<VariableSourceConfig>]``
-    field (and any variable-specific parameters such as ``product`` or
-    ``components``). The date range and CSV column grammar are inherited
-    from :class:`BaseVariableConfig` and the selection/cache fields above.
-    """
-
-
 __all__ = [
     "SparseStationFallbackMixin",
     "TimeseriesColumnsMixin",
     "TimeseriesSelectionMixin",
-    "TimeseriesVariableConfig",
 ]

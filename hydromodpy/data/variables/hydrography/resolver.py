@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.data.common.io_helpers import declared_source_path
 
 logger = get_logger(__name__)
 
@@ -74,12 +75,9 @@ def resolve_network_map_path(cfg: Any, *, config_path: Path | None) -> Path | No
 
 def _resolve_custom_path(source_cfg: Any, config_dir: Path) -> Path | None:
     """Return the vector file a ``custom`` source declares, or None when it holds a raster."""
-    raw_path = getattr(source_cfg, "path", None)
-    if raw_path is None:
+    candidate = declared_source_path(source_cfg, config_dir)
+    if candidate is None:
         return None
-    candidate = Path(str(raw_path)).expanduser()
-    if not candidate.is_absolute():
-        candidate = (config_dir / candidate).resolve()
     if not candidate.exists():
         logger.warning(
             "[data.hydrography] custom source path not found: %s. The alpha diagnostic is skipped.",

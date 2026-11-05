@@ -91,6 +91,7 @@ Each release section includes the following standard categories:
 
 ### Changed
 
+- `[data]` typed sections now come from `VARIABLE_SPECS`, so a new variable no longer needs edits to the typed sections of `config_schema.py`. The BRGM file lookup, the WFS error check, the custom path lookup and the Hub'Eau station location are shared between providers, with the same cache file names and URLs.
 - The small test files of `tests/unit/solver`, `tests/unit/results`, `tests/unit/catalog`, `tests/unit/physics` and `tests/unit/config` are merged into one file per module, with every case kept.
 - The receiver graph, depression filling, descent D and downslope distance move from `hydromodpy.core.drainage` to `hydromodpy.spatial.drainage`.
 - The stream criterion leaves `core`. Its defaults are in `hydromodpy.core.scoring.stream_defaults`, its mean recharge in `hydromodpy.spatial.forcing.recharge_rates`, and `network`, `extent`, `heads` and `geometry` in `hydromodpy.results.derive.stream`. `HeadCandidates` is defined in `hydromodpy.spatial.geographic.core.network_heads`.
@@ -182,6 +183,7 @@ None. No metric value changes.
 
 ### Removed
 
+- The unused `Sim2MeteoFranceClient` module, the unused `TimeseriesVariableConfig` base and a dead `refuse_custom` check in the data request engine.
 - `hydromodpy.core.Workspace`, which never resolved. The public `Workspace` is in `hydromodpy.project.accessors`.
 - The `HMP_AUTH_BACKEND` variable, which only accepted `local`, the unused typed ids and the unused step Protocols of `core.contracts`.
 - `hydromodpy.core.io.crs.haversine_km`, use `hydromodpy.data.common.geo_helpers.haversine_km`, which keeps its radius of 6371.0 km, and `hydromodpy.core.io.raster_io.clip_tif`, which had no caller.

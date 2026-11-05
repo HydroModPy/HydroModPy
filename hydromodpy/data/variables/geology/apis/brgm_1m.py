@@ -16,19 +16,15 @@ from filelock import FileLock
 from hydromodpy.core.console import progress
 from hydromodpy.core.io.atomic_replace import staged_path
 from hydromodpy.core.logging import get_logger
+from hydromodpy.data.variables.geology.apis.fgeol import (
+    FGEOL_LAYER_PATTERN,
+    bbox_hash,
+    find_fgeol_shp,
+)
 
 logger = get_logger(__name__)
 
 BRGM_1M_URL = "http://infoterre.brgm.fr/telechargements/BDCharm50/FR_vecteur.zip"
-FGEOL_LAYER_PATTERN = "S_FGEOL_2154"
-
-
-def _find_fgeol_shp(extract_dir: Path) -> Path:
-    """Find the S_FGEOL shapefile inside the extracted archive."""
-    candidates = list(extract_dir.rglob(f"*{FGEOL_LAYER_PATTERN}.shp"))
-    if not candidates:
-        raise FileNotFoundError(f"No *{FGEOL_LAYER_PATTERN}.shp found in {extract_dir}")
-    return candidates[0]
 
 
 def fetch_brgm_1m(
@@ -70,7 +66,7 @@ def fetch_brgm_1m(
 
     # If bbox provided, create a cropped version
     if bbox is not None:
-        bbox_h = _bbox_hash_str(bbox)
+        bbox_h = bbox_hash(bbox)
         cropped_gpkg = output_dir / f"geology_brgm_1m_{bbox_h}.gpkg"
 
         if not cropped_gpkg.exists():
@@ -120,7 +116,9 @@ def _build_national_gpkg(zip_path: Path, full_gpkg: Path) -> None:
         with progress.status("Extracting archive"), zipfile.ZipFile(str(zip_path)) as zf:
             zf.extractall(str(extract_dir))
 
-        shp_path = _find_fgeol_shp(extract_dir)
+        shp_path = find_fgeol_shp(extract_dir)
+        if shp_path is None:
+            raise FileNotFoundError(f"No *{FGEOL_LAYER_PATTERN}.shp found in {extract_dir}")
         logger.debug("Loading shapefile: %s", shp_path.name)
 
         with progress.status("Converting to GeoPackage"):
@@ -133,11 +131,3 @@ def _build_national_gpkg(zip_path: Path, full_gpkg: Path) -> None:
             with staged_path(full_gpkg) as staged:
                 gdf.to_file(str(staged), driver="GPKG")
     logger.debug("Cached national map: %s", full_gpkg)
-
-
-def _bbox_hash_str(bbox: tuple) -> str:
-    """Short deterministic hash of a bounding box."""
-    import hashlib
-
-    s = f"{bbox[0]:.2f}_{bbox[1]:.2f}_{bbox[2]:.2f}_{bbox[3]:.2f}"
-    return hashlib.md5(s.encode()).hexdigest()[:8]

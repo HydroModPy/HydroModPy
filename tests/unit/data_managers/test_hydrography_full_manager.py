@@ -727,11 +727,6 @@ class TestHydrographyMetadata:
 
 @pytest.mark.fast
 class TestDataStoreHydrography:
-    def test_load_hydrography_method_exists(self):
-        from hydromodpy.data.loading.store import DataStore
-
-        assert hasattr(DataStore, "load_hydrography")
-
     @patch("hydromodpy.data.variables.hydrography.manager.HydrographyManager.load")
     @patch("hydromodpy.spatial.delineation.get_whitebox_backend")
     def test_load_hydrography_delegates(self, mock_backend, mock_load, tmp_path):

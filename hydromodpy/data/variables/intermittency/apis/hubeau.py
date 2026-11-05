@@ -27,6 +27,7 @@ import pandas as pd
 from hydromodpy.core.console import progress
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.api_client import get_json, paginate_json
+from hydromodpy.data.common.clients.hubeau import station_location
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
 
@@ -204,24 +205,12 @@ def _fetch_station_location(station_id: str) -> StationLocation | None:
         f"{API_BASE}/stations",
         params={"code_station": station_id, "size": 1, "format": "json"},
     )
-    if payload is None:
-        return None
-    data = payload.get("data", [])
-    if not data:
-        return None
-
-    info = data[0]
-    lon = info.get("longitude")
-    lat = info.get("latitude")
-    if lon is None or lat is None:
-        return None
-
-    return StationLocation(
-        id=station_id,
-        x=float(lon),
-        y=float(lat),
-        crs="EPSG:4326",
-        metadata={
+    return station_location(
+        station_id,
+        payload,
+        lon_key="longitude",
+        lat_key="latitude",
+        metadata=lambda info: {
             "station_name": info.get("libelle_station"),
             "stream_name": info.get("libelle_cours_eau"),
             "stream_code": info.get("code_cours_eau"),

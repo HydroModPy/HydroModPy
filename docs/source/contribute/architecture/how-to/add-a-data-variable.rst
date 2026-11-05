@@ -102,8 +102,8 @@ The lists a variable joins
 1. ``hydromodpy/data/loading/_dispatch.py``: a ``VariableSpec`` in
    ``VARIABLE_SPECS`` naming the config and manager classes.
 2. ``hydromodpy/data/loading/config_schema.py``: the name in
-   ``SUPPORTED_DATA_MANAGER_TYPES``, a field of ``DataManagersConfig``, and
-   the config class in ``_TYPED_SECTIONS`` and in ``_rebuild_forward_refs``.
+   ``SUPPORTED_DATA_MANAGER_TYPES`` and a field of ``DataManagersConfig``.
+   The typed config class is read from ``VARIABLE_SPECS``.
 3. ``hydromodpy/core/state/run_state.py``: a field of ``LoadedDataContext``.
 4. ``hydromodpy/data/workspace/scaffold.py``: a ``VariableSpec`` in
    ``VARIABLES``, the drop zone ``hmp workspace init`` creates.

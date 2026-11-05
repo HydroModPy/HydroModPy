@@ -98,12 +98,12 @@ def bbox_params(typename: str, bbox: tuple[float, float, float, float]) -> dict[
 def count_features(typename: str, bbox: tuple[float, float, float, float]) -> int:
     """How many features of *typename* touch *bbox*, as the server counts them."""
     params = {**bbox_params(typename, bbox), "RESULTTYPE": "hits"}
-    body = _checked_body(_get(params), typename=typename)
+    body = checked_body(_get(params), typename=typename)
     match = _NUMBER_MATCHED.search(body[:4096])
     if match is None:
         raise DataSourceError(
             f"Sandre WFS answered a hits request on {typename!r} without numberMatched: "
-            f"{_excerpt(body)}"
+            f"{excerpt(body)}"
         )
     return int(match.group(1))
 
@@ -196,11 +196,11 @@ def _get_page(
         "SORTBY": "gid",
         "OUTPUTFORMAT": "GPKG",
     }
-    body = _checked_body(_get(params), typename=typename)
+    body = checked_body(_get(params), typename=typename)
     if not body.startswith(b"PK"):
         raise DataSourceError(
             f"Sandre WFS answered a GPKG page of {typename!r} with something that is not "
-            f"a zip archive: {_excerpt(body)}"
+            f"a zip archive: {excerpt(body)}"
         )
     with zipfile.ZipFile(io.BytesIO(body)) as archive:
         members = archive.namelist()
@@ -218,21 +218,19 @@ def _get(params: dict[str, str]) -> requests.Response:
     return get_default_client().get(SANDRE_WFS_URL, params=params, timeout=REQUEST_TIMEOUT_S)
 
 
-def _checked_body(response: requests.Response, *, typename: str) -> bytes:
+def checked_body(response: requests.Response, *, typename: str, label: str = "Sandre WFS") -> bytes:
     """The body of *response*, or the refusal it carries raised by name."""
     body = response.content or b""
     head = body[:4096]
     if b"ExceptionReport" in head or b"MapServer Message" in head:
-        raise DataSourceError(f"Sandre WFS refused a request on {typename!r}: {_excerpt(body)}")
+        raise DataSourceError(f"{label} refused a request on {typename!r}: {excerpt(body)}")
     status = getattr(response, "status_code", 200)
     if isinstance(status, int) and status >= 400:
-        raise DataSourceError(
-            f"Sandre WFS answered HTTP {status} on {typename!r}: {_excerpt(body)}"
-        )
+        raise DataSourceError(f"{label} answered HTTP {status} on {typename!r}: {excerpt(body)}")
     return body
 
 
-def _excerpt(body: bytes, limit: int = 300) -> str:
+def excerpt(body: bytes, limit: int = 300) -> str:
     """The readable text of *body*, markup removed, at most *limit* characters."""
     text = body[:8192].decode("utf-8", "replace")
     words = " ".join(re.sub(r"<[^>]*>?", " ", text).split())
@@ -245,8 +243,10 @@ __all__ = [
     "SANDRE_WFS_HOST",
     "SANDRE_WFS_URL",
     "bbox_params",
+    "checked_body",
     "count_features",
     "empty_text_as_missing",
+    "excerpt",
     "get_features",
     "require_metropolitan",
 ]

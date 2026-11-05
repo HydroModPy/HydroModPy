@@ -18,7 +18,7 @@ from hydromodpy.core.console import progress
 from hydromodpy.core.console.progress import MILESTONE
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.api_client import get_json
-from hydromodpy.data.common.clients.hubeau import station_period_overlaps
+from hydromodpy.data.common.clients.hubeau import station_location, station_period_overlaps
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
 
@@ -262,18 +262,16 @@ def _fetch_station_location(station_id: str) -> StationLocation | None:
         f"{API_BASE}/referentiel/stations",
         params={"code_station": station_id, "size": 1, "format": "json"},
     )
-    if payload is None:
-        return None
-    data = payload.get("data", [])
-    if not data:
-        return None
+    return station_location(
+        station_id,
+        payload,
+        lon_key="longitude_station",
+        lat_key="latitude_station",
+        metadata=_station_metadata,
+    )
 
-    info = data[0]
-    lon = info.get("longitude_station")
-    lat = info.get("latitude_station")
-    if lon is None or lat is None:
-        return None
 
+def _station_metadata(info: dict) -> dict:
     metadata = {
         "station_name": info.get("libelle_station"),
         "x_l93": info.get("coordonnee_x_station"),
@@ -287,14 +285,7 @@ def _fetch_station_location(station_id: str) -> StationLocation | None:
     metadata.update(
         {key: info.get(key) for key in _STATION_INFLUENCE_FIELDS if info.get(key) not in (None, "")}
     )
-
-    return StationLocation(
-        id=station_id,
-        x=float(lon),
-        y=float(lat),
-        crs="EPSG:4326",
-        metadata=metadata,
-    )
+    return metadata
 
 
 # ---------------------------------------------------------------------------

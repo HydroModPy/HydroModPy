@@ -235,7 +235,7 @@ class TestDataManagersConfigIntegration:
         assert cfg.hydrography.sources[0].path is not None
 
     def test_hydrography_in_typed_sections(self):
-        """HydrographyConfig is registered in _TYPED_SECTIONS dict."""
+        """HydrographyConfig is validated as a typed section."""
         from hydromodpy.data.loading.config_schema import DataManagersConfig
 
         # from_toml_section validates hydrography as typed - just check it doesn't error
@@ -427,16 +427,6 @@ class TestDocumentedContracts:
         import dataclasses
 
         assert not dataclasses.is_dataclass(HydrographyConfig)
-
-    def test_all_apis_return_epsg4326(self):
-        """Documented contract: all API fetch() functions return EPSG:4326."""
-        # This is verified in the individual API tests above; here we just
-        # verify the modules are importable and have a fetch function.
-        from hydromodpy.data.variables.hydrography.apis import bdtopage, euhydro, osm
-
-        assert callable(osm.fetch)
-        assert callable(bdtopage.fetch)
-        assert callable(euhydro.fetch)
 
     def test_manager_variable_name(self):
         from hydromodpy.data.variables.hydrography.manager import HydrographyManager

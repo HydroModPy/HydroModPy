@@ -40,7 +40,7 @@ from hydromodpy.core.io.db_retry import HMP_DUCKDB_BLOCK_SIZE, connect_with_retr
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.registry import cache_lifecycle, cache_queries, cache_store
 from hydromodpy.data.registry.backend import CacheBackend, DuckDBCacheBackend
-from hydromodpy.data.registry.cache_queries import CatalogEntry as _CatalogEntry
+from hydromodpy.data.registry.cache_queries import CatalogEntry
 from hydromodpy.data.registry.constants import SENTINEL_CUSTOM, SENTINEL_EMPTY
 from hydromodpy.data.registry.migrations.auto_boot import ensure_schema_safe
 
@@ -181,7 +181,7 @@ class DataCatalogDuckDB:
             station_id=station_id,
         )
 
-    def _reject_frozen_entry_mismatch(self, entry: _CatalogEntry) -> None:
+    def _reject_frozen_entry_mismatch(self, entry: CatalogEntry) -> None:
         cache_store.reject_frozen_entry_mismatch(self, entry)
 
     def _reject_frozen_register(
@@ -263,7 +263,7 @@ class DataCatalogDuckDB:
         date_start: datetime | None = None,
         date_end: datetime | None = None,
         product_version: str | None = None,
-    ) -> _CatalogEntry | None:
+    ) -> CatalogEntry | None:
         """Find a cached entry covering the requested extent/period (superset).
 
         With a *product_version*, an entry fetched from another version of the
@@ -287,7 +287,7 @@ class DataCatalogDuckDB:
                     return found
         return cache_queries.find_cached(self, **query)
 
-    def entry_for_file(self, file_path: Path | str) -> _CatalogEntry | None:
+    def entry_for_file(self, file_path: Path | str) -> CatalogEntry | None:
         """Return the newest entry that serves one file, shared cache first, or None."""
         with self._shared() as shared:
             if shared is not None:

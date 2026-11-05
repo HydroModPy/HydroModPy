@@ -9,7 +9,4 @@ from custom CSV files or from the Hub'Eau API.
   configured source (`custom` or `hubeau`).
 - `config.py`: `PiezometrySourceConfig` and `PiezometryConfig` (Pydantic v2,
   `extra="forbid"`).
-- `custom.py`: `load_custom`, loader for user-provided location and chronicle
-  CSVs.
 - `apis/hubeau.py`: Hub'Eau client (`level` and `depth` products).
-- `discovery.py`: spatial discovery helpers (bbox, nearest station).

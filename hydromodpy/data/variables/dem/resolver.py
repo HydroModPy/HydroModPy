@@ -26,6 +26,7 @@ from typing import Any
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.state.portable import cache_dir as _hmp_cache_dir
 from hydromodpy.data.common.geo_helpers import require_declared_crs
+from hydromodpy.data.common.io_helpers import declared_source_path
 
 _API_SOURCES = {"ign_geoplateforme_dem"}
 _BOOTSTRAP_BUFFER_M = 30_000
@@ -113,12 +114,9 @@ def resolve_dem_path_from_data_sources(
 
 
 def _resolve_custom_path(source_cfg: Any, config_dir: Path) -> Path | None:
-    raw_path = getattr(source_cfg, "path", None)
-    if raw_path is None:
+    candidate = declared_source_path(source_cfg, config_dir)
+    if candidate is None:
         return None
-    candidate = Path(str(raw_path)).expanduser()
-    if not candidate.is_absolute():
-        candidate = (config_dir / candidate).resolve()
     if not candidate.exists():
         raise FileNotFoundError(f"[data.dem] custom source path not found: {candidate}")
     if candidate.is_dir():

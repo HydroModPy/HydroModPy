@@ -211,3 +211,12 @@ def _require_geopandas():
         return gpd
     except ImportError as exc:
         raise ImportError("geopandas required for SHP/GeoPackage. pip install geopandas") from exc
+
+
+def declared_source_path(source_cfg: object, config_dir: Path) -> Path | None:
+    """The ``path`` of a source, made absolute against *config_dir*, or None."""
+    raw_path = getattr(source_cfg, "path", None)
+    if raw_path is None:
+        return None
+    candidate = Path(str(raw_path)).expanduser()
+    return candidate if candidate.is_absolute() else (config_dir / candidate).resolve()

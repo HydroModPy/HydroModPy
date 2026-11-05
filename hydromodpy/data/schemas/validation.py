@@ -10,7 +10,7 @@ the ``HMP_PANDERA_STRICT=1`` environment variable.
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import pandera.pandas as pa
 
@@ -81,3 +81,11 @@ def validate_warn_only(
         )
         logger.debug("pandera failures for '%s': %s", schema_name, failures)
         return df
+
+
+def format_failures(exc: pa.errors.SchemaErrors) -> list[dict[str, Any]]:
+    """Failure cases of a Pandera error as plain records."""
+    try:
+        return exc.failure_cases.to_dict(orient="records")
+    except Exception:
+        return [{"message": str(exc)}]

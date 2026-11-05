@@ -25,6 +25,7 @@ from typing import Final, TypeVar
 from hydromodpy.core.exceptions import DataSourceError
 from hydromodpy.core.io.http_client import get_default_client
 from hydromodpy.core.logging import get_logger
+from hydromodpy.data.common.clients.sandre_topage import checked_body, excerpt
 
 logger = get_logger(__name__)
 
@@ -122,7 +123,7 @@ def _count(url: str, typename: str, bbox: tuple[float, float, float, float]) -> 
     match = _NUMBER_MATCHED.search(body[:4096])
     if match is None:
         raise DataSourceError(
-            f"WFS answered a hits request on {typename!r} without numberMatched: {_excerpt(body)}"
+            f"WFS answered a hits request on {typename!r} without numberMatched: {excerpt(body)}"
         )
     return int(match.group(1))
 
@@ -130,17 +131,4 @@ def _count(url: str, typename: str, bbox: tuple[float, float, float, float]) -> 
 def _get(url: str, params: dict[str, str], typename: str) -> bytes:
     """The body of one answer, or the refusal it carries raised by name."""
     response = get_default_client().get(url, params=params, timeout=_TIMEOUT_S)
-    body = response.content or b""
-    head = body[:4096]
-    if b"ExceptionReport" in head or b"MapServer Message" in head:
-        raise DataSourceError(f"WFS refused a request on {typename!r}: {_excerpt(body)}")
-    status = getattr(response, "status_code", 200)
-    if isinstance(status, int) and status >= 400:
-        raise DataSourceError(f"WFS answered HTTP {status} on {typename!r}: {_excerpt(body)}")
-    return body
-
-
-def _excerpt(body: bytes, limit: int = 300) -> str:
-    text = body[:8192].decode("utf-8", "replace")
-    words = " ".join(re.sub(r"<[^>]*>?", " ", text).split())
-    return words[:limit] or "<empty body>"
+    return checked_body(response, typename=typename, label="WFS")
