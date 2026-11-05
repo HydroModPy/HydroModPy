@@ -9,7 +9,7 @@ The worker side (``hmp run``) stops at ``execute``: it never opens the index, th
 launcher indexes after it.
 
 The attempt protocol (claim of ``runs/<case>/``, pulse, outcome) is
-:mod:`hydromodpy.project.attempt`; the seal is the last step of the pipeline.
+:mod:`hydromodpy.workflow.record.attempt`; the seal is the last step of the pipeline.
 """
 
 from __future__ import annotations
@@ -20,12 +20,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.config_kit.written import log_experimental_keys
-from hydromodpy.core.exceptions import ConfigError, ResumeError
+from hydromodpy.core.exceptions import ResumeError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.project.attempt import AttemptHandle, SealedRun, run_attempt, sealed_run_of
 from hydromodpy.project.run_overrides import override_changes
 from hydromodpy.results.catalog.registration import solve_identity_hash
 from hydromodpy.results.storage.attempt import scratch_dir_for_attempt
+from hydromodpy.workflow.record.attempt import AttemptHandle, SealedRun, run_attempt, sealed_run_of
+from hydromodpy.workflow.record.resume import resolve_resume_step_index
+from hydromodpy.workflow.window import model_phase_index, step_window
 
 if TYPE_CHECKING:
     from hydromodpy.config.sites.expansion import PlanDraft
@@ -39,7 +41,7 @@ DEFAULT_RUN_NAME_TEMPLATE = "run_{counter:04d}"
 
 
 @contextmanager
-def _pin_parent_sim_id(ctx: WorkflowContext, parent_sim_id: str | None) -> Iterator[None]:
+def pin_parent_sim_id(ctx: WorkflowContext, parent_sim_id: str | None) -> Iterator[None]:
     """Temporarily set ``ctx.parent_sim_id`` for the duration of the block.
 
     Restores the previous value on exit, including when an exception
@@ -54,138 +56,6 @@ def _pin_parent_sim_id(ctx: WorkflowContext, parent_sim_id: str | None) -> Itera
         yield
     finally:
         ctx.parent_sim_id = previous
-
-
-def resolve_step_index(step: str, steps: tuple) -> int:
-    """Return the position of the step named *step* in *steps*.
-
-    A step is named by its ``name``, one of
-    :data:`~hydromodpy.core.pipeline_steps.STEP_NAMES`. An index would move when a
-    version inserts a step, so it is refused, and a class name is no contract.
-    """
-    if not isinstance(step, str):
-        known = ", ".join(getattr(obj, "name", type(obj).__name__) for obj in steps)
-        raise ConfigError(
-            f"A pipeline step is named, not numbered: got {step!r}. Known steps: {known}."
-        )
-    for index, obj in enumerate(steps):
-        if getattr(obj, "name", None) == step:
-            return index
-    known = ", ".join(getattr(obj, "name", type(obj).__name__) for obj in steps)
-    raise ConfigError(f"Unknown pipeline step: {step!r}. Known steps: {known}.")
-
-
-def _bounded_step_index(step: str | None, steps: tuple) -> int | None:
-    """Resolve a step bound, ``None`` when there is none."""
-    return None if step is None else resolve_step_index(step, steps)
-
-
-def _refuse_an_empty_window(
-    from_step: str | None, from_idx: int | None, until_step: str | None, until_idx: int | None
-) -> None:
-    """Refuse a step window whose start comes after its end."""
-    if from_idx is not None and until_idx is not None and from_idx > until_idx:
-        raise ConfigError(f"from_step {from_step!r} is past until_step {until_step!r}.")
-
-
-def _window_stops_before_the_model(
-    until_step: str | None, until_idx: int | None, first_model_step: int, resume: str | None
-) -> bool:
-    """Say whether a window ends before ``setup_process``.
-
-    Such a window reaches no step able to open a run, so it is not a run and claims no
-    directory, and it keeps no journal to resume from.
-    """
-    head_only = until_idx is not None and until_idx < first_model_step
-    if head_only and resume is not None:
-        raise ConfigError(
-            f"until_step {until_step!r} stops before 'setup_process', so the run keeps no "
-            f"journal to resume from. Drop --resume, or widen the window."
-        )
-    return head_only
-
-
-def model_phase_index(steps: tuple) -> int:
-    """Return the index of the first step that consumes the shared model phase.
-
-    ``0`` when the pipeline declares no ``setup_process``: an ad-hoc step list
-    makes no claim about a model phase, so every window is treated as needing
-    one, which is what the canonical pipeline did before the bound existed.
-    """
-    for index, step in enumerate(steps):
-        if getattr(step, "name", None) == "setup_process":
-            return index
-    return 0
-
-
-def scratch_of_resumed_run(project_root: Path, run_name: str) -> str | None:
-    """Return the scratch folder the completed steps of ``run_name`` journalled, or None.
-
-    A run journals its preprocessing under the project folder
-    ``.hmp/scratch/<run>.p<pid>/``. The resume works in that folder again, or
-    the sweep of killed runs would delete what the resume is meant to reuse.
-    The journal is read from the run directory (``runs/<name>``, the latest
-    version for a bare name), never from the index.
-    """
-    from hydromodpy.core.state.paths import run_scratch_of
-    from hydromodpy.results.storage.attempt import run_dir_for_name
-    from hydromodpy.workflow.tracking.journal import WorkflowJournal
-
-    run_dir = run_dir_for_name(Path(project_root), run_name)
-    if run_dir is None:
-        return None
-    rows = WorkflowJournal(run_dir).list_steps(run_name)
-    completed = sorted(
-        (row for row in rows if row.status == "completed"), key=lambda row: row.step_order
-    )
-    return run_scratch_of(uri for row in completed for uri in row.artifact_uris)
-
-
-def _resolve_resume_step_index(
-    run_dir: Path,
-    workspace: Path,
-    run_id: str,
-    *,
-    steps_blueprint: tuple[str, ...] | None = None,
-) -> int:
-    """Locate the next step index to execute for a previously interrupted run.
-
-    The step journal under ``<run>/.hmp/checkpoints/`` is the single source of
-    truth: when no row exists for ``run_id`` the run is treated as fresh and
-    starts from step 0.
-    """
-    from hydromodpy.workflow.tracking.journal import WorkflowJournal
-    from hydromodpy.workflow.tracking.resume import ResumePlanner
-
-    planner = ResumePlanner(WorkflowJournal(run_dir), workspace)
-    plan = planner.compute(
-        run_id=run_id,
-        current_config_sha256=None,
-        steps_blueprint=steps_blueprint or (),
-    )
-
-    # Make a degraded resume visible: a snapshot-rebuilt config or a changed
-    # pipeline can force a full restart, which otherwise looks like a normal run.
-    if plan.full_restart:
-        logger.warning(
-            "resume %r cannot pick up where it left off (%s); restarting from step 0",
-            run_id,
-            plan.reason or "pipeline or config changed",
-        )
-    elif plan.restart_index == 0:
-        logger.warning(
-            "resume %r found no resumable journal (%s); starting fresh from step 0",
-            run_id,
-            plan.reason or "no journal entries",
-        )
-    else:
-        logger.info(
-            "resume %r picks up from step %d (last completed: %s)",
-            run_id,
-            plan.restart_index,
-            plan.last_completed.step_name if plan.last_completed is not None else "?",
-        )
-    return plan.restart_index
 
 
 def run_view_of(run_dir: Path, *, project_root: Path, sim_id: str) -> Run | None:
@@ -299,15 +169,12 @@ class ProjectRunner:
         """
         from hydromodpy.config.sites.expansion import single_case_draft
         from hydromodpy.project.dispatch.workflow import completed_identical_run
-        from hydromodpy.workflow.orchestrator import standard_steps
+        from hydromodpy.workflow.steps.sequence import standard_steps
 
         project = self._project
         all_steps = standard_steps()
-        until_idx = _bounded_step_index(until_step, all_steps)
-        from_idx = _bounded_step_index(from_step, all_steps)
-        _refuse_an_empty_window(from_step, from_idx, until_step, until_idx)
+        from_idx, until_idx, head_only = step_window(all_steps, from_step, until_step, resume)
         first_model_step = model_phase_index(all_steps)
-        head_only = _window_stops_before_the_model(until_step, until_idx, first_model_step, resume)
         start = from_idx
         if start is None and not head_only and self._is_model_phase_ready():
             start = first_model_step
@@ -350,9 +217,9 @@ class ProjectRunner:
         ``force`` claims a stale case whose death cannot be proven. ``lineage``
         and ``calibrated_by`` are the blocks a promotion seals its run with.
         """
-        from hydromodpy.workflow.orchestrator import standard_steps
         from hydromodpy.workflow.steps.data import rebind_flow_if_stale
         from hydromodpy.workflow.steps.planning import step_build_plan
+        from hydromodpy.workflow.steps.sequence import standard_steps
         from hydromodpy.workflow.steps.setup import rebuild_domain_if_stale
 
         project = self._project
@@ -370,14 +237,11 @@ class ProjectRunner:
 
         all_steps = standard_steps()
         steps = all_steps
-        until_idx = _bounded_step_index(until_step, all_steps)
-        from_idx = _bounded_step_index(from_step, all_steps)
-        _refuse_an_empty_window(from_step, from_idx, until_step, until_idx)
+        from_idx, until_idx, head_only = step_window(all_steps, from_step, until_step, resume)
         if until_idx is not None:
             steps = tuple(all_steps[: until_idx + 1])
 
         first_model_step = model_phase_index(all_steps)
-        head_only = _window_stops_before_the_model(until_step, until_idx, first_model_step, resume)
         # The Pipeline owns the model phase: it executes ``build_geographic``,
         # ``load_data`` and ``build_mesh`` itself, so each of them gets a
         # journal row and a process death inside one of them leaves a trace.
@@ -476,8 +340,8 @@ class ProjectRunner:
         calibrated_by: Any,
     ) -> str | None:
         """Drive the Pipeline inside the attempt bracket and return the ``sim_id`` of the run."""
-        from hydromodpy.workflow.internals.state import PipelineState
         from hydromodpy.workflow.runner import Pipeline
+        from hydromodpy.workflow.state import PipelineState
 
         project = self._project
         run_dir = None if handle is None else handle.run_dir
@@ -505,7 +369,7 @@ class ProjectRunner:
         if from_idx is not None:
             resume_from: int | None = from_idx
         elif resumes and run_dir is not None:
-            resume_from = _resolve_resume_step_index(
+            resume_from = resolve_resume_step_index(
                 run_dir,
                 workspace_path,
                 name,
@@ -532,7 +396,7 @@ class ProjectRunner:
                 "spatial_support_registry": project._spatial_support_registry,
                 "requested_spatial_support_ids": project._requested_support_ids,
                 "requested_domain_supports": project._requested_domain_supports,
-                # This run is already named. ``run_setup`` derives a name from
+                # This run is already named. ``step_setup`` derives a name from
                 # the config when nobody gives it one, which would rename a run
                 # the caller named differently.
                 "run_name": name,

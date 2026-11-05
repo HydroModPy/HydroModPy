@@ -23,7 +23,7 @@ from hydromodpy.physics.flow.flow import Flow
 from hydromodpy.physics.flow.sinks_sources.recharge import FlowRechargeConfig, recharge_factor_of
 from hydromodpy.physics.flow.structure_binders import apply_recharge_load_result_to_flow
 from hydromodpy.physics.hydrology.soil_reservoir.config import SoilReservoirConfig
-from tests.unit.workflow.test_persist_watershed_forcing import _runoff_field_record
+from tests.unit.workflow.steps.prepare_solver.test_forcings import _runoff_field_record
 
 _MM_PER_DAY_IN_M_PER_S = 1e-3 / 86400.0
 

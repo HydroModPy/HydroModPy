@@ -20,8 +20,8 @@ from hydromodpy.core.state.paths import run_dir_rel
 from hydromodpy.results.heartbeat import HeartbeatThread, read_heartbeat
 from hydromodpy.results.outcome import DEFAULT_STALE_AFTER_S, effective_status
 from hydromodpy.workflow.runner import Pipeline
-from hydromodpy.workflow.tracking.journal import WorkflowJournal
-from hydromodpy.workflow.tracking.resume import ResumePlanner
+from hydromodpy.workflow.record.journal import WorkflowJournal
+from hydromodpy.workflow.record.resume import ResumePlanner
 from tests._helpers.sealed_runs import make_project, write_attempt
 
 
@@ -36,7 +36,7 @@ class _ArtifactStep:
     def run(self, state):
         if self._fail:
             raise RuntimeError(f"simulated crash on {self.name}")
-        from hydromodpy.workflow.internals.state import PipelineState as _PS
+        from hydromodpy.workflow.state import PipelineState as _PS
 
         assert isinstance(state, _PS)
         workspace = Path(state.get("workspace"))
@@ -64,7 +64,7 @@ def _run_dir(workspace: Path, run_id: str) -> Path:
 
 
 def _initial_state(workspace: Path, run_id: str):
-    from hydromodpy.workflow.internals.state import PipelineState
+    from hydromodpy.workflow.state import PipelineState
 
     return PipelineState(run_id=run_id, data={"workspace": str(workspace), "completed": []})
 

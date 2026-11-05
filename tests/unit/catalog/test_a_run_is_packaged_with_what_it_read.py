@@ -10,7 +10,7 @@ taken whole: a station the run did not read stays out.
 from __future__ import annotations
 
 from hydromodpy.core.payload import sidecar_name, stored_name
-from hydromodpy.project.share import run_bundle
+from hydromodpy.project.exchange.share import run_bundle
 from tests.unit.catalog._shared_run import (
     CUSTOM_FILE,
     HUBEAU_FILE,

@@ -51,9 +51,9 @@ from hydromodpy.solver.modflow6.support.property_mapping import (
     resolve_flow_property_arrays,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.workflow.internals.dependencies import earliest_affected_step
-from hydromodpy.workflow.internals.state import PipelineState
-from hydromodpy.workflow.internals.step import Step  # noqa: F401
+from hydromodpy.workflow.steps.dependencies import earliest_affected_step
+from hydromodpy.workflow.state import PipelineState
+from hydromodpy.workflow.step import Step  # noqa: F401
 from hydromodpy.workflow.runner import Pipeline
 from hydromodpy.workflow.steps.export import step_cleanup_preprocessing
 from hydromodpy.workflow.steps.mesh import BuildMeshStep

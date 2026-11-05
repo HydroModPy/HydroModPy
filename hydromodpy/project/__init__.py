@@ -9,7 +9,13 @@ facade stays focused on the public verbs:
 - :mod:`.catalog` -- catalog access and lifecycle helper
 - :mod:`.accessors` -- read-only accessors exposed on ``project.data`` and ``project.runs``
 - :mod:`.phases` -- model-phase verbs (``configure``, ``build_geographic``, ...)
+- :mod:`.opening` -- open an existing project folder (``hmp.open``)
+- :mod:`.calibrate` -- the routing behind ``Project.calibrate``
 - :mod:`.dispatch` -- workflow and calibration dispatch adapters
+- :mod:`.launch` -- the launcher of a ``[sites]`` project and its summary
+- :mod:`.exchange` -- publish, install and replay a published copy
+
+``README.md`` in this folder is the map of the package.
 """
 
 from __future__ import annotations

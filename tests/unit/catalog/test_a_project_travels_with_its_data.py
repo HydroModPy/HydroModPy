@@ -17,8 +17,8 @@ import pytest
 
 from hydromodpy.core.exceptions import ImportConflictError
 from hydromodpy.core.payload import PayloadConflictError, read_index
-from hydromodpy.project.install import import_project
-from hydromodpy.project.share import inputs_of
+from hydromodpy.project.exchange.install import import_project
+from hydromodpy.project.exchange.share import inputs_of
 from hydromodpy.results.export.project_package import consumed_mesh_entries, export_project
 from hydromodpy.results.export.publish import verify
 from hydromodpy.results.publication import read_publication

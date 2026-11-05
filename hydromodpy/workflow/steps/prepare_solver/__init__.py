@@ -1,10 +1,11 @@
 """Prepare-solver step decomposed into three concerns.
 
 - :mod:`prepare` - persistence helpers (params, mesh, geographic,
-  provenance, forcings).
-- :mod:`validate` - pure validators and artifact discovery helpers
-  (``_primary_solver_for_simulation``, ``collect_run_facts``,
-  ``_store_sim_artifacts``).
+  provenance); :mod:`forcings` persists the input forcings and
+  :mod:`freeze` the frozen configuration.
+- :mod:`facts` - the facts of the run, the config snapshot and the artifact paths
+  (``primary_solver_for_simulation``, ``collect_run_facts``,
+  ``store_sim_artifacts``).
 - :mod:`dispatch` - binding the pipeline to its run directory and recording
   what the run was built from (``bind_run_directory``, ``step_open_run``).
 
@@ -23,26 +24,16 @@ from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.storage.run_store import RunStore
-from hydromodpy.workflow.internals.state import PipelineState
-from hydromodpy.workflow.run_store import run_is_persisted, run_store
+from hydromodpy.workflow.record.run_store import run_is_persisted, run_store
+from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps.prepare_solver.dispatch import (
-    _register_tracked_input_files,
     bind_run_directory,
     initial_facts,
     step_open_run,
 )
-from hydromodpy.workflow.steps.prepare_solver.prepare import (
-    step_persist_forcings,
-    step_persist_geographic,
-    step_persist_mesh,
-    step_persist_params,
-    step_write_provenance,
-)
-from hydromodpy.workflow.steps.prepare_solver.validate import (
-    _store_sim_artifacts,
-    collect_effective_config_snapshot,
-    collect_run_facts,
-)
+from hydromodpy.workflow.steps.prepare_solver.facts import store_sim_artifacts
+from hydromodpy.workflow.steps.prepare_solver.forcings import step_persist_forcings
+from hydromodpy.workflow.steps.prepare_solver.prepare import step_write_provenance
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
@@ -107,7 +98,7 @@ class PrepareSolverStep:
     """Build the simulation plan and open the run it will execute.
 
     Composed from three sibling modules: :mod:`prepare` (writes inputs),
-    :mod:`validate` (introspection) and :mod:`dispatch` (binding).
+    :mod:`facts` (introspection) and :mod:`dispatch` (binding).
 
     Every write goes through a store this step opens and closes itself, so
     the handle is gone by the time the next step starts.
@@ -182,7 +173,7 @@ class PrepareSolverStep:
         if not sim_id or getattr(ctx, "run_dir", None) is None:
             return ()
         with run_store(ctx) as store:
-            return _store_sim_artifacts(ctx, sim_id, store=store)
+            return store_sim_artifacts(ctx, sim_id, store=store)
 
     def rebuild_state(
         self,
@@ -233,16 +224,4 @@ class PrepareSolverStep:
         )
 
 
-__all__ = (
-    "PrepareSolverStep",
-    "_register_tracked_input_files",
-    "_store_sim_artifacts",
-    "collect_effective_config_snapshot",
-    "collect_run_facts",
-    "step_persist_forcings",
-    "step_persist_geographic",
-    "step_persist_mesh",
-    "step_persist_params",
-    "step_open_run",
-    "step_write_provenance",
-)
+__all__ = ("PrepareSolverStep",)

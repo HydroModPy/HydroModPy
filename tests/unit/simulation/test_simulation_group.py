@@ -42,7 +42,7 @@ class TestSimulationGroup:
     def test_project_run_handles_survive_later_runs(self, monkeypatch, tmp_path):
         """A run handle keeps reading its run after the project ran another one."""
         from hydromodpy.project.runner import ProjectRunner
-        from hydromodpy.workflow.internals.state import PipelineState
+        from hydromodpy.workflow.state import PipelineState
 
         project_root = tmp_path / "project"
 
@@ -87,7 +87,7 @@ class TestSimulationGroup:
                     data={**state.data, "ctx": ctx},
                 )
 
-        monkeypatch.setattr("hydromodpy.workflow.orchestrator.standard_steps", lambda: (_Step(),))
+        monkeypatch.setattr("hydromodpy.workflow.steps.sequence.standard_steps", lambda: (_Step(),))
         monkeypatch.setattr(
             "hydromodpy.workflow.steps.planning.step_build_plan", lambda *a, **k: None
         )
@@ -152,9 +152,9 @@ class TestSimulationGroup:
         assert first.dir.name == "first"
         assert second.dir.name == "second"
 
-    def test_pin_parent_sim_id_overrides_ctx_during_pipeline_run(self, monkeypatch, tmp_path):
-        from hydromodpy.project.runner import ProjectRunner, _pin_parent_sim_id
-        from hydromodpy.workflow.internals.state import PipelineState
+    def testpin_parent_sim_id_overrides_ctx_during_pipeline_run(self, monkeypatch, tmp_path):
+        from hydromodpy.project.runner import ProjectRunner, pin_parent_sim_id
+        from hydromodpy.workflow.state import PipelineState
 
         class _Step:
             name = "setup_process"
@@ -177,7 +177,7 @@ class TestSimulationGroup:
                     data={**state.data, "ctx": ctx},
                 )
 
-        monkeypatch.setattr("hydromodpy.workflow.orchestrator.standard_steps", lambda: (_Step(),))
+        monkeypatch.setattr("hydromodpy.workflow.steps.sequence.standard_steps", lambda: (_Step(),))
         monkeypatch.setattr(
             "hydromodpy.workflow.steps.planning.step_build_plan", lambda *a, **k: None
         )
@@ -226,31 +226,31 @@ class TestSimulationGroup:
             _run_history=[],
         )
 
-        with _pin_parent_sim_id(ctx, "parent-run"):
+        with pin_parent_sim_id(ctx, "parent-run"):
             result = ProjectRunner(project).run(name="derived")
 
         assert result is None
         assert observed == ["parent-run"]
         assert ctx.parent_sim_id == "existing-parent"
 
-    def test_pin_parent_sim_id_restores_on_exception(self):
-        from hydromodpy.project.runner import _pin_parent_sim_id
+    def testpin_parent_sim_id_restores_on_exception(self):
+        from hydromodpy.project.runner import pin_parent_sim_id
 
         ctx = SimpleNamespace(parent_sim_id="initial")
 
         with pytest.raises(RuntimeError):
-            with _pin_parent_sim_id(ctx, "transient"):
+            with pin_parent_sim_id(ctx, "transient"):
                 assert ctx.parent_sim_id == "transient"
                 raise RuntimeError("boom")
 
         assert ctx.parent_sim_id == "initial"
 
-    def test_pin_parent_sim_id_none_is_noop(self):
-        from hydromodpy.project.runner import _pin_parent_sim_id
+    def testpin_parent_sim_id_none_is_noop(self):
+        from hydromodpy.project.runner import pin_parent_sim_id
 
         ctx = SimpleNamespace(parent_sim_id="initial")
 
-        with _pin_parent_sim_id(ctx, None):
+        with pin_parent_sim_id(ctx, None):
             assert ctx.parent_sim_id == "initial"
 
         assert ctx.parent_sim_id == "initial"

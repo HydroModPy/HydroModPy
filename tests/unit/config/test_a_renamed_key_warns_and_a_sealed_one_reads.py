@@ -34,7 +34,7 @@ from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning
 from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.core.toml_io.loader import read_toml_chain
 from hydromodpy.core.toml_io.overrides import SET_SOURCE
-from hydromodpy.workflow.steps.prepare_solver.dispatch import portable_config_document
+from hydromodpy.workflow.steps.prepare_solver.freeze import portable_config_document
 
 PROJECT = """\
 [site]

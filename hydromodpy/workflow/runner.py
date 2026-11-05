@@ -35,17 +35,20 @@ from __future__ import annotations
 import time
 from collections.abc import Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core import progress
+from hydromodpy.core.contracts.workflow_step import step_name
 from hydromodpy.core.exceptions import ResumeIntegrityError, StepError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.workflow.internals.state import PipelineState
-from hydromodpy.workflow.internals.step import Step
+from hydromodpy.workflow.record.artifacts import collect_artifacts
+from hydromodpy.workflow.state import PipelineState
+from hydromodpy.workflow.step import Step
 
 if TYPE_CHECKING:
     from hydromodpy.results.heartbeat import HeartbeatThread
-    from hydromodpy.workflow.tracking.journal import WorkflowJournal
+    from hydromodpy.workflow.record.journal import WorkflowJournal
+    from hydromodpy.workflow.record.manifest import ResolvedRunManifest
 
 logger = get_logger(__name__)
 
@@ -114,8 +117,7 @@ class Pipeline:
         ``heartbeat`` is the pulse of the attempt, started by the caller; the
         pipeline names the step under way on it.
         """
-        from hydromodpy.workflow.internals.manifest import ResolvedRunManifest
-        from hydromodpy.workflow.tracking.journal import WorkflowJournal
+        from hydromodpy.workflow.record.journal import WorkflowJournal
 
         self._parallel = bool(parallel)
 
@@ -135,21 +137,7 @@ class Pipeline:
         # state (a promotion reserves it) is never erased.
         if self.run_dir is not None:
             state = state.with_data(run_dir=self.run_dir)
-
-        manifest: ResolvedRunManifest | None = None
-        if self.run_dir is not None:
-            existing = ResolvedRunManifest.read(self.run_dir)
-            if restart_index > 0 and not model_phase_ready and existing is not None:
-                # Genuine resume: the prefix is reconstructed from the prior
-                # attempt's artifacts, so its config/pipeline must still match.
-                existing.verify_state(state, self.steps, run_dir=self.run_dir)
-                manifest = existing
-            else:
-                # Fresh run (restart_index 0) or a model-phase-ready re-run
-                # whose config may differ from a stale same-name manifest:
-                # write a clean manifest and ignore any prior one.
-                manifest = ResolvedRunManifest.from_state(state, self.steps, self.workspace)
-                manifest.write_atomic(self.run_dir)
+        manifest = self._open_manifest(state, restart_index, model_phase_ready)
 
         # A from-scratch run and a model-phase-ready re-run rebuild their prefix
         # from the live ctx (is_prebuilt), never from a previous attempt's
@@ -172,6 +160,27 @@ class Pipeline:
             heartbeat=heartbeat,
             previous_hashes=prefix_hashes,
         )
+
+    def _open_manifest(
+        self, state: PipelineState, restart_index: int, model_phase_ready: bool
+    ) -> ResolvedRunManifest | None:
+        """Verify the manifest of a genuine resume, or write a clean one."""
+        from hydromodpy.workflow.record.manifest import ResolvedRunManifest
+
+        if self.run_dir is None:
+            return None
+        existing = ResolvedRunManifest.read(self.run_dir)
+        if restart_index > 0 and not model_phase_ready and existing is not None:
+            # Genuine resume: the prefix is reconstructed from the prior
+            # attempt's artifacts, so its config/pipeline must still match.
+            existing.verify_state(state, self.steps, run_dir=self.run_dir)
+            return existing
+        # Fresh run (restart_index 0) or a model-phase-ready re-run whose config
+        # may differ from a stale same-name manifest: write a clean manifest and
+        # ignore any prior one.
+        manifest = ResolvedRunManifest.from_state(state, self.steps, self.workspace)
+        manifest.write_atomic(self.run_dir)
+        return manifest
 
     # ------------------------------------------------------------------
     # Phase 1 - rebuild prior state from artifacts
@@ -208,61 +217,13 @@ class Pipeline:
 
         for index in range(restart_index):
             step = self.steps[index]
-            name = _step_name(step)
-            artifacts_method = getattr(step, "artifacts", None)
-            declared_artifacts = ()
-            if artifacts_method is not None:
-                try:
-                    declared_artifacts = artifacts_method(state) or ()
-                except Exception:
-                    declared_artifacts = ()
-
             row = journal_rows.get(index)
             row_completed = row is not None and row.status == "completed"
-            has_artifacts = bool(declared_artifacts) or bool(
-                row.artifact_uris if row is not None else ()
-            )
-
             try:
-                rebuild = getattr(step, "rebuild_state", None) if row_completed else None
-                if rebuild is not None:
-                    # The journal says this step already ran to completion, so
-                    # restore it from disk whatever it declared: a step that
-                    # writes into the shared run store (derive, display) has no
-                    # artifact of its own yet must not be executed twice.
-                    with progress.phase(name):
-                        state = rebuild(
-                            prior_state=state,
-                            workspace=self.workspace or Path(),
-                            run_id=state.run_id,
-                        )
-                elif has_artifacts and row_completed:
-                    logger.warning(
-                        "pipeline.rebuild_skipped step=%s reason=no_rebuild_state",
-                        name,
-                    )
-                    state = state.advance(step_index=index, step_name=name)
-                else:
-                    is_prebuilt = getattr(step, "is_prebuilt", None)
-                    if is_prebuilt is not None and is_prebuilt(state):
-                        # The in-memory ctx already carries this step's
-                        # products (eager facade build); advancing is enough.
-                        logger.debug(
-                            "pipeline.rebuild_skipped step=%s reason=prebuilt_in_memory",
-                            name,
-                        )
-                        state = state.advance(step_index=index, step_name=name)
-                    else:
-                        with progress.phase(name):
-                            state = step.run(state)
-                        state = state.advance(
-                            step_index=index,
-                            step_name=name,
-                            data=state.data,
-                        )
+                state = self._rebuild_step(step, index, state, row)
             except Exception as exc:
                 raise ResumeIntegrityError(
-                    f"pipeline rebuild failed at step {index} ({name}): {exc}",
+                    f"pipeline rebuild failed at step {index} ({step_name(step)}): {exc}",
                     run_id=state.run_id,
                 ) from exc
 
@@ -279,6 +240,36 @@ class Pipeline:
             )
 
         return state, previous_hashes
+
+    def _rebuild_step(
+        self, step: Step, index: int, state: PipelineState, row: Any
+    ) -> PipelineState:
+        """Bring one prefix step back: restore it from disk, advance past it, or re-run it."""
+        name = step_name(step)
+        row_completed = row is not None and row.status == "completed"
+        if row_completed and getattr(step, "rebuild_state", None) is not None:
+            # The journal says this step already ran to completion, so restore
+            # it from disk whatever it declared: a step that writes into the
+            # shared run store (derive, display) has no artifact of its own yet
+            # must not be executed twice.
+            with progress.phase(name):
+                return step.rebuild_state(
+                    prior_state=state,
+                    workspace=self.workspace or Path(),
+                    run_id=state.run_id,
+                )
+        if row_completed and _has_artifacts(step, state, row):
+            logger.warning("pipeline.rebuild_skipped step=%s reason=no_rebuild_state", name)
+            return state.advance(step_index=index, step_name=name)
+        is_prebuilt = getattr(step, "is_prebuilt", None)
+        if is_prebuilt is not None and is_prebuilt(state):
+            # The in-memory ctx already carries this step's products (eager
+            # facade build); advancing is enough.
+            logger.debug("pipeline.rebuild_skipped step=%s reason=prebuilt_in_memory", name)
+            return state.advance(step_index=index, step_name=name)
+        with progress.phase(name):
+            state = step.run(state)
+        return state.advance(step_index=index, step_name=name, data=state.data)
 
     def _journal_rebuilt_step(
         self,
@@ -301,10 +292,10 @@ class Pipeline:
         rebuilt would describe a run that never happened, and would send the
         next resume back to step zero.
         """
-        from hydromodpy.workflow.tracking.journal import WorkflowJournal as _Journal
+        from hydromodpy.workflow.record.journal import WorkflowJournal as _Journal
 
-        name = _step_name(step)
-        artifact_uris = _collect_artifacts(step, state_out, self.workspace)
+        name = step_name(step)
+        artifact_uris = collect_artifacts(step, state_out, self.workspace)
         outputs_hash = ""
         if self.workspace is not None:
             outputs_hash = _Journal.compute_outputs_hash(self.workspace, artifact_uris) or ""
@@ -348,12 +339,12 @@ class Pipeline:
         previous_hashes: Sequence[str] = (),
     ) -> PipelineState:
         """Run every step from ``restart_index`` to the end with journal writes."""
-        from hydromodpy.workflow.internals.manifest import ResolvedRunManifest
         from hydromodpy.workflow.parallel import (
             SequentialExecutor,
             ThreadPoolCohortExecutor,
         )
-        from hydromodpy.workflow.tracking.journal import WorkflowJournal as _Journal
+        from hydromodpy.workflow.record.journal import WorkflowJournal as _Journal
+        from hydromodpy.workflow.record.manifest import ResolvedRunManifest
 
         if restart_index >= len(self.steps):
             return state
@@ -370,7 +361,7 @@ class Pipeline:
             if not pending:
                 continue
             if heartbeat is not None:
-                heartbeat.set_step(_step_name(self.steps[pending[0]]))
+                heartbeat.set_step(step_name(self.steps[pending[0]]))
             state = self._execute_cohort(
                 pending,
                 state,
@@ -471,7 +462,7 @@ class Pipeline:
                 last_elapsed = outcome.elapsed_ms
             if self.workspace is not None:
                 step_idx = outcome.step_index
-                artifact_uris = _collect_artifacts(self.steps[step_idx], outcome, self.workspace)
+                artifact_uris = collect_artifacts(self.steps[step_idx], outcome, self.workspace)
                 outputs_hash = journal_cls.compute_outputs_hash(self.workspace, artifact_uris)
                 previous_hashes.append(outputs_hash or "")
         return base_state.advance(
@@ -492,7 +483,7 @@ class Pipeline:
         config_sha256: str | None,
         previous_hashes: list[str],
     ) -> PipelineState:
-        name = _step_name(step)
+        name = step_name(step)
         inputs_hash = journal_cls.compute_inputs_hash(
             step_name=name,
             step_order=index,
@@ -536,7 +527,7 @@ class Pipeline:
             elapsed_ms=elapsed_ms,
             data=out.data,
         )
-        artifact_uris = _collect_artifacts(step, out, self.workspace)
+        artifact_uris = collect_artifacts(step, out, self.workspace)
         outputs_hash: str | None = None
         if self.workspace is not None:
             outputs_hash = journal_cls.compute_outputs_hash(self.workspace, artifact_uris)
@@ -571,57 +562,20 @@ class Pipeline:
         )
 
 
-def _collect_artifacts(
-    step: Step,
-    state_out: PipelineState,
-    workspace: Path | None,
-) -> tuple[str, ...]:
-    """Ask ``step.artifacts(state_out)`` and normalize to workspace-relative POSIX URIs."""
-    method = getattr(step, "artifacts", None)
-    if method is None:
-        return ()
-    try:
-        raw = method(state_out)
-    except Exception as exc:
-        logger.debug(
-            "step.artifacts_failed name=%s err=%s",
-            _step_name(step),
-            exc,
-        )
-        return ()
-    if not raw:
-        return ()
-    normalised: list[str] = []
-    for item in raw:
-        rel = _to_relative_uri(item, workspace)
-        if rel is None:
-            continue
-        normalised.append(rel)
-    return tuple(sorted(set(normalised)))
-
-
-def _to_relative_uri(item: object, workspace: Path | None) -> str | None:
-    """Convert a candidate artifact reference to a workspace-relative URI."""
-    if item is None:
-        return None
-    if isinstance(item, Path):
-        path = item
-    else:
-        path = Path(str(item))
-    if workspace is not None and path.is_absolute():
+def _has_artifacts(step: Step, state: PipelineState, row: Any) -> bool:
+    """Whether the step declares artifacts, or its journal row recorded some."""
+    artifacts_method = getattr(step, "artifacts", None)
+    declared: Sequence[str] = ()
+    if artifacts_method is not None:
         try:
-            return path.relative_to(workspace).as_posix()
-        except ValueError:
-            return path.as_posix()
-    return path.as_posix()
+            declared = artifacts_method(state) or ()
+        except Exception:
+            declared = ()
+    return bool(declared) or bool(row.artifact_uris if row is not None else ())
 
 
 def _config_sha256_from_manifest(manifest: object | None) -> str | None:
     return getattr(manifest, "config_sha256", None) if manifest is not None else None
-
-
-def _step_name(step: Step) -> str:
-    return str(getattr(step, "name", step.__class__.__name__))
 
 
 __all__ = ("Pipeline",)

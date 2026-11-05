@@ -45,17 +45,22 @@ from hydromodpy.simulation.soil_recharge import (
 from hydromodpy.spatial.geographic.core.derived_features import (
     attach_reference_hydrographic_network,
 )
-from hydromodpy.spatial.geographic.core.lake_catchments import lake_contributing_areas_m2
+from hydromodpy.spatial.geographic.core.lake_catchments import (
+    lake_areas_or_even_split,
+    payload_attr,
+)
+from hydromodpy.spatial.geographic.core.sfr_traces import build_sfr_reach_traces
 from hydromodpy.spatial.geographic.delineated_catchment import catchment_outline
 from hydromodpy.spatial.geographic.structure_binders import apply_geology_to_domain
-from hydromodpy.workflow.internals.data_description import (
+from hydromodpy.workflow.record.run_store import run_dir_of_state
+from hydromodpy.workflow.state import PipelineState
+from hydromodpy.workflow.steps.data_description import (
     changed_sources,
     describe_loaded_data,
     description_path,
     read_data_description,
     write_data_description,
 )
-from hydromodpy.workflow.internals.state import PipelineState
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
@@ -71,13 +76,6 @@ def _log_soil_budget(lines: tuple[str, ...]) -> None:
 # ---------------------------------------------------------------------------
 # Lazy-import helpers (kept at module level for patchability in tests)
 # ---------------------------------------------------------------------------
-
-
-def _build_data_plan(*args, **kwargs):
-    """Import planner lazily to keep launcher imports lightweight in tests."""
-    from hydromodpy.data import DataPlanner
-
-    return DataPlanner().build(*args, **kwargs)
 
 
 def _build_data_runtime_loader(*args, **kwargs):
@@ -115,41 +113,38 @@ def log_data_plan(data_plan: DataLoadPlan) -> None:
 # ---------------------------------------------------------------------------
 
 
-def run_data(
-    config_path: str | Path,
-    data_plan: DataLoadPlan,
-    run_state: WorkflowContext,
-) -> None:
-    """Load the external forcings shared by all process runs.
+def step_data_loading(ctx: WorkflowContext) -> None:
+    """Load the external forcings shared by all process runs and bind them to the runtime.
 
     Runtime loading is delegated to ``DataManagersRuntimeLoader`` in the
     data_managers package. Structural bindings are then applied explicitly
     through domain/process binder modules.
     """
+    data_plan = ctx.data_plan
     loader = _build_data_runtime_loader(
-        config_path=config_path,
+        config_path=ctx.config_path,
         data_plan=data_plan,
     )
-    loader.load_all(run_state)
+    loader.load_all(ctx)
     check_run_gauge_area(
-        getattr(run_state.cfg, "site", None),
-        run_state.loaded_data.hydrometry,
-        getattr(run_state.setup.geographic, "catch_area", None),
+        getattr(ctx.cfg, "site", None),
+        ctx.loaded_data.hydrometry,
+        getattr(ctx.setup.geographic, "catch_area", None),
     )
-    apply_structural_updates_from_data(run_state)
-    run_state.loaded_data.loaded_plan_types = tuple(getattr(data_plan, "types", ()) or ())
+    apply_structural_updates_from_data(ctx)
+    ctx.loaded_data.loaded_plan_types = tuple(getattr(data_plan, "types", ()) or ())
 
-    soil = run_state.setup.soil_forcings
-    if soil is not None and not run_state.execution.lightweight:
+    soil = ctx.setup.soil_forcings
+    if soil is not None and not ctx.execution.lightweight:
         lines = soil_budget_lines(
             soil,
             ladder=ru_ladder(soil),
             gauged_line=gauged_discharge_line(
-                run_state.loaded_data.hydrometry,
+                ctx.loaded_data.hydrometry,
                 days=soil.days,
-                catchment_area_km2=getattr(run_state.setup.geographic, "catch_area", None),
+                catchment_area_km2=getattr(ctx.setup.geographic, "catch_area", None),
             ),
-            sent_to_evt="etp" in run_state.cfg.flow.active_sinks_sources,
+            sent_to_evt="etp" in ctx.cfg.flow.active_sinks_sources,
         )
         progress.after_phase(partial(_log_soil_budget, lines))
 
@@ -183,23 +178,17 @@ def rebind_flow_if_stale(run_state: WorkflowContext) -> bool:
     return True
 
 
-def apply_structural_updates_from_data(
-    run_state: WorkflowContext,
-) -> None:
-    """Bind loaded data objects to runtime structures using explicit updaters."""
+def _resolved_window(run_state: WorkflowContext):
+    resolved_grid = getattr(run_state.setup, "time_grid", None)
+    if resolved_grid is not None:
+        return resolved_grid.window
+    return resolve_simulation_time_window(run_state.cfg)
+
+
+def _bind_soil_recharge_etp(run_state: WorkflowContext, window):
+    """Compute the soil forcings (when configured) and bind recharge and ETP; return the soil."""
     setup_state = run_state.setup
     data_state = run_state.loaded_data
-    apply_geology_to_domain(domain=setup_state.domain, geology=data_state.geology)
-    ensure_flow(run_state)
-    apply_oceanic_to_flow(flow=setup_state.flow, oceanic=data_state.oceanic)
-
-    resolved_grid = getattr(setup_state, "time_grid", None)
-    window = (
-        resolved_grid.window
-        if resolved_grid is not None
-        else resolve_simulation_time_window(run_state.cfg)
-    )
-
     soil_config = soil_reservoir_of(getattr(run_state.cfg, "flow", None))
     soil = None
     if soil_config is not None:
@@ -233,23 +222,33 @@ def apply_structural_updates_from_data(
         simulation_window=window,
         from_soil_reservoir=soil is not None,
     )
+    return soil
+
+
+def _bind_lakes_and_structures(run_state: WorkflowContext, window) -> None:
+    """Bind the lake geometry and flux forcings, the cutoff wall and the flow barriers."""
+    setup_state = run_state.setup
+    data_state = run_state.loaded_data
     apply_lake_geometry_to_flow(
         flow=setup_state.flow,
         lake_geometry=getattr(data_state, "lake_geometry", None),
     )
-    _project_crs = getattr(getattr(setup_state, "geographic", None), "crs_proj", None)
-    _geo = getattr(run_state.cfg, "geographic", None)
-    _xo = getattr(_geo, "x_outlet", None)
-    _yo = getattr(_geo, "y_outlet", None)
-    _outlet_xy = (float(_xo), float(_yo)) if _xo is not None and _yo is not None else None
-    _data_dir = getattr(getattr(run_state.cfg, "workspace", None), "data_dir", None)
+    project_crs = getattr(getattr(setup_state, "geographic", None), "crs_proj", None)
+    geo = getattr(run_state.cfg, "geographic", None)
+    x_outlet = getattr(geo, "x_outlet", None)
+    y_outlet = getattr(geo, "y_outlet", None)
+    outlet_xy = (
+        (float(x_outlet), float(y_outlet))
+        if x_outlet is not None and y_outlet is not None
+        else None
+    )
     apply_cutoff_wall_to_flow(
         flow=setup_state.flow,
-        project_crs=_project_crs,
-        outlet_xy=_outlet_xy,
-        data_dir=_data_dir,
+        project_crs=project_crs,
+        outlet_xy=outlet_xy,
+        data_dir=getattr(getattr(run_state.cfg, "workspace", None), "data_dir", None),
     )
-    apply_flow_barriers_to_flow(flow=setup_state.flow, project_crs=_project_crs)
+    apply_flow_barriers_to_flow(flow=setup_state.flow, project_crs=project_crs)
     apply_lake_abacus_to_flow(
         flow=setup_state.flow,
         lake_abacus=getattr(data_state, "lake_abacus", None),
@@ -264,28 +263,32 @@ def apply_structural_updates_from_data(
         lake_withdrawal=getattr(data_state, "lake_withdrawal", None),
         simulation_window=window,
     )
-    _catch_area_km2 = getattr(getattr(setup_state, "geographic", None), "catch_area", None)
-    _catch_area_m2 = float(_catch_area_km2) * 1.0e6 if _catch_area_km2 else None
-    _runoff = getattr(data_state, "runoff", None) if soil is None else soil.runoff
+
+
+def _bind_runoff_and_sfr(run_state: WorkflowContext, window, soil) -> None:
+    """Route the catchment runoff to the SFR networks and lakes, then bind the SFR traces."""
+    setup_state = run_state.setup
+    data_state = run_state.loaded_data
+    catch_area_km2 = getattr(getattr(setup_state, "geographic", None), "catch_area", None)
+    catch_area_m2 = float(catch_area_km2) * 1.0e6 if catch_area_km2 else None
+    runoff = getattr(data_state, "runoff", None) if soil is None else soil.runoff
     # Routed-first precedence: an active SFR network takes the catchment runoff
     # (the lake meteo binder then skips its direct runoff feed; the water reaches
     # a coupled lake through MVR instead).
     apply_runoff_to_sfr_networks(
         flow=setup_state.flow,
-        runoff=_runoff,
+        runoff=runoff,
         simulation_window=window,
-        catchment_area_m2=_catch_area_m2,
+        catchment_area_m2=catch_area_m2,
     )
     apply_lake_meteo_forcings_to_flow(
         flow=setup_state.flow,
         precipitation=getattr(data_state, "precipitation", None),
         etp=getattr(data_state, "etp", None),
-        runoff=_runoff,
+        runoff=runoff,
         simulation_window=window,
-        catchment_area_m2=_catch_area_m2,
-        lake_contributing_areas_m2=(
-            lake_runoff_areas(setup_state) if _runoff is not None else None
-        ),
+        catchment_area_m2=catch_area_m2,
+        lake_contributing_areas_m2=(lake_runoff_areas(setup_state) if runoff is not None else None),
     )
     if setup_state.geographic_features is not None:
         setup_state.geographic_features = attach_reference_hydrographic_network(
@@ -295,8 +298,23 @@ def apply_structural_updates_from_data(
     bind_sfr_network_traces(run_state)
 
 
+def apply_structural_updates_from_data(
+    run_state: WorkflowContext,
+) -> None:
+    """Bind loaded data objects to runtime structures using explicit updaters."""
+    setup_state = run_state.setup
+    data_state = run_state.loaded_data
+    apply_geology_to_domain(domain=setup_state.domain, geology=data_state.geology)
+    ensure_flow(run_state)
+    apply_oceanic_to_flow(flow=setup_state.flow, oceanic=data_state.oceanic)
+    window = _resolved_window(run_state)
+    soil = _bind_soil_recharge_etp(run_state, window)
+    _bind_lakes_and_structures(run_state, window)
+    _bind_runoff_and_sfr(run_state, window, soil)
+
+
 # ---------------------------------------------------------------------------
-# Lake runoff shares
+# Lake runoff shares and SFR reach-network binding
 # ---------------------------------------------------------------------------
 
 
@@ -314,57 +332,13 @@ def lake_runoff_areas(setup_state: object) -> dict[str, float] | None:
     lakes = getattr(flow, "sinks_sources", {}).get("lakes") or {}
     if len(lakes) < 2:
         return None
-    polygons = {
-        str(lake_id): _payload_attr(payload, "polygon")
-        for lake_id, payload in lakes.items()
-        if _payload_attr(payload, "polygon") is not None
-    }
     geographic = getattr(setup_state, "geographic", None)
     flow_products = getattr(geographic, "_flow_products", None)
-    if len(polygons) != len(lakes) or flow_products is None:
-        logger.warning(
-            "The lakes cannot be given their own drainage area (lake polygons or D8 "
-            "pointer missing): the basin runoff is split evenly between them."
-        )
-        return None
-    return lake_contributing_areas_m2(
-        d8_pointer_tif=str(flow_products.direc),
-        lake_polygons=polygons,
-        watershed_polygons=_read_watershed_polygons(geographic),
+    return lake_areas_or_even_split(
+        lakes,
+        d8_pointer_tif=str(flow_products.direc) if flow_products is not None else None,
+        watershed_shp=getattr(geographic, "watershed_shp", None),
     )
-
-
-# ---------------------------------------------------------------------------
-# SFR reach-network delineation binding
-# ---------------------------------------------------------------------------
-
-
-def _payload_attr(payload: object, name: str) -> object:
-    if isinstance(payload, dict):
-        return payload.get(name)
-    return getattr(payload, name, None)
-
-
-def _length_to_m(value: object) -> float:
-    to = getattr(value, "to", None)
-    if callable(to):
-        return float(to("m").magnitude)
-    return float(getattr(value, "magnitude", value))  # type: ignore[arg-type]
-
-
-def _read_watershed_polygons(geographic: object) -> list[object]:
-    """Read the delineated watershed polygon(s) used to scope the stream links.
-
-    The full-grid link raster covers the whole regional DEM; only the links
-    inside the modeled catchment can map onto the solver mesh.
-    """
-    watershed_shp = getattr(geographic, "watershed_shp", None)
-    if not watershed_shp or not Path(str(watershed_shp)).exists():
-        return []
-    import geopandas as gpd
-
-    gdf = gpd.read_file(str(watershed_shp))
-    return [geometry for geometry in gdf.geometry if geometry is not None]
 
 
 def _sfr_networks_needing_trace(flow: object) -> dict[str, object]:
@@ -379,18 +353,15 @@ def _sfr_networks_needing_trace(flow: object) -> dict[str, object]:
     return {
         str(network_id): payload
         for network_id, payload in sfr.items()
-        if _payload_attr(payload, "reaches") is None
+        if payload_attr(payload, "reaches") is None
     }
 
 
 def bind_sfr_network_traces(run_state: WorkflowContext) -> None:
     """Delineate (once) and bind the SFR reach traces onto the runtime flow.
 
-    Reads the FULL DEM-grid rasters from the river-network products (the clipped
-    rasters have a different extent), rasterizes the bound lake polygons so the
-    terminal reach is flagged, and attaches one ``SfrReachTrace`` per network
-    through the physics binder. The traces are cached on ``setup`` so the
-    per-run Flow rebuilds re-bind without recomputing.
+    The traces are cached on ``setup`` so the per-run Flow rebuilds re-bind
+    without recomputing.
     """
     setup_state = run_state.setup
     flow = setup_state.flow
@@ -399,102 +370,18 @@ def bind_sfr_network_traces(run_state: WorkflowContext) -> None:
     networks = _sfr_networks_needing_trace(flow)
     if not networks:
         return
-
     if setup_state.sfr_reach_traces is None:
-        from hydromodpy.spatial.geographic.core.sfr_network import (
-            build_sfr_reach_trace_from_products,
+        setup_state.sfr_reach_traces = build_sfr_reach_traces(
+            setup_state.geographic,
+            networks,
+            getattr(flow, "sinks_sources", {}).get("lakes") or {},
         )
-
-        geographic = setup_state.geographic
-        products = getattr(geographic, "_river_network_products", None)
-        if products is None or not bool(getattr(products, "enabled", False)):
-            raise ConfigError(
-                "flow.sinks_sources.sfr needs the river-network products; set "
-                "[geographic.river_network] enabled = true."
-            )
-        link_full = getattr(products, "stream_link_id_full_tif", None)
-        if link_full is None:
-            raise ConfigError(
-                "flow.sinks_sources.sfr needs the stream-link raster; set "
-                "[geographic.river_network] compute_stream_links = true."
-            )
-        flow_products = getattr(geographic, "_flow_products", None)
-        if flow_products is None:
-            raise ConfigError(
-                "flow.sinks_sources.sfr needs the regional flow products (corrected "
-                "DEM + D8 pointer); run the geographic preprocessing first."
-            )
-        # The streambed elevation is read on the model top, never on the routing
-        # surface: the routing surface belongs to the flow paths, not to the bed.
-        top_dem_tif = getattr(geographic, "_top_dem_path", None)
-        if top_dem_tif is None:
-            raise ConfigError(
-                "flow.sinks_sources.sfr reads the streambed elevation on the model-top "
-                "DEM, which the geographic preprocessing publishes; run it first."
-            )
-        dem_res_m = float(geographic.dem_res)
-        # Lake polygons in LAK packagedata order (the lakes dict order, which the
-        # solver also enumerates): the delineation burns each with its 1-based
-        # position so a terminal reach is tagged with the specific lake it feeds.
-        lakes = getattr(flow, "sinks_sources", {}).get("lakes") or {}
-        lake_polygons = [
-            _payload_attr(payload, "polygon")
-            for payload in lakes.values()
-            if _payload_attr(payload, "polygon") is not None
-        ]
-        watershed_polygons = _read_watershed_polygons(geographic)
-
-        traces: dict[str, object] = {}
-        for network_id, payload in networks.items():
-            min_slope = _payload_attr(payload, "min_slope")
-            min_reach_length = _payload_attr(payload, "min_reach_length")
-            traces[network_id] = build_sfr_reach_trace_from_products(
-                stream_link_id_full_tif=str(link_full),
-                d8_pointer_tif=str(flow_products.direc),
-                flow_acc_cells_tif=str(products.flow_acc_cells_tif),
-                top_dem_tif=str(top_dem_tif),
-                dem_res_m=dem_res_m,
-                stream_order_strahler_full_tif=getattr(
-                    products, "stream_order_strahler_full_tif", None
-                ),
-                lake_polygons=lake_polygons,
-                watershed_polygons=watershed_polygons,
-                min_slope=float(min_slope) if min_slope is not None else 1e-4,
-                min_reach_length_m=(
-                    _length_to_m(min_reach_length) if min_reach_length is not None else 0.0
-                ),
-            )
-        setup_state.sfr_reach_traces = traces
-
     apply_sfr_network_to_flow(flow=flow, reach_traces=setup_state.sfr_reach_traces)
-
-
-# ---------------------------------------------------------------------------
-# Step entry point (unified signature for workflow pipelines)
-# ---------------------------------------------------------------------------
-
-
-def step_data_loading(ctx: WorkflowContext) -> None:
-    """Load forcings into ``ctx.loaded_data`` and bind them to runtime structures."""
-    run_data(
-        config_path=ctx.config_path,
-        data_plan=ctx.data_plan,
-        run_state=ctx,
-    )
 
 
 # ---------------------------------------------------------------------------
 # Pipeline step
 # ---------------------------------------------------------------------------
-
-
-def _run_dir_for(state: PipelineState) -> Path | None:
-    """Return the run directory this pipeline owns, or None before there is one."""
-    run_dir = state.get("run_dir")
-    if run_dir is None:
-        return None
-    path = Path(str(run_dir))
-    return path if path.is_dir() else None
 
 
 class LoadDataStep:
@@ -530,7 +417,7 @@ class LoadDataStep:
         document holds it - so a resume that finds the document gone, or
         truncated, refuses instead of carrying on over an undescribed load.
         """
-        run_dir = _run_dir_for(state_out)
+        run_dir = run_dir_of_state(state_out)
         if run_dir is None:
             return ()
         path = description_path(run_dir)
@@ -538,7 +425,7 @@ class LoadDataStep:
 
     def _describe(self, ctx: WorkflowContext, state: PipelineState) -> dict | None:
         """Write what this load read, beside the resume checkpoint of the run."""
-        run_dir = _run_dir_for(state)
+        run_dir = run_dir_of_state(state)
         if run_dir is None:
             return None
         payload = describe_loaded_data(
@@ -565,7 +452,7 @@ class LoadDataStep:
         from before and a forcing from after. The description the first load
         left says which sources it used, so the divergence is at least named.
         """
-        run_dir = _run_dir_for(prior_state)
+        run_dir = run_dir_of_state(prior_state)
         before = read_data_description(run_dir) if run_dir is not None else None
         state = self.run(prior_state)
         if before is not None and run_dir is not None:

@@ -14,7 +14,7 @@ import pandas as pd
 import pytest
 
 from hydromodpy.core.exceptions import DataError
-from hydromodpy.project import summary
+from hydromodpy.results.run import ranking
 from hydromodpy.results.run.sealed import MixedWindowsError
 
 pytestmark = pytest.mark.unit
@@ -41,16 +41,16 @@ def _rows(*scored: tuple[str, str, str, float]) -> pd.DataFrame:
 
 def test_the_exception_is_one_class_of_the_data_errors() -> None:
     assert issubclass(MixedWindowsError, DataError)
-    assert not hasattr(summary, "MixedWindowsError")
+    assert not hasattr(ranking, "MixedWindowsError")
 
 
 def test_runs_scored_at_different_stations_are_not_ranked_together() -> None:
     frame = _rows(("a", "J001", "discharge", 0.8), ("b", "J002", "discharge", 0.6))
 
     with pytest.raises(MixedWindowsError, match="J001") as refused:
-        summary.rank_rows(frame, "nse")
+        ranking.rank_rows(frame, "nse")
     assert "J002" in str(refused.value)
-    assert list(summary.rank_rows(frame, "nse", mixed_windows=True)["name"]) == ["run0", "run1"]
+    assert list(ranking.rank_rows(frame, "nse", mixed_windows=True)["name"]) == ["run0", "run1"]
 
 
 def test_each_site_keeps_its_own_station_when_ranked_by_site() -> None:
@@ -60,7 +60,7 @@ def test_each_site_keeps_its_own_station_when_ranked_by_site() -> None:
         ("b", "J002", "discharge", 0.6),
     )
 
-    best = summary.rank_rows(frame, "nse", by="site")
+    best = ranking.rank_rows(frame, "nse", by="site")
 
     assert list(best["name"]) == ["run1", "run2"]
 
@@ -69,11 +69,19 @@ def test_two_stations_inside_one_site_are_refused() -> None:
     frame = _rows(("a", "J001", "discharge", 0.8), ("a", "J002", "discharge", 0.9))
 
     with pytest.raises(MixedWindowsError, match="site a"):
-        summary.rank_rows(frame, "nse", by="site")
+        ranking.rank_rows(frame, "nse", by="site")
 
 
 def test_two_variables_are_refused_across_the_whole_cohort() -> None:
     frame = _rows(("a", "J001", "discharge", 0.8), ("b", "P002", "groundwater_level", 0.9))
 
     with pytest.raises(MixedWindowsError, match="groundwater_level"):
-        summary.rank_rows(frame, "nse", by="site")
+        ranking.rank_rows(frame, "nse", by="site")
+
+
+def test_the_direction_of_a_metric_is_ranked_by_one_key() -> None:
+    from hydromodpy.project.launch import summary
+    from hydromodpy.results.run import group
+
+    assert ranking.rank_key is group.rank_key
+    assert not hasattr(summary, "rank_key")

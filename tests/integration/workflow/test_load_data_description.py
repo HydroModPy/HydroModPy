@@ -106,7 +106,7 @@ def _isolated_copy(root: Path, destination: Path) -> Path:
 
 
 def _journal(root: Path, run_id: str):
-    from hydromodpy.workflow.tracking.journal import WorkflowJournal
+    from hydromodpy.workflow.record.journal import WorkflowJournal
 
     return WorkflowJournal(root / run_dir_rel(run_id))
 
@@ -129,7 +129,7 @@ def loaded_run(tmp_path_factory: pytest.TempPathFactory):
         pytest.skip(f"missing DEM fixture {DEM}")
     from hydromodpy.core.exceptions import StepError
     from hydromodpy.project.facade import Project
-    from hydromodpy.workflow.internals.data_description import iter_loaded_records
+    from hydromodpy.workflow.steps.data_description import iter_loaded_records
     from hydromodpy.workflow.steps.mesh import BuildMeshStep
 
     root = tmp_path_factory.mktemp("load_data_description")
@@ -164,7 +164,7 @@ def loaded_run(tmp_path_factory: pytest.TempPathFactory):
 
 def test_the_step_declares_the_document_that_names_its_load(loaded_run) -> None:
     """The journal carries a real digest over a document, not the empty one."""
-    from hydromodpy.workflow.internals.data_description import DESCRIPTION_FILENAME
+    from hydromodpy.workflow.steps.data_description import DESCRIPTION_FILENAME
 
     root, row, _walked = loaded_run
 
@@ -178,7 +178,7 @@ def test_the_step_declares_the_document_that_names_its_load(loaded_run) -> None:
 
 def test_the_document_names_the_records_that_were_loaded(loaded_run) -> None:
     """A synthetic series is named as one, with no digest it cannot compute."""
-    from hydromodpy.workflow.internals.data_description import (
+    from hydromodpy.workflow.steps.data_description import (
         SCHEMA_VERSION,
         read_data_description,
     )
@@ -201,7 +201,7 @@ def test_the_document_names_the_records_that_were_loaded(loaded_run) -> None:
 
 def test_the_document_names_every_record_the_shared_walk_yields(loaded_run) -> None:
     """The load and the fingerprints three steps later read the same walk."""
-    from hydromodpy.workflow.internals.data_description import read_data_description
+    from hydromodpy.workflow.steps.data_description import read_data_description
 
     root, _row, walked = loaded_run
 
@@ -214,8 +214,8 @@ def test_the_document_names_every_record_the_shared_walk_yields(loaded_run) -> N
 
 def test_a_run_that_lost_its_document_replans_from_the_load(loaded_run, tmp_path: Path) -> None:
     """Without the document the load is undescribed, so it is not trusted."""
-    from hydromodpy.workflow.internals.data_description import description_path
-    from hydromodpy.workflow.tracking.resume import ResumePlanner
+    from hydromodpy.workflow.steps.data_description import description_path
+    from hydromodpy.workflow.record.resume import ResumePlanner
 
     source, row, _walked = loaded_run
     root = _isolated_copy(source, tmp_path / "lost_document")
@@ -252,12 +252,12 @@ def test_a_document_that_no_longer_matches_replans_from_the_load(
     finds the recorded digest and the document disagreeing, and replans from
     the load rather than keeping a run built on bytes that are gone.
     """
-    from hydromodpy.workflow.internals.data_description import (
+    from hydromodpy.workflow.steps.data_description import (
         description_path,
         read_data_description,
         write_data_description,
     )
-    from hydromodpy.workflow.tracking.resume import ResumePlanner
+    from hydromodpy.workflow.record.resume import ResumePlanner
 
     source, _row, _walked = loaded_run
     root = _isolated_copy(source, tmp_path / "moved_document")

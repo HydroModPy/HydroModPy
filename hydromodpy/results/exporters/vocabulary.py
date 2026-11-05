@@ -91,7 +91,7 @@ OBSERVED_SERIES: tuple[str, ...] = tuple(series_name(name, OBSERVED) for name in
 """The names an export asks for an observed series by, stored beside the simulated ones."""
 
 # spatial/geographic/store_ingestion.py (watershed layers), workflow/steps/
-# prepare_solver/prepare.py (reference networks), results/exporters/mesh_layers.py
+# prepare_solver/forcings.py (reference networks), results/exporters/mesh_layers.py
 # (the layers of the cell mesh).
 VECTOR_LAYERS: tuple[str, ...] = (
     "watershed",

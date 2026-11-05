@@ -758,7 +758,7 @@ def promote_prepared_trial(
 
     The attempt of ``run_dir`` is closed here: ``completed`` once the run is
     sealed, ``failed`` or ``aborted`` when the pipeline raises. A promotion is
-    not launched under :func:`~hydromodpy.project.attempt.run_attempt`, so
+    not launched under :func:`~hydromodpy.workflow.record.attempt.run_attempt`, so
     nothing else would close it.
 
     ``kept`` is the solve the trial of ``values`` left on disk. The run then

@@ -141,7 +141,7 @@ def _load(target: Path) -> tuple[Any, list[str], list[str]]:
 
 
 def _check_run(target: Path) -> CheckReport:
-    from hydromodpy.workflow.steps.validate import check_export_variables, check_time_selectors
+    from hydromodpy.config.export_checks import check_export_variables, check_time_selectors
 
     cfg, errors, noted = _load(target)
     if cfg is not None:

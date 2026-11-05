@@ -75,6 +75,8 @@ variables/<v>/
 └── custom.py     only when loading the user's files takes real work
 ```
 
+`dem`, `crossings` and `hydrography` also keep a `resolver.py`: the geographic step runs before any data manager, so it turns their sources into files on disk first (`fill_dem_init_path`, `fill_crossings_path`, `resolve_network_map_path`).
+
 A manager maps each value a user may write in `source =` to the function that
 fetches it:
 

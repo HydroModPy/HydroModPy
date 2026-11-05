@@ -24,7 +24,7 @@ from hydromodpy.results.storage.attempt import (
     DirectoryWithoutOutcomeError,
 )
 from tests._helpers.sealed_runs import write_attempt
-from tests.unit.project.test_run_pipeline_state import DEM, PROJECT_TOML
+from tests.unit.project._helpers import DEM, PROJECT_TOML
 
 CASE = "declared_name"
 """``[simulation] name`` of the project TOML, which names the case."""

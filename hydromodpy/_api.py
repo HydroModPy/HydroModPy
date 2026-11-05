@@ -55,7 +55,7 @@ if TYPE_CHECKING:
     from hydromodpy.results.run import Run
     from hydromodpy.results.session.view import Session
     from hydromodpy.simulation.spinup_config import SpinupConfig
-    from hydromodpy.workflow.pipelines.overview import OverviewResult
+    from hydromodpy.workflow.overview import OverviewResult
 
     # A file or folder path, as text or as a pathlib.Path.
     PathLike = str | os.PathLike[str]
@@ -122,7 +122,7 @@ def open(path: PathLike) -> Project | Run | Session | Workspace:
         sessions_dir_for,
     )
     from hydromodpy.project.accessors import Workspace
-    from hydromodpy.project.facade import open_project
+    from hydromodpy.project.opening import open_project
     from hydromodpy.results.run.view import open_run_dir
     from hydromodpy.results.session.descriptor import session_descriptor_path
     from hydromodpy.results.session.view import Session
@@ -284,7 +284,7 @@ def run(
     - a simulation gives a :class:`~hydromodpy.results.run.Run`, or ``None`` when it
       keeps nothing to read: a window that stops before ``setup_process``, or
       ``save_catalog = false``;
-    - an overview gives a :class:`~hydromodpy.workflow.pipelines.overview.OverviewResult`;
+    - an overview gives a :class:`~hydromodpy.workflow.overview.OverviewResult`;
     - ``dry_run=True`` gives a :class:`~hydromodpy.config.sites.expansion.PlanDraft`,
       with nothing run and nothing written.
 
@@ -543,8 +543,8 @@ def calibrate(
     """
     from hydromodpy.core.exceptions import CalibrationError
     from hydromodpy.project import Project
+    from hydromodpy.project.calibrate import calibrate_a_file
     from hydromodpy.project.dispatch.workflow import no_such_phase
-    from hydromodpy.project.facade import calibrate_a_file
 
     if isinstance(config, (str, Path)):
         kwargs.pop("headless", None)
@@ -786,7 +786,7 @@ def spinup(
     import dataclasses
 
     from hydromodpy.project import Project
-    from hydromodpy.project.facade import resolve_config
+    from hydromodpy.project.opening import resolve_config
     from hydromodpy.project.spinup import run_spinup
 
     source = Path(config).expanduser().resolve() if isinstance(config, (str, Path)) else config

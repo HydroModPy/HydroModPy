@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import Any, Protocol
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.workflow.internals.state import PipelineState
+from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.runner import Pipeline
 from validity_frame import ValidityFrame
 

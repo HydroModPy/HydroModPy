@@ -6,22 +6,21 @@ everything the run produced. A copy out of the project is ``hmp publish``.
 
 from __future__ import annotations
 
-import gc
 import os
-import shutil
-import time
 from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
 from hydromodpy.core import progress
-from hydromodpy.core.exceptions import ConfigError, ExportError
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.progress import HINT, MILESTONE
-from hydromodpy.core.state.paths import PREPROCESSING_DIRNAME, active_run_scratch, display_path
+from hydromodpy.core.state.paths import display_path
 from hydromodpy.results.storage.contract import RUN_SOLVER_DIRNAME
-from hydromodpy.workflow.internals.state import PipelineState
-from hydromodpy.workflow.run_store import run_is_persisted, run_store
+from hydromodpy.results.storage.scratch import clear_scratch, drop_empty_scratch
+from hydromodpy.results.storage.sealing import seal_completed
+from hydromodpy.workflow.record.run_store import run_is_persisted, run_store
+from hydromodpy.workflow.state import PipelineState
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
@@ -29,9 +28,6 @@ if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
 
 logger = get_logger(__name__)
-
-_SCRATCH_CLEANUP_RETRY_DELAYS = (0.1, 0.2, 0.4, 0.8, 1.6)
-
 
 # ---------------------------------------------------------------------------
 # Store finalization
@@ -117,76 +113,21 @@ def step_cleanup_scratch(
     keep_solver_files: bool = False,
     spare: Iterable[str | Path] = (),
 ) -> None:
-    """Remove the solver scratch folders, or move them into the run under keep_solver_files.
+    """Empty the scratch of the attempt; under keep_solver_files a persisted run keeps its solver files.
 
-    Every child of the scratch folder of the attempt goes (``<run>/.hmp/scratch/``,
-    :func:`hydromodpy.results.storage.attempt.scratch_dir_for_attempt`) but the
-    geographic ``_preprocessing/`` tree, which belongs to the session and which
-    :func:`step_cleanup_preprocessing` is the one entitled to drop. Another run
-    of the project works in another folder, so nothing of it is touched.
-
-    Under ``keep_solver_files`` a persisted run moves those children into
-    ``<run>/solver/`` instead: the seal drops ``<run>/.hmp/`` and the solver
-    files must outlive it. A run without a directory keeps them in place.
-
-    ``spare`` names folders someone else still owns: the solver folders of the
-    calibration trials a session keeps for their own promotion. A child holding
-    one of them stays.
+    The rule is :func:`hydromodpy.results.storage.scratch.clear_scratch`. Under
+    ``keep_solver_files`` a persisted run moves the children into
+    ``<run>/solver/`` instead of dropping them: the seal drops ``<run>/.hmp/``
+    and the solver files must outlive it. A run without a directory keeps them
+    in place. ``spare`` names folders someone else still owns.
     """
     workspace = ctx.setup.workspace
     if workspace is None:
         return
-    scratch = workspace.solver_scratch_folder
-    if not scratch.exists():
-        return
     if keep_solver_files and not run_is_persisted(ctx):
         return
-    spared = {Path(folder).resolve() for folder in spare}
     kept = Path(ctx.run_dir) / RUN_SOLVER_DIRNAME if keep_solver_files else None
-    for target in sorted(scratch.iterdir()):
-        if target.name == PREPROCESSING_DIRNAME:
-            continue
-        resolved = target.resolve()
-        if any(folder == resolved or resolved in folder.parents for folder in spared):
-            continue
-        if kept is None:
-            _remove_scratch_path(ctx, target)
-        else:
-            _keep_scratch_path(target, kept)
-
-
-def _keep_scratch_path(target: Path, kept: Path) -> None:
-    """Move one scratch entry into the solver folder of the run, replacing a former copy."""
-    destination = kept / target.name
-    if destination.is_dir():
-        shutil.rmtree(destination)
-    elif destination.exists():
-        destination.unlink()
-    kept.mkdir(parents=True, exist_ok=True)
-    shutil.move(target, destination)
-
-
-def _remove_scratch_path(ctx: WorkflowContext, target: Path) -> None:
-    """Delete one scratch entry, retrying while a handle still pins it."""
-    _release_cleanup_handles(ctx)
-    last_error: OSError | None = None
-    for delay in (0.0, *_SCRATCH_CLEANUP_RETRY_DELAYS):
-        if delay:
-            time.sleep(delay)
-            _release_cleanup_handles(ctx)
-        try:
-            if target.is_dir():
-                shutil.rmtree(target)
-            else:
-                target.unlink()
-            return
-        except FileNotFoundError:
-            return
-        except OSError as exc:
-            last_error = exc
-    raise ExportError(
-        f"Could not remove solver scratch directory: {target}: {last_error}"
-    ) from last_error
+    clear_scratch(workspace.solver_scratch_folder, kept=kept, spare=spare)
 
 
 def step_cleanup_preprocessing(ctx: WorkflowContext, *, keep: bool = False) -> int:
@@ -213,24 +154,7 @@ def step_drop_empty_scratch(ctx: WorkflowContext) -> None:
     workspace = getattr(getattr(ctx, "setup", None), "workspace", None)
     if workspace is None:
         return
-    folder = Path(workspace.solver_scratch_folder)
-    for target in (folder, folder.parent) if active_run_scratch() else (folder,):
-        try:
-            target.rmdir()
-        except OSError:
-            # Still holding the preprocessing tree, a solver folder or another
-            # run's folder: not ours to force.
-            return
-
-
-def _release_cleanup_handles(ctx: WorkflowContext) -> None:
-    """Release best-effort runtime handles before deleting scratch files.
-
-    No catalog handle survives the step that opened it, so the Zarr handles a
-    catalog tracked are already closed by the time the scratch goes. A garbage
-    collection drops what is left unreferenced.
-    """
-    gc.collect()
+    drop_empty_scratch(Path(workspace.solver_scratch_folder))
 
 
 # ---------------------------------------------------------------------------
@@ -356,3 +280,60 @@ class ExportStep:
             ctx=ctx,
             export_paths=existing,
         )
+
+
+class SealStep:
+    """Step 13 - write the seal of the run from its store; the attempt protocol closes the outcome after it.
+
+    The seal is ``simulation.parquet``, ``parameters.parquet``, ``provenance.json``,
+    ``inputs.json`` and ``manifest.json`` last, then ``README.md``. The metadata
+    views the ``[[export]]`` blocks ask for render the seal, so they are written
+    right after it (:func:`step_after_seal`). The outcome is not touched here: the
+    attempt protocol around the pipeline flips ``outcome.json`` to ``completed``
+    and removes ``<run>/.hmp/`` when it finds the seal.
+    """
+
+    name = "seal"
+    reads: ClassVar[tuple[str, ...]] = ("ctx", "wall_seconds")
+    writes: ClassVar[tuple[str, ...]] = ("ctx",)
+    config_sections: ClassVar[tuple[str, ...]] = ()
+
+    def depends_on(self) -> tuple[str, ...]:
+        return ("export",)
+
+    def rebuild_state(
+        self,
+        *,
+        prior_state: PipelineState,
+        workspace,
+        run_id: str,
+    ) -> PipelineState:
+        """Advance past a seal that is already on disk."""
+        ctx: WorkflowContext | None = prior_state.get("ctx")
+        if ctx is None:
+            raise ConfigError("SealStep.rebuild_state requires 'ctx' in state.data")
+        return prior_state.advance(
+            step_index=prior_state.step_index + 1,
+            step_name=self.name,
+            ctx=ctx,
+        )
+
+    def run(self, state: PipelineState) -> PipelineState:
+        ctx: WorkflowContext | None = state.get("ctx")
+        if ctx is None:
+            raise ConfigError("SealStep requires 'ctx' in state.data")
+        if ctx.sim_id is None or not run_is_persisted(ctx):
+            logger.debug("SealStep: this run keeps no store to seal, skipping")
+        else:
+            with run_store(ctx) as store:
+                record = seal_completed(store)
+            logger.info("Run %s sealed: %s", record.run.name, ctx.run_dir)
+            step_after_seal(ctx, wall_seconds=float(state.get("wall_seconds", 0.0) or 0.0))
+        return state.advance(
+            step_index=state.step_index + 1,
+            step_name=self.name,
+            ctx=ctx,
+        )
+
+
+__all__ = ["ExportStep", "SealStep"]

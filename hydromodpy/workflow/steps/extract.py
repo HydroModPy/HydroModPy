@@ -13,8 +13,8 @@ from hydromodpy.core.exceptions import ConfigError, ExtractError
 from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results.storage.run_store import RunStore
-from hydromodpy.workflow.internals.state import PipelineState
-from hydromodpy.workflow.run_store import run_is_persisted, run_store
+from hydromodpy.workflow.record.run_store import run_is_persisted, run_store
+from hydromodpy.workflow.state import PipelineState
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
@@ -161,7 +161,7 @@ class ExtractStep:
 
     def artifacts(self, state: PipelineState) -> tuple[str, ...]:
         """Return workspace-relative paths populated by extraction."""
-        from hydromodpy.workflow.steps.prepare_solver import _store_sim_artifacts
+        from hydromodpy.workflow.steps.prepare_solver.facts import store_sim_artifacts
 
         ctx = state.get("ctx")
         if ctx is None or not run_is_persisted(ctx):
@@ -170,7 +170,7 @@ class ExtractStep:
         if not sim_id or getattr(ctx, "run_dir", None) is None:
             return ()
         with run_store(ctx) as store:
-            return _store_sim_artifacts(ctx, sim_id, store=store)
+            return store_sim_artifacts(ctx, sim_id, store=store)
 
     def rebuild_state(
         self,

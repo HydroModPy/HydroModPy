@@ -20,7 +20,7 @@ from hydromodpy.config.sites.plan import write_plan_draft
 from hydromodpy.core.site import SiteRow
 from hydromodpy.data.sites.catalog import write_catalog
 from tests._helpers.cli_runner import CliRunner
-from tests.unit.project._launch_fakes import (
+from tests.unit.project.launch._launch_fakes import (
     fake_worker,  # noqa: F401 - fixture
     write_behaviour,
 )

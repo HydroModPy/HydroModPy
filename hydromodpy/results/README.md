@@ -27,7 +27,7 @@ layout is `storage/contract.py`; the full contract is
 
 | part | answers |
 |---|---|
-| `storage/` | what a run and a session directory hold (`contract.py`), how a Parquet table is written (`parquet_io.py`, `arrow_tables.py`, one schema per view in `parquet_schemas.py`), the store of one run (`run_store.py`, its facts in `run_facts.py`), the seal (`sealing.py`), the attempt protocol (`attempt.py`, `run_log.py`), digests, licence and geographic facts, lazy loaders, layout diagnostics |
+| `storage/` | what a run and a session directory hold (`contract.py`), how a Parquet table is written (`parquet_io.py`, `arrow_tables.py`, one schema per view in `parquet_schemas.py`), the store of one run (`run_store.py`, its facts in `run_facts.py`), the seal (`sealing.py`), the soil columns and `soil_budget` rows of a soil run (`soil_tables.py`), the attempt protocol (`attempt.py`, `run_log.py`), the emptying of the solver scratch (`scratch.py`), digests, licence and geographic facts, lazy loaders, layout diagnostics |
 | `zarr_store/` | the per-run Zarr 3 array store `SimulationZarr`: writer, reader, finalizer, schema, ACDD and CF metadata, chunk and shard sizes |
 | `field_registry.py` | the one table that maps a field name to its place in the Zarr store and to its CF metadata |
 | `manifest.py`, `annotations.py`, `trash.py`, `retention.py` | the on-disk side of the rule: the seal, the human sidecars (`annotations.json`), the trash by move and its tombstones (`trash.py`), and what `hmp catalog gc` collects, read from the tree alone (`retention.py`) |
@@ -50,10 +50,12 @@ layout is `storage/contract.py`; the full contract is
 | `storage/json_io.py` | the atomic JSON writer of every document above; the durable variant (fsync) for the seal and the outcome; `read_sealed_json` and `read_transient_json`, which refuse a document of another version by the rule of `core/io/document_version.py` |
 | `catalog/` | the index and its reader: `index_schema.py` is the DDL (one version, a change is a rebuild), `indexer.py` writes the index from the directories (full or incremental, staging and rename, the label computed and dated), `facade.py` is `Catalog`, the read-only view, with `reads.py`, `discovery.py` and `schema.py` as its concerns, `views.py` the summary views (`v_cases`, `v_simulation_summary`), `parquet_views.py` the per-connection views over the Parquet payloads, `federation.py` the cross-project read of `simulation.parquet` files; `ports.py` is the `CatalogBackend` port, `adapters/duckdb.py` its DuckDB adapter, `protocol.py` the `SimulationStore` protocol, `registration.py` the reservation of versions and `storage_paths.py` the directory of a run |
 | `run/` | `Run`, one finished simulation, and the providers behind it: `geographic`, `timeseries`, `hydrographic`, `array` (xarray), `point` (one variable at one place), `periods`, `descent`, `particles`; `sealed.py` reads what the seal says (site, case, lineage, checks, inputs, label, metrics); `group.py` is `RunSet`, a view over several runs, whose metric columns are named by metric, at the gauge, in the window of each run's rule |
+| `run/field_envelope.py` | the minimum and maximum per cell of a field of an earlier sealed run, for the refinement zones of `[mesh]` (`read_run_fields`) |
 | `run/tables.py` | the Parquet tables of one run read from its directory (`read_run_table`, `has_rows`); every Run reads its rows there, never from the index |
+| `run/sealed_facts.py`, `run/ranking.py` | the facts a table of runs reads from each seal (`read_run_facts`, `overrides_text`, `place_of`), and the rows of sealed runs ranked by one metric under one rule (`rank_rows`, with `group.rank_key`), or why a group has none (`unscored_reason`) |
 | `derive/` | what is computed on read from stored fields: virtual fields, catchment views, the read dispatch shared by `hmp.read` and `Catalog.read` (`reading.py`), stream-network comparisons, time alignment, downsampling |
 | `exporters/` | one writer per format (CSV, GeoTIFF, NetCDF-UGRID, VTU, Shapefile, GeoPackage), the VTU one through `spatial/mesh/io/vtu.py`; `vocabulary.py` is the names a user may export, `request.py` `export_run` writes one `[[export]]` request under `runs/<run>/exports/`, poses the identity block and records `exports/index.json` |
-| `export/` | FAIR views built from a sealed directory (`directory.py`, `rocrate.py`, `stac.py`, `prov.py`); `publish.py` copies a run or a summary out of the tree (directory or tar, `PUBLICATION.json`, redaction, and with inputs the install index a caller builds); `project_package.py` writes a whole project with its data (`hmp publish --package`); `run_identity.py` is the identity and label of the day of a run directory; `ledgers.py` records a derived file |
+| `export/` | FAIR views built from a sealed directory (`directory.py`, `rocrate.py`, `stac.py`, `prov.py`); `publish.py` copies a run or a summary out of the tree (directory or tar, `PUBLICATION.json`, redaction, and with inputs the install index a caller builds); `project_package.py` writes a whole project with its data (`hmp publish --package`); `summary_tables.py` writes a table of runs as Parquet, CSV and GeoPackage with the same cells; `run_identity.py` is the identity and label of the day of a run directory; `ledgers.py` records a derived file |
 | `importers/` | readers symmetric to the exporters: CSV series, NetCDF fields, one Zarr field |
 | `geographic_cache.py`, `spatial_index.py`, `grid.py` | the workspace cache of geographic arrays keyed by a fingerprint, point-in-cell lookup on a mesh, the cell size and extent of a run |
 | `calibration_trials.py`, `errors.py`, `html_helpers.py` | the trial rows of a session for one run, the typed errors of the reader, HTML helpers shared by report builders |
@@ -106,7 +108,7 @@ hydromodpy/results/
   exporters/     csv.py  geotiff.py  netcdf.py  vtu.py  shapefile.py  geopackage.py
                  vocabulary.py  request.py
   export/        rocrate.py  stac.py  prov.py  directory.py  publish.py  project_package.py
-                 run_identity.py  ledgers.py
+                 run_identity.py  ledgers.py  summary_tables.py
   importers/
   geographic_cache.py  spatial_index.py  grid.py
 ```

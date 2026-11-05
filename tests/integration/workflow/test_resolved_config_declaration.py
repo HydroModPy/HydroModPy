@@ -128,7 +128,7 @@ def crashed_run(tmp_path_factory: pytest.TempPathFactory):
         finally:
             project.close()
 
-    from hydromodpy.workflow.tracking.journal import WorkflowJournal
+    from hydromodpy.workflow.record.journal import WorkflowJournal
 
     rows = WorkflowJournal(root / run_dir_rel(RUN_NAME)).list_steps(RUN_NAME)
     return root, next(r for r in rows if r.step_order == VALIDATE_ORDER)
@@ -136,7 +136,7 @@ def crashed_run(tmp_path_factory: pytest.TempPathFactory):
 
 def test_the_step_declares_the_configuration_it_resolved(crashed_run) -> None:
     """A run stopped in its model phase still holds the config it ran on."""
-    from hydromodpy.workflow.internals.manifest import RESOLVED_CONFIG_FILENAME
+    from hydromodpy.workflow.record.manifest import RESOLVED_CONFIG_FILENAME
 
     root, row = crashed_run
 
@@ -150,7 +150,7 @@ def test_the_step_declares_the_configuration_it_resolved(crashed_run) -> None:
 def test_the_document_is_what_the_resume_checkpoint_signs(crashed_run) -> None:
     """The digest the checkpoint carries is taken over this exact payload."""
     from hydromodpy.core.io.canonical_json import dumps as canonical_dumps
-    from hydromodpy.workflow.internals.manifest import (
+    from hydromodpy.workflow.record.manifest import (
         ResolvedRunManifest,
         read_resolved_config,
     )
@@ -209,7 +209,7 @@ def test_a_head_only_window_does_not_rewrite_the_document_of_a_real_run(
     import shutil
 
     from hydromodpy.project.facade import Project
-    from hydromodpy.workflow.internals.manifest import resolved_config_path
+    from hydromodpy.workflow.record.manifest import resolved_config_path
 
     source, _row = crashed_run
     root = tmp_path / "head_only"

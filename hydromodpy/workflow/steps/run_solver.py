@@ -8,11 +8,11 @@ from typing import TYPE_CHECKING, ClassVar
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.workflow.internals.state import PipelineState
-from hydromodpy.workflow.run_store import run_is_persisted, run_store
+from hydromodpy.workflow.record.run_store import run_is_persisted, run_store
+from hydromodpy.workflow.state import PipelineState
 
 if TYPE_CHECKING:
-    from hydromodpy.workflow.launcher_protocol import Launcher
+    from hydromodpy.simulation.execution.runner import SimulationRunner
 
 logger = get_logger(__name__)
 
@@ -37,7 +37,7 @@ class RunSolverStep:
         "modflow6",
     )
 
-    def __init__(self, launcher: Launcher | None = None) -> None:
+    def __init__(self, launcher: SimulationRunner | None = None) -> None:
         self.launcher = launcher
 
     def depends_on(self) -> tuple[str, ...]:
@@ -45,7 +45,7 @@ class RunSolverStep:
 
     def artifacts(self, state: PipelineState) -> tuple[str, ...]:
         """Return workspace-relative paths produced by the solver run."""
-        from hydromodpy.workflow.steps.prepare_solver import _store_sim_artifacts
+        from hydromodpy.workflow.steps.prepare_solver.facts import store_sim_artifacts
 
         ctx = state.get("ctx")
         if ctx is None or not run_is_persisted(ctx):
@@ -54,7 +54,7 @@ class RunSolverStep:
         if not sim_id or getattr(ctx, "run_dir", None) is None:
             return ()
         with run_store(ctx) as store:
-            return _store_sim_artifacts(ctx, sim_id, store=store)
+            return store_sim_artifacts(ctx, sim_id, store=store)
 
     def rebuild_state(
         self,

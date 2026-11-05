@@ -114,7 +114,7 @@ to ask for and what to do with the answer.
 - The recharge and ETP packages of the solvers call it: `hydromodpy/solver/modflow6/builders/recharge.py`,
   `hydromodpy/solver/modflow_nwt/nwt/payloads/recharge_etp.py` and
   `hydromodpy/solver/boussinesq/forcing/recharge_resolution.py`.
-- The workflow step `hydromodpy/workflow/steps/prepare_solver/prepare.py` and the hook registered in
+- The workflow step `hydromodpy/workflow/steps/prepare_solver/forcings.py` and the hook registered in
   `hydromodpy/_bootstrap.py` use the spatial mean, and so does
   `hydromodpy/calibration/metrics/series.py`.
 - `interpolation.py` is also used by the Explore2 client in
@@ -127,7 +127,7 @@ The tests follow the layout of the code. A module is tested in `tests/unit/forci
 for example `area_weights.py` in `tests/unit/forcing/test_area_weights.py`. The tests build their
 cell centers, gridded records, stations and windows with `tests/_helpers/forcing_cases.py`. The
 forcing is also exercised by `tests/unit/physics/test_forcing_spatial_config.py`,
-`tests/unit/physics/test_time_alignment.py` and `tests/unit/workflow/test_persist_watershed_forcing.py`.
+`tests/unit/physics/test_time_alignment.py` and `tests/unit/workflow/steps/prepare_solver/test_forcings.py`.
 No contract or regression test is specific to this package.
 
 The CI job `mesh-coverage` in `.github/workflows/main-ci.yml` fails when the coverage of

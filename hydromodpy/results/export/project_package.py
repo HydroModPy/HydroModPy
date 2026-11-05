@@ -105,7 +105,7 @@ def export_project(
     """Write the package of a whole project to *to* and return it.
 
     *bundle_of* builds the install index of one run
-    (:func:`hydromodpy.project.share.run_bundle`); it is required with
+    (:func:`hydromodpy.project.exchange.share.run_bundle`); it is required with
     ``runs`` or ``fetched``. With *dry_run* the checks run, the path the package would
     take is returned and nothing is written.
 

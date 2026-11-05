@@ -7,7 +7,7 @@ summary, each in its own folder under ``--to``, written all at once by
 :func:`hydromodpy.results.export.publish.publish_project`. ``--container tar``
 writes the same copy as an archive, which ``hmp catalog import`` reads back.
 ``--with inputs`` takes along every file the run read with its install index
-(:func:`hydromodpy.project.share.run_bundle`), and the command then says how to
+(:func:`hydromodpy.project.exchange.share.run_bundle`), and the command then says how to
 run the copy again.
 
 ``--package`` writes a project with its data in one package instead
@@ -153,7 +153,7 @@ def run(args: argparse.Namespace) -> None:
 
 def _publish_copy(args: argparse.Namespace) -> None:
     """Copy a run, the summary or every sealed run of the project under ``--to``."""
-    from hydromodpy.project.share import inputs_of
+    from hydromodpy.project.exchange.share import inputs_of
     from hydromodpy.results.export.publish import publish, publish_project
 
     project_root = project_root_of(args)
@@ -228,7 +228,7 @@ def _how_to_run_it_again(source: Path, copy: Path, project_root: Path) -> tuple[
 
 def _publish_package(args: argparse.Namespace) -> None:
     """Write the project with its data in one package, which ``hmp project import`` installs."""
-    from hydromodpy.project.share import inputs_of
+    from hydromodpy.project.exchange.share import inputs_of
     from hydromodpy.results.export.project_package import export_project
 
     if args.public:

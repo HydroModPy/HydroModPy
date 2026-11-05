@@ -202,24 +202,24 @@ from hydromodpy.schema.job.inputset import INPUTSET_VERSIONS
 from hydromodpy.schema.job.outcome import OUTCOME_VERSIONS as JOB_OUTCOME_VERSIONS
 from hydromodpy.schema.job.provenance import PROVENANCE_VERSIONS as JOB_PROVENANCE_VERSIONS
 from hydromodpy.schema.job.seal import MANIFEST_VERSIONS as JOB_MANIFEST_VERSIONS
-from hydromodpy.workflow.internals.data_description import (
+from hydromodpy.workflow.steps.data_description import (
     SCHEMA_VERSION as LOADED_DATA_SCHEMA,
 )
-from hydromodpy.workflow.internals.data_description import (
+from hydromodpy.workflow.steps.data_description import (
     describe_loaded_data,
     description_path,
     read_data_description,
     write_data_description,
 )
-from hydromodpy.workflow.internals.manifest import (
+from hydromodpy.workflow.record.manifest import (
     RESOLVED_CONFIG_SCHEMA,
     ResolvedRunManifest,
     read_resolved_config,
     resolved_config_path,
     write_resolved_config,
 )
-from hydromodpy.workflow.internals.manifest import SCHEMA_VERSION as RESOLVED_MANIFEST_SCHEMA
-from hydromodpy.workflow.tracking.journal import JOURNAL_SCHEMA, WorkflowJournal, journal_path
+from hydromodpy.workflow.record.manifest import SCHEMA_VERSION as RESOLVED_MANIFEST_SCHEMA
+from hydromodpy.workflow.record.journal import JOURNAL_SCHEMA, WorkflowJournal, journal_path
 from tests._helpers.sealed_runs import (
     NOW,
     VERSION,

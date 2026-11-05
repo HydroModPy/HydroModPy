@@ -23,11 +23,60 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.state.paths import cache_dir as _hmp_cache_dir
 from hydromodpy.data.common.geo_helpers import require_declared_crs
 
 _API_SOURCES = {"ign_geoplateforme_dem"}
 _BOOTSTRAP_BUFFER_M = 30_000
+
+
+def fill_dem_init_path(
+    cfg: Any,
+    *,
+    config_path: Path | None,
+    data_path: Path | None,
+) -> None:
+    """Populate ``geographic.catchment.dem_init_path`` from ``[[data.dem.sources]]`` when absent.
+
+    Keeps DEM declarations symmetrical with other data managers: a user
+    can either set ``geographic.catchment.dem_init_path`` directly (shortcut) or
+    declare ``[[data.dem.sources]] source = "custom" path = ...`` (same
+    pattern as geology, hydrometry, etc.). The geographic pipeline only
+    ever sees a resolved path. ``data_path`` is the workspace data folder,
+    whose ``dem`` subfolder caches a download.
+    """
+    geographic_cfg = cfg.geographic
+    existing = getattr(geographic_cfg, "dem_init_path", None)
+    if existing is not None:
+        require_dem_crs(Path(str(existing)))
+        return
+    dem_cfg = getattr(getattr(cfg, "data", None), "dem", None)
+    if not getattr(dem_cfg, "sources", None):
+        return
+    if config_path is None:
+        raise ConfigError(
+            "geographic.catchment.dem_init_path is missing and no config path is available "
+            "to resolve [[data.dem.sources]]."
+        )
+    resolved = resolve_dem_path_from_data_sources(
+        cfg,
+        config_path=Path(config_path),
+        cache_dir=None if data_path is None else Path(data_path) / "dem",
+    )
+    if resolved is None:
+        raise ConfigError(
+            "geographic.catchment.dem_init_path is missing and [[data.dem.sources]] did not "
+            "resolve."
+        )
+    catchment = getattr(geographic_cfg, "catchment", None)
+    if catchment is None:
+        raise ConfigError(
+            "geographic.catchment.kind is required when [[data.dem.sources]] is "
+            "the DEM source. Add a [geographic.catchment] table with catch_def."
+        )
+    require_dem_crs(Path(str(resolved)))
+    catchment.dem_init_path = resolved
 
 
 def resolve_dem_path_from_data_sources(

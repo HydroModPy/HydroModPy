@@ -1,0 +1,126 @@
+"""Concern 4 of PrepareSolverStep: freezing the configuration a run was built from.
+
+Writes ``config.toml`` (what the run was given) and ``config.resolved.toml``
+(what it resolved to) into the run directory, each in one rename, and offers
+the same documents as text for callers that write them elsewhere.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+from hydromodpy.core.io.atomic_replace import staged_path
+from hydromodpy.core.toml_io.writer import dumps
+from hydromodpy.results.catalog.registration import split_stem_version
+from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME, RUN_RESOLVED_CONFIG_FILENAME
+from hydromodpy.workflow.steps.prepare_solver.facts import collect_effective_config_snapshot
+from hydromodpy.workflow.steps.prepare_solver.resolved import (
+    portable_config_payload,
+    resolved_at_build,
+    resolved_config_document,
+)
+
+if TYPE_CHECKING:
+    from hydromodpy.core.state.run_state import WorkflowContext
+    from hydromodpy.results.storage.run_store import RunStore
+
+_SEARCH_SECTION = "calibration"
+
+
+def frozen_config_of(
+    ctx: WorkflowContext,
+    *,
+    restart_sim_id: str | None = None,
+    zone_runs: Mapping[str, str] | None = None,
+) -> Any:
+    """Return the configuration a run freezes, as a replay reads it back.
+
+    It holds what the run was given, not the defaults it took: a validator that
+    tells a written key from its default (``values`` beside
+    ``[flow.sinks_sources.recharge.soil]``, ``surface_offset`` of a soil ETP)
+    answers on the replay as it did on the run. The domain section is the one
+    the built domain carries. A hotstart whose source has a ``sim_id`` is written
+    as the table ``{sim_id, path}``. A refinement zone that read an earlier run
+    writes the ``sim_id`` of that run (*zone_runs*, by the reference the zone
+    gave) in place of its name, so a replay reads the run the mesh came from
+    and not a later ``.vN`` of it. ``simulation.name`` is the name of the run, so
+    a replay of the file answers to that run, whatever name the file it came from
+    gave. A run describes its own solve: a trial of a calibration writes the
+    parameters it ran with and no ``[calibration]``, so a replay solves once and
+    searches nothing. Its lineage and its checks name the session.
+    """
+    snapshot = collect_effective_config_snapshot(ctx)
+    if ctx.run_dir is not None:
+        snapshot.setdefault("simulation", {})["name"] = split_stem_version(ctx.run_dir.name)[0]
+    if snapshot.pop(_SEARCH_SECTION, None) is not None:
+        snapshot["workflow"] = {**(snapshot.get("workflow") or {}), "mode": "simulation"}
+    flow = snapshot.get("flow")
+    if restart_sim_id is not None and isinstance(flow, dict) and flow.get("restart_from"):
+        flow["restart_from"] = {"sim_id": restart_sim_id, "path": str(flow["restart_from"])}
+    mesh = snapshot.get("mesh")
+    if zone_runs and isinstance(mesh, dict):
+        for zone in mesh.get("refinement_zone") or ():
+            if isinstance(zone, dict) and zone.get("run") in zone_runs:
+                zone["run"] = zone_runs[zone["run"]]
+    return type(ctx.cfg).model_validate(snapshot)
+
+
+def frozen_config_document(
+    ctx: WorkflowContext,
+    project_root: Path,
+    *,
+    restart_sim_id: str | None = None,
+    zone_runs: Mapping[str, str] | None = None,
+) -> str:
+    """Return the configuration of the run as portable TOML text (:func:`frozen_config_of`)."""
+    assert ctx.run_dir is not None
+    cfg_effective = frozen_config_of(ctx, restart_sim_id=restart_sim_id, zone_runs=zone_runs)
+    return portable_config_document(cfg_effective, ctx.run_dir, project_root)
+
+
+def portable_config_document(cfg: Any, run_dir: Path, project_root: Path) -> str:
+    """Return the fields *cfg* was given as the portable TOML text a run directory freezes."""
+    return dumps(portable_config_payload(cfg, run_dir, project_root, written_only=True))
+
+
+def search_of(cfg: Any, run_dir: Path, project_root: Path) -> Mapping[str, Any] | None:
+    """Return the ``[calibration]`` section *cfg* was given, portable, or None without one."""
+    if getattr(cfg, _SEARCH_SECTION, None) is None:
+        return None
+    written = portable_config_payload(cfg, run_dir, project_root, written_only=True)
+    return written.get(_SEARCH_SECTION)
+
+
+def freeze_run_config(
+    ctx: WorkflowContext, *, store: RunStore, restart_sim_id: str | None = None
+) -> None:
+    """Write ``config.toml`` and ``config.resolved.toml`` of the run, each in one rename."""
+    project_root = Path(store.workspace_path or store.run_dir.parent.parent)
+    summary = getattr(ctx.setup, "mesh_summary", None) or {}
+    frozen = frozen_config_of(
+        ctx, restart_sim_id=restart_sim_id, zone_runs=summary.get("zone_runs")
+    )
+    documents = {
+        RUN_CONFIG_FILENAME: portable_config_document(frozen, store.run_dir, project_root),
+        RUN_RESOLVED_CONFIG_FILENAME: resolved_config_document(
+            frozen,
+            project_root,
+            build=resolved_at_build(ctx),
+            search=search_of(ctx.cfg, store.run_dir, project_root),
+        ),
+    }
+    for name, document in documents.items():
+        with staged_path(store.run_dir / name) as staged:
+            staged.write_text(document, encoding="utf-8")
+    store.facts.config_file = RUN_CONFIG_FILENAME
+
+
+__all__ = (
+    "freeze_run_config",
+    "frozen_config_document",
+    "frozen_config_of",
+    "portable_config_document",
+    "search_of",
+)

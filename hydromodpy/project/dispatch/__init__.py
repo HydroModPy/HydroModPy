@@ -9,21 +9,3 @@ here instead.
   ``run_*`` functions used by the CLI and the public ``hmp.run`` facade.
 - :mod:`.rerun` exposes the ``Project``-backed rerun provider.
 """
-
-from __future__ import annotations
-
-from hydromodpy.project.dispatch.workflow import (
-    DISPATCH,
-    dispatch_workflow,
-    run_calibration,
-    run_overview,
-    run_simulation,
-)
-
-__all__ = [
-    "DISPATCH",
-    "dispatch_workflow",
-    "run_calibration",
-    "run_overview",
-    "run_simulation",
-]

@@ -21,7 +21,7 @@ from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
     _add_runoff_to_discharge_series,
 )
 from hydromodpy.simulation.soil_recharge import compute_soil_forcings
-from hydromodpy.workflow.steps.prepare_solver.prepare import _watershed_mean_series
+from hydromodpy.workflow.steps.prepare_solver.forcings import watershed_mean_series
 from tests.unit.calibration._factories_scoring import (
     CATCH_AREA_KM2,
     scored_discharge,
@@ -116,7 +116,7 @@ class _StationGroup:
 
 def _stored_run(runoff: LoadResult):
     """The fields store a run persists for a gridded runoff, and its catalog."""
-    persisted = _watershed_mean_series(runoff)
+    persisted = watershed_mean_series(runoff)
     station = _Node(
         {
             "values": _Array(persisted.to_numpy(dtype="float64")),

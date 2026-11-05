@@ -48,7 +48,7 @@ from hydromodpy.physics.flow.sinks_sources.recharge import FlowRechargeConfig
 from hydromodpy.project import Project
 from hydromodpy.results.derive.network_criterion_settings import network_criterion_settings
 from hydromodpy.results.derive.stream_extent import network_extents_from_run, run_step_days
-from hydromodpy.workflow.steps.prepare_solver.dispatch import portable_config_document
+from hydromodpy.workflow.steps.prepare_solver.freeze import portable_config_document
 from tests._helpers.cli_runner import CliRunner
 from tests._helpers.sealed_runs import sealed_search
 from tests.unit.calibration._factories_config import (

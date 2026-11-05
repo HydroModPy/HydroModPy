@@ -263,7 +263,7 @@ Pipeline step
 ~~~~~~~~~~~~~
 
 ``hydromodpy/workflow/steps/``, with the protocol in
-``hydromodpy/workflow/internals/step.py``. A step is a class with a ``name`` and a
+``hydromodpy/workflow/step.py``. A step is a class with a ``name`` and a
 ``run(state: PipelineState) -> PipelineState``. It declares the payload keys it
 reads and writes (``reads``, ``writes``), checked in both directions by
 ``test_step_payload_keys.py``, and optionally the TOML subtrees it consumes

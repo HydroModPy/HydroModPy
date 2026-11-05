@@ -305,7 +305,7 @@ def test_the_launch_verbs_speak_the_words_of_the_cli(
 ) -> None:
     """``run``, ``status`` and ``collect`` call the launcher and the summary with the CLI words."""
     import hydromodpy.project.launch as launch
-    import hydromodpy.project.summary as summary
+    import hydromodpy.project.launch.summary as summary
 
     project = _campaign(tmp_path)
     calls: dict[str, Any] = {}

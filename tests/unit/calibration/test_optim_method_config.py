@@ -34,7 +34,7 @@ from hydromodpy.config import HydroModPyConfig
 from hydromodpy.config.config_migration import fix_config_file, migrate_sealed_config_doc
 from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning
 from hydromodpy.core.exceptions import ConfigValidationError
-from hydromodpy.workflow.steps.prepare_solver.dispatch import portable_config_document
+from hydromodpy.workflow.steps.prepare_solver.freeze import portable_config_document
 from tests.unit.calibration._factories import two_dim_space
 from tests.unit.calibration._factories_search import fix_toml
 from tests.unit.config.test_a_renamed_key_warns_and_a_sealed_one_reads import PROJECT, _project

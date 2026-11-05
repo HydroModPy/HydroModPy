@@ -317,7 +317,7 @@ def test_an_overview_says_it_once(tmp_path: Path, caplog, monkeypatch) -> None:
         def run(self, claim: object, *, config_hash: str) -> dict[str, str]:
             return {"mode": "data_overview"}
 
-    monkeypatch.setattr("hydromodpy.workflow.pipelines.overview.DataOverviewLauncher", _Launcher)
+    monkeypatch.setattr("hydromodpy.workflow.overview.DataOverviewLauncher", _Launcher)
     with caplog.at_level(logging.INFO, logger=WRITTEN_LOGGER):
         run_overview(path)
 

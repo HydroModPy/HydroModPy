@@ -39,6 +39,9 @@ Each release section includes the following standard categories:
 
 ### Fixed
 
+- `hmp campaign status` no longer counts a folder under `sessions/` without `session.json`.
+- A forcing that a run fails to persist now logs a warning.
+- `hmp overview` resolves the DEM, network and crossings with the same rules as a run. A declared `dem_init_path` missing on disk is an error there too.
 - `hmp doctor --fix-config` now moves a `maxfev`-style option of a calibration phase into `max_trials` when the phase takes its method from `[calibration]`, and keeps the section's budget as a bound.
 - A sealed run config with `roptim_max` other than 2 now reads and replays. The key is dropped. A live file with such a value is still refused.
 - `Project.calibrate()` refuses `method`, `max_trials`, `save_runs`, `seed`, `outputs`, `objective_blocks` and `phases` when the calibration comes from a file or the project config, and unknown options on the config route, instead of ignoring them.
@@ -79,6 +82,10 @@ Each release section includes the following standard categories:
 
 ### Changed
 
+- `hydromodpy.workflow` loses `internals/`, `tracking/` and `pipelines/`. `PipelineState` and `Step` live in `workflow/state.py` and `workflow/step.py`, the run record (`attempt`, `journal`, `resume`, `manifest`, `run_store`) in `workflow/record/`, `DataOverviewLauncher` in `workflow/overview.py` and `standard_steps` in `workflow/steps/sequence.py`.
+- `hydromodpy.project`: `attempt` and `replay_checks` move down to `workflow`. `summary` and `lockfile` join `project/launch/`, split into `selection`, `sacct`, `slurm_script` and the summary modules. `share`, `install` and the replay of a published copy form `project/exchange/`. `open_project` moves to `project/opening.py` and the calibrate routing to `project/calibrate.py`.
+- Business rules leave the workflow steps and `project`: SFR geometry and lake catchments go to `spatial/geographic`, the support contract and `rebuild_domain` to `spatial/domain`, input path rules to `data/variables/*/resolver.py`, the field envelope, scratch cleanup, soil tables, point sampling, run facts, ranking and summary tables to `results`, the export checks to `config/export_checks.py`, the cohort figures to `display/cohort.py` and the campaign page to `reporting/campaign_summary.py`.
+- `prepare_solver` splits into `prepare`, `forcings`, `freeze`, `facts` and `dispatch`, and `seal` joins `export`. Each folder of `project` and `workflow` has a README.
 - The caps follow what the tests pass on: `pytest<9.2` keeps `xdist_group` working, `optuna<5`, `plotly<7` and `duckdb<2`.
 
 - `hydromodpy.calibration.evaluation.registry` and `forward_registry` now share one engine. Their functions keep their names, and their first parameter is now called `name`. A plugin that passed it by keyword (`get(evaluator_id=...)`) passes it by position.
@@ -154,6 +161,7 @@ None. No metric value changes.
 
 ### Removed
 
+- `prepare_runtime`, `workflow/phases.py` and the `Launcher` Protocol, duplicates of `project/phases.py`, `STEP_NAMES` and `SimulationRunner`.
 - The B0 network and transient discharge case left the `hydromodpy` package for `validation_cases/calibration/network_transient_b0/`. The wheel no longer ships its page. `hydromodpy.calibration.reporting`, `hydromodpy.calibration.observations.natural_observations`, `network_cost`, `network_transient_truth` and `hydromodpy.calibration.optim.objective_mapping` are gone, and `step_render_network_transient_calibration_html` is no longer in `hydromodpy.workflow.steps.calibration`.
 - A network output can no longer score against `geographic.river_network`. The DEM-derived network is no observation. `hmp doctor --fix-config` says to write `map.complete = "data.hydrography"` or a vector file, and a sealed run simply drops the key. The `observed_network_is_dem_derived` trial diagnostic is gone with it.
 - The unused `area_m2` argument of `_add_runoff_to_discharge_series`.

@@ -28,8 +28,8 @@ from typing import TYPE_CHECKING, ClassVar
 from hydromodpy.core import progress
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.workflow.internals.state import PipelineState
-from hydromodpy.workflow.run_store import run_is_persisted, run_store
+from hydromodpy.workflow.record.run_store import run_is_persisted, run_store
+from hydromodpy.workflow.state import PipelineState
 
 if TYPE_CHECKING:
     from hydromodpy.display.config import DisplayConfig

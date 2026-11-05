@@ -386,6 +386,19 @@ def list_session_dirs(project_root: str | Path) -> list[Path]:
     return sorted(entry for entry in root.iterdir() if session_descriptor_path(entry).is_file())
 
 
+def latest_session_dir(project_root: str | Path, case_id: str) -> Path | None:
+    """Return the session directory of *case_id* with the highest version, or None."""
+    from hydromodpy.results.catalog.registration import split_stem_version
+
+    best: tuple[int, Path] | None = None
+    for directory in list_session_dirs(project_root):
+        stem, version = split_stem_version(directory.name)
+        number = 1 if version is None else version
+        if stem == case_id and (best is None or number > best[0]):
+            best = (number, directory)
+    return None if best is None else best[1]
+
+
 def find_session_dir(project_root: str | Path, session_id: str) -> Path | None:
     """Return the directory of the session whose descriptor carries *session_id*."""
     wanted = str(session_id).replace("-", "").lower()

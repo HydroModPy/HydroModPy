@@ -318,7 +318,7 @@ def _groups_of(
 
 def _warn_left_out(metric: str, left_out: list[tuple[str, pd.DataFrame, bool]], label: str) -> None:
     """Name once the groups :func:`best_frame` left out, by reason."""
-    from hydromodpy.project.summary import names_text, unscored_reason
+    from hydromodpy.results.run.ranking import names_text, unscored_reason
 
     unscored = [(name, frame) for name, frame, scored in left_out if not scored]
     reasons: list[str] = []
@@ -430,7 +430,7 @@ class Workspace:
         return [path.name for path in project_roots_under(self._root) if path != self._root]
 
     def __getitem__(self, name: str) -> Project:
-        from hydromodpy.project.facade import open_project
+        from hydromodpy.project.opening import open_project
 
         target = self._root / PROJECTS_DIRNAME / name
         if name not in self.projects:

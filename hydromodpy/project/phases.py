@@ -48,14 +48,12 @@ def configure(
     from hydromodpy.physics.hydrology.soil_reservoir.config import soil_reservoir_of
     from hydromodpy.spatial.domain.spatial_support import (
         build_default_spatial_support_provider_registry,
-    )
-    from hydromodpy.spatial.geographic.river_network_config import river_network_for_the_mesh
-    from hydromodpy.workflow.steps.data import log_data_plan
-    from hydromodpy.workflow.steps.setup import (
         collect_requested_support_ids,
         resolve_support_configs,
         support_provider_names,
     )
+    from hydromodpy.spatial.geographic.river_network_config import river_network_for_the_mesh
+    from hydromodpy.workflow.steps.data import log_data_plan
 
     if isinstance(config, HydroModPyConfig):
         project._config_path = None
@@ -150,6 +148,14 @@ MODEL_PHASE_BY_STEP = {
 }
 
 
+def _invalidate_data_and_mesh(project: Project) -> None:
+    """A rebuilt geographic invalidates the data and the mesh drawn on it."""
+    project._data_loaded.clear()
+    project._ctx.loaded_data.loaded_plan_types = None
+    project._ctx.setup.cell_mesh = None
+    project._ctx.setup.mesh_summary = None
+
+
 def adopt_pipeline_phase(project: Project, executed_steps: Sequence[str]) -> None:
     """Record on the Project what a Pipeline just built on the shared context.
 
@@ -167,10 +173,7 @@ def adopt_pipeline_phase(project: Project, executed_steps: Sequence[str]) -> Non
         return
     if phase == "geographic":
         # A rebuilt geographic invalidates the data and the mesh drawn on it.
-        project._data_loaded.clear()
-        project._ctx.loaded_data.loaded_plan_types = None
-        project._ctx.setup.cell_mesh = None
-        project._ctx.setup.mesh_summary = None
+        _invalidate_data_and_mesh(project)
     else:
         project._data_loaded = set(getattr(project._ctx.data_plan, "types", ()) or ())
     project._phase = phase
@@ -188,10 +191,7 @@ def build_geographic(project: Project, *, reuse_dem: bool = False) -> None:
         with progress.phase("build_geographic"):
             setup_workspace(project)
     project._phase = "geographic"
-    project._data_loaded.clear()
-    project._ctx.loaded_data.loaded_plan_types = None
-    project._ctx.setup.cell_mesh = None
-    project._ctx.setup.mesh_summary = None
+    _invalidate_data_and_mesh(project)
 
 
 def load_data(project: Project, *, types: list[str] | None = None) -> None:

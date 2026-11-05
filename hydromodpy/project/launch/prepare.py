@@ -173,7 +173,7 @@ def _close(
 
 def write_lockfile_once(project_root: Path, data_dir: Path, journal: Journal) -> Path | None:
     """Write ``hydromodpy.lock`` from the shared cache and journal it."""
-    from hydromodpy.project.lockfile import write_project_lockfile
+    from hydromodpy.project.launch.lockfile import write_project_lockfile
 
     path = write_project_lockfile(project_root, data_dir)
     journal.append("lockfile", path=None if path is None else str(path))

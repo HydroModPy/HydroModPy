@@ -21,6 +21,7 @@ section model, never to the root.
 | `metrics_config.py`, `publication_config.py` | the `[metrics]` and `[publication]` root sections |
 | `config_migration.py` | how does a file written against an earlier schema still load? `migrate_config_doc_on_load` rewrites the parsed payload in memory; `fix_config_file` (called by `hmp doctor --fix-config <file>`) rewrites the file in place. `RENAMED_KEYS` lists the keys a file wrote under an old name: a load warns, or refuses a key of `[calibration]`, the doctor renames them, and `migrate_sealed_config_doc` renames them on read in the frozen config of a run on disk. A network output moves across its tables `map`, `model` and `verdict`, which a rename row cannot do, so `_rewrite_the_network_outputs` writes it, for the doctor and for a sealed read, from the rows of `CALIBRATION_RENAMES` |
 | `schema_export.py` | the JSON Schema of the root or of one section, filtered by profile (`export_schema`, `write_schema`, `schema_sha256`) |
+| `export_checks.py` | the checks of `[[export]]` names and of the dates of `[[export]]` and `[display]` against the run (`check_export_variables`, `check_time_selectors`), run by step 0 and by `hmp config check` |
 | `dynamic_flow_examples.py` | the provider that lets the TOML template generator render commented examples for the dynamic `[flow.param.*]`, `[flow.bc.*]` and `[flow.sinks_sources.*]` blocks without importing `physics` or `spatial`. `hydromodpy/_bootstrap.py` wires it |
 
 `from hydromodpy.config import HydroModPyConfig` resolves the class lazily, so

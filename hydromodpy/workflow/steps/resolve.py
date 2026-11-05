@@ -24,7 +24,7 @@ from typing import ClassVar
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
-from hydromodpy.workflow.internals.state import PipelineState
+from hydromodpy.workflow.state import PipelineState
 
 
 class ResolveStep:
@@ -62,8 +62,8 @@ class ResolveStep:
         from hydromodpy.core.state.run_state import WorkflowContext
         from hydromodpy.data import DataPlanner
         from hydromodpy.physics.hydrology.soil_reservoir.config import soil_reservoir_of
+        from hydromodpy.spatial.domain.spatial_support import support_provider_names
         from hydromodpy.workflow.steps.data import log_data_plan
-        from hydromodpy.workflow.steps.setup import support_provider_names
 
         ctx = state.get("ctx")
         if ctx is None:

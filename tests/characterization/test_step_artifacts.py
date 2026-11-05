@@ -60,7 +60,7 @@ EMPTY_DIGEST_PREFIX = "e3b0c44298fc1c14"
 
 def _journal_rows(run: ProducedRun) -> dict[str, dict[str, object]]:
     """Return the journal row of every step of the run, keyed by step name."""
-    from hydromodpy.workflow.tracking.journal import WorkflowJournal
+    from hydromodpy.workflow.record.journal import WorkflowJournal
 
     journal = WorkflowJournal(run.run_dir)
     assert journal.path.is_file(), f"no journal at {journal.path}"

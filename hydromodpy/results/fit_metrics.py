@@ -49,7 +49,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final
+from typing import TYPE_CHECKING, Any, Final
 
 import pandas as pd
 
@@ -67,6 +67,9 @@ from hydromodpy.results.manifest import MetricRow
 from hydromodpy.results.metric_rule import METRIC_NAMES, MetricRule, MetricScore, score_run
 from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX, TABLES_DIRNAME
 from hydromodpy.results.storage.parquet_io import read_checked_table
+
+if TYPE_CHECKING:
+    from hydromodpy.results.storage.run_store import RunStore
 
 logger = get_logger(__name__)
 
@@ -369,6 +372,34 @@ def _headline(at_station: dict[str, MetricScore], rule: MetricRule) -> MetricSco
     )
 
 
+def score_run_under_its_rule(cfg: Any, *, store: RunStore) -> None:
+    """Score the series of the run against its observations and record the result.
+
+    The rows go through the one writer of a metric, into the facts and the
+    ``metrics`` table, the NSE at the rule station to the headline score, all
+    sealed by the record. An observed gauge that
+    meets no simulated series fails the non-fatal check
+    :data:`UNSCORED_OBSERVATIONS_CHECK`, which the README of the run prints.
+    A score that cannot be computed is logged and the run keeps its results:
+    the seal says ``nse = NULL`` and the table says why.
+    """
+    site = store.facts.site
+    rule = MetricRule.from_config(cfg, gauge=None if site is None else site.gauge)
+    try:
+        scores = fit_metrics(store.run_dir, rule=rule, period_start=store.facts.period_start)
+    except Exception:
+        logger.warning("Could not score the run against its observations", exc_info=True)
+        return
+    for row in scores.rows:
+        store.write_metric(store.sim_id, row)
+    store.facts.score = scores.score
+    message = scores.unscored_message()
+    if message is not None:
+        store.facts.note_validity(
+            UNSCORED_OBSERVATIONS_CHECK, False, float(len(scores.unscored)), message
+        )
+
+
 __all__ = [
     "HEADLINE_METRIC",
     "HEADLINE_VARIABLE",
@@ -378,5 +409,6 @@ __all__ = [
     "RunScores",
     "UnscoredObservation",
     "fit_metrics",
+    "score_run_under_its_rule",
     "score_timeseries",
 ]

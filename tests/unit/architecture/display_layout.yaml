@@ -17,6 +17,7 @@ allowed:
   figure_registry:  [figure]
   figures:          [figure, figure_options, figure_registry, maps, style]
   config:           [figure_registry]
+  cohort:           [figure_registry]
   "<init>":         [figure, figure_registry]
   runs:             ["<init>", config, figure, png_metadata, style]
   overview:         [report_blocks, style]
@@ -33,6 +34,7 @@ public:
   - hydromodpy.display.config
   - hydromodpy.display.figure_registry
   - hydromodpy.display.runs
+  - hydromodpy.display.cohort
   - hydromodpy.display.quicklook.viz
   - hydromodpy.display.maps.axes
   - hydromodpy.display.maps.ugrid

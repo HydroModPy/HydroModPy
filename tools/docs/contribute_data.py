@@ -474,7 +474,7 @@ def registry_counts(repo: Path = ROOT) -> list[dict[str, Any]]:
     from hydromodpy.display import list_figures
     from hydromodpy.schema.sources import SOURCES
     from hydromodpy.solver.base import registry as solver_registry
-    from hydromodpy.workflow.orchestrator import standard_steps
+    from hydromodpy.workflow.steps.sequence import standard_steps
 
     matrix = load_layer_matrix(repo)
     return [
@@ -485,7 +485,7 @@ def registry_counts(repo: Path = ROOT) -> list[dict[str, Any]]:
         },
         {
             "what": "Pipeline steps of a run, in order",
-            "source": "hydromodpy.workflow.orchestrator.standard_steps",
+            "source": "hydromodpy.workflow.steps.sequence.standard_steps",
             "names": [step.name for step in standard_steps()],
         },
         {

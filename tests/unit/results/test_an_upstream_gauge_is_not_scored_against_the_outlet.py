@@ -17,8 +17,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-import hydromodpy.workflow.steps.derive as derive_module
-from hydromodpy.results.fit_metrics import score_timeseries
+from hydromodpy.results.fit_metrics import score_run_under_its_rule, score_timeseries
 from hydromodpy.results.metric_rule import DateWindow, MetricRule
 from hydromodpy.results.readme import render_run_readme
 from hydromodpy.results.storage.sealing import build_record
@@ -96,7 +95,7 @@ def test_the_sealed_readme_names_the_gauge_that_was_not_scored(tmp_path) -> None
         store.write_timeseries(sid, OUTLET, "discharge", observed, source="observed")
         store.write_timeseries(sid, UPSTREAM, "discharge", observed * 0.3, source="observed")
 
-        derive_module.score_run_under_its_rule(SimpleNamespace(cfg=cfg), store=store)
+        score_run_under_its_rule(cfg, store=store)
 
         assert {row.station for row in store.facts.metrics} == {OUTLET}
         failed = [v for v in store.facts.validities if not v.passed]

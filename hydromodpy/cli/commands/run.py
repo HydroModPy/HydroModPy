@@ -93,8 +93,8 @@ def _stops_before_setup_process(until_step: str | None) -> bool:
     if until_step is None:
         return False
     from hydromodpy.core.exceptions import ConfigError
-    from hydromodpy.project.runner import model_phase_index, resolve_step_index
-    from hydromodpy.workflow.orchestrator import standard_steps
+    from hydromodpy.workflow.steps.sequence import standard_steps
+    from hydromodpy.workflow.window import model_phase_index, resolve_step_index
 
     steps = standard_steps()
     try:
@@ -107,7 +107,7 @@ def _stops_before_setup_process(until_step: str | None) -> bool:
 def _step_choices() -> list[str]:
     """Return the canonical pipeline step names for shell completion."""
     try:
-        from hydromodpy.workflow.orchestrator import standard_steps
+        from hydromodpy.workflow.steps.sequence import standard_steps
 
         return [getattr(s, "name", type(s).__name__) for s in standard_steps()]
     except Exception:
@@ -348,7 +348,7 @@ def _replay_published_copy(copy_dir: Path, config_path: Path, *, args: argparse.
     ``--frozen`` on a copy checks every file of its install index against
     ``inputs/`` and points the configuration at those bytes, a declared
     folder rebuilt under ``<project>/.hmp/replay/<copy>/``
-    (:mod:`hydromodpy.project.launch.replay`); the copy holds no lockfile, so
+    (:mod:`hydromodpy.project.exchange.replay`); the copy holds no lockfile, so
     the run itself is not bound to one. The run is written into the project
     ``-w`` names, or the one around the current directory.
     """
@@ -356,7 +356,7 @@ def _replay_published_copy(copy_dir: Path, config_path: Path, *, args: argparse.
 
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config
     from hydromodpy.core.toml_io.writer import dumps
-    from hydromodpy.project.launch.replay import ReplayInputError, replay_payload
+    from hydromodpy.project.exchange.replay import ReplayInputError, replay_payload
 
     root = _replay_project_root()
     folder = root / ".hmp" / "replay"
@@ -398,7 +398,7 @@ def _run_toml(
     from the bytes of the copy (:func:`_replay_published_copy`), which is
     *replayed_copy* here.
     """
-    from hydromodpy.project.launch.replay import published_copy_of
+    from hydromodpy.project.exchange.replay import published_copy_of
 
     copy_dir = published_copy_of(config_path) if getattr(args, "frozen", False) else None
     if copy_dir is not None:
@@ -560,7 +560,7 @@ def _run_toml(
         cleanup_effective_toml(effective_path, source=config_path)
         refuse(str(exc), exit_code_for(exc), cause=exc)
     if frozen:
-        from hydromodpy.project.replay_checks import sealed_run_of
+        from hydromodpy.workflow.replay_checks import sealed_run_of
 
         # A project TOML answers to its lockfile. The frozen configuration of a run
         # answers to the record of that run, which the simulation dispatch checks.
@@ -1053,7 +1053,7 @@ def _dry_run_plan(
     """Return the resolved workflow plan, without executing it."""
     steps: list[str] = []
     if workflow == "simulation":
-        from hydromodpy.workflow.orchestrator import standard_steps
+        from hydromodpy.workflow.steps.sequence import standard_steps
 
         steps = [type(step).__name__ for step in standard_steps()]
     return {

@@ -10,14 +10,11 @@ context.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.exceptions import PipelineError
-from hydromodpy.core.io.atomic_replace import staged_path
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.toml_io.writer import dumps
 from hydromodpy.results.catalog.constants import solver_category
 from hydromodpy.results.catalog.registration import (
     portable_config_source,
@@ -27,19 +24,18 @@ from hydromodpy.results.catalog.registration import (
 from hydromodpy.results.lineage import Lineage
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.storage.attempt import claim_reserved_directory, claim_run_directory
-from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME, RUN_RESOLVED_CONFIG_FILENAME
 from hydromodpy.results.storage.run_facts import RunFacts, read_facts
-from hydromodpy.workflow.steps.prepare_solver.resolved import (
-    portable_config_payload,
-    resolved_at_build,
-    resolved_config_document,
+from hydromodpy.workflow.steps.prepare_solver.facts import (
+    collect_run_facts,
+    primary_solver_for_simulation,
+)
+from hydromodpy.workflow.steps.prepare_solver.freeze import freeze_run_config
+from hydromodpy.workflow.steps.prepare_solver.prepare import (
+    step_persist_geographic,
+    step_persist_mesh,
+    step_persist_params,
 )
 from hydromodpy.workflow.steps.prepare_solver.restart import resolve_restart_source
-from hydromodpy.workflow.steps.prepare_solver.validate import (
-    _primary_solver_for_simulation,
-    collect_effective_config_snapshot,
-    collect_run_facts,
-)
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
@@ -47,8 +43,6 @@ if TYPE_CHECKING:
     from hydromodpy.solver.modflow_common.binaries import SolverEngine
 
 logger = get_logger(__name__)
-
-_SEARCH_SECTION = "calibration"
 
 
 def _execution_mode(ctx: WorkflowContext, solver_name: str | None) -> str:
@@ -154,7 +148,7 @@ def refresh_run_environment(ctx: WorkflowContext, *, store: RunStore) -> None:
     if not sim_id or plan is None:
         return
     try:
-        _write_run_environment(ctx, str(sim_id), _primary_solver_for_simulation(plan), store=store)
+        _write_run_environment(ctx, str(sim_id), primary_solver_for_simulation(plan), store=store)
     except Exception:
         logger.exception("Failed to refresh the run environment for sim %s", str(sim_id)[:8])
 
@@ -228,95 +222,7 @@ def _write_zarr_time(ctx: WorkflowContext, sim_id: str, *, store: RunStore) -> N
     )
 
 
-def frozen_config_of(
-    ctx: WorkflowContext,
-    *,
-    restart_sim_id: str | None = None,
-    zone_runs: Mapping[str, str] | None = None,
-) -> Any:
-    """Return the configuration a run freezes, as a replay reads it back.
-
-    It holds what the run was given, not the defaults it took: a validator that
-    tells a written key from its default (``values`` beside
-    ``[flow.sinks_sources.recharge.soil]``, ``surface_offset`` of a soil ETP)
-    answers on the replay as it did on the run. The domain section is the one
-    the built domain carries. A hotstart whose source has a ``sim_id`` is written
-    as the table ``{sim_id, path}``. A refinement zone that read an earlier run
-    writes the ``sim_id`` of that run (*zone_runs*, by the reference the zone
-    gave) in place of its name, so a replay reads the run the mesh came from
-    and not a later ``.vN`` of it. ``simulation.name`` is the name of the run, so
-    a replay of the file answers to that run, whatever name the file it came from
-    gave. A run describes its own solve: a trial of a calibration writes the
-    parameters it ran with and no ``[calibration]``, so a replay solves once and
-    searches nothing. Its lineage and its checks name the session.
-    """
-    snapshot = collect_effective_config_snapshot(ctx)
-    if ctx.run_dir is not None:
-        snapshot.setdefault("simulation", {})["name"] = split_stem_version(ctx.run_dir.name)[0]
-    if snapshot.pop(_SEARCH_SECTION, None) is not None:
-        snapshot["workflow"] = {**(snapshot.get("workflow") or {}), "mode": "simulation"}
-    flow = snapshot.get("flow")
-    if restart_sim_id is not None and isinstance(flow, dict) and flow.get("restart_from"):
-        flow["restart_from"] = {"sim_id": restart_sim_id, "path": str(flow["restart_from"])}
-    mesh = snapshot.get("mesh")
-    if zone_runs and isinstance(mesh, dict):
-        for zone in mesh.get("refinement_zone") or ():
-            if isinstance(zone, dict) and zone.get("run") in zone_runs:
-                zone["run"] = zone_runs[zone["run"]]
-    return type(ctx.cfg).model_validate(snapshot)
-
-
-def frozen_config_document(
-    ctx: WorkflowContext,
-    project_root: Path,
-    *,
-    restart_sim_id: str | None = None,
-    zone_runs: Mapping[str, str] | None = None,
-) -> str:
-    """Return the configuration of the run as portable TOML text (:func:`frozen_config_of`)."""
-    assert ctx.run_dir is not None
-    cfg_effective = frozen_config_of(ctx, restart_sim_id=restart_sim_id, zone_runs=zone_runs)
-    return portable_config_document(cfg_effective, ctx.run_dir, project_root)
-
-
-def portable_config_document(cfg: Any, run_dir: Path, project_root: Path) -> str:
-    """Return the fields *cfg* was given as the portable TOML text a run directory freezes."""
-    return dumps(portable_config_payload(cfg, run_dir, project_root, written_only=True))
-
-
-def _search_of(cfg: Any, run_dir: Path, project_root: Path) -> Mapping[str, Any] | None:
-    """Return the ``[calibration]`` section *cfg* was given, portable, or None without one."""
-    if getattr(cfg, _SEARCH_SECTION, None) is None:
-        return None
-    written = portable_config_payload(cfg, run_dir, project_root, written_only=True)
-    return written.get(_SEARCH_SECTION)
-
-
-def _freeze_run_config(
-    ctx: WorkflowContext, *, store: RunStore, restart_sim_id: str | None = None
-) -> None:
-    """Write ``config.toml`` and ``config.resolved.toml`` of the run, each in one rename."""
-    project_root = Path(store.workspace_path or store.run_dir.parent.parent)
-    summary = getattr(ctx.setup, "mesh_summary", None) or {}
-    frozen = frozen_config_of(
-        ctx, restart_sim_id=restart_sim_id, zone_runs=summary.get("zone_runs")
-    )
-    documents = {
-        RUN_CONFIG_FILENAME: portable_config_document(frozen, store.run_dir, project_root),
-        RUN_RESOLVED_CONFIG_FILENAME: resolved_config_document(
-            frozen,
-            project_root,
-            build=resolved_at_build(ctx),
-            search=_search_of(ctx.cfg, store.run_dir, project_root),
-        ),
-    }
-    for name, document in documents.items():
-        with staged_path(store.run_dir / name) as staged:
-            staged.write_text(document, encoding="utf-8")
-    store.facts.config_file = RUN_CONFIG_FILENAME
-
-
-def _bind_restart_source(ctx: WorkflowContext, *, store: RunStore) -> str | None:
+def bind_restart_source(ctx: WorkflowContext, *, store: RunStore) -> str | None:
     """Resolve ``[flow] restart_from`` to the store it names and link the run to it.
 
     The reference (a run name, a ``sim_id`` or a path) becomes the path the
@@ -343,7 +249,7 @@ def _bind_restart_source(ctx: WorkflowContext, *, store: RunStore) -> str | None
     return source.sim_id
 
 
-def _register_tracked_input_files(ctx: WorkflowContext, *, store: RunStore) -> None:
+def register_tracked_input_files(ctx: WorkflowContext, *, store: RunStore) -> None:
     """Walk the config tree and record every InputFile-marked path."""
     from hydromodpy.core.tracking import collect_input_files
 
@@ -450,7 +356,7 @@ def initial_facts(ctx: WorkflowContext, *, config_hash: str | None = None) -> Ru
     assert outcome is not None
     stored = read_facts(ctx.run_dir)
     plan = ctx.execution.simulation_plan
-    primary_solver = _primary_solver_for_simulation(plan)
+    primary_solver = primary_solver_for_simulation(plan)
     facts = collect_run_facts(ctx)
     facts["config_hash"] = config_hash or solve_identity_hash(ctx.cfg)
     facts["config_source"] = portable_config_source(project_root, facts.get("config_source"))
@@ -476,15 +382,11 @@ def step_open_run(ctx: WorkflowContext, *, store: RunStore) -> None:
     """Record what the run was built from in its store.
 
     The store is the one of ``ctx.run_dir``, opened by the caller on the
-    facts :func:`initial_facts` built. Helpers are looked up on the
-    :mod:`hydromodpy.workflow.steps.prepare_solver` package namespace so unit
-    tests can monkeypatch them via ``prepare_solver_module.<helper>``.
+    facts :func:`initial_facts` built.
     """
-    from hydromodpy.workflow.steps import prepare_solver as ps_module
-
     assert ctx.sim_id is not None
     plan = ctx.execution.simulation_plan
-    primary_solver = _primary_solver_for_simulation(plan)
+    primary_solver = primary_solver_for_simulation(plan)
     facts = store.facts
     cell_mesh = ctx.setup.cell_mesh
     if cell_mesh is not None and facts.n_layers is not None and not store.fields_path.exists():
@@ -493,8 +395,8 @@ def step_open_run(ctx: WorkflowContext, *, store: RunStore) -> None:
             n_layers=int(facts.n_layers),
             cell_types=[cell_mesh.mesh.single_cell_type.value],
         )
-    restart_sim_id = _bind_restart_source(ctx, store=store)
-    _freeze_run_config(ctx, store=store, restart_sim_id=restart_sim_id)
+    restart_sim_id = bind_restart_source(ctx, store=store)
+    freeze_run_config(ctx, store=store, restart_sim_id=restart_sim_id)
     _write_zarr_time(ctx, ctx.sim_id, store=store)
     _write_zarr_crs(ctx, ctx.sim_id, store=store)
 
@@ -503,25 +405,22 @@ def step_open_run(ctx: WorkflowContext, *, store: RunStore) -> None:
     except Exception:
         logger.exception("Failed to capture run environment for sim %s", ctx.sim_id[:8])
 
-    ps_module._register_tracked_input_files(ctx, store=store)
+    register_tracked_input_files(ctx, store=store)
 
     if ctx.setup.flow is not None:
-        ps_module.step_persist_params(
+        step_persist_params(
             store,
             ctx.sim_id,
             ctx.setup.flow,
             domain=ctx.setup.domain,
         )
 
-    ps_module.step_persist_mesh(ctx, ctx.sim_id, store=store)
-    ps_module.step_persist_geographic(ctx, ctx.sim_id, store=store)
+    step_persist_mesh(ctx, ctx.sim_id, store=store)
+    step_persist_geographic(ctx, ctx.sim_id, store=store)
 
 
 __all__ = (
     "bind_run_directory",
-    "frozen_config_document",
-    "frozen_config_of",
-    "portable_config_document",
     "initial_facts",
     "planned_recipe",
     "refresh_run_environment",

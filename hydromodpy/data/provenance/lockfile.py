@@ -21,7 +21,7 @@ The file has one address, ``<project root>/hydromodpy.lock``, built by
 a project root asks :func:`resolve_lockfile_root` for one; a workspace root is
 never an answer, because a workspace holds many projects and one shared cache.
 Frozen mode carries the project root it was enabled on so a reader never has to
-guess it from a database location. :mod:`hydromodpy.project.lockfile` documents
+guess it from a database location. :mod:`hydromodpy.project.launch.lockfile` documents
 why the project root, and not the workspace, owns the file.
 
 Frozen mode is two module variables: one project is frozen per process. The

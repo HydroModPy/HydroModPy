@@ -21,7 +21,7 @@ under ``inputs/<sha256><suffix>``, with their sidecars under
 ``inputs/<sha256>.json``, addressed by content
 (:mod:`hydromodpy.core.payload`). The caller builds that index, from the
 workspace the run read
-(:func:`hydromodpy.project.share.run_bundle`): this module never reads the
+(:func:`hydromodpy.project.exchange.share.run_bundle`): this module never reads the
 data layer. Never: ``.hmp/``, ``logs/``, ``attempts/``, ``outcome.json``,
 ``published.jsonl``.
 
@@ -627,7 +627,7 @@ def _bundle_of(
     if inputs is None:
         raise ExportError(
             "with inputs needs the install index of the run: pass inputs=run_bundle "
-            "(hydromodpy.project.share), as hmp publish does."
+            "(hydromodpy.project.exchange.share), as hmp publish does."
         )
     bundle = inputs(source)
     if public:

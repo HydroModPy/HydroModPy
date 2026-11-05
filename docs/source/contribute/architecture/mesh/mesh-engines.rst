@@ -70,7 +70,7 @@ The planner
 - It turns each ``[[mesh.refinement_zone]]`` drawn by a field into a term of the size field
   (``planning/refinement_zones.py``). The zone is a set of DEM pixels, a ``PixelRegion`` of the size
   field. The height above the stream comes from ``planning/height_above_stream.py``. A field of
-  an earlier run is read by the workflow step (``workflow/steps/mesh_run_fields.py``), because
+  an earlier run is read by the workflow step (``results/run/field_envelope.py``), because
   ``spatial`` cannot import ``results``, and it reaches the planner as pixels. The ``regular``
   engine does not grade its cells, so the planner drops these zones and the QA says so.
 - With ``[mesh.lake_refinement]``, it turns each hydraulic structure of a lake into a term of the

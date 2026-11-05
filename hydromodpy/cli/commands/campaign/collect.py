@@ -1,6 +1,6 @@
 """``hmp campaign collect`` - write ``summary/`` of a project from its runs.
 
-A thin wrapper of :func:`hydromodpy.project.summary.collect_project`: the
+A thin wrapper of :func:`hydromodpy.project.launch.summary.collect_project`: the
 index is brought up to date, then ``summary/`` gets the tables by case and by
 site, the map, the cohort figures, the exports of ``[[sites.export]]``, a page
 and a README. ``--write-sites`` adds ``summary/catalog.csv``, the sites as a
@@ -60,7 +60,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 def run(args: argparse.Namespace) -> None:
     apply_verbosity(args, {})
     from hydromodpy.core.state.paths import resolve_project_root
-    from hydromodpy.project.summary import collect_project
+    from hydromodpy.project.launch.summary import collect_project
 
     project_root = resolve_project_root(
         Path(args.project or args.workspace or ".").expanduser().resolve()

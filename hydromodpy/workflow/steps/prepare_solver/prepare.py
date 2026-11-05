@@ -7,16 +7,14 @@ Hosts the helpers that write inputs to disk before the solver runs:
 - geographic raster persistence via :func:`step_persist_geographic`
 - provenance fingerprints and the loaded inputs of ``inputs.json`` via
   :func:`step_write_provenance`
-- forcings persistence via :func:`step_persist_forcings`
 
+The forcings are persisted by :mod:`~hydromodpy.workflow.steps.prepare_solver.forcings`.
 The functions stay free-standing so notebook helpers and the orchestrator
 prepared-run path keep importing them by name.
 """
 
 from __future__ import annotations
 
-import dataclasses
-import json
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -25,17 +23,13 @@ import numpy as np
 
 from hydromodpy.core.exceptions import MeshError, PipelineError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.core.state.paths import encode_workspace_path
 from hydromodpy.data.contracts.spatial_field import INPUT_FILES_KEY
-from hydromodpy.physics.flow.sinks_sources.recharge import recharge_factor_of
-from hydromodpy.physics.forcing.forcing_bridge import scaled_load_result
 from hydromodpy.results.manifest import InputEntry
 from hydromodpy.results.storage.attempt import is_run_product
 from hydromodpy.results.storage.digests import path_size_bytes
 from hydromodpy.schema.sources import input_licence, licence_for_source
-from hydromodpy.spatial.field.zone_fractions import zone_fractions
-from hydromodpy.workflow.internals.data_description import (
+from hydromodpy.workflow.steps.data_description import (
     LoadedRecord,
     iter_loaded_records,
     read_data_description,
@@ -48,7 +42,6 @@ if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.physics.flow import Flow
     from hydromodpy.results.catalog.protocol import SimulationStore
-    from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
     from hydromodpy.spatial.domain.domain import Domain
 
 logger = get_logger(__name__)
@@ -172,7 +165,7 @@ def step_persist_geographic(ctx: WorkflowContext, sim_id: str, *, store: Simulat
 # ---------------------------------------------------------------------------
 
 
-def _field_data_array(record: object) -> np.ndarray | None:
+def field_data_array(record: object) -> np.ndarray | None:
     data = getattr(record, "data", None)
     if isinstance(data, (str, Path)):
         return None
@@ -189,17 +182,6 @@ def _field_data_array(record: object) -> np.ndarray | None:
         return None
     if hasattr(data, "values"):
         return np.asarray(data.values, dtype="float64")
-    return None
-
-
-def _hydrography_field_record(load_result: object) -> object | None:
-    from hydromodpy.spatial.geographic.core.hydrographic_network import (
-        HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
-    )
-
-    for record in getattr(load_result, "fields", None) or ():
-        if getattr(record, "variable", None) == HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME:
-            return record
     return None
 
 
@@ -247,7 +229,7 @@ def step_write_provenance(ctx: WorkflowContext, *, store: SimulationStore) -> No
             if item.kind == "point":
                 arr = np.asarray(rec.data["value"].values, dtype="float64")
             else:
-                arr = _field_data_array(rec)
+                arr = field_data_array(rec)
                 if arr is None and source_path is not None and source_path.is_file():
                     arr = np.frombuffer(source_path.read_bytes(), dtype="uint8")
                 if arr is None:
@@ -374,444 +356,8 @@ def _portable_path(source_path: Path | None, anchor: Path | str | None) -> str:
         return str(source_path)
 
 
-# Gridded forcing families reduced to a watershed-mean station series at
-# persist time. The catchment discharge derivation reads runoff back from
-# Zarr forcing/ when no stream network routes it.
-_WATERSHED_MEAN_FORCINGS = frozenset({"runoff", "recharge"})
-
-
-def _watershed_mean_series(load_result: object):
-    """Reduce a gridded forcing family to one tz-naive watershed-mean series.
-
-    None when the reduction has nothing to reduce. Its refusals, such as a day
-    without any valid pixel, propagate and stop the run.
-    """
-    import pandas as pd
-
-    from hydromodpy.spatial.forcing.cells import spatial_mean_from_fields
-
-    series = spatial_mean_from_fields(load_result)
-    if series is None or len(series) == 0:
-        return None
-    idx = pd.DatetimeIndex(series.index)
-    if idx.tz is not None:
-        idx = idx.tz_convert("UTC").tz_localize(None)
-    series.index = idx
-    return series
-
-
-def step_persist_forcings(ctx: WorkflowContext, *, store: SimulationStore) -> None:
-    """Persist input forcings into the Zarr ``forcing/`` group."""
-    if ctx.sim_id is None:
-        return
-
-    import numpy as np
-    import pandas as pd
-
-    sz = store.open_zarr(ctx.sim_id)
-    loaded = ctx.loaded_data
-    written = 0
-
-    # getattr, not ctx.setup.soil_forcings: some callers of this step (and a
-    # few regression test doubles) hand it a context with no .setup at all.
-    soil = getattr(getattr(ctx, "setup", None), "soil_forcings", None)
-    sources = [(f.name, getattr(loaded, f.name, None)) for f in dataclasses.fields(loaded)]
-    if soil is not None:
-        # loaded.recharge and loaded.runoff are None in soil mode (R1, R2): no
-        # duplicate key reaches the loop below.
-        sources += [("recharge", soil.recharge), ("runoff", soil.runoff)]
-
-    try:
-        for name, obj in sources:
-            if obj is None:
-                continue
-            if name == "recharge":
-                # The run keeps the recharge it solved, not the one the source holds.
-                flow_config = getattr(getattr(ctx, "cfg", None), "flow", None)
-                obj = scaled_load_result(obj, recharge_factor_of(flow_config))
-
-            if hasattr(obj, "encoded_codes") and hasattr(obj, "encoded_to_zone"):
-                try:
-                    codes = np.asarray(obj.encoded_codes)
-                    sz.write_forcing_field(
-                        "geology_codes",
-                        codes,
-                        unit="",
-                        source=getattr(obj, "source_kind", "raster"),
-                    )
-                    forcing = sz.root.require_group("forcing")
-                    geo_grp = forcing.require_group("geology_meta")
-                    geo_grp.attrs["zone_mapping"] = json.dumps(
-                        {str(k): str(v) for k, v in obj.encoded_to_zone.items()}
-                    )
-                    geo_grp.attrs["zone_keys"] = list(obj.zone_keys)
-                    transform = getattr(obj, "transform", None)
-                    if transform is not None:
-                        geo_grp.attrs["transform"] = list(float(v) for v in transform)[:6]
-                    if obj.crs is not None:
-                        geo_grp.attrs["crs"] = str(obj.crs)
-                    geo_grp.attrs["cell_samples_per_axis"] = int(
-                        getattr(obj, "default_cell_samples_per_axis", 8)
-                    )
-                    geo_grp.attrs["source_kind"] = str(getattr(obj, "source_kind", "raster"))
-                    written += 1
-                except Exception:
-                    logger.debug("Failed to persist geology forcing")
-
-                # The fractions the solvers map K, Sy and Ss with, not a second
-                # sampling: an error here is the solver's error, never swallowed.
-                cell_mesh = getattr(getattr(ctx, "setup", None), "cell_mesh", None)
-                if cell_mesh is not None:
-                    fractions = zone_fractions(cell_mesh, obj)
-                    for zone_key, frac_array in fractions.by_zone().items():
-                        safe_key = zone_key.replace("/", "_").replace(" ", "_")
-                        sz.write_forcing_field(
-                            f"geology_frac_{safe_key}",
-                            np.asarray(frac_array, dtype="float64"),
-                            unit="fraction",
-                            source=f"geology:{zone_key}",
-                        )
-                    written += 1
-                continue
-
-            if name == "hydrography":
-                try:
-                    record = _hydrography_field_record(obj)
-                    if record is not None:
-                        arr = _field_data_array(record)
-                        if arr is not None and arr.size > 0:
-                            from hydromodpy.spatial.geographic.core.hydrographic_network import (
-                                HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
-                            )
-
-                            sz.write_forcing_field(
-                                HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
-                                arr,
-                                unit=getattr(record, "unit", ""),
-                                source=getattr(record, "source", ""),
-                            )
-                            written += 1
-                        _persist_reference_hydrographic_feature(ctx, obj, store=store)
-                except Exception:
-                    logger.debug("Failed to persist hydrography forcing")
-                continue
-
-            points = getattr(obj, "points", None)
-            if points:
-                for rec in points:
-                    try:
-                        df = rec.data
-                        timestamps = pd.to_datetime(df["datetime"]).values
-                        values = df["value"].values.astype("float64")
-                        station = getattr(rec, "station_id", None) or name
-                        sz.write_forcing_timeseries(
-                            name,
-                            station,
-                            timestamps,
-                            values,
-                            unit=getattr(rec, "unit", ""),
-                            source=getattr(rec, "source", ""),
-                        )
-                        written += 1
-                    except Exception:
-                        logger.debug(
-                            "Failed to persist forcing %s:%s",
-                            name,
-                            getattr(rec, "station_id", "?"),
-                        )
-
-            fields_list = getattr(obj, "fields", None)
-            if fields_list:
-                for rec in fields_list:
-                    try:
-                        arr = _field_data_array(rec)
-                        if arr is None:
-                            continue
-                        sz.write_forcing_field(
-                            f"{name}_{rec.variable}",
-                            arr,
-                            unit=getattr(rec, "unit", ""),
-                            source=getattr(rec, "source", ""),
-                        )
-                        written += 1
-                    except Exception:
-                        logger.debug(
-                            "Failed to persist forcing field %s:%s",
-                            name,
-                            getattr(rec, "variable", "?"),
-                        )
-
-            # A gridded family has no station to land under
-            # forcing/<var>/<station>; its watershed mean keeps a
-            # station-shaped copy so post-processing (catchment discharge)
-            # can read the forcing back. Same reduction as the SFR / LAK
-            # forcing binders, so both accountings stay consistent.
-            if name in _WATERSHED_MEAN_FORCINGS and fields_list and not points:
-                series = _watershed_mean_series(obj)
-                if series is not None:
-                    try:
-                        sz.write_forcing_timeseries(
-                            name,
-                            CATCHMENT,
-                            np.asarray(series.index.values, dtype="datetime64[ns]"),
-                            series.to_numpy(dtype="float64"),
-                            unit=getattr(fields_list[0], "unit", "") or "",
-                            source="watershed_mean",
-                        )
-                        written += 1
-                    except Exception:
-                        logger.debug("Failed to persist watershed-mean forcing %s", name)
-
-        # Not wrapped like the rest of the loop: a broken soil write is a bug
-        # in this feature, not a flaky external source, and must not be
-        # swallowed into a silent debug line.
-        if soil is not None:
-            _persist_soil_columns(sz, soil)
-    finally:
-        sz.close()
-
-    if soil is not None:
-        store.write_view(ctx.sim_id, "soil_budget", _soil_budget_rows(soil))
-
-    if written:
-        logger.debug("Persisted %d forcing datasets for sim %s", written, ctx.sim_id)
-
-
-def _soil_budget_rows(soil: object) -> list[dict[str, object]]:
-    """Build the ``soil_budget`` rows: one per column and year, plus a basin row."""
-    from hydromodpy.physics.hydrology.soil_reservoir.kernel import annual_budget
-
-    columns = soil.columns
-    ru_mm = soil.parameters.ru_mm
-    budget = annual_budget(
-        soil.years, soil.precipitation, soil.etp, soil.fluxes, columns.basin_weight
-    )
-    n_years, n_columns = budget.precipitation.shape
-
-    rows: list[dict[str, object]] = []
-    for j in range(n_columns):
-        column_id = f"{int(columns.cell_index[j])}.{int(columns.class_index[j])}"
-        for i in range(n_years):
-            rows.append(
-                {
-                    "column_id": column_id,
-                    "cell_index": int(columns.cell_index[j]),
-                    "class_index": int(columns.class_index[j]),
-                    "x": float(columns.x[j]),
-                    "y": float(columns.y[j]),
-                    "available_water_capacity": float(ru_mm[j]),
-                    "basin_weight": float(columns.basin_weight[j]),
-                    "year": int(budget.years[i]),
-                    "days": int(budget.days[i]),
-                    "precipitation": float(budget.precipitation[i, j]),
-                    "etp": float(budget.etp[i, j]),
-                    "etr": float(budget.etr[i, j]),
-                    "residual_etp": float(budget.residual_etp[i, j]),
-                    "recharge": float(budget.recharge[i, j]),
-                    "runoff": float(budget.runoff[i, j]),
-                    "runoff_cn": float(budget.runoff_cn[i, j]),
-                    "soil_storage_change": float(budget.soil_storage_change[i, j]),
-                    "transit_storage_change": float(budget.transit_storage_change[i, j]),
-                    "cn_storage_change": float(budget.cn_storage_change[i, j]),
-                    "lag_storage_change": float(budget.lag_storage_change[i, j]),
-                    "balance_residual": float(budget.residual[i, j]),
-                    "unit": "mm",
-                }
-            )
-
-    basin_ru_mm = float(np.sum(ru_mm * columns.basin_weight))
-    for i in range(n_years):
-        rows.append(
-            {
-                "column_id": CATCHMENT,
-                "cell_index": None,
-                "class_index": None,
-                "x": None,
-                "y": None,
-                "available_water_capacity": basin_ru_mm,
-                "basin_weight": 1.0,
-                "year": int(budget.years[i]),
-                "days": int(budget.days[i]),
-                "precipitation": float(budget.basin("precipitation")[i]),
-                "etp": float(budget.basin("etp")[i]),
-                "etr": float(budget.basin("etr")[i]),
-                "residual_etp": float(budget.basin("residual_etp")[i]),
-                "recharge": float(budget.basin("recharge")[i]),
-                "runoff": float(budget.basin("runoff")[i]),
-                "runoff_cn": float(budget.basin("runoff_cn")[i]),
-                "soil_storage_change": float(budget.basin("soil_storage_change")[i]),
-                "transit_storage_change": float(budget.basin("transit_storage_change")[i]),
-                "cn_storage_change": float(budget.basin("cn_storage_change")[i]),
-                "lag_storage_change": float(budget.basin("lag_storage_change")[i]),
-                "balance_residual": float(budget.basin("residual")[i]),
-                "unit": "mm",
-            }
-        )
-    return rows
-
-
-def _persist_soil_columns(sz: SimulationZarr, soil: object) -> None:
-    """Write the soil reservoir's daily columns under ``forcing/soil``."""
-    fluxes = soil.fluxes
-    config = soil.config
-    columns = soil.columns
-    series = {
-        "etr": (fluxes.etr, "mm/day", "time: mean", "Actual evapotranspiration of the soil"),
-        "residual_etp": (
-            fluxes.residual_etp,
-            "mm/day",
-            "time: mean",
-            "ETP the soil left unmet",
-        ),
-        "recharge": (
-            fluxes.recharge,
-            "mm/day",
-            "time: mean",
-            "Recharge sent to the water table",
-        ),
-        "runoff": (
-            fluxes.runoff,
-            "mm/day",
-            "time: mean",
-            "Runoff of the sealed share plus the routed curve-number share",
-        ),
-        "runoff_cn": (
-            fluxes.runoff_cn,
-            "mm/day",
-            "time: mean",
-            "Curve-number share of runoff alone",
-        ),
-        "soil_storage": (
-            fluxes.soil_storage,
-            "mm",
-            "time: point",
-            "Soil water storage at the end of the day",
-        ),
-        "transit_storage": (
-            fluxes.transit_storage,
-            "mm",
-            "time: point",
-            "Transit store at the end of the day",
-        ),
-        "cn_storage": (
-            fluxes.cn_storage,
-            "mm",
-            "time: point",
-            "Curve-number runoff routing store at the end of the day",
-        ),
-        "lag_storage": (
-            fluxes.lag_storage,
-            "mm",
-            "time: point",
-            "Routed curve-number runoff delayed by runoff_lag, not yet released, at "
-            "the end of the day",
-        ),
-    }
-    columns_arrays = {
-        "cell_index": columns.cell_index,
-        "class_index": columns.class_index,
-        "x": columns.x,
-        "y": columns.y,
-        "ru_mm": soil.parameters.ru_mm,
-        "cell_fraction": columns.cell_fraction,
-        "basin_weight": columns.basin_weight,
-    }
-    attrs = {
-        "source": "soil_reservoir",
-        "crs": soil.crs,
-        "ru_mm": config.ru,
-        "alpha": config.alpha,
-        "kc": config.kc,
-        "impervious_fraction": config.impervious_fraction,
-        "bypass_fraction": config.bypass_fraction,
-        "transit_time_days": config.transit_time,
-        "spinup": config.spinup,
-        "spinup_cycles": int(soil.spinup_cycles),
-        "never_full_columns": int(soil.never_full_columns),
-        "n_cells": int(np.unique(columns.cell_index).size),
-        "n_columns": int(columns.cell_index.shape[0]),
-    }
-    sz.write_soil_columns(
-        timestamps=soil.days,
-        series=series,
-        columns=columns_arrays,
-        attrs=attrs,
-    )
-
-
-def _persist_reference_hydrographic_feature(
-    ctx: WorkflowContext,
-    hydrography_load_result: object,
-    *,
-    store: SimulationStore,
-) -> bool:
-    """Persist the imported hydrography vector as one canonical feature.
-
-    Its permanent part, when the loader wrote one, goes beside it under its own
-    feature name, so a run read back later still has both.
-    """
-    if ctx.sim_id is None:
-        return False
-
-    from hydromodpy.spatial.geographic.core.hydrographic_network import (
-        HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
-        HYDROGRAPHIC_NETWORK_REFERENCE_PERMANENT_FEATURE_NAME,
-        HydrographicNetwork,
-    )
-
-    features = getattr(getattr(ctx, "setup", None), "geographic_features", None)
-    network = (
-        getattr(features, "reference_hydrographic_network", None) if features is not None else None
-    )
-    if network is None:
-        network = HydrographicNetwork.from_hydrography_load_result(hydrography_load_result)
-    permanent = (
-        getattr(features, "reference_permanent_hydrographic_network", None)
-        if features is not None
-        else None
-    )
-    if permanent is None:
-        permanent = HydrographicNetwork.permanent_from_hydrography_load_result(
-            hydrography_load_result
-        )
-
-    written = _persist_network_feature(
-        ctx, network, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, store=store
-    )
-    if written and permanent is not None:
-        _persist_network_feature(
-            ctx, permanent, HYDROGRAPHIC_NETWORK_REFERENCE_PERMANENT_FEATURE_NAME, store=store
-        )
-    return written
-
-
-def _persist_network_feature(
-    ctx: WorkflowContext,
-    network: object,
-    feature_name: str,
-    *,
-    store: SimulationStore,
-) -> bool:
-    """Write one network's vector as the geographic feature *feature_name*."""
-    vector_path = getattr(network, "vector_path", None)
-    if vector_path in (None, "") or not Path(str(vector_path)).exists():
-        return False
-
-    try:
-        gdf = network.read_vector()
-        if gdf is None or gdf.empty:
-            return False
-        if gdf.crs is None and getattr(network, "crs", None) not in (None, ""):
-            gdf = gdf.set_crs(str(network.crs), allow_override=True)
-        store.write_geographic_feature(ctx.sim_id, feature_name, gdf)
-        return True
-    except Exception:
-        logger.debug("Failed to persist hydrographic network feature %s", feature_name)
-        return False
-
-
 __all__ = (
-    "step_persist_forcings",
+    "field_data_array",
     "step_persist_geographic",
     "step_persist_mesh",
     "step_persist_params",

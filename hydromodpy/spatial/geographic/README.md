@@ -106,6 +106,7 @@ geographic/
 │   ├── river_network_vector.py     the stream vector read back, and its summary
 │   ├── river_mesh_trace.py         the river lines the mesh follows
 │   ├── sfr_network.py              the SFR reach table from the stream links
+│   ├── sfr_traces.py               one SFR reach trace per declared network
 │   ├── hydrographic_network.py     one object for a generated or a reference network
 │   ├── hydrographic_network_comparison.py   two networks compared within a tolerance
 │   ├── network_heads.py            free ends of a mapped network, where heads may lie
@@ -139,7 +140,7 @@ for example `GeographicConfig` from `geographic_config.py` and `build_synthetic_
 | the regularized channel bed | `core/channel_bed_fit.py`, then `core/ground_bed.py` |
 | when a tree is reused | `geographic_cache.py` |
 | the name or place of an output file | `geographic_paths.py` |
-| the SFR reaches | `core/sfr_network.py` |
+| the SFR reaches | `core/sfr_network.py`, `core/sfr_traces.py` |
 | the shared network object | `core/hydrographic_network.py` |
 | a synthetic topography | `synthetic_config.py`, then `synthetic/topography.py` |
 
@@ -197,8 +198,8 @@ The package prepares files. What reads them is elsewhere.
   `persist_geographic_to_store` to write the tree into the catalog store.
 - The mesh planner reads the river lines through `resolve_river_mesh_trace`
   (`core/derived_features.py`). `hydromodpy/workflow/steps/mesh_inputs.py` calls it.
-- The workflow data step `hydromodpy/workflow/steps/data.py` calls the reach builder of
-  `core/sfr_network.py` and `lake_contributing_areas_m2`. The MODFLOW 6 SFR builder in
+- The workflow data step `hydromodpy/workflow/steps/data.py` calls `build_sfr_reach_traces`
+  (`core/sfr_traces.py`) and `lake_areas_or_even_split` (`core/lake_catchments.py`). The MODFLOW 6 SFR builder in
   `hydromodpy/solver/modflow6/builders/sfr.py` turns the reach table into package data.
 - `hydromodpy/results/` reads the network objects to compare and export them.
 

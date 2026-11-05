@@ -36,7 +36,7 @@ to ``runs/<case>/logs/job-<id>.out`` and writes ``failed`` (exit code,
 signal, log tail, ``written_by = "trap"``) when the worker left ``running``
 behind and its death is proven: same host, process gone. A calibration case
 gets the same in its session directory. A SIGKILL of the whole job leaves no
-trap; :func:`scheduler_states` then reads ``sacct``.
+trap; :func:`hydromodpy.project.launch.sacct.scheduler_states` then reads ``sacct``.
 
 Not handled (CIBLE §14)
 -----------------------
@@ -62,13 +62,10 @@ import re
 import shlex
 import shutil
 import socket
-import subprocess
 import sys
 import uuid
-from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
-from importlib import resources
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Final
 
@@ -89,22 +86,27 @@ from hydromodpy.project.launch.env import LAUNCHED_ENV, THREADS_ENV
 from hydromodpy.project.launch.journal import (
     CASES_FILENAME,
     STAMP_FORMAT,
-    job_dirs,
-    read_case_list,
     write_case_list,
 )
-from hydromodpy.project.launch.local import (
+from hydromodpy.project.launch.prepare import workspace_data_dir
+from hydromodpy.project.launch.selection import (
     effective_prepare_parallel,
     sites_run_config,
     worker_flags,
 )
-from hydromodpy.project.launch.prepare import workspace_data_dir
+from hydromodpy.project.launch.slurm_script import (
+    TERM_GRACE_S,
+    render,
+    worker_block,
+)
+from hydromodpy.project.launch.slurm_script import (
+    directives as sbatch_directives,
+)
 from hydromodpy.project.launch.status import plan_is_stale
-from hydromodpy.results.catalog.registration import split_stem_version
 from hydromodpy.results.outcome import Outcome, read_outcome, write_outcome
 from hydromodpy.results.plan_store import read_plan
 from hydromodpy.results.session.descriptor import (
-    list_session_dirs,
+    latest_session_dir,
     session_descriptor_path,
 )
 from hydromodpy.results.storage.attempt import finish_attempt, latest_version_dir
@@ -124,13 +126,9 @@ JOB_LOGS_DIRNAME: Final[str] = "logs"
 PREPARED_DIRNAME: Final[str] = "prepared"
 """One empty file per prepared task; the last one writes ``hydromodpy.lock``."""
 
-TERM_GRACE_S: Final[int] = 600
-"""Seconds between the scheduler's SIGTERM and the walltime."""
-
 LOG_TAIL_LINES: Final[int] = 40
 """Lines of the task log kept in a ``failed`` outcome written by the trap."""
 
-SACCT_TIMEOUT_S: Final[float] = 30.0
 
 PHASES: Final[tuple[str, ...]] = ("prepare", "solve")
 """Phases of a task: ``prepare.sh`` runs the first, ``array.sh`` the second."""
@@ -138,28 +136,8 @@ PHASES: Final[tuple[str, ...]] = ("prepare", "solve")
 LAUNCHED_BY: Final[str] = "slurm"
 """Value of ``HMP_LAUNCHED_CASE`` in a task."""
 
-TERMINAL_STATES: Final[frozenset[str]] = frozenset(
-    {
-        "BOOT_FAIL",
-        "CANCELLED",
-        "COMPLETED",
-        "DEADLINE",
-        "FAILED",
-        "NODE_FAIL",
-        "OUT_OF_MEMORY",
-        "PREEMPTED",
-        "REVOKED",
-        "TIMEOUT",
-    }
-)
-"""``sacct`` states of a task that no longer runs: the scheduler proves its end."""
 
-_PARTITION = re.compile(r"^[A-Za-z0-9_.,-]+$")
-_WALLTIME = re.compile(r"^(?:(\d+)-)?(\d+)(?::(\d+))?(?::(\d+))?$")
 _SAFE_PATH = re.compile(r"^[\w./+@,-]+$")
-_PLACEHOLDER = re.compile(r"\{\{[A-Z_]+\}\}")
-_SACCT_JOB_ID = re.compile(r"^(\d+)_(\d+|\[[^\]]+\])$")
-_TEMPLATES = "hydromodpy.project.launch.templates"
 
 
 @dataclass(frozen=True, slots=True)
@@ -179,21 +157,6 @@ class SlurmJob:
     job_name: str
 
 
-@dataclass(frozen=True, slots=True)
-class SchedulerState:
-    """What ``sacct`` says of the latest task that ran one case."""
-
-    case_id: str
-    job_id: str
-    state: str
-    exit_code: str
-
-    @property
-    def finished(self) -> bool:
-        """Whether the scheduler says the task no longer runs."""
-        return self.state in TERMINAL_STATES
-
-
 def write_slurm_array(
     project_root: str | Path,
     *,
@@ -211,7 +174,7 @@ def write_slurm_array(
     says. A job directory is written once; the same stamp twice is refused.
     """
     root = Path(project_root).resolve()
-    _parse_stamp(stamp)
+    parse_stamp(stamp)
     _refuse_unsafe_path(root)
     stored = read_plan(root)
     if not stored.cases:
@@ -226,7 +189,7 @@ def write_slurm_array(
     prepare = effective_prepare_parallel(
         _positive("prepare_parallel", prepare_parallel, run.prepare_parallel), force=False
     )
-    directives = _directives(partition, walltime)
+    directives = sbatch_directives(partition, walltime)
     max_solves = max(case.solves for case in planned_cases(stored))
 
     jobs = jobs_dir_for(root)
@@ -251,23 +214,23 @@ def write_slurm_array(
         "THREADS_PER_CASE": str(threads),
     }
     job_name = f"hmp-{project}-{stamp}"
-    prepare_text = _render(
+    prepare_text = render(
         PREPARE_SCRIPT,
         {
             **common,
             "JOB_NAME": f"hmp-prepare-{project}-{stamp}",
             "PREPARE_PARALLEL": str(prepare),
-            "WORKER": _worker_block("prepare"),
+            "WORKER": worker_block("prepare"),
         },
     )
-    array_text = _render(
+    array_text = render(
         ARRAY_SCRIPT,
         {
             **common,
             "CPUS_PER_TASK": str(threads * max_solves),
             "JOB_NAME": job_name,
             "MAX_SOLVES": str(max_solves),
-            "WORKER": _worker_block("solve"),
+            "WORKER": worker_block("solve"),
         },
     )
     plan_rel = stored.directory.relative_to(root).as_posix()
@@ -330,7 +293,7 @@ def write_lock(project_root: str | Path, case_toml: str | Path) -> Path | None:
     The workspace is the case's ``workspace.data_dir``, as the local
     launcher reads it, not the one around the project folder.
     """
-    from hydromodpy.project.lockfile import write_project_lockfile
+    from hydromodpy.project.launch.lockfile import write_project_lockfile
 
     root = Path(project_root).resolve()
     case_path = Path(case_toml)
@@ -377,7 +340,7 @@ def finish_task(
     signal = exit_code - 128 if exit_code > 128 else None
     message = dead_worker_message(exit_code, signal)
     closed: Outcome | None = None
-    for directory in (_latest_session_dir(root, case_id), latest_version_dir(root, case_id)):
+    for directory in (latest_session_dir(root, case_id), latest_version_dir(root, case_id)):
         if directory is None:
             continue
         if log is not None and log.is_file() and job_id:
@@ -408,54 +371,11 @@ def finish_task(
     return closed
 
 
-def scheduler_states(project_root: str | Path) -> dict[str, SchedulerState]:
-    """Return what ``sacct`` says of each case run by an array job of the project.
-
-    Empty when ``sacct`` is not on the PATH. A case run by several jobs takes
-    the latest job directory, and within one job the highest job id (a task
-    submitted again). A ``finished`` state is the scheduler's proof that the
-    task no longer runs, which a stale pulse alone never is.
-    """
-    if shutil.which("sacct") is None:
-        return {}
-    states: dict[str, SchedulerState] = {}
-    for job_dir in job_dirs(Path(project_root)):
-        stamp = job_dir.name.removesuffix(f"-{SCHEDULER}")
-        if stamp == job_dir.name or not (job_dir / ARRAY_SCRIPT).is_file():
-            continue
-        job_name = _directive(job_dir / ARRAY_SCRIPT, "job-name")
-        if job_name is None:
-            continue
-        cases = read_case_list(job_dir)
-        # sacct reads local time and the stamp is UTC: a day earlier covers both.
-        start = (_parse_stamp(stamp) - timedelta(days=1)).strftime("%Y-%m-%d")
-        latest: dict[int, tuple[int, SchedulerState]] = {}
-        for base, task, state, exit_code in _sacct_rows(job_name, start):
-            if not 1 <= task <= len(cases):
-                continue
-            row = SchedulerState(Path(cases[task - 1]).stem, f"{base}_{task}", state, exit_code)
-            if task not in latest or base >= latest[task][0]:
-                latest[task] = (base, row)
-        for _, row in latest.values():
-            states[row.case_id] = row
-    return states
-
-
-def _parse_stamp(stamp: str) -> datetime:
+def parse_stamp(stamp: str) -> datetime:
     try:
         return datetime.strptime(stamp, STAMP_FORMAT).replace(tzinfo=UTC)
     except ValueError as exc:
         raise JobUsageError(f"stamp {stamp!r} is not {STAMP_FORMAT}") from exc
-
-
-def _latest_session_dir(root: Path, case_id: str) -> Path | None:
-    best: tuple[int, Path] | None = None
-    for directory in list_session_dirs(root):
-        stem, version = split_stem_version(directory.name)
-        number = 1 if version is None else version
-        if stem == case_id and (best is None or number > best[0]):
-            best = (number, directory)
-    return None if best is None else best[1]
 
 
 def _dead_outcome(directory: Path) -> Outcome | None:
@@ -482,120 +402,6 @@ def _positive(name: str, value: int | None, default: int) -> int:
     if chosen < 1:
         raise ConfigError(f"{name} is {chosen}; it counts at least 1")
     return chosen
-
-
-def _directives(partition: str | None, walltime: str | None) -> str:
-    lines: list[str] = []
-    if partition is not None:
-        if not _PARTITION.match(partition):
-            raise ConfigError(f"partition {partition!r} is not a SLURM partition name")
-        lines.append(f"#SBATCH --partition={partition}")
-    if walltime is not None:
-        seconds = walltime_seconds(walltime)
-        if seconds <= TERM_GRACE_S:
-            raise ConfigError(
-                f"walltime {walltime} is {seconds} s; the scheduler warns a case "
-                f"{TERM_GRACE_S} s before it, so a case would be stopped at its start"
-            )
-        lines.append(f"#SBATCH --time={walltime}")
-    return "\n".join(lines)
-
-
-def walltime_seconds(walltime: str) -> int:
-    """Return the seconds of a SLURM ``--time`` value.
-
-    Forms: ``M``, ``M:S``, ``H:M:S``, ``D-H``, ``D-H:M``, ``D-H:M:S``.
-    """
-    match = _WALLTIME.match(walltime.strip())
-    if match is None:
-        raise ConfigError(f"walltime {walltime!r} is not a SLURM time (M, M:S, H:M:S, D-H:M:S)")
-    days, first, second, third = match.groups()
-    if days is None:
-        parts = [int(p) for p in (first, second, third) if p is not None]
-        if len(parts) == 1:
-            return parts[0] * 60
-        if len(parts) == 2:
-            return parts[0] * 60 + parts[1]
-        return parts[0] * 3600 + parts[1] * 60 + parts[2]
-    hours = int(first)
-    minutes = int(second) if second is not None else 0
-    seconds = int(third) if third is not None else 0
-    return int(days) * 86400 + hours * 3600 + minutes * 60 + seconds
-
-
-def _render(name: str, values: Mapping[str, str]) -> str:
-    text = resources.files(_TEMPLATES).joinpath(name).read_text(encoding="utf-8")
-    for key, value in values.items():
-        text = text.replace("{{" + key + "}}", value)
-    leftover = _PLACEHOLDER.search(text)
-    if leftover is not None:
-        raise RuntimeError(f"template {name} keeps {leftover.group(0)} unfilled")
-    return text
-
-
-def _worker_block(phase: str) -> str:
-    log_prefix = "prepare" if phase == "prepare" else "array"
-    return _render(
-        "worker.sh",
-        {"LOG_PREFIX": log_prefix, "PHASE": phase, "TERM_GRACE_S": str(TERM_GRACE_S)},
-    )
-
-
-def _directive(script: Path, key: str) -> str | None:
-    prefix = f"#SBATCH --{key}="
-    for line in script.read_text(encoding="utf-8").splitlines():
-        if line.startswith(prefix):
-            return line[len(prefix) :].strip()
-    return None
-
-
-def _sacct_rows(job_name: str, start: str) -> list[tuple[int, int, str, str]]:
-    """Return ``(job id, task, state, exit code)`` for each task ``sacct`` knows."""
-    command = [
-        "sacct",
-        f"--name={job_name}",
-        f"--starttime={start}",
-        "--allocations",
-        "--parsable2",
-        "--noheader",
-        "--format=JobID,JobName,State,ExitCode",
-    ]
-    try:
-        done = subprocess.run(
-            command, capture_output=True, text=True, timeout=SACCT_TIMEOUT_S, check=False
-        )
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        logger.warning("sacct could not be read for %s: %s", job_name, exc)
-        return []
-    if done.returncode != 0:
-        logger.warning("sacct failed for %s: %s", job_name, done.stderr.strip())
-        return []
-    rows: list[tuple[int, int, str, str]] = []
-    for line in done.stdout.splitlines():
-        fields = line.strip().split("|")
-        if len(fields) < 4:
-            continue
-        match = _SACCT_JOB_ID.match(fields[0])
-        if match is None:
-            continue
-        state = fields[2].split()[0] if fields[2].strip() else "UNKNOWN"
-        base = int(match.group(1))
-        for task in _tasks(match.group(2)):
-            rows.append((base, task, state, fields[3]))
-    return rows
-
-
-def _tasks(text: str) -> list[int]:
-    """Return the task ids of ``7`` or of a pending range ``[3-5,9%2]``."""
-    if not text.startswith("["):
-        return [int(text)]
-    tasks: list[int] = []
-    for part in text.strip("[]").split("%")[0].split(","):
-        low, _, high = part.partition("-")
-        if not low.isdigit() or (high and not high.isdigit()):
-            continue
-        tasks.extend(range(int(low), int(high or low) + 1))
-    return tasks
 
 
 def _tail(log: Path | None) -> list[str]:
@@ -656,14 +462,10 @@ __all__ = [
     "PHASES",
     "PREPARE_SCRIPT",
     "SCHEDULER",
-    "TERMINAL_STATES",
-    "TERM_GRACE_S",
-    "SchedulerState",
     "SlurmJob",
     "finish_task",
-    "scheduler_states",
+    "parse_stamp",
     "task_flags",
-    "walltime_seconds",
     "write_lock",
     "write_slurm_array",
 ]

@@ -4,8 +4,7 @@ SIGKILL or the OOM killer stop a worker between two pulses: its outcome still
 says ``running`` and the pulse is younger than the stale limit. On the same
 host the process table answers: a dead pid means the attempt is over, and the
 next claim takes attempt 2 in the same directory. A live pid, or another host,
-keeps the case refused.
-"""
+keeps the case refused."""
 
 from __future__ import annotations
 
@@ -77,3 +76,28 @@ def test_another_host_keeps_the_case_refused(
 
     with pytest.raises(CaseAliveError, match="pulse is fresh"):
         _claim_again(project)
+
+
+@pytest.mark.allow_subprocess
+def test_a_slurm_task_records_its_job_in_the_outcome(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from hydromodpy.results.outcome import read_outcome
+    from hydromodpy.results.storage.attempt import (
+        claim_run_directory,
+        scheduler_job_id_from_env,
+    )
+
+    monkeypatch.delenv("SLURM_JOB_ID", raising=False)
+    monkeypatch.delenv("SLURM_ARRAY_JOB_ID", raising=False)
+    monkeypatch.delenv("SLURM_ARRAY_TASK_ID", raising=False)
+    assert scheduler_job_id_from_env() is None
+    monkeypatch.setenv("SLURM_JOB_ID", "81")
+    assert scheduler_job_id_from_env() == "81"
+    monkeypatch.setenv("SLURM_ARRAY_JOB_ID", "80")
+    monkeypatch.setenv("SLURM_ARRAY_TASK_ID", "3")
+
+    claim = claim_run_directory(tmp_path / "p", "case", case_id="case", project="p")
+
+    outcome = read_outcome(claim.run_dir)
+    assert outcome is not None and outcome.scheduler_job_id == "80_3"

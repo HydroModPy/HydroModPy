@@ -57,7 +57,7 @@ from hydromodpy.results.derive.network_criterion_settings import (
 )
 from hydromodpy.results.derive.stream_extent import network_extents_from_run
 from hydromodpy.results.derive.stream_network import network_comparison_from_run
-from hydromodpy.workflow.steps.prepare_solver.dispatch import portable_config_document
+from hydromodpy.workflow.steps.prepare_solver.freeze import portable_config_document
 from tests._helpers.sealed_runs import sealed_search
 from tests._helpers.ugrid_meshes import quad_mesh
 from tests.unit.config.test_a_renamed_key_warns_and_a_sealed_one_reads import PROJECT, _project

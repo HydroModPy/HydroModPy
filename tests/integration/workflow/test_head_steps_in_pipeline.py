@@ -91,7 +91,7 @@ enabled = false
 
 def _journal_rows(root: Path, run_id: str) -> tuple[tuple[int, str, str], ...]:
     """Return ``(step_order, step_name, status)`` for every row of ``run_id``."""
-    from hydromodpy.workflow.tracking.journal import WorkflowJournal
+    from hydromodpy.workflow.record.journal import WorkflowJournal
 
     rows = WorkflowJournal(root / run_dir_rel(run_id)).list_steps(run_id)
     return tuple((row.step_order, row.step_name, row.status) for row in rows)
@@ -163,14 +163,14 @@ def test_the_delineation_survives_the_crash(crashed_at_build_mesh) -> None:
 def test_the_resume_restarts_at_the_step_that_failed(crashed_at_build_mesh) -> None:
     """``--resume`` picks step 4 and finishes the window without redoing 0 to 3."""
     from hydromodpy.project.facade import Project
-    from hydromodpy.project.runner import _resolve_resume_step_index
-    from hydromodpy.workflow.orchestrator import standard_steps
+    from hydromodpy.workflow.record.resume import resolve_resume_step_index
+    from hydromodpy.workflow.steps.sequence import standard_steps
 
     root, _rows = crashed_at_build_mesh
     blueprint = tuple(step.name for step in standard_steps())
 
     assert (
-        _resolve_resume_step_index(
+        resolve_resume_step_index(
             root / run_dir_rel(RUN_NAME), root, RUN_NAME, steps_blueprint=blueprint
         )
         == 4

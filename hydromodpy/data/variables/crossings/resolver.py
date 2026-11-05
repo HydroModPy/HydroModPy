@@ -39,6 +39,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.io.atomic_replace import staged_path
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import cache_dir as _hmp_cache_dir
@@ -60,6 +61,56 @@ the box is the domain plus this margin and not the domain alone.
 """
 
 _QUERY_CRS = "EPSG:2154"
+
+
+def crossings_are_read(geographic_cfg: Any) -> bool:
+    """Whether the geographic step reads the crossings file: the notch or the bed fit is on."""
+    for section in ("crossings", "bed_regularization"):
+        if bool(getattr(getattr(geographic_cfg, section, None), "enabled", False)):
+            return True
+    return False
+
+
+def fill_crossings_path(
+    cfg: Any,
+    *,
+    config_path: Path | None,
+    data_path: Path | None,
+) -> None:
+    """Populate ``[geographic.crossings] path`` from ``[[data.crossings.sources]]`` when absent.
+
+    The notch reads the embankments; the bed regularization reads the declared
+    weirs and dams, which cut its fit even with the notch off. An explicitly
+    declared ``[geographic.crossings] path`` always wins. The notch enabled with
+    neither a path nor a source is refused here, where both are known; the bed
+    regularization alone then fits without cuts. ``data_path`` is the workspace
+    data folder, whose ``crossings`` subfolder caches the merged file.
+    """
+    geographic_cfg = cfg.geographic
+    notch_cfg = getattr(geographic_cfg, "crossings", None)
+    if notch_cfg is None or not crossings_are_read(geographic_cfg):
+        return
+    if getattr(notch_cfg, "path", None) is not None:
+        return
+    crossings_cfg = getattr(getattr(cfg, "data", None), "crossings", None)
+    if not getattr(crossings_cfg, "sources", None):
+        if not getattr(notch_cfg, "enabled", False):
+            return
+        raise ConfigError(
+            "geographic.crossings is enabled without a path, and [[data.crossings.sources]] "
+            "declares no source to fall back on. Set geographic.crossings.path, or declare "
+            "a crossings source."
+        )
+    if config_path is None:
+        raise ConfigError(
+            "geographic.crossings.path is missing and no config path is available to "
+            "resolve [[data.crossings.sources]]."
+        )
+    notch_cfg.path = resolve_crossings_path_from_data_sources(
+        cfg,
+        config_path=Path(config_path),
+        cache_dir=None if data_path is None else Path(data_path) / "crossings",
+    )
 
 
 def resolve_crossings_path_from_data_sources(

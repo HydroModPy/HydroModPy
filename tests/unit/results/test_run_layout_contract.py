@@ -86,7 +86,7 @@ ALLOWED_PROJECT_ENTRIES = OUTPUT_ROOTS | frozenset(
         CONFIGS_DIRNAME,
         SITE_OVERRIDES_DIRNAME,
         # Pin of the workspace input cache, an input of the project verified by
-        # `hmp run --frozen` (hydromodpy/project/lockfile.py).
+        # `hmp run --frozen` (hydromodpy/project/launch/lockfile.py).
         LOCKFILE_NAME,
         "sites.csv",
     }

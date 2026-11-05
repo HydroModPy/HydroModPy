@@ -2,7 +2,7 @@
 
 ``Project.simulate(thickness=...)`` used to patch the built ``Domain`` after the
 fact. The domain is built from ``cfg.domain`` by every path that builds it, and
-a resume reconstructs the prefix in another process: ``run_setup`` rebuilt the
+a resume reconstructs the prefix in another process: ``step_setup`` rebuilt the
 domain from the bare configuration and the override was gone, silently, while
 an override of a flow parameter survived the same resume because ``ensure_flow``
 happens to keep an object it finds. The configuration the run archived beside
@@ -145,7 +145,7 @@ def test_the_run_archives_the_configuration_it_was_launched_on(
     It used to name the declared 50 m, so the only on-disk description of an
     override run could not reproduce it.
     """
-    from hydromodpy.workflow.internals.manifest import read_resolved_config
+    from hydromodpy.workflow.record.manifest import read_resolved_config
 
     root, _built = launched_with_an_override
 

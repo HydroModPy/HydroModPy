@@ -22,7 +22,7 @@ End-to-end chain
    ``HydroModPyConfig`` and calls ``Project.simulate``.
 4. ``simulate`` builds the shared model phase once, then runs the ``Pipeline``
    (``hydromodpy/workflow/runner.py``) over the twelve steps of
-   ``standard_steps()`` in ``hydromodpy/workflow/orchestrator.py``.
+   ``standard_steps()`` in ``hydromodpy/workflow/steps/sequence.py``.
 5. Inside that pipeline, the planning code builds a ``SimulationPlan`` with
    ``SimulationPlanner`` (``hydromodpy/simulation/planning/planner.py``), and
    ``RunSolverStep`` hands it to ``SimulationRunner``

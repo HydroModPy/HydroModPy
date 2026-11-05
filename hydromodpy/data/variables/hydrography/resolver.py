@@ -32,8 +32,12 @@ from hydromodpy.core.logging import get_logger
 logger = get_logger(__name__)
 
 
-def resolve_network_map_path(cfg: Any, *, config_path: Path) -> Path | None:
-    """Return the local vector file of ``[[data.hydrography.sources]]``, or None."""
+def resolve_network_map_path(cfg: Any, *, config_path: Path | None) -> Path | None:
+    """Return the local vector file of ``[[data.hydrography.sources]]``, or None.
+
+    With no ``config_path`` to resolve a declared source against, the alpha
+    diagnostic does not run and one ``info`` line says so.
+    """
 
     data_cfg = getattr(cfg, "data", None)
     if data_cfg is None:
@@ -43,6 +47,14 @@ def resolve_network_map_path(cfg: Any, *, config_path: Path) -> Path | None:
         return None
 
     sources = getattr(hydrography_cfg, "sources", None) or ()
+    if not sources:
+        return None
+    if config_path is None:
+        logger.info(
+            "No config path is available to resolve [[data.hydrography.sources]]: the "
+            "alpha diagnostic does not run."
+        )
+        return None
     config_dir = Path(config_path).resolve().parent
 
     for source_cfg in sources:

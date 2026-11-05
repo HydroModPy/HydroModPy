@@ -118,6 +118,7 @@ hydromodpy/display/
 │                          figure_availability (what a run supports, and why not the rest),
 │                          matplotlib_backend (Agg or interactive for the length of a render);
 │                          _resolve_time turns a date into the stress period the run stored
+├── cohort.py              cohort figures of a campaign summary: names, draw_cohort_figures, ledger entry
 ├── png_metadata.py        provenance written into each PNG (sim_id, field, step, EPSG, version,
 │                          identity block of the run and its visible footer)
 │
@@ -218,7 +219,7 @@ finished run    ->  runs.render_figures_for_run(run, DisplayConfig)
 
 **Cohort figures.** `figures/cohort_map.py` and `figures/cohort_distribution.py`
 draw one table with one row per site, not a run; `figures/cohort_table.py` reads
-the columns they share. `hmp campaign collect` (`project/summary.py`) draws them
+the columns they share. `hmp campaign collect` (`project/launch/summary.py`) draws them with `cohort.py`
 under `summary/figures/` for each name of `[sites.summary] figures`.
 
 `hmp export <run> --regen figures` replays `figures/index.json` (`runs.regen_figures`).
@@ -293,6 +294,7 @@ Another package of `hydromodpy/` imports only these modules (the `public` list o
 | `hydromodpy.display.config` | `DisplayConfig` |
 | `hydromodpy.display.figure_registry` | `get`, `resolve`, `names`, `figure_option_names` |
 | `hydromodpy.display.runs` | rendering the figures of a run, and their availability |
+| `hydromodpy.display.cohort` | the cohort figures `hmp campaign collect` draws under `summary/figures/` |
 | `hydromodpy.display.maps.axes`, `hydromodpy.display.maps.ugrid`, `hydromodpy.display.maps.geo` | map tools reused by `reporting` |
 | `hydromodpy.display.report_blocks` | HTML engine (`reporting`, and `calibration` through a tolerance) |
 | `hydromodpy.display.overview`, `hydromodpy.display.overview.config` | overview and `OverviewConfig` |

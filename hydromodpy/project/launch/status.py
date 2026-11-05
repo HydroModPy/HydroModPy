@@ -43,9 +43,7 @@ from hydromodpy.core.state.paths import (
     run_dir_rel,
     runs_dir_for,
     session_dir_rel,
-    sessions_dir_for,
 )
-from hydromodpy.results.catalog.registration import split_stem_version
 from hydromodpy.results.manifest import read_seal
 from hydromodpy.results.outcome import (
     DEFAULT_STALE_AFTER_S,
@@ -54,6 +52,7 @@ from hydromodpy.results.outcome import (
     read_outcome,
 )
 from hydromodpy.results.plan_store import StoredPlan, read_plan
+from hydromodpy.results.session.descriptor import latest_session_dir
 from hydromodpy.results.storage.attempt import latest_version_dir
 from hydromodpy.results.storage.contract import RUN_OUTCOME_FILENAME
 from hydromodpy.results.storage.json_io import beside_seal, readable
@@ -122,23 +121,6 @@ class StatusReport:
         return out
 
 
-def _latest_session_dir(project_root: Path, case_id: str) -> Path | None:
-    sessions = sessions_dir_for(project_root)
-    if not sessions.is_dir():
-        return None
-    best: tuple[int, Path] | None = None
-    for entry in sessions.iterdir():
-        if not entry.is_dir():
-            continue
-        stem, version = split_stem_version(entry.name)
-        if stem != case_id:
-            continue
-        number = 1 if version is None else version
-        if best is None or number > best[0]:
-            best = (number, entry)
-    return None if best is None else best[1]
-
-
 def _run_state(run_dir: Path, *, now: datetime, stale_after_s: float) -> EffectiveStatus:
     status = effective_status(run_dir, now=now, stale_after_s=stale_after_s)
     if status != "unknown":
@@ -180,7 +162,7 @@ def case_state(
     root = Path(project_root)
     instant = now if now is not None else datetime.now(UTC)
     run_dir = latest_version_dir(root, case_id)
-    session_dir = _latest_session_dir(root, case_id)
+    session_dir = latest_session_dir(root, case_id)
     descriptor = None
     if session_dir is not None and session_descriptor_path(session_dir).is_file():
         descriptor = readable(read_session, session_dir)
@@ -275,8 +257,8 @@ def project_status(
     invalid = _invalid_cases(root) if stale else set()
     journal = _journal_states(root)
     now = datetime.now(UTC)
-    # Function level: slurm imports plan_is_stale from this module.
-    from hydromodpy.project.launch.slurm import scheduler_states
+    # Function level: sacct imports slurm, which imports plan_is_stale from this module.
+    from hydromodpy.project.launch.sacct import scheduler_states
 
     scheduler = scheduler_states(root)
     rows: list[StatusRow] = []

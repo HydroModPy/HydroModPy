@@ -1,5 +1,5 @@
 from hydromodpy.physics.flow.flow_config import FlowConfig
-from hydromodpy.workflow.steps.setup import collect_requested_support_ids
+from hydromodpy.spatial.domain.spatial_support import collect_requested_support_ids
 
 
 def test_collect_requested_support_ids_accepts_typed_flow_param():

@@ -37,10 +37,10 @@ def rerun_config(
     """
     from hydromodpy.config import HydroModPyConfig
     from hydromodpy.project import Project
-    from hydromodpy.project.replay_checks import warn_config_drift
     from hydromodpy.project.run_overrides import override_changes
-    from hydromodpy.project.runner import _pin_parent_sim_id
+    from hydromodpy.project.runner import pin_parent_sim_id
     from hydromodpy.results.lineage import Lineage
+    from hydromodpy.workflow.replay_checks import warn_config_drift
 
     if any("." not in key for key in changes):
         changes = override_changes(HydroModPyConfig.from_snapshot(snapshot), changes)
@@ -54,7 +54,7 @@ def rerun_config(
         overrides={str(key): value for key, value in changes.items()},
         drift=drift,
     )
-    with _pin_parent_sim_id(project._ctx, source_sim_id):
+    with pin_parent_sim_id(project._ctx, source_sim_id):
         return project.simulate(name=name, lineage=lineage)
 
 

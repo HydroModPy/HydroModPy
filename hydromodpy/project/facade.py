@@ -12,7 +12,7 @@ resume live in :mod:`hydromodpy.workflow.runner.Pipeline`. Both routes use the
 same ``workflow.steps`` helpers so interactive notebooks and full pipeline runs
 do not fork the scientific logic.
 
-The facade is composed of three cohesive helpers:
+The facade holds the public verbs; they delegate to:
 
 - :class:`hydromodpy.project.runner.ProjectRunner` (``project._runner``):
   internal runner backing ``simulate`` / ``calibrate``.
@@ -23,12 +23,13 @@ The facade is composed of three cohesive helpers:
   ``load_data``, ``build_mesh``).
 - :mod:`hydromodpy.project.accessors`: the reads of a project directory
   (``cases``, ``sites``, ``best``, ``runs``, ``sessions``).
+- :mod:`hydromodpy.project.calibrate`: the runner a calibration goes to.
 
 A project is also opened on its directory, read only, by ``hmp.open``
-(:func:`open_project`). It then reads its plan, its runs and its sessions
-from the disk, and launches its cases with the words of ``hmp project``:
-``plan``, ``launch``, ``status``, ``collect``, ``publish``. Its configuration is
-read from ``project.toml`` only when a model verb needs it.
+(:func:`~hydromodpy.project.opening.open_project`). It then reads its plan,
+its runs and its sessions from the disk, and launches its cases with the words
+of ``hmp project``: ``plan``, ``launch``, ``status``, ``collect``, ``publish``.
+Its configuration is read from ``project.toml`` only when a model verb needs it.
 
 Example
 -------
@@ -63,12 +64,10 @@ from hydromodpy.core.config_kit.base import frozen_copy
 from hydromodpy.core.exceptions import ConfigMissingError, PipelineError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.old_members import refuse_old_member
-from hydromodpy.core.state.paths import (
-    PROJECT_MARKER_FILENAME,
-    resolve_project_root,
-    run_scratch,
-    summary_dir_for,
-)
+from hydromodpy.core.state.paths import run_scratch, summary_dir_for
+from hydromodpy.core.toml_io.paths import assign, parse
+from hydromodpy.project import opening
+from hydromodpy.project import phases as project_phases
 from hydromodpy.project.accessors import (
     ProjectDataAccessor,
     ProjectRunsAccessor,
@@ -78,13 +77,14 @@ from hydromodpy.project.accessors import (
     sites_frame,
 )
 from hydromodpy.project.catalog import ProjectCatalog
-from hydromodpy.project.runner import ProjectRunner, scratch_of_resumed_run
+from hydromodpy.project.runner import ProjectRunner
 from hydromodpy.project.state import (
     CONFIGURED_STATE_FIELDS,
     PROJECT_ATTR_TO_STATE_FIELD,
     ProjectState,
 )
 from hydromodpy.results.validity_rules import CALIBRATED_LABELS
+from hydromodpy.workflow.record.resume import scratch_of_resumed_run
 
 if TYPE_CHECKING:
     import geopandas as gpd
@@ -97,10 +97,9 @@ if TYPE_CHECKING:
         ResolvedSimulationTimeGrid,
         ResolvedSteadySimulationTimeGrid,
     )
-    from hydromodpy.project.attempt import SealedRun
     from hydromodpy.project.launch import LaunchReport, StatusReport
+    from hydromodpy.project.launch.summary import SummaryPaths
     from hydromodpy.project.spinup import SpinupResult
-    from hydromodpy.project.summary import SummaryPaths
     from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.checks import CalibratedBy
     from hydromodpy.results.lineage import Lineage
@@ -111,77 +110,9 @@ if TYPE_CHECKING:
     from hydromodpy.spatial.geographic.catchment_delineation import (
         CatchmentDelineation,
     )
+    from hydromodpy.workflow.record.attempt import SealedRun
 
 logger = get_logger(__name__)
-
-
-def resolve_config(config: str | Path | object | dict) -> object:
-    """Normalize a polymorphic config input to a path or ``HydroModPyConfig``.
-
-    ``dict`` -> validated config; JSON string (starts with ``{``) -> validated
-    config; a TOML path or an already-built config object passes through.
-    """
-    if isinstance(config, Mapping):
-        from hydromodpy.config import HydroModPyConfig
-
-        return HydroModPyConfig.from_dict(dict(config))
-    if isinstance(config, str) and config.lstrip().startswith("{"):
-        from hydromodpy.config import HydroModPyConfig
-
-        return HydroModPyConfig.from_json(config)
-    return config
-
-
-def calibrate_a_file(
-    config_path: str | Path,
-    *,
-    phase: str | None = None,
-    dry_run: bool = False,
-    workspace: str | Path | None = None,
-    project: str | None = None,
-    metric_fn: Any = None,
-    objective: str | None = None,
-    resume: bool = False,
-):
-    """Run the calibration a TOML file declares. It needs no :class:`Project`."""
-    from hydromodpy.calibration.preflight import preflight_launch
-    from hydromodpy.calibration.runners.cli_runner import (
-        describe_dry_run,
-        load_toml_calibration,
-        run_calibration_cli,
-    )
-    from hydromodpy.calibration.runners.staged_runner import run_staged_calibration
-    from hydromodpy.core.exceptions import CalibrationError
-    from hydromodpy.project.dispatch.workflow import (
-        calibration_phases_or_raise,
-        declared_calibration_phases,
-        no_such_phase,
-    )
-
-    target = Path(config_path).expanduser().resolve()
-    # Routing alone tolerates an unreadable file: the runner that reads it next
-    # reports the failure with its own context. Selecting a phase by name reaches
-    # no runner, so the failure has to surface here, or the user is sent looking
-    # at a phases block that is present and correct.
-    if phase is not None:
-        declared_phases = calibration_phases_or_raise(target)
-    else:
-        declared_phases = declared_calibration_phases(target)
-    if phase is not None and not declared_phases:
-        raise CalibrationError(no_such_phase(target.name, phase))
-    preflight_launch(target)
-    if dry_run:
-        return describe_dry_run(load_toml_calibration(target)[0], target, workspace=workspace)
-    options = {
-        "workspace": workspace,
-        "project": project,
-        "metric_fn": metric_fn,
-        "objective": objective,
-        "resume": resume,
-    }
-    if declared_phases:
-        return run_staged_calibration(target, phase=phase, **options)
-    return run_calibration_cli(target, **options)
 
 
 class Project:
@@ -230,12 +161,10 @@ class Project:
         No heavy I/O: geographic delineation, data download and meshing are
         deferred to the first :meth:`simulate` (or :meth:`prepare`).
         """
-        from hydromodpy.project import phases as project_phases
-
         object.__setattr__(self, "_state", ProjectState())
         project_phases.configure(
             self,
-            resolve_config(config),
+            opening.resolve_config(config),
             solver=solver,
             headless=headless,
             no_display=no_display,
@@ -288,39 +217,10 @@ class Project:
             state = self.__dict__.get("_state")
             if state is not None:
                 if target in CONFIGURED_STATE_FIELDS and state.cfg is None and state.root:
-                    self._configure_opened()
+                    opening.configure_opened(self)
                 return getattr(state, target)
         refuse_old_member("Project", name)
         raise AttributeError(f"{type(self).__name__!r} object has no attribute {name!r}")
-
-    def _configure_opened(self) -> None:
-        """Configure a project opened on its directory from its ``project.toml``.
-
-        A ``[sites]`` project has one configuration per case, written by its
-        plan; it is read and launched, never configured as one model.
-        """
-        from hydromodpy.config.sites.expansion import SitesProjectError, find_sites_file
-        from hydromodpy.core.toml_io.loader import read_toml_chain
-        from hydromodpy.project import phases as project_phases
-
-        state = self.__dict__["_state"]
-        marker = state.root / PROJECT_MARKER_FILENAME
-        if not marker.is_file():
-            raise ConfigMissingError(
-                f"{state.root} holds no {PROJECT_MARKER_FILENAME}: an opened project builds "
-                "its model from it. Open a configuration with hmp.Project(<file>.toml)."
-            )
-        if find_sites_file(read_toml_chain(marker)) is not None:
-            raise SitesProjectError(
-                f"{marker} is a [sites] project: each case is configured by its plan. Read "
-                "it with proj.cases, launch it with proj.launch(), or build one case with "
-                "hmp.Project('plan/<hash>/<case>.toml')."
-            )
-        try:
-            project_phases.configure(self, marker, solver=None, headless=False, no_display=False)
-        except BaseException:
-            state.cfg = None
-            raise
 
     @classmethod
     def rerun(
@@ -398,41 +298,27 @@ class Project:
         solver phases. It is not a standalone Pipeline step; Pipeline runs get
         the same setup through ``BuildGeographicStep``.
         """
-        from hydromodpy.project import phases as project_phases
-
         project_phases.setup_workspace(self)
 
     def build_geographic(self, *, reuse_dem: bool = False) -> None:
         """Mark geographic/domain runtime ready and invalidate downstream state."""
-        from hydromodpy.project import phases as project_phases
-
         project_phases.build_geographic(self, reuse_dem=reuse_dem)
 
     def load_data(self, *, types: list[str] | None = None) -> None:
         """Load the external forcings declared in [data]."""
-        from hydromodpy.project import phases as project_phases
-
         project_phases.load_data(self, types=types)
 
     def reload_data(self, *, types: list[str]) -> None:
         """Reload a subset of data variables without touching the others."""
-        from hydromodpy.project import phases as project_phases
-
         project_phases.reload_data(self, types=types)
 
     def rebuild_geographic(self, *, reuse_dem: bool = False) -> None:
         """Rerun the geographic pipeline and invalidate the mesh."""
-        from hydromodpy.project import phases as project_phases
-
         project_phases.rebuild_geographic(self, reuse_dem=reuse_dem)
 
     def build_mesh(self, **overrides) -> None:
         """Build the catchment mesh from the current geographic context."""
-        from hydromodpy.project import phases as project_phases
-
         project_phases.build_mesh(self, **overrides)
-
-    # -- Public config view -----------------------------------------------
 
     @property
     def config(self) -> HydroModPyConfig:
@@ -443,8 +329,6 @@ class Project:
         ``HydroModPyConfig.with_changes``, and the result opens a new :class:`Project`.
         """
         return frozen_copy(self._cfg)
-
-    # -- Inspection properties --------------------------------------------
 
     @property
     def has_mesh(self) -> bool:
@@ -473,8 +357,6 @@ class Project:
     def __getitem__(self, ref: str) -> Run:
         """Return the run a reference names: a case, a run name, an id, ``runs/<name>``."""
         return self._index()[ref]
-
-    # -- Public properties (context state) --------------------------------
 
     @property
     def geographic(self) -> CatchmentDelineation | None:
@@ -522,18 +404,7 @@ class Project:
         The index is derived from the disk: a pass that finds nothing new
         writes nothing and keeps the open handle.
         """
-        from hydromodpy.results.catalog import Catalog
-        from hydromodpy.results.catalog.indexer import index_new_runs
-
-        root = self.root
-        report = index_new_runs(root)
-        store = self._store
-        if store is not None and not store.closed and report.unchanged:
-            return store
-        if store is not None:
-            store.close()
-        self._store = Catalog(root)
-        return self._store
+        return opening.refreshed_index(self)
 
     @property
     def cases(self) -> pd.DataFrame:
@@ -603,7 +474,6 @@ class Project:
         The words of ``hmp project plan``, with the changes of ``--set`` by dotted path. A
         plan is not rewritten while one of its cases runs, unless ``force``.
         """
-        from hydromodpy.core.toml_io.paths import assign, parse
         from hydromodpy.project.launch import plan_project
 
         payload: dict[str, Any] = {}
@@ -659,7 +529,7 @@ class Project:
 
         The words of ``hmp campaign collect``.
         """
-        from hydromodpy.project.summary import collect_project
+        from hydromodpy.project.launch.summary import collect_project
 
         return collect_project(self.root, write_sites=write_sites, mixed_windows=mixed_windows)
 
@@ -689,6 +559,13 @@ class Project:
 
     # -- Run-phase API (delegates to ProjectRunner) -----------------------
 
+    def _run_scratch(self, name: str | None, resume: str | None):
+        """Enter the scratch folder of the run ``name`` (or the case ``resume``) names."""
+        label = name or resume or self._cfg.simulation.name or "run"
+        project_root = Path(self._cfg.workspace.project_root)
+        resumes = scratch_of_resumed_run(project_root, resume) if resume is not None else None
+        return run_scratch(project_root, label, resumes=resumes)
+
     def _execute(
         self,
         *,
@@ -711,10 +588,7 @@ class Project:
         project. ``hmp run`` stops here and indexes afterwards. The keywords
         are those of :meth:`simulate`, without ``dry_run``.
         """
-        label = name or resume or self._cfg.simulation.name or "run"
-        project_root = Path(self._cfg.workspace.project_root)
-        resumes = scratch_of_resumed_run(project_root, resume) if resume is not None else None
-        with run_scratch(project_root, label, resumes=resumes):
+        with self._run_scratch(name, resume):
             return self._runner.execute(
                 set=set,
                 name=name,
@@ -821,10 +695,7 @@ class Project:
             return self._runner.draft(
                 set=set, name=name, resume=resume, from_step=from_step, until_step=until_step
             )
-        label = name or resume or self._cfg.simulation.name or "run"
-        project_root = Path(self._cfg.workspace.project_root)
-        resumes = scratch_of_resumed_run(project_root, resume) if resume is not None else None
-        with run_scratch(project_root, label, resumes=resumes):
+        with self._run_scratch(name, resume):
             return self._runner.run(
                 set=set,
                 name=name,
@@ -951,165 +822,30 @@ class Project:
             Raised when ``[[calibration.phases]]`` cannot be run as declared,
             and when ``phase`` names a phase no configuration declares.
         """
-        from hydromodpy.calibration.runners.cli_runner import (
-            describe_dry_run,
-            load_toml_calibration,
+        from hydromodpy.project.calibrate import calibrate_project
+
+        return calibrate_project(
+            self,
+            config_path=config_path,
+            parameters=parameters,
+            outputs=outputs,
+            objective_blocks=objective_blocks,
+            phases=phases,
+            protocol=protocol,
+            method=method,
+            max_trials=max_trials,
+            save_runs=save_runs,
+            seed=seed,
+            phase=phase,
+            case=case,
+            resume=resume,
+            dry_run=dry_run,
+            workspace=workspace,
+            project=project,
+            project_label=project_label,
+            metric_fn=metric_fn,
+            objective=objective,
         )
-        from hydromodpy.core.exceptions import (
-            CalibrationError,
-            ConfigError,
-            ConfigMissingError,
-        )
-        from hydromodpy.project.dispatch.workflow import (
-            no_such_phase,
-        )
-
-        if config_path is not None or not parameters:
-            # The declaration comes from a file or from the project config, so
-            # the Python-mode arguments have nothing to apply to.
-            ignored = [
-                name
-                for name, value in {
-                    "outputs": outputs,
-                    "objective_blocks": objective_blocks,
-                    "phases": phases,
-                    "method": method,
-                    "max_trials": max_trials,
-                    "save_runs": save_runs,
-                    "seed": seed,
-                }.items()
-                if value is not None
-            ]
-            if ignored:
-                raise ConfigError(
-                    f"Project.calibrate() ignores {', '.join(ignored)} when the calibration "
-                    "comes from config_path= or from the project config. Write them in the "
-                    "[calibration] section, or pass parameters= to declare the search in Python."
-                )
-        if protocol is not None and (config_path is not None or parameters):
-            raise ConfigError(
-                "Project.calibrate() takes protocol= alone: it builds on the parameters and "
-                "outputs of this project's own [calibration] section and writes the phases. "
-                "Drop config_path= and parameters=."
-            )
-
-        label = project_label if project_label is not None else project
-        options = {
-            "workspace": workspace,
-            "metric_fn": metric_fn,
-            "objective": objective,
-            "resume": resume,
-        }
-
-        def plan_of(path: Path) -> dict:
-            return describe_dry_run(load_toml_calibration(path)[0], path, workspace=workspace)
-
-        from_file = (
-            "case= names the session of a calibration held in memory; a file names its "
-            "case with [simulation] name."
-        )
-
-        if config_path is not None:
-            if case is not None:
-                raise ConfigError(from_file)
-            return calibrate_a_file(
-                config_path, phase=phase, dry_run=dry_run, project=label, **options
-            )
-
-        from hydromodpy.calibration.config import CalibrationConfig
-        from hydromodpy.calibration.runners.programmatic_runner import (
-            project_defaults_on,
-            run_calibration_programmatic,
-        )
-
-        def run(cfg: CalibrationConfig):
-            _preflight_in_memory(self, cfg)
-            if dry_run:
-                if self._config_path is None:
-                    raise ConfigError(
-                        "Project.calibrate(dry_run=True) needs a project built from a file."
-                    )
-                return describe_dry_run(cfg, Path(self._config_path).resolve(), workspace=workspace)
-            return run_calibration_programmatic(
-                cfg, project=self, project_label=label, phase=phase, case=case, **options
-            )
-
-        if protocol is not None:
-            from hydromodpy.calibration.protocols import expand_calibration_protocol
-
-            document = self.config.model_dump(mode="json", exclude_none=True, exclude_unset=True)
-            document = expand_calibration_protocol(
-                {
-                    **document,
-                    "calibration": {**document.get("calibration", {}), "protocol": protocol},
-                }
-            )
-            return run(
-                CalibrationConfig.model_validate(project_defaults_on(document["calibration"], self))
-            )
-
-        if not parameters:
-            # Fall back to the [calibration] section carried by this project's
-            # config, so a fully in-memory HydroModPyConfig calibrates without
-            # re-declaring parameters= (matches the TOML path).
-            embedded = getattr(self._cfg, "calibration", None)
-            if embedded is not None:
-                declared = [decl.name for decl in (getattr(embedded, "phases", None) or [])]
-                source = self._config_path
-                if declared and source is not None:
-                    from hydromodpy.calibration.preflight import preflight_launch
-                    from hydromodpy.calibration.runners.staged_runner import (
-                        run_staged_calibration,
-                    )
-
-                    if case is not None:
-                        raise ConfigError(from_file)
-                    preflight_launch(Path(source).resolve())
-                    if dry_run:
-                        return plan_of(Path(source).resolve())
-                    return run_staged_calibration(
-                        Path(source).resolve(), phase=phase, project=label, **options
-                    )
-                if not declared and phase is not None:
-                    raise CalibrationError(no_such_phase("this configuration", phase))
-                # A declaration on a project built in memory has no file to fork
-                # each phase from: run_calibration_programmatic writes one next
-                # to this project's sessions/ and runs the staged runner on it.
-                return run(embedded)
-            raise ConfigMissingError(
-                "Project.calibrate() requires either config_path=, parameters= "
-                "(Python-mode declaration), or a [calibration] section in the "
-                "project config."
-            )
-
-        if phase is not None and not phases:
-            raise CalibrationError(no_such_phase("this parameters= declaration", phase))
-
-        payload: dict[str, object] = {"parameters": dict(parameters)}
-        for key, value in {
-            "method": method,
-            "max_trials": max_trials,
-            "save_runs": save_runs,
-            "seed": seed,
-            "outputs": outputs,
-            "objective_blocks": objective_blocks,
-            "phases": phases,
-        }.items():
-            if value is not None:
-                payload[key] = value
-
-        # The project defaults go in first: a validation window needs the calibration
-        # window [metrics] window leaves it.
-        cfg = CalibrationConfig.model_validate(project_defaults_on(payload, self))
-        # Completed from the target each parameter names, as the TOML route does,
-        # so a bare K searches the log space its field declares and gets the
-        # same method as the same file would.
-        project_config = self._cfg
-        if project_config is not None:
-            from hydromodpy.calibration.parameter_resolution import resolve_parameter_targets
-
-            resolve_parameter_targets(cfg, project_config)
-        return run(cfg)
 
     def spinup(
         self,
@@ -1154,75 +890,7 @@ class Project:
         self.close()
 
     def __repr__(self) -> str:
-        if self._state.root is not None:
-            return f"Project({str(self._state.root)!r})"
-        source = self._config_path.name if self._config_path else "<in-memory>"
-        return f"Project({source!r})"
+        return opening.project_repr(self)
 
     def _repr_html_(self) -> str:
-        if self._config_path is not None:
-            source_label = self._config_path.name
-            project_name = self._config_path.parent.name
-        else:
-            source_label = "&lt;in-memory&gt;"
-            project_name = getattr(self, "_project_name", "") or "&mdash;"
-        runs = self._run_history
-        n_runs = len(runs)
-        last_run = runs[-1] if runs else None
-        rows: list[tuple[str, str]] = [
-            ("config", f"<code>{source_label}</code>"),
-            ("project", project_name),
-            ("solver", str(self._state.solver or "&mdash;")),
-            ("headless", "yes" if self._state.headless else "no"),
-            ("runs", str(n_runs)),
-            (
-                "last run",
-                f"<code>{last_run.sim_id[:8]}</code> ({last_run.name})"
-                if last_run is not None
-                else "&mdash;",
-            ),
-        ]
-        body = "".join(
-            f"<tr><th style='text-align:left;padding-right:8px'>{k}</th><td>{v}</td></tr>"
-            for k, v in rows
-        )
-        return (
-            "<div><b>Project</b>"
-            "<table style='font-size:0.85em;border-collapse:collapse'>"
-            f"{body}</table></div>"
-        )
-
-
-def _preflight_in_memory(project: Project, calibration: Any) -> None:
-    """Run the launch preflight on a calibration held in memory, on this project.
-
-    The project's configuration with ``calibration`` in place of its own, the
-    project defaults written in as the run writes them. A project built in
-    memory has no file, and the checks anchor on its root.
-    """
-    from hydromodpy.calibration.preflight import preflight_launch
-    from hydromodpy.calibration.runners.programmatic_runner import with_project_defaults
-
-    config = getattr(project, "config", None)
-    source = getattr(project, "_config_path", None)
-    if source is None:
-        root = getattr(getattr(config, "workspace", None), "project_root", None)
-        source = Path(root if root is not None else Path.cwd()) / "project.toml"
-    preflight_launch(source, config=config, calibration=with_project_defaults(calibration, project))
-
-
-def open_project(path: str | Path) -> Project:
-    """Open the project a directory, or a file inside it, belongs to, read only.
-
-    The project root is the folder of ``project.toml`` at or above *path*.
-    Nothing is validated or built: the project reads its plan, its runs and
-    its sessions from the disk, and reads ``project.toml`` only when a model
-    verb (``simulate``, ``prepare``, ``config`` ...) needs a configuration.
-    """
-    start = Path(path).expanduser().resolve()
-    root = resolve_project_root(start.parent if start.is_file() else start).resolve()
-    project = object.__new__(Project)
-    object.__setattr__(project, "_state", ProjectState(root=root))
-    object.__setattr__(project, "_runner", ProjectRunner(project))
-    object.__setattr__(project, "_catalog", ProjectCatalog(project))
-    return project
+        return opening.project_html(self)

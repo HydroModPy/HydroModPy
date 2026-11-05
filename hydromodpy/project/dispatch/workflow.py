@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from hydromodpy.config.sites.expansion import PlanDraft
     from hydromodpy.results.run import Run
-    from hydromodpy.workflow.pipelines.overview import OverviewResult
+    from hydromodpy.workflow.overview import OverviewResult
 
 
 def run_overview(config_path: str | Path) -> OverviewResult:
@@ -34,9 +34,9 @@ def run_overview(config_path: str | Path) -> OverviewResult:
     from hydromodpy.core.config_kit.written import log_experimental_keys
     from hydromodpy.core.state.paths import refuse_a_sealed_run_as_project
     from hydromodpy.display.overview import overview_name
-    from hydromodpy.project.attempt import run_attempt
     from hydromodpy.results.catalog.registration import config_identity_hash
-    from hydromodpy.workflow.pipelines.overview import DataOverviewLauncher
+    from hydromodpy.workflow.overview import DataOverviewLauncher
+    from hydromodpy.workflow.record.attempt import run_attempt
 
     launcher = DataOverviewLauncher(config_path)
     cfg = launcher.cfg
@@ -211,13 +211,12 @@ def run_simulation(
     of ``hmp.run``, applied to the configuration of the run. ``overrides`` are the dotted
     paths a ``--set`` or an overlay wrote in the file, sealed in ``lineage.overrides``.
     The frozen configuration of a run with ``frozen`` replays from the record of
-    that run and not from a lockfile (:mod:`hydromodpy.project.replay_checks`): other
+    that run and not from a lockfile (:mod:`hydromodpy.workflow.replay_checks`): other
     bytes or another configuration are refused before anything runs, and what the
     replay did otherwise is said once it has run. ``replay_of`` names a published copy,
     which replays the same way, its inputs checked already.
     """
     from hydromodpy.project import Project
-    from hydromodpy.project.run_overrides import override_changes
     from hydromodpy.results.lineage import Lineage
 
     config_path = Path(config) if isinstance(config, (str, Path)) else None
@@ -227,16 +226,8 @@ def run_simulation(
         project_root = str(Path(cfg.workspace.project_root))
         source_run = replay_of
         if frozen or replay_of is not None:
-            from hydromodpy.project.replay_checks import check_replay, sealed_run_of
-
-            source_run = replay_of or (sealed_run_of(config_path) if config_path else None)
+            source_run = checked_replay_source(cfg, config_path, replay_of, Path(project_root))
             if source_run is not None:
-                check_replay(
-                    cfg,
-                    source_run,
-                    project_root=Path(project_root),
-                    inputs_checked=replay_of is not None,
-                )
                 frozen = False
         plain_run = (
             not force
@@ -246,17 +237,9 @@ def run_simulation(
             and until_step is None
         )
         if plain_run:
-            asked = override_changes(cfg, changes or {})
-            effective = cfg.with_changes(asked) if asked else cfg
-            existing = completed_identical_run(effective, name=str(run_name))
-            if existing is not None:
-                exist_name, exist_sid = existing
-                return {
-                    "skipped": True,
-                    "name": exist_name,
-                    "sim_id": exist_sid,
-                    "project_root": project_root,
-                }
+            skipped = skipped_identical_run(cfg, changes, str(run_name), project_root)
+            if skipped is not None:
+                return skipped
         lineage = Lineage(overrides=dict(overrides)) if overrides else None
         result = project._execute(
             set=changes,
@@ -273,27 +256,79 @@ def run_simulation(
         if result is None:
             return {}
         if source_run is not None:
-            from hydromodpy.project.replay_checks import warn_replay_differences
+            from hydromodpy.workflow.replay_checks import warn_replay_differences
 
             warn_replay_differences(source_run, Path(result.run_dir))
-        summary: dict[str, Any] = {
-            "name": result.name,
-            "sim_id": result.sim_id,
-            "project_root": project_root,
-            "run_dir": str(result.run_dir),
-            "status": result.status,
-        }
-        project_ctx = getattr(project, "_ctx", None)
-        project_setup = getattr(project_ctx, "setup", None)
-        project_plan = getattr(getattr(project_ctx, "execution", None), "simulation_plan", None)
-        mesh_summary = getattr(project_setup, "mesh_summary", None)
-        has_mesh_process = any(
-            getattr(run, "process_type", None) == "mesh"
-            for run in getattr(project_plan, "runs", ()) or ()
+        return run_summary(result, project_root, project)
+
+
+def checked_replay_source(
+    cfg: Any, config_path: Path | None, replay_of: Path | None, project_root: Path
+) -> Path | None:
+    """The run a frozen run or a published copy replays, checked before anything runs.
+
+    ``replay_of`` names a published copy, its inputs checked already; otherwise the
+    sealed run of the file is replayed. ``None`` when there is no record to replay.
+    """
+    from hydromodpy.workflow.replay_checks import check_replay, sealed_run_of
+
+    source_run = replay_of or (sealed_run_of(config_path) if config_path else None)
+    if source_run is not None:
+        check_replay(
+            cfg,
+            source_run,
+            project_root=project_root,
+            inputs_checked=replay_of is not None,
         )
-        if has_mesh_process and isinstance(mesh_summary, Mapping):
-            summary.update(dict(mesh_summary))
-        return summary
+    return source_run
+
+
+def skipped_identical_run(
+    cfg: Any, changes: Mapping[str, Any] | None, run_name: str, project_root: str
+) -> dict[str, Any] | None:
+    """The summary of a skipped run, when a completed run is identical to this one."""
+    from hydromodpy.project.run_overrides import override_changes
+
+    asked = override_changes(cfg, changes or {})
+    effective = cfg.with_changes(asked) if asked else cfg
+    existing = completed_identical_run(effective, name=run_name)
+    if existing is None:
+        return None
+    exist_name, exist_sid = existing
+    return {
+        "skipped": True,
+        "name": exist_name,
+        "sim_id": exist_sid,
+        "project_root": project_root,
+    }
+
+
+def run_summary(result: Any, project_root: str, project: Any) -> dict[str, Any]:
+    """The summary of a sealed run: its name, id, directory, status and mesh summary."""
+    summary: dict[str, Any] = {
+        "name": result.name,
+        "sim_id": result.sim_id,
+        "project_root": project_root,
+        "run_dir": str(result.run_dir),
+        "status": result.status,
+    }
+    summary.update(mesh_summary_of(project))
+    return summary
+
+
+def mesh_summary_of(project: Any) -> dict[str, Any]:
+    """The mesh summary of a project whose plan runs a mesh process, else nothing."""
+    project_ctx = getattr(project, "_ctx", None)
+    project_setup = getattr(project_ctx, "setup", None)
+    project_plan = getattr(getattr(project_ctx, "execution", None), "simulation_plan", None)
+    mesh_summary = getattr(project_setup, "mesh_summary", None)
+    has_mesh_process = any(
+        getattr(run, "process_type", None) == "mesh"
+        for run in getattr(project_plan, "runs", ()) or ()
+    )
+    if has_mesh_process and isinstance(mesh_summary, Mapping):
+        return dict(mesh_summary)
+    return {}
 
 
 def completed_run_view(summary: Mapping[str, Any]) -> Run | None:

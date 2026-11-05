@@ -1,6 +1,6 @@
 """``hmp catalog import`` - bring a run published by ``hmp publish`` into the project.
 
-A thin wrapper of :func:`hydromodpy.project.install.import_run`: the run lands
+A thin wrapper of :func:`hydromodpy.project.exchange.install.import_run`: the run lands
 under ``runs/`` and is indexed, and a copy published ``--with inputs`` installs
 every file it read into the ``data/`` of the workspace, with its station rows,
 its data cache rows and its site. The command ends with the two commands that
@@ -58,7 +58,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 def run(args: argparse.Namespace) -> None:
     apply_verbosity(args, {})
-    from hydromodpy.project.install import import_run
+    from hydromodpy.project.exchange.install import import_run
 
     root = project_root_of(args)
     imported = import_run(root, Path(args.source), name=args.name, dry_run=args.dry_run)

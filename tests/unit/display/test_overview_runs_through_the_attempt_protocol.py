@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-import hydromodpy.workflow.pipelines.overview as overview_module
+import hydromodpy.workflow.overview as overview_module
 from hydromodpy.display.overview.location import (
     overview_figures_dir,
     overview_run_dir,
@@ -58,13 +58,11 @@ def project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     (root / "overview.toml").write_text(_TOML, encoding="utf-8")
     launcher = overview_module.DataOverviewLauncher
     for phase in (
-        "_bootstrap_dem",
-        "_bootstrap_crossings",
         "_setup_geographic",
         "_load_data",
     ):
         monkeypatch.setattr(launcher, phase, lambda *args, **kwargs: None)
-    monkeypatch.setattr(launcher, "_resolve_network_map", lambda self, state: None)
+    monkeypatch.setattr(launcher, "_resolve_geographic_inputs", lambda self, state: None)
     return root
 
 

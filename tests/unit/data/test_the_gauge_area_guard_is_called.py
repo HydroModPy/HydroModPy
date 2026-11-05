@@ -80,7 +80,9 @@ def test_the_data_step_runs_the_guard_after_the_load(monkeypatch, caplog) -> Non
         setup=SimpleNamespace(geographic=SimpleNamespace(catch_area=96.5), soil_forcings=None),
         loaded_data=SimpleNamespace(hydrometry=None, loaded_plan_types=()),
         execution=SimpleNamespace(lightweight=False),
+        config_path="c.toml",
+        data_plan=SimpleNamespace(types=()),
     )
     with caplog.at_level(logging.INFO):
-        data_step.run_data("c.toml", SimpleNamespace(types=()), run_state)
+        data_step.step_data_loading(run_state)
     assert _warnings(caplog)

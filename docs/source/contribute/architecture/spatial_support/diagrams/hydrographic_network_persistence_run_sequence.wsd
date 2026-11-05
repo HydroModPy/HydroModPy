@@ -5,7 +5,7 @@ skinparam wrapWidth 180
 skinparam maxMessageSize 180
 
 participant "WorkflowContext\nloaded_data + geographic_features" as Ctx
-participant "prepare_solver.py" as ReferencePersistence
+participant "forcings.py" as ReferencePersistence
 participant "store_ingestion.py" as StoreIngestion
 database "Catalog" as Catalog
 participant "Run" as Run

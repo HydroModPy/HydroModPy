@@ -34,7 +34,7 @@ from hydromodpy.calibration.runners.trial import (
 from hydromodpy.core.exceptions import CalibrationError
 from hydromodpy.core.state.execution import ExecutionRegistry
 from hydromodpy.simulation.planning.plan import RunExecutionResult
-from hydromodpy.workflow.internals.state import PipelineState
+from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.runner import Pipeline
 from hydromodpy.workflow.steps.run_solver import RunSolverStep
 from tests.unit.calibration._factories import Setup

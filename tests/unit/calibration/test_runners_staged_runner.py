@@ -64,7 +64,7 @@ from hydromodpy.results.checks import BUDGET_RULE, FROZE_BUDGET_ONLY
 from hydromodpy.results.session.descriptor import read_session
 from hydromodpy.results.session.journal import read_trials
 from hydromodpy.results.session.phase import list_phases, read_phase
-from hydromodpy.workflow.steps.prepare_solver.dispatch import portable_config_document
+from hydromodpy.workflow.steps.prepare_solver.freeze import portable_config_document
 from tests._helpers.persisting_simulation import SimulationStub, persisting_simulation
 from tests._helpers.session_documents import session_opening
 from tests.unit.calibration._factories_runners import (
