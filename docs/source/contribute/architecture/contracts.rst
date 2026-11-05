@@ -336,7 +336,7 @@ Calibration adapters, objectives and criteria
   Protocol (``requirements()`` and ``score(simulated, observed)``). A file names a
   criterion and ``criteria/registry.py`` answers. The scoring kernels are in
   ``criteria/series.py`` (``METRICS``), and the canonical series metrics (NSE, KGE,
-  RMSE, MAE, bias, correlation) in ``hydromodpy/core/metrics.py``.
+  RMSE, MAE, bias, correlation) in ``hydromodpy/core/scoring/metrics.py``.
 
 *Why:* the engine stays generic. A new strategy, a new objective or a new score
 plugs in without touching it.

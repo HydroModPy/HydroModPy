@@ -37,9 +37,9 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import shapely
 
+from hydromodpy.core.fields.vertical_column import top_active_layer
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units.leakance import parse_to_per_s
-from hydromodpy.core.vertical_column import top_active_layer
 from hydromodpy.solver.modflow6.builders._lake_connection import (
     _abacus_rows,
     _lak_output_stem,

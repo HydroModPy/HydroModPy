@@ -16,8 +16,8 @@ from pathlib import Path
 import numpy as np
 from pydantic import ValidationError
 
+from hydromodpy.core.budget.flux import DRN_TO_MVR_KEYS, find_drain_budget_key
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.core.field_routing import DRN_TO_MVR_KEYS, find_drain_budget_key
 from hydromodpy.core.state.paths import runs_dir_for
 from hydromodpy.results.catalog.registration import run_dir_holding
 from hydromodpy.results.derive.virtual_fields import (

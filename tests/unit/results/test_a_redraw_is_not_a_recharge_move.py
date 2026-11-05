@@ -21,9 +21,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.core import stream_geometry
-from hydromodpy.core.stream_geometry import build_network_geometry
-from hydromodpy.core.stream_recharge import (
+from hydromodpy.core.stream import geometry as stream_geometry
+from hydromodpy.core.stream.geometry import build_network_geometry
+from hydromodpy.core.stream.recharge import (
     CRITERION_MEAN_RECHARGE_ATTR,
     criterion_mean_recharge,
     forcing_period_rates,

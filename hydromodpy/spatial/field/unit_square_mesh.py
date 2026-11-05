@@ -16,7 +16,7 @@ from typing import Any
 import matplotlib.tri as mtri
 import numpy as np
 
-from hydromodpy.core.rng import RngManager
+from hydromodpy.core.state.rng import RngManager
 from hydromodpy.spatial.field.field_spatial import get_nested_section
 from hydromodpy.spatial.field.mesh_cells import cell_mesh_from_edges
 from hydromodpy.spatial.mesh.model.cell_types import CellType

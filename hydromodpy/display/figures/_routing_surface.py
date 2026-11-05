@@ -6,7 +6,7 @@ seals. Building that object twice is how two maps printed side by side come to
 contradict each other, so both figures build it here.
 
 The neighbor graph is the same one
-:func:`hydromodpy.core.stream_geometry.build_network_geometry` walks, and the
+:func:`hydromodpy.core.stream.geometry.build_network_geometry` walks, and the
 choice between shared edges and shared nodes is the one knob that changes it. A
 flood conditioning a surface over one neighborhood while a descent walks the
 other leaves every filled cell spilling over a link the descent cannot take,
@@ -38,18 +38,18 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.core.field_routing import (
+from hydromodpy.core.drainage.distance import (
+    resolve_diagonal_neighbors,
+    shared_node_adjacency,
+)
+from hydromodpy.core.drainage.graph import (
     active_surface_mask,
     cell_adjacency_from_face_connectivity,
     cell_centroids_from_mesh,
     domain_edge_cells,
 )
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.stream_criterion_defaults import STREAM_CRITERION_DEFAULTS
-from hydromodpy.core.topographic_distance import (
-    resolve_diagonal_neighbors,
-    shared_node_adjacency,
-)
+from hydromodpy.core.stream.criterion_defaults import STREAM_CRITERION_DEFAULTS
 from hydromodpy.display.figures._memo import RunMemo
 
 if TYPE_CHECKING:

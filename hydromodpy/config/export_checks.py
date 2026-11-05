@@ -121,7 +121,7 @@ def check_export_variables(cfg: object) -> None:
     Step 0 is the earliest place the layer matrix lets a pipeline step read
     ``results``, and ``hmp config check`` runs it too.
     """
-    from hydromodpy.core.config_kit.export_spec import plan_outputs
+    from hydromodpy.results.exporters.export_spec import plan_outputs
     from hydromodpy.results.exporters.vocabulary import describe_export_names, export_kind
 
     requests = list(getattr(cfg, "export", None) or ())

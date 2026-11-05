@@ -14,9 +14,9 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
+from hydromodpy.core.console.progress import MILESTONE
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.progress import MILESTONE
 from hydromodpy.data.common.api_client import get_json
 from hydromodpy.data.common.clients.hubeau import station_period_overlaps
 from hydromodpy.data.contracts.location import StationLocation

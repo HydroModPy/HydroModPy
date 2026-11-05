@@ -3,7 +3,7 @@
 The calibration criterion builds this partition during a trial and hands it to
 nobody: it scores it and moves on. A map of it is what a reader actually looks
 at, so this module rebuilds it from what the run persisted, through the SAME
-construction the criterion used (:mod:`hydromodpy.core.stream_geometry`), and
+construction the criterion used (:mod:`hydromodpy.core.stream.geometry`), and
 hands it to any figure that asks.
 
 Rebuilding rather than persisting is deliberate. The partition depends on a
@@ -24,27 +24,27 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
-from hydromodpy.core.field_routing import cell_centroids_from_mesh
+from hydromodpy.core.drainage.distance import downslope_distance_to_mask
+from hydromodpy.core.drainage.graph import cell_centroids_from_mesh
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.stream_criterion_defaults import (
+from hydromodpy.core.stream.criterion_defaults import (
     STREAM_CRITERION_DEFAULTS,
     ObservedRasterization,
 )
-from hydromodpy.core.stream_geometry import (
+from hydromodpy.core.stream.geometry import (
     CriterionSupports,
     NetworkGeometry,
     build_network_geometry,
     criterion_supports,
 )
-from hydromodpy.core.stream_heads import HeadCandidates, HeadsSettings
-from hydromodpy.core.stream_network import build_simulated_network
-from hydromodpy.core.stream_recharge import (
+from hydromodpy.core.stream.heads import HeadCandidates, HeadsSettings
+from hydromodpy.core.stream.network import build_simulated_network
+from hydromodpy.core.stream.recharge import (
     CRITERION_MEAN_RECHARGE_ATTR,
     criterion_mean_recharge,
     forcing_period_rates,
 )
 from hydromodpy.core.time.period_aggregation import period_edges
-from hydromodpy.core.topographic_distance import downslope_distance_to_mask
 from hydromodpy.core.units import factor_to_m_per_s
 
 if TYPE_CHECKING:
@@ -457,7 +457,7 @@ def _delineated_outlet_xy(sim: Run) -> tuple[float, float] | None:
 def _mean_recharge_m_s(sim: Run, areas: np.ndarray, *, ratio: float) -> float:
     """Return the mean recharge rate of the run, in m/s, as the trials read it.
 
-    The criterion's one rule (:mod:`hydromodpy.core.stream_recharge`). A run
+    The criterion's one rule (:mod:`hydromodpy.core.stream.recharge`). A run
     keeps on its ``forcing`` group the number its trials read from the built
     model, for a station series and for a grid alike, and that number is read
     back here. A solver that holds no recharge on its model keeps none.
@@ -589,7 +589,7 @@ def _budget_mean_recharge_m_s(sim: Run, areas: np.ndarray) -> float:
     the run has no dates for its steps. The last timestep alone is one day of a
     transient run: 4.5 times the mean on the daily Nancon run.
     """
-    from hydromodpy.core.stream_extent import CHUNK_ELEMENTS
+    from hydromodpy.core.stream.extent import CHUNK_ELEMENTS
     from hydromodpy.results.run.geographic import field_steps
 
     n_steps = sim.n_timesteps

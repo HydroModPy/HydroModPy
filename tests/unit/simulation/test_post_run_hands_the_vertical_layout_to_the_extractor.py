@@ -8,12 +8,12 @@ from typing import Any
 
 import pytest
 
-from hydromodpy.core.budget_terms import BudgetKeep
-from hydromodpy.core.state.run_state import RunState
-from hydromodpy.core.vertical_column import (
+from hydromodpy.core.budget.terms import BudgetKeep
+from hydromodpy.core.fields.vertical_column import (
     VERTICAL_LAYOUT_COLUMN_FRACTIONS,
     VERTICAL_LAYOUT_SURFACES,
 )
+from hydromodpy.core.state.run_state import RunState
 from hydromodpy.simulation.extraction.post_run import extract_run_outputs
 from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.simulation.planning.results_config import ResultsConfig

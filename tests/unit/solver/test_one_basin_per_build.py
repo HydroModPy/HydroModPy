@@ -21,8 +21,8 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.core import descent as core_descent
-from hydromodpy.core.descent import DescentBasin
+from hydromodpy.core.drainage import descent as core_descent
+from hydromodpy.core.drainage.descent import DescentBasin
 from hydromodpy.solver.modflow6 import build
 from hydromodpy.solver.modflow_common import catchment_basin
 from hydromodpy.solver.modflow_common.catchment_basin import catchment_cell_mask, run_basin

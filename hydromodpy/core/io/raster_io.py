@@ -1,4 +1,4 @@
-"""Raster I/O: loading, clipping, reprojecting, and exporting GeoTIFF/NetCDF."""
+"""Raster I/O: loading, masking, reprojecting, and exporting GeoTIFF/NetCDF."""
 
 from __future__ import annotations
 
@@ -24,16 +24,6 @@ from hydromodpy.core.io.crs import ensure_crs
 from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
-
-
-def clip_tif(tif_path, shp_path, out_path, maintain_dimensions, *, backend):
-    """Clip a raster by a shapefile polygon using the supplied Whitebox backend."""
-    backend.raster.clip_raster_to_polygon(
-        tif_path,
-        shp_path,
-        out_path,
-        maintain_dimensions=maintain_dimensions,
-    )
 
 
 def mask_by_dem(target_data, mask_data, cond_symb, value_masked):

@@ -180,7 +180,7 @@ Shared architecture
 One set of patterns governs the two databases.
 
 - **Migrations only where the file is not derived**:
-  :mod:`hydromodpy.core.migrations.runner` exposes
+  :mod:`hydromodpy.data.registry.migrations.runner` exposes
   ``apply_migrations(db_path, migrations_dir)``, serialized by a
   ``<db_path>.lock`` filelock, and the workspace cache uses it with a flat
   ``migrations/`` directory of numbered SQL files starting at
@@ -235,7 +235,7 @@ and an older one refuses it, naming both.
 The migration runner
 ~~~~~~~~~~~~~~~~~~~~
 
-The code is ``hydromodpy/core/migrations/runner.py``, with one migrations folder:
+The code is ``hydromodpy/data/registry/migrations/runner.py``, with one migrations folder:
 ``hydromodpy/data/registry/migrations/`` for the workspace cache.
 
 A migration is a numbered SQL file (``0001_initial.sql``, ``0002_<slug>.sql``, ...).
@@ -246,7 +246,7 @@ on when a recorded checksum no longer matches the file, and when the ledger hold
 a migration no file describes.
 
 ``ensure_schema()`` on a backend deploys the latest schema for its component, so a
-user never sees a half-deployed cache. ``hydromodpy/core/migrations/auto_boot.py``
+user never sees a half-deployed cache. ``hydromodpy/data/registry/migrations/auto_boot.py``
 wraps the runner for boot-time upgrades: a lock on ``<db>.lock``, and an atomic
 ``<db>.bak-<timestamp>`` snapshot that is restored on failure, with at most five
 kept. ``HMP_AUTO_MIGRATE=0`` turns a pending migration into

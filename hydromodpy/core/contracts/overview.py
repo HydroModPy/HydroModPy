@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from hydromodpy.core.state.data import LoadedDataContext
+from hydromodpy.core.state.run_state import LoadedDataContext
 
 if TYPE_CHECKING:
     from hydromodpy.core.workspace.workspace import WorkspaceLayout

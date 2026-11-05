@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import threading
 
-from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.runner import Pipeline
+from hydromodpy.workflow.state import PipelineState
 
 
 class _SourceStep:

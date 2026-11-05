@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.core.stream_extent import parse_visible_flow
+from hydromodpy.core.stream.extent import parse_visible_flow
 from hydromodpy.results.derive import stream_extent
 from hydromodpy.results.derive.stream_extent import (
     block_flow_counts,

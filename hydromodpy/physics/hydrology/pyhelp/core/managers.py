@@ -21,7 +21,7 @@ import time
 import numpy as np
 import pandas as pd
 
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
 from hydromodpy.core.logging import get_logger
 
 from .output import HelpOutput

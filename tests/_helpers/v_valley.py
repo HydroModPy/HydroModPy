@@ -21,13 +21,13 @@ from typing import Literal
 
 import numpy as np
 
-from hydromodpy.core.field_routing import accumulate_on_downhill_graph
-from hydromodpy.core.topographic_distance import (
+from hydromodpy.core.drainage.distance import (
     DownslopeMetric,
     build_downslope_metric,
     downslope_distance_to_mask,
     mean_downslope_distance,
 )
+from hydromodpy.core.drainage.graph import accumulate_on_downhill_graph
 from tests._helpers.ugrid_meshes import quad_mesh
 
 N_ROWS = 61

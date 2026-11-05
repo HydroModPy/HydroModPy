@@ -20,12 +20,11 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.config import HydroModPyConfig
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
 from hydromodpy.core.contracts.overview import DataOverviewState
 from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.run_state import WorkflowContext
-from hydromodpy.core.state.setup import SetupContext
+from hydromodpy.core.state.run_state import SetupContext, WorkflowContext
 from hydromodpy.results.storage.attempt import RunClaim
 from hydromodpy.workflow.steps.setup import resolve_geographic_inputs
 

@@ -13,9 +13,7 @@ import xarray as xr
 from shapely.geometry import LineString, box
 
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.core.state.data import LoadedDataContext
-from hydromodpy.core.state.execution import ExecutionRegistry
-from hydromodpy.core.state.setup import SetupContext
+from hydromodpy.core.state.run_state import ExecutionRegistry, LoadedDataContext, SetupContext
 from hydromodpy.core.time import ResolvedSimulationTimeWindow
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord

@@ -9,7 +9,7 @@ from pathlib import Path
 import flopy
 import numpy as np
 
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.time.steady_initialization import (
     single_period_mean_forcing_time_grid,

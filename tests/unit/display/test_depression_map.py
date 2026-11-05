@@ -35,7 +35,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.core.depression_filling import DEFAULT_EPSILON_M
+from hydromodpy.core.drainage.filling import DEFAULT_EPSILON_M
 from hydromodpy.display.figures._routing_surface import routing_surface_from_run
 from hydromodpy.display.figures.depression_map import (
     DEPRESSIONS,

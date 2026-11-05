@@ -20,7 +20,7 @@ import urllib.request
 from pathlib import Path
 from urllib.parse import quote
 
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
 from hydromodpy.core.exceptions import CacheCorruptionError, NetworkError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.payload import PayloadFile

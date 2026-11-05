@@ -18,8 +18,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from hydromodpy.core.field_precision import MAX_RELATIVE_ERROR
-from hydromodpy.core.nodata import SENTINEL_ABS_THRESHOLD
+from hydromodpy.core.fields.nodata import SENTINEL_ABS_THRESHOLD
+from hydromodpy.core.fields.precision import MAX_RELATIVE_ERROR
 from hydromodpy.results.zarr_store import SimulationZarr
 
 HDRY = -1.0e30

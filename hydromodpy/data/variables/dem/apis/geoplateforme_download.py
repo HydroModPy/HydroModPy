@@ -18,7 +18,7 @@ from urllib.parse import quote, unquote, urlparse
 import requests
 from filelock import FileLock
 
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
 from hydromodpy.core.exceptions import DataSourceError
 from hydromodpy.core.io.atomic_replace import rename_over_open_file
 

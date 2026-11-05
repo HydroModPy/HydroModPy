@@ -13,7 +13,7 @@ import pandas as pd
 import pytest
 
 import validation_cases.calibration.network_transient_b0.network_transient_html as report
-from hydromodpy.core.metrics import log_floor, log_nse
+from hydromodpy.core.scoring.metrics import log_floor, log_nse
 from validation_cases.calibration.network_transient_b0.natural_observations import (
     discharge_log_nse_cost,
     natural_network_cost,

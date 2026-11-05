@@ -46,7 +46,7 @@ from hydromodpy.calibration.metrics.observable_scoring import VALIDATION_COST, d
 from hydromodpy.calibration.optim.cache import context_fingerprints, differing_members
 from hydromodpy.calibration.persistence import CalibrationPersistence
 from hydromodpy.calibration.runners.trial import promote_prepared_trial
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
 from hydromodpy.core.exceptions import CalibrationError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.scope import CATCHMENT

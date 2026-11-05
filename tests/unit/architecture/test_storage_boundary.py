@@ -51,7 +51,7 @@ INDEX_OPENERS = {
 
 DUCKDB_CONNECT_FILES = {
     "hydromodpy/core/io/db_retry.py",
-    "hydromodpy/core/migrations/runner.py",
+    "hydromodpy/data/registry/migrations/runner.py",
     "hydromodpy/data/registry/catalog_duckdb.py",
     "hydromodpy/display/catchment_report/context.py",
     "hydromodpy/results/storage/diagnostics.py",
@@ -65,7 +65,7 @@ RETRY_HELPER = "hydromodpy/core/io/db_retry.py"
 """Where ``connect_with_retry`` wraps ``duckdb.connect``: its own call is the helper, not an opener."""
 
 WRITE_CAPABLE_OPENERS = {
-    "hydromodpy/core/migrations/runner.py",
+    "hydromodpy/data/registry/migrations/runner.py",
     "hydromodpy/data/registry/backend.py",
     "hydromodpy/data/registry/catalog_duckdb.py",
     "hydromodpy/results/catalog/adapters/duckdb.py",

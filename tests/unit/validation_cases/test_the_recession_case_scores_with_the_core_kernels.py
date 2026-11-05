@@ -10,7 +10,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.core import metrics as core
+from hydromodpy.core.scoring import metrics as core
 from validation_cases.calibration.recession_hillslope_aquifer import experiment as case
 
 _OBSERVED = np.array([5.0, 3.0, 2.0, 1.2, 0.8, 0.5, 0.3, 0.2, 0.15, 0.1])

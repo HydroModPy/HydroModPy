@@ -30,12 +30,12 @@ from typing import TYPE_CHECKING, Annotated
 
 import numpy as np
 
-from hydromodpy.core.depression_filling import DEFAULT_EPSILON_M, fill_depressions_on_graph
-from hydromodpy.core.stream_criterion_defaults import STREAM_CRITERION_DEFAULTS
-from hydromodpy.core.topographic_distance import (
+from hydromodpy.core.drainage.distance import (
     build_downslope_metric,
     downslope_distance_to_mask,
 )
+from hydromodpy.core.drainage.filling import DEFAULT_EPSILON_M, fill_depressions_on_graph
+from hydromodpy.core.stream.criterion_defaults import STREAM_CRITERION_DEFAULTS
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import CmapOrOwn, Opt
 from hydromodpy.display.figure_registry import register

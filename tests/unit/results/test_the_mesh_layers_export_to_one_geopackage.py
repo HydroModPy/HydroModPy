@@ -22,10 +22,10 @@ import shapely
 import xarray as xr
 from pyproj import CRS
 
-from hydromodpy.core.config_kit.export_spec import MESH_LAYERS, ExportKind, ExportRequest
 from hydromodpy.core.exceptions import ExportError
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
+from hydromodpy.results.exporters.export_spec import MESH_LAYERS, ExportKind, ExportRequest
 from hydromodpy.results.exporters.mesh_layers import (
     available_mesh_layers,
     export_mesh_layers,

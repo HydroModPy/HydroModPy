@@ -14,9 +14,14 @@ the data layer all read it, and none of them may import another for it.
 
 from __future__ import annotations
 
-from hydromodpy.core.site.config import SITE_NAME_PATTERN, SITE_URI_PATTERN, SiteConfig
-from hydromodpy.core.site.fingerprint import site_fingerprint
-from hydromodpy.core.site.gauge import GaugeConflictError, resolve_gauge
+from hydromodpy.core.site.config import (
+    SITE_NAME_PATTERN,
+    SITE_URI_PATTERN,
+    GaugeConflictError,
+    SiteConfig,
+    resolve_gauge,
+    site_fingerprint,
+)
 from hydromodpy.core.site.row import SITE_ROW_COLUMNS, SiteRow
 
 __all__ = [

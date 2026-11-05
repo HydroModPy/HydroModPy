@@ -18,7 +18,7 @@ from pathlib import Path
 import numpy as np
 
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
-from hydromodpy.core.descent import build_descent
+from hydromodpy.core.drainage.descent import build_descent
 from hydromodpy.results.storage.run_store import RunStore
 from tests._helpers.run_stores import claim_run, facts_of
 

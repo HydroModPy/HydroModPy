@@ -15,7 +15,6 @@ reads it without importing the mesh package.
 
 from __future__ import annotations
 
-import math
 from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -221,24 +220,6 @@ def crs_text(crs: object | None) -> str | None:
     return crs.to_string()
 
 
-def haversine_km(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
-    """Return the great-circle distance in km between two WGS 84 points.
-
-    The sphere has the mean Earth radius of 6371.0088 km.
-    """
-    radius_km = 6371.0088
-    lon1_rad = math.radians(lon1)
-    lat1_rad = math.radians(lat1)
-    lon2_rad = math.radians(lon2)
-    lat2_rad = math.radians(lat2)
-    dlon = lon2_rad - lon1_rad
-    dlat = lat2_rad - lat1_rad
-    a = math.sin(dlat / 2.0) ** 2 + math.cos(lat1_rad) * math.cos(lat2_rad) * (
-        math.sin(dlon / 2.0) ** 2
-    )
-    return radius_km * 2.0 * math.asin(math.sqrt(a))
-
-
 RFC7946_CRS = "OGC:CRS84"
 """The CRS of every GeoJSON coordinate (RFC 7946): WGS 84 longitude, then latitude."""
 
@@ -276,7 +257,6 @@ __all__ = [
     "RFC7946_CRS",
     "crs_text",
     "ensure_crs",
-    "haversine_km",
     "same_crs",
     "require_crs",
     "to_mesh_crs",

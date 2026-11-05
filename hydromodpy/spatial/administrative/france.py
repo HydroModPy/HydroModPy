@@ -16,7 +16,7 @@ from pathlib import Path
 import geopandas as gpd
 from shapely.geometry import box
 
-from hydromodpy.core.administrative_france import (
+from hydromodpy.spatial.administrative.regions import (
     french_region_code,
     known_french_region_names,
     normalize_french_region_key,

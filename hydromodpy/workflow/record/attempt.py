@@ -133,7 +133,7 @@ def run_attempt(
     try:
         yield AttemptHandle(claim, heartbeat)
     except KeyboardInterrupt as exc:
-        # SIGINT and SIGTERM both unwind as KeyboardInterrupt (core.interrupts).
+        # SIGINT and SIGTERM both unwind as KeyboardInterrupt (core.runtime.interrupts).
         _close_if_running(claim.run_dir, status="aborted", step=heartbeat.step, error=exc)
         raise
     except BaseException as exc:

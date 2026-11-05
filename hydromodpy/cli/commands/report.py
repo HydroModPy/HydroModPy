@@ -37,7 +37,7 @@ from hydromodpy.cli.helpers import (
     refuse,
 )
 from hydromodpy.cli.output import emit
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
 from hydromodpy.core.state.paths import resolve_project_root
 
 NAME: str = "report"

@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.core.descent import Descent, DescentBasin
+from hydromodpy.core.drainage.descent import Descent, DescentBasin
 from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.solver.base.protocols import DomainLike
 from hydromodpy.solver.modflow6.api.api_runner import Mf6ApiContext

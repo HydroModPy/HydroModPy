@@ -40,7 +40,7 @@ from hydromodpy.cli.helpers import EXIT_CONFIG
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.config.config_migration import fix_config_file, migrate_sealed_config_doc
 from hydromodpy.core.exceptions import ConfigError, OptimizerError
-from hydromodpy.core.stream_extent import dry_steps, flowing_steps, parse_extent_duration
+from hydromodpy.core.stream.extent import dry_steps, flowing_steps, parse_extent_duration
 from hydromodpy.core.time import nominal_step_days
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.figures.network_extent_bounds_map import extents_from_run

@@ -12,7 +12,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.core.descent import DescentBasin
+from hydromodpy.core.drainage.descent import DescentBasin
 from hydromodpy.solver.modflow_common.descent_store import (
     read_descent_sidecar,
     write_descent_sidecar,

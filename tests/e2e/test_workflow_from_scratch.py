@@ -247,7 +247,7 @@ def test_workflow_from_scratch_netcdf_export(tmp_path: Path) -> None:
 
     sim_id, project_dir, _zarr, _tables = _seed_minimal_simulation(workspace, project="foo")
 
-    from hydromodpy.core.config_kit.export_spec import ExportRequest
+    from hydromodpy.results.exporters.export_spec import ExportRequest
     from hydromodpy.results.exporters.request import export_run
 
     with hmp.open(project_dir).store as catalog:

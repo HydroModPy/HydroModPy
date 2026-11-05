@@ -31,7 +31,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Final
 
-from hydromodpy.core.budget_terms import kept_budget
+from hydromodpy.core.budget.terms import kept_budget
 from hydromodpy.core.code_fingerprint import RUN_LAYERS, code_fingerprint
 from hydromodpy.core.licensing import UNDETERMINED_LICENSE
 from hydromodpy.core.logging import get_logger

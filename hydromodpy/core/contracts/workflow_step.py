@@ -23,7 +23,7 @@ honored opportunistically:
     step's source and requires the declaration to match exactly.
 
 Concrete implementations live under :mod:`hydromodpy.workflow.steps`, behind the
-narrower :class:`hydromodpy.workflow.internals.step.Step` Protocol; this module
+narrower :class:`hydromodpy.workflow.step.Step` Protocol; this module
 states the contract, it does not re-export theirs.
 """
 

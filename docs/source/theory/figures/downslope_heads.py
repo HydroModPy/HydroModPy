@@ -4,10 +4,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.patches import Circle
 
-from hydromodpy.core.depression_filling import fill_depressions_on_graph
-from hydromodpy.core.field_routing import domain_edge_cells
-from hydromodpy.core.stream_heads import HeadCandidates, HeadsSettings, trace_from_heads
-from hydromodpy.core.topographic_distance import build_downslope_metric, shared_node_adjacency
+from hydromodpy.core.drainage.distance import build_downslope_metric, shared_node_adjacency
+from hydromodpy.core.drainage.filling import fill_depressions_on_graph
+from hydromodpy.core.drainage.graph import domain_edge_cells
+from hydromodpy.core.stream.heads import HeadCandidates, HeadsSettings, trace_from_heads
 
 N, SIZE = 20, 25.0
 BLUE, ORANGE, GREEN = "#0072B2", "#D55E00", "#009E73"

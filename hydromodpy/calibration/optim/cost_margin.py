@@ -44,7 +44,7 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.calibration.optim.diagnostics import _META_COLUMNS, iterations_to_dataframe
-from hydromodpy.core.cost_margin import CostMargin, MarginKind
+from hydromodpy.core.scoring.cost_margin import CostMargin, MarginKind
 
 DEFAULT_MARGIN = 0.05
 """Five per cent of the best cost, the default width of the interval."""

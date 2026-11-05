@@ -537,7 +537,7 @@ def test_the_planner_counts_this_figure_among_the_budget_consumers() -> None:
     wanted, and the map the user asked for is reported unavailable on its own
     output.
     """
-    from hydromodpy.core.budget_terms import budget_terms_for_fields
+    from hydromodpy.core.budget.terms import budget_terms_for_fields
     from hydromodpy.display.config import DisplayConfig
     from hydromodpy.simulation.planning.results_config import ResultsConfig
     from hydromodpy.workflow.steps.planning import step_configure_results

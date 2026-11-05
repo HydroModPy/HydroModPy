@@ -14,9 +14,11 @@ from hydromodpy.spatial.administrative.france import (
     department_code_to_padded,
     find_departments_in_bbox,
     find_departments_in_regions,
-    french_region_code,
     geometry_for_departments,
     geometry_for_regions,
+)
+from hydromodpy.spatial.administrative.regions import (
+    french_region_code,
     known_french_region_names,
     normalize_french_region_key,
     validate_french_regions,
@@ -46,9 +48,10 @@ def test_french_regions_are_known_by_name_alias_or_code_and_an_unknown_one_lists
     assert {"Auvergne-Rhone-Alpes", "Bretagne", "Ile-de-France", "Guadeloupe", "La-Reunion", "Mayotte"} <= set(known_french_region_names())  # fmt: skip
     assert normalize_french_region_key("La Reunion") == "la-reunion"
     assert [french_region_code(name) for name in ("Auvergne-Rhone-Alpes", "La Reunion", "Reunion")] == ["84", "04", "04"]  # fmt: skip
-    assert validate_french_regions(["La Reunion", "84"]) == ["La-Reunion", "Auvergne-Rhone-Alpes"]
-    with pytest.raises(ValueError, match="Known regions:"):
-        french_region_code("Bretange")
+    assert validate_french_regions(["La Reunion", "84", "Auvergne Rhone Alpes"]) == ["La-Reunion", "Auvergne-Rhone-Alpes"]  # fmt: skip
+    for unknown in ("Bretange", "99"):
+        with pytest.raises(ValueError, match="Known regions:"):
+            french_region_code(unknown)
 
 
 @pytest.mark.parametrize(

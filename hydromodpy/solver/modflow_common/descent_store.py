@@ -21,7 +21,7 @@ from typing import Any, get_args
 
 import numpy as np
 
-from hydromodpy.core.descent import BASIN_VERSION, BasinRule, Descent, DescentBasin
+from hydromodpy.core.drainage.descent import BASIN_VERSION, BasinRule, Descent, DescentBasin
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow_common.flow_directions import DESCENT_EPSILON_M
 
@@ -146,7 +146,7 @@ class DescentRecord:
     ``epsilon`` is the flood step in meters.
 
     ``basin`` is the basin of D at the catchment outlet (outlet included),
-    with the fields of :class:`hydromodpy.core.descent.DescentBasin`. It is
+    with the fields of :class:`hydromodpy.core.drainage.descent.DescentBasin`. It is
     None for a sidecar written before the basin was stored.
     ``catchment_fraction`` is the share of each cell's area inside the
     delineated polygon, None without a polygon.

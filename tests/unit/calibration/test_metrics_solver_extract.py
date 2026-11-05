@@ -67,9 +67,10 @@ from hydromodpy.calibration.observations.network_source import UnresolvedObserve
 from hydromodpy.calibration.observations.observed_network import ObservedNetworkMask
 from hydromodpy.calibration.optim.objective import build_objective_from_config
 from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
-from hydromodpy.core.descent import DescentBasin
+from hydromodpy.core.drainage.descent import DescentBasin
+from hydromodpy.core.drainage.distance import resolve_outlet
 from hydromodpy.core.exceptions import ObjectiveError, ObservableNotAvailableError
-from hydromodpy.core.stream_geometry import build_network_geometry, resolve_outlet
+from hydromodpy.core.stream.geometry import build_network_geometry
 from hydromodpy.core.time.selection import TimeSelectionError, resolve_state
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord

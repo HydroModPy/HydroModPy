@@ -17,7 +17,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.core.budget_terms import BudgetKeep
+from hydromodpy.core.budget.terms import BudgetKeep
 from hydromodpy.core.scope import CATCHMENT, DOMAIN
 from hydromodpy.solver.modflow_common.descent_store import DESCENT_SIDECAR_SUFFIX
 from hydromodpy.solver.modflow_nwt.extractors import flow as nwt_flow

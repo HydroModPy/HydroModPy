@@ -9,7 +9,7 @@ import pytest
 from rasterio.transform import from_origin
 from shapely.geometry import LineString, box
 
-from hydromodpy.core.nodata import RASTER_NODATA
+from hydromodpy.core.fields.nodata import RASTER_NODATA
 from hydromodpy.spatial.geographic.capped_breach_config import CappedBreachConfig
 from hydromodpy.spatial.geographic.core.hydrographic_network import (
     HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME as NETWORK,

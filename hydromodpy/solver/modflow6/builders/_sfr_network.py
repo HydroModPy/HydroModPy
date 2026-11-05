@@ -44,7 +44,7 @@ from hydromodpy.spatial.mesh.model.geometry import cell_polygons
 if TYPE_CHECKING:
     from shapely.geometry import LineString
 
-    from hydromodpy.core.descent import Descent
+    from hydromodpy.core.drainage.descent import Descent
     from hydromodpy.solver.modflow6.builders.sfr import SfrReachRecord
     from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
     from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh

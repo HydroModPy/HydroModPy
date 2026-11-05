@@ -9,7 +9,7 @@ import pandas as pd
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.core import metrics as kernels
+from hydromodpy.core.scoring import metrics as kernels
 from hydromodpy.results.metric_rule import (
     CALIBRATION_ROLE,
     EVALUATION_ROLE,

@@ -13,8 +13,8 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
-from hydromodpy.core.stream_criterion_defaults import STREAM_CRITERION_DEFAULTS
-from hydromodpy.core.stream_extent import DEFAULT_VISIBLE_FLOW
+from hydromodpy.core.stream.criterion_defaults import STREAM_CRITERION_DEFAULTS
+from hydromodpy.core.stream.extent import DEFAULT_VISIBLE_FLOW
 from hydromodpy.results.derive.network_criterion_settings import (
     DEFAULT_CRITERION_SETTINGS,
     DEFAULT_EXTENT_RULES,

@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.core.stream_criterion_defaults import STREAM_CRITERION_DEFAULTS
+from hydromodpy.core.stream.criterion_defaults import STREAM_CRITERION_DEFAULTS
 from hydromodpy.results.derive.network_criterion_settings import network_criterion_settings
 from hydromodpy.results.derive.stream_network import network_comparison_from_run
 from hydromodpy.spatial.geographic.core import network_heads

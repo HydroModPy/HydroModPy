@@ -303,7 +303,7 @@ def test_each_format_toggle_becomes_one_request_in_the_order_it_ran() -> None:
 
 def test_the_requests_of_a_migrated_table_load(tmp_path: Path) -> None:
     """What the migration writes is what the model reads: the round trip holds."""
-    from hydromodpy.core.config_kit.export_spec import ExportFormat, load_export_requests
+    from hydromodpy.results.exporters.export_spec import ExportFormat, load_export_requests
 
     path = _write(
         tmp_path,

@@ -178,7 +178,7 @@ Required invariants:
   location of a point read. ``closed_surface(covered_cells)`` marks the columns that no
   surface process reaches, and ``check_interfaces()`` refuses an active cell whose top is at
   or below its bottom (a pass-through cell may have no thickness). The function itself,
-  ``top_active_layer`` in ``hydromodpy/core/vertical_column.py``, lives in ``core`` because
+  ``top_active_layer`` in ``hydromodpy/core/fields/vertical_column.py``, lives in ``core`` because
   the solvers, the calibration, the results and the display all read it.
 - The grid is mesh-native: ``structured_shape`` is set only when the
   planar mesh is a Cartesian grid, and is ``None`` for DISV meshes.
@@ -299,7 +299,7 @@ Practical debugging
 Routing descent contract
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Source: ``hydromodpy/core/descent.py`` (the computation) and
+Source: ``hydromodpy/core/drainage/descent.py`` (the computation) and
 ``hydromodpy/solver/modflow_common/flow_directions.py`` (the adapter both
 backends call; neither backend imports the other). ``channel_tree.py`` projects
 the river network A onto the mesh, ``catchment_basin.py`` takes the basin of D

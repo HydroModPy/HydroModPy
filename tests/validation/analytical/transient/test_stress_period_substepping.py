@@ -521,8 +521,7 @@ def _boussinesq_step_rmse(workspace: Path, *, solver: str, substeps: int) -> flo
     """RMSE of the end-of-period heads against the head-step closed form."""
     from types import SimpleNamespace
 
-    from hydromodpy.core.state.run_state import RunState
-    from hydromodpy.core.state.setup import SetupContext
+    from hydromodpy.core.state.run_state import RunState, SetupContext
     from hydromodpy.physics.flow import Flow
     from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, SimulationPlan
     from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter

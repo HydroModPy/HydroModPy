@@ -27,7 +27,7 @@ from hydromodpy.calibration.runners.staged_runner import _phase_config, phase_su
 from hydromodpy.calibration.runners.state import build_cache_context, space_from_config
 from hydromodpy.cli.commands import calibrate as calibrate_cmd
 from hydromodpy.config import HydroModPyConfig
-from hydromodpy.core.stream_geometry import neighbour_spacing_m
+from hydromodpy.core.stream.geometry import neighbour_spacing_m
 from hydromodpy.results.session.descriptor import read_session
 from tests.unit.calibration._factories_runners import write_document
 

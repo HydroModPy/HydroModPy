@@ -18,8 +18,8 @@ from collections.abc import Mapping
 import numpy as np
 
 from hydromodpy.core.exceptions import ConfigError, DataContractViolation
+from hydromodpy.core.fields.nodata import valid_cells
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.nodata import valid_cells
 from hydromodpy.spatial.domain.depth_model_config import (
     ConstantThicknessDepthModel,
     FlatSubstratumDepthModel,

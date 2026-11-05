@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 import numpy as np
 
-from hydromodpy.core.vertical_column import top_active_layer, values_at_layer
+from hydromodpy.core.fields.vertical_column import top_active_layer, values_at_layer
 from hydromodpy.display.figure import BaseFigure, run_suffix
 from hydromodpy.display.figure_options import CmapOrOwn, Layer, Overlays, Timestep, Vmax, Vmin
 from hydromodpy.display.figures._instant import instant_label

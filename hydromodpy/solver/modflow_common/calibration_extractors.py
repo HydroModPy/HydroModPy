@@ -18,8 +18,8 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.core.exceptions import ObservableNotAvailableError
+from hydromodpy.core.fields.vertical_column import values_at_layer
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.vertical_column import values_at_layer
 from hydromodpy.physics.flow.history_contract import saturated_thickness_from_head_history
 from hydromodpy.solver.modflow_common.period_steps import (
     budget_file_steps,

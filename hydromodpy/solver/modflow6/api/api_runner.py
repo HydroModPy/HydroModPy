@@ -44,7 +44,7 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
 from hydromodpy.core.exceptions import SolverDivergedError, SolverError, SolverInputError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_library

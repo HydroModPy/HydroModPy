@@ -38,7 +38,6 @@ from hydromodpy.core.units.parse import parse_to_canonical_magnitude
 
 logger = get_logger(__name__)
 
-_VALID_POLICIES = {"error", "warn", "ignore"}
 _VALID_MODES = {"explicit"}
 _VALID_STEP_UNITS = {"hour", "day", "month", "year"}
 
@@ -148,14 +147,6 @@ def _simulation_time_config(cfg: Any) -> Any | None:
     """Return ``cfg.simulation.time`` when available, else ``None``."""
     simulation_cfg = getattr(cfg, "simulation", None)
     return getattr(simulation_cfg, "time", None) if simulation_cfg is not None else None
-
-
-def _normalize_policy(raw_policy: Any) -> CoveragePolicy:
-    """Normalize coverage-policy token and validate allowed values."""
-    policy = str(raw_policy).strip().lower()
-    if policy not in _VALID_POLICIES:
-        raise ValueError("simulation.time.coverage_policy must be one of: error, warn, ignore.")
-    return policy  # type: ignore[return-value]
 
 
 def _normalize_mode(raw_mode: Any) -> Literal["explicit"]:
@@ -406,9 +397,6 @@ def resolve_simulation_time_grid(cfg: Any) -> ResolvedSimulationTimeGrid | None:
     time_cfg = _simulation_time_config(cfg)
     if time_cfg is None:
         return None
-    mode = _normalize_mode(getattr(time_cfg, "mode", "explicit"))
-    if mode != "explicit":
-        return None
 
     window = resolve_simulation_time_window(cfg)
     if window is None:
@@ -549,7 +537,7 @@ def resolve_simulation_time_window(cfg: Any) -> ResolvedSimulationTimeWindow | N
     if time_cfg is None:
         return None
 
-    coverage_policy = _normalize_policy(getattr(time_cfg, "coverage_policy", "error"))
+    coverage_policy: CoveragePolicy = getattr(time_cfg, "coverage_policy", "error")
     _normalize_mode(getattr(time_cfg, "mode", "explicit"))
     step_value, step_unit = _parse_step_spec(
         raw_step_value=getattr(time_cfg, "step_value", 1),

@@ -26,8 +26,8 @@ import zarr
 from filelock import FileLock
 from upath import UPath
 
-from hydromodpy.core.budget_terms import BudgetKeep
-from hydromodpy.core.field_precision import DEFAULT_FIELD_PRECISION, FieldPrecision
+from hydromodpy.core.budget.terms import BudgetKeep
+from hydromodpy.core.fields.precision import DEFAULT_FIELD_PRECISION, FieldPrecision
 from hydromodpy.results.zarr_store import zarr_finalizer, zarr_reader, zarr_writer
 from hydromodpy.results.zarr_store.mesh_layout import MeshLayout
 from hydromodpy.results.zarr_store.zarr_finalizer import (
@@ -64,7 +64,7 @@ class SimulationZarr:
     """Per-simulation Zarr v3 store. Atomic, locked, CF-1.11 + ACDD-1.3.
 
     ``field_precision`` is the precision the time-varying fields are written
-    in (see :mod:`hydromodpy.core.field_precision`). It only governs writes:
+    in (see :mod:`hydromodpy.core.fields.precision`). It only governs writes:
     a store reads the same whatever precision the handle was opened with.
     """
 

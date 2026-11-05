@@ -6,7 +6,7 @@ that created it, so the three of them read and write the same rasters.
 
 from __future__ import annotations
 
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
 from hydromodpy.spatial.delineation.whitebox_workflows_backend.isolated import run_depression_tool
 from hydromodpy.spatial.delineation.whitebox_workflows_backend.raster import WhiteboxRasterBackend
 

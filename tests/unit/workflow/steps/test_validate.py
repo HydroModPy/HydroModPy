@@ -10,8 +10,8 @@ import pytest
 
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.config.export_checks import check_export_variables, check_time_selectors
-from hydromodpy.core.config_kit.export_spec import ExportRequest
 from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.results.exporters.export_spec import ExportRequest
 from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps.validate import ValidateStep
 

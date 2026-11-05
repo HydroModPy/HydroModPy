@@ -10,7 +10,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.core.vertical_column import check_layer_interfaces
+from hydromodpy.core.fields.vertical_column import check_layer_interfaces
 from hydromodpy.spatial.domain.layering import (
     assert_bottom_below_top,
     base_interfaces,

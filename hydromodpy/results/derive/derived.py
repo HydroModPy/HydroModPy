@@ -37,7 +37,7 @@ def watertable_elevation(head: ArrayLike, top: ArrayLike) -> ArrayLike:
     :func:`watertable_depth` but is not used: the water table is the head
     itself, never clipped to the surface. Cells where head exceeds the surface
     are flagged separately by
-    :func:`hydromodpy.core.field_routing.seepage_mask`.
+    :func:`hydromodpy.core.budget.flux.seepage_mask`.
     """
     del top  # accepted for API symmetry, unused
     if _is_data_array(head):

@@ -9,7 +9,7 @@ import pytest
 import shapely
 from rasterio.transform import from_origin
 
-from hydromodpy.core.rng import RngManager
+from hydromodpy.core.state.rng import RngManager
 from hydromodpy.data.variables.geology.config import validate_geology_config_data
 from hydromodpy.spatial.field.cell_sampling import sample_points_in_cell
 from hydromodpy.spatial.field.field_param import FieldParam

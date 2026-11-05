@@ -48,7 +48,7 @@ from typing import TYPE_CHECKING, Annotated, Any
 import numpy as np
 import pandas as pd
 
-from hydromodpy.core.stream_geometry import VALIDITY_PROVENANCE_BY_CODE
+from hydromodpy.core.stream.geometry import VALIDITY_PROVENANCE_BY_CODE
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Opt, OutputName, ParameterUnits
 from hydromodpy.display.figure_registry import register

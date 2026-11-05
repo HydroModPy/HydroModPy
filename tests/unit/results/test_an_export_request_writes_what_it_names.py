@@ -20,12 +20,12 @@ import pytest
 import xarray as xr
 from shapely.geometry import LineString, box
 
-from hydromodpy.core.config_kit.export_spec import ExportKind, ExportRequest
 from hydromodpy.core.time import TimeSelectionError
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.exporters import request as request_module
 from hydromodpy.results.exporters import vocabulary
+from hydromodpy.results.exporters.export_spec import ExportKind, ExportRequest
 from hydromodpy.results.exporters.request import export_run
 from hydromodpy.results.exporters.vocabulary import list_exportable
 from hydromodpy.results.ledger import Ledger

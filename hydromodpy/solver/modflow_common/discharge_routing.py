@@ -32,7 +32,7 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.core.field_routing import DownhillGraph, accumulate_on_downhill_graph
+from hydromodpy.core.drainage.graph import DownhillGraph, accumulate_on_downhill_graph
 from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)

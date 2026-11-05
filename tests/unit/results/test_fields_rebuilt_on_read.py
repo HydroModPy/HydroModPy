@@ -19,8 +19,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from hydromodpy.core.budget.flux import release_flux_stack
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
-from hydromodpy.core.field_routing import release_flux_stack
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.derive import virtual_fields
@@ -516,7 +516,7 @@ def test_the_geometric_fallback_warns_once_for_a_whole_range(
     sid = store.sim_id
     monkeypatch.setattr(virtual_fields, "ROWS_PER_PASS_ELEMENTS", reference.N_CELLS)
 
-    with caplog.at_level(logging.WARNING, logger="hydromodpy.core.field_routing"):
+    with caplog.at_level(logging.WARNING, logger="hydromodpy.core.drainage.graph"):
         read_field_range_or_virtual(store, sid, "seepage_mask", 0, reference.N_STEPS)
 
     assert len(_fallback_warnings(caplog)) == 1
@@ -526,7 +526,7 @@ def test_the_geometric_fallback_warns_once_for_each_step_read_alone(built, caplo
     store = built("boussinesq_no_excess")
     sid = store.sim_id
 
-    with caplog.at_level(logging.WARNING, logger="hydromodpy.core.field_routing"):
+    with caplog.at_level(logging.WARNING, logger="hydromodpy.core.drainage.graph"):
         read_field_or_virtual(store, sid, "seepage_mask", 1)
         read_field_or_virtual(store, sid, "seepage_mask", 2)
 
@@ -534,7 +534,7 @@ def test_the_geometric_fallback_warns_once_for_each_step_read_alone(built, caplo
 
 
 def test_a_modflow_store_stays_quiet_and_so_does_a_surface_excess_store(built, caplog) -> None:
-    with caplog.at_level(logging.WARNING, logger="hydromodpy.core.field_routing"):
+    with caplog.at_level(logging.WARNING, logger="hydromodpy.core.drainage.graph"):
         for kind in ("mf6", "boussinesq"):
             store = built(kind)
             sid = store.sim_id
@@ -555,7 +555,7 @@ def test_the_solute_chain_warns_once_when_it_falls_back_to_the_geometric_mask(
         sz.close()
     monkeypatch.setattr(virtual_fields, "ROWS_PER_PASS_ELEMENTS", reference.N_CELLS)
 
-    with caplog.at_level(logging.WARNING, logger="hydromodpy.core.field_routing"):
+    with caplog.at_level(logging.WARNING, logger="hydromodpy.core.drainage.graph"):
         read_field_range_or_virtual(store, sid, "mass_seepage_running_sum", 0, reference.N_STEPS)
 
     assert len(_fallback_warnings(caplog)) == 1
@@ -631,7 +631,7 @@ def test_an_old_stored_concentration_and_mass_feed_the_next_field(built) -> None
     stored_concentration = np.arange(np.prod(shape), dtype="float64").reshape(shape) / 7.0
     _write_derived(store, sid, "concentration_seepage", stored_concentration)
     drain = _budget_of(store, sid, "drain")
-    from hydromodpy.core.field_routing import budget_outflow_stack
+    from hydromodpy.core.budget.flux import budget_outflow_stack
 
     flux = budget_outflow_stack(drain, n_cells=reference.N_CELLS)
 

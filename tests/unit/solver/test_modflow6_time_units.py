@@ -15,7 +15,7 @@ import flopy
 import numpy as np
 import pytest
 
-from hydromodpy.core.budget_terms import BudgetKeep
+from hydromodpy.core.budget.terms import BudgetKeep
 from hydromodpy.solver.modflow6.extractors.flow import (
     Modflow6OutputAdapter,
     _seconds_per_time_unit,

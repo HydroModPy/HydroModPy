@@ -16,8 +16,8 @@ from pydantic import BaseModel, ConfigDict
 from shapely.geometry import LineString, box
 
 from hydromodpy.core.exceptions import DataContractViolation
-from hydromodpy.core.state.data import LoadedDataContext
 from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME
+from hydromodpy.core.state.run_state import LoadedDataContext
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.contracts.timeseries import PointRecord

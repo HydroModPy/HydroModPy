@@ -247,7 +247,7 @@ def bootstrap() -> None:
 
 def _register_bootstrap_hook() -> None:
     """Register :func:`bootstrap` as the lazy hook (called at module import)."""
-    from hydromodpy.core.bootstrap_hook import set_bootstrap_hook
+    from hydromodpy.core.runtime.bootstrap_hook import set_bootstrap_hook
 
     set_bootstrap_hook(bootstrap)
 

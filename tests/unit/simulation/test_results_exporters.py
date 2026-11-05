@@ -18,10 +18,10 @@ import pytest
 import xarray as xr
 from pydantic import ValidationError
 
-from hydromodpy.core.config_kit.export_spec import ExportRequest
 from hydromodpy.core.exceptions import ExportError
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
+from hydromodpy.results.exporters.export_spec import ExportRequest
 from hydromodpy.results.exporters.request import export_run
 from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.results.storage.sealing import seal_completed

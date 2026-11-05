@@ -16,12 +16,12 @@ from typing import Any
 import numpy as np
 import pytest
 
-from hydromodpy.core.budget_terms import BudgetKeep
-from hydromodpy.core.field_routing import (
+from hydromodpy.core.budget.flux import (
     RELEASE_BUDGET_KEYS,
     STREAM_CONSTANT_HEAD_BUDGET,
     release_flux_stack,
 )
+from hydromodpy.core.budget.terms import BudgetKeep
 from hydromodpy.solver.modflow6.extractors.cbc_reader import CbcRecord
 from hydromodpy.solver.modflow6.extractors.flow import (
     Modflow6OutputAdapter,

@@ -13,23 +13,19 @@ field on the same model (catches refactor drift).
 
 from __future__ import annotations
 
-import types as stdlib_types
-import typing
 import warnings
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from enum import Enum
 from pathlib import Path
-from typing import Annotated, Any, ClassVar, Literal, NoReturn, get_args, get_origin
+from typing import Any, ClassVar, Literal, NoReturn, get_args, get_origin
 
 from pydantic import BaseModel, ConfigDict, model_validator
 from pydantic_core import PydanticUndefined
 
-from hydromodpy.core.config_kit.introspect import extract_profile
+from hydromodpy.core.config_kit.introspect import extract_profile, unwrap_members
 from hydromodpy.core.config_kit.profile import ProfileName
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
 from hydromodpy.core.exceptions import ConfigValidationError, FrozenConfigError
-
-_NONE_TYPE = type(None)
 
 _BOOLEAN_FIELDS: dict[type[BaseModel], frozenset[str]] = {}
 
@@ -107,27 +103,14 @@ def forget_old_forms_told() -> None:
     _OLD_FORMS_TOLD.clear()
 
 
-def _annotation_leaves(annotation: Any) -> list[Any]:
-    """Return the leaf types of *annotation*, unwrapping ``Annotated`` and unions."""
-    origin = get_origin(annotation)
-    if origin is Annotated:
-        return _annotation_leaves(get_args(annotation)[0])
-    if origin is typing.Union or origin is stdlib_types.UnionType:
-        leaves: list[Any] = []
-        for arg in get_args(annotation):
-            leaves.extend(_annotation_leaves(arg))
-        return leaves
-    return [annotation]
-
-
 def _admits_only_bool(annotation: Any) -> bool:
     """Return True when *annotation* accepts a boolean and nothing else but ``None``.
 
     ``bool | str`` is deliberately excluded: a field that documents a string
     meaning of its own still has to accept one.
     """
-    leaves = _annotation_leaves(annotation)
-    return bool in leaves and all(leaf is bool or leaf is _NONE_TYPE for leaf in leaves)
+    leaves = unwrap_members(annotation)
+    return bool in leaves and all(leaf is bool for leaf in leaves)
 
 
 def _boolean_field_names(cls: type[BaseModel]) -> frozenset[str]:
@@ -402,7 +385,7 @@ class HydroModelBase(BaseModel):
             Keep only the fields this config was given, so the file reads
             back with the same fields set.
         """
-        from hydromodpy.core.toml_io.io import dump_toml_with_comments
+        from hydromodpy.core.toml_io.writer import dump_toml_with_comments
 
         return dump_toml_with_comments(self, path, profile=profile, written_only=written_only)
 

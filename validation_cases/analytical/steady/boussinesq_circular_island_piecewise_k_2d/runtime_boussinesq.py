@@ -9,8 +9,7 @@ from types import SimpleNamespace
 import numpy as np
 from scipy.spatial import Delaunay
 
-from hydromodpy.core.state.run_state import RunState
-from hydromodpy.core.state.setup import SetupContext
+from hydromodpy.core.state.run_state import RunState, SetupContext
 from hydromodpy.physics.flow import Flow
 from hydromodpy.simulation.planning.plan import (
     ProcessRun,

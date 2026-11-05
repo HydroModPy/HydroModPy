@@ -105,7 +105,7 @@ def main(argv: list[str] | None = None) -> None:
     of real work that a signal arriving in the meantime used to throw away
     without a trace.
     """
-    from hydromodpy.core.interrupts import terminate_as_interrupt
+    from hydromodpy.core.runtime.interrupts import terminate_as_interrupt
 
     with terminate_as_interrupt():
         _dispatch(argv)
@@ -127,8 +127,8 @@ def _dispatch(argv: list[str] | None) -> None:
     # Named after the verb too, the last one on the line wins, as a repeated flag does.
     args.workspace = getattr(args, "workspace", None) or getattr(args, WORKSPACE_ROOT_DEST)
 
-    from hydromodpy.core.bootstrap_hook import ensure_bootstrapped
     from hydromodpy.core.io.proj_bootstrap import bootstrap_proj
+    from hydromodpy.core.runtime.bootstrap_hook import ensure_bootstrapped
 
     ensure_bootstrapped()
     bootstrap_proj()

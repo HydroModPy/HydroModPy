@@ -73,13 +73,13 @@ from hydromodpy.core.config_kit.types import (
     StationName,
 )
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
-from hydromodpy.core.cost_margin import parse_cost_margin
 from hydromodpy.core.exceptions import ConfigValidationError
-from hydromodpy.core.stream_criterion_defaults import (
+from hydromodpy.core.scoring.cost_margin import parse_cost_margin
+from hydromodpy.core.stream.criterion_defaults import (
     STREAM_CRITERION_DEFAULTS,
     ObservedRasterization,
 )
-from hydromodpy.core.stream_extent import (
+from hydromodpy.core.stream.extent import (
     DEFAULT_VISIBLE_FLOW,
     parse_extent_duration,
     parse_visible_flow,
@@ -1489,7 +1489,7 @@ class CalibOutputNetwork(HydroModelBase):
         """Refuse a selector that reads more than one state, and read a date.
 
         The extraction serves ``build_simulated_network``
-        (``hydromodpy/core/stream_network.py``) the one row this names, so 'last',
+        (``hydromodpy/core/stream/network.py``) the one row this names, so 'last',
         'first' and a date are each scored at the state the file names. 'all' or
         a list would name several states for one mask.
 
@@ -3548,7 +3548,7 @@ def apply_project_defaults(
     out. Applied before validation, so a point output that names no station
     and no coordinates is valid in a project with a gauge.
     """
-    from hydromodpy.core.site.gauge import resolve_gauge
+    from hydromodpy.core.site.config import resolve_gauge
 
     site = _site_of(site_gauge)
     payload: dict[str, Any] = dict(section)

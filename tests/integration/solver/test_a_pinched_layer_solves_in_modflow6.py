@@ -16,7 +16,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.core.vertical_column import VERTICAL_LAYOUT_SURFACES, top_active_layer
+from hydromodpy.core.fields.vertical_column import VERTICAL_LAYOUT_SURFACES, top_active_layer
 from hydromodpy.solver.modflow6.builders import areal_layer_index
 from hydromodpy.solver.modflow6.builders.boundary_conditions import (
     build_drain_stress_period_data,

@@ -55,7 +55,6 @@ from hydromodpy.config.toml_section_loader import (
     load_standard_section,
 )
 from hydromodpy.core.config_kit.base import HydroModelBase
-from hydromodpy.core.config_kit.export_spec import ExportRequest, load_export_requests
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.introspect import (
     collect_profile_violations,
@@ -94,6 +93,7 @@ from hydromodpy.physics.hydrology.soil_reservoir.config import (
     steady_start_refusal,
 )
 from hydromodpy.physics.transport.transport_config import TransportConfig
+from hydromodpy.results.exporters.export_spec import ExportRequest, load_export_requests
 from hydromodpy.simulation.planning.config import SimulationConfig
 from hydromodpy.simulation.planning.observation_config import ObservationConfig
 from hydromodpy.simulation.spinup_config import SpinupConfig
@@ -1025,7 +1025,7 @@ class HydroModPyConfig(HydroModelBase):
 
         A sealed document is read as it was run, so ``[metrics] station`` is not checked.
         """
-        from hydromodpy.core.site.gauge import resolve_gauge
+        from hydromodpy.core.site.config import resolve_gauge
         from hydromodpy.data.sites.gauge import apply_site_gauge
 
         context = info.context if isinstance(info.context, Mapping) else {}
@@ -1880,7 +1880,7 @@ class HydroModPyConfig(HydroModelBase):
 # time this module is loaded. ``import hydromodpy`` does not import this module
 # (it is lazy), so the package import stays cheap; any real config use loads this
 # module and triggers the full bootstrap once.
-from hydromodpy.core.bootstrap_hook import (  # noqa: E402
+from hydromodpy.core.runtime.bootstrap_hook import (  # noqa: E402
     ensure_bootstrapped as _ensure_bootstrapped,
 )
 

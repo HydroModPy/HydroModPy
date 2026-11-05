@@ -14,9 +14,9 @@ from collections.abc import Callable, Generator
 from contextlib import contextmanager, redirect_stdout
 from typing import Any
 
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
+from hydromodpy.core.console.progress import TaskHandle
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.progress import TaskHandle
 
 logger = get_logger(__name__)
 

@@ -61,7 +61,7 @@ from hydromodpy.config import HydroModPyConfig
 from hydromodpy.config.config_migration import fix_config_file, migrate_sealed_config_doc
 from hydromodpy.core.config_kit.calibrable import Calibrable
 from hydromodpy.core.contracts.observables import ObservableResult
-from hydromodpy.core.metrics import clip_negatives, log_nse
+from hydromodpy.core.scoring.metrics import clip_negatives, log_nse
 from hydromodpy.spatial.field.field_param_sections import FieldHomogeneousSection
 from hydromodpy.workflow.steps.prepare_solver.freeze import portable_config_document
 from tests.unit.calibration._factories import _score

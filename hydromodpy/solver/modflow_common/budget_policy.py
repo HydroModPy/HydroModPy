@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Any
 
-from hydromodpy.core.budget_terms import BudgetKeep
+from hydromodpy.core.budget.terms import BudgetKeep
 
 
 def record_budget_policy(store: Any, sim_id: str, keep: BudgetKeep, written: Iterable[str]) -> None:

@@ -3,7 +3,7 @@
 Private helpers behind the public ``sfr_drain_cells_to_drop`` /
 ``remove_drain_cells`` / ``sfr_routes_drainage`` / ``build_drainage_mover_records``
 re-exported from ``builders.sfr``. The routing
-walks the receivers of the descent D (``core.descent``), handed in as an array.
+walks the receivers of the descent D (``core.drainage.descent``), handed in as an array.
 It also owns the two MF6 package-name literals shared by both mover builders (the
 SFR->LAK one lives in ``builders.sfr``); they are strings, never an import edge
 to a package.

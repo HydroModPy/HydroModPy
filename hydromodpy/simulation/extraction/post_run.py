@@ -12,11 +12,11 @@ import math
 from collections.abc import Mapping
 from typing import Any
 
-from hydromodpy.core.budget_terms import BudgetKeep
+from hydromodpy.core.budget.flux import networks_route_drainage
+from hydromodpy.core.budget.terms import BudgetKeep
 from hydromodpy.core.contracts.solver_registry import get_solver_registry_provider
-from hydromodpy.core.field_routing import networks_route_drainage
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.stream_recharge import CRITERION_MEAN_RECHARGE_ATTR, mean_recharge_m_s
+from hydromodpy.core.stream.recharge import CRITERION_MEAN_RECHARGE_ATTR, mean_recharge_m_s
 from hydromodpy.physics.flow.sinks_sources.wells import (
     WELL_THROTTLE_WARNING_FRACTION,
     WELLS_PUMPED_CHECK,

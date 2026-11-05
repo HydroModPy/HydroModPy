@@ -30,9 +30,9 @@ import pytest
 
 from hydromodpy.config.sites.expansion import PlanDraft
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.core.interrupts import TerminationRequested
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.pipeline_steps import STEP_NAMES
+from hydromodpy.core.runtime.interrupts import TerminationRequested
 from hydromodpy.core.state.paths import (
     INTERNAL_DIRNAME,
     PROJECT_MARKER_FILENAME,

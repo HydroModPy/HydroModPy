@@ -17,7 +17,7 @@ from hydromodpy.spatial.mesh.model.geometry import cell_areas, padded_rows
 if TYPE_CHECKING:
     from dask.array import Array as DaskArray
 
-    from hydromodpy.core.field_routing import DownhillGraph
+    from hydromodpy.core.drainage.graph import DownhillGraph
 
 __all__ = [
     "Mesh",

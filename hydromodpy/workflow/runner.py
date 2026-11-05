@@ -37,7 +37,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
 from hydromodpy.core.contracts.workflow_step import step_name
 from hydromodpy.core.exceptions import ResumeIntegrityError, StepError
 from hydromodpy.core.logging import get_logger

@@ -56,15 +56,15 @@ import pytest
 
 from hydromodpy.calibration.config import CalibOutputNetwork
 from hydromodpy.calibration.observations.network_geometry import heads_settings
+from hydromodpy.core.drainage.graph import accumulate_on_downhill_graph
 from hydromodpy.core.exceptions import ObjectiveError
-from hydromodpy.core.field_routing import accumulate_on_downhill_graph
-from hydromodpy.core.stream_extent import (
+from hydromodpy.core.stream.extent import (
     calendar_years,
     extent_masks,
     parse_visible_flow,
     yearly_flow_counts,
 )
-from hydromodpy.core.stream_heads import trace_from_heads
+from hydromodpy.core.stream.heads import trace_from_heads
 from hydromodpy.physics.flow.history_contract import saturated_thickness_from_head_history
 from hydromodpy.project.facade import Project
 from hydromodpy.spatial.geographic.core.network_heads import network_head_candidates

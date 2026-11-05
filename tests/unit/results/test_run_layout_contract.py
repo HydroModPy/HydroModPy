@@ -20,7 +20,7 @@ import pandas as pd
 import pytest
 import zarr
 
-from hydromodpy.core.budget_terms import BudgetKeep, kept_budget
+from hydromodpy.core.budget.terms import BudgetKeep, kept_budget
 from hydromodpy.core.state.paths import (
     CATALOG_FILENAME,
     CONFIGS_DIRNAME,

@@ -156,7 +156,7 @@ class TestWhatTheRunKeptDecidesTheMessage:
         assert config_option_for("lake_stage") is None
 
     def test_every_raw_budget_field_of_the_registry_has_the_option(self):
-        from hydromodpy.core.budget_terms import PER_CELL_BUDGET_TERMS
+        from hydromodpy.core.budget.terms import PER_CELL_BUDGET_TERMS
         from hydromodpy.results.derive.config_flags import KEEP_BUDGET_OPTION, config_option_for
         from hydromodpy.results.field_registry import FIELD_REGISTRY
 
@@ -190,7 +190,7 @@ class TestWhatTheRunKeptDecidesTheMessage:
 
     def test_a_consumers_run_that_kept_everything_the_field_reads_is_quiet(self):
         # The terms are kept and no array is there: the model does not produce them.
-        from hydromodpy.core.budget_terms import budget_terms_for
+        from hydromodpy.core.budget.terms import budget_terms_for
         from hydromodpy.results.derive.config_flags import (
             missing_field_explanation,
             missing_field_options,

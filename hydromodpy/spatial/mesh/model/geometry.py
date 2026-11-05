@@ -1,7 +1,7 @@
 """Geometry derived once from a planar cell mesh: areas, edges, adjacency.
 
 Every quantity is computed with vectorized numpy on the ``-1`` padded
-connectivity, the format of the Zarr store and of ``core.descent``. Edges are
+connectivity, the format of the Zarr store and of ``core.drainage.descent``. Edges are
 keyed by their two vertex ids, never by coordinates, so the topology does not
 depend on rounding.
 

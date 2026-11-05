@@ -13,17 +13,17 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.core.solver_diagnostics import (
-    STATIONARY_FAILURE_ACTIVE_SET_SUMMARY_CSV,
-    STATIONARY_FAILURE_CELLS_TOP_RESIDUAL_CSV,
-    STATIONARY_FAILURE_FIELD_STATS_JSON,
-    STATIONARY_FAILURE_SUMMARY_JSON,
-)
 from hydromodpy.solver.boussinesq.assembly import BoussinesqAssembly
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 from hydromodpy.solver.boussinesq.runtime_contract import (
     NonlinearRuntimeOptions,
     RuntimeSolveResult,
+)
+from hydromodpy.solver.boussinesq.runtimes.diagnostic_files import (
+    STATIONARY_FAILURE_ACTIVE_SET_SUMMARY_CSV,
+    STATIONARY_FAILURE_CELLS_TOP_RESIDUAL_CSV,
+    STATIONARY_FAILURE_FIELD_STATS_JSON,
+    STATIONARY_FAILURE_SUMMARY_JSON,
 )
 from hydromodpy.solver.boussinesq.runtimes.dry_equilibrium import (
     detect_dry_equilibrium,

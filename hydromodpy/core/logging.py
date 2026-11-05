@@ -15,7 +15,7 @@ debug    every DEBUG line, module and line number     off
 A *milestone* is an INFO line the default level keeps: the phase
 checkmarks, what a run wrote, how it ended. Emit one with
 ``logger.info(..., extra=MILESTONE)``, the marker
-:mod:`hydromodpy.core.progress` defines. Everything else stays out of
+:mod:`hydromodpy.core.console.progress` defines. Everything else stays out of
 the way at ``normal`` and is one ``--verbose`` away.
 
 On a terminal a console line starts with a glyph for its level, the
@@ -32,8 +32,8 @@ import logging
 import os
 import warnings
 
-from hydromodpy.core import progress as core_progress
-from hydromodpy.core.progress import MILESTONE_KEY
+from hydromodpy.core.console import progress as core_progress
+from hydromodpy.core.console.progress import MILESTONE_KEY
 
 VERBOSITY_LEVELS: tuple[str, ...] = ("quiet", "normal", "verbose", "debug")
 """Accepted console verbosity levels, quietest first."""

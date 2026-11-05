@@ -2,7 +2,7 @@
 
 Submodules
 ----------
-raster_io       GeoTIFF / NetCDF loading, clipping, reprojection, export.
+raster_io       GeoTIFF / NetCDF loading, masking, reprojection, export.
 vector_io       Shapefile / GeoPackage helpers.
 crs             pyproj CRS helpers (UTM detection, transform, bootstrap).
 canonical_json  Deterministic JSON dump (stable key ordering, sorted sets).

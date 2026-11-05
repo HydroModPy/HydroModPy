@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.config.sites.expansion import is_sites_project
 from hydromodpy.core.toml_io.generator import generate_toml_from_instances
-from hydromodpy.core.toml_io.io import dump_toml_with_comments
+from hydromodpy.core.toml_io.writer import dump_toml_with_comments
 
 _DESIGN_DRAFT_PROJECTS = {"03_groundwater_1d"}
 

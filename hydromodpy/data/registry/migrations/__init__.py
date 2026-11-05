@@ -1,7 +1,7 @@
 """Data cache DuckDB schema migrations.
 
-Thin wrapper that binds the generic migration runner from
-``hydromodpy.core.migrations`` to the bundled SQL directory and to the
+Binds the migration runner of this folder (``runner.py``, with the backup
+and lock of ``auto_boot.py``) to the bundled SQL directory and to the
 ``"data_cache"`` component name.
 """
 
@@ -10,19 +10,19 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from hydromodpy.core.migrations import (
-    Migration,
+from hydromodpy.data.registry.migrations.auto_boot import ensure_schema_safe as _ensure_schema_safe
+from hydromodpy.data.registry.migrations.errors import (
     MigrationDiscoveryError,
     MigrationError,
     MigrationExecutionError,
     SchemaIntegrityError,
 )
-from hydromodpy.core.migrations import apply_migration as _apply_migration
-from hydromodpy.core.migrations import apply_migrations as _apply_migrations
-from hydromodpy.core.migrations import current_version as _current_version
-from hydromodpy.core.migrations import discover_migrations as _discover_migrations
-from hydromodpy.core.migrations import ensure_schema_safe as _ensure_schema_safe
-from hydromodpy.core.migrations import target_version as _target_version
+from hydromodpy.data.registry.migrations.runner import Migration
+from hydromodpy.data.registry.migrations.runner import apply_migration as _apply_migration
+from hydromodpy.data.registry.migrations.runner import apply_migrations as _apply_migrations
+from hydromodpy.data.registry.migrations.runner import current_version as _current_version
+from hydromodpy.data.registry.migrations.runner import discover_migrations as _discover_migrations
+from hydromodpy.data.registry.migrations.runner import target_version as _target_version
 
 if TYPE_CHECKING:
     import duckdb

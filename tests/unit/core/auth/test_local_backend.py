@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.core.auth.backends import LocalAuthBackend
+from hydromodpy.core.auth import LocalAuthBackend
 
 
 def test_current_user_returns_string(monkeypatch: pytest.MonkeyPatch) -> None:

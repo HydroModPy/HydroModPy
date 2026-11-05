@@ -7,15 +7,12 @@ enough to show the four levels. Every step after it is a call of the code.
 import matplotlib.pyplot as plt
 import numpy as np
 
-from hydromodpy.core.depression_filling import fill_depressions_on_graph
-from hydromodpy.core.descent import build_descent, descent_graph
-from hydromodpy.core.field_routing import (
-    accumulate_on_downhill_graph,
-    domain_edge_cells,
-    seepage_mask,
-)
-from hydromodpy.core.stream_network import build_simulated_network, specific_seepage_threshold
-from hydromodpy.core.topographic_distance import build_downslope_metric, shared_node_adjacency
+from hydromodpy.core.budget.flux import seepage_mask
+from hydromodpy.core.drainage.descent import build_descent, descent_graph
+from hydromodpy.core.drainage.distance import build_downslope_metric, shared_node_adjacency
+from hydromodpy.core.drainage.filling import fill_depressions_on_graph
+from hydromodpy.core.drainage.graph import accumulate_on_downhill_graph, domain_edge_cells
+from hydromodpy.core.stream.network import build_simulated_network, specific_seepage_threshold
 
 N, SIZE = 24, 25.0  # cells per side, cell size in m
 RECHARGE = 1.0e-8  # m/s, about 315 mm per year

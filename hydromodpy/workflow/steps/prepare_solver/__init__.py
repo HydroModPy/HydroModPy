@@ -19,7 +19,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
-from hydromodpy.core.budget_terms import BudgetKeep
+from hydromodpy.core.budget.terms import BudgetKeep
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results.outcome import read_outcome
@@ -77,7 +77,7 @@ def _resolve_plan_and_results(ctx, *, store=None) -> None:
 
 def _stored_budget_keep(ctx: WorkflowContext, store) -> BudgetKeep | None:
     """Return the budget policy the store of ``ctx`` declares, or None."""
-    from hydromodpy.core.budget_terms import POLICY_ALL, kept_budget
+    from hydromodpy.core.budget.terms import POLICY_ALL, kept_budget
 
     sim_id = ctx.sim_id
     if sim_id is None or not store.fields_path_for(sim_id).exists():

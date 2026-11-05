@@ -1,10 +1,10 @@
 """Write one export request of a run: expand it, plan its files, write each by kind.
 
-A request (:class:`~hydromodpy.core.config_kit.export_spec.ExportRequest`)
+A request (:class:`~hydromodpy.results.exporters.export_spec.ExportRequest`)
 names data, not formats. This module reads what the run holds
 (:func:`~hydromodpy.results.exporters.vocabulary.list_exportable`), expands
 ``"all"``, plans every file with the same
-:func:`~hydromodpy.core.config_kit.export_spec.plan_outputs` the step 0 check
+:func:`~hydromodpy.results.exporters.export_spec.plan_outputs` the step 0 check
 ran, resolves the dates to stress periods, and hands each file to the
 exporter of its kind:
 
@@ -35,17 +35,6 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from hydromodpy.core.config_kit.export_spec import (
-    EXPORT_ALL,
-    MESH_LAYERS,
-    RUN_FORMATS,
-    STEP_DATE_TOKEN,
-    ExportFormat,
-    ExportKind,
-    ExportRequest,
-    PlannedFile,
-    plan_outputs,
-)
 from hydromodpy.core.exceptions import ExportError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.time.selection import period_label
@@ -62,6 +51,17 @@ from hydromodpy.results.exporters._tables import (
     TIMESERIES_TABLE,
     read_table,
     table_path,
+)
+from hydromodpy.results.exporters.export_spec import (
+    EXPORT_ALL,
+    MESH_LAYERS,
+    RUN_FORMATS,
+    STEP_DATE_TOKEN,
+    ExportFormat,
+    ExportKind,
+    ExportRequest,
+    PlannedFile,
+    plan_outputs,
 )
 from hydromodpy.results.exporters.fields import is_timed
 from hydromodpy.results.exporters.vocabulary import (

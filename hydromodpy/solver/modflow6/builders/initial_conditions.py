@@ -5,8 +5,8 @@ from __future__ import annotations
 import numpy as np
 
 from hydromodpy.core.exceptions import IncompatibleMeshError
+from hydromodpy.core.fields.nodata import SENTINEL_ABS_THRESHOLD
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.nodata import SENTINEL_ABS_THRESHOLD
 from hydromodpy.solver.initial_conditions import (
     build_head_initial_condition_array,
     initial_condition_field,

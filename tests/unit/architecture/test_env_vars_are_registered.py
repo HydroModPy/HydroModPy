@@ -1,4 +1,4 @@
-"""Every ``HMP_*`` environment variable the code names has a row in ``hydromodpy.core.env``.
+"""Every ``HMP_*`` environment variable the code names has a row in ``hydromodpy.core.runtime.env``.
 
 The variables are read where they are needed, in many files, and the pages
 listed them by hand, each page a different subset. The registry is the one
@@ -14,7 +14,7 @@ a variable and is something else goes in :data:`NOT_ENVIRONMENT`, with why.
 
 from __future__ import annotations
 
-from hydromodpy.core.env import ENV_SCOPES, ENV_VARS, env_var
+from hydromodpy.core.runtime.env import ENV_SCOPES, ENV_VARS, env_var
 from tools.docs.contribute_data import env_var_references
 
 NOT_ENVIRONMENT: dict[str, str] = {
@@ -39,7 +39,7 @@ def test_every_variable_the_code_names_has_a_row() -> None:
     names = set(env_var_references()) - set(NOT_ENVIRONMENT)
     missing = sorted(name for name in names if not _registered(name))
     assert missing == [], (
-        "These HMP_* names appear in the code without a row in hydromodpy/core/env.py. "
+        "These HMP_* names appear in the code without a row in hydromodpy/core/runtime/env.py. "
         "Add a row (name, default, scope, description), or add the name to NOT_ENVIRONMENT "
         f"in this file when it is not an environment variable: {missing}"
     )
@@ -52,7 +52,7 @@ def test_every_row_names_a_variable_the_code_reads() -> None:
         for var in ENV_VARS
         if not any(n == var.name or (var.prefix and n.startswith(var.name)) for n in names)
     )
-    assert stale == [], f"hydromodpy/core/env.py lists variables nothing reads: {stale}"
+    assert stale == [], f"hydromodpy/core/runtime/env.py lists variables nothing reads: {stale}"
 
 
 def test_every_exclusion_is_still_written_somewhere() -> None:

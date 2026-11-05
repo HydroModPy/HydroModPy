@@ -13,7 +13,7 @@ typed by hand: a wrong row is fixed in its source, never in a page.
   registries of the code (variables, figures, solvers, sources, steps);
 - storage tree: ``hydromodpy.results.storage.contract`` and
   ``hydromodpy.core.state.paths``;
-- environment variables: ``hydromodpy.core.env`` and a scan of the code;
+- environment variables: ``hydromodpy.core.runtime.env`` and a scan of the code;
 - extras: ``[project.optional-dependencies]`` of ``pyproject.toml``.
 
 The Sphinx extension ``docs/source/_ext/hmp_contribute.py`` renders them.
@@ -44,7 +44,7 @@ ENV_PY_FILES = ("docs/source/conf.py", "poly.py")
 ENV_PY_DIRS = ("docs/source/_ext",)
 ENV_TEXT_GLOBS = (".github/workflows/*.yml", "docs/Makefile", "Dockerfile")
 ENV_SCAN_EXCLUDED = (
-    "hydromodpy/core/env.py",
+    "hydromodpy/core/runtime/env.py",
     "tests/unit/architecture/test_env_vars_are_registered.py",
 )
 """The registry and its gate name every variable; they are not readers."""
@@ -760,8 +760,8 @@ def env_var_references(repo: Path = ROOT) -> dict[str, tuple[str, ...]]:
 
 
 def environment_rows(repo: Path = ROOT) -> list[dict[str, Any]]:
-    """The registry of ``hydromodpy.core.env``, with the files that read each variable."""
-    from hydromodpy.core.env import ENV_SCOPES, ENV_VARS
+    """The registry of ``hydromodpy.core.runtime.env``, with the files that read each variable."""
+    from hydromodpy.core.runtime.env import ENV_SCOPES, ENV_VARS
 
     refs = env_var_references(repo)
     rows = []

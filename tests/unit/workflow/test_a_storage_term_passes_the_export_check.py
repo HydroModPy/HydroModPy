@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from hydromodpy.config.export_checks import check_export_variables
-from hydromodpy.core.config_kit.export_spec import ExportKind, ExportRequest
+from hydromodpy.results.exporters.export_spec import ExportKind, ExportRequest
 from hydromodpy.results.exporters.vocabulary import static_export_names
 
 TERMS = ("storage", "storage_ss", "storage_sy", "evapotranspiration")

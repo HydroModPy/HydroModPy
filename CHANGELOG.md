@@ -39,6 +39,7 @@ Each release section includes the following standard categories:
 
 ### Fixed
 
+- The block-size pre-create of a DuckDB file now skips a path still attached in this process on the DuckDB releases that raise `ResourceInUseException`.
 - `hmp campaign status` no longer counts a folder under `sessions/` without `session.json`.
 - A forcing that a run fails to persist now logs a warning.
 - `hmp overview` resolves the DEM, network and crossings with the same rules as a run. A declared `dem_init_path` missing on disk is an error there too.
@@ -82,6 +83,9 @@ Each release section includes the following standard categories:
 
 ### Changed
 
+- `hydromodpy.core` regroups its root modules into `stream/`, `drainage/`, `budget/`, `fields/`, `scoring/`, `console/` and `runtime/`, and its root goes from 35 modules to 9. `auth`, `site`, `state` and `units` absorb their single-use modules, for instance `state.data`, `state.execution` and `state.setup` into `state.run_state`.
+- Modules leave `core` for the layer that uses them: `bed_regularization` to `spatial/geographic/core/`, `solver_diagnostics` to `solver/boussinesq/runtimes/diagnostic_files`, `administrative_france` to `spatial/administrative/regions`, `units.udunits` to `results/storage/`, `config_kit.export_spec` to `results/exporters/` and `migrations` to `data/registry/migrations/`.
+- `build_network_geometry`, `build_descent` and the TOML template generator are cut into steps, with `drainage/pins.py` and `toml_io/{render,section,model_types}.py`. Each sub-package of `core` has a README, and CI gains the `core-coverage` job, one coverage floor per sub-package.
 - `hydromodpy.workflow` loses `internals/`, `tracking/` and `pipelines/`. `PipelineState` and `Step` live in `workflow/state.py` and `workflow/step.py`, the run record (`attempt`, `journal`, `resume`, `manifest`, `run_store`) in `workflow/record/`, `DataOverviewLauncher` in `workflow/overview.py` and `standard_steps` in `workflow/steps/sequence.py`.
 - `hydromodpy.project`: `attempt` and `replay_checks` move down to `workflow`. `summary` and `lockfile` join `project/launch/`, split into `selection`, `sacct`, `slurm_script` and the summary modules. `share`, `install` and the replay of a published copy form `project/exchange/`. `open_project` moves to `project/opening.py` and the calibrate routing to `project/calibrate.py`.
 - Business rules leave the workflow steps and `project`: SFR geometry and lake catchments go to `spatial/geographic`, the support contract and `rebuild_domain` to `spatial/domain`, input path rules to `data/variables/*/resolver.py`, the field envelope, scratch cleanup, soil tables, point sampling, run facts, ranking and summary tables to `results`, the export checks to `config/export_checks.py`, the cohort figures to `display/cohort.py` and the campaign page to `reporting/campaign_summary.py`.
@@ -161,6 +165,7 @@ None. No metric value changes.
 
 ### Removed
 
+- `hydromodpy.core.io.crs.haversine_km`, use `hydromodpy.data.common.geo_helpers.haversine_km`, which keeps its radius of 6371.0 km, and `hydromodpy.core.io.raster_io.clip_tif`, which had no caller.
 - `prepare_runtime`, `workflow/phases.py` and the `Launcher` Protocol, duplicates of `project/phases.py`, `STEP_NAMES` and `SimulationRunner`.
 - The B0 network and transient discharge case left the `hydromodpy` package for `validation_cases/calibration/network_transient_b0/`. The wheel no longer ships its page. `hydromodpy.calibration.reporting`, `hydromodpy.calibration.observations.natural_observations`, `network_cost`, `network_transient_truth` and `hydromodpy.calibration.optim.objective_mapping` are gone, and `step_render_network_transient_calibration_html` is no longer in `hydromodpy.workflow.steps.calibration`.
 - A network output can no longer score against `geographic.river_network`. The DEM-derived network is no observation. `hmp doctor --fix-config` says to write `map.complete = "data.hydrography"` or a vector file, and a sealed run simply drops the key. The `observed_network_is_dem_derived` trial diagnostic is gone with it.

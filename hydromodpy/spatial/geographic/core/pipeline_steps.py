@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING
 
 import rasterio
 
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
 from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.spatial.delineation.registry import resolve_delineation_backend
 from hydromodpy.spatial.geographic.core.catchment_domain import (

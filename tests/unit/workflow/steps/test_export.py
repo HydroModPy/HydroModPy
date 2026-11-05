@@ -15,11 +15,11 @@ import hydromodpy.results.exporters.request as request_module
 import hydromodpy.simulation.extraction.post_run as post_run_module
 import hydromodpy.workflow.steps.export as export_module
 from hydromodpy.calibration.runners.cli_runner import release_session_scratch
-from hydromodpy.core.config_kit.export_spec import load_export_requests
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import PREPROCESSING_DIRNAME, PROJECT_MARKER_FILENAME
 from hydromodpy.results.catalog.registration import reserve_version_dirname
+from hydromodpy.results.exporters.export_spec import load_export_requests
 from hydromodpy.results.identity import read_identity_from
 from hydromodpy.results.ledger import Ledger
 from hydromodpy.results.lineage import Lineage
@@ -159,7 +159,7 @@ def _recap_lines(caplog) -> list[str]:
 
 def test_the_run_recap_waits_for_the_export_phase_to_close(caplog, sealed) -> None:
     """The views and the cleanup run after the seal: the recap comes after them."""
-    from hydromodpy.core import progress
+    from hydromodpy.core.console import progress
 
     caplog.set_level(logging.INFO, logger="hydromodpy")
     ctx = sealed()

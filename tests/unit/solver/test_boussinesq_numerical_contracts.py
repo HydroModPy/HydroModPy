@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from hydromodpy.core.budget_terms import BudgetKeep, kept_budget
+from hydromodpy.core.budget.terms import BudgetKeep, kept_budget
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.solver.boussinesq.assembly import assemble_steady_residual

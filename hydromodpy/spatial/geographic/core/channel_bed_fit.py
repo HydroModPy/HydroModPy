@@ -17,7 +17,10 @@ from rasterio.features import geometry_mask
 from rasterio.transform import xy
 from shapely.geometry.base import BaseGeometry
 
-from hydromodpy.core.bed_regularization import BedRegularization, regularize_bed_on_tree
+from hydromodpy.spatial.geographic.core.bed_regularization import (
+    BedRegularization,
+    regularize_bed_on_tree,
+)
 from hydromodpy.spatial.terrain.port import D8_WBT_OFFSETS
 
 __all__ = [

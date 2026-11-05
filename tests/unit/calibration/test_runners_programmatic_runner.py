@@ -24,7 +24,7 @@ from hydromodpy.calibration.runners.programmatic_runner import run_calibration_p
 from hydromodpy.calibration.runners.session import calibration_case_name, open_session_dir
 from hydromodpy.calibration.runners.trial import TrialContext
 from hydromodpy.core.exceptions import CalibrationError, ConfigError, ConfigMissingError
-from hydromodpy.core.state.execution import ExecutionRegistry
+from hydromodpy.core.state.run_state import ExecutionRegistry
 from hydromodpy.project import Project
 from hydromodpy.results.session.descriptor import read_session, session_descriptor_path
 from hydromodpy.results.session.journal import read_trials

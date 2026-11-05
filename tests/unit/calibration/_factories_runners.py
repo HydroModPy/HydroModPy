@@ -21,8 +21,8 @@ from hydromodpy.calibration.persistence import CalibrationPersistence
 from hydromodpy.calibration.report import CalibrationReport
 from hydromodpy.calibration.runners import cli_runner, promotion, staged_runner
 from hydromodpy.calibration.runners.trial import TrialContext
-from hydromodpy.core.interrupts import TerminationRequested
-from hydromodpy.core.state.execution import ExecutionRegistry
+from hydromodpy.core.runtime.interrupts import TerminationRequested
+from hydromodpy.core.state.run_state import ExecutionRegistry
 from tests._helpers.persisting_simulation import SimulationStub, persisting_simulation
 from tests._helpers.session_documents import session_opening
 from tests.unit.calibration._factories_search import result_of

@@ -11,7 +11,7 @@ same gray to two of the eight bearings.
 
 The octant is derived from geometry, not from a pointer table. This figure
 reads the receivers of the descent D of the run (``run.descent``, see
-:mod:`hydromodpy.core.descent`) and takes the vector from a cell center to its
+:mod:`hydromodpy.core.drainage.descent`) and takes the vector from a cell center to its
 receiver's center, so it says the same thing on a Voronoi dual as on a
 structured grid. D follows the channel tree where the run has one, so a
 receiver is not always a neighbor. In particular it is NOT a whitebox D8

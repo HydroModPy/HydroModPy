@@ -657,11 +657,9 @@ class MigrationFailedError(CatalogError):
     code = "HMPY.E807"
 
 
-# Mirrors ``REPAIR_HINTS["catalog"]`` in ``hydromodpy/core/migrations/runner.py``
-# (lines 44-47), duplicated rather than imported: importing that module runs
-# ``hydromodpy/core/migrations/__init__.py``, which imports ``auto_boot.py``,
-# which imports ``BackupFailedError`` from this module - a real import cycle,
-# not merely a layering tolerance. Keep this in sync with the runner's hint by
+# Mirrors ``REPAIR_HINTS["catalog"]`` in ``hydromodpy/data/registry/migrations/runner.py``
+# (lines 44-47), duplicated rather than imported because ``core`` may not
+# import the ``data`` layer. Keep this in sync with the runner's hint by
 # hand; both name the same command because there is exactly one repair for a
 # DuckDB index this project keeps, and it is always a rebuild, never a repair
 # in place.

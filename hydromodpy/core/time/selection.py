@@ -35,6 +35,7 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.core.exceptions import ResultsError
+from hydromodpy.core.time.period_aggregation import naive_timestamp
 
 __all__ = (
     "TimeSelectionError",
@@ -57,19 +58,11 @@ class TimeSelectionError(ResultsError, ValueError):
     """A time selector names no period of the run."""
 
 
-def _naive(value: Any) -> pd.Timestamp:
-    """Return one timestamp, tz-naive in UTC."""
-    ts = pd.Timestamp(value)
-    if ts.tz is not None:
-        ts = ts.tz_convert("UTC").tz_localize(None)
-    return ts
-
-
 def _edges(edges: Any) -> pd.DatetimeIndex | None:
     """Return ``edges`` as a checked tz-naive index, or ``None`` for a run without dates."""
     if edges is None:
         return None
-    index = pd.DatetimeIndex([_naive(edge) for edge in edges])
+    index = pd.DatetimeIndex([naive_timestamp(edge) for edge in edges])
     if len(index) < 2:
         raise ValueError(f"a record needs at least two edges, got {len(index)}.")
     if not index.is_monotonic_increasing or not index.is_unique:
@@ -116,11 +109,11 @@ def _as_date(selector: Any) -> pd.Timestamp:
         if not text[:1].isdigit():
             raise TimeSelectionError(refused)
         try:
-            instant = _naive(text)
+            instant = naive_timestamp(text)
         except (ValueError, TypeError) as exc:
             raise TimeSelectionError(refused) from exc
     elif isinstance(selector, _dt.date | pd.Timestamp | np.datetime64):
-        instant = _naive(selector)
+        instant = naive_timestamp(selector)
     else:
         raise TimeSelectionError(refused)
     if pd.isna(instant):

@@ -36,10 +36,10 @@ from hydromodpy.calibration.evaluation.port import TrialOutcome, TrialRequest
 from hydromodpy.calibration.metrics.trial_series_capture import TrialSeriesSink
 from hydromodpy.calibration.runners.kept_solves import TrialSolveRetention
 from hydromodpy.calibration.runners.sandbox import sandbox_of
-from hydromodpy.core.bootstrap_hook import ensure_bootstrapped
 from hydromodpy.core.exceptions import CalibrationError
 from hydromodpy.core.logging import current_verbosity, set_verbosity
-from hydromodpy.core.stream_geometry import recharge_session
+from hydromodpy.core.runtime.bootstrap_hook import ensure_bootstrapped
+from hydromodpy.core.stream.geometry import recharge_session
 
 # A non-converging solve can spin forever, which would wedge a whole search on one
 # trial. It only has to stop that: a daily solve takes ~15 min alone and several

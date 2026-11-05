@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 import flopy
 import numpy as np
 
-from hydromodpy.core.descent import Descent, DescentBasin
+from hydromodpy.core.drainage.descent import Descent, DescentBasin
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.core.logging import get_logger

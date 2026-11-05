@@ -14,7 +14,7 @@ import numpy as np
 from rasterio.features import rasterize
 
 from hydromodpy.core.exceptions import DataContractViolation
-from hydromodpy.core.nodata import valid_cells
+from hydromodpy.core.fields.nodata import valid_cells
 from hydromodpy.schema.job.refusal import refuse_request
 
 ACTIVE = 1

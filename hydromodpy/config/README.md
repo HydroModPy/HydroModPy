@@ -46,7 +46,7 @@ One field of `HydroModPyConfig` per top-level TOML section. Required: `workflow`
 | `[modflownwt]` | `ModflowConfig` | `solver/modflow_nwt/nwt/nwt_config.py` |
 | `[modflow6]` | `Modflow6Config` | `solver/modflow6/modflow6_config.py` |
 | `[display]` | `DisplayConfig` | `display/config.py` |
-| `[[export]]` | `ExportRequest` (a list) | `core/config_kit/export_spec.py` |
+| `[[export]]` | `ExportRequest` (a list) | `results/exporters/export_spec.py` |
 | `[observation]` | `ObservationConfig` | `simulation/planning/observation_config.py` |
 | `[overview]` | `OverviewConfig` | `display/overview/config.py` |
 | `[mesh]` | `MeshConfig` | `spatial/mesh/mesh_config.py` |

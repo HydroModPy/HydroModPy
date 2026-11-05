@@ -21,8 +21,8 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.core.descent import descent_basin
-from hydromodpy.core.field_routing import build_downhill_graph
+from hydromodpy.core.drainage.descent import descent_basin
+from hydromodpy.core.drainage.graph import build_downhill_graph
 from hydromodpy.solver.modflow_common.discharge_routing import (
     largest_drainable_share,
     last_largest_drainable_share,

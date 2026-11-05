@@ -4,7 +4,7 @@ A transient run holds one release field per timestep. Where the network flowed,
 how often, and the maximal and minimal extents the two-bound mode of the
 network criterion scores, are all counts over that stack. This module counts
 them on a stored run, through the one definition of "flowing" of
-:mod:`hydromodpy.core.stream_extent`, on the criterion graph that
+:mod:`hydromodpy.core.stream.extent`, on the criterion graph that
 :func:`hydromodpy.results.derive.stream_network.network_comparison_from_run`
 rebuilds. A figure drawn from here therefore cuts the network where a trial
 cuts it: seepage above ``tau * R * A``, closed downstream on the conditioned
@@ -25,11 +25,11 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from hydromodpy.core.stream_criterion_defaults import (
+from hydromodpy.core.stream.criterion_defaults import (
     STREAM_CRITERION_DEFAULTS,
     ObservedRasterization,
 )
-from hydromodpy.core.stream_extent import (
+from hydromodpy.core.stream.extent import (
     CHUNK_ELEMENTS,
     DEFAULT_VISIBLE_FLOW,
     Bound,
@@ -46,7 +46,7 @@ from hydromodpy.core.stream_extent import (
     parse_extent_duration,
     parse_visible_flow,
 )
-from hydromodpy.core.stream_geometry import CriterionSupports, NetworkGeometry, criterion_supports
+from hydromodpy.core.stream.geometry import CriterionSupports, NetworkGeometry, criterion_supports
 from hydromodpy.core.time import nominal_step_days, parse_step_spec
 from hydromodpy.results.derive.stream_network import (
     has_recharge_source,
@@ -324,7 +324,7 @@ def block_flow_counts(
 ) -> BlockFlowCounts:
     """Count, per block of timesteps and per cell, the timesteps the cell flows.
 
-    "Flows" is :func:`hydromodpy.core.stream_extent.flowing_cells` on the
+    "Flows" is :func:`hydromodpy.core.stream.extent.flowing_cells` on the
     criterion ``geometry``: in the downstream closure of the cells releasing
     above their threshold and, unless ``visible_flow`` is ``"0 L/s"``, carrying
     at least that routed discharge. The release field is read at most

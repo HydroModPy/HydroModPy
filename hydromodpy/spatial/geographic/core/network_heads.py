@@ -1,7 +1,7 @@
 """The free ends of a mapped stream network, where its heads may lie.
 
 The heads rule of the network criterion keeps only where the map says a
-stream starts (:mod:`hydromodpy.core.stream_heads`). A head is found
+stream starts (:mod:`hydromodpy.core.stream.heads`). A head is found
 geometrically, for every source alike: no provider reads node codes, and the
 direction a line was digitized in is never trusted. This module only finds the
 free ends and the other end of each merged reach; which end is upstream is
@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.stream_heads import HeadCandidates
+from hydromodpy.core.stream.heads import HeadCandidates
 
 if TYPE_CHECKING:
     from shapely.geometry.base import BaseGeometry

@@ -2,7 +2,7 @@
 
 The heavy bootstrap (config rebuild + DI wiring, which pulls flopy, matplotlib,
 the full physics/solver/workflow graph) is deferred to first real use via
-``core.bootstrap_hook``. A bare ``import hydromodpy`` must therefore NOT run the
+``core.runtime.bootstrap_hook``. A bare ``import hydromodpy`` must therefore NOT run the
 bootstrap nor pull the heavy scientific stack, so notebooks, scripts and
 ``hmp --help`` start fast.
 """

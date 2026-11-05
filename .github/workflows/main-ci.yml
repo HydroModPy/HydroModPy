@@ -355,6 +355,68 @@ jobs:
           coverage report --include='hydromodpy/spatial/terrain/*' --precision=2 --fail-under=94.6
           coverage report --include='hydromodpy/spatial/*.py' --precision=2 --fail-under=99.2
 
+  core-coverage:
+    name: Coverage / core gate py3.13
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install package and test extras
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test,calibration,mesh]"
+
+      - name: Install external validity_frame package
+        run: pip install -e validity_frame
+
+      # Branch coverage of core/ by its own tests, tests/unit/core, which mirror
+      # the sub-packages of core.
+      - name: Run the tests of the core package
+        run: |
+          python -m pytest tests/unit/core/ \
+            -n 2 --dist loadgroup \
+            --max-worker-restart=0 \
+            --timeout=300 \
+            --cov=hydromodpy/core \
+            --cov-branch \
+            --cov-report= \
+            --cov-fail-under=0 \
+            -q
+
+      # One floor per sub-package, half a point under the value measured on
+      # 2026-11-05 with Python 3.12, so that the change of interpreter does not
+      # trip it. The floors only go up. The last line gates the modules at the
+      # top of core/.
+      - name: Gate the core coverage
+        run: |
+          coverage combine || true
+          coverage report --include='hydromodpy/core/auth/*' --precision=2 --fail-under=100.0
+          coverage report --include='hydromodpy/core/budget/*' --precision=2 --fail-under=99.1
+          coverage report --include='hydromodpy/core/config_kit/*' --precision=2 --fail-under=93.6
+          coverage report --include='hydromodpy/core/console/*' --precision=2 --fail-under=89.8
+          coverage report --include='hydromodpy/core/contracts/*' --precision=2 --fail-under=70.1
+          coverage report --include='hydromodpy/core/drainage/*' --precision=2 --fail-under=93.2
+          coverage report --include='hydromodpy/core/fields/*' --precision=2 --fail-under=79.2
+          coverage report --include='hydromodpy/core/io/*' --precision=2 --fail-under=88.3
+          coverage report --include='hydromodpy/core/payload/*' --precision=2 --fail-under=93.0
+          coverage report --include='hydromodpy/core/runtime/*' --precision=2 --fail-under=48.8
+          coverage report --include='hydromodpy/core/scoring/*' --precision=2 --fail-under=79.5
+          coverage report --include='hydromodpy/core/site/*' --precision=2 --fail-under=92.9
+          coverage report --include='hydromodpy/core/state/*' --precision=2 --fail-under=83.8
+          coverage report --include='hydromodpy/core/stream/*' --precision=2 --fail-under=88.5
+          coverage report --include='hydromodpy/core/time/*' --precision=2 --fail-under=93.1
+          coverage report --include='hydromodpy/core/toml_io/*' --precision=2 --fail-under=70.5
+          coverage report --include='hydromodpy/core/tracking/*' --precision=2 --fail-under=95.0
+          coverage report --include='hydromodpy/core/units/*' --precision=2 --fail-under=82.9
+          coverage report --include='hydromodpy/core/workspace/*' --precision=2 --fail-under=81.1
+          coverage report --include='hydromodpy/core/*.py' --precision=2 --fail-under=83.4
+
   calibration-coverage:
     name: Coverage / calibration gate py3.13
     runs-on: ubuntu-latest

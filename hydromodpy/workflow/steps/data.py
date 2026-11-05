@@ -6,10 +6,10 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
+from hydromodpy.core.console.progress import MILESTONE
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.progress import MILESTONE
 from hydromodpy.core.time import (
     build_simulation_time_boundaries,
     resolve_simulation_time_window,

@@ -14,7 +14,7 @@ from pydantic import Field
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.field_precision import DEFAULT_FIELD_PRECISION, FieldPrecision
+from hydromodpy.core.fields.precision import DEFAULT_FIELD_PRECISION, FieldPrecision
 
 CompressionCodec = Literal["none", "zstd", "lz4", "gzip", "snappy"]
 

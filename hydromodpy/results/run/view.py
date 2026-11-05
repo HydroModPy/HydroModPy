@@ -458,7 +458,7 @@ class Run(
         ...     "watertable_depth", time="last", file="nappe_wgs84.tif", crs="EPSG:4326"
         ... )  # doctest: +SKIP
         """
-        from hydromodpy.core.config_kit.export_spec import ExportRequest
+        from hydromodpy.results.exporters.export_spec import ExportRequest
         from hydromodpy.results.exporters.request import export_run
 
         fields = {

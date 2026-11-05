@@ -19,14 +19,12 @@ from __future__ import annotations
 import difflib
 import os
 import re
-import types
-import typing
 from collections.abc import Iterable, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, get_args, get_origin
+from typing import TYPE_CHECKING, Any, get_args, get_origin
 
-from hydromodpy.core.config_kit.introspect import iter_basemodels
+from hydromodpy.core.config_kit.introspect import is_model, iter_basemodels, unwrap_members
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.toml_io.merge import DIRECTIVE_SUFFIXES
 
@@ -322,21 +320,6 @@ def lookup(payload: Mapping[str, Any], path: DottedPath | str) -> Any:
     return cursor
 
 
-def _members(annotation: Any) -> list[Any]:
-    """Return the members of an annotation, with ``Annotated`` and ``None`` removed."""
-    origin = get_origin(annotation)
-    if origin is Annotated:
-        return _members(get_args(annotation)[0])
-    if origin is typing.Union or origin is types.UnionType:
-        out: list[Any] = []
-        for arg in get_args(annotation):
-            out.extend(_members(arg))
-        return out
-    if annotation is type(None):
-        return []
-    return [annotation]
-
-
 def _is_sequence(member: Any) -> bool:
     origin = get_origin(member)
     return origin in {list, tuple, set, frozenset} or (
@@ -352,12 +335,6 @@ def _is_mapping(member: Any) -> bool:
     if member in {dict, Mapping}:
         return True
     return origin is not None and isinstance(origin, type) and issubclass(origin, Mapping)
-
-
-def _is_model(member: Any) -> bool:
-    from pydantic import BaseModel as _BaseModel
-
-    return isinstance(member, type) and issubclass(member, _BaseModel)
 
 
 def _field_of(model: type[BaseModel], name: str) -> FieldInfo | None:
@@ -405,14 +382,14 @@ def resolve_field(model: type[BaseModel], path: DottedPath | str) -> FieldInfo:
         index += 1
         if index == len(parts):
             return info
-        members = _members(info.annotation)
+        members = unwrap_members(info.annotation)
         here = str(DottedPath(parts[:index]))
         if any(_is_sequence(member) for member in members):
             raise UnknownPathError(
                 f"{parsed}: {here} is a list, and a key path takes no index. Set the "
                 "whole list, or merge a list of tables with the __merge directive."
             )
-        nested = [member for member in members if _is_model(member)]
+        nested = [member for member in members if is_model(member)]
         following = _strip_directive(parts[index]) if index == len(parts) - 1 else parts[index]
         if any(_field_of(cls, following) is not None for cls in nested):
             candidates = nested

@@ -14,7 +14,7 @@ from hydromodpy.cli.helpers import exit_code_for
 from hydromodpy.cli.main import main as cli_main
 from hydromodpy.core.exceptions import CacheCorruptionError, NetworkError, SolverBinaryError
 from hydromodpy.solver.modflow_common import binaries
-from tests.unit.core._fake_release import digest_of, serve_assets
+from tests.unit.core.io._fake_release import digest_of, serve_assets
 
 ASSET = binaries._release_asset()
 

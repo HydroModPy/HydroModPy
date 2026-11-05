@@ -22,9 +22,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, ClassVar, Final
 
+from hydromodpy.core.console.progress import MILESTONE
 from hydromodpy.core.exceptions import DataRequestError, DataSourceError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.progress import MILESTONE
 from hydromodpy.data.common.clients import sandre_topage
 from hydromodpy.data.source.permanence import (
     DRY,

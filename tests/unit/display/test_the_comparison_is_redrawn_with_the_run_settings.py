@@ -11,7 +11,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from hydromodpy.core.stream_criterion_defaults import STREAM_CRITERION_DEFAULTS
+from hydromodpy.core.stream.criterion_defaults import STREAM_CRITERION_DEFAULTS
 from hydromodpy.display.figures import _stream_comparison
 from hydromodpy.display.figures._stream_comparison import comparison_from_run
 from tests._helpers.sealed_runs import sealed_search

@@ -15,7 +15,7 @@ import pytest
 import shapely
 from shapely.geometry import box
 
-from hydromodpy.core.descent import DescentBasin
+from hydromodpy.core.drainage.descent import DescentBasin
 from hydromodpy.results.zarr_store import SimulationZarr
 from hydromodpy.solver.modflow_common.catchment_basin import run_basin
 from hydromodpy.solver.modflow_common.descent_store import (

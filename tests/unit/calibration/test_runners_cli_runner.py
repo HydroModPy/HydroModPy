@@ -85,8 +85,8 @@ from hydromodpy.core.code_fingerprint import (
 )
 from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning
 from hydromodpy.core.exceptions import CalibrationError, ConfigError, ObjectiveError
-from hydromodpy.core.interrupts import TerminationRequested
-from hydromodpy.core.stream_geometry import VALIDITY_PROVENANCE_CODE
+from hydromodpy.core.runtime.interrupts import TerminationRequested
+from hydromodpy.core.stream.geometry import VALIDITY_PROVENANCE_CODE
 from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.project import Project
 from hydromodpy.results.heartbeat import read_heartbeat

@@ -15,8 +15,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.core.stream_geometry import RECHARGE_MOVE_TOLERANCE
-from hydromodpy.core.stream_recharge import (
+from hydromodpy.core.stream.geometry import RECHARGE_MOVE_TOLERANCE
+from hydromodpy.core.stream.recharge import (
     criterion_mean_recharge,
     forcing_period_rates,
     mean_recharge_m_s,

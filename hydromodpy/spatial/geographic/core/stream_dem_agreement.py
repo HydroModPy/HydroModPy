@@ -24,7 +24,7 @@ import rasterio
 from rasterio.features import rasterize
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.stream_criterion_defaults import STREAM_CRITERION_DEFAULTS
+from hydromodpy.core.stream.criterion_defaults import STREAM_CRITERION_DEFAULTS
 from hydromodpy.core.toml_io.paths import is_declared_absolute_path
 from hydromodpy.spatial.terrain.d8 import d8_receivers
 

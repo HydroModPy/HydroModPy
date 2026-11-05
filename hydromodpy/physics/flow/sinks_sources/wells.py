@@ -17,7 +17,7 @@ from hydromodpy.core.units.volumetric_flow import normalize_m3_per_s_unit
 from hydromodpy.physics.base.forcing import VolumeRateForcing
 
 if TYPE_CHECKING:
-    from hydromodpy.core.grid_reference import GridReference
+    from hydromodpy.core.fields.grid_reference import GridReference
 
 
 def _coerce_cell_indices(value: Any) -> tuple[int, int, int]:

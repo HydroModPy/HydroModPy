@@ -35,7 +35,7 @@ PACKAGE_ROOT = REPO_ROOT / "hydromodpy"
 
 REGISTRY_MEMBERS = frozenset({"models_by_run_id", "output_dirs_by_run_id"})
 
-# Every module allowed to name a registry, and why. ``core/state/execution.py``
+# Every module allowed to name a registry, and why. ``core/state/run_state.py``
 # is absent on purpose: it declares the two fields and reads neither, and a
 # declaration is an annotated name, not an attribute this gate follows.
 REGISTRY_READERS = {

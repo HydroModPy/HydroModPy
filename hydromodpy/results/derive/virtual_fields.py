@@ -21,8 +21,7 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.core.budget_terms import POLICY_CONSUMERS, budget_terms_for, kept_budget
-from hydromodpy.core.field_routing import (
+from hydromodpy.core.budget.flux import (
     DRN_TO_MVR_KEYS,
     budget_outflow_stack,
     drain_band_depth,
@@ -33,6 +32,7 @@ from hydromodpy.core.field_routing import (
     seepage_mask,
     warn_on_geometric_seepage_fallback,
 )
+from hydromodpy.core.budget.terms import POLICY_CONSUMERS, budget_terms_for, kept_budget
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
 from hydromodpy.results.derive.accumulation import (
@@ -281,7 +281,7 @@ def outflow_drain_rows(root: Any, start: int, stop: int) -> np.ndarray:
 
     The drain term with the drain-to-mover term added when the run holds both,
     in the unit of the budget. The sign convention is the one of
-    :func:`hydromodpy.core.field_routing.budget_outflow_stack`; the result is
+    :func:`hydromodpy.core.budget.flux.budget_outflow_stack`; the result is
     non-negative and finite.
     """
     budget = root.get("budget")
@@ -406,7 +406,7 @@ def release_flux_rows(root: Any, start: int, stop: int) -> np.ndarray:
     """Return ``release_flux`` over steps ``[start, stop)`` from the stored budget.
 
     The ``(stop - start, n_cells)`` stack is the one the post-run derivation
-    used to store (:func:`hydromodpy.core.field_routing.release_flux_stack`),
+    used to store (:func:`hydromodpy.core.budget.flux.release_flux_stack`),
     step for step: every step reads its own budget rows only.
     """
     budget = root.get("budget")
@@ -522,7 +522,7 @@ def simulated_active_network_stack(run: Any, timesteps: Sequence[int]) -> np.nda
     A ``(len(timesteps), n_cells)`` float array of 1 and 0: 1 where the network
     criterion counts the cell as flowing at that step. "Flowing" is the
     definition the criterion scores and the stream maps draw
-    (:func:`hydromodpy.core.stream_extent.flowing_cells`), cut with the
+    (:func:`hydromodpy.core.stream.extent.flowing_cells`), cut with the
     settings of the run's sealed network output: its seepage threshold, its
     graph and its visible flow. A run that sealed none takes the criterion's
     defaults. The graph is built once for every step.
@@ -533,7 +533,7 @@ def simulated_active_network_stack(run: Any, timesteps: Sequence[int]) -> np.nda
         The run cannot say which cells flow: no ``release_flux``, no network
         to build the graph on, or no recharge for a positive threshold.
     """
-    from hydromodpy.core.stream_extent import CHUNK_ELEMENTS, flowing_cells, parse_visible_flow
+    from hydromodpy.core.stream.extent import CHUNK_ELEMENTS, flowing_cells, parse_visible_flow
     from hydromodpy.results.derive.network_criterion_settings import network_criterion_settings
     from hydromodpy.results.derive.stream_extent import (
         FLOW_FIELD,

@@ -16,7 +16,6 @@ from hydromodpy.core.toml_io.generator import (
     generate_toml,
     generate_toml_from_instances,
 )
-from hydromodpy.core.toml_io.io import dump_toml_with_comments
 from hydromodpy.core.toml_io.loader import (
     load_toml_with_base_config,
     merge_toml_payloads,
@@ -28,7 +27,7 @@ from hydromodpy.core.toml_io.paths import (
     resolve_declared_path,
     resolve_path,
 )
-from hydromodpy.core.toml_io.writer import dump, dumps
+from hydromodpy.core.toml_io.writer import dump, dump_toml_with_comments, dumps
 
 __all__ = [
     "available_modules",

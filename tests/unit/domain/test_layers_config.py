@@ -8,8 +8,8 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.core.vertical_column import VERTICAL_LAYOUT_COLUMN_FRACTIONS as FRACTIONS
-from hydromodpy.core.vertical_column import VERTICAL_LAYOUT_SURFACES as SURFACES
+from hydromodpy.core.fields.vertical_column import VERTICAL_LAYOUT_COLUMN_FRACTIONS as FRACTIONS
+from hydromodpy.core.fields.vertical_column import VERTICAL_LAYOUT_SURFACES as SURFACES
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
 from tests._helpers.domain_cases import surfaces_table

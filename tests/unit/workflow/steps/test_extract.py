@@ -8,8 +8,8 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from hydromodpy.core.budget_terms import BudgetKeep
-from hydromodpy.core.state.execution import ExecutionRegistry
+from hydromodpy.core.budget.terms import BudgetKeep
+from hydromodpy.core.state.run_state import ExecutionRegistry
 from hydromodpy.simulation.planning.plan import ProcessRun, SimulationPlan
 from hydromodpy.simulation.planning.results_config import ResultsConfig
 from hydromodpy.workflow.state import PipelineState
@@ -150,7 +150,7 @@ def test_extract_step_decides_the_budget_when_planning_did_not(monkeypatch, tmp_
 
 def test_no_display_keeps_what_the_figures_read(monkeypatch, tmp_path) -> None:
     """A display choice of the launch changes no data."""
-    from hydromodpy.core.budget_terms import budget_terms_for_fields
+    from hydromodpy.core.budget.terms import budget_terms_for_fields
     from hydromodpy.display import figure_registry
     from hydromodpy.display.config import DisplayConfig
 

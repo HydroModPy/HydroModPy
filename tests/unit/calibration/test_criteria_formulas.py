@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from hydromodpy.calibration.criteria.formulas import METRIC_FORMULAS
-from hydromodpy.core import metrics as core
+from hydromodpy.core.scoring import metrics as core
 
 # From test_kge_is_written_as_the_2009_form.py
 # The KGE of HydroModPy is the 2009 form, and every place that describes it says so.

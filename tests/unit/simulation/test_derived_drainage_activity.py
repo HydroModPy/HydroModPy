@@ -9,10 +9,10 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.core.field_routing import (
+from hydromodpy.core.budget.flux import budget_outflow
+from hydromodpy.core.drainage.graph import (
     accumulate_on_downhill_graph,
     active_surface_mask,
-    budget_outflow,
     build_downhill_graph,
 )
 

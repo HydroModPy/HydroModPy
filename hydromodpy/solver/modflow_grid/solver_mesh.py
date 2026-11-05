@@ -23,7 +23,7 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.core.vertical_column import (
+from hydromodpy.core.fields.vertical_column import (
     IDOMAIN_VALUES,
     check_layer_interfaces,
     top_active_layer,

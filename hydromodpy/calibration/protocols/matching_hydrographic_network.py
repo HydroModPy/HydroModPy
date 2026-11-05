@@ -71,7 +71,7 @@ DEFAULTS_BY_VERSION: Mapping[str, Mapping[str, Any]] = {
 """What each version of the protocol writes in the network output, one line per version.
 
 A key the file leaves empty takes the value of the version the file runs, so
-moving a default in :mod:`hydromodpy.core.stream_criterion_defaults` cannot move
+moving a default in :mod:`hydromodpy.core.stream.criterion_defaults` cannot move
 a pinned file. The keys are the ones that change a number, or refuse a search:
 the three that only decide what is logged stay with the model. The last line is
 what a file without a pin runs. A test holds it equal to the defaults of the
@@ -340,7 +340,7 @@ class MatchingHydrographicNetwork:
                 "signal Eq. 4 exists to detect: a misregistered or truncated mapped "
                 "network would then read as well matched simply because the "
                 "topography closes the gap for it. Tested on a synthetic V-valley "
-                "(tests/unit/core/test_v_valley_support_bench.py), where closing the "
+                "(tests/unit/core/drainage/test_distance.py), where closing the "
                 "observed target instead moves r_optim's root by more than a factor "
                 "of ten."
             ),

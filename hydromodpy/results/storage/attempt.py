@@ -60,8 +60,8 @@ from pathlib import Path
 from typing import Literal
 
 from hydromodpy.core.exceptions import WriteConflictError
-from hydromodpy.core.interrupts import TerminationRequested
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.runtime.interrupts import TerminationRequested
 from hydromodpy.core.state.paths import (
     INTERNAL_DIRNAME,
     PREPROCESSING_DIRNAME,
@@ -141,7 +141,7 @@ class RunClaim:
 def signal_of(error: BaseException | None) -> int | None:
     """Return the signal an exception stands for, or None for an ordinary error.
 
-    SIGTERM unwinds as :class:`~hydromodpy.core.interrupts.TerminationRequested`
+    SIGTERM unwinds as :class:`~hydromodpy.core.runtime.interrupts.TerminationRequested`
     and SIGINT as ``KeyboardInterrupt``; nothing else is a signal.
     """
     if isinstance(error, TerminationRequested):

@@ -626,7 +626,7 @@ the time-varying fields are kept: every array written through
 ``write_field`` or ``write_field_stack`` (head, per-cell budget terms,
 concentrations). ``compact``, the default, stores
 float32 whose mantissa is rounded to nearest at 16 bits
-(:mod:`hydromodpy.core.field_precision`): a value moves by at most 2**-17
+(:mod:`hydromodpy.core.fields.precision`): a value moves by at most 2**-17
 of itself, 7.6e-6 relative, NaN stays NaN and no finite value becomes
 infinite. The zeroed low bits are what bitshuffle and zstd pack away. Such
 an array carries the CF-1.11 quantization attributes
@@ -645,7 +645,7 @@ extractor produces, under the canonical CBC name: the exchange terms
 MODFLOW-NWT and Boussinesq, ``storage_ss`` and ``storage_sy`` under MODFLOW 6). Each term has
 a descriptor in :mod:`hydromodpy.results.field_registry`, so it can be listed,
 exported and read with ``run.field``. The group carries two attributes that
-say what the run kept (:mod:`hydromodpy.core.budget_terms`):
+say what the run kept (:mod:`hydromodpy.core.budget.terms`):
 
 - ``policy``: ``all`` (the default) or ``consumers``, set by
   ``[simulation.results] keep_per_cell_budget = false``;
@@ -758,7 +758,7 @@ layers, and a message names layer, row and column from 0. A store below the wind
 refused when it is opened, and must be run again (the rule of the versions of the stored documents,
 above).
 The array ``idomain`` is never rounded, and a reader that needs the top active cell of a column
-takes ``top_active_layer`` of ``hydromodpy/core/vertical_column.py``.
+takes ``top_active_layer`` of ``hydromodpy/core/fields/vertical_column.py``.
 
 The attributes of ``mesh/`` add the ``engine``, its ``engine_version``, its ``engine_seed`` when it
 draws random numbers, the ``mesh_request_hash``, the ``crs`` (WKT) the vertices are expressed in,

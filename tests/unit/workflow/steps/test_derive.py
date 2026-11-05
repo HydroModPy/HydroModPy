@@ -9,7 +9,7 @@ import pytest
 
 import hydromodpy.workflow.steps.derive as derive_module
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.core.state.execution import ExecutionRegistry
+from hydromodpy.core.state.run_state import ExecutionRegistry
 from hydromodpy.results.fit_metrics import score_run_under_its_rule
 from hydromodpy.simulation.planning.plan import ProcessRun, SimulationPlan
 from hydromodpy.simulation.planning.results_config import ResultsConfig

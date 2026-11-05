@@ -26,8 +26,8 @@ from pathlib import Path
 from typing import Any, Literal
 
 from hydromodpy.core.config_kit.written import log_experimental_keys
+from hydromodpy.core.console.progress import MILESTONE
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.progress import MILESTONE
 
 logger = get_logger(__name__)
 
@@ -1568,7 +1568,7 @@ def _check_the_extent_durations_fit_the_timestep(
     on the nominal year of the step the search runs, before any budget is spent.
     A phase that overrides the step is left to that first trial.
     """
-    from hydromodpy.core.stream_extent import (
+    from hydromodpy.core.stream.extent import (
         dry_steps,
         extent_step_problems,
         flowing_steps,

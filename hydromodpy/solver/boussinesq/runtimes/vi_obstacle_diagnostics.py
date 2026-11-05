@@ -11,7 +11,7 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.core.solver_diagnostics import (
+from hydromodpy.solver.boussinesq.runtimes.diagnostic_files import (
     VI_OBSTACLE_PERIOD_DIAGNOSTICS_CSV,
     VI_OBSTACLE_RUNTIME_SUMMARY_JSON,
     VI_OBSTACLE_SUBSTEP_DIAGNOSTICS_CSV,

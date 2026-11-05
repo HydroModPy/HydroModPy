@@ -8,14 +8,14 @@ from types import SimpleNamespace
 import pytest
 
 import hydromodpy.workflow.steps.planning as planning_module
-from hydromodpy.core.budget_terms import (
+from hydromodpy.core.budget.terms import (
     POLICY_ALL,
     POLICY_CONSUMERS,
     BudgetKeep,
     budget_terms_for,
 )
-from hydromodpy.core.config_kit.export_spec import load_export_requests
 from hydromodpy.display.config import DisplayConfig
+from hydromodpy.results.exporters.export_spec import load_export_requests
 from hydromodpy.simulation.planning.plan import ProcessRun, SimulationPlan
 from hydromodpy.simulation.planning.results_config import ResultsConfig
 

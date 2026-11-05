@@ -38,7 +38,6 @@ class DynamicFlowExamples:
                     FieldHomogeneousSection,
                     threshold,
                     values={"id": pid, "kind": kind, "unit": unit},
-                    _depth=0,
                 )
             )
 
@@ -58,7 +57,6 @@ class DynamicFlowExamples:
                 FlowBoundaryConditionConfig,
                 threshold,
                 values={"unit": "m2/s"},
-                _depth=0,
             )
         )
 
@@ -73,7 +71,6 @@ class DynamicFlowExamples:
                 "flow.sinks_sources.recharge",
                 FlowRechargeConfig,
                 threshold,
-                _depth=0,
             )
         )
         return out

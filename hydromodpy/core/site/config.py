@@ -12,10 +12,24 @@ TOML form::
     label = "Le Nancon a Lecousse"  # optional, free text
     gauge = "J0014010"  # optional, the station scored by default
     uri = "hubeau:J0014010"  # optional, hubeau:<code> or bdtopage:<code>
+
+Two functions of the declaration live here too. :func:`site_fingerprint`
+recognizes a site from its declaration only (CRS, kind of definition, outlet
+rounded to the meter, or the digest of the polygon file), never from a computed
+product: the same outlet on a 25 m and on a 75 m DEM gives one fingerprint and
+two areas. Its form is the first 16 hex digits of the SHA-256 of a canonical
+JSON document (sorted keys, no spaces). :func:`resolve_gauge` makes
+``[site] gauge`` the single source of the station of a catchment: each key that
+names a station falls back to it, and a key that writes a different station is
+refused by name. A station list (``station_ids``) that contains the gauge is
+accepted.
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
+from collections.abc import Sequence
 from typing import Annotated
 
 from pydantic import Field
@@ -23,6 +37,7 @@ from pydantic import Field
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import StationName
+from hydromodpy.core.exceptions import ConfigError
 
 SITE_NAME_PATTERN = r"^[A-Za-z0-9_]+$"
 """Grammar of a site name: letters, digits and underscores, case kept.
@@ -83,4 +98,77 @@ class SiteConfig(HydroModelBase):
     )
 
 
-__all__ = ["SITE_NAME_PATTERN", "SITE_URI_PATTERN", "SiteConfig"]
+FINGERPRINT_LENGTH = 16
+"""Number of hex digits kept from the SHA-256 digest."""
+
+
+def site_fingerprint(
+    *,
+    crs: str,
+    kind: str,
+    outlet: tuple[float, float] | None = None,
+    polygon_sha256: str | None = None,
+) -> str:
+    """Return the fingerprint of a site declaration.
+
+    ``kind`` is the catchment definition (``from_outlet_coord``,
+    ``from_polyg_shp``, ``dem``). ``outlet`` is rounded to the meter, so a
+    coordinate copied with more or fewer decimals names the same site.
+    ``polygon_sha256`` is the digest of the polygon file. One of the two is
+    required.
+    """
+    if outlet is None and polygon_sha256 is None:
+        raise ValueError("a site fingerprint needs an outlet or a polygon digest")
+    document: dict[str, object] = {"crs": str(crs), "kind": str(kind)}
+    if outlet is not None:
+        x, y = outlet
+        document["outlet"] = [round(float(x)), round(float(y))]
+    if polygon_sha256 is not None:
+        document["polygon_sha256"] = str(polygon_sha256).lower()
+    canonical = json.dumps(document, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:FINGERPRINT_LENGTH]
+
+
+class GaugeConflictError(ConfigError):
+    """A station key names another station than ``[site] gauge``."""
+
+
+def resolve_gauge(
+    site: SiteConfig | None,
+    declared: str | Sequence[str] | None,
+    *,
+    field: str,
+) -> str | None:
+    """Return the station a key resolves to, or refuse a conflict with the site.
+
+    ``declared`` is the value the key writes (one station, a list, or nothing)
+    and ``field`` its dotted name, used in the message. Without a declared
+    value the site gauge is returned. A declared value equal to the gauge, or
+    a list that contains it, returns the gauge. Without a site gauge the
+    declared value is returned (the first one of a list). Anything else raises
+    :class:`GaugeConflictError` naming both keys.
+    """
+    gauge = site.gauge if site is not None else None
+    if declared is None or (not isinstance(declared, str) and len(declared) == 0):
+        return gauge
+    stations = [declared] if isinstance(declared, str) else [str(item) for item in declared]
+    if gauge is None:
+        return stations[0]
+    if gauge in stations:
+        return gauge
+    written = stations[0] if isinstance(declared, str) else list(stations)
+    raise GaugeConflictError(
+        f"site.gauge = {gauge!r} but {field} = {written!r}. [site] gauge is the station "
+        f"of the catchment: remove {field} to take the gauge, or write the gauge in it."
+    )
+
+
+__all__ = [
+    "FINGERPRINT_LENGTH",
+    "SITE_NAME_PATTERN",
+    "SITE_URI_PATTERN",
+    "GaugeConflictError",
+    "SiteConfig",
+    "resolve_gauge",
+    "site_fingerprint",
+]

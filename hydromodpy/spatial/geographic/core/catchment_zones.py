@@ -22,9 +22,9 @@ import numpy as np
 import rasterio
 from rasterio.features import rasterize
 
+from hydromodpy.core.fields.nodata import valid_cells
 from hydromodpy.core.io.crs import crs_text
 from hydromodpy.core.io.raster_io import write_band
-from hydromodpy.core.nodata import valid_cells
 
 
 class CatchmentZoneCode(IntEnum):

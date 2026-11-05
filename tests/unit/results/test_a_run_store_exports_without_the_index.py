@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.core.config_kit.export_spec import ExportKind, load_export_requests
 from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.exporters.export_spec import ExportKind, load_export_requests
 from hydromodpy.results.exporters.request import export_data_requests
 from hydromodpy.results.exporters.vocabulary import list_exportable
 from hydromodpy.results.identity import read_identity_from

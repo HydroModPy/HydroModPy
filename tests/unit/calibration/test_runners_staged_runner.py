@@ -58,8 +58,8 @@ from hydromodpy.cli.commands import calibrate as calibrate_cmd
 from hydromodpy.cli.commands.calibrate import _phase_line
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.exceptions import CalibrationError, ConfigError, ConfigValidationError
-from hydromodpy.core.interrupts import TerminationRequested
-from hydromodpy.core.state.execution import ExecutionRegistry
+from hydromodpy.core.runtime.interrupts import TerminationRequested
+from hydromodpy.core.state.run_state import ExecutionRegistry
 from hydromodpy.results.checks import BUDGET_RULE, FROZE_BUDGET_ONLY
 from hydromodpy.results.session.descriptor import read_session
 from hydromodpy.results.session.journal import read_trials

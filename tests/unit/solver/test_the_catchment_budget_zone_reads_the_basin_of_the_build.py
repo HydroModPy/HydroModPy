@@ -13,8 +13,8 @@ import logging
 import numpy as np
 import pytest
 
-from hydromodpy.core import descent as core_descent
-from hydromodpy.core.descent import DescentBasin
+from hydromodpy.core.drainage import descent as core_descent
+from hydromodpy.core.drainage.descent import DescentBasin
 from hydromodpy.solver.modflow6.extractors.flow import Modflow6OutputAdapter
 from hydromodpy.solver.modflow_common import catchment_basin
 from hydromodpy.solver.modflow_common.descent_store import write_descent_sidecar

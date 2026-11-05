@@ -19,9 +19,9 @@ from hydromodpy.core.exceptions import StepError
 from hydromodpy.core.state.paths import run_dir_rel
 from hydromodpy.results.heartbeat import HeartbeatThread, read_heartbeat
 from hydromodpy.results.outcome import DEFAULT_STALE_AFTER_S, effective_status
-from hydromodpy.workflow.runner import Pipeline
 from hydromodpy.workflow.record.journal import WorkflowJournal
 from hydromodpy.workflow.record.resume import ResumePlanner
+from hydromodpy.workflow.runner import Pipeline
 from tests._helpers.sealed_runs import make_project, write_attempt
 
 

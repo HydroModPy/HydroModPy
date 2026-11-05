@@ -25,8 +25,8 @@ from hydromodpy.calibration.observations.observed_network import (
     observed_network_mask,
     resolve_minimal_network,
 )
-from hydromodpy.core import descent as core_descent
-from hydromodpy.core.descent import DescentBasin
+from hydromodpy.core.drainage import descent as core_descent
+from hydromodpy.core.drainage.descent import DescentBasin
 from hydromodpy.solver.modflow_common import catchment_basin
 from tests._helpers.ugrid_meshes import quad_mesh
 from tests._helpers.v_valley import (

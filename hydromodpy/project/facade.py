@@ -92,7 +92,7 @@ if TYPE_CHECKING:
 
     from hydromodpy.config import HydroModPyConfig
     from hydromodpy.config.sites.expansion import PlanDraft
-    from hydromodpy.core.state.data import LoadedDataContext
+    from hydromodpy.core.state.run_state import LoadedDataContext
     from hydromodpy.core.time.window import (
         ResolvedSimulationTimeGrid,
         ResolvedSteadySimulationTimeGrid,

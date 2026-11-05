@@ -22,8 +22,8 @@ function takes a point.
 
 A department code is always written with three characters: `35` becomes `035`, `2A` becomes
 `02A`, and `971` stays `971`. A region is given by its name, with or without accents and capitals,
-or by its code. The names and codes come from `hydromodpy/core/administrative_france.py`, which
-the config layers share. An unknown region is refused with a clear message. A list of departments is refused only when none of its codes is known, and an unknown code beside known ones is skipped.
+or by its code. The names and codes come from `hydromodpy/spatial/administrative/regions.py`, which
+the data config also reads. An unknown region is refused with a clear message. A list of departments is refused only when none of its codes is known, and an unknown code beside known ones is skipped.
 
 The file holds 101 departments, metropolitan and overseas. The outlines come from IGN
 ADMIN EXPRESS and are simplified, with a tolerance of 500 m, so a border is only accurate to a few hundred meters. The
@@ -33,6 +33,7 @@ package is for choosing which departments to download, not for measuring.
 
 ```text
 administrative/
+├── regions.py          the names and codes of the French regions, and their spelling rules
 ├── france.py           the questions: codes in a rectangle or a region, bounding box, union outline
 └── departement.gpkg    outlines of the departments in EPSG:2154, with their code and region code
 ```
@@ -45,12 +46,12 @@ administrative/
 | the departments of a region | `france.py`, `find_departments_in_regions` |
 | the rectangle or the outline of some departments or regions | `france.py`, `bbox_for_departments`, `geometry_for_departments` |
 | the spelling of a department code | `france.py`, `department_code_to_padded` |
-| the accepted region names | `hydromodpy/core/administrative_france.py` |
+| the accepted region names | `hydromodpy/spatial/administrative/regions.py` |
 | another country | a new module beside `france.py` |
 
 ## Rules between the folders
 
-- `france.py` imports the region helpers of `hydromodpy/core/administrative_france.py` and nothing
+- `france.py` imports the region helpers of `hydromodpy/spatial/administrative/regions.py` and nothing
   else from HydroModPy. Its other imports are geopandas and shapely.
 - No import is deferred inside this package.
 - The callers import it inside their functions: `hydromodpy/data/variables/dem/manager.py`,

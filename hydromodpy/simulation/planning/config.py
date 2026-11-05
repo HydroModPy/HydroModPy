@@ -475,7 +475,7 @@ class SimulationConfig(HydroModelBase):
             "Master RNG seed for the simulation. When set, every stochastic "
             "consumer (mesh point sampling, synthetic forcing, ...) derives "
             "its own deterministic sub-seed via "
-            "``hydromodpy.core.rng.RngManager``. Persisted in "
+            "``hydromodpy.core.state.rng.RngManager``. Persisted in "
             "``runs_environment.rng_seed`` so the run can be re-executed "
             "from the catalog snapshot."
         ),

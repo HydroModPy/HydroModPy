@@ -33,8 +33,8 @@ from typing import TYPE_CHECKING, Annotated
 import numpy as np
 import pandas as pd
 
-from hydromodpy.core.metrics import log_floor
 from hydromodpy.core.scope import CATCHMENT
+from hydromodpy.core.scoring.metrics import log_floor
 from hydromodpy.core.units.labels import (
     AXIS_LABELS,
     axis_label,
@@ -431,7 +431,7 @@ def _log_floor(
 ) -> float:
     """Return the flow below which the log axis, like the score, cannot look.
 
-    The :func:`hydromodpy.core.metrics.log_floor` of the score, read on the
+    The :func:`hydromodpy.core.scoring.metrics.log_floor` of the score, read on the
     stamps the score read: the observations paired with a simulated value
     inside the scoring window, or the simulation when the run carries no
     observation.

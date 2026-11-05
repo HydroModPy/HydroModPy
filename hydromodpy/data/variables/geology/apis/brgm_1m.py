@@ -13,7 +13,7 @@ from pathlib import Path
 
 from filelock import FileLock
 
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
 from hydromodpy.core.io.atomic_replace import staged_path
 from hydromodpy.core.logging import get_logger
 

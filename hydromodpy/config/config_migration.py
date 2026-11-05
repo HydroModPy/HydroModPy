@@ -122,7 +122,6 @@ from packaging.version import Version
 
 from hydromodpy.calibration.config import CALIBRATION_RENAMES
 from hydromodpy.core.config_kit.base import CANNOT_REWRITE, refuse_old_forms, warn_old_form
-from hydromodpy.core.config_kit.export_spec import RUN_FORMATS, format_from_path
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import is_sealed_run_config
@@ -133,6 +132,7 @@ from hydromodpy.core.toml_io.overrides import COMMAND_LINE_SOURCES
 from hydromodpy.core.toml_io.paths import DottedPath, parse
 from hydromodpy.physics.flow.flow_runtime_config import FLOW_RUNTIME_KEYS
 from hydromodpy.physics.flow.property_ids import NEVER_READ_IDS, OLD_PROPERTY_IDS
+from hydromodpy.results.exporters.export_spec import RUN_FORMATS, format_from_path
 
 _logger = get_logger(__name__)
 

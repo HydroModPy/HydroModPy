@@ -29,8 +29,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from hydromodpy.core.console.progress import MILESTONE
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.progress import MILESTONE
 from hydromodpy.core.state.paths import display_path
 from hydromodpy.core.time.selection import TimeSelectionError
 from hydromodpy.display import get as _get_figure
@@ -235,7 +235,7 @@ def _resolve_time(sim: Run, options: dict[str, Any]) -> str | None:
 
 
 # Fields built from the water that leaves the aquifer at the surface. Their
-# per-cell terms come from the one table of ``core.budget_terms``, minus the
+# per-cell terms come from the one table of ``core.budget.terms``, minus the
 # recharge some of them also read, which is an entry and not an exit.
 _EXIT_FIELDS = (
     "release_flux",
@@ -247,7 +247,7 @@ _EXIT_FIELDS = (
 
 def _exit_terms_of(field: str) -> tuple[str, ...]:
     """Return the budget terms through which water leaves the aquifer for ``field``."""
-    from hydromodpy.core.budget_terms import budget_terms_for
+    from hydromodpy.core.budget.terms import budget_terms_for
 
     return tuple(term for term in budget_terms_for(field) if term != "recharge")
 
@@ -262,7 +262,7 @@ def _model_has_no_exit(run: Run, terms: tuple[str, ...], has_budget_term: bool) 
     some budget term is there, no exit one. A plan that kept other terms only
     says nothing about the exits.
     """
-    from hydromodpy.core.budget_terms import POLICY_ALL
+    from hydromodpy.core.budget.terms import POLICY_ALL
     from hydromodpy.results.run.geographic import kept_budget_of
 
     kept = kept_budget_of(run)

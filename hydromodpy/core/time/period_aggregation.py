@@ -35,6 +35,7 @@ from hydromodpy.core.time.time_method import check_time_method
 
 __all__ = (
     "first_period_step",
+    "naive_timestamp",
     "observation_step",
     "observed_on_periods",
     "period_edges",
@@ -57,7 +58,7 @@ def _naive(index: Any) -> pd.DatetimeIndex:
     return out.as_unit("ns")
 
 
-def _naive_timestamp(value: Any) -> pd.Timestamp:
+def naive_timestamp(value: Any) -> pd.Timestamp:
     """Return one timestamp, tz-naive in UTC."""
     ts = pd.Timestamp(value)
     if ts.tz is not None:
@@ -110,7 +111,7 @@ def period_edges(stamps: Any, *, start: Any = None) -> pd.DatetimeIndex:
     if len(ordered) == 0:
         raise ValueError("an empty index has no period.")
     if start is not None:
-        first = _naive_timestamp(start)
+        first = naive_timestamp(start)
     else:
         step = first_period_step(ordered)
         if step is None:
@@ -127,7 +128,7 @@ def _day(bound: Any) -> pd.Timestamp | None:
     """Return the midnight that opens the day of *bound*, naive UTC, or ``None``."""
     if bound is None:
         return None
-    return _naive_timestamp(bound).normalize()
+    return naive_timestamp(bound).normalize()
 
 
 def periods_in_window(
@@ -189,8 +190,8 @@ def period_end_stamps(
     schema default. Any other case splits the window evenly, which is exact for
     hourly and daily steps.
     """
-    first = _naive_timestamp(start)
-    last = _naive_timestamp(end)
+    first = naive_timestamp(start)
+    last = naive_timestamp(end)
     n = int(n_periods)
     if n <= 0:
         return pd.DatetimeIndex([], dtype="datetime64[ns]")
@@ -281,7 +282,7 @@ def runoff_m3_s_on_index(
             f"must be positive, got {area_m2} m2."
         )
     stamps = _naive(index)
-    if start is not None and len(stamps) > 0 and _naive_timestamp(start) >= stamps.min():
+    if start is not None and len(stamps) > 0 and naive_timestamp(start) >= stamps.min():
         start = None
     return period_mean_on_index(runoff_mm_per_day, index, start=start) * 1e-3 * area_m2 / 86400.0
 

@@ -214,8 +214,8 @@ def test_the_document_names_every_record_the_shared_walk_yields(loaded_run) -> N
 
 def test_a_run_that_lost_its_document_replans_from_the_load(loaded_run, tmp_path: Path) -> None:
     """Without the document the load is undescribed, so it is not trusted."""
-    from hydromodpy.workflow.steps.data_description import description_path
     from hydromodpy.workflow.record.resume import ResumePlanner
+    from hydromodpy.workflow.steps.data_description import description_path
 
     source, row, _walked = loaded_run
     root = _isolated_copy(source, tmp_path / "lost_document")
@@ -252,12 +252,12 @@ def test_a_document_that_no_longer_matches_replans_from_the_load(
     finds the recorded digest and the document disagreeing, and replans from
     the load rather than keeping a run built on bytes that are gone.
     """
+    from hydromodpy.workflow.record.resume import ResumePlanner
     from hydromodpy.workflow.steps.data_description import (
         description_path,
         read_data_description,
         write_data_description,
     )
-    from hydromodpy.workflow.record.resume import ResumePlanner
 
     source, _row, _walked = loaded_run
     root = _isolated_copy(source, tmp_path / "moved_document")

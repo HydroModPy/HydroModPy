@@ -11,10 +11,10 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
+from hydromodpy.core.console.progress import HINT, MILESTONE
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.progress import HINT, MILESTONE
 from hydromodpy.core.state.paths import display_path
 from hydromodpy.results.storage.contract import RUN_SOLVER_DIRNAME
 from hydromodpy.results.storage.scratch import clear_scratch, drop_empty_scratch

@@ -18,8 +18,8 @@ from pathlib import Path
 
 import pytest
 
+from hydromodpy.core.console.progress import MILESTONE_KEY
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.progress import MILESTONE_KEY
 from hydromodpy.core.state.paths import RUNS_DIRNAME
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.figure import FigureSpec

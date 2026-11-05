@@ -50,7 +50,7 @@ from hydromodpy.calibration.runners.phase_regime import phase_overrides
 from hydromodpy.calibration.runners.staged_runner import _phase_config
 from hydromodpy.cli.commands import calibrate as calibrate_cmd
 from hydromodpy.config import HydroModPyConfig
-from hydromodpy.core.stream_criterion_defaults import STREAM_CRITERION_DEFAULTS
+from hydromodpy.core.stream.criterion_defaults import STREAM_CRITERION_DEFAULTS
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from tests.unit.calibration._factories_scoring import make_document
 
