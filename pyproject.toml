@@ -60,8 +60,10 @@ dependencies = [
     "pandas>=2.3.3,<3",
     # 13.0.0 is the first version with the 2026 security fixes.
     "Pillow>=13.0.0,<14",
-    "optuna>=4.8.0,<6",
-    "plotly>=6.7.0,<8",
+    # Optuna 5 changes the TPE defaults (constant liar), so a calibration result moves.
+    "optuna>=4.8.0,<5",
+    # Plotly 7 embeds slider frames differently: only one image is left in the HTML.
+    "plotly>=6.7.0,<7",
     "pint>=0.25.3,<1",
     "pydantic-pint>=0.6,<1",
     "py7zr>=1.0,<2",
@@ -78,7 +80,8 @@ dependencies = [
     "xarray>=2026.4.0,<2027",
     "xugrid>=0.15.2,<1",
     "pydantic>=2.13.3,<3",
-    "duckdb>=1.5.2,<3",
+    # DuckDB 2 refuses to reopen a deleted index path this process still holds.
+    "duckdb>=1.5.2,<2",
     "dask>=2026.3.0,<2027",
     "rich>=13.9.4,<16",
     "zarr>=3.1.6,<4",
@@ -111,7 +114,7 @@ fair = [
 ]
 # Every functional extra. The test, docs, ide and dev extras are for contributors.
 all = ["hydromodpy[calibration,mesh,mf6api,viz,fair,metrics]"]
-test = ["pytest", "pytest-xdist", "pytest-timeout", "pytest-cov", "coverage[toml]>=7.0", "pyyaml", "jsonschema>=4.0", "pyinstrument>=5.0,<6", "hypothesis>=6.100,<7"]
+test = ["pytest<9.2", "pytest-xdist", "pytest-timeout", "pytest-cov", "coverage[toml]>=7.0", "pyyaml", "jsonschema>=4.0", "pyinstrument>=5.0,<6", "hypothesis>=6.100,<7"]
 performance = ["pytest-benchmark>=5.0,<6", "uuid-utils>=0.10,<1", "polars>=1.0,<2"]
 profiling = ["pyinstrument>=5.0,<6"]
 docs = [

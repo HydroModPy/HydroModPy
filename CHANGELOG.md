@@ -79,6 +79,8 @@ Each release section includes the following standard categories:
 
 ### Changed
 
+- The caps follow what the tests pass on: `pytest<9.2` keeps `xdist_group` working, `optuna<5`, `plotly<7` and `duckdb<2`.
+
 - `hydromodpy.calibration.evaluation.registry` and `forward_registry` now share one engine. Their functions keep their names, and their first parameter is now called `name`. A plugin that passed it by keyword (`get(evaluator_id=...)`) passes it by position.
 - The calibration TOML written by a Python call with phases is `sessions/<case>.toml`, overwritten by the next call of
   the case. It no longer piles up as `python-<date>-<id>.toml`.
