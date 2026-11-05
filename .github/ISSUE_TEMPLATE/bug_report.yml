@@ -1,0 +1,39 @@
+name: Bug report
+description: Something fails or gives a wrong result.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected and what you got.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: The command and the TOML, or a short Python script.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Error message or log
+      description: The traceback, or the end of the solver listing file.
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: HydroModPy version
+      description: The output of `hmp --version`.
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: System and Python version
+      placeholder: Ubuntu 24.04, Python 3.13
+    validations:
+      required: true

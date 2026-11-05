@@ -1,0 +1,16 @@
+name: Feature request
+description: Something HydroModPy should be able to do.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What you need
+      description: The modelling task you want to do, and what stops you today.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How it could work
+      description: A TOML section, a command or a reference to a method, if you have one in mind.
