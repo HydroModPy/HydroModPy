@@ -1,0 +1,15 @@
+# La Flume at Pacé.
+
+base_config = "common.toml"
+
+[site]
+name = "flume"
+label = "La Flume à Pacé"
+gauge = "J721401001"
+
+[geographic.catchment]
+x_outlet = 344966
+y_outlet = 6797471
+
+[flow.param.K.field]
+value = 3.10e-5

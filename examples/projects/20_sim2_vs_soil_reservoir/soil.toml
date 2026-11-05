@@ -1,0 +1,40 @@
+# Overlay: the recharge and the runoff from a soil reservoir, on the SIM2 rain and ETP.
+# The soil runs by the day whatever the step of MODFLOW 6.
+
+[data]
+types = ["dem", "hydrography", "hydrometry", "precipitation", "etp"]
+recharge__delete = true
+runoff__delete = true
+
+[[data.precipitation.sources]]
+source = "sim2"
+extent = "watershed"
+
+[[data.etp.sources]]
+source = "sim2"
+extent = "watershed"
+
+[flow.sinks_sources.recharge.soil]
+# The water the roots can draw. Required: it belongs to the site.
+ru = "150 mm"
+curve_number = 86
+
+# Every other key of the soil reservoir, at its default.
+# alpha = 0.45                # share of ru above which the soil evaporates at the full rate
+# kc = 1.0                    # factor on the ETP
+# impervious_fraction = 0.0   # sealed share of the area, its rain runs off at once
+# bypass_fraction = 0.0       # share of the rain that skips the soil and recharges the same day
+# transit_time = "0 days"     # linear reservoir between the soil and the water table
+# runoff_time = "1 day"       # linear reservoir of the curve-number runoff
+# runoff_lag = "0 days"       # pure delay of the curve-number runoff
+# spinup = "first_year"       # or "none", which starts from a full soil
+
+# The ETP the soil left unmet is offered to the water table.
+[flow.sinks_sources.etp]
+# extinction_depth = 2.0      # m below the drain elevation where the water table stops giving it
+
+# A capacity map spreads ru over classes inside each SAFRAN cell. Add "soil_capacity"
+# to the types above. There is no public service for it yet, so it is a local file.
+# [[data.soil_capacity.sources]]
+# source = "custom"
+# path = "soil_capacity.tif"
