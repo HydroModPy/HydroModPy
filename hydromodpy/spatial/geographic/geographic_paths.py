@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from hydromodpy.core.state.paths import scratch_dir_for
+from hydromodpy.core.state.scratch import scratch_dir_for
 
 __all__ = [
     "HYDROGRAPHIC_NETWORK_GENERATED_SUMMARY_FILENAME",
@@ -56,7 +56,7 @@ def build_geographic_paths(
     if stable_folder is not None:
         stable = Path(stable_folder)
     else:
-        from hydromodpy.core.state.paths import preprocessing_dir
+        from hydromodpy.core.state.scratch import preprocessing_dir
 
         stable = preprocessing_dir(out_dir)
     geographic_path = stable / "geographic"

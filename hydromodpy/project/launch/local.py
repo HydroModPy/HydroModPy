@@ -61,7 +61,7 @@ from hydromodpy.config.sites.models import (
 from hydromodpy.config.sites.plan import write_plan_draft
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME, data_cache_path_for
+from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME, data_cache_path_for
 from hydromodpy.project.launch.children import (
     Child,
     PlannedCase,
@@ -214,23 +214,7 @@ def run_plan(
         stored = _current_plan(root)
         cases = planned_cases(stored)
         chosen, left = select_cases(root, cases, only=only, site=site, resume=resume, force=force)
-        requested = run_config.parallel if parallel is None else parallel
-        if parallel is None and "parallel" not in run_config.model_fields_set:
-            # The default is a default, not a request: it bends to the cores of this
-            # machine instead of being refused on a box with fewer than eight.
-            cores = os.cpu_count() or 1
-            requested = max(1, min(requested, cores // max(1, run_config.threads_per_case)))
-        # A launch that stops after the prepare phase starts no solve.
-        budget = (
-            requested
-            if until == UNTIL_DATA
-            else effective_parallel(
-                requested,
-                [case for case, _ in chosen],
-                threads_per_case=run_config.threads_per_case,
-                force=force,
-            )
-        )
+        budget = _solve_budget(run_config, parallel, [case for case, _ in chosen], until, force)
         preparing = effective_prepare_parallel(
             run_config.prepare_parallel if prepare_parallel is None else prepare_parallel,
             force=force,
@@ -274,6 +258,28 @@ def run_plan(
         )
         journal.append("launch_end", n_completed=report.n_completed, n_failed=report.n_failed)
     return report
+
+
+def _solve_budget(
+    run_config: SitesRunConfig,
+    parallel: int | None,
+    cases: Sequence[PlannedCase],
+    until: str | None,
+    force: bool,
+) -> int:
+    """Return how many solves run side by side, as asked or as the cores of this machine allow."""
+    requested = run_config.parallel if parallel is None else parallel
+    if parallel is None and "parallel" not in run_config.model_fields_set:
+        # The default is a default, not a request: it bends to the cores of this
+        # machine instead of being refused on a box with fewer than eight.
+        cores = os.cpu_count() or 1
+        requested = max(1, min(requested, cores // max(1, run_config.threads_per_case)))
+    # A launch that stops after the prepare phase starts no solve.
+    if until == UNTIL_DATA:
+        return requested
+    return effective_parallel(
+        requested, cases, threads_per_case=run_config.threads_per_case, force=force
+    )
 
 
 def _launch(

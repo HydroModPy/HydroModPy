@@ -41,7 +41,7 @@ from hydromodpy.core.config_kit.stored import read_stored
 from hydromodpy.core.exceptions import HydroModPyError
 from hydromodpy.core.io.atomic_replace import staged_path
 from hydromodpy.core.io.document_version import VersionWindow
-from hydromodpy.core.state.paths import PLAN_CURRENT_FILENAME, plan_dir_for
+from hydromodpy.core.state.layout import PLAN_CURRENT_FILENAME, plan_dir_for
 from hydromodpy.results.storage.contract import (
     PLAN_CASES_FILENAME,
     PLAN_FILENAME,

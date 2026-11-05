@@ -205,7 +205,7 @@ def scratch_of_resumed_run(project_root: Path, run_name: str) -> str | None:
     The journal is read from the run directory (``runs/<name>``, the latest
     version for a bare name), never from the index.
     """
-    from hydromodpy.core.state.paths import run_scratch_of
+    from hydromodpy.core.state.scratch import run_scratch_of
     from hydromodpy.results.storage.attempt import run_dir_for_name
 
     run_dir = run_dir_for_name(Path(project_root), run_name)

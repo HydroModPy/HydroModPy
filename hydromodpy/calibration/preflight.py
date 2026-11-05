@@ -404,7 +404,7 @@ def comparison_line(row: Mapping[str, Any]) -> str:
 
 def _shortened_if_under_cwd(text: str) -> str:
     """Return ``text`` relative to the working directory, when it is an absolute path under it."""
-    from hydromodpy.core.state.paths import display_path
+    from hydromodpy.core.state.portable import display_path
 
     if not Path(text).is_absolute():
         return text

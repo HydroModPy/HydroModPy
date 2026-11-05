@@ -42,7 +42,7 @@ from hydromodpy.data.registry import cache_lifecycle, cache_queries, cache_store
 from hydromodpy.data.registry.backend import CacheBackend, DuckDBCacheBackend
 from hydromodpy.data.registry.cache_queries import CatalogEntry as _CatalogEntry
 from hydromodpy.data.registry.constants import SENTINEL_CUSTOM, SENTINEL_EMPTY
-from hydromodpy.data.registry.migrations import ensure_schema as _ensure_cache_schema
+from hydromodpy.data.registry.migrations.auto_boot import ensure_schema_safe
 
 logger = get_logger(__name__)
 
@@ -104,7 +104,7 @@ class DataCatalogDuckDB:
             backend_path = db_path
 
         if not read_only:
-            _ensure_cache_schema(self._conn)
+            ensure_schema_safe(self._conn)
         self._backend: CacheBackend = DuckDBCacheBackend.from_connection(
             self._conn, path=backend_path
         )

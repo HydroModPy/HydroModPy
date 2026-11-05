@@ -117,7 +117,6 @@ from hydromodpy.calibration.runners.resume import (
     reusable_stage,
 )
 from hydromodpy.calibration.runners.session import (
-    latest_session_dir,
     project_root_for,
     search_windows,
 )
@@ -130,7 +129,7 @@ from hydromodpy.core.exceptions import CalibrationError, ConfigValidationError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.workspace.path_registry import in_run_scratch
 from hydromodpy.results.checks import FROZE_BUDGET_ONLY
-from hydromodpy.results.session.descriptor import SessionStatus
+from hydromodpy.results.session.descriptor import SessionStatus, latest_session_dir
 from hydromodpy.results.session.phase import FrozenValue
 from hydromodpy.solver.base.solver_config import SolverConfig, solver_name_of_backend
 

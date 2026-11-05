@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.core.units.time import SECONDS_PER_DAY
+from hydromodpy.core.units.quantities import SECONDS_PER_DAY
 from hydromodpy.physics.flow.history_contract import build_transient_time_axes
 
 if TYPE_CHECKING:

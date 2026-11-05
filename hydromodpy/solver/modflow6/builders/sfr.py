@@ -35,7 +35,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.units.hydraulic_conductivity import parse_to_m_per_s
+from hydromodpy.core.units.quantities import parse_to_m_per_s
 from hydromodpy.solver.modflow6.builders._sfr_bed import solve_reach_bed_profile
 from hydromodpy.solver.modflow6.builders._sfr_drainage import (
     _LAK_PACKAGE_NAME,

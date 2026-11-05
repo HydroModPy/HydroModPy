@@ -66,7 +66,7 @@ def resolve_lockfile_root(project: Path | str | None = None) -> Path:
     """Return the project root whose lockfile a command addresses.
 
     An explicit ``project`` is the root. Otherwise the walk up from the current
-    directory is the one :func:`hydromodpy.core.state.paths.resolve_project_root`
+    directory is the one :func:`hydromodpy.core.state.result_dirs.resolve_project_root`
     owns, and only the miss differs: that helper answers with the starting
     directory so a flat project still resolves, while a lockfile command
     outside any project must not write ``hydromodpy.lock`` into whatever
@@ -76,7 +76,8 @@ def resolve_lockfile_root(project: Path | str | None = None) -> Path:
     ``configs/`` directory that helper reports as a ``ConfigError``: one
     missing root, one exception type to catch.
     """
-    from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME, resolve_project_root
+    from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
+    from hydromodpy.core.state.result_dirs import resolve_project_root
 
     if project is not None:
         return Path(project).expanduser().resolve()

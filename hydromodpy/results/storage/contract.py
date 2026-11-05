@@ -39,7 +39,7 @@ produced it, under a name fixed by its class::
 The run directory name is the human run name (with its ``.vN`` version
 suffix), so the tree is readable without the index. The directory names of
 the project itself (``runs``, ``sessions``, ``plan``, ``trash``, ``.hmp`` ...)
-live in :mod:`hydromodpy.core.state.paths`; this module owns the names
+live in :mod:`hydromodpy.core.state.layout`; this module owns the names
 *inside* a run or session directory so path builders, exporters and
 documentation share one vocabulary.
 
@@ -59,7 +59,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-from hydromodpy.core.state.paths import (
+from hydromodpy.core.state.layout import (
     CATALOG_FILENAME,
     INTERNAL_DIRNAME,
     RUNS_DIRNAME,

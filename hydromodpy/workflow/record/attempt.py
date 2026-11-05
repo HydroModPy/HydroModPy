@@ -137,6 +137,7 @@ def run_attempt(
         _close_if_running(claim.run_dir, status="aborted", step=heartbeat.step, error=exc)
         raise
     except BaseException as exc:
+        # Any exit of the run, even an exit not meant as an error, seals the outcome as failed.
         _close_if_running(claim.run_dir, status="failed", step=heartbeat.step, error=exc)
         raise
     else:
@@ -165,6 +166,7 @@ def _close_if_running(
             log_tail=read_log_tail(run_dir) if status != "completed" else None,
         )
     except Exception:
+        # The run's own error, still unwinding, must not be hidden by a failed outcome write.
         logger.exception("Could not write the outcome of %s", run_dir)
 
 

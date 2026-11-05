@@ -21,7 +21,7 @@ import duckdb
 from hydromodpy.core.exceptions import FrozenDataError
 from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import decode_workspace_path, encode_workspace_path
+from hydromodpy.core.state.portable import decode_workspace_path, encode_workspace_path
 from hydromodpy.data.provenance.sidecars import (
     Sidecar,
     load_sidecar,
@@ -70,7 +70,7 @@ def encode_path_for_storage(catalog: DataCatalogDuckDB, file_path: Path | str) -
     Falls back to ``str(file_path)`` for the in-memory catalog or when
     the target lies outside every supported anchor (workspace,
     ``cache://``, ``state://``). Anchored encoding is delegated to
-    :func:`hydromodpy.core.state.paths.encode_workspace_path` and is
+    :func:`hydromodpy.core.state.portable.encode_workspace_path` and is
     attempted first when a workspace is known.
     """
     workspace = workspace_root(catalog)

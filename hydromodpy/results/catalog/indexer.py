@@ -72,16 +72,14 @@ import duckdb
 from hydromodpy.core.io.atomic_replace import rename_over_open_file
 from hydromodpy.core.io.db_retry import connect_with_retry
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import (
+from hydromodpy.core.state.layout import (
     TRIALS_DIRNAME,
     catalog_path_for,
-    encode_workspace_path,
-    run_dir_rel,
     runs_dir_for,
-    session_dir_rel,
     sessions_dir_for,
-    trial_dir_rel,
 )
+from hydromodpy.core.state.portable import encode_workspace_path
+from hydromodpy.core.state.result_dirs import run_dir_rel, session_dir_rel, trial_dir_rel
 from hydromodpy.core.version import __version__
 from hydromodpy.results.annotations import read_annotations
 from hydromodpy.results.catalog.constants import solver_category

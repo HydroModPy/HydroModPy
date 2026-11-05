@@ -21,7 +21,7 @@ import pytest
 import zarr
 
 from hydromodpy.core.budget.terms import BudgetKeep, kept_budget
-from hydromodpy.core.state.paths import (
+from hydromodpy.core.state.layout import (
     CATALOG_FILENAME,
     CONFIGS_DIRNAME,
     INTERNAL_DIRNAME,

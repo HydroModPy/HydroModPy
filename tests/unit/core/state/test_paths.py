@@ -1,4 +1,4 @@
-"""Unit tests for the XDG-compliant path helpers in ``hydromodpy.core.state.paths``."""
+"""Unit tests for the path helpers of ``hydromodpy.core.state``: layout, result_dirs, scratch, portable."""
 
 from __future__ import annotations
 
@@ -13,30 +13,29 @@ import platformdirs
 import pytest
 
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.core.state.paths import (
+from hydromodpy.core.state.layout import (
     CATALOG_FILENAME,
     CONFIGS_DIRNAME,
     PROJECT_MARKER_FILENAME,
     PROJECTS_DIRNAME,
-    RUN_SCRATCH_ENV,
     RUNS_DIRNAME,
     WORKSPACE_TOML_FILENAME,
-    active_run_scratch,
-    cache_dir,
     catalog_path_for,
     is_project_root,
     is_workspace_root,
+    project_roots_under,
+)
+from hydromodpy.core.state.portable import cache_dir, resolve_workspace, state_dir
+from hydromodpy.core.state.result_dirs import refuse_a_sealed_run_as_project, resolve_project_root
+from hydromodpy.core.state.scratch import (
+    RUN_SCRATCH_ENV,
+    active_run_scratch,
     kept_preprocessing_dir,
     preprocessing_dir,
-    project_roots_under,
-    refuse_a_sealed_run_as_project,
-    resolve_project_root,
-    resolve_workspace,
     run_scratch,
     run_scratch_of,
     scratch_dir_for,
     scratch_root_for,
-    state_dir,
     sweep_dead_run_scratch,
 )
 
@@ -371,7 +370,7 @@ def test_two_processes_of_one_project_get_two_folders(tmp_path: Path) -> None:
         f"""
         import time
         from pathlib import Path
-        from hydromodpy.core.state.paths import run_scratch, scratch_dir_for
+        from hydromodpy.core.state.scratch import run_scratch, scratch_dir_for
         with run_scratch(Path({str(tmp_path)!r}), "project") as key:
             print(scratch_dir_for(Path({str(tmp_path)!r})), flush=True)
             time.sleep(1.0)
@@ -433,7 +432,7 @@ def test_a_resume_works_in_the_folder_of_the_killed_run(tmp_path: Path) -> None:
     sweep = textwrap.dedent(
         f"""
         from pathlib import Path
-        from hydromodpy.core.state.paths import sweep_dead_run_scratch
+        from hydromodpy.core.state.scratch import sweep_dead_run_scratch
         print([path.name for path in sweep_dead_run_scratch(Path({str(tmp_path)!r}))])
         """
     )

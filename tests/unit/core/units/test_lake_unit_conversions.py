@@ -12,14 +12,14 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.core.units.hydraulic_conductivity import parse_to_m_per_s
-from hydromodpy.core.units.leakance import (
+from hydromodpy.core.units.quantities import (
     convert_to_per_s,
     factor_to_per_s,
     normalize_per_s_unit,
+    parse_to_m3_per_s,
+    parse_to_m_per_s,
     parse_to_per_s,
 )
-from hydromodpy.core.units.volumetric_flow import parse_to_m3_per_s
 from hydromodpy.solver.modflow6.builders.lake import (
     build_lake_period_data,
     convert_bedleak_to_per_s,

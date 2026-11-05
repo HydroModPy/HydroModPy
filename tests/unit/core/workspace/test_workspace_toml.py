@@ -9,7 +9,7 @@ import pytest
 from pydantic import ValidationError
 
 from hydromodpy.core.exceptions import SchemaVersionMismatchError
-from hydromodpy.core.state.paths import WORKSPACE_TOML_FILENAME
+from hydromodpy.core.state.layout import WORKSPACE_TOML_FILENAME
 from hydromodpy.core.workspace import workspace_toml
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.core.workspace.workspace_toml import (

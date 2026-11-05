@@ -106,7 +106,7 @@ def run(args: argparse.Namespace) -> None:
 
 def _next_commands(root: Path, rel_dir: str, *, workspace: str | None) -> list[str]:
     """Return the rerun of the imported run and the comparison of the two."""
-    from hydromodpy.core.state.paths import parse_rel_dir
+    from hydromodpy.core.state.result_dirs import parse_rel_dir
     from hydromodpy.results.catalog.registration import next_version_dirname, split_stem_version
 
     name = parse_rel_dir(rel_dir).name

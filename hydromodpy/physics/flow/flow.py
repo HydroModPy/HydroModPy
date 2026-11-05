@@ -87,10 +87,7 @@ from hydromodpy.core.units import (
     convert_to_m_per_s,
     normalize_m_per_s_unit,
 )
-from hydromodpy.core.units.volumetric_flow import (
-    convert_to_m3_per_s,
-    normalize_m3_per_s_unit,
-)
+from hydromodpy.core.units.quantities import convert_to_m3_per_s, normalize_m3_per_s_unit
 from hydromodpy.physics.base import BoundaryCondition, ProcessSpatial, SinkSource
 from hydromodpy.physics.flow.boundary_condition_registry import BoundaryConditionBundle
 from hydromodpy.physics.flow.boundary_conditions import FlowBoundaryConditionConfig

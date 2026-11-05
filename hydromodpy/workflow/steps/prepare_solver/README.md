@@ -3,7 +3,7 @@
 The step that turns a built model into a run on disk: it plans the simulation, binds
 the pipeline to its run directory, records the facts of the run, persists the inputs
 and freezes the configuration into `config.toml` and `config.resolved.toml`.
-`PrepareSolverStep` lives in `__init__.py`, the only name it exports.
+`PrepareSolverStep` lives in `step.py`.
 
 ## Import rules
 
@@ -14,11 +14,11 @@ Same as `steps/`: `workflow` may import every layer below it
 
 ## Modules
 
-In the order a run reaches them: `__init__` plans, `dispatch` opens the run (it calls `facts`, `freeze`, `resolved` and `prepare`), then `__init__` persists the provenance and the forcings.
+In the order a run reaches them: `step` plans, `dispatch` opens the run (it calls `facts`, `freeze`, `resolved` and `prepare`), then `step` persists the provenance and the forcings.
 
 | module | what it answers |
 |---|---|
-| `__init__.py` | `PrepareSolverStep`: the order of the work below |
+| `step.py` | `PrepareSolverStep`: the order of the work below |
 | `dispatch.py` | binds the pipeline to its run directory and records what the run was built from (`bind_run_directory`, `initial_facts`, `step_open_run`) |
 | `restart.py` | `[flow] restart_from` by reference: a run name, a `sim_id` or a path (`resolve_restart_source`) |
 | `facts.py` | the facts of the run, the config snapshot and the artifact paths (`collect_run_facts`, `store_sim_artifacts`) |
@@ -31,7 +31,7 @@ In the order a run reaches them: `__init__` plans, `dispatch` opens the run (it 
 
 ```
 prepare_solver/
-  __init__.py   PrepareSolverStep
+  step.py       PrepareSolverStep
   dispatch.py   open the run
   restart.py    restart source
   facts.py      facts of the run

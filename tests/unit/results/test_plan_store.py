@@ -11,7 +11,7 @@ import pyarrow.parquet as pq
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.core.state.paths import PLAN_DIRNAME
+from hydromodpy.core.state.layout import PLAN_DIRNAME
 from hydromodpy.results import plan_store
 from hydromodpy.results.plan_store import (
     PLAN_SCHEMA,

@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.core.state.paths import parse_rel_dir
+from hydromodpy.core.state.result_dirs import parse_rel_dir
 from hydromodpy.results.storage.contract import (
     FIELDS_STORE_NAME,
     PARQUET_FILE_SUFFIX,

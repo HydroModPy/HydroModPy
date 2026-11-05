@@ -129,11 +129,16 @@ def test_no_time_section_means_no_window_no_grid_no_dates():
         ({"start": None}, "start_datetime must be a valid datetime"),
         ({"end": "not a date"}, "end_datetime"),
         ({"start": "2020-02-01", "end": "2020-01-01"}, "greater than or equal"),
+        ({"policy": "sometimes"}, "coverage_policy must be one of"),
     ],
 )
 def test_a_bad_window_is_refused_with_the_reason(kwargs, match):
     with pytest.raises(ValueError, match=match):
         resolve_simulation_time_window(_cfg(**kwargs))
+
+
+def test_a_coverage_policy_is_read_whatever_its_case_and_spaces():
+    assert resolve_simulation_time_window(_cfg(policy=" WARN ")).coverage_policy == "warn"
 
 
 def test_the_dates_of_a_bad_window_are_none_unless_strict():
@@ -238,21 +243,12 @@ def test_an_unknown_unit_has_no_frequency_and_no_boundaries():
         build_simulation_time_boundaries(window)
 
 
-def test_a_steady_run_has_one_period_over_the_whole_window(caplog):
-    grid = resolve_simulation_time_grid(_cfg("2020-01-01", "2020-01-10", 1, "day", regime="steady"))
-    assert grid.nper == 1
-    assert grid.period_lengths_seconds == (10 * 86400.0,)
-
-
-def test_a_steady_run_with_a_step_that_does_not_fit_still_has_one_period():
-    grid = resolve_simulation_time_grid(_cfg("2020-01-01", "2020-01-10", 3, "day", regime="steady"))
-    assert grid.nper == 1
-
-
-def test_a_steady_run_with_one_step_covering_the_window_is_unchanged():
+@pytest.mark.parametrize("step_value", [1, 3, 10], ids=["short", "not-fitting", "whole-window"])
+def test_a_steady_run_has_one_period_over_the_whole_window(step_value):
     grid = resolve_simulation_time_grid(
-        _cfg("2020-01-01", "2020-01-10", 10, "day", regime="steady")
+        _cfg("2020-01-01", "2020-01-10", step_value, "day", regime="steady")
     )
+    assert grid.nper == 1
     assert grid.period_lengths_seconds == (10 * 86400.0,)
 
 
@@ -390,21 +386,6 @@ _SHARED_REFUSALS = [
 ]
 
 
-def _cfg_for_window(step_value: object, step_unit: object) -> SimpleNamespace:
-    return SimpleNamespace(
-        simulation=SimpleNamespace(
-            time=SimpleNamespace(
-                mode="explicit",
-                start_datetime="2020-01-01 00:00:00",
-                end_datetime="2020-01-02 00:00:00",
-                step_value=step_value,
-                step_unit=step_unit,
-                coverage_policy="error",
-            )
-        )
-    )
-
-
 @pytest.mark.parametrize(("step_value", "step_unit", "match"), _SHARED_REFUSALS)
 def test_planning_config_and_window_helper_refuse_the_same_inputs(
     step_value: object, step_unit: object, match: str
@@ -418,7 +399,9 @@ def test_planning_config_and_window_helper_refuse_the_same_inputs(
         )
 
     with pytest.raises(ValueError, match=match):
-        resolve_simulation_time_window(_cfg_for_window(step_value, step_unit))
+        resolve_simulation_time_window(
+            _cfg("2020-01-01 00:00:00", "2020-01-02 00:00:00", step_value, step_unit)
+        )
 
 
 def test_shared_rule_rejects_a_boolean_step_value_before_the_missing_unit_check() -> None:

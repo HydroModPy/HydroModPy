@@ -124,7 +124,7 @@ from hydromodpy.calibration.config import CALIBRATION_RENAMES
 from hydromodpy.core.config_kit.base import CANNOT_REWRITE, refuse_old_forms, warn_old_form
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import is_sealed_run_config
+from hydromodpy.core.state.result_dirs import is_sealed_run_config
 from hydromodpy.core.time import parse_step_spec
 from hydromodpy.core.toml_io.loader import read_toml_chain
 from hydromodpy.core.toml_io.merge import DIRECTIVE_SUFFIXES, merge_toml_payloads
@@ -1916,7 +1916,7 @@ def migrate_config_doc_on_load(doc: Any, *, source: str | Path | None = None) ->
     key, the new key and the doctor; says nothing when the document was already current.
 
     A *source* that is the frozen config of a run already on disk
-    (:func:`~hydromodpy.core.state.paths.is_sealed_run_config`) is read in silence,
+    (:func:`~hydromodpy.core.state.result_dirs.is_sealed_run_config`) is read in silence,
     with the rules of :func:`migrate_sealed_config_doc`: no one edits a sealed file.
     """
     layers = [(source, doc)]

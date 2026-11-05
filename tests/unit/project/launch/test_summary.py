@@ -35,9 +35,8 @@ from hydromodpy.results.manifest import MetricRow
 from hydromodpy.results.metric_rule import DateWindow
 from hydromodpy.results.plan_store import Plan, PlanCase, write_plan
 from hydromodpy.results.record import RunRecord
-from hydromodpy.results.run.ranking import rank_rows
 from hydromodpy.results.run.sealed import MixedWindowsError
-from hydromodpy.results.run.sealed_facts import UnreadableManifestError, overrides_text
+from hydromodpy.results.run.sealed_facts import UnreadableManifestError
 from hydromodpy.results.storage.contract import TABLES_DIRNAME
 from hydromodpy.results.validity_rules import CALIBRATED_LABELS
 from tests._helpers.sealed_runs import WINDOW, seal_run, write_attempt, write_session_dir
@@ -507,25 +506,6 @@ def test_a_project_without_sites_is_collected_with_the_defaults(tmp_path: Path) 
     # Not calibrated: the default best = "calibrated" leaves the site without a best case.
     assert by_site["site"].tolist() == ["nancon"]
     assert pd.isna(by_site.loc[0, "best_case"])
-
-
-def test_rank_rows_follows_the_direction_of_the_metric() -> None:
-    frame = pd.DataFrame(
-        {
-            "case_id": ["a-x", "b-x", "a-y"],
-            "site": ["a", "b", "a"],
-            "rmse": [0.3, 0.1, 0.2],
-            "score_window_start": ["2016-01-01"] * 3,
-        }
-    )
-
-    assert rank_rows(frame, "rmse")["case_id"].tolist() == ["b-x", "a-y", "a-x"]
-    assert rank_rows(frame, "rmse", by="site")["case_id"].tolist() == ["a-y", "b-x"]
-
-
-def test_overrides_read_as_dotted_paths_and_values() -> None:
-    assert overrides_text({"b.k": 2e-5, "a.n": 3}) == "a.n=3, b.k=2e-05"
-    assert overrides_text({}) == ""
 
 
 def test_a_case_outside_the_plan_is_listed_but_not_counted(tmp_path: Path) -> None:

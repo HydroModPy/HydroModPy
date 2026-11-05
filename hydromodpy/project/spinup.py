@@ -142,6 +142,31 @@ def cycle_delta(prev_zarr: str, curr_zarr: str) -> tuple[float, float | None]:
     )
 
 
+def _compare_cycles(
+    index: int, prev_zarr: str, zarr_path: str, settings: SpinupConfig
+) -> tuple[float, float | None]:
+    """Return the head and lake-stage change from the previous cycle, and log them."""
+    d_head, d_stage = cycle_delta(prev_zarr, zarr_path)
+    logger.info(
+        "spin-up cycle %d: d_head=%.4g m, d_stage=%s (tol %.4g / %.4g)",
+        index,
+        d_head,
+        "not compared" if d_stage is None else f"{d_stage:.4g} m",
+        settings.tol_head,
+        settings.tol_stage,
+    )
+    if d_stage is None:
+        # The two cycles name different lakes, so the stage was never
+        # compared. Calling that convergence would be a claim about a
+        # measurement nobody made.
+        logger.warning(
+            "spin-up cycle %d: the two cycles share no lake, so the stage was "
+            "not compared and this cycle cannot converge on it.",
+            index,
+        )
+    return d_head, d_stage
+
+
 def run_spinup(
     project: Project,
     *,
@@ -204,24 +229,7 @@ def run_spinup(
             d_head: float | None = None
             d_stage: float | None = None
             if prev_zarr is not None:
-                d_head, d_stage = cycle_delta(prev_zarr, zarr_path)
-                logger.info(
-                    "spin-up cycle %d: d_head=%.4g m, d_stage=%s (tol %.4g / %.4g)",
-                    index,
-                    d_head,
-                    "not compared" if d_stage is None else f"{d_stage:.4g} m",
-                    settings.tol_head,
-                    settings.tol_stage,
-                )
-                if d_stage is None:
-                    # The two cycles name different lakes, so the stage was never
-                    # compared. Calling that convergence would be a claim about a
-                    # measurement nobody made.
-                    logger.warning(
-                        "spin-up cycle %d: the two cycles share no lake, so the stage was "
-                        "not compared and this cycle cannot converge on it.",
-                        index,
-                    )
+                d_head, d_stage = _compare_cycles(index, prev_zarr, zarr_path, settings)
                 converged = (
                     d_stage is not None
                     and d_head < settings.tol_head
@@ -271,5 +279,5 @@ def _tag_spinup_cycles(project: Project, cycles: list[SpinupCycle], *, converged
         tag = "spinup-converged" if promoted else "spinup-intermediate"
         try:
             add_tag(cycle.sim_id, tag)
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001 - a tag is a convenience and never breaks the loop result
             logger.debug("could not tag spin-up run %s", cycle.sim_id, exc_info=True)

@@ -121,7 +121,7 @@ def test_a_zone_on_a_run_that_does_not_exist_still_hashes(project: Path) -> None
 
 
 def test_a_hotstart_hashes_alike_in_every_form_that_names_one_run(project: Path) -> None:
-    from hydromodpy.core.state.paths import run_dir_rel
+    from hydromodpy.core.state.result_dirs import run_dir_rel
 
     sim_id = _sealed(project, "spinup")
     store = f"{run_dir_rel('spinup')}/{FIELDS_STORE_NAME}"

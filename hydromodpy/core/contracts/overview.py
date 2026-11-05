@@ -1,7 +1,7 @@
 """Runtime state threaded through the data-overview pipeline phases.
 
 Lives in ``core`` to break the inverse coupling that previously had
-``display.overview`` import from ``workflow.pipelines``. Sibling layer
+``display.overview`` import from ``workflow.overview``. Sibling layer
 types (``CatchmentDelineation``, ``GeographicDerivedFeatures``,
 ``DomainGeographicContext``) are kept as ``Any`` so ``core`` stays a leaf
 of the import DAG.

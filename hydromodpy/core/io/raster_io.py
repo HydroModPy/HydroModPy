@@ -13,6 +13,7 @@ import pandas as pd
 import rasterio as rio
 import rasterio.enums  # noqa: F401 - used as rio.enums across this module
 import rasterio.features
+import rioxarray  # noqa: F401 - registers the .rio accessor used by load_to_xarray
 import xarray as xr
 from pyproj import CRS
 from pyproj.aoi import AreaOfInterest
@@ -43,6 +44,62 @@ def mask_by_dem(target_data, mask_data, cond_symb, value_masked):
     return np.ma.masked_array(target_data, mask=cmp[cond_symb](mask_data, value_masked))
 
 
+def _as_crs(crs):
+    """Return *crs* as a rasterio CRS when it is given as text or as an EPSG code."""
+    if isinstance(crs, str):
+        return rio.crs.CRS.from_string(crs)
+    if isinstance(crs, int):
+        return rio.crs.CRS.from_epsg(crs)
+    return crs
+
+
+def _lacks_crs(crs) -> bool:
+    """Tell whether a raster profile holds no usable CRS, None for a file that declares none."""
+    return crs is None or not crs.is_valid
+
+
+def _vector_layer(file) -> gpd.GeoDataFrame | None:
+    """Return *file* as a vector layer, None when it is not one or cannot be read as one."""
+    if isinstance(file, gpd.GeoDataFrame):
+        return file
+    extension = os.path.splitext(file)[-1]
+    if extension in (".shp", ".dbf", ".shx"):
+        return gpd.read_file(file)
+    if extension in (".txt", ".csv"):
+        try:
+            df = pd.read_csv(file, sep=";")
+            geometry = [Point(xy) for xy in zip(df.x, df.y, strict=False)]
+            return gpd.GeoDataFrame(df.drop(columns=["x", "y"]), geometry=geometry)
+        except Exception:
+            logger.error("Failed to read coordinate CSV %s; expected columns 'id;x;y'", file)
+    return None
+
+
+def _rasterize_on_base(layer, base_profile, src_crs, dst_crs) -> np.ndarray | None:
+    """Burn *layer* on the grid of *base_profile*, None when the grid or a CRS is missing."""
+    if not base_profile:
+        logger.error("Raster profile required to rasterize vector dataset")
+        return None
+    if not layer.crs:
+        if not src_crs:
+            logger.error("Source CRS required to rasterize vector dataset")
+            return None
+        layer.set_crs(crs=src_crs, inplace=True, allow_override=True)
+    if _lacks_crs(base_profile["crs"]):
+        if not dst_crs:
+            logger.error("Destination CRS required to rasterize vector dataset")
+            return None
+        base_profile["crs"] = dst_crs
+    layer.to_crs(crs=base_profile["crs"].to_epsg(), inplace=True)
+    return rio.features.rasterize(
+        [(v.geometry, 1) for _, v in layer.iterrows()],
+        out_shape=(base_profile["height"], base_profile["width"]),
+        transform=base_profile["transform"],
+        fill=base_profile["nodata"],
+        all_touched=False,
+    )
+
+
 def load_to_numpy(
     file,
     src_crs=None,
@@ -51,83 +108,37 @@ def load_to_numpy(
     out_path: str = None,
 ):
     """Load a raster or vector file into a NumPy array aligned to *base_path*."""
+    base_profile = None
     if base_path:
         with rio.open(base_path, "r") as base:
             base_profile = base.profile
             base_val = base.read(1)
-    else:
-        base_profile = None
+    src_crs, dst_crs = _as_crs(src_crs), _as_crs(dst_crs)
 
-    if isinstance(src_crs, str):
-        src_crs = rio.crs.CRS.from_string(src_crs)
-    elif isinstance(src_crs, int):
-        src_crs = rio.crs.CRS.from_epsg(src_crs)
-    if isinstance(dst_crs, str):
-        dst_crs = rio.crs.CRS.from_string(dst_crs)
-    elif isinstance(dst_crs, int):
-        dst_crs = rio.crs.CRS.from_epsg(dst_crs)
-
-    file_vect = None
-    if isinstance(file, gpd.geodataframe.GeoDataFrame):
-        file_vect = file
-    elif os.path.splitext(file)[-1] in [".shp", ".dbf", ".shx"]:
-        file_vect = gpd.read_file(file)
-    elif os.path.splitext(file)[-1] in [".txt", ".csv"]:
-        try:
-            df = pd.read_csv(file, sep=";")
-            geometry = [Point(xy) for xy in zip(df.x, df.y, strict=False)]
-            df = df.drop(columns=["x", "y"])
-            file_vect = gpd.GeoDataFrame(df, geometry=geometry)
-        except Exception:
-            logger.error(
-                "Failed to read coordinate CSV %s; expected columns 'id;x;y'",
-                file,
-            )
-
-    if file_vect is not None:
-        if base_profile:
-            if not file_vect.crs:
-                if src_crs:
-                    file_vect.set_crs(crs=src_crs, inplace=True, allow_override=True)
-                else:
-                    logger.error("Source CRS required to rasterize vector dataset")
-                    return
-            if not base_profile["crs"].is_valid:
-                if dst_crs:
-                    base_profile["crs"] = dst_crs
-                else:
-                    logger.error("Destination CRS required to rasterize vector dataset")
-                    return
-            file_vect.to_crs(crs=base_profile["crs"].to_epsg(), inplace=True)
-            val = rio.features.rasterize(
-                [(v.geometry, 1) for _, v in file_vect.iterrows()],
-                out_shape=(base_profile["height"], base_profile["width"]),
-                transform=base_profile["transform"],
-                fill=base_profile["nodata"],
-                all_touched=False,
-            )
-            data_profile = base_profile
-        else:
-            logger.error("Raster profile required to rasterize vector dataset")
-            return
+    layer = _vector_layer(file)
+    if layer is not None:
+        val = _rasterize_on_base(layer, base_profile, src_crs, dst_crs)
+        if val is None:
+            return None
+        data_profile = base_profile
     else:
         with rio.open(file, "r") as data:
             data_profile = data.profile
-            if src_crs and not data_profile["crs"].is_valid:
+            if src_crs and _lacks_crs(data_profile["crs"]):
                 data_profile["crs"] = src_crs
             val = data.read(1)
 
     if base_profile:
-        if dst_crs and not base_profile["crs"].is_valid:
+        if dst_crs and _lacks_crs(base_profile["crs"]):
             base_profile["crs"] = dst_crs
         if data_profile != base_profile:
-            if not data_profile["crs"].is_valid:
+            if _lacks_crs(data_profile["crs"]):
                 logger.error("Source CRS required to reproject raster dataset")
-                return
-            if not base_profile["crs"].is_valid:
+                return None
+            if _lacks_crs(base_profile["crs"]):
                 logger.error("Destination CRS required to reproject raster dataset")
-                return
-            rio.warp.reproject(
+                return None
+            reproject(
                 source=val,
                 destination=base_val,
                 src_transform=data_profile["transform"],
@@ -145,112 +156,97 @@ def load_to_numpy(
         with rio.open(out_path, "w", **data_profile) as dst:
             dst.write_band(1, val)
 
+    src_crs = layer.crs if layer is not None else data_profile["crs"]
     if base_profile:
-        dst_crs = base_profile["crs"]
-        nodata = base_profile["nodata"]
-    else:
-        nodata = None
+        return val, src_crs, base_profile["crs"], base_profile["nodata"]
+    return val, src_crs, dst_crs, None
 
-    if file_vect is not None:
-        src_crs = file_vect.crs
-    else:
-        src_crs = data_profile["crs"]
 
-    return val, src_crs, dst_crs, nodata
+def _with_time_read_from_units(ds: xr.Dataset) -> xr.Dataset | None:
+    """Rebuild the time axis of a NetCDF whose time units xarray cannot decode."""
+    try:
+        ds.time.attrs["units"]
+    except Exception:
+        logger.error("No time unit metadata found in NetCDF dataset")
+        return None
+
+    timeunit = ds.time.attrs["units"].split()[0].casefold()
+    if timeunit in ("month", "months", "mois"):
+        freq = "MS"
+    elif timeunit in ("day", "days", "jour", "jours"):
+        freq = "1D"
+
+    initdate = re.search(r"\d{2,4}.*\d{2,4}", ds.time.attrs["units"]).group()
+    if initdate[2].isnumeric():
+        sep = initdate[4]
+        initdate = datetime.datetime.strptime(initdate, f"%Y{sep}%m{sep}%d")
+    else:
+        sep = initdate[2]
+        initdate = datetime.datetime.strptime(initdate, f"%d{sep}%m{sep}%Y")
+
+    start_date = pd.Series(pd.date_range(initdate, periods=int(ds.time[0]) + 1, freq=freq)).iloc[-1]
+    ds["time"] = pd.date_range(start=start_date, periods=len(ds.time), freq=freq)
+    return ds
+
+
+def _read_dataset(file, main_var) -> xr.Dataset | None:
+    """Read a GeoTIFF or a NetCDF file, None for another extension or an unreadable time."""
+    ext = os.path.splitext(file)[-1].casefold()
+    if ext in (".tif", ".tiff"):
+        with xr.open_dataset(file) as ds:
+            ds.load()
+        ds = ds.squeeze("band").drop_vars("band")
+        return ds.rename({"band_data": main_var}) if main_var else ds
+    if ext == ".nc":
+        try:
+            with xr.open_dataset(file, decode_coords="all") as ds:
+                ds.load()
+            return ds
+        except ValueError:
+            logger.warning("Unable to decode NetCDF time units; falling back to manual parsing")
+            with xr.open_dataset(file, decode_coords="all", decode_times=False) as ds:
+                ds.load()
+            return _with_time_read_from_units(ds)
+    logger.error("File extension %s not supported for xarray loading", ext)
+    return None
+
+
+def _is_crs_invalid(crs) -> bool:
+    """Tell whether *crs* is missing or a placeholder that names no real frame."""
+    if crs is None:
+        return True
+    crs_str = str(crs)
+    invalid_patterns = [
+        "EngineeringCRS",
+        "Unknown engineering datum",
+        "LOCAL_CS",
+        'UNIT["unknown"',
+        "unnamed",
+    ]
+    if any(p in crs_str for p in invalid_patterns):
+        return True
+    try:
+        return crs.to_dict().get("type") == "EngineeringCRS"
+    except Exception:
+        return False
 
 
 def load_to_xarray(file, src_crs=None, main_var=None, base_path: str = None, dst_crs=None):
     """Load a raster/NetCDF into an xarray Dataset, optionally reprojected."""
+    base_profile = None
     if base_path:
         with rio.open(base_path, "r") as base:
             base_profile = base.profile
-    else:
-        base_profile = None
+    src_crs, dst_crs = _as_crs(src_crs), _as_crs(dst_crs)
 
-    if isinstance(src_crs, str):
-        src_crs = rio.crs.CRS.from_string(src_crs)
-    elif isinstance(src_crs, int):
-        src_crs = rio.crs.CRS.from_epsg(src_crs)
-    if isinstance(dst_crs, str):
-        dst_crs = rio.crs.CRS.from_string(dst_crs)
-    elif isinstance(dst_crs, int):
-        dst_crs = rio.crs.CRS.from_epsg(dst_crs)
+    ds = file if isinstance(file, xr.Dataset) else _read_dataset(file, main_var)
+    if ds is None:
+        return None
 
-    if isinstance(file, str):
-        ext = os.path.splitext(file)[-1].casefold()
-        if ext in (".tif", ".tiff"):
-            with xr.open_dataset(file) as ds:
-                ds.load()
-            ds = ds.squeeze("band")
-            ds = ds.drop_vars("band")
-            if main_var:
-                ds = ds.rename({"band_data": main_var})
-        elif ext == ".nc":
-            try:
-                with xr.open_dataset(file, decode_coords="all") as ds:
-                    ds.load()
-            except ValueError:
-                logger.warning("Unable to decode NetCDF time units; falling back to manual parsing")
-                with xr.open_dataset(file, decode_coords="all", decode_times=False) as ds:
-                    ds.load()
-
-                try:
-                    ds.time.attrs["units"]
-                except Exception:
-                    logger.error("No time unit metadata found in NetCDF dataset")
-                    return
-
-                timeunit = ds.time.attrs["units"].split()[0].casefold()
-                if timeunit in ("month", "months", "mois"):
-                    freq = "MS"
-                elif timeunit in ("day", "days", "jour", "jours"):
-                    freq = "1D"
-
-                initdate_pattern = re.compile(r"\d{2,4}.*\d{2,4}")
-                initdate = initdate_pattern.search(ds.time.attrs["units"]).group()
-
-                if initdate[2].isnumeric():
-                    sep = initdate[4]
-                    initdate = datetime.datetime.strptime(initdate, f"%Y{sep}%m{sep}%d")
-                else:
-                    sep = initdate[2]
-                    initdate = datetime.datetime.strptime(initdate, f"%d{sep}%m{sep}%Y")
-
-                start_date = pd.Series(
-                    pd.date_range(initdate, periods=int(ds.time[0]) + 1, freq=freq)
-                ).iloc[-1]
-                date_index = pd.date_range(start=start_date, periods=len(ds.time), freq=freq)
-                ds["time"] = date_index
-        else:
-            logger.error("File extension %s not supported for xarray loading", ext)
-            return
-    elif isinstance(file, xr.core.dataset.Dataset):
-        ds = file
-
-    def _is_crs_invalid(crs):
-        if crs is None:
-            return True
-        crs_str = str(crs)
-        invalid_patterns = [
-            "EngineeringCRS",
-            "Unknown engineering datum",
-            "LOCAL_CS",
-            'UNIT["unknown"',
-            "unnamed",
-        ]
-        if any(p in crs_str for p in invalid_patterns):
-            return True
-        try:
-            return crs.to_dict().get("type") == "EngineeringCRS"
-        except Exception:
-            return False
-
-    if src_crs:
-        current_crs = ds.rio.crs
-        if _is_crs_invalid(current_crs) or "spatial_ref" not in ds.coords:
-            if "spatial_ref" in ds.coords:
-                ds = ds.drop_vars("spatial_ref")
-            ds.rio.write_crs(src_crs, inplace=True)
+    if src_crs and (_is_crs_invalid(ds.rio.crs) or "spatial_ref" not in ds.coords):
+        if "spatial_ref" in ds.coords:
+            ds = ds.drop_vars("spatial_ref")
+        ds.rio.write_crs(src_crs, inplace=True)
 
     data_transform = ds.rio.transform()
 
@@ -260,10 +256,10 @@ def load_to_xarray(file, src_crs=None, main_var=None, base_path: str = None, dst
         if (data_transform != base_profile["transform"]) | (ds.rio.crs != base_profile["crs"]):
             if _is_crs_invalid(ds.rio.crs):
                 logger.error("Source CRS required to reproject xarray dataset")
-                return
+                return None
             if _is_crs_invalid(base_profile["crs"]):
                 logger.error("Destination CRS required to reproject xarray dataset")
-                return
+                return None
             ds = ds.rio.reproject(
                 dst_crs=base_profile["crs"],
                 transform=base_profile["transform"],
@@ -277,29 +273,28 @@ def load_to_xarray(file, src_crs=None, main_var=None, base_path: str = None, dst
                 "Source CRS required to reproject - current CRS is invalid: %s",
                 ds.rio.crs,
             )
-            return
+            return None
         ds = ds.rio.reproject(dst_crs=dst_crs)
 
-    if "units" in ds.x.attrs and ds.x.attrs["units"].casefold() in (
-        "m",
-        "meter",
-        "meters",
-        "metre",
-        "metres",
-    ):
-        ds.x.attrs = {
+    # A reprojection to degrees keeps the axes named x and y, so read their names here.
+    x_axis, y_axis = ds.rio.x_dim, ds.rio.y_dim
+    units = ds[x_axis].attrs.get("units", "")
+    if units.casefold() in ("m", "meter", "meters", "metre", "metres"):
+        ds[x_axis].attrs = {
             "standard_name": "projection_x_coordinate",
             "long_name": "x coordinate of projection",
             "units": "Meter",
         }
-        ds.y.attrs = {
+        ds[y_axis].attrs = {
             "standard_name": "projection_y_coordinate",
             "long_name": "y coordinate of projection",
             "units": "Meter",
         }
-    elif "units" in ds.x.attrs and "deg" in ds.x.attrs["units"]:
-        ds.longitude.attrs = {"long_name": "longitude", "units": "degrees_east"}
-        ds.latitude.attrs = {"long_name": "latitude", "units": "degrees_north"}
+    elif "deg" in units:
+        east = "longitude" if "longitude" in ds.coords else x_axis
+        north = "latitude" if "latitude" in ds.coords else y_axis
+        ds[east].attrs = {"long_name": "longitude", "units": "degrees_east"}
+        ds[north].attrs = {"long_name": "latitude", "units": "degrees_north"}
 
     return ds
 
@@ -340,12 +335,7 @@ def export_tif(base_dem_path, data_to_tif, data_tif_path, data_nodata_val=None, 
     if data_nodata_val is not None:
         ras_meta["nodata"] = data_nodata_val
     if data_crs is not None:
-        if isinstance(data_crs, str):
-            ras_meta["crs"] = rio.crs.CRS.from_string(data_crs)
-        elif isinstance(data_crs, int):
-            ras_meta["crs"] = rio.crs.CRS.from_epsg(data_crs)
-        else:
-            ras_meta["crs"] = data_crs
+        ras_meta["crs"] = _as_crs(data_crs)
     with rio.open(data_tif_path, "w", **ras_meta) as dst:
         dst.write(data_to_tif, 1)
 

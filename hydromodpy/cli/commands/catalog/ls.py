@@ -100,7 +100,8 @@ def _resolve_workspace(workspace_arg: str | None) -> Path:
     Nothing found stops with :data:`EXIT_NOT_FOUND`: the listing never falls
     back on a default folder.
     """
-    from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
+    from hydromodpy.core.state.layout import catalog_path_for
+    from hydromodpy.core.state.result_dirs import resolve_project_root
 
     if workspace_arg:
         return Path(workspace_arg).expanduser().resolve()

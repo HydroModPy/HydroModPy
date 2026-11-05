@@ -72,7 +72,7 @@ class TestRechargeBridge:
         assert extract_homogeneous_series(result) is None
 
     def test_build_forcing_series_converts_units(self):
-        from hydromodpy.core.units.hydraulic_conductivity import factor_to_m_per_s
+        from hydromodpy.core.units.quantities import factor_to_m_per_s
         from hydromodpy.physics.forcing.forcing_bridge import build_forcing_series
 
         mm_day_to_m_s = factor_to_m_per_s("mm/day")
@@ -88,7 +88,7 @@ class TestRechargeBridge:
         assert series.iloc[1] == pytest.approx(1.0 * mm_day_to_m_s)
 
     def test_build_forcing_series_no_points_returns_none(self):
-        from hydromodpy.core.units.hydraulic_conductivity import factor_to_m_per_s
+        from hydromodpy.core.units.quantities import factor_to_m_per_s
         from hydromodpy.physics.forcing.forcing_bridge import build_forcing_series
 
         result = LoadResult(fields=[_make_field_record()])
@@ -102,7 +102,7 @@ class TestRechargeBridge:
         )
 
     def test_build_forcing_series_runoff_converts_units(self):
-        from hydromodpy.core.units.hydraulic_conductivity import factor_to_m_per_s
+        from hydromodpy.core.units.quantities import factor_to_m_per_s
         from hydromodpy.physics.forcing.forcing_bridge import build_forcing_series
 
         mm_day_to_m_s = factor_to_m_per_s("mm/day")

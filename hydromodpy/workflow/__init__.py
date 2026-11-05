@@ -1,8 +1,9 @@
-"""Composable workflow layer for HydroModPy simulation pipelines.
+"""The workflow layer: the steps of a run and the pipeline that chains them.
 
-This package extracts the business logic from launchers into reusable
-steps and pipelines, so that a single logic path serves TOML-driven,
-programmatic (Simulation), and calibration usage modes.
+A :class:`~hydromodpy.workflow.runner.Pipeline` runs the steps of
+:mod:`hydromodpy.workflow.steps`, journals them under the run directory and
+resumes a run from their artifacts. One path serves a TOML file, the Python API
+and a calibration trial.
 
 Public API
 ----------

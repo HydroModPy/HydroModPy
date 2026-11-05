@@ -21,15 +21,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from hydromodpy.calibration.config import CalibPhaseDecl, CalibrationConfig, window_bounds
-from hydromodpy.core.state.paths import resolve_project_root
+from hydromodpy.core.state.result_dirs import resolve_project_root
 from hydromodpy.results.catalog.registration import (
     config_identity_hash,
     reserve_version_dirname,
     run_identity_hash,
-    split_stem_version,
 )
 from hydromodpy.results.metric_rule import CALIBRATION_ROLE, VALIDATION_ROLE, PeriodWindow
-from hydromodpy.results.session.descriptor import ParameterBound, list_session_dirs
+from hydromodpy.results.session.descriptor import ParameterBound, latest_session_dir
 from hydromodpy.results.storage.contract import SESSION_CONFIG_FILENAME
 
 if TYPE_CHECKING:
@@ -89,18 +88,6 @@ def project_root_for(cfg_path: Path, workspace: Path | str | None) -> Path:
     if workspace is not None:
         return Path(workspace).expanduser().resolve()
     return resolve_project_root(Path(cfg_path).expanduser().resolve().parent)
-
-
-def latest_session_dir(project_root: Path, case: str) -> Path | None:
-    """Return the highest version of ``sessions/<case>`` that holds a descriptor, or None."""
-    found: list[tuple[int, Path]] = []
-    for entry in list_session_dirs(project_root):
-        stem, version = split_stem_version(entry.name)
-        if stem == case:
-            found.append((1 if version is None else version, entry))
-    if not found:
-        return None
-    return max(found)[1]
 
 
 def open_session_dir(project_root: Path, case: str, *, resume: bool) -> tuple[Path, bool]:
@@ -243,7 +230,6 @@ def session_bounds(space: ParameterSpace, case_id: str) -> dict[str, ParameterBo
 __all__ = [
     "calibration_case_name",
     "freeze_session_config",
-    "latest_session_dir",
     "open_session_dir",
     "project_root_for",
     "search_windows",

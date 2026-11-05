@@ -31,7 +31,13 @@ from hydromodpy.results.storage.attempt import claim_run_directory, finish_attem
 from hydromodpy.workflow.steps.sequence import standard_steps
 from hydromodpy.workflow.window import model_phase_index, resolve_step_index
 from tests._helpers.session_documents import session_descriptor
-from tests.unit.project.launch._helpers import PLAN_HASH, PROJECT_TOML, STAMP, planned_project
+from tests.unit.project.launch._helpers import (
+    PLAN_HASH,
+    PROJECT_TOML,
+    STAMP,
+    dead_pid,
+    planned_project,
+)
 
 
 def test_the_job_holds_two_scripts_and_the_cases_of_the_plan(tmp_path: Path) -> None:
@@ -246,16 +252,10 @@ def _claimed(tmp_path: Path, *, pid: int, host: str | None = None) -> tuple[Path
     return root, stored.directory / "J001-base.toml"
 
 
-def _dead_pid() -> int:
-    proc = subprocess.Popen([sys.executable, "-c", "pass"])
-    proc.wait()
-    return proc.pid
-
-
 @pytest.mark.allow_subprocess
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not installed")
 def test_finish_task_reads_the_signal_and_the_tail_of_the_log(tmp_path: Path) -> None:
-    root, case_toml = _claimed(tmp_path, pid=_dead_pid())
+    root, case_toml = _claimed(tmp_path, pid=dead_pid())
     log = tmp_path / "task.out"
     log.write_text("".join(f"line {i}\n" for i in range(100)))
 
@@ -275,7 +275,7 @@ def test_finish_task_leaves_a_live_or_foreign_worker_alone(tmp_path: Path) -> No
     assert outcome is not None and outcome.status == "running"
 
     root, case_toml = _claimed(
-        tmp_path / "foreign", pid=_dead_pid(), host="not-" + socket.gethostname()
+        tmp_path / "foreign", pid=dead_pid(), host="not-" + socket.gethostname()
     )
     assert finish_task(root, case_toml, exit_code=1) is None
     outcome = read_outcome(root / "runs" / "J001-base")
@@ -321,7 +321,7 @@ def test_a_calibration_session_left_running_is_closed_too(tmp_path: Path) -> Non
             written_by="worker",
             started_at=started,
             host=socket.gethostname(),
-            pid=_dead_pid(),
+            pid=dead_pid(),
         ),
     )
     log = tmp_path / "task.out"

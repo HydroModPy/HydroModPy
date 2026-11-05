@@ -40,7 +40,7 @@ from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
 from hydromodpy.core.units import FlowRate, Length
-from hydromodpy.core.units.leakance import normalize_per_s_unit
+from hydromodpy.core.units.quantities import normalize_per_s_unit
 from hydromodpy.physics.base.forcing import (
     SurfaceRateForcing,
     VolumeRateForcing,

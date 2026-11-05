@@ -758,13 +758,3 @@ def test_no_pickle_files_anywhere(tmp_path: Path) -> None:
     if checkpoint_root.exists():
         for entry in checkpoint_root.rglob("*"):
             assert entry.suffix not in (".pkl", ".pkl.zst", ".pickle")
-
-
-def test_checkpoint_store_module_was_removed() -> None:
-    with pytest.raises(ImportError):
-        import hydromodpy.workflow.internals.checkpoint  # noqa: F401
-
-
-def test_signed_pickle_module_was_removed() -> None:
-    with pytest.raises(ImportError):
-        import hydromodpy.core.io.signed_pickle  # noqa: F401

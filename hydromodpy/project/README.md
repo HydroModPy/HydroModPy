@@ -13,15 +13,13 @@ rules, how a run goes through it, and where to add what.
 
 | part | answers |
 |---|---|
-| `facade.py` | the public verbs of `Project`: `prepare`, `simulate`, `calibrate`, `spinup`, `rerun`, the model-phase verbs, the launch verbs of a `[sites]` project (`plan`, `launch`, `status`, `collect`, `publish`), the read-only views, `close`; `_execute`, the worker verb of `hmp run` |
-| `opening.py` | what opens and shows a `Project` without being one of its verbs: `open_project` (what `hmp.open` calls on a project folder), `configure_opened` (its `project.toml`, read on the first model verb), `resolve_config` (the polymorphic config input), `refreshed_index` (the index brought up to date), `project_repr` and `project_html` |
+| `facade.py` | the public verbs of `Project`: `prepare`, `simulate`, `calibrate`, `spinup`, `rerun`, the model-phase verbs, the launch verbs of a `[sites]` project (`plan`, `launch`, `status`, `collect`, `publish`), the read-only views, `close`; `_execute`, the worker verb of `hmp run`. After the class, the ways to open one: `open_project` (what `hmp.open` calls on a project folder), `configure_opened` (its `project.toml`, read on the first model verb) and `resolve_config` (the polymorphic config input) |
 | `calibrate.py` | the routing behind `Project.calibrate` and `hmp.calibrate` on a path: a TOML file to the staged or the CLI runner (`calibrate_a_file`), a declaration held in memory (`parameters=`, `protocol=`, the `[calibration]` of the project) to the programmatic runner (`calibrate_project`) |
 | `state.py` | where the runtime state of a `Project` lives (`ProjectState`), and which attribute names `Project` forwards to it (`PROJECT_ATTR_TO_STATE_FIELD`) |
 | `phases.py` | the model-phase verbs as free functions: `configure`, `setup_workspace`, `build_geographic`, `load_data`, `reload_data`, `rebuild_geographic`, `build_mesh`, `open_catalog` (the index, read only, and only when it exists) |
 | `runner.py` | `ProjectRunner`: one run through the workflow `Pipeline` (step window, resume, overrides, run naming; the attempt protocol `run_attempt` and `SealedRun` live in `workflow/record/attempt.py`, the replay checks in `workflow/replay_checks.py`); `execute` is the worker verb, `run` adds the index and the `Run` view, `draft` says what a run would do |
 | `run_overrides.py` | the `set=` of `simulate` as dotted changes of the configuration of the run, the names of `hmp config targets` |
-| `catalog.py` | `ProjectCatalog`: the index binding of a project (`store`, `data`, `runs`) and its `close` |
-| `accessors.py` | the read-only views `project.data` (`ProjectDataAccessor`) and `project.runs` (`ProjectRunsAccessor`), the campaign reads behind `project.cases`, `.sites`, `.best_runs` and `.sessions` (`ProjectSessions`), and `Workspace`, what `hmp.open` returns on a workspace root; the index itself is `project.store`, a `Catalog`, and `project[ref]` is one `Run` |
+| `accessors.py` | the read-only views `project.data` (`ProjectDataAccessor`) and `project.runs` (`ProjectRunsAccessor`), `ProjectCatalog` (the index binding of a project: `store`, `data`, `runs`, and its `close`), the campaign reads behind `project.cases`, `.sites`, `.best_runs` and `.sessions` (`ProjectSessions`), and `Workspace`, what `hmp.open` returns on a workspace root; the index itself is `project.store`, a `Catalog`, and `project[ref]` is one `Run` |
 | `launch/` | the launcher of a `[sites]` project: lease, case selection, prepare, local launch, SLURM array, status, collect into `summary/`. See [launch/README.md](launch/README.md) |
 | `exchange/` | publish a run with its inputs, install a published copy, replay it from its own bytes. See [exchange/README.md](exchange/README.md) |
 | `dispatch/` | the adapters that need `Project` and that lower layers must not import: workflow name to run function, rerun provider. See [dispatch/README.md](dispatch/README.md) |
@@ -56,11 +54,10 @@ because the frozen `launch/templates/*.sh` call it.
 ```
 hydromodpy/project/
   __init__.py       Project, ProjectRunner, ProjectCatalog, the two accessors
-  facade.py         Project and its verbs
-  opening.py        open_project, resolve_config, repr and html of a Project
+  facade.py         Project and its verbs, open_project
   calibrate.py      routing of Project.calibrate
   state.py  phases.py  runner.py  run_overrides.py  spinup.py
-  catalog.py  accessors.py
+  accessors.py      the read-only views and ProjectCatalog
   dispatch/         workflow.py  rerun.py                      (README.md)
   launch/           the [sites] launcher, SLURM and summary/   (README.md)
   exchange/         share.py  install.py  replay.py            (README.md)

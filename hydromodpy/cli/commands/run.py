@@ -65,12 +65,9 @@ from hydromodpy.cli.helpers import (
 from hydromodpy.cli.output import emit
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import (
-    data_cache_path_for,
-    display_path,
-    refuse_a_sealed_run_as_project,
-    resolve_project_root,
-)
+from hydromodpy.core.state.layout import data_cache_path_for
+from hydromodpy.core.state.portable import display_path
+from hydromodpy.core.state.result_dirs import refuse_a_sealed_run_as_project, resolve_project_root
 from hydromodpy.core.toml_io.overrides import set_overrides
 
 logger = get_logger(__name__)
@@ -329,7 +326,7 @@ def _resume_from_ref(ref: str, *, args: argparse.Namespace) -> None:
 
 def _replay_project_root() -> Path:
     """Return the project a published copy replays into: ``-w``, else the one around the cwd."""
-    from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME
+    from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
 
     named = os.environ.get(PROJECT_ROOT_ENV)
     root = Path(named) if named else resolve_project_root(Path.cwd().resolve())
@@ -837,7 +834,7 @@ def _close_dead_attempt(project_root: Path, case_name: str, exc: BaseException) 
 
 def _index_after_worker(project_root: Path) -> None:
     """Refresh the index of the project from its run directories, after the worker."""
-    from hydromodpy.core.state.paths import runs_dir_for
+    from hydromodpy.core.state.layout import runs_dir_for
     from hydromodpy.results.catalog.indexer import index_new_runs
 
     if not runs_dir_for(project_root).is_dir():

@@ -16,7 +16,7 @@ The facade holds the public verbs; they delegate to:
 
 - :class:`hydromodpy.project.runner.ProjectRunner` (``project._runner``):
   internal runner backing ``simulate`` / ``calibrate``.
-- :class:`hydromodpy.project.catalog.ProjectCatalog` (``project._catalog``):
+- :class:`hydromodpy.project.accessors.ProjectCatalog` (``project._catalog``):
   catalog access (``store``, ``runs``, ``data``) and lifecycle (``close``).
 - :mod:`hydromodpy.project.phases`: model-phase verbs that mutate the
   project directly (``configure``, ``setup_workspace``, ``build_geographic``,
@@ -26,7 +26,7 @@ The facade holds the public verbs; they delegate to:
 - :mod:`hydromodpy.project.calibrate`: the runner a calibration goes to.
 
 A project is also opened on its directory, read only, by ``hmp.open``
-(:func:`~hydromodpy.project.opening.open_project`). It then reads its plan,
+(:func:`~hydromodpy.project.facade.open_project`). It then reads its plan,
 its runs and its sessions from the disk, and launches its cases with the words
 of ``hmp project``: ``plan``, ``launch``, ``status``, ``collect``, ``publish``.
 Its configuration is read from ``project.toml`` only when a model verb needs it.
@@ -64,11 +64,13 @@ from hydromodpy.core.config_kit.base import frozen_copy
 from hydromodpy.core.exceptions import ConfigMissingError, PipelineError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.old_members import refuse_old_member
-from hydromodpy.core.state.paths import run_scratch, summary_dir_for
+from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME, summary_dir_for
+from hydromodpy.core.state.result_dirs import resolve_project_root
+from hydromodpy.core.state.scratch import run_scratch
 from hydromodpy.core.toml_io.paths import assign, parse
-from hydromodpy.project import opening
 from hydromodpy.project import phases as project_phases
 from hydromodpy.project.accessors import (
+    ProjectCatalog,
     ProjectDataAccessor,
     ProjectRunsAccessor,
     ProjectSessions,
@@ -76,7 +78,6 @@ from hydromodpy.project.accessors import (
     cases_frame,
     sites_frame,
 )
-from hydromodpy.project.catalog import ProjectCatalog
 from hydromodpy.project.runner import ProjectRunner
 from hydromodpy.project.state import (
     CONFIGURED_STATE_FIELDS,
@@ -164,7 +165,7 @@ class Project:
         object.__setattr__(self, "_state", ProjectState())
         project_phases.configure(
             self,
-            opening.resolve_config(config),
+            resolve_config(config),
             solver=solver,
             headless=headless,
             no_display=no_display,
@@ -217,7 +218,7 @@ class Project:
             state = self.__dict__.get("_state")
             if state is not None:
                 if target in CONFIGURED_STATE_FIELDS and state.cfg is None and state.root:
-                    opening.configure_opened(self)
+                    configure_opened(self)
                 return getattr(state, target)
         refuse_old_member("Project", name)
         raise AttributeError(f"{type(self).__name__!r} object has no attribute {name!r}")
@@ -404,7 +405,17 @@ class Project:
         The index is derived from the disk: a pass that finds nothing new
         writes nothing and keeps the open handle.
         """
-        return opening.refreshed_index(self)
+        from hydromodpy.results.catalog import Catalog
+        from hydromodpy.results.catalog.indexer import index_new_runs
+
+        report = index_new_runs(self.root)
+        store = self._store
+        if store is not None and not store.closed and report.unchanged:
+            return store
+        if store is not None:
+            store.close()
+        self._store = Catalog(self.root)
+        return self._store
 
     @property
     def cases(self) -> pd.DataFrame:
@@ -890,7 +901,105 @@ class Project:
         self.close()
 
     def __repr__(self) -> str:
-        return opening.project_repr(self)
+        """Return ``Project('<root>')``, or the config file name of a project built from one."""
+        if self._state.root is not None:
+            return f"Project({str(self._state.root)!r})"
+        source = self._config_path.name if self._config_path else "<in-memory>"
+        return f"Project({source!r})"
 
     def _repr_html_(self) -> str:
-        return opening.project_html(self)
+        """Return the HTML table a notebook shows for this project."""
+        if self._config_path is not None:
+            source_label = self._config_path.name
+            project_name = self._config_path.parent.name
+        else:
+            source_label = "&lt;in-memory&gt;"
+            project_name = getattr(self, "_project_name", "") or "&mdash;"
+        runs = self._run_history
+        last_run = runs[-1] if runs else None
+        last = (
+            f"<code>{last_run.sim_id[:8]}</code> ({last_run.name})"
+            if last_run is not None
+            else "&mdash;"
+        )
+        rows = [
+            ("config", f"<code>{source_label}</code>"),
+            ("project", project_name),
+            ("solver", str(self._state.solver or "&mdash;")),
+            ("headless", "yes" if self._state.headless else "no"),
+            ("runs", str(len(runs))),
+            ("last run", last),
+        ]
+        body = "".join(
+            f"<tr><th style='text-align:left;padding-right:8px'>{k}</th><td>{v}</td></tr>"
+            for k, v in rows
+        )
+        return (
+            "<div><b>Project</b>"
+            "<table style='font-size:0.85em;border-collapse:collapse'>"
+            f"{body}</table></div>"
+        )
+
+
+def resolve_config(config: str | Path | object | dict) -> object:
+    """Normalize a polymorphic config input to a path or ``HydroModPyConfig``.
+
+    ``dict`` -> validated config; JSON string (starts with ``{``) -> validated
+    config; a TOML path or an already-built config object passes through.
+    """
+    if isinstance(config, Mapping):
+        from hydromodpy.config import HydroModPyConfig
+
+        return HydroModPyConfig.from_dict(dict(config))
+    if isinstance(config, str) and config.lstrip().startswith("{"):
+        from hydromodpy.config import HydroModPyConfig
+
+        return HydroModPyConfig.from_json(config)
+    return config
+
+
+def configure_opened(project: Project) -> None:
+    """Configure a project opened on its directory from its ``project.toml``.
+
+    A ``[sites]`` project has one configuration per case, written by its
+    plan; it is read and launched, never configured as one model.
+    """
+    from hydromodpy.config.sites.expansion import SitesProjectError, find_sites_file
+    from hydromodpy.core.toml_io.loader import read_toml_chain
+
+    state = project.__dict__["_state"]
+    marker = state.root / PROJECT_MARKER_FILENAME
+    if not marker.is_file():
+        raise ConfigMissingError(
+            f"{state.root} holds no {PROJECT_MARKER_FILENAME}: an opened project builds "
+            "its model from it. Open a configuration with hmp.Project(<file>.toml)."
+        )
+    if find_sites_file(read_toml_chain(marker)) is not None:
+        raise SitesProjectError(
+            f"{marker} is a [sites] project: each case is configured by its plan. Read "
+            "it with proj.cases, launch it with proj.launch(), or build one case with "
+            "hmp.Project('plan/<hash>/<case>.toml')."
+        )
+    try:
+        project_phases.configure(project, marker, solver=None, headless=False, no_display=False)
+    except BaseException:
+        # Leave the project unconfigured so the next read tries again, then let the error out.
+        state.cfg = None
+        raise
+
+
+def open_project(path: str | Path) -> Project:
+    """Open the project a directory, or a file inside it, belongs to, read only.
+
+    The project root is the folder of ``project.toml`` at or above *path*.
+    Nothing is validated or built: the project reads its plan, its runs and
+    its sessions from the disk, and reads ``project.toml`` only when a model
+    verb (``simulate``, ``prepare``, ``config`` ...) needs a configuration.
+    """
+    start = Path(path).expanduser().resolve()
+    root = resolve_project_root(start.parent if start.is_file() else start).resolve()
+    project = object.__new__(Project)
+    object.__setattr__(project, "_state", ProjectState(root=root))
+    object.__setattr__(project, "_runner", ProjectRunner(project))
+    object.__setattr__(project, "_catalog", ProjectCatalog(project))
+    return project

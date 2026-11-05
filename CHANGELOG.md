@@ -39,6 +39,14 @@ Each release section includes the following standard categories:
 
 ### Fixed
 
+- `load_to_numpy` no longer raises `AttributeError` on a GeoTIFF without a CRS. It reports the missing CRS and returns `None`, or uses the CRS the caller gives as text or as a code.
+- `load_to_xarray` labels the real spatial axes after a reprojection to degrees, and `raster_io` imports `rioxarray` itself.
+- `select_within_polygon_points` now filters the grid instead of logging an error and returning it whole. PyHELP ERA5 preprocessing with `nearest_filter=False` now receives only the points inside the polygon.
+- A TOML error in a later `[[table]]` block now points at that block.
+- `dump_toml_with_comments` applies the rule on relative default paths at every depth, and keeps such a path when `written_only` says the model was given it.
+- `resolve_simulation_time_window` normalizes `coverage_policy` again and refuses an unknown value at once, for objects that did not pass through pydantic.
+- `LengthMeters` and the other unit types give a pydantic `ValidationError` for a boolean, a list or a table without `value`, instead of a raw `TypeError`.
+- Reading a calibration file for its phases, a sidecar or the DAG cohorts no longer swallows every exception, only the ones those readers raise.
 - The block-size pre-create of a DuckDB file now skips a path still attached in this process on the DuckDB releases that raise `ResourceInUseException`.
 - `hmp campaign status` no longer counts a folder under `sessions/` without `session.json`.
 - A forcing that a run fails to persist now logs a warning.
@@ -83,6 +91,11 @@ Each release section includes the following standard categories:
 
 ### Changed
 
+- `hydromodpy.core.state.paths` splits into `layout`, `result_dirs`, `scratch` and `portable`. `dump_toml_with_comments` moves to `hydromodpy.core.config_kit.dump`, which ends the import cycle between `config_kit` and `toml_io`, and the header comment of a written TOML names the new module.
+- The seven unit helper modules of `hydromodpy.core.units` become one table of quantities in `quantities.py`. Public names, factors and error messages are unchanged.
+- The author lookup of the command line moves to `hydromodpy.cli.auth`, and `step_name` and `step_depends_on` move to `hydromodpy.workflow.step`. The `__init__.py` of `core.io`, `core.toml_io` and `data.registry.migrations` no longer re-export names, and the data cache migration runner no longer takes a component name.
+- `open_project` moves to `project/facade.py`, `ProjectCatalog` to `project/accessors.py` and `PrepareSolverStep` to `workflow/steps/prepare_solver/step.py`. Functions read only in their own file become private in `project` and `workflow`, and the long functions of the launcher, the exchange and the runner are split into short steps.
+- Tests of `project` and `workflow` sit in the layer of the code they cover, and CI gates the coverage of both packages.
 - `hydromodpy.core` regroups its root modules into `stream/`, `drainage/`, `budget/`, `fields/`, `scoring/`, `console/` and `runtime/`, and its root goes from 35 modules to 9. `auth`, `site`, `state` and `units` absorb their single-use modules, for instance `state.data`, `state.execution` and `state.setup` into `state.run_state`.
 - Modules leave `core` for the layer that uses them: `bed_regularization` to `spatial/geographic/core/`, `solver_diagnostics` to `solver/boussinesq/runtimes/diagnostic_files`, `administrative_france` to `spatial/administrative/regions`, `units.udunits` to `results/storage/`, `config_kit.export_spec` to `results/exporters/` and `migrations` to `data/registry/migrations/`.
 - `build_network_geometry`, `build_descent` and the TOML template generator are cut into steps, with `drainage/pins.py` and `toml_io/{render,section,model_types}.py`. Each sub-package of `core` has a README, and CI gains the `core-coverage` job, one coverage floor per sub-package.
@@ -165,6 +178,8 @@ None. No metric value changes.
 
 ### Removed
 
+- `hydromodpy.core.Workspace`, which never resolved. The public `Workspace` is in `hydromodpy.project.accessors`.
+- The `HMP_AUTH_BACKEND` variable, which only accepted `local`, the unused typed ids and the unused step Protocols of `core.contracts`.
 - `hydromodpy.core.io.crs.haversine_km`, use `hydromodpy.data.common.geo_helpers.haversine_km`, which keeps its radius of 6371.0 km, and `hydromodpy.core.io.raster_io.clip_tif`, which had no caller.
 - `prepare_runtime`, `workflow/phases.py` and the `Launcher` Protocol, duplicates of `project/phases.py`, `STEP_NAMES` and `SimulationRunner`.
 - The B0 network and transient discharge case left the `hydromodpy` package for `validation_cases/calibration/network_transient_b0/`. The wheel no longer ships its page. `hydromodpy.calibration.reporting`, `hydromodpy.calibration.observations.natural_observations`, `network_cost`, `network_transient_truth` and `hydromodpy.calibration.optim.objective_mapping` are gone, and `step_render_network_transient_calibration_html` is no longer in `hydromodpy.workflow.steps.calibration`.

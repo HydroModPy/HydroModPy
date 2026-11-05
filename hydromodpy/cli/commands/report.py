@@ -38,7 +38,7 @@ from hydromodpy.cli.helpers import (
 )
 from hydromodpy.cli.output import emit
 from hydromodpy.core.console import progress
-from hydromodpy.core.state.paths import resolve_project_root
+from hydromodpy.core.state.result_dirs import resolve_project_root
 
 NAME: str = "report"
 HELP: str = "Render HTML reports and compare sealed runs"

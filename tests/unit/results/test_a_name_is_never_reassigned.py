@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.core.state.paths import RUNS_DIRNAME
+from hydromodpy.core.state.layout import RUNS_DIRNAME
 from hydromodpy.results.catalog.registration import NameTakenError, reserve_version_dirname
 from hydromodpy.results.storage.attempt import (
     RunClaim,

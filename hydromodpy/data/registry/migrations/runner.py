@@ -1,13 +1,13 @@
 """Alembic-like migration runner generic over DuckDB databases.
 
 The runner discovers ``<NNNN>_<slug>.sql`` scripts under ``versions_dir``,
-records each application in ``schema_migrations`` and keeps one row of
-``_schema_version`` per component in sync. It is idempotent: rerunning
+records each application in ``schema_migrations`` and keeps the row of
+``_schema_version`` in sync. It is idempotent: rerunning
 :func:`ensure_schema` on an up-to-date database applies nothing and only
 verifies checksum integrity.
 
-The same runner serves multiple components by parametrizing
-``component`` (``"data_cache"`` for the source-data cache).
+It serves one database, the source-data cache. Its ledger rows carry the
+component name ``"data_cache"``, which caches already written hold.
 
 A ledger holding a migration the code does not know means a later version
 wrote the database. It is refused before anything runs: this code would write
@@ -19,7 +19,6 @@ from __future__ import annotations
 import hashlib
 import os
 import re
-from collections.abc import Callable
 from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -42,24 +41,21 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-DEFAULT_COMPONENT = "catalog"
+COMPONENT = "data_cache"
+"""The value of the ``component`` column of the ledger of the data cache."""
+
+MIGRATIONS_DIR = Path(__file__).resolve().parent
+"""The folder holding the bundled ``<NNNN>_<slug>.sql`` scripts."""
+
 DEFAULT_LOCK_TIMEOUT = 30.0
 
-REPAIR_HINTS: dict[str, str] = {
-    "catalog": (
-        "the project index is rebuildable: delete <project>/.hmp/index.duckdb "
-        "and run 'hmp catalog reindex'"
-    ),
-    "data_cache": (
-        "the download cache is a primary record, not an index: restore the newest "
-        "'.hmp/backups/cache.duckdb.bak-*' snapshot next to it"
-    ),
-}
-"""How to repair a database whose recorded schema no longer matches the code.
+REPAIR_HINT = (
+    "the download cache is a primary record, not an index: restore the newest "
+    "'.hmp/backups/cache.duckdb.bak-*' snapshot next to it"
+)
+"""How to repair a cache whose recorded schema no longer matches the code.
 
-Keyed by migration component. Every index in this project is reconstructed
-rather than repaired, so the hint is a command; only the download cache holds
-something no rebuild can produce, so its hint is a restore.
+The download cache holds something no rebuild can produce, so its hint is a restore.
 """
 
 _FILENAME_RE = re.compile(r"^(?P<version>\d{4})_(?P<slug>[a-z0-9][a-z0-9_]*)\.sql$")
@@ -106,14 +102,6 @@ def _sha256(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def repair_hint_for(component: str) -> str:
-    """Return the one-line repair instruction for ``component``."""
-    return REPAIR_HINTS.get(
-        component,
-        f"delete the {component} database and let the next command recreate it",
-    )
-
-
 def discover_migrations(versions_dir: Path) -> list[Migration]:
     """Return migrations sorted by version, rejecting gaps and duplicates."""
     if not versions_dir.is_dir():
@@ -156,40 +144,25 @@ def list_migrations(versions_dir: Path) -> list[Migration]:
     return discover_migrations(versions_dir)
 
 
-def current_version(
-    connection: duckdb.DuckDBPyConnection,
-    *,
-    component: str = DEFAULT_COMPONENT,
-) -> int:
-    """Return the highest applied version for ``component``, 0 if none."""
+def current_version(connection: duckdb.DuckDBPyConnection) -> int:
+    """Return the highest applied version, 0 if none."""
     if not _has_system_tables(connection):
         return 0
     row = connection.execute(
         "SELECT COALESCE(MAX(version), 0) FROM schema_migrations WHERE component = ?",
-        [component],
+        [COMPONENT],
     ).fetchone()
     return int(row[0]) if row is not None else 0
 
 
-def target_version(versions_dir: Path) -> int:
+def target_version(versions_dir: Path = MIGRATIONS_DIR) -> int:
     """Return the highest migration version present on disk."""
     migrations = discover_migrations(versions_dir)
     return migrations[-1].version if migrations else 0
 
 
-def apply_migration(
-    connection: duckdb.DuckDBPyConnection,
-    migration: Migration,
-    *,
-    component: str = DEFAULT_COMPONENT,
-    post_apply: Callable[[duckdb.DuckDBPyConnection, Migration, str], None] | None = None,
-) -> None:
-    """Apply one migration in a transaction and record it for ``component``.
-
-    ``post_apply`` is invoked after a successful COMMIT and is best-effort:
-    any exception it raises is swallowed (used to emit audit events from
-    callers that depend on a higher layer like ``results``).
-    """
+def apply_migration(connection: duckdb.DuckDBPyConnection, migration: Migration) -> None:
+    """Apply one migration in a transaction and record it in the ledger."""
     sql = migration.upgrade_sql
     checksum = migration.checksum
     connection.execute("BEGIN TRANSACTION")
@@ -199,7 +172,7 @@ def apply_migration(
         connection.execute(
             "INSERT INTO schema_migrations (version, component, slug, checksum) "
             "VALUES (?, ?, ?, ?)",
-            [migration.version, component, migration.slug, checksum],
+            [migration.version, COMPONENT, migration.slug, checksum],
         )
         connection.execute(
             """
@@ -209,30 +182,23 @@ def apply_migration(
                 SET version = excluded.version,
                     updated_at = excluded.updated_at
             """,
-            [component, migration.version],
+            [COMPONENT, migration.version],
         )
         connection.execute("COMMIT")
     except Exception as exc:
         connection.execute("ROLLBACK")
         raise MigrationExecutionError(
             f"Failed to apply migration {migration.version:04d}_{migration.slug} "
-            f"for component {component!r}: {exc}. "
-            f"To repair, {repair_hint_for(component)}."
+            f"for the data cache: {exc}. "
+            f"To repair, {REPAIR_HINT}."
         ) from exc
 
-    _fold_schema_into_the_database_file(connection, migration, component)
-
-    if post_apply is not None:
-        try:
-            post_apply(connection, migration, component)
-        except Exception:
-            return
+    _fold_schema_into_the_database_file(connection, migration)
 
 
 def _fold_schema_into_the_database_file(
     connection: duckdb.DuckDBPyConnection,
     migration: Migration,
-    component: str,
 ) -> None:
     """Checkpoint so an ``ALTER TABLE`` lives in the database file, not in the journal.
 
@@ -262,12 +228,11 @@ def _fold_schema_into_the_database_file(
         connection.execute("CHECKPOINT")
     except Exception as exc:  # noqa: BLE001 - duckdb is a TYPE_CHECKING import here
         logger.warning(
-            "Migration %04d_%s (%s) is committed but still in the write-ahead "
+            "Migration %04d_%s is committed but still in the write-ahead "
             "log: %s. Close this database cleanly before killing the process, "
             "a journal holding schema changes cannot be replayed.",
             migration.version,
             migration.slug,
-            component,
             exc,
         )
 
@@ -275,11 +240,9 @@ def _fold_schema_into_the_database_file(
 def ensure_schema(
     connection: duckdb.DuckDBPyConnection,
     *,
-    versions_dir: Path,
-    component: str = DEFAULT_COMPONENT,
-    post_apply: Callable[[duckdb.DuckDBPyConnection, Migration, str], None] | None = None,
+    versions_dir: Path = MIGRATIONS_DIR,
 ) -> None:
-    """Bring ``component`` up to the highest available version.
+    """Bring the data cache up to the highest available version.
 
     Creates the two system tables if missing, applies every pending
     migration in order, and verifies checksum integrity for migrations
@@ -290,19 +253,19 @@ def ensure_schema(
     """
     _create_system_tables(connection)
     migrations = discover_migrations(versions_dir)
-    applied = _load_applied(connection, component=component)
-    _refuse_a_later_ledger(connection, migrations, applied, component=component)
+    applied = _load_applied(connection)
+    _refuse_a_later_ledger(connection, migrations, applied)
 
     for migration in migrations:
         recorded = applied.get(migration.version)
         if recorded is None:
-            apply_migration(connection, migration, component=component, post_apply=post_apply)
+            apply_migration(connection, migration)
             continue
         if recorded != migration.checksum:
             raise SchemaIntegrityError(
                 f"Checksum mismatch for migration {migration.version:04d}_{migration.slug} "
-                f"({component}): stored {recorded!r}, disk {migration.checksum!r}. "
-                f"To repair, {repair_hint_for(component)}."
+                f"(data cache): stored {recorded!r}, disk {migration.checksum!r}. "
+                f"To repair, {REPAIR_HINT}."
             )
 
 
@@ -310,8 +273,6 @@ def _refuse_a_later_ledger(
     connection: duckdb.DuckDBPyConnection,
     migrations: list[Migration],
     applied: dict[int, str],
-    *,
-    component: str,
 ) -> None:
     """Refuse a database whose ledger holds a migration none of *migrations* is."""
     known = {migration.version for migration in migrations}
@@ -321,13 +282,13 @@ def _refuse_a_later_ledger(
     newest = connection.execute(
         "SELECT version, slug FROM schema_migrations WHERE component = ? "
         "ORDER BY version DESC LIMIT 1",
-        [component],
+        [COMPONENT],
     ).fetchone()
     assert newest is not None
     held = f"{int(newest[0]):04d}_{newest[1]}"
     latest = f"{migrations[-1].version:04d}_{migrations[-1].slug}" if migrations else "none"
     raise SchemaVersionMismatchError(
-        f"The {component} database holds migration {held}, which HydroModPy "
+        f"The data cache database holds migration {held}, which HydroModPy "
         f"{HYDROMODPY_VERSION} does not know: its latest is {latest}. A newer version wrote "
         "this database, so upgrade HydroModPy to open it.",
         found=held,
@@ -339,7 +300,6 @@ def apply_migrations(
     db_path: Path,
     migrations_dir: Path,
     *,
-    component: str = DEFAULT_COMPONENT,
     lock_timeout: float = DEFAULT_LOCK_TIMEOUT,
 ) -> int:
     """Open ``db_path``, apply pending migrations, return the new version.
@@ -356,8 +316,8 @@ def apply_migrations(
     with lock:
         connection = duckdb.connect(str(db_path))
         try:
-            ensure_schema(connection, versions_dir=migrations_dir, component=component)
-            return current_version(connection, component=component)
+            ensure_schema(connection, versions_dir=migrations_dir)
+            return current_version(connection)
         finally:
             connection.close()
 
@@ -376,13 +336,9 @@ def _has_system_tables(connection: duckdb.DuckDBPyConnection) -> bool:
     return bool(row and int(row[0]) == 2)
 
 
-def _load_applied(
-    connection: duckdb.DuckDBPyConnection,
-    *,
-    component: str,
-) -> dict[int, str]:
+def _load_applied(connection: duckdb.DuckDBPyConnection) -> dict[int, str]:
     rows = connection.execute(
         "SELECT version, checksum FROM schema_migrations WHERE component = ?",
-        [component],
+        [COMPONENT],
     ).fetchall()
     return {int(version): str(checksum) for version, checksum in rows}

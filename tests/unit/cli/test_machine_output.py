@@ -39,7 +39,7 @@ from hydromodpy.cli.helpers import (
 from hydromodpy.cli.main import _build_parser
 from hydromodpy.cli.output import OUTPUTS, emit, output_of, plain, stdout_for_a_program
 from hydromodpy.core.exceptions import NothingThereError, SolverDivergedError, StepError
-from hydromodpy.core.state.paths import data_cache_path_for
+from hydromodpy.core.state.layout import data_cache_path_for
 from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 from tests._helpers.cli_runner import CliRunner
 from tests._helpers.sealed_run import RUN_NAME, seal_demo_run

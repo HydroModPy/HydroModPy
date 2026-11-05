@@ -17,7 +17,6 @@ from hydromodpy.data.registry.migrations.errors import (
     SchemaIntegrityError,
 )
 from hydromodpy.data.registry.migrations.runner import (
-    DEFAULT_COMPONENT,
     Migration,
     _fold_schema_into_the_database_file,
     apply_migration,
@@ -25,7 +24,6 @@ from hydromodpy.data.registry.migrations.runner import (
     current_version,
     discover_migrations,
     ensure_schema,
-    repair_hint_for,
     target_version,
 )
 
@@ -127,27 +125,6 @@ def test_apply_migrations_releases_lock_on_failure(versions_dir: Path, db_path: 
         pass
 
 
-def test_apply_migrations_component_isolates_versions(versions_dir: Path, db_path: Path) -> None:
-    """Two components evolve their version counters independently."""
-    catalog_dir = versions_dir / "catalog"
-    index_dir = versions_dir / "index"
-    catalog_dir.mkdir()
-    index_dir.mkdir()
-    _write(catalog_dir, 1, "a", "CREATE TABLE catalog_a (id INTEGER);")
-    _write(index_dir, 1, "b", "CREATE TABLE index_b (id INTEGER);")
-    _write(index_dir, 2, "c", "CREATE TABLE index_c (id INTEGER);")
-
-    assert apply_migrations(db_path, catalog_dir, component="catalog") == 1
-    assert apply_migrations(db_path, index_dir, component="index") == 2
-
-    connection = duckdb.connect(str(db_path))
-    try:
-        assert current_version(connection, component="catalog") == 1
-        assert current_version(connection, component="index") == 2
-    finally:
-        connection.close()
-
-
 def test_apply_migrations_runs_in_parallel_threads(versions_dir: Path, db_path: Path) -> None:
     """Two threads racing the same DB end up with a consistent state."""
     _write(versions_dir, 1, "alpha", "CREATE TABLE alpha (id INTEGER);")
@@ -213,7 +190,7 @@ def test_a_ledger_holding_an_unknown_migration_is_refused_naming_both(
     assert "0002_beta" in str(refused.value) and "0001_alpha" in str(refused.value)
     connection = duckdb.connect(str(db_path))
     try:
-        assert current_version(connection, component=DEFAULT_COMPONENT) == 2
+        assert current_version(connection) == 2
     finally:
         connection.close()
 
@@ -247,10 +224,10 @@ def test_ensure_schema_rejects_checksum_drift(versions_dir: Path) -> None:
     sql_path = _write(versions_dir, 1, "alpha", "CREATE TABLE alpha (id INTEGER);")
     connection = duckdb.connect(":memory:")
     try:
-        ensure_schema(connection, versions_dir=versions_dir, component=DEFAULT_COMPONENT)
+        ensure_schema(connection, versions_dir=versions_dir)
         sql_path.write_text("CREATE TABLE alpha_renamed (id INTEGER);", encoding="utf-8")
         with pytest.raises(SchemaIntegrityError, match="Checksum mismatch"):
-            ensure_schema(connection, versions_dir=versions_dir, component=DEFAULT_COMPONENT)
+            ensure_schema(connection, versions_dir=versions_dir)
     finally:
         connection.close()
 
@@ -260,10 +237,10 @@ def test_checksum_drift_names_the_repair_command(versions_dir: Path) -> None:
     sql_path = _write(versions_dir, 1, "alpha", "CREATE TABLE alpha (id INTEGER);")
     connection = duckdb.connect(":memory:")
     try:
-        ensure_schema(connection, versions_dir=versions_dir, component="catalog")
+        ensure_schema(connection, versions_dir=versions_dir)
         sql_path.write_text("CREATE TABLE alpha_renamed (id INTEGER);", encoding="utf-8")
-        with pytest.raises(SchemaIntegrityError, match="hmp catalog reindex"):
-            ensure_schema(connection, versions_dir=versions_dir, component="catalog")
+        with pytest.raises(SchemaIntegrityError, match="restore the newest"):
+            ensure_schema(connection, versions_dir=versions_dir)
     finally:
         connection.close()
 
@@ -273,24 +250,18 @@ def test_a_failing_migration_names_the_repair_command(versions_dir: Path) -> Non
 
     A constraint an existing database violates is exactly that case, and the
     message has to say how to get out of it: without the hint the file looks
-    bricked, when every index here is rebuildable from disk.
+    bricked, when the cache keeps its history in backups.
     """
     _write(versions_dir, 1, "alpha", "CREATE TABLE alpha (id INTEGER);")
     connection = duckdb.connect(":memory:")
     try:
-        ensure_schema(connection, versions_dir=versions_dir, component="catalog")
+        ensure_schema(connection, versions_dir=versions_dir)
         connection.execute("INSERT INTO alpha VALUES (1), (1)")
         _write(versions_dir, 2, "unique_alpha", "CREATE UNIQUE INDEX ux_alpha ON alpha(id);")
-        with pytest.raises(MigrationExecutionError, match="hmp catalog reindex"):
-            ensure_schema(connection, versions_dir=versions_dir, component="catalog")
+        with pytest.raises(MigrationExecutionError, match="restore the newest"):
+            ensure_schema(connection, versions_dir=versions_dir)
     finally:
         connection.close()
-
-
-def test_every_component_has_a_repair_hint() -> None:
-    assert "hmp catalog reindex" in repair_hint_for("catalog")
-    assert "restore" in repair_hint_for("data_cache")
-    assert "delete the widgets database" in repair_hint_for("widgets")
 
 
 def test_apply_migration_rolls_back_on_failure(versions_dir: Path) -> None:
@@ -298,7 +269,7 @@ def test_apply_migration_rolls_back_on_failure(versions_dir: Path) -> None:
     sql_path = _write(versions_dir, 1, "broken", "CREAT BROKEN")
     connection = duckdb.connect(":memory:")
     try:
-        ensure_schema(connection, versions_dir=versions_dir, component=DEFAULT_COMPONENT)
+        ensure_schema(connection, versions_dir=versions_dir)
     except MigrationExecutionError:
         pass
     try:
@@ -350,7 +321,7 @@ def test_an_applied_migration_is_in_the_file_not_in_the_journal(
     _write(versions_dir, 2, "grow", "ALTER TABLE t ADD COLUMN j INTEGER;")
     connection = duckdb.connect(str(db_path))
     try:
-        ensure_schema(connection, versions_dir=versions_dir, component=DEFAULT_COMPONENT)
+        ensure_schema(connection, versions_dir=versions_dir)
         wal = Path(f"{db_path}.wal")
 
         assert not wal.exists() or wal.stat().st_size == 0, (
@@ -377,7 +348,7 @@ def test_a_refused_checkpoint_is_a_warning_not_a_failed_migration(
     migration = Migration(version=7, slug="grow", sql_path=sql_path)
 
     with caplog.at_level("WARNING"):
-        _fold_schema_into_the_database_file(_RefusesToCheckpoint(), migration, DEFAULT_COMPONENT)
+        _fold_schema_into_the_database_file(_RefusesToCheckpoint(), migration)
 
     assert "0007_grow" in caplog.text
     assert "write-ahead log" in caplog.text

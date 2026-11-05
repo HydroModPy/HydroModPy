@@ -34,7 +34,7 @@ import pandas as pd
 import pytest
 import rasterio
 
-from hydromodpy.core.state.paths import CATALOG_FILENAME, catalog_path_for
+from hydromodpy.core.state.layout import CATALOG_FILENAME, catalog_path_for
 
 _FIXTURE_DEM = Path(__file__).resolve().parents[1] / "data" / "sfr_cheze" / "dem_valley.tif"
 

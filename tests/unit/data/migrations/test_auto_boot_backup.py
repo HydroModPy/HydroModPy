@@ -14,7 +14,7 @@ import pytest
 from hydromodpy.core.exceptions import BackupFailedError
 from hydromodpy.core.io.filesystem import native_io_path
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import CATALOG_FILENAME
+from hydromodpy.core.state.layout import CATALOG_FILENAME
 from hydromodpy.data.registry.migrations import auto_boot
 from hydromodpy.data.registry.migrations.auto_boot import (
     MAX_BACKUPS,
@@ -24,7 +24,6 @@ from hydromodpy.data.registry.migrations.auto_boot import (
 )
 from hydromodpy.data.registry.migrations.runner import current_version
 
-_CACHE_COMPONENT = "data_cache"
 _MAX_PATH = 259
 _STAMP = "20260101T000000Z"
 
@@ -68,7 +67,6 @@ def test_fresh_database_writes_no_empty_backup(tmp_path: Path, versions_dir: Pat
             conn,
             db_path=db_path,
             versions_dir=versions_dir,
-            component=_CACHE_COMPONENT,
         )
     finally:
         conn.close()
@@ -90,7 +88,6 @@ def test_populated_database_keeps_its_backup(tmp_path: Path, versions_dir: Path)
             conn,
             db_path=db_path,
             versions_dir=versions_dir,
-            component=_CACHE_COMPONENT,
         )
     finally:
         conn.close()
@@ -127,7 +124,6 @@ def test_a_failed_migration_rolls_the_database_back(tmp_path: Path, versions_dir
                 conn,
                 db_path=db_path,
                 versions_dir=versions_dir,
-                component=_CACHE_COMPONENT,
             )
     finally:
         auto_boot.ensure_schema = real_ensure_schema
@@ -189,7 +185,6 @@ def test_backup_survives_a_path_longer_than_max_path(
             conn,
             db_path=db_path,
             versions_dir=versions_dir,
-            component=_CACHE_COMPONENT,
         )
     finally:
         conn.close()
@@ -221,9 +216,8 @@ def test_an_unwritable_backup_aborts_the_migration(
                 conn,
                 db_path=db_path,
                 versions_dir=versions_dir,
-                component=_CACHE_COMPONENT,
             )
-        assert current_version(conn, component=_CACHE_COMPONENT) == 0
+        assert current_version(conn) == 0
     finally:
         conn.close()
 
@@ -239,8 +233,8 @@ def test_a_database_in_memory_is_migrated_without_writing_to_disk(
     monkeypatch.chdir(workdir)
     conn = duckdb.connect(":memory:")
     try:
-        ensure_schema_safe(conn, versions_dir=versions_dir, component=_CACHE_COMPONENT)
-        assert current_version(conn, component=_CACHE_COMPONENT) == 1
+        ensure_schema_safe(conn, versions_dir=versions_dir)
+        assert current_version(conn) == 1
     finally:
         conn.close()
     assert list(workdir.iterdir()) == []
@@ -253,6 +247,6 @@ def test_a_database_in_memory_still_obeys_the_auto_migrate_switch(
     conn = duckdb.connect(":memory:")
     try:
         with pytest.raises(auto_boot.AutoMigrationDisabled):
-            ensure_schema_safe(conn, versions_dir=versions_dir, component=_CACHE_COMPONENT)
+            ensure_schema_safe(conn, versions_dir=versions_dir)
     finally:
         conn.close()

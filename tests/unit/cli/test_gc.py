@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.core.state.paths import RUNS_DIRNAME
+from hydromodpy.core.state.layout import RUNS_DIRNAME
 from hydromodpy.results.outcome import Outcome, read_outcome, write_outcome
 from hydromodpy.results.retention import TRASH_RETENTION_DAYS
 from hydromodpy.results.trash import list_trash, read_tombstones, trash_run

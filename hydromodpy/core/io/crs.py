@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING
 import geopandas as gpd
 import numpy as np
 import rasterio as rio
+import shapely
 import xarray as xr
 from pyproj import CRS, Transformer
 from pyproj.aoi import AreaOfInterest
@@ -115,7 +116,7 @@ def filter_coordinates_by_shape(coordinates: list, shapefile_path: str, target_c
         gdf = load_shapefile(shapefile_path)
         if gdf is None:
             return []
-        polygon = gdf.to_crs(target_crs).unary_union
+        polygon = gdf.to_crs(target_crs).union_all()
         return [pt for pt in coordinates if polygon.covers(Point(pt))]
     except Exception:
         logger.exception("Failed filtering coordinates with shapefile %s", shapefile_path)
@@ -132,15 +133,9 @@ def select_nearest_point(ds: xr.Dataset, lon: float, lat: float) -> xr.Dataset |
 def select_within_polygon_points(ds: xr.Dataset, gdf: gpd.GeoDataFrame) -> xr.Dataset:
     """Mask *ds* to keep only points inside the *gdf* polygon."""
     try:
-        polygon = gdf.unary_union
-        lons = ds.longitude.values
-        lats = ds.latitude.values
-        LON, LAT = np.meshgrid(lons, lats)
-        mask = np.zeros(LON.shape, dtype=bool)
-        for i in range(LON.shape[0]):
-            for j in range(LON.shape[1]):
-                mask[i, j] = polygon.contains(Point(LON[i, j], LAT[i, j]))
-        return ds.where(mask, drop=True)
+        LON, LAT = np.meshgrid(ds.longitude.values, ds.latitude.values)
+        mask = shapely.contains_xy(gdf.union_all(), LON, LAT)
+        return ds.where(xr.DataArray(mask, dims=("latitude", "longitude")), drop=True)
     except Exception:
         logger.exception("Failed selecting dataset points within polygon")
         return ds

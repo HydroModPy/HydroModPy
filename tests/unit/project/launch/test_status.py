@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.core.state.paths import runs_dir_for
+from hydromodpy.core.state.layout import runs_dir_for
 from hydromodpy.project.launch import plan_project, project_status, read_journal, run_plan
 from hydromodpy.results.plan_store import read_plan
 from tests.unit.project.launch._launch_fakes import (

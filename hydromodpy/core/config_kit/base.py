@@ -385,7 +385,7 @@ class HydroModelBase(BaseModel):
             Keep only the fields this config was given, so the file reads
             back with the same fields set.
         """
-        from hydromodpy.core.toml_io.writer import dump_toml_with_comments
+        from hydromodpy.core.config_kit.dump import dump_toml_with_comments
 
         return dump_toml_with_comments(self, path, profile=profile, written_only=written_only)
 

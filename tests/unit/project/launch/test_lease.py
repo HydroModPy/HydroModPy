@@ -30,6 +30,7 @@ from hydromodpy.project.launch.lease import (
     read_lease,
     release_lease,
 )
+from tests.unit.project.launch._helpers import dead_pid
 
 
 def _write_lease(project: Path, *, host: str, pid: int) -> Path:
@@ -47,18 +48,6 @@ def _write_lease(project: Path, *, host: str, pid: int) -> Path:
         encoding="utf-8",
     )
     return path
-
-
-def _dead_pid() -> int:
-    pid = 4_000_000
-    while True:
-        try:
-            os.kill(pid, 0)
-        except ProcessLookupError:
-            return pid
-        except PermissionError:
-            pass
-        pid += 1
 
 
 def test_the_lease_names_its_host_and_process_and_a_second_launcher_is_refused(
@@ -81,7 +70,7 @@ def test_the_lease_names_its_host_and_process_and_a_second_launcher_is_refused(
 
 
 def test_a_lease_of_a_dead_process_of_this_host_is_taken_over(tmp_path: Path) -> None:
-    _write_lease(tmp_path, host=socket.gethostname(), pid=_dead_pid())
+    _write_lease(tmp_path, host=socket.gethostname(), pid=dead_pid())
 
     lease = acquire_lease(tmp_path)
 

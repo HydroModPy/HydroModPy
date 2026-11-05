@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from hydromodpy.core.state.paths import catalog_path_for
+from hydromodpy.core.state.layout import catalog_path_for
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.run.observation_points import sample_observation_points, station_id_for

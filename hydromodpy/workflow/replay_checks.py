@@ -15,7 +15,7 @@ from typing import Any
 
 from hydromodpy.core.exceptions import FrozenDataError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import decode_workspace_path
+from hydromodpy.core.state.portable import decode_workspace_path
 from hydromodpy.core.toml_io.paths import source_of_effective_copy
 from hydromodpy.core.workspace.resolve import locate_workspace_root
 from hydromodpy.results.manifest import read_manifest
@@ -44,7 +44,7 @@ def check_replay(
     warning = solver_binary_warning(run_dir)
     if warning is not None:
         logger.warning("--frozen: %s", warning)
-    refuse_config_drift(config, run_dir, project_root=project_root)
+    _refuse_config_drift(config, run_dir, project_root=project_root)
 
 
 def warn_replay_differences(source_run: Path, replay_run: Path) -> None:
@@ -67,7 +67,7 @@ def sealed_run_of(config_path: Path) -> Path | None:
     return None
 
 
-def loaded_inputs(run_dir: Path) -> dict[str, tuple[str, str]]:
+def _loaded_inputs(run_dir: Path) -> dict[str, tuple[str, str]]:
     """Return ``{path: (name, sha256)}`` of the files ``inputs.json`` says the run read."""
     return {
         str(entry.path): (str(entry.variable), str(entry.sha256))
@@ -76,13 +76,13 @@ def loaded_inputs(run_dir: Path) -> dict[str, tuple[str, str]]:
     }
 
 
-def recorded_inputs(run_dir: Path) -> dict[str, tuple[str, str]]:
+def _recorded_inputs(run_dir: Path) -> dict[str, tuple[str, str]]:
     """Return what the record of a run says it read: ``inputs.json``, then its manifest.
 
     The manifest lists what the configuration declares, a folder among them. A path
     is relative to the workspace.
     """
-    recorded = loaded_inputs(run_dir)
+    recorded = _loaded_inputs(run_dir)
     for entry in read_manifest(run_dir).get("inputs") or ():
         path, digest = entry.get("path"), entry.get("sha256")
         if path and digest and str(path) not in recorded:
@@ -90,7 +90,7 @@ def recorded_inputs(run_dir: Path) -> dict[str, tuple[str, str]]:
     return recorded
 
 
-def input_mismatches(run_dir: Path, project_root: Path) -> list[str]:
+def _input_mismatches(run_dir: Path, project_root: Path) -> list[str]:
     """Return one line per recorded input that is missing or has another digest here.
 
     A declared folder only has to be there: the run read some files of it, which the
@@ -99,7 +99,7 @@ def input_mismatches(run_dir: Path, project_root: Path) -> list[str]:
     root = Path(project_root).resolve()
     workspace = locate_workspace_root(root) or root
     lines: list[str] = []
-    for path, (name, sealed) in sorted(recorded_inputs(run_dir).items()):
+    for path, (name, sealed) in sorted(_recorded_inputs(run_dir).items()):
         located = decode_workspace_path(workspace, path)
         if not located.exists():
             lines.append(f"{name} ({path}): sealed {sealed}, missing from {located}")
@@ -114,7 +114,7 @@ def input_mismatches(run_dir: Path, project_root: Path) -> list[str]:
 
 def refuse_changed_inputs(run_dir: Path, project_root: Path) -> None:
     """Refuse a ``--frozen`` replay whose inputs are not the bytes the run read."""
-    lines = input_mismatches(run_dir, project_root)
+    lines = _input_mismatches(run_dir, project_root)
     if lines:
         raise FrozenDataError(
             f"--frozen: {len(lines)} input(s) of {run_dir.name} differ from its record. "
@@ -122,7 +122,7 @@ def refuse_changed_inputs(run_dir: Path, project_root: Path) -> None:
         )
 
 
-def refuse_config_drift(config: Any, run_dir: Path, *, project_root: Path) -> None:
+def _refuse_config_drift(config: Any, run_dir: Path, *, project_root: Path) -> None:
     """Refuse a ``--frozen`` replay whose effective configuration differs from the sealed one."""
     drift = config_drift(config, run_dir, project_root=project_root)
     if drift is None:
@@ -196,8 +196,8 @@ def replay_differences(source_run: Path, replay_run: Path) -> list[str]:
         f"the build decided otherwise. {item.line()}"
         for item in build_drift(source_run, replay_run)
     ]
-    read_by_source = {digest for _name, digest in loaded_inputs(source_run).values()}
-    for path, (name, digest) in sorted(loaded_inputs(replay_run).items()):
+    read_by_source = {digest for _name, digest in _loaded_inputs(source_run).values()}
+    for path, (name, digest) in sorted(_loaded_inputs(replay_run).items()):
         if digest not in read_by_source:
             lines.append(f"{name} ({path}): read here with sha256 {digest}, the source run did not")
     return lines
@@ -205,11 +205,7 @@ def replay_differences(source_run: Path, replay_run: Path) -> list[str]:
 
 __all__ = [
     "check_replay",
-    "input_mismatches",
-    "loaded_inputs",
-    "recorded_inputs",
     "refuse_changed_inputs",
-    "refuse_config_drift",
     "replay_differences",
     "sealed_run_of",
     "solver_binary_warning",

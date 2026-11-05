@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hydromodpy.core.state.paths import PROJECTS_DIRNAME, WORKSPACE_TOML_FILENAME, catalog_path_for
+from hydromodpy.core.state.layout import PROJECTS_DIRNAME, WORKSPACE_TOML_FILENAME, catalog_path_for
 from hydromodpy.results.catalog import read_workspace_runs
 from hydromodpy.results.catalog.federation import PROJECT_ROOT_COLUMN, sealed_run_dirs
 from hydromodpy.results.storage.contract import TABLES_DIRNAME

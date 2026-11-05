@@ -15,7 +15,7 @@ from hydromodpy.cli.conventions import (
 )
 from hydromodpy.cli.helpers import apply_verbosity, confirm, project_root_of
 from hydromodpy.cli.output import emit
-from hydromodpy.core.state.paths import catalog_path_for
+from hydromodpy.core.state.layout import catalog_path_for
 
 NAME: str = "delete"
 HELP: str = "Move a run or a session to the trash (reversible); --now to remove it for good"

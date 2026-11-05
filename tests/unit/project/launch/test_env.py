@@ -16,11 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.core.state.paths import (
-    RUN_SCRATCH_ENV,
-    SCRATCH_ROOT_ENV,
-    run_scratch,
-)
+from hydromodpy.core.state.scratch import RUN_SCRATCH_ENV, SCRATCH_ROOT_ENV, run_scratch
 from hydromodpy.project.launch import plan_project, run_plan
 from hydromodpy.project.launch.env import (
     THREAD_LIMIT_VARIABLES,

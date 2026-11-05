@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict
 import hydromodpy.workflow.steps.prepare_solver.facts as facts_module
 from hydromodpy.core.exceptions import PipelineError
 from hydromodpy.core.site import SiteConfig
-from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME, RUNS_DIRNAME
+from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME, RUNS_DIRNAME
 from hydromodpy.results.catalog.registration import reserve_version_dirname
 from hydromodpy.results.lineage import Lineage
 from hydromodpy.results.outcome import read_outcome

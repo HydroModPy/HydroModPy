@@ -71,7 +71,8 @@ from typing import Final
 
 from hydromodpy.core.exceptions import ConfigError, JobUsageError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import jobs_dir_for, process_is_alive
+from hydromodpy.core.state.layout import jobs_dir_for
+from hydromodpy.core.state.scratch import process_is_alive
 from hydromodpy.data.provenance.lockfile import project_lockfile_path
 from hydromodpy.project.launch.children import (
     PlannedCase,
@@ -189,7 +190,6 @@ def write_slurm_array(
     prepare = effective_prepare_parallel(
         _positive("prepare_parallel", prepare_parallel, run.prepare_parallel), force=False
     )
-    directives = sbatch_directives(partition, walltime)
     max_solves = max(case.solves for case in planned_cases(stored))
 
     jobs = jobs_dir_for(root)
@@ -199,7 +199,7 @@ def write_slurm_array(
         raise JobUsageError(f"{final} exists; a job directory is written once")
     project = re.sub(r"[^A-Za-z0-9_.-]", "_", root.name)
     common = {
-        "DIRECTIVES": directives,
+        "DIRECTIVES": sbatch_directives(partition, walltime),
         "JOB": shlex.quote(name),
         "JOB_DIR": str(final),
         "LAUNCHED_BY": LAUNCHED_BY,
@@ -214,44 +214,23 @@ def write_slurm_array(
         "THREADS_PER_CASE": str(threads),
     }
     job_name = f"hmp-{project}-{stamp}"
-    prepare_text = render(
-        PREPARE_SCRIPT,
-        {
-            **common,
+    scripts = {
+        PREPARE_SCRIPT: {
             "JOB_NAME": f"hmp-prepare-{project}-{stamp}",
             "PREPARE_PARALLEL": str(prepare),
             "WORKER": worker_block("prepare"),
         },
-    )
-    array_text = render(
-        ARRAY_SCRIPT,
-        {
-            **common,
+        ARRAY_SCRIPT: {
             "CPUS_PER_TASK": str(threads * max_solves),
             "JOB_NAME": job_name,
             "MAX_SOLVES": str(max_solves),
             "WORKER": worker_block("solve"),
         },
-    )
+    }
+    texts = {script: render(script, {**common, **fields}) for script, fields in scripts.items()}
     plan_rel = stored.directory.relative_to(root).as_posix()
     case_files = [f"{plan_rel}/{case.config_path}" for case in stored.cases]
-
-    jobs.mkdir(parents=True, exist_ok=True)
-    staging = jobs / f".staging-{name}-{uuid.uuid4().hex[:8]}"
-    staging.mkdir()
-    try:
-        (staging / JOB_LOGS_DIRNAME).mkdir()
-        (staging / PREPARED_DIRNAME).mkdir()
-        write_case_list(staging, case_files)
-        for script, text in ((PREPARE_SCRIPT, prepare_text), (ARRAY_SCRIPT, array_text)):
-            path = staging / script
-            path.write_text(text, encoding="utf-8")
-            path.chmod(0o755)
-        if final.exists():
-            raise JobUsageError(f"{final} exists; a job directory is written once")
-        os.rename(staging, final)
-    finally:
-        shutil.rmtree(staging, ignore_errors=True)
+    _write_job_dir(jobs, final, case_files, texts)
     return SlurmJob(
         directory=final,
         prepare_sh=final / PREPARE_SCRIPT,
@@ -265,6 +244,26 @@ def write_slurm_array(
         prepare_parallel=prepare,
         job_name=job_name,
     )
+
+
+def _write_job_dir(jobs: Path, final: Path, case_files: list[str], texts: dict[str, str]) -> None:
+    """Write the job directory beside its destination, then rename it into place in one step."""
+    jobs.mkdir(parents=True, exist_ok=True)
+    staging = jobs / f".staging-{final.name}-{uuid.uuid4().hex[:8]}"
+    staging.mkdir()
+    try:
+        (staging / JOB_LOGS_DIRNAME).mkdir()
+        (staging / PREPARED_DIRNAME).mkdir()
+        write_case_list(staging, case_files)
+        for script, text in texts.items():
+            path = staging / script
+            path.write_text(text, encoding="utf-8")
+            path.chmod(0o755)
+        if final.exists():
+            raise JobUsageError(f"{final} exists; a job directory is written once")
+        os.rename(staging, final)
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
 
 
 def task_flags(project_root: str | Path, case_toml: str | Path, *, phase: str) -> list[str]:

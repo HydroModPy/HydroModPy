@@ -31,7 +31,8 @@ from pathlib import Path
 
 from hydromodpy.core.exceptions import WriteConflictError
 from hydromodpy.core.io.document_version import TRANSIENT_REMEDY, check_document
-from hydromodpy.core.state.paths import LAUNCHER_LEASE_FILENAME, internal_dir, process_is_alive
+from hydromodpy.core.state.layout import LAUNCHER_LEASE_FILENAME, internal_dir
+from hydromodpy.core.state.scratch import process_is_alive
 
 LEASE_SCHEMA = "hydromodpy.launcher-lease.v1"
 """Schema id of the lease document."""
@@ -98,7 +99,7 @@ def _read_lease_file(path: Path) -> Lease | None:
         return Lease(path=path, host="", pid=0, started_at=datetime.now(UTC))
 
 
-def holder_is_dead(lease: Lease) -> bool:
+def _holder_is_dead(lease: Lease) -> bool:
     """Whether the death of the holder is proven: same host and process gone."""
     return lease.host == socket.gethostname() and lease.pid > 0 and not process_is_alive(lease.pid)
 
@@ -121,7 +122,7 @@ def acquire_lease(project_root: Path, *, force: bool = False) -> Lease:
             held = read_lease(project_root)
             if held is None:
                 continue
-            if not (force or holder_is_dead(held)):
+            if not (force or _holder_is_dead(held)):
                 raise _held(path, held) from None
             _take_over(path, held)
             continue
@@ -198,7 +199,6 @@ __all__ = [
     "Lease",
     "LeaseHeldError",
     "acquire_lease",
-    "holder_is_dead",
     "launcher_lease",
     "lease_path",
     "read_lease",

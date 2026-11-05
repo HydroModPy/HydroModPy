@@ -358,7 +358,7 @@ def _build_report(workspace: Path | None, workspace_arg: str | None) -> dict:
 
 def _probe_workspace(ws: Path | None, workspace_arg: str | None) -> list[dict]:
     try:
-        from hydromodpy.core.state.paths import PROJECTS_DIRNAME, catalog_path_for
+        from hydromodpy.core.state.layout import PROJECTS_DIRNAME, catalog_path_for
     except Exception as exc:  # pragma: no cover
         return [
             {
@@ -383,7 +383,7 @@ def _probe_workspace(ws: Path | None, workspace_arg: str | None) -> list[dict]:
                 "hint": "Name one with -w, or run 'hmp workspace init <workspace>'",
             }
         ]
-    from hydromodpy.core.state.paths import data_cache_path_for
+    from hydromodpy.core.state.layout import data_cache_path_for
 
     cache = data_cache_path_for(ws / "data")
     checks = [
@@ -446,7 +446,7 @@ def probe_toml_workspace(toml_path: Path) -> list[dict]:
     from hydromodpy.core.workspace.exceptions import WorkspaceError
 
     try:
-        from hydromodpy.core.state.paths import resolve_project_root
+        from hydromodpy.core.state.result_dirs import resolve_project_root
         from hydromodpy.core.toml_io.loader import load_toml_with_base_config
         from hydromodpy.core.toml_io.paths import resolve_declared_path
 
@@ -534,7 +534,7 @@ def _cross_catalog_checks(workspace: Path | None) -> list[dict]:
 
     import duckdb
 
-    from hydromodpy.core.state.paths import catalog_path_for, project_roots_under
+    from hydromodpy.core.state.layout import catalog_path_for, project_roots_under
     from hydromodpy.results.catalog.federation import sealed_run_dirs
 
     projects = project_roots_under(workspace)
@@ -613,7 +613,7 @@ def _lifecycle_checks(workspace: Path | None) -> list[dict]:
         orphan_calibration_session_count,
         stale_running_sim_ids,
     )
-    from hydromodpy.core.state.paths import project_roots_under
+    from hydromodpy.core.state.layout import project_roots_under
     from hydromodpy.results.outcome import DEFAULT_STALE_AFTER_S
 
     stale: list[str] = []

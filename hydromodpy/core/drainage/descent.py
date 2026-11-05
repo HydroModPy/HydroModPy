@@ -35,6 +35,33 @@ the model (the drainage mover, the reach rectification) read
 The basin of D at the outlet of the catchment (:func:`descent_basin`) is the
 catchment of a run: the budget zone, the discharge a gauge sees and the
 drainage routing all read it. It is computed here and nowhere else.
+
+The arguments of :func:`build_descent` read as follows. ``routable`` names the
+cells of the graph, lake cells included: a lake is crossed by the fill, so a
+fixed-area lake, inactive in the solver, must be routable here. ``base_level``
+adds seeds to the rim of the routable domain, the constant-head cells where water
+leaves the model inside it.
+
+``outlet`` replaces the rim by one cell, for a domain that is the catchment
+itself: water leaves it at its outlet, not along its whole edge. The connected
+parts of the graph that do not hold the outlet keep their rim as seeds, since no
+flood from the outlet reaches them. Every seed, rim or constant head, keeps its
+steepest descent: the accumulation passes through it, and the walks that stop
+there read :attr:`Descent.stopping_receiver`. ``diagonal_neighbors`` asks for the
+D8 descent; it holds on a quad mesh and falls back to shared faces elsewhere.
+
+``channel`` flags the cells of the channel tree A and ``pinned_receiver`` gives
+each channel cell the next channel cell along A (-1 where free). A pinned cell
+drains to its pin, adjacent or not, even where T climbs along A: the flood visits
+a pinned cell only from its pin and raises the copy there when needed, so the pin
+is always lower. A seed is never pinned.
+
+Off the channel the flood rises by ``2 * epsilon`` per step, on it by ``epsilon``.
+A filled flat then climbs faster away from the channel than along it, so its
+steepest descent heads INTO the channel instead of running beside it down to the
+spill point, which is where the reaches of A would lose their drainage. Without
+channel cells every step is ``epsilon`` and D is the plain flood of the stream
+criterion.
 """
 
 from __future__ import annotations
@@ -284,51 +311,22 @@ def build_descent(
 ) -> Descent:
     """Fill a copy of ``top`` on the descended graph and build its receivers.
 
-    ``routable`` names the cells of the graph, lake cells included: a lake is
-    crossed by the fill, so a fixed-area lake, inactive in the solver, must be
-    routable here. ``base_level`` adds seeds to the rim of the routable domain,
-    the constant-head cells where water leaves the model inside it.
-
-    ``outlet`` replaces the rim by one cell, for a domain that is the catchment
-    itself: water leaves it at its outlet, not along its whole edge. The
-    connected parts of the graph that do not hold the outlet keep their rim as
-    seeds, since no flood from the outlet reaches them. Every seed,
-    rim or constant head, keeps its steepest descent: the accumulation passes
-    through it, and the walks that stop there read
-    :attr:`Descent.stopping_receiver`. ``diagonal_neighbors`` asks
-    for the D8 descent; it holds on a quad mesh and falls back to shared faces
-    elsewhere.
-
-    ``channel`` flags the cells of the channel tree A and ``pinned_receiver``
-    gives each channel cell the next channel cell along A (-1 where free). A
-    pinned cell drains to its pin, adjacent or not, even where T climbs along
-    A: the flood visits a pinned cell only from its pin and raises the copy
-    there when needed, so the pin is always lower. A seed is never pinned.
-
-    Off the channel the flood rises by ``2 * epsilon`` per step, on it by
-    ``epsilon``. A filled flat then climbs faster away from the channel than
-    along it, so its steepest descent heads INTO the channel instead of
-    running beside it down to the spill point, which is where the reaches of
-    A would lose their drainage. Without channel cells every step is
-    ``epsilon`` and D is the plain flood of the stream criterion.
+    The module docstring says what each argument does to the flood.
 
     Raises
     ------
     ValueError
-        When an array does not match the mesh, a lake cell is not routable, a
-        pin is out of range, leaves a non-channel cell, lands on a lake, a
-        non-channel or an off-graph cell, or closes a cycle, when ``outlet`` is
-        off the graph, or when a cell is left with no way down.
+        When an array does not match the mesh, a lake cell is not routable, a pin is out
+        of range, leaves a non-channel cell, lands on a lake, a non-channel or an off-graph
+        cell, or closes a cycle, when ``outlet`` is off the graph, or a cell has no way down.
     """
     surface_in = np.asarray(top, dtype=float).reshape(-1)
     n_cells = int(surface_in.size)
     routable_mask = cell_mask(routable, n_cells, "routable")
     on_graph = routable_mask & np.isfinite(surface_in)
-    extra_seeds = (
-        np.zeros(n_cells, dtype=bool)
-        if base_level is None
-        else cell_mask(base_level, n_cells, "base_level")
-    )
+    constant_head = np.zeros(n_cells, dtype=bool)
+    if base_level is not None:
+        constant_head = cell_mask(base_level, n_cells, "base_level") & on_graph
     lakes = _lake_ids(lake_of, n_cells, on_graph)
 
     use_diagonals = resolve_diagonal_neighbors(
@@ -339,12 +337,7 @@ def build_descent(
         if use_diagonals
         else cell_adjacency_from_face_connectivity(face_node_connectivity, n_cells=n_cells)
     )
-    constant_head = extra_seeds & on_graph
-    if outlet is None:
-        rim = domain_edge_cells(face_node_connectivity, on_graph)
-    else:
-        rim = _outlet_and_detached_rims(int(outlet), adjacency, face_node_connectivity, on_graph)
-    seeds = rim | constant_head
+    seeds = _rim_seeds(outlet, adjacency, face_node_connectivity, on_graph) | constant_head
     if not np.any(seeds):
         raise ValueError("the descent has no seed: no routable cell lies on the domain rim.")
     channel_mask, pin = resolve_pins(
@@ -353,18 +346,9 @@ def build_descent(
     pin[seeds] = -1
     pinned = pin >= 0
 
-    step = np.full(n_cells, float(epsilon))
-    if np.any(channel_mask):
-        step[~channel_mask] = 2.0 * float(epsilon)
-    surface, raised = _flood(
-        surface_in,
-        on_graph,
-        adjacency,
-        seeds,
-        pin,
-        step,
-        tolerance=_flood_tolerance(surface_in[on_graph]),
-    )
+    step = np.where(channel_mask | ~np.any(channel_mask), float(epsilon), 2.0 * float(epsilon))
+    tolerance = _flood_tolerance(surface_in[on_graph])
+    surface, raised = _flood(surface_in, on_graph, adjacency, seeds, pin, step, tolerance=tolerance)
 
     metric = build_downslope_metric(
         surface,
@@ -377,12 +361,6 @@ def build_descent(
     )
     metric = with_pins(metric, pin)
     _check_every_cell_drains(metric.graph.downstream, surface, on_graph & ~seeds)
-
-    lake = lakes >= 0
-    rise = np.where(raised, surface - surface_in, 0.0)
-    n_raised, max_raise = _raise_report(rise, raised & ~lake)
-    n_flooded, max_flood = _raise_report(rise, raised & lake)
-    n_pinned_raised, max_pinned_raise = _raise_report(rise, raised & pinned)
     return Descent(
         metric=metric,
         surface=surface,
@@ -393,12 +371,7 @@ def build_descent(
         lake_of=lakes,
         channel=channel_mask,
         pinned=pinned,
-        n_raised=n_raised,
-        max_raise_m=max_raise,
-        n_lake_flooded=n_flooded,
-        max_lake_flood_m=max_flood,
-        n_pinned_raised=n_pinned_raised,
-        max_pinned_raise_m=max_pinned_raise,
+        **_raise_reports(surface - surface_in, raised, lakes >= 0, pinned),
     )
 
 
@@ -459,18 +432,21 @@ def descent_from_stored_mesh(
     )
 
 
-def _outlet_and_detached_rims(
-    outlet: int,
+def _rim_seeds(
+    outlet: int | None,
     adjacency: list[set[int]],
     face_node_connectivity: np.ndarray,
     on_graph: np.ndarray,
 ) -> np.ndarray:
-    """Seeds of a domain that is its catchment: the outlet and the rims it cannot reach.
+    """Return the domain rim, or for a domain that is its catchment the outlet alone.
 
     The connected part of the graph that holds the outlet is seeded there
     alone. A part detached from it, an island the raster clip of the
     catchment left, keeps its rim, or no flood would ever reach its cells.
     """
+    if outlet is None:
+        return domain_edge_cells(face_node_connectivity, on_graph)
+    outlet = int(outlet)
     if not 0 <= outlet < on_graph.size or not on_graph[outlet]:
         raise ValueError(f"the outlet cell {outlet} is off the descended graph.")
     reached = np.zeros(on_graph.size, dtype=bool)
@@ -570,6 +546,16 @@ def _check_every_cell_drains(
         )
 
 
-def _raise_report(rise: np.ndarray, selected: np.ndarray) -> tuple[int, float]:
-    count = int(np.count_nonzero(selected))
-    return count, float(np.max(rise[selected])) if count else 0.0
+def _raise_reports(
+    rise: np.ndarray, raised: np.ndarray, lake: np.ndarray, pinned: np.ndarray
+) -> dict[str, int | float]:
+    """Count the raised cells and their largest rise: off the lakes, on them, on the pins."""
+    reports: dict[str, int | float] = {}
+    for count, largest, selected in (
+        ("n_raised", "max_raise_m", raised & ~lake),
+        ("n_lake_flooded", "max_lake_flood_m", raised & lake),
+        ("n_pinned_raised", "max_pinned_raise_m", raised & pinned),
+    ):
+        reports[count] = int(np.count_nonzero(selected))
+        reports[largest] = float(np.max(rise[selected])) if reports[count] else 0.0
+    return reports

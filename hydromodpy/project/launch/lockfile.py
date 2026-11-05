@@ -47,7 +47,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import data_cache_path_for
+from hydromodpy.core.state.layout import data_cache_path_for
 
 logger = get_logger(__name__)
 

@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.core.state.paths import runs_dir_for
+from hydromodpy.core.state.layout import runs_dir_for
 from hydromodpy.project.launch import local as launch_local
 from hydromodpy.project.launch import plan_project, project_status, run_plan
 from hydromodpy.project.launch.selection import (

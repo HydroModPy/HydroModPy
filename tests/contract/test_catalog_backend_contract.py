@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.core.state.paths import CATALOG_FILENAME
+from hydromodpy.core.state.layout import CATALOG_FILENAME
 from hydromodpy.results.catalog.adapters.duckdb import DuckDBBackend
 from hydromodpy.results.catalog.ports import CatalogBackend
 

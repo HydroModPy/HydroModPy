@@ -13,7 +13,7 @@ import pandas as pd
 import pytest
 
 from hydromodpy.calibration.report import CalibrationReport
-from hydromodpy.core.state.paths import catalog_path_for
+from hydromodpy.core.state.layout import catalog_path_for
 
 
 def _load_main():

@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.core.state.paths import TOMBSTONES_FILENAME, catalog_path_for, trash_dir_for
+from hydromodpy.core.state.layout import TOMBSTONES_FILENAME, catalog_path_for, trash_dir_for
 from tests._helpers.sealed_runs import make_project, seal_run
 
 

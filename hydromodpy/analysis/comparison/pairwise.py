@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from hydromodpy.core.state.paths import catalog_path_for
+from hydromodpy.core.state.layout import catalog_path_for
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.metric_rule import HEADLINE_WINDOW
 

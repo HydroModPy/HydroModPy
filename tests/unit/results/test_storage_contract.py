@@ -1,7 +1,7 @@
 """Storage-contract constants that every layer must agree on.
 
 The catalog filename, the project marker filename and the workspace TOML
-filename live in :mod:`hydromodpy.core.state.paths`. Every consumer (cli,
+filename live in :mod:`hydromodpy.core.state.layout`. Every consumer (cli,
 results, data) must import them from there - no duplicate string literals.
 ``project.toml`` plays one single role: it is both the project configuration
 and the marker anchoring the project root.
@@ -9,7 +9,7 @@ and the marker anchoring the project root.
 
 from __future__ import annotations
 
-from hydromodpy.core.state.paths import (
+from hydromodpy.core.state.layout import (
     CATALOG_FILENAME,
     INTERNAL_DIRNAME,
     PROJECT_MARKER_FILENAME,

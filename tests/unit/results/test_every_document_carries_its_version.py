@@ -81,7 +81,7 @@ from hydromodpy.core.payload import (
     read_index,
     write_index,
 )
-from hydromodpy.core.state.paths import catalog_path_for
+from hydromodpy.core.state.layout import catalog_path_for
 from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
 from hydromodpy.data.provenance.lockfile import (
     LOCKFILE_NAME,

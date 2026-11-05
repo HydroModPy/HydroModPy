@@ -18,7 +18,7 @@ from pathlib import Path
 
 from hydromodpy.core.licensing import UNDETERMINED_LICENSE
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import decode_workspace_path
+from hydromodpy.core.state.portable import decode_workspace_path
 
 logger = get_logger(__name__)
 

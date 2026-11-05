@@ -12,11 +12,8 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-from hydromodpy.core.state.paths import (
-    kept_preprocessing_dir,
-    preprocessing_dir,
-    runs_dir_for,
-)
+from hydromodpy.core.state.layout import runs_dir_for
+from hydromodpy.core.state.scratch import kept_preprocessing_dir, preprocessing_dir
 from hydromodpy.display.catchment_report.settings import CatchmentReportSettings
 from hydromodpy.display.overview.location import (
     REVIEW_DIRNAME,

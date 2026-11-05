@@ -39,17 +39,14 @@ from hydromodpy.core.io.filesystem import native_io_path
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.registry.migrations.errors import MigrationError
 from hydromodpy.data.registry.migrations.runner import (
-    DEFAULT_COMPONENT,
     DEFAULT_LOCK_TIMEOUT,
-    Migration,
+    MIGRATIONS_DIR,
     current_version,
     discover_migrations,
     ensure_schema,
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     import duckdb
 
 logger = get_logger(__name__)
@@ -253,14 +250,13 @@ def _has_pending_migrations(
     connection: duckdb.DuckDBPyConnection,
     *,
     versions_dir: Path,
-    component: str,
 ) -> bool:
     """Return True when the on-disk migration set has more versions than recorded."""
     migrations = discover_migrations(versions_dir)
     if not migrations:
         return False
     latest_on_disk = migrations[-1].version
-    applied = current_version(connection, component=component)
+    applied = current_version(connection)
     return applied < latest_on_disk
 
 
@@ -268,13 +264,11 @@ def ensure_schema_safe(
     connection: duckdb.DuckDBPyConnection,
     *,
     db_path: Path | None = None,
-    versions_dir: Path,
-    component: str = DEFAULT_COMPONENT,
+    versions_dir: Path = MIGRATIONS_DIR,
     lock_timeout: float = DEFAULT_LOCK_TIMEOUT,
-    post_apply: Callable[[duckdb.DuckDBPyConnection, Migration, str], None] | None = None,
     allow_auto: bool = True,
 ) -> None:
-    """Bring ``component`` up to the latest version with backup + lock.
+    """Bring the data cache up to the latest version with backup + lock.
 
     Behavior:
 
@@ -305,25 +299,15 @@ def ensure_schema_safe(
         else FileLock(f"{native_io_path(db_path)}.lock", timeout=lock_timeout)
     )
     with lock:
-        pending = _has_pending_migrations(
-            connection,
-            versions_dir=versions_dir,
-            component=component,
-        )
+        pending = _has_pending_migrations(connection, versions_dir=versions_dir)
         if not pending:
-            ensure_schema(
-                connection,
-                versions_dir=versions_dir,
-                component=component,
-                post_apply=post_apply,
-            )
+            ensure_schema(connection, versions_dir=versions_dir)
             return
 
         if allow_auto and _is_disabled():
             raise AutoMigrationDisabled(
-                f"HMP_AUTO_MIGRATE=0 blocks pending migrations for component "
-                f"{component!r} at {db_path}; run 'hmp doctor' or unset the "
-                f"variable to migrate."
+                f"HMP_AUTO_MIGRATE=0 blocks pending migrations of the data cache "
+                f"at {db_path}; run 'hmp doctor' or unset the variable to migrate."
             )
 
         backup: Path | None = None
@@ -333,12 +317,7 @@ def ensure_schema_safe(
             logger.debug("Pre-migration backup written: %s", backup)
 
         try:
-            ensure_schema(
-                connection,
-                versions_dir=versions_dir,
-                component=component,
-                post_apply=post_apply,
-            )
+            ensure_schema(connection, versions_dir=versions_dir)
         except Exception:
             if backup is not None and _backup_exists(backup):
                 try:

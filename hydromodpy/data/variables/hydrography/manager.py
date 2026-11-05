@@ -98,7 +98,7 @@ class HydrographyManager(SourceTable):
     ) -> None:
         self.config = config
         self._base_raster = base_raster
-        from hydromodpy.core.state.paths import preprocessing_dir
+        from hydromodpy.core.state.scratch import preprocessing_dir
         from hydromodpy.spatial.delineation import get_whitebox_backend
 
         base = Path(stable_folder) if stable_folder else preprocessing_dir(Path(out_path))

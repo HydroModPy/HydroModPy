@@ -28,7 +28,7 @@ from packaging.version import InvalidVersion, Version
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from hydromodpy.core.exceptions import SchemaVersionMismatchError
-from hydromodpy.core.state.paths import WORKSPACE_TOML_FILENAME
+from hydromodpy.core.state.layout import WORKSPACE_TOML_FILENAME
 from hydromodpy.core.units.types import LengthMeters
 from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
 

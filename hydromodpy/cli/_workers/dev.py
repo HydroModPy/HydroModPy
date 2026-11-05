@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.core.state.paths import data_cache_path_for
+from hydromodpy.core.state.layout import data_cache_path_for
 
 
 def export_schema(output_dir: Any) -> dict:
@@ -47,7 +47,7 @@ def rank_simulations(
     :class:`~hydromodpy.results.run.sealed.MixedWindowsError` is raised, unless
     ``mixed_windows`` is true.
     """
-    from hydromodpy.core.state.paths import resolve_project_root
+    from hydromodpy.core.state.result_dirs import resolve_project_root
     from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.catalog.constants import metric_rank_sql
     from hydromodpy.results.metric_rule import HEADLINE_WINDOW

@@ -25,14 +25,6 @@ ORIGIN_X, ORIGIN_Y, CELL = 700_000.0, 6_600_000.0, 100.0
 NODATA = -9999.0
 
 
-NO_CRS_BUG = pytest.mark.xfail(
-    strict=True,
-    raises=AttributeError,
-    reason="load_to_numpy reads data_profile['crs'].is_valid, but rasterio gives crs=None for a GeoTIFF "
-    "that declares none, so the 'Source CRS required' branches are unreachable; production bug, not fixed here.",
-)
-
-
 def _profile(height: int = 4, width: int = 5, *, crs: str | None = "EPSG:2154") -> dict:
     return {
         "driver": "GTiff",
@@ -218,7 +210,6 @@ def test_a_raster_on_a_finer_grid_is_resampled_onto_the_reference_grid(tmp_path:
     np.testing.assert_allclose(values, 7.0)
 
 
-@NO_CRS_BUG
 def test_a_raster_with_a_missing_crs_takes_the_one_declared_by_the_caller(tmp_path: Path) -> None:
     _dem(tmp_path / "nocrs.tif", crs=None)
 
@@ -227,7 +218,6 @@ def test_a_raster_with_a_missing_crs_takes_the_one_declared_by_the_caller(tmp_pa
     assert src_crs.to_epsg() == 2154
 
 
-@NO_CRS_BUG
 @pytest.mark.parametrize("crs_like", ["EPSG:2154", 2154])
 def test_load_to_numpy_reads_the_crs_given_as_text_or_code(tmp_path: Path, crs_like) -> None:
     _dem(tmp_path / "nocrs.tif", crs=None)
@@ -318,7 +308,6 @@ def test_load_to_numpy_gives_up_with_none_when_it_cannot_place_the_data(
     assert result is None
 
 
-@NO_CRS_BUG
 def test_a_raster_without_crs_cannot_be_reprojected_onto_another_grid(tmp_path: Path) -> None:
     _dem(tmp_path / "base.tif")
     fine = _profile(8, 10, crs=None)
@@ -387,16 +376,34 @@ def test_a_dataset_is_reprojected_to_the_crs_asked() -> None:
     assert out.x.attrs["units"] == "Meter"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AttributeError,
-    reason="after a reprojection to degrees the axes are still named x and y, yet load_to_xarray "
-    "sets attributes on ds.longitude and ds.latitude; production bug, not fixed here.",
-)
 def test_a_dataset_is_reprojected_to_geographic_coordinates() -> None:
     out = raster_io.load_to_xarray(_dataset(), dst_crs="EPSG:4326")
 
     assert 0.0 < float(out.x.mean()) < 10.0  # Lambert-93 easting 700 km is about 3 degrees east
+    assert out.x.attrs == {"long_name": "longitude", "units": "degrees_east"}
+    assert out.y.attrs == {"long_name": "latitude", "units": "degrees_north"}
+
+
+def test_axes_named_longitude_and_latitude_are_labelled_under_their_own_names() -> None:
+    ds = xr.Dataset(
+        {"h": (("latitude", "longitude"), np.zeros((2, 3)))},
+        coords={"longitude": [1.0, 2.0, 3.0], "latitude": [48.0, 47.0]},
+    )
+    ds.longitude.attrs["units"] = "degree"
+
+    out = raster_io.load_to_xarray(ds)
+
+    assert out.longitude.attrs["units"] == "degrees_east"
+    assert out.latitude.attrs["units"] == "degrees_north"
+
+
+def test_a_raster_on_a_reference_grid_without_crs_is_refused(tmp_path: Path) -> None:
+    _dem(tmp_path / "base.tif", crs=None)
+    _dem(tmp_path / "dem.tif")
+
+    result = raster_io.load_to_numpy(tmp_path / "dem.tif", base_path=str(tmp_path / "base.tif"))
+
+    assert result is None
 
 
 def test_a_dataset_without_any_crs_cannot_be_reprojected() -> None:

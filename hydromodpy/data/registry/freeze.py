@@ -41,7 +41,7 @@ from hydromodpy.data.provenance.lockfile import (
     sha256_of,
 )
 from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
-from hydromodpy.data.registry.migrations import target_version as _cache_target_version
+from hydromodpy.data.registry.migrations.runner import target_version
 
 # The directory that holds the hydromodpy package, found from this module's
 # dotted name so it stays right wherever the module sits. Its git commit is
@@ -226,7 +226,7 @@ def write_lockfile(
     if project_commit:
         hmp_table.add("project_git_commit", project_commit)
     hmp_table.add("python_version", _python_version())
-    hmp_table.add("catalog_schema_version", _cache_target_version())
+    hmp_table.add("catalog_schema_version", target_version())
     hmp_table.add("zarr_schema_version", zarr_schema_version)
     hmp_table.add("parquet_schema_version", parquet_schema_version)
     if schema_sha256 is not None:

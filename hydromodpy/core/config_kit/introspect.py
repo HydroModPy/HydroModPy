@@ -5,7 +5,7 @@ Central location for logic that reads ``Annotated[...]`` metadata off
 display, and any future metadata tags.
 
 Kept separate from :mod:`hydromodpy.core.toml_io.generator` and
-:mod:`hydromodpy.core.toml_io.writer` so TOML and JSON Schema
+:mod:`hydromodpy.core.config_kit.dump` so TOML and JSON Schema
 paths can share the same source of truth.
 """
 
@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import types
 from collections.abc import Iterator
+from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, TypeGuard, Union, get_args, get_origin
 
 from pydantic import BaseModel
@@ -187,6 +188,22 @@ def is_site_scoped(field_info: Any) -> bool:
 def is_union_origin(origin: object) -> bool:
     """Return True when *origin* is the origin of a ``Union[...]`` or ``X | Y`` annotation."""
     return origin is Union or origin is types.UnionType
+
+
+def is_implicit_relative_path_default(value: Any, field_info: Any) -> bool:
+    """Return True when *value* is the relative ``Path`` default of the field.
+
+    Such a value is the project layout speaking, so a template and a written
+    config leave it out. A string that names the same path counts too.
+    """
+    default = field_info.default
+    if not isinstance(default, Path) or default.is_absolute():
+        return False
+    if isinstance(value, Path):
+        return value == default
+    if isinstance(value, str):
+        return Path(value) == default
+    return False
 
 
 def is_model(annotation: object) -> TypeGuard[type[BaseModel]]:

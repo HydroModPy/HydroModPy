@@ -251,7 +251,7 @@ def _file_digest(path: Path, digests: dict[str, str]) -> str:
 
 def _disk_cache_path() -> Path:
     # Read here and not at import: this is the one import of a run that costs.
-    from hydromodpy.core.state.paths import cache_dir
+    from hydromodpy.core.state.portable import cache_dir
 
     return Path(str(cache_dir())) / _CACHE_FILENAME
 

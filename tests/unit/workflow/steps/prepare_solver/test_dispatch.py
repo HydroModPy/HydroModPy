@@ -10,7 +10,7 @@ import pytest
 from pydantic import BaseModel, ConfigDict
 
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME
+from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
 from hydromodpy.project.launch import plan_project
 from hydromodpy.results.catalog.registration import reserve_version_dirname
 from hydromodpy.results.lineage import Lineage

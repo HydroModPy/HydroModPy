@@ -28,7 +28,7 @@ from hydromodpy.calibration.runners.cli_runner import (
 from hydromodpy.calibration.runners.session import calibration_case_name, case_named_by
 from hydromodpy.calibration.runners.state import space_from_config
 from hydromodpy.calibration.runners.trial import TrialMetricFn
-from hydromodpy.core.state.paths import sessions_dir_for
+from hydromodpy.core.state.layout import sessions_dir_for
 from hydromodpy.core.workspace.path_registry import in_run_scratch
 
 if TYPE_CHECKING:
@@ -67,7 +67,7 @@ def _write_python_mode_document(
     """
     from hydromodpy.calibration.runners.cli_runner import resolve_stream_geometry_paths
     from hydromodpy.calibration.runners.materialize import write_overlay_toml
-    from hydromodpy.core.state.paths import resolve_project_root
+    from hydromodpy.core.state.result_dirs import resolve_project_root
 
     if src_path is not None:
         anchor_path = Path(src_path).expanduser().resolve()

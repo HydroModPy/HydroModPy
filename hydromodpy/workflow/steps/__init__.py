@@ -2,8 +2,8 @@
 
 Each module exposes both:
 
-* function-based ``step_*`` helpers consumed by ``workflow.orchestrator`` verbs
-  and by ``Project``;
+* function-based ``step_*`` helpers, called by the ``Project`` facade and by the
+  calibration runners;
 * a single ``*Step`` class adapting those helpers to the
   :class:`~hydromodpy.workflow.step.Step` protocol so the steps can
   be composed by ``workflow.runner.Pipeline``.
@@ -20,7 +20,7 @@ from hydromodpy.workflow.steps.display import DisplayStep
 from hydromodpy.workflow.steps.export import ExportStep, SealStep
 from hydromodpy.workflow.steps.extract import ExtractStep
 from hydromodpy.workflow.steps.mesh import BuildMeshStep
-from hydromodpy.workflow.steps.prepare_solver import PrepareSolverStep
+from hydromodpy.workflow.steps.prepare_solver.step import PrepareSolverStep
 from hydromodpy.workflow.steps.resolve import ResolveStep
 from hydromodpy.workflow.steps.run_solver import RunSolverStep
 from hydromodpy.workflow.steps.setup import BuildGeographicStep, SetupProcessStep

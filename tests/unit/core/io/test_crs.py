@@ -285,13 +285,6 @@ def test_without_both_coordinates_no_point_is_selected(lon, lat) -> None:
     assert crs_io.select_nearest_point(_grid(), lon, lat) is None
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="select_within_polygon_points hands a numpy mask to Dataset.where, which the installed "
-    "xarray refuses with a TypeError; the function logs it and returns the grid whole. "
-    "Production bug, not fixed here.",
-)
 def test_points_outside_the_polygon_are_dropped_from_the_grid() -> None:
     import geopandas as gpd
     from shapely.geometry import box

@@ -31,7 +31,7 @@ from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.console.progress import MILESTONE
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import display_path
+from hydromodpy.core.state.portable import display_path
 from hydromodpy.core.time.selection import TimeSelectionError
 from hydromodpy.display import get as _get_figure
 from hydromodpy.display import list_figures as _list_figures

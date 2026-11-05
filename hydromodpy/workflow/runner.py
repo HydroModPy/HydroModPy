@@ -38,12 +38,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.console import progress
-from hydromodpy.core.contracts.workflow_step import step_name
-from hydromodpy.core.exceptions import ResumeIntegrityError, StepError
+from hydromodpy.core.exceptions import ResumeIntegrityError, StepError, WorkflowDAGCycleError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.workflow.record.artifacts import collect_artifacts
 from hydromodpy.workflow.state import PipelineState
-from hydromodpy.workflow.step import Step
+from hydromodpy.workflow.step import Step, step_name
 
 if TYPE_CHECKING:
     from hydromodpy.results.heartbeat import HeartbeatThread
@@ -222,6 +220,7 @@ class Pipeline:
             try:
                 state = self._rebuild_step(step, index, state, row)
             except Exception as exc:
+                # Any failure of a step rebuilt from disk is a broken resume, said as one.
                 raise ResumeIntegrityError(
                     f"pipeline rebuild failed at step {index} ({step_name(step)}): {exc}",
                     run_id=state.run_id,
@@ -393,7 +392,7 @@ class Pipeline:
             return tuple((idx,) for idx in range(len(self.steps)))
         try:
             cohorts = self.cohorts()
-        except Exception as exc:
+        except WorkflowDAGCycleError as exc:
             logger.debug("pipeline.cohorts_unavailable reason=%s", exc)
             return tuple((idx,) for idx in range(len(self.steps)))
         index_by_id = {id(s): i for i, s in enumerate(self.steps)}
@@ -513,6 +512,7 @@ class Pipeline:
             self._finish_journal_step(journal, step_id, status="failed", error_message=str(exc))
             raise
         except Exception as exc:
+            # The journal row must say "failed" whatever the step raised; the error is re-raised named.
             self._finish_journal_step(
                 journal,
                 step_id,
@@ -562,6 +562,30 @@ class Pipeline:
         )
 
 
+def collect_artifacts(
+    step: Step, state_out: PipelineState, workspace: Path | None
+) -> tuple[str, ...]:
+    """Ask ``step.artifacts(state_out)`` and return workspace-relative POSIX URIs, sorted."""
+    method = getattr(step, "artifacts", None)
+    if method is None:
+        return ()
+    try:
+        raw = method(state_out)
+    except Exception as exc:
+        # A step that cannot name its artifacts must not fail a run that already succeeded.
+        logger.debug("step.artifacts_failed name=%s err=%s", step_name(step), exc)
+        return ()
+    return tuple(sorted({_relative_uri(item, workspace) for item in raw or () if item is not None}))
+
+
+def _relative_uri(item: object, workspace: Path | None) -> str:
+    """Return *item* as a POSIX path, relative to the workspace when it lies inside."""
+    path = item if isinstance(item, Path) else Path(str(item))
+    if workspace is not None and path.is_absolute() and path.is_relative_to(workspace):
+        return path.relative_to(workspace).as_posix()
+    return path.as_posix()
+
+
 def _has_artifacts(step: Step, state: PipelineState, row: Any) -> bool:
     """Whether the step declares artifacts, or its journal row recorded some."""
     artifacts_method = getattr(step, "artifacts", None)
@@ -570,6 +594,7 @@ def _has_artifacts(step: Step, state: PipelineState, row: Any) -> bool:
         try:
             declared = artifacts_method(state) or ()
         except Exception:
+            # A step that cannot name its artifacts declares none; the journal row decides.
             declared = ()
     return bool(declared) or bool(row.artifact_uris if row is not None else ())
 

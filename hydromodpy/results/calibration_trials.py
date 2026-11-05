@@ -16,7 +16,7 @@ from typing import Any
 
 import pandas as pd
 
-from hydromodpy.core.state.paths import parse_rel_dir, session_dir_rel
+from hydromodpy.core.state.result_dirs import parse_rel_dir, session_dir_rel
 from hydromodpy.results.run.sealed import lineage_of
 from hydromodpy.results.run.view import Run, project_root_of
 from hydromodpy.results.session.descriptor import BestTrial, find_session_dir

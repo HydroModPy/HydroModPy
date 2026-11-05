@@ -15,7 +15,10 @@ from typing import Any, get_args
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
-from hydromodpy.core.config_kit.introspect import iter_fields_by_profile
+from hydromodpy.core.config_kit.introspect import (
+    is_implicit_relative_path_default,
+    iter_fields_by_profile,
+)
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.toml_io.model_types import (
@@ -35,7 +38,6 @@ from hydromodpy.core.toml_io.render import (
     fmt,
     fmt_key,
     is_disabled,
-    is_implicit_relative_path_default,
     placeholder,
     render_field_comment,
     render_mapping_value,

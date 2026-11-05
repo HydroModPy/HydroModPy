@@ -15,7 +15,7 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.core.scope import CATCHMENT
-from hydromodpy.core.state.paths import (
+from hydromodpy.core.state.layout import (
     PROJECT_MARKER_FILENAME,
     data_cache_path_for,
     internal_dir,

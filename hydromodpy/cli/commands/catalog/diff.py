@@ -9,7 +9,7 @@ from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspac
 from hydromodpy.cli.helpers import apply_verbosity
 from hydromodpy.cli.output import emit
 from hydromodpy.core.scope import CATCHMENT
-from hydromodpy.core.state.paths import resolve_project_root
+from hydromodpy.core.state.result_dirs import resolve_project_root
 
 NAME: str = "diff"
 HELP: str = "Compare two runs' parameters and metrics"

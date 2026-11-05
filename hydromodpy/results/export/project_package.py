@@ -51,7 +51,7 @@ from hydromodpy.core.payload import (
 from hydromodpy.core.payload.install import sha256_of
 from hydromodpy.core.payload.resolve import authored_files, project_data
 from hydromodpy.core.site import SiteRow
-from hydromodpy.core.state.paths import INTERNAL_DIRNAME, runs_dir_for, sessions_dir_for
+from hydromodpy.core.state.layout import INTERNAL_DIRNAME, runs_dir_for, sessions_dir_for
 from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
 from hydromodpy.core.workspace.resolve import locate_workspace_root
 from hydromodpy.results.export.publish import (

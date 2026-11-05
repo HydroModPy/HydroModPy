@@ -27,7 +27,7 @@ def list_projects(workspace: Path) -> list[dict]:
 
     Each dict carries ``name``, ``path``, ``has_project_toml`` and ``run_tomls``.
     """
-    from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME
+    from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
 
     workspace_root = Path(workspace).expanduser().resolve()
     projects_dir = workspace_root / "projects"
@@ -79,7 +79,8 @@ def sites_project_root(target: str | Path) -> Path:
     it. Raises :class:`FileNotFoundError` when no ``project.toml`` sits at or
     above it.
     """
-    from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME, resolve_project_root
+    from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
+    from hydromodpy.core.state.result_dirs import resolve_project_root
 
     path = Path(target).expanduser().resolve()
     start = path.parent if path.is_file() else path

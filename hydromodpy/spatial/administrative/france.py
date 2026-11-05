@@ -16,12 +16,7 @@ from pathlib import Path
 import geopandas as gpd
 from shapely.geometry import box
 
-from hydromodpy.spatial.administrative.regions import (
-    french_region_code,
-    known_french_region_names,
-    normalize_french_region_key,
-    validate_french_regions,
-)
+from hydromodpy.spatial.administrative.regions import french_region_code
 
 _BUNDLED_GPKG = Path(__file__).parent / "departement.gpkg"
 
@@ -200,10 +195,6 @@ __all__ = [
     "department_code_to_padded",
     "find_departments_in_bbox",
     "find_departments_in_regions",
-    "french_region_code",
     "geometry_for_departments",
     "geometry_for_regions",
-    "known_french_region_names",
-    "normalize_french_region_key",
-    "validate_french_regions",
 ]

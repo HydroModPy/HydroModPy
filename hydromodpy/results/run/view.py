@@ -81,7 +81,8 @@ from typing import TYPE_CHECKING, Any
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.old_members import refuse_old_member
-from hydromodpy.core.state.paths import catalog_path_for, parse_rel_dir
+from hydromodpy.core.state.layout import catalog_path_for
+from hydromodpy.core.state.result_dirs import parse_rel_dir
 from hydromodpy.results.annotations import add_note, add_tag, read_annotations, remove_tag
 from hydromodpy.results.errors import RunNotFoundError, RunNotSealedError
 from hydromodpy.results.export.run_identity import label_of

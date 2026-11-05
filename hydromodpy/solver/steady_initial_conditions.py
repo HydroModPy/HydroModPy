@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pydantic import TypeAdapter
 
 from hydromodpy.core.units import FluxDensityMPerS
-from hydromodpy.core.units.hydraulic_conductivity import factor_to_m_per_s
+from hydromodpy.core.units.quantities import factor_to_m_per_s
 from hydromodpy.core.units.types import LengthMeters
 from hydromodpy.physics.flow.initial_conditions import (
     FlowICTop,

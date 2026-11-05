@@ -115,7 +115,7 @@ def calibrate_project(
         "save_runs": save_runs,
         "seed": seed,
     }
-    refuse_misplaced_arguments(
+    _refuse_misplaced_arguments(
         config_path=config_path, parameters=parameters, protocol=protocol, python_mode=python_mode
     )
     label = project_label if project_label is not None else project
@@ -129,19 +129,19 @@ def calibrate_project(
         if case is not None:
             raise ConfigError(FROM_FILE)
         return calibrate_a_file(config_path, phase=phase, dry_run=dry_run, project=label, **options)
-    run = in_memory_runner(
+    run = _in_memory_runner(
         proj, dry_run=dry_run, label=label, phase=phase, case=case, options=options
     )
     if protocol is not None:
-        return run(protocol_calibration(proj, protocol))
+        return run(_protocol_calibration(proj, protocol))
     if not parameters:
-        return calibrate_embedded(
+        return _calibrate_embedded(
             proj, run, phase=phase, case=case, dry_run=dry_run, label=label, options=options
         )
-    return run(declared_calibration(proj, parameters, python_mode, phase=phase))
+    return run(_declared_calibration(proj, parameters, python_mode, phase=phase))
 
 
-def refuse_misplaced_arguments(
+def _refuse_misplaced_arguments(
     *,
     config_path: str | Path | None,
     parameters: dict[str, dict] | None,
@@ -169,7 +169,7 @@ def refuse_misplaced_arguments(
         )
 
 
-def in_memory_runner(
+def _in_memory_runner(
     proj: Project,
     *,
     dry_run: bool,
@@ -202,7 +202,7 @@ def in_memory_runner(
     return run
 
 
-def protocol_calibration(proj: Project, protocol: str | dict) -> CalibrationConfig:
+def _protocol_calibration(proj: Project, protocol: str | dict) -> CalibrationConfig:
     """The calibration a protocol writes over this project's own ``[calibration]``."""
     from hydromodpy.calibration.config import CalibrationConfig
     from hydromodpy.calibration.protocols import expand_calibration_protocol
@@ -218,7 +218,7 @@ def protocol_calibration(proj: Project, protocol: str | dict) -> CalibrationConf
     return CalibrationConfig.model_validate(project_defaults_on(document["calibration"], proj))
 
 
-def calibrate_embedded(
+def _calibrate_embedded(
     proj: Project,
     run: Callable[[Any], Any],
     *,
@@ -271,7 +271,7 @@ def calibrate_embedded(
     return run(embedded)
 
 
-def declared_calibration(
+def _declared_calibration(
     proj: Project,
     parameters: dict[str, dict],
     python_mode: Mapping[str, Any],

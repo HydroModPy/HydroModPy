@@ -20,7 +20,11 @@ stream has no free end: it starts at the dam foot, and the criterion descent
 may leave the reservoir through a saddle instead of the dam, so the reach below
 the dam would be drawn by no head at all. The foot of each dam is therefore a
 forced head: a cell given by the model, traced as it is, without the landing
-rule, and counted apart from the heads the map gives.
+rule, and counted apart from the heads the map gives. A forced cell needs no
+window and is never lost, and it is added to a map that already draws, never
+making one draw: the refusals are decided on the map's own heads. It does not
+count among ``n_heads``, which stays the free ends the map gave. One off the
+active graph is dropped and logged.
 
 The candidates are found by the spatial layer (it owns shapely and the CRS);
 they are defined here so core can consume them and spatial can return them.
@@ -193,6 +197,46 @@ def _window_area(tree, drained: np.ndarray, points: np.ndarray, radius: float) -
     return area
 
 
+def _land_heads(
+    centres: np.ndarray, landing: np.ndarray, head_xy: np.ndarray, bound: float
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return the nearest landing cell of each head and its distance, -1 and NaN when lost."""
+    from scipy.spatial import cKDTree
+
+    head_cell = np.full(head_xy.shape[0], -1, dtype=np.int64)
+    snap_distance = np.full(head_xy.shape[0], np.nan, dtype=float)
+    if landing.size:
+        distance, slot = cKDTree(centres[landing]).query(head_xy, distance_upper_bound=bound)
+        landed = np.isfinite(distance)
+        head_cell[landed] = landing[slot[landed]]
+        snap_distance[landed] = distance[landed]
+    return head_cell, snap_distance
+
+
+def _forced_on_graph(asked: np.ndarray, active: np.ndarray) -> np.ndarray:
+    """Return the forced cells of the active graph, logging how many were dropped."""
+    forced = asked[(asked >= 0) & (asked < active.size)]
+    forced = forced[active[forced]]
+    if forced.size < asked.size:
+        logger.info(
+            "Network criterion: %d of %d forced head(s) dropped, off the active graph.",
+            asked.size - forced.size,
+            asked.size,
+        )
+    return forced
+
+
+def _trace_down(downstream: np.ndarray, starts: list[int]) -> np.ndarray:
+    """Return the cells met following the receivers from each start, as a mask."""
+    traced = np.zeros(downstream.size, dtype=bool)
+    for start in starts:
+        cell = int(start)
+        while cell >= 0 and not traced[cell]:
+            traced[cell] = True
+            cell = int(downstream[cell])
+    return traced
+
+
 def trace_from_heads(
     metric: DownslopeMetric,
     candidates: HeadCandidates,
@@ -208,18 +252,10 @@ def trace_from_heads(
     talweg at both ends, and a head kept twice traces one path.
     Each head lands on the nearest active cell draining at least
     ``settings.min_drained_area_m2`` within ``settings.snap_radius_m``, else it
-    is lost. The trace follows the receivers from every landing cell until the
-    descent ends or meets a traced cell. It does not stop at the outlet: like
-    the crossing rule, the map may continue into the buffer, and the supports
-    are cut to the catchment downstream.
-
-    ``candidates.forced_cells`` are traced as heads as they are: they are
-    already cells, so no window, no landing rule and no loss apply, and they
-    are reported apart (``forced_cell``, ``n_forced_heads``). They are added to a
-    map that already draws and never make one draw: the three refusals are
-    decided on the map's own heads. A forced cell off the active graph is
-    dropped and logged. They do not count among ``n_heads``, which stays the
-    free ends the map gave.
+    is lost. The trace follows the receivers from every landing cell and every
+    forced cell until the descent ends or meets a traced cell. It does not stop
+    at the outlet: like the crossing rule, the map may continue into the buffer,
+    and the supports are cut to the catchment downstream.
     """
     from scipy.spatial import cKDTree
 
@@ -249,43 +285,18 @@ def trace_from_heads(
         )
     centres = np.asarray(metric.centroids, dtype=float)[:, :2]
     tree = cKDTree(centres[usable])
-    drained = accumulated[usable]
-    head_area = _window_area(tree, drained, candidates.head_xy, radius)
-    end_area = _window_area(tree, drained, candidates.reach_end_xy, radius)
+    head_area = _window_area(tree, accumulated[usable], candidates.head_xy, radius)
+    end_area = _window_area(tree, accumulated[usable], candidates.reach_end_xy, radius)
     head_xy = candidates.head_xy[head_area <= end_area]
     if head_xy.shape[0] == 0:
         raise refuse("every free end drains more than the other end of its reach")
-
     landing = usable[accumulated[usable] >= threshold]
-    head_cell = np.full(head_xy.shape[0], -1, dtype=np.int64)
-    snap_distance = np.full(head_xy.shape[0], np.nan, dtype=float)
-    if landing.size:
-        distance, slot = cKDTree(centres[landing]).query(head_xy, distance_upper_bound=bound)
-        landed = np.isfinite(distance)
-        head_cell[landed] = landing[slot[landed]]
-        snap_distance[landed] = distance[landed]
+    head_cell, snap_distance = _land_heads(centres, landing, head_xy, bound)
     if not np.any(head_cell >= 0):
         raise refuse(f"every one of the {head_xy.shape[0]} head(s) is lost")
 
-    # The forced cells join a map that already draws; they never make one draw.
-    asked = candidates.forced_cells
-    on_mesh = (asked >= 0) & (asked < graph.active.size)
-    forced = asked[on_mesh]
-    forced = forced[graph.active[forced]]
-    if forced.size < asked.size:
-        logger.info(
-            "Network criterion: %d of %d forced head(s) dropped, off the active graph.",
-            asked.size - forced.size,
-            asked.size,
-        )
-
-    traced = np.zeros(graph.active.size, dtype=bool)
-    downstream = graph.downstream
-    for start in [*head_cell[head_cell >= 0].tolist(), *forced.tolist()]:
-        cell = int(start)
-        while cell >= 0 and not traced[cell]:
-            traced[cell] = True
-            cell = int(downstream[cell])
+    forced = _forced_on_graph(candidates.forced_cells, graph.active)
+    traced = _trace_down(graph.downstream, [*head_cell[head_cell >= 0].tolist(), *forced.tolist()])
 
     near_share = float("nan")
     if candidates.map_points_xy.shape[0]:

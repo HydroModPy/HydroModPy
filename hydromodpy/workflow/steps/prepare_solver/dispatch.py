@@ -150,14 +150,16 @@ def refresh_run_environment(ctx: WorkflowContext, *, store: RunStore) -> None:
     try:
         _write_run_environment(ctx, str(sim_id), primary_solver_for_simulation(plan), store=store)
     except Exception:
+        # The run is solved: a missing provenance note must not fail it.
         logger.exception("Failed to refresh the run environment for sim %s", str(sim_id)[:8])
 
 
 def _crs_grid_mapping_attrs(crs: object) -> dict[str, object]:
     """Return CF grid-mapping attrs for a CRS value."""
-    try:
-        from pyproj import CRS
+    from pyproj import CRS
+    from pyproj.exceptions import CRSError
 
+    try:
         parsed = CRS.from_user_input(crs)
         attrs = dict(parsed.to_cf())
         if "crs_wkt" not in attrs:
@@ -166,7 +168,7 @@ def _crs_grid_mapping_attrs(crs: object) -> dict[str, object]:
         if epsg is not None:
             attrs["epsg_code"] = int(epsg)
         return attrs
-    except Exception:
+    except CRSError:
         return {"crs_wkt": str(crs)}
 
 
@@ -249,7 +251,7 @@ def bind_restart_source(ctx: WorkflowContext, *, store: RunStore) -> str | None:
     return source.sim_id
 
 
-def register_tracked_input_files(ctx: WorkflowContext, *, store: RunStore) -> None:
+def _register_tracked_input_files(ctx: WorkflowContext, *, store: RunStore) -> None:
     """Walk the config tree and record every InputFile-marked path."""
     from hydromodpy.core.tracking import collect_input_files
 
@@ -260,6 +262,7 @@ def register_tracked_input_files(ctx: WorkflowContext, *, store: RunStore) -> No
     try:
         entries = collect_input_files(ctx.cfg, base=project_root)
     except Exception as exc:
+        # Tracking is provenance: a configuration the walker cannot read must not stop the run.
         logger.warning("Skipping tracked-file registration: %s", exc)
         return
 
@@ -403,9 +406,10 @@ def step_open_run(ctx: WorkflowContext, *, store: RunStore) -> None:
     try:
         _write_run_environment(ctx, ctx.sim_id, primary_solver, store=store)
     except Exception:
+        # Same as above: the environment note is provenance, the run goes on without it.
         logger.exception("Failed to capture run environment for sim %s", ctx.sim_id[:8])
 
-    register_tracked_input_files(ctx, store=store)
+    _register_tracked_input_files(ctx, store=store)
 
     if ctx.setup.flow is not None:
         step_persist_params(

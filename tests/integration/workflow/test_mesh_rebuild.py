@@ -126,7 +126,7 @@ def _cached_arrays(root: Path) -> Path:
 
 
 def _journal_row(root: Path, run_id: str, step_order: int):
-    from hydromodpy.core.state.paths import run_dir_rel
+    from hydromodpy.core.state.result_dirs import run_dir_rel
     from hydromodpy.workflow.record.journal import WorkflowJournal
 
     rows = WorkflowJournal(root / run_dir_rel(run_id)).list_steps(run_id)

@@ -114,15 +114,15 @@ def open(path: PathLike) -> Project | Run | Session | Workspace:
     index
         The sealed runs of every project of a workspace.
     """
-    from hydromodpy.core.state.paths import (
+    from hydromodpy.core.state.layout import (
         PROJECT_MARKER_FILENAME,
         is_workspace_root,
-        resolve_project_root,
         runs_dir_for,
         sessions_dir_for,
     )
+    from hydromodpy.core.state.result_dirs import resolve_project_root
     from hydromodpy.project.accessors import Workspace
-    from hydromodpy.project.opening import open_project
+    from hydromodpy.project.facade import open_project
     from hydromodpy.results.run.view import open_run_dir
     from hydromodpy.results.session.descriptor import session_descriptor_path
     from hydromodpy.results.session.view import Session
@@ -182,7 +182,7 @@ def index(workspace: PathLike | None = None) -> Workspace:
     >>> import hydromodpy as hmp
     >>> hmp.index("~/ws").runs(site="nancon")  # doctest: +SKIP
     """
-    from hydromodpy.core.state.paths import is_workspace_root
+    from hydromodpy.core.state.layout import is_workspace_root
     from hydromodpy.project.accessors import Workspace
 
     start = Path(workspace).expanduser().resolve() if workspace is not None else Path.cwd()
@@ -197,7 +197,7 @@ def index(workspace: PathLike | None = None) -> Workspace:
 
 def _projects_hint(folder: Path) -> str:
     """Name the projects one or two levels under ``folder``, when it holds some."""
-    from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME
+    from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
 
     if not folder.is_dir():
         return ""
@@ -786,7 +786,7 @@ def spinup(
     import dataclasses
 
     from hydromodpy.project import Project
-    from hydromodpy.project.opening import resolve_config
+    from hydromodpy.project.facade import resolve_config
     from hydromodpy.project.spinup import run_spinup
 
     source = Path(config).expanduser().resolve() if isinstance(config, (str, Path)) else config
@@ -917,7 +917,7 @@ def compare(
     >>> result.write("../study")  # doctest: +SKIP
     """
     from hydromodpy.analysis.comparison.compare import compare_references
-    from hydromodpy.core.state.paths import resolve_project_root
+    from hydromodpy.core.state.result_dirs import resolve_project_root
 
     start = Path(workspace or Path.cwd()).expanduser().resolve()
     root = resolve_project_root(start)
@@ -963,7 +963,7 @@ def report(session: str | None = None, *, workspace: PathLike | None = None) -> 
     ...     "calibration.v2", workspace="~/ws/projects/my_project"
     ... )  # doctest: +SKIP
     """
-    from hydromodpy.core.state.paths import resolve_project_root
+    from hydromodpy.core.state.result_dirs import resolve_project_root
     from hydromodpy.results.session.descriptor import resolve_session_dir
     from hydromodpy.workflow.steps.calibration import step_render_calibration_report
 

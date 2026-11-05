@@ -14,7 +14,7 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
-from hydromodpy.core.units.length import convert_to_m
+from hydromodpy.core.units.quantities import convert_to_m
 
 MarginKind = Literal["relative", "absolute"]
 

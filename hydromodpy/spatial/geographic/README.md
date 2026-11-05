@@ -55,7 +55,7 @@ same public attributes.
 
 The workflow step `BuildGeographicStep` in `hydromodpy/workflow/steps/setup.py` is the caller.
 It chooses between the two runtimes. The tree lives in the preprocessing folder of the run
-(`preprocessing_dir` in `hydromodpy/core/state/paths.py`), and `preprocessing_cleanup.py` removes
+(`preprocessing_dir` in `hydromodpy/core/state/scratch.py`), and `preprocessing_cleanup.py` removes
 it once the run holds what it needs, unless `write_intermediates` keeps it.
 
 ## The folder map
@@ -172,7 +172,7 @@ The package imports from other HydroModPy layers only `core`, `schema` and `spat
 - Inside `spatial`, the package reads `terrain` (the flow-routing port and its registry),
   `delineation` (the backend registry), `surface` and `raster_support`. It reads `domain` and
   `field` only under `TYPE_CHECKING`, in `structure_binders.py`.
-- Some imports sit inside the function that needs them. They are the `hydromodpy.core.state.paths`
+- Some imports sit inside the function that needs them. They are the `hydromodpy.core.state.scratch`
   import of `geographic_paths.py` and `subbasin.py`, the `toml_io.loader` import of
   `synthetic_config.py`, the terrain registry import of `geographic_config.py`, and two imports
   of `core/network_heads.py`. A module that only needs its types or its constants does not load

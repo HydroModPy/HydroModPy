@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hydromodpy.core.exceptions import ExportError
-from hydromodpy.core.state.paths import PREPROCESSING_DIRNAME, active_run_scratch
+from hydromodpy.core.state.scratch import PREPROCESSING_DIRNAME, active_run_scratch
 
 if TYPE_CHECKING:
     from collections.abc import Iterable

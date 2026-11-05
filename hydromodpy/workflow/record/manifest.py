@@ -23,17 +23,17 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from hydromodpy.core.contracts.workflow_step import step_name
 from hydromodpy.core.exceptions import ResumeError
 from hydromodpy.core.io.canonical_json import dumps as canonical_dumps
 from hydromodpy.core.io.document_version import TRANSIENT_REMEDY, check_document, check_exact
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import (
+from hydromodpy.core.state.layout import (
     INTERNAL_DIRNAME,
     PER_RUN_CONFIG_KEYS,
     RUN_INTERNAL_CHECKPOINTS_DIRNAME,
 )
 from hydromodpy.workflow.state import PipelineState
+from hydromodpy.workflow.step import step_name
 
 logger = get_logger(__name__)
 
@@ -43,7 +43,7 @@ RESOLVED_CONFIG_FILENAME = "resolved_config.json"
 RESOLVED_CONFIG_SCHEMA = "hydromodpy.resolved_config.v1"
 
 
-def checkpoints_dir(run_dir: Path) -> Path:
+def _checkpoints_dir(run_dir: Path) -> Path:
     """Return ``<run>/.hmp/checkpoints``, the attempt state the documents live in."""
     return Path(run_dir) / INTERNAL_DIRNAME / RUN_INTERNAL_CHECKPOINTS_DIRNAME
 
@@ -111,7 +111,7 @@ class ResolvedRunManifest:
 
     @staticmethod
     def path_for(run_dir: Path) -> Path:
-        return checkpoints_dir(run_dir) / RESOLVED_MANIFEST_FILENAME
+        return _checkpoints_dir(run_dir) / RESOLVED_MANIFEST_FILENAME
 
     def write_atomic(self, run_dir: Path) -> Path:
         path = self.path_for(run_dir)
@@ -209,7 +209,7 @@ class ResolvedRunManifest:
 
 def resolved_config_path(run_dir: Path) -> Path:
     """Return where a run keeps the resolved configuration it was launched on."""
-    return checkpoints_dir(run_dir) / RESOLVED_CONFIG_FILENAME
+    return _checkpoints_dir(run_dir) / RESOLVED_CONFIG_FILENAME
 
 
 def state_config_payload(state: PipelineState) -> Any:
@@ -381,7 +381,6 @@ __all__ = [
     "RESOLVED_MANIFEST_FILENAME",
     "SCHEMA_VERSION",
     "ResolvedRunManifest",
-    "checkpoints_dir",
     "config_sections_that_moved",
     "read_resolved_config",
     "resolved_config_path",

@@ -392,27 +392,14 @@ def import_project(
         The name is taken, a file or row of the package conflicts, or the
         package is no project package.
     """
-    import os
     import shutil
     import tempfile
     import uuid
 
     from hydromodpy.core.exceptions import ImportConflictError
     from hydromodpy.core.payload import read_index
-    from hydromodpy.core.state.paths import (
-        INTERNAL_DIRNAME,
-        PROJECTS_DIRNAME,
-        runs_dir_for,
-        sessions_dir_for,
-    )
-    from hydromodpy.results.export.project_package import (
-        PACKAGE_MESH_DIRNAME,
-        PACKAGE_RUNS_DIRNAME,
-        PACKAGE_SESSIONS_DIRNAME,
-    )
-    from hydromodpy.results.export.publish import INPUTS_DIRNAME, verify
-    from hydromodpy.results.publication import read_publication
-    from hydromodpy.results.storage.contract import ALLOWED_RUN_ENTRIES
+    from hydromodpy.core.state.layout import INTERNAL_DIRNAME, PROJECTS_DIRNAME
+    from hydromodpy.results.export.publish import INPUTS_DIRNAME
 
     root = Path(workspace).resolve()
     origin = Path(source).expanduser().resolve()
@@ -425,85 +412,104 @@ def import_project(
         staging.mkdir(parents=True)
     built: Path | None = None
     try:
-        copy = _unpacked(origin, staging)
-        publication = read_publication(copy)
-        if publication.kind != "project" or publication.members:
-            raise ImportConflictError(
-                f"{origin} is no project package: import a run with 'hmp catalog import', the "
-                "members of a campaign copy one by one."
-            )
-        problems = verify(copy)
-        if problems:
-            raise ImportConflictError(
-                f"{origin} does not match its PUBLICATION.json: {'; '.join(problems[:5])}. "
-                "Nothing was written."
-            )
-        project_name = name or publication.source.project
+        copy, project_name = _checked_package(origin, staging, name)
         destination = root / PROJECTS_DIRNAME / project_name
         if destination.exists():
             raise ImportConflictError(
                 f"{PROJECTS_DIRNAME}/{project_name} exists in {root}: pass --name <name> to "
                 "import the project under another name."
             )
+        runs, sessions, mesh_entries = _package_members(copy)
         if dry_run:
-            return ImportedProject(
-                project_dir=destination,
-                install=install_index(
-                    read_index(copy),
-                    blobs=copy / INPUTS_DIRNAME,
-                    workspace=root,
-                    project=destination,
-                    dry_run=True,
-                ),
-                runs=tuple(run.name for run in sorted((copy / PACKAGE_RUNS_DIRNAME).glob("*"))),
-                sessions=tuple(
-                    entry.name for entry in sorted((copy / PACKAGE_SESSIONS_DIRNAME).glob("*"))
-                ),
-                mesh_entries=tuple(
-                    entry.name for entry in sorted((copy / PACKAGE_MESH_DIRNAME).glob("*"))
-                ),
+            report = install_index(
+                read_index(copy),
+                blobs=copy / INPUTS_DIRNAME,
+                workspace=root,
+                project=destination,
+                dry_run=True,
             )
+            return ImportedProject(destination, report, runs, sessions, mesh_entries)
         built = destination.with_name(f".{project_name}.import-{uuid.uuid4().hex[:8]}")
         built.mkdir(parents=True)
         report = install_index(
             read_index(copy), blobs=copy / INPUTS_DIRNAME, workspace=root, project=built
         )
-        runs: list[str] = []
-        for run in sorted((copy / PACKAGE_RUNS_DIRNAME).glob("*")):
-            for entry in sorted(run.iterdir()):
-                if entry.name in ALLOWED_RUN_ENTRIES:
-                    continue
-                if entry.is_dir():
-                    shutil.rmtree(entry)
-                else:
-                    entry.unlink()
-            runs_dir_for(built).mkdir(parents=True, exist_ok=True)
-            os.rename(run, runs_dir_for(built) / run.name)
-            runs.append(run.name)
-        sessions: list[str] = []
-        for session in sorted((copy / PACKAGE_SESSIONS_DIRNAME).glob("*")):
-            sessions_dir_for(built).mkdir(parents=True, exist_ok=True)
-            os.rename(session, sessions_dir_for(built) / session.name)
-            sessions.append(session.name)
-        mesh: list[str] = []
-        for entry in sorted((copy / PACKAGE_MESH_DIRNAME).glob("*")):
-            cache = built / INTERNAL_DIRNAME / "mesh_cache"
-            cache.mkdir(parents=True, exist_ok=True)
-            os.rename(entry, cache / entry.name)
-            mesh.append(entry.name)
-        os.rename(built, destination)
+        _move_members(copy, built)
+        built.rename(destination)
         built = None
-        return ImportedProject(
-            project_dir=destination,
-            install=report,
-            runs=tuple(runs),
-            sessions=tuple(sessions),
-            mesh_entries=tuple(mesh),
-        )
+        return ImportedProject(destination, report, runs, sessions, mesh_entries)
     finally:
         shutil.rmtree(staging, ignore_errors=True)
         if built is not None:
             shutil.rmtree(built, ignore_errors=True)
+
+
+def _checked_package(origin: Path, staging: Path, name: str | None) -> tuple[Path, str]:
+    """Unpack a project package under *staging*, check it, and return its folder and project name."""
+    from hydromodpy.core.exceptions import ImportConflictError
+    from hydromodpy.results.export.publish import verify
+    from hydromodpy.results.publication import read_publication
+
+    copy = _unpacked(origin, staging)
+    publication = read_publication(copy)
+    if publication.kind != "project" or publication.members:
+        raise ImportConflictError(
+            f"{origin} is no project package: import a run with 'hmp catalog import', the "
+            "members of a campaign copy one by one."
+        )
+    problems = verify(copy)
+    if problems:
+        raise ImportConflictError(
+            f"{origin} does not match its PUBLICATION.json: {'; '.join(problems[:5])}. "
+            "Nothing was written."
+        )
+    return copy, name or publication.source.project
+
+
+def _package_members(copy: Path) -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
+    """Return the names of the runs, sessions and mesh cache entries a package holds."""
+    from hydromodpy.results.export.project_package import (
+        PACKAGE_MESH_DIRNAME,
+        PACKAGE_RUNS_DIRNAME,
+        PACKAGE_SESSIONS_DIRNAME,
+    )
+
+    runs, sessions, mesh = (
+        tuple(entry.name for entry in sorted((copy / dirname).glob("*")))
+        for dirname in (PACKAGE_RUNS_DIRNAME, PACKAGE_SESSIONS_DIRNAME, PACKAGE_MESH_DIRNAME)
+    )
+    return runs, sessions, mesh
+
+
+def _move_members(copy: Path, built: Path) -> None:
+    """Move the runs, sessions and mesh cache entries of a package into the project *built*."""
+    import shutil
+
+    from hydromodpy.core.state.layout import INTERNAL_DIRNAME, runs_dir_for, sessions_dir_for
+    from hydromodpy.results.export.project_package import (
+        PACKAGE_MESH_DIRNAME,
+        PACKAGE_RUNS_DIRNAME,
+        PACKAGE_SESSIONS_DIRNAME,
+    )
+    from hydromodpy.results.storage.contract import ALLOWED_RUN_ENTRIES
+
+    for run in sorted((copy / PACKAGE_RUNS_DIRNAME).glob("*")):
+        for entry in sorted(run.iterdir()):
+            if entry.name in ALLOWED_RUN_ENTRIES:
+                continue
+            if entry.is_dir():
+                shutil.rmtree(entry)
+            else:
+                entry.unlink()
+        runs_dir_for(built).mkdir(parents=True, exist_ok=True)
+        run.rename(runs_dir_for(built) / run.name)
+    for session in sorted((copy / PACKAGE_SESSIONS_DIRNAME).glob("*")):
+        sessions_dir_for(built).mkdir(parents=True, exist_ok=True)
+        session.rename(sessions_dir_for(built) / session.name)
+    cache = built / INTERNAL_DIRNAME / "mesh_cache"
+    for entry in sorted((copy / PACKAGE_MESH_DIRNAME).glob("*")):
+        cache.mkdir(parents=True, exist_ok=True)
+        entry.rename(cache / entry.name)
 
 
 def _unpacked(origin: Path, staging: Path) -> Path:

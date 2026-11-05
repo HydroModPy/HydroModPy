@@ -29,6 +29,14 @@ consumed by :func:`hydromodpy.workflow.steps.dependencies.earliest_affected_step
 to decide which steps must re-run when a calibration overrides a specific
 field.
 
+Dependencies
+------------
+
+``depends_on() -> tuple[str, ...]``
+    Names of upstream steps whose output state must exist. The Kahn DAG sort
+    consumes it to compute parallel cohorts. A step without the method has no
+    dependency, see :func:`step_depends_on`.
+
 Resume hooks
 ------------
 
@@ -69,4 +77,23 @@ class Step(Protocol):
         ...
 
 
-__all__ = ("Step",)
+def step_name(step: object) -> str:
+    """Return the name of a step: its ``name`` attribute, else its class name."""
+    return str(getattr(step, "name", type(step).__name__))
+
+
+def step_depends_on(step: object) -> tuple[str, ...]:
+    """Read the ``depends_on()`` declaration of a step, defaulting to ()."""
+    method = getattr(step, "depends_on", None)
+    if method is None:
+        return ()
+    try:
+        result = method()
+    except Exception:
+        return ()
+    if not result:
+        return ()
+    return tuple(str(item) for item in result)
+
+
+__all__ = ("Step", "step_depends_on", "step_name")

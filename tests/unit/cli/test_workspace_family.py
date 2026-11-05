@@ -70,7 +70,7 @@ def _workspace_with_results(tmp_path: Path) -> tuple[Path, Path]:
 
 
 def test_clean_results_moves_every_run_to_the_trash(monkeypatch, capsys, tmp_path) -> None:
-    from hydromodpy.core.state.paths import catalog_path_for
+    from hydromodpy.core.state.layout import catalog_path_for
     from hydromodpy.results.catalog.registration import reserve_version_dirname
     from hydromodpy.results.trash import list_trash
 

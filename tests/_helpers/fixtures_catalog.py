@@ -13,7 +13,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
-from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME
+from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from tests._helpers.sealed_runs import make_project

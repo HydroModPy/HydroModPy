@@ -8,6 +8,8 @@ figure).
 
 from __future__ import annotations
 
+from typing import Any
+
 from hydromodpy.core.scope import CATCHMENT
 
 AXIS_LABELS: dict[str, tuple[str, str]] = {
@@ -64,4 +66,16 @@ def station_label(station: str) -> str:
     return _STATION_NAMES.get(text, text)
 
 
-__all__ = ["AXIS_LABELS", "axis_label", "station_label"]
+def format_length_from_m(value_m: Any, *, unit: str = "m", precision: int = 3) -> str:
+    """Format one SI length in the requested display unit, for example ``"1.500 km"``."""
+    from hydromodpy.core.units.registry import get_registry
+
+    try:
+        meters = float(value_m)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError(f"value_m must be numeric. Got: {value_m!r}") from exc
+    number = float(get_registry().Quantity(meters, "m").to(unit).magnitude)
+    return f"{number:.{int(precision)}f} {unit}"
+
+
+__all__ = ["AXIS_LABELS", "axis_label", "format_length_from_m", "station_label"]

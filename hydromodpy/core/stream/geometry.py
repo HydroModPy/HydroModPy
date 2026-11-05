@@ -19,6 +19,50 @@ It lives in ``core`` because four layers need the SAME construction: the
 calibration criterion scores it, the results layer rebuilds it to draw a run
 after the fact, and neither may import the other. Two derivations of one
 partition is how a figure comes to disagree with the number it illustrates.
+
+:func:`build_network_geometry` assembles it from mesh primitives.
+``delineated_outlet_xy`` is the outlet the geographic step delineated from (its
+snapped pour point, in the mesh CRS); the outlet is the most accumulated cell
+within :data:`OUTLET_SNAP_RINGS` of it. Without it, the most accumulated cell of
+``delineated_catchment`` closes the catchment, and without either the largest
+basin of the mesh does. ``delineated_catchment``, the reference the run holds on
+the cells, the basin of D or the raster polygon, is only compared to the
+catchment: ``basin_mismatch`` publishes the gap. ``catchment_outline``, the
+delineated outline projected on the cells, is compared the same way:
+``catchment_mismatch`` publishes the gap, and a gap above
+``catchment_mismatch_warning_share`` is logged as a warning. Without an outline
+the gap reads ``delineated_catchment``.
+
+``excluded`` holds the cells whose surface-water extent is an input rather than
+an output: a lake, an ocean-role boundary, a mapped wetland. They stay in the
+graph and in the target, and only leave the two supports.
+
+``cell_centroids`` are the points ``topography`` was sampled at. On a Voronoi
+dual that is the generator seed, not the polygon centroid the vertices give
+back, and routing on one while measuring the drop on the other builds the slope
+out of two different segments.
+
+The three thresholds decide only what is LOGGED, never what is computed:
+``alpha_warning_threshold`` is the agreement below which the distances are said
+to carry a top-versus-map disagreement, and the two ``clipping_`` values are the
+share of mapped cells outside the catchment and the gap between the two ratios
+above which that clipping is worth reporting. Their defaults come from
+:data:`STREAM_CRITERION_DEFAULTS`, the one Pydantic object the calibration output
+and the redrawn figures also read, so a threshold is never written twice.
+
+``diagonal_neighbors`` defaults to the D8 descent of the paper. It is resolved
+against the mesh once, and the one neighbor graph that comes out feeds the
+depression flood, the receiver graph, the downstream closure of both networks and
+the saturation cap alike.
+
+The map is given as exactly one of ``observed``, the cells a rasterization rule
+drew, and ``heads``, the free ends of the map with where they may land
+(:mod:`hydromodpy.core.stream.heads`). The heads are traced down the graph built
+here, once the outlet and the catchment are resolved.
+
+The length scale is ``h_obs`` (:func:`observed_cell_size_m`), read on the mapped
+network. ``observed_position_accuracy_m`` does not change it: it is kept for the
+validity length only (:meth:`NetworkGeometry.validity_length`).
 """
 
 from __future__ import annotations
@@ -66,6 +110,11 @@ logger = get_logger(__name__)
 #: before the gap is logged as a warning. It decides what is LOGGED only: what
 #: refuses a search is the ``verdict.max_catchment_mismatch`` of its output.
 CATCHMENT_MISMATCH_WARNING_SHARE = 0.05
+
+_ONE_MAP_ONLY = (
+    "the network geometry takes the mapped network as exactly one of 'observed' "
+    "(cells drawn by a rasterisation rule) and 'heads' (free ends to trace)."
+)
 
 ValidityProvenance = Literal["auto", "declared_accuracy", "user"]
 
@@ -415,126 +464,37 @@ def build_network_geometry(
 ) -> NetworkGeometry:
     """Assemble the static geometry of the criterion from mesh primitives.
 
-    The surface, the outlet and the catchment all come from one graph: the
-    model top conditioned by a priority flood seeded on the border of the
-    active domain. ``delineated_outlet_xy`` is the outlet the geographic step
-    delineated from (its snapped pour point, in the mesh CRS); the outlet is
-    the most accumulated cell within :data:`OUTLET_SNAP_RINGS` of it. Without
-    it, the most accumulated cell of ``delineated_catchment`` closes the
-    catchment, and without either the largest basin of the mesh does. The
-    catchment scored is every cell whose descent reaches that outlet.
-    ``delineated_catchment``, the reference the run holds on the cells, the basin
-    of D or the raster polygon, is only compared to it: ``basin_mismatch`` publishes
-    the gap. ``catchment_outline``, the delineated outline projected on the cells, is
-    compared the same way: ``catchment_mismatch`` publishes the gap, and a gap above
-    ``catchment_mismatch_warning_share`` is logged as a warning. Without an outline
-    the gap reads ``delineated_catchment``.
-
-    ``excluded`` holds the cells whose surface-water extent is an input rather
-    than an output: a lake, an ocean-role boundary, a mapped wetland. They stay
-    in the graph and in the target, and only leave the two supports.
-
-    ``cell_centroids`` are the points ``topography`` was sampled at. On a
-    Voronoi dual that is the generator seed, not the polygon centroid the
-    vertices give back, and routing on one while measuring the drop on the
-    other builds the slope out of two different segments.
-
-    The three thresholds decide only what is LOGGED, never what is computed:
-    ``alpha_warning_threshold`` is the agreement below which the distances are
-    said to carry a top-versus-map disagreement, and the two ``clipping_``
-    values are the share of mapped cells outside the catchment and the gap
-    between the two ratios above which that clipping is worth reporting. Their
-    defaults come from :data:`STREAM_CRITERION_DEFAULTS`, the one Pydantic
-    object the calibration output and the redrawn figures also read, so a
-    threshold is never written twice.
-
-    ``diagonal_neighbors`` defaults to the D8 descent of the paper. It is
-    resolved against the mesh once, here, and the one neighbor graph that
-    comes out feeds the depression flood, the receiver graph, the downstream
-    closure of both networks and the saturation cap alike.
-
-    The map is given as exactly one of ``observed``, the cells a rasterization
-    rule drew, and ``heads``, the free ends of the map with where they may
-    land (:mod:`hydromodpy.core.stream.heads`). The heads are traced down the
-    graph built here, once the outlet and the catchment are resolved.
-
-    The length scale is ``h_obs`` (:func:`observed_cell_size_m`), read on the
-    mapped network. ``observed_position_accuracy_m`` does not change it: it is
-    kept for the validity length only (:meth:`NetworkGeometry.validity_length`).
+    The module docstring says what each argument decides.
     """
     if (observed is None) == (heads is None):
-        raise ValueError(
-            "the network geometry takes the mapped network as exactly one of 'observed' "
-            "(cells drawn by a rasterisation rule) and 'heads' (free ends to trace)."
-        )
+        raise ValueError(_ONE_MAP_ONLY)
     surface = np.asarray(topography, dtype=float).reshape(-1)
     metric, adjacency = _conditioned_receiver_graph(
-        surface,
-        face_node_connectivity,
-        vertices=vertices,
-        cell_centroids=cell_centroids,
-        inactive_mask=inactive_mask,
-        diagonal_neighbors=diagonal_neighbors,
+        surface, face_node_connectivity, vertices, cell_centroids, inactive_mask, diagonal_neighbors
     )
     active = metric.graph.active
     if observed is not None:
-        _require_mapped_cells(np.asarray(observed, dtype=bool).reshape(-1) & active)
-
-    polygon = _delineated_polygon(delineated_catchment, delineated_outlet_xy, active)
+        _require_mapped_cells(_on_active(observed, active))
     areas = np.asarray(cell_area_m2, dtype=float).reshape(-1)
-    outlet, outlet_mask, catchment = _outlet_and_catchment(
-        metric, polygon, delineated_outlet_xy, adjacency, areas
+    polygon, outlet, outlet_mask, catchment = _outlet_and_catchment(
+        metric, delineated_catchment, delineated_outlet_xy, adjacency, areas
     )
     basin_gap = _catchment_mismatch(polygon, catchment, areas)
-    outline = (
-        polygon
-        if catchment_outline is None
-        else np.asarray(catchment_outline, dtype=bool).reshape(-1) & active
-    )
-    mismatch = _report_catchment_gap(
-        outline, catchment, areas, outlet, float(catchment_mismatch_warning_share)
-    )
+    outline = polygon if catchment_outline is None else _on_active(catchment_outline, active)
+    gap = _report_catchment_gap(outline, catchment, areas, outlet, catchment_mismatch_warning_share)
 
-    trace: HeadTrace | None = None
-    if heads is not None:
-        candidates, settings = heads
-        trace = trace_from_heads(
-            metric,
-            candidates,
-            cell_area_m2=np.where(np.isfinite(areas), areas, 0.0),
-            settings=settings,
-        )
-        _log_heads(trace)
-        observed_mask = trace.traced & active
-    else:
-        observed_mask = np.asarray(observed, dtype=bool).reshape(-1) & active
-    _require_mapped_cells(observed_mask)
-
-    excluded_mask = (
-        None if excluded is None else np.asarray(excluded, dtype=bool).reshape(-1) & active
-    )
-
+    observed_mask, trace = _mapped_network(observed, heads, metric, areas)
+    excluded_mask = None if excluded is None else _on_active(excluded, active)
     h_obs = observed_cell_size_m(
         metric.centroids, face_node_connectivity, observed=observed_mask, catchment=catchment
     )
-
-    distance_raw, distance_sealed = _distances_to_mapped_network(
-        metric, observed_mask, excluded_mask, outlet
+    raw, sealed = _distances_to_mapped_network(metric, observed_mask, excluded_mask, outlet)
+    closure = _closure_agreement(metric, observed_mask, catchment, raw, excluded_mask)
+    _warn_where_map_and_top_part(
+        closure, clipping_warning_share, clipping_warning_gap, alpha_warning_threshold
     )
-    closure = _closure_agreement(
-        metric,
-        observed_mask,
-        catchment,
-        distance_raw,
-        excluded_mask,
-        clipping_warning_share=float(clipping_warning_share),
-        clipping_warning_gap=float(clipping_warning_gap),
-        alpha_warning_threshold=float(alpha_warning_threshold),
-    )
-
     recharge = float(mean_recharge_m_s)
     _warn_if_recharge_moved(recharge)
-
     saturation_cap = longest_descent_length(metric, outlet_mask, within=catchment)
 
     return NetworkGeometry(
@@ -542,19 +502,16 @@ def build_network_geometry(
         observed=observed_mask,
         outlet=outlet,
         catchment=catchment,
-        catchment_mismatch=mismatch,
+        catchment_mismatch=gap,
         basin_mismatch=basin_gap,
-        distance_to_observed=distance_sealed,
-        distance_to_observed_raw=distance_raw,
+        distance_to_observed=sealed,
+        distance_to_observed_raw=raw,
         cell_area_m2=areas,
         threshold_m3_s=specific_seepage_threshold(areas, recharge, ratio=tau_specific_ratio),
         mean_recharge_m_s=recharge,
         saturation_cap_m=saturation_cap,
         excluded=excluded_mask,
-        alpha_obs_closure=closure.alpha,
-        alpha_obs_closure_catchment=closure.alpha_catchment,
-        frac_obs_outside_catchment=closure.outside,
-        frac_reachable_obs_raw=closure.reachable,
+        **closure,
         h_obs_m=h_obs,
         observed_position_accuracy_m=(
             float(observed_position_accuracy_m) if observed_position_accuracy_m else None
@@ -563,10 +520,14 @@ def build_network_geometry(
     )
 
 
+def _on_active(cells: np.ndarray, active: np.ndarray) -> np.ndarray:
+    """Return a per-cell mask restricted to the active cells."""
+    return np.asarray(cells, dtype=bool).reshape(-1) & active
+
+
 def _conditioned_receiver_graph(
     surface: np.ndarray,
     face_node_connectivity: np.ndarray,
-    *,
     vertices: np.ndarray,
     cell_centroids: np.ndarray | None,
     inactive_mask: np.ndarray | None,
@@ -639,7 +600,7 @@ def _delineated_polygon(
 ) -> np.ndarray | None:
     """Return the delineated catchment on the active cells, None when none was given."""
     if delineated_catchment is not None:
-        polygon = np.asarray(delineated_catchment, dtype=bool).reshape(-1) & active
+        polygon = _on_active(delineated_catchment, active)
         if not np.any(polygon):
             raise ValueError(
                 "the delineated catchment projects onto no active cell of the mesh: "
@@ -663,13 +624,14 @@ def _delineated_polygon(
 
 def _outlet_and_catchment(
     metric: DownslopeMetric,
-    polygon: np.ndarray | None,
+    delineated_catchment: np.ndarray | None,
     delineated_outlet_xy: tuple[float, float] | None,
     adjacency: list[set[int]],
     areas: np.ndarray,
-) -> tuple[int, np.ndarray, np.ndarray]:
-    """Return the outlet, its one-cell mask, and the catchment that drains to it."""
+) -> tuple[np.ndarray | None, int, np.ndarray, np.ndarray]:
+    """Return the delineated polygon, the outlet, its mask, and the catchment draining to it."""
     active = metric.graph.active
+    polygon = _delineated_polygon(delineated_catchment, delineated_outlet_xy, active)
     outlet = resolve_outlet(
         metric,
         within=polygon,
@@ -683,7 +645,7 @@ def _outlet_and_catchment(
     # no descent from outside enters it, and every cell of it reaches the
     # outlet without being raised towards it.
     catchment = np.isfinite(downslope_distance_to_mask(metric, outlet_mask)) & active
-    return outlet, outlet_mask, catchment
+    return polygon, outlet, outlet_mask, catchment
 
 
 def _report_catchment_gap(
@@ -717,6 +679,31 @@ def _report_catchment_gap(
     return mismatch
 
 
+def _mapped_network(
+    observed: np.ndarray | None,
+    heads: tuple[HeadCandidates, HeadsSettings] | None,
+    metric: DownslopeMetric,
+    areas: np.ndarray,
+) -> tuple[np.ndarray, HeadTrace | None]:
+    """Return the map on the active cells, and its trace when it is drawn from its heads."""
+    active = metric.graph.active
+    trace: HeadTrace | None = None
+    if heads is not None:
+        candidates, settings = heads
+        trace = trace_from_heads(
+            metric,
+            candidates,
+            cell_area_m2=np.where(np.isfinite(areas), areas, 0.0),
+            settings=settings,
+        )
+        _log_heads(trace)
+        observed_mask = trace.traced & active
+    else:
+        observed_mask = _on_active(observed, active)
+    _require_mapped_cells(observed_mask)
+    return observed_mask, trace
+
+
 def _distances_to_mapped_network(
     metric: DownslopeMetric,
     observed_mask: np.ndarray,
@@ -736,28 +723,14 @@ def _distances_to_mapped_network(
     return distance_raw, downslope_distance_to_mask(metric, sealed)
 
 
-@dataclass(frozen=True, slots=True)
-class _ClosureAgreement:
-    """How well the mapped network and the model top agree, on the mesh and on the catchment."""
-
-    alpha: float
-    alpha_catchment: float
-    outside: float
-    reachable: float
-
-
 def _closure_agreement(
     metric: DownslopeMetric,
     observed_mask: np.ndarray,
     catchment: np.ndarray,
     distance_raw: np.ndarray,
     excluded_mask: np.ndarray | None,
-    *,
-    clipping_warning_share: float,
-    clipping_warning_gap: float,
-    alpha_warning_threshold: float,
-) -> _ClosureAgreement:
-    """Measure the map against the descent of the top, and warn where they part."""
+) -> dict[str, float]:
+    """Measure the map against the descent of the top, under the names of the geometry."""
     closure = downstream_closure(metric, observed_mask)
     alpha = float(observed_mask.sum() / closure.sum()) if closure.any() else float("nan")
     # The same ratio on the support the criterion actually scores. A mapped
@@ -785,7 +758,24 @@ def _closure_agreement(
     reach_from = (
         distance_raw if excluded_mask is None else downslope_distance_to_mask(metric, observed_mask)
     )
-    reachable = float(np.mean(np.isfinite(reach_from[catchment])))
+    return {
+        "alpha_obs_closure": alpha,
+        "alpha_obs_closure_catchment": alpha_catchment,
+        "frac_obs_outside_catchment": outside,
+        "frac_reachable_obs_raw": float(np.mean(np.isfinite(reach_from[catchment]))),
+    }
+
+
+def _warn_where_map_and_top_part(
+    closure: dict[str, float],
+    clipping_warning_share: float,
+    clipping_warning_gap: float,
+    alpha_warning_threshold: float,
+) -> None:
+    """Warn when clipping moves the agreement, or when the agreement itself is poor."""
+    alpha = closure["alpha_obs_closure"]
+    alpha_catchment = closure["alpha_obs_closure_catchment"]
+    outside = closure["frac_obs_outside_catchment"]
     gap = abs(alpha_catchment - alpha)
     # Only when the clipping MOVES the number. A linework spilling out of the
     # catchment over ground that routes the same way leaves the two ratios
@@ -805,9 +795,6 @@ def _closure_agreement(
         )
     if np.isfinite(alpha_catchment) and alpha_catchment < alpha_warning_threshold:
         _report_poor_alpha(alpha_catchment, alpha_warning_threshold)
-    return _ClosureAgreement(
-        alpha=alpha, alpha_catchment=alpha_catchment, outside=outside, reachable=reachable
-    )
 
 
 def _require_mapped_cells(mask: np.ndarray) -> None:

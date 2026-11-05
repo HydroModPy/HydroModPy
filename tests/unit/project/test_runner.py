@@ -33,7 +33,7 @@ from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.pipeline_steps import STEP_NAMES
 from hydromodpy.core.runtime.interrupts import TerminationRequested
-from hydromodpy.core.state.paths import (
+from hydromodpy.core.state.layout import (
     INTERNAL_DIRNAME,
     PROJECT_MARKER_FILENAME,
     RUN_INTERNAL_CHECKPOINTS_DIRNAME,

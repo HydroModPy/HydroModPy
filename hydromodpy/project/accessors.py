@@ -1,7 +1,7 @@
 """Read-only views of a project, its sessions and its workspace.
 
 Split from :mod:`hydromodpy.project.facade` to keep the facade focused on
-its verbs. ``project.data`` and ``project.runs`` are accessor objects; the
+its verbs. :class:`ProjectCatalog` binds them to a project (``project._catalog``). ``project.data`` and ``project.runs`` are accessor objects; the
 campaign reads of :class:`~hydromodpy.project.Project` (``cases``,
 ``sites``, ``best``) are the functions below, applied to the index of the
 project; ``project.sessions`` is :class:`ProjectSessions`; a workspace root
@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, Any, Literal
 import pandas as pd
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import (
+from hydromodpy.core.state.layout import (
     PROJECT_MARKER_FILENAME,
     PROJECTS_DIRNAME,
     is_workspace_root,
@@ -104,7 +104,7 @@ class ProjectRunsAccessor:
         from hydromodpy.results.run.group import RunSet
 
         store = self._project._store
-        frame = case_rows(store)
+        frame = _case_rows(store)
         frame = frame[(frame["kind"] == "run") & (frame["status"] == "completed")]
         for column, value in (("site", site), ("case_id", case), ("recipe", recipe)):
             if value is not None:
@@ -155,7 +155,7 @@ class ProjectRunsAccessor:
 # -- Campaign reads ------------------------------------------------------------
 
 
-def case_rows(catalog: Catalog) -> pd.DataFrame:
+def _case_rows(catalog: Catalog) -> pd.DataFrame:
     """Return the rows of ``v_cases`` that stand for a case: runs and sessions."""
     frame = catalog.cases
     return frame[frame["kind"].isin(CASE_KINDS)].reset_index(drop=True)
@@ -172,7 +172,7 @@ def cases_frame(catalog: Catalog, project_root: Path) -> pd.DataFrame:
     (the promoted run of a calibration once its session completed); the
     result directories of cases the plan does not hold follow.
     """
-    rows = case_rows(catalog)
+    rows = _case_rows(catalog)
     if current_plan_hash(project_root) is None:
         return rows
     from hydromodpy.project.launch import project_status
@@ -263,7 +263,7 @@ def best_frame(
     from hydromodpy.results.run.group import RunSet
 
     metric_sense(metric)
-    rows = case_rows(catalog)
+    rows = _case_rows(catalog)
     rows = rows[(rows["kind"] == "run") & (rows["status"] == "completed")]
     if rows.empty:
         logger.warning("best(%r): no completed run in the index of this project.", metric)
@@ -430,7 +430,7 @@ class Workspace:
         return [path.name for path in project_roots_under(self._root) if path != self._root]
 
     def __getitem__(self, name: str) -> Project:
-        from hydromodpy.project.opening import open_project
+        from hydromodpy.project.facade import open_project
 
         target = self._root / PROJECTS_DIRNAME / name
         if name not in self.projects:
@@ -460,14 +460,71 @@ class Workspace:
         return f"Workspace({str(self._root)!r}, projects={len(self.projects)})"
 
 
+class ProjectCatalog:
+    """Catalog and lifecycle methods bound to a :class:`Project` instance.
+
+    Composed by :class:`Project` (``project._catalog``). Reads project
+    state by reference; never owns it.
+    """
+
+    def __init__(self, project: Project) -> None:
+        self._project = project
+
+    @property
+    def store(self) -> Catalog | None:
+        """Open Catalog for direct queries across all runs."""
+        return self._project._store
+
+    @property
+    def data(self) -> ProjectDataAccessor:
+        """Accessor for the input-data cache scoped to this project."""
+        return ProjectDataAccessor(self._project)
+
+    @property
+    def runs(self) -> ProjectRunsAccessor:
+        """Accessor for the simulation catalog scoped to this project."""
+        return ProjectRunsAccessor(self._project)
+
+    @property
+    def data_loaded(self) -> set[str]:
+        """Set of data types already loaded for this project."""
+        return set(self._project._data_loaded)
+
+    def get(self, sim_id: str) -> Run:
+        """Return the Run view associated with ``sim_id``."""
+        return self._project._store[sim_id]
+
+    def close(self) -> None:
+        """Close the Catalog and clean up preprocessing files.
+
+        Reads the geographic object directly from the context (never triggers
+        a lazy build), so closing an unused Project stays cheap. The
+        preprocessing tree survives when ``[geographic] write_intermediates``
+        asked for the rasters on disk: the option would otherwise write them
+        and lose them at the very next close.
+        """
+        project = self._project
+        if project._phase != "uninitialized":
+            from hydromodpy.spatial.geographic.preprocessing_cleanup import cleanup_stable_folder
+
+            geographic_cfg = getattr(project._ctx.cfg, "geographic", None)
+            cleanup_stable_folder(
+                project._ctx.setup.geographic,
+                keep=bool(getattr(geographic_cfg, "write_intermediates", False)),
+            )
+        if project._store is not None:
+            project._store.close()
+            project._store = None
+
+
 __all__ = [
     "CASE_KINDS",
+    "ProjectCatalog",
     "ProjectDataAccessor",
     "ProjectRunsAccessor",
     "ProjectSessions",
     "Workspace",
     "best_frame",
-    "case_rows",
     "cases_frame",
     "sites_frame",
 ]

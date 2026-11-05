@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING, ClassVar
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import preprocessing_dir
 from hydromodpy.core.state.rng import RngManager
+from hydromodpy.core.state.scratch import preprocessing_dir
 from hydromodpy.core.workspace import WorkspaceLayout
 from hydromodpy.results.storage.attempt import scratch_dir_for_attempt
 from hydromodpy.simulation import ensure_flow, ensure_transport

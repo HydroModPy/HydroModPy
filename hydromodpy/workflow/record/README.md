@@ -21,7 +21,6 @@ In the order a run meets them.
 |---|---|
 | `attempt.py` | one attempt of a run, from the claim of its directory to its outcome (`run_attempt`, `AttemptHandle`, `SealedRun`) |
 | `run_store.py` | the `RunStore` of a run, opened for the span of one caller (`run_store`, `run_is_persisted`, `run_dir_of_state`) |
-| `artifacts.py` | the artifacts a step names, as workspace-relative URIs for the journal (`collect_artifacts`) |
 | `journal.py` | the step journal `<run>/.hmp/checkpoints/steps.json` (`WorkflowJournal`, `WorkflowStepRow`) |
 | `manifest.py` | the resolved run manifest: the step blueprint and the config digest that a resume must match (`ResolvedRunManifest`) |
 | `resume.py` | which step a run resumes from, read from the journal (`ResumePlanner`, `resolve_resume_step_index`, `scratch_of_resumed_run`) |
@@ -32,7 +31,6 @@ In the order a run meets them.
 record/
   attempt.py    claim, run, outcome
   run_store.py  the store of a run
-  artifacts.py  artifacts of a step, as URIs
   journal.py    steps.json
   manifest.py   resolved_manifest.json
   resume.py     where to resume
@@ -46,4 +44,4 @@ record/
 | something the manifest must match at resume | `manifest.py` |
 | a rule for choosing the resume step | `resume.py` |
 | a state of the attempt (claim, heartbeat, outcome) | `attempt.py` |
-| a new kind of artifact a step can name | `artifacts.py` |
+| a new kind of artifact a step can name | `collect_artifacts` in `workflow/runner.py` |

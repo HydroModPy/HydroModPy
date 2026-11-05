@@ -16,7 +16,7 @@ import numpy as np
 import pytest
 from shapely.geometry import LineString, Point, Polygon
 
-from hydromodpy.core.state.paths import preprocessing_dir
+from hydromodpy.core.state.scratch import preprocessing_dir
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import INPUT_FILES_KEY
 from hydromodpy.data.variables.hydrography.config import (

@@ -46,7 +46,7 @@ from hydromodpy.core.scope import (
     station_name_refusal,
     zone_name_refusal,
 )
-from hydromodpy.core.state.paths import encode_workspace_path
+from hydromodpy.core.state.portable import encode_workspace_path
 from hydromodpy.core.time.selection import in_series_window
 from hydromodpy.results.catalog.storage_paths import sanitize_segment
 from hydromodpy.results.identity import Identity

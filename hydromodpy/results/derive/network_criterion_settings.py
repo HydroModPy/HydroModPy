@@ -42,7 +42,7 @@ from hydromodpy.core.stream.extent import (
 )
 from hydromodpy.core.time.period_aggregation import period_edges
 from hydromodpy.core.time.selection import TimeSelectionError, resolve_state
-from hydromodpy.core.units.length import parse_to_m
+from hydromodpy.core.units.quantities import parse_to_m
 from hydromodpy.results.calibration_trials import calibration_sessions, calibration_trials
 from hydromodpy.results.run.sealed import search_of
 

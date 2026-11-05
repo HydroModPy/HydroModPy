@@ -27,7 +27,7 @@ from typing import Any, Final
 from uuid import uuid4
 
 from hydromodpy.core.exceptions import JournalError
-from hydromodpy.core.state.paths import INTERNAL_DIRNAME, RUN_INTERNAL_CHECKPOINTS_DIRNAME
+from hydromodpy.core.state.layout import INTERNAL_DIRNAME, RUN_INTERNAL_CHECKPOINTS_DIRNAME
 from hydromodpy.results.storage.json_io import read_transient_json, write_json_atomic
 
 JOURNAL_FILENAME: Final[str] = "steps.json"

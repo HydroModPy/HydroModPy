@@ -12,7 +12,7 @@ import pytest
 import hydromodpy.display.runs as display_runs
 import hydromodpy.workflow.steps.display as display_step_module
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import runs_dir_for
+from hydromodpy.core.state.layout import runs_dir_for
 from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME
 from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps.display import DisplayStep

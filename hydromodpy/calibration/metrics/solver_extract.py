@@ -66,7 +66,7 @@ from hydromodpy.core.stream.network import build_simulated_network
 from hydromodpy.core.time import nominal_step_days
 from hydromodpy.core.time.period_aggregation import period_edges
 from hydromodpy.core.time.selection import TimeSelectionError, resolve_state
-from hydromodpy.core.units.volumetric_flow import normalize_m3_per_s_unit
+from hydromodpy.core.units.quantities import normalize_m3_per_s_unit
 from hydromodpy.simulation.planning.plan import RunContext
 from hydromodpy.solver.base.registry import get_solver_adapter
 

@@ -1,7 +1,7 @@
 """A project opened on its directory reads without a configuration, and configures on demand.
 
 ``hmp.open(project)`` builds a :class:`~hydromodpy.project.Project` from its
-directory alone (:func:`~hydromodpy.project.opening.open_project`). Its reads
+directory alone (:func:`~hydromodpy.project.facade.open_project`). Its reads
 (``root``, ``cases``, ``runs``, ``proj[ref]``) never validate a
 configuration nor build a model; the first model verb reads ``project.toml``.
 
@@ -20,7 +20,7 @@ import pytest
 
 from hydromodpy.core.exceptions import ConfigMissingError
 from hydromodpy.project import Project
-from hydromodpy.project.opening import open_project
+from hydromodpy.project.facade import open_project
 from tests._helpers.sealed_runs import make_project, seal_run
 
 

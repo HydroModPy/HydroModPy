@@ -28,7 +28,7 @@ from pathlib import Path
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import internal_dir
+from hydromodpy.core.state.layout import internal_dir
 
 try:
     from shapely import STRtree

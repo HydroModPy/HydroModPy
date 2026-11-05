@@ -260,7 +260,7 @@ def _publish_package(args: argparse.Namespace) -> None:
 
 def _source(project_root: Path, ref: str) -> Path:
     """Return the directory one reference publishes: the summary or a run."""
-    from hydromodpy.core.state.paths import SUMMARY_DIRNAME
+    from hydromodpy.core.state.layout import SUMMARY_DIRNAME
 
     summary = project_root / SUMMARY_DIRNAME
     if ref == SUMMARY_DIRNAME:
@@ -272,7 +272,7 @@ def _source(project_root: Path, ref: str) -> Path:
 
 def run_dir_of(project_root: Path, ref: str) -> Path:
     """Return the directory of one run: its name under ``runs/``, else an id or @-selector."""
-    from hydromodpy.core.state.paths import runs_dir_for
+    from hydromodpy.core.state.layout import runs_dir_for
 
     on_disk = runs_dir_for(project_root) / ref
     if on_disk.is_dir():

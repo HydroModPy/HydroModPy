@@ -21,7 +21,7 @@ from typing import Any
 from hydromodpy.core.exceptions import DataRequestError
 from hydromodpy.core.io.atomic_replace import staged_path
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import cache_dir as _hmp_cache_dir
+from hydromodpy.core.state.portable import cache_dir as _hmp_cache_dir
 from hydromodpy.data.common.geo_helpers import bbox_hash
 from hydromodpy.data.common.source_extent import (
     PROJECT_EXTENT_CRS,

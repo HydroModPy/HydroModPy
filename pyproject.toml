@@ -202,7 +202,6 @@ hydromodpy = ["py.typed"]
 # The example catalog ships in the wheel so `hmp example list` answers offline
 # and can only promise what the installed version knows about.
 "hydromodpy.examples" = ["catalog.toml"]
-"hydromodpy.core.state.migrations" = ["*.sql"]
 "hydromodpy.data.registry.migrations" = ["*.sql"]
 "hydromodpy.results.catalog.migrations" = ["*.sql"]
 # The register of known issues is read by results/validity_rules.py to label a run.

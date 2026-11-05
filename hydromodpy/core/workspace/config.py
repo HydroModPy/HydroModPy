@@ -38,11 +38,7 @@ from upath import UPath
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.state.paths import (
-    PROJECT_MARKER_FILENAME,
-    catalog_path_for,
-    runs_dir_for,
-)
+from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME, catalog_path_for, runs_dir_for
 from hydromodpy.core.workspace.workspace_toml import refuse_a_newer_workspace
 
 ResolutionSource = Literal["explicit", "env", "scaffold", "project"]

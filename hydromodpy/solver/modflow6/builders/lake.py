@@ -39,7 +39,7 @@ import shapely
 
 from hydromodpy.core.fields.vertical_column import top_active_layer
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.units.leakance import parse_to_per_s
+from hydromodpy.core.units.quantities import parse_to_per_s
 from hydromodpy.solver.modflow6.builders._lake_connection import (
     _abacus_rows,
     _lak_output_stem,

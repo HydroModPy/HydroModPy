@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.exceptions import ConfigMissingError
-from hydromodpy.core.state.paths import runs_dir_for
+from hydromodpy.core.state.layout import runs_dir_for
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.results.storage.attempt import latest_version_dir
 from hydromodpy.results.storage.contract import (

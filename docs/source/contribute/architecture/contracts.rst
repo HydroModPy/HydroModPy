@@ -269,7 +269,7 @@ reads and writes (``reads``, ``writes``), checked in both directions by
 ``test_step_payload_keys.py``, and optionally the TOML subtrees it consumes
 (``config_sections``), which is how a calibration finds the first step that must
 run again. A persistent step adds ``artifacts`` and ``rebuild_state`` so a resume
-does not repeat it. Pipelines are assembled in ``workflow/pipelines/``.
+does not repeat it. Pipelines are assembled by ``standard_steps`` in ``workflow/steps/sequence.py``.
 
 *Why:* testability and resume. A new workflow assembles steps without forking the
 orchestration layer.

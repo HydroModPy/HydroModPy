@@ -11,7 +11,7 @@ from pathlib import Path
 from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
 from hydromodpy.cli.helpers import apply_verbosity, exit_code_for, refuse
 from hydromodpy.cli.output import emit
-from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME
+from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
 
 NAME: str = "array"
 HELP: str = "Write the array job of the current plan for a scheduler (SLURM)"

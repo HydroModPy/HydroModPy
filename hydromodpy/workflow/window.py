@@ -24,12 +24,12 @@ def resolve_step_index(step: str, steps: tuple) -> int:
     raise ConfigError(f"Unknown pipeline step: {step!r}. Known steps: {known}.")
 
 
-def bounded_step_index(step: str | None, steps: tuple) -> int | None:
+def _bounded_step_index(step: str | None, steps: tuple) -> int | None:
     """Resolve a step bound, ``None`` when there is none."""
     return None if step is None else resolve_step_index(step, steps)
 
 
-def refuse_an_empty_window(
+def _refuse_an_empty_window(
     from_step: str | None, from_idx: int | None, until_step: str | None, until_idx: int | None
 ) -> None:
     """Refuse a step window whose start comes after its end."""
@@ -37,7 +37,7 @@ def refuse_an_empty_window(
         raise ConfigError(f"from_step {from_step!r} is past until_step {until_step!r}.")
 
 
-def window_stops_before_the_model(
+def _window_stops_before_the_model(
     until_step: str | None, until_idx: int | None, first_model_step: int, resume: str | None
 ) -> bool:
     """Say whether a window ends before ``setup_process``.
@@ -75,10 +75,10 @@ def step_window(
     Refuses an unknown step, a window whose start is past its end, and a head-only
     window that resumes.
     """
-    until_idx = bounded_step_index(until_step, steps)
-    from_idx = bounded_step_index(from_step, steps)
-    refuse_an_empty_window(from_step, from_idx, until_step, until_idx)
-    head_only = window_stops_before_the_model(
+    until_idx = _bounded_step_index(until_step, steps)
+    from_idx = _bounded_step_index(from_step, steps)
+    _refuse_an_empty_window(from_step, from_idx, until_step, until_idx)
+    head_only = _window_stops_before_the_model(
         until_step, until_idx, model_phase_index(steps), resume
     )
     return from_idx, until_idx, head_only

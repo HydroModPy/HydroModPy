@@ -59,7 +59,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 def run(args: argparse.Namespace) -> None:
     apply_verbosity(args, {})
-    from hydromodpy.core.state.paths import resolve_project_root
+    from hydromodpy.core.state.result_dirs import resolve_project_root
     from hydromodpy.project.launch.summary import collect_project
 
     project_root = resolve_project_root(

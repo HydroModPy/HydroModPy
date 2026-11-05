@@ -20,7 +20,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME
+from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
 
 DEFAULT_ROOT = Path.home() / "hydromodpy"
 

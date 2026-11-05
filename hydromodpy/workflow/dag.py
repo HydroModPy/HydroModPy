@@ -17,8 +17,8 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from hydromodpy.core.contracts.workflow_step import step_depends_on, step_name
 from hydromodpy.core.exceptions import WorkflowDAGCycleError
+from hydromodpy.workflow.step import step_depends_on, step_name
 
 
 @dataclass(frozen=True, slots=True)

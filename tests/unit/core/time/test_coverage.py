@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -12,6 +14,7 @@ from hydromodpy.core.time.coverage import (
     record_step,
     samples_by_period,
 )
+from hydromodpy.core.time.period_aggregation import first_period_step, observation_step
 
 
 def _days(start: str, n: int) -> pd.DatetimeIndex:
@@ -56,6 +59,15 @@ def test_the_step_of_a_record_is_the_median_spacing_and_none_for_one_sample():
     stamps = pd.to_datetime(["2020-01-01", "2020-01-02", "2020-01-03", "2020-01-10"])
     assert record_step(stamps) == pd.Timedelta(days=1)
     assert record_step(stamps[:1]) is None
+
+
+def test_the_steps_of_a_record_are_read_without_a_numpy_deprecation():
+    stamps = pd.to_datetime(["2020-01-01", "2020-01-02", "2020-01-03", "2020-01-10"])
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        assert record_step(stamps) == pd.Timedelta(1, unit="D")
+        assert observation_step(stamps) == pd.Timedelta(1, unit="D")
+        assert first_period_step(stamps) == pd.Timedelta(1, unit="D")
 
 
 # ------------------------------------------------------------ samples by period

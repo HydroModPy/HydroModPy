@@ -289,17 +289,6 @@ def toml_excluded(field_info: FieldInfo) -> bool:
     )
 
 
-def is_implicit_relative_path_default(value: Any, field_info: FieldInfo) -> bool:
-    default = default_value(field_info)
-    if not isinstance(default, Path) or default.is_absolute():
-        return False
-    if isinstance(value, Path):
-        return value == default
-    if isinstance(value, str):
-        return Path(value) == default
-    return False
-
-
 def placeholder(field_info: FieldInfo) -> str:
     """Return a TOML-safe placeholder value for a field with no set default.
 

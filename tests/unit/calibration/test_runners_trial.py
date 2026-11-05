@@ -34,7 +34,7 @@ from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.budget.terms import POLICY_ALL, POLICY_CONSUMERS, BudgetKeep
 from hydromodpy.core.config_kit.written import written_payload
 from hydromodpy.core.exceptions import ConfigError, StepError
-from hydromodpy.core.state.paths import INTERNAL_DIRNAME
+from hydromodpy.core.state.layout import INTERNAL_DIRNAME
 from hydromodpy.core.state.run_state import ExecutionRegistry
 from hydromodpy.core.units.physical_bounds import validate_physical_value
 from hydromodpy.physics.flow.flow import Flow
@@ -187,7 +187,7 @@ def test_a_trial_owns_its_recharge_when_its_phase_samples_what_it_is_computed_fr
 # From test_a_promoted_run_closes_its_attempt.py
 # A promoted run closes its attempt: completed once sealed, failed when it raises.
 #
-# A promotion is not launched under ``project.attempt.run_attempt``: the
+# A promotion is not launched under ``workflow.record.attempt.run_attempt``: the
 # pipeline claims the reserved directory and seals it, and nothing else used to
 # close the attempt. The promoted run then kept ``outcome.json = running``,
 # ``ended_at = null`` and its ``.hmp/`` beside a completed manifest. The

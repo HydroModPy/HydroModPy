@@ -25,7 +25,7 @@ from hydromodpy.core.config_kit.root_config_protocol import get_root_config_prov
 from hydromodpy.core.io.db_retry import connect_with_retry
 from hydromodpy.core.io.document_version import check_exact
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import catalog_path_for, runs_dir_for
+from hydromodpy.core.state.layout import catalog_path_for, runs_dir_for
 from hydromodpy.results.catalog.adapters.duckdb import DuckDBBackend
 from hydromodpy.results.catalog.discovery import DiscoveryMixin
 from hydromodpy.results.catalog.index_schema import (

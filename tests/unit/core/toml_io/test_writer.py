@@ -10,10 +10,11 @@ from typing import Annotated
 import pytest
 from pydantic import Field
 
+from hydromodpy.core.config_kit import dump as dumper
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.dump import dump_toml_with_comments
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.toml_io import writer
-from hydromodpy.core.toml_io.writer import dump, dump_toml_with_comments, dumps
+from hydromodpy.core.toml_io.writer import dump, dumps
 
 
 class _Aquifer(HydroModelBase):
@@ -104,6 +105,7 @@ def test_a_none_value_and_an_implicit_relative_default_path_are_not_written(tmp_
     loaded = _load(dump_toml_with_comments(_Cfg(), tmp_path / "c.toml"))
     assert "note" not in loaded
     assert "dem" not in loaded["aquifer"]
+    assert "data_dir" not in loaded  # same rule at the root of the document
     given = _load(
         dump_toml_with_comments(_Cfg(aquifer=_Aquifer(dem=Path("x.tif"))), tmp_path / "d.toml")
     )
@@ -116,6 +118,13 @@ def test_written_only_keeps_what_the_model_was_given(tmp_path: Path) -> None:
     assert loaded == {"title": "x", "aquifer": {"k": 2.0}}
     back = _Cfg.model_validate(loaded)
     assert back.model_fields_set == cfg.model_fields_set
+
+
+def test_written_only_keeps_a_relative_default_path_the_model_was_given(tmp_path: Path) -> None:
+    cfg = _Cfg(data_dir=Path("data"), aquifer=_Aquifer(dem=Path("dem.tif")))
+    loaded = _load(dump_toml_with_comments(cfg, tmp_path / "c.toml", written_only=True))
+    assert loaded == {"data_dir": "data", "aquifer": {"dem": "dem.tif"}}
+    assert _Cfg.model_validate(loaded).model_fields_set == cfg.model_fields_set
 
 
 def test_to_toml_on_a_model_writes_the_same_file(tmp_path: Path) -> None:
@@ -147,15 +156,15 @@ class _Unit:
     ],
 )
 def test_a_value_is_turned_into_something_toml_can_hold(value, expected) -> None:
-    assert writer._coerce_value(value) == expected
+    assert dumper._coerce_value(value) == expected
 
 
 def test_a_list_mixing_tables_and_scalars_is_refused() -> None:
     mixed = [_Well(name="w"), 3]
     with pytest.raises(TypeError, match="Mixed scalar and table"):
-        writer._render_container_value(mixed, profile_threshold=Profile.USER)
+        dumper._render_container_value(mixed, profile_threshold=Profile.USER)
 
 
 def test_a_list_skips_its_none_items() -> None:
-    rendered = writer._render_container_value([1, None, 2], profile_threshold=Profile.USER)
+    rendered = dumper._render_container_value([1, None, 2], profile_threshold=Profile.USER)
     assert list(rendered) == [1, 2]

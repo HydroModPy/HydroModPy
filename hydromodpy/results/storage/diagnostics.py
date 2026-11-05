@@ -11,7 +11,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal
 
-from hydromodpy.core.state.paths import catalog_path_for, run_dir_rel, runs_dir_for
+from hydromodpy.core.state.layout import catalog_path_for, runs_dir_for
+from hydromodpy.core.state.result_dirs import run_dir_rel
 from hydromodpy.results.storage.contract import (
     FIELDS_STORE_NAME,
     PARQUET_FILE_SUFFIX,

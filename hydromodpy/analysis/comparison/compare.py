@@ -20,7 +20,7 @@ from scipy.spatial import cKDTree
 
 from hydromodpy.core.exceptions import ResultsError
 from hydromodpy.core.scope import OBSERVED
-from hydromodpy.core.state.paths import runs_dir_for, summary_dir_for
+from hydromodpy.core.state.layout import runs_dir_for, summary_dir_for
 from hydromodpy.display.maps.ugrid import render_face_field
 from hydromodpy.results.derive import views
 from hydromodpy.results.manifest import is_sealed

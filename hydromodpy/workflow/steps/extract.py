@@ -40,6 +40,7 @@ def step_ingest_observations(ctx: WorkflowContext, sim_id: str, *, store: RunSto
     try:
         ingest_observations(sim_id, store, ctx.loaded_data)
     except Exception as exc:
+        # Whatever the ingestion raised, the run stops and names the simulation.
         logger.exception("Failed to ingest observations for sim %s", sim_id)
         raise ExtractError(f"Failed to ingest observations for sim {sim_id}") from exc
 
@@ -74,6 +75,7 @@ def restore_seepage_raster_from_store(
         os.makedirs(seepage_tif.parent, exist_ok=True)
         export_tif(str(base_raster), seepage_array, str(seepage_tif), -9999.0)
     except Exception as exc:
+        # The raster is an optional product: any failure means it is not rebuilt.
         logger.debug("Failed to rebuild seepage from the run store: %s", exc)
         return False
 

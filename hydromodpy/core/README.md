@@ -20,7 +20,7 @@ question, and each sub-package has its own `README.md`.
 | `licensing.py` | which licence is written when nobody declared one? `UNDETERMINED_LICENSE` |
 | `old_members.py` | what did this name become? The members that left before the first stable version, each refused with its new name (`refuse_old_member`) |
 | `code_fingerprint.py` | which code computes? `code_fingerprint()`: one digest per layer that changes a number, the same from Python 3.11 to 3.13. The identity of a run and the calibration cache read it |
-| `__init__.py` | lazily exposes `Workspace`, `WorkspaceConfig`, `WorkspacePathRegistry`, `ExecutionRegistry`, `WorkflowContext`, `LoadedDataContext`, `SetupContext` and `ResolvedSimulationTimeWindow` |
+| `__init__.py` | lazily exposes `WorkspaceConfig`, `WorkspacePathRegistry`, `ExecutionRegistry`, `WorkflowContext`, `LoadedDataContext`, `SetupContext` and `ResolvedSimulationTimeWindow` |
 
 ## Sub-packages
 
@@ -30,16 +30,15 @@ question, and each sub-package has its own `README.md`.
 | `units/` | what unit is this number in? Pint registry, annotated aliases (`Length`, `HydraulicConductivity`, ...), conversions to SI, physical bounds, axis labels |
 | `toml_io/` | how is a TOML config read, merged and written? Loader with `base_config`, overrides, path resolution, commented templates, error lines |
 | `tracking/` | which files does a config read? `InputFile` and the walker that feeds the manifest |
-| `workspace/` | where does a workspace live, and what are its paths? `WorkspaceConfig`, `Workspace`, the path registry, `workspace.toml` |
+| `workspace/` | where does a workspace live, and what are its paths? `WorkspaceConfig`, `WorkspaceLayout`, the path registry, `workspace.toml` |
 | `state/` | where do things live in a project, and what does a run carry between steps? Path helpers, run contexts, the seed manager |
 | `site/` | what is a site? `SiteConfig`, `SiteRow`, the site fingerprint, the gauge rule |
 | `payload/` | what does a package install, and where? `INSTALL.toml` and the one installer |
-| `contracts/` | what do two layers agree on without importing each other? Protocols, typed ids, solver and cache contracts |
+| `contracts/` | what do two layers agree on without importing each other? Protocols, solver and cache contracts |
 | `time/` | when does a run start, stop and step? The time window, period aggregation, date-to-period selection (`time/README.md`) |
 | `io/` | how do I read, write and fetch files safely? JSON, rasters, vectors, Parquet, HTTP, DuckDB open, atomic replace |
 | `runtime/` | how does the process behave? `HMP_*` variables, SIGTERM as an interrupt, the lazy bootstrap trigger |
 | `console/` | what does a run show while it works? Live progress and its NDJSON sink |
-| `auth/` | who acts? `AuthBackend` and the local backend |
 | `budget/` | what sign has a budget flux, and which terms does a run keep? |
 | `scoring/` | how well does a simulation match observations? Efficiency metrics and the cost margin |
 | `drainage/` | where does water go on the model top? Receiver graph, depression filling, descent D, downslope distance |
@@ -76,14 +75,13 @@ Keep `core` light: importing `hydromodpy.core` does not load the configuration o
 3. A unit alias goes in `units/types.py`, with its canonical unit.
 4. A field visibility rule goes in `config_kit/profile.py` and `config_kit/introspect.py`.
 5. An exception the CLI should map to an exit code goes in `exceptions.py`, then in `exit_code_for` of `hydromodpy/cli/helpers.py`.
-6. An auth backend is a class that satisfies `AuthBackend`, registered in `auth/__init__.py`.
-7. A DuckDB schema change is a new numbered `.sql` file in the `migrations/` folder of the component (data cache: `data/registry/migrations/`). The project index is never migrated, a schema change there is a rebuild (`results/catalog/index_schema.py`).
-8. A metric goes in `scoring/metrics.py`, pure NumPy, JSON-friendly floats.
+6. A DuckDB schema change is a new numbered `.sql` file in the `migrations/` folder of the component (data cache: `data/registry/migrations/`). The project index is never migrated, a schema change there is a rebuild (`results/catalog/index_schema.py`).
+7. A metric goes in `scoring/metrics.py`, pure NumPy, JSON-friendly floats.
 
 ## Reading path
 
 1. `units/types.py` for the unit aliases used in every model.
 2. `config_kit/profile.py` and `config_kit/introspect.py` for the visibility model.
-3. `workspace/config.py`, then `state/paths.py` for where things live.
+3. `workspace/config.py`, then `state/layout.py` for where things live.
 4. `state/run_state.py` for the cross-layer contexts.
 5. `scoring/metrics.py` for the metric contract.

@@ -12,7 +12,7 @@ typed by hand: a wrong row is fixed in its source, never in a page.
 - packages and counts: the package folders, their ``README.md`` and the
   registries of the code (variables, figures, solvers, sources, steps);
 - storage tree: ``hydromodpy.results.storage.contract`` and
-  ``hydromodpy.core.state.paths``;
+  ``hydromodpy.core.state.layout``, ``hydromodpy.core.state.scratch``;
 - environment variables: ``hydromodpy.core.runtime.env`` and a scan of the code;
 - extras: ``[project.optional-dependencies]`` of ``pyproject.toml``.
 
@@ -559,24 +559,31 @@ def _sphinx_roles_to_literals(text: str) -> str:
 
 def storage_tree() -> dict[str, Any]:
     """The project, run, session and workspace folders, named by their constants."""
-    import hydromodpy.core.state.paths as paths
+    import hydromodpy.core.state.layout as layout
+    import hydromodpy.core.state.portable as portable
+    import hydromodpy.core.state.scratch as scratch
     import hydromodpy.results.storage.contract as contract
     import hydromodpy.schema.generated_views as views
 
     docs: dict[str, tuple[str, str]] = {}
-    for module in (paths, contract, views):
+    for module in (layout, scratch, contract, views):
         source = Path(module.__file__)
         for name, doc in constant_docs(source).items():
             docs[name] = (f"{module.__name__}.{name}", _sphinx_roles_to_literals(doc))
     by_value: dict[str, str] = {}
-    for module in (views, contract, paths):
+    for module in (views, contract, scratch, layout):
         for name in dir(module):
             value = getattr(module, name)
             if name.isupper() and isinstance(value, str) and name in docs:
                 by_value.setdefault(value, name)
 
     def entry(name: str, depth: int, label: str | None = None) -> dict[str, Any]:
-        value = label or getattr(paths, name, None) or getattr(contract, name, None)
+        value = (
+            label
+            or getattr(layout, name, None)
+            or getattr(scratch, name, None)
+            or getattr(contract, name, None)
+        )
         value = value or getattr(views, name)
         is_dir = name.endswith("_DIRNAME") or name == "FIELDS_STORE_NAME"
         symbol, doc = docs.get(name, ("", ""))
@@ -641,16 +648,16 @@ def storage_tree() -> dict[str, Any]:
         entry("INTERNAL_DIRNAME", 1),
         entry("CATALOG_FILENAME", 2),
         placeholder(
-            paths.scratch_root_for(Path("p")).name + "/",
+            scratch.scratch_root_for(Path("p")).name + "/",
             2,
-            first_paragraph(paths.scratch_root_for.__doc__),
-            "hydromodpy.core.state.paths.scratch_root_for",
+            first_paragraph(scratch.scratch_root_for.__doc__),
+            "hydromodpy.core.state.scratch.scratch_root_for",
         ),
         placeholder(
             "<run>.p<pid>/",
             3,
-            first_paragraph(paths.scratch_dir_for.__doc__),
-            "hydromodpy.core.state.paths.scratch_dir_for",
+            first_paragraph(scratch.scratch_dir_for.__doc__),
+            "hydromodpy.core.state.scratch.scratch_dir_for",
         ),
         entry("PREPROCESSING_DIRNAME", 4),
     ]
@@ -664,14 +671,14 @@ def storage_tree() -> dict[str, Any]:
         placeholder(
             "<state>/",
             0,
-            first_paragraph(paths.state_dir.__doc__) + " Set by ``HMP_STATE_HOME``.",
-            "hydromodpy.core.state.paths.state_dir",
+            first_paragraph(portable.state_dir.__doc__) + " Set by ``HMP_STATE_HOME``.",
+            "hydromodpy.core.state.portable.state_dir",
         ),
         placeholder(
             "<cache>/",
             0,
-            first_paragraph(paths.cache_dir.__doc__) + " Set by ``HMP_CACHE_HOME``.",
-            "hydromodpy.core.state.paths.cache_dir",
+            first_paragraph(portable.cache_dir.__doc__) + " Set by ``HMP_CACHE_HOME``.",
+            "hydromodpy.core.state.portable.cache_dir",
         ),
     ]
     layers = [

@@ -7,7 +7,7 @@ the file sits.
 ## Modules, in the order a caller uses them
 
 1. `config.py` is `WorkspaceConfig`. It resolves the workspace in four steps: explicit `[workspace]` keys, then `HMP_WORKSPACE`, then the scaffold `<workspace>/projects/<name>/`, then the project folder itself.
-2. `workspace.py` is the `Workspace` runtime object built from it.
+2. `workspace.py` is `WorkspaceLayout`, the runtime object built from it. The public `Workspace` is in `hydromodpy.project.accessors`.
 3. `path_registry.py` is `WorkspacePathRegistry`, the canonical paths shared by runtime components.
 4. `resolve.py` is the best-effort lookup of the workspace root from a project directory.
 5. `workspace_toml.py` is `workspace.toml`, the metadata file at the root of a workspace (`WorkspaceToml`, `load_workspace_toml`, `write_workspace_toml`).
@@ -21,6 +21,6 @@ the file sits.
 
 - A new folder under the workspace: `path_registry.py`.
 - A new key of the workspace metadata: `workspace_toml.py`.
-- A folder name inside a project: `core/state/paths.py`.
+- A folder name inside a project: `core/state/layout.py`.
 
 The layer rules are checked by `tests/unit/architecture/`.

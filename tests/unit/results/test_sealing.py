@@ -20,7 +20,7 @@ import pytest
 import zarr
 
 from hydromodpy.core.budget.terms import BudgetKeep
-from hydromodpy.core.state.paths import INTERNAL_DIRNAME
+from hydromodpy.core.state.layout import INTERNAL_DIRNAME
 from hydromodpy.results.export.run_identity import label_of
 from hydromodpy.results.identity import ZARR_IDENTITY_ATTR, read_identity_from
 from hydromodpy.results.manifest import (

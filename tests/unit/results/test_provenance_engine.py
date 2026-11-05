@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.core.state.paths import catalog_path_for
+from hydromodpy.core.state.layout import catalog_path_for
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME

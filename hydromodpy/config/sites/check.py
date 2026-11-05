@@ -21,7 +21,7 @@ from hydromodpy.config.sites.expansion import SitesProjectError, expand_plan, fi
 from hydromodpy.config.sites.issues import group_issues
 from hydromodpy.core.config_kit.written import written_experimental_keys
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.core.state.paths import resolve_project_root
+from hydromodpy.core.state.result_dirs import resolve_project_root
 from hydromodpy.core.toml_io.loader import merge_toml_chain, read_toml_chain
 from hydromodpy.workflow.dispatch import (
     WorkflowError,

@@ -62,14 +62,16 @@ from typing import Literal
 from hydromodpy.core.exceptions import WriteConflictError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.runtime.interrupts import TerminationRequested
-from hydromodpy.core.state.paths import (
+from hydromodpy.core.state.layout import (
     INTERNAL_DIRNAME,
-    PREPROCESSING_DIRNAME,
     RUN_INTERNAL_SCRATCH_DIRNAME,
+    runs_dir_for,
+)
+from hydromodpy.core.state.result_dirs import run_dir_rel
+from hydromodpy.core.state.scratch import (
+    PREPROCESSING_DIRNAME,
     SCRATCH_ROOT_ENV,
     process_is_alive,
-    run_dir_rel,
-    runs_dir_for,
     scratch_root_for,
 )
 from hydromodpy.results.catalog.registration import (

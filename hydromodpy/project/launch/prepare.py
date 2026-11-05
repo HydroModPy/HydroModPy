@@ -33,7 +33,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import scratch_root_for
+from hydromodpy.core.state.scratch import scratch_root_for
 from hydromodpy.project.launch.children import (
     Child,
     PlannedCase,
@@ -69,7 +69,7 @@ def workspace_data_dir(case_path: Path) -> Path:
     return Path(HydroModPyConfig.from_toml(case_path).workspace.data_dir)
 
 
-def data_request_key(case: PlannedCase) -> str:
+def _data_request_key(case: PlannedCase) -> str:
     """Return the key of the data a case asks for: its site, else the case itself."""
     return case.site if case.site is not None else case.case_id
 
@@ -77,7 +77,7 @@ def data_request_key(case: PlannedCase) -> str:
 def _next_free(pending: deque[PlannedCase], busy: set[str]) -> PlannedCase | None:
     """Pop the first pending case whose data no running child is fetching."""
     for case in pending:
-        if data_request_key(case) not in busy:
+        if _data_request_key(case) not in busy:
             pending.remove(case)
             return case
     return None
@@ -104,7 +104,7 @@ def prepare_cases(
     try:
         while pending or running:
             while len(running) < max(1, parallel):
-                busy = {data_request_key(child.case) for child in running}
+                busy = {_data_request_key(child.case) for child in running}
                 case = _next_free(pending, busy)
                 if case is None:
                     break
@@ -125,6 +125,7 @@ def prepare_cases(
             if not reaped:
                 time.sleep(POLL_INTERVAL_S)
     except BaseException:
+        # Also SIGINT of the launcher: stop the children before the error goes on.
         for child in running:
             child.process.terminate()
         for child in running:
@@ -183,7 +184,6 @@ def write_lockfile_once(project_root: Path, data_dir: Path, journal: Journal) ->
 __all__ = [
     "POLL_INTERVAL_S",
     "PreparedCase",
-    "data_request_key",
     "prepare_cases",
     "workspace_data_dir",
     "write_lockfile_once",

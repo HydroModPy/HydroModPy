@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -65,3 +66,16 @@ def planned_project(
     sites = pa.table({"site": sorted({c.split("-")[0] for c in cases})})
     write_plan(root, plan, sites, plan_cases, tomls)
     return read_plan(root)
+
+
+def dead_pid() -> int:
+    """Return a process id no process of this host holds."""
+    pid = 4_000_000
+    while True:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return pid
+        except PermissionError:
+            pass
+        pid += 1

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME
+from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
 from hydromodpy.results.storage.attempt import RunClaim, claim_run_directory
 from hydromodpy.results.storage.run_facts import RunFacts
 from hydromodpy.results.storage.run_store import RunStore

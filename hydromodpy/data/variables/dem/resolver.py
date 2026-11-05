@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.core.state.paths import cache_dir as _hmp_cache_dir
+from hydromodpy.core.state.portable import cache_dir as _hmp_cache_dir
 from hydromodpy.data.common.geo_helpers import require_declared_crs
 
 _API_SOURCES = {"ign_geoplateforme_dem"}

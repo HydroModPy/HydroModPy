@@ -78,7 +78,7 @@ Exposed through:
 - :func:`hydromodpy.results.catalog.federation.read_workspace_runs`, the read
   across the projects of a workspace, on the ``simulation.parquet`` of each
   run and never on an index
-- :func:`hydromodpy.core.state.paths.project_roots_under`, the single place
+- :func:`hydromodpy.core.state.layout.project_roots_under`, the single place
   that turns a directory into the project roots it stands for
 
 Rebuilding it
@@ -202,10 +202,10 @@ One set of patterns governs the two databases.
   ``typing.Protocol`` with ``execute / query / fetch_one / fetch_all /
   insert / upsert / transaction / close``. Catalog mixins call the
   protocol, so swapping the adapter does not touch call sites.
-- **Authentication Protocol**:
-  :class:`hydromodpy.core.auth.AuthBackend` exposes a structural
-  ``current_user / can_read / can_write`` surface, with
-  :class:`~hydromodpy.core.auth.LocalAuthBackend` as the V1 default.
+- **Authentication**:
+  :class:`hydromodpy.cli.auth.AuthBackend` is the one actor of V1, the local
+  user. It exposes ``current_user / can_read / can_write`` and allows every
+  read and write. Only the command line reads it.
 - **URI-aware paths**: every workspace, cache and state argument is
   typed ``Path | UPath``. The runtime accepts local paths and ``file://``
   URIs; any other scheme raises ``NotImplementedError``.

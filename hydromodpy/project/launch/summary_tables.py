@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any, Final
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import parse_rel_dir
+from hydromodpy.core.state.result_dirs import parse_rel_dir
 from hydromodpy.core.toml_io.paths import lookup
 from hydromodpy.results.catalog.constants import UnrankedMetricError, metric_sense
 from hydromodpy.results.catalog.registration import split_stem_version

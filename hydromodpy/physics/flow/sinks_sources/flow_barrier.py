@@ -29,12 +29,14 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.calibrable import Calibrable
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.units.hydraulic_conductivity import (
+from hydromodpy.core.units.quantities import (
+    convert_to_m,
     convert_to_m_per_s,
+    convert_to_per_s,
+    factor_to_m,
     normalize_m_per_s_unit,
+    normalize_per_s_unit,
 )
-from hydromodpy.core.units.leakance import convert_to_per_s, normalize_per_s_unit
-from hydromodpy.core.units.length import convert_to_m, factor_to_m
 
 
 class FlowBarrierConfig(HydroModelBase):

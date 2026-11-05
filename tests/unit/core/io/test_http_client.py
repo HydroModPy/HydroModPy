@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import hashlib
 import io
 import threading
+from datetime import UTC, datetime, timedelta
+from email.utils import format_datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 
 from hydromodpy.core.exceptions import DataSourceError, NetworkError
+from hydromodpy.core.io import http_client as http_module
 from hydromodpy.core.io.http_client import (
     DEFAULT_RETRY_STATUSES,
     HTTPClient,
@@ -27,6 +32,21 @@ def _mock_response(status=200, json_data=None, content=b"", headers=None):
     return resp
 
 
+def _answering(monkeypatch, client, *answers) -> list[int]:
+    """Make the session return or raise the given answers in order; count the calls."""
+    queue, calls = list(answers), []
+
+    def fake(*_a, **_k):
+        calls.append(1)
+        answer = queue.pop(0) if len(queue) > 1 else queue[0]
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+    monkeypatch.setattr(client._session, "request", fake)
+    return calls
+
+
 def test_get_json_returns_payload():
     client = HTTPClient(max_retries=0)
     with patch.object(client._session, "request") as req:
@@ -37,15 +57,10 @@ def test_get_json_returns_payload():
 
 def test_get_json_retries_on_503(monkeypatch):
     client = HTTPClient(max_retries=2, backoff_base=0.0, backoff_cap=0.0)
-    calls = []
-
-    def fake(*args, **kw):
-        calls.append(1)
-        if len(calls) < 3:
-            return _mock_response(503, headers={"Retry-After": "0"})
-        return _mock_response(200, json_data={"ok": 1})
-
-    monkeypatch.setattr(client._session, "request", fake)
+    unavailable = _mock_response(503, headers={"Retry-After": "0"})
+    calls = _answering(
+        monkeypatch, client, unavailable, unavailable, _mock_response(200, json_data={"ok": 1})
+    )
     out = client.get_json("https://x.example/api")
     assert out == {"ok": 1}
     assert len(calls) == 3
@@ -93,16 +108,6 @@ def test_stream_accepts_buffer():
     assert res.size == 3
 
 
-def test_parse_retry_after_numeric():
-    assert _parse_retry_after("5") == 5.0
-    assert _parse_retry_after("0") == 0.0
-
-
-def test_parse_retry_after_invalid():
-    assert _parse_retry_after("") is None
-    assert _parse_retry_after("not a date") is None
-
-
 def test_default_retry_statuses_contain_429():
     assert 429 in DEFAULT_RETRY_STATUSES
     assert 503 in DEFAULT_RETRY_STATUSES
@@ -118,14 +123,6 @@ def test_per_host_concurrency_limits():
 
 # ---- more situations: transport failures, hooks, errors, backoff -----------
 
-import hashlib  # noqa: E402
-from datetime import UTC, datetime, timedelta, timezone  # noqa: E402
-from email.utils import format_datetime  # noqa: E402
-
-import requests  # noqa: E402
-
-from hydromodpy.core.io import http_client as http_module  # noqa: E402
-
 
 @pytest.fixture(autouse=True)
 def _no_real_sleep(monkeypatch):
@@ -138,13 +135,7 @@ def _client(**kw) -> HTTPClient:
 
 def test_a_dropped_connection_is_retried_then_reported_with_its_cause(monkeypatch):
     client = _client(max_retries=1)
-    calls = []
-
-    def fake(*_a, **_k):
-        calls.append(1)
-        raise requests.ConnectionError("reset by peer")
-
-    monkeypatch.setattr(client._session, "request", fake)
+    calls = _answering(monkeypatch, client, requests.ConnectionError("reset by peer"))
 
     with pytest.raises(NetworkError, match="failed after 1 retries"):
         client.get("https://x.example/a")
@@ -154,15 +145,9 @@ def test_a_dropped_connection_is_retried_then_reported_with_its_cause(monkeypatc
 
 def test_a_connection_that_comes_back_gives_the_answer(monkeypatch):
     client = _client()
-    answers = [requests.Timeout("slow"), _mock_response(200, json_data={"v": 1})]
-
-    def fake(*_a, **_k):
-        answer = answers.pop(0)
-        if isinstance(answer, Exception):
-            raise answer
-        return answer
-
-    monkeypatch.setattr(client._session, "request", fake)
+    _answering(
+        monkeypatch, client, requests.Timeout("slow"), _mock_response(200, json_data={"v": 1})
+    )
 
     assert client.get_json("https://x.example/a") == {"v": 1}
 
@@ -179,15 +164,13 @@ def test_the_hooks_see_each_attempt_and_each_outcome(monkeypatch):
             )
         ),
     )
-    answers = [requests.ConnectionError("x"), _mock_response(503), _mock_response(200, json_data=1)]
-
-    def fake(*_a, **_k):
-        answer = answers.pop(0)
-        if isinstance(answer, Exception):
-            raise answer
-        return answer
-
-    monkeypatch.setattr(client._session, "request", fake)
+    _answering(
+        monkeypatch,
+        client,
+        requests.ConnectionError("x"),
+        _mock_response(503),
+        _mock_response(200, json_data=1),
+    )
 
     client.get_json("https://x.example/a")
 
@@ -204,9 +187,7 @@ def test_a_failing_pre_request_hook_does_not_stop_the_request(monkeypatch):
         raise RuntimeError("hook bug")
 
     client = _client(pre_request=hook)
-    monkeypatch.setattr(
-        client._session, "request", lambda *_a, **_k: _mock_response(200, json_data=2)
-    )
+    _answering(monkeypatch, client, _mock_response(200, json_data=2))
 
     assert client.get_json("https://x.example/a") == 2
 
@@ -227,7 +208,7 @@ def test_a_client_used_as_context_manager_closes_its_session(monkeypatch):
 
 def test_a_client_error_status_is_a_network_error_carrying_the_status(monkeypatch):
     client = _client()
-    monkeypatch.setattr(client._session, "request", lambda *_a, **_k: _mock_response(404))
+    _answering(monkeypatch, client, _mock_response(404))
 
     with pytest.raises(NetworkError, match="404") as caught:
         client.get_json("https://x.example/missing")
@@ -250,9 +231,7 @@ class _PydanticLike:
 
 def test_a_payload_is_handed_to_the_model_that_validates_it(monkeypatch):
     client = _client()
-    monkeypatch.setattr(
-        client._session, "request", lambda *_a, **_k: _mock_response(200, json_data={"id": 7})
-    )
+    _answering(monkeypatch, client, _mock_response(200, json_data={"id": 7}))
 
     assert client.get_json("https://x.example/a", model=_Schema).id == 7
     assert client.get_json("https://x.example/a", model=_PydanticLike) == ("validated", {"id": 7})
@@ -260,9 +239,7 @@ def test_a_payload_is_handed_to_the_model_that_validates_it(monkeypatch):
 
 def test_a_payload_the_model_refuses_is_a_data_source_error(monkeypatch):
     client = _client()
-    monkeypatch.setattr(
-        client._session, "request", lambda *_a, **_k: _mock_response(200, json_data={})
-    )
+    _answering(monkeypatch, client, _mock_response(200, json_data={}))
 
     with pytest.raises(DataSourceError, match="failed validation"):
         client.get_json("https://x.example/a", model=_Schema)
@@ -270,7 +247,7 @@ def test_a_payload_the_model_refuses_is_a_data_source_error(monkeypatch):
 
 def test_a_stream_error_status_is_refused_before_anything_is_written(monkeypatch, tmp_path):
     client = _client()
-    monkeypatch.setattr(client._session, "request", lambda *_a, **_k: _mock_response(400))
+    _answering(monkeypatch, client, _mock_response(400))
     target = tmp_path / "out.bin"
 
     with pytest.raises(NetworkError, match="400"):
@@ -283,7 +260,7 @@ def test_iter_bytes_yields_the_chunks_in_order_and_skips_empty_ones(monkeypatch)
     client = _client()
     resp = _mock_response(200)
     resp.iter_content = MagicMock(return_value=iter([b"ab", b"", b"cd"]))
-    monkeypatch.setattr(client._session, "request", lambda *_a, **_k: resp)
+    _answering(monkeypatch, client, resp)
 
     assert b"".join(client.iter_bytes("https://x.example/f")) == b"abcd"
     resp.close.assert_called()
@@ -291,7 +268,7 @@ def test_iter_bytes_yields_the_chunks_in_order_and_skips_empty_ones(monkeypatch)
 
 def test_iter_bytes_refuses_an_error_status(monkeypatch):
     client = _client()
-    monkeypatch.setattr(client._session, "request", lambda *_a, **_k: _mock_response(403))
+    _answering(monkeypatch, client, _mock_response(403))
 
     with pytest.raises(NetworkError, match="403"):
         list(client.iter_bytes("https://x.example/f"))
@@ -300,7 +277,7 @@ def test_iter_bytes_refuses_an_error_status(monkeypatch):
 def test_stream_digest_matches_the_bytes_written(monkeypatch, tmp_path):
     client = _client()
     resp = _mock_response(200, content=b"hydro")
-    monkeypatch.setattr(client._session, "request", lambda *_a, **_k: resp)
+    _answering(monkeypatch, client, resp)
 
     result = client.stream("https://x.example/f", tmp_path / "f.bin")
 
@@ -326,9 +303,12 @@ def test_without_a_usable_retry_after_the_wait_doubles_with_the_attempt_up_to_th
         assert base <= wait <= base * 1.25
 
 
-@pytest.mark.parametrize("value", ["", "   ", "not a date", "-5"])
-def test_an_unreadable_retry_after_is_ignored(value):
-    assert _parse_retry_after(value) is None
+@pytest.mark.parametrize(
+    ("value", "seconds"),
+    [("5", 5.0), ("0", 0.0), ("", None), ("   ", None), ("not a date", None), ("-5", None)],
+)
+def test_a_retry_after_in_seconds_is_read_and_an_unreadable_one_is_ignored(value, seconds):
+    assert _parse_retry_after(value) == seconds
 
 
 def test_a_retry_after_given_as_a_date_is_the_time_left_until_then():

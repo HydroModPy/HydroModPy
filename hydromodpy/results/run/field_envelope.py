@@ -18,7 +18,7 @@ from pydantic import ValidationError
 
 from hydromodpy.core.budget.flux import DRN_TO_MVR_KEYS, find_drain_budget_key
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.core.state.paths import runs_dir_for
+from hydromodpy.core.state.layout import runs_dir_for
 from hydromodpy.results.catalog.registration import run_dir_holding
 from hydromodpy.results.derive.virtual_fields import (
     cell_area_from_mesh,

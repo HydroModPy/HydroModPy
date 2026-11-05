@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.core.state.paths import (
+from hydromodpy.core.state.result_dirs import (
     RelDir,
     is_sealed_run_config,
     parse_rel_dir,

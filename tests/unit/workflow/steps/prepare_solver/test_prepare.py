@@ -157,7 +157,7 @@ def test_a_record_written_twice_is_one_input(tmp_path: Path) -> None:
 
 
 def test_a_product_of_the_run_scratch_is_no_input(tmp_path: Path, monkeypatch) -> None:
-    from hydromodpy.core.state.paths import SCRATCH_ROOT_ENV
+    from hydromodpy.core.state.scratch import SCRATCH_ROOT_ENV
 
     workspace = tmp_path / "ws"
     project = workspace / "projects" / "demo"
@@ -190,7 +190,7 @@ def test_a_network_read_from_its_sources_names_them_with_their_provider(
 ) -> None:
     import xarray as xr
 
-    from hydromodpy.core.state.paths import SCRATCH_ROOT_ENV
+    from hydromodpy.core.state.scratch import SCRATCH_ROOT_ENV
     from hydromodpy.data.contracts.spatial_field import INPUT_FILES_KEY, FieldRecord
 
     workspace = tmp_path / "ws"

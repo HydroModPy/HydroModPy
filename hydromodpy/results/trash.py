@@ -51,11 +51,8 @@ from pathlib import Path
 
 from hydromodpy.core.exceptions import WriteConflictError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import (
-    TOMBSTONES_FILENAME,
-    parse_rel_dir,
-    trash_dir_for,
-)
+from hydromodpy.core.state.layout import TOMBSTONES_FILENAME, trash_dir_for
+from hydromodpy.core.state.result_dirs import parse_rel_dir
 from hydromodpy.results.annotations import read_annotations
 from hydromodpy.results.manifest import read_seal
 from hydromodpy.results.outcome import effective_status, read_outcome

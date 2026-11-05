@@ -32,7 +32,7 @@ def run_overview(config_path: str | Path) -> OverviewResult:
     of the same name already sealed takes the next version.
     """
     from hydromodpy.core.config_kit.written import log_experimental_keys
-    from hydromodpy.core.state.paths import refuse_a_sealed_run_as_project
+    from hydromodpy.core.state.result_dirs import refuse_a_sealed_run_as_project
     from hydromodpy.display.overview import overview_name
     from hydromodpy.results.catalog.registration import config_identity_hash
     from hydromodpy.workflow.overview import DataOverviewLauncher
@@ -70,10 +70,11 @@ def declared_calibration_phases(config_path: str | Path) -> list[str]:
     instead.
     """
     from hydromodpy.calibration.runners.cli_runner import load_toml_calibration
+    from hydromodpy.core.exceptions import HydroModPyError
 
     try:
         cfg, _raw = load_toml_calibration(Path(config_path).expanduser().resolve())
-    except Exception:
+    except (HydroModPyError, ValueError, OSError):
         return []
     return [decl.name for decl in (cfg.phases or [])]
 
@@ -87,12 +88,12 @@ def calibration_phases_or_raise(config_path: str | Path) -> list[str]:
     and not as a file declaring no phase.
     """
     from hydromodpy.calibration.runners.cli_runner import load_toml_calibration
-    from hydromodpy.core.exceptions import ConfigError
+    from hydromodpy.core.exceptions import ConfigError, HydroModPyError
 
     target = Path(config_path).expanduser().resolve()
     try:
         cfg, _raw = load_toml_calibration(target)
-    except Exception as exc:
+    except (HydroModPyError, ValueError, OSError) as exc:
         raise ConfigError(f"{target} cannot be read: {exc}") from exc
     return [decl.name for decl in (cfg.phases or [])]
 
@@ -150,7 +151,7 @@ def completed_identical_run(config: Any, *, name: str) -> tuple[str | None, str]
     ``runs/``, never from the index; a directory without a seal, or whose
     seal cannot be read, never matches.
     """
-    from hydromodpy.core.state.paths import runs_dir_for
+    from hydromodpy.core.state.layout import runs_dir_for
     from hydromodpy.results.catalog.registration import solve_identity_hash, split_stem_version
     from hydromodpy.results.manifest import read_manifest
     from hydromodpy.results.storage.sealing import sealed_config_hash
@@ -259,7 +260,7 @@ def run_simulation(
             from hydromodpy.workflow.replay_checks import warn_replay_differences
 
             warn_replay_differences(source_run, Path(result.run_dir))
-        return run_summary(result, project_root, project)
+        return _run_summary(result, project_root, project)
 
 
 def checked_replay_source(
@@ -303,7 +304,7 @@ def skipped_identical_run(
     }
 
 
-def run_summary(result: Any, project_root: str, project: Any) -> dict[str, Any]:
+def _run_summary(result: Any, project_root: str, project: Any) -> dict[str, Any]:
     """The summary of a sealed run: its name, id, directory, status and mesh summary."""
     summary: dict[str, Any] = {
         "name": result.name,
@@ -339,7 +340,7 @@ def completed_run_view(summary: Mapping[str, Any]) -> Run | None:
     this process keeps the snapshot it opened on, so a run indexed since is not found
     through it.
     """
-    from hydromodpy.core.state.paths import runs_dir_for
+    from hydromodpy.core.state.layout import runs_dir_for
     from hydromodpy.project.runner import run_view_of
     from hydromodpy.results.catalog.indexer import index_new_runs
 
@@ -369,7 +370,7 @@ def draft_of_a_file_or_config(
         is_sites_project,
         single_case_draft,
     )
-    from hydromodpy.core.state.paths import resolve_project_root
+    from hydromodpy.core.state.result_dirs import resolve_project_root
     from hydromodpy.core.toml_io.paths import assign, parse
     from hydromodpy.project import Project
     from hydromodpy.workflow.dispatch import load_raw_toml

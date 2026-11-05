@@ -38,12 +38,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
-from hydromodpy.core.state.paths import (
-    PROJECT_MARKER_FILENAME,
-    run_dir_rel,
-    runs_dir_for,
-    session_dir_rel,
-)
+from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME, runs_dir_for
+from hydromodpy.core.state.result_dirs import run_dir_rel, session_dir_rel
 from hydromodpy.results.manifest import read_seal
 from hydromodpy.results.outcome import (
     DEFAULT_STALE_AFTER_S,

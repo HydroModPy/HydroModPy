@@ -129,13 +129,14 @@ def test_a_list_index_is_followed_inside_the_document() -> None:
     assert resolve_loc(("s", "x"), {"s": "text"}) == ("s", "x")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="the locator ignores the list index: an error in the second [[flow.layers]] "
-    "block is pointed at the first block (line 8) instead of line 11",
-)
 def test_an_error_in_the_second_block_of_an_array_of_tables_points_at_that_block() -> None:
     assert locate_loc(_TEXT, ("flow", "layers", 1, "thickness")) == 11
+    assert locate_loc(_TEXT, ("flow", "layers", 0, "thickness")) == 8
+    assert locate_loc(_TEXT, ("flow", "layers", 1)) == 10
+
+
+def test_a_list_index_past_the_blocks_written_points_at_the_last_block() -> None:
+    assert locate_loc(_TEXT, ("flow", "layers", 7)) == 10
 
 
 def test_the_message_names_the_file_line_field_and_refused_value(tmp_path: Path) -> None:

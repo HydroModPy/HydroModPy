@@ -27,6 +27,22 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+def _read_config(project: Project, config: str | Path | HydroModPyConfig) -> dict:
+    """Set the configuration of *project* from a built object or a TOML file; return the raw TOML."""
+    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.core.config_kit.base import thawed_copy
+    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+
+    if isinstance(config, HydroModPyConfig):
+        project._config_path = None
+        # A frozen copy opens a project of its own: the phases below write in this object.
+        project._cfg = thawed_copy(config)
+        return {}
+    project._config_path = Path(config).resolve()
+    project._cfg = HydroModPyConfig.from_toml(project._config_path)
+    return load_toml_with_base_config(project._config_path)
+
+
 def configure(
     project: Project,
     config: str | Path | HydroModPyConfig,
@@ -36,14 +52,11 @@ def configure(
     no_display: bool,
 ) -> None:
     """Resolve the config, time grid and data plan, then build an empty ctx."""
-    from hydromodpy.config import HydroModPyConfig
-    from hydromodpy.core.config_kit.base import thawed_copy
-    from hydromodpy.core.state.paths import refuse_a_sealed_run_as_project
+    from hydromodpy.core.state.result_dirs import refuse_a_sealed_run_as_project
     from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.core.time import (
         require_flow_simulation_time_grid,
     )
-    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
     from hydromodpy.data import DataPlanner
     from hydromodpy.physics.hydrology.soil_reservoir.config import soil_reservoir_of
     from hydromodpy.spatial.domain.spatial_support import (
@@ -55,20 +68,11 @@ def configure(
     from hydromodpy.spatial.geographic.river_network_config import river_network_for_the_mesh
     from hydromodpy.workflow.steps.data import log_data_plan
 
-    if isinstance(config, HydroModPyConfig):
-        project._config_path = None
-        # A frozen copy opens a project of its own: the phases below write in this object.
-        project._cfg = thawed_copy(config)
-        raw_toml: dict = {}
-    else:
-        project._config_path = Path(config).resolve()
-        project._cfg = HydroModPyConfig.from_toml(project._config_path)
-        raw_toml = load_toml_with_base_config(project._config_path)
-
+    raw_toml = _read_config(project, config)
     refuse_a_sealed_run_as_project(project._cfg.workspace.project_root)
     _refuse_another_solver(project._cfg, solver)
     project._solver = solver or detect_solver(project)
-    ensure_simulation_block(project)
+    _ensure_simulation_block(project)
 
     project._time_grid = require_flow_simulation_time_grid(project._cfg)
 
@@ -260,7 +264,7 @@ def open_catalog(project: Project) -> None:
     (a project that has not been indexed since its first run) the store
     stays ``None`` and the read-only views answer empty.
     """
-    from hydromodpy.core.state.paths import catalog_path_for
+    from hydromodpy.core.state.layout import catalog_path_for
     from hydromodpy.results.catalog import Catalog
 
     if project._store is not None:
@@ -312,7 +316,7 @@ def detect_solver(project: Project) -> str:
     )
 
 
-def ensure_simulation_block(project: Project) -> None:
+def _ensure_simulation_block(project: Project) -> None:
     """Synthesize [simulation] from [data.recharge] when it is absent."""
     if project._cfg.simulation.has_processes():
         return

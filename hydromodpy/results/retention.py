@@ -39,7 +39,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from hydromodpy.core.state.paths import run_dir_rel, runs_dir_for, session_dir_rel, sessions_dir_for
+from hydromodpy.core.state.layout import runs_dir_for, sessions_dir_for
+from hydromodpy.core.state.result_dirs import run_dir_rel, session_dir_rel
 from hydromodpy.results.catalog.registration import split_stem_version
 from hydromodpy.results.manifest import is_sealed, read_seal
 from hydromodpy.results.outcome import (

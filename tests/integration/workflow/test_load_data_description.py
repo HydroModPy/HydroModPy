@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.core.state.paths import run_dir_rel
+from hydromodpy.core.state.result_dirs import run_dir_rel
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEM = REPO_ROOT / "examples" / "data" / "dem" / "regional_dem_naizin.tif"

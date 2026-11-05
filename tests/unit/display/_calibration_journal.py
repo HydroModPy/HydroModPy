@@ -21,7 +21,7 @@ from typing import Any
 import pandas as pd
 
 from hydromodpy.calibration.persistence import CalibrationPersistence
-from hydromodpy.core.state.paths import run_dir_rel, session_dir_rel
+from hydromodpy.core.state.result_dirs import run_dir_rel, session_dir_rel
 from hydromodpy.results.session.descriptor import BestTrial, ParameterBound
 
 STARTED = datetime(2026, 9, 28, 12, 28, 25, tzinfo=UTC)

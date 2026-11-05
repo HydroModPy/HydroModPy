@@ -69,7 +69,7 @@ from hydromodpy.core.exceptions import (
 )
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.site import SiteConfig
-from hydromodpy.core.state.paths import is_sealed_run_config, resolve_project_root
+from hydromodpy.core.state.result_dirs import is_sealed_run_config, resolve_project_root
 from hydromodpy.core.time.window import (
     build_simulation_time_boundaries,
     resolve_simulation_time_window,

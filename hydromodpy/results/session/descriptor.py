@@ -52,7 +52,8 @@ from hydromodpy.core.config_kit.stored import (
 )
 from hydromodpy.core.exceptions import ConfigMissingError
 from hydromodpy.core.io.document_version import VersionWindow
-from hydromodpy.core.state.paths import parse_rel_dir, session_dir_rel, sessions_dir_for
+from hydromodpy.core.state.layout import sessions_dir_for
+from hydromodpy.core.state.result_dirs import parse_rel_dir, session_dir_rel
 from hydromodpy.results.checks import StopState
 from hydromodpy.results.metric_rule import PeriodWindow
 from hydromodpy.results.rel_dir import checked_rel_dir

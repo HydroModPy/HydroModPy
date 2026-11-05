@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 
 import validation_cases.shared.runtime as runtime
-from hydromodpy.core.state.paths import preprocessing_dir
+from hydromodpy.core.state.scratch import preprocessing_dir
 from validation_cases.shared.loaders import (
     load_case_tolerances,
     load_field,
@@ -473,7 +473,7 @@ class _WindowsOs:
 
 def _longest_run_path_suffix(tmp_path: Path, model_name: str) -> int:
     """Build, from the product, the longest path a run writes below its project root."""
-    from hydromodpy.core.state.paths import (
+    from hydromodpy.core.state.scratch import (
         PREPROCESSING_DIRNAME,
         RUN_SCRATCH_ENV,
         run_scratch,

@@ -69,13 +69,13 @@ from hydromodpy.core.config_kit.stored import read_stored
 from hydromodpy.core.exceptions import ConfigMissingError, ExportError
 from hydromodpy.core.payload import PayloadBundle, sidecar_name, stored_name, write_index
 from hydromodpy.core.payload.install import sha256_of as file_sha256
-from hydromodpy.core.state.paths import (
+from hydromodpy.core.state.layout import (
     INTERNAL_DIRNAME,
     SUMMARY_DIRNAME,
     is_workspace_root,
-    run_dir_rel,
     runs_dir_for,
 )
+from hydromodpy.core.state.result_dirs import run_dir_rel
 from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
 from hydromodpy.results.export.context import AssetEntry
 from hydromodpy.results.export.directory import context_from_directory, publication_of
@@ -482,7 +482,7 @@ def _require_licence(source: Path, *, is_summary: bool) -> None:
 def _project_publication(project_root: Path) -> Any:
     """Return the ``[publication]`` table of ``project.toml``."""
     from hydromodpy.config.publication_config import PublicationConfig
-    from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME
+    from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
 
     marker = project_root / PROJECT_MARKER_FILENAME
     if not marker.is_file():

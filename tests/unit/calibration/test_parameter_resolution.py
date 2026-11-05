@@ -36,8 +36,8 @@ from hydromodpy.core.config_kit.calibrable import Calibrable
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.core.units.leakance import convert_to_per_s
 from hydromodpy.core.units.physical_bounds import PhysicalBoundsError, validate_physical_value
+from hydromodpy.core.units.quantities import convert_to_per_s
 from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.physics.flow.sinks_sources.container import FlowSinksSourcesConfig
 from hydromodpy.physics.flow.sinks_sources.etp import FlowEtpConfig

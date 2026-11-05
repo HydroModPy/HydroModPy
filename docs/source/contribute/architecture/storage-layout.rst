@@ -22,7 +22,7 @@ of a session is in that session, a table over N cases is in ``summary/``. Publis
 out of the tree (``hmp publish``); nothing in the project points at the copy except the
 ``published.jsonl`` line of its source.
 
-The directory names of the project are declared in :mod:`hydromodpy.core.state.paths`. The names
+The directory names of the project are declared in :mod:`hydromodpy.core.state.layout`. The names
 inside a run or a session directory are declared in :mod:`hydromodpy.results.storage.contract`.
 No other module spells them.
 
@@ -93,7 +93,7 @@ carries the ``.parquet.d`` or ``.zarr.zip`` suffix, and no directory is named af
 identifier.
 
 The project config file is ``project.toml``, and
-:func:`~hydromodpy.core.state.paths.resolve_project_root` anchors on it, never on a database file:
+:func:`~hydromodpy.core.state.result_dirs.resolve_project_root` anchors on it, never on a database file:
 a project stays a project after its index is deleted. Relative paths in a configuration are
 relative to the project root, whichever directory the file sits in.
 
@@ -379,7 +379,7 @@ and the index row; the links by identifier do not move, and a stale hint is neve
 ``J0014010-base``, ``calibration``, ``sessions/calibration/trials/0004``. ``@last`` and
 ``@best:<metric>`` resolve to one of them. The two forms, ``runs/<name>`` and
 ``sessions/<name>/trials/<nnnn>``, are spelled and read only by the relative-directory functions
-of :mod:`hydromodpy.core.state.paths`.
+of :mod:`hydromodpy.core.state.result_dirs`.
 
 **An identical case is skipped from disk**: the worker reads ``identity.config_hash`` in
 ``runs/<case>/manifest.json``, never the index. ``if_exists`` is ``version`` or ``fail``.

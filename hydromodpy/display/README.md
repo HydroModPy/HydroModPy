@@ -228,7 +228,7 @@ renders one figure after the same applicability check and stamps a saved PNG
 with the identity of its run. `hmp viz list --run <ref>` calls
 `runs.figure_availability(run)`.
 
-**Overview.** `workflow/pipelines/overview.py` builds a `DataOverviewState`
+**Overview.** `workflow/overview.py` builds a `DataOverviewState`
 (geography and loaded data, no run); `overview.generate_overview_report` renders
 one PNG per panel enabled in `[overview.panels]`, under `runs/<overview>/figures/`,
 and its web pages under `runs/<overview>/report/` (`overview/location.py`).

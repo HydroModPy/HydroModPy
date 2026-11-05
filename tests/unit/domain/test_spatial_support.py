@@ -11,12 +11,14 @@ import numpy as np
 import pytest
 
 from hydromodpy.core.exceptions import ConfigMissingError
+from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.spatial import CatchmentZonesField
 from hydromodpy.spatial.domain.domain import Domain
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.domain.spatial_support import (
     SupportBuildContext,
     build_default_spatial_support_provider_registry,
+    collect_requested_support_ids,
 )
 from hydromodpy.spatial.domain.spatial_support_config import (
     CatchmentZonesSupportConfig,
@@ -171,3 +173,45 @@ def _rings(radii: list[float], labels: list[str]) -> GeneratedRingsSupportField:
 def test_a_zonation_that_does_not_fit_its_grid_or_rings_that_do_not_nest_are_refused(build, error, match):  # fmt: skip
     with pytest.raises(error, match=match):
         build()
+
+
+def test_collect_requested_support_ids_accepts_typed_flow_param():
+    cfg = FlowConfig.model_validate(
+        {
+            "param_list": ["K", "Sy"],
+            "param": {
+                "K": {
+                    "field": {
+                        "id": "K",
+                        "kind": "heterogeneous",
+                        "values": {"left": "1e-4 m/s", "right": "5e-5 m/s"},
+                        "field_spatial_id": "k_bands",
+                    },
+                },
+                "Sy": {
+                    "field": {"id": "Sy", "kind": "homogeneous", "value": 0.12},
+                },
+            },
+        }
+    )
+
+    assert collect_requested_support_ids(cfg) == ("k_bands",)
+
+
+def test_collect_requested_support_ids_accepts_resolved_dict_payload():
+    flow_cfg = type(
+        "FlowCfg",
+        (),
+        {
+            "param": {
+                "K": {
+                    "id": "K",
+                    "kind": "heterogeneous",
+                    "values": {"left": 1e-4},
+                    "field_spatial_id": "k_bands",
+                }
+            }
+        },
+    )()
+
+    assert collect_requested_support_ids(flow_cfg) == ("k_bands",)

@@ -35,13 +35,9 @@ from hydromodpy.core.budget.terms import kept_budget
 from hydromodpy.core.code_fingerprint import RUN_LAYERS, code_fingerprint
 from hydromodpy.core.licensing import UNDETERMINED_LICENSE
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import (
-    PROJECTS_DIRNAME,
-    WORKSPACE_TOML_FILENAME,
-    display_path,
-    internal_dir,
-    run_dir_rel,
-)
+from hydromodpy.core.state.layout import PROJECTS_DIRNAME, WORKSPACE_TOML_FILENAME, internal_dir
+from hydromodpy.core.state.portable import display_path
+from hydromodpy.core.state.result_dirs import run_dir_rel
 from hydromodpy.core.version import __version__ as HMP_VERSION
 from hydromodpy.results.catalog.registration import split_stem_version
 from hydromodpy.results.checks import Checks
@@ -232,7 +228,7 @@ def loaded_and_declared_inputs(facts: RunFacts, data_root: Path | None) -> list[
     (``custom`` without one) and the licence its sidecar states. A declared
     folder is not an input: the files the run read in it are.
     """
-    from hydromodpy.core.state.paths import decode_workspace_path
+    from hydromodpy.core.state.portable import decode_workspace_path
     from hydromodpy.schema.sources import input_licence, sidecar_source
 
     inputs = list(facts.inputs)

@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.core.state.paths import RUNS_DIRNAME
+from hydromodpy.core.state.layout import RUNS_DIRNAME
 from hydromodpy.results.export.context import (
     AssetEntry,
     FairExportContext,

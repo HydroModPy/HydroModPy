@@ -20,7 +20,7 @@ import zarr
 from filelock import FileLock, Timeout
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import INTERNAL_DIRNAME, RUN_INTERNAL_LOCKS_DIRNAME
+from hydromodpy.core.state.layout import INTERNAL_DIRNAME, RUN_INTERNAL_LOCKS_DIRNAME
 
 if TYPE_CHECKING:
     from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr

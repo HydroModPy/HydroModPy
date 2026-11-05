@@ -13,7 +13,7 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.calibrable import Calibrable
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.units.volumetric_flow import normalize_m3_per_s_unit
+from hydromodpy.core.units.quantities import normalize_m3_per_s_unit
 from hydromodpy.physics.base.forcing import VolumeRateForcing
 
 if TYPE_CHECKING:

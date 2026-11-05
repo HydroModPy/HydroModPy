@@ -258,7 +258,7 @@ def no_index_opening(monkeypatch):
 
 def test_watch_reads_the_outcomes_and_never_the_index(tmp_path, no_index_opening) -> None:
     from hydromodpy.cli._workers.catalog import stale_running_sim_ids, watch_running
-    from hydromodpy.core.state.paths import catalog_path_for
+    from hydromodpy.core.state.layout import catalog_path_for
     from tests._helpers.sealed_runs import make_project, seal_run, write_attempt
 
     root = make_project(tmp_path / "demo")

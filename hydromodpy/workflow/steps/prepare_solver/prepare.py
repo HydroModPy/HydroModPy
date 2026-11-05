@@ -23,7 +23,7 @@ import numpy as np
 
 from hydromodpy.core.exceptions import MeshError, PipelineError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import encode_workspace_path
+from hydromodpy.core.state.portable import encode_workspace_path
 from hydromodpy.data.contracts.spatial_field import INPUT_FILES_KEY
 from hydromodpy.results.manifest import InputEntry
 from hydromodpy.results.storage.attempt import is_run_product
@@ -258,7 +258,7 @@ def step_write_provenance(ctx: WorkflowContext, *, store: SimulationStore) -> No
                 )
                 store.record_input(
                     ctx.sim_id,
-                    loaded_input_entry(
+                    _loaded_input_entry(
                         item,
                         source_path=input_path,
                         sha256=input_digest,
@@ -268,6 +268,7 @@ def step_write_provenance(ctx: WorkflowContext, *, store: SimulationStore) -> No
                 )
             written += 1
         except Exception as exc:
+            # Whatever a record raised, the run stops and names the record.
             prefix = (
                 "Provenance failed for" if item.kind == "point" else "Provenance failed for field"
             )
@@ -292,7 +293,7 @@ def _input_files(item: LoadedRecord, source_path: Path | None) -> list[tuple[Pat
     return [] if source_path is None else [(source_path, None)]
 
 
-def loaded_input_entry(
+def _loaded_input_entry(
     item: LoadedRecord,
     *,
     source_path: Path | None,
@@ -362,5 +363,4 @@ __all__ = (
     "step_persist_mesh",
     "step_persist_params",
     "step_write_provenance",
-    "loaded_input_entry",
 )

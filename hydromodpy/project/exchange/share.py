@@ -40,7 +40,7 @@ from hydromodpy.core.payload import (
 )
 from hydromodpy.core.payload.install import read_registry, sha256_of
 from hydromodpy.core.site import SiteRow
-from hydromodpy.core.state.paths import decode_workspace_path
+from hydromodpy.core.state.portable import decode_workspace_path
 from hydromodpy.core.workspace.resolve import locate_workspace_root
 from hydromodpy.results.export.publish import MissingInputError
 from hydromodpy.results.export.run_identity import read_sealed_manifest
@@ -323,7 +323,7 @@ def _row_from_sidecar(located: Path) -> dict[str, Any] | None:
 
     try:
         sidecar = load_sidecar(located)
-    except Exception:  # noqa: BLE001 - an unreadable sidecar states nothing
+    except (OSError, ValueError):  # a missing, torn or invalid sidecar states nothing
         return None
     if sidecar is None:
         return None

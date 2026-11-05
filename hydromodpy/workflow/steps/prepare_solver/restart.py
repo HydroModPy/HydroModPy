@@ -27,7 +27,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.core.state.paths import run_dir_rel, runs_dir_for
+from hydromodpy.core.state.layout import runs_dir_for
+from hydromodpy.core.state.result_dirs import run_dir_rel
 from hydromodpy.physics.flow.flow_config import RestartReference
 from hydromodpy.results.manifest import is_sealed, read_manifest
 from hydromodpy.results.storage.attempt import run_dir_for_name

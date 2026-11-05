@@ -45,7 +45,7 @@ from hydromodpy.config.sites.models import (
     SitesRunConfig,
 )
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME
+from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
 from hydromodpy.project.launch.children import PlannedCase
 from hydromodpy.project.launch.status import CaseState, case_state
 from hydromodpy.results.outcome import death_is_proven

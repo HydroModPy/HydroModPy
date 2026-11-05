@@ -41,27 +41,22 @@ def _normalise_loc(loc: Sequence[object]) -> list[str]:
     return [str(part) for part in loc]
 
 
-def _section_path(loc: Sequence[str]) -> str:
-    section_parts: list[str] = []
-    has_digit = False
-    for part in loc:
+def _section_path(loc: Sequence[str]) -> tuple[str, int]:
+    """Return the table *loc* lies in, and its block when that is an array of tables."""
+    for position, part in enumerate(loc):
         if part.isdigit():
-            has_digit = True
-            break
-        section_parts.append(part)
-    if has_digit:
-        return ".".join(section_parts)
-    return ".".join(section_parts[:-1]) if section_parts else ""
+            return ".".join(loc[:position]), int(part)
+    return ".".join(loc[:-1]), 0
 
 
-def _find_header_line(lines: Sequence[str], section: str) -> int | None:
-    if not section:
-        return None
-    for index, line in enumerate(lines, start=1):
-        match = _HEADER_RE.match(line)
-        if match and match.group("name").strip() == section:
-            return index
-    return None
+def _find_header_line(lines: Sequence[str], section: str, block: int) -> int | None:
+    """Return the header line of one block of *section*, the last one past the end."""
+    headers = [
+        index
+        for index, line in enumerate(lines, start=1)
+        if (match := _HEADER_RE.match(line)) and match.group("name").strip() == section
+    ]
+    return headers[min(block, len(headers) - 1)] if headers else None
 
 
 def _find_key_line(lines: Sequence[str], header_line: int | None, key: str) -> int | None:
@@ -86,8 +81,7 @@ def locate_loc(text: str, loc: Sequence[object]) -> int | None:
         return None
 
     lines = text.splitlines()
-    section = _section_path(parts)
-    header_line = _find_header_line(lines, section) if section else None
+    header_line = _find_header_line(lines, *_section_path(parts))
 
     leaf = parts[-1]
     if leaf.isdigit():

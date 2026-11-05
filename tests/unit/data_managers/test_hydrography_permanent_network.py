@@ -15,7 +15,7 @@ import geopandas as gpd
 import pytest
 from shapely.geometry import LineString
 
-from hydromodpy.core.state.paths import preprocessing_dir
+from hydromodpy.core.state.scratch import preprocessing_dir
 from hydromodpy.data.source.permanence import PERMANENCE_COLUMN
 from hydromodpy.data.variables.hydrography.config import HydrographyConfig
 from hydromodpy.spatial.geographic.core.hydrographic_network import (

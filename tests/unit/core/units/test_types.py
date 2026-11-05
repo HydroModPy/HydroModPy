@@ -86,10 +86,9 @@ def test_a_wrong_dimension_a_boolean_or_an_unreadable_value_is_refused_by_valida
 @pytest.mark.parametrize(
     "given", [True, {"unit": "km"}, [1, 2]], ids=["boolean", "mapping-without-value", "list"]
 )
-def test_a_value_of_no_readable_kind_raises_a_type_error_not_a_validation_error(given):
-    # Pydantic only wraps ValueError: a TypeError from a before-validator reaches
-    # the caller raw (see the report of lot 5: a TOML ``length = true``).
-    with pytest.raises(TypeError, match="boolean|unsupported value"):
+def test_a_value_of_no_readable_kind_is_refused_by_validation(given):
+    # Pydantic only wraps ValueError, so a TypeError would reach the caller raw.
+    with pytest.raises(ValidationError, match="boolean|unsupported value"):
         _Floats(length=given)
 
 
@@ -113,7 +112,7 @@ def test_a_bare_number_is_read_in_the_canonical_unit():
 
 
 def test_a_boolean_is_refused_instead_of_read_as_one_metre():
-    with pytest.raises(TypeError, match="boolean"):
+    with pytest.raises(ValidationError, match="boolean"):
         _Quantities(length=True)
 
 

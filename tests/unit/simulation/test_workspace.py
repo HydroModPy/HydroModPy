@@ -4,11 +4,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.core.state.paths import (
-    CATALOG_FILENAME,
-    INTERNAL_DIRNAME,
-    RUNS_DIRNAME,
-)
+from hydromodpy.core.state.layout import CATALOG_FILENAME, INTERNAL_DIRNAME, RUNS_DIRNAME
 from hydromodpy.core.workspace import (
     WorkspaceConfig,
     WorkspaceLayout,
@@ -29,7 +25,7 @@ def test_workspace_bin_path_defaults_to_managed_cache(tmp_path, monkeypatch) -> 
     """Without HMP_BIN, bin_path resolves to the managed cache."""
     monkeypatch.delenv("HMP_BIN", raising=False)
 
-    from hydromodpy.core.state.paths import cache_dir
+    from hydromodpy.core.state.portable import cache_dir
 
     project = _scaffold(tmp_path / "ws")
     cfg = WorkspaceConfig(project_root=project)

@@ -10,7 +10,7 @@ import duckdb
 from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
 from hydromodpy.cli.helpers import EXIT_GENERIC, EXIT_NOT_FOUND, apply_verbosity, refuse
 from hydromodpy.cli.output import emit
-from hydromodpy.core.state.paths import resolve_project_root
+from hydromodpy.core.state.result_dirs import resolve_project_root
 
 NAME: str = "query"
 HELP: str = "Run a SQL statement against the project index"

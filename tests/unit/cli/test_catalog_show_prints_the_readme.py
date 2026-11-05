@@ -6,7 +6,7 @@ import importlib
 import sys
 from datetime import UTC, datetime
 
-from hydromodpy.core.state.paths import catalog_path_for
+from hydromodpy.core.state.layout import catalog_path_for
 from hydromodpy.results.annotations import add_note, add_tag
 from tests._helpers.sealed_runs import make_project, seal_run
 

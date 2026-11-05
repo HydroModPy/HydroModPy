@@ -21,11 +21,8 @@ import numpy as np
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.scope import zone_name_refusal
-from hydromodpy.core.units.hydraulic_conductivity import (
-    M_PER_S_CANONICAL_UNITS,
-    factor_to_m_per_s,
-)
 from hydromodpy.core.units.physical_bounds import validate_physical_array, validate_physical_value
+from hydromodpy.core.units.quantities import M_PER_S_CANONICAL_UNITS, factor_to_m_per_s
 from hydromodpy.core.units.scalar import parse_scalar_and_unit
 from hydromodpy.spatial.field.field_param_units import normalize_unit_token
 from hydromodpy.spatial.field.mesh_cells import MeshWithValues, cell_values

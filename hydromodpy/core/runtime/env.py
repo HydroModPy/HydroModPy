@@ -57,13 +57,6 @@ class EnvVar:
 ENV_VARS: tuple[EnvVar, ...] = (
     # -- user -----------------------------------------------------------------
     EnvVar(
-        "HMP_AUTH_BACKEND",
-        "``local``",
-        "user",
-        "Name of the backend that says who acts, for the audit trail and the privacy "
-        "purge. Only ``local`` ships. An unknown name raises ``ValueError``.",
-    ),
-    EnvVar(
         "HMP_AUTO_MIGRATE",
         "on",
         "user",

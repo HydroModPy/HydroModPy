@@ -17,7 +17,8 @@ import hydromodpy.workflow.steps.export as export_module
 from hydromodpy.calibration.runners.cli_runner import release_session_scratch
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import PREPROCESSING_DIRNAME, PROJECT_MARKER_FILENAME
+from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
+from hydromodpy.core.state.scratch import PREPROCESSING_DIRNAME
 from hydromodpy.results.catalog.registration import reserve_version_dirname
 from hydromodpy.results.exporters.export_spec import load_export_requests
 from hydromodpy.results.identity import read_identity_from

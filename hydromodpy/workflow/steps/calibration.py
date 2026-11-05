@@ -59,7 +59,7 @@ def step_render_calibration_report(
 
 
 @dataclass(frozen=True)
-class WorkflowTrialPipelineProvider(TrialPipelineProvider):
+class _WorkflowTrialPipelineProvider(TrialPipelineProvider):
     """Concrete ``TrialPipelineProvider`` backed by the workflow package."""
 
     def standard_steps(self) -> Sequence[TrialStep]:
@@ -109,11 +109,10 @@ class WorkflowTrialPipelineProvider(TrialPipelineProvider):
 
 def register_default_trial_pipeline_provider() -> None:
     """Register the workflow-backed provider for calibration trial primitives."""
-    register_trial_pipeline_provider(WorkflowTrialPipelineProvider())
+    register_trial_pipeline_provider(_WorkflowTrialPipelineProvider())
 
 
 __all__ = [
-    "WorkflowTrialPipelineProvider",
     "register_default_trial_pipeline_provider",
     "step_render_calibration_report",
 ]

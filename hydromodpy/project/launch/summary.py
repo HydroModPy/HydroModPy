@@ -62,7 +62,7 @@ from typing import TYPE_CHECKING, Any, Final
 
 from pydantic import ValidationError
 
-from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME, summary_dir_for
+from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME, summary_dir_for
 from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
 from hydromodpy.display.cohort import cohort_figure_names, draw_cohort_figures
 from hydromodpy.project.launch.summary_exports import check_exports, write_exports
@@ -166,7 +166,7 @@ def collect_project(
     by_case, by_site, site_rows = _tables(
         root, cases, planned, settings, mixed_windows=mixed_windows
     )
-    figure_names, variables = figure_requests(settings.summary, by_site.columns)
+    figure_names, variables = _figure_requests(settings.summary, by_site.columns)
     check_exports(settings.exports)
     collected_at = datetime.now(UTC)
 
@@ -174,27 +174,12 @@ def collect_project(
 
     summary = summary_dir_for(root)
     summary.mkdir(parents=True, exist_ok=True)
-    figures_dir = summary / RUN_FIGURES_DIRNAME
-    exports_dir = summary / RUN_EXPORTS_DIRNAME
-    metadata = {
-        "hmp.summary": json.dumps(
-            {
-                "project": root.name,
-                "collected_at": collected_at.isoformat(),
-                "hydromodpy_version": HYDROMODPY_VERSION,
-            }
-        )
-    }
-    by_case_path = write_table(by_case, summary / f"{BY_CASE_STEM}{PARQUET_FILE_SUFFIX}", metadata)
-    write_csv(by_case, summary / f"{BY_CASE_STEM}.csv")
-    by_site_path = write_table(by_site, summary / f"{BY_SITE_STEM}{PARQUET_FILE_SUFFIX}", metadata)
-    write_csv(by_site, summary / f"{BY_SITE_STEM}.csv")
-    map_frame = in_one_crs(by_site)
-    write_gpkg(map_frame, summary / f"{BY_SITE_STEM}.gpkg", layer=BY_SITE_STEM)
+    by_case_path, by_site_path, map_frame = _write_tables(
+        summary, root.name, by_case, by_site, collected_at
+    )
     catalog_path = (
         write_site_rows(summary / CATALOG_CSV_FILENAME, site_rows) if write_sites else None
     )
-
     drawn, skipped = _replace_figures_and_exports(
         root,
         summary,
@@ -205,7 +190,7 @@ def collect_project(
         by_site=by_site,
         site_rows=site_rows,
     )
-    figures = [figures_dir / path.name for path in drawn]
+    figures = [summary / RUN_FIGURES_DIRNAME / path.name for path in drawn]
 
     n_planned, n_completed = _counts(by_case, planned)
     report = write_summary_page(
@@ -239,13 +224,39 @@ def collect_project(
         by_case=by_case_path,
         by_site=by_site_path,
         catalog=catalog_path,
-        figures=figures_dir,
-        exports=exports_dir,
+        figures=summary / RUN_FIGURES_DIRNAME,
+        exports=summary / RUN_EXPORTS_DIRNAME,
         report=report,
         readme=readme,
         rocrate=rocrate,
         skipped=tuple(skipped),
     )
+
+
+def _write_tables(
+    summary: Path,
+    project: str,
+    by_case: pd.DataFrame,
+    by_site: pd.DataFrame,
+    collected_at: datetime,
+) -> tuple[Path, Path, pd.DataFrame]:
+    """Write the two tables as Parquet and CSV and the sites as a map; return the paths and the map frame."""
+    metadata = {
+        "hmp.summary": json.dumps(
+            {
+                "project": project,
+                "collected_at": collected_at.isoformat(),
+                "hydromodpy_version": HYDROMODPY_VERSION,
+            }
+        )
+    }
+    by_case_path = write_table(by_case, summary / f"{BY_CASE_STEM}{PARQUET_FILE_SUFFIX}", metadata)
+    write_csv(by_case, summary / f"{BY_CASE_STEM}.csv")
+    by_site_path = write_table(by_site, summary / f"{BY_SITE_STEM}{PARQUET_FILE_SUFFIX}", metadata)
+    write_csv(by_site, summary / f"{BY_SITE_STEM}.csv")
+    map_frame = in_one_crs(by_site)
+    write_gpkg(map_frame, summary / f"{BY_SITE_STEM}.gpkg", layer=BY_SITE_STEM)
+    return by_case_path, by_site_path, map_frame
 
 
 def _tables(
@@ -382,7 +393,7 @@ def _write_empty_ledger(directory: Path) -> None:
     Ledger().write(directory)
 
 
-def figure_requests(
+def _figure_requests(
     summary: SitesSummaryConfig, columns: Iterable[str]
 ) -> tuple[list[str], list[str]]:
     """Return the cohort figures and the variables to draw, refused when unknown."""
@@ -411,5 +422,4 @@ __all__ = [
     "CATALOG_CSV_FILENAME",
     "SummaryPaths",
     "collect_project",
-    "figure_requests",
 ]

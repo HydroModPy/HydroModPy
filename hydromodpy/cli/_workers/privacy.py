@@ -26,7 +26,8 @@ def purge_simulation(
     import json
     from datetime import UTC, datetime
 
-    from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
+    from hydromodpy.core.state.layout import catalog_path_for
+    from hydromodpy.core.state.result_dirs import resolve_project_root
     from hydromodpy.results.catalog.discovery import resolve_rel_dir
     from hydromodpy.results.trash import identity_of, list_trash, purge_trashed, trash_run
 
@@ -140,16 +141,16 @@ def _purge_collect_snapshot(run_dir: Path, rel_dir: str) -> dict[str, object]:
 
 
 def _purge_resolve_operator() -> str:
-    """Resolve the purge operator through the active ``AuthBackend``.
+    """Resolve the purge operator through ``AuthBackend``.
 
-    Delegates to :func:`hydromodpy.core.auth.get_auth_backend`. Falls back
+    Delegates to :class:`hydromodpy.cli.auth.AuthBackend`. Falls back
     to ``"anonymous"`` if the backend itself fails: a purge must not stop on
     an identity probe.
     """
     try:
-        from hydromodpy.core.auth import get_auth_backend
+        from hydromodpy.cli.auth import AuthBackend
 
-        return get_auth_backend().current_user() or "anonymous"
+        return AuthBackend().current_user() or "anonymous"
     except Exception:  # noqa: BLE001 - purge must not crash on identity probe
         return "anonymous"
 

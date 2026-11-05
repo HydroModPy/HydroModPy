@@ -15,7 +15,7 @@ from hydromodpy.core.console import progress
 from hydromodpy.core.console.progress import HINT, MILESTONE
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import display_path
+from hydromodpy.core.state.portable import display_path
 from hydromodpy.results.storage.contract import RUN_SOLVER_DIRNAME
 from hydromodpy.results.storage.scratch import clear_scratch, drop_empty_scratch
 from hydromodpy.results.storage.sealing import seal_completed
@@ -46,7 +46,7 @@ def step_after_seal(ctx: WorkflowContext, *, wall_seconds: float = 0.0) -> list[
 
     run_dir = Path(ctx.run_dir)
     written = export_views(run_dir, list(ctx.cfg.export))
-    announce_exports(written)
+    _announce_exports(written)
     lines = _run_epilogue_lines(ctx, run_dir=run_dir, wall_seconds=wall_seconds)
     progress.after_phase(partial(_log_run_epilogue, lines))
     return written
@@ -83,7 +83,7 @@ def _run_epilogue_lines(
     )
 
 
-def announce_exports(written: Sequence[Path]) -> None:
+def _announce_exports(written: Sequence[Path]) -> None:
     """Say on the console how many files the exports of a run wrote, and where.
 
     The exporters name every file they write, one INFO line each. This is the
@@ -217,7 +217,7 @@ class ExportStep:
                         results_config=results_cfg,
                         keep_solver_files=bool(getattr(results_cfg, "keep_solver_files", False)),
                     )
-            announce_exports(exported)
+            _announce_exports(exported)
         step_cleanup_scratch(
             ctx,
             keep_solver_files=bool(getattr(results_cfg, "keep_solver_files", False)),

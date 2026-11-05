@@ -552,7 +552,7 @@ class StorageDirective(_Generated):
         ]
         return [
             self.source_note(
-                "``hydromodpy/results/storage/contract.py``, ``hydromodpy/core/state/paths.py`` "
+                "``hydromodpy/results/storage/contract.py``, ``hydromodpy/core/state/layout.py`` "
                 "and ``hydromodpy/schema/generated_views.py``"
             ),
             para(

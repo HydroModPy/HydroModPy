@@ -19,7 +19,7 @@ from pathlib import Path
 import pytest
 
 import hydromodpy.results.outcome as outcome_module
-from hydromodpy.core.state.paths import (
+from hydromodpy.core.state.scratch import (
     SCRATCH_ROOT_ENV,
     run_scratch,
     scratch_dir_for,

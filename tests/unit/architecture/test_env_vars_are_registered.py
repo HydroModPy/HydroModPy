@@ -18,6 +18,7 @@ from hydromodpy.core.runtime.env import ENV_SCOPES, ENV_VARS, env_var
 from tools.docs.contribute_data import env_var_references
 
 NOT_ENVIRONMENT: dict[str, str] = {
+    "HMP_NO_SUCH_VARIABLE": "a name that tests/unit/core/runtime/test_env.py refuses on purpose",
     "HMP_PERIOD": "GeoTIFF tag written by results/exporters/geotiff.py",
     "HMP_SIM_ID": "GeoTIFF tag written by results/exporters/geotiff.py",
     "HMP_TIMESTAMP": "GeoTIFF tag written by results/exporters/geotiff.py",

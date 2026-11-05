@@ -13,6 +13,7 @@ import re
 
 import pint
 
+from hydromodpy.core.units.quantities import factor_to_si
 from hydromodpy.core.units.registry import UREG
 from hydromodpy.core.units.scalar import canonical_unit_token, parse_scalar_and_unit
 
@@ -166,21 +167,15 @@ def _convert_within_a_family(value: float, from_unit: str, to_unit: str) -> floa
 
     The tables know spellings pint does not read, such as ``1/mn`` or ``m3s-1``.
     """
-    from hydromodpy.core.units.hydraulic_conductance import factor_to_m2_per_s
-    from hydromodpy.core.units.hydraulic_conductivity import factor_to_m_per_s
-    from hydromodpy.core.units.leakance import factor_to_per_s
-    from hydromodpy.core.units.length import factor_to_m
-    from hydromodpy.core.units.volumetric_flow import factor_to_m3_per_s
-
-    for factor in (
-        factor_to_m_per_s,
-        factor_to_per_s,
-        factor_to_m,
-        factor_to_m3_per_s,
-        factor_to_m2_per_s,
+    for quantity in (
+        "hydraulic_conductivity",
+        "leakance",
+        "length",
+        "volumetric_flow",
+        "hydraulic_conductance",
     ):
         try:
-            return value * factor(from_unit) / factor(to_unit)
+            return value * factor_to_si(quantity, from_unit) / factor_to_si(quantity, to_unit)
         except (ValueError, KeyError):
             # Not this family: the next table, then pint, decide.
             continue

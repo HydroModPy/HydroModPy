@@ -42,7 +42,7 @@ from typing import Any
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.io.atomic_replace import staged_path
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import cache_dir as _hmp_cache_dir
+from hydromodpy.core.state.portable import cache_dir as _hmp_cache_dir
 
 logger = get_logger(__name__)
 

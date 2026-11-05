@@ -18,7 +18,7 @@ import pytest
 
 from hydromodpy.config.sites.budget import BudgetError
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.core.state.paths import runs_dir_for, sessions_dir_for
+from hydromodpy.core.state.layout import runs_dir_for, sessions_dir_for
 from hydromodpy.project.launch.children import PlannedCase
 from hydromodpy.project.launch.selection import (
     effective_parallel,

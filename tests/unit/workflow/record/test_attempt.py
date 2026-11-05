@@ -17,7 +17,7 @@ import pandas as pd
 import pytest
 
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
-from hydromodpy.core.state.paths import INTERNAL_DIRNAME, PROJECT_MARKER_FILENAME
+from hydromodpy.core.state.layout import INTERNAL_DIRNAME, PROJECT_MARKER_FILENAME
 from hydromodpy.results.manifest import is_sealed
 from hydromodpy.results.outcome import effective_status, read_outcome
 from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME, RUN_MANIFEST_FILENAME

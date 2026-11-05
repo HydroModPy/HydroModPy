@@ -16,6 +16,7 @@ rest of the code, and where to add what.
 | `output.py` | what a program reads: `OUTPUTS` declares what each verb writes under `--format json` and `csv`, and `emit` is the only function that writes it |
 | `helpers.py` | the typed exit codes and `exit_code_for(exc)`, `fail(exc)` and `refuse(message, code)`, which print the `HMPY.Exxx` of a failure, plus the helpers that several verbs share (verbosity, `find_workspace` / `resolve_workspace` / `resolve_project`, profiling, the scratch folder of the test tiers) |
 | `_workers/` | the application services of the verbs whose reusable Python surface is not part of `hydromodpy._api`: catalog listings, privacy purge, developer reports. A worker may assemble diagnostics; it must not become a hidden scientific workflow |
+| `auth.py` | who acts? `AuthBackend` names the local user for the privacy certificate and the notes of `catalog note`, and allows every read and write |
 | `banner.py` | the banner `hmp run` prints |
 
 ## Verbs

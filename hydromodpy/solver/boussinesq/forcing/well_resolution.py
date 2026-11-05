@@ -6,10 +6,7 @@ from collections.abc import Mapping
 
 import numpy as np
 
-from hydromodpy.core.units.volumetric_flow import (
-    convert_to_m3_per_s,
-    normalize_m3_per_s_unit,
-)
+from hydromodpy.core.units.quantities import convert_to_m3_per_s, normalize_m3_per_s_unit
 
 
 class WellResolutionMixin:

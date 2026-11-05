@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.core.state.paths import runs_dir_for
+from hydromodpy.core.state.layout import runs_dir_for
 from hydromodpy.display.catchment_report import (
     GENERIC_REPORT_PRESET,
     CatchmentReportConfig,

@@ -41,7 +41,7 @@ from typing import Any
 
 from hydromodpy.core.io.document_version import TRANSIENT_REMEDY, check_document
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import INTERNAL_DIRNAME, RUN_INTERNAL_CHECKPOINTS_DIRNAME
+from hydromodpy.core.state.layout import INTERNAL_DIRNAME, RUN_INTERNAL_CHECKPOINTS_DIRNAME
 
 logger = get_logger(__name__)
 

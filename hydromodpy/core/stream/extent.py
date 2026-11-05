@@ -53,7 +53,7 @@ from hydromodpy.core.drainage.graph import accumulate_on_downhill_graph
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.stream.network import SimulatedNetwork
 from hydromodpy.core.units.parse import parse_to_canonical_magnitude
-from hydromodpy.core.units.volumetric_flow import parse_to_m3_per_s
+from hydromodpy.core.units.quantities import parse_to_m3_per_s
 
 logger = get_logger(__name__)
 

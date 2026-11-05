@@ -90,7 +90,7 @@ What a trial replays
 --------------------
 
 Every pipeline step declares the configuration subtrees it reads in a
-``config_sections`` class variable. ``workflow/internals/dependencies.py:
+``config_sections`` class variable. ``workflow/steps/dependencies.py:
 earliest_affected_step`` takes the parameter paths of the search and returns
 the lowest index of a step whose section is a dotted prefix of one of them.
 Everything from there on is replayed per trial, even a step whose own sections

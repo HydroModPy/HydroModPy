@@ -46,7 +46,7 @@ _VALIDATION_COMPONENT_LENGTHS = (28, 24, 20, 16, 12)
 
 # What a run writes below its project root, part by part. Every part is the
 # longest the product builds.
-# "/.hmp/scratch": hydromodpy.core.state.paths.scratch_root_for.
+# "/.hmp/scratch": hydromodpy.core.state.scratch.scratch_root_for.
 _SCRATCH_ROOT_PART = len("/.hmp/scratch")
 # "/<label>.p<pid>": paths.run_scratch keeps 24 label characters. A Windows
 # process id is a DWORD, 10 digits at most.
@@ -595,7 +595,7 @@ def _discover_result_store(project_path: Path) -> tuple[Any, str | None]:
     Returns ``(store, sim_id)`` on success, ``(None, None)`` on failure.
     The caller is responsible for closing the store when done.
     """
-    from hydromodpy.core.state.paths import catalog_path_for
+    from hydromodpy.core.state.layout import catalog_path_for
 
     if not catalog_path_for(project_path).exists():
         return None, None
