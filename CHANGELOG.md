@@ -91,6 +91,7 @@ Each release section includes the following standard categories:
 
 ### Changed
 
+- The small test files of `tests/unit/solver`, `tests/unit/results`, `tests/unit/catalog`, `tests/unit/physics` and `tests/unit/config` are merged into one file per module, with every case kept.
 - The receiver graph, depression filling, descent D and downslope distance move from `hydromodpy.core.drainage` to `hydromodpy.spatial.drainage`.
 - The stream criterion leaves `core`. Its defaults are in `hydromodpy.core.scoring.stream_defaults`, its mean recharge in `hydromodpy.spatial.forcing.recharge_rates`, and `network`, `extent`, `heads` and `geometry` in `hydromodpy.results.derive.stream`. `HeadCandidates` is defined in `hydromodpy.spatial.geographic.core.network_heads`.
 - `display` no longer imports `spatial`. The routing surface and the depression floods are computed in `hydromodpy.results.derive.stream`, and `RunMemo` is `hydromodpy.results.derive.run_memo`. Figures and values are the same.

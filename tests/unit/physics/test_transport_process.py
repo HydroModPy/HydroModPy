@@ -1,5 +1,3 @@
-"""Unit tests for the transport process wrapper."""
-
 from __future__ import annotations
 
 import pytest
@@ -8,6 +6,7 @@ from pydantic import ValidationError
 from hydromodpy.physics.transport.transport import Transport, TransportInitialConditions
 from hydromodpy.physics.transport.transport_config import (
     Modflow6PrtParametersConfig,
+    ModpathParametersConfig,
     TransportConfig,
 )
 
@@ -134,3 +133,20 @@ def test_transport_boundary_conditions_and_sinks_sources_merge_payloads() -> Non
 
     assert sorted(transport.boundary_conditions) == ["outlet", "source"]
     assert transport.sinks_sources == {"recharge_concentration": 1.0}
+
+
+# MODPATH builds starting locations for forward and backward tracking only.
+
+
+def test_custom_track_dir_is_refused_with_the_values_to_write() -> None:
+    with pytest.raises(ValidationError) as excinfo:
+        ModpathParametersConfig(track_dir="custom")
+    message = str(excinfo.value)
+    assert "no starting location" in message
+    assert "'forward' or 'backward'" in message
+    assert "zone_partic" in message
+
+
+@pytest.mark.parametrize("direction", ["forward", "backward"])
+def test_forward_and_backward_are_accepted(direction: str) -> None:
+    assert ModpathParametersConfig(track_dir=direction).track_dir == direction

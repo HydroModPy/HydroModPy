@@ -13,15 +13,40 @@ from types import SimpleNamespace
 
 import flopy
 import numpy as np
+import pandas as pd
 import pytest
+import zarr
 
 from hydromodpy.core.budget.terms import BudgetKeep
+from hydromodpy.core.time import SIMULATION_TIME_UNIT
+from hydromodpy.core.units import to_modflow_itmuni
+from hydromodpy.solver.modflow6 import Modflow6
+from hydromodpy.solver.modflow6.build import build_ats_perioddata
+from hydromodpy.solver.modflow6.builders import (
+    collapse_identical_periods,
+    empty_recharge_aux,
+    sto_period_settings,
+)
 from hydromodpy.solver.modflow6.extractors.flow import (
     Modflow6OutputAdapter,
+    _read_start_datetime,
     _seconds_per_time_unit,
+    _write_time_coordinate,
 )
 from hydromodpy.solver.modflow_common import calibration_extractors as cal
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
+from hydromodpy.solver.modflow_common.time_units import (
+    TRACKING_TIME_UNIT,
+    factor_to_tracking_unit,
+    read_itmuni_from_dis,
+    read_time_units_from_tdis,
+    resolve_solver_time_unit,
+    seconds_per_solver_time_unit,
+)
+from hydromodpy.solver.modflow_grid.discretization_temporal import (
+    build_temporal_discretization_from_time_grid,
+)
+from hydromodpy.solver.modflow_nwt.extractors.modpath import ModpathOutputAdapter
 
 
 class _FakeStore:
@@ -477,3 +502,368 @@ class TestTheDischargeSeriesIsTheCatchmentAndNotTheDomain:
         )
         with pytest.raises(ValueError, match="which water the gauge closes on"):
             catchment_cell_mask(model)
+
+
+# Audit P0 - MF6 Zarr /time coordinate is absolute calendar time.
+#
+# The extractor must anchor the relative MF6 ``totim`` to the TDIS
+# ``START_DATE_TIME`` so the CF ``/time`` axis decodes to real dates. Writing the
+# relative totim under a 'seconds since 1970' label decodes ~33 years too early.
+
+
+class _CaptureStore:
+    def __init__(self) -> None:
+        self.calls: list[dict] = []
+
+    def write_time(self, sim_id, values, *, epoch=None, calendar=None, units=None) -> None:
+        self.calls.append(
+            {
+                "sim_id": sim_id,
+                "values": np.asarray(values, dtype="int64"),
+                "epoch": epoch,
+                "units": units,
+            }
+        )
+
+
+def _epoch_seconds(iso: str) -> int:
+    return int((pd.Timestamp(iso) - pd.Timestamp("1970-01-01T00:00:00Z")).total_seconds())
+
+
+def test_write_time_coordinate_anchors_to_start_datetime(tmp_path) -> None:
+    tdis = tmp_path / "model.tdis"
+    tdis.write_text(
+        "BEGIN OPTIONS\n  TIME_UNITS SECONDS\n  START_DATE_TIME 2003-01-01T00:00:00\nEND OPTIONS\n",
+        encoding="utf-8",
+    )
+    store = _CaptureStore()
+    totim = [2592000.0, 5184000.0, 7776000.0]  # 30, 60, 90 days in seconds
+
+    _write_time_coordinate(store, "sim", totim, "SECONDS", tdis)
+
+    assert len(store.calls) == 1
+    call = store.calls[0]
+    start_epoch = _epoch_seconds("2003-01-01T00:00:00Z")
+    expected = np.asarray([start_epoch + int(t) for t in totim], dtype="int64")
+    np.testing.assert_array_equal(call["values"], expected)
+    assert "1970-01-01" in str(call["units"])
+    # Decoded calendar dates land in 2003, not 1970.
+    decoded = pd.to_datetime(call["values"], unit="s", utc=True)
+    assert decoded[0] == pd.Timestamp("2003-01-31T00:00:00Z")
+    assert decoded[-1] == pd.Timestamp("2003-04-01T00:00:00Z")
+
+
+def test_write_time_coordinate_falls_back_to_launcher_start(tmp_path) -> None:
+    # No TDIS START_DATE_TIME, but the launcher passes the start: still anchored.
+    tdis = tmp_path / "model.tdis"
+    tdis.write_text("BEGIN OPTIONS\n  TIME_UNITS SECONDS\nEND OPTIONS\n", encoding="utf-8")
+    store = _CaptureStore()
+    totim = [2592000.0, 5184000.0]
+
+    _write_time_coordinate(store, "sim", totim, "SECONDS", tdis, "2003-01-01T00:00:00")
+
+    assert _read_start_datetime(tdis) is None
+    assert len(store.calls) == 1
+    decoded = pd.to_datetime(store.calls[0]["values"], unit="s", utc=True)
+    assert decoded[0] == pd.Timestamp("2003-01-31T00:00:00Z")
+
+
+def test_write_time_coordinate_relative_without_any_anchor(tmp_path) -> None:
+    # No anchor at all: write the relative axis at field resolution (length must
+    # match the field arrays) referenced to the 1970 epoch, not skip.
+    tdis = tmp_path / "model.tdis"
+    tdis.write_text("BEGIN OPTIONS\n  TIME_UNITS SECONDS\nEND OPTIONS\n", encoding="utf-8")
+    store = _CaptureStore()
+    totim = [2592000.0, 5184000.0, 7776000.0]
+
+    _write_time_coordinate(store, "sim", totim, "SECONDS", tdis, None)
+
+    assert _read_start_datetime(tdis) is None
+    assert len(store.calls) == 1
+    np.testing.assert_array_equal(store.calls[0]["values"], np.asarray(totim, dtype="int64"))
+
+
+class _DummyGeographic:
+    def __init__(self, dem: np.ndarray):
+        self.dem_res = 1.0
+        self.xmin = 0.0
+        self.ymax = float(dem.shape[0])
+        self.dem_box_buff_data = np.asarray(dem, dtype=float)
+        self.dem_data = np.asarray(dem, dtype=float)
+        self.watershed_box_buff_dem = "dummy_box.tif"
+        self.watershed_buff_dem = "dummy_buff.tif"
+
+
+def test_modflow6_requires_canonical_time_grid_for_launcher_flow_preprocessing():
+    dem = np.array([[10.0, 11.0], [12.0, 13.0]], dtype=float)
+    geo = _DummyGeographic(dem)
+    model = Modflow6(geographic=geo, model_folder=".")
+    model.flow = SimpleNamespace(config=SimpleNamespace(flow_regime="transient"))
+    model.domain = object()
+    model._apply_preprocess_options(model.preprocess_options)
+
+    with pytest.raises(
+        ValueError,
+        match=r"preprocess_options\.time_grid derived from \[simulation\.time\] for transient flow runs",
+    ):
+        model._validate_pre_processing_inputs()
+
+
+def test_modflow6_accepts_missing_time_grid_for_steady_launcher_flow_preprocessing():
+    dem = np.array([[10.0, 11.0], [12.0, 13.0]], dtype=float)
+    geo = _DummyGeographic(dem)
+    model = Modflow6(geographic=geo, model_folder=".")
+    model.flow = SimpleNamespace(config=SimpleNamespace(flow_regime="steady"))
+    model.domain = object()
+    model._apply_preprocess_options(model.preprocess_options)
+
+    # Steady flow should not require a time_grid; method must return None.
+    assert model._validate_pre_processing_inputs() is None
+
+
+# Adaptive time stepping must target the right period and respect NSTP.
+#
+# Two things go wrong silently here. FloPy converts the ``iper`` of an ATS record
+# to 1-based when it writes the file, so a record built 1-based lands one period
+# late and the last one falls off the end of the simulation. And MF6 ignores the
+# TDIS NSTP of a period ATS covers, so an unbounded ``dtmax`` lets it grow the
+# step back to the whole period, undoing the sub-stepping the run asked for.
+
+
+def _records(*, nstp: list[int], steady: list[bool], perlen: float = 2678400.0):
+    return build_ats_perioddata(
+        perlen=np.full(len(nstp), perlen, dtype=float),
+        nstp=np.asarray(nstp, dtype=int),
+        steady=np.asarray(steady, dtype=bool),
+        dtmin_s=1.0,
+    )
+
+
+def test_steady_periods_carry_no_record() -> None:
+    records = _records(nstp=[1, 10, 10], steady=[True, False, False])
+
+    assert [record[0] for record in records] == [1, 2]
+
+
+def test_indices_are_zero_based_for_flopy(tmp_path: Path) -> None:
+    """FloPy adds one; a 1-based record would shift every period and drop the last."""
+    perlen = 2678400.0
+    records = _records(nstp=[10, 10], steady=[False, False], perlen=perlen)
+    assert [record[0] for record in records] == [0, 1]
+
+    sim = flopy.mf6.MFSimulation(sim_name="s", sim_ws=str(tmp_path), exe_name="mf6")
+    tdis = flopy.mf6.ModflowTdis(
+        sim,
+        nper=2,
+        perioddata=[(perlen, 10, 1.0), (perlen, 10, 1.0)],
+        time_units="seconds",
+    )
+    flopy.mf6.ModflowUtlats(tdis, maxats=len(records), perioddata=records)
+    sim.write_simulation(silent=True)
+
+    written = (tmp_path / "s.ats").read_text(encoding="utf-8").splitlines()
+    start = written.index("BEGIN perioddata")
+    ipers = [int(written[start + 1 + i].split()[0]) for i in range(len(records))]
+
+    # The file MF6 reads is 1-based, and it names every declared period exactly once.
+    assert ipers == [1, 2]
+
+
+def test_ats_may_only_go_below_the_declared_step() -> None:
+    perlen = 2678400.0
+    (record,) = _records(nstp=[10], steady=[False], perlen=perlen)
+    _iper, dt0, dtmin, dtmax, dtadj, dtfailadj = record
+
+    declared = perlen / 10
+    assert dt0 == pytest.approx(declared)
+    # dtmax at perlen would let ATS grow back to a single step per period and
+    # discard the sub-stepping the run declared.
+    assert dtmax == pytest.approx(declared)
+    assert dtmin == 1.0
+    # No growth, but a failed solve is still cut.
+    assert dtadj == 1.0
+    assert dtfailadj > 1.0
+
+
+def test_a_single_step_period_keeps_the_whole_period_as_its_step() -> None:
+    perlen = 2678400.0
+    (record,) = _records(nstp=[1], steady=[False], perlen=perlen)
+
+    assert record[1] == pytest.approx(perlen)
+    assert record[3] == pytest.approx(perlen)
+
+
+# Sparse stress-period emission: MF6 repeats the last PERIOD block.
+#
+# Long daily chronicles pay FloPy's per-period block-header bookkeeping
+# (quadratic in the number of provided periods), so the builders emit only
+# change points: deduplicated recharge/EVT payloads, a single zero AUX block,
+# and STO settings at steady/transient transitions.
+
+
+def test_collapse_drops_consecutive_identical_arrays() -> None:
+    a = np.full(4, 1.0)
+    b = np.full(4, 2.0)
+    spd = {0: a, 1: a.copy(), 2: b, 3: b.copy(), 4: a.copy()}
+    collapsed = collapse_identical_periods(spd)
+    assert sorted(collapsed) == [0, 2, 4]
+    np.testing.assert_allclose(collapsed[4], a)
+
+
+def test_collapse_keeps_list_payload_change_points() -> None:
+    rows_a = [[0, 1, 2.0]]
+    rows_b = [[0, 1, 3.0]]
+    spd = {0: rows_a, 1: list(rows_a), 2: [], 3: [], 4: rows_b}
+    collapsed = collapse_identical_periods(spd)
+    assert sorted(collapsed) == [0, 2, 4]
+    assert collapsed[2] == []
+
+
+def test_collapse_always_keeps_first_period() -> None:
+    spd = {0: np.zeros(3)}
+    assert sorted(collapse_identical_periods(spd)) == [0]
+
+
+def test_empty_recharge_aux_emits_single_period_block() -> None:
+    model = SimpleNamespace(ncpl=5, nper=100)
+    aux = empty_recharge_aux(model)
+    assert sorted(aux) == [0]
+    np.testing.assert_allclose(aux[0][0], np.zeros(5))
+
+
+def test_sto_period_settings_emits_change_points_only() -> None:
+    steady_state, transient = sto_period_settings([True, False, False, False])
+    assert steady_state == {0: True}
+    assert transient == {1: True}
+
+
+def test_sto_period_settings_all_transient() -> None:
+    steady_state, transient = sto_period_settings([False, False, False])
+    assert steady_state == {}
+    assert transient == {0: True}
+
+
+def test_sto_period_settings_alternating_flags() -> None:
+    steady_state, transient = sto_period_settings([False, True, True, False])
+    assert steady_state == {1: True}
+    assert transient == {0: True, 3: True}
+
+
+# The time unit a run declares must be the one it was built in.
+#
+# A launcher run is built in SI seconds. If the MODFLOW declaration, the value
+# the extractors read back, or the tracking clock disagrees with that by one
+# step, every flux or travel time it touches is off by a factor 86400 and
+# nothing raises. These tests pin the three places that could drift.
+
+
+class _ZarrHandle:
+    def __init__(self, path: Path):
+        self.root = zarr.open_group(str(path), mode="a")
+
+    def close(self) -> None:
+        pass
+
+
+class _Store:
+    def __init__(self, root: Path):
+        self.root = root
+
+    def open_zarr(self, sim_id: str) -> _ZarrHandle:
+        return _ZarrHandle(self.root / f"{sim_id}.zarr")
+
+
+class _TimeGrid:
+    period_lengths_seconds = (86400.0, 86400.0)
+    nstp_per_period = 1
+    window = None
+
+
+def _write_tdis(directory: Path, token: str) -> None:
+    (directory / "case.tdis").write_text(
+        f"BEGIN options\n  TIME_UNITS  {token}\nEND options\n", encoding="utf-8"
+    )
+
+
+def _write_dis(directory: Path, model_name: str, itmuni: int) -> None:
+    """Write the header FloPy emits: a comment, NLAY NROW NCOL NPER ITMUNI LENUNI, LAYCBD."""
+    (directory / f"{model_name}.dis").write_text(
+        f"# DIS package for MODFLOW-2005 generated by Flopy\n"
+        f"         1         2         2         1         {itmuni}         2\n"
+        f"  0\n",
+        encoding="utf-8",
+    )
+
+
+def test_temporal_result_states_one_unit_in_both_forms() -> None:
+    result = build_temporal_discretization_from_time_grid(
+        time_grid=_TimeGrid(), flow_regime="transient"
+    )
+
+    assert result.time_units == SIMULATION_TIME_UNIT
+    assert result.itmuni == to_modflow_itmuni(result.time_units)
+
+
+def test_undeclared_unit_resolves_to_the_launcher_unit(tmp_path: Path) -> None:
+    # No TDIS, no DIS: the caller must not silently get days.
+    assert resolve_solver_time_unit(tmp_path, "case") == SIMULATION_TIME_UNIT
+    assert seconds_per_solver_time_unit(tmp_path, "case") == 1.0
+
+
+def test_unknown_tdis_token_resolves_to_the_launcher_unit(tmp_path: Path) -> None:
+    _write_tdis(tmp_path, "UNKNOWN")
+
+    assert resolve_solver_time_unit(tmp_path, "case") == SIMULATION_TIME_UNIT
+
+
+@pytest.mark.parametrize(("token", "expected"), [("SECONDS", 1.0), ("DAYS", 86400.0)])
+def test_tdis_declaration_wins(tmp_path: Path, token: str, expected: float) -> None:
+    _write_tdis(tmp_path, token)
+
+    assert read_time_units_from_tdis(tmp_path / "case.tdis") == token
+    assert seconds_per_solver_time_unit(tmp_path, "case") == expected
+
+
+def test_nwt_falls_back_to_the_dis_itmuni(tmp_path: Path) -> None:
+    _write_dis(tmp_path, "flow", itmuni=4)
+
+    assert read_itmuni_from_dis(tmp_path / "flow.dis") == 4
+    assert resolve_solver_time_unit(tmp_path, "flow") == "days"
+
+
+def test_modpath_stores_the_tracking_unit_it_declares(tmp_path: Path, monkeypatch) -> None:
+    output_dir = tmp_path / "solver"
+    output_dir.mkdir()
+    _write_dis(output_dir, "flow", itmuni=to_modflow_itmuni(SIMULATION_TIME_UNIT))
+    (output_dir / "flow.mppth").write_text("", encoding="utf-8")
+
+    particle = np.zeros(2, dtype=[("x", "f8"), ("y", "f8"), ("z", "f8"), ("time", "f8")])
+    particle["time"] = [0.0, 172800.0]
+
+    class _FakePathlineFile:
+        def __init__(self, path: str) -> None:
+            del path
+
+        def get_alldata(self):
+            return [particle]
+
+    monkeypatch.setattr("flopy.utils.PathlineFile", _FakePathlineFile)
+    store = _Store(tmp_path / "catalog")
+
+    ModpathOutputAdapter().extract("sim_mp", output_dir, store, model_name="flow")
+
+    handle = store.open_zarr("sim_mp")
+    try:
+        time = np.asarray(handle.root["particles/time"])
+        attrs = dict(handle.root["particles"].attrs)
+    finally:
+        handle.close()
+
+    # A MODFLOW-NWT run built in seconds: 172800 s is 2 days, not 172800 days.
+    assert attrs["time_units"] == TRACKING_TIME_UNIT
+    assert np.allclose(time[0], [0.0, 2.0])
+
+
+def test_tracking_factor_is_the_inverse_of_a_day() -> None:
+    assert factor_to_tracking_unit(SIMULATION_TIME_UNIT) == pytest.approx(1.0 / 86400.0)
+    assert factor_to_tracking_unit(TRACKING_TIME_UNIT) == 1.0

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from types import SimpleNamespace
 
 import numpy as np
@@ -217,3 +218,84 @@ def test_a_coordinate_well_without_a_layer_goes_to_the_top_active_cell() -> None
     wel_spd = build_well_stress_period_data(model, 1)
 
     assert sorted((row[0], row[1]) for row in wel_spd[0]) == [(0, 1), (1, 0)]
+
+
+# WP11 - the MF6 WEL builder rejects out-of-range or inactive well cells early.
+
+
+def _with_well(model, location, *, units="m3/day", value=-86400.0):
+    model.flow = SimpleNamespace(
+        sinks_sources={
+            "wells": {
+                "W1": FlowWellConfig(
+                    location=location,
+                    units=units,
+                    forcing={"kind": "constant", "value": value},
+                )
+            }
+        },
+        active_sinks_sources=["wells"],
+    )
+    return model
+
+
+def test_well_cell_layer_out_of_range_raises() -> None:
+    model = _with_well(toy_model(), {"kind": "cell", "cell": (1, 0, 0)})
+    with pytest.raises(ValueError, match=r"W1 layer 1 is outside.*0\.\.0"):
+        build_well_stress_period_data(model, 2)
+
+
+def test_well_cell_on_inactive_cell_raises() -> None:
+    model = toy_model()
+    mask = np.zeros((1, 6), dtype=bool)
+    mask[0, 4] = True  # cell (0,1,1) -> cell_id 4 is inactive
+    model.solver_mesh = replace(model.solver_mesh, idomain=np.where(mask, 0, 1))
+    _with_well(model, {"kind": "cell", "cell": (0, 1, 1)})
+    with pytest.raises(ValueError, match=r"W1 targets an inactive cell.*layer 0, cell 4"):
+        build_well_stress_period_data(model, 2)
+
+
+def test_well_cell_on_inactive_cell_raises_per_layer_mask() -> None:
+    mask = np.zeros((2, 6), dtype=bool)
+    mask[1, 4] = True  # layer 1, cell 4 inactive; layer 0, cell 4 active
+
+    two_layers = replace(
+        toy_model().solver_mesh, botm=np.zeros((2, 6)), idomain=np.where(mask, 0, 1)
+    )
+
+    # W1 in the inactive layer-1 cell raises.
+    model = toy_model()
+    model.nlay = 2
+    model.solver_mesh = two_layers
+    _with_well(model, {"kind": "cell", "cell": (1, 1, 1)})
+    with pytest.raises(ValueError, match=r"W1.*layer 1.*cell 4"):
+        build_well_stress_period_data(model, 1)
+
+    # The same cell in the active layer 0 succeeds.
+    model0 = toy_model()
+    model0.nlay = 2
+    model0.solver_mesh = two_layers
+    _with_well(model0, {"kind": "cell", "cell": (0, 1, 1)})
+    spd = build_well_stress_period_data(model0, 1)
+    assert spd[0] == [[0, 4, pytest.approx(-1.0)]]
+
+
+def test_well_coordinate_layer_out_of_range_raises_unstructured() -> None:
+    model = two_triangle_model()
+    _with_well(model, {"kind": "absolute_xy", "x": 0.75, "y": 0.25, "layer": 2}, value=-1.0)
+    with pytest.raises(ValueError, match=r"W1 layer 2 is outside"):
+        build_well_stress_period_data(model, 1)
+
+
+def test_well_happy_path_unit_conversion_unchanged() -> None:
+    model = _with_well(toy_model(), {"kind": "cell", "cell": (0, 0, 0)})
+    spd = build_well_stress_period_data(model, 2)
+    assert spd[0] == [[0, 0, pytest.approx(-1.0)]]
+    assert spd[1] == [[0, 0, pytest.approx(-1.0)]]
+
+
+def test_well_last_active_cell_not_false_rejected() -> None:
+    model = toy_model()
+    _with_well(model, {"kind": "cell", "cell": (0, 1, 2)})  # -> cell_id 5 (the last)
+    spd = build_well_stress_period_data(model, 1)
+    assert spd[0] == [[0, 5, pytest.approx(-1.0)]]
