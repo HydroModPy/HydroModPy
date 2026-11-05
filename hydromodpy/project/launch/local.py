@@ -21,7 +21,7 @@ takes one, a calibration takes its ``[calibration] parallel`` (the widest
 of its phases). A case wider than the budget is refused without ``force``,
 so the budget is never passed by one case running alone. The ceilings
 were measured on 22 cores (:mod:`hydromodpy.config.sites.budget`): above
-sixteen solves, or more than two for a campaign that holds a calibration,
+sixteen solves, or more than eight for a campaign that holds a calibration,
 or more than eight cases prepared side by side, the launch is refused
 without ``force``; and never more solves times threads than cores. A launch
 ``until = "data"`` solves nothing, so only the prepare ceiling holds.
@@ -307,7 +307,8 @@ def effective_parallel(
     if calibrations and requested > CALIBRATION_PARALLEL_CEILING:
         raise BudgetError(
             f"parallel = {requested} for a campaign of {calibrations} calibration(s); the "
-            f"measured ceiling is {CALIBRATION_PARALLEL_CEILING}. Set [sites.run] parallel = "
+            f"measured ceiling is {CALIBRATION_PARALLEL_CEILING} (8 solves side by side held "
+            f"6.5 GiB on 21 000 cells). Set [sites.run] parallel = "
             f"{CALIBRATION_PARALLEL_CEILING}, or pass --force."
         )
     available = cores if cores is not None else (os.cpu_count() or 1)

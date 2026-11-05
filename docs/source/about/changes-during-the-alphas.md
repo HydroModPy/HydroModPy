@@ -755,7 +755,7 @@ This page keeps, as written, the development notes of `[Unreleased]` and of the 
 - Docstring of the Boussinesq drainage outflow states the base DRN seepage rule it follows.
 - The wheel smoke test runs on Python 3.11, 3.12 and 3.13.
 - The weekly install test checks the default branch with pip on Linux, macOS and Windows. Only Linux blocks.
-- Dependency caps follow the majors the tests passed on: `pyarrow<27`, `duckdb<3`, `optuna<6`, `plotly<8`, `Pillow<14`, `filelock<5`. `pandas` stays below 3.
+- Dependency caps follow the majors the tests passed on: `pyarrow<27`, `duckdb<2`, `optuna<5`, `plotly<7`, `Pillow<14`, `filelock<5`. `pandas` stays below 3.
 - The package declares Linux x86_64 as the supported platform. macOS and Windows are best effort.
 - The `all` extra holds every functional extra.
 - The `cma` import error names the `calibration` extra.

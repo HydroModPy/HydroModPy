@@ -513,9 +513,7 @@ class TestTheModelIsBuiltAndNotSolved:
         path = tmp_path / "project.toml"
         path.write_text(PROJECT_TOML, encoding="utf-8")
         monkeypatch.chdir(tmp_path)
-        trial_ctx = prepare_trials(
-            path, override_paths=override_paths, parameter_space=_space()
-        )
+        trial_ctx = prepare_trials(path, override_paths=override_paths, parameter_space=_space())
 
         with built_model(trial_ctx, {"K": 1e-5}) as ctx:
             _, run_ctx = solver_extract.resolve_flow_adapter(ctx)
