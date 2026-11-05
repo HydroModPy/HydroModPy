@@ -11,7 +11,7 @@ same gray to two of the eight bearings.
 
 The octant is derived from geometry, not from a pointer table. This figure
 reads the receivers of the descent D of the run (``run.descent``, see
-:mod:`hydromodpy.core.drainage.descent`) and takes the vector from a cell center to its
+:mod:`hydromodpy.spatial.drainage.descent`) and takes the vector from a cell center to its
 receiver's center, so it says the same thing on a Voronoi dual as on a
 structured grid. D follows the channel tree where the run has one, so a
 receiver is not always a neighbor. In particular it is NOT a whitebox D8
@@ -38,15 +38,15 @@ import numpy as np
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Opt
 from hydromodpy.display.figure_registry import register
-from hydromodpy.display.figures._routing_surface import (
-    RoutingSurface,
-    routing_surface_from_run,
-    unavailable_reason_for_routing,
-)
 from hydromodpy.display.figures._stream_comparison import annotate_note, cell_count
 from hydromodpy.display.maps.axes import overlay_watershed_contour, style_map_axes
 from hydromodpy.display.maps.mesh_geometry import face_polygons
 from hydromodpy.display.style import neutral
+from hydromodpy.results.derive.stream.routing_surface import (
+    RoutingSurface,
+    routing_surface_from_run,
+    unavailable_reason_for_routing,
+)
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes

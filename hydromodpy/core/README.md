@@ -3,7 +3,7 @@
 The kernel leaf. Every other layer may import `core`, and `core` imports no sibling layer, not even
 under `TYPE_CHECKING`. It holds what several layers need and none should own: the base of every config
 model, units, workspace and path rules, runtime state, I/O primitives, the typed exceptions, and a few
-numerical kernels (scores, drainage on a mesh, the stream criterion) that two layers must compute the
+numerical kernels (scores and the defaults of the stream criterion) that two layers must compute the
 same way. The root keeps only the words every layer shares: the exceptions, the logger, the version, the
 step names, the table words, the licence token. Everything else sits in a sub-package that answers one
 question, and each sub-package has its own `README.md`.
@@ -40,9 +40,7 @@ question, and each sub-package has its own `README.md`.
 | `runtime/` | how does the process behave? `HMP_*` variables, SIGTERM as an interrupt, the lazy bootstrap trigger |
 | `console/` | what does a run show while it works? Live progress and its NDJSON sink |
 | `budget/` | what sign has a budget flux, and which terms does a run keep? |
-| `scoring/` | how well does a simulation match observations? Efficiency metrics and the cost margin |
-| `drainage/` | where does water go on the model top? Receiver graph, depression filling, descent D, downslope distance |
-| `stream/` | which cells are a stream, and how does that compare with the mapped network? The stream-network criterion |
+| `scoring/` | how well does a simulation match observations? Efficiency metrics, the cost margin and the numeric defaults of the stream-network criterion |
 | `fields/` | how is a grid or a field array described? Nodata, grid reference, vertical column, storage precision |
 
 ## What left core
@@ -51,7 +49,9 @@ question, and each sub-package has its own `README.md`.
 `solver/boussinesq/runtimes/diagnostic_files.py`; `administrative_france` is
 `spatial/administrative/regions.py`; `units/udunits` is `results/storage/udunits.py`;
 `config_kit/export_spec` is `results/exporters/export_spec.py`; `migrations` is
-`data/registry/migrations/`.
+`data/registry/migrations/`. The drainage kernels (receiver graph, depression filling, descent D,
+downslope distance) are in `spatial/drainage/`, the mean recharge of the stream criterion is in
+`spatial/forcing/recharge_rates.py`, and the rest of the stream criterion is in `results/derive/stream/`.
 
 ## Import rules
 

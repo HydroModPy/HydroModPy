@@ -20,7 +20,7 @@ from hydromodpy.spatial.mesh.model.geometry import derive_geometry
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from tests._helpers.descent_cases import grid_descent
 from tests._helpers.ugrid_meshes import quad_mesh
-from tests.unit.core.stream._heads_dam import (
+from tests.unit.results.stream._heads_dam import (
     AXIS,
     CELL,
     DAM_FOOT_ROW,

@@ -425,8 +425,8 @@ def _check_held(run: Run, label: str, names: Sequence[str], held: Mapping[str, A
 
 def _network_reason(run: Run) -> str:
     """Say why a run holds no simulated stream network."""
-    from hydromodpy.results.derive.network_criterion_settings import network_criterion_settings
-    from hydromodpy.results.derive.stream_extent import unavailable_reason_for_flow
+    from hydromodpy.results.derive.stream.criterion_settings import network_criterion_settings
+    from hydromodpy.results.derive.stream.run_extent import unavailable_reason_for_flow
 
     try:
         settings = network_criterion_settings(run)

@@ -39,8 +39,10 @@ import every layer, itself included. Today it imports `analysis`,
    `ProjectRerunProvider` into `results.run.rerun_contract`. A new adapter
    gets a hook there.
 
-No `project_layout.yaml` orders the modules inside the package. The shape is
-the one `__init__.py` documents: `facade.py` composes `ProjectRunner`,
+No `project_layout.yaml` orders the modules inside the package, because the modules import each other
+both ways (`facade.py` and `accessors.py`, `runner.py`, `calibrate.py`) and a layout row names only rows above
+it. `tests/unit/architecture/test_project_launch_and_exchange_stand_alone.py` holds the one rule that
+stays true. The shape is the one `__init__.py` documents: `facade.py` composes `ProjectRunner`,
 `ProjectCatalog` and the functions of `phases.py`. The other modules import
 `Project` under `TYPE_CHECKING` only, except the adapters of `dispatch/`,
 which import it inside a function. `launch/` and `exchange/` never import

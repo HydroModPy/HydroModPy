@@ -229,8 +229,8 @@ def _mesh_quality_available(store: Any, sim_id: str) -> list[str]:
 
 def _simulated_network_available(run: Run) -> bool:
     """Return whether the run carries what its simulated stream network is cut from."""
-    from hydromodpy.results.derive.network_criterion_settings import network_criterion_settings
-    from hydromodpy.results.derive.stream_extent import unavailable_reason_for_flow
+    from hydromodpy.results.derive.stream.criterion_settings import network_criterion_settings
+    from hydromodpy.results.derive.stream.run_extent import unavailable_reason_for_flow
 
     try:
         settings = network_criterion_settings(run)

@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING, Any
 import flopy
 import numpy as np
 
-from hydromodpy.core.drainage.descent import Descent, DescentBasin
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units import to_modflow6_time_units
 from hydromodpy.physics.flow.regime import normalize_flow_regime
@@ -122,6 +121,7 @@ from hydromodpy.solver.modflow_grid import (
     resolve_first_period_steady,
 )
 from hydromodpy.solver.modflow_grid.active_connectivity import warn_on_disconnected_active_cells
+from hydromodpy.spatial.drainage.descent import Descent, DescentBasin
 
 if TYPE_CHECKING:
     from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh

@@ -24,20 +24,20 @@ from hydromodpy.calibration.metrics.downslope_network import (
     weighted_pair,
 )
 from hydromodpy.calibration.observations.observed_network import water_body_mask
-from hydromodpy.core.drainage.distance import downslope_distance_to_mask, longest_descent_length
-from hydromodpy.core.stream import geometry as stream_geometry
-from hydromodpy.core.stream.geometry import (
+from hydromodpy.results.derive.stream import geometry as stream_geometry
+from hydromodpy.results.derive.stream.geometry import (
     CriterionSupports,
     build_network_geometry,
     criterion_supports,
     recharge_session,
 )
-from hydromodpy.core.stream.network import (
+from hydromodpy.results.derive.stream.network import (
     SimulatedNetwork,
     build_simulated_network,
     downstream_closure,
     specific_seepage_threshold,
 )
+from hydromodpy.spatial.drainage.distance import downslope_distance_to_mask, longest_descent_length
 from hydromodpy.spatial.mesh.cells.crossed_by_lines import line_crossing_cell_mask
 from hydromodpy.spatial.mesh.cells.in_polygons import vector_cell_mask
 from hydromodpy.spatial.mesh.model.geometry import cell_polygons

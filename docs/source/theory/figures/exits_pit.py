@@ -3,7 +3,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from hydromodpy.core.drainage.descent import build_descent
+from hydromodpy.spatial.drainage.descent import build_descent
 
 NROW, NCOL, SIZE = 3, 3, 10.0
 # Tops in meters. Row 0 is the south row, so north is up on the figure.

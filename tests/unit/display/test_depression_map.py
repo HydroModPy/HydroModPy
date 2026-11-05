@@ -35,17 +35,17 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.core.drainage.filling import DEFAULT_EPSILON_M
-from hydromodpy.display.figures._routing_surface import routing_surface_from_run
 from hydromodpy.display.figures.depression_map import (
     DEPRESSIONS,
     INACTIVE_LABEL,
     READINGS,
     UNREACHABLE,
     DepressionMap,
-    depression_fill,
     reading_for,
 )
+from hydromodpy.results.derive.stream.depressions import depression_fill
+from hydromodpy.results.derive.stream.routing_surface import routing_surface_from_run
+from hydromodpy.spatial.drainage.filling import DEFAULT_EPSILON_M
 
 from ._network_comparison_run import comparison_run, legend_labels, legend_note
 from ._render_helpers import relative_luminance

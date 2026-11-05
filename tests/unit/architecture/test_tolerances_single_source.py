@@ -81,7 +81,7 @@ INLINE_ROWS: frozenset[str] = frozenset(
         "sfr_standalone_budget_closure_mf6__gwf_listing_percent_discrepancy",
         "sfr_lak_mvr_reciprocity_mf6__terminal_reach_to_mvr_vs_lake_from_mvr",
         # V-valley support bench and the D4/D8 length ratio, asserted in
-        # tests/unit/core/drainage/test_distance.py.
+        # tests/unit/drainage/test_distance.py.
         "v_valley_support_bench_case_a__root_relative_gap_between_raw_and_closed_observed_network",
         "v_valley_support_bench_case_b__root_drift_under_a_rasterization_hole",
         # Terrain port conformance suite, tests/contract/test_terrain_engine_contract.py.
@@ -89,7 +89,7 @@ INLINE_ROWS: frozenset[str] = frozenset(
         "terrain_engine_conformance__ln_transform_identity",
         "downslope_operator_d4_vs_d8__length_ratio_on_a_pure_diagonal_descent",
         # Golden comparison against whitebox D-infinity, asserted in
-        # tests/unit/core/drainage/test_downslope_whitebox_golden.py.
+        # tests/unit/drainage/test_downslope_whitebox_golden.py.
         "downslope_operator_vs_whitebox_d_infinity__spearman_rank_correlation_on_a_real_dem",
         "downslope_operator_vs_whitebox_d_infinity__median_relative_gap",
         # Bands of the double-execution comparator, read at import time by

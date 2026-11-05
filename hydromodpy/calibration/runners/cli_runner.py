@@ -152,10 +152,10 @@ from hydromodpy.core.exceptions import (
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.runtime.interrupts import TerminationRequested, terminate_as_interrupt
 from hydromodpy.core.state.result_dirs import run_dir_rel, session_dir_rel
-from hydromodpy.core.stream.geometry import VALIDITY_PROVENANCE_BY_CODE
 from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
 from hydromodpy.core.workspace.path_registry import in_run_scratch
 from hydromodpy.results.checks import CalibrationSessionStatus, StopState
+from hydromodpy.results.derive.stream.geometry import VALIDITY_PROVENANCE_BY_CODE
 from hydromodpy.results.session.descriptor import (
     BestTrial,
     CostInterval,

@@ -8,11 +8,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from hydromodpy.core.budget.flux import seepage_mask
-from hydromodpy.core.drainage.descent import build_descent, descent_graph
-from hydromodpy.core.drainage.distance import build_downslope_metric, shared_node_adjacency
-from hydromodpy.core.drainage.filling import fill_depressions_on_graph
-from hydromodpy.core.drainage.graph import accumulate_on_downhill_graph, domain_edge_cells
-from hydromodpy.core.stream.network import build_simulated_network, specific_seepage_threshold
+from hydromodpy.results.derive.stream.network import (
+    build_simulated_network,
+    specific_seepage_threshold,
+)
+from hydromodpy.spatial.drainage.descent import build_descent, descent_graph
+from hydromodpy.spatial.drainage.distance import build_downslope_metric, shared_node_adjacency
+from hydromodpy.spatial.drainage.filling import fill_depressions_on_graph
+from hydromodpy.spatial.drainage.graph import accumulate_on_downhill_graph, domain_edge_cells
 
 N, SIZE = 24, 25.0  # cells per side, cell size in m
 RECHARGE = 1.0e-8  # m/s, about 315 mm per year

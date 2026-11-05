@@ -15,10 +15,10 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.core.drainage.graph import accumulate_on_downhill_graph
 from hydromodpy.results.derive import accumulation
 from hydromodpy.results.derive.accumulation import drain_accumulation_flux_rows
 from hydromodpy.results.zarr_store import SimulationZarr
+from hydromodpy.spatial.drainage.graph import accumulate_on_downhill_graph
 from tests._helpers.descent_cases import grid_descent
 from tests._helpers.ugrid_meshes import quad_mesh
 
@@ -86,7 +86,7 @@ def test_the_whole_flux_leaves_through_the_seeds_of_the_stored_descent(tmp_path:
 
 
 def test_the_steepest_descent_of_the_raw_top_ends_in_the_pit_and_d_ends_on_the_rim() -> None:
-    from hydromodpy.core.drainage.graph import build_downhill_graph
+    from hydromodpy.spatial.drainage.graph import build_downhill_graph
 
     vertices, connectivity = quad_mesh(4, 4)
     raw = build_downhill_graph(TOP.ravel(), connectivity, vertices=vertices)

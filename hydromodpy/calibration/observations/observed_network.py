@@ -25,7 +25,7 @@ cells of a line one cell wide.
 
 The default rule, ``"heads"``, draws no cell from the lines: it keeps their free
 ends (:func:`observed_head_candidates`) and the criterion traces them down its
-own graph (:mod:`hydromodpy.core.stream.heads`).
+own graph (:mod:`hydromodpy.results.derive.stream.heads`).
 """
 
 from __future__ import annotations
@@ -37,8 +37,10 @@ from typing import TYPE_CHECKING, Any, Literal
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.stream.heads import HeadCandidates
-from hydromodpy.spatial.geographic.core.network_heads import network_head_candidates
+from hydromodpy.spatial.geographic.core.network_heads import (
+    HeadCandidates,
+    network_head_candidates,
+)
 from hydromodpy.spatial.mesh.cells.crossed_by_lines import line_crossing_cell_mask
 from hydromodpy.spatial.mesh.cells.in_polygons import vector_cell_mask
 from hydromodpy.spatial.mesh.model.geometry import cell_polygons

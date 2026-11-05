@@ -18,7 +18,7 @@ import pytest
 
 from hydromodpy.core.time.selection import resolve_state
 from hydromodpy.display.figures._stream_comparison import compared_timestep, dated_title
-from hydromodpy.results.derive.network_criterion_settings import network_criterion_settings
+from hydromodpy.results.derive.stream.criterion_settings import network_criterion_settings
 from tests._helpers.sealed_runs import sealed_search
 
 # 36 monthly periods, 2000-01 to 2002-12. October 2002 is period 33.

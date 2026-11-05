@@ -13,11 +13,11 @@ import logging
 import numpy as np
 import pytest
 
-from hydromodpy.core.drainage import descent as core_descent
-from hydromodpy.core.drainage.descent import DescentBasin
 from hydromodpy.solver.modflow6.extractors.flow import Modflow6OutputAdapter
 from hydromodpy.solver.modflow_common import catchment_basin
 from hydromodpy.solver.modflow_common.descent_store import write_descent_sidecar
+from hydromodpy.spatial.drainage import descent as core_descent
+from hydromodpy.spatial.drainage.descent import DescentBasin
 from tests._helpers.descent_cases import grid_descent
 
 TOP = np.array([[5.0, 4.0, 3.0], [4.0, 1.0, 2.0], [6.0, 5.0, 4.0]])

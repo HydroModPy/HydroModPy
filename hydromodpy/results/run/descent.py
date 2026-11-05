@@ -3,7 +3,7 @@
 The solver build stores D under ``fields.zarr/mesh/`` (``descent_*`` arrays),
 with the basin of D at the catchment outlet (``descent_basin``). A run sealed
 before that has no D: its view rebuilds D from the stored top with
-:func:`hydromodpy.core.drainage.descent.descent_from_stored_mesh` and says so once. A run
+:func:`hydromodpy.spatial.drainage.descent.descent_from_stored_mesh` and says so once. A run
 sealed with D but before the basin has D and no basin (``basin`` is ``None``).
 The share of each cell's area inside the delineated catchment polygon lands
 beside the basin as ``catchment_fraction`` (:func:`read_catchment_fraction`).
@@ -18,10 +18,10 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.core.drainage.descent import descent_from_stored_mesh, descent_graph
-from hydromodpy.core.drainage.filling import DEFAULT_EPSILON_M
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results.run.contracts import MeshDescent
+from hydromodpy.spatial.drainage.descent import descent_from_stored_mesh, descent_graph
+from hydromodpy.spatial.drainage.filling import DEFAULT_EPSILON_M
 
 if TYPE_CHECKING:
     from collections.abc import Callable

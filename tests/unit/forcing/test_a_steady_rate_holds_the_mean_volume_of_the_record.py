@@ -15,12 +15,6 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.core.stream.geometry import RECHARGE_MOVE_TOLERANCE
-from hydromodpy.core.stream.recharge import (
-    criterion_mean_recharge,
-    forcing_period_rates,
-    mean_recharge_m_s,
-)
 from hydromodpy.core.time.coverage import calendar_sample_days
 from hydromodpy.core.time.period_aggregation import period_mean_on_index
 from hydromodpy.core.time.steady_initialization import single_period_mean_forcing_time_grid
@@ -34,6 +28,7 @@ from hydromodpy.physics.forcing.steady_periods import (
     steady_rate,
 )
 from hydromodpy.physics.forcing.time_alignment import align_forcing_series_to_simulation_window
+from hydromodpy.results.derive.stream.geometry import RECHARGE_MOVE_TOLERANCE
 from hydromodpy.solver.boussinesq.forcing.common import ForcingCommonMixin
 from hydromodpy.solver.boussinesq.forcing.recharge_resolution import RechargeResolutionMixin
 from hydromodpy.solver.modflow6.builders.recharge import recharge_to_spd
@@ -43,6 +38,11 @@ from hydromodpy.solver.modflow_nwt.nwt.payloads.recharge_etp import (
     assemble_rch_data,
 )
 from hydromodpy.spatial.forcing.cells import discretize_fields_on_cells
+from hydromodpy.spatial.forcing.recharge_rates import (
+    criterion_mean_recharge,
+    forcing_period_rates,
+    mean_recharge_m_s,
+)
 from hydromodpy.spatial.forcing.stations import period_means
 from tests._helpers import forcing_cases as fc
 from tests._helpers.mf6_toy_models import toy_model

@@ -28,9 +28,9 @@ from hydromodpy.core.budget.flux import (
     has_release_budget,
     release_flux_stack,
 )
-from hydromodpy.core.drainage.descent import descent_from_stored_mesh, descent_graph
-from hydromodpy.core.drainage.graph import DownhillGraph, accumulate_on_downhill_graph
 from hydromodpy.core.logging import get_logger
+from hydromodpy.spatial.drainage.descent import descent_from_stored_mesh, descent_graph
+from hydromodpy.spatial.drainage.graph import DownhillGraph, accumulate_on_downhill_graph
 
 logger = get_logger(__name__)
 

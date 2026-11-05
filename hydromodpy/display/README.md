@@ -105,8 +105,8 @@ hydromodpy/display/
 ├── figure_registry.py     register, get, resolve, names, list_figures; imports figures/ on first lookup
 ├── figures/               one figure per file, flat, discovered automatically
 │   ├── scalar_face_map.py    base of the "one value per mesh face" maps
-│   ├── _stream_comparison.py, _routing_surface.py, _flow_persistence.py, _trial_diagnostics.py,
-│   │   _observed.py, _memo.py, _instant.py (how a title names the period it draws)
+│   ├── _stream_comparison.py, _flow_persistence.py, _trial_diagnostics.py,
+│   │   _observed.py, _instant.py (how a title names the period it draws)
 │   │                          helpers shared between figures (private to figures/)
 │   ├── lake_level_fit.py      public helper, not registered, read by reporting
 │   └── <name>.py              the registered figures
@@ -385,7 +385,9 @@ generated from the registry into the figures page of the documentation, and
 
 `display` imports `core`, `schema` and `results`
 (`tests/unit/architecture/layer_matrix.yaml`), never `data`, `simulation`,
-`solver` or `calibration`. The root facade, `config`, `analysis`, `reporting`,
+`solver`, `calibration` or `spatial`. A figure of the stream criterion or of the routing surface only draws:
+the network, the extents, the routing surface and the depression floods are computed in
+`results/derive/stream/`. The root facade, `config`, `analysis`, `reporting`,
 `workflow`, `project` and `cli` import it, each through the modules of the
 `public` list of `display_layout.yaml`, and `calibration` through its tolerance
 for `report_blocks`.

@@ -50,7 +50,11 @@ from hydromodpy.core.contracts.observables import (
 )
 from hydromodpy.core.exceptions import ObjectiveError, ObservableNotAvailableError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.stream.extent import (
+from hydromodpy.core.time import nominal_step_days
+from hydromodpy.core.time.period_aggregation import period_edges
+from hydromodpy.core.time.selection import TimeSelectionError, resolve_state
+from hydromodpy.core.units.quantities import normalize_m3_per_s_unit
+from hydromodpy.results.derive.stream.extent import (
     Bound,
     CalendarYears,
     calendar_years,
@@ -62,11 +66,7 @@ from hydromodpy.core.stream.extent import (
     parse_visible_flow,
     yearly_flow_counts,
 )
-from hydromodpy.core.stream.network import build_simulated_network
-from hydromodpy.core.time import nominal_step_days
-from hydromodpy.core.time.period_aggregation import period_edges
-from hydromodpy.core.time.selection import TimeSelectionError, resolve_state
-from hydromodpy.core.units.quantities import normalize_m3_per_s_unit
+from hydromodpy.results.derive.stream.network import build_simulated_network
 from hydromodpy.simulation.planning.plan import RunContext
 from hydromodpy.solver.base.registry import get_solver_adapter
 
@@ -757,7 +757,7 @@ def _score_two_bounds(
     ``first_year_scored``, ``last_year_scored``, and ``year_scored_y<year>``
     for every year the run touches, 1 when scored and 0 when left out,
     incomplete or outside the window. The stack is read one year at a time by
-    :func:`hydromodpy.core.stream.extent.yearly_flow_counts`. The maximal mask
+    :func:`hydromodpy.results.derive.stream.extent.yearly_flow_counts`. The maximal mask
     is scored against the maximal map, the minimal mask against the minimal
     map when one is declared, and each year's masks the same way as a
     diagnostic. With one bound the unsuffixed components carry it, as in one
@@ -933,7 +933,7 @@ def score_network_output(
     - both maps: ``frac_minimal_outside_maximal``.
     - every bound: ``r_optim_valid`` (``D_optim <= validity_length_m``),
       ``validity_length_m`` and ``validity_length_provenance``, the code of
-      :data:`hydromodpy.core.stream.geometry.VALIDITY_PROVENANCE_CODE`.
+      :data:`hydromodpy.results.derive.stream.geometry.VALIDITY_PROVENANCE_CODE`.
 
     ``saturated_thickness`` is the per-cell field of the same run. It feeds
     :func:`catchment_saturation` only and never enters the value; it is read

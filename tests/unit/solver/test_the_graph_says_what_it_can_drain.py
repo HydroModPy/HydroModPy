@@ -21,8 +21,6 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.core.drainage.descent import descent_basin
-from hydromodpy.core.drainage.graph import build_downhill_graph
 from hydromodpy.solver.modflow_common.discharge_routing import (
     largest_drainable_share,
     last_largest_drainable_share,
@@ -32,6 +30,8 @@ from hydromodpy.solver.modflow_common.discharge_routing import (
 )
 from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from hydromodpy.spatial.drainage.descent import descent_basin
+from hydromodpy.spatial.drainage.graph import build_downhill_graph
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 N = 30

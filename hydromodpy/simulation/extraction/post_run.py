@@ -16,7 +16,6 @@ from hydromodpy.core.budget.flux import networks_route_drainage
 from hydromodpy.core.budget.terms import BudgetKeep
 from hydromodpy.core.contracts.solver_registry import get_solver_registry_provider
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.stream.recharge import CRITERION_MEAN_RECHARGE_ATTR, mean_recharge_m_s
 from hydromodpy.physics.flow.sinks_sources.wells import (
     WELL_THROTTLE_WARNING_FRACTION,
     WELLS_PUMPED_CHECK,
@@ -24,6 +23,10 @@ from hydromodpy.physics.flow.sinks_sources.wells import (
 )
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.simulation.planning.results_config import ResultsConfig
+from hydromodpy.spatial.forcing.recharge_rates import (
+    CRITERION_MEAN_RECHARGE_ATTR,
+    mean_recharge_m_s,
+)
 
 logger = get_logger(__name__)
 

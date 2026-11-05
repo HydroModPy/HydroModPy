@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 
 from hydromodpy.core.budget.flux import budget_outflow
-from hydromodpy.core.drainage.graph import (
+from hydromodpy.spatial.drainage.graph import (
     accumulate_on_downhill_graph,
     active_surface_mask,
     build_downhill_graph,

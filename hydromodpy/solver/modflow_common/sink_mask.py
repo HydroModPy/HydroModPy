@@ -33,12 +33,12 @@ from collections.abc import Iterable
 
 import numpy as np
 
-from hydromodpy.core.drainage.filling import fill_depressions_on_graph
-from hydromodpy.core.drainage.graph import (
+from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from hydromodpy.spatial.drainage.filling import fill_depressions_on_graph
+from hydromodpy.spatial.drainage.graph import (
     cell_adjacency_from_face_connectivity,
     domain_edge_cells,
 )
-from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh.model.geometry import padded_rows
 
 __all__ = ("closed_depression_mask", "resolve_sink_mask")

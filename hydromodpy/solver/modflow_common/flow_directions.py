@@ -1,13 +1,13 @@
 """Build the descent D of a ``SolverMesh``, the routing copy of its top.
 
 D gives every cell one receiver, the neighbor its water goes to, on a copy of
-the model top filled until each cell drains (:mod:`hydromodpy.core.drainage.descent`).
+the model top filled until each cell drains (:mod:`hydromodpy.spatial.drainage.descent`).
 D never goes back to the solver, and the top it is built from is the one the
 solver sees, after the lake carve. Both MODFLOW backends build D once per build,
 from this module, so neither imports the other. The adapter reads the planar
 mesh and the activity of the solver mesh, takes the lake footprints and the
 constant-head cells as explicit masks, and hands them to
-:func:`hydromodpy.core.drainage.descent.build_descent`.
+:func:`hydromodpy.spatial.drainage.descent.build_descent`.
 
 A is the generated river network, traced on the D8 pointer of the routing DEM.
 Without it, D descends its own flats by flood order and runs beside A, so the
@@ -25,9 +25,6 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.core.drainage.descent import Descent, build_descent
-from hydromodpy.core.drainage.distance import resolve_outlet
-from hydromodpy.core.drainage.filling import DEFAULT_EPSILON_M
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow_common.catchment_basin import (
     domain_is_the_catchment,
@@ -35,6 +32,9 @@ from hydromodpy.solver.modflow_common.catchment_basin import (
     outlet_search,
 )
 from hydromodpy.solver.modflow_common.channel_tree import ChannelTree, project_channel_tree
+from hydromodpy.spatial.drainage.descent import Descent, build_descent
+from hydromodpy.spatial.drainage.distance import resolve_outlet
+from hydromodpy.spatial.drainage.filling import DEFAULT_EPSILON_M
 
 __all__ = ["build_solver_mesh_descent", "resolve_dam_foot_cells"]
 

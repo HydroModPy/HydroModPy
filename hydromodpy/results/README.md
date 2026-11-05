@@ -53,7 +53,7 @@ layout is `storage/contract.py`; the full contract is
 | `run/field_envelope.py` | the minimum and maximum per cell of a field of an earlier sealed run, for the refinement zones of `[mesh]` (`read_run_fields`) |
 | `run/tables.py` | the Parquet tables of one run read from its directory (`read_run_table`, `has_rows`); every Run reads its rows there, never from the index |
 | `run/sealed_facts.py`, `run/ranking.py` | the facts a table of runs reads from each seal (`read_run_facts`, `overrides_text`, `place_of`), and the rows of sealed runs ranked by one metric under one rule (`rank_rows`, with `group.rank_key`), or why a group has none (`unscored_reason`) |
-| `derive/` | what is computed on read from stored fields: virtual fields, catchment views, the read dispatch shared by `hmp.read` and `Catalog.read` (`reading.py`), stream-network comparisons, time alignment, downsampling |
+| `derive/` | what is computed on read from stored fields: virtual fields, catchment views, the read dispatch shared by `hmp.read` and `Catalog.read` (`reading.py`), time alignment, downsampling, and `stream/`, the stream-network criterion read on a finished run: its comparison with the mapped network, its flow extents, the routing surface and the depression floods the figures draw (`derive/stream/README.md`) |
 | `exporters/` | one writer per format (CSV, GeoTIFF, NetCDF-UGRID, VTU, Shapefile, GeoPackage), the VTU one through `spatial/mesh/io/vtu.py`; `export_spec.py` is the `[[export]]` request and its output planner, `vocabulary.py` is the names a user may export, `request.py` `export_run` writes one `[[export]]` request under `runs/<run>/exports/`, poses the identity block and records `exports/index.json` |
 | `export/` | FAIR views built from a sealed directory (`directory.py`, `rocrate.py`, `stac.py`, `prov.py`); `publish.py` copies a run or a summary out of the tree (directory or tar, `PUBLICATION.json`, redaction, and with inputs the install index a caller builds); `project_package.py` writes a whole project with its data (`hmp publish --package`); `summary_tables.py` writes a table of runs as Parquet, CSV and GeoPackage with the same cells; `run_identity.py` is the identity and label of the day of a run directory; `ledgers.py` records a derived file |
 | `importers/` | readers symmetric to the exporters: CSV series, NetCDF fields, one Zarr field |
@@ -104,7 +104,9 @@ hydromodpy/results/
                  ports.py  protocol.py  adapters/duckdb.py  dataset_loader.py
   run/           view.py (Run)  group.py (RunSet)  geographic.py  timeseries.py  hydrographic.py
                  array.py  point.py  periods.py  descent.py  particles.py ...
-  derive/        virtual_fields.py  views.py  reading.py  stream_network.py  time_alignment.py ...
+  derive/        virtual_fields.py  views.py  reading.py  run_memo.py  time_alignment.py ...
+                 stream/  network.py  extent.py  heads.py  geometry.py  comparison.py  run_extent.py
+                          heads_view.py  criterion_settings.py  routing_surface.py  depressions.py
   exporters/     csv.py  geotiff.py  netcdf.py  vtu.py  shapefile.py  geopackage.py
                  vocabulary.py  request.py
   export/        rocrate.py  stac.py  prov.py  directory.py  publish.py  project_package.py

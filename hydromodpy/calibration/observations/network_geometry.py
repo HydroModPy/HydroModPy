@@ -1,6 +1,6 @@
 """The bridge between one run and the static geometry of its stream criterion.
 
-The construction itself lives in :mod:`hydromodpy.core.stream.geometry`, so the
+The construction itself lives in :mod:`hydromodpy.results.derive.stream.geometry`, so the
 criterion and the results layer that redraws a run afterwards share one
 derivation. What is left here is what only a calibration knows: which model a
 trial produced, what recharge it received, and where its mapped network was
@@ -16,14 +16,14 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.stream.geometry import NetworkGeometry, build_network_geometry
-from hydromodpy.core.stream.heads import (
-    HeadCandidates,
+from hydromodpy.results.derive.stream.geometry import NetworkGeometry, build_network_geometry
+from hydromodpy.results.derive.stream.heads import (
     HeadsSettings,
     concat_candidates,
     trace_from_heads,
 )
-from hydromodpy.core.stream.recharge import mean_recharge_m_s
+from hydromodpy.spatial.forcing.recharge_rates import mean_recharge_m_s
+from hydromodpy.spatial.geographic.core.network_heads import HeadCandidates
 from hydromodpy.spatial.mesh.model.geometry import padded_rows
 
 if TYPE_CHECKING:

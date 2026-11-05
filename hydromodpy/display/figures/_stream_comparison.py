@@ -14,7 +14,7 @@ earn that area back, so the frame, the weight a cell is drawn with and the
 place the counts are written live here rather than four times over.
 
 Nothing here decides anything: the partition comes from
-:mod:`hydromodpy.results.derive.stream_network`, which rebuilds it through the
+:mod:`hydromodpy.results.derive.stream.comparison`, which rebuilds it through the
 construction the calibration criterion scores.
 """
 
@@ -27,10 +27,9 @@ from typing import TYPE_CHECKING, Literal
 import numpy as np
 
 from hydromodpy.display.figures._instant import instant_label
-from hydromodpy.display.figures._memo import RunMemo
 from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET, neutral
-from hydromodpy.results.derive.network_criterion_settings import network_criterion_settings
-from hydromodpy.results.derive.stream_network import (
+from hydromodpy.results.derive.run_memo import RunMemo
+from hydromodpy.results.derive.stream.comparison import (
     AGREEMENT_EXCESS,
     AGREEMENT_MISSING,
     AGREEMENT_NEITHER,
@@ -39,13 +38,14 @@ from hydromodpy.results.derive.stream_network import (
     agreement_label,
     network_comparison_from_run,
 )
+from hydromodpy.results.derive.stream.criterion_settings import network_criterion_settings
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.collections import PolyCollection
     from matplotlib.legend import Legend
 
-    from hydromodpy.core.stream.extent import VisibleFlow
+    from hydromodpy.results.derive.stream.extent import VisibleFlow
     from hydromodpy.results.run import Run
 
 GROUND_COLOR = "#EDEDED"

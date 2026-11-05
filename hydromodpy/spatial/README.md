@@ -18,12 +18,13 @@ sub-package has a note of its own with the full map.
 | `job_inputs.py` | the input checks of the `domain-build` worker, and the hashes of the outputs it seals |
 | `administrative/` | the French departments and regions of the bundled `departement.gpkg`: their codes in a box or a region, their box and outline |
 | `delineation/` | the backends that route flow on a DEM and delineate a catchment. `whitebox_workflows_backend/` is the one shipped |
+| `drainage/` | where water goes on the cells of the model top: the receiver graph, depression filling, the descent D and the downslope distance |
 | `terrain/` | the `TerrainEngine` port, its two engines (Whitebox and numpy), the artifact writers and the D8 pointer reader |
 | `geographic/` | the pipeline before the simulation: the ground, the flow products, the catchment, the zones and the river networks. `GeographicConfig` is `[geographic]`, and `CatchmentZonesField` is the zonation that `structure_binders.py` puts in `Domain.zones` |
 | `domain/` | the aquifer geometry: `Domain`, its four depth models, the layering of the column, the zoning supports and the `domain-build` capability |
 | `field/` | values on zones, cells and depths: `Field`, `FieldParam` with its vertical profile, and the geology field. `mesh/` never imports it |
 | `mesh/` | the unified mesh (`HydroMesh`, `PlanarCellMesh`), its regular, triangle and Voronoi engines, its exchange formats and the `[mesh]` config |
-| `forcing/` | gridded and station forcings as one rate per cell and per stress period. `mesh/` never imports it |
+| `forcing/` | gridded and station forcings as one rate per cell and per stress period, and the mean recharge a run is scored on. `mesh/` never imports it |
 | `lake_bed/` | the lake bed rebuilt from bathymetry and reconciled to the abacus |
 
 ## Import rules
@@ -40,7 +41,7 @@ tolerance left. The one link to data goes through the caller: geology reaches
 spatial through `protocols.GeologyDataSource`, and `hydromodpy/_bootstrap.py`
 registers `default_geology_data_source()` at start-up.
 
-Two rules hold inside:
+Three rules hold inside:
 
 1. `terrain/` imports `core` and itself, and one thing more. The method
    `WhiteboxTerrainEngine.__init__` in `terrain/whitebox_engine.py` imports
@@ -49,7 +50,8 @@ Two rules hold inside:
    module, and no other module of `terrain/` loads `delineation`. The matrix
    cannot see this, so `tests/unit/architecture/test_terrain_port_stands_alone.py`
    checks it, with that one declared exception.
-2. A third-party terrain engine joins through the `hydromodpy.terrain.engine`
+2. `drainage/` imports `core` and itself. `spatial/mesh/planning/height_above_stream.py` reads it, and `terrain/` and `geographic/` do not: they work on D8 pixels before the mesh exists.
+3. A third-party terrain engine joins through the `hydromodpy.terrain.engine`
    entry-point group; one conformance suite, `tests/contract/test_terrain_engine_contract.py`,
    runs on every engine the registry resolves.
 
@@ -61,7 +63,7 @@ package root (`_bootstrap.py`, `_lazy.py`).
 ## Tree
 
 Each sub-package has its own README with the full map: `administrative/`,
-`delineation/`, `domain/`, `field/`, `forcing/`, `geographic/`, `lake_bed/`,
+`delineation/`, `domain/`, `drainage/`, `field/`, `forcing/`, `geographic/`, `lake_bed/`,
 `mesh/` and `terrain/`.
 
 ```text
@@ -79,6 +81,12 @@ spatial/
 ├── delineation/               catchment delineation and flow routing backends
 │   ├── registry.py            backend name to backend class
 │   └── whitebox_workflows_backend/   raster, flow and delineation sub-backends
+├── drainage/                  where water goes on the model top
+│   ├── graph.py               receiver graph and accumulation
+│   ├── filling.py             depression filling
+│   ├── pins.py                pinned cells a descent passes through
+│   ├── descent.py             the descent D
+│   └── distance.py            downslope distance to a mask
 ├── terrain/                   the terrain port and its engines
 │   ├── port.py                TerrainEngine and its value types
 │   ├── registry.py            engine id to engine class, and the entry point group
@@ -117,6 +125,7 @@ spatial/
 │   ├── cells.py               one rate per cell and per stress period
 │   ├── rasters.py             xarray, NetCDF and GeoTIFF sources
 │   ├── stations.py            located series
+│   ├── recharge_rates.py      the mean recharge of a run
 │   ├── sources.py             units and variables
 │   ├── area_weights.py        the area method
 │   └── interpolation.py       nearest, linear and IDW

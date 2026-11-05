@@ -1,6 +1,6 @@
 """Synthetic UGRID meshes for the routing and downslope-distance unit suites.
 
-The builders return the two arrays every ``core.drainage.graph`` entry point
+The builders return the two arrays every ``spatial.drainage.graph`` entry point
 reads: ``vertices`` as ``(n_nodes, 3)`` and a dense ``face_node_connectivity``
 as ``(n_cells, 4)``. Cells are numbered row-major, so a structured field can be
 reshaped to ``(nrow, ncol)`` without any index bookkeeping.

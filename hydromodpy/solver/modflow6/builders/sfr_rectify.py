@@ -9,7 +9,7 @@ delineated stream cells: from every seed cell the SFD is traced one neighbor at 
 time until it reaches a lake, the outlet of the descent, or an already-traced channel
 cell.
 
-The SFD is read from the descent D (``hydromodpy.core.drainage.descent``): a filled COPY of the
+The SFD is read from the descent D (``hydromodpy.spatial.drainage.descent``): a filled COPY of the
 solver top, so every cell but the seeds of the fill has a receiver and the model top is
 left as it is. This module only takes D's receivers as an array, so it needs no
 conditioned top. The stub pruning and the lake-shore test read the shared-face

@@ -13,15 +13,15 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
-from hydromodpy.core.stream.criterion_defaults import STREAM_CRITERION_DEFAULTS
-from hydromodpy.core.stream.extent import DEFAULT_VISIBLE_FLOW
-from hydromodpy.results.derive.network_criterion_settings import (
+from hydromodpy.core.scoring.stream_defaults import STREAM_CRITERION_DEFAULTS
+from hydromodpy.results.derive.stream.criterion_settings import (
     DEFAULT_CRITERION_SETTINGS,
     DEFAULT_EXTENT_RULES,
     NetworkExtentRules,
     network_criterion_settings,
     network_outputs_of_run,
 )
+from hydromodpy.results.derive.stream.extent import DEFAULT_VISIBLE_FLOW
 from tests._helpers.sealed_runs import sealed_search
 
 

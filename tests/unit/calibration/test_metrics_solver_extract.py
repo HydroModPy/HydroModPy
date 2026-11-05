@@ -67,13 +67,11 @@ from hydromodpy.calibration.observations.network_source import UnresolvedObserve
 from hydromodpy.calibration.observations.observed_network import ObservedNetworkMask
 from hydromodpy.calibration.optim.objective import build_objective_from_config
 from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
-from hydromodpy.core.drainage.descent import DescentBasin
-from hydromodpy.core.drainage.distance import resolve_outlet
 from hydromodpy.core.exceptions import ObjectiveError, ObservableNotAvailableError
-from hydromodpy.core.stream.geometry import build_network_geometry
 from hydromodpy.core.time.selection import TimeSelectionError, resolve_state
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
+from hydromodpy.results.derive.stream.geometry import build_network_geometry
 from hydromodpy.solver.base.cell_lookup import (
     locate_cell_on_solver_mesh,
     top_active_layer_on_solver_mesh,
@@ -85,6 +83,8 @@ from hydromodpy.solver.modflow_common import observable_extraction as _extractio
 from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.solver.modflow_nwt.adapters.flow import ModflowNwtFlowAdapter
+from hydromodpy.spatial.drainage.descent import DescentBasin
+from hydromodpy.spatial.drainage.distance import resolve_outlet
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 from tests._helpers.ugrid_meshes import quad_mesh
 from tests._helpers.v_valley import (

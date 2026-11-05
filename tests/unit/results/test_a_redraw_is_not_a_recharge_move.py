@@ -21,17 +21,17 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.core.stream import geometry as stream_geometry
-from hydromodpy.core.stream.geometry import build_network_geometry
-from hydromodpy.core.stream.recharge import (
+from hydromodpy.core.units import factor_to_m_per_s
+from hydromodpy.results.derive.stream import geometry as stream_geometry
+from hydromodpy.results.derive.stream.comparison import network_comparison_from_run
+from hydromodpy.results.derive.stream.geometry import build_network_geometry
+from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
+from hydromodpy.spatial.forcing.recharge_rates import (
     CRITERION_MEAN_RECHARGE_ATTR,
     criterion_mean_recharge,
     forcing_period_rates,
     mean_recharge_m_s,
 )
-from hydromodpy.core.units import factor_to_m_per_s
-from hydromodpy.results.derive.stream_network import network_comparison_from_run
-from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 from tests.unit.display._network_comparison_run import (
     AXIS_COLUMN,
     CELL_M,

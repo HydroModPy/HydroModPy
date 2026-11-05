@@ -355,9 +355,9 @@ def simulated_network(
     same model it reads them from. ``centres_of`` gives the points the criterion
     samples the top at, the polygon centroids by default.
     """
-    from hydromodpy.core.stream.criterion_defaults import STREAM_CRITERION_DEFAULTS
-    from hydromodpy.core.stream.geometry import build_network_geometry
-    from hydromodpy.core.stream.network import build_simulated_network
+    from hydromodpy.core.scoring.stream_defaults import STREAM_CRITERION_DEFAULTS
+    from hydromodpy.results.derive.stream.geometry import build_network_geometry
+    from hydromodpy.results.derive.stream.network import build_simulated_network
     from hydromodpy.spatial.mesh.model.geometry import cell_polygons
 
     mesh = sim.mesh

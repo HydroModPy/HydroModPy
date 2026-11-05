@@ -297,7 +297,7 @@ def test_on_a_voronoi_mesh_the_line_is_a_thinner_subset_of_touch() -> None:
 
 def test_on_a_voronoi_mesh_a_chain_of_seeds_comes_back_as_itself() -> None:
     """The model's own network, drawn through its seeds, is the observed network."""
-    from hydromodpy.core.drainage.graph import cell_adjacency_from_face_connectivity
+    from hydromodpy.spatial.drainage.graph import cell_adjacency_from_face_connectivity
 
     vertices, rows, seeds, polygons = _voronoi_mesh()
     adjacency = cell_adjacency_from_face_connectivity(_dense(rows), n_cells=len(rows))

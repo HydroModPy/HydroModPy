@@ -15,12 +15,12 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.core.drainage.descent import Descent, descent_from_stored_mesh
-from hydromodpy.core.drainage.graph import accumulate_on_downhill_graph
 from hydromodpy.results.run.contracts import Mesh
 from hydromodpy.results.run.descent import RunDescent, load_descent, read_basin
 from hydromodpy.results.zarr_store import SimulationZarr
 from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
+from hydromodpy.spatial.drainage.descent import Descent, descent_from_stored_mesh
+from hydromodpy.spatial.drainage.graph import accumulate_on_downhill_graph
 from tests._helpers.descent_cases import grid_descent
 from tests._helpers.ugrid_meshes import quad_mesh
 

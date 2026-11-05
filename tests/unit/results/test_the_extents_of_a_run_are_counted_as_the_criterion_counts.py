@@ -14,9 +14,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.core.stream.extent import parse_visible_flow
-from hydromodpy.results.derive import stream_extent
-from hydromodpy.results.derive.stream_extent import (
+from hydromodpy.results.derive.stream import run_extent
+from hydromodpy.results.derive.stream.comparison import network_comparison_from_run
+from hydromodpy.results.derive.stream.extent import parse_visible_flow
+from hydromodpy.results.derive.stream.run_extent import (
     block_flow_counts,
     flow_geometry_from_run,
     graph_role,
@@ -26,7 +27,6 @@ from hydromodpy.results.derive.stream_extent import (
     unavailable_reason_for_extents,
     unavailable_reason_for_flow,
 )
-from hydromodpy.results.derive.stream_network import network_comparison_from_run
 from tests.unit.results._transient_network_run import (
     HEAD,
     HILLSLOPE,
@@ -157,11 +157,11 @@ class TestTheExtents:
         the middle cell out of every scored quantity, so the one minimal cell
         left, the outlet, is covered by the maximal map.
         """
-        build = stream_extent.flow_geometry_from_run
+        build = run_extent.flow_geometry_from_run
 
         def with_lake(sim, *, role, **kwargs):
             geometry = build(sim, role=role, **kwargs)
-            if role != stream_extent.MAXIMAL_ROLE:
+            if role != run_extent.MAXIMAL_ROLE:
                 return geometry
             lake = np.zeros_like(geometry.catchment, dtype=bool)
             lake[MIDDLE] = True
@@ -169,7 +169,7 @@ class TestTheExtents:
             observed[[OUTLET, HEAD]] = True
             return dataclasses.replace(geometry, observed=observed, excluded=lake)
 
-        monkeypatch.setattr(stream_extent, "flow_geometry_from_run", with_lake)
+        monkeypatch.setattr(run_extent, "flow_geometry_from_run", with_lake)
         extents = network_extents_from_run(transient_run())
 
         assert not scored_cells(extents.geometry)[MIDDLE]

@@ -31,10 +31,10 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.core.drainage.descent import Descent, DescentBasin, descent_basin
-from hydromodpy.core.drainage.graph import accumulate_on_downhill_graph
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.stream.geometry import CATCHMENT_MISMATCH_WARNING_SHARE
+from hydromodpy.spatial.drainage.descent import Descent, DescentBasin, descent_basin
+from hydromodpy.spatial.drainage.distance import CATCHMENT_MISMATCH_WARNING_SHARE
+from hydromodpy.spatial.drainage.graph import accumulate_on_downhill_graph
 from hydromodpy.spatial.geographic.delineated_catchment import catchment_outline
 from hydromodpy.spatial.geographic.synthetic_config import SYNTHETIC_CATCH_DEF
 

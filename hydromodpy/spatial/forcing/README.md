@@ -69,6 +69,7 @@ forcing/
 ├── stations.py         located time series, one mean per period and per station
 ├── sources.py          units, the data variable, the X and Y axes, nodata check, "on cells" wrappers
 ├── area_weights.py     area shared by each pixel and each cell, area-weighted mean
+├── recharge_rates.py   the rate a recharge series gives each period, and the mean recharge of a run
 └── interpolation.py    nearest, linear and IDW from a grid or points onto target centres
 ```
 
@@ -84,6 +85,7 @@ forcing/
 | the unit of a record, or which variable of a dataset is the field | `sources.py` |
 | the refusal of a nodata pixel | `sources.py`, `refuse_nodata_under_cells` |
 | the `area` method | `area_weights.py` |
+| the mean recharge a run is scored on, and the rate of each period | `recharge_rates.py` |
 | nearest, linear or IDW | `interpolation.py` |
 | the names of the methods in the config | `InterpolationMethod` in `hydromodpy/core/config_kit/types.py` |
 
@@ -95,6 +97,7 @@ The package is flat, so the rules are between its modules and with the rest of H
 - `rasters.py` and `stations.py` read `sources.py`.
 - `sources.py` reads `area_weights.py` and `interpolation.py`.
 - `area_weights.py` and `interpolation.py` import no other module of the package.
+- `recharge_rates.py` imports `core` only. It is not part of the path above: `simulation`, `results` and `calibration` read it so that the trials that score a run and the figures that redraw it use one mean recharge. A period before the first sample has no data, so `forcing_period_rates` gives it NaN and `criterion_mean_recharge` gives it no weight.
 - Outside the package, it imports `hydromodpy.core` (config types, exceptions, logging, units, the
   time window, the coverage rule, the nodata mask and the CRS comparison) and one name of `spatial/mesh`, `derive_geometry` from
   `hydromodpy/spatial/mesh/model/geometry.py`, in `area_weights.py`. `HydroMesh` is imported only

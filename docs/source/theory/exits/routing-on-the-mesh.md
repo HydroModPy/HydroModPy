@@ -175,8 +175,8 @@ The tests that import the code of this page. The box is generated: a new test
 appears here on the next build.
 
 ```{hmp-tested-by}
-hydromodpy.core.drainage.descent
-hydromodpy.core.drainage.filling
+hydromodpy.spatial.drainage.descent
+hydromodpy.spatial.drainage.filling
 hydromodpy.solver.modflow_common.flow_directions
 hydromodpy.solver.modflow_common.channel_tree
 ```
@@ -185,8 +185,8 @@ hydromodpy.solver.modflow_common.channel_tree
 
 | What | Where |
 |---|---|
-| The flood, the receivers, the pins | `hydromodpy/core/drainage/descent.py` |
-| The flood of the criterion | `hydromodpy/core/drainage/filling.py` |
+| The flood, the receivers, the pins | `hydromodpy/spatial/drainage/descent.py` |
+| The flood of the criterion | `hydromodpy/spatial/drainage/filling.py` |
 | $D$ on a solver mesh | `hydromodpy/solver/modflow_common/flow_directions.py` |
 | The channel tree $A$ and its pins | `hydromodpy/solver/modflow_common/channel_tree.py` |
 | $D$ in the run store | `hydromodpy/solver/modflow_common/descent_store.py` |

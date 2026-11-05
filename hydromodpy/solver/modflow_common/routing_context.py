@@ -2,7 +2,7 @@
 
 This module keeps its own raster D8 pointer on the solver-grid DEM, conditioned
 by ``dem_correc_type``. It does not read the descent D
-(:mod:`hydromodpy.core.drainage.descent`): mass transfer and MT3DMS accumulation trace
+(:mod:`hydromodpy.spatial.drainage.descent`): mass transfer and MT3DMS accumulation trace
 point sources down the Whitebox pointer, and stay on it until they are migrated.
 """
 

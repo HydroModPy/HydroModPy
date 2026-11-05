@@ -299,7 +299,7 @@ Practical debugging
 Routing descent contract
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Source: ``hydromodpy/core/drainage/descent.py`` (the computation) and
+Source: ``hydromodpy/spatial/drainage/descent.py`` (the computation) and
 ``hydromodpy/solver/modflow_common/flow_directions.py`` (the adapter both
 backends call; neither backend imports the other). ``channel_tree.py`` projects
 the river network A onto the mesh, ``catchment_basin.py`` takes the basin of D

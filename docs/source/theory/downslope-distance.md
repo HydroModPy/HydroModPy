@@ -537,11 +537,11 @@ The tests that import the code of this page. The box is generated: a new test
 appears here on the next build.
 
 ```{hmp-tested-by}
-hydromodpy.core.drainage.distance
-hydromodpy.core.drainage.filling
-hydromodpy.core.stream.geometry
-hydromodpy.core.stream.heads
-hydromodpy.core.stream.network
+hydromodpy.spatial.drainage.distance
+hydromodpy.spatial.drainage.filling
+hydromodpy.results.derive.stream.geometry
+hydromodpy.results.derive.stream.heads
+hydromodpy.results.derive.stream.network
 hydromodpy.calibration.metrics.downslope_network
 hydromodpy.calibration.criteria.hydrographic_network_distance
 ```
@@ -550,10 +550,10 @@ hydromodpy.calibration.criteria.hydrographic_network_distance
 
 | What | Where |
 |---|---|
-| The flood on the mesh graph | `hydromodpy/core/drainage/filling.py` |
-| The receivers and the distance to a set | `hydromodpy/core/drainage/distance.py` |
-| The outlet, the catchment, $h_{obs}$, $V$, the supports | `hydromodpy/core/stream/geometry.py` |
-| The heads rule | `hydromodpy/core/stream/heads.py` |
+| The flood on the mesh graph | `hydromodpy/spatial/drainage/filling.py` |
+| The receivers and the distance to a set | `hydromodpy/spatial/drainage/distance.py` |
+| The outlet, the catchment, $h_{obs}$, $V$, the supports | `hydromodpy/results/derive/stream/geometry.py` |
+| The heads rule | `hydromodpy/results/derive/stream/heads.py` |
 | The crossing rule | `hydromodpy/spatial/mesh/cells/crossed_by_lines.py` |
 | The means and the criterion | `hydromodpy/calibration/metrics/downslope_network.py` |
 | The two estimators | `hydromodpy/calibration/criteria/hydrographic_network_distance.py` |

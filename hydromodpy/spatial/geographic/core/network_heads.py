@@ -1,7 +1,7 @@
 """The free ends of a mapped stream network, where its heads may lie.
 
 The heads rule of the network criterion keeps only where the map says a
-stream starts (:mod:`hydromodpy.core.stream.heads`). A head is found
+stream starts (:mod:`hydromodpy.results.derive.stream.heads`). A head is found
 geometrically, for every source alike: no provider reads node codes, and the
 direction a line was digitized in is never trusted. This module only finds the
 free ends and the other end of each merged reach; which end is upstream is
@@ -16,19 +16,19 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Sequence
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.stream.heads import HeadCandidates
 
 if TYPE_CHECKING:
     from shapely.geometry.base import BaseGeometry
 
     from hydromodpy.core.io.crs import CrsLike
 
-__all__ = ["line_parts", "network_head_candidates"]
+__all__ = ["HeadCandidates", "line_parts", "network_head_candidates"]
 
 logger = get_logger(__name__)
 
@@ -53,6 +53,56 @@ _METRE_IN_DEGREES = 1.0 / 111_320.0
 
 _OUTLET_RADIUS_M = 100.0
 """A cut end this close to the outlet is where the catchment drains out, and is expected."""
+
+
+def _points(values: np.ndarray, name: str) -> np.ndarray:
+    """Return ``values`` as a float ``(n, 2)`` array, refusing another shape."""
+    array = np.asarray(values, dtype=float)
+    if array.size == 0:
+        return np.empty((0, 2), dtype=float)
+    if array.ndim != 2 or array.shape[1] != 2:
+        raise ValueError(f"{name} must have shape (n, 2), got {array.shape}.")
+    return array
+
+
+@dataclass(frozen=True, slots=True)
+class HeadCandidates:
+    """The free ends of a mapped network, in the mesh CRS.
+
+    ``head_xy`` holds each free end, ``reach_end_xy`` the other end of the
+    merged reach it closes, row for row. ``map_points_xy`` samples the lines
+    at a fixed step, for the agreement between the trace and the map.
+    ``forced_cells`` are mesh cells that are heads whatever the map says, the
+    foot of each dam: they come from the model, not from the lines, and carry
+    no snap. ``n_cut_ends`` counts the free ends left out because the cut of the
+    map to the catchment made them: the stream goes on beyond them.
+    """
+
+    head_xy: np.ndarray
+    reach_end_xy: np.ndarray
+    map_points_xy: np.ndarray
+    forced_cells: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=np.int64))
+    n_cut_ends: int = 0
+
+    def __post_init__(self) -> None:
+        heads = _points(self.head_xy, "head_xy")
+        ends = _points(self.reach_end_xy, "reach_end_xy")
+        if heads.shape != ends.shape:
+            raise ValueError(
+                f"head_xy and reach_end_xy pair row for row, got {heads.shape} and {ends.shape}."
+            )
+        object.__setattr__(self, "head_xy", heads)
+        object.__setattr__(self, "reach_end_xy", ends)
+        object.__setattr__(self, "map_points_xy", _points(self.map_points_xy, "map_points_xy"))
+        forced = np.asarray(self.forced_cells, dtype=np.int64)
+        if forced.ndim != 1:
+            raise ValueError(f"forced_cells must be 1-D, got shape {forced.shape}.")
+        object.__setattr__(self, "forced_cells", np.unique(forced))
+
+    @property
+    def n_candidates(self) -> int:
+        """How many free ends the map holds."""
+        return int(self.head_xy.shape[0])
 
 
 def network_head_candidates(

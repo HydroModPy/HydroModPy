@@ -336,8 +336,8 @@ class TestAddRunoffToDischarge:
         np.testing.assert_allclose(out.values, [2.0, 2.0])
 
     def test_the_runoff_area_does_not_compute_the_basin_again(self, monkeypatch):
-        from hydromodpy.core.drainage import descent as core_descent
         from hydromodpy.solver.modflow_common import catchment_basin
+        from hydromodpy.spatial.drainage import descent as core_descent
 
         def refuse(*_args, **_kwargs):
             raise AssertionError("the runoff area computed the basin of D again")
@@ -1017,11 +1017,11 @@ class TestTheCatchmentSeriesUseTheCatchment:
         assert "stores no basin of D" not in caplog.text
 
     def test_no_series_computes_the_basin_again(self, monkeypatch):
-        from hydromodpy.core.drainage import descent as core_descent
         from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
             _build_catchment_mask,
         )
         from hydromodpy.solver.modflow_common import catchment_basin
+        from hydromodpy.spatial.drainage import descent as core_descent
 
         def refuse(*_args, **_kwargs):
             raise AssertionError("the aggregation computed the basin of D again")

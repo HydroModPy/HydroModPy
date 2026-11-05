@@ -40,23 +40,23 @@ from hydromodpy.config import HydroModPyConfig
 from hydromodpy.config.config_migration import fix_config_file, migrate_sealed_config_doc
 from hydromodpy.config.metrics_config import MetricsWindow
 from hydromodpy.core.config_kit.base import HydroModelBase
-from hydromodpy.core.drainage.distance import build_downslope_metric
 from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.core.scoring.cost_margin import parse_cost_margin
+from hydromodpy.core.scoring.stream_defaults import STREAM_CRITERION_DEFAULTS
 from hydromodpy.core.site.config import GaugeConflictError
-from hydromodpy.core.stream.criterion_defaults import STREAM_CRITERION_DEFAULTS
-from hydromodpy.core.stream.extent import dry_steps, flowing_steps, parse_extent_duration
-from hydromodpy.core.stream.geometry import build_network_geometry
-from hydromodpy.core.stream.network import build_simulated_network
 from hydromodpy.core.time import nominal_step_days
-from hydromodpy.display.figures._routing_surface import routing_surface_from_run
 from hydromodpy.display.figures.depression_map import DepressionMap
-from hydromodpy.results.derive.network_criterion_settings import (
+from hydromodpy.results.derive.stream.comparison import network_comparison_from_run
+from hydromodpy.results.derive.stream.criterion_settings import (
     DEFAULT_EXTENT_RULES,
     network_criterion_settings,
 )
-from hydromodpy.results.derive.stream_extent import network_extents_from_run
-from hydromodpy.results.derive.stream_network import network_comparison_from_run
+from hydromodpy.results.derive.stream.extent import dry_steps, flowing_steps, parse_extent_duration
+from hydromodpy.results.derive.stream.geometry import build_network_geometry
+from hydromodpy.results.derive.stream.network import build_simulated_network
+from hydromodpy.results.derive.stream.routing_surface import routing_surface_from_run
+from hydromodpy.results.derive.stream.run_extent import network_extents_from_run
+from hydromodpy.spatial.drainage.distance import build_downslope_metric
 from hydromodpy.workflow.steps.prepare_solver.freeze import portable_config_document
 from tests._helpers.sealed_runs import sealed_search
 from tests._helpers.ugrid_meshes import quad_mesh

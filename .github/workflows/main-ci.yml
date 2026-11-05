@@ -312,6 +312,7 @@ jobs:
             --max-worker-restart=0 \
             --timeout=300 \
             --cov=hydromodpy/spatial \
+            --cov=hydromodpy/results/derive/stream \
             --cov-branch \
             --cov-report= \
             --cov-fail-under=0 \
@@ -330,6 +331,7 @@ jobs:
             -m "not slow" \
             --timeout=300 \
             --cov=hydromodpy/spatial \
+            --cov=hydromodpy/results/derive/stream \
             --cov-branch \
             --cov-append \
             --cov-report= \
@@ -340,7 +342,8 @@ jobs:
       # an average. The floors only go up: raise each to the value a clean-up
       # lot reaches. A floor goes down only when files enter or leave a package, or
       # covered code leaves it, with no covered line lost, and the commit says so.
-      # The last line gates the modules at the top of spatial/.
+      # The line before the last gates the modules at the top of spatial/. The last one
+      # gates results/derive/stream, which no other job measures: its tests run in this unit tier.
       - name: Gate the spatial coverage
         run: |
           coverage combine || true
@@ -348,12 +351,14 @@ jobs:
           coverage report --include='hydromodpy/spatial/administrative/*' --precision=2 --fail-under=100.0
           coverage report --include='hydromodpy/spatial/delineation/*' --precision=2 --fail-under=97.2
           coverage report --include='hydromodpy/spatial/domain/*' --precision=2 --fail-under=99.3
+          coverage report --include='hydromodpy/spatial/drainage/*' --precision=2 --fail-under=93.7
           coverage report --include='hydromodpy/spatial/field/*' --precision=2 --fail-under=98.7
           coverage report --include='hydromodpy/spatial/forcing/*' --precision=2 --fail-under=99.7
           coverage report --include='hydromodpy/spatial/geographic/*' --precision=2 --fail-under=96.4
           coverage report --include='hydromodpy/spatial/lake_bed/*' --precision=2 --fail-under=98.9
           coverage report --include='hydromodpy/spatial/terrain/*' --precision=2 --fail-under=94.6
           coverage report --include='hydromodpy/spatial/*.py' --precision=2 --fail-under=99.2
+          coverage report --include='hydromodpy/results/derive/stream/*' --precision=2 --fail-under=92.7
 
   core-coverage:
     name: Coverage / core gate py3.13
@@ -400,7 +405,6 @@ jobs:
           coverage report --include='hydromodpy/core/config_kit/*' --precision=2 --fail-under=93.6
           coverage report --include='hydromodpy/core/console/*' --precision=2 --fail-under=89.8
           coverage report --include='hydromodpy/core/contracts/*' --precision=2 --fail-under=98.1
-          coverage report --include='hydromodpy/core/drainage/*' --precision=2 --fail-under=93.2
           coverage report --include='hydromodpy/core/fields/*' --precision=2 --fail-under=79.2
           coverage report --include='hydromodpy/core/io/*' --precision=2 --fail-under=88.3
           coverage report --include='hydromodpy/core/payload/*' --precision=2 --fail-under=93.0
@@ -408,7 +412,6 @@ jobs:
           coverage report --include='hydromodpy/core/scoring/*' --precision=2 --fail-under=79.5
           coverage report --include='hydromodpy/core/site/*' --precision=2 --fail-under=92.9
           coverage report --include='hydromodpy/core/state/*' --precision=2 --fail-under=83.8
-          coverage report --include='hydromodpy/core/stream/*' --precision=2 --fail-under=88.5
           coverage report --include='hydromodpy/core/time/*' --precision=2 --fail-under=93.1
           coverage report --include='hydromodpy/core/toml_io/*' --precision=2 --fail-under=86.5
           coverage report --include='hydromodpy/core/tracking/*' --precision=2 --fail-under=95.0

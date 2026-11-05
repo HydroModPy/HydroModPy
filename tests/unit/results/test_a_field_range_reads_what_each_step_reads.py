@@ -21,7 +21,7 @@ from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.derive.config_flags import config_option_for
-from hydromodpy.results.derive.stream_extent import _release_rows
+from hydromodpy.results.derive.stream.run_extent import _release_rows
 from hydromodpy.results.derive.virtual_fields import read_field_range_or_virtual
 from hydromodpy.results.errors import FieldNotFoundError
 from hydromodpy.results.run import Run
