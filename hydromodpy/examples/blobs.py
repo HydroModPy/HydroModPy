@@ -20,12 +20,12 @@ import urllib.request
 from pathlib import Path
 from urllib.parse import quote
 
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
 from hydromodpy.core.exceptions import CacheCorruptionError, NetworkError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.payload import PayloadFile
 from hydromodpy.core.payload.install import sha256_of
-from hydromodpy.core.state.paths import cache_dir
+from hydromodpy.core.state.portable import cache_dir
 from hydromodpy.core.version import __version__
 
 logger = get_logger(__name__)

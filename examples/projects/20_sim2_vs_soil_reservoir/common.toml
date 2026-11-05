@@ -1,0 +1,91 @@
+# Example 20: the SIM2 recharge and runoff against a soil reservoir.
+#
+# The model, common to both catchments, with the SIM2 drainage and runoff. nancon.toml
+# and flume.toml inherit it and add what belongs to each catchment. soil.toml and the
+# calibration files are overlays, laid on top with --overlay. The README gives the commands.
+
+[workflow]
+mode = "simulation"
+
+[simulation.time]
+start_datetime = "2014-01-01"
+end_datetime = "2020-12-31"
+step_value = "1 day"
+
+[metrics]
+window = { start = "2015-01-01", end = "2020-12-31" }
+
+[[simulation.process]]
+id = "flow_main"
+kind = "flow"
+solvers = ["modflow6"]
+
+[geographic]
+crs_project = "EPSG:2154"
+
+# BD ALTI at its native 25 m delineates the catchment. The model runs on 150 m.
+[geographic.catchment]
+kind = "from_outlet_coord"
+snap_dist = "150 m"
+buff_area = "10%"
+
+[mesh]
+engine = "regular"
+cell_size = 150.0
+
+[domain.depth_model]
+kind = "constant_thickness"
+thickness = "30.0 m"
+
+[data]
+types = ["dem", "hydrography", "hydrometry", "recharge", "runoff"]
+
+[[data.dem.sources]]
+source = "ign_geoplateforme_dem"
+dataset = "bd-alti"
+
+[[data.hydrography.sources]]
+source = "bdtopage"
+
+[[data.hydrometry.sources]]
+source = "hubeau"
+product = "QmnJ"
+
+[[data.recharge.sources]]
+source = "sim2"
+extent = "watershed"
+
+[[data.runoff.sources]]
+source = "sim2"
+extent = "watershed"
+
+[flow]
+param_list = ["K", "Sy", "Ss"]
+first_period_steady = false
+
+# Each case starts from the steady state under its mean recharge.
+[flow.ic]
+kind = "steady_state"
+
+[flow.param.K.field]
+kind = "homogeneous"
+unit = "m/s"
+value = 3e-5
+
+[flow.param.Sy.field]
+kind = "homogeneous"
+unit = "-"
+value = 0.04
+
+[flow.param.Ss.field]
+kind = "homogeneous"
+unit = "m-1"
+value = 1e-5
+
+[flow.bc.drainage]
+
+[flow.sinks_sources.recharge]
+
+[display]
+on_error = "warn"
+figures = ["hydrograph_sim_obs"]

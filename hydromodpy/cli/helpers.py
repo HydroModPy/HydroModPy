@@ -297,7 +297,7 @@ def find_workspace(workspace_arg: str | None) -> Path | None:
     the workspace. Returns ``None`` when nothing answers: there is no default
     folder such as ``~/hydromodpy``.
     """
-    from hydromodpy.core.state.paths import is_workspace_root
+    from hydromodpy.core.state.layout import is_workspace_root
 
     named = workspace_arg or os.environ.get("HMP_WORKSPACE")
     start = Path(named).expanduser().resolve() if named else Path.cwd().resolve()
@@ -337,11 +337,8 @@ def resolve_project(workspace_arg: str | None) -> Path:
     The project is the directory that carries ``project.toml`` (or an index).
     Without one, the command stops with :data:`EXIT_NOT_FOUND`.
     """
-    from hydromodpy.core.state.paths import (
-        PROJECT_MARKER_FILENAME,
-        is_project_root,
-        resolve_project_root,
-    )
+    from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME, is_project_root
+    from hydromodpy.core.state.result_dirs import resolve_project_root
 
     start = Path(workspace_arg).expanduser().resolve() if workspace_arg else Path.cwd().resolve()
     root = resolve_project_root(start)
@@ -358,7 +355,7 @@ def project_root_of(args: Any) -> Path:
 
     Nothing is checked: a verb that reads an index refuses when it finds none.
     """
-    from hydromodpy.core.state.paths import resolve_project_root
+    from hydromodpy.core.state.result_dirs import resolve_project_root
 
     named = getattr(args, "workspace", None)
     return resolve_project_root(Path(named or Path.cwd()).expanduser().resolve())
@@ -393,7 +390,7 @@ def resolve_named_project(workspace_arg: str | None, name: str | None) -> Path:
     """
     if name is None:
         return resolve_project(workspace_arg)
-    from hydromodpy.core.state.paths import PROJECTS_DIRNAME
+    from hydromodpy.core.state.layout import PROJECTS_DIRNAME
 
     project_dir = resolve_workspace(workspace_arg) / PROJECTS_DIRNAME / name
     if not project_dir.is_dir():
@@ -409,7 +406,8 @@ def resolve_project_ref(workspace_arg: str | None, ref: str | None) -> Path:
     """
     if ref is None or not _is_path_ref(ref):
         return resolve_named_project(workspace_arg, ref)
-    from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME, resolve_project_root
+    from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
+    from hydromodpy.core.state.result_dirs import resolve_project_root
 
     start = Path(ref).expanduser().resolve()
     root = resolve_project_root(start)

@@ -15,7 +15,7 @@ from __future__ import annotations
 import geopandas as gpd
 from shapely.geometry import LineString
 
-from hydromodpy.results.derive.stream_network import (
+from hydromodpy.results.derive.stream.comparison import (
     network_comparison_from_run,
     unavailable_reason_for_comparison,
 )

@@ -552,7 +552,7 @@ class StorageDirective(_Generated):
         ]
         return [
             self.source_note(
-                "``hydromodpy/results/storage/contract.py``, ``hydromodpy/core/state/paths.py`` "
+                "``hydromodpy/results/storage/contract.py``, ``hydromodpy/core/state/layout.py`` "
                 "and ``hydromodpy/schema/generated_views.py``"
             ),
             para(
@@ -616,7 +616,7 @@ class EnvDirective(_Generated):
         rows = _data().environment_rows()
         out: list[nodes.Node] = [
             self.source_note(
-                "``hydromodpy/core/env.py``; the files that read each variable come from a scan "
+                "``hydromodpy/core/runtime/env.py``; the files that read each variable come from a scan "
                 "of the code"
             ),
             para(

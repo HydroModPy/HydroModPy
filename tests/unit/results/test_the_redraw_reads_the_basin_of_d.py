@@ -20,7 +20,7 @@ import numpy as np
 import pytest
 from shapely.geometry import box
 
-from hydromodpy.results.derive.stream_network import (
+from hydromodpy.results.derive.stream.comparison import (
     _delineated_catchment,
     _watershed_catchment,
     network_comparison_from_run,

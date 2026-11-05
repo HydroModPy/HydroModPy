@@ -18,11 +18,11 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import IdentifierStr
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
-from hydromodpy.core.units import LengthMeters
-from hydromodpy.core.vertical_column import (
+from hydromodpy.core.fields.vertical_column import (
     VERTICAL_LAYOUT_COLUMN_FRACTIONS,
     VERTICAL_LAYOUT_SURFACES,
 )
+from hydromodpy.core.units import LengthMeters
 
 
 def _require_positive_int(value, *, name: str) -> int:

@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from hydromodpy.core.budget_terms import BudgetKeep
+from hydromodpy.core.budget.terms import BudgetKeep
 from hydromodpy.core.state.run_state import RunState
 from hydromodpy.simulation.extraction.post_run import extract_run_outputs
 from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, SimulationPlan

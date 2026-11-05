@@ -7,7 +7,7 @@ import argparse
 from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
 from hydromodpy.cli.helpers import apply_verbosity, resolve_workspace
 from hydromodpy.cli.output import emit
-from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME
+from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
 
 NAME: str = "new"
 HELP: str = "Create a new project inside the workspace"

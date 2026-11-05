@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from hydromodpy.core.config_kit.stored import read_stored
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import sessions_dir_for
+from hydromodpy.core.state.layout import sessions_dir_for
 from hydromodpy.core.time.period_aggregation import period_edges
 from hydromodpy.display.figure_registry import get as _get_figure
 from hydromodpy.display.figure_registry import names as _figure_names

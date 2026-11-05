@@ -12,7 +12,7 @@ import pytest
 
 from hydromodpy.cli._workers import viz as viz_worker
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import RUNS_DIRNAME
+from hydromodpy.core.state.layout import RUNS_DIRNAME
 from hydromodpy.display.runs import FigureRenderReport, SkippedFigure
 from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME
 from tests._helpers.cli_runner import CliRunner
@@ -61,7 +61,7 @@ def test_render_figure_defaults_to_the_figures_dir_of_the_run(monkeypatch, tmp_p
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(
-        "hydromodpy.core.state.paths.resolve_project_root", fake_resolve_project_root
+        "hydromodpy.core.state.result_dirs.resolve_project_root", fake_resolve_project_root
     )
     monkeypatch.setattr("hydromodpy.results.catalog.Catalog", FakeCatalog)
     monkeypatch.setattr("hydromodpy.display.runs._get_figure", lambda name: FakeFigure())
@@ -119,7 +119,9 @@ class _Figure:
 
 
 def _one_run_workspace(monkeypatch, tmp_path: Path, figure: _Figure) -> None:
-    monkeypatch.setattr("hydromodpy.core.state.paths.resolve_project_root", lambda start: tmp_path)
+    monkeypatch.setattr(
+        "hydromodpy.core.state.result_dirs.resolve_project_root", lambda start: tmp_path
+    )
     monkeypatch.setattr("hydromodpy.results.catalog.Catalog", _OneRunCatalog)
     monkeypatch.setattr("hydromodpy.display.runs._get_figure", lambda name: figure)
 

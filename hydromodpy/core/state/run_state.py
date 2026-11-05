@@ -27,12 +27,128 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from hydromodpy.core.budget_terms import BudgetKeep
-from hydromodpy.core.state.data import LoadedDataContext
-from hydromodpy.core.state.execution import ExecutionRegistry
-from hydromodpy.core.state.setup import SetupContext
+from hydromodpy.core.budget.terms import BudgetKeep
+from hydromodpy.core.state.rng import RngManager
+
+if TYPE_CHECKING:
+    from hydromodpy.core.workspace import WorkspaceLayout
+
+
+@dataclass
+class SetupContext:
+    """Objects prepared during setup and reused by all runs.
+
+    Most field types are ``Any`` because ``core`` cannot import from
+    sibling layers (``physics``, ``spatial``). Concrete classes live in
+    ``physics.flow``, ``physics.transport``, ``spatial.domain``,
+    ``spatial.geographic`` and ``spatial.mesh.io``.
+    """
+
+    workspace: WorkspaceLayout | None = None
+    geographic: Any = None
+    geographic_features: Any = None
+    domain_geographic: Any = None
+    domain: Any = None
+    # The ``cfg.domain`` section ``domain`` was built from. A Project builds its
+    # model phase once and drives several runs through it; a run defined by
+    # another configuration - a thickness sweep, a run following an overridden
+    # one - must not inherit the previous run's geometry, and this is what says
+    # so. Identity, not equality: ``HydroModPyConfig.with_changes`` keeps every
+    # section a run does not override.
+    domain_config_source: Any = None
+    flow: Any = None
+    transport: Any = None
+    mesh_summary: dict[str, Any] | None = None
+    mesh_bundle: Any = None
+    # The planar cell mesh the solvers read (spatial.mesh PlanarCellMesh).
+    cell_mesh: Any = None
+    flow_runtime_overrides: dict[str, Any] | None = None
+    run_id: str = "default"
+    time_grid: Any = None
+    # Delineated SFR reach traces keyed by network id (spatial.SfrReachTrace).
+    # Computed once by the data step and re-bound onto every per-run Flow.
+    sfr_reach_traces: dict[str, Any] | None = None
+    # Soil reservoir outputs of this context (simulation.soil_recharge.SoilForcings),
+    # None outside soil mode. Assigned on every binder call, never mutated.
+    soil_forcings: Any = None
+
+
+@dataclass
+class LoadedDataContext:
+    """Loaded data-manager objects shared by process runs.
+
+    Field types are ``Any`` because ``core`` cannot import from sibling
+    layers (``data``, ``spatial``). Concrete types live in ``data.contracts``,
+    ``data.variables.hydrography``, and ``spatial.field.geology_field``.
+    """
+
+    dem: Any = None
+    geology: Any = None
+    oceanic: Any = None
+    hydrography: Any = None
+    intermittency: Any = None
+    hydrometry: Any = None
+    piezometry: Any = None
+    recharge: Any = None
+    runoff: Any = None
+    precipitation: Any = None
+    etp: Any = None
+    temperature: Any = None
+    wind: Any = None
+    humidity: Any = None
+    radiation: Any = None
+    soil_moisture: Any = None
+    water_quality: Any = None
+    lake_geometry: Any = None
+    lake_bathymetry: Any = None
+    lake_abacus: Any = None
+    lake_levels: Any = None
+    lake_inflow: Any = None
+    lake_outflow: Any = None
+    lake_withdrawal: Any = None
+    substratum: Any = None
+    layer_base: Any = None
+    soil_capacity: Any = None
+    crossings: Any = None
+    # Data-plan types covered by the last completed load; None = never loaded.
+    loaded_plan_types: tuple[str, ...] | None = None
+
+
+@dataclass
+class ExecutionRegistry:
+    """Execution-oriented metadata and produced model registry.
+
+    ``lightweight`` is set to ``True`` when the pipeline runs inside a
+    calibration trial: in that mode steps 06/07 skip Zarr / Parquet /
+    provenance writes and the solver output is kept in RAM for scoring
+    only. The flag is ``False`` for normal ``hmp run`` and for promoted
+    trials.
+
+    ``output_dirs_by_run_id`` mirrors ``models_by_run_id`` and records
+    the raw solver output directory emitted by each run. Calibration
+    metric extractors read the solver binaries (``.hds`` / ``.cbc``)
+    directly from these paths without touching the catalog.
+
+    ``rng`` is the master :class:`RngManager` for the simulation.
+    Stochastic consumers derive their own deterministic ``Generator``
+    from ``rng.child_rng(label)``. It is ``None`` when no master seed
+    is declared in ``[simulation]``: each consumer then uses
+    ``np.random.default_rng()`` with a fresh entropy source.
+
+    Field types are ``Any`` because ``core`` cannot import from sibling
+    layers. ``simulation_plan``, ``process_runs_by_id`` values, and
+    ``models_by_run_id`` values are produced by the ``simulation`` and
+    ``solver`` layers respectively.
+    """
+
+    simulation_plan: Any = None
+    process_runs_by_id: dict[str, Any] = field(default_factory=dict)
+    models_by_run_id: dict[str, Any] = field(default_factory=dict)
+    output_dirs_by_run_id: dict[str, Path] = field(default_factory=dict)
+    lightweight: bool = False
+    rng: RngManager | None = None
 
 
 @dataclass
@@ -53,7 +169,7 @@ class WorkflowContext:
 
     It carries no live handle. The store a run writes to is opened by
     whoever writes, for the span of that write, through
-    :func:`hydromodpy.workflow.run_store.run_store`: a store holds open
+    :func:`hydromodpy.workflow.record.run_store`: a store holds open
     array handles, and a context that held one could not cross a process
     boundary.
 

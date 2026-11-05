@@ -1,0 +1,15 @@
+# Le Nançon at Lécousse.
+
+base_config = "common.toml"
+
+[site]
+name = "nancon"
+label = "Le Nançon à Lécousse"
+gauge = "J001401001"
+
+[geographic.catchment]
+x_outlet = 389358
+y_outlet = 6816630
+
+[flow.param.K.field]
+value = 3.16e-5

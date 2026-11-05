@@ -8,10 +8,7 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.core.units.volumetric_flow import (
-    convert_to_m3_per_s,
-    normalize_m3_per_s_unit,
-)
+from hydromodpy.core.units.quantities import convert_to_m3_per_s, normalize_m3_per_s_unit
 from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
 from hydromodpy.spatial.mesh.cells.locate import locate_cells
 

@@ -26,7 +26,7 @@ from hydromodpy.spatial.mesh.planning.plan import (
     resolved_sizes,
     smoothed_catchment,
 )
-from hydromodpy.workflow.internals.state import PipelineState
+from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps.mesh_inputs import planning_inputs
 
 if TYPE_CHECKING:
@@ -91,7 +91,7 @@ def step_mesh(ctx: WorkflowContext, *, resume: bool = False) -> None:
         "engine_version": cell_mesh.identity.engine_version,
         "request_hash": request.canonical_hash(),
         "source_runs": list(request.source_runs),
-        "zone_runs": _zone_runs(mesh_cfg.refinement_zone, inputs.refinement_zones),
+        "zone_runs": zone_runs(mesh_cfg.refinement_zone, inputs.refinement_zones),
         "cache_key": key,
         "library_versions": library_versions(),
         "qa": _qa_with_notes(cell_mesh, request),
@@ -99,7 +99,7 @@ def step_mesh(ctx: WorkflowContext, *, resume: bool = False) -> None:
     }
 
 
-def _zone_runs(
+def zone_runs(
     cfgs: Sequence[RefinementZoneConfig], zones: Sequence[RefinementZone]
 ) -> dict[str, str]:
     """The ``sim_id`` of the run each zone read, by the reference its table writes.

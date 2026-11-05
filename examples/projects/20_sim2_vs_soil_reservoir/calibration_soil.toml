@@ -1,0 +1,19 @@
+# Overlay, with soil.toml: K, Sy and ru together, in transient, on the discharge and the
+# extent of the network.
+
+base_config = "calibration.toml"
+
+[calibration.parameters.ru]
+bounds = [50.0, 250.0]
+
+[calibration]
+phases__delete = true
+
+[[calibration.phases]]
+name = "all_together"
+parameters = ["K", "Sy", "ru"]
+regime = "transient"
+objective_blocks = { hydrograph = 0.7, network = 0.3 }
+method = "optuna"
+max_trials = 30
+parallel = 2

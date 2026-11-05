@@ -263,13 +263,13 @@ Pipeline step
 ~~~~~~~~~~~~~
 
 ``hydromodpy/workflow/steps/``, with the protocol in
-``hydromodpy/workflow/internals/step.py``. A step is a class with a ``name`` and a
+``hydromodpy/workflow/step.py``. A step is a class with a ``name`` and a
 ``run(state: PipelineState) -> PipelineState``. It declares the payload keys it
 reads and writes (``reads``, ``writes``), checked in both directions by
 ``test_step_payload_keys.py``, and optionally the TOML subtrees it consumes
 (``config_sections``), which is how a calibration finds the first step that must
 run again. A persistent step adds ``artifacts`` and ``rebuild_state`` so a resume
-does not repeat it. Pipelines are assembled in ``workflow/pipelines/``.
+does not repeat it. Pipelines are assembled by ``standard_steps`` in ``workflow/steps/sequence.py``.
 
 *Why:* testability and resume. A new workflow assembles steps without forking the
 orchestration layer.
@@ -336,7 +336,7 @@ Calibration adapters, objectives and criteria
   Protocol (``requirements()`` and ``score(simulated, observed)``). A file names a
   criterion and ``criteria/registry.py`` answers. The scoring kernels are in
   ``criteria/series.py`` (``METRICS``), and the canonical series metrics (NSE, KGE,
-  RMSE, MAE, bias, correlation) in ``hydromodpy/core/metrics.py``.
+  RMSE, MAE, bias, correlation) in ``hydromodpy/core/scoring/metrics.py``.
 
 *Why:* the engine stays generic. A new strategy, a new objective or a new score
 plugs in without touching it.

@@ -29,7 +29,7 @@ from hydromodpy.display.figures.downslope_distance_crossing import (
     DownslopeDistanceCrossingFigure,
 )
 from hydromodpy.display.figures.seepage_network_confusion_map import SeepageNetworkConfusionMap
-from hydromodpy.results.derive.stream_network import (
+from hydromodpy.results.derive.stream.comparison import (
     AGREEMENT_EXCESS,
     AGREEMENT_MISSING,
     AGREEMENT_NEITHER,
@@ -864,7 +864,7 @@ class TestTheHeavyRebuildIsShared:
     """
 
     def test_two_calls_on_one_run_return_the_same_object(self) -> None:
-        from hydromodpy.display.figures._memo import RunMemo
+        from hydromodpy.results.derive.run_memo import RunMemo
 
         memo = RunMemo()
         calls: list[int] = []
@@ -885,7 +885,7 @@ class TestTheHeavyRebuildIsShared:
         assert len(calls) == 1
 
     def test_a_different_knob_is_a_different_entry(self) -> None:
-        from hydromodpy.display.figures._memo import RunMemo
+        from hydromodpy.results.derive.run_memo import RunMemo
 
         memo = RunMemo()
 
@@ -902,7 +902,7 @@ class TestTheHeavyRebuildIsShared:
         # The failure this guards: keying on a run's id instead of the run.
         # Two runs a caller named the same would answer with each other's mesh,
         # and the figure would be silently wrong rather than slow.
-        from hydromodpy.display.figures._memo import RunMemo
+        from hydromodpy.results.derive.run_memo import RunMemo
 
         memo = RunMemo()
 
@@ -918,7 +918,7 @@ class TestTheHeavyRebuildIsShared:
         # A speed difference, never an answer difference.
         from types import SimpleNamespace
 
-        from hydromodpy.display.figures._memo import RunMemo
+        from hydromodpy.results.derive.run_memo import RunMemo
 
         memo = RunMemo()
         run = SimpleNamespace(sim_id="stub")

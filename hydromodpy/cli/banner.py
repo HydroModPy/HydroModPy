@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from rich.text import Text
 
-from hydromodpy.core.progress import console
+from hydromodpy.core.console.progress import console
 
 _HYDRO_STYLE = "bold #29ABE2"
 _MOD_STYLE = "bold #2D5F8B"

@@ -17,7 +17,7 @@ from hydromodpy.simulation.planning.plan import (
 )
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import run_flow_model
 from hydromodpy.solver.modflow_nwt import ModflowPreprocessOptions
-from hydromodpy.workflow.internals.state import PipelineState
+from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps.run_solver import RunSolverStep
 
 

@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.core.state.paths import INTERNAL_DIRNAME, catalog_path_for, internal_dir
+from hydromodpy.core.state.layout import INTERNAL_DIRNAME, catalog_path_for, internal_dir
 from hydromodpy.results.catalog import Catalog
 from tests._helpers.sealed_runs import make_project, seal_run, write_attempt, write_session_dir
 

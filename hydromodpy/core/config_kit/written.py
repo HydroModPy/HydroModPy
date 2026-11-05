@@ -20,8 +20,8 @@ from typing import Annotated, Any, Literal, get_args, get_origin
 
 from pydantic import BaseModel, TypeAdapter
 
+from hydromodpy.core.console.progress import MILESTONE
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.progress import MILESTONE
 
 logger = get_logger(__name__)
 

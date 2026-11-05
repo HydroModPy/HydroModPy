@@ -58,7 +58,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 def run(args: argparse.Namespace) -> None:
     apply_verbosity(args, {})
     from hydromodpy.calibration.runners.promotion import prune_session, trials_to_prune
-    from hydromodpy.core.state.paths import catalog_path_for
+    from hydromodpy.core.state.layout import catalog_path_for
 
     project_root = resolve_project(args.workspace)
     if args.dry_run:

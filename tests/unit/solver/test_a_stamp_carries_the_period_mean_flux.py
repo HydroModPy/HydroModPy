@@ -19,7 +19,7 @@ from typing import Any
 import numpy as np
 import pytest
 
-from hydromodpy.core.budget_terms import BudgetKeep
+from hydromodpy.core.budget.terms import BudgetKeep
 from hydromodpy.solver.modflow6.build import output_control_records
 from hydromodpy.solver.modflow6.extractors.flow import Modflow6OutputAdapter
 from hydromodpy.solver.modflow_common import calibration_extractors as cal

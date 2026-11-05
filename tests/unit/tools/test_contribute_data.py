@@ -140,7 +140,7 @@ def test_every_run_entry_of_the_contract_is_in_the_tree() -> None:
 
 def test_the_env_scan_skips_names_in_all() -> None:
     refs = C.env_var_references()
-    assert "hydromodpy/core/state/paths.py" in refs["HMP_CACHE_HOME"]
+    assert "hydromodpy/core/state/portable.py" in refs["HMP_CACHE_HOME"]
     # Built, not written: a whole literal here would count as a reference.
     exported_only = "HMP_" + "FORMAT_VERSION"
     assert exported_only not in refs, "a name exported in __all__ is not a variable"

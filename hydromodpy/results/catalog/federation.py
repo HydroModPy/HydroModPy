@@ -27,7 +27,7 @@ import pandas as pd
 import pyarrow as pa
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import (
+from hydromodpy.core.state.layout import (
     TRIALS_DIRNAME,
     project_roots_under,
     runs_dir_for,
@@ -102,7 +102,7 @@ def read_workspace_runs(roots: Path | str | Iterable[Path | str]) -> pd.DataFram
 
     ``roots`` is a workspace root, a project root or several of them. A
     workspace root expands to the projects it holds
-    (:func:`hydromodpy.core.state.paths.project_roots_under`). The frame
+    (:func:`hydromodpy.core.state.layout.project_roots_under`). The frame
     carries the columns of ``simulation.parquet`` plus ``project_root``.
     """
     if isinstance(roots, (str, Path)):

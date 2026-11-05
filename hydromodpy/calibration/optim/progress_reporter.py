@@ -7,7 +7,7 @@ import threading
 from collections.abc import Callable
 
 from hydromodpy.calibration.optim.optimizer import EvaluationResult
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
 from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)

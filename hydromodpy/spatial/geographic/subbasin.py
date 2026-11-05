@@ -70,7 +70,7 @@ class Subbasin:
 
         stable = getattr(geographic, "stable_folder", None)
         if stable is None:
-            from hydromodpy.core.state.paths import preprocessing_dir
+            from hydromodpy.core.state.scratch import preprocessing_dir
 
             root = Path(out_path) if out_path is not None else Path.cwd() / "output"
             stable = str(preprocessing_dir(root))

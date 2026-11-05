@@ -13,7 +13,7 @@ from hydromodpy.cli.conventions import (
 )
 from hydromodpy.cli.helpers import apply_verbosity, project_root_of
 from hydromodpy.cli.output import emit
-from hydromodpy.core.state.paths import catalog_path_for
+from hydromodpy.core.state.layout import catalog_path_for
 
 NAME: str = "rename"
 HELP: str = "Rename a run: runs/<old>/ and sessions/<old>/ move to the new name"

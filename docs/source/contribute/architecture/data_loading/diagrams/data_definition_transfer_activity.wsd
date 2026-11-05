@@ -14,7 +14,7 @@ note right
 end note
 :Store the DataLoadPlan in the context;
 
-:LoadDataStep runs run_data(config_path, data_plan, run_state);
+:LoadDataStep runs step_data_loading(ctx);
 :DataManagersRuntimeLoader.load_all(run_state);
 :Fill loaded_data, one field per variable;
 

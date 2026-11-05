@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.core.config_kit.export_spec import ExportKind
 from hydromodpy.data.variables.hydrometry.manager import HydrometryManager
 from hydromodpy.data.variables.intermittency.manager import IntermittencyManager
 from hydromodpy.data.variables.lake_levels.manager import LakeLevelsManager
 from hydromodpy.data.variables.piezometry.manager import PiezometryManager
 from hydromodpy.results import field_registry
+from hydromodpy.results.exporters.export_spec import ExportKind
 from hydromodpy.results.exporters.vocabulary import (
     OBSERVED_VARIABLES,
     SIMULATED_ACTIVE_NETWORK,

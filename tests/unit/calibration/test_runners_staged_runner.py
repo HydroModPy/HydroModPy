@@ -58,13 +58,13 @@ from hydromodpy.cli.commands import calibrate as calibrate_cmd
 from hydromodpy.cli.commands.calibrate import _phase_line
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.exceptions import CalibrationError, ConfigError, ConfigValidationError
-from hydromodpy.core.interrupts import TerminationRequested
-from hydromodpy.core.state.execution import ExecutionRegistry
+from hydromodpy.core.runtime.interrupts import TerminationRequested
+from hydromodpy.core.state.run_state import ExecutionRegistry
 from hydromodpy.results.checks import BUDGET_RULE, FROZE_BUDGET_ONLY
 from hydromodpy.results.session.descriptor import read_session
 from hydromodpy.results.session.journal import read_trials
 from hydromodpy.results.session.phase import list_phases, read_phase
-from hydromodpy.workflow.steps.prepare_solver.dispatch import portable_config_document
+from hydromodpy.workflow.steps.prepare_solver.freeze import portable_config_document
 from tests._helpers.persisting_simulation import SimulationStub, persisting_simulation
 from tests._helpers.session_documents import session_opening
 from tests.unit.calibration._factories_runners import (

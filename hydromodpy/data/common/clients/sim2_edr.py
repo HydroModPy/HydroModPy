@@ -12,7 +12,7 @@ import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
 from hydromodpy.core.exceptions import NetworkError
 from hydromodpy.core.io.http_client import HTTPClient, get_default_client
 from hydromodpy.core.logging import get_logger

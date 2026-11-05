@@ -30,7 +30,7 @@ from hydromodpy.cli.helpers import (
     refuse,
 )
 from hydromodpy.cli.output import emit
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
 
 NAME: str = "get"
 HELP: str = "Serve a data request: one file per variable, cut to the extent and period"

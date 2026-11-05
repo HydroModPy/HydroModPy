@@ -8,8 +8,8 @@ from pathlib import Path
 import duckdb
 import pytest
 
-from hydromodpy.core.state.paths import (
-    CATALOG_FILENAME,
+from hydromodpy.core.state.layout import CATALOG_FILENAME
+from hydromodpy.core.state.portable import (
     cache_dir,
     decode_workspace_path,
     encode_workspace_path,

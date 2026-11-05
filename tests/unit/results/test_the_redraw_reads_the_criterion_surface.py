@@ -12,7 +12,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.results.derive.stream_network import network_comparison_from_run
+from hydromodpy.results.derive.stream.comparison import network_comparison_from_run
 from tests.unit.display._network_comparison_run import (
     AXIS_COLUMN,
     CELL_M,

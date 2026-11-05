@@ -12,7 +12,7 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.core.state.paths import INTERNAL_DIRNAME, RUN_INTERNAL_LOCKS_DIRNAME
+from hydromodpy.core.state.layout import INTERNAL_DIRNAME, RUN_INTERNAL_LOCKS_DIRNAME
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME, RUN_SCRATCH_ENTRIES
 from hydromodpy.results.zarr_store import SimulationZarr
 from hydromodpy.results.zarr_store.zarr_finalizer import LOCK_SUFFIX, lock_path_for_store

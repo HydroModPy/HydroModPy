@@ -27,13 +27,13 @@ from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import NonEmptyStr
 from hydromodpy.core.tracking import InputFile
 from hydromodpy.core.units import FluxDensityMPerS, LengthMeters
-from hydromodpy.core.units.hydraulic_conductivity import (
+from hydromodpy.core.units.quantities import (
     M_PER_S_CANONICAL_UNITS,
+    normalize_length_unit,
+    normalize_m3_per_s_unit,
     normalize_m_per_s_unit,
 )
-from hydromodpy.core.units.length import normalize_length_unit
 from hydromodpy.core.units.types import VolumetricFlowM3PerSecond
-from hydromodpy.core.units.volumetric_flow import normalize_m3_per_s_unit
 
 FlowTimeAggregate: TypeAlias = Literal["mean", "last"]
 

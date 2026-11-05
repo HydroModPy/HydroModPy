@@ -6,10 +6,7 @@ from typing import Annotated
 
 from pydantic import BeforeValidator
 
-from hydromodpy.core.units.hydraulic_conductivity import (
-    M_PER_S_CANONICAL_UNITS,
-    normalize_m_per_s_unit,
-)
+from hydromodpy.core.units.quantities import M_PER_S_CANONICAL_UNITS, normalize_m_per_s_unit
 
 SUPPORTED_PARAMETER_UNITS = ("-", *M_PER_S_CANONICAL_UNITS, "m-1", "cm-1")
 

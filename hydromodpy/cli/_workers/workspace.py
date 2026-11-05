@@ -82,11 +82,8 @@ def clean_workspace(
     import shutil
 
     from hydromodpy.cli.helpers import find_workspace_root
-    from hydromodpy.core.state.paths import (
-        DATA_CACHE_FILENAME,
-        data_cache_path_for,
-        scratch_root_for,
-    )
+    from hydromodpy.core.state.layout import DATA_CACHE_FILENAME, data_cache_path_for
+    from hydromodpy.core.state.scratch import scratch_root_for
 
     start = Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
     workspace_root = find_workspace_root(start)

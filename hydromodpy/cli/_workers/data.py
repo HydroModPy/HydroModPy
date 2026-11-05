@@ -11,7 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.core.state.paths import data_cache_path_for
+from hydromodpy.core.state.layout import data_cache_path_for
 
 
 def list_data_cache(

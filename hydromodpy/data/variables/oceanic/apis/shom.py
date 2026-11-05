@@ -54,7 +54,7 @@ import numpy as np
 import pandas as pd
 import requests
 
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord

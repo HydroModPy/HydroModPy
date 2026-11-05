@@ -16,7 +16,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.core.field_routing import STREAM_CONSTANT_HEAD_BUDGET
+from hydromodpy.core.budget.flux import STREAM_CONSTANT_HEAD_BUDGET
 from hydromodpy.results import field_registry
 from hydromodpy.results.derive.virtual_fields import VIRTUAL_FIELDS, field_descriptor
 from hydromodpy.solver.boussinesq.extractors.flow import BoussinesqOutputAdapter

@@ -7,7 +7,7 @@ the launcher refuses above without ``--force`` are
 :data:`~hydromodpy.config.sites.models.PARALLEL_CEILING`,
 :data:`~hydromodpy.config.sites.models.PREPARE_PARALLEL_CEILING` and
 :data:`CALIBRATION_PARALLEL_CEILING`, measured on 22 cores
-(:func:`hydromodpy.project.launch.local.effective_parallel`). A solve of a
+(:func:`hydromodpy.project.launch.selection.effective_parallel`). A solve of a
 campaign of calibrations held 0.8 GiB on 21 000 cells. The scratch of
 a kept solve was measured between 0.6 and 4.8 GiB (audit of 2026-10-14,
 reader R04); the plan announces the range for the solves it keeps.

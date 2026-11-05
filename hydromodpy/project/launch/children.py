@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import RUN_DATA_CACHE_FILENAME
+from hydromodpy.core.state.layout import RUN_DATA_CACHE_FILENAME
 from hydromodpy.project.launch.env import LAUNCHED_ENV, child_environment
 from hydromodpy.project.launch.journal import CASE_CACHES_DIRNAME, CASE_LOGS_DIRNAME, Journal
 from hydromodpy.project.launch.status import CaseState, case_state
@@ -132,7 +132,7 @@ class Child:
     private_cache: Path
 
 
-def private_cache_of(job_dir: Path, case: PlannedCase, phase: str) -> Path:
+def _private_cache_of(job_dir: Path, case: PlannedCase, phase: str) -> Path:
     """Return the private data cache of one child: ``caches/<case>.<phase>/data-cache.duckdb``."""
     return job_dir / CASE_CACHES_DIRNAME / f"{case.case_id}.{phase}" / RUN_DATA_CACHE_FILENAME
 
@@ -150,7 +150,7 @@ def start_child(
     logs = job_dir / CASE_LOGS_DIRNAME
     logs.mkdir(parents=True, exist_ok=True)
     log_path = logs / f"{case.case_id}.{phase}.log"
-    cache = private_cache_of(job_dir, case, phase)
+    cache = _private_cache_of(job_dir, case, phase)
     env = child_environment(
         os.environ if base_env is None else base_env,
         threads_per_case=threads_per_case,
@@ -318,7 +318,6 @@ __all__ = [
     "merge_child_cache",
     "planned_cases",
     "prepare_command",
-    "private_cache_of",
     "start_child",
     "state_of",
     "worker_command",

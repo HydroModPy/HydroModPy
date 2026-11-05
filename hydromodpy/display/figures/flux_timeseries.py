@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Annotated
 import numpy as np
 import pandas as pd
 
-from hydromodpy.core.field_routing import select_budget_zone
+from hydromodpy.core.budget.flux import select_budget_zone
 from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.core.units.labels import AXIS_LABELS, axis_label
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix

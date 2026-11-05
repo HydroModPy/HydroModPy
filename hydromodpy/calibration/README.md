@@ -170,7 +170,7 @@ is read rather than inside the adapter.
    mesh and data are built a single time, through the provider registered in
    `runners/contracts.py` by the workflow layer. The provider finds the first
    pipeline step that reads one of the calibrated config paths
-   (`earliest_affected_step` of `hydromodpy/workflow/internals/dependencies.py`).
+   (`earliest_affected_step` of `hydromodpy/workflow/steps/dependencies.py`).
    The steps before it run once and are shared by every trial; the steps from it
    up to the solve and the extraction run again for each trial
    (`run_trial_light`); the persistent steps downstream run only for a promoted

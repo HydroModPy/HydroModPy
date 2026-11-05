@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, ValidationError
 
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
 from hydromodpy.core.exceptions import (
     ConfigError,
     ConfigMissingError,
@@ -28,7 +28,8 @@ from hydromodpy.core.exceptions import (
     HydroModPyError,
 )
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import data_cache_path_for, preprocessing_dir
+from hydromodpy.core.state.layout import data_cache_path_for
+from hydromodpy.core.state.scratch import preprocessing_dir
 from hydromodpy.core.time import resolve_simulation_time_window_dates
 from hydromodpy.core.workspace.path_registry import WorkspacePathRegistry
 from hydromodpy.data.loading._dispatch import VARIABLE_SPECS, VariableSpec

@@ -13,7 +13,7 @@ import numpy as np
 import rasterio
 from shapely.geometry import LineString, MultiLineString
 
-from hydromodpy.core.nodata import valid_cells
+from hydromodpy.core.fields.nodata import valid_cells
 from hydromodpy.spatial.geographic.core.catchment_domain import catchment_area_m2
 from hydromodpy.spatial.geographic.river_network_config import RiverNetworkConfig
 

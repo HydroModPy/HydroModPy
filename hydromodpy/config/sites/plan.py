@@ -24,7 +24,7 @@ import pyarrow as pa
 from hydromodpy.config.sites.expansion import DraftCase, PlanDraft
 from hydromodpy.config.sites.issues import PlanError
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.core.state.paths import PLAN_DIRNAME, runs_dir_for, sessions_dir_for
+from hydromodpy.core.state.layout import PLAN_DIRNAME, runs_dir_for, sessions_dir_for
 from hydromodpy.core.toml_io.overrides import env_set_names
 from hydromodpy.core.version import __version__
 from hydromodpy.results.outcome import effective_status

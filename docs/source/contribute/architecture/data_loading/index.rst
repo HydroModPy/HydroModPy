@@ -24,7 +24,7 @@ Code map
   variable name to its config class and its manager.
 - ``hydromodpy/data/loading/loader.py``: ``DataManagersRuntimeLoader``, the dispatcher
   used after planning.
-- ``hydromodpy/core/state/data.py``: ``LoadedDataContext``, one field per variable,
+- ``hydromodpy/core/state/run_state.py``: ``LoadedDataContext``, one field per variable,
   which the loader fills and the project facade and the structure binders read.
 - ``hydromodpy/data/variables/*``: one package per variable, with its typed config,
   manager and I/O.

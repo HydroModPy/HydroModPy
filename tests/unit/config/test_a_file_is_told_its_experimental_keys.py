@@ -26,7 +26,7 @@ from hydromodpy.core.config_kit.written import (
     log_experimental_keys,
     written_experimental_keys,
 )
-from hydromodpy.core.progress import MILESTONE_KEY
+from hydromodpy.core.console.progress import MILESTONE_KEY
 from hydromodpy.physics.flow.sinks_sources.container import FlowSinksSourcesConfig
 from hydromodpy.project import Project
 from hydromodpy.project.dispatch.workflow import run_overview
@@ -317,7 +317,7 @@ def test_an_overview_says_it_once(tmp_path: Path, caplog, monkeypatch) -> None:
         def run(self, claim: object, *, config_hash: str) -> dict[str, str]:
             return {"mode": "data_overview"}
 
-    monkeypatch.setattr("hydromodpy.workflow.pipelines.overview.DataOverviewLauncher", _Launcher)
+    monkeypatch.setattr("hydromodpy.workflow.overview.DataOverviewLauncher", _Launcher)
     with caplog.at_level(logging.INFO, logger=WRITTEN_LOGGER):
         run_overview(path)
 

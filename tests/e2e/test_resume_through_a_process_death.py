@@ -229,7 +229,7 @@ import json
 import sys
 from pathlib import Path
 
-from hydromodpy.workflow.tracking.journal import WorkflowJournal
+from hydromodpy.workflow.record.journal import WorkflowJournal
 
 run_dir = Path(sys.argv[1]) / "runs" / sys.argv[2]
 rows = [

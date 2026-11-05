@@ -33,10 +33,10 @@ from hydromodpy.calibration import (
     ParamSuggestion,
     build_optimizer,
 )
-from hydromodpy.core.metrics import kge as _kge_metric
-from hydromodpy.core.metrics import log_nse as _log_nse_metric
-from hydromodpy.core.metrics import nse as _nse_metric
-from hydromodpy.core.metrics import rmse as _rmse_metric
+from hydromodpy.core.scoring.metrics import kge as _kge_metric
+from hydromodpy.core.scoring.metrics import log_nse as _log_nse_metric
+from hydromodpy.core.scoring.metrics import nse as _nse_metric
+from hydromodpy.core.scoring.metrics import rmse as _rmse_metric
 from hydromodpy.results.catalog.constants import cost_of
 from validation_cases.calibration.recession_brutsaert.experiment import recession_discharge
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from hydromodpy.core.field_routing import select_budget_zone
+from hydromodpy.core.budget.flux import select_budget_zone
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_registry import register
 

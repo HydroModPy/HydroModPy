@@ -65,7 +65,7 @@ def set_root_config_provider(provider: RootConfigProvider) -> None:
 def get_root_config_provider() -> RootConfigProvider:
     """Return the installed provider, running the lazy bootstrap if needed."""
     if _PROVIDER is None:
-        from hydromodpy.core.bootstrap_hook import ensure_bootstrapped
+        from hydromodpy.core.runtime.bootstrap_hook import ensure_bootstrapped
 
         ensure_bootstrapped()
     if _PROVIDER is None:

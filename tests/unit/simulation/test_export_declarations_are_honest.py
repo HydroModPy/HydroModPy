@@ -16,7 +16,7 @@ from pathlib import Path, PurePosixPath, PureWindowsPath
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.core.config_kit.export_spec import (
+from hydromodpy.results.exporters.export_spec import (
     STEP_DATE_TOKEN,
     ExportFormat,
     ExportKind,

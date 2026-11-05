@@ -1,6 +1,6 @@
 """``hmp project import``: install a package written by ``hmp publish --package``.
 
-A thin wrapper of :func:`hydromodpy.project.install.import_project`: the
+A thin wrapper of :func:`hydromodpy.project.exchange.install.import_project`: the
 project lands as ``projects/<name>`` of the workspace, its data under
 ``data/`` with the rules of ``hmp catalog import`` (identical bytes cost
 nothing, other bytes at the same path are refused by name, nothing written),
@@ -51,7 +51,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 def run(args: argparse.Namespace) -> None:
     apply_verbosity(args, {})
-    from hydromodpy.project.install import import_project
+    from hydromodpy.project.exchange.install import import_project
     from hydromodpy.results.catalog.indexer import index_new_runs
 
     workspace = resolve_workspace(args.workspace)

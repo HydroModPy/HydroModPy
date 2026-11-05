@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.core.field_precision import MAX_RELATIVE_ERROR
+from hydromodpy.core.fields.precision import MAX_RELATIVE_ERROR
 from hydromodpy.results.storage.array_fingerprint import fingerprint
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 

@@ -1,7 +1,7 @@
 """The channel bed of the ground G, regularized on the pixels of the channel tree A.
 
 The ground G is read along A, the generated channel network of the run, and
-fitted by :func:`~hydromodpy.core.bed_regularization.regularize_bed_on_tree`:
+fitted by :func:`~hydromodpy.spatial.geographic.core.bed_regularization.regularize_bed_on_tree`:
 the bed closest to G that never rises downstream. The fit runs on the whole
 DEM grid, every A pixel with its receiver on the D8 pointer of the routing
 DEM R, and writes the regularized copy of G next to it
@@ -30,9 +30,9 @@ import rasterio
 from rasterio.windows import Window
 from shapely.geometry.base import BaseGeometry
 
+from hydromodpy.core.fields.nodata import valid_cells
 from hydromodpy.core.io.raster_io import write_band
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.nodata import valid_cells
 from hydromodpy.spatial.geographic.core.channel_bed_fit import BedReport, regularize_channel_bed
 from hydromodpy.spatial.geographic.core.ground_corrections import (
     ground_dem_path_from_config,

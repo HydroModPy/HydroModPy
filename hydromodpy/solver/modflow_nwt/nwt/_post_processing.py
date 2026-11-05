@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import rasterio
 
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
 from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.logging import get_logger

@@ -7,13 +7,12 @@ interactive UI) stay automatically in sync with the root model.
 
 from __future__ import annotations
 
-import types as _stdlib_types
-import typing
-from typing import TypeGuard, get_args, get_origin
+from typing import get_args, get_origin
 
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
+from hydromodpy.core.config_kit.introspect import is_model, is_union_origin
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 
 _CACHE: dict[str, type[BaseModel]] | None = None
@@ -21,25 +20,13 @@ _REPEATED_CACHE: frozenset[str] | None = None
 _SCALAR_CACHE: dict[str, FieldInfo] | None = None
 
 
-def _is_union_origin(origin: object) -> bool:
-    if origin is typing.Union:
-        return True
-    if hasattr(_stdlib_types, "UnionType") and origin is _stdlib_types.UnionType:
-        return True
-    return False
-
-
-def _is_model(annotation: object) -> TypeGuard[type[BaseModel]]:
-    return isinstance(annotation, type) and issubclass(annotation, BaseModel)
-
-
 def _sequence_item_model(annotation: object) -> type[BaseModel] | None:
     """Return X behind ``list[X]`` or ``tuple[X, ...]`` when X is a model."""
     origin = get_origin(annotation)
     args = get_args(annotation)
-    if origin is list and len(args) == 1 and _is_model(args[0]):
+    if origin is list and len(args) == 1 and is_model(args[0]):
         return args[0]
-    if origin is tuple and len(args) == 2 and args[1] is Ellipsis and _is_model(args[0]):
+    if origin is tuple and len(args) == 2 and args[1] is Ellipsis and is_model(args[0]):
         return args[0]
     return None
 
@@ -51,9 +38,9 @@ def _section_shape(annotation: object) -> tuple[type[BaseModel], bool] | None:
     ``tuple[X, ...]`` are an array of tables, one ``[[name]]`` block per
     entry. Anything else is a scalar and returns None.
     """
-    candidates = get_args(annotation) if _is_union_origin(get_origin(annotation)) else (annotation,)
+    candidates = get_args(annotation) if is_union_origin(get_origin(annotation)) else (annotation,)
     for arg in candidates:
-        if _is_model(arg):
+        if is_model(arg):
             return arg, False
         item = _sequence_item_model(arg)
         if item is not None:

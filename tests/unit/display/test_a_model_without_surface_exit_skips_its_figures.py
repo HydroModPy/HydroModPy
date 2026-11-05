@@ -21,7 +21,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from hydromodpy.core.budget_terms import budget_terms_for
+from hydromodpy.core.budget.terms import budget_terms_for
 from hydromodpy.display import runs
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.results.catalog import Catalog

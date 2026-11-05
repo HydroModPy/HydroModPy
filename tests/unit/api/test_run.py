@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 import hydromodpy as hmp
-from hydromodpy.workflow.pipelines.overview import OverviewResult
+from hydromodpy.workflow.overview import OverviewResult
 
 pytestmark = pytest.mark.fast
 

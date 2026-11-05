@@ -55,7 +55,7 @@ if TYPE_CHECKING:
     from hydromodpy.results.run import Run
     from hydromodpy.results.session.view import Session
     from hydromodpy.simulation.spinup_config import SpinupConfig
-    from hydromodpy.workflow.pipelines.overview import OverviewResult
+    from hydromodpy.workflow.overview import OverviewResult
 
     # A file or folder path, as text or as a pathlib.Path.
     PathLike = str | os.PathLike[str]
@@ -114,13 +114,13 @@ def open(path: PathLike) -> Project | Run | Session | Workspace:
     index
         The sealed runs of every project of a workspace.
     """
-    from hydromodpy.core.state.paths import (
+    from hydromodpy.core.state.layout import (
         PROJECT_MARKER_FILENAME,
         is_workspace_root,
-        resolve_project_root,
         runs_dir_for,
         sessions_dir_for,
     )
+    from hydromodpy.core.state.result_dirs import resolve_project_root
     from hydromodpy.project.accessors import Workspace
     from hydromodpy.project.facade import open_project
     from hydromodpy.results.run.view import open_run_dir
@@ -182,7 +182,7 @@ def index(workspace: PathLike | None = None) -> Workspace:
     >>> import hydromodpy as hmp
     >>> hmp.index("~/ws").runs(site="nancon")  # doctest: +SKIP
     """
-    from hydromodpy.core.state.paths import is_workspace_root
+    from hydromodpy.core.state.layout import is_workspace_root
     from hydromodpy.project.accessors import Workspace
 
     start = Path(workspace).expanduser().resolve() if workspace is not None else Path.cwd()
@@ -197,7 +197,7 @@ def index(workspace: PathLike | None = None) -> Workspace:
 
 def _projects_hint(folder: Path) -> str:
     """Name the projects one or two levels under ``folder``, when it holds some."""
-    from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME
+    from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
 
     if not folder.is_dir():
         return ""
@@ -284,7 +284,7 @@ def run(
     - a simulation gives a :class:`~hydromodpy.results.run.Run`, or ``None`` when it
       keeps nothing to read: a window that stops before ``setup_process``, or
       ``save_catalog = false``;
-    - an overview gives a :class:`~hydromodpy.workflow.pipelines.overview.OverviewResult`;
+    - an overview gives a :class:`~hydromodpy.workflow.overview.OverviewResult`;
     - ``dry_run=True`` gives a :class:`~hydromodpy.config.sites.expansion.PlanDraft`,
       with nothing run and nothing written.
 
@@ -543,8 +543,8 @@ def calibrate(
     """
     from hydromodpy.core.exceptions import CalibrationError
     from hydromodpy.project import Project
+    from hydromodpy.project.calibrate import calibrate_a_file
     from hydromodpy.project.dispatch.workflow import no_such_phase
-    from hydromodpy.project.facade import calibrate_a_file
 
     if isinstance(config, (str, Path)):
         kwargs.pop("headless", None)
@@ -917,7 +917,7 @@ def compare(
     >>> result.write("../study")  # doctest: +SKIP
     """
     from hydromodpy.analysis.comparison.compare import compare_references
-    from hydromodpy.core.state.paths import resolve_project_root
+    from hydromodpy.core.state.result_dirs import resolve_project_root
 
     start = Path(workspace or Path.cwd()).expanduser().resolve()
     root = resolve_project_root(start)
@@ -963,7 +963,7 @@ def report(session: str | None = None, *, workspace: PathLike | None = None) -> 
     ...     "calibration.v2", workspace="~/ws/projects/my_project"
     ... )  # doctest: +SKIP
     """
-    from hydromodpy.core.state.paths import resolve_project_root
+    from hydromodpy.core.state.result_dirs import resolve_project_root
     from hydromodpy.results.session.descriptor import resolve_session_dir
     from hydromodpy.workflow.steps.calibration import step_render_calibration_report
 

@@ -35,7 +35,7 @@ from pydantic import ConfigDict, Field, field_validator, model_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.stored import Vocabulary, read_stored
 from hydromodpy.core.io.document_version import VersionWindow
-from hydromodpy.core.state.paths import SUMMARY_DIRNAME
+from hydromodpy.core.state.layout import SUMMARY_DIRNAME
 from hydromodpy.results.rel_dir import checked_rel_dir
 from hydromodpy.results.storage.contract import PUBLICATION_FILENAME, RUN_PUBLISHED_FILENAME
 from hydromodpy.results.storage.json_io import check_sealed, read_sealed_json, write_json_atomic

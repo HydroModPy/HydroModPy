@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 import warnings
 
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow6.support.flopy_header_cache import install_flopy_header_cache
 from hydromodpy.solver.modflow6.support.steady_initial_conditions import (

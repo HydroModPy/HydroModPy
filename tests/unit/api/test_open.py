@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 import hydromodpy as hmp
-from hydromodpy.core.state.paths import catalog_path_for
+from hydromodpy.core.state.layout import catalog_path_for
 from hydromodpy.project.accessors import Workspace
 from hydromodpy.results.errors import RunNotSealedError
 from hydromodpy.results.session.view import Session

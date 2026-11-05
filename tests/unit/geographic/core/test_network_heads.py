@@ -16,7 +16,11 @@ from shapely.geometry import (
     Polygon,
 )
 
-from hydromodpy.spatial.geographic.core.network_heads import line_parts, network_head_candidates
+from hydromodpy.spatial.geographic.core.network_heads import (
+    HeadCandidates,
+    line_parts,
+    network_head_candidates,
+)
 from tests._helpers.mesh_cases import LAMBERT93_WKT
 
 CRS = LAMBERT93_WKT
@@ -152,3 +156,25 @@ def test_a_point_layer_is_not_a_network_and_an_areal_feature_not_a_line() -> Non
         network_head_candidates([Point(0.0, 0.0)], mesh_crs=CRS, geometry_crs=CRS)
     with pytest.raises(ValueError, match="rasterizes lines; got a Polygon"):
         line_parts([Point(0.0, 0.0).buffer(5.0)])
+
+
+@pytest.mark.parametrize(
+    ("fields", "message"),
+    [
+        (
+            {"head_xy": np.zeros((2, 3)), "reach_end_xy": np.zeros((2, 3))},
+            "head_xy must have shape",
+        ),
+        ({"head_xy": np.zeros((2, 2)), "reach_end_xy": np.zeros((1, 2))}, "pair row for row"),
+        ({"forced_cells": np.zeros((2, 2), dtype=int)}, "forced_cells must be 1-D"),
+    ],
+    ids=["points_not_pairs", "ends_not_paired", "forced_cells_not_a_list"],
+)
+def test_head_candidates_refuse_a_shape_that_does_not_pair(fields, message) -> None:
+    base = {
+        "head_xy": np.zeros((1, 2)),
+        "reach_end_xy": np.zeros((1, 2)),
+        "map_points_xy": np.zeros((0, 2)),
+    }
+    with pytest.raises(ValueError, match=message):
+        HeadCandidates(**{**base, **fields})

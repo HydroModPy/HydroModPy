@@ -52,7 +52,7 @@ from hydromodpy.display.figures._stream_comparison import (
 )
 from hydromodpy.display.maps.axes import overlay_watershed_contour, style_map_axes
 from hydromodpy.display.maps.mesh_geometry import face_polygons
-from hydromodpy.results.derive.stream_network import (
+from hydromodpy.results.derive.stream.comparison import (
     AGREEMENT_EXCESS,
     AGREEMENT_MISSING,
     AGREEMENT_NEITHER,

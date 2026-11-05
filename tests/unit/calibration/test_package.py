@@ -19,7 +19,7 @@ from hydromodpy.calibration.report import (
     promotion_failures,
     unfinished_session,
 )
-from hydromodpy.core.state.execution import ExecutionRegistry
+from hydromodpy.core.state.run_state import ExecutionRegistry
 from hydromodpy.results.errors import SeveralCasesError
 from hydromodpy.results.metric_rule import PeriodWindow
 from hydromodpy.results.session.descriptor import BestCase, BestTrial

@@ -252,7 +252,7 @@ class DatasetLoader:
         """
         import xarray as xr
 
-        from hydromodpy.core import progress
+        from hydromodpy.core.console import progress
         from hydromodpy.core.logging import get_logger
 
         logger = get_logger(__name__)

@@ -9,7 +9,7 @@ The worker side (``hmp run``) stops at ``execute``: it never opens the index, th
 launcher indexes after it.
 
 The attempt protocol (claim of ``runs/<case>/``, pulse, outcome) is
-:mod:`hydromodpy.project.attempt`; the seal is the last step of the pipeline.
+:mod:`hydromodpy.workflow.record.attempt`; the seal is the last step of the pipeline.
 """
 
 from __future__ import annotations
@@ -20,12 +20,15 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.config_kit.written import log_experimental_keys
-from hydromodpy.core.exceptions import ConfigError, ResumeError
+from hydromodpy.core.exceptions import ResumeError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.project.attempt import AttemptHandle, SealedRun, run_attempt, sealed_run_of
 from hydromodpy.project.run_overrides import override_changes
 from hydromodpy.results.catalog.registration import solve_identity_hash
 from hydromodpy.results.storage.attempt import scratch_dir_for_attempt
+from hydromodpy.workflow.record.attempt import AttemptHandle, SealedRun, run_attempt, sealed_run_of
+from hydromodpy.workflow.record.resume import resolve_resume_step_index
+from hydromodpy.workflow.state import PipelineState
+from hydromodpy.workflow.window import model_phase_index, step_window
 
 if TYPE_CHECKING:
     from hydromodpy.config.sites.expansion import PlanDraft
@@ -39,7 +42,7 @@ DEFAULT_RUN_NAME_TEMPLATE = "run_{counter:04d}"
 
 
 @contextmanager
-def _pin_parent_sim_id(ctx: WorkflowContext, parent_sim_id: str | None) -> Iterator[None]:
+def pin_parent_sim_id(ctx: WorkflowContext, parent_sim_id: str | None) -> Iterator[None]:
     """Temporarily set ``ctx.parent_sim_id`` for the duration of the block.
 
     Restores the previous value on exit, including when an exception
@@ -54,138 +57,6 @@ def _pin_parent_sim_id(ctx: WorkflowContext, parent_sim_id: str | None) -> Itera
         yield
     finally:
         ctx.parent_sim_id = previous
-
-
-def resolve_step_index(step: str, steps: tuple) -> int:
-    """Return the position of the step named *step* in *steps*.
-
-    A step is named by its ``name``, one of
-    :data:`~hydromodpy.core.pipeline_steps.STEP_NAMES`. An index would move when a
-    version inserts a step, so it is refused, and a class name is no contract.
-    """
-    if not isinstance(step, str):
-        known = ", ".join(getattr(obj, "name", type(obj).__name__) for obj in steps)
-        raise ConfigError(
-            f"A pipeline step is named, not numbered: got {step!r}. Known steps: {known}."
-        )
-    for index, obj in enumerate(steps):
-        if getattr(obj, "name", None) == step:
-            return index
-    known = ", ".join(getattr(obj, "name", type(obj).__name__) for obj in steps)
-    raise ConfigError(f"Unknown pipeline step: {step!r}. Known steps: {known}.")
-
-
-def _bounded_step_index(step: str | None, steps: tuple) -> int | None:
-    """Resolve a step bound, ``None`` when there is none."""
-    return None if step is None else resolve_step_index(step, steps)
-
-
-def _refuse_an_empty_window(
-    from_step: str | None, from_idx: int | None, until_step: str | None, until_idx: int | None
-) -> None:
-    """Refuse a step window whose start comes after its end."""
-    if from_idx is not None and until_idx is not None and from_idx > until_idx:
-        raise ConfigError(f"from_step {from_step!r} is past until_step {until_step!r}.")
-
-
-def _window_stops_before_the_model(
-    until_step: str | None, until_idx: int | None, first_model_step: int, resume: str | None
-) -> bool:
-    """Say whether a window ends before ``setup_process``.
-
-    Such a window reaches no step able to open a run, so it is not a run and claims no
-    directory, and it keeps no journal to resume from.
-    """
-    head_only = until_idx is not None and until_idx < first_model_step
-    if head_only and resume is not None:
-        raise ConfigError(
-            f"until_step {until_step!r} stops before 'setup_process', so the run keeps no "
-            f"journal to resume from. Drop --resume, or widen the window."
-        )
-    return head_only
-
-
-def model_phase_index(steps: tuple) -> int:
-    """Return the index of the first step that consumes the shared model phase.
-
-    ``0`` when the pipeline declares no ``setup_process``: an ad-hoc step list
-    makes no claim about a model phase, so every window is treated as needing
-    one, which is what the canonical pipeline did before the bound existed.
-    """
-    for index, step in enumerate(steps):
-        if getattr(step, "name", None) == "setup_process":
-            return index
-    return 0
-
-
-def scratch_of_resumed_run(project_root: Path, run_name: str) -> str | None:
-    """Return the scratch folder the completed steps of ``run_name`` journalled, or None.
-
-    A run journals its preprocessing under the project folder
-    ``.hmp/scratch/<run>.p<pid>/``. The resume works in that folder again, or
-    the sweep of killed runs would delete what the resume is meant to reuse.
-    The journal is read from the run directory (``runs/<name>``, the latest
-    version for a bare name), never from the index.
-    """
-    from hydromodpy.core.state.paths import run_scratch_of
-    from hydromodpy.results.storage.attempt import run_dir_for_name
-    from hydromodpy.workflow.tracking.journal import WorkflowJournal
-
-    run_dir = run_dir_for_name(Path(project_root), run_name)
-    if run_dir is None:
-        return None
-    rows = WorkflowJournal(run_dir).list_steps(run_name)
-    completed = sorted(
-        (row for row in rows if row.status == "completed"), key=lambda row: row.step_order
-    )
-    return run_scratch_of(uri for row in completed for uri in row.artifact_uris)
-
-
-def _resolve_resume_step_index(
-    run_dir: Path,
-    workspace: Path,
-    run_id: str,
-    *,
-    steps_blueprint: tuple[str, ...] | None = None,
-) -> int:
-    """Locate the next step index to execute for a previously interrupted run.
-
-    The step journal under ``<run>/.hmp/checkpoints/`` is the single source of
-    truth: when no row exists for ``run_id`` the run is treated as fresh and
-    starts from step 0.
-    """
-    from hydromodpy.workflow.tracking.journal import WorkflowJournal
-    from hydromodpy.workflow.tracking.resume import ResumePlanner
-
-    planner = ResumePlanner(WorkflowJournal(run_dir), workspace)
-    plan = planner.compute(
-        run_id=run_id,
-        current_config_sha256=None,
-        steps_blueprint=steps_blueprint or (),
-    )
-
-    # Make a degraded resume visible: a snapshot-rebuilt config or a changed
-    # pipeline can force a full restart, which otherwise looks like a normal run.
-    if plan.full_restart:
-        logger.warning(
-            "resume %r cannot pick up where it left off (%s); restarting from step 0",
-            run_id,
-            plan.reason or "pipeline or config changed",
-        )
-    elif plan.restart_index == 0:
-        logger.warning(
-            "resume %r found no resumable journal (%s); starting fresh from step 0",
-            run_id,
-            plan.reason or "no journal entries",
-        )
-    else:
-        logger.info(
-            "resume %r picks up from step %d (last completed: %s)",
-            run_id,
-            plan.restart_index,
-            plan.last_completed.step_name if plan.last_completed is not None else "?",
-        )
-    return plan.restart_index
 
 
 def run_view_of(run_dir: Path, *, project_root: Path, sim_id: str) -> Run | None:
@@ -205,6 +76,62 @@ def run_view_of(run_dir: Path, *, project_root: Path, sim_id: str) -> Run | None
         return None
     store = RunStore.open(run_dir, workspace=project_root)
     return Run(sim_id, store)
+
+
+def _attempt_bracket(
+    workspace_path: Path,
+    name: str,
+    cfg_run: Any,
+    config_hash: str | None,
+    *,
+    fresh: bool,
+    force: bool,
+):
+    """Return the context manager that claims ``runs/<name>/`` and closes its outcome."""
+    return run_attempt(
+        workspace_path,
+        name,
+        case_id=name,
+        project=workspace_path.name,
+        site=getattr(getattr(cfg_run, "site", None), "name", None),
+        fresh=fresh,
+        force=force,
+        config_hash=config_hash,
+        if_exists=cfg_run.simulation.if_exists,
+    )
+
+
+def _refuse_resume_of_nothing(handle: AttemptHandle, resume: str, name: str) -> None:
+    """Refuse a ``resume`` whose directory holds no interrupted attempt, or say it starts over."""
+    claim = handle.claim
+    if claim.attempt == 1:
+        raise ResumeError(
+            f"resume {resume!r}: {handle.run_dir} holds no interrupted attempt to continue."
+        )
+    # The claim started this attempt over: the previous one ran another
+    # configuration, or --fresh was asked. There is nothing to resume.
+    logger.info(
+        "resume %r: attempt %d of %s starts over from step 0",
+        resume,
+        claim.attempt,
+        handle.run_dir.name if handle.run_dir is not None else name,
+    )
+
+
+@contextmanager
+def _frozen_inputs(frozen: bool, workspace_path: Path) -> Iterator[None]:
+    """Require frozen input-data references for the block, then restore the previous mode."""
+    if not frozen:
+        yield
+        return
+    from hydromodpy.data.provenance.lockfile import frozen_project_root, set_frozen_mode
+
+    previous_root = frozen_project_root()
+    set_frozen_mode(True, project_root=workspace_path)
+    try:
+        yield
+    finally:
+        set_frozen_mode(previous_root is not None, project_root=previous_root)
 
 
 class ProjectRunner:
@@ -299,15 +226,12 @@ class ProjectRunner:
         """
         from hydromodpy.config.sites.expansion import single_case_draft
         from hydromodpy.project.dispatch.workflow import completed_identical_run
-        from hydromodpy.workflow.orchestrator import standard_steps
+        from hydromodpy.workflow.steps.sequence import standard_steps
 
         project = self._project
         all_steps = standard_steps()
-        until_idx = _bounded_step_index(until_step, all_steps)
-        from_idx = _bounded_step_index(from_step, all_steps)
-        _refuse_an_empty_window(from_step, from_idx, until_step, until_idx)
+        from_idx, until_idx, head_only = step_window(all_steps, from_step, until_step, resume)
         first_model_step = model_phase_index(all_steps)
-        head_only = _window_stops_before_the_model(until_step, until_idx, first_model_step, resume)
         start = from_idx
         if start is None and not head_only and self._is_model_phase_ready():
             start = first_model_step
@@ -350,10 +274,7 @@ class ProjectRunner:
         ``force`` claims a stale case whose death cannot be proven. ``lineage``
         and ``calibrated_by`` are the blocks a promotion seals its run with.
         """
-        from hydromodpy.workflow.orchestrator import standard_steps
-        from hydromodpy.workflow.steps.data import rebind_flow_if_stale
-        from hydromodpy.workflow.steps.planning import step_build_plan
-        from hydromodpy.workflow.steps.setup import rebuild_domain_if_stale
+        from hydromodpy.workflow.steps.sequence import standard_steps
 
         project = self._project
 
@@ -370,64 +291,29 @@ class ProjectRunner:
 
         all_steps = standard_steps()
         steps = all_steps
-        until_idx = _bounded_step_index(until_step, all_steps)
-        from_idx = _bounded_step_index(from_step, all_steps)
-        _refuse_an_empty_window(from_step, from_idx, until_step, until_idx)
+        from_idx, until_idx, head_only = step_window(all_steps, from_step, until_step, resume)
         if until_idx is not None:
             steps = tuple(all_steps[: until_idx + 1])
 
-        first_model_step = model_phase_index(all_steps)
-        head_only = _window_stops_before_the_model(until_step, until_idx, first_model_step, resume)
         # The Pipeline owns the model phase: it executes ``build_geographic``,
         # ``load_data`` and ``build_mesh`` itself, so each of them gets a
         # journal row and a process death inside one of them leaves a trace.
-        needs_model_phase = not head_only
-
         workspace_path = self._resolve_workspace_path()
         persisted = bool(project._cfg.simulation.results.persistence.save_catalog)
         claims = not head_only and persisted
-        model_phase_ready = needs_model_phase and self._is_model_phase_ready()
+        model_phase_ready = not head_only and self._is_model_phase_ready()
 
-        # The configuration this run is defined by, overrides included. It is
-        # what the plan reads, what the Pipeline signs, what the run seals, and
-        # what every builder reads. ``project._cfg`` stays the configuration the
-        # project declares; the context carries the one of the run in flight.
-        cfg_run = project._cfg.with_changes(changes) if changes else project._cfg
-        project._ctx.cfg = cfg_run
-        # Here and not in the validate step: the prefix of a calibration and its
-        # trials run that step too, and a session says it once, at its preflight.
-        log_experimental_keys(cfg_run)
-        rebuild_domain_if_stale(project._ctx)
-        rebind_flow_if_stale(project._ctx)
-
-        step_build_plan(project._ctx, name=name)
-        project._ctx.setup.flow_runtime_overrides = None
+        cfg_run = self._load_run_context(name, changes)
         # The lineage belongs to one run: a later point of a sweep starts without it.
         project._ctx.lineage = None
         if lineage is not None and changes:
             lineage = lineage.model_copy(update={"overrides": {**lineage.overrides, **changes}})
 
-        project._ctx.setup.run_id = name
-        if project._store is not None:
-            project._store.close()
-            project._store = None
-
-        site = getattr(getattr(cfg_run, "site", None), "name", None)
         # The identity of this run, computed once: the claim compares it to
         # the one of the previous attempt, the facts of the run record it.
         config_hash = solve_identity_hash(cfg_run) if claims else None
         bracket = (
-            run_attempt(
-                workspace_path,
-                name,
-                case_id=name,
-                project=workspace_path.name,
-                site=site,
-                fresh=fresh,
-                force=force,
-                config_hash=config_hash,
-                if_exists=cfg_run.simulation.if_exists,
-            )
+            _attempt_bracket(workspace_path, name, cfg_run, config_hash, fresh=fresh, force=force)
             if claims
             else nullcontext(None)
         )
@@ -442,7 +328,7 @@ class ProjectRunner:
                 resume=resume,
                 from_idx=from_idx,
                 model_phase_ready=model_phase_ready,
-                model_phase_index=first_model_step,
+                model_phase_index=model_phase_index(all_steps),
                 skip_display=skip_display,
                 frozen=frozen,
                 run_overrides=changes or None,
@@ -454,6 +340,35 @@ class ProjectRunner:
         if handle is None or sim_id is None:
             return None
         return sealed_run_of(handle.claim, workspace_path)
+
+    def _load_run_context(self, name: str, changes: Mapping[str, Any]) -> Any:
+        """Put the configuration of this run on the context and return it.
+
+        It is the project configuration with the overrides of the run. It is
+        what the plan reads, what the Pipeline signs, what the run seals, and
+        what every builder reads. ``project._cfg`` stays the configuration the
+        project declares; the context carries the one of the run in flight.
+        """
+        from hydromodpy.workflow.steps.data import rebind_flow_if_stale
+        from hydromodpy.workflow.steps.planning import step_build_plan
+        from hydromodpy.workflow.steps.setup import rebuild_domain_if_stale
+
+        project = self._project
+        cfg_run = project._cfg.with_changes(changes) if changes else project._cfg
+        project._ctx.cfg = cfg_run
+        # Here and not in the validate step: the prefix of a calibration and its
+        # trials run that step too, and a session says it once, at its preflight.
+        log_experimental_keys(cfg_run)
+        rebuild_domain_if_stale(project._ctx)
+        rebind_flow_if_stale(project._ctx)
+
+        step_build_plan(project._ctx, name=name)
+        project._ctx.setup.flow_runtime_overrides = None
+        project._ctx.setup.run_id = name
+        if project._store is not None:
+            project._store.close()
+            project._store = None
+        return cfg_run
 
     def _execute_attempt(
         self,
@@ -476,26 +391,13 @@ class ProjectRunner:
         calibrated_by: Any,
     ) -> str | None:
         """Drive the Pipeline inside the attempt bracket and return the ``sim_id`` of the run."""
-        from hydromodpy.workflow.internals.state import PipelineState
         from hydromodpy.workflow.runner import Pipeline
 
         project = self._project
         run_dir = None if handle is None else handle.run_dir
         resumes = handle is not None and handle.claim.resumed
         if resume is not None and handle is not None and not resumes:
-            if handle.claim.attempt == 1:
-                raise ResumeError(
-                    f"resume {resume!r}: {run_dir} holds no interrupted attempt to continue."
-                )
-            # The claim started this attempt over: the previous one ran another
-            # configuration, or --fresh was asked. There is nothing to resume.
-            logger.info(
-                "resume %r: attempt %d of %s starts over from step 0",
-                resume,
-                handle.claim.attempt,
-                run_dir.name if run_dir is not None else name,
-            )
-
+            _refuse_resume_of_nothing(handle, resume, name)
         self._bind_attempt(handle, workspace_path)
 
         # A model-phase-ready run reuses the model built in this process; its
@@ -505,7 +407,7 @@ class ProjectRunner:
         if from_idx is not None:
             resume_from: int | None = from_idx
         elif resumes and run_dir is not None:
-            resume_from = _resolve_resume_step_index(
+            resume_from = resolve_resume_step_index(
                 run_dir,
                 workspace_path,
                 name,
@@ -517,60 +419,20 @@ class ProjectRunner:
         else:
             resume_from = None
 
-        initial = PipelineState(
-            run_id=name,
-            data={
-                "ctx": project._ctx,
-                "cfg": cfg_run,
-                "config_path": project._config_path,
-                "raw_toml": getattr(project._ctx, "raw_toml", {}) or {},
-                "skip_display": skip_display,
-                # The geographic preprocessing tree is shared by every run of
-                # this Project. Dropping it at the end of the first one leaves
-                # the next ones without a DEM to ingest; Project.close() owns it.
-                "keep_preprocessing": True,
-                "spatial_support_registry": project._spatial_support_registry,
-                "requested_spatial_support_ids": project._requested_support_ids,
-                "requested_domain_supports": project._requested_domain_supports,
-                # This run is already named. ``run_setup`` derives a name from
-                # the config when nobody gives it one, which would rename a run
-                # the caller named differently.
-                "run_name": name,
-                # What this run changes on top of the configuration of the project,
-                # by dotted path: the lineage of the seal records it.
-                "run_overrides": run_overrides,
-                "config_hash": config_hash,
-                "run_dir": run_dir,
-                "lineage": lineage,
-                "calibrated_by": calibrated_by,
-            },
+        initial = self._initial_state(
+            name, cfg_run, skip_display, run_overrides, config_hash, run_dir, lineage, calibrated_by
         )
 
         # A head-only window owns no run record: handing it a directory would
         # let it overwrite the checkpoints of the run that carries this name.
         pipeline = Pipeline(steps, workspace=workspace_path, run_dir=run_dir)
-        restore_frozen_root: Path | None = None
-        if frozen:
-            from hydromodpy.data.provenance.lockfile import frozen_project_root, set_frozen_mode
-
-            restore_frozen_root = frozen_project_root()
-            set_frozen_mode(True, project_root=workspace_path)
-
-        try:
+        with _frozen_inputs(frozen, workspace_path):
             final = pipeline.run(
                 initial,
                 resume_from=resume_from,
                 model_phase_ready=in_process_skip,
                 heartbeat=None if handle is None else handle.heartbeat,
             )
-        finally:
-            if frozen:
-                from hydromodpy.data.provenance.lockfile import set_frozen_mode
-
-                set_frozen_mode(
-                    restore_frozen_root is not None,
-                    project_root=restore_frozen_root,
-                )
 
         if not in_process_skip:
             # The Pipeline built the model phase on the Project's own ctx - a
@@ -586,6 +448,48 @@ class ProjectRunner:
         final_ctx = final.get("ctx") if final is not None else None
         sim_id = getattr(final_ctx, "sim_id", None) if final_ctx is not None else None
         return None if sim_id is None else str(sim_id)
+
+    def _initial_state(
+        self,
+        name: str,
+        cfg_run: Any,
+        skip_display: bool,
+        run_overrides: dict[str, Any] | None,
+        config_hash: str | None,
+        run_dir: Path | None,
+        lineage: Any,
+        calibrated_by: Any,
+    ) -> PipelineState:
+        """Return the state the Pipeline starts from: the context of the project and this run."""
+        project = self._project
+        return PipelineState(
+            run_id=name,
+            data={
+                "ctx": project._ctx,
+                "cfg": cfg_run,
+                "config_path": project._config_path,
+                "raw_toml": getattr(project._ctx, "raw_toml", {}) or {},
+                "skip_display": skip_display,
+                # The geographic preprocessing tree is shared by every run of
+                # this Project. Dropping it at the end of the first one leaves
+                # the next ones without a DEM to ingest; Project.close() owns it.
+                "keep_preprocessing": True,
+                "spatial_support_registry": project._spatial_support_registry,
+                "requested_spatial_support_ids": project._requested_support_ids,
+                "requested_domain_supports": project._requested_domain_supports,
+                # This run is already named. ``step_setup`` derives a name from
+                # the config when nobody gives it one, which would rename a run
+                # the caller named differently.
+                "run_name": name,
+                # What this run changes on top of the configuration of the project,
+                # by dotted path: the lineage of the seal records it.
+                "run_overrides": run_overrides,
+                "config_hash": config_hash,
+                "run_dir": run_dir,
+                "lineage": lineage,
+                "calibrated_by": calibrated_by,
+            },
+        )
 
     def _bind_attempt(self, handle: AttemptHandle | None, workspace_path: Path) -> None:
         """Tell the context which directory and attempt it runs in."""

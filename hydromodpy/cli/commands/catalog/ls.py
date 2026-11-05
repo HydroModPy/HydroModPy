@@ -100,7 +100,8 @@ def _resolve_workspace(workspace_arg: str | None) -> Path:
     Nothing found stops with :data:`EXIT_NOT_FOUND`: the listing never falls
     back on a default folder.
     """
-    from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
+    from hydromodpy.core.state.layout import catalog_path_for
+    from hydromodpy.core.state.result_dirs import resolve_project_root
 
     if workspace_arg:
         return Path(workspace_arg).expanduser().resolve()
@@ -117,7 +118,7 @@ def _resolve_workspace(workspace_arg: str | None) -> Path:
 
 def _readable_facts(run_dir: Path) -> Any:
     """Return the facts of a listed run, or ``None`` after one warning when it does not read."""
-    from hydromodpy.project.summary import UnreadableManifestError, read_run_facts
+    from hydromodpy.results.run.sealed_facts import UnreadableManifestError, read_run_facts
     from hydromodpy.results.storage.json_io import readable, warn_unreadable
 
     try:
@@ -132,8 +133,8 @@ def _with_seal_facts(df: Any, workspace_root: Path, metric: str | None) -> Any:
 
     Read from the ``manifest.json`` of each listed run.
     """
-    from hydromodpy.project.summary import overrides_text
     from hydromodpy.results.catalog import iter_project_catalog_roots
+    from hydromodpy.results.run.sealed_facts import overrides_text
 
     roots = {path.name: path for path in iter_project_catalog_roots(workspace_root)}
     columns: dict[str, list[Any]] = {
@@ -166,7 +167,7 @@ def _with_seal_facts(df: Any, workspace_root: Path, metric: str | None) -> Any:
 
 def _left_out_reasons(listed: Any, ranked: Any, metric: str) -> list[str]:
     """Name the sites whose runs ``--best`` left out, and why, one line per reason."""
-    from hydromodpy.project.summary import names_text, unscored_reason
+    from hydromodpy.results.run.ranking import names_text, unscored_reason
 
     sites = listed["site"].map(_site_of)
     kept = set(ranked["site"].map(_site_of))
@@ -187,9 +188,9 @@ def _site_of(value: Any) -> str:
 def run(args: argparse.Namespace) -> None:
     apply_verbosity(args, {})
     from hydromodpy.cli._workers.catalog import list_simulations
-    from hydromodpy.project.summary import rank_rows
     from hydromodpy.results.catalog import iter_project_catalog_roots
     from hydromodpy.results.catalog.constants import UnrankedMetricError
+    from hydromodpy.results.run.ranking import rank_rows
     from hydromodpy.results.run.sealed import MixedWindowsError
 
     workspace_root = _resolve_workspace(args.workspace)

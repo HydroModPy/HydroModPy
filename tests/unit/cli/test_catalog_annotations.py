@@ -61,7 +61,7 @@ def test_a_note_is_appended_with_its_instant(tmp_path: Path, monkeypatch) -> Non
 def test_an_indexed_run_keeps_its_row_and_note_after_a_note(tmp_path: Path, monkeypatch) -> None:
     import duckdb
 
-    from hydromodpy.core.state.paths import catalog_path_for
+    from hydromodpy.core.state.layout import catalog_path_for
     from hydromodpy.results.catalog.indexer import rebuild_index
     from tests._helpers.sealed_runs import make_project, seal_run
 

@@ -18,7 +18,7 @@ import pytest
 import xarray as xr
 import xugrid as xu
 
-from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME, RUNS_DIRNAME
+from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME, RUNS_DIRNAME
 from hydromodpy.results.exporters.netcdf import export_netcdf
 from hydromodpy.results.storage.attempt import close_sealed_attempt
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME

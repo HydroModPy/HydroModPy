@@ -24,7 +24,7 @@ that name, and any other period (a validation, a split-sample) stays beside it.
 
 Without a window there is no score: ``value`` is ``None`` and ``n_samples`` is 0.
 A window is inclusive of both days. The kernels are the ones of
-:mod:`hydromodpy.core.metrics`; a value they cannot compute (constant
+:mod:`hydromodpy.core.scoring.metrics`; a value they cannot compute (constant
 observations, empty overlap) is ``None`` too, never ``NaN``.
 
 ``nse_log`` clips a negative value to zero, as the calibration cost does, and
@@ -49,9 +49,9 @@ import numpy as np
 import pandas as pd
 from pydantic import Field, ValidationInfo, model_validator
 
-from hydromodpy.core import metrics as kernels
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.stored import Vocabulary, reading_stored
+from hydromodpy.core.scoring import metrics as kernels
 
 if TYPE_CHECKING:
     from hydromodpy.config.hydromodpy_config import HydroModPyConfig

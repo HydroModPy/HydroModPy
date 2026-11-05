@@ -55,7 +55,7 @@ same public attributes.
 
 The workflow step `BuildGeographicStep` in `hydromodpy/workflow/steps/setup.py` is the caller.
 It chooses between the two runtimes. The tree lives in the preprocessing folder of the run
-(`preprocessing_dir` in `hydromodpy/core/state/paths.py`), and `preprocessing_cleanup.py` removes
+(`preprocessing_dir` in `hydromodpy/core/state/scratch.py`), and `preprocessing_cleanup.py` removes
 it once the run holds what it needs, unless `write_intermediates` keeps it.
 
 ## The folder map
@@ -106,6 +106,7 @@ geographic/
 │   ├── river_network_vector.py     the stream vector read back, and its summary
 │   ├── river_mesh_trace.py         the river lines the mesh follows
 │   ├── sfr_network.py              the SFR reach table from the stream links
+│   ├── sfr_traces.py               one SFR reach trace per declared network
 │   ├── hydrographic_network.py     one object for a generated or a reference network
 │   ├── hydrographic_network_comparison.py   two networks compared within a tolerance
 │   ├── network_heads.py            free ends of a mapped network, where heads may lie
@@ -139,7 +140,7 @@ for example `GeographicConfig` from `geographic_config.py` and `build_synthetic_
 | the regularized channel bed | `core/channel_bed_fit.py`, then `core/ground_bed.py` |
 | when a tree is reused | `geographic_cache.py` |
 | the name or place of an output file | `geographic_paths.py` |
-| the SFR reaches | `core/sfr_network.py` |
+| the SFR reaches | `core/sfr_network.py`, `core/sfr_traces.py` |
 | the shared network object | `core/hydrographic_network.py` |
 | a synthetic topography | `synthetic_config.py`, then `synthetic/topography.py` |
 
@@ -171,7 +172,7 @@ The package imports from other HydroModPy layers only `core`, `schema` and `spat
 - Inside `spatial`, the package reads `terrain` (the flow-routing port and its registry),
   `delineation` (the backend registry), `surface` and `raster_support`. It reads `domain` and
   `field` only under `TYPE_CHECKING`, in `structure_binders.py`.
-- Some imports sit inside the function that needs them. They are the `hydromodpy.core.state.paths`
+- Some imports sit inside the function that needs them. They are the `hydromodpy.core.state.scratch`
   import of `geographic_paths.py` and `subbasin.py`, the `toml_io.loader` import of
   `synthetic_config.py`, the terrain registry import of `geographic_config.py`, and two imports
   of `core/network_heads.py`. A module that only needs its types or its constants does not load
@@ -197,8 +198,8 @@ The package prepares files. What reads them is elsewhere.
   `persist_geographic_to_store` to write the tree into the catalog store.
 - The mesh planner reads the river lines through `resolve_river_mesh_trace`
   (`core/derived_features.py`). `hydromodpy/workflow/steps/mesh_inputs.py` calls it.
-- The workflow data step `hydromodpy/workflow/steps/data.py` calls the reach builder of
-  `core/sfr_network.py` and `lake_contributing_areas_m2`. The MODFLOW 6 SFR builder in
+- The workflow data step `hydromodpy/workflow/steps/data.py` calls `build_sfr_reach_traces`
+  (`core/sfr_traces.py`) and `lake_areas_or_even_split` (`core/lake_catchments.py`). The MODFLOW 6 SFR builder in
   `hydromodpy/solver/modflow6/builders/sfr.py` turns the reach table into package data.
 - `hydromodpy/results/` reads the network objects to compare and export them.
 

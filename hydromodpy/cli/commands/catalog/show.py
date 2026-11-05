@@ -27,7 +27,7 @@ from hydromodpy.cli.helpers import (
     refuse,
 )
 from hydromodpy.cli.output import emit
-from hydromodpy.core.state.paths import catalog_path_for
+from hydromodpy.core.state.layout import catalog_path_for
 
 NAME: str = "show"
 HELP: str = "Print the README of a run, or its facts, metrics and parameters from the index"

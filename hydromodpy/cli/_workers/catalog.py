@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import catalog_path_for
+from hydromodpy.core.state.layout import catalog_path_for
 from hydromodpy.results.outcome import DEFAULT_STALE_AFTER_S
 
 logger = get_logger(__name__)

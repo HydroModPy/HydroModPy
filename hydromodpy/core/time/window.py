@@ -406,9 +406,6 @@ def resolve_simulation_time_grid(cfg: Any) -> ResolvedSimulationTimeGrid | None:
     time_cfg = _simulation_time_config(cfg)
     if time_cfg is None:
         return None
-    mode = _normalize_mode(getattr(time_cfg, "mode", "explicit"))
-    if mode != "explicit":
-        return None
 
     window = resolve_simulation_time_window(cfg)
     if window is None:

@@ -124,15 +124,10 @@ def test_a_dem_that_rasterio_does_not_open_is_left_to_the_step_that_reads_it(
 
 @pytest.mark.fast
 def test_the_resolve_step_refuses_a_dem_init_path_without_a_crs(tmp_path: Path) -> None:
-    from hydromodpy.workflow.steps.setup import resolve_dem_init_path
+    from hydromodpy.data.variables.dem.resolver import fill_dem_init_path
 
     path = _raster(tmp_path / "regional.tif", crs=None)
-    cfg = SimpleNamespace(
-        geographic=SimpleNamespace(
-            uses_synthetic_geographic=lambda: False,
-            dem_init_path=path,
-        )
-    )
+    cfg = SimpleNamespace(geographic=SimpleNamespace(dem_init_path=path))
 
     with pytest.raises(DataContractViolation, match=r"declares no CRS"):
-        resolve_dem_init_path(cfg, SimpleNamespace(config_path=None))
+        fill_dem_init_path(cfg, config_path=None, data_path=None)

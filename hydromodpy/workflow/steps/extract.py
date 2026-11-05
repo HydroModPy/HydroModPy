@@ -13,8 +13,8 @@ from hydromodpy.core.exceptions import ConfigError, ExtractError
 from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results.storage.run_store import RunStore
-from hydromodpy.workflow.internals.state import PipelineState
-from hydromodpy.workflow.run_store import run_is_persisted, run_store
+from hydromodpy.workflow.record.run_store import run_is_persisted, run_store
+from hydromodpy.workflow.state import PipelineState
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
@@ -40,6 +40,7 @@ def step_ingest_observations(ctx: WorkflowContext, sim_id: str, *, store: RunSto
     try:
         ingest_observations(sim_id, store, ctx.loaded_data)
     except Exception as exc:
+        # Whatever the ingestion raised, the run stops and names the simulation.
         logger.exception("Failed to ingest observations for sim %s", sim_id)
         raise ExtractError(f"Failed to ingest observations for sim {sim_id}") from exc
 
@@ -74,6 +75,7 @@ def restore_seepage_raster_from_store(
         os.makedirs(seepage_tif.parent, exist_ok=True)
         export_tif(str(base_raster), seepage_array, str(seepage_tif), -9999.0)
     except Exception as exc:
+        # The raster is an optional product: any failure means it is not rebuilt.
         logger.debug("Failed to rebuild seepage from the run store: %s", exc)
         return False
 
@@ -161,7 +163,7 @@ class ExtractStep:
 
     def artifacts(self, state: PipelineState) -> tuple[str, ...]:
         """Return workspace-relative paths populated by extraction."""
-        from hydromodpy.workflow.steps.prepare_solver import _store_sim_artifacts
+        from hydromodpy.workflow.steps.prepare_solver.facts import store_sim_artifacts
 
         ctx = state.get("ctx")
         if ctx is None or not run_is_persisted(ctx):
@@ -170,7 +172,7 @@ class ExtractStep:
         if not sim_id or getattr(ctx, "run_dir", None) is None:
             return ()
         with run_store(ctx) as store:
-            return _store_sim_artifacts(ctx, sim_id, store=store)
+            return store_sim_artifacts(ctx, sim_id, store=store)
 
     def rebuild_state(
         self,

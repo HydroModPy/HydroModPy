@@ -10,6 +10,7 @@ from shapely.geometry import LineString, Point, Polygon, box
 from shapely.ops import unary_union
 
 from hydromodpy.core.exceptions import MeshError
+from hydromodpy.results.run.field_envelope import read_run_fields
 from hydromodpy.spatial.geographic.core.derived_features import resolve_river_mesh_trace
 from hydromodpy.spatial.mesh import registry
 from hydromodpy.spatial.mesh.mesh_config import MeshConfig
@@ -23,7 +24,6 @@ from hydromodpy.spatial.mesh.planning.inputs import PlanningInputs
 from hydromodpy.spatial.mesh.planning.lake_structures import lake_structures
 from hydromodpy.spatial.mesh.planning.refinement_zones import CriterionInputs, load_refinement_zones
 from hydromodpy.spatial.mesh.request import RasterGridSpec
-from hydromodpy.workflow.steps.mesh_run_fields import read_run_fields
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
@@ -43,12 +43,12 @@ def planning_inputs(ctx: WorkflowContext, mesh_cfg: MeshConfig) -> PlanningInput
     triangle = mesh_cfg.triangle
     sized = graded and (triangle is None or triangle.path is None)
     geology, notes = _geology_contacts(ctx, mesh_cfg, crs_wkt, grid)
-    river_trace = _river_trace(setup, mesh_cfg, active_bc=active_bc, synthetic=synthetic)
+    river_trace = river_trace_of(setup, mesh_cfg, active_bc=active_bc, synthetic=synthetic)
     footprints = _lake_polygons(setup)
     outlet = _declared_outlet(cfg.geographic)
     return PlanningInputs(
         dem_grid=grid,
-        domain=_domain_polygon(setup, cfg.geographic, grid, crs_wkt, synthetic),
+        domain=domain_polygon(setup, cfg.geographic, grid, crs_wkt, synthetic),
         river_trace=river_trace,
         watershed=_watershed(setup, crs_wkt) if reads_catchment and not synthetic else None,
         lakes=tuple(footprints.values()),
@@ -61,7 +61,7 @@ def planning_inputs(ctx: WorkflowContext, mesh_cfg: MeshConfig) -> PlanningInput
             config_dir=Path(ctx.config_path).parent,
             data_dir=_data_dir(setup),
             crs_wkt=crs_wkt,
-            criteria=_criterion_inputs(setup, mesh_cfg, grid, river_trace) if sized else None,
+            criteria=criterion_inputs(setup, mesh_cfg, grid, river_trace) if sized else None,
         ),
         input_triangulation=(
             None
@@ -75,7 +75,7 @@ def planning_inputs(ctx: WorkflowContext, mesh_cfg: MeshConfig) -> PlanningInput
     )
 
 
-def _criterion_inputs(
+def criterion_inputs(
     setup: object, mesh_cfg: MeshConfig, grid: RasterGridSpec, river_trace: object | None
 ) -> CriterionInputs | None:
     """What the zones drawn by a threshold read, None when no zone is drawn so.
@@ -138,7 +138,7 @@ def _data_dir(setup: object) -> Path | None:
     return None if data_dir is None else Path(data_dir)
 
 
-def _domain_polygon(
+def domain_polygon(
     setup: object, geographic_cfg: object, grid: RasterGridSpec, crs_wkt: str, synthetic: bool
 ) -> Polygon:
     """The polygon of the active extent: the DEM rectangle, or the catchment (buffered or not)."""
@@ -180,7 +180,7 @@ def _read_polygon(path: Path, crs_wkt: str) -> Polygon | None:
     return max(getattr(union, "geoms", ()), key=lambda part: part.area, default=None)
 
 
-def _river_trace(
+def river_trace_of(
     setup: object, mesh_cfg: MeshConfig, *, active_bc: set[str], synthetic: bool
 ) -> object | None:
     """The traced river network when the mesh follows it, failing when none was traced."""
@@ -255,7 +255,7 @@ def _geology_contacts(
     bands and rings of an analytical support. The national maps and the rasters reach the model
     rasterized, with no contact to follow, which the notes say.
     """
-    from hydromodpy.workflow.steps.setup import (
+    from hydromodpy.spatial.domain.spatial_support import (
         collect_requested_support_ids,
         resolve_support_configs,
     )

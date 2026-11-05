@@ -7,7 +7,7 @@ import argparse
 from hydromodpy.cli.conventions import format_parser, workspace_parser
 from hydromodpy.cli.helpers import EXIT_CONFIG, refuse
 from hydromodpy.cli.output import emit
-from hydromodpy.core.state.paths import WORKSPACE_TOML_FILENAME
+from hydromodpy.core.state.layout import WORKSPACE_TOML_FILENAME
 
 NAME: str = "init"
 HELP: str = "Scaffold a HydroModPy workspace (data + projects). Default: ~/hydromodpy/"

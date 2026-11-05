@@ -19,7 +19,7 @@ from pathlib import Path
 
 from hydromodpy.core.exceptions import DataContractViolation
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import data_cache_path_for
+from hydromodpy.core.state.layout import data_cache_path_for
 from hydromodpy.data.common.io_helpers import is_scaffold_example, parse_chronicle_filename
 from hydromodpy.data.ingest import (
     TimeSeriesValidationError,

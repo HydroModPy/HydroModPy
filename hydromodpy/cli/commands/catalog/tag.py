@@ -12,7 +12,7 @@ from hydromodpy.cli.conventions import (
 )
 from hydromodpy.cli.helpers import EXIT_USAGE, apply_verbosity, project_root_of, refuse
 from hydromodpy.cli.output import emit
-from hydromodpy.core.state.paths import catalog_path_for
+from hydromodpy.core.state.layout import catalog_path_for
 
 NAME: str = "tag"
 HELP: str = "Add or remove tags on a run (reserved tag: pinned, kept out of trash and gc)"

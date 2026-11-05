@@ -51,7 +51,7 @@ from hydromodpy.core.payload import (
 from hydromodpy.core.payload.install import sha256_of
 from hydromodpy.core.payload.resolve import authored_files, project_data
 from hydromodpy.core.site import SiteRow
-from hydromodpy.core.state.paths import INTERNAL_DIRNAME, runs_dir_for, sessions_dir_for
+from hydromodpy.core.state.layout import INTERNAL_DIRNAME, runs_dir_for, sessions_dir_for
 from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
 from hydromodpy.core.workspace.resolve import locate_workspace_root
 from hydromodpy.results.export.publish import (
@@ -105,7 +105,7 @@ def export_project(
     """Write the package of a whole project to *to* and return it.
 
     *bundle_of* builds the install index of one run
-    (:func:`hydromodpy.project.share.run_bundle`); it is required with
+    (:func:`hydromodpy.project.exchange.share.run_bundle`); it is required with
     ``runs`` or ``fetched``. With *dry_run* the checks run, the path the package would
     take is returned and nothing is written.
 

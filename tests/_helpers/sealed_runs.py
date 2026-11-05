@@ -16,7 +16,8 @@ from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME, parse_rel_dir, run_dir_rel
+from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
+from hydromodpy.core.state.result_dirs import parse_rel_dir, run_dir_rel
 from hydromodpy.core.toml_io.writer import dumps
 from hydromodpy.results.catalog.registration import split_stem_version
 from hydromodpy.results.checks import CalibratedBy, Checks

@@ -1040,7 +1040,7 @@ def test_project_calibrate_dry_run_in_memory_needs_a_file(
     from hydromodpy.core.exceptions import ConfigError
     from hydromodpy.project import Project
 
-    monkeypatch.setattr("hydromodpy.project.facade._preflight_in_memory", lambda *a: None)
+    monkeypatch.setattr("hydromodpy.project.calibrate._preflight_in_memory", lambda *a: None)
     monkeypatch.setattr(
         "hydromodpy.calibration.runners.cli_runner.describe_dry_run", lambda *a, **kw: "plan"
     )
@@ -1061,7 +1061,7 @@ def test_project_calibrate_hands_case_resume_and_label_to_the_programmatic_runne
     from hydromodpy.project import Project
 
     seen: dict = {}
-    monkeypatch.setattr("hydromodpy.project.facade._preflight_in_memory", lambda *a: None)
+    monkeypatch.setattr("hydromodpy.project.calibrate._preflight_in_memory", lambda *a: None)
     monkeypatch.setattr(
         "hydromodpy.calibration.runners.programmatic_runner.run_calibration_programmatic",
         lambda cfg, **kw: seen.update(kw) or "report",

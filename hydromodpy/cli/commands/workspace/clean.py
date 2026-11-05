@@ -121,7 +121,7 @@ def run(args: argparse.Namespace) -> None:
 
 def _trash_results(workspace: Path, *, applied: bool, force: bool) -> tuple[list[Path], list[Path]]:
     """Move every run and session under ``workspace`` to its project trash; return what moves."""
-    from hydromodpy.core.state.paths import CATALOG_FILENAME, catalog_path_for, project_roots_under
+    from hydromodpy.core.state.layout import CATALOG_FILENAME, catalog_path_for, project_roots_under
     from hydromodpy.results.catalog.indexer import scan_tree
     from hydromodpy.results.trash import (
         PROTECTED_TAG,

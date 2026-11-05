@@ -65,7 +65,7 @@ value = "1e-5 m/s"
 
 def _state_for(config_path: Path):
     """Return a pipeline state holding a context that has built nothing yet."""
-    from hydromodpy.workflow.internals.state import PipelineState
+    from hydromodpy.workflow.state import PipelineState
     from hydromodpy.workflow.steps.resolve import ResolveStep
     from hydromodpy.workflow.steps.validate import ValidateStep
 

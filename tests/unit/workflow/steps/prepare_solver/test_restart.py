@@ -1,0 +1,115 @@
+"""Resolving a restart reference to a run."""
+
+from __future__ import annotations
+
+from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
+
+from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
+from hydromodpy.workflow.steps.prepare_solver.dispatch import bind_restart_source
+from hydromodpy.workflow.steps.prepare_solver.restart import resolve_restart_source
+from tests._helpers.run_stores import open_run_store
+from tests._helpers.sealed_runs import make_project, seal_run
+from tests.unit.workflow.steps.prepare_solver._helpers import sealed_run
+
+# --- test_a_restart_reference_is_resolved_to_a_run ---
+# ``[flow] restart_from`` names a run; the step resolves it to a store and links by id.
+#
+# A run name, with or without its version, a ``sim_id`` or a path: each resolves
+# to the field store the solver reads, and to the ``sim_id`` of the sealed run
+# that holds it. The step binds the resolved path on the flow configuration,
+# so the frozen ``config.toml`` writes it relative to the project, and the
+# lineage of the run names its source by id.
+
+
+def test_a_run_name_resolves_to_its_latest_version(tmp_path: Path) -> None:
+    project = make_project(tmp_path / "demo")
+    sealed_run(project, "spinup")
+    sid_v2 = sealed_run(project, "spinup.v2")
+
+    source = resolve_restart_source(project, "spinup")
+
+    assert source.sim_id == sid_v2
+    assert source.path == project / "runs" / "spinup.v2" / FIELDS_STORE_NAME
+    assert source.rel_dir == "runs/spinup.v2"
+
+
+def test_a_versioned_name_a_sim_id_and_a_path_resolve_to_the_same_run(tmp_path: Path) -> None:
+    project = make_project(tmp_path / "demo")
+    sid = sealed_run(project, "spinup")
+    sealed_run(project, "spinup.v2")
+    expected = project / "runs" / "spinup" / FIELDS_STORE_NAME
+
+    assert resolve_restart_source(project, "spinup").path != expected, "the bare name is v2"
+    assert resolve_restart_source(project, "runs/spinup").path == expected
+    assert resolve_restart_source(project, sid).sim_id == sid
+    assert resolve_restart_source(project, sid[:12]).path == expected
+    assert resolve_restart_source(project, f"runs/spinup/{FIELDS_STORE_NAME}").sim_id == sid
+    assert resolve_restart_source(project, str(expected)).rel_dir == "runs/spinup"
+
+
+def test_a_store_outside_any_seal_resolves_without_an_id(tmp_path: Path) -> None:
+    loose = tmp_path / "elsewhere" / FIELDS_STORE_NAME
+    loose.mkdir(parents=True)
+
+    source = resolve_restart_source(make_project(tmp_path / "demo"), str(loose))
+
+    assert source.sim_id is None and source.path == loose and source.rel_dir is None
+
+
+def test_an_unknown_reference_is_refused_by_name(tmp_path: Path) -> None:
+    project = make_project(tmp_path / "demo")
+    with pytest.raises(ConfigError, match="nowhere"):
+        resolve_restart_source(project, "nowhere")
+
+
+def test_an_unsealed_run_without_store_is_refused(tmp_path: Path) -> None:
+    project = make_project(tmp_path / "demo")
+    seal_run(project, "spinup", site=None)
+    with pytest.raises(ConfigError, match=FIELDS_STORE_NAME):
+        resolve_restart_source(project, "spinup")
+
+
+def test_the_table_form_finds_its_run_by_sim_id_first(tmp_path: Path) -> None:
+    from hydromodpy.physics.flow.flow_config import RestartReference
+
+    project = make_project(tmp_path / "demo")
+    sid = sealed_run(project, "spinup")
+    sealed_run(project, "spinup.v2")
+
+    source = resolve_restart_source(
+        project, RestartReference(sim_id=sid, path="runs/spinup.v2/fields.zarr")
+    )
+
+    assert source.sim_id == sid
+    assert source.path == project / "runs" / "spinup" / FIELDS_STORE_NAME
+
+
+def test_the_table_form_falls_back_to_its_path_in_another_project(tmp_path: Path) -> None:
+    from hydromodpy.physics.flow.flow_config import RestartReference
+
+    project = make_project(tmp_path / "demo")
+    loose = project / "inputs" / FIELDS_STORE_NAME
+    loose.mkdir(parents=True)
+
+    source = resolve_restart_source(
+        project, RestartReference(sim_id="0" * 32, path=f"inputs/{FIELDS_STORE_NAME}")
+    )
+
+    assert source.path == loose
+    assert source.sim_id == "0" * 32
+    with pytest.raises(ConfigError, match="no sealed run of this project has that sim_id"):
+        resolve_restart_source(project, RestartReference(sim_id="1" * 32, path="missing"))
+
+
+def test_a_restart_reference_names_a_sim_id_or_a_path() -> None:
+    from pydantic import ValidationError
+
+    from hydromodpy.physics.flow.flow_config import RestartReference
+
+    with pytest.raises(ValidationError, match="names a sim_id, a path, or both"):
+        RestartReference()
+    assert RestartReference.model_validate({"path": "runs/a"}).sim_id is None

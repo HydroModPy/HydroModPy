@@ -125,12 +125,6 @@ def test_latest_returns_none_when_no_runs() -> None:
     assert store.getitem_calls == []
 
 
-def test_latest_returns_none_when_store_is_none() -> None:
-    accessor = ProjectRunsAccessor(_fake_project(None))
-
-    assert accessor.latest() is None
-
-
 # --- ProjectRunsAccessor.best ------------------------------------------------
 
 
@@ -153,31 +147,38 @@ def test_best_passes_mixed_windows_to_the_store() -> None:
     assert store.best_calls == [("nancon", "nse", True)]
 
 
-def test_best_returns_none_when_store_is_none() -> None:
+@pytest.mark.parametrize(
+    "ask",
+    [
+        pytest.param(lambda accessor: accessor.latest(), id="latest"),
+        pytest.param(lambda accessor: accessor.best("nse"), id="best"),
+    ],
+)
+def test_a_run_asked_of_a_project_without_a_store_is_none(ask) -> None:
     accessor = ProjectRunsAccessor(_fake_project(None))
 
-    assert accessor.best("nse") is None
+    assert ask(accessor) is None
 
 
 # --- ProjectRunsAccessor.delete ----------------------------------------------
 
 
-def test_delete_forwards_sim_id_and_remove_storage_flag() -> None:
+@pytest.mark.parametrize(
+    ("sim_id", "kwargs", "remove_storage"),
+    [
+        pytest.param("sim-42", {"remove_storage": False}, False, id="forwards-the-flag"),
+        pytest.param("sim-7", {}, True, id="defaults-remove-storage-to-true"),
+    ],
+)
+def test_delete_forwards_sim_id_and_remove_storage_flag(
+    sim_id: str, kwargs: dict, remove_storage: bool
+) -> None:
     store = _FakeStore(_rows("a"))
     accessor = ProjectRunsAccessor(_fake_project(store))
 
-    accessor.delete("sim-42", remove_storage=False)
+    accessor.delete(sim_id, **kwargs)
 
-    assert store.delete_calls == [("sim-42", False)]
-
-
-def test_delete_defaults_remove_storage_to_true() -> None:
-    store = _FakeStore(_rows("a"))
-    accessor = ProjectRunsAccessor(_fake_project(store))
-
-    accessor.delete("sim-7")
-
-    assert store.delete_calls == [("sim-7", True)]
+    assert store.delete_calls == [(sim_id, remove_storage)]
 
 
 def test_delete_is_noop_when_store_is_none() -> None:

@@ -8,17 +8,17 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.core.solver_diagnostics import (
-    STATIONARY_FAILURE_ACTIVE_SET_SUMMARY_CSV,
-    STATIONARY_FAILURE_CELLS_TOP_RESIDUAL_CSV,
-    STATIONARY_FAILURE_FIELD_STATS_JSON,
-    STATIONARY_FAILURE_SUMMARY_JSON,
-)
 from hydromodpy.solver.boussinesq.assembly import assemble_steady_residual
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 from hydromodpy.solver.boussinesq.runtime_contract import (
     NonlinearRuntimeOptions,
     RuntimeSolveResult,
+)
+from hydromodpy.solver.boussinesq.runtimes.diagnostic_files import (
+    STATIONARY_FAILURE_ACTIVE_SET_SUMMARY_CSV,
+    STATIONARY_FAILURE_CELLS_TOP_RESIDUAL_CSV,
+    STATIONARY_FAILURE_FIELD_STATS_JSON,
+    STATIONARY_FAILURE_SUMMARY_JSON,
 )
 from hydromodpy.solver.boussinesq.runtimes.stationary_failure_diagnostics import (
     write_stationary_failure_diagnostics,

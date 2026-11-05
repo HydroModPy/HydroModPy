@@ -25,7 +25,7 @@ the DEM again for each example, while a blob keyed by its sha256 is downloaded
 once and costs nothing to every later example that reads it.
 
 Blobs live at `<cache>/examples/blobs/<sha256[:2]>/<sha256>`, under
-`hydromodpy.core.state.paths.cache_dir` (`HMP_CACHE_HOME` overrides it), beside
+`hydromodpy.core.state.portable.cache_dir` (`HMP_CACHE_HOME` overrides it), beside
 the solver binaries `hmp install-binaries` caches.
 
 ## Where a file comes from

@@ -32,7 +32,7 @@ if (repo_root / "hydromodpy").exists() and str(repo_root) not in sys.path:
     sys.path.insert(0, str(repo_root))
 
 from hydromodpy.config import HydroModPyConfig
-from hydromodpy.core.state.paths import preprocessing_dir
+from hydromodpy.core.state.scratch import preprocessing_dir
 from hydromodpy.core.workspace import WorkspaceLayout
 from hydromodpy.spatial.domain.build import (
     build_domain,

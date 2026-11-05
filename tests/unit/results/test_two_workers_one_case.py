@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.core.state.paths import RUNS_DIRNAME
+from hydromodpy.core.state.layout import RUNS_DIRNAME
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.storage.attempt import (
     CLAIMED_ELSEWHERE,

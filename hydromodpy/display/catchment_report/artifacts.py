@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import cache_dir
+from hydromodpy.core.state.portable import cache_dir
 from hydromodpy.display.catchment_report.resources import REPO_ROOT
 from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX, TABLES_DIRNAME
 

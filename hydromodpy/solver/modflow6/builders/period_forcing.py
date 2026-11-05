@@ -15,8 +15,7 @@ from numbers import Real
 
 import numpy as np
 
-from hydromodpy.core.units.hydraulic_conductivity import parse_to_m_per_s
-from hydromodpy.core.units.volumetric_flow import parse_to_m3_per_s
+from hydromodpy.core.units.quantities import parse_to_m3_per_s, parse_to_m_per_s
 
 
 def _attr(payload: object, name: str) -> object:

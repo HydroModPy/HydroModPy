@@ -14,7 +14,7 @@ import multiprocessing as mp
 import os.path as osp
 import time
 
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
 from hydromodpy.core.logging import get_logger
 
 from .processing import cpu_budget

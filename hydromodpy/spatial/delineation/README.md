@@ -68,8 +68,8 @@ the facade `WhiteboxWorkflowsBackend` and `get_whitebox_backend`, which returns 
 - `registry.py` imports no other module of HydroModPy. It names the backend class by a dotted path and imports it on the
   first lookup, so importing the registry never loads `whitebox_workflows`.
 - `raster.py` and the child script `depression_child.py` are the only modules that import `whitebox_workflows`.
-  `raster.py` also reads `hydromodpy.core.progress`.
-- `component.py` reads `raster.py`, `isolated.py` and `hydromodpy.core.progress`. `flow.py` and `delineation.py` read
+  `raster.py` also reads `hydromodpy.core.console.progress`.
+- `component.py` reads `raster.py`, `isolated.py` and `hydromodpy.core.console.progress`. `flow.py` and `delineation.py` read
   `component.py` and `raster.py`.
 - `isolated.py` reads `core.exceptions` and `core.logging`. `depression_child.py` is run by path and never imported.
   It imports nothing from HydroModPy, so the child starts fast.

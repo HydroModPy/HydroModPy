@@ -105,9 +105,9 @@ from hydromodpy.calibration.optim.optimizer import (
 )
 from hydromodpy.calibration.optim.parameters import ParameterSpace
 from hydromodpy.calibration.optim.stopping import CountedBudget
-from hydromodpy.core.cost_margin import MarginKind
 from hydromodpy.core.exceptions import ObjectiveError, OptimizerError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.scoring.cost_margin import MarginKind
 
 logger = get_logger(__name__)
 

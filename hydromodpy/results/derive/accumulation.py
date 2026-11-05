@@ -20,11 +20,8 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.core.descent import descent_from_stored_mesh, descent_graph
-from hydromodpy.core.field_routing import (
+from hydromodpy.core.budget.flux import (
     DRN_TO_MVR_KEYS,
-    DownhillGraph,
-    accumulate_on_downhill_graph,
     budget_outflow_stack,
     drain_stack_with_mover,
     find_drain_budget_key,
@@ -32,6 +29,8 @@ from hydromodpy.core.field_routing import (
     release_flux_stack,
 )
 from hydromodpy.core.logging import get_logger
+from hydromodpy.spatial.drainage.descent import descent_from_stored_mesh, descent_graph
+from hydromodpy.spatial.drainage.graph import DownhillGraph, accumulate_on_downhill_graph
 
 logger = get_logger(__name__)
 

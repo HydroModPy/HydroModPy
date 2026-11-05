@@ -65,12 +65,9 @@ from hydromodpy.cli.helpers import (
 from hydromodpy.cli.output import emit
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import (
-    data_cache_path_for,
-    display_path,
-    refuse_a_sealed_run_as_project,
-    resolve_project_root,
-)
+from hydromodpy.core.state.layout import data_cache_path_for
+from hydromodpy.core.state.portable import display_path
+from hydromodpy.core.state.result_dirs import refuse_a_sealed_run_as_project, resolve_project_root
 from hydromodpy.core.toml_io.overrides import set_overrides
 
 logger = get_logger(__name__)
@@ -93,8 +90,8 @@ def _stops_before_setup_process(until_step: str | None) -> bool:
     if until_step is None:
         return False
     from hydromodpy.core.exceptions import ConfigError
-    from hydromodpy.project.runner import model_phase_index, resolve_step_index
-    from hydromodpy.workflow.orchestrator import standard_steps
+    from hydromodpy.workflow.steps.sequence import standard_steps
+    from hydromodpy.workflow.window import model_phase_index, resolve_step_index
 
     steps = standard_steps()
     try:
@@ -107,7 +104,7 @@ def _stops_before_setup_process(until_step: str | None) -> bool:
 def _step_choices() -> list[str]:
     """Return the canonical pipeline step names for shell completion."""
     try:
-        from hydromodpy.workflow.orchestrator import standard_steps
+        from hydromodpy.workflow.steps.sequence import standard_steps
 
         return [getattr(s, "name", type(s).__name__) for s in standard_steps()]
     except Exception:
@@ -329,7 +326,7 @@ def _resume_from_ref(ref: str, *, args: argparse.Namespace) -> None:
 
 def _replay_project_root() -> Path:
     """Return the project a published copy replays into: ``-w``, else the one around the cwd."""
-    from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME
+    from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
 
     named = os.environ.get(PROJECT_ROOT_ENV)
     root = Path(named) if named else resolve_project_root(Path.cwd().resolve())
@@ -348,7 +345,7 @@ def _replay_published_copy(copy_dir: Path, config_path: Path, *, args: argparse.
     ``--frozen`` on a copy checks every file of its install index against
     ``inputs/`` and points the configuration at those bytes, a declared
     folder rebuilt under ``<project>/.hmp/replay/<copy>/``
-    (:mod:`hydromodpy.project.launch.replay`); the copy holds no lockfile, so
+    (:mod:`hydromodpy.project.exchange.replay`); the copy holds no lockfile, so
     the run itself is not bound to one. The run is written into the project
     ``-w`` names, or the one around the current directory.
     """
@@ -356,7 +353,7 @@ def _replay_published_copy(copy_dir: Path, config_path: Path, *, args: argparse.
 
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config
     from hydromodpy.core.toml_io.writer import dumps
-    from hydromodpy.project.launch.replay import ReplayInputError, replay_payload
+    from hydromodpy.project.exchange.replay import ReplayInputError, replay_payload
 
     root = _replay_project_root()
     folder = root / ".hmp" / "replay"
@@ -398,7 +395,7 @@ def _run_toml(
     from the bytes of the copy (:func:`_replay_published_copy`), which is
     *replayed_copy* here.
     """
-    from hydromodpy.project.launch.replay import published_copy_of
+    from hydromodpy.project.exchange.replay import published_copy_of
 
     copy_dir = published_copy_of(config_path) if getattr(args, "frozen", False) else None
     if copy_dir is not None:
@@ -560,7 +557,7 @@ def _run_toml(
         cleanup_effective_toml(effective_path, source=config_path)
         refuse(str(exc), exit_code_for(exc), cause=exc)
     if frozen:
-        from hydromodpy.project.replay_checks import sealed_run_of
+        from hydromodpy.workflow.replay_checks import sealed_run_of
 
         # A project TOML answers to its lockfile. The frozen configuration of a run
         # answers to the record of that run, which the simulation dispatch checks.
@@ -837,7 +834,7 @@ def _close_dead_attempt(project_root: Path, case_name: str, exc: BaseException) 
 
 def _index_after_worker(project_root: Path) -> None:
     """Refresh the index of the project from its run directories, after the worker."""
-    from hydromodpy.core.state.paths import runs_dir_for
+    from hydromodpy.core.state.layout import runs_dir_for
     from hydromodpy.results.catalog.indexer import index_new_runs
 
     if not runs_dir_for(project_root).is_dir():
@@ -1053,7 +1050,7 @@ def _dry_run_plan(
     """Return the resolved workflow plan, without executing it."""
     steps: list[str] = []
     if workflow == "simulation":
-        from hydromodpy.workflow.orchestrator import standard_steps
+        from hydromodpy.workflow.steps.sequence import standard_steps
 
         steps = [type(step).__name__ for step in standard_steps()]
     return {

@@ -10,7 +10,7 @@ import pytest
 import rasterio
 
 from hydromodpy.core.exceptions import TerrainProductError
-from hydromodpy.core.state.paths import preprocessing_dir
+from hydromodpy.core.state.scratch import preprocessing_dir
 from hydromodpy.spatial.geographic import subbasin as subbasin_module
 from hydromodpy.spatial.geographic.core.flow_products import build_regional_flow_products
 from hydromodpy.spatial.geographic.subbasin import Subbasin

@@ -8,7 +8,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME, scratch_root_for
+from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
+from hydromodpy.core.state.scratch import scratch_root_for
 from tests._helpers.cli_runner import CliRunner
 
 

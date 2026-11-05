@@ -40,7 +40,7 @@ from typing import TYPE_CHECKING, Literal
 import numpy as np
 import pandas as pd
 
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.time.period_aggregation import period_end_stamps
 from hydromodpy.results.derive.time_alignment import solver_time_index

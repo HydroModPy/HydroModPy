@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.core.state.paths import runs_dir_for
+from hydromodpy.core.state.layout import runs_dir_for
 from tests.regression.golden_utils import (
     _open_result_store,
     _resolve_sim_id,

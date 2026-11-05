@@ -15,17 +15,15 @@ from hydromodpy.calibration.runners.contracts import (
 )
 from hydromodpy.spatial.domain.spatial_support import (
     build_default_spatial_support_provider_registry,
-)
-from hydromodpy.workflow.internals.dependencies import earliest_affected_step
-from hydromodpy.workflow.internals.state import PipelineState
-from hydromodpy.workflow.orchestrator import standard_steps
-from hydromodpy.workflow.runner import Pipeline
-from hydromodpy.workflow.steps.data import apply_structural_updates_from_data
-from hydromodpy.workflow.steps.run_solver import RunSolverStep
-from hydromodpy.workflow.steps.setup import (
     collect_requested_support_ids,
     resolve_support_configs,
 )
+from hydromodpy.workflow.runner import Pipeline
+from hydromodpy.workflow.state import PipelineState
+from hydromodpy.workflow.steps.data import apply_structural_updates_from_data
+from hydromodpy.workflow.steps.dependencies import earliest_affected_step
+from hydromodpy.workflow.steps.run_solver import RunSolverStep
+from hydromodpy.workflow.steps.sequence import standard_steps
 
 # ---------------------------------------------------------------------------
 # Calibration report
@@ -61,7 +59,7 @@ def step_render_calibration_report(
 
 
 @dataclass(frozen=True)
-class WorkflowTrialPipelineProvider(TrialPipelineProvider):
+class _WorkflowTrialPipelineProvider(TrialPipelineProvider):
     """Concrete ``TrialPipelineProvider`` backed by the workflow package."""
 
     def standard_steps(self) -> Sequence[TrialStep]:
@@ -111,11 +109,10 @@ class WorkflowTrialPipelineProvider(TrialPipelineProvider):
 
 def register_default_trial_pipeline_provider() -> None:
     """Register the workflow-backed provider for calibration trial primitives."""
-    register_trial_pipeline_provider(WorkflowTrialPipelineProvider())
+    register_trial_pipeline_provider(_WorkflowTrialPipelineProvider())
 
 
 __all__ = [
-    "WorkflowTrialPipelineProvider",
     "register_default_trial_pipeline_provider",
     "step_render_calibration_report",
 ]

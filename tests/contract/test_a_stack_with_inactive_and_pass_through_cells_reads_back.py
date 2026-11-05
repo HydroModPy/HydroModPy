@@ -18,7 +18,10 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from hydromodpy.core.vertical_column import VERTICAL_LAYOUT_COLUMN_FRACTIONS, top_active_layer
+from hydromodpy.core.fields.vertical_column import (
+    VERTICAL_LAYOUT_COLUMN_FRACTIONS,
+    top_active_layer,
+)
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.derive.reading import read_variable

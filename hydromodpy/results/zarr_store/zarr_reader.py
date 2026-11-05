@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from hydromodpy.core.field_routing import DRAIN_BAND_DEPTH_ATTR, drain_band_depth
+from hydromodpy.core.budget.flux import DRAIN_BAND_DEPTH_ATTR, drain_band_depth
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
 

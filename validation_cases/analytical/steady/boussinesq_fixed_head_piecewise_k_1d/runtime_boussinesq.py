@@ -5,8 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
-from hydromodpy.core.state.run_state import RunState
-from hydromodpy.core.state.setup import SetupContext
+from hydromodpy.core.state.run_state import RunState, SetupContext
 from hydromodpy.physics.flow import Flow
 from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.simulation.planning.plan import (

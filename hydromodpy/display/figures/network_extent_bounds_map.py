@@ -28,7 +28,6 @@ import numpy as np
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import DiagonalNeighbors, Extent, Opt, TauSpecificRatio
 from hydromodpy.display.figure_registry import register
-from hydromodpy.display.figures._memo import RunMemo
 from hydromodpy.display.figures._stream_comparison import (
     CASING_COLOR,
     CELL_WEIGHT_PT,
@@ -45,21 +44,22 @@ from hydromodpy.display.figures._stream_comparison import (
 )
 from hydromodpy.display.maps.axes import overlay_watershed_contour, style_map_axes
 from hydromodpy.display.maps.mesh_geometry import face_polygons
-from hydromodpy.results.derive.network_criterion_settings import (
+from hydromodpy.results.derive.run_memo import RunMemo
+from hydromodpy.results.derive.stream.comparison import (
+    AGREEMENT_EXCESS,
+    AGREEMENT_MISSING,
+    AGREEMENT_VALID,
+)
+from hydromodpy.results.derive.stream.criterion_settings import (
     NetworkCriterionSettings,
     network_criterion_settings,
 )
-from hydromodpy.results.derive.stream_extent import (
+from hydromodpy.results.derive.stream.run_extent import (
     FLOW_FIELD,
     NetworkExtents,
     network_extents_from_run,
     scored_cells,
     unavailable_reason_for_extents,
-)
-from hydromodpy.results.derive.stream_network import (
-    AGREEMENT_EXCESS,
-    AGREEMENT_MISSING,
-    AGREEMENT_VALID,
 )
 
 if TYPE_CHECKING:

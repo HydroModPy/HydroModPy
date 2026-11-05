@@ -58,11 +58,7 @@ from hydromodpy.config.sites.tables import (
 from hydromodpy.core.config_kit.written import written_experimental_keys, written_payload
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.site import SITE_NAME_PATTERN
-from hydromodpy.core.state.paths import (
-    PROJECT_MARKER_FILENAME,
-    runs_dir_for,
-    sessions_dir_for,
-)
+from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME, runs_dir_for, sessions_dir_for
 from hydromodpy.core.toml_io.loader import (
     ChainFile,
     load_toml_with_base_config,

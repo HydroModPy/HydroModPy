@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 from pyproj import CRS
 
-from hydromodpy.core.rng import RngManager
+from hydromodpy.core.state.rng import RngManager
 from hydromodpy.spatial.field.mesh_cells import mesh_cells
 from hydromodpy.spatial.field.unit_square_mesh import UNIT_SQUARE_CRS_WKT, FieldMeshSquare
 from tests._helpers.field_cases import write_text

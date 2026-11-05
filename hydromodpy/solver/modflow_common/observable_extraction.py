@@ -19,13 +19,13 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from hydromodpy.core.budget.flux import networks_route_drainage
 from hydromodpy.core.contracts.observables import (
     ObservableRequest,
     ObservableResult,
     require_unique_request_ids,
 )
 from hydromodpy.core.exceptions import ObservableNotAvailableError
-from hydromodpy.core.field_routing import networks_route_drainage
 from hydromodpy.solver.base.observables import (
     field_observable,
     scalar_observable,
@@ -131,7 +131,7 @@ def release_packages_for_model(model: Any) -> list[ReleasePackage]:
     mandatory downstream.
 
     The stored ``release_flux`` field sums the same paths from the persisted
-    budget (``hydromodpy.core.field_routing.release_flux_stack``): ``drain``,
+    budget (``hydromodpy.core.budget.flux.release_flux_stack``): ``drain``,
     ``drain_to_mover``, ``stream``, ``lake`` and ``constant_head_stream``, the
     constant head restricted to the same stream-role cells. A change here is a
     change there.

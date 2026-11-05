@@ -14,8 +14,7 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from hydromodpy.core.state.run_state import RunState
-from hydromodpy.core.state.setup import SetupContext
+from hydromodpy.core.state.run_state import RunState, SetupContext
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.ingest.custom_grids import load_custom_tif
 from hydromodpy.physics.flow import Flow

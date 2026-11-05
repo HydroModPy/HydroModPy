@@ -38,15 +38,9 @@ from typing import Any, Literal
 from hydromodpy.core.config_kit.written import written_as_a_file
 from hydromodpy.core.exceptions import ImportConflictError, WriteConflictError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import (
-    internal_dir,
-    parse_rel_dir,
-    run_dir_rel,
-    runs_dir_for,
-    session_dir_rel,
-    sessions_dir_for,
-    to_workspace_relative,
-)
+from hydromodpy.core.state.layout import internal_dir, runs_dir_for, sessions_dir_for
+from hydromodpy.core.state.portable import to_workspace_relative
+from hydromodpy.core.state.result_dirs import parse_rel_dir, run_dir_rel, session_dir_rel
 from hydromodpy.core.workspace.resolve import locate_workspace_root
 from hydromodpy.results.catalog.storage_paths import run_dirname
 from hydromodpy.results.publication import publication_path, read_publication

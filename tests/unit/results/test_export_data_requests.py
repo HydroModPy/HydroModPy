@@ -10,9 +10,9 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.core.config_kit.export_spec import load_export_requests
 from hydromodpy.core.exceptions import ExportError
 from hydromodpy.results.exporters import request as request_module
+from hydromodpy.results.exporters.export_spec import load_export_requests
 
 
 @pytest.fixture

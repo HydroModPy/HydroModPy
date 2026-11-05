@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.core.state.paths import RUNS_DIRNAME, SESSIONS_DIRNAME
+from hydromodpy.core.state.layout import RUNS_DIRNAME, SESSIONS_DIRNAME
 from hydromodpy.results.catalog import Catalog, index_new_runs
 from hydromodpy.results.catalog.discovery import (
     AmbiguousReferenceError,

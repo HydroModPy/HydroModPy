@@ -12,10 +12,7 @@ from hydromodpy.core.time import (
     build_simulation_time_boundaries,
 )
 from hydromodpy.core.units import convert_payload_to_m, normalize_length_unit
-from hydromodpy.core.units.volumetric_flow import (
-    convert_to_m3_per_s,
-    normalize_m3_per_s_unit,
-)
+from hydromodpy.core.units.quantities import convert_to_m3_per_s, normalize_m3_per_s_unit
 from hydromodpy.physics.contracts import LoadResultProto
 from hydromodpy.physics.flow.boundary_condition_registry import (
     boundary_conditions_mapping_from_flow,
@@ -96,7 +93,7 @@ def apply_recharge_load_result_to_flow(
     if recharge_result is None:
         return False
 
-    from hydromodpy.core.units.hydraulic_conductivity import factor_to_m_per_s
+    from hydromodpy.core.units.quantities import factor_to_m_per_s
     from hydromodpy.physics.forcing.forcing_bridge import resolve_forcing, scaled_load_result
 
     if "recharge" not in (getattr(flow, "active_sinks_sources", None) or []):
@@ -184,7 +181,7 @@ def apply_etp_load_result_to_flow(
     if etp_result is None:
         return False
 
-    from hydromodpy.core.units.hydraulic_conductivity import factor_to_m_per_s
+    from hydromodpy.core.units.quantities import factor_to_m_per_s
     from hydromodpy.physics.forcing.forcing_bridge import resolve_forcing
 
     sinks_sources = getattr(flow, "sinks_sources", {})
@@ -836,7 +833,7 @@ def _watershed_mean_rates(
     """Reduce one catchment data family to per-period watershed-mean rates [m/s]."""
     if result is None:
         return None
-    from hydromodpy.core.units.hydraulic_conductivity import factor_to_m_per_s
+    from hydromodpy.core.units.quantities import factor_to_m_per_s
     from hydromodpy.physics.forcing.forcing_bridge import resolve_forcing
 
     resolved = resolve_forcing(

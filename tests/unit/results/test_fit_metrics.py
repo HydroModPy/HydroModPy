@@ -15,7 +15,7 @@ import pandas as pd
 import pyarrow as pa
 import pytest
 
-from hydromodpy.core import metrics as kernels
+from hydromodpy.core.scoring import metrics as kernels
 from hydromodpy.results.fit_metrics import UnscoredObservation, fit_metrics, score_timeseries
 from hydromodpy.results.metric_rule import METRIC_NAMES, DateWindow, MetricRule
 from hydromodpy.results.storage.parquet_io import write_table_atomic

@@ -124,7 +124,7 @@ import numpy as np  # noqa: E402
 import rasterio  # noqa: E402
 from shapely.geometry import box  # noqa: E402
 
-from hydromodpy.core.state.paths import preprocessing_dir  # noqa: E402
+from hydromodpy.core.state.scratch import preprocessing_dir  # noqa: E402
 from tests._helpers.geotiffs import write_geotiff  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[2]

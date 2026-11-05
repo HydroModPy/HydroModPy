@@ -436,7 +436,7 @@ def test_hmp_run_takes_headless_on_a_path(demo: Path) -> None:
 
 
 def test_no_display_keeps_the_terms_the_figures_read(demo: Path) -> None:
-    from hydromodpy.core.budget_terms import kept_budget
+    from hydromodpy.core.budget.terms import kept_budget
 
     consumers = demo / "run_consumers.toml"
     text = (demo / "run_demo.toml").read_text(encoding="utf-8")

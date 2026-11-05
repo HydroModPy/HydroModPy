@@ -36,8 +36,8 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.core.exceptions import ResultsError
+from hydromodpy.core.fields.vertical_column import top_active_layer
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.vertical_column import top_active_layer
 from hydromodpy.results import field_registry
 from hydromodpy.results.errors import FieldNotFoundError
 from hydromodpy.results.run.array import lookup_zarr_path

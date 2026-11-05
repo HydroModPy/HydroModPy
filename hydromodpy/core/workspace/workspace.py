@@ -16,7 +16,7 @@ from pathlib import Path
 
 from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.core.logging import get_logger, setup_simulation_log
-from hydromodpy.core.state.paths import cache_dir
+from hydromodpy.core.state.portable import cache_dir
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.core.workspace.path_registry import WorkspacePathRegistry
 

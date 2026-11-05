@@ -149,13 +149,13 @@ from hydromodpy.core.exceptions import (
     CalibrationError,
     UncertaintyNotAvailableError,
 )
-from hydromodpy.core.interrupts import TerminationRequested, terminate_as_interrupt
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import run_dir_rel, session_dir_rel
-from hydromodpy.core.stream_geometry import VALIDITY_PROVENANCE_BY_CODE
+from hydromodpy.core.runtime.interrupts import TerminationRequested, terminate_as_interrupt
+from hydromodpy.core.state.result_dirs import run_dir_rel, session_dir_rel
 from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
 from hydromodpy.core.workspace.path_registry import in_run_scratch
 from hydromodpy.results.checks import CalibrationSessionStatus, StopState
+from hydromodpy.results.derive.stream.geometry import VALIDITY_PROVENANCE_BY_CODE
 from hydromodpy.results.session.descriptor import (
     BestTrial,
     CostInterval,
@@ -755,7 +755,7 @@ def _network_ratios_extra(
     param = next((p for p in space if p.name == name), None)
     if param is None or param.effective_path != CONDUCTIVITY_PATH or param.mode != "replace":
         return {}
-    from hydromodpy.core.units.hydraulic_conductivity import factor_to_m_per_s
+    from hydromodpy.core.units.quantities import factor_to_m_per_s
 
     unit = _conductivity_unit(trial_ctx, param)
     try:

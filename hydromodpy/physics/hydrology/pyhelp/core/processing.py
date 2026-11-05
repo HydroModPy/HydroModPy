@@ -19,7 +19,7 @@ import time
 # ---- Third Party imports
 import numpy as np
 
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
 from hydromodpy.core.logging import get_logger
 
 # ---- Local Libraries Imports

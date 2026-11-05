@@ -32,7 +32,7 @@ ROW_ONE = "a.b\tint\t1\tstable"
 
 def test_the_frozen_step_names_are_the_steps_of_the_pipeline() -> None:
     from hydromodpy.core.pipeline_steps import STEP_NAMES
-    from hydromodpy.workflow.orchestrator import standard_steps
+    from hydromodpy.workflow.steps.sequence import standard_steps
 
     assert tuple(step.name for step in standard_steps()) == STEP_NAMES
 

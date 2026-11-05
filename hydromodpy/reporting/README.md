@@ -10,6 +10,7 @@ to add what.
 
 | part | answers |
 |---|---|
+| `campaign_summary.py` | the page `summary/report/index.html`, `summary/README.md` and `summary/ro-crate-metadata.json` that `hmp campaign collect` (`project/launch/summary.py`) writes beside its tables |
 | `calibration_report.py` | the HTML report of one calibration session: `render_session` takes a payload shaped like `SessionReportPayload` (built by `calibration.report.load_session_report_data`), renders the six `calibration_*` figures from the `display` registry and a best-fit panel, and writes `sessions/<session>/report/index.html`, the figures under `sessions/<session>/figures/` |
 
 ## Import rules
@@ -26,7 +27,7 @@ to add what.
 
 No `reporting_layout.yaml` orders the parts inside the package.
 
-Who imports reporting: `workflow` (the calibration step) and `cli`
+Who imports reporting: `workflow` (the calibration step), `project` (the campaign summary) and `cli`
 (`hmp report render`).
 
 ## Tree
@@ -34,6 +35,7 @@ Who imports reporting: `workflow` (the calibration step) and `cli`
 ```
 hydromodpy/reporting/
   calibration_report.py
+  campaign_summary.py
 ```
 
 ## Where a report is written

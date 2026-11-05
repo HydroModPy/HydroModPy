@@ -46,9 +46,8 @@ from hydromodpy.core.scope import (
     station_name_refusal,
     zone_name_refusal,
 )
-from hydromodpy.core.state.paths import encode_workspace_path
+from hydromodpy.core.state.portable import encode_workspace_path
 from hydromodpy.core.time.selection import in_series_window
-from hydromodpy.core.units.udunits import udunits_spelling
 from hydromodpy.results.catalog.storage_paths import sanitize_segment
 from hydromodpy.results.identity import Identity
 from hydromodpy.results.manifest import (
@@ -95,6 +94,7 @@ from hydromodpy.results.storage.run_facts import (
     read_facts,
     write_facts,
 )
+from hydromodpy.results.storage.udunits import udunits_spelling
 from hydromodpy.results.zarr_store import SimulationZarr
 
 if TYPE_CHECKING:

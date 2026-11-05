@@ -17,21 +17,21 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import zarr
 
-from hydromodpy.core.budget_terms import (
+from hydromodpy.core.budget.terms import (
     BUDGET_KEPT_TERMS_ATTR,
     BUDGET_POLICY_ATTR,
     POLICY_ALL,
     BudgetKeep,
 )
 from hydromodpy.core.exceptions import IncompatibleMeshError
-from hydromodpy.core.field_precision import (
+from hydromodpy.core.fields.nodata import SENTINEL_ABS_THRESHOLD
+from hydromodpy.core.fields.precision import (
     KEPT_MANTISSA_BITS,
     QUANTIZATION_ALGORITHM,
     to_storage_precision,
 )
+from hydromodpy.core.fields.vertical_column import IDOMAIN_VALUES
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.nodata import SENTINEL_ABS_THRESHOLD
-from hydromodpy.core.vertical_column import IDOMAIN_VALUES
 from hydromodpy.results import field_registry
 from hydromodpy.results.zarr_store.acdd import compose_acdd_root_attrs
 from hydromodpy.results.zarr_store.chunks import (

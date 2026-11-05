@@ -16,10 +16,10 @@ from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.results.catalog.registration import config_identity_hash, solve_identity_hash
 from hydromodpy.results.storage.contract import RUN_SEARCH_TABLE
-from hydromodpy.workflow.steps.prepare_solver.dispatch import (
-    _search_of,
+from hydromodpy.workflow.steps.prepare_solver.freeze import (
     frozen_config_of,
     portable_config_document,
+    search_of,
 )
 from hydromodpy.workflow.steps.prepare_solver.resolved import config_drift, resolved_config_document
 from tests.unit.calibration._factories_scoring import make_document
@@ -191,7 +191,7 @@ def test_a_run_of_a_calibration_seals_its_own_solve(tmp_path: Path) -> None:
     path = run_dir / "config.toml"
     path.write_text(portable_config_document(frozen, run_dir, project), encoding="utf-8")
     (run_dir / "config.resolved.toml").write_text(
-        resolved_config_document(frozen, project, search=_search_of(cfg, run_dir, project)),
+        resolved_config_document(frozen, project, search=search_of(cfg, run_dir, project)),
         encoding="utf-8",
     )
 

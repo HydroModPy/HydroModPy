@@ -8,7 +8,8 @@ from typing import Any
 import numpy as np
 import pytest
 
-from hydromodpy.core.budget_terms import (
+from hydromodpy.core.budget.flux import STREAM_CONSTANT_HEAD_BUDGET
+from hydromodpy.core.budget.terms import (
     BUDGET_KEPT_TERMS_ATTR,
     BUDGET_POLICY_ATTR,
     POLICY_ALL,
@@ -16,7 +17,6 @@ from hydromodpy.core.budget_terms import (
     BudgetKeep,
     kept_budget,
 )
-from hydromodpy.core.field_routing import STREAM_CONSTANT_HEAD_BUDGET
 from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.results.zarr_store import SimulationZarr
 from hydromodpy.solver.modflow6.extractors import flow as mf6_flow

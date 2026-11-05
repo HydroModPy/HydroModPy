@@ -16,11 +16,11 @@ import pandas as pd
 import pytest
 
 from hydromodpy.core.units import factor_to_m_per_s
-from hydromodpy.results.derive.stream_extent import unavailable_reason_for_flow
-from hydromodpy.results.derive.stream_network import (
+from hydromodpy.results.derive.stream.comparison import (
     has_recharge_source,
     network_comparison_from_run,
 )
+from hydromodpy.results.derive.stream.run_extent import unavailable_reason_for_flow
 from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 from tests.unit.display._network_comparison_run import (
     AXIS_COLUMN,

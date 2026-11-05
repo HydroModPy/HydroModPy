@@ -27,7 +27,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.core.state.paths import jobs_dir_for
+from hydromodpy.core.state.layout import jobs_dir_for
 
 JOURNAL_FILENAME = "journal.jsonl"
 """Journal of a local launch, ``jobs/<stamp>-local/journal.jsonl``."""
@@ -76,7 +76,7 @@ def job_dirs(project_root: Path) -> list[Path]:
     return sorted(path for path in jobs.iterdir() if path.is_dir())
 
 
-def job_dir_of(project_root: Path, job: str | Path) -> Path:
+def _job_dir_of(project_root: Path, job: str | Path) -> Path:
     """Return the folder of *job*: a path, or a folder name under ``jobs/``.
 
     Raises :class:`FileNotFoundError` naming the jobs the project has.
@@ -114,7 +114,7 @@ class Journal:
         return line
 
 
-def read_events(path: Path) -> list[dict[str, Any]]:
+def _read_events(path: Path) -> list[dict[str, Any]]:
     """Return the events of one journal file; a torn last line is skipped."""
     events: list[dict[str, Any]] = []
     try:
@@ -153,7 +153,7 @@ def case_for_task(project_root: Path, job: str | Path, task_id: int) -> Path:
     Raises :class:`IndexError` naming the size of the list.
     """
     root = Path(project_root).resolve()
-    entries = read_case_list(job_dir_of(root, job))
+    entries = read_case_list(_job_dir_of(root, job))
     if not 1 <= task_id <= len(entries):
         raise IndexError(f"task {task_id} is outside the job, whose cases are 1..{len(entries)}")
     return root / entries[task_id - 1]
@@ -172,7 +172,7 @@ def read_journal(
     """
     root = Path(project_root).resolve()
     if job is not None:
-        chosen: Path | None = job_dir_of(root, job)
+        chosen: Path | None = _job_dir_of(root, job)
     else:
         candidates = [
             path
@@ -183,7 +183,7 @@ def read_journal(
     if chosen is None:
         return []
     if (chosen / JOURNAL_FILENAME).is_file():
-        events = read_events(chosen / JOURNAL_FILENAME)
+        events = _read_events(chosen / JOURNAL_FILENAME)
     else:
         events = _rebuild_from_outcomes(root, chosen)
     if not failed_only:
@@ -235,12 +235,10 @@ __all__ = [
     "STAMP_FORMAT",
     "Journal",
     "case_for_task",
-    "job_dir_of",
     "job_dirs",
     "job_stamp",
     "new_job_dir",
     "read_case_list",
-    "read_events",
     "read_journal",
     "write_case_list",
 ]

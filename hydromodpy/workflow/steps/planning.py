@@ -5,14 +5,14 @@ from __future__ import annotations
 from collections.abc import Iterable, Sequence
 from typing import TYPE_CHECKING
 
-from hydromodpy.core.budget_terms import SURFACE_EXCESS_TERM, BudgetKeep, budget_terms_for_fields
+from hydromodpy.core.budget.terms import SURFACE_EXCESS_TERM, BudgetKeep, budget_terms_for_fields
 from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.config import CalibrationConfig
-    from hydromodpy.core.config_kit.export_spec import ExportRequest
     from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.display.config import DisplayConfig
+    from hydromodpy.results.exporters.export_spec import ExportRequest
     from hydromodpy.simulation.planning.observation_config import ObservationConfig
     from hydromodpy.simulation.planning.plan import SimulationPlan
     from hydromodpy.simulation.planning.results_config import ResultsConfig

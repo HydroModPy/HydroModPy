@@ -61,7 +61,7 @@ VARIABLE_UNITS: dict[str, str] = {
 # calibration pipelines consume as-is. Catchment-scale reductions of
 # spatial fields (drainage density, saturated fraction, water-table
 # means, recharge means) are computed lazily on demand through
-# ``hydromodpy.core.metrics`` / ``Run`` methods, so the
+# ``hydromodpy.core.scoring.metrics`` / ``Run`` methods, so the
 # timeseries table stays focused on observation-comparable point series.
 _AGGREGATION_SPEC: list[tuple[tuple[str, ...], str, str]] = [
     # Water leaving the aquifer at the surface (m3/s), summed over the catchment:

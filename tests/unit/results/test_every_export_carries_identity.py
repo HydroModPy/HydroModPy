@@ -17,10 +17,10 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from hydromodpy.core.config_kit.export_spec import ExportRequest
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.runs import figures_dir_of, render_figures_for_run
 from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.exporters.export_spec import ExportRequest
 from hydromodpy.results.exporters.request import export_run
 from hydromodpy.results.identity import ZARR_IDENTITY_ATTR, Identity, read_identity_from
 from hydromodpy.results.ledger import Ledger

@@ -32,14 +32,14 @@ There are four, and each one has its own `kind` in `depth_model_config.py`: `con
 ```text
 domain/
 ├── domain.py               Domain, the surface, the base of the aquifer, the layer bases, the zones
-├── build.py                the one constructor of a Domain, and the readers of the base rasters
+├── build.py                the one constructor of a Domain, its rebuild with the zones carried over, and the readers of the base rasters
 ├── domain_config.py        the [domain] table
 ├── depth_model_config.py   the four depth models
 ├── layers_config.py        the [domain.layers] table
 ├── layering.py             layer bottoms, idomain and the pinch-out
 ├── active_cells.py         the cells of the domain, from the terrain or from a mask layer
 ├── spatial_support_config.py   the kinds of support, as config models
-├── spatial_support.py      the support providers and their registry
+├── spatial_support.py      the support providers, their registry, and the contract (which supports the flow parameters ask for)
 ├── support_fields.py       the support fields, zone shares on the cells of a mesh
 ├── capability.py           the domain-build declaration and its request model
 ├── domain_document.py      the domain.json document written for the mesh generator
@@ -79,7 +79,7 @@ The package is part of the spatial layer, which may import `core`, `schema` and 
 
 ## What lives outside the package
 
-The setup step, `hydromodpy/workflow/steps/setup.py`, builds the domain of a run (`build_domain`) and rebuilds it when it is stale (`rebuild_domain_if_stale`). It also builds the supports (`build_domain_spatial_supports`). `hydromodpy/workflow/steps/prepare_solver/prepare.py` and `hydromodpy/project/facade.py` import `Domain` for typing only.
+The setup step, `hydromodpy/workflow/steps/setup.py`, builds the domain of a run (`build_domain`) and rebuilds it (`rebuild_domain`) when it is stale or the depth model of a trial moved, reading the base rasters for it. It also builds the supports of a phase (`build_phase_supports`, through `step_spatial_supports`). `hydromodpy/workflow/steps/prepare_solver/prepare.py` and `hydromodpy/project/facade.py` import `Domain` for typing only.
 
 The solvers read the layering through `hydromodpy/solver/modflow_grid/discretization_spatial.py`, which calls `layer_stack` and `assert_bottom_below_top`. The `[domain]` config is a field of `HydroModPyConfig` in `hydromodpy/config/hydromodpy_config.py`. The calibration reads the depth models in `hydromodpy/calibration/parameter_resolution.py`.
 

@@ -12,7 +12,6 @@ from importlib import import_module
 from typing import Any
 
 __all__ = [
-    "Workspace",
     "WorkspaceConfig",
     "WorkspacePathRegistry",
     "ExecutionRegistry",
@@ -23,7 +22,6 @@ __all__ = [
 ]
 
 _LAZY_IMPORTS = {
-    "Workspace": "hydromodpy.core.workspace:Workspace",
     "WorkspaceConfig": "hydromodpy.core.workspace:WorkspaceConfig",
     "WorkspacePathRegistry": "hydromodpy.core.workspace:WorkspacePathRegistry",
     "ExecutionRegistry": "hydromodpy.core.state:ExecutionRegistry",

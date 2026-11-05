@@ -11,11 +11,11 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.core.config_kit.export_spec import load_export_requests
 from hydromodpy.core.exceptions import ExportError
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.runs import figures_dir_of, regen_figures, render_figures_for_run
 from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.exporters.export_spec import load_export_requests
 from hydromodpy.results.exporters.request import (
     export_data_requests,
     regen_exports,

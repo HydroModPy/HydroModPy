@@ -21,8 +21,8 @@ from hydromodpy.core.payload import PayloadConflictError
 from hydromodpy.core.site import SiteRow
 from hydromodpy.data.registry import DataCatalogDuckDB
 from hydromodpy.data.sites.catalog import read_catalog, write_catalog
-from hydromodpy.project.install import import_run
-from hydromodpy.project.share import inputs_of
+from hydromodpy.project.exchange.install import import_run
+from hydromodpy.project.exchange.share import inputs_of
 from hydromodpy.results.export.publish import publish
 from tests._helpers.cli_runner import CliRunner
 from tests.unit.catalog._shared_run import (

@@ -27,13 +27,8 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 from hydromodpy.core.exceptions import CatalogError, NothingThereError
-from hydromodpy.core.state.paths import (
-    catalog_path_for,
-    parse_rel_dir,
-    project_roots_under,
-    run_dir_rel,
-    runs_dir_for,
-)
+from hydromodpy.core.state.layout import catalog_path_for, project_roots_under, runs_dir_for
+from hydromodpy.core.state.result_dirs import parse_rel_dir, run_dir_rel
 from hydromodpy.results.catalog.constants import (
     MESH_ENGINE_SQL,
     UnrankedMetricError,
@@ -53,7 +48,7 @@ def iter_project_catalog_roots(workspace_root: Path | str) -> list[Path]:
     """Return every project catalog root under ``workspace_root``.
 
     The layout rule lives in
-    :func:`hydromodpy.core.state.paths.project_roots_under`; this helper only
+    :func:`hydromodpy.core.state.layout.project_roots_under`; this helper only
     narrows its answer to the roots that already carry an index database, since
     a caller here is about to read one. Sorted, workspace root first.
     """

@@ -5,7 +5,7 @@ from __future__ import annotations
 import duckdb
 import pytest
 
-from hydromodpy.core.state.paths import catalog_path_for
+from hydromodpy.core.state.layout import catalog_path_for
 from hydromodpy.results.catalog import Catalog, rebuild_index
 from hydromodpy.results.catalog.index_schema import (
     INDEX_SCHEMA_VERSION,

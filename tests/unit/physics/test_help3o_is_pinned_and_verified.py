@@ -16,7 +16,7 @@ import pytest
 
 from hydromodpy.core.exceptions import CacheCorruptionError, NetworkError, SolverBinaryError
 from hydromodpy.physics.hydrology.pyhelp.core import paths, processing
-from tests.unit.core._fake_release import digest_of, serve_assets
+from tests.unit.core.io._fake_release import digest_of, serve_assets
 
 COVERED = [
     (system, machine, minor)

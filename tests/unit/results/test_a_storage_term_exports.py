@@ -14,9 +14,9 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from hydromodpy.core.config_kit.export_spec import ExportKind, ExportRequest
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
+from hydromodpy.results.exporters.export_spec import ExportKind, ExportRequest
 from hydromodpy.results.exporters.request import export_run
 from hydromodpy.results.exporters.vocabulary import list_exportable
 from hydromodpy.results.storage.sealing import seal_completed

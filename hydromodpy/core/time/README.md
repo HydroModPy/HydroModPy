@@ -3,7 +3,7 @@
 `hydromodpy/core/time/` contains simulation time-window resolution and
 coverage checks shared by higher layers.
 
-Neutral temporal grid generation lives in `hydromodpy/discretization/time/`.
+The temporal grid of the MODFLOW family is built in `hydromodpy/solver/modflow_grid/discretization_temporal.py`.
 
 `selection.py` is the one date-to-period resolver figures and exports share.
 A date reads the period `(edges[i], edges[i + 1]]` that holds it, the first edge

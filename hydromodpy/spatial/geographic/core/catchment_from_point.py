@@ -53,7 +53,7 @@ from typing import Literal
 
 import geopandas as gpd
 
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
 from hydromodpy.core.exceptions import TerrainProductError
 from hydromodpy.core.io.crs import ensure_crs
 from hydromodpy.core.logging import get_logger

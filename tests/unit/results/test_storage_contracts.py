@@ -303,7 +303,7 @@ def test_list_fields_matches_has_field(surface_run):
 
 def test_exportable_fields_include_the_virtual_ones(surface_run):
     """A default run exports its water table, not just the raw head."""
-    from hydromodpy.core.config_kit.export_spec import ExportKind
+    from hydromodpy.results.exporters.export_spec import ExportKind
     from hydromodpy.results.exporters.vocabulary import list_exportable
 
     catalog, sid = surface_run
@@ -345,7 +345,7 @@ def _budget_attrs(store: RunStore) -> dict:
 
 
 def test_the_budget_group_says_it_kept_every_written_term(open_store):
-    from hydromodpy.core.budget_terms import BudgetKeep, kept_budget
+    from hydromodpy.core.budget.terms import BudgetKeep, kept_budget
 
     sid = open_store.sim_id
     open_store.write_field_stack(sid, "recharge", np.ones((2, 1, 2)), subgroup="budget")
@@ -363,7 +363,7 @@ def test_the_budget_group_says_it_kept_every_written_term(open_store):
 
 
 def test_the_budget_group_says_it_kept_the_planned_terms_produced_or_not(open_store):
-    from hydromodpy.core.budget_terms import BudgetKeep
+    from hydromodpy.core.budget.terms import BudgetKeep
 
     sz = open_store.open_zarr(open_store.sim_id)
     try:

@@ -17,7 +17,7 @@ import pandas as pd
 import pytest
 
 from hydromodpy.calibration.criteria.series import SeriesCriterion
-from hydromodpy.core import metrics as core
+from hydromodpy.core.scoring import metrics as core
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.fit_metrics import score_timeseries

@@ -23,11 +23,7 @@ import numpy as np
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.core.field_routing import (
-    DRAIN_BAND_DEPTH_ATTR,
-    drain_band_depth,
-    seepage_mask,
-)
+from hydromodpy.core.budget.flux import DRAIN_BAND_DEPTH_ATTR, drain_band_depth, seepage_mask
 from hydromodpy.results.zarr_store import SimulationZarr
 from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.solver.modflow6.build import apply_preprocess_options as mf6_apply_options

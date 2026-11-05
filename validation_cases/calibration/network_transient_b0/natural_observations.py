@@ -17,7 +17,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from hydromodpy.core.metrics import log_floor, log_nse
+from hydromodpy.core.scoring.metrics import log_floor, log_nse
 from hydromodpy.results.catalog.constants import cost_of
 from validation_cases.calibration.network_transient_b0.network_cost import (
     equivalent_network_length,

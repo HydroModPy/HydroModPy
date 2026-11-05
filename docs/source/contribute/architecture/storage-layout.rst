@@ -22,7 +22,7 @@ of a session is in that session, a table over N cases is in ``summary/``. Publis
 out of the tree (``hmp publish``); nothing in the project points at the copy except the
 ``published.jsonl`` line of its source.
 
-The directory names of the project are declared in :mod:`hydromodpy.core.state.paths`. The names
+The directory names of the project are declared in :mod:`hydromodpy.core.state.layout`. The names
 inside a run or a session directory are declared in :mod:`hydromodpy.results.storage.contract`.
 No other module spells them.
 
@@ -93,7 +93,7 @@ carries the ``.parquet.d`` or ``.zarr.zip`` suffix, and no directory is named af
 identifier.
 
 The project config file is ``project.toml``, and
-:func:`~hydromodpy.core.state.paths.resolve_project_root` anchors on it, never on a database file:
+:func:`~hydromodpy.core.state.result_dirs.resolve_project_root` anchors on it, never on a database file:
 a project stays a project after its index is deleted. Relative paths in a configuration are
 relative to the project root, whichever directory the file sits in.
 
@@ -379,7 +379,7 @@ and the index row; the links by identifier do not move, and a stale hint is neve
 ``J0014010-base``, ``calibration``, ``sessions/calibration/trials/0004``. ``@last`` and
 ``@best:<metric>`` resolve to one of them. The two forms, ``runs/<name>`` and
 ``sessions/<name>/trials/<nnnn>``, are spelled and read only by the relative-directory functions
-of :mod:`hydromodpy.core.state.paths`.
+of :mod:`hydromodpy.core.state.result_dirs`.
 
 **An identical case is skipped from disk**: the worker reads ``identity.config_hash`` in
 ``runs/<case>/manifest.json``, never the index. ``if_exists`` is ``version`` or ``fail``.
@@ -626,7 +626,7 @@ the time-varying fields are kept: every array written through
 ``write_field`` or ``write_field_stack`` (head, per-cell budget terms,
 concentrations). ``compact``, the default, stores
 float32 whose mantissa is rounded to nearest at 16 bits
-(:mod:`hydromodpy.core.field_precision`): a value moves by at most 2**-17
+(:mod:`hydromodpy.core.fields.precision`): a value moves by at most 2**-17
 of itself, 7.6e-6 relative, NaN stays NaN and no finite value becomes
 infinite. The zeroed low bits are what bitshuffle and zstd pack away. Such
 an array carries the CF-1.11 quantization attributes
@@ -645,7 +645,7 @@ extractor produces, under the canonical CBC name: the exchange terms
 MODFLOW-NWT and Boussinesq, ``storage_ss`` and ``storage_sy`` under MODFLOW 6). Each term has
 a descriptor in :mod:`hydromodpy.results.field_registry`, so it can be listed,
 exported and read with ``run.field``. The group carries two attributes that
-say what the run kept (:mod:`hydromodpy.core.budget_terms`):
+say what the run kept (:mod:`hydromodpy.core.budget.terms`):
 
 - ``policy``: ``all`` (the default) or ``consumers``, set by
   ``[simulation.results] keep_per_cell_budget = false``;
@@ -758,7 +758,7 @@ layers, and a message names layer, row and column from 0. A store below the wind
 refused when it is opened, and must be run again (the rule of the versions of the stored documents,
 above).
 The array ``idomain`` is never rounded, and a reader that needs the top active cell of a column
-takes ``top_active_layer`` of ``hydromodpy/core/vertical_column.py``.
+takes ``top_active_layer`` of ``hydromodpy/core/fields/vertical_column.py``.
 
 The attributes of ``mesh/`` add the ``engine``, its ``engine_version``, its ``engine_seed`` when it
 draws random numbers, the ``mesh_request_hash``, the ``crs`` (WKT) the vertices are expressed in,

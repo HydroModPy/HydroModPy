@@ -15,8 +15,8 @@ from pathlib import Path
 import requests
 
 from hydromodpy.core.exceptions import CacheCorruptionError, NetworkError
+from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.core.io.http_client import get_default_client
-from hydromodpy.core.payload.install import sha256_of
 
 
 def fetch_pinned(

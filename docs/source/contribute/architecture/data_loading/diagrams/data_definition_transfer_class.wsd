@@ -15,7 +15,6 @@ package "hydromodpy.workflow" {
   }
   class "workflow.steps.data" as DataStepModule <<module>> {
     +step_data_loading(ctx)
-    +run_data(config_path, data_plan, run_state)
     +apply_structural_updates_from_data(run_state)
   }
 }

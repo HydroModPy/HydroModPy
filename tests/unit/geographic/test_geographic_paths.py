@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from hydromodpy.core.state.paths import preprocessing_dir
+from hydromodpy.core.state.scratch import preprocessing_dir
 from hydromodpy.spatial.geographic.geographic_paths import build_geographic_paths
 
 

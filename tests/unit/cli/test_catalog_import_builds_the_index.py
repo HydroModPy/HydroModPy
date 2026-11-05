@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hydromodpy.core.state.paths import catalog_path_for
+from hydromodpy.core.state.layout import catalog_path_for
 from hydromodpy.results.export.publish import publish
 from tests._helpers.cli_runner import CliRunner
 from tests._helpers.sealed_run import RUN_NAME, seal_demo_run

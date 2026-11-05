@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.core.state.paths import (
+from hydromodpy.core.state.layout import (
     RUNS_DIRNAME,
     SESSIONS_DIRNAME,
     TOMBSTONES_FILENAME,

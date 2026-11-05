@@ -20,8 +20,8 @@ import pandas as pd
 import pytest
 import zarr
 
-from hydromodpy.core.budget_terms import BudgetKeep, kept_budget
-from hydromodpy.core.state.paths import (
+from hydromodpy.core.budget.terms import BudgetKeep, kept_budget
+from hydromodpy.core.state.layout import (
     CATALOG_FILENAME,
     CONFIGS_DIRNAME,
     INTERNAL_DIRNAME,
@@ -86,7 +86,7 @@ ALLOWED_PROJECT_ENTRIES = OUTPUT_ROOTS | frozenset(
         CONFIGS_DIRNAME,
         SITE_OVERRIDES_DIRNAME,
         # Pin of the workspace input cache, an input of the project verified by
-        # `hmp run --frozen` (hydromodpy/project/lockfile.py).
+        # `hmp run --frozen` (hydromodpy/project/launch/lockfile.py).
         LOCKFILE_NAME,
         "sites.csv",
     }

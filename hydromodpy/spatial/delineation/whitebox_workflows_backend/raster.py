@@ -9,7 +9,7 @@ from pathlib import Path
 
 import whitebox_workflows as wbw
 
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
 
 _VECTOR_EXTENSIONS = {
     ".shp",

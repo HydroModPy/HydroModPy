@@ -36,7 +36,7 @@ from hydromodpy.calibration.metrics.observed_pairing import pair_outputs_with_ob
 from hydromodpy.calibration.metrics.series import ObservedSeries
 from hydromodpy.calibration.optim.objective import ConfigBlockObjective, SimulationOutput
 from hydromodpy.core.contracts.observables import ObservableResult
-from hydromodpy.core.metrics import (
+from hydromodpy.core.scoring.metrics import (
     clip_negatives,
     kge,
     kge_delta,

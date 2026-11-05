@@ -1,4 +1,9 @@
-"""TOML writing helpers backed by tomli-w."""
+"""Render a plain mapping as TOML text with tomli-w.
+
+A config model is written, with comments and a profile, by
+:func:`hydromodpy.core.config_kit.dump.dump_toml_with_comments`. Loading is
+covered by ``loader.py`` and :meth:`HydroModPyConfig.from_toml`.
+"""
 
 from __future__ import annotations
 

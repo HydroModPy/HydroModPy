@@ -50,7 +50,7 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.stored import Vocabulary, dump_stored, read_stored
 from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.core.pipeline_steps import STEP_NAMES
-from hydromodpy.core.state.paths import process_is_alive
+from hydromodpy.core.state.scratch import process_is_alive
 from hydromodpy.results.heartbeat import heartbeat_age_s
 from hydromodpy.results.manifest import read_seal
 from hydromodpy.results.storage.contract import RUN_MANIFEST_FILENAME, RUN_OUTCOME_FILENAME

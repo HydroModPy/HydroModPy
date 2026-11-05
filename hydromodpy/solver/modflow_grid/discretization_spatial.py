@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from hydromodpy.core.exceptions import MeshError
-from hydromodpy.core.grid_reference import GridReference
+from hydromodpy.core.fields.grid_reference import GridReference
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.base.protocols import DomainLike
 from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig, TopSamplingConfig

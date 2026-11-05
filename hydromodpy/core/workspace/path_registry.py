@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
-from hydromodpy.core.state.paths import run_scratch, scratch_dir_for
+from hydromodpy.core.state.scratch import run_scratch, scratch_dir_for
 
 _F = TypeVar("_F", bound=Callable[..., Any])
 
@@ -19,7 +19,7 @@ def in_run_scratch(
     *,
     check: Callable[..., None] | None = None,
 ) -> Callable[[_F], _F]:
-    """Run the decorated function inside its own run scratch (``core.state.paths.run_scratch``).
+    """Run the decorated function inside its own run scratch (``core.state.scratch.run_scratch``).
 
     ``root_of`` and ``label_of`` receive the call's arguments and return the
     project root and the name the scratch folder starts with. ``check``, when

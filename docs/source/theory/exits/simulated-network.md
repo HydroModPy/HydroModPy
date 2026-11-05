@@ -259,9 +259,9 @@ The tests that import the code of this page. The box is generated: a new test
 appears here on the next build.
 
 ```{hmp-tested-by}
-hydromodpy.core.field_routing
-hydromodpy.core.stream_network
-hydromodpy.core.stream_extent
+hydromodpy.spatial.drainage.graph
+hydromodpy.results.derive.stream.network
+hydromodpy.results.derive.stream.extent
 hydromodpy.results.derive.virtual_fields
 hydromodpy.results.derive.views
 ```
@@ -270,9 +270,9 @@ hydromodpy.results.derive.views
 
 | What | Where |
 |---|---|
-| Seepage mask, release flux, accumulation | `hydromodpy/core/field_routing.py` |
-| Sources and closure | `hydromodpy/core/stream_network.py` |
-| Flowing cells, yearly extents | `hydromodpy/core/stream_extent.py` |
+| Seepage mask, release flux, accumulation | `hydromodpy/spatial/drainage/graph.py` |
+| Sources and closure | `hydromodpy/results/derive/stream/network.py` |
+| Flowing cells, yearly extents | `hydromodpy/results/derive/stream/extent.py` |
 | Derived fields rebuilt on read | `hydromodpy/results/derive/virtual_fields.py` |
 | Active masks and the diagnostics | `hydromodpy/results/derive/views.py` |
 | Overlap of lines | `hydromodpy/spatial/geographic/core/hydrographic_network_comparison.py` |

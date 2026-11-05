@@ -23,9 +23,9 @@ from rasterio.features import shapes
 from shapely.geometry import box, shape
 from shapely.ops import unary_union
 
+from hydromodpy.core.fields.nodata import valid_cells
 from hydromodpy.core.io.crs import crs_text, ensure_crs
 from hydromodpy.core.io.raster_io import write_band
-from hydromodpy.core.nodata import valid_cells
 from hydromodpy.spatial.geographic.geographic_paths import GeographicPaths
 
 

@@ -16,7 +16,7 @@ from hydromodpy.cli.conventions import (
 )
 from hydromodpy.cli.helpers import apply_verbosity
 from hydromodpy.cli.output import emit
-from hydromodpy.core.state.paths import resolve_project_root
+from hydromodpy.core.state.result_dirs import resolve_project_root
 
 NAME: str = "point"
 HELP: str = "Read a variable in one cell of a finished run (coordinates, cell id, or depth)"

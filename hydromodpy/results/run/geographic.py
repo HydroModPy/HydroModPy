@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any, Literal
 import numpy as np
 import pandas as pd
 
-from hydromodpy.core.budget_terms import KeptBudget, kept_budget
+from hydromodpy.core.budget.terms import KeptBudget, kept_budget
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
 from hydromodpy.results.derive.mesh_quality import (

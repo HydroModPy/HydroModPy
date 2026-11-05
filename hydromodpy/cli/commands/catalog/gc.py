@@ -22,11 +22,8 @@ from hydromodpy.cli.conventions import (
 )
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND, apply_verbosity, refuse
 from hydromodpy.cli.output import emit
-from hydromodpy.core.state.paths import (
-    catalog_path_for,
-    project_roots_under,
-    resolve_project_root,
-)
+from hydromodpy.core.state.layout import catalog_path_for, project_roots_under
+from hydromodpy.core.state.result_dirs import resolve_project_root
 from hydromodpy.results.retention import DEFAULT_KEEP_VERSIONS, TRASH_RETENTION_DAYS
 
 NAME: str = "gc"

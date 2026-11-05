@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.core.state.paths import CATALOG_FILENAME, INTERNAL_DIRNAME, RUNS_DIRNAME
+from hydromodpy.core.state.layout import CATALOG_FILENAME, INTERNAL_DIRNAME, RUNS_DIRNAME
 from hydromodpy.results.catalog.registration import reserve_version_dirname
 from hydromodpy.results.catalog.storage_paths import (
     MAX_DIRNAME_LEN,

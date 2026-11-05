@@ -15,7 +15,7 @@ import pytest
 from pydantic import ValidationError
 
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
-from hydromodpy.core.field_precision import (
+from hydromodpy.core.fields.precision import (
     KEPT_MANTISSA_BITS,
     MAX_RELATIVE_ERROR,
     round_mantissa,

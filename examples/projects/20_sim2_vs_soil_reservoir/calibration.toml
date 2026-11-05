@@ -1,0 +1,56 @@
+# Overlay: K and Sy, in transient, on the discharge and the extent of the network.
+# calibration_soil.toml adds the soil capacity.
+
+[workflow]
+mode = "calibration"
+
+[calibration]
+seed = 42
+
+[calibration.parameters.K]
+bounds = [3.16e-6, 1e-4]
+
+[calibration.parameters.Sy]
+bounds = [0.01, 0.2]
+
+[calibration.outputs.hydrograph]
+support = "point"
+variable = "discharge"
+
+# The yearly smallest and largest extents of the flowing network, against BD Topage.
+[calibration.outputs.seepage_network]
+support = "network"
+
+[calibration.outputs.seepage_network.map]
+complete = "data.hydrography"
+permanent = "data.hydrography"
+
+[calibration.outputs.seepage_network.map.calibrate_on]
+permanent = 0.5
+complete = 0.5
+
+[calibration.outputs.seepage_network.model.extent]
+flowing_at_least = "1 month"
+dry_at_most = "1 month"
+year_quorum = 1.0
+visible_flow = "1 L/s"
+
+[[calibration.objective_blocks]]
+name = "hydrograph"
+metric = "nse_log"
+uses_outputs = ["hydrograph"]
+
+[[calibration.objective_blocks]]
+name = "network"
+metric = "distance_gap"
+uses_outputs = ["seepage_network"]
+normalize_cost = true
+
+[[calibration.phases]]
+name = "all_together"
+parameters = ["K", "Sy"]
+regime = "transient"
+objective_blocks = { hydrograph = 0.7, network = 0.3 }
+method = "optuna"
+max_trials = 30
+parallel = 2

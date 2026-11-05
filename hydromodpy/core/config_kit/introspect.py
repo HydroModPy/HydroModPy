@@ -5,19 +5,22 @@ Central location for logic that reads ``Annotated[...]`` metadata off
 display, and any future metadata tags.
 
 Kept separate from :mod:`hydromodpy.core.toml_io.generator` and
-:mod:`hydromodpy.core.toml_io.io` so TOML and JSON Schema
+:mod:`hydromodpy.core.config_kit.dump` so TOML and JSON Schema
 paths can share the same source of truth.
 """
 
 from __future__ import annotations
 
+import types
 from collections.abc import Iterator
-from typing import TYPE_CHECKING, Any
+from pathlib import Path
+from typing import TYPE_CHECKING, Annotated, Any, TypeGuard, Union, get_args, get_origin
+
+from pydantic import BaseModel
 
 from hydromodpy.core.config_kit.profile import Profile
 
 if TYPE_CHECKING:
-    from pydantic import BaseModel
     from pydantic.fields import FieldInfo
 
 #: Fields without an explicit ``Profile`` tag default to :attr:`Profile.USER`
@@ -182,18 +185,41 @@ def is_site_scoped(field_info: Any) -> bool:
     return isinstance(extra, dict) and extra.get("site_scoped") is True
 
 
-def _unwrap_members(annotation: Any) -> list[Any]:
-    """Return the members of an annotation, ``Annotated`` and ``None`` removed."""
-    import types
-    from typing import Annotated, Union, get_args, get_origin
+def is_union_origin(origin: object) -> bool:
+    """Return True when *origin* is the origin of a ``Union[...]`` or ``X | Y`` annotation."""
+    return origin is Union or origin is types.UnionType
 
+
+def is_implicit_relative_path_default(value: Any, field_info: Any) -> bool:
+    """Return True when *value* is the relative ``Path`` default of the field.
+
+    Such a value is the project layout speaking, so a template and a written
+    config leave it out. A string that names the same path counts too.
+    """
+    default = field_info.default
+    if not isinstance(default, Path) or default.is_absolute():
+        return False
+    if isinstance(value, Path):
+        return value == default
+    if isinstance(value, str):
+        return Path(value) == default
+    return False
+
+
+def is_model(annotation: object) -> TypeGuard[type[BaseModel]]:
+    """Return True when *annotation* is a Pydantic model class."""
+    return isinstance(annotation, type) and issubclass(annotation, BaseModel)
+
+
+def unwrap_members(annotation: Any) -> list[Any]:
+    """Return the members of an annotation, ``Annotated`` and ``None`` removed."""
     origin = get_origin(annotation)
     if origin is Annotated:
-        return _unwrap_members(get_args(annotation)[0])
-    if origin is Union or origin is types.UnionType:
+        return unwrap_members(get_args(annotation)[0])
+    if is_union_origin(origin):
         out: list[Any] = []
         for arg in get_args(annotation):
-            out.extend(_unwrap_members(arg))
+            out.extend(unwrap_members(arg))
         return out
     if annotation is type(None):
         return []
@@ -210,10 +236,6 @@ def site_scoped_paths(model: type[BaseModel]) -> tuple[str, ...]:
     resolved document, not key paths a ``--set`` could assign. Paths are
     sorted and unique.
     """
-    from typing import get_args, get_origin
-
-    from pydantic import BaseModel as _BaseModel
-
     found: set[str] = set()
 
     def _walk(cls: type[BaseModel], prefix: tuple[str, ...], stack: tuple[type, ...]) -> None:
@@ -226,8 +248,8 @@ def site_scoped_paths(model: type[BaseModel]) -> tuple[str, ...]:
             _descend(info.annotation, here, (*stack, cls))
 
     def _descend(annotation: Any, here: tuple[str, ...], stack: tuple[type, ...]) -> None:
-        for member in _unwrap_members(annotation):
-            if isinstance(member, type) and issubclass(member, _BaseModel):
+        for member in unwrap_members(annotation):
+            if is_model(member):
                 _walk(member, here, stack)
                 continue
             origin = get_origin(member)

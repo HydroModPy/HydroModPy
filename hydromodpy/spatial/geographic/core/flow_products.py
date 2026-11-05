@@ -30,7 +30,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
 from hydromodpy.core.io.crs import ensure_crs
 from hydromodpy.spatial.terrain import (
     CappedBreach,

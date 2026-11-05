@@ -30,7 +30,7 @@ import os
 from collections.abc import Mapping
 from pathlib import Path
 
-from hydromodpy.core.state.paths import RUN_SCRATCH_ENV
+from hydromodpy.core.state.scratch import RUN_SCRATCH_ENV
 from hydromodpy.core.toml_io.overrides import ENV_SET_PREFIX
 from hydromodpy.data.registry.catalog_duckdb import PRIVATE_CACHE_ENV
 

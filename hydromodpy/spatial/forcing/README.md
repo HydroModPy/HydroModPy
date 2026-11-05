@@ -69,6 +69,7 @@ forcing/
 ├── stations.py         located time series, one mean per period and per station
 ├── sources.py          units, the data variable, the X and Y axes, nodata check, "on cells" wrappers
 ├── area_weights.py     area shared by each pixel and each cell, area-weighted mean
+├── recharge_rates.py   the rate a recharge series gives each period, and the mean recharge of a run
 └── interpolation.py    nearest, linear and IDW from a grid or points onto target centres
 ```
 
@@ -84,6 +85,7 @@ forcing/
 | the unit of a record, or which variable of a dataset is the field | `sources.py` |
 | the refusal of a nodata pixel | `sources.py`, `refuse_nodata_under_cells` |
 | the `area` method | `area_weights.py` |
+| the mean recharge a run is scored on, and the rate of each period | `recharge_rates.py` |
 | nearest, linear or IDW | `interpolation.py` |
 | the names of the methods in the config | `InterpolationMethod` in `hydromodpy/core/config_kit/types.py` |
 
@@ -95,6 +97,7 @@ The package is flat, so the rules are between its modules and with the rest of H
 - `rasters.py` and `stations.py` read `sources.py`.
 - `sources.py` reads `area_weights.py` and `interpolation.py`.
 - `area_weights.py` and `interpolation.py` import no other module of the package.
+- `recharge_rates.py` imports `core` only. It is not part of the path above: `simulation`, `results` and `calibration` read it so that the trials that score a run and the figures that redraw it use one mean recharge. A period before the first sample has no data, so `forcing_period_rates` gives it NaN and `criterion_mean_recharge` gives it no weight.
 - Outside the package, it imports `hydromodpy.core` (config types, exceptions, logging, units, the
   time window, the coverage rule, the nodata mask and the CRS comparison) and one name of `spatial/mesh`, `derive_geometry` from
   `hydromodpy/spatial/mesh/model/geometry.py`, in `area_weights.py`. `HydroMesh` is imported only
@@ -114,7 +117,7 @@ to ask for and what to do with the answer.
 - The recharge and ETP packages of the solvers call it: `hydromodpy/solver/modflow6/builders/recharge.py`,
   `hydromodpy/solver/modflow_nwt/nwt/payloads/recharge_etp.py` and
   `hydromodpy/solver/boussinesq/forcing/recharge_resolution.py`.
-- The workflow step `hydromodpy/workflow/steps/prepare_solver/prepare.py` and the hook registered in
+- The workflow step `hydromodpy/workflow/steps/prepare_solver/forcings.py` and the hook registered in
   `hydromodpy/_bootstrap.py` use the spatial mean, and so does
   `hydromodpy/calibration/metrics/series.py`.
 - `interpolation.py` is also used by the Explore2 client in
@@ -127,7 +130,7 @@ The tests follow the layout of the code. A module is tested in `tests/unit/forci
 for example `area_weights.py` in `tests/unit/forcing/test_area_weights.py`. The tests build their
 cell centers, gridded records, stations and windows with `tests/_helpers/forcing_cases.py`. The
 forcing is also exercised by `tests/unit/physics/test_forcing_spatial_config.py`,
-`tests/unit/physics/test_time_alignment.py` and `tests/unit/workflow/test_persist_watershed_forcing.py`.
+`tests/unit/physics/test_time_alignment.py` and `tests/unit/workflow/steps/prepare_solver/test_forcings.py`.
 No contract or regression test is specific to this package.
 
 The CI job `mesh-coverage` in `.github/workflows/main-ci.yml` fails when the coverage of

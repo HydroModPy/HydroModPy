@@ -78,7 +78,7 @@ make it a process and not just a package:
        ``solvers``, added to the ``SimulationProcessConfig`` union. This is what
        lets ``[[simulation.process]]`` declare ``type = "<name>"``. A simulation
        holds at most one process of each type.
-   * - ``core/state/setup.py``
+   * - ``core/state/run_state.py``
      - A member of ``SetupContext`` that holds the built object
        (``setup.flow``, ``setup.transport``).
    * - ``simulation/execution/runner.py``

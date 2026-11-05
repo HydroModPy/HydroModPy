@@ -15,7 +15,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from hydromodpy.core.state.paths import INTERNAL_DIRNAME, RUNS_DIRNAME
+from hydromodpy.core.state.layout import INTERNAL_DIRNAME, RUNS_DIRNAME
 from hydromodpy.results.catalog.indexer import index_new_runs
 from hydromodpy.results.outcome import effective_status, read_outcome
 from hydromodpy.results.storage.attempt import claim_run_directory, finish_attempt

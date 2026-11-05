@@ -8,8 +8,8 @@ from types import SimpleNamespace
 import pytest
 
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.core.state.paths import preprocessing_dir
 from hydromodpy.core.state.run_state import WorkflowContext
+from hydromodpy.core.state.scratch import preprocessing_dir
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.workflow.steps.setup import step_setup
 

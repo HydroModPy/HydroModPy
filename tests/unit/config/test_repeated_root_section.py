@@ -8,7 +8,6 @@ from typing import Optional
 from pydantic import BaseModel
 
 import hydromodpy.config  # noqa: F401  (installs the root config provider)
-from hydromodpy.core.config_kit.export_spec import ExportRequest, load_export_requests
 from hydromodpy.core.config_kit.registry import (
     _section_shape,
     repeated_root_sections,
@@ -16,6 +15,7 @@ from hydromodpy.core.config_kit.registry import (
     root_sections,
 )
 from hydromodpy.core.toml_io.generator import generate_toml, generate_toml_from_instances
+from hydromodpy.results.exporters.export_spec import ExportRequest, load_export_requests
 
 
 class _Item(BaseModel):

@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.core.state.paths import catalog_path_for
+from hydromodpy.core.state.layout import catalog_path_for
 from hydromodpy.results.catalog import Catalog, rebuild_index
 from tests._helpers.sealed_runs import make_project, seal_run
 

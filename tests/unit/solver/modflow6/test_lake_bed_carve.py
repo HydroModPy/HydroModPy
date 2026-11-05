@@ -11,7 +11,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.core.vertical_column import check_layer_interfaces
+from hydromodpy.core.fields.vertical_column import check_layer_interfaces
 from hydromodpy.solver.modflow6.builders import (
     apply_lake_idomain_mask,
     build_lake_connectiondata,

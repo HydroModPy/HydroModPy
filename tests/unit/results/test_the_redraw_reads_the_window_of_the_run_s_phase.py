@@ -17,7 +17,7 @@ from hydromodpy.calibration.protocols.matching_hydrographic_network import (
     STEADY_STAGE,
     TRANSIENT_STAGE,
 )
-from hydromodpy.results.derive.network_criterion_settings import network_criterion_settings
+from hydromodpy.results.derive.stream.criterion_settings import network_criterion_settings
 from tests._helpers.sealed_runs import sealed_search
 
 NETWORK = {"support": "network", "observed_network": "data.hydrography"}

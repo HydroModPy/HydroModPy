@@ -28,7 +28,7 @@ from hydromodpy.calibration.criteria.hydrographic_network_distance import (
     distance_gap,
     distance_mean,
 )
-from hydromodpy.core.metrics import (
+from hydromodpy.core.scoring.metrics import (
     clip_negatives,
     kge,
     log_nse,

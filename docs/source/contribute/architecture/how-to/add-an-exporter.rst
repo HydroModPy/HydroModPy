@@ -15,7 +15,7 @@ How a request reaches an exporter
 
 A user never names an exporter. An ``[[export]]`` block, ``run.export(...)``
 and ``hmp export`` all build one
-:class:`~hydromodpy.core.config_kit.export_spec.ExportRequest`: what
+:class:`~hydromodpy.results.exporters.export_spec.ExportRequest`: what
 (``variables``), when (``time``, ``period``), where (``folder``, ``file``),
 and optionally ``format``.
 
@@ -25,7 +25,7 @@ and optionally ``format``.
 2. :func:`~hydromodpy.results.exporters.vocabulary.list_exportable` says what
    the run holds, and the kind of each name: field, series, vector, raster,
    table.
-3. :func:`~hydromodpy.core.config_kit.export_spec.plan_outputs` names every
+3. :func:`~hydromodpy.results.exporters.export_spec.plan_outputs` names every
    file, from the kind of each name and the format (``KIND_FORMATS`` gives
    the formats a kind can be written in, the first being its natural one).
    The step 0 check of ``hmp run`` and ``hmp config check`` call the same
@@ -39,7 +39,7 @@ Files to touch
 
 A new format called ``myfmt``:
 
-- ``core/config_kit/export_spec.py``: a value of ``ExportFormat``, its
+- ``results/exporters/export_spec.py``: a value of ``ExportFormat``, its
   suffix in ``_SUFFIX_TO_FORMAT`` and ``FORMAT_SUFFIX``, the kinds that can
   be written in it in ``KIND_FORMATS``, and ``SINGLE_INSTANT_FORMATS`` when a
   file holds one instant (then several dates write one file per date).
@@ -99,7 +99,7 @@ Several layers in one file
 --------------------------
 
 ``plan_outputs`` gives each name its own file, with one exception: the mesh
-layers (``MESH_LAYERS`` in ``core/config_kit/export_spec.py``) of a GeoPackage
+layers (``MESH_LAYERS`` in ``results/exporters/export_spec.py``) of a GeoPackage
 share one file, ``<layer>.gpkg`` for a single layer and ``<run>_mesh.gpkg`` for
 several. ``results/exporters/mesh_layers.py`` writes them, one
 ``gdf.to_file(..., layer=name)`` per layer, and states the CRS of the ``mesh/``

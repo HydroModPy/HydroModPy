@@ -17,7 +17,7 @@ from hydromodpy.cli.conventions import (
 )
 from hydromodpy.cli.helpers import EXIT_CONFIG, apply_verbosity, refuse
 from hydromodpy.cli.output import emit
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
 
 NAME: str = "install-binaries"
 HELP: str = "Download MODFLOW/MODPATH/MT3D-USGS binaries into the HydroModPy cache"

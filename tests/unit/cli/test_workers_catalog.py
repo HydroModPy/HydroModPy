@@ -14,7 +14,7 @@ from hydromodpy.cli._workers.catalog import (
     query_catalog,
     show_simulation,
 )
-from hydromodpy.core.state.paths import PROJECTS_DIRNAME, WORKSPACE_TOML_FILENAME
+from hydromodpy.core.state.layout import PROJECTS_DIRNAME, WORKSPACE_TOML_FILENAME
 from hydromodpy.results.catalog import rebuild_index
 from tests._helpers.sealed_runs import make_project, seal_run
 

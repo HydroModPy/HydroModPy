@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.core.state.paths import INTERNAL_DIRNAME, catalog_path_for
+from hydromodpy.core.state.layout import INTERNAL_DIRNAME, catalog_path_for
 from hydromodpy.results.manifest import read_manifest
 from hydromodpy.results.outcome import effective_status, read_outcome
 from hydromodpy.results.storage.contract import (

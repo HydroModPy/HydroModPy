@@ -21,7 +21,7 @@ from hydromodpy.config.sites.expansion import SitesProjectError, expand_plan, fi
 from hydromodpy.config.sites.issues import group_issues
 from hydromodpy.core.config_kit.written import written_experimental_keys
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.core.state.paths import resolve_project_root
+from hydromodpy.core.state.result_dirs import resolve_project_root
 from hydromodpy.core.toml_io.loader import merge_toml_chain, read_toml_chain
 from hydromodpy.workflow.dispatch import (
     WorkflowError,
@@ -141,7 +141,7 @@ def _load(target: Path) -> tuple[Any, list[str], list[str]]:
 
 
 def _check_run(target: Path) -> CheckReport:
-    from hydromodpy.workflow.steps.validate import check_export_variables, check_time_selectors
+    from hydromodpy.config.export_checks import check_export_variables, check_time_selectors
 
     cfg, errors, noted = _load(target)
     if cfg is not None:

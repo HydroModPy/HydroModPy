@@ -7,7 +7,7 @@ from pathlib import Path
 import duckdb
 
 from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
-from hydromodpy.data.registry.migrations import current_version
+from hydromodpy.data.registry.migrations.runner import current_version
 
 
 def test_extended_tables_present():

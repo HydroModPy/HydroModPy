@@ -10,7 +10,7 @@ from __future__ import annotations
 import dataclasses
 import typing
 
-from hydromodpy.core.state.data import LoadedDataContext
+from hydromodpy.core.state.run_state import LoadedDataContext
 from hydromodpy.data import DataManagersConfig
 from hydromodpy.data.loading._dispatch import VARIABLE_SPECS, get_manager_class
 from hydromodpy.data.loading.config_schema import SUPPORTED_DATA_MANAGER_TYPES
@@ -32,7 +32,7 @@ def _families() -> dict[str, set[str]]:
         "SUPPORTED_DATA_MANAGER_TYPES (data/loading/config_schema.py)": set(
             SUPPORTED_DATA_MANAGER_TYPES
         ),
-        "LoadedDataContext fields (core/state/data.py)": {
+        "LoadedDataContext fields (core/state/run_state.py)": {
             field.name for field in dataclasses.fields(LoadedDataContext)
         }
         - _LOAD_STATE_FIELDS,

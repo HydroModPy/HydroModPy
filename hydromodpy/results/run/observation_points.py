@@ -97,6 +97,25 @@ def sample_observation_points(
     return written
 
 
+def sample_declared_points(cfg: Any, *, store: RunStore) -> int:
+    """Sample the ``[observation]`` points while the run still holds its fields.
+
+    A point known in advance costs nothing to read later: its series lands in
+    the timeseries table of the run and its declaration in
+    ``observation_points.parquet``. A failure is logged, never fatal: the
+    results of the run are already in.
+    """
+    observation = getattr(cfg, "observation", None)
+    declarations = observation.declarations() if observation is not None else []
+    if not declarations:
+        return 0
+    try:
+        return sample_observation_points(store, store.sim_id, declarations)
+    except Exception:
+        logger.warning("Could not sample the declared observation points", exc_info=True)
+        return 0
+
+
 def _write_series(store: RunStore, sim_id: str, point_id: str, frame: pd.DataFrame) -> int:
     """Write one point's per-variable series into the timeseries payload."""
     station = station_id_for(point_id)
@@ -118,4 +137,9 @@ def _write_series(store: RunStore, sim_id: str, point_id: str, frame: pd.DataFra
     return written
 
 
-__all__ = ["STATION_PREFIX", "sample_observation_points", "station_id_for"]
+__all__ = [
+    "STATION_PREFIX",
+    "sample_declared_points",
+    "sample_observation_points",
+    "station_id_for",
+]

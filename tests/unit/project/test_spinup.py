@@ -3,6 +3,9 @@
 The loop test drives ``run_spinup`` against a stub Project whose ``simulate``
 hands back pre-written synthetic Zarr stores, so the real driver logic (restart
 injection, delta computation, convergence stop) runs without a solver.
+
+The convergence of a spinup is measured on heads and on lake stages, and its result
+says what a non-converged antecedent is.
 """
 
 from __future__ import annotations
@@ -15,7 +18,7 @@ import pytest
 
 from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.physics.flow.initial_conditions import FlowInitialConditions
-from hydromodpy.project.spinup import cycle_delta, run_spinup
+from hydromodpy.project.spinup import cycle_delta, lake_stage_delta, run_spinup
 from hydromodpy.simulation.spinup_config import SpinupConfig
 from hydromodpy.solver.modflow6.builders.initial_conditions import read_final_head
 
@@ -205,3 +208,60 @@ def test_spinup_refuses_a_sites_project(tmp_path: Path) -> None:
 
     with pytest.raises(ConfigError, match=r"declares \[sites\]"):
         hmp.spinup(project)
+
+
+@pytest.mark.parametrize(
+    ("before", "after", "delta"),
+    [
+        pytest.param({}, {}, 0.0, id="no-lake-at-all-is-a-change-of-zero"),
+        pytest.param(
+            {"cheze": 1.0},
+            {"cheze": 1.25},
+            pytest.approx(0.25),
+            id="a-shared-lake-gives-its-largest-change",
+        ),
+        pytest.param(
+            {"a": 1.0, "b": 5.0},
+            {"a": 1.1, "b": 5.9},
+            pytest.approx(0.9),
+            id="several-lakes-give-the-largest-of-them",
+        ),
+        pytest.param(
+            {"cheze": 1.0}, {}, None, id="a-lake-gone-in-the-second-cycle-is-no-comparison"
+        ),
+        pytest.param(
+            {}, {"cheze": 1.0}, None, id="a-lake-new-in-the-second-cycle-is-no-comparison"
+        ),
+        pytest.param({"a": 1.0}, {"b": 1.0}, None, id="two-cycles-naming-different-lakes"),
+    ],
+)
+def test_the_lake_stage_delta_is_the_largest_change_of_the_lakes_both_cycles_name(
+    before: dict[str, float], after: dict[str, float], delta: object
+) -> None:
+    assert lake_stage_delta(before, after) == delta
+
+
+def test_the_result_says_what_a_non_converged_antecedent_is(tmp_path) -> None:
+    """`--then-run` seeds production from the last cycle whether it settled or not."""
+    from hydromodpy.project.spinup import SpinupCycle, SpinupResult
+
+    result = SpinupResult(
+        converged=False,
+        cycles=[SpinupCycle(0, "a", "a.zarr", None, None)],
+        restart_from="a.zarr",
+    )
+
+    assert result.antecedent_warning() is not None
+    assert "did not converge" in result.antecedent_warning()
+
+
+def test_a_converged_result_has_nothing_to_warn_about() -> None:
+    from hydromodpy.project.spinup import SpinupCycle, SpinupResult
+
+    result = SpinupResult(
+        converged=True,
+        cycles=[SpinupCycle(0, "a", "a.zarr", None, None)],
+        restart_from="a.zarr",
+    )
+
+    assert result.antecedent_warning() is None

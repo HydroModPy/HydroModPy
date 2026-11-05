@@ -6,7 +6,7 @@ the model does not produce it, and that is a quiet skip. With
 ``[simulation.results] keep_per_cell_budget = false`` a run keeps only the
 terms its consumers read. A reader that then misses a field has something to
 act on, and the store says which case it is: the ``policy`` and ``kept_terms``
-attributes of its ``budget/`` group (:func:`hydromodpy.core.budget_terms.kept_budget`),
+attributes of its ``budget/`` group (:func:`hydromodpy.core.budget.terms.kept_budget`),
 never the configuration.
 
 ``keep_per_cell_budget`` is the only option left. A field that reads no budget
@@ -19,7 +19,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from hydromodpy.core.budget_terms import (
+from hydromodpy.core.budget.terms import (
     POLICY_CONSUMERS,
     KeptBudget,
     budget_terms_for,

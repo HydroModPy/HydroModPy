@@ -26,7 +26,7 @@ from pydantic import ConfigDict, Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.stored import dump_stored, read_stored
-from hydromodpy.core.state.paths import INTERNAL_DIRNAME, RUN_INTERNAL_CHECKPOINTS_DIRNAME
+from hydromodpy.core.state.layout import INTERNAL_DIRNAME, RUN_INTERNAL_CHECKPOINTS_DIRNAME
 from hydromodpy.core.version import __version__ as HMP_VERSION
 from hydromodpy.results.checks import CalibratedBy, Validity
 from hydromodpy.results.identity import Identity

@@ -8,13 +8,13 @@ import pytest
 
 from hydromodpy.cli.helpers import EXIT_CONFIG
 from hydromodpy.cli.main import main
-from hydromodpy.core.state.paths import (
+from hydromodpy.core.state.layout import (
     INTERNAL_DIRNAME,
     catalog_path_for,
     runs_dir_for,
-    scratch_dir_for,
     trash_dir_for,
 )
+from hydromodpy.core.state.scratch import scratch_dir_for
 from hydromodpy.results.trash import parse_trashed_dirname
 from tests._helpers.sealed_runs import seal_run
 

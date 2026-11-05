@@ -39,7 +39,7 @@ from typing import TYPE_CHECKING, Any, Final
 
 import pandas as pd
 
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
 from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.results.catalog.constants import metric_sense
 from hydromodpy.results.manifest import is_sealed

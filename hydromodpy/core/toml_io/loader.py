@@ -31,11 +31,8 @@ from typing import TYPE_CHECKING, Any, TypeVar
 
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import (
-    PROJECT_MARKER_FILENAME,
-    is_sealed_run_dir,
-    resolve_project_root,
-)
+from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
+from hydromodpy.core.state.result_dirs import is_sealed_run_dir, resolve_project_root
 from hydromodpy.core.toml_io.merge import merge_toml_payloads
 from hydromodpy.core.toml_io.overrides import ENV_SOURCE, SET_SOURCE
 from hydromodpy.core.toml_io.paths import is_declared_absolute_path

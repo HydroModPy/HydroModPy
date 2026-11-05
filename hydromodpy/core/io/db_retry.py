@@ -93,7 +93,14 @@ def _raise_open_failure(db_path: str, exc: duckdb.Error) -> NoReturn:
     raise exc
 
 
-def _is_attach_path_conflict(exc: duckdb.BinderException) -> bool:
+# Newer DuckDB raises ResourceInUseException where older releases raise BinderException.
+_ATTACH_CONFLICTS = (
+    duckdb.BinderException,
+    getattr(duckdb, "ResourceInUseException", duckdb.BinderException),
+)
+
+
+def _is_attach_path_conflict(exc: duckdb.Error) -> bool:
     """Return whether ``exc`` says this process already holds that database file."""
     message = str(exc).lower()
     return any(snippet in message for snippet in _ATTACH_CONFLICT_SNIPPETS)
@@ -177,7 +184,7 @@ def _precreate_with_block_size(db_path: str, block_size: int) -> None:
     try:
         tmp.execute(f"ATTACH '{escaped}' (BLOCK_SIZE {int(block_size)})")
         tmp.execute("CHECKPOINT")
-    except duckdb.BinderException as exc:
+    except _ATTACH_CONFLICTS as exc:
         if not _is_attach_path_conflict(exc):
             raise
         logger.debug(

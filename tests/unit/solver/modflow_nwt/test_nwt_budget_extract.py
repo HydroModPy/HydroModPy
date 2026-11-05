@@ -15,7 +15,7 @@ from typing import Any
 import numpy as np
 import pytest
 
-from hydromodpy.core.budget_terms import POLICY_ALL, POLICY_CONSUMERS, BudgetKeep
+from hydromodpy.core.budget.terms import POLICY_ALL, POLICY_CONSUMERS, BudgetKeep
 from hydromodpy.solver.modflow_nwt.extractors import flow as nwt_flow
 from hydromodpy.solver.modflow_nwt.extractors.flow import ModflowNwtOutputAdapter
 

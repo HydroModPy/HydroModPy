@@ -45,9 +45,9 @@ from hydromodpy.core.exceptions import (
     TerrainProductError,
     TerrainRequestError,
 )
+from hydromodpy.core.fields.nodata import valid_cells
 from hydromodpy.core.io.crs import crs_text
 from hydromodpy.core.io.raster_io import write_band
-from hydromodpy.core.nodata import valid_cells
 from hydromodpy.spatial.terrain.artifacts import (
     MASK_INSIDE,
     MASK_NODATA,

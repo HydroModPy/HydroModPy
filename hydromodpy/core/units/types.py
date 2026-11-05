@@ -62,7 +62,7 @@ def _coerce_bare_number(unit: str):
     def _coerce(value: Any) -> Any:
         if isinstance(value, bool):
             # bool is a subclass of int; reject explicitly to catch typos.
-            raise TypeError("numeric field rejected boolean input")
+            raise ValueError("numeric field rejected boolean input")
         if isinstance(value, (int, float)):
             return f"{value} {unit}"
         return value
@@ -238,7 +238,7 @@ def _coerce_to_canonical_float(unit: str):
             return _safe_to_canonical(value)
         # Numeric input (but not bool): treated as canonical unit magnitude.
         if isinstance(value, bool):
-            raise TypeError("numeric field rejected boolean input")
+            raise ValueError("numeric field rejected boolean input")
         if isinstance(value, (int, float)):
             return float(value)
         # String input parsed via the shared pint registry.
@@ -266,7 +266,7 @@ def _coerce_to_canonical_float(unit: str):
                 except Exception as exc:
                     raise ValueError(str(exc)) from exc
                 return _safe_to_canonical(quantity)
-        raise TypeError(f"unsupported value for canonical-{unit} float: {value!r}")
+        raise ValueError(f"unsupported value for canonical-{unit} float: {value!r}")
 
     return _coerce
 

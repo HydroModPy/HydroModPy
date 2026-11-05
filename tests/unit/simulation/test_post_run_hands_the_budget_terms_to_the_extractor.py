@@ -13,7 +13,7 @@ from types import SimpleNamespace
 import pytest
 
 import hydromodpy.simulation.extraction.post_run as post_run_module
-from hydromodpy.core.budget_terms import BudgetKeep
+from hydromodpy.core.budget.terms import BudgetKeep
 from hydromodpy.core.state.run_state import RunState
 from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.simulation.planning.results_config import ResultsConfig

@@ -46,16 +46,12 @@ from hydromodpy.calibration.metrics.observable_scoring import VALIDATION_COST, d
 from hydromodpy.calibration.optim.cache import context_fingerprints, differing_members
 from hydromodpy.calibration.persistence import CalibrationPersistence
 from hydromodpy.calibration.runners.trial import promote_prepared_trial
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
 from hydromodpy.core.exceptions import CalibrationError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.scope import CATCHMENT
-from hydromodpy.core.state.paths import (
-    TRIALS_DIRNAME,
-    run_dir_rel,
-    session_dir_rel,
-    trial_dir_rel,
-)
+from hydromodpy.core.state.layout import TRIALS_DIRNAME
+from hydromodpy.core.state.result_dirs import run_dir_rel, session_dir_rel, trial_dir_rel
 from hydromodpy.results.catalog.registration import (
     VersionPairingError,
     reserve_version_dirname,

@@ -1,0 +1,612 @@
+"""Rebuild the flow extents of a finished transient run, as the criterion reads them.
+
+A transient run holds one release field per timestep. Where the network flowed,
+how often, and the maximal and minimal extents the two-bound mode of the
+network criterion scores, are all counts over that stack. This module counts
+them on a stored run, through the one definition of "flowing" of
+:mod:`hydromodpy.results.derive.stream.extent`, on the criterion graph that
+:func:`hydromodpy.results.derive.stream.comparison.network_comparison_from_run`
+rebuilds. A figure drawn from here therefore cuts the network where a trial
+cuts it: seepage above ``tau * R * A``, closed downstream on the conditioned
+graph, and above the visible flow when one is set.
+
+The stack is read a chunk of timesteps at a time and only the per-block counts
+are kept, so a daily run on a fine mesh never sits whole in memory.
+
+Nothing here scores. The distances belong to the calibration layer; this
+module only rebuilds the masks and the cells they share with the maps.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
+
+import numpy as np
+
+from hydromodpy.core.scoring.stream_defaults import (
+    STREAM_CRITERION_DEFAULTS,
+    ObservedRasterization,
+)
+from hydromodpy.core.time import nominal_step_days, parse_step_spec
+from hydromodpy.results.derive.stream.comparison import (
+    has_recharge_source,
+    network_comparison_from_run,
+    no_recharge_reason,
+    no_release_flux_reason,
+    unavailable_reason_for_comparison,
+)
+from hydromodpy.results.derive.stream.extent import (
+    CHUNK_ELEMENTS,
+    DEFAULT_VISIBLE_FLOW,
+    Bound,
+    CalendarYears,
+    ExtentMasks,
+    VisibleFlow,
+    YearlyFlowCounts,
+    calendar_years,
+    dry_steps,
+    extent_masks,
+    extent_step_problems,
+    flowing_cells,
+    flowing_steps,
+    parse_extent_duration,
+    parse_visible_flow,
+)
+from hydromodpy.results.derive.stream.geometry import (
+    CriterionSupports,
+    NetworkGeometry,
+    criterion_supports,
+)
+
+if TYPE_CHECKING:
+    from hydromodpy.results.run import Run
+
+__all__ = (
+    "FLOW_FIELD",
+    "GRAPH_ROLES",
+    "MAXIMAL_ROLE",
+    "MINIMAL_ROLE",
+    "BlockFlowCounts",
+    "NetworkExtents",
+    "block_flow_counts",
+    "flow_geometry_from_run",
+    "flowing_share",
+    "graph_role",
+    "network_extents_from_run",
+    "run_step_days",
+    "run_step_edges",
+    "scored_cells",
+    "unavailable_reason_for_extents",
+    "unavailable_reason_for_flow",
+)
+
+FLOW_FIELD = "release_flux"
+"""The per-cell release the criterion cuts the network from, in m3/s."""
+
+MAXIMAL_ROLE = "reference"
+"""The stored network standing for the maximal map: every mapped reach."""
+
+MINIMAL_ROLE = "reference_permanent"
+"""The stored network standing for the minimal map: the permanent reaches."""
+
+GRAPH_ROLES: tuple[str, ...] = (MAXIMAL_ROLE, "generated")
+"""The networks the criterion graph can be rebuilt on, in order of preference.
+
+The graph, the seepage threshold and the outlet do not depend on the map: a
+map only enters the distances. A run with no mapped network but a network
+thresholded from its DEM therefore still counts its flowing cells the way the
+criterion would.
+"""
+
+
+def graph_role(sim: Run) -> str | None:
+    """Return the stored network the criterion graph is rebuilt on, or None."""
+    for role in GRAPH_ROLES:
+        if sim.has_hydrographic_network(role):
+            return role
+    return None
+
+
+def unavailable_reason_for_flow(
+    sim: Run,
+    *,
+    tau_specific_ratio: float = STREAM_CRITERION_DEFAULTS.tau_specific_ratio,
+) -> str | None:
+    """Return why the flowing cells of this run cannot be counted, or None.
+
+    Counting needs the release field and the criterion graph, which is built
+    on a stored network, the mesh and its CRS; a positive ``tau_specific_ratio``
+    also needs the recharge the threshold is a fraction of, read from the
+    station forcing the run stores or from its recharge budget, whichever the
+    criterion reads.
+    """
+    if not sim.has_field(FLOW_FIELD):
+        return no_release_flux_reason(sim)
+    role = graph_role(sim)
+    if role is None:
+        return (
+            "run carries neither a 'reference' nor a 'generated' hydrographic network, "
+            "so the criterion graph that says which cells flow cannot be rebuilt"
+        )
+    reason = unavailable_reason_for_comparison(sim, role=role)
+    if reason is not None:
+        return reason
+    if float(tau_specific_ratio) > 0.0 and not has_recharge_source(sim):
+        return no_recharge_reason(sim, tau_specific_ratio)
+    return None
+
+
+def unavailable_reason_for_extents(
+    sim: Run,
+    *,
+    tau_specific_ratio: float = STREAM_CRITERION_DEFAULTS.tau_specific_ratio,
+    require_minimal: bool = True,
+    window: tuple[Any, Any] | None = None,
+) -> str | None:
+    """Return why the two extents of this run cannot be drawn, or None.
+
+    The extents are read over the complete calendar years of a transient run
+    that ``window`` holds, against the maximal map (``reference``) and,
+    with ``require_minimal``, the minimal map (``reference_permanent``) the run
+    stored beside it.
+    """
+    n_steps = int(getattr(sim, "n_timesteps", 0) or 0)
+    if n_steps < 2:
+        return (
+            "a steady run holds one state; the maximal and minimal extents are counted "
+            "over the timesteps of a transient run"
+        )
+    if not sim.has_hydrographic_network(MAXIMAL_ROLE):
+        return f"run carries no {MAXIMAL_ROLE!r} hydrographic network: no maximal map to draw"
+    if require_minimal and not sim.has_hydrographic_network(MINIMAL_ROLE):
+        return (
+            f"run carries one map only: no {MINIMAL_ROLE!r} hydrographic network, the "
+            "permanent reaches its hydrography source writes when it says which reaches "
+            "flow all year"
+        )
+    reason = unavailable_reason_for_flow(sim, tau_specific_ratio=tau_specific_ratio)
+    if reason is not None:
+        return reason
+    edges = run_step_edges(sim)
+    if edges is None:
+        return "run carries no time axis, so its timesteps cannot be sorted into years"
+    if run_step_days(sim) is None:
+        return (
+            "run sealed no timestep (simulation.time.step_value), so a duration cannot be "
+            "counted in its timesteps"
+        )
+    years = calendar_years(edges, window=window)
+    if not years.years:
+        touched = ", ".join(str(year) for year in years.incomplete) or "none"
+        if years.outside_window:
+            left_out = ", ".join(str(year) for year in years.outside_window)
+            return (
+                f"the scoring window holds no complete calendar year of the run "
+                f"(it leaves out {left_out}; the run only touches {touched} besides)"
+            )
+        return f"run covers no complete calendar year (it touches {touched})"
+    return None
+
+
+def run_step_days(sim: Run) -> float | None:
+    """Return the nominal timestep of a run in days, or None when it sealed none.
+
+    Read from the ``[simulation.time]`` step of the configuration the run
+    sealed: the extent rules are durations, and a duration is counted in the
+    steps of the run it is read on. A month is 30.4375 days.
+    """
+    snapshot = getattr(sim, "config_snapshot", None)
+    simulation = snapshot.get("simulation") if isinstance(snapshot, Mapping) else None
+    time = simulation.get("time") if isinstance(simulation, Mapping) else None
+    if not isinstance(time, Mapping) or time.get("step_value") is None:
+        return None
+    try:
+        value, unit = parse_step_spec(time["step_value"], time.get("step_unit"))
+    except ValueError:
+        return None
+    return nominal_step_days(value, unit)
+
+
+def run_step_edges(sim: Run) -> np.ndarray | None:
+    """Return the ``n_timesteps + 1`` bounds of a run's timesteps, or None.
+
+    A run stamps each timestep with the END of its period. The first bound is
+    the start of the run window the catalog recorded; without it the first
+    period is taken as long as the second, the rule the calibration applies
+    when the time grid is missing. None when the run has no usable time axis.
+    """
+    import pandas as pd
+
+    n_steps = int(getattr(sim, "n_timesteps", 0) or 0)
+    if n_steps < 1:
+        return None
+    try:
+        index = sim.time_index
+    except RuntimeError:
+        return None
+    if index is None or len(index) < n_steps:
+        return None
+    stamps = pd.DatetimeIndex(index[:n_steps])
+    if stamps.tz is not None:
+        stamps = stamps.tz_localize(None)
+    start = _window_start(sim, stamps[0])
+    if start is None:
+        if n_steps < 2:
+            return None
+        start = stamps[0] - (stamps[1] - stamps[0])
+    edges = stamps.insert(0, pd.Timestamp(start))
+    return edges.to_numpy(dtype="datetime64[ns]")
+
+
+def _window_start(sim: Run, first_stamp: Any) -> Any:
+    """Return the start of the run window the catalog recorded, or None.
+
+    Read on the wall clock it was written with, as ``Run.time_index`` reads
+    it: converted to UTC instead, a run starting on 1 January in Paris would
+    start on 31 December and its first year would still be whole, but a run
+    in a zone west of Greenwich would lose its first year.
+    """
+    import pandas as pd
+
+    loader = getattr(sim, "_load_row", None)
+    if not callable(loader):
+        return None
+    start = loader().get("period_start")
+    if start is None or pd.isna(start):
+        return None
+    stamp = pd.Timestamp(start)
+    if stamp.tz is not None:
+        stamp = stamp.tz_localize(None)
+    return stamp if stamp < pd.Timestamp(first_stamp) else None
+
+
+def flow_geometry_from_run(
+    sim: Run,
+    *,
+    role: str | None = None,
+    tau_specific_ratio: float = STREAM_CRITERION_DEFAULTS.tau_specific_ratio,
+    diagonal_neighbors: bool = STREAM_CRITERION_DEFAULTS.diagonal_neighbors,
+    observed_rasterization: ObservedRasterization = (
+        STREAM_CRITERION_DEFAULTS.observed_rasterization
+    ),
+    observed_position_accuracy_m: float | None = None,
+    heads_snap_radius_m: float = STREAM_CRITERION_DEFAULTS.heads_snap_radius_m,
+    heads_min_drained_area_km2: float = STREAM_CRITERION_DEFAULTS.heads_min_drained_area_km2,
+) -> NetworkGeometry:
+    """Return the criterion geometry of a run: graph, seepage threshold and outlet.
+
+    ``role`` picks the stored network the geometry is built on; None takes
+    the first of :data:`GRAPH_ROLES` the run carries. The graph, the threshold
+    and the outlet are the same whatever the network, so the choice only
+    decides which map ``geometry.observed`` holds. ``observed_rasterization``,
+    the two ``heads_`` settings and
+    ``observed_position_accuracy_m`` only shape that map, and take the
+    criterion's defaults. Under the heads rule each role is traced from its
+    own heads.
+    """
+    chosen = graph_role(sim) if role is None else role
+    if chosen is None:
+        raise ValueError(
+            f"flowing cells unavailable for {sim.sim_id}: "
+            f"{unavailable_reason_for_flow(sim, tau_specific_ratio=tau_specific_ratio)}"
+        )
+    return network_comparison_from_run(
+        sim,
+        role=chosen,
+        tau_specific_ratio=float(tau_specific_ratio),
+        diagonal_neighbors=bool(diagonal_neighbors),
+        observed_rasterization=observed_rasterization,
+        observed_position_accuracy_m=observed_position_accuracy_m,
+        heads_snap_radius_m=float(heads_snap_radius_m),
+        heads_min_drained_area_km2=float(heads_min_drained_area_km2),
+    ).geometry
+
+
+@dataclass(frozen=True, slots=True)
+class BlockFlowCounts:
+    """How many timesteps each cell flowed, per block of timesteps.
+
+    ``flowing`` and ``seepage`` are ``(n_blocks, n_cells)`` int32 counts, the
+    second counting the timesteps a flowing cell was a source itself.
+    """
+
+    n_steps: np.ndarray
+    flowing: np.ndarray
+    seepage: np.ndarray
+    visible_flow: VisibleFlow
+
+
+def block_flow_counts(
+    sim: Run,
+    geometry: NetworkGeometry,
+    blocks: Sequence[np.ndarray],
+    *,
+    visible_flow: str | VisibleFlow = DEFAULT_VISIBLE_FLOW,
+    chunk_elements: int = CHUNK_ELEMENTS,
+) -> BlockFlowCounts:
+    """Count, per block of timesteps and per cell, the timesteps the cell flows.
+
+    "Flows" is :func:`hydromodpy.results.derive.stream.extent.flowing_cells` on the
+    criterion ``geometry``: in the downstream closure of the cells releasing
+    above their threshold and, unless ``visible_flow`` is ``"0 L/s"``, carrying
+    at least that routed discharge. The release field is read at most
+    ``chunk_elements`` values at a time.
+    """
+    visible = parse_visible_flow(visible_flow)
+    n_cells = int(geometry.metric.graph.active.size)
+    per_pass = max(1, int(chunk_elements) // max(1, n_cells))
+    flowing = np.zeros((len(blocks), n_cells), dtype=np.int32)
+    seepage = np.zeros((len(blocks), n_cells), dtype=np.int32)
+    for row, block in enumerate(blocks):
+        steps = np.asarray(block, dtype=np.int64).reshape(-1)
+        for first in range(0, steps.size, per_pass):
+            chunk = steps[first : first + per_pass]
+            state = flowing_cells(
+                _release_rows(sim, chunk, n_cells),
+                threshold_m3_s=geometry.threshold_m3_s,
+                metric=geometry.metric,
+                visible_flow=visible,
+                outlet=geometry.outlet,
+            )
+            flowing[row] += state.flowing.sum(axis=0, dtype=np.int32)
+            seepage[row] += state.seepage.sum(axis=0, dtype=np.int32)
+    n_steps = np.asarray([np.asarray(block).size for block in blocks], dtype=np.int64)
+    return BlockFlowCounts(n_steps=n_steps, flowing=flowing, seepage=seepage, visible_flow=visible)
+
+
+def flowing_share(
+    sim: Run,
+    geometry: NetworkGeometry,
+    *,
+    visible_flow: str | VisibleFlow = DEFAULT_VISIBLE_FLOW,
+    chunk_elements: int = CHUNK_ELEMENTS,
+) -> np.ndarray:
+    """Return, per cell, the share of the run's timesteps the cell flows.
+
+    "Flows" is the definition of :func:`block_flow_counts`, on the criterion
+    ``geometry``, over every timestep of the run as one block. The share is
+    unweighted: a timestep counts once whatever its length. NaN on the cells
+    the criterion graph leaves inactive.
+    """
+    n_steps = max(1, int(getattr(sim, "n_timesteps", 0) or 0))
+    counts = block_flow_counts(
+        sim,
+        geometry,
+        [np.arange(n_steps)],
+        visible_flow=visible_flow,
+        chunk_elements=chunk_elements,
+    )
+    share = counts.flowing[0].astype(float) / float(n_steps)
+    share[~np.asarray(geometry.metric.graph.active, dtype=bool)] = np.nan
+    return share
+
+
+def _release_rows(sim: Run, steps: np.ndarray, n_cells: int) -> np.ndarray:
+    """Return the release field at ``steps`` as a ``(len(steps), n_cells)`` stack.
+
+    Consecutive steps are read as one range, the store opened once for them
+    (:func:`hydromodpy.results.run.geographic.field_steps`).
+    """
+    from hydromodpy.results.run.geographic import field_steps
+
+    order = np.asarray(steps, dtype=np.int64).reshape(-1)
+    if order.size == 0:
+        return np.empty((0, n_cells), dtype=float)
+    rows = np.asarray(field_steps(sim, FLOW_FIELD, order.tolist()), dtype=float)
+    rows = rows.reshape(order.size, -1)
+    if rows.shape[1] != n_cells:
+        raise ValueError(
+            f"{FLOW_FIELD} holds {rows.shape[1]} cells at timestep {int(order[0])} and the mesh "
+            f"holds {n_cells}; they were not written for the same run."
+        )
+    return rows
+
+
+@dataclass(frozen=True, slots=True)
+class NetworkExtents:
+    """The maximal and minimal extents of a transient run, beside the two maps.
+
+    ``geometry`` is the criterion geometry built on the maximal map.
+    ``maximal_observed`` is the union of the maximal and minimal maps, as the
+    criterion scores it; ``minimal_observed`` is the minimal map, or None when
+    the run stored none.
+    ``frac_minimal_outside_maximal`` is the share of the minimal map, on the
+    scored cells (:func:`scored_cells`), that the maximal map does not cover.
+    """
+
+    geometry: NetworkGeometry
+    maximal_observed: np.ndarray
+    minimal_observed: np.ndarray | None
+    frac_minimal_outside_maximal: float
+    years: CalendarYears
+    counts: YearlyFlowCounts
+    masks: ExtentMasks
+    visible_flow: VisibleFlow
+    maximal_flowing_duration: str | None
+    minimal_dry_duration: str | None
+    maximal_flowing_steps: int
+    minimal_dry_steps: int
+    year_quorum: float
+    tau_specific_ratio: float
+
+    def simulated(self, bound: Bound, *, year: int | None = None) -> np.ndarray:
+        """Return one simulated extent: climatological, or that ``year``'s."""
+        return self.masks.network(
+            bound, threshold_m3_s=self.geometry.threshold_m3_s, year=year
+        ).network
+
+    def observed(self, bound: Bound) -> np.ndarray:
+        """Return the map one bound is compared to."""
+        if bound == "maximal":
+            return self.maximal_observed
+        if self.minimal_observed is None:
+            raise ValueError("this run stored no minimal map to compare the minimal extent to.")
+        return self.minimal_observed
+
+    def supports(self, bound: Bound, *, year: int | None = None) -> CriterionSupports:
+        """Return the valid, excess and missing cells of one bound, in the catchment."""
+        return criterion_supports(
+            simulated=self.masks.network(
+                bound, threshold_m3_s=self.geometry.threshold_m3_s, year=year
+            ),
+            observed=self.observed(bound),
+            catchment=scored_cells(self.geometry),
+            active=self.geometry.metric.graph.active,
+        )
+
+
+def network_extents_from_run(
+    sim: Run,
+    *,
+    maximal_flowing_duration: str | None = None,
+    minimal_dry_duration: str | None = None,
+    year_quorum: float = 0.5,
+    visible_flow: str | VisibleFlow = DEFAULT_VISIBLE_FLOW,
+    tau_specific_ratio: float = STREAM_CRITERION_DEFAULTS.tau_specific_ratio,
+    diagonal_neighbors: bool = STREAM_CRITERION_DEFAULTS.diagonal_neighbors,
+    observed_rasterization: ObservedRasterization = (
+        STREAM_CRITERION_DEFAULTS.observed_rasterization
+    ),
+    observed_position_accuracy_m: float | None = None,
+    heads_snap_radius_m: float = STREAM_CRITERION_DEFAULTS.heads_snap_radius_m,
+    heads_min_drained_area_km2: float = STREAM_CRITERION_DEFAULTS.heads_min_drained_area_km2,
+    window: tuple[Any, Any] | None = None,
+    chunk_elements: int = CHUNK_ELEMENTS,
+) -> NetworkExtents:
+    """Rebuild the maximal and minimal extents of a transient run.
+
+    The rules are those of ``[calibration.outputs.<n>.extent]``: durations,
+    counted in the run's timesteps over its complete calendar years. The
+    maximal extent holds the cells flowing at least ``maximal_flowing_duration``
+    of a year (rounded up to whole timesteps, at least one), the minimal one the
+    cells flowing at every timestep but at most ``minimal_dry_duration``
+    (rounded down). A duration left None is one timestep. A cell enters a
+    climatological extent when it meets its rule in at least ``year_quorum`` of
+    the years. The criterion
+    settings of the output (``tau_specific_ratio``, ``diagonal_neighbors``,
+    ``observed_rasterization``, the two ``heads_`` settings,
+    ``observed_position_accuracy_m``) build both maps and the graph, with the
+    criterion's defaults.
+    ``window`` is the ``(start, end)`` of the calibration's window,
+    naive, either bound None when open: only the complete years it holds are
+    counted, as the trial counts them, and a spin-up year outside it is left
+    out of the extents and of the quorum.
+
+    The minimal map is read when the run stored one; the maximal map is then
+    the union of the two, as the criterion scores it. Under the heads rule
+    that union is the trace of both head sets, the map a trial scores, since
+    a trace is the union of the descents of its heads. Refused by name when the
+    run is steady, lacks a maximal map, covers no complete year, or when the
+    step rules cannot be read on its years.
+    """
+    reason = unavailable_reason_for_extents(
+        sim,
+        tau_specific_ratio=tau_specific_ratio,
+        require_minimal=False,
+        window=window,
+    )
+    if reason is not None:
+        raise ValueError(f"network extents unavailable for {sim.sim_id}: {reason}")
+    edges = run_step_edges(sim)
+    if edges is None:
+        raise ValueError(f"network extents unavailable for {sim.sim_id}: run has no time axis.")
+    years = calendar_years(edges, window=window)
+    step_days = run_step_days(sim)
+    if step_days is None:
+        raise ValueError(
+            f"network extents unavailable for {sim.sim_id}: the run sealed no timestep "
+            "(simulation.time.step_value) to count the durations in."
+        )
+    maximal_steps = flowing_steps(
+        parse_extent_duration(maximal_flowing_duration, location="maximal_flowing_duration"),
+        step_days,
+    )
+    dry = dry_steps(
+        parse_extent_duration(minimal_dry_duration, location="minimal_dry_duration"), step_days
+    )
+    problems = extent_step_problems(
+        years.n_steps, maximal_flowing_steps=maximal_steps, minimal_dry_steps=dry
+    )
+    if problems:
+        raise ValueError(
+            f"network extents unavailable for {sim.sim_id}: maximal_flowing_duration = "
+            f"{maximal_flowing_duration!r} and minimal_dry_duration = "
+            f"{minimal_dry_duration!r} on a timestep of {step_days:g} days: "
+            + "; ".join(problems)
+            + "."
+        )
+
+    settings: dict[str, Any] = {
+        "tau_specific_ratio": tau_specific_ratio,
+        "diagonal_neighbors": diagonal_neighbors,
+        "observed_rasterization": observed_rasterization,
+        "observed_position_accuracy_m": observed_position_accuracy_m,
+        "heads_snap_radius_m": heads_snap_radius_m,
+        "heads_min_drained_area_km2": heads_min_drained_area_km2,
+    }
+    geometry = flow_geometry_from_run(sim, role=MAXIMAL_ROLE, **settings)
+    maximal = np.asarray(geometry.observed, dtype=bool)
+    minimal: np.ndarray | None = None
+    outside = float("nan")
+    if sim.has_hydrographic_network(MINIMAL_ROLE):
+        minimal = np.asarray(
+            flow_geometry_from_run(sim, role=MINIMAL_ROLE, **settings).observed,
+            dtype=bool,
+        )
+        outside = _share_outside(minimal, maximal, scored_cells(geometry))
+        maximal = maximal | minimal
+
+    visible = parse_visible_flow(visible_flow)
+    blocks = block_flow_counts(
+        sim, geometry, years.steps, visible_flow=visible, chunk_elements=chunk_elements
+    )
+    counts = YearlyFlowCounts(
+        years=years.years, n_steps=years.n_steps, flowing=blocks.flowing, seepage=blocks.seepage
+    )
+    masks = extent_masks(
+        counts,
+        maximal_flowing_steps=maximal_steps,
+        minimal_dry_steps=dry,
+        year_quorum=year_quorum,
+    )
+    return NetworkExtents(
+        geometry=geometry,
+        maximal_observed=maximal,
+        minimal_observed=minimal,
+        frac_minimal_outside_maximal=outside,
+        years=years,
+        counts=counts,
+        masks=masks,
+        visible_flow=visible,
+        maximal_flowing_duration=maximal_flowing_duration,
+        minimal_dry_duration=minimal_dry_duration,
+        maximal_flowing_steps=maximal_steps,
+        minimal_dry_steps=dry,
+        year_quorum=float(year_quorum),
+        tau_specific_ratio=float(tau_specific_ratio),
+    )
+
+
+def scored_cells(geometry: NetworkGeometry) -> np.ndarray:
+    """Return the cells the criterion scores: catchment, active, not a water body.
+
+    This is the ``keep`` mask of :func:`criterion_supports`. The share of the
+    minimal map outside the maximal one and the valid, excess and missing
+    counts of :meth:`NetworkExtents.supports` are both read on it.
+    """
+    keep = np.asarray(geometry.catchment, dtype=bool).reshape(-1) & np.asarray(
+        geometry.metric.graph.active, dtype=bool
+    ).reshape(-1)
+    if geometry.excluded is not None:
+        keep = keep & ~np.asarray(geometry.excluded, dtype=bool).reshape(-1)
+    return keep
+
+
+def _share_outside(inner: np.ndarray, outer: np.ndarray, within: np.ndarray) -> float:
+    """Return the share of ``inner`` inside ``within`` that ``outer`` leaves out."""
+    scored = np.asarray(inner, dtype=bool) & np.asarray(within, dtype=bool)
+    if not scored.any():
+        return float("nan")
+    return float(np.mean(~np.asarray(outer, dtype=bool)[scored]))

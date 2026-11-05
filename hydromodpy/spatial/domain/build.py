@@ -120,6 +120,36 @@ def build_domain(
     )
 
 
+def rebuild_domain(
+    domain: Domain,
+    config: DomainConfig,
+    *,
+    surface_topo: Surface,
+    substratum_source: Surface | None,
+    layer_base_sources: Mapping[str, Surface] | None,
+    keep_binder_zones: bool = True,
+) -> Domain:
+    """Build *config* again on *surface_topo*, carrying the zones of *domain* over.
+
+    The new domain is armed with the zone ids *domain* ended up with, binder ids
+    included, so it can receive the same zones. The two sources are read by the
+    caller from the configuration the rebuilt geometry has to describe. With
+    *keep_binder_zones* false, the catchment and geology zones are left for the
+    binders to write again.
+    """
+    rebuilt = build_domain(
+        config,
+        surface_topo=surface_topo,
+        zone_ids=tuple(getattr(domain.config, "zone_ids", ()) or ()),
+        substratum_source=substratum_source,
+        layer_base_sources=layer_base_sources,
+    )
+    for zone_id, zone in (getattr(domain, "zones", None) or {}).items():
+        if keep_binder_zones or zone_id not in BINDER_ZONE_IDS:
+            rebuilt.set_zone(zone_id, zone)
+    return rebuilt
+
+
 def read_substratum_source(depth_model: object, data: object | None) -> Surface | None:
     """Read the raster a raster depth model places the substratum from.
 
@@ -171,4 +201,5 @@ __all__ = [
     "domain_config_for_build",
     "read_layer_base_sources",
     "read_substratum_source",
+    "rebuild_domain",
 ]

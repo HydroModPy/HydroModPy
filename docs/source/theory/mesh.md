@@ -643,9 +643,9 @@ hydromodpy.spatial.mesh.cells.zonal_stats
 hydromodpy.spatial.mesh.model.quality
 hydromodpy.spatial.mesh.cells.in_polygons
 hydromodpy.spatial.mesh.refinement_config
-hydromodpy.workflow.steps.mesh_run_fields
+hydromodpy.results.run.field_envelope
 hydromodpy.spatial.domain.layering
-hydromodpy.core.vertical_column
+hydromodpy.core.fields.vertical_column
 hydromodpy.solver.modflow_grid.discretization_spatial
 hydromodpy.solver.modflow_grid.top_sampling
 hydromodpy.solver.modflow6.builders.solver_options
@@ -657,7 +657,7 @@ hydromodpy.solver.modflow6.builders.solver_options
 |---|---|
 | The surfaces, the plan, the top, the layers | `hydromodpy/solver/modflow_grid/discretization_spatial.py` (`build_spatial_discretization`, `resolve_domain_surfaces`), `hydromodpy/spatial/domain/layering.py` (`layer_proportions`, `layer_stack`, `pinch_out`) |
 | The keys of the layers, the base rasters | `hydromodpy/spatial/domain/layers_config.py`, `hydromodpy/data/variables/layer_base/`, `hydromodpy/spatial/domain/build.py` (`read_layer_base_sources`) |
-| The top active layer of a column | `hydromodpy/core/vertical_column.py` (`top_active_layer`), `hydromodpy/solver/modflow_grid/solver_mesh.py` (`SolverMesh.top_active_layer`) |
+| The top active layer of a column | `hydromodpy/core/fields/vertical_column.py` (`top_active_layer`), `hydromodpy/solver/modflow_grid/solver_mesh.py` (`SolverMesh.top_active_layer`) |
 | The keys of the top | `hydromodpy/solver/modflow_grid/sgrid_config.py` |
 | The keys of the mesh | `hydromodpy/spatial/mesh/mesh_config.py` (`MeshConfig`) |
 | The engines and their registry | `hydromodpy/spatial/mesh/engines/` (`regular`, `triangle`, `voronoi`), `hydromodpy/spatial/mesh/registry.py` |
@@ -665,7 +665,7 @@ hydromodpy.solver.modflow6.builders.solver_options
 | The cleaning of the lines | `hydromodpy/spatial/mesh/planning/geometry_cleanup.py` (`clean_lines`, `drop_small_holes`) |
 | The smoothing of the catchment outline | `hydromodpy/spatial/mesh/planning/catchment_outline.py` (`smooth_catchment`, `smooth_polygon`) |
 | The size field and the gap term | `hydromodpy/spatial/mesh/planning/size_field.py` (`build_size_field`), `hydromodpy/spatial/mesh/planning/gap_size.py` (`gap_terms`) |
-| The refinement zones drawn by a field | `hydromodpy/spatial/mesh/refinement_config.py` (`RefinementZoneConfig`), `hydromodpy/spatial/mesh/planning/height_above_stream.py`, `hydromodpy/spatial/mesh/planning/refinement_zones.py` (`RunFieldEnvelope`), `hydromodpy/workflow/steps/mesh_run_fields.py` (the read of a run), `hydromodpy/workflow/steps/mesh.py` (`_zone_runs`), `hydromodpy/workflow/steps/prepare_solver/dispatch.py` (`frozen_config_document`) |
+| The refinement zones drawn by a field | `hydromodpy/spatial/mesh/refinement_config.py` (`RefinementZoneConfig`), `hydromodpy/spatial/mesh/planning/height_above_stream.py`, `hydromodpy/spatial/mesh/planning/refinement_zones.py` (`RunFieldEnvelope`), `hydromodpy/results/run/field_envelope.py` (the read of a run), `hydromodpy/workflow/steps/mesh.py` (`zone_runs`), `hydromodpy/workflow/steps/prepare_solver/freeze.py` (`frozen_config_document`) |
 | The size of a triangle | `hydromodpy/spatial/mesh/engines/triangle/gmsh_triangulation.py` (`MESH_SIZE_PER_CELL_SIZE`) |
 | The catchment fraction and the weighted totals | `hydromodpy/spatial/mesh/cells/in_polygons.py` (`cell_area_fraction`), `hydromodpy/solver/modflow_common/catchment_basin.py` (`run_basin`), `hydromodpy/spatial/geographic/delineated_catchment.py` (`catchment_outline`), `hydromodpy/results/derive/views.py` (`catchment_weights`, `catchment_total`, `catchment_mean`) |
 | The centroid sample | `hydromodpy/spatial/surface_sampling.py` (`PreparedSurfaceSampler.sample`) |

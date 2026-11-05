@@ -8,7 +8,7 @@ from pathlib import Path
 from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND, apply_verbosity, refuse
 from hydromodpy.cli.output import emit
-from hydromodpy.core.state.paths import resolve_project_root
+from hydromodpy.core.state.result_dirs import resolve_project_root
 
 NAME: str = "watch"
 HELP: str = "Show the running attempts with the age of their heartbeat"

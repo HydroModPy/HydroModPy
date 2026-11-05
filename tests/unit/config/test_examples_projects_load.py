@@ -55,6 +55,11 @@ def _belongs_to_sites_project(toml_file: Path) -> bool:
     return "sites" in load_toml_with_base_config(toml_file)
 
 
+def _is_an_overlay(toml_file: Path) -> bool:
+    """Tell whether *toml_file* needs a project under it, for want of a ``[geographic]``."""
+    return "geographic" not in load_toml_with_base_config(toml_file)
+
+
 def _identifier(toml_file: Path) -> str:
     return toml_file.relative_to(REPO_ROOT).as_posix()
 
@@ -64,7 +69,9 @@ _PROJECT_CONFIGS = [item for item in _TRACKED_TOML_FILES if item.name == "projec
 _CALIBRATION_CONFIGS = [
     item
     for item in _TRACKED_TOML_FILES
-    if _declares_calibration(item) and not _belongs_to_sites_project(item)
+    if _declares_calibration(item)
+    and not _belongs_to_sites_project(item)
+    and not _is_an_overlay(item)
 ]
 
 

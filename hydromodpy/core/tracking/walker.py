@@ -113,13 +113,6 @@ def _extract_raw_path(value: Any) -> str | None:
     return None
 
 
-def _contains_path_type(annotation: Any) -> bool:
-    if annotation is Path:
-        return True
-    args = get_args(annotation)
-    return any(_contains_path_type(arg) for arg in args)
-
-
 def rewrite_input_paths(
     payload: dict[str, Any],
     model: type[BaseModel],

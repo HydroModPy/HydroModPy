@@ -13,7 +13,7 @@ from hydromodpy.cli.conventions import (
 )
 from hydromodpy.cli.helpers import EXIT_USAGE, apply_verbosity, project_root_of, refuse
 from hydromodpy.cli.output import emit
-from hydromodpy.core.state.paths import catalog_path_for
+from hydromodpy.core.state.layout import catalog_path_for
 from hydromodpy.core.toml_io.overrides import parse_override_value
 
 NAME: str = "rerun"
@@ -85,7 +85,7 @@ def run(args: argparse.Namespace) -> None:
     apply_verbosity(args, {})
     import tomllib
 
-    from hydromodpy.core.state.paths import parse_rel_dir, run_dir_rel
+    from hydromodpy.core.state.result_dirs import parse_rel_dir, run_dir_rel
     from hydromodpy.results.catalog.discovery import resolve_rel_dir
     from hydromodpy.results.catalog.registration import run_dir_holding, split_stem_version
     from hydromodpy.results.run.rerun_contract import get_rerun_provider

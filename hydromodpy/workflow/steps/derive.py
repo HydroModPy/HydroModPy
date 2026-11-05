@@ -28,67 +28,15 @@ from typing import TYPE_CHECKING, ClassVar
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.workflow.internals.state import PipelineState
-from hydromodpy.workflow.run_store import run_is_persisted, run_store
+from hydromodpy.results.fit_metrics import score_run_under_its_rule
+from hydromodpy.results.run.observation_points import sample_declared_points
+from hydromodpy.workflow.record.run_store import run_is_persisted, run_store
+from hydromodpy.workflow.state import PipelineState
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
-    from hydromodpy.results.storage.run_store import RunStore
 
 logger = get_logger(__name__)
-
-
-def sample_declared_points(ctx: WorkflowContext, *, store: RunStore) -> int:
-    """Sample the ``[observation]`` points while the run still holds its fields.
-
-    A point known in advance costs nothing to read later: its series lands in
-    the timeseries table of the run and its declaration in
-    ``observation_points.parquet``. A failure is logged, never fatal: the
-    results of the run are already in.
-    """
-    from hydromodpy.results.run.observation_points import sample_observation_points
-
-    observation = getattr(ctx.cfg, "observation", None)
-    declarations = observation.declarations() if observation is not None else []
-    if not declarations:
-        return 0
-    try:
-        return sample_observation_points(store, store.sim_id, declarations)
-    except Exception:
-        logger.warning("Could not sample the declared observation points", exc_info=True)
-        return 0
-
-
-def score_run_under_its_rule(ctx: WorkflowContext, *, store: RunStore) -> None:
-    """Score the series of the run against its observations and record the result.
-
-    The rows go through the one writer of a metric, into the facts and the
-    ``metrics`` table, the NSE at the rule station to the headline score, all
-    sealed by the record. An observed gauge that
-    meets no simulated series fails the non-fatal check
-    :data:`~hydromodpy.results.fit_metrics.UNSCORED_OBSERVATIONS_CHECK`, which
-    the README of the run prints. A score that cannot be
-    computed is logged and the run keeps its results: the seal says
-    ``nse = NULL`` and the table says why.
-    """
-    from hydromodpy.results.fit_metrics import UNSCORED_OBSERVATIONS_CHECK, fit_metrics
-    from hydromodpy.results.metric_rule import MetricRule
-
-    site = store.facts.site
-    rule = MetricRule.from_config(ctx.cfg, gauge=None if site is None else site.gauge)
-    try:
-        scores = fit_metrics(store.run_dir, rule=rule, period_start=store.facts.period_start)
-    except Exception:
-        logger.warning("Could not score the run against its observations", exc_info=True)
-        return
-    for row in scores.rows:
-        store.write_metric(store.sim_id, row)
-    store.facts.score = scores.score
-    message = scores.unscored_message()
-    if message is not None:
-        store.facts.note_validity(
-            UNSCORED_OBSERVATIONS_CHECK, False, float(len(scores.unscored)), message
-        )
 
 
 class DeriveStep:
@@ -161,8 +109,8 @@ class DeriveStep:
                         results_config=results_cfg,
                         store=store,
                     )
-                sample_declared_points(ctx, store=store)
-                score_run_under_its_rule(ctx, store=store)
+                sample_declared_points(ctx.cfg, store=store)
+                score_run_under_its_rule(ctx.cfg, store=store)
 
         return state.advance(
             step_index=state.step_index + 1,

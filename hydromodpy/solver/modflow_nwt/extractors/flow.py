@@ -7,8 +7,12 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.core.budget_terms import BudgetKeep
+from hydromodpy.core.budget.terms import BudgetKeep
 from hydromodpy.core.exceptions import ExtractError, IncompatibleMeshError, MeshError
+from hydromodpy.core.fields.vertical_column import (
+    VERTICAL_LAYOUT_COLUMN_FRACTIONS,
+    layer_interfaces,
+)
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.scope import CATCHMENT, DOMAIN
 from hydromodpy.core.units.time import (
@@ -16,7 +20,6 @@ from hydromodpy.core.units.time import (
     CF_TIME_UNITS,
     cf_time_axis_seconds,
 )
-from hydromodpy.core.vertical_column import VERTICAL_LAYOUT_COLUMN_FRACTIONS, layer_interfaces
 from hydromodpy.solver.modflow_common.budget_components import (
     canonical_budget_component,
     is_scalar_budget_component,

@@ -14,9 +14,9 @@ from typing import TYPE_CHECKING, Any
 import geopandas as gpd
 import rasterio
 
+from hydromodpy.core.fields.nodata import RASTER_NODATA
 from hydromodpy.core.io.crs import crs_text
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.nodata import RASTER_NODATA
 from hydromodpy.spatial.geographic.capped_breach_config import capped_breach_of
 from hydromodpy.spatial.geographic.core.hydrographic_network import (
     HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME,

@@ -26,8 +26,8 @@ from pathlib import Path
 from typing import Any, Literal
 
 from hydromodpy.core.config_kit.written import log_experimental_keys
+from hydromodpy.core.console.progress import MILESTONE
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.progress import MILESTONE
 
 logger = get_logger(__name__)
 
@@ -404,7 +404,7 @@ def comparison_line(row: Mapping[str, Any]) -> str:
 
 def _shortened_if_under_cwd(text: str) -> str:
     """Return ``text`` relative to the working directory, when it is an absolute path under it."""
-    from hydromodpy.core.state.paths import display_path
+    from hydromodpy.core.state.portable import display_path
 
     if not Path(text).is_absolute():
         return text
@@ -1568,13 +1568,13 @@ def _check_the_extent_durations_fit_the_timestep(
     on the nominal year of the step the search runs, before any budget is spent.
     A phase that overrides the step is left to that first trial.
     """
-    from hydromodpy.core.stream_extent import (
+    from hydromodpy.core.time.window import nominal_step_days
+    from hydromodpy.results.derive.stream.extent import (
         dry_steps,
         extent_step_problems,
         flowing_steps,
         parse_extent_duration,
     )
-    from hydromodpy.core.time.window import nominal_step_days
 
     findings: list[PreflightFinding] = []
     for phase, _where, _ in _search_candidates(calibration):

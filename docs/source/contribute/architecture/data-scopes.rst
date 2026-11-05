@@ -78,7 +78,7 @@ Exposed through:
 - :func:`hydromodpy.results.catalog.federation.read_workspace_runs`, the read
   across the projects of a workspace, on the ``simulation.parquet`` of each
   run and never on an index
-- :func:`hydromodpy.core.state.paths.project_roots_under`, the single place
+- :func:`hydromodpy.core.state.layout.project_roots_under`, the single place
   that turns a directory into the project roots it stands for
 
 Rebuilding it
@@ -180,7 +180,7 @@ Shared architecture
 One set of patterns governs the two databases.
 
 - **Migrations only where the file is not derived**:
-  :mod:`hydromodpy.core.migrations.runner` exposes
+  :mod:`hydromodpy.data.registry.migrations.runner` exposes
   ``apply_migrations(db_path, migrations_dir)``, serialized by a
   ``<db_path>.lock`` filelock, and the workspace cache uses it with a flat
   ``migrations/`` directory of numbered SQL files starting at
@@ -202,10 +202,10 @@ One set of patterns governs the two databases.
   ``typing.Protocol`` with ``execute / query / fetch_one / fetch_all /
   insert / upsert / transaction / close``. Catalog mixins call the
   protocol, so swapping the adapter does not touch call sites.
-- **Authentication Protocol**:
-  :class:`hydromodpy.core.auth.AuthBackend` exposes a structural
-  ``current_user / can_read / can_write`` surface, with
-  :class:`~hydromodpy.core.auth.LocalAuthBackend` as the V1 default.
+- **Authentication**:
+  :class:`hydromodpy.cli.auth.AuthBackend` is the one actor of V1, the local
+  user. It exposes ``current_user / can_read / can_write`` and allows every
+  read and write. Only the command line reads it.
 - **URI-aware paths**: every workspace, cache and state argument is
   typed ``Path | UPath``. The runtime accepts local paths and ``file://``
   URIs; any other scheme raises ``NotImplementedError``.
@@ -235,7 +235,7 @@ and an older one refuses it, naming both.
 The migration runner
 ~~~~~~~~~~~~~~~~~~~~
 
-The code is ``hydromodpy/core/migrations/runner.py``, with one migrations folder:
+The code is ``hydromodpy/data/registry/migrations/runner.py``, with one migrations folder:
 ``hydromodpy/data/registry/migrations/`` for the workspace cache.
 
 A migration is a numbered SQL file (``0001_initial.sql``, ``0002_<slug>.sql``, ...).
@@ -246,7 +246,7 @@ on when a recorded checksum no longer matches the file, and when the ledger hold
 a migration no file describes.
 
 ``ensure_schema()`` on a backend deploys the latest schema for its component, so a
-user never sees a half-deployed cache. ``hydromodpy/core/migrations/auto_boot.py``
+user never sees a half-deployed cache. ``hydromodpy/data/registry/migrations/auto_boot.py``
 wraps the runner for boot-time upgrades: a lock on ``<db>.lock``, and an atomic
 ``<db>.bak-<timestamp>`` snapshot that is restored on failure, with at most five
 kept. ``HMP_AUTO_MIGRATE=0`` turns a pending migration into

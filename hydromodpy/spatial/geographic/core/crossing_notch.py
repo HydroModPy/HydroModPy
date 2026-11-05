@@ -18,7 +18,7 @@ from shapely.geometry.base import BaseGeometry
 from shapely.ops import nearest_points
 from shapely.strtree import STRtree
 
-from hydromodpy.core.nodata import valid_cells
+from hydromodpy.core.fields.nodata import valid_cells
 from hydromodpy.spatial.terrain.port import D8_WBT_OFFSETS
 
 if TYPE_CHECKING:

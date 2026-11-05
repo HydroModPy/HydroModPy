@@ -17,7 +17,7 @@ import pytest
 
 zarr = pytest.importorskip("zarr")
 
-from hydromodpy.core.field_routing import SURFACE_RELEASE_BUDGETS  # noqa: E402
+from hydromodpy.core.budget.flux import SURFACE_RELEASE_BUDGETS  # noqa: E402
 from hydromodpy.results.derive.virtual_fields import release_flux_rows  # noqa: E402
 
 N_CELLS = 6

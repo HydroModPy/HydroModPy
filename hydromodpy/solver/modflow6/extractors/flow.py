@@ -9,10 +9,14 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.core import progress
-from hydromodpy.core.budget_terms import BudgetKeep
+from hydromodpy.core.budget.flux import STREAM_CONSTANT_HEAD_BUDGET
+from hydromodpy.core.budget.terms import BudgetKeep
+from hydromodpy.core.console import progress
 from hydromodpy.core.exceptions import MeshError, SolverInputError
-from hydromodpy.core.field_routing import STREAM_CONSTANT_HEAD_BUDGET
+from hydromodpy.core.fields.vertical_column import (
+    VERTICAL_LAYOUT_COLUMN_FRACTIONS,
+    layer_interfaces,
+)
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.scope import CATCHMENT, DOMAIN
 from hydromodpy.core.units.time import (
@@ -21,7 +25,6 @@ from hydromodpy.core.units.time import (
     cf_time_axis_seconds,
     factor_to_seconds,
 )
-from hydromodpy.core.vertical_column import VERTICAL_LAYOUT_COLUMN_FRACTIONS, layer_interfaces
 from hydromodpy.solver.modflow6.build import (
     FLOW_PROPERTY_SIDECAR_SUFFIX,
     mf6_safe_name,

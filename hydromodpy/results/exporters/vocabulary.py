@@ -4,7 +4,7 @@
 It holds the mesh fields, the series, the vector layers, the raster layers and
 the tables a run can store. The kind of a name decides its natural format and
 the formats it can be written in
-(:data:`~hydromodpy.core.config_kit.export_spec.KIND_FORMATS`).
+(:data:`~hydromodpy.results.exporters.export_spec.KIND_FORMATS`).
 
 This module holds the static part: every name some run can hold, known before
 any run exists. The step 0 check reads it to refuse a typo before the solve.
@@ -20,7 +20,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from hydromodpy.core.config_kit.export_spec import MESH_LAYERS, ExportKind
 from hydromodpy.core.scope import OBSERVED, series_name
 from hydromodpy.results import field_registry
 from hydromodpy.results.derive.mesh_quality import MESH_QUALITY_DESCRIPTORS
@@ -35,6 +34,7 @@ from hydromodpy.results.exporters._tables import (
     geographic_features,
     table_rows,
 )
+from hydromodpy.results.exporters.export_spec import MESH_LAYERS, ExportKind
 from hydromodpy.results.exporters.mesh_layers import available_mesh_layers
 from hydromodpy.spatial.geographic.core.hydrographic_network import (
     HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME,
@@ -91,7 +91,7 @@ OBSERVED_SERIES: tuple[str, ...] = tuple(series_name(name, OBSERVED) for name in
 """The names an export asks for an observed series by, stored beside the simulated ones."""
 
 # spatial/geographic/store_ingestion.py (watershed layers), workflow/steps/
-# prepare_solver/prepare.py (reference networks), results/exporters/mesh_layers.py
+# prepare_solver/forcings.py (reference networks), results/exporters/mesh_layers.py
 # (the layers of the cell mesh).
 VECTOR_LAYERS: tuple[str, ...] = (
     "watershed",
@@ -229,8 +229,8 @@ def _mesh_quality_available(store: Any, sim_id: str) -> list[str]:
 
 def _simulated_network_available(run: Run) -> bool:
     """Return whether the run carries what its simulated stream network is cut from."""
-    from hydromodpy.results.derive.network_criterion_settings import network_criterion_settings
-    from hydromodpy.results.derive.stream_extent import unavailable_reason_for_flow
+    from hydromodpy.results.derive.stream.criterion_settings import network_criterion_settings
+    from hydromodpy.results.derive.stream.run_extent import unavailable_reason_for_flow
 
     try:
         settings = network_criterion_settings(run)

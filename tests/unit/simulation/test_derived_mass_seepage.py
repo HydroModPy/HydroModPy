@@ -22,7 +22,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.core.field_routing import budget_outflow, budget_outflow_stack
+from hydromodpy.core.budget.flux import budget_outflow, budget_outflow_stack
 
 from ._test_simulation_api_builders import RunBuilder, runs
 

@@ -15,7 +15,7 @@ import pandas as pd
 import pytest
 
 from hydromodpy.cli.commands.export import FILE_FORMATS, _destination
-from hydromodpy.core.config_kit.export_spec import ExportFormat
+from hydromodpy.results.exporters.export_spec import ExportFormat
 from hydromodpy.results.identity import read_identity_from
 from hydromodpy.results.ledger import Ledger
 from tests._helpers.cli_runner import CliRunner

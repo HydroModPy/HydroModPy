@@ -16,6 +16,7 @@ lake. The ground below the last lake, which drains to no lake, feeds none.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from pathlib import Path
 
 import numpy as np
 
@@ -105,4 +106,59 @@ def lake_contributing_areas_m2(
     return areas
 
 
-__all__ = ["lake_contributing_areas_m2"]
+def payload_attr(payload: object, name: str) -> object:
+    """Read ``name`` from a payload that is a mapping or an object."""
+    if isinstance(payload, dict):
+        return payload.get(name)
+    return getattr(payload, name, None)
+
+
+def read_watershed_polygons(watershed_shp: object) -> list[object]:
+    """Read the delineated watershed polygon(s) used to scope the stream links.
+
+    The full-grid link raster covers the whole regional DEM; only the links
+    inside the modeled catchment can map onto the solver mesh.
+    """
+    if not watershed_shp or not Path(str(watershed_shp)).exists():
+        return []
+    import geopandas as gpd
+
+    gdf = gpd.read_file(str(watershed_shp))
+    return [geometry for geometry in gdf.geometry if geometry is not None]
+
+
+def lake_areas_or_even_split(
+    lakes: Mapping[str, object],
+    *,
+    d8_pointer_tif: str | None,
+    watershed_shp: object,
+) -> dict[str, float] | None:
+    """Return the area each declared lake drains, or None to split the basin evenly.
+
+    ``lakes`` maps a lake id to its payload (``polygon`` read from a mapping or an
+    object). A lake without polygon, or a missing D8 pointer, falls back to None.
+    """
+    polygons = {
+        str(lake_id): payload_attr(payload, "polygon")
+        for lake_id, payload in lakes.items()
+        if payload_attr(payload, "polygon") is not None
+    }
+    if len(polygons) != len(lakes) or d8_pointer_tif is None:
+        logger.warning(
+            "The lakes cannot be given their own drainage area (lake polygons or D8 "
+            "pointer missing): the basin runoff is split evenly between them."
+        )
+        return None
+    return lake_contributing_areas_m2(
+        d8_pointer_tif=d8_pointer_tif,
+        lake_polygons=polygons,
+        watershed_polygons=read_watershed_polygons(watershed_shp),
+    )
+
+
+__all__ = [
+    "lake_areas_or_even_split",
+    "lake_contributing_areas_m2",
+    "payload_attr",
+    "read_watershed_polygons",
+]

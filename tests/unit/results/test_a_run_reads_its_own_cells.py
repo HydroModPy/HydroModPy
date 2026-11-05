@@ -17,9 +17,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from hydromodpy.core.config_kit.export_spec import ExportRequest
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
+from hydromodpy.results.exporters.export_spec import ExportRequest
 from hydromodpy.results.exporters.request import export_run
 from hydromodpy.results.run import Run
 from hydromodpy.results.run.contracts import Mesh, polygon_areas

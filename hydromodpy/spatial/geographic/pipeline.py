@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.core import progress
+from hydromodpy.core.console import progress
 from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.delineation.registry import resolve_delineation_backend
 from hydromodpy.spatial.geographic.capped_breach_config import capped_breach_of

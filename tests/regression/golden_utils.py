@@ -41,7 +41,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.core.state.paths import RUNS_DIRNAME
+from hydromodpy.core.state.layout import RUNS_DIRNAME
 from hydromodpy.results.storage.contract import RUN_SOLVER_DIRNAME
 from hydromodpy.solver.modflow_common import ensure_platform_executable
 from tests._helpers.tolerances import tol

@@ -35,7 +35,7 @@ from hydromodpy.core.logging import DEFAULT_VERBOSITY, LogManager, verbosity_fro
 from hydromodpy.core.version import __version__
 
 # ``bootstrap()`` is deferred to first real use (config validation, a verb,
-# Project, or the CLI handler) via ``core.bootstrap_hook``. Importing
+# Project, or the CLI handler) via ``core.runtime.bootstrap_hook``. Importing
 # ``_bootstrap`` above only registers the hook, so ``import hydromodpy`` and
 # ``hmp --help`` stay cheap. The symbol is kept public for explicit callers.
 

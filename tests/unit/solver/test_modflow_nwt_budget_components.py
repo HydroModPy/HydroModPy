@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.core.field_routing import RELEASE_BUDGET_KEYS
+from hydromodpy.core.budget.flux import RELEASE_BUDGET_KEYS
 from hydromodpy.solver.modflow_common.budget_components import (
     CANONICAL_BUDGET_TERMS,
     canonical_budget_component,

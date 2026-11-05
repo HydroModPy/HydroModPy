@@ -32,7 +32,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import pandas as pd
 
-from hydromodpy.core.cost_margin import CostMargin, parse_cost_margin
+from hydromodpy.core.scoring.cost_margin import CostMargin, parse_cost_margin
 from hydromodpy.results.calibration_trials import (
     calibration_sessions,
     calibration_trials,

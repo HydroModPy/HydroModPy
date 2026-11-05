@@ -14,7 +14,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from hydromodpy.core.budget_terms import BudgetKeep, budget_terms_for
+from hydromodpy.core.budget.terms import BudgetKeep, budget_terms_for
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.derive.config_flags import diagnose_missing, missing_field_explanation

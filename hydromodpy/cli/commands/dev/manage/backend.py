@@ -10,7 +10,7 @@ from uuid import UUID
 import pandas as pd
 
 from hydromodpy.cli._workers.catalog import delete_simulation_artifacts
-from hydromodpy.core.state.paths import (
+from hydromodpy.core.state.layout import (
     CATALOG_FILENAME,
     catalog_path_for,
     data_cache_path_for,
@@ -82,7 +82,7 @@ def _json_value(value: Any) -> Any:
 
 def _purge_run_directory(project_root: Path, path: Path) -> None:
     """Remove a run directory for good, leaving a tombstone that keeps its name taken."""
-    from hydromodpy.core.state.paths import run_dir_rel
+    from hydromodpy.core.state.result_dirs import run_dir_rel
     from hydromodpy.results.trash import list_trash, purge_trashed, trash_run
 
     now = datetime.now(UTC)

@@ -1,11 +1,4 @@
-"""The mesh step gathers what the planner reads besides ``[mesh]`` from the run context.
-
-The lake table hands the cutoff walls, the lake footprints and the declared
-outlet to the size rules of the lake structures. The barrier lines are each
-lake wall, then each flow barrier. The bed regularization writes the surface the
-model top is sampled from after the mesh inputs are built, so toggling it
-keeps the cached mesh.
-"""
+"""The planner inputs the mesh step reads."""
 
 from __future__ import annotations
 
@@ -30,13 +23,23 @@ from hydromodpy.spatial.mesh.refinement_config import LakeRefinementConfig
 from hydromodpy.spatial.raster_support import RasterSupport
 from hydromodpy.spatial.surface import Surface
 from hydromodpy.workflow.steps.mesh_inputs import (
-    _criterion_inputs,
-    _domain_polygon,
-    _river_trace,
     barrier_lines,
+    criterion_inputs,
+    domain_polygon,
+    mesh_crs_wkt,
     planning_inputs,
+    river_trace_of,
 )
 from tests._helpers.mesh_cases import LAMBERT93_WKT, grid_spec
+
+# --- test_mesh_inputs ---
+# The mesh step gathers what the planner reads besides ``[mesh]`` from the run context.
+#
+# The lake table hands the cutoff walls, the lake footprints and the declared
+# outlet to the size rules of the lake structures. The barrier lines are each
+# lake wall, then each flow barrier. The bed regularization writes the surface the
+# model top is sampled from after the mesh inputs are built, so toggling it
+# keeps the cached mesh.
 
 _LAKE = Polygon([(0.0, 0.0), (1000.0, 0.0), (1000.0, 600.0), (0.0, 600.0)])
 
@@ -144,6 +147,8 @@ def test_another_dem_still_moves_the_key() -> None:
 
 
 _CATCHMENT = box(100.0, 100.0, 900.0, 900.0)
+
+
 _GRID = grid_spec(10, 10, 100.0, crs_wkt=LAMBERT93_WKT)
 
 
@@ -157,7 +162,7 @@ def _catchment_files(tmp_path: Path, *polygons, name: str = "watershed.shp") -> 
 
 def _domain(setup: SimpleNamespace, extent: str, *, synthetic: bool = False) -> Polygon:
     geographic = SimpleNamespace(domain_extent=extent)
-    return _domain_polygon(setup, geographic, _GRID, LAMBERT93_WKT, synthetic)
+    return domain_polygon(setup, geographic, _GRID, LAMBERT93_WKT, synthetic)
 
 
 @pytest.mark.parametrize(
@@ -209,7 +214,7 @@ def test_a_mesh_that_follows_the_rivers_without_a_traced_network_is_refused() ->
     setup = SimpleNamespace(geographic_features=None)
 
     with pytest.raises(MeshError, match="no river network was traced from the DEM"):
-        _river_trace(setup, MeshConfig(engine="triangle"), active_bc=set(), synthetic=False)
+        river_trace_of(setup, MeshConfig(engine="triangle"), active_bc=set(), synthetic=False)
 
 
 _HAND = {"where": "height_above_stream", "below": 2.0, "cell_size": 20.0}
@@ -247,7 +252,7 @@ def test_a_zone_on_the_height_above_the_stream_reads_the_dem_and_the_traced_netw
         lines=(LineString([(550.0, 0.0), (550.0, 1000.0)]),),
     )
 
-    criteria = _criterion_inputs(_top(nodata_at=(2, 3)), _criteria_config(_HAND), _GRID, trace)
+    criteria = criterion_inputs(_top(nodata_at=(2, 3)), _criteria_config(_HAND), _GRID, trace)
 
     assert criteria.stream_lines == trace.lines
     assert np.isnan(criteria.elevation[2, 3])
@@ -257,11 +262,91 @@ def test_a_zone_on_the_height_above_the_stream_reads_the_dem_and_the_traced_netw
 
 def test_a_model_top_of_another_shape_than_the_mesh_grid_is_refused() -> None:
     with pytest.raises(MeshError, match=r"the model top holds \(12, 12\) values"):
-        _criterion_inputs(_top(12), _criteria_config(_HAND), _GRID, None)
+        criterion_inputs(_top(12), _criteria_config(_HAND), _GRID, None)
 
 
 def test_a_zone_that_reads_an_earlier_run_needs_a_workspace() -> None:
     zone = {"where": "watertable_depth", "below": 1.0, "run": "coarse", "cell_size": 20.0}
 
     with pytest.raises(MeshError, match="no workspace is set up"):
-        _criterion_inputs(_top(), _criteria_config(zone), _GRID, None)
+        criterion_inputs(_top(), _criteria_config(zone), _GRID, None)
+
+
+# --- test_the_mesh_inputs_carry_the_declared_outlet ---
+# The mesh inputs carry the outlet the configuration declares.
+#
+# The planner keeps a river end on the smoothed catchment outline. With
+# ``[mesh.families] rivers = "none"`` no river end exists, so the outlet itself
+# has to reach the planner: the mesh step reads it from ``[geographic]``, the
+# place the lake structures read it from too.
+
+_MESH = MeshConfig(engine="triangle", families={"rivers": "none", "geology": "none"})
+
+
+def _outlet_ctx(geographic: GeographicConfig, cells: int = 10) -> SimpleNamespace:
+    """The slice of a run context the mesh inputs read, over a square DEM."""
+    support = RasterSupport(
+        crs="EPSG:2154",
+        dx=10.0,
+        dy=10.0,
+        xmin=0.0,
+        xmax=10.0 * cells,
+        ymin=0.0,
+        ymax=10.0 * cells,
+        nrows=cells,
+        ncols=cells,
+        nodata=-9999.0,
+    )
+    surface = Surface.from_geographic_dem(np.zeros((cells, cells)), support=support)
+    return SimpleNamespace(
+        cfg=SimpleNamespace(geographic=geographic, flow=SimpleNamespace(active_bc=[])),
+        config_path=Path("project.toml"),
+        setup=SimpleNamespace(
+            domain=SimpleNamespace(surface_topo=surface),
+            geographic=SimpleNamespace(crs_project="EPSG:2154"),
+            domain_geographic=None,
+            geographic_features=None,
+            flow=None,
+            workspace=None,
+        ),
+    )
+
+
+def test_the_declared_outlet_reaches_the_planning_inputs() -> None:
+    geographic = GeographicConfig.from_outlet(x=389285.91, y=6816518.749, dem="dem.tif")
+
+    outlet = planning_inputs(_outlet_ctx(geographic), _MESH).outlet
+
+    assert (outlet.x, outlet.y) == (389285.91, 6816518.749)
+
+
+def test_a_catchment_without_a_declared_outlet_has_none() -> None:
+    geographic = GeographicConfig.from_dem("dem.tif")
+
+    assert planning_inputs(_outlet_ctx(geographic), _MESH).outlet is None
+
+
+# --- test_the_mesh_step_builds_the_cell_mesh ---
+# The cell mesh is built in the run's CRS: the geographic one, else the DEM support one.
+
+
+def test_the_cell_mesh_carries_the_geographic_crs() -> None:
+    setup = SimpleNamespace(geographic=SimpleNamespace(crs_project="EPSG:2154"))
+
+    assert "Lambert" in mesh_crs_wkt(setup)
+
+
+def test_the_dem_support_gives_the_crs_when_the_geographic_setup_has_none() -> None:
+    surface = SimpleNamespace(support=SimpleNamespace(crs="EPSG:2154"))
+    setup = SimpleNamespace(
+        geographic=SimpleNamespace(), domain=SimpleNamespace(surface_topo=surface)
+    )
+
+    assert "Lambert" in mesh_crs_wkt(setup)
+
+
+def test_a_run_without_a_crs_cannot_build_a_cell_mesh() -> None:
+    setup = SimpleNamespace(geographic=SimpleNamespace(), domain=None)
+
+    with pytest.raises(MeshError, match="needs the run's CRS"):
+        mesh_crs_wkt(setup)

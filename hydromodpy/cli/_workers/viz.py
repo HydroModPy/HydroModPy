@@ -30,7 +30,7 @@ def render_figure(
     :func:`parse_figure_options` reads from ``--opt``: they replace the ones
     the run gave the figure.
     """
-    from hydromodpy.core.state.paths import resolve_project_root
+    from hydromodpy.core.state.result_dirs import resolve_project_root
     from hydromodpy.display.runs import figure_options_from_run, figures_dir_of, record_figure
     from hydromodpy.display.runs import render_figure as render_one_figure
     from hydromodpy.results.catalog import Catalog
@@ -61,7 +61,7 @@ def regen_figures(sim_ref: str, *, workspace: Any = None) -> list[Path]:
 
     The index is opened read-only: the figures are files of the run directory.
     """
-    from hydromodpy.core.state.paths import resolve_project_root
+    from hydromodpy.core.state.result_dirs import resolve_project_root
     from hydromodpy.display.runs import log_render_summary
     from hydromodpy.display.runs import regen_figures as regen_run_figures
     from hydromodpy.results.catalog import Catalog
@@ -143,7 +143,7 @@ def figure_availability(sim_ref: str, *, workspace: Any = None) -> list[tuple[An
 
     ``None`` marks a figure the run supports. The index is opened read-only.
     """
-    from hydromodpy.core.state.paths import resolve_project_root
+    from hydromodpy.core.state.result_dirs import resolve_project_root
     from hydromodpy.display.runs import figure_availability as availability_of
     from hydromodpy.results.catalog import Catalog
 

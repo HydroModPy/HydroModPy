@@ -105,8 +105,8 @@ hydromodpy/display/
 ├── figure_registry.py     register, get, resolve, names, list_figures; imports figures/ on first lookup
 ├── figures/               one figure per file, flat, discovered automatically
 │   ├── scalar_face_map.py    base of the "one value per mesh face" maps
-│   ├── _stream_comparison.py, _routing_surface.py, _flow_persistence.py, _trial_diagnostics.py,
-│   │   _observed.py, _memo.py, _instant.py (how a title names the period it draws)
+│   ├── _stream_comparison.py, _flow_persistence.py, _trial_diagnostics.py,
+│   │   _observed.py, _instant.py (how a title names the period it draws)
 │   │                          helpers shared between figures (private to figures/)
 │   ├── lake_level_fit.py      public helper, not registered, read by reporting
 │   └── <name>.py              the registered figures
@@ -118,6 +118,7 @@ hydromodpy/display/
 │                          figure_availability (what a run supports, and why not the rest),
 │                          matplotlib_backend (Agg or interactive for the length of a render);
 │                          _resolve_time turns a date into the stress period the run stored
+├── cohort.py              cohort figures of a campaign summary: names, draw_cohort_figures, ledger entry
 ├── png_metadata.py        provenance written into each PNG (sim_id, field, step, EPSG, version,
 │                          identity block of the run and its visible footer)
 │
@@ -218,7 +219,7 @@ finished run    ->  runs.render_figures_for_run(run, DisplayConfig)
 
 **Cohort figures.** `figures/cohort_map.py` and `figures/cohort_distribution.py`
 draw one table with one row per site, not a run; `figures/cohort_table.py` reads
-the columns they share. `hmp campaign collect` (`project/summary.py`) draws them
+the columns they share. `hmp campaign collect` (`project/launch/summary.py`) draws them with `cohort.py`
 under `summary/figures/` for each name of `[sites.summary] figures`.
 
 `hmp export <run> --regen figures` replays `figures/index.json` (`runs.regen_figures`).
@@ -227,7 +228,7 @@ renders one figure after the same applicability check and stamps a saved PNG
 with the identity of its run. `hmp viz list --run <ref>` calls
 `runs.figure_availability(run)`.
 
-**Overview.** `workflow/pipelines/overview.py` builds a `DataOverviewState`
+**Overview.** `workflow/overview.py` builds a `DataOverviewState`
 (geography and loaded data, no run); `overview.generate_overview_report` renders
 one PNG per panel enabled in `[overview.panels]`, under `runs/<overview>/figures/`,
 and its web pages under `runs/<overview>/report/` (`overview/location.py`).
@@ -293,6 +294,7 @@ Another package of `hydromodpy/` imports only these modules (the `public` list o
 | `hydromodpy.display.config` | `DisplayConfig` |
 | `hydromodpy.display.figure_registry` | `get`, `resolve`, `names`, `figure_option_names` |
 | `hydromodpy.display.runs` | rendering the figures of a run, and their availability |
+| `hydromodpy.display.cohort` | the cohort figures `hmp campaign collect` draws under `summary/figures/` |
 | `hydromodpy.display.maps.axes`, `hydromodpy.display.maps.ugrid`, `hydromodpy.display.maps.geo` | map tools reused by `reporting` |
 | `hydromodpy.display.report_blocks` | HTML engine (`reporting`, and `calibration` through a tolerance) |
 | `hydromodpy.display.overview`, `hydromodpy.display.overview.config` | overview and `OverviewConfig` |
@@ -383,7 +385,9 @@ generated from the registry into the figures page of the documentation, and
 
 `display` imports `core`, `schema` and `results`
 (`tests/unit/architecture/layer_matrix.yaml`), never `data`, `simulation`,
-`solver` or `calibration`. The root facade, `config`, `analysis`, `reporting`,
+`solver`, `calibration` or `spatial`. A figure of the stream criterion or of the routing surface only draws:
+the network, the extents, the routing surface and the depression floods are computed in
+`results/derive/stream/`. The root facade, `config`, `analysis`, `reporting`,
 `workflow`, `project` and `cli` import it, each through the modules of the
 `public` list of `display_layout.yaml`, and `calibration` through its tolerance
 for `report_blocks`.

@@ -11,7 +11,7 @@ import pytest
 
 import hydromodpy.results.catalog.indexer as indexer_module
 from hydromodpy.core.exceptions import SchemaVersionMismatchError
-from hydromodpy.core.state.paths import catalog_path_for, runs_dir_for
+from hydromodpy.core.state.layout import catalog_path_for, runs_dir_for
 from hydromodpy.results.annotations import Annotations, write_annotations
 from hydromodpy.results.catalog import Catalog, index_new_runs, rebuild_index
 from hydromodpy.results.catalog.index_schema import (

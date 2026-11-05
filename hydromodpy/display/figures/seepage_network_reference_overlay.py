@@ -53,7 +53,7 @@ from hydromodpy.display.maps.axes import style_map_axes
 from hydromodpy.display.maps.mesh_geometry import face_centroids, face_polygons
 from hydromodpy.display.maps.overlays import apply_overlays
 from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET
-from hydromodpy.results.derive.stream_network import unavailable_reason_for_comparison
+from hydromodpy.results.derive.stream.comparison import unavailable_reason_for_comparison
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes

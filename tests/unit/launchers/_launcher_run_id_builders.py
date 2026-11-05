@@ -6,7 +6,7 @@ import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 
-from hydromodpy.core.state.paths import scratch_dir_for
+from hydromodpy.core.state.scratch import scratch_dir_for
 
 
 def _make_launcher_test_workspace_root(

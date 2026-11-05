@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from hydromodpy.core.field_routing import seepage_mask
+from hydromodpy.core.budget.flux import seepage_mask
 from hydromodpy.results.derive.derived import (
     budget_flux_per_area,
     watertable_depth,
