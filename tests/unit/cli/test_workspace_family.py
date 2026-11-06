@@ -8,19 +8,11 @@ from pathlib import Path
 
 import pytest
 
+from ._hmp import run_main as _run
+
 
 def _load_main():
     return importlib.import_module("hydromodpy.cli.main")
-
-
-def _run(monkeypatch, argv: list[str]) -> int:
-    module = _load_main()
-    monkeypatch.setattr(sys, "argv", argv)
-    try:
-        module.main()
-    except SystemExit as exc:
-        return int(exc.code or 0)
-    return 0
 
 
 def test_workspace_family_help_lists_actions(monkeypatch, capsys) -> None:

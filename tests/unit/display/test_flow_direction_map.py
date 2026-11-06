@@ -39,18 +39,6 @@ SOUTH_WEST_STEP_M = 10.0
 """Drop per column and per row of the tilted plane, so a diagonal is steepest."""
 
 
-@pytest.fixture
-def mpl():
-    pytest.importorskip("matplotlib")
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
-    yield plt
-    plt.close("all")
-
-
 def tilted_plane() -> np.ndarray:
     """Return a plane falling toward the south-west corner of the grid.
 

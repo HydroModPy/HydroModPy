@@ -38,7 +38,7 @@ from hydromodpy.workflow.runner import Pipeline
 from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps.run_solver import RunSolverStep
 from tests.unit.calibration._factories import Setup
-from tests.unit.calibration._factories_runners import make_session
+from tests.unit.calibration._factories_runners import ToyCtx, make_session
 
 # From test_a_promoted_trial_reads_its_kept_solve.py
 # A promoted trial reads the solve its trial kept instead of solving again.
@@ -54,9 +54,7 @@ from tests.unit.calibration._factories_runners import make_session
 # ``tests/e2e/test_a_promoted_trial_is_not_solved_again_e2e.py``.
 
 
-@pytest.fixture(scope="module", autouse=True)
-def _ensure_bootstrap():
-    hydromodpy.bootstrap()
+pytestmark = pytest.mark.usefixtures("ensure_bootstrap")
 
 
 def _folder(root: Path, name: str) -> Path:
@@ -323,19 +321,6 @@ class _Cfg:
         return _Cfg(K=self.K)
 
 
-@dataclass
-class _Ctx:
-    cfg: _Cfg
-    config_path: Path
-    raw_toml: dict[str, Any]
-    data_plan: Any = None
-    setup: Setup = field(default_factory=Setup)
-    loaded_data: Any = None
-    execution: ExecutionRegistry = field(default_factory=ExecutionRegistry)
-    sim_id: Any = None
-    reserved_sim_id: Any = None
-
-
 class _Solver:
     """A solver that writes one head file whose bytes depend on K only."""
 
@@ -439,7 +424,7 @@ def _toy_trial_context(tmp_path: Path, stores: dict[str, str]) -> TrialContext:
     )
     cfg = _Cfg()
     setup = Setup(workspace=SimpleNamespace(solver_scratch_folder=tmp_path / "scratch"))
-    ctx = _Ctx(cfg=cfg, config_path=tmp_path / "calib.toml", raw_toml={}, setup=setup)
+    ctx = ToyCtx(cfg=cfg, config_path=tmp_path / "calib.toml", raw_toml={}, setup=setup)
     return TrialContext(
         base_cfg=cfg,
         ctx=ctx,

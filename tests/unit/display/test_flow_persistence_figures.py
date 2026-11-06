@@ -31,18 +31,6 @@ from tests.unit.results._transient_network_run import (
 SEASONAL_SHARE = 100.0 * len(WINTER_MONTHS) / 12.0
 
 
-@pytest.fixture
-def mpl():
-    pytest.importorskip("matplotlib")
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
-    yield plt
-    plt.close("all")
-
-
 def _drawn(ax) -> np.ndarray:
     """Values the face collection was handed, masked where nothing was drawn."""
     return np.asarray(ax.collections[0].get_array())

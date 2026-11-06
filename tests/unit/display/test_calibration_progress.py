@@ -1,16 +1,10 @@
-"""The calibration progress slide draws any search, labeled with its metric.
-
-Three synthetic sessions stand in for the three searches example 04 runs: a
-bisection on K scored on the stream network, a Nelder-Mead simplex on Sy
-scored on NSElog, and an Optuna-like sampler on K and Sy scored on both. The
-slide must name the metric and its unit on the cost axis, never the column it
-came from, and the best reached so far must never rise.
-"""
+"""The calibration progress figure and its trial table."""
 
 from __future__ import annotations
 
 import json
 import uuid
+import warnings
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -20,10 +14,23 @@ import pandas as pd
 import pytest
 
 from hydromodpy.display.figure_registry import get, names
+from hydromodpy.display.figures._trial_diagnostics import trial_table
 from hydromodpy.display.figures.calibration_progress import CalibrationProgressFigure, _with_frozen
 
+# The calibration progress slide draws any search, labeled with its metric.
+#
+# Three synthetic sessions stand in for the three searches example 04 runs: a
+# bisection on K scored on the stream network, a Nelder-Mead simplex on Sy
+# scored on NSElog, and an Optuna-like sampler on K and Sy scored on both. The
+# slide must name the metric and its unit on the cost axis, never the column it
+# came from, and the best reached so far must never rise.
+
 K_ROOT = 8.0e-5
+
+
 SY_BEST = 0.06
+
+
 MAPPED = 500.0
 
 
@@ -234,18 +241,6 @@ def optuna_session(n_runs: int = 40, seed: int = 7) -> _SessionRun:
     return _SessionRun(rows, session, name="synthetic_optuna")
 
 
-@pytest.fixture
-def mpl():
-    pytest.importorskip("matplotlib")
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
-    yield plt
-    plt.close("all")
-
-
 def _ylabels(fig) -> list[str]:
     return [ax.get_ylabel() for ax in fig.get_axes()]
 
@@ -437,3 +432,64 @@ def test_the_frozen_values_are_read_from_the_phase_journals(monkeypatch, tmp_pat
 
     assert session.frozen_values(None, "s") == {"a": {}, "b": {"K": 8e-5}}
     assert session.frozen_values(None, None) == {}
+
+
+# The fit panel of a transformed efficiency frames the values it draws.
+#
+# A block with a ``cost_transform`` draws its cost, not its efficiency. The panel used
+# to take its range from the efficiency (one minus the cost) and its "higher is
+# better" from the metric alone, so the points fell off the axis under a label
+# that read them the wrong way up.
+
+pytestmark = pytest.mark.unit
+
+
+def _with_log_transform(run):
+    session = run.calibration_sessions.iloc[0].to_dict()
+    config = json.loads(session["config"])
+    config["objective_blocks"][0]["cost_transform"] = "log"
+    run.calibration_sessions.loc[0, "config"] = json.dumps(config)
+    return run
+
+
+def test_a_transformed_efficiency_is_drawn_inside_its_range(mpl) -> None:
+    fig = CalibrationProgressFigure().plot(_with_log_transform(nelder_mead_session()))
+
+    fit_ax = next(ax for ax in fig.get_axes() if ax.get_title().startswith("Fit to the"))
+    low, high = fit_ax.get_ylim()
+    drawn = np.concatenate(
+        [np.asarray(line.get_ydata(), dtype=float) for line in fit_ax.get_lines()]
+    )
+    drawn = drawn[np.isfinite(drawn)]
+    assert drawn.size
+    assert low <= drawn.min() and drawn.max() <= high
+    assert "1 - NSElog (-), lower is better" in _ylabels(fig)
+
+
+# The trial table of a network calibration is built without fragmenting.
+#
+# A network criterion publishes about a hundred diagnostics per trial. Inserting
+# them one column at a time fragmented the frame, and pandas printed a
+# PerformanceWarning on the console of every promoted run.
+
+
+def test_two_hundred_diagnostics_raise_no_performance_warning() -> None:
+    components = {f"net.diag_{index:03d}": float(index) for index in range(200)}
+    rows = [
+        {
+            "trial": trial,
+            "parameters": {"K": {"value": 10.0 ** -(trial + 4)}},
+            "components": dict(components),
+            "cost": float(trial),
+        }
+        for trial in range(5)
+    ]
+    run = SimpleNamespace(calibration_iterations=pd.DataFrame(rows))
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", pd.errors.PerformanceWarning)
+        table = trial_table(run)
+
+    assert table.parameters == ("K",)
+    assert table.frame["net.diag_199"].tolist() == [199.0] * 5
+    assert table.frame["K"].tolist()[0] == 1e-4

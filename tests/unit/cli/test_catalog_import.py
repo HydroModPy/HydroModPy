@@ -11,21 +11,17 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from hydromodpy.cli.helpers import EXIT_WRITE_CONFLICT
+from hydromodpy.core.state.layout import catalog_path_for
+from hydromodpy.results.export.publish import publish
 from hydromodpy.results.ledger import sha256_of
 from hydromodpy.results.publication import Publication, PublicationSource, write_publication
+from tests._helpers.cli_runner import CliRunner
+from tests._helpers.sealed_run import RUN_NAME, seal_demo_run
 from tests._helpers.sealed_runs import manifest_document
 
+from ._hmp import run_hmp as _hmp
+
 SIM_ID = "9a4f0c1e-0000-4000-8000-000000000001"
-
-
-def _hmp(monkeypatch, *argv: str) -> int:
-    main = importlib.import_module("hydromodpy.cli.main")
-    monkeypatch.setattr(sys, "argv", ["hmp", *argv])
-    try:
-        main.main()
-    except SystemExit as exc:
-        return int(exc.code or 0)
-    return 0
 
 
 def _published(tmp_path: Path) -> Path:
@@ -94,3 +90,21 @@ def test_a_missing_source_is_not_found(tmp_path: Path, monkeypatch) -> None:
     project = _project(tmp_path)
     code = _hmp(monkeypatch, "catalog", "import", str(tmp_path / "nope.tar"), "-w", str(project))
     assert code == EXIT_NOT_FOUND
+
+
+def test_an_import_into_a_project_without_an_index_lists_the_run(tmp_path: Path) -> None:
+    lab = tmp_path / "lab"
+    run_dir, _ = seal_demo_run(lab)
+    (run_dir / "config.toml").write_text('[site]\nname = "demo"\n', encoding="utf-8")
+    copy = publish(run_dir, tmp_path / "published" / RUN_NAME, project_root=lab, with_=("results",))
+    home = tmp_path / "home"
+    home.mkdir()
+    (home / "project.toml").write_text("", encoding="utf-8")
+
+    imported = CliRunner().invoke(["catalog", "import", str(copy), "-w", str(home)])
+
+    assert imported.exit_code == 0, imported.stderr
+    assert catalog_path_for(home).is_file()
+    listed = CliRunner().invoke(["catalog", "ls", "-w", str(home)])
+    assert listed.exit_code == 0, listed.stderr
+    assert RUN_NAME in listed.stdout

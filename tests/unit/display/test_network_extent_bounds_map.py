@@ -20,18 +20,6 @@ from tests.unit.display._network_comparison_run import legend_labels, legend_not
 from tests.unit.results._transient_network_run import transient_run
 
 
-@pytest.fixture
-def mpl():
-    pytest.importorskip("matplotlib")
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
-    yield plt
-    plt.close("all")
-
-
 def test_a_transient_run_with_both_maps_is_drawn() -> None:
     assert NetworkExtentBoundsMap().unavailable_reason(transient_run()) is None
 

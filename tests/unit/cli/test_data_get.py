@@ -15,16 +15,7 @@ from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.data.variables.hydrometry.manager import HydrometryManager
 
-
-def _run(monkeypatch, argv: list[str]) -> int:
-    """Run ``hmp`` and tolerate handlers that do not call sys.exit explicitly."""
-    module = importlib.import_module("hydromodpy.cli.main")
-    monkeypatch.setattr(sys, "argv", argv)
-    try:
-        module.main()
-    except SystemExit as exc:
-        return int(exc.code or 0)
-    return 0
+from ._hmp import run_main as _run
 
 
 def _station(station_id: str) -> PointRecord:

@@ -4,8 +4,7 @@
 ``getattr(result, "summary", None)`` was always ``None`` and the command
 printed nothing of the result it just spent hours computing. These tests
 exercise the rendering directly, on a report built in memory, rather than
-running a real calibration.
-"""
+running a real calibration."""
 
 from __future__ import annotations
 
@@ -554,3 +553,17 @@ def test_a_value_is_printed_with_its_unit_when_it_has_one(unit: str, line: str) 
     report = _report(best_parameters={"K": 6.4e-5}, extra={"parameter_units": {"K": unit}})
 
     assert result_lines(report)[0] == line
+
+
+def test_the_cost_line_names_its_metric() -> None:
+    lines = result_lines(
+        _report(best_parameters={"K": 6.4e-5}, extra={"cost_metric": "1 - nse_log"})
+    )
+
+    assert "  cost: 0.1234 (1 - nse_log)" in lines
+
+
+def test_a_report_without_the_metric_prints_the_cost_alone() -> None:
+    lines = result_lines(_report(best_parameters={"K": 6.4e-5}, extra={}))
+
+    assert "  cost: 0.1234" in lines

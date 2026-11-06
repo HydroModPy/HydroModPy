@@ -23,6 +23,14 @@ from hydromodpy.calibration.criteria import (
     criterion_for,
 )
 from hydromodpy.calibration.criteria import SeriesCriterion as SeriesCriterion__criterion_contract
+from hydromodpy.calibration.criteria.base import CriterionResult
+from hydromodpy.calibration.criteria.formulas import METRIC_FORMULAS
+from hydromodpy.calibration.criteria.hydrographic_network_distance import (
+    distance_gap,
+    distance_mean,
+    distance_pair,
+    distance_pairs,
+)
 from hydromodpy.calibration.criteria.series import (
     HIGHER_IS_BETTER,
     LOG_METRICS,
@@ -36,6 +44,7 @@ from hydromodpy.calibration.metrics.observed_pairing import pair_outputs_with_ob
 from hydromodpy.calibration.metrics.series import ObservedSeries
 from hydromodpy.calibration.optim.objective import ConfigBlockObjective, SimulationOutput
 from hydromodpy.core.contracts.observables import ObservableResult
+from hydromodpy.core.scoring import metrics as core
 from hydromodpy.core.scoring.metrics import (
     clip_negatives,
     kge,
@@ -47,6 +56,7 @@ from hydromodpy.core.scoring.metrics import (
     nse_seasonal,
 )
 from hydromodpy.results.catalog.constants import METRIC_SENSE
+from hydromodpy.results.checks import Validity
 from hydromodpy.results.derive.time_alignment import align_observed_simulated
 from hydromodpy.results.fit_metrics import score_timeseries
 from hydromodpy.results.metric_rule import DateWindow, MetricRule
@@ -1083,3 +1093,108 @@ def test_the_step_is_the_median_spacing_in_days() -> None:
     assert sampling_step_days(pd.date_range("2001-01-01", periods=5, freq="D")) == 1.0
     assert sampling_step_days(pd.DatetimeIndex(["2001-01-01"])) is None
     assert sampling_step_days(pd.RangeIndex(4)) is None
+
+
+# ---------------------------------------------------------------------------
+# criteria_formulas
+# Tests of `criteria.formulas`.
+# ---------------------------------------------------------------------------
+
+# From test_kge_is_written_as_the_2009_form.py
+# The KGE of HydroModPy is the 2009 form, and every place that describes it says so.
+#
+# Every KGE here (``kge``, ``kge_r``, ``kge_alpha``, ``kge_beta``) uses
+# ``beta = sum(s) / sum(o)`` and ``alpha = std(s) / std(o)`` (Gupta et al., 2009).
+# The 2012 form (``alpha`` as a ratio of coefficients of variation) gives another
+# number on the same series, 0.9207 against 0.8821 on the audit probe (N13 of the
+# audit of 2026-10-20, decision m14), and nothing said which one was meant.
+
+
+def test_the_kernel_is_the_2009_form() -> None:
+    obs = np.array([5.0, 3.0, 2.0, 1.2, 0.8, 0.5, 0.3, 0.2, 0.15, 0.1])
+    sim = obs * np.array([1.1, 0.9, 1.05, 0.95, 1.2, 0.85, 1.1, 0.9, 1.3, 0.8])
+
+    parts = core.kge(sim, obs)
+
+    assert parts["beta"] == pytest.approx(sim.sum() / obs.sum())
+    assert parts["alpha"] == pytest.approx(sim.std() / obs.std())
+    cv_ratio = (sim.std() / sim.mean()) / (obs.std() / obs.mean())
+    assert parts["alpha"] != pytest.approx(cv_ratio)
+
+
+def test_the_formula_of_the_registry_says_kge_2009() -> None:
+    formula = METRIC_FORMULAS["kge"]
+
+    assert "2009" in formula.note
+    assert "2012" in formula.note
+
+
+# ---------------------------------------------------------------------------
+# criteria_hydrographic_network_distance
+# Tests of `criteria.hydrographic_network_distance`.
+# ---------------------------------------------------------------------------
+
+# From test_network_criterion_reads_one_pair_per_bound.py
+# The network criterion reads one ``(D_so, D_os)`` pair per bound in the cost.
+
+
+def test_one_pair_keeps_its_signed_residual() -> None:
+    scored = criterion_for("distance_gap").score([130.0, 100.0])
+    assert scored.cost == pytest.approx(30.0)
+    assert scored.signed_residual == pytest.approx(30.0)
+    assert scored.diagnostics["J_signed"] == pytest.approx(30.0)
+
+
+def test_two_weighted_pairs_sum_their_gaps_and_carry_no_single_residual() -> None:
+    # 0.25 * (D_so, D_os) = 0.25 * (140, 100) and 0.75 * (80, 100).
+    values = [35.0, 25.0, 60.0, 75.0]
+    scored = criterion_for("distance_gap").score(values)
+    assert scored.cost == pytest.approx(0.25 * 40.0 + 0.75 * 20.0)
+    assert scored.signed_residual is None
+    assert scored.diagnostics["weighted_J_signed_1"] == pytest.approx(-15.0)
+
+
+def test_the_mean_estimator_sums_the_weighted_doptim() -> None:
+    assert distance_mean([35.0, 25.0, 60.0, 75.0]) == pytest.approx(30.0 + 67.5)
+    assert criterion_for("distance_mean").score([35.0, 25.0, 60.0, 75.0]).signed_residual is None
+
+
+def test_a_negative_distance_makes_the_mean_undefined() -> None:
+    assert np.isnan(distance_mean([-1.0, 5.0]))
+
+
+def test_the_kernels_agree_with_the_criterion() -> None:
+    values = [35.0, 25.0, 60.0, 75.0]
+    assert distance_gap(values) == pytest.approx(criterion_for("distance_gap").score(values).cost)
+    assert distance_pairs(values) == [(35.0, 25.0), (60.0, 75.0)]
+
+
+@pytest.mark.parametrize("values", [[], [1.0], [1.0, 2.0, 3.0]])
+def test_a_vector_that_is_not_made_of_pairs_is_refused(values) -> None:
+    with pytest.raises(ValueError, match="pairs"):
+        distance_gap(values)
+
+
+def test_distance_pair_reads_one_pair_and_refuses_any_other_size() -> None:
+    assert distance_pair(np.array([[35.0], [25.0]])) == (35.0, 25.0)
+    with pytest.raises(ValueError, match="got 4 value"):
+        distance_pair([1.0, 2.0, 3.0, 4.0])
+
+
+@pytest.mark.parametrize(
+    ("validity", "fatal"),
+    [
+        ((), False),
+        ((Validity("a", True, None, "ok", fatal=True),), False),
+        ((Validity("a", False, None, "coarse"),), False),
+        ((Validity("a", True, None, "ok"), Validity("b", False, 1.0, "fiction", fatal=True)), True),
+    ],
+    ids=["no-check", "fatal-but-passed", "failed-but-not-fatal", "failed-and-fatal"],
+)
+def test_a_result_is_fatally_invalid_only_by_a_failed_fatal_check(validity, fatal) -> None:
+    assert CriterionResult(cost=1.0, validity=validity).is_fatally_invalid is fatal
+
+
+def test_an_unknown_estimator_is_refused_with_the_two_it_knows() -> None:
+    with pytest.raises(ValueError, match="'distance_gap' .*'distance_mean'"):
+        HydrographicNetworkDistance("distance_median")

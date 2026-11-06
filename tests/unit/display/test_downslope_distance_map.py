@@ -39,18 +39,6 @@ WIDE_CELL_M = 600.0
 """A cell width that spreads the same geometry over the far classes."""
 
 
-@pytest.fixture
-def mpl():
-    pytest.importorskip("matplotlib")
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
-    yield plt
-    plt.close("all")
-
-
 def _layer(ax, label: str):
     """The one collection drawn under ``label``."""
     return next(item for item in ax.collections if str(item.get_label()) == label)

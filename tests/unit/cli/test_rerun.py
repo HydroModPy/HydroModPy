@@ -14,6 +14,8 @@ from hydromodpy.cli.commands.catalog import rerun as rerun_cmd
 from hydromodpy.results.run import rerun_contract
 from tests._helpers.sealed_runs import manifest_document
 
+from ._hmp import run_hmp as _hmp
+
 SOURCE_ID = "9a4f0c1e-0000-4000-8000-000000000001"
 NEW_ID = "7b1e0000-0000-4000-8000-000000000002"
 
@@ -26,16 +28,6 @@ def restore_provider():
         yield
     finally:
         rerun_contract.register_rerun_provider(original)
-
-
-def _hmp(monkeypatch, *argv: str) -> int:
-    main = importlib.import_module("hydromodpy.cli.main")
-    monkeypatch.setattr(sys, "argv", ["hmp", *argv])
-    try:
-        main.main()
-    except SystemExit as exc:
-        return int(exc.code or 0)
-    return 0
 
 
 def _project(tmp_path: Path) -> Path:

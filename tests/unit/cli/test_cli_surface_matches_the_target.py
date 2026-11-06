@@ -22,6 +22,8 @@ import pytest
 from hydromodpy.cli.conventions import OldVerb
 from hydromodpy.cli.main import _build_parser
 
+from ._hmp import run_main as _run
+
 # Families and their actions. A family lists every action the target names,
 # plus the actions it keeps that the target does not retire (``catalog point``,
 # ``viz list``, the ``config`` helpers), so the comparison is exact.
@@ -198,16 +200,6 @@ def test_a_retired_option_is_gone(path: tuple[str, ...], option: str) -> None:
 
 
 # --- no silent fallback on ~/hydromodpy ---------------------------------------
-
-
-def _run(monkeypatch, argv: list[str]) -> int:
-    module = importlib.import_module("hydromodpy.cli.main")
-    monkeypatch.setattr(sys, "argv", argv)
-    try:
-        module.main()
-    except SystemExit as exc:
-        return int(exc.code or 0)
-    return 0
 
 
 @pytest.fixture

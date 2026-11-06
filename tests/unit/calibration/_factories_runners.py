@@ -6,6 +6,7 @@ import json
 import math
 import tomllib
 import uuid
+from dataclasses import dataclass, field
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -25,6 +26,7 @@ from hydromodpy.core.runtime.interrupts import TerminationRequested
 from hydromodpy.core.state.run_state import ExecutionRegistry
 from tests._helpers.persisting_simulation import SimulationStub, persisting_simulation
 from tests._helpers.session_documents import session_opening
+from tests.unit.calibration._factories import Setup
 from tests.unit.calibration._factories_search import result_of
 
 K_TOML = 1e-5
@@ -116,6 +118,21 @@ class _Cfg(BaseModel):
     flow: _Flow = _Flow()
     simulation: SimulationStub = SimulationStub()
     site: None = None
+
+
+@dataclass
+class ToyCtx:
+    """The pipeline context of a toy trial: a config, a setup and an execution registry."""
+
+    cfg: Any
+    config_path: Path
+    raw_toml: dict[str, Any]
+    data_plan: Any = None
+    setup: Setup = field(default_factory=Setup)
+    loaded_data: Any = None
+    execution: ExecutionRegistry = field(default_factory=ExecutionRegistry)
+    sim_id: Any = None
+    reserved_sim_id: Any = None
 
 
 class FakeCtx:

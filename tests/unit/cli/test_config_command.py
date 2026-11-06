@@ -210,3 +210,72 @@ def test_the_full_template_fails_its_check_only_on_the_catchment_to_choose(tmp_p
     assert "1 validation error(s)" in output, output
     assert "geographic.catchment.kind is required" in output
     assert "crossings" not in output
+
+
+_BODY = """\
+[workspace]
+
+[workflow]
+mode = "simulation"
+
+[geographic]
+source_mode = "synthetic"
+
+[simulation]
+name = "baseline"
+
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2002-12-31"
+step_value = "1 month"
+
+[[simulation.process]]
+id = "flow_main"
+kind = "flow"
+solvers = ["modflow6"]
+
+[flow]
+flow_regime = "transient"
+
+"""
+
+
+def _check(tmp_path: Path, extra: str):
+    path = tmp_path / "project.toml"
+    path.write_text(_BODY.format(root=tmp_path.as_posix()) + extra, encoding="utf-8")
+    return CliRunner().invoke(["config", "check", str(path)])
+
+
+def test_a_config_whose_requests_hold_passes(tmp_path: Path) -> None:
+    result = _check(
+        tmp_path,
+        '[[export]]\nvariables = ["head", "watertable_depth"]\ntime = "2002-10-15"\n\n'
+        '[display]\ntime = "2002-10-15"\n',
+    )
+
+    assert result.exit_code == 0, result.stderr
+    assert "OK:" in result.stdout
+
+
+def test_a_date_outside_the_record_is_refused(tmp_path: Path) -> None:
+    result = _check(tmp_path, '[display]\ntime = "2005-01-01"\n')
+
+    assert result.exit_code == 14
+    assert "display.time: 2005-01-01 is outside the record" in result.stderr
+
+
+def test_an_export_name_no_run_holds_is_refused(tmp_path: Path) -> None:
+    result = _check(tmp_path, '[[export]]\nvariables = "hed"\n')
+
+    assert result.exit_code == 14
+    assert "export[0]: 'hed'" in result.stderr
+
+
+def test_two_blocks_writing_one_file_are_refused(tmp_path: Path) -> None:
+    result = _check(
+        tmp_path,
+        '[[export]]\nvariables = "discharge"\n\n[[export]]\nvariables = ["discharge"]\n',
+    )
+
+    assert result.exit_code == 14
+    assert "export[0] and export[1] both write discharge.csv" in result.stderr

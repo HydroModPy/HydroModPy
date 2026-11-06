@@ -10,15 +10,7 @@ from pathlib import Path
 from hydromodpy.cli._workers.catalog import watch_running
 from tests._helpers.sealed_runs import make_project, seal_run, write_attempt
 
-
-def _run(monkeypatch, argv: list[str]) -> int:
-    module = importlib.import_module("hydromodpy.cli.main")
-    monkeypatch.setattr(sys, "argv", argv)
-    try:
-        module.main()
-    except SystemExit as exc:
-        return int(exc.code or 0)
-    return 0
+from ._hmp import run_main as _run
 
 
 def test_watch_flags_stale_and_live_attempts(tmp_path: Path) -> None:

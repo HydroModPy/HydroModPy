@@ -21,6 +21,8 @@ from hydromodpy.display.figures.accumulation_map import (
     truncated_palette,
 )
 
+from ._render_helpers import lightness
+
 FLUXES = (0.0, 1.0e-6, 1.0e-4, 1.0e-2)
 """One empty cell and three positive ones, four decades apart."""
 
@@ -53,13 +55,6 @@ def _axes():
     import matplotlib.pyplot as plt
 
     return plt.subplots()
-
-
-def _lightness(rgb) -> float:
-    """Return the CIE L* of one RGB triple, which is what grayscale keeps."""
-    channels = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in rgb[:3]]
-    y = 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
-    return 116.0 * y ** (1 / 3) - 16.0 if y > 0.008856 else 903.3 * y
 
 
 def _field_collection(ax):
@@ -212,8 +207,8 @@ def test_every_drawn_color_stays_darker_than_the_ground(cmap: str) -> None:
     from matplotlib.colors import to_rgb
 
     palette = truncated_palette(cmap, PALETTE_FLOOR)
-    ramp = [_lightness(palette(value)) for value in np.linspace(0.0, 1.0, 32)]
-    ground = _lightness(to_rgb(GROUND_COLOR))
+    ramp = [lightness(palette(value)) for value in np.linspace(0.0, 1.0, 32)]
+    ground = lightness(to_rgb(GROUND_COLOR))
     assert max(ramp) < ground - 10.0
     assert ramp == sorted(ramp) or ramp == sorted(ramp, reverse=True)
 
@@ -223,7 +218,7 @@ def test_the_default_palette_darkens_as_the_flux_climbs() -> None:
     pytest.importorskip("matplotlib")
 
     palette = truncated_palette(AccumulationMap.default_cmap, PALETTE_FLOOR)
-    ramp = [_lightness(palette(value)) for value in np.linspace(0.0, 1.0, 32)]
+    ramp = [lightness(palette(value)) for value in np.linspace(0.0, 1.0, 32)]
 
     assert AccumulationMap.default_cmap == "Blues"
     assert ramp == sorted(ramp, reverse=True)

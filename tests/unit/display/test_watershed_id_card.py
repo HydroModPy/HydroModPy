@@ -28,18 +28,6 @@ PROJECT = "04_streamflow_intermittence_in_transient"
 NAME = "nancon_intermittence_mf6_daily"
 
 
-@pytest.fixture
-def mpl():
-    pytest.importorskip("matplotlib")
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
-    yield plt
-    plt.close("all")
-
-
 def _run(*, edges=None) -> SimpleNamespace:
     watershed = gpd.GeoDataFrame(geometry=[box(0.0, 0.0, 8_000.0, 8_000.0)], crs="EPSG:2154")
     dem = np.linspace(100.0, 200.0, 16, dtype=float).reshape(4, 4)

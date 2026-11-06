@@ -91,6 +91,7 @@ Each release section includes the following standard categories:
 
 ### Changed
 
+- The small test files of `tests/unit/display`, `tests/unit/calibration`, `tests/unit/cli` and `tests/unit/launchers` are merged by module, and the five `tests/contract` checks of an installed plugin share one harness. Every case is kept.
 - `[data]` typed sections now come from `VARIABLE_SPECS`, so a new variable no longer needs edits to the typed sections of `config_schema.py`. The BRGM file lookup, the WFS error check, the custom path lookup and the Hub'Eau station location are shared between providers, with the same cache file names and URLs.
 - The small test files of `tests/unit/solver`, `tests/unit/results`, `tests/unit/catalog`, `tests/unit/physics` and `tests/unit/config` are merged into one file per module, with every case kept.
 - The receiver graph, depression filling, descent D and downslope distance move from `hydromodpy.core.drainage` to `hydromodpy.spatial.drainage`.

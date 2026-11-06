@@ -18,19 +18,7 @@ from hydromodpy.display.figures.roptim_validity_chart import (
 )
 from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET
 
-from ._render_helpers import relative_luminance
-
-
-@pytest.fixture
-def mpl():
-    pytest.importorskip("matplotlib")
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
-    yield plt
-    plt.close("all")
+from ._render_helpers import labelled_patch, relative_luminance, rgba
 
 
 def _sites() -> list[SiteAgreement]:
@@ -54,18 +42,8 @@ def _has_collection(ax, prefix: str) -> bool:
     return any(str(item.get_label()).startswith(prefix) for item in ax.collections)
 
 
-def _patch(ax, prefix: str):
-    return next(item for item in ax.patches if str(item.get_label()).startswith(prefix))
-
-
 def _texts(ax) -> list[str]:
     return [item.get_text() for item in ax.texts]
-
-
-def _rgba(color: str):
-    from matplotlib.colors import to_rgba
-
-    return to_rgba(color)
 
 
 # --------------------------------------------------------------------------- #
@@ -146,7 +124,7 @@ def test_the_zone_beyond_the_bound_is_shaded_and_labelled(mpl) -> None:
     RoptimValidityChart().render(_run(), ax, sites=_sites())
 
     try:
-        zone = _patch(ax, "beyond the validity bound")
+        zone = labelled_patch(ax, "beyond the validity bound")
         assert zone.get_y() == pytest.approx(2.0)
         assert zone.get_y() + zone.get_height() == pytest.approx(ax.get_ylim()[1])
         bound_line = next(
@@ -182,8 +160,8 @@ def test_the_two_classes_of_site_differ_by_marker_and_by_lightness(mpl) -> None:
     try:
         within = _collection(ax, "r_optim within")
         beyond = _collection(ax, "r_optim beyond")
-        assert tuple(within.get_facecolor()[0]) == _rgba(HIGH_CONTRAST_TRIPLET[0])
-        assert tuple(beyond.get_facecolor()[0]) == _rgba(HIGH_CONTRAST_TRIPLET[2])
+        assert tuple(within.get_facecolor()[0]) == rgba(HIGH_CONTRAST_TRIPLET[0])
+        assert tuple(beyond.get_facecolor()[0]) == rgba(HIGH_CONTRAST_TRIPLET[2])
         gap = abs(
             relative_luminance(HIGH_CONTRAST_TRIPLET[0])
             - relative_luminance(HIGH_CONTRAST_TRIPLET[2])
@@ -205,7 +183,7 @@ def test_the_bound_is_an_argument_and_moves_the_two_classes(mpl) -> None:
             [5e-4, 1.8],
             [2e-3, 3.4],
         ]
-        zone = _patch(ax, "beyond the validity bound")
+        zone = labelled_patch(ax, "beyond the validity bound")
         assert zone.get_y() == pytest.approx(1.5)
     finally:
         mpl.close(fig)
@@ -231,7 +209,7 @@ def test_every_site_within_the_bound_is_said_so_instead_of_left_to_guess(mpl) ->
         assert not _has_collection(ax, "r_optim beyond")
         note = next(text for text in _texts(ax) if "no site" in text)
         assert "2" in note
-        assert _patch(ax, "beyond the validity bound") is not None
+        assert labelled_patch(ax, "beyond the validity bound") is not None
     finally:
         mpl.close(fig)
 

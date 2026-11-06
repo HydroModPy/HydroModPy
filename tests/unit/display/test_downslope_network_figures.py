@@ -55,18 +55,6 @@ from ._render_helpers import relative_luminance
 H_OBS = 250.0
 
 
-@pytest.fixture
-def mpl():
-    pytest.importorskip("matplotlib")
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
-    yield plt
-    plt.close("all")
-
-
 def _session_run(
     parameter_values: list[float],
     diagnostics: list[dict[str, float | None]],

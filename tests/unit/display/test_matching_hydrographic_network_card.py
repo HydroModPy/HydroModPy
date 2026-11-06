@@ -1,14 +1,12 @@
-"""The one-page card of a two-stage downslope-distance calibration.
-
-The card is driven exactly as a staged session drives it: one row per trial
-in ``calibration_iterations``, each naming its phase, and one row per phase
-of the session in ``calibration_sessions``. The tests read the panels, the artists, the
-annotations and the refusals, never pixels.
-"""
+"""The matching hydrographic network card."""
 
 from __future__ import annotations
 
 import json
+import shutil
+import uuid
+from datetime import UTC, datetime
+from pathlib import Path
 from types import SimpleNamespace
 
 import pandas as pd
@@ -18,37 +16,60 @@ from hydromodpy.display.figures.matching_hydrographic_network_card import (
     MatchingHydrographicNetworkCard,
 )
 from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET
+from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.indexer import rebuild_index
+from hydromodpy.results.checks import CalibratedBy
+from hydromodpy.results.run import Run
 from hydromodpy.results.session.descriptor import ParameterBound
+from hydromodpy.results.session.journal import append_trial
+from hydromodpy.results.session.phase import PhaseDescriptor, write_phase
+from hydromodpy.results.storage.contract import (
+    RUN_RESOLVED_CONFIG_FILENAME,
+    SESSION_CONFIG_FILENAME,
+)
+from tests._helpers.sealed_runs import make_project, seal_run, sealed_search, write_session_dir
+from tests._helpers.session_documents import trial_line
 
-from ._render_helpers import relative_luminance
+from ._render_helpers import labelled_patch, relative_luminance, rgba
+
+# The one-page card of a two-stage downslope-distance calibration.
+#
+# The card is driven exactly as a staged session drives it: one row per trial
+# in ``calibration_iterations``, each naming its phase, and one row per phase
+# of the session in ``calibration_sessions``. The tests read the panels, the artists, the
+# annotations and the refusals, never pixels.
 
 OUTPUT = "net"
+
+
 SESSION_ID = "s-cal"
+
+
 ROOT_PHASE = "root search"
+
+
 STORAGE_PHASE = "storage"
+
 
 # The sweep of the sibling bracket figure: it changes sign once, then two
 # bisection steps close on [3.2e-05, 1e-04]. The end carrying the smaller
 # residual is 3.2e-05, and that is the trial every diagnostic is read at.
 ROOT_VALUES = [1e-5, 1e-3, 1e-4, 3.2e-5]
+
+
 ROOT_RESIDUALS = [300.0, -400.0, -120.0, 40.0]
+
+
 CLOSED_VALUE = 3.2e-5
+
+
 BRACKET = (3.2e-5, 1e-4)
 
+
 STORAGE_VALUES = [0.01, 0.05, 0.1]
+
+
 STORAGE_OBJECTIVES = [0.42, 0.11, 0.30]
-
-
-@pytest.fixture
-def mpl():
-    pytest.importorskip("matplotlib")
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
-    yield plt
-    plt.close("all")
 
 
 # --------------------------------------------------------------------------- #
@@ -67,6 +88,8 @@ PUBLISHED = {
     "n_missing": 18.0,
     "h_obs": 250.0,
 }
+
+
 """A trial at h_obs = 250 m: D_optim = 0.87 h_obs, bounded by the auto 2 h_obs."""
 
 
@@ -220,22 +243,12 @@ def _texts(ax) -> str:
     return "\n".join(item.get_text() for item in ax.texts)
 
 
-def _patch(ax, prefix: str):
-    return next(item for item in ax.patches if str(item.get_label()).startswith(prefix))
-
-
 def _has_patch(ax, prefix: str) -> bool:
     return any(str(item.get_label()).startswith(prefix) for item in ax.patches)
 
 
 def _line(ax, prefix: str):
     return next(item for item in ax.lines if str(item.get_label()).startswith(prefix))
-
-
-def _rgba(color: str):
-    from matplotlib.colors import to_rgba
-
-    return to_rgba(color)
 
 
 # --------------------------------------------------------------------------- #
@@ -274,7 +287,7 @@ def test_stage_one_reports_the_value_it_closed_on_and_the_bracket(mpl) -> None:
 
         marker = _line(ax, "K_over_R =")
         assert marker.get_xdata()[0] == pytest.approx(CLOSED_VALUE)
-        bracket = _patch(ax, "bracket")
+        bracket = labelled_patch(ax, "bracket")
         assert bracket.get_x() == pytest.approx(BRACKET[0])
         assert bracket.get_x() + bracket.get_width() == pytest.approx(BRACKET[1])
 
@@ -399,9 +412,9 @@ def test_the_validity_panel_shows_doptim_against_the_trial_validity_length(mpl) 
     try:
         ax = _panel(fig, "Validity")
         assert ax.get_xlabel() == "D_optim = (D_so + D_os) / 2 (m)"
-        bar = _patch(ax, "D_optim")
+        bar = labelled_patch(ax, "D_optim")
         assert bar.get_width() == pytest.approx(217.5)
-        assert bar.get_facecolor() == _rgba(HIGH_CONTRAST_TRIPLET[0])
+        assert bar.get_facecolor() == rgba(HIGH_CONTRAST_TRIPLET[0])
         bound = _line(ax, "bound")
         assert bound.get_xdata()[0] == pytest.approx(500.0)
         note = _texts(ax)
@@ -430,9 +443,9 @@ def test_a_breach_qualifies_the_value_and_never_withholds_it(mpl) -> None:
 
     try:
         validity = _panel(fig, "Validity")
-        bar = _patch(validity, "D_optim")
+        bar = labelled_patch(validity, "D_optim")
         assert bar.get_width() == pytest.approx(2360.0)
-        assert bar.get_facecolor() == _rgba(HIGH_CONTRAST_TRIPLET[2])
+        assert bar.get_facecolor() == rgba(HIGH_CONTRAST_TRIPLET[2])
         note = _texts(validity)
         assert "2360 m > 500 m" in note
         assert "breached" in note
@@ -462,7 +475,7 @@ def test_a_widened_validity_length_is_the_bound_not_two_cells(mpl) -> None:
 
     try:
         validity = _panel(fig, "Validity")
-        assert _patch(validity, "D_optim").get_facecolor() == _rgba(HIGH_CONTRAST_TRIPLET[0])
+        assert labelled_patch(validity, "D_optim").get_facecolor() == rgba(HIGH_CONTRAST_TRIPLET[0])
         assert _line(validity, "bound").get_xdata()[0] == pytest.approx(800.0)
         note = _texts(validity)
         assert "600 m <= 800 m: within the validity bound" in note
@@ -517,9 +530,9 @@ def test_the_three_counts_are_drawn_apart_so_they_cannot_cancel(mpl) -> None:
         colors = {
             str(patch.get_label()).split(":")[0]: patch.get_facecolor() for patch in ax.patches
         }
-        assert colors["valid"] == _rgba(HIGH_CONTRAST_TRIPLET[0])
-        assert colors["excess"] == _rgba(HIGH_CONTRAST_TRIPLET[1])
-        assert colors["missing"] == _rgba(HIGH_CONTRAST_TRIPLET[2])
+        assert colors["valid"] == rgba(HIGH_CONTRAST_TRIPLET[0])
+        assert colors["excess"] == rgba(HIGH_CONTRAST_TRIPLET[1])
+        assert colors["missing"] == rgba(HIGH_CONTRAST_TRIPLET[2])
     finally:
         mpl.close(fig)
 
@@ -649,7 +662,9 @@ def test_the_card_reads_the_json_blocks_the_index_hands_back(mpl) -> None:
         assert _line(_panel(fig, "Stage 1"), "K_over_R =").get_xdata()[0] == pytest.approx(
             CLOSED_VALUE
         )
-        assert _patch(_panel(fig, "Validity"), "D_optim").get_width() == pytest.approx(217.5)
+        assert labelled_patch(_panel(fig, "Validity"), "D_optim").get_width() == pytest.approx(
+            217.5
+        )
     finally:
         mpl.close(fig)
 
@@ -681,11 +696,16 @@ def test_a_run_that_never_calibrated_is_skipped_with_its_reason() -> None:
 # value, their geometric mean weighted 0.5 / 0.5: the trial the search
 # returns, where the run reads Eq. 4 on each bound.
 TWO_VALUES = [1e-5, 1e-4, 1e-3, 3.2e-5, 3.2e-4, 1.0119e-4]
+
+
 TWO_RESIDUALS = {
     "minimal": [200.0, -50.0, -300.0, 30.0, -120.0, -45.0],
     "maximal": [400.0, 150.0, -80.0, 250.0, 20.0, 140.0],
 }
+
+
 COMBINED_TRIAL = 5
+
 
 AT_THE_RETURNED_TRIAL = {
     "minimal": {
@@ -709,7 +729,10 @@ AT_THE_RETURNED_TRIAL = {
         "n_missing": 60.0,
     },
 }
+
+
 """What each bound publishes at the combined trial; every other trial carries 999."""
+
 
 ROOTS = {
     "parameter": "K_over_R",
@@ -736,6 +759,8 @@ ROOTS = {
     "combined_trial_id": COMBINED_TRIAL,
     "closed": True,
 }
+
+
 """The ``extra["roots"]`` record of the report, as ``roots_record`` writes it."""
 
 
@@ -774,10 +799,10 @@ def test_two_bounds_draw_one_bracket_per_bound_from_the_trials(mpl) -> None:
     try:
         ax = _panel(fig, "Stage 1")
         assert "two bounds" in ax.get_title()
-        minimal = _patch(ax, "bracket minimal")
+        minimal = labelled_patch(ax, "bracket minimal")
         assert minimal.get_x() == pytest.approx(3.2e-5)
         assert minimal.get_x() + minimal.get_width() == pytest.approx(1e-4)
-        maximal = _patch(ax, "bracket maximal")
+        maximal = labelled_patch(ax, "bracket maximal")
         assert maximal.get_x() == pytest.approx(3.2e-4)
         assert maximal.get_x() + maximal.get_width() == pytest.approx(1e-3)
         assert _line(ax, "K*_minimal").get_xdata()[0] == pytest.approx(3.2e-5)
@@ -816,9 +841,9 @@ def test_an_unsolved_combined_value_is_said_not_drawn(mpl) -> None:
         assert "combined value not solved" in _texts(ax)
         assert not [line for line in ax.lines if str(line.get_label()).startswith("K_over_R =")]
         # The session's best trial still says where the run read Eq. 4.
-        assert _patch(_panel(fig, "Validity"), "D_optim minimal").get_width() == pytest.approx(
-            217.5
-        )
+        assert labelled_patch(
+            _panel(fig, "Validity"), "D_optim minimal"
+        ).get_width() == pytest.approx(217.5)
     finally:
         mpl.close(fig)
 
@@ -829,12 +854,12 @@ def test_two_bounds_qualify_each_bound_at_the_returned_trial(mpl) -> None:
     try:
         ax = _panel(fig, "Validity")
         assert [tick.get_text() for tick in ax.get_yticklabels()] == ["minimal", "maximal"]
-        minimal = _patch(ax, "D_optim minimal")
-        maximal = _patch(ax, "D_optim maximal")
+        minimal = labelled_patch(ax, "D_optim minimal")
+        maximal = labelled_patch(ax, "D_optim maximal")
         assert minimal.get_width() == pytest.approx(217.5)
         assert maximal.get_width() == pytest.approx(820.0)
-        assert minimal.get_facecolor() == _rgba(HIGH_CONTRAST_TRIPLET[0])
-        assert maximal.get_facecolor() == _rgba(HIGH_CONTRAST_TRIPLET[2])
+        assert minimal.get_facecolor() == rgba(HIGH_CONTRAST_TRIPLET[0])
+        assert maximal.get_facecolor() == rgba(HIGH_CONTRAST_TRIPLET[2])
         assert _line(ax, "bound minimal").get_xdata()[0] == pytest.approx(500.0)
         assert _line(ax, "bound maximal").get_xdata()[0] == pytest.approx(500.0)
         note = _texts(ax)
@@ -881,7 +906,7 @@ def test_the_combined_trial_of_the_report_wins_over_the_session_best(mpl) -> Non
 
     try:
         validity = _panel(fig, "Validity")
-        assert _patch(validity, "D_optim minimal").get_width() == pytest.approx(217.5)
+        assert labelled_patch(validity, "D_optim minimal").get_width() == pytest.approx(217.5)
     finally:
         mpl.close(fig)
 
@@ -913,8 +938,8 @@ def test_a_run_drawn_on_its_own_reads_the_roots_and_the_returned_trial_from_the_
         assert "Delta = log10(K*_maximal / K*_minimal) = 1 decade(s)" in note
         assert "combined K_over_R = 0.0001012, weighted geometric mean 0.5 / 0.5" in note
         validity = _panel(fig, "Validity")
-        assert _patch(validity, "D_optim minimal").get_width() == pytest.approx(217.5)
-        assert _patch(validity, "D_optim maximal").get_width() == pytest.approx(820.0)
+        assert labelled_patch(validity, "D_optim minimal").get_width() == pytest.approx(217.5)
+        assert labelled_patch(validity, "D_optim maximal").get_width() == pytest.approx(820.0)
         counts = _panel(fig, "Cells at the calibrated point")
         assert counts.patches
         assert "the returned trial is not known" not in _texts(counts)
@@ -984,8 +1009,8 @@ def test_a_validation_map_is_drawn_beside_the_scored_map(mpl) -> None:
             CLOSED_VALUE
         )
         ax = _panel(fig, "Validity")
-        assert _patch(ax, "D_optim minimal").get_width() == pytest.approx(217.5)
-        assert _patch(ax, "D_optim maximal").get_width() == pytest.approx(640.0)
+        assert labelled_patch(ax, "D_optim minimal").get_width() == pytest.approx(217.5)
+        assert labelled_patch(ax, "D_optim maximal").get_width() == pytest.approx(640.0)
         note = _texts(ax)
         assert "minimal (in the cost): D_optim = 217.5 m <= 500 m, Eq. 4 holds" in note
         assert (
@@ -1011,8 +1036,8 @@ def test_a_permanent_validation_is_drawn_beside_the_complete_map_in_the_cost(mpl
 
     try:
         ax = _panel(fig, "Validity")
-        assert _patch(ax, "D_optim maximal").get_width() == pytest.approx(217.5)
-        assert _patch(ax, "D_optim minimal").get_width() == pytest.approx(640.0)
+        assert labelled_patch(ax, "D_optim maximal").get_width() == pytest.approx(217.5)
+        assert labelled_patch(ax, "D_optim minimal").get_width() == pytest.approx(640.0)
         note = _texts(ax)
         assert "maximal (in the cost): D_optim = 217.5 m <= 500 m, Eq. 4 holds" in note
         assert (
@@ -1077,3 +1102,167 @@ def test_h_obs_is_read_under_the_key_the_run_verdict_reads() -> None:
     }
 
     assert _eq4_verdict(OUTPUT, found, suffix="_minimal")["h_obs"] == 250.0
+
+
+# The card of a promoted run draws every phase of the session it comes from.
+#
+# A promoted run names its session, phase and trial in its seal. The session
+# journals the trials of every phase in ``sessions/<case>/trials.jsonl``. The
+# run promoted from the second phase of a protocol used to draw "Stage 1 -
+# transient_storage / Stage 2 - not run" and three empty panels. It reads the
+# first phase from the same journal and draws stage 1 with its bracket and
+# validity. The run promoted from the first phase, drawn before the second one
+# starts, names the second phase as the one that comes next.
+
+SESSION = uuid.uuid4().hex
+
+
+CASE = "nancon"
+
+
+STEADY, STORAGE = "steady_conductivity", "transient_storage"
+
+
+STARTED = datetime(2026, 9, 28, tzinfo=UTC)
+
+
+# The session config freezes both phases, each with the metric it scores on,
+# and the units of every parameter it moves.
+SESSION_CONFIG = """\
+[calibration.parameters.K_over_R]
+units = "m/s"
+
+[calibration.parameters.specific_yield]
+units = "-"
+
+[[calibration.phases]]
+name = "steady_conductivity"
+objective_blocks = [{ name = "steady_conductivity", metric = "distance_gap" }]
+
+[[calibration.phases]]
+name = "transient_storage"
+objective_blocks = [{ name = "transient_storage", metric = "nse_log" }]
+"""
+
+
+SEARCH = {"phases": [{"name": STEADY}, {"name": STORAGE}]}
+
+
+def _phase(project: Path, name: str, index: int) -> None:
+    write_phase(
+        project / "sessions" / CASE,
+        PhaseDescriptor(
+            phase_id=f"{SESSION[:8]}-{index}",
+            name=name,
+            index=index,
+            status="completed",
+            frozen={},
+            restarts=0,
+        ),
+    )
+
+
+def _trials(project: Path, phase: str, rows: list[dict], *, first: int) -> list[int]:
+    """Journal *rows* as trials of *phase*, numbered from *first*; return the numbers."""
+    numbers = []
+    for offset, row in enumerate(rows):
+        number = first + offset
+        append_trial(
+            project / "sessions" / CASE,
+            trial_line(
+                number,
+                cost=row["cost"],
+                case=CASE,
+                phase=phase,
+                status="completed" if row["status"] == "completed" else "crashed",
+                params={name: entry["value"] for name, entry in row["parameters"].items()},
+                components=row["components"],
+                started_at=STARTED,
+                ended_at=STARTED,
+            ),
+        )
+        numbers.append(number)
+    return numbers
+
+
+def _promoted_run(project: Path, name: str, *, phase: str, trial: int) -> str:
+    """Seal the run promoted from *trial* of *phase*, with the search it came out of."""
+    sim_id = seal_run(
+        project,
+        name,
+        project="p",
+        calibrated_by=CalibratedBy(
+            session_id=SESSION, phase=phase, trial=trial, session_status="completed"
+        ),
+    )
+    shutil.copy(
+        sealed_search(SEARCH) / RUN_RESOLVED_CONFIG_FILENAME,
+        project / "runs" / name / RUN_RESOLVED_CONFIG_FILENAME,
+    )
+    return sim_id
+
+
+def _open(project: Path, sim_id: str) -> tuple[Catalog, Run]:
+    rebuild_index(project)
+    catalog = Catalog(project)
+    return catalog, Run(sim_id, catalog)
+
+
+@pytest.fixture
+def chain(tmp_path: Path) -> tuple[Path, str]:
+    """A session whose first phase promoted a run; the second phase not yet run."""
+    project = make_project(tmp_path / "p")
+    write_session_dir(project, CASE, session_id=SESSION, trials=0, phases=(), status="completed")
+    (project / "sessions" / CASE / SESSION_CONFIG_FILENAME).write_text(
+        SESSION_CONFIG, encoding="utf-8"
+    )
+    _phase(project, STEADY, 0)
+    numbers = _trials(project, STEADY, _root_rows(session_id=None), first=1)
+    # The closed end of the bracket is the fourth trial, the promoted one.
+    steady_run = _promoted_run(
+        project, "nancon_steady_conductivity", phase=STEADY, trial=numbers[3]
+    )
+    return project, steady_run
+
+
+def test_the_run_of_the_second_phase_draws_the_first_one(chain, mpl) -> None:
+    project, _ = chain
+    _phase(project, STORAGE, 1)
+    numbers = _trials(project, STORAGE, _storage_rows(session_id=SESSION), first=5)
+    storage_run = _promoted_run(
+        project, "nancon_transient_storage", phase=STORAGE, trial=numbers[1]
+    )
+    catalog, run = _open(project, storage_run)
+
+    fig = MatchingHydrographicNetworkCard().plot(run)
+
+    try:
+        stage_one = _panel(fig, "Stage 1")
+        assert stage_one.get_title() == "Stage 1 - steady_conductivity"
+        assert stage_one.get_xlabel() == "K_over_R (m/s)"
+        assert "closed on K_over_R = 3.2e-05" in _texts(stage_one)
+        stage_two = _panel(fig, "Stage 2")
+        assert stage_two.get_title() == "Stage 2 - transient_storage"
+        assert stage_two.get_ylabel() == "cost, nse_log (-)"
+        validity = _panel(fig, "Validity of the agreement")
+        assert validity.patches, "the validity of stage 1 is drawn, not left empty"
+    finally:
+        mpl.close(fig)
+        catalog.close()
+
+
+def test_the_run_of_the_first_phase_says_the_second_comes_next(chain, mpl) -> None:
+    project, steady_run = chain
+    catalog, run = _open(project, steady_run)
+
+    fig = MatchingHydrographicNetworkCard().plot(run)
+
+    try:
+        assert _panel(fig, "Stage 1").get_title() == "Stage 1 - steady_conductivity"
+        stage_two = _panel(fig, "Stage 2")
+        assert stage_two.get_title() == "Stage 2 - transient_storage"
+        assert "comes next" in _texts(stage_two)
+        assert "not run" not in _texts(stage_two)
+    finally:
+        mpl.close(fig)
+        catalog.close()

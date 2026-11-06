@@ -1741,46 +1741,46 @@ def test_an_unstated_precision_leaves_the_engine_its_own_default(tmp_path: Path)
     assert [phase.precision for phase in cfg.phases] == [None, None]
 
 
-def test_a_precision_an_engine_cannot_stop_on_is_refused_before_the_first_solve(
-    tmp_path: Path,
+@pytest.mark.parametrize(
+    ("doc", "said"),
+    [
+        (
+            """
+            @GRID
+            [[calibration.phases]]
+            name = "sweep_k"
+            method = "grid"
+            parameters = ["K"]
+            precision = 0.01
+            variable = "discharge"
+            objective = "nse"
+            """,
+            "stops on its evaluation budget",
+        ),
+        (
+            """
+            @GRID
+            [[calibration.phases]]
+            name = "steady_k"
+            method = "scipy_nelder_mead"
+            parameters = ["K"]
+            precision = 0.01
+            variable = "discharge"
+            objective = "nse"
+            [calibration.phases.method_options]
+            xatol = 0.3
+            """,
+            "both set the stopping rule",
+        ),
+    ],
+    ids=["an_engine_cannot_stop_on_it", "said_twice"],
+)
+def test_a_precision_that_cannot_be_kept_is_refused_before_the_first_solve(
+    tmp_path: Path, doc: str, said: str
 ) -> None:
-    cfg, _raw = _loaded(
-        tmp_path,
-        """
-        @GRID
-        [[calibration.phases]]
-        name = "sweep_k"
-        method = "grid"
-        parameters = ["K"]
-        precision = 0.01
-        variable = "discharge"
-        objective = "nse"
-        """,
-        network=False,
-    )
+    cfg, _raw = _loaded(tmp_path, doc, network=False)
     findings = _findings_for(cfg, tmp_path)
-    assert any("stops on its evaluation budget" in finding.detail for finding in findings)
-
-
-def test_saying_the_precision_twice_is_refused_before_the_first_solve(tmp_path: Path) -> None:
-    cfg, _raw = _loaded(
-        tmp_path,
-        """
-        @GRID
-        [[calibration.phases]]
-        name = "steady_k"
-        method = "scipy_nelder_mead"
-        parameters = ["K"]
-        precision = 0.01
-        variable = "discharge"
-        objective = "nse"
-        [calibration.phases.method_options]
-        xatol = 0.3
-        """,
-        network=False,
-    )
-    findings = _findings_for(cfg, tmp_path)
-    assert any("both set the stopping rule" in finding.detail for finding in findings)
+    assert any(said in finding.detail for finding in findings)
 
 
 def _findings_for(calibration, tmp_path: Path):
@@ -2245,29 +2245,6 @@ def test_bounds_are_faced_with_the_physics_and_the_log_space(name, decl, bounds,
     assert (found[0].detail if found else None) is None if said is None else said in found[0].detail
 
 
-def test_two_blocks_of_one_name_are_refused(tmp_path: Path) -> None:
-    doc = """
-    @GRID4
-    @KLOG
-    [calibration.outputs.o]
-    variable = "head"
-    support = "point"
-    x = 100.0
-    y = 0.0
-    [[calibration.objective_blocks]]
-    name = "b"
-    metric = "rmse"
-    uses_outputs = ["o"]
-    normalize_cost = true
-    [[calibration.objective_blocks]]
-    name = "b"
-    metric = "nse"
-    uses_outputs = ["o"]
-    """
-
-    assert "two blocks share this name." in messages(preflight_of(tmp_path, doc))
-
-
 def test_a_regime_read_from_a_file_that_cannot_be_read_is_refused_by_name(tmp_path: Path) -> None:
     phase = SimpleNamespace(name="k", regime="steady")
     calibration = SimpleNamespace(phases=[phase])
@@ -2304,10 +2281,41 @@ def test_only_the_criteria_that_close_on_a_residual_are_offered_to_a_root_search
     assert not preflight._publishes_a_signed_residual("distance_mean")
 
 
-def test_restarts_of_a_search_they_cannot_move_are_refused(tmp_path: Path) -> None:
-    doc = '@GRID4\n@KLOG\n[calibration.uncertainty]\nmethod = "multistart"\nrestarts = 3'
-
-    assert "returns the same answer every time" in messages(preflight_of(tmp_path, doc))
+@pytest.mark.parametrize(
+    ("doc", "said"),
+    [
+        (
+            """
+    @GRID4
+    @KLOG
+    [calibration.outputs.o]
+    variable = "head"
+    support = "point"
+    x = 100.0
+    y = 0.0
+    [[calibration.objective_blocks]]
+    name = "b"
+    metric = "rmse"
+    uses_outputs = ["o"]
+    normalize_cost = true
+    [[calibration.objective_blocks]]
+    name = "b"
+    metric = "nse"
+    uses_outputs = ["o"]
+    """,
+            "two blocks share this name.",
+        ),
+        (
+            '@GRID4\n@KLOG\n[calibration.uncertainty]\nmethod = "multistart"\nrestarts = 3',
+            "returns the same answer every time",
+        ),
+    ],
+    ids=["two_blocks_of_one_name", "restarts_of_a_search_they_cannot_move"],
+)
+def test_a_declaration_that_cannot_run_as_written_is_refused(
+    tmp_path: Path, doc: str, said: str
+) -> None:
+    assert said in messages(preflight_of(tmp_path, doc))
 
 
 _UNOBSERVED = TestALinearizedWidthOnAPhaseThatNamesNeitherOutputsNorBlocks._DOC.replace(

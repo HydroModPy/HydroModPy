@@ -15,19 +15,7 @@ import pytest
 from hydromodpy.calibration.report import CalibrationReport
 from hydromodpy.core.state.layout import catalog_path_for
 
-
-def _load_main():
-    return importlib.import_module("hydromodpy.cli.main")
-
-
-def _run(monkeypatch, argv: list[str]) -> int:
-    module = _load_main()
-    monkeypatch.setattr(sys, "argv", argv)
-    try:
-        module.main()
-    except SystemExit as exc:
-        return int(exc.code or 0)
-    return 0
+from ._hmp import run_main as _run
 
 
 def test_calibrate_missing_file_returns_not_found(monkeypatch) -> None:

@@ -30,6 +30,8 @@ from hydromodpy.display.figures.boundary_package_map import (
     BoundaryPackageMap,
 )
 
+from ._render_helpers import lightness
+
 N_CELLS = 4
 
 
@@ -235,13 +237,6 @@ def _labels(ax) -> list[str]:
 
 def _notes(ax) -> str:
     return "\n".join(text.get_text() for text in ax.texts)
-
-
-def _lightness(rgb) -> float:
-    """Return the CIE L* of one RGB triple, which is what grayscale keeps."""
-    channels = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in rgb[:3]]
-    y = 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
-    return 116.0 * y ** (1 / 3) - 16.0 if y > 0.008856 else 903.3 * y
 
 
 def test_each_package_paints_the_cells_its_flux_reaches() -> None:
@@ -466,7 +461,7 @@ def test_every_class_is_separable_in_greyscale() -> None:
 
     colors = [color for _, color in BOUNDARY_PACKAGES.values()]
     colors += [SEVERAL_COLOR, GROUND_COLOR]
-    levels = sorted(_lightness(to_rgb(color)) for color in colors)
+    levels = sorted(lightness(to_rgb(color)) for color in colors)
     gaps = np.diff(levels)
     assert gaps.min() >= 8.0, dict(zip(colors, levels, strict=False))
 
@@ -476,7 +471,7 @@ def test_the_packages_climb_in_lightness_in_the_order_declared() -> None:
     pytest.importorskip("matplotlib")
     from matplotlib.colors import to_rgb
 
-    levels = [_lightness(to_rgb(color)) for _, color in BOUNDARY_PACKAGES.values()]
+    levels = [lightness(to_rgb(color)) for _, color in BOUNDARY_PACKAGES.values()]
     assert levels == sorted(levels)
 
 

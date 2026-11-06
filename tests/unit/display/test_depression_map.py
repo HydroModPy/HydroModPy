@@ -222,18 +222,6 @@ def drawn_cells(collection) -> list[int]:
     return sorted(cells)
 
 
-@pytest.fixture
-def mpl():
-    pytest.importorskip("matplotlib")
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
-    yield plt
-    plt.close("all")
-
-
 def _labelled(ax, label: str):
     """The one collection drawn under ``label``, or None when it is empty."""
     return next((item for item in ax.collections if str(item.get_label()) == label), None)

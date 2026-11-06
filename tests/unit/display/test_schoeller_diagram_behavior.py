@@ -18,18 +18,6 @@ from ._hydrochem_meq import mg_to_meq
 _IONS = ("Ca", "Mg", "Na", "K", "Cl", "SO4", "HCO3")
 
 
-@pytest.fixture
-def mpl():
-    pytest.importorskip("matplotlib")
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
-    yield plt
-    plt.close("all")
-
-
 def _frame(*samples_meq: dict[str, float]) -> pd.DataFrame:
     return pd.DataFrame([{ion: s.get(ion, 0.0) for ion in _IONS} for s in samples_meq])
 

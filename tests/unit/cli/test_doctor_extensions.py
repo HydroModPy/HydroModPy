@@ -11,20 +11,7 @@ import pytest
 
 from tests._helpers.sealed_runs import make_project, seal_run, write_attempt
 
-
-def _load_main():
-    return importlib.import_module("hydromodpy.cli.main")
-
-
-def _run(monkeypatch, argv: list[str]) -> int:
-    """Run ``hmp`` and tolerate handlers that do not call sys.exit explicitly."""
-    module = _load_main()
-    monkeypatch.setattr(sys, "argv", argv)
-    try:
-        module.main()
-    except SystemExit as exc:
-        return int(exc.code or 0)
-    return 0
+from ._hmp import run_main as _run
 
 
 @pytest.fixture

@@ -37,18 +37,6 @@ from ._network_comparison_run import (
 from ._render_helpers import relative_luminance
 
 
-@pytest.fixture
-def mpl():
-    pytest.importorskip("matplotlib")
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
-    yield plt
-    plt.close("all")
-
-
 def _flank_run(**kwargs):
     """A run whose stream climbs two cells up the northern east flank.
 
