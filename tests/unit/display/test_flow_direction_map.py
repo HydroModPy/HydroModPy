@@ -21,6 +21,7 @@ from hydromodpy.display.figures.flow_direction_map import (
     FlowDirectionMap,
     octant_colors,
 )
+from hydromodpy.display.style import relative_luminance
 
 from ._network_comparison_run import (
     AXIS_COLUMN,
@@ -33,7 +34,6 @@ from ._network_comparison_run import (
     stored_descent,
     valley_topography,
 )
-from ._render_helpers import relative_luminance
 
 SOUTH_WEST_STEP_M = 10.0
 """Drop per column and per row of the tilted plane, so a diagonal is steepest."""

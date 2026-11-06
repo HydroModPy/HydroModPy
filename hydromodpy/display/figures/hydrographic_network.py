@@ -5,10 +5,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from hydromodpy.core.io.crs import measure_linework_length_m, project_gdf_for_metric_operations
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
-from hydromodpy.display.maps.axes import overlay_watershed_contour, style_relative_km_axes
-from hydromodpy.display.maps.geo import GeoFigureMixin, project_gdf_for_metric_operations
+from hydromodpy.display.maps.axes import (
+    overlay_watershed_contour,
+    style_relative_km_axes,
+    watershed_of,
+)
+from hydromodpy.display.maps.geo import north_arrow, scale_bar
+from hydromodpy.display.maps.mesh_geometry import face_polygons
 from hydromodpy.display.maps.overlays import network_map_of_role, plot_network_map
 
 if TYPE_CHECKING:
@@ -17,7 +23,7 @@ if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
 
-class _HydrographicNetworkRoleFigure(GeoFigureMixin, BaseFigure):
+class _HydrographicNetworkRoleFigure(BaseFigure):
     """Render one persisted hydrographic network for a fixed canonical role."""
 
     role: str
@@ -44,7 +50,7 @@ class _HydrographicNetworkRoleFigure(GeoFigureMixin, BaseFigure):
                 f"no '{self.role}' network for sim {sim.sim_id}"
             )
 
-        watershed = _read_watershed(sim)
+        watershed = watershed_of(sim)
         fallback_crs = None if watershed is None else watershed.crs
         gdf = project_gdf_for_metric_operations(raw_gdf, fallback_crs=fallback_crs)
         if watershed is not None and gdf.crs is not None and watershed.crs is not None:
@@ -56,8 +62,8 @@ class _HydrographicNetworkRoleFigure(GeoFigureMixin, BaseFigure):
         _outline_watershed(ax, sim, watershed, gdf)
         _frame_on(ax, gdf)
         style_relative_km_axes(ax)
-        self.add_scale_bar(ax)
-        self.add_north_arrow(ax)
+        scale_bar(ax)
+        north_arrow(ax)
         ax.set_title(self.title)
         ax.text(
             0.02,
@@ -111,7 +117,7 @@ _PERMANENCE_COLUMN = "permanence"
 
 
 @register
-class HydrographicNetworkPermanenceFigure(GeoFigureMixin, BaseFigure):
+class HydrographicNetworkPermanenceFigure(BaseFigure):
     """Draw the mapped network split by permanence: the minimal and the maximal map.
 
     The maximal map is the ``reference`` role, every mapped reach. The minimal
@@ -152,7 +158,7 @@ class HydrographicNetworkPermanenceFigure(GeoFigureMixin, BaseFigure):
                     f"no '{network.role}' network for sim {sim.sim_id}"
                 )
 
-        watershed = _read_watershed(sim)
+        watershed = watershed_of(sim)
         fallback_crs = None if watershed is None else watershed.crs
         max_gdf = project_gdf_for_metric_operations(maximal.frame, fallback_crs=fallback_crs)
         min_gdf = project_gdf_for_metric_operations(minimal.frame, fallback_crs=fallback_crs)
@@ -175,8 +181,8 @@ class HydrographicNetworkPermanenceFigure(GeoFigureMixin, BaseFigure):
         _outline_watershed(ax, sim, watershed, max_gdf)
         _frame_on(ax, max_gdf)
         style_relative_km_axes(ax)
-        self.add_scale_bar(ax)
-        self.add_north_arrow(ax)
+        scale_bar(ax)
+        north_arrow(ax)
         ax.set_title(self.spec.title)
 
         size_min = _map_size(min_gdf)
@@ -228,12 +234,12 @@ class _MapSize:
         """Return the size as a legend reads it."""
         if self.length_m is None:
             return f"{self.count} cells"
-        return f"{_fmt_km(self.length_m)}, {self.count} reaches"
+        return f"{fmt_km(self.length_m)}, {self.count} reaches"
 
 
 def _map_size(gdf) -> _MapSize:
     """Measure a map in km and reaches."""
-    return _MapSize(count=int(len(gdf.index)), length_m=_measure_linework_length_m(gdf))
+    return _MapSize(count=int(len(gdf.index)), length_m=measure_linework_length_m(gdf))
 
 
 def _permanence_note_lines(gdf, size: _MapSize) -> list[str]:
@@ -242,8 +248,8 @@ def _permanence_note_lines(gdf, size: _MapSize) -> list[str]:
     if _PERMANENCE_COLUMN not in gdf.columns:
         return lines
     for value, group in gdf.groupby(_PERMANENCE_COLUMN, sort=True):
-        length_m = _measure_linework_length_m(group)
-        lines.append(f"  {value}: {_fmt_km(length_m)}, {int(len(group.index))} reaches")
+        length_m = measure_linework_length_m(group)
+        lines.append(f"  {value}: {fmt_km(length_m)}, {int(len(group.index))} reaches")
     return lines
 
 
@@ -264,7 +270,7 @@ def _outline_watershed(ax: Axes, sim: Run, watershed, gdf) -> None:
 
 def _frame_on(ax: Axes, gdf) -> None:
     """Fit the axes to a network, with a margin of four per cent."""
-    bounds = _total_bounds(gdf)
+    bounds = total_bounds(gdf)
     if bounds is None:
         return
     xmin, ymin, xmax, ymax = bounds
@@ -279,29 +285,29 @@ def _note_lines(subtitle: str, gdf) -> list[str]:
     return [
         subtitle,
         f"segments: {int(len(gdf.index))}",
-        f"length: {_fmt_km(_measure_linework_length_m(gdf))}",
+        f"length: {fmt_km(measure_linework_length_m(gdf))}",
     ]
 
 
-def _total_bounds(gdf) -> tuple[float, float, float, float] | None:
+def total_bounds(*gdfs) -> tuple[float, float, float, float] | None:
+    """Return ``(xmin, ymin, xmax, ymax)`` over the finite bounds of the frames, or None."""
     import numpy as np
 
-    if gdf is None or gdf.empty:
+    bounds: list[tuple[float, float, float, float]] = []
+    for gdf in gdfs:
+        if gdf is None or gdf.empty:
+            continue
+        minx, miny, maxx, maxy = [float(v) for v in gdf.total_bounds]
+        if np.isfinite([minx, miny, maxx, maxy]).all():
+            bounds.append((minx, miny, maxx, maxy))
+    if not bounds:
         return None
-    minx, miny, maxx, maxy = [float(v) for v in gdf.total_bounds]
-    if not np.isfinite([minx, miny, maxx, maxy]).all():
-        return None
-    return (minx, miny, maxx, maxy)
-
-
-def _read_watershed(sim: Run):
-    try:
-        gdf = sim.geographic("watershed")
-    except Exception:
-        return None
-    if gdf is None or gdf.empty:
-        return None
-    return gdf
+    return (
+        min(item[0] for item in bounds),
+        min(item[1] for item in bounds),
+        max(item[2] for item in bounds),
+        max(item[3] for item in bounds),
+    )
 
 
 def plot_topography_background(ax, sim: Run, *, alpha: float = 0.82) -> None:
@@ -314,19 +320,13 @@ def plot_topography_background(ax, sim: Run, *, alpha: float = 0.82) -> None:
     from matplotlib.collections import PolyCollection
 
     try:
-        mesh = sim.mesh
-        topography = mesh.topography
-        vertices = np.asarray(mesh.vertices)
-        face_node_connectivity = np.asarray(mesh.face_node_connectivity)
+        topography = sim.mesh.topography
+        polygons = face_polygons(sim)
     except Exception:
         return
     if topography is None:
         return
 
-    polygons = []
-    for row in face_node_connectivity:
-        nodes = row[row >= 0] if row.dtype.kind in "iu" else row[~np.isnan(row)]
-        polygons.append(vertices[nodes.astype(int)][:, :2])
     flat = np.asarray(topography, dtype=float).ravel()
     if flat.size != len(polygons):
         return
@@ -342,16 +342,8 @@ def plot_topography_background(ax, sim: Run, *, alpha: float = 0.82) -> None:
     ax.autoscale_view()
 
 
-def _measure_linework_length_m(gdf) -> float:
-    import numpy as np
-
-    if gdf is None or gdf.empty:
-        return 0.0
-    metric_gdf = project_gdf_for_metric_operations(gdf)
-    return float(np.sum(np.asarray(metric_gdf.length, dtype=float)))
-
-
-def _fmt_km(length_m: float | None) -> str:
+def fmt_km(length_m: float | None) -> str:
+    """Return a length in meters written in kilometers, "-" without one."""
     if length_m is None:
         return "-"
     return f"{length_m / 1000.0:.2f} km"

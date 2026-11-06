@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.display.catchment_report.artifacts import (
+    DEFAULT_ARTIFACT_SPECS,
     ReportArtifactSpec,
     artifact_paths,
     copy_real_figures,
@@ -16,30 +17,53 @@ from hydromodpy.display.catchment_report.artifacts import (
     geology_legend_rows,
     write_manifest,
 )
-from hydromodpy.display.catchment_report.block_specs import (
-    ReportBlockSpec,
-    optional_figure_ids,
-)
 from hydromodpy.display.catchment_report.blocks import (
+    DEFAULT_BLOCK_SPECS,
     PAGE_MODES,
     REPORT_LEVELS,
+    ReportBlockSpec,
     assert_monotonic_blocks,
     block_variants_by_id,
     build_blocks,
     mapping,
+    optional_figure_ids,
 )
 from hydromodpy.display.catchment_report.inputs import CatchmentReportInputs
-from hydromodpy.display.catchment_report.presets import (
-    GENERIC_REPORT_PRESET,
-    CatchmentReportPreset,
-    preset_from_name,
-)
 from hydromodpy.display.overview.location import REVIEW_DIRNAME
 from hydromodpy.display.report_blocks import (
     write_report_page,
     write_report_page_with_block_variants,
 )
 from hydromodpy.results.storage.contract import REPORT_INDEX_FILENAME, RUN_FIGURES_DIRNAME
+
+
+@dataclass(frozen=True)
+class CatchmentReportPreset:
+    name: str
+    artifact_specs: tuple[ReportArtifactSpec, ...]
+    block_specs: tuple[ReportBlockSpec, ...]
+    description: str = ""
+
+
+GENERIC_REPORT_PRESET = CatchmentReportPreset(
+    name="generic_catchment_report",
+    artifact_specs=DEFAULT_ARTIFACT_SPECS,
+    block_specs=DEFAULT_BLOCK_SPECS,
+    description="Generic catchment report preset using local artifacts only.",
+)
+
+PRESETS_BY_NAME = {
+    GENERIC_REPORT_PRESET.name: GENERIC_REPORT_PRESET,
+    "generic": GENERIC_REPORT_PRESET,
+}
+
+
+def preset_from_name(name: str) -> CatchmentReportPreset:
+    try:
+        return PRESETS_BY_NAME[name]
+    except KeyError as exc:
+        choices = ", ".join(sorted(PRESETS_BY_NAME))
+        raise ValueError(f"Unknown catchment report preset {name!r}. Choices: {choices}.") from exc
 
 
 @dataclass(frozen=True)

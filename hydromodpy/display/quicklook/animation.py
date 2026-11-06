@@ -52,11 +52,8 @@ def build_mp4(
     """Assemble PNG frames into an MP4 (requires imageio/ffmpeg)."""
     if not frame_paths:
         return None
-    try:
-        import imageio.v2 as imageio
-    except ModuleNotFoundError:
-        logger.warning("Skipping MP4: optional dependency 'imageio' not installed.")
-        return None
+    import imageio.v2 as imageio
+
     try:
         with imageio.get_writer(
             mp4_path,
@@ -82,11 +79,7 @@ def build_plotly_slider(
     """Build an HTML image-slider (requires plotly)."""
     if not frame_paths:
         return None
-    try:
-        import plotly.graph_objects as go
-    except ModuleNotFoundError:
-        logger.warning("Skipping HTML slider: optional dependency 'plotly' not installed.")
-        return None
+    import plotly.graph_objects as go
 
     def _b64(path: Path) -> str:
         return "data:image/png;base64," + base64.b64encode(path.read_bytes()).decode("utf-8")

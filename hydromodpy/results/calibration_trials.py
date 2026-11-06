@@ -22,7 +22,7 @@ from hydromodpy.results.run.view import Run, project_root_of
 from hydromodpy.results.session.descriptor import BestTrial, find_session_dir
 from hydromodpy.results.session.view import Session
 
-__all__ = ("calibration_sessions", "calibration_trials", "session_dir_of")
+__all__ = ("calibration_sessions", "calibration_trials", "run_feeds_table", "session_dir_of")
 
 
 def _rows_carried_by(source: Any) -> pd.DataFrame | None:
@@ -67,6 +67,17 @@ def session_dir_of(source: Any, *, session_id: str | None = None) -> Path | None
     if wanted is None:
         return None
     return find_session_dir(project_root, str(wanted))
+
+
+def run_feeds_table(run: Any, name: str) -> bool:
+    """Say whether ``run`` can feed the table ``name`` a consumer requires.
+
+    ``calibration_iterations`` is not a table of the run: it is the journal of the
+    session the run was promoted from, so the run has it when it names that session.
+    """
+    if name == "calibration_iterations":
+        return session_dir_of(run) is not None or run.has_table(name)
+    return run.has_table(name)
 
 
 def calibration_trials(

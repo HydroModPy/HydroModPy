@@ -13,6 +13,7 @@ import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
+from hydromodpy.display.figures._hydrochem import hydrochem_frame, missing_samples_reason
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -21,23 +22,6 @@ if TYPE_CHECKING:
 
 
 _MAJORS = ("Ca", "Mg", "Na", "K", "Cl", "SO4", "HCO3")
-
-
-def _to_dataframe(source: Any):
-    """Return a pandas DataFrame of hydrochem samples from any supported input."""
-    import pandas as pd
-
-    if isinstance(source, pd.DataFrame):
-        return source
-    # Run: try a timeseries hook; fall back to None.
-    if hasattr(source, "timeseries"):
-        try:
-            return source.timeseries("hydrochemistry")
-        except Exception as exc:
-            raise ValueError(
-                "piper_diagram: no hydrochemistry data available on this simulation"
-            ) from exc
-    raise TypeError(f"piper_diagram: cannot read hydrochem data from {type(source)!r}")
 
 
 @register
@@ -57,16 +41,7 @@ class PiperDiagramFigure(BaseFigure):
         A DataFrame given directly is its own samples. A run is asked for its
         ``hydrochemistry`` series, read here and not drawn.
         """
-        reason = super().unavailable_reason(sim)
-        if reason is not None:
-            return reason
-        try:
-            samples = _to_dataframe(sim)
-        except (TypeError, ValueError):
-            return "run holds no hydrochemistry series"
-        if len(samples) == 0:
-            return "run holds no hydrochemistry sample"
-        return None
+        return super().unavailable_reason(sim) or missing_samples_reason(sim, "piper_diagram")
 
     def render(
         self,
@@ -74,7 +49,7 @@ class PiperDiagramFigure(BaseFigure):
         ax: Axes,
         **_,
     ) -> Axes:
-        df = _to_dataframe(sim)
+        df = hydrochem_frame(sim, "piper_diagram")
         missing = [c for c in _MAJORS if c not in df.columns]
         if missing:
             raise KeyError(f"piper_diagram: missing columns {missing}")

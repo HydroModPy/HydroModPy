@@ -12,7 +12,7 @@ from hydromodpy.display.figures.sfr_reach_timeseries import (
     sfr_reach_stations,
 )
 from hydromodpy.display.maps.axes import overlay_watershed_contour, style_relative_km_axes
-from hydromodpy.display.maps.geo import GeoFigureMixin
+from hydromodpy.display.maps.geo import north_arrow, scale_bar
 from hydromodpy.display.style import neutral
 
 if TYPE_CHECKING:
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 
 @register
-class SfrReachNetwork(GeoFigureMixin, BaseFigure):
+class SfrReachNetwork(BaseFigure):
     """The delineated stream network that the SFR reaches discretize.
 
     Draws the persisted ``generated`` hydrographic network (the exact linework
@@ -83,8 +83,8 @@ class SfrReachNetwork(GeoFigureMixin, BaseFigure):
             target_crs=None if gdf.crs is None else str(gdf.crs),
         )
         style_relative_km_axes(ax)
-        self.add_scale_bar(ax)
-        self.add_north_arrow(ax)
+        scale_bar(ax)
+        north_arrow(ax)
         ax.set_title(f"SFR reach network{run_suffix(sim)}")
         ax.text(
             0.02,

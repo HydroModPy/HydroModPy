@@ -1,4 +1,10 @@
-"""Static HTML renderer for reusable report blocks."""
+"""Report blocks and the static HTML page that shows them.
+
+A report is a list of :class:`ReportBlock`, each with its metrics, figures,
+tables and links. The page renderer knows nothing of hydrology: the overview,
+the catchment report and the calibration session report build their blocks
+and hand them here.
+"""
 
 from __future__ import annotations
 
@@ -6,15 +12,113 @@ import base64
 import html
 import os
 from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
-from hydromodpy.display.report_blocks.model import (
-    ReportBlock,
-    ReportFigure,
-    ReportLink,
-    ReportTable,
-)
+__all__ = [
+    "DetailLevel",
+    "ReportBlock",
+    "ReportFigure",
+    "ReportLink",
+    "ReportMetric",
+    "ReportTable",
+    "key_value_table",
+    "render_report_page",
+    "render_report_page_with_block_variants",
+    "write_report_page",
+    "write_report_page_with_block_variants",
+]
+DetailLevel = Literal["compact", "standard", "audit"]
+BlockStatus = Literal["available", "partial", "empty", "not_applicable"]
+
+
+@dataclass(frozen=True)
+class ReportMetric:
+    """One labeled value displayed in a report block."""
+
+    label: str
+    value: Any
+    unit: str = ""
+    note: str = ""
+
+
+@dataclass(frozen=True)
+class ReportFigure:
+    """One figure expected by a report block."""
+
+    figure_id: str
+    title: str
+    path: Path | None
+    caption: str = ""
+    required: bool = True
+    embed: bool = False
+
+    @property
+    def available(self) -> bool:
+        """Return whether the figure path exists on disk."""
+        return self.path is not None and self.path.exists()
+
+
+@dataclass(frozen=True)
+class ReportTable:
+    """One flat table displayed in a report block."""
+
+    table_id: str
+    title: str
+    columns: tuple[tuple[str, str], ...]
+    rows: tuple[Mapping[str, Any], ...] = field(default_factory=tuple)
+    empty_message: str = "No rows."
+
+
+@dataclass(frozen=True)
+class ReportLink:
+    """One local or external artifact link displayed in a report block."""
+
+    label: str
+    path: Path | str
+    kind: str = ""
+    note: str = ""
+
+
+@dataclass(frozen=True)
+class ReportBlock:
+    """Reusable report block with metrics, figures and tables."""
+
+    block_id: str
+    title: str
+    level: DetailLevel = "standard"
+    status: BlockStatus = "available"
+    lead: str = ""
+    metrics: tuple[ReportMetric, ...] = field(default_factory=tuple)
+    figures: tuple[ReportFigure, ...] = field(default_factory=tuple)
+    tables: tuple[ReportTable, ...] = field(default_factory=tuple)
+    links: tuple[ReportLink, ...] = field(default_factory=tuple)
+    warnings: tuple[str, ...] = field(default_factory=tuple)
+
+    @property
+    def is_applicable(self) -> bool:
+        """Return whether the block applies to the current workflow."""
+        return self.status != "not_applicable"
+
+
+def key_value_table(
+    table_id: str,
+    title: str,
+    items: Iterable[tuple[str, Any]],
+    *,
+    empty_message: str = "No rows.",
+) -> ReportTable:
+    """Build a standard two-column key/value table."""
+
+    rows = tuple({"label": label, "value": value} for label, value in items)
+    return ReportTable(
+        table_id=table_id,
+        title=title,
+        columns=(("label", "Item"), ("value", "Value")),
+        rows=rows,
+        empty_message=empty_message,
+    )
 
 
 def write_report_page(
@@ -93,30 +197,7 @@ def render_report_page(
         level_links=level_links or {},
     )
     toc_html = _render_toc(block_list)
-    return f"""<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{_safe_text(title)}</title>
-  <style>
-{_STYLE}
-  </style>
-</head>
-<body>
-<main>
-  <header>
-    <p class="eyebrow">Simulation HTML report</p>
-    <h1>{_safe_text(title)}</h1>
-    {subtitle_html}
-    {nav_html}
-    {toc_html}
-  </header>
-  {block_html}
-</main>
-</body>
-</html>
-"""
+    return _page(title=title, header_html=(subtitle_html, nav_html, toc_html), body_html=block_html)
 
 
 def render_report_page_with_block_variants(
@@ -149,6 +230,20 @@ def render_report_page_with_block_variants(
         level_links=level_links or {},
     )
     toc_html = _render_toc(visible_blocks)
+    return _page(
+        title=title,
+        header_html=(subtitle_html, nav_html, toc_html),
+        body_html=body_html,
+        script=_BLOCK_LEVEL_SCRIPT,
+    )
+
+
+def _page(
+    *, title: str, header_html: tuple[str, str, str], body_html: str, script: str = ""
+) -> str:
+    """Wrap a rendered body in the one page template of every report."""
+    subtitle_html, nav_html, toc_html = header_html
+    script_html = f"{script}\n" if script else ""
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -170,8 +265,7 @@ def render_report_page_with_block_variants(
   </header>
   {body_html}
 </main>
-{_BLOCK_LEVEL_SCRIPT}
-</body>
+{script_html}</body>
 </html>
 """
 
@@ -265,18 +359,21 @@ def _render_block_variant_group(
 </div>"""
 
 
+_LEVEL_LABELS = {
+    "compact": "Compact",
+    "standard": "Standard",
+    "audit": "Audit",
+    "by_block": "By block",
+}
+
+
 def _render_block_level_button(*, level: str, active: bool) -> str:
-    labels = {
-        "compact": "Compact",
-        "standard": "Standard",
-        "audit": "Audit",
-    }
     active_class = " is-active" if active else ""
     aria_pressed = "true" if active else "false"
     return (
         f'<button type="button" class="block-level-button{active_class}" '
         f'data-target-level="{_safe(level)}" aria-pressed="{aria_pressed}">'
-        f"{_safe_text(labels.get(level, level))}</button>"
+        f"{_safe_text(_LEVEL_LABELS.get(level, level))}</button>"
     )
 
 
@@ -380,12 +477,6 @@ def _render_level_nav(
 ) -> str:
     if not level_links:
         return ""
-    labels = {
-        "compact": "Compact",
-        "standard": "Standard",
-        "audit": "Audit",
-        "by_block": "By block",
-    }
     buttons = []
     ordered_levels = ("compact", "standard", "audit", "by_block")
     extras = tuple(level for level in level_links if level not in ordered_levels)
@@ -397,7 +488,7 @@ def _render_level_nav(
         aria_current = ' aria-current="page"' if level == current_level else ""
         buttons.append(
             f'<a class="{classes}" href="{_safe(_link_relative(web_dir, path))}"'
-            f"{aria_current}>{_safe_text(labels.get(level, level))}</a>"
+            f"{aria_current}>{_safe_text(_LEVEL_LABELS.get(level, level))}</a>"
         )
     if not buttons:
         return ""

@@ -28,13 +28,13 @@ from hydromodpy.display.catchment_report.artifacts import (
     geology_cache_candidates,
     geology_legend_rows,
 )
-from hydromodpy.display.catchment_report.block_specs import DEFAULT_BLOCK_SPECS
+from hydromodpy.display.catchment_report.blocks import DEFAULT_BLOCK_SPECS
+from hydromodpy.display.catchment_report.builder import PRESETS_BY_NAME, CatchmentReportPreset
 from hydromodpy.display.catchment_report.context import _observed_series
-from hydromodpy.display.catchment_report.postflight import (
+from hydromodpy.display.catchment_report.pipeline import (
     CatchmentReportPostflightError,
     write_figure_postflight_report,
 )
-from hydromodpy.display.catchment_report.presets import PRESETS_BY_NAME, CatchmentReportPreset
 from hydromodpy.display.catchment_report.settings import (
     CatchmentReportSettings,
     ContextSection,
@@ -382,7 +382,7 @@ def test_postflight_reports_dangling_copied_paths(tmp_path) -> None:
 
 
 def test_an_optional_figure_is_not_expected_when_the_manifest_names_none(tmp_path) -> None:
-    from hydromodpy.display.catchment_report.block_specs import (
+    from hydromodpy.display.catchment_report.blocks import (
         BlockFigureSpec,
         ReportBlockSpec,
     )

@@ -15,7 +15,7 @@ import pytest
 from hydromodpy.display.figures.matching_hydrographic_network_card import (
     MatchingHydrographicNetworkCard,
 )
-from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET
+from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET, relative_luminance
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.checks import CalibratedBy
@@ -30,7 +30,7 @@ from hydromodpy.results.storage.contract import (
 from tests._helpers.sealed_runs import make_project, seal_run, sealed_search, write_session_dir
 from tests._helpers.session_documents import trial_line
 
-from ._render_helpers import labelled_patch, relative_luminance, rgba
+from ._render_helpers import labelled_patch, rgba
 
 # The one-page card of a two-stage downslope-distance calibration.
 #

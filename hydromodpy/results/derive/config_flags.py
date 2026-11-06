@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 from hydromodpy.core.budget.terms import (
+    POLICY_ALL,
     POLICY_CONSUMERS,
     KeptBudget,
     budget_terms_for,
@@ -146,6 +147,86 @@ def missing_field_explanation(fields: Iterable[str], run: SupportsHasField) -> s
     )
 
 
+# Fields built from the water that leaves the aquifer at the surface. Their
+# per-cell terms come from the one table of ``core.budget.terms``, minus the
+# recharge some of them also read, which is an entry and not an exit.
+_EXIT_FIELDS = (
+    "release_flux",
+    "release_accumulation_flux",
+    "drain_accumulation_flux",
+    "outflow_drain",
+)
+
+
+def _exit_terms_of(field: str) -> tuple[str, ...]:
+    """Return the budget terms through which water leaves the aquifer for ``field``."""
+    return tuple(term for term in budget_terms_for(field) if term != "recharge")
+
+
+def _model_has_no_exit(run: Any, terms: tuple[str, ...], has_budget_term: bool) -> bool:
+    """Say whether the run proves its model has none of the exit ``terms``.
+
+    A store that declares its policy proves it when it kept the whole budget and
+    holds some term of it (the extractors stamp ``all`` with no term when no
+    budget was read, which proves nothing), or when it kept every exit term and
+    wrote no array for them. A store that declares nothing is read as before:
+    some budget term is there, no exit one. A plan that kept other terms only
+    says nothing about the exits.
+    """
+    kept = _kept_budget(run)
+    if kept is None or kept.policy == POLICY_ALL:
+        return has_budget_term
+    return all(term in kept.terms for term in terms)
+
+
+def no_surface_exit_reason(run: Any, required_fields: Iterable[str]) -> str | None:
+    """Say why a field built on the surface outflow cannot exist in ``run``, or None.
+
+    Only answers when the store proves the model has no exit. A model without
+    drain, stream, lake or surface excess releases no groundwater at the
+    surface, so ``release_flux`` and the fields routed from it do not exist. No
+    results option can change that, so a consumer that skips is not asked to
+    act. A run that kept only the terms its consumers read (the ``consumers``
+    policy) may lack the exit terms because the plan never asked for them: that
+    is not "no exit", and the answer is None.
+    """
+    from hydromodpy.results.field_registry import FIELD_REGISTRY
+
+    fields = [name for name in required_fields if name in _EXIT_FIELDS]
+    if not fields:
+        return None
+    has_field = getattr(run, "has_field", None)
+    if has_field is None:
+        return None
+    try:
+        missing = [name for name in fields if not has_field(name)]
+        if not missing:
+            return None
+        has_budget_term = any(
+            has_field(name, subgroup="budget")
+            for name, descriptor in FIELD_REGISTRY.items()
+            if descriptor.zarr_path.startswith("budget/")
+        )
+        for name in missing:
+            terms = _exit_terms_of(name)
+            if any(has_field(term, subgroup="budget") for term in terms):
+                continue
+            if not _model_has_no_exit(run, terms, has_budget_term):
+                return None
+            exits = (
+                "drain, stream, lake or surface excess"
+                if name in ("release_flux", "release_accumulation_flux")
+                else "drain"
+            )
+            return (
+                f"the model has no {exits}, so no groundwater leaves the aquifer "
+                f"that way and the run has no {name}"
+            )
+    except (TypeError, RuntimeError, KeyError, OSError):
+        return None
+    return None
+
+
 __all__ = [
     "KEEP_BUDGET_OPTION",
     "MissingBudget",
@@ -155,5 +236,6 @@ __all__ = [
     "enable_options_hint",
     "missing_field_explanation",
     "missing_field_options",
+    "no_surface_exit_reason",
     "option_hint",
 ]

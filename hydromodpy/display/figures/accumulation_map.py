@@ -25,7 +25,7 @@ from hydromodpy.display.figures.scalar_face_map import ScalarFaceMap
 from hydromodpy.display.maps.axes import style_relative_km_axes
 from hydromodpy.display.maps.overlays import apply_overlays
 from hydromodpy.display.maps.ugrid import last_timestep, render_face_field
-from hydromodpy.display.style import get_cmap, neutral, place_legend
+from hydromodpy.display.style import get_cmap, neutral, place_legend, relative_luminance
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -185,21 +185,10 @@ def truncated_palette(name: str, floor: float) -> Colormap:
     if not 0.0 <= floor < 1.0:
         raise ValueError(f"palette_floor must sit in [0, 1), got {floor!r}.")
     base = get_cmap(name)
-    light_at_bottom = _relative_luminance(base(0.0)) > _relative_luminance(base(1.0))
+    light_at_bottom = relative_luminance(base(0.0)) > relative_luminance(base(1.0))
     low, high = (floor, 1.0) if light_at_bottom else (0.0, 1.0 - floor)
     palette = ListedColormap(base(np.linspace(low, high, base.N)), name=f"{name}_floor")
     return palette.with_extremes(bad=neutral(GROUND_COLOR))
-
-
-def _relative_luminance(color: str | tuple[float, ...]) -> float:
-    """Perceived brightness of one color, the quantity a grayscale print keeps."""
-    from matplotlib.colors import to_rgb
-
-    channels = [
-        value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4
-        for value in to_rgb(color)
-    ]
-    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
 
 
 def _cell_count(count: int) -> str:

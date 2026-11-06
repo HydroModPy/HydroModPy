@@ -16,9 +16,9 @@ from hydromodpy.display.figures.roptim_validity_chart import (
     RoptimValidityChart,
     SiteAgreement,
 )
-from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET
+from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET, relative_luminance
 
-from ._render_helpers import labelled_patch, relative_luminance, rgba
+from ._render_helpers import labelled_patch, rgba
 
 
 def _sites() -> list[SiteAgreement]:

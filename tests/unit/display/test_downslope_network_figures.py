@@ -29,6 +29,7 @@ from hydromodpy.display.figures.downslope_distance_crossing import (
     DownslopeDistanceCrossingFigure,
 )
 from hydromodpy.display.figures.seepage_network_confusion_map import SeepageNetworkConfusionMap
+from hydromodpy.display.style import relative_luminance
 from hydromodpy.results.derive.stream.comparison import (
     AGREEMENT_EXCESS,
     AGREEMENT_MISSING,
@@ -50,7 +51,6 @@ from ._network_comparison_run import (
     legend_note,
     map_key,
 )
-from ._render_helpers import relative_luminance
 
 H_OBS = 250.0
 
@@ -946,18 +946,18 @@ class TestTheLegendDoesNotSearchOnADenseMap:
         assert axes_element_count(self._axes(500)) >= 500
 
     def test_a_light_axes_still_gets_the_placed_legend(self) -> None:
-        from hydromodpy.display.style import LEGEND_PLACEMENT, place_legend
+        from hydromodpy.display.style import LEGEND_BEST_PLACEMENT_LIMIT, place_legend
 
         ax = self._axes(10)
-        assert len(ax.collections[0].get_paths()) < LEGEND_PLACEMENT.best_placement_limit
+        assert len(ax.collections[0].get_paths()) < LEGEND_BEST_PLACEMENT_LIMIT
         legend = place_legend(ax)
         assert legend is not None
         assert legend._loc == 0  # matplotlib's code for "best"
 
     def test_a_dense_axes_gets_a_pinned_legend(self) -> None:
-        from hydromodpy.display.style import LEGEND_PLACEMENT, place_legend
+        from hydromodpy.display.style import LEGEND_BEST_PLACEMENT_LIMIT, place_legend
 
-        ax = self._axes(LEGEND_PLACEMENT.best_placement_limit + 1)
+        ax = self._axes(LEGEND_BEST_PLACEMENT_LIMIT + 1)
         legend = place_legend(ax)
         assert legend is not None
         assert legend._loc != 0
@@ -972,9 +972,9 @@ class TestTheLegendDoesNotSearchOnADenseMap:
         assert place_legend(Figure().subplots()) is None
 
     def test_an_explicit_location_is_never_overridden(self) -> None:
-        from hydromodpy.display.style import LEGEND_PLACEMENT, place_legend
+        from hydromodpy.display.style import LEGEND_BEST_PLACEMENT_LIMIT, place_legend
 
-        ax = self._axes(LEGEND_PLACEMENT.best_placement_limit + 1)
+        ax = self._axes(LEGEND_BEST_PLACEMENT_LIMIT + 1)
         legend = place_legend(ax, loc="lower left")
         assert legend is not None
         assert legend._loc == 3  # matplotlib's code for "lower left"

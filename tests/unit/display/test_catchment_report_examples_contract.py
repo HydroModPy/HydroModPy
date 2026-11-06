@@ -13,7 +13,7 @@ from hydromodpy.display.catchment_report import (
     CatchmentReportInputs,
 )
 from hydromodpy.display.catchment_report.artifacts import DEFAULT_ARTIFACT_SPECS
-from hydromodpy.display.catchment_report.block_specs import DEFAULT_BLOCK_SPECS
+from hydromodpy.display.catchment_report.blocks import DEFAULT_BLOCK_SPECS
 from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME
 
 REPO_ROOT = Path(__file__).resolve().parents[3]

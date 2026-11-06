@@ -33,6 +33,7 @@ from typing import TYPE_CHECKING, Annotated
 
 import numpy as np
 
+from hydromodpy.core.io.crs import project_gdf_for_metric_operations
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Extent, Opt
 from hydromodpy.display.figure_registry import register
@@ -52,8 +53,8 @@ from hydromodpy.display.maps.axes import (
     overlay_watershed_contour,
     style_map_axes,
     style_relative_km_axes,
+    watershed_of,
 )
-from hydromodpy.display.maps.geo import project_gdf_for_metric_operations
 from hydromodpy.display.maps.mesh_geometry import face_polygons
 from hydromodpy.display.maps.overlays import network_map_of_role, plot_network_map
 from hydromodpy.display.maps.ugrid import render_face_field
@@ -491,11 +492,8 @@ class SimulatedActiveNetworkReferenceOverlay(BaseFigure):
         collection.set_alpha(active_alpha)
 
         network = network_map_of_role(sim, "reference")
-        try:
-            watershed = sim.geographic("watershed")
-            fallback_crs = None if watershed is None or watershed.empty else watershed.crs
-        except Exception:
-            fallback_crs = None
+        watershed = watershed_of(sim)
+        fallback_crs = None if watershed is None else watershed.crs
         reference = project_gdf_for_metric_operations(network.frame, fallback_crs=fallback_crs)
         plot_network_map(
             ax,

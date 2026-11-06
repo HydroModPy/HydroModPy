@@ -21,6 +21,7 @@ from hydromodpy.display.figures.seepage_network_reference_overlay import (
     RELIEF_GREYS,
     SeepageNetworkReferenceOverlay,
 )
+from hydromodpy.display.style import relative_luminance
 
 from ._network_comparison_run import (
     AXIS_COLUMN,
@@ -34,7 +35,6 @@ from ._network_comparison_run import (
     legend_labels,
     legend_note,
 )
-from ._render_helpers import relative_luminance
 
 
 def _flank_run(**kwargs):

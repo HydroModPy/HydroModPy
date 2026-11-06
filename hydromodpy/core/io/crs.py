@@ -247,11 +247,86 @@ def require_crs(crs_like: CrsLike | None, name: str) -> CRS:
     return CRS.from_user_input(crs_like)
 
 
+def _coerce_crs(crs_like: object | None) -> CRS | None:
+    """Read a CRS label, or return None for no label or one pyproj cannot read."""
+    if crs_like is None or (isinstance(crs_like, str) and not crs_like.strip()):
+        return None
+    try:
+        return CRS.from_user_input(crs_like)
+    except (CRSError, TypeError, ValueError):
+        return None
+
+
+def _bounds_look_geographic(gdf: gpd.GeoDataFrame) -> bool:
+    """Tell whether the bounds of ``gdf`` fit in longitude and latitude ranges."""
+    if gdf is None or gdf.empty:
+        return True
+    minx, miny, maxx, maxy = [float(v) for v in gdf.total_bounds]
+    return bool(
+        np.isfinite([minx, miny, maxx, maxy]).all()
+        and minx >= -180.0
+        and maxx <= 180.0
+        and miny >= -90.0
+        and maxy <= 90.0
+    )
+
+
+def project_gdf_for_metric_operations(
+    gdf: gpd.GeoDataFrame | None,
+    *,
+    fallback_crs: CrsLike | None = None,
+) -> gpd.GeoDataFrame | None:
+    """Return ``gdf`` in a projected CRS, so lengths and areas come out in meters.
+
+    A frame without a CRS takes ``fallback_crs``. So does a frame labelled
+    geographic whose coordinates cannot be degrees. A projected frame is
+    returned as is. A geographic one goes to its UTM zone, else to
+    ``fallback_crs`` when that one is projected.
+    """
+    if gdf is None or gdf.empty:
+        return gdf
+
+    out = gdf.copy()
+    source_crs = _coerce_crs(out.crs)
+    fallback = _coerce_crs(fallback_crs)
+
+    if fallback is not None and (
+        source_crs is None or (source_crs.is_geographic and not _bounds_look_geographic(out))
+    ):
+        out = out.set_crs(fallback, allow_override=True)
+        source_crs = fallback
+
+    if source_crs is None or source_crs.is_projected:
+        return out
+
+    try:
+        target = out.estimate_utm_crs()
+    except (RuntimeError, ValueError, CRSError):
+        target = None
+    if target is None and fallback is not None and fallback.is_projected:
+        target = fallback
+    return out if target is None else out.to_crs(target)
+
+
+def measure_linework_length_m(
+    gdf: gpd.GeoDataFrame | None,
+    *,
+    fallback_crs: CrsLike | None = None,
+) -> float:
+    """Return the total line length of ``gdf`` in meters, in one metric CRS."""
+    if gdf is None or gdf.empty:
+        return 0.0
+    metric_gdf = project_gdf_for_metric_operations(gdf, fallback_crs=fallback_crs)
+    return float(np.sum(np.asarray(metric_gdf.length, dtype=float)))
+
+
 __all__ = [
     "CrsLike",
     "RFC7946_CRS",
     "crs_text",
     "ensure_crs",
+    "measure_linework_length_m",
+    "project_gdf_for_metric_operations",
     "same_crs",
     "require_crs",
     "to_mesh_crs",

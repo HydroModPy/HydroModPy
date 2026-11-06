@@ -20,6 +20,7 @@ __all__ = [
     "has_particle_tracks",
     "particle_frame",
     "particle_time_to_days",
+    "particle_travel_years",
     "read_particle_tracks",
     "travel_time",
 ]
@@ -181,3 +182,18 @@ def travel_time(track: np.ndarray) -> float:
     if finite.size < 2:
         return float("nan")
     return float(abs(finite[-1] - finite[0]))
+
+
+def particle_travel_years(run: Run) -> np.ndarray:
+    """Return the travel time of every tracked particle, in years.
+
+    Particles the tracker could not time (a single stored step, a NaN clock)
+    and particles that never left their release point are dropped: they carry
+    no residence time, and a zero would sit at minus infinity on a log axis.
+    """
+    to_days = particle_time_to_days(run)
+    times = np.array(
+        [travel_time(track) * to_days / _DAYS_PER_YEAR for track in read_particle_tracks(run)],
+        dtype="float64",
+    )
+    return times[np.isfinite(times) & (times > 0.0)]

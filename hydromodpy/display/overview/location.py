@@ -11,6 +11,7 @@ of its name.
 
 from __future__ import annotations
 
+import os
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -78,6 +79,12 @@ def overview_review_dir(run_dir: Path) -> Path:
     return Path(run_dir) / RUN_REPORT_DIRNAME / REVIEW_DIRNAME
 
 
+def review_pages_enabled() -> bool:
+    """Say whether ``HMP_OVERVIEW_HTML_REVIEW_LEVELS`` asks for the review pages."""
+    value = os.environ.get("HMP_OVERVIEW_HTML_REVIEW_LEVELS", "")
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 __all__ = [
     "REVIEW_DIRNAME",
     "overview_figures_dir",
@@ -87,4 +94,5 @@ __all__ = [
     "overview_review_dir",
     "overview_run_dir",
     "overview_run_dir_of",
+    "review_pages_enabled",
 ]

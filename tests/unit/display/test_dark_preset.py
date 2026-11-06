@@ -21,12 +21,11 @@ from hydromodpy.display.figures.seepage_network_confusion_map import SeepageNetw
 from hydromodpy.display.figures.sfr_reach_network import SfrReachNetwork
 from hydromodpy.display.figures.simulated_active_network import SimulatedActiveNetworkMap
 from hydromodpy.display.figures.watershed_id_card import WatershedIdCardFigure
-from hydromodpy.display.style import apply_theme, is_dark, neutral
+from hydromodpy.display.style import apply_theme, is_dark, neutral, relative_luminance
 from hydromodpy.results.derive import views
 from tests.unit.results._transient_network_run import transient_run
 
 from ._network_comparison_run import AXIS_COLUMN, NX, NY, cell, comparison_run
-from ._render_helpers import relative_luminance
 from .test_accumulation_map import _run as accumulation_run
 from .test_boundary_package_map import _flux_on
 from .test_boundary_package_map import _run as boundary_run

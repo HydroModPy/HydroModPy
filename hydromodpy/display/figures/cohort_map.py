@@ -16,7 +16,7 @@ import numpy as np
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_options import Cmap, Opt
 from hydromodpy.display.figure_registry import register
-from hydromodpy.display.figures.cohort_table import (
+from hydromodpy.display.figures._cohort import (
     COHORT_SITE_COLUMN,
     cohort_refusal,
     column_values,

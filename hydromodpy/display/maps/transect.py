@@ -60,7 +60,7 @@ def mesh_bounds(sim: Run) -> tuple[float, float, float, float]:
     )
 
 
-def default_line(
+def _default_line(
     sim: Run,
     orientation: TransectOrientation = "we",
     *,
@@ -111,7 +111,7 @@ def build_transect(
     from hydromodpy.results.spatial_index import point_in_cell
 
     if line is None:
-        line = default_line(sim, orientation, through=through)
+        line = _default_line(sim, orientation, through=through)
     x0, y0, x1, y1 = (float(v) for v in line)
     length = float(np.hypot(x1 - x0, y1 - y0))
     if length <= 0.0:
@@ -163,7 +163,6 @@ def layer_interfaces(sim: Run) -> np.ndarray | None:
 
 __all__ = [
     "build_transect",
-    "default_line",
     "layer_interfaces",
     "mesh_bounds",
     "Transect",

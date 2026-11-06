@@ -25,12 +25,7 @@ declared number rather than a literal in a figure.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Annotated, Any
-
-from pydantic import Field
-
-from hydromodpy.core.config_kit.base import HydroModelBase
-from hydromodpy.core.config_kit.profile import Profile
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -39,16 +34,17 @@ if TYPE_CHECKING:
 __all__ = [
     "BANNED_CMAPS",
     "HIGH_CONTRAST_TRIPLET",
-    "LEGEND_PLACEMENT",
+    "LEGEND_BEST_PLACEMENT_LIMIT",
+    "LEGEND_DENSE_LOCATION",
     "PREFERRED_CMAPS",
     "THEMES",
-    "LegendPlacementDefaults",
     "Theme",
     "apply_theme",
     "axes_element_count",
     "get_cmap",
     "get_theme",
     "is_dark",
+    "relative_luminance",
     "neutral",
     "place_legend",
 ]
@@ -180,6 +176,17 @@ def _rgb(color: Any) -> tuple[float, float, float]:
     return to_rgb(color)
 
 
+def relative_luminance(color: Any) -> float:
+    """Perceived brightness of one color (WCAG), the quantity a grayscale print keeps."""
+    from matplotlib.colors import to_rgb
+
+    channels = [
+        value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4
+        for value in to_rgb(color)
+    ]
+    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
+
+
 def is_dark(background: Any = None) -> bool:
     """Whether the figures are drawn on a dark background (the ``dark`` preset).
 
@@ -269,31 +276,16 @@ def get_cmap(name: str | None = None, kind: str = "sequential"):
 # -- legend placement -----------------------------------------------------------
 
 
-class LegendPlacementDefaults(HydroModelBase):
-    """How dense an axes has to be before the legend stops looking for a spot."""
+LEGEND_BEST_PLACEMENT_LIMIT = 5000
+"""Drawable elements on an axes above which the legend is pinned to a corner.
 
-    best_placement_limit: Annotated[int, Profile.EXPERT] = Field(
-        default=5000,
-        gt=0,
-        description=(
-            "Number of drawable elements on the axes above which the legend is "
-            "pinned to a fixed corner instead of being placed by matplotlib. "
-            "Placement scores every candidate position against every element, so "
-            "the cost grows with the map: one entry over a 243 552-cell "
-            "collection took 99.3 s against 1.1 s pinned."
-        ),
-    )
-    dense_location: Annotated[str, Profile.EXPERT] = Field(
-        default="upper right",
-        description=(
-            "Corner the legend takes once the axes is denser than "
-            "best_placement_limit. Any matplotlib location string."
-        ),
-    )
+Placement scores every candidate position against every element, so the cost
+grows with the map: one entry over a 243 552-cell collection took 99.3 s
+against 1.1 s pinned.
+"""
 
-
-LEGEND_PLACEMENT = LegendPlacementDefaults()
-"""The one instance every figure reads."""
+LEGEND_DENSE_LOCATION = "upper right"
+"""Corner the legend takes on an axes denser than ``LEGEND_BEST_PLACEMENT_LIMIT``."""
 
 
 def axes_element_count(ax: Axes) -> int:
@@ -323,7 +315,7 @@ def place_legend(ax: Axes, **kwargs: Any) -> Legend | None:
     if "loc" not in kwargs:
         kwargs["loc"] = (
             "best"
-            if axes_element_count(ax) <= LEGEND_PLACEMENT.best_placement_limit
-            else LEGEND_PLACEMENT.dense_location
+            if axes_element_count(ax) <= LEGEND_BEST_PLACEMENT_LIMIT
+            else LEGEND_DENSE_LOCATION
         )
     return ax.legend(**kwargs)

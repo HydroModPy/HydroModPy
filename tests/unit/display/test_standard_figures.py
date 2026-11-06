@@ -9,7 +9,7 @@ import pandas as pd
 import pytest
 
 from hydromodpy.display import figure_registry
-from hydromodpy.display.figures.cohort_table import wants_log
+from hydromodpy.display.figures._cohort import wants_log
 from hydromodpy.display.figures.concentration_map import ConcentrationMap
 from hydromodpy.display.figures.cross_section import CrossSection
 from hydromodpy.display.figures.difference_map import DifferenceMap

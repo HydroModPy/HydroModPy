@@ -8,6 +8,7 @@ import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
+from hydromodpy.display.figures._hydrochem import hydrochem_frame, missing_samples_reason
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -16,19 +17,6 @@ if TYPE_CHECKING:
 
 
 _IONS = ("Ca", "Mg", "Na", "K", "Cl", "SO4", "HCO3")
-
-
-def _to_dataframe(source: Any):
-    import pandas as pd
-
-    if isinstance(source, pd.DataFrame):
-        return source
-    if hasattr(source, "timeseries"):
-        try:
-            return source.timeseries("hydrochemistry")
-        except Exception as exc:
-            raise ValueError("schoeller_diagram: no hydrochemistry data available") from exc
-    raise TypeError(f"schoeller_diagram: cannot read data from {type(source)!r}")
 
 
 @register
@@ -48,16 +36,7 @@ class SchoellerDiagramFigure(BaseFigure):
         A DataFrame given directly is its own samples. A run is asked for its
         ``hydrochemistry`` series, read here and not drawn.
         """
-        reason = super().unavailable_reason(sim)
-        if reason is not None:
-            return reason
-        try:
-            samples = _to_dataframe(sim)
-        except (TypeError, ValueError):
-            return "run holds no hydrochemistry series"
-        if len(samples) == 0:
-            return "run holds no hydrochemistry sample"
-        return None
+        return super().unavailable_reason(sim) or missing_samples_reason(sim, "schoeller_diagram")
 
     def render(
         self,
@@ -65,7 +44,7 @@ class SchoellerDiagramFigure(BaseFigure):
         ax: Axes,
         **_,
     ) -> Axes:
-        df = _to_dataframe(sim)
+        df = hydrochem_frame(sim, "schoeller_diagram")
         missing = [c for c in _IONS if c not in df.columns]
         if missing:
             raise KeyError(f"schoeller_diagram: missing columns {missing}")

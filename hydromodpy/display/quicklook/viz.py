@@ -65,26 +65,26 @@ def show(
     >>> ts = hmp.read(run, "discharge", sel={"station": "outlet"})  # doctest: +SKIP
     >>> show(ts, downsample="lttb", n_out=2_000)  # doctest: +SKIP
     """
+    import geopandas as gpd
     import matplotlib.pyplot as plt
+    import pandas as pd
+    import xarray as xr
 
-    array_like = _maybe_dataarray(data)
-    if array_like is not None:
+    if isinstance(data, xr.DataArray):
         return _show_array(
-            array_like,
+            data,
             downsample=downsample,
             crs=crs,
             target_px=target_px,
             **opts,
         )
 
-    series_like = _maybe_series(data)
-    if series_like is not None:
-        return _show_series(series_like, downsample=downsample, n_out=n_out, **opts)
+    if isinstance(data, pd.Series):
+        return _show_series(data, downsample=downsample, n_out=n_out, **opts)
 
-    gdf_like = _maybe_geodataframe(data)
-    if gdf_like is not None:
+    if isinstance(data, gpd.GeoDataFrame):
         fig, ax = plt.subplots(constrained_layout=True)
-        gdf_like.plot(ax=ax, **opts)
+        data.plot(ax=ax, **opts)
         return fig
 
     raise TypeError(
@@ -111,16 +111,10 @@ def _show_array(
     )
 
     size = int(getattr(da, "size", 0)) or int(da.values.size)
-    needs_raster = (
-        downsample == "lttb" or downsample is None or downsample == "none" or downsample == "auto"
+    # LTTB on a 2D field makes no sense, so "lttb" rasterizes like "auto".
+    needs_raster = downsample in ("auto", "lttb") and should_rasterize(
+        size, threshold=DEFAULT_CELL_THRESHOLD
     )
-    if downsample == "auto":
-        needs_raster = should_rasterize(size, threshold=DEFAULT_CELL_THRESHOLD)
-    elif downsample in (None, "none"):
-        needs_raster = False
-    elif downsample == "lttb":
-        # LTTB on 2D fields makes no sense; fall back to rasterization.
-        needs_raster = should_rasterize(size, threshold=DEFAULT_CELL_THRESHOLD)
 
     if needs_raster and is_datashader_available():
         aggregated = rasterize_field(da, target_px=target_px)
@@ -168,30 +162,6 @@ def _show_series(
     fig, ax = plt.subplots(constrained_layout=True)
     ax.plot(decimated.index, decimated.values, **opts)
     return fig
-
-
-def _maybe_dataarray(data: Any):
-    try:
-        import xarray as xr
-    except ImportError:
-        return None
-    return data if isinstance(data, xr.DataArray) else None
-
-
-def _maybe_series(data: Any):
-    try:
-        import pandas as pd
-    except ImportError:
-        return None
-    return data if isinstance(data, pd.Series) else None
-
-
-def _maybe_geodataframe(data: Any):
-    try:
-        import geopandas as gpd
-    except ImportError:
-        return None
-    return data if isinstance(data, gpd.GeoDataFrame) else None
 
 
 __all__ = ["show"]

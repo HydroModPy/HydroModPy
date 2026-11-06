@@ -8,9 +8,9 @@ from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.core.state.layout import runs_dir_for
 from hydromodpy.display.catchment_report.pipeline import (
     CatchmentReportPipelineResult,
+    CatchmentReportPreflightError,
     run_catchment_report_pipeline,
 )
-from hydromodpy.display.catchment_report.preflight import CatchmentReportPreflightError
 from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME
 
 

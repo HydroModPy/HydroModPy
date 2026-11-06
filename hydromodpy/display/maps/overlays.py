@@ -27,6 +27,7 @@ from hydromodpy.core.exceptions import DisplayError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.display.maps.axes import overlay_watershed_contour
 from hydromodpy.display.maps.mesh_geometry import face_centroids, face_polygons
+from hydromodpy.display.maps.ugrid import last_timestep
 from hydromodpy.results.derive.config_flags import missing_field_explanation
 from hydromodpy.results.run.particles import read_particle_tracks
 
@@ -52,8 +53,6 @@ class OverlayUnavailable(DisplayError, RuntimeError):
 
 
 def _resolve_timestep(sim: Run, timestep: int | None) -> int:
-    from hydromodpy.display.maps.ugrid import last_timestep
-
     return last_timestep(sim) if timestep is None else timestep
 
 
@@ -264,9 +263,6 @@ def apply_overlays(
     data the run lacks is skipped and reported through the return value, so
     the same figure declaration works across runs with different processes.
     """
-    from hydromodpy.core.logging import get_logger
-
-    logger = get_logger(__name__)
     drawn: list[str] = []
     for name in names:
         try:

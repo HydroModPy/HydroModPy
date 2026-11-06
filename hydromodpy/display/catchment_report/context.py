@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import math
 import shutil
-import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,8 +14,9 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+from hydromodpy.display.catchment_report.artifacts import rel
 from hydromodpy.display.catchment_report.inputs import CatchmentReportInputs
-from hydromodpy.display.catchment_report.resources import REPO_ROOT
 from hydromodpy.display.catchment_report.simulation_source import (
     open_simulation_run,
     read_simulated_discharge,
@@ -67,7 +67,7 @@ def build_context(inputs: CatchmentReportInputs) -> Path:
     context_dir.mkdir(parents=True, exist_ok=True)
     assets_dir.mkdir(parents=True, exist_ok=True)
 
-    config = _load_resolved_toml(inputs.transient_config)
+    config = load_toml_with_base_config(inputs.transient_config)
     with open_simulation_run(inputs) as store:
         simulated = read_simulated_discharge(store)
         parquet_dir = simulation_parquet_dir(store)
@@ -147,34 +147,6 @@ def _observed_series(path: Path | None) -> pd.DataFrame | None:
         )
         return None
     return _read_series(path)
-
-
-def _load_resolved_toml(path: Path) -> dict[str, Any]:
-    path = Path(path).resolve()
-    payload = _load_toml(path)
-    base_name = payload.get("base_config")
-    if not base_name:
-        return payload
-    base_path = Path(str(base_name))
-    if not base_path.is_absolute():
-        base_path = path.parent / base_path
-    base_payload = _load_resolved_toml(base_path)
-    return _deep_merge(base_payload, payload)
-
-
-def _load_toml(path: Path) -> dict[str, Any]:
-    with path.open("rb") as handle:
-        return tomllib.load(handle)
-
-
-def _deep_merge(base: Mapping[str, Any], overlay: Mapping[str, Any]) -> dict[str, Any]:
-    merged = dict(base)
-    for key, value in overlay.items():
-        if isinstance(value, Mapping) and isinstance(merged.get(key), Mapping):
-            merged[key] = _deep_merge(merged[key], value)
-        else:
-            merged[key] = value
-    return merged
 
 
 def _configuration_summary(
@@ -308,73 +280,42 @@ def _copy_network_assets(source_dir: Path, assets_dir: Path) -> dict[str, str]:
     return copied
 
 
-def _read_parquet_count(parquet_dir: Path | None, file_name: str) -> int | None:
+def _parquet_scalar(parquet_dir: Path | None, file_name: str, sql: str) -> Any:
+    """Return the first value ``sql`` reads from one Parquet file, or None.
+
+    ``sql`` names the file as its first parameter. A missing file, a file
+    DuckDB cannot read or an empty answer all give None: the summary then
+    leaves the number out.
+    """
     if parquet_dir is None:
         return None
     file_path = parquet_dir / file_name
     if not file_path.exists():
         return None
-    try:
-        import duckdb
-    except ImportError:
-        return None
-    query_path = file_path.as_posix().replace("'", "''")
+    import duckdb
+
     try:
         with duckdb.connect() as con:
-            return int(
-                con.execute(f"select count(*) from read_parquet('{query_path}')").fetchone()[0]
-            )
-    except Exception:
+            row = con.execute(sql, [file_path.as_posix()]).fetchone()
+    except duckdb.Error:
         return None
+    return None if row is None else row[0]
+
+
+def _read_parquet_count(parquet_dir: Path | None, file_name: str) -> int | None:
+    count = _parquet_scalar(parquet_dir, file_name, "select count(*) from read_parquet(?)")
+    return None if count is None else int(count)
 
 
 def _read_runtime_seconds(parquet_dir: Path | None) -> float | None:
-    if parquet_dir is None:
-        return None
-    file_path = parquet_dir / "metrics.parquet"
-    if not file_path.exists():
-        return None
-    try:
-        import duckdb
-    except ImportError:
-        return None
-    query_path = file_path.as_posix().replace("'", "''")
-    try:
-        with duckdb.connect() as con:
-            result = con.execute(
-                "select value from read_parquet(?) "
-                "where metric_name = 'flow_solve_time_seconds' limit 1",
-                [query_path],
-            ).fetchone()
-    except Exception:
-        return None
-    if result is None:
-        return None
-    return _finite_float(result[0])
-
-
-def _read_provenance_n_records(parquet_dir: Path | None, variable: str) -> int | None:
-    if parquet_dir is None:
-        return None
-    file_path = parquet_dir / "provenance.parquet"
-    if not file_path.exists():
-        return None
-    try:
-        import duckdb
-    except ImportError:
-        return None
-    query_path = file_path.as_posix().replace("'", "''")
-    try:
-        with duckdb.connect() as con:
-            result = con.execute(
-                f"select n_records from read_parquet('{query_path}') where variable = ? limit 1",
-                [variable],
-            ).fetchone()
-    except Exception:
-        return None
-    if result is None:
-        return None
-    return int(result[0])
+    return _finite_float(
+        _parquet_scalar(
+            parquet_dir,
+            "metrics.parquet",
+            "select value from read_parquet(?) "
+            "where metric_name = 'flow_solve_time_seconds' limit 1",
+        )
+    )
 
 
 def _write_context_html(
@@ -425,9 +366,4 @@ def _finite_float(value: Any) -> float | None:
 
 
 def _rel(path: Path | None) -> str | None:
-    if path is None:
-        return None
-    try:
-        return path.resolve().relative_to(REPO_ROOT.resolve()).as_posix()
-    except ValueError:
-        return str(path.resolve())
+    return None if path is None else rel(path)

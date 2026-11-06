@@ -25,11 +25,10 @@ from hydromodpy.display.overview.location import (
 )
 from hydromodpy.display.overview.panels import render_timeseries_multi
 from hydromodpy.display.overview.report import (
-    _build_station_inventory,
     _piezo_altitude_hlines,
     _records_to_timeseries_df,
 )
-from hydromodpy.display.overview.summary import compute_overview_summary
+from hydromodpy.display.overview.summary import compute_overview_summary, station_inventory
 from hydromodpy.display.overview.web import (
     build_overview_blocks,
     write_overview_review_web_reports,
@@ -209,7 +208,7 @@ def test_piezo_altitude_hlines_keep_valid_station_altitudes_only() -> None:
     ]
 
 
-def test_build_station_inventory_deduplicates_water_quality_periods() -> None:
+def test_station_inventory_deduplicates_water_quality_periods() -> None:
     loaded = SimpleNamespace(
         hydrometry=SimpleNamespace(
             points=[
@@ -227,7 +226,7 @@ def test_build_station_inventory_deduplicates_water_quality_periods() -> None:
     )
     state = SimpleNamespace(loaded_data=loaded)
 
-    inventory = _build_station_inventory(state)
+    inventory = station_inventory(state)
 
     assert inventory == [
         {

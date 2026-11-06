@@ -112,7 +112,7 @@ geographic/
 │   ├── network_heads.py            free ends of a mapped network, where heads may lie
 │   ├── stream_dem_agreement.py     how far the D8 paths stray from the mapped network
 │   ├── lake_catchments.py          the area each lake drains on the D8 grid
-│   ├── metric_crs.py               lengths and areas measured in a projected CRS
+│   ├── metric_crs.py               areas measured in a projected CRS (lengths: core.io.crs)
 │   ├── derived_features.py         the bundle of geographic products and its domain view
 │   └── surface_from_dem.py         a DEM raster as a RasterSupport and a Surface
 │

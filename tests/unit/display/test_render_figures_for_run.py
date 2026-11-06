@@ -25,6 +25,7 @@ from hydromodpy.display.figures._trial_diagnostics import TrialTable
 from hydromodpy.display.runs import log_render_summary, render_figure, render_figures_for_run
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
+from hydromodpy.results.derive.config_flags import no_surface_exit_reason
 from hydromodpy.results.run import Run
 from hydromodpy.results.run.periods import RunPeriods
 from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME
@@ -902,7 +903,8 @@ def test_a_model_with_a_drain_keeps_the_figure_reason(seeded) -> None:
 
     assert run.has_field("release_flux")
     assert (
-        runs._no_surface_exit_reason(run, runs._get_figure("downslope_distance_map").spec) is None
+        no_surface_exit_reason(run, runs._get_figure("downslope_distance_map").spec.required_fields)
+        is None
     )
 
 
@@ -910,7 +912,7 @@ def test_a_run_without_budget_is_not_judged(seeded) -> None:
     run = seeded({})
 
     spec = runs._get_figure("downslope_distance_map").spec
-    assert runs._no_surface_exit_reason(run, spec) is None
+    assert no_surface_exit_reason(run, spec.required_fields) is None
 
 
 def test_a_store_without_attributes_keeps_the_old_reading(seeded) -> None:
@@ -922,7 +924,9 @@ def test_a_store_without_attributes_keeps_the_old_reading(seeded) -> None:
     run = seeded(_recharge_only(), edit=_drop_attributes)
 
     spec = runs._get_figure("downslope_distance_map").spec
-    assert "no drain, stream, lake or surface excess" in runs._no_surface_exit_reason(run, spec)
+    assert "no drain, stream, lake or surface excess" in no_surface_exit_reason(
+        run, spec.required_fields
+    )
 
 
 def test_a_consumers_run_that_never_kept_the_exits_is_not_a_model_without_exit(
@@ -932,7 +936,7 @@ def test_a_consumers_run_that_never_kept_the_exits_is_not_a_model_without_exit(
     cfg = DisplayConfig(figures=["downslope_distance_map"], save=False)
 
     spec = runs._get_figure("downslope_distance_map").spec
-    assert runs._no_surface_exit_reason(run, spec) is None
+    assert no_surface_exit_reason(run, spec.required_fields) is None
     with caplog.at_level(logging.DEBUG, logger="hydromodpy.display.runs"):
         report = runs.render_figures_for_run(run, cfg, output_dir=tmp_path / "figures")
 
@@ -955,14 +959,16 @@ def test_a_consumers_run_that_kept_the_exits_without_array_has_no_exit(seeded) -
     )
 
     spec = runs._get_figure("downslope_distance_map").spec
-    assert "no drain, stream, lake or surface excess" in runs._no_surface_exit_reason(run, spec)
+    assert "no drain, stream, lake or surface excess" in no_surface_exit_reason(
+        run, spec.required_fields
+    )
 
 
 def test_a_consumers_run_that_kept_only_some_exits_stays_actionable(seeded) -> None:
     run = seeded(_recharge_only(), policy="consumers", kept_terms=["recharge", "drain"])
 
     spec = runs._get_figure("downslope_distance_map").spec
-    assert runs._no_surface_exit_reason(run, spec) is None
+    assert no_surface_exit_reason(run, spec.required_fields) is None
 
 
 def test_an_all_store_with_no_term_at_all_is_not_judged(seeded) -> None:
@@ -973,7 +979,7 @@ def test_an_all_store_with_no_term_at_all_is_not_judged(seeded) -> None:
     run = seeded({}, edit=_declare_no_term)
 
     spec = runs._get_figure("downslope_distance_map").spec
-    assert runs._no_surface_exit_reason(run, spec) is None
+    assert no_surface_exit_reason(run, spec.required_fields) is None
 
 
 def test_a_figure_with_only_optional_fields_logs_the_not_kept_skip(

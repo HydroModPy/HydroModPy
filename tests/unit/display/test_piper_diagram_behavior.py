@@ -171,7 +171,7 @@ def test_non_dataframe_without_timeseries_raises_typeerror(mpl) -> None:
     fig, ax = mpl.subplots()
 
     try:
-        with pytest.raises(TypeError, match="cannot read hydrochem data"):
+        with pytest.raises(TypeError, match="cannot read hydrochemistry data"):
             PiperDiagramFigure().render(object(), ax)
     finally:
         mpl.close(fig)

@@ -38,6 +38,10 @@ from hydromodpy.display import list_figures as _list_figures
 from hydromodpy.display.figure import FigureNotApplicable
 from hydromodpy.display.png_metadata import stamp_png_identity
 from hydromodpy.display.style import apply_theme
+from hydromodpy.results.derive.config_flags import (
+    missing_field_explanation,
+    no_surface_exit_reason,
+)
 from hydromodpy.results.export.ledgers import record_derived_file
 from hydromodpy.results.export.run_identity import identity_of_run_dir
 from hydromodpy.results.identity import Identity
@@ -234,93 +238,6 @@ def _resolve_time(sim: Run, options: dict[str, Any]) -> str | None:
     return None
 
 
-# Fields built from the water that leaves the aquifer at the surface. Their
-# per-cell terms come from the one table of ``core.budget.terms``, minus the
-# recharge some of them also read, which is an entry and not an exit.
-_EXIT_FIELDS = (
-    "release_flux",
-    "release_accumulation_flux",
-    "drain_accumulation_flux",
-    "outflow_drain",
-)
-
-
-def _exit_terms_of(field: str) -> tuple[str, ...]:
-    """Return the budget terms through which water leaves the aquifer for ``field``."""
-    from hydromodpy.core.budget.terms import budget_terms_for
-
-    return tuple(term for term in budget_terms_for(field) if term != "recharge")
-
-
-def _model_has_no_exit(run: Run, terms: tuple[str, ...], has_budget_term: bool) -> bool:
-    """Say whether the run proves its model has none of the exit ``terms``.
-
-    A store that declares its policy proves it when it kept the whole budget and
-    holds some term of it (the extractors stamp ``all`` with no term when no
-    budget was read, which proves nothing), or when it kept every exit term and
-    wrote no array for them. A store that declares nothing is read as before:
-    some budget term is there, no exit one. A plan that kept other terms only
-    says nothing about the exits.
-    """
-    from hydromodpy.core.budget.terms import POLICY_ALL
-    from hydromodpy.results.run.geographic import kept_budget_of
-
-    kept = kept_budget_of(run)
-    if kept is None:
-        return has_budget_term
-    if kept.policy == POLICY_ALL:
-        return has_budget_term
-    return all(term in kept.terms for term in terms)
-
-
-def _no_surface_exit_reason(sim: Run, spec: FigureSpec) -> str | None:
-    """Say why a figure built on the surface outflow cannot be drawn, or None.
-
-    Only answers when the store proves the model has no exit. A model without
-    drain, stream, lake or surface excess releases no groundwater at the
-    surface, so ``release_flux`` and the fields routed from it do not exist. No
-    results option can change that, so the skip is not actionable. A run that
-    kept only the terms its consumers read (the ``consumers`` policy) may lack
-    the exit terms because the plan never asked for them: that is not "no
-    exit", and the skip stays actionable.
-    """
-    from hydromodpy.results.field_registry import FIELD_REGISTRY
-
-    fields = [name for name in spec.required_fields if name in _EXIT_FIELDS]
-    if not fields:
-        return None
-    has_field = getattr(sim, "has_field", None)
-    if has_field is None:
-        return None
-    try:
-        missing = [name for name in fields if not has_field(name)]
-        if not missing:
-            return None
-        has_budget_term = any(
-            has_field(name, subgroup="budget")
-            for name, descriptor in FIELD_REGISTRY.items()
-            if descriptor.zarr_path.startswith("budget/")
-        )
-        for name in missing:
-            terms = _exit_terms_of(name)
-            if any(has_field(term, subgroup="budget") for term in terms):
-                continue
-            if not _model_has_no_exit(sim, terms, has_budget_term):
-                return None
-            exits = (
-                "drain, stream, lake or surface excess"
-                if name in ("release_flux", "release_accumulation_flux")
-                else "drain"
-            )
-            return (
-                f"the model has no {exits}, so no groundwater leaves the aquifer "
-                f"that way and the run has no {name}"
-            )
-    except (TypeError, RuntimeError, KeyError, OSError):
-        return None
-    return None
-
-
 def unavailable_reason(fig: BaseFigure, sim: Run) -> str | None:
     """Return why ``fig`` cannot draw ``sim``, or None when it can.
 
@@ -328,7 +245,7 @@ def unavailable_reason(fig: BaseFigure, sim: Run) -> str | None:
     around: a field built on the surface outflow of a model that has none.
     """
     spec = getattr(fig, "spec", None)
-    exit_reason = None if spec is None else _no_surface_exit_reason(sim, spec)
+    exit_reason = None if spec is None else no_surface_exit_reason(sim, spec.required_fields)
     return exit_reason or fig.unavailable_reason(sim)
 
 
@@ -337,14 +254,13 @@ def _log_skipped_figure(name: str, fig: BaseFigure, sim: Run, reason: str) -> bo
 
     Returns whether the skip is actionable, which the batch summary reads.
     """
-    from hydromodpy.results.derive.config_flags import missing_field_explanation
 
     spec = fig.spec
     # A figure that requires nothing and reads optional fields (any one of them
     # draws it) is explained over those.
     fields = spec.required_fields or spec.optional_fields
     explanation = missing_field_explanation(fields, sim)
-    if explanation and _no_surface_exit_reason(sim, spec) is None:
+    if explanation and no_surface_exit_reason(sim, spec.required_fields) is None:
         # A figure may already carry the sentence in its own reason.
         if explanation in reason:
             logger.warning("Figure '%s' skipped: %s", name, reason)
