@@ -48,7 +48,7 @@ class HydrometrySourceConfig(
     # --- API source fields ---
     product: Annotated[str | None, Profile.USER] = Field(
         default="QmnJ",
-        description="Hub'Eau variable code (e.g. 'QmnJ', 'QmM', 'HmnJ').",
+        description="Hub'Eau variable code (e.g. 'QmnJ', 'QmM', 'HIXnJ').",
     )
     require_observations: Annotated[bool, Profile.DEV] = Field(
         default=True,

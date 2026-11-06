@@ -33,7 +33,7 @@ API_BASE = "https://hubeau.eaufrance.fr/api/v2/hydrometrie"
 COVERAGE = {
     "country": "FR",
     "description": "Hub'Eau Hydrométrie - stations France métropolitaine",
-    "variables": ["QmnJ", "QmM", "HmnJ", "QINM", "QINnJ", "QixM", "QIXnJ", "HIXM", "HIXnJ"],
+    "variables": ["QmnJ", "QmM", "QINM", "QINnJ", "QixM", "QIXnJ", "HIXM", "HIXnJ"],
     "frequency": ["D", "ME"],
 }
 
