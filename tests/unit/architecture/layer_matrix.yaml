@@ -5,8 +5,7 @@
 # Packages absent from the row's list are forbidden (CI flags them).
 #
 # Rows are written lowest first: a row cites rows written above it in the file.
-# test_layer_matrix.py checks the order and names the few edges that still
-# point down the file.
+# test_layer_matrix.py checks the order, so no row can point down the file.
 
 allowed:
   core:          [core]
@@ -16,15 +15,15 @@ allowed:
   # an example is described by paths and hashes, never by a loaded config.
   examples:      [core, examples]
   physics:       [core, physics]
-  schema:        [core, schema, config]
+  schema:        [core, schema]
   spatial:       [core, schema, spatial]
   data:          [core, schema, data, spatial]
   simulation:    [core, physics, spatial, data, simulation]
   solver:        [core, physics, spatial, solver, simulation]
-  results:       [core, schema, config, results, spatial]
+  results:       [core, schema, results, spatial]
   calibration:   [core, physics, data, spatial, solver, simulation, calibration, results]
   display:       [core, results, display]
-  config:        [core, config, physics, data, spatial, simulation, solver, calibration, results, display, workflow]
+  config:        [core, config, physics, data, spatial, simulation, solver, calibration, results, display]
   analysis:      [core, results, display, analysis]
   workflow:      [core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, workflow]
   # ``project`` hosts the public ``Project`` facade and its dispatch adapters.

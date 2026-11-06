@@ -13,18 +13,18 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.config.sites.budget import dry_run_lines, plan_budget
-from hydromodpy.config.sites.expansion import SitesProjectError, expand_plan
-from hydromodpy.config.sites.issues import PlanError, group_issues
-from hydromodpy.config.sites.plan import (
+from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning, forget_old_forms_told
+from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.core.toml_io.paths import lookup
+from hydromodpy.project.launch.sites.budget import dry_run_lines, plan_budget
+from hydromodpy.project.launch.sites.expansion import SitesProjectError, expand_plan
+from hydromodpy.project.launch.sites.issues import PlanError, group_issues
+from hydromodpy.project.launch.sites.plan import (
     RunningCaseError,
     is_plan_case,
     refuse_env_overrides,
     write_plan_draft,
 )
-from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning, forget_old_forms_told
-from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.core.toml_io.paths import lookup
 from hydromodpy.results.plan_store import current_plan_hash, read_plan
 from hydromodpy.results.storage.contract import RUN_MANIFEST_FILENAME
 from tests._helpers.sealed_runs import manifest_document
@@ -534,7 +534,7 @@ def _session(project: Path, case_id: str, status: str, *, host: str, pid: int) -
 
 
 def test_a_running_calibration_session_refuses_a_new_plan_without_force(tmp_path: Path) -> None:
-    from hydromodpy.config.sites.plan import running_cases
+    from hydromodpy.project.launch.sites.plan import running_cases
 
     project = write_sites_project(tmp_path)
     draft = expand_plan(project, project / "project.toml")
@@ -742,7 +742,7 @@ def test_a_recipe_writing_site_is_refused(tmp_path: Path) -> None:
 
 
 def test_a_recipe_that_cannot_be_read_is_a_finding_named_after_it(tmp_path: Path) -> None:
-    from hydromodpy.config.sites.check import check_project
+    from hydromodpy.project.check import check_project
 
     project = write_sites_project(tmp_path)
     _add_recipe(project, "bad", "bad.toml", "[flow\n")
@@ -756,6 +756,20 @@ def test_a_recipe_that_cannot_be_read_is_a_finding_named_after_it(tmp_path: Path
     (project / "bad.toml").write_text('base_config = "missing.toml"\n', encoding="utf-8")
     [error] = check_project(project / "project.toml").errors
     assert error.startswith("[sites.recipes] bad: ") and "missing.toml" in error
+
+
+def test_an_error_no_check_expected_is_a_finding(tmp_path: Path, monkeypatch) -> None:
+    import hydromodpy.project.check as check
+
+    def fail(target: Path) -> None:
+        raise RuntimeError("the disk went away")
+
+    monkeypatch.setattr(check, "_check", fail)
+
+    report = check.check_project(tmp_path / "run.toml")
+
+    assert not report.ok and report.kind == "simulation"
+    assert report.errors == ("Config check failed: the disk went away",)
 
 
 def test_a_recipes_table_names_the_file_of_a_recipe(tmp_path: Path) -> None:

@@ -17,12 +17,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
-from hydromodpy.config.sites.expansion import SitesProjectError, expand_plan, find_sites_file
-from hydromodpy.config.sites.issues import group_issues
 from hydromodpy.core.config_kit.written import written_experimental_keys
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.state.result_dirs import resolve_project_root
 from hydromodpy.core.toml_io.loader import merge_toml_chain, read_toml_chain
+from hydromodpy.project.launch.sites.expansion import (
+    SitesProjectError,
+    expand_plan,
+    find_sites_file,
+)
+from hydromodpy.project.launch.sites.issues import group_issues
 from hydromodpy.workflow.dispatch import (
     WorkflowError,
     check_workflow_name,
@@ -136,7 +140,12 @@ def _load(target: Path) -> tuple[Any, list[str], list[str]]:
             cfg = HydroModPyConfig.from_toml(target)
         except (ConfigError, ValueError, KeyError, FileNotFoundError) as exc:
             errors.append(str(exc))
-    noted = [str(item.message) for item in caught if item.category is not DeprecationWarning]
+    # A ResourceWarning comes from the collection of an object opened elsewhere, never from the file.
+    noted = [
+        str(item.message)
+        for item in caught
+        if item.category not in (DeprecationWarning, ResourceWarning)
+    ]
     return cfg, errors, noted
 
 

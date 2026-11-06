@@ -20,7 +20,7 @@ Budget
 takes one, a calibration takes its ``[calibration] parallel`` (the widest
 of its phases). A case wider than the budget is refused without ``force``,
 so the budget is never passed by one case running alone. The ceilings
-were measured on 22 cores (:mod:`hydromodpy.config.sites.budget`): above
+were measured on 22 cores (:mod:`hydromodpy.project.launch.sites.budget`): above
 sixteen solves, or more than eight for a campaign that holds a calibration,
 or more than eight cases prepared side by side, the launch is refused
 without ``force``; and never more solves times threads than cores. A launch
@@ -54,11 +54,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.config.sites.expansion import PlanDraft, expand_plan
-from hydromodpy.config.sites.models import (
+from hydromodpy.config.sites import (
     SitesRunConfig,
 )
-from hydromodpy.config.sites.plan import write_plan_draft
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME, data_cache_path_for
@@ -88,6 +86,8 @@ from hydromodpy.project.launch.selection import (
     sites_run_config,
     worker_flags,
 )
+from hydromodpy.project.launch.sites.expansion import PlanDraft, expand_plan
+from hydromodpy.project.launch.sites.plan import write_plan_draft
 from hydromodpy.project.launch.status import CaseState, case_state, plan_is_stale
 from hydromodpy.results.plan_store import StoredPlan, current_plan_hash, read_plan
 from hydromodpy.results.storage.json_io import readable
@@ -149,9 +149,9 @@ def plan_project(
     *config_path* is ``project.toml`` by default, or one recipe file (that
     recipe alone on every site). A case still running refuses a new plan
     unless *force*
-    (:class:`~hydromodpy.config.sites.plan.RunningCaseError`); a case that
+    (:class:`~hydromodpy.project.launch.sites.plan.RunningCaseError`); a case that
     does not validate refuses the plan
-    (:class:`~hydromodpy.config.sites.issues.PlanError`).
+    (:class:`~hydromodpy.project.launch.sites.issues.PlanError`).
     """
     root = Path(project_root).resolve()
     path = (
@@ -192,7 +192,7 @@ def run_plan(
     or when its files changed. Raises
     :class:`~hydromodpy.project.launch.lease.LeaseHeldError` when another
     launcher holds the project, and
-    :class:`~hydromodpy.config.sites.budget.BudgetError` for a budget above
+    :class:`~hydromodpy.project.launch.sites.budget.BudgetError` for a budget above
     the ceilings without *force*.
 
     *force* lifts four guards at once: the budget ceilings (``parallel``,

@@ -386,15 +386,15 @@ def _cmd_config_resolve(args: argparse.Namespace) -> None:
 def _cmd_config_check(args: argparse.Namespace) -> None:
     """Validate a run, a calibration or a ``[sites]`` project with one verb.
 
-    The check is :func:`hydromodpy.config.sites.check.check_project`: a run is
+    The check is :func:`hydromodpy.project.check.check_project`: a run is
     loaded and goes through the checks of step 0 of ``hmp run``; a calibration
     is loaded and read by its preflight; a ``[sites]`` project is expanded
     case by case, and the errors come back grouped, each at the cell or the
     file it comes from.
     """
     from hydromodpy.cli.commands.doctor import probe_toml_workspace
-    from hydromodpy.config.sites.check import check_project, report_lines
     from hydromodpy.core.config_kit.written import experimental_keys_line
+    from hydromodpy.project.check import check_project, report_lines
 
     path = Path(args.file).expanduser().resolve()
     if not path.is_file():
@@ -463,8 +463,8 @@ def _calibration_notes(path: Path, *, verbose: bool) -> list[str]:
 
 def _cmd_config_schema(args: argparse.Namespace) -> None:
     """Export the JSON Schema for the HydroModPy configuration."""
-    from hydromodpy.config.schema_export import export_schema, write_schema
     from hydromodpy.core.config_kit.registry import root_sections
+    from hydromodpy.schema.config_schema import export_schema, write_schema
 
     if getattr(args, "list_sections", False):
         for name in sorted(root_sections()):
@@ -538,7 +538,7 @@ def _load_context(ctx_path: str | None) -> dict | None:
 
 def _write_editor_schema(out_path: str | None, *, section: str | None, profile: str | None) -> None:
     """Print or write the editor schema of a whole TOML file."""
-    from hydromodpy.config.schema_export import editor_schema
+    from hydromodpy.schema.config_schema import editor_schema
 
     if section or profile:
         refuse(

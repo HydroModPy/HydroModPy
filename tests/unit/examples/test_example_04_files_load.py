@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.config import HydroModPyConfig
-from hydromodpy.config.sites.check import check_project
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+from hydromodpy.project.check import check_project
 
 pytestmark = pytest.mark.fast
 

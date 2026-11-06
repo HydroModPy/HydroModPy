@@ -24,6 +24,7 @@ TOML form::
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
@@ -410,6 +411,11 @@ class SitesConfig(HydroModelBase):
         return self
 
 
+def is_sites_project(raw: Mapping[str, Any]) -> bool:
+    """Whether a resolved document belongs to a ``[sites]`` project."""
+    return isinstance(raw.get("sites"), Mapping)
+
+
 __all__ = [
     "PARALLEL_CEILING",
     "PREPARE_PARALLEL_CEILING",
@@ -420,4 +426,5 @@ __all__ = [
     "SitesExportRequest",
     "SitesRunConfig",
     "SitesSummaryConfig",
+    "is_sites_project",
 ]

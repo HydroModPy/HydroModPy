@@ -16,7 +16,7 @@ Public API::
 
 from __future__ import annotations
 
-from hydromodpy.schema.export import (
+from hydromodpy.schema.config_schema import (
     build_config_meta,
     build_field_validators,
     export_full_schema,

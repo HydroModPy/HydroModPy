@@ -36,8 +36,6 @@ from hydromodpy.cli._workers.catalog import (
     abandoned_calibration_session_count,
 )
 from hydromodpy.cli.commands.project.show import _summary
-from hydromodpy.config.sites.expansion import case_is_done
-from hydromodpy.config.sites.plan import running_cases
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.exceptions import (
     CatalogUnreadableError,
@@ -72,6 +70,8 @@ from hydromodpy.data.registry.freeze import write_lockfile
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.runs import figures_dir_of, regen_figures, render_figures_for_run
 from hydromodpy.project.launch.lease import LEASE_SCHEMA, acquire_lease, lease_path, read_lease
+from hydromodpy.project.launch.sites.expansion import case_is_done
+from hydromodpy.project.launch.sites.plan import running_cases
 from hydromodpy.project.launch.status import case_state, project_status
 from hydromodpy.results import field_registry
 from hydromodpy.results.annotations import (

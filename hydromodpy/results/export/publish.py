@@ -481,8 +481,8 @@ def _require_licence(source: Path, *, is_summary: bool) -> None:
 
 def _project_publication(project_root: Path) -> Any:
     """Return the ``[publication]`` table of ``project.toml``."""
-    from hydromodpy.config.publication_config import PublicationConfig
     from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
+    from hydromodpy.results.publication import PublicationConfig
 
     marker = project_root / PROJECT_MARKER_FILENAME
     if not marker.is_file():

@@ -35,12 +35,12 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from hydromodpy.config.publication_config import PublicationConfig
 from hydromodpy.core.exceptions import ExportError
 from hydromodpy.core.io.atomic_replace import rename_over_open_file
 from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.results.export.context import AssetEntry, FairExportContext, InputEntry
 from hydromodpy.results.manifest import read_manifest
+from hydromodpy.results.publication import PublicationConfig
 from hydromodpy.results.record import PROVENANCE_VERSIONS
 from hydromodpy.results.storage.contract import (
     RUN_CONFIG_FILENAME,

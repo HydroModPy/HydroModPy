@@ -36,7 +36,7 @@ from hydromodpy.schema.media_types import (
 if TYPE_CHECKING:
     import pandas as pd
 
-    from hydromodpy.config.publication_config import PublicationConfig
+    from hydromodpy.results.publication import PublicationConfig
 
 BY_CASE_STEM: Final[str] = "by_case"
 BY_SITE_STEM: Final[str] = "by_site"

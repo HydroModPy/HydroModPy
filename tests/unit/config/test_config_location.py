@@ -51,7 +51,7 @@ def test_legacy_hydromodpy_config_module_is_removed() -> None:
 
 
 def test_schema_export_canonical_import_works() -> None:
-    from hydromodpy.config.schema_export import export_schema
+    from hydromodpy.schema.config_schema import export_schema
 
     assert callable(export_schema)
 

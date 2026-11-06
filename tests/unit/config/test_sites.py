@@ -10,16 +10,16 @@ from pydantic import ValidationError
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.config.hydromodpy_config import require_site_for_real_catchment
 from hydromodpy.config.sites import RecipeSpec, SitesConfig, SitesRunConfig
-from hydromodpy.config.sites.expansion import expand_plan
-from hydromodpy.config.sites.issues import group_issues
-from hydromodpy.config.sites.single_site import SiteMismatchError, match_site
-from hydromodpy.config.sites.tables import is_empty_cell, read_table
 from hydromodpy.core.config_kit.introspect import site_scoped_paths
 from hydromodpy.core.exceptions import ConfigError, ConfigValidationError
 from hydromodpy.core.site import SiteRow
 from hydromodpy.core.toml_io.paths import lookup
 from hydromodpy.data.sites.catalog import write_catalog
-from tests.unit.config.test_sites_plan import write_sites_project
+from hydromodpy.data.sites.single_site import SiteMismatchError, match_site
+from hydromodpy.project.launch.sites.expansion import expand_plan
+from hydromodpy.project.launch.sites.issues import group_issues
+from hydromodpy.project.launch.sites.tables import is_empty_cell, read_table
+from tests.unit.project.launch.test_sites_plan import write_sites_project
 
 
 def test_the_catalog_columns_reach_the_case_without_bind(tmp_path: Path) -> None:
@@ -75,6 +75,49 @@ def _write_points(path: Path) -> None:
         crs="EPSG:2154",
     )
     frame.to_file(path, driver="GPKG")
+
+
+def test_a_parquet_table_keeps_its_types_and_names_its_rows(tmp_path: Path) -> None:
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    path = tmp_path / "sites.parquet"
+    pq.write_table(pa.table({"site": ["nancon", "couesnon"], "area_km2": [4.5, None]}), path)
+
+    table = read_table(path, label="sites.parquet")
+
+    assert table.columns == ("site", "area_km2")
+    assert table.rows[0].cells == {"site": "nancon", "area_km2": 4.5}
+    assert is_empty_cell(table.rows[1].cells["area_km2"])
+    assert str(table.rows[1].origin(table, "site")) == "sites.parquet row 2 column site"
+
+
+@pytest.mark.parametrize(
+    ("name", "text", "message"),
+    [
+        ("sites.csv", "", "the file is empty"),
+        ("sites.csv", "site,site\na,b\n", "column(s) named twice: site"),
+        ("sites.csv", "site,\na,b\n", "a column has no name"),
+        ("sites.csv", "site,gauge\na\n", "sites.csv:2: 1 cells for 2 columns"),
+        ("sites.json", "{}", "a table is one of"),
+    ],
+)
+def test_a_table_that_cannot_be_read_names_its_file(
+    tmp_path: Path, name: str, text: str, message: str
+) -> None:
+    path = tmp_path / name
+    path.write_text(text, encoding="utf-8")
+
+    with pytest.raises(ConfigError) as info:
+        read_table(path, label=name)
+
+    assert message in str(info.value)
+    assert str(info.value).startswith(name)
+
+
+def test_a_missing_table_is_refused_by_name(tmp_path: Path) -> None:
+    with pytest.raises(ConfigError, match=r"^sites\.csv: no such file"):
+        read_table(tmp_path / "sites.csv", label="sites.csv")
 
 
 def test_a_geopackage_of_points_gains_the_geometry_columns(tmp_path: Path) -> None:
@@ -296,8 +339,8 @@ def _one_site_config(root, name: str, x: float, y: float):
 
 
 def test_resolve_single_site_reads_the_catalog_of_the_workspace(tmp_path) -> None:
-    from hydromodpy.config.sites.single_site import resolve_single_site
     from hydromodpy.data.sites.catalog import write_catalog
+    from hydromodpy.data.sites.single_site import resolve_single_site
 
     workspace = tmp_path / "ws"
     (workspace / "data").mkdir(parents=True)

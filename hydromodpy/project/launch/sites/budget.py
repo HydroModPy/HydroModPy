@@ -4,8 +4,8 @@
 ``[sites.run] parallel`` is the budget of solves side by side: a simulation
 takes one, a calibration takes its ``[calibration] parallel``. The ceilings
 the launcher refuses above without ``--force`` are
-:data:`~hydromodpy.config.sites.models.PARALLEL_CEILING`,
-:data:`~hydromodpy.config.sites.models.PREPARE_PARALLEL_CEILING` and
+:data:`~hydromodpy.config.sites.PARALLEL_CEILING`,
+:data:`~hydromodpy.config.sites.PREPARE_PARALLEL_CEILING` and
 :data:`CALIBRATION_PARALLEL_CEILING`, measured on 22 cores
 (:func:`hydromodpy.project.launch.selection.effective_parallel`). A solve of a
 campaign of calibrations held 0.8 GiB on 21 000 cells. The scratch of
@@ -18,8 +18,8 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
-from hydromodpy.config.sites.expansion import PlanDraft
 from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.project.launch.sites.expansion import PlanDraft
 
 SCRATCH_PER_KEPT_SOLVE_GIB: tuple[float, float] = (0.6, 4.8)
 """Scratch one kept solve takes, low and high, as measured on the example 04."""

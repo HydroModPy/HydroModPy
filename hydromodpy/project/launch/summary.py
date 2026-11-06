@@ -97,8 +97,8 @@ from hydromodpy.results.storage.contract import (
 if TYPE_CHECKING:
     import pandas as pd
 
-    from hydromodpy.config.publication_config import PublicationConfig
-    from hydromodpy.config.sites.models import SitesExportRequest, SitesSummaryConfig
+    from hydromodpy.config.sites import SitesExportRequest, SitesSummaryConfig
+    from hydromodpy.results.publication import PublicationConfig
 
 CATALOG_CSV_FILENAME: Final[str] = "catalog.csv"
 
@@ -350,10 +350,10 @@ def _counts(by_case: pd.DataFrame, planned: Sequence[Any]) -> tuple[int, int]:
 
 def _read_settings(root: Path) -> _Settings:
     """Read ``[sites.summary]``, ``[[sites.export]]`` and ``[publication]`` of ``project.toml``."""
-    from hydromodpy.config.publication_config import PublicationConfig
-    from hydromodpy.config.sites.expansion import declares_sites
-    from hydromodpy.config.sites.models import RecipeSpec, SitesConfig, SitesSummaryConfig
+    from hydromodpy.config.sites import RecipeSpec, SitesConfig, SitesSummaryConfig
     from hydromodpy.core.toml_io.loader import merge_toml_chain, read_toml_chain
+    from hydromodpy.project.launch.sites.expansion import declares_sites
+    from hydromodpy.results.publication import PublicationConfig
 
     document = merge_toml_chain(read_toml_chain(root / PROJECT_MARKER_FILENAME))
     summary, exports = SitesSummaryConfig(), ()

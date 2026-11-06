@@ -4,7 +4,7 @@
 returns a :class:`PlanDraft`: one :class:`DraftCase` per (site, recipe) with
 its resolved document, its ``config_hash`` and whether a sealed run already
 holds it, plus the errors and warnings of the plan, each pointing at the cell
-or the file it comes from. Nothing is written: :mod:`hydromodpy.config.sites.plan`
+or the file it comes from. Nothing is written: :mod:`hydromodpy.project.launch.sites.plan`
 writes a draft under ``plan/<hash>/``.
 
 The precedence of a case, lowest first: the defaults of the schema, the base
@@ -30,30 +30,10 @@ from typing import Any, Literal
 from pydantic import ValidationError
 
 from hydromodpy.config.config_migration import migrate_layers, migrate_merged_doc
-from hydromodpy.config.sites.binding import (
-    Binding,
-    BindingError,
-    BoundValue,
-    CellError,
-    bindings_of_table,
-    check_columns,
-    render_row,
-    resolve_bindings,
-)
-from hydromodpy.config.sites.issues import PlanIssue
-from hydromodpy.config.sites.models import (
+from hydromodpy.config.sites import (
     RECIPE_NAME_PATTERN,
     RecipeSpec,
     SitesConfig,
-)
-from hydromodpy.config.sites.site_scoped import leaf_paths, literal_site_scoped_keys
-from hydromodpy.config.sites.tables import (
-    Table,
-    TableError,
-    TableRow,
-    is_empty_cell,
-    read_table,
-    table_from_site_rows,
 )
 from hydromodpy.core.config_kit.written import written_experimental_keys, written_payload
 from hydromodpy.core.exceptions import ConfigError
@@ -76,6 +56,26 @@ from hydromodpy.core.toml_io.paths import (
 )
 from hydromodpy.core.toml_io.writer import dumps
 from hydromodpy.core.workspace.workspace_toml import near_site_m as workspace_near_site_m
+from hydromodpy.project.launch.sites.binding import (
+    Binding,
+    BindingError,
+    BoundValue,
+    CellError,
+    bindings_of_table,
+    check_columns,
+    render_row,
+    resolve_bindings,
+)
+from hydromodpy.project.launch.sites.issues import PlanIssue
+from hydromodpy.project.launch.sites.site_scoped import leaf_paths, literal_site_scoped_keys
+from hydromodpy.project.launch.sites.tables import (
+    Table,
+    TableError,
+    TableRow,
+    is_empty_cell,
+    read_table,
+    table_from_site_rows,
+)
 from hydromodpy.results.catalog.storage_paths import MAX_DIRNAME_LEN
 
 CaseKind = Literal["simulation", "calibration", "overview"]
@@ -261,11 +261,6 @@ def declares_sites(own: Mapping[str, Any]) -> bool:
     return any(key != "bind" for key in section)
 
 
-def is_sites_project(raw: Mapping[str, Any]) -> bool:
-    """Whether a resolved document belongs to a ``[sites]`` project."""
-    return isinstance(raw.get("sites"), Mapping)
-
-
 def expand_plan(
     project_root: str | Path,
     config_path: str | Path,
@@ -421,7 +416,7 @@ def single_case_draft(
 
 def _workspace_root(project_doc: Mapping[str, Any], root: Path) -> Path:
     """Return the workspace root ``[workspace]`` of the project resolves to."""
-    from hydromodpy.config.toml_section_loader import load_standard_section
+    from hydromodpy.config.section_loader import load_standard_section
     from hydromodpy.core.workspace.config import WorkspaceConfig
 
     workspace_section = dict(project_doc.get("workspace") or {})
@@ -985,5 +980,4 @@ __all__ = [
     "declares_sites",
     "expand_plan",
     "find_sites_file",
-    "is_sites_project",
 ]

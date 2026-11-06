@@ -17,9 +17,9 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.config.config_migration import fix_config_chain
-from hydromodpy.config.sites.check import check_project
 from hydromodpy.core.config_kit.base import CANNOT_REWRITE
 from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.project.check import check_project
 
 CORPUS = Path(__file__).parent / "corpus"
 FILES = sorted(path.relative_to(CORPUS) for path in CORPUS.rglob("*.toml"))

@@ -22,7 +22,7 @@ from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX, TABLES_DIRN
 if TYPE_CHECKING:
     import pandas as pd
 
-    from hydromodpy.config.sites.models import SitesExportRequest
+    from hydromodpy.config.sites import SitesExportRequest
 
 BEST_EXPORTS_DIRNAME: Final[str] = "best"
 """Folder of ``summary/exports/`` holding the series of the best case of each site."""

@@ -46,11 +46,11 @@ if TYPE_CHECKING:
     from hydromodpy.analysis.compare import Comparison
     from hydromodpy.calibration import CalibrationReport
     from hydromodpy.config import HydroModPyConfig
-    from hydromodpy.config.sites.expansion import PlanDraft
     from hydromodpy.examples.install import InstallReport
     from hydromodpy.examples.manifest import ExampleEntry
     from hydromodpy.project.accessors import Workspace
     from hydromodpy.project.facade import Project
+    from hydromodpy.project.launch.sites.expansion import PlanDraft
     from hydromodpy.project.spinup import SpinupResult
     from hydromodpy.results.run import Run
     from hydromodpy.results.session.view import Session
@@ -285,7 +285,7 @@ def run(
       keeps nothing to read: a window that stops before ``setup_process``, or
       ``save_catalog = false``;
     - an overview gives a :class:`~hydromodpy.workflow.overview.OverviewResult`;
-    - ``dry_run=True`` gives a :class:`~hydromodpy.config.sites.expansion.PlanDraft`,
+    - ``dry_run=True`` gives a :class:`~hydromodpy.project.launch.sites.expansion.PlanDraft`,
       with nothing run and nothing written.
 
     A calibration is refused: :func:`calibrate` runs it. A ``[sites]`` project is
@@ -378,7 +378,7 @@ def run(
     is_path = isinstance(config, (str, Path))
     source: Any = Path(config).expanduser().resolve() if is_path else config
     if is_path:
-        from hydromodpy.config.sites.expansion import is_sites_project
+        from hydromodpy.config.sites import is_sites_project
         from hydromodpy.workflow.dispatch import load_raw_toml, resolve_workflow
 
         workflow = resolve_workflow(source, cli_workflow=None)
@@ -791,7 +791,7 @@ def spinup(
 
     source = Path(config).expanduser().resolve() if isinstance(config, (str, Path)) else config
     if isinstance(source, Path) and source.is_file():
-        from hydromodpy.config.sites.expansion import is_sites_project
+        from hydromodpy.config.sites import is_sites_project
         from hydromodpy.workflow.dispatch import load_raw_toml
 
         if is_sites_project(load_raw_toml(source)):

@@ -1,4 +1,4 @@
-"""Tests for :mod:`hydromodpy.schema.export` (P11 frontend hooks)."""
+"""Tests for :mod:`hydromodpy.schema.config_schema` (P11 frontend hooks)."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import pytest
 
 
 def test_export_full_schema_writes_three_files(tmp_path: Path) -> None:
-    from hydromodpy.schema.export import (
+    from hydromodpy.schema.config_schema import (
         META_FILE,
         SCHEMA_FILE,
         VALIDATORS_FILE,
@@ -28,7 +28,7 @@ def test_export_full_schema_writes_three_files(tmp_path: Path) -> None:
 
 
 def test_export_full_schema_produces_valid_json(tmp_path: Path) -> None:
-    from hydromodpy.schema.export import export_full_schema
+    from hydromodpy.schema.config_schema import export_full_schema
 
     paths = export_full_schema(tmp_path)
 
@@ -52,7 +52,7 @@ def test_export_full_schema_produces_valid_json(tmp_path: Path) -> None:
 
 
 def test_build_config_meta_reports_groups() -> None:
-    from hydromodpy.schema.export import build_config_meta
+    from hydromodpy.schema.config_schema import build_config_meta
 
     meta = build_config_meta()
     assert "sections" in meta
@@ -63,7 +63,7 @@ def test_build_config_meta_reports_groups() -> None:
 
 
 def test_build_field_validators_has_known_types() -> None:
-    from hydromodpy.schema.export import build_field_validators
+    from hydromodpy.schema.config_schema import build_field_validators
 
     flat = build_field_validators()
     # Known boolean field under flow: flow_regime is an enum ('steady'|'transient').
@@ -73,7 +73,7 @@ def test_build_field_validators_has_known_types() -> None:
 
 
 def test_export_full_schema_idempotent(tmp_path: Path) -> None:
-    from hydromodpy.schema.export import export_full_schema
+    from hydromodpy.schema.config_schema import export_full_schema
 
     p1 = export_full_schema(tmp_path / "a")
     p2 = export_full_schema(tmp_path / "a")
@@ -103,7 +103,7 @@ def test_schema_cli_export_produces_files(tmp_path: Path) -> None:
     ["config", "meta", "validators"],
 )
 def test_exported_files_are_well_formed_json(tmp_path: Path, key: str) -> None:
-    from hydromodpy.schema.export import export_full_schema
+    from hydromodpy.schema.config_schema import export_full_schema
 
     paths = export_full_schema(tmp_path)
     data = json.loads(paths[key].read_text(encoding="utf-8"))

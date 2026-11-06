@@ -1,42 +1,24 @@
-"""TOML section orchestration for HydroModPyConfig.from_toml/from_dict."""
+"""How one raw section becomes its model, with its paths read from the project root.
+
+``HydroModPyConfig._from_payload`` calls these loaders for a TOML file and for a
+mapping alike.
+"""
 
 from __future__ import annotations
 
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Literal, TypeVar
+from typing import Any, TypeVar
 
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.core.toml_io.paths import resolve_declared_path
-from hydromodpy.data import DataManagersConfig
-from hydromodpy.display.overview.config import OverviewConfig
-from hydromodpy.physics.flow.flow_config import FlowConfig
-from hydromodpy.simulation.spinup_config import SpinupConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.mesh.mesh_config import MeshConfig
 
-ValidationContext = Literal["toml", "api"]
 ModelT = TypeVar("ModelT", bound=BaseModel)
-
-
-def _deep_merge(base: dict[str, Any], overrides: Mapping[str, Any]) -> dict[str, Any]:
-    """Recursively merge *overrides* into a copy of *base*."""
-    result = dict(base)
-    for key, val in overrides.items():
-        if key in result and isinstance(result[key], dict) and isinstance(val, dict):
-            result[key] = _deep_merge(result[key], val)
-        else:
-            result[key] = val
-    return result
-
-
-def _validation_context(raw_context: object) -> ValidationContext:
-    if isinstance(raw_context, Mapping) and raw_context.get("validation_context") == "toml":
-        return "toml"
-    return "api"
 
 
 def _is_path_field(field_info: FieldInfo) -> bool:
@@ -199,44 +181,11 @@ def load_geographic_section(
     )
 
 
-def _load_flow_section(
-    section_data: Any,
-    base: Path,
-    *,
-    workspace_data_dir: Path | None = None,
-) -> FlowConfig:
-    """Load the flow section using FlowConfig's dedicated parser."""
-    if section_data is None:
-        section_data = {}
-    return FlowConfig.from_toml_section(
-        section_data,
-        base_dir=base,
-        workspace_data_dir=workspace_data_dir,
-    )
-
-
-def _load_data_section(
-    section_data: Any,
-    base: Path,
-    *,
-    workspace_data_dir: Path | None = None,
-) -> DataManagersConfig:
-    """Load the data section with dynamic validation by enabled data types."""
-    return DataManagersConfig.from_toml_section(
-        section_data,
-        base_dir=base,
-        workspace_data_dir=workspace_data_dir,
-    )
-
-
-def _load_optional_overview_section(
-    section_data: Any,
-    base: Path,
-) -> OverviewConfig | None:
-    """Load the optional ``[overview]`` section."""
+def load_optional_section(section_data: Any, model_cls: type[ModelT], base: Path) -> ModelT | None:
+    """Load an optional section like a regular one; an absent section stays ``None``."""
     if section_data is None:
         return None
-    return load_standard_section(section_data, OverviewConfig, base)
+    return load_standard_section(section_data, model_cls, base)
 
 
 def _load_optional_mesh_section(
@@ -273,13 +222,3 @@ def _load_optional_calibration_section(
         return None
     context = {"validation_context": "snapshot"} if sealed else None
     return load_standard_section(section_data, CalibrationConfig, base, context=context)
-
-
-def _load_optional_spinup_section(
-    section_data: Any,
-    base: Path,
-) -> SpinupConfig | None:
-    """Load the optional ``[spinup]`` cyclic spin-up section."""
-    if section_data is None:
-        return None
-    return load_standard_section(section_data, SpinupConfig, base)

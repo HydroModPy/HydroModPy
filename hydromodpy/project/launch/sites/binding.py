@@ -19,7 +19,6 @@ from typing import Annotated, Any
 from pydantic import BaseModel, TypeAdapter, ValidationError
 from pydantic.fields import FieldInfo
 
-from hydromodpy.config.sites.tables import CellOrigin, Table, TableRow, is_empty_cell
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.toml_io.paths import (
     DottedPath,
@@ -28,6 +27,7 @@ from hydromodpy.core.toml_io.paths import (
     parse,
     resolve_field,
 )
+from hydromodpy.project.launch.sites.tables import CellOrigin, Table, TableRow, is_empty_cell
 
 
 class BindingError(ConfigError):

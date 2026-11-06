@@ -8,7 +8,7 @@ Jupyter widget, a desktop app) can use without importing the package:
 1. a JSON Schema export of the whole configuration;
 2. a partial validator that checks one field at a time.
 
-The code is in ``hydromodpy/schema/export.py`` and
+The code is in ``hydromodpy/schema/config_schema.py`` and
 ``hydromodpy/schema/partial_validator.py``. The pattern behind it is a Pydantic
 model plus an exported schema: the structure is declared once, in Python, and
 the UI never copies it.

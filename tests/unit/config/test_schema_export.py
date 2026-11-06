@@ -8,13 +8,6 @@ from jsonschema import Draft202012Validator
 
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
-from hydromodpy.config.schema_export import (
-    JSON_SCHEMA_DIALECT,
-    ROOT_SCOPE,
-    export_schema,
-    extract_property_schema,
-    schema_urn,
-)
 from hydromodpy.core.config_kit.introspect import extract_profile
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
@@ -33,6 +26,13 @@ from hydromodpy.physics.transport.transport_config import (
     Modflow6PrtParametersConfig,
     ModpathParametersConfig,
 )
+from hydromodpy.schema.config_schema import (
+    JSON_SCHEMA_DIALECT,
+    ROOT_SCOPE,
+    export_schema,
+    extract_property_schema,
+    schema_urn,
+)
 from hydromodpy.simulation.planning.config import SimulationConfig
 from hydromodpy.simulation.planning.results_config import ResultsConfig
 from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
@@ -43,7 +43,7 @@ from hydromodpy.spatial.mesh.mesh_config import MeshConfig
 
 
 def test_export_schema_returns_dict_for_root():
-    from hydromodpy.config.schema_export import export_schema
+    from hydromodpy.schema.config_schema import export_schema
 
     schema = export_schema()
     assert isinstance(schema, dict)
@@ -54,7 +54,7 @@ def test_export_schema_returns_dict_for_root():
 
 
 def test_export_schema_by_section_name():
-    from hydromodpy.config.schema_export import export_schema
+    from hydromodpy.schema.config_schema import export_schema
 
     schema = export_schema(section="flow")
     assert isinstance(schema, dict)
@@ -76,15 +76,15 @@ def test_model_json_schema_exposes_profile_metadata():
 
 
 def test_export_schema_unknown_section_raises():
-    from hydromodpy.config.schema_export import export_schema
+    from hydromodpy.schema.config_schema import export_schema
 
     with pytest.raises(ValueError):
         export_schema(section="not_a_real_section")
 
 
 def test_flow_physical_properties_schema_has_rich_annotations():
-    from hydromodpy.config.schema_export import export_schema
     from hydromodpy.physics.flow.physical_properties import FlowPhysicalProperties
+    from hydromodpy.schema.config_schema import export_schema
 
     schema = export_schema(FlowPhysicalProperties)
     props = schema["properties"]
@@ -105,7 +105,7 @@ def test_flow_physical_properties_schema_has_rich_annotations():
 
 
 def test_write_schema_creates_valid_json_file(tmp_path: Path):
-    from hydromodpy.config.schema_export import write_schema
+    from hydromodpy.schema.config_schema import write_schema
 
     out = tmp_path / "subdir" / "schema.json"
     written = write_schema(out, section="flow")
@@ -245,7 +245,7 @@ def test_extracting_an_absent_property_names_what_is_there() -> None:
 
 def test_the_default_schema_does_not_require_what_the_loader_fills():
     """A real file never names the project root, and a synthetic support has no catchment."""
-    from hydromodpy.config.schema_export import export_schema
+    from hydromodpy.schema.config_schema import export_schema
 
     schema = export_schema()
     defs = schema["$defs"]

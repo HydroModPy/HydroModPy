@@ -11,7 +11,8 @@ another version of the rule is told apart by ``metric_rule_version``.
 
 Format
 ------
-:class:`MetricRule` is what the configuration declares; :class:`MetricScore`
+:class:`MetricsConfig` is the ``[metrics]`` section of a project file, read by
+the root configuration. :class:`MetricRule` is what the configuration declares; :class:`MetricScore`
 is what a run stores next to the value: ``window_name``, ``window_role``,
 ``window_start``, ``window_end``, ``n_samples``, ``n_clipped`` and
 ``metric_rule_version``. :class:`PeriodWindow` is a named period of a calibration:
@@ -43,18 +44,18 @@ from __future__ import annotations
 import math
 from collections.abc import Callable, Mapping, Sequence
 from datetime import date, datetime, time, timedelta
-from typing import TYPE_CHECKING, Annotated, Final
+from typing import Annotated, Final, Protocol
 
 import numpy as np
 import pandas as pd
 from pydantic import Field, ValidationInfo, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.stored import Vocabulary, reading_stored
+from hydromodpy.core.config_kit.types import StationName
 from hydromodpy.core.scoring import metrics as kernels
-
-if TYPE_CHECKING:
-    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
+from hydromodpy.core.site import SiteConfig
 
 METRIC_RULE_VERSION: Final[str] = "2"
 """Version of the scoring rule. Bump it when a score stops being comparable."""
@@ -126,6 +127,58 @@ def calibration_extent(windows: Mapping[str, PeriodWindow]) -> DateWindow | None
     )
 
 
+class MetricsWindow(HydroModelBase):
+    """The dates a run is scored on, both included."""
+
+    start: Annotated[date, Profile.USER] = Field(
+        description="First day the scores count, as an ISO 8601 date.",
+        examples=["2001-01-01"],
+    )
+    end: Annotated[date, Profile.USER] = Field(
+        description="Last day the scores count, included, as an ISO 8601 date.",
+        examples=["2002-12-31"],
+    )
+
+    @model_validator(mode="after")
+    def _ordered(self) -> MetricsWindow:
+        if self.end < self.start:
+            raise ValueError(
+                f"[metrics] window ends on {self.end} before it starts on {self.start}."
+            )
+        return self
+
+
+class MetricsConfig(HydroModelBase):
+    """The station and the window the scores of a run are computed on."""
+
+    station: Annotated[StationName | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Station the run is scored at. Unset, it is [site] gauge; without a gauge, "
+            "the only discharge station the run loads, when it loads exactly one."
+        ),
+        examples=["J0014010"],
+    )
+    window: Annotated[MetricsWindow | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Dates the run is scored on, as {start, end}. Unset, the scores are left "
+            "empty: a score over an overlap the data happen to give is not comparable."
+        ),
+        examples=[{"start": "2001-01-01", "end": "2002-12-31"}],
+    )
+
+
+class ScoringDeclaration(Protocol):
+    """What :meth:`MetricRule.from_config` reads of a configuration."""
+
+    @property
+    def metrics(self) -> MetricsConfig | None: ...
+
+    @property
+    def site(self) -> SiteConfig | None: ...
+
+
 class MetricRule(HydroModelBase):
     """Where and when a run is scored."""
 
@@ -138,7 +191,7 @@ class MetricRule(HydroModelBase):
     window_role: WindowRole = Field(default=EVALUATION_ROLE, description="What the period is for")
 
     @classmethod
-    def from_config(cls, config: HydroModPyConfig, *, gauge: str | None = None) -> MetricRule:
+    def from_config(cls, config: ScoringDeclaration, *, gauge: str | None = None) -> MetricRule:
         """Return the rule a configuration declares.
 
         The station is ``[metrics] station``, else ``[site] gauge``, else
@@ -313,7 +366,10 @@ __all__ = [
     "DateWindow",
     "MetricRule",
     "MetricScore",
+    "MetricsConfig",
+    "MetricsWindow",
     "PeriodWindow",
+    "ScoringDeclaration",
     "WindowRole",
     "calibration_extent",
     "score",

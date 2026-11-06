@@ -1,66 +1,10 @@
-"""One-shot TOML config migration for the simulation-management refactor.
+"""How a file written against an earlier schema still loads.
 
-Rewrites legacy ``[simulation]`` keys in place, preserving comments and layout:
-
-- ``on_collision`` -> ``if_exists``, ``"replace"`` becoming ``"version"``
-- ``run_id`` -> ``name`` (when ``name`` is not already set)
-- ``[simulation.results.export]`` -> top-level ``[export]``
-- ``[export.variables]`` boolean submodel (``head``, ``concentration``,
-  ``derived``, and the dead ``budget``/``pathlines`` toggles) -> flat
-  ``export.variables`` list of the names it turned on
-- ``export.times`` -> ``export.time`` (when ``time`` is not already set)
-- the ``[export]`` table of format toggles and ``[[export.artifacts]]`` -> one
-  ``[[export]]`` request per toggle and per artifact; a table with every
-  format off wrote nothing and is dropped without a word
-- ``[display.overrides.<figure>] timestep`` -> ``time``, a row of
-  :data:`RENAMED_KEYS`
-- the figure ``calibration_posterior`` -> ``calibration_trial_distribution``, in
-  ``[display] figures`` and as a key of ``[display.overrides]`` (:data:`RENAMED_FIGURES`)
-- ``[modflow6.tgrid]`` and ``[modflownwt.tgrid]`` dropped: neither backend
-  read them
-- ``solver_scratch`` and ``persistence.save_lock`` dropped: both drove
-  nothing. The solver scratch directory is ``<project>/.hmp/scratch`` and
-  no run option writes the lockfile.
-- ``[modflow6.sgrid.vertical]`` and ``[modflownwt.sgrid.vertical]`` ->
-  ``[domain.layers]``, which every solver reads. When both are written, the
-  table of the flow solver is kept (the first solver of the first flow
-  process, else ``solver.backend``, else MODFLOW 6) and the other is dropped
-  with a line saying whether it held other values. A ``[domain.layers]`` in the
-  same file wins over both. The paths come from :data:`MOVED_TABLES`, which the
-  changes page of the docs reads too.
-- ``geographic.bottom_path`` -> one ``[[data.substratum.sources]]`` entry,
-  ``[domain.depth_model]`` left as it is (the old key was never read)
-- ``[simulation.results.derived]`` and ``[simulation.results.budget]`` dropped,
-  whatever they held: a run keeps its whole per-cell budget and rebuilds every
-  derived field on read, so neither table has anything left to switch
-- ``maximal_flowing_steps`` and ``minimal_dry_steps`` of a network output's
-  ``extent`` table, of ``[display.overrides.network_extent_bounds_map]`` and of
-  the dotted phase override of that figure -> ``maximal_flowing_duration`` and
-  ``minimal_dry_duration``: ``N`` timesteps become ``N`` times the
-  ``[simulation.time]`` step (``2`` monthly steps are ``"2 months"``). A file
-  that does not hold its step is left with the reason
-- ``roptim_max`` of a network output under ``[calibration.outputs.<name>]``
-  dropped when it is 2, the paper's bound, which ``validity_length = "auto"``
-  reproduces; any other value is refused, since a ratio has no length without
-  the cell size of the run
-- ``flow.active_bc`` and ``flow.active_sinks_sources`` folded into the tables they
-  listed: a table is active when it is declared. A table present and not listed gets
-  ``enabled = false``, and a name listed with no table gets an empty one
-  (:func:`_fold_the_activation_lists`), so a file means what it meant. A document that
-  writes neither list is read under the new rule: nothing tells it from a new file.
-- ``kind`` of a drain: ``cauchy`` and ``robin`` are one linear drain, ``drain``
-- the seven keys ``[transport]`` inherited and never read dropped
-- ``geographic.catchment.buff_area`` written as a bare number -> ``"N% of sqrt(area)"``,
-  the rule of version 1 written out, with the same distance (:func:`_write_out_the_bare_buffer`)
-- ``[workspace] catalog_path`` and ``runs_dir`` dropped: the loader refuses them with the
-  storage layout contract, the index and the runs of a project have one place and a file
-  cannot move them
-- ``[workspace] project_root``, ``[display] output_dir`` and
-  ``[calibration] rerun_best_with_outputs`` dropped, ``simulation.if_exists =
-  "replace"`` rewritten as ``"version"``: the loader refuses each of them with
-  the line to delete, and only ``fix_config_file`` makes the edit. The read
-  path keeps refusing, so a file that says them is told. ``[site]`` is never
-  written here: it names the catchment, which only the user knows.
+Each old form is one row of a table: :data:`RENAMED_KEYS` for a key under a new
+name, :data:`MOVED_TABLES` for a key or a table at a new place,
+:data:`HAND_WRITTEN_FORMS` for a rule written by hand, :data:`OLD_VALUES` for a
+value that changed its spelling. The tables are the list of the migrations; the
+changes page of the documentation reads them, and so does this module.
 
 This is a migration tool, not a backward-compat shim: the runtime model itself
 never accepts the old keys (``extra="forbid"``). ``migrate_config_doc`` and
@@ -2967,19 +2911,15 @@ def document_path(form_path: str) -> str:
 __all__ = [
     "ALPHA_FORM",
     "DEPRECATION_DELAY_MINORS",
-    "HAND_WRITTEN_FORMS",
     "MOVED_TABLES",
     "OLD_VALUES",
-    "REFUSED_OR_RETIRED_FORMS",
     "RENAMED_KEYS",
     "RETIRED_RESULTS_TABLES",
     "KeyRename",
     "Layer",
-    "MovedPath",
     "OldForm",
     "TableMove",
     "document_path",
-    "drop_retired_results_tables",
     "fix_config_chain",
     "fix_config_file",
     "migrate_config_doc",

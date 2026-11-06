@@ -62,12 +62,12 @@ def write_project_lockfile(
     stay the source of truth. The solver-binary section is left empty; the
     value is the data provenance plus the storage-schema versions.
     """
-    from hydromodpy.config.schema_export import schema_sha256
     from hydromodpy.data.provenance.lockfile import project_lockfile_path
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
     from hydromodpy.data.registry.freeze import write_lockfile
     from hydromodpy.results.storage.parquet_schemas import PARQUET_SCHEMA_VERSION
     from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
+    from hydromodpy.schema.config_schema import schema_sha256
 
     root = Path(project_root)
     db_path = data_cache_path_for(Path(data_dir))

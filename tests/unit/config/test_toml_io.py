@@ -308,7 +308,7 @@ def test_a_config_written_from_instances_without_exports_has_no_block() -> None:
 
 
 def test_config_meta_marks_export_as_repeated() -> None:
-    from hydromodpy.schema.export import build_config_meta
+    from hydromodpy.schema.config_schema import build_config_meta
 
     sections = {entry["name"]: entry for entry in build_config_meta()["sections"]}
 

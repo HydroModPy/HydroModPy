@@ -38,7 +38,6 @@ from hydromodpy.calibration.optim.optimizer import announced_optimizers, availab
 from hydromodpy.calibration.protocols import options_the_recipe_already_runs
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.config.config_migration import fix_config_file, migrate_sealed_config_doc
-from hydromodpy.config.metrics_config import MetricsWindow
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.core.scoring.cost_margin import parse_cost_margin
@@ -56,6 +55,7 @@ from hydromodpy.results.derive.stream.geometry import build_network_geometry
 from hydromodpy.results.derive.stream.network import build_simulated_network
 from hydromodpy.results.derive.stream.routing_surface import routing_surface_from_run
 from hydromodpy.results.derive.stream.run_extent import network_extents_from_run
+from hydromodpy.results.metric_rule import MetricsWindow
 from hydromodpy.spatial.drainage.distance import build_downslope_metric
 from hydromodpy.workflow.steps.prepare_solver.freeze import portable_config_document
 from tests._helpers.sealed_runs import sealed_search

@@ -16,12 +16,12 @@ from hydromodpy.calibration.config import (
     CalibrationConfig,
     MatchingHydrographicNetworkOptions,
 )
-from hydromodpy.config.metrics_config import MetricsConfig
 from hydromodpy.core.exceptions import ConfigError, DataContractViolation
 from hydromodpy.core.site import GaugeConflictError, SiteConfig, resolve_gauge, site_fingerprint
 from hydromodpy.core.site.row import SiteRow
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.data.managers.timeseries_config import TimeseriesSelectionMixin
+from hydromodpy.results.metric_rule import MetricsConfig
 from hydromodpy.spatial.field.field_param import FieldParam
 from hydromodpy.spatial.field.field_param_sections import normalize_values
 from tests._helpers.run_stores import open_run_store

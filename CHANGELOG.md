@@ -53,6 +53,7 @@ Work since v2.0.0rc1. The main themes are calibration with a validation window, 
 - Contributors: the data tests live in `tests/unit/data/`, laid out like the package, and `tests/unit/data_managers/` is gone. The SIM2 grid configs share one base and the lake chronicle configs another, with the `[data]` schema unchanged. `attach_read_only` lives once, in `hydromodpy.core.io.db_retry`.
 - The calibration session report draws the best run with the registered figures, lake level included, and names each image after its figure, for example `hydrograph_sim_obs.png` instead of `best_obs_vs_sim.png`.
 - The `reporting` layer is gone. The calibration report is `hydromodpy.display.calibration_report` and the campaign summary `hydromodpy.results.export.campaign_summary`. `hmp.compare_pair` now sits beside `Catalog.diff`, and `hydromodpy.analysis.comparison.compare` is now `hydromodpy.analysis.compare`.
+- `hydromodpy.schema.config_schema` replaces `hydromodpy.config.schema_export` and `hydromodpy.schema.export`. The plan of a `[sites]` project moved to `hydromodpy.project.launch.sites`, the check behind `hmp config check` to `hydromodpy.project.check`, the resolution of a `[site]` to `hydromodpy.data.sites.single_site`, `MetricsConfig` to `hydromodpy.results.metric_rule` and `PublicationConfig` to `hydromodpy.results.publication`. No row of the layer matrix cites a row below it any more.
 
 ### Removed
 
@@ -73,6 +74,7 @@ Work since v2.0.0rc1. The main themes are calibration with a validation window, 
 - Warnings say a value reached a bound only when it is on it. A minimiser on one parameter and two bounds is refused only for signed residuals. A calibration that scores different blocks in different phases is accepted.
 - The `calibration_progress` figure of a staged calibration shows the value a phase froze, so the best run reads `K = 7.96e-05 m/s` instead of `K = nan`.
 - `hmp report compare` writes a `variable` column in `scores.csv` and `by_site.csv`, so two variables scored at one station no longer give two rows that cannot be told apart. `hmp.compare_pair` finds the project from `project.toml`, like `hmp.compare`.
+- A retired root section such as `[modflow]` is refused by its sentence when a mapping is validated directly, as it already was in a TOML file. `hmp config check` no longer lists a `ResourceWarning` among the warnings of a file.
 
 ### Security
 

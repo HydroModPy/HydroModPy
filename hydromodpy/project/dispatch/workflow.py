@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from hydromodpy.config.sites.expansion import PlanDraft
+    from hydromodpy.project.launch.sites.expansion import PlanDraft
     from hydromodpy.results.run import Run
     from hydromodpy.workflow.overview import OverviewResult
 
@@ -365,14 +365,11 @@ def draft_of_a_file_or_config(
     A ``[sites]`` file gives every case of its plan. Any other gives one case: the
     steps of a simulation, none for an overview, which is one piece.
     """
-    from hydromodpy.config.sites.expansion import (
-        expand_plan,
-        is_sites_project,
-        single_case_draft,
-    )
+    from hydromodpy.config.sites import is_sites_project
     from hydromodpy.core.state.result_dirs import resolve_project_root
     from hydromodpy.core.toml_io.paths import assign, parse
     from hydromodpy.project import Project
+    from hydromodpy.project.launch.sites.expansion import expand_plan, single_case_draft
     from hydromodpy.workflow.dispatch import load_raw_toml
 
     path = Path(source) if isinstance(source, (str, Path)) else None

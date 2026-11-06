@@ -20,14 +20,14 @@ REQUIRED_UI_KEYS = {
 
 
 def _full_schema() -> dict:
-    from hydromodpy.schema.export import export_schema
+    from hydromodpy.schema.config_schema import export_schema
 
     return export_schema()
 
 
 def test_flow_physical_properties_annotations_survive_export() -> None:
-    from hydromodpy.config.schema_export import export_schema
     from hydromodpy.physics.flow.physical_properties import FlowPhysicalProperties
+    from hydromodpy.schema.config_schema import export_schema
 
     schema = export_schema(FlowPhysicalProperties)
     props = schema["properties"]
@@ -40,8 +40,8 @@ def test_flow_physical_properties_annotations_survive_export() -> None:
 
 
 def test_widget_types_are_recognized() -> None:
-    from hydromodpy.config.schema_export import export_schema
     from hydromodpy.physics.flow.physical_properties import FlowPhysicalProperties
+    from hydromodpy.schema.config_schema import export_schema
 
     allowed = {"slider", "input", "select", "checkbox", "file"}
     schema = export_schema(FlowPhysicalProperties)
@@ -51,8 +51,8 @@ def test_widget_types_are_recognized() -> None:
 
 
 def test_display_bounds_are_numeric() -> None:
-    from hydromodpy.config.schema_export import export_schema
     from hydromodpy.physics.flow.physical_properties import FlowPhysicalProperties
+    from hydromodpy.schema.config_schema import export_schema
 
     schema = export_schema(FlowPhysicalProperties)
     for field_name, entry in schema["properties"].items():
@@ -69,9 +69,8 @@ def test_exported_config_preserves_widget_metadata(tmp_path: Path) -> None:
     ``FlowPhysicalProperties`` is reachable via the ``FlowConfig`` model,
     so the assertion uses the model-level exporter directly.
     """
-    from hydromodpy.config.schema_export import export_schema
     from hydromodpy.physics.flow.physical_properties import FlowPhysicalProperties
-    from hydromodpy.schema.export import export_full_schema
+    from hydromodpy.schema.config_schema import export_full_schema, export_schema
 
     paths = export_full_schema(tmp_path)
     assert paths["config"].is_file()

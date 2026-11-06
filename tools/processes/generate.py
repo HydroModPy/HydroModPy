@@ -36,9 +36,9 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.cli.helpers import exit_code_for
-from hydromodpy.config.schema_export import export_schema, extract_property_schema
 from hydromodpy.data.request.job import DATA_REQUEST
 from hydromodpy.schema.capability import CapabilityDecl, OutputDecl
+from hydromodpy.schema.config_schema import export_schema, extract_property_schema
 from hydromodpy.schema.processes import (
     INDEX_FILENAME,
     INDEX_PROFILE,

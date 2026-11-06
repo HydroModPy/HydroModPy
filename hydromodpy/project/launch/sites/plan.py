@@ -1,6 +1,6 @@
 """Writing a plan: ``plan/<hash>/`` from a draft, once, never over a running case.
 
-A :class:`~hydromodpy.config.sites.expansion.PlanDraft` without errors
+A :class:`~hydromodpy.project.launch.sites.expansion.PlanDraft` without errors
 becomes ``plan/<hash>/{plan.json, sites.parquet, cases.parquet, <case>.toml}``
 through :func:`hydromodpy.results.plan_store.write_plan`, and ``plan/current``
 points at it. The hash is the fingerprint of the cases: the same project,
@@ -21,12 +21,12 @@ from pathlib import Path
 
 import pyarrow as pa
 
-from hydromodpy.config.sites.expansion import DraftCase, PlanDraft
-from hydromodpy.config.sites.issues import PlanError
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.state.layout import PLAN_DIRNAME, runs_dir_for, sessions_dir_for
 from hydromodpy.core.toml_io.overrides import env_set_names
 from hydromodpy.core.version import __version__
+from hydromodpy.project.launch.sites.expansion import DraftCase, PlanDraft
+from hydromodpy.project.launch.sites.issues import PlanError
 from hydromodpy.results.outcome import effective_status
 from hydromodpy.results.plan_store import (
     CASE_TOML_SUFFIX,
@@ -184,7 +184,7 @@ def refuse_env_overrides(env: Mapping[str, str], config_path: str | Path) -> Non
 def write_plan_draft(project_root: str | Path, draft: PlanDraft, *, force: bool = False) -> Path:
     """Write ``plan/<hash>/`` from *draft* and return the directory.
 
-    A draft with errors raises :class:`~hydromodpy.config.sites.issues.PlanError`.
+    A draft with errors raises :class:`~hydromodpy.project.launch.sites.issues.PlanError`.
     A case of the current plan, or of the draft, still running raises
     :class:`RunningCaseError` unless *force* is true.
     """

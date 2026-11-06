@@ -31,9 +31,9 @@ from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.window import model_phase_index, step_window
 
 if TYPE_CHECKING:
-    from hydromodpy.config.sites.expansion import PlanDraft
     from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.project.facade import Project
+    from hydromodpy.project.launch.sites.expansion import PlanDraft
     from hydromodpy.results.run import Run
 
 logger = get_logger(__name__)
@@ -224,8 +224,8 @@ class ProjectRunner:
         identity, whether a completed run already holds it, and the steps of its
         window.
         """
-        from hydromodpy.config.sites.expansion import single_case_draft
         from hydromodpy.project.dispatch.workflow import completed_identical_run
+        from hydromodpy.project.launch.sites.expansion import single_case_draft
         from hydromodpy.workflow.steps.sequence import standard_steps
 
         project = self._project

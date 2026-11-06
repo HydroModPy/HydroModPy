@@ -16,12 +16,10 @@ section model, never to the root.
 | part | answers |
 |---|---|
 | `hydromodpy_config.py` | what is a whole project file? `HydroModPyConfig` (the root), `WorkflowConfig` (the `[workflow]` section), the loading entry points `from_toml`, `from_dict`, `from_json`, `from_snapshot`, and the cross-section checks |
-| `toml_section_loader.py` | how is one raw section turned into its model, with paths resolved against the project root? `load_standard_section`, `load_geographic_section` |
-| `sites/` | the `[sites]` section and the plan of a campaign: `models.py` (the section as the TOML declares it), `expansion.py` (`expand_plan`: sites x recipes into cases, the precedence of a case, the site scoped keys, the origin of every error), `plan.py` (`write_plan_draft`: `plan/<hash>/` written once), `budget.py` (what a plan costs, the `--dry-run` lines, the ceilings), `check.py` (`check_project`, the one check behind `hmp config check`), `single_site.py` (a `[site]` resolved against the site catalog of the workspace) |
-| `metrics_config.py`, `publication_config.py` | the `[metrics]` and `[publication]` root sections |
+| `section_loader.py` | how is one raw section turned into its model, with paths resolved against the project root? `load_standard_section`, `load_optional_section`, `load_geographic_section`. It serves a TOML file and a mapping alike |
+| `sites.py` | the `[sites]` section as the TOML declares it, checked without reading any file, and `is_sites_project`. The plan of a campaign built from it lives in `project/launch/sites/` |
 | `config_migration.py` | how does a file written against an earlier schema still load? `migrate_config_doc_on_load` rewrites the parsed payload in memory; `fix_config_file` (called by `hmp doctor --fix-config <file>`) rewrites the file in place. `RENAMED_KEYS` lists the keys a file wrote under an old name: a load warns, or refuses a key of `[calibration]`, the doctor renames them, and `migrate_sealed_config_doc` renames them on read in the frozen config of a run on disk. A network output moves across its tables `map`, `model` and `verdict`, which a rename row cannot do, so `_rewrite_the_network_outputs` writes it, for the doctor and for a sealed read, from the rows of `CALIBRATION_RENAMES` |
-| `schema_export.py` | the JSON Schema of the root or of one section, filtered by profile (`export_schema`, `write_schema`, `schema_sha256`) |
-| `export_checks.py` | the checks of `[[export]]` names and of the dates of `[[export]]` and `[display]` against the run (`check_export_variables`, `check_time_selectors`), run by step 0 and by `hmp config check` |
+| `export_checks.py` | the checks of `[[export]]` names and of the dates of `[[export]]` and `[display]` against the run (`check_export_variables`, `check_time_selectors`), run by step 0 and by `hmp config check` (`project/check.py`) |
 | `dynamic_flow_examples.py` | the provider that lets the TOML template generator render commented examples for the dynamic `[flow.param.*]`, `[flow.bc.*]` and `[flow.sinks_sources.*]` blocks without importing `physics` or `spatial`. `hydromodpy/_bootstrap.py` wires it |
 
 `from hydromodpy.config import HydroModPyConfig` resolves the class lazily, so
@@ -53,9 +51,9 @@ One field of `HydroModPyConfig` per top-level TOML section. Required: `workflow`
 | `[calibration]` | `CalibrationConfig` | `calibration/config.py` |
 | `[spinup]` | `SpinupConfig` | `simulation/spinup_config.py` |
 | `[site]` | `SiteConfig` | `core/site/config.py` |
-| `[sites]` | `SitesConfig` | `config/sites/models.py` |
-| `[metrics]` | `MetricsConfig` | `config/metrics_config.py` |
-| `[publication]` | `PublicationConfig` | `config/publication_config.py` |
+| `[sites]` | `SitesConfig` | `config/sites.py` |
+| `[metrics]` | `MetricsConfig` | `results/metric_rule.py` |
+| `[publication]` | `PublicationConfig` | `results/publication.py` |
 
 `[workflow].mode` is one of `simulation`, `calibration`, `overview`
 (`WorkflowMode`), and is optional: unset, the sections of the file say what
@@ -64,8 +62,9 @@ One field of `HydroModPyConfig` per top-level TOML section. Required: `workflow`
 (`RETIRED_WORKFLOW_MODES`). `[site]` and `[sites]` never coexist: a `[sites]`
 project takes the site of each case from its table row.
 
-The retired root sections `[analysis]` and `[hydrometry]` are refused by name with what replaces them
-(`model_refused_keys`).
+A retired root section (`[analysis]`, `[batch]`, `[persistence]`, `[mesh_catchment]` and the
+others) is refused by name with what replaces it. The ten of them are one table,
+`RETIRED_SECTIONS`, read by `_from_payload` and by a direct `model_validate` alike.
 
 The generated reference of the sections is the TOML reference of the
 documentation; it is built from these models.
@@ -105,9 +104,11 @@ relative path of every file of a project (`plan/<hash>/<case>.toml`,
 `runs/<case>/config.toml`, `site_overrides/<site>.toml`) is read from it, so a
 file two folders down names the same `dem_init_path` as `project.toml` does.
 
-`from_dict` and `from_json` take the same road from a mapping or a JSON payload,
-with `context="api"`. `from_snapshot` rebuilds a config from the JSON snapshot
-stored with a run.
+`from_dict` takes the same road from a mapping, with `context="api"`, and so does
+`from_json` when it is given a `base_dir`. Without one, `from_json` validates the
+JSON payload as it is, with `model_validate_json`: no migration, no path
+resolved, and a refusal is a Pydantic error. `from_snapshot` rebuilds a config
+from the JSON snapshot stored with a run.
 
 `[workspace].project_root` is never a key of a file: the loader sets it from
 the location of the file (the environment variable `HMP_PROJECT_ROOT` wins);
@@ -117,7 +118,7 @@ bare Pydantic error.
 
 ## A campaign: `[sites]` x `[sites.recipes]`
 
-`config/sites/expansion.expand_plan(project_root, config_path)` resolves one
+`project/launch/sites/expansion.expand_plan(project_root, config_path)` resolves one
 case per (site, recipe): the site table (`[sites] table`, or the site catalog
 of the workspace) rendered through `[sites.bind]`, `site_overrides/<site>.toml`,
 the recipe's own keys, then `--set` and `HMP_SET_*`. Precedence, lowest first:
@@ -125,12 +126,14 @@ defaults < the base of the recipe < the rendered row < the site overlay < the
 recipe's own keys (its file, its inline `set`, its row of `recipes_table`) <
 `--set`. Each case is validated through `HydroModPyConfig.from_dict`, hashed
 by `config_identity_hash` without `[workspace]`, and refused when a site scoped
-key keeps a literal value (`config/sites/site_scoped.py`). An error names its
+key keeps a literal value (`project/launch/sites/site_scoped.py`). An error names its
 cell: `sites.csv:37 column x_outlet -> geographic.catchment.x_outlet: ...`,
 grouped over the cases it touches. `plan.write_plan_draft` writes the plan once
 under `plan/<hash>/` through `results/plan_store.py`; `budget.plan_budget`
 gives the numbers of `hmp run --dry-run`; `check.check_project` is the one
-check of `hmp config check` for a run, a calibration or a whole project.
+check of `hmp config check` for a run, a calibration or a whole project
+(`project/check.py`). A `[site]` alone is resolved against the site catalog of
+the workspace by `data/sites/single_site.py`.
 
 Cross-section checks of the root (`_check_cross_section_coherence`), each refused
 with a sentence:
@@ -153,11 +156,13 @@ with a sentence:
 ## Import rules
 
 `config` imports `core`, `physics`, `data`, `spatial`, `simulation`,
-`solver`, `calibration`, `results`, `display` and `workflow` (`tests/unit/architecture/layer_matrix.yaml`): every layer it
-composes. The root facade, `schema`, `results`, `reporting`, `workflow`,
-`project` and `cli` import it. `core` never imports it: a layer that needs a
-section type takes it from its own package, or through a protocol of `core`
-(`core/config_kit/root_config_protocol.py`).
+`solver`, `calibration`, `results` and `display`
+(`tests/unit/architecture/layer_matrix.yaml`): every layer it composes, and
+nothing above them. Only the root facade, `workflow`, `project` and `cli` import
+it. A lower layer that needs the root model or a migration (`core`, `schema`,
+`results`, `calibration`) reaches it through the protocol of
+`core/config_kit/root_config_protocol.py`, which `hydromodpy/_bootstrap.py`
+wires.
 
 ## Where to add what
 
@@ -174,8 +179,8 @@ section type takes it from its own package, or through a protocol of `core`
 3. **A renamed or moved key.** A rule in `config_migration.py`, so earlier files
    still load, with a test. A retired key is refused by the model with the key
    to write: no migration carries it.
-4. **A retired section.** A refusal at the top of `_from_payload` that names the
-   replacement.
+4. **A retired section.** One row of `RETIRED_SECTIONS` in `hydromodpy_config.py`,
+   with the sentence that names the replacement.
 5. **A cross-section rule.** `_check_cross_section_coherence`, only when the rule
    needs two sections; a rule on one section belongs in that section's model.
 
@@ -185,5 +190,4 @@ section type takes it from its own package, or through a protocol of `core`
 2. `core/toml_io/loader.py` for the `base_config` chain.
 3. `core/config_kit/profile.py` and `introspect.py` for the visibility model.
 4. One section model, for example `physics/flow/flow_config.py`.
-5. `schema/export.py` and `config/schema_export.py` for what is exported to
-   frontends and IDEs.
+5. `schema/config_schema.py` for what is exported to frontends and IDEs.

@@ -92,13 +92,13 @@ if TYPE_CHECKING:
     import pandas as pd
 
     from hydromodpy.config import HydroModPyConfig
-    from hydromodpy.config.sites.expansion import PlanDraft
     from hydromodpy.core.state.run_state import LoadedDataContext
     from hydromodpy.core.time.window import (
         ResolvedSimulationTimeGrid,
         ResolvedSteadySimulationTimeGrid,
     )
     from hydromodpy.project.launch import LaunchReport, StatusReport
+    from hydromodpy.project.launch.sites.expansion import PlanDraft
     from hydromodpy.project.launch.summary import SummaryPaths
     from hydromodpy.project.spinup import SpinupResult
     from hydromodpy.results.catalog import Catalog
@@ -964,8 +964,8 @@ def configure_opened(project: Project) -> None:
     A ``[sites]`` project has one configuration per case, written by its
     plan; it is read and launched, never configured as one model.
     """
-    from hydromodpy.config.sites.expansion import SitesProjectError, find_sites_file
     from hydromodpy.core.toml_io.loader import read_toml_chain
+    from hydromodpy.project.launch.sites.expansion import SitesProjectError, find_sites_file
 
     state = project.__dict__["_state"]
     marker = state.root / PROJECT_MARKER_FILENAME

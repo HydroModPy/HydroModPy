@@ -60,13 +60,13 @@ Sections live close to the package they configure:
      - ``hydromodpy/core/site/config.py``
    * - ``[sites]``
      - ``SitesConfig``
-     - ``hydromodpy/config/sites/models.py``
+     - ``hydromodpy/config/sites.py``
    * - ``[metrics]``
      - ``MetricsConfig``
-     - ``hydromodpy/config/metrics_config.py``
+     - ``hydromodpy/results/metric_rule.py``
    * - ``[publication]``
      - ``PublicationConfig``
-     - ``hydromodpy/config/publication_config.py``
+     - ``hydromodpy/results/publication.py``
    * - ``[overview]``
      - ``OverviewConfig``
      - ``hydromodpy/display/overview/config.py``

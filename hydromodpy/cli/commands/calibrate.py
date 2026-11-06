@@ -320,7 +320,7 @@ def _calibrate(
     dry_run = getattr(args, "dry_run", False)
     apply_verbosity(args, raw_toml)
 
-    from hydromodpy.config.sites.expansion import is_sites_project
+    from hydromodpy.config.sites import is_sites_project
 
     if is_sites_project(raw_toml):
         refuse(

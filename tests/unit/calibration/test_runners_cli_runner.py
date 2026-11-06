@@ -77,7 +77,6 @@ from hydromodpy.calibration.runners.staged_runner import (
 from hydromodpy.calibration.runners.state import build_cache_context, space_from_config
 from hydromodpy.cli.commands import calibrate as calibrate_cmd
 from hydromodpy.config import HydroModPyConfig
-from hydromodpy.config.metrics_config import MetricsConfig
 from hydromodpy.core.code_fingerprint import (
     clear_fingerprint_cache,
     code_fingerprint,
@@ -90,7 +89,7 @@ from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.project import Project
 from hydromodpy.results.derive.stream.geometry import VALIDITY_PROVENANCE_CODE
 from hydromodpy.results.heartbeat import read_heartbeat
-from hydromodpy.results.metric_rule import PeriodWindow
+from hydromodpy.results.metric_rule import MetricsConfig, PeriodWindow
 from hydromodpy.results.outcome import effective_status, outcome_path, read_outcome, write_outcome
 from hydromodpy.results.session.descriptor import (
     ParameterWidth,

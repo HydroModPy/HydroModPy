@@ -7,7 +7,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from hydromodpy.config.sites.models import SitesExportRequest
+from hydromodpy.config.sites import SitesExportRequest
 from hydromodpy.project.launch.summary_exports import check_exports, write_exports
 from hydromodpy.project.launch.summary_tables import SummaryError
 

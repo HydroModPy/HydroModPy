@@ -59,10 +59,10 @@ def register(subparsers) -> argparse.ArgumentParser:
 def run(args: argparse.Namespace) -> None:
     apply_verbosity(args, {})
     from hydromodpy.cli._workers.project import sites_project_root
-    from hydromodpy.config.sites.issues import PlanError, group_issues
     from hydromodpy.core.exceptions import HydroModPyError
     from hydromodpy.core.toml_io.overrides import set_overrides
     from hydromodpy.project.launch import plan_project
+    from hydromodpy.project.launch.sites.issues import PlanError, group_issues
     from hydromodpy.results.plan_store import current_plan_hash, plan_path
 
     try:

@@ -20,7 +20,7 @@ def test_config_check_refuses_a_retired_mode_with_its_replacement(tmp_path) -> N
 
 
 def test_config_check_expands_a_sites_project_and_counts_its_cases(tmp_path) -> None:
-    from tests.unit.config.test_sites_plan import write_sites_project
+    from tests.unit.project.launch.test_sites_plan import write_sites_project
 
     project = write_sites_project(tmp_path)
 
@@ -31,7 +31,7 @@ def test_config_check_expands_a_sites_project_and_counts_its_cases(tmp_path) -> 
 
 
 def test_config_check_names_the_cell_of_a_sites_project_error(tmp_path) -> None:
-    from tests.unit.config.test_sites_plan import write_sites_project
+    from tests.unit.project.launch.test_sites_plan import write_sites_project
 
     project = write_sites_project(tmp_path, k_cells=("5e-5", "not_a_number"))
 
@@ -60,7 +60,7 @@ def test_config_schema_forwards_section_profile_and_output(monkeypatch, tmp_path
         out.write_text("{}", encoding="utf-8")
         return out
 
-    monkeypatch.setattr("hydromodpy.config.schema_export.write_schema", fake_write_schema)
+    monkeypatch.setattr("hydromodpy.schema.config_schema.write_schema", fake_write_schema)
 
     result = CliRunner().invoke(
         [
@@ -86,7 +86,7 @@ def test_config_schema_forwards_section_profile_and_output(monkeypatch, tmp_path
 def test_config_schema_editor_writes_the_published_editor_schema(monkeypatch, tmp_path) -> None:
     out = tmp_path / "editor.json"
     monkeypatch.setattr(
-        "hydromodpy.config.schema_export.editor_schema",
+        "hydromodpy.schema.config_schema.editor_schema",
         lambda: {"$comment": "editor", "properties": {"base_config": {}}},
     )
 
@@ -159,7 +159,7 @@ def test_config_resolve_names_a_broken_chain(tmp_path) -> None:
 
 
 def test_config_check_names_a_recipe_that_cannot_be_read(tmp_path) -> None:
-    from tests.unit.config.test_sites_plan import write_sites_project
+    from tests.unit.project.launch.test_sites_plan import write_sites_project
 
     project = write_sites_project(tmp_path)
     (project / "bad.toml").write_text('base_config = "project.toml"\n[flow\n', encoding="utf-8")

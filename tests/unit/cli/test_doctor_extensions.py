@@ -205,7 +205,7 @@ def test_doctor_fix_config_follows_the_chain_and_a_warning_names_the_holder(
     monkeypatch, tmp_path, capsys
 ) -> None:
     """An old key in a parent is told under the parent, and the fix does not come back."""
-    from hydromodpy.config.sites.check import check_project
+    from hydromodpy.project.check import check_project
 
     parent = tmp_path / "project.toml"
     parent.write_text('[simulation]\non_collision = "version"\n', encoding="utf-8")

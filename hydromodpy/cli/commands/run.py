@@ -413,7 +413,7 @@ def _run_toml(
 
     profile_output = resolve_profile_output(getattr(args, "profile", None), config_path)
 
-    from hydromodpy.config.sites.plan import refuse_env_overrides
+    from hydromodpy.project.launch.sites.plan import refuse_env_overrides
 
     refuse_env_overrides(os.environ, config_path)
 
@@ -441,7 +441,7 @@ def _run_toml(
         profile_output = resolve_profile_output(profile_arg_from_toml(raw_toml), config_path)
 
     dry_run = bool(getattr(args, "dry_run", False))
-    from hydromodpy.config.sites.expansion import is_sites_project
+    from hydromodpy.config.sites import is_sites_project
 
     if is_sites_project(raw_toml):
         cleanup_effective_toml(effective_path, source=config_path)
@@ -898,9 +898,9 @@ def _resolve_workspace_data_dir(
 
 def _print_sites_dry_run(config_path: Path, *, args: argparse.Namespace) -> None:
     """Print the plan of a ``[sites]`` project and its grouped issues; write nothing."""
-    from hydromodpy.config.sites.budget import dry_run_lines, plan_budget
-    from hydromodpy.config.sites.expansion import expand_plan
-    from hydromodpy.config.sites.issues import group_issues
+    from hydromodpy.project.launch.sites.budget import dry_run_lines, plan_budget
+    from hydromodpy.project.launch.sites.expansion import expand_plan
+    from hydromodpy.project.launch.sites.issues import group_issues
 
     try:
         cli_payload = set_overrides(list(getattr(args, "set_overrides", []) or []))
@@ -1023,13 +1023,13 @@ def _launch_sites_project(config_path: Path, *, args: argparse.Namespace) -> Non
 def _check_single_site(config_path: Path, raw_toml: Mapping[str, Any]) -> None:
     """Refuse a ``[site]`` the workspace site catalog knows as another catchment.
 
-    Raises :class:`~hydromodpy.config.sites.single_site.SiteMismatchError`.
+    Raises :class:`~hydromodpy.data.sites.single_site.SiteMismatchError`.
     A file without ``[site]``, or a workspace without a catalog, passes.
     """
     if "site" not in raw_toml:
         return
     from hydromodpy.config.hydromodpy_config import HydroModPyConfig
-    from hydromodpy.config.sites.single_site import resolve_single_site
+    from hydromodpy.data.sites.single_site import resolve_single_site
 
     cfg = HydroModPyConfig.from_toml(config_path)
     workspace_root = getattr(cfg.workspace, "root", None)

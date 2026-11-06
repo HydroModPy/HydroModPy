@@ -30,6 +30,7 @@ from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
+from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.scoring.stream_defaults import (
     STREAM_CRITERION_DEFAULTS,
@@ -200,14 +201,12 @@ def _read_as_renamed(
     config, on a copy: the extent rules, for one, were counts of timesteps and
     are now durations read with the step of the run's ``[simulation.time]``.
     """
-    from hydromodpy.config.config_migration import migrate_sealed_config_doc
-
     simulation = snapshot.get("simulation")
     time = simulation.get("time") if isinstance(simulation, Mapping) else None
     doc: dict[str, Any] = {"calibration": copy.deepcopy(dict(calibration))}
     if isinstance(time, Mapping):
         doc["simulation"] = {"time": copy.deepcopy(dict(time))}
-    migrate_sealed_config_doc(doc)
+    get_root_config_provider().migrate_sealed(doc)
     return doc["calibration"]
 
 

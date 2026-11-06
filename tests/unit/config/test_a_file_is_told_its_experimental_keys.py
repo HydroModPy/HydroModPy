@@ -20,7 +20,6 @@ from hydromodpy.calibration.preflight import preflight_launch
 from hydromodpy.calibration.report import CalibrationReport
 from hydromodpy.calibration.runners.trial import prepare_trials
 from hydromodpy.config import HydroModPyConfig
-from hydromodpy.config.sites.check import check_project
 from hydromodpy.core.config_kit.written import (
     experimental_keys_line,
     log_experimental_keys,
@@ -29,11 +28,12 @@ from hydromodpy.core.config_kit.written import (
 from hydromodpy.core.console.progress import MILESTONE_KEY
 from hydromodpy.physics.flow.sinks_sources.container import FlowSinksSourcesConfig
 from hydromodpy.project import Project
+from hydromodpy.project.check import check_project
 from hydromodpy.project.dispatch.workflow import run_overview
 from hydromodpy.solver.base.solver_config import CustomBackend, SolverConfig
 from hydromodpy.workflow.steps import ResolveStep, ValidateStep
 from tests._helpers.cli_runner import CliRunner
-from tests.unit.config.test_sites_plan import write_sites_project
+from tests.unit.project.launch.test_sites_plan import write_sites_project
 
 WRITTEN_LOGGER = "hydromodpy.core.config_kit.written"
 

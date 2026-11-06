@@ -169,7 +169,11 @@ def _register_root_config_contracts() -> None:
     from pathlib import Path
     from typing import Any
 
-    from hydromodpy.config.config_migration import migrate_layers, migrate_merged_doc
+    from hydromodpy.config.config_migration import (
+        migrate_layers,
+        migrate_merged_doc,
+        migrate_sealed_config_doc,
+    )
     from hydromodpy.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.core.config_kit import root_config_protocol
 
@@ -193,6 +197,9 @@ def _register_root_config_contracts() -> None:
             self, document: dict[str, Any], layers: Sequence[tuple[str | Path | None, Any]]
         ) -> list[str]:
             return migrate_merged_doc(document, layers)
+
+        def migrate_sealed(self, document: dict[str, Any]) -> list[str]:
+            return migrate_sealed_config_doc(document)
 
     root_config_protocol.set_root_config_provider(_RootConfigProvider())
 

@@ -354,12 +354,13 @@ def test_run_calibration_refuses_a_phase_a_flat_file_does_not_declare(
 
 
 def _draft_collaborators(monkeypatch: pytest.MonkeyPatch, *, is_sites: bool) -> list[Any]:
-    import hydromodpy.config.sites.expansion as expansion
+    import hydromodpy.config.sites as sites
+    import hydromodpy.project.launch.sites.expansion as expansion
     import hydromodpy.workflow.dispatch as wdispatch
 
     seen: list[Any] = []
     monkeypatch.setattr(wdispatch, "load_raw_toml", lambda path: {"raw": str(path)})
-    monkeypatch.setattr(expansion, "is_sites_project", lambda raw: is_sites)
+    monkeypatch.setattr(sites, "is_sites_project", lambda raw: is_sites)
     monkeypatch.setattr(
         expansion,
         "expand_plan",

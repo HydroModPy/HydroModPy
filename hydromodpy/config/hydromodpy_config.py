@@ -40,20 +40,15 @@ from hydromodpy.config.config_migration import (
     _raw_flow_process_solver,
     migrate_sealed_config_doc,
 )
-from hydromodpy.config.metrics_config import MetricsConfig
-from hydromodpy.config.publication_config import PublicationConfig
-from hydromodpy.config.sites.models import SitesConfig
-from hydromodpy.config.toml_section_loader import (
-    _load_data_section,
-    _load_flow_section,
+from hydromodpy.config.section_loader import (
     _load_optional_calibration_section,
     _load_optional_mesh_section,
-    _load_optional_overview_section,
-    _load_optional_spinup_section,
     _raw_declares_dem_source,
     load_geographic_section,
+    load_optional_section,
     load_standard_section,
 )
+from hydromodpy.config.sites import SitesConfig
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.introspect import (
@@ -94,6 +89,8 @@ from hydromodpy.physics.hydrology.soil_reservoir.config import (
 )
 from hydromodpy.physics.transport.transport_config import TransportConfig
 from hydromodpy.results.exporters.export_spec import ExportRequest, load_export_requests
+from hydromodpy.results.metric_rule import MetricsConfig
+from hydromodpy.results.publication import PublicationConfig
 from hydromodpy.simulation.planning.config import SimulationConfig
 from hydromodpy.simulation.planning.observation_config import ObservationConfig
 from hydromodpy.simulation.spinup_config import SpinupConfig
@@ -259,9 +256,46 @@ _RETIRED_MESH_SECTIONS: dict[str, str] = {
 }
 
 
-def _retired_mesh_section(data: Mapping[str, Any]) -> str | None:
-    """Return the first retired mesh section a document declares, or None."""
-    return next((name for name in _RETIRED_MESH_SECTIONS if name in data), None)
+_TESTBED_REFUSAL = (
+    "a case of a testbed is a recipe: list the catchments in [sites] and the "
+    "variants in [sites.recipes]."
+)
+
+RETIRED_SECTIONS: dict[str, str] = {
+    "initializing": "Section [initializing] is no longer supported. Use [workspace] instead.",
+    "modflow": (
+        "Section [modflow] is no longer supported. "
+        "Use [solver], [modflownwt], and [modflow6] sections instead."
+    ),
+    "capability_gallery": (
+        "Section [capability_gallery] is no longer supported: the figures of "
+        "a run are drawn again by hmp export <run> --regen figures."
+    ),
+    "analysis": ANALYSIS_SECTION_REFUSAL,
+    "hydrometry": HYDROMETRY_SECTION_REFUSAL,
+    "batch": (
+        "Section [batch] is no longer supported. List the catchments in [sites] "
+        "and the variants in [sites.recipes]."
+    ),
+    "testbed": "Section [testbed] is no longer supported: " + _TESTBED_REFUSAL,
+    "persistence": _ROOT_PERSISTENCE_REFUSAL,
+    **_RETIRED_MESH_SECTIONS,
+    "regional_lab": (
+        "Section [regional_lab] is not a HydroModPyConfig section. A regional "
+        "lab is a [sites] project: list the catchments in [sites] and the "
+        "variants in [sites.recipes]."
+    ),
+}
+"""Root sections a file may no longer write, each with the sentence that refuses it.
+
+A new retired section is one row here. ``_from_payload`` refuses the first one a
+document writes, and a direct ``model_validate`` refuses it too.
+"""
+
+
+def _retired_section(data: Mapping[str, Any]) -> str | None:
+    """Return the first retired root section a document declares, or None."""
+    return next((name for name in RETIRED_SECTIONS if name in data), None)
 
 
 def _refuse_unknown_transport_solvers(names: list[str]) -> None:
@@ -707,10 +741,7 @@ class HydroModPyConfig(HydroModelBase):
     )
 
     model_refused_keys: ClassVar[Mapping[str, str]] = {
-        "testbed": (
-            "a case of a testbed is a recipe: list the catchments in [sites] and the "
-            "variants in [sites.recipes]."
-        ),
+        "testbed": _TESTBED_REFUSAL,
         "analysis": ANALYSIS_SECTION_REFUSAL,
         "hydrometry": HYDROMETRY_SECTION_REFUSAL,
     }
@@ -736,20 +767,12 @@ class HydroModPyConfig(HydroModelBase):
 
     @model_validator(mode="before")
     @classmethod
-    def _refuse_root_persistence(cls, data: Any) -> Any:
-        """Refuse a root ``persistence`` table: no run reads it."""
-        if isinstance(data, Mapping) and "persistence" in data:
-            raise ValueError(_ROOT_PERSISTENCE_REFUSAL)
-        return data
-
-    @model_validator(mode="before")
-    @classmethod
-    def _name_the_replacement_of_a_retired_mesh_section(cls, data: Any) -> Any:
-        """Refuse ``[mesh_catchment]``, ``[mesh_catchment_batch]`` and ``[mesh_input]``."""
+    def _refuse_retired_sections(cls, data: Any) -> Any:
+        """Refuse a retired root section with what replaces it."""
         if isinstance(data, Mapping):
-            name = _retired_mesh_section(data)
-            if name is not None:
-                raise ValueError(_RETIRED_MESH_SECTIONS[name])
+            name = _retired_section(data)
+            if name is not None and name not in cls.model_refused_keys:
+                raise ValueError(RETIRED_SECTIONS[name])
         return data
 
     @model_validator(mode="before")
@@ -812,17 +835,16 @@ class HydroModPyConfig(HydroModelBase):
         mesh. The rule is ``MeshConfig.requires_river_trace``, the one the
         geographic step reads.
         """
-        geographic = getattr(self, "geographic", None)
-        if geographic is None or geographic.uses_synthetic_geographic():
+        geographic = self.geographic
+        if geographic.uses_synthetic_geographic():
             return
         river_network = geographic.river_network
         if bool(river_network.enabled):
             return
-        mesh = getattr(self, "mesh", None)
+        mesh = self.mesh
         if mesh is None:
             return
-        flow_cfg = getattr(self, "flow", None)
-        active_bc = {str(name).lower() for name in getattr(flow_cfg, "active_bc", []) or []}
+        active_bc = {str(name).lower() for name in self.flow.active_bc}
         if not mesh.requires_river_trace(active_bc=active_bc, synthetic=False):
             return
         if mesh.triangle is not None and mesh.triangle.path is not None:
@@ -846,7 +868,7 @@ class HydroModPyConfig(HydroModelBase):
         from hydromodpy.spatial.mesh import registry as mesh_registry
         from hydromodpy.spatial.mesh.port import ANY_PLANAR_ENGINE, engine_accepted
 
-        mesh = getattr(self, "mesh", None)
+        mesh = self.mesh
         engine_id = mesh.engine if mesh is not None else mesh_registry.DEFAULT_ENGINE_ID
         solver_name = solver_cfg.backend_name
 
@@ -890,19 +912,17 @@ class HydroModPyConfig(HydroModelBase):
         middle of the column: with H/d = 2.5 the transmissivity is off by -22 % to
         +75 % with the water table, and five equal layers bring it near -1 %.
         """
-        domain = getattr(self, "domain", None)
+        domain = self.domain
         layers = getattr(domain, "layers", None)
         if layers is None:
             return
         engine_value = _declared_flow_engine(self)
         if engine_value == "boussinesq":
-            for refusal in _boussinesq_layering_refusals(
-                layers, getattr(self, "calibration", None)
-            ):
+            for refusal in _boussinesq_layering_refusals(layers, self.calibration):
                 if not sealed:
                     raise ValueError(refusal)
                 logger.warning("%s This sealed run was solved on one layer.", refusal)
-        layer_base = getattr(getattr(self, "data", None), "layer_base", None)
+        layer_base = self.data.layer_base
         declared = set() if layer_base is None else {source.name for source in layer_base.sources}
         read = set(layers.base_surface_names)
         if read - declared:
@@ -923,7 +943,7 @@ class HydroModPyConfig(HydroModelBase):
                 "pass-through cell (idomain -1), which MODFLOW-NWT does not have. Write "
                 "pinch_out = 'keep_min_thickness', or run MODFLOW 6."
             )
-        params = getattr(getattr(self, "flow", None), "param", None) or {}
+        params = self.flow.param or {}
         for param_id, param in params.items():
             profile = getattr(param, "field_vertical_profile", None)
             if str(param_id).lower() != "k" or profile is None or profile.kind == "none":
@@ -953,7 +973,7 @@ class HydroModPyConfig(HydroModelBase):
         refuses them there. An angle is a direction: a vertical profile would
         scale it with depth, which has no meaning.
         """
-        params = getattr(getattr(self, "flow", None), "param", None) or {}
+        params = self.flow.param or {}
         tensor_ids = k_tensor_parameter_ids(params)
         if not tensor_ids:
             return
@@ -984,13 +1004,11 @@ class HydroModPyConfig(HydroModelBase):
         """
         from hydromodpy.spatial.mesh import registry as mesh_registry
 
-        mesh = getattr(self, "mesh", None)
+        mesh = self.mesh
         engine_id = mesh.engine if mesh is not None else mesh_registry.DEFAULT_ENGINE_ID
         if engine_id == "regular":
             return
-        sinks_sources = getattr(getattr(self, "flow", None), "sinks_sources", None)
-        if sinks_sources is None:
-            return
+        sinks_sources = self.flow.sinks_sources
         addressed: list[str] = []
         for well_id, well in (getattr(sinks_sources, "wells", None) or {}).items():
             if getattr(getattr(well, "location", None), "kind", None) == "cell":
@@ -1044,8 +1062,8 @@ class HydroModPyConfig(HydroModelBase):
         A sealed document, the frozen config of a run already on disk, is read
         as it was run: the window only warns, and the run has no score.
         """
-        window = getattr(getattr(self, "metrics", None), "window", None)
-        run = getattr(getattr(self, "simulation", None), "time", None)
+        window = getattr(self.metrics, "window", None)
+        run = self.simulation.time
         run_start = getattr(run, "start_datetime", None)
         run_end = getattr(run, "end_datetime", None)
         if window is None or run_start is None or run_end is None:
@@ -1108,35 +1126,28 @@ class HydroModPyConfig(HydroModelBase):
         sealed = context.get("validation_context") == "snapshot"
         self._check_the_metrics_window_meets_the_run(sealed=sealed)
 
-        if getattr(getattr(self, "workflow", None), "mode", None) == "overview" and (
-            getattr(self, "overview", None) is None
-        ):
+        if self.workflow.mode == "overview" and (self.overview is None):
             raise ValueError(
                 "workflow.mode = 'overview' needs an [overview] section: it names the card and "
                 "holds its window and panels. Add the section, with at least a name."
             )
 
-        data_cfg = getattr(self, "data", None)
-        if data_cfg is not None and getattr(data_cfg, "inference_mode", None) == "strict":
-            declared_types = list(getattr(data_cfg, "types", []) or [])
-            if not declared_types:
+        data_cfg = self.data
+        if data_cfg.inference_mode == "strict":
+            if not data_cfg.types:
                 raise ValueError(
                     "data.inference_mode='strict' requires at least one explicit "
                     "data type in data.types"
                 )
 
-        depth_kind = getattr(
-            getattr(getattr(self, "domain", None), "depth_model", None), "kind", None
-        )
-        if depth_kind in RASTER_DEPTH_MODEL_KINDS and getattr(data_cfg, "substratum", None) is None:
+        depth_kind = self.domain.depth_model.kind
+        if depth_kind in RASTER_DEPTH_MODEL_KINDS and data_cfg.substratum is None:
             raise ValueError(
                 f"domain.depth_model kind = {depth_kind!r} reads the raster declared under "
                 "[data.substratum]; declare it with one custom source."
             )
 
-        nwt_top_sampling = getattr(
-            getattr(getattr(self, "modflownwt", None), "sgrid", None), "top_sampling", None
-        )
+        nwt_top_sampling = self.modflownwt.sgrid.top_sampling
         if (
             nwt_top_sampling is not None
             and nwt_top_sampling.mode == "zonal"
@@ -1152,122 +1163,116 @@ class HydroModPyConfig(HydroModelBase):
 
         self._check_river_network_threshold_for_the_mesh()
 
-        calibration_cfg = getattr(self, "calibration", None)
-        flow_cfg = getattr(self, "flow", None)
-        if calibration_cfg is not None and flow_cfg is not None:
-            param_list = list(getattr(flow_cfg, "param_list", []) or [])
-            if not param_list:
+        calibration_cfg = self.calibration
+        flow_cfg = self.flow
+        if calibration_cfg is not None:
+            if not flow_cfg.param_list:
                 raise ValueError(
                     "[calibration] requires flow.param_list to declare at least "
                     "one tunable parameter"
                 )
 
-        solver_cfg = getattr(self, "solver", None)
-        if solver_cfg is not None and isinstance(
-            getattr(solver_cfg, "backend", None), CustomBackend
-        ):
+        solver_cfg = self.solver
+        if isinstance(solver_cfg.backend, CustomBackend):
             # A name that is not built in becomes a custom backend. Check it
             # resolves now, or the checks below would refuse a typo with a
             # message about a boundary or a capability.
             solver_cfg.validate_registry()
-        if solver_cfg is not None:
-            # A transport runs when [[simulation.process]] declares one; the
-            # [transport] section is always there, filled with its defaults.
-            engine_value = _declared_flow_engine(self)
-            processes = getattr(getattr(self, "simulation", None), "process", None) or []
-            transport_solvers = [
-                name
-                for process in processes
-                if getattr(process, "kind", None) == "transport"
-                for name in getattr(process, "solvers", None) or []
-            ]
-            _refuse_unknown_transport_solvers(transport_solvers)
-            if engine_value == "boussinesq" and transport_solvers:
-                raise ValueError(
-                    "solver.backend = 'boussinesq' runs no transport: the transport "
-                    f"solvers ({', '.join(transport_solvers)}) read the flow of a MODFLOW "
-                    "model. Remove the transport entry of [[simulation.process]], or run "
-                    "the flow with 'modflow6' or 'modflow_nwt'."
-                )
-
-        if flow_cfg is not None and solver_cfg is not None:
-            from hydromodpy.physics.flow.boundary_condition_registry import boundary_definition
-
-            engine_value = _declared_flow_engine(self)
-            active_bc = {str(name).lower() for name in getattr(flow_cfg, "active_bc", []) or []}
-            sinks_sources = getattr(flow_cfg, "sinks_sources", None)
-
-            # Every active boundary must be supported by the chosen backend, or it
-            # would be silently ignored at build time (lake/sfr on NWT or
-            # Boussinesq were accepted then dropped).
-            for bc_id in sorted(active_bc):
-                definition = boundary_definition(bc_id)
-                if definition is not None and not definition.supports_backend(str(engine_value)):
-                    supported = ", ".join(definition.supported_backends)
-                    raise IncompatibleCapabilitiesError(
-                        f"solver.backend={engine_value!r} does not support the '{bc_id}' "
-                        f"boundary (supported by: {supported}); it would be silently ignored. "
-                        f"Use a supported backend, or remove the '{bc_id}' table, or write "
-                        "enabled = false in it."
-                    )
-
-            # A hotstart is read by the backends that declare they can read one.
-            # Elsewhere the key was accepted and never looked at, so the run
-            # started from the declared initial condition and said nothing.
-            if getattr(flow_cfg, "restart_from", None):
-                from hydromodpy.solver.base.registry import capabilities
-
-                if RESTART_CAPABILITY not in capabilities("flow", str(engine_value)):
-                    raise IncompatibleCapabilitiesError(
-                        f"solver.backend={engine_value!r} does not read flow.restart_from; "
-                        "it would be silently ignored and the run would start from "
-                        "flow.ic instead. Use a backend that declares "
-                        f"{RESTART_CAPABILITY!r}, or drop flow.restart_from."
-                    )
-
-            # A steady pre-solve or a cyclic spin-up writes its own heads after the
-            # hotstart is read, so the restart would be overwritten and unused.
-            head_ic = getattr(getattr(flow_cfg, "ic", None), "h", None)
-            ic_kind = str(getattr(head_ic, "kind", ""))
-            if getattr(flow_cfg, "restart_from", None) and ic_kind in {
-                "steady_state",
-                "spinup_cyclic",
-            }:
-                raise ValueError(
-                    f"flow.restart_from is set and flow.ic.kind = {ic_kind!r} computes "
-                    "its own initial heads, which would overwrite the restart without "
-                    "a message. Write a flow.ic of kind 'top' (or any kind that is not "
-                    "'steady_state' or 'spinup_cyclic') to start from the restart, or "
-                    "drop flow.restart_from to keep the computed start."
-                )
-
-            # A cyclic spin-up repeats the run's own period inside the run. A
-            # backend that cannot do that would start from flow.ic and report a
-            # settled antecedent it never computed.
-            if str(getattr(head_ic, "kind", "")) == "spinup_cyclic":
-                from hydromodpy.solver.base.registry import capabilities
-
-                if CYCLIC_SPINUP_CAPABILITY not in capabilities("flow", str(engine_value)):
-                    raise IncompatibleCapabilitiesError(
-                        f"flow.ic.kind='spinup_cyclic' repeats the simulated period until "
-                        f"the state settles, and solver.backend={engine_value!r} cannot: it "
-                        "would start from the declared initial condition and say nothing. "
-                        f"Use a backend that declares {CYCLIC_SPINUP_CAPABILITY!r}, or run "
-                        "the cycling outside the run with `hmp spinup` and point "
-                        "flow.restart_from at its result."
-                    )
-
-            # Flow barriers and dam cutoff walls are a MODFLOW 6-only addon.
-            barriers = getattr(sinks_sources, "flow_barriers", None) or {}
-            has_cutoff = any(
-                getattr(lake_cfg, "cutoff_wall", None) is not None
-                for lake_cfg in sinks_sources.enabled_lakes().values()
+        # A transport runs when [[simulation.process]] declares one; the
+        # [transport] section is always there, filled with its defaults.
+        engine_value = _declared_flow_engine(self)
+        processes = self.simulation.process or []
+        transport_solvers = [
+            name
+            for process in processes
+            if getattr(process, "kind", None) == "transport"
+            for name in getattr(process, "solvers", None) or []
+        ]
+        _refuse_unknown_transport_solvers(transport_solvers)
+        if engine_value == "boussinesq" and transport_solvers:
+            raise ValueError(
+                "solver.backend = 'boussinesq' runs no transport: the transport "
+                f"solvers ({', '.join(transport_solvers)}) read the flow of a MODFLOW "
+                "model. Remove the transport entry of [[simulation.process]], or run "
+                "the flow with 'modflow6' or 'modflow_nwt'."
             )
-            if (barriers or has_cutoff) and engine_value != "modflow6":
+
+        from hydromodpy.physics.flow.boundary_condition_registry import boundary_definition
+
+        active_bc = {str(name).lower() for name in flow_cfg.active_bc}
+        sinks_sources = flow_cfg.sinks_sources
+
+        # Every active boundary must be supported by the chosen backend, or it
+        # would be silently ignored at build time (lake/sfr on NWT or
+        # Boussinesq were accepted then dropped).
+        for bc_id in sorted(active_bc):
+            definition = boundary_definition(bc_id)
+            if definition is not None and not definition.supports_backend(str(engine_value)):
+                supported = ", ".join(definition.supported_backends)
                 raise IncompatibleCapabilitiesError(
-                    f"solver.backend={engine_value!r} does not support flow barriers / dam "
-                    "cutoff walls (HFB); they require the 'modflow6' backend."
+                    f"solver.backend={engine_value!r} does not support the '{bc_id}' "
+                    f"boundary (supported by: {supported}); it would be silently ignored. "
+                    f"Use a supported backend, or remove the '{bc_id}' table, or write "
+                    "enabled = false in it."
                 )
+
+        # A hotstart is read by the backends that declare they can read one.
+        # Elsewhere the key was accepted and never looked at, so the run
+        # started from the declared initial condition and said nothing.
+        if flow_cfg.restart_from:
+            from hydromodpy.solver.base.registry import capabilities
+
+            if RESTART_CAPABILITY not in capabilities("flow", str(engine_value)):
+                raise IncompatibleCapabilitiesError(
+                    f"solver.backend={engine_value!r} does not read flow.restart_from; "
+                    "it would be silently ignored and the run would start from "
+                    "flow.ic instead. Use a backend that declares "
+                    f"{RESTART_CAPABILITY!r}, or drop flow.restart_from."
+                )
+
+        # A steady pre-solve or a cyclic spin-up writes its own heads after the
+        # hotstart is read, so the restart would be overwritten and unused.
+        head_ic = getattr(getattr(flow_cfg, "ic", None), "h", None)
+        ic_kind = str(getattr(head_ic, "kind", ""))
+        if flow_cfg.restart_from and ic_kind in {
+            "steady_state",
+            "spinup_cyclic",
+        }:
+            raise ValueError(
+                f"flow.restart_from is set and flow.ic.kind = {ic_kind!r} computes "
+                "its own initial heads, which would overwrite the restart without "
+                "a message. Write a flow.ic of kind 'top' (or any kind that is not "
+                "'steady_state' or 'spinup_cyclic') to start from the restart, or "
+                "drop flow.restart_from to keep the computed start."
+            )
+
+        # A cyclic spin-up repeats the run's own period inside the run. A
+        # backend that cannot do that would start from flow.ic and report a
+        # settled antecedent it never computed.
+        if str(getattr(head_ic, "kind", "")) == "spinup_cyclic":
+            from hydromodpy.solver.base.registry import capabilities
+
+            if CYCLIC_SPINUP_CAPABILITY not in capabilities("flow", str(engine_value)):
+                raise IncompatibleCapabilitiesError(
+                    f"flow.ic.kind='spinup_cyclic' repeats the simulated period until "
+                    f"the state settles, and solver.backend={engine_value!r} cannot: it "
+                    "would start from the declared initial condition and say nothing. "
+                    f"Use a backend that declares {CYCLIC_SPINUP_CAPABILITY!r}, or run "
+                    "the cycling outside the run with `hmp spinup` and point "
+                    "flow.restart_from at its result."
+                )
+
+        # Flow barriers and dam cutoff walls are a MODFLOW 6-only addon.
+        barriers = getattr(sinks_sources, "flow_barriers", None) or {}
+        has_cutoff = any(
+            getattr(lake_cfg, "cutoff_wall", None) is not None
+            for lake_cfg in sinks_sources.enabled_lakes().values()
+        )
+        if (barriers or has_cutoff) and engine_value != "modflow6":
+            raise IncompatibleCapabilitiesError(
+                f"solver.backend={engine_value!r} does not support flow barriers / dam "
+                "cutoff walls (HFB); they require the 'modflow6' backend."
+            )
 
         soil = soil_reservoir_of(self.flow)
         if soil is not None:
@@ -1391,9 +1396,7 @@ class HydroModPyConfig(HydroModelBase):
             if steady_start_message is not None:
                 raise ValueError(steady_start_message)
 
-        declared_recharge = getattr(
-            getattr(getattr(self, "flow", None), "sinks_sources", None), "recharge", None
-        )
+        declared_recharge = getattr(self.flow.sinks_sources, "recharge", None)
         if declared_recharge is not None:
             refuse_an_impossible_recharge(
                 declared_recharge.peak_rate_mm_day(),
@@ -1422,8 +1425,7 @@ class HydroModPyConfig(HydroModelBase):
         self._check_the_conductivity_tensor(solver_cfg)
 
         # Last, so a fault of the solver itself is named before a mesh it would not read.
-        if solver_cfg is not None:
-            self._check_the_solver_reads_the_mesh(solver_cfg)
+        self._check_the_solver_reads_the_mesh(solver_cfg)
         self._check_cell_addressing_needs_a_regular_mesh()
         return self
 
@@ -1586,67 +1588,9 @@ class HydroModPyConfig(HydroModelBase):
                 error_type="value_error",
             ) from exc
         raw = _with_calibration_defaults(raw, source_path=source_path)
-        if "initializing" in raw:
-            raise _section_refusal(
-                "initializing",
-                "Section [initializing] is no longer supported. Use [workspace] instead.",
-                source_path=source_path,
-            )
-        if "modflow" in raw:
-            raise _section_refusal(
-                "modflow",
-                "Section [modflow] is no longer supported. "
-                "Use [solver], [modflownwt], and [modflow6] sections instead.",
-                source_path=source_path,
-            )
-        if "capability_gallery" in raw:
-            raise _section_refusal(
-                "capability_gallery",
-                "Section [capability_gallery] is no longer supported: the figures of "
-                "a run are drawn again by hmp export <run> --regen figures.",
-                source_path=source_path,
-            )
-        for retired_section in ("analysis", "hydrometry"):
-            if retired_section in raw:
-                raise _section_refusal(
-                    retired_section,
-                    cls.model_refused_keys[retired_section],
-                    source_path=source_path,
-                )
-        if "batch" in raw:
-            raise _section_refusal(
-                "batch",
-                "Section [batch] is no longer supported. List the catchments in [sites] "
-                "and the variants in [sites.recipes].",
-                source_path=source_path,
-            )
-        if "testbed" in raw:
-            raise _section_refusal(
-                "testbed",
-                "Section [testbed] is no longer supported: " + cls.model_refused_keys["testbed"],
-                source_path=source_path,
-            )
-        if "persistence" in raw:
-            raise _section_refusal(
-                "persistence",
-                _ROOT_PERSISTENCE_REFUSAL,
-                source_path=source_path,
-            )
-        retired_mesh = _retired_mesh_section(raw)
-        if retired_mesh is not None:
-            raise _section_refusal(
-                retired_mesh,
-                _RETIRED_MESH_SECTIONS[retired_mesh],
-                source_path=source_path,
-            )
-        if "regional_lab" in raw:
-            raise _section_refusal(
-                "regional_lab",
-                "Section [regional_lab] is not a HydroModPyConfig section. A regional "
-                "lab is a [sites] project: list the catchments in [sites] and the "
-                "variants in [sites.recipes].",
-                source_path=source_path,
-            )
+        retired = _retired_section(raw)
+        if retired is not None:
+            raise _section_refusal(retired, RETIRED_SECTIONS[retired], source_path=source_path)
         known = set(cls.model_fields)
         unknown = sorted(set(raw) - known)
         if unknown:
@@ -1759,11 +1703,15 @@ class HydroModPyConfig(HydroModelBase):
             "domain": ({}, _std(DomainConfig)),
             "data": (
                 {},
-                lambda data, b: _load_data_section(data, b, workspace_data_dir=workspace_data_dir),
+                lambda data, b: DataManagersConfig.from_toml_section(
+                    data, base_dir=b, workspace_data_dir=workspace_data_dir
+                ),
             ),
             "flow": (
                 {},
-                lambda data, b: _load_flow_section(data, b, workspace_data_dir=workspace_data_dir),
+                lambda data, b: FlowConfig.from_toml_section(
+                    {} if data is None else data, base_dir=b, workspace_data_dir=workspace_data_dir
+                ),
             ),
             "transport": ({}, _std(TransportConfig)),
             "simulation": ({}, _std(SimulationConfig)),
@@ -1773,10 +1721,10 @@ class HydroModPyConfig(HydroModelBase):
             "display": ({}, _std(DisplayConfig)),
             "export": ([], lambda data, _b: load_export_requests(data)),
             "observation": ({}, _std(ObservationConfig)),
-            "overview": (None, _load_optional_overview_section),
+            "overview": (None, lambda data, b: load_optional_section(data, OverviewConfig, b)),
             "mesh": (None, _load_optional_mesh_section),
             "calibration": (None, partial(_load_optional_calibration_section, sealed=sealed)),
-            "spinup": (None, _load_optional_spinup_section),
+            "spinup": (None, lambda data, b: load_optional_section(data, SpinupConfig, b)),
             "site": (None, _optional_model(SiteConfig)),
             "sites": (None, _optional_model(SitesConfig)),
             "metrics": (None, _optional_model(MetricsConfig)),
