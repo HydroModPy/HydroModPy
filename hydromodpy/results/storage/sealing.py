@@ -53,7 +53,6 @@ from hydromodpy.results.manifest import (
     ManifestRun,
     read_manifest,
 )
-from hydromodpy.results.outcome import Outcome
 from hydromodpy.results.readme import manifest_sha256, render_run_readme, write_readme
 from hydromodpy.results.record import RunProvenance, RunRecord
 from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
@@ -556,7 +555,6 @@ def sealed_config_hash(run_dir: Path) -> str | None:
 
 __all__ = [
     "IDENTITY_NOTICE_FILENAME",
-    "Outcome",
     "build_provenance",
     "build_record",
     "seal_completed",

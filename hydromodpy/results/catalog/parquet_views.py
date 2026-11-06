@@ -57,18 +57,6 @@ def _columns_for(view_name: str) -> tuple[tuple[str, str], ...]:
     return tuple((field.name, _duckdb_type_for(field.type)) for field in schema)
 
 
-def parquet_view_columns(view_name: str) -> tuple[tuple[str, str], ...]:
-    """Return ``((col, type), ...)`` for one Parquet view, derived from pyarrow."""
-    try:
-        return _columns_for(view_name)
-    except KeyError as exc:
-        raise KeyError(f"Unknown Parquet view: {view_name!r}") from exc
-
-
-def _empty_view_ddl(view_name: str) -> str:
-    return _empty_view_ddl_named(view_name, view_name)
-
-
 def _empty_view_ddl_named(schema_name: str, view_name: str) -> str:
     cols = _columns_for(schema_name)
     casts = ",\n    ".join(f"CAST(NULL AS {t}) AS {c}" for c, t in cols)
@@ -149,6 +137,5 @@ def ensure_parquet_views(
 
 __all__ = [
     "ensure_parquet_views",
-    "parquet_view_columns",
     "view_name_for",
 ]

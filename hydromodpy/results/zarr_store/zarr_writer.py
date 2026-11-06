@@ -1654,7 +1654,6 @@ def write_acdd_root_attrs(
     runs_env: dict[str, Any] | None,
     project_table: dict[str, Any] | None = None,
     geographic_bounds: dict[str, float] | None = None,
-    history_lines: list[str] | None = None,
 ) -> dict[str, Any]:
     """Compose and persist ACDD root attrs. Returns the attrs written."""
     attrs = compose_acdd_root_attrs(
@@ -1662,7 +1661,6 @@ def write_acdd_root_attrs(
         runs_env=runs_env,
         project_table=project_table,
         geographic_bounds=geographic_bounds,
-        history_lines=history_lines,
     )
     with store_obj._guard_write():
         store_obj._root = update_attrs(store_obj._root, attrs)

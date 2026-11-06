@@ -32,12 +32,6 @@ from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.constants import PARQUET_VIEW_NAMES
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX
-from hydromodpy.results.storage.lazy_loaders import (
-    list_field_paths,
-    list_parquet_paths,
-    scan_field,
-    scan_timeseries,
-)
 from hydromodpy.results.storage.parquet_io import (
     read_kv_metadata,
     write_table_atomic,
@@ -327,47 +321,6 @@ class TestBatchWrite:
         # merge loop. The threshold is generous because the loop dataset is
         # not exactly the same shape; the goal is to assert "not worse".
         assert t_batch <= max(t_loop * 2.0, 1.0)
-
-
-class TestLazyLoaders:
-    def test_lazy_loader_scan_timeseries(self, tmp_path: Path):
-        pl = pytest.importorskip("polars")
-        first, second = _store(tmp_path, name="a"), _store(tmp_path, name="b")
-        sid1 = first.sim_id
-        first.write_timeseries(sid1, "P01", "head", _make_series(n=4), unit="m")
-        second.write_timeseries(second.sim_id, "P01", "head", _make_series(n=6), unit="m")
-        _seal_and_index(tmp_path, first, second)
-        with Catalog(tmp_path) as cat:
-            lf = scan_timeseries(cat)
-            assert isinstance(lf, pl.LazyFrame)
-            df = lf.collect()
-        assert len(df) == 10
-        # Filter pushdown round-trip
-        with Catalog(tmp_path) as cat:
-            df_sid1 = scan_timeseries(cat, filters={"sim_id": sid1}).collect()
-        assert len(df_sid1) == 4
-
-    def test_lazy_loader_scan_field(self, tmp_path: Path):
-        store = _store(tmp_path)
-        store.write_timeseries(store.sim_id, "P01", "head", _make_series(), unit="m")
-        _seal_and_index(tmp_path, store)
-        with Catalog(tmp_path) as cat:
-            ds = scan_field(cat)
-            # The dataset materializes a path index for downstream consumers.
-            df = ds.to_table().to_pandas()
-        assert "path" in df.columns
-
-    def test_list_parquet_paths_round_trip(self, tmp_path: Path):
-        store = _store(tmp_path)
-        store.write_timeseries(store.sim_id, "P01", "head", _make_series(), unit="m")
-        _seal_and_index(tmp_path, store)
-        with Catalog(tmp_path) as cat:
-            paths = list_parquet_paths(cat, "timeseries")
-            field_paths = list_field_paths(cat)
-        assert len(paths) == 1
-        assert paths[0].name == "timeseries.parquet"
-        # A field path may not exist when no Zarr was written; tolerate that.
-        assert isinstance(field_paths, list)
 
 
 class TestCopyToParquetGone:

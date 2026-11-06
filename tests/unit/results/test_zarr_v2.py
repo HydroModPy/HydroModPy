@@ -20,7 +20,6 @@ from hydromodpy.core.io.document_version import NEWER_REMEDY, OLDER_REMEDY
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from hydromodpy.results.zarr_store import (
     BALANCED_TARGET_BYTES,
-    HIGHLY_RECOMMENDED,
     SHARD_TRIGGER_BYTES,
     ZARR_SCHEMA_VERSION,
     SimulationZarr,
@@ -39,6 +38,22 @@ def fresh_store(tmp_path: Path) -> SimulationZarr:
     )
     yield sz
     sz.close()
+
+
+# ACDD-1.3 Highly Recommended attributes (11 entries, per ACDD §2.6.1).
+HIGHLY_RECOMMENDED = (
+    "title",
+    "summary",
+    "keywords",
+    "keywords_vocabulary",
+    "Conventions",
+    "id",
+    "naming_authority",
+    "creator_name",
+    "creator_email",
+    "creator_institution",
+    "creator_url",
+)
 
 
 def test_filelock_prevents_concurrent_write(tmp_path: Path) -> None:

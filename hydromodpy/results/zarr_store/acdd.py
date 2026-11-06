@@ -19,21 +19,6 @@ from hydromodpy.core.licensing import UNDETERMINED_LICENSE
 from hydromodpy.core.version import __version__ as _HMP_VERSION
 from hydromodpy.results.zarr_store.constants import CF_CONVENTIONS, ZARR_SCHEMA_VERSION
 
-# ACDD-1.3 Highly Recommended attributes (11 entries, per ACDD §2.6.1).
-HIGHLY_RECOMMENDED = (
-    "title",
-    "summary",
-    "keywords",
-    "keywords_vocabulary",
-    "Conventions",
-    "id",
-    "naming_authority",
-    "creator_name",
-    "creator_email",
-    "creator_institution",
-    "creator_url",
-)
-
 
 def _isoformat(value: Any) -> str:
     if value is None:
@@ -49,7 +34,6 @@ def compose_acdd_root_attrs(
     runs_env: dict[str, Any] | None,
     project_table: dict[str, Any] | None = None,
     geographic_bounds: dict[str, float] | None = None,
-    history_lines: list[str] | None = None,
 ) -> dict[str, Any]:
     """Return the ACDD/CF root attributes for one simulation.
 
@@ -73,8 +57,7 @@ def compose_acdd_root_attrs(
     ``geographic_bounds``: optional ``{lat_min, lat_max, lon_min, lon_max,
     vertical_min, vertical_max}`` reprojected in WGS84 / meters.
 
-    ``history_lines``: optional list of ISO-prefixed history entries; the
-    composer adds the current ``finalize`` timestamp at the end.
+    The history holds the current ``finalize`` timestamp.
     """
     sim = dict(sim_row or {})
     env = dict(runs_env or {})
@@ -105,9 +88,7 @@ def compose_acdd_root_attrs(
     keywords = pick("keywords") or keywords_default
     license_value = pick("license") or UNDETERMINED_LICENSE
 
-    history_chain = list(history_lines or [])
-    history_chain.append(f"{now_iso}: hydromodpy finalize")
-    history = " ; ".join(history_chain)
+    history = f"{now_iso}: hydromodpy finalize"
 
     duration_iso = pick("time_coverage_duration")
     resolution_iso = pick("time_coverage_resolution") or _iso_resolution(sim.get("time_unit"))
@@ -251,4 +232,4 @@ def _iso_resolution(time_unit: Any) -> str:
     }.get(name, "")
 
 
-__all__ = ["compose_acdd_root_attrs", "HIGHLY_RECOMMENDED"]
+__all__ = ["compose_acdd_root_attrs"]

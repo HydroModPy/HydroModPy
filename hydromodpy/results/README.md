@@ -58,7 +58,7 @@ layout is `storage/contract.py`; the full contract is
 | `export/` | FAIR views built from a sealed directory (`directory.py`, `rocrate.py`, `stac.py`, `prov.py`); `publish.py` copies a run or a summary out of the tree (directory or tar, `PUBLICATION.json`, redaction, and with inputs the install index a caller builds); `project_package.py` writes a whole project with its data (`hmp publish --package`); `summary_tables.py` writes a table of runs as Parquet, CSV and GeoPackage with the same cells; `run_identity.py` is the identity and label of the day of a run directory; `ledgers.py` records a derived file |
 | `importers/` | readers symmetric to the exporters: CSV series, NetCDF fields, one Zarr field |
 | `geographic_cache.py`, `spatial_index.py`, `grid.py` | the workspace cache of geographic arrays keyed by a fingerprint, point-in-cell lookup on a mesh, the cell size and extent of a run |
-| `calibration_trials.py`, `errors.py`, `html_helpers.py` | the trial rows of a session for one run, the typed errors of the reader, HTML helpers shared by report builders |
+| `calibration_trials.py`, `errors.py` | the trial rows of a session for one run, the typed errors of the reader |
 
 ## Import rules
 
@@ -95,7 +95,7 @@ Who imports results: `display` (most), `cli`, `workflow`, `analysis`,
 ```
 hydromodpy/results/
   __init__.py                  lazy Catalog
-  storage/       contract.py  parquet_io.py  parquet_schemas.py  lazy_loaders.py  diagnostics.py
+  storage/       contract.py  parquet_io.py  parquet_schemas.py  diagnostics.py
   zarr_store/    simulation_zarr.py  zarr_writer.py  zarr_reader.py  zarr_finalizer.py  chunks.py ...
   field_registry.py  manifest.py  annotations.py  trash.py  retention.py  record.py  outcome.py
   metric_rule.py  fit_metrics.py ...

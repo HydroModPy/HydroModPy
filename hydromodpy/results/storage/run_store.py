@@ -26,7 +26,6 @@ import hashlib
 import json
 import os
 from collections.abc import Callable, Mapping, Sequence
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
@@ -1164,9 +1163,4 @@ def _merge_facts(stored: RunFacts, given: RunFacts) -> RunFacts:
     )
 
 
-def utc_now() -> datetime:
-    """Return the current instant, UTC."""
-    return datetime.now(UTC)
-
-
-__all__ = ["GEOGRAPHIC_FEATURE_PREFIX", "RunStore", "utc_now"]
+__all__ = ["GEOGRAPHIC_FEATURE_PREFIX", "RunStore"]

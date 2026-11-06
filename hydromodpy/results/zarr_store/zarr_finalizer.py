@@ -48,26 +48,8 @@ def lock_path_for_store(path: Path) -> Path:
     )
 
 
-class DummyLock:
-    """No-op lock used for zip stores (read-only by construction)."""
-
-    def acquire(self, *_: Any, **__: Any) -> None:
-        return None
-
-    def release(self) -> None:
-        return None
-
-    def __enter__(self) -> DummyLock:
-        return self
-
-    def __exit__(self, *_: Any) -> None:
-        return None
-
-
-def guard_write(lock: FileLock | DummyLock, path: Path) -> Any:
+def guard_write(lock: FileLock, path: Path) -> Any:
     """Return a context manager that holds the cross-process filelock."""
-    if isinstance(lock, DummyLock):
-        return lock
     try:
         return lock.acquire(timeout=LOCK_TIMEOUT_SECONDS)
     except Timeout as exc:  # pragma: no cover - defensive
@@ -108,7 +90,6 @@ def close(store_obj: SimulationZarr) -> None:
 
 
 __all__ = [
-    "DummyLock",
     "LOCK_SUFFIX",
     "LOCK_TIMEOUT_SECONDS",
     "close",

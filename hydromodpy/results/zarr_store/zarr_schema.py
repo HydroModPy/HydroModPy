@@ -67,11 +67,6 @@ class RetryingLocalStore(zarr.storage.LocalStore):
                 await asyncio.sleep(LOCAL_STORE_WRITE_RETRY_BASE_DELAY_SECONDS * (attempt + 1))
 
 
-def is_zip_store_path(path: Path) -> bool:
-    """Return True for a zipped Zarr archive (a portable package member)."""
-    return path.suffix == ".zip"
-
-
 def windows_long_path(path: Path) -> Path:
     """Return a Windows extended-length path when needed by local stores."""
     if os.name != "nt":
@@ -95,9 +90,7 @@ def local_store(path: Path, *, read_only: bool = False) -> RetryingLocalStore:
 
 
 def ensure_local_zarr_node_dir(store_path: Path, zarr_path: str | None = None) -> None:
-    """Pre-create a directory node under a local Zarr store (no-op for zip)."""
-    if is_zip_store_path(store_path):
-        return
+    """Pre-create a directory node under a local Zarr store."""
     if zarr_path:
         target = store_path.joinpath(*zarr_path.split("/"))
     else:
@@ -202,7 +195,6 @@ __all__ = [
     "child_zarr_path",
     "ensure_local_zarr_node_dir",
     "initialise_root",
-    "is_zip_store_path",
     "local_store",
     "local_store_path_arg",
     "open_root_strict",

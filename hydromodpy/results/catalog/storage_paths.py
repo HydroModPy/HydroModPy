@@ -26,8 +26,6 @@ from hydromodpy.core.state.result_dirs import parse_rel_dir
 from hydromodpy.results.storage.contract import (
     FIELDS_STORE_NAME,
     PARQUET_FILE_SUFFIX,
-    RUN_CONFIG_FILENAME,
-    RUN_FIGURES_DIRNAME,
     TABLES_DIRNAME,
 )
 
@@ -148,11 +146,3 @@ class StoragePathResolver:
     def table_path_for(self, sim_id: str | UUID, view_name: str) -> Path:
         """Return the Parquet payload path for ``view_name``."""
         return self.tables_dir_for(sim_id) / f"{view_name}{PARQUET_FILE_SUFFIX}"
-
-    def config_path_for(self, sim_id: str | UUID) -> Path:
-        """Return the frozen configuration path of the run."""
-        return self.run_dir_for(sim_id) / RUN_CONFIG_FILENAME
-
-    def figures_dir_for(self, sim_id: str | UUID) -> Path:
-        """Return the figures directory of the run."""
-        return self.run_dir_for(sim_id) / RUN_FIGURES_DIRNAME

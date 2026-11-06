@@ -111,12 +111,6 @@ class FairExportContext:
         default_factory=lambda: datetime.now(UTC).isoformat(timespec="seconds")
     )
 
-    def asset_by_key(self, key: str) -> AssetEntry | None:
-        for asset in self.assets:
-            if asset.key == key:
-                return asset
-        return None
-
     @property
     def bbox(self) -> tuple[float, float, float, float] | None:
         row = self.sim_row

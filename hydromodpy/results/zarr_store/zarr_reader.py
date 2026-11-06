@@ -1,8 +1,7 @@
 """Read-side concerns for :class:`SimulationZarr`.
 
 Owns every ``read_*`` entry point plus the root-attribute readers
-(``geographic_fingerprint``, ``resolve_geographic_dir``,
-``root_attrs_json``) and the :func:`to_xarray` view builder.
+(``geographic_fingerprint``) and the :func:`to_xarray` view builder.
 
 All helpers take the live :class:`SimulationZarr` so the module is
 free of hidden state.
@@ -10,9 +9,7 @@ free of hidden state.
 
 from __future__ import annotations
 
-import json
 import math
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -98,16 +95,6 @@ def set_drain_band_depth(store_obj: SimulationZarr, value: float) -> None:
             del store_obj._root.attrs[DRAIN_BAND_DEPTH_ATTR]
         return
     store_obj._root.attrs[DRAIN_BAND_DEPTH_ATTR] = depth
-
-
-def resolve_geographic_dir(store_obj: SimulationZarr, workspace_path: Path | str) -> Path | None:
-    """Resolve the workspace-level cache dir tied to this store's fingerprint."""
-    fp = get_geographic_fingerprint(store_obj)
-    if fp is None:
-        return None
-    from hydromodpy.results.geographic_cache import GeographicCache
-
-    return GeographicCache(workspace_path).path_for(fp)
 
 
 def _is_time_resolved(variable: str) -> bool:
@@ -269,19 +256,6 @@ def read_geographic_raster(store_obj: SimulationZarr, name: str) -> tuple[np.nda
     return data, meta
 
 
-def is_consolidated(store_obj: SimulationZarr) -> bool:
-    """Return True when ``.zmetadata`` consolidation is detectable on disk."""
-    path = store_obj._path
-    if path.is_dir():
-        return (path / ".zmetadata").exists() or (path / "zarr.json").exists()
-    return False
-
-
-def root_attrs_json(store_obj: SimulationZarr) -> str:
-    """Return the root attributes as a JSON string for debug / logs."""
-    return json.dumps({k: v for k, v in store_obj._root.attrs.items()}, default=str)
-
-
 def to_xarray(store_obj: SimulationZarr):
     """Return an ``xarray.Dataset`` view over the simulation fields."""
     import xarray as xr
@@ -343,16 +317,13 @@ def to_xarray(store_obj: SimulationZarr):
 __all__ = [
     "field_array_view",
     "get_geographic_fingerprint",
-    "is_consolidated",
     "read_field",
     "read_field_range",
     "lake_abacus_lakes",
     "read_forcing_timeseries",
     "read_geographic_raster",
     "read_lake_abacus",
-    "resolve_geographic_dir",
     "get_drain_band_depth",
-    "root_attrs_json",
     "set_drain_band_depth",
     "set_geographic_fingerprint",
     "step_range_bounds",

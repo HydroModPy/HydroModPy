@@ -34,21 +34,10 @@ from hydromodpy.results.zarr_store.zarr_finalizer import (
     LOCK_TIMEOUT_SECONDS,
     lock_path_for_store,
 )
-from hydromodpy.results.zarr_store.zarr_finalizer import DummyLock as _DummyLock
-from hydromodpy.results.zarr_store.zarr_schema import (
-    ensure_local_zarr_node_dir as _ensure_local_zarr_node_dir,
-)
 from hydromodpy.results.zarr_store.zarr_schema import (
     initialise_root,
-    is_zip_store_path,
     local_store,
     open_root_strict,
-)
-from hydromodpy.results.zarr_store.zarr_schema import (
-    is_zip_store_path as _is_zip_store_path,
-)
-from hydromodpy.results.zarr_store.zarr_schema import (
-    local_store_path_arg as _local_store_path_arg,
 )
 from hydromodpy.results.zarr_store.zarr_schema import (
     windows_long_path as _windows_long_path,
@@ -79,14 +68,9 @@ class SimulationZarr:
         self._balanced = bool(balanced)
         self._field_precision: FieldPrecision = field_precision
         self._on_close: Callable[[SimulationZarr], None] | None = None
-        if is_zip_store_path(self._path):
-            self._store: Any = zarr.storage.ZipStore(str(self._path), mode="r")
-            self._root: zarr.Group | None = self._open_root_strict(read_only=True)
-            self._lock: FileLock | _DummyLock = _DummyLock()
-        else:
-            self._store = local_store(self._path)
-            self._root = self._open_root_strict(read_only=False)
-            self._lock = _file_lock_for_store(self._path)
+        self._store: Any = local_store(self._path)
+        self._root: zarr.Group | None = self._open_root_strict(read_only=False)
+        self._lock: FileLock = _file_lock_for_store(self._path)
 
     # -- Construction --------------------------------------------------------
 
@@ -153,9 +137,6 @@ class SimulationZarr:
     @geographic_fingerprint.setter
     def geographic_fingerprint(self, value: str | None) -> None:
         zarr_reader.set_geographic_fingerprint(self, value)
-
-    def resolve_geographic_dir(self, workspace_path: Path | str) -> Path | None:
-        return zarr_reader.resolve_geographic_dir(self, workspace_path)
 
     # -- Drain discharge band ------------------------------------------------
 
@@ -501,7 +482,6 @@ class SimulationZarr:
         runs_env: dict[str, Any] | None,
         project_table: dict[str, Any] | None = None,
         geographic_bounds: dict[str, float] | None = None,
-        history_lines: list[str] | None = None,
     ) -> dict[str, Any]:
         """Compose and persist ACDD root attrs. Returns the attrs written."""
         return zarr_writer.write_acdd_root_attrs(
@@ -510,7 +490,6 @@ class SimulationZarr:
             runs_env=runs_env,
             project_table=project_table,
             geographic_bounds=geographic_bounds,
-            history_lines=history_lines,
         )
 
     # -- xarray export -------------------------------------------------------
@@ -538,17 +517,8 @@ class SimulationZarr:
     def __exit__(self, *exc: Any) -> None:
         self.close()
 
-    # -- Debug helpers -------------------------------------------------------
-
-    def root_attrs_json(self) -> str:
-        return zarr_reader.root_attrs_json(self)
-
 
 __all__ = [
     "LOCK_TIMEOUT_SECONDS",
     "SimulationZarr",
-    "_ensure_local_zarr_node_dir",
-    "_is_zip_store_path",
-    "_local_store_path_arg",
-    "_windows_long_path",
 ]
