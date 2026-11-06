@@ -1,6 +1,6 @@
 """Persistence and intermittence count flowing as the network criterion does.
 
-The run is the monthly V-valley of :mod:`tests.unit.results._transient_network_run`:
+The run is the monthly V-valley of :mod:`tests._helpers.transient_network_run`:
 the outlet releases two litres per second in summer and floods from the head
 of the axis in winter, so it flows every month; the two upper axis cells flow
 five months of twelve; a hillslope cell never flows. "Flowing" is the seepage
@@ -19,7 +19,7 @@ from hydromodpy.display.figures._flow_persistence import cycle_flow, cycles, flo
 from hydromodpy.display.figures.flow_intermittence_map import FlowIntermittenceMap
 from hydromodpy.display.figures.flow_persistence_map import FlowPersistenceMap
 from tests._helpers.sealed_runs import sealed_search
-from tests.unit.results._transient_network_run import (
+from tests._helpers.transient_network_run import (
     HEAD,
     HILLSLOPE,
     MIDDLE,

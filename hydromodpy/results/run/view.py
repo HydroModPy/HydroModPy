@@ -86,7 +86,6 @@ from hydromodpy.core.state.result_dirs import parse_rel_dir
 from hydromodpy.results.annotations import add_note, add_tag, read_annotations, remove_tag
 from hydromodpy.results.catalog.constants import SIMULATIONS_FROM
 from hydromodpy.results.errors import RunNotFoundError, RunNotSealedError
-from hydromodpy.results.export.run_identity import label_of
 from hydromodpy.results.ledger import Ledger
 from hydromodpy.results.manifest import is_sealed
 from hydromodpy.results.outcome import effective_status
@@ -99,6 +98,7 @@ from hydromodpy.results.run.periods import RunPeriods
 from hydromodpy.results.run.point import RunPointProvider
 from hydromodpy.results.run.sealed import read_record
 from hydromodpy.results.run.timeseries import RunTimeseriesMixin
+from hydromodpy.results.run_identity import label_of
 from hydromodpy.results.storage.contract import (
     RUN_CONFIG_FILENAME,
     RUN_EXPORTS_DIRNAME,

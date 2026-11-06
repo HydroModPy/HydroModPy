@@ -56,7 +56,7 @@ def _write_catalog_run(workspace: Path, name: str) -> None:
     one asked for.
     """
     from hydromodpy.results.catalog.registration import split_stem_version
-    from tests._helpers.sealed_run import seal_demo_run
+    from tests._helpers.run_stores import seal_demo_run
 
     stem, _version = split_stem_version(name)
     run_dir, _sim_id = seal_demo_run(workspace, stem)

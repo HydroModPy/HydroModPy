@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import duckdb
+
 
 class SchemaDiscoveryMixin:
     """Schema-introspection methods for :class:`Catalog`.
@@ -33,6 +35,13 @@ class SchemaDiscoveryMixin:
         )
         return [str(r[0]) for r in rows]
 
+    def _rows(self, sql: str) -> list[tuple]:
+        """Rows of ``sql``, none when the table or view is absent from this index."""
+        try:
+            return self._backend.fetch_all(sql)
+        except duckdb.Error:
+            return []
+
     def variables(self) -> list[str]:
         """Readable variable names (Zarr fields + timeseries + features)."""
         from hydromodpy.results import field_registry
@@ -42,20 +51,12 @@ class SchemaDiscoveryMixin:
             "SELECT DISTINCT variable FROM timeseries",
             "SELECT DISTINCT feature_name FROM geographic_features",
         ):
-            try:
-                names.update(str(r[0]) for r in self._backend.fetch_all(sql))
-            except Exception:
-                continue
+            names.update(str(r[0]) for r in self._rows(sql))
         return sorted(names)
 
     def metrics(self) -> list[str]:
         """Distinct metric names recorded in the catalog."""
-        try:
-            rows = self._backend.fetch_all(
-                "SELECT DISTINCT metric_name FROM metrics ORDER BY metric_name"
-            )
-        except Exception:
-            return []
+        rows = self._rows("SELECT DISTINCT metric_name FROM metrics ORDER BY metric_name")
         return [str(r[0]) for r in rows]
 
     def stations(self) -> list[str]:
@@ -65,27 +66,18 @@ class SchemaDiscoveryMixin:
             "SELECT DISTINCT station_id FROM metrics WHERE station_id IS NOT NULL",
             "SELECT DISTINCT station_id FROM timeseries WHERE station_id IS NOT NULL",
         ):
-            try:
-                names.update(str(r[0]) for r in self._backend.fetch_all(sql))
-            except Exception:
-                continue
+            names.update(str(r[0]) for r in self._rows(sql))
         return sorted(names)
 
     def describe(self) -> str:
         """Return a human-readable summary of the catalog content."""
 
         def scalar(sql: str) -> Any:
-            try:
-                row = self._backend.fetch_one(sql)
-            except Exception:
-                return None
-            return row[0] if row else None
+            rows = self._rows(sql)
+            return rows[0][0] if rows else None
 
         def distinct(sql: str) -> list[str]:
-            try:
-                return [str(r[0]) for r in self._backend.fetch_all(sql) if r[0] is not None]
-            except Exception:
-                return []
+            return [str(r[0]) for r in self._rows(sql) if r[0] is not None]
 
         total = scalar("SELECT COUNT(*) FROM simulations") or 0
         completed = (

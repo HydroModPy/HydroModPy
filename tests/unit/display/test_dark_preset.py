@@ -23,7 +23,7 @@ from hydromodpy.display.figures.simulated_active_network import SimulatedActiveN
 from hydromodpy.display.figures.watershed_id_card import WatershedIdCardFigure
 from hydromodpy.display.style import apply_theme, is_dark, neutral, relative_luminance
 from hydromodpy.results.derive import views
-from tests.unit.results._transient_network_run import transient_run
+from tests._helpers.transient_network_run import transient_run
 
 from ._network_comparison_run import AXIS_COLUMN, NX, NY, cell, comparison_run
 from .test_accumulation_map import _run as accumulation_run

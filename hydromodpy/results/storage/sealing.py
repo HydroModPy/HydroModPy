@@ -41,7 +41,6 @@ from hydromodpy.core.state.result_dirs import run_dir_rel
 from hydromodpy.core.version import __version__ as HMP_VERSION
 from hydromodpy.results.catalog.registration import split_stem_version
 from hydromodpy.results.checks import Checks
-from hydromodpy.results.export.run_identity import label_of
 from hydromodpy.results.manifest import (
     DERIVE_RULE_VERSION,
     KEY_PACKAGES,
@@ -55,6 +54,7 @@ from hydromodpy.results.manifest import (
 )
 from hydromodpy.results.readme import manifest_sha256, render_run_readme, write_readme
 from hydromodpy.results.record import RunProvenance, RunRecord
+from hydromodpy.results.run_identity import label_of
 from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
 from hydromodpy.results.storage.geo_metadata import wgs84_bounds
 from hydromodpy.results.storage.json_io import readable

@@ -10,7 +10,7 @@ from pydantic import ValidationError
 
 from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.results.ledger import LEDGER_SCHEMA, Ledger, LedgerEntry, ledger_path
-from tests.unit.results._run_record_factory import make_identity
+from tests._helpers.run_records import make_identity
 
 NOW = datetime(2026, 10, 15, 9, 0, tzinfo=UTC)
 

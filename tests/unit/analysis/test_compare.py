@@ -14,7 +14,7 @@ from hydromodpy.analysis import compare as c
 from hydromodpy.cli.commands import report
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_VALIDATION
 from hydromodpy.cli.main import main as hmp_main
-from tests.unit.results._run_record_factory import make_identity, make_record
+from tests._helpers.run_records import make_identity, make_record
 
 pytestmark = pytest.mark.fast
 

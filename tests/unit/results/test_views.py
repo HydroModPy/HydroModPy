@@ -18,7 +18,7 @@ from hydromodpy.results.metric_rule import EVALUATION_ROLE, HEADLINE_WINDOW
 from hydromodpy.results.run import Run
 from hydromodpy.results.run.sealed import lineage_of
 from tests._helpers.metric_rows import headline_score
-from tests.unit.results._run_record_factory import (
+from tests._helpers.run_records import (
     CASE_ID,
     SIM_ID,
     SITE,

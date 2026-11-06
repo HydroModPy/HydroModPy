@@ -20,7 +20,7 @@ from hydromodpy.core.exceptions import ExportError
 from hydromodpy.project.exchange.share import inputs_of
 from hydromodpy.results.export.publish import publish
 from hydromodpy.results.publication import read_published
-from tests.unit.results._published_run import make_project, make_sealed_run, make_summary
+from tests._helpers.published_runs import make_project, make_sealed_run, make_summary
 
 _TEXT = {".json", ".jsonld", ".jsonl", ".toml", ".md", ".html", ".txt", ".csv"}
 

@@ -61,6 +61,7 @@ Work since v2.0.0rc1. The main themes are calibration with a validation window, 
 - The helpers every solver shares moved into `hydromodpy.solver.base` (`properties`, `initial_conditions`, `drain_conductance`), the MODFLOW-NWT post-processing to `hydromodpy.solver.modflow_nwt.postprocess` and the Boussinesq catalogs to `boussinesq/catalog.py`. The MODFLOW 6 build runs as named steps, its solver options live in `modflow6/builders/solver_options.py`, the LAK builder is split in four modules and `modflow6.builders` no longer re-exports names. No input file and no result changes.
 - Contributors: `hmp_log_records` is a fixture of `tests/conftest.py`, and `tests/_helpers/transport_guard.py` and `tests/validation/helpers/petsc.py` hold helpers that several test folders used to copy.
 - `Catalog.read_geographic_feature`, `list_geographic_features` and `read_geographic_metadata` read the run directory instead of the index, and `Catalog.query_timeseries`, `query_budget` and `query_mass_balance` read through the run. `SimulationZarr` binds the writes and reads of the store as its methods. `record_derived_file` moved to `hydromodpy.results.ledger`. Run files are unchanged.
+- `Catalog.load_dataset` builds its cohort with `Catalog.find` and shares the parameter pivot and the field stack of `RunSet`, and returns the same dataset. `DatasetLoader` is replaced by `hydromodpy.results.catalog.dataset_loader.load_dataset`, and `hydromodpy.results.export.run_identity` moved to `hydromodpy.results.run_identity`.
 
 ### Removed
 
@@ -90,6 +91,7 @@ Work since v2.0.0rc1. The main themes are calibration with a validation window, 
 - A mesh or terrain engine registered by hand can no longer take the id of a built-in engine that is not imported yet. The calibration preflight writes a window bound with its time when it is not at midnight, like the scoring.
 - The parameter cost profile reads search bounds stored as JSON text, like the calibration progress card. The Piper, Schoeller and Stiff diagrams refuse an unreadable source with the same message.
 - `import_zarr_field` refuses a field store whose schema version is outside the read window, like every other reader. A NetCDF export refuses a time step outside the axis of a field rebuilt on read instead of wrapping it. The STAC, RO-Crate and PROV views written outside a run directory are written atomically, and a NetCDF export no longer uses a fixed temporary file name.
+- `RunSet.to_xarray` warns about a run whose field store cannot be opened instead of skipping it silently. `Catalog.describe`, `variables`, `metrics` and `stations` no longer hide errors other than a missing table or view of the index.
 
 ### Security
 

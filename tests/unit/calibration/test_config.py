@@ -59,9 +59,9 @@ from hydromodpy.results.metric_rule import MetricsWindow
 from hydromodpy.spatial.drainage.distance import build_downslope_metric
 from hydromodpy.workflow.steps.prepare_solver.freeze import portable_config_document
 from tests._helpers.sealed_runs import sealed_search
+from tests._helpers.transient_network_run import transient_run
 from tests._helpers.ugrid_meshes import quad_mesh
 from tests.unit.config.test_a_renamed_key_warns_and_a_sealed_one_reads import PROJECT, _project
-from tests.unit.results._transient_network_run import transient_run
 
 # From test_a_calibration_takes_the_gauge_of_the_site.py
 # ``[site] gauge`` is the station a calibration scores at, unless the document says otherwise.

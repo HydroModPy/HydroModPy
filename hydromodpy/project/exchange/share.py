@@ -43,9 +43,9 @@ from hydromodpy.core.site import SiteRow
 from hydromodpy.core.state.portable import decode_workspace_path
 from hydromodpy.core.workspace.resolve import locate_workspace_root
 from hydromodpy.results.export.publish import MissingInputError
-from hydromodpy.results.export.run_identity import read_sealed_manifest
 from hydromodpy.results.manifest import InputEntry, ManifestSite
 from hydromodpy.results.record import read_inputs
+from hydromodpy.results.run_identity import read_sealed_manifest
 from hydromodpy.results.storage.attempt import is_run_product
 
 DATA_DIRNAME: Final[str] = "data"

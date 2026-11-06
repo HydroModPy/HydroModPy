@@ -213,7 +213,7 @@ def _how_to_run_it_again(source: Path, copy: Path, project_root: Path) -> tuple[
     A copy of a run with its inputs replays from its own bytes. A summary, or a
     run without a frozen configuration, has no such line.
     """
-    from hydromodpy.results.export.run_identity import read_sealed_manifest
+    from hydromodpy.results.run_identity import read_sealed_manifest
     from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
 
     seal = read_sealed_manifest(source)

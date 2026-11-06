@@ -68,6 +68,14 @@ from hydromodpy.spatial.forcing.recharge_rates import (
 )
 from hydromodpy.spatial.geographic.core import network_heads
 from tests._helpers.sealed_runs import sealed_search
+from tests._helpers.transient_network_run import (
+    HEAD,
+    HILLSLOPE,
+    MIDDLE,
+    N_STEPS,
+    OUTLET,
+    transient_run,
+)
 from tests.unit.display._network_comparison_run import (
     AXIS_COLUMN,
     CELL_M,
@@ -78,14 +86,6 @@ from tests.unit.display._network_comparison_run import (
     column_cells,
     comparison_run,
     stored_descent,
-)
-from tests.unit.results._transient_network_run import (
-    HEAD,
-    HILLSLOPE,
-    MIDDLE,
-    N_STEPS,
-    OUTLET,
-    transient_run,
 )
 
 # ``[calibration.outputs.<n>] time`` is ``"last"``, ``"first"`` or one date.
@@ -446,7 +446,7 @@ def test_recharge_split_over_two_layers_scores_the_same_threshold() -> None:
     )
 
 
-# The run is the monthly V-valley of :mod:`tests.unit.results._transient_network_run`:
+# The run is the monthly V-valley of :mod:`tests._helpers.transient_network_run`:
 # the outlet flows every month, the two upper axis cells five months of twelve,
 # and the run covers 2001 and 2002 whole and 2003 up to March. Every count below
 # is written from that description, not read back from the code under test.
@@ -1498,7 +1498,7 @@ def test_the_protocol_s_spin_up_window_reaches_a_run_of_its_transient_stage() ->
     assert steady.window is None
 
 
-# The run is the monthly V-valley of :mod:`tests.unit.results._transient_network_run`:
+# The run is the monthly V-valley of :mod:`tests._helpers.transient_network_run`:
 # in January (step 0) the whole axis flows, in June (step 5) the outlet alone at
 # two litres per second. The field is 1 on the flowing cells and 0 elsewhere,
 # cut with the run's sealed settings, the defaults when it sealed none.

@@ -176,7 +176,7 @@ def _write_synthetic_report_config(config_path: Path, root: Path) -> Path:
     (empty is legal), so the whole thing fits in tmp_path. Returns the
     ``report/`` folder of the run.
     """
-    from tests._helpers.sealed_run import seal_demo_run
+    from tests._helpers.run_stores import seal_demo_run
 
     watershed = root / "watershed"
     data_overview = root / "data_overview"

@@ -65,7 +65,6 @@ from hydromodpy.results.export.publish import (
     _refuse_leaks,
     _target_path,
 )
-from hydromodpy.results.export.run_identity import read_sealed_manifest
 from hydromodpy.results.manifest import is_sealed
 from hydromodpy.results.publication import (
     PROJECT_REL_DIR,
@@ -76,6 +75,7 @@ from hydromodpy.results.publication import (
     append_published,
     write_publication,
 )
+from hydromodpy.results.run_identity import read_sealed_manifest
 
 ProjectExtra = Literal["runs", "sessions", "mesh", "fetched"]
 """What ``hmp publish --package --with`` adds to the files of the author and their data."""

@@ -16,7 +16,7 @@ from hydromodpy.core.state.layout import catalog_path_for
 from hydromodpy.results.export.publish import publish
 from hydromodpy.results.publication import Publication, PublicationSource, write_publication
 from tests._helpers.cli_runner import CliRunner
-from tests._helpers.sealed_run import RUN_NAME, seal_demo_run
+from tests._helpers.run_stores import RUN_NAME, seal_demo_run
 from tests._helpers.sealed_runs import manifest_document
 
 from ._hmp import run_hmp as _hmp

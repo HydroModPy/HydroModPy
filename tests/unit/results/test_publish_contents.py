@@ -24,7 +24,7 @@ from hydromodpy.core.payload import read_index
 from hydromodpy.project.exchange.share import inputs_of
 from hydromodpy.results.export.publish import INPUTS_DIRNAME, publish, publish_project, verify
 from hydromodpy.results.publication import read_publication, read_published
-from tests.unit.results._published_run import (
+from tests._helpers.published_runs import (
     RUN_NAME,
     make_project,
     make_sealed_run,

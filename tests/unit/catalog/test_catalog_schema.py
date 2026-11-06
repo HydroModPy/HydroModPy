@@ -57,6 +57,9 @@ def test_describe_is_human_readable(project) -> None:
         assert "simulations : 1" in text
         assert "naizin" in text
         assert "modflow6" in text
+        cat.backend.connection.execute("DROP VIEW timeseries")
+        assert "stations    : J0014010" in cat.describe()
+        assert cat.variables()
 
 
 def test_inputs_namespace_via_catalog_package(tmp_path: Path) -> None:

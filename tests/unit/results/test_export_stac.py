@@ -93,41 +93,40 @@ class TestBboxToPolygon:
 
 
 @pytest.mark.fast
-class TestToUtcIso:
-    def test_naive_date_gets_z_suffix_and_midnight(self):
-        assert _to_utc_iso("2020-01-01") == "2020-01-01T00:00:00Z"
-
-    def test_offset_normalised_to_utc(self):
-        # +02:00 at 12:00 maps to 10:00 UTC.
-        assert _to_utc_iso("2020-06-01T12:00:00+02:00") == "2020-06-01T10:00:00Z"
-
-    def test_trailing_z_is_accepted(self):
-        assert _to_utc_iso("2020-06-01T12:00:00Z") == "2020-06-01T12:00:00Z"
-
-    def test_unparseable_value_returned_verbatim(self):
-        assert _to_utc_iso("not-a-date") == "not-a-date"
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("2020-01-01", "2020-01-01T00:00:00Z"),
+        ("2020-06-01T12:00:00+02:00", "2020-06-01T10:00:00Z"),
+        ("2020-06-01T12:00:00Z", "2020-06-01T12:00:00Z"),
+        ("not-a-date", "not-a-date"),
+    ],
+    ids=["naive-date-at-midnight", "offset-to-utc", "trailing-z", "unparseable-verbatim"],
+)
+def test_to_utc_iso(value, expected):
+    assert _to_utc_iso(value) == expected
 
 
 @pytest.mark.fast
 class TestMidpoint:
-    def test_midpoint_between_start_and_end(self):
-        # Midpoint of a 4-day window starting at midnight is day 3, 00:00.
-        assert _midpoint("2020-01-01", "2020-01-05") == "2020-01-03T00:00:00Z"
-
-    def test_start_only_returns_start(self):
-        assert _midpoint("2020-01-01", None) == "2020-01-01T00:00:00Z"
-
-    def test_end_only_returns_end(self):
-        assert _midpoint(None, "2020-01-06") == "2020-01-06T00:00:00Z"
+    @pytest.mark.parametrize(
+        ("start", "end", "expected"),
+        [
+            ("2020-01-01", "2020-01-05", "2020-01-03T00:00:00Z"),
+            ("2020-01-01", None, "2020-01-01T00:00:00Z"),
+            (None, "2020-01-06", "2020-01-06T00:00:00Z"),
+            ("not-a-date", "also-bad", "not-a-date"),
+        ],
+        ids=["between-start-and-end", "start-only", "end-only", "invalid-falls-back-to-start"],
+    )
+    def test_midpoint(self, start, end, expected):
+        assert _midpoint(start, end) == expected
 
     def test_no_bounds_returns_z_suffixed_now(self):
         out = _midpoint(None, None)
         # Falls back to "now" in UTC; shape must still be valid STAC datetime.
         assert out.endswith("Z")
         assert len(out) == len("2020-01-01T00:00:00Z")
-
-    def test_invalid_bounds_fall_back_to_start(self):
-        assert _midpoint("not-a-date", "also-bad") == "not-a-date"
 
 
 @pytest.mark.fast

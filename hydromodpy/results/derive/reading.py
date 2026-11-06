@@ -91,37 +91,24 @@ def read_variable(
 
 
 def _period_index(run: Any, time: Any) -> int | slice | None:
-    """Turn the ``time`` of a field read into a period index or a slice.
+    """Turn the ``time`` of a field read into a period index or a slice of indexes.
 
-    A date used to be ignored without a word, and every period came back.
+    One period goes through :meth:`Run._period_index_of`, so a date resolves to
+    the stress period holding it, as :meth:`Run.field` reads it.
     """
-    import datetime
-
-    import numpy as np
-    import pandas as pd
-
-    if time is None or isinstance(time, slice):
-        if isinstance(time, slice) and not all(
-            bound is None or isinstance(bound, int) for bound in (time.start, time.stop, time.step)
-        ):
-            raise TypeError(
-                "A time slice takes period indexes (time=slice(0, 12)). For a "
-                "window of dates, take the indexes from run.periods.steps_for("
-                "period=(start, end))."
-            )
-        return time
-    if isinstance(time, bool):
-        raise TypeError("time must be a period index, a date, 'first' or 'last', not a bool.")
-    if isinstance(time, (int, np.integer)):
-        return int(time)
-    if isinstance(time, (str, datetime.date, pd.Timestamp, np.datetime64)):
-        return int(
-            run.periods.step_at(pd.Timestamp(time) if isinstance(time, np.datetime64) else time)
+    if time is None:
+        return None
+    if not isinstance(time, slice):
+        return run._period_index_of(time)
+    if not all(
+        bound is None or isinstance(bound, int) for bound in (time.start, time.stop, time.step)
+    ):
+        raise TypeError(
+            "A time slice takes period indexes (time=slice(0, 12)). For a "
+            "window of dates, take the indexes from run.periods.steps_for("
+            "period=(start, end))."
         )
-    raise TypeError(
-        f"time must be a period index, a slice of indexes, a date, 'first' or "
-        f"'last'; got {type(time).__name__}."
-    )
+    return time
 
 
 def _refuse_time(var: str, time: Any, kind: str, instead: str) -> None:

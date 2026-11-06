@@ -81,7 +81,6 @@ from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
 from hydromodpy.results.export.context import AssetEntry
 from hydromodpy.results.export.directory import context_from_directory, publication_of
 from hydromodpy.results.export.rocrate import write_ro_crate_view
-from hydromodpy.results.export.run_identity import label_of, read_sealed_manifest
 from hydromodpy.results.manifest import is_sealed
 from hydromodpy.results.publication import (
     PROJECT_REL_DIR,
@@ -98,6 +97,7 @@ from hydromodpy.results.publication import (
     redact,
     write_publication,
 )
+from hydromodpy.results.run_identity import label_of, read_sealed_manifest
 from hydromodpy.results.storage.contract import (
     FIELDS_STORE_NAME,
     PUBLICATION_FILENAME,

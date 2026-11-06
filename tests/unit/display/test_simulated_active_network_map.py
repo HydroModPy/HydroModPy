@@ -13,7 +13,7 @@ from hydromodpy.display.figures.simulated_active_network import (
 )
 from hydromodpy.results.derive import views
 from tests._helpers.sealed_runs import sealed_search
-from tests.unit.results._transient_network_run import (
+from tests._helpers.transient_network_run import (
     HEAD,
     HILLSLOPE,
     MIDDLE,
@@ -326,7 +326,7 @@ def test_the_key_and_the_note_sit_outside_the_map(mpl, masked) -> None:
 
 # The persistence of the active-network map counts the cells the criterion calls flowing.
 #
-# The run is the monthly V-valley of :mod:`tests.unit.results._transient_network_run`,
+# The run is the monthly V-valley of :mod:`tests._helpers.transient_network_run`,
 # 27 monthly steps: the whole axis flows in the 13 winter months, the outlet
 # alone in the 14 others at two litres per second. With the default visible flow
 # of 1 L/s the outlet flows at every step and the two upper axis cells at 13 of

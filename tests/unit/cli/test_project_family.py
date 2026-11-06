@@ -36,16 +36,16 @@ from hydromodpy.results.session.descriptor import read_session
 from hydromodpy.results.session.journal import read_trials
 from hydromodpy.results.trash import list_trash
 from tests._helpers.cli_runner import CliRunner
-from tests._helpers.sealed_runs import make_project, seal_run, write_attempt, write_session_dir
-from tests.unit.project.launch._helpers import planned_project
-from tests.unit.results._published_run import (
+from tests._helpers.published_runs import (
     RUN_NAME,
     make_sealed_run,
     make_summary,
 )
-from tests.unit.results._published_run import (
+from tests._helpers.published_runs import (
     make_project as make_published_project,
 )
+from tests._helpers.sealed_runs import make_project, seal_run, write_attempt, write_session_dir
+from tests.unit.project.launch._helpers import planned_project
 
 from ._hmp import run_main as _run
 

@@ -63,7 +63,7 @@ def _run_epilogue_lines(
     ``hmp catalog show`` reads. ``wall_seconds`` is the fallback of a seal
     that has none.
     """
-    from hydromodpy.results.export.run_identity import read_sealed_manifest
+    from hydromodpy.results.run_identity import read_sealed_manifest
 
     sid = str(ctx.sim_id)
     try:

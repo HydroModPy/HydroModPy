@@ -1,6 +1,6 @@
 """The extent-bounds map draws both extents beside both maps, or refuses by name.
 
-The run is the monthly V-valley of :mod:`tests.unit.results._transient_network_run`:
+The run is the monthly V-valley of :mod:`tests._helpers.transient_network_run`:
 the whole axis flows in winter and the outlet alone in summer, so the maximal
 extent is the axis and the minimal one the outlet. The maximal map is the axis,
 the minimal map its two southern cells.
@@ -16,8 +16,8 @@ from hydromodpy.display.figures.network_extent_bounds_map import (  # noqa: F401
     _draw_both,
 )
 from tests._helpers.sealed_runs import sealed_search
+from tests._helpers.transient_network_run import transient_run
 from tests.unit.display._network_comparison_run import legend_labels, legend_note
-from tests.unit.results._transient_network_run import transient_run
 
 
 def test_a_transient_run_with_both_maps_is_drawn() -> None:

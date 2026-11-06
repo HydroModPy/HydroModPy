@@ -37,6 +37,7 @@ layout is `storage/contract.py`; the full contract is
 | `checks.py` | the `checks` block of the seal: the measured facts (budget, convergence, coverage, verdicts, promoting session) a label derives from, and their flat columns |
 | `validity_rules.py`, `known_issues.toml` | the label of a run as a function of reading: `label_for()` under versioned `ValidityRules`, and the register of known issues that declasses the runs of the versions they touched |
 | `identity.py` | the `identity` block every exported file carries, posed and read back per format: Zarr attributes, Parquet metadata, `gpkg_metadata`, PNG text chunk, `.meta.json` sidecar |
+| `run_identity.py` | who a run directory is for a file derived from it: the manifest of a sealed run (`read_sealed_manifest`), its label of the day (`label_of`), and the identity block of a run still being computed |
 | `lineage.py` | the `lineage` block of the seal: parent run, session, phase, trial, kind and overrides, by ids |
 | `source_runs.py` | the run a configuration reads (`[flow] restart_from`, the `run` of a `[[mesh.refinement_zone]]`) named by its `sim_id`: `source_run_id()` resolves a reference, `resolve_source_runs()` rewrites a configuration dict with it, and `run_identity_hash` hashes through it |
 | `rel_dir.py` | the one validator of every `rel_dir` field of the sealed formats, on `core.state.result_dirs.parse_rel_dir` |
@@ -55,7 +56,7 @@ layout is `storage/contract.py`; the full contract is
 | `run/sealed_facts.py`, `run/ranking.py` | the facts a table of runs reads from each seal (`read_run_facts`, `overrides_text`, `place_of`), and the rows of sealed runs ranked by one metric under one rule (`rank_rows`, with `group.rank_key`), or why a group has none (`unscored_reason`) |
 | `derive/` | what is computed on read from stored fields: virtual fields, catchment views, the read dispatch shared by `hmp.read` and `Catalog.read` (`reading.py`), time alignment, downsampling, the Brutsaert-Nieber recession cloud of a discharge (`recession.py`), and `stream/`, the stream-network criterion read on a finished run: its comparison with the mapped network, its flow extents, the routing surface and the depression floods the figures draw (`derive/stream/README.md`) |
 | `exporters/` | one writer per format (CSV, GeoTIFF, NetCDF-UGRID, VTU, Shapefile, GeoPackage), the VTU one through `spatial/mesh/io/vtu.py`; `export_spec.py` is the `[[export]]` request and its output planner, `vocabulary.py` is the names a user may export, `request.py` `export_run` writes one `[[export]]` request under `runs/<run>/exports/`, poses the identity block and records `exports/index.json` (`README.md`) |
-| `export/` | FAIR views built from a sealed directory (`directory.py`, `rocrate.py`, `stac.py`, `prov.py`); `publish.py` copies a run or a summary out of the tree (directory or tar, `PUBLICATION.json`, redaction, and with inputs the install index a caller builds); `project_package.py` writes a whole project with its data (`hmp publish --package`); `summary_tables.py` writes a table of runs as Parquet, CSV and GeoPackage with the same cells; `campaign_summary.py` writes the page, the README and the RO-Crate of a campaign summary (`hmp campaign collect`); `run_identity.py` is the identity and label of the day of a run directory (`README.md`) |
+| `export/` | FAIR views built from a sealed directory (`directory.py`, `rocrate.py`, `stac.py`, `prov.py`); `publish.py` copies a run or a summary out of the tree (directory or tar, `PUBLICATION.json`, redaction, and with inputs the install index a caller builds); `project_package.py` writes a whole project with its data (`hmp publish --package`); `summary_tables.py` writes a table of runs as Parquet, CSV and GeoPackage with the same cells; `campaign_summary.py` writes the page, the README and the RO-Crate of a campaign summary (`hmp campaign collect`) (`README.md`) |
 | `importers/` | readers symmetric to the exporters: CSV series, NetCDF fields, one Zarr field |
 | `geographic_cache.py`, `spatial_index.py`, `grid.py` | the workspace cache of geographic arrays keyed by a fingerprint, point-in-cell lookup on a mesh, the cell size and extent of a run |
 | `calibration_trials.py`, `errors.py` | the trial rows of a session for one run, the typed errors of the reader |
@@ -98,7 +99,7 @@ hydromodpy/results/
   storage/       contract.py  parquet_io.py  parquet_schemas.py  diagnostics.py
   zarr_store/    simulation_zarr.py  zarr_writer.py  zarr_reader.py  zarr_finalizer.py  chunks.py ...
   field_registry.py  manifest.py  annotations.py  trash.py  retention.py  record.py  outcome.py
-  metric_rule.py  fit_metrics.py ...
+  run_identity.py  metric_rule.py  fit_metrics.py ...
   catalog/       index_schema.py  indexer.py  facade.py  reads.py  discovery.py  schema.py
                  views.py  parquet_views.py  federation.py  registration.py  storage_paths.py
                  ports.py  protocol.py  adapters/duckdb.py  dataset_loader.py
@@ -110,7 +111,7 @@ hydromodpy/results/
   exporters/     csv.py  geotiff.py  netcdf.py  vtu.py  shapefile.py  geopackage.py
                  vocabulary.py  request.py
   export/        rocrate.py  stac.py  prov.py  directory.py  publish.py  project_package.py  campaign_summary.py
-                 run_identity.py  summary_tables.py
+                 summary_tables.py
   importers/
   geographic_cache.py  spatial_index.py  grid.py
 ```

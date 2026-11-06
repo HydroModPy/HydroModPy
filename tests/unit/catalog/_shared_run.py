@@ -15,7 +15,7 @@ from datetime import datetime
 from pathlib import Path
 
 from hydromodpy.results.manifest import InputEntry, TrackedInput
-from tests.unit.results._run_record_factory import make_record
+from tests._helpers.run_records import make_record
 
 RUN_NAME = "nancon_step5_export"
 PROJECT_NAME = "nancon"

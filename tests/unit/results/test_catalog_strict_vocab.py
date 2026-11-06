@@ -28,14 +28,10 @@ def test_validate_solver_code_strips_and_lowercases() -> None:
     assert validate_solver_code("MODFLOW_NWT") == "modflow_nwt"
 
 
-def test_validate_solver_code_rejects_modflownwt_alias() -> None:
+@pytest.mark.parametrize("alias", ["modflownwt", "modflow6gwt"])
+def test_validate_solver_code_rejects_an_alias(alias: str) -> None:
     with pytest.raises(ValueError, match="Unknown solver code"):
-        validate_solver_code("modflownwt")
-
-
-def test_validate_solver_code_rejects_modflow6gwt_alias() -> None:
-    with pytest.raises(ValueError, match="Unknown solver code"):
-        validate_solver_code("modflow6gwt")
+        validate_solver_code(alias)
 
 
 def test_validate_solver_code_lists_known_codes() -> None:

@@ -51,6 +51,7 @@ from hydromodpy.results.derive.stream.run_extent import network_extents_from_run
 from hydromodpy.workflow.steps.prepare_solver.freeze import portable_config_document
 from tests._helpers.cli_runner import CliRunner
 from tests._helpers.sealed_runs import sealed_search
+from tests._helpers.transient_network_run import transient_run
 from tests.unit.calibration._factories_config import (
     PROCESS,
     PROJECT_BASE,
@@ -63,7 +64,6 @@ from tests.unit.calibration._factories_config import (
     write_calibration,
 )
 from tests.unit.config.test_a_renamed_key_warns_and_a_sealed_one_reads import PROJECT, _project
-from tests.unit.results._transient_network_run import transient_run
 
 # From test_a_network_estimator_names_its_network_output.py
 # A network estimator on the single-metric route must name its network output.

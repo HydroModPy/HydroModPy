@@ -222,11 +222,12 @@ class Catalog(ReadsMixin, DiscoveryMixin, SchemaDiscoveryMixin):
     ) -> xr.Dataset:
         """Return one ``xr.Dataset`` joining scalars and Zarr fields.
 
-        See :class:`hydromodpy.results.catalog.dataset_loader.DatasetLoader`.
+        See :func:`hydromodpy.results.catalog.dataset_loader.load_dataset`.
         """
-        from hydromodpy.results.catalog.dataset_loader import DatasetLoader
+        from hydromodpy.results.catalog.dataset_loader import load_dataset
 
-        return DatasetLoader(self).load(
+        return load_dataset(
+            self,
             filters,
             fields=fields,
             include_params=include_params,

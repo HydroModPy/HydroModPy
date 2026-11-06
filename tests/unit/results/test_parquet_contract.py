@@ -138,11 +138,9 @@ class TestTimestepBigint:
 
 
 class TestMetricsProvenanceInViewNames:
-    def test_metrics_parquet_in_view_names(self):
-        assert "metrics" in PARQUET_VIEW_NAMES
-
-    def test_provenance_parquet_in_view_names(self):
-        assert "provenance" in PARQUET_VIEW_NAMES
+    @pytest.mark.parametrize("view", ["metrics", "provenance"])
+    def test_the_parquet_table_is_a_view_name(self, view):
+        assert view in PARQUET_VIEW_NAMES
 
 
 class TestWriteOptionsForced:

@@ -23,8 +23,8 @@ from hydromodpy.core.tracking.input_file import InputFile
 from hydromodpy.project.dispatch import workflow as wf
 from hydromodpy.results.catalog.registration import config_identity_hash, run_identity_hash
 from hydromodpy.results.manifest import ManifestConfig, ManifestRun
+from tests._helpers.run_records import make_identity, make_record
 from tests._helpers.sealed_runs import write_attempt
-from tests.unit.results._run_record_factory import make_identity, make_record
 
 
 class _FakeProject:

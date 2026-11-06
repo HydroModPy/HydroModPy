@@ -19,7 +19,7 @@ from hydromodpy.display.figures.flow_intermittence_map import FlowIntermittenceM
 from hydromodpy.display.figures.flow_persistence_map import FlowPersistenceMap
 from hydromodpy.display.figures.seepage_map import SEEPAGE_COLOR, SeepageMap
 from tests._helpers.sealed_runs import sealed_search
-from tests.unit.results._transient_network_run import transient_run
+from tests._helpers.transient_network_run import transient_run
 
 from ._network_comparison_run import (
     AXIS_COLUMN,

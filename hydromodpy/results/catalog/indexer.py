@@ -96,11 +96,11 @@ from hydromodpy.results.catalog.index_schema import (
 )
 from hydromodpy.results.catalog.registration import split_stem_version
 from hydromodpy.results.catalog.views import ensure_views
-from hydromodpy.results.export.run_identity import label_of
 from hydromodpy.results.heartbeat import read_heartbeat
 from hydromodpy.results.manifest import Manifest, read_seal
 from hydromodpy.results.outcome import Outcome, effective_status, read_outcome
 from hydromodpy.results.record import read_provenance
+from hydromodpy.results.run_identity import label_of
 from hydromodpy.results.session.descriptor import SessionDescriptor, read_session
 from hydromodpy.results.session.journal import read_trials
 from hydromodpy.results.session.phase import list_phases

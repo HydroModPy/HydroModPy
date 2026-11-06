@@ -44,7 +44,6 @@ from hydromodpy.results.derive.virtual_fields import (
     field_descriptor,
     simulated_active_network_stack,
 )
-from hydromodpy.results.export.run_identity import identity_of_run_dir, read_sealed_manifest
 from hydromodpy.results.exporters._tables import (
     BUDGETS_TABLE,
     TIMESERIES_TABLE,
@@ -72,6 +71,7 @@ from hydromodpy.results.exporters.vocabulary import (
 )
 from hydromodpy.results.identity import ZARR_IDENTITY_ATTR, Identity
 from hydromodpy.results.ledger import Ledger, record_derived_file
+from hydromodpy.results.run_identity import identity_of_run_dir, read_sealed_manifest
 from hydromodpy.results.storage.contract import RUN_EXPORTS_DIRNAME
 
 if TYPE_CHECKING:

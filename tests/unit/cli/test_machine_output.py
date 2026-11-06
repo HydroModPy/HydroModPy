@@ -42,7 +42,7 @@ from hydromodpy.core.exceptions import NothingThereError, SolverDivergedError, S
 from hydromodpy.core.state.layout import data_cache_path_for
 from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 from tests._helpers.cli_runner import CliRunner
-from tests._helpers.sealed_run import RUN_NAME, seal_demo_run
+from tests._helpers.run_stores import RUN_NAME, seal_demo_run
 from tests.unit.cli._tree import leaves
 
 pytestmark = pytest.mark.fast

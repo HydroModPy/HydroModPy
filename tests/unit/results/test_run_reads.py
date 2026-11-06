@@ -72,11 +72,11 @@ from hydromodpy.solver.modflow_common.descent_store import (
 from hydromodpy.spatial.drainage.descent import Descent, descent_from_stored_mesh
 from hydromodpy.spatial.drainage.graph import accumulate_on_downhill_graph
 from tests._helpers.descent_cases import grid_descent
+from tests._helpers.run_records import make_checks
 from tests._helpers.run_stores import claim_run, facts_of, open_run_store
 from tests._helpers.sealed_runs import make_project, seal_run
 from tests._helpers.session_documents import session_descriptor
 from tests._helpers.ugrid_meshes import quad_mesh
-from tests.unit.results._run_record_factory import make_checks
 
 # ``views.catchment_total`` sums a per-cell budget term over the catchment, each
 # face counted by ``mesh/catchment_fraction``. A run that stores the basin of D

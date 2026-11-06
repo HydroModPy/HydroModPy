@@ -109,10 +109,9 @@ from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
 from hydromodpy.workflow.steps.prepare_solver.prepare import step_persist_mesh
 from tests._helpers.bundle_cell_meshes import bundle_dual
 from tests._helpers.regular_cell_meshes import regular_cell_mesh
-from tests._helpers.run_stores import open_run_store
-from tests._helpers.sealed_run import RUN_NAME, seal_demo_run
+from tests._helpers.run_records import make_record
+from tests._helpers.run_stores import RUN_NAME, open_run_store, seal_demo_run
 from tests._helpers.sealed_runs import manifest_document
-from tests.unit.results._run_record_factory import make_record
 
 # The group stored its nodata as a float ``_FillValue`` attribute, which
 # ``xarray.open_zarr`` refuses on a Zarr 3 array, and its rasters had neither

@@ -52,7 +52,7 @@ from hydromodpy.results.derive.virtual_fields import (
 )
 from hydromodpy.results.errors import FieldNotFoundError
 from hydromodpy.results.fit_metrics import score_timeseries
-from hydromodpy.results.manifest import MetricRow
+from hydromodpy.results.manifest import MetricRow, ParameterRow
 from hydromodpy.results.metric_rule import (
     HEADLINE_WINDOW,
     METRIC_NAMES,
@@ -623,6 +623,38 @@ def test_the_wide_view_the_set_and_the_loader_read_the_headline_period(cat_2) ->
     }
 
 
+def test_the_loader_and_the_set_stack_parameters_and_fields(tmp_path) -> None:
+    root = tmp_path / "p"
+    ids = {}
+    for index, name in enumerate(("a", "b")):
+        store = open_run_store(root, name)
+        store.facts.put_parameter(
+            ParameterRow(name="K", value=1e-5 * (index + 1), origin="declared", calibrated=False)
+        )
+        store.facts.put_parameter(
+            ParameterRow(name="K", zone="granite", value=2e-6, origin="declared", calibrated=False)
+        )
+        with store.open_zarr(store.sim_id) as zarr:
+            zarr.write_field("head", 0, np.full(4, 10.0 + index), n_timesteps=1)
+        seal_completed(store)
+        ids[name] = store.sim_id
+    rebuild_index(root)
+    with Catalog(root) as catalog:
+        dataset = catalog.load_dataset(fields=["head", "absent"])
+        assert sorted(dataset["sim_id"].values) == sorted(ids.values())
+        assert dataset["param_K"].sel(sim_id=ids["b"]).item() == pytest.approx(2e-5)
+        assert dataset["param_K_granite"].sel(sim_id=ids["a"]).item() == pytest.approx(2e-6)
+        assert "env_python_version" in dataset
+        assert "absent" not in dataset
+        assert float(dataset["head"].sel(sim_id=ids["b"]).max()) == 11.0
+        stacked = catalog.find().to_xarray("head")
+        assert stacked.name == "head"
+        assert list(stacked["run"].values) == catalog.find().sim_ids
+        assert catalog.find().to_xarray("absent").size == 1
+        scalars = catalog.load_dataset(include_params=False, include_env=False)
+        assert not any(str(name).startswith(("param_", "env_")) for name in scalars.data_vars)
+
+
 # They went in as rows of ``metrics`` (station ``flow_main``, variable ``runtime``)
 # and came out in ``catalog show``, ``catalog diff``, ``compare_pair`` and
 # ``v_metrics_wide`` next to the NSE. The facts and the seal still carry them, the
@@ -1030,17 +1062,18 @@ def test_each_site_keeps_its_own_station_when_ranked_by_site() -> None:
     assert list(best["name"]) == ["run1", "run2"]
 
 
-def test_two_stations_inside_one_site_are_refused() -> None:
-    frame = _rows(("a", "J001", "discharge", 0.8), ("a", "J002", "discharge", 0.9))
+@pytest.mark.parametrize(
+    ("second", "said"),
+    [
+        (("a", "J002", "discharge", 0.9), "site a"),
+        (("b", "P002", "groundwater_level", 0.9), "groundwater_level"),
+    ],
+    ids=["two-stations-inside-one-site", "two-variables-across-the-cohort"],
+)
+def test_two_rules_in_one_ranking_are_refused(second, said) -> None:
+    frame = _rows(("a", "J001", "discharge", 0.8), second)
 
-    with pytest.raises(MixedWindowsError, match="site a"):
-        ranking.rank_rows(frame, "nse", by="site")
-
-
-def test_two_variables_are_refused_across_the_whole_cohort() -> None:
-    frame = _rows(("a", "J001", "discharge", 0.8), ("b", "P002", "groundwater_level", 0.9))
-
-    with pytest.raises(MixedWindowsError, match="groundwater_level"):
+    with pytest.raises(MixedWindowsError, match=said):
         ranking.rank_rows(frame, "nse", by="site")
 
 

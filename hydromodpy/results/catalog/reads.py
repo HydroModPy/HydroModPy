@@ -358,7 +358,7 @@ class ReadsMixin:
         --------
         >>> float(cat.read_geographic_metadata(run.sim_id)["catch_area"])  # doctest: +SKIP
         """
-        from hydromodpy.results.export.run_identity import read_sealed_manifest
+        from hydromodpy.results.run_identity import read_sealed_manifest
 
         manifest = read_sealed_manifest(self.run_dir_for(sim_id))
         if manifest is None:

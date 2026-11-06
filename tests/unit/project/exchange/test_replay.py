@@ -28,6 +28,7 @@ from hydromodpy.project.exchange.share import inputs_of
 from hydromodpy.results.export.publish import INPUTS_DIRNAME, publish
 from hydromodpy.results.manifest import InputEntry, TrackedInput
 from tests._helpers.cli_runner import CliRunner
+from tests._helpers.run_records import make_record
 from tests.unit.catalog._shared_run import (
     CUSTOM_FILE,
     CUSTOM_LOC,
@@ -37,7 +38,6 @@ from tests.unit.catalog._shared_run import (
     make_workspace,
     sha256_of,
 )
-from tests.unit.results._run_record_factory import make_record
 
 RUN_NAME = "nancon_step5_export"
 

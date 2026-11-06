@@ -25,7 +25,6 @@ export/
 ├── rocrate.py           RO-Crate 1.1 metadata
 ├── stac.py              STAC Item, Collection and Catalog
 ├── prov.py              PROV-O JSON-LD lineage
-├── run_identity.py      identity block of a derived file, label of the day
 ├── publish.py           publish, publish_project, verify
 ├── project_package.py   export_project, the meshes a project consumed
 ├── summary_tables.py    a table of runs as Parquet, CSV and GeoPackage
