@@ -41,7 +41,7 @@ wires the provider. No `schema_layout.yaml` orders the parts. Three rules hold:
 
 Who imports schema: `spatial` (job documents, capability declaration, media
 types), `data` (job documents, sources), `results` (sources, media types, generated
-views), `reporting`, `workflow`, `project` (the lockfile fingerprint) and `cli`.
+views), `display`, `workflow`, `project` (the lockfile fingerprint) and `cli`.
 
 ## Tree
 

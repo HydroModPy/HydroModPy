@@ -20,9 +20,10 @@ rules, how a run goes through it, and where to add what.
 | `runner.py` | `ProjectRunner`: one run through the workflow `Pipeline` (step window, resume, overrides, run naming; the attempt protocol `run_attempt` and `SealedRun` live in `workflow/record/attempt.py`, the replay checks in `workflow/replay_checks.py`); `execute` is the worker verb, `run` adds the index and the `Run` view, `draft` says what a run would do |
 | `run_overrides.py` | the `set=` of `simulate` as dotted changes of the configuration of the run, the names of `hmp config targets` |
 | `accessors.py` | the read-only views `project.data` (`ProjectDataAccessor`) and `project.runs` (`ProjectRunsAccessor`), `ProjectCatalog` (the index binding of a project: `store`, `data`, `runs`, and its `close`), the campaign reads behind `project.cases`, `.sites`, `.best_runs` and `.sessions` (`ProjectSessions`), and `Workspace`, what `hmp.open` returns on a workspace root; the index itself is `project.store`, a `Catalog`, and `project[ref]` is one `Run` |
-| `launch/` | the launcher of a `[sites]` project: lease, case selection, prepare, local launch, SLURM array, status, collect into `summary/`. See [launch/README.md](launch/README.md) |
+| `launch/` | the launcher of a `[sites]` project: lease, case selection, prepare, local launch, SLURM array, status, collect into `summary/`, and the plan of a `[sites]` project, `sites/`. See [launch/README.md](launch/README.md) |
 | `exchange/` | publish a run with its inputs, install a published copy, replay it from its own bytes. See [exchange/README.md](exchange/README.md) |
 | `dispatch/` | the adapters that need `Project` and that lower layers must not import: workflow name to run function, rerun provider. See [dispatch/README.md](dispatch/README.md) |
+| `check.py` | `check_project`, the one check behind `hmp config check`, for a run, a calibration or a `[sites]` project |
 | `spinup.py` | `run_spinup`: repeat a forcing window, each cycle restarting from the last, until heads and lake stages stop moving |
 
 ## Import rules

@@ -42,11 +42,11 @@ layout is `storage/contract.py`; the full contract is
 | `rel_dir.py` | the one validator of every `rel_dir` field of the sealed formats, on `core.state.result_dirs.parse_rel_dir` |
 | `ledger.py` | `figures/index.json` and `exports/index.json`: one entry per derived file, with its producer, options, version, digest and identity |
 | `readme.py` | the generated `README.md` of a run, a session or a summary, with the digest of the manifest in its footer |
-| `metric_rule.py` | `MetricRule` (station, window, version), `MetricRule.from_config` ([metrics] station, else [site] gauge; [metrics] window), `score()` and `score_run()`: a metric on the declared window only, with its sample count and where it was read; without a window there is no score |
+| `metric_rule.py` | `MetricsConfig` (the `[metrics]` section), `MetricRule` (station, window, version), `MetricRule.from_config` ([metrics] station, else [site] gauge; [metrics] window), `score()` and `score_run()`: a metric on the declared window only, with its sample count and where it was read; without a window there is no score |
 | `fit_metrics.py` | the scores of a run under its rule, from its own timeseries table: `fit_metrics(run_dir, rule=...)` returns the manifest rows and the headline NSE at the rule station |
 | `session/` | the formats of `sessions/<case>/`: `session.json` (`descriptor.py`), `trials.jsonl` with one trial number per session (`journal.py`), `phases/<phase>/session.json` (`phase.py`); `view.py` is `Session`, the read-only view of one session directory |
 | `plan_store.py` | `plan/<hash>/` written once (plan.json, sites.parquet, cases.parquet, one TOML per case) and `plan/current`; a different content under an existing hash is refused |
-| `publication.py` | `PUBLICATION.json` of a published copy, `published.jsonl` of its source, and `redact()`, the one function that removes host, user and absolute paths from anything that leaves the tree |
+| `publication.py` | `PublicationConfig`, `PUBLICATION.json` of a published copy, `published.jsonl` of its source, and `redact()`, the one function that removes host, user and absolute paths from anything that leaves the tree |
 | `storage/json_io.py` | the atomic JSON writer of every document above; the durable variant (fsync) for the seal and the outcome; `read_sealed_json` and `read_transient_json`, which refuse a document of another version by the rule of `core/io/document_version.py` |
 | `catalog/` | the index and its reader: `index_schema.py` is the DDL (one version, a change is a rebuild), `indexer.py` writes the index from the directories (full or incremental, staging and rename, the label computed and dated), `facade.py` is `Catalog`, the read-only view, with `reads.py`, `discovery.py` and `schema.py` as its concerns, `views.py` the summary views (`v_cases`, `v_simulation_summary`), `parquet_views.py` the per-connection views over the Parquet payloads, `federation.py` the cross-project read of `simulation.parquet` files; `ports.py` is the `CatalogBackend` port, `adapters/duckdb.py` its DuckDB adapter, `protocol.py` the `SimulationStore` protocol, `registration.py` the reservation of versions and `storage_paths.py` the directory of a run |
 | `run/` | `Run`, one finished simulation, and the providers behind it: `geographic`, `timeseries`, `hydrographic`, `array` (xarray), `point` (one variable at one place), `periods`, `descent`, `particles`; `sealed.py` reads what the seal says (site, case, lineage, checks, inputs, label, metrics); `group.py` is `RunSet`, a view over several runs, whose metric columns are named by metric, at the gauge, in the window of each run's rule |
@@ -63,9 +63,8 @@ layout is `storage/contract.py`; the full contract is
 ## Import rules
 
 `tests/unit/architecture/layer_matrix.yaml` gives results `core`, `schema`,
-`config`, `spatial` and itself. Today it imports `core`, `schema`,
-`spatial` and `config` (4 files, a cycle that the move of `PublicationConfig` and
-`MetricsConfig` removes). No `results_layout.yaml` orders the parts inside
+`spatial` and itself. It does not import `config`: `PublicationConfig`
+(`publication.py`) and `MetricsConfig` (`metric_rule.py`) live here. No `results_layout.yaml` orders the parts inside
 the package, and they do import each other: `catalog` composes `run`,
 `derive`, `exporters`, `zarr_store` and the sidecars, and `run` and `derive`
 call back into `catalog` and `zarr_store`. Rules that hold:

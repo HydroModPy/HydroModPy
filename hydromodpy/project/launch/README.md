@@ -20,6 +20,7 @@ scripts in `templates/*.sh` (and the copies users keep in `jobs/`) call it with
 
 | module | what it answers |
 |---|---|
+| `sites/` | the plan, sites x recipes resolved into cases, written once under `plan/<hash>/`, and its budget. See [sites/README.md](sites/README.md) |
 | `lease.py` | who holds the project right now: `.hmp/launcher.lease`, one launcher per project (`acquire_lease`, `launcher_lease`) |
 | `selection.py` | which cases start, with which worker flags, within which budget of solves (`select_cases`, `worker_flags`, `effective_parallel`) |
 | `env.py` | the environment and thread budget of a case process (`child_environment`, `apply_thread_budget`) |

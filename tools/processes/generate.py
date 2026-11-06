@@ -4,7 +4,7 @@ Three sources, and no JSON is written by hand:
 
 * the **capability declaration** -- identity, title, outputs, declared
   exceptions, environment variables it reads;
-* the **Pydantic request model**, through ``config.schema_export``, which
+* the **Pydantic request model**, through ``schema.config_schema``, which
   already emits Draft 2020-12 and already preserves the metadata a frontend
   consumes;
 * the **exit-code mapper**, ``cli.helpers.exit_code_for``, so the description
