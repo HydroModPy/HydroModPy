@@ -40,7 +40,7 @@ if TYPE_CHECKING:
 
     import pandas as pd
 
-    from hydromodpy.config.sites.models import SitesSummaryConfig
+    from hydromodpy.config.sites import SitesSummaryConfig
     from hydromodpy.results.manifest import Manifest
 
 logger = get_logger(__name__)

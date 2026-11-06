@@ -77,6 +77,7 @@ public:
   - hydromodpy.calibration.report
   - hydromodpy.calibration.optim.parameters
   - hydromodpy.calibration.runners.cli_runner
+  - hydromodpy.calibration.runners.document
   - hydromodpy.calibration.runners.staged_runner
   - hydromodpy.calibration.runners.programmatic_runner
   - hydromodpy.calibration.runners.contracts

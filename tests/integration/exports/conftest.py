@@ -17,7 +17,7 @@ from pyproj import Transformer
 from hydromodpy.results.export.context import FairExportContext
 from hydromodpy.results.export.directory import context_from_directory
 from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
-from tests.unit.results._run_record_factory import SIM_ID, make_record
+from tests._helpers.run_records import SIM_ID, make_record
 
 NATIVE_BBOX = (340000.0, 6790000.0, 360000.0, 6810000.0)
 """Bounding box the seal records, in EPSG:2154."""

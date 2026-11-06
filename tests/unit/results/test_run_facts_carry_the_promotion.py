@@ -18,7 +18,7 @@ from hydromodpy.results.storage.run_facts import (
     PromotionFacts,
     RunFacts,
 )
-from tests.unit.results._run_record_factory import make_record
+from tests._helpers.run_records import make_record
 
 pytestmark = pytest.mark.unit
 

@@ -231,7 +231,7 @@ The tests that import the code of this page. The box is generated: a new test
 appears here on the next build.
 
 ```{hmp-tested-by}
-hydromodpy.solver.modflow_common.drain_conductance
+hydromodpy.solver.base.drain_conductance
 hydromodpy.solver.modflow6.builders.recharge
 hydromodpy.solver.modflow6.builders.boundary_conditions
 hydromodpy.solver.modflow_nwt.nwt.payloads
@@ -243,5 +243,5 @@ hydromodpy.solver.modflow_nwt.nwt.payloads
 |---|---|
 | Recharge, EVTA, the lake mask | `hydromodpy/solver/modflow6/builders/recharge.py` |
 | Drain rows | `hydromodpy/solver/modflow6/builders/boundary_conditions.py` |
-| Derived conductance and band | `hydromodpy/solver/modflow_common/drain_conductance.py` |
+| Derived conductance and band | `hydromodpy/solver/base/drain_conductance.py` |
 | Drains and EVT under MODFLOW-NWT | `hydromodpy/solver/modflow_nwt/nwt/payloads/` |

@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 
 from hydromodpy.physics.flow.initial_conditions import FlowInitialConditions
-from hydromodpy.solver.initial_conditions import build_head_initial_condition_array
+from hydromodpy.solver.base.initial_conditions import build_head_initial_condition_array
 
 
 class InitialConditionResolutionMixin:

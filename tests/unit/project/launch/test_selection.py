@@ -16,7 +16,6 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.config.sites.budget import BudgetError
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.state.layout import runs_dir_for, sessions_dir_for
 from hydromodpy.project.launch.children import PlannedCase
@@ -26,6 +25,7 @@ from hydromodpy.project.launch.selection import (
     select_cases,
     worker_flags,
 )
+from hydromodpy.project.launch.sites.budget import BudgetError
 from hydromodpy.project.launch.status import CaseState
 from hydromodpy.results.outcome import Outcome, write_outcome
 from hydromodpy.results.session.descriptor import write_session

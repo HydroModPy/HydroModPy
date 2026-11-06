@@ -25,8 +25,8 @@ from hydromodpy.results.session.descriptor import (
 )
 from hydromodpy.results.session.phase import FrozenValue, PhaseDescriptor
 from hydromodpy.results.validity_rules import LabelResult, label_for, run_quantities
+from tests._helpers.run_records import NOW, WINDOW, make_record
 from tests._helpers.session_documents import best_trial, session_descriptor, trial_line
-from tests.unit.results._run_record_factory import NOW, WINDOW, make_record
 
 LABEL = LabelResult("calibrated", "2", ("promoted by session sess0001, completed",), ())
 

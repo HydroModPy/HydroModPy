@@ -10,10 +10,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from hydromodpy._api import example_add, example_list, example_show
+from hydromodpy._api import example_list, example_show
 from hydromodpy.core.payload import PayloadFile
 from hydromodpy.examples.blobs import is_cached, missing_bytes
-from hydromodpy.examples.install import InstallReport
 from hydromodpy.examples.manifest import ExampleEntry
 
 
@@ -29,17 +28,6 @@ def show_rows(example_id: str) -> dict[str, Any]:
     summary["files"] = [_file_row(item, "project") for item in entry.files]
     summary["data"] = [_file_row(item, "data") for item in entry.data]
     return summary
-
-
-def add_to_workspace(
-    example_id: str,
-    *,
-    workspace: Any,
-    ref: str | None = None,
-    force: bool = False,
-) -> InstallReport:
-    """Fetch what is missing, verify it, and write the example into the workspace."""
-    return example_add(example_id, workspace=workspace, ref=ref, force=force)
 
 
 def generate_manifest(

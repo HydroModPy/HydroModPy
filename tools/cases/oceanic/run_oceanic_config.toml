@@ -1,6 +1,6 @@
 [oceanic_case]
 source = "local"
-local_csv_path = "../../../tests/unit/data_managers/oceanic/data/oceanic_local_sample.csv"
+local_csv_path = "../../../tests/unit/data/variables/oceanic/data/oceanic_local_sample.csv"
 station_id = "152"
 default_msl = 0.0
 start_date = "2003-01-01"

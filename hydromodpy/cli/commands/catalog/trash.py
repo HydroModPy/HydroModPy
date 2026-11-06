@@ -12,7 +12,7 @@ from hydromodpy.cli.conventions import (
     verbosity_parser,
     workspace_parser,
 )
-from hydromodpy.cli.helpers import apply_verbosity, confirm, project_root_of
+from hydromodpy.cli.helpers import confirm, project_root_of
 from hydromodpy.cli.output import emit
 
 NAME: str = "trash"
@@ -56,7 +56,6 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    apply_verbosity(args, {})
     from hydromodpy.results.trash import is_protected, list_trash, purge_trashed
 
     root = project_root_of(args)

@@ -11,9 +11,8 @@ from hydromodpy.cli.conventions import (
     verbosity_parser,
     workspace_parser,
 )
-from hydromodpy.cli.helpers import apply_verbosity, project_root_of
+from hydromodpy.cli.helpers import project_root_of
 from hydromodpy.cli.output import emit
-from hydromodpy.core.state.layout import catalog_path_for
 
 NAME: str = "restore"
 HELP: str = "Move a trashed run or session back to the directory it came from"
@@ -43,7 +42,6 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    apply_verbosity(args, {})
     from hydromodpy.results.catalog.discovery import resolve_trashed
     from hydromodpy.results.trash import restore
 
@@ -58,10 +56,9 @@ def run(args: argparse.Namespace) -> None:
         )
         return
     restore(root, entry.name)
-    if catalog_path_for(root).is_file():
-        from hydromodpy.results.catalog.indexer import index_new_runs
+    from hydromodpy.cli._workers.catalog import reindex_if_indexed
 
-        index_new_runs(root)
+    reindex_if_indexed(root)
     emit(
         args,
         "catalog restore",

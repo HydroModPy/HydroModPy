@@ -43,14 +43,14 @@ if TYPE_CHECKING:
     import xarray as xr
     from matplotlib.figure import Figure
 
-    from hydromodpy.analysis.comparison.compare import Comparison
+    from hydromodpy.analysis.compare import Comparison
     from hydromodpy.calibration import CalibrationReport
     from hydromodpy.config import HydroModPyConfig
-    from hydromodpy.config.sites.expansion import PlanDraft
     from hydromodpy.examples.install import InstallReport
     from hydromodpy.examples.manifest import ExampleEntry
     from hydromodpy.project.accessors import Workspace
     from hydromodpy.project.facade import Project
+    from hydromodpy.project.launch.sites.expansion import PlanDraft
     from hydromodpy.project.spinup import SpinupResult
     from hydromodpy.results.run import Run
     from hydromodpy.results.session.view import Session
@@ -285,7 +285,7 @@ def run(
       keeps nothing to read: a window that stops before ``setup_process``, or
       ``save_catalog = false``;
     - an overview gives a :class:`~hydromodpy.workflow.overview.OverviewResult`;
-    - ``dry_run=True`` gives a :class:`~hydromodpy.config.sites.expansion.PlanDraft`,
+    - ``dry_run=True`` gives a :class:`~hydromodpy.project.launch.sites.expansion.PlanDraft`,
       with nothing run and nothing written.
 
     A calibration is refused: :func:`calibrate` runs it. A ``[sites]`` project is
@@ -378,7 +378,7 @@ def run(
     is_path = isinstance(config, (str, Path))
     source: Any = Path(config).expanduser().resolve() if is_path else config
     if is_path:
-        from hydromodpy.config.sites.expansion import is_sites_project
+        from hydromodpy.config.sites import is_sites_project
         from hydromodpy.workflow.dispatch import load_raw_toml, resolve_workflow
 
         workflow = resolve_workflow(source, cli_workflow=None)
@@ -625,10 +625,7 @@ def calibration_phases(
             "plan": None,
         }
     from hydromodpy.calibration.preflight import preflight_launch
-    from hydromodpy.calibration.runners.cli_runner import (
-        describe_dry_run,
-        load_toml_calibration,
-    )
+    from hydromodpy.calibration.runners.document import describe_dry_run, load_toml_calibration
 
     target = Path(config).expanduser().resolve()
     expanded = _expand_calibration_section(target)
@@ -791,7 +788,7 @@ def spinup(
 
     source = Path(config).expanduser().resolve() if isinstance(config, (str, Path)) else config
     if isinstance(source, Path) and source.is_file():
-        from hydromodpy.config.sites.expansion import is_sites_project
+        from hydromodpy.config.sites import is_sites_project
         from hydromodpy.workflow.dispatch import load_raw_toml
 
         if is_sites_project(load_raw_toml(source)):
@@ -837,7 +834,8 @@ def compare_pair(ref_a: str, ref_b: str, *, workspace: PathLike | None = None) -
         prefix, a name or a selector such as ``@latest``.
     workspace
         Project directory whose catalog resolves the references. Defaults to
-        the nearest folder above the working directory that holds one.
+        the project around the working directory (the folder holding
+        ``project.toml``).
 
     Returns
     -------
@@ -861,10 +859,10 @@ def compare_pair(ref_a: str, ref_b: str, *, workspace: PathLike | None = None) -
 
     See Also
     --------
-    hydromodpy.analysis.comparison
-        Comparison package used by this helper.
+    hydromodpy.results.catalog.Catalog.diff
+        The same two runs as a dictionary of what differs.
     """
-    from hydromodpy.analysis.comparison.pairwise import compare_pair as _compare_pair
+    from hydromodpy.results.catalog.facade import compare_pair as _compare_pair
 
     return _compare_pair(ref_a, ref_b, workspace=workspace)
 
@@ -898,15 +896,15 @@ def compare(
 
     Returns
     -------
-    hydromodpy.analysis.comparison.compare.Comparison
+    hydromodpy.analysis.compare.Comparison
         ``tables`` holds the data frames ``runs``, ``parameters``, ``scores``,
         ``budget``, ``network``, ``series`` and ``maps``.
 
     Raises
     ------
-    hydromodpy.analysis.comparison.compare.ComparisonReferenceError
+    hydromodpy.analysis.compare.ComparisonReferenceError
         If a reference names no sealed run.
-    hydromodpy.analysis.comparison.compare.ComparisonCaseError
+    hydromodpy.analysis.compare.ComparisonCaseError
         If the runs model different sites or share no date.
 
     Examples
@@ -916,7 +914,7 @@ def compare(
     >>> result.tables["series"]  # doctest: +SKIP
     >>> result.write("../study")  # doctest: +SKIP
     """
-    from hydromodpy.analysis.comparison.compare import compare_references
+    from hydromodpy.analysis.compare import compare_references
     from hydromodpy.core.state.result_dirs import resolve_project_root
 
     start = Path(workspace or Path.cwd()).expanduser().resolve()

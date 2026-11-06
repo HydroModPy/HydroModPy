@@ -14,12 +14,12 @@ from dataclasses import dataclass
 
 import numpy as np
 import shapely
-from shapely.geometry import LineString, MultiPolygon, Polygon
+from shapely.geometry import LineString, MultiPolygon, Point, Polygon
 from shapely.geometry.base import BaseGeometry
 from shapely.geometry.polygon import orient
 from shapely.ops import nearest_points, split, substring
 
-__all__ = ["SnappedWall", "snap_wall_to_shore"]
+__all__ = ["SnappedWall", "auto_dam_axis", "snap_wall_to_shore"]
 
 _STATIONS = 2000
 """Trace samples used to find the shore section the trace faces."""
@@ -193,3 +193,47 @@ def _without_repeats(coords: list) -> list[tuple[float, float]]:
     keep = np.ones(len(points), dtype=bool)
     keep[1:] = np.hypot(*np.diff(points, axis=0).T) > 1.0e-9
     return [tuple(point) for point in points[keep]]
+
+
+def auto_dam_axis(
+    polygon: object,
+    outlet_xy: tuple[float, float],
+    *,
+    width_probe: float = 15.0,
+    extend: float = 1.12,
+) -> object:
+    """Auto-derive the dam cutoff-wall axis at the reservoir's DOWNSTREAM EDGE.
+
+    The dam is where the reservoir drains toward the catchment outlet: the
+    footprint boundary point nearest the outlet (the spill point). The axis is
+    CENTERED ON that boundary point (so the wall sits at the lake edge and leaves
+    essentially no lake cells behind it), oriented PERPENDICULAR to the outlet
+    flow (spill -> outlet), with the local reservoir width taken from a chord a
+    short ``width_probe`` inside the neck (the tip itself is degenerate), and
+    extended a little past both banks so the HFB reaches into the abutments.
+    Pure shapely so it can bind before the mesh exists.
+    """
+
+    o = Point(float(outlet_xy[0]), float(outlet_xy[1]))
+    spill = nearest_points(polygon.exterior, o)[0]
+    u = np.array([o.x - spill.x, o.y - spill.y], dtype=float)
+    norm = float(np.hypot(*u)) or 1.0
+    u /= norm
+    n = np.array([-u[1], u[0]])
+    # Local width from a chord a short step inside the neck (the tip is degenerate).
+    anchor = np.array([spill.x, spill.y]) - u * float(width_probe)
+    probe = LineString([tuple(anchor - n * 8000.0), tuple(anchor + n * 8000.0)])
+    inter = probe.intersection(polygon)
+    segments = [inter] if inter.geom_type == "LineString" else list(getattr(inter, "geoms", []))
+    segments = [s for s in segments if s.geom_type == "LineString" and not s.is_empty]
+    if not segments:
+        raise ValueError(
+            "cutoff_wall auto: the perpendicular probe does not cross the reservoir "
+            "footprint; give an explicit line instead."
+        )
+    seg = min(segments, key=lambda s: s.distance(Point(*anchor)))
+    axis_dir = np.array(seg.coords[-1]) - np.array(seg.coords[0])
+    axis_dir /= float(np.hypot(*axis_dir)) or 1.0
+    half = axis_dir * (seg.length / 2.0) * float(extend)
+    center = np.array([spill.x, spill.y])  # sit the wall ON the downstream edge
+    return LineString([tuple(center - half), tuple(center + half)])

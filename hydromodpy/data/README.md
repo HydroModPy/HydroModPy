@@ -8,7 +8,7 @@ variable, how data flows, and where to add what.
 ## Variables
 
 Each `[data.<name>]` section of a project TOML is one variable. The single
-list of the 27 sections is `VARIABLE_SPECS` in `loading/_dispatch.py`.
+list of the 28 sections is `VARIABLE_SPECS` in `loading/_dispatch.py`.
 
 | family | variables | sources besides `custom` | manager base |
 |---|---|---|---|
@@ -17,7 +17,7 @@ list of the 27 sections is `VARIABLE_SPECS` in `loading/_dispatch.py`.
 | terrain and subsurface (3) | `dem`, `geology`, `hydrography` | `ign_geoplateforme_dem`; `brgm_1m`, `brgm_50k`; `bdtopage`, `euhydro`, `osm` | written by hand |
 | structures (1) | `crossings` | `bdtopo`, `roe` | `SourceTable`, written by hand |
 | lake chronicles (4) | `lake_inflow`, `lake_levels`, `lake_outflow`, `lake_withdrawal` | none | `BaseVariableManager` |
-| user files (5) | `lake_abacus` (table), `lake_bathymetry` (raster), `lake_geometry` (vector), `substratum` (raster), `soil_capacity` (raster) | none | `BaseFileManager` |
+| user files (6) | `lake_abacus` (table), `lake_bathymetry` (raster), `lake_geometry` (vector), `substratum` (raster), `soil_capacity` (raster), `layer_base` (raster) | none | `BaseFileManager` |
 
 ## Subpackages
 
@@ -34,7 +34,7 @@ In dependency order, lowest first.
 | `registry/` | the DuckDB index of the cache (`data/cache.duckdb`); the files and their sidecars stay the truth. `input_cache.py` reads it for a workspace: `InputCache(workspace).list(variable=, source=, limit=)` and `.find(...)`. `DataCatalogDuckDB` opens it read-write (one process), read-only (`hmp data` reads, the `--frozen` check) or layered inside a case the launcher started: writes go to a private cache, the shared file is read one query at a time, and `merge_private_cache` folds the private file in when the case ends |
 | `managers/` | the bases the variable managers inherit: shared state and the `SOURCES` dispatch, the grid cache, the per-station cache, the user-file-only variables |
 | `variables/` | one package per `[data.<name>]` section, all on the template below |
-| `sites/` | the sites of the workspace: `data/sites/catalog.csv` in `SiteRow` rows (`catalog.py`, its only reader and writer, with the name and `near_site_m` checks), the importers behind `hmp site import` (site table, outlet layer, Hub'Eau stations), and `[site] gauge` as the station of the series sources (`gauge.py`) |
+| `sites/` | the sites of the workspace: `data/sites/catalog.csv` in `SiteRow` rows (`catalog.py`, its only reader and writer, with the name and `near_site_m` checks), the importers behind `hmp site import` (site table, outlet layer, Hub'Eau stations), `[site] gauge` as the station of the series sources (`gauge.py`), and `single_site.py`, which resolves a `[site]` against the site catalog of the workspace (`match_site`, `resolve_single_site`, `SiteMismatchError`) |
 | `loading/` | `[data]` of the TOML to the variables it activates to the data loaded: `DataManagersConfig`, `DataPlanner`, `DataManagersRuntimeLoader`, `DataStore` |
 | `workspace/` | the workspace data folder: scaffold and scan of custom files |
 | `request/` | data asked for from outside a project: `DataRequest`, `run_request`, the `data-request` process |
@@ -265,10 +265,10 @@ class LoadResult:
 ## Layer neighbors
 
 `data` imports `core`, `schema` and `spatial`
-(`tests/unit/architecture/layer_matrix.yaml`). `config`, `simulation`, `calibration`, `analysis`,
-`workflow`, `catalog`, `project`, `cli` and the root facade import `data`.
+(`tests/unit/architecture/layer_matrix.yaml`). `config`, `simulation`, `calibration`,
+`workflow`, `project`, `cli` and the root facade import `data`.
 `spatial` does not import it, and `data` never imports
-`catalog`.
+`results`.
 
 ## Reading path
 

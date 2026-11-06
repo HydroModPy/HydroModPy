@@ -20,8 +20,8 @@ import numpy as np
 import pytest
 from shapely.geometry import LineString, box
 
-from hydromodpy.solver.modflow6.builders import build_lak_package_args
 from hydromodpy.solver.modflow6.builders.flow_barrier import build_flow_barrier_hfb
+from hydromodpy.solver.modflow6.builders.lake import build_lak_package_args
 from hydromodpy.solver.modflow6.builders.mvr import build_mvr_period_records, mover_package_count
 from hydromodpy.solver.modflow6.builders.sfr import (
     build_drainage_mover_records,

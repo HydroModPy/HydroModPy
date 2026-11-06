@@ -15,7 +15,8 @@ registries already do.
 from __future__ import annotations
 
 from hydromodpy.calibration.evaluation.forward import forward_model_members
-from hydromodpy.calibration.evaluation.plugin_registry import PluginRegistry
+from hydromodpy.core.exceptions import CalibrationError
+from hydromodpy.core.plugin_registry import PluginRegistry
 
 ENTRY_POINT_GROUP = "hydromodpy.calibration.forward_model"
 """The out-of-tree plugin group. One entry point per model, named on its id."""
@@ -57,6 +58,7 @@ _ENGINE = PluginRegistry(
     builtin_paths=_BUILTIN_PATHS,
     members=forward_model_members,
     default_id=DEFAULT_FORWARD_MODEL_ID,
+    error=CalibrationError,
     construction_options=CONSTRUCTION_OPTIONS,
 )
 builtin_model_ids = _ENGINE.builtin_ids

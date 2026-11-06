@@ -491,6 +491,24 @@ def float_or(value: Any, default: float) -> float:
     return number if np.isfinite(number) else default
 
 
+def search_bounds(value: Any) -> tuple[float, float] | None:
+    """Return the declared search bounds as two finite floats, None otherwise.
+
+    A session may store them as a pair or as the JSON text of one.
+    """
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except json.JSONDecodeError:
+            return None
+    if not isinstance(value, Sequence) or len(value) != 2:
+        return None
+    low, high = float_or(value[0], np.nan), float_or(value[1], np.nan)
+    if not (np.isfinite(low) and np.isfinite(high)) or high <= low:
+        return None
+    return low, high
+
+
 def int_or_none(value: Any) -> int | None:
     """Return ``value`` as an integer, None when a table left it empty."""
     number = float_or(value, float("nan"))
@@ -511,6 +529,7 @@ def text(value: Any) -> str | None:
 
 
 __all__ = [
+    "search_bounds",
     "frozen_values",
     "DEFAULT_TOLERANCE",
     "NETWORK_COSTS",

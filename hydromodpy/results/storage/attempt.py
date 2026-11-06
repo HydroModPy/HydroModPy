@@ -234,7 +234,7 @@ def claim_run_directory(
             check_name_free(root, name)
         if next_version_dirname(root, name) != name:
             target = reserve_version_dirname(root, "run", name)
-            return _first_attempt(target, target.name, case_id, project, site, when, host, pid)
+            return _first_attempt(target, case_id=case_id, project=project, site=site, when=when)
         runs = runs_dir_for(root)
         runs.mkdir(parents=True, exist_ok=True)
         target = runs / name
@@ -242,14 +242,14 @@ def claim_run_directory(
             os.mkdir(target)
         except FileExistsError as exc:
             raise AttemptClaimedError(f"{CLAIMED_ELSEWHERE}: {name}") from exc
-        return _first_attempt(target, name, case_id, project, site, when, host, pid)
+        return _first_attempt(target, case_id=case_id, project=project, site=site, when=when)
     status = effective_status(latest, now=when, stale_after_s=stale_after_s)
     # A directory this code cannot read is left as it is: the case takes a new version.
     if status in ("completed", "unreadable"):
         if if_exists == "fail":
             check_name_free(root, stem)
         target = reserve_version_dirname(root, "run", stem)
-        return _first_attempt(target, target.name, case_id, project, site, when, host, pid)
+        return _first_attempt(target, case_id=case_id, project=project, site=site, when=when)
     if status == "unknown":
         _refuse_directory_without_outcome(latest, when, stale_after_s)
     previous = read_outcome(latest)
@@ -331,10 +331,29 @@ def claim_reserved_directory(
         raise FileNotFoundError(f"{directory} is not a directory to claim")
     if read_outcome(directory) is not None:
         raise AttemptClaimedError(f"{directory} already carries an outcome")
-    when = now if now is not None else datetime.now(UTC)
+    return _first_attempt(
+        directory,
+        case_id=case_id,
+        project=project,
+        site=site,
+        when=now if now is not None else datetime.now(UTC),
+        sim_id=sim_id,
+    )
+
+
+def _first_attempt(
+    run_dir: Path,
+    *,
+    case_id: str,
+    project: str,
+    site: str | None,
+    when: datetime,
+    sim_id: str | None = None,
+) -> RunClaim:
+    """Claim *run_dir* as attempt 1 of this process and write its running outcome."""
     claim = RunClaim(
-        run_dir=directory,
-        name=directory.name,
+        run_dir=run_dir,
+        name=run_dir.name,
         sim_id=str(sim_id) if sim_id else str(uuid.uuid4()),
         attempt=1,
         attempt_id=uuid.uuid4().hex,
@@ -342,31 +361,6 @@ def claim_reserved_directory(
         started_at=when,
         host=socket.gethostname(),
         pid=os.getpid(),
-    )
-    write_outcome(directory, _running_outcome(claim, case_id=case_id, project=project, site=site))
-    return claim
-
-
-def _first_attempt(
-    run_dir: Path,
-    name: str,
-    case_id: str,
-    project: str,
-    site: str | None,
-    when: datetime,
-    host: str,
-    pid: int,
-) -> RunClaim:
-    claim = RunClaim(
-        run_dir=run_dir,
-        name=name,
-        sim_id=str(uuid.uuid4()),
-        attempt=1,
-        attempt_id=uuid.uuid4().hex,
-        resumed=False,
-        started_at=when,
-        host=host,
-        pid=pid,
     )
     write_outcome(run_dir, _running_outcome(claim, case_id=case_id, project=project, site=site))
     return claim

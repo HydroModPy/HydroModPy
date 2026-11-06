@@ -17,6 +17,9 @@ from hydromodpy.display.maps.axes import (
     RELATIVE_MAP_COLORBAR_LABEL_SIZE,
     RELATIVE_MAP_COLORBAR_TICK_SIZE,
 )
+from hydromodpy.display.maps.mesh_geometry import (
+    face_polygons,
+)
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -45,15 +48,7 @@ def render_face_field(
     """
     from matplotlib.collections import PolyCollection
 
-    mesh = sim.mesh
-    vertices = np.asarray(mesh.vertices)
-    fnc = np.asarray(mesh.face_node_connectivity)
-
-    polygons = []
-    for row in fnc:
-        nodes = row[row >= 0] if row.dtype.kind in "iu" else row[~np.isnan(row)]
-        polygons.append(vertices[nodes.astype(int)][:, :2])
-
+    polygons = face_polygons(sim)
     flat = np.asarray(values).ravel()
     if flat.size != len(polygons):
         raise ValueError(f"face field has {flat.size} values but mesh has {len(polygons)} faces")

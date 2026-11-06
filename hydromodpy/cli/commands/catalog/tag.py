@@ -10,9 +10,8 @@ from hydromodpy.cli.conventions import (
     verbosity_parser,
     workspace_parser,
 )
-from hydromodpy.cli.helpers import EXIT_USAGE, apply_verbosity, project_root_of, refuse
+from hydromodpy.cli.helpers import EXIT_USAGE, project_root_of, refuse
 from hydromodpy.cli.output import emit
-from hydromodpy.core.state.layout import catalog_path_for
 
 NAME: str = "tag"
 HELP: str = "Add or remove tags on a run (reserved tag: pinned, kept out of trash and gc)"
@@ -50,7 +49,6 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    apply_verbosity(args, {})
     from hydromodpy.results.annotations import add_tag, read_annotations, remove_tag
     from hydromodpy.results.catalog.discovery import resolve_rel_dir
 
@@ -70,10 +68,10 @@ def run(args: argparse.Namespace) -> None:
     after = read_annotations(run_dir).tags
     added = [tag for tag in after if tag not in before]
     removed = [tag for tag in before if tag not in after]
-    if (added or removed) and catalog_path_for(root).is_file():
-        from hydromodpy.results.catalog.indexer import index_new_runs
+    if added or removed:
+        from hydromodpy.cli._workers.catalog import reindex_if_indexed
 
-        index_new_runs(root)
+        reindex_if_indexed(root)
 
     def table() -> None:
         if added:

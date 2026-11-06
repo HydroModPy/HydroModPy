@@ -20,9 +20,9 @@ from hydromodpy.cli.conventions import (
     verbosity_parser,
     workspace_parser,
 )
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, apply_verbosity, refuse
+from hydromodpy.cli.helpers import EXIT_NOT_FOUND, refuse
 from hydromodpy.cli.output import emit
-from hydromodpy.core.state.layout import catalog_path_for, project_roots_under
+from hydromodpy.core.state.layout import project_roots_under
 from hydromodpy.core.state.result_dirs import resolve_project_root
 from hydromodpy.results.retention import DEFAULT_KEEP_VERSIONS, TRASH_RETENTION_DAYS
 
@@ -104,7 +104,6 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    apply_verbosity(args, {})
     from hydromodpy.results.retention import RetentionPolicy, apply_gc, plan_gc
 
     target = Path(args.workspace or Path.cwd()).expanduser().resolve()
@@ -117,10 +116,10 @@ def run(args: argparse.Namespace) -> None:
     for root in project_roots_under(resolve_project_root(target)):
         plan = plan_gc(root, policy, now=now)
         summary = apply_gc(plan, now=now) if applied else {}
-        if applied and catalog_path_for(root).is_file():
-            from hydromodpy.results.catalog.indexer import index_new_runs
+        if applied:
+            from hydromodpy.cli._workers.catalog import reindex_if_indexed
 
-            index_new_runs(root)
+            reindex_if_indexed(root)
         report[str(root)] = {"plan": plan.categories(), "summary": summary}
 
     def table() -> None:

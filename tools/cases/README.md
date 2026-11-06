@@ -18,6 +18,6 @@ ignores. Each one runs from the repository root with `python -m`.
 `plotting_utils.py` holds the window helpers that the domain, field and geographic demos share.
 The TOML paths are relative to the folder of the TOML. They point into `examples/data/`, except
 the intermittency and oceanic ones, which read the small files of their golden tests in
-`tests/unit/data_managers/`.
+`tests/unit/data/variables/`.
 `tests/contract/test_case_review_contract.py` checks the three review launchers and that every
 path of these TOML files exists. The other tests of the demos are in `tests/unit/tools/cases/`.

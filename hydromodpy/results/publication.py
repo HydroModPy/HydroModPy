@@ -11,6 +11,8 @@ every absolute path from any document on its way out.
 
 Format
 ------
+:class:`PublicationConfig` is the ``[publication]`` section of a project file:
+the licence, the creators and the attribution every copy carries.
 ``PUBLICATION.json`` in the copy is :class:`Publication`: what it copies
 (a run, the summary or a whole project), the source by project, directory
 and id, the digest of the manifest and of each copied file, the label of the
@@ -33,6 +35,7 @@ from typing import Annotated, Any, Final
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.stored import Vocabulary, read_stored
 from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.core.state.layout import SUMMARY_DIRNAME
@@ -40,6 +43,30 @@ from hydromodpy.results.rel_dir import checked_rel_dir
 from hydromodpy.results.storage.contract import PUBLICATION_FILENAME, RUN_PUBLISHED_FILENAME
 from hydromodpy.results.storage.json_io import check_sealed, read_sealed_json, write_json_atomic
 from hydromodpy.results.validity_rules import Label
+
+
+class PublicationConfig(HydroModelBase):
+    """The licence and the authorship written into every publication."""
+
+    license: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Licence of the published results, as an SPDX identifier or a licence "
+            "name (CC-BY-4.0, etalab-2.0). Required by hmp publish --public."
+        ),
+        examples=["etalab-2.0"],
+    )
+    creators: Annotated[list[str], Profile.USER] = Field(
+        default_factory=list,
+        description="People or bodies credited as creators of the published results.",
+        examples=[["A. Author"]],
+    )
+    attribution: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Attribution text the publication carries, for the data it was built on.",
+        examples=["Contains data from Hub'Eau."],
+    )
+
 
 PUBLICATION_SCHEMA: Final[str] = "hydromodpy.publication.v1"
 """Schema id of ``PUBLICATION.json``."""
@@ -309,6 +336,7 @@ __all__ = [
     "REDACTED_KEYS",
     "REDACTED_PATH",
     "Publication",
+    "PublicationConfig",
     "PublicationExtra",
     "PublicationFormat",
     "PublicationKind",

@@ -13,18 +13,17 @@ registry caches them.
 from __future__ import annotations
 
 import ast
-import os
 import re
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
 
+from ._installed_probe import REPO_ROOT, collected, run_suite, unpack
+
 # One worker runs the file, so each collection below runs once.
 pytestmark = pytest.mark.xdist_group("terrain_conformance_probe")
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
 CONFORMANCE_SUITE = "tests/contract/test_terrain_engine_contract.py"
 
 PROBE_ENGINE_ID = "conformance_probe_d8"
@@ -86,20 +85,12 @@ class SilentlyUnusableEngine(ProbeTerrainEngine):
         return catchments
 '''
 
-METADATA = "Metadata-Version: 2.1\nName: hmp-conformance-probe\nVersion: 0.1.0\n"
-
 
 def _unpack(root: Path, engine_id: str, engine_class: str, *, tail: str = "") -> Path:
-    """A module and its ``.dist-info``, what a wheel unpacks to. No build, no network."""
-    (root / "hmp_conformance_probe.py").write_text(PROBE_MODULE + tail, encoding="utf-8")
-    dist_info = root / "hmp_conformance_probe-0.1.0.dist-info"
-    dist_info.mkdir()
-    (dist_info / "METADATA").write_text(METADATA, encoding="utf-8")
-    entry_points = (
-        f"[hydromodpy.terrain.engine]\n{engine_id} = hmp_conformance_probe:{engine_class}\n"
-    )
-    (dist_info / "entry_points.txt").write_text(entry_points, encoding="utf-8")
-    return root
+    return unpack(
+        root, "hmp_conformance_probe", PROBE_MODULE + tail,
+        "hydromodpy.terrain.engine", engine_id, engine_class,
+    )  # fmt: skip
 
 
 @pytest.fixture(scope="module")
@@ -115,56 +106,30 @@ def installed_broken_probe(tmp_path_factory) -> Path:
     return _unpack(root, BROKEN_ENGINE_ID, "SilentlyUnusableEngine", tail=BROKEN_PROBE_TAIL)
 
 
-def _pytest(
-    session: Path, *arguments: str, site_packages: Path | None = None
-) -> subprocess.CompletedProcess:
-    """Run pytest in a child interpreter, with or without the probe installed.
-
-    *session* is the child's own unused ``--basetemp``, so parent and child share
-    no temp root, and the cache plugin is off so they share no ``.pytest_cache``.
-    """
-    environment = dict(os.environ)
-    # The child is a plain session, not an xdist worker of the parent.
-    environment.pop("PYTEST_XDIST_WORKER", None)
-    entries = [site_packages, REPO_ROOT, environment.get("PYTHONPATH")]
-    environment["PYTHONPATH"] = os.pathsep.join(str(entry) for entry in entries if entry)
-    return subprocess.run(
-        [sys.executable, "-m", "pytest", CONFORMANCE_SUITE, "-p", "no:randomly",
-         "-p", "no:cacheprovider", f"--basetemp={session}", *arguments],
-        cwd=str(REPO_ROOT),
-        env=environment,
-        capture_output=True,
-        text=True,
-        timeout=900,
-    )  # fmt: skip
-
-
-def _collected(output: str, engine_id: str = "") -> list[str]:
-    """The collected node ids, of *engine_id* only when given."""
-    lines = output.splitlines()
-    return [line for line in lines if line.startswith(CONFORMANCE_SUITE) and engine_id in line]
-
-
 @pytest.fixture(scope="module")
 def bare_collection(tmp_path_factory) -> subprocess.CompletedProcess:
-    return _pytest(tmp_path_factory.mktemp("bare"), "--collect-only", "-q")
+    return run_suite(CONFORMANCE_SUITE, tmp_path_factory.mktemp("bare"), "--collect-only", "-q")
 
 
 @pytest.fixture(scope="module")
 def probe_collection(installed_probe, tmp_path_factory) -> subprocess.CompletedProcess:
     session = tmp_path_factory.mktemp("probe_collect")
-    return _pytest(session, "--collect-only", "-q", site_packages=installed_probe)
+    return run_suite(
+        CONFORMANCE_SUITE, session, "--collect-only", "-q", site_packages=installed_probe
+    )
 
 
 def test_installing_an_engine_adds_it_to_the_suite(bare_collection, probe_collection) -> None:
     """The probe adds its own parameter set and changes no other node (bare is the control)."""
     without, with_probe = bare_collection, probe_collection
     assert without.returncode == 0, without.stdout[-4000:]
-    assert _collected(without.stdout, PROBE_ENGINE_ID) == []
+    assert collected(without.stdout, CONFORMANCE_SUITE, PROBE_ENGINE_ID) == []
     assert with_probe.returncode == 0, with_probe.stdout[-4000:]
-    probe_nodes = _collected(with_probe.stdout, PROBE_ENGINE_ID)
+    probe_nodes = collected(with_probe.stdout, CONFORMANCE_SUITE, PROBE_ENGINE_ID)
     assert probe_nodes, with_probe.stdout[-4000:]
-    added = len(_collected(with_probe.stdout)) - len(_collected(without.stdout))
+    added = len(collected(with_probe.stdout, CONFORMANCE_SUITE)) - len(
+        collected(without.stdout, CONFORMANCE_SUITE)
+    )
     assert added == len(probe_nodes), "the probe may only add its own parameter set"
 
 
@@ -176,8 +141,15 @@ def test_every_conformance_assertion_passes_against_the_installed_engine(
     Selected on the probe: two sessions driving Whitebox at once lose one of them
     (the library exits the process), and the parent already runs Whitebox's set.
     """
-    probe_nodes = _collected(probe_collection.stdout, PROBE_ENGINE_ID)
-    result = _pytest(tmp_path / "probe", "-q", "-k", PROBE_ENGINE_ID, site_packages=installed_probe)
+    probe_nodes = collected(probe_collection.stdout, CONFORMANCE_SUITE, PROBE_ENGINE_ID)
+    result = run_suite(
+        CONFORMANCE_SUITE,
+        tmp_path / "probe",
+        "-q",
+        "-k",
+        PROBE_ENGINE_ID,
+        site_packages=installed_probe,
+    )
     assert result.returncode == 0, result.stdout[-8000:]
     passed = re.search(r"(\d+) passed", result.stdout)
     assert passed is not None, result.stdout[-4000:]
@@ -188,11 +160,15 @@ def test_an_engine_the_registry_accepts_and_the_chain_cannot_use_is_caught(
     installed_broken_probe, tmp_path
 ) -> None:
     """The negative control: ``register()`` accepts it, and the suite fails it on the artifacts."""
-    registered = _pytest(
-        tmp_path / "collect", "--collect-only", "-q", site_packages=installed_broken_probe
+    registered = run_suite(
+        CONFORMANCE_SUITE,
+        tmp_path / "collect",
+        "--collect-only",
+        "-q",
+        site_packages=installed_broken_probe,
     )
-    assert _collected(registered.stdout, BROKEN_ENGINE_ID), "accepted by the registry, or it proves nothing"  # fmt: skip
-    result = _pytest(tmp_path / "run", "-q", "-k", BROKEN_ENGINE_ID, site_packages=installed_broken_probe)  # fmt: skip
+    assert collected(registered.stdout, CONFORMANCE_SUITE, BROKEN_ENGINE_ID), "accepted by the registry, or it proves nothing"  # fmt: skip
+    result = run_suite(CONFORMANCE_SUITE, tmp_path / "run", "-q", "-k", BROKEN_ENGINE_ID, site_packages=installed_broken_probe)  # fmt: skip
     assert result.returncode != 0
     assert "test_a_delineation_leaves_the_four_artefacts_the_port_declares" in result.stdout
 

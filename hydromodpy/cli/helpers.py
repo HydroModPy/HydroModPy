@@ -3,10 +3,7 @@
 from __future__ import annotations
 
 import os
-import re
 import sys
-import tempfile
-import uuid
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from pathlib import Path
@@ -24,7 +21,6 @@ from hydromodpy.core.exceptions import (
     StepError,
     WriteConflictError,
 )
-from hydromodpy.core.logging import get_logger
 
 # ---------------------------------------------------------------------------
 # Standardized exit codes for the hmp CLI. The shared grammar that emits them
@@ -255,15 +251,6 @@ def exit_if_session_unfinished(result: Any) -> None:
 # ---------------------------------------------------------------------------
 
 
-def find_project_root() -> Path:
-    """Walk up from this file to find the directory containing ``tests/``."""
-    current = Path(__file__).resolve().parent
-    for parent in [current] + list(current.parents):
-        if (parent / "tests").is_dir():
-            return parent
-    return Path.cwd()
-
-
 def find_workspace_root(project_dir: Path) -> Path:
     """Walk up from ``project_dir`` to find the shared data workspace."""
     start = project_dir.resolve()
@@ -383,30 +370,21 @@ def project_named_by_w(workspace_arg: str | None) -> Iterator[None]:
             os.environ[PROJECT_ROOT_ENV] = previous
 
 
-def resolve_named_project(workspace_arg: str | None, name: str | None) -> Path:
-    """Return ``projects/<name>`` of the workspace, or the project of ``-w`` without a name.
-
-    Stops with :data:`EXIT_NOT_FOUND` when the directory does not exist.
-    """
-    if name is None:
-        return resolve_project(workspace_arg)
-    from hydromodpy.core.state.layout import PROJECTS_DIRNAME
-
-    project_dir = resolve_workspace(workspace_arg) / PROJECTS_DIRNAME / name
-    if not project_dir.is_dir():
-        refuse(f"No such project: {project_dir}", EXIT_NOT_FOUND)
-    return project_dir
-
-
 def resolve_project_ref(workspace_arg: str | None, ref: str | None) -> Path:
     """Return the project a reference names: a path is read as a path, a bare name under projects/.
 
     A path is ``.``, ``..``, anything with a slash or an absolute path: the
     project at or above it. Nothing found stops with :data:`EXIT_NOT_FOUND`.
     """
-    if ref is None or not _is_path_ref(ref):
-        return resolve_named_project(workspace_arg, ref)
-    from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
+    if ref is None:
+        return resolve_project(workspace_arg)
+    from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME, PROJECTS_DIRNAME
+
+    if not _is_path_ref(ref):
+        project_dir = resolve_workspace(workspace_arg) / PROJECTS_DIRNAME / ref
+        if not project_dir.is_dir():
+            refuse(f"No such project: {project_dir}", EXIT_NOT_FOUND)
+        return project_dir
     from hydromodpy.core.state.result_dirs import resolve_project_root
 
     start = Path(ref).expanduser().resolve()
@@ -425,7 +403,7 @@ def _is_path_ref(ref: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Auto-scan workspace for drag-and-drop custom folders
+# Console verbosity
 # ---------------------------------------------------------------------------
 
 
@@ -452,27 +430,6 @@ def apply_verbosity(args: Any, raw_toml: Mapping[str, Any]) -> str:
         return set_verbosity(level or DEFAULT_VERBOSITY)
     except ValueError as exc:
         refuse(str(exc), EXIT_CONFIG, cause=exc)
-
-
-def auto_scan_workspace(config_path: Path) -> None:
-    """Best-effort scan of drag-and-drop custom folders before a run.
-
-    ``scan_custom`` already logs what it changed. Only what went wrong is
-    reported here, as a warning, so it survives a quiet run.
-    """
-    logger = get_logger(__name__)
-    try:
-        project_dir = config_path.parent.resolve()
-        ws = find_data_workspace(project_dir)
-        if ws is None:
-            return
-        from hydromodpy.data.workspace.custom_scan import scan_custom
-
-        report = scan_custom(ws)
-        for path, msg in report.errors[:5]:
-            logger.warning("auto_scan could not read %s: %s", path, msg)
-    except Exception as exc:  # pragma: no cover - defensive
-        logger.warning("auto_scan skipped (%s: %s)", type(exc).__name__, exc)
 
 
 # ---------------------------------------------------------------------------
@@ -552,52 +509,6 @@ def profile_run(output: Path | None, *, description: str | None = None) -> Itera
             print(f"  WARNING: profile report write failed: {exc}", file=sys.stderr)
 
 
-# ---------------------------------------------------------------------------
-# Pytest scratch environment helpers
-# ---------------------------------------------------------------------------
-
-
-def resolve_test_scratch_root() -> Path:
-    """Return the shared repository-external scratch root for test runs."""
-    override = os.environ.get("HMP_TEST_SCRATCH_ROOT")
-    if override:
-        return Path(override).expanduser().resolve()
-    return (Path(tempfile.gettempdir()) / "hydromodpy_tests").resolve()
-
-
-def resolve_test_session_scratch_root(scratch_root: Path) -> Path:
-    """Return the pytest scratch root for this CLI-launched test process tree."""
-    override = os.environ.get("HMP_TEST_SESSION_SCRATCH_ROOT")
-    if override:
-        return Path(override).expanduser().resolve()
-    return (scratch_root / "sessions" / f"cli_{os.getpid()}_{uuid.uuid4().hex[:12]}").resolve()
-
-
-def pytest_addopts_declares_basetemp(pytest_addopts: str) -> bool:
-    """Return ``True`` when ``PYTEST_ADDOPTS`` already declares ``--basetemp``."""
-    return re.search(r"(^|\\s)--basetemp(?:=|\\s|$)", str(pytest_addopts)) is not None
-
-
-def build_pytest_runtime_env() -> tuple[Path, dict[str, str]]:
-    """Prepare one external scratch root for pytest internals and subprocesses."""
-    scratch_root = resolve_test_scratch_root()
-    session_root = resolve_test_session_scratch_root(scratch_root)
-    tmp_root = session_root / "tmp"
-    pytest_root = session_root / "pytest"
-    basetemp_root = pytest_root / f"cli_{os.getpid()}"
-    for path in (scratch_root, session_root, tmp_root, pytest_root, basetemp_root):
-        path.mkdir(parents=True, exist_ok=True)
-
-    env = os.environ.copy()
-    env["HMP_TEST_SCRATCH_ROOT"] = str(scratch_root)
-    env["HMP_TEST_SESSION_SCRATCH_ROOT"] = str(session_root)
-    env["PYTEST_DEBUG_TEMPROOT"] = str(pytest_root)
-    env["TMPDIR"] = str(tmp_root)
-    env["TMP"] = str(tmp_root)
-    env["TEMP"] = str(tmp_root)
-    return basetemp_root, env
-
-
 __all__ = (
     "EXIT_OK",
     "EXIT_GENERIC",
@@ -626,20 +537,13 @@ __all__ = (
     "project_named_by_w",
     "project_root_of",
     "refuse",
-    "find_project_root",
     "find_workspace_root",
     "find_data_workspace",
     "find_workspace",
     "resolve_workspace",
     "resolve_project",
-    "resolve_named_project",
     "apply_verbosity",
-    "auto_scan_workspace",
     "profile_arg_from_toml",
     "resolve_profile_output",
     "profile_run",
-    "resolve_test_scratch_root",
-    "resolve_test_session_scratch_root",
-    "pytest_addopts_declares_basetemp",
-    "build_pytest_runtime_env",
 )

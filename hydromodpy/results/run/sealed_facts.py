@@ -55,7 +55,7 @@ def read_run_facts(run_dir: str | Path) -> SealedRunFacts | None:
     UnreadableManifestError
         When ``manifest.json`` does not read under the current schema.
     """
-    from hydromodpy.results.export.run_identity import read_sealed_manifest
+    from hydromodpy.results.run_identity import read_sealed_manifest
 
     try:
         manifest = read_sealed_manifest(run_dir)

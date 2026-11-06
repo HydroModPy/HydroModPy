@@ -283,7 +283,7 @@ def test_the_scope_covers_the_layer_matrix() -> None:
     declared = set(matrix["allowed"])
     assert set(COMPUTE_LAYERS) | set(OUTSIDE_LAYERS) == declared
     assert not set(COMPUTE_LAYERS) & set(OUTSIDE_LAYERS)
-    assert {"display", "reporting", "cli"} <= set(OUTSIDE_LAYERS)
+    assert {"display", "analysis", "cli"} <= set(OUTSIDE_LAYERS)
     assert set(RUN_LAYERS) == set(COMPUTE_LAYERS) - {"calibration"}
 
 

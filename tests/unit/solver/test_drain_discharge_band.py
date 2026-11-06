@@ -25,12 +25,12 @@ from pydantic import ValidationError
 
 from hydromodpy.core.budget.flux import DRAIN_BAND_DEPTH_ATTR, drain_band_depth, seepage_mask
 from hydromodpy.results.zarr_store import SimulationZarr
+from hydromodpy.solver.base.drain_conductance import drain_discharge_band
 from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.solver.modflow6.build import apply_preprocess_options as mf6_apply_options
 from hydromodpy.solver.modflow6.builders.boundary_conditions import (
     build_drain_stress_period_data,
 )
-from hydromodpy.solver.modflow_common.drain_conductance import drain_discharge_band
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import build_preprocess_options
 from hydromodpy.solver.modflow_common.options import ModflowPreprocessOptions
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
@@ -390,7 +390,7 @@ class TestTheDepthReachesTheDrainRows:
         from hydromodpy.solver.modflow_nwt.nwt import steady_initial_conditions as nwt_ssic
 
         for module, name in (
-            (mf6_ssic, "run_modflow6_steady_state_initialization"),
+            (mf6_ssic, "_preprocess_options_like"),
             (nwt_ssic, "run_nwt_steady_state_initialization"),
         ):
             source = inspect.getsource(getattr(module, name))

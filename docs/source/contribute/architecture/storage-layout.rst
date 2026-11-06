@@ -1034,7 +1034,7 @@ override the section-level ``variables``. ``ObservationConfig``
 (``hydromodpy/simulation/planning/observation_config.py``) validates the
 ids and the vertical selector; the run samples the points at the end of
 extraction, while it still holds its fields
-(``simulation/extraction/post_run.py``,
+(``simulation/post_run.py``,
 ``sample_declared_observation_points``). A declaration mistake is logged
 and skipped: it must not lose a run whose results are already in.
 

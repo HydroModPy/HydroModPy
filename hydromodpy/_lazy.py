@@ -126,8 +126,8 @@ _LEFT_BEFORE_2_0: dict[str, str] = {
 
 EXCEPTIONS_BESIDE_THEIR_CODE: dict[str, str] = {
     "AmbiguousReferenceError": "hydromodpy.results.catalog.discovery",
-    "ComparisonCaseError": "hydromodpy.analysis.comparison.compare",
-    "ComparisonReferenceError": "hydromodpy.analysis.comparison.compare",
+    "ComparisonCaseError": "hydromodpy.analysis.compare",
+    "ComparisonReferenceError": "hydromodpy.analysis.compare",
     "MixedWindowsError": "hydromodpy.results.run.sealed",
     "PointOutsideMeshError": "hydromodpy.results.run.point",
     "SimulationNotFoundError": "hydromodpy.results.catalog.discovery",

@@ -13,7 +13,7 @@ from hydromodpy.display.catchment_report import (
     CatchmentReportInputs,
 )
 from hydromodpy.display.catchment_report.artifacts import DEFAULT_ARTIFACT_SPECS
-from hydromodpy.display.catchment_report.block_specs import DEFAULT_BLOCK_SPECS
+from hydromodpy.display.catchment_report.blocks import DEFAULT_BLOCK_SPECS
 from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -176,7 +176,7 @@ def _write_synthetic_report_config(config_path: Path, root: Path) -> Path:
     (empty is legal), so the whole thing fits in tmp_path. Returns the
     ``report/`` folder of the run.
     """
-    from tests._helpers.sealed_run import seal_demo_run
+    from tests._helpers.run_stores import seal_demo_run
 
     watershed = root / "watershed"
     data_overview = root / "data_overview"

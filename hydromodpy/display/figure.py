@@ -224,19 +224,6 @@ class Figure(Protocol):
     def unavailable_reason(self, sim: Run) -> str | None: ...
 
 
-def _run_has_table(sim: Run, name: str) -> bool:
-    """Say whether ``sim`` can feed the table ``name`` a figure requires.
-
-    ``calibration_iterations`` is not a table of the run: it is the journal of the
-    session the run was promoted from, so the run has it when it names that session.
-    """
-    if name == "calibration_iterations":
-        from hydromodpy.results.calibration_trials import session_dir_of
-
-        return session_dir_of(sim) is not None or sim.has_table(name)
-    return sim.has_table(name)
-
-
 class BaseFigure(ABC):
     """ABC providing the universal ``plot()`` boilerplate."""
 
@@ -272,8 +259,10 @@ class BaseFigure(ABC):
         missing_fields = [name for name in self.spec.required_fields if not sim.has_field(name)]
         if missing_fields:
             return f"missing result field(s): {', '.join(missing_fields)}"
+        from hydromodpy.results.calibration_trials import run_feeds_table
+
         missing_tables = [
-            name for name in self.spec.required_tables if not _run_has_table(sim, name)
+            name for name in self.spec.required_tables if not run_feeds_table(sim, name)
         ]
         if missing_tables:
             return f"missing catalog table(s): {', '.join(missing_tables)}"

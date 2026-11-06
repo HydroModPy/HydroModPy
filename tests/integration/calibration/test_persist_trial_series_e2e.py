@@ -28,7 +28,7 @@ import pytest
 
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.persistence import CalibrationPersistence, PhaseContext
-from hydromodpy.calibration.runners.cli_runner import run_one_search
+from hydromodpy.calibration.runners.search import run_one_search
 from hydromodpy.calibration.runners.state import override_paths, space_from_config
 from hydromodpy.calibration.runners.trial import prepare_trials
 from hydromodpy.results.storage.contract import SESSION_TRIAL_SERIES_DIRNAME

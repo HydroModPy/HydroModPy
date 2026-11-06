@@ -15,7 +15,7 @@ import pytest
 
 from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
 from hydromodpy.calibration.persistence import CalibrationPersistence, PhaseContext
-from hydromodpy.calibration.runners.cli_runner import write_session_readme
+from hydromodpy.calibration.runners.session_scope import write_session_readme
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.session.descriptor import (
     ParameterBound,

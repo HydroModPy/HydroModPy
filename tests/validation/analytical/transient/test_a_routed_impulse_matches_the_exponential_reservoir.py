@@ -28,7 +28,7 @@ import xarray as xr
 from hydromodpy.core.time.window import ResolvedSimulationTimeWindow
 from hydromodpy.data.contracts import FieldRecord, LoadResult
 from hydromodpy.physics.hydrology.soil_reservoir.config import SoilReservoirConfig
-from hydromodpy.simulation.soil_recharge import compute_soil_forcings
+from hydromodpy.simulation.soil.recharge import compute_soil_forcings
 from tests._helpers.tolerances import tol
 from tests.validation.helpers import assert_metric_below, record_scale, record_series
 

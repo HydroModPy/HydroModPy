@@ -5,10 +5,10 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from hydromodpy.solver.base.properties import resolve_flow_property_runtime_overrides
 from hydromodpy.solver.modflow_common.runtime_arrays import (
     build_concentration_runtime_overrides,
     flow_grid_shape,
-    resolve_flow_property_runtime_overrides,
 )
 
 

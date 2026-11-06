@@ -34,6 +34,10 @@ class TransportInitialConditions(HydroModelBase):
     )
 
 
+_ENGINES: tuple[str, ...] = ("modpath", "mt3dms", "modflow6gwt", "modflow6prt")
+"""The transport engines, each with its own ``[transport.<engine>.parameters]``."""
+
+
 class Transport(ProcessSpatial[TransportInitialConditions]):
     def __init__(self, config: TransportConfig | Mapping[str, object] | None = None):
         super().__init__()
@@ -68,15 +72,10 @@ class Transport(ProcessSpatial[TransportInitialConditions]):
             raise TypeError("Transport config must be a TransportConfig instance or a mapping")
 
         self.config = transport_cfg
-        self.modpath.set_parameters(transport_cfg.modpath.parameters.model_dump())
-        self.mt3dms.set_parameters(transport_cfg.mt3dms.parameters.model_dump())
-        self.modflow6gwt.set_parameters(transport_cfg.modflow6gwt.parameters.model_dump())
-        self.modflow6prt.set_parameters(transport_cfg.modflow6prt.parameters.model_dump())
-
-        self.parameters["modpath"] = self.modpath.parameters
-        self.parameters["mt3dms"] = self.mt3dms.parameters
-        self.parameters["modflow6gwt"] = self.modflow6gwt.parameters
-        self.parameters["modflow6prt"] = self.modflow6prt.parameters
+        for engine in _ENGINES:
+            component = getattr(self, engine)
+            component.set_parameters(getattr(transport_cfg, engine).parameters.model_dump())
+            self.parameters[engine] = component.parameters
 
     def set_parameters(self, parameters: dict):
         """Merge parameters into the engines they name.
@@ -96,35 +95,16 @@ class Transport(ProcessSpatial[TransportInitialConditions]):
         if not isinstance(parameters, Mapping):
             raise TypeError("Transport parameters must be provided as a mapping")
 
-        modpath_payload = parameters.get("modpath")
-        if isinstance(modpath_payload, Mapping):
-            nested = modpath_payload.get("parameters", modpath_payload)
-            if isinstance(nested, Mapping):
-                self.modpath.set_parameters(nested)
-
-        mt3dms_payload = parameters.get("mt3dms")
-        if isinstance(mt3dms_payload, Mapping):
-            nested = mt3dms_payload.get("parameters", mt3dms_payload)
-            if isinstance(nested, Mapping):
-                self.mt3dms.set_parameters(nested)
-
-        modflow6gwt_payload = parameters.get("modflow6gwt")
-        if isinstance(modflow6gwt_payload, Mapping):
-            nested = modflow6gwt_payload.get("parameters", modflow6gwt_payload)
-            if isinstance(nested, Mapping):
-                self.modflow6gwt.set_parameters(nested)
-
-        modflow6prt_payload = parameters.get("modflow6prt")
-        if isinstance(modflow6prt_payload, Mapping):
-            nested = modflow6prt_payload.get("parameters", modflow6prt_payload)
-            if isinstance(nested, Mapping):
-                self.modflow6prt.set_parameters(nested)
+        for engine in _ENGINES:
+            payload = parameters.get(engine)
+            if isinstance(payload, Mapping):
+                nested = payload.get("parameters", payload)
+                if isinstance(nested, Mapping):
+                    getattr(self, engine).set_parameters(nested)
 
         self.parameters.update(dict(parameters))
-        self.parameters["modpath"] = self.modpath.parameters
-        self.parameters["mt3dms"] = self.mt3dms.parameters
-        self.parameters["modflow6gwt"] = self.modflow6gwt.parameters
-        self.parameters["modflow6prt"] = self.modflow6prt.parameters
+        for engine in _ENGINES:
+            self.parameters[engine] = getattr(self, engine).parameters
 
     def build_initial_conditions(
         self,
@@ -138,31 +118,8 @@ class Transport(ProcessSpatial[TransportInitialConditions]):
             raise TypeError("Transport initial conditions must be provided as a mapping")
         return TransportInitialConditions(payload=dict(initial_conditions))
 
-    def set_initial_conditions(self, initial_conditions: object | None) -> None:
-        super().set_initial_conditions(initial_conditions)
-
     def set_boundary_conditions(self, boundary_conditions: dict):
         self.boundary_conditions.update(boundary_conditions)
 
     def set_sinks_sources(self, sinks_sources: dict):
         self.sinks_sources.update(sinks_sources)
-
-    def update_modpath_parameters(self, **kwargs) -> None:
-        """Update `transport.modpath.parameters`."""
-        self.modpath.set_parameters(kwargs)
-        self.parameters["modpath"] = self.modpath.parameters
-
-    def update_mt3dms_parameters(self, **kwargs) -> None:
-        """Update `transport.mt3dms.parameters`."""
-        self.mt3dms.set_parameters(kwargs)
-        self.parameters["mt3dms"] = self.mt3dms.parameters
-
-    def update_modflow6gwt_parameters(self, **kwargs) -> None:
-        """Update `transport.modflow6gwt.parameters`."""
-        self.modflow6gwt.set_parameters(kwargs)
-        self.parameters["modflow6gwt"] = self.modflow6gwt.parameters
-
-    def update_modflow6prt_parameters(self, **kwargs) -> None:
-        """Update `transport.modflow6prt.parameters`."""
-        self.modflow6prt.set_parameters(kwargs)
-        self.parameters["modflow6prt"] = self.modflow6prt.parameters

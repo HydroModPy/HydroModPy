@@ -7,8 +7,7 @@ a candidate ``value``, :func:`validate_field` returns a lightweight
 The implementation navigates the Pydantic root model to find the leaf
 field, then re-validates the value via :class:`pydantic.TypeAdapter`. This
 avoids building a full ``PartialHydroModPyConfig`` per request and keeps
-the per-call cost well below the 50 ms target stated in
-``architecture_cible/11_frontend_ready.md``.
+the per-call cost low enough to run on every keystroke.
 
 The validator never needs network or disk I/O; it is safe to call
 repeatedly from an interactive UI.
@@ -24,6 +23,7 @@ from pydantic import BaseModel, TypeAdapter, ValidationError
 from pydantic.fields import FieldInfo
 
 from hydromodpy.core.config_kit.introspect import iter_basemodels
+from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 
 
 @dataclass(frozen=True)
@@ -48,12 +48,6 @@ def _split_path(path: str) -> list[str]:
     return parts
 
 
-def _root_model() -> type[BaseModel]:
-    from hydromodpy.config import HydroModPyConfig
-
-    return HydroModPyConfig
-
-
 def _resolve_field(path: str) -> tuple[type[BaseModel], str, FieldInfo]:
     """Walk the root model and return ``(owner_cls, leaf_name, FieldInfo)``.
 
@@ -63,9 +57,9 @@ def _resolve_field(path: str) -> tuple[type[BaseModel], str, FieldInfo]:
     BaseModel" strategy would produce when only one variant declares the leaf.
     """
     parts = _split_path(path)
-    candidates: list[type[BaseModel]] = [_root_model()]
+    candidates: list[type[BaseModel]] = [get_root_config_provider().root_model()]
     skip_next = False
-    for index, name in enumerate(parts[:-1]):
+    for name in parts[:-1]:
         if skip_next:
             # The segment before this one was a mapping of models, so this one
             # is a key the user chose (a parameter id, a boundary id, a support)
@@ -90,7 +84,6 @@ def _resolve_field(path: str) -> tuple[type[BaseModel], str, FieldInfo]:
             current_name = candidates[0].__name__ if candidates else "?"
             raise KeyError(f"unknown field {name!r} while resolving {path!r} in {current_name}")
         candidates = next_candidates
-        del index
 
     leaf = parts[-1]
     if skip_next:
@@ -129,7 +122,9 @@ def _adapter_for(path: str) -> TypeAdapter:
     return TypeAdapter(info.annotation)
 
 
-def _format_error(exc: ValidationError) -> str:
+def _format_error(exc: Exception) -> str:
+    if not isinstance(exc, ValidationError):
+        return str(exc)
     details = exc.errors(include_url=False, include_context=False)
     if not details:
         return str(exc)
@@ -140,16 +135,6 @@ def _format_error(exc: ValidationError) -> str:
         parts = [f"{k}={v}" for k, v in ctx.items()]
         return f"{msg} ({', '.join(parts)})"
     return msg
-
-
-def _collect_dependents(path: str) -> list[str]:
-    """Return other field paths statically known to depend on *path*.
-
-    The current implementation returns an empty list because HydroModPy
-    does not yet declare cross-field links. It preserves the shape of the
-    spec so the frontend can already consume the response.
-    """
-    return []
 
 
 def validate_field(
@@ -194,32 +179,10 @@ def validate_field(
 
     try:
         adapter.validate_python(value)
-    except ValidationError as exc:
+    except (ValidationError, TypeError, ValueError) as exc:
         elapsed = (perf_counter() - t0) * 1000.0
-        return ValidationResult(
-            valid=False,
-            path=path,
-            error=_format_error(exc),
-            dependent_fields_affected=_collect_dependents(path),
-            timing_ms=elapsed,
-        )
-    except (TypeError, ValueError) as exc:
-        elapsed = (perf_counter() - t0) * 1000.0
-        return ValidationResult(
-            valid=False,
-            path=path,
-            error=str(exc),
-            dependent_fields_affected=_collect_dependents(path),
-            timing_ms=elapsed,
-        )
-
-    elapsed = (perf_counter() - t0) * 1000.0
-    return ValidationResult(
-        valid=True,
-        path=path,
-        dependent_fields_affected=_collect_dependents(path),
-        timing_ms=elapsed,
-    )
+        return ValidationResult(valid=False, path=path, error=_format_error(exc), timing_ms=elapsed)
+    return ValidationResult(valid=True, path=path, timing_ms=(perf_counter() - t0) * 1000.0)
 
 
 __all__ = ["validate_field", "ValidationResult"]

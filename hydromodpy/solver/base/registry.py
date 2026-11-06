@@ -322,17 +322,6 @@ def unregister(process_type: str, solver_name: str) -> None:
     _BUILTIN_ACCEPTED_MESHES.pop(key, None)
 
 
-def unregister_extractor(process_type: str, solver_name: str) -> None:
-    """Remove an extractor entry (primarily for tests).
-
-    Also drops any matching entry from ``_BUILTIN_EXTRACTOR_PATHS`` so a
-    subsequent ``get_extractor`` call does not lazy-reload the built-in.
-    """
-    key = (process_type, solver_name)
-    _EXTRACTOR_REGISTRY.pop(key, None)
-    _BUILTIN_EXTRACTOR_PATHS.pop(key, None)
-
-
 def list_pairs() -> list[AdapterKey]:
     """Return all known pairs, sorted for stable output.
 
@@ -544,5 +533,4 @@ __all__ = [
     "register_extractor",
     "required_bindings",
     "unregister",
-    "unregister_extractor",
 ]

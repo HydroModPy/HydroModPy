@@ -60,13 +60,13 @@ Sections live close to the package they configure:
      - ``hydromodpy/core/site/config.py``
    * - ``[sites]``
      - ``SitesConfig``
-     - ``hydromodpy/config/sites/models.py``
+     - ``hydromodpy/config/sites.py``
    * - ``[metrics]``
      - ``MetricsConfig``
-     - ``hydromodpy/config/metrics_config.py``
+     - ``hydromodpy/results/metric_rule.py``
    * - ``[publication]``
      - ``PublicationConfig``
-     - ``hydromodpy/config/publication_config.py``
+     - ``hydromodpy/results/publication.py``
    * - ``[overview]``
      - ``OverviewConfig``
      - ``hydromodpy/display/overview/config.py``
@@ -370,8 +370,8 @@ Pitfalls flagged by the layer matrix
   configures. Do not move it to ``config/``: ``config/`` is the root
   composition only.
 - ``config/`` is the one layer that composes the sections, so it imports the
-  layers that own them. Of the layers below it, only ``schema/``, ``results/``
-  and ``reporting/`` import ``config/``.
+  layers that own them. Of the layers below it, only ``schema/`` and ``results/``
+  import ``config/``.
 - The committed JSON Schema must stay in sync with the models. Re-run the
   export after every field addition.
 

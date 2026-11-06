@@ -70,7 +70,6 @@ Declared in the repository-root `pytest.ini`:
 | `boussinesq`  | Boussinesq solver specific test |
 | `network`     | requires network access |
 | `binary`      | requires a solver binary on `PATH` |
-| `gpu`         | requires a GPU at runtime |
 | `allow_subprocess` | permits subprocess calls inside `unit/` |
 | `timeout`     | per-test timeout in seconds |
 | `xdist_group` | pytest-xdist worker grouping |

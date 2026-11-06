@@ -18,7 +18,7 @@ print(f"PETSc version: {PETSc.Sys.getVersion()}")
 PY
 
 python -m pytest \
-  tests/unit/solver/test_boussinesq_method_catalog.py \
+  tests/unit/solver/boussinesq/test_boussinesq_method_catalog.py \
   tests/unit/validation/test_dupuit_fixed_head_petsc_alias.py \
   tests/validation/analytical/steady/test_dupuit_fixed_head_petsc_1d.py \
   tests/validation/numerical/transient/test_boussinesq_drying_petsc.py \

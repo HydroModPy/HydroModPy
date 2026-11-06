@@ -41,57 +41,13 @@ from hydromodpy.core.units import (
     parse_to_canonical_magnitude,
 )
 from hydromodpy.physics.base.forcing import HeadForcing, carries_a_unit
-
-ALLOWED_BC_APPLICATION_DOMAINS = {
-    "top",
-    "north side",
-    "west side",
-    "east side",
-    "south side",
-}
-"""Supported target domains for boundary-condition application.
-
-These values are used by validators and normalizers to reject unsupported
-domains early. If one payload defines `application_domain`, the value must be
-in this set.
-"""
-
-DIRICHLET_BC_CANONICAL_DOMAINS: dict[str, str] = {
-    "ocean": "top",
-    "stream": "top",
-    "north_side": "north side",
-    "south_side": "south side",
-    "east_side": "east side",
-    "west_side": "west side",
-}
-"""Mapping from canonical Dirichlet identifiers to their implied domain.
-
-This table encodes the process convention:
-- key is the boundary-condition id expected in `[flow.bc.dirichlet.<id>]`,
-- value is the unique `application_domain` allowed for this id.
-
-Example:
-- `north_side` must map to `north side` and cannot target any other domain.
-"""
-
-SIDE_DIRICHLET_BC_IDS = {
-    "north_side",
-    "south_side",
-    "east_side",
-    "west_side",
-}
-"""Dirichlet ids applied on one lateral face of the domain."""
-
-FORCING_CAPABLE_DIRICHLET_BC_IDS = SIDE_DIRICHLET_BC_IDS | {"stream", "ocean"}
-"""Dirichlet ids whose head may follow a chronicle rather than stay a number.
-
-A tide and a stream stage move, and every backend that builds these boundaries
-already reads their head as one value per stress period, so the declaration is
-what was missing rather than the physics. The registry states the same thing
-per boundary through ``supports_forcing``; the two are kept in step by
-``tests/unit/physics/test_flow_boundary_forcing_capability.py``.
-"""
-
+from hydromodpy.physics.base.payloads import declared_unit
+from hydromodpy.physics.flow.boundary_condition_registry import (
+    ALLOWED_BC_APPLICATION_DOMAINS,
+    DIRICHLET_BC_CANONICAL_DOMAINS,
+    FORCING_CAPABLE_DIRICHLET_BC_IDS,
+    boundary_definition,
+)
 
 _BOUNDARY_UNIT_TARGETS: dict[str, tuple[str, str]] = {
     "m": ("m", "length"),
@@ -103,15 +59,6 @@ _BOUNDARY_UNIT_TARGETS: dict[str, tuple[str, str]] = {
 }
 
 BoundaryKind: TypeAlias = Literal["dirichlet", "drain"]
-
-
-def _extract_explicit_boundary_units(payload: Mapping[str, object]) -> str | None:
-    """Resolve explicitly declared units from payload."""
-    if "units" in payload:
-        return str(payload["units"])
-    if "unit" in payload:
-        return str(payload["unit"])
-    return None
 
 
 def _coerce_boundary_value_and_units(
@@ -130,7 +77,7 @@ def _coerce_boundary_value_and_units(
         payload["value"],
         location=f"{location_prefix}.value",
         canonical_unit=canonical_unit,
-        explicit_unit=_extract_explicit_boundary_units(payload),
+        explicit_unit=declared_unit(payload),
         length_label=label,
     )
     return value_si, default_units
@@ -141,7 +88,7 @@ def _normalize_dirichlet_forcing_units(
     payload: Mapping[str, object],
     location_prefix: str,
 ) -> str:
-    explicit_units = _extract_explicit_boundary_units(payload)
+    explicit_units = declared_unit(payload)
     forcing_payload = payload.get("forcing")
     forcing_units: str | None = None
     if isinstance(forcing_payload, Mapping):
@@ -569,8 +516,6 @@ class DrainBC(FlowBoundaryConditionConfig):
         # The registry owns where a canonical boundary lives, so the user need
         # not retype it, and may not contradict it: a drainage pinned to a
         # lateral side instead of the top targets other cells entirely.
-        from hydromodpy.physics.flow.boundary_condition_registry import boundary_definition
-
         canonical = boundary_definition(bc_id)
         canonical_domain = canonical.application_domain if canonical is not None else None
 

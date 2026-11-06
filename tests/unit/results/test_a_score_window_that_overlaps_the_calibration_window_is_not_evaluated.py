@@ -9,7 +9,7 @@ import pytest
 from hydromodpy.results.checks import Checks
 from hydromodpy.results.metric_rule import DateWindow, PeriodWindow
 from hydromodpy.results.validity_rules import label_for
-from tests.unit.results._run_record_factory import (
+from tests._helpers.run_records import (
     WINDOW,
     make_calibrated_by,
     make_checks,

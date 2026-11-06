@@ -3,8 +3,7 @@
 A protocol is a name a file can carry instead of the phases and objective
 blocks it stands for. ``--expand`` prints those phases and blocks as TOML, so
 a reader can see what would run without running it, and paste the result into
-a hand-written file that deviates from the protocol on purpose.
-"""
+a hand-written file that deviates from the protocol on purpose."""
 
 from __future__ import annotations
 
@@ -35,6 +34,7 @@ _PROTOCOL = textwrap.dedent(
     station_ids = ["G1"]
     """
 )
+
 
 _NO_PROTOCOL = textwrap.dedent(
     """
@@ -136,3 +136,67 @@ def test_expand_refuses_other_flags(tmp_path, capsys, overrides) -> None:
 
     assert caught.value.code == EXIT_USAGE
     assert "--expand" in capsys.readouterr().err
+
+
+pytestmark = pytest.mark.fast
+
+
+EXAMPLE_04 = Path("examples/projects/04_streamflow_intermittence_in_transient")
+
+
+# Relative to the repository root, where pytest runs from: the CLI shortens
+# the network output's absolute, resolved source to this when it sits under
+# the working directory.
+GEOMETRY = "examples/data/hydrography/nancon_stream_network.gpkg"
+
+
+def _list_phases(path: Path, capsys) -> str:
+    calibrate_cmd.run(
+        argparse.Namespace(
+            config=path, check=False, list_phases=True, expand=False, phase=None, profile=None
+        )
+    )
+    return capsys.readouterr().out
+
+
+def test_the_protocol_file_shows_a_network_row_and_a_hydrograph_block_row(capsys) -> None:
+    out = _list_phases(EXAMPLE_04 / "run_calibration.toml", capsys)
+
+    lines = out.splitlines()
+    assert lines[0].startswith("0\tsteady_conductivity\tbisection\t")
+    assert lines[1] == (
+        f"    network_extension\tdistance_gap\tshare 100%\trelease_flux (network)\tvs {GEOMETRY}"
+    )
+    assert lines[2] == "    scores on: no window, all of the run"
+    assert lines[3].startswith("1\ttransient_storage\tscipy_nelder_mead\t")
+    assert lines[4] == (
+        "    hydrograph\tnse_log\tshare 100%\tdischarge, station NANCON (whole-catchment "
+        "series)\tvs station NANCON ([data.hydrometry])"
+    )
+    assert lines[5] == "    scores on: window 2001-01-01 to 2002-12-31"
+    assert len(lines) == 6
+
+
+def test_the_composite_file_shows_one_phase_with_two_shares(capsys) -> None:
+    out = _list_phases(EXAMPLE_04 / "run_calibration_composite.toml", capsys)
+
+    lines = out.splitlines()
+    assert lines[0].startswith("0\tconductivity_and_storage\toptuna\t")
+    # A share table {hydrograph = 0.7, network = 0.3}, the network gap normalized.
+    assert lines[1] == (
+        f"    network\tdistance_mean\tshare 30%\trelease_flux (network)\tvs {GEOMETRY}"
+    )
+    assert lines[2] == (
+        "    hydrograph\tnse_log\tshare 70%\tdischarge, station NANCON (whole-catchment "
+        "series)\tvs station NANCON ([data.hydrometry])"
+    )
+    # The file writes only the start: the end comes from the project's [metrics] window.
+    assert lines[3] == "    scores on: window 2001-01-01 to 2002-12-31"
+    assert len(lines) == 4
+
+
+def test_the_protocol_written_by_hand_lists_what_the_protocol_lists(capsys) -> None:
+    protocol = _list_phases(EXAMPLE_04 / "run_calibration.toml", capsys)
+    by_hand = _list_phases(EXAMPLE_04 / "run_calibration_by_hand.toml", capsys)
+
+    assert by_hand == protocol

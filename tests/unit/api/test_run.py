@@ -126,7 +126,7 @@ def test_a_dry_run_gives_a_plan_and_runs_nothing(
 
 def test_a_dry_run_says_the_steps_of_its_window(tmp_path: Path) -> None:
     """One case, no table, the steps of the window and the identity of the run."""
-    from hydromodpy.config.sites.expansion import PlanDraft
+    from hydromodpy.project.launch.sites.expansion import PlanDraft
 
     root = tmp_path / "p"
     root.mkdir()

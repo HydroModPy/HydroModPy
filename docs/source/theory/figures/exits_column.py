@@ -3,7 +3,7 @@
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
-from hydromodpy.solver.modflow_common.drain_conductance import drain_discharge_band
+from hydromodpy.solver.base.drain_conductance import drain_discharge_band
 
 BLUE, ORANGE, GREEN, PINK, YELLOW = "#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00"
 WIDTH = 1.0

@@ -6,6 +6,9 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from hydromodpy.solver.base.initial_conditions import (
+    steady_state_initial_condition_strategy,
+)
 from hydromodpy.solver.boussinesq.drivers.forcing import (
     apply_ocean_drainage_mask,
     resolve_runtime_forcing_by_period,
@@ -15,9 +18,6 @@ from hydromodpy.solver.boussinesq.runtime_contract import SteadySolveInputs
 from hydromodpy.solver.boussinesq.runtime_summary import record_runtime_backend_summary
 from hydromodpy.solver.boussinesq.runtimes.stationary_failure_diagnostics import (
     write_stationary_failure_diagnostics,
-)
-from hydromodpy.solver.steady_initial_conditions import (
-    steady_state_initial_condition_strategy,
 )
 
 if TYPE_CHECKING:

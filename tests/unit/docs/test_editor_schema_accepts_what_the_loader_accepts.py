@@ -23,7 +23,7 @@ from typing import Any
 import pytest
 from jsonschema.validators import Draft202012Validator
 
-from hydromodpy.config.schema_export import editor_schema, export_schema
+from hydromodpy.schema.config_schema import editor_schema, export_schema
 
 ROOT = Path(__file__).resolve().parents[3]
 EXAMPLE = ROOT / "examples" / "projects" / "04_streamflow_intermittence_in_transient"

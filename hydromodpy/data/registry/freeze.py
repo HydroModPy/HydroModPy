@@ -399,7 +399,7 @@ def _open_writer(dest: Path):
     if dest.suffix == ".zst":
         try:
             import zstandard as zstd  # type: ignore[import-untyped]
-        except ImportError as exc:  # pragma: no cover
+        except ImportError as exc:
             raise RuntimeError(
                 "zstandard is required to create .tar.zst archives; "
                 "use a .tar.gz suffix or install zstandard."
@@ -416,7 +416,7 @@ def _open_reader(src: Path):
     if src.suffix == ".zst":
         try:
             import zstandard as zstd  # type: ignore[import-untyped]
-        except ImportError as exc:  # pragma: no cover
+        except ImportError as exc:
             raise RuntimeError("zstandard is required to read .tar.zst archives.") from exc
         raw = open(src, "rb")
         dctx = zstd.ZstdDecompressor()

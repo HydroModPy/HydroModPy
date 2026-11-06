@@ -11,10 +11,10 @@ from hydromodpy.physics.flow.history_contract import build_transient_time_axes
 
 if TYPE_CHECKING:
     from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
-    from hydromodpy.solver.boussinesq.core.state import BoussinesqState
     from hydromodpy.solver.boussinesq.solver_contract import (
         BoussinesqSolverContract,
     )
+    from hydromodpy.solver.boussinesq.state import BoussinesqState
 
 
 _SURFACE_THRESHOLD_ACTIVE_RATE_EPS_M_S = 1.0e-12

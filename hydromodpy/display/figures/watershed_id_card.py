@@ -24,6 +24,7 @@ from hydromodpy.display.figures._instant import run_edges
 from hydromodpy.display.maps.axes import (
     overlay_watershed_contour,
     style_map_axes,
+    watershed_of,
 )
 from hydromodpy.display.style import neutral, place_legend
 from hydromodpy.results.run.geographic import geographic_metadata
@@ -54,7 +55,6 @@ _SOLVER_NAMES: dict[str, str] = {
 }
 """How the card names a solver backend."""
 
-_MISSING_FEATURE = (KeyError, ValueError, FileNotFoundError, RuntimeError)
 """What a run raises when it never wrote the feature a row reads."""
 
 
@@ -368,11 +368,8 @@ def _cadence(days: np.ndarray) -> str | None:
 
 def _area_text(sim: Run) -> str | None:
     """Return the area of the delineated catchment in km², or None."""
-    try:
-        watershed = sim.geographic("watershed")
-    except _MISSING_FEATURE:
-        return None
-    if watershed is None or watershed.empty:
+    watershed = watershed_of(sim)
+    if watershed is None:
         return None
     crs = watershed.crs
     if crs is not None and not crs.is_projected:

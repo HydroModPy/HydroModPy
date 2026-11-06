@@ -25,7 +25,6 @@ __all__ = [
     "MeshStoreIdentity",
     "RasterField",
     "Stack",
-    "UGridStack",
     "cell_centers",
     "polygon_areas",
 ]
@@ -202,12 +201,3 @@ class Stack:
 
     data: np.ndarray | DaskArray
     variable: str
-
-
-@dataclass(frozen=True, slots=True)
-class UGridStack:
-    """Time stack of UGRID per-cell field values as ``(n_t, n_cells)``."""
-
-    data: np.ndarray
-    variable: str
-    mesh: Mesh

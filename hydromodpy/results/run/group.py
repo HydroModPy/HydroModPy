@@ -82,17 +82,43 @@ def rank_key(metric: str) -> Callable[[float], float]:
     return lambda value: abs(value - target)
 
 
-def _open_simulation_lazy(catalog: Catalog, sim_id: str) -> xr.Dataset:
-    """Open one simulation's Zarr root as a lazy ``xr.Dataset``.
+def stack_fields(
+    catalog: Catalog, sim_ids: list[str], fields: list[str], *, dim: str
+) -> dict[str, xr.DataArray]:
+    """Stack each of ``fields`` lazily across the runs ``sim_ids`` along ``dim``.
 
-    Delegates to :meth:`SimulationZarr.to_xarray` so the registry-driven
-    assembly stays in one place (``results.zarr_store.zarr_reader``);
-    CF time decoding is then applied on the resulting dataset.
+    Each Zarr store is opened once by :meth:`SimulationZarr.to_xarray`
+    (dask-backed) and CF-decoded. A run whose store cannot be opened is
+    skipped with a warning, a run without a field is skipped for that field,
+    and a field no run holds is left out of the result.
     """
     import xarray as xr
 
-    sz = catalog.open_zarr(sim_id)
-    return xr.decode_cf(sz.to_xarray(), decode_times=True)
+    from hydromodpy.core.logging import get_logger
+
+    arrays: dict[str, list[xr.DataArray]] = {name: [] for name in fields}
+    holders: dict[str, list[str]] = {name: [] for name in fields}
+    for sid in progress.track(sim_ids, "Opening simulation stores"):
+        try:
+            ds = xr.decode_cf(catalog.open_zarr(sid).to_xarray(), decode_times=True)
+        except (KeyError, FileNotFoundError, OSError) as exc:
+            get_logger(__name__).warning("Cannot open Zarr store for sim %s: %s", sid, exc)
+            continue
+        for name in fields:
+            if name in ds.data_vars:
+                arrays[name].append(ds[name])
+                holders[name].append(sid)
+    return {
+        name: xr.concat(
+            arrays[name],
+            dim=dim,
+            combine_attrs="drop_conflicts",
+            coords="minimal",
+            compat="override",
+        ).assign_coords({dim: holders[name]})
+        for name in fields
+        if arrays[name]
+    }
 
 
 class RunSet:
@@ -430,8 +456,9 @@ class RunSet:
         Arrays are concatenated along ``dim`` whose coordinate values are
         the simulation ids. Nothing is read into memory until the caller
         materializes the array (``.compute()``, ``.values``, slicing,
-        etc.). Simulations that lack the variable are skipped silently;
-        if none match, an empty :class:`xarray.DataArray` is returned.
+        etc.). Simulations that lack the variable are skipped, a store
+        that cannot be opened with a warning; if none match, an empty
+        :class:`xarray.DataArray` is returned.
 
         Parameters
         ----------
@@ -443,28 +470,9 @@ class RunSet:
         """
         import xarray as xr
 
-        arrays: list[xr.DataArray] = []
-        sim_ids: list[str] = []
-        for sid in progress.track(self._sim_ids, "Opening simulation stores"):
-            try:
-                ds = _open_simulation_lazy(self._catalog, sid)
-            except (KeyError, FileNotFoundError, OSError):
-                continue
-            if variable not in ds.data_vars:
-                continue
-            arrays.append(ds[variable])
-            sim_ids.append(sid)
-
-        if not arrays:
+        stacked = stack_fields(self._catalog, self._sim_ids, [variable], dim=dim).get(variable)
+        if stacked is None:
             return xr.DataArray(name=variable)
-        stacked = xr.concat(
-            arrays,
-            dim=dim,
-            combine_attrs="drop_conflicts",
-            coords="minimal",
-            compat="override",
-        )
-        stacked = stacked.assign_coords({dim: sim_ids})
         stacked.name = variable
         return stacked
 

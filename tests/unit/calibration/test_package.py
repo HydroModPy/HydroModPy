@@ -196,65 +196,18 @@ def test_a_session_closed_short_of_completed_is_told_with_its_reason(tmp_path: P
     assert unfinished_session(report.to_dict()) is None
 
 
-def _write_timeseries(run_dir: Path, rows: list[tuple]) -> None:
-    table = pd.DataFrame(
-        rows, columns=["variable", "source", "station_id", "timestep", "time", "value"]
-    )
-    target = run_dir / TABLES_DIRNAME
-    target.mkdir(parents=True)
-    write_table_atomic(
-        pa.Table.from_pandas(table, preserve_index=False),
-        target / "timeseries.parquet",
-        kv_metadata={"hmp.schema_version": PARQUET_SCHEMA_VERSION},
-    )
-
-
-_DAYS = pd.to_datetime(["2000-01-01", "2000-01-02"])
-_DISCHARGE = [
-    ("discharge", "simulated", "catchment", 2, _DAYS[1], 5.0),
-    ("discharge", "simulated", "catchment", 1, _DAYS[0], 4.0),
-    ("discharge", "observed", "G1", 1, _DAYS[0], 3.0),
-    ("stage", "simulated", "lake:7", 1, _DAYS[0], 101.0),
-    ("stage", "simulated", "lake:2", 1, _DAYS[0], 102.0),
-]
-
-
-@pytest.mark.parametrize(
-    ("variable", "rows", "sim", "obs"),
-    [
-        ("discharge", _DISCHARGE, [4.0, 5.0], [3.0]),
-        ("lake_level", _DISCHARGE, [102.0], None),
-        ("lake_level", _DISCHARGE[:3], None, None),
-        ("discharge", _DISCHARGE[:2], [4.0, 5.0], None),
-        ("discharge", None, None, None),
-        ("lake_level", None, None, None),
-    ],
-    ids=[
-        "discharge_in_time_order",
-        "first_lake_station",
-        "no_lake",
-        "no_observation",
-        "no_table",
-        "no_table_for_a_lake",
-    ],
-)
-def test_the_series_of_the_promoted_run_are_read_back_for_the_report(
-    tmp_path: Path, variable: str, rows, sim, obs
+@pytest.mark.parametrize("variable", ["discharge", "lake_level"])
+def test_the_report_data_names_the_promoted_run_and_the_calibrated_variable(
+    tmp_path: Path, variable: str
 ) -> None:
     session = make_session(tmp_path)
     (session.directory / "config.toml").write_text(f'[calibration]\nvariable = "{variable}"\n')
     case = BestCase(sim_id="r1", rel_dir="runs/r1", cost=0.1)
     session.set_best(BestTrial(trial=1, cost=0.1, parameters={"K": 1e-4}, cases={"calage": case}))
-    if rows is not None:
-        _write_timeseries(tmp_path / "runs" / "r1", rows)
 
     data = load_session_report_data(session.directory)
 
     assert (data.variable, data.best_sim_id, data.best_rel_dir) == (variable, "r1", "runs/r1")
-    assert [
-        None if frame is None else frame["value"].tolist()
-        for frame in (data.sim_timeseries, data.obs_timeseries)
-    ] == [sim, obs]
 
 
 def test_a_session_without_frozen_config_or_variable_reads_the_discharge(tmp_path: Path) -> None:

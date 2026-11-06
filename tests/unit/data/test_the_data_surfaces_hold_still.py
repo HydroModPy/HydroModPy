@@ -22,7 +22,7 @@ from hydromodpy._lazy import LAZY_IMPORTS
 REPO_ROOT = Path(__file__).resolve().parents[3]
 CACHE_MIGRATION_SHA256 = "d49fa9377e3baf9f1df94c553992132c39e97185f6f833304b192075e133a25d"
 
-DATA_SCHEMA_SHA256 = "5833d1602ee99807e247d2abe0d084409cd54c7d54cf9f48d98863e67b449edb"
+DATA_SCHEMA_SHA256 = "272ff42e783a7f7876d42a33481b85c2e2875bba3195740b2795f1971acffed9"
 
 
 def test_the_shipped_cache_migration_keeps_its_checksum() -> None:

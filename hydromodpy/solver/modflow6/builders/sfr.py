@@ -63,7 +63,6 @@ from hydromodpy.solver.modflow6.builders.mvr import MoverRecord
 from hydromodpy.solver.modflow6.builders.period_forcing import (
     constant_forcing_value,
     forcing_to_si,
-    package_unit_conversions,
 )
 
 if TYPE_CHECKING:
@@ -530,7 +529,6 @@ def build_sfr_package_args(
     for kper, rows in diversion_period_rows.items():
         perioddata.setdefault(kper, []).extend(rows)
 
-    time_conversion, length_conversion = package_unit_conversions(model)
     stem = _sfr_output_stem(model)
     obs_continuous, sfr_obs_meta = build_sfr_obs_spec(
         stem=stem, network=network, has_mover=has_mover_records or external_mover
@@ -540,8 +538,8 @@ def build_sfr_package_args(
         "nreaches": len(reaches),
         "packagedata": packagedata,
         "connectiondata": connectiondata,
-        "time_conversion": time_conversion,
-        "length_conversion": length_conversion,
+        "time_conversion": 1.0,
+        "length_conversion": 1.0,
         "save_flows": True,
         "print_flows": False,
         "budget_filerecord": f"{stem}.sfr.cbc",

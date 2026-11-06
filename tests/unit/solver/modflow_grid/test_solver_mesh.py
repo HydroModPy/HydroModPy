@@ -9,14 +9,27 @@ the DIS/DISV exports with the flopy DISV arguments of a planar HydroMesh
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
 import pytest
+from pydantic import ValidationError
 from shapely.geometry import box
 
+from hydromodpy.core.exceptions import MeshError
+from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
+from hydromodpy.solver.modflow_grid import build_spatial_discretization
+from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh, to_flopy_disv_args
+from hydromodpy.spatial import RasterSupport, Surface
+from hydromodpy.spatial.domain.domain import Domain
+from hydromodpy.spatial.domain.domain_config import DomainConfig
+from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 from tests._helpers.mesh_cases import regular_mesh, voronoi_lake_mesh
+from tests._helpers.regular_cell_meshes import regular_cell_mesh
 from tests._helpers.solver_meshes import solver_mesh_from, solver_mesh_from_structured_arrays
 
 
@@ -37,9 +50,6 @@ def _unstructured_two_quads() -> SolverMesh:
         botm=np.zeros((1, 2)),
         inactive_mask=np.zeros((1, 2), dtype=bool),
     )
-
-
-# -- Geometry -----------------------------------------------------------------
 
 
 def test_cell_areas_shoelace_is_winding_invariant() -> None:
@@ -101,9 +111,6 @@ def test_structured_arrays_put_row_0_at_the_north_like_modflow() -> None:
     assert sm.yvertices[:, 0] == pytest.approx([215.0, 210.0, 205.0, 200.0])
 
 
-# -- Structured reshape + the structured-only guards --------------------------
-
-
 def test_reshape_round_trip_on_non_square_structured_grid() -> None:
     sm = solver_mesh_from_structured_arrays(
         nrow=2, ncol=3, top=np.zeros((2, 3)), botm=np.zeros((1, 2, 3))
@@ -149,9 +156,6 @@ def test_reshape_is_identity_on_unstructured() -> None:
     assert np.array_equal(sm.flatten_from_grid(flat), flat)
 
 
-# -- DISV export --------------------------------------------------------------
-
-
 def test_to_disv_kwargs_has_the_expected_keys() -> None:
     sm = solver_mesh_from_structured_arrays(
         nrow=2, ncol=2, top=np.zeros((2, 2)), botm=np.zeros((1, 2, 2))
@@ -160,9 +164,6 @@ def test_to_disv_kwargs_has_the_expected_keys() -> None:
     for key in ("nvert", "ncpl", "vertices", "cell2d", "top", "botm"):
         assert key in kw
     assert kw["ncpl"] == 4
-
-
-# -- __post_init__ invariant --------------------------------------------------
 
 
 def test_post_init_rejects_wrong_top_size() -> None:
@@ -185,9 +186,6 @@ def test_post_init_rejects_mask_shape_mismatch() -> None:
             botm=np.zeros((2, 2)),
             idomain=np.ones((1, 2), int),  # nlay mismatch vs botm
         )
-
-
-# -- Reads the cell mesh ------------------------------------------------------
 
 
 def test_centres_and_areas_are_those_of_the_cell_mesh() -> None:
@@ -242,9 +240,6 @@ def test_a_grid_from_arrays_is_a_regular_cell_mesh_in_a_local_frame() -> None:
     assert sm.cell_mesh.center_kind == "cell_center"
     assert sm.cell_mesh.crs_wkt
     assert sm.cell_areas() == pytest.approx(np.full(6, 50.0))
-
-
-# -- The flopy DISV arguments of a planar HydroMesh ----------------------------
 
 
 def test_a_counterclockwise_triangle_is_written_clockwise() -> None:
@@ -338,3 +333,180 @@ def test_a_3d_mesh_has_no_disv() -> None:
     )
     with pytest.raises(ValueError, match="2D mesh"):
         to_flopy_disv_args(mesh, top=10.0, botm=np.array([[5.0]]))
+
+
+# The solver mesh holds MODFLOW's ``idomain`` and answers the top active cell from it.
+
+TOP = np.array([10.0, 11.0, 12.0])
+
+
+BOTM = np.array([[6.0, 7.0, 8.0], [0.0, 1.0, 2.0]])
+
+
+def _mesh(idomain: np.ndarray) -> SolverMesh:
+    base = solver_mesh_from_structured_arrays(nrow=1, ncol=3, top=TOP, botm=BOTM)
+    return SolverMesh(cell_mesh=base.cell_mesh, top=base.top, botm=base.botm, idomain=idomain)
+
+
+def test_the_idomain_keeps_its_three_values_and_cannot_be_written() -> None:
+    mesh = _mesh(np.array([[1, 0, 1], [1, 1, -1]]))
+    assert mesh.idomain.tolist() == [[1, 0, 1], [1, 1, -1]]
+    with pytest.raises(ValueError):
+        mesh.idomain[0, 0] = 0
+
+
+def test_a_value_other_than_minus_one_zero_and_one_is_refused() -> None:
+    with pytest.raises(ValueError, match="only -1, 0 and 1"):
+        _mesh(np.array([[1, 2, 1], [1, 1, 1]]))
+
+
+def test_a_pass_through_cell_is_not_active() -> None:
+    mesh = _mesh(np.array([[1, 0, 1], [1, 1, -1]]))
+    assert mesh.inactive_mask.tolist() == [[False, True, False], [False, False, True]]
+
+
+def test_the_top_active_cell_and_its_top_follow_the_idomain() -> None:
+    mesh = _mesh(np.array([[1, 0, 0], [1, 1, 0]]))
+    assert mesh.top_active_layer().tolist() == [0, 1, -1]
+    tops = mesh.top_active_cell_top()
+    assert tops[:2].tolist() == [10.0, 7.0]
+    assert np.isnan(tops[2])
+
+
+def test_a_closed_column_has_no_active_cell_or_is_covered() -> None:
+    mesh = _mesh(np.array([[1, 0, 0], [1, 1, 0]]))
+    assert mesh.closed_surface().tolist() == [False, False, True]
+    assert mesh.closed_surface([1]).tolist() == [False, True, True]
+
+
+def test_the_interfaces_are_checked_on_demand() -> None:
+    mesh = _mesh(np.ones((2, 3), dtype=int))
+    mesh.check_interfaces()
+    flat = SolverMesh(
+        cell_mesh=mesh.cell_mesh, top=mesh.top, botm=np.vstack([TOP, BOTM[1]]), idomain=mesh.idomain
+    )
+    with pytest.raises(ValueError, match="layer 0 cell 0"):
+        flat.check_interfaces()
+
+
+# A regular mesh is extruded on the surfaces only if both describe one grid.
+#
+# The planar grid is the mesh's, the vertical part is the surfaces'. A mesh shifted
+# by a meter, a step off by a part in a million, or a mesh that forgets its shape
+# would move every cell against its elevation without a single array mismatch, so
+# the builder refuses them.
+
+_N = 6
+
+
+_STEP = 40.0
+
+
+_XMIN = 1_000.0
+
+
+_YMIN = 2_000.0
+
+
+def _surface(name: str, value: float) -> Surface:
+    support = RasterSupport(
+        crs="EPSG:2154",
+        dx=_STEP,
+        dy=_STEP,
+        xmin=_XMIN,
+        xmax=_XMIN + _STEP * _N,
+        ymin=_YMIN,
+        ymax=_YMIN + _STEP * _N,
+        nrows=_N,
+        ncols=_N,
+        nodata=-9999.0,
+    )
+    return Surface(name=name, values=np.full((_N, _N), value), support=support)
+
+
+def _domain() -> Domain:
+    domain = Domain(config=DomainConfig(), surface_topo=_surface("surface_topo", 20.0))
+    domain.substratum = _surface("substratum", 0.0)
+    return domain
+
+
+def _extrude(cell_mesh: PlanarCellMesh):
+    return build_spatial_discretization(
+        domain=_domain(),
+        vertical_config=VerticalGridConfig(nlay=1, nodata=-9999.0),
+        sgrid_config=SolverSGridConfig(),
+        cell_mesh=cell_mesh,
+    )
+
+
+def _mesh_2(**changes: float) -> PlanarCellMesh:
+    arguments = {"xmin": _XMIN, "ymin": _YMIN, "dx": _STEP, "dy": _STEP, "nrow": _N, "ncol": _N}
+    return regular_cell_mesh(**{**arguments, **changes})
+
+
+def test_a_mesh_on_the_grid_of_the_surfaces_is_extruded() -> None:
+    ctx = _extrude(_mesh_2())
+
+    assert ctx.solver_mesh.structured_shape == (_N, _N)
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"xmin": _XMIN + 1.0},
+        {"ymin": _YMIN - 1.0},
+        {"dx": _STEP * (1.0 + 1e-6)},
+        {"dy": _STEP * (1.0 - 1e-6)},
+    ],
+    ids=["shifted_east", "shifted_south", "wider_cells", "shorter_cells"],
+)
+def test_a_mesh_off_the_grid_of_the_surfaces_is_refused(changes: dict[str, float]) -> None:
+    with pytest.raises(MeshError, match="differ"):
+        _extrude(_mesh_2(**changes))
+
+
+def test_a_mesh_that_forgets_its_shape_on_the_hydro_mesh_is_refused() -> None:
+    cell_mesh = _mesh_2()
+    forgetful = replace(cell_mesh, mesh=replace(cell_mesh.mesh, structured_shape=None))
+
+    with pytest.raises(MeshError, match="shape"):
+        _extrude(forgetful)
+
+
+def test_a_mesh_of_another_shape_resamples_the_surfaces_on_its_own_grid() -> None:
+    ctx = _extrude(_mesh_2(dx=_STEP * 2, dy=_STEP * 3, nrow=_N // 3, ncol=_N // 2))
+
+    assert ctx.solver_mesh.structured_shape == (_N // 3, _N // 2)
+    assert ctx.top_surface.as_array().shape == (_N // 3, _N // 2)
+    assert np.allclose(ctx.solver_mesh.top, 20.0)
+
+
+# The ``sgrid`` table of a MODFLOW backend only says how the top is sampled from the DEM.
+
+
+@pytest.mark.parametrize(
+    ("model", "payload", "match"),
+    [
+        (SolverSGridConfig, {"planar": {"nlay": 2}}, r"sgrid\.planar is replaced by \[mesh\]: write cell_size"),
+        (SolverSGridConfig, {"grid_dual": {"nlay": 2}}, r"sgrid\.grid_dual is replaced by \[mesh\] engine"),
+        (SolverSGridConfig, {"vertical": {"nlay": 2}}, r"sgrid\.vertical is replaced by \[domain\.layers\]"),
+        (SolverSGridConfig, "zonal", "Input should be a valid dictionary"),
+        (Modflow6Config, {"sgrid": {"vertical": {"nlay": 2}}}, r"hmp doctor --fix-config"),
+    ],
+    ids=["planar", "grid_dual", "vertical", "not_a_table", "modflow6_vertical_names_the_doctor_fix"],
+)  # fmt: skip
+def test_a_retired_sgrid_key_is_refused_naming_the_table_that_replaces_it(model, payload, match):
+    with pytest.raises(ValidationError, match=match):
+        model.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [{"sgrid": {"top_sampling": {"mode": "zonal", "hillslope_stat": "p25"}}}, {"top_sampling": {"mode": "zonal", "hillslope_stat": "p25"}}],
+    ids=["backend-table", "bare-sgrid-table"],
+)  # fmt: skip
+def test_from_mapping_reads_the_sgrid_table_of_a_backend_or_the_table_itself(payload):
+    config = SolverSGridConfig.from_mapping(payload)
+
+    assert (config.top_sampling.mode, config.top_sampling.hillslope_stat) == ("zonal", "p25")
+    assert SolverSGridConfig.from_mapping({}) == SolverSGridConfig()

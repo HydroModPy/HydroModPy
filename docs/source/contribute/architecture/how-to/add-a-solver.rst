@@ -67,7 +67,7 @@ A separate **output adapter** (the *extractor*) ingests the persisted
 outputs into the catalog. It is registered on the same
 ``(process_type, solver_name)`` pair as the adapter and implements the
 ``OutputAdapter`` Protocol of
-``hydromodpy/simulation/extraction/derivation/base.py``:
+``hydromodpy/simulation/post_run.py``:
 
 .. code-block:: python
 

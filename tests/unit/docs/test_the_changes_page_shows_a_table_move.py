@@ -17,7 +17,7 @@ from typing import Any
 import pytest
 
 from hydromodpy.config import config_migration
-from hydromodpy.physics.flow.flow_runtime_config import FLOW_RUNTIME_KEYS
+from hydromodpy.physics.flow.runtime_config import FLOW_RUNTIME_KEYS
 from tools.docs import field_registry, legacy_keys, toml_changelog
 
 ROOT = Path(__file__).resolve().parents[3]

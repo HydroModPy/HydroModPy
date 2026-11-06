@@ -1,4 +1,4 @@
-"""The schema of a field-parameter table, :mod:`hydromodpy.spatial.field.field_param_config`."""
+"""The schema of a field-parameter table, :mod:`hydromodpy.core.config_kit.field_param.config`."""
 
 from __future__ import annotations
 
@@ -7,13 +7,13 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.spatial.field.field_param import FieldParam
-from hydromodpy.spatial.field.field_param_config import (
+from hydromodpy.core.config_kit.field_param.config import (
     load_field_param_toml,
     resolve_field_param_config_payload,
     validate_field_param_toml_data,
     validate_resolved_field_param_data,
 )
+from hydromodpy.spatial.field.field_param import FieldParam
 from tests._helpers.field_cases import write_text
 
 PER_ZONE = dict(id="K", kind="heterogeneous", values={"granite": 10.0}, field_spatial_id="g")

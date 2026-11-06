@@ -49,11 +49,11 @@ def list_projects(workspace: Path) -> list[dict]:
     return out
 
 
-def delete_project(name: str, *, workspace: Path, force: bool = False) -> dict:
+def delete_project(name: str, *, workspace: Path) -> dict:
     """Delete ``<workspace>/projects/<name>`` and everything under it.
 
     Returns a dict with ``path`` and ``bytes_freed``. Raises if the project
-    does not exist. ``force`` is informational only (the CLI layer enforces it).
+    does not exist. The command asks before it calls this.
     """
     import shutil
 
@@ -61,15 +61,11 @@ def delete_project(name: str, *, workspace: Path, force: bool = False) -> dict:
     if not project_dir.is_dir():
         raise FileNotFoundError(f"No such project: {project_dir}")
 
-    bytes_freed = 0
-    for child in project_dir.rglob("*"):
-        try:
-            if child.is_file():
-                bytes_freed += int(child.stat().st_size)
-        except OSError:
-            continue
+    from hydromodpy.cli._workers.catalog import path_size
+
+    bytes_freed = path_size(project_dir)
     shutil.rmtree(project_dir)
-    return {"path": str(project_dir), "bytes_freed": bytes_freed, "force": force}
+    return {"path": str(project_dir), "bytes_freed": bytes_freed}
 
 
 def sites_project_root(target: str | Path) -> Path:

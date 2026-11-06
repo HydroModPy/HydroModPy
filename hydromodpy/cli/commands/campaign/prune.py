@@ -16,7 +16,7 @@ from hydromodpy.cli.conventions import (
     verbosity_parser,
     workspace_parser,
 )
-from hydromodpy.cli.helpers import apply_verbosity, confirm, resolve_project
+from hydromodpy.cli.helpers import confirm, resolve_project
 from hydromodpy.cli.output import emit
 
 NAME: str = "prune"
@@ -56,9 +56,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    apply_verbosity(args, {})
     from hydromodpy.calibration.runners.promotion import prune_session, trials_to_prune
-    from hydromodpy.core.state.layout import catalog_path_for
 
     project_root = resolve_project(args.workspace)
     if args.dry_run:
@@ -77,10 +75,10 @@ def run(args: argparse.Namespace) -> None:
     )
 
     moved = prune_session(project_root, args.case, keep=args.keep)
-    if moved and catalog_path_for(project_root).is_file():
-        from hydromodpy.results.catalog.indexer import index_new_runs
+    if moved:
+        from hydromodpy.cli._workers.catalog import reindex_if_indexed
 
-        index_new_runs(project_root)
+        reindex_if_indexed(project_root)
 
     def table() -> None:
         if not moved:

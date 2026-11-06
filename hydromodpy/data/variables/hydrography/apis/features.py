@@ -21,7 +21,7 @@ from hydromodpy.data.source.port import (
     require_selectors,
 )
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     import geopandas as gpd
 
 NETWORK_VARIABLES: tuple[str, ...] = ("hydrography",)

@@ -15,8 +15,6 @@ the package facade. Keys of a layout file:
 - ``allowed``: the parts each part may import, lowest row first;
 - ``text_paths``: the only files that may name a module of the package as text;
 - ``public``: what another layer may import from the package;
-- ``tolerated`` (optional): a layer that ``layer_matrix.yaml`` tolerates, with
-  the only modules it may import;
 - ``solver_access`` (calibration): the solver modules the package may import.
 
 The rules shared by every layout come first, parametrized over the files. The
@@ -104,12 +102,6 @@ def _src_module(edge) -> str:
     if parts[-1] == "__init__":
         parts = parts[:-1]
     return ".".join(parts)
-
-
-def _layer(edge) -> str:
-    """The layer of hydromodpy an edge starts from, ``"<root>"`` for a root module."""
-    parts = pathlib.Path(edge.src_file).relative_to(PKG_ROOT).parts
-    return parts[0] if len(parts) > 1 else "<root>"
 
 
 def _package_edges(package: str) -> list:
@@ -238,31 +230,11 @@ def test_another_layer_imports_only_the_public_modules(package: str) -> None:
 
 
 @pytest.mark.parametrize("package", PACKAGES)
-def test_a_tolerated_layer_imports_only_its_line(package: str) -> None:
-    """``layer_matrix.yaml`` tolerates a whole layer; the layout narrows it."""
-    tolerated = _layout(package).get("tolerated", {})
-    offenders = [
-        _describe(edge)
-        for edge in _edges()
-        if _layer(edge) in tolerated
-        and _in_package(edge.target_module, package)
-        and not _is_public(edge.target_module, tolerated[_layer(edge)])
-    ]
-    assert not offenders, (
-        f"a layer tolerated by layer_matrix.yaml imports a module of hydromodpy/{package} "
-        f"that its line under tolerated in {package}_layout.yaml does not name:\n  "
-        + "\n  ".join(offenders)
-    )
-
-
-@pytest.mark.parametrize("package", PACKAGES)
 def test_the_public_patterns_name_existing_modules(package: str) -> None:
     """A public entry that matches nothing protects nothing."""
     layout = _layout(package)
     modules = _modules(package)
     patterns = list(layout["public"])
-    for targets in layout.get("tolerated", {}).values():
-        patterns.extend(targets)
     stale = [
         pattern
         for pattern in patterns

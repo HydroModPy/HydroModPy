@@ -167,6 +167,11 @@ def _refusal_of(file: Path) -> Exception | None:
     return None
 
 
+def _check(name: str, status: str, detail: str, hint: str | None = None) -> dict:
+    """One row of the report: a name, OK, WARN or KO, what was seen, and what to do."""
+    return {"name": name, "status": status, "detail": detail, "hint": hint}
+
+
 def _build_report(workspace: Path | None, workspace_arg: str | None) -> dict:
     from hydromodpy.core.version import __version__ as hmp_version
 
@@ -174,96 +179,44 @@ def _build_report(workspace: Path | None, workspace_arg: str | None) -> dict:
 
     python_ok = sys.version_info >= (3, 11)
     checks.append(
-        {
-            "name": "python",
-            "status": "OK" if python_ok else "KO",
-            "detail": f"{platform.python_version()} ({sys.executable})",
-            "hint": None if python_ok else "HydroModPy requires Python >= 3.11",
-        }
+        _check(
+            "python",
+            "OK" if python_ok else "KO",
+            f"{platform.python_version()} ({sys.executable})",
+            None if python_ok else "HydroModPy requires Python >= 3.11",
+        )
     )
 
     checks.append(
-        {
-            "name": "platform",
-            "status": "OK",
-            "detail": f"{platform.system()} {platform.release()} ({platform.machine()})",
-            "hint": None,
-        }
+        _check("platform", "OK", f"{platform.system()} {platform.release()} ({platform.machine()})")
     )
 
-    checks.append(
-        {
-            "name": "hydromodpy",
-            "status": "OK",
-            "detail": f"version {hmp_version}",
-            "hint": None,
-        }
-    )
+    checks.append(_check("hydromodpy", "OK", f"version {hmp_version}"))
 
     for dep in _CORE_DEPS:
         try:
             mod = importlib.import_module(dep)
             version = getattr(mod, "__version__", "unknown")
-            checks.append(
-                {
-                    "name": f"dep:{dep}",
-                    "status": "OK",
-                    "detail": f"{version}",
-                    "hint": None,
-                }
-            )
+            checks.append(_check(f"dep:{dep}", "OK", f"{version}"))
         except ImportError as exc:
             checks.append(
-                {
-                    "name": f"dep:{dep}",
-                    "status": "KO",
-                    "detail": f"{exc}",
-                    "hint": "pip install -e . (re-install editable)",
-                }
+                _check(f"dep:{dep}", "KO", f"{exc}", "pip install -e . (re-install editable)")
             )
 
     for dep in _OPTIONAL_DEPS:
         try:
             mod = importlib.import_module(dep)
             version = getattr(mod, "__version__", "unknown")
-            checks.append(
-                {
-                    "name": f"opt:{dep}",
-                    "status": "OK",
-                    "detail": f"{version}",
-                    "hint": None,
-                }
-            )
+            checks.append(_check(f"opt:{dep}", "OK", f"{version}"))
         except ImportError:
-            checks.append(
-                {
-                    "name": f"opt:{dep}",
-                    "status": "WARN",
-                    "detail": "not installed",
-                    "hint": "optional",
-                }
-            )
+            checks.append(_check(f"opt:{dep}", "WARN", "not installed", "optional"))
 
     try:
         import duckdb  # noqa: F401
 
-        checks.append(
-            {
-                "name": "duckdb:open",
-                "status": "OK",
-                "detail": "opens in-memory database",
-                "hint": None,
-            }
-        )
+        checks.append(_check("duckdb:open", "OK", "opens in-memory database"))
     except Exception as exc:
-        checks.append(
-            {
-                "name": "duckdb:open",
-                "status": "KO",
-                "detail": str(exc),
-                "hint": "Reinstall duckdb",
-            }
-        )
+        checks.append(_check("duckdb:open", "KO", str(exc), "Reinstall duckdb"))
 
     try:
         from hydromodpy.core.workspace.workspace import resolve_bin_path
@@ -276,22 +229,15 @@ def _build_report(workspace: Path | None, workspace_arg: str | None) -> dict:
     except Exception as exc:  # pragma: no cover - defensive
         effective_bin = None
         checks.append(
-            {
-                "name": "solver:bin_path",
-                "status": "KO",
-                "detail": f"bin path resolution failed: {exc}",
-                "hint": "Reinstall hydromodpy",
-            }
+            _check(
+                "solver:bin_path",
+                "KO",
+                f"bin path resolution failed: {exc}",
+                "Reinstall hydromodpy",
+            )
         )
     else:
-        checks.append(
-            {
-                "name": "solver:bin_path",
-                "status": "OK",
-                "detail": str(effective_bin),
-                "hint": None,
-            }
-        )
+        checks.append(_check("solver:bin_path", "OK", str(effective_bin)))
         manifest = read_manifest(effective_bin)
         if manifest:
             checks.append(
@@ -315,23 +261,9 @@ def _build_report(workspace: Path | None, workspace_arg: str | None) -> dict:
                 located = None
         path_hit = shutil.which(binary)
         if located:
-            checks.append(
-                {
-                    "name": f"solver:{binary}",
-                    "status": "OK",
-                    "detail": str(located),
-                    "hint": None,
-                }
-            )
+            checks.append(_check(f"solver:{binary}", "OK", str(located)))
         elif path_hit:
-            checks.append(
-                {
-                    "name": f"solver:{binary}",
-                    "status": "OK",
-                    "detail": f"{path_hit} (from PATH)",
-                    "hint": None,
-                }
-            )
+            checks.append(_check(f"solver:{binary}", "OK", f"{path_hit} (from PATH)"))
         else:
             checks.append(
                 {
@@ -361,12 +293,7 @@ def _probe_workspace(ws: Path | None, workspace_arg: str | None) -> list[dict]:
         from hydromodpy.core.state.layout import PROJECTS_DIRNAME, catalog_path_for
     except Exception as exc:  # pragma: no cover
         return [
-            {
-                "name": "workspace",
-                "status": "KO",
-                "detail": f"workspace import failed: {exc}",
-                "hint": "Reinstall hydromodpy",
-            }
+            _check("workspace", "KO", f"workspace import failed: {exc}", "Reinstall hydromodpy")
         ]
 
     if ws is None:
@@ -376,23 +303,18 @@ def _probe_workspace(ws: Path | None, workspace_arg: str | None) -> list[dict]:
             else f"no workspace at or above {Path.cwd().resolve()}"
         )
         return [
-            {
-                "name": "workspace",
-                "status": "WARN",
-                "detail": where,
-                "hint": "Name one with -w, or run 'hmp workspace init <workspace>'",
-            }
+            _check(
+                "workspace",
+                "WARN",
+                where,
+                "Name one with -w, or run 'hmp workspace init <workspace>'",
+            )
         ]
     from hydromodpy.core.state.layout import data_cache_path_for
 
     cache = data_cache_path_for(ws / "data")
     checks = [
-        {
-            "name": "workspace",
-            "status": "OK",
-            "detail": f"{ws}",
-            "hint": None,
-        },
+        _check("workspace", "OK", f"{ws}"),
         _path_check("data_dir", ws / "data"),
     ]
     project_roots = []
@@ -423,12 +345,12 @@ def _probe_result_storage(
         from hydromodpy.results.storage.diagnostics import diagnose_result_storage
     except Exception as exc:  # pragma: no cover - defensive
         return [
-            {
-                "name": "results:diagnostics",
-                "status": "KO",
-                "detail": f"storage diagnostics import failed: {exc}",
-                "hint": "Reinstall hydromodpy",
-            }
+            _check(
+                "results:diagnostics",
+                "KO",
+                f"storage diagnostics import failed: {exc}",
+                "Reinstall hydromodpy",
+            )
         ]
     return [
         diagnostic.to_check()
@@ -463,31 +385,12 @@ def probe_toml_workspace(toml_path: Path) -> list[dict]:
         workspace_section["project_root"] = str(base_dir)
         cfg = WorkspaceConfig.model_validate(workspace_section)
     except WorkspaceError as exc:
-        return [
-            {
-                "name": "workspace",
-                "status": "KO",
-                "detail": f"resolution failed for {toml_path}",
-                "hint": str(exc),
-            }
-        ]
+        return [_check("workspace", "KO", f"resolution failed for {toml_path}", str(exc))]
     except Exception as exc:  # noqa: BLE001 - this check informs, the findings refuse
-        return [
-            {
-                "name": "workspace",
-                "status": "KO",
-                "detail": f"config load failed: {exc}",
-                "hint": None,
-            }
-        ]
+        return [_check("workspace", "KO", f"config load failed: {exc}")]
 
     checks = [
-        {
-            "name": "workspace",
-            "status": "OK",
-            "detail": f"resolved via {cfg.resolution_source}",
-            "hint": None,
-        },
+        _check("workspace", "OK", f"resolved via {cfg.resolution_source}"),
         _path_check("workspace_root", cfg.root),
         _path_check("catalog_path", cfg.catalog_path),
         _path_check("data_dir", cfg.data_dir),
@@ -509,10 +412,10 @@ def _path_check(name: str, path: Path, *, required: bool = True) -> dict:
         detail = f"{path}"
         hint = None
     else:
-        status = "WARN" if not required else "WARN"
+        status = "WARN"
         detail = f"{path} (missing)"
         hint = "Created lazily when first used" if not required else None
-    return {"name": name, "status": status, "detail": detail, "hint": hint}
+    return _check(name, status, detail, hint)
 
 
 def _cross_catalog_checks(workspace: Path | None) -> list[dict]:
@@ -524,12 +427,7 @@ def _cross_catalog_checks(workspace: Path | None) -> list[dict]:
     """
     if workspace is None:
         return [
-            {
-                "name": "cross_catalog:workspace",
-                "status": "WARN",
-                "detail": "no workspace resolved",
-                "hint": "Name one with -w",
-            }
+            _check("cross_catalog:workspace", "WARN", "no workspace resolved", "Name one with -w")
         ]
 
     import duckdb
@@ -580,32 +478,25 @@ def _cross_catalog_checks(workspace: Path | None) -> list[dict]:
             ),
             "hint": hint,
         },
-        {
-            "name": "cross_catalog:runs_vs_index",
-            "status": "OK" if missing_from_index == 0 else "WARN",
-            "detail": f"{n_sealed} sealed run(s) on disk, {missing_from_index} missing from an index",
-            "hint": hint,
-        },
-        {
-            "name": "cross_catalog:index_vs_runs",
-            "status": "OK" if missing_on_disk == 0 else "WARN",
-            "detail": f"{missing_on_disk} index row(s) whose directory is gone",
-            "hint": hint,
-        },
+        _check(
+            "cross_catalog:runs_vs_index",
+            "OK" if missing_from_index == 0 else "WARN",
+            f"{n_sealed} sealed run(s) on disk, {missing_from_index} missing from an index",
+            hint,
+        ),
+        _check(
+            "cross_catalog:index_vs_runs",
+            "OK" if missing_on_disk == 0 else "WARN",
+            f"{missing_on_disk} index row(s) whose directory is gone",
+            hint,
+        ),
     ]
 
 
 def _lifecycle_checks(workspace: Path | None) -> list[dict]:
     """Count stale attempts, abandoned or orphan sessions and tmp files, from the disk."""
     if workspace is None:
-        return [
-            {
-                "name": "lifecycle:workspace",
-                "status": "WARN",
-                "detail": "no workspace resolved",
-                "hint": "Name one with -w",
-            }
-        ]
+        return [_check("lifecycle:workspace", "WARN", "no workspace resolved", "Name one with -w")]
 
     from hydromodpy.cli._workers.catalog import (
         ABANDONED_SESSION_MINUTES,
@@ -647,18 +538,18 @@ def _lifecycle_checks(workspace: Path | None) -> list[dict]:
             ),
             "hint": "Run 'hmp catalog gc -y' in the project to close them as aborted",
         },
-        {
-            "name": "lifecycle:orphan_calibration_sessions",
-            "status": "OK" if orphan_sessions == 0 else "WARN",
-            "detail": f"{orphan_sessions} calibration session(s) name a best run that is gone",
-            "hint": "Restore the run from trash/ (hmp catalog restore) or delete the session",
-        },
-        {
-            "name": "lifecycle:tmp_files",
-            "status": "OK" if tmp_files == 0 else "WARN",
-            "detail": f"{tmp_files} stale tmp-* file(s) on disk",
-            "hint": "Run 'hmp catalog gc -y' in the project to clean them up",
-        },
+        _check(
+            "lifecycle:orphan_calibration_sessions",
+            "OK" if orphan_sessions == 0 else "WARN",
+            f"{orphan_sessions} calibration session(s) name a best run that is gone",
+            "Restore the run from trash/ (hmp catalog restore) or delete the session",
+        ),
+        _check(
+            "lifecycle:tmp_files",
+            "OK" if tmp_files == 0 else "WARN",
+            f"{tmp_files} stale tmp-* file(s) on disk",
+            "Run 'hmp catalog gc -y' in the project to clean them up",
+        ),
     ]
 
 
@@ -703,43 +594,33 @@ def _prt_checks() -> list[dict]:
     executable = _locate_mf6()
     if executable is None:
         return [
-            {
-                "name": "prt:mf6",
-                "status": "KO",
-                "detail": "not cached, not on PATH",
-                "hint": "Run 'hmp install-binaries --mf6-prt'",
-            }
+            _check(
+                "prt:mf6", "KO", "not cached, not on PATH", "Run 'hmp install-binaries --mf6-prt'"
+            )
         ]
 
     banner, version = _mf6_version(executable)
-    checks = [
-        {
-            "name": "prt:mf6",
-            "status": "OK",
-            "detail": str(executable),
-            "hint": None,
-        }
-    ]
+    checks = [_check("prt:mf6", "OK", str(executable))]
 
     if version is None:
         checks.append(
-            {
-                "name": "prt:mf6_version",
-                "status": "WARN",
-                "detail": f"unreadable version banner: {banner or 'empty'}",
-                "hint": f"PRT needs MODFLOW {minimum} or newer",
-            }
+            _check(
+                "prt:mf6_version",
+                "WARN",
+                f"unreadable version banner: {banner or 'empty'}",
+                f"PRT needs MODFLOW {minimum} or newer",
+            )
         )
     else:
         readable = ".".join(str(part) for part in version)
         supported = version >= _PRT_MIN_MF6_VERSION
         checks.append(
-            {
-                "name": "prt:mf6_version",
-                "status": "OK" if supported else "KO",
-                "detail": f"{readable} (PRT needs >= {minimum})",
-                "hint": None if supported else "Run 'hmp install-binaries --mf6-prt --upgrade'",
-            }
+            _check(
+                "prt:mf6_version",
+                "OK" if supported else "KO",
+                f"{readable} (PRT needs >= {minimum})",
+                None if supported else "Run 'hmp install-binaries --mf6-prt --upgrade'",
+            )
         )
 
     try:
@@ -747,14 +628,7 @@ def _prt_checks() -> list[dict]:
 
         has_prt = hasattr(flopy.mf6, "ModflowPrt")
     except ImportError as exc:
-        checks.append(
-            {
-                "name": "prt:flopy",
-                "status": "KO",
-                "detail": f"{exc}",
-                "hint": "pip install -e . (re-install editable)",
-            }
-        )
+        checks.append(_check("prt:flopy", "KO", f"{exc}", "pip install -e . (re-install editable)"))
     else:
         checks.append(
             {

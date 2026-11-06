@@ -18,7 +18,7 @@ from hydromodpy.results.exporters.vocabulary import (
     export_kind,
     static_export_names,
 )
-from hydromodpy.simulation.extraction.derivation.catchment_aggregation import VARIABLE_UNITS
+from hydromodpy.simulation.catchment_aggregation import VARIABLE_UNITS
 
 
 @pytest.mark.parametrize(

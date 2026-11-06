@@ -480,10 +480,8 @@ def _longest_run_path_suffix(tmp_path: Path, model_name: str) -> int:
         scratch_root_for,
     )
     from hydromodpy.physics.flow.initial_conditions import FlowICSpinupCyclic
-    from hydromodpy.solver.modflow6.build import (
-        FLOW_PROPERTY_SIDECAR_SUFFIX,
-        mf6_safe_name,
-    )
+    from hydromodpy.solver.modflow6.build import FLOW_PROPERTY_SIDECAR_SUFFIX
+    from hydromodpy.solver.modflow6.support.names import mf6_safe_name
 
     assert RUN_SCRATCH_ENV not in os.environ
     project = tmp_path / "project"

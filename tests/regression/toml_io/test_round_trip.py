@@ -6,7 +6,7 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from hydromodpy.config import HydroModPyConfig
-from hydromodpy.config.sites.expansion import is_sites_project
+from hydromodpy.config.sites import is_sites_project
 from hydromodpy.core.config_kit.dump import dump_toml_with_comments
 from hydromodpy.core.toml_io.generator import generate_toml_from_instances
 

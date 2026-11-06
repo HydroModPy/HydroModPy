@@ -19,7 +19,7 @@ from hydromodpy.results.exporters.export_spec import ExportFormat
 from hydromodpy.results.identity import read_identity_from
 from hydromodpy.results.ledger import Ledger
 from tests._helpers.cli_runner import CliRunner
-from tests._helpers.sealed_run import RUN_NAME, seal_demo_run
+from tests._helpers.run_stores import RUN_NAME, seal_demo_run
 
 
 @pytest.fixture

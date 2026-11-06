@@ -99,7 +99,7 @@ class RunSolverStep:
             ProcessCallbacks,
             SimulationRunner,
         )
-        from hydromodpy.simulation.extraction.post_run import (
+        from hydromodpy.simulation.post_run import (
             record_run_execution_metrics,
             record_what_the_model_says,
         )

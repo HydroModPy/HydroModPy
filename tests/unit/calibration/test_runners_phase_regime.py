@@ -42,7 +42,7 @@ from hydromodpy.simulation.planning.plan import (
     WATER_BUDGET_WORST_METRIC,
     RunExecutionResult,
 )
-from hydromodpy.solver.modflow6.build import mf6_safe_name
+from hydromodpy.solver.modflow6.support.names import mf6_safe_name
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import model_percent_discrepancies
 
 # From test_calibration_protocols.py

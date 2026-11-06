@@ -52,6 +52,12 @@ class RootConfigProvider(Protocol):
         has no exact equivalent.
         """
 
+    def migrate_sealed(self, document: dict[str, Any]) -> list[str]:
+        """Rename, in place, the keys a sealed run config wrote under an older name.
+
+        Returns the changes applied.
+        """
+
 
 _PROVIDER: RootConfigProvider | None = None
 

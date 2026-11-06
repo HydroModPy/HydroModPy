@@ -11,8 +11,10 @@ from typing import Any
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.portable import cache_dir
-from hydromodpy.display.catchment_report.resources import REPO_ROOT
 from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX, TABLES_DIRNAME
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+
 
 logger = get_logger(__name__)
 

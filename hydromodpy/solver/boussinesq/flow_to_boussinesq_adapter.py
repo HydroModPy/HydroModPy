@@ -24,19 +24,15 @@ from pathlib import Path
 import numpy as np
 
 from hydromodpy.physics.flow.regime import normalize_flow_regime
-from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
-from hydromodpy.solver.boussinesq.property_mapping import (
-    resolve_flow_property_arrays,
-    resolve_required_flow_properties,
-)
-from hydromodpy.solver.field_property_mapping import (
+from hydromodpy.solver.base.properties import (
     FLOW_PROPERTY_SPECS,
     require_positive_conductivity,
     require_positive_storage,
-)
-from hydromodpy.solver.modflow_common.runtime_arrays import (
     resolve_flow_property_runtime_overrides,
+    resolve_required_flow_properties,
 )
+from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
+from hydromodpy.solver.boussinesq.property_mapping import resolve_flow_property_arrays
 from hydromodpy.spatial.mesh.io.bundle import (
     CatchmentMeshBundle,
     load_catchment_mesh_bundle,
@@ -107,7 +103,7 @@ def resolve_runtime_solver_mesh(setup_state: object) -> BoussinesqMesh | None:
         return None
 
     required_properties = resolve_required_flow_properties(
-        flow_regime=str(getattr(flow, "flow_regime", "transient"))
+        flow_regime=str(getattr(flow, "flow_regime", "transient")), storage=("Sy",)
     )
     if not _has_required_flow_parameters(
         flow=flow,

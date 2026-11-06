@@ -68,7 +68,6 @@ def write_table_atomic(
     *,
     kv_metadata: Mapping[str, str] | None = None,
     pk_cols: Sequence[str] | None = None,
-    overrides: Mapping[str, object] | None = None,
 ) -> Path:
     """Write ``table`` to ``target`` atomically with the V1 Parquet options.
 
@@ -86,10 +85,6 @@ def write_table_atomic(
         Optional primary-key columns. Forwarded to pyarrow as the
         ``bloom_filter_columns`` argument when the linked pyarrow build exposes
         it (Arrow >= 23 in practice; ignored otherwise).
-    overrides
-        Extra write keyword arguments that take precedence over
-        :data:`PARQUET_WRITE_DEFAULTS`. Used for callers that need to flip a
-        single knob without rewriting the full option set.
 
     Returns
     -------
@@ -108,8 +103,6 @@ def write_table_atomic(
     out_table = table.replace_schema_metadata(merged_metadata)
 
     options: dict[str, object] = dict(PARQUET_WRITE_DEFAULTS)
-    if overrides:
-        options.update(overrides)
     if pk_cols and _BLOOM_FILTER_SUPPORTED:
         bloom_cols = [c for c in pk_cols if c in out_table.column_names]
         if bloom_cols:

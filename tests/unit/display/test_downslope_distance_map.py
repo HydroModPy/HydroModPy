@@ -18,7 +18,7 @@ from hydromodpy.display.figures.downslope_distance_map import (
     class_colors,
     class_labels,
 )
-from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET
+from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET, relative_luminance
 from tests._helpers.sealed_runs import sealed_search
 
 from ._network_comparison_run import (
@@ -33,22 +33,9 @@ from ._network_comparison_run import (
     legend_labels,
     legend_note,
 )
-from ._render_helpers import relative_luminance
 
 WIDE_CELL_M = 600.0
 """A cell width that spreads the same geometry over the far classes."""
-
-
-@pytest.fixture
-def mpl():
-    pytest.importorskip("matplotlib")
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
-    yield plt
-    plt.close("all")
 
 
 def _layer(ax, label: str):

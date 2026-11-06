@@ -28,7 +28,6 @@ from types import SimpleNamespace
 
 import pytest
 
-from hydromodpy.config.sites.expansion import PlanDraft
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.pipeline_steps import STEP_NAMES
@@ -38,6 +37,7 @@ from hydromodpy.core.state.layout import (
     PROJECT_MARKER_FILENAME,
     RUN_INTERNAL_CHECKPOINTS_DIRNAME,
 )
+from hydromodpy.project.launch.sites.expansion import PlanDraft
 from hydromodpy.project.runner import ProjectRunner
 from hydromodpy.results.outcome import effective_status, read_outcome
 from hydromodpy.results.storage.run_log import run_log_path

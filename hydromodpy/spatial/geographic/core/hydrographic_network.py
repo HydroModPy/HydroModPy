@@ -32,10 +32,8 @@ if TYPE_CHECKING:
 
     from hydromodpy.spatial.geographic.core.river_network import RiverNetworkProducts
 
-from hydromodpy.spatial.geographic.core.metric_crs import (
-    measure_linework_length_m,
-    measure_polygon_area_m2,
-)
+from hydromodpy.core.io.crs import measure_linework_length_m
+from hydromodpy.spatial.geographic.core.metric_crs import measure_polygon_area_m2
 from hydromodpy.spatial.geographic.geographic_paths import (
     HYDROGRAPHIC_NETWORK_GENERATED_VECTOR_FILENAME,
 )

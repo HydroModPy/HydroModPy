@@ -1,13 +1,4 @@
-"""The parameter figures draw what the run was given, and only that.
-
-A property left out of ``param_list`` still reaches the solver as zero. The
-section must not open a color scale around it, because a flat panel with a
-ramp beside it reads as a measured uniformity rather than as an absence.
-
-The K tensor fields (K22, K33 and the three angles) are drawn like the other
-properties. The conductivities share one log scale, so a K33 a decade under K
-is a darker panel and not a second copy of the K panel.
-"""
+"""The parameter figures and the conditioning impact map."""
 
 from __future__ import annotations
 
@@ -17,6 +8,7 @@ import numpy as np
 import pytest
 
 from hydromodpy.display.figure import FigureNotApplicable
+from hydromodpy.display.figures.conditioning_impact_map import ConditioningImpactMap
 from hydromodpy.display.figures.parameter_map import ParameterMap
 from hydromodpy.display.figures.parameter_section import (
     ParameterSection,
@@ -24,23 +16,54 @@ from hydromodpy.display.figures.parameter_section import (
     _resolve_variables,
 )
 
+# The parameter figures draw what the run was given, and only that.
+#
+# A property left out of ``param_list`` still reaches the solver as zero. The
+# section must not open a color scale around it, because a flat panel with a
+# ramp beside it reads as a measured uniformity rather than as an absence.
+#
+# The K tensor fields (K22, K33 and the three angles) are drawn like the other
+# properties. The conductivities share one log scale, so a K33 a decade under K
+# is a darker panel and not a second copy of the K panel.
+
 N_CELLS = 4
+
+
 N_LAYERS = 3
 
+
 K_PER_LAYER = (1.0e-4, 1.0e-5, 1.0e-6)
+
+
 """Conductivity decaying by a decade per layer: two decades, so a log ramp."""
 
+
 SY_VALUE = 0.05
+
+
 """One uniform specific yield: no decade to span, so a linear ramp."""
 
+
 K22 = "hydraulic_conductivity_k22"
+
+
 K33 = "hydraulic_conductivity_k33"
+
+
 ANGLE1 = "conductivity_tensor_angle1"
+
+
 ANGLE2 = "conductivity_tensor_angle2"
+
+
 ANGLE3 = "conductivity_tensor_angle3"
 
+
 ANGLE1_STORED = (-90.0, 0.0, 90.0, 180.0)
+
+
 """A turn read from east towards north, stored with the sign the user wrote."""
+
 
 ANGLE2_PER_LAYER = (0.0, 10.0, 20.0)
 
@@ -304,3 +327,92 @@ def test_a_batch_skips_a_map_of_a_tensor_field_the_run_lacks(tmp_path) -> None:
 def test_the_section_refuses_a_variable_that_is_not_an_aquifer_property() -> None:
     with pytest.raises(ValueError, match="not an aquifer property"):
         ParameterSection().plot(_Run(), variables=["head"])
+
+
+# Unit tests for the two-run top difference figure.
+
+_VERTS = np.asarray([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [2.0, 0.0], [2.0, 1.0]])
+
+
+_CONN = np.asarray([[0, 1, 2, 3], [1, 4, 5, 2]], dtype=int)
+
+
+def _run(tops, sim_id: str = "sim") -> SimpleNamespace:
+    mesh = SimpleNamespace(
+        vertices=_VERTS,
+        face_node_connectivity=_CONN,
+        z_interfaces=np.asarray([0.0, -10.0]),
+        topography=None if tops is None else np.asarray(tops, dtype=float),
+    )
+    return SimpleNamespace(mesh=mesh, sim_id=sim_id)
+
+
+def _ax():
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    return plt.subplots()
+
+
+def test_two_runs_on_one_mesh_render_their_top_difference() -> None:
+    pytest.importorskip("matplotlib")
+    import matplotlib.pyplot as plt
+
+    sim = _run([12.0, 10.0])
+    ref = _run([10.0, 10.0], sim_id="ref")  # cell 0 raised +2, cell 1 unchanged
+    fig, ax = _ax()
+    try:
+        ConditioningImpactMap().render(sim, ax, reference=ref, clip_percentile=100.0)
+        coll = ax.collections[0]
+        np.testing.assert_allclose(coll.get_array(), [2.0, 0.0])
+        assert coll.get_clim() == (-2.0, 2.0)
+        assert "50% of cells" in ax.get_title()
+    finally:
+        plt.close(fig)
+
+
+def test_a_run_without_reference_is_skipped_with_a_sentence() -> None:
+    pytest.importorskip("matplotlib")
+    import matplotlib.pyplot as plt
+
+    fig, ax = _ax()
+    try:
+        with pytest.raises(FigureNotApplicable, match=r"reference=<run>"):
+            ConditioningImpactMap().render(_run([1.0, 2.0]), ax, reference=None)
+    finally:
+        plt.close(fig)
+
+
+def test_a_run_without_mesh_topography_is_unavailable() -> None:
+    assert "no mesh topography" in ConditioningImpactMap().unavailable_reason(_run(None))
+
+
+def test_reference_run_on_another_mesh_is_rejected() -> None:
+    pytest.importorskip("matplotlib")
+    import matplotlib.pyplot as plt
+
+    sim = _run([1.0, 2.0])
+    ref = _run([1.0, 2.0, 3.0], sim_id="ref")  # 3 cells
+    fig, ax = _ax()
+    try:
+        with pytest.raises(ValueError, match="meshes differ"):
+            ConditioningImpactMap().render(sim, ax, reference=ref)
+    finally:
+        plt.close(fig)
+
+
+def test_a_skipped_figure_leaves_no_matplotlib_figure_open() -> None:
+    pytest.importorskip("matplotlib")
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    plt.close("all")
+
+    with pytest.raises(FigureNotApplicable):
+        ConditioningImpactMap().plot(_run([1.0, 2.0]))
+
+    assert plt.get_fignums() == []

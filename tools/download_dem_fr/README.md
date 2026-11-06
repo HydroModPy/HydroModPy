@@ -1,33 +1,16 @@
 # download_dem_fr
 
-CLI autonome pour explorer et telecharger des archives DEM/MNT IGN par
-departement ou region administrative depuis Geoplateforme.
+A standalone command to list and download IGN DEM archives by French department or region from Geoplateforme.
 
-Le workflow HydroModPy normal doit continuer a passer par `[data.dem]`. Cet
-outil sert a preparer, tester ou diagnostiquer le cache brut des archives
-departementales.
+The normal HydroModPy workflow goes through `[data.dem]`. This tool prepares, tests or checks the raw cache of
+departmental archives. It needs no package beyond HydroModPy itself.
 
-Par defaut, les archives brutes sont rangees hors du depot Git:
+Raw archives are stored outside the Git repository, in `$HYDROMODPY_WORKSPACE/data/dem/raw_ign/`. Without
+`HYDROMODPY_WORKSPACE` the folder is `~/hydromodpy/data/dem/raw_ign/`.
 
-```text
-HYDROMODPY_WORKSPACE/data/dem/raw_ign/
-```
+## Examples
 
-Si `HYDROMODPY_WORKSPACE` n'est pas defini, le fallback est:
-
-```text
-~/hydromodpy/data/dem/raw_ign/
-```
-
-## Installation minimale
-
-```bash
-pip install -r tools/download_dem_fr/requirements.txt
-```
-
-## Exemples
-
-Lister les archives RGE ALTI sans telecharger:
+List the RGE ALTI archives without downloading:
 
 ```bash
 python tools/download_dem_fr/download_dem_fr.py \
@@ -38,8 +21,7 @@ python tools/download_dem_fr/download_dem_fr.py \
   --dry-run
 ```
 
-Lister une region complete en BD ALTI 25 m, avec les checksums quand ils sont
-exposes par Geoplateforme:
+List a whole region in BD ALTI 25 m, with the checksums when Geoplateforme gives them:
 
 ```bash
 python tools/download_dem_fr/download_dem_fr.py \
@@ -51,17 +33,17 @@ python tools/download_dem_fr/download_dem_fr.py \
   --include-md5
 ```
 
-Telecharger BD ALTI 25 m pour Paris:
+Download BD ALTI 25 m for several departments:
 
 ```bash
 python tools/download_dem_fr/download_dem_fr.py \
-  --departements 75 \
+  --departements 01 03 07 15 \
   --dataset bd-alti \
   --resolution 25 \
-  --dry-run
+  --format ASC
 ```
 
-Telecharger RGE ALTI pour un departement ultramarin:
+Download RGE ALTI for an overseas department:
 
 ```bash
 python tools/download_dem_fr/download_dem_fr.py \
@@ -70,46 +52,25 @@ python tools/download_dem_fr/download_dem_fr.py \
   --resolution 5
 ```
 
-Preparer les departements Auvergne-Rhone-Alpes en BD ALTI 25 m:
-
-```bash
-python tools/download_dem_fr/download_dem_fr.py \
-  --departements 01 03 07 15 26 38 42 43 63 69 73 74 \
-  --dataset bd-alti \
-  --resolution 25 \
-  --format ASC
-```
-
 ## Cache
 
-Les fichiers sont ranges par dataset, resolution et departement:
+Files are stored by dataset, resolution and department:
 
 ```text
 ~/hydromodpy/data/dem/raw_ign/
-  bd-alti/
-    25m/
-      D035/
-        BDALTIV2_...D035....7z
-  rge-alti/
-    5m/
-      D029/
-        RGEALTI_...D029....7z
+  bd-alti/25m/D035/BDALTIV2_...D035....7z
+  rge-alti/5m/D029/RGEALTI_...D029....7z
 ```
 
-Un fichier local non vide est reutilise par defaut. Utiliser `--overwrite` pour
-forcer un nouveau telechargement.
+A non-empty local file is reused. Pass `--overwrite` to download it again.
 
-`--regions` et `--departements` sont exclusifs. Les regions sont resolues via
-le registre administratif HydroModPy, puis converties en departements avant la
-decouverte Geoplateforme.
+`--regions` and `--departements` exclude each other. Regions are resolved with the HydroModPy administrative
+registry and turned into departments before the Geoplateforme lookup.
 
-## Limites
+## Limits
 
-Le client tente d'abord la decouverte Geoplateforme. Si l'API est
-temporairement indisponible, le cas `bd-alti --resolution 25 --format ASC`
-dispose d'un fallback sur l'index interne HydroModPy des archives BD ALTI.
+The client tries the Geoplateforme lookup first. If the API is down, the case `bd-alti --resolution 25 --format ASC`
+falls back on the HydroModPy internal index of BD ALTI archives.
 
-RGE ALTI est pris en charge ici comme telechargement brut. L'assemblage raster
-automatique dans `DemManager` reste volontairement limite a BD ALTI 25 m ASC
-tant que les archives fragmentees et les volumes RGE ALTI 1 m/5 m ne sont pas
-bornes par des garde-fous de stockage et de traitement.
+RGE ALTI is only supported here as a raw download. The raster assembly in `DemManager` stays limited to BD ALTI 25 m
+ASC, until the fragmented archives and the RGE ALTI 1 m and 5 m volumes have storage and processing limits.

@@ -6,7 +6,7 @@ Pages deploy publishes at https://docs.hydromodpy.fr/, one folder per version.
 
 Run locally::
 
-    mamba activate hmp_refact
+    mamba activate hydromodpy-dev
     python -m sphinx_polyversion poly.py
 
 Add ``-l`` (or ``--local``) to render only the current working tree without

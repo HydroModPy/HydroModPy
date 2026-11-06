@@ -59,9 +59,9 @@ def _is_inside_package(path: Path) -> bool:
 
 def workspace_root(catalog: DataCatalogDuckDB) -> Path | None:
     """Return the workspace root inferred from the cache DB location."""
-    if catalog._db_path is None:
+    if catalog.db_path is None:
         return None
-    return catalog._db_path.parent.parent
+    return catalog.db_path.parent.parent
 
 
 def encode_path_for_storage(catalog: DataCatalogDuckDB, file_path: Path | str) -> str:
@@ -104,10 +104,10 @@ def resolve_entry_path(
     if path.is_absolute():
         return path
     candidates: list[Path] = []
-    if catalog._db_path is not None:
+    if catalog.db_path is not None:
         if variable:
-            candidates.append(catalog._db_path.parent / variable / path)
-        candidates.extend((catalog._db_path.parent / path, catalog._db_path.parent.parent / path))
+            candidates.append(catalog.db_path.parent / variable / path)
+        candidates.extend((catalog.db_path.parent / path, catalog.db_path.parent.parent / path))
     candidates.append(path)
     for candidate in candidates:
         if candidate.is_file():
@@ -180,7 +180,7 @@ def reject_frozen_cache_miss(
     raise FrozenDataError(
         "Frozen data mode forbids cache misses: "
         f"{variable}/{source}/{station_id or '-'} is absent from the catalog at "
-        f"{catalog._db_path or ':memory:'}."
+        f"{catalog.db_path or ':memory:'}."
     )
 
 
@@ -491,7 +491,7 @@ def emit_input_sidecar(
             **_known_chronicle(path, sha256=str(sha256), chronicle=chronicle),
         )
         write_sidecar(path, sidecar)
-    except Exception as exc:  # pragma: no cover - non-fatal
+    except Exception as exc:
         logger.debug("Sidecar write failed for %s: %s", path, exc)
 
 

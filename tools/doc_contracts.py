@@ -61,9 +61,7 @@ def assert_layer_matrix_inputs(matrix: dict[str, Any]) -> list[str]:
     """Check the contract before rendering it. Returns the problems found.
 
     Without this the generator would happily publish a layer that does not
-    exist. The page it replaces carried exactly that: a ``validity_frame`` row
-    that is not a key of ``allowed`` and not a package on disk, alongside a
-    missing ``discretization`` row that is both.
+    exist, or leave out a package that does.
     """
     problems: list[str] = []
     allowed = matrix.get("allowed") or {}

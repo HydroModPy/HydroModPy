@@ -33,13 +33,11 @@ from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.base.protocols import DomainLike, FlowModelLike, TransportLike
-from hydromodpy.solver.modflow_common import (
-    ensure_solver_binary,
-    masstransfer,
-)
+from hydromodpy.solver.modflow_common import ensure_solver_binary
 from hydromodpy.solver.modflow_common.runtime_arrays import (
     build_concentration_runtime_overrides,
 )
+from hydromodpy.solver.modflow_nwt.postprocess import masstransfer
 
 MT3DMS_NORMAL_MESSAGES = ["normal termination", "program completed"]
 

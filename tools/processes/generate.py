@@ -4,7 +4,7 @@ Three sources, and no JSON is written by hand:
 
 * the **capability declaration** -- identity, title, outputs, declared
   exceptions, environment variables it reads;
-* the **Pydantic request model**, through ``config.schema_export``, which
+* the **Pydantic request model**, through ``schema.config_schema``, which
   already emits Draft 2020-12 and already preserves the metadata a frontend
   consumes;
 * the **exit-code mapper**, ``cli.helpers.exit_code_for``, so the description
@@ -36,9 +36,9 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.cli.helpers import exit_code_for
-from hydromodpy.config.schema_export import export_schema, extract_property_schema
 from hydromodpy.data.request.job import DATA_REQUEST
 from hydromodpy.schema.capability import CapabilityDecl, OutputDecl
+from hydromodpy.schema.config_schema import export_schema, extract_property_schema
 from hydromodpy.schema.processes import (
     INDEX_FILENAME,
     INDEX_PROFILE,

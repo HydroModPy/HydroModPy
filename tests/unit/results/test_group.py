@@ -20,7 +20,7 @@ from hydromodpy.results.metric_rule import DateWindow
 from hydromodpy.results.run.group import RunSet
 from hydromodpy.results.run.sealed import MixedWindowsError
 from tests._helpers.metric_rows import GAUGE, headline_row, headline_score
-from tests.unit.results._run_record_factory import (
+from tests._helpers.run_records import (
     ATTEMPT_ID,
     SIM_ID,
     WINDOW,

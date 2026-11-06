@@ -156,8 +156,8 @@ def _ingest_river_network(geographic: Any, store: Any, sim_id: str) -> None:
                     generated_network_crs = generated_network_crs or getattr(
                         derived.rivers, "network_crs", None
                     )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("The generated river network could not be read off the features: %s", exc)
 
     if path is None or not Path(path).exists():
         logger.debug("Skipping river network (not found)")

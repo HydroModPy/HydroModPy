@@ -10,7 +10,7 @@ import pytest
 
 from hydromodpy.core.exceptions import ExtractError
 from hydromodpy.core.scope import CATCHMENT
-from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
+from hydromodpy.simulation.catchment_aggregation import (
     _add_runoff_to_discharge_series,
     _aggregate_from_lumped_budget,
     _aggregate_variable,
@@ -166,7 +166,7 @@ class _AreaStub:
 
 
 def _patch_area(monkeypatch, area_m2):
-    import hydromodpy.simulation.extraction.derivation.catchment_aggregation as mod
+    import hydromodpy.simulation.catchment_aggregation as mod
 
     monkeypatch.setattr(mod, "_read_catchment_area_m2", lambda store, sim_id: area_m2)
 
@@ -665,7 +665,7 @@ class TestRoutedDischarge:
         np.testing.assert_allclose(ts.values, [3.0, 3.0, 3.0])
 
     def test_routed_branch_skips_lumped_runoff(self, runs, monkeypatch):
-        import hydromodpy.simulation.extraction.derivation.catchment_aggregation as mod
+        import hydromodpy.simulation.catchment_aggregation as mod
 
         def _must_not_run(*args, **kwargs):
             raise AssertionError("lumped runoff must not be added on the routed branch")
@@ -876,7 +876,7 @@ class TestTheCatchmentSeriesUseTheCatchment:
     def test_only_the_cells_inside_the_watershed_are_kept(self):
         from shapely.geometry import box
 
-        from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
+        from hydromodpy.simulation.catchment_aggregation import (
             _build_catchment_mask,
         )
 
@@ -890,7 +890,7 @@ class TestTheCatchmentSeriesUseTheCatchment:
         assert mask.tolist() == [True, True, False, False, False, False]
 
     def test_a_run_without_a_watershed_keeps_the_domain_and_warns(self, caplog):
-        from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
+        from hydromodpy.simulation.catchment_aggregation import (
             _build_catchment_mask,
         )
 
@@ -911,7 +911,7 @@ class TestTheCatchmentSeriesUseTheCatchment:
         # lands somewhere else entirely and the series still look plausible.
         from shapely.geometry import box
 
-        from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
+        from hydromodpy.simulation.catchment_aggregation import (
             _build_catchment_mask,
         )
 
@@ -929,7 +929,7 @@ class TestTheCatchmentSeriesUseTheCatchment:
     def test_a_watershed_that_lands_nowhere_falls_back_and_says_so(self, caplog):
         from shapely.geometry import box
 
-        from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
+        from hydromodpy.simulation.catchment_aggregation import (
             _build_catchment_mask,
         )
 
@@ -951,7 +951,7 @@ class TestTheCatchmentSeriesUseTheCatchment:
         return grp
 
     def test_the_stored_basin_is_the_support_not_the_polygon(self, caplog):
-        from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
+        from hydromodpy.simulation.catchment_aggregation import (
             _build_catchment_mask,
         )
 
@@ -970,7 +970,7 @@ class TestTheCatchmentSeriesUseTheCatchment:
 
     def test_a_basin_with_no_active_cell_is_refused(self):
         from hydromodpy.core.exceptions import ExtractError
-        from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
+        from hydromodpy.simulation.catchment_aggregation import (
             _build_catchment_mask,
         )
 
@@ -981,7 +981,7 @@ class TestTheCatchmentSeriesUseTheCatchment:
     def test_a_run_without_a_basin_keeps_the_polygon_and_says_so(self, caplog):
         from shapely.geometry import box
 
-        from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
+        from hydromodpy.simulation.catchment_aggregation import (
             _build_catchment_mask,
         )
 
@@ -1000,7 +1000,7 @@ class TestTheCatchmentSeriesUseTheCatchment:
         )
 
     def test_the_largest_basin_of_a_synthetic_domain_keeps_the_domain(self, caplog):
-        from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
+        from hydromodpy.simulation.catchment_aggregation import (
             _build_catchment_mask,
         )
 
@@ -1017,7 +1017,7 @@ class TestTheCatchmentSeriesUseTheCatchment:
         assert "stores no basin of D" not in caplog.text
 
     def test_no_series_computes_the_basin_again(self, monkeypatch):
-        from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
+        from hydromodpy.simulation.catchment_aggregation import (
             _build_catchment_mask,
         )
         from hydromodpy.solver.modflow_common import catchment_basin

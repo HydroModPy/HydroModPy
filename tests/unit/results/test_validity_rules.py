@@ -21,7 +21,7 @@ from hydromodpy.results.validity_rules import (
 )
 from hydromodpy.solver.base import registry as solver_registry
 from hydromodpy.spatial.mesh import registry as mesh_registry
-from tests.unit.results._run_record_factory import (
+from tests._helpers.run_records import (
     WINDOW,
     make_calibrated_by,
     make_checks,

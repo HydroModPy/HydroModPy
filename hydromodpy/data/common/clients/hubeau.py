@@ -15,7 +15,7 @@ from hydromodpy.core.console import progress
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.geo_helpers import haversine_km
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     from hydromodpy.data.contracts.location import StationLocation
 
 logger = get_logger(__name__)
@@ -81,4 +81,27 @@ def keep_nearest(
     return [best_id]
 
 
-__all__ = ["keep_nearest", "station_period_overlaps"]
+def station_location(
+    station_id: str,
+    payload: dict | None,
+    *,
+    lon_key: str,
+    lat_key: str,
+    metadata: Callable[[dict], dict],
+) -> StationLocation | None:
+    """A WGS84 ``StationLocation`` from the first row of a stations answer, or None."""
+    from hydromodpy.data.contracts.location import StationLocation
+
+    rows = (payload or {}).get("data", [])
+    if not rows:
+        return None
+    info = rows[0]
+    lon, lat = info.get(lon_key), info.get(lat_key)
+    if lon is None or lat is None:
+        return None
+    return StationLocation(
+        id=station_id, x=float(lon), y=float(lat), crs="EPSG:4326", metadata=metadata(info)
+    )
+
+
+__all__ = ["keep_nearest", "station_location", "station_period_overlaps"]

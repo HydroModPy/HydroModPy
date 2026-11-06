@@ -21,7 +21,7 @@ from typing import Any
 import duckdb
 import pandas as pd
 
-from hydromodpy.core.io.db_retry import HMP_DUCKDB_BLOCK_SIZE, connect_with_retry
+from hydromodpy.core.io.db_retry import HMP_DUCKDB_BLOCK_SIZE, attach_read_only, connect_with_retry
 
 
 def _split_params(
@@ -246,18 +246,8 @@ class DuckDBBackend:
         widely across SQL engines; future Postgres-flavoured adapters
         will expose an equivalent via FDW or a dedicated helper.
         """
-        if not all(ch.isalnum() or ch == "_" for ch in alias):
-            raise ValueError(f"Invalid attach alias: {alias!r}")
-        path_str = str(Path(db_path))
-        path_literal = path_str.replace("'", "''")
-        self._connection.execute(f"ATTACH '{path_literal}' AS {alias} (READ_ONLY)")
-        try:
+        with attach_read_only(self._connection, db_path, alias):
             yield
-        finally:
-            try:
-                self._connection.execute(f"DETACH {alias}")
-            except Exception:
-                pass
 
     def close(self) -> None:
         """Close the owned DuckDB connection. No-op if not owned."""

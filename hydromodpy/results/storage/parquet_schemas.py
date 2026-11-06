@@ -31,7 +31,7 @@ PARQUET_SCHEMA_VERSION: Final[str] = "v3"
 PARQUET_VERSIONS: Final[VersionWindow] = VersionWindow(oldest="v3", current=PARQUET_SCHEMA_VERSION)
 """Versions of a table of a run this code reads."""
 
-CF_CONVENTIONS: Final[str] = "CF-1.11"
+PARQUET_CONVENTIONS: Final[str] = "CF-1.11"
 """CF convention version embedded in schema metadata."""
 
 
@@ -46,7 +46,7 @@ def _schema_metadata(
         "hmp.schema": name,
         "hmp.schema_version": PARQUET_SCHEMA_VERSION,
         "hmp.pk": ",".join(pk),
-        "Conventions": CF_CONVENTIONS,
+        "Conventions": PARQUET_CONVENTIONS,
     }
     if extra:
         payload.update(extra)
@@ -1304,7 +1304,7 @@ def check_schema_version(metadata: dict[bytes, bytes] | None, *, document: objec
 
 __all__ = [
     "BUDGETS_SCHEMA",
-    "CF_CONVENTIONS",
+    "PARQUET_CONVENTIONS",
     "CHECK_COLUMNS",
     "MASS_BALANCE_SCHEMA",
     "MESH_CELL_FAMILIES_SCHEMA",

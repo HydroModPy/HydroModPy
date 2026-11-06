@@ -10,6 +10,7 @@ import numpy as np
 
 from hydromodpy.core.units.quantities import convert_to_m3_per_s, normalize_m3_per_s_unit
 from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
+from hydromodpy.solver.modflow6.builders.boundary_conditions import forcing_units
 from hydromodpy.spatial.mesh.cells.locate import locate_cells
 
 
@@ -43,12 +44,6 @@ def _validate_resolved_well_cell(model, *, well_id: str, lay: int, cell_id: int)
             f"flow.sinks_sources.wells.{well_id} targets an inactive cell (layer {lay}, "
             f"cell {cell_id}); place the well inside the catchment."
         )
-
-
-def _forcing_units(forcing: object, *, fallback: object) -> object:
-    if isinstance(forcing, Mapping):
-        return forcing.get("units", fallback)
-    return getattr(forcing, "units", fallback)
 
 
 def _resolve_well_location(well_id: str, well_cfg: object) -> tuple[str, dict[str, Any]]:
@@ -205,7 +200,7 @@ def build_well_stress_period_data(
                 else getattr(raw_well_payload, "units", "m3/s")
             )
             canonical_units = normalize_m3_per_s_unit(
-                _forcing_units(forcing_payload, fallback=fallback_units),
+                forcing_units(forcing_payload, fallback=fallback_units),
             )
             flux_vector = np.asarray(
                 [

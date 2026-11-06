@@ -273,7 +273,7 @@ recharge and the wells, all at the new time level
 :math:`R^{\mathrm{int}}_i` is the sum of the edge fluxes of the cell. The steady
 problem is the same residual without the storage term. The mixed closure takes
 :math:`s_i` as an input instead of computing it (``_with_saturation_excess`` in
-``assembly/residual_facade.py``).
+``assembly/residuals.py``).
 
 What happens at the surface and at the bottom
 ---------------------------------------------
@@ -584,8 +584,7 @@ appears here on the next build.
 .. hmp-tested-by::
 
    hydromodpy.solver.boussinesq.assembly
-   hydromodpy.solver.boussinesq.methods
-   hydromodpy.solver.boussinesq.engines
+   hydromodpy.solver.boussinesq.catalog
    hydromodpy.solver.boussinesq.runtimes
    hydromodpy.solver.boussinesq.forcing
    hydromodpy.solver.boussinesq.drivers
@@ -605,13 +604,13 @@ In the code
    * - Constrained cells and the solver row
      - ``hydromodpy/solver/boussinesq/assembly/inputs.py``
    * - Steady and transient residual
-     - ``hydromodpy/solver/boussinesq/assembly/residuals.py``, facades in ``assembly/residual_facade.py``
+     - ``hydromodpy/solver/boussinesq/assembly/residuals.py``
    * - Regularized partition
      - ``hydromodpy/solver/boussinesq/assembly/surface.py``
    * - Fischer-Burmeister function and scales, dry deficit
      - ``hydromodpy/solver/boussinesq/runtimes/petsc_mixed_common.py``, ``runtimes/petsc_mixed.py``
    * - Method and engine choice
-     - ``hydromodpy/solver/boussinesq/methods/catalog.py``, ``engines/catalog.py``, ``runtime_selection.py``
+     - ``hydromodpy/solver/boussinesq/catalog.py``
    * - Time loop
      - ``hydromodpy/solver/boussinesq/drivers/transient.py``, ``drivers/steady.py``
    * - Forcing, wells, imposed heads, drain

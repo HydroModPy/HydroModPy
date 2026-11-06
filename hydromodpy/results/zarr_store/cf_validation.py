@@ -33,9 +33,4 @@ def is_cf_standard_name(name: str) -> bool:
     return name in _cf_v85_names()
 
 
-def cf_v85_names() -> frozenset[str]:
-    """Return the immutable set of CF v85 names recognized by V1."""
-    return _cf_v85_names()
-
-
-__all__ = ["cf_v85_names", "is_cf_standard_name"]
+__all__ = ["is_cf_standard_name"]

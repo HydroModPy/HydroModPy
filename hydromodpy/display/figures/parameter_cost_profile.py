@@ -44,6 +44,7 @@ from hydromodpy.display.figures._calibration_session import (
     parameter_declaration,
     read_tolerance,
     returned_row,
+    search_bounds,
     session_config,
     session_descriptor,
     text,
@@ -184,7 +185,7 @@ class ParameterCostProfileFigure(BaseFigure):
             cost,
             returned=returned_row(table, descriptor),
             units=parameter_units or text(declaration.get("units")) or "-",
-            bounds=_bounds(declaration.get("bounds")),
+            bounds=search_bounds(declaration.get("bounds")),
         )
         log = _reads_log(profile.values, log_scale)
 
@@ -465,16 +466,6 @@ def _completed_cost(cost: np.ndarray, frame: pd.DataFrame) -> np.ndarray:
         return cost
     completed = frame["status"].astype(str).str.lower().to_numpy() == "completed"
     return np.where(completed, cost, np.nan)
-
-
-def _bounds(value: Any) -> tuple[float, float] | None:
-    """Return the search bounds as two finite floats, None otherwise."""
-    if not isinstance(value, (list, tuple)) or len(value) != 2:
-        return None
-    low, high = float_or(value[0], np.nan), float_or(value[1], np.nan)
-    if not (np.isfinite(low) and np.isfinite(high)) or high <= low:
-        return None
-    return low, high
 
 
 def _reads_log(values: np.ndarray, log_scale: bool | None) -> bool:

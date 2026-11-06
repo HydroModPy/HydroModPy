@@ -267,7 +267,7 @@ PETSc only, and both keep the head as the only unknown.
 
 A steady solve for the initial state of a `ts_vi_obstacle` run uses the regularized
 partition (`steady_state_initialization_surface_interaction_model` in
-`solver/steady_initial_conditions.py`).
+`solver/base/initial_conditions.py`).
 
 A file that chooses the experimental closure and cuts each period into substeps:
 
@@ -342,7 +342,7 @@ flow.runtime.ts_vi_snes_type
 
 | What | Where |
 |---|---|
-| Method and engine choice | `hydromodpy/solver/boussinesq/methods/catalog.py` (`resolve_method_spec`), `engines/catalog.py` (`resolve_engine_spec`), `runtime_selection.py` |
+| Method and engine choice | `hydromodpy/solver/boussinesq/catalog.py` (`resolve_method_spec`, `resolve_engine_spec`, `resolve_runtime_backend`) |
 | Newton loop and the engines | `hydromodpy/solver/boussinesq/runtimes/newton_common.py`, `local.py`, `scipy_dense.py`, `scipy_sparse.py`, `petsc_partition.py`, `petsc_common.py` |
 | Mixed system | `hydromodpy/solver/boussinesq/runtimes/petsc_mixed.py` (`_solve_mixed_problem`) |
 | Experimental obstacle closures | `hydromodpy/solver/boussinesq/runtimes/petsc_vi_obstacle.py`, `runtimes/petsc_ts_vi_obstacle.py`, `runtimes/petsc_vi/obstacle.py`, `runtimes/vi_bounds.py` |

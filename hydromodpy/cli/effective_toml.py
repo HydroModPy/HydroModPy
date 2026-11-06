@@ -15,6 +15,13 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.cli.helpers import (
+    EXIT_CONFIG,
+    EXIT_NOT_FOUND,
+    profile_arg_from_toml,
+    refuse,
+    resolve_profile_output,
+)
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.toml_io.overrides import (
     ENV_PATH_SEPARATOR,
@@ -192,3 +199,23 @@ def resolve_case_name(case: str | None, raw_toml: Mapping[str, Any], config_path
     if declared:
         return str(declared)
     return config_path.stem
+
+
+def toml_target(config: str | Path) -> Path:
+    """Return the TOML file a verb was given, or stop: missing is 10, another suffix is 14."""
+    target = Path(config).expanduser().resolve()
+    if not target.is_file():
+        refuse(f"File not found: {target}", EXIT_NOT_FOUND)
+    if target.suffix != ".toml":
+        refuse(f"Expected a .toml file, got: {target.suffix}", EXIT_CONFIG)
+    return target
+
+
+def profile_output_of(
+    args: argparse.Namespace, raw_toml: Mapping[str, Any], target: Path
+) -> Path | None:
+    """Return where ``--profile``, else ``[workflow] profile``, writes its report, or ``None``."""
+    profile_arg = getattr(args, "profile", None)
+    if profile_arg is None and raw_toml:
+        profile_arg = profile_arg_from_toml(raw_toml)
+    return resolve_profile_output(profile_arg, target)

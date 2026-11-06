@@ -14,6 +14,7 @@ from hydromodpy.physics.forcing.steady_periods import (
     apply_first_clim,
     first_clim_sets_a_deficit,
     one_period_rate,
+    split_net_recharge,
     steady_flags,
 )
 from hydromodpy.physics.forcing.validation import (
@@ -22,7 +23,6 @@ from hydromodpy.physics.forcing.validation import (
     ensure_non_negative_numeric_payload,
     has_temporal_index,
 )
-from hydromodpy.solver.modflow_common.recharge_evt_routing import route_negative_recharge_to_evt
 from hydromodpy.solver.modflow_nwt.nwt.payloads.chd import is_scalar_number
 from hydromodpy.spatial.forcing.cells import (
     discretize_fields_on_cells,
@@ -162,7 +162,7 @@ def extract_negative_recharge_evt_payload(
 
     ``payload`` holds the own rate of every period, before ``first_clim``. A
     transient period keeps its own split; a steady period takes the
-    ``first_clim`` rate on each part (``route_negative_recharge_to_evt``, shared
+    ``first_clim`` rate on each part (``split_net_recharge``, shared
     with MODFLOW 6). Without a negative value or a negative ``first_clim`` on a
     steady period, nothing is routed.
     """
@@ -179,7 +179,7 @@ def extract_negative_recharge_evt_payload(
             kper: (values if values.ndim == 0 else np.asarray(series_value(values, kper)))
             for kper in range(int(nper))
         }
-    clipped, deficit = route_negative_recharge_to_evt(
+    clipped, deficit = split_net_recharge(
         normalized, steady=steady, first_clim=first_clim, durations=durations
     )
     return _scalars_as_floats(clipped), _scalars_as_floats(deficit)

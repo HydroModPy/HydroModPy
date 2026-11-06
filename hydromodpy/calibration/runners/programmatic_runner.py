@@ -21,10 +21,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from hydromodpy.calibration.config import CalibrationConfig, apply_project_defaults
-from hydromodpy.calibration.runners.cli_runner import (
-    refuse_an_objective_that_is_not_an_entry_point,
-    run_single_search,
-)
+from hydromodpy.calibration.runners.document import refuse_an_objective_that_is_not_an_entry_point
+from hydromodpy.calibration.runners.search import run_single_search
 from hydromodpy.calibration.runners.session import calibration_case_name, case_named_by
 from hydromodpy.calibration.runners.state import space_from_config
 from hydromodpy.calibration.runners.trial import TrialMetricFn
@@ -65,7 +63,7 @@ def _write_python_mode_document(
     dumped, so the document carries an absolute path like the rest of the
     embedded config.
     """
-    from hydromodpy.calibration.runners.cli_runner import resolve_stream_geometry_paths
+    from hydromodpy.calibration.runners.document import resolve_stream_geometry_paths
     from hydromodpy.calibration.runners.materialize import write_overlay_toml
     from hydromodpy.core.state.result_dirs import resolve_project_root
 

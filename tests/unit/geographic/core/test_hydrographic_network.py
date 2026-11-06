@@ -16,6 +16,7 @@ import pytest
 import xarray as xr
 from shapely.geometry import LineString, box
 
+from hydromodpy.core.io.crs import measure_linework_length_m, project_gdf_for_metric_operations
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.spatial.geographic.core.hydrographic_network import (
     HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME,
@@ -27,11 +28,7 @@ from hydromodpy.spatial.geographic.core.hydrographic_network import (
     default_vector_filename_for_role,
     hydrographic_network_naming_contract,
 )
-from hydromodpy.spatial.geographic.core.metric_crs import (
-    measure_linework_length_m,
-    measure_polygon_area_m2,
-    project_gdf_for_metric_operations,
-)
+from hydromodpy.spatial.geographic.core.metric_crs import measure_polygon_area_m2
 from hydromodpy.spatial.geographic.core.river_mesh_trace import RiverMeshTrace
 from hydromodpy.spatial.geographic.core.river_network import RiverNetworkProducts
 from tests._helpers.geographic_cases import hydrography_load_result, write_features, write_lines

@@ -33,15 +33,13 @@ from hydromodpy.physics.flow.boundary_condition_registry import (
     boundary_conditions_mapping_from_flow,
     is_boundary_condition_active,
 )
-from hydromodpy.solver.base.protocols import DomainLike
-from hydromodpy.solver.field_property_mapping import (
+from hydromodpy.solver.base.properties import (
     require_positive_conductivity,
     require_positive_storage,
-)
-from hydromodpy.solver.modflow_common.property_mapping import (
-    resolve_flow_property_arrays,
     resolve_required_flow_properties,
 )
+from hydromodpy.solver.base.protocols import DomainLike
+from hydromodpy.solver.modflow_common.property_mapping import resolve_flow_property_arrays
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.solver.modflow_nwt.nwt.payloads.chd import (
     build_initial_heads_and_sides,

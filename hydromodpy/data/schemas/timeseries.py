@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import pandas as pd
 import pandera.pandas as pa
 
 from hydromodpy.core.exceptions import DataContractViolation
+from hydromodpy.data.schemas.validation import format_failures
 
 TimeSeriesSchema = pa.DataFrameSchema(
     columns={
@@ -40,12 +39,5 @@ def validate_timeseries(df: pd.DataFrame, *, context: str | None = None) -> pd.D
     except pa.errors.SchemaErrors as exc:
         raise DataContractViolation(
             f"Time series contract violated{f' ({context})' if context else ''}",
-            failures=_format_failures(exc),
+            failures=format_failures(exc),
         ) from exc
-
-
-def _format_failures(exc: pa.errors.SchemaErrors) -> list[dict[str, Any]]:
-    try:
-        return exc.failure_cases.to_dict(orient="records")
-    except Exception:
-        return [{"message": str(exc)}]

@@ -13,6 +13,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from geopandas import GeoDataFrame
     from matplotlib.axes import Axes
 
     from hydromodpy.results.run import Run
@@ -82,6 +83,25 @@ def style_relative_km_axes(
     ax.tick_params(axis="both", which="major", labelsize=RELATIVE_MAP_TICK_SIZE)
 
 
+MISSING_FEATURE = (AttributeError, KeyError, ValueError, FileNotFoundError, RuntimeError)
+"""What reading a geographic feature a run does not hold raises.
+
+A run-shaped source without a geographic reader, such as the session adapter of
+the calibration report, holds no feature either.
+"""
+
+
+def watershed_of(sim: Run) -> GeoDataFrame | None:
+    """Return the delineated catchment of ``sim``, or None when it has none."""
+    try:
+        gdf = sim.geographic("watershed")
+    except MISSING_FEATURE:
+        return None
+    if gdf is None or gdf.empty:
+        return None
+    return gdf
+
+
 def overlay_watershed_contour(
     ax: Axes,
     sim: Run,
@@ -96,11 +116,8 @@ def overlay_watershed_contour(
     Silently no-ops when the ``watershed`` feature is missing - this keeps
     the helper safe on synthetic cases that have no delineation.
     """
-    try:
-        gdf = sim.geographic("watershed")
-    except Exception:
-        return
-    if gdf is None or gdf.empty:
+    gdf = watershed_of(sim)
+    if gdf is None:
         return
     try:
         if target_crs not in (None, "") and gdf.crs is not None and str(gdf.crs) != str(target_crs):
@@ -126,6 +143,7 @@ def style_date_axis(ax: Axes, *, rotation: int = 0) -> None:
 
 
 __all__ = [
+    "MISSING_FEATURE",
     "overlay_watershed_contour",
     "RELATIVE_MAP_COLORBAR_LABEL_SIZE",
     "RELATIVE_MAP_COLORBAR_TICK_SIZE",
@@ -135,4 +153,5 @@ __all__ = [
     "style_date_axis",
     "style_map_axes",
     "style_relative_km_axes",
+    "watershed_of",
 ]

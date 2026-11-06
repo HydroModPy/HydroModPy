@@ -89,7 +89,6 @@ def _stops_before_setup_process(until_step: str | None) -> bool:
     """Return whether ``--until`` ends the window before ``setup_process``."""
     if until_step is None:
         return False
-    from hydromodpy.core.exceptions import ConfigError
     from hydromodpy.workflow.steps.sequence import standard_steps
     from hydromodpy.workflow.window import model_phase_index, resolve_step_index
 
@@ -402,18 +401,9 @@ def _run_toml(
         _replay_published_copy(copy_dir, config_path, args=args)
         return
 
-    import hydromodpy as hmp
-    from hydromodpy.cli.banner import print_hydromodpy
-    from hydromodpy.project.dispatch.workflow import dispatch_workflow
-    from hydromodpy.project.launch.env import LAUNCHED_ENV
-    from hydromodpy.workflow.dispatch import (
-        WorkflowError,
-        resolve_workflow,
-    )
-
     profile_output = resolve_profile_output(getattr(args, "profile", None), config_path)
 
-    from hydromodpy.config.sites.plan import refuse_env_overrides
+    from hydromodpy.project.launch.sites.plan import refuse_env_overrides
 
     refuse_env_overrides(os.environ, config_path)
 
@@ -428,6 +418,37 @@ def _run_toml(
         refuse(f"Missing file: {exc}", EXIT_NOT_FOUND, cause=exc)
     except ValueError as exc:
         refuse(f"Invalid override: {exc}", EXIT_CONFIG, cause=exc)
+    try:
+        _run_effective(
+            config_path,
+            effective_path,
+            raw_toml,
+            lineage_overrides,
+            args=args,
+            profile_output=profile_output,
+            replayed_copy=replayed_copy,
+        )
+    finally:
+        cleanup_effective_toml(effective_path, source=config_path)
+
+
+def _run_effective(
+    config_path: Path,
+    effective_path: Path | None,
+    raw_toml: dict[str, Any],
+    lineage_overrides: dict[str, Any],
+    *,
+    args: argparse.Namespace,
+    profile_output: Path | None,
+    replayed_copy: Path | None,
+) -> None:
+    """Run the workflow of *config_path* from its effective copy, which the caller removes."""
+    import hydromodpy as hmp
+    from hydromodpy.cli.banner import print_hydromodpy
+    from hydromodpy.project.dispatch.workflow import dispatch_workflow
+    from hydromodpy.project.launch.env import LAUNCHED_ENV
+    from hydromodpy.workflow.dispatch import WorkflowError, resolve_workflow
+
     run_path = effective_path or config_path
 
     # Before the first line is printed: the banner and every step below obey
@@ -441,7 +462,7 @@ def _run_toml(
         profile_output = resolve_profile_output(profile_arg_from_toml(raw_toml), config_path)
 
     dry_run = bool(getattr(args, "dry_run", False))
-    from hydromodpy.config.sites.expansion import is_sites_project
+    from hydromodpy.config.sites import is_sites_project
 
     if is_sites_project(raw_toml):
         cleanup_effective_toml(effective_path, source=config_path)
@@ -454,16 +475,13 @@ def _run_toml(
     try:
         _check_single_site(run_path, raw_toml)
     except ValidationError as exc:
-        cleanup_effective_toml(effective_path, source=config_path)
         refuse(f"Config invalid: {exc}", EXIT_CONFIG, cause=exc)
     except ConfigError as exc:
-        cleanup_effective_toml(effective_path, source=config_path)
         refuse(str(exc), EXIT_CONFIG, cause=exc)
 
     try:
         workflow = resolve_workflow(run_path, cli_workflow=None)
     except WorkflowError as exc:
-        cleanup_effective_toml(effective_path, source=config_path)
         refuse(str(exc), EXIT_CONFIG, cause=exc)
 
     resume = getattr(args, "resume", None)
@@ -487,7 +505,6 @@ def _run_toml(
             try:
                 preflight_launch(run_path)
             except ConfigError as exc:
-                cleanup_effective_toml(effective_path, source=config_path)
                 refuse(f"Config invalid: {exc}", EXIT_CONFIG, cause=exc)
         plan = _dry_run_plan(
             workflow,
@@ -497,7 +514,6 @@ def _run_toml(
             from_step=from_step,
             until_step=until_step,
         )
-        cleanup_effective_toml(effective_path, source=config_path)
         emit(
             args,
             "run",
@@ -506,55 +522,46 @@ def _run_toml(
         )
         return
 
-    if resume is not None and workflow not in ("simulation", "calibration"):
-        cleanup_effective_toml(effective_path, source=config_path)
-        refuse(
+    steps_given = from_step is not None or until_step is not None
+    refusals = (
+        (
+            resume is not None and workflow not in ("simulation", "calibration"),
             "--resume is only supported for the 'simulation' and 'calibration' workflows "
             f"(detected '{workflow}').",
-            EXIT_CONFIG,
-        )
-
-    if resume_ref and workflow == "calibration":
-        cleanup_effective_toml(effective_path, source=config_path)
-        refuse(
+        ),
+        (
+            bool(resume_ref) and workflow == "calibration",
             "A calibration reopens the latest session of the case its file names: "
             f"pass a bare --resume, not --resume {resume_ref}.",
-            EXIT_CONFIG,
-        )
-
-    if (from_step is not None or until_step is not None) and workflow == "calibration":
-        cleanup_effective_toml(effective_path, source=config_path)
-        refuse(
+        ),
+        (
+            steps_given and workflow == "calibration",
             "--from / --until are only supported for the 'simulation' workflow "
             "(detected 'calibration'). To run the first steps of this file, for "
             "example to check the soil reservoir alone, add "
             "--set workflow.mode=simulation: "
             f"hmp run {config_path.name} --until load_data --set workflow.mode=simulation",
-            EXIT_CONFIG,
-        )
-
-    if (from_step is not None or until_step is not None) and workflow != "simulation":
-        cleanup_effective_toml(effective_path, source=config_path)
-        refuse(
-            f"--from / --until are only supported for the "
+        ),
+        (
+            steps_given and workflow != "simulation",
+            "--from / --until are only supported for the "
             f"'simulation' workflow (detected '{workflow}').",
-            EXIT_CONFIG,
-        )
-
-    if force and workflow != "simulation":
-        cleanup_effective_toml(effective_path, source=config_path)
-        refuse(
+        ),
+        (
+            force and workflow != "simulation",
             f"--force is only supported for the 'simulation' workflow "
             f"(detected '{workflow}'), which is the only one that skips an "
             f"identical completed run.",
-            EXIT_CONFIG,
-        )
+        ),
+    )
+    for refused, message in refusals:
+        if refused:
+            refuse(message, EXIT_CONFIG)
 
-    project_root = _resolve_project_root(config_path, raw_toml.get("workspace"))
+    project_root = _resolve_project_root(config_path)
     try:
         refuse_a_sealed_run_as_project(project_root)
     except ConfigError as exc:
-        cleanup_effective_toml(effective_path, source=config_path)
         refuse(str(exc), exit_code_for(exc), cause=exc)
     if frozen:
         from hydromodpy.workflow.replay_checks import sealed_run_of
@@ -568,7 +575,6 @@ def _run_toml(
             try:
                 _verify_frozen_inputs_strict(run_path, raw_toml)
             except FrozenVerificationError as exc:
-                cleanup_effective_toml(effective_path, source=config_path)
                 refuse(f"--frozen: {exc}", EXIT_CONFIG, cause=exc)
 
     try:
@@ -598,10 +604,6 @@ def _run_toml(
                 summary = dispatch_workflow(workflow, run_path)
                 if workflow == "overview":
                     summary = summary.to_dict()
-    except KeyboardInterrupt as exc:
-        _close_dead_attempt(project_root, case_name, exc)
-        print("Aborted by user.", file=sys.stderr)
-        sys.exit(EXIT_SIGINT)
     except ValidationError as exc:
         refuse(f"Config invalid: {exc}", EXIT_CONFIG, cause=exc)
     except FileNotFoundError as exc:
@@ -610,7 +612,6 @@ def _run_toml(
         _close_dead_attempt(project_root, case_name, exc)
         raise
     finally:
-        cleanup_effective_toml(effective_path, source=config_path)
         if workflow in INDEXED_WORKFLOWS and not dry_run and not os.environ.get(LAUNCHED_ENV):
             _index_after_worker(project_root)
 
@@ -771,7 +772,7 @@ def _verify_frozen_inputs_strict(config_path: Path, raw_toml: dict[str, Any]) ->
     from hydromodpy.data.registry.freeze import verify_inputs_strict
 
     workspace_payload = raw_toml.get("workspace") if isinstance(raw_toml, dict) else None
-    project_root = _resolve_project_root(config_path, workspace_payload)
+    project_root = _resolve_project_root(config_path)
 
     lockfile_path = project_lockfile_path(project_root)
     if not lockfile_path.is_file():
@@ -845,21 +846,16 @@ def _index_after_worker(project_root: Path) -> None:
         logger.warning("Index not refreshed after the run: %s", exc)
 
 
-def _resolve_project_root(
-    config_path: Path,
-    workspace_payload: dict[str, Any] | None,
-) -> Path:
+def _resolve_project_root(config_path: Path) -> Path:
     """Return the project root of this config.
 
     Same rule as :meth:`HydroModPyConfig.from_toml`: ``HMP_PROJECT_ROOT``
     first, then the folder holding ``project.toml`` above the file, else the
-    folder of the root file of its ``base_config`` chain.
-    ``workspace_payload`` is unused: ``[workspace] project_root`` is refused
-    in a file.
+    folder of the root file of its ``base_config`` chain. ``[workspace]
+    project_root`` is refused in a file, so the file never names it.
     """
     from hydromodpy.core.toml_io.loader import config_base_dir
 
-    del workspace_payload
     env_root = os.environ.get("HMP_PROJECT_ROOT")
     if env_root:
         return Path(env_root).expanduser().resolve()
@@ -898,9 +894,9 @@ def _resolve_workspace_data_dir(
 
 def _print_sites_dry_run(config_path: Path, *, args: argparse.Namespace) -> None:
     """Print the plan of a ``[sites]`` project and its grouped issues; write nothing."""
-    from hydromodpy.config.sites.budget import dry_run_lines, plan_budget
-    from hydromodpy.config.sites.expansion import expand_plan
-    from hydromodpy.config.sites.issues import group_issues
+    from hydromodpy.project.launch.sites.budget import dry_run_lines, plan_budget
+    from hydromodpy.project.launch.sites.expansion import expand_plan
+    from hydromodpy.project.launch.sites.issues import group_issues
 
     try:
         cli_payload = set_overrides(list(getattr(args, "set_overrides", []) or []))
@@ -1023,13 +1019,13 @@ def _launch_sites_project(config_path: Path, *, args: argparse.Namespace) -> Non
 def _check_single_site(config_path: Path, raw_toml: Mapping[str, Any]) -> None:
     """Refuse a ``[site]`` the workspace site catalog knows as another catchment.
 
-    Raises :class:`~hydromodpy.config.sites.single_site.SiteMismatchError`.
+    Raises :class:`~hydromodpy.data.sites.single_site.SiteMismatchError`.
     A file without ``[site]``, or a workspace without a catalog, passes.
     """
     if "site" not in raw_toml:
         return
     from hydromodpy.config.hydromodpy_config import HydroModPyConfig
-    from hydromodpy.config.sites.single_site import resolve_single_site
+    from hydromodpy.data.sites.single_site import resolve_single_site
 
     cfg = HydroModPyConfig.from_toml(config_path)
     workspace_root = getattr(cfg.workspace, "root", None)

@@ -258,7 +258,7 @@ class TestTheMaskReachesTheModel:
         assert "resolve_sink_mask(" in nwt_src, "the NWT solver stopped resolving the mask"
         assert "self.sink" in nwt_src
 
-        mf6_src = inspect.getsource(mf6_build.run_pre_processing)
+        mf6_src = inspect.getsource(mf6_build._mask_lakes)
         assert "resolve_sink_mask(" in mf6_src, "MODFLOW 6 stopped resolving the mask"
         assert "model.sink" in mf6_src
 

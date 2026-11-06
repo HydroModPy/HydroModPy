@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from hydromodpy.config.schema_export import editor_schema
+from hydromodpy.schema.config_schema import editor_schema
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_OUTPUT = REPO_ROOT / "docs" / "source" / "_static" / "hydromodpy-schema.json"

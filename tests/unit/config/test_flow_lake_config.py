@@ -20,6 +20,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from hydromodpy.physics.flow.binders.payloads import payloads_as_mappings
 from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.physics.flow.sinks_sources import (
     FlowLakeConfig,
@@ -29,7 +30,6 @@ from hydromodpy.physics.flow.sinks_sources import (
     FlowLakeOutletWeir,
     FlowSinksSourcesConfig,
 )
-from hydromodpy.physics.flow.structure_binders import _lake_payloads_as_mappings
 from hydromodpy.solver.modflow6.builders.lake import convert_bedleak_to_per_s
 
 
@@ -96,7 +96,7 @@ def test_bedleak_unit_reaches_the_builder_through_the_binder() -> None:
         {"bedleak": 1.0, "initial_stage": "85 m", "bedleak_unit": "1/day"}
     )
     flow = SimpleNamespace(sinks_sources={"lakes": {"lac0": lake}})
-    payloads = _lake_payloads_as_mappings(flow)
+    payloads = payloads_as_mappings(flow, "lakes")
     assert payloads["lac0"]["bedleak_unit"] == "1/day"
     converted = convert_bedleak_to_per_s(
         payloads["lac0"]["bedleak"], lake_id="lac0", unit=payloads["lac0"]["bedleak_unit"]

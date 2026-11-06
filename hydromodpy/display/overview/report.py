@@ -6,14 +6,17 @@ HTML page under the workspace output root.
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.display.overview.location import overview_figures_dir, overview_run_dir_of
+from hydromodpy.display.overview.location import (
+    overview_figures_dir,
+    overview_run_dir_of,
+    review_pages_enabled,
+)
 from hydromodpy.display.overview.panels import (
     render_climatic_summary,
     render_dem_map,
@@ -26,7 +29,13 @@ from hydromodpy.display.overview.panels import (
     render_timeseries_multi,
     render_water_quality,
 )
-from hydromodpy.display.overview.summary import compute_overview_summary
+from hydromodpy.display.overview.summary import (
+    compute_overview_summary,
+    hydrography_vector_path,
+    outlet_xy,
+    regional_context_title,
+    station_inventory,
+)
 from hydromodpy.display.overview.web import (
     write_overview_review_web_reports,
     write_overview_web_report,
@@ -62,9 +71,8 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
     title = summary.watershed_name or "Catchment"
     overview_cfg = state.cfg.overview
     regional_dem_path = _regional_dem_path(state, dg, fallback=dem_path)
-    regional_title = _regional_context_title(
-        regional_dem_path,
-        label=getattr(overview_cfg, "regional_context_label", None),
+    regional_title = regional_context_title(
+        getattr(overview_cfg, "regional_context_label", None), (regional_dem_path,)
     )
     date_start = getattr(overview_cfg, "date_start", None)
     date_end = getattr(overview_cfg, "date_end", None)
@@ -82,7 +90,7 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
                 watershed_shp=str(watershed_shp),
                 streams_gdf=None,
                 station_points=station_points,
-                outlet_xy=_outlet_xy(dg),
+                outlet_xy=outlet_xy(dg),
                 title=regional_title,
             )
         )
@@ -97,7 +105,7 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
                 watershed_shp=str(watershed_shp) if watershed_shp else None,
                 streams_gdf=streams_gdf,
                 station_points=station_points,
-                outlet_xy=_outlet_xy(dg),
+                outlet_xy=outlet_xy(dg),
                 relative_ticks=True,
                 title=f"{title} - DEM",
             )
@@ -119,9 +127,6 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
         )
 
     if panels_cfg.map_hydrography and dem_path:
-        outlet_xy = None
-        if dg and dg.x_outlet is not None and dg.y_outlet is not None:
-            outlet_xy = (float(dg.x_outlet), float(dg.y_outlet))
         paths.append(
             _render_panel(
                 output_dir / "map_hydrography.png",
@@ -130,7 +135,7 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
                 dem_path=str(dem_path),
                 watershed_shp=str(watershed_shp) if watershed_shp else None,
                 streams_gdf=streams_gdf,
-                outlet_xy=outlet_xy,
+                outlet_xy=outlet_xy(dg),
                 relative_ticks=True,
                 stream_label="BD Topage",
                 title="BD Topage hydrographic network",
@@ -233,7 +238,7 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
         )
 
     if panels_cfg.station_inventory:
-        inventory = _build_station_inventory(state)
+        inventory = station_inventory(state)
         paths.append(
             _render_panel(
                 output_dir / "station_inventory.png",
@@ -244,7 +249,7 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
         )
 
     write_overview_web_report(state, figure_paths=paths)
-    if _write_review_pages_enabled():
+    if review_pages_enabled():
         write_overview_review_web_reports(state, figure_paths=paths)
 
     logger.info("[overview] Generated %d panel artifact(s) in %s", len(paths), output_dir)
@@ -274,12 +279,6 @@ def _render_panel(save_path: Path, *, figsize: tuple[float, float], render_fn, *
     return save_path
 
 
-def _outlet_xy(dg) -> tuple[float, float] | None:
-    if dg and dg.x_outlet is not None and dg.y_outlet is not None:
-        return (float(dg.x_outlet), float(dg.y_outlet))
-    return None
-
-
 def _regional_dem_path(state: DataOverviewState, dg, *, fallback) -> Path | None:
     candidates = [
         getattr(dg, "regional_dem_path", None) if dg else None,
@@ -295,24 +294,6 @@ def _regional_dem_path(state: DataOverviewState, dg, *, fallback) -> Path | None
     return None
 
 
-def _regional_context_title(regional_dem_path: Path | None, *, label: str | None = None) -> str:
-    if label:
-        return label
-    if regional_dem_path is None:
-        return "Regional setting"
-    name = regional_dem_path.stem.lower()
-    if "armorican" in name or "armoricain" in name:
-        return "Setting in the Armorican Massif"
-    if "bretagne" in name or "brittany" in name:
-        return "Setting in Brittany"
-    return "Regional setting"
-
-
-def _write_review_pages_enabled() -> bool:
-    value = os.environ.get("HMP_OVERVIEW_HTML_REVIEW_LEVELS", "")
-    return value.strip().lower() in {"1", "true", "yes", "on"}
-
-
 # ---------------------------------------------------------------------------
 # Helpers - domain-to-generic conversions
 # ---------------------------------------------------------------------------
@@ -321,7 +302,7 @@ def _write_review_pages_enabled() -> bool:
 def _load_streams_gdf(hydrography):
     if hydrography is None:
         return None
-    streams_path = _hydrography_vector_path(hydrography)
+    streams_path = hydrography_vector_path(hydrography)
     if streams_path is None:
         return None
     try:
@@ -330,16 +311,6 @@ def _load_streams_gdf(hydrography):
         return gpd.read_file(streams_path)
     except Exception:
         return None
-
-
-def _hydrography_vector_path(hydrography) -> str | None:
-    for record in getattr(hydrography, "fields", None) or ():
-        metadata = getattr(record, "metadata", None)
-        if isinstance(metadata, dict):
-            path = metadata.get("vector_path")
-            if path not in (None, ""):
-                return str(path)
-    return None
 
 
 def _load_geology_gdf(geology):
@@ -481,11 +452,6 @@ def _monthly_mean_from_points(records) -> np.ndarray | None:
 
 def _monthly_mean_from_fields(fields) -> np.ndarray | None:
     """Compute monthly climatology averaged over space for xarray-backed fields."""
-    try:
-        import xarray as xr  # noqa: F401
-    except ImportError:
-        return None
-
     out = np.full(12, np.nan, dtype=float)
     samples = np.zeros(12, dtype=int)
     for rec in fields:
@@ -562,45 +528,3 @@ def _build_station_points(ld) -> list[dict] | None:
                 }
             )
     return points or None
-
-
-def _build_station_inventory(state: DataOverviewState) -> list[dict[str, Any]]:
-    """Build a flat list of station dicts for the inventory table.
-
-    Stations are deduped by ``(type, station_id)`` so that variables like
-    water_quality - which emit one PointRecord per (station, parameter) -
-    don't blow up the inventory into thousands of rows. Period is the
-    union of all per-parameter records for that station.
-    """
-    ld = state.loaded_data
-    seen: dict[tuple[str, str], dict[str, Any]] = {}
-    for label, attr in [
-        ("Hydrometry", "hydrometry"),
-        ("Piezometry", "piezometry"),
-        ("Intermittency", "intermittency"),
-        ("Water quality", "water_quality"),
-    ]:
-        lr = getattr(ld, attr, None)
-        if lr is None:
-            continue
-        for rec in lr.points:
-            key = (label, rec.station_id)
-            loc = rec.location
-            start = str(rec.date_start.date()) if rec.date_start else ""
-            end = str(rec.date_end.date()) if rec.date_end else ""
-            if key not in seen:
-                seen[key] = {
-                    "type": label,
-                    "id": rec.station_id,
-                    "x": loc.x if loc else 0.0,
-                    "y": loc.y if loc else 0.0,
-                    "start": start,
-                    "end": end,
-                }
-                continue
-            existing = seen[key]
-            if start and (not existing["start"] or start < existing["start"]):
-                existing["start"] = start
-            if end and (not existing["end"] or end > existing["end"]):
-                existing["end"] = end
-    return list(seen.values())

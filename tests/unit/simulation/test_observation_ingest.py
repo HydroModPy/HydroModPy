@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 
 from hydromodpy.results.storage.run_store import RunStore
-from hydromodpy.simulation.extraction.derivation.observation_ingest import (
+from hydromodpy.simulation.observation_ingest import (
     ingest_observations,
 )
 

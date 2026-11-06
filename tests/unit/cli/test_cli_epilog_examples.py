@@ -13,23 +13,11 @@ import shlex
 
 import pytest
 
-from hydromodpy.cli.conventions import OldVerb
 from hydromodpy.cli.main import _build_parser
+from tests.unit.cli._tree import leaves
 
 HEAD = re.compile(r"^Examples?:\s*$")
 NAMES_OF_EXAMPLE_PROJECTS = ("cheze", "nancon", "naizin", "step4", "step5")
-
-
-def _leaves(parser: argparse.ArgumentParser, path: tuple[str, ...] = ()):
-    if isinstance(parser, OldVerb):
-        return
-    subs = [a for a in parser._actions if isinstance(a, argparse._SubParsersAction)]
-    if not subs:
-        yield path, parser
-        return
-    for action in subs:
-        for name, sub in action.choices.items():
-            yield from _leaves(sub, (*path, name))
 
 
 def _example_lines(epilog: str | None) -> list[str]:
@@ -56,7 +44,7 @@ def _argv(line: str) -> list[str]:
     return words[1:]
 
 
-LEAVES = list(_leaves(_build_parser()))
+LEAVES = list(leaves())
 
 
 @pytest.mark.parametrize("path", [p for p, _ in LEAVES], ids=lambda p: " ".join(p))

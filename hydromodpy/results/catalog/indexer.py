@@ -96,11 +96,11 @@ from hydromodpy.results.catalog.index_schema import (
 )
 from hydromodpy.results.catalog.registration import split_stem_version
 from hydromodpy.results.catalog.views import ensure_views
-from hydromodpy.results.export.run_identity import label_of
 from hydromodpy.results.heartbeat import read_heartbeat
 from hydromodpy.results.manifest import Manifest, read_seal
 from hydromodpy.results.outcome import Outcome, effective_status, read_outcome
 from hydromodpy.results.record import read_provenance
+from hydromodpy.results.run_identity import label_of
 from hydromodpy.results.session.descriptor import SessionDescriptor, read_session
 from hydromodpy.results.session.journal import read_trials
 from hydromodpy.results.session.phase import list_phases
@@ -119,15 +119,13 @@ from hydromodpy.results.storage.contract import (
     SESSION_TRIALS_FILENAME,
     SIMULATION_TABLE_NAME,
     TABLES_DIRNAME,
+    geographic_feature_files,
 )
 from hydromodpy.results.storage.json_io import beside_seal, read_json, readable, reason_text
 from hydromodpy.results.storage.parquet_io import read_checked_table
 from hydromodpy.results.validity_rules import RULE_VERSION, load_known_issues
 
 logger = get_logger(__name__)
-
-GEOGRAPHIC_FEATURE_PREFIX = "geographic_"
-"""Prefix of the per-feature GeoParquet payloads inside ``tables.parquet``."""
 
 EntryKind = Literal["run", "trial", "session"]
 
@@ -708,9 +706,8 @@ class _IndexWriter:
         return len(catchment)
 
     def _insert_geographic_features(self, sim_id: str, tables_dir: Path) -> int:
-        payloads = sorted(tables_dir.glob(f"{GEOGRAPHIC_FEATURE_PREFIX}*{PARQUET_FILE_SUFFIX}"))
-        for payload in payloads:
-            feature_name = payload.name[len(GEOGRAPHIC_FEATURE_PREFIX) : -len(PARQUET_FILE_SUFFIX)]
+        payloads = geographic_feature_files(tables_dir)
+        for feature_name, payload in payloads.items():
             geometry_kind, crs, properties = _describe_geoparquet(payload)
             self.insert(
                 "geographic_features",
@@ -1187,7 +1184,6 @@ def _discard(staging: Path) -> None:
 
 __all__ = [
     "DiskEntry",
-    "GEOGRAPHIC_FEATURE_PREFIX",
     "IndexReport",
     "SkippedEntry",
     "index_is_current",

@@ -11,7 +11,7 @@ period and is left out.
 Discharge is the water leaving the aquifer at the surface, the drains and the
 saturation excess summed per timestep over the catchment, as a positive number
 (matching the MODFLOW ``extract_discharge_from_cbc`` helper). The run reports the
-same sum on the same cells (``simulation.extraction.derivation.catchment_aggregation``). Heads are
+same sum on the same cells (``simulation.catchment_aggregation``). Heads are
 read at flattened cell indices: the Boussinesq mesh is one-layer-unstructured so the ``(k, i, j)``
 station tuple is interpreted as ``cell_id = j`` with ``k == 0`` and
 ``i == 0`` (other layouts raise).

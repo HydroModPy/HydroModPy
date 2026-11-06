@@ -32,7 +32,7 @@ from hydromodpy.core.exceptions import DataProductError
 from hydromodpy.data.source import registry
 from hydromodpy.data.source.port import DataSource, Extent, FetchRequest
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     import geopandas as gpd
 
 

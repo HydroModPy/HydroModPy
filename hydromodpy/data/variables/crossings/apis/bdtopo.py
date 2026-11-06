@@ -33,7 +33,7 @@ from hydromodpy.data.variables.crossings import records
 from hydromodpy.data.variables.crossings.apis import wfs
 from hydromodpy.schema.media_types import JSON_MEDIA_TYPE
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     import geopandas as gpd
 
     from hydromodpy.data.managers.base_manager_common import SourceContext

@@ -27,7 +27,7 @@ from hydromodpy.results.export.context import (
     _is_missing,
     to_json,
 )
-from hydromodpy.results.export.directory import context_from_directory, write_view
+from hydromodpy.results.export.directory import context_from_directory
 from hydromodpy.schema.generated_views import STAC_ITEM_VIEW_FILENAME
 from hydromodpy.schema.media_types import GEOJSON_MEDIA_TYPE, JSON_MEDIA_TYPE
 
@@ -262,7 +262,7 @@ def write_stac_item_view(
     root = Path(directory)
     ctx = context or context_from_directory(root)
     item = build_stac_item(ctx, self_href=STAC_ITEM_VIEW_FILENAME, collection_href=None)
-    return write_view(root / STAC_ITEM_VIEW_FILENAME, item)
+    return to_json(item, root / STAC_ITEM_VIEW_FILENAME)
 
 
 def validate_item(payload: dict[str, Any]) -> tuple[bool, list[str]]:

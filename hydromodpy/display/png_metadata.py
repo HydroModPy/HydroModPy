@@ -111,7 +111,9 @@ def write_png_with_metadata(
     )
     pnginfo = _make_pnginfo(chunks)
 
-    if _is_matplotlib_figure(fig_or_array):
+    from matplotlib.figure import Figure as MplFigure
+
+    if isinstance(fig_or_array, MplFigure):
         fig_or_array.savefig(
             out,
             dpi=dpi,
@@ -134,15 +136,6 @@ def write_png_with_metadata(
         )
     image.save(out, format="PNG", pnginfo=pnginfo, optimize=False)
     return out
-
-
-def _is_matplotlib_figure(obj: object) -> bool:
-    try:
-        from matplotlib.figure import Figure as MplFigure
-
-        return isinstance(obj, MplFigure)
-    except ImportError:
-        return False
 
 
 def _normalize_2d(array: np.ndarray) -> np.ndarray:
@@ -217,7 +210,6 @@ def _with_footer(image, text: str, image_draw, image_font, image_module):
 
 __all__ = [
     "FOOTER_COLOR",
-    "HMP_VERSION",
     "SOFTWARE_TAG",
     "read_png_metadata",
     "stamp_png_identity",

@@ -11,11 +11,11 @@ from hydromodpy.core.console import progress
 from hydromodpy.core.time.steady_initialization import (
     single_period_mean_forcing_time_grid,
 )
-from hydromodpy.solver.modflow_common import ModflowPreprocessOptions, ModflowRunOptions
-from hydromodpy.solver.steady_initial_conditions import (
+from hydromodpy.solver.base.initial_conditions import (
     flow_uses_steady_state_initial_condition,
     steady_flow_copy_for_initialization,
 )
+from hydromodpy.solver.modflow_common import ModflowPreprocessOptions, ModflowRunOptions
 
 
 def _read_final_head(head_path: Path, *, nlay: int, nrow: int, ncol: int) -> np.ndarray:

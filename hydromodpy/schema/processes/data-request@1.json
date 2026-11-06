@@ -2189,7 +2189,7 @@
                   }
                 ],
                 "default": "QmnJ",
-                "description": "Hub'Eau variable code (e.g. 'QmnJ', 'QmM', 'HmnJ').",
+                "description": "Hub'Eau variable code (e.g. 'QmnJ', 'QmM', 'HIXnJ').",
                 "examples": [
                   "QmnJ"
                 ],

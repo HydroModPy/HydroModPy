@@ -12,9 +12,9 @@ import pytest
 from pydantic import BaseModel, ConfigDict
 
 import hydromodpy.results.exporters.request as request_module
-import hydromodpy.simulation.extraction.post_run as post_run_module
+import hydromodpy.simulation.post_run as post_run_module
 import hydromodpy.workflow.steps.export as export_module
-from hydromodpy.calibration.runners.cli_runner import release_session_scratch
+from hydromodpy.calibration.runners.session_scope import release_session_scratch
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
@@ -38,13 +38,13 @@ from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps.export import step_cleanup_preprocessing, step_cleanup_scratch
 from hydromodpy.workflow.steps.prepare_solver.dispatch import bind_run_directory, initial_facts
 from hydromodpy.workflow.steps.prepare_solver.facts import collect_effective_config_snapshot
-from tests.unit.results._run_record_factory import make_record
+from tests._helpers.run_records import make_record
 
 
 @pytest.fixture
 def sealed(tmp_path):
     """Return a factory of contexts naming a sealed run directory."""
-    from tests.unit.results._run_record_factory import make_record
+    from tests._helpers.run_records import make_record
 
     def make(*, duration_s: float | None = 42.0, nse: float | None = 0.4567) -> SimpleNamespace:
         record = make_record()

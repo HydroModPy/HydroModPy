@@ -1,5 +1,3 @@
-"""Unit tests for the transport process wrapper."""
-
 from __future__ import annotations
 
 import pytest
@@ -8,6 +6,7 @@ from pydantic import ValidationError
 from hydromodpy.physics.transport.transport import Transport, TransportInitialConditions
 from hydromodpy.physics.transport.transport_config import (
     Modflow6PrtParametersConfig,
+    ModpathParametersConfig,
     TransportConfig,
 )
 
@@ -68,20 +67,6 @@ def test_transport_set_parameters_accepts_nested_and_flat_solver_payloads() -> N
     assert transport.parameters["custom"] == "kept"
 
 
-def test_transport_update_helpers_keep_public_parameter_mapping_in_sync() -> None:
-    transport = Transport()
-
-    transport.update_modpath_parameters(sel_slice=2)
-    transport.update_mt3dms_parameters(sconc_init=3.0)
-    transport.update_modflow6gwt_parameters(diffu_coeff=1.0e-6)
-    transport.update_modflow6prt_parameters(stop_time=20.0)
-
-    assert transport.parameters["modpath"]["sel_slice"] == 2
-    assert transport.parameters["mt3dms"]["sconc_init"] == 3.0
-    assert transport.parameters["modflow6gwt"]["diffu_coeff"] == 1.0e-6
-    assert transport.parameters["modflow6prt"]["stop_time"] == 20.0
-
-
 def test_transport_initial_conditions_are_structural_and_validated() -> None:
     transport = Transport()
 
@@ -134,3 +119,20 @@ def test_transport_boundary_conditions_and_sinks_sources_merge_payloads() -> Non
 
     assert sorted(transport.boundary_conditions) == ["outlet", "source"]
     assert transport.sinks_sources == {"recharge_concentration": 1.0}
+
+
+# MODPATH builds starting locations for forward and backward tracking only.
+
+
+def test_custom_track_dir_is_refused_with_the_values_to_write() -> None:
+    with pytest.raises(ValidationError) as excinfo:
+        ModpathParametersConfig(track_dir="custom")
+    message = str(excinfo.value)
+    assert "no starting location" in message
+    assert "'forward' or 'backward'" in message
+    assert "zone_partic" in message
+
+
+@pytest.mark.parametrize("direction", ["forward", "backward"])
+def test_forward_and_backward_are_accepted(direction: str) -> None:
+    assert ModpathParametersConfig(track_dir=direction).track_dir == direction

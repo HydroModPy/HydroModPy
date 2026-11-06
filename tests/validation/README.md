@@ -69,7 +69,7 @@ defaults.
 
 ## Environment
 
-Use the project environment (`micromamba activate hmp_dev`) and run from the
+Use the project environment (`micromamba activate hydromodpy-dev`) and run from the
 repository root. MODFLOW-NWT and MODFLOW 6 executables must be reachable.
 The `boussinesq_local` engine needs nothing more.
 

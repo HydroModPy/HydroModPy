@@ -14,7 +14,7 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.data.variables.crossings import records
 from hydromodpy.data.variables.crossings.config import KINDS
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     import geopandas as gpd
 
 logger = get_logger(__name__)

@@ -14,7 +14,7 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.api_client import get_json
 from hydromodpy.data.common.clients.hubeau import keep_nearest, station_period_overlaps
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     import pandas as pd
 
     from hydromodpy.data.contracts.location import StationLocation

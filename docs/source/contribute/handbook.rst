@@ -86,8 +86,8 @@ file takes effect on the next import. Pick the recipe for your platform.
 
          git clone https://github.com/HydroModPy/HydroModPy.git
          cd HydroModPy
-         conda env create -n hmp-dev -f install/env_hydromodpy_pkg.yml
-         conda activate hmp-dev
+         conda env create -f install/env_hydromodpy_pkg.yml
+         conda activate hydromodpy-dev
          pre-commit install
 
    .. tab-item:: Linux or WSL helper

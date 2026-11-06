@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.data.contracts import LoadResult, PointRecord
-from hydromodpy.simulation.soil_recharge import gauged_discharge_line
+from hydromodpy.simulation.soil.budget import gauged_discharge_line
 
 _DAYS = pd.date_range("2015-01-01", periods=10, freq="D").values
 _AREA_KM2 = 10.0

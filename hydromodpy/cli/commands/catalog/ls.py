@@ -24,7 +24,6 @@ from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspac
 from hydromodpy.cli.helpers import (
     EXIT_NOT_FOUND,
     EXIT_USAGE,
-    apply_verbosity,
     exit_code_for,
     find_workspace_root,
     refuse,
@@ -186,7 +185,6 @@ def _site_of(value: Any) -> str:
 
 
 def run(args: argparse.Namespace) -> None:
-    apply_verbosity(args, {})
     from hydromodpy.cli._workers.catalog import list_simulations
     from hydromodpy.results.catalog import iter_project_catalog_roots
     from hydromodpy.results.catalog.constants import UnrankedMetricError

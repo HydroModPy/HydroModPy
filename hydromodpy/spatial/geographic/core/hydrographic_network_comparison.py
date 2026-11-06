@@ -12,11 +12,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from hydromodpy.core.io.crs import measure_linework_length_m, project_gdf_for_metric_operations
 from hydromodpy.spatial.geographic.core.hydrographic_network import HydrographicNetwork
-from hydromodpy.spatial.geographic.core.metric_crs import (
-    measure_linework_length_m,
-    project_gdf_for_metric_operations,
-)
 from hydromodpy.spatial.geographic.core.river_mesh_trace import linear_parts
 
 if TYPE_CHECKING:

@@ -75,11 +75,6 @@ def _run(project: Path, name: str, *, budget: bool = True, seal: bool = True) ->
     return sim_id
 
 
-@pytest.fixture
-def project(tmp_path: Path) -> Path:
-    return tmp_path / "workspace"
-
-
 def test_the_depth_is_reduced_to_its_extremes_over_every_step(project: Path) -> None:
     sim_id = _run(project, "coarse")
 

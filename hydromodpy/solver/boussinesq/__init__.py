@@ -29,7 +29,7 @@ __all__ = ["Boussinesq", "BoussinesqMesh", "BoussinesqState"]
 _LAZY_IMPORTS = {
     "Boussinesq": "hydromodpy.solver.boussinesq.boussinesq:Boussinesq",
     "BoussinesqMesh": "hydromodpy.solver.boussinesq.mesh:BoussinesqMesh",
-    "BoussinesqState": "hydromodpy.solver.boussinesq.core.state:BoussinesqState",
+    "BoussinesqState": "hydromodpy.solver.boussinesq.state:BoussinesqState",
 }
 
 

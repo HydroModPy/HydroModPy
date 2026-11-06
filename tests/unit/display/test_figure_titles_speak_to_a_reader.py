@@ -34,18 +34,6 @@ MONTHLY = pd.date_range("2000-01-01", "2003-01-01", freq="MS")
 DAILY = pd.date_range("2002-10-01", "2002-11-01", freq="D")
 
 
-@pytest.fixture
-def mpl():
-    pytest.importorskip("matplotlib")
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
-    yield plt
-    plt.close("all")
-
-
 # --------------------------------------------------------------------------- #
 # the station
 # --------------------------------------------------------------------------- #

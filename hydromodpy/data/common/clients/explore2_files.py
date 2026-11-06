@@ -26,7 +26,7 @@ import numpy as np
 from hydromodpy.core.exceptions import DataContractViolation
 from hydromodpy.data.common.unit_helpers import convert_array
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     import xarray as xr
 
     from hydromodpy.data.contracts.spatial_field import FieldRecord

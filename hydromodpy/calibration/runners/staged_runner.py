@@ -3,7 +3,7 @@
 A staged calibration runs the phases of ``[[calibration.phases]]`` in
 declaration order. Each phase is an ordinary mono-phase calibration: it gets
 its own configuration, its own optimizer, its own session, and goes through
-:func:`hydromodpy.calibration.runners.cli_runner.run_calibration_core` like
+:func:`hydromodpy.calibration.runners.search.run_calibration_core` like
 any other. What staging adds is what happens between two phases.
 
 Passing values on
@@ -86,24 +86,11 @@ from hydromodpy.calibration.report import (
     PhaseRun,
     samples_text,
 )
-from hydromodpy.calibration.runners.cli_runner import (
-    SessionScope,
-    answered_best,
-    attach_a_linearized_width,
-    closing_session,
+from hydromodpy.calibration.runners.document import (
     declared_window_text,
-    keep_trial_solves,
     load_calibration_document,
-    open_calibration_session,
-    parameter_widths,
-    promote_and_close,
-    refuse_a_phase_another_cost_scored,
     refuse_an_objective_that_is_not_an_entry_point,
-    release_session_scratch,
-    release_trial_solves,
-    run_one_search,
     session_cost_name,
-    session_status_of,
 )
 from hydromodpy.calibration.runners.phase_regime import phase_overrides, regime_overrides
 from hydromodpy.calibration.runners.prepared_model import check_the_prepared_model
@@ -116,9 +103,26 @@ from hydromodpy.calibration.runners.resume import (
     fingerprint_matches,
     reusable_stage,
 )
+from hydromodpy.calibration.runners.search import (
+    attach_a_linearized_width,
+    parameter_widths,
+    run_one_search,
+)
 from hydromodpy.calibration.runners.session import (
     project_root_for,
     search_windows,
+)
+from hydromodpy.calibration.runners.session_scope import (
+    SessionScope,
+    answered_best,
+    closing_session,
+    keep_trial_solves,
+    open_calibration_session,
+    promote_and_close,
+    refuse_a_phase_another_cost_scored,
+    release_session_scratch,
+    release_trial_solves,
+    session_status_of,
 )
 from hydromodpy.calibration.runners.state import build_cache_context, space_from_config
 from hydromodpy.calibration.runners.state import (
@@ -715,7 +719,7 @@ def _reused_phase_cost_block_fractions(
     """Return a reused phase's ``cost_block_fractions``, or why it has none.
 
     Same definition as the live path
-    (:func:`hydromodpy.calibration.runners.cli_runner._phase_cost_block_fractions`),
+    (:func:`hydromodpy.calibration.runners.search.phase_cost_block_fractions`),
     through the same functions, read from the journaled trials of the phase
     instead of an in-memory history.
 

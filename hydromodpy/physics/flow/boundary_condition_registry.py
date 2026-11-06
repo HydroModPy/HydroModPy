@@ -9,13 +9,41 @@ how to translate them.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Literal
 
-from hydromodpy.physics.flow.boundary_conditions import (
-    DIRICHLET_BC_CANONICAL_DOMAINS,
-)
+ALLOWED_BC_APPLICATION_DOMAINS = {
+    "top",
+    "north side",
+    "west side",
+    "east side",
+    "south side",
+}
+"""Supported target domains for boundary-condition application.
+
+These values are used by validators and normalizers to reject unsupported
+domains early. If one payload defines `application_domain`, the value must be
+in this set.
+"""
+
+DIRICHLET_BC_CANONICAL_DOMAINS: dict[str, str] = {
+    "ocean": "top",
+    "stream": "top",
+    "north_side": "north side",
+    "south_side": "south side",
+    "east_side": "east side",
+    "west_side": "west side",
+}
+"""Mapping from canonical Dirichlet identifiers to their implied domain.
+
+This table encodes the process convention:
+- key is the boundary-condition id expected in `[flow.bc.dirichlet.<id>]`,
+- value is the unique `application_domain` allowed for this id.
+
+Example:
+- `north_side` must map to `north side` and cannot target any other domain.
+"""
 
 FlowBoundaryFamily = Literal["dirichlet", "head_dependent_exchange", "advanced_package"]
 FlowBoundarySupportKind = Literal[
@@ -54,14 +82,6 @@ class FlowBoundaryDefinition:
     def supports_backend(self, backend: str) -> bool:
         """Return whether one backend advertises support for this boundary."""
         return str(backend) in self.supported_backends
-
-    def package_for_backend(self, backend: str) -> str | None:
-        """Return the backend package/operator name used for this boundary."""
-        backend_name = str(backend).strip()
-        for known_backend, package in self.backend_packages.items():
-            if known_backend == backend_name:
-                return package
-        return None
 
 
 FLOW_BOUNDARY_DEFINITIONS: dict[str, FlowBoundaryDefinition] = {
@@ -199,6 +219,18 @@ FLOW_BOUNDARY_DEFINITIONS: dict[str, FlowBoundaryDefinition] = {
         supports_forcing=True,
     ),
 }
+
+
+FORCING_CAPABLE_DIRICHLET_BC_IDS: frozenset[str] = frozenset(
+    bc_id
+    for bc_id, definition in FLOW_BOUNDARY_DEFINITIONS.items()
+    if definition.family == "dirichlet" and definition.supports_forcing
+)
+"""Dirichlet ids whose head may follow a chronicle rather than stay a number.
+
+A tide and a stream stage move, and every backend that builds these boundaries
+already reads their head as one value per stress period.
+"""
 """Canonical boundary-condition definitions supported by the flow process."""
 
 SUPPORTED_FLOW_BOUNDARY_IDS = frozenset(FLOW_BOUNDARY_DEFINITIONS)
@@ -208,16 +240,6 @@ SUPPORTED_FLOW_BOUNDARY_IDS = frozenset(FLOW_BOUNDARY_DEFINITIONS)
 def boundary_definition(bc_id: str) -> FlowBoundaryDefinition | None:
     """Return the canonical definition for one boundary id, when known."""
     return FLOW_BOUNDARY_DEFINITIONS.get(str(bc_id).strip())
-
-
-def side_dirichlet_boundary_ids() -> tuple[str, ...]:
-    """Return side Dirichlet ids in a stable solver-facing order."""
-    return SIDE_DIRICHLET_BC_IDS_ORDERED
-
-
-def canonical_dirichlet_boundary_ids() -> tuple[str, ...]:
-    """Return all canonical Dirichlet ids in a stable order."""
-    return (*SIDE_DIRICHLET_BC_IDS_ORDERED, "stream", "ocean")
 
 
 def supported_boundary_ids_for_backend(backend: str) -> frozenset[str]:
@@ -270,53 +292,10 @@ class BoundaryConditionBundle:
         """Return one configured boundary payload."""
         return self.conditions.get(str(bc_id).strip(), default)
 
-    def get_active(self, bc_id: str, default=None):
-        """Return one configured boundary payload only when active."""
-        normalized_id = str(bc_id).strip()
-        if normalized_id not in self.active_ids:
-            return default
-        return self.conditions.get(normalized_id, default)
-
-    def require_active(self, bc_id: str) -> object:
-        """Return one active boundary or raise a clear contract error."""
-        normalized_id = str(bc_id).strip()
-        boundary = self.get_active(normalized_id)
-        if boundary is None:
-            raise ValueError(f"Active boundary '{normalized_id}' is missing from flow.bc.")
-        return boundary
-
-    def active_defined_items(self) -> Iterator[tuple[str, object]]:
-        """Yield ``(id, boundary)`` pairs for active boundaries that are defined."""
-        for bc_id in self.active_ids:
-            boundary = self.conditions.get(bc_id)
-            if boundary is not None:
-                yield bc_id, boundary
-
-    def active_definition_items(
-        self,
-        *,
-        family: FlowBoundaryFamily | None = None,
-        backend: FlowBoundaryBackend | str | None = None,
-    ) -> Iterator[tuple[str, object, FlowBoundaryDefinition]]:
-        """Yield active defined boundaries with their canonical definition."""
-        for bc_id, boundary in self.active_defined_items():
-            definition = boundary_definition(bc_id)
-            if definition is None:
-                continue
-            if family is not None and definition.family != family:
-                continue
-            if backend is not None and not definition.supports_backend(str(backend)):
-                continue
-            yield bc_id, boundary, definition
-
     def active_side_dirichlet_ids(self) -> tuple[str, ...]:
         """Return active side Dirichlet ids in canonical solver order."""
         active = set(self.active_ids)
         return tuple(bc_id for bc_id in SIDE_DIRICHLET_BC_IDS_ORDERED if bc_id in active)
-
-    def missing_active_ids(self) -> tuple[str, ...]:
-        """Return active ids that have no configured boundary payload."""
-        return tuple(bc_id for bc_id in self.active_ids if bc_id not in self.conditions)
 
     def unknown_active_ids(self) -> tuple[str, ...]:
         """Return active ids that are not canonical flow boundary definitions."""
@@ -359,7 +338,10 @@ def active_side_dirichlet_boundary_ids(flow: object) -> tuple[str, ...]:
 
 
 __all__ = [
+    "ALLOWED_BC_APPLICATION_DOMAINS",
     "BoundaryConditionBundle",
+    "DIRICHLET_BC_CANONICAL_DOMAINS",
+    "FORCING_CAPABLE_DIRICHLET_BC_IDS",
     "FLOW_BOUNDARY_DEFINITIONS",
     "FlowBoundaryBackend",
     "FlowBoundaryDefinition",
@@ -371,8 +353,6 @@ __all__ = [
     "boundary_condition_bundle_from_flow",
     "boundary_conditions_mapping_from_flow",
     "boundary_definition",
-    "canonical_dirichlet_boundary_ids",
     "is_boundary_condition_active",
-    "side_dirichlet_boundary_ids",
     "supported_boundary_ids_for_backend",
 ]

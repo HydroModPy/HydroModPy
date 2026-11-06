@@ -11,8 +11,8 @@ import pytest
 
 from hydromodpy.cli.commands.report import CATCHMENT_PRESETS
 from hydromodpy.cli.helpers import EXIT_CONFIG
+from hydromodpy.display.catchment_report.builder import PRESETS_BY_NAME, CatchmentReportPreset
 from hydromodpy.display.catchment_report.pipeline import CatchmentReportPipelineResult
-from hydromodpy.display.catchment_report.presets import PRESETS_BY_NAME, CatchmentReportPreset
 
 
 def _load_main():

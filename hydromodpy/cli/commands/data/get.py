@@ -25,7 +25,6 @@ from hydromodpy.cli.conventions import (
 from hydromodpy.cli.helpers import (
     EXIT_CONFIG,
     EXIT_VALIDATION,
-    apply_verbosity,
     exit_code_for,
     refuse,
 )
@@ -91,7 +90,6 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    apply_verbosity(args, {})
     from hydromodpy.cli._workers.data import request_data
 
     stations = [code.strip() for code in args.stations.split(",")] if args.stations else None

@@ -1,10 +1,7 @@
 """Gate for the generated layer-matrix page fragment.
 
-The page used to be hand-written prose reciting ``layer_matrix.yaml``. It had
-drifted: the ``discretization`` row was missing, a ``validity_frame`` row was
-present although it is neither a key of the contract nor a package on disk, and
-three rows dropped an edge their entry grants. The contract had 33 commits over
-the window against 4 on the page reciting it.
+The page is generated from ``layer_matrix.yaml``. A hand-written copy drifted
+from the contract, so the committed page must equal what the generator renders.
 
 Two assertions, in the order that matters. First the contract must be sound,
 because a generator republishes whatever it is given. Only then is the rendered

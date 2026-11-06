@@ -719,8 +719,8 @@ def render_station_inventory(ax: Axes, *, inventory: list[dict]) -> Axes:
         [
             str(s["type"]),
             str(s["id"]),
-            f"{s['x']:.1f}",
-            f"{s['y']:.1f}",
+            f"{s['x'] or 0.0:.1f}",
+            f"{s['y'] or 0.0:.1f}",
             str(s["start"]),
             str(s["end"]),
         ]

@@ -8,6 +8,10 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from hydromodpy.solver.boussinesq.catalog import (
+    ResolvedBoussinesqRuntimeBackend,
+    resolve_runtime_backend,
+)
 from hydromodpy.solver.boussinesq.drivers.forcing import (
     apply_ocean_drainage_mask,
     resolve_runtime_forcing_by_period,
@@ -22,10 +26,6 @@ from hydromodpy.solver.boussinesq.runtime_contract import (
     RuntimeSolveResult,
     SteadySolveInputs,
     TransientStepInputs,
-)
-from hydromodpy.solver.boussinesq.runtime_selection import (
-    ResolvedBoussinesqRuntimeBackend,
-    resolve_runtime_backend,
 )
 from hydromodpy.solver.boussinesq.runtime_summary import record_runtime_backend_summary
 from hydromodpy.solver.boussinesq.solver_contract import BoussinesqSolverContract

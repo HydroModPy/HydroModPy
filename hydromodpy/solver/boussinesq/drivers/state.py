@@ -10,8 +10,8 @@ from hydromodpy.solver.boussinesq.assembly import BoussinesqAssembly
 from hydromodpy.solver.boussinesq.assembly.boundary_flux_reconstruction import (
     rebuild_boundary_edge_flux,
 )
-from hydromodpy.solver.boussinesq.core.state import BoussinesqState
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
+from hydromodpy.solver.boussinesq.state import BoussinesqState
 
 
 def _balance_residual_m3_s(assembly: BoussinesqAssembly) -> np.ndarray:

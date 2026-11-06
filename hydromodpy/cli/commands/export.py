@@ -27,7 +27,6 @@ from hydromodpy.cli.conventions import (
 from hydromodpy.cli.helpers import (
     EXIT_GENERIC,
     EXIT_USAGE,
-    apply_verbosity,
     project_root_of,
     refuse,
 )
@@ -164,7 +163,6 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    apply_verbosity(args, {})
     import hydromodpy as hmp
 
     workspace = project_root_of(args)

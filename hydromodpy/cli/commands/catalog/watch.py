@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 
 from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, apply_verbosity, refuse
+from hydromodpy.cli.helpers import EXIT_NOT_FOUND, project_root_of, refuse
 from hydromodpy.cli.output import emit
-from hydromodpy.core.state.result_dirs import resolve_project_root
 
 NAME: str = "watch"
 HELP: str = "Show the running attempts with the age of their heartbeat"
@@ -50,12 +48,9 @@ def _age(age_s: float | None) -> str:
 
 
 def run(args: argparse.Namespace) -> None:
-    apply_verbosity(args, {})
     from hydromodpy.cli._workers.catalog import watch_running
 
-    project_root = resolve_project_root(
-        Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
-    )
+    project_root = project_root_of(args)
     if not project_root.is_dir():
         refuse(f"No project at {project_root}", EXIT_NOT_FOUND)
     from hydromodpy.results.outcome import death_is_proven

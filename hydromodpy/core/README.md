@@ -41,6 +41,7 @@ question, and each sub-package has its own `README.md`.
 | `console/` | what does a run show while it works? Live progress and its NDJSON sink |
 | `budget/` | what sign has a budget flux, and which terms does a run keep? |
 | `scoring/` | how well does a simulation match observations? Efficiency metrics, the cost margin and the numeric defaults of the stream-network criterion |
+| `plugin_registry.py` | how does an id resolve to a class? One registry for the evaluator, forward-model, terrain-engine and mesh-engine plugins |
 | `fields/` | how is a grid or a field array described? Nodata, grid reference, vertical column, storage precision |
 
 ## What left core

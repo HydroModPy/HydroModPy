@@ -11,20 +11,7 @@ import pytest
 
 from tests._helpers.sealed_runs import make_project, seal_run, write_attempt
 
-
-def _load_main():
-    return importlib.import_module("hydromodpy.cli.main")
-
-
-def _run(monkeypatch, argv: list[str]) -> int:
-    """Run ``hmp`` and tolerate handlers that do not call sys.exit explicitly."""
-    module = _load_main()
-    monkeypatch.setattr(sys, "argv", argv)
-    try:
-        module.main()
-    except SystemExit as exc:
-        return int(exc.code or 0)
-    return 0
+from ._hmp import run_main as _run
 
 
 @pytest.fixture
@@ -218,7 +205,7 @@ def test_doctor_fix_config_follows_the_chain_and_a_warning_names_the_holder(
     monkeypatch, tmp_path, capsys
 ) -> None:
     """An old key in a parent is told under the parent, and the fix does not come back."""
-    from hydromodpy.config.sites.check import check_project
+    from hydromodpy.project.check import check_project
 
     parent = tmp_path / "project.toml"
     parent.write_text('[simulation]\non_collision = "version"\n', encoding="utf-8")

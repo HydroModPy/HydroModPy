@@ -24,15 +24,13 @@ beside the build -- and the second is the one a third party performs.
 from __future__ import annotations
 
 import ast
-import os
 import re
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+from ._installed_probe import REPO_ROOT, collected, run_suite, unpack
+
 CONFORMANCE_SUITE = "tests/contract/test_trial_evaluator_contract.py"
 
 PROBE_EVALUATOR_ID = "conformance_probe_bowl"
@@ -101,22 +99,6 @@ class RewardsFailureEvaluator(ProbeTrialEvaluator):
         )
 '''
 
-ENTRY_POINTS_TXT = f"""\
-[hydromodpy.calibration.evaluator]
-{PROBE_EVALUATOR_ID} = hmp_evaluator_probe:ProbeTrialEvaluator
-"""
-
-BROKEN_ENTRY_POINTS_TXT = f"""\
-[hydromodpy.calibration.evaluator]
-{UNUSABLE_EVALUATOR_ID} = hmp_evaluator_probe:RewardsFailureEvaluator
-"""
-
-METADATA = """\
-Metadata-Version: 2.1
-Name: hmp-evaluator-probe
-Version: 0.1.0
-"""
-
 
 @pytest.fixture(scope="module")
 def installed_probe(tmp_path_factory) -> Path:
@@ -127,90 +109,53 @@ def installed_probe(tmp_path_factory) -> Path:
     ``pip install``: the test must not depend on a network or on write access to
     the environment it runs in.
     """
-    return _unpack(tmp_path_factory.mktemp("probe_site_packages"), ENTRY_POINTS_TXT)
+    return unpack(
+        tmp_path_factory.mktemp("probe_site_packages"), "hmp_evaluator_probe", PROBE_MODULE,
+        "hydromodpy.calibration.evaluator", PROBE_EVALUATOR_ID, "ProbeTrialEvaluator",
+    )  # fmt: skip
 
 
 @pytest.fixture(scope="module")
 def installed_broken_probe(tmp_path_factory) -> Path:
     """The same distribution, publishing the evaluator that rewards a failed trial."""
     root = tmp_path_factory.mktemp("broken_probe_site_packages")
-    return _unpack(root, BROKEN_ENTRY_POINTS_TXT, tail=BROKEN_PROBE_TAIL)
-
-
-def _unpack(root: Path, entry_points: str, *, tail: str = "") -> Path:
-    (root / "hmp_evaluator_probe.py").write_text(PROBE_MODULE + tail, encoding="utf-8")
-    dist_info = root / "hmp_evaluator_probe-0.1.0.dist-info"
-    dist_info.mkdir()
-    (dist_info / "METADATA").write_text(METADATA, encoding="utf-8")
-    (dist_info / "entry_points.txt").write_text(entry_points, encoding="utf-8")
-    return root
-
-
-def _pytest(
-    session: Path, *arguments: str, site_packages: Path | None = None
-) -> subprocess.CompletedProcess:
-    """Run pytest in a child interpreter, with or without the probe installed.
-
-    *session* is that child's own ``--basetemp`` and has to be unused: the
-    conftest exports ``PYTEST_DEBUG_TEMPROOT``, so without it parent and child
-    share one numbered-directory root and each other's garbage collection. The
-    cache plugin goes for the same reason -- two sessions writing one
-    ``.pytest_cache`` under the repository root is a race with nothing to gain.
-    """
-    environment = dict(os.environ)
-    # The child is a plain session, whatever the parent is. Inheriting
-    # PYTEST_XDIST_WORKER makes the conftest treat it as a worker and scope its
-    # roots per worker, which is a lie about a process xdist never started.
-    environment.pop("PYTEST_XDIST_WORKER", None)
-    entries = [str(REPO_ROOT)]
-    if site_packages is not None:
-        entries.insert(0, str(site_packages))
-    existing = environment.get("PYTHONPATH")
-    if existing:
-        entries.append(existing)
-    environment["PYTHONPATH"] = os.pathsep.join(entries)
-    return subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "pytest",
-            CONFORMANCE_SUITE,
-            "-p",
-            "no:randomly",
-            "-p",
-            "no:cacheprovider",
-            f"--basetemp={session}",
-            *arguments,
-        ],
-        cwd=str(REPO_ROOT),
-        env=environment,
-        capture_output=True,
-        text=True,
-        timeout=900,
+    return unpack(
+        root,
+        "hmp_evaluator_probe",
+        PROBE_MODULE + BROKEN_PROBE_TAIL,
+        "hydromodpy.calibration.evaluator",
+        UNUSABLE_EVALUATOR_ID,
+        "RewardsFailureEvaluator",
     )
-
-
-def _collected(output: str) -> list[str]:
-    return [line for line in output.splitlines() if line.startswith(CONFORMANCE_SUITE)]
 
 
 def test_the_suite_collects_nothing_for_an_evaluator_that_is_not_installed(tmp_path) -> None:
     """The control. Without it, the run below could pass for the wrong reason."""
-    result = _pytest(tmp_path / "bare", "--collect-only", "-q")
+    result = run_suite(CONFORMANCE_SUITE, tmp_path / "bare", "--collect-only", "-q")
 
     assert result.returncode == 0, result.stdout[-4000:]
-    assert [node for node in _collected(result.stdout) if PROBE_EVALUATOR_ID in node] == []
+    assert [
+        node for node in collected(result.stdout, CONFORMANCE_SUITE) if PROBE_EVALUATOR_ID in node
+    ] == []
 
 
 def test_installing_an_evaluator_adds_it_to_the_suite(installed_probe, tmp_path) -> None:
     """One distribution unpacked on the path, and the suite grows a parameter set."""
-    without = _pytest(tmp_path / "bare", "--collect-only", "-q")
-    with_probe = _pytest(tmp_path / "probe", "--collect-only", "-q", site_packages=installed_probe)
+    without = run_suite(CONFORMANCE_SUITE, tmp_path / "bare", "--collect-only", "-q")
+    with_probe = run_suite(
+        CONFORMANCE_SUITE, tmp_path / "probe", "--collect-only", "-q", site_packages=installed_probe
+    )
 
     assert with_probe.returncode == 0, with_probe.stdout[-4000:]
-    probe_nodes = [node for node in _collected(with_probe.stdout) if PROBE_EVALUATOR_ID in node]
+    probe_nodes = [
+        node
+        for node in collected(with_probe.stdout, CONFORMANCE_SUITE)
+        if PROBE_EVALUATOR_ID in node
+    ]
     assert probe_nodes, with_probe.stdout[-4000:]
-    added = len(_collected(with_probe.stdout)) - len(_collected(without.stdout))
+    added = len(collected(with_probe.stdout, CONFORMANCE_SUITE)) - len(
+        collected(without.stdout, CONFORMANCE_SUITE)
+    )
     assert added == len(probe_nodes), "the probe may only add its own parameter set"
 
 
@@ -224,12 +169,25 @@ def test_every_conformance_assertion_passes_against_the_installed_evaluator(
     passed against what was collected is what separates "the probe was exercised"
     from "the probe was collected and skipped".
     """
-    expected = _pytest(tmp_path / "collect", "--collect-only", "-q", site_packages=installed_probe)
-    probe_nodes = [node for node in _collected(expected.stdout) if PROBE_EVALUATOR_ID in node]
+    expected = run_suite(
+        CONFORMANCE_SUITE,
+        tmp_path / "collect",
+        "--collect-only",
+        "-q",
+        site_packages=installed_probe,
+    )
+    probe_nodes = [
+        node for node in collected(expected.stdout, CONFORMANCE_SUITE) if PROBE_EVALUATOR_ID in node
+    ]
     assert len(probe_nodes) >= 10, expected.stdout[-4000:]
 
-    result = _pytest(
-        tmp_path / "probe", "-q", "-k", PROBE_EVALUATOR_ID, site_packages=installed_probe
+    result = run_suite(
+        CONFORMANCE_SUITE,
+        tmp_path / "probe",
+        "-q",
+        "-k",
+        PROBE_EVALUATOR_ID,
+        site_packages=installed_probe,
     )
 
     assert result.returncode == 0, result.stdout[-8000:]
@@ -255,14 +213,21 @@ def test_an_evaluator_the_registry_accepts_and_no_search_can_use_is_caught(
     passes, which is compatible with a suite that asserts nothing about an
     outside one.
     """
-    registered = _pytest(
-        tmp_path / "collect", "--collect-only", "-q", site_packages=installed_broken_probe
+    registered = run_suite(
+        CONFORMANCE_SUITE,
+        tmp_path / "collect",
+        "--collect-only",
+        "-q",
+        site_packages=installed_broken_probe,
     )
-    assert [node for node in _collected(registered.stdout) if UNUSABLE_EVALUATOR_ID in node], (
-        "the broken evaluator has to be accepted by the registry, or it proves nothing"
-    )
+    assert [
+        node
+        for node in collected(registered.stdout, CONFORMANCE_SUITE)
+        if UNUSABLE_EVALUATOR_ID in node
+    ], "the broken evaluator has to be accepted by the registry, or it proves nothing"
 
-    result = _pytest(
+    result = run_suite(
+        CONFORMANCE_SUITE,
         tmp_path / "run",
         "-q",
         "-k",

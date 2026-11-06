@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     from hydromodpy.data.contracts.spatial_field import FieldRecord
 
 SIM2_CRS = "EPSG:2154"

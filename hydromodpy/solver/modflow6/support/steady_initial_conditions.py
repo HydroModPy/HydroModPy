@@ -15,9 +15,7 @@ from hydromodpy.core.time.steady_initialization import (
     single_period_mean_forcing_time_grid,
 )
 from hydromodpy.physics.flow.time_forcing import compact_pre_resolved_forcings
-from hydromodpy.solver.modflow6.build import mf6_safe_name
-from hydromodpy.solver.modflow_common import ModflowPreprocessOptions, ModflowRunOptions
-from hydromodpy.solver.steady_initial_conditions import (
+from hydromodpy.solver.base.initial_conditions import (
     cycles_have_settled,
     cyclic_flow_copy_for_initialization,
     cyclic_spinup_strategy,
@@ -25,6 +23,8 @@ from hydromodpy.solver.steady_initial_conditions import (
     flow_uses_steady_state_initial_condition,
     steady_flow_copy_for_initialization,
 )
+from hydromodpy.solver.modflow6.support.names import mf6_safe_name
+from hydromodpy.solver.modflow_common import ModflowPreprocessOptions, ModflowRunOptions
 
 logger = get_logger(__name__)
 
@@ -161,18 +161,8 @@ def run_modflow6_steady_state_initialization(model: object, *, verbose: bool) ->
         modflow_config=_modflow_config_for_steady_initialization(model),
         model_folder=str(init_root),
         model_name=init_name,
-        preprocess_options=ModflowPreprocessOptions(
-            box=bool(getattr(model.preprocess_options, "box", True)),
-            sink_fill=bool(getattr(model.preprocess_options, "sink_fill", False)),
-            drain_band_depth_m=float(getattr(model.preprocess_options, "drain_band_depth_m", 0.0)),
-            drain_bed_thickness_m=float(
-                getattr(model.preprocess_options, "drain_bed_thickness_m", 1.0)
-            ),
-            drain_conductance_floor_m2_s=float(
-                getattr(model.preprocess_options, "drain_conductance_floor_m2_s", 1e-12)
-            ),
-            check_grid=bool(getattr(model.preprocess_options, "check_grid", True)),
-            time_grid=single_period_mean_forcing_time_grid(getattr(model, "time_grid", None)),
+        preprocess_options=_preprocess_options_like(
+            model, time_grid=single_period_mean_forcing_time_grid(getattr(model, "time_grid", None))
         ),
     )
     steady_model.auxiliary = True

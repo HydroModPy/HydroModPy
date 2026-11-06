@@ -23,6 +23,8 @@ This package describes the aquifer as a body of rock. It takes the ground surfac
 
 The `domain-build` capability does steps 1 and 2 as a job. A request names a DEM and a depth model. The worker calls the same `build_domain`, writes the rasters of the top and the base, and seals a `domain.json` for the mesh generator.
 
+`domain-build` is a capability for outside tools. No `hmp` command and no step of a run starts it. A tool stages a job directory (the contract is in `hydromodpy/schema/job/`) and calls `worker.run(job, exit_code_for=...)`, and `job_inputs.py` holds the input checks and output hashes that this worker shares with the other capability workers. Only the tests in `tests/integration/domain/` call it inside this repository. It stays on purpose, so keep it when you tidy the package.
+
 ## The depth models
 
 There are four, and each one has its own `kind` in `depth_model_config.py`: `constant_thickness`, `flat_substratum`, `raster_substratum` and `raster_thickness`. The first two need no file. The two raster models read a raster from `[data.substratum]`, and `build.py` reads it (`read_substratum_source`). A layering by surfaces can also read one base raster per layer, and `read_layer_base_sources` reads them.

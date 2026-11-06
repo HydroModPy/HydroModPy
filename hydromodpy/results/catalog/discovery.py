@@ -31,6 +31,7 @@ from hydromodpy.core.state.layout import catalog_path_for, project_roots_under, 
 from hydromodpy.core.state.result_dirs import parse_rel_dir, run_dir_rel
 from hydromodpy.results.catalog.constants import (
     MESH_ENGINE_SQL,
+    SIMULATIONS_FROM,
     UnrankedMetricError,
     metric_rank_sql,
     metric_sense,
@@ -589,13 +590,7 @@ class DiscoveryMixin:
         """
         from hydromodpy.results.run.group import RunSet
 
-        query = (
-            "SELECT DISTINCT s.sim_id, s.created_at FROM simulations s "
-            "JOIN solvers sv ON s.solver_id = sv.id "
-            "JOIN statuses st ON s.status_id = st.id "
-            "LEFT JOIN flow_regimes fr ON s.flow_regime_id = fr.id "
-            "LEFT JOIN mesh_topologies mt ON s.mesh_topology_id = mt.id"
-        )
+        query = f"SELECT DISTINCT s.sim_id, s.created_at {SIMULATIONS_FROM}"
         joins: list[str] = []
         clauses: list[str] = []
         join_params: list = []
@@ -677,12 +672,7 @@ class DiscoveryMixin:
             rule = ", ".join(f"{alias}.{name}" for name in METRICS_RULE.names)
             rows = self._backend.fetch_all(
                 f"SELECT DISTINCT CAST(s.sim_id AS VARCHAR), s.rel_dir, {rule} "
-                "FROM simulations s "
-                "JOIN solvers sv ON s.solver_id = sv.id "
-                "JOIN statuses st ON s.status_id = st.id "
-                "LEFT JOIN flow_regimes fr ON s.flow_regime_id = fr.id "
-                "LEFT JOIN mesh_topologies mt ON s.mesh_topology_id = mt.id "
-                f"{' '.join(joins)}{where}",
+                f"{SIMULATIONS_FROM} {' '.join(joins)}{where}",
                 params,
             )
             check_one_rule(
@@ -732,6 +722,24 @@ class DiscoveryMixin:
             raise KeyError(f"No completed simulation{where}")
         return Run(str(row[0]), self)
 
+    def _headline_metrics(self, sid: str) -> dict:
+        """Map ``(metric, station, variable)`` to the headline score of run *sid*."""
+        rows = self._backend.fetch_all(
+            "SELECT metric_name, station_id, variable, value, "
+            "window_start, window_end, n_samples FROM metrics "
+            "WHERE sim_id = ? AND window_name = ?",
+            [sid, HEADLINE_WINDOW],
+        )
+        return {
+            (r[0], r[1], r[2]): {
+                "value": r[3],
+                "window_start": r[4],
+                "window_end": r[5],
+                "n": r[6],
+            }
+            for r in rows
+        }
+
     def diff(
         self,
         ref_a: str,
@@ -758,23 +766,6 @@ class DiscoveryMixin:
             )
             return {(r[0], r[1]): r[2] for r in rows}
 
-        def _metrics(sid: str) -> dict:
-            rows = self._backend.fetch_all(
-                "SELECT metric_name, station_id, variable, value, "
-                "window_start, window_end, n_samples FROM metrics "
-                "WHERE sim_id = ? AND window_name = ?",
-                [sid, HEADLINE_WINDOW],
-            )
-            return {
-                (r[0], r[1], r[2]): {
-                    "value": r[3],
-                    "window_start": r[4],
-                    "window_end": r[5],
-                    "n": r[6],
-                }
-                for r in rows
-            }
-
         def _delta(map_a: dict, map_b: dict) -> dict:
             keys = sorted(set(map_a) | set(map_b), key=lambda k: tuple(str(part) for part in k))
             out: dict = {}
@@ -788,7 +779,7 @@ class DiscoveryMixin:
             "a": sid_a,
             "b": sid_b,
             "params": _delta(_params(sid_a), _params(sid_b)),
-            "metrics": _delta(_metrics(sid_a), _metrics(sid_b)),
+            "metrics": _delta(self._headline_metrics(sid_a), self._headline_metrics(sid_b)),
         }
 
     def best(

@@ -18,7 +18,7 @@ from hydromodpy.core.exceptions import FrozenDataError
 from hydromodpy.results.manifest import InputEntry, TrackedInput
 from hydromodpy.results.record import RunProvenance
 from hydromodpy.workflow import replay_checks
-from tests.unit.results._run_record_factory import make_record
+from tests._helpers.run_records import make_record
 
 
 def _sha(data: bytes) -> str:

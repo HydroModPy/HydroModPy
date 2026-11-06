@@ -217,12 +217,12 @@ def test_no_hydromodpy_model_is_prepared_for_a_document_that_names_a_forward_mod
     and this is the assertion that it is honored end to end: ``prepare_trials``
     raises if it is called at all, and the search completes.
     """
-    import hydromodpy.calibration.runners.cli_runner as cli_runner
+    import hydromodpy.calibration.runners.search as search
 
     def refuse(*args: object, **kwargs: object) -> None:
         raise AssertionError("a forward model scored from a document prepared the pipeline")
 
-    monkeypatch.setattr(cli_runner, "prepare_trials", refuse)
+    monkeypatch.setattr(search, "prepare_trials", refuse)
     report, _ = _calibrate(tmp_path, "unprepared")
 
     assert report["n_trials"] == 25

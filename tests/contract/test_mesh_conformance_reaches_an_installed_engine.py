@@ -22,15 +22,13 @@ beside the build, and the second is the one a third party performs.
 
 from __future__ import annotations
 
-import os
 import re
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+from ._installed_probe import REPO_ROOT, collected, run_suite, unpack
+
 CONFORMANCE_SUITE = "tests/contract/test_mesh_engine_contract.py"
 
 PROBE_ENGINE_ID = "conformance_probe_grid"
@@ -99,22 +97,6 @@ class OffCenterMeshEngine(ProbeMeshEngine):
         return _with(cell_mesh, centers=cell_mesh.centers + 1.0e5)
 '''
 
-ENTRY_POINTS_TXT = f"""\
-[hydromodpy.mesh.engine]
-{PROBE_ENGINE_ID} = hmp_mesh_conformance_probe:ProbeMeshEngine
-"""
-
-BROKEN_ENTRY_POINTS_TXT = f"""\
-[hydromodpy.mesh.engine]
-{BROKEN_ENGINE_ID} = hmp_mesh_conformance_probe:OffCenterMeshEngine
-"""
-
-METADATA = """\
-Metadata-Version: 2.1
-Name: hmp-mesh-conformance-probe
-Version: 0.1.0
-"""
-
 
 @pytest.fixture(scope="module")
 def installed_probe(tmp_path_factory) -> Path:
@@ -125,69 +107,24 @@ def installed_probe(tmp_path_factory) -> Path:
     ``pip install``: the test must not depend on a network or on write access to
     the environment it runs in.
     """
-    return _unpack(tmp_path_factory.mktemp("probe_site_packages"), ENTRY_POINTS_TXT)
+    return unpack(
+        tmp_path_factory.mktemp("probe_site_packages"), "hmp_mesh_conformance_probe", PROBE_MODULE,
+        "hydromodpy.mesh.engine", PROBE_ENGINE_ID, "ProbeMeshEngine",
+    )  # fmt: skip
 
 
 @pytest.fixture(scope="module")
 def installed_broken_probe(tmp_path_factory) -> Path:
     """The same distribution, publishing the engine that is silently unusable."""
     root = tmp_path_factory.mktemp("broken_probe_site_packages")
-    return _unpack(root, BROKEN_ENTRY_POINTS_TXT, tail=BROKEN_PROBE_TAIL)
-
-
-def _unpack(root: Path, entry_points: str, *, tail: str = "") -> Path:
-    (root / "hmp_mesh_conformance_probe.py").write_text(PROBE_MODULE + tail, encoding="utf-8")
-    dist_info = root / "hmp_mesh_conformance_probe-0.1.0.dist-info"
-    dist_info.mkdir()
-    (dist_info / "METADATA").write_text(METADATA, encoding="utf-8")
-    (dist_info / "entry_points.txt").write_text(entry_points, encoding="utf-8")
-    return root
-
-
-def _pytest(
-    session: Path, *arguments: str, site_packages: Path | None = None
-) -> subprocess.CompletedProcess:
-    """Run pytest in a child interpreter, with or without the probe installed.
-
-    *session* is that child's own ``--basetemp`` and has to be unused: the
-    conftest exports ``PYTEST_DEBUG_TEMPROOT``, so without it parent and child
-    share one numbered-directory root and each other's garbage collection. The
-    cache plugin goes for the same reason.
-    """
-    environment = dict(os.environ)
-    # The child is a plain session, whatever the parent is. Inheriting
-    # PYTEST_XDIST_WORKER makes the conftest treat it as a worker.
-    environment.pop("PYTEST_XDIST_WORKER", None)
-    entries = [str(REPO_ROOT)]
-    if site_packages is not None:
-        entries.insert(0, str(site_packages))
-    existing = environment.get("PYTHONPATH")
-    if existing:
-        entries.append(existing)
-    environment["PYTHONPATH"] = os.pathsep.join(entries)
-    return subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "pytest",
-            CONFORMANCE_SUITE,
-            "-p",
-            "no:randomly",
-            "-p",
-            "no:cacheprovider",
-            f"--basetemp={session}",
-            *arguments,
-        ],
-        cwd=str(REPO_ROOT),
-        env=environment,
-        capture_output=True,
-        text=True,
-        timeout=900,
+    return unpack(
+        root,
+        "hmp_mesh_conformance_probe",
+        PROBE_MODULE + BROKEN_PROBE_TAIL,
+        "hydromodpy.mesh.engine",
+        BROKEN_ENGINE_ID,
+        "OffCenterMeshEngine",
     )
-
-
-def _collected(output: str) -> list[str]:
-    return [line for line in output.splitlines() if line.startswith(CONFORMANCE_SUITE)]
 
 
 def _count(output: str, word: str) -> int:
@@ -197,21 +134,29 @@ def _count(output: str, word: str) -> int:
 
 def test_the_suite_collects_nothing_for_an_engine_that_is_not_installed(tmp_path) -> None:
     """The control. Without it, the run below could pass for the wrong reason."""
-    result = _pytest(tmp_path / "bare", "--collect-only", "-q")
+    result = run_suite(CONFORMANCE_SUITE, tmp_path / "bare", "--collect-only", "-q")
 
     assert result.returncode == 0, result.stdout[-4000:]
-    assert [node for node in _collected(result.stdout) if PROBE_ENGINE_ID in node] == []
+    assert [
+        node for node in collected(result.stdout, CONFORMANCE_SUITE) if PROBE_ENGINE_ID in node
+    ] == []
 
 
 def test_installing_an_engine_adds_it_to_the_suite(installed_probe, tmp_path) -> None:
     """One distribution unpacked on the path, and the suite grows a parameter set."""
-    without = _pytest(tmp_path / "bare", "--collect-only", "-q")
-    with_probe = _pytest(tmp_path / "probe", "--collect-only", "-q", site_packages=installed_probe)
+    without = run_suite(CONFORMANCE_SUITE, tmp_path / "bare", "--collect-only", "-q")
+    with_probe = run_suite(
+        CONFORMANCE_SUITE, tmp_path / "probe", "--collect-only", "-q", site_packages=installed_probe
+    )
 
     assert with_probe.returncode == 0, with_probe.stdout[-4000:]
-    probe_nodes = [node for node in _collected(with_probe.stdout) if PROBE_ENGINE_ID in node]
+    probe_nodes = [
+        node for node in collected(with_probe.stdout, CONFORMANCE_SUITE) if PROBE_ENGINE_ID in node
+    ]
     assert probe_nodes, with_probe.stdout[-4000:]
-    added = len(_collected(with_probe.stdout)) - len(_collected(without.stdout))
+    added = len(collected(with_probe.stdout, CONFORMANCE_SUITE)) - len(
+        collected(without.stdout, CONFORMANCE_SUITE)
+    )
     assert added == len(probe_nodes), "the probe may only add its own parameter set"
 
 
@@ -225,10 +170,25 @@ def test_every_conformance_assertion_passes_against_the_installed_engine(
     inapplicable (it is not graded) skips, so the count is passed plus skipped,
     and what must not happen is a failure or an empty run.
     """
-    expected = _pytest(tmp_path / "collect", "--collect-only", "-q", site_packages=installed_probe)
-    probe_nodes = [node for node in _collected(expected.stdout) if PROBE_ENGINE_ID in node]
+    expected = run_suite(
+        CONFORMANCE_SUITE,
+        tmp_path / "collect",
+        "--collect-only",
+        "-q",
+        site_packages=installed_probe,
+    )
+    probe_nodes = [
+        node for node in collected(expected.stdout, CONFORMANCE_SUITE) if PROBE_ENGINE_ID in node
+    ]
 
-    result = _pytest(tmp_path / "probe", "-q", "-k", PROBE_ENGINE_ID, site_packages=installed_probe)
+    result = run_suite(
+        CONFORMANCE_SUITE,
+        tmp_path / "probe",
+        "-q",
+        "-k",
+        PROBE_ENGINE_ID,
+        site_packages=installed_probe,
+    )
 
     assert result.returncode == 0, result.stdout[-8000:]
     assert _count(result.stdout, "failed") == 0
@@ -251,15 +211,24 @@ def test_an_engine_the_registry_accepts_and_a_solver_cannot_use_is_caught(
     Without this test the gate above proves only that a *passing* engine passes,
     which is compatible with a suite that asserts nothing about an outside one.
     """
-    registered = _pytest(
-        tmp_path / "collect", "--collect-only", "-q", site_packages=installed_broken_probe
+    registered = run_suite(
+        CONFORMANCE_SUITE,
+        tmp_path / "collect",
+        "--collect-only",
+        "-q",
+        site_packages=installed_broken_probe,
     )
-    assert [node for node in _collected(registered.stdout) if BROKEN_ENGINE_ID in node], (
-        "the broken engine has to be accepted by the registry, or it proves nothing"
-    )
+    assert [
+        node for node in collected(registered.stdout, CONFORMANCE_SUITE) if BROKEN_ENGINE_ID in node
+    ], "the broken engine has to be accepted by the registry, or it proves nothing"
 
-    result = _pytest(
-        tmp_path / "run", "-q", "-k", BROKEN_ENGINE_ID, site_packages=installed_broken_probe
+    result = run_suite(
+        CONFORMANCE_SUITE,
+        tmp_path / "run",
+        "-q",
+        "-k",
+        BROKEN_ENGINE_ID,
+        site_packages=installed_broken_probe,
     )
 
     assert result.returncode != 0

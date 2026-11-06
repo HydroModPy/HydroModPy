@@ -87,7 +87,8 @@ def record_collected_file(
     directory: Path, path: Path, *, producer: str, options: Mapping[str, Any]
 ) -> None:
     """Add a file of the summary, drawn from many runs, to the ledger of its directory."""
-    from hydromodpy.results.ledger import Ledger, LedgerEntry, sha256_of
+    from hydromodpy.core.io.file_digest import sha256_of
+    from hydromodpy.results.ledger import Ledger, LedgerEntry
 
     entry = LedgerEntry(
         file=path.relative_to(directory).as_posix(),

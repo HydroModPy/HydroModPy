@@ -21,10 +21,10 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.solver.modflow6.builders.lake import (
-    apply_lake_idomain_mask,
     build_lak_package_args,
     build_lake_connectiondata,
 )
+from hydromodpy.solver.modflow6.builders.lake_cells import apply_lake_idomain_mask
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh.model.cell_types import CellType

@@ -21,9 +21,7 @@ There are three useful places for report documentation. Keep them separate:
 - **Developer recipe**: describe how to add or migrate a report producer. This
   page is the canonical contributor recipe.
 - **Package reference**: summarize ownership and reading paths in
-  :doc:`/contribute/architecture/packages/display` and, when the report
-  belongs to the higher-level reporting layer,
-  :doc:`/contribute/architecture/packages/reporting`.
+  :doc:`/contribute/architecture/packages/display`.
 
 Audits, migration logs and working notes stay out of the repository. The
 pages above are the source of truth.

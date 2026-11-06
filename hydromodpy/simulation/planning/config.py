@@ -214,7 +214,31 @@ class _ProcessBase(HydroModelBase):
     )
 
 
-class FlowProcessConfig(_ProcessBase):
+class _SolverProcess(_ProcessBase):
+    """A process run by solvers: ``flow`` or ``transport``, with a non-empty ``solvers``."""
+
+    @field_validator("solvers", check_fields=False)
+    @classmethod
+    def _validate_solvers(cls, value: list[str]) -> list[str]:
+        kind = cls.model_fields["kind"].default
+        cleaned = [solver.strip() for solver in value if solver and solver.strip()]
+        if not cleaned:
+            raise ValueError(
+                f"simulation.process entries with kind='{kind}' require at least one solver."
+            )
+        return cleaned
+
+    def validate_registry(self) -> None:
+        """Verify the process family is registered. Call explicitly from launcher."""
+        registered = get_solver_registry_provider().known_process_types()
+        if self.kind not in registered:
+            raise ValueError(
+                f"Unknown process type '{self.kind}'. Registered types: "
+                f"{', '.join(sorted((*registered, 'mesh')))}."
+            )
+
+
+class FlowProcessConfig(_SolverProcess):
     """``[[simulation.process]]`` entry for a flow process."""
 
     kind: Annotated[Literal["flow"], Profile.USER] = Field(
@@ -230,27 +254,8 @@ class FlowProcessConfig(_ProcessBase):
         ),
     )
 
-    @field_validator("solvers")
-    @classmethod
-    def _validate_solvers(cls, value: list[str]) -> list[str]:
-        cleaned = [solver.strip() for solver in value if solver and solver.strip()]
-        if not cleaned:
-            raise ValueError(
-                "simulation.process entries with kind='flow' require at least one solver."
-            )
-        return cleaned
 
-    def validate_registry(self) -> None:
-        """Verify the process family is registered. Call explicitly from launcher."""
-        registered = get_solver_registry_provider().known_process_types()
-        if "flow" not in registered:
-            raise ValueError(
-                f"Unknown process type 'flow'. Registered types: "
-                f"{', '.join(sorted((*registered, 'mesh')))}."
-            )
-
-
-class TransportProcessConfig(_ProcessBase):
+class TransportProcessConfig(_SolverProcess):
     """``[[simulation.process]]`` entry for a transport process."""
 
     kind: Annotated[Literal["transport"], Profile.USER] = Field(
@@ -266,25 +271,6 @@ class TransportProcessConfig(_ProcessBase):
         ),
         json_schema_extra=field_metadata(experimental_values=["modpath", "modflow6_prt"]),
     )
-
-    @field_validator("solvers")
-    @classmethod
-    def _validate_solvers(cls, value: list[str]) -> list[str]:
-        cleaned = [solver.strip() for solver in value if solver and solver.strip()]
-        if not cleaned:
-            raise ValueError(
-                "simulation.process entries with kind='transport' require at least one solver."
-            )
-        return cleaned
-
-    def validate_registry(self) -> None:
-        """Verify the process family is registered. Call explicitly from launcher."""
-        registered = get_solver_registry_provider().known_process_types()
-        if "transport" not in registered:
-            raise ValueError(
-                f"Unknown process type 'transport'. Registered types: "
-                f"{', '.join(sorted((*registered, 'mesh')))}."
-            )
 
 
 class MeshProcessConfig(_ProcessBase):

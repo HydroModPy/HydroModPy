@@ -19,7 +19,7 @@ from hydromodpy.physics.flow.boundary_condition_registry import (
     active_side_dirichlet_boundary_ids,
 )
 from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
-from hydromodpy.solver.initial_conditions import build_head_initial_condition_array
+from hydromodpy.solver.base.initial_conditions import build_head_initial_condition_array
 
 if TYPE_CHECKING:
     from hydromodpy.solver.modflow_nwt.nwt.flow_to_modflow_adapter import (

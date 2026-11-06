@@ -30,7 +30,6 @@ describes the experimental observability project next to it.
    results
    display
    analysis
-   reporting
    workflow
    project
    examples

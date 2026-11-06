@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import csv
 import json
 import math
 import os
@@ -24,6 +23,15 @@ from hydromodpy.solver.boussinesq.runtimes.diagnostic_files import (
     STATIONARY_FAILURE_CELLS_TOP_RESIDUAL_CSV,
     STATIONARY_FAILURE_FIELD_STATS_JSON,
     STATIONARY_FAILURE_SUMMARY_JSON,
+)
+from hydromodpy.solver.boussinesq.runtimes.diagnostics_io import (
+    finite_max,
+    finite_min,
+    finite_sum,
+    finite_values,
+    jsonable,
+    jsonable_mapping,
+    write_csv,
 )
 from hydromodpy.solver.boussinesq.runtimes.dry_equilibrium import (
     detect_dry_equilibrium,
@@ -116,13 +124,13 @@ def write_stationary_failure_diagnostics(
     stats_path = output_dir / STATIONARY_FAILURE_FIELD_STATS_JSON
 
     summary_path.write_text(
-        json.dumps(_jsonable(summary), indent=2, ensure_ascii=True) + "\n",
+        json.dumps(jsonable(summary), indent=2, ensure_ascii=True) + "\n",
         encoding="utf-8",
     )
-    _write_csv(cells_path, cell_rows, STATIONARY_FAILURE_CELL_FIELDS)
-    _write_csv(active_path, active_rows, STATIONARY_FAILURE_ACTIVE_SET_FIELDS)
+    write_csv(cells_path, cell_rows, STATIONARY_FAILURE_CELL_FIELDS)
+    write_csv(active_path, active_rows, STATIONARY_FAILURE_ACTIVE_SET_FIELDS)
     stats_path.write_text(
-        json.dumps(_jsonable(field_stats), indent=2, ensure_ascii=True) + "\n",
+        json.dumps(jsonable(field_stats), indent=2, ensure_ascii=True) + "\n",
         encoding="utf-8",
     )
     return {
@@ -330,26 +338,26 @@ def build_stationary_failure_diagnostics(
         "converged": bool(result.converged),
         "termination_reason": str(result.termination_reason),
         "n_cells": int(mesh.n_cells),
-        "h_min": _finite_min(head),
-        "h_max": _finite_max(head),
-        "z_bottom_min": _finite_min(z_bottom),
-        "z_top_max": _finite_max(z_top),
-        "max_upper_violation": _finite_max(upper_violation),
-        "max_lower_violation": _finite_max(lower_violation),
+        "h_min": finite_min(head),
+        "h_max": finite_max(head),
+        "z_bottom_min": finite_min(z_bottom),
+        "z_top_max": finite_max(z_top),
+        "max_upper_violation": finite_max(upper_violation),
+        "max_lower_violation": finite_max(lower_violation),
         "active_top_count": int(np.count_nonzero(active_top)),
         "active_bottom_count": int(np.count_nonzero(active_bottom)),
         "free_count": int(np.count_nonzero((~prescribed_mask) & ~(active_top | active_bottom))),
         "cells_above_top_count": int(np.count_nonzero(upper_violation > tol_h)),
         "cells_below_bottom_count": int(np.count_nonzero(lower_violation > tol_h)),
         "drainage_positive_count": int(np.count_nonzero(drainage_rate > 0.0)),
-        "surface_reaction_total": _finite_sum(surface_reaction),
-        "bottom_reaction_total": _finite_sum(bottom_reaction),
-        "K_min": _finite_min(hydraulic_conductivity),
-        "K_max": _finite_max(hydraulic_conductivity),
-        "area_min": _finite_min(area),
-        "area_max": _finite_max(area),
-        "saturated_thickness_min": _finite_min(saturated_thickness),
-        "saturated_thickness_max": _finite_max(saturated_thickness),
+        "surface_reaction_total": finite_sum(surface_reaction),
+        "bottom_reaction_total": finite_sum(bottom_reaction),
+        "K_min": finite_min(hydraulic_conductivity),
+        "K_max": finite_max(hydraulic_conductivity),
+        "area_min": finite_min(area),
+        "area_max": finite_max(area),
+        "saturated_thickness_min": finite_min(saturated_thickness),
+        "saturated_thickness_max": finite_max(saturated_thickness),
         "saturated_thickness_quantiles": _quantiles(saturated_thickness),
         "minimum_saturated_thickness_m": minimum_saturated_thickness_m,
         "physical_saturated_thickness_min": thickness_diag["physical_saturated_thickness_min"],
@@ -362,15 +370,15 @@ def build_stationary_failure_diagnostics(
         "effective_saturated_thickness_max": thickness_diag["effective_saturated_thickness_max"],
         "cells_physically_dry_count": thickness_diag["cells_physically_dry_count"],
         "cells_at_effective_floor_count": thickness_diag["cells_at_effective_floor_count"],
-        "transmissivity_min": _finite_min(transmissivity),
-        "transmissivity_max": _finite_max(transmissivity),
+        "transmissivity_min": finite_min(transmissivity),
+        "transmissivity_max": finite_max(transmissivity),
         "transmissivity_quantiles": _quantiles(transmissivity),
     }
     return (
-        _jsonable_mapping(summary),
-        [_jsonable_mapping(row) for row in cell_rows],
-        [_jsonable_mapping(row) for row in active_rows],
-        _jsonable_mapping(field_stats),
+        jsonable_mapping(summary),
+        [jsonable_mapping(row) for row in cell_rows],
+        [jsonable_mapping(row) for row in active_rows],
+        jsonable_mapping(field_stats),
     )
 
 
@@ -437,14 +445,14 @@ def _active_set_rows(
                 "active_state": state,
                 "count": int(np.count_nonzero(mask)),
                 "fraction": float(np.count_nonzero(mask) / total),
-                "max_abs_residual": _finite_max(np.abs(residual[mask])),
-                "max_abs_projected_residual": _finite_max(np.abs(projected_residual[mask])),
-                "area_min": _finite_min(area[mask]),
-                "area_max": _finite_max(area[mask]),
-                "K_min": _finite_min(hydraulic_conductivity[mask]),
-                "K_max": _finite_max(hydraulic_conductivity[mask]),
-                "saturated_thickness_min": _finite_min(saturated_thickness[mask]),
-                "saturated_thickness_max": _finite_max(saturated_thickness[mask]),
+                "max_abs_residual": finite_max(np.abs(residual[mask])),
+                "max_abs_projected_residual": finite_max(np.abs(projected_residual[mask])),
+                "area_min": finite_min(area[mask]),
+                "area_max": finite_max(area[mask]),
+                "K_min": finite_min(hydraulic_conductivity[mask]),
+                "K_max": finite_max(hydraulic_conductivity[mask]),
+                "saturated_thickness_min": finite_min(saturated_thickness[mask]),
+                "saturated_thickness_max": finite_max(saturated_thickness[mask]),
             }
         )
     return rows
@@ -453,10 +461,10 @@ def _active_set_rows(
 def _field_stats(**fields: np.ndarray) -> dict[str, Any]:
     return {
         name: {
-            "min": _finite_min(values),
-            "max": _finite_max(values),
+            "min": finite_min(values),
+            "max": finite_max(values),
             "mean": _finite_mean(values),
-            "sum": _finite_sum(values),
+            "sum": finite_sum(values),
             "quantiles": _quantiles(values),
         }
         for name, values in fields.items()
@@ -618,38 +626,18 @@ def _first_non_none(*values: Any) -> Any:
     return None
 
 
-def _finite_values(values: np.ndarray) -> np.ndarray:
-    array = np.asarray(values, dtype=float).reshape(-1)
-    return array[np.isfinite(array)]
-
-
-def _finite_min(values: np.ndarray) -> float | None:
-    finite = _finite_values(values)
-    return None if finite.size == 0 else float(np.min(finite))
-
-
-def _finite_max(values: np.ndarray) -> float | None:
-    finite = _finite_values(values)
-    return None if finite.size == 0 else float(np.max(finite))
-
-
 def _finite_mean(values: np.ndarray) -> float | None:
-    finite = _finite_values(values)
+    finite = finite_values(values)
     return None if finite.size == 0 else float(np.mean(finite))
 
 
-def _finite_sum(values: np.ndarray) -> float | None:
-    finite = _finite_values(values)
-    return None if finite.size == 0 else float(np.sum(finite))
-
-
 def _finite_norm_inf(values: np.ndarray) -> float | None:
-    finite = _finite_values(values)
+    finite = finite_values(values)
     return None if finite.size == 0 else float(np.linalg.norm(finite, ord=np.inf))
 
 
 def _quantiles(values: np.ndarray) -> dict[str, float | None]:
-    finite = _finite_values(values)
+    finite = finite_values(values)
     if finite.size == 0:
         return {"p00": None, "p05": None, "p50": None, "p95": None, "p100": None}
     levels = (0.0, 0.05, 0.5, 0.95, 1.0)
@@ -671,41 +659,6 @@ def _int_or_none(value: Any) -> int | None:
         return int(value)
     except Exception:
         return None
-
-
-def _write_csv(path: Path, rows: list[dict[str, Any]], fieldnames: list[str]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
-        writer.writeheader()
-        for row in rows:
-            writer.writerow({key: _csv_value(row.get(key)) for key in fieldnames})
-
-
-def _csv_value(value: Any) -> Any:
-    if value is None:
-        return ""
-    if isinstance(value, bool | int | float | str):
-        return value
-    return json.dumps(_jsonable(value), ensure_ascii=True)
-
-
-def _jsonable_mapping(values: Mapping[str, Any]) -> dict[str, Any]:
-    return {str(key): _jsonable(value) for key, value in values.items()}
-
-
-def _jsonable(value: Any) -> Any:
-    if isinstance(value, np.generic):
-        return value.item()
-    if isinstance(value, np.ndarray):
-        return [_jsonable(item) for item in value.tolist()]
-    if isinstance(value, Mapping):
-        return {str(key): _jsonable(item) for key, item in value.items()}
-    if isinstance(value, list | tuple):
-        return [_jsonable(item) for item in value]
-    if isinstance(value, float) and not math.isfinite(value):
-        return None
-    return value
 
 
 __all__ = [

@@ -9,24 +9,12 @@ import numpy as np
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_options import Opt
 from hydromodpy.display.figure_registry import register
+from hydromodpy.display.figures._hydrochem import hydrochem_frame, missing_samples_reason
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
     from hydromodpy.results.run import Run
-
-
-def _to_dataframe(source: Any):
-    import pandas as pd
-
-    if isinstance(source, pd.DataFrame):
-        return source
-    if hasattr(source, "timeseries"):
-        try:
-            return source.timeseries("hydrochemistry")
-        except Exception as exc:
-            raise ValueError("stiff_diagram: no hydrochemistry data available") from exc
-    raise TypeError(f"stiff_diagram: cannot read data from {type(source)!r}")
 
 
 @register
@@ -46,16 +34,7 @@ class StiffDiagramFigure(BaseFigure):
         A DataFrame given directly is its own samples. A run is asked for its
         ``hydrochemistry`` series, read here and not drawn.
         """
-        reason = super().unavailable_reason(sim)
-        if reason is not None:
-            return reason
-        try:
-            samples = _to_dataframe(sim)
-        except (TypeError, ValueError):
-            return "run holds no hydrochemistry series"
-        if len(samples) == 0:
-            return "run holds no hydrochemistry sample"
-        return None
+        return super().unavailable_reason(sim) or missing_samples_reason(sim, "stiff_diagram")
 
     def render(
         self,
@@ -65,7 +44,7 @@ class StiffDiagramFigure(BaseFigure):
         sample: Annotated[int, Opt("Row of the sample table drawn, 0 for the first.")] = 0,
         **_,
     ) -> Axes:
-        df = _to_dataframe(sim)
+        df = hydrochem_frame(sim, "stiff_diagram")
         row = df.iloc[sample]
         # Cations on the left (negative x), anions on the right (positive x).
         # Rows from top to bottom: Na+K / Ca / Mg (cations), Cl / HCO3 / SO4 (anions).

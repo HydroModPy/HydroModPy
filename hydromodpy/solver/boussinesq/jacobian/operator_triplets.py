@@ -5,9 +5,9 @@ from __future__ import annotations
 import numpy as np
 
 from hydromodpy.solver.boussinesq.assembly import resolve_boundary_head_inputs
+from hydromodpy.solver.boussinesq.assembly.fluxes import harmonic_conductivity
 from hydromodpy.solver.boussinesq.jacobian.common import (
     drainage_diagonal_derivative,
-    harmonic_conductivity,
     saturated_thickness_derivative_from_head,
     saturated_thickness_value,
     storage_thickness_derivative_from_head,

@@ -10,15 +10,7 @@ from pathlib import Path
 
 import pytest
 
-
-def _run(monkeypatch, argv: list[str]) -> int:
-    module = importlib.import_module("hydromodpy.cli.main")
-    monkeypatch.setattr(sys, "argv", argv)
-    try:
-        module.main()
-    except SystemExit as exc:
-        return int(exc.code or 0)
-    return 0
+from ._hmp import run_main as _run
 
 
 @pytest.fixture(autouse=True)

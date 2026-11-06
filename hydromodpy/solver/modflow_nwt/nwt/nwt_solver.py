@@ -1,13 +1,13 @@
-"""
-* Copyright (C) 2023-2025 Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
-*
-* This program and the accompanying materials are made available under the
-* terms of the Eclipse Public License 2.0 which is available at
-* http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
-* which is available at https://www.apache.org/licenses/LICENSE-2.0.
-*
-* SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
-"""
+# Copyright (C) 2023-2025 Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
+#
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
+# which is available at https://www.apache.org/licenses/LICENSE-2.0.
+#
+# SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
+
+"""The MODFLOW-NWT flow model: pre-processing, processing and post-processing."""
 
 from __future__ import annotations
 
@@ -50,17 +50,17 @@ from hydromodpy.solver.modflow_grid import (
 )
 from hydromodpy.solver.modflow_grid.active_connectivity import warn_on_disconnected_active_cells
 from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig
+from hydromodpy.solver.modflow_nwt.postprocess.fields import NODATA
+from hydromodpy.solver.modflow_nwt.postprocess.run import run_post_processing
 from hydromodpy.spatial.drainage.descent import Descent, DescentBasin
 from hydromodpy.spatial.geographic.capped_breach_config import capped_breach_of
 
-from ._post_processing import run_post_processing
 from ._pre_processing import assemble_flopy_packages
 from .flow_to_modflow_adapter import FlowModflowInputs, FlowToModflowAdapter
 from .nwt_config import (
     ModflowConfig,
     ModflowSpecifParams,
 )
-from .postprocess import NODATA
 from .steady_initial_conditions import (
     apply_nwt_steady_state_initial_heads,
     flow_uses_steady_state_initial_condition,
@@ -81,9 +81,9 @@ class ModflowNwt:
     MODFLOW-NWT backend. Heavy concern-specific work is delegated to:
 
     - ``_pre_processing.assemble_flopy_packages`` for FLOPY package wiring,
-    - ``_post_processing.run_post_processing`` for output reduction,
+    - ``postprocess.run.run_post_processing`` for the historical TIFF maps,
     - ``modflow_common.progress.run_model_with_progress`` and
-      ``_rates.scale_rate_payload`` for runtime helpers.
+      ``_pre_processing.scale_rate_payload`` for runtime helpers.
     """
 
     def __init__(

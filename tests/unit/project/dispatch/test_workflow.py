@@ -23,8 +23,8 @@ from hydromodpy.core.tracking.input_file import InputFile
 from hydromodpy.project.dispatch import workflow as wf
 from hydromodpy.results.catalog.registration import config_identity_hash, run_identity_hash
 from hydromodpy.results.manifest import ManifestConfig, ManifestRun
+from tests._helpers.run_records import make_identity, make_record
 from tests._helpers.sealed_runs import write_attempt
-from tests.unit.results._run_record_factory import make_identity, make_record
 
 
 class _FakeProject:
@@ -271,14 +271,14 @@ def test_completed_run_view_indexes_then_reads_the_run_directory(
 
 
 def _phases_loader(monkeypatch: pytest.MonkeyPatch, names: list[str] | Exception) -> None:
-    import hydromodpy.calibration.runners.cli_runner as cli
+    import hydromodpy.calibration.runners.document as document
 
     def load(path: Path) -> tuple[Any, dict]:
         if isinstance(names, Exception):
             raise names
         return SimpleNamespace(phases=[SimpleNamespace(name=n) for n in names]), {}
 
-    monkeypatch.setattr(cli, "load_toml_calibration", load)
+    monkeypatch.setattr(document, "load_toml_calibration", load)
 
 
 def test_declared_phases_are_listed_and_an_unreadable_file_declares_none(
@@ -354,12 +354,13 @@ def test_run_calibration_refuses_a_phase_a_flat_file_does_not_declare(
 
 
 def _draft_collaborators(monkeypatch: pytest.MonkeyPatch, *, is_sites: bool) -> list[Any]:
-    import hydromodpy.config.sites.expansion as expansion
+    import hydromodpy.config.sites as sites
+    import hydromodpy.project.launch.sites.expansion as expansion
     import hydromodpy.workflow.dispatch as wdispatch
 
     seen: list[Any] = []
     monkeypatch.setattr(wdispatch, "load_raw_toml", lambda path: {"raw": str(path)})
-    monkeypatch.setattr(expansion, "is_sites_project", lambda raw: is_sites)
+    monkeypatch.setattr(sites, "is_sites_project", lambda raw: is_sites)
     monkeypatch.setattr(
         expansion,
         "expand_plan",

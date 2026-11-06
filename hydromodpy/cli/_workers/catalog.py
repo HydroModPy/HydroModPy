@@ -49,6 +49,13 @@ _LISTING_COLUMNS: tuple[str, ...] = (
 )
 
 
+def project_root_at(workspace: Any) -> Path:
+    """Return the project root at or above *workspace*, or above the current directory."""
+    from hydromodpy.core.state.result_dirs import resolve_project_root
+
+    return resolve_project_root(Path(workspace or Path.cwd()).expanduser().resolve())
+
+
 def _open_catalog(workspace: Any) -> Any:
     """Open the index of the project at ``workspace`` or raise ``FileNotFoundError``."""
     from hydromodpy.results.catalog import Catalog
@@ -245,6 +252,67 @@ def diff_simulations(ref_a: str, ref_b: str, *, workspace: Any) -> dict:
         return catalog.diff(ref_a, ref_b)
 
 
+def rank_simulations(
+    project: str,
+    *,
+    workspace: Any = None,
+    metric: str = "nse",
+    station: str | None = None,
+    best: bool = True,
+    n: int = 5,
+    mixed_windows: bool = False,
+) -> Any:
+    """Rank the scores of the completed runs of one project. Returns a DataFrame.
+
+    One row per run and station scored on ``metric``, with the window and the
+    rule version of the score; ``station`` keeps the rows of one station only.
+    ``best=True`` puts the best values first, ``best=False`` the worst ones.
+    The direction of the metric comes from
+    :data:`hydromodpy.results.catalog.constants.METRIC_SENSE`: a metric missing
+    from it raises :class:`~hydromodpy.results.catalog.constants.UnrankedMetricError`.
+    A missing or non-finite value never ranks. The scores must share one rule
+    (station, variable, window, rule version): otherwise
+    :class:`~hydromodpy.results.run.sealed.MixedWindowsError` is raised, unless
+    ``mixed_windows`` is true.
+    """
+    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.catalog.constants import metric_rank_sql
+    from hydromodpy.results.metric_rule import HEADLINE_WINDOW
+    from hydromodpy.results.run.sealed import METRICS_RULE, check_one_rule
+
+    order = metric_rank_sql(metric, best=best)
+    workspace_root = project_root_at(workspace)
+    station_clause = "" if station is None else "AND m.station_id = ? "
+    with Catalog(workspace_root) as catalog:
+        sql = (
+            "SELECT s.sim_id, s.name, s.rel_dir, sv.code AS solver, m.station_id AS station, "
+            "m.variable, m.metric_name, m.value, m.window_start, m.window_end, "
+            "m.metric_rule_version "
+            "FROM simulations s "
+            "JOIN solvers sv ON s.solver_id = sv.id "
+            "JOIN statuses st ON s.status_id = st.id "
+            "JOIN metrics m ON s.sim_id = m.sim_id "
+            "WHERE s.project = ? AND st.code = 'completed' "
+            f"AND m.window_name = '{HEADLINE_WINDOW}' "
+            f"AND m.metric_name = ? {station_clause}"
+            "AND m.value IS NOT NULL AND isfinite(m.value) "
+            f"ORDER BY {order}"
+        )
+        params: list[Any] = [project, metric]
+        if station is not None:
+            params.append(station)
+        frame = catalog.connection.execute(sql, params).fetchdf()
+    if not mixed_windows:
+        rule = frame.rename(columns={"station": METRICS_RULE.station})
+        check_one_rule(
+            rule.to_dict("records"),
+            metric,
+            names=list(frame["rel_dir"]),
+            columns=METRICS_RULE,
+        )
+    return frame.head(int(n)).drop(columns="rel_dir")
+
+
 def delete_simulation_artifacts(
     catalog: Any, sid: str, *, force: bool = False
 ) -> dict[str, object]:
@@ -257,20 +325,51 @@ def delete_simulation_artifacts(
 
     rel_dir = catalog.rel_dir_of(sid)
     run_dir = catalog.project_path / rel_dir
-    size = _path_size(run_dir)
+    size = path_size(run_dir)
     moved = trash_run(catalog.project_path, rel_dir, now=datetime.now(UTC), force=force)
     return {"sim_id": sid, "rel_dir": rel_dir, "trashed_to": str(moved), "bytes": size}
 
 
-def _path_size(path: Path) -> int:
+def remove_for_good(
+    project_root: Path, rel_dir: str, *, now: datetime, force: bool = False
+) -> Path:
+    """Move a run to the trash, then purge it there, and return where it went.
+
+    The purge leaves a tombstone, so the name of the run stays taken.
+    """
+    from hydromodpy.results.trash import list_trash, purge_trashed, trash_run
+
+    trashed = trash_run(project_root, rel_dir, now=now, force=force)
+    entry = next(entry for entry in list_trash(project_root) if entry.path == trashed)
+    purge_trashed(project_root, [entry], now=now)
+    return trashed
+
+
+def path_size(path: Path) -> int:
+    """Return the bytes of a file, or of every file under a directory; 0 when it is gone."""
+    if path.is_file():
+        return int(path.stat().st_size)
     total = 0
-    try:
-        for child in path.rglob("*"):
+    for child in path.rglob("*"):
+        try:
             if child.is_file():
                 total += int(child.stat().st_size)
-    except OSError:
-        return total
+        except OSError:
+            # A file removed while the tree is walked frees nothing more.
+            continue
     return total
+
+
+def reindex_if_indexed(project_root: Path) -> None:
+    """Index the runs a command just changed, when the project has an index.
+
+    A project without an index is left so: it is read from disk until
+    ``hmp catalog reindex`` builds one.
+    """
+    if catalog_path_for(project_root).is_file():
+        from hydromodpy.results.catalog.indexer import index_new_runs
+
+        index_new_runs(project_root)
 
 
 def reindex_project(workspace: Any, *, incremental: bool = False) -> dict:

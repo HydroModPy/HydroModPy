@@ -16,7 +16,7 @@ from rasterio.transform import from_origin
 
 from hydromodpy.core.exceptions import DataContractViolation
 from hydromodpy.data.contracts import FieldRecord, LoadResult
-from hydromodpy.simulation.soil_recharge import capacity_classes
+from hydromodpy.simulation.soil.columns import capacity_classes
 
 _CRS = "EPSG:2154"
 _X = np.array([0.0, 1000.0])  # two SAFRAN cells, one row

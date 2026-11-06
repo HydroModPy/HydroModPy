@@ -4,7 +4,7 @@ The MVR package routes water from a *provider* package feature to a *receiver*
 package feature, controlled by a transfer rule. This module is general: it knows
 nothing about LAK, SFR or MAW; it only formats and validates the transfer records
 shared by two packages of the same GWF model. The LAK adapter that compiles lake
-outlets into :class:`MoverRecord` instances lives in ``builders/lake.py``.
+outlets into :class:`MoverRecord` instances lives in ``builders/lake_outflow.py``.
 
 A record follows the FloPy single-model layout
 ``[pname1, id1, pname2, id2, mvrtype, value]`` (model names are omitted because

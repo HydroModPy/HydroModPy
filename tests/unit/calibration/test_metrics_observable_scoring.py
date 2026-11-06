@@ -31,8 +31,8 @@ from hydromodpy.calibration.metrics.observable_scoring import (
     VALIDATION_COST,
     ObservableScorer,
     StationBlockScorer,
-    _day,
     _one_record_per_station,
+    bound_text,
     dated_series,
     discharge_target,
     network_distance_scales,
@@ -1521,7 +1521,7 @@ def test_a_window_with_nothing_to_hold_the_states_against_is_not_checked(
     [(None, "open"), ("2000-01-05", "2000-01-05"), ("2000-01-05 06:00", "2000-01-05T06:00:00")],
 )
 def test_a_window_bound_is_written_as_a_reader_writes_it(value, written) -> None:
-    assert _day(value) == written
+    assert bound_text(value) == written
 
 
 def test_a_station_loaded_twice_is_scored_once_on_its_first_record(caplog) -> None:

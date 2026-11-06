@@ -14,6 +14,19 @@ from typing import Any
 from hydromodpy.core.state.layout import data_cache_path_for
 
 
+def _workspace_of(workspace: Any) -> Path:
+    """Return the workspace ``-w`` names, or the one above the current directory."""
+    from hydromodpy.cli.helpers import resolve_workspace
+
+    return resolve_workspace(str(workspace) if workspace else None)
+
+
+def _cache_of(workspace: Any) -> tuple[Path, Path]:
+    """Return the workspace and the path of its data cache, which may not exist yet."""
+    root = _workspace_of(workspace)
+    return root, data_cache_path_for(root / "data")
+
+
 def list_data_cache(
     workspace: Any = None,
     *,
@@ -21,11 +34,9 @@ def list_data_cache(
     provider: str | None = None,
 ) -> Any:
     """List artifacts indexed in the workspace data cache."""
-    from hydromodpy.cli.helpers import resolve_workspace as _resolve_ws
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
-    workspace_root = _resolve_ws(str(workspace) if workspace else None)
-    db_path = data_cache_path_for(workspace_root / "data")
+    workspace_root, db_path = _cache_of(workspace)
     if not db_path.exists():
         return None
     with DataCatalogDuckDB(db_path, read_only=True) as catalog:
@@ -69,9 +80,7 @@ def request_data(
         )
     store = None
     if workspace is not None:
-        from hydromodpy.cli.helpers import resolve_workspace as _resolve_ws
-
-        store = DataStore(workspace_root=_resolve_ws(str(workspace)))
+        store = DataStore(workspace_root=_workspace_of(workspace))
     report = run_request(request, Path(out).expanduser(), store=store)
     return report.to_document()
 
@@ -83,11 +92,10 @@ def check_data_cache(
     fix: bool = False,
 ) -> dict:
     """Validate custom files in ``data/<variable>/``. Returns issues + optional fix summary."""
-    from hydromodpy.cli.helpers import resolve_workspace as _resolve_ws
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
     from hydromodpy.data.workspace.custom_scan import check_custom
 
-    workspace_root = _resolve_ws(str(workspace) if workspace else None)
+    workspace_root = _workspace_of(workspace)
     issues = check_custom(workspace_root, variable=variable)
     fix_summary: dict | None = None
     if fix:
@@ -121,7 +129,6 @@ def add_data_entry(
     only ever names the cache the file lands in: it holds many projects and
     therefore no lockfile of its own.
     """
-    from hydromodpy.cli.helpers import resolve_workspace as _resolve_ws
     from hydromodpy.data.ingest import (
         convert_asc_to_geotiff,
         convert_timeseries_csv_to_parquet,
@@ -136,7 +143,7 @@ def add_data_entry(
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
     from hydromodpy.data.workspace.scaffold import VARIABLES
 
-    workspace_root = _resolve_ws(str(workspace) if workspace else None)
+    workspace_root = _workspace_of(workspace)
     src = Path(file).expanduser().resolve()
     if not src.is_file():
         raise FileNotFoundError(f"File not found: {src}")
@@ -193,11 +200,9 @@ def remove_data_entries(
     dry_run: bool = False,
 ) -> int:
     """Remove cache entries matching the filters. Returns the count, removed or found."""
-    from hydromodpy.cli.helpers import resolve_workspace as _resolve_ws
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
-    workspace_root = _resolve_ws(str(workspace) if workspace else None)
-    db_path = data_cache_path_for(workspace_root / "data")
+    workspace_root, db_path = _cache_of(workspace)
     if not db_path.exists():
         return 0
     with DataCatalogDuckDB(db_path) as catalog:
@@ -218,11 +223,9 @@ def prune_data_cache(
     dry_run: bool = False,
 ) -> int:
     """Drop cache entries older than N days. Returns the count, removed or found."""
-    from hydromodpy.cli.helpers import resolve_workspace as _resolve_ws
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
-    workspace_root = _resolve_ws(str(workspace) if workspace else None)
-    db_path = data_cache_path_for(workspace_root / "data")
+    workspace_root, db_path = _cache_of(workspace)
     if not db_path.exists():
         return 0
     with DataCatalogDuckDB(db_path) as catalog:
@@ -233,14 +236,12 @@ def prune_data_cache(
 
 def archive_data_cache(output: Any, *, workspace: Any = None) -> Path:
     """Archive the workspace cache + lockfile to a portable file."""
-    from hydromodpy.cli.helpers import resolve_workspace as _resolve_ws
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
     from hydromodpy.data.registry.freeze import archive_lockfile
     from hydromodpy.results.storage.parquet_schemas import PARQUET_SCHEMA_VERSION
     from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
 
-    workspace_root = _resolve_ws(str(workspace) if workspace else None)
-    db_path = data_cache_path_for(workspace_root / "data")
+    workspace_root, db_path = _cache_of(workspace)
     dest = Path(output).expanduser().resolve()
     if not db_path.is_file():
         raise FileNotFoundError(f"no data cache at {db_path}: nothing to archive")
@@ -259,10 +260,9 @@ def restore_data_cache(source: Any, *, workspace: Any = None, to: Any = None) ->
 
     The destination is *to*, else ``data/imported`` of the workspace.
     """
-    from hydromodpy.cli.helpers import resolve_workspace as _resolve_ws
     from hydromodpy.data.registry.freeze import restore_archive
 
-    workspace_root = _resolve_ws(str(workspace) if workspace else None)
+    workspace_root = _workspace_of(workspace)
     src = Path(source).expanduser().resolve()
     dest = Path(to).expanduser().resolve() if to else workspace_root / "data" / "imported"
     restore_archive(src, dest)

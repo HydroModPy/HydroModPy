@@ -17,7 +17,7 @@ from pandas.tseries.offsets import MonthEnd, QuarterEnd, YearEnd
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.data.variables.recharge.config import RechargeSourceConfig
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     from hydromodpy.data.managers.base_manager_common import SourceContext
 
 # Calendar offsets whose pandas date_range stamps land on the period end.

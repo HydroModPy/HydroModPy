@@ -20,6 +20,7 @@ scripts in `templates/*.sh` (and the copies users keep in `jobs/`) call it with
 
 | module | what it answers |
 |---|---|
+| `sites/` | the plan, sites x recipes resolved into cases, written once under `plan/<hash>/`, and its budget. See [sites/README.md](sites/README.md) |
 | `lease.py` | who holds the project right now: `.hmp/launcher.lease`, one launcher per project (`acquire_lease`, `launcher_lease`) |
 | `selection.py` | which cases start, with which worker flags, within which budget of solves (`select_cases`, `worker_flags`, `effective_parallel`) |
 | `env.py` | the environment and thread budget of a case process (`child_environment`, `apply_thread_budget`) |
@@ -62,4 +63,4 @@ launch/
 | a command a SLURM script calls | a function in `slurm.py`, a branch in its `main`, a line in the template; keep the module path |
 | a column of `by_case` or `by_site` | `summary_tables.py` |
 | an export kind of `[[sites.export]]` | `summary_exports.py` |
-| a figure, a page or the RO-Crate of a collect | not here: `display/cohort.py` and `reporting/campaign_summary.py` |
+| a figure, a page or the RO-Crate of a collect | not here: `display/cohort.py` and `results/export/campaign_summary.py` |

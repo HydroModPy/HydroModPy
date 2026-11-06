@@ -120,11 +120,6 @@ def _stored_budget(catalog: Catalog, sid: str) -> dict[str, np.ndarray]:
         sz.close()
 
 
-@pytest.fixture
-def project(tmp_path: Path) -> Path:
-    return tmp_path / "workspace"
-
-
 def test_a_run_stores_no_release_flux_and_the_field_is_served(project) -> None:
     with _seeded(project, _budget()) as (catalog, sid):
         sz = catalog.open_zarr(sid)

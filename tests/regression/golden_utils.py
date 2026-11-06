@@ -25,6 +25,7 @@ Design principles
 from __future__ import annotations
 
 import gc
+import hashlib
 import json
 import os
 import re
@@ -791,32 +792,28 @@ def assert_required_executables(
         ensure_platform_executable(path)
 
 
-def require_url_available(url: str, *, timeout: float = 15.0, attempts: int = 3) -> None:
+def connectiondata_sha256(rows) -> str:
+    """Stable SHA-256 over a MODFLOW 6 LAK CONNECTIONDATA geometry.
+
+    Rounding the floating geometry to 6 decimals keeps the hash stable across
+    platforms while still detecting a real change to the connection set.
     """
-    Require an external HTTP endpoint to be reachable, otherwise skip the test.
-
-    This keeps network-dependent regression tests stable in CI/environments
-    where outbound internet connectivity is not guaranteed.
-
-    The helper is intentionally permissive:
-    - try a few times,
-    - skip instead of fail if the endpoint is unavailable.
-    """
-    try:
-        import requests
-    except Exception as exc:  # pragma: no cover - import failure is environment-specific
-        pytest.skip(f"Cannot import 'requests' to probe network dependency: {exc}")
-
-    last_error = None
-    for _ in range(attempts):
-        try:
-            response = requests.get(url, timeout=timeout)
-            response.raise_for_status()
-            return
-        except Exception as exc:  # pragma: no cover - depends on network conditions
-            last_error = exc
-
-    pytest.skip(f"External service unavailable ({url}): {last_error}")
+    serialised = [
+        [
+            int(row[0]),
+            int(row[1]),
+            [int(row[2][0]), int(row[2][1])],
+            str(row[3]),
+            round(float(row[4]), 12),
+            round(float(row[5]), 6),
+            round(float(row[6]), 6),
+            round(float(row[7]), 6),
+            round(float(row[8]), 6),
+        ]
+        for row in rows
+    ]
+    payload = json.dumps(serialised, sort_keys=True).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
 
 
 def resolve_model_workspace(
@@ -989,7 +986,7 @@ def run_example_script(
     # double-load crashes caused by .pth files or "coverage run".
     run_args = [] if script_args is None else list(script_args)
     if os.environ.get("HMP_COVERAGE"):
-        wrapper = Path(__file__).resolve().parent / "coverage_runner.py"
+        wrapper = Path(__file__).resolve().parents[2] / "tools" / "ci" / "coverage_runner.py"
         command = [sys.executable, str(wrapper), str(script_path), *run_args]
     else:
         command = [sys.executable, str(script_path), *run_args]
@@ -1035,7 +1032,7 @@ def run_hmp_cli(
             env[key] = str(value)
 
     if os.environ.get("HMP_COVERAGE"):
-        wrapper = Path(__file__).resolve().parent / "coverage_runner.py"
+        wrapper = Path(__file__).resolve().parents[2] / "tools" / "ci" / "coverage_runner.py"
         command = [
             sys.executable,
             str(wrapper),

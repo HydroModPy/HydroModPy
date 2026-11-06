@@ -50,7 +50,11 @@ from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Opt
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._instant import instant_label
-from hydromodpy.display.maps.axes import overlay_watershed_contour, style_relative_km_axes
+from hydromodpy.display.maps.axes import (
+    overlay_watershed_contour,
+    style_relative_km_axes,
+    watershed_of,
+)
 from hydromodpy.display.maps.mesh_geometry import face_polygons
 from hydromodpy.display.maps.overlays import apply_overlays
 from hydromodpy.display.maps.ugrid import last_timestep
@@ -144,7 +148,6 @@ def _note_box() -> dict[str, object]:
     return {"facecolor": neutral("white"), "alpha": 0.9, "edgecolor": neutral(GROUND_EDGE)}
 
 
-_WATERSHED_FEATURE = "watershed"
 """The delineated catchment, under the name the geographic step persists it."""
 
 
@@ -479,11 +482,8 @@ def _overlaps(
 
 def _catchment_box(sim: Run) -> tuple[float, float, float, float] | None:
     """Return the bounds of the delineated catchment, None without one."""
-    try:
-        gdf = sim.geographic(_WATERSHED_FEATURE)
-    except Exception:
-        return None
-    if gdf is None or gdf.empty:
+    gdf = watershed_of(sim)
+    if gdf is None:
         return None
     x0, y0, x1, y1 = (float(value) for value in gdf.total_bounds)
     return (x0, x1, y0, y1)

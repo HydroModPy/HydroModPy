@@ -11,7 +11,7 @@ from hydromodpy.core.config_kit.calibrable import Calibrable
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.units import Length, LengthMeters
-from hydromodpy.physics.flow.sinks_sources._units import normalize_first_clim
+from hydromodpy.physics.forcing.steady_periods import normalize_first_clim
 from hydromodpy.physics.forcing.types import InterpolationMethod, SpatialMode
 from hydromodpy.physics.forcing.validation import ensure_non_negative_numeric_payload
 

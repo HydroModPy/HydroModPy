@@ -22,7 +22,7 @@ Code map
   consumer side through ``field_spatial_id``.
 - ``hydromodpy/spatial/field/zone_fractions.py``: the fraction of every zone
   in every cell, for every mesh.
-- ``hydromodpy/solver/field_property_mapping.py``: the one mapping of a
+- ``hydromodpy/solver/base/properties.py``: the one mapping of a
   heterogeneous parameter to solver arrays.
 
 Recommended reading path
@@ -32,7 +32,7 @@ Recommended reading path
 2. ``hydromodpy/spatial/domain/spatial_support.py``
 3. ``hydromodpy/spatial/field/field_param.py``
 4. ``hydromodpy/spatial/field/zone_fractions.py`` and
-   ``hydromodpy/solver/field_property_mapping.py``
+   ``hydromodpy/solver/base/properties.py``
 
 Core rule
 ---------

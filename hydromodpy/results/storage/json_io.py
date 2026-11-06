@@ -263,7 +263,7 @@ def write_json_durable(target: str | Path, payload: Any) -> Path:
     except BaseException:
         staged.unlink(missing_ok=True)
         raise
-    _fsync_directory(path.parent)
+    fsync_directory(path.parent)
     return path
 
 
@@ -275,7 +275,7 @@ def _fsync_file(path: Path) -> None:
         os.close(fd)
 
 
-def _fsync_directory(directory: Path) -> None:
+def fsync_directory(directory: Path) -> None:
     """Flush the directory entry; a no-op on Windows, which cannot open a directory."""
     if os.name == "nt":
         return

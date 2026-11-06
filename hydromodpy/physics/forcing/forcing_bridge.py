@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 from hydromodpy.physics.contracts import LoadResultProto, get_field_aggregator
+from hydromodpy.physics.forcing.time_alignment import align_forcing_series_to_simulation_window
 from hydromodpy.physics.forcing.types import InterpolationMethod, SpatialMode
 
 if TYPE_CHECKING:
@@ -120,10 +121,6 @@ def build_forcing_series(
         series = series * unit_conversion_factor
 
     if simulation_window is not None:
-        from hydromodpy.physics.forcing.time_alignment import (
-            align_forcing_series_to_simulation_window,
-        )
-
         series = align_forcing_series_to_simulation_window(
             series,
             simulation_window=simulation_window,

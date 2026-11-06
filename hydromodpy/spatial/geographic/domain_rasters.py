@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import rasterio
 
@@ -81,6 +82,141 @@ def _export_reshaped_rasters(
         export_tif(paths.watershed_box_buff_dem, data, dst_path, nodata)
 
 
+_DOMAIN_CLIPS = (
+    # (raster to clip, polygon, output, keep the dimensions of the raster, nodata of the output)
+    ("correc", "box_buff", "watershed_box_buff_fill", False, None),
+    ("direc", "box_buff", "watershed_box_buff_direc", False, None),
+    ("box_buff_dem", "watershed_buff", "watershed_buff_dem", True, -9999),
+    ("correc", "watershed_buff", "watershed_buff_fill", False, None),
+    ("direc", "watershed_buff", "watershed_buff_direc", False, None),
+    ("box_buff_dem", "watershed", "watershed_dem", True, None),
+    ("correc", "watershed", "watershed_fill", False, None),
+    ("direc", "watershed", "watershed_direc", False, None),
+)
+
+
+def _clip_jobs(
+    paths: GeographicPaths,
+    *,
+    correc_path: str | Path,
+    direc_path: str | Path,
+    watershed_shp: str | Path,
+    watershed_buff_shp: str | Path,
+) -> list[tuple[Path | str, Path | str, Path | str, bool, int | None]]:
+    """Return the clips that cut the regional products down to the watershed."""
+    rasters = {
+        "correc": correc_path,
+        "direc": direc_path,
+        "box_buff_dem": paths.watershed_box_buff_dem,
+    }
+    polygons = {
+        "box_buff": paths.box_buff,
+        "watershed_buff": watershed_buff_shp,
+        "watershed": watershed_shp,
+    }
+    return [
+        (rasters[src], polygons[polygon], getattr(paths, dst), keep, nodata)
+        for src, polygon, dst, keep, nodata in _DOMAIN_CLIPS
+    ]
+
+
+def _clip_in_memory(
+    tool: Any,
+    *,
+    dem_init_path: str | Path,
+    jobs: list[tuple[Path | str, Path | str, Path | str, bool, int | None]],
+    watershed_shp: str | Path,
+    watershed_buff_shp: str | Path,
+    correc_path: str | Path,
+    direc_path: str | Path,
+    paths: GeographicPaths,
+    crs_project: str | None,
+) -> None:
+    """Clip with a backend that keeps rasters in memory between two clips."""
+    dem_init_raster = tool.raster.read_raster(str(dem_init_path))
+    correc_raster = tool.raster.read_raster(str(correc_path))
+    direc_raster = tool.raster.read_raster(str(direc_path))
+    box_buff_vector = tool.raster.read_vector(str(paths.box_buff))
+    watershed_buff_vector = tool.raster.read_vector(str(watershed_buff_shp))
+    watershed_vector = tool.raster.read_vector(str(watershed_shp))
+
+    watershed_box_buff_dem = tool.raster.clip_raster_to_polygon_raster(
+        dem_init_raster,
+        box_buff_vector,
+        maintain_dimensions=False,
+    )
+    watershed_box_buff_dem = tool.raster.modify_no_data_value_raster(
+        watershed_box_buff_dem,
+        new_value=-9999.0,
+    )
+    tool.raster.write_raster(watershed_box_buff_dem, str(paths.watershed_box_buff_dem))
+    ensure_crs(paths.watershed_box_buff_dem, crs_project)
+
+    raster_sources: dict[str, object] = {
+        str(correc_path): correc_raster,
+        str(direc_path): direc_raster,
+        str(paths.watershed_box_buff_dem): watershed_box_buff_dem,
+    }
+    polygon_sources: dict[str, object] = {
+        str(paths.box_buff): box_buff_vector,
+        str(watershed_buff_shp): watershed_buff_vector,
+        str(watershed_shp): watershed_vector,
+    }
+    for src, polygon, dst, maintain_dimensions, nodata in jobs:
+        clipped = tool.raster.clip_raster_to_polygon_raster(
+            raster_sources[str(src)],
+            polygon_sources[str(polygon)],
+            maintain_dimensions=maintain_dimensions,
+        )
+        if nodata is not None:
+            clipped = tool.raster.modify_no_data_value_raster(clipped, new_value=float(nodata))
+        tool.raster.write_raster(clipped, str(dst))
+        ensure_crs(dst, crs_project)
+        raster_sources[str(dst)] = clipped
+    tool.raster.write_raster(
+        tool.raster.vector_lines_to_raster_vector(
+            watershed_vector,
+            base_raster=raster_sources[str(paths.watershed_dem)],
+        ),
+        str(paths.watershed_contour_tif),
+    )
+
+
+def _clip_through_files(
+    tool: Any,
+    *,
+    dem_init_path: str | Path,
+    jobs: list[tuple[Path | str, Path | str, Path | str, bool, int | None]],
+    watershed_shp: str | Path,
+    paths: GeographicPaths,
+    crs_project: str | None,
+) -> None:
+    """Clip with a backend that reads and writes a file at each step."""
+    clip_dem_to_box_buffer(
+        dem_init_path=dem_init_path,
+        box_buff_shp=paths.box_buff,
+        output_dem_path=paths.watershed_box_buff_dem,
+        crs_project=crs_project,
+        nodata=-9999.0,
+        backend=tool,
+    )
+    for src, polygon, dst, maintain_dimensions, nodata in jobs:
+        _clip_raster(
+            src=src,
+            polygon=polygon,
+            dst=dst,
+            maintain_dimensions=maintain_dimensions,
+            crs_project=crs_project,
+            nodata=nodata,
+            backend=tool,
+        )
+    tool.raster.vector_lines_to_raster(
+        str(watershed_shp),
+        str(paths.watershed_contour_tif),
+        base=str(paths.watershed_dem),
+    )
+
+
 def build_domain_rasters(
     *,
     dem_init_path: str | Path,
@@ -100,7 +236,13 @@ def build_domain_rasters(
     consume the artifacts unchanged.
     """
     tool = resolve_delineation_backend(backend)
-
+    jobs = _clip_jobs(
+        paths,
+        correc_path=correc_path,
+        direc_path=direc_path,
+        watershed_shp=watershed_shp,
+        watershed_buff_shp=watershed_buff_shp,
+    )
     if backend_has_callables(
         tool,
         "raster",
@@ -111,111 +253,25 @@ def build_domain_rasters(
         "write_raster",
         "vector_lines_to_raster_vector",
     ):
-        dem_init_raster = tool.raster.read_raster(str(dem_init_path))
-        correc_raster = tool.raster.read_raster(str(correc_path))
-        direc_raster = tool.raster.read_raster(str(direc_path))
-        box_buff_vector = tool.raster.read_vector(str(paths.box_buff))
-        watershed_buff_vector = tool.raster.read_vector(str(watershed_buff_shp))
-        watershed_vector = tool.raster.read_vector(str(watershed_shp))
-
-        watershed_box_buff_dem = tool.raster.clip_raster_to_polygon_raster(
-            dem_init_raster,
-            box_buff_vector,
-            maintain_dimensions=False,
-        )
-        watershed_box_buff_dem = tool.raster.modify_no_data_value_raster(
-            watershed_box_buff_dem,
-            new_value=-9999.0,
-        )
-        tool.raster.write_raster(watershed_box_buff_dem, str(paths.watershed_box_buff_dem))
-        ensure_crs(paths.watershed_box_buff_dem, crs_project)
-
-        raster_sources: dict[str, object] = {
-            str(correc_path): correc_raster,
-            str(direc_path): direc_raster,
-            str(paths.watershed_box_buff_dem): watershed_box_buff_dem,
-        }
-        polygon_sources: dict[str, object] = {
-            str(paths.box_buff): box_buff_vector,
-            str(watershed_buff_shp): watershed_buff_vector,
-            str(watershed_shp): watershed_vector,
-        }
-
-        jobs = [
-            (correc_path, paths.box_buff, paths.watershed_box_buff_fill, False, None),
-            (direc_path, paths.box_buff, paths.watershed_box_buff_direc, False, None),
-            (
-                paths.watershed_box_buff_dem,
-                watershed_buff_shp,
-                paths.watershed_buff_dem,
-                True,
-                -9999,
-            ),
-            (correc_path, watershed_buff_shp, paths.watershed_buff_fill, False, None),
-            (direc_path, watershed_buff_shp, paths.watershed_buff_direc, False, None),
-            (paths.watershed_box_buff_dem, watershed_shp, paths.watershed_dem, True, None),
-            (correc_path, watershed_shp, paths.watershed_fill, False, None),
-            (direc_path, watershed_shp, paths.watershed_direc, False, None),
-        ]
-        for src, polygon, dst, maintain_dimensions, nodata in jobs:
-            clipped = tool.raster.clip_raster_to_polygon_raster(
-                raster_sources[str(src)],
-                polygon_sources[str(polygon)],
-                maintain_dimensions=maintain_dimensions,
-            )
-            if nodata is not None:
-                clipped = tool.raster.modify_no_data_value_raster(clipped, new_value=float(nodata))
-            tool.raster.write_raster(clipped, str(dst))
-            ensure_crs(dst, crs_project)
-            raster_sources[str(dst)] = clipped
-        tool.raster.write_raster(
-            tool.raster.vector_lines_to_raster_vector(
-                watershed_vector,
-                base_raster=raster_sources[str(paths.watershed_dem)],
-            ),
-            str(paths.watershed_contour_tif),
+        _clip_in_memory(
+            tool,
+            dem_init_path=dem_init_path,
+            jobs=jobs,
+            watershed_shp=watershed_shp,
+            watershed_buff_shp=watershed_buff_shp,
+            correc_path=correc_path,
+            direc_path=direc_path,
+            paths=paths,
+            crs_project=crs_project,
         )
     else:
-        clip_dem_to_box_buffer(
+        _clip_through_files(
+            tool,
             dem_init_path=dem_init_path,
-            box_buff_shp=paths.box_buff,
-            output_dem_path=paths.watershed_box_buff_dem,
+            jobs=jobs,
+            watershed_shp=watershed_shp,
+            paths=paths,
             crs_project=crs_project,
-            nodata=-9999.0,
-            backend=tool,
-        )
-
-        jobs = [
-            (correc_path, paths.box_buff, paths.watershed_box_buff_fill, False, None),
-            (direc_path, paths.box_buff, paths.watershed_box_buff_direc, False, None),
-            (
-                paths.watershed_box_buff_dem,
-                watershed_buff_shp,
-                paths.watershed_buff_dem,
-                True,
-                -9999,
-            ),
-            (correc_path, watershed_buff_shp, paths.watershed_buff_fill, False, None),
-            (direc_path, watershed_buff_shp, paths.watershed_buff_direc, False, None),
-            (paths.watershed_box_buff_dem, watershed_shp, paths.watershed_dem, True, None),
-            (correc_path, watershed_shp, paths.watershed_fill, False, None),
-            (direc_path, watershed_shp, paths.watershed_direc, False, None),
-        ]
-        for src, polygon, dst, maintain_dimensions, nodata in jobs:
-            _clip_raster(
-                src=src,
-                polygon=polygon,
-                dst=dst,
-                maintain_dimensions=maintain_dimensions,
-                crs_project=crs_project,
-                nodata=nodata,
-                backend=tool,
-            )
-
-        tool.raster.vector_lines_to_raster(
-            str(watershed_shp),
-            str(paths.watershed_contour_tif),
-            base=str(paths.watershed_dem),
         )
     ensure_crs(paths.watershed_contour_tif, crs_project)
 

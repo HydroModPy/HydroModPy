@@ -23,34 +23,12 @@ from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Opt
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.style import place_legend
-from hydromodpy.results.run.particles import (
-    has_particle_tracks,
-    particle_time_to_days,
-    read_particle_tracks,
-    travel_time,
-)
+from hydromodpy.results.run.particles import has_particle_tracks, particle_travel_years
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
     from hydromodpy.results.run import Run
-
-_DAYS_PER_YEAR = 365.25
-
-
-def particle_travel_years(sim: Run) -> np.ndarray:
-    """Return the travel time of every tracked particle, in years.
-
-    Particles the tracker could not time (a single stored step, a NaN clock)
-    and particles that never left their release point are dropped: they carry
-    no residence time, and a zero would sit at minus infinity on a log axis.
-    """
-    to_days = particle_time_to_days(sim)
-    times = np.array(
-        [travel_time(track) * to_days / _DAYS_PER_YEAR for track in read_particle_tracks(sim)],
-        dtype="float64",
-    )
-    return times[np.isfinite(times) & (times > 0.0)]
 
 
 def _log_spaced_density(values: np.ndarray, n_bins: int) -> tuple[np.ndarray, np.ndarray]:

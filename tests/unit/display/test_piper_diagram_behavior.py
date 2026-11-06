@@ -21,18 +21,6 @@ _SQRT3 = math.sqrt(3.0)
 _MAJORS = ("Ca", "Mg", "Na", "K", "Cl", "SO4", "HCO3")
 
 
-@pytest.fixture
-def mpl():
-    pytest.importorskip("matplotlib")
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
-    yield plt
-    plt.close("all")
-
-
 def _frame(*samples_meq: dict[str, float]) -> pd.DataFrame:
     return pd.DataFrame([{ion: s.get(ion, 0.0) for ion in _MAJORS} for s in samples_meq])
 
@@ -183,7 +171,7 @@ def test_non_dataframe_without_timeseries_raises_typeerror(mpl) -> None:
     fig, ax = mpl.subplots()
 
     try:
-        with pytest.raises(TypeError, match="cannot read hydrochem data"):
+        with pytest.raises(TypeError, match="cannot read hydrochemistry data"):
             PiperDiagramFigure().render(object(), ax)
     finally:
         mpl.close(fig)

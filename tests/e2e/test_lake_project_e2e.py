@@ -24,7 +24,7 @@ LAK tests under tests/validation and tests/integration, which hardcode
 The pipeline is wired end to end (no xfail)
 -------------------------------------------
 The data -> flow binders (``apply_lake_geometry_to_flow`` /
-``apply_lake_abacus_to_flow`` in structure_binders.py) run in the planning step,
+``apply_lake_abacus_to_flow`` in binders/lakes.py) run in the planning step,
 so the loaded lake_geometry polygon and lake_abacus table reach the flow lake
 payload, ``_active_lake_definitions`` resolves the lake, and the LAK build branch
 fires for real. The primary test therefore asserts a genuine LAK build: a

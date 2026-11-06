@@ -7,18 +7,16 @@ suite on it, in a subprocess because ``importlib.metadata`` reads the entry poin
 
 from __future__ import annotations
 
-import os
 import re
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
 
+from ._installed_probe import REPO_ROOT, collected, run_suite, unpack
+
 # One worker runs the file, so the collection below runs once.
 pytestmark = pytest.mark.xdist_group("data_source_conformance_probe")
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
 SUITE = "tests/contract/test_data_source_contract.py"
 PROBE_ID = "conformance-probe-gauge"
 
@@ -43,47 +41,24 @@ class ProbeSource:
 """
 
 
-def _pytest(session: Path, site_packages: Path, *arguments: str) -> subprocess.CompletedProcess:
-    environment = dict(os.environ)
-    environment.pop("PYTEST_XDIST_WORKER", None)
-    entries = [site_packages, REPO_ROOT, environment.get("PYTHONPATH")]
-    environment["PYTHONPATH"] = os.pathsep.join(str(entry) for entry in entries if entry)
-    return subprocess.run(
-        [sys.executable, "-m", "pytest", SUITE, "-p", "no:randomly", "-p", "no:cacheprovider",
-         f"--basetemp={session}", *arguments],
-        cwd=str(REPO_ROOT),
-        env=environment,
-        capture_output=True,
-        text=True,
-        timeout=600,
-    )  # fmt: skip
-
-
 @pytest.fixture(scope="module")
 def installed_probe(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """A module and its ``.dist-info``, what a wheel unpacks to. No build, no network."""
-    root = tmp_path_factory.mktemp("probe_site_packages")
-    (root / "hmp_source_probe.py").write_text(PROBE_MODULE, encoding="utf-8")
-    dist_info = root / "hmp_source_probe-0.1.0.dist-info"
-    dist_info.mkdir()
-    (dist_info / "METADATA").write_text(
-        "Metadata-Version: 2.1\nName: hmp-source-probe\nVersion: 0.1.0\n", encoding="utf-8"
-    )
-    (dist_info / "entry_points.txt").write_text(
-        f"[hydromodpy.data.source]\n{PROBE_ID} = hmp_source_probe:ProbeSource\n", encoding="utf-8"
-    )
-    return root
+    return unpack(
+        tmp_path_factory.mktemp("probe_site_packages"), "hmp_source_probe", PROBE_MODULE,
+        "hydromodpy.data.source", PROBE_ID, "ProbeSource",
+    )  # fmt: skip
 
 
 def test_the_suite_holds_an_installed_source_to_its_declarations_and_refusals(
     installed_probe: Path, tmp_path: Path
 ) -> None:
-    collected = _pytest(tmp_path / "collect", installed_probe, "--collect-only", "-q")
-    assert collected.returncode == 0, collected.stdout[-4000:]
-    nodes = [line for line in collected.stdout.splitlines() if PROBE_ID in line]
-    assert len(nodes) >= 6, collected.stdout[-4000:]
+    listing = run_suite(SUITE, tmp_path / "collect", "--collect-only", "-q", site_packages=installed_probe)  # fmt: skip
+    assert listing.returncode == 0, listing.stdout[-4000:]
+    nodes = [line for line in listing.stdout.splitlines() if PROBE_ID in line]
+    assert len(nodes) >= 6, listing.stdout[-4000:]
 
-    result = _pytest(tmp_path / "run", installed_probe, "-q", "-k", PROBE_ID)
+    result = run_suite(SUITE, tmp_path / "run", "-q", "-k", PROBE_ID, site_packages=installed_probe)  # fmt: skip
 
     assert result.returncode == 0, result.stdout[-8000:]
     passed = re.search(r"(\d+) passed", result.stdout)

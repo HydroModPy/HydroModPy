@@ -46,7 +46,7 @@ its value **is not in one CRS**: the DEM manager reads it in Lambert-93 and
 the observation managers in WGS84 (``_project_extent`` in
 ``data/request/engine.py``). So the constant is what the DEM side actually receives, measured on
 that path and on the unit tests that pin it --
-``tests/unit/data_managers/test_dem_manager.py`` passes ``(650000.0,
+``tests/unit/data/variables/dem/test_dem_manager.py`` passes ``(650000.0,
 6400000.0, 1050000.0, 6650000.0)``, which is Lambert-93 or nothing.
 
 **Geology is served by the same function and by no producer.** Nothing in

@@ -56,8 +56,7 @@ Three rules hold inside:
    runs on every engine the registry resolves.
 
 Who imports spatial: `solver` and `workflow` (most), `data`,
-`results`, `calibration`, `config`, `project`, `simulation`, `physics` (one
-module, the field sections in `physics/flow/flow_param_config.py`) and the
+`results`, `calibration`, `config`, `project`, `simulation` and the
 package root (`_bootstrap.py`, `_lazy.py`).
 
 ## Tree

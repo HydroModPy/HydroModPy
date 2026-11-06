@@ -19,11 +19,6 @@ from tests._helpers.run_stores import open_run_store
 from tests._helpers.sealed_runs import seal_run
 
 
-@pytest.fixture
-def project(tmp_path: Path) -> Path:
-    return tmp_path / "workspace"
-
-
 def _write_field(store: RunStore) -> None:
     """Write two periods of head and the DEM grid of a two-cell run."""
     sid = store.sim_id

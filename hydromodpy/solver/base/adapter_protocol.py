@@ -150,23 +150,6 @@ class MeshReadingAdapter(Protocol):
     accepted_meshes: ClassVar[frozenset[str]]
 
 
-def adapter_members() -> tuple[str, ...]:
-    """Return the member names :class:`SolverAdapter` requires.
-
-    Derived from the Protocol itself so a member added there is named by the
-    refusal message without a second list to maintain. ``__protocol_attrs__``
-    would say the same thing in one attribute, and only from Python 3.12;
-    this package still ships on 3.11.
-    """
-    annotated = set(SolverAdapter.__annotations__)
-    defined = {
-        name
-        for name, value in vars(SolverAdapter).items()
-        if callable(value) and not name.startswith("_")
-    }
-    return tuple(sorted(annotated | defined))
-
-
 def missing_adapter_members(candidate: object) -> tuple[str, ...]:
     """Return the members *candidate* has no attribute for.
 
@@ -177,9 +160,15 @@ def missing_adapter_members(candidate: object) -> tuple[str, ...]:
     as present, so an empty tuple does not mean the candidate conforms.
     """
     missing = object()
+    annotated = set(SolverAdapter.__annotations__)
+    defined = {
+        name
+        for name, value in vars(SolverAdapter).items()
+        if callable(value) and not name.startswith("_")
+    }
     return tuple(
         name
-        for name in adapter_members()
+        for name in sorted(annotated | defined)
         if inspect.getattr_static(candidate, name, missing) is missing
     )
 
@@ -189,6 +178,5 @@ __all__ = [
     "MeshReadingAdapter",
     "RunResult",
     "SolverAdapter",
-    "adapter_members",
     "missing_adapter_members",
 ]

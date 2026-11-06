@@ -7,13 +7,17 @@ from typing import TYPE_CHECKING, Annotated, Any
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Opt
 from hydromodpy.display.figure_registry import register
-from hydromodpy.display.figures.hydrographic_network import plot_topography_background
+from hydromodpy.display.figures.hydrographic_network import (
+    fmt_km,
+    plot_topography_background,
+    total_bounds,
+)
 from hydromodpy.display.maps.axes import (
     RELATIVE_MAP_LEGEND_SIZE,
     overlay_watershed_contour,
     style_relative_km_axes,
 )
-from hydromodpy.display.maps.geo import GeoFigureMixin
+from hydromodpy.display.maps.geo import north_arrow, scale_bar
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -23,7 +27,7 @@ if TYPE_CHECKING:
 
 
 @register
-class HydrographicNetworkComparisonFigure(GeoFigureMixin, BaseFigure):
+class HydrographicNetworkComparisonFigure(BaseFigure):
     """Reference, generated, overlay, then diff view for canonical networks."""
 
     spec = FigureSpec(
@@ -308,7 +312,7 @@ class HydrographicNetworkComparisonFigure(GeoFigureMixin, BaseFigure):
             target_crs=comparison.crs,
         )
         plot_topography_background(ax, sim, alpha=0.72)
-        bounds = _combined_total_bounds(
+        bounds = total_bounds(
             comparison.reference_gdf,
             comparison.candidate_gdf,
         )
@@ -321,8 +325,8 @@ class HydrographicNetworkComparisonFigure(GeoFigureMixin, BaseFigure):
             ax.set_xlim(xmin - pad_x, xmax + pad_x)
             ax.set_ylim(ymin - pad_y, ymax + pad_y)
         style_relative_km_axes(ax)
-        self.add_scale_bar(ax)
-        self.add_north_arrow(ax)
+        scale_bar(ax)
+        north_arrow(ax)
         ax.set_title(title)
 
     @staticmethod
@@ -512,7 +516,7 @@ class HydrographicNetworkReferenceMissingOnlyFigure(_HydrographicNetworkDifferen
             "\n".join(
                 [
                     "Focus: reference traces not matched",
-                    f"missing ref: {_fmt_km(comparison.missing_reference_length_m)}",
+                    f"missing ref: {fmt_km(comparison.missing_reference_length_m)}",
                     f"ref coverage: {_fmt_ratio(comparison.reference_coverage_ratio)}",
                     f"tolerance: {_fmt_m(comparison.tolerance_m)}",
                 ]
@@ -586,7 +590,7 @@ class HydrographicNetworkGeneratedExtraOnlyFigure(_HydrographicNetworkDifference
             "\n".join(
                 [
                     "Focus: generated traces outside ref match",
-                    f"extra gen: {_fmt_km(comparison.extra_candidate_length_m)}",
+                    f"extra gen: {fmt_km(comparison.extra_candidate_length_m)}",
                     f"gen match: {_fmt_ratio(comparison.candidate_match_ratio)}",
                     f"tolerance: {_fmt_m(comparison.tolerance_m)}",
                 ]
@@ -604,26 +608,6 @@ class HydrographicNetworkGeneratedExtraOnlyFigure(_HydrographicNetworkDifference
                 fontsize=RELATIVE_MAP_LEGEND_SIZE,
                 frameon=True,
             )
-
-
-def _combined_total_bounds(*gdfs) -> tuple[float, float, float, float] | None:
-    import numpy as np
-
-    bounds: list[tuple[float, float, float, float]] = []
-    for gdf in gdfs:
-        if gdf is None or gdf.empty:
-            continue
-        minx, miny, maxx, maxy = [float(v) for v in gdf.total_bounds]
-        if np.isfinite([minx, miny, maxx, maxy]).all():
-            bounds.append((minx, miny, maxx, maxy))
-    if not bounds:
-        return None
-    return (
-        min(item[0] for item in bounds),
-        min(item[1] for item in bounds),
-        max(item[2] for item in bounds),
-        max(item[3] for item in bounds),
-    )
 
 
 def _buffer_gdf(gdf, *, tolerance_m: float):
@@ -644,13 +628,13 @@ def _buffer_gdf(gdf, *, tolerance_m: float):
 def _comparison_summary_text(comparison: Any) -> str:
     return "\n".join(
         [
-            f"ref length: {_fmt_km(comparison.reference_total_length_m)}",
-            f"gen length: {_fmt_km(comparison.candidate_total_length_m)}",
+            f"ref length: {fmt_km(comparison.reference_total_length_m)}",
+            f"gen length: {fmt_km(comparison.candidate_total_length_m)}",
             f"ref coverage: {_fmt_ratio(comparison.reference_coverage_ratio)}",
             f"gen match: {_fmt_ratio(comparison.candidate_match_ratio)}",
             f"length F1: {_fmt_ratio(comparison.length_f1_ratio)}",
-            f"missing ref: {_fmt_km(comparison.missing_reference_length_m)}",
-            f"extra gen: {_fmt_km(comparison.extra_candidate_length_m)}",
+            f"missing ref: {fmt_km(comparison.missing_reference_length_m)}",
+            f"extra gen: {fmt_km(comparison.extra_candidate_length_m)}",
             f"Hausdorff: {_fmt_m(comparison.hausdorff_distance_m)}",
         ]
     )
@@ -662,7 +646,7 @@ def _single_network_summary_text(gdf, *, subtitle: str, length_m: float) -> str:
         [
             subtitle,
             f"segments: {segment_count}",
-            f"length: {_fmt_km(length_m)}",
+            f"length: {fmt_km(length_m)}",
         ]
     )
 
@@ -671,12 +655,6 @@ def _fmt_ratio(value: float | None) -> str:
     if value is None:
         return "-"
     return f"{100.0 * value:.1f}%"
-
-
-def _fmt_km(length_m: float | None) -> str:
-    if length_m is None:
-        return "-"
-    return f"{length_m / 1000.0:.2f} km"
 
 
 def _fmt_m(value: float | None) -> str:

@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from numbers import Real
 
 import numpy as np
+import pandas as pd
 
 # The ceiling the soil reservoir sets on a daily rain: a recharge cannot pass it.
 MAX_PLAUSIBLE_RECHARGE_MM_DAY = 1000.0
@@ -24,10 +25,6 @@ def has_temporal_index(payload: object) -> bool:
     """Return True when a payload index carries datetime-like labels."""
     index = getattr(payload, "index", None)
     if index is None:
-        return False
-    try:
-        import pandas as pd
-    except Exception:
         return False
     if isinstance(index, pd.DatetimeIndex):
         return True

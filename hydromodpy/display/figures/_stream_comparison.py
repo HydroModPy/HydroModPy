@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING, Literal
 import numpy as np
 
 from hydromodpy.display.figures._instant import instant_label
+from hydromodpy.display.maps.axes import watershed_of
 from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET, neutral
 from hydromodpy.results.derive.run_memo import RunMemo
 from hydromodpy.results.derive.stream.comparison import (
@@ -147,15 +148,12 @@ def note_box() -> dict[str, object]:
     return {"facecolor": neutral("white"), "alpha": 0.9, "edgecolor": ground_edge()}
 
 
-_MISSING_FEATURE = (KeyError, ValueError, FileNotFoundError, RuntimeError)
 """What a run raises when a feature it never wrote is asked for.
 
 ``AttributeError`` is deliberately not in it: a run answering neither ``mesh``
 nor ``geographic`` is a coding error on the caller's side, and swallowing it
 here would turn it into a silently degraded figure.
 """
-
-_WATERSHED_FEATURE = "watershed"
 
 
 _COMPARISON_MEMO = RunMemo()
@@ -483,11 +481,8 @@ def _whole_mesh(bounds: tuple[float, float, float, float], n_cells: int, name: s
 
 def _watershed(sim: Run):
     """Return the delineated catchment in mesh coordinates, or None without one."""
-    try:
-        watershed = sim.geographic(_WATERSHED_FEATURE)
-    except _MISSING_FEATURE:
-        return None
-    if watershed is None or watershed.empty:
+    watershed = watershed_of(sim)
+    if watershed is None:
         return None
     mesh_crs = getattr(sim.mesh, "crs", None)
     if mesh_crs and watershed.crs is not None and str(watershed.crs) != str(mesh_crs):

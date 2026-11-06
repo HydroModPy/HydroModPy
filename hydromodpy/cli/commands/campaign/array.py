@@ -9,7 +9,7 @@ import argparse
 from pathlib import Path
 
 from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
-from hydromodpy.cli.helpers import apply_verbosity, exit_code_for, refuse
+from hydromodpy.cli.helpers import exit_code_for, refuse
 from hydromodpy.cli.output import emit
 from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
 
@@ -71,7 +71,6 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    apply_verbosity(args, {})
     from hydromodpy.project.launch.journal import job_stamp
     from hydromodpy.project.launch.slurm import write_slurm_array
 

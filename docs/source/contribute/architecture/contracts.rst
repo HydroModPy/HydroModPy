@@ -56,7 +56,7 @@ guides imports a module that is neither listed nor in the facade.
 - ``hydromodpy.solver.base.adapter_protocol``: the solver port.
 - ``hydromodpy.simulation.planning.plan``: ``RunContext`` and ``RunExecutionResult``,
   what a solver adapter receives and returns.
-- ``hydromodpy.simulation.extraction.derivation.base``: the solver extractor port.
+- ``hydromodpy.simulation.post_run``: the solver extractor port.
 - ``hydromodpy.calibration.evaluation.port``: the trial evaluator port.
 - ``hydromodpy.calibration.evaluation.forward``: the forward model port.
 - ``hydromodpy.calibration.optim.optimizer``: the base of a calibration method.
@@ -110,7 +110,7 @@ A plugin joins through an entry-point group. Each group has one Protocol.
      - ``SolverAdapter``, ``hydromodpy.solver.base.adapter_protocol``
      - experimental
    * - ``hydromodpy.solver.extractor``
-     - ``OutputAdapter``, ``hydromodpy.simulation.extraction.derivation.base``
+     - ``OutputAdapter``, ``hydromodpy.simulation.post_run``
      - experimental
 
 A stable port is frozen as the facade is: a change keeps the old form working for

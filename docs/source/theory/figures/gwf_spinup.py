@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from hydromodpy.physics.flow.initial_conditions import FlowInitialConditions
-from hydromodpy.solver.steady_initial_conditions import (
+from hydromodpy.solver.base.initial_conditions import (
     cycles_have_settled,
     cyclic_spinup_strategy,
 )

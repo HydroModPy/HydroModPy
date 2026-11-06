@@ -10,7 +10,6 @@ from hydromodpy.cli.conventions import (
     verbosity_parser,
     workspace_parser,
 )
-from hydromodpy.cli.helpers import apply_verbosity
 from hydromodpy.cli.output import emit
 
 NAME: str = "restore"
@@ -36,7 +35,6 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    apply_verbosity(args, {})
     from hydromodpy.cli._workers.data import restore_data_cache
 
     src = args.input

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from collections.abc import Mapping
 from dataclasses import fields
 from pathlib import Path
@@ -15,8 +14,13 @@ from hydromodpy.display.overview.location import (
     overview_report_path,
     overview_review_dir,
     overview_run_dir_of,
+    review_pages_enabled,
 )
-from hydromodpy.display.overview.summary import compute_overview_summary
+from hydromodpy.display.overview.summary import (
+    compute_overview_summary,
+    regional_context_title,
+    station_inventory,
+)
 from hydromodpy.display.report_blocks import (
     DetailLevel,
     ReportBlock,
@@ -159,27 +163,14 @@ def _spatial_context_block(
         figure_by_id.get("map_dem"),
         "",
     )
-    figures: tuple[ReportFigure, ...]
-    if level == "compact":
-        figures = _available_figures((dem_context, regional_context))
-    else:
-        figures = _available_figures((dem_context, regional_context))
-    warnings: tuple[str, ...] = ()
     return ReportBlock(
         block_id="spatial_context",
         title="Location",
         level=level,
-        lead=_spatial_context_lead(
-            level=level,
-        ),
+        lead="Regional setting and extent of the catchment.",
         metrics=tuple(metrics),
-        figures=figures,
-        warnings=warnings,
+        figures=_available_figures((dem_context, regional_context)),
     )
-
-
-def _spatial_context_lead(*, level: DetailLevel) -> str:
-    return "Regional setting and extent of the catchment."
 
 
 def _hydrographic_network_block(
@@ -257,22 +248,13 @@ def _catchment_definition_label(value: Any) -> str:
 
 
 def _regional_context_title(state: DataOverviewState) -> str:
-    configured_label = getattr(getattr(state.cfg, "overview", None), "regional_context_label", None)
-    if configured_label:
-        return str(configured_label)
-    candidates = [
-        getattr(getattr(state, "domain_geographic", None), "regional_dem_path", None),
-        getattr(getattr(state.cfg, "geographic", None), "dem_init_path", None),
-    ]
-    for candidate in candidates:
-        if not candidate:
-            continue
-        name = Path(candidate).stem.lower()
-        if "armorican" in name or "armoricain" in name:
-            return "Setting in the Armorican Massif"
-        if "bretagne" in name or "brittany" in name:
-            return "Setting in Brittany"
-    return "Regional setting"
+    return regional_context_title(
+        getattr(getattr(state.cfg, "overview", None), "regional_context_label", None),
+        (
+            getattr(getattr(state, "domain_geographic", None), "regional_dem_path", None),
+            getattr(getattr(state.cfg, "geographic", None), "dem_init_path", None),
+        ),
+    )
 
 
 def _data_inventory_block(state: DataOverviewState, *, level: DetailLevel) -> ReportBlock:
@@ -284,17 +266,13 @@ def _data_inventory_block(state: DataOverviewState, *, level: DetailLevel) -> Re
             status="not_applicable",
         )
     rows = tuple(_data_family_rows(state))
-    columns: tuple[tuple[str, str], ...]
-    if level == "compact":
-        columns = (("family", "Family"), ("status", "Status"), ("records", "Objects"))
-    else:
-        columns = (
-            ("family", "Family"),
-            ("status", "Status"),
-            ("sources", "Sources"),
-            ("records", "Objects"),
-            ("period", "Period"),
-        )
+    columns = (
+        ("family", "Family"),
+        ("status", "Status"),
+        ("sources", "Sources"),
+        ("records", "Objects"),
+        ("period", "Period"),
+    )
     return ReportBlock(
         block_id="data_inventory",
         title="Data inventory",
@@ -559,36 +537,14 @@ def _data_family_order(state: DataOverviewState) -> tuple[str, ...]:
 
 
 def _station_inventory_rows(state: DataOverviewState) -> list[dict[str, Any]]:
-    rows_by_key: dict[tuple[str, str], dict[str, Any]] = {}
-    for label, attr in (
-        ("Hydrometry", "hydrometry"),
-        ("Piezometry", "piezometry"),
-        ("Intermittency", "intermittency"),
-        ("Water quality", "water_quality"),
-    ):
-        load_result = getattr(state.loaded_data, attr, None)
-        for record in getattr(load_result, "points", ()) or ():
-            station_id = str(getattr(record, "station_id", ""))
-            key = (label, station_id)
-            loc = getattr(record, "location", None)
-            start = _date_label(getattr(record, "date_start", None))
-            end = _date_label(getattr(record, "date_end", None))
-            if key not in rows_by_key:
-                rows_by_key[key] = {
-                    "type": label,
-                    "id": station_id,
-                    "x": _format_float(getattr(loc, "x", None), digits=1),
-                    "y": _format_float(getattr(loc, "y", None), digits=1),
-                    "start": start,
-                    "end": end,
-                }
-                continue
-            row = rows_by_key[key]
-            if start and (not row["start"] or start < row["start"]):
-                row["start"] = start
-            if end and (not row["end"] or end > row["end"]):
-                row["end"] = end
-    return list(rows_by_key.values())
+    return [
+        {
+            **row,
+            "x": _format_float(row["x"], digits=1),
+            "y": _format_float(row["y"], digits=1),
+        }
+        for row in station_inventory(state)
+    ]
 
 
 def _source_rows(section: Any) -> list[dict[str, Any]]:
@@ -783,12 +739,6 @@ def _format_float(value: Any, *, digits: int) -> str:
         return str(value)
 
 
-def _format_xy(value: tuple[float, float] | None) -> str:
-    if value is None:
-        return "-"
-    return f"{value[0]:.1f}, {value[1]:.1f}"
-
-
 def _first_non_empty(*values: Any) -> Any:
     for value in values:
         if value not in (None, ""):
@@ -811,10 +761,7 @@ def _overview_level_links(state: DataOverviewState) -> dict[str, Path]:
 
 
 def _show_level_links(*, output_path: Path) -> bool:
-    if output_path.parent.parent.name == REVIEW_DIRNAME:
-        return True
-    value = os.environ.get("HMP_OVERVIEW_HTML_REVIEW_LEVELS", "")
-    return value.strip().lower() in {"1", "true", "yes", "on"}
+    return output_path.parent.parent.name == REVIEW_DIRNAME or review_pages_enabled()
 
 
 __all__ = [

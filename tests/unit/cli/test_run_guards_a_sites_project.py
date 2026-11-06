@@ -15,10 +15,10 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.cli.helpers import EXIT_CASES_FAILED, EXIT_CONFIG, EXIT_USAGE
-from hydromodpy.config.sites.expansion import expand_plan
-from hydromodpy.config.sites.plan import write_plan_draft
 from hydromodpy.core.site import SiteRow
 from hydromodpy.data.sites.catalog import write_catalog
+from hydromodpy.project.launch.sites.expansion import expand_plan
+from hydromodpy.project.launch.sites.plan import write_plan_draft
 from tests._helpers.cli_runner import CliRunner
 from tests.unit.project.launch._launch_fakes import (
     fake_worker,  # noqa: F401 - fixture

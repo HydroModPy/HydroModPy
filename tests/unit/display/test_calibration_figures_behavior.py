@@ -20,18 +20,6 @@ from hydromodpy.display.figures.calibration_trial_distribution import (
 )
 
 
-@pytest.fixture
-def mpl():
-    pytest.importorskip("matplotlib")
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
-    yield plt
-    plt.close("all")
-
-
 class _ConvergenceRun:
     sim_id = "sim-a"
     name = "calibration-a"

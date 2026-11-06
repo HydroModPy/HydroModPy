@@ -6,6 +6,7 @@ import json
 import math
 import tomllib
 import uuid
+from dataclasses import dataclass, field
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -19,12 +20,13 @@ from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSugges
 from hydromodpy.calibration.optim.parameters import set_by_path
 from hydromodpy.calibration.persistence import CalibrationPersistence
 from hydromodpy.calibration.report import CalibrationReport
-from hydromodpy.calibration.runners import cli_runner, promotion, staged_runner
+from hydromodpy.calibration.runners import promotion, search, staged_runner
 from hydromodpy.calibration.runners.trial import TrialContext
 from hydromodpy.core.runtime.interrupts import TerminationRequested
 from hydromodpy.core.state.run_state import ExecutionRegistry
 from tests._helpers.persisting_simulation import SimulationStub, persisting_simulation
 from tests._helpers.session_documents import session_opening
+from tests.unit.calibration._factories import Setup
 from tests.unit.calibration._factories_search import result_of
 
 K_TOML = 1e-5
@@ -118,6 +120,21 @@ class _Cfg(BaseModel):
     site: None = None
 
 
+@dataclass
+class ToyCtx:
+    """The pipeline context of a toy trial: a config, a setup and an execution registry."""
+
+    cfg: Any
+    config_path: Path
+    raw_toml: dict[str, Any]
+    data_plan: Any = None
+    setup: Setup = field(default_factory=Setup)
+    loaded_data: Any = None
+    execution: ExecutionRegistry = field(default_factory=ExecutionRegistry)
+    sim_id: Any = None
+    reserved_sim_id: Any = None
+
+
 class FakeCtx:
     def __init__(self, cfg, config_path: Path, raw_toml: dict, tmp_path: Path) -> None:
         workspace = SimpleNamespace(root=tmp_path / "ws", project_root=tmp_path)
@@ -175,7 +192,7 @@ def fake_pipeline(monkeypatch, tmp_path):
         )
         return sim_id
 
-    monkeypatch.setattr(cli_runner, "prepare_trials", prepare)
+    monkeypatch.setattr(search, "prepare_trials", prepare)
     monkeypatch.setattr(promotion, "promote_prepared_trial", promote)
     return promoted
 
@@ -218,7 +235,7 @@ class FakeRunner:
     def patch(self, monkeypatch, *, marker: str | None = None) -> None:
         """Fake the solver; with *marker*, fake the fingerprint's raw material too."""
         monkeypatch.setattr(staged_runner, "prepare_trials", self.prepare_trials)
-        monkeypatch.setattr(cli_runner, "run_calibration_core", self.run_calibration_core)
+        monkeypatch.setattr(search, "run_calibration_core", self.run_calibration_core)
         if marker is not None:
             self.marker = marker
             monkeypatch.setattr(

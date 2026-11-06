@@ -5,7 +5,7 @@ actor Project
 participant Flow
 participant "Boussinesq" as Solver
 participant "BoussinesqSolverContract" as Contract
-participant "runtime_selection" as Selection
+participant "catalog" as Selection
 participant "Resolved Backend" as Backend
 participant "assembly/" as Assembly
 participant "BoussinesqState" as State

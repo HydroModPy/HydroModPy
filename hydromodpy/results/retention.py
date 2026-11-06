@@ -36,7 +36,7 @@ from __future__ import annotations
 import socket
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from hydromodpy.core.state.layout import runs_dir_for, sessions_dir_for
@@ -56,6 +56,7 @@ from hydromodpy.results.storage.contract import RUN_OUTCOME_FILENAME, SESSION_DE
 from hydromodpy.results.storage.json_io import beside_seal, readable
 from hydromodpy.results.trash import (
     TrashedEntry,
+    as_utc,
     expired_entries,
     is_protected,
     purge_trashed,
@@ -143,7 +144,7 @@ def plan_gc(project_root: Path, policy: RetentionPolicy, *, now: datetime) -> Gc
     taken = set(superseded)
     expired: list[str] = []
     if policy.max_age_days is not None:
-        cutoff = _as_utc(now) - timedelta(days=policy.max_age_days)
+        cutoff = as_utc(now) - timedelta(days=policy.max_age_days)
         expired = [
             item.rel_dir
             for item in eligible
@@ -198,7 +199,7 @@ def mark_aborted(run_dir: Path, *, now: datetime) -> Outcome:
     closed = outcome.model_copy(
         update={
             "status": "aborted",
-            "ended_at": _as_utc(now),
+            "ended_at": as_utc(now),
             "written_by": "launcher",
             "error": OutcomeError(
                 type="stale",
@@ -263,18 +264,12 @@ def _started_at(run_dir: Path) -> datetime | None:
     """
     if not is_sealed(run_dir):
         outcome = read_outcome(run_dir)
-        return None if outcome is None else _as_utc(outcome.started_at)
+        return None if outcome is None else as_utc(outcome.started_at)
     outcome = beside_seal(read_outcome, run_dir, RUN_OUTCOME_FILENAME)
     if outcome is not None:
-        return _as_utc(outcome.started_at)
+        return as_utc(outcome.started_at)
     run = read_seal(run_dir).run
-    return _as_utc(run.started_at or run.created_at)
-
-
-def _as_utc(value: datetime) -> datetime:
-    if value.tzinfo is None:
-        return value.replace(tzinfo=UTC)
-    return value.astimezone(UTC)
+    return as_utc(run.started_at or run.created_at)
 
 
 __all__ = [

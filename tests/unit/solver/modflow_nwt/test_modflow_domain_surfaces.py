@@ -9,7 +9,7 @@ from hydromodpy.solver.modflow_grid import (
     build_spatial_discretization,
 )
 from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig
-from hydromodpy.solver.modflow_nwt.nwt import ModflowNwt
+from hydromodpy.solver.modflow_nwt.nwt.nwt_solver import ModflowNwt
 from hydromodpy.spatial import RasterSupport, Surface
 from hydromodpy.spatial.domain.domain import Domain
 from hydromodpy.spatial.domain.domain_config import DomainConfig

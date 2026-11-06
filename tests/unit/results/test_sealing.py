@@ -21,7 +21,6 @@ import zarr
 
 from hydromodpy.core.budget.terms import BudgetKeep
 from hydromodpy.core.state.layout import INTERNAL_DIRNAME
-from hydromodpy.results.export.run_identity import label_of
 from hydromodpy.results.identity import ZARR_IDENTITY_ATTR, read_identity_from
 from hydromodpy.results.manifest import (
     DERIVE_RULE_VERSION,
@@ -33,6 +32,7 @@ from hydromodpy.results.manifest import (
 )
 from hydromodpy.results.outcome import effective_status, read_outcome
 from hydromodpy.results.record import RunRecord
+from hydromodpy.results.run_identity import label_of
 from hydromodpy.results.storage import sealing
 from hydromodpy.results.storage.attempt import close_sealed_attempt
 from hydromodpy.results.storage.contract import (
@@ -263,7 +263,7 @@ def test_the_field_store_carries_the_identity_and_the_acdd_attributes(filled: Ru
 
 
 def test_the_readme_summarises_the_run_and_signs_the_manifest(filled: RunStore) -> None:
-    from hydromodpy.results.ledger import sha256_of
+    from hydromodpy.core.io.file_digest import sha256_of
 
     seal_completed(filled)
 

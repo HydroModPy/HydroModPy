@@ -23,7 +23,7 @@ from hydromodpy.results.identity import (
     meta_sidecar_path,
     read_identity_from,
 )
-from tests.unit.results._run_record_factory import make_identity
+from tests._helpers.run_records import make_identity
 
 matplotlib.use("Agg")
 

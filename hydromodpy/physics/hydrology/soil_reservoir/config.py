@@ -2,16 +2,23 @@
 
 ``kernel.py`` and this module are written in parallel and stay independent:
 this module declares what a project file can say, the kernel says what the
-numbers do with it. The two meet in ``simulation/soil_recharge.py``, which
+numbers do with it. The two meet in ``simulation/soil/``, which
 turns a :class:`SoilReservoirConfig` into the kernel's ``SoilParameters``.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
+from functools import partial
 from typing import Annotated, Any, Literal
 
-from pydantic import Field, ValidationError, ValidatorFunctionWrapHandler, field_validator
+from pydantic import (
+    Field,
+    ValidationError,
+    ValidationInfo,
+    ValidatorFunctionWrapHandler,
+    field_validator,
+)
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.calibrable import Calibrable
@@ -53,6 +60,81 @@ def _within_range(
         if errors and all(error["type"] in _RANGE_ERRORS for error in errors):
             check(errors[0]["input"])
         raise
+
+
+_BARE_NUMBER_UNITS: dict[str, str] = {
+    "ru": "mm",
+    "runoff_time": "days",
+    "runoff_lag": "days",
+    "transit_time": "days",
+}
+"""The unit a bare number of each field is read in, named when a string has none."""
+
+_RANGE_RULES: dict[str, tuple[Callable[[float], bool], str]] = {
+    "ru": (
+        lambda v: 0 <= v <= 1000,
+        "ru = {value:g} mm is outside 0 to 1000 mm, the range of a soil water "
+        'capacity: ru is in mm, so write ru = 120 or ru = "120 mm".',
+    ),
+    "alpha": (
+        lambda v: 0 < v <= 1,
+        "alpha = {value:g}: alpha is the share of ru above which the soil "
+        "evaporates at the full rate kc x ETP, above 0 and at most 1. Write a "
+        "value such as 0.45.",
+    ),
+    "kc": (
+        lambda v: 0 <= v <= 2,
+        "kc = {value:g}: kc scales the loaded ETP, between 0 and 2. Write "
+        "1.0 to take the ETP as loaded.",
+    ),
+    "impervious_fraction": (
+        lambda v: 0 <= v < 1,
+        "impervious_fraction = {value:g}: it is the sealed share of the area, "
+        "a fraction from 0 up to, not including, 1: write 0.05 for 5 %, not 5, "
+        "and 0.0 for a rural catchment.",
+    ),
+    "bypass_fraction": (
+        lambda v: 0 <= v < 1,
+        "bypass_fraction = {value:g}: it is the share of the rain that skips "
+        "the soil, a fraction from 0 up to, not including, 1: write 0.1 for "
+        "10 %, not 10, and 0.0 unless the site shows preferential flow.",
+    ),
+    "curve_number": (
+        lambda v: 30 <= v <= 98,
+        "curve_number = {value:g}: a SCS curve number (AMC II) is between "
+        "30 and 98 (NEH-630 ch. 9, pp. 9-1 and 9-3). Write a value in that "
+        "range, or remove the field to keep the term off.",
+    ),
+    "runoff_time": (
+        lambda v: 0 <= v <= 10,
+        "runoff_time = {value:g} days is outside 0 to 10 days: it routes a "
+        "fast surface runoff, not groundwater. Write 0 to send it the same "
+        "day, or a few days.",
+    ),
+    "runoff_lag": (
+        lambda v: 0 <= v <= 5,
+        "runoff_lag = {value:g} days is outside 0 to 5 days: it is a fixed "
+        "travel time to the outlet, not the runoff_time reservoir. Write 0 to "
+        "add no delay, or a fraction of a day.",
+    ),
+    "transit_time": (
+        lambda v: 0 <= v <= 30,
+        "transit_time = {value:g} days is outside 0 to 30 days: a longer "
+        "delay would rebuild the slow groundwater memory MODFLOW computes "
+        "itself. Write 0 to send the recharge the same day, or a few days.",
+    ),
+}
+"""Each bounded field: the bound, and the refusal in the words of what the number means."""
+
+
+def _check_range(name: str, value: float | None) -> float | None:
+    """Refuse ``value`` of field ``name`` outside its bound, with its own message."""
+    if value is None:
+        return None
+    inside, message = _RANGE_RULES[name]
+    if not inside(value):
+        raise ValueError(message.format(value=value))
+    return value
 
 
 class SoilReservoirConfig(HydroModelBase):
@@ -227,190 +309,24 @@ class SoilReservoirConfig(HydroModelBase):
         ),
     )
 
-    @field_validator("ru", mode="before")
+    @field_validator(*_BARE_NUMBER_UNITS, mode="before")
     @classmethod
-    def _ru_string_states_its_unit(cls, value: object) -> object:
+    def _a_string_states_its_unit(cls, value: object, info: ValidationInfo) -> object:
         bare = _bare_number_string(value)
         if bare is None:
             return value
+        name, unit = info.field_name, _BARE_NUMBER_UNITS[info.field_name]
         raise ValueError(
-            f'ru = "{bare}" has no unit: write ru = {bare} (a bare number is in mm) '
-            f'or ru = "{bare} mm".'
+            f'{name} = "{bare}" has no unit: write {name} = {bare} (a bare number is in '
+            f'{unit}) or {name} = "{bare} {unit}".'
         )
 
-    @field_validator("ru", mode="wrap")
+    @field_validator(*_RANGE_RULES, mode="wrap")
     @classmethod
-    def _ru_in_range(cls, value: object, handler: ValidatorFunctionWrapHandler) -> float:
-        return _within_range(value, handler, cls._ru_is_a_plausible_soil_capacity)
-
-    @staticmethod
-    def _ru_is_a_plausible_soil_capacity(value: float) -> float:
-        if not 0 <= value <= 1000:
-            raise ValueError(
-                f"ru = {value:g} mm is outside 0 to 1000 mm, the range of a soil water "
-                'capacity: ru is in mm, so write ru = 120 or ru = "120 mm".'
-            )
-        return value
-
-    @field_validator("alpha", mode="wrap")
-    @classmethod
-    def _alpha_in_range(cls, value: object, handler: ValidatorFunctionWrapHandler) -> float:
-        return _within_range(value, handler, cls._alpha_is_a_share_of_ru)
-
-    @staticmethod
-    def _alpha_is_a_share_of_ru(value: float) -> float:
-        if not 0 < value <= 1:
-            raise ValueError(
-                f"alpha = {value:g}: alpha is the share of ru above which the soil "
-                "evaporates at the full rate kc x ETP, above 0 and at most 1. Write a "
-                "value such as 0.45."
-            )
-        return value
-
-    @field_validator("kc", mode="wrap")
-    @classmethod
-    def _kc_in_range(cls, value: object, handler: ValidatorFunctionWrapHandler) -> float:
-        return _within_range(value, handler, cls._kc_scales_the_loaded_etp)
-
-    @staticmethod
-    def _kc_scales_the_loaded_etp(value: float) -> float:
-        if not 0 <= value <= 2:
-            raise ValueError(
-                f"kc = {value:g}: kc scales the loaded ETP, between 0 and 2. Write "
-                "1.0 to take the ETP as loaded."
-            )
-        return value
-
-    @field_validator("impervious_fraction", mode="wrap")
-    @classmethod
-    def _impervious_fraction_in_range(
-        cls, value: object, handler: ValidatorFunctionWrapHandler
-    ) -> float:
-        return _within_range(value, handler, cls._impervious_fraction_is_a_fraction)
-
-    @staticmethod
-    def _impervious_fraction_is_a_fraction(value: float) -> float:
-        if not 0 <= value < 1:
-            raise ValueError(
-                f"impervious_fraction = {value:g}: it is the sealed share of the area, "
-                "a fraction from 0 up to, not including, 1: write 0.05 for 5 %, not 5, "
-                "and 0.0 for a rural catchment."
-            )
-        return value
-
-    @field_validator("bypass_fraction", mode="wrap")
-    @classmethod
-    def _bypass_fraction_in_range(
-        cls, value: object, handler: ValidatorFunctionWrapHandler
-    ) -> float:
-        return _within_range(value, handler, cls._bypass_fraction_is_a_fraction)
-
-    @staticmethod
-    def _bypass_fraction_is_a_fraction(value: float) -> float:
-        if not 0 <= value < 1:
-            raise ValueError(
-                f"bypass_fraction = {value:g}: it is the share of the rain that skips "
-                "the soil, a fraction from 0 up to, not including, 1: write 0.1 for "
-                "10 %, not 10, and 0.0 unless the site shows preferential flow."
-            )
-        return value
-
-    @field_validator("curve_number", mode="wrap")
-    @classmethod
-    def _curve_number_in_range(
-        cls, value: object, handler: ValidatorFunctionWrapHandler
+    def _in_range(
+        cls, value: object, handler: ValidatorFunctionWrapHandler, info: ValidationInfo
     ) -> float | None:
-        return _within_range(value, handler, cls._curve_number_is_a_plausible_cn)
-
-    @staticmethod
-    def _curve_number_is_a_plausible_cn(value: float | None) -> float | None:
-        if value is None:
-            return None
-        if not 30 <= value <= 98:
-            raise ValueError(
-                f"curve_number = {value:g}: a SCS curve number (AMC II) is between "
-                "30 and 98 (NEH-630 ch. 9, pp. 9-1 and 9-3). Write a value in that "
-                "range, or remove the field to keep the term off."
-            )
-        return value
-
-    @field_validator("runoff_time", mode="before")
-    @classmethod
-    def _runoff_time_string_states_its_unit(cls, value: object) -> object:
-        bare = _bare_number_string(value)
-        if bare is None:
-            return value
-        raise ValueError(
-            f'runoff_time = "{bare}" has no unit: write runoff_time = {bare} (a bare '
-            f'number is in days) or runoff_time = "{bare} days".'
-        )
-
-    @field_validator("runoff_time", mode="wrap")
-    @classmethod
-    def _runoff_time_in_range(cls, value: object, handler: ValidatorFunctionWrapHandler) -> float:
-        return _within_range(value, handler, cls._runoff_time_is_a_short_delay)
-
-    @staticmethod
-    def _runoff_time_is_a_short_delay(value: float) -> float:
-        if not 0 <= value <= 10:
-            raise ValueError(
-                f"runoff_time = {value:g} days is outside 0 to 10 days: it routes a "
-                "fast surface runoff, not groundwater. Write 0 to send it the same "
-                "day, or a few days."
-            )
-        return value
-
-    @field_validator("runoff_lag", mode="before")
-    @classmethod
-    def _runoff_lag_string_states_its_unit(cls, value: object) -> object:
-        bare = _bare_number_string(value)
-        if bare is None:
-            return value
-        raise ValueError(
-            f'runoff_lag = "{bare}" has no unit: write runoff_lag = {bare} (a bare '
-            f'number is in days) or runoff_lag = "{bare} days".'
-        )
-
-    @field_validator("runoff_lag", mode="wrap")
-    @classmethod
-    def _runoff_lag_in_range(cls, value: object, handler: ValidatorFunctionWrapHandler) -> float:
-        return _within_range(value, handler, cls._runoff_lag_is_a_short_travel_time)
-
-    @staticmethod
-    def _runoff_lag_is_a_short_travel_time(value: float) -> float:
-        if not 0 <= value <= 5:
-            raise ValueError(
-                f"runoff_lag = {value:g} days is outside 0 to 5 days: it is a fixed "
-                "travel time to the outlet, not the runoff_time reservoir. Write 0 to "
-                "add no delay, or a fraction of a day."
-            )
-        return value
-
-    @field_validator("transit_time", mode="before")
-    @classmethod
-    def _transit_time_string_states_its_unit(cls, value: object) -> object:
-        bare = _bare_number_string(value)
-        if bare is None:
-            return value
-        raise ValueError(
-            f'transit_time = "{bare}" has no unit: write transit_time = {bare} (a bare '
-            f'number is in days) or transit_time = "{bare} days".'
-        )
-
-    @field_validator("transit_time", mode="wrap")
-    @classmethod
-    def _transit_time_in_range(cls, value: object, handler: ValidatorFunctionWrapHandler) -> float:
-        return _within_range(value, handler, cls._transit_time_stays_under_the_groundwater_memory)
-
-    @staticmethod
-    def _transit_time_stays_under_the_groundwater_memory(value: float) -> float:
-        if not 0 <= value <= 30:
-            raise ValueError(
-                f"transit_time = {value:g} days is outside 0 to 30 days: a longer "
-                "delay would rebuild the slow groundwater memory MODFLOW computes "
-                "itself. Write 0 to send the recharge the same day, or a few days."
-            )
-        return value
+        return _within_range(value, handler, partial(_check_range, info.field_name))
 
     @field_validator("spinup", mode="before")
     @classmethod

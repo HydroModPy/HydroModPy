@@ -17,7 +17,7 @@ between surface features and is excluded upstream, in
 At the outlet cell the upstream set is the whole catchment and the routed value
 is the domain sum, by construction. That identity is the contract: a per-cell
 discharge that does not reproduce the domain series at the outlet is wrong, and
-:mod:`tests.unit.solver.test_discharge_routing` checks it.
+:mod:`tests.unit.solver.modflow6.test_discharge_routing` checks it.
 
 What this does NOT model is the routing the surface network performs on its own:
 channel storage, diversions, evaporation from a reach or a lake. It sums what

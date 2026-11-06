@@ -21,7 +21,6 @@ from hydromodpy.cli.conventions import (
 )
 from hydromodpy.cli.helpers import (
     EXIT_NOT_FOUND,
-    apply_verbosity,
     exit_code_for,
     project_root_of,
     refuse,
@@ -52,7 +51,6 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    apply_verbosity(args, {})
     from hydromodpy.cli._workers.catalog import show_simulation
 
     project_root = project_root_of(args)

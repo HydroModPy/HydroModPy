@@ -9,8 +9,10 @@ from typing import Any, TypeVar
 from pydantic import BaseModel
 
 from hydromodpy.core.toml_io.paths import resolve_declared_path
-from hydromodpy.physics.flow.boundary_condition_registry import boundary_definition
-from hydromodpy.physics.flow.boundary_conditions import DIRICHLET_BC_CANONICAL_DOMAINS
+from hydromodpy.physics.flow.boundary_condition_registry import (
+    DIRICHLET_BC_CANONICAL_DOMAINS,
+    boundary_definition,
+)
 
 FlowConfigT = TypeVar("FlowConfigT", bound=BaseModel)
 
@@ -73,7 +75,7 @@ def from_toml_section(
     if len(declared_param) == 0 and len(raw_param) > 0:
         declared_param = list(raw_param.keys())
 
-    parsed_sinks_sources = resolve_well_forcing_paths(
+    parsed_sinks_sources = resolve_forcing_paths(
         raw_sinks_sources,
         base_dir=base_dir,
         workspace_data_dir=workspace_data_dir,
@@ -114,10 +116,11 @@ def normalize_bc_payloads(
     bc_cfg = (
         value
         if base_dir is None
-        else resolve_bc_forcing_paths(
+        else resolve_forcing_paths(
             value,
             base_dir=base_dir,
             workspace_data_dir=workspace_data_dir,
+            role="flow_bc",
         )
     )
 
@@ -160,42 +163,28 @@ def normalize_bc_payloads(
     return parsed
 
 
-def resolve_bc_forcing_paths(
-    raw_bc: Mapping[str, object],
+def resolve_forcing_paths(
+    section: Mapping[str, object],
     *,
     base_dir: Path,
     workspace_data_dir: Path | None = None,
+    role: str | None = None,
 ) -> dict[str, object]:
-    """Resolve relative CSV paths declared under flow.bc.*.forcing."""
+    """Resolve the relative CSV paths of each entry of ``flow.bc`` or ``flow.sinks_sources``.
+
+    A path resolves like every other ``InputFile`` field: against the TOML folder,
+    then ``<workspace>/data/<role>/`` and ``<workspace>/data/``. ``role`` names that
+    folder; without it each entry uses its own key (``wells``, ``lakes``, ``sfr``).
+    """
     return {
         key: _resolve_csv_paths_in(
-            item, base_dir=base_dir, role="flow_bc", workspace_data_dir=workspace_data_dir
-        )
-        for key, item in raw_bc.items()
-    }
-
-
-def resolve_well_forcing_paths(
-    raw_sinks_sources: Mapping[str, object],
-    *,
-    base_dir: Path,
-    workspace_data_dir: Path | None = None,
-) -> dict[str, object]:
-    """Resolve relative CSV paths declared in ``flow.sinks_sources``.
-
-    Wells, lakes (rainfall, evaporation, runoff, inflow, withdrawal, outlet) and
-    SFR forcings all resolve like every other ``InputFile`` field: against the
-    TOML folder, then ``<workspace>/data/<section>/`` and ``<workspace>/data/``.
-    """
-    payload = dict(raw_sinks_sources)
-    for section_key, section in list(payload.items()):
-        payload[section_key] = _resolve_csv_paths_in(
-            section,
+            item,
             base_dir=base_dir,
-            role=str(section_key),
+            role=role or str(key),
             workspace_data_dir=workspace_data_dir,
         )
-    return payload
+        for key, item in section.items()
+    }
 
 
 def _resolve_csv_paths_in(
@@ -327,6 +316,5 @@ def _resolve_forcing_path(
 __all__ = [
     "from_toml_section",
     "normalize_bc_payloads",
-    "resolve_bc_forcing_paths",
-    "resolve_well_forcing_paths",
+    "resolve_forcing_paths",
 ]

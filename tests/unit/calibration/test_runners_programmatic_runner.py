@@ -19,6 +19,8 @@ from hydromodpy.calibration.evaluation import TrialOutcome
 from hydromodpy.calibration.evaluation import registry as evaluation_registry
 from hydromodpy.calibration.optim.fosm import ParameterUncertainty
 from hydromodpy.calibration.runners import cli_runner as cli_runner_module
+from hydromodpy.calibration.runners import document as document_module
+from hydromodpy.calibration.runners import search, session_scope
 from hydromodpy.calibration.runners import promotion as promotion_module
 from hydromodpy.calibration.runners.programmatic_runner import run_calibration_programmatic
 from hydromodpy.calibration.runners.session import calibration_case_name, open_session_dir
@@ -142,7 +144,7 @@ class TestALinearizedWidthWithoutPhases:
     ):
         widths = []
         handed = []
-        close = cli_runner_module.promote_and_close
+        close = session_scope.promote_and_close
         width_of_k = (ParameterUncertainty("K", 2.0e-5, 4.0e-6, {"K": 1.0}),)
 
         def _width(report, *, cfg, trial_ctx, space, perturbation):
@@ -153,8 +155,8 @@ class TestALinearizedWidthWithoutPhases:
             handed.append(kwargs["report"].parameter_uncertainty)
             return close(**kwargs)
 
-        monkeypatch.setattr(cli_runner_module, "attach_a_linearized_width", _width)
-        monkeypatch.setattr(cli_runner_module, "promote_and_close", _close)
+        monkeypatch.setattr(search, "attach_a_linearized_width", _width)
+        monkeypatch.setattr(search, "promote_and_close", _close)
         report = run_calibration_programmatic(
             _baseline_cfg(uncertainty=LINEARIZED), project=fake_project, metric_fn=quadratic_metric
         )
@@ -180,7 +182,7 @@ def test_a_call_with_phases_resumes_the_session_of_its_case(fake_project, tmp_pa
     opened = []
 
     def staged(doc_path, *, resume, **_kwargs):
-        _, root, _, _, case = cli_runner_module.load_calibration_document(doc_path, None)
+        _, root, _, _, case = document_module.load_calibration_document(doc_path, None)
         session, reopened = open_session_dir(root, case, resume=resume)
         session_descriptor_path(session).write_text("{}")
         opened.append((doc_path, session.name, reopened))
@@ -205,7 +207,7 @@ def test_a_project_on_a_file_names_its_case_as_the_cli_does(tmp_path, monkeypatc
     seen = []
 
     def staged(doc_path, **_kwargs):
-        seen.append((doc_path, cli_runner_module.load_calibration_document(doc_path, None)[4]))
+        seen.append((doc_path, document_module.load_calibration_document(doc_path, None)[4]))
         return make_report()
 
     monkeypatch.setattr(

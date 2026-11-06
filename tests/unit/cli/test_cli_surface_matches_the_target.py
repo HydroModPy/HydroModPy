@@ -21,6 +21,9 @@ import pytest
 
 from hydromodpy.cli.conventions import OldVerb
 from hydromodpy.cli.main import _build_parser
+from tests.unit.cli._tree import leaves
+
+from ._hmp import run_main as _run
 
 # Families and their actions. A family lists every action the target names,
 # plus the actions it keeps that the target does not retire (``catalog point``,
@@ -140,17 +143,6 @@ def _options(parser: argparse.ArgumentParser) -> set[str]:
     return {option for action in parser._actions for option in action.option_strings}
 
 
-def _leaves(parser: argparse.ArgumentParser, path: tuple[str, ...] = ()):
-    if isinstance(parser, OldVerb):
-        return
-    sub = _subparsers(parser)
-    if sub is None:
-        yield path, parser
-        return
-    for name, child in sub.choices.items():
-        yield from _leaves(child, (*path, name))
-
-
 def test_the_verbs_are_the_target_verbs() -> None:
     assert set(_tree()) == set(TARGET_FAMILIES) | TARGET_LEAVES
 
@@ -171,7 +163,7 @@ def test_each_leaf_verb_takes_no_action(verb: str) -> None:
 
 def test_every_verb_and_action_carries_its_help() -> None:
     missing = []
-    for path, _parser in _leaves(_build_parser()):
+    for path, _parser in leaves():
         parent = _leaf(path[:-1])
         sub = _subparsers(parent)
         helps = {action.dest: action.help for action in sub._choices_actions}
@@ -198,16 +190,6 @@ def test_a_retired_option_is_gone(path: tuple[str, ...], option: str) -> None:
 
 
 # --- no silent fallback on ~/hydromodpy ---------------------------------------
-
-
-def _run(monkeypatch, argv: list[str]) -> int:
-    module = importlib.import_module("hydromodpy.cli.main")
-    monkeypatch.setattr(sys, "argv", argv)
-    try:
-        module.main()
-    except SystemExit as exc:
-        return int(exc.code or 0)
-    return 0
 
 
 @pytest.fixture

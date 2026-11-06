@@ -61,7 +61,7 @@ from hydromodpy.results.storage.contract import (
     RUN_PUBLISHED_FILENAME,
     SESSION_DESCRIPTOR_FILENAME,
 )
-from hydromodpy.results.storage.json_io import readable
+from hydromodpy.results.storage.json_io import fsync_directory, readable
 
 logger = get_logger(__name__)
 
@@ -132,7 +132,7 @@ def trashed_dirname(rel_dir: str, at: datetime) -> str:
     """Return the name a directory takes under ``trash/`` when trashed at ``at``."""
     parsed = parse_rel_dir(rel_dir).as_posix()
     encoded = parsed.replace("/", TRASH_PATH_SEPARATOR)
-    return f"{encoded}{TRASH_STAMP_SEPARATOR}{_as_utc(at).strftime(TRASH_STAMP_FORMAT)}"
+    return f"{encoded}{TRASH_STAMP_SEPARATOR}{as_utc(at).strftime(TRASH_STAMP_FORMAT)}"
 
 
 def parse_trashed_dirname(name: str) -> tuple[str, datetime]:
@@ -286,7 +286,7 @@ def purge_trashed(
     root = Path(project_root)
     if not entries:
         return []
-    stamp = _as_utc(now).replace(microsecond=0)
+    stamp = as_utc(now).replace(microsecond=0)
     new = [
         Tombstone(rel_dir=entry.rel_dir, sim_id=identity_of(entry.path), date=stamp)
         for entry in entries
@@ -307,7 +307,7 @@ def expired_entries(
     project_root: Path, *, older_than: timedelta, now: datetime
 ) -> list[TrashedEntry]:
     """Return the entries trashed at least ``older_than`` before ``now``."""
-    cutoff = _as_utc(now) - older_than
+    cutoff = as_utc(now) - older_than
     return [entry for entry in list_trash(Path(project_root)) if entry.trashed_at <= cutoff]
 
 
@@ -351,21 +351,10 @@ def _write_tombstones(project_root: Path, tombstones: list[Tombstone]) -> None:
         os.replace(tmp, target)
     finally:
         tmp.unlink(missing_ok=True)
-    _fsync_directory(trash_dir)
+    fsync_directory(trash_dir)
 
 
-def _fsync_directory(directory: Path) -> None:
-    """Flush a directory entry to disk where the platform allows it."""
-    if os.name == "nt":
-        return
-    fd = os.open(directory, os.O_RDONLY)
-    try:
-        os.fsync(fd)
-    finally:
-        os.close(fd)
-
-
-def _as_utc(value: datetime) -> datetime:
+def as_utc(value: datetime) -> datetime:
     """Return ``value`` in UTC; a naive value is taken as UTC already."""
     if value.tzinfo is None:
         return value.replace(tzinfo=UTC)
@@ -373,7 +362,7 @@ def _as_utc(value: datetime) -> datetime:
 
 
 def _format_utc(value: datetime) -> str:
-    return _as_utc(value).strftime(_TOMBSTONE_DATE_FORMAT)
+    return as_utc(value).strftime(_TOMBSTONE_DATE_FORMAT)
 
 
 __all__ = [

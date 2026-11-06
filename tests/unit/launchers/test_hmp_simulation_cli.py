@@ -1,7 +1,6 @@
 """Unit tests for ``hmp run`` CLI subcommand dispatch.
 
-The dispatcher is driven by mandatory ``[workflow].mode`` in the TOML.
-"""
+The dispatcher is driven by mandatory ``[workflow].mode`` in the TOML."""
 
 from __future__ import annotations
 
@@ -13,6 +12,8 @@ import pytest
 
 from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND
 from hydromodpy.cli.main import main
+from hydromodpy.config import HydroModPyConfig
+from hydromodpy.core.state.run_state import WorkflowContext
 from hydromodpy.project.dispatch import workflow as project_workflow
 
 
@@ -357,3 +358,104 @@ def test_hmp_dev_run_script_executes_python_scripts(monkeypatch, tmp_path) -> No
     assert exc_info.value.code == 0
     assert captured["cmd"][1:] == [str(script.resolve()), "--case", "demo"]
     assert captured["cwd"] == str(tmp_path)
+
+
+def test_overview_config_respects_project_root_env_override(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    dem_path = tmp_path / "dem.tif"
+    dem_path.write_text("dummy", encoding="utf-8")
+    redirected_project_root = tmp_path / "redirected_project_root"
+    monkeypatch.setenv(
+        "HMP_PROJECT_ROOT",
+        str(redirected_project_root),
+    )
+
+    toml_content = f"""\
+[workflow]
+mode = "simulation"
+[workspace]
+root = "{tmp_path}"
+
+[site]
+name = "site_a"
+
+[geographic]
+[geographic.catchment]
+kind = "from_outlet_coord"
+dem_init_path = "dem.tif"
+x_outlet = 1.0
+y_outlet = 2.0
+snap_dist = "150 m"
+buff_area = "20%"
+
+[overview]
+name = "Test"
+"""
+    toml_path = tmp_path / "overview.toml"
+    toml_path.write_text(toml_content, encoding="utf-8")
+
+    cfg = HydroModPyConfig.from_toml(toml_path)
+
+    assert cfg.workspace.project_root == redirected_project_root.resolve()
+    assert cfg.geographic.dem_init_path == dem_path.resolve()
+    assert cfg.overview is not None
+    assert cfg.overview.name == "Test"
+
+
+def _build_state() -> WorkflowContext:
+    return WorkflowContext(
+        cfg=SimpleNamespace(),
+        config_path=Path("config.toml"),
+        raw_toml={},
+    )
+
+
+def test_run_state_setup_scope_is_explicit() -> None:
+    result = _build_state()
+
+    workspace = object()
+    result.setup.workspace = workspace
+    assert result.setup.workspace is workspace
+
+    flow = object()
+    result.setup.flow = flow
+    assert result.setup.flow is flow
+
+
+def test_run_state_data_scope_is_explicit() -> None:
+    result = _build_state()
+
+    climatic = object()
+    result.loaded_data.climatic = climatic
+    assert result.loaded_data.climatic is climatic
+
+    oceanic = object()
+    result.loaded_data.oceanic = oceanic
+    assert result.loaded_data.oceanic is oceanic
+
+
+def test_run_state_results_scope_holds_what_the_runner_recorded() -> None:
+    result = _build_state()
+    run = SimpleNamespace(id="flow_main__modflow_nwt", solver="modflow_nwt")
+    model = object()
+
+    result.execution.process_runs_by_id = {run.id: run}
+    result.execution.models_by_run_id = {run.id: model}
+
+    assert result.execution.process_runs_by_id[run.id] is run
+    assert result.execution.models_by_run_id[run.id] is model
+
+
+def test_run_state_loaded_data_and_execution_scopes_are_mutable() -> None:
+    result = _build_state()
+    climatic = object()
+    result.loaded_data.climatic = climatic
+    assert result.loaded_data.climatic is climatic
+
+    run = SimpleNamespace(id="flow_main__modflow_nwt", solver="modflow_nwt")
+    model = object()
+    result.execution.process_runs_by_id = {run.id: run}
+    result.execution.models_by_run_id = {run.id: model}
+    assert result.execution.models_by_run_id[run.id] is model

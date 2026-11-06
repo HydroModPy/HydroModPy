@@ -127,6 +127,19 @@ def test_layer_tolerances_are_not_redundant() -> None:
     assert redundant == []
 
 
+def test_a_row_cites_only_rows_above_it() -> None:
+    """Rows run lowest first, so the matrix cannot hide a cycle between layers."""
+    allowed = _load_matrix()["allowed"]
+    position = {layer: index for index, layer in enumerate(allowed)}
+    backward = {
+        (layer, target)
+        for layer, targets in allowed.items()
+        for target in targets
+        if position[target] > position[layer]
+    }
+    assert backward == set(), f"edges pointing down the file: {sorted(backward)}"
+
+
 def test_architecture_package_docs_cover_declared_layers() -> None:
     """Reject missing per-package architecture pages."""
     matrix = _load_matrix()

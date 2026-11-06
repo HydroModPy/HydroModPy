@@ -26,7 +26,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.dev import lock_update
+    from hydromodpy.cli._workers.lock import lock_update
 
     written = lock_update(args.workspace, project=args.project, output=args.to)
     emit(

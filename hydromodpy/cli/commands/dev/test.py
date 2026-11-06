@@ -3,20 +3,81 @@
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import subprocess
 import sys
+import tempfile
+import uuid
 from pathlib import Path
 
 from hydromodpy.cli.conventions import workspace_parser
-from hydromodpy.cli.helpers import (
-    build_pytest_runtime_env,
-    find_project_root,
-    pytest_addopts_declares_basetemp,
-)
+from hydromodpy.cli.helpers import EXIT_USAGE, refuse
 
 NAME: str = "test"
 HELP: str = "Run unit, regression, or validation tests"
+
+
+def find_project_root() -> Path:
+    """Walk up from this file to find the directory containing ``tests/``."""
+    current = Path(__file__).resolve().parent
+    for parent in [current] + list(current.parents):
+        if (parent / "tests").is_dir():
+            return parent
+    return Path.cwd()
+
+
+def pytest_addopts_declares_basetemp(pytest_addopts: str) -> bool:
+    """Return ``True`` when ``PYTEST_ADDOPTS`` already declares ``--basetemp``."""
+    return re.search(r"(^|\s)--basetemp(?:=|\s|$)", str(pytest_addopts)) is not None
+
+
+def build_pytest_runtime_env() -> tuple[Path, dict[str, str]]:
+    """Prepare one scratch root outside the repository for pytest and its subprocesses.
+
+    ``HMP_TEST_SCRATCH_ROOT`` and ``HMP_TEST_SESSION_SCRATCH_ROOT`` override the
+    defaults, a folder of the system temp directory and one session under it.
+    """
+    override = os.environ.get("HMP_TEST_SCRATCH_ROOT")
+    scratch_root = (
+        Path(override).expanduser().resolve()
+        if override
+        else (Path(tempfile.gettempdir()) / "hydromodpy_tests").resolve()
+    )
+    override = os.environ.get("HMP_TEST_SESSION_SCRATCH_ROOT")
+    session_root = (
+        Path(override).expanduser().resolve()
+        if override
+        else (scratch_root / "sessions" / f"cli_{os.getpid()}_{uuid.uuid4().hex[:12]}").resolve()
+    )
+    tmp_root = session_root / "tmp"
+    pytest_root = session_root / "pytest"
+    basetemp_root = pytest_root / f"cli_{os.getpid()}"
+    for path in (scratch_root, session_root, tmp_root, pytest_root, basetemp_root):
+        path.mkdir(parents=True, exist_ok=True)
+
+    env = os.environ.copy()
+    env["HMP_TEST_SCRATCH_ROOT"] = str(scratch_root)
+    env["HMP_TEST_SESSION_SCRATCH_ROOT"] = str(session_root)
+    env["PYTEST_DEBUG_TEMPROOT"] = str(pytest_root)
+    env["TMPDIR"] = str(tmp_root)
+    env["TMP"] = str(tmp_root)
+    env["TEMP"] = str(tmp_root)
+    return basetemp_root, env
+
+
+def _refuse_regression_options(args: argparse.Namespace, suite: str) -> None:
+    """Stop on an option only the regression suite reads."""
+    if args.list:
+        refuse("--list is only available for regression tests.", EXIT_USAGE)
+    if args.name is not None:
+        refuse(f"{suite} tests do not accept a named regression target.", EXIT_USAGE)
+    for flag, given in (
+        ("--short", args.short),
+        ("--update-goldens", args.update_goldens),
+    ):
+        if given:
+            refuse(f"{flag} is only available for regression tests.", EXIT_USAGE)
 
 
 _RE_REGRESSION = re.compile(
@@ -102,21 +163,9 @@ def run(args: argparse.Namespace) -> None:
     tiers = _selected_tiers(args.extensive, args.fast)
 
     if args.suite == "unit":
-        if args.list:
-            print("--list is only available for regression tests.", file=sys.stderr)
-            sys.exit(2)
-        if args.name is not None:
-            print("Unit tests do not accept a named regression target.", file=sys.stderr)
-            sys.exit(2)
-        if args.short:
-            print("--short is only available for regression tests.", file=sys.stderr)
-            sys.exit(2)
-        if args.update_goldens:
-            print("--update-goldens is only available for regression tests.", file=sys.stderr)
-            sys.exit(2)
+        _refuse_regression_options(args, "Unit")
         if args.extensive:
-            print("--extensive is only available for regression tests.", file=sys.stderr)
-            sys.exit(2)
+            refuse("--extensive is only available for regression tests.", EXIT_USAGE)
         if (
             args.nwt
             or args.mf6
@@ -125,13 +174,12 @@ def run(args: argparse.Namespace) -> None:
             or args.transient
             or args.analytical
         ):
-            print(
+            refuse(
                 "--nwt/--mf6/--steady/--transient/--analytical are only available "
                 "for regression or validation tests; --intercomparison is only "
                 "available for regression tests.",
-                file=sys.stderr,
+                EXIT_USAGE,
             )
-            sys.exit(2)
 
         pytest_args.append(str(root / "tests" / "unit"))
         _append_unit_marker_filter(
@@ -183,21 +231,9 @@ def run(args: argparse.Namespace) -> None:
             pytest_args.append("--update-goldens")
 
     elif args.suite == "validation":
-        if args.list:
-            print("--list is only available for regression tests.", file=sys.stderr)
-            sys.exit(2)
-        if args.name is not None:
-            print("Validation tests do not accept a named regression target.", file=sys.stderr)
-            sys.exit(2)
-        if args.short:
-            print("--short is only available for regression tests.", file=sys.stderr)
-            sys.exit(2)
-        if args.update_goldens:
-            print("--update-goldens is only available for regression tests.", file=sys.stderr)
-            sys.exit(2)
+        _refuse_regression_options(args, "Validation")
         if args.intercomparison:
-            print("--intercomparison is only available for regression tests.", file=sys.stderr)
-            sys.exit(2)
+            refuse("--intercomparison is only available for regression tests.", EXIT_USAGE)
 
         pytest_args.append(str(root / "tests" / "validation"))
         _append_marker_filter(
@@ -250,17 +286,13 @@ def _append_marker_filter(
     analytical: bool = False,
 ) -> None:
     if fast and slow:
-        print("Cannot use --fast and --slow together.", file=sys.stderr)
-        sys.exit(2)
+        refuse("Cannot use --fast and --slow together.", EXIT_USAGE)
     if nwt and mf6:
-        print("Cannot use --nwt and --mf6 together.", file=sys.stderr)
-        sys.exit(2)
+        refuse("Cannot use --nwt and --mf6 together.", EXIT_USAGE)
     if steady and transient:
-        print("Cannot use --steady and --transient together.", file=sys.stderr)
-        sys.exit(2)
+        refuse("Cannot use --steady and --transient together.", EXIT_USAGE)
     if validation and extensive:
-        print("Cannot use --extensive with validation tests.", file=sys.stderr)
-        sys.exit(2)
+        refuse("Cannot use --extensive with validation tests.", EXIT_USAGE)
 
     markers: list[str] = []
     if validation:
@@ -301,8 +333,7 @@ def _append_unit_marker_filter(
     slow: bool,
 ) -> None:
     if fast and slow:
-        print("Cannot use --fast and --slow together.", file=sys.stderr)
-        sys.exit(2)
+        refuse("Cannot use --fast and --slow together.", EXIT_USAGE)
     if fast:
         pytest_args.extend(["-m", "not slow and not integration"])
     elif slow:
@@ -374,13 +405,13 @@ def _append_regression_name_selection(
         if len(candidates) == 1:
             available = candidates
         elif candidates:
-            print(f"Ambiguous regression name '{name}'.", file=sys.stderr)
-            print("Candidates:", ", ".join(sorted(candidates)), file=sys.stderr)
-            sys.exit(2)
+            refuse(
+                f"Ambiguous regression name '{name}'. Candidates: {', '.join(sorted(candidates))}",
+                EXIT_USAGE,
+            )
 
     if not available:
-        print(f"No regression test named '{name}' for selected tier(s).", file=sys.stderr)
-        sys.exit(2)
+        refuse(f"No regression test named '{name}' for selected tier(s).", EXIT_USAGE)
 
     matched_base = available[0]
     variants = tests[matched_base]
@@ -396,11 +427,10 @@ def _append_regression_name_selection(
         selected_files = variants["full"]
 
     if not selected_files:
-        print(
+        refuse(
             f"No regression files found for '{matched_base}' and selected tier(s).",
-            file=sys.stderr,
+            EXIT_USAGE,
         )
-        sys.exit(2)
 
     for path in sorted(selected_files):
         pytest_args.append(str(path))
@@ -429,5 +459,4 @@ def _append_regression_directory_selection(
         selected = True
 
     if not selected:
-        print("No regression tests found for selected tier(s).", file=sys.stderr)
-        sys.exit(2)
+        refuse("No regression tests found for selected tier(s).", EXIT_USAGE)

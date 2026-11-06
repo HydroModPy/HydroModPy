@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import numbers
 import os
+import uuid
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -263,7 +264,7 @@ def export_netcdf(
     # halfway and left a zero-byte file where the previous export was. A rename
     # swaps the inode instead: the open layer keeps reading what it already has
     # until it is reloaded, and a failed export destroys nothing.
-    tmp_path = output_path.with_name(f"{output_path.name}.tmp")
+    tmp_path = output_path.with_name(f"{output_path.name}.{uuid.uuid4().hex}.tmp")
     try:
         ds.to_netcdf(tmp_path, engine="netcdf4", format="NETCDF4", encoding=encoding)
         os.replace(tmp_path, output_path)
@@ -422,5 +423,11 @@ def _derive_stack(sz, sim_id: str, variable: str, timesteps, zarr_time) -> np.nd
         n_time = int(sz.root["head"].shape[0])
     if n_time is None:
         return None
-    indices = list(range(n_time)) if timesteps is None else [int(t) % n_time for t in timesteps]
+    if timesteps is None:
+        return derive_field_stack(sz, sim_id, variable, list(range(n_time)))
+    outside = [int(t) for t in timesteps if not -n_time <= int(t) < n_time]
+    if outside:
+        # A stored field indexed by numpy refuses these steps too.
+        raise IndexError(f"timesteps {outside} are outside the {n_time} steps of the run")
+    indices = [int(t) % n_time for t in timesteps]
     return derive_field_stack(sz, sim_id, variable, indices)

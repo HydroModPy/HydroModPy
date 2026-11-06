@@ -18,13 +18,9 @@ from hydromodpy.physics.hydrology.soil_reservoir.kernel import (
     full_soil,
     run_soil_balance,
 )
-from hydromodpy.simulation.soil_recharge import (
-    SoilColumns,
-    SoilForcings,
-    _no_negative_zero,
-    _parameters_line,
-    soil_budget_lines,
-)
+from hydromodpy.simulation.soil.budget import _no_negative_zero, _parameters_line, soil_budget_lines
+from hydromodpy.simulation.soil.columns import SoilColumns
+from hydromodpy.simulation.soil.recharge import SoilForcings
 
 
 def _forcings() -> SoilForcings:

@@ -33,12 +33,12 @@ from hydromodpy.calibration.optim.optimizer import (
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 from hydromodpy.calibration.optim.stopping import AUTO_BUDGET
 from hydromodpy.calibration.preflight import _check_the_budgets
-from hydromodpy.calibration.runners.cli_runner import (
+from hydromodpy.calibration.runners.document import load_toml_calibration
+from hydromodpy.calibration.runners.search import (
     _closes_two_roots,
     _engine_kwargs,
     _r_optim_verdict_extra,
     _search_outcome_extra,
-    load_toml_calibration,
 )
 from hydromodpy.calibration.runners.staged_runner import _phase_config
 from hydromodpy.core.exceptions import ObjectiveError, OptimizerError

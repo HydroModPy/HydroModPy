@@ -11,7 +11,7 @@ from pydantic import ValidationError
 from hydromodpy.results.checks import CHECKS_SCHEMA, CalibratedBy, Checks, Validity
 from hydromodpy.results.metric_rule import PeriodWindow
 from hydromodpy.results.storage.parquet_schemas import CHECK_COLUMNS
-from tests.unit.results._run_record_factory import make_checks
+from tests._helpers.run_records import make_checks
 
 
 def test_a_block_round_trips_through_json():

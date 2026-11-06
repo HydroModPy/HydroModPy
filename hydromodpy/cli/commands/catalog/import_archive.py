@@ -19,7 +19,7 @@ from hydromodpy.cli.conventions import (
     verbosity_parser,
     workspace_parser,
 )
-from hydromodpy.cli.helpers import apply_verbosity, project_root_of
+from hydromodpy.cli.helpers import project_root_of
 from hydromodpy.cli.output import emit
 
 NAME: str = "import"
@@ -57,7 +57,6 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    apply_verbosity(args, {})
     from hydromodpy.project.exchange.install import import_run
 
     root = project_root_of(args)

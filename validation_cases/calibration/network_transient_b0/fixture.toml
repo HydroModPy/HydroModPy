@@ -15,7 +15,7 @@ case_id = "12_calibration_network_transient_b0"
 # Example project root (relative to repo root).
 example_root = "examples/projects/12_calibration_network_transient_b0"
 # Transient TOML used by the steady -> transient calibration workflow.
-source_transient_config = "examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/base_site_01_mf6_bouss_transient.toml"
+source_transient_config = "examples/projects/12_calibration_network_transient_b0/configs/truth_transient_discharge.toml"
 # Real-runs subdirectory inside example_root.
 real_runs_subdir = "outputs/real_runs"
 # Web HTML subdirectory inside real_runs.

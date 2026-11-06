@@ -63,7 +63,7 @@ def _run_epilogue_lines(
     ``hmp catalog show`` reads. ``wall_seconds`` is the fallback of a seal
     that has none.
     """
-    from hydromodpy.results.export.run_identity import read_sealed_manifest
+    from hydromodpy.results.run_identity import read_sealed_manifest
 
     sid = str(ctx.sim_id)
     try:
@@ -203,7 +203,7 @@ class ExportStep:
         plan = ctx.execution.simulation_plan if run_is_persisted(ctx) else None
         if plan is not None and ctx.sim_id is not None:
             from hydromodpy.results.exporters.request import export_data_requests
-            from hydromodpy.simulation.extraction.post_run import cleanup_solver_outputs
+            from hydromodpy.simulation.post_run import cleanup_solver_outputs
             from hydromodpy.simulation.planning.plan import RunContext
 
             with run_store(ctx) as store:

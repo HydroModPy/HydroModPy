@@ -13,11 +13,11 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from hydromodpy.physics.forcing.steady_periods import split_net_recharge
 from hydromodpy.solver.modflow6.builders.recharge import (
     build_evt_stress_period_data,
     recharge_to_spd,
 )
-from hydromodpy.solver.modflow_common.recharge_evt_routing import route_negative_recharge_to_evt
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
@@ -32,8 +32,8 @@ _MAPPING = {
 
 
 def test_steady_period_routed_evt_carries_mean_deficit() -> None:
-    clipped, evt = route_negative_recharge_to_evt(
-        _MAPPING, steady=[True, False, False], durations=[1.0, 1.0, 1.0]
+    clipped, evt = split_net_recharge(
+        _MAPPING, steady=[True, False, False], first_clim="mean", durations=[1.0, 1.0, 1.0]
     )
     # Steady period 0: per-cell time mean of positives / deficits.
     np.testing.assert_allclose(clipped[0], [2.0e-6, (0.0 + 4.0e-6 + 0.0) / 3.0])
@@ -44,8 +44,8 @@ def test_steady_period_routed_evt_carries_mean_deficit() -> None:
 
 
 def test_evt_routing_keyed_on_steady_flag_not_period_index() -> None:
-    clipped, evt = route_negative_recharge_to_evt(
-        _MAPPING, steady=[False, False, False], durations=[1.0, 1.0, 1.0]
+    clipped, evt = split_net_recharge(
+        _MAPPING, steady=[False, False, False], first_clim="mean", durations=[1.0, 1.0, 1.0]
     )
     # All transient: period 0 keeps its OWN split, not zeroed.
     np.testing.assert_allclose(clipped[0], [2.0e-6, 0.0])
@@ -55,8 +55,8 @@ def test_evt_routing_keyed_on_steady_flag_not_period_index() -> None:
 def test_routed_evt_unit_conversion_factor() -> None:
     # 8.64 mm/day = 1.0e-7 m/s; -86.4 mm/day deficit = 1.0e-6 m/s.
     mapping = {0: np.array([1.0e-7]), 1: np.array([-1.0e-6])}
-    clipped, evt = route_negative_recharge_to_evt(
-        mapping, steady=[True, False], durations=[1.0, 1.0]
+    clipped, evt = split_net_recharge(
+        mapping, steady=[True, False], first_clim="mean", durations=[1.0, 1.0]
     )
     np.testing.assert_allclose(clipped[0], [(1.0e-7 + 0.0) / 2.0])
     np.testing.assert_allclose(evt[0], [(0.0 + 1.0e-6) / 2.0])
@@ -123,4 +123,4 @@ def test_evt_cell_targets_uppermost_active_layer_multilayer_disv() -> None:
 def test_mf6_and_nwt_share_routing_helper() -> None:
     from hydromodpy.solver.modflow_nwt.nwt.payloads import recharge_etp
 
-    assert recharge_etp.route_negative_recharge_to_evt is route_negative_recharge_to_evt
+    assert recharge_etp.split_net_recharge is split_net_recharge

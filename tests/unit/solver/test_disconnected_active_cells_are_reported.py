@@ -17,7 +17,7 @@ import textwrap
 import numpy as np
 
 from hydromodpy.solver.modflow6 import build as mf6_build
-from hydromodpy.solver.modflow6.builders import apply_lake_idomain_mask
+from hydromodpy.solver.modflow6.builders.lake_cells import apply_lake_idomain_mask
 from hydromodpy.solver.modflow_grid import discretization_spatial
 from hydromodpy.solver.modflow_grid.active_connectivity import (
     active_component_sizes,
@@ -141,7 +141,7 @@ def _called_names(function) -> list[tuple[str, int]]:
 
 
 def test_modflow6_counts_the_groups_after_the_lake_footprint_is_inactive() -> None:
-    calls = _called_names(mf6_build.run_pre_processing)
+    calls = _called_names(mf6_build._mask_lakes)
     masked = [line for name, line in calls if name == "apply_lake_idomain_mask"]
     counted = [line for name, line in calls if name == "warn_on_disconnected_active_cells"]
     assert len(masked) == 1 and len(counted) == 1

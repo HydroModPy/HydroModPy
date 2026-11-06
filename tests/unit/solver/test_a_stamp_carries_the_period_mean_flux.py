@@ -20,7 +20,7 @@ import numpy as np
 import pytest
 
 from hydromodpy.core.budget.terms import BudgetKeep
-from hydromodpy.solver.modflow6.build import output_control_records
+from hydromodpy.solver.modflow6.builders.solver_options import output_control_records
 from hydromodpy.solver.modflow6.extractors.flow import Modflow6OutputAdapter
 from hydromodpy.solver.modflow_common import calibration_extractors as cal
 from hydromodpy.solver.modflow_common.period_steps import (
@@ -544,7 +544,7 @@ def _run_mf6_lake(workspace: Path) -> Path:
 
     import flopy
 
-    from hydromodpy.solver.modflow6.builders import build_lake_obs_spec
+    from hydromodpy.solver.modflow6.builders.lake_obs import build_lake_obs_spec
     from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 
     n = 5

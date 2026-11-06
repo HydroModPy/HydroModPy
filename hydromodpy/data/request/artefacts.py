@@ -30,7 +30,7 @@ from hydromodpy.core.io.atomic_replace import staged_path
 from hydromodpy.core.io.filesystem import native_io_path
 from hydromodpy.core.io.parquet import PARQUET_WRITE_DEFAULTS
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     import geopandas as gpd
 
     from hydromodpy.data.contracts.spatial_field import FieldRecord

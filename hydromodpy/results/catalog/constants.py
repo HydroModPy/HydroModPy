@@ -222,7 +222,18 @@ def metric_rank_sql(metric: str, *, best: bool, column: str = "m.value") -> str:
     return f"ABS({column} - {target}) {'ASC' if best else 'DESC'}"
 
 
+SIMULATIONS_FROM = (
+    "FROM simulations s "
+    "JOIN solvers sv ON s.solver_id = sv.id "
+    "JOIN statuses st ON s.status_id = st.id "
+    "LEFT JOIN flow_regimes fr ON s.flow_regime_id = fr.id "
+    "LEFT JOIN mesh_topologies mt ON s.mesh_topology_id = mt.id"
+)
+"""The ``simulations`` table joined to the codes of its dimensions, as every reader of a row joins it."""
+
+
 __all__ = [
+    "SIMULATIONS_FROM",
     "METRIC_SENSE",
     "MESH_ENGINE_SQL",
     "PARQUET_VIEW_NAMES",

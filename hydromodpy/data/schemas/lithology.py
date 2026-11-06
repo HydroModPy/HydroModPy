@@ -6,7 +6,7 @@ import pandas as pd
 import pandera.pandas as pa
 
 from hydromodpy.core.exceptions import DataContractViolation
-from hydromodpy.data.schemas.timeseries import _format_failures
+from hydromodpy.data.schemas.validation import format_failures
 
 LithologyTableSchema = pa.DataFrameSchema(
     columns={
@@ -48,5 +48,5 @@ def validate_lithology(df: pd.DataFrame, *, context: str | None = None) -> pd.Da
     except pa.errors.SchemaErrors as exc:
         raise DataContractViolation(
             f"Lithology contract violated{f' ({context})' if context else ''}",
-            failures=_format_failures(exc),
+            failures=format_failures(exc),
         ) from exc

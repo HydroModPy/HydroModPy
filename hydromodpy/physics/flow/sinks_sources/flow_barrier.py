@@ -269,4 +269,21 @@ class FlowBarrierConfig(HydroModelBase):
         return k_si / thickness_si
 
 
-__all__ = ["FlowBarrierConfig"]
+class CutoffWallConfig(FlowBarrierConfig):
+    """The flow barrier of a lake dam, laid on the lake shore."""
+
+    snap_tolerance: Annotated[float, Profile.USER] = Field(
+        default=50.0,
+        ge=0.0,
+        description=(
+            "Largest gap [m] between the declared trace and the lake shore. The part of "
+            "the trace facing the lake moves onto the shore it faces, so no cell sits "
+            "between the reservoir and the wall; the trace beyond the banks stays as "
+            "declared. A trace farther than this from the lake is refused. A trace that "
+            "crosses the lake cuts its footprint, and the part downstream is dropped."
+        ),
+        json_schema_extra={"unit": "m"},
+    )
+
+
+__all__ = ["CutoffWallConfig", "FlowBarrierConfig"]

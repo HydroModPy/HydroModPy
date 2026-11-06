@@ -124,8 +124,8 @@ def test_an_installed_engine_is_accepted(monkeypatch: pytest.MonkeyPatch) -> Non
     plugin = fake_engine(
         "test-plugin", engine_version="0.1.0", exact_faces=True, cell_families="exact"
     )
-    monkeypatch.setattr(registry, "_REGISTRY", dict(registry._REGISTRY))
-    monkeypatch.setattr(registry, "_PLUGINS_LOADED", True)
+    monkeypatch.setattr(registry._ENGINE, "classes", dict(registry._ENGINE.classes))
+    monkeypatch.setattr(registry._ENGINE, "plugins_loaded", True)
     registry.register(plugin)
 
     assert MeshConfig(engine="test-plugin").engine == "test-plugin"

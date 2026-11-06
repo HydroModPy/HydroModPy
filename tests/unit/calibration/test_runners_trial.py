@@ -60,7 +60,7 @@ from hydromodpy.workflow.steps.mesh import BuildMeshStep
 from hydromodpy.workflow.steps.planning import step_configure_results
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 from tests.unit.calibration._factories import Setup
-from tests.unit.calibration._factories_runners import make_session
+from tests.unit.calibration._factories_runners import ToyCtx, make_session
 from tests.unit.calibration.test_targets import _config
 
 # From test_a_parameter_must_reach_a_step.py
@@ -203,19 +203,6 @@ class _Cfg:
         return copy.deepcopy(self)
 
 
-@dataclass
-class _Ctx:
-    cfg: _Cfg
-    config_path: Path
-    raw_toml: dict[str, Any]
-    data_plan: Any = None
-    setup: Setup = field(default_factory=Setup)
-    loaded_data: Any = None
-    execution: ExecutionRegistry = field(default_factory=ExecutionRegistry)
-    sim_id: Any = None
-    reserved_sim_id: Any = None
-
-
 class _Step:
     def __init__(self, name: str, action) -> None:
         self.name = name
@@ -254,7 +241,7 @@ def _seal(state: PipelineState) -> None:
 
 def _trial_ctx(tmp_path: Path, steps) -> TrialContext:
     cfg = _Cfg()
-    ctx = _Ctx(cfg=cfg, config_path=tmp_path / "calib.toml", raw_toml={})
+    ctx = ToyCtx(cfg=cfg, config_path=tmp_path / "calib.toml", raw_toml={})
     trial_ctx = TrialContext(
         base_cfg=cfg,
         ctx=ctx,
@@ -746,13 +733,6 @@ def test_a_trial_that_brings_k22_back_on_axis_keeps_xt3d_off(
 # own ``_recharge`` folder or into the folder every trial of the phase shares.
 
 
-@pytest.fixture(scope="module")
-def _ensure_bootstrap():
-    """Wire the deferred TrialPipelineProvider before any run_trial_light call."""
-
-    hydromodpy.bootstrap()
-
-
 @dataclass
 class _FakeParam:
     value: float = 1.0
@@ -861,7 +841,7 @@ def _run_and_capture_overrides(
     return captured[0]
 
 
-@pytest.mark.usefixtures("_ensure_bootstrap")
+@pytest.mark.usefixtures("ensure_bootstrap")
 class TestPrivateRechargeKey:
     @pytest.mark.parametrize(
         ("sampled", "values", "trial_id", "expected"),
@@ -964,7 +944,7 @@ def _make_trial_context(tmp_path: Path, *, earliest: int) -> tuple[TrialContext,
 # ---------------------------------------------------------------------------
 # Fork isolation
 # ---------------------------------------------------------------------------
-@pytest.mark.usefixtures("_ensure_bootstrap")
+@pytest.mark.usefixtures("ensure_bootstrap")
 class TestFork:
     def test_value_is_injected_via_dotted_path(self, tmp_path: Path) -> None:
         trial_ctx, _ = _make_trial_context(tmp_path, earliest=6)
@@ -1035,7 +1015,7 @@ class TestFork:
 # ---------------------------------------------------------------------------
 # run_trial_light - scheduling + no-disk-I/O
 # ---------------------------------------------------------------------------
-@pytest.mark.usefixtures("_ensure_bootstrap")
+@pytest.mark.usefixtures("ensure_bootstrap")
 class TestRunTrialLight:
     def test_runs_only_downstream_slice(self, tmp_path: Path) -> None:
         trial_ctx, steps = _make_trial_context(tmp_path, earliest=6)
@@ -1185,7 +1165,7 @@ class TestRunTrialLight:
         assert captured["overrides"] is None
 
 
-@pytest.mark.usefixtures("_ensure_bootstrap")
+@pytest.mark.usefixtures("ensure_bootstrap")
 class TestPromotion:
     def test_a_promotion_leaves_the_preprocessing_tree_to_the_next_one(
         self, tmp_path: Path
@@ -1224,7 +1204,7 @@ class TestPromotion:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-@pytest.mark.usefixtures("_ensure_bootstrap")
+@pytest.mark.usefixtures("ensure_bootstrap")
 class TestSetByPath:
     def test_sets_nested_leaf(self) -> None:
         cfg = _FakeCfg()
@@ -1248,7 +1228,7 @@ def _snapshot_files(root: Path) -> set[str]:
     return out
 
 
-@pytest.mark.usefixtures("_ensure_bootstrap")
+@pytest.mark.usefixtures("ensure_bootstrap")
 def test_a_calibrated_factor_reaches_the_fork_the_frozen_file_and_the_replay(tmp_path) -> None:
     cfg = _config(tmp_path, sinks_sources={"recharge": {"values": 2.0}})
     stub, _ = _make_trial_context(tmp_path, earliest=6)

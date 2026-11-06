@@ -9,10 +9,11 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Annotated, ClassVar
+from typing import Annotated, Any, ClassVar
 
 from pydantic import (
     Field,
+    PrivateAttr,
     ValidationInfo,
     field_validator,
     model_validator,
@@ -20,30 +21,30 @@ from pydantic import (
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
+from hydromodpy.core.config_kit.field_param.config import (
+    FieldParamConfig,
+    FieldSection,
+    FieldVerticalProfileSection,
+    resolve_field_param_config_payload,
+)
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.physics.flow import flow_toml_loader
 from hydromodpy.physics.flow.boundary_conditions import (
     BCEntry,
     FlowBoundaryConditionConfig,
 )
-from hydromodpy.physics.flow.flow_param_config import FlowParam
-from hydromodpy.physics.flow.flow_runtime_config import FLOW_RUNTIME_KEYS, FlowRuntimeConfig
 from hydromodpy.physics.flow.initial_conditions import (
     FlowInitialConditions,
-)
-from hydromodpy.physics.flow.initial_conditions_config import (
     normalize_flow_initial_conditions,
 )
 from hydromodpy.physics.flow.property_ids import default_unit_of, refusal_of_a_retired_id
 from hydromodpy.physics.flow.regime import FlowRegime, normalize_flow_regime
+from hydromodpy.physics.flow.runtime_config import FLOW_RUNTIME_KEYS, FlowRuntimeConfig
 from hydromodpy.physics.flow.sinks_sources import (
     FlowBarrierConfig,
     FlowLakeConfig,
     FlowSinksSourcesConfig,
     FlowWellConfig,
-)
-from hydromodpy.physics.flow.sinks_sources_config import (
-    normalize_flow_sinks_sources,
 )
 
 __all__ = [
@@ -57,6 +58,51 @@ __all__ = [
     "FlowWellConfig",
     "RestartReference",
 ]
+
+
+class FlowParam(FieldParamConfig):
+    """Flow parameter payload using native field-param sections."""
+
+    field: Annotated[FieldSection, Profile.USER] = Field(
+        ...,
+        description="Discriminated parameter section `[field]`.",
+    )
+    field_vertical_profile: Annotated[FieldVerticalProfileSection | None, Profile.USER] = Field(
+        default=None,
+        description="Optional depth profile section `[field_vertical_profile]`.",
+    )
+
+    _base_dir: Path | None = PrivateAttr(default=None)
+    _section_label: str = PrivateAttr(default="flow.param")
+
+    def model_post_init(self, context: Any) -> None:
+        super().model_post_init(context)
+        if isinstance(context, Mapping):
+            raw_base_dir = context.get("base_dir")
+            if isinstance(raw_base_dir, Path):
+                self._base_dir = raw_base_dir
+        self._section_label = self._section_label_from_field()
+
+    def _section_label_from_field(self) -> str:
+        field_id = self.field.id
+        if field_id:
+            return f"flow.param.{field_id}"
+        return "flow.param"
+
+    def resolved_payload(
+        self,
+        *,
+        param_id: str | None = None,
+        base_dir: Path | None = None,
+        section_label: str | None = None,
+    ) -> dict[str, Any]:
+        """Return the resolved runtime field-parameter payload."""
+        return resolve_field_param_config_payload(
+            self.model_dump(mode="python", exclude_none=True),
+            param_id=param_id,
+            base_dir=base_dir or self._base_dir,
+            section_label=section_label or self._section_label,
+        )
 
 
 class RestartReference(HydroModelBase):
@@ -401,7 +447,13 @@ class FlowConfig(HydroModelBase):
     @classmethod
     def _validate_sinks_sources(cls, value):
         """Normalize sinks/sources payload from `[flow.sinks_sources]`."""
-        return normalize_flow_sinks_sources(value, location_prefix="flow.sinks_sources")
+        if value is None:
+            return FlowSinksSourcesConfig()
+        if isinstance(value, FlowSinksSourcesConfig):
+            return value
+        if not isinstance(value, Mapping):
+            raise ValueError("flow.sinks_sources must be a mapping payload")
+        return FlowSinksSourcesConfig.model_validate(dict(value))
 
     @classmethod
     def _homogeneous_param_entry(cls, param_id: str, value: float) -> dict:

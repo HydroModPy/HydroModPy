@@ -435,7 +435,7 @@ the next build.
 
 ```{hmp-tested-by}
 hydromodpy.physics.hydrology.soil_reservoir
-hydromodpy.simulation.soil_recharge
+hydromodpy.simulation.soil
 ```
 
 ## In the code
@@ -445,7 +445,7 @@ hydromodpy.simulation.soil_recharge
 | The daily step and the balance | `hydromodpy/physics/hydrology/soil_reservoir/kernel.py` (`soil_step`, `run_soil_balance`, `balance_residual`) |
 | The starting state | the same file, `spinup_state` |
 | What a file may say, and its ranges | `hydromodpy/physics/hydrology/soil_reservoir/config.py` |
-| Grids in, columns, grids out | `hydromodpy/simulation/soil_recharge.py` |
+| Grids in, columns, grids out | `hydromodpy/simulation/soil/` (`grids.py`, `columns.py`, `recharge.py`, `budget.py`) |
 
 ## See also
 

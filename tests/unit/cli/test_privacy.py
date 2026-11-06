@@ -12,19 +12,7 @@ import pytest
 from hydromodpy.core.state.layout import TOMBSTONES_FILENAME, catalog_path_for, trash_dir_for
 from tests._helpers.sealed_runs import make_project, seal_run
 
-
-def _load_main():
-    return importlib.import_module("hydromodpy.cli.main")
-
-
-def _run(monkeypatch, argv: list[str]) -> int:
-    module = _load_main()
-    monkeypatch.setattr(sys, "argv", argv)
-    try:
-        module.main()
-    except SystemExit as exc:
-        return int(exc.code or 0)
-    return 0
+from ._hmp import run_main as _run
 
 
 def _make_workspace_with_project(tmp_path: Path) -> tuple[Path, Path]:

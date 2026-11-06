@@ -15,6 +15,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.core.exceptions import ImportConflictError
+from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.results.catalog.registration import (
     NameTakenError,
     check_name_free,
@@ -24,7 +25,6 @@ from hydromodpy.results.catalog.registration import (
     run_identity_hash,
     split_stem_version,
 )
-from hydromodpy.results.ledger import sha256_of
 from hydromodpy.results.outcome import Outcome, write_outcome
 from hydromodpy.results.publication import (
     Publication,

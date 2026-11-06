@@ -28,7 +28,6 @@ it. A failed run keeps its place on the run axis and carries no cost.
 
 from __future__ import annotations
 
-import json
 import textwrap
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -48,7 +47,6 @@ from hydromodpy.display.figures._calibration_session import (
     chosen_session,
     cost_blocks,
     cost_label,
-    float_or,
     frozen_values,
     metric_cost,
     metric_unit,
@@ -57,6 +55,7 @@ from hydromodpy.display.figures._calibration_session import (
     returned_row,
     rises_with_fit,
     score_label,
+    search_bounds,
     session_config,
     session_descriptor,
     text,
@@ -349,7 +348,7 @@ def _parameters(
         _, values = table.parameter_values(name)
         values = _with_frozen(values, table, frozen, name)
         info = parameter_declaration(table, descriptor, name)
-        bounds = _bounds(info.get("bounds"))
+        bounds = search_bounds(info.get("bounds"))
         positive = bool(np.all(values[np.isfinite(values)] > 0.0))
         search_space = str(info.get("search_space") or "").lower()
         log = positive and (search_space == "log" or (not search_space and _spans_decades(values)))
@@ -1208,21 +1207,6 @@ def _draw_plane(sub: SubFigure, ax: Axes, search: _Search) -> None:
 # ---------------------------------------------------------------------------
 # small readers
 # ---------------------------------------------------------------------------
-
-
-def _bounds(value: Any) -> tuple[float, float] | None:
-    """Return the search bounds as two finite floats, None otherwise."""
-    if isinstance(value, str):
-        try:
-            value = json.loads(value)
-        except json.JSONDecodeError:
-            return None
-    if not isinstance(value, Sequence) or len(value) != 2:
-        return None
-    low, high = float_or(value[0], np.nan), float_or(value[1], np.nan)
-    if not (np.isfinite(low) and np.isfinite(high)) or high <= low:
-        return None
-    return low, high
 
 
 def _spans_decades(values: np.ndarray) -> bool:

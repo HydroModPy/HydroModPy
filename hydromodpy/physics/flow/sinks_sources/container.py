@@ -17,6 +17,9 @@ from hydromodpy.physics.flow.sinks_sources.recharge import FlowRechargeConfig
 from hydromodpy.physics.flow.sinks_sources.sfr import FlowReachNetworkConfig
 from hydromodpy.physics.flow.sinks_sources.wells import FlowWellConfig
 
+_ID_NAMES = {"wells": "well ids", "lakes": "lake ids", "sfr": "network ids", "flow_barriers": "ids"}
+"""How the refusal of an empty id names the ids of each table."""
+
 
 class FlowSinksSourcesConfig(HydroModelBase):
     """
@@ -102,66 +105,21 @@ class FlowSinksSourcesConfig(HydroModelBase):
         """Return the flow barriers that are not switched off."""
         return {key: barrier for key, barrier in self.flow_barriers.items() if barrier.enabled}
 
-    @field_validator("wells", mode="before")
+    @field_validator("wells", "lakes", "sfr", "flow_barriers", mode="before")
     @classmethod
-    def _validate_wells(cls, value):
-        """Normalize and pre-validate the wells mapping."""
+    def _validate_id_table(cls, value, info):
+        """Normalize one id-keyed table and refuse an empty id."""
+        table = info.field_name
         if value is None:
             return {}
         if not isinstance(value, Mapping):
-            raise ValueError("flow.sinks_sources.wells must be a mapping payload")
+            raise ValueError(f"flow.sinks_sources.{table} must be a mapping payload")
         out: dict[str, object] = {}
         for raw_key, raw_payload in value.items():
-            well_id = str(raw_key).strip()
-            if well_id == "":
-                raise ValueError("flow.sinks_sources.wells cannot contain empty well ids")
-            out[well_id] = raw_payload
-        return out
-
-    @field_validator("lakes", mode="before")
-    @classmethod
-    def _validate_lakes(cls, value):
-        """Normalize and pre-validate the lakes mapping."""
-        if value is None:
-            return {}
-        if not isinstance(value, Mapping):
-            raise ValueError("flow.sinks_sources.lakes must be a mapping payload")
-        out: dict[str, object] = {}
-        for raw_key, raw_payload in value.items():
-            lake_id = str(raw_key).strip()
-            if lake_id == "":
-                raise ValueError("flow.sinks_sources.lakes cannot contain empty lake ids")
-            out[lake_id] = raw_payload
-        return out
-
-    @field_validator("sfr", mode="before")
-    @classmethod
-    def _validate_sfr(cls, value):
-        """Normalize and pre-validate the sfr mapping."""
-        if value is None:
-            return {}
-        if not isinstance(value, Mapping):
-            raise ValueError("flow.sinks_sources.sfr must be a mapping payload")
-        out: dict[str, object] = {}
-        for raw_key, raw_payload in value.items():
-            network_id = str(raw_key).strip()
-            if network_id == "":
-                raise ValueError("flow.sinks_sources.sfr cannot contain empty network ids")
-            out[network_id] = raw_payload
-        return out
-
-    @field_validator("flow_barriers", mode="before")
-    @classmethod
-    def _validate_flow_barriers(cls, value):
-        """Normalize and pre-validate the flow_barriers mapping."""
-        if value is None:
-            return {}
-        if not isinstance(value, Mapping):
-            raise ValueError("flow.sinks_sources.flow_barriers must be a mapping payload")
-        out: dict[str, object] = {}
-        for raw_key, raw_payload in value.items():
-            barrier_id = str(raw_key).strip()
-            if barrier_id == "":
-                raise ValueError("flow.sinks_sources.flow_barriers cannot contain empty ids")
-            out[barrier_id] = raw_payload
+            entry_id = str(raw_key).strip()
+            if entry_id == "":
+                raise ValueError(
+                    f"flow.sinks_sources.{table} cannot contain empty {_ID_NAMES[table]}"
+                )
+            out[entry_id] = raw_payload
         return out

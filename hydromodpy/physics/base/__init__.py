@@ -37,9 +37,9 @@ __all__ = [
 ]
 
 _LAZY_IMPORTS = {
-    "BoundaryCondition": "hydromodpy.physics.base.boundary_conditions:BoundaryCondition",
+    "BoundaryCondition": "hydromodpy.physics.base.payloads:BoundaryCondition",
     "normalize_boundary_condition_payload": (
-        "hydromodpy.physics.base.boundary_conditions_config:normalize_boundary_condition_payload"
+        "hydromodpy.physics.base.payloads:normalize_boundary_condition_payload"
     ),
     "ConstantForcing": "hydromodpy.physics.base.forcing:ConstantForcing",
     "CsvForcing": "hydromodpy.physics.base.forcing:CsvForcing",
@@ -49,15 +49,15 @@ _LAZY_IMPORTS = {
     "SurfaceRateForcing": "hydromodpy.physics.base.forcing:SurfaceRateForcing",
     "TimeSeriesForcing": "hydromodpy.physics.base.forcing:TimeSeriesForcing",
     "VolumeRateForcing": "hydromodpy.physics.base.forcing:VolumeRateForcing",
-    "InitialCondition": "hydromodpy.physics.base.initial_conditions:InitialCondition",
+    "InitialCondition": "hydromodpy.physics.base.payloads:InitialCondition",
     "normalize_initial_condition_payload": (
-        "hydromodpy.physics.base.initial_conditions_config:normalize_initial_condition_payload"
+        "hydromodpy.physics.base.payloads:normalize_initial_condition_payload"
     ),
     "ProcessSpatial": "hydromodpy.physics.base.process_spatial:ProcessSpatial",
     "TInitialConditions": "hydromodpy.physics.base.process_spatial:TInitialConditions",
-    "SinkSource": "hydromodpy.physics.base.sinks_sources:SinkSource",
+    "SinkSource": "hydromodpy.physics.base.payloads:SinkSource",
     "normalize_sink_source_payload": (
-        "hydromodpy.physics.base.sinks_sources_config:normalize_sink_source_payload"
+        "hydromodpy.physics.base.payloads:normalize_sink_source_payload"
     ),
 }
 

@@ -11,9 +11,8 @@ from hydromodpy.cli.conventions import (
     verbosity_parser,
     workspace_parser,
 )
-from hydromodpy.cli.helpers import EXIT_USAGE, apply_verbosity, project_root_of, refuse
+from hydromodpy.cli.helpers import EXIT_USAGE, project_root_of, refuse
 from hydromodpy.cli.output import emit
-from hydromodpy.core.state.layout import catalog_path_for
 from hydromodpy.core.toml_io.overrides import parse_override_value
 
 NAME: str = "rerun"
@@ -82,7 +81,6 @@ def _parse_overrides(items: list[str]) -> dict:
 
 
 def run(args: argparse.Namespace) -> None:
-    apply_verbosity(args, {})
     import tomllib
 
     from hydromodpy.core.state.result_dirs import parse_rel_dir, run_dir_rel
@@ -123,10 +121,9 @@ def run(args: argparse.Namespace) -> None:
             source_dir=source,
         )
     )
-    if catalog_path_for(root).is_file():
-        from hydromodpy.results.catalog.indexer import index_new_runs
+    from hydromodpy.cli._workers.catalog import reindex_if_indexed
 
-        index_new_runs(root)
+    reindex_if_indexed(root)
     new_dir = run_dir_holding(root, new_sid)
     emit(
         args,

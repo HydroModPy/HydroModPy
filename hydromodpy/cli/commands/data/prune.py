@@ -11,7 +11,7 @@ from hydromodpy.cli.conventions import (
     verbosity_parser,
     workspace_parser,
 )
-from hydromodpy.cli.helpers import apply_verbosity, confirm
+from hydromodpy.cli.helpers import confirm
 from hydromodpy.cli.output import emit
 
 NAME: str = "prune"
@@ -41,7 +41,6 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    apply_verbosity(args, {})
     from hydromodpy.cli._workers.data import prune_data_cache
 
     if not args.dry_run:

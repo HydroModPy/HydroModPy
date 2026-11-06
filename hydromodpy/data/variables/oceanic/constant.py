@@ -10,7 +10,7 @@ import pandas as pd
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.data.variables.oceanic.config import OceanicSourceConfig
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     from hydromodpy.data.managers.base_manager_common import SourceContext
 
 

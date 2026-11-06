@@ -8,7 +8,7 @@ from typing import Protocol
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.solver.boussinesq.forcing_resolution import BoussinesqForcingResolver
+from hydromodpy.solver.boussinesq.forcing import BoussinesqForcingResolver
 
 logger = get_logger(__name__)
 

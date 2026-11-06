@@ -75,7 +75,8 @@ def _assert_bounds_valid(trial_ctx: Any, space: ParameterSpace) -> None:
         return
     try:
         Flow(config=base_cfg.flow)
-    except Exception:
+    except Exception as exc:
+        logger.debug("Bounds not probed, the base flow does not build: %s", exc)
         return
     for param in space:
         if param.effective_path is None or not param.effective_path.startswith("flow."):
@@ -192,7 +193,7 @@ def _assert_network_conductance_proportional(
     detail = (
         f"flow.bc.drainage.value is {float(boundary.value):g} {boundary.units}, a fixed "
         "drain conductance (the fallback, C = K * cell_area / drain_bed_thickness_m in "
-        "hydromodpy/solver/modflow_common/drain_conductance.py, only applies when the "
+        "hydromodpy/solver/base/drain_conductance.py, only applies when the "
         "configured value is not strictly positive)."
     )
     if moves_a_hydraulic_conductivity(param.effective_path for param in space):

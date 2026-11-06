@@ -6,7 +6,6 @@ Thin wrapper around :func:`hydromodpy.cli._workers.catalog.point_simulations`.
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 
 from hydromodpy.cli.conventions import (
     add_destination,
@@ -14,9 +13,8 @@ from hydromodpy.cli.conventions import (
     verbosity_parser,
     workspace_parser,
 )
-from hydromodpy.cli.helpers import apply_verbosity
+from hydromodpy.cli.helpers import project_root_of
 from hydromodpy.cli.output import emit
-from hydromodpy.core.state.result_dirs import resolve_project_root
 
 NAME: str = "point"
 HELP: str = "Read a variable in one cell of a finished run (coordinates, cell id, or depth)"
@@ -83,12 +81,9 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    apply_verbosity(args, {})
     from hydromodpy.cli._workers.catalog import point_simulations
 
-    workspace_root = resolve_project_root(
-        Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
-    )
+    workspace_root = project_root_of(args)
     x, y = args.xy if args.xy else (None, None)
     frame = point_simulations(
         list(args.sim_ref),

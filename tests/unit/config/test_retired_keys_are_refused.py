@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import tomllib
 from pathlib import Path
 
@@ -9,6 +10,7 @@ import pytest
 from pydantic import ValidationError
 
 from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import RETIRED_SECTIONS
 from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.simulation.planning.config import SimulationConfig
 
@@ -126,6 +128,18 @@ def test_a_retired_root_section_names_its_replacement(
     with pytest.raises(ConfigValidationError, match=advice):
         HydroModPyConfig.from_toml(path)
     with pytest.raises(ValidationError, match=advice):
+        HydroModPyConfig.model_validate({**SYNTHETIC, section: {}})
+
+
+@pytest.mark.parametrize("section", sorted(RETIRED_SECTIONS))
+def test_every_retired_root_section_is_refused_with_its_sentence(
+    tmp_path: Path, section: str
+) -> None:
+    ending = re.escape(RETIRED_SECTIONS[section][-40:])
+    path = _write(tmp_path, f"[{section}]\nx = 1\n")
+    with pytest.raises(ConfigValidationError, match=ending):
+        HydroModPyConfig.from_toml(path)
+    with pytest.raises(ValidationError, match=ending):
         HydroModPyConfig.model_validate({**SYNTHETIC, section: {}})
 
 

@@ -15,7 +15,6 @@ import sys
 from pathlib import Path
 
 from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
-from hydromodpy.cli.helpers import apply_verbosity
 from hydromodpy.cli.output import emit
 
 NAME: str = "collect"
@@ -58,7 +57,6 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    apply_verbosity(args, {})
     from hydromodpy.core.state.result_dirs import resolve_project_root
     from hydromodpy.project.launch.summary import collect_project
 

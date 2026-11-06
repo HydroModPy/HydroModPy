@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 
 from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
-from hydromodpy.cli.helpers import apply_verbosity, resolve_project
+from hydromodpy.cli.helpers import resolve_project
 from hydromodpy.cli.output import emit
 
 NAME: str = "promote"
@@ -57,9 +57,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    apply_verbosity(args, {})
     from hydromodpy.calibration.runners.promotion import promote_trial_from_session
-    from hydromodpy.core.state.layout import catalog_path_for
     from hydromodpy.core.state.result_dirs import run_dir_rel
 
     project_root = resolve_project(args.workspace)
@@ -67,10 +65,9 @@ def run(args: argparse.Namespace) -> None:
         _list_best_trials(args, project_root)
         return
     run_dir = promote_trial_from_session(project_root, args.case, args.trial, as_name=args.name)
-    if catalog_path_for(project_root).is_file():
-        from hydromodpy.results.catalog.indexer import index_new_runs
+    from hydromodpy.cli._workers.catalog import reindex_if_indexed
 
-        index_new_runs(project_root)
+    reindex_if_indexed(project_root)
     rel_dir = run_dir_rel(run_dir.name)
 
     def table() -> None:

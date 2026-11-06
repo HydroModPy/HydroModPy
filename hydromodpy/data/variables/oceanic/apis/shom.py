@@ -59,7 +59,7 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     from hydromodpy.data.managers.base_manager_common import SourceContext
     from hydromodpy.data.variables.oceanic.config import OceanicSourceConfig
 

@@ -206,7 +206,7 @@ def plan_is_stale(project_root: Path, stored: StoredPlan) -> bool:
 
 def _invalid_cases(project_root: Path) -> set[str]:
     """Return the cases of the project that no longer validate."""
-    from hydromodpy.config.sites.expansion import expand_plan
+    from hydromodpy.project.launch.sites.expansion import expand_plan
 
     root = Path(project_root)
     draft = expand_plan(root, root / PROJECT_MARKER_FILENAME)

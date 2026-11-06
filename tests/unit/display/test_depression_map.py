@@ -43,12 +43,12 @@ from hydromodpy.display.figures.depression_map import (
     DepressionMap,
     reading_for,
 )
+from hydromodpy.display.style import relative_luminance
 from hydromodpy.results.derive.stream.depressions import depression_fill
 from hydromodpy.results.derive.stream.routing_surface import routing_surface_from_run
 from hydromodpy.spatial.drainage.filling import DEFAULT_EPSILON_M
 
 from ._network_comparison_run import comparison_run, legend_labels, legend_note
-from ._render_helpers import relative_luminance
 
 NX = 9
 NY = 5
@@ -220,18 +220,6 @@ def drawn_cells(collection) -> list[int]:
         row = int(round(float(corners[:, 1].mean()) / CELL_M - 0.5))
         cells.append(cell(column, row))
     return sorted(cells)
-
-
-@pytest.fixture
-def mpl():
-    pytest.importorskip("matplotlib")
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
-    yield plt
-    plt.close("all")
 
 
 def _labelled(ax, label: str):

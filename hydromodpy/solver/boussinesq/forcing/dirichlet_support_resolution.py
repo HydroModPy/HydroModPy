@@ -12,7 +12,7 @@ from hydromodpy.physics.flow.boundary_condition_registry import (
 )
 
 if TYPE_CHECKING:
-    from hydromodpy.solver.boussinesq.forcing_resolution import BoussinesqForcingResolver
+    from hydromodpy.solver.boussinesq.forcing import BoussinesqForcingResolver
 
 
 @dataclass(frozen=True)

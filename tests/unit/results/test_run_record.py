@@ -31,7 +31,7 @@ from hydromodpy.results.storage.parquet_schemas import (
     PARAMETERS_SCHEMA,
     SIMULATION_SCHEMA,
 )
-from tests.unit.results._run_record_factory import SIM_ID, make_identity, make_record
+from tests._helpers.run_records import SIM_ID, make_identity, make_record
 
 
 @pytest.fixture

@@ -148,7 +148,7 @@ class _Store:
 
 class TestCatchmentResolveTimeIndex:
     def test_prefers_solver_axis(self):
-        from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
+        from hydromodpy.simulation.catchment_aggregation import (
             _resolve_time_index,
         )
 
@@ -158,7 +158,7 @@ class TestCatchmentResolveTimeIndex:
         assert set(idx.to_series().diff().dropna().dt.total_seconds()) == {86400.0}
 
     def test_falls_back_to_period_bounds_when_axis_absent(self):
-        from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
+        from hydromodpy.simulation.catchment_aggregation import (
             _resolve_time_index,
         )
 
@@ -172,7 +172,7 @@ class TestCatchmentResolveTimeIndex:
         assert idx[-1] == pd.Timestamp("2019-01-06")
 
     def test_raises_when_no_axis_and_no_period(self):
-        from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
+        from hydromodpy.simulation.catchment_aggregation import (
             _resolve_time_index,
         )
 

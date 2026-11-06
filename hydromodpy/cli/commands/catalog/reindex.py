@@ -4,12 +4,10 @@ from __future__ import annotations
 
 import argparse
 import sys
-from pathlib import Path
 
 from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
-from hydromodpy.cli.helpers import apply_verbosity
+from hydromodpy.cli.helpers import project_root_of
 from hydromodpy.cli.output import emit
-from hydromodpy.core.state.result_dirs import resolve_project_root
 
 NAME: str = "reindex"
 HELP: str = "Build the project index from what the run and session directories declare"
@@ -42,12 +40,9 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    apply_verbosity(args, {})
     from hydromodpy.cli._workers.catalog import reindex_project
 
-    project_root = resolve_project_root(
-        Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
-    )
+    project_root = project_root_of(args)
     report = reindex_project(project_root, incremental=args.incremental)
 
     def table() -> None:

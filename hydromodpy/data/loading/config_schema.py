@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.data.loading._dispatch import VARIABLE_SPECS, get_config_class
 from hydromodpy.data.variables.dem.config import DemConfig
 from hydromodpy.data.variables.geology.config import GeologyConfig
 
@@ -378,63 +379,8 @@ class DataManagersConfig(HydroModelBase):
         normalized_types = cls._normalize_types(cls._validate_types_list(raw_types))
         payload["types"] = normalized_types
 
-        # Typed config models for data families that have dedicated schemas.
-        from hydromodpy.data.variables.crossings.config import CrossingsConfig
-        from hydromodpy.data.variables.etp.config import EtpConfig
-        from hydromodpy.data.variables.humidity.config import HumidityConfig
-        from hydromodpy.data.variables.hydrography.config import HydrographyConfig
-        from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
-        from hydromodpy.data.variables.intermittency.config import IntermittencyConfig
-        from hydromodpy.data.variables.lake_abacus.config import LakeAbacusConfig
-        from hydromodpy.data.variables.lake_bathymetry.config import LakeBathymetryConfig
-        from hydromodpy.data.variables.lake_geometry.config import LakeGeometryConfig
-        from hydromodpy.data.variables.lake_inflow.config import LakeInflowConfig
-        from hydromodpy.data.variables.lake_levels.config import LakeLevelsConfig
-        from hydromodpy.data.variables.lake_outflow.config import LakeOutflowConfig
-        from hydromodpy.data.variables.lake_withdrawal.config import LakeWithdrawalConfig
-        from hydromodpy.data.variables.layer_base.config import LayerBaseConfig
-        from hydromodpy.data.variables.piezometry.config import PiezometryConfig
-        from hydromodpy.data.variables.precipitation.config import PrecipitationConfig
-        from hydromodpy.data.variables.radiation.config import RadiationConfig
-        from hydromodpy.data.variables.recharge.config import RechargeConfig
-        from hydromodpy.data.variables.runoff.config import RunoffConfig
-        from hydromodpy.data.variables.soil_capacity.config import SoilCapacityConfig
-        from hydromodpy.data.variables.soil_moisture.config import SoilMoistureConfig
-        from hydromodpy.data.variables.substratum.config import SubstratumConfig
-        from hydromodpy.data.variables.temperature.config import TemperatureConfig
-        from hydromodpy.data.variables.water_quality.config import WaterQualityConfig
-        from hydromodpy.data.variables.wind.config import WindConfig
-
-        _TYPED_SECTIONS: dict[str, type[BaseModel]] = {
-            "crossings": CrossingsConfig,
-            "dem": DemConfig,
-            "geology": GeologyConfig,
-            "hydrography": HydrographyConfig,
-            "oceanic": OceanicConfig,
-            "hydrometry": HydrometryConfig,
-            "intermittency": IntermittencyConfig,
-            "lake_abacus": LakeAbacusConfig,
-            "lake_bathymetry": LakeBathymetryConfig,
-            "lake_geometry": LakeGeometryConfig,
-            "lake_levels": LakeLevelsConfig,
-            "lake_inflow": LakeInflowConfig,
-            "lake_outflow": LakeOutflowConfig,
-            "lake_withdrawal": LakeWithdrawalConfig,
-            "piezometry": PiezometryConfig,
-            "water_quality": WaterQualityConfig,
-            "recharge": RechargeConfig,
-            "runoff": RunoffConfig,
-            "precipitation": PrecipitationConfig,
-            "etp": EtpConfig,
-            "temperature": TemperatureConfig,
-            "wind": WindConfig,
-            "humidity": HumidityConfig,
-            "radiation": RadiationConfig,
-            "soil_moisture": SoilMoistureConfig,
-            "substratum": SubstratumConfig,
-            "layer_base": LayerBaseConfig,
-            "soil_capacity": SoilCapacityConfig,
-        }
+        # Typed config models of every variable, resolved from VARIABLE_SPECS.
+        typed_sections = {name: get_config_class(name) for name in VARIABLE_SPECS}
 
         # Validate/normalize only active families to keep config permissive for
         # inactive optional sections.
@@ -458,7 +404,7 @@ class DataManagersConfig(HydroModelBase):
                 raise ValueError(f"TOML section 'data.{type_name}' must be a mapping")
 
             section_dict = dict(section_payload)
-            model_cls = _TYPED_SECTIONS.get(type_name)
+            model_cls = typed_sections.get(type_name)
 
             if model_cls is not None:
                 _resolve_section_paths(
@@ -474,7 +420,7 @@ class DataManagersConfig(HydroModelBase):
 
         # Also validate typed sections that are present even if not in types
         # (e.g. user provides [data.hydrometry] without adding "hydrometry" to types).
-        for type_name, model_cls in _TYPED_SECTIONS.items():
+        for type_name, model_cls in typed_sections.items():
             if type_name in normalized_types:
                 continue
             section_payload = payload.get(type_name)
@@ -496,61 +442,8 @@ class DataManagersConfig(HydroModelBase):
 
 def _rebuild_forward_refs() -> None:
     """Resolve forward references for typed data-manager config fields."""
-    from hydromodpy.data.variables.crossings.config import CrossingsConfig
-    from hydromodpy.data.variables.etp.config import EtpConfig
-    from hydromodpy.data.variables.humidity.config import HumidityConfig
-    from hydromodpy.data.variables.hydrography.config import HydrographyConfig
-    from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
-    from hydromodpy.data.variables.intermittency.config import IntermittencyConfig
-    from hydromodpy.data.variables.lake_abacus.config import LakeAbacusConfig
-    from hydromodpy.data.variables.lake_bathymetry.config import LakeBathymetryConfig
-    from hydromodpy.data.variables.lake_geometry.config import LakeGeometryConfig
-    from hydromodpy.data.variables.lake_inflow.config import LakeInflowConfig
-    from hydromodpy.data.variables.lake_levels.config import LakeLevelsConfig
-    from hydromodpy.data.variables.lake_outflow.config import LakeOutflowConfig
-    from hydromodpy.data.variables.lake_withdrawal.config import LakeWithdrawalConfig
-    from hydromodpy.data.variables.layer_base.config import LayerBaseConfig
-    from hydromodpy.data.variables.piezometry.config import PiezometryConfig
-    from hydromodpy.data.variables.precipitation.config import PrecipitationConfig
-    from hydromodpy.data.variables.radiation.config import RadiationConfig
-    from hydromodpy.data.variables.recharge.config import RechargeConfig
-    from hydromodpy.data.variables.runoff.config import RunoffConfig
-    from hydromodpy.data.variables.soil_capacity.config import SoilCapacityConfig
-    from hydromodpy.data.variables.soil_moisture.config import SoilMoistureConfig
-    from hydromodpy.data.variables.substratum.config import SubstratumConfig
-    from hydromodpy.data.variables.temperature.config import TemperatureConfig
-    from hydromodpy.data.variables.water_quality.config import WaterQualityConfig
-    from hydromodpy.data.variables.wind.config import WindConfig
-
-    DataManagersConfig.model_rebuild(
-        _types_namespace={
-            "CrossingsConfig": CrossingsConfig,
-            "HydrographyConfig": HydrographyConfig,
-            "HydrometryConfig": HydrometryConfig,
-            "IntermittencyConfig": IntermittencyConfig,
-            "LakeAbacusConfig": LakeAbacusConfig,
-            "LakeBathymetryConfig": LakeBathymetryConfig,
-            "LakeGeometryConfig": LakeGeometryConfig,
-            "LakeLevelsConfig": LakeLevelsConfig,
-            "LakeInflowConfig": LakeInflowConfig,
-            "LakeOutflowConfig": LakeOutflowConfig,
-            "LakeWithdrawalConfig": LakeWithdrawalConfig,
-            "PiezometryConfig": PiezometryConfig,
-            "WaterQualityConfig": WaterQualityConfig,
-            "RechargeConfig": RechargeConfig,
-            "RunoffConfig": RunoffConfig,
-            "PrecipitationConfig": PrecipitationConfig,
-            "EtpConfig": EtpConfig,
-            "TemperatureConfig": TemperatureConfig,
-            "WindConfig": WindConfig,
-            "HumidityConfig": HumidityConfig,
-            "RadiationConfig": RadiationConfig,
-            "SoilMoistureConfig": SoilMoistureConfig,
-            "SubstratumConfig": SubstratumConfig,
-            "LayerBaseConfig": LayerBaseConfig,
-            "SoilCapacityConfig": SoilCapacityConfig,
-        }
-    )
+    classes = (get_config_class(name) for name in VARIABLE_SPECS)
+    DataManagersConfig.model_rebuild(_types_namespace={cls.__name__: cls for cls in classes})
 
 
 _rebuild_forward_refs()

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.results.zarr_store.cf_validation import cf_v85_names, is_cf_standard_name
+from hydromodpy.results.zarr_store.cf_validation import _cf_v85_names, is_cf_standard_name
 
 
 @pytest.mark.parametrize(
@@ -43,7 +43,7 @@ def test_is_cf_standard_name_rejects_non_cf_v85(name: str) -> None:
 
 def test_cf_v85_names_is_frozenset() -> None:
     """The exposed list is immutable to prevent runtime mutation."""
-    names = cf_v85_names()
+    names = _cf_v85_names()
     assert isinstance(names, frozenset)
     assert "surface_altitude" in names
     with pytest.raises(AttributeError):

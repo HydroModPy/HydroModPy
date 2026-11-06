@@ -9,14 +9,14 @@ from pathlib import Path
 from hydromodpy.cli.helpers import EXIT_OK, EXIT_USAGE
 from hydromodpy.results.publication import read_publication, read_published
 from tests._helpers.cli_runner import CliRunner
-from tests._helpers.sealed_run import RUN_NAME as DEMO_RUN
-from tests._helpers.sealed_run import seal_demo_run
-from tests.unit.results._published_run import (
+from tests._helpers.published_runs import (
     RUN_NAME,
     make_project,
     make_sealed_run,
     make_summary,
 )
+from tests._helpers.run_stores import RUN_NAME as DEMO_RUN
+from tests._helpers.run_stores import seal_demo_run
 
 
 def _invoke(*args: str):

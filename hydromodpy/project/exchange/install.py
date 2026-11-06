@@ -247,7 +247,7 @@ def _plan_sites(workspace: Path, sites: Sequence[SiteRow]) -> tuple[list[SiteRow
 
     A site of a name the catalog holds is the same catalog row when its outlet
     lies within ``near_site_m``; farther, it is another catchment under one
-    name, as :func:`hydromodpy.config.sites.single_site.resolve_single_site`
+    name, as :func:`hydromodpy.data.sites.single_site.resolve_single_site`
     refuses. A new name goes through
     :func:`hydromodpy.data.sites.catalog.add_sites`, which refuses an outlet
     close to a site of another name.

@@ -14,7 +14,6 @@ Workflow:
 
 from __future__ import annotations
 
-import hashlib
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -26,22 +25,11 @@ from shapely.geometry import box
 from hydromodpy.core.console import progress
 from hydromodpy.core.io.atomic_replace import staged_path
 from hydromodpy.core.logging import get_logger
+from hydromodpy.data.variables.geology.apis.fgeol import bbox_hash, find_fgeol_shp
 
 logger = get_logger(__name__)
 
 BRGM_50K_URL_TEMPLATE = "http://infoterre.brgm.fr/telechargements/BDCharm50/GEO050K_HARM_{dept}.zip"
-FGEOL_LAYER_PATTERN = "S_FGEOL_2154"
-
-
-def _bbox_hash_str(bbox: tuple) -> str:
-    s = f"{bbox[0]:.2f}_{bbox[1]:.2f}_{bbox[2]:.2f}_{bbox[3]:.2f}"
-    return hashlib.md5(s.encode()).hexdigest()[:8]
-
-
-def _find_fgeol_shp(extract_dir: Path) -> Path | None:
-    """Find the S_FGEOL shapefile inside extracted department archive."""
-    candidates = list(extract_dir.rglob(f"*{FGEOL_LAYER_PATTERN}.shp"))
-    return candidates[0] if candidates else None
 
 
 def _download_department(
@@ -106,7 +94,7 @@ def _build_department_gpkg(
         return None
 
     # Find S_FGEOL shapefile
-    shp_path = _find_fgeol_shp(dept_dir)
+    shp_path = find_fgeol_shp(dept_dir)
     if shp_path is None:
         logger.warning("[geology] No S_FGEOL shapefile in %s", dept_dir)
         return None
@@ -147,7 +135,7 @@ def fetch_brgm_50k(
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    bbox_h = _bbox_hash_str(bbox)
+    bbox_h = bbox_hash(bbox)
     merged_gpkg = output_dir / f"geology_brgm_50k_{bbox_h}.gpkg"
 
     if merged_gpkg.exists():

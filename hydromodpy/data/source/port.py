@@ -89,7 +89,7 @@ from hydromodpy.core.exceptions import (
     DataRequestError,
 )
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     import geopandas as gpd
 
     from hydromodpy.data.contracts.spatial_field import FieldRecord
@@ -197,7 +197,7 @@ class Extent:
         try:
             source = CRS.from_user_input(self.crs)
             target = CRS.from_user_input(crs)
-        except Exception as exc:  # pragma: no cover - pyproj raises its own family
+        except Exception as exc:  # pyproj raises its own family
             raise DataRequestError(
                 f"Cannot resolve a CRS to convert an extent: {self.crs!r} -> {crs!r} ({exc})."
             ) from exc

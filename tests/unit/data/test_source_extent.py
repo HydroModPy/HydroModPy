@@ -382,3 +382,10 @@ def test_a_wgs84_mask_without_a_crs_is_read_as_wgs84(tmp_path):
     assert mask_geometry_wgs84(path).bounds == pytest.approx(RENNES_4326)
     with pytest.raises(DataRequestError, match="declares no CRS"):
         mask_geometry(path)
+
+
+def test_an_extent_in_an_unknown_crs_is_refused_by_name():
+    from hydromodpy.data.source.port import Extent
+
+    with pytest.raises(DataRequestError, match="Cannot resolve a CRS"):
+        Extent(xmin=0.0, ymin=0.0, xmax=1.0, ymax=1.0, crs="not a crs").to_crs("EPSG:4326")

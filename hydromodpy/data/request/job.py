@@ -290,7 +290,7 @@ def _execute(
         DataCatalogDuckDB() as index,
     ):
         store = DataStore(data_root=Path(scratch) / "data", catalog=index)
-        report = run_request(resolved.request, job.outputs_dir, store=store, refuse_custom=True)
+        report = run_request(resolved.request, job.outputs_dir, store=store)
 
     warnings = list(resolved.warnings)
     warnings.extend(

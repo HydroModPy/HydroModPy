@@ -18,7 +18,7 @@ from hydromodpy.core.config_kit.field_metadata import (
     is_valid_field_metadata,
     unknown_metadata_keys,
 )
-from hydromodpy.physics.flow.flow_runtime_config import FlowRuntimeConfig
+from hydromodpy.physics.flow.runtime_config import FlowRuntimeConfig
 from hydromodpy.physics.flow.sinks_sources.container import FlowSinksSourcesConfig
 from hydromodpy.physics.flow.sinks_sources.lake import FlowLakeConfig
 from hydromodpy.physics.hydrology.soil_reservoir.config import SoilReservoirConfig

@@ -13,8 +13,8 @@ from hydromodpy.core.time import SIMULATION_TIME_UNIT
 from hydromodpy.core.units.quantities import SECONDS_PER_DAY
 from hydromodpy.core.units.time import factor_to_seconds
 from hydromodpy.solver.base.protocols import DomainLike, FlowModelLike, TransportLike
-from hydromodpy.solver.modflow6.build import mf6_safe_name
 from hydromodpy.solver.modflow6.support.computational_top import disv_grid_kwargs
+from hydromodpy.solver.modflow6.support.names import mf6_safe_name
 from hydromodpy.solver.modflow6.support.windows_paths import check_mf6_workspace_paths
 from hydromodpy.solver.modflow_common.progress import (
     run_simulation_with_progress,
@@ -78,10 +78,8 @@ class Modflow6Prt:
         model_folder: str = "HydroModPy_outputs",
         model_name: str = "Default_modflow6",
         suffix_name: str = "_prt",
-        bin_path: str | None = None,
         **kwargs: object,
     ) -> None:
-        del bin_path
         self.domain = domain
         self.transport = transport
         self.model_modflow = model_modflow
@@ -91,7 +89,6 @@ class Modflow6Prt:
         self.model_name_prt = model_name + suffix_name
         self.model_name_prt_mf6 = mf6_safe_name(self.model_name_prt)
         self.full_path = os.path.join(model_folder, model_name)
-        self.exe = getattr(model_modflow, "exe", "mf6")
 
         prt_params: dict[str, object] = {}
         comp = transport.modflow6prt

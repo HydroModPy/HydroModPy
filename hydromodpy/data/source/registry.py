@@ -261,7 +261,7 @@ def load_plugins(*, force: bool = False) -> int:
             continue
         try:
             source_cls = entry_point.load()
-        except Exception as exc:  # pragma: no cover - exercised with stub entry points
+        except Exception as exc:
             logger.warning("failed to load data source plugin %r: %s", entry_point, exc)
             continue
         declared = getattr(source_cls, "source_id", None)
@@ -310,7 +310,7 @@ def build_from_section(source_cls: type, section: object) -> object:
     configuration of an out-of-tree source is the ``installed`` member of a
     data request, whose ``options`` reach its constructor.
 
-    ``tests/unit/data/test_hydrography_source_binding.py`` pins, per built-in
+    ``tests/unit/data/variables/hydrography/test_hydrography_source_binding.py`` pins, per built-in
     source, which fields of ``[[data.hydrography.sources]]`` this binds -- the
     one place a silent mis-binding could hide.
 

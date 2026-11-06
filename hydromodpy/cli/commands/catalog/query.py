@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 
 import duckdb
 
 from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
-from hydromodpy.cli.helpers import EXIT_GENERIC, EXIT_NOT_FOUND, apply_verbosity, refuse
+from hydromodpy.cli.helpers import (
+    EXIT_GENERIC,
+    EXIT_NOT_FOUND,
+    project_root_of,
+    refuse,
+)
 from hydromodpy.cli.output import emit
-from hydromodpy.core.state.result_dirs import resolve_project_root
 
 NAME: str = "query"
 HELP: str = "Run a SQL statement against the project index"
@@ -41,12 +44,9 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    apply_verbosity(args, {})
     from hydromodpy.cli._workers.catalog import query_catalog
 
-    project_root = resolve_project_root(
-        Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
-    )
+    project_root = project_root_of(args)
     try:
         df = query_catalog(args.sql, workspace=project_root, limit=args.limit)
     except FileNotFoundError as exc:

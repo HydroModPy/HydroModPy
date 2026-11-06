@@ -11,7 +11,7 @@ package "hydromodpy.solver.boussinesq" {
   class BoussinesqMesh
   class BoussinesqState
   class "solver_contract.py" as SolverContractModule <<module>>
-  class "runtime_selection.py" as RuntimeSelection <<module>>
+  class "catalog.py" as RuntimeSelection <<module>>
   class "runtime_contract.py" as RuntimeContract <<module>>
   package methods
   package engines

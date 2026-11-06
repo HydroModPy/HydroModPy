@@ -20,7 +20,7 @@ from rasterio.transform import from_origin
 from hydromodpy.core.time.window import ResolvedSimulationTimeWindow
 from hydromodpy.data.contracts import FieldRecord, LoadResult
 from hydromodpy.physics.hydrology.soil_reservoir.config import SoilReservoirConfig
-from hydromodpy.simulation.soil_recharge import compute_soil_forcings
+from hydromodpy.simulation.soil.recharge import compute_soil_forcings
 
 _CRS = "EPSG:2154"
 _X = np.array([0.0])

@@ -17,7 +17,7 @@ import xarray as xr
 from hydromodpy.core.time.window import ResolvedSimulationTimeWindow
 from hydromodpy.data.contracts import FieldRecord, LoadResult
 from hydromodpy.physics.hydrology.soil_reservoir.config import SoilReservoirConfig
-from hydromodpy.simulation.soil_recharge import RU_LADDER_MM, compute_soil_forcings, ru_ladder
+from hydromodpy.simulation.soil.recharge import RU_LADDER_MM, compute_soil_forcings, ru_ladder
 
 _CRS = "EPSG:2154"
 
@@ -76,7 +76,7 @@ def test_recharge_falls_as_ru_grows() -> None:
 def test_a_rung_whose_spinup_never_settles_reports_nan_not_a_silent_number(
     monkeypatch,
 ) -> None:
-    import hydromodpy.simulation.soil_recharge as mod
+    import hydromodpy.simulation.soil.recharge as mod
 
     forcings = _forcings()
     real_spinup_or_full = mod._spinup_or_full
