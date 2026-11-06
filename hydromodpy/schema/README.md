@@ -17,7 +17,7 @@ rules, and where to add what.
 | `partial_validator.py` | `validate_field(path, value)`: the type of one field of `HydroModPyConfig`, checked on its own, with a `ValidationResult` |
 | `capability.py` | `CapabilityDecl` and `OutputDecl`: what a capability declares about itself before it runs. Standard library only |
 | `processes/` | the machine-readable description of each capability this build serves (`<id>@<major>.json`) and `index.json`, read as package data |
-| `job/` | the job directory contract: layout and write order, `JobDirectory`, the request, the input set, the provenance, the outcome, the seal, reuse, and chains of capabilities. See [job/README.md](job/README.md) |
+| `job/` | the job directory contract: layout and write order, `JobDirectory`, the request, the input set, the provenance, the outcome, the seal, reuse, and chains of capabilities. See `job/README.md` |
 | `media_types.py`, `generated_views.py` | the media types a job document names and the file names of the generated views (RO-Crate, STAC, PROV), each spelled once |
 | `sources.py` | the licence of each data source this build reads, the sidecar a user file may carry, and how licences roll up |
 
@@ -71,7 +71,7 @@ There is no HTTP server. A consumer ships the JSON over its own transport.
 Per-field annotations come from `json_schema_extra` of the Pydantic models;
 the keys a model may use are listed in `core/config_kit/field_metadata.py`.
 
-For an orchestrator, the contract is the job directory of [job/README.md](job/README.md). A
+For an orchestrator, the contract is the job directory of `job/README.md`. A
 capability is a function `run(job, *, exit_code_for)` in the layer that owns the
 logic; no `hmp` verb starts one.
 

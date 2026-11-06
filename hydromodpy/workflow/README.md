@@ -10,9 +10,9 @@ lifecycle. A run writes its own directory and nothing else: it never opens the
 index of the project, and nothing here imports `hydromodpy.project`.
 
 This file is the map of the package. Each sub-folder has its own README with its
-modules in call order: [`record/`](record/README.md) (what a run writes about
-itself), [`steps/`](steps/README.md) (the thirteen steps) and
-[`steps/prepare_solver/`](steps/prepare_solver/README.md) (the step that opens the run).
+modules in call order: `record/` (what a run writes about
+itself), `steps/` (the thirteen steps) and
+`steps/prepare_solver/` (the step that opens the run).
 
 ## Modules at the root
 
@@ -38,7 +38,7 @@ would close a cycle.
 
 `standard_steps()` (`steps/sequence.py`) returns them in this order. Each declares
 the step it depends on, so the graph is a chain and every cohort holds one step.
-The modules and their helpers are listed in [`steps/README.md`](steps/README.md).
+The modules and their helpers are listed in `steps/README.md`.
 
 | step | module | answers |
 |---|---|---|
@@ -138,8 +138,8 @@ hydromodpy/workflow/
 
 | to add | where |
 |---|---|
-| a step | see [`steps/README.md`](steps/README.md), then its name in `core/pipeline_steps.py` |
-| something a run records about itself | [`record/README.md`](record/README.md) |
+| a step | see `steps/README.md`, then its name in `core/pipeline_steps.py` |
+| something a run records about itself | `record/README.md` |
 | a fact of the run | a field of `RunFacts` (`results/storage/run_facts.py`) and the block of the seal it feeds in `results/storage/sealing.py` |
 | a derived field | a row of `VIRTUAL_FIELD_ROWS` in `results/derive/virtual_fields.py`: it is rebuilt on read, never written by a step |
 | a workflow mode | a name in `KNOWN_WORKFLOWS` (`dispatch.py`) and its adapter in `project/dispatch/workflow.py`; see `project/README.md` |
