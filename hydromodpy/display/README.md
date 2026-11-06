@@ -79,6 +79,8 @@ never in a figure.
 | `report_blocks`, `style`, `maps`, `png_metadata`, `quicklook` | nothing |
 | `figure` | `png_metadata` |
 | `figure_registry` | `figure`; and `figures` by its name written as text, on first lookup (the one exception, which keeps `import hydromodpy.display` light) |
+| `run_comparison` | `maps` |
+| `calibration_report` | `figure_registry`, `report_blocks`, `runs` |
 | `figures` | `figure`, `figure_registry`, `maps`, `style` |
 | `config` | `figure_registry` |
 | `<init>` (the `__init__.py` facade) | `figure`, `figure_registry` |
@@ -108,7 +110,7 @@ hydromodpy/display/
 │   ├── _stream_comparison.py, _flow_persistence.py, _trial_diagnostics.py,
 │   │   _observed.py, _instant.py (how a title names the period it draws)
 │   │                          helpers shared between figures (private to figures/)
-│   ├── lake_level_fit.py      public helper, not registered, read by reporting
+│   ├── lake_level_fit.py      public helper, not registered, no caller in `hydromodpy`
 │   └── <name>.py              the registered figures
 │
 │   rendering the figures of a run ([display])
@@ -119,6 +121,8 @@ hydromodpy/display/
 │                          matplotlib_backend (Agg or interactive for the length of a render);
 │                          _resolve_time turns a date into the stress period the run stored
 ├── cohort.py              cohort figures of a campaign summary: names, draw_cohort_figures, ledger entry
+├── calibration_report.py  the HTML page of a calibration session: render_session, session_summary
+├── run_comparison.py      the series and map figures of `hmp report compare`: draw_series, draw_maps
 ├── png_metadata.py        provenance written into each PNG (sim_id, field, step, EPSG, version,
 │                          identity block of the run and its visible footer)
 │
@@ -295,11 +299,13 @@ Another package of `hydromodpy/` imports only these modules (the `public` list o
 | `hydromodpy.display.figure_registry` | `get`, `resolve`, `names`, `figure_option_names` |
 | `hydromodpy.display.runs` | rendering the figures of a run, and their availability |
 | `hydromodpy.display.cohort` | the cohort figures `hmp campaign collect` draws under `summary/figures/` |
-| `hydromodpy.display.maps.axes`, `hydromodpy.display.maps.ugrid`, `hydromodpy.display.maps.geo` | map tools reused by `reporting` |
-| `hydromodpy.display.report_blocks` | HTML engine (`reporting`) |
+| `hydromodpy.display.calibration_report` | the HTML report of a calibration session (`hmp report render`) |
+| `hydromodpy.display.run_comparison` | the figures of `hmp report compare` (`analysis`) |
+| `hydromodpy.display.maps.axes`, `hydromodpy.display.maps.ugrid`, `hydromodpy.display.maps.geo` | map tools reused by other layers |
+| `hydromodpy.display.report_blocks` | HTML engine of the reports |
 | `hydromodpy.display.overview`, `hydromodpy.display.overview.config` | overview and `OverviewConfig` |
 | `hydromodpy.display.catchment_report`, `...catchment_report.pipeline` | catchment report |
-| `hydromodpy.display.figures.lake_level_fit` | lake-level fit chart, read by `reporting` |
+| `hydromodpy.display.figures.lake_level_fit` | lake-level fit chart from two series |
 
 `calibration` does not import `display`. Tests and examples are not checked.
 
@@ -386,7 +392,7 @@ generated from the registry into the figures page of the documentation, and
 (`tests/unit/architecture/layer_matrix.yaml`), never `data`, `simulation`,
 `solver`, `calibration` or `spatial`. A figure of the stream criterion or of the routing surface only draws:
 the network, the extents, the routing surface and the depression floods are computed in
-`results/derive/stream/`. The root facade, `config`, `analysis`, `reporting`,
+`results/derive/stream/`. The root facade, `config`, `analysis`,
 `workflow`, `project` and `cli` import it, each through the modules of the
 `public` list of `display_layout.yaml`.
 

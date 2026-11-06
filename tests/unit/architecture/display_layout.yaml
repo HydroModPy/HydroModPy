@@ -18,10 +18,12 @@ allowed:
   figures:          [figure, figure_options, figure_registry, maps, style]
   config:           [figure_registry]
   cohort:           [figure_registry]
+  run_comparison:   [maps]
   "<init>":         [figure, figure_registry]
   runs:             ["<init>", config, figure, png_metadata, style]
   overview:         [report_blocks, style]
   catchment_report: [overview, report_blocks]
+  calibration_report: [figure_registry, report_blocks, runs]
 
 # The registry imports hydromodpy.display.figures by name on first lookup, so
 # that importing the registry stays light. Only this file may name a module so.
@@ -35,6 +37,8 @@ public:
   - hydromodpy.display.figure_registry
   - hydromodpy.display.runs
   - hydromodpy.display.cohort
+  - hydromodpy.display.run_comparison
+  - hydromodpy.display.calibration_report
   - hydromodpy.display.quicklook.viz
   - hydromodpy.display.maps.axes
   - hydromodpy.display.maps.ugrid

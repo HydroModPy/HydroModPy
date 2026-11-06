@@ -732,6 +732,24 @@ class DiscoveryMixin:
             raise KeyError(f"No completed simulation{where}")
         return Run(str(row[0]), self)
 
+    def _headline_metrics(self, sid: str) -> dict:
+        """Map ``(metric, station, variable)`` to the headline score of run *sid*."""
+        rows = self._backend.fetch_all(
+            "SELECT metric_name, station_id, variable, value, "
+            "window_start, window_end, n_samples FROM metrics "
+            "WHERE sim_id = ? AND window_name = ?",
+            [sid, HEADLINE_WINDOW],
+        )
+        return {
+            (r[0], r[1], r[2]): {
+                "value": r[3],
+                "window_start": r[4],
+                "window_end": r[5],
+                "n": r[6],
+            }
+            for r in rows
+        }
+
     def diff(
         self,
         ref_a: str,
@@ -758,23 +776,6 @@ class DiscoveryMixin:
             )
             return {(r[0], r[1]): r[2] for r in rows}
 
-        def _metrics(sid: str) -> dict:
-            rows = self._backend.fetch_all(
-                "SELECT metric_name, station_id, variable, value, "
-                "window_start, window_end, n_samples FROM metrics "
-                "WHERE sim_id = ? AND window_name = ?",
-                [sid, HEADLINE_WINDOW],
-            )
-            return {
-                (r[0], r[1], r[2]): {
-                    "value": r[3],
-                    "window_start": r[4],
-                    "window_end": r[5],
-                    "n": r[6],
-                }
-                for r in rows
-            }
-
         def _delta(map_a: dict, map_b: dict) -> dict:
             keys = sorted(set(map_a) | set(map_b), key=lambda k: tuple(str(part) for part in k))
             out: dict = {}
@@ -788,7 +789,7 @@ class DiscoveryMixin:
             "a": sid_a,
             "b": sid_b,
             "params": _delta(_params(sid_a), _params(sid_b)),
-            "metrics": _delta(_metrics(sid_a), _metrics(sid_b)),
+            "metrics": _delta(self._headline_metrics(sid_a), self._headline_metrics(sid_b)),
         }
 
     def best(

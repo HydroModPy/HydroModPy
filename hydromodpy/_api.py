@@ -43,7 +43,7 @@ if TYPE_CHECKING:
     import xarray as xr
     from matplotlib.figure import Figure
 
-    from hydromodpy.analysis.comparison.compare import Comparison
+    from hydromodpy.analysis.compare import Comparison
     from hydromodpy.calibration import CalibrationReport
     from hydromodpy.config import HydroModPyConfig
     from hydromodpy.config.sites.expansion import PlanDraft
@@ -837,7 +837,8 @@ def compare_pair(ref_a: str, ref_b: str, *, workspace: PathLike | None = None) -
         prefix, a name or a selector such as ``@latest``.
     workspace
         Project directory whose catalog resolves the references. Defaults to
-        the nearest folder above the working directory that holds one.
+        the project around the working directory (the folder holding
+        ``project.toml``).
 
     Returns
     -------
@@ -861,10 +862,10 @@ def compare_pair(ref_a: str, ref_b: str, *, workspace: PathLike | None = None) -
 
     See Also
     --------
-    hydromodpy.analysis.comparison
-        Comparison package used by this helper.
+    hydromodpy.results.catalog.Catalog.diff
+        The same two runs as a dictionary of what differs.
     """
-    from hydromodpy.analysis.comparison.pairwise import compare_pair as _compare_pair
+    from hydromodpy.results.catalog.facade import compare_pair as _compare_pair
 
     return _compare_pair(ref_a, ref_b, workspace=workspace)
 
@@ -898,15 +899,15 @@ def compare(
 
     Returns
     -------
-    hydromodpy.analysis.comparison.compare.Comparison
+    hydromodpy.analysis.compare.Comparison
         ``tables`` holds the data frames ``runs``, ``parameters``, ``scores``,
         ``budget``, ``network``, ``series`` and ``maps``.
 
     Raises
     ------
-    hydromodpy.analysis.comparison.compare.ComparisonReferenceError
+    hydromodpy.analysis.compare.ComparisonReferenceError
         If a reference names no sealed run.
-    hydromodpy.analysis.comparison.compare.ComparisonCaseError
+    hydromodpy.analysis.compare.ComparisonCaseError
         If the runs model different sites or share no date.
 
     Examples
@@ -916,7 +917,7 @@ def compare(
     >>> result.tables["series"]  # doctest: +SKIP
     >>> result.write("../study")  # doctest: +SKIP
     """
-    from hydromodpy.analysis.comparison.compare import compare_references
+    from hydromodpy.analysis.compare import compare_references
     from hydromodpy.core.state.result_dirs import resolve_project_root
 
     start = Path(workspace or Path.cwd()).expanduser().resolve()

@@ -5,7 +5,7 @@
 Layer matrix
 ------------
 
-18 layers, 118 granted edges. A layer always implicitly allows imports targeting itself; anything absent from a row
+17 layers, 110 granted edges. A layer always implicitly allows imports targeting itself; anything absent from a row
 is forbidden and fails CI.
 
 .. list-table::
@@ -43,17 +43,14 @@ is forbidden and fails CI.
        ``display``, ``workflow``
    * - ``analysis``
      - ``core``, ``results``, ``display``, ``analysis``
-   * - ``reporting``
-     - ``core``, ``schema``, ``config``, ``results``, ``display``,
-       ``reporting``
    * - ``workflow``
      - ``core``, ``schema``, ``config``, ``physics``, ``data``,
        ``spatial``, ``simulation``, ``solver``, ``calibration``,
-       ``results``, ``display``, ``reporting``, ``workflow``
+       ``results``, ``display``, ``workflow``
    * - ``project``
      - ``core``, ``schema``, ``config``, ``physics``, ``data``,
        ``spatial``, ``simulation``, ``solver``, ``calibration``,
-       ``results``, ``display``, ``reporting``, ``workflow``, ``project``
+       ``results``, ``display``, ``workflow``, ``project``
    * - ``<root>``
      - ``<root>``, ``core``, ``config``, ``physics``, ``data``,
        ``spatial``, ``simulation``, ``solver``, ``calibration``,

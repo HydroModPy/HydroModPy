@@ -51,6 +51,8 @@ Work since v2.0.0rc1. The main themes are calibration with a validation window, 
 - The layer matrix of `tests/unit/architecture` no longer grants 20 import edges that no code uses, nor the `calibration -> display` tolerance. Its rows go from the lowest layer to the highest, and a test keeps them so.
 - Contributors: fourteen scripts of `tools/` that nothing called, five of them broken, left the repository. Script coverage runs through one wrapper, `tools/ci/coverage_runner.py`, and now measures `hydromodpy.examples`. The contributor docs name one environment, `hydromodpy-dev`.
 - Contributors: the data tests live in `tests/unit/data/`, laid out like the package, and `tests/unit/data_managers/` is gone. The SIM2 grid configs share one base and the lake chronicle configs another, with the `[data]` schema unchanged. `attach_read_only` lives once, in `hydromodpy.core.io.db_retry`.
+- The calibration session report draws the best run with the registered figures, lake level included, and names each image after its figure, for example `hydrograph_sim_obs.png` instead of `best_obs_vs_sim.png`.
+- The `reporting` layer is gone. The calibration report is `hydromodpy.display.calibration_report` and the campaign summary `hydromodpy.results.export.campaign_summary`. `hmp.compare_pair` now sits beside `Catalog.diff`, and `hydromodpy.analysis.comparison.compare` is now `hydromodpy.analysis.compare`.
 
 ### Removed
 
@@ -70,6 +72,7 @@ Work since v2.0.0rc1. The main themes are calibration with a validation window, 
 - A worker that dies marks its trial `crashed` and the search goes on. A stuck `mf6` is killed with its worker. Ctrl-C or SIGTERM at `parallel` above 1 ends the solves at once.
 - Warnings say a value reached a bound only when it is on it. A minimiser on one parameter and two bounds is refused only for signed residuals. A calibration that scores different blocks in different phases is accepted.
 - The `calibration_progress` figure of a staged calibration shows the value a phase froze, so the best run reads `K = 7.96e-05 m/s` instead of `K = nan`.
+- `hmp report compare` writes a `variable` column in `scores.csv` and `by_site.csv`, so two variables scored at one station no longer give two rows that cannot be told apart. `hmp.compare_pair` finds the project from `project.toml`, like `hmp.compare`.
 
 ### Security
 

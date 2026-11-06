@@ -16,7 +16,7 @@ from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpa
 from hydromodpy.calibration.report import CalibrationReport, load_session_report_data
 from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
 from hydromodpy.calibration.runners.recap import result_lines
-from hydromodpy.reporting.calibration_report import _render_html
+from hydromodpy.display.calibration_report import session_summary
 from hydromodpy.results.session.descriptor import ScoredSamples, read_session
 from tests._helpers.session_documents import calibration_window
 
@@ -324,12 +324,12 @@ def test_the_pairs_of_the_best_trial_sit_beside_it(closed_session: Path) -> None
 
 
 def test_the_html_report_prints_the_window_and_the_pairs(closed_session: Path) -> None:
-    page = _render_html(load_session_report_data(closed_session).session, [], [])
+    summary = dict(session_summary(load_session_report_data(closed_session).session))
 
-    assert (
-        "<th>scored on</th><td>hydrograph 1827 pair(s), period ends 2016-01-02 to "
-        "2021-01-01, best trial (window 2016-01-01 to 2020-12-31)</td>"
-    ) in page
+    assert summary["scored on"] == (
+        "hydrograph 1827 pair(s), period ends 2016-01-02 to "
+        "2021-01-01, best trial (window 2016-01-01 to 2020-12-31)"
+    )
 
 
 # ---------------------------------------------------------------------------

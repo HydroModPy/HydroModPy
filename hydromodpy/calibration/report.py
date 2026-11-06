@@ -8,12 +8,11 @@ Two concerns live here, both purely data-side:
 2. :class:`SessionReportData` + :func:`load_session_report_data` - read
    one calibration session back from ``sessions/<case>/`` and return a plain
    dataclass ready to be handed to the display layer for HTML rendering. The
-   rendering itself lives in :mod:`hydromodpy.reporting.calibration_report`;
-   this module never imports ``hydromodpy.display`` or ``hydromodpy.reporting``.
+   rendering itself lives in :mod:`hydromodpy.display.calibration_report`;
+   this module never imports ``hydromodpy.display``.
 
-Everything is read from the disk: the session descriptor, the trial journal,
-the frozen configuration and the tables of the promoted run. The index is
-never opened.
+Everything is read from the disk: the session descriptor, the trial journal and
+the frozen configuration of the session. The index is never opened.
 """
 
 from __future__ import annotations
@@ -27,7 +26,6 @@ from typing import TYPE_CHECKING, Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.scope import CATCHMENT, OBSERVED, SIMULATED
 from hydromodpy.results.errors import SeveralCasesError
 from hydromodpy.results.metric_rule import CALIBRATION_ROLE, PeriodWindow
 from hydromodpy.results.session.descriptor import (
@@ -39,12 +37,8 @@ from hydromodpy.results.session.descriptor import (
 )
 from hydromodpy.results.session.view import TRIAL_COLUMNS, Session
 from hydromodpy.results.storage.contract import (
-    PARQUET_FILE_SUFFIX,
     SESSION_CONFIG_FILENAME,
-    TABLES_DIRNAME,
 )
-from hydromodpy.results.storage.json_io import readable
-from hydromodpy.results.storage.parquet_io import read_checked_table
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -451,7 +445,7 @@ class SessionReportData:
     """Plain data extracted from one calibration session.
 
     Carries everything
-    :func:`hydromodpy.reporting.calibration_report.render_session` needs to
+    :func:`hydromodpy.display.calibration_report.render_session` needs to
     produce the HTML report; no live handle on anything. Constructed by
     :func:`load_session_report_data`.
 
@@ -473,11 +467,6 @@ class SessionReportData:
         Id of the promoted best run, or ``None`` when no run was promoted.
     best_rel_dir
         Directory of that run relative to the project root, or ``None``.
-    sim_timeseries
-        Simulated series of the calibrated variable for the best run (columns
-        ``datetime``, ``value``), or ``None`` when no best run is available.
-    obs_timeseries
-        Observed series (columns ``datetime``, ``value``), or ``None``.
     """
 
     session_id: str
@@ -487,8 +476,6 @@ class SessionReportData:
     workspace_root: Path
     best_sim_id: str | None
     best_rel_dir: str | None
-    sim_timeseries: pd.DataFrame | None
-    obs_timeseries: pd.DataFrame | None
     variable: str = "discharge"
 
 
@@ -517,13 +504,6 @@ def load_session_report_data(session_dir: Path) -> SessionReportData:
     run = descriptor.only_run
     best_rel_dir = None if run is None else run.rel_dir
     best_sim_id = None if run is None else run.sim_id
-    sim_df = obs_df = None
-    if best_rel_dir is not None:
-        run_dir = project_root / best_rel_dir
-        if variable == "lake_level":
-            sim_df, obs_df = _load_best_lake_level(run_dir)
-        else:
-            sim_df, obs_df = _load_best_discharge(run_dir)
     phases = persistence.phases()
     session_row = descriptor.model_dump(mode="json", by_alias=True)
     session_row["n_trials"] = len({row["trial"] for row in iterations})
@@ -538,8 +518,6 @@ def load_session_report_data(session_dir: Path) -> SessionReportData:
         workspace_root=project_root,
         best_sim_id=best_sim_id,
         best_rel_dir=best_rel_dir,
-        sim_timeseries=sim_df,
-        obs_timeseries=obs_df,
         variable=variable,
     )
 
@@ -555,56 +533,6 @@ def _calibration_variable(session_dir: Path) -> str:
     if isinstance(calibration, Mapping):
         return str(calibration.get("variable", "discharge"))
     return "discharge"
-
-
-def _timeseries_table(run_dir: Path) -> pd.DataFrame | None:
-    """Return the ``timeseries`` table of a run, or None when the run has none."""
-    target = run_dir / TABLES_DIRNAME / f"timeseries{PARQUET_FILE_SUFFIX}"
-    if not target.is_file():
-        return None
-    table = readable(read_checked_table, target)
-    return None if table is None else table.to_pandas()
-
-
-def _series_of(
-    table: pd.DataFrame, *, variable: str, source: str, station: str | None
-) -> pd.DataFrame | None:
-    """Return ``datetime, value`` rows of one series at one station, or None when empty."""
-    rows = table[(table["variable"] == variable) & (table["source"] == source)]
-    if station is not None:
-        rows = rows[rows["station_id"] == station]
-    if rows.empty:
-        return None
-    ordered = rows.sort_values("timestep") if "timestep" in rows.columns else rows
-    return ordered[["time", "value"]].rename(columns={"time": "datetime"}).reset_index(drop=True)
-
-
-def _load_best_discharge(run_dir: Path) -> tuple[pd.DataFrame | None, pd.DataFrame | None]:
-    """Return (simulated, observed) discharge frames of the promoted run."""
-    table = _timeseries_table(run_dir)
-    if table is None:
-        return None, None
-    return (
-        _series_of(table, variable="discharge", source=SIMULATED, station=CATCHMENT),
-        _series_of(table, variable="discharge", source=OBSERVED, station=None),
-    )
-
-
-def _load_best_lake_level(run_dir: Path) -> tuple[pd.DataFrame | None, pd.DataFrame | None]:
-    """Return (simulated stage, observed lake level) of the promoted run.
-
-    The simulated LAK stage is the ``stage`` series of the first ``lake:<id>``
-    station of the run. No observed lake level is kept beside the run, so the
-    second member is ``None``.
-    """
-    table = _timeseries_table(run_dir)
-    if table is None:
-        return None, None
-    stages = table[(table["variable"] == "stage") & table["station_id"].str.startswith("lake:")]
-    if stages.empty:
-        return None, None
-    station = str(sorted(stages["station_id"].unique())[0])
-    return _series_of(table, variable="stage", source=SIMULATED, station=station), None
 
 
 def samples_text(samples: Mapping[str, Mapping[str, Any]]) -> str:

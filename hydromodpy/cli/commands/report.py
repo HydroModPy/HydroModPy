@@ -18,6 +18,8 @@ Sub-actions:
 from __future__ import annotations
 
 import argparse
+import hashlib
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -38,7 +40,9 @@ from hydromodpy.cli.helpers import (
 )
 from hydromodpy.cli.output import emit
 from hydromodpy.core.console import progress
+from hydromodpy.core.state.layout import summary_dir_for
 from hydromodpy.core.state.result_dirs import resolve_project_root
+from hydromodpy.results.storage.contract import RUN_REPORT_DIRNAME
 
 NAME: str = "report"
 HELP: str = "Render HTML reports and compare sealed runs"
@@ -179,13 +183,25 @@ def _cmd_render(args: argparse.Namespace) -> None:
         webbrowser.open(out_path.as_uri())
 
 
+def compare_folder(refs: list[str], project_root: Path | None) -> Path:
+    """Return ``summary/report/compare/<refs>/`` of the project."""
+    from hydromodpy.analysis.compare import ComparisonCaseError
+
+    if project_root is None:
+        raise ComparisonCaseError("No project around the runs to write into: pass --out DIR.")
+    slugs = [re.sub(r"[^A-Za-z0-9_.-]+", "_", Path(ref).name or ref).strip("_") for ref in refs]
+    name = "-vs-".join(slug for slug in slugs if slug)
+    if not name or len(name) > 96:
+        name = hashlib.sha256("\n".join(refs).encode("utf-8")).hexdigest()[:12]
+    return summary_dir_for(project_root) / RUN_REPORT_DIRNAME / "compare" / name
+
+
 def _cmd_compare(args: argparse.Namespace) -> None:
-    from hydromodpy.analysis.comparison.compare import (
+    from hydromodpy.analysis.compare import (
         ComparisonCaseError,
         ComparisonReferenceError,
         compare_by_site,
         compare_references,
-        default_folder,
     )
 
     start = Path(args.workspace or Path.cwd()).expanduser().resolve()
@@ -197,7 +213,7 @@ def _cmd_compare(args: argparse.Namespace) -> None:
     )
     try:
         with progress.status("Comparing runs"):
-            folder = Path(args.to) if args.to else default_folder(args.refs, project_root)
+            folder = Path(args.to) if args.to else compare_folder(args.refs, project_root)
             if args.by == "site":
                 written = compare_by_site(
                     args.refs, folder, project_root=project_root, variables=variables

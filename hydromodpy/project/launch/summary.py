@@ -73,7 +73,7 @@ from hydromodpy.project.launch.summary_tables import (
     facts_of_runs,
     parameter_names,
 )
-from hydromodpy.reporting.campaign_summary import (
+from hydromodpy.results.export.campaign_summary import (
     BY_CASE_STEM,
     BY_SITE_STEM,
     write_summary_page,

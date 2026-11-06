@@ -21,7 +21,7 @@ from hydromodpy.calibration.runners.recap import (
     write_methods,
 )
 from hydromodpy.calibration.runners.state import space_from_config
-from hydromodpy.reporting.calibration_report import _render_html
+from hydromodpy.display.calibration_report import session_summary
 from hydromodpy.results.storage.contract import SESSION_METHODS_FILENAME
 from tests._helpers.session_documents import best_trial
 
@@ -175,9 +175,9 @@ def test_the_html_report_prints_the_label_beside_the_cost() -> None:
         "best_cost": 0.083984,
     }
 
-    page = _render_html(session, [], [])
+    summary = dict(session_summary(session))
 
-    assert "<th>best_cost</th><td>0.083984 (1 - nse_log)</td>" in page
+    assert summary["best_cost"] == "0.083984 (1 - nse_log)"
 
 
 def test_the_report_of_a_closed_session_shows_its_best_cost_and_label(tmp_path: Path) -> None:
@@ -194,9 +194,9 @@ def test_the_report_of_a_closed_session_shows_its_best_cost_and_label(tmp_path: 
     )
     persistence.finalize_session(status="completed", best=best_trial(3, cost=0.083984))
 
-    page = _render_html(load_session_report_data(persistence.directory).session, [], [])
+    summary = dict(session_summary(load_session_report_data(persistence.directory).session))
 
-    assert "<th>best_cost</th><td>0.083984 (1 - nse_log)</td>" in page
+    assert summary["best_cost"] == "0.083984 (1 - nse_log)"
 
 
 # The console lines of a finished calibration, one row per fact the report carries.

@@ -26,15 +26,11 @@ allowed:
   display:       [core, results, display]
   config:        [core, config, physics, data, spatial, simulation, solver, calibration, results, display, workflow]
   analysis:      [core, results, display, analysis]
-  # ``reporting`` hosts HTML composites (calibration session report,
-  # comparison web report). It assembles figures from ``display`` and sits
-  # above it.
-  reporting:     [core, schema, config, results, display, reporting]
-  workflow:      [core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, reporting, workflow]
+  workflow:      [core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, workflow]
   # ``project`` hosts the public ``Project`` facade and its dispatch adapters.
   # It sits above the matrix (like ``cli``) so workflow/calibration launchers
   # can be bound to ``Project`` without lower layers depending on the facade.
-  project:       [core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, reporting, workflow, project]
+  project:       [core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, workflow, project]
   "<root>":      ["<root>", core, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, examples]
   cli:           ["<root>", core, schema, config, data, simulation, solver, calibration, results, display, analysis, workflow, project, examples, cli]
 

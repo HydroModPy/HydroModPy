@@ -7,26 +7,21 @@ only when they cover the same dates, and two maps only at the same date.
 
 from __future__ import annotations
 
-import hashlib
-import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from matplotlib.figure import Figure
 from scipy.spatial import cKDTree
 
 from hydromodpy.core.exceptions import ResultsError
-from hydromodpy.core.scope import OBSERVED
-from hydromodpy.core.state.layout import runs_dir_for, summary_dir_for
-from hydromodpy.display.maps.ugrid import render_face_field
+from hydromodpy.core.state.layout import runs_dir_for
+from hydromodpy.display.run_comparison import draw_maps, draw_series
 from hydromodpy.results.derive import views
 from hydromodpy.results.manifest import is_sealed
 from hydromodpy.results.run.tables import global_parameters
 from hydromodpy.results.run.view import Run, open_run_dir
-from hydromodpy.results.storage.contract import RUN_REPORT_DIRNAME
 
 MAP_VARIABLES = ("watertable_elevation", "watertable_depth")
 SERIES_VARIABLES = ("discharge", "head")
@@ -69,11 +64,11 @@ class Comparison:
         for (variable, station), frame in self.series.items():
             if len(frame) > 1:
                 path = folder / f"{variable}_{station.strip('_')}.png"
-                _draw_series(frame, self.runs[0], variable, station, path)
+                draw_series(frame, self.runs[0], variable, station, path)
                 lines += ["", f"![{variable}]({path.name})"]
         for variable, (date, values) in self.maps.items():
             path = folder / f"{variable}.png"
-            _draw_maps(values, self.runs, variable, date, path)
+            draw_maps(values, self.runs, variable, _shown(date), path)
             lines += ["", f"![{variable}]({path.name})"]
         readme = folder / "README.md"
         readme.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -301,7 +296,16 @@ def scores_table(runs: Sequence[Run]) -> pd.DataFrame:
     ]
     if not frames:
         return pd.DataFrame()
-    columns = ["run", "station", "metric", "value", "window_start", "window_end", "n_samples"]
+    columns = [
+        "run",
+        "station",
+        "variable",
+        "metric",
+        "value",
+        "window_start",
+        "window_end",
+        "n_samples",
+    ]
     return pd.concat(frames, ignore_index=True)[columns]
 
 
@@ -418,55 +422,9 @@ def compare_by_site(
     return path
 
 
-def default_folder(refs: Sequence[str], project_root: Path | None) -> Path:
-    """Return ``summary/report/compare/<refs>/`` of the project."""
-    if project_root is None:
-        raise ComparisonCaseError("No project around the runs to write into: pass --out DIR.")
-    slugs = [re.sub(r"[^A-Za-z0-9_.-]+", "_", Path(ref).name or ref).strip("_") for ref in refs]
-    name = "-vs-".join(slug for slug in slugs if slug)
-    if not name or len(name) > 96:
-        name = hashlib.sha256("\n".join(refs).encode("utf-8")).hexdigest()[:12]
-    return summary_dir_for(project_root) / RUN_REPORT_DIRNAME / "compare" / name
-
-
 def _markdown(table: pd.DataFrame) -> str:
     if table.empty:
         return "Nothing to compare."
     text = table.map(lambda value: f"{value:.4g}" if isinstance(value, float) else str(value))
     rows = [list(table.columns), ["---"] * table.shape[1], *text.to_numpy().tolist()]
     return "\n".join("| " + " | ".join(map(str, row)) + " |" for row in rows)
-
-
-def _draw_series(
-    frame: pd.DataFrame, reference: Run, variable: str, station: str, path: Path
-) -> None:
-    figure = Figure(figsize=(10, 4))
-    axes = figure.subplots()
-    for name in frame.columns:
-        axes.plot(frame.index, frame[name], label=name)
-    if variable == "discharge" and reference.stations(variable, source=OBSERVED):
-        observed = reference.observed(variable)
-        observed = observed[observed["datetime"].between(frame.index[0], frame.index[-1])]
-        axes.plot(observed["datetime"], observed["value"], "k:", label="observed")
-    axes.set(title=f"{variable}, {station}", ylabel=variable)
-    axes.legend()
-    figure.savefig(path, dpi=150, bbox_inches="tight")
-
-
-def _draw_maps(
-    values: list[np.ndarray], runs: Sequence[Run], variable: str, date: pd.Timestamp, path: Path
-) -> None:
-    panels = [(runs[0].name, values[0], "viridis", None)]
-    for run, value in zip(runs[1:], values[1:], strict=True):
-        difference = value - values[0]
-        limit = np.nanmax(np.abs(difference), initial=0.0)
-        panels.append((f"{run.name} minus reference", difference, "RdBu_r", limit))
-    figure = Figure(figsize=(5 * len(panels), 4), layout="constrained")
-    for axes, (title, value, cmap, limit) in zip(
-        figure.subplots(1, len(panels)), panels, strict=True
-    ):
-        bounds = {} if limit is None else {"vmin": -limit, "vmax": limit}
-        render_face_field(axes, runs[0], value, cmap=cmap, **bounds)
-        axes.set_title(title)
-    figure.suptitle(f"{variable}, {_shown(date)}")
-    figure.savefig(path, dpi=150, bbox_inches="tight")

@@ -26,6 +26,7 @@ from hydromodpy.core.io.db_retry import connect_with_retry
 from hydromodpy.core.io.document_version import check_exact
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.layout import catalog_path_for, runs_dir_for
+from hydromodpy.core.state.result_dirs import resolve_project_root
 from hydromodpy.results.catalog.adapters.duckdb import DuckDBBackend
 from hydromodpy.results.catalog.discovery import DiscoveryMixin
 from hydromodpy.results.catalog.index_schema import (
@@ -43,6 +44,7 @@ from hydromodpy.results.zarr_store import SimulationZarr
 if TYPE_CHECKING:
     from uuid import UUID
 
+    import pandas as pd
     import xarray as xr
 
 logger = get_logger(__name__)
@@ -322,4 +324,41 @@ class Catalog(ReadsMixin, DiscoveryMixin, SchemaDiscoveryMixin):
         )
 
 
-__all__ = ["REINDEX_HINT", "Catalog"]
+def compare_pair(ref_a: str, ref_b: str, *, workspace: str | Path | None = None) -> pd.DataFrame:
+    """Return the headline scores of two runs side by side.
+
+    One row per ``(metric_name, station_id, variable)`` carries the score of each
+    run (``A`` for ``ref_a``, ``B`` for ``ref_b``), the window it was scored on
+    (``A_window``, as ``start/end``) and its samples (``A_n``). Empty when
+    neither run holds a score. ``workspace`` defaults to the project around the
+    working directory, found from ``project.toml``.
+    """
+    import pandas as pd
+
+    start = Path(workspace).expanduser().resolve() if workspace else Path.cwd()
+    root = resolve_project_root(start)
+    if not catalog_path_for(root).exists():
+        raise FileNotFoundError(f"No catalog at {root}")
+    keys = ["metric_name", "station_id", "variable"]
+    sides = []
+    with Catalog(root) as catalog:
+        for label, ref in (("A", ref_a), ("B", ref_b)):
+            scores = catalog._headline_metrics(catalog.resolve(ref))
+            rows = [
+                {
+                    **dict(zip(keys, key, strict=True)),
+                    label: score["value"],
+                    f"{label}_window": None
+                    if pd.isna(score["window_start"])
+                    else f"{pd.Timestamp(score['window_start']).date().isoformat()}"
+                    f"/{pd.Timestamp(score['window_end']).date().isoformat()}",
+                    f"{label}_n": score["n"],
+                }
+                for key, score in scores.items()
+            ]
+            columns = [*keys, label, f"{label}_window", f"{label}_n"]
+            sides.append(pd.DataFrame(rows, columns=columns).set_index(keys))
+    return sides[0].join(sides[1], how="outer").sort_index()
+
+
+__all__ = ["REINDEX_HINT", "Catalog", "compare_pair"]

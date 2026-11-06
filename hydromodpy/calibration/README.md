@@ -224,7 +224,7 @@ is read rather than inside the adapter.
    same fingerprint is read back (`runners/resume.py`), the cut phase is
    solved again with its trials preloading the cache.
 10. **Report.** `report.py` reads the session directory back;
-    `hydromodpy/reporting/calibration_report.py` (another layer) renders it.
+    `display/calibration_report.py` renders it.
 
 ## Storage rule
 

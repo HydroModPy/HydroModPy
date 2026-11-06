@@ -62,4 +62,4 @@ launch/
 | a command a SLURM script calls | a function in `slurm.py`, a branch in its `main`, a line in the template; keep the module path |
 | a column of `by_case` or `by_site` | `summary_tables.py` |
 | an export kind of `[[sites.export]]` | `summary_exports.py` |
-| a figure, a page or the RO-Crate of a collect | not here: `display/cohort.py` and `reporting/campaign_summary.py` |
+| a figure, a page or the RO-Crate of a collect | not here: `display/cohort.py` and `results/export/campaign_summary.py` |

@@ -252,7 +252,8 @@ architecture/packages/examples.rst                                              
 architecture/packages/index.rst                                                   contribute/architecture/packages/index
 architecture/packages/physics.rst                                                 contribute/architecture/packages/physics
 architecture/packages/project.rst                                                 contribute/architecture/packages/project
-architecture/packages/reporting.rst                                               contribute/architecture/packages/reporting
+architecture/packages/reporting.rst                                               contribute/architecture/packages/display
+contribute/architecture/packages/reporting.rst                                    contribute/architecture/packages/display
 architecture/packages/results.rst                                                 contribute/architecture/packages/results
 architecture/packages/schema.rst                                                  contribute/architecture/packages/schema
 architecture/packages/simulation.rst                                              contribute/architecture/packages/simulation

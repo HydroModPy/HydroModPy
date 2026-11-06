@@ -10,7 +10,8 @@ import pandas as pd
 import pytest
 
 import hydromodpy as hmp
-from hydromodpy.analysis.comparison import compare as c
+from hydromodpy.analysis import compare as c
+from hydromodpy.cli.commands import report
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_VALIDATION
 from hydromodpy.cli.main import main as hmp_main
 from tests.unit.results._run_record_factory import make_identity, make_record
@@ -64,8 +65,8 @@ def make_run(
         for zone in ("domain", "catchment")
         for term, fin, fout in terms
     )
-    columns = ("station", "metric", "value", "window_start", "window_end", "n_samples")
-    rows = ((gauge, m, 0.123456, "w0", "w1", n) for m in ("nse", "rmse"))
+    columns = ("station", "variable", "metric", "value", "window_start", "window_end", "n_samples")
+    rows = ((gauge, "discharge", m, 0.123456, "w0", "w1", n) for m in ("nse", "rmse"))
     metrics = pd.DataFrame(rows, columns=columns) if gauge else pd.DataFrame()
     x, y = np.array(centers).T
     corners = np.column_stack([np.repeat(x, 4), np.repeat(y, 4)]) + [
@@ -314,6 +315,7 @@ def test_scores_keep_their_window_and_samples_and_a_run_without_gauge_gives_none
         {
             "run": "a",
             "station": "G",
+            "variable": "discharge",
             "metric": "nse",
             "value": 0.123456,
             "window_start": "w0",
@@ -340,7 +342,7 @@ def test_the_folder_holds_every_table_and_figure_named_in_its_readme(tmp_path: P
     }
     assert text.startswith("# a vs b\n\nReference a. Dates compared 2000-01-01 to 2000-01-05.\n")
     assert "## parameters\n\nNothing to compare." in text
-    assert "| a | G | nse | 0.1235 | w0 | w1 | 4 |" in text
+    assert "| a | G | discharge | nse | 0.1235 | w0 | w1 | 4 |" in text
     assert "| --- | --- |" in text
     assert all(f"![{v}]" in text for v in ("discharge", "head", "watertable_depth"))
 
@@ -432,8 +434,8 @@ def test_references_reach_the_comparison_with_their_variables(monkeypatch) -> No
 
 def test_a_folder_needs_a_project_and_a_long_name_becomes_a_hash(project: Path) -> None:
     with pytest.raises(c.ComparisonCaseError, match="pass --out"):
-        c.default_folder(["a", "b"], None)
-    assert len(c.default_folder(["a" * 100, "b"], project).name) == 12
+        report.compare_folder(["a", "b"], None)
+    assert len(report.compare_folder(["a" * 100, "b"], project).name) == 12
 
 
 def test_the_facade_compares_and_writes_only_when_asked(project: Path, monkeypatch) -> None:

@@ -15,7 +15,6 @@ import pandas as pd
 import pyarrow.parquet as pq
 import pytest
 
-from hydromodpy.analysis.comparison.pairwise import compare_pair
 from hydromodpy.calibration.criteria.series import METRICS, SeriesCriterion
 from hydromodpy.calibration.criteria.series import METRICS as CALIBRATION_METRICS
 from hydromodpy.cli._workers.dev import rank_simulations
@@ -41,6 +40,7 @@ from hydromodpy.results.catalog.constants import (
     metric_rank_sql,
     score_of,
 )
+from hydromodpy.results.catalog.facade import compare_pair
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.derive.config_flags import diagnose_missing, missing_field_explanation
 from hydromodpy.results.derive.virtual_fields import (
@@ -181,6 +181,21 @@ def test_compare_pair_has_one_row_per_variable_with_its_window(project) -> None:
     assert (discharge["A_n"], discharge["B_n"]) == (1827, 1096)
     assert discharge["A_window"] == "2016-01-01/2020-12-31"
     assert discharge["B_window"] == "2018-01-01/2020-12-31"
+
+
+def test_compare_pair_gives_the_scores_the_diff_gives(project) -> None:
+    frame = compare_pair("a", "b", workspace=project)
+    with Catalog(project) as cat:
+        delta = cat.diff("a", "b")["metrics"]
+    for (metric, station, variable), (side_a, side_b) in delta.items():
+        row = frame.loc[(metric, station, variable)]
+        assert (row["A"], row["B"]) == (side_a["value"], side_b["value"])
+        assert (row["A_n"], row["B_n"]) == (side_a["n"], side_b["n"])
+
+
+def test_compare_pair_needs_an_index(tmp_path) -> None:
+    with pytest.raises(FileNotFoundError, match="No catalog"):
+        compare_pair("a", "b", workspace=tmp_path)
 
 
 def _run_diff(project, capsys, fmt: str) -> str:

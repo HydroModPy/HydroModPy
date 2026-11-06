@@ -29,7 +29,7 @@ rules, how a run goes through it, and where to add what.
 
 `project` sits above the layer matrix, like `cli`. `layer_matrix.yaml` lets it
 import every layer, itself included. Today it imports
-`calibration`, `config`, `core`, `data`, `display`, `physics`, `reporting`, `results`,
+`calibration`, `config`, `core`, `data`, `display`, `physics`, `results`,
 `schema`, `simulation`, `solver`, `spatial` and `workflow`. Two rules matter more than the table:
 
 1. No lower layer imports `project`. Only the package root (lazy, a tolerated

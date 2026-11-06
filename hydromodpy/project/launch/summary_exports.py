@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any, Final
 
 from hydromodpy.display.cohort import record_collected_file
 from hydromodpy.project.launch.summary_tables import SummaryError
-from hydromodpy.reporting.campaign_summary import BY_CASE_STEM, BY_SITE_STEM
+from hydromodpy.results.export.campaign_summary import BY_CASE_STEM, BY_SITE_STEM
 from hydromodpy.results.run.ranking import clean_cell
 from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX, TABLES_DIRNAME
 

@@ -20,7 +20,7 @@ import hydromodpy as hmp
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.time.selection import TimeSelectionError
 from hydromodpy.core.time.time_method import OBSERVABLE_TIME_METHODS
-from hydromodpy.reporting.calibration_report import _render_html
+from hydromodpy.display.calibration_report import session_summary
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.catalog.registration import run_identity_hash
@@ -2244,12 +2244,11 @@ def test_the_html_report_says_why_the_search_stopped() -> None:
         stop_state="budget_spent", stopping_rule="xatol", stop_note=None
     ).model_dump(mode="json", by_alias=True)
 
-    page = _render_html(session, [], [])
+    summary = dict(session_summary(session))
 
-    assert (
-        "<tr><th>search stopped</th><td>spent its budget before its rule (xatol) was met, "
-        "not converged</td></tr>"
-    ) in page
+    assert summary["search stopped"] == (
+        "spent its budget before its rule (xatol) was met, not converged"
+    )
 
 
 def test_a_budget_only_search_promotes_a_calibrated_run_and_never_a_failed_one() -> None:
