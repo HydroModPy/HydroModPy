@@ -9,6 +9,7 @@ import pytest
 
 from hydromodpy.core.config_kit.field_param.config import (
     load_field_param_toml,
+    load_values_mapping_csv,
     resolve_field_param_config_payload,
     validate_field_param_toml_data,
     validate_resolved_field_param_data,
@@ -207,3 +208,42 @@ def _unit(unit: str | None) -> dict:
 def test_a_value_is_bounded_in_its_declared_unit_wherever_it_enters(enter, value, unit, refused):
     with nullcontext() if refused is None else pytest.raises(ValueError, match=refused):
         enter(value, unit)
+
+
+def _csv_payload(**field) -> dict:
+    return {"field": CSV | {"values_csv_file": "map.csv", "field_spatial_id": "g"} | field}
+
+
+@pytest.mark.parametrize("absolute", [False, True], ids=["relative", "absolute"])
+def test_a_csv_table_gives_one_value_per_zone_and_skips_blank_keys(tmp_path: Path, absolute):
+    csv = write_text(tmp_path / "map.csv", "zone_key,value\n2141,12.0\n,9\n1501,8.5")
+    payload = _csv_payload(values_csv_file=str(csv) if absolute else csv.name)
+
+    resolved = resolve_field_param_config_payload(payload, base_dir=tmp_path)
+
+    assert resolved["values"] == {"2141": 12.0, "1501": 8.5}
+    assert "values_csv_file" not in resolved
+
+
+@pytest.mark.parametrize(
+    ("csv", "error", "match"),
+    [
+        (None, FileNotFoundError, "CSV values file not found"),
+        ("zone,value\na,1", KeyError, "missing key column 'zone_key'"),
+        ("zone_key,val\na,1", KeyError, "missing value column 'value'"),
+        ("zone_key,value\n2141,1\n2141,2", ValueError, "Duplicate key '2141'.*line 3"),
+        ("zone_key,value\na,high", ValueError, r"line 2: column 'value' -> 'high'"),
+        ("zone_key,value\n,1", ValueError, "does not define any key/value pair"),
+    ],
+    ids=["no-file", "no-key-column", "no-value-column", "duplicate-key", "not-a-number", "no-row"],
+)
+def test_a_csv_table_it_cannot_read_is_refused(tmp_path: Path, csv, error, match):
+    if csv is not None:
+        write_text(tmp_path / "map.csv", csv)
+    with pytest.raises(error, match=match):
+        resolve_field_param_config_payload(_csv_payload(), base_dir=tmp_path)
+
+
+def test_a_csv_reading_needs_its_column_names():
+    with pytest.raises(ValueError, match="column names cannot be empty"):
+        load_values_mapping_csv("map.csv", key_column=" ")

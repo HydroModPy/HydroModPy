@@ -307,3 +307,21 @@ def test_the_decorated_method_keeps_its_name() -> None:
     def commit_catalog() -> None: ...
 
     assert commit_catalog.__name__ == "commit_catalog"
+
+
+def test_an_attached_database_is_readable_inside_the_block_and_detached_after(
+    tmp_path: Path,
+) -> None:
+    other = tmp_path / "other.duckdb"
+    with duckdb.connect(str(other)) as seed:
+        seed.execute("CREATE TABLE t AS SELECT 7 AS v")
+    connection = duckdb.connect(":memory:")
+
+    with db_retry.attach_read_only(connection, other, "snap"):
+        assert connection.execute("SELECT v FROM snap.t").fetchone() == (7,)
+    with pytest.raises(duckdb.Error):
+        connection.execute("SELECT v FROM snap.t")
+
+    with pytest.raises(ValueError, match="Invalid attach alias"):
+        with db_retry.attach_read_only(connection, other, "bad alias"):
+            pass
