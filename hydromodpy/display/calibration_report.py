@@ -136,12 +136,12 @@ def render_session(
     figures_dir = directory / RUN_FIGURES_DIRNAME
     figures_dir.mkdir(parents=True, exist_ok=True)
 
-    stub = _SessionRunStub(session_data.iterations)
+    stub = _SessionRunStub(session_data.iterations, session_data.session_id)
     options = {"session_id": session_data.session_id, "roots": _two_roots(directory)}
     with matplotlib_backend():
         rendered = _render_figures(cast("Run", stub), requested, figures_dir, options)
         if session_data.best_rel_dir is not None:
-            names = _BEST_RUN_FIGURES.get(session_data.variable, ())
+            names = _BEST_RUN_FIGURES.get(session_data.variable, _BEST_RUN_FIGURES["discharge"])
             best = _open_best_run(session_data.workspace_root / session_data.best_rel_dir)
             rendered += _render_figures(best, names, figures_dir, {})
 
@@ -167,8 +167,10 @@ class _SessionRunStub:
     promoted run.
     """
 
-    def __init__(self, iterations: list[dict]) -> None:
+    def __init__(self, iterations: list[dict], session_id: str) -> None:
         self.calibration_iterations = list(iterations)
+        self.name = f"calibration_{session_id[:8]}"
+        self.sim_id = session_id
 
     def timeseries(self, variable: str, station: str | None = None) -> pd.DataFrame:  # noqa: ARG002
         costs = pd.to_numeric(

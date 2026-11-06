@@ -153,9 +153,11 @@ def test_the_report_hands_the_figures_the_rows_a_session_wrote() -> None:
             "parameters": '{"K": {"value": 5e-5}, "bedleak": {"value": 9e-6}}',
         },
     ]
-    stub = report._SessionRunStub(rows)
+    stub = report._SessionRunStub(rows, "abcdef0123456789")
 
     assert stub.calibration_iterations == rows
+    assert stub.name == "calibration_abcdef01"
+    assert stub.sim_id == "abcdef0123456789"
 
     table = trial_table(stub)
     assert table.parameters == ("K", "bedleak")

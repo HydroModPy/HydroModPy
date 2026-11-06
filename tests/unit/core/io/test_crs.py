@@ -16,14 +16,19 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
+import geopandas as gpd
 import numpy as np
 import pytest
 import rasterio
 from pyproj import CRS, Transformer
 from rasterio.transform import from_origin
-from shapely.geometry import LineString, Point
+from shapely.geometry import LineString, Point, box
 
 from hydromodpy.core.io import crs as crs_io
+from hydromodpy.core.io.crs import measure_linework_length_m, project_gdf_for_metric_operations
+from hydromodpy.spatial.geographic.core.metric_crs import measure_polygon_area_m2
+
+_KM_LINE = LineString([(0.0, 0.0), (1000.0, 0.0)])
 
 L93_PROJ4_WITHOUT_DATUM = (  # pyproj identifies it as EPSG:2154, yet finds it unequal to it
     "+proj=lcc +lat_0=46.5 +lon_0=3 +lat_1=49 +lat_2=44 +x_0=700000 +y_0=6600000 +ellps=GRS80 +units=m +no_defs"
@@ -322,3 +327,33 @@ def test_the_crs_of_a_label_written_in_wkt_is_recognised_as_the_epsg_one() -> No
 
 def test_a_label_pyproj_cannot_read_matches_nothing_not_even_itself_altered() -> None:
     assert crs_io.same_crs("not a crs", "EPSG:2154") is False
+
+
+def _frame(geometry, crs):
+    return gpd.GeoDataFrame(geometry=[geometry], crs=crs)
+
+
+@pytest.mark.parametrize(
+    ("frame", "fallback", "crs"),
+    [
+        (_frame(_KM_LINE, None), "EPSG:2154", "EPSG:2154"),
+        (_frame(_KM_LINE, "EPSG:4326"), "EPSG:2154", "EPSG:2154"),
+        (_frame(_KM_LINE, "EPSG:2154"), None, "EPSG:2154"),
+        (_frame(LineString([(-1.6, 48.1), (-1.6, 48.11)]), "EPSG:4326"), None, "EPSG:32630"),
+        (_frame(_KM_LINE, None), None, None),
+    ],
+    ids=["no crs", "degrees label on metres", "projected", "degrees", "nothing to go on"],
+)
+def test_a_frame_is_put_in_one_metric_crs_before_it_is_measured(frame, fallback, crs) -> None:
+    out = project_gdf_for_metric_operations(frame, fallback_crs=fallback)
+    assert (None if out.crs is None else out.crs.to_string()) == crs
+    if crs == "EPSG:32630":
+        assert measure_linework_length_m(frame) == pytest.approx(1112.0, rel=0.01)
+
+
+def test_an_empty_frame_measures_nothing() -> None:
+    empty = gpd.GeoDataFrame(geometry=[], crs="EPSG:2154")
+    assert project_gdf_for_metric_operations(empty) is empty
+    assert measure_linework_length_m(empty) == 0.0
+    assert measure_polygon_area_m2(empty) == 0.0
+    assert measure_polygon_area_m2(_frame(box(0, 0, 10, 10), "EPSG:2154")) == 100.0

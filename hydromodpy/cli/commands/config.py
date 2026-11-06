@@ -187,15 +187,19 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    # A bare ``hmp config`` writes a template; argparse bounds the other names.
-    {
+    # A bare ``hmp config`` writes a template. ``validate-field`` is parsed but has no handler.
+    handlers = {
         "check": _cmd_config_check,
         "template": _cmd_config_template,
         "resolve": _cmd_config_resolve,
         "schema": _cmd_config_schema,
         "targets": _cmd_config_targets,
         "wizard": _cmd_config_wizard,
-    }[args.config_command or "template"](args)
+    }
+    handler = handlers.get(args.config_command or "template")
+    if handler is None:
+        refuse("usage: hmp config {template,check,resolve,schema,targets,wizard} ...", EXIT_CONFIG)
+    handler(args)
 
 
 def _cmd_config_targets(args: argparse.Namespace) -> None:

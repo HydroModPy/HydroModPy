@@ -63,6 +63,16 @@ def test_the_level_is_applied_before_the_verb_runs(monkeypatch) -> None:
     assert seen == ["quiet"]
 
 
+@pytest.mark.parametrize("verb", ["run", "calibrate", "spinup"])
+def test_a_toml_verb_applies_the_level_of_its_file(verb: str) -> None:
+    """These verbs read ``[workflow] verbosity`` from their file, so they apply it themselves."""
+    import importlib
+    import inspect
+
+    module = importlib.import_module(f"hydromodpy.cli.commands.{verb}")
+    assert "apply_verbosity(args" in inspect.getsource(module)
+
+
 @pytest.mark.parametrize(
     ("group", "action", "flag", "expected"),
     [

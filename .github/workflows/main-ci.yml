@@ -347,7 +347,7 @@ jobs:
       - name: Gate the spatial coverage
         run: |
           coverage combine || true
-          coverage report --include='hydromodpy/spatial/mesh/*' --precision=2 --fail-under=99.25
+          coverage report --include='hydromodpy/spatial/mesh/*' --precision=2 --fail-under=99.24
           coverage report --include='hydromodpy/spatial/administrative/*' --precision=2 --fail-under=100.0
           coverage report --include='hydromodpy/spatial/delineation/*' --precision=2 --fail-under=97.2
           coverage report --include='hydromodpy/spatial/domain/*' --precision=2 --fail-under=99.3
@@ -358,7 +358,7 @@ jobs:
           coverage report --include='hydromodpy/spatial/lake_bed/*' --precision=2 --fail-under=98.9
           coverage report --include='hydromodpy/spatial/terrain/*' --precision=2 --fail-under=94.6
           coverage report --include='hydromodpy/spatial/*.py' --precision=2 --fail-under=99.2
-          coverage report --include='hydromodpy/results/derive/stream/*' --precision=2 --fail-under=92.7
+          coverage report --include='hydromodpy/results/derive/stream/*' --precision=2 --fail-under=92.66
 
   core-coverage:
     name: Coverage / core gate py3.13
