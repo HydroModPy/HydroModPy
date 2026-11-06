@@ -95,6 +95,4 @@ __all__ = (
     "register",
     "run",
     "load_index_html",
-    "_WorkspaceManagerBackend",
-    "_WorkspaceManagerHandler",
 )

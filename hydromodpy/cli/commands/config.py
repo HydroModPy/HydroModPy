@@ -30,7 +30,6 @@ from hydromodpy.cli.helpers import (
     EXIT_CONFIG,
     EXIT_NOT_FOUND,
     EXIT_USAGE,
-    apply_verbosity,
     project_named_by_w,
     refuse,
 )
@@ -188,28 +187,15 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    sub = getattr(args, "config_command", None) or "template"
-
-    if sub == "check":
-        _cmd_config_check(args)
-        return
-    if sub == "template":
-        _cmd_config_template(args)
-        return
-    if sub == "resolve":
-        _cmd_config_resolve(args)
-        return
-    if sub == "schema":
-        _cmd_config_schema(args)
-        return
-    if sub == "targets":
-        _cmd_config_targets(args)
-        return
-    if sub == "wizard":
-        _cmd_config_wizard(args)
-        return
-
-    refuse("usage: hmp config {template,check,resolve,schema,targets,wizard} ...", EXIT_CONFIG)
+    # A bare ``hmp config`` writes a template; argparse bounds the other names.
+    {
+        "check": _cmd_config_check,
+        "template": _cmd_config_template,
+        "resolve": _cmd_config_resolve,
+        "schema": _cmd_config_schema,
+        "targets": _cmd_config_targets,
+        "wizard": _cmd_config_wizard,
+    }[args.config_command or "template"](args)
 
 
 def _cmd_config_targets(args: argparse.Namespace) -> None:
@@ -394,13 +380,14 @@ def _cmd_config_check(args: argparse.Namespace) -> None:
     """
     from hydromodpy.cli.commands.doctor import probe_toml_workspace
     from hydromodpy.core.config_kit.written import experimental_keys_line
+    from hydromodpy.core.logging import current_verbosity
     from hydromodpy.project.check import check_project, report_lines
 
     path = Path(args.file).expanduser().resolve()
     if not path.is_file():
         refuse(f"File not found: {path}", EXIT_NOT_FOUND)
 
-    verbosity = apply_verbosity(args, {})
+    verbosity = current_verbosity()
     verbose = verbosity in ("verbose", "debug")
     with project_named_by_w(args.workspace):
         report = check_project(path)
@@ -493,7 +480,7 @@ def _cmd_config_schema(args: argparse.Namespace) -> None:
 
 def _write_schema_bundle(args: argparse.Namespace) -> None:
     """Write the JSON Schema and the files a frontend reads with it into the folder ``--to``."""
-    from hydromodpy.cli._workers.dev import export_schema
+    from hydromodpy.schema import export_full_schema
 
     if args.to is None or args.editor or args.section or args.profile:
         refuse(
@@ -501,15 +488,17 @@ def _write_schema_bundle(args: argparse.Namespace) -> None:
             "and takes no --editor, --section or --profile.",
             EXIT_USAGE,
         )
-    for key, path in export_schema(args.to).items():
+    folder = Path(args.to).expanduser().resolve()
+    folder.mkdir(parents=True, exist_ok=True)
+    for key, path in export_full_schema(folder).items():
         print(f"{key}: {path}", file=sys.stderr)
 
 
 def _cmd_config_validate_field(args: argparse.Namespace) -> None:
     """Validate one field value, for a frontend that checks a form as it is filled."""
-    from hydromodpy.cli._workers.dev import validate_field
+    from hydromodpy.schema import validate_field
 
-    payload = validate_field(args.path, args.value, context=_load_context(args.context))
+    payload = validate_field(args.path, args.value, context=_load_context(args.context)).as_dict()
 
     def table() -> None:
         print(f"{args.path}: {'valid' if payload['valid'] else 'invalid'}")

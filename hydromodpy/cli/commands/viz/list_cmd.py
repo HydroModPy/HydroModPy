@@ -9,7 +9,6 @@ from __future__ import annotations
 import argparse
 
 from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
-from hydromodpy.cli.helpers import apply_verbosity
 from hydromodpy.cli.output import emit
 
 NAME: str = "list"
@@ -45,7 +44,6 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    apply_verbosity(args, {})
     if args.sim_ref is not None:
         _list_for_run(args)
         return

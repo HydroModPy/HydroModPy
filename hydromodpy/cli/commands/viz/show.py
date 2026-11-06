@@ -20,7 +20,7 @@ from hydromodpy.cli.conventions import (
     verbosity_parser,
     workspace_parser,
 )
-from hydromodpy.cli.helpers import EXIT_USAGE, apply_verbosity, refuse
+from hydromodpy.cli.helpers import EXIT_USAGE, refuse
 from hydromodpy.cli.output import emit
 
 NAME: str = "show"
@@ -74,7 +74,6 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    apply_verbosity(args, {})
     from hydromodpy.cli._workers.viz import render_figure
 
     if args.options:

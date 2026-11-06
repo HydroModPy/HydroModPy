@@ -34,7 +34,6 @@ from hydromodpy.cli.helpers import (
     EXIT_CONFIG,
     EXIT_NOT_FOUND,
     EXIT_VALIDATION,
-    apply_verbosity,
     project_named_by_w,
     refuse,
 )
@@ -142,21 +141,9 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    apply_verbosity(args, {})
-    action = getattr(args, "report_action", None)
-    if action == "render":
-        _cmd_render(args)
-        return
-    if action == "compare":
-        _cmd_compare(args)
-        return
-    if action == "catchment":
-        _cmd_catchment(args)
-        return
-    refuse(
-        "Usage: hmp report {render|compare|catchment} [options]. See 'hmp report --help'.",
-        EXIT_CONFIG,
-    )
+    {"render": _cmd_render, "compare": _cmd_compare, "catchment": _cmd_catchment}[
+        args.report_action
+    ](args)
 
 
 def _cmd_render(args: argparse.Namespace) -> None:

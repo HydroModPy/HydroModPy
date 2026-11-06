@@ -2,46 +2,27 @@
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from uuid import UUID
 
-import pandas as pd
-
-from hydromodpy.cli._workers.catalog import delete_simulation_artifacts
+from hydromodpy.cli._workers.catalog import (
+    delete_simulation_artifacts,
+    path_size,
+    remove_for_good,
+)
+from hydromodpy.cli.output import plain
 from hydromodpy.core.state.layout import (
     CATALOG_FILENAME,
     catalog_path_for,
     data_cache_path_for,
     runs_dir_for,
 )
+from hydromodpy.core.state.result_dirs import run_dir_rel
 from hydromodpy.results.storage.diagnostics import (
     diagnose_result_storage,
     is_run_directory,
 )
-
-
-def _path_size(path: Path) -> int:
-    if not path.exists():
-        return 0
-    try:
-        if path.is_file():
-            return int(path.stat().st_size)
-    except OSError:
-        return 0
-
-    total = 0
-    try:
-        for child in path.rglob("*"):
-            try:
-                if child.is_file():
-                    total += int(child.stat().st_size)
-            except OSError:
-                continue
-    except OSError:
-        return total
-    return total
 
 
 def _workspace_label(path: Path, scan_root: Path) -> str:
@@ -54,30 +35,14 @@ def _workspace_label(path: Path, scan_root: Path) -> str:
         return str(path.resolve())
 
 
-def _json_value(value: Any) -> Any:
-    if value is None:
-        return None
-    if isinstance(value, (str, int, float, bool)):
-        return value
-    if isinstance(value, Path | UUID):
-        return str(value)
-    if isinstance(value, (datetime, date, pd.Timestamp)):
-        return value.isoformat()
-    if isinstance(value, list | tuple):
-        return [_json_value(item) for item in value]
-    if hasattr(value, "item"):
-        try:
-            scalar = value.item()
-        except Exception:
-            scalar = None
-        if scalar is not None and scalar is not value:
-            return _json_value(scalar)
+def _workspace_label(path: Path, scan_root: Path) -> str:
     try:
-        if pd.isna(value):
-            return None
-    except Exception:
-        pass
-    return str(value)
+        rel = path.resolve().relative_to(scan_root.resolve())
+        if str(rel) == ".":
+            return path.resolve().name or str(path.resolve())
+        return str(rel)
+    except ValueError:
+        return str(path.resolve())
 
 
 def _purge_run_directory(project_root: Path, path: Path) -> None:
@@ -89,14 +54,6 @@ def _purge_run_directory(project_root: Path, path: Path) -> None:
     trashed = trash_run(project_root, run_dir_rel(path.name), now=now, force=True)
     entry = next(entry for entry in list_trash(project_root) if entry.path == trashed)
     purge_trashed(project_root, [entry], now=now)
-
-
-def _is_relative_to(path: Path, root: Path) -> bool:
-    try:
-        path.relative_to(root.resolve())
-        return True
-    except ValueError:
-        return False
 
 
 class _WorkspaceManagerBackend:
@@ -159,8 +116,8 @@ class _WorkspaceManagerBackend:
             "workspace_label": _workspace_label(workspace_root, self.scan_root),
             "scan_root": str(self.scan_root),
             "workspace_count": len(self.workspace_roots),
-            "catalog_bytes": _path_size(catalog_path),
-            "cache_bytes": _path_size(cache_path),
+            "catalog_bytes": path_size(catalog_path),
+            "cache_bytes": path_size(cache_path),
             "simulation_count": len(simulations),
             "simulation_bytes": sum(int(row["total_bytes"]) for row in simulations),
             "orphan_bytes": sum(int(row["size_bytes"]) for row in orphans),
@@ -175,7 +132,7 @@ class _WorkspaceManagerBackend:
             paths = [str(path) for path in record.get("paths", ()) or ()]
             record["paths"] = paths
             record["cleanup_count"] = len(paths)
-            record["cleanup_bytes"] = sum(_path_size(Path(path)) for path in paths)
+            record["cleanup_bytes"] = sum(path_size(Path(path)) for path in paths)
             rows.append(record)
         return {"rows": rows}
 
@@ -191,12 +148,12 @@ class _WorkspaceManagerBackend:
         with Catalog(workspace_root) as catalog:
             df = catalog.list_simulations(order_by="created_at DESC")
             for _, raw in df.iterrows():
-                record = {str(key): _json_value(value) for key, value in raw.items()}
+                record = {str(key): plain(value) for key, value in raw.items()}
                 sim_id = str(record.get("sim_id", ""))
                 zarr_path = catalog.fields_path_for(sim_id)
                 parquet_dir = catalog.tables_dir_for(sim_id)
-                zarr_bytes = _path_size(zarr_path)
-                parquet_bytes = _path_size(parquet_dir)
+                zarr_bytes = path_size(zarr_path)
+                parquet_bytes = path_size(parquet_dir)
                 record.update(
                     {
                         "sim_id": sim_id,
@@ -265,7 +222,7 @@ class _WorkspaceManagerBackend:
                     "path": str(path),
                     "basename": path.name,
                     "kind": "run",
-                    "size_bytes": _path_size(path),
+                    "size_bytes": path_size(path),
                 }
             )
         return {"rows": artefacts}
@@ -280,13 +237,15 @@ class _WorkspaceManagerBackend:
         deleted: list[dict[str, Any]] = []
         for raw_path in paths:
             path = Path(raw_path).expanduser().resolve()
-            if not _is_relative_to(path, runs_dir):
+            if not path.is_relative_to(runs_dir.resolve()):
                 raise ValueError(f"Refusing to delete outside runs/: {path}")
             if not path.exists():
                 continue
-            freed_bytes = _path_size(path)
+            freed_bytes = path_size(path)
             if path.is_dir() and path.parent == runs_dir:
-                _purge_run_directory(workspace_root, path)
+                remove_for_good(
+                    workspace_root, run_dir_rel(path.name), now=datetime.now(UTC), force=True
+                )
             elif path.is_dir():
                 import shutil
 
@@ -348,7 +307,7 @@ class _WorkspaceManagerBackend:
         finally:
             conn.close()
         rows = [
-            {str(column): _json_value(value) for column, value in row.items()}
+            {str(column): plain(value) for column, value in row.items()}
             for row in df.to_dict(orient="records")
         ]
         return {

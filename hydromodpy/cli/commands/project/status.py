@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 
 from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
-from hydromodpy.cli.helpers import apply_verbosity
 from hydromodpy.cli.output import emit
 
 NAME: str = "status"
@@ -53,7 +52,6 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    apply_verbosity(args, {})
     from hydromodpy.cli._workers.project import sites_project_root
     from hydromodpy.project.launch import project_status
     from hydromodpy.results.outcome import DEFAULT_STALE_AFTER_S

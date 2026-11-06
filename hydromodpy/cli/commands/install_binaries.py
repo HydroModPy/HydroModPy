@@ -1,13 +1,15 @@
 """``hmp install-binaries`` - pre-warm the solver binary cache.
 
 Wraps :func:`hydromodpy.solver.modflow_common.binaries.download_solver_binaries`
-via the ``_workers.dev`` helper. Binaries also download lazily on first solver
+through ``_install_binaries``. Binaries also download lazily on first solver
 use, so this verb is only needed to pre-fetch them (e.g. for offline runs).
 """
 
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
+from typing import Any
 
 from hydromodpy.cli.conventions import (
     add_destination,
@@ -15,7 +17,7 @@ from hydromodpy.cli.conventions import (
     verbosity_parser,
     workspace_parser,
 )
-from hydromodpy.cli.helpers import EXIT_CONFIG, apply_verbosity, refuse
+from hydromodpy.cli.helpers import EXIT_CONFIG, refuse
 from hydromodpy.cli.output import emit
 from hydromodpy.core.console import progress
 
@@ -50,16 +52,73 @@ def register(subparsers) -> argparse.ArgumentParser:
     return parser
 
 
-def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.dev import install_binaries
+def _install_binaries(
+    *,
+    subset: list[str] | None = None,
+    mf6_prt: bool = False,
+    bindir: Any = None,
+    upgrade: bool = False,
+    quiet: bool = False,
+    release: str | None = None,
+) -> dict:
+    """Pre-warm the MODFLOW / MODPATH / MT3D-USGS binary cache."""
+    from hydromodpy.solver.modflow_common.binaries import (
+        DEFAULT_RELEASE,
+        available_solvers,
+        download_solver_binaries,
+        locate_solver_binary,
+        managed_bin_dir,
+        read_manifest,
+    )
 
-    apply_verbosity(args, {})
+    target = Path(bindir).expanduser().resolve() if bindir else managed_bin_dir()
+    resolved_release = release or DEFAULT_RELEASE
+
+    if mf6_prt:
+        names = ["mf6"]
+    elif subset:
+        names = list(subset)
+    else:
+        names = list(available_solvers())
+
+    manifest = read_manifest(target)
+    cached = (
+        manifest is not None
+        and manifest.get("release") == resolved_release
+        and set(names).issubset(set(manifest.get("solvers", [])))
+        and all(locate_solver_binary(target, name) is not None for name in names)
+    )
+
+    if cached and not upgrade:
+        return {
+            "already_cached": True,
+            "release": resolved_release,
+            "installed": [],
+            "target": str(target),
+        }
+
+    final_target = download_solver_binaries(
+        bindir=target,
+        subset=names,
+        quiet=quiet,
+        force=upgrade,
+        release=resolved_release,
+    )
+    return {
+        "already_cached": False,
+        "release": resolved_release,
+        "installed": names,
+        "target": str(final_target),
+    }
+
+
+def run(args: argparse.Namespace) -> None:
     subset = (
         [name.strip() for name in args.subset.split(",") if name.strip()] if args.subset else None
     )
     try:
         with progress.status("Downloading MODFLOW binaries"):
-            result = install_binaries(
+            result = _install_binaries(
                 subset=subset,
                 mf6_prt=args.mf6_prt,
                 bindir=args.to,

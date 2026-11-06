@@ -20,7 +20,6 @@ from hydromodpy.cli.conventions import (
 from hydromodpy.cli.helpers import (
     EXIT_NOT_FOUND,
     EXIT_WRITE_CONFLICT,
-    apply_verbosity,
     confirm,
     refuse,
     resolve_workspace,
@@ -51,7 +50,6 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    apply_verbosity(args, {})
     from hydromodpy.cli._workers.project import delete_project
     from hydromodpy.core.state.layout import PROJECTS_DIRNAME
     from hydromodpy.results.catalog.indexer import scan_tree
@@ -90,7 +88,7 @@ def run(args: argparse.Namespace) -> None:
 
     for rel_dir in published:
         print(f"{rel_dir} was published: its copies now point at a deleted source", file=sys.stderr)
-    result = delete_project(args.project, workspace=workspace, force=args.yes)
+    result = delete_project(args.project, workspace=workspace)
     emit(
         args,
         "project delete",

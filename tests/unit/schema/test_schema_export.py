@@ -83,16 +83,12 @@ def test_export_full_schema_idempotent(tmp_path: Path) -> None:
     assert first == second
 
 
-def test_schema_cli_export_produces_files(tmp_path: Path) -> None:
-    """Sanity-check that the schema worker writes the three files.
-
-    Invokes the worker directly (same callable that ``hmp config schema --bundle
-    export`` dispatches to) to keep the test independent from argparse.
-    """
-    from hydromodpy.cli._workers.dev import export_schema
+def test_schema_cli_export_produces_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """``hmp config schema --bundle --to DIR`` writes the three files."""
+    from tests.unit.cli._hmp import run_hmp
 
     out = tmp_path / "cli_out"
-    export_schema(out)
+    assert run_hmp(monkeypatch, "config", "schema", "--bundle", "--to", str(out)) == 0
     assert (out / "config.json").is_file()
     assert (out / "config_meta.json").is_file()
     assert (out / "field_validators.json").is_file()

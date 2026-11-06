@@ -10,9 +10,8 @@ from hydromodpy.cli.conventions import (
     verbosity_parser,
     workspace_parser,
 )
-from hydromodpy.cli.helpers import apply_verbosity, project_root_of
+from hydromodpy.cli.helpers import project_root_of
 from hydromodpy.cli.output import emit
-from hydromodpy.core.state.layout import catalog_path_for
 
 NAME: str = "note"
 HELP: str = "Append a timestamped note to a run"
@@ -38,7 +37,6 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    apply_verbosity(args, {})
     from hydromodpy.cli.auth import AuthBackend
     from hydromodpy.results.annotations import add_note
     from hydromodpy.results.catalog.discovery import resolve_rel_dir
@@ -46,10 +44,9 @@ def run(args: argparse.Namespace) -> None:
     root = project_root_of(args)
     rel_dir = resolve_rel_dir(root, args.sim_ref, site=args.site)
     add_note(root / rel_dir, str(args.text), author=AuthBackend().current_user())
-    if catalog_path_for(root).is_file():
-        from hydromodpy.results.catalog.indexer import index_new_runs
+    from hydromodpy.cli._workers.catalog import reindex_if_indexed
 
-        index_new_runs(root)
+    reindex_if_indexed(root)
     emit(
         args,
         "catalog note",

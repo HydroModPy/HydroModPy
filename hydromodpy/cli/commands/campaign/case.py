@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 
 from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
-from hydromodpy.cli.helpers import EXIT_USAGE, apply_verbosity, refuse
+from hydromodpy.cli.helpers import EXIT_USAGE, refuse
 from hydromodpy.cli.output import emit
 
 NAME: str = "case"
@@ -27,7 +27,6 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    apply_verbosity(args, {})
     from hydromodpy.cli._workers.project import sites_project_root
     from hydromodpy.project.launch.journal import case_for_task
 

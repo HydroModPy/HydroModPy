@@ -11,9 +11,8 @@ from hydromodpy.cli.conventions import (
     verbosity_parser,
     workspace_parser,
 )
-from hydromodpy.cli.helpers import apply_verbosity, project_root_of
+from hydromodpy.cli.helpers import project_root_of
 from hydromodpy.cli.output import emit
-from hydromodpy.core.state.layout import catalog_path_for
 
 NAME: str = "rename"
 HELP: str = "Rename a run: runs/<old>/ and sessions/<old>/ move to the new name"
@@ -47,7 +46,6 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    apply_verbosity(args, {})
     from hydromodpy.results.catalog.discovery import resolve_rel_dir
     from hydromodpy.results.catalog.registration import rename_case
 
@@ -62,10 +60,9 @@ def run(args: argparse.Namespace) -> None:
             table=lambda: print(f"would rename {rel_dir} -> {', '.join(renamed)}"),
         )
         return
-    if catalog_path_for(root).is_file():
-        from hydromodpy.results.catalog.indexer import index_new_runs
+    from hydromodpy.cli._workers.catalog import reindex_if_indexed
 
-        index_new_runs(root)
+    reindex_if_indexed(root)
     emit(
         args,
         "catalog rename",

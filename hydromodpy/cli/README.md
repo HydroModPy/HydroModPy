@@ -10,12 +10,13 @@ rest of the code, and where to add what.
 
 | part | answers |
 |---|---|
-| `main.py` | how is the argparse tree built, and how does a parsed namespace reach its handler? It builds the tree from `ALL_COMMANDS`, runs the handler `args._handler`, and maps any exception through `exit_code_for`. It also turns SIGTERM into an exception for the whole process |
+| `main.py` | how is the argparse tree built, and how does a parsed namespace reach its handler? It builds the tree from `ALL_COMMANDS`, sets the console verbosity of `-q`, `-v` or `--debug`, runs the handler `args._handler`, and maps any exception through `exit_code_for`. It also turns SIGTERM into an exception for the whole process |
 | `commands/` | one module per leaf verb, one sub-package per verb family. `commands/__init__.py` holds `ALL_COMMANDS`, the registration order |
 | `conventions.py` | the shared argparse grammar: `workspace_parser`, `confirm_parser`, `dry_run_parser`, `format_parser`, `verbosity_parser`, `profile_parser`, `add_destination`, `add_sim_ref`, `add_action_subparsers`, and `OLD_CLI_FORMS`, the forms that moved |
 | `output.py` | what a program reads: `OUTPUTS` declares what each verb writes under `--format json` and `csv`, and `emit` is the only function that writes it |
-| `helpers.py` | the typed exit codes and `exit_code_for(exc)`, `fail(exc)` and `refuse(message, code)`, which print the `HMPY.Exxx` of a failure, plus the helpers that several verbs share (verbosity, `find_workspace` / `resolve_workspace` / `resolve_project`, profiling, the scratch folder of the test tiers) |
-| `_workers/` | the application services of the verbs whose reusable Python surface is not part of `hydromodpy._api`: catalog listings, privacy purge, developer reports. A worker may assemble diagnostics; it must not become a hidden scientific workflow |
+| `helpers.py` | the typed exit codes and `exit_code_for(exc)`, `fail(exc)` and `refuse(message, code)`, which print the `HMPY.Exxx` of a failure, plus the helpers that several verbs share (verbosity, `find_workspace` / `resolve_workspace` / `resolve_project` / `project_root_of`, profiling) |
+| `effective_toml.py` | what a TOML verb (`run`, `calibrate`, `spinup`) runs: the copy `--set` and `--overlay` write beside the file, the file a verb was given (`toml_target`), and where `--profile` writes its report |
+| `_workers/` | the application services of the verbs whose reusable Python surface is not part of `hydromodpy._api`: catalog listings and ranks, the lockfile, the data cache, privacy purge. A worker may assemble diagnostics; it must not become a hidden scientific workflow. Its `README.md` lists them |
 | `auth.py` | who acts? `AuthBackend` names the local user for the privacy certificate and the notes of `catalog note`, and allows every read and write |
 | `banner.py` | the banner `hmp run` prints |
 

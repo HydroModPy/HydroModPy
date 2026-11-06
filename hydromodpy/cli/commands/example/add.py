@@ -55,12 +55,13 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.example import add_to_workspace, human_size
+    import hydromodpy as hmp
+    from hydromodpy.cli._workers.example import human_size
     from hydromodpy.cli.helpers import resolve_workspace
 
     workspace = resolve_workspace(args.workspace)
     try:
-        report = add_to_workspace(
+        report = hmp.example_add(
             args.example_id,
             workspace=workspace,
             ref=args.ref,

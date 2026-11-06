@@ -26,20 +26,19 @@ from hydromodpy.cli.effective_toml import (
     add_override_arguments,
     cleanup_effective_toml,
     materialize_effective_toml,
+    profile_output_of,
+    toml_target,
 )
 from hydromodpy.cli.helpers import (
     EXIT_CALIBRATION,
     EXIT_CONFIG,
     EXIT_NOT_FOUND,
-    EXIT_SIGINT,
     EXIT_USAGE,
     apply_verbosity,
     exit_if_session_unfinished,
-    profile_arg_from_toml,
     profile_run,
     project_named_by_w,
     refuse,
-    resolve_profile_output,
 )
 from hydromodpy.cli.output import emit
 from hydromodpy.core.exceptions import CalibrationError, ConfigError
@@ -278,12 +277,7 @@ def run(args: argparse.Namespace) -> None:
             EXIT_USAGE,
         )
 
-    target = Path(args.config).expanduser().resolve()
-    if not target.is_file():
-        refuse(f"File not found: {target}", EXIT_NOT_FOUND)
-    if target.suffix != ".toml":
-        refuse(f"Expected a .toml file, got: {target.suffix}", EXIT_CONFIG)
-
+    target = toml_target(args.config)
     with project_named_by_w(getattr(args, "workspace", None)):
         _run_named(args, target)
 
@@ -329,9 +323,6 @@ def _calibrate(
             EXIT_CONFIG,
         )
 
-    profile_arg = getattr(args, "profile", None)
-    if profile_arg is None:
-        profile_arg = profile_arg_from_toml(raw_toml) if raw_toml else None
     if expand:
         _expand_only(args, run_path, shown_as=target.name)
         return
@@ -348,7 +339,7 @@ def _calibrate(
         )
         return
 
-    profile_output = resolve_profile_output(profile_arg, target)
+    profile_output = profile_output_of(args, raw_toml, target)
     try:
         if dry_run:
             plan = hmp.calibration_phases(run_path, check=True)["plan"]
@@ -361,9 +352,6 @@ def _calibrate(
             return
         with profile_run(profile_output, description=f"hmp calibrate {target.name}"):
             result = hmp.calibrate(run_path, phase=args.phase, resume=resume)
-    except KeyboardInterrupt:
-        print("Aborted by user.", file=sys.stderr)
-        sys.exit(EXIT_SIGINT)
     except (ConfigError, ValidationError) as exc:
         refuse(f"Config invalid: {exc}", EXIT_CONFIG, cause=exc)
     except FileNotFoundError as exc:

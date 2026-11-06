@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 
 from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
-from hydromodpy.cli.helpers import apply_verbosity
+from hydromodpy.cli.helpers import project_root_of
 from hydromodpy.cli.output import emit
 from hydromodpy.core.scope import CATCHMENT
-from hydromodpy.core.state.result_dirs import resolve_project_root
 
 NAME: str = "diff"
 HELP: str = "Compare two runs' parameters and metrics"
@@ -96,12 +94,9 @@ def _print_delta(title: str, delta: dict) -> None:
 
 
 def run(args: argparse.Namespace) -> None:
-    apply_verbosity(args, {})
     from hydromodpy.cli._workers.catalog import diff_simulations
 
-    workspace_root = resolve_project_root(
-        Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
-    )
+    workspace_root = project_root_of(args)
     result = diff_simulations(args.ref_a, args.ref_b, workspace=workspace_root)
 
     def table() -> None:

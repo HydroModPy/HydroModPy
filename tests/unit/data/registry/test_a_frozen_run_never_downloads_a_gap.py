@@ -47,7 +47,7 @@ def _record(station: str, start: str, end: str) -> PointRecord:
 @pytest.fixture
 def frozen_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[Path, Path]]:
     """A workspace with one cached chronicle, its lockfile, and frozen mode on."""
-    from hydromodpy.cli._workers.dev import lock_update
+    from hydromodpy.cli._workers.lock import lock_update
 
     monkeypatch.delenv("HMP_WORKSPACE", raising=False)
     workspace = tmp_path / "workspace"
@@ -129,7 +129,7 @@ def test_a_covered_period_is_served_from_the_cache(frozen_project: tuple[Path, P
 
 def _short_station_project(tmp_path: Path, window: tuple[datetime, datetime] | None) -> Path:
     """A workspace whose station B has no value on the last day of the window."""
-    from hydromodpy.cli._workers.dev import lock_update
+    from hydromodpy.cli._workers.lock import lock_update
 
     workspace = tmp_path / "workspace"
     project = workspace / "projects" / "demo"

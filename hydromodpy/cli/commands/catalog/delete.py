@@ -13,9 +13,8 @@ from hydromodpy.cli.conventions import (
     verbosity_parser,
     workspace_parser,
 )
-from hydromodpy.cli.helpers import apply_verbosity, confirm, project_root_of
+from hydromodpy.cli.helpers import confirm, project_root_of
 from hydromodpy.cli.output import emit
-from hydromodpy.core.state.layout import catalog_path_for
 
 NAME: str = "delete"
 HELP: str = "Move a run or a session to the trash (reversible); --now to remove it for good"
@@ -65,9 +64,8 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    apply_verbosity(args, {})
     from hydromodpy.results.catalog.discovery import resolve_rel_dir
-    from hydromodpy.results.trash import list_trash, purge_trashed, trash_run
+    from hydromodpy.results.trash import trash_run
 
     root = project_root_of(args)
     rel_dir = resolve_rel_dir(root, args.sim_ref, site=args.site, unambiguous=True)
@@ -85,14 +83,14 @@ def run(args: argparse.Namespace) -> None:
     confirm(args, f"{verb} {rel_dir}?", doing=verb.lower())
 
     now = datetime.now(UTC)
-    trashed = trash_run(root, rel_dir, now=now, force=args.force)
-    if args.now:
-        entry = next(entry for entry in list_trash(root) if entry.path == trashed)
-        purge_trashed(root, [entry], now=now)
-    if catalog_path_for(root).is_file():
-        from hydromodpy.results.catalog.indexer import index_new_runs
+    from hydromodpy.cli._workers.catalog import reindex_if_indexed, remove_for_good
 
-        index_new_runs(root)
+    if args.now:
+        trashed = remove_for_good(root, rel_dir, now=now, force=args.force)
+    else:
+        trashed = trash_run(root, rel_dir, now=now, force=args.force)
+
+    reindex_if_indexed(root)
 
     def table() -> None:
         if args.now:

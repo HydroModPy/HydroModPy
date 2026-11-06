@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 
 from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
-from hydromodpy.cli.helpers import apply_verbosity, resolve_workspace
+from hydromodpy.cli.helpers import resolve_workspace
 from hydromodpy.cli.output import emit
 
 NAME: str = "list"
@@ -25,7 +25,6 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    apply_verbosity(args, {})
     from hydromodpy.cli._workers.project import list_projects
 
     workspace = resolve_workspace(args.workspace)

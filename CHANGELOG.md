@@ -55,6 +55,7 @@ Work since v2.0.0rc1. The main themes are calibration with a validation window, 
 - The `reporting` layer is gone. The calibration report is `hydromodpy.display.calibration_report` and the campaign summary `hydromodpy.results.export.campaign_summary`. `hmp.compare_pair` now sits beside `Catalog.diff`, and `hydromodpy.analysis.comparison.compare` is now `hydromodpy.analysis.compare`.
 - `hydromodpy.schema.config_schema` replaces `hydromodpy.config.schema_export` and `hydromodpy.schema.export`. The plan of a `[sites]` project moved to `hydromodpy.project.launch.sites`, the check behind `hmp config check` to `hydromodpy.project.check`, the resolution of a `[site]` to `hydromodpy.data.sites.single_site`, `MetricsConfig` to `hydromodpy.results.metric_rule` and `PublicationConfig` to `hydromodpy.results.publication`. No row of the layer matrix cites a row below it any more.
 - `simulation` is flat, the soil reservoir moved to `simulation/soil/` and `OutputAdapter` to `hydromodpy.simulation.post_run`. The data binders of a `Flow` moved to `physics/flow/binders/`, the field-parameter schema to `hydromodpy.core.config_kit.field_param` and the TOML examples of the dynamic flow blocks to `physics/flow/toml_examples.py`. `physics` no longer imports `spatial`, `simulation` no longer imports `data`, and the layer matrix keeps no tolerance for them.
+- Contributors: `-q`, `-v` and `--debug` set the console level once in `cli/main.py`, so a new command no longer calls `apply_verbosity`. `cli/_workers/dev.py` is now `cli/_workers/lock.py`.
 
 ### Removed
 
@@ -78,6 +79,7 @@ Work since v2.0.0rc1. The main themes are calibration with a validation window, 
 - `hmp report compare` writes a `variable` column in `scores.csv` and `by_site.csv`, so two variables scored at one station no longer give two rows that cannot be told apart. `hmp.compare_pair` finds the project from `project.toml`, like `hmp.compare`.
 - A retired root section such as `[modflow]` is refused by its sentence when a mapping is validated directly, as it already was in a TOML file. `hmp config check` no longer lists a `ResourceWarning` among the warnings of a file.
 - The Hub'Eau client no longer lists `HmnJ`, a product the API refuses, and the `product` example shows `HIXnJ`.
+- `hmp dev test` refuses an option it does not take with its `HMPY.E` code first, and sees a `--basetemp` anywhere in `PYTEST_ADDOPTS` instead of adding a second one. An interrupted `hmp run`, `hmp calibrate` or `hmp spinup` prints `Interrupted.` like every other command, still with exit code 130.
 
 ### Security
 

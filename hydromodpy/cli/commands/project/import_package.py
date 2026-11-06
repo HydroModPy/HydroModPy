@@ -18,7 +18,7 @@ from hydromodpy.cli.conventions import (
     verbosity_parser,
     workspace_parser,
 )
-from hydromodpy.cli.helpers import apply_verbosity, resolve_workspace
+from hydromodpy.cli.helpers import resolve_workspace
 from hydromodpy.cli.output import emit
 
 NAME: str = "import"
@@ -50,7 +50,6 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    apply_verbosity(args, {})
     from hydromodpy.project.exchange.install import import_project
     from hydromodpy.results.catalog.indexer import index_new_runs
 

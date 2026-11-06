@@ -6,7 +6,7 @@ import argparse
 import sys
 
 from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
-from hydromodpy.cli.helpers import EXIT_VALIDATION, apply_verbosity
+from hydromodpy.cli.helpers import EXIT_VALIDATION
 from hydromodpy.cli.output import emit
 
 NAME: str = "check"
@@ -30,7 +30,6 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    apply_verbosity(args, {})
     from hydromodpy.cli._workers.data import check_data_cache
 
     result = check_data_cache(args.workspace, variable=args.variable, fix=args.fix)

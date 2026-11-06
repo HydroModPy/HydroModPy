@@ -39,7 +39,6 @@ from hydromodpy.cli.helpers import (
     EXIT_GENERIC,
     EXIT_NOT_FOUND,
     EXIT_USAGE,
-    apply_verbosity,
     exit_code_for,
     project_root_of,
     refuse,
@@ -131,7 +130,6 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    apply_verbosity(args, {})
     if args.verify is not None:
         _verify(args, Path(args.verify))
         return

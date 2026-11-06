@@ -17,7 +17,7 @@ from collections import Counter
 from pathlib import Path
 
 from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
-from hydromodpy.cli.helpers import apply_verbosity, resolve_project_ref
+from hydromodpy.cli.helpers import resolve_project_ref
 from hydromodpy.cli.output import emit
 from hydromodpy.core.state.layout import (
     CATALOG_FILENAME,
@@ -58,7 +58,6 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    apply_verbosity(args, {})
     project_dir = resolve_project_ref(args.workspace, args.project)
     payload = _summary(project_dir)
 

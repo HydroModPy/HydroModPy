@@ -25,7 +25,7 @@ import pytest
 
 from hydromodpy import cli as cli_package
 from hydromodpy.calibration.report import CalibrationReport, CalibrationResult
-from hydromodpy.cli.conventions import FORMAT_CHOICES, OldVerb
+from hydromodpy.cli.conventions import FORMAT_CHOICES
 from hydromodpy.cli.helpers import (
     EXIT_CALIBRATION,
     EXIT_GENERIC,
@@ -43,6 +43,7 @@ from hydromodpy.core.state.layout import data_cache_path_for
 from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 from tests._helpers.cli_runner import CliRunner
 from tests._helpers.sealed_run import RUN_NAME, seal_demo_run
+from tests.unit.cli._tree import leaves
 
 pytestmark = pytest.mark.fast
 
@@ -60,18 +61,7 @@ WRITES_A_DOCUMENT = {
 GONE_FLAGS = {"--json", "--out", "--output", "-o", "--into", "--folder", "--file", "--apply"}
 
 
-def _leaves(parser: argparse.ArgumentParser, words: tuple[str, ...] = ()):
-    if isinstance(parser, OldVerb):
-        return
-    groups = [a for a in parser._actions if isinstance(a, argparse._SubParsersAction)]
-    if not groups:
-        yield " ".join(words), parser
-    for group in groups:
-        for name, child in group.choices.items():
-            yield from _leaves(child, (*words, name))
-
-
-LEAVES = dict(_leaves(_build_parser()))
+LEAVES = {" ".join(words): parser for words, parser in leaves()}
 
 
 def _visible_flags(parser: argparse.ArgumentParser) -> set[str]:
@@ -455,7 +445,7 @@ def test_lock_verify_reports_each_mismatch_and_exits_on_the_validation_code(monk
         "locked_schema": "a",
         "current_schema": "a",
     }
-    monkeypatch.setattr("hydromodpy.cli._workers.dev.lock_verify", lambda *a, **k: result)
+    monkeypatch.setattr("hydromodpy.cli._workers.lock.lock_verify", lambda *a, **k: result)
 
     table = CliRunner().invoke(["lock", "verify"])
 

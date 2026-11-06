@@ -21,16 +21,14 @@ from hydromodpy.cli.conventions import (
     verbosity_parser,
     workspace_parser,
 )
+from hydromodpy.cli.effective_toml import profile_output_of, toml_target
 from hydromodpy.cli.helpers import (
     EXIT_CONFIG,
     EXIT_NOT_FOUND,
-    EXIT_SIGINT,
     apply_verbosity,
-    profile_arg_from_toml,
     profile_run,
     project_named_by_w,
     refuse,
-    resolve_profile_output,
 )
 from hydromodpy.cli.output import emit
 
@@ -65,11 +63,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 def run(args: argparse.Namespace) -> None:
     import hydromodpy as hmp
 
-    target = Path(args.config).expanduser().resolve()
-    if not target.is_file():
-        refuse(f"File not found: {target}", EXIT_NOT_FOUND)
-    if target.suffix != ".toml":
-        refuse(f"Expected a .toml file, got: {target.suffix}", EXIT_CONFIG)
+    target = toml_target(args.config)
 
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
@@ -83,17 +77,11 @@ def run(args: argparse.Namespace) -> None:
         _dry_run(args, target)
         return
 
-    profile_arg = getattr(args, "profile", None)
-    if profile_arg is None:
-        profile_arg = profile_arg_from_toml(raw_toml) if raw_toml else None
-    profile_output = resolve_profile_output(profile_arg, target)
+    profile_output = profile_output_of(args, raw_toml, target)
     try:
         with profile_run(profile_output, description=f"hmp spinup {target.name}"):
             with project_named_by_w(args.workspace):
                 result = hmp.spinup(target, then_run=args.then_run)
-    except KeyboardInterrupt:
-        print("Aborted by user.", file=sys.stderr)
-        sys.exit(EXIT_SIGINT)
     except ValidationError as exc:
         refuse(f"Config invalid: {exc}", EXIT_CONFIG, cause=exc)
     except FileNotFoundError as exc:

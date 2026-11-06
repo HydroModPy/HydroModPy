@@ -17,7 +17,7 @@ import pytest
 
 from hydromodpy.calibration.criteria.series import METRICS, SeriesCriterion
 from hydromodpy.calibration.criteria.series import METRICS as CALIBRATION_METRICS
-from hydromodpy.cli._workers.dev import rank_simulations
+from hydromodpy.cli._workers.catalog import rank_simulations
 from hydromodpy.cli.commands.catalog import rank
 from hydromodpy.cli.helpers import EXIT_VALIDATION, exit_code_for
 from hydromodpy.core.budget.flux import STREAM_CONSTANT_HEAD_BUDGET

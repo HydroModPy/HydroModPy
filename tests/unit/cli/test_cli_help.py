@@ -13,8 +13,8 @@ import pytest
 
 from hydromodpy.cli import banner
 from hydromodpy.cli.commands import ALL_COMMANDS
-from hydromodpy.cli.conventions import OldVerb
 from hydromodpy.cli.main import _build_parser
+from tests.unit.cli._tree import commands
 
 
 def _load_module():
@@ -42,17 +42,7 @@ def test_top_level_help(monkeypatch, capsys) -> None:
         assert cmd in out, f"{cmd} missing from top-level --help"
 
 
-def _commands(parser: argparse.ArgumentParser, words: tuple[str, ...] = ()):
-    if isinstance(parser, OldVerb):
-        return
-    yield words
-    for action in parser._actions:
-        if isinstance(action, argparse._SubParsersAction):
-            for name, child in action.choices.items():
-                yield from _commands(child, (*words, name))
-
-
-@pytest.mark.parametrize("words", list(_commands(_build_parser())), ids=" ".join)
+@pytest.mark.parametrize("words", [words for words, _ in commands()], ids=" ".join)
 def test_each_command_has_a_help(monkeypatch, capsys, words: tuple[str, ...]) -> None:
     assert _run_help(monkeypatch, ["hmp", *words, "--help"]) == 0
     assert "usage" in capsys.readouterr().out.lower()

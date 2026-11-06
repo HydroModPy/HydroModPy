@@ -7,13 +7,12 @@ resolved level before doing any work.
 from __future__ import annotations
 
 import argparse
-import inspect
 
 import pytest
 
-from hydromodpy.cli.conventions import OldVerb
 from hydromodpy.cli.main import _build_parser
 from hydromodpy.core.logging import DEFAULT_VERBOSITY, current_verbosity, set_verbosity
+from tests.unit.cli._tree import leaves
 
 VERBOSITY_OPTIONS = {"--verbosity", "-q", "--quiet", "-v", "--verbose", "--debug"}
 
@@ -33,21 +32,7 @@ WITH_VERBOSITY = (
 )
 
 
-def _leaves(parser: argparse.ArgumentParser, words: tuple[str, ...] = (), handler=None):
-    if isinstance(parser, OldVerb):
-        return
-    handler = parser.get_default("_handler") or handler
-    groups = [a for a in parser._actions if isinstance(a, argparse._SubParsersAction)]
-    if not groups:
-        yield " ".join(words), (parser, handler)
-    for group in groups:
-        for name, child in group.choices.items():
-            yield from _leaves(child, (*words, name), handler)
-
-
-LEAVES = {
-    verb: leaf for verb, leaf in _leaves(_build_parser()) if verb.split()[0] in WITH_VERBOSITY
-}
+LEAVES = {" ".join(words): parser for words, parser in leaves() if words[0] in WITH_VERBOSITY}
 
 
 @pytest.fixture(autouse=True)
@@ -59,13 +44,23 @@ def _restore_verbosity():
 
 
 @pytest.mark.parametrize("verb", sorted(LEAVES))
-def test_a_leaf_offers_the_shorthands_and_applies_the_level(verb: str) -> None:
+def test_a_leaf_offers_the_shorthands(verb: str) -> None:
     """A static check: most of these commands need a workspace or an index to run."""
-    parser, handler = LEAVES[verb]
+    parser = LEAVES[verb]
     opts = {flag for action in parser._actions for flag in action.option_strings}
     assert not VERBOSITY_OPTIONS - opts, f"{verb} is missing {VERBOSITY_OPTIONS - opts}"
-    source = inspect.getsource(inspect.getmodule(handler))
-    assert "apply_verbosity(args" in source, f"hmp {verb} never calls apply_verbosity"
+
+
+def test_the_level_is_applied_before_the_verb_runs(monkeypatch) -> None:
+    """``main`` sets the level of the flag before it calls the handler of any verb."""
+    from tests.unit.cli._hmp import run_hmp
+
+    seen: list[str] = []
+    monkeypatch.setattr(
+        "hydromodpy.cli.commands.viz.list_cmd.run", lambda args: seen.append(current_verbosity())
+    )
+    assert run_hmp(monkeypatch, "viz", "list", "-q") == 0
+    assert seen == ["quiet"]
 
 
 @pytest.mark.parametrize(

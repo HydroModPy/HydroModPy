@@ -493,7 +493,7 @@ def test_frozen_mode_reads_the_lockfile_lock_update_wrote(
     frozen_mode_reset: None,
 ) -> None:
     """The file ``hmp lock update`` wrote is the one frozen mode loads."""
-    from hydromodpy.cli._workers.dev import lock_update
+    from hydromodpy.cli._workers.lock import lock_update
     from hydromodpy.data.provenance.lockfile import project_lockfile_path, set_frozen_mode
     from hydromodpy.data.registry import cache_store
 
@@ -516,7 +516,7 @@ def test_frozen_precheck_accepts_the_lockfile_lock_update_wrote(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """``hmp run --frozen`` resolves the address ``hmp lock update`` writes."""
-    from hydromodpy.cli._workers.dev import lock_update
+    from hydromodpy.cli._workers.lock import lock_update
     from hydromodpy.cli.commands.run import _verify_frozen_inputs_strict
 
     monkeypatch.delenv("HMP_WORKSPACE", raising=False)
@@ -531,7 +531,7 @@ def test_the_lockfile_lock_update_wrote_records_the_schema_versions_of_the_store
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from hydromodpy.cli._workers.dev import lock_update
+    from hydromodpy.cli._workers.lock import lock_update
     from hydromodpy.data.provenance.lockfile import project_lockfile_path
 
     monkeypatch.delenv("HMP_WORKSPACE", raising=False)
@@ -543,19 +543,13 @@ def test_the_lockfile_lock_update_wrote_records_the_schema_versions_of_the_store
     assert meta["parquet_schema_version"] == PARQUET_SCHEMA_VERSION
 
 
-@pytest.mark.parametrize("worker", ["lock_archive", "archive_data_cache"])
 def test_the_archive_of_the_cli_records_the_schema_versions_of_the_stores(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, worker: str
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import importlib
     import tarfile
 
-    module = (
-        "hydromodpy.cli._workers.dev"
-        if worker == "lock_archive"
-        else "hydromodpy.cli._workers.data"
-    )
-    archive_cli = getattr(importlib.import_module(module), worker)
+    from hydromodpy.cli._workers.data import archive_data_cache as archive_cli
+
     monkeypatch.delenv("HMP_WORKSPACE", raising=False)
     workspace, _, _ = _seed_workspace_project(tmp_path)
     archive = tmp_path / "export.tar"
@@ -638,7 +632,7 @@ def test_project_runner_binds_the_project_root_it_runs(
     """
     from types import SimpleNamespace
 
-    from hydromodpy.cli._workers.dev import lock_update
+    from hydromodpy.cli._workers.lock import lock_update
     from hydromodpy.data.provenance.lockfile import frozen_project_root, is_frozen_mode
     from hydromodpy.data.registry import cache_store
     from hydromodpy.project.runner import ProjectRunner
@@ -726,7 +720,7 @@ def test_lock_verify_accepts_an_explicit_lockfile_from_anywhere(
     This is the ``hmp data restore`` then ``hmp lock verify`` path: the
     restored lockfile sits under the workspace, not under a project root.
     """
-    from hydromodpy.cli._workers.dev import lock_update, lock_verify
+    from hydromodpy.cli._workers.lock import lock_update, lock_verify
 
     monkeypatch.delenv("HMP_WORKSPACE", raising=False)
     workspace, project_root, _ = _seed_workspace_project(tmp_path)
@@ -748,7 +742,7 @@ def test_lock_update_and_verify_need_no_project_when_the_file_is_named(
     it describes, so the pair answers from a directory that is no project. The
     cache comes from the workspace above that file.
     """
-    from hydromodpy.cli._workers.dev import lock_update, lock_verify
+    from hydromodpy.cli._workers.lock import lock_update, lock_verify
 
     monkeypatch.delenv("HMP_WORKSPACE", raising=False)
     monkeypatch.delenv("HMP_PROJECT_ROOT", raising=False)
@@ -772,7 +766,7 @@ def test_lock_update_outside_any_workspace_raises_instead_of_exiting(
     ``pytest.raises`` fails on the ``SystemExit`` the CLI-only workspace
     resolver used to raise from inside the worker.
     """
-    from hydromodpy.cli._workers.dev import lock_update
+    from hydromodpy.cli._workers.lock import lock_update
 
     monkeypatch.delenv("HMP_WORKSPACE", raising=False)
     orphan = tmp_path / "orphan"
@@ -791,7 +785,7 @@ def test_the_lockfile_records_the_project_commit(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """``hmp lock update`` writes the commit of the project, not of the cwd."""
-    from hydromodpy.cli._workers.dev import lock_update
+    from hydromodpy.cli._workers.lock import lock_update
     from hydromodpy.data.provenance.lockfile import project_lockfile_path
     from hydromodpy.data.registry import freeze
 
@@ -812,7 +806,7 @@ def test_env_project_root_beats_the_declared_one(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """``HMP_PROJECT_ROOT`` moves the lockfile ``--frozen`` reads, as it moves the config."""
-    from hydromodpy.cli._workers.dev import lock_update
+    from hydromodpy.cli._workers.lock import lock_update
     from hydromodpy.cli.commands.run import _verify_frozen_inputs_strict
     from hydromodpy.data.provenance.lockfile import project_lockfile_path
 
@@ -834,7 +828,7 @@ def test_explicit_project_wins_over_the_lockfile_directory(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """``--project`` names the project even when ``--output`` sits elsewhere."""
-    from hydromodpy.cli._workers.dev import _lock_targets
+    from hydromodpy.cli._workers.lock import _lock_targets
 
     monkeypatch.delenv("HMP_WORKSPACE", raising=False)
     workspace, project_root, _ = _seed_workspace_project(tmp_path)
@@ -856,7 +850,7 @@ def test_data_add_frozen_reads_the_named_project(
 ) -> None:
     """``hmp data add --frozen`` works outside a project once ``--project`` names one."""
     from hydromodpy.cli._workers.data import add_data_entry
-    from hydromodpy.cli._workers.dev import lock_update
+    from hydromodpy.cli._workers.lock import lock_update
 
     monkeypatch.delenv("HMP_WORKSPACE", raising=False)
     monkeypatch.delenv("HMP_PROJECT_ROOT", raising=False)

@@ -10,7 +10,7 @@ from __future__ import annotations
 import argparse
 
 from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
-from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, apply_verbosity, refuse
+from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, refuse
 from hydromodpy.cli.output import emit
 
 NAME: str = "add"
@@ -49,7 +49,6 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    apply_verbosity(args, {})
     from hydromodpy.cli._workers.data import add_data_entry
 
     if not args.variable:

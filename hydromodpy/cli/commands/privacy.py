@@ -54,14 +54,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    sub = getattr(args, "privacy_command", None)
-    if sub == "purge":
-        _cmd_purge(args)
-        return
-    if sub == "verify":
-        _cmd_verify(args)
-        return
-    refuse("Usage: hmp privacy {purge|verify} [options]", EXIT_CONFIG)
+    {"purge": _cmd_purge, "verify": _cmd_verify}[args.privacy_command](args)
 
 
 def _cmd_purge(args: argparse.Namespace) -> None:

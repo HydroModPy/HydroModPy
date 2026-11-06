@@ -17,7 +17,7 @@ import platform
 import sys
 from pathlib import Path
 
-from hydromodpy.cli.helpers import EXIT_USAGE, fail
+from hydromodpy.cli.helpers import EXIT_USAGE, apply_verbosity, fail
 
 
 def _version_string() -> str:
@@ -134,6 +134,8 @@ def _dispatch(argv: list[str] | None) -> None:
     bootstrap_proj()
     with stdout_for_a_program(args):
         try:
+            # The flag, else HMP_VERBOSITY. A TOML verb applies it again with its file.
+            apply_verbosity(args, {})
             handler(args)
         except SystemExit:
             raise

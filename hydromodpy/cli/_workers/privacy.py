@@ -26,14 +26,11 @@ def purge_simulation(
     import json
     from datetime import UTC, datetime
 
-    from hydromodpy.core.state.layout import catalog_path_for
-    from hydromodpy.core.state.result_dirs import resolve_project_root
+    from hydromodpy.cli._workers.catalog import project_root_at
     from hydromodpy.results.catalog.discovery import resolve_rel_dir
-    from hydromodpy.results.trash import identity_of, list_trash, purge_trashed, trash_run
+    from hydromodpy.results.trash import identity_of
 
-    project_root = resolve_project_root(
-        Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
-    )
+    project_root = project_root_at(workspace)
     rel_dir = resolve_rel_dir(project_root, sim_ref, unambiguous=True)
     run_dir = project_root / rel_dir
     snapshot = _purge_collect_snapshot(run_dir, rel_dir)
@@ -43,28 +40,27 @@ def purge_simulation(
     ).hexdigest()
 
     now = datetime.now(UTC)
-    trashed = trash_run(project_root, rel_dir, now=now)
-    entry = next(entry for entry in list_trash(project_root) if entry.path == trashed)
-    purge_trashed(project_root, [entry], now=now)
-    if catalog_path_for(project_root).is_file():
-        from hydromodpy.results.catalog.indexer import index_new_runs
+    from hydromodpy.cli._workers.catalog import reindex_if_indexed, remove_for_good
 
-        index_new_runs(project_root)
+    remove_for_good(project_root, rel_dir, now=now)
+    reindex_if_indexed(project_root)
 
     removed = [str(run_dir)]
+    certificate = {
+        "sim_id": sid,
+        "timestamp_utc": datetime.now(UTC).isoformat(),
+        "operator": _purge_resolve_operator(),
+        "reason": reason,
+        "sha256_snapshot": sha256_snapshot,
+    }
     workspace_top = _purge_resolve_workspace_top(project_root)
-    cert_path = _purge_write_certificate(
-        workspace_top, sim_id=sid, reason=reason, sha256_snapshot=sha256_snapshot
-    )
+    cert_path = _write_private_json(workspace_top, f"{sid}.json", certificate)
     archive_path: Path | None = None
     if archive_pii:
-        archive_path = _purge_write_pii_archive(
+        archive_path = _write_private_json(
             workspace_top,
-            sim_id=sid,
-            snapshot=snapshot,
-            reason=reason,
-            removed_paths=removed,
-            sha256_snapshot=sha256_snapshot,
+            f"{sid}.pii.json",
+            {**certificate, "removed_paths": removed, "snapshot": snapshot},
         )
 
     return {
@@ -155,63 +151,17 @@ def _purge_resolve_operator() -> str:
         return "anonymous"
 
 
-def _purge_write_certificate(
-    workspace_root: Path, *, sim_id: str, reason: str, sha256_snapshot: str
-) -> Path:
+def _write_private_json(workspace_root: Path, name: str, payload: dict[str, object]) -> Path:
+    """Write *payload* under ``.hmp/purge_certificates/`` of the workspace, readable by its owner only."""
     import json
     import os
-    from datetime import UTC, datetime
 
-    cert_dir = workspace_root / ".hmp" / "purge_certificates"
-    cert_dir.mkdir(parents=True, exist_ok=True)
-    cert_path = cert_dir / f"{sim_id}.json"
-    certificate = {
-        "sim_id": sim_id,
-        "timestamp_utc": datetime.now(UTC).isoformat(),
-        "operator": _purge_resolve_operator(),
-        "reason": reason,
-        "sha256_snapshot": sha256_snapshot,
-    }
-    cert_path.write_text(
-        json.dumps(certificate, indent=2, sort_keys=True, default=str), encoding="utf-8"
-    )
+    path = workspace_root / ".hmp" / "purge_certificates" / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True, default=str), encoding="utf-8")
     try:
-        os.chmod(cert_path, 0o600)
+        os.chmod(path, 0o600)
     except OSError:
+        # A file system without POSIX modes; verify reports the permissions it finds.
         pass
-    return cert_path
-
-
-def _purge_write_pii_archive(
-    workspace_root: Path,
-    *,
-    sim_id: str,
-    snapshot: dict[str, object],
-    reason: str,
-    removed_paths: list[str],
-    sha256_snapshot: str,
-) -> Path:
-    import json
-    import os
-    from datetime import UTC, datetime
-
-    cert_dir = workspace_root / ".hmp" / "purge_certificates"
-    cert_dir.mkdir(parents=True, exist_ok=True)
-    archive_path = cert_dir / f"{sim_id}.pii.json"
-    archive = {
-        "sim_id": sim_id,
-        "timestamp_utc": datetime.now(UTC).isoformat(),
-        "operator": _purge_resolve_operator(),
-        "reason": reason,
-        "sha256_snapshot": sha256_snapshot,
-        "removed_paths": removed_paths,
-        "snapshot": snapshot,
-    }
-    archive_path.write_text(
-        json.dumps(archive, indent=2, sort_keys=True, default=str), encoding="utf-8"
-    )
-    try:
-        os.chmod(archive_path, 0o600)
-    except OSError:
-        pass
-    return archive_path
+    return path

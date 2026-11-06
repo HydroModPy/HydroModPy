@@ -14,7 +14,7 @@ from __future__ import annotations
 import argparse
 
 from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, apply_verbosity, project_root_of, refuse
+from hydromodpy.cli.helpers import EXIT_NOT_FOUND, project_root_of, refuse
 from hydromodpy.cli.output import emit
 
 NAME: str = "rank"
@@ -51,8 +51,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    apply_verbosity(args, {})
-    from hydromodpy.cli._workers.dev import rank_simulations
+    from hydromodpy.cli._workers.catalog import rank_simulations
     from hydromodpy.results.catalog.constants import UnrankedMetricError
 
     if args.bottom is not None:
