@@ -50,7 +50,7 @@ def _load_fixture() -> _B0Defaults:
     )
     source_cfg = REPO_ROOT / paths.get(
         "source_transient_config",
-        "examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/base_site_01_mf6_bouss_transient.toml",
+        "examples/projects/12_calibration_network_transient_b0/configs/truth_transient_discharge.toml",
     )
     return _B0Defaults(
         example_root=example_root,

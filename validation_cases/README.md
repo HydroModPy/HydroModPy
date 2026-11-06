@@ -73,7 +73,7 @@ boundary cell, not on the face. A reference must pose its heads there.
 
 ## Running
 
-From the repository root, in the `hmp_dev` environment. PETSc variants need
+From the repository root, in the `hydromodpy-dev` environment. PETSc variants need
 `petsc4py` from conda-forge, on Linux.
 
 One case, with a figure and the printed metrics:

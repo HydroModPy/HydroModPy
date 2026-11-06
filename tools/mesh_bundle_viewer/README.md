@@ -128,8 +128,8 @@ python -m mesh_bundle_viewer
 
 This default command uses:
 
-- `../examples/mesh_viewer/config_example.toml`
-- `../examples/mesh_viewer/sample_bundle/`
+- `../examples/projects/08_mesh_viewer/config_example.toml`
+- `../examples/projects/08_mesh_viewer/sample_bundle/`
 
 Outputs are written into `../outputs/mesh_viewer/`.
 
@@ -138,7 +138,7 @@ Outputs are written into `../outputs/mesh_viewer/`.
 Standard usage:
 
 ```bash
-python -m mesh_bundle_viewer --config examples/mesh_viewer/config_example.toml
+python -m mesh_bundle_viewer --config examples/projects/08_mesh_viewer/config_example.toml
 ```
 
 Available options:
@@ -154,7 +154,7 @@ Minimal Python usage:
 ```python
 from mesh_bundle_viewer.runner.visualization_runner import run_visualization_from_toml
 
-summary = run_visualization_from_toml("examples/mesh_viewer/config_example.toml")
+summary = run_visualization_from_toml("examples/projects/08_mesh_viewer/config_example.toml")
 print(summary["cell_count"])
 ```
 
@@ -245,7 +245,7 @@ To vendor the viewer into another repository, copy at minimum:
 3. one TOML file pointing to that bundle
 
 If you want the zero-argument demo command `python -m mesh_bundle_viewer`
-to work out of the box, also copy one example pack under `examples/mesh_viewer/`.
+to work out of the box, also copy one example pack under `examples/projects/08_mesh_viewer/`.
 
 Typical layout:
 
@@ -271,7 +271,7 @@ project/
 Then run:
 
 ```bash
-python -m mesh_bundle_viewer --config examples/mesh_viewer/mesh_view.toml
+python -m mesh_bundle_viewer --config examples/projects/08_mesh_viewer/config_example.toml
 ```
 
 ## Notes

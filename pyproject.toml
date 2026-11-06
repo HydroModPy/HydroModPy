@@ -203,14 +203,12 @@ hydromodpy = ["py.typed"]
 # and can only promise what the installed version knows about.
 "hydromodpy.examples" = ["catalog.toml"]
 "hydromodpy.data.registry.migrations" = ["*.sql"]
-"hydromodpy.results.catalog.migrations" = ["*.sql"]
 # The register of known issues is read by results/validity_rules.py to label a run.
 "hydromodpy.results" = ["*.toml"]
 # The JSON Schemas of the stored formats, generated from the results models.
 "hydromodpy.schema.results" = ["*.json"]
-# The SLURM job templates of `hmp project array`, read by importlib.resources.
+# The SLURM job templates of `hmp campaign array`, read by importlib.resources.
 "hydromodpy.project.launch.templates" = ["*.sh"]
-"hydromodpy.physics.hydrology.pyhelp" = ["*.FOR"]
 "hydromodpy.spatial.administrative" = ["*.gpkg"]
 "hydromodpy.cli.commands.dev.manage.static" = ["*.html"]
 # The curated CF v85 standard-name list is read at runtime by cf_validation.py.
@@ -233,14 +231,13 @@ source = [
     "hydromodpy.workflow",
     "hydromodpy.project",
     "hydromodpy.cli",
+    "hydromodpy.examples",
 ]
 parallel = true
 omit = [
-    "hydromodpy/**/examples/*",
     "hydromodpy/physics/hydrology/pyhelp/*",
     "hydromodpy/physics/hydrology/pyhelp/**/*",
     "examples/*",
-    "examples_legacy/*",
     "validation_cases/*",
     "hydromodpy_annex/*",
     "docs/*",
@@ -269,11 +266,9 @@ line-length = 100
 extend-exclude = [
     "hydromodpy.egg-info",
     "docs",              # Sphinx conf + doc examples aren't production code
-    "bin",
     ".venv",
     "build",
     "dist",
-    "*.ipynb",           # skip notebooks (stray scratch files like Test_delete.ipynb)
 ]
 
 [tool.ruff.lint]
@@ -355,7 +350,6 @@ known-first-party = ["hydromodpy", "hydromodpy_annex"]
 # when the real import sits under `if TYPE_CHECKING:`.
 runtime-evaluated-base-classes = [
     "pydantic.BaseModel",
-    "pydantic_settings.BaseSettings",
 ]
 
 [tool.ruff.format]
@@ -384,7 +378,6 @@ warn_unused_ignores = true
 plugins = ["pydantic.mypy"]
 exclude = [
     "hydromodpy_annex/",
-    "_archive/",
     "examples/projects/",
     "tests/",
 ]

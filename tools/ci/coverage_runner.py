@@ -2,10 +2,10 @@
 
 Usage: python coverage_runner.py <script_path>
 
-This mirrors the canonical source list from ``pyproject.toml`` but keeps using
+It reads the canonical source list from ``pyproject.toml`` and uses
 ``config_file=False`` + ``include`` to avoid coverage import hooks, which can
 break numpy, dask, rasterio, and other compiled dependencies in script-style
-regression runs.
+regression and validation runs.
 """
 
 from __future__ import annotations

@@ -616,7 +616,7 @@ def _load_last_array_from_store(
         n_timesteps = int(grp["head"].shape[0]) if "head" in grp else 0
     except Exception as exc:
         raise RuntimeError(
-            f"ResultStore query failed for last-timestep '{observable_name}' (sim_id={sim_id})."
+            f"RunStore query failed for last-timestep '{observable_name}' (sim_id={sim_id})."
         ) from exc
     finally:
         if sz is not None:
@@ -631,7 +631,7 @@ def _load_last_array_from_store(
         raw = store.query_field(sim_id, observable_name, n_timesteps - 1)
     except Exception as exc:
         raise RuntimeError(
-            f"ResultStore query failed for last-timestep '{observable_name}' (sim_id={sim_id})."
+            f"RunStore query failed for last-timestep '{observable_name}' (sim_id={sim_id})."
         ) from exc
     values = np.asarray(raw, dtype=float)
     if values.ndim == 2 and values.shape[0] == 1:
@@ -780,8 +780,8 @@ def load_field(
 
     Parameters
     ----------
-    store : ResultStore, optional
-        Open :class:`~hydromodpy.results.store.ResultStore` instance.
+    store : RunStore, optional
+        Open :class:`~hydromodpy.results.storage.run_store.RunStore` instance.
     sim_id : str, optional
         Simulation identifier inside *store*.
     observable_name : str
@@ -861,7 +861,7 @@ def load_field(
         return int(resolved_ts), data
     except Exception as exc:
         raise RuntimeError(
-            f"ResultStore query failed for variable '{observable_name}' (sim_id={sim_id})."
+            f"RunStore query failed for variable '{observable_name}' (sim_id={sim_id})."
         ) from exc
 
 

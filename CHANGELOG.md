@@ -49,6 +49,7 @@ Work since v2.0.0rc1. The main themes are calibration with a validation window, 
   imports one of them from its old path must follow it. The public names of `hydromodpy.__all__` do not move.
 - Example 04 `run_calibration_api_daily.toml` calibrates on 2016-2018 and validates on 2019-2020. The composite example scores its network block on `distance_mean`.
 - The layer matrix of `tests/unit/architecture` no longer grants 20 import edges that no code uses, nor the `calibration -> display` tolerance. Its rows go from the lowest layer to the highest, and a test keeps them so.
+- Contributors: fourteen scripts of `tools/` that nothing called, five of them broken, left the repository. Script coverage runs through one wrapper, `tools/ci/coverage_runner.py`, and now measures `hydromodpy.examples`. The contributor docs name one environment, `hydromodpy-dev`.
 
 ### Removed
 

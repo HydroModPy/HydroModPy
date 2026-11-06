@@ -117,9 +117,9 @@ Even within the trusted-desktop model, we recommend:
 - Treat `<workspace>/.hmp/checkpoints/` and any `*.pkl` produced by
   MODPATH as code: do not unpickle checkpoints obtained from another
   user without inspecting them first.
-- Verify the SHA-256 of solver binaries fetched by
-  `hmp install-binaries` against the published lockfile
-  (`hydromodpy.lock`).
+- `hmp install-binaries` installs only a solver release whose SHA-256 is
+  pinned in the package, and refuses any other bytes. Do not replace a
+  binary in `~/.cache/hydromodpy/bin/` by hand.
 - Pin the HydroModPy version in your project (`pyproject.toml` or
   `requirements.txt`) and review CHANGELOG entries under `### Security`
   before upgrading.

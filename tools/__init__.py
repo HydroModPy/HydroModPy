@@ -1,1 +1,1 @@
-"""Auxiliary standalone tools shipped alongside HydroModPy."""
+"""Standalone tools kept in the repository, not shipped in the wheel."""

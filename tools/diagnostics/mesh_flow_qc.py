@@ -17,16 +17,15 @@ drainage structure on an irregular Voronoi mesh:
       (hypothesis: the fill raises exactly the valley-floor channel cells).
 
 Outputs a JSON metrics file and a self-contained interactive HTML map
-(pan/zoom canvas, in the style of cheze_interactive_mesh.py).
+(pan/zoom canvas).
 
-Example (Cheze 75 m):
-    python tools/diagnostics/mesh_flow_qc.py \
-        examples/projects/19_cheze_reservoir/.solver_scratch/cheze_reservoir_preretenue_75m.v7 \
-        --streams examples/projects/19_cheze_reservoir/simulations/<sim>.parquet/geographic_hydrographic_network_generated.parquet \
-        --raw-dem examples/data/dem/DEM_armorican_massif.tif \
-        --zarr examples/projects/19_cheze_reservoir/simulations/<sim>.zarr.zip \
-        --exclude-corridor examples/data/cutoff_wall/injection_cheze.gpkg \
-        --out /tmp/qc_out
+Example (a 75 m mesh of a run):
+    python tools/diagnostics/mesh_flow_qc.py <mesh_dir> \
+        --streams <generated_hydrographic_network.parquet> \
+        --raw-dem <raw_dem.tif> \
+        --zarr <run_fields.zarr> \
+        --exclude-corridor <corridor.gpkg> \
+        --out <qc_out>
 """
 
 from __future__ import annotations

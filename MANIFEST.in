@@ -13,7 +13,6 @@ global-exclude .DS_Store
 
 # Exclude development and test files
 exclude .gitignore
-exclude .readthedocs.yaml
 recursive-exclude tests *
 recursive-exclude .git *
 recursive-exclude .venv *

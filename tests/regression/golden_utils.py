@@ -989,7 +989,7 @@ def run_example_script(
     # double-load crashes caused by .pth files or "coverage run".
     run_args = [] if script_args is None else list(script_args)
     if os.environ.get("HMP_COVERAGE"):
-        wrapper = Path(__file__).resolve().parent / "coverage_runner.py"
+        wrapper = Path(__file__).resolve().parents[2] / "tools" / "ci" / "coverage_runner.py"
         command = [sys.executable, str(wrapper), str(script_path), *run_args]
     else:
         command = [sys.executable, str(script_path), *run_args]
@@ -1035,7 +1035,7 @@ def run_hmp_cli(
             env[key] = str(value)
 
     if os.environ.get("HMP_COVERAGE"):
-        wrapper = Path(__file__).resolve().parent / "coverage_runner.py"
+        wrapper = Path(__file__).resolve().parents[2] / "tools" / "ci" / "coverage_runner.py"
         command = [
             sys.executable,
             str(wrapper),

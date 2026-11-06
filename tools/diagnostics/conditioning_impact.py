@@ -13,7 +13,7 @@ Standalone (no hydromodpy import); reuses the QC tool's mesh loader.
 
 Example:
     python tools/diagnostics/conditioning_impact.py \
-        --raw-dem examples/data/dem/DEM_cheze_5m.tif --out /tmp/impact \
+        --raw-dem <raw_dem.tif> --out /tmp/impact \
         centroid=.../preretenue_5m.v8 zonal=.../v9 breach=.../v11
 """
 

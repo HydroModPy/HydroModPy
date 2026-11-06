@@ -1,7 +1,7 @@
 """Verify every Annotated Pydantic field in hydromodpy has a Profile tag.
 
-Exits 1 with the list of uncovered fields on stderr. Used in CI to prevent
-drift of the visibility classification introduced in v0.6.
+Exits 1 with the list of uncovered fields on stderr. A unit test runs it in a
+fresh interpreter, so the visibility classification cannot drift.
 
 The audit walks every :class:`HydroModelBase` subclass reachable from the
 registered top-level configs and inspects their ``model_fields``. A field
