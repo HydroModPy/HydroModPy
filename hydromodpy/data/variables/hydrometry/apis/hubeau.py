@@ -22,7 +22,7 @@ from hydromodpy.data.common.clients.hubeau import station_location, station_peri
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     from hydromodpy.data.managers.base_manager_common import SourceContext
     from hydromodpy.data.variables.hydrometry.config import HydrometrySourceConfig
 

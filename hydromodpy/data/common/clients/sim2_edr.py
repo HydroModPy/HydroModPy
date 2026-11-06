@@ -133,7 +133,7 @@ class Sim2EDRClient:
         finally:
             try:
                 Path(tmp_path).unlink(missing_ok=True)
-            except OSError as exc:  # pragma: no cover - platform file locking
+            except OSError as exc:  # Windows keeps a file it has open
                 logger.debug("Could not remove the temporary NetCDF %s: %s", tmp_path, exc)
         return dataset
 

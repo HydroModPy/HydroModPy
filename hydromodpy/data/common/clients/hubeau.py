@@ -15,7 +15,7 @@ from hydromodpy.core.console import progress
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.geo_helpers import haversine_km
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     from hydromodpy.data.contracts.location import StationLocation
 
 logger = get_logger(__name__)

@@ -36,7 +36,7 @@ from hydromodpy.data.source.permanence import (
 )
 from hydromodpy.data.variables.hydrography.apis.features import FeatureSource
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     import geopandas as gpd
 
     from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig

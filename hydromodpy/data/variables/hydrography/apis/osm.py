@@ -23,7 +23,7 @@ from hydromodpy.core.io.http_client import get_default_client
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.variables.hydrography.apis.features import FeatureSource
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     import geopandas as gpd
 
     from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig

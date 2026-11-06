@@ -123,7 +123,8 @@ def fetch_tile(
         "HEIGHT": tile.height,
         "FORMAT": "image/geotiff",
     }
-    for attempt in range(_TILE_ATTEMPTS):
+    unreadable: _UnreadableAnswer | None = None
+    for _ in range(_TILE_ATTEMPTS):
         response = request_with_retries(
             session or default_session(),
             WMS_URL,
@@ -134,9 +135,8 @@ def fetch_tile(
         try:
             return _read_answer(response.content, layer, tile)
         except _UnreadableAnswer as exc:
-            if attempt == _TILE_ATTEMPTS - 1:
-                raise GeoPlateformeDownloadError(str(exc)) from exc
-    raise AssertionError("unreachable")  # pragma: no cover
+            unreadable = exc
+    raise GeoPlateformeDownloadError(str(unreadable)) from unreadable
 
 
 class _UnreadableAnswer(Exception):

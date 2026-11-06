@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.site import SITE_ROW_COLUMNS, SiteRow
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     import geopandas as gpd
 
 StationDiscovery = Callable[..., list[dict]]

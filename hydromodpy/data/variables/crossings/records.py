@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Final
 
 from hydromodpy.data.variables.crossings.config import KINDS
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     import geopandas as gpd
 
 ATTRIBUTES: Final = ("kind", "source", "name", "drop_m")

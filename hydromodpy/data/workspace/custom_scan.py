@@ -158,7 +158,7 @@ def _scan_timeseries_variable(
         except TimeSeriesValidationError as exc:
             report.errors.append((src, str(exc)))
             continue
-        except Exception as exc:  # pragma: no cover - defensive
+        except Exception as exc:
             report.errors.append((src, f"{type(exc).__name__}: {exc}"))
             continue
 

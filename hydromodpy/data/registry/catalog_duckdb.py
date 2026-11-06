@@ -110,6 +110,11 @@ class DataCatalogDuckDB:
         )
 
     @property
+    def db_path(self) -> Path | None:
+        """File of the cache, or ``None`` for an in-memory cache."""
+        return self._db_path
+
+    @property
     def read_only(self) -> bool:
         """Whether this catalog was opened for reading only."""
         return self._read_only

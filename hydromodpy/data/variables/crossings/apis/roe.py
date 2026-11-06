@@ -32,7 +32,7 @@ from hydromodpy.core.exceptions import DataSourceError
 from hydromodpy.data.variables.crossings import records
 from hydromodpy.data.variables.crossings.apis import wfs
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     import geopandas as gpd
 
     from hydromodpy.data.managers.base_manager_common import SourceContext

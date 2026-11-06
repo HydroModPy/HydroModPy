@@ -39,7 +39,7 @@ from hydromodpy.core.exceptions import DataRequestError, DataSourceError
 from hydromodpy.core.io.http_client import get_default_client
 from hydromodpy.core.logging import get_logger
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     import geopandas as gpd
     import requests
 

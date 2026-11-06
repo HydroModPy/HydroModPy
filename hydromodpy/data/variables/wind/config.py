@@ -3,21 +3,18 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated
 
-from pydantic import Field, model_validator
+from pydantic import Field
 
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.tracking import InputFile
 from hydromodpy.data.managers.base_config import BaseVariableConfig
-from hydromodpy.data.managers.timeseries_config import (
-    TimeseriesColumnsMixin,
-    TimeseriesSelectionMixin,
-)
+from hydromodpy.data.managers.timeseries_config import Sim2GridSourceConfig
 
 
-class WindSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
+class WindSourceConfig(Sim2GridSourceConfig):
     """Configuration for one wind-speed data source.
 
     Wind sources load station or gridded wind-speed time series from custom
@@ -25,12 +22,6 @@ class WindSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
     columns, masks, units, and cache refresh behavior.
     """
 
-    source: Annotated[Literal["custom", "sim2"], Profile.USER] = Field(
-        ...,
-        description="Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.",
-    )
-
-    # --- Custom source fields ---
     path: Annotated[
         Path | None,
         Profile.USER,
@@ -40,15 +31,6 @@ class WindSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
         description="Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
         json_schema_extra=field_metadata(site_scoped=True),
     )
-
-    @model_validator(mode="after")
-    def _check_source_requirements(self) -> WindSourceConfig:
-        if self.source == "custom":
-            if self.path is None:
-                raise ValueError(
-                    "Custom source requires 'path' (directory with location + chronicles, or a .nc/.tif file)."
-                )
-        return self
 
 
 class WindConfig(BaseVariableConfig):

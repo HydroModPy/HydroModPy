@@ -1,27 +1,16 @@
-"""Common Pydantic base for point/station time-series variable configs.
+"""Shared Pydantic bases for the configs of point and station time-series variables.
 
-Historically, ~14 variable modules under :mod:`hydromodpy.data.variables`
-(``etp``, ``humidity``, ``temperature``, ``wind``, ``precipitation``,
-``radiation``, ``hydrometry``, ``intermittency``, ``piezometry``,
-``soil_moisture``, ``runoff``, ``recharge``, etc.) declared the same
-handful of columns - ``col_id``, ``col_x``, ``col_y``, ``col_crs``,
-``col_datetime``, ``col_value``, ``default_crs`` - plus ``station_ids``,
-``extent`` and ``force_refresh``. The architecture spec
-(``architecture_cible/02_config_pydantic.md`` §3.4) factors these fields
-out into the mixins below.
-
-Variable-specific configs now only need to declare their extra fields
-(e.g. ``product`` for piezometry, ``components`` for precipitation) and
-inherit the common CSV grammar from these mixins. Sources remain
-discriminated by variable via the existing ``<Variable>SourceConfig`` classes.
+The mixins hold the CSV column names, the station selection and the cache options that
+every chronicle variable declares. ``Sim2GridSourceConfig`` and ``LakeChronicleSourceConfig``
+add the ``source`` field and its check for the variables that differ only by name.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
@@ -122,7 +111,50 @@ class SparseStationFallbackMixin(HydroModelBase):
     )
 
 
+class Sim2GridSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
+    """Source of a variable read from custom files or from SIM2 EDR products.
+
+    A subclass declares ``path``, because the ``InputFile`` role of that field
+    is the name of the variable.
+    """
+
+    source: Annotated[Literal["custom", "sim2"], Profile.USER] = Field(
+        ...,
+        description="Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.",
+    )
+
+    @model_validator(mode="after")
+    def _check_source_requirements(self) -> Self:
+        if self.source == "custom" and self.path is None:
+            raise ValueError(
+                "Custom source requires 'path' (directory with location + chronicles, or a .nc/.tif file)."
+            )
+        return self
+
+
+class LakeChronicleSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
+    """Source of a lake chronicle read from user files, one station per ``lake_id``.
+
+    A subclass declares ``path``, because the ``InputFile`` role of that field
+    is the name of the variable.
+    """
+
+    source: Annotated[Literal["custom"], Profile.USER] = Field(
+        ..., description="Data provider: 'custom' for user files."
+    )
+
+    @model_validator(mode="after")
+    def _check_source_requirements(self) -> Self:
+        if self.source == "custom" and self.path is None:
+            raise ValueError(
+                "Custom source requires 'path' (directory with location + chronicles)."
+            )
+        return self
+
+
 __all__ = [
+    "LakeChronicleSourceConfig",
+    "Sim2GridSourceConfig",
     "SparseStationFallbackMixin",
     "TimeseriesColumnsMixin",
     "TimeseriesSelectionMixin",

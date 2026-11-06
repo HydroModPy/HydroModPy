@@ -24,7 +24,8 @@ import functools
 import random
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import NoReturn, TypeVar
 
@@ -297,3 +298,24 @@ def with_lock_retry(
         return wrapper  # type: ignore[return-value]
 
     return decorator
+
+
+@contextmanager
+def attach_read_only(
+    connection: duckdb.DuckDBPyConnection, db_path: str | Path, alias: str
+) -> Iterator[None]:
+    """ATTACH ``db_path`` read-only under ``alias`` for the block, then DETACH it.
+
+    The alias is detached on exit, even on failure, so the connection stays clean.
+    """
+    if not all(ch.isalnum() or ch == "_" for ch in alias):
+        raise ValueError(f"Invalid attach alias: {alias!r}")
+    path_literal = str(Path(db_path)).replace("'", "''")
+    connection.execute(f"ATTACH '{path_literal}' AS {alias} (READ_ONLY)")
+    try:
+        yield
+    finally:
+        try:
+            connection.execute(f"DETACH {alias}")
+        except duckdb.Error:
+            pass  # the attach is gone with the connection

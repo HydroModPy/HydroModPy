@@ -3,21 +3,18 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated
 
-from pydantic import Field, model_validator
+from pydantic import Field
 
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.tracking import InputFile
 from hydromodpy.data.managers.base_config import BaseVariableConfig
-from hydromodpy.data.managers.timeseries_config import (
-    TimeseriesColumnsMixin,
-    TimeseriesSelectionMixin,
-)
+from hydromodpy.data.managers.timeseries_config import LakeChronicleSourceConfig
 
 
-class LakeLevelsSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
+class LakeLevelsSourceConfig(LakeChronicleSourceConfig):
     """Configuration for one lake-levels data source.
 
     Lake-level sources load observed water-surface elevation time series used
@@ -25,9 +22,6 @@ class LakeLevelsSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
     ``lake_id``.
     """
 
-    source: Annotated[Literal["custom"], Profile.USER] = Field(
-        ..., description="Data provider: 'custom' for user files."
-    )
     path: Annotated[
         Path | None,
         Profile.USER,
@@ -37,14 +31,6 @@ class LakeLevelsSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
         description="Directory containing location file and chronicle CSVs.",
         json_schema_extra=field_metadata(site_scoped=True),
     )
-
-    @model_validator(mode="after")
-    def _check_source_requirements(self) -> LakeLevelsSourceConfig:
-        if self.source == "custom" and self.path is None:
-            raise ValueError(
-                "Custom source requires 'path' (directory with location + chronicles)."
-            )
-        return self
 
 
 class LakeLevelsConfig(BaseVariableConfig):

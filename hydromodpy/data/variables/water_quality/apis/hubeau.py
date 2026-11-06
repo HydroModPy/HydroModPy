@@ -23,7 +23,7 @@ from hydromodpy.data.common.clients.hubeau import keep_nearest
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     from hydromodpy.data.managers.base_manager_common import SourceContext
     from hydromodpy.data.variables.water_quality.config import WaterQualitySourceConfig
 

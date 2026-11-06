@@ -29,7 +29,7 @@ from typing import Any, Protocol, runtime_checkable
 import duckdb
 import pandas as pd
 
-from hydromodpy.core.io.db_retry import HMP_DUCKDB_BLOCK_SIZE, connect_with_retry
+from hydromodpy.core.io.db_retry import HMP_DUCKDB_BLOCK_SIZE, attach_read_only, connect_with_retry
 
 
 @runtime_checkable
@@ -99,12 +99,19 @@ class DuckDBCacheBackend:
     connection and never closes it on the caller's behalf.
     """
 
-    def __init__(self, path: str | Path) -> None:
-        self._path: Path | None = Path(path)
-        self._connection: duckdb.DuckDBPyConnection = connect_with_retry(
-            str(self._path), block_size=HMP_DUCKDB_BLOCK_SIZE
+    def __init__(
+        self,
+        path: str | Path | None,
+        *,
+        connection: duckdb.DuckDBPyConnection | None = None,
+    ) -> None:
+        self._path: Path | None = Path(path) if path is not None else None
+        self._owns_connection = connection is None
+        self._connection: duckdb.DuckDBPyConnection = (
+            connection
+            if connection is not None
+            else connect_with_retry(str(self._path), block_size=HMP_DUCKDB_BLOCK_SIZE)
         )
-        self._owns_connection = True
         self._last_description: list[tuple[str, str]] | None = None
 
     @classmethod
@@ -115,12 +122,7 @@ class DuckDBCacheBackend:
         path: str | Path | None = None,
     ) -> DuckDBCacheBackend:
         """Wrap an existing DuckDB connection without taking ownership."""
-        instance = cls.__new__(cls)
-        instance._connection = connection
-        instance._path = Path(path) if path is not None else None
-        instance._owns_connection = False
-        instance._last_description = None
-        return instance
+        return cls(path, connection=connection)
 
     @property
     def connection(self) -> duckdb.DuckDBPyConnection:
@@ -218,18 +220,8 @@ class DuckDBCacheBackend:
         Mirror of the helper on the catalog-side DuckDB adapter so the
         cache can federate with a project catalog DB for cross-DB joins.
         """
-        if not all(ch.isalnum() or ch == "_" for ch in alias):
-            raise ValueError(f"Invalid attach alias: {alias!r}")
-        path_str = str(Path(db_path))
-        path_literal = path_str.replace("'", "''")
-        self._connection.execute(f"ATTACH '{path_literal}' AS {alias} (READ_ONLY)")
-        try:
+        with attach_read_only(self._connection, db_path, alias):
             yield
-        finally:
-            try:
-                self._connection.execute(f"DETACH {alias}")
-            except Exception:
-                pass
 
     def close(self) -> None:
         if self._owns_connection:

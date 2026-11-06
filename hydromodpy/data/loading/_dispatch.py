@@ -2,7 +2,8 @@
 
 Used by both the user-facing :class:`DataStore` facade (``store.py``) and the
 plan-driven :class:`DataManagersRuntimeLoader` (``loader.py``). Adding a new
-variable means adding one entry to :data:`VARIABLE_SPECS` and nothing else.
+variable means adding one entry to :data:`VARIABLE_SPECS`, then the lists that
+``loading/README.md`` names.
 """
 
 from __future__ import annotations
