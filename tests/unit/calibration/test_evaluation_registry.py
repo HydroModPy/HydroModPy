@@ -10,6 +10,7 @@ import pytest
 from pydantic import ValidationError
 
 import hydromodpy.calibration.runners.cli_runner as cli_runner
+import hydromodpy.calibration.runners.search as search
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.evaluation import TrialOutcome, TrialRequest
 from hydromodpy.calibration.evaluation import registry as evaluation_registry
@@ -17,8 +18,9 @@ from hydromodpy.calibration.evaluation.port import TrialEvaluator, evaluator_mem
 from hydromodpy.calibration.optim import engine
 from hydromodpy.calibration.optim.cache import params_hash
 from hydromodpy.calibration.persistence import CalibrationPersistence
-from hydromodpy.calibration.runners.cli_runner import run_calibration_cli, run_calibration_core
+from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
 from hydromodpy.calibration.runners.pipeline_evaluator import PipelineTrialEvaluator
+from hydromodpy.calibration.runners.search import run_calibration_core
 from hydromodpy.calibration.runners.staged_runner import run_staged_calibration
 from hydromodpy.calibration.runners.state import (
     build_cache_context,
@@ -342,7 +344,7 @@ class TestASearchRunsOnANamedEvaluator:
         def _explode(*args, **kwargs):
             raise AssertionError("prepare_trials was called for a model-free evaluator")
 
-        monkeypatch.setattr(cli_runner, "prepare_trials", _explode)
+        monkeypatch.setattr(search, "prepare_trials", _explode)
 
         document = _document(tmp_path / "calibration.toml", 3)
 
@@ -494,7 +496,7 @@ LAUNCHERS_ALLOWED_TO_RUN_A_PIPELINE_TRIAL = {
     "calibration/runners/pipeline_evaluator.py:evaluate",
     # Not an evaluator: it perturbs the optimum once per parameter to read a
     # Jacobian off it, and it is refused outright when no model was prepared.
-    "calibration/runners/cli_runner.py:evaluate",
+    "calibration/runners/search.py:evaluate",
 }
 
 

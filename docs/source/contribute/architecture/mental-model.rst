@@ -262,7 +262,7 @@ the page of :doc:`packages/index`. For a path through the code, start here.
 
 **A calibration**
 
-1. ``hydromodpy/calibration/runners/cli_runner.py``;
+1. ``hydromodpy/calibration/runners/cli_runner.py`` and ``search.py``;
 2. ``hydromodpy/calibration/optim/engine.py``;
 3. ``hydromodpy/calibration/runners/trial.py``, the prepare-once and
    evaluate-many primitive;

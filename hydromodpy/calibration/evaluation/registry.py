@@ -40,8 +40,9 @@ in-tree one means already holding the context the question is about.
 
 from __future__ import annotations
 
-from hydromodpy.calibration.evaluation.plugin_registry import PluginRegistry
 from hydromodpy.calibration.evaluation.port import evaluator_members
+from hydromodpy.core.exceptions import CalibrationError
+from hydromodpy.core.plugin_registry import PluginRegistry
 
 ENTRY_POINT_GROUP = "hydromodpy.calibration.evaluator"
 """The out-of-tree plugin group. One entry point per evaluator, named on its id."""
@@ -60,7 +61,7 @@ CONSTRUCTION_OPTIONS: tuple[str, ...] = (
 a third party writes its ``__init__`` in: a parameter named outside this tuple is
 never filled, and one that is also required makes the evaluator unbuildable at
 the first calibration that names it. The conformance suite holds an evaluator to
-it, and a gate derived from the source holds ``cli_runner`` to passing exactly
+it, and a gate derived from the source holds ``runners.search`` to passing exactly
 these -- one list, not two.
 
 ``trial_ctx`` is ``None`` for an evaluator that declares no prepared model, and
@@ -97,6 +98,7 @@ _ENGINE = PluginRegistry(
     builtin_paths=_BUILTIN_PATHS,
     members=evaluator_members,
     default_id=DEFAULT_EVALUATOR_ID,
+    error=CalibrationError,
 )
 builtin_evaluator_ids = _ENGINE.builtin_ids
 list_evaluator_ids = _ENGINE.list_ids

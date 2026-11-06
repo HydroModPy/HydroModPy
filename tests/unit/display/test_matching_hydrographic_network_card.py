@@ -1091,7 +1091,7 @@ def test_the_suffixes_the_card_reads_are_the_ones_the_criterion_writes() -> None
 
 
 def test_h_obs_is_read_under_the_key_the_run_verdict_reads() -> None:
-    from hydromodpy.calibration.runners.cli_runner import _eq4_verdict
+    from hydromodpy.calibration.runners.search import _eq4_verdict
     from hydromodpy.display.figures.matching_hydrographic_network_card import H_OBS_KEY
 
     found = {

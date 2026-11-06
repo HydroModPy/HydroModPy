@@ -22,7 +22,8 @@ from hydromodpy.calibration.optim.cost_margin import (
     root_interval,
 )
 from hydromodpy.calibration.preflight import preflight_calibration
-from hydromodpy.calibration.runners.cli_runner import load_toml_calibration, run_calibration_cli
+from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
+from hydromodpy.calibration.runners.document import load_toml_calibration
 from hydromodpy.calibration.runners.staged_runner import _phase_config, phase_summaries
 from hydromodpy.calibration.runners.state import build_cache_context, space_from_config
 from hydromodpy.cli.commands import calibrate as calibrate_cmd

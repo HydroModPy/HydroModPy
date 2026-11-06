@@ -11,7 +11,7 @@ import pytest
 from pydantic import ValidationError
 
 import hydromodpy.calibration.evaluation.forward_registry as forward_registry
-import hydromodpy.calibration.evaluation.plugin_registry as plugin_registry
+import hydromodpy.core.plugin_registry as plugin_registry
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.evaluation import registry as evaluation_registry
 from hydromodpy.calibration.evaluation.forward import (
@@ -420,6 +420,7 @@ class TestThePluginGroup:
             builtin_paths={"ghost": "no_such_module_for_the_registry:Ghost"},
             members=lambda: (),
             default_id="ghost",
+            error=CalibrationError,
         )
 
         with pytest.raises(

@@ -34,8 +34,8 @@ from hydromodpy.calibration.preflight import (
     _check_the_budgets,
     preflight_calibration,
 )
-from hydromodpy.calibration.runners import cli_runner, staged_runner
-from hydromodpy.calibration.runners.cli_runner import load_toml_calibration
+from hydromodpy.calibration.runners import document, search, staged_runner
+from hydromodpy.calibration.runners.document import load_toml_calibration
 from hydromodpy.cli.helpers import EXIT_CONFIG
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.config.config_migration import fix_config_file, migrate_sealed_config_doc
@@ -1882,7 +1882,7 @@ def prepared(monkeypatch) -> list[str]:
         reached.append(Path(cfg_path).name)
         raise _Prepared("the launch reached the preparation of the model")
 
-    for module in (cli_runner, staged_runner):
+    for module in (search, staged_runner):
         monkeypatch.setattr(module, "prepare_trials", _prepare)
     return reached
 
@@ -2193,7 +2193,7 @@ def test_a_file_without_calibration_compares_nothing_and_a_search_without_table_
     monkeypatch,
 ) -> None:
     assert preflight.comparison_lines(SimpleNamespace(), Path("calib.toml")) == []
-    monkeypatch.setattr(cli_runner, "resolve_stream_geometry_paths", lambda *_a: None)
+    monkeypatch.setattr(document, "resolve_stream_geometry_paths", lambda *_a: None)
     monkeypatch.setattr(staged_runner, "objective_comparison_table", lambda *_a: [])
 
     lines = preflight.comparison_lines(

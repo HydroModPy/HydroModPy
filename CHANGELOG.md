@@ -56,6 +56,7 @@ Work since v2.0.0rc1. The main themes are calibration with a validation window, 
 - `hydromodpy.schema.config_schema` replaces `hydromodpy.config.schema_export` and `hydromodpy.schema.export`. The plan of a `[sites]` project moved to `hydromodpy.project.launch.sites`, the check behind `hmp config check` to `hydromodpy.project.check`, the resolution of a `[site]` to `hydromodpy.data.sites.single_site`, `MetricsConfig` to `hydromodpy.results.metric_rule` and `PublicationConfig` to `hydromodpy.results.publication`. No row of the layer matrix cites a row below it any more.
 - `simulation` is flat, the soil reservoir moved to `simulation/soil/` and `OutputAdapter` to `hydromodpy.simulation.post_run`. The data binders of a `Flow` moved to `physics/flow/binders/`, the field-parameter schema to `hydromodpy.core.config_kit.field_param` and the TOML examples of the dynamic flow blocks to `physics/flow/toml_examples.py`. `physics` no longer imports `spatial`, `simulation` no longer imports `data`, and the layer matrix keeps no tolerance for them.
 - Contributors: `-q`, `-v` and `--debug` set the console level once in `cli/main.py`, so a new command no longer calls `apply_verbosity`. `cli/_workers/dev.py` is now `cli/_workers/lock.py`.
+- Contributors: one registry, `hydromodpy.core.plugin_registry`, serves the evaluator, forward-model, terrain and mesh engines. `calibration/runners/cli_runner.py` is split into `document.py`, `session_scope.py` and `search.py`.
 
 ### Removed
 
@@ -80,6 +81,7 @@ Work since v2.0.0rc1. The main themes are calibration with a validation window, 
 - A retired root section such as `[modflow]` is refused by its sentence when a mapping is validated directly, as it already was in a TOML file. `hmp config check` no longer lists a `ResourceWarning` among the warnings of a file.
 - The Hub'Eau client no longer lists `HmnJ`, a product the API refuses, and the `product` example shows `HIXnJ`.
 - `hmp dev test` refuses an option it does not take with its `HMPY.E` code first, and sees a `--basetemp` anywhere in `PYTEST_ADDOPTS` instead of adding a second one. An interrupted `hmp run`, `hmp calibrate` or `hmp spinup` prints `Interrupted.` like every other command, still with exit code 130.
+- A mesh or terrain engine registered by hand can no longer take the id of a built-in engine that is not imported yet. The calibration preflight writes a window bound with its time when it is not at midnight, like the scoring.
 
 ### Security
 

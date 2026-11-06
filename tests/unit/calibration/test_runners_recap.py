@@ -9,7 +9,6 @@ import pytest
 
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.report import load_session_report_data
-from hydromodpy.calibration.runners.cli_runner import open_calibration_session
 from hydromodpy.calibration.runners.recap import (
     cost_metric_label,
     parameter_units,
@@ -20,6 +19,7 @@ from hydromodpy.calibration.runners.recap import (
     staged_result_lines,
     write_methods,
 )
+from hydromodpy.calibration.runners.session_scope import open_calibration_session
 from hydromodpy.calibration.runners.state import space_from_config
 from hydromodpy.display.calibration_report import session_summary
 from hydromodpy.results.storage.contract import SESSION_METHODS_FILENAME

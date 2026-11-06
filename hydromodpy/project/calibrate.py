@@ -37,11 +37,8 @@ def calibrate_a_file(
 ):
     """Run the calibration a TOML file declares. It needs no :class:`Project`."""
     from hydromodpy.calibration.preflight import preflight_launch
-    from hydromodpy.calibration.runners.cli_runner import (
-        describe_dry_run,
-        load_toml_calibration,
-        run_calibration_cli,
-    )
+    from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
+    from hydromodpy.calibration.runners.document import describe_dry_run, load_toml_calibration
     from hydromodpy.calibration.runners.staged_runner import run_staged_calibration
     from hydromodpy.core.exceptions import CalibrationError
     from hydromodpy.project.dispatch.workflow import (
@@ -179,7 +176,7 @@ def _in_memory_runner(
     options: Mapping[str, Any],
 ) -> Callable[[Any], Any]:
     """Return the call that preflights and runs, or plans, a calibration held in memory."""
-    from hydromodpy.calibration.runners.cli_runner import describe_dry_run
+    from hydromodpy.calibration.runners.document import describe_dry_run
     from hydromodpy.calibration.runners.programmatic_runner import (
         run_calibration_programmatic,
     )
@@ -248,10 +245,7 @@ def _calibrate_embedded(
     source = proj._config_path
     if declared and source is not None:
         from hydromodpy.calibration.preflight import preflight_launch
-        from hydromodpy.calibration.runners.cli_runner import (
-            describe_dry_run,
-            load_toml_calibration,
-        )
+        from hydromodpy.calibration.runners.document import describe_dry_run, load_toml_calibration
         from hydromodpy.calibration.runners.staged_runner import run_staged_calibration
 
         if case is not None:

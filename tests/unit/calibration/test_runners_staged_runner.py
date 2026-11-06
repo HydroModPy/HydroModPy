@@ -33,12 +33,14 @@ from hydromodpy.calibration.persistence import CalibrationPersistence, PhaseCont
 from hydromodpy.calibration.preflight import preflight_calibration
 from hydromodpy.calibration.protocols import protocol_record
 from hydromodpy.calibration.report import CalibrationReport
-from hydromodpy.calibration.runners import cli_runner, staged_runner
+from hydromodpy.calibration.runners import document, staged_runner
 from hydromodpy.calibration.runners import promotion as promotion_module
+from hydromodpy.calibration.runners import search as search_module
 from hydromodpy.calibration.runners import trial as trial_module
-from hydromodpy.calibration.runners.cli_runner import _engine_kwargs, load_toml_calibration
+from hydromodpy.calibration.runners.document import load_toml_calibration
 from hydromodpy.calibration.runners.recap import staged_result_lines
 from hydromodpy.calibration.runners.resume import best_parameters_of, reusable_stage
+from hydromodpy.calibration.runners.search import _engine_kwargs
 from hydromodpy.calibration.runners.session import open_session_dir
 from hydromodpy.calibration.runners.staged_runner import (
     _frozen_by,
@@ -2198,7 +2200,7 @@ def _closes_the_first_phase_outside(runner, monkeypatch) -> None:
         extra = {**report.extra, "root_outside_bounds": ROOT_OUTSIDE, "search_status": "partial"}
         return replace(report, extra=extra)
 
-    monkeypatch.setattr(cli_runner, "run_calibration_core", outside_on_the_first_phase)
+    monkeypatch.setattr(search_module, "run_calibration_core", outside_on_the_first_phase)
 
 
 def test_a_root_outside_its_bounds_closes_the_phase_partial_and_freezes_nothing(
@@ -2473,7 +2475,7 @@ def test_a_phase_reused_from_disk_gets_a_note_instead_of_a_recomputed_width(
     # stay empty either way.
     disk_report = _disk_report(tmp_path)
     path = _write_staged(tmp_path, section=LINEARIZED)
-    cfg, _raw = cli_runner.load_toml_calibration(path)
+    cfg, _raw = document.load_toml_calibration(path)
     declared = staged_runner.space_from_config(cfg)
     steady_froze = (
         staged_runner.FrozenParameter(

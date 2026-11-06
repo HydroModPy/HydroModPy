@@ -7,7 +7,6 @@ from pathlib import Path
 
 import geopandas as gpd
 import numpy as np
-from pyproj import Transformer
 from rasterio.features import rasterize
 from rasterio.transform import from_origin
 from shapely.geometry import box
@@ -19,6 +18,7 @@ from hydromodpy.spatial.geographic.core.derived_features import (
     GeographicDerivedFeatures,
 )
 from hydromodpy.spatial.geographic.core.river_network import RiverNetworkProducts
+from hydromodpy.spatial.geographic.dem_metadata import lon_lat_metadata
 from hydromodpy.spatial.geographic.synthetic.topography import build_topography_values
 from hydromodpy.spatial.geographic.synthetic_config import (
     SYNTHETIC_CATCH_DEF,
@@ -66,39 +66,6 @@ def _remove_existing_shapefile(path: Path) -> None:
         candidate = path.with_suffix(suffix)
         if candidate.exists():
             candidate.unlink()
-
-
-def _resolve_lon_lat_metadata(
-    *,
-    crs_project: str,
-    xmin: float,
-    xmax: float,
-    ymin: float,
-    ymax: float,
-    centroid: list[float],
-) -> dict[str, object]:
-    """Project synthetic bounds/centroid to WGS84 for data managers."""
-    transformer = Transformer.from_crs(crs_project, "EPSG:4326", always_xy=True)
-
-    centroid_lon, centroid_lat = transformer.transform(centroid[0], centroid[1])
-    ur_lon, ur_lat = transformer.transform(xmax, ymax)
-    ul_lon, ul_lat = transformer.transform(xmin, ymax)
-    lr_lon, lr_lat = transformer.transform(xmax, ymin)
-    ll_lon, ll_lat = transformer.transform(xmin, ymin)
-
-    centroid_long_lat = (centroid_lon, centroid_lat)
-    centroid_long_lat_greenwich = [centroid_lon, centroid_lat]
-    if centroid_long_lat_greenwich[0] < 0.0:
-        centroid_long_lat_greenwich[0] += 360.0
-
-    return {
-        "centroid_long_lat": centroid_long_lat,
-        "ur_long_lat": (ur_lon, ur_lat),
-        "ul_long_lat": (ul_lon, ul_lat),
-        "lr_long_lat": (lr_lon, lr_lat),
-        "ll_long_lat": (ll_lon, ll_lat),
-        "centroid_long_lat_Greenwich": centroid_long_lat_greenwich,
-    }
 
 
 class SyntheticGeographic:
@@ -185,7 +152,7 @@ class SyntheticGeographic:
             self.xmin + (self.x_pixel * self.dem_res / 2.0),
             self.ymax - (self.y_pixel * self.dem_res / 2.0),
         ]
-        lon_lat_metadata = _resolve_lon_lat_metadata(
+        lon_lat_values = lon_lat_metadata(
             crs_project=self.crs_proj,
             xmin=self.xmin,
             xmax=self.xmax,
@@ -193,12 +160,12 @@ class SyntheticGeographic:
             ymax=self.ymax,
             centroid=self.centroid,
         )
-        self.centroid_long_lat = lon_lat_metadata["centroid_long_lat"]
-        self.ur_long_lat = lon_lat_metadata["ur_long_lat"]
-        self.ul_long_lat = lon_lat_metadata["ul_long_lat"]
-        self.lr_long_lat = lon_lat_metadata["lr_long_lat"]
-        self.ll_long_lat = lon_lat_metadata["ll_long_lat"]
-        self.centroid_long_lat_Greenwich = lon_lat_metadata["centroid_long_lat_Greenwich"]
+        self.centroid_long_lat = lon_lat_values["centroid_long_lat"]
+        self.ur_long_lat = lon_lat_values["ur_long_lat"]
+        self.ul_long_lat = lon_lat_values["ul_long_lat"]
+        self.lr_long_lat = lon_lat_values["lr_long_lat"]
+        self.ll_long_lat = lon_lat_values["ll_long_lat"]
+        self.centroid_long_lat_Greenwich = lon_lat_values["centroid_long_lat_Greenwich"]
 
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self._hydrate_workspace_paths()

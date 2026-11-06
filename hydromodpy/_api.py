@@ -625,10 +625,7 @@ def calibration_phases(
             "plan": None,
         }
     from hydromodpy.calibration.preflight import preflight_launch
-    from hydromodpy.calibration.runners.cli_runner import (
-        describe_dry_run,
-        load_toml_calibration,
-    )
+    from hydromodpy.calibration.runners.document import describe_dry_run, load_toml_calibration
 
     target = Path(config).expanduser().resolve()
     expanded = _expand_calibration_section(target)

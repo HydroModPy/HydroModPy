@@ -24,7 +24,6 @@ from hydromodpy.calibration.runners import promotion as promotion_module
 from hydromodpy.calibration.runners import staged_runner as staged_module
 from hydromodpy.calibration.runners import state as state_module
 from hydromodpy.calibration.runners import trial as trial_module
-from hydromodpy.calibration.runners.cli_runner import promote_and_close
 from hydromodpy.calibration.runners.kept_solves import KeptSolve
 from hydromodpy.calibration.runners.promotion import (
     PromotionOutcome,
@@ -40,6 +39,7 @@ from hydromodpy.calibration.runners.promotion import (
     trials_to_prune,
 )
 from hydromodpy.calibration.runners.session import calibration_case_name
+from hydromodpy.calibration.runners.session_scope import promote_and_close
 from hydromodpy.calibration.runners.trial import TrialContext
 from hydromodpy.core.exceptions import CalibrationError
 from hydromodpy.results.catalog.registration import reserve_version_dirname

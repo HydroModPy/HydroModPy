@@ -90,14 +90,15 @@ hydromodpy/calibration/
                 method_config.py  engine.py  stopping.py  cache.py  progress_reporter.py
                 fosm.py  cost_margin.py  diagnostics.py
     adapters/   one module per search method
-  evaluation/   port.py  forward.py  plugin_registry.py (one engine)  registry.py  forward_registry.py
+  evaluation/   port.py  forward.py  registry.py  forward_registry.py
                 analytic_bowl.py  linear_reservoir.py
   protocols/    base.py  registry.py  boilerplate.py  matching_hydrographic_network.py
   observations/ network_source.py  observed_network.py  network_geometry.py
   metrics/      solver_extract.py  composite.py  observed_pairing.py  observable_scoring.py
                 scalar.py  series.py (observed series by role)  gauge_snap.py
                 downslope_network.py  scored_forward.py
-  runners/      cli_runner.py  staged_runner.py  programmatic_runner.py
+  runners/      cli_runner.py (entry)  document.py (read the TOML)  search.py (one search)
+                session_scope.py (open, close, promote)  staged_runner.py  programmatic_runner.py
                 trial.py  contracts.py  sandbox.py  verdict.py  materialize.py
                 phase_regime.py (steady or transient, as config overrides)
                 pipeline_evaluator.py  promotion.py  recap.py  restarts.py  resume.py
@@ -158,7 +159,7 @@ is read rather than inside the adapter.
    each phase with its own overrides: every check, one report, no solve, and
    an error stops the launch before anything is prepared. `hmp config check`
    prints the same findings.
-3. **Start.** `runners/cli_runner.py` (one search), `staged_runner.py`
+3. **Start.** `runners/cli_runner.py` and `search.py` (one search), `staged_runner.py`
    (phases) or `programmatic_runner.py` (from Python) names the case
    (`runners/session.py`: the stem of the file that carries `[calibration]`,
    unless it writes `[simulation] name` itself), reserves `sessions/<case>/`
@@ -585,7 +586,7 @@ provider of `runners/contracts.py`, which the bootstrap fills.
 
 1. This file.
 2. `__init__.py` for the public surface.
-3. `runners/cli_runner.py`, then `optim/engine.py`.
+3. `runners/search.py`, then `optim/engine.py`.
 4. `runners/trial.py` for the prepare-once and evaluate-many primitive.
 5. One adapter: `optim/adapters/optuna_adapter.py` is the most generic.
 6. One case driven from Python: `validation_cases/calibration/recession_hillslope_aquifer/experiment.py`.
@@ -595,7 +596,7 @@ provider of `runners/contracts.py`, which the bootstrap fills.
 Only these modules, listed under `public` in `calibration_layout.yaml`:
 `hydromodpy.calibration`, `config`, `targets`, `parameter_resolution`,
 `preflight`, `protocols`, `report`, `optim.parameters`,
-`runners.cli_runner`, `runners.staged_runner`,
+`runners.cli_runner`, `runners.document`, `runners.staged_runner`,
 `runners.programmatic_runner`, `runners.contracts`.
 
 A model outside HydroModPy joins through two entry-point groups: an

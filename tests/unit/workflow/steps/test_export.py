@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict
 import hydromodpy.results.exporters.request as request_module
 import hydromodpy.simulation.post_run as post_run_module
 import hydromodpy.workflow.steps.export as export_module
-from hydromodpy.calibration.runners.cli_runner import release_session_scratch
+from hydromodpy.calibration.runners.session_scope import release_session_scratch
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME

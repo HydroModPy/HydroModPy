@@ -810,7 +810,7 @@ def replay_context(
     configuration, its overrides and the values the phase held fixed. A
     restart of a multistart search ran under its own seed, ``seed + restart``.
     """
-    from hydromodpy.calibration.runners.cli_runner import load_toml_calibration, with_its_method
+    from hydromodpy.calibration.runners.document import load_toml_calibration, with_its_method
     from hydromodpy.calibration.runners.staged_runner import replay_phase
     from hydromodpy.calibration.runners.state import override_paths, space_from_config
     from hydromodpy.calibration.runners.trial import prepare_trials

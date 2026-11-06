@@ -75,7 +75,8 @@ def _assert_bounds_valid(trial_ctx: Any, space: ParameterSpace) -> None:
         return
     try:
         Flow(config=base_cfg.flow)
-    except Exception:
+    except Exception as exc:
+        logger.debug("Bounds not probed, the base flow does not build: %s", exc)
         return
     for param in space:
         if param.effective_path is None or not param.effective_path.startswith("flow."):

@@ -1,6 +1,6 @@
-"""One registry engine, used by the evaluator registry and the forward-model registry.
+"""One registry engine, shared by every ``id -> class`` plugin surface.
 
-Both registries resolve ``id -> class`` the same way: an in-tree declaration
+The evaluator, forward-model, terrain-engine and mesh-engine registries resolve ``id -> class`` the same way: an in-tree declaration
 imported on first lookup, then one scan of an entry-point group for the
 out-of-tree surface. Only the noun, the id attribute, the group and the port
 members differ, so they are parameters of :class:`PluginRegistry`.
@@ -13,7 +13,6 @@ import inspect
 from collections.abc import Callable
 from importlib.metadata import entry_points
 
-from hydromodpy.core.exceptions import CalibrationError
 from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -40,6 +39,12 @@ class PluginRegistry:
         Returns the port members a class must carry.
     default_id
         The id a ``None`` name resolves to.
+    error
+        The exception class raised for an unknown id, a class that cannot be loaded and
+        a constructor that cannot be filled.
+    validate
+        Called by :meth:`register` after the member check. It raises ``TypeError`` to
+        refuse a class for a reason the member list cannot express.
     construction_options
         When set, :meth:`create` refuses a required parameter outside it, because
         nothing could fill it. When ``None``, the constructor is called as it is.
@@ -54,6 +59,8 @@ class PluginRegistry:
         builtin_paths: dict[str, str],
         members: Callable[[], tuple[str, ...]],
         default_id: str,
+        error: type[Exception],
+        validate: Callable[[type], None] | None = None,
         construction_options: tuple[str, ...] | None = None,
     ) -> None:
         self.kind = kind
@@ -62,6 +69,8 @@ class PluginRegistry:
         self.builtin_paths = builtin_paths
         self.members = members
         self.default_id = default_id
+        self.error = error
+        self.validate = validate
         self.construction_options = construction_options
         self.classes: dict[str, type] = {}
         self.plugins_loaded = False
@@ -115,6 +124,8 @@ class PluginRegistry:
                 f"{self.kind} port, missing or unusable {', '.join(missing)}. The gap would "
                 "surface after the setup rather than here."
             )
+        if self.validate is not None:
+            self.validate(cls)
         # Both mappings, and two lookups compared against ``None``.
         #
         # The declarations and not only the imported classes, because an in-tree
@@ -145,7 +156,7 @@ class PluginRegistry:
 
         Raises
         ------
-        CalibrationError
+        self.error
             When nothing answers to that name.
         """
         wanted = self.default_id if name is None else name
@@ -161,7 +172,7 @@ class PluginRegistry:
             if cls is not None:
                 return cls
         known = ", ".join(sorted(set(self.classes) | set(self.builtin_paths))) or "none"
-        raise CalibrationError(
+        raise self.error(
             f"No {self.kind} is registered for {wanted!r}. This installation serves {known}. "
             f"A third-party {self.kind} joins that list through the {self.group!r} "
             "entry-point group, without a patch to HydroModPy."
@@ -185,7 +196,7 @@ class PluginRegistry:
 
         Raises
         ------
-        CalibrationError
+        self.error
             From :meth:`get`; or when the constructor takes an argument
             positionally only, which a keyword cannot fill; or, when
             ``construction_options`` is set, a required one nothing serves.
@@ -200,7 +211,7 @@ class PluginRegistry:
             and parameter.default is inspect.Parameter.empty
         ]
         if positional_only:
-            raise CalibrationError(
+            raise self.error(
                 f"{self.kind.capitalize()} {label!r} takes {', '.join(positional_only)} "
                 "positionally only, and it is built from named options. Declare them as "
                 "keyword parameters."
@@ -218,7 +229,7 @@ class PluginRegistry:
                 and parameter_name not in options
             ]
             if unserved:
-                raise CalibrationError(
+                raise self.error(
                     f"{self.kind.capitalize()} {label!r} demands {', '.join(unserved)}, and a "
                     f"{self.kind} is built from {', '.join(self.construction_options)}. What "
                     "it needs beyond those it reads from the configuration it is handed, or "
@@ -325,7 +336,7 @@ class PluginRegistry:
         except Exception as exc:
             # Deliberately every exception and not ``ImportError``: a module that
             # fails at import time fails in whatever way its own imports do.
-            raise CalibrationError(
+            raise self.error(
                 f"{name!r} is declared by this build at {path!r} and cannot be loaded here: "
                 f"{type(exc).__name__}: {exc}. The declaration is right and the installation "
                 "is not, so this is fixed by repairing the environment, not by editing the "

@@ -271,14 +271,14 @@ def test_completed_run_view_indexes_then_reads_the_run_directory(
 
 
 def _phases_loader(monkeypatch: pytest.MonkeyPatch, names: list[str] | Exception) -> None:
-    import hydromodpy.calibration.runners.cli_runner as cli
+    import hydromodpy.calibration.runners.document as document
 
     def load(path: Path) -> tuple[Any, dict]:
         if isinstance(names, Exception):
             raise names
         return SimpleNamespace(phases=[SimpleNamespace(name=n) for n in names]), {}
 
-    monkeypatch.setattr(cli, "load_toml_calibration", load)
+    monkeypatch.setattr(document, "load_toml_calibration", load)
 
 
 def test_declared_phases_are_listed_and_an_unreadable_file_declares_none(

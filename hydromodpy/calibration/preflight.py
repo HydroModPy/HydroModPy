@@ -354,7 +354,7 @@ def comparison_lines(cfg: Any, source: Path) -> list[str]:
     under ``[calibration]``. ``source`` anchors a relative
     ``map.complete`` the same way the run would.
     """
-    from hydromodpy.calibration.runners.cli_runner import (
+    from hydromodpy.calibration.runners.document import (
         declared_window_text,
         resolve_stream_geometry_paths,
     )
@@ -613,7 +613,7 @@ def _check_outputs(calibration: Any, source: Path, project_config: Any) -> list[
         unresolved_minimal_observed_networks,
         unresolved_observed_networks,
     )
-    from hydromodpy.calibration.runners.cli_runner import resolve_stream_geometry_paths
+    from hydromodpy.calibration.runners.document import resolve_stream_geometry_paths
 
     resolve_stream_geometry_paths(calibration, source)
     refused = (
@@ -1678,6 +1678,7 @@ def _check_the_scoring_windows_hold_what_they_score(
     import pandas as pd
 
     from hydromodpy.calibration.metrics.observable_scoring import (
+        bound_text,
         refuse_window_without_dates,
     )
     from hydromodpy.calibration.metrics.observed_pairing import observing_outputs
@@ -1735,8 +1736,8 @@ def _check_the_scoring_windows_hold_what_they_score(
                     PreflightFinding(
                         "error",
                         where,
-                        f"window {_day(start)} to {_day(end)} holds no date of the "
-                        f"run, which runs from {_day(first)} to {_day(last)}. Move the "
+                        f"window {bound_text(start)} to {bound_text(end)} holds no date of the "
+                        f"run, which runs from {bound_text(first)} to {bound_text(last)}. Move the "
                         "window inside the run.",
                     )
                 )
@@ -1748,11 +1749,6 @@ def _check_the_scoring_windows_hold_what_they_score(
         except ValueError as exc:
             findings.append(PreflightFinding("error", where, str(exc)))
     return findings
-
-
-def _day(stamp: Any) -> str:
-    """A window bound as a date, or ``open`` when it is not set."""
-    return "open" if stamp is None else str(stamp)[:10]
 
 
 def _search_edges(

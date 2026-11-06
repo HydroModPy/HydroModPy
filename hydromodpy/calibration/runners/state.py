@@ -21,6 +21,7 @@ from hydromodpy.calibration.optim.parameters import ParameterSpace
 from hydromodpy.core.code_fingerprint import code_fingerprint
 from hydromodpy.core.exceptions import StorageError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.tracking import collect_input_files
 from hydromodpy.results.metric_rule import METRIC_RULE_VERSION
 from hydromodpy.results.session.descriptor import list_session_dirs
 from hydromodpy.results.session.journal import read_trials
@@ -345,10 +346,6 @@ def _map_digest(path: Path) -> str:
 
 def _input_file_fingerprints(config: object) -> list[dict[str, object]]:
     """Return content fingerprints for declared input files and directories."""
-    try:
-        from hydromodpy.core.tracking import collect_input_files
-    except Exception:
-        return []
     if not getattr(type(config), "model_fields", None):
         return []
     project_root = getattr(getattr(config, "workspace", None), "project_root", None)

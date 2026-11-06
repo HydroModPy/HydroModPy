@@ -176,7 +176,7 @@ def refuse_window_without_dates(
             for name, outputs_ in dateless_by_block.items()
         )
         raise ValueError(
-            f"window {_day(start)} to {_day(end)} cannot be applied to {listed}: "
+            f"window {bound_text(start)} to {bound_text(end)} cannot be applied to {listed}: "
             "those outputs are scored on extracted value vectors, which carry no time axis "
             "to cut on. Point them at a loaded record with 'observes', or score on a single "
             "variable."
@@ -223,9 +223,9 @@ def refuse_a_network_state_outside_the_window(
         if periods_in_window([stamp], method="point", start=start, end=end)[0]:
             continue
         raise ValueError(
-            f"window {_day(start)} to {_day(end)} does not hold the network state "
+            f"window {bound_text(start)} to {bound_text(end)} does not hold the network state "
             f"output {name!r} is scored on: time = {time!r} reads the state of "
-            f"{period_label(index, boundaries)}, stamped {_day(stamp)} at the end of its "
+            f"{period_label(index, boundaries)}, stamped {bound_text(stamp)} at the end of its "
             "period. Move the window, or set the output's time to a date inside it."
         )
 
@@ -271,7 +271,7 @@ def naive_utc(value: Any) -> pd.Timestamp | None:
     return stamp
 
 
-def _day(value: Any) -> str:
+def bound_text(value: Any) -> str:
     """Return a window bound as a reader writes it: its date at midnight, else the instant."""
     if value is None:
         return "open"

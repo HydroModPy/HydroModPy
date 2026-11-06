@@ -20,7 +20,7 @@ from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSugges
 from hydromodpy.calibration.optim.parameters import set_by_path
 from hydromodpy.calibration.persistence import CalibrationPersistence
 from hydromodpy.calibration.report import CalibrationReport
-from hydromodpy.calibration.runners import cli_runner, promotion, staged_runner
+from hydromodpy.calibration.runners import promotion, search, staged_runner
 from hydromodpy.calibration.runners.trial import TrialContext
 from hydromodpy.core.runtime.interrupts import TerminationRequested
 from hydromodpy.core.state.run_state import ExecutionRegistry
@@ -192,7 +192,7 @@ def fake_pipeline(monkeypatch, tmp_path):
         )
         return sim_id
 
-    monkeypatch.setattr(cli_runner, "prepare_trials", prepare)
+    monkeypatch.setattr(search, "prepare_trials", prepare)
     monkeypatch.setattr(promotion, "promote_prepared_trial", promote)
     return promoted
 
@@ -235,7 +235,7 @@ class FakeRunner:
     def patch(self, monkeypatch, *, marker: str | None = None) -> None:
         """Fake the solver; with *marker*, fake the fingerprint's raw material too."""
         monkeypatch.setattr(staged_runner, "prepare_trials", self.prepare_trials)
-        monkeypatch.setattr(cli_runner, "run_calibration_core", self.run_calibration_core)
+        monkeypatch.setattr(search, "run_calibration_core", self.run_calibration_core)
         if marker is not None:
             self.marker = marker
             monkeypatch.setattr(

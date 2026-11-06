@@ -18,9 +18,9 @@ from hydromodpy.calibration.optim.fosm import (
     uncertainty_from_covariance,
 )
 from hydromodpy.calibration.report import CalibrationReport
-from hydromodpy.calibration.runners import cli_runner
+from hydromodpy.calibration.runners import search
 from hydromodpy.calibration.runners import trial as _trial
-from hydromodpy.calibration.runners.cli_runner import attach_a_linearized_width
+from hydromodpy.calibration.runners.search import attach_a_linearized_width
 from hydromodpy.core.exceptions import UncertaintyNotAvailableError
 from tests.unit.calibration._factories_runners import bare_trial_ctx
 
@@ -335,7 +335,7 @@ class TestThePassOverAReport:
             def close(self):
                 self.closed = True
 
-        monkeypatch.setattr(cli_runner, "TrialWorkerPool", _Pool)
+        monkeypatch.setattr(search, "TrialWorkerPool", _Pool)
         cfg, retention = self._cfg(), object()
         kwargs = {"space": self._space(), "perturbation": 0.01}
         one_by_one = attach_a_linearized_width(

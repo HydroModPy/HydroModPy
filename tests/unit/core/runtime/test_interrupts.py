@@ -91,7 +91,7 @@ def test_outside_the_main_thread_it_does_nothing_rather_than_failing() -> None:
 
 def test_the_session_scope_installs_it_for_the_whole_run() -> None:
     """The scope, not the search: restarts side by side run the search off the main thread."""
-    from hydromodpy.calibration.runners.cli_runner import SessionScope, closing_session
+    from hydromodpy.calibration.runners.session_scope import SessionScope, closing_session
 
     before = _current_handler()
     with pytest.raises(TerminationRequested):
@@ -105,11 +105,11 @@ def test_a_terminated_session_is_closed_as_aborted() -> None:
     """The status the session scope writes for each signal, read off the scope itself."""
     import inspect
 
-    from hydromodpy.calibration.runners import cli_runner
+    from hydromodpy.calibration.runners import session_scope
 
-    scope = inspect.getsource(cli_runner.closing_session)
+    scope = inspect.getsource(session_scope.closing_session)
     interrupted = scope.split("except KeyboardInterrupt as exc:")[1].split("except")[0]
-    abort = inspect.getsource(cli_runner.abort_session)
+    abort = inspect.getsource(session_scope.abort_session)
 
     assert "TerminationRequested" in interrupted
     assert '"SIGTERM"' in interrupted

@@ -15,7 +15,9 @@ a "where to add what" table. The rules are held by
 ``tests/unit/architecture/calibration_layout.yaml``.
 
 - ``hydromodpy/calibration/runners/`` runs a calibration. ``cli_runner.py`` is the
-  ``hmp run <calibration.toml>`` entry point for one search, ``staged_runner.py`` runs
+  ``hmp run <calibration.toml>`` entry point for one search, ``document.py`` reads the
+  document, ``session_scope.py`` opens and closes the session, ``search.py`` is the
+  ask/tell loop of one search, ``staged_runner.py`` runs
   phases, ``programmatic_runner.py`` serves Python use. ``trial.py`` is the prepare-once,
   evaluate-many primitive, and ``promotion.py`` replays the best trials through the full
   pipeline.
@@ -37,7 +39,7 @@ Recommended reading path
 ------------------------
 
 1. ``hydromodpy/project/dispatch/workflow.py`` (``run_calibration``)
-2. ``hydromodpy/calibration/runners/cli_runner.py``
+2. ``hydromodpy/calibration/runners/cli_runner.py`` and ``search.py``
 3. ``hydromodpy/calibration/optim/engine.py``
 4. ``hydromodpy/calibration/runners/trial.py``
 5. ``hydromodpy/calibration/runners/pipeline_evaluator.py``

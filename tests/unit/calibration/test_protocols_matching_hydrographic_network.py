@@ -45,8 +45,8 @@ from hydromodpy.calibration.protocols.matching_hydrographic_network import (
     TRANSIENT_STAGE,
     _write_hydrograph_output,
 )
-from hydromodpy.calibration.runners.cli_runner import _protocol_of_session
 from hydromodpy.calibration.runners.phase_regime import phase_overrides
+from hydromodpy.calibration.runners.session_scope import _protocol_of_session
 from hydromodpy.calibration.runners.staged_runner import _phase_config
 from hydromodpy.cli.commands import calibrate as calibrate_cmd
 from hydromodpy.config import HydroModPyConfig

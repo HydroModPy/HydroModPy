@@ -400,7 +400,7 @@ def test_python_mode_phases_and_equivalent_toml_pick_the_same_phases(
     file): a launch-level comparison belongs to ``tests/unit/calibration``,
     against the runner itself.
     """
-    from hydromodpy.calibration.runners.cli_runner import load_toml_calibration
+    from hydromodpy.calibration.runners.document import load_toml_calibration
     from hydromodpy.calibration.runners.staged_runner import phase_summaries
     from hydromodpy.project import Project
 
@@ -1018,7 +1018,7 @@ def test_project_calibrate_dry_run_returns_the_plan_of_the_file(
     calls: dict = {}
     _patch_runners(monkeypatch, calls)
     monkeypatch.setattr(
-        "hydromodpy.calibration.runners.cli_runner.describe_dry_run",
+        "hydromodpy.calibration.runners.document.describe_dry_run",
         lambda cfg, path, **kw: {"case": path.stem},
     )
 
@@ -1042,7 +1042,7 @@ def test_project_calibrate_dry_run_in_memory_needs_a_file(
 
     monkeypatch.setattr("hydromodpy.project.calibrate._preflight_in_memory", lambda *a: None)
     monkeypatch.setattr(
-        "hydromodpy.calibration.runners.cli_runner.describe_dry_run", lambda *a, **kw: "plan"
+        "hydromodpy.calibration.runners.document.describe_dry_run", lambda *a, **kw: "plan"
     )
     embedded = SimpleNamespace(
         _cfg=SimpleNamespace(calibration=SimpleNamespace(phases=None)),

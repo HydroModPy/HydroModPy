@@ -100,7 +100,7 @@ class DemMetadata:
         return attrs
 
 
-def _resolve_lon_lat_metadata(
+def lon_lat_metadata(
     *,
     crs_project: str | None,
     centroid: list[float],
@@ -181,7 +181,7 @@ def read_dem_metadata(
 
     lon_lat_attrs: dict[str, object] = {}
     try:
-        lon_lat_attrs = _resolve_lon_lat_metadata(
+        lon_lat_attrs = lon_lat_metadata(
             crs_project=crs_project,
             centroid=centroid,
             xmin=xmin,

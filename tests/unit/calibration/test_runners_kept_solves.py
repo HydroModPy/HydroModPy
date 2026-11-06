@@ -17,7 +17,6 @@ from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSugges
 from hydromodpy.calibration.persistence import CalibrationPersistence
 from hydromodpy.calibration.runners import promotion as promotion_module
 from hydromodpy.calibration.runners import trial as trial_module
-from hydromodpy.calibration.runners.cli_runner import keep_trial_solves, release_trial_solves
 from hydromodpy.calibration.runners.contracts import get_trial_pipeline_provider
 from hydromodpy.calibration.runners.kept_solves import (
     KeptSolve,
@@ -26,6 +25,7 @@ from hydromodpy.calibration.runners.kept_solves import (
     TrialSolveRetention,
     retention_capacity,
 )
+from hydromodpy.calibration.runners.session_scope import keep_trial_solves, release_trial_solves
 from hydromodpy.calibration.runners.trial import (
     TrialContext,
     promote_prepared_trial,

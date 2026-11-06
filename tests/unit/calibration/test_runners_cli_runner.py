@@ -43,32 +43,42 @@ from hydromodpy.calibration.persistence import DEFAULT_PHASE, CalibrationPersist
 from hydromodpy.calibration.preflight import comparison_lines
 from hydromodpy.calibration.protocols import get_protocol, protocol_record
 from hydromodpy.calibration.report import CalibrationReport, promotion_failures
-from hydromodpy.calibration.runners import cli_runner, staged_runner, trial
-from hydromodpy.calibration.runners import cli_runner as runner_module
+from hydromodpy.calibration.runners import (
+    cli_runner,
+    document,
+    search,
+    session_scope,
+    staged_runner,
+    trial,
+)
 from hydromodpy.calibration.runners import promotion as promotion_module
-from hydromodpy.calibration.runners.cli_runner import (
+from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
+from hydromodpy.calibration.runners.document import (
+    describe_dry_run,
+    load_toml_calibration,
+    session_cost_name,
+)
+from hydromodpy.calibration.runners.failure_watch import EveryTrialFailedError
+from hydromodpy.calibration.runners.kept_solves import KeptSolve, TrialSolveRetention
+from hydromodpy.calibration.runners.restarts import RestartSpread
+from hydromodpy.calibration.runners.search import (
     _engine_kwargs,
     _first_trial_pairing,
     _log_parameter_interval,
     _margin_intervals_or_none,
     _network_ratios_extra,
     _r_optim_verdict_extra,
-    abort_session,
     attach_a_linearized_width,
-    describe_dry_run,
-    load_toml_calibration,
     parameter_widths,
-    promote_and_close,
-    refuse_a_phase_another_cost_scored,
-    run_calibration_cli,
     run_calibration_core,
     run_one_search,
-    session_cost_name,
 )
-from hydromodpy.calibration.runners.failure_watch import EveryTrialFailedError
-from hydromodpy.calibration.runners.kept_solves import KeptSolve, TrialSolveRetention
-from hydromodpy.calibration.runners.restarts import RestartSpread
 from hydromodpy.calibration.runners.session import freeze_session_config, search_windows
+from hydromodpy.calibration.runners.session_scope import (
+    abort_session,
+    promote_and_close,
+    refuse_a_phase_another_cost_scored,
+)
 from hydromodpy.calibration.runners.staged_runner import (
     _phase_config,
     phase_summaries,
@@ -562,8 +572,8 @@ def test_restarts_run_on_one_pool_that_the_search_closes(monkeypatch, restarts, 
         seen.append((phase.restart, pool))
         return make_report(best_cost=1.0 + phase.restart, best_parameters={"K": 1e-5})
 
-    monkeypatch.setattr(cli_runner, "TrialWorkerPool", Pool)
-    monkeypatch.setattr(cli_runner, "run_calibration_core", core)
+    monkeypatch.setattr(search, "TrialWorkerPool", Pool)
+    monkeypatch.setattr(search, "run_calibration_core", core)
     uncertainty = (
         {"uncertainty": {"method": "multistart", "restarts": restarts}} if restarts else {}
     )
@@ -903,11 +913,11 @@ class TestARefusalWritesNothing:
         persistence.finalize_session(status="completed", best=None)
         files = [persistence.directory / "session.json", persistence.directory / "outcome.json"]
         before = [path.read_bytes() for path in files]
-        monkeypatch.setattr(cli_runner, "build_cache_context", lambda **_: SCORED_NOW)
-        monkeypatch.setattr(cli_runner, "resolve_override_paths", lambda _cfg: {})
+        monkeypatch.setattr(session_scope, "build_cache_context", lambda **_: SCORED_NOW)
+        monkeypatch.setattr(session_scope, "resolve_override_paths", lambda _cfg: {})
 
         with pytest.raises(CalibrationError, match="does not score the same way"):
-            cli_runner.open_calibration_session(
+            session_scope.open_calibration_session(
                 tmp_path,
                 "calage",
                 resume=True,
@@ -1338,7 +1348,7 @@ class TestCachePreload:
             preloaded_snapshot.update(cache._hits)
             return n
 
-        monkeypatch.setattr(runner_module, "preload_hash_cache", spy)
+        monkeypatch.setattr(search, "preload_hash_cache", spy)
 
         run()
         assert len(preloaded_snapshot) == 5
@@ -1385,7 +1395,8 @@ class TestObjectiveEscapeHatch:
 
 def test_no_default_evaluator_is_exported():
     """The user-facing path must not use the mock."""
-    assert not hasattr(cli_runner, "_default_evaluator")
+    for module in (cli_runner, document, search, session_scope):
+        assert not hasattr(module, "_default_evaluator")
 
 
 class TestConfigOverridePaths:
@@ -1687,7 +1698,7 @@ class TestAnIntervalOfOneTrial:
             reaches_upper_bound=False,
         )
 
-        with caplog.at_level(logging.INFO, logger=runner_module.logger.name):
+        with caplog.at_level(logging.INFO, logger=search.logger.name):
             _log_parameter_interval(interval, None)
 
         assert "no other trial within the cost margin" in caplog.text
@@ -1898,7 +1909,7 @@ class TestObjectiveEntryPointIsNotAMetricName:
         def _never(*args, **kwargs):
             raise AssertionError("prepare_trials must not run for a refused objective")
 
-        monkeypatch.setattr(cli_runner, "prepare_trials", _never)
+        monkeypatch.setattr(search, "prepare_trials", _never)
 
         with pytest.raises(CalibrationError):
             run_calibration_cli(bowl, objective="nse_seasonal_v2")
@@ -2836,7 +2847,7 @@ def test_a_hand_written_report_says_nothing_about_a_protocol() -> None:
 #
 # The legacy ``hydromodpy.calibration.runner`` god-module has been split into:
 #
-# - ``cli_runner``     CLI entry + ``run_calibration_core``.
+# - ``cli_runner``     CLI entry; ``search`` holds ``run_calibration_core``.
 # - ``programmatic_runner``  ``Project.calibrate`` entry.
 # - ``promotion``    promotion of the kept trials to runs.
 # - ``state``      cache preload, fingerprinting.
@@ -2849,7 +2860,8 @@ def test_a_hand_written_report_says_nothing_about_a_protocol() -> None:
 @pytest.mark.parametrize(
     ("module", "names"),
     [
-        ("runners.cli_runner", ["run_calibration_cli", "run_calibration_core"]),
+        ("runners.cli_runner", ["run_calibration_cli"]),
+        ("runners.search", ["run_calibration_core"]),
         ("runners.programmatic_runner", ["run_calibration_programmatic"]),
         (
             "runners.promotion",
@@ -3063,7 +3075,7 @@ def test_a_route_that_never_reads_a_toml_still_anchors_the_network(
     cfg = _in_memory_config("streams.gpkg")
     monkeypatch.chdir(decoy)
     # The cache preload is the first thing the core touches after anchoring.
-    monkeypatch.setattr(cli_runner, "preload_hash_cache", _halt)
+    monkeypatch.setattr(search, "preload_hash_cache", _halt)
     session_dir = project__stream_geometry / "sessions" / "calage"
     session_dir.mkdir(parents=True)
 
@@ -3390,7 +3402,7 @@ def prepared(monkeypatch) -> list[str]:
         reached.append(Path(cfg_path).name)
         return SimpleNamespace(base_cfg=SimpleNamespace(flow=flow))
 
-    for module in (cli_runner, staged_runner):
+    for module in (search, staged_runner):
         monkeypatch.setattr(module, "prepare_trials", _prepare)
     return reached
 
@@ -3421,7 +3433,7 @@ def test_a_single_search_hands_each_step_what_the_one_before_made(
             calls[name] = {"args": args, "kwargs": kwargs}
             return result
 
-        monkeypatch.setattr(cli_runner, name, call)
+        monkeypatch.setattr(search, name, call)
 
     record("promotion_name_check")
     record("resolve_override_paths", {"p": "q"})
@@ -3433,15 +3445,15 @@ def test_a_single_search_hands_each_step_what_the_one_before_made(
     record("_with_linearized_width", widened)
     record("parameter_widths", {"K": "width"})
     record("promote_and_close", "closed")
-    monkeypatch.setattr(cli_runner, "closing_session", lambda scope: nullcontext())
+    monkeypatch.setattr(search, "closing_session", lambda scope: nullcontext())
     monkeypatch.setattr(
-        cli_runner.evaluation_registry,
+        search.evaluation_registry,
         "needs_prepared_model",
         lambda evaluator: evaluator == "model",
     )
     path = tmp_path / "c.toml"
 
-    result = cli_runner.run_single_search(
+    result = search.run_single_search(
         cfg,
         space=space,
         cfg_path=path,
@@ -3488,9 +3500,9 @@ def test_the_answer_of_a_search_is_the_trial_it_names_else_the_best_of_the_journ
     journal_trial(persistence, 2, 0.1, k=2e-4, components={"q.n_paired": 9})
     answered = SimpleNamespace(best_trial=1)
 
-    named, named_scored = cli_runner.answered_best(persistence, answered, DEFAULT_PHASE)
-    lowest, scored = cli_runner.answered_best(persistence, make_report(), DEFAULT_PHASE)
-    nothing, none_scored = cli_runner.answered_best(
+    named, named_scored = session_scope.answered_best(persistence, answered, DEFAULT_PHASE)
+    lowest, scored = session_scope.answered_best(persistence, make_report(), DEFAULT_PHASE)
+    nothing, none_scored = session_scope.answered_best(
         _open(tmp_path, "empty"), make_report(), DEFAULT_PHASE
     )
 
@@ -3909,24 +3921,24 @@ def test_the_calibration_loader_refuses_another_ratio_by_name(tmp_path) -> None:
 )
 def test_two_roots_more_than_half_a_decade_apart_are_warned_about(delta, warned, caplog) -> None:
     with caplog.at_level(logging.WARNING):
-        cli_runner._log_the_two_roots({**ROOTS, "delta_log10": delta})
+        search._log_the_two_roots({**ROOTS, "delta_log10": delta})
 
     assert ("satisfies neither map" in caplog.text) is warned
 
 
 def test_the_two_roots_line_names_the_parameter_and_the_values(caplog) -> None:
     with caplog.at_level(logging.INFO):
-        cli_runner._log_the_two_roots(ROOTS)
+        search._log_the_two_roots(ROOTS)
     assert "returned K = 2.4e-05" in caplog.text
     assert "Delta = 1.82 decade(s)" in caplog.text
     assert "weighted 0.5 / 0.5" in caplog.text
     caplog.clear()
     with caplog.at_level(logging.INFO):
-        cli_runner._log_the_two_roots({**ROOTS, "delta_log10": None, "value": None})
+        search._log_the_two_roots({**ROOTS, "delta_log10": None, "value": None})
     assert "Delta = unknown" in caplog.text and "returned K = not solved" in caplog.text
     caplog.clear()
     with caplog.at_level(logging.WARNING):
-        cli_runner._log_the_two_roots({**ROOTS, "delta_log10": -1.82})
+        search._log_the_two_roots({**ROOTS, "delta_log10": -1.82})
     assert "lie 1.82 decades apart" in caplog.text
 
 
@@ -4010,10 +4022,10 @@ def test_the_mesh_cell_is_the_first_finite_one_a_trial_measured() -> None:
         trial({"net.cell_spacing_m": 30.0}),
         trial({"net.cell_spacing_m": 50.0}),
     ]
-    measured = cli_runner._width_read_off_the_trials(_width(None), results[3], results)
+    measured = search._width_read_off_the_trials(_width(None), results[3], results)
 
-    assert cli_runner._cell_measured_by_the_criterion(results[:3]) is None
-    assert cli_runner._cell_measured_by_the_criterion(results) == 30.0
+    assert search._cell_measured_by_the_criterion(results[:3]) is None
+    assert search._cell_measured_by_the_criterion(results) == 30.0
     assert measured.margin == 30.0
 
 
@@ -4034,7 +4046,7 @@ def test_the_mesh_cell_is_the_first_finite_one_a_trial_measured() -> None:
     ],
 )
 def test_the_r_optim_an_output_reads_follows_its_bounds(found, reads) -> None:
-    assert cli_runner._r_optim_reads("q", found) == reads
+    assert search._r_optim_reads("q", found) == reads
 
 
 def _line_capture(observed):
@@ -4083,10 +4095,10 @@ def test_the_width_of_a_line_fit_is_its_first_order_covariance(monkeypatch, para
     monkeypatch.setattr(
         trial, "run_trial_light", _runs(lambda values: False, scores_before_failing=False)
     )
-    monkeypatch.setattr(cli_runner, "TrialWorkerPool", _InProcessPool)
+    monkeypatch.setattr(search, "TrialWorkerPool", _InProcessPool)
     report = SimpleNamespace(best_parameters=dict(ANSWER), parameter_uncertainty=None)
     with patch.object(
-        cli_runner, "replace", lambda item, **kw: SimpleNamespace(**{**vars(item), **kw})
+        search, "replace", lambda item, **kw: SimpleNamespace(**{**vars(item), **kw})
     ):
         widths = _attach(report, parallel).parameter_uncertainty
 
@@ -4122,9 +4134,9 @@ def test_a_fit_without_freedom_or_without_an_answer_keeps_the_report(
 
 def test_a_document_that_cannot_carry_a_width_keeps_the_report(monkeypatch, caplog) -> None:
     def refuse(**options):
-        raise cli_runner.UncertaintyNotAvailableError("the outputs name no station")
+        raise search.UncertaintyNotAvailableError("the outputs name no station")
 
-    monkeypatch.setattr(cli_runner, "_DerivativeEvaluator", refuse)
+    monkeypatch.setattr(search, "_DerivativeEvaluator", refuse)
     report = SimpleNamespace(best_parameters=dict(ANSWER), parameter_uncertainty=None)
 
     with caplog.at_level(logging.WARNING):
@@ -4138,11 +4150,11 @@ def test_a_document_that_cannot_carry_a_width_keeps_the_report(monkeypatch, capl
     [(None, None), ({"metrics": "x"}, None), ({"metrics": {"window": "w"}}, "w")],
 )
 def test_the_metrics_window_is_read_off_the_document(raw, window) -> None:
-    assert cli_runner._metrics_window_of(raw) == window
+    assert document.metrics_window_of(raw) == window
 
 
 def test_a_search_that_scored_nothing_has_failed() -> None:
-    assert cli_runner.search_status(SimpleNamespace(history=[])) == "failed"
+    assert session_scope.search_status(SimpleNamespace(history=[])) == "failed"
 
 
 def _bisection(**records) -> Mock:
@@ -4168,8 +4180,8 @@ def _bisection(**records) -> Mock:
 def test_a_root_search_records_what_it_proved(records, expected) -> None:
     session = SimpleNamespace(optimizer=_bisection(**records))
 
-    assert cli_runner._root_search_record(session) == expected
-    assert cli_runner._root_search_record(SimpleNamespace(optimizer=object())) is None
+    assert session_scope.root_search_record(session) == expected
+    assert session_scope.root_search_record(SimpleNamespace(optimizer=object())) is None
 
 
 def test_a_search_that_closed_two_roots_says_it_reports_no_interval(caplog) -> None:
@@ -4179,7 +4191,7 @@ def test_a_search_that_closed_two_roots_says_it_reports_no_interval(caplog) -> N
     )
 
     with caplog.at_level("INFO"):
-        assert (cli_runner._closes_two_roots(one), cli_runner._closes_two_roots(two)) == (
+        assert (search._closes_two_roots(one), search._closes_two_roots(two)) == (
             False,
             True,
         )
@@ -4189,7 +4201,7 @@ def test_a_search_that_closed_two_roots_says_it_reports_no_interval(caplog) -> N
 
 def test_the_search_outcome_logs_the_two_roots_it_closed(monkeypatch) -> None:
     seen = []
-    monkeypatch.setattr(cli_runner, "_log_the_two_roots", seen.append)
+    monkeypatch.setattr(search, "_log_the_two_roots", seen.append)
     session = SimpleNamespace(
         optimizer=_bisection(roots_record={"delta_log10": 0.1}),
         stop_state="rule_met",
@@ -4200,7 +4212,7 @@ def test_the_search_outcome_logs_the_two_roots_it_closed(monkeypatch) -> None:
         history=[],
     )
 
-    extra = cli_runner._search_outcome_extra(session)
+    extra = search._search_outcome_extra(session)
 
     assert extra["roots"] == {"delta_log10": 0.1}
     assert seen == [{"delta_log10": 0.1}]
@@ -4219,16 +4231,16 @@ def test_the_scratch_of_a_session_is_kept_on_demand_and_a_failed_cleanup_is_only
             raise OSError("busy")
 
     monkeypatch.setattr(preprocessing_cleanup, "cleanup_stable_folder", cleanup)
-    monkeypatch.setattr(cli_runner, "keep_trial_scratch", lambda: False)
+    monkeypatch.setattr(session_scope, "keep_trial_scratch", lambda: False)
 
     def trial_ctx(write):
         setup = SimpleNamespace(geographic="geo")
         cfg = SimpleNamespace(geographic=SimpleNamespace(write_intermediates=write))
         return SimpleNamespace(ctx=SimpleNamespace(setup=setup), base_cfg=cfg)
 
-    cli_runner.release_session_scratch(trial_ctx(True))
+    session_scope.release_session_scratch(trial_ctx(True))
     with caplog.at_level("WARNING"):
-        cli_runner.release_session_scratch(trial_ctx(False))
+        session_scope.release_session_scratch(trial_ctx(False))
 
     assert calls == [("geo", True), ("geo", False)]
     assert "Could not remove the calibration session scratch" in caplog.text
@@ -4239,7 +4251,7 @@ def test_a_phase_whose_trials_carry_no_block_cost_has_no_fractions() -> None:
     cfg = SimpleNamespace(objective_blocks=blocks)
     done = EvaluationResult(trial_id=1, sim_id=None, cost=1.0, components={})
 
-    assert cli_runner._phase_cost_block_fractions(cfg, [done], done) is None
+    assert search.phase_cost_block_fractions(cfg, [done], done) is None
 
 
 def test_a_default_the_project_refuses_is_reported_with_the_file(monkeypatch, tmp_path) -> None:
@@ -4250,7 +4262,7 @@ def test_a_default_the_project_refuses_is_reported_with_the_file(monkeypatch, tm
     path = tmp_path / "calib.toml"
 
     with pytest.raises(ConfigError, match=f"^{path}: the gauge is unknown"):
-        cli_runner._with_project_defaults({"calibration": {}}, path)
+        document._with_project_defaults({"calibration": {}}, path)
 
 
 def test_a_name_the_project_does_not_carry_stops_the_load_and_any_other_failure_does_not(
@@ -4267,11 +4279,11 @@ def test_a_name_the_project_does_not_carry_stops_the_load_and_any_other_failure_
             raise self.error
 
     cfg = SimpleNamespace(parameters={"K": object()})
-    cli_runner._resolve_parameter_names(SimpleNamespace(parameters={}), tmp_path)
+    document._resolve_parameter_names(SimpleNamespace(parameters={}), tmp_path)
     monkeypatch.setattr(
         root_config_protocol, "get_root_config_provider", lambda: Provider(OSError("no data"))
     )
-    cli_runner._resolve_parameter_names(cfg, tmp_path)
+    document._resolve_parameter_names(cfg, tmp_path)
     monkeypatch.setattr(
         root_config_protocol,
         "get_root_config_provider",
@@ -4279,4 +4291,4 @@ def test_a_name_the_project_does_not_carry_stops_the_load_and_any_other_failure_
     )
 
     with pytest.raises(UnresolvedParameterName, match="no such name"):
-        cli_runner._resolve_parameter_names(cfg, tmp_path)
+        document._resolve_parameter_names(cfg, tmp_path)

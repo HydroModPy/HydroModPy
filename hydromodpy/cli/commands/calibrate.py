@@ -212,7 +212,7 @@ def _print_single_search(target: Path) -> None:
     its index and name.
     """
     from hydromodpy.calibration.preflight import comparison_line
-    from hydromodpy.calibration.runners.cli_runner import (
+    from hydromodpy.calibration.runners.document import (
         declared_window_text,
         load_toml_calibration,
         resolve_stream_geometry_paths,

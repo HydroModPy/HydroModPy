@@ -420,10 +420,8 @@ class TestAWholeSearchRunsOnIt:
         is not deterministic, and for a report that loses the candidate it scored
         -- and it needs no knowledge of what the evaluator computes.
         """
-        from hydromodpy.calibration.runners.cli_runner import (
-            open_calibration_session,
-            run_calibration_core,
-        )
+        from hydromodpy.calibration.runners.search import run_calibration_core
+        from hydromodpy.calibration.runners.session_scope import open_calibration_session
 
         cfg = _config(evaluator=evaluator_id)
         space = _space()
@@ -513,9 +511,7 @@ def test_the_runner_binds_exactly_the_options_the_registry_publishes() -> None:
     :data:`CONSTRUCTION_OPTIONS`. That refusal is only true while the runner
     passes exactly those, so the tuple is compared with the call itself.
     """
-    source = (REPO_ROOT / "hydromodpy/calibration/runners/cli_runner.py").read_text(
-        encoding="utf-8"
-    )
+    source = (REPO_ROOT / "hydromodpy/calibration/runners/search.py").read_text(encoding="utf-8")
     tree = ast.parse(source)
     calls = [
         node

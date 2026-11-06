@@ -22,7 +22,6 @@ from hydromodpy.calibration.runners.resume import (
     trials_another_cost_scored,
 )
 from hydromodpy.calibration.runners.session import search_windows
-from hydromodpy.core import tracking
 
 
 def _write(path: Path, text: str) -> Path:
@@ -144,7 +143,7 @@ def test_input_files_are_fingerprinted_by_kind(monkeypatch, tmp_path) -> None:
         _entry(tmp_path / "dir", "dir"),
         _entry(tmp_path / "gone", "gone"),
     ]
-    monkeypatch.setattr(tracking, "collect_input_files", lambda config, base=None: entries)
+    monkeypatch.setattr(state, "collect_input_files", lambda config, base=None: entries)
 
     found = {item["role"]: item for item in state._input_file_fingerprints(_Config())}
 
@@ -159,7 +158,7 @@ def test_a_configuration_whose_inputs_cannot_be_listed_has_no_fingerprints(monke
     def refuse(config, base=None):
         raise RuntimeError("no inputs")
 
-    monkeypatch.setattr(tracking, "collect_input_files", refuse)
+    monkeypatch.setattr(state, "collect_input_files", refuse)
 
     assert state._input_file_fingerprints(_Config()) == []
     assert state._input_file_fingerprints(object()) == []

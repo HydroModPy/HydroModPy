@@ -69,7 +69,7 @@ def declared_calibration_phases(config_path: str | Path) -> list[str]:
     answer depends on reading the file use :func:`calibration_phases_or_raise`
     instead.
     """
-    from hydromodpy.calibration.runners.cli_runner import load_toml_calibration
+    from hydromodpy.calibration.runners.document import load_toml_calibration
     from hydromodpy.core.exceptions import HydroModPyError
 
     try:
@@ -87,7 +87,7 @@ def calibration_phases_or_raise(config_path: str | Path) -> list[str]:
     the file itself, so a file that fails to validate must be reported as such
     and not as a file declaring no phase.
     """
-    from hydromodpy.calibration.runners.cli_runner import load_toml_calibration
+    from hydromodpy.calibration.runners.document import load_toml_calibration
     from hydromodpy.core.exceptions import ConfigError, HydroModPyError
 
     target = Path(config_path).expanduser().resolve()

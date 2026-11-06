@@ -55,7 +55,7 @@ from hydromodpy.calibration.optim.objective import (
 from hydromodpy.calibration.optim.optimizer import EngineTraits, EvaluationResult, ParamSuggestion
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 from hydromodpy.calibration.persistence import CalibrationPersistence
-from hydromodpy.calibration.runners.cli_runner import _phase_cost_block_fractions
+from hydromodpy.calibration.runners.search import phase_cost_block_fractions
 from hydromodpy.calibration.runners.staged_runner import _reused_phase_cost_block_fractions
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.config.config_migration import fix_config_file, migrate_sealed_config_doc
@@ -1089,7 +1089,7 @@ class TestWhereTheRefusalHappens:
 # :class:`CompositeObjective` already writes, weighted by the same normalized
 # weights the objective used: ``w_i * c_i / sum_j(w_j * c_j)``.
 # ``mean_cost_block_fractions`` averages it over several trials, the way
-# :func:`hydromodpy.calibration.runners.cli_runner._phase_cost_block_fractions`
+# :func:`hydromodpy.calibration.runners.search.phase_cost_block_fractions`
 # averages it over a phase's finished trials.
 
 
@@ -1210,7 +1210,7 @@ def test_the_phase_report_helper_reads_mean_and_best_off_the_history() -> None:
     ]
     best = history[1]
 
-    fractions = _phase_cost_block_fractions(cfg, history, best)
+    fractions = phase_cost_block_fractions(cfg, history, best)
 
     assert fractions["mean_n_trials"] == 2
     assert fractions["mean"] == pytest.approx({"network": 0.4375, "hydrograph": 0.5625})
@@ -1227,7 +1227,7 @@ def test_a_failed_trial_does_not_enter_the_mean() -> None:
     ]
     best = history[0]
 
-    fractions = _phase_cost_block_fractions(cfg, history, best)
+    fractions = phase_cost_block_fractions(cfg, history, best)
 
     assert fractions["mean_n_trials"] == 1
     assert fractions["mean"] == pytest.approx({"network": 0.25, "hydrograph": 0.75})
@@ -1237,7 +1237,7 @@ def test_no_declared_blocks_gives_no_report_entry() -> None:
     cfg = _cfg([])
     history = [_result(1, 0.5, {"whatever.total": 1.0})]
 
-    assert _phase_cost_block_fractions(cfg, history, history[0]) is None
+    assert phase_cost_block_fractions(cfg, history, history[0]) is None
 
 
 def _seed_trials(tmp_path, trials: list[tuple[str, float, dict | None]]) -> CalibrationPersistence:
