@@ -27,7 +27,6 @@ from hydromodpy.solver.boussinesq.runtime_contract import (
     RuntimeSolveResult,
     SteadySolveInputs,
 )
-from hydromodpy.solver.boussinesq.runtimes import petsc_vi_obstacle
 from hydromodpy.solver.boussinesq.runtimes.execution_common import (
     apply_residual_tolerance,
     build_runtime_result,
@@ -38,6 +37,8 @@ from hydromodpy.solver.boussinesq.runtimes.petsc_common import (
     _require_petsc,
     _snes_reason_label,
 )
+from hydromodpy.solver.boussinesq.runtimes.petsc_vi import obstacle
+from hydromodpy.solver.boussinesq.runtimes.petsc_vi import petsc as vi_petsc
 from hydromodpy.solver.boussinesq.runtimes.picard.diagnostics import (
     DRY_THICKNESS_TOL_M,
     MIN_DISTANCE_M,
@@ -176,7 +177,7 @@ def runtime_result_from_raw_assembly(
 ) -> RuntimeSolveResult:
     """Reconstruct an obstacle-aware runtime result from a raw residual assembly."""
     tol_h = obstacle_tolerance(inputs)
-    reacted_assembly, reaction_diagnostics = petsc_vi_obstacle._reconstruct_obstacle_reactions(
+    reacted_assembly, reaction_diagnostics = obstacle.reconstruct_obstacle_reactions(
         mesh=mesh,
         assembly=raw_assembly,
         head_m=head,
@@ -185,7 +186,7 @@ def runtime_result_from_raw_assembly(
         prescribed_mask=prescribed_mask,
         tol_h=tol_h,
     )
-    projected = petsc_vi_obstacle._projected_vi_residual(
+    projected = obstacle.projected_vi_residual(
         residual=np.asarray(raw_assembly.solver_residual, dtype=float),
         head_m=head,
         lower_m=lower,
@@ -360,7 +361,7 @@ def strict_snes_diagnostics(
     """Return SNES diagnostics for the strict PETSc VI obstacle check."""
     reason = int(snes.getConvergedReason())
     tol_h = obstacle_tolerance(inputs)
-    projected = petsc_vi_obstacle._projected_vi_residual(
+    projected = obstacle.projected_vi_residual(
         residual=np.asarray(raw_assembly.solver_residual, dtype=float),
         head_m=head,
         lower_m=lower,
@@ -472,7 +473,7 @@ def solve_strict_vi_obstacle(  # noqa: PLR0915
     snes.setFunction(_residual, residual_template)
     snes.setJacobian(_jacobian, jacobian, jacobian)
     snes.setVariableBounds(lower_vec, upper_vec)
-    petsc_vi_obstacle._configure_vi_snes(
+    vi_petsc.configure_vi_snes(
         PETSc,
         snes,
         tol_residual_inf=float(inputs.options.tol_residual_inf),
@@ -513,7 +514,7 @@ def solve_strict_vi_obstacle(  # noqa: PLR0915
     )
     reason = int(snes.getConvergedReason())
     diagnostics = dict(base_result.diagnostics or {})
-    accepted = petsc_vi_obstacle._accept_failed_snes_by_projected_tolerance(
+    accepted = vi_petsc.accept_failed_snes_by_projected_tolerance(
         converged_reason=reason,
         residual_norm_inf_value=float(base_result.residual_norm_inf),
         tol_residual_inf=float(inputs.options.tol_residual_inf),

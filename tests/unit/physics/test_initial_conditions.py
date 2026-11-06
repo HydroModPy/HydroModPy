@@ -13,7 +13,7 @@ from hydromodpy.physics.flow.initial_conditions import (
     known_ic_types,
     normalize_flow_initial_conditions,
 )
-from hydromodpy.solver.initial_conditions import HEAD_INITIAL_CONDITION_TYPES
+from hydromodpy.solver.base.initial_conditions import HEAD_INITIAL_CONDITION_TYPES
 
 # Every list of accepted initial-condition types has to be the same list.
 #

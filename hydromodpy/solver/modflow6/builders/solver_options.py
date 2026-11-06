@@ -272,7 +272,150 @@ def resolve_xt3d_npf_options(model, solver_mesh=None) -> list[str] | None:
     return ["XT3D"] if xt3d_is_enabled(model, solver_mesh) else None
 
 
+# ATS cuts the step by this factor after a failed solve. Growth is capped at the
+# declared step through dtmax, so no growth is useful; MF6 wants a positive
+# dtadj and 1.0 means "do not grow".
+_ATS_DTADJ = 1.0
+_ATS_DTFAILADJ = 5.0
+
+
+def output_control_records(*, print_head: bool) -> dict[str, list[tuple[str, str]]]:
+    """Return the ``saverecord`` and ``printrecord`` of the flow output control.
+
+    The store holds exactly one slice per stress period. That is the catalog
+    contract (n_timesteps == number of stress periods == len(run.time_index)).
+    A stamp closes its period: the head is the state at the period end, so it
+    is saved at the LAST step, and a flux is the mean over the period, so the
+    budget of EVERY step is saved and printed, and the extractor averages the
+    steps by their length. Sub-stepping (nstp > 1 through
+    simulation.time.substeps_per_period) and ATS refine the transient
+    solution, they do not add output slices. With one step per period, ALL
+    and LAST write the same records.
+    """
+    printrecord = [("BUDGET", "ALL")]
+    if print_head:
+        # Off by default: it re-formats the whole head field as text at every
+        # step. Measured on the Nancon at 25 m, 2.96 GB of listing for 1826
+        # steps, carrying numbers the binary head file already holds.
+        printrecord.insert(0, ("HEAD", "LAST"))
+    return {
+        "saverecord": [("HEAD", "LAST"), ("BUDGET", "ALL")],
+        "printrecord": printrecord,
+    }
+
+
+def build_ats_perioddata(
+    *,
+    perlen: np.ndarray,
+    nstp: np.ndarray,
+    steady: np.ndarray,
+    dtmin_s: float,
+) -> list[tuple[int, float, float, float, float, float]]:
+    """Adaptive time-stepping records for the transient periods.
+
+    Each record is ``(iper, dt0, dtmin, dtmax, dtadj, dtfailadj)``. ``iper`` is
+    0-based here because FloPy adds one when it writes the ATS file; passing a
+    1-based index shifts every record one period late and drops the last one off
+    the end of the simulation.
+
+    A period ATS covers ignores its TDIS NSTP, so ``dt0`` and ``dtmax`` are the
+    step NSTP asked for rather than the whole period. ATS can then only go below
+    it, which is its one useful power: recovering from a solve that failed.
+    Leaving ``dtmax`` at ``perlen`` lets it grow past the requested resolution
+    and collapse the period back to the single step NSTP was raised to avoid.
+
+    Steady periods are left out: they carry no time step to adapt.
+    """
+    declared_steps = np.asarray(perlen, dtype=float) / np.asarray(nstp, dtype=float)
+    return [
+        (
+            index,
+            float(declared_steps[index]),
+            float(dtmin_s),
+            float(declared_steps[index]),
+            _ATS_DTADJ,
+            _ATS_DTFAILADJ,
+        )
+        for index in range(int(declared_steps.size))
+        if not bool(steady[index])
+    ]
+
+
+def newton_options(runtime) -> list[str] | None:
+    """Return MF6 GWF newtonoptions. Catchment cells are convertible, so Newton
+    with under-relaxation is the robust default."""
+    if not runtime.mf6_newton:
+        return None
+    options = ["NEWTON"]
+    if runtime.mf6_newton_under_relaxation:
+        options.append("UNDER_RELAXATION")
+    return options
+
+
+def guard_newton_rewet(runtime, rewet_record) -> None:
+    """Reject NEWTON + REWET: MF6 forbids rewetting under the Newton formulation,
+    which uses continuous upstream weighting."""
+    if runtime.mf6_newton and rewet_record is not None:
+        raise ValueError(
+            "[HMPY.E405] mf6_newton and mf6_enable_rewet are mutually exclusive in "
+            "MODFLOW 6: the Newton formulation uses continuous upstream weighting and "
+            "forbids NPF rewetting. Disable one of them."
+        )
+
+
+def guard_newton_linear_acceleration(runtime) -> None:
+    """Reject CG linear acceleration under Newton: the Newton formulation builds
+    a non-symmetric Jacobian, which the conjugate-gradient solver (symmetric
+    matrices only) cannot solve. BICGSTAB is required."""
+    if runtime.mf6_newton and runtime.mf6_linear_acceleration == "CG":
+        raise ValueError(
+            "[HMPY.E406] mf6_linear_acceleration='CG' is invalid with "
+            "mf6_newton=True: the MODFLOW 6 Newton formulation produces a "
+            "non-symmetric Jacobian that CG cannot solve. Use BICGSTAB, or leave "
+            "mf6_linear_acceleration unset to keep the preset default."
+        )
+
+
+def optional_ims_kwargs(runtime, *, csv_outer_output: str | None = None) -> dict[str, object]:
+    """Return the optional IMS knobs that are set; None values keep flopy presets.
+
+    The reordering method is written only when it is not ``"none"``, so the
+    default IMS file stays the same.
+
+    ``csv_outer_output`` names a CSV file for the per-outer-iteration record
+    (CSV_OUTER_OUTPUT). It lives in the solver folder, which the flow cleanup
+    removes unless ``keep_solver_files`` is set.
+    """
+    kwargs: dict[str, object] = {}
+    if csv_outer_output:
+        kwargs["csv_outer_output_filerecord"] = [str(csv_outer_output)]
+    if getattr(runtime, "mf6_backtracking_number", None) is not None:
+        kwargs["backtracking_number"] = int(runtime.mf6_backtracking_number)
+    if runtime.mf6_inner_rclose is not None:
+        # flopy exposes inner_rclose only through the rcloserecord record
+        # (inner_rclose + rclose_option). The empty option keeps MF6's default
+        # absolute infinity-norm criterion (sln-ims.dfn: no option = infinity).
+        kwargs["rcloserecord"] = [(float(runtime.mf6_inner_rclose), "")]
+    if runtime.mf6_linear_acceleration is not None:
+        kwargs["linear_acceleration"] = runtime.mf6_linear_acceleration
+    if runtime.mf6_preconditioner_levels is not None:
+        kwargs["preconditioner_levels"] = int(runtime.mf6_preconditioner_levels)
+    if runtime.mf6_preconditioner_drop_tolerance is not None:
+        kwargs["preconditioner_drop_tolerance"] = float(runtime.mf6_preconditioner_drop_tolerance)
+    if runtime.mf6_reordering_method != "none":
+        kwargs["reordering_method"] = runtime.mf6_reordering_method
+    if runtime.mf6_under_relaxation is not None:
+        kwargs["under_relaxation"] = runtime.mf6_under_relaxation
+    return kwargs
+
+
 __all__ = [
+    "output_control_records",
+    "build_ats_perioddata",
+    "newton_options",
+    "guard_newton_rewet",
+    "guard_newton_linear_acceleration",
+    "optional_ims_kwargs",
     "k_tensor_is_off_axis",
     "k_tensor_is_tilted",
     "log_xt3d_resolution",

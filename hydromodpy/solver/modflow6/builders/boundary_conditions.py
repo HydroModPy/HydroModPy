@@ -19,11 +19,11 @@ from hydromodpy.physics.flow.boundary_condition_registry import (
     is_boundary_condition_active,
 )
 from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
-from hydromodpy.solver.modflow_common.boundary_roles import write_constant_head_roles
-from hydromodpy.solver.modflow_common.drain_conductance import (
+from hydromodpy.solver.base.drain_conductance import (
     drain_discharge_band,
     hk_fallback_drain_conductance,
 )
+from hydromodpy.solver.modflow_common.boundary_roles import write_constant_head_roles
 from hydromodpy.spatial.mesh.cells.boundary import label_cells, side_cells, stream_cells
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
@@ -486,7 +486,7 @@ def build_drain_stress_period_data(
     ``C = hk * cell_area / drain_bed_thickness_m`` (m2/s), shared with NWT.
     ``drain_bed_thickness_m`` is the clogging-layer thickness (decimeters to a
     meter), not the model layer thickness: see
-    :func:`hydromodpy.solver.modflow_common.drain_conductance.hk_fallback_drain_conductance`.
+    :func:`hydromodpy.solver.base.drain_conductance.hk_fallback_drain_conductance`.
 
     With ``sink_fill=True``, a cell in a closed depression keeps its row and
     gets zero conductance, the same rule the NWT backend applies: the ponded

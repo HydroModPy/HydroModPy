@@ -16,7 +16,7 @@ from hydromodpy.solver.boussinesq.runtime_contract import (
     RuntimeSolveResult,
     SteadySolveInputs,
 )
-from hydromodpy.solver.boussinesq.runtimes import petsc_vi_obstacle
+from hydromodpy.solver.boussinesq.runtimes.petsc_vi import obstacle
 from hydromodpy.solver.boussinesq.runtimes.picard.diagnostics import (
     PicardIterationRecord,
     PicardLschemeOptions,
@@ -91,7 +91,7 @@ def final_cell_rows(
         else result.assembly
     )
     tol_h = 1.0e-9
-    projected = petsc_vi_obstacle._projected_vi_residual(
+    projected = obstacle.projected_vi_residual(
         residual=np.asarray(raw.solver_residual, dtype=float),
         head_m=head,
         lower_m=lower,

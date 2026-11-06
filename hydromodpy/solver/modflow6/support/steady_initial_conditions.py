@@ -15,9 +15,7 @@ from hydromodpy.core.time.steady_initialization import (
     single_period_mean_forcing_time_grid,
 )
 from hydromodpy.physics.flow.time_forcing import compact_pre_resolved_forcings
-from hydromodpy.solver.modflow6.build import mf6_safe_name
-from hydromodpy.solver.modflow_common import ModflowPreprocessOptions, ModflowRunOptions
-from hydromodpy.solver.steady_initial_conditions import (
+from hydromodpy.solver.base.initial_conditions import (
     cycles_have_settled,
     cyclic_flow_copy_for_initialization,
     cyclic_spinup_strategy,
@@ -25,6 +23,8 @@ from hydromodpy.solver.steady_initial_conditions import (
     flow_uses_steady_state_initial_condition,
     steady_flow_copy_for_initialization,
 )
+from hydromodpy.solver.modflow6.support.names import mf6_safe_name
+from hydromodpy.solver.modflow_common import ModflowPreprocessOptions, ModflowRunOptions
 
 logger = get_logger(__name__)
 

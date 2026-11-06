@@ -69,16 +69,6 @@ def saturated_thickness_value(
     return float(np.clip(raw, 0.0, max_thickness))
 
 
-def harmonic_conductivity(
-    conductivity_a_m_s: float,
-    conductivity_b_m_s: float,
-) -> float:
-    """Return the harmonic mean conductivity used in Jacobian edge operators."""
-    if conductivity_a_m_s <= 0.0 or conductivity_b_m_s <= 0.0:
-        return 0.0
-    return 2.0 / ((1.0 / conductivity_a_m_s) + (1.0 / conductivity_b_m_s))
-
-
 def as_cell_vector(
     values: np.ndarray | float | None,
     *,
@@ -129,7 +119,6 @@ __all__ = [
     "as_cell_vector",
     "concatenate_triplets",
     "drainage_diagonal_derivative",
-    "harmonic_conductivity",
     "saturated_thickness_derivative_from_head",
     "saturated_thickness_value",
     "storage_thickness_derivative_from_head",

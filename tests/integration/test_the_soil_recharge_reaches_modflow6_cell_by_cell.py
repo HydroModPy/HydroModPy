@@ -35,7 +35,7 @@ from hydromodpy.physics.flow.binders.climate import apply_etp_load_result_to_flo
 from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig
 from hydromodpy.physics.hydrology.soil_reservoir.config import SoilReservoirConfig
 from hydromodpy.simulation.soil.recharge import compute_soil_forcings
-from hydromodpy.solver.modflow6.builders import (
+from hydromodpy.solver.modflow6.builders.recharge import (
     bind_recharge_from_flow,
     bind_soil_etp_from_flow,
     build_soil_evta_payload,

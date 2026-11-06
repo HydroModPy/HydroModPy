@@ -30,12 +30,12 @@ from hydromodpy.core.exceptions import (
 )
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
-from hydromodpy.solver.base.observable_support import (
+from hydromodpy.solver.base.observables import (
     ObservableSupport,
+    series_observable,
     servable,
     unavailable,
 )
-from hydromodpy.solver.base.observables import series_observable
 from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
 from hydromodpy.solver.boussinesq.calibration_extractors import (
     extract_discharge_history,

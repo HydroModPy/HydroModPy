@@ -30,7 +30,8 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.solver.modflow6.builders import apply_lake_idomain_mask, build_lak_package_args
+from hydromodpy.solver.modflow6.builders.lake import build_lak_package_args
+from hydromodpy.solver.modflow6.builders.lake_cells import apply_lake_idomain_mask
 from hydromodpy.solver.modflow6.support.computational_top import disv_grid_kwargs
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import percent_discrepancies

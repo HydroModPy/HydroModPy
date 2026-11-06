@@ -278,7 +278,7 @@ def _assemble_residual_template(
     )
 
 
-def assemble_transient_residual_generic(
+def assemble_transient_residual(
     mesh: BoussinesqMesh,
     *,
     head_m: np.ndarray,
@@ -309,7 +309,7 @@ def assemble_transient_residual_generic(
     )
 
 
-def assemble_transient_residual_with_saturation_excess_generic(
+def assemble_transient_residual_with_saturation_excess(
     mesh: BoussinesqMesh,
     *,
     head_m: np.ndarray,
@@ -342,7 +342,7 @@ def assemble_transient_residual_with_saturation_excess_generic(
     )
 
 
-def assemble_steady_residual_generic(
+def assemble_steady_residual(
     mesh: BoussinesqMesh,
     *,
     head_m: np.ndarray,
@@ -367,7 +367,7 @@ def assemble_steady_residual_generic(
     )
 
 
-def assemble_steady_residual_with_saturation_excess_generic(
+def assemble_steady_residual_with_saturation_excess(
     mesh: BoussinesqMesh,
     *,
     head_m: np.ndarray,
@@ -396,8 +396,8 @@ def assemble_steady_residual_with_saturation_excess_generic(
 
 __all__ = [
     "assemble_spatial_terms",
-    "assemble_steady_residual_generic",
-    "assemble_steady_residual_with_saturation_excess_generic",
-    "assemble_transient_residual_generic",
-    "assemble_transient_residual_with_saturation_excess_generic",
+    "assemble_steady_residual",
+    "assemble_steady_residual_with_saturation_excess",
+    "assemble_transient_residual",
+    "assemble_transient_residual_with_saturation_excess",
 ]

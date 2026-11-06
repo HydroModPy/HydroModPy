@@ -10,7 +10,7 @@ on:
     paths:
       - ".github/workflows/petsc-smoke.yml"
       - "hydromodpy/solver/boussinesq/**"
-      - "tests/unit/solver/test_boussinesq_*.py"
+      - "tests/unit/solver/boussinesq/**"
       - "tests/unit/validation/test_dupuit_fixed_head_petsc_alias.py"
       - "tests/validation/analytical/steady/test_dupuit_fixed_head_petsc_*.py"
       - "tests/validation/numerical/transient/test_boussinesq_*petsc*.py"
@@ -21,7 +21,7 @@ on:
     paths:
       - ".github/workflows/petsc-smoke.yml"
       - "hydromodpy/solver/boussinesq/**"
-      - "tests/unit/solver/test_boussinesq_*.py"
+      - "tests/unit/solver/boussinesq/**"
       - "tests/unit/validation/test_dupuit_fixed_head_petsc_alias.py"
       - "tests/validation/analytical/steady/test_dupuit_fixed_head_petsc_*.py"
       - "tests/validation/numerical/transient/test_boussinesq_*petsc*.py"

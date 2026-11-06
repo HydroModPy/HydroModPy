@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import re
@@ -15,72 +14,92 @@ import numpy as np
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units import to_modflow6_time_units
 from hydromodpy.physics.flow.regime import normalize_flow_regime
-from hydromodpy.solver.base.protocols import DomainLike
-from hydromodpy.solver.field_property_mapping import (
+from hydromodpy.solver.base.properties import (
     require_positive_conductivity,
     require_positive_storage,
+    resolve_required_flow_properties,
 )
-from hydromodpy.solver.modflow6.builders import (
-    PRIVATE_TRIAL_RECHARGE_KEY,
-    TRIAL_RECHARGE_DIRNAME,
-    apply_lake_idomain_mask,
-    areal_layer_index,
+from hydromodpy.solver.base.protocols import DomainLike
+from hydromodpy.solver.modflow6.builders.boundary_conditions import (
     assemble_constant_head_stress_period_data,
-    bind_recharge_from_flow,
-    bind_soil_etp_from_flow,
     build_drain_stress_period_data,
-    build_drainage_mover_records,
-    build_evt_array_stress_period_data,
-    build_evt_stress_period_data,
+    build_ocean_boundary_chd_spd,
+    build_side_boundary_chd_spd,
+    build_stream_boundary_chd_spd,
+    collapse_identical_periods,
+    is_bc_active,
+    refuse_constant_heads_below_bottom,
+    resolve_drainage_conductance_series,
+)
+from hydromodpy.solver.modflow6.builders.flow_barrier import (
+    check_cutoff_wall_seal,
+    resolve_flow_barrier_hfb_rows,
+)
+from hydromodpy.solver.modflow6.builders.initial_conditions import (
+    build_start_heads,
+    resolve_rewet_npf_options,
+)
+from hydromodpy.solver.modflow6.builders.lake import (
     build_exposed_band_runoff_specs,
     build_lak_package_args,
-    build_mvr_period_records,
-    build_ocean_boundary_chd_spd,
-    build_sfr_mover_records,
-    build_sfr_package_args,
-    build_side_boundary_chd_spd,
-    build_soil_evta_payload,
-    build_start_heads,
-    build_stream_boundary_chd_spd,
-    build_well_stress_period_data,
+)
+from hydromodpy.solver.modflow6.builders.lake_cells import (
+    apply_lake_idomain_mask,
     carve_lake_bed,
-    check_cutoff_wall_seal,
-    collapse_identical_periods,
+    resolve_lake_cells_for_active_lakes,
+    resolve_lake_occupied_layers,
+)
+from hydromodpy.solver.modflow6.builders.lake_outflow import (
+    own_lake_upstream_ifnos,
+    resolve_downstream_spillway_reaches,
+    resolve_spillway_seed_cells,
+)
+from hydromodpy.solver.modflow6.builders.mvr import build_mvr_period_records, mover_package_count
+from hydromodpy.solver.modflow6.builders.period_forcing import sto_period_settings
+from hydromodpy.solver.modflow6.builders.recharge import (
+    PRIVATE_TRIAL_RECHARGE_KEY,
+    TRIAL_RECHARGE_DIRNAME,
+    areal_layer_index,
+    bind_recharge_from_flow,
+    bind_soil_etp_from_flow,
+    build_evt_array_stress_period_data,
+    build_evt_stress_period_data,
+    build_soil_evta_payload,
     empty_recharge_aux,
     evt_list_spd_to_array_payload,
     evt_routing_is_layer0_only,
     externalize_recharge_spd,
     finalize_pending_recharge_evt,
-    is_bc_active,
-    log_xt3d_resolution,
     mask_recharge_on_lake_cells,
-    mover_package_count,
-    own_lake_upstream_ifnos,
     recharge_to_spd,
-    refuse_constant_heads_below_bottom,
-    remove_drain_cells,
     resolve_deferred_heterogeneous_recharge,
     resolve_deferred_soil_etp,
-    resolve_downstream_spillway_reaches,
-    resolve_drainage_conductance_series,
-    resolve_flow_barrier_hfb_rows,
-    resolve_ims_complexity,
-    resolve_lake_cells_for_active_lakes,
-    resolve_lake_occupied_layers,
-    resolve_rewet_npf_options,
-    resolve_sfr_networks,
-    resolve_spillway_seed_cells,
-    resolve_xt3d_npf_options,
-    sfr_drain_cells_to_drop,
-    sfr_routes_drainage,
-    sto_period_settings,
-    xt3d_activation_mode,
 )
 from hydromodpy.solver.modflow6.builders.sfr import (
+    build_drainage_mover_records,
+    build_sfr_mover_records,
+    build_sfr_package_args,
     mover_rows_reach_lake,
+    remove_drain_cells,
+    resolve_sfr_networks,
+    sfr_drain_cells_to_drop,
     sfr_networks_lie_on_the_river_network,
     sfr_networks_walk_the_descent,
+    sfr_routes_drainage,
 )
+from hydromodpy.solver.modflow6.builders.solver_options import (
+    build_ats_perioddata,
+    guard_newton_linear_acceleration,
+    guard_newton_rewet,
+    log_xt3d_resolution,
+    newton_options,
+    optional_ims_kwargs,
+    output_control_records,
+    resolve_ims_complexity,
+    resolve_xt3d_npf_options,
+    xt3d_activation_mode,
+)
+from hydromodpy.solver.modflow6.builders.wells import build_well_stress_period_data
 from hydromodpy.solver.modflow6.support.computational_top import (
     disv_grid_kwargs,
     set_simulation_float_precision,
@@ -89,12 +108,12 @@ from hydromodpy.solver.modflow6.support.computational_top import (
 )
 from hydromodpy.solver.modflow6.support.flopy_header_cache import install_flopy_header_cache
 from hydromodpy.solver.modflow6.support.flopy_structure_warmup import warm_flopy_structure
+from hydromodpy.solver.modflow6.support.names import mf6_output_name
 from hydromodpy.solver.modflow6.support.property_mapping import (
     K_TENSOR_NPF_NAMES,
     k_tensor_npf_kwargs,
     resolve_flow_property_arrays,
     resolve_k33_field,
-    resolve_required_flow_properties,
 )
 from hydromodpy.solver.modflow6.support.time_series import attach_time_series
 from hydromodpy.solver.modflow_common import (
@@ -129,125 +148,21 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-# ATS cuts the step by this factor after a failed solve. Growth is capped at the
-# declared step through dtmax, so no growth is useful; MF6 wants a positive
-# dtadj and 1.0 means "do not grow".
-_ATS_DTADJ = 1.0
-_ATS_DTFAILADJ = 5.0
+def _write_sidecar(model, suffix: str, payload: Mapping[str, object]) -> None:
+    """Write ``{model_output_name}{suffix}`` next to the solver files, for the extractor.
 
-
-def output_control_records(*, print_head: bool) -> dict[str, list[tuple[str, str]]]:
-    """Return the ``saverecord`` and ``printrecord`` of the flow output control.
-
-    The store holds exactly one slice per stress period. That is the catalog
-    contract (n_timesteps == number of stress periods == len(run.time_index)).
-    A stamp closes its period: the head is the state at the period end, so it
-    is saved at the LAST step, and a flux is the mean over the period, so the
-    budget of EVERY step is saved and printed, and the extractor averages the
-    steps by their length. Sub-stepping (nstp > 1 through
-    simulation.time.substeps_per_period) and ATS refine the transient
-    solution, they do not add output slices. With one step per period, ALL
-    and LAST write the same records.
+    The sidecars travel with the model files, so the post-run extraction needs no
+    live flopy object. ``.lak.meta.json`` re-keys the LAK obs CSV by ``(lake_id,
+    totim)`` and isolates the under-dam leakage, ``.sfr.meta.json`` does the same
+    for SFR, and ``.lake_abacus.json`` carries the bed-reconstruction comparison.
     """
-    printrecord = [("BUDGET", "ALL")]
-    if print_head:
-        # Off by default: it re-formats the whole head field as text at every
-        # step. Measured on the Nancon at 25 m, 2.96 GB of listing for 1826
-        # steps, carrying numbers the binary head file already holds.
-        printrecord.insert(0, ("HEAD", "LAST"))
-    return {
-        "saverecord": [("HEAD", "LAST"), ("BUDGET", "ALL")],
-        "printrecord": printrecord,
-    }
-
-
-def build_ats_perioddata(
-    *,
-    perlen: np.ndarray,
-    nstp: np.ndarray,
-    steady: np.ndarray,
-    dtmin_s: float,
-) -> list[tuple[int, float, float, float, float, float]]:
-    """Adaptive time-stepping records for the transient periods.
-
-    Each record is ``(iper, dt0, dtmin, dtmax, dtadj, dtfailadj)``. ``iper`` is
-    0-based here because FloPy adds one when it writes the ATS file; passing a
-    1-based index shifts every record one period late and drops the last one off
-    the end of the simulation.
-
-    A period ATS covers ignores its TDIS NSTP, so ``dt0`` and ``dtmax`` are the
-    step NSTP asked for rather than the whole period. ATS can then only go below
-    it, which is its one useful power: recovering from a solve that failed.
-    Leaving ``dtmax`` at ``perlen`` lets it grow past the requested resolution
-    and collapse the period back to the single step NSTP was raised to avoid.
-
-    Steady periods are left out: they carry no time step to adapt.
-    """
-    declared_steps = np.asarray(perlen, dtype=float) / np.asarray(nstp, dtype=float)
-    return [
-        (
-            index,
-            float(declared_steps[index]),
-            float(dtmin_s),
-            float(declared_steps[index]),
-            _ATS_DTADJ,
-            _ATS_DTFAILADJ,
-        )
-        for index in range(int(declared_steps.size))
-        if not bool(steady[index])
-    ]
-
-
-def mf6_safe_name(name: str, max_len: int = 16) -> str:
-    """Return a safe MODFLOW 6 model name: no whitespace, hashed when too long.
-
-    MODFLOW 6 rejects a model name that contains a space, so every whitespace run
-    collapses to a single underscore before the length check. The name is
-    lowercased: flopy compares ``model_name.lower()`` to a package path that keeps
-    its case, and a capital letter makes it fail to write the MVR. Names longer
-    than ``max_len`` are hashed to stay unique and within the identifier limit.
-    """
-    text = re.sub(r"\s+", "_", str(name).strip()).lower()
-    if len(text) <= max_len:
-        return text
-    if max_len <= 6:
-        return text[:max_len]
-    digest = hashlib.sha1(str(name).encode("utf-8")).hexdigest()[:6]
-    prefix_len = max_len - 7
-    return f"{text[:prefix_len]}_{digest}"
-
-
-def mf6_output_name(model, extension: str = ".cbc") -> str:
-    """Return an output file stem that keeps MF6 paths usable on Windows."""
-    requested = str(getattr(model, "model_name", "") or "model")
-    if os.name != "nt":
-        return requested
-    candidate = os.path.join(str(model.full_path), f"{requested}{extension}")
-    if len(os.path.abspath(candidate)) < 240:
-        return requested
-    return str(getattr(model, "model_name_mf6", "") or mf6_safe_name(requested))
-
-
-def _write_lake_obs_meta(model, lake_obs_meta: Mapping[str, object]) -> None:
-    """Persist the LAK obs sidecar next to the solver files for the extractor.
-
-    The extractor reads ``{model_output_name}.lak.meta.json`` from the solver
-    output directory to re-key the LAK obs CSV by ``(lake_id, totim)`` and isolate
-    the under-dam leakage. The sidecar travels with the model files so post-run
-    extraction needs no live flopy object.
-    """
-    meta_path = os.path.join(str(model.full_path), f"{model.model_output_name}.lak.meta.json")
+    meta_path = os.path.join(str(model.full_path), f"{model.model_output_name}{suffix}")
     with open(meta_path, "w", encoding="utf-8") as fh:
-        json.dump(dict(lake_obs_meta), fh, sort_keys=True)
+        json.dump(dict(payload), fh, sort_keys=True)
 
 
 def _write_lake_abacus_meta(model) -> None:
-    """Persist the lake abacus comparison sidecar for the extractor.
-
-    Serializes ``model._lake_bed_reconstruction`` (reference + simulated abacus
-    arrays per lake) to ``{model_output_name}.lake_abacus.json`` so the post-run
-    extractor can land it in the per-sim Zarr for the comparison figure.
-    """
+    """Write the reference and simulated abacus of each reconstructed lake bed."""
     reconstruction = getattr(model, "_lake_bed_reconstruction", None)
     entries = [
         {
@@ -263,18 +178,8 @@ def _write_lake_abacus_meta(model) -> None:
         and rec.get("sim_volume") is not None
         and rec.get("abacus_volume") is not None
     ]
-    if not entries:
-        return
-    meta_path = os.path.join(str(model.full_path), f"{model.model_output_name}.lake_abacus.json")
-    with open(meta_path, "w", encoding="utf-8") as fh:
-        json.dump({"entries": entries}, fh, sort_keys=True)
-
-
-def _write_sfr_obs_meta(model, sfr_obs_meta: Mapping[str, object]) -> None:
-    """Persist the SFR obs sidecar (``{stem}.sfr.meta.json``) for the extractor."""
-    meta_path = os.path.join(str(model.full_path), f"{model.model_output_name}.sfr.meta.json")
-    with open(meta_path, "w", encoding="utf-8") as fh:
-        json.dump(dict(sfr_obs_meta), fh, sort_keys=True)
+    if entries:
+        _write_sidecar(model, ".lake_abacus.json", {"entries": entries})
 
 
 def _shared_recharge_dir(model) -> str | None:
@@ -615,74 +520,6 @@ def resolve_xt3d_options(model, solver_mesh=None) -> list[str] | None:
     return resolve_xt3d_npf_options(model, solver_mesh)
 
 
-def newton_options(runtime) -> list[str] | None:
-    """Return MF6 GWF newtonoptions. Catchment cells are convertible, so Newton
-    with under-relaxation is the robust default."""
-    if not runtime.mf6_newton:
-        return None
-    options = ["NEWTON"]
-    if runtime.mf6_newton_under_relaxation:
-        options.append("UNDER_RELAXATION")
-    return options
-
-
-def guard_newton_rewet(runtime, rewet_record) -> None:
-    """Reject NEWTON + REWET: MF6 forbids rewetting under the Newton formulation,
-    which uses continuous upstream weighting."""
-    if runtime.mf6_newton and rewet_record is not None:
-        raise ValueError(
-            "[HMPY.E405] mf6_newton and mf6_enable_rewet are mutually exclusive in "
-            "MODFLOW 6: the Newton formulation uses continuous upstream weighting and "
-            "forbids NPF rewetting. Disable one of them."
-        )
-
-
-def guard_newton_linear_acceleration(runtime) -> None:
-    """Reject CG linear acceleration under Newton: the Newton formulation builds
-    a non-symmetric Jacobian, which the conjugate-gradient solver (symmetric
-    matrices only) cannot solve. BICGSTAB is required."""
-    if runtime.mf6_newton and runtime.mf6_linear_acceleration == "CG":
-        raise ValueError(
-            "[HMPY.E406] mf6_linear_acceleration='CG' is invalid with "
-            "mf6_newton=True: the MODFLOW 6 Newton formulation produces a "
-            "non-symmetric Jacobian that CG cannot solve. Use BICGSTAB, or leave "
-            "mf6_linear_acceleration unset to keep the preset default."
-        )
-
-
-def optional_ims_kwargs(runtime, *, csv_outer_output: str | None = None) -> dict[str, object]:
-    """Return the optional IMS knobs that are set; None values keep flopy presets.
-
-    The reordering method is written only when it is not ``"none"``, so the
-    default IMS file stays the same.
-
-    ``csv_outer_output`` names a CSV file for the per-outer-iteration record
-    (CSV_OUTER_OUTPUT). It lives in the solver folder, which the flow cleanup
-    removes unless ``keep_solver_files`` is set.
-    """
-    kwargs: dict[str, object] = {}
-    if csv_outer_output:
-        kwargs["csv_outer_output_filerecord"] = [str(csv_outer_output)]
-    if getattr(runtime, "mf6_backtracking_number", None) is not None:
-        kwargs["backtracking_number"] = int(runtime.mf6_backtracking_number)
-    if runtime.mf6_inner_rclose is not None:
-        # flopy exposes inner_rclose only through the rcloserecord record
-        # (inner_rclose + rclose_option). The empty option keeps MF6's default
-        # absolute infinity-norm criterion (sln-ims.dfn: no option = infinity).
-        kwargs["rcloserecord"] = [(float(runtime.mf6_inner_rclose), "")]
-    if runtime.mf6_linear_acceleration is not None:
-        kwargs["linear_acceleration"] = runtime.mf6_linear_acceleration
-    if runtime.mf6_preconditioner_levels is not None:
-        kwargs["preconditioner_levels"] = int(runtime.mf6_preconditioner_levels)
-    if runtime.mf6_preconditioner_drop_tolerance is not None:
-        kwargs["preconditioner_drop_tolerance"] = float(runtime.mf6_preconditioner_drop_tolerance)
-    if runtime.mf6_reordering_method != "none":
-        kwargs["reordering_method"] = runtime.mf6_reordering_method
-    if runtime.mf6_under_relaxation is not None:
-        kwargs["under_relaxation"] = runtime.mf6_under_relaxation
-    return kwargs
-
-
 def write_solver_grid_template(model) -> str:
     """Write a solver-grid template raster for structured grids."""
     if model.grid_ctx is None:
@@ -864,16 +701,15 @@ def _build_storage_package(model, solver_mesh: SolverMesh) -> None:
     )
 
 
-def run_pre_processing(  # noqa: PLR0915
+def _settle_inputs(
     model,
     flow: object,
     domain: DomainLike,
-    options: ModflowPreprocessOptions | None = None,
-    *,
+    options,
     cell_mesh: PlanarCellMesh,
-    flow_runtime_overrides: Mapping[str, object] | None = None,
-) -> None:
-    """Run MODFLOW 6 pre_processing: assemble flopy packages and discretizations."""
+    flow_runtime_overrides,
+):
+    """Bind the inputs of the run and check them before any build."""
     # Concurrent calibration trials build one MFSimulation each; the flopy DFN
     # singleton must be fully loaded before any of them constructs a package.
     warm_flopy_structure()
@@ -896,6 +732,9 @@ def run_pre_processing(  # noqa: PLR0915
     # the pre-collapse name is a file its reader never finds.
     model.model_output_name = mf6_output_name(model)
 
+
+def _discretize_time(model):
+    """Stress periods and their TDIS time unit."""
     model.flow_regime = resolve_flow_regime(model) or "transient"
     launcher_time_grid = model.time_grid
     temporal = build_temporal_discretization_from_time_grid(
@@ -914,7 +753,11 @@ def run_pre_processing(  # noqa: PLR0915
     # factor stays exactly 1.0; the flow extractor reads this token back and
     # converts fluxes from it, so the two sides can no longer disagree.
     time_units = to_modflow6_time_units(temporal.time_units)
+    return temporal, time_units
 
+
+def _discretize_space(model):
+    """The solver mesh, and the forcing that waited for its size."""
     model.grid_ctx = build_spatial_discretization(
         domain=model.domain,
         vertical_config=model.domain.config.layers,
@@ -936,7 +779,11 @@ def run_pre_processing(  # noqa: PLR0915
 
     resolve_deferred_heterogeneous_recharge(model)
     resolve_deferred_soil_etp(model)
+    return solver_mesh
 
+
+def _map_hydraulic_properties(model, solver_mesh: SolverMesh, flow_runtime_overrides):
+    """K, K33, the rest of the K tensor, Sy and Ss on the cells, checked positive."""
     flow_params = resolve_flow_property_arrays(
         flow=model.flow,
         domain=model.domain,
@@ -975,6 +822,9 @@ def run_pre_processing(  # noqa: PLR0915
     log_xt3d_resolution(model, solver_mesh)
     _save_flow_property_sidecar(model)
 
+
+def _build_simulation(model, solver_mesh: SolverMesh, temporal, time_units: str):
+    """The simulation, its TDIS (and ATS), IMS and the GWF model."""
     runtime = model.modflow_config.runtime
     sim_name = model.model_name_mf6
     model.sim = flopy.mf6.MFSimulation(
@@ -1038,7 +888,11 @@ def run_pre_processing(  # noqa: PLR0915
         newtonoptions=newtonoptions,
     )
     model.sim.register_ims_package(model.ims, [model.gwf.name])
+    return runtime
 
+
+def _mask_lakes(model, solver_mesh: SolverMesh):
+    """Make the lake footprint inactive, carve the beds, and settle the sinks."""
     # Lake cells are made inactive (idomain=0) before DISV is built so the LAK
     # footprint stays consistent across idomain, dem_mask, RCH, EVT and DRN. LAK
     # supplies the storage and lake-aquifer exchange through its own
@@ -1095,7 +949,11 @@ def run_pre_processing(  # noqa: PLR0915
         model_name=model.model_name,
         covered_cells=model._lake_cell_ids,
     )
+    return solver_mesh, lake_cell_ids_by_lake
 
+
+def _resolve_constant_heads(model, solver_mesh: SolverMesh):
+    """The ocean, stream and side constant heads, with their supports."""
     # The CHD supports are built here, before SFR, because the descent D below
     # seeds on them. They read the DEM, the post-lake-mask activity and the mesh
     # support, none of which changes further down.
@@ -1113,7 +971,11 @@ def run_pre_processing(  # noqa: PLR0915
     )
     model._ocean_support_mask = np.asarray(ocean_support_mask, dtype=bool).copy()
     model._stream_support_mask = np.asarray(stream_support_mask, dtype=bool).copy()
+    return (ocean_chd_spd, ocean_support_mask), (stream_chd_spd, stream_support_mask), side_chd_spd
 
+
+def _resolve_streams(model, solver_mesh: SolverMesh, lake_cell_ids_by_lake, side_chd_spd):
+    """The descent D, the SFR networks, their movers and the spillway receivers."""
     # SFR resolves against the lake cells so trace reaches are truncated at the
     # shoreline (never left sitting on a LAK cell once the DEM routes a stream
     # through the lake), then the mover builder hands their flow to that lake.
@@ -1174,7 +1036,18 @@ def run_pre_processing(  # noqa: PLR0915
         lake_ids=list(lake_cell_ids_by_lake),
         cell_centroids=solver_mesh.cell_centers(),
     )
+    return (
+        descent,
+        basin,
+        lake_cells_by_number,
+        sfr_networks,
+        sfr_mover_records,
+        downstream_reach_by_lake,
+    )
 
+
+def _build_grid_packages(model, solver_mesh: SolverMesh, runtime):
+    """DISV, IC, NPF and STO."""
     # MF6 uses DISV for every grid (structured and unstructured) so one code path
     # covers both. Native DIS is reserved for the NWT backend, which only supports
     # structured grids. The DISV carries the computational top; every package
@@ -1208,6 +1081,14 @@ def run_pre_processing(  # noqa: PLR0915
     )
     _build_storage_package(model, solver_mesh)
 
+
+def _build_recharge_and_evt(
+    model,
+    solver_mesh: SolverMesh,
+    ocean_support_mask,
+    stream_support_mask,
+):
+    """RCH, and EVT from the soil residual ETP or the routed negative recharge."""
     # LOCAL, never an attribute of the model. On the shared calibration path
     # `externalize_recharge_spd` hands FloPy filenames without the arrays, so
     # the only thing keeping the stack alive afterwards was `model.rch_spd`,
@@ -1332,6 +1213,18 @@ def run_pre_processing(  # noqa: PLR0915
                 save_flows=True,
             )
 
+
+def _build_drains(
+    model,
+    solver_mesh: SolverMesh,
+    ocean_support_mask,
+    stream_support_mask,
+    sfr_networks,
+    descent,
+    basin,
+    lake_cells_by_number,
+):
+    """DRN, and the movers that route the hillslope drainage to the streams."""
     drainage_cond_series = resolve_drainage_conductance_series(model)
     model._drainage_cond_series = (
         None
@@ -1397,7 +1290,19 @@ def run_pre_processing(  # noqa: PLR0915
         if descent is None or getattr(model, "auxiliary", False)
         else descent.without_adjacency()
     )
+    return drainage_mover_rows
 
+
+def _build_constant_heads_and_wells(
+    model,
+    ocean_chd_spd,
+    ocean_support_mask,
+    stream_chd_spd,
+    stream_support_mask,
+    side_chd_spd,
+    runtime,
+):
+    """CHD and WEL."""
     chd_spd = assemble_constant_head_stress_period_data(
         model,
         ocean=(ocean_chd_spd, ocean_support_mask),
@@ -1423,6 +1328,16 @@ def run_pre_processing(  # noqa: PLR0915
             )
         model.wel = flopy.mf6.ModflowGwfwel(model.gwf, **wel_kwargs)
 
+
+def _build_lakes(
+    model,
+    solver_mesh: SolverMesh,
+    lake_cell_ids_by_lake,
+    sfr_mover_records,
+    drainage_mover_rows,
+    downstream_reach_by_lake,
+):
+    """LAK, its tables, observations and sidecars; returns the mover rows so far."""
     # LAK (lake / reservoir) package. Built after model.wel and before model.oc.
     # Lake cells were already made inactive above, so the CONNECTIONDATA targets
     # active aquifer neighbors only. Controlled transfers (LAK -> LAK, SFR -> LAK,
@@ -1476,7 +1391,7 @@ def run_pre_processing(  # noqa: PLR0915
                     continuous=obs_continuous,
                 )
             if lake_obs_meta is not None:
-                _write_lake_obs_meta(model, lake_obs_meta)
+                _write_sidecar(model, ".lak.meta.json", lake_obs_meta)
             # Persist the bed-reconstruction abacus comparison for the QC figure.
             _write_lake_abacus_meta(model)
             model.lak = lak
@@ -1488,7 +1403,16 @@ def run_pre_processing(  # noqa: PLR0915
             band_specs = build_exposed_band_runoff_specs(model)
             if band_specs:
                 model._exposed_band_runoff_specs = band_specs
+    return all_mover_rows, n_lakes_built, lake_connections
 
+
+def _build_flow_barriers(
+    model,
+    solver_mesh: SolverMesh,
+    lake_cell_ids_by_lake,
+    lake_connections,
+):
+    """HFB on the cutoff walls and the flow barriers."""
     # HFB (horizontal flow barrier): thin vertical low-K walls on shared cell faces
     # (lake dam cutoff walls + general flow_barriers). Static (period 0), built
     # after LAK and after NPF (it scales the NPF horizontal conductance) so the
@@ -1507,6 +1431,16 @@ def run_pre_processing(  # noqa: PLR0915
             stress_period_data={0: hfb_rows},
         )
 
+
+def _build_sfr(
+    model,
+    solver_mesh: SolverMesh,
+    sfr_networks,
+    sfr_mover_records,
+    all_mover_rows,
+    n_lakes_built,
+):
+    """SFR, its observations and sidecar; adds its movers to ``all_mover_rows``."""
     # SFR (streamflow routing) package. Built after LAK so the SFR -> LAK mover
     # seam can reference an existing lake, and before OC / MVR.
     if sfr_networks:
@@ -1546,11 +1480,14 @@ def run_pre_processing(  # noqa: PLR0915
                     continuous=sfr_obs_continuous,
                 )
             if sfr_obs_meta is not None:
-                _write_sfr_obs_meta(model, sfr_obs_meta)
+                _write_sidecar(model, ".sfr.meta.json", sfr_obs_meta)
             model.sfr = sfr
             if sfr_mover_records:
                 all_mover_rows.extend(build_mvr_period_records(sfr_mover_records))
 
+
+def _build_mover_and_output(model, all_mover_rows):
+    """MVR, built last, then OC."""
     # MVR last: it routes provider features to receiver features by package name,
     # so every package it references must already exist. The packages list is
     # derived from the record rows so LAK-only, SFR-only and mixed models all
@@ -1575,3 +1512,53 @@ def run_pre_processing(  # noqa: PLR0915
         **output_control_records(print_head=model.modflow_config.runtime.print_head),
     )
     model._runtime_dirty_packages = ()
+
+
+def run_pre_processing(
+    model,
+    flow: object,
+    domain: DomainLike,
+    options: ModflowPreprocessOptions | None = None,
+    *,
+    cell_mesh: PlanarCellMesh,
+    flow_runtime_overrides: Mapping[str, object] | None = None,
+) -> None:
+    """Run MODFLOW 6 pre_processing: assemble flopy packages and discretizations.
+
+    The steps run in the order MODFLOW 6 and FloPy need: the grid is final once
+    the lakes are masked, SFR resolves before DRN so a drain under a reach is
+    dropped, LAK comes before SFR so the SFR to LAK movers find a lake, and MVR
+    comes last because it names packages that must exist.
+    """
+    _settle_inputs(model, flow, domain, options, cell_mesh, flow_runtime_overrides)
+    temporal, time_units = _discretize_time(model)
+    solver_mesh = _discretize_space(model)
+    _map_hydraulic_properties(model, solver_mesh, flow_runtime_overrides)
+    runtime = _build_simulation(model, solver_mesh, temporal, time_units)
+    solver_mesh, lake_cell_ids_by_lake = _mask_lakes(model, solver_mesh)
+    ocean, stream, side_chd_spd = _resolve_constant_heads(model, solver_mesh)
+    (
+        descent,
+        basin,
+        lake_cells_by_number,
+        sfr_networks,
+        sfr_mover_records,
+        downstream_reach_by_lake,
+    ) = _resolve_streams(model, solver_mesh, lake_cell_ids_by_lake, side_chd_spd)
+    _build_grid_packages(model, solver_mesh, runtime)
+    _build_recharge_and_evt(model, solver_mesh, ocean[1], stream[1])
+    drainage_mover_rows = _build_drains(
+        model, solver_mesh, ocean[1], stream[1], sfr_networks, descent, basin, lake_cells_by_number
+    )
+    _build_constant_heads_and_wells(model, *ocean, *stream, side_chd_spd, runtime)
+    all_mover_rows, n_lakes_built, lake_connections = _build_lakes(
+        model,
+        solver_mesh,
+        lake_cell_ids_by_lake,
+        sfr_mover_records,
+        drainage_mover_rows,
+        downstream_reach_by_lake,
+    )
+    _build_flow_barriers(model, solver_mesh, lake_cell_ids_by_lake, lake_connections)
+    _build_sfr(model, solver_mesh, sfr_networks, sfr_mover_records, all_mover_rows, n_lakes_built)
+    _build_mover_and_output(model, all_mover_rows)

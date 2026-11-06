@@ -5,8 +5,7 @@ Public facade. Implementation is split across:
 - `inputs.py` for runtime input normalization and constraint handling,
 - `fluxes.py` for transmissivity and flux operators,
 - `surface.py` for surface-interaction closures,
-- `residuals.py` for steady/transient residual assembly,
-- `residual_facade.py` for the canonical prescribed-cell path wrappers.
+- `residuals.py` for steady/transient residual assembly.
 """
 
 from __future__ import annotations
@@ -24,7 +23,7 @@ from hydromodpy.solver.boussinesq.assembly.inputs import (
     apply_prescribed_head_to_cells,
     resolve_boundary_head_inputs,
 )
-from hydromodpy.solver.boussinesq.assembly.residual_facade import (
+from hydromodpy.solver.boussinesq.assembly.residuals import (
     assemble_steady_residual,
     assemble_steady_residual_with_saturation_excess,
     assemble_transient_residual,

@@ -27,7 +27,7 @@ Code map
 - ``hydromodpy/spatial/field/field_param.py``:
   consumption point through ``field_spatial_id``.
 - ``hydromodpy/spatial/field/zone_fractions.py`` and
-  ``hydromodpy/solver/field_property_mapping.py``: downstream discretization
+  ``hydromodpy/solver/base/properties.py``: downstream discretization
   over the cells of the cell mesh.
 
 Recommended reading path
@@ -38,7 +38,7 @@ Recommended reading path
 3. ``hydromodpy/spatial/domain/spatial_support.py``
 4. ``hydromodpy/spatial/field/field_param.py``
 5. ``hydromodpy/spatial/field/zone_fractions.py`` and
-   ``hydromodpy/solver/field_property_mapping.py``
+   ``hydromodpy/solver/base/properties.py``
 
 Context
 -------

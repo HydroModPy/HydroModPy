@@ -13,9 +13,12 @@ from hydromodpy.core.exceptions import ConfigValidationError, ExtractError, Solv
 from hydromodpy.physics.flow import FlowConfig
 from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig
 from hydromodpy.physics.flow.sinks_sources.etp import FlowEtpConfig
+from hydromodpy.solver.base.properties import resolve_required_flow_properties
 from hydromodpy.solver.modflow6 import Modflow6Config
-from hydromodpy.solver.modflow_common.property_mapping import (
-    resolve_required_flow_properties,
+from hydromodpy.solver.modflow_common.options import (
+    ModflowPostprocessOptions,
+    ModflowPreprocessOptions,
+    ModflowRunOptions,
 )
 from hydromodpy.solver.modflow_common.routing_context import (
     SolverRoutingContext,
@@ -31,16 +34,10 @@ from hydromodpy.solver.modflow_nwt.extractors.flow import (
     ModflowNwtOutputAdapter,
     _listing_path,
 )
-from hydromodpy.solver.modflow_nwt.nwt import (
-    ModflowConfig,
-    ModflowPostprocessOptions,
-    ModflowPreprocessOptions,
-    ModflowRunOptions,
-    ModflowSpecifParams,
-)
 from hydromodpy.solver.modflow_nwt.nwt.flow_to_modflow_adapter import FlowToModflowAdapter
+from hydromodpy.solver.modflow_nwt.nwt.nwt_config import ModflowConfig, ModflowSpecifParams
 from hydromodpy.solver.modflow_nwt.nwt.payloads.chd import refuse_constant_heads_below_bottom
-from hydromodpy.solver.modflow_nwt.nwt.postprocess import (
+from hydromodpy.solver.modflow_nwt.postprocess.fields import (
     compute_outlet_discharge_east_side_m3_s,
 )
 from hydromodpy.spatial.geographic.core.flow_products import FlowProducts

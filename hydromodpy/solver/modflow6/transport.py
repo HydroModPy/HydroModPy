@@ -10,8 +10,9 @@ import flopy
 import numpy as np
 
 from hydromodpy.solver.base.protocols import DomainLike, FlowModelLike, TransportLike
-from hydromodpy.solver.modflow6.build import mf6_safe_name, optional_ims_kwargs
+from hydromodpy.solver.modflow6.builders.solver_options import optional_ims_kwargs
 from hydromodpy.solver.modflow6.support.computational_top import disv_grid_kwargs
+from hydromodpy.solver.modflow6.support.names import mf6_safe_name
 from hydromodpy.solver.modflow6.support.windows_paths import check_mf6_workspace_paths
 from hydromodpy.solver.modflow_common import (
     build_concentration_runtime_overrides,

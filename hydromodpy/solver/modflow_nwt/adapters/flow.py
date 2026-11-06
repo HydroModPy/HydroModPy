@@ -17,7 +17,7 @@ from hydromodpy.core.exceptions import ObservableNotAvailableError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
-from hydromodpy.solver.base.observable_support import (
+from hydromodpy.solver.base.observables import (
     ObservableSupport,
     servable,
     unavailable,
@@ -32,7 +32,7 @@ from hydromodpy.solver.modflow_common.observable_extraction import (
     extract_common_modflow_observables,
     resolve_run_output,
 )
-from hydromodpy.solver.modflow_nwt.nwt import ModflowNwt
+from hydromodpy.solver.modflow_nwt.nwt.nwt_solver import ModflowNwt
 
 logger = get_logger(__name__)
 

@@ -13,8 +13,8 @@ from hydromodpy.core.time import SIMULATION_TIME_UNIT
 from hydromodpy.core.units.quantities import SECONDS_PER_DAY
 from hydromodpy.core.units.time import factor_to_seconds
 from hydromodpy.solver.base.protocols import DomainLike, FlowModelLike, TransportLike
-from hydromodpy.solver.modflow6.build import mf6_safe_name
 from hydromodpy.solver.modflow6.support.computational_top import disv_grid_kwargs
+from hydromodpy.solver.modflow6.support.names import mf6_safe_name
 from hydromodpy.solver.modflow6.support.windows_paths import check_mf6_workspace_paths
 from hydromodpy.solver.modflow_common.progress import (
     run_simulation_with_progress,

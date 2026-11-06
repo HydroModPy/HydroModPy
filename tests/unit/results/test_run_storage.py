@@ -2592,8 +2592,8 @@ def test_the_builder_writes_the_links_of_every_reach_into_the_sidecar() -> None:
         build_sfr_package_args,
         resolve_sfr_networks,
     )
-    from tests.unit.solver.test_modflow6_sfr_builder import _fake_model, _mesh, _trace_payload
-    from tests.unit.solver.test_modflow6_sfr_builder import _two_reach_trace as trace
+    from tests.unit.solver.modflow6.test_modflow6_sfr_builder import _fake_model, _mesh, _trace_payload
+    from tests.unit.solver.modflow6.test_modflow6_sfr_builder import _two_reach_trace as trace
 
     model = _fake_model({"net0": _trace_payload(trace())})
     networks = resolve_sfr_networks(model, solver_mesh=_mesh())

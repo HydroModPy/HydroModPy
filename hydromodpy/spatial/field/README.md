@@ -71,7 +71,7 @@ The package is part of the spatial layer, which may import `core`, `schema` and 
 
 The geology data is managed in `hydromodpy/data/variables/geology/`, and `field.py` there builds a `GeologyField` from the loaded data. The geology demo that goes through `FieldParam` is `tools/cases/geology/run_geology_property_case.py`.
 
-The solvers read the parameter through `hydromodpy/solver/field_property_mapping.py`, which asks for the zone shares and the weighted discretization. The flow config embeds the field-parameter sections in `FlowParam` (`hydromodpy/physics/flow/flow_config.py`), read from `core/config_kit/field_param/`.
+The solvers read the parameter through `hydromodpy/solver/base/properties.py`, which asks for the zone shares and the weighted discretization. The flow config embeds the field-parameter sections in `FlowParam` (`hydromodpy/physics/flow/flow_config.py`), read from `core/config_kit/field_param/`.
 
 The supports a project declares in `[domain.supports]` live in `spatial/domain/`: the zone maps are built there and their zone shares are computed with `cell_sampling.py` from this package.
 

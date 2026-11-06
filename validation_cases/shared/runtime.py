@@ -53,7 +53,7 @@ _SCRATCH_ROOT_PART = len("/.hmp/scratch")
 _RUN_FOLDER_PART = len("/") + 24 + len(".p") + 10
 # "/<model>/<model>.flow_properties.npz": the solver folder is named after the
 # model, and MODFLOW-NWT names every file after it. MODFLOW 6 does too while the
-# path is short; past 240 characters build.mf6_output_name collapses the stem to
+# path is short; past 240 characters support.names.mf6_output_name collapses the stem to
 # the 16-character MF6 name, which only shortens it. The flow property sidecar
 # (build.FLOW_PROPERTY_SIDECAR_SUFFIX) is the longest suffix put after the name.
 _MODEL_FILE_SUFFIX = len(".flow_properties.npz")

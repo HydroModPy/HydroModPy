@@ -22,9 +22,7 @@ import numpy as np
 from scipy.spatial import cKDTree
 from shapely.geometry import Polygon, box
 
-from hydromodpy.solver.modflow6.builders.lake import (
-    resolve_lake_cells,
-)
+from hydromodpy.solver.modflow6.builders.lake_cells import resolve_lake_cells
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh.engines.voronoi.tessellation import voronoi_planar_mesh
 from validation_cases.shared.solver_mesh import solver_mesh_of

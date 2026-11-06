@@ -4,9 +4,9 @@ set -euo pipefail
 export MPLBACKEND="${MPLBACKEND:-Agg}"
 
 python -m pytest \
-  tests/unit/solver/test_boussinesq_method_catalog.py \
-  tests/unit/solver/test_boussinesq_smoothing.py \
-  tests/unit/solver/test_boussinesq_solver.py \
+  tests/unit/solver/boussinesq/test_boussinesq_method_catalog.py \
+  tests/unit/solver/boussinesq/test_boussinesq_smoothing.py \
+  tests/unit/solver/boussinesq/test_boussinesq_solver.py \
   tests/unit/simulation/test_boussinesq_flow_adapter_build.py \
   tests/unit/simulation/test_boussinesq_flow_adapter_run.py \
   tests/unit/validation/test_dupuit_fixed_head_petsc_alias.py \

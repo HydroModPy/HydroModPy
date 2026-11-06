@@ -32,10 +32,9 @@ import numpy as np
 from scipy.spatial import Delaunay, cKDTree
 from shapely.geometry import Polygon
 
-from hydromodpy.solver.modflow6.builders.lake import (
+from hydromodpy.solver.modflow6.builders.lake import build_lak_package_args, build_lake_period_data
+from hydromodpy.solver.modflow6.builders.lake_cells import (
     apply_lake_idomain_mask,
-    build_lak_package_args,
-    build_lake_period_data,
     resolve_lake_cells,
 )
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary

@@ -17,18 +17,21 @@ from hydromodpy.solver.base.protocols import DomainLike
 from hydromodpy.solver.modflow6.api.api_runner import Mf6ApiContext
 from hydromodpy.solver.modflow6.build import (
     apply_preprocess_options,
-    mf6_safe_name,
     resolve_xt3d_options,
     run_pre_processing,
     validate_pre_processing_inputs,
     xt3d_mode,
 )
-from hydromodpy.solver.modflow6.builders import resolve_ims_complexity, xt3d_is_enabled
+from hydromodpy.solver.modflow6.builders.solver_options import (
+    resolve_ims_complexity,
+    xt3d_is_enabled,
+)
 from hydromodpy.solver.modflow6.modflow6_config import (
     Modflow6Config,
     _coerce_modflow6_config,
 )
 from hydromodpy.solver.modflow6.run import run_processing
+from hydromodpy.solver.modflow6.support.names import mf6_safe_name
 from hydromodpy.solver.modflow_common import (
     ModflowPreprocessOptions,
     ModflowRunOptions,

@@ -555,9 +555,9 @@ hydromodpy.solver.boussinesq
 | Steps, steady flags, the first period | `hydromodpy/solver/modflow_grid/discretization_temporal.py` (`build_temporal_discretization_from_time_grid`, `resolve_first_period_steady`) |
 | MODFLOW 6: every package, in order | `hydromodpy/solver/modflow6/build.py` (`run_pre_processing`) |
 | XT3D decision, IMS complexity | `hydromodpy/solver/modflow6/builders/solver_options.py` (`resolve_xt3d_decision`, `k_tensor_is_tilted`, `k_tensor_is_off_axis`, `resolve_ims_complexity`) |
-| Newton options, guards, IMS options, ATS | `hydromodpy/solver/modflow6/build.py` (`newton_options`, `guard_newton_rewet`, `guard_newton_linear_acceleration`, `optional_ims_kwargs`, `build_ats_perioddata`) |
+| Newton options, guards, IMS options, ATS | `hydromodpy/solver/modflow6/builders/solver_options.py` (`newton_options`, `guard_newton_rewet`, `guard_newton_linear_acceleration`, `optional_ims_kwargs`, `build_ats_perioddata`) |
 | Rewet options, starting heads | `hydromodpy/solver/modflow6/builders/initial_conditions.py` (`resolve_rewet_npf_options`, `build_start_heads`) |
-| Recharge, EVT, drains, constant heads, wells | `hydromodpy/solver/modflow6/builders/` (`recharge.py`: `recharge_to_spd`, `build_soil_evta_payload`, `mask_recharge_on_lake_cells`; `boundary_conditions.py`: `build_drain_stress_period_data`, `assemble_constant_head_stress_period_data`; `wells.py`), `hydromodpy/solver/modflow_common/` (`recharge_evt_routing.py`, `drain_conductance.py`) |
+| Recharge, EVT, drains, constant heads, wells | `hydromodpy/solver/modflow6/builders/` (`recharge.py`: `recharge_to_spd`, `build_soil_evta_payload`, `mask_recharge_on_lake_cells`; `boundary_conditions.py`: `build_drain_stress_period_data`, `assemble_constant_head_stress_period_data`; `wells.py`), `hydromodpy/solver/base/drain_conductance.py` |
 | Lakes, streams, barriers, movers | `hydromodpy/solver/modflow6/builders/` (`lake.py`, `sfr.py`, `flow_barrier.py`, `mvr.py`) |
 | Budget discrepancy | `hydromodpy/solver/modflow_common/flow_adapter_helpers.py` (`model_percent_discrepancies`), `hydromodpy/calibration/runners/verdict.py` (`water_budget_verdict`) |
 | MODFLOW-NWT: solver and packages | `hydromodpy/solver/modflow_nwt/nwt/nwt_solver.py` (`_build_dis_package`, `_initialize_solver_packages`), `hydromodpy/solver/modflow_nwt/nwt/_pre_processing.py` (`assemble_flopy_packages`) |

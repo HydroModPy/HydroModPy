@@ -27,7 +27,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from hydromodpy.solver.modflow6.builders import build_lake_obs_spec
+from hydromodpy.solver.modflow6.builders.lake_obs import build_lake_obs_spec
 from hydromodpy.solver.modflow6.extractors.flow import Modflow6OutputAdapter
 from hydromodpy.solver.modflow6.extractors.lake import lake_station_id
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary

@@ -15,7 +15,7 @@ from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, Simulati
 from hydromodpy.simulation.planning.results_config import ResultsConfig
 from hydromodpy.simulation.post_run import post_run_results
 from hydromodpy.solver.base.solver_config import SolverConfig
-from hydromodpy.solver.modflow_nwt.nwt import ModflowConfig
+from hydromodpy.solver.modflow_nwt.nwt.nwt_config import ModflowConfig
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from tests._helpers.run_stores import open_run_store
 

@@ -12,8 +12,8 @@ from shapely.geometry import LineString
 
 from hydromodpy.solver.modflow6 import build
 from hydromodpy.solver.modflow6.build import _resolve_spillway_receivers
-from hydromodpy.solver.modflow6.builders import lake as lake_builder
-from hydromodpy.solver.modflow6.builders.lake import resolve_spillway_seed_cells
+from hydromodpy.solver.modflow6.builders import lake_outflow as lake_builder
+from hydromodpy.solver.modflow6.builders.lake_outflow import resolve_spillway_seed_cells
 from hydromodpy.solver.modflow6.extractors.flow import Modflow6OutputAdapter
 from hydromodpy.solver.modflow_common import catchment_basin
 from hydromodpy.solver.modflow_common.descent_store import (
@@ -176,7 +176,7 @@ def _build(model, outlet_xy=(0.0, 25.0)):
 
 
 def test_the_build_calls_the_section_that_writes_the_sidecar() -> None:
-    tree = ast.parse(inspect.getsource(build.run_pre_processing))
+    tree = ast.parse(inspect.getsource(build._resolve_streams))
     called = {
         node.func.id
         for node in ast.walk(tree)

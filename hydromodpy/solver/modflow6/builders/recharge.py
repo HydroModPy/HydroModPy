@@ -21,6 +21,7 @@ from hydromodpy.physics.forcing.steady_periods import (
     first_clim_on_part,
     first_clim_sets_a_deficit,
     one_period_rate,
+    split_net_recharge,
 )
 from hydromodpy.physics.forcing.validation import (
     complete_period_table,
@@ -29,7 +30,6 @@ from hydromodpy.physics.forcing.validation import (
     has_temporal_index,
 )
 from hydromodpy.solver.modflow6.builders.boundary_conditions import collapse_identical_periods
-from hydromodpy.solver.modflow_common.recharge_evt_routing import route_negative_recharge_to_evt
 from hydromodpy.spatial.forcing.cells import (
     discretize_fields_on_cells,
     discretize_points_on_cells,
@@ -137,7 +137,7 @@ def extract_evt_payload_2d(
     RCH keeps the clipped rate of every period: ``recharge_to_spd`` gives the
     steady periods their ``first_clim`` rate. The deficit is final here: a
     transient period keeps its own, a steady period takes the ``first_clim``
-    rate of the deficits (``route_negative_recharge_to_evt``). ``steady`` is
+    rate of the deficits (``split_net_recharge``). ``steady`` is
     the per-period steady flag (model.steady).
     """
     normalized_rch = {int(kper): np.asarray(value, dtype=float) for kper, value in rch_data.items()}
@@ -148,7 +148,7 @@ def extract_evt_payload_2d(
     if not has_negative and not first_clim_sets_a_deficit(first_clim, steady):
         return normalized_rch, None
 
-    _, deficit = route_negative_recharge_to_evt(
+    _, deficit = split_net_recharge(
         normalized_rch, steady=steady, first_clim=first_clim, durations=durations
     )
     clipped = {kper: np.maximum(arr, 0.0) for kper, arr in normalized_rch.items()}

@@ -14,15 +14,14 @@ rules, how a run reaches a backend, and where to add what.
 
 | part | answers |
 |---|---|
-| `base/` | what every backend shares: the `SolverAdapter` Protocol (`adapter_protocol.py`), the registry of adapters and extractors with its entry-point groups (`registry.py`), `SolverConfig` (`solver_config.py`, the `[solver]` table), the observable contracts (`observables.py`, `observable_support.py`), cell lookup by coordinates, scratch cleanup |
-| `field_property_mapping.py`, `initial_conditions.py`, `steady_initial_conditions.py` | helpers all backends use: field-based property mapping, head initial conditions, same-solver steady-state initial conditions |
+| `base/` | what every backend shares: the `SolverAdapter` Protocol (`adapter_protocol.py`), the registry of adapters and extractors with its entry-point groups (`registry.py`), `SolverConfig` (`solver_config.py`, the `[solver]` table), the mapping of the hydraulic properties on the cells (`properties.py`), the initial head and its steady and cyclic spin-up (`initial_conditions.py`), the drain conductance, the observable contracts (`observables.py`), cell lookup by coordinates, scratch cleanup |
 | `modflow_grid/` | the grid description the MODFLOW family reads: `SolverMesh` for structured and unstructured meshes and its DISV arguments, `SolverGridContext`, spatial and temporal discretization builders, the `sgrid` table of the top sampling (`sgrid_config.py`) |
-| `modflow_common/` | what MODFLOW 6 and MODFLOW-NWT do the same way: binary resolution and download, boundary-package descriptors, budget names, calibration readers, property mapping, discharge routing, descent of the mesh, the flow-adapter lifecycle (`flow_adapter_helpers.py`) |
-| `modflow6/` | MODFLOW 6 through FloPy: `build.py` (package wiring), `builders/` (one module per package: CHD and DRN, recharge and EVT, wells, LAK, SFR, MVR, HFB, solver options), `run.py`, `api/` (libmf6, in process or in a subprocess), `adapters/` (flow, GWT transport, PRT), `extractors/`, `postprocess/`, `support/`, `modflow6_config.py` |
-| `modflow_nwt/` | MODFLOW-NWT through FloPy: `nwt/` (solver, pre and post processing, payload builders, `nwt_config.py`), `adapters/` (flow, MODPATH, MT3DMS), `modpath/`, `mt3dms/`, `extractors/` |
+| `modflow_common/` | what MODFLOW 6 and MODFLOW-NWT do the same way: binary resolution and download, budget names, calibration readers, property mapping on the solver mesh, discharge routing, descent of the mesh, the flow-adapter lifecycle (`flow_adapter_helpers.py`) |
+| `modflow6/` | MODFLOW 6 through FloPy: `build.py` (package wiring), `builders/` (one module per package: CHD and DRN, recharge and EVT, wells, LAK, SFR, MVR, HFB, solver options), `run.py`, `api/` (libmf6, in process), `adapters/` (flow, GWT transport, PRT), `extractors/`, `support/`, `modflow6_config.py` |
+| `modflow_nwt/` | MODFLOW-NWT through FloPy: `nwt/` (solver, pre-processing, payload builders, `nwt_config.py`), `adapters/` (flow, MODPATH, MT3DMS), `modpath/`, `mt3dms/`, `extractors/`, `postprocess/` (the historical TIFF maps) |
 | `boussinesq/` | the in-house unstructured-mesh Boussinesq solver; its own map is `boussinesq/README.md` |
 
-Extractors sit beside the adapters of each backend, in `extractors/`. An
+Each folder has its own README. Extractors sit beside the adapters of each backend, in `extractors/`. An
 extractor carries `solver_name`, a `category` (`distributed` or `lumped`) and an
 `extract(sim_id, solver_output_dir, store, ...)` method.
 
@@ -34,8 +33,8 @@ extractor carries `solver_name`, a `category` (`distributed` or `lumped`) and an
 parts. The shape is:
 
 1. Backends do not import each other. `modflow6`, `modflow_nwt` and `boussinesq`
-   each import `base`, the shared helpers at the root, and, for the first two,
-   `modflow_common` and `modflow_grid`. No gate checks the independence; the
+   each import `base`, and, for the first two, `modflow_common` and
+   `modflow_grid`. No gate checks the independence; the
    import scanner of `tools/audit/build_graph.py` shows it holds.
 2. `modflow_common` and `modflow_grid` import `base` and each other, never a
    backend.
@@ -56,13 +55,13 @@ the package root.
 
 ```
 hydromodpy/solver/
-  __init__.py  field_property_mapping.py  initial_conditions.py  steady_initial_conditions.py
-  base/          adapter_protocol.py  registry.py  solver_config.py  observables.py  observable_support.py ...
+  __init__.py
+  base/          adapter_protocol.py  registry.py  solver_config.py  properties.py  initial_conditions.py ...
   modflow_grid/  solver_mesh.py  discretization_spatial.py  top_sampling.py  discretization_temporal.py  sgrid_config.py
   modflow_common/  flow_adapter_helpers.py  binaries.py   property_mapping.py ...
-  modflow6/      build.py  run.py  builders/  api/  adapters/  extractors/  postprocess/  support/
-  modflow_nwt/   nwt/  adapters/  extractors/  modpath/  mt3dms/
-  boussinesq/    boussinesq.py  mesh.py  assembly/  adapters/  extractors/  ... (see its README)
+  modflow6/      build.py  run.py  builders/  api/  adapters/  extractors/  support/
+  modflow_nwt/   nwt/  adapters/  extractors/  modpath/  mt3dms/  postprocess/
+  boussinesq/    boussinesq.py  catalog.py  mesh.py  assembly/  runtimes/  ... (see its README)
 ```
 
 ## How a run reaches a backend
@@ -99,4 +98,4 @@ and read with `registry.capabilities`.
 | something both MODFLOW backends do | `modflow_common/`, or `modflow_grid/` for a grid |
 | a boundary kind | `flow/boundary_condition_registry.py` in `physics`, then its package in each backend |
 | a backend option | the field on `modflow6_config.py`, `nwt/nwt_config.py` or the Boussinesq runtime knobs of `FlowConfig`, with a profile and a description |
-| an observable a backend can serve | its reader in the backend's extractor or `modflow_common/observable_extraction.py`, and its state in `base/observable_support.py` |
+| an observable a backend can serve | its reader in the backend's extractor or `modflow_common/observable_extraction.py`, and its state in `base/observables.py` |

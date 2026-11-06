@@ -10,11 +10,11 @@ import pandas as pd
 
 from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
 from hydromodpy.core.exceptions import ObservableNotAvailableError, SolverDivergedError
+from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.simulation.transport_runs import (
     required_flow_model,
     transport_output_suffix,
 )
-from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
 from hydromodpy.solver.modflow6.transport import Modflow6Transport
 

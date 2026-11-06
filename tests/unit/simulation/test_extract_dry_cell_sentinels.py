@@ -13,7 +13,7 @@ from hydromodpy.core.state.run_state import RunState
 from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.simulation.planning.results_config import ResultsConfig
 from hydromodpy.simulation.post_run import extract_run_outputs
-from hydromodpy.solver.modflow_nwt.nwt import ModflowConfig
+from hydromodpy.solver.modflow_nwt.nwt.nwt_config import ModflowConfig
 
 
 class _RecordingExtractor:

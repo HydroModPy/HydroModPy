@@ -10,7 +10,7 @@ import numpy as np
 from hydromodpy.physics.flow.history_contract import (
     build_transient_time_axes,
 )
-from hydromodpy.solver.boussinesq.core.state import BoussinesqState
+from hydromodpy.solver.boussinesq.state import BoussinesqState
 
 
 def first_period_snapshot(payload: Mapping[str, Any], *, n_snapshots: int) -> int:

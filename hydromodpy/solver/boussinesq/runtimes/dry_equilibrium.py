@@ -23,6 +23,12 @@ from hydromodpy.solver.boussinesq.assembly.inputs import (
     as_prescribed_head_cell_vector,
 )
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
+from hydromodpy.solver.boussinesq.runtimes.diagnostics_io import (
+    finite_max,
+    finite_min,
+    finite_sum,
+    finite_values,
+)
 
 _MIN_DISTANCE_M = 1.0e-12
 
@@ -108,14 +114,14 @@ def saturated_thickness_diagnostics(
     dry = np.isfinite(physical) & (physical <= float(dry_tolerance_m))
     return {
         "minimum_saturated_thickness_m": b_min,
-        "physical_saturated_thickness_min": _finite_min(physical),
+        "physical_saturated_thickness_min": finite_min(physical),
         "physical_saturated_thickness_q01": _finite_quantile(physical, 0.01),
         "physical_saturated_thickness_q50": _finite_quantile(physical, 0.50),
-        "physical_saturated_thickness_max": _finite_max(physical),
-        "effective_saturated_thickness_min": _finite_min(effective),
+        "physical_saturated_thickness_max": finite_max(physical),
+        "effective_saturated_thickness_min": finite_min(effective),
         "effective_saturated_thickness_q01": _finite_quantile(effective, 0.01),
         "effective_saturated_thickness_q50": _finite_quantile(effective, 0.50),
-        "effective_saturated_thickness_max": _finite_max(effective),
+        "effective_saturated_thickness_max": finite_max(effective),
         "cells_physically_dry_count": int(np.count_nonzero(dry)),
         "cells_at_effective_floor_count": int(np.count_nonzero(at_floor)),
     }
@@ -217,12 +223,12 @@ def detect_dry_equilibrium(
         "dry_equilibrium_detected": bool(detected),
         "dry_equilibrium_rejected_reason": reason,
         "dry_equilibrium_positive_forcing_detected": rejection is not None,
-        "dry_equilibrium_min_R": _finite_min(residual),
+        "dry_equilibrium_min_R": finite_min(residual),
         "dry_equilibrium_vi_violations_count": int(np.count_nonzero(lower_violation)),
-        "dry_equilibrium_max_internal_flux_m3_s": _finite_max(
+        "dry_equilibrium_max_internal_flux_m3_s": finite_max(
             np.abs(balance.internal_edge_flux_m3_s)
         ),
-        "dry_equilibrium_total_abs_internal_flux_m3_s": _finite_sum(
+        "dry_equilibrium_total_abs_internal_flux_m3_s": finite_sum(
             np.abs(balance.internal_edge_flux_m3_s)
         ),
         **saturated_thickness_diagnostics(
@@ -236,8 +242,8 @@ def detect_dry_equilibrium(
         detected=bool(detected),
         rejected_reason=reason,
         positive_forcing_detected=rejection is not None,
-        min_residual_m3_s=_finite_min(residual),
-        projected_residual_inf=_finite_max(np.abs(projected)),
+        min_residual_m3_s=finite_min(residual),
+        projected_residual_inf=finite_max(np.abs(projected)),
         vi_violations_count=int(np.count_nonzero(lower_violation)),
         minimum_saturated_thickness_m=max(float(minimum_saturated_thickness_m), 0.0),
         head_m=h_dry,
@@ -310,28 +316,8 @@ def _positive_forcing_rejection(
     return None
 
 
-def _finite_values(values: np.ndarray) -> np.ndarray:
-    array = np.asarray(values, dtype=float).reshape(-1)
-    return array[np.isfinite(array)]
-
-
-def _finite_min(values: np.ndarray) -> float | None:
-    finite = _finite_values(values)
-    return None if finite.size == 0 else float(np.min(finite))
-
-
-def _finite_max(values: np.ndarray) -> float | None:
-    finite = _finite_values(values)
-    return None if finite.size == 0 else float(np.max(finite))
-
-
-def _finite_sum(values: np.ndarray) -> float | None:
-    finite = _finite_values(values)
-    return None if finite.size == 0 else float(np.sum(finite))
-
-
 def _finite_quantile(values: np.ndarray, q: float) -> float | None:
-    finite = _finite_values(values)
+    finite = finite_values(values)
     return None if finite.size == 0 else float(np.quantile(finite, float(q)))
 
 

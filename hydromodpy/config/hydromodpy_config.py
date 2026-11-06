@@ -94,15 +94,15 @@ from hydromodpy.results.publication import PublicationConfig
 from hydromodpy.simulation.planning.config import SimulationConfig
 from hydromodpy.simulation.planning.observation_config import ObservationConfig
 from hydromodpy.simulation.spinup_config import SpinupConfig
+from hydromodpy.solver.base.properties import k_tensor_parameter_ids
 from hydromodpy.solver.base.solver_config import (
     CustomBackend,
     SolverConfig,
     backend_following_the_process,
     solver_name_of_backend,
 )
-from hydromodpy.solver.field_property_mapping import k_tensor_parameter_ids
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
-from hydromodpy.solver.modflow_nwt.nwt import ModflowConfig
+from hydromodpy.solver.modflow_nwt.nwt.nwt_config import ModflowConfig
 from hydromodpy.spatial.domain.depth_model_config import RASTER_DEPTH_MODEL_KINDS
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.domain.layers_config import VerticalGridConfig

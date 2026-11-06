@@ -12,11 +12,8 @@ import numpy as np
 import pytest
 
 from hydromodpy.core.fields.vertical_column import check_layer_interfaces
-from hydromodpy.solver.modflow6.builders import (
-    apply_lake_idomain_mask,
-    build_lake_connectiondata,
-    carve_lake_bed,
-)
+from hydromodpy.solver.modflow6.builders.lake import build_lake_connectiondata
+from hydromodpy.solver.modflow6.builders.lake_cells import apply_lake_idomain_mask, carve_lake_bed
 from hydromodpy.spatial.lake_bed.abacus import simulate_abacus
 from tests._helpers.lake_bed_cases import (
     BASE,

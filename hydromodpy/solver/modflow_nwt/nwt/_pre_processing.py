@@ -7,6 +7,7 @@ stays a thin lifecycle facade.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
 import flopy
@@ -16,14 +17,76 @@ from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow_common.options import ModflowPreprocessOptions
 
-from .diagnostics import check_water_flow_connectivity
 from .flow_to_modflow_adapter import FlowModflowInputs
-from .payloads.rates import ITMUNI_TO_SECONDS, scale_rate_payload
 
 if TYPE_CHECKING:
     from .nwt_solver import ModflowNwt
 
 logger = get_logger(__name__)
+
+# Map MODFLOW ITMUNI codes to seconds per time unit.
+# Used to convert FieldParam SI values (m/s) to solver time units.
+ITMUNI_TO_SECONDS: dict[int, float] = {
+    0: 1.0,  # undefined treated as seconds
+    1: 1.0,  # seconds
+    2: 60.0,  # minutes
+    3: 3600.0,  # hours
+    4: 86400.0,  # days
+    5: 31557600.0,  # years (365.25 days)
+}
+
+
+def scale_rate_payload(payload: object, factor: float) -> object:
+    """Scale a recharge / EVT rate payload by ``factor``.
+
+    Handles the three shapes produced by ``flow_to_modflow_adapter``:
+    a scalar (steady-state), a 2D ndarray (one map for the whole run),
+    or a ``{kper: scalar | ndarray}`` mapping (one entry per stress
+    period). Returns ``None`` unchanged so the caller can keep its
+    existing skip logic.
+    """
+    if payload is None:
+        return None
+    if isinstance(payload, Mapping):
+        return {kper: scale_rate_payload(value, factor) for kper, value in payload.items()}
+    if isinstance(payload, np.ndarray):
+        return payload * factor
+    return float(payload) * factor
+
+
+def _neighbor(values: np.ndarray, axis: int, step: int, fill) -> np.ndarray:
+    """``values`` of the neighbor ``step`` cells away along ``axis``, ``fill`` past the edge."""
+    out = np.full_like(values, fill)
+    src = [slice(None)] * values.ndim
+    dst = [slice(None)] * values.ndim
+    if step < 0:
+        dst[axis], src[axis] = slice(1, None), slice(None, -1)
+    else:
+        dst[axis], src[axis] = slice(None, -1), slice(1, None)
+    out[tuple(dst)] = values[tuple(src)]
+    return out
+
+
+def check_water_flow_connectivity(grid: np.ndarray) -> list[tuple[int, int, int]]:
+    """The ``(layer, row, col)`` of the cells that cannot exchange water with a neighbor.
+
+    ``grid`` is ``(layers + 1, rows, cols)``, the top and bottom elevations of the
+    MODFLOW grid (``mf.modelgrid.top_botm``). A cell with at least one active
+    neighbor in its row or column is reported when the elevation range of none
+    of them overlaps its own. Cells are listed layer first, then row, then column.
+    """
+    top, bottom = grid[:-1], grid[1:]
+    active = ~(np.isnan(top) | np.isnan(bottom))
+    has_neighbor = np.zeros_like(active)
+    can_flow = np.zeros_like(active)
+    for axis, step in ((1, -1), (1, 1), (2, -1), (2, 1)):
+        n_active = _neighbor(active, axis, step, False)
+        n_top = _neighbor(top, axis, step, np.nan)
+        n_bottom = _neighbor(bottom, axis, step, np.nan)
+        has_neighbor |= n_active
+        can_flow |= n_active & (bottom <= n_top) & (top >= n_bottom)
+    problematic = active & has_neighbor & ~can_flow
+    return [(int(z), int(y), int(x)) for z, y, x in np.argwhere(problematic)]
 
 
 def _upw_vertical_conductivity(

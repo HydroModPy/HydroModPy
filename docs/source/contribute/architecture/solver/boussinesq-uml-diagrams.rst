@@ -48,9 +48,9 @@ Notes
   - ``drivers/steady.py`` and ``drivers/transient.py`` for solve execution, and
     ``drivers/forcing.py`` for shared boundary and drainage preparation;
   - ``solver_contract.py`` for process-to-runtime normalization;
-  - ``runtime_selection.py`` for the method and engine resolution, and
+  - ``catalog.py`` for the method and engine resolution, and
     ``runtime_summary.py`` for runtime-summary shaping;
-  - ``forcing_resolution.py`` plus ``forcing/`` for process-to-array mapping;
+  - ``forcing/`` for process-to-array mapping;
   - ``assembly/`` for the residual and the fluxes, and ``jacobian/`` for the
     linearization;
   - ``runtimes/`` for the execution engines.

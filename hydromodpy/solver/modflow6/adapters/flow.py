@@ -19,12 +19,12 @@ from hydromodpy.core.exceptions import ObservableNotAvailableError
 from hydromodpy.physics.flow.sinks_sources.wells import WELLS_PUMPED_METRIC
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
-from hydromodpy.solver.base.observable_support import (
+from hydromodpy.solver.base.observables import (
     ObservableSupport,
+    series_observable,
     servable,
     under_condition,
 )
-from hydromodpy.solver.base.observables import series_observable
 from hydromodpy.solver.modflow6.extractors.lake import extract_lake_series
 from hydromodpy.solver.modflow6.modflow6 import Modflow6
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import (

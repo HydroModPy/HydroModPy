@@ -211,7 +211,7 @@ serves every engine for each question:
        gave the cell when the faces lie on the contacts, else the polygon areas of a vector
        geology source, else the sampling of the support.
    * - K, Sy and Ss on the cells
-     - ``map_flow_properties`` in ``solver/field_property_mapping.py``, for MODFLOW 6,
+     - ``map_flow_properties`` in ``solver/base/properties.py``, for MODFLOW 6,
        MODFLOW-NWT and Boussinesq.
    * - HFB, lake and SFR cells
      - ``spatial/mesh/cells/barrier_faces.py`` gives the faces a barrier line bars. The MODFLOW 6

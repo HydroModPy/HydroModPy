@@ -537,10 +537,10 @@ appears here on the next build.
 hydromodpy.physics.flow
 hydromodpy.spatial.domain
 hydromodpy.spatial.field.field_param
-hydromodpy.solver.field_property_mapping
+hydromodpy.solver.base.properties
 hydromodpy.solver.modflow_grid
-hydromodpy.solver.initial_conditions
-hydromodpy.solver.steady_initial_conditions
+hydromodpy.solver.base.initial_conditions
+hydromodpy.solver.base.initial_conditions
 hydromodpy.solver.modflow6.build
 hydromodpy.solver.modflow_nwt.nwt
 ```
@@ -552,12 +552,12 @@ hydromodpy.solver.modflow_nwt.nwt
 | The top, the bottom and the raster depth models | `hydromodpy/spatial/domain/domain.py` (`Domain._build_surfaces`, `Domain._substratum_from_raster`), `hydromodpy/spatial/domain/depth_model_config.py` |
 | Reading the substratum raster | `hydromodpy/spatial/domain/build.py` (`read_substratum_source`) |
 | Layers, the check bottom below top | `hydromodpy/spatial/domain/layering.py` (`layer_proportions`, `layer_stack`, `pinch_out`, `assert_bottom_below_top`), `hydromodpy/solver/modflow_grid/discretization_spatial.py` (`build_spatial_discretization`) |
-| The properties, per cell and per layer | `hydromodpy/solver/modflow6/support/property_mapping.py` (`resolve_k33_field`, `K_TENSOR_NPF_NAMES`), `hydromodpy/solver/field_property_mapping.py`, `resolve_required_flow_properties` |
+| The properties, per cell and per layer | `hydromodpy/solver/modflow6/support/property_mapping.py` (`resolve_k33_field`, `K_TENSOR_NPF_NAMES`), `hydromodpy/solver/base/properties.py`, `resolve_required_flow_properties` |
 | The depth factor | `hydromodpy/spatial/field/vertical_profile.py` (`vertical_factor`, read by `FieldParam.vertical_factor`), `SolverMesh.layer_center_depths` |
-| The MODFLOW 6 balance: `NPF`, `STO`, `IC`, Newton | `hydromodpy/solver/modflow6/build.py` (`run_pre_processing`, `newton_options`) |
+| The MODFLOW 6 balance: `NPF`, `STO`, `IC`, Newton | `hydromodpy/solver/modflow6/build.py` (`run_pre_processing`), `hydromodpy/solver/modflow6/builders/solver_options.py` (`newton_options`) |
 | The MODFLOW-NWT balance: `UPW` | `hydromodpy/solver/modflow_nwt/nwt/_pre_processing.py` |
 | Steady and transient periods | `hydromodpy/solver/modflow_grid/discretization_temporal.py`, `hydromodpy/solver/modflow6/builders/period_forcing.py` (`sto_period_settings`) |
-| The starting heads | `hydromodpy/solver/initial_conditions.py`, `hydromodpy/solver/steady_initial_conditions.py` (`cycles_have_settled`), `hydromodpy/solver/modflow6/builders/initial_conditions.py` (`build_start_heads`) |
+| The starting heads | `hydromodpy/solver/base/initial_conditions.py`, `hydromodpy/solver/base/initial_conditions.py` (`cycles_have_settled`), `hydromodpy/solver/modflow6/builders/initial_conditions.py` (`build_start_heads`) |
 
 ## See also
 

@@ -64,7 +64,7 @@ The layer matrix is checked by `tests/unit/architecture/`.
 
 ## What lives outside the package
 
-The caller is `carve_lake_bed` in `hydromodpy/solver/modflow6/builders/lake.py`. It reads the `bed_reconstruction` table
+The caller is `carve_lake_bed` in `hydromodpy/solver/modflow6/builders/lake_cells.py`. It reads the `bed_reconstruction` table
 of each lake, picks the lake cells and the abacus, calls the two modules of this package and `lake_column_regrade.py`, and writes the new `top` and `botm` into the
 solver mesh. It imports the modules inside the function, so a run without a lake bed never loads them.
 `hydromodpy/solver/modflow6/build.py` calls it.

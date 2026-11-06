@@ -21,16 +21,14 @@ from hydromodpy.core.budget.terms import BudgetKeep
 from hydromodpy.core.time import SIMULATION_TIME_UNIT
 from hydromodpy.core.units import to_modflow_itmuni
 from hydromodpy.solver.modflow6 import Modflow6
-from hydromodpy.solver.modflow6.build import build_ats_perioddata
-from hydromodpy.solver.modflow6.builders import (
-    collapse_identical_periods,
-    empty_recharge_aux,
-    sto_period_settings,
-)
+from hydromodpy.solver.modflow6.builders.boundary_conditions import collapse_identical_periods
+from hydromodpy.solver.modflow6.builders.period_forcing import sto_period_settings
+from hydromodpy.solver.modflow6.builders.recharge import empty_recharge_aux
+from hydromodpy.solver.modflow6.builders.solver_options import build_ats_perioddata
+from hydromodpy.solver.modflow6.extractors.budget import extract_budget
 from hydromodpy.solver.modflow6.extractors.flow import (
     Modflow6OutputAdapter,
     _read_start_datetime,
-    _seconds_per_time_unit,
     _write_time_coordinate,
 )
 from hydromodpy.solver.modflow_common import calibration_extractors as cal
@@ -140,11 +138,15 @@ def _fake_cbc_factory(records: dict[str, np.ndarray]):
     return _FakeCBC
 
 
-def test_seconds_per_time_unit_collapses_to_core_units() -> None:
-    assert _seconds_per_time_unit("SECONDS") == 1.0
-    assert _seconds_per_time_unit("DAYS") == 86400.0
-    assert _seconds_per_time_unit("UNKNOWN") == 1.0
-    assert _seconds_per_time_unit("") == 1.0
+def test_seconds_per_time_unit_collapses_to_core_units(tmp_path: Path) -> None:
+    # The MF6 extractor reads its TDIS unit with the shared reader: a missing,
+    # blank or UNKNOWN unit is the launcher's seconds.
+    tdis = tmp_path / "m.tdis"
+    for token, seconds in (("SECONDS", 1.0), ("DAYS", 86400.0), ("UNKNOWN", 1.0)):
+        tdis.write_text(f"BEGIN options\n  TIME_UNITS {token}\nEND options\n")
+        assert seconds_per_solver_time_unit(tmp_path, "m") == seconds
+    tdis.write_text("BEGIN options\nEND options\n")
+    assert seconds_per_solver_time_unit(tmp_path, "m") == 1.0
 
 
 def _run_extract(tmp_path: Path, monkeypatch, time_units: str, records: dict[str, np.ndarray]):
@@ -181,14 +183,13 @@ def test_mf6_budget_flux_scaled_to_m3_per_s_under_days(tmp_path, monkeypatch) ->
 
 
 def test_mf6_budget_flux_seconds_is_identity(tmp_path, monkeypatch) -> None:
-    adapter = Modflow6OutputAdapter()
     monkeypatch.setattr(
         "hydromodpy.solver.modflow6.extractors.cbc_reader.Mf6CellBudgetReader",
         _fake_cbc_factory({"DRN": np.array([5.0, -5.0])}),
         raising=True,
     )
     store = _FakeStore()
-    adapter._extract_budget(
+    extract_budget(
         "sim",
         store,
         tmp_path / "flow.cbc",

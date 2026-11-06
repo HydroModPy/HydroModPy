@@ -10,6 +10,7 @@ from .binaries import (
     MANIFEST_FILENAME,
     available_solvers,
     download_solver_binaries,
+    ensure_platform_executable,
     ensure_solver_binary,
     ensure_solver_library,
     exe_filename,
@@ -17,8 +18,6 @@ from .binaries import (
     locate_solver_binary,
     read_manifest,
 )
-from .executables import ensure_platform_executable
-from .masstransfer import Masstransfer
 from .options import (
     ModflowPostprocessOptions,
     ModflowPreprocessOptions,
@@ -29,7 +28,6 @@ from .routing_context import SolverRoutingContext, build_solver_routing_context
 from .runtime_arrays import (
     build_concentration_runtime_overrides,
     flow_grid_shape,
-    resolve_flow_property_runtime_overrides,
 )
 
 __all__ = [
@@ -48,10 +46,8 @@ __all__ = [
     "is_managed_cache",
     "locate_solver_binary",
     "read_manifest",
-    "Masstransfer",
     "write_grid_array_to_raster",
     "build_solver_routing_context",
     "build_concentration_runtime_overrides",
     "flow_grid_shape",
-    "resolve_flow_property_runtime_overrides",
 ]

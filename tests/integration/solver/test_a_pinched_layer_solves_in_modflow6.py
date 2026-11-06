@@ -17,10 +17,10 @@ import numpy as np
 import pytest
 
 from hydromodpy.core.fields.vertical_column import VERTICAL_LAYOUT_SURFACES, top_active_layer
-from hydromodpy.solver.modflow6.builders import areal_layer_index
 from hydromodpy.solver.modflow6.builders.boundary_conditions import (
     build_drain_stress_period_data,
 )
+from hydromodpy.solver.modflow6.builders.recharge import areal_layer_index
 from hydromodpy.solver.modflow6.extractors.flow import Modflow6OutputAdapter
 from hydromodpy.solver.modflow6.support.computational_top import (
     GROUND_SIDECAR_SUFFIX,

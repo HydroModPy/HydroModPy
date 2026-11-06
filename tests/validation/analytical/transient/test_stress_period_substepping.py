@@ -52,7 +52,7 @@ import flopy
 import numpy as np
 import pytest
 
-from hydromodpy.solver.modflow6.build import build_ats_perioddata
+from hydromodpy.solver.modflow6.builders.solver_options import build_ats_perioddata
 from tests._helpers.tolerances import tol
 from tests.regression.golden_utils import assert_required_executables
 from tests.validation.helpers import assert_metric_above, assert_metric_below, record_metric

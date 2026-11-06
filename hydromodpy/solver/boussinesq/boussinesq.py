@@ -6,7 +6,7 @@ This module does not assemble the nonlinear equations itself. Instead it:
 - delegates each nonlinear solve to a runtime backend,
 - stores the accepted state in the shape expected by the rest of HydroModPy.
 
-Forcing resolution lives in ``forcing_resolution.py`` and the per-regime
+Forcing resolution lives in ``forcing/`` and the per-regime
 drivers live in ``drivers/``. Diagnostics emitted around the solve live in
 ``runtime_summary.py``. This file only contains the lifecycle facade.
 
@@ -40,11 +40,22 @@ from hydromodpy.physics.flow.boundary_condition_registry import (
     boundary_definition,
     is_boundary_condition_active,
 )
+from hydromodpy.solver.base.initial_conditions import (
+    apply_steady_state_initial_condition_strategy,
+    flow_uses_steady_state_initial_condition,
+    steady_state_initial_condition_strategy,
+    steady_state_initialization_surface_interaction_model,
+    summarize_head_initial_condition_bounds,
+)
 from hydromodpy.solver.base.protocols import DomainLike
 from hydromodpy.solver.boussinesq.assembly import (
     saturated_thickness_from_head,
 )
-from hydromodpy.solver.boussinesq.core.state import BoussinesqState
+from hydromodpy.solver.boussinesq.catalog import (
+    ResolvedBoussinesqRuntimeBackend,
+    resolve_runtime_backend,
+    resolve_surface_interaction_model_token,
+)
 from hydromodpy.solver.boussinesq.drivers import (
     run_steady_runtime,
     run_transient_runtime,
@@ -52,17 +63,10 @@ from hydromodpy.solver.boussinesq.drivers import (
 from hydromodpy.solver.boussinesq.export_payload import (
     build_state_history_export_payload,
 )
-from hydromodpy.solver.boussinesq.forcing_resolution import BoussinesqForcingResolver
+from hydromodpy.solver.boussinesq.forcing import BoussinesqForcingResolver
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
-from hydromodpy.solver.boussinesq.methods import (
-    resolve_surface_interaction_model_token,
-)
 from hydromodpy.solver.boussinesq.runtime_contract import (
     NonlinearRuntimeOptions,
-)
-from hydromodpy.solver.boussinesq.runtime_selection import (
-    ResolvedBoussinesqRuntimeBackend,
-    resolve_runtime_backend,
 )
 from hydromodpy.solver.boussinesq.runtime_summary import (
     record_surface_threshold_summary,
@@ -82,15 +86,7 @@ from hydromodpy.solver.boussinesq.solver_contract import (
     resolve_solver_contract,
     runtime_backend_name,
 )
-from hydromodpy.solver.initial_conditions import (
-    summarize_head_initial_condition_bounds,
-)
-from hydromodpy.solver.steady_initial_conditions import (
-    apply_steady_state_initial_condition_strategy,
-    flow_uses_steady_state_initial_condition,
-    steady_state_initial_condition_strategy,
-    steady_state_initialization_surface_interaction_model,
-)
+from hydromodpy.solver.boussinesq.state import BoussinesqState
 from hydromodpy.spatial.mesh.io.bundle import (
     CatchmentMeshBundle,
 )

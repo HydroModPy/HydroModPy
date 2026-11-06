@@ -193,7 +193,7 @@ def _assert_network_conductance_proportional(
     detail = (
         f"flow.bc.drainage.value is {float(boundary.value):g} {boundary.units}, a fixed "
         "drain conductance (the fallback, C = K * cell_area / drain_bed_thickness_m in "
-        "hydromodpy/solver/modflow_common/drain_conductance.py, only applies when the "
+        "hydromodpy/solver/base/drain_conductance.py, only applies when the "
         "configured value is not strictly positive)."
     )
     if moves_a_hydraulic_conductivity(param.effective_path for param in space):

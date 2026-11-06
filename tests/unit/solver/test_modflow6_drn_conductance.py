@@ -13,11 +13,11 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from hydromodpy.solver.base.drain_conductance import hk_fallback_drain_conductance
 from hydromodpy.solver.modflow6.builders.boundary_conditions import (
     build_drain_stress_period_data,
     collapse_identical_periods,
 )
-from hydromodpy.solver.modflow_common.drain_conductance import hk_fallback_drain_conductance
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 

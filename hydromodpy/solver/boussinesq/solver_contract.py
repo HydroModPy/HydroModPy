@@ -10,17 +10,15 @@ from hydromodpy.physics.flow.boundary_condition_registry import (
     boundary_condition_bundle_from_flow,
     boundary_definition,
 )
-from hydromodpy.physics.flow.runtime_config import DEFAULT_PARTITION_RELEASE_DEPTH_M
 from hydromodpy.physics.flow.regime import normalize_flow_regime
-from hydromodpy.solver.boussinesq.methods import (
+from hydromodpy.physics.flow.runtime_config import DEFAULT_PARTITION_RELEASE_DEPTH_M
+from hydromodpy.solver.boussinesq.catalog import (
+    ResolvedBoussinesqRuntimeBackend,
+    resolve_runtime_backend,
     resolve_surface_interaction_model_token,
 )
 from hydromodpy.solver.boussinesq.runtime_contract import (
     NonlinearRuntimeOptions,
-)
-from hydromodpy.solver.boussinesq.runtime_selection import (
-    ResolvedBoussinesqRuntimeBackend,
-    resolve_runtime_backend,
 )
 
 if TYPE_CHECKING:
