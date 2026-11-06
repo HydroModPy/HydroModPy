@@ -84,6 +84,7 @@ from hydromodpy.core.old_members import refuse_old_member
 from hydromodpy.core.state.layout import catalog_path_for
 from hydromodpy.core.state.result_dirs import parse_rel_dir
 from hydromodpy.results.annotations import add_note, add_tag, read_annotations, remove_tag
+from hydromodpy.results.catalog.constants import SIMULATIONS_FROM
 from hydromodpy.results.errors import RunNotFoundError, RunNotSealedError
 from hydromodpy.results.export.run_identity import label_of
 from hydromodpy.results.ledger import Ledger
@@ -319,18 +320,9 @@ class Run(
             self._row = _store_row(self._catalog_handle)
         if self._row is None:
             df = self._catalog.backend.query(
-                """SELECT s.*,
-                          sv.code AS solver,
-                          sv.category AS solver_category,
-                          st.code AS status,
-                          fr.code AS flow_regime,
-                          mt.code AS mesh_topology
-                     FROM simulations s
-                     JOIN solvers sv ON s.solver_id = sv.id
-                     JOIN statuses st ON s.status_id = st.id
-                     LEFT JOIN flow_regimes fr ON s.flow_regime_id = fr.id
-                     LEFT JOIN mesh_topologies mt ON s.mesh_topology_id = mt.id
-                    WHERE CAST(s.sim_id AS VARCHAR) = ?""",
+                "SELECT s.*, sv.code AS solver, sv.category AS solver_category, "
+                "st.code AS status, fr.code AS flow_regime, mt.code AS mesh_topology "
+                f"{SIMULATIONS_FROM} WHERE CAST(s.sim_id AS VARCHAR) = ?",
                 [self._sim_id],
             )
             if df.empty:

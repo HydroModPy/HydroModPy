@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.version import __version__ as HMP_VERSION
 from hydromodpy.results.storage.arrow_tables import isoformat_instant
-from hydromodpy.results.storage.parquet_schemas import CF_CONVENTIONS, PARQUET_SCHEMA_VERSION
+from hydromodpy.results.storage.parquet_schemas import PARQUET_CONVENTIONS, PARQUET_SCHEMA_VERSION
 
 if TYPE_CHECKING:
     from hydromodpy.results.identity import Identity
@@ -170,7 +170,7 @@ def run_parquet_footer(
         "config_hash": config_hash or "",
         "hydromodpy_version": HMP_VERSION,
         "hmp.schema_version": PARQUET_SCHEMA_VERSION,
-        "Conventions": CF_CONVENTIONS,
+        "Conventions": PARQUET_CONVENTIONS,
         "license": licence,
         "scientific_objective": scientific_objective or "",
         "doi": doi or "",

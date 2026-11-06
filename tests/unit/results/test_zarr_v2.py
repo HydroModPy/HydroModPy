@@ -330,15 +330,6 @@ def test_groups_renamed_topography_and_particles(fresh_store: SimulationZarr) ->
     assert "particles" in fresh_store.root
 
 
-def test_balanced_default_true_on_init(tmp_path: Path) -> None:
-    sz = SimulationZarr.create(tmp_path / "sim.zarr", n_cells=4, n_layers=1)
-    assert sz.balanced is True
-    sz.close()
-    sz2 = SimulationZarr(tmp_path / "sim.zarr")
-    assert sz2.balanced is True
-    sz2.close()
-
-
 def test_compose_acdd_returns_floats_for_bounds() -> None:
     attrs = compose_acdd_root_attrs(
         sim_row={"sim_id": "x"},

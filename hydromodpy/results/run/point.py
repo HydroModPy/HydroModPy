@@ -445,22 +445,12 @@ def _cell_values(run: Run, variable: str, point: ResolvedPoint) -> tuple[np.ndar
     try:
         array = _locate_array(sz.root, variable)
         if array is not None:
-            return _slice_cell(array, point, time_resolved=_is_time_resolved(variable))
+            return _slice_cell(
+                array, point, time_resolved=field_registry.is_time_resolved(variable)
+            )
         return _virtual_cell_values(run, sz, variable, point)
     finally:
         sz.close()
-
-
-def _is_time_resolved(variable: str) -> bool:
-    """Return True when the leading axis of the stored array is time.
-
-    Registered static geometry (``topography``, ``layer_thickness``) has none;
-    an unregistered solver array is assumed time-resolved, which is what the
-    Zarr reader already assumes.
-    """
-    if not field_registry.has(variable):
-        return True
-    return field_registry.get(variable).shape.startswith("time")
 
 
 def _locate_array(root: Any, variable: str) -> Any | None:

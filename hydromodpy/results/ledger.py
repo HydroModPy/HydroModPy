@@ -6,7 +6,8 @@ A figure or an export is derived: it can be rendered again from the sealed
 run. What cannot be recovered is how it was made: by which producer, with
 which options, under which version, and what the run was called that day.
 The ledger keeps one entry per file so ``hmp export --regen`` replays it, and so a reader knows what a file is
-without opening it.
+without opening it. :func:`record_derived_file` adds the entry of a file a
+figure or an export just wrote, under a lock on its directory.
 
 Format
 ------
@@ -19,7 +20,10 @@ file the ledger already names replaces it: one file, one entry.
 
 from __future__ import annotations
 
-from datetime import datetime
+import os
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Final
 
@@ -29,6 +33,7 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.stored import dump_stored, read_stored
 from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.core.io.file_digest import sha256_of
+from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
 from hydromodpy.results.identity import Identity
 from hydromodpy.results.storage.contract import LEDGER_FILENAME
 from hydromodpy.results.storage.json_io import read_sealed_json, write_json_atomic
@@ -114,4 +119,57 @@ def ledger_path(directory: str | Path) -> Path:
     return Path(directory) / LEDGER_FILENAME
 
 
-__all__ = ["LEDGER_SCHEMA", "Ledger", "LedgerEntry", "ledger_path", "sha256_of"]
+def record_derived_file(
+    directory: str | Path,
+    path: str | Path,
+    *,
+    producer: str,
+    options: Mapping[str, Any],
+    identity: Identity,
+) -> LedgerEntry:
+    """Add the entry of *path* to the ledger of *directory* and return it.
+
+    *path* lies under *directory*; the entry names it relative to it. An entry
+    for the same file is replaced: one file, one entry.
+    """
+    root = Path(directory)
+    target = Path(path)
+    entry = LedgerEntry(
+        file=target.resolve().relative_to(root.resolve()).as_posix(),
+        producer=producer,
+        options=dict(options),
+        hydromodpy_version=HYDROMODPY_VERSION,
+        at=datetime.now(UTC),
+        sha256=sha256_of(target),
+        identity=identity,
+    )
+    with _locked(root):
+        ledger = Ledger.read(root)
+        ledger.append(entry)
+        ledger.write(root)
+    return entry
+
+
+@contextmanager
+def _locked(directory: Path) -> Iterator[None]:
+    """Hold an exclusive lock on *directory* while a ledger is read, changed and written.
+
+    Two writers would otherwise read the same ledger and the later write would
+    drop the entry of the earlier one. Where ``fcntl`` is missing (Windows) no
+    lock is taken.
+    """
+    try:
+        import fcntl
+    except ImportError:
+        yield
+        return
+    directory.mkdir(parents=True, exist_ok=True)
+    descriptor = os.open(directory, os.O_RDONLY)
+    try:
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        yield
+    finally:
+        os.close(descriptor)
+
+
+__all__ = ["LEDGER_SCHEMA", "Ledger", "LedgerEntry", "ledger_path", "record_derived_file"]

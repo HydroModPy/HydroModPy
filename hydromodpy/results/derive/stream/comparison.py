@@ -29,7 +29,6 @@ from hydromodpy.core.scoring.stream_defaults import (
     STREAM_CRITERION_DEFAULTS,
     ObservedRasterization,
 )
-from hydromodpy.core.time.period_aggregation import period_edges
 from hydromodpy.core.units import factor_to_m_per_s
 from hydromodpy.results.derive.stream.geometry import (
     CriterionSupports,
@@ -39,6 +38,7 @@ from hydromodpy.results.derive.stream.geometry import (
 )
 from hydromodpy.results.derive.stream.heads import HeadsSettings
 from hydromodpy.results.derive.stream.network import build_simulated_network
+from hydromodpy.results.derive.time_alignment import run_period_edges
 from hydromodpy.spatial.drainage.distance import downslope_distance_to_mask
 from hydromodpy.spatial.drainage.graph import cell_centroids_from_mesh
 from hydromodpy.spatial.forcing.recharge_rates import (
@@ -525,7 +525,7 @@ def _recharge_forcing_on_periods(sim: Run) -> tuple[pd.Series, pd.DatetimeIndex]
     stored = _stored_recharge_forcing_m_s(sim)
     if stored is None:
         return None
-    edges = _run_period_edges(sim)
+    edges = run_period_edges(sim)
     return None if edges is None else (stored, edges)
 
 
@@ -561,23 +561,6 @@ def _stored_recharge_forcing_m_s(sim: Run) -> pd.Series | None:
     return pd.concat(stations, axis=1).mean(axis=1)
 
 
-def _run_period_edges(sim: Run) -> pd.DatetimeIndex | None:
-    """Return the run's ``n + 1`` period edges, or None when it carries no dates."""
-    try:
-        edges = sim.periods.edges
-    except (AttributeError, KeyError, ValueError, RuntimeError, FileNotFoundError):
-        edges = None
-    if edges is not None and len(edges) >= 2:
-        return pd.DatetimeIndex(edges)
-    try:
-        stamps = sim.time_index
-    except (AttributeError, KeyError, ValueError, RuntimeError, FileNotFoundError):
-        return None
-    if stamps is None or len(stamps) < 2:
-        return None
-    return period_edges(stamps)
-
-
 def _edge_lengths_s(edges: pd.DatetimeIndex) -> np.ndarray:
     """Return the length of each period between its edges, in seconds."""
     return (edges[1:] - edges[:-1]).total_seconds().to_numpy(dtype=float)
@@ -608,7 +591,7 @@ def _budget_mean_recharge_m_s(sim: Run, areas: np.ndarray) -> float:
             usable = np.isfinite(recharge_m3_s) & np.isfinite(areas) & (areas > 0.0)
             if np.any(usable):
                 rates.append(float(recharge_m3_s[usable].sum() / areas[usable].sum()))
-    edges = _run_period_edges(sim)
+    edges = run_period_edges(sim)
     durations = None
     if edges is not None and len(edges) == len(rates) + 1:
         durations = _edge_lengths_s(edges)

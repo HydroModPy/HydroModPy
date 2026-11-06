@@ -70,20 +70,6 @@ def enable_options_hint(options: Iterable[str]) -> str:
     )
 
 
-def _kept_budget(run: Any) -> KeptBudget | None:
-    """What the ``budget/`` group of the store of ``run`` says it kept."""
-    from hydromodpy.results.run.geographic import kept_budget_of
-
-    return kept_budget_of(run)
-
-
-def _has_head(run: Any) -> bool:
-    """Whether the store of ``run`` holds a head, so that it could hold a per-cell budget."""
-    from hydromodpy.results.run.geographic import has_head_of
-
-    return has_head_of(run)
-
-
 def diagnose_missing(fields: Iterable[str], run: SupportsHasField) -> MissingBudget | None:
     """Tell whether a run lacks fields because it did not keep their budget terms.
 
@@ -100,10 +86,12 @@ def diagnose_missing(fields: Iterable[str], run: SupportsHasField) -> MissingBud
     ]
     if not missing:
         return None
-    kept = _kept_budget(run)
+    from hydromodpy.results.run.geographic import has_head_of, kept_budget_of
+
+    kept = kept_budget_of(run)
     needed = {term for name in missing for term in budget_terms_for(name)}
     if kept is None:
-        if not _has_head(run):
+        if not has_head_of(run):
             return None
         return MissingBudget(None, tuple(missing), tuple(sorted(needed)))
     if kept.policy != POLICY_CONSUMERS:
@@ -173,7 +161,9 @@ def _model_has_no_exit(run: Any, terms: tuple[str, ...], has_budget_term: bool) 
     some budget term is there, no exit one. A plan that kept other terms only
     says nothing about the exits.
     """
-    kept = _kept_budget(run)
+    from hydromodpy.results.run.geographic import kept_budget_of
+
+    kept = kept_budget_of(run)
     if kept is None or kept.policy == POLICY_ALL:
         return has_budget_term
     return all(term in kept.terms for term in terms)

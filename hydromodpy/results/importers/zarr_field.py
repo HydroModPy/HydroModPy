@@ -1,7 +1,9 @@
 """Read a single field array from a simulation Zarr store.
 
 Resolves a registered field through :mod:`hydromodpy.results.field_registry`
-and reads the underlying array from a directory- or zip-backed Zarr store.
+and reads the underlying array from a directory- or zip-backed Zarr store. The
+store is opened like every other reader opens it, so a schema version outside
+the read window is refused here too.
 """
 
 from __future__ import annotations
@@ -13,6 +15,8 @@ import zarr
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
+from hydromodpy.results.exporters.fields import resolve_zarr_path
+from hydromodpy.results.zarr_store.zarr_schema import open_root_strict
 
 logger = get_logger(__name__)
 
@@ -53,8 +57,8 @@ def import_zarr_field(
         store = zarr.storage.LocalStore(str(zarr_path))
 
     try:
-        root = zarr.open_group(store, mode="r")
-        arr = _resolve_zarr_path(root, descriptor.zarr_path)
+        root = open_root_strict(store, read_only=True)
+        arr = resolve_zarr_path(root, descriptor.zarr_path)
         if arr is None:
             raise KeyError(
                 f"Field '{variable}' (zarr_path={descriptor.zarr_path!r}) "
@@ -70,18 +74,3 @@ def import_zarr_field(
 
     logger.info("Imported Zarr field '%s' from %s (shape=%s)", variable, zarr_path, data.shape)
     return data
-
-
-def _resolve_zarr_path(group: zarr.Group, zarr_path: str):
-    """Walk a ``a/b/c`` zarr_path inside ``group`` and return the leaf array."""
-    parts = zarr_path.split("/")
-    cursor = group
-    for part in parts[:-1]:
-        sub = cursor.get(part)
-        if sub is None:
-            return None
-        cursor = sub
-    leaf = parts[-1]
-    if leaf in cursor:
-        return cursor[leaf]
-    return None

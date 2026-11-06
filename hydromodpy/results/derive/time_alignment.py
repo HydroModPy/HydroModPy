@@ -7,7 +7,7 @@ from typing import Any
 
 import pandas as pd
 
-from hydromodpy.core.time.period_aggregation import observed_on_periods
+from hydromodpy.core.time.period_aggregation import observed_on_periods, period_edges
 from hydromodpy.core.time.time_method import (
     DEFAULT_TIME_METHOD,
     OBSERVABLE_TIME_METHODS,
@@ -80,8 +80,8 @@ def first_period_start(stamps: Any, boundaries: Sequence[Any] | None) -> pd.Time
     """
     if boundaries is None or len(boundaries) == 0 or stamps is None or len(stamps) == 0:
         return None
-    first = _naive_utc(pd.DatetimeIndex(stamps).min())
-    bounds = sorted(_naive_utc(bound) for bound in boundaries if not pd.isna(bound))
+    first = naive_utc(pd.DatetimeIndex(stamps).min())
+    bounds = sorted(naive_utc(bound) for bound in boundaries if not pd.isna(bound))
     before = [bound for bound in bounds if bound < first]
     return before[-1] if before else None
 
@@ -106,7 +106,32 @@ def run_period_start(run: Any, stamps: Any) -> pd.Timestamp | None:
     return first_period_start(stamps, [start])
 
 
-def _naive_utc(value: Any) -> pd.Timestamp:
+NO_TIME_AXIS = (AttributeError, KeyError, ValueError, FileNotFoundError, RuntimeError)
+"""What a run without a time axis raises when its periods are asked for."""
+
+
+def run_period_edges(run: Any) -> pd.DatetimeIndex | None:
+    """Return the ``n + 1`` period edges of a run, or None when it carries no dates.
+
+    The edges the catalog places on the calendar, else the ones the end stamps
+    imply, as a trial reads a stack served without its time grid.
+    """
+    try:
+        edges = run.periods.edges
+    except NO_TIME_AXIS:
+        edges = None
+    if edges is not None and len(edges) >= 2:
+        return pd.DatetimeIndex(edges)
+    try:
+        stamps = run.time_index
+    except NO_TIME_AXIS:
+        return None
+    if stamps is None or len(stamps) < 2:
+        return None
+    return period_edges(stamps)
+
+
+def naive_utc(value: Any) -> pd.Timestamp:
     """Return one timestamp, tz-naive in UTC."""
     ts = pd.Timestamp(value)
     return ts.tz_convert("UTC").tz_localize(None) if ts.tz is not None else ts

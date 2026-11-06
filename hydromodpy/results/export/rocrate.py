@@ -22,7 +22,7 @@ from hydromodpy.results.export.context import (
     _is_missing,
     to_json,
 )
-from hydromodpy.results.export.directory import context_from_directory, write_view
+from hydromodpy.results.export.directory import context_from_directory
 from hydromodpy.results.export.prov import HYDROMODPY_NAMESPACE, build_prov_document
 from hydromodpy.schema.generated_views import RO_CRATE_VIEW_FILENAME
 from hydromodpy.schema.media_types import OCTET_STREAM_MEDIA_TYPE
@@ -250,7 +250,7 @@ def write_ro_crate_view(
     """
     root = Path(directory)
     ctx = context or context_from_directory(root)
-    return write_view(root / RO_CRATE_METADATA_FILENAME, build_ro_crate(ctx))
+    return to_json(build_ro_crate(ctx), root / RO_CRATE_METADATA_FILENAME)
 
 
 def loads(payload: str) -> dict[str, Any]:

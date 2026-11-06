@@ -44,7 +44,6 @@ from hydromodpy.results.derive.virtual_fields import (
     field_descriptor,
     simulated_active_network_stack,
 )
-from hydromodpy.results.export.ledgers import record_derived_file
 from hydromodpy.results.export.run_identity import identity_of_run_dir, read_sealed_manifest
 from hydromodpy.results.exporters._tables import (
     BUDGETS_TABLE,
@@ -63,15 +62,16 @@ from hydromodpy.results.exporters.export_spec import (
     PlannedFile,
     plan_outputs,
 )
-from hydromodpy.results.exporters.fields import is_timed
+from hydromodpy.results.exporters.fields import is_timed, native_crs
 from hydromodpy.results.exporters.vocabulary import (
     describe_export_names,
     describe_exportable,
     export_kind,
     list_exportable,
+    network_unavailable_reason,
 )
 from hydromodpy.results.identity import ZARR_IDENTITY_ATTR, Identity
-from hydromodpy.results.ledger import Ledger
+from hydromodpy.results.ledger import Ledger, record_derived_file
 from hydromodpy.results.storage.contract import RUN_EXPORTS_DIRNAME
 
 if TYPE_CHECKING:
@@ -193,12 +193,11 @@ def _describe(request: ExportRequest) -> str:
     return f"variables = {names}" + (f", format = {fmt.value}" if fmt is not None else "")
 
 
-def _field_root_attrs(store: Any, sim_id: str, group: str | None = None) -> dict[str, Any]:
-    """Return the attributes of the root of the field store, or of one of its groups."""
+def _field_root_attrs(store: Any, sim_id: str) -> dict[str, Any]:
+    """Return the attributes of the root of the field store."""
     sz = store.open_zarr(sim_id)
     try:
-        node = sz.root if group is None else sz.root.get(group)
-        return {} if node is None else dict(node.attrs)
+        return dict(sz.root.attrs)
     finally:
         sz.close()
 
@@ -208,13 +207,13 @@ def _model_crs(store: Any, sim_id: str) -> str | None:
 
     ``None`` when neither says one.
     """
-    attrs = _field_root_attrs(store, sim_id, "crs")
-    epsg = attrs.get("epsg_code")
-    if epsg is not None:
-        return f"EPSG:{int(epsg)}"
-    wkt = attrs.get("crs_wkt")
-    if wkt:
-        return str(wkt)
+    sz = store.open_zarr(sim_id)
+    try:
+        crs = native_crs(sz.root)
+    finally:
+        sz.close()
+    if crs is not None:
+        return crs
     manifest = read_sealed_manifest(Path(store.run_dir_for(sim_id)))
     if manifest is None:
         return None
@@ -410,7 +409,7 @@ def _check_held(run: Run, label: str, names: Sequence[str], held: Mapping[str, A
         )
     reasons = ""
     if SIMULATED_ACTIVE_NETWORK in missing:
-        reasons = f"\n{SIMULATED_ACTIVE_NETWORK}: {_network_reason(run)}."
+        reasons = f"\n{SIMULATED_ACTIVE_NETWORK}: {network_unavailable_reason(run) or 'unknown'}."
     mesh_missing = [name for name in missing if name in MESH_LAYERS]
     if mesh_missing:
         from hydromodpy.results.exporters.mesh_layers import mesh_layer_reasons
@@ -423,19 +422,6 @@ def _check_held(run: Run, label: str, names: Sequence[str], held: Mapping[str, A
     )
 
 
-def _network_reason(run: Run) -> str:
-    """Say why a run holds no simulated stream network."""
-    from hydromodpy.results.derive.stream.criterion_settings import network_criterion_settings
-    from hydromodpy.results.derive.stream.run_extent import unavailable_reason_for_flow
-
-    try:
-        settings = network_criterion_settings(run)
-        reason = unavailable_reason_for_flow(run, tau_specific_ratio=settings.tau_specific_ratio)
-    except (KeyError, ValueError, FileNotFoundError, RuntimeError) as exc:
-        return str(exc)
-    return reason or "unknown"
-
-
 def _write_run_format(request: ExportRequest, fmt: ExportFormat, target: ExportTarget) -> Path:
     """Write one metadata view of the run: STAC, RO-Crate or PROV.
 
@@ -445,15 +431,17 @@ def _write_run_format(request: ExportRequest, fmt: ExportFormat, target: ExportT
     files of the run directory.
     """
     if request.folder is None and request.file is None:
-        from hydromodpy.results.export import write_views
+        from hydromodpy.results.export.directory import write_views
 
         (path,) = write_views(target.run_dir, formats=(fmt.value,))
         return Path(path)
     (item,) = plan_outputs(request, {}, run_label=target.run_dir.name)
     dest = _destination(item.path, target)
     dest.parent.mkdir(parents=True, exist_ok=True)
-    from hydromodpy.results.export import context_from_directory, write_ro_crate, write_stac_item
+    from hydromodpy.results.export.directory import context_from_directory
     from hydromodpy.results.export.prov import write_prov
+    from hydromodpy.results.export.rocrate import write_ro_crate
+    from hydromodpy.results.export.stac import write_stac_item
 
     writers = {
         ExportFormat.stac: write_stac_item,

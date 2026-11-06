@@ -285,7 +285,6 @@ class TestG05BalancedChunking:
             path,
             n_cells=100,
             n_layers=2,
-            balanced=True,
         )
         try:
             s.write_field("head", 0, np.ones((2, 100)), n_timesteps=10)

@@ -33,10 +33,8 @@ import tomllib
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
-from uuid import uuid4
 
 from hydromodpy.core.exceptions import ExportError
-from hydromodpy.core.io.atomic_replace import rename_over_open_file
 from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.results.export.context import AssetEntry, FairExportContext, InputEntry
 from hydromodpy.results.manifest import read_manifest
@@ -116,18 +114,6 @@ def context_from_directory(directory: Path | str) -> FairExportContext:
         f"{manifest_path} is neither a run manifest nor a job manifest; "
         "no view can be rendered from it"
     )
-
-
-def write_view(path: Path, payload: Any) -> Path:
-    """Write one view whole, through a temporary file and one rename."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(f"{path.name}.tmp-{uuid4().hex}")
-    tmp.write_text(
-        json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-    )
-    rename_over_open_file(tmp, path)
-    return path
 
 
 def write_views(
@@ -565,6 +551,5 @@ def _optional_object(path: Path, window: VersionWindow) -> Mapping[str, Any]:
 
 __all__ = [
     "context_from_directory",
-    "write_view",
     "write_views",
 ]

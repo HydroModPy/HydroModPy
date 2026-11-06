@@ -8,17 +8,14 @@ project leaves its file untouched.
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import UUID
 
 import numpy as np
 import pandas as pd
 
-from hydromodpy.core.scope import OBSERVED
-from hydromodpy.core.time.selection import in_series_window
-from hydromodpy.results.catalog.constants import MESH_ENGINE_SQL
+from hydromodpy.results.catalog.constants import MESH_ENGINE_SQL, SIMULATIONS_FROM
+from hydromodpy.results.storage.contract import geographic_feature_files
 
 if TYPE_CHECKING:
     import geopandas as gpd
@@ -120,11 +117,7 @@ _SIMULATIONS_VIEW_SELECT = (
     "fr.code AS flow_regime, "
     "mt.code AS mesh_topology, "
     f"{MESH_ENGINE_SQL} AS mesh_engine "
-    "FROM simulations s "
-    "JOIN solvers sv ON s.solver_id = sv.id "
-    "JOIN statuses st ON s.status_id = st.id "
-    "LEFT JOIN flow_regimes fr ON s.flow_regime_id = fr.id "
-    "LEFT JOIN mesh_topologies mt ON s.mesh_topology_id = mt.id"
+    f"{SIMULATIONS_FROM}"
 )
 
 
@@ -223,32 +216,7 @@ class ReadsMixin:
         ...     run.sim_id, "outlet", "discharge", period="2002"
         ... )  # doctest: +SKIP
         """
-        query = (
-            "SELECT time, timestep, value FROM timeseries "
-            "WHERE sim_id = ? AND station_id = ? AND variable = ? AND source = ? "
-            "ORDER BY timestep"
-        )
-        result = self._backend.query(query, [str(sim_id), station_id, variable, source])
-        if period is not None and not result.empty:
-            keep = in_series_window(
-                pd.DatetimeIndex(result["time"]),
-                observed=source == OBSERVED,
-                period=period,
-                edges=self[sim_id].periods.edges,
-            )
-            result = result[keep]
-        if result.empty:
-            raise KeyError(f"No timeseries for sim={sim_id}, station={station_id}, var={variable}")
-        # Strip tz back to naive so the returned series aligns with
-        # simulation-internal tz-naive time indexes.
-        idx = pd.DatetimeIndex(result["time"])
-        if idx.tz is not None:
-            idx = idx.tz_convert("UTC").tz_localize(None)
-        return pd.Series(
-            result["value"].values,
-            index=idx,
-            name=variable,
-        )
+        return self[sim_id].timeseries(variable, station=station_id, period=period, source=source)
 
     def query_budget(
         self,
@@ -273,22 +241,11 @@ class ReadsMixin:
             One row per term, zone and timestep, as stored in the ``budgets``
             table.
         """
-        query = "SELECT * FROM budgets WHERE sim_id = ?"
-        params: list = [str(sim_id)]
-        if zone_id is not None:
-            query += " AND zone_id = ?"
-            params.append(zone_id)
-        if steps is not None:
-            query += " AND timestep >= ? AND timestep <= ?"
-            params.extend(steps)
-        return self._backend.query(query, params)
+        return self[sim_id].budget(zone_id=zone_id, steps=steps)
 
     def query_mass_balance(self, sim_id: str | UUID) -> pd.DataFrame:
         """Return the mass-balance rows of a run, one per timestep, in time order."""
-        return self._backend.query(
-            "SELECT * FROM mass_balance WHERE sim_id = ? ORDER BY timestep",
-            [str(sim_id)],
-        )
+        return self[sim_id].mass_balance
 
     def get_provenance(
         self,
@@ -368,32 +325,13 @@ class ReadsMixin:
         sim_id: str | UUID,
         feature_name: str,
     ) -> gpd.GeoDataFrame:
-        """Read a per-simulation GeoParquet 1.1 feature via geopandas."""
+        """Read one vector layer of a run, the GeoParquet file of its tables directory."""
         from hydromodpy.core.io.geoparquet import read_geoparquet
 
-        row = self._backend.fetch_one(
-            "SELECT geoparquet_path, properties, crs_wkt FROM geographic_features "
-            "WHERE sim_id = ? AND feature_name = ?",
-            [str(sim_id), feature_name],
-        )
-        if row is None:
+        path = geographic_feature_files(self.tables_dir_for(sim_id)).get(feature_name)
+        if path is None:
             raise KeyError(f"Feature '{feature_name}' not found for sim '{sim_id}'")
-        parquet_path, properties_json, _crs = row
-        if not parquet_path:
-            raise KeyError(f"No Parquet payload for feature '{feature_name}'")
-        path = Path(parquet_path)
-        if not path.is_absolute():
-            path = self._workspace / path
-        if not path.is_file():
-            raise FileNotFoundError(path)
-        gdf = read_geoparquet(path)
-        if properties_json:
-            props = (
-                json.loads(properties_json) if isinstance(properties_json, str) else properties_json
-            )
-            if isinstance(props, dict) and props.get("geometry_encoding") != "WKB":
-                raise ValueError(f"Unsupported geometry encoding for feature '{feature_name}'")
-        return gdf
+        return read_geoparquet(path)
 
     def sims_with_tag(self, tag: str) -> set[str]:
         """Return the sim_ids carrying ``tag`` as a set of strings."""
@@ -407,11 +345,7 @@ class ReadsMixin:
 
         Each name reads back with :meth:`read_geographic_feature`.
         """
-        rows = self._backend.fetch_all(
-            "SELECT feature_name FROM geographic_features WHERE sim_id = ? ORDER BY feature_name",
-            [str(sim_id)],
-        )
-        return [r[0] for r in rows]
+        return sorted(geographic_feature_files(self.tables_dir_for(sim_id)))
 
     def read_geographic_metadata(self, sim_id: str | UUID) -> dict[str, str]:
         """Return the catchment metadata of a run as a ``key -> value`` map.
@@ -424,11 +358,15 @@ class ReadsMixin:
         --------
         >>> float(cat.read_geographic_metadata(run.sim_id)["catch_area"])  # doctest: +SKIP
         """
-        rows = self._backend.fetch_all(
-            "SELECT key, value FROM geographic_metadata WHERE sim_id = ?",
-            [str(sim_id)],
-        )
-        return {r[0]: r[1] for r in rows}
+        from hydromodpy.results.export.run_identity import read_sealed_manifest
+
+        manifest = read_sealed_manifest(self.run_dir_for(sim_id))
+        if manifest is None:
+            return {}
+        return {
+            str(key): None if value is None else str(value)
+            for key, value in manifest.geometry.catchment.items()
+        }
 
     @property
     def simulations(self) -> pd.DataFrame:

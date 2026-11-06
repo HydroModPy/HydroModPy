@@ -158,8 +158,9 @@ def initialise_root(
 
     Materializes the root group with the mandatory ``Conventions`` /
     ``zarr_schema_version`` / ``created_at`` attributes, then creates the
-    seven canonical subgroups (``meta``, ``mesh``, ``state``, ``derived``,
-    ``budget``, ``particles``, ``forcing``).
+    five subgroups of ``_SUBGROUPS`` (``meta``, ``mesh``, ``state``,
+    ``particles``, ``forcing``). ``budget`` and ``derived`` appear on their
+    first write.
     """
     path = Path(str(path))
     ensure_local_zarr_node_dir(path)

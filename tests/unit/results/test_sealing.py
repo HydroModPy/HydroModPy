@@ -263,7 +263,7 @@ def test_the_field_store_carries_the_identity_and_the_acdd_attributes(filled: Ru
 
 
 def test_the_readme_summarises_the_run_and_signs_the_manifest(filled: RunStore) -> None:
-    from hydromodpy.results.ledger import sha256_of
+    from hydromodpy.core.io.file_digest import sha256_of
 
     seal_completed(filled)
 

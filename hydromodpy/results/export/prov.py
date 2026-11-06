@@ -26,7 +26,7 @@ from hydromodpy.results.export.context import (
     _is_missing,
     to_json,
 )
-from hydromodpy.results.export.directory import context_from_directory, write_view
+from hydromodpy.results.export.directory import context_from_directory
 from hydromodpy.schema.generated_views import PROV_VIEW_FILENAME
 
 HYDROMODPY_NAMESPACE = "https://docs.hydromodpy.fr/schema#"
@@ -254,7 +254,7 @@ def write_prov_view(
     """
     root = Path(directory)
     ctx = context or context_from_directory(root)
-    return write_view(root / PROV_VIEW_FILENAME, serialise_prov(ctx))
+    return to_json(serialise_prov(ctx), root / PROV_VIEW_FILENAME)
 
 
 __all__ = [

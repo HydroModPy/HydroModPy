@@ -46,7 +46,6 @@ from hydromodpy.core.scope import (
     zone_name_refusal,
 )
 from hydromodpy.core.state.portable import encode_workspace_path
-from hydromodpy.core.time.selection import in_series_window
 from hydromodpy.results.catalog.storage_paths import sanitize_segment
 from hydromodpy.results.identity import Identity
 from hydromodpy.results.manifest import (
@@ -66,9 +65,11 @@ from hydromodpy.results.storage.arrow_tables import (
 )
 from hydromodpy.results.storage.contract import (
     FIELDS_STORE_NAME,
+    GEOGRAPHIC_FEATURE_PREFIX,
     PARQUET_FILE_SUFFIX,
     RUN_EXPORTS_DIRNAME,
     TABLES_DIRNAME,
+    geographic_feature_files,
 )
 from hydromodpy.results.storage.digests import path_size_bytes, sha256_directory, sha256_streaming
 from hydromodpy.results.storage.geo_metadata import (
@@ -102,9 +103,6 @@ if TYPE_CHECKING:
     from hydromodpy.results.zarr_store.mesh_layout import MeshLayout
 
 logger = get_logger(__name__)
-
-GEOGRAPHIC_FEATURE_PREFIX = "geographic_"
-"""Prefix of the per-feature GeoParquet payloads inside ``tables.parquet``."""
 
 _FEATURE_NAME_MAX_LEN = 128
 """Longest vector layer name kept whole in its file name."""
@@ -1023,31 +1021,11 @@ class RunStore:
 
         ``period`` is read as :meth:`hydromodpy.results.run.Run.timeseries` reads it.
         """
-        self._check_sim(sim_id)
-        frame = self.read_table("timeseries")
-        if frame.empty:
-            raise KeyError(f"No timeseries for sim={sim_id}, station={station_id}, var={variable}")
-        rows = frame[
-            (frame["station_id"] == station_id)
-            & (frame["variable"] == variable)
-            & (frame["source"] == source)
-        ]
-        if period is not None:
-            from hydromodpy.results.run import Run
+        from hydromodpy.results.run import Run
 
-            edges = Run(self.sim_id, self).periods.edges  # type: ignore[arg-type]
-            rows = rows[
-                in_series_window(
-                    rows["time"], observed=source == OBSERVED, period=period, edges=edges
-                )
-            ]
-        if rows.empty:
-            raise KeyError(f"No timeseries for sim={sim_id}, station={station_id}, var={variable}")
-        rows = rows.sort_values("timestep")
-        index = pd.DatetimeIndex(rows["time"])
-        if index.tz is not None:
-            index = index.tz_convert("UTC").tz_localize(None)
-        return pd.Series(rows["value"].to_numpy(), index=index, name=variable)
+        self._check_sim(sim_id)
+        run = Run(self.sim_id, self)  # type: ignore[arg-type]
+        return run.timeseries(variable, station=station_id, period=period, source=source)
 
     def read_geographic_feature(self, sim_id: str | UUID, feature_name: str) -> gpd.GeoDataFrame:
         """Read one vector layer of the run."""
@@ -1061,13 +1039,7 @@ class RunStore:
     def list_geographic_features(self, sim_id: str | UUID) -> list[str]:
         """Return the names of the vector layers the run stored."""
         self._check_sim(sim_id)
-        if not self.tables_dir.is_dir():
-            return []
-        prefix, suffix = GEOGRAPHIC_FEATURE_PREFIX, PARQUET_FILE_SUFFIX
-        return sorted(
-            path.name[len(prefix) : -len(suffix)]
-            for path in self.tables_dir.glob(f"{prefix}*{suffix}")
-        )
+        return sorted(geographic_feature_files(self.tables_dir))
 
     def read_geographic_metadata(self, sim_id: str | UUID) -> dict[str, str]:
         """Return the catchment metadata of the run, every value as text."""
@@ -1163,4 +1135,4 @@ def _merge_facts(stored: RunFacts, given: RunFacts) -> RunFacts:
     )
 
 
-__all__ = ["GEOGRAPHIC_FEATURE_PREFIX", "RunStore"]
+__all__ = ["RunStore"]

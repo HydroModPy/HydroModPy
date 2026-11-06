@@ -23,7 +23,7 @@ TWO_DIMENSIONAL_FIELDS = ("watertable_elevation", "watertable_depth", "seepage_m
 
 def is_timed(descriptor: FieldDescriptor) -> bool:
     """Return whether a field carries a time axis."""
-    return descriptor.shape.startswith("time")
+    return descriptor.timed
 
 
 def resolve_zarr_path(grp: Any, zarr_path: str) -> Any:

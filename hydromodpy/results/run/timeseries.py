@@ -23,7 +23,7 @@ from hydromodpy.results.derive.downsample import (
     lttb_downsample,
     should_downsample,
 )
-from hydromodpy.results.derive.time_alignment import solver_time_index
+from hydromodpy.results.derive.time_alignment import naive_utc, solver_time_index
 from hydromodpy.results.manifest import RUNTIME_VARIABLE, is_sealed
 from hydromodpy.results.run.sealed import metrics_frame
 from hydromodpy.results.run.tables import has_rows, read_run_table
@@ -324,19 +324,15 @@ class RunTimeseriesMixin:
                 f"Simulation '{self._sim_id}' states no period_start/period_end "
                 "- cannot build a time index."
             )
-        return period_end_stamps(_naive(start), _naive(end), int(n), step_unit=row.get("time_unit"))
+        return period_end_stamps(
+            naive_utc(start), naive_utc(end), int(n), step_unit=row.get("time_unit")
+        )
 
     def recharge_forcing(self) -> pd.Series:
         """Lazy input recharge forcing per stress period."""
         from hydromodpy.results.derive import views
 
         return views.recharge_forcing(self)
-
-
-def _naive(value: object) -> pd.Timestamp:
-    """Return *value* as a naive UTC instant."""
-    ts = pd.Timestamp(value)
-    return ts.tz_convert("UTC").tz_localize(None) if ts.tz is not None else ts
 
 
 def _naive_utc(values: pd.Series) -> pd.DatetimeIndex:

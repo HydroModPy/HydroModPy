@@ -57,6 +57,7 @@ directly while the run is still solving, and the tabular payloads are plain
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Literal
 
 from hydromodpy.core.state.layout import (
@@ -300,6 +301,21 @@ RUN_STORAGE_LAYER_NAMES: tuple[str, ...] = tuple(
 )
 
 
+GEOGRAPHIC_FEATURE_PREFIX = "geographic_"
+"""Prefix of the per-feature GeoParquet payloads inside ``tables.parquet``."""
+
+
+def geographic_feature_files(tables_dir: Path) -> dict[str, Path]:
+    """Return the GeoParquet payload of each vector layer a run stored, by layer name."""
+    if not tables_dir.is_dir():
+        return {}
+    prefix, suffix = GEOGRAPHIC_FEATURE_PREFIX, PARQUET_FILE_SUFFIX
+    return {
+        path.name[len(prefix) : -len(suffix)]: path
+        for path in sorted(tables_dir.glob(f"{prefix}*{suffix}"))
+    }
+
+
 __all__ = [
     "ALLOWED_RUN_ENTRIES",
     "ALLOWED_SESSION_ENTRIES",
@@ -307,6 +323,7 @@ __all__ = [
     "RUN_SCRATCH_ENTRIES",
     "UNSEALED_RUN_ENTRIES",
     "FIELDS_STORE_NAME",
+    "GEOGRAPHIC_FEATURE_PREFIX",
     "HEARTBEAT_FILENAME",
     "LEDGER_FILENAME",
     "PARQUET_FILE_SUFFIX",
@@ -347,4 +364,5 @@ __all__ = [
     "ResultStorageLayer",
     "StorageScope",
     "TABLES_DIRNAME",
+    "geographic_feature_files",
 ]

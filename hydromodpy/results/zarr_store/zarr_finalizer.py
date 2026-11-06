@@ -1,29 +1,21 @@
-"""Finalization concerns for :class:`SimulationZarr`.
+"""The write-lock address and the metadata consolidation of a run store.
 
-Owns lifecycle: write-lock acquisition, ``consolidate_metadata`` and
-``close``. A run store is always a directory: there is no packed form,
-and its content is exactly the Zarr hierarchy, so the write lock is
-addressed outside of it, under the attempt state of the run that owns it
-(see :func:`lock_path_for_store`).
-
-All helpers take the live :class:`SimulationZarr` (or its store/lock)
-explicitly so the module stays free of hidden global state.
+A run store is always a directory: there is no packed form, and its content
+is exactly the Zarr hierarchy, so the write lock is addressed outside of it,
+under the attempt state of the run that owns it (see
+:func:`lock_path_for_store`).
 """
 
 from __future__ import annotations
 
 import warnings
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import zarr
-from filelock import FileLock, Timeout
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.layout import INTERNAL_DIRNAME, RUN_INTERNAL_LOCKS_DIRNAME
-
-if TYPE_CHECKING:
-    from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 
 logger = get_logger(__name__)
 
@@ -48,16 +40,6 @@ def lock_path_for_store(path: Path) -> Path:
     )
 
 
-def guard_write(lock: FileLock, path: Path) -> Any:
-    """Return a context manager that holds the cross-process filelock."""
-    try:
-        return lock.acquire(timeout=LOCK_TIMEOUT_SECONDS)
-    except Timeout as exc:  # pragma: no cover - defensive
-        raise RuntimeError(
-            f"Could not acquire Zarr write lock for {path} after {LOCK_TIMEOUT_SECONDS}s"
-        ) from exc
-
-
 def consolidate_metadata(store: Any, path: Path) -> None:
     """Consolidate Zarr metadata into a single ``.zmetadata`` entry."""
     if not isinstance(store, zarr.storage.LocalStore):
@@ -76,24 +58,9 @@ def consolidate_metadata(store: Any, path: Path) -> None:
         logger.warning("consolidate_metadata failed for %s: %s", path, exc)
 
 
-def close(store_obj: SimulationZarr) -> None:
-    """Close the live store and invoke any on-close callback."""
-    if store_obj._store is not None:
-        if hasattr(store_obj._store, "close"):
-            store_obj._store.close()
-        store_obj._store = None
-    store_obj._root = None
-    if store_obj._on_close is not None:
-        callback = store_obj._on_close
-        store_obj._on_close = None
-        callback(store_obj)
-
-
 __all__ = [
     "LOCK_SUFFIX",
     "LOCK_TIMEOUT_SECONDS",
-    "close",
     "consolidate_metadata",
-    "guard_write",
     "lock_path_for_store",
 ]

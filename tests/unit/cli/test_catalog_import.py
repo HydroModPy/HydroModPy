@@ -11,9 +11,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from hydromodpy.cli.helpers import EXIT_WRITE_CONFLICT
+from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.core.state.layout import catalog_path_for
 from hydromodpy.results.export.publish import publish
-from hydromodpy.results.ledger import sha256_of
 from hydromodpy.results.publication import Publication, PublicationSource, write_publication
 from tests._helpers.cli_runner import CliRunner
 from tests._helpers.sealed_run import RUN_NAME, seal_demo_run

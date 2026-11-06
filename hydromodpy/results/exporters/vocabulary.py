@@ -139,6 +139,16 @@ def static_export_names() -> dict[str, ExportKind]:
     return names
 
 
+KIND_LABELS: dict[ExportKind, str] = {
+    ExportKind.field: "fields",
+    ExportKind.series: "series",
+    ExportKind.vector: "vector layers",
+    ExportKind.raster: "raster layers",
+    ExportKind.table: "tables",
+}
+"""How a listing names each kind, in the lookup order."""
+
+
 def export_kind(name: str) -> ExportKind | None:
     """Return the kind of an exportable name, or None when no run can hold it."""
     return static_export_names().get(name)
@@ -149,26 +159,11 @@ def describe_export_names() -> str:
     by_kind: dict[ExportKind, list[str]] = {}
     for name, kind in static_export_names().items():
         by_kind.setdefault(kind, []).append(name)
-    labels = {
-        ExportKind.field: "fields",
-        ExportKind.series: "series",
-        ExportKind.vector: "vector layers",
-        ExportKind.raster: "raster layers",
-        ExportKind.table: "tables",
-    }
     return "\n".join(
-        f"  {labels[kind]}: {', '.join(by_kind[kind])}" for kind in labels if kind in by_kind
+        f"  {label}: {', '.join(by_kind[kind])}"
+        for kind, label in KIND_LABELS.items()
+        if kind in by_kind
     )
-
-
-KIND_LABELS: dict[ExportKind, str] = {
-    ExportKind.field: "fields",
-    ExportKind.series: "series",
-    ExportKind.vector: "vector layers",
-    ExportKind.raster: "raster layers",
-    ExportKind.table: "tables",
-}
-"""How a listing names each kind, in the lookup order."""
 
 
 def list_exportable(run: Run) -> dict[str, ExportKind]:
@@ -192,7 +187,7 @@ def list_exportable(run: Run) -> dict[str, ExportKind]:
         names.setdefault(name, ExportKind.field)
     for name in _mesh_quality_available(store, sim_id):
         names.setdefault(name, ExportKind.field)
-    if _simulated_network_available(run):
+    if network_unavailable_reason(run) is None:
         names.setdefault(SIMULATED_ACTIVE_NETWORK, ExportKind.field)
     for variable, source in distinct_rows(store, sim_id, TIMESERIES_TABLE, "variable", "source"):
         names.setdefault(series_name(variable, source), ExportKind.series)
@@ -227,17 +222,16 @@ def _mesh_quality_available(store: Any, sim_id: str) -> list[str]:
     return [name for name in MESH_QUALITY_DESCRIPTORS if name in served]
 
 
-def _simulated_network_available(run: Run) -> bool:
-    """Return whether the run carries what its simulated stream network is cut from."""
+def network_unavailable_reason(run: Run) -> str | None:
+    """Say why the run cannot cut its simulated stream network, or ``None`` when it can."""
     from hydromodpy.results.derive.stream.criterion_settings import network_criterion_settings
     from hydromodpy.results.derive.stream.run_extent import unavailable_reason_for_flow
 
     try:
         settings = network_criterion_settings(run)
-        reason = unavailable_reason_for_flow(run, tau_specific_ratio=settings.tau_specific_ratio)
-    except (KeyError, ValueError, FileNotFoundError, RuntimeError):
-        return False
-    return reason is None
+        return unavailable_reason_for_flow(run, tau_specific_ratio=settings.tau_specific_ratio)
+    except (KeyError, ValueError, FileNotFoundError, RuntimeError) as exc:
+        return str(exc)
 
 
 def _stored_rasters(store: Any, sim_id: str) -> list[str]:

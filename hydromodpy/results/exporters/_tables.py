@@ -14,7 +14,7 @@ from typing import Any
 import pandas as pd
 import pyarrow.parquet as pq
 
-from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX
+from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX, geographic_feature_files
 from hydromodpy.results.storage.parquet_io import read_checked_table
 
 TIMESERIES_TABLE = "timeseries"
@@ -51,15 +51,7 @@ def distinct_rows(store: Any, sim_id: str, table: str, *columns: str) -> list[tu
 
 def geographic_features(store: Any, sim_id: str) -> list[str]:
     """Return the vector layers a run stored, read from the files of its tables directory."""
-    from hydromodpy.results.storage.run_store import GEOGRAPHIC_FEATURE_PREFIX
-
-    tables = Path(store.tables_dir_for(sim_id))
-    if not tables.is_dir():
-        return []
-    prefix, suffix = GEOGRAPHIC_FEATURE_PREFIX, PARQUET_FILE_SUFFIX
-    return sorted(
-        path.name[len(prefix) : -len(suffix)] for path in tables.glob(f"{prefix}*{suffix}")
-    )
+    return sorted(geographic_feature_files(Path(store.tables_dir_for(sim_id))))
 
 
 def read_table(store: Any, sim_id: str, table: str) -> pd.DataFrame:

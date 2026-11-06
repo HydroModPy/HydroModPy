@@ -1,10 +1,7 @@
 """Read-side concerns for :class:`SimulationZarr`.
 
-Owns every ``read_*`` entry point plus the root-attribute readers
-(``geographic_fingerprint``) and the :func:`to_xarray` view builder.
-
-All helpers take the live :class:`SimulationZarr` so the module is
-free of hidden state.
+Every ``read_*`` of :class:`SimulationZarr` is defined here once and bound
+on the class as a method, so each takes the live store as its first argument.
 """
 
 from __future__ import annotations
@@ -97,21 +94,6 @@ def set_drain_band_depth(store_obj: SimulationZarr, value: float) -> None:
     store_obj._root.attrs[DRAIN_BAND_DEPTH_ATTR] = depth
 
 
-def _is_time_resolved(variable: str) -> bool:
-    """Return True when the registered field carries a leading time axis.
-
-    Static geometry (``topography``, ``layer_thickness``) has no time
-    dimension, so indexing it by timestep would silently return one layer or
-    raise. Unregistered variables are assumed time-resolved, which is the
-    historical behavior for solver-specific arrays.
-    """
-    from hydromodpy.results import field_registry
-
-    if not field_registry.has(variable):
-        return True
-    return field_registry.get(variable).shape.startswith("time")
-
-
 def read_field(
     store_obj: SimulationZarr,
     variable: str,
@@ -122,12 +104,12 @@ def read_field(
 ) -> np.ndarray:
     """Read ``variable`` from ``subgroup`` (or auto), sliced at ``timestep``.
 
-    ``timestep`` is ignored for static fields (see :func:`_is_time_resolved`).
+    ``timestep`` is ignored for static fields (see :func:`~hydromodpy.results.field_registry.is_time_resolved`).
     A float field comes back as float64 whatever precision it was stored in,
     so a compact store and an exact one hand their readers the same dtype.
     """
     array = _stored_array(store_obj, variable, subgroup)
-    data = array[int(timestep)] if _is_time_resolved(variable) else array[:]
+    data = array[int(timestep)] if field_registry.is_time_resolved(variable) else array[:]
     if layer is not None and data.ndim == 2:
         data = data[layer]
     return _as_float64(data)
@@ -152,7 +134,7 @@ def read_field_range(
     the axis raises ``IndexError``, as a step outside it does.
     """
     array = _stored_array(store_obj, variable, subgroup)
-    if not _is_time_resolved(variable):
+    if not field_registry.is_time_resolved(variable):
         row = read_field(store_obj, variable, 0, subgroup=subgroup, layer=layer)
         return np.repeat(row[None], len(range(int(start), int(stop))), axis=0)
     first, last = step_range_bounds(start, stop, int(array.shape[0]))
@@ -175,6 +157,39 @@ def step_range_bounds(start: int, stop: int, n_steps: int) -> tuple[int, int]:
             f"timesteps [{start}, {stop}) out of bounds for a time axis of length {n_steps}"
         )
     return first, last
+
+
+def read_time(store_obj: SimulationZarr) -> np.ndarray | None:
+    """Return the CF ``/time`` axis as ``datetime64[ns]``, or ``None``.
+
+    This axis is the single source of truth for the simulation clock: the
+    exact stress-period timestamps the solver wrote, shared by every field
+    array. Stored as integer offsets since the CF epoch (1970-01-01), so a
+    plain numpy cast decodes it without a calendar library.
+    """
+    root = store_obj._root
+    if root is None or "time" not in root:
+        return None
+    arr = root["time"]
+    values = np.asarray(arr[:])
+    if values.size == 0:
+        return None
+    units = str(dict(arr.attrs).get("units", "seconds since 1970-01-01"))
+    if "since 1970-01-01" not in units:
+        # The decode below assumes the 1970 epoch; a different epoch would
+        # silently shift the whole clock (~30 years for a 2000 anchor).
+        raise ValueError(
+            f"SimulationZarr.read_time: time units {units!r} are not anchored to "
+            "'since 1970-01-01'; the clock cannot be decoded without an epoch offset."
+        )
+    unit_code = "s"
+    if units.startswith("days"):
+        unit_code = "D"
+    elif units.startswith("hours"):
+        unit_code = "h"
+    elif units.startswith("minutes"):
+        unit_code = "m"
+    return values.astype(f"datetime64[{unit_code}]").astype("datetime64[ns]")
 
 
 def _stored_array(store_obj: SimulationZarr, variable: str, subgroup: str | None) -> Any:
@@ -323,6 +338,7 @@ __all__ = [
     "read_forcing_timeseries",
     "read_geographic_raster",
     "read_lake_abacus",
+    "read_time",
     "get_drain_band_depth",
     "set_drain_band_depth",
     "set_geographic_fingerprint",

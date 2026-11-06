@@ -1,52 +1,43 @@
 """SimulationZarr: per-simulation Zarr v3 store (CF-1.11 + ACDD-1.3 + UGRID-1.0).
 
-Thin facade over four single-concern modules:
-
-* :mod:`hydromodpy.results.zarr_store.zarr_schema` — layout contract and
-  schema-version enforcement.
-* :mod:`hydromodpy.results.zarr_store.zarr_writer` — every ``write_*`` and
-  the CF-attribute composition.
-* :mod:`hydromodpy.results.zarr_store.zarr_reader` — every ``read_*`` and
-  the root-attribute readers.
-* :mod:`hydromodpy.results.zarr_store.zarr_finalizer` — write lock,
-  ``consolidate_metadata``, ``close``.
-
-Refer to ``reports_db/03_zarr_stores.md`` and
-``reports_db/99_target_architecture.md`` §5 for the layout contract.
+The class holds the store, its root group and its write lock. Each write is
+defined once in :mod:`~hydromodpy.results.zarr_store.zarr_writer` and each read
+once in :mod:`~hydromodpy.results.zarr_store.zarr_reader`, as a function that
+takes the store first. The class binds them as its methods, so a signature is
+written in one place. :mod:`~hydromodpy.results.zarr_store.zarr_schema` holds
+the layout and the schema version, and
+:mod:`~hydromodpy.results.zarr_store.zarr_finalizer` the lock address and the
+metadata consolidation.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 import zarr
-from filelock import FileLock
+from filelock import FileLock, Timeout
 from upath import UPath
 
-from hydromodpy.core.budget.terms import BudgetKeep
 from hydromodpy.core.fields.precision import DEFAULT_FIELD_PRECISION, FieldPrecision
-from hydromodpy.results.zarr_store import zarr_finalizer, zarr_reader, zarr_writer
-from hydromodpy.results.zarr_store.mesh_layout import MeshLayout
+from hydromodpy.results.zarr_store import zarr_reader, zarr_writer
 from hydromodpy.results.zarr_store.zarr_finalizer import (
     LOCK_TIMEOUT_SECONDS,
+    consolidate_metadata,
     lock_path_for_store,
 )
 from hydromodpy.results.zarr_store.zarr_schema import (
     initialise_root,
     local_store,
     open_root_strict,
-)
-from hydromodpy.results.zarr_store.zarr_schema import (
-    windows_long_path as _windows_long_path,
+    windows_long_path,
 )
 
 
 def _file_lock_for_store(path: Path) -> FileLock:
     """Build the store lock using extended-length paths on Windows."""
-    return FileLock(str(_windows_long_path(lock_path_for_store(path))))
+    return FileLock(str(windows_long_path(lock_path_for_store(path))))
 
 
 class SimulationZarr:
@@ -61,11 +52,9 @@ class SimulationZarr:
         self,
         path: Path | UPath | str,
         *,
-        balanced: bool = True,
         field_precision: FieldPrecision = DEFAULT_FIELD_PRECISION,
     ) -> None:
         self._path = Path(str(path))
-        self._balanced = bool(balanced)
         self._field_precision: FieldPrecision = field_precision
         self._on_close: Callable[[SimulationZarr], None] | None = None
         self._store: Any = local_store(self._path)
@@ -83,7 +72,6 @@ class SimulationZarr:
         n_layers: int,
         cell_types: list[str] | None = None,
         geographic_fingerprint: str | None = None,
-        balanced: bool = True,
         field_precision: FieldPrecision = DEFAULT_FIELD_PRECISION,
     ) -> SimulationZarr:
         path, store, root = initialise_root(
@@ -97,7 +85,6 @@ class SimulationZarr:
         instance._path = path
         instance._store = store
         instance._root = root
-        instance._balanced = bool(balanced)
         instance._field_precision = field_precision
         instance._on_close = None
         instance._lock = _file_lock_for_store(path)
@@ -120,396 +107,77 @@ class SimulationZarr:
         return self._path
 
     @property
-    def balanced(self) -> bool:
-        return self._balanced
-
-    @property
     def field_precision(self) -> FieldPrecision:
         """Precision the time-varying fields of this handle are written in."""
         return self._field_precision
 
-    # -- Geographic fingerprint ---------------------------------------------
+    # -- Root attributes ----------------------------------------------------
 
-    @property
-    def geographic_fingerprint(self) -> str | None:
-        return zarr_reader.get_geographic_fingerprint(self)
+    geographic_fingerprint = property(
+        zarr_reader.get_geographic_fingerprint, zarr_reader.set_geographic_fingerprint
+    )
+    drain_band_depth_m = property(
+        zarr_reader.get_drain_band_depth, zarr_reader.set_drain_band_depth
+    )
 
-    @geographic_fingerprint.setter
-    def geographic_fingerprint(self, value: str | None) -> None:
-        zarr_reader.set_geographic_fingerprint(self, value)
+    # -- Writes, each defined once in zarr_writer ----------------------------
 
-    # -- Drain discharge band ------------------------------------------------
+    write_mesh = zarr_writer.write_mesh
+    write_descent = zarr_writer.write_descent
+    write_topography = zarr_writer.write_topography
+    write_time = zarr_writer.write_time
+    write_crs = zarr_writer.write_crs
+    write_field = zarr_writer.write_field
+    write_field_stack = zarr_writer.write_field_stack
+    write_budget_policy = zarr_writer.write_budget_policy
+    write_static_field = zarr_writer.write_static_field
+    write_forcing_timeseries = zarr_writer.write_forcing_timeseries
+    write_forcing_attrs = zarr_writer.write_forcing_attrs
+    write_forcing_field = zarr_writer.write_forcing_field
+    write_soil_columns = zarr_writer.write_soil_columns
+    write_geographic_raster = zarr_writer.write_geographic_raster
+    write_lake_abacus = zarr_writer.write_lake_abacus
+    write_lake_restart_state = zarr_writer.write_lake_restart_state
+    harmonize_axis_references = zarr_writer.harmonize_axis_references
+    write_acdd_root_attrs = zarr_writer.write_acdd_root_attrs
 
-    @property
-    def drain_band_depth_m(self) -> float:
-        return zarr_reader.get_drain_band_depth(self)
+    # -- Reads, each defined once in zarr_reader -----------------------------
 
-    @drain_band_depth_m.setter
-    def drain_band_depth_m(self, value: float) -> None:
-        zarr_reader.set_drain_band_depth(self, value)
-
-    # -- Mesh ----------------------------------------------------------------
-
-    def write_mesh(
-        self,
-        vertices: np.ndarray,
-        face_node_connectivity: np.ndarray,
-        z_interfaces: np.ndarray,
-        layer_indices: np.ndarray | None = None,
-        source_cell_indices: np.ndarray | None = None,
-        topography: np.ndarray | None = None,
-        *,
-        layer_thickness: np.ndarray | None = None,
-        streambed_top: np.ndarray | None = None,
-        streambed_connection: np.ndarray | None = None,
-        start_index: int = 0,
-        grid_type: str | None = None,
-        structured_shape: tuple[int, int] | None = None,
-        layout: MeshLayout | None = None,
-    ) -> None:
-        """Write the UGRID-1.0 mesh group, including the optional topography array."""
-        zarr_writer.write_mesh(
-            self,
-            vertices,
-            face_node_connectivity,
-            z_interfaces,
-            layer_indices,
-            source_cell_indices,
-            topography,
-            layer_thickness=layer_thickness,
-            streambed_top=streambed_top,
-            streambed_connection=streambed_connection,
-            start_index=start_index,
-            grid_type=grid_type,
-            structured_shape=structured_shape,
-            layout=layout,
-        )
-
-    def write_descent(
-        self,
-        *,
-        receiver: np.ndarray,
-        surface: np.ndarray,
-        base_level: np.ndarray,
-        constant_head: np.ndarray,
-        raised: np.ndarray,
-        channel: np.ndarray,
-        pinned: np.ndarray,
-        attrs: Mapping[str, object],
-        dam_foot: np.ndarray | None = None,
-        basin: np.ndarray | None = None,
-        basin_attrs: Mapping[str, object] | None = None,
-        catchment_fraction: np.ndarray | None = None,
-    ) -> None:
-        """Write the descent D under ``mesh/``, additive to the mesh arrays."""
-        zarr_writer.write_descent(
-            self,
-            receiver=receiver,
-            surface=surface,
-            base_level=base_level,
-            constant_head=constant_head,
-            raised=raised,
-            channel=channel,
-            pinned=pinned,
-            attrs=attrs,
-            dam_foot=dam_foot,
-            basin=basin,
-            basin_attrs=basin_attrs,
-            catchment_fraction=catchment_fraction,
-        )
-
-    def write_topography(
-        self,
-        topography: np.ndarray,
-        *,
-        z_interfaces: np.ndarray | None = None,
-        n_cells: int | None = None,
-        n_layers: int | None = None,
-        layer_thickness: np.ndarray | None = None,
-        idomain: np.ndarray | None = None,
-        vertical_layout: str | None = None,
-        streambed_top: np.ndarray | None = None,
-        streambed_connection: np.ndarray | None = None,
-        grid_type: str | None = None,
-    ) -> None:
-        """Write the topography and the vertical geometry the solved model adds to the mesh."""
-        zarr_writer.write_topography(
-            self,
-            topography,
-            z_interfaces=z_interfaces,
-            n_cells=n_cells,
-            n_layers=n_layers,
-            layer_thickness=layer_thickness,
-            idomain=idomain,
-            vertical_layout=vertical_layout,
-            streambed_top=streambed_top,
-            streambed_connection=streambed_connection,
-            grid_type=grid_type,
-        )
-
-    # -- Time / CRS ----------------------------------------------------------
-
-    def write_time(
-        self,
-        values: np.ndarray,
-        *,
-        epoch: str = "1970-01-01T00:00:00",
-        calendar: str = "proleptic_gregorian",
-        units: str = "seconds since 1970-01-01T00:00:00",
-    ) -> None:
-        zarr_writer.write_time(self, values, epoch=epoch, calendar=calendar, units=units)
-
-    def write_crs(
-        self,
-        *,
-        crs_wkt: str,
-        grid_mapping_name: str = "latitude_longitude",
-        epsg_code: int | None = None,
-        semi_major_axis: float | None = None,
-        inverse_flattening: float | None = None,
-    ) -> None:
-        zarr_writer.write_crs(
-            self,
-            crs_wkt=crs_wkt,
-            grid_mapping_name=grid_mapping_name,
-            epsg_code=epsg_code,
-            semi_major_axis=semi_major_axis,
-            inverse_flattening=inverse_flattening,
-        )
-
-    # -- Fields --------------------------------------------------------------
-
-    def write_field(
-        self,
-        variable: str,
-        timestep: int,
-        values: np.ndarray,
-        *,
-        n_timesteps: int | None = None,
-        subgroup: str | None = None,
-    ) -> None:
-        """Append one timestep slice to ``variable`` under ``subgroup`` or root."""
-        zarr_writer.write_field(
-            self,
-            variable,
-            timestep,
-            values,
-            n_timesteps=n_timesteps,
-            subgroup=subgroup,
-        )
-
-    def write_field_stack(
-        self,
-        variable: str,
-        values: np.ndarray,
-        *,
-        n_timesteps: int | None = None,
-        timestep_offset: int = 0,
-        subgroup: str | None = None,
-    ) -> None:
-        """Write a full ``(time, ...)`` stack of ``variable`` in one batched call."""
-        zarr_writer.write_field_stack(
-            self,
-            variable,
-            values,
-            n_timesteps=n_timesteps,
-            timestep_offset=timestep_offset,
-            subgroup=subgroup,
-        )
-
-    def write_budget_policy(self, keep: BudgetKeep, written: Iterable[str]) -> None:
-        """Record on ``budget/`` the policy applied and the per-cell terms kept."""
-        zarr_writer.write_budget_policy(self, keep, written)
-
-    def write_static_field(
-        self,
-        variable: str,
-        values: np.ndarray,
-        *,
-        subgroup: str | None = None,
-    ) -> None:
-        """Write a field with no time axis, such as a model input parameter."""
-        zarr_writer.write_static_field(self, variable, values, subgroup=subgroup)
-
-    def read_field(
-        self,
-        variable: str,
-        timestep: int,
-        *,
-        subgroup: str | None = None,
-        layer: int | None = None,
-    ) -> np.ndarray:
-        return zarr_reader.read_field(self, variable, timestep, subgroup=subgroup, layer=layer)
-
-    def read_field_range(
-        self,
-        variable: str,
-        start: int,
-        stop: int,
-        *,
-        subgroup: str | None = None,
-        layer: int | None = None,
-    ) -> np.ndarray:
-        """Read timesteps ``[start, stop)`` in one slice; row ``i`` is ``read_field`` at ``start + i``."""
-        return zarr_reader.read_field_range(
-            self, variable, start, stop, subgroup=subgroup, layer=layer
-        )
-
-    def read_time(self) -> np.ndarray | None:
-        """Return the CF ``/time`` axis as ``datetime64[ns]``, or ``None``.
-
-        This axis is the single source of truth for the simulation clock: the
-        exact stress-period timestamps the solver wrote, shared by every field
-        array. Stored as integer offsets since the CF epoch (1970-01-01), so a
-        plain numpy cast decodes it without a calendar library.
-        """
-        root = self._root
-        if root is None or "time" not in root:
-            return None
-        arr = root["time"]
-        values = np.asarray(arr[:])
-        if values.size == 0:
-            return None
-        units = str(dict(arr.attrs).get("units", "seconds since 1970-01-01"))
-        if "since 1970-01-01" not in units:
-            # The decode below assumes the 1970 epoch; a different epoch would
-            # silently shift the whole clock (~30 years for a 2000 anchor).
-            raise ValueError(
-                f"SimulationZarr.read_time: time units {units!r} are not anchored to "
-                "'since 1970-01-01'; the clock cannot be decoded without an epoch offset."
-            )
-        unit_code = "s"
-        if units.startswith("days"):
-            unit_code = "D"
-        elif units.startswith("hours"):
-            unit_code = "h"
-        elif units.startswith("minutes"):
-            unit_code = "m"
-        return values.astype(f"datetime64[{unit_code}]").astype("datetime64[ns]")
-
-    # -- Forcing -------------------------------------------------------------
-
-    def write_forcing_timeseries(
-        self,
-        variable: str,
-        station_id: str,
-        timestamps: np.ndarray,
-        values: np.ndarray,
-        *,
-        unit: str = "",
-        source: str = "",
-    ) -> None:
-        zarr_writer.write_forcing_timeseries(
-            self,
-            variable,
-            station_id,
-            timestamps,
-            values,
-            unit=unit,
-            source=source,
-        )
-
-    def write_forcing_attrs(self, attrs: Mapping[str, object]) -> None:
-        """Stamp attributes on the ``forcing`` group."""
-        zarr_writer.write_forcing_attrs(self, attrs)
-
-    def write_forcing_field(
-        self,
-        variable: str,
-        data: np.ndarray,
-        *,
-        unit: str = "",
-        source: str = "",
-    ) -> None:
-        zarr_writer.write_forcing_field(self, variable, data, unit=unit, source=source)
-
-    def read_forcing_timeseries(
-        self,
-        variable: str,
-        station_id: str,
-    ) -> tuple[np.ndarray, np.ndarray, dict]:
-        return zarr_reader.read_forcing_timeseries(self, variable, station_id)
-
-    def write_soil_columns(self, **arrays: Any) -> None:
-        """Persist the soil reservoir columns under ``forcing/soil``."""
-        zarr_writer.write_soil_columns(self, **arrays)
-
-    # -- Geographic rasters --------------------------------------------------
-
-    def write_geographic_raster(
-        self,
-        name: str,
-        data: np.ndarray,
-        *,
-        transform: tuple[float, ...],
-        crs: str,
-        nodata: float = -99999.0,
-    ) -> None:
-        """Persist a per-run raster under ``geographic/<name>``."""
-        zarr_writer.write_geographic_raster(
-            self, name, data, transform=transform, crs=crs, nodata=nodata
-        )
-
-    def read_geographic_raster(self, name: str) -> tuple[np.ndarray, dict]:
-        return zarr_reader.read_geographic_raster(self, name)
-
-    # -- Lake abacus comparison ----------------------------------------------
-
-    def write_lake_abacus(self, lake_id: str, **arrays: Any) -> None:
-        """Persist a lake's reference vs simulated abacus under ``lake_abacus/<id>``."""
-        zarr_writer.write_lake_abacus(self, lake_id, **arrays)
-
-    def read_lake_abacus(self, lake_id: str) -> dict:
-        return zarr_reader.read_lake_abacus(self, lake_id)
-
-    def lake_abacus_lakes(self) -> list[str]:
-        return zarr_reader.lake_abacus_lakes(self)
-
-    def write_lake_restart_state(self, stages: dict[str, float]) -> None:
-        """Persist each lake's final stage under ``lake_state_final`` (hotstart)."""
-        zarr_writer.write_lake_restart_state(self, stages)
-
-    # -- ACDD ----------------------------------------------------------------
-
-    def harmonize_axis_references(self) -> None:
-        """Write the axis coordinates the fields name, and drop dangling ones."""
-        zarr_writer.harmonize_axis_references(self)
-
-    def write_acdd_root_attrs(
-        self,
-        *,
-        sim_row: dict[str, Any] | None,
-        runs_env: dict[str, Any] | None,
-        project_table: dict[str, Any] | None = None,
-        geographic_bounds: dict[str, float] | None = None,
-    ) -> dict[str, Any]:
-        """Compose and persist ACDD root attrs. Returns the attrs written."""
-        return zarr_writer.write_acdd_root_attrs(
-            self,
-            sim_row=sim_row,
-            runs_env=runs_env,
-            project_table=project_table,
-            geographic_bounds=geographic_bounds,
-        )
-
-    # -- xarray export -------------------------------------------------------
-
-    def to_xarray(self):
-        """Return an ``xarray.Dataset`` view over the simulation fields."""
-        return zarr_reader.to_xarray(self)
+    read_field = zarr_reader.read_field
+    read_field_range = zarr_reader.read_field_range
+    read_time = zarr_reader.read_time
+    read_forcing_timeseries = zarr_reader.read_forcing_timeseries
+    read_geographic_raster = zarr_reader.read_geographic_raster
+    read_lake_abacus = zarr_reader.read_lake_abacus
+    lake_abacus_lakes = zarr_reader.lake_abacus_lakes
+    to_xarray = zarr_reader.to_xarray
 
     # -- Finalization --------------------------------------------------------
 
     def _guard_write(self) -> Any:
         """Return a context manager that holds the cross-process filelock."""
-        return zarr_finalizer.guard_write(self._lock, self._path)
+        try:
+            return self._lock.acquire(timeout=LOCK_TIMEOUT_SECONDS)
+        except Timeout as exc:  # pragma: no cover - defensive
+            raise RuntimeError(
+                f"Could not acquire Zarr write lock for {self._path} after {LOCK_TIMEOUT_SECONDS}s"
+            ) from exc
 
     def consolidate_metadata(self) -> None:
         """Consolidate Zarr metadata into a single ``.zmetadata`` entry."""
-        zarr_finalizer.consolidate_metadata(self._store, self._path)
+        consolidate_metadata(self._store, self._path)
 
     def close(self) -> None:
-        zarr_finalizer.close(self)
+        """Close the live store and invoke any on-close callback."""
+        if self._store is not None:
+            if hasattr(self._store, "close"):
+                self._store.close()
+            self._store = None
+        self._root = None
+        if self._on_close is not None:
+            callback = self._on_close
+            self._on_close = None
+            callback(self)
 
     def __enter__(self) -> SimulationZarr:
         return self

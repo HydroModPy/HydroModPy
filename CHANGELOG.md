@@ -60,6 +60,7 @@ Work since v2.0.0rc1. The main themes are calibration with a validation window, 
 - The recession cloud and the Brutsaert-Nieber coefficient moved to `hydromodpy.results.derive.recession`, `particle_travel_years` to `hydromodpy.results.run.particles`, and the metric CRS helpers to `hydromodpy.core.io.crs`. `hydromodpy.display.report_blocks` and `hydromodpy.display.maps.geo` are single modules, and `GeoFigureMixin` is gone. `hydromodpy.display.catchment_report` holds nine modules instead of fourteen. Figures draw the same pixels.
 - The helpers every solver shares moved into `hydromodpy.solver.base` (`properties`, `initial_conditions`, `drain_conductance`), the MODFLOW-NWT post-processing to `hydromodpy.solver.modflow_nwt.postprocess` and the Boussinesq catalogs to `boussinesq/catalog.py`. The MODFLOW 6 build runs as named steps, its solver options live in `modflow6/builders/solver_options.py`, the LAK builder is split in four modules and `modflow6.builders` no longer re-exports names. No input file and no result changes.
 - Contributors: `hmp_log_records` is a fixture of `tests/conftest.py`, and `tests/_helpers/transport_guard.py` and `tests/validation/helpers/petsc.py` hold helpers that several test folders used to copy.
+- `Catalog.read_geographic_feature`, `list_geographic_features` and `read_geographic_metadata` read the run directory instead of the index, and `Catalog.query_timeseries`, `query_budget` and `query_mass_balance` read through the run. `SimulationZarr` binds the writes and reads of the store as its methods. `record_derived_file` moved to `hydromodpy.results.ledger`. Run files are unchanged.
 
 ### Removed
 
@@ -68,6 +69,7 @@ Work since v2.0.0rc1. The main themes are calibration with a validation window, 
 - The B0 network and transient case left the package for `validation_cases/calibration/network_transient_b0/`.
 - Helpers that nothing called: the re-export modules at the root of `physics/hydrology/pyhelp/`, `apply_simulation_time_to_flow_wells`, `apply_simulation_time_to_flow_boundary_conditions`, `SimulationPlan.is_empty` and the `Transport.update_*_parameters` helpers.
 - Modules that nothing called: `modflow_common/recharge_evt_routing.py`, `boussinesq/assembly/residual_facade.py` and `boussinesq/forcing_resolution.py`.
+- The unused `balanced` option and the `streambed_top` and `streambed_connection` arguments of `write_mesh`.
 
 ### Fixed
 
@@ -87,6 +89,7 @@ Work since v2.0.0rc1. The main themes are calibration with a validation window, 
 - `hmp dev test` refuses an option it does not take with its `HMPY.E` code first, and sees a `--basetemp` anywhere in `PYTEST_ADDOPTS` instead of adding a second one. An interrupted `hmp run`, `hmp calibrate` or `hmp spinup` prints `Interrupted.` like every other command, still with exit code 130.
 - A mesh or terrain engine registered by hand can no longer take the id of a built-in engine that is not imported yet. The calibration preflight writes a window bound with its time when it is not at midnight, like the scoring.
 - The parameter cost profile reads search bounds stored as JSON text, like the calibration progress card. The Piper, Schoeller and Stiff diagrams refuse an unreadable source with the same message.
+- `import_zarr_field` refuses a field store whose schema version is outside the read window, like every other reader. A NetCDF export refuses a time step outside the axis of a field rebuilt on read instead of wrapping it. The STAC, RO-Crate and PROV views written outside a run directory are written atomically, and a NetCDF export no longer uses a fixed temporary file name.
 
 ### Security
 

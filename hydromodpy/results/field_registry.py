@@ -118,6 +118,11 @@ class FieldDescriptor:
     valid_max: float | None = None
 
     @property
+    def timed(self) -> bool:
+        """Whether the field carries a leading time axis."""
+        return self.shape.startswith("time")
+
+    @property
     def dimensions(self) -> tuple[str, ...]:
         """Zarr ``dimension_names`` derived from :attr:`shape`."""
         return _SHAPE_TO_DIMENSIONS.get(self.shape, (self.shape,))
@@ -704,6 +709,15 @@ def has(name: str) -> bool:
     return name in FIELD_REGISTRY
 
 
+def is_time_resolved(name: str) -> bool:
+    """Return whether the stored array of ``name`` has a leading time axis.
+
+    Registered static geometry (``topography``, ``layer_thickness``) has none.
+    An unregistered solver array is taken as time-resolved.
+    """
+    return not has(name) or FIELD_REGISTRY[name].timed
+
+
 def all_names() -> list[str]:
     """Return the sorted list of registered public names."""
     return sorted(FIELD_REGISTRY)
@@ -812,6 +826,7 @@ __all__ = [
     "static_field_dimensions",
     "timed_field_dimensions",
     "has",
+    "is_time_resolved",
     "all_names",
     "all_zarr_paths",
     "cf_attrs",

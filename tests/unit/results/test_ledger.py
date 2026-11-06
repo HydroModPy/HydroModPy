@@ -8,7 +8,8 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.results.ledger import LEDGER_SCHEMA, Ledger, LedgerEntry, ledger_path, sha256_of
+from hydromodpy.core.io.file_digest import sha256_of
+from hydromodpy.results.ledger import LEDGER_SCHEMA, Ledger, LedgerEntry, ledger_path
 from tests.unit.results._run_record_factory import make_identity
 
 NOW = datetime(2026, 10, 15, 9, 0, tzinfo=UTC)
@@ -95,7 +96,7 @@ def test_a_bad_digest_or_unknown_key_is_refused_by_name():
 def test_concurrent_records_of_derived_files_all_survive(tmp_path):
     from concurrent.futures import ThreadPoolExecutor
 
-    from hydromodpy.results.export.ledgers import record_derived_file
+    from hydromodpy.results.ledger import record_derived_file
 
     files = []
     for index in range(8):

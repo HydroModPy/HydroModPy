@@ -14,7 +14,11 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
+import pandas as pd
+
+from hydromodpy.core.io.atomic_replace import rename_over_open_file
 from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -38,15 +42,10 @@ def _is_missing(val: Any) -> bool:
     if isinstance(val, str):
         return val == ""
     try:
-        import pandas as pd  # local import to avoid hard dependency in tests
-
-        if pd.isna(val):  # type: ignore[arg-type]
-            return True
+        return bool(pd.isna(val))
     except (TypeError, ValueError):
-        pass
-    except ImportError:
-        pass
-    return False
+        # A list or an array has no single missing value.
+        return False
 
 
 def _coalesce(row: dict[str, Any], key: str) -> Any:
@@ -131,12 +130,14 @@ class FairExportContext:
 
 
 def to_json(payload: Any, path: Path) -> Path:
-    """Write *payload* deterministically as UTF-8 JSON and return *path*."""
+    """Write *payload* as sorted UTF-8 JSON, whole, through a temporary file and one rename."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
+    tmp = path.with_name(f"{path.name}.tmp-{uuid4().hex}")
+    tmp.write_text(
         json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
+    rename_over_open_file(tmp, path)
     return path
 
 

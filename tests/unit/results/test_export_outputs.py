@@ -1537,7 +1537,7 @@ def test_the_simulated_network_is_exported_by_date_and_over_the_run(dated_run, m
         asked.append([int(step) for step in steps])
         return np.asarray([flowing[int(step)] for step in steps])
 
-    monkeypatch.setattr(vocabulary, "_simulated_network_available", lambda _run: True)
+    monkeypatch.setattr(vocabulary, "network_unavailable_reason", lambda _run: None)
     monkeypatch.setattr(request_module, "simulated_active_network_stack", stack)
 
     (tif,) = export_run(

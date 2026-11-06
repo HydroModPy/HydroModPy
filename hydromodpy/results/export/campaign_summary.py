@@ -123,7 +123,7 @@ def write_summary_readme(
     catalog_written: bool,
 ) -> Path:
     """Write ``summary/README.md``: the counts, the sites, the versions, the scored period."""
-    from hydromodpy.results.ledger import sha256_of
+    from hydromodpy.core.io.file_digest import sha256_of
     from hydromodpy.results.metric_rule import DateWindow
     from hydromodpy.results.readme import SummaryFacts, render_summary_readme, write_readme
     from hydromodpy.results.validity_rules import RULE_VERSION
@@ -231,7 +231,7 @@ def write_summary_rocrate(
 
 def _file_nodes(summary: Path) -> list[dict[str, Any]]:
     """Return a node per file of ``summary/``, its own crate and the comparisons left out."""
-    from hydromodpy.results.ledger import sha256_of
+    from hydromodpy.core.io.file_digest import sha256_of
 
     files = sorted(
         path

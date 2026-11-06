@@ -1,12 +1,10 @@
 """Write-side concerns for :class:`SimulationZarr`.
 
-Owns every ``write_*`` entry point: mesh, time, CRS, fields, forcing
-timeseries and raster, geographic rasters, and ACDD root attrs.
-Also owns the chunk / sharding decisions and the CF attribute
-composition that flows from the registry.
-
-Helpers take the live :class:`SimulationZarr` so the module stays free
-of hidden state and can be unit-tested in isolation.
+Every ``write_*`` of :class:`SimulationZarr` is defined here once and bound
+on the class as a method: mesh, time, CRS, fields, forcing, geographic
+rasters and ACDD root attrs. Each takes the live store as its first argument.
+The module also owns the chunk and shard decisions and the CF attributes
+that flow from the registry.
 """
 
 from __future__ import annotations
@@ -271,8 +269,6 @@ def write_mesh(
     topography: np.ndarray | None = None,
     *,
     layer_thickness: np.ndarray | None = None,
-    streambed_top: np.ndarray | None = None,
-    streambed_connection: np.ndarray | None = None,
     start_index: int = 0,
     grid_type: str | None = None,
     structured_shape: tuple[int, int] | None = None,
@@ -357,13 +353,7 @@ def write_mesh(
                 dimension_names=(field_registry.AXIS_FACE,),
             )
             update_attrs(topo_arr, attrs_for_field("topography", topo_arr.dtype))
-        _write_vertical_arrays(
-            store_obj,
-            mesh,
-            layer_thickness=layer_thickness,
-            streambed_top=streambed_top,
-            streambed_connection=streambed_connection,
-        )
+        _write_vertical_arrays(store_obj, mesh, layer_thickness=layer_thickness)
 
         n_nodes = int(np.asarray(vertices).shape[0])
         n_cells = int(np.asarray(face_node_connectivity).shape[0])
@@ -458,8 +448,8 @@ def _write_vertical_arrays(
     mesh: zarr.Group,
     *,
     layer_thickness: np.ndarray | None,
-    streambed_top: np.ndarray | None,
-    streambed_connection: np.ndarray | None,
+    streambed_top: np.ndarray | None = None,
+    streambed_connection: np.ndarray | None = None,
     idomain: np.ndarray | None = None,
 ) -> None:
     """Write the per-face arrays that depend on the solved model, when given."""
@@ -961,19 +951,13 @@ def _create_field_array(
     if len(per_step_shape) == 1:
         n_layers, n_cells = 1, int(per_step_shape[0])
         full_shape: tuple[int, ...] = (int(n_timesteps), n_cells)
-        if store_obj._balanced:
-            chunk_shape: tuple[int, ...] = compute_balanced_chunks_1d(
-                int(n_timesteps), n_cells, itemsize
-            )
-        else:
-            chunk_shape = (1, n_cells)
+        chunk_shape: tuple[int, ...] = compute_balanced_chunks_1d(
+            int(n_timesteps), n_cells, itemsize
+        )
     elif len(per_step_shape) == 2:
         n_layers, n_cells = int(per_step_shape[0]), int(per_step_shape[1])
         full_shape = (int(n_timesteps), n_layers, n_cells)
-        if store_obj._balanced:
-            chunk_shape = compute_balanced_chunks_2d(int(n_timesteps), n_layers, n_cells, itemsize)
-        else:
-            chunk_shape = (1, n_layers, n_cells)
+        chunk_shape = compute_balanced_chunks_2d(int(n_timesteps), n_layers, n_cells, itemsize)
     else:
         raise ValueError(f"Expected 1D or 2D per-step values, got shape {per_step_shape}")
 

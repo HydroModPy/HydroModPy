@@ -100,7 +100,8 @@ def test_a_run_opened_on_its_directory_answers_with_the_words_of_the_cli(tmp_pat
 def test_exports_and_figures_are_the_files_their_ledger_records(tmp_path) -> None:
     from datetime import UTC, datetime
 
-    from hydromodpy.results.ledger import Ledger, LedgerEntry, sha256_of
+    from hydromodpy.core.io.file_digest import sha256_of
+    from hydromodpy.results.ledger import Ledger, LedgerEntry
     from hydromodpy.results.run.view import open_run_dir
 
     run = open_run_dir(_sealed(tmp_path).dir)

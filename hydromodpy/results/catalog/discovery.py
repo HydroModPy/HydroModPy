@@ -31,6 +31,7 @@ from hydromodpy.core.state.layout import catalog_path_for, project_roots_under, 
 from hydromodpy.core.state.result_dirs import parse_rel_dir, run_dir_rel
 from hydromodpy.results.catalog.constants import (
     MESH_ENGINE_SQL,
+    SIMULATIONS_FROM,
     UnrankedMetricError,
     metric_rank_sql,
     metric_sense,
@@ -589,13 +590,7 @@ class DiscoveryMixin:
         """
         from hydromodpy.results.run.group import RunSet
 
-        query = (
-            "SELECT DISTINCT s.sim_id, s.created_at FROM simulations s "
-            "JOIN solvers sv ON s.solver_id = sv.id "
-            "JOIN statuses st ON s.status_id = st.id "
-            "LEFT JOIN flow_regimes fr ON s.flow_regime_id = fr.id "
-            "LEFT JOIN mesh_topologies mt ON s.mesh_topology_id = mt.id"
-        )
+        query = f"SELECT DISTINCT s.sim_id, s.created_at {SIMULATIONS_FROM}"
         joins: list[str] = []
         clauses: list[str] = []
         join_params: list = []
@@ -677,12 +672,7 @@ class DiscoveryMixin:
             rule = ", ".join(f"{alias}.{name}" for name in METRICS_RULE.names)
             rows = self._backend.fetch_all(
                 f"SELECT DISTINCT CAST(s.sim_id AS VARCHAR), s.rel_dir, {rule} "
-                "FROM simulations s "
-                "JOIN solvers sv ON s.solver_id = sv.id "
-                "JOIN statuses st ON s.status_id = st.id "
-                "LEFT JOIN flow_regimes fr ON s.flow_regime_id = fr.id "
-                "LEFT JOIN mesh_topologies mt ON s.mesh_topology_id = mt.id "
-                f"{' '.join(joins)}{where}",
+                f"{SIMULATIONS_FROM} {' '.join(joins)}{where}",
                 params,
             )
             check_one_rule(

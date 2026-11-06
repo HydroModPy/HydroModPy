@@ -36,7 +36,6 @@ from hydromodpy.core.scoring.stream_defaults import (
     STREAM_CRITERION_DEFAULTS,
     ObservedRasterization,
 )
-from hydromodpy.core.time.period_aggregation import period_edges
 from hydromodpy.core.time.selection import TimeSelectionError, resolve_state
 from hydromodpy.core.units.quantities import parse_to_m
 from hydromodpy.results.calibration_trials import calibration_sessions, calibration_trials
@@ -45,6 +44,7 @@ from hydromodpy.results.derive.stream.extent import (
     parse_extent_duration,
     parse_visible_flow,
 )
+from hydromodpy.results.derive.time_alignment import NO_TIME_AXIS, run_period_edges
 from hydromodpy.results.run.sealed import search_of
 
 if TYPE_CHECKING:
@@ -68,9 +68,6 @@ _TIMESTEP_OF_TIME = {"last": -1, "first": 0}
 """The state a single-state output reads, as the timestep index a run field takes."""
 
 _MISSING_SNAPSHOT = (KeyError, ValueError, FileNotFoundError, RuntimeError)
-_NO_TIME_AXIS = (AttributeError, KeyError, ValueError, FileNotFoundError, RuntimeError)
-"""What a run without a time axis raises when its periods are asked for."""
-
 WindowBounds = tuple[pd.Timestamp | None, pd.Timestamp | None]
 """The ``(start, end)`` of a scoring window, naive, either bound None when open."""
 
@@ -361,7 +358,7 @@ def _timestep_of_time(sim: Run, time: Any, *, where: str) -> int:
         raise ValueError(
             f"{where}: a network output reads 'last', 'first' or one date, got {time!r}."
         )
-    edges = _run_edges(sim)
+    edges = run_period_edges(sim)
     n_periods = len(edges) - 1 if edges is not None else _stored_steps(sim)
     try:
         return resolve_state(time, edges, n_periods=n_periods)
@@ -369,32 +366,11 @@ def _timestep_of_time(sim: Run, time: Any, *, where: str) -> int:
         raise ValueError(f"{where}: time = {time!r} names no state of this run: {exc}") from exc
 
 
-def _run_edges(sim: Run) -> pd.DatetimeIndex | None:
-    """Return the ``n + 1`` period edges of a run, or None when it carries no dates.
-
-    The edges the catalog places on the calendar, else the ones the end stamps
-    imply, as a trial reads a stack served without its time grid.
-    """
-    try:
-        edges = sim.periods.edges
-    except _NO_TIME_AXIS:
-        edges = None
-    if edges is not None and len(edges) >= 2:
-        return pd.DatetimeIndex(edges)
-    try:
-        stamps = sim.time_index
-    except _NO_TIME_AXIS:
-        return None
-    if stamps is None or len(stamps) < 2:
-        return None
-    return period_edges(stamps)
-
-
 def _stored_steps(sim: Run) -> int:
     """Return how many states a run without dates stored, one when it cannot say."""
     try:
         count = int(getattr(sim, "n_timesteps", 0) or 0)
-    except _NO_TIME_AXIS:
+    except NO_TIME_AXIS:
         count = 0
     return count if count > 0 else 1
 

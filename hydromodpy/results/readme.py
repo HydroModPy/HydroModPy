@@ -30,8 +30,8 @@ from pathlib import Path
 from pyproj import Transformer
 
 from hydromodpy.core.io.atomic_replace import staged_path
+from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.results.checks import Checks, stop_line, stop_text
-from hydromodpy.results.ledger import sha256_of
 from hydromodpy.results.manifest import ManifestSite
 from hydromodpy.results.metric_rule import DateWindow
 from hydromodpy.results.outcome import Outcome
