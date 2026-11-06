@@ -78,10 +78,8 @@ class Modflow6Prt:
         model_folder: str = "HydroModPy_outputs",
         model_name: str = "Default_modflow6",
         suffix_name: str = "_prt",
-        bin_path: str | None = None,
         **kwargs: object,
     ) -> None:
-        del bin_path
         self.domain = domain
         self.transport = transport
         self.model_modflow = model_modflow
@@ -91,7 +89,6 @@ class Modflow6Prt:
         self.model_name_prt = model_name + suffix_name
         self.model_name_prt_mf6 = mf6_safe_name(self.model_name_prt)
         self.full_path = os.path.join(model_folder, model_name)
-        self.exe = getattr(model_modflow, "exe", "mf6")
 
         prt_params: dict[str, object] = {}
         comp = transport.modflow6prt

@@ -390,7 +390,7 @@ class TestTheDepthReachesTheDrainRows:
         from hydromodpy.solver.modflow_nwt.nwt import steady_initial_conditions as nwt_ssic
 
         for module, name in (
-            (mf6_ssic, "run_modflow6_steady_state_initialization"),
+            (mf6_ssic, "_preprocess_options_like"),
             (nwt_ssic, "run_nwt_steady_state_initialization"),
         ):
             source = inspect.getsource(getattr(module, name))

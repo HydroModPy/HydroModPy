@@ -113,24 +113,6 @@ def resolve_use_ts6(forcing: object, *, mode: str, nper: int, min_periods: int) 
     return nper > int(min_periods)
 
 
-def package_unit_conversions(model) -> tuple[float, float]:
-    """Return ``(time_conversion, length_conversion)`` for Manning-type scaling.
-
-    MF6 LAK / SFR need these only to scale MANNING / WEIR flow formulas into the
-    model's unit system. HMP runs TDIS in seconds and METERS, so both are 1.0; we
-    read ``model.time_units`` to stay correct if that ever changes.
-    """
-    time_units = str(getattr(model, "time_units", "seconds") or "seconds").lower()
-    seconds_per_unit = {
-        "seconds": 1.0,
-        "minutes": 60.0,
-        "hours": 3600.0,
-        "days": 86400.0,
-        "years": 31557600.0,
-    }
-    return float(seconds_per_unit.get(time_units, 1.0)), 1.0
-
-
 def sto_period_settings(
     steady_flags: Sequence[bool],
 ) -> tuple[dict[int, bool], dict[int, bool]]:
@@ -176,7 +158,6 @@ __all__ = [
     "forcing_kind",
     "forcing_to_si",
     "forcing_unit",
-    "package_unit_conversions",
     "resolve_forcing_mode",
     "resolve_use_ts6",
     "sto_period_settings",

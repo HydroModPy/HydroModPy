@@ -70,7 +70,6 @@ from hydromodpy.solver.modflow6.builders.period_forcing import (
     forcing_kind,
     forcing_to_si,
     forcing_unit,
-    package_unit_conversions,
     resolve_forcing_mode,
     resolve_use_ts6,
     sto_period_settings,
@@ -102,7 +101,6 @@ from hydromodpy.solver.modflow6.builders.recharge import (
     recharge_to_spd,
     resolve_deferred_heterogeneous_recharge,
     resolve_deferred_soil_etp,
-    sanitize_numeric_payload,
     scalar_to_flat,
 )
 from hydromodpy.solver.modflow6.builders.sfr import (
@@ -206,7 +204,6 @@ __all__ = [
     "mask_recharge_on_lake_cells",
     "mover_package_count",
     "ocean_chd_support_mask",
-    "package_unit_conversions",
     "payload_has_negative_values",
     "recharge_to_spd",
     "remove_drain_cells",
@@ -232,7 +229,6 @@ __all__ = [
     "resolve_well_disv_cell",
     "resolve_xt3d_npf_options",
     "rewet_is_enabled",
-    "sanitize_numeric_payload",
     "scalar_to_flat",
     "sfr_drain_cells_to_drop",
     "sfr_routes_drainage",

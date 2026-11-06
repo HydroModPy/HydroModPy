@@ -89,7 +89,6 @@ from hydromodpy.solver.modflow6.builders.mvr import (
     mover_package_count,
 )
 from hydromodpy.solver.modflow6.builders.period_forcing import (
-    package_unit_conversions,
     resolve_forcing_mode,
 )
 from hydromodpy.solver.modflow6.support.time_series import Ts6Series
@@ -963,7 +962,6 @@ def build_lak_package_args(
         (float(d["surfdep"]) for d in lakes.values() if d.get("surfdep") is not None),
         default=_DEFAULT_SURFDEP,
     )
-    time_conversion, length_conversion = package_unit_conversions(model)
     stem = _lak_output_stem(model)
     obs_continuous, lake_obs_meta = build_lake_obs_spec(
         stem=stem,
@@ -981,8 +979,8 @@ def build_lak_package_args(
         "laktab_specs": laktab_specs,
         "boundnames": True,
         "surfdep": surfdep,
-        "time_conversion": time_conversion,
-        "length_conversion": length_conversion,
+        "time_conversion": 1.0,
+        "length_conversion": 1.0,
         "print_stage": True,
         "print_flows": True,
         "save_flows": True,

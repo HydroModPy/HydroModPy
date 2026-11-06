@@ -11,10 +11,9 @@ flow/transport/domain runtime modules into the solver kernel.
 
 from __future__ import annotations
 
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol
 
 
-@runtime_checkable
 class FlowModelLike(Protocol):
     """Minimal contract a flow model must satisfy to drive a transport solver."""
 
@@ -30,7 +29,6 @@ class FlowModelLike(Protocol):
     def sy(self) -> Any: ...
 
 
-@runtime_checkable
 class TransportLike(Protocol):
     """Container exposing per-backend transport parameter blocks."""
 
@@ -40,7 +38,6 @@ class TransportLike(Protocol):
     modflow6prt: Any
 
 
-@runtime_checkable
 class DomainLike(Protocol):
     """Catchment domain object passed through solver constructors."""
 

@@ -15,8 +15,7 @@ from typing import Any, ClassVar
 import pandas as pd
 
 from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
-from hydromodpy.core.exceptions import ConfigError, ObservableNotAvailableError
-from hydromodpy.core.state.run_state import RunState
+from hydromodpy.core.exceptions import ObservableNotAvailableError
 from hydromodpy.physics.flow.sinks_sources.wells import WELLS_PUMPED_METRIC
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
@@ -195,11 +194,6 @@ class Modflow6FlowAdapter:
             )
         return served
 
-    @staticmethod
-    def _reuse_solver_model_enabled(state: RunState) -> bool:
-        overrides = getattr(state.setup, "flow_runtime_overrides", None)
-        return bool(isinstance(overrides, Mapping) and overrides.get("reuse_solver_model", False))
-
     def execute(self, ctx: RunContext) -> RunExecutionResult:
         """Instantiate and execute one MODFLOW 6 flow run.
 
@@ -212,12 +206,6 @@ class Modflow6FlowAdapter:
         """
 
         state = ctx.state
-        if self._reuse_solver_model_enabled(state):
-            raise ConfigError(
-                "flow_runtime_overrides['reuse_solver_model'] was removed: the reuse code was "
-                "never reachable and reusing a built model was not output-equivalent to a "
-                "rebuild. Remove the key; every trial builds its own model."
-            )
         preprocess_options = build_preprocess_options(state)
         model_name = resolve_run_model_name(ctx)
         # This is the only MODFLOW 6-specific part of the adapter: wiring the

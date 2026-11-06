@@ -184,6 +184,7 @@ None. No metric value changes.
 
 ### Removed
 
+- The unused `hydromodpy.solver.contracts`, `modflow_common.flow_translator`, `modflow_common.boundary_packages` and the Boussinesq `stationary_picard_lscheme` runtime, a dozen MODFLOW 6 delegators and attributes nothing read, and the refusal of the removed `reuse_solver_model` override. MODFLOW input files are unchanged.
 - The unused `lazy_loaders` module, `html_helpers`, `UGridStack` and helpers of the results package that nothing called. `SimulationZarr` no longer opens a zipped store, which no run has used since runs keep `fields.zarr`. Run files are unchanged.
 - The unused `Sim2MeteoFranceClient` module, the unused `TimeseriesVariableConfig` base and a dead `refuse_custom` check in the data request engine.
 - `hydromodpy.core.Workspace`, which never resolved. The public `Workspace` is in `hydromodpy.project.accessors`.

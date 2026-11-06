@@ -63,12 +63,6 @@ ETP_IGNORED_OUTSIDE_SOIL_MODE = (
 )
 
 
-def sanitize_numeric_payload(payload: object) -> object:
-    """Validate one finite numeric payload and return it unchanged."""
-    ensure_finite_numeric_payload(payload, label="recharge payload")
-    return payload
-
-
 def validate_recharge_numeric_payload(
     payload: object,
     *,
@@ -1023,6 +1017,5 @@ __all__ = [
     "recharge_to_spd",
     "resolve_deferred_heterogeneous_recharge",
     "resolve_deferred_soil_etp",
-    "sanitize_numeric_payload",
     "scalar_to_flat",
 ]

@@ -11,18 +11,22 @@ from hydromodpy.solver.boussinesq.runtime_contract import (
     NonlinearRuntimeOptions,
     SteadySolveInputs,
 )
-from hydromodpy.solver.boussinesq.runtimes.stationary_picard_lscheme import (
+from hydromodpy.solver.boussinesq.runtimes.picard.diagnostics import (
+    PicardLschemeOptions,
+    PicardViCycleOptions,
+)
+from hydromodpy.solver.boussinesq.runtimes.picard.io import (
     PICARD_LSCHEME_FINAL_CELLS_CSV,
     PICARD_LSCHEME_ITERATIONS_CSV,
     PICARD_LSCHEME_SUMMARY_JSON,
     PICARD_VI_CYCLE_SUMMARY_JSON,
     PICARD_VI_CYCLES_CSV,
-    PicardLschemeOptions,
-    PicardViCycleOptions,
-    _assemble_strict_steady_residual,
-    bounded_picard_lscheme,
-    bounded_picard_vi_cycles,
 )
+from hydromodpy.solver.boussinesq.runtimes.picard.lscheme import bounded_picard_lscheme
+from hydromodpy.solver.boussinesq.runtimes.picard.picard import (
+    assemble_strict_steady_residual as _assemble_strict_steady_residual,
+)
+from hydromodpy.solver.boussinesq.runtimes.picard.picard import bounded_picard_vi_cycles
 from tests._helpers.boussinesq_mesh_doubles import _MiniMesh, line_mesh
 
 

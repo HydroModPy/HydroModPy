@@ -18,4 +18,4 @@ def slab_steps(nlay: int, n_cells: int, *, bytes_per_value: int = 8) -> int:
     return max(1, _STACK_SLAB_BYTES // per_step)
 
 
-__all__ = ["_STACK_SLAB_BYTES", "slab_steps"]
+__all__ = ["slab_steps"]

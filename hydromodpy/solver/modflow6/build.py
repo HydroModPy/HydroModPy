@@ -75,7 +75,6 @@ from hydromodpy.solver.modflow6.builders import (
     sfr_routes_drainage,
     sto_period_settings,
     xt3d_activation_mode,
-    xt3d_requested_value,
 )
 from hydromodpy.solver.modflow6.builders.sfr import (
     mover_rows_reach_lake,
@@ -606,11 +605,6 @@ def _resolve_channel_mask_for_zonal(model) -> np.ndarray | None:
     return mask
 
 
-def xt3d_requested(model) -> bool | None:
-    """Return the configured XT3D override."""
-    return xt3d_requested_value(model)
-
-
 def xt3d_mode(model, solver_mesh=None) -> str:
     """Return the XT3D activation mode."""
     return xt3d_activation_mode(model, solver_mesh)
@@ -619,11 +613,6 @@ def xt3d_mode(model, solver_mesh=None) -> str:
 def resolve_xt3d_options(model, solver_mesh=None) -> list[str] | None:
     """Return FloPy NPF XT3D options."""
     return resolve_xt3d_npf_options(model, solver_mesh)
-
-
-def resolve_ims_complexity_for(model, solver_mesh=None) -> str:
-    """Return the resolved IMS complexity."""
-    return resolve_ims_complexity(model, solver_mesh)
 
 
 def newton_options(runtime) -> list[str] | None:
@@ -1026,7 +1015,7 @@ def run_pre_processing(  # noqa: PLR0915
     model.ims = flopy.mf6.ModflowIms(
         model.sim,
         print_option=str(runtime.ims_print_option),
-        complexity=resolve_ims_complexity_for(model, solver_mesh),
+        complexity=resolve_ims_complexity(model, solver_mesh),
         outer_dvclose=float(runtime.mf6_outer_dvclose),
         inner_dvclose=float(runtime.mf6_inner_dvclose),
         outer_maximum=int(runtime.mf6_outer_maximum),

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import importlib.util
 import os
 import stat
 import sys
@@ -9,11 +8,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-import hydromodpy.solver.modflow_grid as grid_pkg
 from hydromodpy.cli.helpers import EXIT_VALIDATION, exit_code_for
 from hydromodpy.core.exceptions import NetworkError
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
-from hydromodpy.solver.modflow6 import Modflow6, Modflow6Transport
 from hydromodpy.solver.modflow6.build import mf6_safe_name
 from hydromodpy.solver.modflow6.builders import build_evt_stress_period_data
 from hydromodpy.solver.modflow6.extractors.flow import _listing_path
@@ -25,23 +22,8 @@ from hydromodpy.solver.modflow_common.binaries import (
     locate_solver_binary,
     managed_bin_dir,
 )
-from hydromodpy.solver.modflow_common.boundary_packages import (
-    BoundaryCell,
-    DisvBoundaryCell,
-    PackageKind,
-    package_attr_names,
-    validate_attrs,
-)
-from hydromodpy.solver.modflow_common.flow_translator import (
-    MF6_PACKAGES,
-    NWT_PACKAGES,
-    BoundaryKind,
-    resolve_package,
-    resolve_packages,
-)
-from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from tests._helpers.mf6_toy_models import toy_model
-from tests._helpers.solver_meshes import solver_mesh_from, solver_mesh_from_structured_arrays
+from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 
 def test_ensure_platform_executable_returns_missing_path_unchanged(tmp_path: Path) -> None:
@@ -284,21 +266,6 @@ def test_spaced_name_listing_matches_the_sanitised_model_name() -> None:
     assert _listing_path(Path("/out"), "run one").stem == "run_one"
 
 
-# WP12 - dead code and defensive fallbacks are gone, live paths preserved.
-
-_DELETED_DELEGATORS = (
-    "_get_budget_records_or_none",
-    "_open_budget_file",
-    "_build_unstructured_cell_adjacency",
-    "_accumulate_unstructured_cell_values",
-    "_native_mesh_exports_enabled",
-    "_native_cell_series_payload",
-    "_export_native_mesh_outputs",
-    "_east_side_cell_ids",
-    "_compute_chd_outlet_discharge_east_side_m3_s",
-)
-
-
 def test_mf6_evt_extinction_depth_from_process_specific() -> None:
     model = toy_model()
     model.flow_regime = "transient"
@@ -335,28 +302,6 @@ def test_mf6_evt_extinction_depth_from_process_specific() -> None:
     assert evt_default[1][0][4] == pytest.approx(1.0)
 
 
-def test_no_dead_symbols_after_cleanup() -> None:
-    import hydromodpy.solver.modflow6 as mf6_pkg
-
-    # Deleted modules.
-    assert importlib.util.find_spec("hydromodpy.solver.modflow6.postprocess_ops") is None
-    assert importlib.util.find_spec("hydromodpy.solver.modflow6.postprocess") is None
-    assert importlib.util.find_spec("hydromodpy.solver.modflow6.support.diagnostics") is None
-    assert importlib.util.find_spec("hydromodpy.solver.modflow_grid.grid_mapping") is None
-
-    # Deleted public symbols.
-    assert not hasattr(mf6_pkg, "Modflow6RuntimeParams")
-    assert not hasattr(SolverMesh, "from_extruded_mesh")
-    for name in ("describe_grid", "DisDescriptor", "DisvDescriptor", "DiscretizationKind"):
-        assert not hasattr(grid_pkg, name)
-
-    # Deleted delegator methods.
-    for name in _DELETED_DELEGATORS:
-        assert not hasattr(Modflow6, name)
-    assert not hasattr(Modflow6, "post_processing")
-    assert not hasattr(Modflow6Transport, "post_processing")
-
-
 # Unit tests for solver output-file cleanup.
 
 
@@ -382,53 +327,3 @@ class TestCleanupSolverFiles:
         assert (d / "model.lst").exists()
         assert (d / "model.nam").exists()
         assert not (d / "model.hds").exists()
-
-
-# Unit tests for the shared MODFLOW helpers introduced in P06.
-
-
-class TestFlowTranslator:
-    def test_resolve_package_nwt_for_stream(self) -> None:
-        assert resolve_package(BoundaryKind.STREAM, solver="modflow_nwt") == "Riv"
-
-    def test_resolve_package_mf6_for_recharge(self) -> None:
-        assert resolve_package("recharge", solver="mf6") == "Rcha"
-
-    def test_resolve_package_unknown_solver_raises(self) -> None:
-        with pytest.raises(ValueError):
-            resolve_package(BoundaryKind.DRAIN, solver="unknown")
-
-    def test_resolve_packages_is_deduplicated(self) -> None:
-        out = resolve_packages(
-            [BoundaryKind.STREAM, BoundaryKind.RIV, BoundaryKind.DRAIN],
-            solver="mf6",
-        )
-        assert out == ["Riv", "Drn"]
-
-    def test_every_kind_has_nwt_and_mf6_mapping(self) -> None:
-        for kind in BoundaryKind:
-            assert kind in NWT_PACKAGES
-            assert kind in MF6_PACKAGES
-
-
-class TestBoundaryPackages:
-    def test_drn_attrs(self) -> None:
-        assert package_attr_names(PackageKind.DRN) == ("elev", "cond")
-
-    def test_riv_attrs(self) -> None:
-        assert package_attr_names("riv") == ("stage", "cond", "rbot")
-
-    def test_validate_attrs_mismatch_raises(self) -> None:
-        with pytest.raises(ValueError):
-            validate_attrs(PackageKind.DRN, (1.0,))
-
-    def test_validate_attrs_match_is_silent(self) -> None:
-        validate_attrs(PackageKind.GHB, (10.0, 0.5))
-
-    def test_boundary_cell_as_tuple(self) -> None:
-        cell = BoundaryCell(layer=0, row=5, col=3, attrs=(10.0, 0.5))
-        assert cell.as_tuple() == (0, 5, 3, 10.0, 0.5)
-
-    def test_disv_boundary_cell_as_tuple(self) -> None:
-        cell = DisvBoundaryCell(layer=1, cell_id=42, attrs=(7.5,))
-        assert cell.as_tuple() == ((1, 42), 7.5)

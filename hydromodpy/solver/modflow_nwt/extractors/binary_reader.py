@@ -75,14 +75,7 @@ def open_cell_budget_file(
     ) from last_exc
 
 
-def list_budget_records(cbc_reader: Any) -> list[str]:
-    """Return the deduplicated record names present in a CBC file."""
-    records = cbc_reader.get_unique_record_names(decode=True)
-    return sorted({str(name).strip() for name in records})
-
-
 __all__ = [
-    "list_budget_records",
     "open_cell_budget_file",
     "open_head_file",
 ]

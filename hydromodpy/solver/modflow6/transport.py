@@ -40,7 +40,6 @@ class Modflow6Transport:
         model_folder: str = "HydroModPy_outputs",
         model_name: str = "Default_modflow6",
         suffix_name: str = "_gwt",
-        bin_path: str | None = None,
         **kwargs,
     ):
         self.domain = domain
@@ -52,7 +51,6 @@ class Modflow6Transport:
         self.model_name_mt = model_name + suffix_name
         self.model_name_mt_mf6 = mf6_safe_name(self.model_name_mt)
         self.full_path = os.path.join(model_folder, model_name)
-        self.exe = getattr(model_modflow, "exe", "mf6")
 
         conc_params = {}
         comp = transport.modflow6gwt
@@ -61,7 +59,6 @@ class Modflow6Transport:
         conc_params.update(kwargs)
         conc_params.update(build_concentration_runtime_overrides(conc_params, model_modflow))
 
-        self.spc_name = conc_params.get("spc_name", "NO3")
         self.sconc_init = conc_params.get("sconc_init", 0.0)
         self.sconc_input = conc_params.get("sconc_input", 0.0)
         self.disp_long = float(conc_params.get("disp_long", 0.0))
@@ -72,7 +69,6 @@ class Modflow6Transport:
         self.rate_decay = conc_params.get("rate_decay", 0.0)
         self.porosity = conc_params.get("porosity", None)
         self.scheme = conc_params.get("scheme", "upstream")
-        self.plot_conc = bool(conc_params.get("plot_conc", True))
 
     def _resolve_mst_porosity(self):
         """Return effective porosity for MST: configured value, else specific yield.
@@ -134,10 +130,6 @@ class Modflow6Transport:
             return out
         val = float(self.sconc_input)
         return {k: np.full(ncpl, val, dtype=float) for k in range(nper)}
-
-    def _build_crch_aux(self) -> dict[int, list[np.ndarray]]:
-        crch = self._build_crch()
-        return {k: [np.asarray(v, dtype=float)] for k, v in crch.items()}
 
     def pre_processing(self):
         sim = self.model_modflow.sim
@@ -207,7 +199,9 @@ class Modflow6Transport:
 
         if not hasattr(self.model_modflow, "rch") or self.model_modflow.rch is None:
             raise RuntimeError("Modflow6Transport requires an existing GWF recharge package.")
-        self.model_modflow.rch.aux.set_data(self._build_crch_aux())
+        self.model_modflow.rch.aux.set_data(
+            {k: [np.asarray(v, dtype=float)] for k, v in self._build_crch().items()}
+        )
         self.ssm = flopy.mf6.ModflowGwtssm(self.gwt, sources=[("RCHA", "AUX", "CONCENTRATION")])
 
         self.gwfgwt = flopy.mf6.ModflowGwfgwt(

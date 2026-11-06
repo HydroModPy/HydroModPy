@@ -2,8 +2,6 @@
 
 This module exposes the :class:`Modflow6` adapter. Concern-specific helpers
 live in ``build`` (pre_processing) and ``run`` (processing).
-The class methods are thin delegators so this module stays under the 1500 LOC
-architectural limit.
 """
 
 from __future__ import annotations
@@ -20,16 +18,12 @@ from hydromodpy.solver.modflow6.api.api_runner import Mf6ApiContext
 from hydromodpy.solver.modflow6.build import (
     apply_preprocess_options,
     mf6_safe_name,
-    resolve_flow_regime,
-    resolve_ims_complexity_for,
     resolve_xt3d_options,
     run_pre_processing,
-    select_active_dem,
-    write_solver_grid_template,
+    validate_pre_processing_inputs,
     xt3d_mode,
-    xt3d_requested,
 )
-from hydromodpy.solver.modflow6.builders import log_xt3d_resolution, xt3d_is_enabled
+from hydromodpy.solver.modflow6.builders import resolve_ims_complexity, xt3d_is_enabled
 from hydromodpy.solver.modflow6.modflow6_config import (
     Modflow6Config,
     _coerce_modflow6_config,
@@ -73,7 +67,6 @@ class Modflow6:
         self.domain = None
         self.flow_regime: str | None = None
         self.last_flow_solve_time_seconds: float | None = None
-        self.prob_cells = 0
 
         self.full_path = os.path.join(model_folder, model_name)
         self.dem_watershed_path = None
@@ -128,14 +121,8 @@ class Modflow6:
 
     # build helpers ------------------------------------------------------
 
-    def _select_active_dem(self, box: bool) -> None:
-        select_active_dem(self, box)
-
     def _apply_preprocess_options(self, options: ModflowPreprocessOptions | None = None) -> None:
         apply_preprocess_options(self, options)
-
-    def _xt3d_requested_value(self) -> bool | None:
-        return xt3d_requested(self)
 
     def _xt3d_is_enabled(self, solver_mesh=None) -> bool:
         return xt3d_is_enabled(self, solver_mesh)
@@ -146,34 +133,15 @@ class Modflow6:
     def _resolve_xt3d_npf_options(self, solver_mesh=None) -> list[str] | None:
         return resolve_xt3d_options(self, solver_mesh)
 
-    def _resolve_ims_complexity(self, solver_mesh=None) -> str:
-        return resolve_ims_complexity_for(self, solver_mesh)
-
     def resolved_solver_options(self) -> dict[str, object]:
         """Return what this model decided once built, for ``provenance.json``."""
         return {
-            "ims_complexity": self._resolve_ims_complexity(),
+            "ims_complexity": resolve_ims_complexity(self),
             "xt3d": self._xt3d_is_enabled(),
             "xt3d_source": self._xt3d_activation_mode(),
         }
 
-    def _log_xt3d_resolution(self, solver_mesh=None) -> None:
-        log_xt3d_resolution(self, solver_mesh)
-
-    def _write_solver_grid_template(self) -> str:
-        return write_solver_grid_template(self)
-
-    def _ensure_solver_routing_context(self) -> SolverRoutingContext:
-        from hydromodpy.solver.modflow6.build import ensure_solver_routing_context
-
-        return ensure_solver_routing_context(self)
-
-    def _resolve_flow_regime(self) -> str | None:
-        return resolve_flow_regime(self)
-
     def _validate_pre_processing_inputs(self) -> None:
-        from hydromodpy.solver.modflow6.build import validate_pre_processing_inputs
-
         validate_pre_processing_inputs(self)
 
     def pre_processing(
