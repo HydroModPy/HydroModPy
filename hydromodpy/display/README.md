@@ -68,7 +68,7 @@ with a sentence without it.
 
 ## Import rules
 
-Outside the package, `display` imports only `core`, `schema` and `results`
+Outside the package, `display` imports only `core` and `results`
 (`tests/unit/architecture/layer_matrix.yaml`). Inside, a unit (a root module or a
 subpackage) imports only what its line allows. The rule that matters: **no shared
 tool imports `figures/`**. Data a tool needs lives in the tool or in `results`,
@@ -296,13 +296,12 @@ Another package of `hydromodpy/` imports only these modules (the `public` list o
 | `hydromodpy.display.runs` | rendering the figures of a run, and their availability |
 | `hydromodpy.display.cohort` | the cohort figures `hmp campaign collect` draws under `summary/figures/` |
 | `hydromodpy.display.maps.axes`, `hydromodpy.display.maps.ugrid`, `hydromodpy.display.maps.geo` | map tools reused by `reporting` |
-| `hydromodpy.display.report_blocks` | HTML engine (`reporting`, and `calibration` through a tolerance) |
+| `hydromodpy.display.report_blocks` | HTML engine (`reporting`) |
 | `hydromodpy.display.overview`, `hydromodpy.display.overview.config` | overview and `OverviewConfig` |
 | `hydromodpy.display.catchment_report`, `...catchment_report.pipeline` | catchment report |
 | `hydromodpy.display.figures.lake_level_fit` | lake-level fit chart, read by `reporting` |
 
-`calibration` reaches `display` only through the tolerance of `layer_matrix.yaml`,
-and only `hydromodpy.display.report_blocks`. Tests and examples are not checked.
+`calibration` does not import `display`. Tests and examples are not checked.
 
 ## HTML block reports
 
@@ -383,14 +382,13 @@ generated from the registry into the figures page of the documentation, and
 
 ## Layer neighbors
 
-`display` imports `core`, `schema` and `results`
+`display` imports `core` and `results`
 (`tests/unit/architecture/layer_matrix.yaml`), never `data`, `simulation`,
 `solver`, `calibration` or `spatial`. A figure of the stream criterion or of the routing surface only draws:
 the network, the extents, the routing surface and the depression floods are computed in
 `results/derive/stream/`. The root facade, `config`, `analysis`, `reporting`,
 `workflow`, `project` and `cli` import it, each through the modules of the
-`public` list of `display_layout.yaml`, and `calibration` through its tolerance
-for `report_blocks`.
+`public` list of `display_layout.yaml`.
 
 ## Reading path
 

@@ -63,8 +63,9 @@ layout is `storage/contract.py`; the full contract is
 ## Import rules
 
 `tests/unit/architecture/layer_matrix.yaml` gives results `core`, `schema`,
-`config`, `spatial` and itself. Today it imports `core`, `schema` and
-`spatial`, and no `config`. No `results_layout.yaml` orders the parts inside
+`config`, `spatial` and itself. Today it imports `core`, `schema`,
+`spatial` and `config` (4 files, a cycle that the move of `PublicationConfig` and
+`MetricsConfig` removes). No `results_layout.yaml` orders the parts inside
 the package, and they do import each other: `catalog` composes `run`,
 `derive`, `exporters`, `zarr_store` and the sidecars, and `run` and `derive`
 call back into `catalog` and `zarr_store`. Rules that hold:

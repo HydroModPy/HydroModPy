@@ -5,7 +5,7 @@
 Layer matrix
 ------------
 
-18 layers, 138 granted edges. A layer always implicitly allows imports targeting itself; anything absent from a row
+18 layers, 118 granted edges. A layer always implicitly allows imports targeting itself; anything absent from a row
 is forbidden and fails CI.
 
 .. list-table::
@@ -14,67 +14,60 @@ is forbidden and fails CI.
 
    * - Source layer
      - Allowed import targets
-   * - ``<root>``
-     - ``<root>``, ``core``, ``schema``, ``config``, ``physics``,
-       ``data``, ``spatial``, ``simulation``, ``solver``, ``calibration``,
-       ``results``, ``display``, ``analysis``, ``reporting``,
-       ``workflow``, ``examples``, ``cli``
    * - ``core``
      - ``core``
+   * - ``examples``
+     - ``core``, ``examples``
+   * - ``physics``
+     - ``core``, ``physics``
    * - ``schema``
      - ``core``, ``schema``, ``config``
-   * - ``config``
-     - ``core``, ``schema``, ``config``, ``physics``, ``data``,
-       ``spatial``, ``simulation``, ``solver``, ``calibration``,
-       ``results``, ``display``, ``analysis``, ``reporting``,
-       ``workflow``
-   * - ``physics``
-     - ``core``, ``schema``, ``physics``
-   * - ``data``
-     - ``core``, ``schema``, ``data``, ``spatial``
    * - ``spatial``
      - ``core``, ``schema``, ``spatial``
+   * - ``data``
+     - ``core``, ``schema``, ``data``, ``spatial``
    * - ``simulation``
-     - ``core``, ``schema``, ``physics``, ``spatial``, ``data``,
-       ``simulation``
+     - ``core``, ``physics``, ``spatial``, ``data``, ``simulation``
    * - ``solver``
-     - ``core``, ``schema``, ``physics``, ``spatial``, ``solver``,
-       ``simulation``
-   * - ``calibration``
-     - ``core``, ``schema``, ``physics``, ``data``, ``spatial``,
-       ``solver``, ``simulation``, ``calibration``, ``results``
+     - ``core``, ``physics``, ``spatial``, ``solver``, ``simulation``
    * - ``results``
      - ``core``, ``schema``, ``config``, ``results``, ``spatial``
+   * - ``calibration``
+     - ``core``, ``physics``, ``data``, ``spatial``, ``solver``,
+       ``simulation``, ``calibration``, ``results``
    * - ``display``
-     - ``core``, ``schema``, ``results``, ``display``
+     - ``core``, ``results``, ``display``
+   * - ``config``
+     - ``core``, ``config``, ``physics``, ``data``, ``spatial``,
+       ``simulation``, ``solver``, ``calibration``, ``results``,
+       ``display``, ``workflow``
    * - ``analysis``
-     - ``core``, ``schema``, ``physics``, ``data``, ``results``,
-       ``display``, ``analysis``
+     - ``core``, ``results``, ``display``, ``analysis``
    * - ``reporting``
      - ``core``, ``schema``, ``config``, ``results``, ``display``,
-       ``analysis``, ``reporting``
+       ``reporting``
    * - ``workflow``
      - ``core``, ``schema``, ``config``, ``physics``, ``data``,
        ``spatial``, ``simulation``, ``solver``, ``calibration``,
-       ``results``, ``display``, ``analysis``, ``reporting``,
-       ``workflow``
-   * - ``examples``
-     - ``core``, ``examples``
+       ``results``, ``display``, ``reporting``, ``workflow``
    * - ``project``
      - ``core``, ``schema``, ``config``, ``physics``, ``data``,
        ``spatial``, ``simulation``, ``solver``, ``calibration``,
-       ``results``, ``display``, ``analysis``, ``reporting``,
-       ``workflow``, ``project``
+       ``results``, ``display``, ``reporting``, ``workflow``, ``project``
+   * - ``<root>``
+     - ``<root>``, ``core``, ``config``, ``physics``, ``data``,
+       ``spatial``, ``simulation``, ``solver``, ``calibration``,
+       ``results``, ``display``, ``analysis``, ``workflow``, ``examples``
    * - ``cli``
-     - ``<root>``, ``core``, ``schema``, ``config``, ``physics``,
-       ``data``, ``spatial``, ``simulation``, ``solver``, ``calibration``,
-       ``results``, ``display``, ``analysis``, ``reporting``,
-       ``workflow``, ``project``, ``examples``, ``cli``
+     - ``<root>``, ``core``, ``schema``, ``config``, ``data``,
+       ``simulation``, ``solver``, ``calibration``, ``results``,
+       ``display``, ``analysis``, ``workflow``, ``project``, ``examples``,
+       ``cli``
 
 Documented tolerances
 ---------------------
 
-3 edges are tolerated rather than granted. Each one carries its reason in the
+2 edges are tolerated rather than granted. Each one carries its reason in the
 contract. They are temporary or deliberately narrow; tighten one when the edge disappears.
 
 .. list-table::
@@ -90,9 +83,6 @@ contract. They are temporary or deliberately narrow; tighten one when the edge d
    * - ``physics``
      - ``spatial``
      - FlowConfig embeds spatial FieldSection discriminated union
-   * - ``calibration``
-     - ``display``
-     - network-transient calibration diagnostics reuse the shared static HTML report-block renderer; hydromodpy.display.report_blocks only (tolerated in display_layout.yaml)
 
 Files exempt from the layer rule
 --------------------------------

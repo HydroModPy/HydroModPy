@@ -127,6 +127,36 @@ def test_layer_tolerances_are_not_redundant() -> None:
     assert redundant == []
 
 
+# Edges that still point down the file. Each one is a real import cycle that
+# the move named in its reason removes. The test compares sets, so a new
+# backward edge fails and so does a stale entry: delete the line when the
+# move lands.
+BACKWARD_EDGES = {
+    ("schema", "config"): "schema/export.py and schema/partial_validator.py read config "
+    "(lot 1 of config-schema.md moves both into config)",
+    ("results", "config"): "results/export reads PublicationConfig, results/metric_rule.py "
+    "and derive/network_criterion_settings.py read config (section 3.3 of ensemble.md)",
+    ("config", "workflow"): "config/sites/check.py dispatches workflow steps while workflow "
+    "reads config (lot 1 of config-schema.md moves config/sites into project)",
+}
+
+
+def test_a_row_cites_only_rows_above_it() -> None:
+    """Rows run lowest first, so the matrix cannot hide a cycle between layers."""
+    allowed = _load_matrix()["allowed"]
+    position = {layer: index for index, layer in enumerate(allowed)}
+    backward = {
+        (layer, target)
+        for layer, targets in allowed.items()
+        for target in targets
+        if position[target] > position[layer]
+    }
+    assert backward == set(BACKWARD_EDGES), (
+        f"new edges pointing down the file: {sorted(backward - set(BACKWARD_EDGES))}; "
+        f"stale exceptions: {sorted(set(BACKWARD_EDGES) - backward)}"
+    )
+
+
 def test_architecture_package_docs_cover_declared_layers() -> None:
     """Reject missing per-package architecture pages."""
     matrix = _load_matrix()

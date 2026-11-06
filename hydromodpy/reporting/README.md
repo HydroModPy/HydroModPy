@@ -16,7 +16,7 @@ to add what.
 ## Import rules
 
 `layer_matrix.yaml` gives reporting `core`, `schema`, `config`, `results`,
-`display`, `analysis` and itself. Two rules:
+`display` and itself. Two rules:
 
 1. `display` never imports `reporting`. The page structure that several
    reports share lives in `display/report_blocks`.
@@ -27,8 +27,8 @@ to add what.
 
 No `reporting_layout.yaml` orders the parts inside the package.
 
-Who imports reporting: `workflow` (the calibration step), `project` (the campaign summary) and `cli`
-(`hmp report render`).
+Who imports reporting: `workflow` (the calibration step) and `project` (the campaign summary
+and `hmp report render`).
 
 ## Tree
 

@@ -3,48 +3,46 @@
 # Each row lists the set of packages a source layer is allowed to import.
 # A package always implicitly allows imports targeting itself.
 # Packages absent from the row's list are forbidden (CI flags them).
+#
+# Rows are written lowest first: a row cites rows written above it in the file.
+# test_layer_matrix.py checks the order and names the few edges that still
+# point down the file.
 
 allowed:
-  "<root>":      ["<root>", core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, reporting, workflow, examples, cli]
   core:          [core]
-  schema:        [core, schema, config]
-  config:        [core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, reporting, workflow]
-  physics:       [core, schema, physics]
-  data:          [core, schema, data, spatial]
-  spatial:       [core, schema, spatial]
-  simulation:    [core, schema, physics, spatial, data, simulation]
-  solver:        [core, schema, physics, spatial, solver, simulation]
-  calibration:   [core, schema, physics, data, spatial, solver, simulation, calibration, results]
-  results:       [core, schema, config, results, spatial]
-  display:       [core, schema, results, display]
-  analysis:      [core, schema, physics, data, results, display, analysis]
-  # ``reporting`` hosts HTML composites (calibration session report,
-  # comparison web report). It assembles figures from
-  # ``display`` and features from ``analysis`` so it sits above both.
-  reporting:     [core, schema, config, results, display, analysis, reporting]
-  workflow:      [core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, reporting, workflow]
-  # ``validity_frame`` records execution metadata for downstream knowledge
-  # ingestion. It is a standalone observability island and must not import the
-  # modeling layers directly.
-
   # ``examples`` owns the catalog of shipped examples, the content-addressed
   # blob cache behind ``hmp example add`` and the generator that writes
   # ``catalog.toml``. It reads TOML through ``core`` and touches nothing else:
   # an example is described by paths and hashes, never by a loaded config.
   examples:      [core, examples]
-
+  physics:       [core, physics]
+  schema:        [core, schema, config]
+  spatial:       [core, schema, spatial]
+  data:          [core, schema, data, spatial]
+  simulation:    [core, physics, spatial, data, simulation]
+  solver:        [core, physics, spatial, solver, simulation]
+  results:       [core, schema, config, results, spatial]
+  calibration:   [core, physics, data, spatial, solver, simulation, calibration, results]
+  display:       [core, results, display]
+  config:        [core, config, physics, data, spatial, simulation, solver, calibration, results, display, workflow]
+  analysis:      [core, results, display, analysis]
+  # ``reporting`` hosts HTML composites (calibration session report,
+  # comparison web report). It assembles figures from ``display`` and sits
+  # above it.
+  reporting:     [core, schema, config, results, display, reporting]
+  workflow:      [core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, reporting, workflow]
   # ``project`` hosts the public ``Project`` facade and its dispatch adapters.
   # It sits above the matrix (like ``cli``) so workflow/calibration launchers
   # can be bound to ``Project`` without lower layers depending on the facade.
-  project:       [core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, reporting, workflow, project]
-  cli:           ["<root>", core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, reporting, workflow, project, examples, cli]
+  project:       [core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, reporting, workflow, project]
+  "<root>":      ["<root>", core, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, examples]
+  cli:           ["<root>", core, schema, config, data, simulation, solver, calibration, results, display, analysis, workflow, project, examples, cli]
 
 # Cross-edges tolerated for now. Each tolerance must point at a documented
 # rationale. Tighten over time.
 tolerances:
   - {src: "<root>",    tgt: project,  reason: "root facade lazy-resolves Project through hydromodpy.project"}
   - {src: physics,     tgt: spatial,  reason: "FlowConfig embeds spatial FieldSection discriminated union"}
-  - {src: calibration, tgt: display,  reason: "network-transient calibration diagnostics reuse the shared static HTML report-block renderer; hydromodpy.display.report_blocks only (tolerated in display_layout.yaml)"}
 
 # Files exempt from the layer rule: the bootstrap shims that wire forward refs.
 exempt_files:

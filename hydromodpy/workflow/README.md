@@ -60,7 +60,7 @@ The modules and their helpers are listed in [`steps/README.md`](steps/README.md)
 
 `tests/unit/architecture/layer_matrix.yaml` gives `workflow` every layer below it,
 itself included: `core`, `schema`, `config`, `physics`, `data`, `spatial`,
-`simulation`, `solver`, `calibration`, `results`, `display`, `analysis`, `reporting`
+`simulation`, `solver`, `calibration`, `results`, `display`, `reporting`
 and `workflow`. Rules:
 
 1. No lower layer imports `workflow`. Only `project`, `cli` and the package root

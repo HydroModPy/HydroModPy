@@ -575,9 +575,9 @@ declared share when the blocks have different units.
 
 ## Layer neighbors
 
-`calibration` imports `core`, `schema`, `physics`, `data`, `spatial`, `solver`,
-`simulation` and `results` (`tests/unit/architecture/layer_matrix.yaml`), and
-`display.report_blocks` through a documented tolerance. The root facade, `config`,
+`calibration` imports `core`, `physics`, `data`, `spatial`, `solver`,
+`simulation` and `results` (`tests/unit/architecture/layer_matrix.yaml`). It never
+imports `display`. The root facade, `config`,
 `workflow`, `project` and `cli` import it. `workflow` is reached only through the
 provider of `runners/contracts.py`, which the bootstrap fills.
 

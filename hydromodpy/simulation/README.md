@@ -26,7 +26,7 @@ how a plan becomes a run and then results, and where to add what.
 
 ## Import rules
 
-`tests/unit/architecture/layer_matrix.yaml` gives simulation `core`, `schema`,
+`tests/unit/architecture/layer_matrix.yaml` gives simulation `core`,
 `physics`, `spatial`, `data` and itself. Today it imports `core`, `physics`,
 `spatial`, and `data` once (`soil_recharge.py` reads `data.contracts`). No
 `simulation_layout.yaml` orders the parts. The shape is:

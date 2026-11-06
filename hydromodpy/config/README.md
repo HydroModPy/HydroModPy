@@ -152,9 +152,8 @@ with a sentence:
 
 ## Import rules
 
-`config` imports `core`, `schema`, `physics`, `data`, `spatial`, `simulation`,
-`solver`, `calibration`, `results`, `display`, `analysis`, `reporting` and
-`workflow` (`tests/unit/architecture/layer_matrix.yaml`): every layer it
+`config` imports `core`, `physics`, `data`, `spatial`, `simulation`,
+`solver`, `calibration`, `results`, `display` and `workflow` (`tests/unit/architecture/layer_matrix.yaml`): every layer it
 composes. The root facade, `schema`, `results`, `reporting`, `workflow`,
 `project` and `cli` import it. `core` never imports it: a layer that needs a
 section type takes it from its own package, or through a protocol of `core`

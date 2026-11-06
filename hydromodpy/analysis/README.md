@@ -22,12 +22,11 @@ project index and never writes into a run. `pairwise.py` is the one exception:
 
 ## Import rules
 
-Outside the package, `analysis` imports only `core`, `schema`, `physics`,
-`data`, `results` and `display` (`tests/unit/architecture/layer_matrix.yaml`).
+Outside the package, `analysis` imports only `core`, `results` and `display`
+(`tests/unit/architecture/layer_matrix.yaml`). `schema`, `physics`, `data`,
 `calibration`, `solver` and `reporting` are not imported.
 
-`analysis` is imported by `config` (the refusal of `[analysis]`), `cli` and the
-root facade (`hmp.compare`, `hmp.compare_pair`). The package has no layout file
+`analysis` is imported by `cli` and the root facade (`hmp.compare`, `hmp.compare_pair`). The package has no layout file
 of its own.
 
 ## Where to add what

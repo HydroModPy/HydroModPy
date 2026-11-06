@@ -45,8 +45,3 @@ public:
   - hydromodpy.display.catchment_report
   - hydromodpy.display.catchment_report.pipeline
   - hydromodpy.display.figures.lake_level_fit
-
-# New compared with data_layout.yaml: layer_matrix.yaml tolerates calibration ->
-# display for one import only. A layer listed here imports only what its line names.
-tolerated:
-  calibration: [hydromodpy.display.report_blocks]

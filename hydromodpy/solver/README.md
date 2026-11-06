@@ -28,7 +28,7 @@ extractor carries `solver_name`, a `category` (`distributed` or `lumped`) and an
 
 ## Import rules
 
-`tests/unit/architecture/layer_matrix.yaml` gives solver `core`, `schema`,
+`tests/unit/architecture/layer_matrix.yaml` gives solver `core`,
 `physics`, `spatial`, `simulation` and itself. Today it imports `core`,
 `physics`, `simulation` and `spatial`. No `solver_layout.yaml` orders the
 parts. The shape is:

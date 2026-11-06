@@ -165,8 +165,9 @@ the tree for the grammar and the envelope.
 ## Import rules
 
 `cli` sits above the layer matrix (`tests/unit/architecture/layer_matrix.yaml`):
-it may import every layer, `catalog`, `project` and `examples`. Nothing imports
-it except the entry point `hydromodpy/__main__.py`.
+it may import `<root>`, `core`, `schema`, `config`, `data`, `simulation`, `solver`,
+`calibration`, `results`, `display`, `analysis`, `workflow`, `project` and `examples`.
+Nothing imports it except the entry point `hydromodpy/__main__.py`.
 
 ## Reading path
 

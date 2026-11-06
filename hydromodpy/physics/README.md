@@ -41,7 +41,7 @@ rules, how a `Flow` is built, and where to add what.
 
 ## Import rules
 
-`tests/unit/architecture/layer_matrix.yaml` gives physics `core`, `schema` and
+`tests/unit/architecture/layer_matrix.yaml` gives physics `core` and
 itself. No `physics_layout.yaml` orders the parts inside the package, so the
 layer matrix is the only gate. Three more rules hold in the code:
 
