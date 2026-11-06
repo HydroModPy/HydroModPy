@@ -279,3 +279,10 @@ def test_two_blocks_writing_one_file_are_refused(tmp_path: Path) -> None:
 
     assert result.exit_code == 14
     assert "export[0] and export[1] both write discharge.csv" in result.stderr
+
+
+def test_config_validate_field_ends_in_the_usage_refusal() -> None:
+    result = CliRunner().invoke(["config", "validate-field", "flow.flow_regime", "steady"])
+
+    assert result.exit_code == 14
+    assert "usage: hmp config" in result.stderr
